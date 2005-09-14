@@ -1,11 +1,11 @@
-@c Copyright (C) 2004
+@c Copyright (C) 2004, 2005
 @c Free Software Foundation, Inc.
 @c This is part of the GFORTRAN manual.   
 @c For copying conditions, see the file gfortran.texi.
 
 @ignore
 @c man begin COPYRIGHT
-Copyright @copyright{} 2004
+Copyright @copyright{} 2004, 2005
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -117,7 +117,7 @@ by type.  Explanations are in the following sections.
 @gccoptlist{
 -ffree-form  -fno-fixed-form @gol
 -fdollar-ok  -fimplicit-none  -fmax-identifier-length @gol
--std=@var{std}
+-std=@var{std} -fd-lines-as-code -fd-lines-as-comments @gol
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
 -fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 }
 
@@ -143,7 +143,7 @@ by type.  Explanations are in the following sections.
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
 @gccoptlist{
--fno-underscoring  -fno-second-underscore @gol
+-fno-automatic -ff2c -fno-underscoring  -fsecond-underscore @gol
 -fbounds-check  -fmax-stack-var-size=@var{n} @gol
 -fpackderived  -frepack-arrays}
 @end table
@@ -179,9 +179,21 @@ that the compiler accepts:
 @cindex Fortran 90, features
 @item -ffree-form
 @item -ffixed-form
-Specify the layout used by the the source file. The free form layout
+Specify the layout used by the source file.  The free form layout
 was introduced in Fortran 90.  Fixed form was traditionally used in
 older Fortran programs.
+
+@cindex option, -fd-lines-as-code
+@cindex -fd-lines-as-code, option
+@cindex option, -fd-lines-as-comments
+@cindex -fd-lines-as-comments, option
+@item -fd-lines-as-code
+@item -fd-lines-as-comment
+Enables special treating for lines with @samp{d} or @samp{D} in fixed
+form sources.  If the @option{-fd-lines-as-code} option is given
+they are treated as if the first column contained a blank.  If the
+@option{-fd-lines-as-comments} option is given, they are treated as
+comment lines.
 
 @cindex option, -fdefault-double-8
 @cindex -fdefault-double-8, option
@@ -207,6 +219,15 @@ Do nothing if this is already the default.
 @cindex symbol names
 @cindex character set
 Allow @samp{$} as a valid character in a symbol name.
+
+@cindex -fno-backslash option
+@cindex options, -fno-backslash
+@item -fno-backslash
+@cindex backslash
+@cindex escape characters
+@item
+Compile switch to change the interpretation of a backslash from
+``C''-style escape characters to a single backslash character.
 
 @cindex -ffixed-line-length-@var{n} option
 @cindex options, -ffixed-line-length-@var{n}
@@ -248,7 +269,7 @@ Specify that no implicit typing is allowed, unless overridden by explicit
 @cindex option, -std=@var{std}
 @item -std=@var{std}
 Conform to the specified standard.  Allowed values for @var{std} are
-@samp{gnu}, @samp{f95} and @samp{f90}.
+@samp{gnu}, @samp{f95}, @samp{f2003} and @samp{legacy}.
 
 @end table
 
@@ -329,12 +350,22 @@ This currently includes @option{-Wunused-labels}, @option{-Waliasing},
 @cindex options, -Waliasing
 @item -Waliasing
 @cindex aliasing
-Warn about possible aliasing of dummy arguments. The following example
-will trigger the warning as it would be illegal to @code{bar} to
-modify either parameter.
+Warn about possible aliasing of dummy arguments. Specifically, it warns
+if the same actual argument is associated with a dummy argument with
+@code{intent(in)} and a dummy argument with @code{intent(out)} in a call
+with an explicit interface.
+
+The following example will trigger the warning.
 @smallexample
-  INTEGER A
-  CALL BAR(A,A)
+  interface
+    subroutine bar(a,b)
+      integer, intent(in) :: a
+      integer, intent(out) :: b
+    end subroutine
+  end interface
+  integer :: a
+
+  call bar(a,a)
 @end smallexample
 
 
@@ -445,8 +476,8 @@ debugging options.
 
 @cindex INCLUDE directive
 @cindex directive, INCLUDE
-There options affect how affect how @command{gfortran} searches
-for files specified via the @code{INCLUDE} directive, and where it searches
+These options affect how @command{gfortran} searches
+for files specified by the @code{INCLUDE} directive and where it searches
 for previously compiled modules.
 
 It also affects the search paths used by @command{cpp} when used to preprocess
@@ -506,10 +537,54 @@ one of the forms is listed---the one which is not the default.  You
 can figure out the other form by either removing @option{no-} or adding
 it.
 
-
 @table @gcctabopt
-@cindex -fno-underscoring option
-@cindex options, -fno-underscoring
+@cindex @option{-fno-automatic} option
+@cindex options, @option{-fno-automatic}
+@item -fno-automatic
+@cindex SAVE statement
+@cindex statements, SAVE
+Treat each program unit as if the @code{SAVE} statement was specified for
+every local variable and array referenced in it. Does not affect common
+blocks. (Some Fortran compilers provide this option under the name
+@option{-static}.)
+
+@cindex @option{-ff2c} option
+@cindex options, @option{-ff2c}
+@item -ff2c
+@cindex calling convention
+@cindex @command{f2c} calling convention
+@cindex @command{g77} calling convention
+@cindex libf2c calling convention
+Generate code designed to be compatible with code generated
+by @command{g77} and @command{f2c}.
+
+The calling conventions used by @command{g77} (originally implemented
+in @command{f2c}) require functions that return type
+default @code{REAL} to actually return the C type @code{double}, and
+functions that return type @code{COMPLEX} to return the values via an
+extra argument in the calling sequence that points to where to
+store the return value.  Under the default GNU calling conventions, such
+functions simply return their results as they would in GNU
+C -- default @code{REAL} functions return the C type @code{float}, and
+@code{COMPLEX} functions return the GNU C type @code{complex}.
+Additionally, this option implies the @option{-fsecond-underscore}
+option, unless @option{-fno-second-underscore} is explicitly requested.
+
+This does not affect the generation of code that interfaces with
+the @command{libgfortran} library.
+
+@emph{Caution:} It is not a good idea to mix Fortran code compiled
+with @code{-ff2c} with code compiled with the default @code{-fno-f2c}
+calling conventions as, calling @code{COMPLEX} or default @code{REAL}
+functions between program parts which were compiled with different
+calling conventions will break at execution time.
+
+@emph{Caution:} This will break code which passes intrinsic functions
+of type default @code{REAL} or @code{COMPLEX} as actual arguments, as
+the library implementations use the @command{-fno-f2c} calling conventions.
+
+@cindex @option{-fno-underscoring option}
+@cindex options, @option{-fno-underscoring}
 @item -fno-underscoring
 @cindex underscore
 @cindex symbol names, underscores
@@ -518,16 +593,15 @@ it.
 Do not transform names of entities specified in the Fortran
 source file by appending underscores to them.
 
-With @option{-funderscoring} in effect, @command{gfortran} appends two
-underscores to names with underscores and one underscore to external names
-with no underscores.  (@command{gfortran} also appends two underscores to
-internal names with underscores to avoid naming collisions with external
-names.  The @option{-fno-second-underscore} option disables appending of the
-second underscore in all cases.)
+With @option{-funderscoring} in effect, @command{gfortran} appends one
+underscore to external names with no underscores.  This is done to ensure
+compatibility with code produced by many UNIX Fortran compilers.
 
-This is done to ensure compatibility with code produced by many
-UNIX Fortran compilers, including @command{f2c} which perform the
-same transformations.
+@emph{Caution}: The default behavior of @command{gfortran} is
+incompatible with @command{f2c} and @command{g77}, please use the
+@option{-ff2c} option if you want object files compiled with
+@option{gfortran} to be compatible with object code created with these
+tools.
 
 Use of @option{-fno-underscoring} is not recommended unless you are
 experimenting with issues such as integration of (GNU) Fortran into
@@ -583,22 +657,31 @@ in the source, even if the names as seen by the linker are mangled to
 prevent accidental linking between procedures with incompatible
 interfaces.
 
-@cindex -fno-second-underscore option
-@cindex options, -fno-second-underscore
-@item -fno-second-underscore
+@cindex @option{-fsecond-underscore option}
+@cindex options, @option{-fsecond-underscore}
+@item -fsecond-underscore
 @cindex underscore
 @cindex symbol names, underscores
 @cindex transforming symbol names
 @cindex symbol names, transforming
-Do not append a second underscore to names of entities specified
-in the Fortran source file.
+@cindex @command{f2c} calling convention
+@cindex @command{g77} calling convention
+@cindex libf2c calling convention
+By default, @command{gfortran} appends an underscore to external
+names.  If this option is used @command{gfortran} appends two
+underscores to names with underscores and one underscore to external names
+with no underscores.  (@command{gfortran} also appends two underscores to
+internal names with underscores to avoid naming collisions with external
+names.
 
 This option has no effect if @option{-fno-underscoring} is
-in effect.
+in effect.  It is implied by the @option{-ff2c} option.
 
 Otherwise, with this option, an external name such as @samp{MAX_COUNT}
 is implemented as a reference to the link-time external symbol
-@samp{max_count_}, instead of @samp{max_count__}.
+@samp{max_count__}, instead of @samp{max_count_}.  This is required
+for compatibility with @command{g77} and @command{f2c}, and is implied
+by use of the @option{-ff2c} option.
 
 
 @cindex -fbounds-check option

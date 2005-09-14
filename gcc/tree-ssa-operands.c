@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -26,14 +26,14 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
-#include "errors.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "timevar.h"
-
+#include "toplev.h"
 #include "langhooks.h"
+#include "ipa-reference.h"
 
 /* This file contains the code required to manage the operands cache of the 
    SSA optimizer.  For every stmt, we maintain an operand cache in the stmt 
@@ -50,8 +50,6 @@ Boston, MA 02111-1307, USA.  */
    The routines in this file are concerned with creating this operand cache 
    from a stmt tree.
 
-   get_stmt_operands() in the primary entry point. 
-
    The operand tree is the parsed by the various get_* routines which look 
    through the stmt tree for the occurrence of operands which may be of 
    interest, and calls are made to the append_* routines whenever one is 
@@ -67,7 +65,7 @@ Boston, MA 02111-1307, USA.  */
    on each of the 5 operand vectors which have been built up.
 
    If the stmt had a previous operand cache, the finalization routines 
-   attempt to match up the new operands with the old ones.  If its a perfect 
+   attempt to match up the new operands with the old ones.  If it's a perfect 
    match, the old vector is simply reused.  If it isn't a perfect match, then 
    a new vector is created and the new operands are placed there.  For 
    virtual operands, if the previous cache had SSA_NAME version of a 
@@ -81,7 +79,7 @@ Boston, MA 02111-1307, USA.  */
 */
 
 
-/* Flags to describe operand properties in get_stmt_operands and helpers.  */
+/* Flags to describe operand properties in helpers.  */
 
 /* By default, operands are loaded.  */
 #define opf_none	0
@@ -101,199 +99,298 @@ Boston, MA 02111-1307, USA.  */
    VUSE for 'b'.  */
 #define opf_no_vops 	(1 << 2)
 
+/* Operand is a "non-specific" kill for call-clobbers and such.  This is used
+   to distinguish "reset the world" events from explicit MODIFY_EXPRs.  */
+#define opf_non_specific  (1 << 3)
+
+/* This structure maintain a sorted list of operands which is created by
+   parse_ssa_operand.  */
+struct opbuild_list_d GTY (())
+{
+  varray_type vars;     /* The VAR_DECLS tree.  */
+  varray_type uid;      /* The sort value for virtual symbols.  */
+  varray_type next;     /* The next index in the sorted list.  */
+  int first;            /* First element in list.  */
+  unsigned num;		/* Number of elements.  */
+};
+                                                                                
+#define OPBUILD_LAST     -1
+                                                                                
+
 /* Array for building all the def operands.  */
-static GTY (()) varray_type build_defs;
+static GTY (()) struct opbuild_list_d build_defs;
 
 /* Array for building all the use operands.  */
-static GTY (()) varray_type build_uses;
+static GTY (()) struct opbuild_list_d build_uses;
 
 /* Array for building all the v_may_def operands.  */
-static GTY (()) varray_type build_v_may_defs;
+static GTY (()) struct opbuild_list_d build_v_may_defs;
 
 /* Array for building all the vuse operands.  */
-static GTY (()) varray_type build_vuses;
+static GTY (()) struct opbuild_list_d build_vuses;
 
 /* Array for building all the v_must_def operands.  */
-static GTY (()) varray_type build_v_must_defs;
+static GTY (()) struct opbuild_list_d build_v_must_defs;
 
 /* True if the operands for call clobbered vars are cached and valid.  */
 bool ssa_call_clobbered_cache_valid;
 bool ssa_ro_call_cache_valid;
 
 /* These arrays are the cached operand vectors for call clobbered calls.  */
-static GTY (()) varray_type clobbered_v_may_defs;
-static GTY (()) varray_type clobbered_vuses;
-static GTY (()) varray_type ro_call_vuses;
+static VEC(tree,heap) *clobbered_v_may_defs;
+static VEC(tree,heap) *clobbered_vuses;
+static VEC(tree,heap) *ro_call_vuses;
 static bool clobbered_aliased_loads;
 static bool clobbered_aliased_stores;
 static bool ro_call_aliased_loads;
-static stmt_operands_p parse_old_ops = NULL;
+static bool ops_active = false;
 
-def_operand_p NULL_DEF_OPERAND_P = { NULL };
+static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
+static unsigned operand_memory_index;
 
-static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
+static void get_tmr_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
 static inline void append_def (tree *);
 static inline void append_use (tree *);
 static void append_v_may_def (tree);
 static void append_v_must_def (tree);
-static void add_call_clobber_ops (tree);
+static void add_call_clobber_ops (tree, tree);
 static void add_call_read_ops (tree);
 static void add_stmt_operand (tree *, stmt_ann_t, int);
+static void build_ssa_operands (tree stmt);
+                                                                                
+static def_optype_p free_defs = NULL;
+static use_optype_p free_uses = NULL;
+static vuse_optype_p free_vuses = NULL;
+static maydef_optype_p free_maydefs = NULL;
+static mustdef_optype_p free_mustdefs = NULL;
 
-/* Return a vector of contiguous memory for NUM def operands.  */
-
-static inline def_optype
-allocate_def_optype (unsigned num)
-{
-  def_optype def_ops;
-  unsigned size;
-  size = sizeof (struct def_optype_d) + sizeof (tree *) * (num - 1);
-  def_ops =  ggc_alloc (size);
-  def_ops->num_defs = num;
-  return def_ops;
-}
-
-
-/* Return a vector of contiguous memory for NUM use operands.  */
-
-static inline use_optype
-allocate_use_optype (unsigned num)
-{
-  use_optype use_ops;
-  unsigned size;
-  size = sizeof (struct use_optype_d) + sizeof (use_operand_type_t) * (num - 1);
-  use_ops =  ggc_alloc (size);
-  use_ops->num_uses = num;
-  return use_ops;
-}
-
-
-/* Return a vector of contiguous memory for NUM v_may_def operands.  */
-
-static inline v_may_def_optype
-allocate_v_may_def_optype (unsigned num)
-{
-  v_may_def_optype v_may_def_ops;
-  unsigned size;
-  size = sizeof (struct v_may_def_optype_d) 
-	   + sizeof (v_def_use_operand_type_t) * (num - 1);
-  v_may_def_ops =  ggc_alloc (size);
-  v_may_def_ops->num_v_may_defs = num;
-  return v_may_def_ops;
-}
-
-
-/* Return a vector of contiguous memory for NUM v_use operands.  */
-
-static inline vuse_optype
-allocate_vuse_optype (unsigned num)
-{
-  vuse_optype vuse_ops;
-  unsigned size;
-  size = sizeof (struct vuse_optype_d) 
-       + sizeof (vuse_operand_type_t) * (num - 1);
-  vuse_ops =  ggc_alloc (size);
-  vuse_ops->num_vuses = num;
-  return vuse_ops;
-}
-
-
-/* Return a vector of contiguous memory for NUM v_must_def operands.  */
-
-static inline v_must_def_optype
-allocate_v_must_def_optype (unsigned num)
-{
-  v_must_def_optype v_must_def_ops;
-  unsigned size;
-  size = sizeof (struct v_must_def_optype_d) + sizeof (v_def_use_operand_type_t) * (num - 1);
-  v_must_def_ops =  ggc_alloc (size);
-  v_must_def_ops->num_v_must_defs = num;
-  return v_must_def_ops;
-}
-
-
-/* Free memory for USES.  */
+/* Initialize a virtual operand build LIST called NAME with NUM elements.  */
 
 static inline void
-free_uses (use_optype *uses)
+opbuild_initialize_virtual (struct  opbuild_list_d *list, int num, 
+			   const char *name)
 {
-  if (*uses)
-    {
-      unsigned int x;
-      use_optype use = *uses;
-      for (x = 0; x < use->num_uses; x++)
-        delink_imm_use (&(use->uses[x]));
-      ggc_free (*uses);
-      *uses = NULL;
-    }
+  list->first = OPBUILD_LAST;
+  list->num = 0;
+  VARRAY_TREE_INIT (list->vars, num, name);
+  VARRAY_UINT_INIT (list->uid, num, "List UID");
+  VARRAY_INT_INIT (list->next, num, "List NEXT");
 }
 
 
-/* Free memory for DEFS.  */
+/* Initialize a real operand build LIST called NAME with NUM elements.  */
 
 static inline void
-free_defs (def_optype *defs)
+opbuild_initialize_real (struct opbuild_list_d *list, int num, const char *name)
 {
-  if (*defs)
-    {
-      ggc_free (*defs);
-      *defs = NULL;
-    }
+  list->first = OPBUILD_LAST;
+  list->num = 0;
+  VARRAY_TREE_PTR_INIT (list->vars, num, name);
+  VARRAY_INT_INIT (list->next, num, "List NEXT");
+  /* The UID field is not needed since we sort based on the pointer value.  */
+  list->uid = NULL;
 }
 
 
-/* Free memory for VUSES.  */
+/* Free memory used in virtual operand build object LIST.  */
 
 static inline void
-free_vuses (vuse_optype *vuses)
+opbuild_free (struct opbuild_list_d *list)
 {
-  if (*vuses)
-    {
-      unsigned int x;
-      vuse_optype vuse = *vuses;
-      for (x = 0; x < vuse->num_vuses; x++)
-        delink_imm_use (&(vuse->vuses[x].imm_use));
-      ggc_free (*vuses);
-      *vuses = NULL;
-    }
+  list->vars = NULL;
+  list->uid = NULL;
+  list->next = NULL;
 }
 
 
-/* Free memory for V_MAY_DEFS.  */
+/* Number of elements in an opbuild list.  */
 
-static inline void
-free_v_may_defs (v_may_def_optype *v_may_defs)
+static inline unsigned
+opbuild_num_elems (struct opbuild_list_d *list)
 {
-  if (*v_may_defs)
-    {
-      unsigned int x;
-      v_may_def_optype v_may_def = *v_may_defs;
-      for (x = 0; x < v_may_def->num_v_may_defs; x++)
-        delink_imm_use (&(v_may_def->v_may_defs[x].imm_use));
-      ggc_free (*v_may_defs);
-      *v_may_defs = NULL;
-    }
+  return list->num;
 }
 
 
-/* Free memory for V_MUST_DEFS.  */
+/* Add VAR to the real operand list LIST, keeping it sorted and avoiding
+   duplicates.  The actual sort value is the tree pointer value.  */
 
 static inline void
-free_v_must_defs (v_must_def_optype *v_must_defs)
+opbuild_append_real (struct opbuild_list_d *list, tree *var)
 {
-  if (*v_must_defs)
+  int index;
+
+#ifdef ENABLE_CHECKING
+  /* Ensure the real operand doesn't exist already.  */
+  for (index = list->first; 
+       index != OPBUILD_LAST; 
+       index = VARRAY_INT (list->next, index))
+    gcc_assert (VARRAY_TREE_PTR (list->vars, index) != var);
+#endif
+
+  /* First item in the list.  */
+  index = VARRAY_ACTIVE_SIZE (list->vars);
+  if (index == 0)
+    list->first = index;
+  else
+    VARRAY_INT (list->next, index - 1) = index;
+  VARRAY_PUSH_INT (list->next, OPBUILD_LAST);
+  VARRAY_PUSH_TREE_PTR (list->vars, var);
+  list->num++;
+}
+
+
+/* Add VAR to the virtual operand list LIST, keeping it sorted and avoiding
+   duplicates.  The actual sort value is the DECL UID of the base variable.  */
+
+static inline void
+opbuild_append_virtual (struct opbuild_list_d *list, tree var)
+{
+  int index, curr, last;
+  unsigned int var_uid;
+
+  if (TREE_CODE (var) != SSA_NAME)
+    var_uid = DECL_UID (var);
+  else
+    var_uid = DECL_UID (SSA_NAME_VAR (var));
+
+  index = VARRAY_ACTIVE_SIZE (list->vars);
+
+  if (index == 0)
     {
-      unsigned int x;
-      v_must_def_optype v_must_def = *v_must_defs;
-      for (x = 0; x < v_must_def->num_v_must_defs; x++)
-        delink_imm_use (&(v_must_def->v_must_defs[x].imm_use));
-      ggc_free (*v_must_defs);
-      *v_must_defs = NULL;
+      VARRAY_PUSH_TREE (list->vars, var);
+      VARRAY_PUSH_UINT (list->uid, var_uid);
+      VARRAY_PUSH_INT (list->next, OPBUILD_LAST);
+      list->first = 0;
+      list->num = 1;
+      return;
     }
+
+  last = OPBUILD_LAST;
+  /* Find the correct spot in the sorted list.  */
+  for (curr = list->first; 
+       curr != OPBUILD_LAST; 
+       last = curr, curr = VARRAY_INT (list->next, curr))
+    {
+      if (VARRAY_UINT (list->uid, curr) > var_uid)
+        break;
+    }
+
+  if (last == OPBUILD_LAST)
+    {
+      /* First item in the list.  */
+      VARRAY_PUSH_INT (list->next, list->first);
+      list->first = index;
+    }
+  else
+    {
+      /* Don't enter duplicates at all.  */
+      if (VARRAY_UINT (list->uid, last) == var_uid)
+        return;
+      
+      VARRAY_PUSH_INT (list->next, VARRAY_INT (list->next, last));
+      VARRAY_INT (list->next, last) = index;
+    }
+  VARRAY_PUSH_TREE (list->vars, var);
+  VARRAY_PUSH_UINT (list->uid, var_uid);
+  list->num++;
+}
+
+
+/*  Return the first element index in LIST.  OPBUILD_LAST means there are no 
+    more elements.  */
+
+static inline int
+opbuild_first (struct opbuild_list_d *list)
+{
+  if (list->num > 0)
+    return list->first;
+  else
+    return OPBUILD_LAST;
+}
+
+
+/* Return the next element after PREV in LIST.  */
+
+static inline int
+opbuild_next (struct opbuild_list_d *list, int prev)
+{
+  return VARRAY_INT (list->next, prev);
+}
+
+
+/* Return the real element at index ELEM in LIST.  */
+
+static inline tree *
+opbuild_elem_real (struct opbuild_list_d *list, int elem)
+{
+  return VARRAY_TREE_PTR (list->vars, elem);
+}
+
+
+/* Return the virtual element at index ELEM in LIST.  */
+
+static inline tree
+opbuild_elem_virtual (struct opbuild_list_d *list, int elem)
+{
+  return VARRAY_TREE (list->vars, elem);
+}
+
+
+/* Return the virtual element uid at index ELEM in LIST.  */
+static inline unsigned int
+opbuild_elem_uid (struct opbuild_list_d *list, int elem)
+{
+  return VARRAY_UINT (list->uid, elem);
+}
+
+
+/* Reset an operand build list.  */
+
+static inline void
+opbuild_clear (struct opbuild_list_d *list)
+{
+  list->first = OPBUILD_LAST;
+  VARRAY_POP_ALL (list->vars);
+  VARRAY_POP_ALL (list->next);
+  if (list->uid)
+    VARRAY_POP_ALL (list->uid);
+  list->num = 0;
+}
+
+
+/* Remove ELEM from LIST where PREV is the previous element.  Return the next 
+   element.  */
+
+static inline int 
+opbuild_remove_elem (struct opbuild_list_d *list, int elem, int prev)
+{
+  int ret;
+  if (prev != OPBUILD_LAST)
+    {
+      gcc_assert (VARRAY_INT (list->next, prev) == elem);
+      ret = VARRAY_INT (list->next, prev) = VARRAY_INT (list->next, elem);
+    }
+  else
+    {
+      gcc_assert (list->first == elem);
+      ret = list->first = VARRAY_INT (list->next, elem);
+    }
+  list->num--;
+  return ret;
+}
+
+
+/*  Return true if the ssa operands cache is active.  */
+
+bool
+ssa_operands_active (void)
+{
+  return ops_active;
 }
 
 
@@ -302,11 +399,14 @@ free_v_must_defs (v_must_def_optype *v_must_defs)
 void
 init_ssa_operands (void)
 {
-  VARRAY_TREE_PTR_INIT (build_defs, 5, "build defs");
-  VARRAY_TREE_PTR_INIT (build_uses, 10, "build uses");
-  VARRAY_TREE_INIT (build_v_may_defs, 10, "build v_may_defs");
-  VARRAY_TREE_INIT (build_vuses, 10, "build vuses");
-  VARRAY_TREE_INIT (build_v_must_defs, 10, "build v_must_defs");
+  opbuild_initialize_real (&build_defs, 5, "build defs");
+  opbuild_initialize_real (&build_uses, 10, "build uses");
+  opbuild_initialize_virtual (&build_vuses, 25, "build_vuses");
+  opbuild_initialize_virtual (&build_v_may_defs, 25, "build_v_may_defs");
+  opbuild_initialize_virtual (&build_v_must_defs, 25, "build_v_must_defs");
+  gcc_assert (operand_memory == NULL);
+  operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
+  ops_active = true;
 }
 
 
@@ -315,153 +415,62 @@ init_ssa_operands (void)
 void
 fini_ssa_operands (void)
 {
-  ggc_free (build_defs);
-  ggc_free (build_uses);
-  ggc_free (build_v_may_defs);
-  ggc_free (build_vuses);
-  ggc_free (build_v_must_defs);
-  build_defs = NULL;
-  build_uses = NULL;
-  build_v_may_defs = NULL;
-  build_vuses = NULL;
-  build_v_must_defs = NULL;
-  if (clobbered_v_may_defs)
+  struct ssa_operand_memory_d *ptr;
+  opbuild_free (&build_defs);
+  opbuild_free (&build_uses);
+  opbuild_free (&build_v_must_defs);
+  opbuild_free (&build_v_may_defs);
+  opbuild_free (&build_vuses);
+  free_defs = NULL;
+  free_uses = NULL;
+  free_vuses = NULL;
+  free_maydefs = NULL;
+  free_mustdefs = NULL;
+  while ((ptr = operand_memory) != NULL)
     {
-      ggc_free (clobbered_v_may_defs);
-      ggc_free (clobbered_vuses);
-      clobbered_v_may_defs = NULL;
-      clobbered_vuses = NULL;
+      operand_memory = operand_memory->next;
+      ggc_free (ptr);
     }
-  if (ro_call_vuses)
-    {
-      ggc_free (ro_call_vuses);
-      ro_call_vuses = NULL;
-    }
+
+  VEC_free (tree, heap, clobbered_v_may_defs);
+  VEC_free (tree, heap, clobbered_vuses);
+  VEC_free (tree, heap, ro_call_vuses);
+  ops_active = false;
 }
 
-/* Initialize V_USES index INDEX to VAL for STMT.  If OLD is present, preserve
-   the position of the may-def in the immediate_use list.  */
 
-static inline void
-initialize_vuse_operand (vuse_optype vuses, unsigned int index, tree val, 
-			 tree stmt, ssa_imm_use_t *old)
+/* Return memory for operands of SIZE chunks.  */
+                                                                              
+static inline void *
+ssa_operand_alloc (unsigned size)
 {
-  vuse_operand_type_t *ptr;
-  ptr = &(vuses->vuses[index]);
-  ptr->use = val;
-  ptr->imm_use.use = &(ptr->use);
-  if (old)
-    relink_imm_use_stmt (&(ptr->imm_use), old, stmt);
-  else
-    link_imm_use_stmt (&(ptr->imm_use), ptr->use, stmt);
-}
-
-
-/* Initialize V_MAY_DEF_OPS index X to be DEF = MAY_DEF <USE> for STMT.  If
-   OLD is present, preserve the position of the may-def in the immediate_use
-   list.  */
-
-static inline void
-initialize_v_may_def_operand (v_may_def_optype v_may_def_ops, unsigned int x, 
-			      tree def, tree use, tree stmt, ssa_imm_use_t *old)
-{
-  v_def_use_operand_type_t *ptr;
-  ptr = &(v_may_def_ops->v_may_defs[x]);
-  ptr->def = def;
-  ptr->use = use;
-  ptr->imm_use.use = &(ptr->use);
-  if (old)
-    relink_imm_use_stmt (&(ptr->imm_use), old, stmt);
-  else
-    link_imm_use_stmt (&(ptr->imm_use), ptr->use, stmt);
-}
-
-
-/* Initialize V_MUST_DEF_OPS index X to be DEF = MUST_DEF <USE> for STMT.  If
-   OLD is present, preserve the position of the may-def in the immediate_use
-   list.  */
-
-static inline void
-initialize_v_must_def_operand (v_must_def_optype v_must_def_ops, unsigned int x,
-			      tree def, tree use, tree stmt, ssa_imm_use_t *old)
-{
-  v_def_use_operand_type_t *ptr;
-  ptr = &(v_must_def_ops->v_must_defs[x]);
-  ptr->def = def;
-  ptr->use = use;
-  ptr->imm_use.use = &(ptr->use);
-  if (old)
-    relink_imm_use_stmt (&(ptr->imm_use), old, stmt);
-  else
-    link_imm_use_stmt (&(ptr->imm_use), ptr->use, stmt);
-}
-
-/* All the finalize_ssa_* routines do the work required to turn the build_
-   VARRAY into an operand_vector of the appropriate type.  The original vector,
-   if any, is passed in for comparison and virtual SSA_NAME reuse.  If the
-   old vector is reused, the pointer passed in is set to NULL so that 
-   the memory is not freed when the old operands are freed.  */
-
-/* Return a new def operand vector for STMT, comparing to OLD_OPS_P.  */
-
-static def_optype
-finalize_ssa_defs (def_optype *old_ops_p, tree stmt)
-{
-  unsigned num, x;
-  def_optype def_ops, old_ops;
-  bool build_diff;
-
-  num = VARRAY_ACTIVE_SIZE (build_defs);
-  if (num == 0)
-    return NULL;
-
-  /* There should only be a single real definition per assignment.  */
-  gcc_assert ((stmt && TREE_CODE (stmt) != MODIFY_EXPR) || num <= 1);
-
-  old_ops = *old_ops_p;
-
-  /* Compare old vector and new array.  */
-  build_diff = true;
-  if (stmt && old_ops && old_ops->num_defs == num)
+  char *ptr;
+  if (operand_memory_index + size >= SSA_OPERAND_MEMORY_SIZE)
     {
-      build_diff = false;
-      for (x = 0; x < num; x++)
-        if (old_ops->defs[x].def != VARRAY_TREE_PTR (build_defs, x))
-	  {
-	    build_diff = true;
-	    break;
-	  }
+      struct ssa_operand_memory_d *ptr;
+      ptr = ggc_alloc (sizeof (struct ssa_operand_memory_d));
+      ptr->next = operand_memory;
+      operand_memory = ptr;
+      operand_memory_index = 0;
     }
-
-  if (!build_diff)
-    {
-      def_ops = old_ops;
-      *old_ops_p = NULL;
-    }
-  else
-    {
-      def_ops = allocate_def_optype (num);
-      for (x = 0; x < num ; x++)
-	def_ops->defs[x].def = VARRAY_TREE_PTR (build_defs, x);
-    }
-
-  VARRAY_POP_ALL (build_defs);
-
-  return def_ops;
+  ptr = &(operand_memory->mem[operand_memory_index]);
+  operand_memory_index += size;
+  return ptr;
 }
 
 
-/* Make sure PTR is inn the correct immediate use list.  Since uses are simply
+/* Make sure PTR is in the correct immediate use list.  Since uses are simply
    pointers into the stmt TREE, there is no way of telling if anyone has
    changed what this pointer points to via TREE_OPERANDS (exp, 0) = <...>.
-   THe contents are different, but the the pointer is still the same.  This
+   The contents are different, but the pointer is still the same.  This
    routine will check to make sure PTR is in the correct list, and if it isn't
-   put it in the correct list.  */
+   put it in the correct list.  We cannot simply check the previous node 
+   because all nodes in the same stmt might have be changed.  */
 
 static inline void
-correct_use_link (ssa_imm_use_t *ptr, tree stmt)
+correct_use_link (use_operand_p ptr, tree stmt)
 {
-  ssa_imm_use_t *prev;
+  use_operand_p prev;
   tree root;
 
   /*  Fold_stmt () may have changed the stmt pointers.  */
@@ -471,10 +480,28 @@ correct_use_link (ssa_imm_use_t *ptr, tree stmt)
   prev = ptr->prev;
   if (prev)
     {
-      /* find the root, which has a non-NULL stmt, and a NULL use.  */
-      while (prev->stmt == NULL || prev->use != NULL)
-        prev = prev->prev;
-      root = prev->stmt;
+      bool stmt_mod = true;
+      /* Find the first element which isn't a SAFE iterator, is in a different
+	 stmt, and is not a modified stmt.  That node is in the correct list,
+	 see if we are too.  */
+
+      while (stmt_mod)
+	{
+	  while (prev->stmt == stmt || prev->stmt == NULL)
+	    prev = prev->prev;
+	  if (prev->use == NULL)
+	    stmt_mod = false;
+	  else
+	    if ((stmt_mod = stmt_modified_p (prev->stmt)))
+	      prev = prev->prev;
+	}
+
+      /* Get the ssa_name of the list the node is in.  */
+      if (prev->use == NULL)
+	root = prev->stmt;
+      else
+	root = *(prev->use);
+      /* If it's the right list, simply return.  */
       if (root == *(ptr->use))
 	return;
     }
@@ -484,164 +511,110 @@ correct_use_link (ssa_imm_use_t *ptr, tree stmt)
 }
 
 
-/* Return a new use operand vector for STMT, comparing to OLD_OPS_P.  */
+#define FINALIZE_OPBUILD		build_defs
+#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_real (&build_defs, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_real (&build_defs, (I))
+#define FINALIZE_FUNC			finalize_ssa_def_ops
+#define FINALIZE_ALLOC			alloc_def
+#define FINALIZE_FREE			free_defs
+#define FINALIZE_TYPE			struct def_optype_d
+#define FINALIZE_ELEM(PTR)		((PTR)->def_ptr)
+#define FINALIZE_OPS			DEF_OPS
+#define FINALIZE_BASE(VAR)		VAR
+#define FINALIZE_BASE_TYPE		tree *
+#define FINALIZE_BASE_ZERO		NULL
+#define FINALIZE_INITIALIZE(PTR, VAL, STMT)	FINALIZE_ELEM (PTR) = (VAL)
+#include "tree-ssa-opfinalize.h"
 
-static use_optype
-finalize_ssa_uses (use_optype *old_ops_p, tree stmt)
+
+/* This routine will create stmt operands for STMT from the def build list.  */
+
+static void
+finalize_ssa_defs (tree stmt)
 {
-  unsigned num, x, num_old, i;
-  use_optype use_ops, old_ops;
-  bool build_diff;
+  unsigned int num = opbuild_num_elems (&build_defs);
+  /* There should only be a single real definition per assignment.  */
+  gcc_assert ((stmt && TREE_CODE (stmt) != MODIFY_EXPR) || num <= 1);
 
-  num = VARRAY_ACTIVE_SIZE (build_uses);
-  if (num == 0)
-    return NULL;
+  /* If there is an old list, often the new list is identical, or close, so
+     find the elements at the beginning that are the same as the vector.  */
 
+  finalize_ssa_def_ops (stmt);
+  opbuild_clear (&build_defs);
+}
+
+#define FINALIZE_OPBUILD	build_uses
+#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_real (&build_uses, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_real (&build_uses, (I))
+#define FINALIZE_FUNC		finalize_ssa_use_ops
+#define FINALIZE_ALLOC		alloc_use
+#define FINALIZE_FREE		free_uses
+#define FINALIZE_TYPE		struct use_optype_d
+#define FINALIZE_ELEM(PTR)	((PTR)->use_ptr.use)
+#define FINALIZE_OPS		USE_OPS
+#define FINALIZE_USE_PTR(PTR)	USE_OP_PTR (PTR)
+#define FINALIZE_BASE(VAR)	VAR
+#define FINALIZE_BASE_TYPE	tree *
+#define FINALIZE_BASE_ZERO	NULL
+#define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
+				(PTR)->use_ptr.use = (VAL);             \
+				link_imm_use_stmt (&((PTR)->use_ptr),   \
+						   *(VAL), (STMT))
+#include "tree-ssa-opfinalize.h"
+
+/* Return a new use operand vector for STMT, comparing to OLD_OPS_P.  */
+                                                                              
+static void
+finalize_ssa_uses (tree stmt)
+{
 #ifdef ENABLE_CHECKING
   {
     unsigned x;
+    unsigned num = opbuild_num_elems (&build_uses);
+
     /* If the pointer to the operand is the statement itself, something is
        wrong.  It means that we are pointing to a local variable (the 
        initial call to get_stmt_operands does not pass a pointer to a 
        statement).  */
     for (x = 0; x < num; x++)
-      gcc_assert (*(VARRAY_TREE_PTR (build_uses, x)) != stmt);
+      gcc_assert (*(opbuild_elem_real (&build_uses, x)) != stmt);
   }
 #endif
-  old_ops = *old_ops_p;
-  num_old = ((stmt && old_ops) ? old_ops->num_uses : 0);
-
-  /* Check if the old vector and the new array are the same.  */
-  build_diff = true;
-  if (stmt && old_ops && num_old == num)
-    {
-      build_diff = false;
-      for (x = 0; x < num; x++)
-        {
-	  tree *var_p = VARRAY_TREE_PTR (build_uses, x);
-	  tree *node = old_ops->uses[x].use;
-	  /* Check the pointer values to see if they are the same. */
-	  if (node != var_p)
-	    {
-	      build_diff = true;
-	      break;
-	    }
-	}
-    }
-
-  if (!build_diff)
-    {
-      use_ops = old_ops;
-      *old_ops_p = NULL;
-      for (i = 0; i < num_old; i++)
-        correct_use_link (&(use_ops->uses[i]), stmt);
-    }
-  else
-    {
-      use_ops = allocate_use_optype (num);
-      for (x = 0; x < num ; x++)
-        {
-	  tree *var = VARRAY_TREE_PTR (build_uses, x);
-	  use_ops->uses[x].use = var;
-	  for (i = 0; i < num_old; i++)
-	    {
-	      ssa_imm_use_t *ptr = &(old_ops->uses[i]);
-	      if (ptr->use == var)
-		{
-		  relink_imm_use_stmt (&(use_ops->uses[x]), ptr, stmt);
-		  correct_use_link (&(use_ops->uses[x]), stmt);
-		  break;
-		}
-	    }
-	  if (i == num_old)
-	    link_imm_use_stmt (&(use_ops->uses[x]), *var, stmt);
-	}
-    }
-  VARRAY_POP_ALL (build_uses);
-
-  return use_ops;
+  finalize_ssa_use_ops (stmt);
+  opbuild_clear (&build_uses);
 }
-
-
-/* Return a new v_may_def operand vector for STMT, comparing to OLD_OPS_P.  */
-
-static v_may_def_optype
-finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p, tree stmt)
+                                                                              
+                                                                              
+/* Return a new v_may_def operand vector for STMT, comparing to OLD_OPS_P.  */                                                                                
+#define FINALIZE_OPBUILD	build_v_may_defs
+#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_virtual (&build_v_may_defs, (I))
+#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_uid (&build_v_may_defs, (I))
+#define FINALIZE_FUNC		finalize_ssa_v_may_def_ops
+#define FINALIZE_ALLOC		alloc_maydef
+#define FINALIZE_FREE		free_maydefs
+#define FINALIZE_TYPE		struct maydef_optype_d
+#define FINALIZE_ELEM(PTR)	MAYDEF_RESULT (PTR)
+#define FINALIZE_OPS		MAYDEF_OPS
+#define FINALIZE_USE_PTR(PTR)	MAYDEF_OP_PTR (PTR)
+#define FINALIZE_BASE_ZERO	0
+#define FINALIZE_BASE(VAR)	((TREE_CODE (VAR) == SSA_NAME)		\
+				? DECL_UID (SSA_NAME_VAR (VAR)) : DECL_UID ((VAR)))
+#define FINALIZE_BASE_TYPE	unsigned
+#define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
+				(PTR)->def_var = (VAL);			\
+				(PTR)->use_var = (VAL);			\
+				(PTR)->use_ptr.use = &((PTR)->use_var);	\
+				link_imm_use_stmt (&((PTR)->use_ptr),	\
+						   (VAL), (STMT))
+#include "tree-ssa-opfinalize.h"
+                                                                              
+                                                                              
+static void
+finalize_ssa_v_may_defs (tree stmt)
 {
-  unsigned num, x, i, old_num;
-  v_may_def_optype v_may_def_ops, old_ops;
-  tree result, var;
-  bool build_diff;
-
-  num = VARRAY_ACTIVE_SIZE (build_v_may_defs);
-  if (num == 0)
-    return NULL;
-
-  old_ops = *old_ops_p;
-
-  /* Check if the old vector and the new array are the same.  */
-  build_diff = true;
-  if (stmt && old_ops && old_ops->num_v_may_defs == num)
-    {
-      old_num = num;
-      build_diff = false;
-      for (x = 0; x < num; x++)
-        {
-	  var = old_ops->v_may_defs[x].def;
-	  if (TREE_CODE (var) == SSA_NAME)
-	    var = SSA_NAME_VAR (var);
-	  if (var != VARRAY_TREE (build_v_may_defs, x))
-	    {
-	      build_diff = true;
-	      break;
-	    }
-	}
-    }
-  else
-    old_num = (old_ops ? old_ops->num_v_may_defs : 0);
-
-  if (!build_diff)
-    {
-      v_may_def_ops = old_ops;
-      *old_ops_p = NULL;
-      for (x = 0; x < num; x++)
-        correct_use_link (&(v_may_def_ops->v_may_defs[x].imm_use), stmt);
-    }
-  else
-    {
-      v_may_def_ops = allocate_v_may_def_optype (num);
-      for (x = 0; x < num; x++)
-        {
-	  var = VARRAY_TREE (build_v_may_defs, x);
-	  /* Look for VAR in the old operands vector.  */
-	  for (i = 0; i < old_num; i++)
-	    {
-	      result = old_ops->v_may_defs[i].def;
-	      if (TREE_CODE (result) == SSA_NAME)
-		result = SSA_NAME_VAR (result);
-	      if (result == var)
-	        {
-		  initialize_v_may_def_operand (v_may_def_ops, x, 
-						old_ops->v_may_defs[i].def,
-						old_ops->v_may_defs[i].use,
-						stmt, 
-						&(old_ops->v_may_defs[i].imm_use));
-		  break;
-		}
-	    }
-	  if (i == old_num)
-	    {
-	      initialize_v_may_def_operand (v_may_def_ops, x, var, var, stmt, 
-					    NULL);
-	    }
-	}
-    }
-
-  /* Empty the V_MAY_DEF build vector after VUSES have been processed.  */
-
-  return v_may_def_ops;
+  finalize_ssa_v_may_def_ops (stmt);
 }
-
+                                                                               
 
 /* Clear the in_list bits and empty the build array for v_may_defs.  */
 
@@ -649,32 +622,50 @@ static inline void
 cleanup_v_may_defs (void)
 {
   unsigned x, num;
-  num = VARRAY_ACTIVE_SIZE (build_v_may_defs);
+  num = opbuild_num_elems (&build_v_may_defs);
 
   for (x = 0; x < num; x++)
     {
-      tree t = VARRAY_TREE (build_v_may_defs, x);
-      var_ann_t ann = var_ann (t);
-      ann->in_v_may_def_list = 0;
+      tree t = opbuild_elem_virtual (&build_v_may_defs, x);
+      if (TREE_CODE (t) != SSA_NAME)
+	{
+	  var_ann_t ann = var_ann (t);
+	  ann->in_v_may_def_list = 0;
+	}
     }
-  VARRAY_POP_ALL (build_v_may_defs);
-}
+  opbuild_clear (&build_v_may_defs);
+}                                                                             
+
+                                                                              
+#define FINALIZE_OPBUILD	build_vuses
+#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_virtual (&build_vuses, (I))
+#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_uid (&build_vuses, (I))
+#define FINALIZE_FUNC		finalize_ssa_vuse_ops
+#define FINALIZE_ALLOC		alloc_vuse
+#define FINALIZE_FREE		free_vuses
+#define FINALIZE_TYPE		struct vuse_optype_d
+#define FINALIZE_ELEM(PTR)	VUSE_OP (PTR)
+#define FINALIZE_OPS		VUSE_OPS
+#define FINALIZE_USE_PTR(PTR)	VUSE_OP_PTR (PTR)
+#define FINALIZE_BASE_ZERO	0
+#define FINALIZE_BASE(VAR)	((TREE_CODE (VAR) == SSA_NAME)		\
+				? DECL_UID (SSA_NAME_VAR (VAR)) : DECL_UID ((VAR)))
+#define FINALIZE_BASE_TYPE	unsigned
+#define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
+				(PTR)->use_var = (VAL);			\
+				(PTR)->use_ptr.use = &((PTR)->use_var);	\
+				link_imm_use_stmt (&((PTR)->use_ptr),	\
+						   (VAL), (STMT))
+#include "tree-ssa-opfinalize.h"
+
 
 /* Return a new vuse operand vector, comparing to OLD_OPS_P.  */
-
-static vuse_optype
-finalize_ssa_vuses (vuse_optype *old_ops_p, tree stmt)
+                                                                              
+static void
+finalize_ssa_vuses (tree stmt)
 {
-  unsigned num, x, i, num_v_may_defs, old_num;
-  vuse_optype vuse_ops, old_ops;
-  bool build_diff;
-
-  num = VARRAY_ACTIVE_SIZE (build_vuses);
-  if (num == 0)
-    {
-      cleanup_v_may_defs ();
-      return NULL;
-    }
+  unsigned num, num_v_may_defs;
+  int vuse_index;
 
   /* Remove superfluous VUSE operands.  If the statement already has a
    V_MAY_DEF operation for a variable 'a', then a VUSE for 'a' is not
@@ -688,46 +679,39 @@ finalize_ssa_vuses (vuse_optype *old_ops_p, tree stmt)
   The VUSE <a_2> is superfluous because it is implied by the V_MAY_DEF
   operation.  */
 
-  num_v_may_defs = VARRAY_ACTIVE_SIZE (build_v_may_defs);
+  num = opbuild_num_elems (&build_vuses);
+  num_v_may_defs = opbuild_num_elems (&build_v_may_defs);
 
-  if (num_v_may_defs > 0)
+  if (num > 0 && num_v_may_defs > 0)
     {
-      size_t i;
-      tree vuse;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (build_vuses); i++)
-	{
-	  vuse = VARRAY_TREE (build_vuses, i);
+      int last = OPBUILD_LAST;
+      vuse_index = opbuild_first (&build_vuses);
+      for ( ; vuse_index != OPBUILD_LAST; )
+        {
+	  tree vuse;
+	  vuse = opbuild_elem_virtual (&build_vuses, vuse_index);
 	  if (TREE_CODE (vuse) != SSA_NAME)
 	    {
 	      var_ann_t ann = var_ann (vuse);
 	      ann->in_vuse_list = 0;
 	      if (ann->in_v_may_def_list)
 	        {
-		  /* If we found a useless VUSE operand, remove it from the
-		     operand array by replacing it with the last active element
-		     in the operand array (unless the useless VUSE was the
-		     last operand, in which case we simply remove it.  */
-		  if (i != VARRAY_ACTIVE_SIZE (build_vuses) - 1)
-		    {
-		      VARRAY_TREE (build_vuses, i)
-			= VARRAY_TREE (build_vuses,
-				       VARRAY_ACTIVE_SIZE (build_vuses) - 1);
-		    }
-		  VARRAY_POP (build_vuses);
-
-		  /* We want to rescan the element at this index, unless
-		     this was the last element, in which case the loop
-		     terminates.  */
-		  i--;
+		  vuse_index = opbuild_remove_elem (&build_vuses, vuse_index, 
+						    last);
+		  continue;
 		}
 	    }
+	  last = vuse_index;
+	  vuse_index = opbuild_next (&build_vuses, vuse_index);
 	}
     }
   else
     /* Clear out the in_list bits.  */
-    for (x = 0; x < num; x++)
+    for (vuse_index = opbuild_first (&build_vuses);
+	 vuse_index != OPBUILD_LAST;
+	 vuse_index = opbuild_next (&build_vuses, vuse_index))
       {
-	tree t = VARRAY_TREE (build_vuses, x);
+	tree t = opbuild_elem_virtual (&build_vuses, vuse_index);
 	if (TREE_CODE (t) != SSA_NAME)
 	  {
 	    var_ann_t ann = var_ann (t);
@@ -735,177 +719,64 @@ finalize_ssa_vuses (vuse_optype *old_ops_p, tree stmt)
 	  }
       }
 
-
-  num = VARRAY_ACTIVE_SIZE (build_vuses);
-  /* We could have reduced the size to zero now, however.  */
-  if (num == 0)
-    {
-      cleanup_v_may_defs ();
-      return NULL;
-    }
-
-  old_ops = *old_ops_p;
-
-  /* Determine whether vuses is the same as the old vector.  */
-  build_diff = true;
-  if (stmt && old_ops && old_ops->num_vuses == num)
-    {
-      old_num = num;
-      build_diff = false;
-      for (x = 0; x < num ; x++)
-        {
-	  tree v;
-	  v = old_ops->vuses[x].use;
-	  if (TREE_CODE (v) == SSA_NAME)
-	    v = SSA_NAME_VAR (v);
-	  if (v != VARRAY_TREE (build_vuses, x))
-	    {
-	      build_diff = true;
-	      break;
-	    }
-	}
-    }
-  else
-    old_num = (old_ops ? old_ops->num_vuses : 0);
-
-  if (!build_diff)
-    {
-      vuse_ops = old_ops;
-      *old_ops_p = NULL;
-      for (x = 0; x < num; x++)
-        correct_use_link (&(vuse_ops->vuses[x].imm_use), stmt);
-    }
-  else
-    {
-      vuse_ops = allocate_vuse_optype (num);
-      for (x = 0; x < num; x++)
-        {
-	  tree result, var = VARRAY_TREE (build_vuses, x);
-	  /* Look for VAR in the old vector, and use that SSA_NAME.  */
-	  for (i = 0; i < old_num; i++)
-	    {
-	      result = old_ops->vuses[i].use;
-	      if (TREE_CODE (result) == SSA_NAME)
-		result = SSA_NAME_VAR (result);
-	      if (result == var)
-	        {
-		  initialize_vuse_operand (vuse_ops, x, old_ops->vuses[i].use, 
-					   stmt, &(old_ops->vuses[i].imm_use));
-		  break;
-		}
-	    }
-	  if (i == old_num)
-	    initialize_vuse_operand (vuse_ops, x, var, stmt, NULL);
-	}
-    }
-
-  /* The v_may_def build vector wasn't freed because we needed it here.
-     Free it now with the vuses build vector.  */
-  VARRAY_POP_ALL (build_vuses);
+  finalize_ssa_vuse_ops (stmt);
+  /* The v_may_def build vector wasn't cleaned up because we needed it.  */
   cleanup_v_may_defs ();
+                                                                              
+  /* Free the vuses build vector.  */
+  opbuild_clear (&build_vuses);
 
-  return vuse_ops;
 }
-
+                                                                              
 /* Return a new v_must_def operand vector for STMT, comparing to OLD_OPS_P.  */
+                                                                              
+#define FINALIZE_OPBUILD	build_v_must_defs
+#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_virtual (&build_v_must_defs, (I))
+#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_uid (&build_v_must_defs, (I))
+#define FINALIZE_FUNC		finalize_ssa_v_must_def_ops
+#define FINALIZE_ALLOC		alloc_mustdef
+#define FINALIZE_FREE		free_mustdefs
+#define FINALIZE_TYPE		struct mustdef_optype_d
+#define FINALIZE_ELEM(PTR)	MUSTDEF_RESULT (PTR)
+#define FINALIZE_OPS		MUSTDEF_OPS
+#define FINALIZE_USE_PTR(PTR)	MUSTDEF_KILL_PTR (PTR)
+#define FINALIZE_BASE_ZERO	0
+#define FINALIZE_BASE(VAR)	((TREE_CODE (VAR) == SSA_NAME)		\
+				? DECL_UID (SSA_NAME_VAR (VAR)) : DECL_UID ((VAR)))
+#define FINALIZE_BASE_TYPE	unsigned
+#define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
+				(PTR)->def_var = (VAL);			\
+				(PTR)->kill_var = (VAL);		\
+				(PTR)->use_ptr.use = &((PTR)->kill_var);\
+				link_imm_use_stmt (&((PTR)->use_ptr),	\
+						   (VAL), (STMT))
+#include "tree-ssa-opfinalize.h"
 
-static v_must_def_optype
-finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p, tree stmt)
+
+static void
+finalize_ssa_v_must_defs (tree stmt)
 {
-  unsigned num, x, i, old_num = 0;
-  v_must_def_optype v_must_def_ops, old_ops;
-  tree result, var;
-  bool build_diff;
-
-  num = VARRAY_ACTIVE_SIZE (build_v_must_defs);
-  if (num == 0)
-    return NULL;
-
   /* In the presence of subvars, there may be more than one V_MUST_DEF per
      statement (one for each subvar).  It is a bit expensive to verify that
      all must-defs in a statement belong to subvars if there is more than one
      MUST-def, so we don't do it.  Suffice to say, if you reach here without
      having subvars, and have num >1, you have hit a bug. */
-     
 
-  old_ops = *old_ops_p;
-
-  /* Check if the old vector and the new array are the same.  */
-  build_diff = true;
-  if (stmt && old_ops && old_ops->num_v_must_defs == num)
-    {
-      old_num = num;
-      build_diff = false;
-      for (x = 0; x < num; x++)
-        {
-	  tree var = old_ops->v_must_defs[x].def;
-	  if (TREE_CODE (var) == SSA_NAME)
-	    var = SSA_NAME_VAR (var);
-	  if (var != VARRAY_TREE (build_v_must_defs, x))
-	    {
-	      build_diff = true;
-	      break;
-	    }
-	}
-    }
-  else
-    old_num = (old_ops ? old_ops->num_v_must_defs : 0);
-
-  if (!build_diff)
-    {
-      v_must_def_ops = old_ops;
-      *old_ops_p = NULL;
-      for (x = 0; x < num; x++)
-        correct_use_link (&(v_must_def_ops->v_must_defs[x].imm_use), stmt);
-    }
-  else
-    {
-      v_must_def_ops = allocate_v_must_def_optype (num);
-      for (x = 0; x < num ; x++)
-	{
-	  var = VARRAY_TREE (build_v_must_defs, x);
-	  /* Look for VAR in the original vector.  */
-	  for (i = 0; i < old_num; i++)
-	    {
-	      result = old_ops->v_must_defs[i].def;
-	      if (TREE_CODE (result) == SSA_NAME)
-		result = SSA_NAME_VAR (result);
-	      if (result == var)
-	        {
-		  initialize_v_must_def_operand (v_must_def_ops, x,
-						 old_ops->v_must_defs[i].def,
-						 old_ops->v_must_defs[i].use,
-						 stmt,
-						 &(old_ops->v_must_defs[i].imm_use));
-		  break;
-		}
-	    }
-	  if (i == old_num)
-	    {
-	      initialize_v_must_def_operand (v_must_def_ops, x, var, var, stmt,
-	      				     NULL);
-	    }
-	}
-    }
-  VARRAY_POP_ALL (build_v_must_defs);
-
-  return v_must_def_ops;
+  finalize_ssa_v_must_def_ops (stmt);
+  opbuild_clear (&build_v_must_defs);
 }
 
 
 /* Finalize all the build vectors, fill the new ones into INFO.  */
-
+                                                                              
 static inline void
-finalize_ssa_stmt_operands (tree stmt, stmt_operands_p old_ops, 
-			    stmt_operands_p new_ops)
+finalize_ssa_stmt_operands (tree stmt)
 {
-  new_ops->def_ops = finalize_ssa_defs (&(old_ops->def_ops), stmt);
-  new_ops->use_ops = finalize_ssa_uses (&(old_ops->use_ops), stmt);
-  new_ops->v_must_def_ops 
-    = finalize_ssa_v_must_defs (&(old_ops->v_must_def_ops), stmt);
-  new_ops->v_may_def_ops 
-    = finalize_ssa_v_may_defs (&(old_ops->v_may_def_ops), stmt);
-  new_ops->vuse_ops = finalize_ssa_vuses (&(old_ops->vuse_ops), stmt);
+  finalize_ssa_defs (stmt);
+  finalize_ssa_uses (stmt);
+  finalize_ssa_v_must_defs (stmt);
+  finalize_ssa_v_may_defs (stmt);
+  finalize_ssa_vuses (stmt);
 }
 
 
@@ -914,11 +785,11 @@ finalize_ssa_stmt_operands (tree stmt, stmt_operands_p old_ops,
 static inline void
 start_ssa_stmt_operands (void)
 {
-  gcc_assert (VARRAY_ACTIVE_SIZE (build_defs) == 0);
-  gcc_assert (VARRAY_ACTIVE_SIZE (build_uses) == 0);
-  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses) == 0);
-  gcc_assert (VARRAY_ACTIVE_SIZE (build_v_may_defs) == 0);
-  gcc_assert (VARRAY_ACTIVE_SIZE (build_v_must_defs) == 0);
+  gcc_assert (opbuild_num_elems (&build_defs) == 0);
+  gcc_assert (opbuild_num_elems (&build_uses) == 0);
+  gcc_assert (opbuild_num_elems (&build_vuses) == 0);
+  gcc_assert (opbuild_num_elems (&build_v_may_defs) == 0);
+  gcc_assert (opbuild_num_elems (&build_v_must_defs) == 0);
 }
 
 
@@ -927,7 +798,7 @@ start_ssa_stmt_operands (void)
 static inline void
 append_def (tree *def_p)
 {
-  VARRAY_PUSH_TREE_PTR (build_defs, def_p);
+  opbuild_append_real (&build_defs, def_p);
 }
 
 
@@ -936,7 +807,7 @@ append_def (tree *def_p)
 static inline void
 append_use (tree *use_p)
 {
-  VARRAY_PUSH_TREE_PTR (build_uses, use_p);
+  opbuild_append_real (&build_uses, use_p);
 }
 
 
@@ -945,14 +816,17 @@ append_use (tree *use_p)
 static inline void
 append_v_may_def (tree var)
 {
-  var_ann_t ann = get_var_ann (var);
+  if (TREE_CODE (var) != SSA_NAME)
+    {
+      var_ann_t ann = get_var_ann (var);
 
-  /* Don't allow duplicate entries.  */
-  if (ann->in_v_may_def_list)
-    return;
-  ann->in_v_may_def_list = 1;
+      /* Don't allow duplicate entries.  */
+      if (ann->in_v_may_def_list)
+	return;
+      ann->in_v_may_def_list = 1;
+    }
 
-  VARRAY_PUSH_TREE (build_v_may_defs, var);
+  opbuild_append_virtual (&build_v_may_defs, var);
 }
 
 
@@ -972,7 +846,7 @@ append_vuse (tree var)
       ann->in_vuse_list = 1;
     }
 
-  VARRAY_PUSH_TREE (build_vuses, var);
+  opbuild_append_virtual (&build_vuses, var);
 }
 
 
@@ -984,16 +858,16 @@ append_v_must_def (tree var)
   unsigned i;
 
   /* Don't allow duplicate entries.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (build_v_must_defs); i++)
-    if (var == VARRAY_TREE (build_v_must_defs, i))
+  for (i = 0; i < opbuild_num_elems (&build_v_must_defs); i++)
+    if (var == opbuild_elem_virtual (&build_v_must_defs, i))
       return;
 
-  VARRAY_PUSH_TREE (build_v_must_defs, var);
+  opbuild_append_virtual (&build_v_must_defs, var);
 }
 
 
 /* Parse STMT looking for operands.  OLD_OPS is the original stmt operand
-   cache for STMT, if it exested before.  When fniished, the various build_*
+   cache for STMT, if it existed before.  When finished, the various build_*
    operand vectors will have potential operands. in them.  */
                                                                                 
 static void
@@ -1023,7 +897,8 @@ parse_ssa_operands (tree stmt)
 	if (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
 	  lhs = TREE_OPERAND (lhs, 0);
 
-	if (TREE_CODE (lhs) != ARRAY_REF && TREE_CODE (lhs) != ARRAY_RANGE_REF
+	if (TREE_CODE (lhs) != ARRAY_REF
+	    && TREE_CODE (lhs) != ARRAY_RANGE_REF
 	    && TREE_CODE (lhs) != BIT_FIELD_REF
 	    && TREE_CODE (lhs) != REALPART_EXPR
 	    && TREE_CODE (lhs) != IMAGPART_EXPR)
@@ -1069,7 +944,7 @@ parse_ssa_operands (tree stmt)
 
     default:
       /* Notice that if get_expr_operands tries to use &STMT as the operand
-	 pointer (which may only happen for USE operands), we will abort in
+	 pointer (which may only happen for USE operands), we will fail in
 	 append_use.  This default will handle statements like empty
 	 statements, or CALL_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
@@ -1101,17 +976,9 @@ parse_ssa_operands (tree stmt)
        free_ssa_operands (old_ops);					*/
 
 static void
-build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops, 
-		    stmt_operands_p new_ops)
+build_ssa_operands (tree stmt)
 {
-  tree_ann_t saved_ann = stmt->common.ann;
-  
-  /* Replace stmt's annotation with the one passed in for the duration
-     of the operand building process.  This allows "fake" stmts to be built
-     and not be included in other data structures which can be built here.  */
-  stmt->common.ann = (tree_ann_t) ann;
-
-  parse_old_ops = old_ops;
+  stmt_ann_t ann = get_stmt_ann (stmt);
   
   /* Initially assume that the statement has no volatile operands, nor
      makes aliased loads or stores.  */
@@ -1126,79 +993,21 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 
   parse_ssa_operands (stmt);
 
-  parse_old_ops = NULL;
-
-  if (ann)
-    finalize_ssa_stmt_operands (stmt, old_ops, new_ops);
-  else
-    finalize_ssa_stmt_operands (NULL, old_ops, new_ops);
-  stmt->common.ann = saved_ann;
+  finalize_ssa_stmt_operands (stmt);
 }
 
 
 /* Free any operands vectors in OPS.  */
-
-static void 
+void 
 free_ssa_operands (stmt_operands_p ops)
 {
-  if (ops->def_ops)
-    free_defs (&(ops->def_ops));
-  if (ops->use_ops)
-    free_uses (&(ops->use_ops));
-  if (ops->vuse_ops)
-    free_vuses (&(ops->vuse_ops));
-  if (ops->v_may_def_ops)
-    free_v_may_defs (&(ops->v_may_def_ops));
-  if (ops->v_must_def_ops)
-    free_v_must_defs (&(ops->v_must_def_ops));
+  ops->def_ops = NULL;
+  ops->use_ops = NULL;
+  ops->maydef_ops = NULL;
+  ops->mustdef_ops = NULL;
+  ops->vuse_ops = NULL;
 }
 
-
-/* Swap operands EXP0 and EXP1 in STMT.  */
-
-static void
-swap_tree_operands (tree *exp0, tree *exp1)
-{
-  tree op0, op1;
-  op0 = *exp0;
-  op1 = *exp1;
-
-  /* If the operand cache is active, attempt to preserve the relative positions
-     of these two operands in their respective immediate use lists.  */
-  if (build_defs != NULL && op0 != op1 && parse_old_ops != NULL)
-    {
-      unsigned x, use0, use1;
-      use_optype uses = parse_old_ops->use_ops;
-      use0 = use1 = NUM_USES (uses);
-      /* Find the 2 operands in the cache, if they are there.  */
-      for (x = 0; x < NUM_USES (uses); x++)
-	if (USE_OP_PTR (uses, x)->use == exp0)
-	  {
-	    use0 = x;
-	    break;
-	  }
-      for (x = 0; x < NUM_USES (uses); x++)
-	if (USE_OP_PTR (uses, x)->use == exp1)
-	  {
-	    use1 = x;
-	    break;
-	  }
-      /* If both uses don't have operand entries, there isnt much we can do
-         at this point. Presumably we dont need to worry about it.  */
-      if (use0 != NUM_USES (uses) && use1 != NUM_USES (uses))
-        {
-	  tree *tmp = USE_OP_PTR (uses, use1)->use;
-	  gcc_assert (use0 != use1);
-
-	  USE_OP_PTR (uses, use1)->use = USE_OP_PTR (uses, use0)->use;
-	  USE_OP_PTR (uses, use0)->use = tmp;
-	}
-    }
-
-  /* Now swap the data.  */
-  *exp0 = op1;
-  *exp1 = op0;
-}
 
 /* Get the operands of statement STMT.  Note that repeated calls to
    get_stmt_operands for the same statement will do nothing until the
@@ -1207,28 +1016,20 @@ swap_tree_operands (tree *exp0, tree *exp1)
 void
 update_stmt_operands (tree stmt)
 {
-  stmt_ann_t ann;
-  stmt_operands_t old_operands;
-
+  stmt_ann_t ann = get_stmt_ann (stmt);
   /* If get_stmt_operands is called before SSA is initialized, dont
   do anything.  */
-  if (build_defs == NULL)
+  if (!ssa_operands_active ())
     return;
   /* The optimizers cannot handle statements that are nothing but a
      _DECL.  This indicates a bug in the gimplifier.  */
   gcc_assert (!SSA_VAR_P (stmt));
 
-  ann = get_stmt_ann (stmt);
-
   gcc_assert (ann->modified);
 
   timevar_push (TV_TREE_OPS);
 
-  old_operands = ann->operands;
-  memset (&(ann->operands), 0, sizeof (stmt_operands_t));
-
-  build_ssa_operands (stmt, ann, &old_operands, &(ann->operands));
-  free_ssa_operands (&old_operands);
+  build_ssa_operands (stmt);
 
   /* Clear the modified bit for STMT.  Subsequent calls to
      get_stmt_operands for this statement will do nothing until the
@@ -1238,10 +1039,177 @@ update_stmt_operands (tree stmt)
   timevar_pop (TV_TREE_OPS);
 }
 
+  
+/* Copies virtual operands from SRC to DST.  */
 
-/* Recursively scan the expression pointed by EXPR_P in statement referred to
-   by INFO.  FLAGS is one of the OPF_* constants modifying how to interpret the
-   operands found.  */
+void
+copy_virtual_operands (tree dest, tree src)
+{
+  tree t;
+  ssa_op_iter iter, old_iter;
+  use_operand_p use_p, u2;
+  def_operand_p def_p, d2;
+
+  build_ssa_operands (dest);
+
+  /* Copy all the virtual fields.  */
+  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VUSE)
+    append_vuse (t);
+  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMAYDEF)
+    append_v_may_def (t);
+  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMUSTDEF)
+    append_v_must_def (t);
+
+  if (opbuild_num_elems (&build_vuses) == 0
+      && opbuild_num_elems (&build_v_may_defs) == 0
+      && opbuild_num_elems (&build_v_must_defs) == 0)
+    return;
+
+  /* Now commit the virtual operands to this stmt.  */
+  finalize_ssa_v_must_defs (dest);
+  finalize_ssa_v_may_defs (dest);
+  finalize_ssa_vuses (dest);
+
+  /* Finally, set the field to the same values as then originals.  */
+
+  
+  t = op_iter_init_tree (&old_iter, src, SSA_OP_VUSE);
+  FOR_EACH_SSA_USE_OPERAND (use_p, dest, iter, SSA_OP_VUSE)
+    {
+      gcc_assert (!op_iter_done (&old_iter));
+      SET_USE (use_p, t);
+      t = op_iter_next_tree (&old_iter);
+    }
+  gcc_assert (op_iter_done (&old_iter));
+
+  op_iter_init_maydef (&old_iter, src, &u2, &d2);
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, dest, iter)
+    {
+      gcc_assert (!op_iter_done (&old_iter));
+      SET_USE (use_p, USE_FROM_PTR (u2));
+      SET_DEF (def_p, DEF_FROM_PTR (d2));
+      op_iter_next_maymustdef (&u2, &d2, &old_iter);
+    }
+  gcc_assert (op_iter_done (&old_iter));
+
+  op_iter_init_mustdef (&old_iter, src, &u2, &d2);
+  FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, use_p, dest, iter)
+    {
+      gcc_assert (!op_iter_done (&old_iter));
+      SET_USE (use_p, USE_FROM_PTR (u2));
+      SET_DEF (def_p, DEF_FROM_PTR (d2));
+      op_iter_next_maymustdef (&u2, &d2, &old_iter);
+    }
+  gcc_assert (op_iter_done (&old_iter));
+
+}
+
+
+/* Specifically for use in DOM's expression analysis.  Given a store, we
+   create an artificial stmt which looks like a load from the store, this can
+   be used to eliminate redundant loads.  OLD_OPS are the operands from the 
+   store stmt, and NEW_STMT is the new load which represents a load of the
+   values stored.  */
+
+void
+create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
+{
+  stmt_ann_t ann;
+  tree op;
+  ssa_op_iter iter;
+  use_operand_p use_p;
+  unsigned x;
+
+  ann = get_stmt_ann (new_stmt);
+
+  /* process the stmt looking for operands.  */
+  start_ssa_stmt_operands ();
+  parse_ssa_operands (new_stmt);
+
+  for (x = 0; x < opbuild_num_elems (&build_vuses); x++)
+    {
+      tree t = opbuild_elem_virtual (&build_vuses, x);
+      if (TREE_CODE (t) != SSA_NAME)
+	{
+	  var_ann_t ann = var_ann (t);
+	  ann->in_vuse_list = 0;
+	}
+    }
+   
+  for (x = 0; x < opbuild_num_elems (&build_v_may_defs); x++)
+    {
+      tree t = opbuild_elem_virtual (&build_v_may_defs, x);
+      if (TREE_CODE (t) != SSA_NAME)
+	{
+	  var_ann_t ann = var_ann (t);
+	  ann->in_v_may_def_list = 0;
+	}
+    }
+  /* Remove any virtual operands that were found.  */
+  opbuild_clear (&build_v_may_defs);
+  opbuild_clear (&build_v_must_defs);
+  opbuild_clear (&build_vuses);
+
+  /* For each VDEF on the original statement, we want to create a
+     VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
+     statement.  */
+  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, 
+			     (SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF))
+    append_vuse (op);
+    
+  /* Now build the operands for this new stmt.  */
+  finalize_ssa_stmt_operands (new_stmt);
+
+  /* All uses in this fake stmt must not be in the immediate use lists.  */
+  FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
+    delink_imm_use (use_p);
+}
+
+static void
+swap_tree_operands (tree stmt, tree *exp0, tree *exp1)
+{
+  tree op0, op1;
+  op0 = *exp0;
+  op1 = *exp1;
+
+  /* If the operand cache is active, attempt to preserve the relative positions
+     of these two operands in their respective immediate use lists.  */
+  if (ssa_operands_active () && op0 != op1)
+    {
+      use_optype_p use0, use1, ptr;
+      use0 = use1 = NULL;
+      /* Find the 2 operands in the cache, if they are there.  */
+      for (ptr = USE_OPS (stmt); ptr; ptr = ptr->next)
+	if (USE_OP_PTR (ptr)->use == exp0)
+	  {
+	    use0 = ptr;
+	    break;
+	  }
+      for (ptr = USE_OPS (stmt); ptr; ptr = ptr->next)
+	if (USE_OP_PTR (ptr)->use == exp1)
+	  {
+	    use1 = ptr;
+	    break;
+	  }
+      /* If both uses don't have operand entries, there isn't much we can do
+         at this point.  Presumably we dont need to worry about it.  */
+      if (use0 && use1)
+        {
+	  tree *tmp = USE_OP_PTR (use1)->use;
+	  USE_OP_PTR (use1)->use = USE_OP_PTR (use0)->use;
+	  USE_OP_PTR (use0)->use = tmp;
+	}
+    }
+
+  /* Now swap the data.  */
+  *exp0 = op1;
+  *exp1 = op0;
+}
+
+
+/* Recursively scan the expression pointed to by EXPR_P in statement referred
+   to by INFO.  FLAGS is one of the OPF_* constants modifying how to interpret
+   the operands found.  */
 
 static void
 get_expr_operands (tree stmt, tree *expr_p, int flags)
@@ -1314,6 +1282,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_indirect_ref_operands (stmt, expr, flags);
       return;
 
+    case TARGET_MEM_REF:
+      get_tmr_operands (stmt, expr, flags);
+      return;
+
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
       /* Treat array references as references to the virtual variable
@@ -1338,7 +1310,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case IMAGPART_EXPR:
       {
 	tree ref;
-	HOST_WIDE_INT offset, size;
+	unsigned HOST_WIDE_INT offset, size;
  	/* This component ref becomes an access to all of the subvariables
 	   it can touch,  if we can determine that, but *NOT* the real one.
 	   If we can't determine which fields we could touch, the recursion
@@ -1355,9 +1327,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		bool exact;		
 		if (overlap_subvar (offset, size, sv, &exact))
 		  {
-		    if (exact)
-		      flags &= ~opf_kill_def;
-		    add_stmt_operand (&sv->var, s_ann, flags);
+	            int subvar_flags = flags;
+		    if (!exact)
+		      subvar_flags &= ~opf_kill_def;
+		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
 		  }
 	      }
 	  }
@@ -1366,7 +1339,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 			     flags & ~opf_kill_def);
 	
 	if (code == COMPONENT_REF)
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  {
+	    if (s_ann && TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
+	      s_ann->has_volatile_ops = true; 
+	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  }
 	return;
       }
     case WITH_SIZE_EXPR:
@@ -1413,10 +1390,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       {
 	/* General aggregate CONSTRUCTORs have been decomposed, but they
 	   are still in use as the COMPLEX_EXPR equivalent for vectors.  */
+	constructor_elt *ce;
+	unsigned HOST_WIDE_INT idx;
 
-	tree t;
-	for (t = TREE_OPERAND (expr, 0); t ; t = TREE_CHAIN (t))
-	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none);
+	for (idx = 0;
+	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (expr), idx, ce);
+	     idx++)
+	  get_expr_operands (stmt, &ce->value, opf_none);
 
 	return;
       }
@@ -1433,6 +1413,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case TRUTH_XOR_EXPR:
     case COMPOUND_EXPR:
     case OBJ_TYPE_REF:
+    case ASSERT_EXPR:
     do_binary:
       {
 	tree op0 = TREE_OPERAND (expr, 0);
@@ -1454,14 +1435,16 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		|| code == GE_EXPR)
 	      {
 		TREE_SET_CODE (expr, swap_tree_comparison (code));
-		swap_tree_operands (&TREE_OPERAND (expr, 0),			
+		swap_tree_operands (stmt,
+				    &TREE_OPERAND (expr, 0),			
 				    &TREE_OPERAND (expr, 1));
 	      }
 	  
 	    /* For a commutative operator we can just swap the operands.  */
 	    else if (commutative_tree_code (code))
 	      {
-		swap_tree_operands (&TREE_OPERAND (expr, 0),			
+		swap_tree_operands (stmt,
+				    &TREE_OPERAND (expr, 0),			
 				    &TREE_OPERAND (expr, 1));
 	      }
 	  }
@@ -1536,8 +1519,8 @@ get_asm_expr_operands (tree stmt)
       if (!allows_reg && allows_mem)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t))
-	    note_addressable (t, s_ann);
+	  if (t && DECL_P (t) && s_ann)
+	    add_to_addressable_set (t, &s_ann->addresses_taken);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def);
@@ -1555,8 +1538,8 @@ get_asm_expr_operands (tree stmt)
       if (!allows_reg && allows_mem)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
-	  if (t && DECL_P (t))
-	    note_addressable (t, s_ann);
+	  if (t && DECL_P (t) && s_ann)
+	    add_to_addressable_set (t, &s_ann->addresses_taken);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), 0);
@@ -1576,10 +1559,10 @@ get_asm_expr_operands (tree stmt)
 	  add_stmt_operand (&global_var, s_ann, opf_is_def);
 	else
 	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-	      {
-		tree var = referenced_var (i);
-		add_stmt_operand (&var, s_ann, opf_is_def);
-	      }
+	    {
+	      tree var = referenced_var (i);
+	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
+	    }
 
 	/* Now clobber all addressables.  */
 	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
@@ -1596,7 +1579,7 @@ get_asm_expr_operands (tree stmt)
 		  && get_subvars_for_var (var) != NULL)
 		continue;		
 
-	      add_stmt_operand (&var, s_ann, opf_is_def);
+	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
 	    }
 
 	break;
@@ -1669,7 +1652,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Everything else *should* have been folded elsewhere, but users
      are smarter than we in finding ways to write invalid code.  We
-     cannot just abort here.  If we were absolutely certain that we
+     cannot just assert here.  If we were absolutely certain that we
      do handle all valid cases, then we could just do nothing here.
      That seems optimistic, so attempt to do something logical... */
   else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
@@ -1694,6 +1677,33 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
   get_expr_operands (stmt, pptr, opf_none);
 }
 
+/* A subroutine of get_expr_operands to handle TARGET_MEM_REF.  */
+
+static void
+get_tmr_operands (tree stmt, tree expr, int flags)
+{
+  tree tag = TMR_TAG (expr);
+
+  /* First record the real operands.  */
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_none);
+
+  /* MEM_REFs should never be killing.  */
+  flags &= ~opf_kill_def;
+
+  if (TMR_SYMBOL (expr))
+    {
+      stmt_ann_t ann = stmt_ann (stmt);
+      add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
+    }
+
+  if (tag)
+    get_expr_operands (stmt, &tag, flags);
+  else
+    /* Something weird, so ensure that we will be careful.  */
+    stmt_ann (stmt)->has_volatile_ops = true;
+}
+
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
 
 static void
@@ -1716,12 +1726,12 @@ get_call_expr_operands (tree stmt, tree expr)
       && !bitmap_empty_p (call_clobbered_vars)
       && !(call_flags & ECF_NOVOPS))
     {
-      /* A 'pure' or a 'const' functions never call clobber anything. 
+      /* A 'pure' or a 'const' function never call-clobbers anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt);
+	add_call_clobber_ops (stmt, get_callee_fndecl (expr));
       else if (!(call_flags & ECF_CONST))
 	add_call_read_ops (stmt);
     }
@@ -1754,9 +1764,9 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
   /* If the operand is an ADDR_EXPR, add its operand to the list of
      variables that have had their address taken in this statement.  */
-  if (TREE_CODE (var) == ADDR_EXPR)
+  if (TREE_CODE (var) == ADDR_EXPR && s_ann)
     {
-      note_addressable (TREE_OPERAND (var, 0), s_ann);
+      add_to_addressable_set (TREE_OPERAND (var, 0), &s_ann->addresses_taken);
       return;
     }
 
@@ -1778,6 +1788,25 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
      off from statements having volatile operands.  */
   if (TREE_THIS_VOLATILE (sym) && s_ann)
     s_ann->has_volatile_ops = true;
+
+  /* If the variable cannot be modified and this is a V_MAY_DEF change
+     it into a VUSE.  This happens when read-only variables are marked
+     call-clobbered and/or aliased to writable variables.  So we only
+     check that this only happens on non-specific stores.
+
+     Note that if this is a specific store, i.e. associated with a
+     modify_expr, then we can't suppress the V_DEF, lest we run into
+     validation problems.
+
+     This can happen when programs cast away const, leaving us with a
+     store to read-only memory.  If the statement is actually executed
+     at runtime, then the program is ill formed.  If the statement is
+     not executed then all is well.  At the very least, we cannot ICE.  */
+  if ((flags & opf_non_specific) && unmodifiable_var_p (var))
+    {
+      gcc_assert (!is_real_op);
+      flags &= ~(opf_is_def | opf_kill_def);
+    }
 
   if (is_real_op)
     {
@@ -1870,72 +1899,64 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 }
 
   
-/* Record that VAR had its address taken in the statement with annotations
-   S_ANN.  */
+/* Add the base address of REF to the set *ADDRESSES_TAKEN.  If
+   *ADDRESSES_TAKEN is NULL, a new set is created.  REF may be
+   a single variable whose address has been taken or any other valid
+   GIMPLE memory reference (structure reference, array, etc).  If the
+   base address of REF is a decl that has sub-variables, also add all
+   of its sub-variables.  */
 
-static void
-note_addressable (tree var, stmt_ann_t s_ann)
+void
+add_to_addressable_set (tree ref, bitmap *addresses_taken)
 {
-  tree ref;
+  tree var;
   subvar_t svars;
-  HOST_WIDE_INT offset;
-  HOST_WIDE_INT size;
 
-  if (!s_ann)
-    return;
-  
-  /* If this is a COMPONENT_REF, and we know exactly what it touches, we only
-     take the address of the subvariables it will touch.
-     Otherwise, we take the address of all the subvariables, plus the real
-     ones.  */
+  gcc_assert (addresses_taken);
 
-  if (var && TREE_CODE (var) == COMPONENT_REF 
-      && (ref = okay_component_ref_for_subvars (var, &offset, &size)))
-    {
-      subvar_t sv;
-      svars = get_subvars_for_var (ref);
-      
-      if (s_ann->addresses_taken == NULL)
-	s_ann->addresses_taken = BITMAP_GGC_ALLOC ();      
-      
-      for (sv = svars; sv; sv = sv->next)
-	{
-	  if (overlap_subvar (offset, size, sv, NULL))
-	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
-	}
-      return;
-    }
-  
-  var = get_base_address (var);
+  /* Note that it is *NOT OKAY* to use the target of a COMPONENT_REF
+     as the only thing we take the address of.  If VAR is a structure,
+     taking the address of a field means that the whole structure may
+     be referenced using pointer arithmetic.  See PR 21407 and the
+     ensuing mailing list discussion.  */
+  var = get_base_address (ref);
   if (var && SSA_VAR_P (var))
     {
-      if (s_ann->addresses_taken == NULL)
-	s_ann->addresses_taken = BITMAP_GGC_ALLOC ();      
+      if (*addresses_taken == NULL)
+	*addresses_taken = BITMAP_GGC_ALLOC ();      
       
-
       if (var_can_have_subvars (var)
 	  && (svars = get_subvars_for_var (var)))
 	{
 	  subvar_t sv;
 	  for (sv = svars; sv; sv = sv->next)
-	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
+	    {
+	      bitmap_set_bit (*addresses_taken, DECL_UID (sv->var));
+	      TREE_ADDRESSABLE (sv->var) = 1;
+	    }
 	}
       else
-	bitmap_set_bit (s_ann->addresses_taken, var_ann (var)->uid);
+	{
+	  bitmap_set_bit (*addresses_taken, DECL_UID (var));
+	  TREE_ADDRESSABLE (var) = 1;
+	}
     }
 }
+
 
 /* Add clobbering definitions for .GLOBAL_VAR or for each of the call
    clobbered variables in the function.  */
 
 static void
-add_call_clobber_ops (tree stmt)
+add_call_clobber_ops (tree stmt, tree callee)
 {
-  unsigned i;
+  int i;
+  unsigned u;
   tree t;
   bitmap_iterator bi;
   stmt_ann_t s_ann = stmt_ann (stmt);
   struct stmt_ann_d empty_ann;
+  bitmap not_read_b, not_written_b;
 
   /* Functions that are not const, pure or never return may clobber
      call-clobbered variables.  */
@@ -1950,22 +1971,38 @@ add_call_clobber_ops (tree stmt)
       return;
     }
 
+  /* FIXME - if we have better information from the static vars
+     analysis, we need to make the cache call site specific.  This way
+     we can have the performance benefits even if we are doing good
+     optimization.  */
+
+  /* Get info for local and module level statics.  There is a bit
+     set for each static if the call being processed does not read
+     or write that variable.  */
+
+  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
+  not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
+
   /* If cache is valid, copy the elements into the build vectors.  */
-  if (ssa_call_clobbered_cache_valid)
+  if (ssa_call_clobbered_cache_valid
+      && (!not_read_b || bitmap_empty_p (not_read_b))
+      && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (clobbered_vuses); i++)
+      /* Process the caches in reverse order so we are always inserting at
+         the head of the list.  */
+      for (i = VEC_length (tree, clobbered_vuses) - 1; i >=0; i--)
 	{
-	  t = VARRAY_TREE (clobbered_vuses, i);
+	  t = VEC_index (tree, clobbered_vuses, i);
 	  gcc_assert (TREE_CODE (t) != SSA_NAME);
 	  var_ann (t)->in_vuse_list = 1;
-	  VARRAY_PUSH_TREE (build_vuses, t);
+	  opbuild_append_virtual (&build_vuses, t);
 	}
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (clobbered_v_may_defs); i++)
+      for (i = VEC_length (tree, clobbered_v_may_defs) - 1; i >= 0; i--)
 	{
-	  t = VARRAY_TREE (clobbered_v_may_defs, i);
+	  t = VEC_index (tree, clobbered_v_may_defs, i);
 	  gcc_assert (TREE_CODE (t) != SSA_NAME);
 	  var_ann (t)->in_v_may_def_list = 1;
-	  VARRAY_PUSH_TREE (build_v_may_defs, t);
+	  opbuild_append_virtual (&build_v_may_defs, t);
 	}
       if (s_ann)
 	{
@@ -1978,45 +2015,68 @@ add_call_clobber_ops (tree stmt)
   memset (&empty_ann, 0, sizeof (struct stmt_ann_d));
 
   /* Add a V_MAY_DEF operand for every call clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
-      tree var = referenced_var (i);
-      if (TREE_READONLY (var)
-	  && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+      tree var = referenced_var (u);
+      if (unmodifiable_var_p (var))
 	add_stmt_operand (&var, &empty_ann, opf_none);
       else
-	add_stmt_operand (&var, &empty_ann, opf_is_def);
+	{
+	  bool not_read
+	    = not_read_b ? bitmap_bit_p (not_read_b, u) : false;
+	  bool not_written
+	    = not_written_b ? bitmap_bit_p (not_written_b, u) : false;
+
+	  if ((TREE_READONLY (var)
+	       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+	      || not_written)
+	    {
+	      if (!not_read)
+		add_stmt_operand (&var, &empty_ann, opf_none);
+	    }
+	  else
+	    add_stmt_operand (&var, &empty_ann, opf_is_def);
+	}
     }
 
-  clobbered_aliased_loads = empty_ann.makes_aliased_loads;
-  clobbered_aliased_stores = empty_ann.makes_aliased_stores;
-
-  /* Set the flags for a stmt's annotation.  */
-  if (s_ann)
+  if ((!not_read_b || bitmap_empty_p (not_read_b))
+      && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
-      s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
-      s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
-    }
+      clobbered_aliased_loads = empty_ann.makes_aliased_loads;
+      clobbered_aliased_stores = empty_ann.makes_aliased_stores;
 
-  /* Prepare empty cache vectors.  */
-  if (clobbered_v_may_defs)
-    {
-      VARRAY_POP_ALL (clobbered_vuses);
-      VARRAY_POP_ALL (clobbered_v_may_defs);
-    }
-  else
-    {
-      VARRAY_TREE_INIT (clobbered_v_may_defs, 10, "clobbered_v_may_defs");
-      VARRAY_TREE_INIT (clobbered_vuses, 10, "clobbered_vuses");
-    }
+      /* Set the flags for a stmt's annotation.  */
+      if (s_ann)
+	{
+	  s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
+	  s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
+	}
 
-  /* Now fill the clobbered cache with the values that have been found.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (build_vuses); i++)
-    VARRAY_PUSH_TREE (clobbered_vuses, VARRAY_TREE (build_vuses, i));
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (build_v_may_defs); i++)
-    VARRAY_PUSH_TREE (clobbered_v_may_defs, VARRAY_TREE (build_v_may_defs, i));
+      /* Prepare empty cache vectors.  */
+      VEC_truncate (tree, clobbered_vuses, 0);
+      VEC_truncate (tree, clobbered_v_may_defs, 0);
 
-  ssa_call_clobbered_cache_valid = true;
+      /* Now fill the clobbered cache with the values that have been found.  */
+      for (i = opbuild_first (&build_vuses);
+	   i != OPBUILD_LAST;
+	   i = opbuild_next (&build_vuses, i))
+	VEC_safe_push (tree, heap, clobbered_vuses,
+		       opbuild_elem_virtual (&build_vuses, i));
+
+      gcc_assert (opbuild_num_elems (&build_vuses) 
+		  == VEC_length (tree, clobbered_vuses));
+
+      for (i = opbuild_first (&build_v_may_defs);
+	   i != OPBUILD_LAST;
+	   i = opbuild_next (&build_v_may_defs, i))
+	VEC_safe_push (tree, heap, clobbered_v_may_defs, 
+		       opbuild_elem_virtual (&build_v_may_defs, i));
+
+      gcc_assert (opbuild_num_elems (&build_v_may_defs) 
+		  == VEC_length (tree, clobbered_v_may_defs));
+
+      ssa_call_clobbered_cache_valid = true;
+    }
 }
 
 
@@ -2026,7 +2086,8 @@ add_call_clobber_ops (tree stmt)
 static void
 add_call_read_ops (tree stmt)
 {
-  unsigned i;
+  int i;
+  unsigned u;
   tree t;
   bitmap_iterator bi;
   stmt_ann_t s_ann = stmt_ann (stmt);
@@ -2044,12 +2105,14 @@ add_call_read_ops (tree stmt)
   /* If cache is valid, copy the elements into the build vector.  */
   if (ssa_ro_call_cache_valid)
     {
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ro_call_vuses); i++)
+      for (i = VEC_length (tree, ro_call_vuses) - 1; i >=0 ; i--)
 	{
-	  t = VARRAY_TREE (ro_call_vuses, i);
+	  /* Process the caches in reverse order so we are always inserting at
+	     the head of the list.  */
+	  t = VEC_index (tree, ro_call_vuses, i);
 	  gcc_assert (TREE_CODE (t) != SSA_NAME);
 	  var_ann (t)->in_vuse_list = 1;
-	  VARRAY_PUSH_TREE (build_vuses, t);
+	  opbuild_append_virtual (&build_vuses, t);
 	}
       if (s_ann)
 	s_ann->makes_aliased_loads = ro_call_aliased_loads;
@@ -2059,10 +2122,10 @@ add_call_read_ops (tree stmt)
   memset (&empty_ann, 0, sizeof (struct stmt_ann_d));
 
   /* Add a VUSE for each call-clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
-      tree var = referenced_var (i);
-      add_stmt_operand (&var, &empty_ann, opf_none);
+      tree var = referenced_var (u);
+      add_stmt_operand (&var, &empty_ann, opf_none | opf_non_specific);
     }
 
   ro_call_aliased_loads = empty_ann.makes_aliased_loads;
@@ -2070,129 +2133,19 @@ add_call_read_ops (tree stmt)
     s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
 
   /* Prepare empty cache vectors.  */
-  if (ro_call_vuses)
-    VARRAY_POP_ALL (ro_call_vuses);
-  else
-    VARRAY_TREE_INIT (ro_call_vuses, 10, "ro_call_vuses");
+  VEC_truncate (tree, ro_call_vuses, 0);
 
   /* Now fill the clobbered cache with the values that have been found.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (build_vuses); i++)
-    VARRAY_PUSH_TREE (ro_call_vuses, VARRAY_TREE (build_vuses, i));
+  for (i = opbuild_first (&build_vuses);
+       i != OPBUILD_LAST;
+       i = opbuild_next (&build_vuses, i))
+    VEC_safe_push (tree, heap, ro_call_vuses,
+		   opbuild_elem_virtual (&build_vuses, i));
+
+  gcc_assert (opbuild_num_elems (&build_vuses) 
+	      == VEC_length (tree, ro_call_vuses));
 
   ssa_ro_call_cache_valid = true;
-}
-
-/* Copies virtual operands from SRC to DST.  */
-
-void
-copy_virtual_operands (tree dst, tree src)
-{
-  unsigned i;
-  vuse_optype vuses = STMT_VUSE_OPS (src);
-  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (src);
-  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (src);
-  vuse_optype *vuses_new = &stmt_ann (dst)->operands.vuse_ops;
-  v_may_def_optype *v_may_defs_new = &stmt_ann (dst)->operands.v_may_def_ops;
-  v_must_def_optype *v_must_defs_new = &stmt_ann (dst)->operands.v_must_def_ops;
-
-  if (vuses)
-    {
-      *vuses_new = allocate_vuse_optype (NUM_VUSES (vuses));
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	initialize_vuse_operand (*vuses_new, i, VUSE_OP (vuses, i), dst, NULL);
-    }
-
-  if (v_may_defs)
-    {
-      *v_may_defs_new = allocate_v_may_def_optype (NUM_V_MAY_DEFS (v_may_defs));
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  initialize_v_may_def_operand (*v_may_defs_new, i, 
-					V_MAY_DEF_RESULT (v_may_defs, i),
-					V_MAY_DEF_OP (v_may_defs, i), dst,
-					NULL);
-	}
-    }
-
-  if (v_must_defs)
-    {
-      *v_must_defs_new 
-	 = allocate_v_must_def_optype (NUM_V_MUST_DEFS (v_must_defs));
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  initialize_v_must_def_operand (*v_must_defs_new, i, 
-					 V_MUST_DEF_RESULT (v_must_defs, i),
-					 V_MUST_DEF_KILL (v_must_defs, i), dst,
-					 NULL);
-	}
-    }
-}
-
-
-/* Specifically for use in DOM's expression analysis.  Given a store, we
-   create an artificial stmt which looks like a load from the store, this can
-   be used to eliminate redundant loads.  OLD_OPS are the operands from the 
-   store stmt, and NEW_STMT is the new load which represents a load of the
-   values stored.  */
-
-void
-create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
-{
-  stmt_ann_t ann;
-  tree op;
-  stmt_operands_t tmp;
-  unsigned j;
-
-  memset (&tmp, 0, sizeof (stmt_operands_t));
-  ann = get_stmt_ann (new_stmt);
-
-  /* Free operands just in case is was an existing stmt.  */
-  free_ssa_operands (&(ann->operands));
-
-  build_ssa_operands (new_stmt, NULL, &tmp, &(ann->operands));
-  free_vuses (&(ann->operands.vuse_ops));
-  free_v_may_defs (&(ann->operands.v_may_def_ops));
-  free_v_must_defs (&(ann->operands.v_must_def_ops));
-  
-  /* For each VDEF on the original statement, we want to create a
-     VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
-     statement.  */
-  for (j = 0; j < NUM_V_MAY_DEFS (old_ops->v_may_def_ops); j++)
-    {
-      op = V_MAY_DEF_RESULT (old_ops->v_may_def_ops, j);
-      append_vuse (op);
-    }
-    
-  for (j = 0; j < NUM_V_MUST_DEFS (old_ops->v_must_def_ops); j++)
-    {
-      op = V_MUST_DEF_RESULT (old_ops->v_must_def_ops, j);
-      append_vuse (op);
-    }
-
-  /* Now set the vuses for this new stmt.  */
-  ann->operands.vuse_ops = finalize_ssa_vuses (&(tmp.vuse_ops), NULL);
-}
-
-
-
-/* Issue immediate use error for VAR to debug file F.  */
-static void 
-verify_abort (FILE *f, ssa_imm_use_t *var)
-{
-  tree stmt;
-  stmt = var->stmt;
-  if (stmt)
-    {
-      if (stmt_modified_p(stmt))
-	{
-	  fprintf (f, " STMT MODIFIED. - <%p> ", (void *)stmt);
-	  print_generic_stmt (f, stmt, TDF_SLIM);
-	}
-    }
-  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)var, 
-	   (void *)var->use);
-  print_generic_expr (f, USE_FROM_PTR (var), TDF_SLIM);
-  fprintf(f, "\n");
 }
 
 
@@ -2202,8 +2155,7 @@ verify_abort (FILE *f, ssa_imm_use_t *var)
 bool
 verify_imm_links (FILE *f, tree var)
 {
-  ssa_imm_use_t *ptr, *prev;
-  ssa_imm_use_t *list;
+  use_operand_p ptr, prev, list;
   int count;
 
   gcc_assert (TREE_CODE (var) == SSA_NAME);
@@ -2222,31 +2174,18 @@ verify_imm_links (FILE *f, tree var)
   for (ptr = list->next; ptr != list; )
     {
       if (prev != ptr->prev)
-        {
-	  verify_abort (f, ptr);
-	  return true;
-	}
-
+	goto error;
+      
       if (ptr->use == NULL)
-        {
-	  verify_abort (f, ptr); 	/* 2 roots, or SAFE guard node.  */
-	  return true;
-	}
-      else
-	if (*(ptr->use) != var)
-	  {
-	    verify_abort (f, ptr);
-	    return true;
-	  }
+	goto error; /* 2 roots, or SAFE guard node.  */
+      else if (*(ptr->use) != var)
+	goto error;
 
       prev = ptr;
       ptr = ptr->next;
       /* Avoid infinite loops.  */
       if (count++ > 30000)
-	{
-	  verify_abort (f, ptr);
-	  return true;
-	}
+	goto error;
     }
 
   /* Verify list in the other direction.  */
@@ -2254,26 +2193,29 @@ verify_imm_links (FILE *f, tree var)
   for (ptr = list->prev; ptr != list; )
     {
       if (prev != ptr->next)
-	{
-	  verify_abort (f, ptr);
-	  return true;
-	}
+	goto error;
       prev = ptr;
       ptr = ptr->prev;
       if (count-- < 0)
-	{
-	  verify_abort (f, ptr);
-	  return true;
-	}
+	goto error;
     }
 
   if (count != 0)
-    {
-      verify_abort (f, ptr);
-      return true;
-    }
+    goto error;
 
   return false;
+
+ error:
+  if (ptr->stmt && stmt_modified_p (ptr->stmt))
+    {
+      fprintf (f, " STMT MODIFIED. - <%p> ", (void *)ptr->stmt);
+      print_generic_stmt (f, ptr->stmt, TDF_SLIM);
+    }
+  fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)ptr, 
+	   (void *)ptr->use);
+  print_generic_expr (f, USE_FROM_PTR (ptr), TDF_SLIM);
+  fprintf(f, "\n");
+  return true;
 }
 
 
@@ -2299,7 +2241,10 @@ dump_immediate_uses_for (FILE *file, tree var)
 
   FOR_EACH_IMM_USE_FAST (use_p, iter, var)
     {
-      print_generic_stmt (file, USE_STMT (use_p), TDF_SLIM);
+      if (!is_gimple_reg (USE_FROM_PTR (use_p)))
+	print_generic_stmt (file, USE_STMT (use_p), TDF_VOPS);
+      else
+	print_generic_stmt (file, USE_STMT (use_p), TDF_SLIM);
     }
   fprintf(file, "\n");
 }
@@ -2338,5 +2283,4 @@ debug_immediate_uses_for (tree var)
 {
   dump_immediate_uses_for (stderr, var);
 }
-
 #include "gt-tree-ssa-operands.h"

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,7 +31,7 @@ with Einfo;    use Einfo;
 with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
-with Opt;
+with Opt;      use Opt;
 with Output;   use Output;
 with Sem_Eval; use Sem_Eval;
 with Sem_Util; use Sem_Util;
@@ -492,6 +492,15 @@ package body Exp_Dbug is
       Has_Suffix : Boolean;
 
    begin
+      --  If not generating code, there is no need to create encoded
+      --  names, and problems when the back-end is called to annotate
+      --  types without full code generation. See comments at beginning
+      --  of Get_External_Name_With_Suffix for additional details.
+
+      if Operating_Mode /= Generate_Code then
+         return;
+      end if;
+
       Get_Name_String (Chars (E));
 
       --  Nothing to do if we do not have a type
@@ -553,12 +562,6 @@ package body Exp_Dbug is
       elsif Is_Discrete_Type (E)
         and then not Bounds_Match_Size (E)
       then
-         if Has_Biased_Representation (E) then
-            Get_External_Name_With_Suffix (E, "XB");
-         else
-            Get_External_Name_With_Suffix (E, "XD");
-         end if;
-
          declare
             Lo : constant Node_Id := Type_Low_Bound (E);
             Hi : constant Node_Id := Type_High_Bound (E);
@@ -579,16 +582,28 @@ package body Exp_Dbug is
             Lo_Encode : constant Boolean := Lo_Con or Lo_Discr;
             Hi_Encode : constant Boolean := Hi_Con or Hi_Discr;
 
+            Biased : constant Boolean := Has_Biased_Representation (E);
+
          begin
+            if Biased then
+               Get_External_Name_With_Suffix (E, "XB");
+            else
+               Get_External_Name_With_Suffix (E, "XD");
+            end if;
+
             if Lo_Encode or Hi_Encode then
-               if Lo_Encode then
-                  if Hi_Encode then
-                     Add_Str_To_Name_Buffer ("LU_");
-                  else
-                     Add_Str_To_Name_Buffer ("L_");
-                  end if;
+               if Biased then
+                  Add_Str_To_Name_Buffer ("_");
                else
-                  Add_Str_To_Name_Buffer ("U_");
+                  if Lo_Encode then
+                     if Hi_Encode then
+                        Add_Str_To_Name_Buffer ("LU_");
+                     else
+                        Add_Str_To_Name_Buffer ("L_");
+                     end if;
+                  else
+                     Add_Str_To_Name_Buffer ("U_");
+                  end if;
                end if;
 
                if Lo_Con then
@@ -738,20 +753,19 @@ package body Exp_Dbug is
       Suffix : String)
    is
       Has_Suffix : constant Boolean := (Suffix /= "");
-      use type Opt.Operating_Mode_Type;
 
    begin
-      if Opt.Operating_Mode /= Opt.Generate_Code then
+      --  If we are not in code generation mode, this procedure may still be
+      --  called from Back_End (more specifically - from gigi for doing type
+      --  representation annotation or some representation-specific checks).
+      --  But in this mode there is no need to mess with external names.
 
-         --  If we are not in code generation mode, we still may call this
-         --  procedure from Back_End (more specifically - from gigi for doing
-         --  type representation annotation or some representation-specific
-         --  checks). But in this mode there is no need to mess with external
-         --  names. Furthermore, the call causes difficulties in this case
-         --  because the string representing the homonym number is not
-         --  correctly reset as a part of the call to
-         --  Output_Homonym_Numbers_Suffix (which is not called in gigi)
+      --  Furthermore, the call causes difficulties in this case because the
+      --  string representing the homonym number is not correctly reset as a
+      --  part of the call to Output_Homonym_Numbers_Suffix (which is not
+      --  called in gigi).
 
+      if Operating_Mode /= Generate_Code then
          return;
       end if;
 
@@ -760,7 +774,6 @@ package body Exp_Dbug is
       if Has_Suffix then
          Add_Str_To_Name_Buffer ("___");
          Add_Str_To_Name_Buffer (Suffix);
-
          Name_Buffer (Name_Len + 1) := ASCII.Nul;
       end if;
    end Get_External_Name_With_Suffix;
@@ -782,9 +795,8 @@ package body Exp_Dbug is
 
       procedure Choice_Val (Typ : Character; Choice : Node_Id) is
       begin
-         Add_Char_To_Name_Buffer (Typ);
-
          if Nkind (Choice) = N_Integer_Literal then
+            Add_Char_To_Name_Buffer (Typ);
             Add_Uint_To_Buffer (Intval (Choice));
 
          --  Character literal with no entity present (this is the case
@@ -793,6 +805,7 @@ package body Exp_Dbug is
          elsif Nkind (Choice) = N_Character_Literal
            and then No (Entity (Choice))
          then
+            Add_Char_To_Name_Buffer (Typ);
             Add_Uint_To_Buffer (Char_Literal_Value (Choice));
 
          else
@@ -801,6 +814,7 @@ package body Exp_Dbug is
 
             begin
                if Ekind (Ent) = E_Enumeration_Literal then
+                  Add_Char_To_Name_Buffer (Typ);
                   Add_Uint_To_Buffer (Enumeration_Rep (Ent));
 
                else

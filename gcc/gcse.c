@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* TODO
    - reordering of memory allocation and freeing to be more space efficient
@@ -169,6 +169,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "obstack.h"
 #include "timevar.h"
+#include "tree-pass.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
    moving loop invariant calculations out of loops.
@@ -507,11 +508,11 @@ static int gcse_subst_count;
 static int gcse_create_count;
 /* Number of local constants propagated.  */
 static int local_const_prop_count;
-/* Number of local copys propagated.  */
+/* Number of local copies propagated.  */
 static int local_copy_prop_count;
 /* Number of global constants propagated.  */
 static int global_const_prop_count;
-/* Number of global copys propagated.  */
+/* Number of global copies propagated.  */
 static int global_copy_prop_count;
 
 /* For available exprs */
@@ -522,13 +523,13 @@ static void *gmalloc (size_t) ATTRIBUTE_MALLOC;
 static void *gcalloc (size_t, size_t) ATTRIBUTE_MALLOC;
 static void *grealloc (void *, size_t);
 static void *gcse_alloc (unsigned long);
-static void alloc_gcse_mem (rtx);
+static void alloc_gcse_mem (void);
 static void free_gcse_mem (void);
 static void alloc_reg_set_mem (int);
 static void free_reg_set_mem (void);
 static void record_one_set (int, rtx);
 static void record_set_info (rtx, rtx, void *);
-static void compute_sets (rtx);
+static void compute_sets (void);
 static void hash_scan_insn (rtx, struct hash_table *, int);
 static void hash_scan_set (rtx, rtx, struct hash_table *);
 static void hash_scan_clobber (rtx, rtx, struct hash_table *);
@@ -578,8 +579,8 @@ static void canon_list_insert (rtx, rtx, void *);
 static int cprop_insn (rtx, int);
 static int cprop (int);
 static void find_implicit_sets (void);
-static int one_cprop_pass (int, int, int);
-static bool constprop_register (rtx, rtx, rtx, int);
+static int one_cprop_pass (int, bool, bool);
+static bool constprop_register (rtx, rtx, rtx, bool);
 static struct expr *find_bypass_set (int, int);
 static bool reg_killed_on_edge (rtx, edge);
 static int bypass_block (basic_block, rtx, rtx);
@@ -645,9 +646,9 @@ static void clear_modify_mem_tables (void);
 static void free_modify_mem_tables (void);
 static rtx gcse_emit_move_after (rtx, rtx, rtx);
 static void local_cprop_find_used_regs (rtx *, void *);
-static bool do_local_cprop (rtx, rtx, int, rtx*);
+static bool do_local_cprop (rtx, rtx, bool, rtx*);
 static bool adjust_libcall_notes (rtx, rtx, rtx, rtx*);
-static void local_cprop_pass (int);
+static void local_cprop_pass (bool);
 static bool is_too_expensive (const char *);
 
 
@@ -656,7 +657,7 @@ static bool is_too_expensive (const char *);
    change is mode.  */
 
 int
-gcse_main (rtx f, FILE *file)
+gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
 {
   int changed, pass;
   /* Bytes used at start of pass.  */
@@ -704,7 +705,7 @@ gcse_main (rtx f, FILE *file)
      information about memory sets when we build the hash tables.  */
 
   alloc_reg_set_mem (max_gcse_regno);
-  compute_sets (f);
+  compute_sets ();
 
   pass = 0;
   initial_bytes_used = bytes_used;
@@ -724,12 +725,12 @@ gcse_main (rtx f, FILE *file)
       /* Each pass may create new registers, so recalculate each time.  */
       max_gcse_regno = max_reg_num ();
 
-      alloc_gcse_mem (f);
+      alloc_gcse_mem ();
 
       /* Don't allow constant propagation to modify jumps
 	 during this pass.  */
       timevar_push (TV_CPROP1);
-      changed = one_cprop_pass (pass + 1, 0, 0);
+      changed = one_cprop_pass (pass + 1, false, false);
       timevar_pop (TV_CPROP1);
 
       if (optimize_size)
@@ -749,7 +750,7 @@ gcse_main (rtx f, FILE *file)
 	    }
 	  free_reg_set_mem ();
 	  alloc_reg_set_mem (max_reg_num ());
-	  compute_sets (f);
+	  compute_sets ();
 	  run_jump_opt_after_gcse = 1;
 	  timevar_pop (TV_PRE);
 	}
@@ -771,7 +772,7 @@ gcse_main (rtx f, FILE *file)
 	{
 	  timevar_push (TV_HOIST);
 	  max_gcse_regno = max_reg_num ();
-	  alloc_gcse_mem (f);
+	  alloc_gcse_mem ();
 	  changed |= one_code_hoisting_pass ();
 	  free_gcse_mem ();
 
@@ -794,10 +795,10 @@ gcse_main (rtx f, FILE *file)
      conditional jumps.  */
 
   max_gcse_regno = max_reg_num ();
-  alloc_gcse_mem (f);
+  alloc_gcse_mem ();
   /* This time, go ahead and allow cprop to alter jumps.  */
   timevar_push (TV_CPROP2);
-  one_cprop_pass (pass + 1, 1, 0);
+  one_cprop_pass (pass + 1, true, false);
   timevar_pop (TV_CPROP2);
   free_gcse_mem ();
 
@@ -923,32 +924,39 @@ gcse_alloc (unsigned long size)
    This is called at the start of each pass.  */
 
 static void
-alloc_gcse_mem (rtx f)
+alloc_gcse_mem (void)
 {
   int i;
+  basic_block bb;
   rtx insn;
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.
      CUIDs are like UIDs except they increase monotonically, have no gaps,
-     and only apply to real insns.  */
+     and only apply to real insns.
+     (Actually, there are gaps, for insn that are not inside a basic block.
+     but we should never see those anyway, so this is OK.)  */
 
   max_uid = get_max_uid ();
   uid_cuid = gcalloc (max_uid + 1, sizeof (int));
-  for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
-    {
-      if (INSN_P (insn))
-	uid_cuid[INSN_UID (insn)] = i++;
-      else
-	uid_cuid[INSN_UID (insn)] = i;
-    }
+  i = 0;
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      {
+	if (INSN_P (insn))
+	  uid_cuid[INSN_UID (insn)] = i++;
+	else
+	  uid_cuid[INSN_UID (insn)] = i;
+      }
 
   /* Create a table mapping cuids to insns.  */
 
   max_cuid = i;
   cuid_insn = gcalloc (max_cuid + 1, sizeof (rtx));
-  for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      CUID_INSN (i++) = insn;
+  i = 0;
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      if (INSN_P (insn))
+	CUID_INSN (i++) = insn;
 
   /* Allocate vars to track sets of regs.  */
   reg_set_bitmap = BITMAP_ALLOC (NULL);
@@ -1141,13 +1149,15 @@ record_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
    `reg_set_table' for further documentation.  */
 
 static void
-compute_sets (rtx f)
+compute_sets (void)
 {
+  basic_block bb;
   rtx insn;
 
-  for (insn = f; insn != 0; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      note_stores (PATTERN (insn), record_set_info, insn);
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      if (INSN_P (insn))
+	note_stores (PATTERN (insn), record_set_info, insn);
 }
 
 /* Hash table support.  */
@@ -1361,6 +1371,11 @@ static int
 load_killed_in_block_p (basic_block bb, int uid_limit, rtx x, int avail_p)
 {
   rtx list_entry = modify_mem_list[bb->index];
+
+  /* If this is a readonly then we aren't going to be changing it.  */
+  if (MEM_READONLY_P (x))
+    return 0;
+
   while (list_entry)
     {
       rtx setter;
@@ -2038,9 +2053,7 @@ compute_hash_table_work (struct hash_table *table)
 	 ??? hard-reg reg_set_in_block computation
 	 could be moved to compute_sets since they currently don't change.  */
 
-      for (insn = BB_HEAD (current_bb);
-	   insn && insn != NEXT_INSN (BB_END (current_bb));
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (current_bb, insn)
 	{
 	  if (! INSN_P (insn))
 	    continue;
@@ -2064,10 +2077,8 @@ compute_hash_table_work (struct hash_table *table)
 		       BB_HEAD (current_bb), table);
 
       /* The next pass builds the hash table.  */
-
-      for (insn = BB_HEAD (current_bb), in_libcall_block = 0;
-	   insn && insn != NEXT_INSN (BB_END (current_bb));
-	   insn = NEXT_INSN (insn))
+      in_libcall_block = 0;
+      FOR_BB_INSNS (current_bb, insn)
 	if (INSN_P (insn))
 	  {
 	    if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
@@ -2457,51 +2468,53 @@ compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
       return;
 
     case MEM:
-      {
-	bitmap_iterator bi;
-	unsigned bb_index;
+      if (! MEM_READONLY_P (x))
+	{
+	  bitmap_iterator bi;
+	  unsigned bb_index;
 
-	/* First handle all the blocks with calls.  We don't need to
-	   do any list walking for them.  */
-	EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
-	  {
-	    if (set_p)
-	      SET_BIT (bmap[bb_index], indx);
-	    else
-	      RESET_BIT (bmap[bb_index], indx);
-	  }
+	  /* First handle all the blocks with calls.  We don't need to
+	     do any list walking for them.  */
+	  EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
+	    {
+	      if (set_p)
+		SET_BIT (bmap[bb_index], indx);
+	      else
+		RESET_BIT (bmap[bb_index], indx);
+	    }
 
-	/* Now iterate over the blocks which have memory modifications
-	   but which do not have any calls.  */
-	EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set, blocks_with_calls,
-					0, bb_index, bi)
-	  {
-	    rtx list_entry = canon_modify_mem_list[bb_index];
-
-	    while (list_entry)
+	    /* Now iterate over the blocks which have memory modifications
+	       but which do not have any calls.  */
+	    EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set, 
+					    blocks_with_calls,
+					    0, bb_index, bi)
 	      {
-		rtx dest, dest_addr;
+		rtx list_entry = canon_modify_mem_list[bb_index];
 
-		/* LIST_ENTRY must be an INSN of some kind that sets memory.
-		   Examine each hunk of memory that is modified.  */
-
-		dest = XEXP (list_entry, 0);
-		list_entry = XEXP (list_entry, 1);
-		dest_addr = XEXP (list_entry, 0);
-
-		if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
-					   x, rtx_addr_varies_p))
+		while (list_entry)
 		  {
-		    if (set_p)
-		      SET_BIT (bmap[bb_index], indx);
-		    else
-		      RESET_BIT (bmap[bb_index], indx);
-		    break;
-		  }
-		list_entry = XEXP (list_entry, 1);
+		    rtx dest, dest_addr;
+
+		    /* LIST_ENTRY must be an INSN of some kind that sets memory.
+		       Examine each hunk of memory that is modified.  */
+
+		    dest = XEXP (list_entry, 0);
+		    list_entry = XEXP (list_entry, 1);
+		    dest_addr = XEXP (list_entry, 0);
+
+		    if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
+					       x, rtx_addr_varies_p))
+		      {
+			if (set_p)
+			  SET_BIT (bmap[bb_index], indx);
+			else
+			  RESET_BIT (bmap[bb_index], indx);
+			break;
+		      }
+		    list_entry = XEXP (list_entry, 1);
+	          }
 	      }
-	  }
-      }
+	}
 
       x = XEXP (x, 0);
       goto repeat;
@@ -2664,7 +2677,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	 have a note, and have no special SET, add a REG_EQUAL note to not
 	 lose information.  */
       if (!success && note == 0 && set != 0
-	  && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT)
+	  && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT
+	  && GET_CODE (SET_DEST (set)) != STRICT_LOW_PART)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
 
@@ -2852,7 +2866,7 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
 }
 
 static bool
-constprop_register (rtx insn, rtx from, rtx to, int alter_jumps)
+constprop_register (rtx insn, rtx from, rtx to, bool alter_jumps)
 {
   rtx sset;
 
@@ -3030,7 +3044,7 @@ local_cprop_find_used_regs (rtx *xptr, void *data)
    their REG_EQUAL notes need updating.  */
 
 static bool
-do_local_cprop (rtx x, rtx insn, int alter_jumps, rtx *libcall_sp)
+do_local_cprop (rtx x, rtx insn, bool alter_jumps, rtx *libcall_sp)
 {
   rtx newreg = NULL, newcnst = NULL;
 
@@ -3148,9 +3162,14 @@ adjust_libcall_notes (rtx oldreg, rtx newval, rtx insn, rtx *libcall_sp)
 
 #define MAX_NESTED_LIBCALLS 9
 
+/* Do local const/copy propagation (i.e. within each basic block).
+   If ALTER_JUMPS is true, allow propagating into jump insns, which
+   could modify the CFG.  */
+
 static void
-local_cprop_pass (int alter_jumps)
+local_cprop_pass (bool alter_jumps)
 {
+  basic_block bb;
   rtx insn;
   struct reg_use *reg_used;
   rtx libcall_stack[MAX_NESTED_LIBCALLS + 1], *libcall_sp;
@@ -3159,51 +3178,62 @@ local_cprop_pass (int alter_jumps)
   cselib_init (false);
   libcall_sp = &libcall_stack[MAX_NESTED_LIBCALLS];
   *libcall_sp = 0;
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+  FOR_EACH_BB (bb)
     {
-      if (INSN_P (insn))
+      FOR_BB_INSNS (bb, insn)
 	{
-	  rtx note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
+	  if (INSN_P (insn))
+	    {
+	      rtx note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
 
-	  if (note)
-	    {
-	      gcc_assert (libcall_sp != libcall_stack);
-	      *--libcall_sp = XEXP (note, 0);
-	    }
-	  note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
-	  if (note)
-	    libcall_sp++;
-	  note = find_reg_equal_equiv_note (insn);
-	  do
-	    {
-	      reg_use_count = 0;
-	      note_uses (&PATTERN (insn), local_cprop_find_used_regs, NULL);
 	      if (note)
-		local_cprop_find_used_regs (&XEXP (note, 0), NULL);
+		{
+		  gcc_assert (libcall_sp != libcall_stack);
+		  *--libcall_sp = XEXP (note, 0);
+		}
+	      note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
+	      if (note)
+		libcall_sp++;
+	      note = find_reg_equal_equiv_note (insn);
+	      do
+		{
+		  reg_use_count = 0;
+		  note_uses (&PATTERN (insn), local_cprop_find_used_regs,
+			     NULL);
+		  if (note)
+		    local_cprop_find_used_regs (&XEXP (note, 0), NULL);
 
-	      for (reg_used = &reg_use_table[0]; reg_use_count > 0;
-		   reg_used++, reg_use_count--)
-		if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
-		    libcall_sp))
-		  {
-		    changed = true;
+		  for (reg_used = &reg_use_table[0]; reg_use_count > 0;
+		       reg_used++, reg_use_count--)
+		    if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
+			libcall_sp))
+		      {
+			changed = true;
+			break;
+		      }
+		  if (INSN_DELETED_P (insn))
 		    break;
-		  }
-	      if (INSN_DELETED_P (insn))
-		break;
+		}
+	      while (reg_use_count);
 	    }
-	  while (reg_use_count);
+	  cselib_process_insn (insn);
 	}
-      cselib_process_insn (insn);
+
+      /* Forget everything at the end of a basic block.  Make sure we are
+	 not inside a libcall, they should never cross basic blocks.  */
+      cselib_clear_table ();
+      gcc_assert (libcall_sp == &libcall_stack[MAX_NESTED_LIBCALLS]);
     }
+
   cselib_finish ();
+
   /* Global analysis may get into infinite loops for unreachable blocks.  */
   if (changed && alter_jumps)
     {
       delete_unreachable_blocks ();
       free_reg_set_mem ();
       alloc_reg_set_mem (max_reg_num ());
-      compute_sets (get_insns ());
+      compute_sets ();
     }
 }
 
@@ -3232,9 +3262,7 @@ cprop (int alter_jumps)
 	 start of the block].  */
       reset_opr_set_tables ();
 
-      for (insn = BB_HEAD (bb);
-	   insn != NULL && insn != NEXT_INSN (BB_END (bb));
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
 	    changed |= cprop_insn (insn, alter_jumps);
@@ -3358,7 +3386,7 @@ find_implicit_sets (void)
    perform conditional jump bypassing optimizations.  */
 
 static int
-one_cprop_pass (int pass, int cprop_jumps, int bypass_jumps)
+one_cprop_pass (int pass, bool cprop_jumps, bool bypass_jumps)
 {
   int changed = 0;
 
@@ -3396,7 +3424,7 @@ one_cprop_pass (int pass, int cprop_jumps, int bypass_jumps)
     {
       fprintf (gcse_file, "CPROP of %s, pass %d: %d bytes needed, ",
 	       current_function_name (), pass, bytes_used);
-      fprintf (gcse_file, "%d local const props, %d local copy props\n\n",
+      fprintf (gcse_file, "%d local const props, %d local copy props, ",
 	       local_const_prop_count, local_copy_prop_count);
       fprintf (gcse_file, "%d global const props, %d global copy props\n\n",
 	       global_const_prop_count, global_copy_prop_count);
@@ -3665,9 +3693,7 @@ bypass_conditional_jumps (void)
       if (!single_pred_p (bb))
 	{
 	  setcc = NULL_RTX;
-	  for (insn = BB_HEAD (bb);
-	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
-	       insn = NEXT_INSN (insn))
+	  FOR_BB_INSNS (bb, insn)
 	    if (NONJUMP_INSN_P (insn))
 	      {
 		if (setcc)
@@ -4873,7 +4899,7 @@ hoist_code (void)
 	  insn_inserted_p = 0;
 
 	  /* These tests should be the same as the tests above.  */
-	  if (TEST_BIT (hoist_vbeout[bb->index], i))
+	  if (TEST_BIT (hoist_exprs[bb->index], i))
 	    {
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
@@ -5221,9 +5247,7 @@ compute_ld_motion_mems (void)
 
   FOR_EACH_BB (bb)
     {
-      for (insn = BB_HEAD (bb);
-	   insn && insn != NEXT_INSN (BB_END (bb));
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	{
 	  if (INSN_P (insn))
 	    {
@@ -5678,9 +5702,7 @@ compute_store_table (void)
       /* First compute the registers set in this block.  */
       regvec = last_set_in;
 
-      for (insn = BB_HEAD (bb);
-	   insn != NEXT_INSN (BB_END (bb));
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	{
 	  if (! INSN_P (insn))
 	    continue;
@@ -5703,9 +5725,7 @@ compute_store_table (void)
       /* Now find the stores.  */
       memset (already_set, 0, sizeof (int) * max_gcse_regno);
       regvec = already_set;
-      for (insn = BB_HEAD (bb);
-	   insn != NEXT_INSN (BB_END (bb));
-	   insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	{
 	  if (! INSN_P (insn))
 	    continue;
@@ -6477,11 +6497,11 @@ bypass_jumps (FILE *file)
      information about memory sets when we build the hash tables.  */
 
   alloc_reg_set_mem (max_gcse_regno);
-  compute_sets (get_insns ());
+  compute_sets ();
 
   max_gcse_regno = max_reg_num ();
-  alloc_gcse_mem (get_insns ());
-  changed = one_cprop_pass (MAX_GCSE_PASSES + 2, 1, 1);
+  alloc_gcse_mem ();
+  changed = one_cprop_pass (MAX_GCSE_PASSES + 2, true, true);
   free_gcse_mem ();
 
   if (file)
@@ -6518,9 +6538,9 @@ is_too_expensive (const char *pass)
      graceful degradation.  */
   if (n_edges > 20000 + n_basic_blocks * 4)
     {
-      if (warn_disabled_optimization)
-	warning ("%s: %d basic blocks and %d edges/basic block",
-		 pass, n_basic_blocks, n_edges / n_basic_blocks);
+      warning (OPT_Wdisabled_optimization,
+	       "%s: %d basic blocks and %d edges/basic block",
+	       pass, n_basic_blocks, n_edges / n_basic_blocks);
 
       return true;
     }
@@ -6531,14 +6551,122 @@ is_too_expensive (const char *pass)
        * SBITMAP_SET_SIZE (max_reg_num ())
        * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
     {
-      if (warn_disabled_optimization)
-	warning ("%s: %d basic blocks and %d registers",
-		 pass, n_basic_blocks, max_reg_num ());
+      warning (OPT_Wdisabled_optimization,
+	       "%s: %d basic blocks and %d registers",
+	       pass, n_basic_blocks, max_reg_num ());
 
       return true;
     }
 
   return false;
 }
+
+static bool
+gate_handle_jump_bypass (void)
+{
+  return optimize > 0 && flag_gcse;
+}
+
+/* Perform jump bypassing and control flow optimizations.  */
+static void
+rest_of_handle_jump_bypass (void)
+{
+  cleanup_cfg (CLEANUP_EXPENSIVE);
+  reg_scan (get_insns (), max_reg_num ());
+
+  if (bypass_jumps (dump_file))
+    {
+      rebuild_jump_labels (get_insns ());
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+    }
+}
+
+struct tree_opt_pass pass_jump_bypass =
+{
+  "bypass",                             /* name */
+  gate_handle_jump_bypass,              /* gate */   
+  rest_of_handle_jump_bypass,           /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_BYPASS,                            /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect | TODO_verify_flow,  /* todo_flags_finish */
+  'G'                                   /* letter */
+};
+
+
+static bool
+gate_handle_gcse (void)
+{
+  return optimize > 0 && flag_gcse;
+}
+
+
+static void
+rest_of_handle_gcse (void)
+{
+  int save_csb, save_cfj;
+  int tem2 = 0, tem;
+
+  tem = gcse_main (get_insns (), dump_file);
+  rebuild_jump_labels (get_insns ());
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  save_csb = flag_cse_skip_blocks;
+  save_cfj = flag_cse_follow_jumps;
+  flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
+
+  /* If -fexpensive-optimizations, re-run CSE to clean up things done
+     by gcse.  */
+  if (flag_expensive_optimizations)
+    {
+      timevar_push (TV_CSE);
+      reg_scan (get_insns (), max_reg_num ());
+      tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
+      purge_all_dead_edges ();
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      timevar_pop (TV_CSE);
+      cse_not_expected = !flag_rerun_cse_after_loop;
+    }
+
+  /* If gcse or cse altered any jumps, rerun jump optimizations to clean
+     things up.  */
+  if (tem || tem2)
+    {
+      timevar_push (TV_JUMP);
+      rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      timevar_pop (TV_JUMP);
+    }
+
+  flag_cse_skip_blocks = save_csb;
+  flag_cse_follow_jumps = save_cfj;
+}
+
+struct tree_opt_pass pass_gcse =
+{
+  "gcse1",                              /* name */
+  gate_handle_gcse,                     /* gate */   
+  rest_of_handle_gcse,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_GCSE,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
+  'G'                                   /* letter */
+};
+
 
 #include "gt-gcse.h"

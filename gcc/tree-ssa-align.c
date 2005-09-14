@@ -642,6 +642,7 @@ dump_align_info (FILE *file)
   size_t i;
   const char *fname =
     lang_hooks.decl_printable_name (current_function_decl, 2);
+  ssa_op_iter iter;
 
   fprintf (file, "\nAlignment info for pointers in %s\n\n", fname);
 
@@ -659,7 +660,7 @@ dump_align_info (FILE *file)
 	}
     }
 
-  /* Dump points-to information for every pointer defined in the program.  */
+  /* Dump points-to information for every pointer defined in the program.  */  
   FOR_EACH_BB (bb)
     {
       tree phi;
@@ -673,14 +674,14 @@ dump_align_info (FILE *file)
 
 	for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	  {
-	    stmt_ann_t ann = stmt_ann (bsi_stmt (si));
-	    def_optype defs = DEF_OPS (ann);
-	    if (defs)
-	      for (i = 0; i < NUM_DEFS (defs); i++)
-		if (POINTER_TYPE_P (TREE_TYPE (DEF_OP (defs, i))))
-		  dump_align_info_for (file, DEF_OP (defs, i));
+            tree stmt = bsi_stmt (si);
+            def_operand_p def_p;
+ 
+            FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
+	      if (POINTER_TYPE_P (TREE_TYPE (DEF_FROM_PTR (def_p))))
+	        dump_align_info_for (file, DEF_FROM_PTR (def_p));
 	  }
-    }
+    } 
 
   fprintf (file, "\n");
 }

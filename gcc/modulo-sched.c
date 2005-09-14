@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -47,6 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gcov-io.h"
 #include "df.h"
 #include "ddg.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -104,8 +106,6 @@ typedef struct ps_insn *ps_insn_ptr;
    the stage boundaries are placed efficiently.  */
 #define PS_STAGE_COUNT(ps) ((PS_MAX_CYCLE (ps) - PS_MIN_CYCLE (ps) \
 			     + 1 + (ps)->ii - 1) / (ps)->ii)
-
-#define CFG_HOOKS cfg_layout_rtl_cfg_hooks
 
 /* A single instruction in the partial schedule.  */
 struct ps_insn
@@ -271,74 +271,35 @@ static struct sched_info sms_sched_info =
 };
 
 
-/* Return the register decremented and tested or zero if it is not a decrement
-   and branch jump insn (similar to doloop_condition_get).  */
+/* Return the register decremented and tested in INSN,
+   or zero if it is not a decrement-and-branch insn.  */
+
 static rtx
-doloop_register_get (rtx insn, rtx *comp)
+doloop_register_get (rtx insn ATTRIBUTE_UNUSED)
 {
-  rtx pattern, cmp, inc, reg, condition;
+#ifdef HAVE_doloop_end
+  rtx pattern, reg, condition;
 
-  if (!JUMP_P (insn))
+  if (! JUMP_P (insn))
     return NULL_RTX;
+
   pattern = PATTERN (insn);
-
-  /* The canonical doloop pattern we expect is:
-
-     (parallel [(set (pc) (if_then_else (condition)
-					(label_ref (label))
-					(pc)))
-		(set (reg) (plus (reg) (const_int -1)))
-		(additional clobbers and uses)])
-
-    where condition is further restricted to be
-      (ne (reg) (const_int 1)).  */
-
-  if (GET_CODE (pattern) != PARALLEL)
+  condition = doloop_condition_get (pattern);
+  if (! condition)
     return NULL_RTX;
 
-  cmp = XVECEXP (pattern, 0, 0);
-  inc = XVECEXP (pattern, 0, 1);
-  /* Return the compare rtx.  */
-  *comp = cmp;
+  if (REG_P (XEXP (condition, 0)))
+    reg = XEXP (condition, 0);
+  else if (GET_CODE (XEXP (condition, 0)) == PLUS
+	   && REG_P (XEXP (XEXP (condition, 0), 0)))
+    reg = XEXP (XEXP (condition, 0), 0);
+  else
+    gcc_unreachable ();
 
-  /* Check for (set (reg) (something)).  */
-  if (GET_CODE (inc) != SET || ! REG_P (SET_DEST (inc)))
-    return NULL_RTX;
-
-  /* Extract loop counter register.  */
-  reg = SET_DEST (inc);
-
-  /* Check if something = (plus (reg) (const_int -1)).  */
-  if (GET_CODE (SET_SRC (inc)) != PLUS
-      || XEXP (SET_SRC (inc), 0) != reg
-      || XEXP (SET_SRC (inc), 1) != constm1_rtx)
-    return NULL_RTX;
-
-  /* Check for (set (pc) (if_then_else (condition)
-				       (label_ref (label))
-				       (pc))).  */
-  if (GET_CODE (cmp) != SET
-      || SET_DEST (cmp) != pc_rtx
-      || GET_CODE (SET_SRC (cmp)) != IF_THEN_ELSE
-      || GET_CODE (XEXP (SET_SRC (cmp), 1)) != LABEL_REF
-      || XEXP (SET_SRC (cmp), 2) != pc_rtx)
-    return NULL_RTX;
-
-  /* Extract loop termination condition.  */
-  condition = XEXP (SET_SRC (cmp), 0);
-
-  /* Check if condition = (ne (reg) (const_int 1)), which is more
-     restrictive than the check in doloop_condition_get:
-     if ((GET_CODE (condition) != GE && GET_CODE (condition) != NE)
-	 || GET_CODE (XEXP (condition, 1)) != CONST_INT).  */
-  if (GET_CODE (condition) != NE
-      || XEXP (condition, 1) != const1_rtx)
-    return NULL_RTX;
-
-  if (XEXP (condition, 0) == reg)
-    return reg;
-
+  return reg;
+#else
   return NULL_RTX;
+#endif
 }
 
 /* Check if COUNT_REG is set to a constant in the PRE_HEADER block, so
@@ -540,9 +501,10 @@ generate_reg_moves (partial_schedule_ptr ps)
 
       for (i_reg_move = 0; i_reg_move < nreg_moves; i_reg_move++)
 	{
-	  int i_use;
+	  unsigned int i_use = 0;
 	  rtx new_reg = gen_reg_rtx (GET_MODE (prev_reg));
 	  rtx reg_move = gen_move_insn (new_reg, prev_reg);
+	  sbitmap_iterator sbi;
 
 	  add_insn_before (reg_move, last_reg_move);
 	  last_reg_move = reg_move;
@@ -550,7 +512,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  if (!SCHED_FIRST_REG_MOVE (u))
 	    SCHED_FIRST_REG_MOVE (u) = reg_move;
 
-	  EXECUTE_IF_SET_IN_SBITMAP (uses_of_defs[i_reg_move], 0, i_use,
+	  EXECUTE_IF_SET_IN_SBITMAP (uses_of_defs[i_reg_move], 0, i_use, sbi)
 	    {
 	      struct undo_replace_buff_elem *rep;
 
@@ -569,7 +531,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 		}
 
 	      replace_rtx (g->nodes[i_use].insn, old_reg, new_reg);
-	    });
+	    }
 
 	  prev_reg = new_reg;
 	}
@@ -599,6 +561,7 @@ undo_generate_reg_moves (partial_schedule_ptr ps,
 	  delete_insn (crr);
 	  crr = prev;
 	}
+      SCHED_FIRST_REG_MOVE (u) = NULL_RTX;
     }
 
   while (reg_move_replaces)
@@ -640,8 +603,7 @@ normalize_sched_times (partial_schedule_ptr ps)
       ddg_node_ptr u = &g->nodes[i];
       int normalized_time = SCHED_TIME (u) - amount;
 
-      if (normalized_time < 0)
-	abort ();
+      gcc_assert (normalized_time >= 0);
 
       SCHED_TIME (u) = normalized_time;
       SCHED_ROW (u) = normalized_time % ii;
@@ -1003,7 +965,7 @@ sms_schedule (FILE *dump_file)
       int temp = reload_completed;
 
       reload_completed = 1;
-      issue_rate = (*targetm.sched.issue_rate) ();
+      issue_rate = targetm.sched.issue_rate ();
       reload_completed = temp;
     }
   else
@@ -1027,7 +989,7 @@ sms_schedule (FILE *dump_file)
   for (i = 0; i < loops->num; i++)
     {
       rtx head, tail;
-      rtx count_reg, comp;
+      rtx count_reg;
       struct loop *loop = loops->parray[i];
 
       /* For debugging.  */
@@ -1090,7 +1052,7 @@ sms_schedule (FILE *dump_file)
         }
 
       /* Make sure this is a doloop.  */
-      if ( !(count_reg = doloop_register_get (tail, &comp)))
+      if ( !(count_reg = doloop_register_get (tail)))
 	continue;
 
       /* Don't handle BBs with calls or barriers, or !single_set insns.  */
@@ -1136,7 +1098,7 @@ sms_schedule (FILE *dump_file)
   for (i = 0; i < num_loops; i++)
     {
       rtx head, tail;
-      rtx count_reg, count_init, comp;
+      rtx count_reg, count_init;
       int mii, rec_mii;
       unsigned stage_count = 0;
       HOST_WIDEST_INT loop_count = 0;
@@ -1188,7 +1150,7 @@ sms_schedule (FILE *dump_file)
       /* In case of th loop have doloop register it gets special
 	 handling.  */
       count_init = NULL_RTX;
-      if ((count_reg = doloop_register_get (tail, &comp)))
+      if ((count_reg = doloop_register_get (tail)))
 	{
 	  basic_block pre_header;
 
@@ -1286,7 +1248,7 @@ sms_schedule (FILE *dump_file)
 	      /* SMS is not profitable so undo the permutation and reg move generation
 	         and return the kernel to its original state.  */
 	      if (dump_file)
-		fprintf (dump_file, "Undoing SMS becuase it is not profitable.\n");
+		fprintf (dump_file, "Undoing SMS because it is not profitable.\n");
 
 	    }
 	  else
@@ -1299,7 +1261,8 @@ sms_schedule (FILE *dump_file)
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
 
-		  nloop = loop_version (loops, loop, comp_rtx, &condition_bb);
+		  nloop = loop_version (loops, loop, comp_rtx, &condition_bb,
+					true);
 		}
 
 	      /* Set new iteration count of loop kernel.  */
@@ -1735,8 +1698,7 @@ check_nodes_order (int *node_order, int num_nodes)
     {
       int u = node_order[i];
 
-      if (u >= num_nodes || u < 0 || TEST_BIT (tmp, u))
-	abort ();
+      gcc_assert (u < num_nodes && u >= 0 && !TEST_BIT (tmp, u));
 
       SET_BIT (tmp, u);
     }
@@ -1884,11 +1846,12 @@ calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED)
 static int
 find_max_asap (ddg_ptr g, sbitmap nodes)
 {
-  int u;
+  unsigned int u = 0;
   int max_asap = -1;
   int result = -1;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u,
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -1897,19 +1860,20 @@ find_max_asap (ddg_ptr g, sbitmap nodes)
 	  max_asap = ASAP (u_node);
 	  result = u;
 	}
-    });
+    }
   return result;
 }
 
 static int
 find_max_hv_min_mob (ddg_ptr g, sbitmap nodes)
 {
-  int u;
+  unsigned int u = 0;
   int max_hv = -1;
   int min_mob = INT_MAX;
   int result = -1;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u,
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -1925,19 +1889,20 @@ find_max_hv_min_mob (ddg_ptr g, sbitmap nodes)
 	  min_mob = MOB (u_node);
 	  result = u;
 	}
-    });
+    }
   return result;
 }
 
 static int
 find_max_dv_min_mob (ddg_ptr g, sbitmap nodes)
 {
-  int u;
+  unsigned int u = 0;
   int max_dv = -1;
   int min_mob = INT_MAX;
   int result = -1;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u,
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -1953,7 +1918,7 @@ find_max_dv_min_mob (ddg_ptr g, sbitmap nodes)
 	  min_mob = MOB (u_node);
 	  result = u;
 	}
-    });
+    }
   return result;
 }
 
@@ -2346,13 +2311,13 @@ advance_one_cycle (void)
 {
   if (targetm.sched.dfa_pre_cycle_insn)
     state_transition (curr_state,
-		      (*targetm.sched.dfa_pre_cycle_insn) ());
+		      targetm.sched.dfa_pre_cycle_insn ());
 
   state_transition (curr_state, NULL);
 
   if (targetm.sched.dfa_post_cycle_insn)
     state_transition (curr_state,
-		      (*targetm.sched.dfa_post_cycle_insn) ());
+		      targetm.sched.dfa_post_cycle_insn ());
 }
 
 /* Given the kernel of a loop (from FIRST_INSN to LAST_INSN), finds
@@ -2396,8 +2361,8 @@ kernel_number_of_cycles (rtx first_insn, rtx last_insn)
 
       if (targetm.sched.variable_issue)
 	can_issue_more =
-	  (*targetm.sched.variable_issue) (sched_dump, sched_verbose,
-					   insn, can_issue_more);
+	  targetm.sched.variable_issue (sched_dump, sched_verbose,
+					insn, can_issue_more);
       /* A naked CLOBBER or USE generates no instruction, so don't
 	 let them consume issue slots.  */
       else if (GET_CODE (PATTERN (insn)) != USE
@@ -2444,8 +2409,8 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 
 	  if (targetm.sched.variable_issue)
 	    can_issue_more =
-	      (*targetm.sched.variable_issue) (sched_dump, sched_verbose,
-					       insn, can_issue_more);
+	      targetm.sched.variable_issue (sched_dump, sched_verbose,
+					    insn, can_issue_more);
 	  /* A naked CLOBBER or USE generates no instruction, so don't
 	     let them consume issue slots.  */
 	  else if (GET_CODE (PATTERN (insn)) != USE
@@ -2555,5 +2520,67 @@ ps_unschedule_node (partial_schedule_ptr ps, ddg_node_ptr n)
 
   return remove_node_from_ps (ps, ps_i);
 }
-#endif /* INSN_SCHEDULING*/
+#endif /* INSN_SCHEDULING */
+
+static bool
+gate_handle_sms (void)
+{
+  return (optimize > 0 && flag_modulo_sched);
+}
+
+
+/* Run instruction scheduler.  */
+/* Perform SMS module scheduling.  */
+static void
+rest_of_handle_sms (void)
+{
+#ifdef INSN_SCHEDULING
+  basic_block bb;
+  sbitmap blocks;
+
+  /* We want to be able to create new pseudos.  */
+  no_new_pseudos = 0;
+  /* Collect loop information to be used in SMS.  */
+  cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
+  sms_schedule (dump_file);
+
+  /* Update the life information, because we add pseudos.  */
+  max_regno = max_reg_num ();
+  allocate_reg_info (max_regno, FALSE, FALSE);
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_ones (blocks);
+  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+                    (PROP_DEATH_NOTES
+                     | PROP_REG_INFO
+                     | PROP_KILL_DEAD_CODE
+                     | PROP_SCAN_DEAD_CODE));
+
+  no_new_pseudos = 1;
+
+  /* Finalize layout changes.  */
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->aux = bb->next_bb;
+  cfg_layout_finalize ();
+  free_dominance_info (CDI_DOMINATORS);
+#endif /* INSN_SCHEDULING */
+}
+
+struct tree_opt_pass pass_sms =
+{
+  "sms",                                /* name */
+  gate_handle_sms,                      /* gate */
+  rest_of_handle_sms,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SMS,                               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'm'                                   /* letter */
+};
 

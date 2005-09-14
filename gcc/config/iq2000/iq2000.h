@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* Driver configuration.  */
 
@@ -301,7 +301,7 @@ enum reg_class
 
 #define STACK_GROWS_DOWNWARD
 
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 0
 
 #define STARTING_FRAME_OFFSET						\
   (current_function_outgoing_args_size)
@@ -1068,11 +1068,6 @@ extern void		sbss_section  (void);
 
 #define SDATA_SECTION_ASM_OP	"\t.sdata"	/* Small data.  */
 
-
-/* See iq2000_expand_prologue's use of loadgp for when this should be
-   true.  */
-
-#define DONT_ACCESS_GBLS_AFTER_EPILOGUE 0
 
 /* List of all IQ2000 punctuation characters used by print_operand.  */
 extern char iq2000_print_operand_punct[256];

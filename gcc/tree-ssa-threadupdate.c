@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -148,6 +147,16 @@ struct local_info
   bool jumps_threaded;
 };
 
+/* Jump threading statistics.  */
+
+struct thread_stats_d
+{
+  unsigned long num_threaded_edges;
+};
+
+struct thread_stats_d thread_stats;
+
+
 /* Remove the last statement in block BB if it is a control statement
    Also remove all outgoing edges except the edge which reaches DEST_BB.
    If DEST_BB is NULL, then remove all outgoing edges.  */
@@ -190,7 +199,7 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
 {
   /* We can use the generic block duplication code and simply remove
      the stuff we do not need.  */
-  rd->dup_block = duplicate_block (bb, NULL);
+  rd->dup_block = duplicate_block (bb, NULL, NULL);
 
   /* Zero out the profile, since the block is unreachable for now.  */
   rd->dup_block->frequency = 0;
@@ -298,6 +307,9 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
 {
   edge e = make_edge (rd->dup_block, rd->outgoing_edge->dest, EDGE_FALLTHRU);
   tree phi;
+
+  e->probability = REG_BR_PROB_BASE;
+  e->count = rd->dup_block->count;
 
   /* If there are any PHI nodes at the destination of the outgoing edge
      from the duplicate block, then we will need to add a new argument
@@ -587,6 +599,8 @@ redirect_edges (void **slot, void *data)
          to clear it will cause all kinds of unpleasant problems later.  */
       e->aux = NULL;
 
+      thread_stats.num_threaded_edges++;
+
       if (rd->dup_block)
 	{
 	  edge e2;
@@ -595,6 +609,9 @@ redirect_edges (void **slot, void *data)
 	    fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		     e->src->index, e->dest->index, rd->dup_block->index);
 
+	  rd->dup_block->count += e->count;
+	  rd->dup_block->frequency += EDGE_FREQUENCY (e);
+	  EDGE_SUCC (rd->dup_block, 0)->count += e->count;
 	  /* Redirect the incoming edge to the appropriate duplicate
 	     block.  */
 	  e2 = redirect_edge_and_branch (e, rd->dup_block);
@@ -648,8 +665,8 @@ redirect_edges (void **slot, void *data)
    the appropriate duplicate of BB.
 
    BB and its duplicates will have assignments to the same set of
-   SSA_NAMEs.  Right now, we just call into rewrite_ssa_into_ssa
-   to update the SSA graph for those names.
+   SSA_NAMEs.  Right now, we just call into update_ssa to update the
+   SSA graph for those names.
 
    We are also going to experiment with a true incremental update
    scheme for the duplicated resources.  One of the interesting
@@ -707,6 +724,8 @@ thread_block (basic_block bb)
       else
 	{
 	  edge e2 = e->aux;
+	  update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
+					   e->count, e->aux);
 
 	  /* If we thread to a loop exit edge, then we will need to 
 	     rediscover the loop exit edges.  While it may seem that
@@ -802,22 +821,26 @@ thread_block (basic_block bb)
    Returns true if one or more edges were threaded, false otherwise.  */
 
 bool
-thread_through_all_blocks (void)
+thread_through_all_blocks (bitmap threaded_blocks)
 {
-  basic_block bb;
   bool retval = false;
+  unsigned int i;
+  bitmap_iterator bi;
 
   rediscover_loops_after_threading = false;
+  memset (&thread_stats, 0, sizeof (thread_stats));
 
-  FOR_EACH_BB (bb)
+  EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
     {
-      if (bb_ann (bb)->incoming_edge_threaded)
-	{
-	  retval |= thread_block (bb);
-	  bb_ann (bb)->incoming_edge_threaded = false;
-	  
-	}
+      basic_block bb = BASIC_BLOCK (i);
+
+      if (EDGE_COUNT (bb->preds) > 0)
+	retval |= thread_block (bb);
     }
+
+  if (dump_file && (dump_flags & TDF_STATS))
+    fprintf (dump_file, "\nJumps threaded: %lu\n",
+	     thread_stats.num_threaded_edges);
 
   return retval;
 }

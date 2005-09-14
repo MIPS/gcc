@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* The migration of target macros to target hooks works as follows:
 
@@ -61,6 +61,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
+#include "ggc.h"
 
 
 void
@@ -262,6 +263,30 @@ default_scalar_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
+   an error message.
+  
+   This function checks whether a given INSN is valid within a low-overhead
+   loop.  If INSN is invalid it returns the reason for that, otherwise it
+   returns NULL. A called function may clobber any special registers required
+   for low-overhead looping. Additionally, some targets (eg, PPC) use the count
+   register for branch on table instructions. We reject the doloop pattern in
+   these cases.  */
+
+const char *
+default_invalid_within_doloop (rtx insn)
+{
+  if (CALL_P (insn))
+    return "Function call in loop.";
+  
+  if (JUMP_P (insn)
+      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+	  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
+    return "Computed branch in the loop.";
+  
+  return NULL;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
@@ -297,3 +322,121 @@ hook_invalid_arg_for_unprototyped_fn (
 {
   return NULL;
 }
+
+/* Initialize the stack protection decls.  */
+
+/* Stack protection related decls living in libgcc.  */
+static GTY(()) tree stack_chk_guard_decl;
+
+tree
+default_stack_protect_guard (void)
+{
+  tree t = stack_chk_guard_decl;
+
+  if (t == NULL)
+    {
+      t = build_decl (VAR_DECL, get_identifier ("__stack_chk_guard"),
+		      ptr_type_node);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      TREE_THIS_VOLATILE (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+
+      stack_chk_guard_decl = t;
+    }
+
+  return t;
+}
+
+static GTY(()) tree stack_chk_fail_decl;
+
+tree 
+default_external_stack_protect_fail (void)
+{
+  tree t = stack_chk_fail_decl;
+
+  if (t == NULL_TREE)
+    {
+      t = build_function_type_list (void_type_node, NULL_TREE);
+      t = build_decl (FUNCTION_DECL, get_identifier ("__stack_chk_fail"), t);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      TREE_THIS_VOLATILE (t) = 1;
+      TREE_NOTHROW (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+
+      stack_chk_fail_decl = t;
+    }
+
+  return build_function_call_expr (t, NULL_TREE);
+}
+
+tree
+default_hidden_stack_protect_fail (void)
+{
+#ifndef HAVE_GAS_HIDDEN
+  return default_external_stack_protect_fail ();
+#else
+  tree t = stack_chk_fail_decl;
+
+  if (!flag_pic)
+    return default_external_stack_protect_fail ();
+
+  if (t == NULL_TREE)
+    {
+      t = build_function_type_list (void_type_node, NULL_TREE);
+      t = build_decl (FUNCTION_DECL,
+		      get_identifier ("__stack_chk_fail_local"), t);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      TREE_THIS_VOLATILE (t) = 1;
+      TREE_NOTHROW (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+      DECL_VISIBILITY_SPECIFIED (t) = 1;
+      DECL_VISIBILITY (t) = VISIBILITY_HIDDEN;
+
+      stack_chk_fail_decl = t;
+    }
+
+  return build_function_call_expr (t, NULL_TREE);
+#endif
+}
+
+bool
+hook_bool_rtx_commutative_p (rtx x, int outer_code ATTRIBUTE_UNUSED)
+{
+  return COMMUTATIVE_P (x);
+}
+
+rtx
+default_function_value (tree ret_type ATTRIBUTE_UNUSED,
+			tree fn_decl_or_type,
+			bool outgoing ATTRIBUTE_UNUSED)
+{
+  /* The old interface doesn't handle receiving the function type.  */
+  if (fn_decl_or_type
+      && !DECL_P (fn_decl_or_type))
+    fn_decl_or_type = NULL;
+
+#ifdef FUNCTION_OUTGOING_VALUE
+  if (outgoing)
+    return FUNCTION_OUTGOING_VALUE (ret_type, fn_decl_or_type);
+#endif
+
+#ifdef FUNCTION_VALUE
+  return FUNCTION_VALUE (ret_type, fn_decl_or_type);
+#else
+  return NULL_RTX;
+#endif
+}
+
+#include "gt-targhooks.h"

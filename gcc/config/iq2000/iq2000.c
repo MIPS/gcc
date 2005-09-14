@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Vitesse IQ2000 processors
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -500,7 +500,7 @@ abort_with_insn (rtx insn, const char * reason)
 {
   error (reason);
   debug_rtx (insn);
-  abort ();
+  fancy_abort (__FILE__, __LINE__, __FUNCTION__);
 }
 
 /* Return the appropriate instructions to move one operand to another.  */
@@ -872,8 +872,7 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0, rtx cmp1,
   rtx reg2;
 
   test = map_test_to_internal_test (test_code);
-  if (test == ITEST_MAX)
-    abort ();
+  gcc_assert (test != ITEST_MAX);
 
   p_info = &info[(int) test];
   eqne_p = (p_info->test_code == XOR);
@@ -1125,7 +1124,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	       "function_adv({gp reg found = %d, arg # = %2d, words = %2d}, %4s, ",
 	       cum->gp_reg_found, cum->arg_number, cum->arg_words,
 	       GET_MODE_NAME (mode));
-      fprintf (stderr, HOST_PTR_PRINTF, (const PTR) type);
+      fprintf (stderr, "%p", (void *) type);
       fprintf (stderr, ", %d )\n\n", named);
     }
 
@@ -1136,9 +1135,8 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
       break;
 
     default:
-      if (GET_MODE_CLASS (mode) != MODE_COMPLEX_INT
-	  && GET_MODE_CLASS (mode) != MODE_COMPLEX_FLOAT)
-	abort ();
+      gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
+		  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
 
       cum->gp_reg_found = 1;
       cum->arg_words += ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)
@@ -1199,7 +1197,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	       "function_arg( {gp reg found = %d, arg # = %2d, words = %2d}, %4s, ",
 	       cum->gp_reg_found, cum->arg_number, cum->arg_words,
 	       GET_MODE_NAME (mode));
-      fprintf (stderr, HOST_PTR_PRINTF, (const PTR) type);
+      fprintf (stderr, "%p", (void *) type);
       fprintf (stderr, ", %d ) = ", named);
     }
 
@@ -1218,9 +1216,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
       break;
 
     default:
-      if (GET_MODE_CLASS (mode) != MODE_COMPLEX_INT
-	  && GET_MODE_CLASS (mode) != MODE_COMPLEX_FLOAT)
-	abort ();
+      gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
+		  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
 
       /* Drops through.  */
     case BLKmode:
@@ -1250,8 +1247,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
     }
   else
     {
-      if (regbase == -1)
-	abort ();
+      gcc_assert (regbase != -1);
 
       if (! type || TREE_CODE (type) != RECORD_TYPE
 	  || ! named  || ! TYPE_SIZE_UNIT (type)
@@ -1781,9 +1777,8 @@ save_restore_insns (int store_p)
   HOST_WIDE_INT gp_offset;
   HOST_WIDE_INT end_offset;
 
-  if (frame_pointer_needed
-      && ! BITSET_P (mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
-    abort ();
+  gcc_assert (!frame_pointer_needed
+	      || BITSET_P (mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST));
 
   if (mask == 0)
     {
@@ -1810,7 +1805,7 @@ save_restore_insns (int store_p)
 
   if (gp_offset < 0 || end_offset < 0)
     internal_error
-      ("gp_offset (%ld) or end_offset (%ld) is less than zero.",
+      ("gp_offset (%ld) or end_offset (%ld) is less than zero",
        (long) gp_offset, (long) end_offset);
 
   else if (gp_offset < 32768)
@@ -1923,8 +1918,7 @@ iq2000_expand_prologue (void)
 	    {
 	      int words;
 
-	      if (GET_CODE (entry_parm) != REG)
-	        abort ();
+	      gcc_assert (GET_CODE (entry_parm) == REG);
 
 	      /* Passed in a register, so will get homed automatically.  */
 	      if (GET_MODE (entry_parm) == BLKmode)
@@ -2430,7 +2424,7 @@ iq2000_output_conditional_branch (rtx insn, rtx * operands, int two_operands_p,
       }
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* NOTREACHED */
@@ -2637,7 +2631,7 @@ expand_one_builtin (enum insn_code icode, rtx target, tree arglist,
 	pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3]);
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   
   if (! pat)
@@ -3142,15 +3136,7 @@ print_operand (FILE *file, rtx op, int letter)
 
   else if (letter == 'Z')
     {
-      int regnum;
-
-      if (code != REG)
-	abort ();
-
-      regnum = REGNO (op);
-      abort ();
-
-      fprintf (file, "%s,", reg_names[regnum]);
+      gcc_unreachable ();
     }
 
   else if (code == REG || code == SUBREG)

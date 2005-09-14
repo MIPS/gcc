@@ -15,8 +15,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston, MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston, MA 02110-1301, USA.
 
 # This makefile fragment is included in the ada Makefile (both Unix
 # and NT and VMS versions).
@@ -79,6 +79,7 @@ GNATRTL_NONTASKING_OBJS= \
   a-cgaaso$(objext) \
   a-cgarso$(objext) \
   a-cgcaso$(objext) \
+  a-chacon$(objext) \
   a-chahan$(objext) \
   a-charac$(objext) \
   a-chlat1$(objext) \
@@ -205,11 +206,11 @@ GNATRTL_NONTASKING_OBJS= \
   a-suteio$(objext) \
   a-swmwco$(objext) \
   a-swunau$(objext) \
-  a-swunha$(objext) \
+  a-swuwha$(objext) \
   a-swuwti$(objext) \
   a-szmzco$(objext) \
   a-szunau$(objext) \
-  a-szunha$(objext) \
+  a-szuzha$(objext) \
   a-szuzti$(objext) \
   a-tags$(objext) \
   a-tgdico$(objext) \
@@ -234,6 +235,8 @@ GNATRTL_NONTASKING_OBJS= \
   a-tiunio$(objext) \
   a-unccon$(objext) \
   a-uncdea$(objext) \
+  a-wichun$(objext) \
+  a-widcha$(objext) \
   a-witeio$(objext) \
   a-wtcoau$(objext) \
   a-wtcoio$(objext) \
@@ -253,6 +256,8 @@ GNATRTL_NONTASKING_OBJS= \
   a-wtmoio$(objext) \
   a-wttest$(objext) \
   a-wwunio$(objext) \
+  a-zchara$(objext) \
+  a-zchuni$(objext) \
   a-ztcoau$(objext) \
   a-ztcoio$(objext) \
   a-ztcstr$(objext) \
@@ -370,7 +375,6 @@ GNATRTL_NONTASKING_OBJS= \
   s-crc32$(objext)  \
   s-direio$(objext) \
   s-errrep$(objext) \
-  s-except$(objext) \
   s-exctab$(objext) \
   s-exnint$(objext) \
   s-exnllf$(objext) \

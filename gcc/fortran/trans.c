@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -314,7 +314,7 @@ gfc_build_array_ref (tree base, tree offset)
 }
 
 
-/* Given a funcion declaration FNDECL and an argument list ARGLIST,
+/* Given a function declaration FNDECL and an argument list ARGLIST,
    build a CALL_EXPR.  */
 
 tree
@@ -437,9 +437,9 @@ gfc_get_backend_locus (locus * loc)
 {
   loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
 #ifdef USE_MAPPED_LOCATION
-  loc->lb->location = input_location; /* FIXME adjust?? */
+  loc->lb->location = input_location;
 #else
-  loc->lb->linenum = input_line - 1;
+  loc->lb->linenum = input_line;
 #endif
   loc->lb->file = gfc_current_backend_file;
 }
@@ -557,6 +557,10 @@ gfc_trans_code (gfc_code * code)
 	  res = gfc_trans_select (code);
 	  break;
 
+	case EXEC_FLUSH:
+	  res = gfc_trans_flush (code);
+	  break;
+
 	case EXEC_FORALL:
 	  res = gfc_trans_forall (code);
 	  break;
@@ -646,9 +650,6 @@ gfc_trans_code (gfc_code * code)
 void
 gfc_generate_code (gfc_namespace * ns)
 {
-  gfc_symbol *main_program = NULL;
-  symbol_attribute attr;
-
   if (ns->is_block_data)
     {
       gfc_generate_block_data (ns);
@@ -658,6 +659,9 @@ gfc_generate_code (gfc_namespace * ns)
   /* Main program subroutine.  */
   if (!ns->proc_name)
     {
+      gfc_symbol *main_program;
+      symbol_attribute attr;
+
       /* Lots of things get upset if a subroutine doesn't have a symbol, so we
          make one now.  Hopefully we've set all the required fields.  */
       gfc_get_symbol ("MAIN__", ns, &main_program);
@@ -666,7 +670,9 @@ gfc_generate_code (gfc_namespace * ns)
       attr.proc = PROC_UNKNOWN;
       attr.subroutine = 1;
       attr.access = ACCESS_PUBLIC;
+      attr.is_main_program = 1;
       main_program->attr = attr;
+
       /* Set the location to the first line of code.  */
       if (ns->code)
 	main_program->declared_at = ns->code->loc;

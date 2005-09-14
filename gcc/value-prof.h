@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_VALUE_PROF_H
 #define GCC_VALUE_PROF_H
@@ -40,22 +40,12 @@ enum hist_type
 /* The value to measure.  */
 struct histogram_value_t
 {
-  union 
+  struct
     {
-      struct
-	{
-	  rtx value;		/* The value to profile.  */
-	  rtx seq;		/* Insns required to count the profiled value.  */
-	  rtx insn;		/* Insn before that to measure.  */
-	  enum machine_mode mode;	        /* Mode of value to profile.  */
-	} rtl;
-      struct
-	{
-	  tree value;		/* The value to profile.  */
-	  tree stmt;		/* Insn containing the value.  */
-	  gcov_type *counters;		        /* Pointer to first counter.  */
-	  struct histogram_value_t *next;		/* Linked list pointer.  */
-	} tree;
+      tree value;		/* The value to profile.  */
+      tree stmt;		/* Insn containing the value.  */
+      gcov_type *counters;		        /* Pointer to first counter.  */
+      struct histogram_value_t *next;		/* Linked list pointer.  */
     } hvalue;
   enum hist_type type;			/* Type of information to measure.  */
   unsigned n_counters;			/* Number of required counters.  */
@@ -66,21 +56,17 @@ struct histogram_value_t
 	  int int_start;	/* First value in interval.  */
 	  unsigned int steps;	/* Number of values in it.  */
 	} intvl;	/* Interval histogram data.  */
-      struct
-	{
-	  int may_be_other;	/* If the value may be non-positive or not 2^k.  */
-	} pow2;		/* Power of 2 histogram data.  */
     } hdata;		/* Profiled information specific data.  */
 };
 
 typedef struct histogram_value_t *histogram_value;
 
-DEF_VEC_MALLOC_P(histogram_value);
+DEF_VEC_P(histogram_value);
+DEF_VEC_ALLOC_P(histogram_value,heap);
 
-typedef VEC(histogram_value) *histogram_values;
+typedef VEC(histogram_value,heap) *histogram_values;
 
 /* Hooks registration.  */
-extern void rtl_register_value_prof_hooks (void);
 extern void tree_register_value_prof_hooks (void);
 
 /* IR-independent entry points.  */
@@ -116,13 +102,9 @@ extern void init_branch_prob (void);
 extern void branch_prob (void);
 extern void end_branch_prob (void);
 extern void tree_register_profile_hooks (void);
-extern void rtl_register_profile_hooks (void);
 
 /* In tree-profile.c.  */
 extern struct profile_hooks tree_profile_hooks;
-
-/* In rtl-profile.c.  */
-extern struct profile_hooks rtl_profile_hooks;
 
 #endif	/* GCC_VALUE_PROF_H */
 

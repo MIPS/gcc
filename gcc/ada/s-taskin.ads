@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
 --                                                                          --
 --                        S Y S T E M . T A S K I N G                       --
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -54,6 +54,7 @@ with System.Task_Primitives;
 with Unchecked_Conversion;
 
 package System.Tasking is
+   pragma Preelaborate;
 
    -------------------
    -- Locking Rules --
@@ -342,8 +343,9 @@ package System.Tasking is
 
    type Access_Boolean is access all Boolean;
 
-   Detect_Blocking : constant Boolean;
-   --  Boolean constant set True iff Detect_Blocking is active
+   function Detect_Blocking return Boolean;
+   pragma Inline (Detect_Blocking);
+   --  Return whether the Detect_Blocking pragma is enabled.
 
    ----------------------------------------------
    -- Ada_Task_Control_Block (ATCB) definition --
@@ -977,9 +979,19 @@ package System.Tasking is
       --  has exclusive access to this field.
    end record;
 
-   ---------------------
-   -- Initialize_ATCB --
-   ---------------------
+   --------------------
+   -- Initialization --
+   --------------------
+
+   procedure Initialize;
+   --  This procedure constitutes the first part of the initialization of the
+   --  GNARL. This includes creating data structures to make the initial thread
+   --  into the environment task. The last part of the initialization is done
+   --  in System.Tasking.Initialization or System.Tasking.Restricted.Stages.
+   --  All the initializations used to be in Tasking.Initialization, but this
+   --  is no longer possible with the run time simplification (including
+   --  optimized PO and the restricted run time) since one cannot rely on
+   --  System.Tasking.Initialization being present, as was done before.
 
    procedure Initialize_ATCB
      (Self_ID          : Task_Id;
@@ -998,14 +1010,6 @@ package System.Tasking is
 
 private
    Null_Task : constant Task_Id := null;
-
-   GL_Detect_Blocking : Integer;
-   pragma Import (C, GL_Detect_Blocking, "__gl_detect_blocking");
-   --  Global variable exported by the binder generated file. A value equal to
-   --  1 indicates that pragma Detect_Blocking is active, while 0 is used for
-   --  the pragma not being present.
-
-   Detect_Blocking : constant Boolean := GL_Detect_Blocking = 1;
 
    type Activation_Chain is record
       T_ID : Task_Id;

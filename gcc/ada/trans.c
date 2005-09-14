@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -35,6 +35,7 @@
 #include "rtl.h"
 #include "expr.h"
 #include "ggc.h"
+#include "cgraph.h"
 #include "function.h"
 #include "except.h"
 #include "debug.h"
@@ -164,6 +165,7 @@ static tree pos_to_constructor (Node_Id, tree, Entity_Id);
 static tree maybe_implicit_deref (tree);
 static tree gnat_stabilize_reference_1 (tree, bool);
 static void annotate_with_node (tree, Node_Id);
+static void build_global_cdtor (int, tree *);
 
 
 /* This is the main program of the back-end.  It sets up all the table
@@ -232,7 +234,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
 #endif
 
   /* If we are using the GCC exception mechanism, let GCC know.  */
-  if (Exception_Mechanism == GCC_ZCX)
+  if (Exception_Mechanism == Back_End_Exceptions)
     gnat_init_gcc_eh ();
 
   gcc_assert (Nkind (gnat_root) == N_Compilation_Unit);
@@ -283,8 +285,6 @@ gnat_init_stmt_group ()
   /* Enable GNAT stack checking method if needed */
   if (!Stack_Check_Probes_On_Target)
     set_stack_check_libfunc (gen_rtx_SYMBOL_REF (Pmode, "_gnat_stack_check"));
-
-  gcc_assert (Exception_Mechanism != Front_End_ZCX);
 }
 
 /* Subroutine of gnat_to_gnu to translate gnat_node, an N_Identifier,
@@ -410,7 +410,11 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 	       && (! DECL_RENAMING_GLOBAL_P (gnu_result)
 		   || global_bindings_p ())
 	       /* Make sure it's an lvalue like INDIRECT_REF.  */
-	       && (DECL_P (renamed_obj) || REFERENCE_CLASS_P (renamed_obj)))
+	       && (DECL_P (renamed_obj)
+		   || REFERENCE_CLASS_P (renamed_obj)
+		   || (TREE_CODE (renamed_obj) == VIEW_CONVERT_EXPR
+		       && (DECL_P (TREE_OPERAND (renamed_obj, 0))
+			   || REFERENCE_CLASS_P (TREE_OPERAND (renamed_obj,0))))))
 	gnu_result = renamed_obj;
       else
 	gnu_result = build_unary_op (INDIRECT_REF, NULL_TREE,
@@ -592,7 +596,8 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
       /* If we are taking 'Address of an unconstrained object, this is the
 	 pointer to the underlying array.  */
-      gnu_prefix = maybe_unconstrained_array (gnu_prefix);
+      if (attribute == Attr_Address)
+	gnu_prefix = maybe_unconstrained_array (gnu_prefix);
 
       /* ... fall through ... */
 
@@ -1633,6 +1638,27 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	      tree gnu_copy = gnu_name;
 	      tree gnu_temp;
 
+	      /* For users of Starlet we issue a warning because the
+		 interface apparently assumes that by-ref parameters
+		 outlive the procedure invocation.  The code still
+		 will not work as intended, but we cannot do much
+		 better since other low-level parts of the back-end
+		 would allocate temporaries at will because of the
+		 misalignment if we did not do so here.  */
+
+	      if (Is_Valued_Procedure (Entity (Name (gnat_node))))
+		{
+		  post_error
+		    ("?possible violation of implicit assumption",
+		     gnat_actual);
+		  post_error_ne
+		    ("?made by pragma Import_Valued_Procedure on &",
+		     gnat_actual, Entity (Name (gnat_node)));
+		  post_error_ne
+		    ("?because of misalignment of &",
+		     gnat_actual, gnat_formal);
+		}
+
 	      /* Remove any unpadding on the actual and make a copy.  But if
 		 the actual is a justified modular type, first convert
 		 to it.  */
@@ -1992,7 +2018,7 @@ Handled_Sequence_Of_Statements_to_gnu (Node_Id gnat_node)
   /* If just annotating, ignore all EH and cleanups.  */
   bool gcc_zcx = (!type_annotate_only
 		  && Present (Exception_Handlers (gnat_node))
-		  && Exception_Mechanism == GCC_ZCX);
+		  && Exception_Mechanism == Back_End_Exceptions);
   bool setjmp_longjmp
     = (!type_annotate_only && Present (Exception_Handlers (gnat_node))
        && Exception_Mechanism == Setjmp_Longjmp);
@@ -2316,7 +2342,7 @@ Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
 	 is integer_zero_node.  It would not work, however, because GCC's
 	 notion of "catch all" is stronger than our notion of "others".  Until
 	 we correctly use the cleanup interface as well, doing that would
-	 prevent the "all others" handlers from beeing seen, because nothing
+	 prevent the "all others" handlers from being seen, because nothing
 	 can be caught beyond a catch all from GCC's point of view.  */
       gnu_etypes_list = tree_cons (NULL_TREE, gnu_etype, gnu_etypes_list);
     }
@@ -2383,7 +2409,7 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
   Sloc_to_locus (Sloc (gnat_unit_entity), &cfun->function_end_locus);
   cfun = 0;
 
-      /* For a body, first process the spec if there is one. */
+  /* For a body, first process the spec if there is one. */
   if (Nkind (Unit (gnat_node)) == N_Package_Body
       || (Nkind (Unit (gnat_node)) == N_Subprogram_Body
 	      && !Acts_As_Spec (gnat_node)))
@@ -2423,6 +2449,15 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
   /* Generate elaboration code for this unit, if necessary, and say whether
      we did or not.  */
   pop_stack (&gnu_elab_proc_stack);
+
+  /* Generate functions to call static constructors and destructors
+     for targets that do not support .ctors/.dtors sections.  These
+     functions have magic names which are detected by collect2.  */
+  if (static_ctors)
+    build_global_cdtor ('I', &static_ctors);
+
+  if (static_dtors)
+    build_global_cdtor ('D', &static_dtors);
 }
 
 /* This function is the driver of the GNAT to GCC tree transformation
@@ -2431,7 +2466,7 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
    If this is an expression, return the GCC equivalent of the expression.  If
    it is a statement, return the statement.  In the case when called for a
    statement, it may also add statements to the current statement group, in
-   which case anything it returns is to be interpreted as occuring after
+   which case anything it returns is to be interpreted as occurring after
    anything `it already added.  */
 
 tree
@@ -3082,7 +3117,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
 	  if (align != 0 && align < oalign && !TYPE_ALIGN_OK (gnu_obj_type))
 	    post_error_ne_tree_2
-	      ("?source alignment (^) < alignment of & (^)",
+	      ("?source alignment (^) '< alignment of & (^)",
 	       gnat_node, Designated_Type (Etype (gnat_node)),
 	       size_int (align / BITS_PER_UNIT), oalign / BITS_PER_UNIT);
 	}
@@ -3319,6 +3354,7 @@ gnat_to_gnu (Node_Id gnat_node)
       {
 	tree gnu_init = 0;
 	tree gnu_type;
+	bool ignore_init_type = false;
 
 	gnat_temp = Expression (gnat_node);
 
@@ -3334,6 +3370,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	    Entity_Id gnat_desig_type
 	      = Designated_Type (Underlying_Type (Etype (gnat_node)));
 
+	    ignore_init_type = Has_Constrained_Partial_View (gnat_desig_type);
 	    gnu_init = gnat_to_gnu (Expression (gnat_temp));
 
 	    gnu_init = maybe_unconstrained_array (gnu_init);
@@ -3361,7 +3398,8 @@ gnat_to_gnu (Node_Id gnat_node)
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	return build_allocator (gnu_type, gnu_init, gnu_result_type,
 				Procedure_To_Call (gnat_node),
-				Storage_Pool (gnat_node), gnat_node);
+				Storage_Pool (gnat_node), gnat_node,
+				ignore_init_type);
       }
       break;
 
@@ -3576,7 +3614,7 @@ gnat_to_gnu (Node_Id gnat_node)
 			= build_allocator (TREE_TYPE (gnu_ret_val),
 					   gnu_ret_val,
 					   TREE_TYPE (gnu_subprog_type),
-					   0, -1, gnat_node);
+					   0, -1, gnat_node, false);
 		    else
 		      gnu_ret_val
 			= build_allocator (TREE_TYPE (gnu_ret_val),
@@ -3584,7 +3622,7 @@ gnat_to_gnu (Node_Id gnat_node)
 					   TREE_TYPE (gnu_subprog_type),
 					   Procedure_To_Call (gnat_node),
 					   Storage_Pool (gnat_node),
-					   gnat_node);
+					   gnat_node, false);
 		  }
 	      }
 	  }
@@ -3760,7 +3798,7 @@ gnat_to_gnu (Node_Id gnat_node)
     case N_Exception_Handler:
       if (Exception_Mechanism == Setjmp_Longjmp)
 	gnu_result = Exception_Handler_to_gnu_sjlj (gnat_node);
-      else if (Exception_Mechanism == GCC_ZCX)
+      else if (Exception_Mechanism == Back_End_Exceptions)
 	gnu_result = Exception_Handler_to_gnu_zcx (gnat_node);
       else
 	gcc_unreachable ();
@@ -4261,7 +4299,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 	}
     }
 
-  /* If this is a DECL_EXPR for a variable with DECL_INITIAl set,
+  /* If this is a DECL_EXPR for a variable with DECL_INITIAL set,
      there are two cases we need to handle here.  */
   if (TREE_CODE (gnu_decl) == VAR_DECL && DECL_INITIAL (gnu_decl))
     {
@@ -4526,6 +4564,7 @@ gnat_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	  DECL_INITIAL (new_var) = TREE_OPERAND (expr, 0);
 
 	  TREE_OPERAND (expr, 0) = new_var;
+	  recompute_tree_invarant_for_addr_expr (expr);
 	  return GS_ALL_DONE;
 	}
       return GS_UNHANDLED;
@@ -4753,11 +4792,15 @@ process_freeze_entity (Node_Id gnat_node)
 
   /* Don't do anything for subprograms that may have been elaborated before
      their freeze nodes.  This can happen, for example because of an inner call
-     in an instance body.  */
-  if (gnu_old
-       && TREE_CODE (gnu_old) == FUNCTION_DECL
-       && (Ekind (gnat_entity) == E_Function
+     in an instance body, or a previous compilation of a spec for inlining
+     purposes.  */
+  if  ((gnu_old
+        && TREE_CODE (gnu_old) == FUNCTION_DECL
+        && (Ekind (gnat_entity) == E_Function
           || Ekind (gnat_entity) == E_Procedure))
+    || (gnu_old
+        && (TREE_CODE (TREE_TYPE (gnu_old)) == FUNCTION_TYPE
+        && Ekind (gnat_entity) == E_Subprogram_Type)))
     return;
 
   /* If we have a non-dummy type old tree, we have nothing to do.   Unless
@@ -4796,6 +4839,16 @@ process_freeze_entity (Node_Id gnat_node)
       && Present (Full_View (gnat_entity)))
     {
       gnu_new = gnat_to_gnu_entity (Full_View (gnat_entity), NULL_TREE, 1);
+
+      /* Propagate back-annotations from full view to partial view.  */
+      if (Unknown_Alignment (gnat_entity))
+	Set_Alignment (gnat_entity, Alignment (Full_View (gnat_entity)));
+
+      if (Unknown_Esize (gnat_entity))
+	Set_Esize (gnat_entity, Esize (Full_View (gnat_entity)));
+
+      if (Unknown_RM_Size (gnat_entity))
+	Set_RM_Size (gnat_entity, RM_Size (Full_View (gnat_entity)));
 
       /* The above call may have defined this entity (the simplest example
   	 of this is when we have a private enumeral type since the bounds
@@ -5287,9 +5340,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
 }
 
 /* Return 1 if GNU_EXPR can be directly addressed.  This is the case unless
-   it is an expression involving computation or if it involves a bitfield
-   reference.  This returns the same as gnat_mark_addressable in most
-   cases.  */
+   it is an expression involving computation or if it involves a reference
+   to a bitfield or to a field not sufficiently aligned for its type.  */
 
 static bool
 addressable_p (tree gnu_expr)
@@ -5313,8 +5365,15 @@ addressable_p (tree gnu_expr)
 
     case COMPONENT_REF:
       return (!DECL_BIT_FIELD (TREE_OPERAND (gnu_expr, 1))
-	      && (!DECL_NONADDRESSABLE_P (TREE_OPERAND (gnu_expr, 1))
-		  || !flag_strict_aliasing)
+	      && (!STRICT_ALIGNMENT
+	          /* If the field was marked as "semantically" addressable
+		     in create_field_decl, we are guaranteed that it can
+		     be directly addressed.  */
+		  || !DECL_NONADDRESSABLE_P (TREE_OPERAND (gnu_expr, 1))
+		  /* Otherwise it can nevertheless be directly addressed
+		     if it has been sufficiently aligned in the record.  */
+		  || DECL_ALIGN (TREE_OPERAND (gnu_expr, 1))
+		       >= TYPE_ALIGN (TREE_TYPE (gnu_expr)))
 	      && addressable_p (TREE_OPERAND (gnu_expr, 0)));
 
     case ARRAY_REF:  case ARRAY_RANGE_REF:
@@ -5570,7 +5629,8 @@ extract_values (tree values, tree record_type)
       else if (DECL_INTERNAL_P (field))
 	{
 	  value = extract_values (values, TREE_TYPE (field));
-	  if (TREE_CODE (value) == CONSTRUCTOR && !CONSTRUCTOR_ELTS (value))
+	  if (TREE_CODE (value) == CONSTRUCTOR
+	      && VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (value)))
 	    value = 0;
 	}
       else
@@ -5818,6 +5878,28 @@ gnat_stabilize_reference_1 (tree e, bool force)
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (e);
   TREE_SIDE_EFFECTS (result) |= TREE_SIDE_EFFECTS (e);
   return result;
+}
+
+/* Build a global constructor or destructor function.  METHOD_TYPE gives
+   the type of the function and CDTORS points to the list of constructor
+   or destructor functions to be invoked.  FIXME: Migrate into cgraph.  */
+
+static void
+build_global_cdtor (int method_type, tree *cdtors)
+{
+  tree body = 0;
+
+  for (; *cdtors; *cdtors = TREE_CHAIN (*cdtors))
+    {
+      tree fn = TREE_VALUE (*cdtors);
+      tree fntype = TREE_TYPE (fn);
+      tree fnaddr = build1 (ADDR_EXPR, build_pointer_type (fntype), fn);
+      tree fncall = build3 (CALL_EXPR, TREE_TYPE (fntype), fnaddr, NULL_TREE,
+			    NULL_TREE);
+      append_to_statement_list (fncall, &body);
+    }
+
+  cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
 }
 
 extern char *__gnat_to_canonical_file_spec (char *);

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -283,7 +283,11 @@ begin
          end loop;
       end if;
 
+      --  Loop keeps going until "package" keyword written
+
       exit when Match (Line, "package");
+
+      --  Deal with WITH lines, writing to body or spec as appropriate
 
       if Match (Line, Body_Only, M) then
          Replace (M, X);
@@ -293,12 +297,16 @@ begin
          Replace (M, X);
          WriteS (Line);
 
+      --  Change header from Template to Spec and write to spec file
+
       else
          if Match (Line, Templ, M) then
             Replace (M, A &  "    S p e c    ");
          end if;
 
          WriteS (Line);
+
+         --  Write header line to body file
 
          if Match (Line, Spec, M) then
             Replace (M, A &  "B o d y");

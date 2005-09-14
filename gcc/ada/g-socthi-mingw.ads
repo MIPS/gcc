@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---              Copyright (C) 2001-2004 Ada Core Technologies, Inc.         --
+--                     Copyright (C) 2001-2005 AdaCore                      --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -49,16 +49,16 @@ package GNAT.Sockets.Thin is
    package C renames Interfaces.C;
 
    use type C.int;
-   --  So that we can declare the Failure constant below.
+   --  So that we can declare the Failure constant below
 
    Success : constant C.int :=  0;
    Failure : constant C.int := -1;
 
    function Socket_Errno return Integer;
-   --  Returns last socket error number.
+   --  Returns last socket error number
 
    procedure Set_Socket_Errno (Errno : Integer);
-   --  Set last socket error number.
+   --  Set last socket error number
 
    function Socket_Error_Message
      (Errno : Integer)
@@ -335,7 +335,7 @@ package GNAT.Sockets.Thin is
 
    procedure Free_Socket_Set
      (Set : Fd_Set_Access);
-   --  Free system-dependent socket set.
+   --  Free system-dependent socket set
 
    procedure Get_Socket_From_Set
      (Set    : Fd_Set_Access;
@@ -395,7 +395,6 @@ private
    pragma Import (Stdcall, C_Getservbyport, "getservbyport");
    pragma Import (Stdcall, C_Getsockname, "getsockname");
    pragma Import (Stdcall, C_Getsockopt, "getsockopt");
-   pragma Import (Stdcall, C_Inet_Addr, "inet_addr");
    pragma Import (Stdcall, C_Ioctl, "ioctlsocket");
    pragma Import (Stdcall, C_Listen, "listen");
    pragma Import (Stdcall, C_Recv, "recv");

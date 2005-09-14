@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330,Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -267,9 +267,12 @@ resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
     {
       t = gfc_set_default_type (sym, 0, ns);
 
-      if (t == FAILURE)
-	gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
-		    sym->name, &sym->declared_at); /* FIXME */
+      if (t == FAILURE && !sym->attr.untyped)
+	{
+	  gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
+		     sym->name, &sym->declared_at); /* FIXME */
+	  sym->attr.untyped = 1;
+	}
     }
 }
 
@@ -360,7 +363,6 @@ resolve_entries (gfc_namespace * ns)
      out what is going on.  */
   snprintf (name, GFC_MAX_SYMBOL_LEN, "master.%d.%s",
 	    master_count++, ns->proc_name->name);
-  name[GFC_MAX_SYMBOL_LEN] = '\0';
   gfc_get_ha_symbol (name, &proc);
   gcc_assert (proc != NULL);
 
@@ -369,8 +371,92 @@ resolve_entries (gfc_namespace * ns)
     gfc_add_subroutine (&proc->attr, proc->name, NULL);
   else
     {
+      gfc_symbol *sym;
+      gfc_typespec *ts, *fts;
+
       gfc_add_function (&proc->attr, proc->name, NULL);
-      gfc_internal_error ("TODO: Functions with alternate entry points");
+      proc->result = proc;
+      fts = &ns->entries->sym->result->ts;
+      if (fts->type == BT_UNKNOWN)
+	fts = gfc_get_default_type (ns->entries->sym->result, NULL);
+      for (el = ns->entries->next; el; el = el->next)
+	{
+	  ts = &el->sym->result->ts;
+	  if (ts->type == BT_UNKNOWN)
+	    ts = gfc_get_default_type (el->sym->result, NULL);
+	  if (! gfc_compare_types (ts, fts)
+	      || (el->sym->result->attr.dimension
+		  != ns->entries->sym->result->attr.dimension)
+	      || (el->sym->result->attr.pointer
+		  != ns->entries->sym->result->attr.pointer))
+	    break;
+	}
+
+      if (el == NULL)
+	{
+	  sym = ns->entries->sym->result;
+	  /* All result types the same.  */
+	  proc->ts = *fts;
+	  if (sym->attr.dimension)
+	    gfc_set_array_spec (proc, gfc_copy_array_spec (sym->as), NULL);
+	  if (sym->attr.pointer)
+	    gfc_add_pointer (&proc->attr, NULL);
+	}
+      else
+	{
+	  /* Otherwise the result will be passed through a union by
+	     reference.  */
+	  proc->attr.mixed_entry_master = 1;
+	  for (el = ns->entries; el; el = el->next)
+	    {
+	      sym = el->sym->result;
+	      if (sym->attr.dimension)
+		gfc_error ("%s result %s can't be an array in FUNCTION %s at %L",
+			   el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
+			   ns->entries->sym->name, &sym->declared_at);
+	      else if (sym->attr.pointer)
+		gfc_error ("%s result %s can't be a POINTER in FUNCTION %s at %L",
+			   el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
+			   ns->entries->sym->name, &sym->declared_at);
+	      else
+		{
+		  ts = &sym->ts;
+		  if (ts->type == BT_UNKNOWN)
+		    ts = gfc_get_default_type (sym, NULL);
+		  switch (ts->type)
+		    {
+		    case BT_INTEGER:
+		      if (ts->kind == gfc_default_integer_kind)
+			sym = NULL;
+		      break;
+		    case BT_REAL:
+		      if (ts->kind == gfc_default_real_kind
+			  || ts->kind == gfc_default_double_kind)
+			sym = NULL;
+		      break;
+		    case BT_COMPLEX:
+		      if (ts->kind == gfc_default_complex_kind)
+			sym = NULL;
+		      break;
+		    case BT_LOGICAL:
+		      if (ts->kind == gfc_default_logical_kind)
+			sym = NULL;
+		      break;
+		    case BT_UNKNOWN:
+		      /* We will issue error elsewhere.  */
+		      sym = NULL;
+		      break;
+		    default:
+		      break;
+		    }
+		  if (sym)
+		    gfc_error ("%s result %s can't be of type %s in FUNCTION %s at %L",
+			       el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
+			       gfc_typename (ts), ns->entries->sym->name,
+			       &sym->declared_at);
+		}
+	    }
+	}
     }
   proc->attr.access = ACCESS_PRIVATE;
   proc->attr.entry_master = 1;
@@ -603,6 +689,12 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  || sym->attr.intrinsic
 	  || sym->attr.external)
 	{
+
+          if (sym->attr.proc == PROC_ST_FUNCTION)
+            {
+              gfc_error ("Statement function '%s' at %L is not allowed as an "
+                         "actual argument", sym->name, &e->where);
+            }
 
 	  /* If the symbol is the function that names the current (or
 	     parent) scope, then we really have a variable reference.  */
@@ -872,7 +964,7 @@ set_type:
 
       if (ts->type == BT_UNKNOWN)
 	{
-	  gfc_error ("Function '%s' at %L has no implicit type",
+	  gfc_error ("Function '%s' at %L has no IMPLICIT type",
 		     sym->name, &expr->where);
 	  return FAILURE;
 	}
@@ -1422,9 +1514,14 @@ resolve_operator (gfc_expr * e)
 	  break;
 	}
 
-      sprintf (msg, "Operands of comparison operator '%s' at %%L are %s/%s",
-	       gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
-	       gfc_typename (&op2->ts));
+      if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
+	sprintf (msg, "Logicals at %%L must be compared with %s instead of %s",
+		 e->value.op.operator == INTRINSIC_EQ ? ".EQV." : ".NEQV.",
+		 gfc_op2string (e->value.op.operator));
+      else
+	sprintf (msg, "Operands of comparison operator '%s' at %%L are %s/%s",
+		 gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
+		 gfc_typename (&op2->ts));
 
       goto bad_op;
 
@@ -1731,6 +1828,40 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
   return SUCCESS;
 }
 
+/* Resolve a dim argument to an intrinsic function.  */
+
+try
+gfc_resolve_dim_arg (gfc_expr *dim)
+{
+  if (dim == NULL)
+    return SUCCESS;
+
+  if (gfc_resolve_expr (dim) == FAILURE)
+    return FAILURE;
+
+  if (dim->rank != 0)
+    {
+      gfc_error ("Argument dim at %L must be scalar", &dim->where);
+      return FAILURE;
+  
+    }
+  if (dim->ts.type != BT_INTEGER)
+    {
+      gfc_error ("Argument dim at %L must be of INTEGER type", &dim->where);
+      return FAILURE;
+    }
+  if (dim->ts.kind != gfc_index_integer_kind)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_index_integer_kind;
+
+      gfc_convert_type_warn (dim, &ts, 2, 0);
+    }
+
+  return SUCCESS;
+}
 
 /* Given an expression that contains array references, update those array
    references to point to the right array specifications.  While this is
@@ -2109,6 +2240,9 @@ resolve_variable (gfc_expr * e)
   gfc_symbol *sym;
 
   if (e->ref && resolve_ref (e) == FAILURE)
+    return FAILURE;
+
+  if (e->symtree == NULL)
     return FAILURE;
 
   sym = e->symtree->n.sym;
@@ -3853,6 +3987,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	case EXEC_BACKSPACE:
 	case EXEC_ENDFILE:
 	case EXEC_REWIND:
+	case EXEC_FLUSH:
 	  if (gfc_resolve_filepos (code->ext.filepos) == FAILURE)
 	    break;
 
@@ -3936,9 +4071,34 @@ resolve_symbol (gfc_symbol * sym)
   int i;
   const char *whynot;
   gfc_namelist *nl;
+  gfc_symtree * symtree;
+  gfc_symtree * this_symtree;
+  gfc_namespace * ns;
 
   if (sym->attr.flavor == FL_UNKNOWN)
     {
+
+    /* If we find that a flavorless symbol is an interface in one of the
+       parent namespaces, find its symtree in this namespace, free the
+       symbol and set the symtree to point to the interface symbol.  */
+      for (ns = gfc_current_ns->parent; ns; ns = ns->parent)
+	{
+	  symtree = gfc_find_symtree (ns->sym_root, sym->name);
+	  if (symtree && symtree->n.sym->generic)
+	    {
+	      this_symtree = gfc_find_symtree (gfc_current_ns->sym_root,
+					       sym->name);
+	      sym->refs--;
+	      if (!sym->refs)
+		gfc_free_symbol (sym);
+	      symtree->n.sym->refs++;
+	      this_symtree->n.sym = symtree->n.sym;
+	      return;
+	    }
+	}
+
+      /* Otherwise give it a flavor according to such attributes as
+	 it has.  */
       if (sym->attr.external == 0 && sym->attr.intrinsic == 0)
 	sym->attr.flavor = FL_VARIABLE;
       else
@@ -3973,6 +4133,8 @@ resolve_symbol (gfc_symbol * sym)
 
 	      sym->ts = sym->result->ts;
 	      sym->as = gfc_copy_array_spec (sym->result->as);
+	      sym->attr.dimension = sym->result->attr.dimension;
+	      sym->attr.pointer = sym->result->attr.pointer;
 	    }
 	}
     }
@@ -4630,7 +4792,7 @@ resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
    sequence derived type containing a pointer at any level of component
    selection, an automatic object, a function name, an entry name, a result
    name, a named constant, a structure component, or a subobject of any of
-   the preceding objects.  */
+   the preceding objects.  A substring shall not have length zero.  */
 
 static void
 resolve_equivalence (gfc_equiv *eq)
@@ -4643,6 +4805,69 @@ resolve_equivalence (gfc_equiv *eq)
   for (; eq; eq = eq->eq)
     {
       e = eq->expr;
+
+      e->ts = e->symtree->n.sym->ts;
+      /* match_varspec might not know yet if it is seeing
+	 array reference or substring reference, as it doesn't
+	 know the types.  */
+      if (e->ref && e->ref->type == REF_ARRAY)
+	{
+	  gfc_ref *ref = e->ref;
+	  sym = e->symtree->n.sym;
+
+	  if (sym->attr.dimension)
+	    {
+	      ref->u.ar.as = sym->as;
+	      ref = ref->next;
+	    }
+
+	  /* For substrings, convert REF_ARRAY into REF_SUBSTRING.  */
+	  if (e->ts.type == BT_CHARACTER
+	      && ref
+	      && ref->type == REF_ARRAY
+	      && ref->u.ar.dimen == 1
+	      && ref->u.ar.dimen_type[0] == DIMEN_RANGE
+	      && ref->u.ar.stride[0] == NULL)
+	    {
+	      gfc_expr *start = ref->u.ar.start[0];
+	      gfc_expr *end = ref->u.ar.end[0];
+	      void *mem = NULL;
+
+	      /* Optimize away the (:) reference.  */
+	      if (start == NULL && end == NULL)
+		{
+		  if (e->ref == ref)
+		    e->ref = ref->next;
+		  else
+		    e->ref->next = ref->next;
+		  mem = ref;
+		}
+	      else
+		{
+		  ref->type = REF_SUBSTRING;
+		  if (start == NULL)
+		    start = gfc_int_expr (1);
+		  ref->u.ss.start = start;
+		  if (end == NULL && e->ts.cl)
+		    end = gfc_copy_expr (e->ts.cl->length);
+		  ref->u.ss.end = end;
+		  ref->u.ss.length = e->ts.cl;
+		  e->ts.cl = NULL;
+		}
+	      ref = ref->next;
+	      gfc_free (mem);
+	    }
+
+	  /* Any further ref is an error.  */
+	  if (ref)
+	    {
+	      gcc_assert (ref->type == REF_ARRAY);
+	      gfc_error ("Syntax error in EQUIVALENCE statement at %L",
+			 &ref->u.ar.where);
+	      continue;
+	    }
+	}
+
       if (gfc_resolve_expr (e) == FAILURE)
         continue;
 
@@ -4705,23 +4930,77 @@ resolve_equivalence (gfc_equiv *eq)
           continue;
         }
 
-      /* Shall not be a structure component.  */
       r = e->ref;
       while (r)
         {
-          if (r->type == REF_COMPONENT)
-            {
-              gfc_error ("Structure component '%s' at %L cannot be an "
-                         "EQUIVALENCE object",
-                         r->u.c.component->name, &e->where);
-              break;
-            }
-          r = r->next;
-        }
+	  /* Shall not be a structure component.  */
+	  if (r->type == REF_COMPONENT)
+	    {
+	      gfc_error ("Structure component '%s' at %L cannot be an "
+			 "EQUIVALENCE object",
+			 r->u.c.component->name, &e->where);
+	      break;
+	    }
+
+	  /* A substring shall not have length zero.  */
+	  if (r->type == REF_SUBSTRING)
+	    {
+	      if (compare_bound (r->u.ss.start, r->u.ss.end) == CMP_GT)
+		{
+		  gfc_error ("Substring at %L has length zero",
+			     &r->u.ss.start->where);
+		  break;
+		}
+	    }
+	  r = r->next;
+	}
     }    
 }      
-      
-      
+
+
+/* Resolve function and ENTRY types, issue diagnostics if needed. */
+
+static void
+resolve_fntype (gfc_namespace * ns)
+{
+  gfc_entry_list *el;
+  gfc_symbol *sym;
+
+  if (ns->proc_name == NULL || !ns->proc_name->attr.function)
+    return;
+
+  /* If there are any entries, ns->proc_name is the entry master
+     synthetic symbol and ns->entries->sym actual FUNCTION symbol.  */
+  if (ns->entries)
+    sym = ns->entries->sym;
+  else
+    sym = ns->proc_name;
+  if (sym->result == sym
+      && sym->ts.type == BT_UNKNOWN
+      && gfc_set_default_type (sym, 0, NULL) == FAILURE
+      && !sym->attr.untyped)
+    {
+      gfc_error ("Function '%s' at %L has no IMPLICIT type",
+		 sym->name, &sym->declared_at);
+      sym->attr.untyped = 1;
+    }
+
+  if (ns->entries)
+    for (el = ns->entries->next; el; el = el->next)
+      {
+	if (el->sym->result == el->sym
+	    && el->sym->ts.type == BT_UNKNOWN
+	    && gfc_set_default_type (el->sym, 0, NULL) == FAILURE
+	    && !el->sym->attr.untyped)
+	  {
+	    gfc_error ("ENTRY '%s' at %L has no IMPLICIT type",
+		       el->sym->name, &el->sym->declared_at);
+	    el->sym->attr.untyped = 1;
+	  }
+      }
+}
+
+
 /* This function is called after a complete program unit has been compiled.
    Its purpose is to examine all of the expressions associated with a program
    unit, assign types to all intermediate expressions, make sure that all
@@ -4744,6 +5023,8 @@ gfc_resolve (gfc_namespace * ns)
   resolve_contained_functions (ns);
 
   gfc_traverse_ns (ns, resolve_symbol);
+
+  resolve_fntype (ns);
 
   for (n = ns->contained; n; n = n->sibling)
     {
@@ -4772,7 +5053,7 @@ gfc_resolve (gfc_namespace * ns)
 
   gfc_traverse_ns (ns, resolve_values);
 
-  if (ns->save_all)
+  if (!gfc_option.flag_automatic || ns->save_all)
     gfc_save_all (ns);
 
   iter_stack = NULL;

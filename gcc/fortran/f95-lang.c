@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* f95-lang.c-- GCC backend interface stuff */
 
@@ -77,12 +77,6 @@ struct language_function
 GTY(())
 {
   /* struct gfc_language_function base; */
-  tree named_labels;
-  tree shadowed_labels;
-  int returns_value;
-  int returns_abnormally;
-  int warn_about_return_type;
-  int extern_inline;
   struct binding_level *binding_level;
 };
 
@@ -176,7 +170,6 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-static tree named_labels;
 
 #define NULL_BINDING_LEVEL (struct binding_level *) NULL
 
@@ -278,7 +271,7 @@ static bool
 gfc_init (void)
 {
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, gfc_option.source, 1);
+  linemap_add (&line_table, LC_ENTER, false, gfc_source_file, 1);
   linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
@@ -289,8 +282,8 @@ gfc_init (void)
   /* Then the frontend.  */
   gfc_init_1 ();
 
-  if (gfc_new_file (gfc_option.source, gfc_option.source_form) != SUCCESS)
-    fatal_error ("can't open input file: %s", gfc_option.source);
+  if (gfc_new_file () != SUCCESS)
+    fatal_error ("can't open input file: %s", gfc_source_file);
   return true;
 }
 
@@ -420,7 +413,7 @@ poplevel (int keep, int reverse, int functionbody)
      binding level is a function body, or if there are any nested blocks then
      create a BLOCK node to record them for the life of this function.  */
   if (keep || functionbody)
-    block_node = build_block (keep ? decl_chain : 0, 0, subblock_chain, 0, 0);
+    block_node = build_block (keep ? decl_chain : 0, subblock_chain, 0, 0);
 
   /* Record the BLOCK node just built as the subblock its enclosing scope.  */
   for (subblock_node = subblock_chain; subblock_node;
@@ -561,7 +554,6 @@ static void
 gfc_init_decl_processing (void)
 {
   current_function_decl = NULL;
-  named_labels = NULL;
   current_binding_level = NULL_BINDING_LEVEL;
   free_binding_level = NULL_BINDING_LEVEL;
 
@@ -790,15 +782,15 @@ gfc_init_builtin_functions (void)
 
   /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
-  gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
-		      BUILT_IN_FLOOR, "floor", true);
-  gfc_define_builtin ("__builtin_floorf", mfunc_float[0], 
-		      BUILT_IN_FLOORF, "floorf", true);
   gfc_define_builtin ("__builtin_round", mfunc_double[0], 
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
-  
+  gfc_define_builtin ("__builtin_trunc", mfunc_double[0],
+                      BUILT_IN_TRUNC, "trunc", true);
+  gfc_define_builtin ("__builtin_truncf", mfunc_float[0],
+                      BUILT_IN_TRUNCF, "truncf", true);
+
   gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 

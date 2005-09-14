@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                          A D A . T E X T _ I O                           --
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -896,7 +896,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if Spacing not in Positive_Count then
+      if not Spacing'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1334,48 +1334,87 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Positive_Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
       FIO.Check_File_Open (AP (File));
 
-      if To = File.Col then
-         return;
-      end if;
+      --  Output case
 
       if Mode (File) >= Out_File then
+
+         --  Error if we attempt to set Col to a value greater than the
+         --  maximum permissible line length.
+
          if File.Line_Length /= 0 and then To > File.Line_Length then
             raise Layout_Error;
          end if;
+
+         --  If we are behind current position, then go to start of new line
 
          if To < File.Col then
             New_Line (File);
          end if;
 
+         --  Loop to output blanks till we are at the required column
+
          while File.Col < To loop
             Put (File, ' ');
          end loop;
 
+      --  Input case
+
       else
+         --  If we are logically before a LM, but physically after it, the
+         --  file position still reflects the position before the LM, so eat
+         --  it now and adjust the file position appropriately.
+
+         if File.Before_LM then
+            File.Before_LM := False;
+            File.Before_LM_PM := False;
+            File.Line := File.Line + 1;
+            File.Col := 1;
+         end if;
+
+         --  Loop reading characters till we get one at the required Col value
+
          loop
+            --  Read next character. The reason we have to read ahead is to
+            --  skip formatting characters, the effect of Set_Col is to set
+            --  us to a real character with the right Col value, and format
+            --  characters don't count.
+
             ch := Getc (File);
+
+            --  Error if we hit an end of file
 
             if ch = EOF then
                raise End_Error;
 
+            --  If line mark, eat it and adjust file position
+
             elsif ch = LM then
                File.Line := File.Line + 1;
                File.Col := 1;
+
+            --  If recognized page mark, eat it, and adjust file position
 
             elsif ch = PM and then File.Is_Regular_File then
                File.Page := File.Page + 1;
                File.Line := 1;
                File.Col := 1;
 
+            --  Otherwise this is the character we are looking for, so put it
+            --  back in the input stream (we have not adjusted the file
+            --  position yet, so everything is set right after this ungetc).
+
             elsif To = File.Col then
                Ungetc (ch, File);
                return;
+
+            --  Keep skipping characters if we are not there yet, updating the
+            --  file position past the skipped character.
 
             else
                File.Col := File.Col + 1;
@@ -1422,7 +1461,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Positive_Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1467,7 +1506,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1500,7 +1539,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1528,7 +1567,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if Spacing not in Positive_Count then
+      if not Spacing'Valid then
          raise Constraint_Error;
       end if;
 

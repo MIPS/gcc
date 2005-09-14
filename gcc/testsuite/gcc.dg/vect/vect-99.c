@@ -47,7 +47,8 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "dependence distance modulo vf == 0" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "bad data dependence" 0 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,7 +31,6 @@ with Lib;      use Lib;
 with Osint;    use Osint;
 with Opt;      use Opt;
 with Prepcomp; use Prepcomp;
-with Types;    use Types;
 with Validsw;  use Validsw;
 with Stylesw;  use Stylesw;
 
@@ -192,6 +191,7 @@ package body Switch.C is
             when 'a' =>
                Ptr := Ptr + 1;
                Assertions_Enabled := True;
+               Debug_Pragmas_Enabled := True;
 
             --  Processing for A switch
 
@@ -264,14 +264,6 @@ package body Switch.C is
                      raise Bad_Switch;
                   end if;
                end loop;
-
-               --  Make sure Zero_Cost_Exceptions is set if gnatdX set. This
-               --  is for backwards compatibility with old versions and usage.
-
-               if Debug_Flag_XX then
-                  Zero_Cost_Exceptions_Set := True;
-                  Zero_Cost_Exceptions_Val := True;
-               end if;
 
                return;
 
@@ -485,6 +477,13 @@ package body Switch.C is
                System_Extend_Unit := Empty;
                Warning_Mode := Treat_As_Error;
 
+               --  Set Ada 2005 mode explicitly. We don't want to rely on the
+               --  implicit setting here, since for example, we want
+               --  Preelaborate_05 treated as Preelaborate
+
+               Ada_Version := Ada_05;
+               Ada_Version_Explicit := Ada_Version;
+
                --  Set default warnings for -gnatg (same set as -gnatwa)
 
                Check_Unreferenced           := True;
@@ -503,7 +502,7 @@ package body Switch.C is
                Warn_On_Unchecked_Conversion := True;
                Warn_On_Unrecognized_Pragma  := True;
 
-               Set_Style_Check_Options ("3abcdefhiklmnprst");
+               Set_Style_Check_Options ("3abcdefhiklmnprstu");
 
             --  Processing for G switch
 
@@ -564,8 +563,8 @@ package body Switch.C is
 
             when 'L' =>
                Ptr := Ptr + 1;
-               Zero_Cost_Exceptions_Set := True;
-               Zero_Cost_Exceptions_Val := False;
+               Osint.Fail
+                 ("-gnatL is no longer supported: consider using --RTS=sjlj");
 
             --  Processing for m switch
 
@@ -763,6 +762,7 @@ package body Switch.C is
                         Constant_Condition_Warnings     := True;
                         Implementation_Unit_Warnings    := True;
                         Ineffective_Inline_Warnings     := True;
+                        Warn_On_Ada_2005_Compatibility  := True;
                         Warn_On_Bad_Fixed_Value         := True;
                         Warn_On_Constant                := True;
                         Warn_On_Export_Import           := True;
@@ -781,6 +781,7 @@ package body Switch.C is
                         Elab_Warnings                   := False;
                         Implementation_Unit_Warnings    := False;
                         Ineffective_Inline_Warnings     := False;
+                        Warn_On_Ada_2005_Compatibility  := False;
                         Warn_On_Bad_Fixed_Value         := False;
                         Warn_On_Constant                := False;
                         Warn_On_Dereference             := False;
@@ -908,6 +909,12 @@ package body Switch.C is
                      when 'X' =>
                         Warn_On_Export_Import           := False;
 
+                     when 'y' =>
+                        Warn_On_Ada_2005_Compatibility  := True;
+
+                     when 'Y' =>
+                        Warn_On_Ada_2005_Compatibility  := False;
+
                      when 'z' =>
                         Warn_On_Unchecked_Conversion    := True;
 
@@ -972,6 +979,7 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Extensions_Allowed := True;
                Ada_Version := Ada_Version_Type'Last;
+               Ada_Version_Explicit := Ada_Version;
 
             --  Processing for y switch
 
@@ -1050,8 +1058,8 @@ package body Switch.C is
 
             when 'Z' =>
                Ptr := Ptr + 1;
-               Zero_Cost_Exceptions_Set := True;
-               Zero_Cost_Exceptions_Val := True;
+               Osint.Fail
+                 ("-gnatZ is no longer supported: consider using --RTS=zcx");
 
             --  Processing for 83 switch
 
@@ -1067,6 +1075,7 @@ package body Switch.C is
                else
                   Ptr := Ptr + 1;
                   Ada_Version := Ada_83;
+                  Ada_Version_Explicit := Ada_Version;
                end if;
 
             --  Processing for 95 switch
@@ -1083,6 +1092,7 @@ package body Switch.C is
                else
                   Ptr := Ptr + 1;
                   Ada_Version := Ada_95;
+                  Ada_Version_Explicit := Ada_Version;
                end if;
 
             --  Processing for 05 switch
@@ -1099,6 +1109,7 @@ package body Switch.C is
                else
                   Ptr := Ptr + 1;
                   Ada_Version := Ada_05;
+                  Ada_Version_Explicit := Ada_Version;
                end if;
 
             --  Ignore extra switch character

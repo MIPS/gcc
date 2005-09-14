@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains optimizer of the control flow.  The main entry point is
    cleanup_cfg.  Following optimizations are performed:
@@ -50,25 +50,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cfglayout.h"
 #include "emit-rtl.h"
+#include "tree-pass.h"
+#include "cfgloop.h"
+#include "expr.h"
 
-/* cleanup_cfg maintains following flags for each basic block.  */
-
-enum bb_flags
-{
-    /* Set if BB is the forwarder block to avoid too many
-       forwarder_block_p calls.  */
-    BB_FORWARDER_BLOCK = 1,
-    BB_NONTHREADABLE_BLOCK = 2
-};
-
-#define BB_FLAGS(BB) (enum bb_flags) (BB)->aux
-#define BB_SET_FLAG(BB, FLAG) \
-  (BB)->aux = (void *) (long) ((enum bb_flags) (BB)->aux | (FLAG))
-#define BB_CLEAR_FLAG(BB, FLAG) \
-  (BB)->aux = (void *) (long) ((enum bb_flags) (BB)->aux & ~(FLAG))
-
-#define FORWARDER_BLOCK_P(BB) (BB_FLAGS (BB) & BB_FORWARDER_BLOCK)
-
+#define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
+  
 /* Set to true when we are running first pass of try_optimize_cfg loop.  */
 static bool first_pass;
 static bool try_crossjump_to_edge (int, edge, edge);
@@ -98,7 +85,7 @@ notice_new_block (basic_block bb)
     return;
 
   if (forwarder_block_p (bb))
-    BB_SET_FLAG (bb, BB_FORWARDER_BLOCK);
+    bb->flags |= BB_FORWARDER_BLOCK;
 }
 
 /* Recompute forwarder flag after block has been modified.  */
@@ -107,9 +94,9 @@ static void
 update_forwarder_flag (basic_block bb)
 {
   if (forwarder_block_p (bb))
-    BB_SET_FLAG (bb, BB_FORWARDER_BLOCK);
+    bb->flags |= BB_FORWARDER_BLOCK;
   else
-    BB_CLEAR_FLAG (bb, BB_FORWARDER_BLOCK);
+    bb->flags &= ~BB_FORWARDER_BLOCK;
 }
 
 /* Simplify a conditional jump around an unconditional jump.
@@ -282,7 +269,7 @@ thread_jump (int mode, edge e, basic_block b)
   bool failed = false;
   reg_set_iterator rsi;
 
-  if (BB_FLAGS (b) & BB_NONTHREADABLE_BLOCK)
+  if (b->flags & BB_NONTHREADABLE_BLOCK)
     return NULL;
 
   /* At the moment, we do handle only conditional jumps, but later we may
@@ -291,7 +278,7 @@ thread_jump (int mode, edge e, basic_block b)
     return NULL;
   if (EDGE_COUNT (b->succs) != 2)
     {
-      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      b->flags |= BB_NONTHREADABLE_BLOCK;
       return NULL;
     }
 
@@ -301,7 +288,7 @@ thread_jump (int mode, edge e, basic_block b)
 
   if (!any_condjump_p (BB_END (b)) || !onlyjump_p (BB_END (b)))
     {
-      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      b->flags |= BB_NONTHREADABLE_BLOCK;
       return NULL;
     }
 
@@ -339,7 +326,7 @@ thread_jump (int mode, edge e, basic_block b)
        insn = NEXT_INSN (insn))
     if (INSN_P (insn) && side_effects_p (PATTERN (insn)))
       {
-	BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+	b->flags |= BB_NONTHREADABLE_BLOCK;
 	return NULL;
       }
 
@@ -383,7 +370,7 @@ thread_jump (int mode, edge e, basic_block b)
      have life information in cfg_cleanup.  */
   if (failed)
     {
-      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      b->flags |= BB_NONTHREADABLE_BLOCK;
       goto failed_exit;
     }
 
@@ -395,7 +382,7 @@ thread_jump (int mode, edge e, basic_block b)
   /* In case liveness information is available, we need to prove equivalence
      only of the live values.  */
   if (mode & CLEANUP_UPDATE_LIFE)
-    AND_REG_SET (nonequal, b->global_live_at_end);
+    AND_REG_SET (nonequal, b->il.rtl->global_live_at_end);
 
   EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
     goto failed_exit;
@@ -536,7 +523,7 @@ try_forward_edges (int mode, basic_block b)
 	     For fallthru forwarders, the LOOP_BEG note must appear between
 	     the header of block and CODE_LABEL of the loop, for non forwarders
 	     it must appear before the JUMP_INSN.  */
-	  if ((mode & CLEANUP_PRE_LOOP) && optimize)
+	  if ((mode & CLEANUP_PRE_LOOP) && optimize && flag_loop_optimize)
 	    {
 	      rtx insn = (EDGE_SUCC (target, 0)->flags & EDGE_FALLTHRU
 			  ? BB_HEAD (target) : prev_nonnote_insn (BB_END (target)));
@@ -550,7 +537,7 @@ try_forward_edges (int mode, basic_block b)
 		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
 		  break;
 
-	      if (NOTE_P (insn))
+	      if (insn && NOTE_P (insn))
 		break;
 
 	      /* Do not clean up branches to just past the end of a loop
@@ -609,7 +596,7 @@ try_forward_edges (int mode, basic_block b)
 			    / REG_BR_PROB_BASE);
 
 	  if (!FORWARDER_BLOCK_P (b) && forwarder_block_p (b))
-	    BB_SET_FLAG (b, BB_FORWARDER_BLOCK);
+	    b->flags |= BB_FORWARDER_BLOCK;
 
 	  do
 	    {
@@ -1677,6 +1664,8 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   delete_basic_block (to_remove);
 
   update_forwarder_flag (redirect_from);
+  if (redirect_to != src2)
+    update_forwarder_flag (src2);
 
   return true;
 }
@@ -1832,11 +1821,11 @@ try_optimize_cfg (int mode)
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
 
-  FOR_EACH_BB (bb)
-    update_forwarder_flag (bb);
-
   if (mode & (CLEANUP_UPDATE_LIFE | CLEANUP_CROSSJUMP | CLEANUP_THREADING))
     clear_bb_flags ();
+
+  FOR_EACH_BB (bb)
+    update_forwarder_flag (bb);
 
   if (! targetm.cannot_modify_jumps_p ())
     {
@@ -2024,7 +2013,8 @@ try_optimize_cfg (int mode)
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_exit_edges ();
 
-  clear_aux_for_blocks ();
+  FOR_ALL_BB (b)
+    b->flags &= ~(BB_FORWARDER_BLOCK | BB_NONTHREADABLE_BLOCK);
 
   return changed_overall;
 }
@@ -2130,9 +2120,85 @@ cleanup_cfg (int mode)
       delete_dead_jumptables ();
     }
 
-  /* Kill the data we won't maintain.  */
-  free_EXPR_LIST_list (&label_value_list);
   timevar_pop (TV_CLEANUP_CFG);
 
   return changed;
 }
+
+static void
+rest_of_handle_jump (void)
+{
+  delete_unreachable_blocks ();
+
+  if (cfun->tail_call_emit)
+    fixup_tail_calls ();
+}
+
+struct tree_opt_pass pass_jump =
+{
+  "sibling",                            /* name */
+  NULL,                                 /* gate */   
+  rest_of_handle_jump,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_JUMP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_ggc_collect,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_verify_flow,                     /* todo_flags_finish */
+  'i'                                   /* letter */
+};
+
+
+static void
+rest_of_handle_jump2 (void)
+{
+  /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
+     before jump optimization switches branch directions.  */
+  if (flag_guess_branch_prob)
+    expected_value_to_br_prob ();
+
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  reg_scan (get_insns (), max_reg_num ());
+  if (dump_file)
+    dump_flow_info (dump_file);
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
+               | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+
+  create_loop_notes ();
+
+  purge_line_number_notes ();
+
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+
+  /* Jump optimization, and the removal of NULL pointer checks, may
+     have reduced the number of instructions substantially.  CSE, and
+     future passes, allocate arrays whose dimensions involve the
+     maximum instruction UID, so if we can reduce the maximum UID
+     we'll save big on memory.  */
+  renumber_insns (dump_file);
+}
+
+
+struct tree_opt_pass pass_jump2 =
+{
+  "jump",                               /* name */
+  NULL,                                 /* gate */   
+  rest_of_handle_jump2,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_JUMP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_ggc_collect,                     /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'j'                                   /* letter */
+};
+
+

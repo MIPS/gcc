@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,6 +44,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "except.h"
 #include "tree.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 static int reload_cse_noop_set_p (rtx);
 static void reload_cse_simplify (rtx, rtx);
@@ -739,9 +741,9 @@ reload_combine (void)
 	  HARD_REG_SET live;
 
 	  REG_SET_TO_HARD_REG_SET (live,
-				   bb->global_live_at_start);
+				   bb->il.rtl->global_live_at_start);
 	  compute_use_by_pseudos (&live,
-				  bb->global_live_at_start);
+				  bb->il.rtl->global_live_at_start);
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}
@@ -1269,7 +1271,8 @@ reload_cse_move2add (rtx first)
 		    {
 		      enum machine_mode narrow_mode;
 		      for (narrow_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-			   narrow_mode != GET_MODE (reg);
+			   narrow_mode != VOIDmode
+			   && narrow_mode != GET_MODE (reg);
 			   narrow_mode = GET_MODE_WIDER_MODE (narrow_mode))
 			{
 			  if (have_insn_for (STRICT_LOW_PART, narrow_mode)
@@ -1560,3 +1563,39 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
 	reg_set_luid[i] = 0;
     }
 }
+
+static bool
+gate_handle_postreload (void)
+{
+  return (optimize > 0);
+}
+
+
+static void
+rest_of_handle_postreload (void)
+{
+  /* Do a very simple CSE pass over just the hard registers.  */
+  reload_cse_regs (get_insns ());
+  /* reload_cse_regs can eliminate potentially-trapping MEMs.
+     Remove any EH edges associated with them.  */
+  if (flag_non_call_exceptions)
+    purge_all_dead_edges ();
+}
+
+struct tree_opt_pass pass_postreload_cse =
+{
+  "postreload",                         /* name */
+  gate_handle_postreload,               /* gate */
+  rest_of_handle_postreload,            /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RELOAD_CSE_REGS,                   /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'o'                                   /* letter */
+};
+

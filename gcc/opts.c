@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
+#include "tree-pass.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -93,8 +94,8 @@ static const char undocumented_msg[] = N_("This switch lacks documentation");
 static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
-bool flag_speculative_prefetching_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
+static bool flag_loop_optimize_set;
 
 /* Input file names.  */
 const char **in_fnames;
@@ -110,8 +111,10 @@ static void complain_wrong_lang (const char *, const struct cl_option *,
 				 unsigned int lang_mask);
 static void handle_options (unsigned int, const char **, unsigned int);
 static void wrap_help (const char *help, const char *item, unsigned int);
+static void print_target_help (void);
 static void print_help (void);
 static void print_param_help (void);
+static void print_filtered_help (unsigned int);
 static unsigned int print_switch (const char *text, unsigned int indent);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
@@ -255,7 +258,7 @@ complain_wrong_lang (const char *text, const struct cl_option *option,
   bad_lang = write_langs (lang_mask);
 
   /* Eventually this should become a hard error IMO.  */
-  warning ("command line option \"%s\" is valid for %s but not for %s",
+  warning (0, "command line option \"%s\" is valid for %s but not for %s",
 	   text, ok_langs, bad_lang);
 
   free (ok_langs);
@@ -294,16 +297,7 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (opt_index == cl_options_count)
-    {
-#if defined (TARGET_OPTIONS) || defined (TARGET_SWITCHES)
-      if (opt[1] == 'm')
-	{
-	  set_target_switch (argv[0] + 2);
-	  result = 1;
-	}
-#endif
-      goto done;
-    }
+    goto done;
 
   option = &cl_options[opt_index];
 
@@ -314,6 +308,14 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   /* We've recognized this switch.  */
   result = 1;
+
+  /* Check to see if the option is disabled for this configuration.  */
+  if (option->flags & CL_DISABLED)
+    {
+      error ("command line option %qs"
+	     " is not supported by this configuration", opt);
+      goto done;
+    }
 
   /* Sort out any argument the switch takes.  */
   if (option->flags & CL_JOINED)
@@ -371,24 +373,30 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (option->flag_var)
-    switch (option->var_cond)
+    switch (option->var_type)
       {
       case CLVC_BOOLEAN:
-	*option->flag_var = value;
+	*(int *) option->flag_var = value;
 	break;
 
       case CLVC_EQUAL:
-	*option->flag_var = value ? option->var_value : !option->var_value;
+	*(int *) option->flag_var = (value
+				     ? option->var_value
+				     : !option->var_value);
 	break;
 
       case CLVC_BIT_CLEAR:
       case CLVC_BIT_SET:
-	if ((value != 0) == (option->var_cond == CLVC_BIT_SET))
-	  *option->flag_var |= option->var_value;
+	if ((value != 0) == (option->var_type == CLVC_BIT_SET))
+	  *(int *) option->flag_var |= option->var_value;
 	else
-	  *option->flag_var &= ~option->var_value;
+	  *(int *) option->flag_var &= ~option->var_value;
 	if (option->flag_var == &target_flags)
 	  target_flags_explicit |= option->var_value;
+	break;
+
+      case CLVC_STRING:
+	*(const char **) option->flag_var = arg;
 	break;
       }
   
@@ -515,6 +523,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_loop_optimize = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
+      flag_ipa_pure_const = 1;
+      flag_ipa_reference = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
@@ -524,8 +534,10 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
       flag_tree_fre = 1;
+      flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
       flag_tree_salias = 1;
+      flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -546,11 +558,11 @@ decode_options (unsigned int argc, const char **argv)
       flag_cse_skip_blocks = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
+      flag_ipa_type_escape = 1;
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
       flag_rerun_loop_opt = 1;
       flag_caller_saves = 1;
-      flag_force_mem = 1;
       flag_peephole2 = 1;
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
@@ -561,7 +573,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
-      flag_unit_at_a_time = 1;
+      flag_tree_store_ccp = 1;
+      flag_tree_store_copy_prop = 1;
+      flag_tree_vrp = 1;
 
       if (!optimize_size)
 	{
@@ -615,13 +629,9 @@ decode_options (unsigned int argc, const char **argv)
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
   target_flags = targetm.default_target_flags;
-  set_target_switch ("");
 
-  /* Unwind tables are always present when a target has ABI-specified unwind
-     tables, so the default should be ON.  */
-#ifdef TARGET_UNWIND_INFO
-  flag_unwind_tables = TARGET_UNWIND_INFO;
-#endif
+  /* Some tagets have ABI-specified unwind tables.  */
+  flag_unwind_tables = targetm.unwind_tables_default;
 
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */
@@ -656,7 +666,8 @@ decode_options (unsigned int argc, const char **argv)
 	 this to `2' if -Wall is used, so we can avoid giving out
 	 lots of errors for people who don't realize what -Wall does.  */
       if (warn_uninitialized == 1)
-	warning ("-Wuninitialized is not supported without -O");
+	warning (OPT_Wuninitialized,
+		 "-Wuninitialized is not supported without -O");
     }
 
   if (flag_really_no_inline == 2)
@@ -671,6 +682,15 @@ decode_options (unsigned int argc, const char **argv)
     {
       inform 
 	    ("-freorder-blocks-and-partition does not work with exceptions");
+      flag_reorder_blocks_and_partition = 0;
+      flag_reorder_blocks = 1;
+    }
+
+  if (flag_reorder_blocks_and_partition
+      && !targetm.have_named_sections)
+    {
+      inform 
+       ("-freorder-blocks-and-partition does not work on this architecture");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -698,7 +718,7 @@ common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT__target_help:
-      display_target_options ();
+      print_target_help ();
       exit_after_options = true;
       break;
 
@@ -787,6 +807,10 @@ common_handle_option (size_t scode, const char *arg, int value)
       flag_branch_probabilities_set = true;
       break;
 
+    case OPT_floop_optimize:
+      flag_loop_optimize_set = true;
+      break;
+
     case OPT_fcall_used_:
       fix_register (arg, 0, 1);
       break;
@@ -803,6 +827,10 @@ common_handle_option (size_t scode, const char *arg, int value)
 	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
 	return 0;
+      break;
+
+    case OPT_fdiagnostics_show_option:
+      global_dc->show_option_requested = true;
       break;
 
     case OPT_fdump_:
@@ -859,10 +887,9 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-#ifdef HAVE_prefetch
-      if (0 && !flag_speculative_prefetching_set)
-	flag_speculative_prefetching = value;
-#endif
+      /* Old loop optimizer is incompatible with tree profiling.  */
+      if (!flag_loop_optimize_set)
+	flag_loop_optimize = 0;
       break;
 
     case OPT_fprofile_generate:
@@ -872,12 +899,6 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-      if (!flag_unroll_loops_set)
-	flag_unroll_loops = value;
-#ifdef HAVE_prefetch
-      if (0 && !flag_speculative_prefetching_set)
-	flag_speculative_prefetching = value;
-#endif
       break;
 
     case OPT_fprofile_values:
@@ -895,16 +916,12 @@ common_handle_option (size_t scode, const char *arg, int value)
         else if (!strcmp(arg, "protected"))
           default_visibility = VISIBILITY_PROTECTED;
         else
-          error ("unrecognised visibility value \"%s\"", arg);
+          error ("unrecognized visibility value \"%s\"", arg);
       }
       break;
 
     case OPT_fvpt:
       flag_value_profile_transformations_set = true;
-      break;
-
-    case OPT_fspeculative_prefetching:
-      flag_speculative_prefetching_set = true;
       break;
 
     case OPT_frandom_seed:
@@ -971,7 +988,7 @@ common_handle_option (size_t scode, const char *arg, int value)
       else if (!strcmp (arg, "local-exec"))
 	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
       else
-	warning ("unknown tls-model \"%s\"", arg);
+	warning (0, "unknown tls-model \"%s\"", arg);
       break;
 
     case OPT_ftracer:
@@ -1020,13 +1037,15 @@ common_handle_option (size_t scode, const char *arg, int value)
       flag_pedantic_errors = pedantic = 1;
       break;
 
+    case OPT_fforce_mem:
+      warning (0, "-f[no-]force-mem is nop and option will be removed in 4.2");
+      break;
+
     default:
       /* If the flag was handled in a standard way, assume the lack of
 	 processing here is intentional.  */
-      if (cl_options[scode].flag_var)
-	break;
-
-      abort ();
+      gcc_assert (cl_options[scode].flag_var);
+      break;
     }
 
   return 1;
@@ -1144,7 +1163,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
 	    }
 
 	  if (write_symbols == NO_DEBUG)
-	    warning ("target system does not support debug output");
+	    warning (0, "target system does not support debug output");
 	}
     }
   else
@@ -1173,6 +1192,27 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
     }
 }
 
+/* Display help for target options.  */
+static void
+print_target_help (void)
+{
+  unsigned int i;
+  static bool displayed = false;
+
+  /* Avoid double printing for --help --target-help.  */
+  if (displayed)
+    return;
+
+  displayed = true;
+  for (i = 0; i < cl_options_count; i++)
+    if ((cl_options[i].flags & (CL_TARGET | CL_UNDOCUMENTED)) == CL_TARGET)
+      {
+	printf (_("\nTarget specific options:\n"));
+	print_filtered_help (CL_TARGET);
+	break;
+      }
+}
+
 /* Output --help text.  */
 static void
 print_help (void)
@@ -1199,8 +1239,7 @@ print_help (void)
 	      lang_names[i]);
       print_filtered_help (1U << i);
     }
-
-  display_target_options ();
+  print_target_help ();
 }
 
 /* Print the help for --param.  */
@@ -1229,7 +1268,7 @@ print_param_help (void)
 }
 
 /* Print help for a specific front-end, etc.  */
-void
+static void
 print_filtered_help (unsigned int flag)
 {
   unsigned int i, len, filter, indent = 0;
@@ -1389,22 +1428,60 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
    a simple on-off switch.  */
 
 int
-option_enabled (const struct cl_option *option)
+option_enabled (int opt_idx)
 {
+  const struct cl_option *option = &(cl_options[opt_idx]);
   if (option->flag_var)
-    switch (option->var_cond)
+    switch (option->var_type)
       {
       case CLVC_BOOLEAN:
-	return *option->flag_var != 0;
+	return *(int *) option->flag_var != 0;
 
       case CLVC_EQUAL:
-	return *option->flag_var == option->var_value;
+	return *(int *) option->flag_var == option->var_value;
 
       case CLVC_BIT_CLEAR:
-	return (*option->flag_var & option->var_value) == 0;
+	return (*(int *) option->flag_var & option->var_value) == 0;
 
       case CLVC_BIT_SET:
-	return (*option->flag_var & option->var_value) != 0;
+	return (*(int *) option->flag_var & option->var_value) != 0;
+
+      case CLVC_STRING:
+	break;
       }
   return -1;
+}
+
+/* Fill STATE with the current state of option OPTION.  Return true if
+   there is some state to store.  */
+
+bool
+get_option_state (int option, struct cl_option_state *state)
+{
+  if (cl_options[option].flag_var == 0)
+    return false;
+
+  switch (cl_options[option].var_type)
+    {
+    case CLVC_BOOLEAN:
+    case CLVC_EQUAL:
+      state->data = cl_options[option].flag_var;
+      state->size = sizeof (int);
+      break;
+
+    case CLVC_BIT_CLEAR:
+    case CLVC_BIT_SET:
+      state->ch = option_enabled (option);
+      state->data = &state->ch;
+      state->size = 1;
+      break;
+
+    case CLVC_STRING:
+      state->data = *(const char **) cl_options[option].flag_var;
+      if (state->data == 0)
+	state->data = "";
+      state->size = strlen (state->data) + 1;
+      break;
+    }
+  return true;
 }

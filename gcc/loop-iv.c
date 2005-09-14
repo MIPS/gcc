@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is just a very simplistic analysis of induction variables of the loop.
    The major use is for determining the number of iterations of a loop for
@@ -57,7 +57,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "expr.h"
+#include "intl.h"
 #include "output.h"
+#include "toplev.h"
 
 /* The insn information.  */
 
@@ -844,7 +846,7 @@ iv_analyze_biv (rtx def, struct rtx_iv *iv)
 
   if (dump_file)
     {
-      fprintf (dump_file, "Analysing ");
+      fprintf (dump_file, "Analyzing ");
       print_rtl (dump_file, def);
       fprintf (dump_file, " for bivness.\n");
     }
@@ -927,7 +929,7 @@ iv_analyze_op (rtx insn, rtx op, struct rtx_iv *iv)
 
   if (dump_file)
     {
-      fprintf (dump_file, "Analysing operand ");
+      fprintf (dump_file, "Analyzing operand ");
       print_rtl (dump_file, op);
       fprintf (dump_file, " of insn ");
       print_rtl_single (dump_file, insn);
@@ -1012,7 +1014,7 @@ iv_analyze (rtx insn, rtx def, struct rtx_iv *iv)
 
   if (dump_file)
     {
-      fprintf (dump_file, "Analysing def of ");
+      fprintf (dump_file, "Analyzing def of ");
       print_rtl (dump_file, def);
       fprintf (dump_file, " in insn ");
       print_rtl_single (dump_file, insn);
@@ -2148,7 +2150,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	    assumption = simplify_gen_relational (EQ, SImode, mode, tmp,
 						  mode_mmax);
 	    if (assumption == const_true_rtx)
-	      goto zero_iter;
+	      goto zero_iter_simplify;
 	    iv0.base = simplify_gen_binary (PLUS, comp_mode,
 					    iv0.base, const1_rtx);
 	  }
@@ -2158,7 +2160,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	    assumption = simplify_gen_relational (EQ, SImode, mode, tmp,
 						  mode_mmin);
 	    if (assumption == const_true_rtx)
-	      goto zero_iter;
+	      goto zero_iter_simplify;
 	    iv1.base = simplify_gen_binary (PLUS, comp_mode,
 					    iv1.base, constm1_rtx);
 	  }
@@ -2185,7 +2187,8 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	    {
 	      desc->infinite =
 		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
-	      return;
+	      /* Fill in the remaining fields somehow.  */
+	      goto zero_iter_simplify;
 	    }
 	}
       else
@@ -2195,7 +2198,8 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	    {
 	      desc->infinite =
 		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
-	      return;
+	      /* Fill in the remaining fields somehow.  */
+	      goto zero_iter_simplify;
 	    }
 	}
     }
@@ -2306,7 +2310,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	  assumption = simplify_gen_relational (reverse_condition (cond),
 						SImode, mode, tmp0, tmp1);
 	  if (assumption == const_true_rtx)
-	    goto zero_iter;
+	    goto zero_iter_simplify;
 	  else if (assumption != const0_rtx)
 	    desc->noloop_assumptions =
 		    alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
@@ -2413,7 +2417,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	  tmp0 = lowpart_subreg (mode, iv0.base, comp_mode);
 	  tmp1 = lowpart_subreg (mode, iv1.base, comp_mode);
 
-	  bound = simplify_gen_binary (MINUS, mode, mode_mmin,
+	  bound = simplify_gen_binary (PLUS, mode, mode_mmin,
 				       lowpart_subreg (mode, step, comp_mode));
 	  if (step_is_pow2)
 	    {
@@ -2449,7 +2453,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	  delta = simplify_gen_binary (MINUS, mode, tmp1, delta);
 	}
       if (assumption == const_true_rtx)
-	goto zero_iter;
+	goto zero_iter_simplify;
       else if (assumption != const0_rtx)
 	desc->noloop_assumptions =
 		alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
@@ -2517,15 +2521,25 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 
   return;
 
-fail:
-  desc->simple_p = false;
-  return;
+zero_iter_simplify:
+  /* Simplify the assumptions.  */
+  simplify_using_initial_values (loop, AND, &desc->assumptions);
+  if (desc->assumptions
+      && XEXP (desc->assumptions, 0) == const0_rtx)
+    goto fail;
+  simplify_using_initial_values (loop, IOR, &desc->infinite);
 
+  /* Fallthru.  */
 zero_iter:
   desc->const_iter = true;
   desc->niter = 0;
   desc->niter_max = 0;
+  desc->noloop_assumptions = NULL_RTX;
   desc->niter_expr = const0_rtx;
+  return;
+
+fail:
+  desc->simple_p = false;
   return;
 }
 
@@ -2603,12 +2617,21 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
 	  if (!act.simple_p)
 	    continue;
 
-	  /* Prefer constant iterations; the less the better.  */
 	  if (!any)
 	    any = true;
-	  else if (!act.const_iter
-		   || (desc->const_iter && act.niter >= desc->niter))
-	    continue;
+	  else
+	    {
+	      /* Prefer constant iterations; the less the better.  */
+	      if (!act.const_iter
+		  || (desc->const_iter && act.niter >= desc->niter))
+		continue;
+
+	      /* Also if the actual exit may be infinite, while the old one
+		 not, prefer the old one.  */
+	      if (act.infinite && !desc->infinite)
+		continue;
+	    }
+	  
 	  *desc = act;
 	}
     }
@@ -2670,6 +2693,41 @@ get_simple_loop_desc (struct loop *loop)
   iv_analysis_loop_init (loop);
   find_simple_exit (loop, desc);
   loop->aux = desc;
+
+  if (desc->simple_p && (desc->assumptions || desc->infinite))
+    {
+      const char *wording; 
+
+      /* Assume that no overflow happens and that the loop is finite.  
+	 We already warned at the tree level if we ran optimizations there.  */
+      if (!flag_tree_loop_optimize && warn_unsafe_loop_optimizations)
+	{
+	  if (desc->infinite)
+	    {
+	      wording = 
+		flag_unsafe_loop_optimizations
+		? N_("assuming that the loop is not infinite")
+		: N_("cannot optimize possibly infinite loops");
+	      warning (OPT_Wunsafe_loop_optimizations, "%s",
+		       gettext (wording));
+	    }
+	  if (desc->assumptions)
+	    {
+	      wording = 
+		flag_unsafe_loop_optimizations
+		? N_("assuming that the loop counter does not overflow")
+		: N_("cannot optimize loop, the loop counter may overflow");
+	      warning (OPT_Wunsafe_loop_optimizations, "%s",
+		       gettext (wording));
+	    }
+	}
+
+      if (flag_unsafe_loop_optimizations)
+	{
+	  desc->assumptions = NULL_RTX;
+	  desc->infinite = NULL_RTX;
+	}
+    }
 
   return desc;
 }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -33,7 +33,6 @@ with Exp_Aggr; use Exp_Aggr;
 with Exp_Ch3;  use Exp_Ch3;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch9;  use Exp_Ch9;
-with Exp_Disp; use Exp_Disp;
 with Exp_Fixd; use Exp_Fixd;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Tss;  use Exp_Tss;
@@ -443,6 +442,44 @@ package body Exp_Ch4 is
                 Constant_Present    => True,
                 Object_Definition   => New_Reference_To (PtrT, Loc),
                 Expression          => Node));
+         end if;
+
+         --  Ada 2005 (AI-344): For an allocator with a class-wide designated
+         --  type, generate an accessibility check to verify that the level of
+         --  the type of the created object is not deeper than the level of the
+         --  access type. If the type of the qualified expression is class-
+         --  wide, then always generate the check. Otherwise, only generate the
+         --  check if the level of the qualified expression type is statically
+         --  deeper than the access type. Although the static accessibility
+         --  will generally have been performed as a legality check, it won't
+         --  have been done in cases where the allocator appears in generic
+         --  body, so a run-time check is needed in general.
+
+         if Ada_Version >= Ada_05
+           and then Is_Class_Wide_Type (Designated_Type (PtrT))
+           and then not Scope_Suppress (Accessibility_Check)
+           and then
+             (Is_Class_Wide_Type (Etype (Exp))
+                or else
+              Type_Access_Level (Etype (Exp)) > Type_Access_Level (PtrT))
+         then
+            Insert_Action (N,
+               Make_Raise_Program_Error (Loc,
+                 Condition =>
+                   Make_Op_Gt (Loc,
+                     Left_Opnd  =>
+                       Make_Function_Call (Loc,
+                         Name =>
+                           New_Reference_To (RTE (RE_Get_Access_Level), Loc),
+                         Parameter_Associations =>
+                           New_List (Make_Attribute_Reference (Loc,
+                                       Prefix         =>
+                                          New_Reference_To (Temp, Loc),
+                                       Attribute_Name =>
+                                          Name_Tag))),
+                     Right_Opnd =>
+                       Make_Integer_Literal (Loc, Type_Access_Level (PtrT))),
+                 Reason => PE_Accessibility_Check_Failed));
          end if;
 
          --  Suppress the tag assignment when Java_VM because JVM tags
@@ -1354,7 +1391,7 @@ package body Exp_Ch4 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => Func_Name,
               Parameter_Specifications => Formals,
-              Subtype_Mark => New_Reference_To (Standard_Boolean, Loc)),
+              Result_Definition => New_Reference_To (Standard_Boolean, Loc)),
 
           Declarations =>  Decls,
 
@@ -1799,7 +1836,7 @@ package body Exp_Ch4 is
    --            end loop;
    --         end if;
 
-   --         . . .
+   --         ...
 
    --         if Sn'Length /= 0 then
    --            P := Sn'First;
@@ -2181,7 +2218,7 @@ package body Exp_Ch4 is
         Make_Function_Specification (Loc,
           Defining_Unit_Name       => Func_Id,
           Parameter_Specifications => Param_Specs,
-          Subtype_Mark             => New_Reference_To (Base_Typ, Loc));
+          Result_Definition        => New_Reference_To (Base_Typ, Loc));
 
       --  Construct L's object declaration
 
@@ -3000,22 +3037,81 @@ package body Exp_Ch4 is
       Rop    : constant Node_Id    := Right_Opnd (N);
       Static : constant Boolean    := Is_OK_Static_Expression (N);
 
+      procedure Substitute_Valid_Check;
+      --  Replaces node N by Lop'Valid. This is done when we have an explicit
+      --  test for the left operand being in range of its subtype.
+
+      ----------------------------
+      -- Substitute_Valid_Check --
+      ----------------------------
+
+      procedure Substitute_Valid_Check is
+      begin
+         Rewrite (N,
+           Make_Attribute_Reference (Loc,
+             Prefix         => Relocate_Node (Lop),
+             Attribute_Name => Name_Valid));
+
+         Analyze_And_Resolve (N, Rtyp);
+
+         Error_Msg_N ("?explicit membership test may be optimized away", N);
+         Error_Msg_N ("\?use ''Valid attribute instead", N);
+         return;
+      end Substitute_Valid_Check;
+
+   --  Start of processing for Expand_N_In
+
    begin
-      --  If we have an explicit range, do a bit of optimization based
-      --  on range analysis (we may be able to kill one or both checks).
+      --  Check case of explicit test for an expression in range of its
+      --  subtype. This is suspicious usage and we replace it with a 'Valid
+      --  test and give a warning.
+
+      if Is_Scalar_Type (Etype (Lop))
+        and then Nkind (Rop) in N_Has_Entity
+        and then Etype (Lop) = Entity (Rop)
+        and then Comes_From_Source (N)
+      then
+         Substitute_Valid_Check;
+         return;
+      end if;
+
+      --  Case of explicit range
 
       if Nkind (Rop) = N_Range then
          declare
-            Lcheck : constant Compare_Result :=
-                       Compile_Time_Compare (Lop, Low_Bound (Rop));
-            Ucheck : constant Compare_Result :=
-                       Compile_Time_Compare (Lop, High_Bound (Rop));
+            Lo : constant Node_Id := Low_Bound (Rop);
+            Hi : constant Node_Id := High_Bound (Rop);
+
+            Lo_Orig : constant Node_Id := Original_Node (Lo);
+            Hi_Orig : constant Node_Id := Original_Node (Hi);
+
+            Lcheck : constant Compare_Result := Compile_Time_Compare (Lop, Lo);
+            Ucheck : constant Compare_Result := Compile_Time_Compare (Lop, Hi);
 
          begin
-            --  If either check is known to fail, replace result
-            --  by False, since the other check does not matter.
-            --  Preserve the static flag for legality checks, because
-            --  we are constant-folding beyond RM 4.9.
+            --  If test is explicit x'first .. x'last, replace by valid check
+
+            if Is_Scalar_Type (Etype (Lop))
+              and then Nkind (Lo_Orig) = N_Attribute_Reference
+              and then Attribute_Name (Lo_Orig) = Name_First
+              and then Nkind (Prefix (Lo_Orig)) in N_Has_Entity
+              and then Entity (Prefix (Lo_Orig)) = Etype (Lop)
+              and then Nkind (Hi_Orig) = N_Attribute_Reference
+              and then Attribute_Name (Hi_Orig) = Name_Last
+              and then Nkind (Prefix (Hi_Orig)) in N_Has_Entity
+              and then Entity (Prefix (Hi_Orig)) = Etype (Lop)
+              and then Comes_From_Source (N)
+            then
+               Substitute_Valid_Check;
+               return;
+            end if;
+
+            --  If we have an explicit range, do a bit of optimization based
+            --  on range analysis (we may be able to kill one or both checks).
+
+            --  If either check is known to fail, replace result by False since
+            --  the other check does not matter. Preserve the static flag for
+            --  legality checks, because we are constant-folding beyond RM 4.9.
 
             if Lcheck = LT or else Ucheck = GT then
                Rewrite (N,
@@ -3418,8 +3514,9 @@ package body Exp_Ch4 is
    --  can be done. This avoids needing to duplicate this expansion code.
 
    procedure Expand_N_Not_In (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      Typ  : constant Entity_Id  := Etype (N);
+      Loc : constant Source_Ptr := Sloc (N);
+      Typ : constant Entity_Id  := Etype (N);
+      Cfs : constant Boolean    := Comes_From_Source (N);
 
    begin
       Rewrite (N,
@@ -3427,7 +3524,16 @@ package body Exp_Ch4 is
           Right_Opnd =>
             Make_In (Loc,
               Left_Opnd  => Left_Opnd (N),
-              Right_Opnd => Right_Opnd (N))));
+                     Right_Opnd => Right_Opnd (N))));
+
+      --  We want this tp appear as coming from source if original does (see
+      --  tranformations in Expand_N_In).
+
+      Set_Comes_From_Source (N, Cfs);
+      Set_Comes_From_Source (Right_Opnd (N), Cfs);
+
+      --  Now analyze tranformed node
+
       Analyze_And_Resolve (N, Typ);
    end Expand_N_Not_In;
 
@@ -3961,7 +4067,7 @@ package body Exp_Ch4 is
                --     Obj1 : Enclosing_Non_UU_Type;
                --     Obj2 : Enclosing_Non_UU_Type (1);
 
-               --     . . . Obj1 = Obj2 . . .
+               --     ...  Obj1 = Obj2 ...
 
                --     Generated code:
 
@@ -5412,7 +5518,7 @@ package body Exp_Ch4 is
                 Make_Parameter_Specification (Loc,
                   Defining_Identifier => A,
                   Parameter_Type      => New_Reference_To (Typ, Loc))),
-              Subtype_Mark => New_Reference_To (Typ, Loc)),
+              Result_Definition => New_Reference_To (Typ, Loc)),
 
           Declarations => New_List (
             Make_Object_Declaration (Loc,
@@ -7681,7 +7787,7 @@ package body Exp_Ch4 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => Func_Name,
               Parameter_Specifications => Formals,
-              Subtype_Mark => New_Reference_To (Standard_Boolean, Loc)),
+              Result_Definition => New_Reference_To (Standard_Boolean, Loc)),
 
           Declarations => New_List (
             Make_Object_Declaration (Loc,
@@ -7812,7 +7918,7 @@ package body Exp_Ch4 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => Func_Name,
               Parameter_Specifications => Formals,
-              Subtype_Mark             => New_Reference_To (Typ, Loc)),
+              Result_Definition        => New_Reference_To (Typ, Loc)),
 
           Declarations => New_List (
             Make_Object_Declaration (Loc,
@@ -8015,24 +8121,49 @@ package body Exp_Ch4 is
             New_Reference_To (First_Tag_Component (Left_Type), Loc));
 
       if Is_Class_Wide_Type (Right_Type) then
-         return
-           Make_DT_Access_Action (Left_Type,
-             Action => CW_Membership,
-             Args   => New_List (
-               Obj_Tag,
-               New_Reference_To
-                 (Node (First_Elmt
-                          (Access_Disp_Table (Root_Type (Right_Type)))),
-                  Loc)));
+
+         --  Ada 2005 (AI-251): Class-wide applied to interfaces
+
+         if Is_Interface (Etype (Class_Wide_Type (Right_Type)))
+
+            --   Give support to: "Iface_CW_Typ in Typ'Class"
+
+           or else Is_Interface (Left_Type)
+         then
+            return
+              Make_Function_Call (Loc,
+                 Name => New_Occurrence_Of (RTE (RE_IW_Membership), Loc),
+                 Parameter_Associations => New_List (
+                   Make_Attribute_Reference (Loc,
+                     Prefix => Obj_Tag,
+                     Attribute_Name => Name_Address),
+                   New_Reference_To (
+                     Node (First_Elmt
+                            (Access_Disp_Table (Root_Type (Right_Type)))),
+                     Loc)));
+
+         --  Ada 95: Normal case
+
+         else
+            return
+              Make_Function_Call (Loc,
+                 Name => New_Occurrence_Of (RTE (RE_CW_Membership), Loc),
+                 Parameter_Associations => New_List (
+                   Obj_Tag,
+                   New_Reference_To (
+                     Node (First_Elmt
+                            (Access_Disp_Table (Root_Type (Right_Type)))),
+                     Loc)));
+         end if;
+
       else
          return
            Make_Op_Eq (Loc,
-           Left_Opnd  => Obj_Tag,
-           Right_Opnd =>
-             New_Reference_To
-               (Node (First_Elmt (Access_Disp_Table (Right_Type))), Loc));
+             Left_Opnd  => Obj_Tag,
+             Right_Opnd =>
+               New_Reference_To
+                 (Node (First_Elmt (Access_Disp_Table (Right_Type))), Loc));
       end if;
-
    end Tagged_Membership;
 
    ------------------------------

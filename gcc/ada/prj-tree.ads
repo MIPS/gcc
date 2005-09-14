@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -30,7 +30,6 @@ with GNAT.Dynamic_HTables;
 with GNAT.Dynamic_Tables;
 
 with Prj.Attr; use Prj.Attr;
-with Types;    use Types;
 
 package Prj.Tree is
 
@@ -280,6 +279,12 @@ package Prj.Tree is
       In_Tree : Project_Node_Tree_Ref) return Boolean;
    pragma Inline (Is_Extending_All);
    --  Only valid for N_Project and N_With_Clause
+
+   function Is_Not_Last_In_List
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Boolean;
+   pragma Inline (Is_Not_Last_In_List);
+   --  Only valid for N_With_Clause
 
    function First_Variable_Of
      (Node    : Project_Node_Id;
@@ -632,6 +637,11 @@ package Prj.Tree is
       In_Tree : Project_Node_Tree_Ref);
    pragma Inline (Set_Is_Extending_All);
 
+   procedure Set_Is_Not_Last_In_List
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref);
+   pragma Inline (Set_Is_Not_Last_In_List);
+
    procedure Set_First_Variable_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
@@ -949,6 +959,12 @@ package Prj.Tree is
          --    N_Project_Declaration
          --              - it indicates that there are unkept comments in the
          --                project.
+         --    N_With_Clause
+         --              - it indicates that this is not the last with in a
+         --                with clause. It is set for "A", but not for "B" in
+         --                    with "B";
+         --                  and
+         --                    with "A", "B";
 
          Flag2 : Boolean := False;
          --  This flag is significant only for:

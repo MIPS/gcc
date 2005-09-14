@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -89,6 +89,8 @@
 #if OLD_MINGW
 #include <sys/wait.h>
 #endif
+#elif defined (__vxworks) && defined (__RTP__)
+#include <wait.h>
 #else
 #include <sys/wait.h>
 #endif
@@ -263,7 +265,11 @@ const int __gnat_vmsp = 0;
 #include <sys/param.h>
 #endif
 
+#ifdef MAXPATHLEN
 #define GNAT_MAX_PATH_LEN MAXPATHLEN
+#else
+#define GNAT_MAX_PATH_LEN 256
+#endif
 
 #endif
 
@@ -1308,7 +1314,7 @@ __gnat_set_env_value (char *name, char *value)
 	*next = 0;
 	ile_array[i].len = strlen (curr);
 
-	/* Code 2 from lnmdef.h means its a string.  */
+	/* Code 2 from lnmdef.h means it's a string.  */
 	ile_array[i].code = 2;
 	ile_array[i].adr = curr;
 
@@ -1327,6 +1333,9 @@ __gnat_set_env_value (char *name, char *value)
     if ((status & 1) != 1)
       LIB$SIGNAL (status);
   }
+
+#elif defined (__vxworks) && defined (__RTP__)
+  setenv (name, value, 1);
 
 #else
   int size = strlen (name) + strlen (value) + 2;
@@ -1634,11 +1643,12 @@ __gnat_portable_spawn (char *args[])
 int
 __gnat_dup (int oldfd)
 {
-#if defined (__vxworks)
-   /* Not supported on VxWorks.  */
-   return -1;
+#if defined (__vxworks) && !defined (__RTP__)
+  /* Not supported on VxWorks 5.x, but supported on VxWorks 6.0 when using
+     RTPs. */
+  return -1;
 #else
-   return dup (oldfd);
+  return dup (oldfd);
 #endif
 }
 
@@ -1648,8 +1658,9 @@ __gnat_dup (int oldfd)
 int
 __gnat_dup2 (int oldfd, int newfd)
 {
-#if defined (__vxworks)
-  /* Not supported on VxWorks.  */
+#if defined (__vxworks) && !defined (__RTP__)
+  /* Not supported on VxWorks 5.x, but supported on VxWorks 6.0 when using
+     RTPs.  */
   return -1;
 #else
   return dup2 (oldfd, newfd);
@@ -1939,13 +1950,30 @@ char *
 __gnat_locate_regular_file (char *file_name, char *path_val)
 {
   char *ptr;
-  int absolute = __gnat_is_absolute_path (file_name, strlen (file_name));
+  char *file_path = alloca (strlen (file_name) + 1);
+  int absolute;
+
+  /* Remove quotes around file_name if present */
+
+  ptr = file_name;
+  if (*ptr == '"')
+    ptr++;
+
+  strcpy (file_path, ptr);
+
+  ptr = file_path + strlen (file_path) - 1;
+
+  if (*ptr == '"')
+    *ptr = '\0';
 
   /* Handle absolute pathnames.  */
+
+  absolute = __gnat_is_absolute_path (file_path, strlen (file_name));
+
   if (absolute)
     {
-     if (__gnat_is_regular_file (file_name))
-       return xstrdup (file_name);
+     if (__gnat_is_regular_file (file_path))
+       return xstrdup (file_path);
 
       return 0;
     }
@@ -1976,10 +2004,21 @@ __gnat_locate_regular_file (char *file_name, char *path_val)
       if (*path_val == 0)
         return 0;
 
+      /* Skip the starting quote */
+
+      if (*path_val == '"')
+	path_val++;
+
       for (ptr = file_path; *path_val && *path_val != PATH_SEPARATOR; )
-        *ptr++ = *path_val++;
+	*ptr++ = *path_val++;
 
       ptr--;
+
+      /* Skip the ending quote */
+
+      if (*ptr == '"')
+	ptr--;
+
       if (*ptr != '/' && *ptr != DIR_SEPARATOR)
         *++ptr = DIR_SEPARATOR;
 
@@ -2000,6 +2039,7 @@ __gnat_locate_regular_file (char *file_name, char *path_val)
 char *
 __gnat_locate_exec (char *exec_name, char *path_val)
 {
+  char *ptr;
   if (!strstr (exec_name, HOST_EXECUTABLE_SUFFIX))
     {
       char *full_exec_name
@@ -2007,7 +2047,11 @@ __gnat_locate_exec (char *exec_name, char *path_val)
 
       strcpy (full_exec_name, exec_name);
       strcat (full_exec_name, HOST_EXECUTABLE_SUFFIX);
-      return __gnat_locate_regular_file (full_exec_name, path_val);
+      ptr = __gnat_locate_regular_file (full_exec_name, path_val);
+
+      if (ptr == 0)
+         return __gnat_locate_regular_file (exec_name, path_val);
+      return ptr;
     }
   else
     return __gnat_locate_regular_file (exec_name, path_val);
@@ -2026,20 +2070,24 @@ __gnat_locate_exec_on_path (char *exec_name)
 #endif
 #ifdef _WIN32
   /* In Win32 systems we expand the PATH as for XP environment
-     variables are not automatically expanded.  */
-  int len = strlen (path_val) * 3;
-  char *expanded_path_val = alloca (len + 1);
+     variables are not automatically expanded. We also prepend the
+     ".;" to the path to match normal NT path search semantics */
 
-  DWORD res = ExpandEnvironmentStrings (path_val, expanded_path_val, len);
+  #define EXPAND_BUFFER_SIZE 32767
 
-  if (res != 0)
-    {
-      path_val = expanded_path_val;
-    }
-#endif
+  apath_val = alloca (EXPAND_BUFFER_SIZE);
 
+  apath_val [0] = '.';
+  apath_val [1] = ';';
+
+  DWORD res = ExpandEnvironmentStrings
+    (path_val, apath_val + 2, EXPAND_BUFFER_SIZE - 2);
+
+  if (!res) apath_val [0] = '\0';
+#else
   apath_val = alloca (strlen (path_val) + 1);
   strcpy (apath_val, path_val);
+#endif
 
   return __gnat_locate_exec (exec_name, apath_val);
 }
@@ -2204,7 +2252,7 @@ __gnat_to_canonical_dir_spec (char *dirspec, int prefixflag)
 }
 
 /* Translate a VMS syntax file specification into Unix syntax.
-   If no indicators of VMS syntax found, check if its an uppercase
+   If no indicators of VMS syntax found, check if it's an uppercase
    alphanumeric_ name and if so try it out as an environment
    variable (logical name). If all else fails return the
    input string.  */
@@ -2218,15 +2266,19 @@ __gnat_to_canonical_file_spec (char *filespec)
 
   if (strchr (filespec, ']') || strchr (filespec, ':'))
     {
-      strncpy (new_canonical_filespec,
-	       (char *) decc$translate_vms (filespec), MAXPATH);
+      char *tspec = (char *) decc$translate_vms (filespec);
+
+      if (tspec != (char *) -1)
+	strncpy (new_canonical_filespec, tspec, MAXPATH);
     }
   else if ((strlen (filespec) == strspn (filespec,
 	    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"))
 	&& (filespec1 = getenv (filespec)))
     {
-      strncpy (new_canonical_filespec,
-	       (char *) decc$translate_vms (filespec1), MAXPATH);
+      char *tspec = (char *) decc$translate_vms (filespec1);
+
+      if (tspec != (char *) -1)
+	strncpy (new_canonical_filespec, tspec, MAXPATH);
     }
   else
     {
@@ -2484,7 +2536,7 @@ _flush_cache()
 
 #if defined (CROSS_COMPILE)  \
   || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
-      && ! (defined (linux) && defined (i386)) \
+      && ! (defined (linux) && (defined (i386) || defined (__x86_64__))) \
       && ! defined (__FreeBSD__) \
       && ! defined (__hpux__) \
       && ! defined (__APPLE__) \
@@ -2494,7 +2546,7 @@ _flush_cache()
       && ! (defined (__mips) && defined (__sgi)))
 
 /* Dummy function to satisfy g-trasym.o.  Currently Solaris sparc, HP/UX,
-   GNU/Linux x86, Tru64 & Windows provide a non-dummy version of this
+   GNU/Linux x86{_64}, Tru64 & Windows provide a non-dummy version of this
    procedure in libaddr2line.a.  */
 
 void
@@ -2630,5 +2682,29 @@ __gnat_set_close_on_exec (int fd ATTRIBUTE_UNUSED,
      the HANDLE_INHERIT property from fd. This is not implemented yet,
      but for our purposes (support of GNAT.Expect) this does not matter,
      as by default handles are *not* inherited. */
+#endif
+}
+
+/* Indicates if platforms supports automatic initialization through the
+   constructor mechanism */
+int
+__gnat_binder_supports_auto_init ()
+{
+#ifdef VMS
+   return 0;
+#else
+   return 1;
+#endif
+}
+
+/* Indicates that Stand-Alone Libraries are automatically initialized through
+   the constructor mechanism */
+int
+__gnat_sals_init_using_constructors ()
+{
+#if defined (__vxworks) || defined (__Lynx__) || defined (VMS)
+   return 0;
+#else
+   return 1;
 #endif
 }

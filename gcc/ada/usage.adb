@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -220,11 +220,6 @@ begin
    Write_Switch_Char ("l");
    Write_Line ("Output full source listing with embedded error messages");
 
-   --  Line for -gnatL switch
-
-   Write_Switch_Char ("L");
-   Write_Line ("Use longjmp/setjmp for exception handling");
-
    --  Line for -gnatm switch
 
    Write_Switch_Char ("mnnn");
@@ -390,7 +385,9 @@ begin
    Write_Line ("        v*   turn on warnings for unassigned variable");
    Write_Line ("        V    turn off warnings for unassigned variable");
    Write_Line ("        x*   turn on warnings for export/import");
-   Write_Line ("        X*   turn off warnings for export/import");
+   Write_Line ("        X    turn off warnings for export/import");
+   Write_Line ("        y*   turn on warnings for Ada 2005 incompatibility");
+   Write_Line ("        Y    turn off warnings for Ada 2005 incompatibility");
    Write_Line ("        z*   turn on size/align warnings for " &
                                                   "unchecked conversion");
    Write_Line ("        Z    turn off size/align warnings for " &
@@ -450,6 +447,7 @@ begin
    Write_Line ("        r    check casing for identifier references");
    Write_Line ("        s    check separate subprogram specs present");
    Write_Line ("        t    check token separation rules");
+   Write_Line ("        u    check no unnecessary blank lines");
    Write_Line ("        x    check extra parens around conditionals");
 
    --  Lines for -gnatyN switch
@@ -461,11 +459,6 @@ begin
 
    Write_Switch_Char ("z");
    Write_Line ("Distribution stub generation (r/c for receiver/caller stubs)");
-
-   --  Line for -gnatZ switch
-
-   Write_Switch_Char ("Z");
-   Write_Line ("Use zero cost exception handling");
 
    --  Line for -gnat83 switch
 

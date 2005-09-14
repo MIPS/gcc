@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TREE_VECTORIZER_H
 #define GCC_TREE_VECTORIZER_H
@@ -57,7 +57,7 @@ enum dr_alignment_support {
   dr_aligned
 };
 
-/* Define type of def-use cross-iteraiton cycle.  */
+/* Define type of def-use cross-iteration cycle.  */
 enum vect_def_type {
   vect_constant_def,
   vect_invariant_def,
@@ -119,7 +119,7 @@ typedef struct _loop_vec_info {
 
   /* The mask used to check the alignment of pointers or arrays.  */
   int ptr_mask;
-  
+
   /* All data references in the loop.  */
   varray_type datarefs;
 
@@ -128,30 +128,27 @@ typedef struct _loop_vec_info {
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
-  varray_type may_misalign_stmts;
+  VEC(tree,heap) *may_misalign_stmts;
 
   /* The loop location in the source.  */
   LOC loop_line_number;
 } *loop_vec_info;
 
 /* Access Functions.  */
-#define LOOP_VINFO_LOOP(L)           (L)->loop
-#define LOOP_VINFO_BBS(L)            (L)->bbs
-#define LOOP_VINFO_EXIT_COND(L)      (L)->exit_cond
-#define LOOP_VINFO_NITERS(L)         (L)->num_iters
-#define LOOP_VINFO_VECTORIZABLE_P(L) (L)->vectorizable
-#define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
-#define LOOP_VINFO_PTR_MASK(L)       (L)->ptr_mask
-#define LOOP_VINFO_DATAREFS(L)       (L)->datarefs
-#define LOOP_VINFO_DDRS(L)           (L)->ddrs
-#define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))
+#define LOOP_VINFO_LOOP(L)            (L)->loop
+#define LOOP_VINFO_BBS(L)             (L)->bbs
+#define LOOP_VINFO_EXIT_COND(L)       (L)->exit_cond
+#define LOOP_VINFO_NITERS(L)          (L)->num_iters
+#define LOOP_VINFO_VECTORIZABLE_P(L)  (L)->vectorizable
+#define LOOP_VINFO_VECT_FACTOR(L)     (L)->vectorization_factor
+#define LOOP_VINFO_PTR_MASK(L)        (L)->ptr_mask
+#define LOOP_VINFO_DATAREFS(L)        (L)->datarefs
+#define LOOP_VINFO_DDRS(L)            (L)->ddrs
+#define LOOP_VINFO_INT_NITERS(L)      (TREE_INT_CST_LOW ((L)->num_iters))
 #define LOOP_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
-#define LOOP_VINFO_UNALIGNED_DR(L) (L)->unaligned_dr
+#define LOOP_VINFO_UNALIGNED_DR(L)    (L)->unaligned_dr
 #define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
-#define LOOP_VINFO_LOC(L)          (L)->loop_line_number
-
-#define LOOP_LOC(L)    LOOP_VINFO_LOC(L)
-
+#define LOOP_VINFO_LOC(L)             (L)->loop_line_number
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
 (host_integerp ((L)->num_iters,0)                        \
@@ -166,10 +163,14 @@ enum stmt_vec_info_type {
   store_vec_info_type,
   op_vec_info_type,
   assignment_vec_info_type,
-  select_vec_info_type,
+  condition_vec_info_type,
   reduc_vec_info_type,
   target_reduc_pattern_vec_info_type
 };
+
+typedef struct data_reference *dr_p;
+DEF_VEC_P(dr_p);
+DEF_VEC_ALLOC_P(dr_p,heap);
 
 typedef struct _stmt_vec_info {
 
@@ -207,11 +208,6 @@ typedef struct _stmt_vec_info {
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
-  /* Aliasing information.  */
-  tree memtag;
-  struct ptr_info_def *ptr_info;
-  subvar_t subvars;
-
   /* If this stmt is part of a pattern (in_pattern_p is true):
         related_stmt is the stmt whose vectorized_stmt should be used to get
 	the relevant vector-def that will replace the scalar-def of this stmt.
@@ -223,10 +219,11 @@ typedef struct _stmt_vec_info {
 
   /* List of datarefs that are known to have the same alignment as the dataref
      of this stmt.  */
-  varray_type same_align_refs; 
+  VEC(dr_p,heap) *same_align_refs;
 
   /* Classify the def of this stmt.  */
   enum vect_def_type def_type;
+
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -234,13 +231,13 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_STMT(S)                (S)->stmt
 #define STMT_VINFO_LOOP_VINFO(S)          (S)->loop_vinfo
 #define STMT_VINFO_RELEVANT_P(S)          (S)->relevant
-#define STMT_VINFO_LIVE_P(S)          	  (S)->live
+#define STMT_VINFO_LIVE_P(S)              (S)->live
 #define STMT_VINFO_VECTYPE(S)             (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
 #define STMT_VINFO_IN_PATTERN_P(S)        (S)->in_pattern_p
 #define STMT_VINFO_RELATED_STMT(S)        (S)->related_stmt
-#define STMT_VINFO_SAME_ALIGN_REFS(S)	  (S)->same_align_refs
+#define STMT_VINFO_SAME_ALIGN_REFS(S)     (S)->same_align_refs
 #define STMT_VINFO_DEF_TYPE(S)            (S)->def_type
 
 static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
@@ -292,6 +289,12 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 extern FILE *vect_dump;
 extern enum verbosity_levels vect_verbosity_level;
 
+/* Number of loops, at the beginning of vectorization.  */
+extern unsigned int vect_loops_num;
+
+/* Bitmap of virtual variables to be renamed.  */
+extern bitmap vect_vnames_to_rename;
+
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
 /*-----------------------------------------------------------------*/
@@ -322,7 +325,7 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
 extern tree vect_strip_conversion (tree);
 extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
-                                enum vect_def_type *);
+				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
 extern tree vect_is_simple_reduction (struct loop *, tree);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
@@ -355,18 +358,18 @@ extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_select (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_target_reduction_pattern 
   (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info, struct loops *);
 
 /*************************************************************************
   Vectorization Debug Information - in tree-vectorizer.c
  *************************************************************************/
-extern bool vect_print_dump_info (enum verbosity_levels, LOC);
+extern bool vect_print_dump_info (enum verbosity_levels);
 extern void vect_set_verbosity_level (const char *);
 extern LOC find_loop_location (struct loop *);
 

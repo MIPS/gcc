@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -301,8 +301,15 @@ extern int force_global;
 
 /* Data structures used to represent attributes.  */
 
-enum attr_type {ATTR_MACHINE_ATTRIBUTE, ATTR_LINK_ALIAS,
-		ATTR_LINK_SECTION, ATTR_WEAK_EXTERNAL};
+enum attr_type
+{
+  ATTR_MACHINE_ATTRIBUTE,
+  ATTR_LINK_ALIAS,
+  ATTR_LINK_SECTION,
+  ATTR_LINK_CONSTRUCTOR,
+  ATTR_LINK_DESTRUCTOR,
+  ATTR_WEAK_EXTERNAL
+};
 
 struct attrib
 {
@@ -358,6 +365,9 @@ enum standard_datatypes
 
 extern GTY(()) tree gnat_std_decls[(int) ADT_LAST];
 extern GTY(()) tree gnat_raise_decls[(int) LAST_REASON_CODE + 1];
+
+extern GTY(()) tree static_ctors;
+extern GTY(()) tree static_dtors;
 
 #define longest_float_type_node gnat_std_decls[(int) ADT_longest_float_type]
 #define void_type_decl_node gnat_std_decls[(int) ADT_void_type_decl]
@@ -709,10 +719,13 @@ extern tree build_call_alloc_dealloc (tree gnu_obj, tree gnu_size,
    RESULT_TYPE, which must be some type of pointer.  Return the tree.
    GNAT_PROC and GNAT_POOL optionally give the procedure to call and
    the storage pool to use.  GNAT_NODE is used to provide an error
-   location for restriction violations messages.  */
+   location for restriction violations messages.  If IGNORE_INIT_TYPE is
+   true, ignore the type of INIT for the purpose of determining the size;
+   this will cause the maximum size to be allocated if TYPE is of
+   self-referential size.  */
 extern tree build_allocator (tree type, tree init, tree result_type,
                              Entity_Id gnat_proc, Entity_Id gnat_pool,
-                             Node_Id gnat_node);
+                             Node_Id gnat_node, bool);
 
 /* Fill in a VMS descriptor for EXPR and return a constructor for it.
    GNAT_FORMAL is how we find the descriptor record.  */

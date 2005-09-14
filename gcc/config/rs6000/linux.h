@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for PowerPC machines running Linux.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
@@ -18,8 +18,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -27,6 +27,9 @@
 /* Linux doesn't support saving and restoring 64-bit regs in a 32-bit
    process.  */
 #define OS_MISSING_POWERPC64 1
+
+/* We use glibc _mcount for profiling.  */
+#define NO_PROFILE_COUNTERS 1
 
 /* glibc has float and long double forms of math functions.  */
 #undef  TARGET_C99_FUNCTIONS
@@ -107,6 +110,11 @@
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
-#define TARGET_HAS_F_SETLKW
+#define TARGET_POSIX_IO
 
 #define MD_UNWIND_SUPPORT "config/rs6000/linux-unwind.h"
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* ppc32 glibc provides __stack_chk_guard in -0x7008(2).  */
+#define TARGET_THREAD_SSP_OFFSET	-0x7008
+#endif

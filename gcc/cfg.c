@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains low level functions to manipulate the CFG and
    analyze it.  All other modules should not transform the data structure
@@ -60,41 +60,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"
 #include "toplev.h"
 #include "tm_p.h"
-#include "alloc-pool.h"
+#include "obstack.h"
 #include "timevar.h"
 #include "ggc.h"
+#include "hashtab.h"
+#include "alloc-pool.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
 struct bitmap_obstack reg_obstack;
 
-/* Number of basic blocks in the current function.  */
-
-int n_basic_blocks;
-
-/* First free basic block number.  */
-
-int last_basic_block;
-
-/* Number of edges in the current function.  */
-
-int n_edges;
-
-/* The basic block array.  */
-
-varray_type basic_block_info;
-
-/* The special entry and exit blocks.  */
-basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
-
-/* Memory alloc pool for bb member rbi.  */
-static alloc_pool rbi_pool;
-
 void debug_flow_info (void);
 static void free_edge (edge);
-
-/* Indicate the presence of the profile.  */
-enum profile_status profile_status;
 
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
@@ -103,11 +80,12 @@ enum profile_status profile_status;
 void
 init_flow (void)
 {
+  if (!cfun->cfg)
+    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
   n_edges = 0;
-
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -156,35 +134,6 @@ alloc_block (void)
   basic_block bb;
   bb = ggc_alloc_cleared (sizeof (*bb));
   return bb;
-}
-
-/* Create memory pool for rbi_pool.  */
-
-void
-alloc_rbi_pool (void)
-{
-  rbi_pool = create_alloc_pool ("rbi pool", 
-				sizeof (struct reorder_block_def),
-				n_basic_blocks + 2);
-}
-
-/* Free rbi_pool.  */
-
-void
-free_rbi_pool (void)
-{
-  free_alloc_pool (rbi_pool);
-}
-
-/* Initialize rbi (the structure containing data used by basic block
-   duplication and reordering) for the given basic block.  */
-
-void
-initialize_bb_rbi (basic_block bb)
-{
-  gcc_assert (!bb->rbi);
-  bb->rbi = pool_alloc (rbi_pool);
-  memset (bb->rbi, 0, sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */
@@ -250,7 +199,7 @@ expunge_block (basic_block b)
 static inline void
 connect_src (edge e)
 {
-  VEC_safe_push (edge, e->src->succs, e);
+  VEC_safe_push (edge, gc, e->src->succs, e);
 }
 
 /* Connect E to E->dest.  */
@@ -259,7 +208,7 @@ static inline void
 connect_dest (edge e)
 {
   basic_block dest = e->dest;
-  VEC_safe_push (edge, dest->preds, e);
+  VEC_safe_push (edge, gc, dest->preds, e);
   e->dest_idx = EDGE_COUNT (dest->preds) - 1;
 }
 
@@ -392,6 +341,7 @@ make_single_succ_edge (basic_block src, basic_block dest, int flags)
 void
 remove_edge (edge e)
 {
+  remove_predictions_associated_with_edge (e);
   execute_on_shrinking_pred (e);
 
   disconnect_src (e);
@@ -461,7 +411,8 @@ clear_bb_flags (void)
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE);
+    bb->flags = (BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE)
+		 | (bb->flags & BB_RTL));
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -516,15 +467,14 @@ check_bb_profile (basic_block bb, FILE * file)
 void
 dump_flow_info (FILE *file)
 {
-  int i;
   basic_block bb;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
   if (reg_n_info && !reload_completed)
     {
-      int max_regno = max_reg_num ();
-      fprintf (file, "%d registers.\n", max_regno);
-      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      unsigned int i, max = max_reg_num ();
+      fprintf (file, "%d registers.\n", max);
+      for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
 	    enum reg_class class, altclass;
@@ -594,16 +544,19 @@ dump_flow_info (FILE *file)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
 
-      if (bb->global_live_at_start)
+      if (bb->flags & BB_RTL)
 	{
-	  fprintf (file, "\nRegisters live at start:");
-	  dump_regset (bb->global_live_at_start, file);
-	}
+	  if (bb->il.rtl->global_live_at_start)
+	    {
+	      fprintf (file, "\nRegisters live at start:");
+	      dump_regset (bb->il.rtl->global_live_at_start, file);
+	    }
 
-      if (bb->global_live_at_end)
-	{
-	  fprintf (file, "\nRegisters live at end:");
-	  dump_regset (bb->global_live_at_end, file);
+	  if (bb->il.rtl->global_live_at_end)
+	    {
+	      fprintf (file, "\nRegisters live at end:");
+	      dump_regset (bb->il.rtl->global_live_at_end, file);
+	    }
 	}
 
       putc ('\n', file);
@@ -897,7 +850,12 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
 
   bb->count -= count;
   if (bb->count < 0)
-    bb->count = 0;
+    {
+      if (dump_file)
+	fprintf (dump_file, "bb %i count became negative after threading",
+		 bb->index);
+      bb->count = 0;
+    }
 
   /* Compute the probability of TAKEN_EDGE being reached via threaded edge.
      Watch for overflows.  */
@@ -935,17 +893,25 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
     }
   else if (prob != REG_BR_PROB_BASE)
     {
-      int scale = 65536 * REG_BR_PROB_BASE / prob;
+      int scale = RDIV (65536 * REG_BR_PROB_BASE, prob);
 
       FOR_EACH_EDGE (c, ei, bb->succs)
-	c->probability *= scale / 65536;
+	{
+	  c->probability = RDIV (c->probability * scale, 65536);
+	  if (c->probability > REG_BR_PROB_BASE)
+	    c->probability = REG_BR_PROB_BASE;
+	}
     }
 
-  if (bb != taken_edge->src)
-    abort ();
+  gcc_assert (bb == taken_edge->src);
   taken_edge->count -= count;
   if (taken_edge->count < 0)
-    taken_edge->count = 0;
+    {
+      if (dump_file)
+	fprintf (dump_file, "edge %i->%i count became negative after threading",
+		 taken_edge->src->index, taken_edge->dest->index);
+      taken_edge->count = 0;
+    }
 }
 
 /* Multiply all frequencies of basic blocks in array BBS of length NBBS
@@ -955,15 +921,26 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
 {
   int i;
   edge e;
+  if (num < 0)
+    num = 0;
+  if (num > den)
+    return;
+  /* Assume that the users are producing the fraction from frequencies
+     that never grow far enough to risk arithmetic overflow.  */
+  gcc_assert (num < 65536);
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;
-      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	e->count = (e->count * num) /den;
+	e->count = RDIV (e->count * num, den);
     }
 }
+
+/* numbers smaller than this value are safe to multiply without getting
+   64bit overflow.  */
+#define MAX_SAFE_MULTIPLIER (1 << (sizeof (HOST_WIDEST_INT) * 4 - 1))
 
 /* Multiply all frequencies of basic blocks in array BBS of length NBBS
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
@@ -974,13 +951,180 @@ scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
 {
   int i;
   edge e;
+  gcov_type fraction = RDIV (num * 65536, den);
 
-  for (i = 0; i < nbbs; i++)
+  gcc_assert (fraction >= 0);
+
+  if (num < MAX_SAFE_MULTIPLIER)
+    for (i = 0; i < nbbs; i++)
+      {
+	edge_iterator ei;
+	bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+	if (bbs[i]->count <= MAX_SAFE_MULTIPLIER)
+	  bbs[i]->count = RDIV (bbs[i]->count * num, den);
+	else
+	  bbs[i]->count = RDIV (bbs[i]->count * fraction, 65536);
+	FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	  if (bbs[i]->count <= MAX_SAFE_MULTIPLIER)
+	    e->count = RDIV (e->count * num, den);
+	  else
+	    e->count = RDIV (e->count * fraction, 65536);
+      }
+   else
+    for (i = 0; i < nbbs; i++)
+      {
+	edge_iterator ei;
+	if (sizeof (gcov_type) > sizeof (int))
+	  bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+	else
+	  bbs[i]->frequency = RDIV (bbs[i]->frequency * fraction, 65536);
+	bbs[i]->count = RDIV (bbs[i]->count * fraction, 65536);
+	FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	  e->count = RDIV (e->count * fraction, 65536);
+      }
+}
+
+/* Data structures used to maintain mapping between basic blocks and
+   copies.  */
+static htab_t bb_original;
+static htab_t bb_copy;
+static alloc_pool original_copy_bb_pool;
+
+struct htab_bb_copy_original_entry
+{
+  /* Block we are attaching info to.  */
+  int index1;
+  /* Index of original or copy (depending on the hashtable) */
+  int index2;
+};
+
+static hashval_t
+bb_copy_original_hash (const void *p)
+{
+  struct htab_bb_copy_original_entry *data
+    = ((struct htab_bb_copy_original_entry *)p);
+
+  return data->index1;
+}
+static int
+bb_copy_original_eq (const void *p, const void *q)
+{
+  struct htab_bb_copy_original_entry *data
+    = ((struct htab_bb_copy_original_entry *)p);
+  struct htab_bb_copy_original_entry *data2
+    = ((struct htab_bb_copy_original_entry *)q);
+
+  return data->index1 == data2->index1;
+}
+
+/* Initialize the data structures to maintain mapping between blocks
+   and its copies.  */
+void
+initialize_original_copy_tables (void)
+{
+  gcc_assert (!original_copy_bb_pool);
+  original_copy_bb_pool
+    = create_alloc_pool ("original_copy",
+			 sizeof (struct htab_bb_copy_original_entry), 10);
+  bb_original = htab_create (10, bb_copy_original_hash,
+			     bb_copy_original_eq, NULL);
+  bb_copy = htab_create (10, bb_copy_original_hash, bb_copy_original_eq, NULL);
+}
+
+/* Free the data structures to maintain mapping between blocks and
+   its copies.  */
+void
+free_original_copy_tables (void)
+{
+  gcc_assert (original_copy_bb_pool);
+  htab_delete (bb_copy);
+  htab_delete (bb_original);
+  free_alloc_pool (original_copy_bb_pool);
+  bb_copy = NULL;
+  bb_original = NULL;
+  original_copy_bb_pool = NULL;
+}
+
+/* Set original for basic block.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+void
+set_bb_original (basic_block bb, basic_block original)
+{
+  if (original_copy_bb_pool)
     {
-      edge_iterator ei;
-      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = RDIV (bbs[i]->count * num, den);
-      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	e->count = (e->count * num) /den;
+      struct htab_bb_copy_original_entry **slot;
+      struct htab_bb_copy_original_entry key;
+
+      key.index1 = bb->index;
+      slot =
+	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_original,
+							       &key, INSERT);
+      if (*slot)
+	(*slot)->index2 = original->index;
+      else
+	{
+	  *slot = pool_alloc (original_copy_bb_pool);
+	  (*slot)->index1 = bb->index;
+	  (*slot)->index2 = original->index;
+	}
     }
+}
+
+/* Get the original basic block.  */
+basic_block
+get_bb_original (basic_block bb)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = bb->index;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (bb_original, &key);
+  if (entry)
+    return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
+}
+
+/* Set copy for basic block.  Do nothing when data structures are not
+   initialized so passes not needing this don't need to care.  */
+void
+set_bb_copy (basic_block bb, basic_block copy)
+{
+  if (original_copy_bb_pool)
+    {
+      struct htab_bb_copy_original_entry **slot;
+      struct htab_bb_copy_original_entry key;
+
+      key.index1 = bb->index;
+      slot =
+	(struct htab_bb_copy_original_entry **) htab_find_slot (bb_copy,
+							       &key, INSERT);
+      if (*slot)
+	(*slot)->index2 = copy->index;
+      else
+	{
+	  *slot = pool_alloc (original_copy_bb_pool);
+	  (*slot)->index1 = bb->index;
+	  (*slot)->index2 = copy->index;
+	}
+    }
+}
+
+/* Get the copy of basic block.  */
+basic_block
+get_bb_copy (basic_block bb)
+{
+  struct htab_bb_copy_original_entry *entry;
+  struct htab_bb_copy_original_entry key;
+
+  gcc_assert (original_copy_bb_pool);
+
+  key.index1 = bb->index;
+  entry = (struct htab_bb_copy_original_entry *) htab_find (bb_copy, &key);
+  if (entry)
+    return BASIC_BLOCK (entry->index2);
+  else
+    return NULL;
 }

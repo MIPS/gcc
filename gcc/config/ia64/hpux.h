@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This macro is a C statement to print on `stderr' a string describing the
    particular machine description choice.  */
@@ -106,14 +106,8 @@ do {							\
 #define TARGET_DEFAULT \
   (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
 
-/* This needs to be set to force structure arguments with a single
-   integer field to be treated as structures and not as the type of
-   their field.  Without this a structure with a single char will be
-   returned just like a char variable, instead of being returned at the
-   top of the register as specified for big-endian IA64.  */
-
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
-  (!FLOAT_MODE_P (MODE) || (MODE) == TFmode)
+/* ??? Might not be needed anymore.  */
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) ((MODE) == TFmode)
 
 /* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
    but that doesn't put out the @function type information which causes
@@ -205,3 +199,21 @@ do {								\
 /* Put all *tf routines in libgcc, regardless of long double size.  */
 #undef LIBGCC2_HAS_TF_MODE
 #define LIBGCC2_HAS_TF_MODE 1
+
+/* HP-UX headers are C++-compatible.  */
+#define NO_IMPLICIT_EXTERN_C
+
+/* HP-UX uses PROFILE_HOOK instead of FUNCTION_PROFILER but we need a
+   FUNCTION_PROFILER defined because its use is not ifdefed.  When using
+   PROFILE_HOOK, the profile call comes after the prologue.  */
+
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(FILE, LABELNO) do { } while (0)
+
+#undef PROFILE_HOOK
+#define PROFILE_HOOK(LABEL) ia64_profile_hook (LABEL)
+
+#undef  PROFILE_BEFORE_PROLOGUE
+
+#undef NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS 0

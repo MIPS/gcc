@@ -49,4 +49,5 @@ int main2 (int n)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 2 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
 

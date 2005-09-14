@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 /* stdio.h must precede rtl.h for FFS.  */
@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "params.h"
 #include "rtlhooks-def.h"
+#include "tree-pass.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -617,7 +618,7 @@ static rtx cse_process_notes (rtx, rtx);
 static void invalidate_skipped_set (rtx, rtx, void *);
 static void invalidate_skipped_block (rtx);
 static rtx cse_basic_block (rtx, rtx, struct branch_path *);
-static void count_reg_usage (rtx, int *, int);
+static void count_reg_usage (rtx, int *, rtx, int);
 static int check_for_label_ref (rtx *, void *);
 extern void dump_class (struct table_elt*);
 static void get_cse_reg_info_1 (unsigned int regno);
@@ -2497,6 +2498,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case PC:
     case CC0:
     case CONST_INT:
+    case CONST_DOUBLE:
       return x == y;
 
     case LABEL_REF:
@@ -3460,6 +3462,9 @@ fold_rtx_mem (rtx x, rtx insn)
 	  addr = addr_ent->const_rtx;
       }
 
+    /* Call target hook to avoid the effects of -fpic etc....  */
+    addr = targetm.delegitimize_address (addr);
+
     /* If address is constant, split it into a base and integer
        offset.  */
     if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
@@ -3808,7 +3813,7 @@ fold_rtx (rtx x, rtx insn)
 
 	    /* It's not safe to substitute the operand of a conversion
 	       operator with a constant, as the conversion's identity
-	       depends upon the mode of it's operand.  This optimization
+	       depends upon the mode of its operand.  This optimization
 	       is handled by the call to simplify_unary_operation.  */
 	    if (GET_RTX_CLASS (code) == RTX_UNARY
 		&& GET_MODE (replacements[j]) != mode_arg0
@@ -5534,9 +5539,10 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	  else if (constant_pool_entries_cost
 		   && CONSTANT_P (trial)
-		   /* Reject cases that will abort in decode_rtx_const.
-		      On the alpha when simplifying a switch, we get
-		      (const (truncate (minus (label_ref) (label_ref)))).  */
+		   /* Reject cases that will cause decode_rtx_const to
+		      die.  On the alpha when simplifying a switch, we
+		      get (const (truncate (minus (label_ref)
+		      (label_ref)))).  */
 		   && ! (GET_CODE (trial) == CONST
 			 && GET_CODE (XEXP (trial, 0)) == TRUNCATE)
 		   /* Likewise on IA-64, except without the truncate.  */
@@ -6798,7 +6804,7 @@ cse_main (rtx f, int nregs, FILE *file)
       max_qty = val.nsets * 2;
 
       if (file)
-	fnotice (file, ";; Processing block from %d to %d, %d sets.\n",
+	fprintf (file, ";; Processing block from %d to %d, %d sets.\n",
 		 INSN_UID (insn), val.last ? INSN_UID (val.last) : 0,
 		 val.nsets);
 
@@ -7077,10 +7083,16 @@ check_for_label_ref (rtx *rtl, void *data)
 
 /* Count the number of times registers are used (not set) in X.
    COUNTS is an array in which we accumulate the count, INCR is how much
-   we count each register usage.  */
+   we count each register usage.
+
+   Don't count a usage of DEST, which is the SET_DEST of a SET which
+   contains X in its SET_SRC.  This is because such a SET does not
+   modify the liveness of DEST.
+   DEST is set to pc_rtx for a trapping insn, which means that we must count
+   uses of a SET_DEST regardless because the insn can't be deleted here.  */
 
 static void
-count_reg_usage (rtx x, int *counts, int incr)
+count_reg_usage (rtx x, int *counts, rtx dest, int incr)
 {
   enum rtx_code code;
   rtx note;
@@ -7093,7 +7105,8 @@ count_reg_usage (rtx x, int *counts, int incr)
   switch (code = GET_CODE (x))
     {
     case REG:
-      counts[REGNO (x)] += incr;
+      if (x != dest)
+	counts[REGNO (x)] += incr;
       return;
 
     case PC:
@@ -7110,23 +7123,28 @@ count_reg_usage (rtx x, int *counts, int incr)
       /* If we are clobbering a MEM, mark any registers inside the address
          as being used.  */
       if (MEM_P (XEXP (x, 0)))
-	count_reg_usage (XEXP (XEXP (x, 0), 0), counts, incr);
+	count_reg_usage (XEXP (XEXP (x, 0), 0), counts, NULL_RTX, incr);
       return;
 
     case SET:
       /* Unless we are setting a REG, count everything in SET_DEST.  */
       if (!REG_P (SET_DEST (x)))
-	count_reg_usage (SET_DEST (x), counts, incr);
-      count_reg_usage (SET_SRC (x), counts, incr);
+	count_reg_usage (SET_DEST (x), counts, NULL_RTX, incr);
+      count_reg_usage (SET_SRC (x), counts,
+		       dest ? dest : SET_DEST (x),
+		       incr);
       return;
 
     case CALL_INSN:
-      count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, incr);
-      /* Fall through.  */
-
     case INSN:
     case JUMP_INSN:
-      count_reg_usage (PATTERN (x), counts, incr);
+    /* We expect dest to be NULL_RTX here.  If the insn may trap, mark
+       this fact by setting DEST to pc_rtx.  */
+      if (flag_non_call_exceptions && may_trap_p (PATTERN (x)))
+	dest = pc_rtx;
+      if (code == CALL_INSN)
+	count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, dest, incr);
+      count_reg_usage (PATTERN (x), counts, dest, incr);
 
       /* Things used in a REG_EQUAL note aren't dead since loop may try to
 	 use them.  */
@@ -7141,12 +7159,12 @@ count_reg_usage (rtx x, int *counts, int incr)
 	     Process all the arguments.  */
 	    do
 	      {
-		count_reg_usage (XEXP (eqv, 0), counts, incr);
+		count_reg_usage (XEXP (eqv, 0), counts, dest, incr);
 		eqv = XEXP (eqv, 1);
 	      }
 	    while (eqv && GET_CODE (eqv) == EXPR_LIST);
 	  else
-	    count_reg_usage (eqv, counts, incr);
+	    count_reg_usage (eqv, counts, dest, incr);
 	}
       return;
 
@@ -7156,15 +7174,19 @@ count_reg_usage (rtx x, int *counts, int incr)
 	  /* FUNCTION_USAGE expression lists may include (CLOBBER (mem /u)),
 	     involving registers in the address.  */
 	  || GET_CODE (XEXP (x, 0)) == CLOBBER)
-	count_reg_usage (XEXP (x, 0), counts, incr);
+	count_reg_usage (XEXP (x, 0), counts, NULL_RTX, incr);
 
-      count_reg_usage (XEXP (x, 1), counts, incr);
+      count_reg_usage (XEXP (x, 1), counts, NULL_RTX, incr);
       return;
 
     case ASM_OPERANDS:
+      /* If the asm is volatile, then this insn cannot be deleted,
+	 and so the inputs *must* be live.  */
+      if (MEM_VOLATILE_P (x))
+	dest = NULL_RTX;
       /* Iterate over just the inputs, not the constraints as well.  */
       for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, incr);
+	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, dest, incr);
       return;
 
     case INSN_LIST:
@@ -7178,10 +7200,10 @@ count_reg_usage (rtx x, int *counts, int incr)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	count_reg_usage (XEXP (x, i), counts, incr);
+	count_reg_usage (XEXP (x, i), counts, dest, incr);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  count_reg_usage (XVECEXP (x, i, j), counts, incr);
+	  count_reg_usage (XVECEXP (x, i, j), counts, dest, incr);
     }
 }
 
@@ -7268,11 +7290,11 @@ dead_libcall_p (rtx insn, int *counts)
     new = XEXP (note, 0);
 
   /* While changing insn, we must update the counts accordingly.  */
-  count_reg_usage (insn, counts, -1);
+  count_reg_usage (insn, counts, NULL_RTX, -1);
 
   if (validate_change (insn, &SET_SRC (set), new, 0))
     {
-      count_reg_usage (insn, counts, 1);
+      count_reg_usage (insn, counts, NULL_RTX, 1);
       remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
       remove_note (insn, note);
       return true;
@@ -7283,14 +7305,14 @@ dead_libcall_p (rtx insn, int *counts)
       new = force_const_mem (GET_MODE (SET_DEST (set)), new);
       if (new && validate_change (insn, &SET_SRC (set), new, 0))
 	{
-	  count_reg_usage (insn, counts, 1);
+	  count_reg_usage (insn, counts, NULL_RTX, 1);
 	  remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
 	  remove_note (insn, note);
 	  return true;
 	}
     }
 
-  count_reg_usage (insn, counts, 1);
+  count_reg_usage (insn, counts, NULL_RTX, 1);
   return false;
 }
 
@@ -7315,7 +7337,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   counts = xcalloc (nreg, sizeof (int));
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
-      count_reg_usage (insn, counts, 1);
+      count_reg_usage (insn, counts, NULL_RTX, 1);
 
   /* Go from the last insn to the first and delete insns that only set unused
      registers or copy a register to itself.  As we delete an insn, remove
@@ -7353,7 +7375,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
       if (! live_insn)
 	{
-	  count_reg_usage (insn, counts, -1);
+	  count_reg_usage (insn, counts, NULL_RTX, -1);
 	  delete_insn_and_edges (insn);
 	  ndead++;
 	}
@@ -7740,3 +7762,119 @@ cse_condition_code_reg (void)
 	}
     }
 }
+
+
+/* Perform common subexpression elimination.  Nonzero value from
+   `cse_main' means that jumps were simplified and some code may now
+   be unreachable, so do jump optimization again.  */
+static bool
+gate_handle_cse (void)
+{
+  return optimize > 0;
+}
+
+static void
+rest_of_handle_cse (void)
+{
+  int tem;
+
+  if (dump_file)
+    dump_flow_info (dump_file);
+
+  reg_scan (get_insns (), max_reg_num ());
+
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  if (tem)
+    rebuild_jump_labels (get_insns ());
+  if (purge_all_dead_edges ())
+    delete_unreachable_blocks ();
+
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  /* If we are not running more CSE passes, then we are no longer
+     expecting CSE to be run.  But always rerun it in a cheap mode.  */
+  cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
+
+  if (tem)
+    delete_dead_jumptables ();
+
+  if (tem || optimize > 1)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+}
+
+struct tree_opt_pass pass_cse =
+{
+  "cse1",                               /* name */
+  gate_handle_cse,                      /* gate */   
+  rest_of_handle_cse,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_CSE,                               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  's'                                   /* letter */
+};
+
+
+static bool
+gate_handle_cse2 (void)
+{
+  return optimize > 0 && flag_rerun_cse_after_loop;
+}
+
+/* Run second CSE pass after loop optimizations.  */
+static void
+rest_of_handle_cse2 (void)
+{
+  int tem;
+
+  if (dump_file)
+    dump_flow_info (dump_file);
+
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+
+  /* Run a pass to eliminate duplicated assignments to condition code
+     registers.  We have to run this after bypass_jumps, because it
+     makes it harder for that pass to determine whether a jump can be
+     bypassed safely.  */
+  cse_condition_code_reg ();
+
+  purge_all_dead_edges ();
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  if (tem)
+    {
+      timevar_push (TV_JUMP);
+      rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      timevar_pop (TV_JUMP);
+    }
+  reg_scan (get_insns (), max_reg_num ());
+  cse_not_expected = 1;
+}
+
+
+struct tree_opt_pass pass_cse2 =
+{
+  "cse2",                               /* name */
+  gate_handle_cse2,                     /* gate */   
+  rest_of_handle_cse2,			/* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_CSE2,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  't'                                   /* letter */
+};
+

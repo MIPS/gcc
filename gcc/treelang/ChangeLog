@@ -1,3 +1,50 @@
+2005-08-07  James A. Morrison  <phython@gcc.gnu.org>
+
+	* tree-convert.c (convert): Use fold_build1 instead of
+	fold (build1.
+
+2005-08-06  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR treelang/23072
+	* Make-lang.in: Remove old testing cruft.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address in copyright headers.
+
+2005-06-15  James A. Morrison  <phython@gcc.gnu.org>
+
+	* parse.y (function_invocation): Reverse parameter list.
+	* treetree.c (tree_code_get_expression): Don't reverse parameter list.
+
+2005-06-12  Rafael ?vila de Esp?ndola   <rafael.espindola@gmail.com>
+
+	* treetree.c (tree_code_get_expression): Call build_function_call_expr
+	to build function calls.
+
+2005-05-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* treelang/lex.l, treelang/parse.y: Don't include errors.h and
+	include toplev.h.
+	* treelang/Make-lang.in: Updates dependencies.
+
+2005-05-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR treelang/21345
+	* parse.y (parameters_opt): Add semicolon at the end.
+
+2005-04-29  Tom Tromey  <tromey@redhat.com>
+
+	* treetree.c (poplevel): Updated for change to build_block.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* parse.y: Adjust warning() callers.
+
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
 2005-04-01  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR treelang/20604

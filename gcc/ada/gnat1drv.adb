@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -203,27 +203,7 @@ begin
 
       if Targparm.ZCX_By_Default_On_Target then
          if Targparm.GCC_ZCX_Support_On_Target then
-            Exception_Mechanism := Back_End_ZCX_Exceptions;
-         else
-            Exception_Mechanism := Front_End_ZCX_Exceptions;
-         end if;
-      end if;
-
-      --  We take the command line exception mechanism into account
-
-      if Opt.Zero_Cost_Exceptions_Set then
-         if Opt.Zero_Cost_Exceptions_Val = False then
-            Exception_Mechanism := Front_End_Setjmp_Longjmp_Exceptions;
-
-         elsif Debug_Flag_XX then
-            Exception_Mechanism := Front_End_ZCX_Exceptions;
-
-         elsif Targparm.GCC_ZCX_Support_On_Target then
-            Exception_Mechanism := Back_End_ZCX_Exceptions;
-
-         elsif Targparm.Front_End_ZCX_Support_On_Target then
-            Exception_Mechanism := Front_End_ZCX_Exceptions;
-
+            Exception_Mechanism := Back_End_Exceptions;
          else
             Osint.Fail
               ("Zero Cost Exceptions not supported on this target");

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -34,7 +34,6 @@ with Exp_Ch2;  use Exp_Ch2;
 with Exp_Ch3;  use Exp_Ch3;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch9;  use Exp_Ch9;
-with Exp_Ch11; use Exp_Ch11;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Disp; use Exp_Disp;
 with Exp_Dist; use Exp_Dist;
@@ -60,6 +59,7 @@ with Sem_Ch12; use Sem_Ch12;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
+with Sem_Mech; use Sem_Mech;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
@@ -171,10 +171,10 @@ package body Exp_Ch6 is
         and then In_Open_Scopes (Scope (Etype (Typ)))
         and then Typ = Base_Type (Typ)
       then
-         --  Subp overrides an inherited private operation if there is
-         --  an inherited operation with a different name than Subp (see
-         --  Derive_Subprogram) whose Alias is a hidden  subprogram with
-         --  the same name as Subp.
+         --  Subp overrides an inherited private operation if there is an
+         --  inherited operation with a different name than Subp (see
+         --  Derive_Subprogram) whose Alias is a hidden subprogram with the
+         --  same name as Subp.
 
          Op_Elmt := First_Elmt (Op_List);
          while Present (Op_Elmt) loop
@@ -210,12 +210,12 @@ package body Exp_Ch6 is
       --  List of recursive calls in body of procedure
 
       Shad_List : constant Elist_Id := New_Elmt_List;
-      --  List of entity id's for entities created to capture the
-      --  value of referenced globals on entry to the procedure.
+      --  List of entity id's for entities created to capture the value of
+      --  referenced globals on entry to the procedure.
 
       Scop : constant Uint := Scope_Depth (Spec);
-      --  This is used to record the scope depth of the current
-      --  procedure, so that we can identify global references.
+      --  This is used to record the scope depth of the current procedure, so
+      --  that we can identify global references.
 
       Max_Vars : constant := 4;
       --  Do not test more than four global variables
@@ -358,9 +358,9 @@ package body Exp_Ch6 is
    --  Start of processing for Detect_Infinite_Recursion
 
    begin
-      --  Do not attempt detection in No_Implicit_Conditional mode,
-      --  since we won't be able to generate the code to handle the
-      --  recursion in any case.
+      --  Do not attempt detection in No_Implicit_Conditional mode, since we
+      --  won't be able to generate the code to handle the recursion in any
+      --  case.
 
       if Restriction_Active (No_Implicit_Conditionals) then
          return;
@@ -371,9 +371,9 @@ package body Exp_Ch6 is
       if Traverse_Body (N) = Abandon then
          return;
 
-      --  We must have a call, since Has_Recursive_Call was set. If not
-      --  just ignore (this is only an error check, so if we have a funny
-      --  situation, due to bugs or errors, we do not want to bomb!)
+      --  We must have a call, since Has_Recursive_Call was set. If not just
+      --  ignore (this is only an error check, so if we have a funny situation,
+      --  due to bugs or errors, we do not want to bomb!)
 
       elsif Is_Empty_Elmt_List (Call_List) then
          return;
@@ -381,15 +381,15 @@ package body Exp_Ch6 is
 
       --  Here is the case where we detect recursion at compile time
 
-      --  Push our current scope for analyzing the declarations and
-      --  code that we will insert for the checking.
+      --  Push our current scope for analyzing the declarations and code that
+      --  we will insert for the checking.
 
       New_Scope (Spec);
 
-      --  This loop builds temporary variables for each of the
-      --  referenced globals, so that at the end of the loop the
-      --  list Shad_List contains these temporaries in one-to-one
-      --  correspondence with the elements in Var_List.
+      --  This loop builds temporary variables for each of the referenced
+      --  globals, so that at the end of the loop the list Shad_List contains
+      --  these temporaries in one-to-one correspondence with the elements in
+      --  Var_List.
 
       Last := Empty;
       Elm := First_Elmt (Var_List);
@@ -400,10 +400,10 @@ package body Exp_Ch6 is
              Chars => New_Internal_Name ('S'));
          Append_Elmt (Ent, Shad_List);
 
-         --  Insert a declaration for this temporary at the start of
-         --  the declarations for the procedure. The temporaries are
-         --  declared as constant objects initialized to the current
-         --  values of the corresponding temporaries.
+         --  Insert a declaration for this temporary at the start of the
+         --  declarations for the procedure. The temporaries are declared as
+         --  constant objects initialized to the current values of the
+         --  corresponding temporaries.
 
          Decl :=
            Make_Object_Declaration (Loc,
@@ -515,6 +515,14 @@ package body Exp_Ch6 is
       --  representation as True. We assume that .FALSE. = False = 0.
       --  What about functions that return a logical type ???
 
+      function Is_Legal_Copy return Boolean;
+      --  Check that an actual can be copied before generating the temporary
+      --  to be used in the call. If the actual is of a by_reference type then
+      --  the program is illegal (this can only happen in the presence of
+      --  rep. clauses that force an incorrect alignment). If the formal is
+      --  a by_reference parameter imposed by a DEC pragma, emit a warning to
+      --  the effect that this might lead to unaligned arguments.
+
       function Make_Var (Actual : Node_Id) return Entity_Id;
       --  Returns an entity that refers to the given actual parameter,
       --  Actual (not including any type conversion). If Actual is an
@@ -541,11 +549,15 @@ package body Exp_Ch6 is
          Crep  : Boolean;
 
       begin
+         if not Is_Legal_Copy then
+            return;
+         end if;
+
          Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('T'));
 
          --  Use formal type for temp, unless formal type is an unconstrained
          --  array, in which case we don't have to worry about bounds checks,
-         --  and we use the actual type, since that has appropriate bonds.
+         --  and we use the actual type, since that has appropriate bounds.
 
          if Is_Array_Type (F_Typ) and then not Is_Constrained (F_Typ) then
             Indic := New_Occurrence_Of (Etype (Actual), Loc);
@@ -715,6 +727,7 @@ package body Exp_Ch6 is
 
       procedure Add_Simple_Call_By_Copy_Code is
          Temp   : Entity_Id;
+         Decl   : Node_Id;
          Incod  : Node_Id;
          Outcod : Node_Id;
          Lhs    : Node_Id;
@@ -723,9 +736,13 @@ package body Exp_Ch6 is
          F_Typ  : constant Entity_Id := Etype (Formal);
 
       begin
+         if not Is_Legal_Copy then
+            return;
+         end if;
+
          --  Use formal type for temp, unless formal type is an unconstrained
          --  array, in which case we don't have to worry about bounds checks,
-         --  and we use the actual type, since that has appropriate bonds.
+         --  and we use the actual type, since that has appropriate bounds.
 
          if Is_Array_Type (F_Typ) and then not Is_Constrained (F_Typ) then
             Indic := New_Occurrence_Of (Etype (Actual), Loc);
@@ -742,17 +759,64 @@ package body Exp_Ch6 is
          Outcod := New_Copy_Tree (Incod);
 
          --  Generate declaration of temporary variable, initializing it
-         --  with the input parameter unless we have an OUT variable.
+         --  with the input parameter unless we have an OUT formal or
+         --  this is an initialization call.
+
+         --  If the formal is an out parameter with discriminants, the
+         --  discriminants must be captured even if the rest of the object
+         --  is in principle uninitialized, because the discriminants may
+         --  be read by the called subprogram.
 
          if Ekind (Formal) = E_Out_Parameter then
             Incod := Empty;
+
+            if Has_Discriminants (Etype (Formal)) then
+               Indic := New_Occurrence_Of (Etype (Actual), Loc);
+            end if;
+
+         elsif Inside_Init_Proc then
+
+            --  Could use a comment here to match comment below ???
+
+            if Nkind (Actual) /= N_Selected_Component
+              or else
+                not Has_Discriminant_Dependent_Constraint
+                  (Entity (Selector_Name (Actual)))
+            then
+               Incod := Empty;
+
+            --  Otherwise, keep the component in order to generate the proper
+            --  actual subtype, that depends on enclosing discriminants.
+
+            else
+               null;
+            end if;
          end if;
 
-         Insert_Action (N,
+         Decl :=
            Make_Object_Declaration (Loc,
              Defining_Identifier => Temp,
              Object_Definition   => Indic,
-             Expression          => Incod));
+             Expression          => Incod);
+
+         if Inside_Init_Proc
+           and then No (Incod)
+         then
+            --  If the call is to initialize a component of a composite type,
+            --  and the component does not depend on discriminants, use the
+            --  actual type of the component. This is required in case the
+            --  component is constrained, because in general the formal of the
+            --  initialization procedure will be unconstrained. Note that if
+            --  the component being initialized is constrained by an enclosing
+            --  discriminant, the presence of the initialization in the
+            --  declaration will generate an expression for the actual subtype.
+
+            Set_No_Initialization (Decl);
+            Set_Object_Definition (Decl,
+              New_Occurrence_Of (Etype (Actual), Loc));
+         end if;
+
+         Insert_Action (N, Decl);
 
          --  The actual is simply a reference to the temporary
 
@@ -811,6 +875,38 @@ package body Exp_Ch6 is
          end if;
       end Check_Fortran_Logical;
 
+      -------------------
+      -- Is_Legal_Copy --
+      -------------------
+
+      function Is_Legal_Copy return Boolean is
+      begin
+         --  An attempt to copy a value of such a type can only occur if
+         --  representation clauses give the actual a misaligned address.
+
+         if Is_By_Reference_Type (Etype (Formal)) then
+            Error_Msg_N
+              ("misaligned actual cannot be passed by reference", Actual);
+            return False;
+
+         --  For users of Starlet, we assume that the specification of by-
+         --  reference mechanism is mandatory. This may lead to unligned
+         --  objects but at least for DEC legacy code it is known to work.
+         --  The warning will alert users of this code that a problem may
+         --  be lurking.
+
+         elsif Mechanism (Formal) = By_Reference
+           and then Is_Valued_Procedure (Scope (Formal))
+         then
+            Error_Msg_N
+              ("by_reference actual may be misaligned?", Actual);
+            return False;
+
+         else
+            return True;
+         end if;
+      end Is_Legal_Copy;
+
       --------------
       -- Make_Var --
       --------------
@@ -843,7 +939,6 @@ package body Exp_Ch6 is
 
       procedure Reset_Packed_Prefix is
          Pfx : Node_Id := Actual;
-
       begin
          loop
             Set_Analyzed (Pfx, False);
@@ -856,11 +951,10 @@ package body Exp_Ch6 is
    --  Start of processing for Expand_Actuals
 
    begin
-      Formal := First_Formal (Subp);
-      Actual := First_Actual (N);
-
       Post_Call := New_List;
 
+      Formal := First_Formal (Subp);
+      Actual := First_Actual (N);
       while Present (Formal) loop
          E_Formal := Etype (Formal);
 
@@ -1058,10 +1152,9 @@ package body Exp_Ch6 is
 
       if not Is_Empty_List (Post_Call) then
 
-         --  If call is not a list member, it must be the triggering
-         --  statement of a triggering alternative or an entry call
-         --  alternative, and we can add the post call stuff to the
-         --  corresponding statement list.
+         --  If call is not a list member, it must be the triggering statement
+         --  of a triggering alternative or an entry call alternative, and we
+         --  can add the post call stuff to the corresponding statement list.
 
          if not Is_List_Member (N) then
             declare
@@ -1122,20 +1215,27 @@ package body Exp_Ch6 is
       Actual        : Node_Id;
       Formal        : Entity_Id;
       Prev          : Node_Id := Empty;
-      Prev_Orig     : Node_Id;
+
+      Prev_Orig : Node_Id;
+      --  Original node for an actual, which may have been rewritten. If the
+      --  actual is a function call that has been transformed from a selected
+      --  component, the original node is unanalyzed. Otherwise, it carries
+      --  semantic information used to generate additional actuals.
+
       Scop          : Entity_Id;
       Extra_Actuals : List_Id := No_List;
-      Cond          : Node_Id;
+
+      CW_Interface_Formals_Present : Boolean := False;
 
       procedure Add_Actual_Parameter (Insert_Param : Node_Id);
       --  Adds one entry to the end of the actual parameter list. Used for
-      --  default parameters and for extra actuals (for Extra_Formals).
-      --  The argument is an N_Parameter_Association node.
+      --  default parameters and for extra actuals (for Extra_Formals). The
+      --  argument is an N_Parameter_Association node.
 
       procedure Add_Extra_Actual (Expr : Node_Id; EF : Entity_Id);
-      --  Adds an extra actual to the list of extra actuals. Expr
-      --  is the expression for the value of the actual, EF is the
-      --  entity for the extra formal.
+      --  Adds an extra actual to the list of extra actuals. Expr is the
+      --  expression for the value of the actual, EF is the entity for the
+      --  extra formal.
 
       function Inherited_From_Formal (S : Entity_Id) return Entity_Id;
       --  Within an instance, a type derived from a non-tagged formal derived
@@ -1225,8 +1325,8 @@ package body Exp_Ch6 is
 
          if Nkind (Parent (S)) /= N_Full_Type_Declaration
            or else not Is_Derived_Type (Defining_Identifier (Parent (S)))
-           or else Nkind (Type_Definition (Original_Node (Parent (S))))
-             /= N_Derived_Type_Definition
+           or else Nkind (Type_Definition (Original_Node (Parent (S)))) /=
+                                                   N_Derived_Type_Definition
            or else not In_Instance
          then
             return Empty;
@@ -1254,31 +1354,29 @@ package body Exp_Ch6 is
             Gen_Par := Generic_Parent_Type (Parent (Par));
          end if;
 
-         --  If the generic parent type is still the generic type, this
-         --  is a private formal, not a derived formal, and there are no
-         --  operations inherited from the formal.
+         --  If the generic parent type is still the generic type, this is a
+         --  private formal, not a derived formal, and there are no operations
+         --  inherited from the formal.
 
          if Nkind (Parent (Gen_Par)) = N_Formal_Type_Declaration then
             return Empty;
          end if;
 
          Gen_Prim := Collect_Primitive_Operations (Gen_Par);
-         Elmt := First_Elmt (Gen_Prim);
 
+         Elmt := First_Elmt (Gen_Prim);
          while Present (Elmt) loop
             if Chars (Node (Elmt)) = Chars (S) then
                declare
                   F1 : Entity_Id;
                   F2 : Entity_Id;
-               begin
 
+               begin
                   F1 := First_Formal (S);
                   F2 := First_Formal (Node (Elmt));
-
                   while Present (F1)
                     and then Present (F2)
                   loop
-
                      if Etype (F1) = Etype (F2)
                        or else Etype (F2) = Gen_Par
                      then
@@ -1349,7 +1447,8 @@ package body Exp_Ch6 is
 
             begin
                --  The case we catch is where the first argument is obtained
-               --  using the Identity attribute (which must always be non-null)
+               --  using the Identity attribute (which must always be
+               --  non-null).
 
                if Nkind (FA) = N_Attribute_Reference
                  and then Attribute_Name (FA) = Name_Identity
@@ -1391,16 +1490,34 @@ package body Exp_Ch6 is
          Prev := Actual;
          Prev_Orig := Original_Node (Prev);
 
-         --  Create possible extra actual for constrained case. Usually,
-         --  the extra actual is of the form actual'constrained, but since
-         --  this attribute is only available for unconstrained records,
-         --  TRUE is expanded if the type of the formal happens to be
-         --  constrained (for instance when this procedure is inherited
-         --  from an unconstrained record to a constrained one) or if the
-         --  actual has no discriminant (its type is constrained). An
-         --  exception to this is the case of a private type without
-         --  discriminants. In this case we pass FALSE because the
-         --  object has underlying discriminants with defaults.
+         if not Analyzed (Prev_Orig)
+           and then Nkind (Actual) = N_Function_Call
+         then
+            Prev_Orig := Prev;
+         end if;
+
+         --  Ada 2005 (AI-251): Check if any formal is a class-wide interface
+         --  to expand it in a further round.
+
+         CW_Interface_Formals_Present :=
+           CW_Interface_Formals_Present
+             or else
+               (Ekind (Etype (Formal)) = E_Class_Wide_Type
+                  and then Is_Interface (Etype (Etype (Formal))))
+             or else
+               (Ekind (Etype (Formal)) = E_Anonymous_Access_Type
+                 and then Is_Interface (Directly_Designated_Type
+                                         (Etype (Etype (Formal)))));
+
+         --  Create possible extra actual for constrained case. Usually, the
+         --  extra actual is of the form actual'constrained, but since this
+         --  attribute is only available for unconstrained records, TRUE is
+         --  expanded if the type of the formal happens to be constrained (for
+         --  instance when this procedure is inherited from an unconstrained
+         --  record to a constrained one) or if the actual has no discriminant
+         --  (its type is constrained). An exception to this is the case of a
+         --  private type without discriminants. In this case we pass FALSE
+         --  because the object has underlying discriminants with defaults.
 
          if Present (Extra_Constrained (Formal)) then
             if Ekind (Etype (Prev)) in Private_Kind
@@ -1428,13 +1545,13 @@ package body Exp_Ch6 is
                --  test applies to the actual, not the target type.
 
                declare
-                  Act_Prev : Node_Id := Prev;
+                  Act_Prev : Node_Id;
 
                begin
-                  --  Test for unchecked conversions as well, which can
-                  --  occur as out parameter actuals on calls to stream
-                  --  procedures.
+                  --  Test for unchecked conversions as well, which can occur
+                  --  as out parameter actuals on calls to stream procedures.
 
+                  Act_Prev := Prev;
                   while Nkind (Act_Prev) = N_Type_Conversion
                     or else Nkind (Act_Prev) = N_Unchecked_Type_Conversion
                   loop
@@ -1558,55 +1675,59 @@ package body Exp_Ch6 is
             end if;
          end if;
 
-         --  Perform the check of 4.6(49) that prevents a null value
-         --  from being passed as an actual to an access parameter.
-         --  Note that the check is elided in the common cases of
-         --  passing an access attribute or access parameter as an
-         --  actual. Also, we currently don't enforce this check for
-         --  expander-generated actuals and when -gnatdj is set.
+         --  Perform the check of 4.6(49) that prevents a null value from being
+         --  passed as an actual to an access parameter. Note that the check is
+         --  elided in the common cases of passing an access attribute or
+         --  access parameter as an actual. Also, we currently don't enforce
+         --  this check for expander-generated actuals and when -gnatdj is set.
 
-         if Ekind (Etype (Formal)) /= E_Anonymous_Access_Type
-           or else Access_Checks_Suppressed (Subp)
-         then
-            null;
+         if Ada_Version >= Ada_05 then
 
-         elsif Debug_Flag_J then
-            null;
+            --  Ada 2005 (AI-231): Check null-excluding access types
 
-         elsif not Comes_From_Source (Prev) then
-            null;
+            if Is_Access_Type (Etype (Formal))
+              and then Can_Never_Be_Null (Etype (Formal))
+              and then Nkind (Prev) /= N_Raise_Constraint_Error
+              and then (Nkind (Prev) = N_Null
+                          or else not Can_Never_Be_Null (Etype (Prev)))
+            then
+               Install_Null_Excluding_Check (Prev);
+            end if;
 
-         elsif Is_Entity_Name (Prev)
-           and then Ekind (Etype (Prev)) = E_Anonymous_Access_Type
-         then
-            null;
+         --  Ada_Version < Ada_05
 
-         elsif Nkind (Prev) = N_Allocator
-           or else Nkind (Prev) = N_Attribute_Reference
-         then
-            null;
+         else
+            if Ekind (Etype (Formal)) /= E_Anonymous_Access_Type
+              or else Access_Checks_Suppressed (Subp)
+            then
+               null;
 
-         --  Suppress null checks when passing to access parameters
-         --  of Java subprograms. (Should this be done for other
-         --  foreign conventions as well ???)
+            elsif Debug_Flag_J then
+               null;
 
-         elsif Convention (Subp) = Convention_Java then
-            null;
+            elsif not Comes_From_Source (Prev) then
+               null;
 
-            --  Ada 2005 (AI-231): do not force the check in case of Ada 2005
-            --  unless it is a null-excluding type
+            elsif Is_Entity_Name (Prev)
+              and then Ekind (Etype (Prev)) = E_Anonymous_Access_Type
+            then
+               null;
 
-         elsif Ada_Version < Ada_05
-           or else Can_Never_Be_Null (Etype (Prev))
-         then
-            Cond :=
-              Make_Op_Eq (Loc,
-                Left_Opnd => Duplicate_Subexpr_No_Checks (Prev),
-                Right_Opnd => Make_Null (Loc));
-            Insert_Action (Prev,
-              Make_Raise_Constraint_Error (Loc,
-                Condition => Cond,
-                Reason    => CE_Access_Parameter_Is_Null));
+            elsif Nkind (Prev) = N_Allocator
+              or else Nkind (Prev) = N_Attribute_Reference
+            then
+               null;
+
+            --  Suppress null checks when passing to access parameters of Java
+            --  subprograms. (Should this be done for other foreign conventions
+            --  as well ???)
+
+            elsif Convention (Subp) = Convention_Java then
+               null;
+
+            else
+               Install_Null_Excluding_Check (Prev);
+            end if;
          end if;
 
          --  Perform appropriate validity checks on parameters that
@@ -1756,6 +1877,16 @@ package body Exp_Ch6 is
          end;
       end if;
 
+      --  Ada 2005 (AI-251): If some formal is a class-wide interface, expand
+      --  it to point to the correct secondary virtual table
+
+      if (Nkind (N) = N_Function_Call
+           or else Nkind (N) = N_Procedure_Call_Statement)
+        and then CW_Interface_Formals_Present
+      then
+         Expand_Interface_Actuals (N);
+      end if;
+
       --  Deals with Dispatch_Call if we still have a call, before expanding
       --  extra actuals since this will be done on the re-analysis of the
       --  dispatching call. Note that we do not try to shorten the actual
@@ -1853,7 +1984,6 @@ package body Exp_Ch6 is
            or else Is_Generic_Instance (Parent_Subp)
          then
             while Present (Formal) loop
-
                if Etype (Formal) /= Etype (Parent_Formal)
                  and then Is_Scalar_Type (Etype (Formal))
                  and then Ekind (Formal) = E_In_Parameter
@@ -1868,8 +1998,8 @@ package body Exp_Ch6 is
                   Enable_Range_Check (Actual);
 
                elsif Is_Access_Type (Etype (Formal))
-                 and then Base_Type (Etype (Parent_Formal))
-                   /= Base_Type (Etype (Actual))
+                 and then Base_Type (Etype (Parent_Formal)) /=
+                          Base_Type (Etype (Actual))
                then
                   if Ekind (Formal) /= E_In_Parameter then
                      Rewrite (Actual,
@@ -2040,9 +2170,10 @@ package body Exp_Ch6 is
                --------------------------
 
                function In_Unfrozen_Instance return Boolean is
-                  S : Entity_Id := Scop;
+                  S : Entity_Id;
 
                begin
+                  S := Scop;
                   while Present (S)
                     and then S /= Standard_Standard
                   loop
@@ -2062,10 +2193,12 @@ package body Exp_Ch6 is
             --  Start of processing for Inlined_Subprogram
 
             begin
-               --  Verify that the body to inline has already been seen,
-               --  and that if the body is in the current unit the inlining
-               --  does not occur earlier. This avoids order-of-elaboration
-               --  problems in gigi.
+               --  Verify that the body to inline has already been seen, and
+               --  that if the body is in the current unit the inlining does
+               --  not occur earlier. This avoids order-of-elaboration problems
+               --  in the back end.
+
+               --  This should be documented in sinfo/einfo ???
 
                if No (Spec)
                  or else Nkind (Spec) /= N_Subprogram_Declaration
@@ -2562,15 +2695,14 @@ package body Exp_Ch6 is
                Original_Assignment : constant Node_Id := Parent (N);
 
             begin
-               --  Preserve the original assignment node to keep the
-               --  complete assignment subtree consistent enough for
-               --  Analyze_Assignment to proceed (specifically, the
-               --  original Lhs node must still have an assignment
-               --  statement as its parent).
+               --  Preserve the original assignment node to keep the complete
+               --  assignment subtree consistent enough for Analyze_Assignment
+               --  to proceed (specifically, the original Lhs node must still
+               --  have an assignment statement as its parent).
 
-               --  We cannot rely on Original_Node to go back from the
-               --  block node to the assignment node, because the
-               --  assignment might already be a rewrite substitution.
+               --  We cannot rely on Original_Node to go back from the block
+               --  node to the assignment node, because the assignment might
+               --  already be a rewrite substitution.
 
                Discard_Node (Relocate_Node (Original_Assignment));
                Rewrite (Original_Assignment, Blk);
@@ -2620,8 +2752,7 @@ package body Exp_Ch6 is
             if Nkind (N) = N_Identifier
               and then Present (Entity (N))
 
-               --  The original node's entity points to the one in the
-               --  copied body.
+               --  Original node's entity points to the one in the copied body
 
               and then Nkind (Entity (N)) = N_Identifier
               and then Present (Entity (Entity (N)))
@@ -2660,8 +2791,8 @@ package body Exp_Ch6 is
       --  Check for special case of To_Address call, and if so, just do an
       --  unchecked conversion instead of expanding the call. Not only is this
       --  more efficient, but it also avoids problem with order of elaboration
-      --  when address clauses are inlined (address expr elaborated at wrong
-      --  point).
+      --  when address clauses are inlined (address expression elaborated at
+      --  wrong point).
 
       if Subp = RTE (RE_To_Address) then
          Rewrite (N,
@@ -2727,15 +2858,14 @@ package body Exp_Ch6 is
          Ret_Type := Etype (Subp);
       end if;
 
-      F := First_Formal (Subp);
-      A := First_Actual (N);
-
       --  Create temporaries for the actuals that are expressions, or that
       --  are scalars and require copying to preserve semantics.
 
+      F := First_Formal (Subp);
+      A := First_Actual (N);
       while Present (F) loop
          if Present (Renamed_Object (F)) then
-            Error_Msg_N (" cannot inline call to recursive subprogram", N);
+            Error_Msg_N ("cannot inline call to recursive subprogram", N);
             return;
          end if;
 
@@ -2858,6 +2988,7 @@ package body Exp_Ch6 is
 
             Temp :=
               Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
+            Set_Is_Internal (Temp);
 
             Decl :=
               Make_Object_Declaration (Loc,
@@ -2939,7 +3070,6 @@ package body Exp_Ch6 is
       --  Cleanup mapping between formals and actuals for other expansions
 
       F := First_Formal (Subp);
-
       while Present (F) loop
          Set_Renamed_Object (F, Empty);
          Next_Formal (F);
@@ -2968,7 +3098,7 @@ package body Exp_Ch6 is
       ---------------------------
 
       function Returned_By_Reference return Boolean is
-         S : Entity_Id := Current_Scope;
+         S : Entity_Id;
 
       begin
          if Is_Return_By_Reference_Type (Typ) then
@@ -2982,6 +3112,7 @@ package body Exp_Ch6 is
             --  Verify that the return type of the enclosing function has the
             --  same constrained status as that of the expression.
 
+            S := Current_Scope;
             while Ekind (S) /= E_Function loop
                S := Scope (S);
             end loop;
@@ -3080,9 +3211,9 @@ package body Exp_Ch6 is
                      --  object is not classwide.
 
                      Proc := Entity (Name (Parent (N)));
+
                      F    := First_Formal (Proc);
                      A    := First_Actual (Parent (N));
-
                      while A /= N loop
                         Next_Formal (F);
                         Next_Actual (A);
@@ -3413,9 +3544,10 @@ package body Exp_Ch6 is
         and then not Has_Pragma_Pure_Function (Spec_Id)
       then
          declare
-            F : Entity_Id := First_Formal (Spec_Id);
+            F : Entity_Id;
 
          begin
+            F := First_Formal (Spec_Id);
             while Present (F) loop
                if Is_Descendent_Of_Address (Etype (F)) then
                   Set_Is_Pure (Spec_Id, False);
@@ -3436,7 +3568,7 @@ package body Exp_Ch6 is
 
       if Init_Or_Norm_Scalars and then Is_Subprogram (Spec_Id) then
          declare
-            F : Entity_Id        := First_Formal (Spec_Id);
+            F : Entity_Id;
             V : constant Boolean := Validity_Checks_On;
 
          begin
@@ -3448,6 +3580,7 @@ package body Exp_Ch6 is
 
             --  Loop through formals
 
+            F := First_Formal (Spec_Id);
             while Present (F) loop
                if Is_Scalar_Type (Etype (F))
                  and then Ekind (F) = E_Out_Parameter
@@ -3467,9 +3600,9 @@ package body Exp_Ch6 is
 
       Scop := Scope (Spec_Id);
 
-      --  Add discriminal renamings to protected subprograms.
-      --  Install new discriminals for expansion of the next
-      --  subprogram of this protected type, if any.
+      --  Add discriminal renamings to protected subprograms. Install new
+      --  discriminals for expansion of the next subprogram of this protected
+      --  type, if any.
 
       if Is_List_Member (N)
         and then Present (Parent (List_Containing (N)))
@@ -3480,9 +3613,8 @@ package body Exp_Ch6 is
          Add_Private_Declarations (Declarations (N), Scop, Name_uObject, Loc);
 
          --  Associate privals and discriminals with the next protected
-         --  operation body to be expanded. These are used to expand
-         --  references to private data objects and discriminants,
-         --  respectively.
+         --  operation body to be expanded. These are used to expand references
+         --  to private data objects and discriminants, respectively.
 
          Next_Op := Next_Protected_Operation (N);
 
@@ -3511,7 +3643,7 @@ package body Exp_Ch6 is
       end if;
 
       --  Returns_By_Ref flag is normally set when the subprogram is frozen
-      --  but subprograms with no specs are not frozen
+      --  but subprograms with no specs are not frozen.
 
       declare
          Typ  : constant Entity_Id := Etype (Spec_Id);
@@ -3543,7 +3675,6 @@ package body Exp_Ch6 is
 
          if Present (Exception_Handlers (H)) then
             Except_H := First_Non_Pragma (Exception_Handlers (H));
-
             while Present (Except_H) loop
                Add_Return (Statements (Except_H));
                Next_Non_Pragma (Except_H);
@@ -3620,7 +3751,6 @@ package body Exp_Ch6 is
 
          begin
             Formal := First_Formal (Spec_Id);
-
             while Present (Formal) loop
                Floc := Sloc (Formal);
 
@@ -3645,18 +3775,6 @@ package body Exp_Ch6 is
 
       if Is_Thread_Body (Spec_Id) then
          Expand_Thread_Body;
-      end if;
-
-      --  If the subprogram does not have pending instantiations, then we
-      --  must generate the subprogram descriptor now, since the code for
-      --  the subprogram is complete, and this is our last chance. However
-      --  if there are pending instantiations, then the code is not
-      --  complete, and we will delay the generation.
-
-      if Is_Subprogram (Spec_Id)
-        and then not Delay_Subprogram_Descriptors (Spec_Id)
-      then
-         Generate_Subprogram_Descriptor_For_Subprogram (N, Spec_Id);
       end if;
 
       --  Set to encode entity names in package body before gigi is called
@@ -3685,6 +3803,8 @@ package body Exp_Ch6 is
    --  protected subprogram an associated formals. For a normal protected
    --  operation, this is done when expanding the protected type declaration.
 
+   --  If the declaration is for a null procedure, emit null body
+
    procedure Expand_N_Subprogram_Declaration (N : Node_Id) is
       Loc       : constant Source_Ptr := Sloc (N);
       Subp      : constant Entity_Id  := Defining_Entity (N);
@@ -3694,8 +3814,8 @@ package body Exp_Ch6 is
       Prot_Id   : Entity_Id;
 
    begin
-      --  Deal with case of protected subprogram. Do not generate
-      --  protected operation if operation is flagged as eliminated.
+      --  Deal with case of protected subprogram. Do not generate protected
+      --  operation if operation is flagged as eliminated.
 
       if Is_List_Member (N)
         and then Present (Parent (List_Containing (N)))
@@ -3709,7 +3829,7 @@ package body Exp_Ch6 is
               Make_Subprogram_Declaration (Loc,
                 Specification =>
                   Build_Protected_Sub_Specification
-                    (N, Scop, Unprotected => True));
+                    (N, Scop, Unprotected_Mode));
 
             --  The protected subprogram is declared outside of the protected
             --  body. Given that the body has frozen all entities so far, we
@@ -3732,6 +3852,35 @@ package body Exp_Ch6 is
             Set_Protected_Body_Subprogram (Subp, Prot_Id);
             Pop_Scope;
          end if;
+
+      elsif Nkind (Specification (N)) = N_Procedure_Specification
+        and then Null_Present (Specification (N))
+      then
+         declare
+            Bod : constant Node_Id :=
+                    Make_Subprogram_Body (Loc,
+                      Specification =>
+                        New_Copy_Tree (Specification (N)),
+                      Declarations => New_List,
+                     Handled_Statement_Sequence =>
+                        Make_Handled_Sequence_Of_Statements (Loc,
+                          Statements => New_List (Make_Null_Statement (Loc))));
+         begin
+            Set_Body_To_Inline (N, Bod);
+            Insert_After (N, Bod);
+            Analyze (Bod);
+
+            --  Corresponding_Spec isn't being set by Analyze_Subprogram_Body,
+            --  evidently because Set_Has_Completion is called earlier for null
+            --  procedures in Analyze_Subprogram_Declaration, so we force its
+            --  setting here. If the setting of Has_Completion is not set
+            --  earlier, then it can result in missing body errors if other
+            --  errors were already reported (since expansion is turned off).
+
+            --  Should creation of the empty body be moved to the analyzer???
+
+            Set_Corresponding_Spec (Bod, Defining_Entity (Specification (N)));
+         end;
       end if;
    end Expand_N_Subprogram_Declaration;
 
@@ -3754,18 +3903,16 @@ package body Exp_Ch6 is
       Rec := Make_Identifier (Loc, Name_uObject);
       Set_Etype (Rec, Corresponding_Record_Type (Scop));
 
-      --  Find enclosing protected operation, and retrieve its first
-      --  parameter, which denotes the enclosing protected object.
-      --  If the enclosing operation is an entry, we are immediately
-      --  within the protected body, and we can retrieve the object
-      --  from the service entries procedure. A barrier function has
-      --  has the same signature as an entry. A barrier function is
-      --  compiled within the protected object, but unlike protected
-      --  operations its never needs locks, so that its protected body
-      --  subprogram points to itself.
+      --  Find enclosing protected operation, and retrieve its first parameter,
+      --  which denotes the enclosing protected object. If the enclosing
+      --  operation is an entry, we are immediately within the protected body,
+      --  and we can retrieve the object from the service entries procedure. A
+      --  barrier function has has the same signature as an entry. A barrier
+      --  function is compiled within the protected object, but unlike
+      --  protected operations its never needs locks, so that its protected
+      --  body subprogram points to itself.
 
       Proc := Current_Scope;
-
       while Present (Proc)
         and then Scope (Proc) /= Scop
       loop
@@ -3793,17 +3940,16 @@ package body Exp_Ch6 is
 
          Set_Entity (Rec, Param);
 
-         --  Rec is a reference to an entity which will not be in scope
-         --  when the call is reanalyzed, and needs no further analysis.
+         --  Rec is a reference to an entity which will not be in scope when
+         --  the call is reanalyzed, and needs no further analysis.
 
          Set_Analyzed (Rec);
 
       else
-         --  Entry or barrier function for entry body.
-         --  The first parameter of the entry body procedure is a
-         --  pointer to the object. We create a local variable
-         --  of the proper type, duplicating what is done to define
-         --  _object later on.
+         --  Entry or barrier function for entry body. The first parameter of
+         --  the entry body procedure is pointer to the object. We create a
+         --  local variable of the proper type, duplicating what is done to
+         --  define _object later on.
 
          declare
             Decls : List_Id;
@@ -3829,9 +3975,8 @@ package body Exp_Ch6 is
                 Unchecked_Convert_To (Obj_Ptr,
                   New_Occurrence_Of (Param, Loc)));
 
-            --  Analyze new actual. Other actuals in calls are already
-            --  analyzed and the list of actuals is not renalyzed after
-            --  rewriting.
+            --  Analyze new actual. Other actuals in calls are already analyzed
+            --  and the list of actuals is not renalyzed after rewriting.
 
             Set_Parent (Rec, N);
             Analyze (Rec);
@@ -3907,7 +4052,230 @@ package body Exp_Ch6 is
    -----------------------
 
    procedure Freeze_Subprogram (N : Node_Id) is
-      E : constant Entity_Id := Entity (N);
+      Loc       : constant Source_Ptr := Sloc (N);
+      E         : constant Entity_Id  := Entity (N);
+
+      procedure Check_Overriding_Inherited_Interfaces (E : Entity_Id);
+      --  (Ada 2005): Check if the primitive E covers some interface already
+      --  implemented by some ancestor of the tagged-type associated with E.
+
+      procedure Register_Interface_DT_Entry
+        (Prim                : Entity_Id;
+         Ancestor_Iface_Prim : Entity_Id := Empty);
+      --  (Ada 2005): Register an interface primitive in a secondary dispatch
+      --  table. If Prim overrides an ancestor primitive of its associated
+      --  tagged-type then Ancestor_Iface_Prim indicates the entity of that
+      --  immediate ancestor associated with the interface; otherwise Prim and
+      --  Ancestor_Iface_Prim have the same info.
+
+      -------------------------------------------
+      -- Check_Overriding_Inherited_Interfaces --
+      -------------------------------------------
+
+      procedure Check_Overriding_Inherited_Interfaces (E : Entity_Id) is
+         Typ          : Entity_Id;
+         Elmt         : Elmt_Id;
+         Prim_Op      : Entity_Id;
+         Overriden_Op : Entity_Id := Empty;
+
+      begin
+         if Ada_Version < Ada_05
+           or else not Is_Overriding_Operation (E)
+           or else Is_Predefined_Dispatching_Operation (E)
+           or else Present (Alias (E))
+         then
+            return;
+         end if;
+
+         --  Get the entity associated with this primitive operation
+
+         Typ := Scope (DTC_Entity (E));
+         while Etype (Typ) /= Typ loop
+
+            --  Climb to the immediate ancestor
+
+            Typ := Etype (Typ);
+
+            if Present (Abstract_Interfaces (Typ)) then
+
+               --  Look for the overriden subprogram in the primary dispatch
+               --  table of the ancestor.
+
+               Overriden_Op := Empty;
+               Elmt         := First_Elmt (Primitive_Operations (Typ));
+               while Present (Elmt) loop
+                  Prim_Op := Node (Elmt);
+
+                  if Chars (Prim_Op) = Chars (E)
+                    and then Type_Conformant
+                               (New_Id => Prim_Op,
+                                Old_Id => E,
+                                Skip_Controlling_Formals => True)
+                    and then DT_Position (Prim_Op) = DT_Position (E)
+                    and then Etype (DTC_Entity (Prim_Op)) = RTE (RE_Tag)
+                    and then not Present (Abstract_Interface_Alias (Prim_Op))
+                  then
+                     if Overriden_Op = Empty then
+                        Overriden_Op := Prim_Op;
+
+                     --  Additional check to ensure that if two candidates have
+                     --  been found then they refer to the same subprogram.
+
+                     else
+                        declare
+                           A1 : Entity_Id;
+                           A2 : Entity_Id;
+
+                        begin
+                           A1 := Overriden_Op;
+                           while Present (Alias (A1)) loop
+                              A1 := Alias (A1);
+                           end loop;
+
+                           A2 := Prim_Op;
+                           while Present (Alias (A2)) loop
+                              A2 := Alias (A2);
+                           end loop;
+
+                           if A1 /= A2 then
+                              raise Program_Error;
+                           end if;
+                        end;
+                     end if;
+                  end if;
+
+                  Next_Elmt (Elmt);
+               end loop;
+
+               --  If not found this is the first overriding of some abstract
+               --  interface.
+
+               if Overriden_Op /= Empty then
+
+                  --  Find the entries associated with interfaces that are
+                  --  alias of this primitive operation in the ancestor.
+
+                  Elmt := First_Elmt (Primitive_Operations (Typ));
+                  while Present (Elmt) loop
+                     Prim_Op := Node (Elmt);
+
+                     if Present (Abstract_Interface_Alias (Prim_Op))
+                       and then Alias (Prim_Op) = Overriden_Op
+                     then
+                        Register_Interface_DT_Entry (E, Prim_Op);
+                     end if;
+
+                     Next_Elmt (Elmt);
+                  end loop;
+               end if;
+            end if;
+         end loop;
+      end Check_Overriding_Inherited_Interfaces;
+
+      ---------------------------------
+      -- Register_Interface_DT_Entry --
+      ---------------------------------
+
+      procedure Register_Interface_DT_Entry
+        (Prim                : Entity_Id;
+         Ancestor_Iface_Prim : Entity_Id := Empty)
+      is
+         Prim_Typ     : Entity_Id;
+         Prim_Op      : Entity_Id;
+         Iface_Typ    : Entity_Id;
+         Iface_DT_Ptr : Entity_Id;
+         Iface_Tag    : Entity_Id;
+         New_Thunk    : Node_Id;
+         Thunk_Id     : Entity_Id;
+
+      begin
+         if not Present (Ancestor_Iface_Prim) then
+            Prim_Typ  := Scope (DTC_Entity (Alias (Prim)));
+            Iface_Typ := Scope (DTC_Entity (Abstract_Interface_Alias (Prim)));
+            Iface_Tag := Find_Interface_Tag
+                           (T     => Prim_Typ,
+                            Iface => Iface_Typ);
+
+            --  Generate the code of the thunk only when this primitive
+            --  operation is associated with a secondary dispatch table.
+
+            if Etype (Iface_Tag) = RTE (RE_Interface_Tag) then
+               Thunk_Id  := Make_Defining_Identifier (Loc,
+                              New_Internal_Name ('T'));
+               New_Thunk :=
+                 Expand_Interface_Thunk
+                   (N           => Prim,
+                    Thunk_Alias => Alias (Prim),
+                    Thunk_Id    => Thunk_Id,
+                    Thunk_Tag   => Iface_Tag);
+
+               Insert_After (N, New_Thunk);
+
+               Iface_DT_Ptr :=
+                 Find_Interface_ADT
+                   (T     => Prim_Typ,
+                    Iface => Iface_Typ);
+
+               Insert_After (New_Thunk,
+                 Fill_Secondary_DT_Entry (Sloc (Prim),
+                   Prim         => Prim,
+                   Iface_DT_Ptr => Iface_DT_Ptr,
+                   Thunk_Id     => Thunk_Id));
+            end if;
+
+         else
+            Iface_Typ :=
+              Scope (DTC_Entity (Abstract_Interface_Alias
+                                  (Ancestor_Iface_Prim)));
+
+            Iface_Tag :=
+              Find_Interface_Tag
+                (T     => Scope (DTC_Entity (Alias (Ancestor_Iface_Prim))),
+                 Iface => Iface_Typ);
+
+            --  Generate the thunk only if the associated tag is an interface
+            --  tag. The case in which the associated tag is the primary tag
+            --  occurs when a tagged type is a direct derivation of an
+            --  interface. For example:
+
+            --    type I is interface;
+            --    ...
+            --    type T is new I with ...
+
+            if Etype (Iface_Tag) = RTE (RE_Interface_Tag) then
+               Thunk_Id  := Make_Defining_Identifier (Loc,
+                              New_Internal_Name ('T'));
+
+               if Present (Alias (Prim)) then
+                  Prim_Op := Alias (Prim);
+               else
+                  Prim_Op := Prim;
+               end if;
+
+               New_Thunk :=
+                 Expand_Interface_Thunk
+                   (N           => Ancestor_Iface_Prim,
+                    Thunk_Alias => Prim_Op,
+                    Thunk_Id    => Thunk_Id,
+                    Thunk_Tag   => Iface_Tag);
+
+               Insert_After (N, New_Thunk);
+
+               Iface_DT_Ptr :=
+                 Find_Interface_ADT
+                   (T     => Scope (DTC_Entity (Prim_Op)),
+                    Iface => Iface_Typ);
+
+               Insert_After (New_Thunk,
+                 Fill_Secondary_DT_Entry (Sloc (Prim),
+                   Prim         => Ancestor_Iface_Prim,
+                   Iface_DT_Ptr => Iface_DT_Ptr,
+                   Thunk_Id     => Thunk_Id));
+            end if;
+         end if;
+      end Register_Interface_DT_Entry;
+
+   --  Start of processing for Freeze_Subprogram
 
    begin
       --  When a primitive is frozen, enter its name in the corresponding
@@ -3919,16 +4287,35 @@ package body Exp_Ch6 is
       if Is_Dispatching_Operation (E)
         and then not Is_Abstract (E)
         and then Present (DTC_Entity (E))
-        and then not Is_CPP_Class (Scope (DTC_Entity (E)))
         and then not Java_VM
+        and then not Is_CPP_Class (Scope (DTC_Entity (E)))
       then
          Check_Overriding_Operation (E);
-         Insert_After (N, Fill_DT_Entry (Sloc (N), E));
+
+         if Ada_Version < Ada_05 then
+            Insert_After (N,
+              Fill_DT_Entry (Sloc (N), Prim => E));
+
+         else
+            --  Ada 2005 (AI-251): Check if this entry corresponds with
+            --  a subprogram that covers an abstract interface type.
+
+            if Present (Abstract_Interface_Alias (E)) then
+               Register_Interface_DT_Entry (E);
+
+            --  Common case: Primitive subprogram
+
+            else
+               Insert_After (N,
+                 Fill_DT_Entry (Sloc (N), Prim => E));
+               Check_Overriding_Inherited_Interfaces (E);
+            end if;
+         end if;
       end if;
 
       --  Mark functions that return by reference. Note that it cannot be
       --  part of the normal semantic analysis of the spec since the
-      --  underlying returned type may not be known yet (for private types)
+      --  underlying returned type may not be known yet (for private types).
 
       declare
          Typ  : constant Entity_Id := Etype (E);

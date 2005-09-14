@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_GGC_H
 #define GCC_GGC_H
@@ -154,14 +154,6 @@ extern struct alloc_zone *new_ggc_zone (const char *);
 
 /* Free a complete GGC zone, destroying everything in it.  */
 extern void destroy_ggc_zone (struct alloc_zone *);
-
-/* Start a new GGC context.  Memory allocated in previous contexts
-   will not be collected while the new context is active.  */
-extern void ggc_push_context (void);
-
-/* Finish a GC context.  Any uncollected memory in the new context
-   will be merged with the old context.  */
-extern void ggc_pop_context (void);
 
 struct ggc_pch_data;
 
@@ -313,15 +305,11 @@ extern struct alloc_zone tree_id_zone;
 /* Allocate an object into the specified allocation zone.  */
 extern void *ggc_alloc_zone_stat (size_t, struct alloc_zone * MEM_STAT_DECL);
 # define ggc_alloc_zone(s,z) ggc_alloc_zone_stat (s,z MEM_STAT_INFO)
-
+# define ggc_alloc_zone_pass_stat(s,z) ggc_alloc_zone_stat (s,z PASS_MEM_STAT)
 #else
 
 # define ggc_alloc_zone(s, z) ggc_alloc (s)
-# ifdef GATHER_STATISTICS
-#  define ggc_alloc_zone_stat(s, z, n, l, f) ggc_alloc_stat (s, n, l, f)
-# else
-#  define ggc_alloc_zone_stat(s, z) ggc_alloc_stat (s)
-# endif
+# define ggc_alloc_zone_pass_stat(s, z) ggc_alloc_stat (s PASS_MEM_STAT)
 
 #endif
 

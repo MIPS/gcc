@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -71,7 +71,7 @@ ix86_handle_shared_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != VAR_DECL)
     {
-      warning ("%qs attribute only applies to variables",
+      warning (OPT_Wattributes, "%qs attribute only applies to variables",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -199,8 +199,8 @@ i386_pe_dllimport_p (tree decl)
 	{
 	   /* Don't warn about artificial methods.  */
 	  if (!DECL_ARTIFICIAL (decl))
-	    warning ("%Jfunction '%D' is defined after prior declaration "
-		     "as dllimport: attribute ignored", decl, decl);
+	    warning (0, "function %q+D is defined after prior declaration "
+		     "as dllimport: attribute ignored", decl);
 	  return 0;
 	}
 
@@ -210,8 +210,8 @@ i386_pe_dllimport_p (tree decl)
       else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
         {
 	  if (extra_warnings)
-	    warning ("%Jinline function '%D' is declared as dllimport: "
-		     "attribute ignored.", decl, decl);
+	    warning (0, "inline function %q+D is declared as dllimport: "
+		     "attribute ignored", decl);
 	  return 0;
 	}
 
@@ -222,8 +222,8 @@ i386_pe_dllimport_p (tree decl)
 	       && !DECL_EXTERNAL (decl) && context_imp)
 	{
 	  if (!DECL_VIRTUAL_P (decl))
-            error ("%Jdefinition of static data member '%D' of "
-		   "dllimport'd class.", decl, decl);
+            error ("definition of static data member %q+D of "
+		   "dllimport'd class", decl);
 	  return 0;
 	}
 
@@ -273,17 +273,14 @@ i386_pe_mark_dllexport (tree decl)
   tree idp;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
   if (i386_pe_dllimport_name_p (oldname))
     {
-      warning ("%Jinconsistent dll linkage for '%D', dllexport assumed.",
-	       decl, decl);
+      warning (0, "inconsistent dll linkage for %q+D, dllexport assumed",
+	       decl);
      /* Remove DLL_IMPORT_PREFIX.  */
       oldname += strlen (DLL_IMPORT_PREFIX);
       DECL_NON_ADDR_CONST_P (decl) = 0;
@@ -317,13 +314,10 @@ i386_pe_mark_dllimport (tree decl)
   rtx symref;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
   if (i386_pe_dllexport_name_p (oldname))
     {
       error ("%qs declared as both exported to and imported from a DLL",
@@ -332,14 +326,9 @@ i386_pe_mark_dllimport (tree decl)
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
-      /* Already done, but do a sanity check to prevent assembler errors.  */
-      if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
-	{
-	  error ("%Jfailure in redeclaration of '%D': dllimport'd "
-		 "symbol lacks external linkage.", decl, decl);
-	  abort();
-	}
-      return;
+      /* Already done, but do a sanity check to prevent assembler
+	 errors.  */
+      gcc_assert (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl));
     }
 
   newname = alloca (strlen (DLL_IMPORT_PREFIX) + strlen (oldname) + 1);
@@ -474,11 +463,12 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 	 We leave these alone for now.  */
 
       if (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
-	warning ("%J'%D' defined locally after being "
-		 "referenced with dllimport linkage", decl, decl);
+	warning (0, "%q+D defined locally after being "
+		 "referenced with dllimport linkage", decl);
       else
-	warning ("%J'%D' redeclared without dllimport attribute "
-		 "after being referenced with dllimport linkage", decl, decl);
+	warning (OPT_Wattributes, "%q+D redeclared without dllimport "
+		 "attribute after being referenced with dllimport linkage",
+		 decl);
     }
 }
 
@@ -644,7 +634,7 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
   else
     {
       if (decl && **slot != flags)
-	error ("%J'%D' causes a section type conflict", decl, decl);
+	error ("%q+D causes a section type conflict", decl);
     }
 
   return flags;

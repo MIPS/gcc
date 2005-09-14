@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "timevar.h"
 #include "expr.h"
 #include "ggc.h"
@@ -84,7 +83,7 @@ static void add_referenced_var (tree, struct walk_state *);
 /* Global declarations.  */
 
 /* Array of all variables referenced in the function.  */
-varray_type referenced_vars;
+htab_t referenced_vars;
 
 
 /*---------------------------------------------------------------------------
@@ -186,7 +185,6 @@ create_stmt_ann (tree t)
   return ann;
 }
 
-
 /* Create a new annotation for a tree T.  */
 
 tree_ann_t
@@ -215,8 +213,9 @@ make_rename_temp (tree type, const char *prefix)
   if (referenced_vars)
     {
       add_referenced_tmp_var (t);
-      bitmap_set_bit (vars_to_rename, var_ann (t)->uid);
+      mark_sym_for_renaming (t);
     }
+
   return t;
 }
 
@@ -231,14 +230,14 @@ make_rename_temp (tree type, const char *prefix)
 void
 dump_referenced_vars (FILE *file)
 {
-  size_t i;
-
+  tree var;
+  referenced_var_iterator rvi;
+  
   fprintf (file, "\nReferenced variables in %s: %u\n\n",
 	   get_name (current_function_decl), (unsigned) num_referenced_vars);
-
-  for (i = 0; i < num_referenced_vars; i++)
+  
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = referenced_var (i);
       fprintf (file, "Variable: ");
       dump_variable (file, var);
       fprintf (file, "\n");
@@ -252,6 +251,37 @@ void
 debug_referenced_vars (void)
 {
   dump_referenced_vars (stderr);
+}
+
+
+/* Dump sub-variables for VAR to FILE.  */
+
+void
+dump_subvars_for (FILE *file, tree var)
+{
+  subvar_t sv = get_subvars_for_var (var);
+
+  if (!sv)
+    return;
+
+  fprintf (file, "{ ");
+
+  for (; sv; sv = sv->next)
+    {
+      print_generic_expr (file, sv->var, dump_flags);
+      fprintf (file, " ");
+    }
+
+  fprintf (file, "}");
+}
+
+
+/* Dumb sub-variables for VAR to stderr.  */
+
+void
+debug_subvars_for (tree var)
+{
+  dump_subvars_for (stderr, var);
 }
 
 
@@ -279,7 +309,7 @@ dump_variable (FILE *file, tree var)
 
   ann = var_ann (var);
 
-  fprintf (file, ", UID %u", (unsigned) ann->uid);
+  fprintf (file, ", UID %u", (unsigned) DECL_UID (var));
 
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
@@ -305,16 +335,22 @@ dump_variable (FILE *file, tree var)
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
 
-  if (ann->default_def)
+  if (default_def (var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, dump_flags);
+      print_generic_expr (file, default_def (var), dump_flags);
     }
 
   if (ann->may_aliases)
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
+    }
+
+  if (get_subvars_for_var (var))
+    {
+      fprintf (file, ", sub-vars: ");
+      dump_subvars_for (file, var);
     }
 
   fprintf (file, "\n");
@@ -427,7 +463,7 @@ debug_dfa_stats (void)
 }
 
 
-/* Collect DFA statistics and store them in the structure pointed by
+/* Collect DFA statistics and store them in the structure pointed to by
    DFA_STATS_P.  */
 
 static void
@@ -481,15 +517,13 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	{
 	case STMT_ANN:
 	  {
-	    stmt_ann_t ann = (stmt_ann_t) t->common.ann;
 	    dfa_stats_p->num_stmt_anns++;
-	    dfa_stats_p->num_defs += NUM_DEFS (DEF_OPS (ann));
-	    dfa_stats_p->num_uses += NUM_USES (USE_OPS (ann));
-	    dfa_stats_p->num_v_may_defs +=
-	                 NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann));
-	    dfa_stats_p->num_vuses += NUM_VUSES (VUSE_OPS (ann));
-	    dfa_stats_p->num_v_must_defs +=
-	                 NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann));
+	    dfa_stats_p->num_defs += NUM_SSA_OPERANDS (t, SSA_OP_DEF);
+	    dfa_stats_p->num_uses += NUM_SSA_OPERANDS (t, SSA_OP_USE);
+	    dfa_stats_p->num_v_may_defs += NUM_SSA_OPERANDS (t, SSA_OP_VMAYDEF);
+	    dfa_stats_p->num_vuses += NUM_SSA_OPERANDS (t, SSA_OP_VUSE);
+	    dfa_stats_p->num_v_must_defs += 
+				  NUM_SSA_OPERANDS (t, SSA_OP_VMUSTDEF);
 	    break;
 	  }
 
@@ -531,6 +565,50 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 }
 
 
+/* Lookup UID in the referenced_vars hashtable and return the associated
+   variable or NULL if it is not there.  */
+
+tree 
+referenced_var_lookup_if_exists (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Lookup UID in the referenced_vars hashtable and return the associated
+   variable.  */
+
+tree 
+referenced_var_lookup (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  gcc_assert (h || uid == 0);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert the pair UID, TO into the referenced_vars hashtable.  */
+
+static void
+referenced_var_insert (unsigned int uid, tree to)
+{ 
+  struct int_tree_map *h;
+  void **loc;
+
+  h = ggc_alloc (sizeof (struct int_tree_map));
+  h->uid = uid;
+  h->to = to;
+  loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
+  *(struct int_tree_map **)  loc = h;
+}
+
 /* Add VAR to the list of dereferenced variables.
 
    WALK_STATE contains a hash table used to avoid adding the same
@@ -558,8 +636,8 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	 intrinsic to the variable.  */
       if (slot)
 	*slot = (void *) var;
-      v_ann->uid = num_referenced_vars;
-      VARRAY_PUSH_TREE (referenced_vars, var);
+      
+      referenced_var_insert (DECL_UID (var), var);
 
       /* Global variables are always call-clobbered.  */
       if (is_global_var (var))
@@ -617,11 +695,11 @@ add_referenced_tmp_var (tree var)
 }
 
 
-/* Add all the non-SSA variables found in STMT's operands to the bitmap
-   VARS_TO_RENAME.  */
+/* Mark all the non-SSA variables found in STMT's operands to be
+   processed by update_ssa.  */
 
 void
-mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
+mark_new_vars_to_rename (tree stmt)
 {
   ssa_op_iter iter;
   tree val;
@@ -629,6 +707,9 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   bool found_exposed_symbol = false;
   int v_may_defs_before, v_may_defs_after;
   int v_must_defs_before, v_must_defs_after;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
 
   vars_in_vops_to_rename = BITMAP_ALLOC (NULL);
 
@@ -641,32 +722,30 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
      We flag them in a separate bitmap because we don't really want to
      rename them if there are not any newly exposed symbols in the
      statement operands.  */
-  v_may_defs_before = NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt));
-  v_must_defs_before = NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt));
+  v_may_defs_before = NUM_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF);
+  v_must_defs_before = NUM_SSA_OPERANDS (stmt, SSA_OP_VMUSTDEF);
 
   FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, 
 			     SSA_OP_VMAYDEF | SSA_OP_VUSE | SSA_OP_VMUSTDEF)
     {
       if (!DECL_P (val))
 	val = SSA_NAME_VAR (val);
-      bitmap_set_bit (vars_in_vops_to_rename, var_ann (val)->uid);
+      bitmap_set_bit (vars_in_vops_to_rename, DECL_UID (val));
     }
 
   /* Now force an operand re-scan on the statement and mark any newly
      exposed variables.  */
   update_stmt (stmt);
 
-  v_may_defs_after = NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt));
-  v_must_defs_after = NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt));
+  v_may_defs_after = NUM_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF);
+  v_must_defs_after = NUM_SSA_OPERANDS (stmt, SSA_OP_VMUSTDEF);
 
   FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_ALL_OPERANDS)
-    {
-      if (DECL_P (val))
-	{
-	  found_exposed_symbol = true;
-	  bitmap_set_bit (vars_to_rename, var_ann (val)->uid);
-	}
-    }
+    if (DECL_P (val))
+      {
+	found_exposed_symbol = true;
+	mark_sym_for_renaming (val);
+      }
 
   /* If we found any newly exposed symbols, or if there are fewer VDEF
      operands in the statement, add the variables we had set in
@@ -676,7 +755,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   if (found_exposed_symbol
       || v_may_defs_before > v_may_defs_after
       || v_must_defs_before > v_must_defs_after)
-    bitmap_ior_into (vars_to_rename, vars_in_vops_to_rename);
+    mark_set_for_renaming (vars_in_vops_to_rename);
 
   BITMAP_FREE (vars_in_vops_to_rename);
 }
@@ -691,7 +770,10 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
   tree t = *tp;
 
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
-    add_referenced_tmp_var (t);
+    {
+      add_referenced_tmp_var (t);
+      mark_sym_for_renaming (t);
+    }
 
   if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
@@ -706,20 +788,6 @@ find_new_referenced_vars (tree *stmt_p)
 }
 
 
-/* Mark all call-clobbered variables for renaming.  */
-
-void
-mark_call_clobbered_vars_to_rename (void)
-{
-  unsigned i;
-  bitmap_iterator bi;
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-    {
-      tree var = referenced_var (i);
-      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-    }
-}
-
 /* If REF is a COMPONENT_REF for a structure that can have sub-variables, and
    we know where REF is accessing, return the variable in REF that has the
    sub-variables.  If the return value is not NULL, POFFSET will be the
@@ -727,8 +795,8 @@ mark_call_clobbered_vars_to_rename (void)
    size, in bits, of REF inside the return value.  */
 
 tree
-okay_component_ref_for_subvars (tree ref, HOST_WIDE_INT *poffset,
-				HOST_WIDE_INT *psize)
+okay_component_ref_for_subvars (tree ref, unsigned HOST_WIDE_INT *poffset,
+				unsigned HOST_WIDE_INT *psize)
 {
   tree result = NULL;
   HOST_WIDE_INT bitsize;

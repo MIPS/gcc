@@ -277,7 +277,7 @@ prove_truth_value (tree cond,
     {
       if (e->flags & EDGE_FALSE_VALUE)
 	{
-	  if (!number_of_iterations_exit (loop, e, &niter_desc))
+	  if (!number_of_iterations_exit (loop, e, &niter_desc, false))
 	    return false;
 
 	  type = TREE_TYPE (niter_desc.niter);
@@ -289,7 +289,7 @@ prove_truth_value (tree cond,
 
       if (e->flags & EDGE_TRUE_VALUE)
 	{
-	  if (!number_of_iterations_exit (loop, e, &niter_desc))
+	  if (!number_of_iterations_exit (loop, e, &niter_desc, false))
 	    return false;
 	  
 	  type = TREE_TYPE (niter_desc.niter);

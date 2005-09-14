@@ -1,3 +1,633 @@
+2005-09-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* java-gimplify.c (java_gimplify_block): NULL out the old BLOCK's
+	BLOCK_EXPR_BODY before returning the new BIND_EXPR.
+
+2005-09-06  Kazu Hirata  <kazu@codesourcery.com>
+
+	* check-init.c, decl.c, expr.c, gcj.texi, java-tree.h,
+	jcf-parse.c, jcf.h, parse.h, parse.y, typeck.c: Fix comment
+	typos.  Follow spelling conventions.
+
+2005-09-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/23431
+	* typeck.c (lookup_do): Look up interfaces for the original class,
+	not the base class.
+	* parse.y (java_check_regular_methods): Fix diagnostic message for
+	more restrictive overriding of a method from an interface.
+
+2005-08-16  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (make_class_data): Always emit JV_STATE_PRELOADING for
+	class' initial state.
+
+2005-08-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/22113
+	* lex.c (do_java_lex): Define MAX_TOKEN_LEN. Avoid overflowing
+	`literal_token' for large numeric input tokens.
+
+2005-08-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19870
+	* parse.y (nested_field_access_p): Rename to nested_member_access_p
+	and expand to handle method accesses across nested classes.
+	(build_outer_method_access_method): Rename to
+	build_nested_method_access_method.  Minor adjustments to comments.
+	(resolve_expression_name): Use the newly-renamed
+	nested_member_access_p method.
+	(resolve_qualified_expression_name): Likewise.
+	(patch_method_invocation): Also consider static methods for access
+	method generation.  Minor adjustments to comments.
+	(maybe_use_access_method): Use the more general
+	nested_memeber_access_p to determine access across nested class
+	boundaries.  Allow THIS_ARG to be NULL (for static methods).
+
+2005-08-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/23300.
+	* expr.c (build_field_ref): Don't generate otable reference when
+	DECL_FIELD_OFFSET is 0.
+	* class.c (maybe_layout_super_class): Pass outer class to
+	do_resolve_class.
+
+2005-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (LABEL_IN_SUBR): Removed.
+	(LABEL_IN_SUBR): Likewise.
+	(LABEL_IS_SUBR_START): Likewise.
+	(LABEL_SUBR_START): Likewise.
+	(LABEL_SUBR_CONTEXT): Likewise.
+	(LABEL_CHANGED): Likewise.
+	(LABEL_RETURN_LABEL): Likewise.
+	(LABEL_RETURN_TYPE_STATE): Likewise.
+	(LABEL_RETURN_LABELS): Likewise.
+	(RETURN_MAP_ADJUSTED): Likewise.
+	(LABEL_PENDING_CHAIN): Likewise.
+
+2005-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (JAVA_OBJS): Removed verify.o
+	(java/verify.o): Removed.
+	* verify.c: Removed.
+	* lang.c (flag_new_verifier): Removed.
+	(java_post_options): Updated.
+	* java-tree.h (flag_new_verifier): Removed.
+	(verify_jvm_instructions): Removed.
+	* expr.c (pop_type_0): Assume flag_new_verifier is true.
+	(build_java_check_indexed_type): Likewise.
+	(expand_java_arraystore): Likewise.
+	(expand_java_arrayload): Likewise.
+	(pop_arguments): Likewise.
+	(expand_byte_code): Likewise.
+	(process_jvm_instruction): Likewise.
+
+2005-08-10  Andrew Haley  <aph@redhat.com>
+
+	* java-gimplify.c (java_gimplify_modify_expr): Fix any pointer
+	type mismatches to make legal GIMPLE.
+
+2005-08-10  Robin Green <greenrd@greenrd.org>
+
+	PR java/23230:
+	* parse.y (maybe_use_access_method): Generalize check from
+	java.lang.Object to any superclass of current_class
+
+2005-08-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (build_class_ref): Wrap the primary class type in a
+	NOP_EXPR.
+	* parse.y (java_complete_lhs) <COMPONENT_REF case>: Extract the
+	primary class type from the NOP_EXPR in which it was placed.
+
+2005-07-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* expr.c (expand_load_internal): Fix missing parens in
+	predicate.
+
+2005-07-28  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (expand_load_internal): Convert to destination type.
+
+2005-07-22  Manfred Hollstein  <mh@suse.com>
+
+	* verify-impl.c (check_class_constant): Fix uninitialised warnings.
+	(check_constant): Likewise.
+	(check_wide_constant): Likewise.
+
+2005-07-20  Giovanni Bajo  <giovannibajo@libero.it>
+
+	Make CONSTRUCTOR use VEC to store initializers.
+	* check-init.c (check_init): Update to cope with VEC in
+	CONSTRUCTOR_ELTS.
+	* class.c (make_field_value, make_method_value, get_dispatch_table,
+	make_class_data, emit_symbol_table, emit_catch_table,
+	emit_assertion_table): Use build_constructor_from_list instead of
+	build_constructor.
+	* constants.c (build_constants_constructor): Likewise.
+	* java-gimplify.c (java_gimplify_new_array_init): Update to cope with
+	VEC in CONSTRUCTOR_ELTS.
+	* java-tree.h (START_RECORD_CONSTRUCTOR, PUSH_SUPER_VALUE,
+	PUSH_FIELD_VALUE, FINISH_RECORD_CONSTRUCTOR): Create a VEC instead
+	of a TREE_LIST.
+	* jcf-write.c (generate_bytecode_insns): Update to cope with VEC in
+	CONSTRUCTOR_ELTS.
+	* parse.y (build_new_array_init): Use build_constructor_from_list
+	instead of build_constructor.
+	(patch_new_array_init): Update to cope with VEC in
+	CONSTRUCTOR_ELTS.
+	(array_constructor_check_entry): Likewise.
+
+2005-07-12  Tom Tromey  <tromey@redhat.com>
+
+	* jvspec.c (lang_specific_driver): Put filelist_filename first on
+	command line.
+
+2005-07-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/19674:
+	* parse-scan.y (interface_member_declaration): Added
+	empty_statement.
+
+2005-07-08  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* java-tree.h (LABEL_RETURN_LABELS): Use decl_non_common.
+	(LABEL_PENDING_CHAIN): Ditto.
+	(LABEL_PC): Ditto.
+	(DECL_BIT_INDEX): Ditto.	
+
+2005-07-07  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/18119
+	* parse.y (inner_class_accessible): New function. Logic moved from
+	check_inner_class_access.
+	(check_inner_class_access): Use inner_class_accessible.
+	(resolve_inner_class): Simplify arguments. Create circularity hash
+	here. Keep looking for classes if we found one that was inaccessible. 
+	Return the inaccessible class only if there is no other match.
+	(do_resolve_class): Update for new resolve_inner_class arguments.
+	Don't create circularity_hash here.
+
+2005-07-07  Bryce McKinlay  <mckinlay@redhat.com>
+
+        PR java/21045
+	* parse.y (add_exception_to_throws): New function.
+	(purge_unchecked_exceptions): Removed.
+	(get_constructor_super): Renamed from verify_constructor_super. Now
+	returns the super constructor after verification.
+	(java_complete_expand_method): Don't use purge_unchecked_exceptions
+	or save/restore the exception list.
+	(check_thrown_exceptions): Add uncaught exceptions in anonymous
+	class initializers and constructors to the throws clause of the method.	
+
+2005-07-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+        PR java/19674
+        * parse.y (interface_member_declaration): Allow empty statements in
+        interface declarations.
+
+2005-07-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (parse.o): Adjust dependencies.
+	* parse.y: Include tree-dump.h.
+
+2005-07-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* class.c, decl.c, expr.c: Use '+' flag instead of %J.  Use 'q'
+	flag for quoting.
+
+2005-07-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parse.y (issue_warning_error_from_context): Call
+	pp_output_formatted_text to be able to get the buffer.
+
+2005-06-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parse.y (issue_warning_error_from_context): Update for the
+	renaming of pp_format_text to pp_format.
+
+2005-06-28  Paul Brook  <paul@codesourcery.com>
+
+	* decl.c (java_init_decl_processing): Call
+	default_init_unwind_resume_libfunc.
+
+2005-06-27  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21540, PR java/13788:
+	* parse.y (java_complete_lhs) <CASE_EXPR>: Use
+	fold_constant_for_init.
+	(patch_binop): Added 'folding' argument.  Updated all callers.
+	(patch_unaryop) <NOP_EXPR>: New case.
+	(fold_constant_for_init) <NOP_EXPR>: Likewise.
+	(fold_constant_for_init) <COND_EXPR>: Fix sense of test.
+
+2005-06-25  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (define_builtin): Accept new flags parameter.
+	(initialize_builtins): Mark the builtins const and nothrow accordingly.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address in copyright headers.
+
+2005-06-24  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (verify_instructions_0): Correctly handle
+	situation where PC falls off end.
+
+2005-06-23  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/20697
+	* parse.y (find_most_specific_methods_list): Remove special case for
+	inner classes.
+
+2005-06-15  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21906:
+	* class.c (make_method_value): Use soft_abstractmethod_node for
+	abstract method.
+	* java-tree.h (soft_abstractmethod_node): New define.
+	(JTI_SOFT_ABSTRACTMETHOD_NODE): New enum constant.
+	* decl.c (java_init_decl_processing): Initialize
+	soft_abstractmethod_node.
+
+2005-06-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (rule for installing gcj.1): Depends on installdirs.
+
+2005-06-13  Per Bothner  <per@bothner.com>
+
+	* expr.c (int highest_label_pc_this_method,
+	start_label_pc_this_method): New globals.
+	(lookup_label): Add start_label_pc_this_method to pc for label, and
+	update highest_label_pc_this_method.  This prevents conflicts between
+	labels from different methods.
+	* java-tree.h: Declare new globals.
+	* jcf-parse.c (parse_class_file): If needed bump
+	start_label_pc_this_method and reset highest_label_pc_this_method.
+
+2005-06-13  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21844:
+	* parse.y (nested_field_access_p): Handle case where outer field
+	is inherited by enclosing class.
+
+2005-06-12  Per Bothner  <per@bothner.com>
+
+	* class.c (inherits_from_p): Do load_class if needed.
+
+2005-06-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c (error): Add ATTRIBUTE_PRINTF_1.
+	* java-tree.h (parse_error_context): Move...
+	* parse.h (parse_error_context): ... here, add ATTRIBUTE_GCC_DIAG.
+	* parse.y (parse_warning_context): Add ATTRIBUTE_GCC_DIAG.
+	* verify-impl.c (debug_print): Add ATTRIBUTE_PRINTF_1.
+
+2005-06-08  Roger Sayle  <roger@eyesopen.com>
+
+	* typeck.c (convert): Only clear TREE_OVERFLOW on INTEGER_CST nodes.
+
+2005-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* jv-scan.c (fatal_error, warning, warning0): Use gmsgid instead of
+	msgid for argument name.
+	* gjavah.c (error): Likewise.
+	* java-tree.h (parse_error_context): Likewise.
+	* parse.y (parse_error_context, parse_warning_context,
+	issue_warning_error_from_context): Likewise.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21722:
+	* class.c (build_static_field_ref): Don't fold constant fields if
+	current class is from a .class file and we're using indirect
+	dispatch.
+
+2005-05-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* java/verify-glue.c: Don't include errors.h and include toplev.h.
+	* java/Make-lang.in: Updates dependencies.
+
+2005-05-26  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19870.
+	* java-tree.h (OUTER_FIELD_ACCESS_IDENTIFIER_P): Rename to
+	NESTED_FIELD_ACCESS_IDENTIFIER_P.
+	(FIELD_INNER_ACCESS): Rename to FIELD_NESTED_ACCESS.
+	(FIELD_INNER_ACCESS_P): Rename to FIELD_NESTED_ACCESS_P.
+	* jcf-write.c (generate_classfile): Use
+	NESTED_FIELD_ACCESS_IDENTIFIER_P instead of
+	OUTER_FIELD_ACCESS_IDENTIFIER_P.
+	* parse.y (build_outer_field_access): Rename to
+	build_nested_field_access. Support static fields and outer-to-inner
+	class accesses.
+	(outer_field_access_p): Rename to nested_field_access_p. Support
+	static fields and generalise to outer-to-inner class and sibling
+	inner class accesses.
+	(outer_field_expanded_access_p): Rename to
+	nested_field_expanded_access_p and support static fields.
+	(outer_field_access_fix): Rename to nested_field_access_fix and
+	support static fields.
+	(build_outer_field_access_expr): Rename to
+	build_nested_field_access_expr and support static fields.
+	(build_outer_field_access_methods): Rename to
+	build_nested_field_access_methods and support static fields. For
+	static fields, generate accessors without class instance parameters.
+	(build_outer_field_access_method): Rename to
+	build_nested_field_access_method and support static fields.
+	(build_outer_method_access_method): Use
+	NESTED_FIELD_ACCESS_IDENTIFIER_P instead of
+	OUTER_FIELD_ACCESS_IDENTIFIER_P.
+	(resolve_expression_name): Consider static field accesses across
+	nested classes.
+	(resolve_qualified_expression_name): Likewise.
+	(java_complete_lhs): Use nested_field_access_fix instead of
+	outer_field_access_fix.
+	(patch_unary_op): Rename outer_field_flag to nested_field_flag.
+	Use nested_field_expanded_access_p instead of
+	outer_field_expanded_access_p. Use nested_field_access_fix instead
+	of outer_field_access_fix.
+	(check_thrown_exceptions): Use NESTED_FIELD_ACCESS_IDENTIFIER_P
+	instead of OUTER_FIELD_ACCESS_IDENTIFIER_P.
+
+2005-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* decl.c (GCJ_BINARYCOMPAT_ADDITION, 
+	GCJ_BOOTSTRAP_LOADER_ADDITION): Removed.
+	(FLAG_BINARYCOMPAT_ABI, FLAG_BOOTSTRAP_LOADER,
+	MINOR_BINARYCOMPAT_ABI_VERSION): New.
+	(GCJ_CURRENT_BC_ABI_VERSION): Use new method to calculate version ID.
+	(parse_version): Calculate version ID using new method. Use bit-flags
+	for flag_indirect_dispatch and flag_bootstrap_classes.
+
+2005-05-25  Richard Henderson  <rth@redhat.com>
+
+	PR libgcj/21692
+	* Make-lang.in (java/mangle.o): Depend on LANGHOOKS_DEF_H.
+	* class.c (build_class_ref): Set DECL_CLASS_FIELD_P and
+	DECL_CONTEXT; avoid pushdecl_top_level.
+	(build_dtable_decl): Set DECL_VTABLE_P and DECL_CONTEXT.
+	(layout_class): Don't SET_DECL_ASSEMBLER_NAME.
+	(layout_class_method): Likewise.
+	* decl.c (java_mark_cni_decl_local): New.
+	(java_mark_class_local): Use it.
+	* java-tree.h (DECL_LOCAL_CNI_METHOD_P): New.
+	(DECL_CLASS_FIELD_P, DECL_VTABLE_P): New.
+	(struct lang_decl_func): Add local_cni;
+	(struct lang_decl_var): Add class_field, vtable.
+	(java_mangle_decl): Declare.
+	* lang.c (LANG_HOOKS_SET_DECL_ASSEMBLER_NAME): New.
+	* mangle.c: Remove dup obstack.h; include langhooks-def.h.
+	(mangle_obstack_1): New.
+	(java_mangle_decl): Remove obstack argument.  Call mangle_class_field,
+	mangle_vtable, and mangle_local_cni_method_decl.  Fall back to
+	lhd_set_decl_assembler_name for things that don't need mangling.
+	(mangle_class_field): Rename from java_mangle_class_field, make
+	static, don't call init_mangling or finish_mangling.
+	(mangle_vtable): Similarly.
+	(mangle_local_cni_method_decl): New.
+	(init_mangling): Remove obstack argument.  Use &mangle_obstack_1,
+	gcc_assert, and MANGLE_RAW_STRING.
+	(finish_mangling): Use gcc_assert, remove if 0 debugging code.
+
+2005-05-25  DJ Delorie  <dj@redhat.com>
+
+	* class.c (set_constant_value): Move warning control from if() to
+	warning(OPT_*).
+
+2005-05-24  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (define_builtin): Don't call make_decl_rtl.
+	* constants.c (build_constant_data_ref): Likewise.
+	* class.c (build_utf8_ref): Likewise.
+	(build_fieldref_cache_entry, build_static_field_ref): Likewise.
+	(get_dispatch_table, layout_class_method): Likewise.
+	(build_class_ref): Likewise. Don't set DECL_SIZE or DECL_SIZE_UNIT
+	by hand.
+	(make_local_function_alias): Don't SET_DECL_ASSEMBLER_NAME.
+	(make_method_value): Use METHOD_ABSTRACT instead of DECL_RTL_SET_P
+	to determine if we need a non-zero address.
+	* decl.c (builtin_function): Don't call make_decl_rtl.
+	(give_name_to_locals): Don't SET_DECL_ASSEMBLER_NAME.
+	* expr.c (build_known_method_ref): Don't call make_decl_rtl.
+	* resource.c (compile_resource_data): Likewise.
+	* parse.y (resolve_field_access): Re-word comment to avoid
+	building DECL_RTL.
+
+2005-05-24  Richard Henderson  <rth@redhat.com>
+
+	* class.c (registered_class): Take it out of class_roots; turn into
+	a vec of trees.
+	(register_class): Make static.  Don't duplicate decl node.  Use
+	VEC_safe_push.
+	(emit_register_classes): Use VEC_iterate.  Use output_constant
+	instead of assemble_integer.  Don't call mark_decl_referenced
+	directly.
+	* java-tree.h (register_class): Remove decl.
+
+2005-05-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR java/17845
+
+	* parse.y (register_package, package_list): Remove.
+	(package_declaration): Do not call register_package.
+	(do_resolve_class): Do not use package_list.
+
+2005-05-15  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* jcf-write.c (generate_bytecode_insns) <SAVE_EXPR>: Remove
+	unused variable.
+
+2005-05-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21519:
+	* jcf-write.c (generate_bytecode_insns) <SAVE_EXPR>: Don't call
+	NOTE_PUSH.
+
+2005-05-12  Aaron Luchko <aluchko@redhat.com>
+
+	* gcj.texi: Add '-verify', '-noverify', and '-verifyremote'.
+
+2005-05-11  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Code Generation): Document -fbootstrap-classes.
+	* decl.c (GCJ_BOOTSTRAP_LOADER_ADDITION): New macro.
+	(parse_version): Use it.
+	* lang.opt (-fbootstrap-classes): New option.
+
+2005-05-10  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR java/21436
+	* class.c (maybe_layout_super_class): Look for imports in this_class.
+	* parse.h (ctxp_for_generation_last): New.
+	(do_resolve_class): Add a parameter.
+	* parse.y (ctxp_for_generation_last): New.
+	(java_pop_parser_context): Add at end of list.
+	(find_in_imports, find_in_imports_on_demand): Look in ctxp
+	if the TYPE_IMPORT_LIST or respectively the TYPE_IMPORT_DEMAND_LIST of
+	the given type are NULL.
+	(do_resolve_class): Look into the imports of the new second parameter.
+	Adjust recursive calls.
+	(resolve_class, resolve_inner_class, find_as_inner_class): Adjust
+	calls to do_resolve_class.
+	(create_class): Set the TYPE_IMPORT_LIST and TYPE_IMPORT_DEMAND_LIST.
+	(java_complete_class): Do not do that here.
+
+2005-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR java/20309
+	* Make-lang.in (java): Add gjnih.
+	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Likewise.
+	(GJNIH_OBJS): New variable.
+	(gjnih$(exeext)): New target.
+	(JAVA_MANFILES): Add gjnih.1.
+	(java.uninstall): Add gjnih.1.
+	(java.mostlyclean): Add gjnih.
+	(java.maintainer-clean): Add gjnih.1.
+	(java/gjavah-jni.o): New target.
+	(.INTERMEDIATE): Add gjnih.pod.
+	(gjnih.pod): New target.
+	* config-lang.in (stagestuff): Add gjnih.
+	* gcj.texi (Top): Add gjnih node.
+	(Invoking gcjh): Add descriptions of -force, -old, -trace, -J and
+	-bootclasspath options.
+	(Invoking gjnih): New node.
+	* gjavah.c Initialize flag_jni to 1 if JNI_DEFAULT is defined.
+	(TOOLNAME): New macro.
+	(error): Replace hard-coded gcjh with TOOLNAME.
+	(process_file): Likewise.
+	(usage): Likewise.
+	(version): Likewise.
+	(help): Likewise.  Add help output for -force, -old, -trace and -J
+	options.
+	(OPT_FORCE, OPT_OLD, OPT_TRACE): New macros.
+	(options): Add force, old, trace and J fields.
+	(main): Handle -force, -old, -trace and -J options.
+
+2005-05-03  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21245:
+	* gjavah.c (main): Unlink output file on error.
+
+2005-05-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* constants.c, jvgenmain.c, lang.opt, resource.c: Update
+	copyright.
+
+2005-04-29  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (build_jni_stub): Updated for change to build_block.
+
+2005-04-29  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* expr.c (force_evaluation_order): Declare 'saved' earlier.
+
+2005-04-28  Andrew Haley  <aph@redhat.com>
+
+	PR java/19285
+	* java-tree.h (soft_resolvepoolentry_node): New.
+	(alloc_constant_fieldref): Declare.
+	* expr.c (expand_java_field_op): Don't call class_init for
+	accesses to static fields with indirect dispatch.
+	* builtins.c (initialize_builtins): Add "__builtin_expect".
+	* decl.c (soft_resolvepoolentry_node): New variable.
+	(java_init_decl_processing): Create a decl for
+	"_Jv_ResolvePoolEntry".
+	* class.c (build_fieldref_cache_entry): New function.
+	(build_static_field_ref): Rewrite for indirect dispatch.
+	* constants.c (find_name_and_type_constant_tree): New function.
+	(alloc_constant_fieldref): Likewise.
+	(build_constants_constructor): Handle CONSTANT_Fieldref and
+	CONSTANT_NameAndType.
+
+	PR java/21115
+	* expr.c (force_evaluation_order): Convert outgoing args smaller
+	than integer.
+
+2005-04-27  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Remove obsolete
+	gnu.gcj.runtime.NameFinder.* system properties. Update documentation 
+	for gnu.gcj.runtime.NameFinder.use_addr2line and gnu.gcj.progname.
+
+2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c, jcf-dump.c, jv-scan.c, jvgenmain.c: Replace calls
+	to `unlock_stream' with `unlock_std_streams'.
+
+2005-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (java/decl.o, java/resource.o): Depend on $(EXPR_H)
+	instead of just expr.h.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c (main): Unlock the stdio streams.
+	* jcf-dump.c (main): Likewise.
+	* jv-scan.c (main): Likewise.
+	* jvgenmain.c (main): Likewise.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* class.c, decl.c, expr.c, jcf-io.c, jcf-parse.c, jv-scan.c,
+	parse.y: Adjust warning() callers.
+
+2005-04-21  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (Object fields): Change "Integer" to "Int" in example
+	contructor.
+
+2005-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi: Fix typos and bogus example.
+
+2005-04-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* except.c: Fix a comment typo.
+
+2005-04-19  Julian Brown  <julian@codesourcery.com>
+
+	* decl.c (finish_method): Revert patch from 2005-04-13 for breaking
+	indirect dispatch with PIC.
+
+2005-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java-except.h (struct eh_range.handler): Remove unused field.
+	(handle_nested_ranges): Remove function declaration.
+	(sanity_check_exception_range): Add function declaration.	
+	* verify.c (verify_jvm_instructions): Remove call to
+	handle_nested_ranges.
+	* verify-glue.c (verify_jvm_instructions_new): Call
+	sanity_check_exception_range.
+	* except.c (link_handler, eh_range_freelist, link_handler,
+	handle_nested_ranges): Remove.
+	(add_handler): Rewrite.
+	(sanity_check_exception_range): New function.
+	(print_ranges): New function.
+
+2005-04-13  Julian Brown  <julian@codesourcery.com>
+
+	* decl.c (finish_method): Give methods once-only linkage.
+
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
+2005-04-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* java-tree.h: Don't use PARAMS().
+
+2005-04-07  Per Bothner  <per@bothner.com>
+
+	* class.c (push_class): By default, suppress debug output.
+	(finish_class): Enable debug output for classes we're emitting.
+
+2005-04-07  Andrew Haley  <aph@redhat.com>
+
+	* gcj.texi: Correct gcj-dbtool instructions.
+
 2005-04-04  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* gcj.texi: Fix a typo.
@@ -10185,7 +10815,7 @@
 	properly initialize `finished_label'. Don't emit gotos for empty
 	try statements.
 
-2000-03-19  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+2000-03-19  Martin v. Loewis  <loewis@informatik.hu-berlin.de>
 
 	* except.c (emit_handlers): Clear catch_clauses_last.
 
@@ -15294,7 +15924,7 @@
 	(CLASS_P): Moved around.
 	(java_parse_abort_on_error): Macro moved from jcf-parse.c
 	* jcf-parse.c (java_parse_abort_on_error): Macro moved to
-	java-parse.h
+	java-tree.h
 	(jcf_parse_source): Changed leading comment. Removed unnecessary
 	fclose and CLASS_FROM_SOURCE_P marking.
 	(parse_source_file): New local variables remember_for_generation

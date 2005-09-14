@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,12 +45,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
-
-#undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE TYPE_PRECISION (wchar_type_node)
-
-/* Number of bytes in a wide character.  */
-#define WCHAR_BYTES (WCHAR_TYPE_SIZE / BITS_PER_UNIT)
 
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
@@ -257,7 +251,7 @@ fe_file_change (const struct line_map *new_map)
       if (c_header_level && --c_header_level == 0)
 	{
 	  if (new_map->sysp == 2)
-	    warning ("badly nested C headers from preprocessor");
+	    warning (0, "badly nested C headers from preprocessor");
 	  --pending_lang_change;
 	}
 #endif
@@ -305,7 +299,8 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
-      warning ("%Hignoring #pragma %s %s", &fe_loc, space, name);
+      warning (OPT_Wunknown_pragmas, "%Hignoring #pragma %s %s",
+	       &fe_loc, space, name);
     }
 }
 
@@ -603,10 +598,11 @@ interpret_integer (const cpp_token *token, unsigned int flags)
 		  if (itk_u < itk_unsigned_long)
 		    itk_u = itk_unsigned_long;
 		  itk = itk_u;
-		  warning ("this decimal constant is unsigned only in ISO C90");
+		  warning (0, "this decimal constant is unsigned only in ISO C90");
 		}
-	      else if (warn_traditional)
-		warning ("this decimal constant would be unsigned in ISO C90");
+	      else
+		warning (OPT_Wtraditional,
+			 "this decimal constant would be unsigned in ISO C90");
 	    }
 	}
     }
@@ -767,10 +763,11 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
   /* We have read one more token than we want.  */
   _cpp_backup_tokens (parse_in, 1);
   if (concats)
-    strs = (cpp_string *) obstack_finish (&str_ob);
+    strs = XOBFINISH (&str_ob, cpp_string *);
 
-  if (concats && !objc_string && warn_traditional && !in_system_header)
-    warning ("traditional C rejects string constant concatenation");
+  if (concats && !objc_string && !in_system_header)
+    warning (OPT_Wtraditional,
+	     "traditional C rejects string constant concatenation");
 
   if ((c_lex_string_translate
        ? cpp_interpret_string : cpp_interpret_string_notranslate)

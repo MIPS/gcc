@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Return true if operand is a GPR register.
 
@@ -37,7 +37,7 @@
   if (GET_CODE (op) != REG)
     return FALSE;
 
-  return GPR_OR_PSEUDO_P (REGNO (op));
+  return GPR_AP_OR_PSEUDO_P (REGNO (op));
 })
 
 ;; Return 1 is OP is a memory operand, or will be turned into one by

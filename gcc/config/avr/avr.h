@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -668,15 +668,13 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO)	\
 {						\
-  if (REGNO > 31)				\
-    abort ();					\
+  gcc_assert (REGNO < 32);			\
   fprintf (STREAM, "\tpush\tr%d", REGNO);	\
 }
 
 #define ASM_OUTPUT_REG_POP(STREAM, REGNO)	\
 {						\
-  if (REGNO > 31)				\
-    abort ();					\
+  gcc_assert (REGNO < 32);			\
   fprintf (STREAM, "\tpop\tr%d", REGNO);	\
 }
 

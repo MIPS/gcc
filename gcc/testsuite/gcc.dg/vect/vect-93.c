@@ -5,7 +5,6 @@
 
 #define N 3001
 
-typedef float afloat __attribute__ ((__aligned__(16)));
 
 int
 main1 (float *pa)
@@ -42,8 +41,8 @@ main1 (float *pa)
 int main (void)
 {
   int i;
-  afloat a[N];
-  afloat b[N];
+  float a[N] __attribute__ ((__aligned__(16)));
+  float b[N] __attribute__ ((__aligned__(16)));
 
   check_vect ();
 
@@ -70,3 +69,5 @@ int main (void)
    mechanisms.  */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */     
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */     
 
 /* The core algorithm is based on Andy Vaught's g95 tree.  Also the
    way to build UNION_TYPE is borrowed from Richard Henderson.
@@ -105,7 +105,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-const.h"
 
 
-/* Holds a single variable in a equivalence set.  */
+/* Holds a single variable in an equivalence set.  */
 typedef struct segment_info
 {
   gfc_symbol *sym;
@@ -422,10 +422,10 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
 
   if (is_init)
     {
-      tree list, ctor, tmp;
+      tree ctor, tmp;
       HOST_WIDE_INT offset = 0;
+      VEC(constructor_elt,gc) *v = NULL;
 
-      list = NULL_TREE;
       for (s = head; s; s = s->next)
         {
           if (s->sym->value)
@@ -442,20 +442,25 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
 	      tmp = gfc_conv_initializer (s->sym->value, &s->sym->ts,
 		  TREE_TYPE (s->field), s->sym->attr.dimension,
 		  s->sym->attr.pointer || s->sym->attr.allocatable);
-	      list = tree_cons (s->field, tmp, list);
+
+	      CONSTRUCTOR_APPEND_ELT (v, s->field, tmp);
               offset = s->offset + s->length;
             }
         }
-      gcc_assert (list);
-      ctor = build1 (CONSTRUCTOR, union_type, nreverse(list));
+      gcc_assert (!VEC_empty (constructor_elt, v));
+      ctor = build_constructor (union_type, v);
       TREE_CONSTANT (ctor) = 1;
       TREE_INVARIANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;
       DECL_INITIAL (decl) = ctor;
 
 #ifdef ENABLE_CHECKING
-      for (tmp = CONSTRUCTOR_ELTS (ctor); tmp; tmp = TREE_CHAIN (tmp))
-	gcc_assert (TREE_CODE (TREE_PURPOSE (tmp)) == FIELD_DECL);
+      {
+	tree field, value;
+	unsigned HOST_WIDE_INT idx;
+	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, field, value)
+	  gcc_assert (TREE_CODE (field) == FIELD_DECL);
+      }
 #endif
     }
 
@@ -848,7 +853,7 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 		 requirements.  Insert padding immediately before this
 		 segment.  */
 	      gfc_warning ("Padding of %d bytes required before '%s' in "
-			   "COMMON '%s' at %L", offset, s->sym->name,
+			   "COMMON '%s' at %L", (int)offset, s->sym->name,
 			   common->name, &common->where);
 	    }
 	  else
@@ -874,7 +879,7 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
   if (common_segment->offset != 0)
     {
       gfc_warning ("COMMON '%s' at %L requires %d bytes of padding at start",
-		   common->name, &common->where, common_segment->offset);
+		   common->name, &common->where, (int)common_segment->offset);
     }
 
   create_common (common, common_segment, saw_equiv);

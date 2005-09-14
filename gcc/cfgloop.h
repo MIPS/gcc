@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_CFGLOOP_H
 #define GCC_CFGLOOP_H
@@ -287,14 +287,19 @@ extern void force_single_succ_latches (struct loops *);
 extern void verify_loop_structure (struct loops *);
 
 /* Loop analysis.  */
-extern bool just_once_each_iteration_p (struct loop *, basic_block);
+extern bool just_once_each_iteration_p (const struct loop *, basic_block);
 extern unsigned expected_loop_iterations (const struct loop *);
+extern rtx doloop_condition_get (rtx);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (struct loop *loop);
 
 #define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
 					   duplicate_loop_to_header_edge.  */
+#define DLTHE_RECORD_COPY_NUMBER 2	/* Record copy number in the aux
+					   field of newly create BB.  */
+#define DLTHE_FLAG_COMPLETTE_PEEL 4	/* Update frequencies expecting
+					   a complete peeling.  */
 
 extern struct loop * duplicate_loop (struct loops *, struct loop *,
 				     struct loop *);
@@ -304,7 +309,7 @@ extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 extern struct loop *loopify (struct loops *, edge, edge,
 			     basic_block, edge, edge, bool);
 struct loop * loop_version (struct loops *, struct loop *, void *,
-			    basic_block *);			     
+			    basic_block *, bool);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, void *);
 

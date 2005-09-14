@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                 GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                 --
 --                                                                          --
 --                 S Y S T E M . T A S K I N G . S T A G E S                --
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -846,8 +846,6 @@ package body System.Tasking.Stages is
       SSL.Set_Jmpbuf_Address := SSL.Set_Jmpbuf_Address_NT'Access;
       SSL.Get_Sec_Stack_Addr := SSL.Get_Sec_Stack_Addr_NT'Access;
       SSL.Set_Sec_Stack_Addr := SSL.Set_Sec_Stack_Addr_NT'Access;
-      SSL.Get_Exc_Stack_Addr := SSL.Get_Exc_Stack_Addr_NT'Access;
-      SSL.Set_Exc_Stack_Addr := SSL.Set_Exc_Stack_Addr_NT'Access;
       SSL.Check_Abort_Status := SSL.Check_Abort_Status_NT'Access;
       SSL.Get_Stack_Info     := SSL.Get_Stack_Info_NT'Access;
 
@@ -1135,7 +1133,6 @@ package body System.Tasking.Stages is
       procedure To_Stderr (S : String);
       pragma Import (Ada, To_Stderr, "__gnat_to_stderr");
 
-      use System.Task_Info;
       use System.Soft_Links;
       use System.Standard_Library;
 

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -84,9 +84,6 @@ package body System.Finalization_Implementation is
    function Parent_Size (Obj : Address; T : Ada.Tags.Tag)
      return SSE.Storage_Count;
    pragma Import (Ada, Parent_Size, "ada__tags__parent_size");
-
-   function Parent_Tag (T : Ada.Tags.Tag) return Ada.Tags.Tag;
-   pragma Import (Ada, Parent_Tag, "ada__tags__parent_tag");
 
    function Get_Deep_Controller (Obj : System.Address) return RC_Ptr;
    --  Given the address (obj) of a tagged object, return a
@@ -473,7 +470,7 @@ package body System.Finalization_Implementation is
       --  when there are no controller at this level
 
       while Offset = -2 loop
-         The_Tag := Parent_Tag (The_Tag);
+         The_Tag := Ada.Tags.Parent_Tag (The_Tag);
          Offset  := RC_Offset (The_Tag);
       end loop;
 

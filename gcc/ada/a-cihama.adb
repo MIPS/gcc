@@ -2,11 +2,12 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                  ADA.CONTAINERS.INDEFINITE_HASHED_MAPS                   --
+--                      A D A . C O N T A I N E R S .                       --
+--               I N D E F I N I T E _ H A S H E D _ M A P S                --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2004 Free Software Foundation, Inc.            --
+--          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -20,8 +21,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -43,15 +44,6 @@ with Ada.Unchecked_Deallocation;
 
 package body Ada.Containers.Indefinite_Hashed_Maps is
 
-   type Key_Access is access Key_Type;
-   type Element_Access is access Element_Type;
-
-   type Node_Type is limited record
-      Key     : Key_Access;
-      Element : Element_Access;
-      Next    : Node_Access;
-   end record;
-
    procedure Free_Key is
       new Ada.Unchecked_Deallocation (Key_Type, Key_Access);
 
@@ -65,17 +57,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    function Copy_Node (Node : Node_Access) return Node_Access;
    pragma Inline (Copy_Node);
 
-   function Equivalent_Keys
+   function Equivalent_Key_Node
      (Key  : Key_Type;
       Node : Node_Access) return Boolean;
-   pragma Inline (Equivalent_Keys);
+   pragma Inline (Equivalent_Key_Node);
 
    function Find_Equal_Key
-     (R_Map  : Map;
+     (R_HT   : Hash_Table_Type;
       L_Node : Node_Access) return Boolean;
 
    procedure Free (X : in out Node_Access);
-   pragma Inline (Free);
+   --  pragma Inline (Free);
 
    function Hash_Node (Node : Node_Access) return Hash_Type;
    pragma Inline (Hash_Node);
@@ -89,6 +81,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    procedure Set_Next (Node : Node_Access; Next : Node_Access);
    pragma Inline (Set_Next);
 
+   function Vet (Position : Cursor) return Boolean;
+
    procedure Write_Node
      (Stream : access Root_Stream_Type'Class;
       Node   : Node_Access);
@@ -100,8 +94,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    package HT_Ops is
       new Ada.Containers.Hash_Tables.Generic_Operations
         (HT_Types          => HT_Types,
-         Hash_Table_Type   => Map,
-         Null_Node         => null,
          Hash_Node         => Hash_Node,
          Next              => Next,
          Set_Next          => Set_Next,
@@ -111,13 +103,11 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    package Key_Ops is
       new Hash_Tables.Generic_Keys
        (HT_Types  => HT_Types,
-        HT_Type   => Map,
-        Null_Node => null,
         Next      => Next,
         Set_Next  => Set_Next,
         Key_Type  => Key_Type,
         Hash      => Hash,
-        Equivalent_Keys => Equivalent_Keys);
+        Equivalent_Keys => Equivalent_Key_Node);
 
    ---------
    -- "=" --
@@ -125,26 +115,37 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Is_Equal is new HT_Ops.Generic_Equal (Find_Equal_Key);
 
-   function "=" (Left, Right : Map) return Boolean renames Is_Equal;
+   function "=" (Left, Right : Map) return Boolean is
+   begin
+      return Is_Equal (Left.HT, Right.HT);
+   end "=";
 
    ------------
    -- Adjust --
    ------------
 
-   procedure Adjust (Container : in out Map) renames HT_Ops.Adjust;
+   procedure Adjust (Container : in out Map) is
+   begin
+      HT_Ops.Adjust (Container.HT);
+   end Adjust;
 
    --------------
    -- Capacity --
    --------------
 
-   function Capacity (Container : Map)
-     return Count_Type renames HT_Ops.Capacity;
+   function Capacity (Container : Map) return Count_Type is
+   begin
+      return HT_Ops.Capacity (Container.HT);
+   end Capacity;
 
    -----------
    -- Clear --
    -----------
 
-   procedure Clear (Container : in out Map) renames HT_Ops.Clear;
+   procedure Clear (Container : in out Map) is
+   begin
+      HT_Ops.Clear (Container.HT);
+   end Clear;
 
    --------------
    -- Contains --
@@ -182,7 +183,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       X : Node_Access;
 
    begin
-      Key_Ops.Delete_Key_Sans_Free (Container, Key, X);
+      Key_Ops.Delete_Key_Sans_Free (Container.HT, Key, X);
 
       if X = null then
          raise Constraint_Error;
@@ -193,17 +194,23 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Delete (Container : in out Map; Position : in out Cursor) is
    begin
-      if Position = No_Element then
-         return;
+      pragma Assert (Vet (Position), "bad cursor in Delete");
+
+      if Position.Node = null then
+         raise Constraint_Error;
       end if;
 
-      if Position.Container /= Map_Access'(Container'Unchecked_Access) then
+      if Position.Container /= Container'Unrestricted_Access then
          raise Program_Error;
       end if;
 
-      HT_Ops.Delete_Node_Sans_Free (Container, Position.Node);
-      Free (Position.Node);
+      if Container.HT.Busy > 0 then
+         raise Program_Error;
+      end if;
 
+      HT_Ops.Delete_Node_Sans_Free (Container.HT, Position.Node);
+
+      Free (Position.Node);
       Position.Container := null;
    end Delete;
 
@@ -212,30 +219,54 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    -------------
 
    function Element (Container : Map; Key : Key_Type) return Element_Type is
-      C : constant Cursor := Find (Container, Key);
+      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
+
    begin
-      return C.Node.Element.all;
+      if Node = null then
+         raise Constraint_Error;
+      end if;
+
+      return Node.Element.all;
    end Element;
 
    function Element (Position : Cursor) return Element_Type is
    begin
+      pragma Assert (Vet (Position), "bad cursor in function Element");
+
+      if Position.Node = null then
+         raise Constraint_Error;
+      end if;
+
       return Position.Node.Element.all;
    end Element;
 
-   ---------------------
-   -- Equivalent_Keys --
-   ---------------------
+   -------------------------
+   -- Equivalent_Key_Node --
+   -------------------------
 
-   function Equivalent_Keys
+   function Equivalent_Key_Node
      (Key  : Key_Type;
       Node : Node_Access) return Boolean
    is
    begin
       return Equivalent_Keys (Key, Node.Key.all);
-   end Equivalent_Keys;
+   end Equivalent_Key_Node;
+
+   ---------------------
+   -- Equivalent_Keys --
+   ---------------------
 
    function Equivalent_Keys (Left, Right : Cursor) return Boolean is
    begin
+      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
+      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
+
+      if Left.Node = null
+        or else Right.Node = null
+      then
+         raise Constraint_Error;
+      end if;
+
       return Equivalent_Keys (Left.Node.Key.all, Right.Node.Key.all);
    end Equivalent_Keys;
 
@@ -244,6 +275,12 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Right : Key_Type) return Boolean
    is
    begin
+      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
+
+      if Left.Node = null then
+         raise Constraint_Error;
+      end if;
+
       return Equivalent_Keys (Left.Node.Key.all, Right);
    end Equivalent_Keys;
 
@@ -252,6 +289,12 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Right : Cursor) return Boolean
    is
    begin
+      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
+
+      if Right.Node = null then
+         raise Constraint_Error;
+      end if;
+
       return Equivalent_Keys (Left, Right.Node.Key.all);
    end Equivalent_Keys;
 
@@ -262,7 +305,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    procedure Exclude (Container : in out Map; Key : Key_Type) is
       X : Node_Access;
    begin
-      Key_Ops.Delete_Key_Sans_Free (Container, Key, X);
+      Key_Ops.Delete_Key_Sans_Free (Container.HT, Key, X);
       Free (X);
    end Exclude;
 
@@ -270,14 +313,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    -- Finalize --
    --------------
 
-   procedure Finalize (Container : in out Map) renames HT_Ops.Finalize;
+   procedure Finalize (Container : in out Map) is
+   begin
+      HT_Ops.Finalize (Container.HT);
+   end Finalize;
 
    ----------
    -- Find --
    ----------
 
    function Find (Container : Map; Key : Key_Type) return Cursor is
-      Node : constant Node_Access := Key_Ops.Find (Container, Key);
+      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
 
    begin
       if Node = null then
@@ -292,11 +338,11 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    --------------------
 
    function Find_Equal_Key
-     (R_Map  : Map;
+     (R_HT   : Hash_Table_Type;
       L_Node : Node_Access) return Boolean
    is
-      R_Index : constant Hash_Type := Key_Ops.Index (R_Map, L_Node.Key.all);
-      R_Node  : Node_Access := R_Map.Buckets (R_Index);
+      R_Index : constant Hash_Type := Key_Ops.Index (R_HT, L_Node.Key.all);
+      R_Node  : Node_Access := R_HT.Buckets (R_Index);
 
    begin
       while R_Node /= null loop
@@ -315,7 +361,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    -----------
 
    function First (Container : Map) return Cursor is
-      Node : constant Node_Access := HT_Ops.First (Container);
+      Node : constant Node_Access := HT_Ops.First (Container.HT);
+
    begin
       if Node = null then
          return No_Element;
@@ -332,11 +379,40 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       procedure Deallocate is
          new Ada.Unchecked_Deallocation (Node_Type, Node_Access);
    begin
-      if X /= null then
-         Free_Key (X.Key);
-         Free_Element (X.Element);
-         Deallocate (X);
+      if X = null then
+         return;
       end if;
+
+      X.Next := X;  --  detect mischief (in Vet)
+
+      begin
+         Free_Key (X.Key);
+      exception
+         when others =>
+            X.Key := null;
+
+            begin
+               Free_Element (X.Element);
+            exception
+               when others =>
+                  X.Element := null;
+            end;
+
+            Deallocate (X);
+            raise;
+      end;
+
+      begin
+         Free_Element (X.Element);
+      exception
+         when others =>
+            X.Element := null;
+
+            Deallocate (X);
+            raise;
+      end;
+
+      Deallocate (X);
    end Free;
 
    -----------------
@@ -345,7 +421,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Has_Element (Position : Cursor) return Boolean is
    begin
-      return Position /= No_Element;
+      pragma Assert (Vet (Position), "bad cursor in Has_Element");
+      return Position.Node /= null;
    end Has_Element;
 
    ---------------
@@ -376,11 +453,22 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Insert (Container, Key, New_Item, Position, Inserted);
 
       if not Inserted then
+         if Container.HT.Lock > 0 then
+            raise Program_Error;
+         end if;
+
          K := Position.Node.Key;
          E := Position.Node.Element;
 
          Position.Node.Key := new Key_Type'(Key);
-         Position.Node.Element := new Element_Type'(New_Item);
+
+         begin
+            Position.Node.Element := new Element_Type'(New_Item);
+         exception
+            when others =>
+               Free_Key (K);
+               raise;
+         end;
 
          Free_Key (K);
          Free_Element (E);
@@ -400,7 +488,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    is
       function New_Node (Next : Node_Access) return Node_Access;
 
-      procedure Insert is
+      procedure Local_Insert is
         new Key_Ops.Generic_Conditional_Insert (New_Node);
 
       --------------
@@ -410,6 +498,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       function New_Node (Next : Node_Access) return Node_Access is
          K  : Key_Access := new Key_Type'(Key);
          E  : Element_Access;
+
       begin
          E := new Element_Type'(New_Item);
          return new Node_Type'(K, E, Next);
@@ -420,11 +509,23 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
             raise;
       end New_Node;
 
+      HT : Hash_Table_Type renames Container.HT;
+
    --  Start of processing for Insert
 
    begin
-      HT_Ops.Ensure_Capacity (Container, Container.Length + 1);
-      Insert (Container, Key, Position.Node, Inserted);
+      if HT_Ops.Capacity (HT) = 0 then
+         HT_Ops.Reserve_Capacity (HT, 1);
+      end if;
+
+      Local_Insert (HT, Key, Position.Node, Inserted);
+
+      if Inserted
+        and then HT.Length > HT_Ops.Capacity (HT)
+      then
+         HT_Ops.Reserve_Capacity (HT, HT.Length);
+      end if;
+
       Position.Container := Container'Unchecked_Access;
    end Insert;
 
@@ -450,7 +551,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Is_Empty (Container : Map) return Boolean is
    begin
-      return Container.Length = 0;
+      return Container.HT.Length = 0;
    end Is_Empty;
 
    -------------
@@ -479,7 +580,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    --  Start of processing Iterate
 
    begin
-      Iterate (Container);
+      Iterate (Container.HT);
    end Iterate;
 
    ---------
@@ -488,6 +589,12 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Key (Position : Cursor) return Key_Type is
    begin
+      pragma Assert (Vet (Position), "bad cursor in function Key");
+
+      if Position.Node = null then
+         raise Constraint_Error;
+      end if;
+
       return Position.Node.Key.all;
    end Key;
 
@@ -497,7 +604,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Length (Container : Map) return Count_Type is
    begin
-      return Container.Length;
+      return Container.HT.Length;
    end Length;
 
    ----------
@@ -506,7 +613,11 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Move
      (Target : in out Map;
-      Source : in out Map) renames HT_Ops.Move;
+      Source : in out Map)
+   is
+   begin
+      HT_Ops.Move (Target => Target.HT, Source => Source.HT);
+   end Move;
 
    ----------
    -- Next --
@@ -524,13 +635,15 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Next (Position : Cursor) return Cursor is
    begin
-      if Position = No_Element then
+      pragma Assert (Vet (Position), "bad cursor in function Next");
+
+      if Position.Node = null then
          return No_Element;
       end if;
 
       declare
-         M    : Map renames Position.Container.all;
-         Node : constant Node_Access := HT_Ops.Next (M, Position.Node);
+         HT   : Hash_Table_Type renames Position.Container.HT;
+         Node : constant Node_Access := HT_Ops.Next (HT, Position.Node);
 
       begin
          if Node = null then
@@ -547,10 +660,43 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Query_Element
      (Position : Cursor;
-      Process  : not null access procedure (Element : Element_Type))
+      Process  : not null access procedure (Key     : Key_Type;
+                                            Element : Element_Type))
    is
    begin
-      Process (Position.Node.Key.all, Position.Node.Element.all);
+      pragma Assert (Vet (Position), "bad cursor in Query_Element");
+
+      if Position.Node = null then
+         raise Constraint_Error;
+      end if;
+
+      declare
+         M  : Map renames Position.Container.all;
+         HT : Hash_Table_Type renames M.HT'Unrestricted_Access.all;
+
+         B : Natural renames HT.Busy;
+         L : Natural renames HT.Lock;
+
+      begin
+         B := B + 1;
+         L := L + 1;
+
+         declare
+            K : Key_Type renames Position.Node.Key.all;
+            E : Element_Type renames Position.Node.Element.all;
+
+         begin
+            Process (K, E);
+         exception
+            when others =>
+               L := L - 1;
+               B := B - 1;
+               raise;
+         end;
+
+         L := L - 1;
+         B := B - 1;
+      end;
    end Query_Element;
 
    ----------
@@ -561,7 +707,11 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Read
      (Stream    : access Root_Stream_Type'Class;
-      Container : out Map) renames Read_Nodes;
+      Container : out Map)
+   is
+   begin
+      Read_Nodes (Stream, Container.HT);
+   end Read;
 
    ---------------
    -- Read_Node --
@@ -602,7 +752,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Key       : Key_Type;
       New_Item  : Element_Type)
    is
-      Node : constant Node_Access := Key_Ops.Find (Container, Key);
+      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
 
       K : Key_Access;
       E : Element_Access;
@@ -612,11 +762,22 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          raise Constraint_Error;
       end if;
 
+      if Container.HT.Lock > 0 then
+         raise Program_Error;
+      end if;
+
       K := Node.Key;
       E := Node.Element;
 
       Node.Key := new Key_Type'(Key);
-      Node.Element := new Element_Type'(New_Item);
+
+      begin
+         Node.Element := new Element_Type'(New_Item);
+      exception
+         when others =>
+            Free_Key (K);
+            raise;
+      end;
 
       Free_Key (K);
       Free_Element (E);
@@ -627,10 +788,24 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    ---------------------
 
    procedure Replace_Element (Position : Cursor; By : Element_Type) is
-      X : Element_Access := Position.Node.Element;
    begin
-      Position.Node.Element := new Element_Type'(By);
-      Free_Element (X);
+      pragma Assert (Vet (Position), "bad cursor in Replace_Element");
+
+      if Position.Node = null then
+         raise Constraint_Error;
+      end if;
+
+      if Position.Container.HT.Lock > 0 then
+         raise Program_Error;
+      end if;
+
+      declare
+         X : Element_Access := Position.Node.Element;
+
+      begin
+         Position.Node.Element := new Element_Type'(By);
+         Free_Element (X);
+      end;
    end Replace_Element;
 
    ----------------------
@@ -639,7 +814,11 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Reserve_Capacity
      (Container : in out Map;
-      Capacity  : Count_Type) renames HT_Ops.Ensure_Capacity;
+      Capacity  : Count_Type)
+   is
+   begin
+      HT_Ops.Reserve_Capacity (Container.HT, Capacity);
+   end Reserve_Capacity;
 
    --------------
    -- Set_Next --
@@ -656,11 +835,107 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Update_Element
      (Position : Cursor;
-      Process  : not null access procedure (Element : in out Element_Type))
+      Process  : not null access procedure (Key     : Key_Type;
+                                            Element : in out Element_Type))
    is
    begin
-      Process (Position.Node.Key.all, Position.Node.Element.all);
+      pragma Assert (Vet (Position), "bad cursor in Update_Element");
+
+      if Position.Node = null then
+         raise Constraint_Error;
+      end if;
+
+      declare
+         M  : Map renames Position.Container.all;
+         HT : Hash_Table_Type renames M.HT'Unrestricted_Access.all;
+
+         B : Natural renames HT.Busy;
+         L : Natural renames HT.Lock;
+
+      begin
+         B := B + 1;
+         L := L + 1;
+
+         declare
+            K : Key_Type renames Position.Node.Key.all;
+            E : Element_Type renames Position.Node.Element.all;
+
+         begin
+            Process (K, E);
+         exception
+            when others =>
+               L := L - 1;
+               B := B - 1;
+               raise;
+         end;
+
+         L := L - 1;
+         B := B - 1;
+      end;
    end Update_Element;
+
+   ---------
+   -- Vet --
+   ---------
+
+   function Vet (Position : Cursor) return Boolean is
+   begin
+      if Position.Node = null then
+         return Position.Container = null;
+      end if;
+
+      if Position.Container = null then
+         return False;
+      end if;
+
+      if Position.Node.Next = Position.Node then
+         return False;
+      end if;
+
+      if Position.Node.Key = null then
+         return False;
+      end if;
+
+      if Position.Node.Element = null then
+         return False;
+      end if;
+
+      declare
+         HT : Hash_Table_Type renames Position.Container.HT;
+         X  : Node_Access;
+
+      begin
+         if HT.Length = 0 then
+            return False;
+         end if;
+
+         if HT.Buckets = null
+           or else HT.Buckets'Length = 0
+         then
+            return False;
+         end if;
+
+         X := HT.Buckets (Key_Ops.Index (HT, Position.Node.Key.all));
+
+         for J in 1 .. HT.Length loop
+            if X = Position.Node then
+               return True;
+            end if;
+
+            if X = null then
+               return False;
+            end if;
+
+            if X = X.Next then -- to prevent endless loop
+               return False;
+            end if;
+
+            X := X.Next;
+         end loop;
+
+         return False;
+      end;
+   end Vet;
 
    -----------
    -- Write --
@@ -670,7 +945,11 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Write
      (Stream    : access Root_Stream_Type'Class;
-      Container : Map) renames Write_Nodes;
+      Container : Map)
+   is
+   begin
+      Write_Nodes (Stream, Container.HT);
+   end Write;
 
    ----------------
    -- Write_Node --
@@ -686,4 +965,3 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    end Write_Node;
 
 end Ada.Containers.Indefinite_Hashed_Maps;
-

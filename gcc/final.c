@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the final pass of the compiler.
    It looks at the rtl code for a function and outputs assembler code.
@@ -72,6 +72,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "expr.h"
 #include "cfglayout.h"
+#include "tree-pass.h"
+#include "timevar.h"
+#include "cgraph.h"
+#include "coverage.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -84,6 +88,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef DBX_DEBUGGING_INFO
 #include "dbxout.h"
+#endif
+
+#ifdef SDB_DEBUGGING_INFO
+#include "sdbout.h"
 #endif
 
 /* If we aren't using cc0, CC_STATUS_INIT shouldn't exist.  So define a
@@ -136,7 +144,7 @@ static const char *last_filename;
 extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
-   This means that inconsistencies are the user's fault, so don't abort.
+   This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
 rtx this_is_asm_operands;
 
@@ -735,6 +743,24 @@ compute_alignments (void)
       LABEL_TO_MAX_SKIP (label) = max_skip;
     }
 }
+
+struct tree_opt_pass pass_compute_alignments =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  compute_alignments,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
@@ -788,7 +814,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       label_align = xrealloc (label_align,
 			      n_labels * sizeof (struct label_alignment));
 
-      /* Range of labels grows monotonically in the function.  Abort here
+      /* Range of labels grows monotonically in the function.  Failing here
          means that the initialization of array got lost.  */
       gcc_assert (n_old_labels <= n_labels);
 
@@ -953,8 +979,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      if (min_align > LABEL_TO_ALIGNMENT (lab))
 		min_align = LABEL_TO_ALIGNMENT (lab);
 	    }
-	  XEXP (pat, 2) = gen_rtx_LABEL_REF (VOIDmode, min_lab);
-	  XEXP (pat, 3) = gen_rtx_LABEL_REF (VOIDmode, max_lab);
+	  XEXP (pat, 2) = gen_rtx_LABEL_REF (Pmode, min_lab);
+	  XEXP (pat, 3) = gen_rtx_LABEL_REF (Pmode, max_lab);
 	  insn_shuid = INSN_SHUID (insn);
 	  rel = INSN_SHUID (XEXP (XEXP (pat, 0), 0));
 	  memset (&flags, 0, sizeof (flags));
@@ -2060,7 +2086,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    /* Get out the operand values.  */
 	    string = decode_asm_operands (body, ops, NULL, NULL, NULL);
-	    /* Inhibit aborts on what would otherwise be compiler bugs.  */
+	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
 
@@ -2753,17 +2779,17 @@ alter_cond (rtx cond)
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
 
 void
-output_operand_lossage (const char *msgid, ...)
+output_operand_lossage (const char *cmsgid, ...)
 {
   char *fmt_string;
   char *new_message;
   const char *pfx_str;
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, cmsgid);
 
   pfx_str = this_is_asm_operands ? _("invalid 'asm': ") : "output_operand: ";
-  asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
+  asprintf (&fmt_string, "%s%s", pfx_str, _(cmsgid));
   vasprintf (&new_message, fmt_string, ap);
 
   if (this_is_asm_operands)
@@ -3135,8 +3161,7 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
   if (x && GET_CODE (x) == SUBREG)
     x = alter_subreg (&x);
 
-  /* If X is a pseudo-register, abort now rather than writing trash to the
-     assembler file.  */
+  /* X must not be a pseudo reg.  */
   gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);
@@ -3863,3 +3888,186 @@ debug_free_queue (void)
       symbol_queue_size = 0;
     }
 }
+
+/* Turn the RTL into assembly.  */
+static void
+rest_of_handle_final (void)
+{
+  rtx x;
+  const char *fnname;
+
+  /* Get the function's name, as described by its RTL.  This may be
+     different from the DECL_NAME name used in the source file.  */
+
+  x = DECL_RTL (current_function_decl);
+  gcc_assert (MEM_P (x));
+  x = XEXP (x, 0);
+  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+  fnname = XSTR (x, 0);
+
+  assemble_start_function (current_function_decl, fnname);
+  final_start_function (get_insns (), asm_out_file, optimize);
+  final (get_insns (), asm_out_file, optimize);
+  final_end_function ();
+
+#ifdef TARGET_UNWIND_INFO
+  /* ??? The IA-64 ".handlerdata" directive must be issued before
+     the ".endp" directive that closes the procedure descriptor.  */
+  output_function_exception_table ();
+#endif
+
+  assemble_end_function (current_function_decl, fnname);
+
+#ifndef TARGET_UNWIND_INFO
+  /* Otherwise, it feels unclean to switch sections in the middle.  */
+  output_function_exception_table ();
+#endif
+
+  user_defined_section_attribute = false;
+
+  if (! quiet_flag)
+    fflush (asm_out_file);
+
+  /* Release all memory allocated by flow.  */
+  free_basic_block_vars ();
+
+  /* Write DBX symbols if requested.  */
+
+  /* Note that for those inline functions where we don't initially
+     know for certain that we will be generating an out-of-line copy,
+     the first invocation of this routine (rest_of_compilation) will
+     skip over this code by doing a `goto exit_rest_of_compilation;'.
+     Later on, wrapup_global_declarations will (indirectly) call
+     rest_of_compilation again for those inline functions that need
+     to have out-of-line copies generated.  During that call, we
+     *will* be routed past here.  */
+
+  timevar_push (TV_SYMOUT);
+  (*debug_hooks->function_decl) (current_function_decl);
+  timevar_pop (TV_SYMOUT);
+}
+
+struct tree_opt_pass pass_final =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_final,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FINAL,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static void
+rest_of_handle_shorten_branches (void)
+{
+  /* Shorten branches.  */
+  shorten_branches (get_insns ());
+}
+ 
+struct tree_opt_pass pass_shorten_branches =
+{
+  "shorten",                            /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_shorten_branches,      /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FINAL,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static void
+rest_of_clean_state (void)
+{
+  rtx insn, next;
+
+  /* It is very important to decompose the RTL instruction chain here:
+     debug information keeps pointing into CODE_LABEL insns inside the function
+     body.  If these remain pointing to the other insns, we end up preserving
+     whole RTL chain and attached detailed debug info in memory.  */
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      NEXT_INSN (insn) = NULL;
+      PREV_INSN (insn) = NULL;
+    }
+
+  /* In case the function was not output,
+     don't leave any temporary anonymous types
+     queued up for sdb output.  */
+#ifdef SDB_DEBUGGING_INFO
+  if (write_symbols == SDB_DEBUG)
+    sdbout_types (NULL_TREE);
+#endif
+
+  reload_completed = 0;
+  epilogue_completed = 0;
+  flow2_completed = 0;
+  no_new_pseudos = 0;
+
+  /* Clear out the insn_length contents now that they are no
+     longer valid.  */
+  init_insn_lengths ();
+
+  /* Show no temporary slots allocated.  */
+  init_temp_slots ();
+
+  free_basic_block_vars ();
+  free_bb_for_insn ();
+
+
+  if (targetm.binds_local_p (current_function_decl))
+    {
+      int pref = cfun->preferred_stack_boundary;
+      if (cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
+        pref = cfun->stack_alignment_needed;
+      cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
+        = pref;
+    }
+
+  /* Make sure volatile mem refs aren't considered valid operands for
+     arithmetic insns.  We must call this here if this is a nested inline
+     function, since the above code leaves us in the init_recog state,
+     and the function context push/pop code does not save/restore volatile_ok.
+
+     ??? Maybe it isn't necessary for expand_start_function to call this
+     anymore if we do it here?  */
+
+  init_recog_no_volatile ();
+
+  /* We're done with this function.  Free up memory if we can.  */
+  free_after_parsing (cfun);
+  free_after_compilation (cfun);
+}
+
+struct tree_opt_pass pass_clean_state =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_clean_state,                  /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FINAL,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  PROP_rtl,                             /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+

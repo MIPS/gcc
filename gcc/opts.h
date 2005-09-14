@@ -15,14 +15,14 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_OPTS_H
 #define GCC_OPTS_H
 
 /* Specifies how a switch's VAR_VALUE relates to its FLAG_VAR.  */
-enum cl_var_cond {
+enum cl_var_type {
   /* The switch is enabled when FLAG_VAR is nonzero.  */
   CLVC_BOOLEAN,
 
@@ -33,7 +33,11 @@ enum cl_var_cond {
   CLVC_BIT_CLEAR,
 
   /* The switch is enabled when VAR_VALUE is set in FLAG_VAR.  */
-  CLVC_BIT_SET
+  CLVC_BIT_SET,
+
+  /* The switch takes a string argument and FLAG_VAR points to that
+     argument.  */
+  CLVC_STRING
 };
 
 struct cl_option
@@ -43,15 +47,24 @@ struct cl_option
   unsigned short back_chain;
   unsigned char opt_len;
   unsigned int flags;
-  int *flag_var;
-  enum cl_var_cond var_cond;
+  void *flag_var;
+  enum cl_var_type var_type;
   int var_value;
+};
+
+/* Records that the state of an option consists of SIZE bytes starting
+   at DATA.  DATA might point to CH in some cases.  */
+struct cl_option_state {
+  const void *data;
+  size_t size;
+  char ch;
 };
 
 extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
 
+#define CL_DISABLED		(1 << 21) /* Disabled in this configuration.  */
 #define CL_TARGET		(1 << 22) /* Target-specific option.  */
 #define CL_REPORT		(1 << 23) /* Report argument with -fverbose-asm  */
 #define CL_JOINED		(1 << 24) /* If takes joined argument.  */
@@ -71,7 +84,7 @@ extern const char **in_fnames;
 extern unsigned num_in_fnames;
 
 extern void decode_options (unsigned int argc, const char **argv);
-extern int option_enabled (const struct cl_option *);
-extern void print_filtered_help (unsigned int);
+extern int option_enabled (int opt_idx);
+extern bool get_option_state (int, struct cl_option_state *);
 
 #endif

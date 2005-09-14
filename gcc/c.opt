@@ -15,8 +15,8 @@
 ; 
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-; 02111-1307, USA.
+; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+; 02110-1301, USA.
 
 ; See the GCC internals manual for a description of this file's format.
 
@@ -58,7 +58,7 @@ C ObjC C++ ObjC++ Undocumented
 
 F
 C ObjC C++ ObjC++ Joined Separate
--F <dir>	Add <dir> to the end of the main framework include path  
+-F <dir>	Add <dir> to the end of the main framework include path
 
 H
 C ObjC C++ ObjC++
@@ -120,9 +120,18 @@ Wall
 C ObjC C++ ObjC++
 Enable most warning messages
 
+Wassign-intercept
+ObjC ObjC++ Var(warn_assign_intercept)
+Warn whenever an Objective-C assignment is being intercepted by the garbage collector
+
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast)
 Warn about casting functions to incompatible types
+
+Wc++-compat
+C Var(warn_cxx_compat)
+Warn about C constructs that are not in the common subset of C and C++
+
 
 Wcast-qual
 C ObjC C++ ObjC++ Var(warn_cast_qual)
@@ -209,7 +218,7 @@ C ObjC C++ ObjC++ Joined
 
 Winit-self
 C ObjC C++ ObjC++ Var(warn_init_self)
-Warn about variables which are initialized to themselves.
+Warn about variables which are initialized to themselves
 
 Wimplicit
 C ObjC C++ ObjC++
@@ -224,7 +233,11 @@ Warn when a declaration does not specify a type
 
 Wimport
 C ObjC C++ ObjC++
-Deprecated.  This switch has no effect.
+Deprecated.  This switch has no effect
+
+Wint-to-pointer-cast
+C ObjC Var(warn_int_to_pointer_cast) Init(1)
+Warn when there is a cast to a pointer from an integer of a different size
 
 Winvalid-offsetof
 C++ ObjC++ Var(warn_invalid_offsetof) Init(1)
@@ -314,6 +327,14 @@ Wpointer-arith
 C ObjC C++ ObjC++ Var(warn_pointer_arith)
 Warn about function pointer arithmetic
 
+Wpointer-to-int-cast
+C ObjC Var(warn_pointer_to_int_cast) Init(1)
+Warn when a pointer is cast to an integer of a different size
+
+Wpragmas
+C ObjC C++ ObjC++ Var(warn_pragmas) Init(1)
+Warn about misuses of pragmas
+
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
@@ -327,7 +348,7 @@ C++ ObjC++ Var(warn_reorder)
 Warn when the compiler reorders code
 
 Wreturn-type
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_return_type)
 Warn whenever a function's return type defaults to \"int\" (C), or about inconsistent return types (C++)
 
 Wselector
@@ -346,9 +367,17 @@ Wsign-promo
 C++ ObjC++ Var(warn_sign_promo)
 Warn when overload promotes from unsigned to signed
 
+Wstrict-null-sentinel
+C++ ObjC++
+Warn about uncasted NULL used as sentinel
+
 Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
+
+Wstrict-selector-match
+ObjC ObjC++ Var(warn_strict_selector_match)
+Warn if type signatures of candidate methods do not match exactly
 
 Wsynth
 C++ ObjC++ Var(warn_synth)
@@ -392,11 +421,11 @@ Give strings the type \"array of char\"
 
 Wpointer-sign
 C ObjC Var(warn_pointer_sign) Init(1)
-Warn when a pointer differs in signedness in an assignment.
+Warn when a pointer differs in signedness in an assignment
 
 ansi
 C ObjC C++ ObjC++
-A synonym for -std=c89 (for C) or -std=c++98 (for C++).
+A synonym for -std=c89 (for C) or -std=c++98 (for C++)
 
 d
 C ObjC C++ ObjC++ Joined
@@ -468,7 +497,7 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
--finput-charset=<cset>      Specify the default character set for source files.
+-finput-charset=<cset>	Specify the default character set for source files
 
 
 fexternal-templates
@@ -552,12 +581,29 @@ C++ ObjC++
 fnonnull-objects
 C++ ObjC++
 
+; Generate special '- .cxx_construct' and '- .cxx_destruct' methods
+; to initialize any non-POD ivars in Objective-C++ classes.
+fobjc-call-cxx-cdtors
+ObjC++ Var(flag_objc_call_cxx_cdtors)
+Generate special Objective-C methods to initialize/destroy non-POD C++ ivars, if needed
+
+fobjc-direct-dispatch
+ObjC ObjC++ Var(flag_objc_direct_dispatch)
+Allow fast jumps to the message dispatcher
+
+; Nonzero means that we will allow new ObjC exception syntax (@throw,
+; @try, etc.) in source code.
 fobjc-exceptions
-ObjC ObjC++
+ObjC ObjC++ Var(flag_objc_exceptions)
 Enable Objective-C exception and synchronization syntax
 
+fobjc-gc
+ObjC ObjC++ Var(flag_objc_gc)
+Enable garbage collection (GC) in Objective-C/Objective-C++ programs
+
+; Nonzero means that we generate NeXT setjmp based exceptions.
 fobjc-sjlj-exceptions
-ObjC ObjC++
+ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
 
 foperator-names
@@ -638,7 +684,7 @@ C++ ObjC++
 
 fthreadsafe-statics
 C++ ObjC++
--fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics.
+-fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics
 
 funsigned-bitfields
 C ObjC C++ ObjC++
@@ -753,6 +799,10 @@ C ObjC C++ ObjC++
 print-objc-runtime-info
 ObjC ObjC++
 Generate C header of platform-specific features
+
+print-pch-checksum
+C ObjC C++ ObjC++
+Print a checksum of the executable for PCH validity checking, and stop
 
 remap
 C ObjC C++ ObjC++

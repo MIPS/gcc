@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* trans-expr.c-- generate GENERIC trees for gfc_expr.  */
 
@@ -115,14 +115,15 @@ gfc_make_safe_expr (gfc_se * se)
 }
 
 
-/* Return an expression which determines if a dummy parameter is present.  */
+/* Return an expression which determines if a dummy parameter is present.
+   Also used for arguments to procedures with multiple entry points.  */
 
 tree
 gfc_conv_expr_present (gfc_symbol * sym)
 {
   tree decl;
 
-  gcc_assert (sym->attr.dummy && sym->attr.optional);
+  gcc_assert (sym->attr.dummy);
 
   decl = gfc_get_symbol_decl (sym);
   if (TREE_CODE (decl) != PARM_DECL)
@@ -280,7 +281,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
       se->string_length = tmp;
     }
 
-  if (c->pointer && c->dimension == 0)
+  if (c->pointer && c->dimension == 0 && c->ts.type != BT_CHARACTER)
     se->expr = gfc_build_indirect_ref (se->expr);
 }
 
@@ -308,11 +309,43 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
     }
   else
     {
+      tree se_expr = NULL_TREE;
+
       se->expr = gfc_get_symbol_decl (sym);
 
+      /* Special case for assigning the return value of a function.
+	 Self recursive functions must have an explicit return value.  */
+      if (se->expr == current_function_decl && sym->attr.function
+	  && (sym->result == sym))
+	se_expr = gfc_get_fake_result_decl (sym);
+
+      /* Similarly for alternate entry points.  */
+      else if (sym->attr.function && sym->attr.entry
+	       && (sym->result == sym)
+	       && sym->ns->proc_name->backend_decl == current_function_decl)
+	{
+	  gfc_entry_list *el = NULL;
+
+	  for (el = sym->ns->entries; el; el = el->next)
+	    if (sym == el->sym)
+	      {
+		se_expr = gfc_get_fake_result_decl (sym);
+		break;
+	      }
+	}
+
+      else if (sym->attr.result
+	       && sym->ns->proc_name->backend_decl == current_function_decl
+	       && sym->ns->proc_name->attr.entry_master
+	       && !gfc_return_by_reference (sym->ns->proc_name))
+	se_expr = gfc_get_fake_result_decl (sym);
+
+      if (se_expr)
+	se->expr = se_expr;
+
       /* Procedure actual arguments.  */
-      if (sym->attr.flavor == FL_PROCEDURE
-	  && se->expr != current_function_decl)
+      else if (sym->attr.flavor == FL_PROCEDURE
+	       && se->expr != current_function_decl)
 	{
 	  gcc_assert (se->want_pointer);
 	  if (!sym->attr.dummy)
@@ -323,28 +356,41 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  return;
 	}
 
-      /* Special case for assigning the return value of a function.
-         Self recursive functions must have an explicit return value.  */
-      if (se->expr == current_function_decl && sym->attr.function
-	  && (sym->result == sym))
+
+      /* Dereference the expression, where needed. Since characters
+	 are entirely different from other types, they are treated 
+	 separately.  */
+      if (sym->ts.type == BT_CHARACTER)
 	{
-	  se->expr = gfc_get_fake_result_decl (sym);
+          /* Dereference character pointer dummy arguments
+	     or results.  */
+	  if ((sym->attr.pointer || sym->attr.allocatable)
+	      && (sym->attr.dummy
+		  || sym->attr.function
+		  || sym->attr.result))
+	    se->expr = gfc_build_indirect_ref (se->expr);
 	}
+      else
+	{
+          /* Dereference non-character scalar dummy arguments.  */
+	  if (sym->attr.dummy && !sym->attr.dimension)
+	    se->expr = gfc_build_indirect_ref (se->expr);
 
-      /* Dereference scalar dummy variables.  */
-      if (sym->attr.dummy
-	  && sym->ts.type != BT_CHARACTER
-	  && !sym->attr.dimension)
-	se->expr = gfc_build_indirect_ref (se->expr);
+          /* Dereference scalar hidden result.  */
+	  if (gfc_option.flag_f2c && sym->ts.type == BT_COMPLEX
+	      && (sym->attr.function || sym->attr.result)
+	      && !sym->attr.dimension && !sym->attr.pointer)
+	    se->expr = gfc_build_indirect_ref (se->expr);
 
-      /* Dereference pointer variables.  */
-      if ((sym->attr.pointer || sym->attr.allocatable)
-	  && (sym->attr.dummy
-	      || sym->attr.result
-	      || sym->attr.function
-	      || !sym->attr.dimension)
-          && sym->ts.type != BT_CHARACTER)
-	se->expr = gfc_build_indirect_ref (se->expr);
+          /* Dereference non-character pointer variables. 
+	     These must be dummies, results, or scalars.  */
+	  if ((sym->attr.pointer || sym->attr.allocatable)
+	      && (sym->attr.dummy
+		  || sym->attr.function
+		  || sym->attr.result
+		  || !sym->attr.dimension))
+	    se->expr = gfc_build_indirect_ref (se->expr);
+	}
 
       ref = expr->ref;
     }
@@ -608,6 +654,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 
   gfc_init_se (&lse, se);
   gfc_conv_expr_val (&lse, expr->value.op.op1);
+  lse.expr = gfc_evaluate_now (lse.expr, &lse.pre);
   gfc_add_block_to_block (&se->pre, &lse.pre);
 
   gfc_init_se (&rse, se);
@@ -1027,9 +1074,10 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
 
 
 /* Generate code for a procedure call.  Note can return se->post != NULL.
-   If se->direct_byref is set then se->expr contains the return parameter.  */
+   If se->direct_byref is set then se->expr contains the return parameter.
+   Return nonzero, if the call has alternate specifiers.  */
 
-void
+int
 gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 			gfc_actual_arglist * arg)
 {
@@ -1045,11 +1093,21 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   tree len;
   tree stringargs;
   gfc_formal_arglist *formal;
+  int has_alternate_specifier = 0;
 
   arglist = NULL_TREE;
   stringargs = NULL_TREE;
   var = NULL_TREE;
   len = NULL_TREE;
+
+  /* Obtain the string length now because it is needed often below.  */
+  if (sym->ts.type == BT_CHARACTER)
+    {
+      gcc_assert (sym->ts.cl && sym->ts.cl->length
+		  && sym->ts.cl->length->expr_type == EXPR_CONSTANT);
+      len = gfc_conv_mpz_to_tree
+	      (sym->ts.cl->length->value.integer, sym->ts.cl->length->ts.kind);
+    }
 
   if (se->ss != NULL)
     {
@@ -1065,7 +1123,10 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
               /* Access the previously obtained result.  */
               gfc_conv_tmp_array_ref (se);
               gfc_advance_se_ss_chain (se);
-              return;
+
+	      /* Bundle in the string length.  */
+	      se->string_length = len;
+              return 0;
             }
 	}
       info = &se->ss->data.info;
@@ -1076,14 +1137,26 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   byref = gfc_return_by_reference (sym);
   if (byref)
     {
-      if (se->direct_byref)
-	arglist = gfc_chainon_list (arglist, se->expr);
+      if (se->direct_byref) 
+	{
+	  arglist = gfc_chainon_list (arglist, se->expr);
+
+	  /* Add string length to argument list.  */
+	  if (sym->ts.type == BT_CHARACTER)
+	    {
+	      sym->ts.cl->backend_decl = len;
+	      arglist = gfc_chainon_list (arglist, 
+				convert (gfc_charlen_type_node, len));
+	    }
+	}
       else if (sym->result->attr.dimension)
 	{
 	  gcc_assert (se->loop && se->ss);
+
 	  /* Set the type of the array.  */
 	  tmp = gfc_typenode_for_spec (&sym->ts);
 	  info->dimen = se->loop->dimen;
+
 	  /* Allocate a temporary to store the result.  */
 	  gfc_trans_allocate_temp_array (se->loop, info, tmp);
 
@@ -1092,28 +1165,58 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
 	  gfc_add_modify_expr (&se->pre, tmp,
 			       convert (TREE_TYPE (tmp), integer_zero_node));
+
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
 	  tmp = gfc_build_addr_expr (NULL, tmp);
 	  arglist = gfc_chainon_list (arglist, tmp);
+
+	  /* Add string length to argument list.  */
+	  if (sym->ts.type == BT_CHARACTER)
+	    {
+	      sym->ts.cl->backend_decl = len;
+	      arglist = gfc_chainon_list (arglist, 
+			      convert (gfc_charlen_type_node, len));
+	    }
+
 	}
       else if (sym->ts.type == BT_CHARACTER)
 	{
-	  gcc_assert (sym->ts.cl && sym->ts.cl->length
-		  && sym->ts.cl->length->expr_type == EXPR_CONSTANT);
-	  len = gfc_conv_mpz_to_tree
-	    (sym->ts.cl->length->value.integer, sym->ts.cl->length->ts.kind);
+
+	  /* Pass the string length.  */
 	  sym->ts.cl->backend_decl = len;
 	  type = gfc_get_character_type (sym->ts.kind, sym->ts.cl);
 	  type = build_pointer_type (type);
 
-	  var = gfc_conv_string_tmp (se, type, len);
+	  /* Return an address to a char[0:len-1]* temporary for character pointers.  */
+	  if (sym->attr.pointer || sym->attr.allocatable)
+	    {
+	      /* Build char[0:len-1] * pstr.  */
+	      tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node, len,
+				 build_int_cst (gfc_charlen_type_node, 1));
+	      tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node, tmp);
+	      tmp = build_array_type (gfc_character1_type_node, tmp);
+	      var = gfc_create_var (build_pointer_type (tmp), "pstr");
+
+	      /* Provide an address expression for the function arguments.  */
+	      var = gfc_build_addr_expr (NULL, var);
+	    }
+	  else
+	    {
+	      var = gfc_conv_string_tmp (se, type, len);
+	    }
 	  arglist = gfc_chainon_list (arglist, var);
 	  arglist = gfc_chainon_list (arglist, 
 				      convert (gfc_charlen_type_node, len));
 	}
       else
-	gcc_unreachable ();
+	{
+	  gcc_assert (gfc_option.flag_f2c && sym->ts.type == BT_COMPLEX);
+
+	  type = gfc_get_complex_type (sym->ts.kind);
+	  var = gfc_build_addr_expr (NULL, gfc_create_var (type, "cmplx"));
+	  arglist = gfc_chainon_list (arglist, var);
+	}
     }
 
   formal = sym->formal;
@@ -1167,8 +1270,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  && arg->expr->expr_type != EXPR_NULL)
                 {
                   /* Scalar pointer dummy args require an extra level of
-                     indirection. The null pointer already contains
-		     this level of indirection.  */
+		  indirection. The null pointer already contains
+		  this level of indirection.  */
                   parmse.expr = gfc_build_addr_expr (NULL, parmse.expr);
                 }
             }
@@ -1207,9 +1310,17 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
   /* If there are alternate return labels, function type should be
-     integer.  */
-  if (has_alternate_specifier)
-    TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
+     integer.  Can't modify the type in place though, since it can be shared
+     with other functions.  */
+  if (has_alternate_specifier
+      && TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) != integer_type_node)
+    {
+      gcc_assert (! sym->attr.dummy);
+      TREE_TYPE (sym->backend_decl)
+        = build_function_type (integer_type_node,
+                               TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
+      se->expr = gfc_build_addr_expr (NULL, sym->backend_decl);
+    }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
   se->expr = build3 (CALL_EXPR, TREE_TYPE (fntype), se->expr,
@@ -1219,9 +1330,17 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
      something like
         x = f()
      where f is pointer valued, we have to dereference the result.  */
-  if (!se->want_pointer && !byref
-      && (sym->attr.pointer || (sym->result && sym->result->attr.pointer)))
+  if (!se->want_pointer && !byref && sym->attr.pointer)
     se->expr = gfc_build_indirect_ref (se->expr);
+
+  /* f2c calling conventions require a scalar default real function to
+     return a double precision result.  Convert this back to default
+     real.  We only care about the cases that can happen in Fortran 77.
+  */
+  if (gfc_option.flag_f2c && sym->ts.type == BT_REAL
+      && sym->ts.kind == gfc_default_real_kind
+      && !sym->attr.always_explicit)
+    se->expr = fold_convert (gfc_get_real_type (sym->ts.kind), se->expr);
 
   /* A pure function may still have side-effects - it may modify its
      parameters.  */
@@ -1239,27 +1358,39 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
       if (!se->direct_byref)
 	{
-	  if (sym->result->attr.dimension)
+	  if (sym->attr.dimension)
 	    {
 	      if (flag_bounds_check)
 		{
 		  /* Check the data pointer hasn't been modified.  This would
 		     happen in a function returning a pointer.  */
-		  tmp = gfc_conv_descriptor_data (info->descriptor);
+		  tmp = gfc_conv_descriptor_data_get (info->descriptor);
 		  tmp = build2 (NE_EXPR, boolean_type_node, tmp, info->data);
 		  gfc_trans_runtime_check (tmp, gfc_strconst_fault, &se->pre);
 		}
 	      se->expr = info->descriptor;
+	      /* Bundle in the string length.  */
+	      se->string_length = len;
 	    }
 	  else if (sym->ts.type == BT_CHARACTER)
 	    {
-	      se->expr = var;
+	      /* Dereference for character pointer results.  */
+	      if (sym->attr.pointer || sym->attr.allocatable)
+		se->expr = gfc_build_indirect_ref (var);
+	      else
+	        se->expr = var;
+
 	      se->string_length = len;
 	    }
 	  else
-	    gcc_unreachable ();
+	    {
+	      gcc_assert (sym->ts.type == BT_COMPLEX && gfc_option.flag_f2c);
+	      se->expr = gfc_build_indirect_ref (var);
+	    }
 	}
     }
+
+  return has_alternate_specifier;
 }
 
 
@@ -1551,6 +1682,9 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_start_scalarized_body (&loop, &body);
 
   gfc_conv_tmp_array_ref (&lse);
+  if (cm->ts.type == BT_CHARACTER)
+    lse.string_length = cm->ts.cl->backend_decl;
+
   gfc_conv_expr (&rse, expr);
 
   tmp = gfc_trans_scalar_assign (&lse, &rse, cm->ts.type);
@@ -1593,12 +1727,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
 	{
 	  /* Array pointer.  */
 	  if (expr->expr_type == EXPR_NULL)
-	    {
-	      dest = gfc_conv_descriptor_data (dest);
-	      tmp = fold_convert (TREE_TYPE (se.expr),
-				  null_pointer_node);
-	      gfc_add_modify_expr (&block, dest, tmp);
-	    }
+	    gfc_conv_descriptor_data_set (&block, dest, null_pointer_node);
 	  else
 	    {
 	      rss = gfc_walk_expr (expr);
@@ -1684,11 +1813,10 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 {
   gfc_constructor *c;
   gfc_component *cm;
-  tree head;
-  tree tail;
   tree val;
   tree type;
   tree tmp;
+  VEC(constructor_elt,gc) *v = NULL;
 
   gcc_assert (se->ss == NULL);
   gcc_assert (expr->expr_type == EXPR_STRUCTURE);
@@ -1703,9 +1831,6 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       return;
     }
 
-  head = build1 (CONSTRUCTOR, type, NULL_TREE);
-  tail = NULL_TREE;
-
   cm = expr->ts.derived->components;
   for (c = expr->value.constructor; c; c = c->next, cm = cm->next)
     {
@@ -1716,19 +1841,10 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       val = gfc_conv_initializer (c->expr, &cm->ts,
 	  TREE_TYPE (cm->backend_decl), cm->dimension, cm->pointer);
 
-      /* Build a TREE_CHAIN to hold it.  */
-      val = tree_cons (cm->backend_decl, val, NULL_TREE);
-
-      /* Add it to the list.  */
-      if (tail == NULL_TREE)
-        TREE_OPERAND(head, 0) = tail = val;
-      else
-        {
-          TREE_CHAIN (tail) = val;
-          tail = val;
-        }
+      /* Append it to the constructor list.  */
+      CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl, val);
     }
-  se->expr = head;
+  se->expr = build_constructor (type, v);
 }
 
 
@@ -1752,7 +1868,9 @@ gfc_conv_substring_expr (gfc_se * se, gfc_expr * expr)
 }
 
 
-/* Entry point for expression translation.  */
+/* Entry point for expression translation.  Evaluates a scalar quantity.
+   EXPR is the expression to be translated, and SE is the state structure if
+   called from within the scalarized.  */
 
 void
 gfc_conv_expr (gfc_se * se, gfc_expr * expr)
@@ -1808,15 +1926,20 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
     }
 }
 
+/* Like gfc_conv_expr_val, but the value is also suitable for use in the lhs
+   of an assignment.  */
 void
 gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr)
 {
   gfc_conv_expr (se, expr);
-  /* AFAICS all numeric lvalues have empty post chains.  If not we need to
+  /* All numeric lvalues should have empty post chains.  If not we need to
      figure out a way of rewriting an lvalue so that it has no post chain.  */
-  gcc_assert (expr->ts.type != BT_CHARACTER || !se->post.head);
+  gcc_assert (expr->ts.type == BT_CHARACTER || !se->post.head);
 }
 
+/* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
+   numeric expressions.  Used for scalar values whee inserting cleanup code
+   is inconvenient.  */
 void
 gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
 {
@@ -1828,9 +1951,12 @@ gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
     {
       val = gfc_create_var (TREE_TYPE (se->expr), NULL);
       gfc_add_modify_expr (&se->pre, val, se->expr);
+      se->expr = val;
+      gfc_add_block_to_block (&se->pre, &se->post);
     }
 }
 
+/* Helper to translate and expression and convert it to a particular type.  */
 void
 gfc_conv_expr_type (gfc_se * se, gfc_expr * expr, tree type)
 {
@@ -1944,11 +2070,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       gfc_conv_expr_descriptor (&lse, expr1, lss);
       /* Implement Nullify.  */
       if (expr2->expr_type == EXPR_NULL)
-        {
-          lse.expr = gfc_conv_descriptor_data (lse.expr);
-          rse.expr = fold_convert (TREE_TYPE (lse.expr), null_pointer_node);
-          gfc_add_modify_expr (&block, lse.expr, rse.expr);
-        }
+	gfc_conv_descriptor_data_set (&block, lse.expr, null_pointer_node);
       else
         {
           lse.direct_byref = 1;

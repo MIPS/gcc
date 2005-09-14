@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -483,7 +483,7 @@ package body Exp_Dist is
    --    Is_Known_Async... : True if we know that this is asynchronous
    --    Is_Known_Non_A... : True if we know that this is not asynchronous
    --    Spec              : a node with a Parameter_Specifications and
-   --                        a Subtype_Mark if applicable
+   --                        a Result_Definition if applicable
    --    Stub_Type         : in case of RACW stubs, parameters of type access
    --                        to Stub_Type will be marshalled using the
    --                        address of the object (the addr field) rather
@@ -1164,11 +1164,6 @@ package body Exp_Dist is
             --  simple sequence of string comparisons.
 
             RPC_Receiver_Elsif_Parts := New_List;
-            Append_To (RPC_Receiver_Statements,
-              Make_Implicit_If_Statement (Designated_Type,
-                Condition       => New_Occurrence_Of (Standard_False, Loc),
-                Then_Statements => New_List,
-                Elsif_Parts     => RPC_Receiver_Elsif_Parts));
          end if;
       end if;
 
@@ -1308,6 +1303,16 @@ package body Exp_Dist is
       --  Build the case statement and the heart of the subprogram
 
       if not Is_RAS then
+         if Get_PCS_Name = Name_PolyORB_DSA
+           and then Present (First (RPC_Receiver_Elsif_Parts))
+         then
+            Append_To (RPC_Receiver_Statements,
+              Make_Implicit_If_Statement (Designated_Type,
+                Condition       => New_Occurrence_Of (Standard_False, Loc),
+                Then_Statements => New_List,
+                Elsif_Parts     => RPC_Receiver_Elsif_Parts));
+         end if;
+
          Append_To (RPC_Receiver_Case_Alternatives,
            Make_Case_Statement_Alternative (Loc,
              Discrete_Choices => New_List (Make_Others_Choice (Loc)),
@@ -1475,13 +1480,13 @@ package body Exp_Dist is
            Make_Function_Specification (Loc,
              Defining_Unit_Name       => Proc,
              Parameter_Specifications => Param_Specs,
-             Subtype_Mark             =>
+             Result_Definition        =>
                New_Occurrence_Of (
-                 Entity (Subtype_Mark (Spec)), Loc));
+                 Entity (Result_Definition (Spec)), Loc));
 
          Set_Ekind (Proc, E_Function);
          Set_Etype (Proc,
-           New_Occurrence_Of (Entity (Subtype_Mark (Spec)), Loc));
+           New_Occurrence_Of (Entity (Result_Definition (Spec)), Loc));
 
       else
          Proc_Spec :=
@@ -2308,8 +2313,8 @@ package body Exp_Dist is
                   Make_Defining_Identifier (Loc,
                     Chars => Name_For_New_Spec),
                 Parameter_Specifications => Parameters,
-                Subtype_Mark             =>
-                  New_Occurrence_Of (Entity (Subtype_Mark (Spec)), Loc));
+                Result_Definition        =>
+                  New_Occurrence_Of (Entity (Result_Definition (Spec)), Loc));
 
          when N_Procedure_Specification | N_Access_Procedure_Definition =>
             return
@@ -3225,7 +3230,7 @@ package body Exp_Dist is
                  Parameter_Type      =>
                    New_Occurrence_Of (Standard_Boolean, Loc))),
 
-            Subtype_Mark =>
+            Result_Definition =>
               New_Occurrence_Of (Fat_Type, Loc));
 
          --  Set the kind and return type of the function to prevent
@@ -3412,7 +3417,7 @@ package body Exp_Dist is
                        True,
                      Parameter_Type =>
                        New_Occurrence_Of (RTE (RE_Subprogram_Id), Loc))),
-                 Subtype_Mark =>
+                 Result_Definition =>
                    New_Occurrence_Of (RTE (RE_Unsigned_64), Loc)));
          Append_To (Decls, Current_Declaration);
          Analyze (Current_Declaration);
@@ -3987,7 +3992,7 @@ package body Exp_Dist is
                        Make_Attribute_Reference (Loc,
                          Prefix         =>
                            New_Occurrence_Of (
-                             Etype (Subtype_Mark (Spec)), Loc),
+                             Etype (Result_Definition (Spec)), Loc),
 
                          Attribute_Name => Name_Input,
 
@@ -4601,7 +4606,7 @@ package body Exp_Dist is
 
             declare
                Etyp   : constant Entity_Id :=
-                          Etype (Subtype_Mark (Specification (Vis_Decl)));
+                          Etype (Result_Definition (Specification (Vis_Decl)));
                Result : constant Node_Id   :=
                           Make_Defining_Identifier (Loc,
                              New_Internal_Name ('R'));
@@ -4868,7 +4873,7 @@ package body Exp_Dist is
           Specification              => Make_Function_Specification (Loc,
             Defining_Unit_Name =>
               Make_Defining_Identifier (Loc, New_Internal_Name ('S')),
-            Subtype_Mark       => New_Occurrence_Of (Var_Type, Loc)),
+            Result_Definition  => New_Occurrence_Of (Var_Type, Loc)),
           Declarations               => No_List,
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc, New_List (
@@ -5408,7 +5413,7 @@ package body Exp_Dist is
                    Any_Parameter,
                  Parameter_Type =>
                    New_Occurrence_Of (RTE (RE_Any), Loc))),
-             Subtype_Mark => New_Occurrence_Of (RACW_Type, Loc));
+             Result_Definition => New_Occurrence_Of (RACW_Type, Loc));
 
          --  NOTE: The usage occurrences of RACW_Parameter must
          --  refer to the entity in the declaration spec, not those
@@ -5722,7 +5727,7 @@ package body Exp_Dist is
                    RACW_Parameter,
                  Parameter_Type =>
                    New_Occurrence_Of (RACW_Type, Loc))),
-             Subtype_Mark => New_Occurrence_Of (RTE (RE_Any), Loc));
+             Result_Definition => New_Occurrence_Of (RTE (RE_Any), Loc));
 
          --  NOTE: The usage occurrences of RACW_Parameter must
          --  refer to the entity in the declaration spec, not in
@@ -5766,9 +5771,6 @@ package body Exp_Dist is
          Func_Decl : Node_Id;
          Func_Body : Node_Id;
 
-         RACW_Parameter : constant Entity_Id :=
-                            Make_Defining_Identifier (Loc, Name_R);
-
       begin
          Fnam :=
            Make_Defining_Identifier (Loc,
@@ -5781,15 +5783,7 @@ package body Exp_Dist is
            Make_Function_Specification (Loc,
              Defining_Unit_Name =>
                Fnam,
-             Parameter_Specifications => New_List (
-               Make_Parameter_Specification (Loc,
-                 Defining_Identifier =>
-                   RACW_Parameter,
-                 Parameter_Type =>
-                   Make_Access_Definition (Loc,
-                     Subtype_Mark =>
-                       New_Occurrence_Of (RACW_Type, Loc)))),
-             Subtype_Mark => New_Occurrence_Of (RTE (RE_TypeCode), Loc));
+             Result_Definition => New_Occurrence_Of (RTE (RE_TypeCode), Loc));
 
          --  NOTE: The usage occurrences of RACW_Parameter must
          --  refer to the entity in the declaration spec, not those
@@ -6242,7 +6236,7 @@ package body Exp_Dist is
                  Parameter_Type      =>
                    New_Occurrence_Of (Standard_Boolean, Loc))),
 
-            Subtype_Mark =>
+            Result_Definition =>
               New_Occurrence_Of (Fat_Type, Loc));
 
          --  Set the kind and return type of the function to prevent
@@ -6304,7 +6298,7 @@ package body Exp_Dist is
                    Any_Parameter,
                  Parameter_Type =>
                    New_Occurrence_Of (RTE (RE_Any), Loc))),
-             Subtype_Mark => New_Occurrence_Of (RAS_Type, Loc));
+             Result_Definition => New_Occurrence_Of (RAS_Type, Loc));
 
          Discard_Node (
            Make_Subprogram_Body (Loc,
@@ -6378,7 +6372,7 @@ package body Exp_Dist is
                    RAS_Parameter,
                  Parameter_Type =>
                    New_Occurrence_Of (RAS_Type, Loc))),
-             Subtype_Mark => New_Occurrence_Of (RTE (RE_Any), Loc));
+             Result_Definition => New_Occurrence_Of (RTE (RE_Any), Loc));
 
          Discard_Node (
            Make_Subprogram_Body (Loc,
@@ -6405,25 +6399,12 @@ package body Exp_Dist is
          Decls : constant List_Id := New_List;
          Name_String, Repo_Id_String : String_Id;
 
-         RAS_Parameter : constant Entity_Id :=
-                           Make_Defining_Identifier (Loc, Name_R);
-
       begin
-         --  The spec for this subprogram has a dummy 'access RAS'
-         --  argument, which serves only for overloading purposes.
-
          Func_Spec :=
            Make_Function_Specification (Loc,
              Defining_Unit_Name =>
                Fnam,
-             Parameter_Specifications => New_List (
-               Make_Parameter_Specification (Loc,
-                 Defining_Identifier =>
-                   RAS_Parameter,
-                 Parameter_Type =>
-                   Make_Access_Definition (Loc,
-                     Subtype_Mark => New_Occurrence_Of (RAS_Type, Loc)))),
-             Subtype_Mark => New_Occurrence_Of (RTE (RE_TypeCode), Loc));
+             Result_Definition => New_Occurrence_Of (RTE (RE_TypeCode), Loc));
 
          PolyORB_Support.Helpers.Build_Name_And_Repository_Id
            (RAS_Type, Name_Str => Name_String, Repo_Id_Str => Repo_Id_String);
@@ -7013,7 +6994,7 @@ package body Exp_Dist is
 
          if Is_Function then
             Result_TC := PolyORB_Support.Helpers.Build_TypeCode_Call (Loc,
-              Etype (Subtype_Mark (Spec)), Decls);
+              Etype (Result_Definition (Spec)), Decls);
          else
             Result_TC := New_Occurrence_Of (RTE (RE_TC_Void), Loc);
          end if;
@@ -7310,7 +7291,7 @@ package body Exp_Dist is
                  Make_Tag_Check (Loc,
                    Make_Return_Statement (Loc,
                      PolyORB_Support.Helpers.Build_From_Any_Call (
-                         Etype (Subtype_Mark (Spec)),
+                         Etype (Result_Definition (Spec)),
                          Make_Selected_Component (Loc,
                            Prefix        => Result,
                            Selector_Name => Name_Argument),
@@ -7887,7 +7868,7 @@ package body Exp_Dist is
 
             declare
                Etyp   : constant Entity_Id :=
-                          Etype (Subtype_Mark (Specification (Vis_Decl)));
+                          Etype (Result_Definition (Specification (Vis_Decl)));
                Result : constant Node_Id   :=
                           Make_Defining_Identifier (Loc,
                             New_Internal_Name ('R'));
@@ -8266,7 +8247,7 @@ package body Exp_Dist is
                       Any_Parameter,
                     Parameter_Type =>
                       New_Occurrence_Of (RTE (RE_Any), Loc))),
-                Subtype_Mark => New_Occurrence_Of (Typ, Loc));
+                Result_Definition => New_Occurrence_Of (Typ, Loc));
 
             --  The following  is taken care of by Exp_Dist.Add_RACW_From_Any
 
@@ -9057,7 +9038,7 @@ package body Exp_Dist is
                       Expr_Parameter,
                     Parameter_Type =>
                       New_Occurrence_Of (Typ, Loc))),
-                Subtype_Mark => New_Occurrence_Of (RTE (RE_Any), Loc));
+                Result_Definition => New_Occurrence_Of (RTE (RE_Any), Loc));
             Set_Etype (Expr_Parameter, Typ);
 
             Any_Decl :=
@@ -9566,9 +9547,6 @@ package body Exp_Dist is
             --  if Typ is incomplete.
 
             Fnam    : Entity_Id := Empty;
-            Tnam    : Entity_Id := Empty;
-            Pnam    : Entity_Id := Empty;
-            Args    : List_Id := Empty_List;
             Lib_RE  : RE_Id := RE_Null;
 
             Expr : Node_Id;
@@ -9585,43 +9563,6 @@ package body Exp_Dist is
                --  in the type's TSS.
 
                Fnam := Find_Inherited_TSS (U_Type, TSS_TypeCode);
-
-               if Present (Fnam) then
-
-                  --  When a TypeCode TSS exists, it has a single parameter
-                  --  that is an anonymous access to the corresponding type.
-                  --  This parameter is not used in any way; its purpose is
-                  --  solely to provide overloading of the TSS.
-
-                  Tnam :=
-                    Make_Defining_Identifier (Loc, New_Internal_Name ('T'));
-                  Pnam :=
-                    Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
-
-                  Append_To (Decls,
-                    Make_Full_Type_Declaration (Loc,
-                      Defining_Identifier => Tnam,
-                      Type_Definition =>
-                        Make_Access_To_Object_Definition (Loc,
-                          Subtype_Indication =>
-                            New_Occurrence_Of (U_Type, Loc))));
-                  Append_To (Decls,
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => Pnam,
-                      Constant_Present    => True,
-                      Object_Definition   => New_Occurrence_Of (Tnam, Loc),
-
-                     --  Use a variable here to force proper freezing of Tnam
-
-                      Expression          => Make_Null (Loc)));
-
-                  --  Normally, calling _TypeCode with a null access parameter
-                  --  should raise Constraint_Error, but this check is
-                  --  suppressed for expanded code, and we do not care anyway
-                  --  because we do not actually ever use this value.
-
-                  Args := New_List (New_Occurrence_Of (Pnam, Loc));
-               end if;
             end if;
 
             if No (Fnam) then
@@ -9631,11 +9572,6 @@ package body Exp_Dist is
                   --  Standard.
 
                   U_Type := Base_Type (U_Type);
-               end if;
-
-               if Is_Itype (U_Type) then
-                  return Build_TypeCode_Call
-                    (Loc, Associated_Node_For_Itype (U_Type), Decls);
                end if;
 
                if U_Type = Standard_Boolean then
@@ -9720,9 +9656,7 @@ package body Exp_Dist is
             --  Call the function
 
             Expr :=
-              Make_Function_Call (Loc,
-                Name => New_Occurrence_Of (Fnam, Loc),
-                Parameter_Associations => Args);
+              Make_Function_Call (Loc, Name => New_Occurrence_Of (Fnam, Loc));
 
             --  Allow Expr to be used as arg to Build_To_Any_Call immediately
 
@@ -10089,7 +10023,8 @@ package body Exp_Dist is
               Make_Function_Specification (Loc,
                 Defining_Unit_Name => Fnam,
                 Parameter_Specifications => Empty_List,
-                Subtype_Mark => New_Occurrence_Of (RTE (RE_TypeCode), Loc));
+                Result_Definition =>
+                  New_Occurrence_Of (RTE (RE_TypeCode), Loc));
 
             Build_Name_And_Repository_Id (Typ,
               Name_Str => Type_Name_Str, Repo_Id_Str => Type_Repo_Id_Str);
@@ -10100,18 +10035,12 @@ package body Exp_Dist is
               and then not Is_Tagged_Type (Typ)
             then
                declare
-                  D_Node : constant Node_Id := Declaration_Node (Typ);
                   Parent_Type : Entity_Id := Etype (Typ);
                begin
 
-                  if Is_Enumeration_Type (Typ)
-                    and then Nkind (D_Node) = N_Subtype_Declaration
-                    and then Nkind (Original_Node (D_Node))
-                    /= N_Subtype_Declaration
-                  then
+                  if Is_Itype (Parent_Type) then
 
-                     --  Parent_Type is the implicit intermediate base type
-                     --  created by Build_Derived_Enumeration_Type.
+                     --  Skip implicit base type
 
                      Parent_Type := Etype (Parent_Type);
                   end if;
@@ -10639,7 +10568,7 @@ package body Exp_Dist is
    begin
       if Nkind (Spec) = N_Function_Specification then
          Set_Ekind (Snam, E_Function);
-         Set_Etype (Snam, Entity (Subtype_Mark (Spec)));
+         Set_Etype (Snam, Entity (Result_Definition (Spec)));
       else
          Set_Ekind (Snam, E_Procedure);
          Set_Etype (Snam, Standard_Void_Type);

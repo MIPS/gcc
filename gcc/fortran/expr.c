@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -141,6 +141,12 @@ free_expr0 (gfc_expr * e)
   switch (e->expr_type)
     {
     case EXPR_CONSTANT:
+      if (e->from_H)
+	{
+	  gfc_free (e->value.character.string);
+	  break;
+	}
+
       switch (e->ts.type)
 	{
 	case BT_INTEGER:
@@ -152,6 +158,7 @@ free_expr0 (gfc_expr * e)
 	  break;
 
 	case BT_CHARACTER:
+	case BT_HOLLERITH:
 	  gfc_free (e->value.character.string);
 	  break;
 
@@ -393,6 +400,15 @@ gfc_copy_expr (gfc_expr * p)
       break;
 
     case EXPR_CONSTANT:
+      if (p->from_H)
+	{
+	  s = gfc_getmem (p->value.character.length + 1);
+	  q->value.character.string = s;
+
+	  memcpy (s, p->value.character.string,
+		  p->value.character.length + 1);
+	  break;
+	}
       switch (q->ts.type)
 	{
 	case BT_INTEGER:
@@ -414,6 +430,7 @@ gfc_copy_expr (gfc_expr * p)
 	  break;
 
 	case BT_CHARACTER:
+	case BT_HOLLERITH:
 	  s = gfc_getmem (p->value.character.length + 1);
 	  q->value.character.string = s;
 
@@ -1051,7 +1068,8 @@ simplify_parameter_variable (gfc_expr * p, int type)
   try t;
 
   e = gfc_copy_expr (p->symtree->n.sym->value);
-  if (p->ref)
+  /* Do not copy subobject refs for constant.  */
+  if (e->expr_type != EXPR_CONSTANT && p->ref != NULL)
     e->ref = copy_ref (p->ref);
   t = gfc_simplify_expr (e, type);
 
@@ -1113,7 +1131,28 @@ gfc_simplify_expr (gfc_expr * p, int type)
       if (simplify_ref_chain (p->ref, type) == FAILURE)
 	return FAILURE;
 
-      /* TODO: evaluate constant substrings.  */
+      if (gfc_is_constant_expr (p))
+	{
+	  char *s;
+	  int start, end;
+
+	  gfc_extract_int (p->ref->u.ss.start, &start);
+	  start--;  /* Convert from one-based to zero-based.  */
+	  gfc_extract_int (p->ref->u.ss.end, &end);
+	  s = gfc_getmem (end - start + 1);
+	  memcpy (s, p->value.character.string + start, end - start);
+	  s[end] = '\0';  /* TODO: C-style string for debugging.  */
+	  gfc_free (p->value.character.string);
+	  p->value.character.string = s;
+	  p->value.character.length = end - start;
+	  p->ts.cl = gfc_get_charlen ();
+	  p->ts.cl->next = gfc_current_ns->cl_list;
+	  gfc_current_ns->cl_list = p->ts.cl;
+	  p->ts.cl->length = gfc_int_expr (p->value.character.length);
+	  gfc_free_ref_list (p->ref);
+	  p->ref = NULL;
+	  p->expr_type = EXPR_CONSTANT;
+	}
       break;
 
     case EXPR_OP:
@@ -1789,11 +1828,12 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
       return FAILURE;
     }
 
-  /* This is a guaranteed segfault and possibly a typo: p = NULL()
-     instead of p => NULL()  */
-  if (rvalue->expr_type == EXPR_NULL)
-    gfc_warning ("NULL appears on right-hand side in assignment at %L",
-		 &rvalue->where);
+   if (rvalue->expr_type == EXPR_NULL)
+     {
+       gfc_error ("NULL appears on right-hand side in assignment at %L",
+		  &rvalue->where);
+       return FAILURE;
+     }
 
   /* This is possibly a typo: x = f() instead of x => f()  */
   if (gfc_option.warn_surprising 
@@ -1812,7 +1852,10 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
 
   if (!conform)
     {
-      if (gfc_numeric_ts (&lvalue->ts) && gfc_numeric_ts (&rvalue->ts))
+      /* Numeric can be converted to any other numeric. And Hollerith can be
+	 converted to any other type.  */
+      if ((gfc_numeric_ts (&lvalue->ts) && gfc_numeric_ts (&rvalue->ts))
+	  || rvalue->ts.type == BT_HOLLERITH)
 	return SUCCESS;
 
       if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)

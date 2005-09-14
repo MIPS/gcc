@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; TODO: Add a comment here.
 
@@ -148,7 +148,7 @@
 ;; TODO: Add a comment here.
 
 (define_predicate "splitable_operand"
-  (match_code "subreg,reg,mem")
+  (match_code "subreg,reg,mem,symbol_ref,label_ref,const_int,const_double")
 {
   if (general_operand (op, mode) == 0)
     return 0;
@@ -173,6 +173,7 @@
   if (GET_CODE (op) == MEM)
     {
       rtx op0 = XEXP (op, 0);
+      int addr_mode;
 
       if (symbolic_memory_operand (op0, mode))
 	return 1;
@@ -180,10 +181,20 @@
       if (IS_STACK_PUSH (op))
 	return 1;
 
-      if (m68hc11_register_indirect_p (op, mode))
-	return 1;
+      if (GET_CODE (op) == REG && reload_in_progress
+          && REGNO (op) >= FIRST_PSEUDO_REGISTER
+          && reg_equiv_memory_loc[REGNO (op)])
+         {
+            op = reg_equiv_memory_loc[REGNO (op)];
+            op = eliminate_regs (op, 0, NULL_RTX);
+         }
+      if (GET_CODE (op) != MEM)
+         return 0;
 
-      return 0;
+      op0 = XEXP (op, 0);
+      addr_mode = m68hc11_addr_mode | (reload_completed ? ADDR_STRICT : 0);
+      addr_mode &= ~ADDR_INDIRECT;
+      return m68hc11_valid_addressing_p (op0, mode, addr_mode);
     }
 
   return register_operand (op, mode);

@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -433,6 +433,7 @@ check_format (void)
 format_item:
   /* In this state, the next thing has to be a format item.  */
   t = format_lex ();
+format_item_1:
   switch (t)
     {
     case FMT_POSINT:
@@ -490,9 +491,13 @@ format_item:
 
     case FMT_DOLLAR:
       t = format_lex ();
+
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: $ descriptor at %C")
+          == FAILURE)
+        return FAILURE;
       if (t != FMT_RPAREN || level > 0)
 	{
-	  error = "$ must the last specifier";
+	  error = "$ must be the last specifier";
 	  goto syntax;
 	}
 
@@ -641,7 +646,7 @@ data_desc:
       {
         while(repeat >0)
          {
-          next_char(0);
+          next_char(1);
           repeat -- ;
          }
       }
@@ -701,8 +706,10 @@ between_desc:
       goto syntax;
 
     default:
-      error = "Missing comma";
-      goto syntax;
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %C")
+	  == FAILURE)
+	return FAILURE;
+      goto format_item_1;
     }
 
 optional_comma:
@@ -962,32 +969,63 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
   if (gfc_resolve_expr (e) == FAILURE)
     return FAILURE;
 
-  if (e->ts.type != tag->type)
+  if (e->ts.type != tag->type && tag != &tag_format)
     {
-      /* Format label can be integer varibale.  */
-      if (tag != &tag_format || e->ts.type != BT_INTEGER)
-        {
-          gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		     gfc_basic_typename (tag->type));
-          return FAILURE;
-        }
+      gfc_error ("%s tag at %L must be of type %s", tag->name,
+		&e->where, gfc_basic_typename (tag->type));
+      return FAILURE;
     }
 
   if (tag == &tag_format)
     {
-      if (e->rank != 1 && e->rank != 0)
+      /* If e's rank is zero and e is not an element of an array, it should be
+	 of integer or character type.  The integer variable should be
+	 ASSIGNED.  */
+      if (e->symtree == NULL || e->symtree->n.sym->as == NULL
+		|| e->symtree->n.sym->as->rank == 0)
 	{
-	  gfc_error ("FORMAT tag at %L cannot be array of strings",
-		     &e->where);
-	  return FAILURE;
+	  if (e->ts.type != BT_CHARACTER && e->ts.type != BT_INTEGER)
+	    {
+	      gfc_error ("%s tag at %L must be of type %s or %s", tag->name,
+			&e->where, gfc_basic_typename (BT_CHARACTER),
+			gfc_basic_typename (BT_INTEGER));
+	      return FAILURE;
+	    }
+	  else if (e->ts.type == BT_INTEGER && e->expr_type == EXPR_VARIABLE)
+	    {
+	      if (gfc_notify_std (GFC_STD_F95_DEL,
+			"Obsolete: ASSIGNED variable in FORMAT tag at %L",
+			&e->where) == FAILURE)
+		return FAILURE;
+	      if (e->symtree->n.sym->attr.assign != 1)
+		{
+		  gfc_error ("Variable '%s' at %L has not been assigned a "
+			"format label", e->symtree->n.sym->name, &e->where);
+		  return FAILURE;
+		}
+	    }
+	  return SUCCESS;
 	}
-      /* Check assigned label.  */
-      if (e->expr_type == EXPR_VARIABLE && e->ts.type == BT_INTEGER
-		&& e->symtree->n.sym->attr.assign != 1)
+      else
 	{
-	  gfc_error ("Variable '%s' has not been assigned a format label at %L",
-			e->symtree->n.sym->name, &e->where);
-	  return FAILURE;
+	  /* if rank is nonzero, we allow the type to be character under
+	     GFC_STD_GNU and other type under GFC_STD_LEGACY. It may be
+	     assigned an Hollerith constant.  */
+	  if (e->ts.type == BT_CHARACTER)
+	    {
+	      if (gfc_notify_std (GFC_STD_GNU,
+			"Extension: Character array in FORMAT tag at %L",
+			&e->where) == FAILURE)
+		return FAILURE;
+	    }
+	  else
+	    {
+	      if (gfc_notify_std (GFC_STD_LEGACY,
+			"Extension: Non-character in FORMAT tag at %L",
+			&e->where) == FAILURE)
+		return FAILURE;
+	    }
+	  return SUCCESS;
 	}
     }
   else
@@ -1302,7 +1340,7 @@ gfc_free_filepos (gfc_filepos * fp)
 }
 
 
-/* Match elements of a REWIND, BACKSPACE or ENDFILE statement.  */
+/* Match elements of a REWIND, BACKSPACE, ENDFILE, or FLUSH statement.  */
 
 static match
 match_file_element (gfc_filepos * fp)
@@ -1324,7 +1362,7 @@ match_file_element (gfc_filepos * fp)
 
 
 /* Match the second half of the file-positioning statements, REWIND,
-   BACKSPACE or ENDFILE.  */
+   BACKSPACE, ENDFILE, or the FLUSH statement.  */
 
 static match
 match_filepos (gfc_statement st, gfc_exec_op op)
@@ -1408,8 +1446,8 @@ gfc_resolve_filepos (gfc_filepos * fp)
 }
 
 
-/* Match the file positioning statements: ENDFILE, BACKSPACE or
-   REWIND.  */
+/* Match the file positioning statements: ENDFILE, BACKSPACE, REWIND,
+   and the FLUSH statement.  */
 
 match
 gfc_match_endfile (void)
@@ -1432,6 +1470,14 @@ gfc_match_rewind (void)
   return match_filepos (ST_REWIND, EXEC_REWIND);
 }
 
+match
+gfc_match_flush (void)
+{
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: FLUSH statement at %C") == FAILURE)
+    return MATCH_ERROR;
+
+  return match_filepos (ST_FLUSH, EXEC_FLUSH);
+}
 
 /******************** Data Transfer Statements *********************/
 
@@ -1635,7 +1681,14 @@ match_dt_element (io_kind k, gfc_dt * dt)
 
   m = match_ltag (&tag_end, &dt->end);
   if (m == MATCH_YES)
-    dt->end_where = gfc_current_locus;
+    {
+      if (k == M_WRITE)
+       {
+         gfc_error ("END tag at %C not allowed in output statement");
+         return MATCH_ERROR;
+       }
+      dt->end_where = gfc_current_locus;
+    }
   if (m != MATCH_NO)
     return m;
 
@@ -2082,6 +2135,36 @@ match_io (io_kind k)
     {
       if (k == M_WRITE)
 	goto syntax;
+      else if (k == M_PRINT 
+	       && (gfc_current_form == FORM_FIXED
+		   || gfc_peek_char () == ' '))
+	{
+	  /* Treat the non-standard case of PRINT namelist.  */
+	  where = gfc_current_locus;
+	  if ((gfc_match_name (name) == MATCH_YES)
+	      && !gfc_find_symbol (name, NULL, 1, &sym)
+	      && sym->attr.flavor == FL_NAMELIST)
+	    {
+	      if (gfc_notify_std (GFC_STD_GNU, "PRINT namelist at "
+				  "%C is an extension") == FAILURE)
+		{
+		  m = MATCH_ERROR;
+		  goto cleanup;
+		}
+	      if (gfc_match_eos () == MATCH_NO)
+		{
+		  gfc_error ("Namelist followed by I/O list at %C");
+		  m = MATCH_ERROR;
+		  goto cleanup;
+		}
+
+	      dt->io_unit = default_unit (k);
+	      dt->namelist = sym;
+	      goto get_io_list;
+	    }
+	  else
+	    gfc_current_locus = where;
+	}
 
       if (gfc_current_form == FORM_FREE)
        {
@@ -2356,12 +2439,15 @@ gfc_match_inquire (void)
   gfc_inquire *inquire;
   gfc_code *code;
   match m;
+  locus loc;
 
   m = gfc_match_char ('(');
   if (m == MATCH_NO)
     return m;
 
   inquire = gfc_getmem (sizeof (gfc_inquire));
+
+  loc = gfc_current_locus;
 
   m = match_inquire_element (inquire);
   if (m == MATCH_ERROR)
@@ -2427,6 +2513,20 @@ gfc_match_inquire (void)
 
   if (gfc_match_eos () != MATCH_YES)
     goto syntax;
+
+  if (inquire->unit != NULL && inquire->file != NULL)
+    {
+      gfc_error ("INQUIRE statement at %L cannot contain both FILE and"
+		 " UNIT specifiers", &loc);
+      goto cleanup;
+    }
+
+  if (inquire->unit == NULL && inquire->file == NULL)
+    {
+      gfc_error ("INQUIRE statement at %L requires either FILE or"
+		     " UNIT specifier", &loc);
+      goto cleanup;
+    }
 
   if (gfc_pure (NULL))
     {

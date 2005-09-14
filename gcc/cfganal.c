@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains various simple utilities to analyze the CFG.  */
 #include "config.h"
@@ -69,7 +69,7 @@ flow_active_insn_p (rtx insn)
      programs that fail to return a value.  Its effect is to
      keep the return value from being live across the entire
      function.  If we allow it to be skipped, we introduce the
-     possibility for register livetime aborts.  */
+     possibility for register lifetime confusion.  */
   if (GET_CODE (PATTERN (insn)) == CLOBBER
       && REG_P (XEXP (PATTERN (insn), 0))
       && REG_FUNCTION_VALUE_P (XEXP (PATTERN (insn), 0)))
@@ -521,13 +521,15 @@ find_edge_index (struct edge_list *edge_list, basic_block pred, basic_block succ
 void
 flow_nodes_print (const char *str, const sbitmap nodes, FILE *file)
 {
-  int node;
+  unsigned int node = 0;
+  sbitmap_iterator sbi;
 
   if (! nodes)
     return;
 
   fprintf (file, "%s { ", str);
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, {fprintf (file, "%d ", node);});
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, node, sbi)
+    fprintf (file, "%d ", node);
   fputs ("}\n", file);
 }
 

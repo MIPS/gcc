@@ -17,8 +17,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,12 +31,12 @@
 --  This is the Windows version of the body. Works only with GCC versions
 --  supporting the "-shared" option.
 
+with GNAT.OS_Lib;             use GNAT.OS_Lib;
+
 with Namet;  use Namet;
 with Opt;
 with Output; use Output;
 with Prj.Com;
-
-with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 with MLib.Fil;
 with MLib.Utl;
@@ -45,6 +45,9 @@ package body MLib.Tgt is
 
    package Files renames MLib.Fil;
    package Tools renames MLib.Utl;
+
+   No_Argument_List : constant String_List := (1 .. 0 => null);
+   --  Used as value of parameter Options or Options2 in calls to Gcc
 
    ---------------------
    -- Archive_Builder --
@@ -111,10 +114,10 @@ package body MLib.Tgt is
    is
       pragma Unreferenced (Foreign);
       pragma Unreferenced (Afiles);
-      pragma Unreferenced (Auto_Init);
       pragma Unreferenced (Symbol_Data);
       pragma Unreferenced (Interfaces);
       pragma Unreferenced (Lib_Version);
+      pragma Unreferenced (Auto_Init);
 
       Lib_File : constant String :=
                    Lib_Dir & Directory_Separator &
@@ -131,7 +134,7 @@ package body MLib.Tgt is
       Tools.Gcc
         (Output_File => Lib_File,
          Objects     => Ofiles,
-         Options     => Tools.No_Argument_List,
+         Options     => No_Argument_List,
          Options_2   => Options & Options_2,
          Driver_Name => Driver_Name);
    end Build_Dynamic_Library;
@@ -195,8 +198,7 @@ package body MLib.Tgt is
    ------------------------
 
    function Library_Exists_For
-     (Project : Project_Id; In_Tree : Project_Tree_Ref) return Boolean
-   is
+     (Project : Project_Id; In_Tree : Project_Tree_Ref) return Boolean is
    begin
       if not In_Tree.Projects.Table (Project).Library then
          Prj.Com.Fail ("INTERNAL ERROR: Library_Exists_For called " &
@@ -235,8 +237,7 @@ package body MLib.Tgt is
 
    function Library_File_Name_For
      (Project : Project_Id;
-      In_Tree : Project_Tree_Ref) return Name_Id
-   is
+      In_Tree : Project_Tree_Ref) return Name_Id is
    begin
       if not In_Tree.Projects.Table (Project).Library then
          Prj.Com.Fail ("INTERNAL ERROR: Library_File_Name_For called " &
@@ -291,7 +292,7 @@ package body MLib.Tgt is
 
    function Standalone_Library_Auto_Init_Is_Supported return Boolean is
    begin
-      return False;
+      return True;
    end Standalone_Library_Auto_Init_Is_Supported;
 
    ---------------------------

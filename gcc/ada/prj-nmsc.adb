@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -38,7 +38,6 @@ with Prj.Util; use Prj.Util;
 with Sinput.P;
 with Snames;   use Snames;
 with Table;    use Table;
-with Types;    use Types;
 
 with Ada.Characters.Handling;    use Ada.Characters.Handling;
 with Ada.Strings;                use Ada.Strings;
@@ -47,7 +46,6 @@ with Ada.Strings.Maps.Constants; use Ada.Strings.Maps.Constants;
 
 with GNAT.Case_Util;             use GNAT.Case_Util;
 with GNAT.Directory_Operations;  use GNAT.Directory_Operations;
-with GNAT.OS_Lib;                use GNAT.OS_Lib;
 with GNAT.HTable;
 
 package body Prj.Nmsc is
@@ -876,7 +874,6 @@ package body Prj.Nmsc is
 
             while Source_Id /= No_Other_Source loop
                Source := In_Tree.Other_Sources.Table (Source_Id);
-               Source_Id := Source.Next;
 
                if Source.File_Name = File_Id then
 
@@ -939,6 +936,8 @@ package body Prj.Nmsc is
                         Real_Location);
                      return;
                end if;
+
+               Source_Id := Source.Next;
             end loop;
 
             if Current_Verbosity = High then
@@ -2368,7 +2367,7 @@ package body Prj.Nmsc is
             end if;
 
          else
-            --  Library_Symbol_File is defined. Check that the file exists.
+            --  Library_Symbol_File is defined. Check that the file exists
 
             Data.Symbol_Data.Symbol_File := Lib_Symbol_File.Value;
 
@@ -2460,12 +2459,30 @@ package body Prj.Nmsc is
                   Get_Name_String (Lib_Ref_Symbol_File.Value))
                then
                   Error_Msg_Name_1 := Lib_Ref_Symbol_File.Value;
+
+                  --  For controlled symbol policy, it is an error if the
+                  --  reference symbol file does not exist. For other symbol
+                  --  policies, this is just a warning
+
+                  Error_Msg_Warn :=
+                    Data.Symbol_Data.Symbol_Policy /= Controlled;
+
                   Error_Msg
                     (Project, In_Tree,
-                     "library reference symbol file { does not exist",
+                     "<library reference symbol file { does not exist",
                      Lib_Ref_Symbol_File.Location);
-               end if;
 
+                  --  In addition in the non-controlled case, if symbol policy
+                  --  is Compliant, it is changed to Autonomous, because there
+                  --  is no reference to check against, and we don't want to
+                  --  fail in this case.
+
+                  if Data.Symbol_Data.Symbol_Policy /= Controlled then
+                     if Data.Symbol_Data.Symbol_Policy = Compliant then
+                        Data.Symbol_Data.Symbol_Policy := Autonomous;
+                     end if;
+                  end if;
+               end if;
             end if;
          end if;
       end if;
@@ -2565,11 +2582,19 @@ package body Prj.Nmsc is
       if Msg (First) = '\' then
          First := First + 1;
 
-      --  Warniung character is always the first one in this package
+         --  Warniung character is always the first one in this package
+         --  this is an undoocumented kludge!!!
 
       elsif Msg (First) = '?' then
          First := First + 1;
          Add ("Warning: ");
+
+      elsif Msg (First) = '<' then
+         First := First + 1;
+
+         if Err_Vars.Error_Msg_Warn then
+            Add ("Warning: ");
+         end if;
       end if;
 
       for Index in First .. Msg'Last loop
@@ -5069,7 +5094,7 @@ package body Prj.Nmsc is
                Add_Str_To_Name_Buffer (".c");
 
             when C_Plus_Plus_Language_Index =>
-               Add_Str_To_Name_Buffer (".cc");
+               Add_Str_To_Name_Buffer (".cpp");
 
             when others =>
                return No_Name;

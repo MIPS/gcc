@@ -31,7 +31,7 @@ static void VecBug2(ashort Kernel[8][24])
     for (k = 0; k<8; k++)
         for (i = 0; i<24; i++)
             if (Kernshort2[i] != Kernel[k][i])
-		abort ();
+                abort ();
 }
 
 int main (int argc, char **argv)
@@ -53,4 +53,4 @@ int main (int argc, char **argv)
 
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
-
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
@@ -120,7 +120,7 @@ struct lang_hooks_for_types
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
-     arguments.  The default hook aborts.  */
+     arguments.  The default hook dies.  */
   tree (*type_promotes_to) (tree);
 
   /* Register TYPE as a builtin type with the indicated NAME.  The
@@ -207,7 +207,7 @@ struct lang_hooks
 
   /* Determines the size of any language-specific tcc_constant or
      tcc_exceptional nodes.  Since it is called from make_node, the
-     only information available is the tree code.  Expected to abort
+     only information available is the tree code.  Expected to die
      on unrecognized codes.  */
   size_t (*tree_size) (enum tree_code);
 
@@ -411,6 +411,15 @@ struct lang_hooks
   tree (*builtin_function) (const char *name, tree type, int function_code,
 			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
+
+  /* Used to set up the tree_contains_structure array for a frontend. */
+  void (*init_ts) (void);
+
+  /* Called by recompute_tree_invarant_for_addr_expr to go from EXPR
+     to a contained expression or DECL, possibly updating *TC, *TI or
+     *SE if in the process TREE_CONSTANT, TREE_INVARIANT or
+     TREE_SIDE_EFFECTS need updating.  */
+  tree (*expr_to_decl) (tree expr, bool *tc, bool *ti, bool *se);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

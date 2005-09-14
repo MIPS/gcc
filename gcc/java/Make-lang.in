@@ -16,8 +16,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston, MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston, MA 02110-1301, USA.
 
 #Java and all Java-based marks are trademarks or registered trademarks
 #of Sun Microsystems, Inc. in the United States and other countries.
@@ -49,11 +49,12 @@ GCJ = gcj
 
 # Define the names for selecting java in LANGUAGES.
 java: jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) \
-      gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext)
+      gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext) \
+      gjnih$(exeext)
 
 # Define the name of target independent tools to be installed in $(bindir)
 # Names are subject to changes
-JAVA_TARGET_INDEPENDENT_BIN_TOOLS = gcjh jv-scan jcf-dump
+JAVA_TARGET_INDEPENDENT_BIN_TOOLS = gcjh gjnih jv-scan jcf-dump
 
 # Tell GNU make to ignore these if they exist.
 .PHONY: java
@@ -101,7 +102,7 @@ gt-java-builtins.h gtype-java.h gt-java-resource.h : s-gtype ; @true
 
 # Executables built by this Makefile:
 JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
-  java/constants.o java/lang.o java/typeck.o java/except.o java/verify.o \
+  java/constants.o java/lang.o java/typeck.o java/except.o \
   java/verify-glue.o java/verify-impl.o \
   java/zextract.o java/jcf-io.o java/win32-host.o java/jcf-parse.o java/mangle.o \
   java/mangle_name.o java/builtins.o java/resource.o \
@@ -111,6 +112,10 @@ JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
 GCJH_OBJS = java/gjavah.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
   java/win32-host.o java/zextract.o version.o errors.o ggc-none.o \
   intl.o
+
+GJNIH_OBJS = java/gjavah-jni.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
+  java/win32-host.o java/zextract.o version.o errors.o \
+  ggc-none.o intl.o
 
 JVSCAN_OBJS = java/parse-scan.o java/jv-scan.o version.o intl.o
 
@@ -137,6 +142,10 @@ jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
 gcjh$(exeext): $(GCJH_OBJS) $(LIBDEPS)
 	rm -f $@
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCJH_OBJS) $(CPPLIBS) $(ZLIB) $(LIBS)
+
+gjnih$(exeext): $(GJNIH_OBJS) $(LIBDEPS)
+	rm -f $@
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GJNIH_OBJS) $(CPPLIBS) $(ZLIB) $(LIBS)
 
 jv-scan$(exeext): $(JVSCAN_OBJS) $(LIBDEPS)
 	rm -f $@
@@ -175,7 +184,7 @@ dvi:: doc/gcj.dvi
 html:: $(htmldir)/java/index.html
 JAVA_MANFILES = doc/gcj.1 doc/gcjh.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
                 doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1 \
-		doc/gcj-dbtool.1
+		doc/gcj-dbtool.1 doc/gjnih.1
 
 java.man: $(JAVA_MANFILES)
 
@@ -231,6 +240,7 @@ java.uninstall:
 	-rm -rf $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext)
 	-rm -rf $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/gcjh$(man1ext)
+	-rm -rf $(DESTDIR)$(man1dir)/gjnih$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jv-scan$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/gij$(man1ext)
@@ -248,13 +258,14 @@ java.mostlyclean:
 	-rm -f java/parse.c java/parse-scan.c
 	-rm -f java/*$(objext) $(DEMANGLER_PROG)
 	-rm -f java/*$(coverageexts)
-	-rm -f jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext) s-java
+	-rm -f jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) gcjh$(exeext) \
+          gjnih$(exeext) jv-scan$(exeext) jcf-dump$(exeext) s-java
 java.clean:
 java.distclean:
 	-rm -f java/config.status java/Makefile
 	-rm -f java/parse.output java/y.tab.c
 java.maintainer-clean:
-	-rm -f $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1
+	-rm -f $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1 $(docobjdir)/gjnih.1
 	-rm -f $(docobjdir)/jv-scan.1 $(docobjdir)/jcf-dump.1
 	-rm -f $(docobjdir)/gij.1
 	-rm -f $(docobjdir)/jv-convert.1
@@ -303,7 +314,7 @@ java/class.o: java/class.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 java/constants.o: java/constants.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
   toplev.h $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) gt-java-constants.h
 java/decl.o: java/decl.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) java/jcf.h \
-  toplev.h flags.h $(SYSTEM_H) coretypes.h $(TM_H) function.h expr.h \
+  toplev.h flags.h $(SYSTEM_H) coretypes.h $(TM_H) function.h $(EXPR_H) \
   libfuncs.h except.h java/java-except.h $(GGC_H) real.h gt-java-decl.h \
   target.h cgraph.h
 java/except.o: java/except.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h real.h \
@@ -329,20 +340,17 @@ java/lang.o: java/lang.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h input.h \
   toplev.h $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(EXPR_H) diagnostic.h \
   langhooks.h $(LANGHOOKS_DEF_H) gt-java-lang.h opts.h options.h
 java/mangle.o: java/mangle.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) $(SYSTEM_H) \
-  coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-mangle.h
+  coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-mangle.h $(LANGHOOKS_DEF_H)
 java/mangle_name.o: java/mangle_name.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) \
   $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(GGC_H)
 java/resource.o: java/resource.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(JAVA_TREE_H) $(RTL_H) java/jcf.h java/parse.h toplev.h output.h $(GGC_H) \
-  $(TARGET_H) function.h gt-java-resource.h expr.h
+  $(TARGET_H) function.h gt-java-resource.h $(EXPR_H)
 java/typeck.o: java/typeck.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
   java/convert.h toplev.h $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) real.h
 java/win32-host.o: java/win32-host.c $(CONFIG_H) $(SYSTEM_H) coretypes.h java/jcf.h
-java/verify.o: java/verify.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
-  java/javaop.h java/java-opcodes.h java/java-except.h toplev.h $(SYSTEM_H) \
-  coretypes.h $(TM_H)
 java/verify-glue.o: java/verify-glue.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) \
-  coretypes.h $(TM_H) java/verify.h
+  coretypes.h $(TM_H) java/verify.h toplev.h
 java/verify-impl.o: java/verify-impl.c $(CONFIG_H) java/verify.h $(SYSTEM_H) \
   coretypes.h  java/jcf.h $(JAVA_TREE_H)
 java/zextract.o: java/zextract.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -354,7 +362,8 @@ java/parse-scan.o: java/parse-scan.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) toplev.h $(JAVA_LEX_C) java/parse.h java/lex.h input.h
 java/parse.o: java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) function.h $(JAVA_TREE_H) $(JAVA_LEX_C) java/parse.h \
-  java/lex.h input.h $(GGC_H) debug.h gt-java-parse.h gtype-java.h target.h
+  java/lex.h input.h $(GGC_H) debug.h gt-java-parse.h gtype-java.h target.h \
+  $(TREE_DUMP_H)
 
 # jcf-io.o needs $(ZLIBINC) added to cflags.
 java/jcf-io.o: java/jcf-io.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -369,6 +378,14 @@ java/jcf-path.o: java/jcf-path.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	  -DLIBGCJ_ZIP_FILE='"$(datadir)/java/libgcj-$(version).jar"' \
 	  -DDEFAULT_TARGET_VERSION=\"$(version)\" \
 	  $(srcdir)/java/jcf-path.c $(OUTPUT_OPTION)
+
+# create gjnih's object
+java/gjavah-jni.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(JAVA_TREE_H) \
+  java/gjavah.c java/jcf-reader.c java/jcf.h java/javaop.h version.h $(GGC_H) \
+  intl.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(ZLIBINC) \
+		-DJNI_DEFAULT=1 \
+		$(srcdir)/java/gjavah.c $(OUTPUT_OPTION)
 
 TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi		\
 	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi   \
@@ -390,12 +407,14 @@ $(htmldir)/java/index.html: $(TEXI_JAVA_FILES)
 	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/java -o $(@D) $<
 
 .INTERMEDIATE: gcj.pod gcjh.pod jv-scan.pod jcf-dump.pod gij.pod \
-  jv-convert.pod grmic.pod grmiregistry.pod gcj-dbtool.pod
+  jv-convert.pod grmic.pod grmiregistry.pod gcj-dbtool.pod gjnih.pod
 
 gcj.pod: java/gcj.texi
 	-$(TEXI2POD) -D gcj < $< > $@
 gcjh.pod: java/gcj.texi
 	-$(TEXI2POD) -D gcjh < $< > $@
+gjnih.pod: java/gcj.texi
+	-$(TEXI2POD) -D gjnih < $< > $@
 jv-scan.pod: java/gcj.texi
 	-$(TEXI2POD) -D jv-scan < $< > $@
 jcf-dump.pod: java/gcj.texi
@@ -432,7 +451,7 @@ java.install-man: installdirs \
 	  chmod a-x $$man_name ; \
 	done
 
-$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1
+$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@

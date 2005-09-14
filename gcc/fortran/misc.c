@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -159,6 +159,9 @@ gfc_basic_typename (bt type)
     case BT_CHARACTER:
       p = "CHARACTER";
       break;
+    case BT_HOLLERITH:
+      p = "HOLLERITH";
+      break;
     case BT_DERIVED:
       p = "DERIVED";
       break;
@@ -206,6 +209,9 @@ gfc_typename (gfc_typespec * ts)
       break;
     case BT_CHARACTER:
       sprintf (buffer, "CHARACTER(%d)", ts->kind);
+      break;
+    case BT_HOLLERITH:
+      sprintf (buffer, "HOLLERITH");
       break;
     case BT_DERIVED:
       sprintf (buffer, "TYPE(%s)", ts->derived->name);

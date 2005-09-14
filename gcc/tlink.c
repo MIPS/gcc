@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -311,7 +311,7 @@ obstack_fgets (FILE *stream, struct obstack *ob)
   if (obstack_object_size (ob) == 0)
     return NULL;
   obstack_1grow (ob, '\0');
-  return obstack_finish (ob);
+  return XOBFINISH (ob, char *);
 }
 
 static char *
@@ -528,7 +528,7 @@ recompile_files (void)
     done:
       obstack_ptr_grow (&temporary_obstack, f->main);
       obstack_ptr_grow (&temporary_obstack, NULL);
-      argv = obstack_finish (&temporary_obstack);
+      argv = XOBFINISH (&temporary_obstack, char **);
 
       if (tlink_verbose)
 	fprintf (stderr, _("collect: recompiling %s\n"), f->main);

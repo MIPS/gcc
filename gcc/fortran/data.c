@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330,Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
+02110-1301, USA.  */
 
 
 /* Notes for DATA statement implementation:
@@ -132,7 +132,7 @@ find_con_by_component (gfc_component *com, gfc_constructor *con)
 }
 
 
-/* Create a character type intialization expression from RVALUE.
+/* Create a character type initialization expression from RVALUE.
    TS [and REF] describe [the substring of] the variable being initialized.
    INIT is thh existing initializer, not NULL.  Initialization is performed
    according to normal assignment rules.  */
@@ -459,12 +459,17 @@ gfc_assign_data_value_range (gfc_expr * lvalue, gfc_expr * rvalue,
       last_con = con;
     }
 
-  /* We should never be overwriting an existing initializer.  */
-  gcc_assert (!init);
+  if (last_ts->type == BT_CHARACTER)
+    expr = create_character_intializer (init, last_ts, NULL, rvalue);
+  else
+    {
+      /* We should never be overwriting an existing initializer.  */
+      gcc_assert (!init);
 
-  expr = gfc_copy_expr (rvalue);
-  if (!gfc_compare_types (&lvalue->ts, &expr->ts))
-    gfc_convert_type (expr, &lvalue->ts, 0);
+      expr = gfc_copy_expr (rvalue);
+      if (!gfc_compare_types (&lvalue->ts, &expr->ts))
+	gfc_convert_type (expr, &lvalue->ts, 0);
+    }
 
   if (last_con == NULL)
     symbol->value = expr;
@@ -556,7 +561,7 @@ formalize_structure_cons (gfc_expr * expr)
 
   c = expr->value.constructor;
 
-  /* Constructor is already fomalized.  */
+  /* Constructor is already formalized.  */
   if (c->n.component == NULL)
     return;
 

@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -497,6 +497,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		 || Present (Renamed_Object (gnat_entity))));
 	bool inner_const_flag = const_flag;
 	bool static_p = Is_Statically_Allocated (gnat_entity);
+	bool mutable_p = false;
 	tree gnu_ext_name = NULL_TREE;
 	tree renamed_obj = NULL_TREE;
 
@@ -594,7 +595,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			     (Etype
 			      (Expression (Declaration_Node (gnat_entity)))));
 	    else
-	      gnu_size = max_size (TYPE_SIZE (gnu_type), true);
+	      {
+		gnu_size = max_size (TYPE_SIZE (gnu_type), true);
+		mutable_p = true;
+	      }
 	  }
 
 	/* If the size is zero bytes, make it one byte since some linkers have
@@ -839,7 +843,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  }
 
 	/* If this is a pointer and it does not have an initializing
-	   expression, initialize it to NULL, unless the obect is
+	   expression, initialize it to NULL, unless the object is
            imported.  */
 	if (definition
 	    && (POINTER_TYPE_P (gnu_type) || TYPE_FAT_POINTER_P (gnu_type))
@@ -928,7 +932,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       If we have a template initializer only (that we made above),
 	       pretend there is none and rely on what build_allocator creates
 	       again anyway.  Otherwise (if we have a full initializer), get
-	       the data part and feed that to build_allocator.  */
+	       the data part and feed that to build_allocator.
+
+	       If we are elaborating a mutable object, tell build_allocator to
+	       ignore a possibly simpler size from the initializer, if any, as
+	       we must allocate the maximum possible size in this case.  */
 
 	    if (definition)
 	      {
@@ -940,16 +948,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    gnu_alloc_type
 		      = TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (gnu_alloc_type)));
 
-                   if (TREE_CODE (gnu_expr) == CONSTRUCTOR
-                       &&
-                       TREE_CHAIN (CONSTRUCTOR_ELTS (gnu_expr)) == NULL_TREE)
-                     gnu_expr = 0;
-                   else
-                     gnu_expr
-                       = build_component_ref
-                         (gnu_expr, NULL_TREE,
-                          TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (gnu_expr))),
-			  false);
+		    if (TREE_CODE (gnu_expr) == CONSTRUCTOR
+			&& VEC_length (constructor_elt,
+				       CONSTRUCTOR_ELTS (gnu_expr)) == 1)
+		      gnu_expr = 0;
+		    else
+		      gnu_expr
+			= build_component_ref
+			  (gnu_expr, NULL_TREE,
+			  TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (gnu_expr))),
+			      false);
 		  }
 
 		if (TREE_CODE (TYPE_SIZE_UNIT (gnu_alloc_type)) == INTEGER_CST
@@ -958,8 +966,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  post_error ("Storage_Error will be raised at run-time?",
 			      gnat_entity);
 
-		gnu_expr = build_allocator (gnu_alloc_type, gnu_expr,
-					    gnu_type, 0, 0, gnat_entity);
+		gnu_expr = build_allocator (gnu_alloc_type, gnu_expr, gnu_type,
+					    0, 0, gnat_entity, mutable_p);
 	      }
 	    else
 	      {
@@ -1100,11 +1108,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    SET_DECL_CONST_CORRESPONDING_VAR (gnu_decl, gnu_corr_var);
 	  }
 
-	/* If this is declared in a block that contains an block with an
+	/* If this is declared in a block that contains a block with an
 	   exception handler, we must force this variable in memory to
 	   suppress an invalid optimization.  */
 	if (Has_Nested_Block_With_Handler (Scope (gnat_entity))
-	    && Exception_Mechanism != GCC_ZCX)
+	    && Exception_Mechanism != Back_End_Exceptions)
 	  TREE_ADDRESSABLE (gnu_decl) = 1;
 
 	/* Back-annotate the Alignment of the object if not already in the
@@ -3426,8 +3434,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    if (TREE_CODE (gnu_param_type) == RECORD_TYPE
 		&& TYPE_IS_PADDING_P (gnu_param_type)
 		&& (req_by_ref || Has_Foreign_Convention (gnat_entity)
-		    || !must_pass_by_ref (TREE_TYPE (TYPE_FIELDS
-						     (gnu_param_type)))))
+		    || (!must_pass_by_ref (TREE_TYPE (TYPE_FIELDS
+					              (gnu_param_type)))
+			&& (req_by_copy
+			    || !default_pass_by_ref (TREE_TYPE
+			    			      (TYPE_FIELDS
+						       (gnu_param_type)))))))
 	      gnu_param_type = TREE_TYPE (TYPE_FIELDS (gnu_param_type));
 
 	    /* If this is an IN parameter it is read-only, so make a variant
@@ -3630,7 +3642,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	if (list_length (gnu_return_list) == 1)
 	  gnu_return_type = TREE_TYPE (TREE_PURPOSE (gnu_return_list));
 
-#ifdef _WIN32
+#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
 	if (Convention (gnat_entity) == Convention_Stdcall)
 	  {
 	    struct attrib *attr
@@ -4223,7 +4235,7 @@ elaborate_entity (Entity_Id gnat_entity)
 	Node_Id gnat_lb = Type_Low_Bound (gnat_entity);
 	Node_Id gnat_hb = Type_High_Bound (gnat_entity);
 
-	/* ??? Tests for avoiding static constaint error expression
+	/* ??? Tests for avoiding static constraint error expression
 	   is needed until the front stops generating bogus conversions
 	   on bounds of real types. */
 
@@ -4521,6 +4533,14 @@ prepend_attributes (Entity_Id gnat_entity, struct attrib ** attr_list)
 
 	  case Pragma_Linker_Section:
 	    etype = ATTR_LINK_SECTION;
+	    break;
+
+	  case Pragma_Linker_Constructor:
+	    etype = ATTR_LINK_CONSTRUCTOR;
+	    break;
+
+	  case Pragma_Linker_Destructor:
+	    etype = ATTR_LINK_DESTRUCTOR;
 	    break;
 
 	  case Pragma_Weak_External:
@@ -5111,7 +5131,6 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 {
   tree gnu_field_id = get_entity_name (gnat_field);
   tree gnu_field_type = gnat_to_gnu_type (Etype (gnat_field));
-  tree gnu_orig_field_type = gnu_field_type;
   tree gnu_pos = 0;
   tree gnu_size = 0;
   tree gnu_field;
@@ -5138,24 +5157,47 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 			      gnat_field, FIELD_DECL, false, true);
 
   /* If we are packing this record, have a specified size that's smaller than
-     that of the field type, or a position is specified, and the field type
-     is also a record that's BLKmode and with a small constant size, see if
-     we can get a better form of the type that allows more packing.  If we
-     can, show a size was specified for it if there wasn't one so we know to
-     make this a bitfield and avoid making things wider.  */
+     that of the field type, or a position is specified, and the field type is
+     also a record that's BLKmode and with a small constant size, see if we
+     can get a better form of the type that allows more packing.  If we can,
+     show a size was specified for it if there wasn't one so we know to make
+     this a bitfield and avoid making things wider.  */
   if (TREE_CODE (gnu_field_type) == RECORD_TYPE
       && TYPE_MODE (gnu_field_type) == BLKmode
       && host_integerp (TYPE_SIZE (gnu_field_type), 1)
       && compare_tree_int (TYPE_SIZE (gnu_field_type), BIGGEST_ALIGNMENT) <= 0
       && (packed == 1
-	  || (gnu_size && tree_int_cst_lt (gnu_size,
-					   TYPE_SIZE (gnu_field_type)))
+	  || (gnu_size
+	      && tree_int_cst_lt (gnu_size, TYPE_SIZE (gnu_field_type)))
 	  || Present (Component_Clause (gnat_field))))
     {
-      gnu_field_type = make_packable_type (gnu_field_type);
+      /* See what the alternate type and size would be.  */
+      tree gnu_packable_type = make_packable_type (gnu_field_type);
 
-      if (gnu_field_type != gnu_orig_field_type && !gnu_size)
-	gnu_size = rm_size (gnu_field_type);
+      /* Compute whether we should avoid the substitution.  */
+      int reject =
+        /* There is no point substituting if there is no change.  */
+        (gnu_packable_type == gnu_field_type
+         ||
+         /* The size of an aliased field must be an exact multiple of the
+            type's alignment, which the substitution might increase.  Reject
+            substitutions that would so invalidate a component clause when the
+            specified position is byte aligned, as the change would have no
+            real benefit from the packing standpoint anyway.  */
+         (Is_Aliased (gnat_field)
+          && Present (Component_Clause (gnat_field))
+          && UI_To_Int (Component_Bit_Offset (gnat_field)) % BITS_PER_UNIT == 0
+          && tree_low_cst (gnu_size, 1) % TYPE_ALIGN (gnu_packable_type) != 0)
+         );
+
+      /* Substitute unless told otherwise.  */
+      if (!reject)
+        {
+          gnu_field_type = gnu_packable_type;
+
+          if (gnu_size == 0)
+            gnu_size = rm_size (gnu_field_type);
+        }
     }
 
   /* If we are packing the record and the field is BLKmode, round the
@@ -5602,13 +5644,13 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
       tree *gnu_arr = (tree *) alloca (sizeof (tree) * len);
       int i;
 
-      /* Set DECL_SECTION_NAME to increasing integers so we have a
+      /* Set/abuse DECL_FCONTEXT to increasing integers so we have a
 	 stable sort.  */
       for (i = 0, gnu_field = gnu_our_rep_list; gnu_field;
 	   gnu_field = TREE_CHAIN (gnu_field), i++)
 	{
 	  gnu_arr[i] = gnu_field;
-	  DECL_SECTION_NAME (gnu_field) = size_int (i);
+	  DECL_FCONTEXT (gnu_field) = size_int (i);
 	}
 
       qsort (gnu_arr, len, sizeof (tree), compare_field_bitpos);
@@ -5621,7 +5663,7 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
 	  TREE_CHAIN (gnu_arr[i]) = gnu_our_rep_list;
 	  gnu_our_rep_list = gnu_arr[i];
 	  DECL_CONTEXT (gnu_arr[i]) = gnu_rep_type;
-	  DECL_SECTION_NAME (gnu_arr[i]) = NULL_TREE;
+	  DECL_FCONTEXT (gnu_arr[i]) = NULL_TREE;
 	}
 
       if (gnu_field_list)
@@ -5657,7 +5699,7 @@ compare_field_bitpos (const PTR rt1, const PTR rt2)
 
   if (tree_int_cst_equal (bit_position (*t1), bit_position (*t2)))
     return
-      (tree_int_cst_lt (DECL_SECTION_NAME (*t1), DECL_SECTION_NAME (*t2))
+      (tree_int_cst_lt (DECL_FCONTEXT (*t1), DECL_FCONTEXT (*t2))
        ? -1 : 1);
   else if (tree_int_cst_lt (bit_position (*t1), bit_position (*t2)))
     return -1;
@@ -5677,10 +5719,6 @@ annotate_value (tree gnu_size)
   Node_Ref_Or_Val ops[3], ret;
   int i;
   int size;
-
-  /* If back annotation is suppressed by the front end, return No_Uint */
-  if (!Back_Annotate_Rep_Info)
-    return No_Uint;
 
   /* See if we've already saved the value for this node.  */
   if (EXPR_P (gnu_size) && TREE_COMPLEXITY (gnu_size))
@@ -6322,7 +6360,7 @@ static int
 compatible_signatures_p (tree ftype1, tree ftype2)
 {
   /* As of now, we only perform very trivial tests and consider it's the
-     programmer's responsability to ensure the type correctness in the Ada
+     programmer's responsibility to ensure the type correctness in the Ada
      declaration, as in the regular Import cases.
 
      Mismatches typically result in either error messages from the builtin
@@ -6606,7 +6644,7 @@ create_concat_name (Entity_Id gnat_entity, const char *suffix)
 
   Get_External_Name_With_Suffix (gnat_entity, fp);
 
-#ifdef _WIN32
+#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
   /* A variable using the Stdcall convention (meaning we are running
      on a Windows box) live in a DLL. Here we adjust its name to use
      the jump-table, the _imp__NAME contains the address for the NAME

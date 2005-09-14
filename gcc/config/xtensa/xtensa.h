@@ -16,15 +16,14 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Get Xtensa configuration settings */
 #include "xtensa-config.h"
 
 /* Standard GCC variables that we reference.  */
 extern int current_function_calls_alloca;
-extern int target_flags;
 extern int optimize;
 
 /* External variables defined in xtensa.c.  */
@@ -41,10 +40,6 @@ enum cmp_type {
 extern struct rtx_def * branch_cmp[2];	/* operands for compare */
 extern enum cmp_type branch_type;	/* what type of branch to use */
 extern unsigned xtensa_current_frame_size;
-
-/* Masks for the -m switches */
-#define MASK_NO_FUSED_MADD	0x00000001	/* avoid f-p mul/add */
-#define MASK_CONST16		0x00000002	/* use CONST16 instruction */
 
 /* Macros used in the machine description to select various Xtensa
    configuration options.  */
@@ -66,40 +61,23 @@ extern unsigned xtensa_current_frame_size;
 #define TARGET_ABS		XCHAL_HAVE_ABS
 #define TARGET_ADDX		XCHAL_HAVE_ADDX
 
-/* Macros controlled by command-line options.  */
-#define TARGET_NO_FUSED_MADD	(target_flags & MASK_NO_FUSED_MADD)
-#define TARGET_CONST16		(target_flags & MASK_CONST16)
-
 #define TARGET_DEFAULT (						\
   (XCHAL_HAVE_L32R	? 0 : MASK_CONST16))
 
-#define TARGET_SWITCHES							\
-{									\
-  {"const16",			MASK_CONST16,				\
-    N_("Use CONST16 instruction to load constants")},			\
-  {"no-const16",		-MASK_CONST16,				\
-    N_("Use PC-relative L32R instruction to load constants")},		\
-  {"no-fused-madd",		MASK_NO_FUSED_MADD,			\
-    N_("Disable fused multiply/add and multiply/subtract FP instructions")}, \
-  {"fused-madd",		-MASK_NO_FUSED_MADD,			\
-    N_("Enable fused multiply/add and multiply/subtract FP instructions")}, \
-  {"text-section-literals",	0,					\
-    N_("Intersperse literal pools with code in the text section")},	\
-  {"no-text-section-literals",	0,					\
-    N_("Put literal pools in a separate literal section")},		\
-  {"target-align",		0,					\
-    N_("Automatically align branch targets to reduce branch penalties")}, \
-  {"no-target-align",		0,					\
-    N_("Do not automatically align branch targets")},			\
-  {"longcalls",			0,					\
-    N_("Use indirect CALLXn instructions for large programs")},		\
-  {"no-longcalls",		0,					\
-    N_("Use direct CALLn instructions for fast calls")},		\
-  {"",				TARGET_DEFAULT, 0}			\
-}
-
-
 #define OVERRIDE_OPTIONS override_options ()
+
+/* Reordering blocks for Xtensa is not a good idea unless the compiler
+   understands the range of conditional branches.  Currently all branch
+   relaxation for Xtensa is handled in the assembler, so GCC cannot do a
+   good job of reordering blocks.  Do not enable reordering unless it is
+   explicitly requested.  */
+#define OPTIMIZATION_OPTIONS(LEVEL, SIZE)				\
+  do									\
+    {									\
+      flag_reorder_blocks = 0;						\
+    }									\
+  while (0)
+
 
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()					\
@@ -623,12 +601,17 @@ extern enum reg_class xtensa_char_to_class[256];
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
   do {									\
     compute_frame_size (get_frame_size ());				\
-    if ((FROM) == FRAME_POINTER_REGNUM)					\
-      (OFFSET) = 0;							\
-    else if ((FROM) == ARG_POINTER_REGNUM)				\
-      (OFFSET) = xtensa_current_frame_size;				\
-    else								\
-      abort ();								\
+    switch (FROM)							\
+      {									\
+      case FRAME_POINTER_REGNUM:					\
+        (OFFSET) = 0;							\
+	break;								\
+      case ARG_POINTER_REGNUM:						\
+        (OFFSET) = xtensa_current_frame_size;				\
+	break;								\
+      default:								\
+	gcc_unreachable ();						\
+      }									\
   } while (0)
 
 /* If defined, the maximum amount of space required for outgoing

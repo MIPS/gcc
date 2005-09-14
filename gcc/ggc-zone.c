@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -100,7 +100,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    ggc_set_mark for any object in the garbage zone, which cuts off
    marking quickly.  */
 
-/* Stategy:
+/* Strategy:
 
    This garbage-collecting allocator segregates objects into zones.
    It also segregates objects into "large" and "small" bins.  Large
@@ -1228,6 +1228,8 @@ ggc_alloc_zone_stat (size_t orig_size, struct alloc_zone *zone
   /* Keep track of how many bytes are being allocated.  This
      information is used in deciding when to collect.  */
   zone->allocated += size;
+  
+  timevar_ggc_mem_total += size;
 
 #ifdef GATHER_STATISTICS
   ggc_record_overhead (orig_size, size - orig_size, result PASS_MEM_STAT);
@@ -1274,16 +1276,16 @@ ggc_alloc_typed_stat (enum gt_types_enum gte, size_t size
   switch (gte)
     {
     case gt_ggc_e_14lang_tree_node:
-      return ggc_alloc_zone_stat (size, &tree_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &tree_zone);
 
     case gt_ggc_e_7rtx_def:
-      return ggc_alloc_zone_stat (size, &rtl_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &rtl_zone);
 
     case gt_ggc_e_9rtvec_def:
-      return ggc_alloc_zone_stat (size, &rtl_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &rtl_zone);
 
     default:
-      return ggc_alloc_zone_stat (size, &main_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &main_zone);
     }
 }
 
@@ -1292,7 +1294,7 @@ ggc_alloc_typed_stat (enum gt_types_enum gte, size_t size
 void *
 ggc_alloc_stat (size_t size MEM_STAT_DECL)
 {
-  return ggc_alloc_zone_stat (size, &main_zone PASS_MEM_STAT);
+  return ggc_alloc_zone_pass_stat (size, &main_zone);
 }
 
 /* Poison the chunk.  */
@@ -2047,7 +2049,7 @@ ggc_print_statistics (void)
       pte_overhead += PAGE_L2_SIZE * sizeof (struct page_entry *);
 #else
   {
-    struct page_table_chain *table;
+    page_table table = G.lookup;
     pte_overhead = 0;
     while (table)
       {

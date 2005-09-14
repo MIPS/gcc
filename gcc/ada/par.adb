@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -50,8 +50,10 @@ with Tbuild;   use Tbuild;
 -- Par --
 ---------
 
-function Par (Configuration_Pragmas : Boolean) return List_Id is
-
+function Par
+  (Configuration_Pragmas : Boolean;
+   From_Limited_With     : Boolean := False) return List_Id
+is
    Num_Library_Units : Natural := 0;
    --  Count number of units parsed (relevant only in syntax check only mode,
    --  since in semantics check mode only a single unit is permitted anyway)
@@ -1273,7 +1275,8 @@ begin
 
       for Ucount in Pos loop
          Set_Opt_Config_Switches
-           (Is_Internal_File_Name (File_Name (Current_Source_File)));
+           (Is_Internal_File_Name (File_Name (Current_Source_File)),
+            Current_Source_Unit = Main_Unit);
 
          --  Initialize scope table and other parser control variables
 

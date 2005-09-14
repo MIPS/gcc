@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -131,12 +131,10 @@ copy_loop_headers (void)
   basic_block *bbs, *copied_bbs;
   unsigned n_bbs;
   unsigned bbs_size;
-  gcov_type entry_count, body_count, total_count;
 
   loops = loop_optimizer_init (dump_file);
   if (!loops)
     return;
-  rewrite_into_loop_closed_ssa (NULL);
   
   /* We do not try to keep the information about irreducible regions
      up-to-date.  */
@@ -199,33 +197,14 @@ copy_loop_headers (void)
       /* Ensure that the header will have just the latch as a predecessor
 	 inside the loop.  */
       if (!single_pred_p (exit->dest))
-	exit = single_succ_edge (loop_split_edge_with (exit, NULL));
+	exit = single_pred_edge (loop_split_edge_with (exit, NULL));
 
       entry = loop_preheader_edge (loop);
-      entry_count = entry->src->count;
-      body_count = exit->dest->count;
 
       if (!tree_duplicate_sese_region (entry, exit, bbs, n_bbs, copied_bbs))
 	{
 	  fprintf (dump_file, "Duplication failed.\n");
 	  continue;
-	}
-
-      /* Fix profiling info.  Scaling is done in gcov_type arithmetic to
-	 avoid losing information; this is slow, but is done at most
-	 once per loop.  We special case 0 to avoid division by 0;
-         probably other special cases exist.  */
-      total_count = body_count + entry_count;
-      if (total_count == 0LL)
-	{
-	  scale_bbs_frequencies_int (bbs, n_bbs, 0, 1);
-	  scale_bbs_frequencies_int (copied_bbs, n_bbs, 0, 1);
-	}
-      else
-	{
-	  scale_bbs_frequencies_gcov_type (bbs, n_bbs, body_count, total_count);
-	  scale_bbs_frequencies_gcov_type (copied_bbs, n_bbs, entry_count, 
-				           total_count);
 	}
 
       /* Ensure that the latch and the preheader is simple (we know that they
@@ -236,10 +215,6 @@ copy_loop_headers (void)
 
   free (bbs);
   free (copied_bbs);
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
 
   loop_optimizer_finalize (loops, NULL);
 }

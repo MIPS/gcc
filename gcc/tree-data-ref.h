@@ -1,5 +1,5 @@
 /* Data references and dependences detectors. 
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TREE_DATA_REF_H
 #define GCC_TREE_DATA_REF_H
@@ -26,7 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "omega.h"
 #include "polyhedron.h"
 
- /** {base_address + offset + init} is the first location accessed by data-ref 
+/** {base_address + offset + init} is the first location accessed by data-ref 
       in the loop, and step is the stride of data-ref in the loop in bytes;
       e.g.:
     
@@ -52,7 +52,8 @@ struct first_location_in_loop
   tree init;
   tree step;
   /* Access function related to first location in the loop.  */
-  varray_type access_fns;
+  VEC(tree,heap) *access_fns;
+
 };
 
 struct base_object_info
@@ -61,9 +62,13 @@ struct base_object_info
   tree base_object;
   
   /* A list of chrecs.  Access functions related to BASE_OBJECT.  */
-  varray_type access_fns;
+  VEC(tree,heap) *access_fns;
 };
 
+enum data_ref_type {
+  ARRAY_REF_TYPE,
+  POINTER_REF_TYPE
+};
 
 struct data_reference
 {
@@ -85,38 +90,62 @@ struct data_reference
   /* Base object related info.  */
   struct base_object_info object_info;
 
-  /* Aliasing information.  */
+  /* Aliasing information.  This field represents the symbol that
+     should be aliased by a pointer holding the address of this data
+     reference.  If the original data reference was a pointer
+     dereference, then this field contains the memory tag that should
+     be used by the new vector-pointer.  */
   tree memtag;
-  struct ptr_info_def *pointsto_info;
+  struct ptr_info_def *ptr_info;
+  subvar_t subvars;
 
-  /* Alignment information. Whether the base of the data-reference is aligned 
-     to vectype.  */
-  bool base_aligned;
-
-  /* Alignment information. The offset of the data-reference from its base 
-     in bytes.  */
+  /* Alignment information.  */ 
+  /* The offset of the data-reference from its base in bytes.  */
   tree misalignment;
-};
+  /* The maximum data-ref's alignment.  */
+  tree aligned_to;
 
+  /* The type of the data-ref.  */
+  enum data_ref_type type;
+};
 
 #define DR_STMT(DR)                (DR)->stmt
 #define DR_REF(DR)                 (DR)->ref
 #define DR_BASE_OBJECT(DR)         (DR)->object_info.base_object
+#define DR_TYPE(DR)                (DR)->type
 #define DR_ACCESS_FNS(DR)\
-  (DR_BASE_OBJECT(DR) ? (DR)->object_info.access_fns : (DR)->first_location.access_fns)
-#define DR_OBJECT_ACCESS_FNS(DR)   (DR)->object_info.access_fns
-#define DR_FIRST_LOCATION_ACCESS_FNS(DR)  (DR)->first_location.access_fns
-#define DR_ACCESS_FN(DR, I)        VARRAY_TREE (DR_ACCESS_FNS (DR), I)
-#define DR_NUM_DIMENSIONS(DR)      VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
+  (DR_TYPE(DR) == ARRAY_REF_TYPE ?  \
+   (DR)->object_info.access_fns : (DR)->first_location.access_fns)
+#define DR_ACCESS_FN(DR, I)        VEC_index (tree, DR_ACCESS_FNS (DR), I)
+#define DR_NUM_DIMENSIONS(DR)      VEC_length (tree, DR_ACCESS_FNS (DR))  
 #define DR_IS_READ(DR)             (DR)->is_read
 #define DR_BASE_ADDRESS(DR)        (DR)->first_location.base_address
 #define DR_OFFSET(DR)              (DR)->first_location.offset
 #define DR_INIT(DR)                (DR)->first_location.init
 #define DR_STEP(DR)                (DR)->first_location.step
 #define DR_MEMTAG(DR)              (DR)->memtag
-#define DR_POINTSTO_INFO(DR)       (DR)->pointsto_info
-#define DR_BASE_ALIGNED(DR)        (DR)->base_aligned
+#define DR_ALIGNED_TO(DR)          (DR)->aligned_to
 #define DR_OFFSET_MISALIGNMENT(DR) (DR)->misalignment
+#define DR_PTR_INFO(DR)            (DR)->ptr_info
+#define DR_SUBVARS(DR)             (DR)->subvars
+
+#define DR_ACCESS_FNS_ADDR(DR)       \
+  (DR_TYPE(DR) == ARRAY_REF_TYPE ?   \
+   &((DR)->object_info.access_fns) : &((DR)->first_location.access_fns))
+#define DR_SET_ACCESS_FNS(DR, ACC_FNS)         \
+{                                              \
+  if (DR_TYPE(DR) == ARRAY_REF_TYPE)           \
+    (DR)->object_info.access_fns = ACC_FNS;    \
+  else                                         \
+    (DR)->first_location.access_fns = ACC_FNS; \
+}
+#define DR_FREE_ACCESS_FNS(DR)                              \
+{                                                           \
+  if (DR_TYPE(DR) == ARRAY_REF_TYPE)                        \
+    VEC_free (tree, heap, (DR)->object_info.access_fns);    \
+  else                                                      \
+    VEC_free (tree, heap, (DR)->first_location.access_fns); \
+}
 
 enum data_dependence_direction {
   dir_positive, 
@@ -227,12 +256,11 @@ struct data_dependence_relation
 
 
 
-extern tree find_data_references_in_loop (struct loop *, tree, varray_type *);
+extern tree find_data_references_in_loop (struct loop *, varray_type *);
 
 extern void analyze_all_data_dependences (struct loops *);
-extern void compute_data_dependences_for_loop (struct loop *, tree, bool,
+extern void compute_data_dependences_for_loop (struct loop *, bool,
 					       varray_type *, varray_type *);
-extern struct data_reference *analyze_array (tree, tree, bool);
 
 extern void print_direction_vector (FILE *, struct data_dependence_relation *);
 extern void dump_subscript (FILE *, struct subscript *);
@@ -248,6 +276,8 @@ extern void dump_data_dependence_direction (FILE *,
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
+extern void compute_subscript_distance (struct data_dependence_relation *);
+extern struct data_reference *analyze_array (tree, tree, bool);
 
 
 

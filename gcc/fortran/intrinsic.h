@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Expression returned when simplification fails.  */
 
@@ -63,12 +63,14 @@ try gfc_check_iand (gfc_expr *, gfc_expr *);
 try gfc_check_ibclr (gfc_expr *, gfc_expr *);
 try gfc_check_ibits (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_ibset (gfc_expr *, gfc_expr *);
+try gfc_check_ichar_iachar (gfc_expr *);
 try gfc_check_idnint (gfc_expr *);
 try gfc_check_ieor (gfc_expr *, gfc_expr *);
 try gfc_check_index (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_int (gfc_expr *, gfc_expr *);
 try gfc_check_ior (gfc_expr *, gfc_expr *);
 try gfc_check_irand (gfc_expr *);
+try gfc_check_isatty (gfc_expr *);
 try gfc_check_ishft (gfc_expr *, gfc_expr *);
 try gfc_check_ishftc (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_kill (gfc_expr *, gfc_expr *);
@@ -147,6 +149,7 @@ try gfc_check_symlnk_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_sleep_sub (gfc_expr *);
 try gfc_check_stat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_system_sub (gfc_expr *, gfc_expr *);
+try gfc_check_ttynam_sub (gfc_expr *, gfc_expr *);
 try gfc_check_umask_sub (gfc_expr *, gfc_expr *);
 try gfc_check_unlink_sub (gfc_expr *, gfc_expr *);
 
@@ -155,6 +158,7 @@ try gfc_check_unlink_sub (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_abs (gfc_expr *);
 gfc_expr *gfc_simplify_achar (gfc_expr *);
 gfc_expr *gfc_simplify_acos (gfc_expr *);
+gfc_expr *gfc_simplify_acosh (gfc_expr *);
 gfc_expr *gfc_simplify_adjustl (gfc_expr *);
 gfc_expr *gfc_simplify_adjustr (gfc_expr *);
 gfc_expr *gfc_simplify_aimag (gfc_expr *);
@@ -163,7 +167,9 @@ gfc_expr *gfc_simplify_dint (gfc_expr *);
 gfc_expr *gfc_simplify_anint (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_dnint (gfc_expr *);
 gfc_expr *gfc_simplify_asin (gfc_expr *);
+gfc_expr *gfc_simplify_asinh (gfc_expr *);
 gfc_expr *gfc_simplify_atan (gfc_expr *);
+gfc_expr *gfc_simplify_atanh (gfc_expr *);
 gfc_expr *gfc_simplify_atan2 (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_bit_size (gfc_expr *);
 gfc_expr *gfc_simplify_btest (gfc_expr *, gfc_expr *);
@@ -258,6 +264,7 @@ gfc_expr *gfc_convert_constant (gfc_expr *, bt, int);
 /* Resolution functions.  */
 void gfc_resolve_abs (gfc_expr *, gfc_expr *);
 void gfc_resolve_acos (gfc_expr *, gfc_expr *);
+void gfc_resolve_acosh (gfc_expr *, gfc_expr *);
 void gfc_resolve_aimag (gfc_expr *, gfc_expr *);
 void gfc_resolve_aint (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_dint (gfc_expr *, gfc_expr *);
@@ -266,7 +273,9 @@ void gfc_resolve_anint (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_dnint (gfc_expr *, gfc_expr *);
 void gfc_resolve_any (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_asin (gfc_expr *, gfc_expr *);
+void gfc_resolve_asinh (gfc_expr *, gfc_expr *);
 void gfc_resolve_atan (gfc_expr *, gfc_expr *);
+void gfc_resolve_atanh (gfc_expr *, gfc_expr *);
 void gfc_resolve_atan2 (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_besn (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_btest (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -309,6 +318,7 @@ void gfc_resolve_ichar (gfc_expr *, gfc_expr *);
 void gfc_resolve_idnint (gfc_expr *, gfc_expr *);
 void gfc_resolve_int (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ior (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_isatty (gfc_expr *, gfc_expr *);
 void gfc_resolve_ishft (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ishftc (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_kill (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -395,6 +405,7 @@ void gfc_resolve_sleep_sub (gfc_code *);
 void gfc_resolve_stat_sub (gfc_code *);
 void gfc_resolve_system_clock (gfc_code *);
 void gfc_resolve_system_sub (gfc_code *);
+void gfc_resolve_ttynam_sub (gfc_code *);
 void gfc_resolve_umask_sub (gfc_code *);
 void gfc_resolve_unlink_sub (gfc_code *);
 

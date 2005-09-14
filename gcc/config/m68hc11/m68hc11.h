@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Note:
    A first 68HC11 port was made by Otto Lind (otto@coactive.com)
@@ -289,7 +289,7 @@ extern const struct processor_costs *m68hc11_cost;
 /* The Z register does not really exist in the 68HC11.  This a fake register
    for GCC.  It is treated exactly as an index register (X or Y).  It is only
    in the A_REGS class, which is the BASE_REG_CLASS for GCC.  Defining this
-   register helps the reload pass of GCC.  Otherwise, the reload often aborts
+   register helps the reload pass of GCC.  Otherwise, the reload often dies
    with register spill failures.
 
    The Z register is replaced by either X or Y during the machine specific
@@ -450,7 +450,7 @@ SOFT_REG_FIRST+28, SOFT_REG_FIRST+29,SOFT_REG_FIRST+30,SOFT_REG_FIRST+31
    For any two classes, it is very desirable that there be another
    class that represents their union.  */
 
-/* The M68hc11 has so fiew registers that it's not possible for GCC to
+/* The M68hc11 has so few registers that it's not possible for GCC to
    do any register allocation without breaking. We extend the processor
    registers by having soft registers. These registers are treated as
    hard registers by GCC but they are located in memory and accessed by page0
@@ -800,14 +800,14 @@ extern enum reg_class m68hc11_tmp_regs_class;
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.
 
-   Don't define for 68HC11, the frame pointer is the bottom
+   Define to 0 for 68HC11, the frame pointer is the bottom
    of local variables.  */
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD		0
 
 /* Define this if successive arguments to a function occupy decreasing 
    addresses in the stack.  */
@@ -1037,6 +1037,13 @@ typedef struct m68hc11_args
 
 /* Addressing modes, and classification of registers for them.  */
 
+#define ADDR_STRICT       0x01  /* Accept only registers in class A_REGS  */
+#define ADDR_INCDEC       0x02  /* Post/Pre inc/dec */
+#define ADDR_INDEXED      0x04  /* D-reg index */
+#define ADDR_OFFSET       0x08
+#define ADDR_INDIRECT     0x10  /* Accept (mem (mem ...)) for [n,X] */
+#define ADDR_CONST        0x20  /* Accept const and symbol_ref  */
+
 /* The 68HC12 has all the post/pre increment/decrement modes.  */
 #define HAVE_POST_INCREMENT (TARGET_M6812 && TARGET_AUTO_INC_DEC)
 #define HAVE_PRE_INCREMENT  (TARGET_M6812 && TARGET_AUTO_INC_DEC)
@@ -1062,7 +1069,7 @@ extern enum reg_class m68hc11_index_reg_class;
 
 
 /* Internal macro, return 1 if REGNO is a valid base register.  */
-#define REG_VALID_P(REGNO) (1)	/* ? */
+#define REG_VALID_P(REGNO) ((REGNO) >= 0)
 
 extern unsigned char m68hc11_reg_valid_for_base[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_BASE_P(REGNO) \

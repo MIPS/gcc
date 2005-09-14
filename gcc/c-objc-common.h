@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_C_OBJC_COMMON
 #define GCC_C_OBJC_COMMON
@@ -117,6 +117,8 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 #undef LANG_HOOKS_TO_TARGET_CHARSET
 #define LANG_HOOKS_TO_TARGET_CHARSET c_common_to_target_charset
+#undef LANG_HOOKS_EXPR_TO_DECL
+#define LANG_HOOKS_EXPR_TO_DECL c_expr_to_decl
 
 /* The C front end's scoping structure is very different from
    that expected by the language-independent code; it is best

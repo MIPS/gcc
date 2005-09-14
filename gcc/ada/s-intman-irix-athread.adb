@@ -1,13 +1,13 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                 GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS              --
+--                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
 --                                                                          --
 --           S Y S T E M . I N T E R R U P T _ M A N A G E M E N T          --
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2003, Ada Core Technologies               --
+--                     Copyright (C) 1995-2005, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -17,8 +17,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -34,9 +34,6 @@
 
 --  This is an Irix (old pthread library) version of this package.
 
---  PLEASE DO NOT add any dependences on other packages.
---  This package is designed to work with or without tasking support.
-
 --  Make a careful study of all signals available under the OS,
 --  to see which need to be reserved, kept always unmasked,
 --  or kept always unmasked.
@@ -49,6 +46,7 @@ with System.OS_Interface;
 
 with Interfaces.C;
 --  used for "int"
+
 package body System.Interrupt_Management is
 
    use System.OS_Interface;
@@ -82,47 +80,27 @@ package body System.Interrupt_Management is
    pragma Import
      (C, Unreserve_All_Interrupts, "__gl_unreserve_all_interrupts");
 
-   ----------------------
-   -- Notify_Exception --
-   ----------------------
+   function State (Int : Interrupt_ID) return Character;
+   pragma Import (C, State, "__gnat_get_interrupt_state");
+   --  Get interrupt state.  Defined in a-init.c
+   --  The input argument is the interrupt number,
+   --  and the result is one of the following:
 
-   --  This function identifies the Ada exception to be raised using the
-   --  information when the system received a synchronous signal.
-   --  Since this function is machine and OS dependent, different code has to
-   --  be provided for different target.
-   --  On SGI, the signal handling is done is a-init.c, even when tasking is
-   --  involved.
+   User    : constant Character := 'u';
+   Runtime : constant Character := 'r';
+   Default : constant Character := 's';
+   --    'n'   this interrupt not set by any Interrupt_State pragma
+   --    'u'   Interrupt_State pragma set state to User
+   --    'r'   Interrupt_State pragma set state to Runtime
+   --    's'   Interrupt_State pragma set state to System (use "default"
+   --           system handler)
 
-   ---------------------------
-   -- Initialize_Interrupts --
-   ---------------------------
+   ----------------
+   -- Initialize --
+   ----------------
 
-   --  Nothing needs to be done on this platform.
-
-   procedure Initialize_Interrupts is
-   begin
-      null;
-   end Initialize_Interrupts;
-
-begin
-   declare
-      function State (Int : Interrupt_ID) return Character;
-      pragma Import (C, State, "__gnat_get_interrupt_state");
-      --  Get interrupt state.  Defined in a-init.c
-      --  The input argument is the interrupt number,
-      --  and the result is one of the following:
-
-      User    : constant Character := 'u';
-      Runtime : constant Character := 'r';
-      Default : constant Character := 's';
-      --    'n'   this interrupt not set by any Interrupt_State pragma
-      --    'u'   Interrupt_State pragma set state to User
-      --    'r'   Interrupt_State pragma set state to Runtime
-      --    's'   Interrupt_State pragma set state to System (use "default"
-      --           system handler)
-
+   procedure Initialize is
       use Interfaces.C;
-
    begin
       Abort_Task_Interrupt := Abort_Signal;
 
@@ -180,5 +158,6 @@ begin
       --  mark it as reserved.
 
       Reserve (0) := True;
-   end;
+   end Initialize;
+
 end System.Interrupt_Management;

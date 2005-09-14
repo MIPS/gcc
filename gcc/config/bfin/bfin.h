@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifndef _BFIN_CONFIG
 #define _BFIN_CONFIG
@@ -48,21 +48,7 @@ extern int target_flags;
 /* Generate DSP instructions, like DSP halfword loads */
 #define TARGET_DSP			(1)
 
-#define TARGET_DEFAULT MASK_CSYNC
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.  */
-#define TARGET_OPTIONS							\
-{ { "shared-library-id=",	&bfin_library_id_string,		\
-    "ID of shared library to build", 0}					\
-}
+#define TARGET_DEFAULT (MASK_SPECLD_ANOMALY | MASK_CSYNC_ANOMALY)
 
 /* Maximum number of library ids we permit */
 #define MAX_LIBRARY_ID 255
@@ -93,11 +79,11 @@ extern const char *bfin_library_id_string;
 
 #define STACK_PUSH_CODE PRE_DEC
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* We define a dummy ARGP register; the parameters start at offset 0 from
    it. */
@@ -345,7 +331,7 @@ enum reg_class
   BREGS,
   LREGS,
   MREGS,
-  CIRCREGS, /* Circular buffering registers, Ix, Bx, Lx together form. See Automatic Circlur Buffering */
+  CIRCREGS, /* Circular buffering registers, Ix, Bx, Lx together form.  See Automatic Circular Buffering.  */
   DAGREGS,
   EVEN_AREGS,
   ODD_AREGS,
@@ -544,10 +530,16 @@ typedef enum {
 
 #define FUNCTION_ARG_REGISTERS { REG_R0, REG_R1, REG_R2, -1 }
 
+/* Flags for the call/call_value rtl operations set up by function_arg */
+#define CALL_NORMAL		0x00000000	/* no special processing */
+#define CALL_LONG		0x00000001	/* always call indirect */
+#define CALL_SHORT		0x00000002	/* always call by symbol */
+
 typedef struct {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int *arg_regs;		/* array of register -1 terminated */
+  int call_cookie;		/* Do special things for this call */
 } CUMULATIVE_ARGS;
 
 /* Define where to put the arguments to a function.
@@ -787,9 +779,6 @@ do {                                              \
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
 
-/* Size of a vector for autovectorization.  */
-#define UNITS_PER_SIMD_WORD 4
-
 /* Width in bits of a pointer.
    See also the macro `Pmode1' defined below.  */
 #define POINTER_SIZE 32
@@ -1006,23 +995,6 @@ do {                                              \
 #define EXTRA_CONSTRAINT(VALUE, D) \
     ((D) == 'Q' ? GET_CODE (VALUE) == SYMBOL_REF : 0)
 
-/* `FINALIZE_PIC'
-     By generating position-independent code, when two different
-     programs (A and B) share a common library (libC.a), the text of
-     the library can be shared whether or not the library is linked at
-     the same address for both programs.  In some of these
-     environments, position-independent code requires not only the use
-     of different addressing modes, but also special code to enable the
-     use of these addressing modes.
-
-     The `FINALIZE_PIC' macro serves as a hook to emit these special
-     codes once the function is being compiled into assembly code, but
-     not before.  (It is not done before, because in the case of
-     compiling an inline function, it would lead to multiple PIC
-     prologues being included in functions which used inline functions
-     and were compiled to assembly language.) */
-#define FINALIZE_PIC  do {} while (0)
-
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
@@ -1115,8 +1087,9 @@ do { char __buf[256];					\
     } while (0)
 
 #define ASM_OUTPUT_ALIGN(FILE,LOG) 				\
-    do {		 					\
-	fprintf (FILE, ".align %d\n", LOG);			\
+    do {							\
+      if ((LOG) != 0)						\
+	fprintf (FILE, "\t.align %d\n", 1 << (LOG));		\
     } while (0)
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)		\

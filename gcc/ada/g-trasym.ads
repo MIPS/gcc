@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 1999-2004 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1999-2005 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -33,8 +33,8 @@
 
 --  Run-time symbolic traceback support
 
---  Note: this is only available on selected targets. Currently it is
---  supported on Sparc/Solaris, GNU/Linux, Windows NT, HP-UX, VMS and Tru64.
+--  Note: this is only available on selected targets. Current targets are:
+--  Sparc/Solaris, GNU/Linux, SGI/IRIX, Windows NT, HP-UX, VMS, Tru64.
 
 --  The routines provided in this package assume that your application has
 --  been compiled with debugging information turned on, since this information
@@ -62,7 +62,7 @@
 with Ada.Exceptions; use Ada.Exceptions;
 
 package GNAT.Traceback.Symbolic is
-pragma Elaborate_Body (Traceback.Symbolic);
+   pragma Elaborate_Body;
 
    ------------------------
    -- Symbolic_Traceback --

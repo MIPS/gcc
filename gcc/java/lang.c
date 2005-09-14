@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -133,9 +133,6 @@ int flag_deprecated = 1;
 /* Don't attempt to verify invocations.  */
 int flag_verify_invocations = 0; 
 
-/* True if the new bytecode verifier should be used.  */
-int flag_new_verifier = 1;
-
 /* When nonzero, print extra version information.  */
 static int v_flag = 0;
 
@@ -212,6 +209,9 @@ struct language_function GTY(())
 
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
+
+#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME java_mangle_decl
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -603,12 +603,6 @@ java_post_options (const char **pfilename)
      must always verify everything.  */
   if (! flag_indirect_dispatch)
     flag_verify_invocations = true;
-  else
-    {
-      /* If we are using indirect dispatch, then we want the new
-	 verifier as well.  */
-      flag_new_verifier = 1;
-    }
 
   /* Open input file.  */
 

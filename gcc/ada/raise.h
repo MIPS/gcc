@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -31,16 +31,18 @@
  ****************************************************************************/
 
 
+/* C counterparts of what System.Standard_Library defines.  */
+
 typedef unsigned Exception_Code;
-/* C counterpart of what System.Standard_Library defines.  */
 
 struct Exception_Data
 {
-  char  Handled_By_Others;
+  char Not_Handled_By_Others;
   char Lang;
   int Name_Length;
-  char *Full_Name, Htable_Ptr;
+  char *Full_Name, *Htable_Ptr;
   Exception_Code Import_Code;
+  void (*Raise_Hook)(void);
 };
 
 typedef struct Exception_Data *Exception_Id;

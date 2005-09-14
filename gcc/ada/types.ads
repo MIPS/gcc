@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,11 +31,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Unchecked_Deallocation;
-
-package Types is
-pragma Preelaborate (Types);
-
 --  This package contains host independent type definitions which are used
 --  in more than one unit in the compiler. They are gathered here for easy
 --  reference, though in some cases the full description is found in the
@@ -45,12 +40,17 @@ pragma Preelaborate (Types);
 --  dependencies would have to be dealt with.
 
 --  WARNING: There is a C version of this package. Any changes to this
---  source file must be properly reflected in the C header file a-types.h
+--  source file must be properly reflected in the C header file types.h
 
 --  Note: the declarations in this package reflect an expectation that the
 --  host machine has an efficient integer base type with a range at least
 --  32 bits 2s-complement. If there are any machines for which this is not
 --  a correct assumption, a significant number of changes will be required!
+
+with Unchecked_Deallocation;
+
+package Types is
+   pragma Preelaborate;
 
    -------------------------------
    -- General Use Integer Types --

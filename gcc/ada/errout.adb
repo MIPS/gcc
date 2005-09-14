@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -49,7 +49,6 @@ with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Style;
-with Uintp;    use Uintp;
 with Uname;    use Uname;
 
 with Unchecked_Conversion;
@@ -322,14 +321,13 @@ package body Errout is
          return;
       end if;
 
-      --  The idea at this stage is that we have two kinds of messages.
+      --  The idea at this stage is that we have two kinds of messages
 
-      --  First, we have those that are to be placed as requested at
-      --  Flag_Location. This includes messages that have nothing to
-      --  do with generics, and also messages placed on generic templates
-      --  that reflect an error in the template itself. For such messages
-      --  we simply call Error_Msg_Internal to place the message in the
-      --  requested location.
+      --  First, we have those messages that are to be placed as requested at
+      --  Flag_Location. This includes messages that have nothing to do with
+      --  generics, and also messages placed on generic templates that reflect
+      --  an error in the template itself. For such messages we simply call
+      --  Error_Msg_Internal to place the message in the requested location.
 
       if Instantiation (Sindex) = No_Location then
          Error_Msg_Internal (Msg, Flag_Location, Flag_Location, False);
@@ -582,7 +580,6 @@ package body Errout is
       S : String (1 .. Feature'Length + 1 + CCRT'Length);
       L : Natural;
 
-
    begin
       S (1) := '|';
       S (2 .. Feature'Length + 1) := Feature;
@@ -607,7 +604,7 @@ package body Errout is
 
    procedure Error_Msg_F (Msg : String; N : Node_Id) is
    begin
-      Error_Msg_NEL (Msg, N, N, First_Sloc (N));
+      Error_Msg_NEL (Msg, N, N, Sloc (First_Node (N)));
    end Error_Msg_F;
 
    ------------------
@@ -1034,7 +1031,10 @@ package body Errout is
       N     : Node_Or_Entity_Id)
    is
    begin
-      if Eflag and then In_Extended_Main_Source_Unit (N) then
+      if Eflag
+        and then In_Extended_Main_Source_Unit (N)
+        and then Comes_From_Source (N)
+      then
          Error_Msg_NEL (Msg, N, N, Sloc (N));
       end if;
    end Error_Msg_NW;
@@ -1611,7 +1611,7 @@ package body Errout is
    procedure Remove_Warning_Messages (N : Node_Id) is
 
       function Check_For_Warning (N : Node_Id) return Traverse_Result;
-      --  This function checks one node for a possible warning message.
+      --  This function checks one node for a possible warning message
 
       function Check_All_Warnings is new
         Traverse_Func (Check_For_Warning);
@@ -1750,7 +1750,6 @@ package body Errout is
       Desired_Case : Casing_Type := Mixed_Case;
       --  Casing required for result. Default value of Mixed_Case is used if
       --  for some reason we cannot find the right file name in the table.
-
 
    begin
       --  Get length of file name
@@ -2239,7 +2238,6 @@ package body Errout is
             when '>' =>
                Set_Msg_Insertion_Run_Time_Name;
 
-
             when '^' =>
                Set_Msg_Insertion_Uint;
 
@@ -2251,6 +2249,9 @@ package body Errout is
                Is_Unconditional_Msg := True;
 
             when '?' =>
+               null; -- already dealt with
+
+            when '<' =>
                null; -- already dealt with
 
             when '|' =>

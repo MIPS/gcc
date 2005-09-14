@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --            A D A . N U M E R I C S . F L O A T _ R A N D O M             --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--           Copyright (C) 1992-2005 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -164,7 +164,7 @@ package body Ada.Numerics.Float_Random is
       X1 := 2 + Int (Initiator) mod (K1 - 3);
       X2 := 2 + Int (Initiator) mod (K2 - 3);
 
-      --  Eliminate effects of small Initiators.
+      --  Eliminate effects of small initiators
 
       for J in 1 .. 5 loop
          X1 := Square_Mod_N (X1, K1);
@@ -256,37 +256,50 @@ package body Ada.Numerics.Float_Random is
    -----------
 
    function Value (Coded_State : String) return State is
+      Last  : constant Natural := Coded_State'Last;
       Start : Positive := Coded_State'First;
       Stop  : Positive := Coded_State'First;
       Outs  : State;
 
    begin
-      while Coded_State (Stop) /= ',' loop
+      while Stop <= Last and then Coded_State (Stop) /= ',' loop
          Stop := Stop + 1;
       end loop;
+
+      if Stop > Last then
+         raise Constraint_Error;
+      end if;
 
       Outs.X1 := Int'Value (Coded_State (Start .. Stop - 1));
       Start := Stop + 1;
 
       loop
          Stop := Stop + 1;
-         exit when Coded_State (Stop) = ',';
+         exit when Stop > Last or else Coded_State (Stop) = ',';
       end loop;
+
+      if Stop > Last then
+         raise Constraint_Error;
+      end if;
 
       Outs.X2 := Int'Value (Coded_State (Start .. Stop - 1));
       Start := Stop + 1;
 
       loop
          Stop := Stop + 1;
-         exit when Coded_State (Stop) = ',';
+         exit when Stop > Last or else Coded_State (Stop) = ',';
       end loop;
 
+      if Stop > Last then
+         raise Constraint_Error;
+      end if;
+
       Outs.P   := Int'Value (Coded_State (Start .. Stop - 1));
-      Outs.Q   := Int'Value (Coded_State (Stop + 1 .. Coded_State'Last));
+      Outs.Q   := Int'Value (Coded_State (Stop + 1 .. Last));
       Outs.X   := Euclid (Outs.P, Outs.Q);
       Outs.Scl := 1.0 / (Flt (Outs.P) * Flt (Outs.Q));
 
-      --  Now do *some* sanity checks.
+      --  Now do *some* sanity checks
 
       if Outs.Q < 31 or else Outs.P < 31
         or else Outs.X1 not in 2 .. Outs.P - 1

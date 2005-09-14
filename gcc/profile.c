@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
    Profile generation is optimized, so that not all arcs in the basic
@@ -65,6 +65,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "cfghooks.h"
 #include "tree-flow.h"
+#include "timevar.h"
+#include "cfgloop.h"
+#include "tree-pass.h"
 
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
@@ -223,7 +226,7 @@ instrument_values (histogram_values values)
 	  gcc_unreachable ();
 	}
     }
-  VEC_free (histogram_value, values);
+  VEC_free (histogram_value, heap, values);
 }
 
 
@@ -648,14 +651,13 @@ compute_value_histograms (histogram_values values)
   gcov_type *histogram_counts[GCOV_N_VALUE_COUNTERS];
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
-  histogram_value hist;
  
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     n_histogram_counters[t] = 0;
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
-      hist = VEC_index (histogram_value, values, i);
+      histogram_value hist = VEC_index (histogram_value, values, i);
       n_histogram_counters[(int) hist->type] += hist->n_counters;
     }
 
@@ -680,37 +682,21 @@ compute_value_histograms (histogram_values values)
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
-      rtx hist_list = NULL_RTX;
+      histogram_value hist = VEC_index (histogram_value, values, i);
+      tree stmt = hist->hvalue.stmt;
+      stmt_ann_t ann = get_stmt_ann (stmt);
 
-      hist = VEC_index (histogram_value, values, i);
       t = (int) hist->type;
 
       aact_count = act_count[t];
       act_count[t] += hist->n_counters;
 
-      if (!ir_type ())
-	{
-	  for (j = hist->n_counters; j > 0; j--)
-	    hist_list = alloc_EXPR_LIST (0, GEN_INT (aact_count[j - 1]), 
-					hist_list);
-	  hist_list = alloc_EXPR_LIST (0, 
-			copy_rtx (hist->hvalue.rtl.value), hist_list);
-	  hist_list = alloc_EXPR_LIST (0, GEN_INT (hist->type), hist_list);
-	  REG_NOTES (hist->hvalue.rtl.insn) =
-	      alloc_EXPR_LIST (REG_VALUE_PROFILE, hist_list,
-			       REG_NOTES (hist->hvalue.rtl.insn));
-	}
-      else
-	{
-	  tree stmt = hist->hvalue.tree.stmt;
-	  stmt_ann_t ann = get_stmt_ann (stmt);
-	  hist->hvalue.tree.next = ann->histograms;
-	  ann->histograms = hist;
-	  hist->hvalue.tree.counters = 
-		xmalloc (sizeof (gcov_type) * hist->n_counters);
-	  for (j = 0; j < hist->n_counters; j++)
-	    hist->hvalue.tree.counters[j] = aact_count[j];
-  	}
+      hist->hvalue.next = ann->histograms;
+      ann->histograms = hist;
+      hist->hvalue.counters = 
+	    xmalloc (sizeof (gcov_type) * hist->n_counters);
+      for (j = 0; j < hist->n_counters; j++)
+	hist->hvalue.counters[j] = aact_count[j];
     }
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
@@ -820,6 +806,27 @@ branch_prob (void)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
+	  tree last = last_stmt (bb);
+	  /* Edge with goto locus might get wrong coverage info unless
+	     it is the only edge out of BB.   
+	     Don't do that when the locuses match, so 
+	     if (blah) goto something;
+	     is not computed twice.  */
+	  if (e->goto_locus && !single_succ_p (bb)
+#ifdef USE_MAPPED_LOCATION
+	      && (LOCATION_FILE (e->goto_locus)
+	          != LOCATION_FILE (EXPR_LOCATION  (last))
+		  || (LOCATION_LINE (e->goto_locus)
+		      != LOCATION_LINE (EXPR_LOCATION  (last)))))
+#else
+	      && (e->goto_locus->file != EXPR_LOCUS (last)->file
+		  || (e->goto_locus->line
+		      != EXPR_LOCUS (last)->line)))
+#endif
+	    {
+	      basic_block new = split_edge (e);
+	      single_succ_edge (new)->goto_locus = e->goto_locus;
+	    }
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->dest != EXIT_BLOCK_PTR)
 	    need_exit_edge = 1;
@@ -1141,6 +1148,7 @@ branch_prob (void)
   free_edge_list (el);
   if (flag_branch_probabilities)
     profile_status = PROFILE_READ;
+  coverage_end_function ();
 }
 
 /* Union find algorithm implementation for the basic blocks using
@@ -1320,11 +1328,45 @@ tree_register_profile_hooks (void)
   profile_hooks = &tree_profile_hooks;
 }
 
-/* Set up hooks to enable RTL-based profiling.  */
-
-void
-rtl_register_profile_hooks (void)
+
+/* Do branch profiling and static profile estimation passes.  */
+static void
+rest_of_handle_branch_prob (void)
 {
-  gcc_assert (!ir_type ());
-  profile_hooks = &rtl_profile_hooks;
+  struct loops loops;
+
+  /* Discover and record the loop depth at the head of each basic
+     block.  The loop infrastructure does the real job for us.  */
+  flow_loops_find (&loops);
+
+  if (dump_file)
+    flow_loops_dump (&loops, dump_file, NULL, 0);
+
+  /* Estimate using heuristics if no profiling info is available.  */
+  if (flag_guess_branch_prob
+      && profile_status == PROFILE_ABSENT)
+    estimate_probability (&loops);
+
+  flow_loops_free (&loops);
+  free_dominance_info (CDI_DOMINATORS);
 }
+
+struct tree_opt_pass pass_branch_prob =
+{
+  "bp",                                 /* name */
+  NULL,                                 /* gate */   
+  rest_of_handle_branch_prob,           /* execute */       
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_BRANCH_PROB,                       /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'b'                                   /* letter */
+};
+
+
+

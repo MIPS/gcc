@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -37,6 +37,7 @@ package body Stylesw is
       Style_Check_Indentation         := 0;
       Style_Check_Attribute_Casing    := False;
       Style_Check_Blanks_At_End       := False;
+      Style_Check_Blank_Lines         := False;
       Style_Check_Comments            := False;
       Style_Check_DOS_Line_Terminator := False;
       Style_Check_End_Labels          := False;
@@ -121,6 +122,7 @@ package body Stylesw is
       Add ('r', Style_Check_References);
       Add ('s', Style_Check_Specs);
       Add ('t', Style_Check_Tokens);
+      Add ('u', Style_Check_Blank_Lines);
       Add ('x', Style_Check_Xtra_Parens);
 
       if Style_Check_Max_Line_Length then
@@ -299,6 +301,9 @@ package body Stylesw is
 
             when 't' =>
                Style_Check_Tokens              := True;
+
+            when 'u' =>
+               Style_Check_Blank_Lines         := True;
 
             when 'x' =>
                Style_Check_Xtra_Parens         := True;

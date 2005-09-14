@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -370,6 +370,11 @@ package Sem_Util is
    function Has_Declarations (N : Node_Id) return Boolean;
    --  Determines if the node can have declarations
 
+   function Has_Discriminant_Dependent_Constraint
+     (Comp : Entity_Id) return Boolean;
+   --  Returns True if and only if Comp has a constrained subtype
+   --  that depends on a discriminant.
+
    function Has_Infinities (E : Entity_Id) return Boolean;
    --  Determines if the range of the floating-point type E includes
    --  infinities. Returns False if E is not a floating-point type.
@@ -450,6 +455,11 @@ package Sem_Util is
    function Is_Atomic_Object (N : Node_Id) return Boolean;
    --  Determines if the given node denotes an atomic object in the sense
    --  of the legality checks described in RM C.6(12).
+
+   function Is_Controlling_Limited_Procedure
+     (Proc_Nam : Entity_Id) return Boolean;
+   --  Ada 2005 (AI-345): Determine whether Proc_Nam is a primitive procedure
+   --  of a limited interface with a controlling first parameter.
 
    function Is_Dependent_Component_Of_Mutable_Object
      (Object : Node_Id) return Boolean;
@@ -534,6 +544,14 @@ package Sem_Util is
    --  one field has an initialization expression). Note that initialization
    --  resulting from the use of pragma Normalized_Scalars does not count.
 
+   function Is_Potentially_Persistent_Type (T : Entity_Id) return Boolean;
+   --  Determines if type T is a potentially persistent type. A potentially
+   --  persistent type is defined (recursively) as a scalar type, a non-tagged
+   --  record whose components are all of a potentially persistent type, or an
+   --  array with all static constraints whose component type is potentially
+   --  persistent. A private type is potentially persistent if the full type
+   --  is potentially persistent.
+
    function Is_RCI_Pkg_Spec_Or_Body (Cunit : Node_Id) return Boolean;
    --  Return True if a compilation unit is the specification or the
    --  body of a remote call interface package.
@@ -546,6 +564,9 @@ package Sem_Util is
 
    function Is_Remote_Call (N : Node_Id) return Boolean;
    --  Return True if N denotes a potentially remote call
+
+   function Is_Renamed_Entry (Proc_Nam : Entity_Id) return Boolean;
+   --  Return True if Proc_Nam is a procedure renaming of an entry
 
    function Is_Selector_Name (N : Node_Id) return Boolean;
    --  Given an N_Identifier node N, determines if it is a Selector_Name.
@@ -722,8 +743,7 @@ package Sem_Util is
 
    function Safe_To_Capture_Value
      (N    : Node_Id;
-      Ent  : Entity_Id)
-      return Boolean;
+      Ent  : Entity_Id) return Boolean;
    --  The caller is interested in capturing a value (either the current
    --  value, or an indication that the value is non-null) for the given
    --  entity Ent. This value can only be captured if sequential execution

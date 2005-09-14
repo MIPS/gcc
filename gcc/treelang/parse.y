@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 In other words, you are welcome to use, share and improve this program.
 You are forbidden to forbid anyone else to use, share and improve
@@ -39,11 +39,12 @@ the GCC compiler.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "timevar.h"
+#include "tree.h"
 
 #include "treelang.h"
 #include "treetree.h"
+#include "toplev.h"
 
 #define YYDEBUG 1
 #define YYPRINT(file, type, value) print_token (file, type, value) 
@@ -450,6 +451,7 @@ parameters_opt:
 | parameters {
  $$ = $1;
 }
+;
 
 parameters:
 parameter {
@@ -525,7 +527,7 @@ tl_RETURN expression_opt {
       tree_code_generate_return (type_prod->tp.pro.code, NULL);
     else
       {
-	warning ("%HRedundant expression in return.",
+	warning (0, "%HRedundant expression in return.",
 		 &ret_tok->tp.tok.location, ret_tok->tp.tok.length,
 		 ret_tok->tp.tok.chars);
         tree_code_generate_return (type_prod->tp.pro.code, NULL);
@@ -674,7 +676,8 @@ NAME LEFT_PARENTHESIS expressions_with_commas_opt RIGHT_PARENTHESIS {
     }
   type = tree_code_get_type (NUMERIC_TYPE (prod));
   prod->tp.pro.code = tree_code_get_expression (EXP_FUNCTION_INVOCATION, type,
-                                                proto->tp.pro.code, parms,
+                                                proto->tp.pro.code,
+						nreverse (parms),
                                                 NULL, tok->tp.tok.location);
   $$ = prod;
 }

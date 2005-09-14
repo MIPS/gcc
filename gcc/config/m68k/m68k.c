@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -103,6 +103,7 @@ struct m68k_frame
 /* Current frame information calculated by m68k_compute_frame_layout().  */
 static struct m68k_frame current_frame;
 
+static bool m68k_handle_option (size_t, const char *, int);
 static rtx find_addr_reg (rtx);
 static const char *singlemove_string (rtx *);
 static void m68k_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -124,7 +125,7 @@ static bool m68k_rtx_costs (rtx, int, int, int *);
 
 
 /* Specify the identification number of the library being built */
-const char *m68k_library_id_string;
+const char *m68k_library_id_string = "_current_shared_library_a5_offset_";
 
 /* Nonzero if the last compare/test insn had FP operands.  The
    sCC expanders peek at this to determine what to do for the
@@ -174,6 +175,11 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
 
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_STRICT_ALIGNMENT)
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION m68k_handle_option
+
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS m68k_rtx_costs
 
@@ -195,6 +201,107 @@ static const struct attribute_spec m68k_attribute_table[] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* These bits are controlled by all CPU selection options.  Many options
+   also control MASK_68881, but some (notably -m68020) leave it alone.  */
+
+#define MASK_ALL_CPU_BITS \
+  (MASK_COLDFIRE | MASK_CF_HWDIV | MASK_68060 | MASK_68040 \
+   | MASK_68040_ONLY | MASK_68030 | MASK_68020 | MASK_BITFIELD)
+
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+m68k_handle_option (size_t code, const char *arg, int value)
+{
+  switch (code)
+    {
+    case OPT_m5200:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      target_flags |= MASK_5200;
+      return true;
+
+    case OPT_m5206e:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      target_flags |= MASK_5200 | MASK_CF_HWDIV;
+      return true;
+
+    case OPT_m528x:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      target_flags |= MASK_528x | MASK_CF_HWDIV;
+      return true;
+
+    case OPT_m5307:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      target_flags |= MASK_CFV3 | MASK_CF_HWDIV;
+      return true;
+
+    case OPT_m5407:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      target_flags |= MASK_CFV4 | MASK_CF_HWDIV;
+      return true;
+
+    case OPT_m68000:
+    case OPT_mc68000:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      return true;
+
+    case OPT_m68020:
+    case OPT_mc68020:
+      target_flags &= ~MASK_ALL_CPU_BITS;
+      target_flags |= MASK_68020 | MASK_BITFIELD;
+      return true;
+
+    case OPT_m68020_40:
+      target_flags &= ~MASK_ALL_CPU_BITS;
+      target_flags |= MASK_BITFIELD | MASK_68881 | MASK_68020 | MASK_68040;
+      return true;
+
+    case OPT_m68020_60:
+      target_flags &= ~MASK_ALL_CPU_BITS;
+      target_flags |= (MASK_BITFIELD | MASK_68881 | MASK_68020
+		       | MASK_68040 | MASK_68060);
+      return true;
+
+    case OPT_m68030:
+      target_flags &= ~MASK_ALL_CPU_BITS;
+      target_flags |= MASK_68020 | MASK_68030 | MASK_BITFIELD;
+      return true;
+
+    case OPT_m68040:
+      target_flags &= ~MASK_ALL_CPU_BITS;
+      target_flags |= (MASK_68020 | MASK_68881 | MASK_BITFIELD
+		       | MASK_68040_ONLY | MASK_68040);
+      return true;
+
+    case OPT_m68060:
+      target_flags &= ~MASK_ALL_CPU_BITS;
+      target_flags |= (MASK_68020 | MASK_68881 | MASK_BITFIELD
+		       | MASK_68040_ONLY | MASK_68060);
+      return true;
+
+    case OPT_m68302:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      return true;
+
+    case OPT_m68332:
+    case OPT_mcpu32:
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      target_flags |= MASK_68020;
+      return true;
+
+    case OPT_mshared_library_id_:
+      if (value > MAX_LIBRARY_ID)
+	error ("-mshared-library-id=%s is not between 0 and %d",
+	       arg, MAX_LIBRARY_ID);
+      else
+	asprintf ((char **) &m68k_library_id_string, "%d", (value * -4) - 4);
+      return true;
+
+    default:
+      return true;
+    }
+}
+
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -207,25 +314,6 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 void
 override_options (void)
 {
-  /* Library identification */
-  if (m68k_library_id_string)
-    {
-      int id;
-
-      if (! TARGET_ID_SHARED_LIBRARY)
-	error ("-mshared-library-id= specified without -mid-shared-library");
-      id = atoi (m68k_library_id_string);
-      if (id < 0 || id > MAX_LIBRARY_ID)
-	error ("-mshared-library-id=%d is not between 0 and %d", id, MAX_LIBRARY_ID);
-
-      /* From now on, m68k_library_id_string will contain the library offset.  */
-      asprintf ((char **)&m68k_library_id_string, "%d", (id * -4) - 4);
-    }
-  else
-    /* If TARGET_ID_SHARED_LIBRARY is enabled, this will point to the
-       current library.  */
-    m68k_library_id_string = "_current_shared_library_a5_offset_";
-
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
    */
@@ -242,7 +330,7 @@ override_options (void)
   /* -fPIC uses 32-bit pc-relative displacements, which don't exist
      until the 68020.  */
   if (!TARGET_68020 && !TARGET_COLDFIRE && (flag_pic == 2))
-    error("-fPIC is not currently supported on the 68000 or 68010\n");
+    error ("-fPIC is not currently supported on the 68000 or 68010");
 
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding
@@ -285,7 +373,7 @@ m68k_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -354,12 +442,17 @@ m68k_initial_elimination_offset (int from, int to)
 
   m68k_compute_frame_layout ();
 
-  if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-    return current_frame.offset + current_frame.size + (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
-  else if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-    return current_frame.offset + current_frame.size;
-
-  abort();
+  gcc_assert (to == STACK_POINTER_REGNUM);
+  switch (from)
+    {
+      case ARG_POINTER_REGNUM:
+	return current_frame.offset + current_frame.size
+	  + (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
+    case FRAME_POINTER_REGNUM:
+      return current_frame.offset + current_frame.size;
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Refer to the array `regs_ever_live' to determine which registers
@@ -544,7 +637,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	asm_fprintf (stream, "\tcmp" ASM_DOT "l %s,%Rsp\n\ttrapcs\n",
 		     M68K_REGNAME(REGNO (stack_limit_rtx)));
       else if (GET_CODE (stack_limit_rtx) != SYMBOL_REF)
-	warning ("stack limit expression is not supported");
+	warning (0, "stack limit expression is not supported");
     }
 
   if (current_frame.reg_no <= 2)
@@ -1059,7 +1152,7 @@ output_dbcc_and_branch (rtx *operands)
 	break;
 
       default:
-	abort ();
+	gcc_unreachable ();
     }
 
   /* If the decrement is to be done in SImode, then we have
@@ -1077,12 +1170,12 @@ output_dbcc_and_branch (rtx *operands)
         break;
 
       default:
-        abort ();
+        gcc_unreachable ();
     }
 }
 
 const char *
-output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
+output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
 {
   rtx loperands[7];
   enum rtx_code op_code = GET_CODE (op);
@@ -1232,7 +1325,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
         break;
 
       default:
-	abort ();
+	gcc_unreachable ();
     }
   return "";
 }
@@ -1325,8 +1418,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
   /* First handle a simple SYMBOL_REF or LABEL_REF */
   if (GET_CODE (orig) == SYMBOL_REF || GET_CODE (orig) == LABEL_REF)
     {
-      if (reg == 0)
-	abort ();
+      gcc_assert (reg);
 
       pic_ref = gen_rtx_MEM (Pmode,
 			     gen_rtx_PLUS (Pmode,
@@ -1345,17 +1437,14 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 	  && XEXP (XEXP (orig, 0), 0) == pic_offset_table_rtx)
 	return orig;
 
-      if (reg == 0)
-	abort ();
+      gcc_assert (reg);
 
       /* legitimize both operands of the PLUS */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS)
-	{
-	  base = legitimize_pic_address (XEXP (XEXP (orig, 0), 0), Pmode, reg);
-	  orig = legitimize_pic_address (XEXP (XEXP (orig, 0), 1), Pmode,
-					 base == reg ? 0 : reg);
-	}
-      else abort ();
+      gcc_assert (GET_CODE (XEXP (orig, 0)) == PLUS);
+      
+      base = legitimize_pic_address (XEXP (XEXP (orig, 0), 0), Pmode, reg);
+      orig = legitimize_pic_address (XEXP (XEXP (orig, 0), 1), Pmode,
+				     base == reg ? 0 : reg);
 
       if (GET_CODE (orig) == CONST_INT)
 	return plus_constant (base, INTVAL (orig));
@@ -1435,7 +1524,7 @@ const_int_cost (rtx constant)
       case MOVL :
 	return 2;
       default :
-        abort ();
+        gcc_unreachable ();
     }
 }
 
@@ -1597,7 +1686,7 @@ output_move_const_into_data_reg (rtx *operands)
     case MOVL :
 	return "move%.l %1,%0";
     default :
-	abort ();
+	gcc_unreachable ();
     }
 }
 
@@ -1731,13 +1820,13 @@ output_move_qimode (rtx *operands)
 {
   /* 68k family always modifies the stack pointer by at least 2, even for
      byte pushes.  The 5200 (ColdFire) does not do this.  */
-  if (GET_CODE (operands[0]) == MEM
-      && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
-      && XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
-      && ! ADDRESS_REG_P (operands[1])
-      && ! TARGET_COLDFIRE)
-    /* generated by pushqi1 pattern now */
-    abort ();
+  
+  /* This case is generated by pushqi1 pattern now */
+  gcc_assert (!(GET_CODE (operands[0]) == MEM
+		&& GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
+		&& XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
+		&& ! ADDRESS_REG_P (operands[1])
+		&& ! TARGET_COLDFIRE));
 
   /* clr and st insns on 68000 read before writing.
      This isn't so on the 68010, but we have no TARGET_68010.  */
@@ -1859,12 +1948,10 @@ output_move_double (rtx *operands)
   else
     optype1 = RNDOP;
 
-  /* Check for the cases that the operand constraints are not
-     supposed to allow to happen.  Abort if we get one,
-     because generating code for these cases is painful.  */
-
-  if (optype0 == RNDOP || optype1 == RNDOP)
-    abort ();
+  /* Check for the cases that the operand constraints are not supposed
+     to allow to happen.  Generating code for these cases is
+     painful.  */
+  gcc_assert (optype0 != RNDOP && optype1 != RNDOP);
 
   /* If one operand is decrementing and one is incrementing
      decrement the former register explicitly
@@ -1960,15 +2047,11 @@ output_move_double (rtx *operands)
 	      middlehalf[1] = GEN_INT (l[1]);
 	      latehalf[1] = GEN_INT (l[2]);
 	    }
-	  else if (CONSTANT_P (operands[1]))
+	  else
 	    {
-	      /* actually, no non-CONST_DOUBLE constant should ever
-		 appear here.  */
-	      abort ();
-	      if (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) < 0)
-		latehalf[1] = constm1_rtx;
-	      else
-		latehalf[1] = const0_rtx;
+	      /* No non-CONST_DOUBLE constant should ever appear
+		 here.  */
+	      gcc_assert (!CONSTANT_P (operands[1]));
 	    }
 	}
       else
@@ -2021,7 +2104,7 @@ output_move_double (rtx *operands)
 	  /* If both halves of dest are used in the src memory address,
 	     compute the address into latehalf of dest.
 	     Note that this can't happen if the dest is two data regs.  */
-compadr:
+	compadr:
 	  xops[0] = latehalf[0];
 	  xops[1] = XEXP (operands[1], 0);
 	  output_asm_insn ("lea %a1,%0", xops);
@@ -2052,8 +2135,7 @@ compadr:
 	    goto compadr;
 
 	  /* JRV says this can't happen: */
-	  if (addreg0 || addreg1)
-	    abort ();
+	  gcc_assert (!addreg0 && !addreg1);
 
 	  /* Only the middle reg conflicts; simply put it last.  */
 	  output_asm_insn (singlemove_string (operands), operands);
@@ -2179,11 +2261,10 @@ find_addr_reg (rtx addr)
       else if (CONSTANT_P (XEXP (addr, 1)))
 	addr = XEXP (addr, 0);
       else
-	abort ();
+	gcc_unreachable ();
     }
-  if (GET_CODE (addr) == REG)
-    return addr;
-  abort ();
+  gcc_assert (GET_CODE (addr) == REG);
+  return addr;
 }
 
 /* Output assembler code to perform a 32-bit 3-operand add.  */
@@ -2579,9 +2660,9 @@ print_operand (FILE *file, rtx op, int letter)
   else if (letter == 'o')
     {
       /* This is only for direct addresses with TARGET_PCREL */
-      if (GET_CODE (op) != MEM || GET_CODE (XEXP (op, 0)) != SYMBOL_REF
-          || !TARGET_PCREL)
-	abort ();
+      gcc_assert (GET_CODE (op) == MEM
+		  && GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+		  && TARGET_PCREL);
       output_addr_const (file, XEXP (op, 0));
     }
   else if (GET_CODE (op) == REG)
@@ -2768,10 +2849,7 @@ print_operand_address (FILE *file, rtx addr)
 #endif
 	if (offset != 0)
 	  {
-	    if (addr != 0)
-	      {
-		abort ();
-	      }
+	    gcc_assert (!addr);
 	    addr = offset;
 	  }
 	if ((reg1 && (GET_CODE (reg1) == SIGN_EXTEND
@@ -2826,14 +2904,10 @@ print_operand_address (FILE *file, rtx addr)
 	if (ireg != 0 || breg != 0)
 	  {
 	    int scale = 1;
-	    if (breg == 0)
-	      {
-		abort ();
-	      }
-	    if (! flag_pic && addr && GET_CODE (addr) == LABEL_REF)
-	      {
-		abort ();
-	      }
+	    
+	    gcc_assert (breg);
+	    gcc_assert (flag_pic || !addr || GET_CODE (addr) != LABEL_REF);
+	    
 	    if (MOTOROLA)
 	      {
 		if (addr != 0)
@@ -3285,4 +3359,37 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
     return 0;
 
   return 1;
+}
+
+/* Value is true if hard register REGNO can hold a value of machine-mode MODE.
+   On the 68000, the cpu registers can hold any mode except bytes in address
+   registers, but the 68881 registers can hold only SFmode or DFmode.  */
+bool
+m68k_regno_mode_ok (int regno, enum machine_mode mode)
+{
+  if (regno < 8)
+    {
+	/* Data Registers, can hold aggregate if fits in.  */
+	if (regno + GET_MODE_SIZE (mode) / 4 <= 8)
+	  return true;
+    }
+  else if (regno < 16)
+    {
+	/* Address Registers, can't hold bytes, can hold aggregate if
+	   fits in.  */
+	if (GET_MODE_SIZE (mode) == 1)
+	  return false;
+	if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
+	  return true;
+    }
+  else if (regno < 24)
+    {
+      /* FPU registers, hold float or complex float of long double or
+	   smaller.  */
+	if ((GET_MODE_CLASS (mode) == MODE_FLOAT
+	     || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+	    && GET_MODE_UNIT_SIZE (mode) <= 12)
+	  return true;
+    }
+  return false;
 }

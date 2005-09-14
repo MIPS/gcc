@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                 GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                 --
 --                                                                          --
 --            S Y S T E M . I N T E R R U P T _ M A N A G E M E N T         --
 --                                                                          --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -38,13 +38,6 @@
 --  Unlike the original design, System.Interrupt_Management can only be used
 --  for tasking systems.
 
---  PLEASE DO NOT remove the Elaborate_Body pragma from this package.
---  Elaboration of this package should happen early, as most other
---  initializations depend on it. Forcing immediate elaboration of the body
---  also helps to enforce the design assumption that this is a second-level
---  package, just one level above System.OS_Interface with no
---  cross-dependencies.
-
 --  PLEASE DO NOT put any subprogram declarations with arguments of type
 --  Interrupt_ID into the visible part of this package. The type Interrupt_ID
 --  is used to derive the type in Ada.Interrupts, and adding more operations
@@ -59,8 +52,7 @@ with Interfaces.C;
 --  used for int
 
 package System.Interrupt_Management is
-
-   pragma Elaborate_Body;
+   pragma Preelaborate;
 
    type Interrupt_Mask is limited private;
 
@@ -103,11 +95,10 @@ package System.Interrupt_Management is
    --  example, it may be mapped to an exception used to implement task abort,
    --  or used to implement time delays.
 
-   procedure Initialize_Interrupts;
-   --  On systems where there is no signal inheritance between tasks (e.g
-   --  VxWorks, GNU/LinuxThreads), this procedure is used to initialize
-   --  interrupts handling in each task. Otherwise this function should only
-   --  be called by initialize in this package body.
+   procedure Initialize;
+   --  Initialize the various variables defined in this package.
+   --  This procedure must be called before accessing any object from this
+   --  package, and can be called multiple times.
 
 private
    type Interrupt_Mask is new System.OS_Interface.sigset_t;

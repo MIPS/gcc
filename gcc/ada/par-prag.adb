@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -288,6 +288,7 @@ begin
 
       when Pragma_Ada_83 =>
          Ada_Version := Ada_83;
+         Ada_Version_Explicit := Ada_Version;
 
       ------------
       -- Ada_95 --
@@ -299,6 +300,7 @@ begin
 
       when Pragma_Ada_95 =>
          Ada_Version := Ada_95;
+         Ada_Version_Explicit := Ada_Version;
 
       ------------
       -- Ada_05 --
@@ -312,6 +314,7 @@ begin
       when Pragma_Ada_05 =>
          if Arg_Count = 0 then
             Ada_Version := Ada_05;
+            Ada_Version_Explicit := Ada_Version;
          end if;
 
       -----------
@@ -369,6 +372,8 @@ begin
             Extensions_Allowed := False;
             Ada_Version := Ada_Version_Type'Min (Ada_Version, Ada_95);
          end if;
+
+         Ada_Version_Explicit := Ada_Version;
 
       ----------------
       -- List (2.8) --
@@ -984,6 +989,7 @@ begin
       --  entirely in Sem_Prag, and no further checking is done by Par.
 
       when Pragma_Abort_Defer                  |
+           Pragma_Assertion_Policy             |
            Pragma_AST_Entry                    |
            Pragma_All_Calls_Remote             |
            Pragma_Annotate                     |
@@ -1005,6 +1011,7 @@ begin
            Pragma_Component_Alignment          |
            Pragma_Controlled                   |
            Pragma_Convention                   |
+           Pragma_Debug_Policy                 |
            Pragma_Detect_Blocking              |
            Pragma_Discard_Names                |
            Pragma_Eliminate                    |
@@ -1048,6 +1055,8 @@ begin
            Pragma_License                      |
            Pragma_Link_With                    |
            Pragma_Linker_Alias                 |
+           Pragma_Linker_Constructor           |
+           Pragma_Linker_Destructor            |
            Pragma_Linker_Options               |
            Pragma_Linker_Section               |
            Pragma_Locking_Policy               |
@@ -1066,15 +1075,16 @@ begin
            Pragma_Pack                         |
            Pragma_Passive                      |
            Pragma_Polling                      |
-           Pragma_Persistent_Data              |
-           Pragma_Persistent_Object            |
+           Pragma_Persistent_BSS               |
            Pragma_Preelaborate                 |
+           Pragma_Preelaborate_05              |
            Pragma_Priority                     |
            Pragma_Profile                      |
            Pragma_Profile_Warnings             |
            Pragma_Propagate_Exceptions         |
            Pragma_Psect_Object                 |
            Pragma_Pure                         |
+           Pragma_Pure_05                      |
            Pragma_Pure_Function                |
            Pragma_Queuing_Policy               |
            Pragma_Remote_Call_Interface        |

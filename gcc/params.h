@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
 
 */
 
@@ -89,8 +89,12 @@ typedef enum compiler_param
   (compiler_params[(int) ENUM].value)
 
 /* Macros for the various parameters.  */
+#define SALIAS_MAX_IMPLICIT_FIELDS \
+  PARAM_VALUE (PARAM_SALIAS_MAX_IMPLICIT_FIELDS)
 #define SRA_MAX_STRUCTURE_SIZE \
   PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_SIZE)
+#define SRA_MAX_STRUCTURE_COUNT \
+  PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_COUNT)
 #define SRA_FIELD_STRUCTURE_RATIO \
   PARAM_VALUE (PARAM_SRA_FIELD_STRUCTURE_RATIO)
 #define MAX_INLINE_INSNS_SINGLE \
@@ -139,4 +143,8 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_LOOP_CH_MAX_SIZE)
 #define MAX_LAST_VALUE_RTL \
   PARAM_VALUE (PARAM_MAX_LAST_VALUE_RTL)
+#define MIN_VIRTUAL_MAPPINGS \
+  PARAM_VALUE (PARAM_MIN_VIRTUAL_MAPPINGS)
+#define VIRTUAL_MAPPINGS_TO_SYMS_RATIO \
+  PARAM_VALUE (PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO)
 #endif /* ! GCC_PARAMS_H */

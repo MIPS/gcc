@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This file contains the variable tracking pass.  It computes where
    variables are located (which registers or where in memory) at each position
@@ -102,6 +102,10 @@
 #include "alloc-pool.h"
 #include "fibheap.h"
 #include "hashtab.h"
+#include "regs.h"
+#include "expr.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 /* Type of micro operation.  */
 enum micro_operation_type
@@ -264,19 +268,12 @@ static htab_t changed_variables;
 /* Shall notes be emitted?  */
 static bool emit_notes;
 
-/* Fake variable for stack pointer.  */
-tree frame_base_decl;
-
-/* Stack adjust caused by function prologue.  */
-static HOST_WIDE_INT frame_stack_adjust;
-
 /* Local function prototypes.  */
 static void stack_adjust_offset_pre_post (rtx, HOST_WIDE_INT *,
 					  HOST_WIDE_INT *);
 static void insn_stack_adjust_offset_pre_post (rtx, HOST_WIDE_INT *,
 					       HOST_WIDE_INT *);
 static void bb_stack_adjust_offset (basic_block);
-static HOST_WIDE_INT prologue_stack_adjust (void);
 static bool vt_stack_adjustments (void);
 static rtx adjust_stack_reference (rtx, HOST_WIDE_INT);
 static hashval_t variable_htab_hash (const void *);
@@ -331,7 +328,6 @@ static void dump_dataflow_set (dataflow_set *);
 static void dump_dataflow_sets (void);
 
 static void variable_was_changed (variable, htab_t);
-static void set_frame_base_location (dataflow_set *, rtx);
 static void set_variable_part (dataflow_set *, rtx, tree, HOST_WIDE_INT);
 static void delete_variable_part (dataflow_set *, rtx, tree, HOST_WIDE_INT);
 static int emit_note_insn_var_location (void **, void *);
@@ -487,38 +483,6 @@ bb_stack_adjust_offset (basic_block bb)
   VTI (bb)->out.stack_adjust = offset;
 }
 
-/* Compute stack adjustment caused by function prologue.  */
-
-static HOST_WIDE_INT
-prologue_stack_adjust (void)
-{
-  HOST_WIDE_INT offset = 0;
-  basic_block bb = ENTRY_BLOCK_PTR->next_bb;
-  rtx insn;
-  rtx end;
-
-  if (!BB_END (bb))
-    return 0;
-
-  end = NEXT_INSN (BB_END (bb));
-  for (insn = BB_HEAD (bb); insn != end; insn = NEXT_INSN (insn))
-    {
-      if (NOTE_P (insn)
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_PROLOGUE_END)
-	break;
-
-      if (INSN_P (insn))
-	{
-	  HOST_WIDE_INT tmp;
-
-	  insn_stack_adjust_offset_pre_post (insn, &tmp, &tmp);
-	  offset += tmp;
-	}
-    }
-
-  return offset;
-}
-
 /* Compute stack adjustments for all blocks by traversing DFS tree.
    Return true when the adjustments on all incoming edges are consistent.
    Heavily borrowed from flow_depth_first_order_compute.  */
@@ -531,7 +495,7 @@ vt_stack_adjustments (void)
 
   /* Initialize entry block.  */
   VTI (ENTRY_BLOCK_PTR)->visited = true;
-  VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = frame_stack_adjust;
+  VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = INCOMING_FRAME_SP_OFFSET;
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
@@ -585,27 +549,23 @@ vt_stack_adjustments (void)
   return true;
 }
 
-/* Adjust stack reference MEM by ADJUSTMENT bytes and return the new rtx.  */
+/* Adjust stack reference MEM by ADJUSTMENT bytes and make it relative
+   to the argument pointer.  Return the new rtx.  */
 
 static rtx
 adjust_stack_reference (rtx mem, HOST_WIDE_INT adjustment)
 {
-  rtx adjusted_mem;
-  rtx tmp;
+  rtx addr, cfa, tmp;
 
-  if (adjustment == 0)
-    return mem;
+  adjustment -= ARG_POINTER_CFA_OFFSET (current_function_decl);
+  cfa = plus_constant (arg_pointer_rtx, adjustment);
 
-  adjusted_mem = copy_rtx (mem);
-  XEXP (adjusted_mem, 0) = replace_rtx (XEXP (adjusted_mem, 0),
-					stack_pointer_rtx,
-					gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-						      GEN_INT (adjustment)));
-  tmp = simplify_rtx (XEXP (adjusted_mem, 0));
+  addr = replace_rtx (copy_rtx (XEXP (mem, 0)), stack_pointer_rtx, cfa);
+  tmp = simplify_rtx (addr);
   if (tmp)
-    XEXP (adjusted_mem, 0) = tmp;
+    addr = tmp;
 
-  return adjusted_mem;
+  return replace_equiv_address_nv (mem, addr);
 }
 
 /* The hash function for variable_htab, computes the hash value
@@ -1441,8 +1401,7 @@ track_expr_p (tree expr)
      don't need to track this expression if the ultimate declaration is
      ignored.  */
   realdecl = expr;
-  if (DECL_DEBUG_EXPR (realdecl)
-      && DECL_DEBUG_EXPR_IS_FROM (realdecl))
+  if (DECL_DEBUG_EXPR_IS_FROM (realdecl) && DECL_DEBUG_EXPR (realdecl))
     {
       realdecl = DECL_DEBUG_EXPR (realdecl);
       /* ??? We don't yet know how to emit DW_OP_piece for variable
@@ -1649,14 +1608,7 @@ compute_bb_dataflow (basic_block bb)
 	    break;
 
 	  case MO_ADJUST:
-	    {
-	      rtx base;
-
-	      out->stack_adjust += VTI (bb)->mos[i].u.adjust;
-	      base = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
-							out->stack_adjust));
-	      set_frame_base_location (out, base);
-	    }
+	    out->stack_adjust += VTI (bb)->mos[i].u.adjust;
 	    break;
 	}
     }
@@ -1779,8 +1731,7 @@ dump_attrs_list (attrs list)
   for (; list; list = list->next)
     {
       print_mem_expr (dump_file, list->decl);
-      fprintf (dump_file, "+");
-      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC, list->offset);
+      fprintf (dump_file, "+" HOST_WIDE_INT_PRINT_DEC, list->offset);
     }
   fprintf (dump_file, "\n");
 }
@@ -1830,9 +1781,8 @@ dump_dataflow_set (dataflow_set *set)
 {
   int i;
 
-  fprintf (dump_file, "Stack adjustment: ");
-  fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC, set->stack_adjust);
-  fprintf (dump_file, "\n");
+  fprintf (dump_file, "Stack adjustment: " HOST_WIDE_INT_PRINT_DEC "\n",
+	   set->stack_adjust);
   for (i = 1; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (set->regs[i])
@@ -1909,31 +1859,6 @@ variable_was_changed (variable var, htab_t htab)
 	    htab_clear_slot (htab, slot);
 	}
     }
-}
-
-/* Set the location of frame_base_decl to LOC in dataflow set SET.  This
-   function expects that frame_base_decl has already one location for offset 0
-   in the variable table.  */
-
-static void
-set_frame_base_location (dataflow_set *set, rtx loc)
-{
-  variable var;
-  
-  var = htab_find_with_hash (set->vars, frame_base_decl,
-			     VARIABLE_HASH_VAL (frame_base_decl));
-  gcc_assert (var);
-  gcc_assert (var->n_var_parts == 1);
-  gcc_assert (!var->var_part[0].offset);
-  gcc_assert (var->var_part[0].loc_chain);
-
-  /* If frame_base_decl is shared unshare it first.  */
-  if (var->refcount > 1)
-    var = unshare_variable (set, var);
-
-  var->var_part[0].loc_chain->loc = loc;
-  var->var_part[0].cur_loc = loc;
-  variable_was_changed (var, set->vars);
 }
 
 /* Set the part of variable's location in the dataflow set SET.  The variable
@@ -2168,25 +2093,101 @@ emit_note_insn_var_location (void **varp, void *data)
   rtx insn = ((emit_note_data *)data)->insn;
   enum emit_note_where where = ((emit_note_data *)data)->where;
   rtx note;
-  int i;
+  int i, j, n_var_parts;
   bool complete;
   HOST_WIDE_INT last_limit;
   tree type_size_unit;
+  HOST_WIDE_INT offsets[MAX_VAR_PARTS];
+  rtx loc[MAX_VAR_PARTS];
 
   gcc_assert (var->decl);
 
   complete = true;
   last_limit = 0;
+  n_var_parts = 0;
   for (i = 0; i < var->n_var_parts; i++)
     {
+      enum machine_mode mode, wider_mode;
+
       if (last_limit < var->var_part[i].offset)
 	{
 	  complete = false;
 	  break;
 	}
-      last_limit
-	= (var->var_part[i].offset
-	   + GET_MODE_SIZE (GET_MODE (var->var_part[i].loc_chain->loc)));
+      else if (last_limit > var->var_part[i].offset)
+	continue;
+      offsets[n_var_parts] = var->var_part[i].offset;
+      loc[n_var_parts] = var->var_part[i].loc_chain->loc;
+      mode = GET_MODE (loc[n_var_parts]);
+      last_limit = offsets[n_var_parts] + GET_MODE_SIZE (mode);
+
+      /* Attempt to merge adjacent registers or memory.  */
+      wider_mode = GET_MODE_WIDER_MODE (mode);
+      for (j = i + 1; j < var->n_var_parts; j++)
+	if (last_limit <= var->var_part[j].offset)
+	  break;
+      if (j < var->n_var_parts
+	  && wider_mode != VOIDmode
+	  && GET_CODE (loc[n_var_parts])
+	     == GET_CODE (var->var_part[j].loc_chain->loc)
+	  && mode == GET_MODE (var->var_part[j].loc_chain->loc)
+	  && last_limit == var->var_part[j].offset)
+	{
+	  rtx new_loc = NULL;
+	  rtx loc2 = var->var_part[j].loc_chain->loc;
+
+	  if (REG_P (loc[n_var_parts])
+	      && hard_regno_nregs[REGNO (loc[n_var_parts])][mode] * 2
+		 == hard_regno_nregs[REGNO (loc[n_var_parts])][wider_mode]
+	      && REGNO (loc[n_var_parts])
+		 + hard_regno_nregs[REGNO (loc[n_var_parts])][mode]
+		 == REGNO (loc2))
+	    {
+	      if (! WORDS_BIG_ENDIAN && ! BYTES_BIG_ENDIAN)
+		new_loc = simplify_subreg (wider_mode, loc[n_var_parts],
+					   mode, 0);
+	      else if (WORDS_BIG_ENDIAN && BYTES_BIG_ENDIAN)
+		new_loc = simplify_subreg (wider_mode, loc2, mode, 0);
+	      if (new_loc)
+		{
+		  if (!REG_P (new_loc)
+		      || REGNO (new_loc) != REGNO (loc[n_var_parts]))
+		    new_loc = NULL;
+		  else
+		    REG_ATTRS (new_loc) = REG_ATTRS (loc[n_var_parts]);
+		}
+	    }
+	  else if (MEM_P (loc[n_var_parts])
+		   && GET_CODE (XEXP (loc2, 0)) == PLUS
+		   && GET_CODE (XEXP (XEXP (loc2, 0), 0)) == REG
+		   && GET_CODE (XEXP (XEXP (loc2, 0), 1)) == CONST_INT)
+	    {
+	      if ((GET_CODE (XEXP (loc[n_var_parts], 0)) == REG
+		   && rtx_equal_p (XEXP (loc[n_var_parts], 0),
+				   XEXP (XEXP (loc2, 0), 0))
+		   && INTVAL (XEXP (XEXP (loc2, 0), 1))
+		      == GET_MODE_SIZE (mode))
+		  || (GET_CODE (XEXP (loc[n_var_parts], 0)) == PLUS
+		      && GET_CODE (XEXP (XEXP (loc[n_var_parts], 0), 1))
+			 == CONST_INT
+		      && rtx_equal_p (XEXP (XEXP (loc[n_var_parts], 0), 0),
+				      XEXP (XEXP (loc2, 0), 0))
+		      && INTVAL (XEXP (XEXP (loc[n_var_parts], 0), 1))
+			 + GET_MODE_SIZE (mode)
+			 == INTVAL (XEXP (XEXP (loc2, 0), 1))))
+		new_loc = adjust_address_nv (loc[n_var_parts],
+					     wider_mode, 0);
+	    }
+
+	  if (new_loc)
+	    {
+	      loc[n_var_parts] = new_loc;
+	      mode = wider_mode;
+	      last_limit = offsets[n_var_parts] + GET_MODE_SIZE (mode);
+	      i = j;
+	    }
+	}
+      ++n_var_parts;
     }
   type_size_unit = TYPE_SIZE_UNIT (TREE_TYPE (var->decl));
   if ((unsigned HOST_WIDE_INT) last_limit < TREE_INT_CST_LOW (type_size_unit))
@@ -2202,26 +2203,24 @@ emit_note_insn_var_location (void **varp, void *data)
       NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
 						       NULL_RTX);
     }
-  else if (var->n_var_parts == 1)
+  else if (n_var_parts == 1)
     {
       rtx expr_list
-	= gen_rtx_EXPR_LIST (VOIDmode,
-			     var->var_part[0].loc_chain->loc,
-			     GEN_INT (var->var_part[0].offset));
+	= gen_rtx_EXPR_LIST (VOIDmode, loc[0], GEN_INT (offsets[0]));
 
       NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
 						       expr_list);
     }
-  else if (var->n_var_parts)
+  else if (n_var_parts)
     {
-      rtx argp[MAX_VAR_PARTS];
       rtx parallel;
 
-      for (i = 0; i < var->n_var_parts; i++)
-	argp[i] = gen_rtx_EXPR_LIST (VOIDmode, var->var_part[i].loc_chain->loc,
-				     GEN_INT (var->var_part[i].offset));
+      for (i = 0; i < n_var_parts; i++)
+	loc[i]
+	  = gen_rtx_EXPR_LIST (VOIDmode, loc[i], GEN_INT (offsets[i]));
+
       parallel = gen_rtx_PARALLEL (VOIDmode,
-				   gen_rtvec_v (var->n_var_parts, argp));
+				   gen_rtvec_v (n_var_parts, loc));
       NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
 						       parallel);
     }
@@ -2386,15 +2385,7 @@ emit_notes_in_bb (basic_block bb)
 	    break;
 
 	  case MO_ADJUST:
-	    {
-	      rtx base;
-
-	      set.stack_adjust += VTI (bb)->mos[i].u.adjust;
-	      base = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
-							set.stack_adjust));
-	      set_frame_base_location (&set, base);
-	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
-	    }
+	    set.stack_adjust += VTI (bb)->mos[i].u.adjust;
 	    break;
 	}
     }
@@ -2498,7 +2489,6 @@ vt_add_function_parameters (void)
 
       gcc_assert (parm == decl);
 
-      incoming = eliminate_regs (incoming, 0, NULL_RTX);
       out = &VTI (ENTRY_BLOCK_PTR)->out;
 
       if (REG_P (incoming))
@@ -2509,9 +2499,7 @@ vt_add_function_parameters (void)
 	  set_variable_part (out, incoming, parm, offset);
 	}
       else if (MEM_P (incoming))
-	{
-	  set_variable_part (out, incoming, parm, offset);
-	}
+	set_variable_part (out, incoming, parm, offset);
     }
 }
 
@@ -2656,28 +2644,6 @@ vt_initialize (void)
   changed_variables = htab_create (10, variable_htab_hash, variable_htab_eq,
 				   NULL);
   vt_add_function_parameters ();
-
-  if (!frame_pointer_needed)
-    {
-      rtx base;
-
-      /* Create fake variable for tracking stack pointer changes.  */
-      frame_base_decl = make_node (VAR_DECL);
-      DECL_NAME (frame_base_decl) = get_identifier ("___frame_base_decl");
-      TREE_TYPE (frame_base_decl) = char_type_node;
-      DECL_ARTIFICIAL (frame_base_decl) = 1;
-      DECL_IGNORED_P (frame_base_decl) = 1;
-
-      /* Set its initial "location".  */
-      frame_stack_adjust = -prologue_stack_adjust ();
-      base = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
-						frame_stack_adjust));
-      set_variable_part (&VTI (ENTRY_BLOCK_PTR)->out, base, frame_base_decl, 0);
-    }
-  else
-    {
-      frame_base_decl = NULL;
-    }
 }
 
 /* Free the data structures needed for variable tracking.  */
@@ -2734,3 +2700,29 @@ variable_tracking_main (void)
 
   vt_finalize ();
 }
+
+static bool
+gate_handle_var_tracking (void)
+{
+  return (flag_var_tracking);
+}
+
+
+
+struct tree_opt_pass pass_variable_tracking =
+{
+  "vartrack",                           /* name */
+  gate_handle_var_tracking,             /* gate */
+  variable_tracking_main,               /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_VAR_TRACKING,                      /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'V'                                   /* letter */
+};
+

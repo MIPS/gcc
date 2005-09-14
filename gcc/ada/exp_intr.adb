@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -490,6 +490,61 @@ package body Exp_Intr is
       Loc : constant Source_Ptr := Sloc (N);
       Ent : Entity_Id;
 
+      procedure Write_Entity_Name (E : Entity_Id);
+      --  Recursive procedure to construct string for qualified name of
+      --  enclosing program unit. The qualification stops at an enclosing
+      --  scope has no source name (block or loop). If entity is a subprogram
+      --  instance, skip enclosing wrapper package.
+
+      -----------------------
+      -- Write_Entity_Name --
+      -----------------------
+
+      procedure Write_Entity_Name (E : Entity_Id) is
+         SDef : Source_Ptr;
+         TDef : constant Source_Buffer_Ptr :=
+                  Source_Text (Get_Source_File_Index (Sloc (E)));
+
+      begin
+         --  Nothing to do if at outer level
+
+         if Scope (E) = Standard_Standard then
+            null;
+
+         --  If scope comes from source, write its name
+
+         elsif Comes_From_Source (Scope (E)) then
+            Write_Entity_Name (Scope (E));
+            Add_Char_To_Name_Buffer ('.');
+
+         --  If in wrapper package skip past it
+
+         elsif Is_Wrapper_Package (Scope (E)) then
+            Write_Entity_Name (Scope (Scope (E)));
+            Add_Char_To_Name_Buffer ('.');
+
+         --  Otherwise nothing to output (happens in unnamed block statements)
+
+         else
+            null;
+         end if;
+
+         --  Loop to output the name
+
+         --  is this right wrt wide char encodings ??? (no!)
+
+         SDef := Sloc (E);
+         while TDef (SDef) in '0' .. '9'
+           or else TDef (SDef) >= 'A'
+           or else TDef (SDef) = ASCII.ESC
+         loop
+            Add_Char_To_Name_Buffer (TDef (SDef));
+            SDef := SDef + 1;
+         end loop;
+      end Write_Entity_Name;
+
+   --  Start of processing for Expand_Source_Info
+
    begin
       --  Integer cases
 
@@ -515,7 +570,7 @@ package body Exp_Intr is
 
                Ent := Current_Scope;
 
-               --  Skip enclosing blocks to reach enclosing unit.
+               --  Skip enclosing blocks to reach enclosing unit
 
                while Present (Ent) loop
                   exit when Ekind (Ent) /= E_Block
@@ -525,22 +580,8 @@ package body Exp_Intr is
 
                --  Ent now points to the relevant defining entity
 
-               declare
-                  SDef : Source_Ptr := Sloc (Ent);
-                  TDef : Source_Buffer_Ptr;
-
-               begin
-                  TDef := Source_Text (Get_Source_File_Index (SDef));
-                  Name_Len := 0;
-
-                  while TDef (SDef) in '0' .. '9'
-                    or else TDef (SDef) >= 'A'
-                    or else TDef (SDef) = ASCII.ESC
-                  loop
-                     Add_Char_To_Name_Buffer (TDef (SDef));
-                     SDef := SDef + 1;
-                  end loop;
-               end;
+               Name_Len := 0;
+               Write_Entity_Name (Ent);
 
             when others =>
                raise Program_Error;
@@ -664,12 +705,21 @@ package body Exp_Intr is
 
          --  If the type is tagged, then we must force dispatching on the
          --  finalization call because the designated type may not be the
-         --  actual type of the object
+         --  actual type of the object.
 
          if Is_Tagged_Type (Desig_T)
            and then not Is_Class_Wide_Type (Desig_T)
          then
             Deref := Unchecked_Convert_To (Class_Wide_Type (Desig_T), Deref);
+
+         elsif not Is_Tagged_Type (Desig_T) then
+
+            --  Set type of result, to force a conversion when needed (see
+            --  exp_ch7, Convert_View), given that Deep_Finalize may be
+            --  inherited from the parent type, and we need the type of the
+            --  expression to see whether the conversion is in fact needed.
+
+            Set_Etype (Deref, Desig_T);
          end if;
 
          Free_Cod :=
@@ -735,7 +785,7 @@ package body Exp_Intr is
                  and then Is_Entity_Name (Nam2)
                  and then Entity (Prefix (Nam1)) = Entity (Nam2)
                then
-                  Error_Msg_N ("Abort may take time to complete?", N);
+                  Error_Msg_N ("abort may take time to complete?", N);
                   Error_Msg_N ("\deallocation might have no effect?", N);
                   Error_Msg_N ("\safer to wait for termination.?", N);
                end if;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -993,12 +993,6 @@ package body Layout is
                Decl := Parent (Parent (Entity (N)));
                Size := (Discrim, Size.Nod);
                Vtyp := Defining_Identifier (Decl);
-
-               --  Ensure that we get a private type's full type
-
-               if Present (Underlying_Type (Vtyp)) then
-                  Vtyp := Underlying_Type (Vtyp);
-               end if;
             end if;
 
             Typ := Etype (N);
@@ -1029,8 +1023,8 @@ package body Layout is
 
       --  Calculate proper type for insertions
 
-      if Is_Record_Type (Scope (E)) then
-         Insert_Typ := Scope (E);
+      if Is_Record_Type (Underlying_Type (Scope (E))) then
+         Insert_Typ := Underlying_Type (Scope (E));
       else
          Insert_Typ := E;
       end if;
@@ -2951,6 +2945,8 @@ package body Layout is
 
       Decl : Node_Id;
 
+      Vtype_Primary_View : Entity_Id;
+
       function Check_Node_V_Ref (N : Node_Id) return Traverse_Result;
       --  Function used to check one node for reference to V
 
@@ -2992,6 +2988,21 @@ package body Layout is
       if Has_V_Ref (Expr) = Abandon then
 
          pragma Assert (Present (Vtype));
+
+         --  Check whether Vtype is a view of a private type and ensure that
+         --  we use the primary view of the type (which is denoted by its
+         --  Etype, whether it's the type's partial or full view entity).
+         --  This is needed to make sure that we use the same (primary) view
+         --  of the type for all V formals, whether the current view of the
+         --  type is the partial or full view, so that types will always
+         --  match on calls from one size function to another.
+
+         if  Has_Private_Declaration (Vtype) then
+            Vtype_Primary_View := Etype (Vtype);
+         else
+            Vtype_Primary_View := Vtype;
+         end if;
+
          Set_Is_Discrim_SO_Function (K);
 
          Decl :=
@@ -3005,8 +3016,8 @@ package body Layout is
                        Defining_Identifier =>
                          Make_Defining_Identifier (Loc, Chars => Vname),
                        Parameter_Type      =>
-                         New_Occurrence_Of (Vtype, Loc))),
-                   Subtype_Mark =>
+                         New_Occurrence_Of (Vtype_Primary_View, Loc))),
+                   Result_Definition =>
                      New_Occurrence_Of (Standard_Unsigned, Loc)),
 
              Declarations => Empty_List,
@@ -3028,7 +3039,8 @@ package body Layout is
                Make_Function_Specification (Loc,
                  Defining_Unit_Name => K,
                    Parameter_Specifications => Empty_List,
-                   Subtype_Mark => New_Occurrence_Of (Standard_Unsigned, Loc)),
+                   Result_Definition =>
+                     New_Occurrence_Of (Standard_Unsigned, Loc)),
 
              Declarations => Empty_List,
 

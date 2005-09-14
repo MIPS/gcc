@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* These functions check to see if an argument list is compatible with
@@ -916,6 +916,64 @@ gfc_check_ibset (gfc_expr * i, gfc_expr * pos)
 
   if (type_check (pos, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_ichar_iachar (gfc_expr * c)
+{
+  int i;
+
+  if (type_check (c, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  /* Check that the argument is length one.  Non-constant lengths
+     can't be checked here, so assume thay are ok.  */
+  if (c->ts.cl && c->ts.cl->length)
+    {
+      /* If we already have a length for this expression then use it.  */
+      if (c->ts.cl->length->expr_type != EXPR_CONSTANT)
+	return SUCCESS;
+      i = mpz_get_si (c->ts.cl->length->value.integer);
+    }
+  else if (c->expr_type == EXPR_VARIABLE || c->expr_type == EXPR_SUBSTRING)
+    {
+      gfc_expr *start;
+      gfc_expr *end;
+      gfc_ref *ref;
+
+      /* Substring references don't have the charlength set.  */
+      ref = c->ref;
+      while (ref && ref->type != REF_SUBSTRING)
+	ref = ref->next;
+
+      gcc_assert (ref == NULL || ref->type == REF_SUBSTRING);
+
+      if (!ref)
+	return SUCCESS;
+
+      start = ref->u.ss.start;
+      end = ref->u.ss.end;
+
+      gcc_assert (start);
+      if (end == NULL || end->expr_type != EXPR_CONSTANT
+	  || start->expr_type != EXPR_CONSTANT)
+	return SUCCESS;
+
+      i = mpz_get_si (end->value.integer) + 1
+	  - mpz_get_si (start->value.integer);
+    }
+  else
+    return SUCCESS;
+
+  if (i != 1)
+    {
+      gfc_error ("Argument of %s at %L must be of length one", 
+		 gfc_current_intrinsic, &c->where);
+      return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -2509,6 +2567,38 @@ gfc_check_hostnm_sub (gfc_expr * name, gfc_expr * status)
     return FAILURE;
 
   if (type_check (status, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_ttynam_sub (gfc_expr * unit, gfc_expr * name)
+{
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (name, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_isatty (gfc_expr * unit)
+{
+  if (unit == NULL)
+    return FAILURE;
+
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

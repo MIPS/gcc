@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* The syntax of gfortran modules resembles that of lisp lists, ie a
    sequence of atoms, which can be left or right parenthesis, names,
@@ -2564,6 +2564,55 @@ mio_expr (gfc_expr ** ep)
 }
 
 
+/* Read and write namelists */
+
+static void
+mio_namelist (gfc_symbol * sym)
+{
+  gfc_namelist *n, *m;
+  const char *check_name;
+
+  mio_lparen ();
+
+  if (iomode == IO_OUTPUT)
+    {
+      for (n = sym->namelist; n; n = n->next)
+	mio_symbol_ref (&n->sym);
+    }
+  else
+    {
+      /* This departure from the standard is flagged as an error.
+	 It does, in fact, work correctly. TODO: Allow it
+	 conditionally?  */
+      if (sym->attr.flavor == FL_NAMELIST)
+	{
+	  check_name = find_use_name (sym->name);
+	  if (check_name && strcmp (check_name, sym->name) != 0)
+	    gfc_error("Namelist %s cannot be renamed by USE"
+		      " association to %s.",
+		      sym->name, check_name);
+	}
+
+      m = NULL;
+      while (peek_atom () != ATOM_RPAREN)
+	{
+	  n = gfc_get_namelist ();
+	  mio_symbol_ref (&n->sym);
+
+	  if (sym->namelist == NULL)
+	    sym->namelist = n;
+	  else
+	    m->next = n;
+
+	  m = n;
+	}
+      sym->namelist_tail = m;
+    }
+
+  mio_rparen ();
+}
+
+
 /* Save/restore lists of gfc_interface stuctures.  When loading an
    interface, we are really appending to the existing list of
    interfaces.  Checking for duplicate and ambiguous interfaces has to
@@ -2724,6 +2773,7 @@ mio_symbol (gfc_symbol * sym)
     sym->component_access =
       MIO_NAME(gfc_access) (sym->component_access, access_types);
 
+  mio_namelist (sym);
   mio_rparen ();
 }
 
@@ -3429,14 +3479,22 @@ write_module (void)
 void
 gfc_dump_module (const char *name, int dump_flag)
 {
-  char filename[PATH_MAX], *p;
+  int n;
+  char *filename, *p;
   time_t now;
 
-  filename[0] = '\0';
+  n = strlen (name) + strlen (MODULE_EXTENSION) + 1;
   if (gfc_option.module_dir != NULL)
-    strcpy (filename, gfc_option.module_dir);
-
-  strcat (filename, name);
+    {
+      filename = (char *) alloca (n + strlen (gfc_option.module_dir));
+      strcpy (filename, gfc_option.module_dir);
+      strcat (filename, name);
+    }
+  else
+    {
+      filename = (char *) alloca (n);
+      strcpy (filename, name);
+    }
   strcat (filename, MODULE_EXTENSION);
 
   if (!dump_flag)
@@ -3482,10 +3540,12 @@ gfc_dump_module (const char *name, int dump_flag)
 void
 gfc_use_module (void)
 {
-  char filename[GFC_MAX_SYMBOL_LEN + 5];
+  char *filename;
   gfc_state_data *p;
   int c, line;
 
+  filename = (char *) alloca(strlen(module_name) + strlen(MODULE_EXTENSION)
+			     + 1);
   strcpy (filename, module_name);
   strcat (filename, MODULE_EXTENSION);
 

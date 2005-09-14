@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -291,7 +291,7 @@ package body Exp_Ch7 is
    --      controller but this would not tackle view conversions properly.
    --    - A classwide type can always potentially have controlled components
    --      but the record controller of the corresponding actual type may not
-   --      be nown at compile time so the dispatch table contains a special
+   --      be known at compile time so the dispatch table contains a special
    --      field that allows to compute the offset of the record controller
    --      dynamically. See s-finimp.Deep_Tag_Attach and a-tags.RC_Offset
 
@@ -1560,19 +1560,6 @@ package body Exp_Ch7 is
       end if;
 
       Set_Elaboration_Flag (N, Corresponding_Spec (N));
-
-      --  Generate a subprogram descriptor for the elaboration routine of
-      --  a package body if the package body has no pending instantiations
-      --  and it has generated at least one exception handler
-
-      if Present (Handler_Records (Body_Entity (Ent)))
-        and then Is_Compilation_Unit (Ent)
-        and then not Delay_Subprogram_Descriptors (Body_Entity (Ent))
-      then
-         Generate_Subprogram_Descriptor_For_Package
-           (N, Body_Entity (Ent));
-      end if;
-
       Set_In_Package_Body (Ent, False);
 
       --  Set to encode entity names in package body before gigi is called
@@ -1758,7 +1745,11 @@ package body Exp_Ch7 is
                  N_Procedure_Call_Statement =>
                if Nkind (Parent (The_Parent)) = N_Entry_Call_Alternative
                  and then
-                   Nkind (Parent (Parent (The_Parent))) = N_Timed_Entry_Call
+                   (Nkind (Parent (Parent (The_Parent)))
+                     = N_Timed_Entry_Call
+                   or else
+                     Nkind (Parent (Parent (The_Parent)))
+                       = N_Conditional_Entry_Call)
                then
                   return Parent (Parent (The_Parent));
                else
@@ -2216,6 +2207,8 @@ package body Exp_Ch7 is
               or else Has_Interrupt_Handler (Pid)
               or else (Has_Attach_Handler (Pid)
                          and then not Restricted_Profile)
+              or else (Ada_Version >= Ada_05
+                         and then Present (Interface_List (Parent (Pid))))
             then
                if Abort_Allowed
                  or else Restriction_Active (No_Entry_Queue) = False

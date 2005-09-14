@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Since target arithmetic must be done on the host, there has to
    be some way of evaluating arithmetic expressions as the host
@@ -259,6 +259,14 @@ gfc_arith_init_1 (void)
       mpfr_init (real_info->tiny);
       mpfr_set (real_info->tiny, b, GFC_RND_MODE);
 
+      /* subnormal (x) = b**(emin - digit) */
+      mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
+      mpfr_pow_si (b, b, real_info->min_exponent - real_info->digits,
+		   GFC_RND_MODE);
+
+      mpfr_init (real_info->subnormal);
+      mpfr_set (real_info->subnormal, b, GFC_RND_MODE);
+
       /* epsilon(x) = b**(1-p) */
       mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
       mpfr_pow_si (b, b, 1 - real_info->digits, GFC_RND_MODE);
@@ -373,9 +381,42 @@ gfc_check_real_range (mpfr_t p, int kind)
   if (mpfr_sgn (q) == 0)
     retval = ARITH_OK;
   else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
-      retval = ARITH_OVERFLOW;
-  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+    retval = ARITH_OVERFLOW;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
     retval = ARITH_UNDERFLOW;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+    {
+      /* MPFR operates on a numbers with a given precision and enormous
+	exponential range.  To represent subnormal numbers the exponent is
+	allowed to become smaller than emin, but always retains the full
+	precision.  This function resets unused bits to 0 to alleviate
+	rounding problems.  Note, a future version of MPFR will have a
+ 	mpfr_subnormalize() function, which handles this truncation in a
+	more efficient and robust way.  */
+
+      int j, k;
+      char *bin, *s;
+      mp_exp_t e;
+
+      bin = mpfr_get_str (NULL, &e, gfc_real_kinds[i].radix, 0, q, GMP_RNDN);
+      k = gfc_real_kinds[i].digits - (gfc_real_kinds[i].min_exponent - e);
+      for (j = k; j < gfc_real_kinds[i].digits; j++)
+	bin[j] = '0';
+      /* Need space for '0.', bin, 'E', and e */
+      s = (char *) gfc_getmem (strlen(bin)+10);
+      sprintf (s, "0.%sE%d", bin, (int) e);
+      mpfr_set_str (q, s, gfc_real_kinds[i].radix, GMP_RNDN);
+
+      if (mpfr_sgn (p) < 0)
+	mpfr_neg (p, q, GMP_RNDN);
+      else
+	mpfr_set (p, q, GMP_RNDN);
+
+      gfc_free (s);
+      gfc_free (bin);
+
+      retval = ARITH_OK;
+    }
   else
     retval = ARITH_OK;
 
@@ -1541,17 +1582,19 @@ eval_intrinsic (gfc_intrinsic_op operator,
   if (operator == INTRINSIC_POWER && op2->ts.type != BT_INTEGER)
     goto runtime;
 
-  if (op1->expr_type != EXPR_CONSTANT
-      && (op1->expr_type != EXPR_ARRAY
-	  || !gfc_is_constant_expr (op1)
-	  || !gfc_expanded_ac (op1)))
+  if (op1->from_H
+      || (op1->expr_type != EXPR_CONSTANT
+	  && (op1->expr_type != EXPR_ARRAY
+	    || !gfc_is_constant_expr (op1)
+	    || !gfc_expanded_ac (op1))))
     goto runtime;
 
   if (op2 != NULL
-      && op2->expr_type != EXPR_CONSTANT
-      && (op2->expr_type != EXPR_ARRAY
-	  || !gfc_is_constant_expr (op2)
-	  || !gfc_expanded_ac (op2)))
+      && (op2->from_H
+	|| (op2->expr_type != EXPR_CONSTANT
+	  && (op2->expr_type != EXPR_ARRAY
+	    || !gfc_is_constant_expr (op2)
+	    || !gfc_expanded_ac (op2)))))
     goto runtime;
 
   if (unary)
@@ -2147,6 +2190,185 @@ gfc_log2log (gfc_expr * src, int kind)
 
   result = gfc_constant_result (BT_LOGICAL, kind, &src->where);
   result->value.logical = src->value.logical;
+
+  return result;
+}
+
+/* Convert logical to integer.  */
+
+gfc_expr *
+gfc_log2int (gfc_expr *src, int kind)
+{
+  gfc_expr *result;
+  result = gfc_constant_result (BT_INTEGER, kind, &src->where);
+  mpz_set_si (result->value.integer, src->value.logical);
+  return result;
+}
+
+/* Convert integer to logical.  */
+
+gfc_expr *
+gfc_int2log (gfc_expr *src, int kind)
+{
+  gfc_expr *result;
+  result = gfc_constant_result (BT_LOGICAL, kind, &src->where);
+  result->value.logical = (mpz_cmp_si (src->value.integer, 0) != 0);
+  return result;
+}
+
+/* Convert Hollerith to integer. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2int (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_INTEGER;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Convert Hollerith to real. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2real (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_REAL;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Convert Hollerith to complex. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2complex (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_COMPLEX;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  kind = kind * 2;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Convert Hollerith to character. */
+
+gfc_expr *
+gfc_hollerith2character (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+
+  result = gfc_copy_expr (src);
+  result->ts.type = BT_CHARACTER;
+  result->ts.kind = kind;
+  result->from_H = 1;
+
+  return result;
+}
+
+/* Convert Hollerith to logical. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2logical (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_LOGICAL;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
 
   return result;
 }

@@ -16,8 +16,8 @@
 ;
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-; 02111-1307, USA.
+; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+; 02110-1301, USA.
 
 mabi=
 Target RejectNegative Joined
@@ -32,7 +32,7 @@ Target Report Var(TARGET_MAD)
 Use PMC-style 'mad' instructions
 
 march=
-Target RejectNegative Joined
+Target RejectNegative Joined Var(mips_arch_string)
 -march=ISA	Generate code for the given ISA
 
 mbranch-likely
@@ -44,16 +44,20 @@ Target Report Mask(CHECK_ZERO_DIV)
 Trap on integer divide by zero
 
 mdivide-breaks
-Target Report Mask(DIVIDE_BREAKS)
+Target Report RejectNegative Mask(DIVIDE_BREAKS)
 Use branch-and-break sequences to check for integer divide by zero
 
 mdivide-traps
-Target Report InverseMask(DIVIDE_BREAKS, DIVIDE_TRAPS)
+Target Report RejectNegative InverseMask(DIVIDE_BREAKS, DIVIDE_TRAPS)
 Use trap instructions to check for integer divide by zero
 
 mdouble-float
 Target Report RejectNegative InverseMask(SINGLE_FLOAT, DOUBLE_FLOAT)
 Allow hardware floating-point instructions to cover both 32-bit and 64-bit operations
+
+mdsp
+Target Report Mask(DSP)
+Use MIPS-DSP instructions
 
 mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
@@ -114,7 +118,7 @@ Target Report RejectNegative Mask(FLOAT64)
 Use 64-bit floating-point registers
 
 mflush-func=
-Target RejectNegative Joined
+Target RejectNegative Joined Var(mips_cache_flush_func) Init(CACHE_FLUSH_FUNC)
 -mflush-func=FUNC	Use FUNC to flush the cache before calling stack trampolines
 
 mfused-madd
@@ -132,10 +136,6 @@ Use 64-bit general registers
 mhard-float
 Target Report RejectNegative InverseMask(SOFT_FLOAT, HARD_FLOAT)
 Allow the use of hardware floating-point instructions
-
-mint64
-Target Report RejectNegative Mask(INT64)
-Use a 64-bit int type
 
 mips
 Target RejectNegative Joined
@@ -202,7 +202,7 @@ Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values
 
 mtune=
-Target RejectNegative Joined
+Target RejectNegative Joined Var(mips_tune_string)
 -mtune=PROCESSOR	Optimize the output for PROCESSOR
 
 muninit-const-in-rodata

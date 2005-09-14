@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 enum cmp_type				/* comparison type */
 {
@@ -45,30 +45,10 @@ enum processor_type
   PROCESSOR_8000
 };
 
-/* Which architecture to generate code for.  */
-
-enum architecture_type
-{
-  ARCHITECTURE_10,
-  ARCHITECTURE_11,
-  ARCHITECTURE_20
-};
-
-struct rtx_def;
-
-/* For -march= option.  */
-extern const char *pa_arch_string;
-extern enum architecture_type pa_arch;
-
-/* For -mfixed-range= option.  */
-extern const char *pa_fixed_range_string;
-
 /* For -mschedule= option.  */
-extern const char *pa_cpu_string;
 extern enum processor_type pa_cpu;
 
 /* For -munix= option.  */
-extern const char *pa_unix_string;
 extern int flag_pa_unix;
 
 #define pa_cpu_attr ((enum attr_cpu)pa_cpu)
@@ -77,105 +57,7 @@ extern int flag_pa_unix;
 
 #define TARGET_VERSION fputs (" (hppa)", stderr);
 
-/* Run-time compilation parameters selecting different hardware subsets.  */
-
-extern int target_flags;
-
-/* compile code for HP-PA 1.1 ("Snake").  */
-
-#define MASK_PA_11 1
-
-/* Disable all FP registers (they all become fixed).  This may be necessary
-   for compiling kernels which perform lazy context switching of FP regs.
-   Note if you use this option and try to perform floating point operations
-   the compiler will abort!  */
-
-#define MASK_DISABLE_FPREGS 2
-#define TARGET_DISABLE_FPREGS (target_flags & MASK_DISABLE_FPREGS)
-
-/* Generate code which assumes that all space register are equivalent.
-   Triggers aggressive unscaled index addressing and faster
-   builtin_return_address.  */
-#define MASK_NO_SPACE_REGS 4
-#define TARGET_NO_SPACE_REGS (target_flags & MASK_NO_SPACE_REGS)
-
-/* Allow unconditional jumps in the delay slots of call instructions.  */
-#define MASK_JUMP_IN_DELAY 8
-#define TARGET_JUMP_IN_DELAY (target_flags & MASK_JUMP_IN_DELAY)
-
-/* Disable indexed addressing modes.  */
-#define MASK_DISABLE_INDEXING 32
-#define TARGET_DISABLE_INDEXING (target_flags & MASK_DISABLE_INDEXING)
-
-/* Emit code which follows the new portable runtime calling conventions
-   HP wants everyone to use for ELF objects.  If at all possible you want
-   to avoid this since it's a performance loss for non-prototyped code.
-
-   Note TARGET_PORTABLE_RUNTIME also forces all calls to use inline
-   long-call stubs which is quite expensive.  */
-#define MASK_PORTABLE_RUNTIME 64
-#define TARGET_PORTABLE_RUNTIME (target_flags & MASK_PORTABLE_RUNTIME)
-
-/* Emit directives only understood by GAS.  This allows parameter
-   relocations to work for static functions.  There is no way
-   to make them work the HP assembler at this time.  */
-#define MASK_GAS 128
-#define TARGET_GAS (target_flags & MASK_GAS)
-
-/* Emit code for processors which do not have an FPU.  */
-#define MASK_SOFT_FLOAT 256
-#define TARGET_SOFT_FLOAT (target_flags & MASK_SOFT_FLOAT)
-
-/* Use 3-insn load/store sequences for access to large data segments
-   in shared libraries on hpux10.  */
-#define MASK_LONG_LOAD_STORE 512
-#define TARGET_LONG_LOAD_STORE (target_flags & MASK_LONG_LOAD_STORE)
-
-/* Use a faster sequence for indirect calls.  This assumes that calls
-   through function pointers will never cross a space boundary, and
-   that the executable is not dynamically linked.  Such assumptions
-   are generally safe for building kernels and statically linked
-   executables.  Code compiled with this option will fail miserably if
-   the executable is dynamically linked or uses nested functions!  */
-#define MASK_FAST_INDIRECT_CALLS 1024
-#define TARGET_FAST_INDIRECT_CALLS (target_flags & MASK_FAST_INDIRECT_CALLS)
-
-/* Generate code with big switch statements to avoid out of range branches
-   occurring within the switch table.  */
-#define MASK_BIG_SWITCH 2048
-#define TARGET_BIG_SWITCH (target_flags & MASK_BIG_SWITCH)
-
-/* Generate code for the HPPA 2.0 architecture.  TARGET_PA_11 should also be
-   true when this is true.  */
-#define MASK_PA_20 4096
-
-/* Generate cpp defines for server I/O.  */
-#define MASK_SIO 8192
-#define TARGET_SIO (target_flags & MASK_SIO)
-
-/* Assume GNU linker by default.  */
-#define MASK_GNU_LD 16384
-#ifndef TARGET_GNU_LD
-#define TARGET_GNU_LD (target_flags & MASK_GNU_LD)
-#endif
-
-/* Force generation of long calls.  */
-#define MASK_LONG_CALLS 32768
-#ifndef TARGET_LONG_CALLS
-#define TARGET_LONG_CALLS (target_flags & MASK_LONG_CALLS)
-#endif
-
-#ifndef TARGET_PA_10
-#define TARGET_PA_10 (target_flags & (MASK_PA_11 | MASK_PA_20) == 0)
-#endif
-
-#ifndef TARGET_PA_11
-#define TARGET_PA_11 (target_flags & MASK_PA_11)
-#endif
-
-#ifndef TARGET_PA_20
-#define TARGET_PA_20 (target_flags & MASK_PA_20)
-#endif
+#define TARGET_PA_10 (!TARGET_PA_11 && !TARGET_PA_20)
 
 /* Generate code for the HPPA 2.0 architecture in 64bit mode.  */
 #ifndef TARGET_64BIT
@@ -242,74 +124,6 @@ extern int target_flags;
    need to generate additional code to save SP into the frame marker.  */
 #define TARGET_HPUX_UNWIND_LIBRARY 0
 
-/* Macro to define tables used to set the flags.  This is a
-   list in braces of target switches with each switch being
-   { "NAME", VALUE, "HELP_STRING" }.  VALUE is the bits to set,
-   or minus the bits to clear.  An empty string NAME is used to
-   identify the default VALUE.  Do not mark empty strings for
-   translation.  */
-
-#define TARGET_SWITCHES \
-  {{ "snake",			 MASK_PA_11,				\
-     N_("Generate PA1.1 code") },					\
-   { "nosnake",			-(MASK_PA_11 | MASK_PA_20),		\
-     N_("Generate PA1.0 code") },					\
-   { "pa-risc-1-0",		-(MASK_PA_11 | MASK_PA_20),		\
-     N_("Generate PA1.0 code") },					\
-   { "pa-risc-1-1",		 MASK_PA_11,				\
-     N_("Generate PA1.1 code") },					\
-   { "pa-risc-2-0",		 MASK_PA_20,				\
-     N_("Generate PA2.0 code (requires binutils 2.10 or later)") },	\
-   { "disable-fpregs",		 MASK_DISABLE_FPREGS,			\
-     N_("Disable FP regs") },						\
-   { "no-disable-fpregs",	-MASK_DISABLE_FPREGS,			\
-     N_("Do not disable FP regs") },					\
-   { "no-space-regs",		 MASK_NO_SPACE_REGS,			\
-     N_("Disable space regs") },					\
-   { "space-regs",		-MASK_NO_SPACE_REGS,			\
-     N_("Do not disable space regs") },					\
-   { "jump-in-delay",		 MASK_JUMP_IN_DELAY,			\
-     N_("Put jumps in call delay slots") },				\
-   { "no-jump-in-delay",	-MASK_JUMP_IN_DELAY,			\
-     N_("Do not put jumps in call delay slots") },			\
-   { "disable-indexing",	 MASK_DISABLE_INDEXING,			\
-     N_("Disable indexed addressing") },				\
-   { "no-disable-indexing",	-MASK_DISABLE_INDEXING,			\
-     N_("Do not disable indexed addressing") },				\
-   { "portable-runtime",	 MASK_PORTABLE_RUNTIME,			\
-     N_("Use portable calling conventions") },				\
-   { "no-portable-runtime",	-MASK_PORTABLE_RUNTIME,			\
-     N_("Do not use portable calling conventions") },			\
-   { "gas",			 MASK_GAS,				\
-     N_("Assume code will be assembled by GAS") },			\
-   { "no-gas",			-MASK_GAS,				\
-     N_("Do not assume code will be assembled by GAS") },		\
-   { "soft-float",		 MASK_SOFT_FLOAT,			\
-     N_("Use software floating point") },				\
-   { "no-soft-float",		-MASK_SOFT_FLOAT,			\
-     N_("Do not use software floating point") },			\
-   { "long-load-store",		 MASK_LONG_LOAD_STORE,			\
-     N_("Emit long load/store sequences") },				\
-   { "no-long-load-store",	-MASK_LONG_LOAD_STORE,			\
-     N_("Do not emit long load/store sequences") },			\
-   { "fast-indirect-calls",	 MASK_FAST_INDIRECT_CALLS,		\
-     N_("Generate fast indirect calls") },				\
-   { "no-fast-indirect-calls",	-MASK_FAST_INDIRECT_CALLS,		\
-     N_("Do not generate fast indirect calls") },			\
-   { "big-switch",		 MASK_BIG_SWITCH,			\
-     N_("Generate code for huge switch statements") },			\
-   { "no-big-switch",		-MASK_BIG_SWITCH,			\
-     N_("Do not generate code for huge switch statements") },		\
-   { "long-calls",		 MASK_LONG_CALLS,			\
-     N_("Always generate long calls") },				\
-   { "no-long-calls",		-MASK_LONG_CALLS,			\
-     N_("Generate long calls only when needed") },			\
-   { "linker-opt",		 0,					\
-     N_("Enable linker optimizations") },				\
-   SUBTARGET_SWITCHES							\
-   { "",			 TARGET_DEFAULT | TARGET_CPU_DEFAULT,	\
-     NULL }}
-
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY | MASK_BIG_SWITCH)
 #endif
@@ -318,28 +132,8 @@ extern int target_flags;
 #define TARGET_CPU_DEFAULT 0
 #endif
 
-#ifndef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES
-#endif
-
 #ifndef TARGET_SCHED_DEFAULT
-#define TARGET_SCHED_DEFAULT "8000"
-#endif
-
-#define TARGET_OPTIONS							\
-{									\
-  { "arch=",			&pa_arch_string,			\
-    N_("Specify PA-RISC architecture for code generation.\n"		\
-       "Values are 1.0, 1.1 and 2.0."), 0},				\
-  { "fixed-range=",		&pa_fixed_range_string,			\
-    N_("Specify range of registers to make fixed."), 0},		\
-  { "schedule=",		&pa_cpu_string,				\
-    N_("Specify CPU for scheduling purposes."), 0},			\
-  SUBTARGET_OPTIONS							\
-}
-
-#ifndef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS
+#define TARGET_SCHED_DEFAULT PROCESSOR_8000
 #endif
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -564,6 +358,12 @@ typedef struct machine_function GTY(())
 #define FRAME_POINTER_REQUIRED \
   (current_function_calls_alloca)
 
+/* Don't allow hard registers to be renamed into r2 unless r2
+   is already live or already being saved (due to eh).  */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  ((NEW_REG) != 2 || regs_ever_live[2] || current_function_calls_eh_return)
+
 /* C statement to store the difference between the frame pointer
    and the stack pointer values immediately after the function prologue.
 
@@ -700,11 +500,11 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
 /* Believe it or not.  */
 #define ARGS_GROW_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 0
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -1209,13 +1009,18 @@ extern int may_call_alloca;
 
 #define MAX_REGS_PER_ADDRESS 2
 
+/* Non-TLS symbolic references.  */
+#define PA_SYMBOL_REF_TLS_P(RTX) \
+  (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
+
 /* Recognize any constant value that is a valid address except
    for symbolic addresses.  We get better CSE by rejecting them
    here and allowing hppa_legitimize_address to break them up.  We
    use most of the constants accepted by CONSTANT_P, except CONST_DOUBLE.  */
 
 #define CONSTANT_ADDRESS_P(X) \
-  ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
+  ((GET_CODE (X) == LABEL_REF 						\
+   || (GET_CODE (X) == SYMBOL_REF && !SYMBOL_REF_TLS_MODEL (X))		\
    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
    || GET_CODE (X) == HIGH) 						\
    && (reload_in_progress || reload_completed || ! symbolic_expression_p (X)))
@@ -2076,22 +1881,16 @@ forget_section (void)							\
 /* Print a memory address as an operand to reference that memory location.  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
-{ register rtx addr = ADDR;						\
-  register rtx base;							\
-  int offset;								\
+{ rtx addr = ADDR;							\
   switch (GET_CODE (addr))						\
     {									\
     case REG:								\
       fprintf (FILE, "0(%s)", reg_names [REGNO (addr)]);		\
       break;								\
     case PLUS:								\
-      if (GET_CODE (XEXP (addr, 0)) == CONST_INT)			\
-	offset = INTVAL (XEXP (addr, 0)), base = XEXP (addr, 1);	\
-      else if (GET_CODE (XEXP (addr, 1)) == CONST_INT)			\
-	offset = INTVAL (XEXP (addr, 1)), base = XEXP (addr, 0);	\
-      else								\
-	abort ();							\
-      fprintf (FILE, "%d(%s)", offset, reg_names [REGNO (base)]);	\
+      gcc_assert (GET_CODE (XEXP (addr, 1)) == CONST_INT);		\
+      fprintf (FILE, "%d(%s)", (int)INTVAL (XEXP (addr, 1)),		\
+	       reg_names [REGNO (XEXP (addr, 0))]);			\
       break;								\
     case LO_SUM:							\
       if (!symbolic_operand (XEXP (addr, 1), VOIDmode))			\
@@ -2131,3 +1930,8 @@ forget_section (void)							\
 /* We need a libcall to canonicalize function pointers on TARGET_ELF32.  */
 #define CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL \
   "__canonicalize_funcptr_for_compare"
+
+#ifdef HAVE_AS_TLS
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS true
+#endif

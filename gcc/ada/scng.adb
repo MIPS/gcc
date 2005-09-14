@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -97,7 +97,8 @@ package body Scng is
    procedure Accumulate_Checksum (C : Char_Code) is
    begin
       if C > 16#FFFF# then
-         Accumulate_Checksum (Character'Val (C / 2 ** 16));
+         Accumulate_Checksum (Character'Val (C / 2 ** 24));
+         Accumulate_Checksum (Character'Val ((C / 2 ** 16) mod 256));
          Accumulate_Checksum (Character'Val ((C / 256) mod 256));
       else
          Accumulate_Checksum (Character'Val (C / 256));
@@ -256,6 +257,7 @@ package body Scng is
       First_Non_Blank_Location  := Scan_Ptr;
 
       Initialize_Checksum;
+      Wide_Char_Byte_Count := 0;
 
       --  Do not call Scan, otherwise the License stuff does not work in Scn
 
@@ -339,7 +341,10 @@ package body Scng is
       -----------------------
 
       procedure Check_End_Of_Line is
-         Len : constant Int := Int (Scan_Ptr) - Int (Current_Line_Start);
+         Len : constant Int :=
+                 Int (Scan_Ptr) -
+                 Int (Current_Line_Start) -
+                 Wide_Char_Byte_Count;
 
       begin
          if Style_Check then
@@ -361,6 +366,10 @@ package body Scng is
          elsif Len > Opt.Max_Line_Length then
             Error_Long_Line;
          end if;
+
+         --  Reset wide character byte count for next line
+
+         Wide_Char_Byte_Count := 0;
       end Check_End_Of_Line;
 
       -----------------------
@@ -1110,6 +1119,10 @@ package body Scng is
 
                   Accumulate_Checksum (Code);
 
+                  --  In Ada 95 mode we allow any wide characters in a string
+                  --  but in Ada 2005, the set of characters allowed has been
+                  --  restricted to graphic characters.
+
                   if Ada_Version >= Ada_05
                     and then Is_UTF_32_Non_Graphic (UTF_32 (Code))
                   then
@@ -1236,6 +1249,7 @@ package body Scng is
          when EOF =>
             if Scan_Ptr = Source_Last (Current_Source_File) then
                Check_End_Of_Line;
+               if Style_Check then Style.Check_EOF; end if;
                Token := Tok_EOF;
                return;
             else
@@ -1644,7 +1658,11 @@ package body Scng is
 
                   if Err then
                      Error_Illegal_Wide_Character;
-                     Code := Character'Pos (' ');
+                        Code := Character'Pos (' ');
+
+                  --  In Ada 95 mode we allow any wide character in a character
+                  --  literal, but in Ada 2005, the set of characters allowed
+                  --  is restricted to graphic characters.
 
                   elsif Ada_Version >= Ada_05
                     and then Is_UTF_32_Non_Graphic (UTF_32 (Code))
@@ -2257,6 +2275,10 @@ package body Scng is
                      --  stored. It seems reasonable to exclude it from the
                      --  checksum.
 
+                     --  Note that it is correct (see AI-395) to simply strip
+                     --  other format characters, before testing for double
+                     --  underlines, or for reserved words).
+
                      elsif Is_UTF_32_Other (Cat) then
                         null;
 
@@ -2316,14 +2338,18 @@ package body Scng is
             --  Ada 2005 (AI-284): Do not apply the style check in case of
             --  "pragma Interface"
 
+            --  Ada 2005 (AI-340): Do not apply the style check in case of
+            --  MOD attribute.
+
             if Style_Check
               and then Source (Token_Ptr) <= 'Z'
               and then (Prev_Token /= Tok_Apostrophe
                           or else
-                            (Token /= Tok_Access
-                               and then Token /= Tok_Delta
-                               and then Token /= Tok_Digits
-                               and then Token /= Tok_Range))
+                            (Token /= Tok_Access and then
+                             Token /= Tok_Delta  and then
+                             Token /= Tok_Digits and then
+                             Token /= Tok_Mod    and then
+                             Token /= Tok_Range))
               and then (Token /= Tok_Interface
                           or else
                             (Token = Tok_Interface

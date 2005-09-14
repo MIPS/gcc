@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *             Copyright (C) 1992-2004, Free Software Foundation, Inc.      *
+ *             Copyright (C) 1992-2005, Free Software Foundation, Inc.      *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * As a  special  exception,  if you  link  this file  with other  files to *
  * produce an executable,  this file does not by itself cause the resulting *
@@ -95,15 +95,36 @@ __gnat_unhandled_terminate (void)
 /* Below is the code related to the integration of the GCC mechanism for
    exception handling.  */
 
-#include "unwind.h"
-
 /* The names of a couple of "standard" routines for unwinding/propagation
    actually vary depending on the underlying GCC scheme for exception handling
    (SJLJ or DWARF). We need a consistently named interface to import from
-   a-except, so stubs are defined here.  */
+   a-except, so wrappers are defined here.
+
+   Besides, eventhough the compiler is never setup to use the GCC propagation
+   circuitry, it still relies on exceptions internally and part of the sources
+   to handle to exceptions are shared with the run-time library.  We need
+   dummy definitions for the wrappers to satisfy the linker in this case.
+
+   The types to be used by those wrappers in the run-time library are target
+   types exported by unwind.h.  We used to piggyback on them for the compiler
+   stubs, but there is no guarantee that unwind.h is always in sight so we
+   define our own set below.  These are dummy types as the wrappers are never
+   called in the compiler case.  */
+
+#ifdef IN_RTS
+
+#include "unwind.h"
 
 typedef struct _Unwind_Context _Unwind_Context;
 typedef struct _Unwind_Exception _Unwind_Exception;
+
+#else
+
+typedef void _Unwind_Context;
+typedef void _Unwind_Exception;
+typedef int  _Unwind_Reason_Code;
+
+#endif
 
 _Unwind_Reason_Code
 __gnat_Unwind_RaiseException (_Unwind_Exception *);
@@ -204,7 +225,7 @@ db_indent (int requests)
 
 }
 
-static void
+static void ATTRIBUTE_PRINTF_2
 db (int db_code, char * msg_format, ...)
 {
   if (db_accepted_codes () & db_code)
@@ -264,7 +285,7 @@ db_phases (int phases)
    table which heads a list of possible actions to be taken (see below).
 
    If it is determined that indeed an action should be taken, that
-   is, if one action filter matches the exception beeing propagated,
+   is, if one action filter matches the exception being propagated,
    then control should be transfered to landing-pad.
 
    A null first-action-index indicates that there are only cleanups
@@ -283,7 +304,7 @@ db_phases (int phases)
 
    Non null action-filters provide an index into the ttypes [] table
    (see below), from which information may be retrieved to check if it
-   matches the exception beeing propagated.
+   matches the exception being propagated.
 
    action-filter > 0  means there is a regular handler to be run,
 
@@ -302,7 +323,7 @@ db_phases (int phases)
    A null value indicates a catch-all handler in C++, and an "others"
    handler in Ada.
 
-   Non null values are used to match the exception beeing propagated:
+   Non null values are used to match the exception being propagated:
    In C++ this is a pointer to some rtti data, while in Ada this is an
    exception id.
 
@@ -611,7 +632,7 @@ get_region_description_for (_Unwind_Context *uw_context,
 typedef enum
 {
   /* Found some call site base data, but need to analyze further
-     before beeing able to decide.  */
+     before being able to decide.  */
   unknown,
 
   /* There is nothing relevant in the context at hand. */
@@ -761,7 +782,7 @@ get_call_site_action_for (_Unwind_Context *uw_context,
 {
   _Unwind_Ptr ip
     = _Unwind_GetIP (uw_context) - 1;
-  /* Substract 1 because GetIP yields a call return address while we are
+  /* Subtract 1 because GetIP yields a call return address while we are
      interested in information for the call point. This does not always yield
      the exact call instruction address but always brings the ip back within
      the corresponding region.
@@ -1088,7 +1109,7 @@ __gnat_eh_personality (int uw_version,
   return _URC_INSTALL_CONTEXT;
 }
 
-/* Define the consistently named stubs imported by Propagate_Exception.  */
+/* Define the consistently named wrappers imported by Propagate_Exception.  */
 
 #ifdef __USING_SJLJ_EXCEPTIONS__
 
@@ -1133,14 +1154,7 @@ __gnat_Unwind_ForcedUnwind (_Unwind_Exception *e,
 #else
 /* ! IN_RTS  */
 
-/* The calls to the GCC runtime interface for exception raising are currently
-   issued from a-exexpr.adb, which is used by both the runtime library and the
-   compiler.
-
-   As the compiler binary is not linked against the GCC runtime library, we
-   need also need stubs for this interface in the compiler case. We should not
-   be using the GCC eh mechanism for the compiler, however, so expect these
-   functions never to be called.  */
+/* Define the corresponding stubs for the compiler.  */
 
 /* We don't want fancy_abort here.  */
 #undef abort

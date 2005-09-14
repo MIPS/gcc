@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -142,7 +142,8 @@ convert (tree type, tree expr)
 	     overflows in a narrowing integer conversion, but Java
 	     doesn't care.  */
 	  tree tmp = fold (convert_to_integer (type, expr));
-	  TREE_OVERFLOW (tmp) = 0;
+	  if (TREE_CODE (tmp) == INTEGER_CST)
+	    TREE_OVERFLOW (tmp) = 0;
 	  return tmp;
 	}
     }	  
@@ -328,7 +329,7 @@ java_array_type_length (tree array_type)
   return -1;
 }
 
-/* An array of unknown length will be ultimately given an length of
+/* An array of unknown length will be ultimately given a length of
    -2, so that we can still have `length' producing a negative value
    even if found. This was part of an optimization aiming at removing
    `length' from static arrays. We could restore it, FIXME.  */
@@ -841,6 +842,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
 	   tree signature, tree (*signature_builder) (tree))
 {
   tree method;
+  tree orig_class = searched_class;
     
   if (searched_class == NULL_TREE)
     return NULL_TREE;
@@ -867,7 +869,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
   
   /* If that doesn't work, look in our interfaces.  */
   if (flags & SEARCH_INTERFACE)
-    method = find_method_in_interfaces (searched_class, flags, method_name, 
+    method = find_method_in_interfaces (orig_class, flags, method_name, 
 					signature, signature_builder);
   
   return method;

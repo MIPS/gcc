@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* CPU type.  This must be identical to the cpu enumeration in frv.md.  */
 typedef enum frv_cpu
@@ -204,7 +204,6 @@ extern int accg_operand			(rtx, enum machine_mode);
 extern rtx frv_matching_accg_for_acc	(rtx);
 extern void frv_expand_fdpic_call	(rtx *, bool, bool);
 extern rtx frv_gen_GPsym2reg		(rtx, rtx);
-extern void frv_output_dwarf_dtprel	(FILE *, int, rtx);
 extern int frv_legitimate_memory_operand (rtx, enum machine_mode, int);
 
 /* Information about a relocation unspec.  SYMBOL is the relocation symbol

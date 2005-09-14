@@ -16,8 +16,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 (define_constants
   [(SPE_ACC_REGNO	111)
@@ -2247,7 +2247,7 @@
      case 2:
        return \"evstdd%X0 %1,%y0\";
      default:
-       abort ();
+       gcc_unreachable ();
      }
  }"
   [(set_attr "type" "*,vecload,vecstore")
@@ -2327,7 +2327,7 @@
     case 1: return \"evldd%X1 %0,%y1\";
     case 2: return \"evor %0,%1,%1\";
     case 3: return output_vec_const_move (operands);
-    default: abort ();
+    default: gcc_unreachable ();
     }
 }"
   [(set_attr "type" "vecload,vecstore,*,*")

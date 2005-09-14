@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,7 +26,7 @@
 
 pragma Style_Checks (All_Checks);
 --  Turn off subprogram body ordering check. Subprograms are in order
---  by RM section rather than alphabetical
+--  by RM section rather than alphabetical.
 
 with Sinfo.CN; use Sinfo.CN;
 
@@ -175,11 +175,12 @@ package body Ch3 is
 
       if Token = Tok_Identifier then
 
-         --  Ada 2005 (AI-284): Compiling in Ada95 mode we notify
-         --  that interface, overriding, and synchronized are
-         --  new reserved words
+         --  Ada 2005 (AI-284): Compiling in Ada95 mode we warn that INTERFACE,
+         --  OVERRIDING, and SYNCHRONIZED are new reserved words.
 
-         if Ada_Version = Ada_95 then
+         if Ada_Version = Ada_95
+           and then Warn_On_Ada_2005_Compatibility
+         then
             if Token_Name = Name_Overriding
               or else Token_Name = Name_Synchronized
               or else (Token_Name = Name_Interface
@@ -227,7 +228,7 @@ package body Ch3 is
    --  | CONCURRENT_TYPE_DECLARATION
 
    --  INCOMPLETE_TYPE_DECLARATION ::=
-   --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART];
+   --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART] [IS TAGGED];
 
    --  PRIVATE_TYPE_DECLARATION ::=
    --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART]
@@ -235,7 +236,8 @@ package body Ch3 is
 
    --  PRIVATE_EXTENSION_DECLARATION ::=
    --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
-   --      [abstract] new ancestor_SUBTYPE_INDICATION with private;
+   --      [abstract] new ancestor_SUBTYPE_INDICATION
+   --      [and INTERFACE_LIST] with private;
 
    --  TYPE_DEFINITION ::=
    --    ENUMERATION_TYPE_DEFINITION  | INTEGER_TYPE_DEFINITION
@@ -516,6 +518,24 @@ package body Ch3 is
             when Tok_Tagged =>
                Scan; -- past TAGGED
 
+               --  Ada 2005 (AI-326): If the words IS TAGGED appear, the type
+               --  is a tagged incomplete type.
+
+               if Ada_Version >= Ada_05
+                 and then Token = Tok_Semicolon
+               then
+                  Scan; -- past ;
+
+                  Decl_Node :=
+                    New_Node (N_Incomplete_Type_Declaration, Type_Loc);
+                  Set_Defining_Identifier           (Decl_Node, Ident_Node);
+                  Set_Tagged_Present                (Decl_Node);
+                  Set_Unknown_Discriminants_Present (Decl_Node, Unknown_Dis);
+                  Set_Discriminant_Specifications   (Decl_Node, Discr_List);
+
+                  return Decl_Node;
+               end if;
+
                if Token = Tok_Abstract then
                   Error_Msg_SC ("ABSTRACT must come before TAGGED");
                   Abstract_Present := True;
@@ -624,6 +644,31 @@ package body Ch3 is
                      Is_Derived_Iface := True;
                   end if;
 
+                  --  Ada 2005 (AI-419): LIMITED NEW
+
+               elsif Token = Tok_New then
+                  if Ada_Version < Ada_05 then
+                     Error_Msg_SP
+                       ("LIMITED in derived type is an Ada 2005 extension");
+                     Error_Msg_SP
+                       ("\unit must be compiled with -gnat05 switch");
+                  end if;
+
+                  Typedef_Node := P_Derived_Type_Def_Or_Private_Ext_Decl;
+                  Set_Limited_Present (Typedef_Node);
+
+                  if Nkind (Typedef_Node) = N_Derived_Type_Definition
+                    and then Present (Record_Extension_Part (Typedef_Node))
+                  then
+                     End_Labl :=
+                       Make_Identifier (Token_Ptr,
+                                        Chars => Chars (Ident_Node));
+                     Set_Comes_From_Source (End_Labl, False);
+
+                     Set_End_Label
+                       (Record_Extension_Part (Typedef_Node), End_Labl);
+                  end if;
+
                --  LIMITED PRIVATE is the only remaining possibility here
 
                else
@@ -702,6 +747,7 @@ package body Ch3 is
 
                   Typedef_Node := P_Interface_Type_Definition
                                    (Is_Synchronized => True);
+                  Abstract_Present := True;
 
                   case Saved_Token is
                      when Tok_Task =>
@@ -832,6 +878,7 @@ package body Ch3 is
    function P_Subtype_Declaration return Node_Id is
       Decl_Node        : Node_Id;
       Not_Null_Present : Boolean := False;
+
    begin
       Decl_Node := New_Node (N_Subtype_Declaration, Token_Ptr);
       Scan; -- past SUBTYPE
@@ -1119,6 +1166,8 @@ package body Ch3 is
    --  OBJECT_DECLARATION ::=
    --    DEFINING_IDENTIFIER_LIST : [aliased] [constant]
    --      [NULL_EXCLUSION] SUBTYPE_INDICATION [:= EXPRESSION];
+   --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
+   --      ACCESS_DEFINITION [:= EXPRESSION];
    --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
    --      ARRAY_TYPE_DEFINITION [:= EXPRESSION];
 
@@ -1414,8 +1463,21 @@ package body Ch3 is
                   Not_Null_Present := P_Null_Exclusion; --  Ada 2005 (AI-231)
                   Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
 
-                  Set_Object_Definition (Decl_Node,
-                     P_Subtype_Indication (Not_Null_Present));
+                  if Token = Tok_Access then
+                     if Ada_Version < Ada_05 then
+                        Error_Msg_SP
+                          ("generalized use of anonymous access types " &
+                           "is an Ada 2005 extension");
+                        Error_Msg_SP
+                          ("\unit must be compiled with -gnat05 switch");
+                     end if;
+
+                     Set_Object_Definition
+                       (Decl_Node, P_Access_Definition (Not_Null_Present));
+                  else
+                     Set_Object_Definition
+                       (Decl_Node, P_Subtype_Indication (Not_Null_Present));
+                  end if;
                end if;
 
                if Token = Tok_Renames then
@@ -1461,8 +1523,24 @@ package body Ch3 is
             else
                Not_Null_Present := P_Null_Exclusion; --  Ada 2005 (AI-231)
                Set_Null_Exclusion_Present (Decl_Node, Not_Null_Present);
-               Set_Object_Definition (Decl_Node,
-                  P_Subtype_Indication (Not_Null_Present));
+
+               --  Access definition (AI-406) or subtype indication
+
+               if Token = Tok_Access then
+                  if Ada_Version < Ada_05 then
+                     Error_Msg_SP
+                       ("generalized use of anonymous access types " &
+                        "is an Ada 2005 extension");
+                     Error_Msg_SP
+                       ("\unit must be compiled with -gnat05 switch");
+                  end if;
+
+                  Set_Object_Definition
+                    (Decl_Node, P_Access_Definition (Not_Null_Present));
+               else
+                  Set_Object_Definition
+                    (Decl_Node, P_Subtype_Indication (Not_Null_Present));
+               end if;
             end if;
 
          --  Array case
@@ -1471,13 +1549,15 @@ package body Ch3 is
             Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
             Set_Object_Definition (Decl_Node, P_Array_Type_Definition);
 
-         --  Ada 2005 (AI-254)
+         --  Ada 2005 (AI-254, AI-406)
 
          elsif Token = Tok_Not then
 
             --  OBJECT_DECLARATION ::=
             --    DEFINING_IDENTIFIER_LIST : [aliased] [constant]
             --      [NULL_EXCLUSION] SUBTYPE_INDICATION [:= EXPRESSION];
+            --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
+            --          ACCESS_DEFINITION [:= EXPRESSION];
 
             --  OBJECT_RENAMING_DECLARATION ::=
             --    ...
@@ -1496,16 +1576,18 @@ package body Ch3 is
                Acc_Node := P_Access_Definition (Not_Null_Present);
 
                if Token /= Tok_Renames then
-                  Error_Msg_SC ("RENAMES expected");
-                  raise Error_Resync;
-               end if;
+                  Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
+                  Set_Object_Definition (Decl_Node, Acc_Node);
+                  goto init;
 
-               Scan; --  past renames
-               No_List;
-               Decl_Node :=
-                 New_Node (N_Object_Renaming_Declaration, Ident_Sloc);
-               Set_Access_Definition (Decl_Node, Acc_Node);
-               Set_Name (Decl_Node, P_Name);
+               else
+                  Scan; --  past renames
+                  No_List;
+                  Decl_Node :=
+                    New_Node (N_Object_Renaming_Declaration, Ident_Sloc);
+                  Set_Access_Definition (Decl_Node, Acc_Node);
+                  Set_Name (Decl_Node, P_Name);
+               end if;
 
             else
                Type_Node := P_Subtype_Mark;
@@ -1551,17 +1633,21 @@ package body Ch3 is
 
             Acc_Node := P_Access_Definition (Null_Exclusion_Present => False);
 
-            if Token /= Tok_Renames then
-               Error_Msg_SC ("RENAMES expected");
-               raise Error_Resync;
-            end if;
+            --  Object declaration with access definition, or renaming
 
-            Scan; --  past renames
-            No_List;
-            Decl_Node :=
-              New_Node (N_Object_Renaming_Declaration, Ident_Sloc);
-            Set_Access_Definition (Decl_Node, Acc_Node);
-            Set_Name (Decl_Node, P_Name);
+            if Token /= Tok_Renames then
+               Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
+               Set_Object_Definition (Decl_Node, Acc_Node);
+               goto init; -- ??? is this really needed goes here anyway
+
+            else
+               Scan; --  past renames
+               No_List;
+               Decl_Node :=
+                 New_Node (N_Object_Renaming_Declaration, Ident_Sloc);
+               Set_Access_Definition (Decl_Node, Acc_Node);
+               Set_Name (Decl_Node, P_Name);
+            end if;
 
          --  Subtype indication case
 
@@ -1600,6 +1686,7 @@ package body Ch3 is
 
          --  Scan out initialization, allowed only for object declaration
 
+         <<init>> -- is this really needed ???
          Init_Loc := Token_Ptr;
          Init_Expr := Init_Expr_Opt;
 
@@ -1671,12 +1758,12 @@ package body Ch3 is
    -------------------------------------------------------------------------
 
    --  DERIVED_TYPE_DEFINITION ::=
-   --    [abstract] new [NULL_EXCLUSION] parent_SUBTYPE_INDICATION
+   --    [abstract] [limited] new [NULL_EXCLUSION] parent_SUBTYPE_INDICATION
    --    [[AND interface_list] RECORD_EXTENSION_PART]
 
    --  PRIVATE_EXTENSION_DECLARATION ::=
    --     type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
-   --       [abstract] new ancestor_SUBTYPE_INDICATION
+   --       [abstract] [limited] new ancestor_SUBTYPE_INDICATION
    --       [AND interface_list] with PRIVATE;
 
    --  RECORD_EXTENSION_PART ::= with RECORD_DEFINITION
@@ -1765,7 +1852,8 @@ package body Ch3 is
               Make_Private_Extension_Declaration (No_Location,
                 Defining_Identifier => Empty,
                 Subtype_Indication  => Subtype_Indication (Typedef_Node),
-                Abstract_Present    => Abstract_Present (Typedef_Node));
+                Abstract_Present    => Abstract_Present (Typedef_Node),
+                Interface_List      => Interface_List (Typedef_Node));
 
             Delete_Node (Typedef_Node);
             return Typedecl_Node;
@@ -3517,6 +3605,8 @@ package body Ch3 is
       Prot_Flag             : Boolean;
       Not_Null_Present      : Boolean := False;
       Type_Def_Node         : Node_Id;
+      Result_Not_Null       : Boolean;
+      Result_Node           : Node_Id;
 
       procedure Check_Junk_Subprogram_Name;
       --  Used in access to subprogram definition cases to check for an
@@ -3587,8 +3677,32 @@ package body Ch3 is
          Set_Parameter_Specifications (Type_Def_Node, P_Parameter_Profile);
          Set_Protected_Present (Type_Def_Node, Prot_Flag);
          TF_Return;
-         Set_Subtype_Mark (Type_Def_Node, P_Subtype_Mark);
-         No_Constraint;
+
+         Result_Not_Null := P_Null_Exclusion;     --  Ada 2005 (AI-231)
+
+         --  Ada 2005 (AI-318-02)
+
+         if Token = Tok_Access then
+            if Ada_Version < Ada_05 then
+               Error_Msg_SC
+                 ("anonymous access result type is an Ada 2005 extension");
+               Error_Msg_SC ("\unit must be compiled with -gnat05 switch");
+            end if;
+
+            Result_Node := P_Access_Definition (Result_Not_Null);
+
+         else
+            Result_Node := P_Subtype_Mark;
+            No_Constraint;
+         end if;
+
+         --  Note: A null exclusion given on the result type needs to
+         --  be coded by a distinct flag, since Null_Exclusion_Present
+         --  on an access-to-function type pertains to a null exclusion
+         --  on the access type itself (as set above). ???
+         --  Set_Null_Exclusion_Present??? (Type_Def_Node, Result_Not_Null);
+
+         Set_Result_Definition (Type_Def_Node, Result_Node);
 
       else
          Type_Def_Node :=
@@ -3822,6 +3936,20 @@ package body Ch3 is
          when Tok_Identifier =>
             Check_Bad_Layout;
             P_Identifier_Declarations (Decls, Done, In_Spec);
+
+         --  Ada2005: A subprogram declaration can start with "not" or
+         --  "overriding". In older versions, "overriding" is handled
+         --  like an identifier, with the appropriate warning.
+
+         when Tok_Not =>
+            Check_Bad_Layout;
+            Append (P_Subprogram (Pf_Decl_Gins_Pbod_Rnam_Stub), Decls);
+            Done := False;
+
+         when Tok_Overriding =>
+            Check_Bad_Layout;
+            Append (P_Subprogram (Pf_Decl_Gins_Pbod_Rnam_Stub), Decls);
+            Done := False;
 
          when Tok_Package =>
             Check_Bad_Layout;
@@ -4125,7 +4253,7 @@ package body Ch3 is
 
       SIS_Entry_Active := False;
 
-      --  Test for assorted illegal declarations not diagnosed elsewhere.
+      --  Test for assorted illegal declarations not diagnosed elsewhere
 
       Decl := First (Decls);
 

@@ -20,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_MIPS_PROTOS_H
 #define GCC_MIPS_PROTOS_H
@@ -184,7 +184,7 @@ extern void mips_declare_common_object (FILE *, const char *,
 					const char *, unsigned HOST_WIDE_INT,
 					unsigned int, bool);
 extern void mips_declare_object (FILE *, const char *, const char *,
-				 const char *, ...);
+				 const char *, ...) ATTRIBUTE_PRINTF_4;
 extern void mips_declare_object_name (FILE *, const char *, tree);
 extern void mips_finish_declare_object (FILE *, tree, int, int);
 
@@ -222,5 +222,6 @@ extern rtx mips_prefetch_cookie (rtx, rtx);
 extern void irix_asm_output_align (FILE *, unsigned);
 extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
+extern bool mips_use_ins_ext_p (rtx, rtx, rtx);
 
 #endif /* ! GCC_MIPS_PROTOS_H */

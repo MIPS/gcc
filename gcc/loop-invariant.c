@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This implements the loop invariant motion pass.  It is very simple
    (no calls, libcalls, etc.).  This should be sufficient to cleanup things like
@@ -118,9 +118,14 @@ struct invariant
 
 static unsigned actual_stamp;
 
+typedef struct invariant *invariant_p;
+
+DEF_VEC_P(invariant_p);
+DEF_VEC_ALLOC_P(invariant_p, heap);
+
 /* The invariants.  */
 
-static varray_type invariants;
+static VEC(invariant_p,heap) *invariants;
 
 /* Test for possibility of invariantness of X.  */
 
@@ -332,10 +337,10 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
   inv->stamp = 0;
   inv->insn = insn;
 
-  inv->invno = VARRAY_ACTIVE_SIZE (invariants);
+  inv->invno = VEC_length (invariant_p, invariants);
   if (def)
     def->invno = inv->invno;
-  VARRAY_PUSH_GENERIC_PTR_NOGC (invariants, inv);
+  VEC_safe_push (invariant_p, heap, invariants, inv);
 
   if (dump_file)
     {
@@ -427,7 +432,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
     return;
   dest = SET_DEST (set);
 
-  if (GET_CODE (dest) != REG
+  if (!REG_P (dest)
       || HARD_REGISTER_P (dest))
     simple = false;
 
@@ -465,7 +470,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
   create_new_invariant (def, insn, depends_on, always_executed);
 }
 
-/* Record registers used in INSN that have an unique invariant definition.
+/* Record registers used in INSN that have a unique invariant definition.
    DF is the dataflow object.  */
 
 static void
@@ -614,7 +619,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno, bi)
     {
-      dep = VARRAY_GENERIC_PTR_NOGC (invariants, depno);
+      dep = VEC_index (invariant_p, invariants, depno);
 
       get_inv_cost (dep, &acomp_cost, &aregs_needed);
 
@@ -673,9 +678,8 @@ best_gain_for_invariant (struct invariant **best, unsigned *regs_needed,
   int gain = 0, again;
   unsigned aregs_needed, invno;
 
-  for (invno = 0; invno < VARRAY_ACTIVE_SIZE (invariants); invno++)
+  for (invno = 0; VEC_iterate (invariant_p, invariants, invno, inv); invno++)
     {
-      inv = VARRAY_GENERIC_PTR_NOGC (invariants, invno);
       if (inv->move)
 	continue;
 
@@ -697,7 +701,7 @@ best_gain_for_invariant (struct invariant **best, unsigned *regs_needed,
 static void
 set_move_mark (unsigned invno)
 {
-  struct invariant *inv = VARRAY_GENERIC_PTR_NOGC (invariants, invno);
+  struct invariant *inv = VEC_index (invariant_p, invariants, invno);
   bitmap_iterator bi;
 
   if (inv->move)
@@ -721,7 +725,7 @@ find_invariants_to_move (struct df *df)
   unsigned i, regs_used, n_inv_uses, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
 
-  if (!VARRAY_ACTIVE_SIZE (invariants))
+  if (!VEC_length (invariant_p, invariants))
     return;
 
   /* Now something slightly more involved.  First estimate the number of used
@@ -741,9 +745,8 @@ find_invariants_to_move (struct df *df)
 	}
     }
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
+  for (i = 0; VEC_iterate (invariant_p, invariants, i, inv); i++)
     {
-      inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
       if (inv->def)
 	n_inv_uses += inv->def->n_uses;
     }
@@ -762,7 +765,7 @@ find_invariants_to_move (struct df *df)
 static void
 move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
 {
-  struct invariant *inv = VARRAY_GENERIC_PTR_NOGC (invariants, invno);
+  struct invariant *inv = VEC_index (invariant_p, invariants, invno);
   unsigned i;
   basic_block preheader = loop_preheader_edge (loop)->src;
   rtx reg, set;
@@ -816,9 +819,8 @@ move_invariants (struct loop *loop, struct df *df)
   struct invariant *inv;
   unsigned i;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
+  for (i = 0; VEC_iterate (invariant_p, invariants, i, inv); i++)
     {
-      inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
       if (inv->move)
 	move_invariant_reg (loop, i, df);
     }
@@ -831,8 +833,7 @@ init_inv_motion_data (void)
 {
   actual_stamp = 1;
 
-  if (!invariants)
-    VARRAY_GENERIC_PTR_NOGC_INIT (invariants, 100, "invariants");
+  invariants = VEC_alloc (invariant_p, heap, 100);
 }
 
 /* Frees the data allocated by invariant motion.  DF is the dataflow
@@ -859,13 +860,12 @@ free_inv_motion_data (struct df *df)
       DF_REF_DATA (df->defs[i]) = NULL;
     }
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
+  for (i = 0; VEC_iterate (invariant_p, invariants, i, inv); i++)
     {
-      inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
       BITMAP_FREE (inv->depends_on);
       free (inv);
     }
-  VARRAY_POP_ALL (invariants);
+  VEC_free (invariant_p, heap, invariants);
 }
 
 /* Move the invariants out of the LOOP.  DF is the dataflow object.  */

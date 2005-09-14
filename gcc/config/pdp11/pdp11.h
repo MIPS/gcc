@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the pdp-11
-   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define CONSTANT_POOL_BEFORE_FUNCTION	0
 
@@ -415,12 +415,12 @@ loading is easier into LOAD_FPU_REGS than FPU_REGS! */
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.
 */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -550,7 +550,7 @@ maybe ac0 ? - as option someday! */
    for profiling a function entry.  */
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
-   abort ();
+   gcc_unreachable ();
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -944,7 +944,7 @@ extern struct rtx_def *cc0_reg_rtx;
 	fprintf (FILE, "\t.even\n");	\
 	break;				\
       default:				\
-	abort ();			\
+	gcc_unreachable ();		\
     }
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
@@ -1016,8 +1016,7 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 
 #define TRAMPOLINE_TEMPLATE(FILE)	\
 {					\
-  if (TARGET_SPLIT)			\
-    abort();				\
+  gcc_assert (!TARGET_SPLIT);		\
 					\
   assemble_aligned_integer (2, GEN_INT (0x9400+STATIC_CHAIN_REGNUM));	\
   assemble_aligned_integer (2, const0_rtx);				\
@@ -1034,8 +1033,7 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 
 #define INITIALIZE_TRAMPOLINE(TRAMP,FNADDR,CXT)	\
 {					\
-  if (TARGET_SPLIT)			\
-    abort();				\
+  gcc_assert (!TARGET_SPLIT);		\
 					\
   emit_move_insn (gen_rtx_MEM (HImode, plus_constant (TRAMP, 2)), CXT); \
   emit_move_insn (gen_rtx_MEM (HImode, plus_constant (TRAMP, 6)), FNADDR); \

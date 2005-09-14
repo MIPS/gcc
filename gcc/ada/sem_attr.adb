@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,7 +31,6 @@ with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Eval_Fat;
-with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Expander; use Expander;
 with Freeze;   use Freeze;
@@ -57,7 +56,6 @@ with Sem_Util; use Sem_Util;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
-with Snames;   use Snames;
 with Stand;
 with Stringt;  use Stringt;
 with Targparm; use Targparm;
@@ -66,7 +64,6 @@ with Ttypef;   use Ttypef;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 with Urealp;   use Urealp;
-with Widechar; use Widechar;
 
 package body Sem_Attr is
 
@@ -381,8 +378,7 @@ package body Sem_Attr is
             It    : Interp;
 
             function Get_Kind (E : Entity_Id) return Entity_Kind;
-            --  Distinguish between access to regular and protected
-            --  subprograms.
+            --  Distinguish between access to regular/protected subprograms
 
             --------------
             -- Get_Kind --
@@ -404,18 +400,20 @@ package body Sem_Attr is
             --  subprogram itself as the designated type. Type-checking in
             --  this case compares the signatures of the designated types.
 
+            Set_Etype (N, Any_Type);
+
             if not Is_Overloaded (P) then
-               Acc_Type :=
-                 New_Internal_Entity
-                   (Get_Kind (Entity (P)), Current_Scope, Loc, 'A');
-               Set_Etype (Acc_Type, Acc_Type);
-               Set_Directly_Designated_Type (Acc_Type, Entity (P));
-               Set_Etype (N, Acc_Type);
+               if not Is_Intrinsic_Subprogram (Entity (P)) then
+                  Acc_Type :=
+                    New_Internal_Entity
+                      (Get_Kind (Entity (P)), Current_Scope, Loc, 'A');
+                  Set_Etype (Acc_Type, Acc_Type);
+                  Set_Directly_Designated_Type (Acc_Type, Entity (P));
+                  Set_Etype (N, Acc_Type);
+               end if;
 
             else
                Get_First_Interp (P, Index, It);
-               Set_Etype (N, Any_Type);
-
                while Present (It.Nam) loop
                   if not Is_Intrinsic_Subprogram (It.Nam) then
                      Acc_Type :=
@@ -428,10 +426,10 @@ package body Sem_Attr is
 
                   Get_Next_Interp (Index, It);
                end loop;
+            end if;
 
-               if Etype (N) = Any_Type then
-                  Error_Attr ("prefix of % attribute cannot be intrinsic", P);
-               end if;
+            if Etype (N) = Any_Type then
+               Error_Attr ("prefix of % attribute cannot be intrinsic", P);
             end if;
          end Build_Access_Subprogram_Type;
 
@@ -455,6 +453,12 @@ package body Sem_Attr is
 
             if not Is_Library_Level_Entity (Entity (P)) then
                Check_Restriction (No_Implicit_Dynamic_Code, P);
+            end if;
+
+            if Is_Always_Inlined (Entity (P)) then
+               Error_Attr
+                 ("prefix of % attribute cannot be Inline_Always subprogram",
+                  P);
             end if;
 
             --  Build the appropriate subprogram type
@@ -630,7 +634,7 @@ package body Sem_Attr is
          Index : Entity_Id;
 
          D : Int;
-         --  Dimension number for array attributes.
+         --  Dimension number for array attributes
 
       begin
          --  Case of string literal or string literal subtype. These cases
@@ -703,7 +707,7 @@ package body Sem_Attr is
 
       procedure Check_Array_Type is
          D : Int;
-         --  Dimension number for array attributes.
+         --  Dimension number for array attributes
 
       begin
          --  If the type is a string literal type, then this must be generated
@@ -1096,13 +1100,64 @@ package body Sem_Attr is
       -------------------------------
 
       procedure Check_Not_Incomplete_Type is
+         E   : Entity_Id;
+         Typ : Entity_Id;
+
       begin
+         --  Ada 2005 (AI-50217, AI-326): If the prefix is an explicit
+         --  dereference we have to check wrong uses of incomplete types
+         --  (other wrong uses are checked at their freezing point).
+
+         --  Example 1: Limited-with
+
+         --    limited with Pkg;
+         --    package P is
+         --       type Acc is access Pkg.T;
+         --       X : Acc;
+         --       S : Integer := X.all'Size;                    -- ERROR
+         --    end P;
+
+         --  Example 2: Tagged incomplete
+
+         --     type T is tagged;
+         --     type Acc is access all T;
+         --     X : Acc;
+         --     S : constant Integer := X.all'Size;             -- ERROR
+         --     procedure Q (Obj : Integer := X.all'Alignment); -- ERROR
+
+         if Ada_Version >= Ada_05
+           and then Nkind (P) = N_Explicit_Dereference
+         then
+            E := P;
+            while Nkind (E) = N_Explicit_Dereference loop
+               E := Prefix (E);
+            end loop;
+
+            if From_With_Type (Etype (E)) then
+               Error_Attr
+                 ("prefix of % attribute cannot be an incomplete type", P);
+
+            else
+               if Is_Access_Type (Etype (E)) then
+                  Typ := Directly_Designated_Type (Etype (E));
+               else
+                  Typ := Etype (E);
+               end if;
+
+               if Ekind (Typ) = E_Incomplete_Type
+                 and then not Present (Full_View (Typ))
+               then
+                  Error_Attr
+                    ("prefix of % attribute cannot be an incomplete type", P);
+               end if;
+            end if;
+         end if;
+
          if not Is_Entity_Name (P)
            or else not Is_Type (Entity (P))
            or else In_Default_Expression
          then
             return;
-
          else
             Check_Fully_Declared (P_Type, P);
          end if;
@@ -1217,7 +1272,6 @@ package body Sem_Attr is
       procedure Check_Stream_Attribute (Nam : TSS_Name_Type) is
          Etyp : Entity_Id;
          Btyp : Entity_Id;
-
       begin
          Validate_Non_Static_Attribute_Function_Call;
 
@@ -1247,17 +1301,24 @@ package body Sem_Attr is
          --  attribute reference was generated by the expander (in which
          --  case the underlying type will be used, as described in Sinfo),
          --  or the attribute was specified explicitly for the type itself
-         --  or one of its ancestors.
+         --  or one of its ancestors (taking visibility rules into account if
+         --  in Ada 2005 mode), or a pragma Stream_Convert applies to Btyp
+         --  (with no visibility restriction).
 
-         if Is_Limited_Type (P_Type)
-           and then Comes_From_Source (N)
-           and then not Present (Find_Inherited_TSS (Btyp, Nam))
+         if Comes_From_Source (N)
+           and then not Stream_Attribute_Available (P_Type, Nam)
            and then not Has_Rep_Pragma (Btyp, Name_Stream_Convert)
          then
             Error_Msg_Name_1 := Aname;
-            Error_Msg_NE
-              ("limited type& has no% attribute", P, Btyp);
-            Explain_Limited_Type (P_Type, P);
+
+            if Is_Limited_Type (P_Type) then
+               Error_Msg_NE
+                 ("limited type& has no% attribute", P, P_Type);
+               Explain_Limited_Type (P_Type, P);
+            else
+               Error_Msg_NE
+                 ("attribute% for type& is not available", P, P_Type);
+            end if;
          end if;
 
          --  Check for violation of restriction No_Stream_Attributes
@@ -1629,7 +1690,11 @@ package body Sem_Attr is
          end if;
       end if;
 
-      if Is_Overloaded (P)
+      --  Ada 2005 (AI-345): Ensure that the compiler gives exactly the current
+      --  output compiling in Ada 95 mode
+
+      if Ada_Version < Ada_05
+        and then Is_Overloaded (P)
         and then Aname /= Name_Access
         and then Aname /= Name_Address
         and then Aname /= Name_Code_Address
@@ -1637,6 +1702,51 @@ package body Sem_Attr is
         and then Aname /= Name_Unchecked_Access
       then
          Error_Attr ("ambiguous prefix for % attribute", P);
+
+      elsif Ada_Version >= Ada_05
+        and then Is_Overloaded (P)
+        and then Aname /= Name_Access
+        and then Aname /= Name_Address
+        and then Aname /= Name_Code_Address
+        and then Aname /= Name_Unchecked_Access
+      then
+         --  Ada 2005 (AI-345): Since protected and task types have primitive
+         --  entry wrappers, the attributes Count, Caller and AST_Entry require
+         --  a context check
+
+         if Ada_Version >= Ada_05
+           and then (Aname = Name_Count
+                      or else Aname = Name_Caller
+                      or else Aname = Name_AST_Entry)
+         then
+            declare
+               Count : Natural := 0;
+               I     : Interp_Index;
+               It    : Interp;
+
+            begin
+               Get_First_Interp (P, I, It);
+
+               while Present (It.Nam) loop
+                  if Comes_From_Source (It.Nam) then
+                     Count := Count + 1;
+                  else
+                     Remove_Interp (I);
+                  end if;
+
+                  Get_Next_Interp (I, It);
+               end loop;
+
+               if Count > 1 then
+                  Error_Attr ("ambiguous prefix for % attribute", P);
+               else
+                  Set_Is_Overloaded (P, False);
+               end if;
+            end;
+
+         else
+            Error_Attr ("ambiguous prefix for % attribute", P);
+         end if;
       end if;
 
       --  Remaining processing depends on attribute
@@ -1691,6 +1801,20 @@ package body Sem_Attr is
                   end if;
 
                   Set_Address_Taken (Ent);
+
+                  --  An Address attribute is accepted when generated by
+                  --  the compiler for dispatching operation, and an error
+                  --  is issued once the subprogram is frozen (to avoid
+                  --  confusing errors about implicit uses of Address in
+                  --  the dispatch table initialization).
+
+                  if Is_Always_Inlined (Entity (P))
+                    and then Comes_From_Source (P)
+                  then
+                     Error_Attr
+                       ("prefix of % attribute cannot be Inline_Always" &
+                        " subprogram", P);
+                  end if;
 
                elsif Is_Object (Ent)
                  or else Ekind (Ent) = E_Label
@@ -1973,7 +2097,7 @@ package body Sem_Attr is
                     Attribute_Name => Name_Base),
                 Expression => Relocate_Node (E1)));
 
-            --  E1 may be overloaded, and its interpretations preserved.
+            --  E1 may be overloaded, and its interpretations preserved
 
             Save_Interps (E1, Expression (N));
             Analyze (N);
@@ -2411,6 +2535,14 @@ package body Sem_Attr is
 
                while Present (It.Nam) loop
                   if It.Nam = Ent then
+                     null;
+
+                  --  Ada 2005 (AI-345): Do not consider primitive entry
+                  --  wrappers generated for task or protected types.
+
+                  elsif Ada_Version >= Ada_05
+                    and then not Comes_From_Source (It.Nam)
+                  then
                      null;
 
                   else
@@ -3367,7 +3499,8 @@ package body Sem_Attr is
             Check_Object_Reference (P);
 
          elsif Is_Entity_Name (P)
-           and then Is_Type (Entity (P))
+           and then (Is_Type (Entity (P))
+                       or else Ekind (Entity (P)) = E_Enumeration_Literal)
          then
             null;
 
@@ -3496,7 +3629,7 @@ package body Sem_Attr is
          if Is_Real_Type (P_Type) then
             null;
 
-         --  If not modular type, test for overflow check required.
+         --  If not modular type, test for overflow check required
 
          else
             if not Is_Modular_Integer_Type (P_Type)
@@ -3941,7 +4074,7 @@ package body Sem_Attr is
       P     : constant Node_Id      := Prefix (N);
 
       C_Type : constant Entity_Id := Etype (N);
-      --  The type imposed by the context.
+      --  The type imposed by the context
 
       E1 : Node_Id;
       --  First expression, or Empty if none
@@ -4041,6 +4174,10 @@ package body Sem_Attr is
       --  the N'th index if the value N is present as an expression). Also
       --  used for First and Last of scalar types. Static is reset to False
       --  if the type or index type is not statically constrained.
+
+      function Statically_Denotes_Entity (N : Node_Id) return Boolean;
+      --  Verify that the prefix of a potentially static array attribute
+      --  satisfies the conditions of 4.9 (14).
 
       ---------------
       -- Aft_Value --
@@ -4399,6 +4536,25 @@ package body Sem_Attr is
          end if;
       end Set_Bounds;
 
+      -------------------------------
+      -- Statically_Denotes_Entity --
+      -------------------------------
+
+      function Statically_Denotes_Entity (N : Node_Id) return Boolean is
+         E : Entity_Id;
+
+      begin
+         if not Is_Entity_Name (N) then
+            return False;
+         else
+            E := Entity (N);
+         end if;
+
+         return
+           Nkind (Parent (E)) /= N_Object_Renaming_Declaration
+             or else Statically_Denotes_Entity (Renamed_Object (E));
+      end Statically_Denotes_Entity;
+
    --  Start of processing for Eval_Attribute
 
    begin
@@ -4657,12 +4813,15 @@ package body Sem_Attr is
       --  Array case. We enforce the constrained requirement of (RM 4.9(7-8))
       --  since we can't do anything with unconstrained arrays. In addition,
       --  only the First, Last and Length attributes are possibly static.
-      --  In addition Component_Size is possibly foldable, even though it
-      --  can never be static.
 
       --  Definite, Has_Access_Values, Has_Discriminants, Type_Class, and
       --  Unconstrained_Array are again exceptions, because they apply as
       --  well to unconstrained types.
+
+      --  In addition Component_Size is an exception since it is possibly
+      --  foldable, even though it is never static, and it does apply to
+      --  unconstrained arrays. Furthermore, it is essential to fold this
+      --  in the packed case, since otherwise the value will be incorrect.
 
       elsif Id = Attribute_Definite
               or else
@@ -4673,14 +4832,15 @@ package body Sem_Attr is
             Id = Attribute_Type_Class
               or else
             Id = Attribute_Unconstrained_Array
+              or else
+            Id = Attribute_Component_Size
       then
          Static := False;
 
       else
          if not Is_Constrained (P_Type)
-           or else (Id /= Attribute_Component_Size and then
-                    Id /= Attribute_First          and then
-                    Id /= Attribute_Last           and then
+           or else (Id /= Attribute_First and then
+                    Id /= Attribute_Last  and then
                     Id /= Attribute_Length)
          then
             Check_Expressions;
@@ -4696,7 +4856,8 @@ package body Sem_Attr is
          --  Again we compute the variable Static for easy reference later
          --  (note that no array attributes are static in Ada 83).
 
-         Static := Ada_Version >= Ada_95;
+         Static := Ada_Version >= Ada_95
+                     and then Statically_Denotes_Entity (P);
 
          declare
             N : Node_Id;
@@ -6303,19 +6464,10 @@ package body Sem_Attr is
 
                      for J in UI_To_Int (Lo) .. UI_To_Int (Hi) loop
 
-                        --  Assume all wide-character escape sequences are
-                        --  same length, so we can quit when we reach one.
-
-                        --  Is this right for UTF-8?
+                        --  All wide characters look like Hex_hhhhhhhh
 
                         if J > 255 then
-                           if Id = Attribute_Wide_Width then
-                              W := Int'Max (W, 3);
-                              exit;
-                           else
-                              W := Int'Max (W, Length_Wide);
-                              exit;
-                           end if;
+                           W := 12;
 
                         else
                            C := Character'Val (J);
@@ -6879,9 +7031,7 @@ package body Sem_Attr is
                --  enclosing composite type.
 
                if Ada_Version >= Ada_05
-                 and then Ekind (Btyp) = E_Anonymous_Access_Type
-                 and then (Is_Array_Type (Scope (Btyp))
-                             or else Ekind (Scope (Btyp)) = E_Record_Type)
+                 and then Is_Local_Anonymous_Access (Btyp)
                  and then Object_Access_Level (P) > Type_Access_Level (Btyp)
                then
                   --  In an instance, this is a runtime check, but one we
@@ -7095,7 +7245,7 @@ package body Sem_Attr is
                Note_Possible_Modification (P);
             end if;
 
-            if Nkind (P) in  N_Subexpr
+            if Nkind (P) in N_Subexpr
               and then Is_Overloaded (P)
             then
                Get_First_Interp (P, Index, It);
@@ -7104,7 +7254,7 @@ package body Sem_Attr is
                if Present (It.Nam) then
                   Error_Msg_Name_1 := Aname;
                   Error_Msg_N
-                    ("prefix of % attribute cannot be overloaded", N);
+                    ("prefix of % attribute cannot be overloaded", P);
                   return;
                end if;
             end if;
@@ -7465,5 +7615,109 @@ package body Sem_Attr is
 
       Eval_Attribute (N);
    end Resolve_Attribute;
+
+   --------------------------------
+   -- Stream_Attribute_Available --
+   --------------------------------
+
+   function Stream_Attribute_Available
+     (Typ          : Entity_Id;
+      Nam          : TSS_Name_Type;
+      Partial_View : Node_Id := Empty) return Boolean
+   is
+      Etyp : Entity_Id := Typ;
+
+      function Has_Specified_Stream_Attribute
+        (Typ : Entity_Id;
+         Nam : TSS_Name_Type) return Boolean;
+      --  True iff there is a visible attribute definition clause specifying
+      --  attribute Nam for Typ.
+
+      ------------------------------------
+      -- Has_Specified_Stream_Attribute --
+      ------------------------------------
+
+      function Has_Specified_Stream_Attribute
+        (Typ : Entity_Id;
+         Nam : TSS_Name_Type) return Boolean
+      is
+      begin
+         return False
+           or else
+             (Nam = TSS_Stream_Input
+               and then Has_Specified_Stream_Input (Typ))
+           or else
+             (Nam = TSS_Stream_Output
+               and then Has_Specified_Stream_Output (Typ))
+           or else
+             (Nam = TSS_Stream_Read
+               and then Has_Specified_Stream_Read (Typ))
+           or else
+             (Nam = TSS_Stream_Write
+               and then Has_Specified_Stream_Write (Typ));
+      end Has_Specified_Stream_Attribute;
+
+   --  Start of processing for Stream_Attribute_Available
+
+   begin
+      --  We need some comments in this body ???
+
+      if Has_Specified_Stream_Attribute (Typ, Nam) then
+         return True;
+      end if;
+
+      if Is_Class_Wide_Type (Typ) then
+         return not Is_Limited_Type (Typ)
+           or else Stream_Attribute_Available (Etype (Typ), Nam);
+      end if;
+
+      if Nam = TSS_Stream_Input
+        and then Is_Abstract (Typ)
+        and then not Is_Class_Wide_Type (Typ)
+      then
+         return False;
+      end if;
+
+      if not (Is_Limited_Type (Typ)
+        or else (Present (Partial_View)
+                   and then Is_Limited_Type (Partial_View)))
+      then
+         return True;
+      end if;
+
+      if Nam = TSS_Stream_Input then
+         return Ada_Version >= Ada_05
+           and then Stream_Attribute_Available (Etyp, TSS_Stream_Read);
+      elsif Nam = TSS_Stream_Output then
+         return Ada_Version >= Ada_05
+           and then Stream_Attribute_Available (Etyp, TSS_Stream_Write);
+      end if;
+
+      --  Case of Read and Write: check for attribute definition clause that
+      --  applies to an ancestor type.
+
+      while Etype (Etyp) /= Etyp loop
+         Etyp := Etype (Etyp);
+
+         if Has_Specified_Stream_Attribute (Etyp, Nam) then
+            return True;
+         end if;
+      end loop;
+
+      if Ada_Version < Ada_05 then
+
+         --  In Ada 95 mode, also consider a non-visible definition
+
+         declare
+            Btyp : constant Entity_Id := Implementation_Base_Type (Typ);
+         begin
+            return Btyp /= Typ
+              and then Stream_Attribute_Available
+                         (Btyp, Nam, Partial_View => Typ);
+         end;
+      end if;
+
+      return False;
+   end Stream_Attribute_Available;
 
 end Sem_Attr;

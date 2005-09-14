@@ -1,6 +1,7 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define DBX_DEBUGGING_INFO 1
 #define SDB_DEBUGGING_INFO 1
@@ -49,26 +50,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
 #include <stdio.h>
-
-/* Masks for subtarget switches used by other files.  */
-#define MASK_NOP_FUN_DLLIMPORT 0x08000000 /* Ignore dllimport for functions */
-
-/* Used in winnt.c.  */
-#define TARGET_NOP_FUN_DLLIMPORT (target_flags & MASK_NOP_FUN_DLLIMPORT)
-
-#undef  SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES \
-{ "cygwin",		  0, N_("Use the Cygwin interface") },	\
-{ "no-cygwin",		  0, N_("Use the Mingw32 interface") },	\
-{ "windows",		  0, N_("Create GUI application") },	\
-{ "no-win32",		  0, N_("Don't set Windows defines") },	\
-{ "win32",		  0, N_("Set Windows defines") },	\
-{ "console",		  0, N_("Create console application") },\
-{ "dll",		  0, N_("Generate code for a DLL") },	\
-{ "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,		\
-  N_("Ignore dllimport for functions") },			\
-{ "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" },	\
-{ "threads",		  0, N_("Use Mingw-specific thread support") },
 
 #define MAYBE_UWIN_CPP_BUILTINS() /* Nothing.  */
 
@@ -182,7 +163,7 @@ switch_to_section (enum in_section section, tree decl)		\
 do {									\
   if (flag_pic)								\
     {									\
-      warning ("-f%s ignored for target (all code is position independent)",\
+      warning (0, "-f%s ignored for target (all code is position independent)",\
 	       (flag_pic > 1) ? "PIC" : "pic");				\
       flag_pic = 0;							\
     }									\
@@ -205,14 +186,17 @@ do {									\
    section and we need to set DECL_SECTION_NAME so we do that here.
    Note that we can be called twice on the same decl.  */
 
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
+#undef SUBTARGET_ENCODE_SECTION_INFO
+#define SUBTARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
 #undef  TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  i386_pe_strip_name_encoding_full
 
 /* Output a reference to a label.  */
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF  i386_pe_output_labelref
+
+#undef  COMMON_ASM_OP
+#define COMMON_ASM_OP	"\t.comm\t"
 
 /* Output a common block.  */
 #undef ASM_OUTPUT_COMMON
@@ -421,6 +405,10 @@ extern int i386_pe_dllimport_name_p (const char *);
 #define SUBTARGET_ATTRIBUTE_TABLE \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
   { "selectany", 0, 0, true, false, false, ix86_handle_selectany_attribute }
+
+/*  mcount() does not need a counter variable.  */
+#undef NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS 1
 
 #undef TREE
 

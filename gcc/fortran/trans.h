@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GFC_TRANS_H
 #define GFC_TRANS_H
@@ -251,8 +251,8 @@ gfc_saved_var;
 /* Advance the SS chain to the next term.  */
 void gfc_advance_se_ss_chain (gfc_se *);
 
-/* Call this to initialise a gfc_se structure before use
-   first parameter is structure to initialise, second is
+/* Call this to initialize a gfc_se structure before use
+   first parameter is structure to initialize, second is
    parent to get scalarization data from, or NULL.  */
 void gfc_init_se (gfc_se *, gfc_se *);
 
@@ -275,20 +275,15 @@ tree gfc_chainon_list (tree, tree);
    when a POST chain may be created, and what the returned expression may be
    used for.  Note that character strings have special handling.  This
    should not be a problem as most statements/operations only deal with
-   numeric/logical types.  */
+   numeric/logical types.  See the implementations in trans-expr.c
+   for details of the individual functions.  */
 
-/* Entry point for expression translation.  */
 void gfc_conv_expr (gfc_se * se, gfc_expr * expr);
-/* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
-   numeric expressions.  */
 void gfc_conv_expr_val (gfc_se * se, gfc_expr * expr);
-/* Like gfc_conv_expr_val, but the value is also suitable for use in the lhs of
-   an assignment.  */
 void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
-/* Converts an expression so that it can be passed be reference.  */
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
-/* Equivalent to convert(type, gfc_conv_expr_val(se, expr)).  */
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
+
 /* Find the decl containing the auxiliary variables for assigned variables.  */
 void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
 /* If the value is not constant, Create a temporary and copy the value.  */
@@ -301,7 +296,7 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
 /* Also used to CALL subroutines.  */
-void gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
+int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
 /* Generate code for a scalar assignment.  */
@@ -362,7 +357,7 @@ tree gfc_build_indirect_ref (tree);
 /* Build an ARRAY_REF.  */
 tree gfc_build_array_ref (tree, tree);
 
-/* Creates an label.  Decl is artificial if label_id == NULL_TREE.  */
+/* Creates a label.  Decl is artificial if label_id == NULL_TREE.  */
 tree gfc_build_label_decl (tree);
 
 /* Return the decl used to hold the function return value.
@@ -425,7 +420,7 @@ void gfc_trans_runtime_check (tree, tree, stmtblock_t *);
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *);
 
-/* Generate code for an pointer assignment.  */
+/* Generate code for a pointer assignment.  */
 tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
 
 /* Initialize function decls for library functions.  */
@@ -458,6 +453,7 @@ extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
 extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
+extern GTY(()) tree gfor_fndecl_set_std;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
 extern GTY(()) tree gfor_fndecl_associated;
@@ -574,7 +570,4 @@ struct lang_decl		GTY(())
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
-
-/* flag for alternative return labels.  */
-extern int has_alternate_specifier;  /* for caller */
 #endif /* GFC_TRANS_H */

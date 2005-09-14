@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -49,6 +49,7 @@
 #endif
 
 /* Function prototypes for stupid compilers:  */
+static bool v850_handle_option       (size_t, const char *, int);
 static void const_double_split       (rtx, HOST_WIDE_INT *, HOST_WIDE_INT *);
 static int  const_costs_int          (HOST_WIDE_INT, int);
 static int  const_costs		     (rtx, enum rtx_code);
@@ -75,10 +76,10 @@ static int v850_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 /* Information about the various small memory areas.  */
 struct small_memory_info small_memory[ (int)SMALL_MEMORY_max ] =
 {
-  /* name	value		max		physical max */
-  { "tda",	(char *)0,	0,		256 },
-  { "sda",	(char *)0,	0,		65536 },
-  { "zda",	(char *)0,	0,		32768 },
+  /* name	max	physical max */
+  { "tda",	0,		256 },
+  { "sda",	0,		65536 },
+  { "zda",	0,		32768 },
 };
 
 /* Names of the various data areas used on the v850.  */
@@ -115,6 +116,11 @@ static int v850_interrupt_p = FALSE;
 #undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS (MASK_DEFAULT | MASK_APP_REGS)
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION v850_handle_option
+
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS v850_rtx_costs
 
@@ -144,49 +150,64 @@ static int v850_interrupt_p = FALSE;
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Sometimes certain combinations of command options do not make
-   sense on a particular target machine.  You can define a macro
-   `OVERRIDE_OPTIONS' to take account of this.  This macro, if
-   defined, is executed once just after all the command options have
-   been parsed.
+/* Set the maximum size of small memory area TYPE to the value given
+   by VALUE.  Return true if VALUE was syntactically correct.  VALUE
+   starts with the argument separator: either "-" or "=".  */
 
-   Don't use this macro to turn on various extra optimizations for
-   `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
-
-void
-override_options (void)
+static bool
+v850_handle_memory_option (enum small_memory_type type, const char *value)
 {
-  int i;
-  extern int atoi (const char *);
+  int i, size;
 
-  /* Parse -m{s,t,z}da=nnn switches */
-  for (i = 0; i < (int)SMALL_MEMORY_max; i++)
-    {
-      if (small_memory[i].value)
-	{
-	  if (!ISDIGIT (*small_memory[i].value))
-	    error ("%s=%s is not numeric",
-		   small_memory[i].name,
-		   small_memory[i].value);
-	  else
-	    {
-	      small_memory[i].max = atoi (small_memory[i].value);
-	      if (small_memory[i].max > small_memory[i].physical_max)
-		error ("%s=%s is too large",
-		   small_memory[i].name,
-		   small_memory[i].value);
-	    }
-	}
-    }
+  if (*value != '-' && *value != '=')
+    return false;
 
-  /* Make sure that the US_BIT_SET mask has been correctly initialized.  */
-  if ((target_flags & MASK_US_MASK_SET) == 0)
-    {
-      target_flags |= MASK_US_MASK_SET;
-      target_flags &= ~MASK_US_BIT_SET;
-    }
+  value++;
+  for (i = 0; value[i]; i++)
+    if (!ISDIGIT (value[i]))
+      return false;
+
+  size = atoi (value);
+  if (size > small_memory[type].physical_max)
+    error ("value passed to %<-m%s%> is too large", small_memory[type].name);
+  else
+    small_memory[type].max = size;
+  return true;
 }
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+v850_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_mspace:
+      target_flags |= MASK_EP | MASK_PROLOG_FUNCTION;
+      return true;
+
+    case OPT_mv850:
+      target_flags &= ~(MASK_CPU ^ MASK_V850);
+      return true;
+
+    case OPT_mv850e:
+    case OPT_mv850e1:
+      target_flags &= ~(MASK_CPU ^ MASK_V850E);
+      return true;
+
+    case OPT_mtda:
+      return v850_handle_memory_option (SMALL_MEMORY_TDA, arg);
+
+    case OPT_msda:
+      return v850_handle_memory_option (SMALL_MEMORY_SDA, arg);
+
+    case OPT_mzda:
+      return v850_handle_memory_option (SMALL_MEMORY_ZDA, arg);
+
+    default:
+      return true;
+    }
+}
 
 static bool
 v850_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
@@ -497,30 +518,40 @@ print_operand (FILE * file, rtx x, int code)
 	    fprintf (file, "l");
 	    break;
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	}
       break;
     case 'F':			/* high word of CONST_DOUBLE */
-      if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%d", (INTVAL (x) >= 0) ? 0 : -1);
-      else if (GET_CODE (x) == CONST_DOUBLE)
+      switch (GET_CODE (x))
 	{
+	case CONST_INT:
+	  fprintf (file, "%d", (INTVAL (x) >= 0) ? 0 : -1);
+	  break;
+	  
+	case CONST_DOUBLE:
 	  const_double_split (x, &high, &low);
 	  fprintf (file, "%ld", (long) high);
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
-      else
-	abort ();
       break;
     case 'G':			/* low word of CONST_DOUBLE */
-      if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", (long) INTVAL (x));
-      else if (GET_CODE (x) == CONST_DOUBLE)
+      switch (GET_CODE (x))
 	{
+	case CONST_INT:
+	  fprintf (file, "%ld", (long) INTVAL (x));
+	  break;
+	  
+	case CONST_DOUBLE:
 	  const_double_split (x, &high, &low);
 	  fprintf (file, "%ld", (long) low);
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
-      else
-	abort ();
       break;
     case 'L':
       fprintf (file, "%d\n", (int)(INTVAL (x) & 0xffff));
@@ -529,54 +560,42 @@ print_operand (FILE * file, rtx x, int code)
       fprintf (file, "%d", exact_log2 (INTVAL (x)));
       break;
     case 'O':
-      if (special_symbolref_operand (x, VOIDmode))
-        {
-	  if (GET_CODE (x) == SYMBOL_REF)
-	    ;
-	  else if (GET_CODE (x) == CONST)
-	    x = XEXP (XEXP (x, 0), 0);
-	  else
-	    abort ();
-
-          if (SYMBOL_REF_ZDA_P (x))
-            fprintf (file, "zdaoff");
-          else if (SYMBOL_REF_SDA_P (x))
-            fprintf (file, "sdaoff");
-          else if (SYMBOL_REF_TDA_P (x))
-            fprintf (file, "tdaoff");
-          else
-            abort ();
-        }
+      gcc_assert (special_symbolref_operand (x, VOIDmode));
+      
+      if (GET_CODE (x) == CONST)
+	x = XEXP (XEXP (x, 0), 0);
       else
-        abort ();
+	gcc_assert (GET_CODE (x) == SYMBOL_REF);
+      
+      if (SYMBOL_REF_ZDA_P (x))
+	fprintf (file, "zdaoff");
+      else if (SYMBOL_REF_SDA_P (x))
+	fprintf (file, "sdaoff");
+      else if (SYMBOL_REF_TDA_P (x))
+	fprintf (file, "tdaoff");
+      else
+	gcc_unreachable ();
       break;
     case 'P':
-      if (special_symbolref_operand (x, VOIDmode))
-        output_addr_const (file, x);
-      else
-        abort ();
+      gcc_assert (special_symbolref_operand (x, VOIDmode));
+      output_addr_const (file, x);
       break;
     case 'Q':
-      if (special_symbolref_operand (x, VOIDmode))
-        {
-	  if (GET_CODE (x) == SYMBOL_REF)
-	    ;
-	  else if (GET_CODE (x) == CONST)
-	    x = XEXP (XEXP (x, 0), 0);
-	  else
-	    abort ();
-
-          if (SYMBOL_REF_ZDA_P (x))
-            fprintf (file, "r0");
-          else if (SYMBOL_REF_SDA_P (x))
-            fprintf (file, "gp");
-          else if (SYMBOL_REF_TDA_P (x))
-            fprintf (file, "ep");
-          else
-            abort ();
-        }
+      gcc_assert (special_symbolref_operand (x, VOIDmode));
+      
+      if (GET_CODE (x) == CONST)
+	x = XEXP (XEXP (x, 0), 0);
       else
-        abort ();
+	gcc_assert (GET_CODE (x) == SYMBOL_REF);
+      
+      if (SYMBOL_REF_ZDA_P (x))
+	fprintf (file, "r0");
+      else if (SYMBOL_REF_SDA_P (x))
+	fprintf (file, "gp");
+      else if (SYMBOL_REF_TDA_P (x))
+	fprintf (file, "ep");
+      else
+	gcc_unreachable ();
       break;
     case 'R':		/* 2nd word of a double.  */
       switch (GET_CODE (x))
@@ -597,7 +616,7 @@ print_operand (FILE * file, rtx x, int code)
       break;
     case 'S':
       {
-        /* if it's a reference to a TDA variable, use sst/sld vs. st/ld */
+        /* If it's a reference to a TDA variable, use sst/sld vs. st/ld.  */
         if (GET_CODE (x) == MEM && ep_memory_operand (x, GET_MODE (x), FALSE))
           fputs ("s", file);
 
@@ -615,7 +634,7 @@ print_operand (FILE * file, rtx x, int code)
       switch (GET_MODE (x))
 	{
 	default:
-	  abort ();
+	  gcc_unreachable ();
 
 	case QImode: fputs (".b", file); break;
 	case HImode: fputs (".h", file); break;
@@ -627,12 +646,13 @@ print_operand (FILE * file, rtx x, int code)
       fputs (reg_names[0], file);
       break;
     case 'z':			/* reg or zero */
-      if (x == const0_rtx)
-	fputs (reg_names[0], file);
-      else if (GET_CODE (x) == REG)
+      if (GET_CODE (x) == REG)
 	fputs (reg_names[REGNO (x)], file);
       else
-	abort ();
+	{
+	  gcc_assert (x == const0_rtx);
+	  fputs (reg_names[0], file);
+	}
       break;
     default:
       switch (GET_CODE (x))
@@ -659,7 +679,7 @@ print_operand (FILE * file, rtx x, int code)
 	  print_operand_address (file, x);
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       break;
 
@@ -758,7 +778,7 @@ print_operand_address (FILE * file, rtx addr)
               reg_name = "ep";
             }
           else
-            abort ();
+            gcc_unreachable ();
 
           fprintf (file, "%s(", off_name);
           output_addr_const (file, addr);
@@ -1036,6 +1056,13 @@ ep_memory_operand (rtx op, enum machine_mode mode, int unsigned_load)
   rtx addr, op0, op1;
   int max_offset;
   int mask;
+
+  /* If we are not using the EP register on a per-function basis
+     then do not allow this optimisation at all.  This is to
+     prevent the use of the SLD/SST instructions which cannot be
+     guaranteed to work properly due to a hardware bug.  */
+  if (!TARGET_EP)
+    return FALSE;
 
   if (GET_CODE (op) != MEM)
     return FALSE;
@@ -2081,7 +2108,7 @@ v850_handle_interrupt_attribute (tree * node,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2110,7 +2137,7 @@ v850_handle_data_area_attribute (tree* node,
   else if (is_attribute_p ("zda", name))
     data_area = DATA_AREA_ZDA;
   else
-    abort ();
+    gcc_unreachable ();
   
   switch (TREE_CODE (decl))
     {
@@ -2118,7 +2145,7 @@ v850_handle_data_area_attribute (tree* node,
       if (current_function_decl != NULL_TREE)
 	{
           error ("%Jdata area attributes cannot be specified for "
-                 "local variables", decl, decl);
+                 "local variables", decl);
 	  *no_add_attrs = true;
 	}
 
@@ -2128,8 +2155,8 @@ v850_handle_data_area_attribute (tree* node,
       area = v850_get_data_area (decl);
       if (area != DATA_AREA_NORMAL && data_area != area)
 	{
-	  error ("%Jdata area of '%D' conflicts with previous declaration",
-                 decl, decl);
+	  error ("data area of %q+D conflicts with previous declaration",
+                 decl);
 	  *no_add_attrs = true;
 	}
       break;
@@ -2225,7 +2252,7 @@ v850_encode_data_area (tree decl, rtx symbol)
     case DATA_AREA_ZDA: flags |= SYMBOL_FLAG_ZDA; break;
     case DATA_AREA_TDA: flags |= SYMBOL_FLAG_TDA; break;
     case DATA_AREA_SDA: flags |= SYMBOL_FLAG_SDA; break;
-    default: abort ();
+    default: gcc_unreachable ();
     }
   SYMBOL_REF_FLAGS (symbol) = flags;
 }
@@ -2258,18 +2285,15 @@ construct_restore_jr (rtx op)
   
   if (count <= 2)
     {
-      error ("bogus JR construction: %d\n", count);
+      error ("bogus JR construction: %d", count);
       return NULL;
     }
 
   /* Work out how many bytes to pop off the stack before retrieving
      registers.  */
-  if (GET_CODE (XVECEXP (op, 0, 1)) != SET)
-    abort ();
-  if (GET_CODE (SET_SRC (XVECEXP (op, 0, 1))) != PLUS)
-    abort ();
-  if (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1)) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (XVECEXP (op, 0, 1)) == SET);
+  gcc_assert (GET_CODE (SET_SRC (XVECEXP (op, 0, 1))) == PLUS);
+  gcc_assert (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1)) == CONST_INT);
     
   stack_bytes = INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1));
 
@@ -2289,12 +2313,10 @@ construct_restore_jr (rtx op)
     {
       rtx vector_element = XVECEXP (op, 0, i);
       
-      if (GET_CODE (vector_element) != SET)
-	abort ();
-      if (GET_CODE (SET_DEST (vector_element)) != REG)
-	abort ();
-      if (! register_is_ok_for_epilogue (SET_DEST (vector_element), SImode))
-	abort ();
+      gcc_assert (GET_CODE (vector_element) == SET);
+      gcc_assert (GET_CODE (SET_DEST (vector_element)) == REG);
+      gcc_assert (register_is_ok_for_epilogue (SET_DEST (vector_element),
+					       SImode));
       
       mask |= 1 << REGNO (SET_DEST (vector_element));
     }
@@ -2306,24 +2328,19 @@ construct_restore_jr (rtx op)
 	break;
     }
 
-  if (first >= 32)
-    abort ();
+  gcc_assert (first < 32);
 
   /* Discover the last register to pop.  */
   if (mask & (1 << LINK_POINTER_REGNUM))
     {
-      if (stack_bytes != 16)
-	abort ();
+      gcc_assert (stack_bytes == 16);
       
       last = LINK_POINTER_REGNUM;
     }
   else
     {
-      if (stack_bytes != 0)
-	abort ();
-      
-      if ((mask & (1 << 29)) == 0)
-	abort ();
+      gcc_assert (!stack_bytes);
+      gcc_assert (mask & (1 << 29));
       
       last = 29;
     }
@@ -2380,14 +2397,10 @@ construct_save_jarl (rtx op)
     }
 
   /* Paranoia.  */
-  if (GET_CODE (XVECEXP (op, 0, 0)) != SET)
-    abort ();
-  if (GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != PLUS)
-    abort ();
-  if (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 0)) != REG)
-    abort ();
-  if (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1)) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (XVECEXP (op, 0, 0)) == SET);
+  gcc_assert (GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) == PLUS);
+  gcc_assert (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 0)) == REG);
+  gcc_assert (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1)) == CONST_INT);
     
   /* Work out how many bytes to push onto the stack after storing the
      registers.  */
@@ -2409,12 +2422,10 @@ construct_save_jarl (rtx op)
     {
       rtx vector_element = XVECEXP (op, 0, i);
       
-      if (GET_CODE (vector_element) != SET)
-	abort ();
-      if (GET_CODE (SET_SRC (vector_element)) != REG)
-	abort ();
-      if (! register_is_ok_for_epilogue (SET_SRC (vector_element), SImode))
-	abort ();
+      gcc_assert (GET_CODE (vector_element) == SET);
+      gcc_assert (GET_CODE (SET_SRC (vector_element)) == REG);
+      gcc_assert (register_is_ok_for_epilogue (SET_SRC (vector_element),
+					       SImode));
       
       mask |= 1 << REGNO (SET_SRC (vector_element));
     }
@@ -2426,23 +2437,19 @@ construct_save_jarl (rtx op)
 	break;
     }
 
-  if (first >= 32)
-    abort ();
+  gcc_assert (first < 32);
 
   /* Discover the last register to push.  */
   if (mask & (1 << LINK_POINTER_REGNUM))
     {
-      if (stack_bytes != -16)
-	abort ();
+      gcc_assert (stack_bytes == -16);
       
       last = LINK_POINTER_REGNUM;
     }
   else
     {
-      if (stack_bytes != 0)
-	abort ();
-      if ((mask & (1 << 29)) == 0)
-	abort ();
+      gcc_assert (!stack_bytes);
+      gcc_assert (mask & (1 << 29));
       
       last = 29;
     }
@@ -2485,7 +2492,7 @@ void
 v850_output_aligned_bss (FILE * file,
                          tree decl,
                          const char * name,
-                         int size,
+                         unsigned HOST_WIDE_INT size,
                          int align)
 {
   switch (v850_get_data_area (decl))
@@ -2621,7 +2628,7 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
 	  switch (v850_get_data_area (decl))
 	    {
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	      
 	    case DATA_AREA_SDA:
 	      kind = ((TREE_READONLY (decl))
@@ -2684,18 +2691,15 @@ construct_dispose_instruction (rtx op)
   
   if (count <= 2)
     {
-      error ("Bogus DISPOSE construction: %d\n", count);
+      error ("bogus DISPOSE construction: %d", count);
       return NULL;
     }
 
   /* Work out how many bytes to pop off the
      stack before retrieving registers.  */
-  if (GET_CODE (XVECEXP (op, 0, 1)) != SET)
-    abort ();
-  if (GET_CODE (SET_SRC (XVECEXP (op, 0, 1))) != PLUS)
-    abort ();
-  if (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1)) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (XVECEXP (op, 0, 1)) == SET);
+  gcc_assert (GET_CODE (SET_SRC (XVECEXP (op, 0, 1))) == PLUS);
+  gcc_assert (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1)) == CONST_INT);
     
   stack_bytes = INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1));
 
@@ -2706,7 +2710,7 @@ construct_dispose_instruction (rtx op)
      will fit into the DISPOSE instruction.  */
   if (stack_bytes > 128)
     {
-      error ("Too much stack space to dispose of: %d", stack_bytes);
+      error ("too much stack space to dispose of: %d", stack_bytes);
       return NULL;
     }
 
@@ -2717,12 +2721,10 @@ construct_dispose_instruction (rtx op)
     {
       rtx vector_element = XVECEXP (op, 0, i);
       
-      if (GET_CODE (vector_element) != SET)
-	abort ();
-      if (GET_CODE (SET_DEST (vector_element)) != REG)
-	abort ();
-      if (! register_is_ok_for_epilogue (SET_DEST (vector_element), SImode))
-	abort ();
+      gcc_assert (GET_CODE (vector_element) == SET);
+      gcc_assert (GET_CODE (SET_DEST (vector_element)) == REG);
+      gcc_assert (register_is_ok_for_epilogue (SET_DEST (vector_element),
+					       SImode));
 
       if (REGNO (SET_DEST (vector_element)) == 2)
 	use_callt = 1;
@@ -2810,18 +2812,15 @@ construct_prepare_instruction (rtx op)
   
   if (count <= 1)
     {
-      error ("Bogus PREPEARE construction: %d\n", count);
+      error ("bogus PREPEARE construction: %d", count);
       return NULL;
     }
 
   /* Work out how many bytes to push onto
      the stack after storing the registers.  */
-  if (GET_CODE (XVECEXP (op, 0, 0)) != SET)
-    abort ();
-  if (GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != PLUS)
-    abort ();
-  if (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1)) != CONST_INT)
-    abort ();
+  gcc_assert (GET_CODE (XVECEXP (op, 0, 0)) == SET);
+  gcc_assert (GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) == PLUS);
+  gcc_assert (GET_CODE (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1)) == CONST_INT);
     
   stack_bytes = INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1));
 
@@ -2832,7 +2831,7 @@ construct_prepare_instruction (rtx op)
      will fit into the DISPOSE instruction.  */
   if (stack_bytes < -128)
     {
-      error ("Too much stack space to prepare: %d", stack_bytes);
+      error ("too much stack space to prepare: %d", stack_bytes);
       return NULL;
     }
 
@@ -2842,12 +2841,10 @@ construct_prepare_instruction (rtx op)
     {
       rtx vector_element = XVECEXP (op, 0, i);
       
-      if (GET_CODE (vector_element) != SET)
-	abort ();
-      if (GET_CODE (SET_SRC (vector_element)) != REG)
-	abort ();
-      if (! register_is_ok_for_epilogue (SET_SRC (vector_element), SImode))
-	abort ();
+      gcc_assert (GET_CODE (vector_element) == SET);
+      gcc_assert (GET_CODE (SET_SRC (vector_element)) == REG);
+      gcc_assert (register_is_ok_for_epilogue (SET_SRC (vector_element),
+					       SImode));
 
       if (REGNO (SET_SRC (vector_element)) == 2)
 	use_callt = 1;

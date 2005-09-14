@@ -64,3 +64,5 @@ int main (void)
 
 /*  { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" { target vect_no_align } } }
 /*  { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 4 "vect" { target vect_no_align } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */
+

@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. 
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -208,17 +208,16 @@ java_gimplify_exit_block_expr (tree expr)
   return build1 (GOTO_EXPR, void_type_node, label);
 }
 
-/* This is specific to the bytecode compiler.  If a variable has
-   LOCAL_SLOT_P set, replace an assignment to it with an assignment to
-   the corresponding variable that holds all its aliases.  */
-
 static tree
 java_gimplify_modify_expr (tree modify_expr)
 {
   tree lhs = TREE_OPERAND (modify_expr, 0);
   tree rhs = TREE_OPERAND (modify_expr, 1);
   tree lhs_type = TREE_TYPE (lhs);
-  
+
+  /* This is specific to the bytecode compiler.  If a variable has
+     LOCAL_SLOT_P set, replace an assignment to it with an assignment
+     to the corresponding variable that holds all its aliases.  */
   if (TREE_CODE (lhs) == VAR_DECL
       && DECL_LANG_SPECIFIC (lhs)
       && LOCAL_SLOT_P (lhs)
@@ -230,7 +229,12 @@ java_gimplify_modify_expr (tree modify_expr)
 			    new_lhs, new_rhs);
       modify_expr = build1 (NOP_EXPR, lhs_type, modify_expr);
     }
-  
+  else if (lhs_type != TREE_TYPE (rhs))
+    /* Fix up type mismatches to make legal GIMPLE.  These are
+       generated in several places, in particular null pointer
+       assignment and subclass assignment.  */
+    TREE_OPERAND (modify_expr, 1) = convert (lhs_type, rhs);
+
   return modify_expr;
 }
 
@@ -281,6 +285,7 @@ java_gimplify_block (tree java_block)
       outer = BIND_EXPR_BLOCK (outer);
       BLOCK_SUBBLOCKS (outer) = chainon (BLOCK_SUBBLOCKS (outer), block);
     }
+  BLOCK_EXPR_BODY (java_block) = NULL_TREE;
 
   return build3 (BIND_EXPR, TREE_TYPE (java_block), decls, body, block);
 }
@@ -296,7 +301,8 @@ java_gimplify_new_array_init (tree exp)
   HOST_WIDE_INT ilength = java_array_type_length (array_type);
   tree length = build_int_cst (NULL_TREE, ilength);
   tree init = TREE_OPERAND (exp, 0);
-  tree values = CONSTRUCTOR_ELTS (init);
+  tree value;
+  unsigned HOST_WIDE_INT cnt;
 
   tree array_ptr_type = build_pointer_type (array_type);
   tree tmp = create_tmp_var (array_ptr_type, "array");
@@ -306,7 +312,7 @@ java_gimplify_new_array_init (tree exp)
   int index = 0;
 
   /* FIXME: try to allocate array statically?  */
-  while (values != NULL_TREE)
+  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), cnt, value)
     {
       /* FIXME: Should use build_java_arrayaccess here, but avoid
 	 bounds checking.  */
@@ -317,9 +323,8 @@ java_gimplify_new_array_init (tree exp)
 				build4 (ARRAY_REF, element_type, lhs,
 					build_int_cst (NULL_TREE, index++),
 					NULL_TREE, NULL_TREE),
-				TREE_VALUE (values));
+				value);
       body = build2 (COMPOUND_EXPR, element_type, body, assignment);
-      values = TREE_CHAIN (values);
     }
 
   return build2 (COMPOUND_EXPR, array_ptr_type, body, tmp);

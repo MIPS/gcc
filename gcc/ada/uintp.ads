@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -64,7 +64,10 @@ package Uintp is
    Uint_8   : constant Uint;
    Uint_9   : constant Uint;
    Uint_10  : constant Uint;
+   Uint_11  : constant Uint;
    Uint_12  : constant Uint;
+   Uint_13  : constant Uint;
+   Uint_14  : constant Uint;
    Uint_15  : constant Uint;
    Uint_16  : constant Uint;
    Uint_24  : constant Uint;
@@ -430,7 +433,10 @@ private
    Uint_8   : constant Uint := Uint (Uint_Direct_Bias + 8);
    Uint_9   : constant Uint := Uint (Uint_Direct_Bias + 9);
    Uint_10  : constant Uint := Uint (Uint_Direct_Bias + 10);
+   Uint_11  : constant Uint := Uint (Uint_Direct_Bias + 11);
    Uint_12  : constant Uint := Uint (Uint_Direct_Bias + 12);
+   Uint_13  : constant Uint := Uint (Uint_Direct_Bias + 13);
+   Uint_14  : constant Uint := Uint (Uint_Direct_Bias + 14);
    Uint_15  : constant Uint := Uint (Uint_Direct_Bias + 15);
    Uint_16  : constant Uint := Uint (Uint_Direct_Bias + 16);
    Uint_24  : constant Uint := Uint (Uint_Direct_Bias + 24);

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 (define_insn "adddi3_high"
   [(set (match_operand:DI 0 "gpc_reg_operand" "=b")
@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 	  }
 	}
       default:
-	abort();
+	gcc_unreachable ();
     }
 }"
   [(set_attr "type" "load")
@@ -84,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
       case 1:
 	return \"ld %0,lo16(%2)(%1)\";
       default:
-	abort();
+	gcc_unreachable ();
     }
 }"
   [(set_attr "type" "load")
@@ -342,7 +342,7 @@ Boston, MA 02111-1307, USA.  */
 #if TARGET_MACHO
   return output_call(insn, operands, 0, 2);
 #else
-  abort();
+  gcc_unreachable ();
 #endif
 }
   [(set_attr "type" "branch,branch")
@@ -373,7 +373,7 @@ Boston, MA 02111-1307, USA.  */
 #if TARGET_MACHO
   return output_call(insn, operands, 1, 3);
 #else
-  abort();
+  gcc_unreachable ();
 #endif
 }
   [(set_attr "type" "branch,branch")
@@ -423,7 +423,7 @@ Boston, MA 02111-1307, USA.  */
     {
       case 0:  return \"b %z0\";
       case 1:  return \"b%T0\";
-      default:  abort();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "type" "branch")
@@ -443,7 +443,7 @@ Boston, MA 02111-1307, USA.  */
     {
       case 0:  return \"b %z1\";
       case 1:  return \"b%T1\";
-      default:  abort();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "type" "branch")

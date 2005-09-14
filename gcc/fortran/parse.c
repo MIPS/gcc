@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -75,13 +75,16 @@ match_word (const char *str, match (*subr) (void), locus * old_locus)
 
 
 /* Figure out what the next statement is, (mostly) regardless of
-   proper ordering.  */
+   proper ordering.  The do...while(0) is there to prevent if/else
+   ambiguity.  */
 
 #define match(keyword, subr, st)				\
-    if (match_word(keyword, subr, &old_locus) == MATCH_YES)	\
-      return st;						\
-    else							\
-      undo_new_statement ();
+    do {                                                        \
+      if (match_word(keyword, subr, &old_locus) == MATCH_YES)	\
+        return st;						\
+      else							\
+        undo_new_statement ();                                  \
+    } while (0);
 
 static gfc_statement
 decode_statement (void)
@@ -212,6 +215,7 @@ decode_statement (void)
       break;
 
     case 'f':
+      match ("flush", gfc_match_flush, ST_FLUSH);
       match ("format", gfc_match_format, ST_FORMAT);
       break;
 
@@ -479,7 +483,13 @@ next_statement (void)
       gfc_buffer_error (1);
 
       if (gfc_at_eol ())
-	gfc_advance_line ();
+	{
+	  if (gfc_option.warn_line_truncation
+	      && gfc_current_locus.lb->truncated)
+	    gfc_warning_now ("Line truncated at %C");
+
+	  gfc_advance_line ();
+	}
 
       gfc_skip_comments ();
 
@@ -520,7 +530,8 @@ next_statement (void)
   case ST_READ: case ST_RETURN: case ST_REWIND: case ST_SIMPLE_IF: \
   case ST_PAUSE: case ST_STOP: case ST_WRITE: case ST_ASSIGNMENT: \
   case ST_POINTER_ASSIGNMENT: case ST_EXIT: case ST_CYCLE: \
-  case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: case ST_LABEL_ASSIGNMENT
+  case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
+  case ST_LABEL_ASSIGNMENT: case ST_FLUSH
 
 /* Statements that mark other executable statements.  */
 
@@ -826,6 +837,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_EXIT:
       p = "EXIT";
+      break;
+    case ST_FLUSH:
+      p = "FLUSH";
       break;
     case ST_FORALL_BLOCK:	/* Fall through */
     case ST_FORALL:
@@ -2151,7 +2165,7 @@ gfc_fixup_sibling_symbols (gfc_symbol * sym, gfc_namespace * siblings)
             gfc_free_symbol (old_sym);
         }
 
-      /* Do the same for any contined procedures.  */
+      /* Do the same for any contained procedures.  */
       gfc_fixup_sibling_symbols (sym, ns->contained);
     }
 }

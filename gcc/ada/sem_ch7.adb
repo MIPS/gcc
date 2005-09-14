@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -623,6 +623,17 @@ package body Sem_Ch7 is
       PF : Boolean;
 
    begin
+      --  Ada 2005 (AI-217): Check if the package has been erroneously named
+      --  in a limited-with clause of its own context. In this case the error
+      --  has been previously notified by Analyze_Context.
+
+      --     limited with Pkg; -- ERROR
+      --     package Pkg is ...
+
+      if From_With_Type (Id) then
+         return;
+      end if;
+
       Generate_Definition (Id);
       Enter_Name (Id);
       Set_Ekind (Id, E_Package);
@@ -1114,47 +1125,9 @@ package body Sem_Ch7 is
       Found_Explicit : Boolean;
       Decl_Privates  : Boolean;
 
-      function Has_Overriding_Pragma (Subp : Entity_Id) return Boolean;
-      --  Check whether a pragma Overriding has been provided for a primitive
-      --  operation that is found to be overriding in the private part.
-
       function Is_Primitive_Of (T : Entity_Id; S : Entity_Id) return Boolean;
       --  Check whether an inherited subprogram is an operation of an
       --  untagged derived type.
-
-      ---------------------------
-      -- Has_Overriding_Pragma --
-      ---------------------------
-
-      function Has_Overriding_Pragma (Subp : Entity_Id) return Boolean is
-         Decl : constant Node_Id := Unit_Declaration_Node (Subp);
-         Prag : Node_Id;
-
-      begin
-         if No (Decl)
-           or else Nkind (Decl) /= N_Subprogram_Declaration
-           or else No (Next (Decl))
-         then
-            return False;
-
-         else
-            Prag := Next (Decl);
-
-            while Present (Prag)
-              and then Nkind (Prag) = N_Pragma
-            loop
-               if Chars (Prag) = Name_Overriding
-                 or else Chars (Prag) = Name_Optional_Overriding
-               then
-                  return True;
-               else
-                  Next (Prag);
-               end if;
-            end loop;
-         end if;
-
-         return False;
-      end Has_Overriding_Pragma;
 
       ---------------------
       -- Is_Primitive_Of --
@@ -1238,19 +1211,8 @@ package body Sem_Ch7 is
                            Replace_Elmt (Op_Elmt, New_Op);
                            Remove_Elmt (Op_List, Op_Elmt_2);
                            Found_Explicit := True;
+                           Set_Is_Overriding_Operation (New_Op);
                            Decl_Privates  := True;
-
-                           --  If explicit_overriding is in effect, check that
-                           --  the overriding operation is properly labelled.
-
-                           if Explicit_Overriding
-                             and then Comes_From_Source (New_Op)
-                              and then not Has_Overriding_Pragma (New_Op)
-                           then
-                              Error_Msg_NE
-                                ("Missing overriding pragma for&",
-                                  New_Op, New_Op);
-                           end if;
 
                            exit;
                         end if;
@@ -1692,9 +1654,13 @@ package body Sem_Ch7 is
          Set_RM_Size (Priv, RM_Size (Full));
          Set_Size_Known_At_Compile_Time (Priv, Size_Known_At_Compile_Time
                                                                       (Full));
-         Set_Is_Volatile       (Priv, Is_Volatile       (Full));
-         Set_Treat_As_Volatile (Priv, Treat_As_Volatile (Full));
-         Set_Is_Ada_2005       (Priv, Is_Ada_2005       (Full));
+         Set_Is_Volatile        (Priv, Is_Volatile        (Full));
+         Set_Treat_As_Volatile  (Priv, Treat_As_Volatile  (Full));
+         Set_Is_Ada_2005        (Priv, Is_Ada_2005        (Full));
+
+         if Is_Unchecked_Union (Full) then
+            Set_Is_Unchecked_Union (Base_Type (Priv));
+         end if;
          --  Why is atomic not copied here ???
 
          if Referenced (Full) then
@@ -1717,8 +1683,34 @@ package body Sem_Ch7 is
            and then not Error_Posted (Full)
          then
             if Priv_Is_Base_Type then
-               Set_Access_Disp_Table (Priv, Access_Disp_Table
-                                                           (Base_Type (Full)));
+
+               --  Ada 2005 (AI-345): The full view of a type implementing
+               --  an interface can be a task type.
+
+               --    type T is new I with private;
+               --  private
+               --    task type T is new I with ...
+
+               if Is_Interface (Etype (Priv))
+                 and then Is_Concurrent_Type (Base_Type (Full))
+               then
+                  --  Protect the frontend against previous errors
+
+                  if Present (Corresponding_Record_Type
+                               (Base_Type (Full)))
+                  then
+                     Set_Access_Disp_Table
+                       (Priv, Access_Disp_Table
+                               (Corresponding_Record_Type (Base_Type (Full))));
+                  else
+                     pragma Assert (Serious_Errors_Detected > 0);
+                     null;
+                  end if;
+
+               else
+                  Set_Access_Disp_Table
+                    (Priv, Access_Disp_Table (Base_Type (Full)));
+               end if;
             end if;
 
             Set_First_Entity (Priv, First_Entity (Full));
@@ -1947,7 +1939,7 @@ package body Sem_Ch7 is
                Next_Elmt (Priv_Elmt);
             end loop;
 
-            --  Now restore the type itself to its private view.
+            --  Now restore the type itself to its private view
 
             Exchange_Declarations (Id);
 

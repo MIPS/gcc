@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -27,7 +27,6 @@
 with Atree;    use Atree;
 with Debug;    use Debug;
 with Debug_A;  use Debug_A;
-with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Expander; use Expander;
 with Fname;    use Fname;
@@ -35,7 +34,6 @@ with HLO;      use HLO;
 with Lib;      use Lib;
 with Lib.Load; use Lib.Load;
 with Nlists;   use Nlists;
-with Opt;      use Opt;
 with Sem_Attr; use Sem_Attr;
 with Sem_Ch2;  use Sem_Ch2;
 with Sem_Ch3;  use Sem_Ch3;
@@ -1218,7 +1216,7 @@ package body Sem is
       S_New_Nodes_OK     : constant Int              := New_Nodes_OK;
       S_Outer_Gen_Scope  : constant Entity_Id        := Outer_Generic_Scope;
       S_Sem_Unit         : constant Unit_Number_Type := Current_Sem_Unit;
-
+      S_GNAT_Mode        : constant Boolean          := GNAT_Mode;
       Generic_Main       : constant Boolean :=
                              Nkind (Unit (Cunit (Main_Unit)))
                                in N_Generic_Declaration;
@@ -1270,6 +1268,21 @@ package body Sem is
       Compiler_State   := Analyzing;
       Current_Sem_Unit := Get_Cunit_Unit_Number (Comp_Unit);
 
+      --  Compile predefined units with GNAT_Mode set to True, to properly
+      --  process the categorization stuff. However, do not set set GNAT_Mode
+      --  to True for the renamings units (Text_IO, IO_Exceptions, Direct_IO,
+      --  Sequential_IO) as this would prevent pragma System_Extend to be
+      --  taken into account, for example when Text_IO is renaming DEC.Text_IO.
+
+      --  Cleaner might be to do the kludge at the point of excluding the
+      --  pragma (do not exclude for renamings ???)
+
+      GNAT_Mode :=
+        GNAT_Mode
+          or else Is_Predefined_File_Name
+                    (Unit_File_Name (Current_Sem_Unit),
+                     Renamings_Included => False);
+
       if Generic_Main then
          Expander_Mode_Save_And_Set (False);
       else
@@ -1284,7 +1297,8 @@ package body Sem is
       Set_Comes_From_Source_Default (False);
       Save_Opt_Config_Switches (Save_Config_Switches);
       Set_Opt_Config_Switches
-        (Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit)));
+        (Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit)),
+         Current_Sem_Unit = Main_Unit);
 
       --  Only do analysis of unit that has not already been analyzed
 
@@ -1315,6 +1329,7 @@ package body Sem is
       Inside_A_Generic       := S_Inside_A_Generic;
       New_Nodes_OK           := S_New_Nodes_OK;
       Outer_Generic_Scope    := S_Outer_Gen_Scope;
+      GNAT_Mode              := S_GNAT_Mode;
 
       Restore_Opt_Config_Switches (Save_Config_Switches);
       Expander_Mode_Restore;

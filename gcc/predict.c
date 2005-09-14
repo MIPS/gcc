@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* References:
 
@@ -171,8 +171,8 @@ rtl_predicted_by_p (basic_block bb, enum br_predictor predictor)
 bool
 tree_predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
-  struct edge_prediction *i = bb_ann (bb)->predictions;
-  for (i = bb_ann (bb)->predictions; i; i = i->next)
+  struct edge_prediction *i;
+  for (i = bb->predictions; i; i = i->next)
     if (i->predictor == predictor)
       return true;
   return false;
@@ -231,13 +231,36 @@ rtl_predict_edge (edge e, enum br_predictor predictor, int probability)
 void
 tree_predict_edge (edge e, enum br_predictor predictor, int probability)
 {
-  struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+  gcc_assert (profile_status != PROFILE_GUESSED);
+  if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)
+      && flag_guess_branch_prob && optimize)
+    {
+      struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
 
-  i->next = bb_ann (e->src)->predictions;
-  bb_ann (e->src)->predictions = i;
-  i->probability = probability;
-  i->predictor = predictor;
-  i->edge = e;
+      i->next = e->src->predictions;
+      e->src->predictions = i;
+      i->probability = probability;
+      i->predictor = predictor;
+      i->edge = e;
+    }
+}
+
+/* Remove all predictions on given basic block that are attached
+   to edge E.  */
+void
+remove_predictions_associated_with_edge (edge e)
+{
+  if (e->src->predictions)
+    {
+      struct edge_prediction **prediction = &e->src->predictions;
+      while (*prediction)
+	{
+	  if ((*prediction)->edge == e)
+	    *prediction = (*prediction)->next;
+	  else
+	    prediction = &((*prediction)->next);
+	}
+    }
 }
 
 /* Return true when we can store prediction on insn INSN.
@@ -488,7 +511,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     {
       if (!bb->count)
 	set_even_probabilities (bb);
-      bb_ann (bb)->predictions = NULL;
+      bb->predictions = NULL;
       if (file)
 	fprintf (file, "%i edges in bb %i predicted to even probabilities\n",
 		 nedges, bb->index);
@@ -500,7 +523,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
 
   /* We implement "first match" heuristics and use probability guessed
      by predictor with smallest index.  */
-  for (pred = bb_ann (bb)->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->next)
     {
       int predictor = pred->predictor;
       int probability = pred->probability;
@@ -546,7 +569,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     combined_probability = best_probability;
   dump_prediction (file, PRED_COMBINED, combined_probability, bb, true);
 
-  for (pred = bb_ann (bb)->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->next)
     {
       int predictor = pred->predictor;
       int probability = pred->probability;
@@ -556,7 +579,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
       dump_prediction (file, predictor, probability, bb,
 		       !first_match || best_predictor == predictor);
     }
-  bb_ann (bb)->predictions = NULL;
+  bb->predictions = NULL;
 
   if (!bb->count)
     {
@@ -620,7 +643,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	    {
 	      tree niter = NULL;
 
-	      if (number_of_iterations_exit (loop, exits[j], &niter_desc))
+	      if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
 		niter = niter_desc.niter;
 	      if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
 	        niter = loop_niter_by_eval (loop, exits[j]);
@@ -971,7 +994,7 @@ expr_expected_value (tree expr, bitmap visited)
       op1 = expr_expected_value (TREE_OPERAND (expr, 1), visited);
       if (!op1)
 	return NULL;
-      res = fold (build (TREE_CODE (expr), TREE_TYPE (expr), op0, op1));
+      res = fold_build2 (TREE_CODE (expr), TREE_TYPE (expr), op0, op1);
       if (TREE_CONSTANT (res))
 	return res;
       return NULL;
@@ -982,7 +1005,7 @@ expr_expected_value (tree expr, bitmap visited)
       op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);
       if (!op0)
 	return NULL;
-      res = fold (build1 (TREE_CODE (expr), TREE_TYPE (expr), op0));
+      res = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr), op0);
       if (TREE_CONSTANT (res))
 	return res;
       return NULL;
@@ -1183,7 +1206,7 @@ return_prediction (tree val, enum prediction *prediction)
 static void
 apply_return_prediction (int *heads)
 {
-  tree return_stmt;
+  tree return_stmt = NULL;
   tree return_val;
   edge e;
   tree phi;
@@ -1360,7 +1383,7 @@ tree_estimate_probability (void)
   FOR_EACH_BB (bb)
     combine_predictions_for_bb (dump_file, bb);
 
-  if (0)  /* FIXME: Enable once we are pass down the profile to RTL level.  */
+  if (!flag_loop_optimize)
     strip_builtin_expect ();
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
@@ -1534,11 +1557,11 @@ typedef struct block_info_def
 /* Similar information for edges.  */
 typedef struct edge_info_def
 {
-  /* In case edge is an loopback edge, the probability edge will be reached
+  /* In case edge is a loopback edge, the probability edge will be reached
      in case header is.  Estimated number of iterations of the loop can be
      then computed as 1 / (1 - back_edge_prob).  */
   sreal back_edge_prob;
-  /* True if the edge is an loopback edge in the natural loop.  */
+  /* True if the edge is a loopback edge in the natural loop.  */
   unsigned int back_edge:1;
 } *edge_info;
 
@@ -1904,11 +1927,16 @@ choose_function_section (void)
 		    UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
 }
 
+static bool
+gate_estimate_probability (void)
+{
+  return flag_guess_branch_prob;
+}
 
 struct tree_opt_pass pass_profile = 
 {
   "profile",				/* name */
-  NULL,					/* gate */
+  gate_estimate_probability,		/* gate */
   tree_estimate_probability,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */

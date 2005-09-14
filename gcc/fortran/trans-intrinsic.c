@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* trans-intrinsic.c-- generate GENERIC trees for calls to intrinsics.  */
 
@@ -158,7 +158,7 @@ gfc_conv_intrinsic_function_args (gfc_se * se, gfc_expr * expr)
   args = NULL_TREE;
   for (actual = expr->value.function.actual; actual; actual = actual->next)
     {
-      /* Skip ommitted optional arguments.  */
+      /* Skip omitted optional arguments.  */
       if (!actual->expr)
 	continue;
 
@@ -277,7 +277,8 @@ build_round_expr (stmtblock_t * pblock, tree arg, tree type)
    however the RTL expander only actually supports FIX_TRUNC_EXPR.  */
 
 static tree
-build_fix_expr (stmtblock_t * pblock, tree arg, tree type, int op)
+build_fix_expr (stmtblock_t * pblock, tree arg, tree type,
+               enum tree_code op)
 {
   switch (op)
     {
@@ -300,14 +301,15 @@ build_fix_expr (stmtblock_t * pblock, tree arg, tree type, int op)
 
 /* Round a real value using the specified rounding mode.
    We use a temporary integer of that same kind size as the result.
-   Values larger than can be represented by this kind are unchanged, as
-   will not be accurate enough to represent the rounding.
+   Values larger than those that can be represented by this kind are
+   unchanged, as thay will not be accurate enough to represent the
+   rounding.
     huge = HUGE (KIND (a))
     aint (a) = ((a > huge) || (a < -huge)) ? a : (real)(int)a
    */
 
 static void
-gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, int op)
+gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum tree_code op)
 {
   tree type;
   tree itype;
@@ -337,17 +339,21 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, int op)
 	}
       break;
 
-    case FIX_FLOOR_EXPR:
+    case FIX_TRUNC_EXPR:
       switch (kind)
 	{
 	case 4:
-	  n = BUILT_IN_FLOORF;
+	  n = BUILT_IN_TRUNCF;
 	  break;
 
 	case 8:
-	  n = BUILT_IN_FLOOR;
+	  n = BUILT_IN_TRUNC;
 	  break;
 	}
+      break;
+
+    default:
+      gcc_unreachable ();
     }
 
   /* Evaluate the argument.  */
@@ -2183,7 +2189,7 @@ gfc_conv_allocated (gfc_se *se, gfc_expr *expr)
   arg1se.descriptor_only = 1;
   gfc_conv_expr_descriptor (&arg1se, arg1->expr, ss1);
 
-  tmp = gfc_conv_descriptor_data (arg1se.expr);
+  tmp = gfc_conv_descriptor_data_get (arg1se.expr);
   tmp = build2 (NE_EXPR, boolean_type_node, tmp,
 		fold_convert (TREE_TYPE (tmp), null_pointer_node));
   se->expr = convert (gfc_typenode_for_spec (&expr->ts), tmp);
@@ -2229,7 +2235,7 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
           /* A pointer to an array.  */
           arg1se.descriptor_only = 1;
           gfc_conv_expr_lhs (&arg1se, arg1->expr);
-          tmp2 = gfc_conv_descriptor_data (arg1se.expr);
+          tmp2 = gfc_conv_descriptor_data_get (arg1se.expr);
         }
       tmp = build2 (NE_EXPR, boolean_type_node, tmp2,
 		    fold_convert (TREE_TYPE (tmp2), null_pointer_node));
@@ -2990,6 +2996,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_KILL:
     case GFC_ISYM_IERRNO:
     case GFC_ISYM_IRAND:
+    case GFC_ISYM_ISATTY:
     case GFC_ISYM_LINK:
     case GFC_ISYM_MATMUL:
     case GFC_ISYM_RAND:

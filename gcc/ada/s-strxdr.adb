@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --             S Y S T E M . S T R E A M _ A T T R I B U T E S              --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---         Copyright (C) 1996-2003 Free Software Foundation, Inc.           --
+--         Copyright (C) 1996-2005 Free Software Foundation, Inc.           --
 --                                                                          --
 -- GARLIC is free software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU General Public License  as published by the Free Soft- --
@@ -16,8 +16,8 @@
 -- LITY or  FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public  --
 -- License  for more details.  You should have received  a copy of the GNU  --
 -- General Public License  distributed with GARLIC;  see file COPYING.  If  --
--- not, write to the Free Software Foundation, 59 Temple Place - Suite 330, --
--- Boston, MA 02111-1307, USA.                                              --
+-- not,  write to the Free Software Foundation,  51 Franklin Street, Fifth  --
+-- Floor, Boston, MA 02110-1301, USA.                                       --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -35,6 +35,7 @@
 --  standard. It is especially useful for exchanging streams between two
 --  different systems with different basic type representations and endianess.
 
+with Ada.IO_Exceptions;
 with Ada.Streams;              use Ada.Streams;
 with Ada.Unchecked_Conversion;
 
@@ -45,8 +46,9 @@ package body System.Stream_Attributes is
 
    use UST;
 
-   Data_Error : exception;
-   --  Exception raised if insufficient data read.
+   Data_Error : exception renames Ada.IO_Exceptions.End_Error;
+   --  Exception raised if insufficient data read (End_Error is
+   --  mandated by AI95-00132).
 
    SU : constant := System.Storage_Unit;
    --  XXXXX pragma Assert (SU = 8);

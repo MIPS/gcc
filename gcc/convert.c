@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* These routines are somewhat language-independent utility function
@@ -42,10 +42,7 @@ tree
 convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
-    {
-      expr = build_int_cst (type, 0);
-      return expr;
-    }
+    return build_int_cst (type, 0);
 
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
@@ -57,13 +54,12 @@ convert_to_pointer (tree type, tree expr)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
-      if (TYPE_PRECISION (TREE_TYPE (expr)) == POINTER_SIZE)
-	return build1 (CONVERT_EXPR, type, expr);
+      if (TYPE_PRECISION (TREE_TYPE (expr)) != POINTER_SIZE)
+	expr = fold_build1 (NOP_EXPR,
+                            lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			    expr);
+      return fold_build1 (CONVERT_EXPR, type, expr);
 
-      return
-	convert_to_pointer (type,
-			    convert (lang_hooks.types.type_for_size
-				     (POINTER_SIZE, 0), expr));
 
     default:
       error ("cannot convert to a pointer type");
@@ -294,8 +290,8 @@ convert_to_real (tree type, tree expr)
 
     case COMPLEX_TYPE:
       return convert (type,
-		      fold (build1 (REALPART_EXPR,
-				    TREE_TYPE (TREE_TYPE (expr)), expr)));
+		      fold_build1 (REALPART_EXPR,
+				   TREE_TYPE (TREE_TYPE (expr)), expr));
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
@@ -349,6 +345,26 @@ convert_to_integer (tree type, tree expr)
       
       switch (fcode)
         {
+	case BUILT_IN_CEIL: case BUILT_IN_CEILF: case BUILT_IN_CEILL:
+	  /* Only convert in ISO C99 mode.  */
+	  if (!TARGET_C99_FUNCTIONS)
+	    break;
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LCEIL);
+	  break;
+
+	case BUILT_IN_FLOOR: case BUILT_IN_FLOORF: case BUILT_IN_FLOORL:
+	  /* Only convert in ISO C99 mode.  */
+	  if (!TARGET_C99_FUNCTIONS)
+	    break;
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LFLOOR);
+	  break;
+
 	case BUILT_IN_ROUND: case BUILT_IN_ROUNDF: case BUILT_IN_ROUNDL:
 	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
@@ -367,6 +383,13 @@ convert_to_integer (tree type, tree expr)
 	  else
             fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
 	  break;
+
+	case BUILT_IN_TRUNC: case BUILT_IN_TRUNCF: case BUILT_IN_TRUNCL:
+	  {
+	    tree arglist = TREE_OPERAND (s_expr, 1);
+	    return convert_to_integer (type, TREE_VALUE (arglist));
+	  }
+
 	default:
 	  break;
 	}
@@ -384,13 +407,14 @@ convert_to_integer (tree type, tree expr)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       if (integer_zerop (expr))
-	expr = integer_zero_node;
-      else
-	expr = fold (build1 (CONVERT_EXPR,
-			     lang_hooks.types.type_for_size (POINTER_SIZE, 0),
-			     expr));
+	return build_int_cst (type, 0);
 
-      return convert_to_integer (type, expr);
+      /* Convert to an unsigned integer of the correct width first,
+	 and from there widen/truncate to the required type.  */
+      expr = fold_build1 (CONVERT_EXPR,
+			  lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+			  expr);
+      return fold_build1 (NOP_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
@@ -430,7 +454,7 @@ convert_to_integer (tree type, tree expr)
 	  else
 	    code = NOP_EXPR;
 
-	  return build1 (code, type, expr);
+	  return fold_build1 (code, type, expr);
 	}
 
       /* If TYPE is an enumeral type or a type with a precision less
@@ -583,9 +607,9 @@ convert_to_integer (tree type, tree expr)
 		    else
 		      typex = lang_hooks.types.signed_type (typex);
 		    return convert (type,
-				    fold (build2 (ex_form, typex,
-						  convert (typex, arg0),
-						  convert (typex, arg1))));
+				    fold_build2 (ex_form, typex,
+						 convert (typex, arg0),
+						 convert (typex, arg1)));
 		  }
 	      }
 	  }
@@ -616,9 +640,9 @@ convert_to_integer (tree type, tree expr)
 		else
 		  typex = lang_hooks.types.signed_type (typex);
 		return convert (type,
-				fold (build1 (ex_form, typex,
-					      convert (typex,
-						       TREE_OPERAND (expr, 0)))));
+				fold_build1 (ex_form, typex,
+					     convert (typex,
+						      TREE_OPERAND (expr, 0))));
 	      }
 	  }
 
@@ -636,9 +660,9 @@ convert_to_integer (tree type, tree expr)
 	case COND_EXPR:
 	  /* It is sometimes worthwhile to push the narrowing down through
 	     the conditional and never loses.  */
-	  return fold (build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			       convert (type, TREE_OPERAND (expr, 1)),
-			       convert (type, TREE_OPERAND (expr, 2))));
+	  return fold_build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
+			      convert (type, TREE_OPERAND (expr, 1)),
+			      convert (type, TREE_OPERAND (expr, 2)));
 
 	default:
 	  break;
@@ -651,8 +675,8 @@ convert_to_integer (tree type, tree expr)
 
     case COMPLEX_TYPE:
       return convert (type,
-		      fold (build1 (REALPART_EXPR,
-				    TREE_TYPE (TREE_TYPE (expr)), expr)));
+		      fold_build1 (REALPART_EXPR,
+				   TREE_TYPE (TREE_TYPE (expr)), expr));
 
     case VECTOR_TYPE:
       if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
@@ -660,7 +684,7 @@ convert_to_integer (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("aggregate value used where an integer was expected");
@@ -692,22 +716,22 @@ convert_to_complex (tree type, tree expr)
 	if (TYPE_MAIN_VARIANT (elt_type) == TYPE_MAIN_VARIANT (subtype))
 	  return expr;
 	else if (TREE_CODE (expr) == COMPLEX_EXPR)
-	  return fold (build2 (COMPLEX_EXPR, type,
-			       convert (subtype, TREE_OPERAND (expr, 0)),
-			       convert (subtype, TREE_OPERAND (expr, 1))));
+	  return fold_build2 (COMPLEX_EXPR, type,
+			      convert (subtype, TREE_OPERAND (expr, 0)),
+			      convert (subtype, TREE_OPERAND (expr, 1)));
 	else
 	  {
 	    expr = save_expr (expr);
 	    return
-	      fold (build2 (COMPLEX_EXPR, type,
-			    convert (subtype,
-				     fold (build1 (REALPART_EXPR,
-						   TREE_TYPE (TREE_TYPE (expr)),
-						   expr))),
-			    convert (subtype,
-				     fold (build1 (IMAGPART_EXPR,
-						   TREE_TYPE (TREE_TYPE (expr)),
-						   expr)))));
+	      fold_build2 (COMPLEX_EXPR, type,
+			   convert (subtype,
+				    fold_build1 (REALPART_EXPR,
+						 TREE_TYPE (TREE_TYPE (expr)),
+						 expr)),
+			   convert (subtype,
+				    fold_build1 (IMAGPART_EXPR,
+						 TREE_TYPE (TREE_TYPE (expr)),
+						 expr)));
 	  }
       }
 
@@ -736,7 +760,7 @@ convert_to_vector (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("can't convert value to a vector");

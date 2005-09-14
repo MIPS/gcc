@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -88,6 +88,8 @@ package body Widechar is
       C   : out Char_Code;
       Err : out Boolean)
    is
+      P_Init : constant Source_Ptr := P;
+
       function In_Char return Character;
       --  Function to obtain characters of wide character escape sequence
 
@@ -108,6 +110,7 @@ package body Widechar is
    begin
       C := Char_Code (WC_In (In_Char, Wide_Character_Encoding_Method));
       Err := False;
+      Wide_Char_Byte_Count := Wide_Char_Byte_Count + Nat (P - P_Init - 1);
 
    exception
       when Constraint_Error =>
@@ -151,6 +154,8 @@ package body Widechar is
    ---------------
 
    procedure Skip_Wide (S : String; P : in out Natural) is
+      P_Init : constant Natural := P;
+
       function Skip_Char return Character;
       --  Function to skip one character of wide character escape sequence
 
@@ -173,6 +178,7 @@ package body Widechar is
 
    begin
       Discard := WC_Skip (Skip_Char, Wide_Character_Encoding_Method);
+      Wide_Char_Byte_Count := Wide_Char_Byte_Count + Nat (P - P_Init - 1);
    end Skip_Wide;
 
    ---------------
@@ -180,6 +186,8 @@ package body Widechar is
    ---------------
 
    procedure Skip_Wide (S : Source_Buffer_Ptr; P : in out Source_Ptr) is
+      P_Init : constant Source_Ptr := P;
+
       function Skip_Char return Character;
       --  Function to skip one character of wide character escape sequence
 
@@ -202,6 +210,7 @@ package body Widechar is
 
    begin
       Discard := WC_Skip (Skip_Char, Wide_Character_Encoding_Method);
+      Wide_Char_Byte_Count := Wide_Char_Byte_Count + Nat (P - P_Init - 1);
    end Skip_Wide;
 
 end Widechar;

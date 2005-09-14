@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1997-2002 Free Software Foundation, Inc.        --
+--            Copyright (C) 1997-2005 Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -31,7 +31,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the Windows NT/95 version.
+--  This is the Windows NT/95 version
 
 with System.OS_Primitives;
 --  used for Clock
@@ -262,7 +262,7 @@ package body Ada.Calendar is
 
       end if;
 
-      --  Date_Int is the number of seconds from Epoch.
+      --  Date_Int is the number of seconds from Epoch
 
       Date_Int := Long_Long_Integer
         (Int_Date * Sec_Unit / system_time_ns) + epoch_1970;
@@ -391,4 +391,6 @@ package body Ada.Calendar is
       return DY;
    end Year;
 
+begin
+   System.OS_Primitives.Initialize;
 end Ada.Calendar;

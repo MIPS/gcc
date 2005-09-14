@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -408,14 +408,6 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	}
     }
 
-  if (flag_force_mem)
-    {
-      int old_generating_concat_p = generating_concat_p;
-      generating_concat_p = 0;
-      value = force_not_mem (value);
-      generating_concat_p = old_generating_concat_p;
-    }
-
   /* If the target is a register, overwriting the entire object, or storing
      a full-word or multi-word field can be done with just a SUBREG.
 
@@ -544,8 +536,8 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       /* This is the mode we must force value to, so that there will be enough
 	 subwords to extract.  Note that fieldmode will often (always?) be
 	 VOIDmode, because that is what store_field uses to indicate that this
-	 is a bit field, but passing VOIDmode to operand_subword_force will
-	 result in an abort.  */
+	 is a bit field, but passing VOIDmode to operand_subword_force
+	 is not allowed.  */
       fieldmode = GET_MODE (value);
       if (fieldmode == VOIDmode)
 	fieldmode = smallest_mode_for_size (nwords * BITS_PER_WORD, MODE_INT);
@@ -582,10 +574,10 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	{
 	  if (!REG_P (op0))
 	    {
-	      /* Since this is a destination (lvalue), we can't copy it to a
-		 pseudo.  We can trivially remove a SUBREG that does not
-		 change the size of the operand.  Such a SUBREG may have been
-		 added above.  Otherwise, abort.  */
+	      /* Since this is a destination (lvalue), we can't copy
+		 it to a pseudo.  We can remove a SUBREG that does not
+		 change the size of the operand.  Such a SUBREG may
+		 have been added above.  */
 	      gcc_assert (GET_CODE (op0) == SUBREG
 			  && (GET_MODE_SIZE (GET_MODE (op0))
 			      == GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)))));
@@ -633,8 +625,6 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
       /* If this machine's insv can only insert into a register, copy OP0
 	 into a register and save it back later.  */
-      /* This used to check flag_force_mem, but that was a serious
-	 de-optimization now that flag_force_mem is enabled by -O2.  */
       if (MEM_P (op0)
 	  && ! ((*insn_data[(int) CODE_FOR_insv].operand[0].predicate)
 		(op0, VOIDmode)))
@@ -902,7 +892,7 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT offset,
   /* Now clear the chosen bits in OP0,
      except that if VALUE is -1 we need not bother.  */
 
-  subtarget = (REG_P (op0) || ! flag_force_mem) ? op0 : 0;
+  subtarget = op0;
 
   if (! all_one)
     {
@@ -1449,8 +1439,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
 	  unit = GET_MODE_BITSIZE (maxmode);
 
-	  if (xtarget == 0
-	      || (flag_force_mem && MEM_P (xtarget)))
+	  if (xtarget == 0)
 	    xtarget = xspec_target = gen_reg_rtx (tmode);
 
 	  if (GET_MODE (xtarget) != maxmode)
@@ -1577,8 +1566,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
 	  unit = GET_MODE_BITSIZE (maxmode);
 
-	  if (xtarget == 0
-	      || (flag_force_mem && MEM_P (xtarget)))
+	  if (xtarget == 0)
 	    xtarget = xspec_target = gen_reg_rtx (tmode);
 
 	  if (GET_MODE (xtarget) != maxmode)
@@ -2232,9 +2220,9 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	      tree type = TREE_TYPE (amount);
 	      tree new_amount = make_tree (type, op1);
 	      tree other_amount
-		= fold (build2 (MINUS_EXPR, type, 
-				build_int_cst (type, GET_MODE_BITSIZE (mode)),
-				amount));
+		= fold_build2 (MINUS_EXPR, type,
+			       build_int_cst (type, GET_MODE_BITSIZE (mode)),
+			       amount);
 
 	      shifted = force_reg (mode, shifted);
 
@@ -3030,7 +3018,7 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 
   /* These are the operations that are potentially turned into a sequence
      of shifts and additions.  */
-  if (GET_MODE_CLASS (mode) == MODE_INT
+  if (SCALAR_INT_MODE_P (mode)
       && (unsignedp || !flag_trapv))
     {
       HOST_WIDE_INT coeff = 0;
@@ -3835,8 +3823,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	  || optab2->handlers[compute_mode].libfunc)
 	break;
 
-  /* If we still couldn't find a mode, use MODE, but we'll probably abort
-     in expand_binop.  */
+  /* If we still couldn't find a mode, use MODE, but expand_binop will
+     probably die.  */
   if (compute_mode == VOIDmode)
     compute_mode = mode;
 
@@ -4890,23 +4878,23 @@ make_tree (tree type, rtx x)
       }
 
     case PLUS:
-      return fold (build2 (PLUS_EXPR, type, make_tree (type, XEXP (x, 0)),
-			   make_tree (type, XEXP (x, 1))));
+      return fold_build2 (PLUS_EXPR, type, make_tree (type, XEXP (x, 0)),
+			  make_tree (type, XEXP (x, 1)));
 
     case MINUS:
-      return fold (build2 (MINUS_EXPR, type, make_tree (type, XEXP (x, 0)),
-			   make_tree (type, XEXP (x, 1))));
+      return fold_build2 (MINUS_EXPR, type, make_tree (type, XEXP (x, 0)),
+			  make_tree (type, XEXP (x, 1)));
 
     case NEG:
-      return fold (build1 (NEGATE_EXPR, type, make_tree (type, XEXP (x, 0))));
+      return fold_build1 (NEGATE_EXPR, type, make_tree (type, XEXP (x, 0)));
 
     case MULT:
-      return fold (build2 (MULT_EXPR, type, make_tree (type, XEXP (x, 0)),
-			   make_tree (type, XEXP (x, 1))));
+      return fold_build2 (MULT_EXPR, type, make_tree (type, XEXP (x, 0)),
+			  make_tree (type, XEXP (x, 1)));
 
     case ASHIFT:
-      return fold (build2 (LSHIFT_EXPR, type, make_tree (type, XEXP (x, 0)),
-			   make_tree (type, XEXP (x, 1))));
+      return fold_build2 (LSHIFT_EXPR, type, make_tree (type, XEXP (x, 0)),
+			  make_tree (type, XEXP (x, 1)));
 
     case LSHIFTRT:
       t = lang_hooks.types.unsigned_type (type);
@@ -4951,7 +4939,7 @@ make_tree (tree type, rtx x)
 
       /* Note that we do *not* use SET_DECL_RTL here, because we do not
 	 want set_decl_rtl to go adjusting REG_ATTRS for this temporary.  */
-      t->decl.rtl = x;
+      t->decl_with_rtl.rtl = x;
 
       return t;
     }
@@ -4986,11 +4974,11 @@ const_mult_add_overflow_p (rtx x, rtx mult, rtx add,
   add_type = (GET_MODE (add) == VOIDmode ? mult_type
 	      : lang_hooks.types.type_for_mode (GET_MODE (add), unsignedp));
 
-  result = fold (build2 (PLUS_EXPR, mult_type,
-			 fold (build2 (MULT_EXPR, mult_type,
-				       make_tree (mult_type, x),
-				       make_tree (mult_type, mult))),
-			 make_tree (add_type, add)));
+  result = fold_build2 (PLUS_EXPR, mult_type,
+			fold_build2 (MULT_EXPR, mult_type,
+				     make_tree (mult_type, x),
+				     make_tree (mult_type, mult)),
+			make_tree (add_type, add));
 
   return TREE_CONSTANT_OVERFLOW (result);
 }
@@ -5011,11 +4999,11 @@ expand_mult_add (rtx x, rtx target, rtx mult, rtx add, enum machine_mode mode,
   tree add_type = (GET_MODE (add) == VOIDmode
 		   ? type: lang_hooks.types.type_for_mode (GET_MODE (add),
 							   unsignedp));
-  tree result =  fold (build2 (PLUS_EXPR, type,
-			       fold (build2 (MULT_EXPR, type,
-					     make_tree (type, x),
-					     make_tree (type, mult))),
-			       make_tree (add_type, add)));
+  tree result = fold_build2 (PLUS_EXPR, type,
+			     fold_build2 (MULT_EXPR, type,
+					  make_tree (type, x),
+					  make_tree (type, mult)),
+			     make_tree (add_type, add));
 
   return expand_expr (result, target, VOIDmode, 0);
 }
@@ -5538,9 +5526,9 @@ emit_store_flag_force (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
    The algorithm is based on the code in expr.c:do_jump.
 
-   Note that this does not perform a general comparison.  Only variants
-   generated within expmed.c are correctly handled, others abort (but could
-   be handled if needed).  */
+   Note that this does not perform a general comparison.  Only
+   variants generated within expmed.c are correctly handled, others
+   could be handled if needed.  */
 
 static void
 do_cmp_and_jump (rtx arg1, rtx arg2, enum rtx_code op, enum machine_mode mode,

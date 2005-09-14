@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains subroutines used only from the file reload1.c.
    It knows how to scan one insn for operands and values
@@ -671,7 +671,7 @@ clear_secondary_mem (void)
 /* Find the largest class which has at least one register valid in
    mode INNER, and which for every such register, that register number
    plus N is also valid in OUTER (if in range) and is cheap to move
-   into REGNO.  Abort if no such class exists.  */
+   into REGNO.  Such a class must exist.  */
 
 static enum reg_class
 find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
@@ -1520,7 +1520,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
      But if there is no spilling in this block, that is OK.
      An explicitly used hard reg cannot be a spill reg.  */
 
-  if (rld[i].reg_rtx == 0 && in != 0)
+  if (rld[i].reg_rtx == 0 && in != 0 && hard_regs_live_known)
     {
       rtx note;
       int regno;
@@ -1534,6 +1534,11 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	    && REG_P (XEXP (note, 0))
 	    && (regno = REGNO (XEXP (note, 0))) < FIRST_PSEUDO_REGISTER
 	    && reg_mentioned_p (XEXP (note, 0), in)
+	    /* Check that we don't use a hardreg for an uninitialized
+	       pseudo.  See also find_dummy_reload().  */
+	    && (ORIGINAL_REGNO (XEXP (note, 0)) < FIRST_PSEUDO_REGISTER
+		|| ! bitmap_bit_p (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
+				   ORIGINAL_REGNO (XEXP (note, 0))))
 	    && ! refers_to_regno_for_reload_p (regno,
 					       (regno
 						+ hard_regno_nregs[regno]
@@ -1997,7 +2002,17 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 				is a subreg, and in that case, out
 				has a real mode.  */
 			     (GET_MODE (out) != VOIDmode
-			      ? GET_MODE (out) : outmode)))
+			      ? GET_MODE (out) : outmode))
+        /* But only do all this if we can be sure, that this input
+           operand doesn't correspond with an uninitialized pseudoreg.
+           global can assign some hardreg to it, which is the same as
+	   a different pseudo also currently live (as it can ignore the
+	   conflict).  So we never must introduce writes to such hardregs,
+	   as they would clobber the other live pseudo using the same.
+	   See also PR20973.  */
+      && (ORIGINAL_REGNO (in) < FIRST_PSEUDO_REGISTER
+          || ! bitmap_bit_p (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
+			     ORIGINAL_REGNO (in))))
     {
       unsigned int regno = REGNO (in) + in_offset;
       unsigned int nwords = hard_regno_nregs[regno][inmode];
@@ -2193,19 +2208,29 @@ operands_match_p (rtx x, rtx y)
 
  slow:
 
-  /* Now we have disposed of all the cases
-     in which different rtx codes can match.  */
+  /* Now we have disposed of all the cases in which different rtx codes
+     can match.  */
   if (code != GET_CODE (y))
     return 0;
-  if (code == LABEL_REF)
-    return XEXP (x, 0) == XEXP (y, 0);
-  if (code == SYMBOL_REF)
-    return XSTR (x, 0) == XSTR (y, 0);
 
   /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.  */
-
   if (GET_MODE (x) != GET_MODE (y))
     return 0;
+
+  switch (code)
+    {
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return 0;
+
+    case LABEL_REF:
+      return XEXP (x, 0) == XEXP (y, 0);
+    case SYMBOL_REF:
+      return XSTR (x, 0) == XSTR (y, 0);
+
+    default:
+      break;
+    }
 
   /* Compare the elements.  If any pair of corresponding elements
      fail to match, return 0 for the whole things.  */
@@ -2374,7 +2399,7 @@ decompose (rtx x)
     case REG:
       val.reg_flag = 1;
       val.start = true_regnum (x);
-      if (val.start < 0)
+      if (val.start < 0 || val.start >= FIRST_PSEUDO_REGISTER)
 	{
 	  /* A pseudo with no hard reg.  */
 	  val.start = REGNO (x);
@@ -2391,7 +2416,7 @@ decompose (rtx x)
 	return decompose (SUBREG_REG (x));
       val.reg_flag = 1;
       val.start = true_regnum (x);
-      if (val.start < 0)
+      if (val.start < 0 || val.start >= FIRST_PSEUDO_REGISTER)
 	return decompose (SUBREG_REG (x));
       else
 	/* A hard reg.  */
@@ -4544,14 +4569,14 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 
   if (code == SUBREG && REG_P (SUBREG_REG (x)))
     {
-      /* Check for SUBREG containing a REG that's equivalent to a constant.
-	 If the constant has a known value, truncate it right now.
-	 Similarly if we are extracting a single-word of a multi-word
-	 constant.  If the constant is symbolic, allow it to be substituted
-	 normally.  push_reload will strip the subreg later.  If the
-	 constant is VOIDmode, abort because we will lose the mode of
-	 the register (this should never happen because one of the cases
-	 above should handle it).  */
+      /* Check for SUBREG containing a REG that's equivalent to a
+	 constant.  If the constant has a known value, truncate it
+	 right now.  Similarly if we are extracting a single-word of a
+	 multi-word constant.  If the constant is symbolic, allow it
+	 to be substituted normally.  push_reload will strip the
+	 subreg later.  The constant must not be VOIDmode, because we
+	 will lose the mode of the register (this should never happen
+	 because one of the cases above should handle it).  */
 
       int regno = REGNO (SUBREG_REG (x));
       rtx tem;
@@ -5779,7 +5804,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
 		  > reg_class_size[class])
 		{
-		  x = find_reloads_subreg_address (x, 0, opnum, type,
+		  x = find_reloads_subreg_address (x, 0, opnum, 
+						   ADDR_TYPE (type),
 						   ind_levels, insn);
 		  push_reload (x, NULL_RTX, loc, (rtx*) 0, class,
 			       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
@@ -5939,7 +5965,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 		}
 
 	      find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
-				    &XEXP (tem, 0), opnum, ADDR_TYPE (type),
+				    &XEXP (tem, 0), opnum, type,
 				    ind_levels, insn);
 
 	      /* If this is not a toplevel operand, find_reloads doesn't see
@@ -6521,7 +6547,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 		 different from what they were when calculating the need for
 		 spills.  If we notice an input-reload insn here, we will
 		 reject it below, but it might hide a usable equivalent.
-		 That makes bad code.  It may even abort: perhaps no reg was
+		 That makes bad code.  It may even fail: perhaps no reg was
 		 spilled for this insn because it was assumed we would find
 		 that equivalent.  */
 	      || INSN_UID (p) < reload_first_uid))

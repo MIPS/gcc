@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -683,7 +683,7 @@ load_class (tree class_or_name, int verbose)
 	    break;
 
 	  /* We failed loading name. Now consider that we might be looking
-	     for a inner class. */
+	     for an inner class.  */
 	  if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
 	      || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
 	    {
@@ -717,8 +717,8 @@ load_class (tree class_or_name, int verbose)
 	{
 	  /* This is just a diagnostic during testing, not a real problem.  */
 	  if (!quiet_flag)
-	    warning("cannot find file for class %s", 
-		    IDENTIFIER_POINTER (saved));
+	    warning (0, "cannot find file for class %s", 
+		     IDENTIFIER_POINTER (saved));
 	  
 	  /* Fake it.  */
 	  if (TREE_CODE (class_or_name) == RECORD_TYPE)
@@ -833,7 +833,7 @@ duplicate_class_warning (const char *filename)
   warn_loc.file = filename;
   warn_loc.line = 0;
 #endif
-  warning ("%Hduplicate class will only be compiled once", &warn_loc);
+  warning (0, "%Hduplicate class will only be compiled once", &warn_loc);
 }
 
 static void
@@ -928,6 +928,21 @@ parse_class_file (void)
       note_instructions (jcf, method);
 
       give_name_to_locals (jcf);
+
+      /* Bump up start_label_pc_this_method so we get a unique label number
+	 and reset highest_label_pc_this_method. */
+      if (highest_label_pc_this_method >= 0)
+	{
+	  /* We adjust to the next multiple of 1000.  This is just a frill
+	     so the last 3 digits of the label number match the bytecode
+	     offset, which might make debugging marginally more convenient. */
+	  start_label_pc_this_method
+	    = ((((start_label_pc_this_method + highest_label_pc_this_method)
+		 / 1000)
+		+ 1)
+	       * 1000);
+	  highest_label_pc_this_method = -1;
+	}
 
       /* Convert bytecode to trees.  */
       expand_byte_code (jcf, method);
@@ -1154,7 +1169,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
     free (file_list);
 
   if (filename_count == 0)
-    warning ("no input file specified");
+    warning (0, "no input file specified");
 
   if (resource_name)
     {

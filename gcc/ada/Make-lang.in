@@ -1,6 +1,6 @@
 # Top level -*- makefile -*- fragment for GNU Ada (GNAT).
 #   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-#   2003, 2004 Free Software Foundation, Inc.
+#   2003, 2004, 2005 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -16,8 +16,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston, MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston, MA 02110-1301, USA.
 
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
@@ -105,14 +105,15 @@ ADA_TOOLS_FLAGS_TO_PASS=\
 # Object files for gnat1 from C sources.
 GNAT1_C_OBJS = ada/b_gnat1.o ada/adadecode.o ada/adaint.o ada/cstreams.o \
  ada/cio.o ada/targtyps.o ada/decl.o ada/misc.o ada/utils.o ada/utils2.o \
- ada/trans.o ada/cuintp.o ada/argv.o ada/raise.o ada/init.o ada/tracebak.o
+ ada/trans.o ada/cuintp.o ada/argv.o ada/raise.o ada/init.o ada/tracebak.o \
+ ada/initialize.o
 
 # Object files from Ada sources that are used by gnat1
 
 GNAT_ADA_OBJS = ada/ada.o ada/a-charac.o ada/a-chlat1.o ada/a-except.o \
  ada/a-elchha.o ada/a-ioexce.o \
  ada/s-memory.o ada/s-carun8.o ada/s-casuti.o ada/s-strcom.o ada/s-purexc.o \
- ada/s-htable.o ada/s-traceb.o ada/s-mastop.o ada/s-except.o ada/ali.o \
+ ada/s-htable.o ada/s-traceb.o ada/s-mastop.o ada/ali.o \
  ada/alloc.o ada/atree.o ada/butil.o ada/casing.o ada/checks.o ada/comperr.o \
  ada/csets.o ada/cstand.o ada/debug.o ada/debug_a.o ada/einfo.o ada/elists.o \
  ada/errout.o ada/erroutc.o ada/err_vars.o ada/eval_fat.o ada/exp_attr.o \
@@ -162,6 +163,7 @@ GNATBIND_OBJS = \
  ada/cstreams.o   \
  ada/final.o      \
  ada/init.o       \
+ ada/initialize.o \
  ada/seh_init.o   \
  ada/link.o       \
  ada/raise.o      \
@@ -213,7 +215,6 @@ GNATBIND_OBJS = \
  ada/s-casuti.o   \
  ada/s-crc32.o    \
  ada/s-crtl.o     \
- ada/s-except.o   \
  ada/s-exctab.o   \
  ada/s-htable.o   \
  ada/s-imgenu.o   \
@@ -286,6 +287,16 @@ gnatbind$(exeext): ada/b_gnatb.o $(CONFIG_H) $(GNATBIND_OBJS)
 gnat-cross: force
 	make $(GNAT1_ADA_OBJS) CC="gcc -B../stage1/" CFLAGS="-S -gnatp" \
 		$(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) HOST_CFLAGS= HOST_CC=cc
+
+gen-soccon: force
+	$(MAKE) -C ada $(FLAGS_TO_PASS)  \
+	   GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	   GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+	   TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
+	   THREAD_KIND="$(THREAD_KIND)" \
+	   TRACE="$(TRACE)" \
+	   LIBGNAT_OBJS=gen-soccon \
+	   gnatlib
 
 gt-ada-decl.h gt-ada-trans.h gt-ada-utils.h gtype-ada.h : s-gtype ; @true
 
@@ -942,7 +953,7 @@ ada/stamp-sdefault : $(srcdir)/version.c Makefile
 
 ada/sdefault.o : ada/sdefault.ads ada/sdefault.adb ada/types.ads \
    ada/unchdeal.ads ada/system.ads ada/s-exctab.ads ada/s-stalib.ads \
-   ada/unchconv.ads ada/osint.ads
+   ada/unchconv.ads ada/osint.ads ada/g-os_lib.ads ada/g-string.ads
 
 ADA_TREE_H = ada/ada-tree.h ada/ada-tree.def
 
@@ -1009,15 +1020,19 @@ ada/final.o    : ada/final.c $(CONFIG_H) $(SYSTEM_H) ada/raise.h
 ada/link.o     : ada/link.c
 
 ada/cio.o     : ada/cio.c $(CONFIG_H) $(SYSTEM_H) ada/adaint.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) \
 	         $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 ada/init.o    : ada/init.c $(CONFIG_H) $(SYSTEM_H) ada/adaint.h ada/raise.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) \
+	         $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
+
+ada/initialize.o : ada/initialize.c
+	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) \
 	         $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 ada/raise.o   : ada/raise.c $(CONFIG_H) $(SYSTEM_H) ada/adaint.h ada/raise.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) \
 		 $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 # Need to keep the frame pointer in this file to pop the stack properly on
@@ -1045,8 +1060,8 @@ ada/misc.o : ada/misc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    ada/adadecode.h opts.h options.h target.h real.h
 
 ada/targtyps.o : ada/targtyps.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   ada/ada.h ada/types.h ada/atree.h ada/nlists.h ada/elists.h ada/uintp.h \
-   ada/sinfo.h ada/einfo.h ada/namet.h ada/snames.h ada/stringt.h \
+   $(TREE_H) ada/ada.h ada/types.h ada/atree.h ada/nlists.h ada/elists.h \
+   ada/uintp.h ada/sinfo.h ada/einfo.h ada/namet.h ada/snames.h ada/stringt.h \
    ada/urealp.h ada/fe.h $(ADA_TREE_H) ada/gigi.h
 
 ada/trans.o : ada/trans.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1085,7 +1100,7 @@ ada/a-except.o : ada/ada.ads ada/a-except.ads ada/a-except.adb \
    ada/a-excach.adb ada/a-exexda.adb ada/a-exexpr.adb ada/a-exextr.adb \
    ada/a-elchha.ads ada/a-excpol.adb ada/a-exstat.adb ada/a-unccon.ads \
    ada/a-uncdea.ads ada/interfac.ads ada/system.ads ada/s-exctab.ads \
-   ada/s-except.ads ada/s-mastop.ads ada/s-secsta.ads ada/s-soflin.ads \
+   ada/s-mastop.ads ada/s-secsta.ads ada/s-soflin.ads \
    ada/s-stache.ads ada/s-stalib.ads ada/s-stoele.ads ada/s-stoele.adb \
    ada/s-traceb.ads ada/s-traent.ads ada/s-traent.adb ada/s-unstyp.ads \
    ada/unchconv.ads 
@@ -2590,9 +2605,6 @@ ada/s-crc32.o : ada/interfac.ads ada/system.ads ada/s-crc32.ads \
 
 ada/s-crtl.o : ada/system.ads ada/s-crtl.ads ada/s-parame.ads 
 
-ada/s-except.o : ada/ada.ads ada/a-except.ads ada/system.ads \
-   ada/s-except.ads ada/s-stalib.ads ada/s-traent.ads ada/unchconv.ads 
-
 ada/s-exctab.o : ada/ada.ads ada/a-except.ads ada/a-uncdea.ads \
    ada/system.ads ada/s-exctab.ads ada/s-exctab.adb ada/s-htable.ads \
    ada/s-htable.adb ada/s-soflin.ads ada/s-stache.ads ada/s-stalib.ads \
@@ -2605,7 +2617,7 @@ ada/s-imgenu.o : ada/system.ads ada/s-imgenu.ads ada/s-imgenu.adb \
    ada/s-secsta.ads ada/s-stoele.ads ada/s-stoele.adb ada/unchconv.ads 
 
 ada/s-mastop.o : ada/ada.ads ada/a-except.ads ada/system.ads \
-   ada/s-except.ads ada/s-mastop.ads ada/s-mastop.adb ada/s-stalib.ads \
+   ada/s-mastop.ads ada/s-mastop.adb ada/s-stalib.ads \
    ada/s-stoele.ads ada/s-stoele.adb ada/s-traent.ads ada/unchconv.ads 
 
 ada/s-memory.o : ada/ada.ads ada/a-except.ads ada/system.ads \
@@ -2623,7 +2635,7 @@ ada/s-secsta.o : ada/ada.ads ada/a-except.ads ada/system.ads \
    ada/s-traent.ads ada/unchconv.ads ada/unchdeal.ads 
 
 ada/s-soflin.o : ada/ada.ads ada/a-except.ads ada/system.ads \
-   ada/s-except.ads ada/s-mastop.ads ada/s-parame.ads ada/s-secsta.ads \
+   ada/s-mastop.ads ada/s-parame.ads ada/s-secsta.ads \
    ada/s-soflin.ads ada/s-soflin.adb ada/s-stache.ads ada/s-stalib.ads \
    ada/s-stoele.ads ada/s-stoele.adb ada/s-traent.ads ada/unchconv.ads 
 

@@ -1,5 +1,5 @@
 /* Parse tree dumper
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Actually this is just a collection of routines that used to be
@@ -122,7 +122,7 @@ gfc_show_actual_arglist (gfc_actual_arglist * a)
 }
 
 
-/* Show an gfc_array_spec array specification structure.  */
+/* Show a gfc_array_spec array specification structure.  */
 
 static void
 gfc_show_array_spec (gfc_array_spec * as)
@@ -165,7 +165,7 @@ gfc_show_array_spec (gfc_array_spec * as)
 }
 
 
-/* Show an gfc_array_ref array reference structure.  */
+/* Show a gfc_array_ref array reference structure.  */
 
 static void
 gfc_show_array_ref (gfc_array_ref * ar)
@@ -665,7 +665,12 @@ gfc_show_symbol (gfc_symbol * sym)
       gfc_status ("Formal arglist:");
 
       for (formal = sym->formal; formal; formal = formal->next)
-	gfc_status (" %s", formal->sym->name);
+        {
+          if (formal->sym != NULL)
+            gfc_status (" %s", formal->sym->name);
+          else
+            gfc_status (" [Alt Return]");
+        }
     }
 
   if (sym->formal_ns)
@@ -1172,6 +1177,10 @@ gfc_show_code_node (int level, gfc_code * c)
 
     case EXEC_REWIND:
       gfc_status ("REWIND");
+      goto show_filepos;
+
+    case EXEC_FLUSH:
+      gfc_status ("FLUSH");
 
     show_filepos:
       fp = c->ext.filepos;
