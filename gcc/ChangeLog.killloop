@@ -1,5 +1,9 @@
 2005-09-14  Zdenek Dvorak  <dvorakz@suse.cz>
 
+	* tree-ssa-loop-ivopts.c (compare_cost): Export.
+
+2005-09-14  Zdenek Dvorak  <dvorakz@suse.cz>
+
 	* tree-chrec.c (chrec_convert_aggressive): New function.
 	* tree-chrec.h (chrec_convert_aggressive): Declare it.
 	* tree-flow.h (tree_ssa_reverse_loops, create_canonical_iv,

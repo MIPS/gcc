@@ -3629,7 +3629,7 @@ get_computation_cost (struct ivopts_data *data,
 
 /* Estimate cost of comparing with BOUND.  */
 
-static unsigned
+unsigned
 compare_cost (tree bound)
 {
   /* Prefer costants, and prefer zero even more.  */
