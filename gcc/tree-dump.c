@@ -583,7 +583,17 @@ dequeue_and_dump (dump_info_p di)
       break;
 
     case CONSTRUCTOR:
-      dump_child ("elts", CONSTRUCTOR_ELTS (t));
+      {
+	unsigned HOST_WIDE_INT cnt;
+	tree index, value;
+	dump_int (di, "lngt", VEC_length (constructor_elt,
+					  CONSTRUCTOR_ELTS (t)));
+	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (t), cnt, index, value)
+	  {
+	    dump_child ("idx", index);
+	    dump_child ("val", value);
+	  }
+      }
       break;
 
     case BIND_EXPR:
@@ -742,7 +752,7 @@ static const struct dump_option_value_info dump_options[] =
   {"uid", TDF_UID},
   {"stmtaddr", TDF_STMTADDR},
   {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
-	    | TDF_STMTADDR)},
+	    | TDF_STMTADDR | TDF_GRAPH)},
   {NULL, 0}
 };
 

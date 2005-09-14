@@ -72,5 +72,5 @@ void __attribute__((flatten)) doublesubcycle(void)
   doublesubcycle1();
 }
 
-/* { dg-final { scan-assembler "cycle.:" } } */
-/* { dg-final { scan-assembler-not "indirect.:" } } */
+/* { dg-final { scan-assembler "cycle\[123\]\[: \t\n\]" } } */
+/* { dg-final { scan-assembler-not "indirect\[12\]\[: \t\n\]" } } */

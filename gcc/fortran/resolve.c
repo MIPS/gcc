@@ -404,7 +404,7 @@ resolve_entries (gfc_namespace * ns)
 	}
       else
 	{
-	  /* Otherwise the result will be passed through an union by
+	  /* Otherwise the result will be passed through a union by
 	     reference.  */
 	  proc->attr.mixed_entry_master = 1;
 	  for (el = ns->entries; el; el = el->next)
@@ -1514,9 +1514,14 @@ resolve_operator (gfc_expr * e)
 	  break;
 	}
 
-      sprintf (msg, "Operands of comparison operator '%s' at %%L are %s/%s",
-	       gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
-	       gfc_typename (&op2->ts));
+      if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
+	sprintf (msg, "Logicals at %%L must be compared with %s instead of %s",
+		 e->value.op.operator == INTRINSIC_EQ ? ".EQV." : ".NEQV.",
+		 gfc_op2string (e->value.op.operator));
+      else
+	sprintf (msg, "Operands of comparison operator '%s' at %%L are %s/%s",
+		 gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
+		 gfc_typename (&op2->ts));
 
       goto bad_op;
 
@@ -1823,6 +1828,40 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
   return SUCCESS;
 }
 
+/* Resolve a dim argument to an intrinsic function.  */
+
+try
+gfc_resolve_dim_arg (gfc_expr *dim)
+{
+  if (dim == NULL)
+    return SUCCESS;
+
+  if (gfc_resolve_expr (dim) == FAILURE)
+    return FAILURE;
+
+  if (dim->rank != 0)
+    {
+      gfc_error ("Argument dim at %L must be scalar", &dim->where);
+      return FAILURE;
+  
+    }
+  if (dim->ts.type != BT_INTEGER)
+    {
+      gfc_error ("Argument dim at %L must be of INTEGER type", &dim->where);
+      return FAILURE;
+    }
+  if (dim->ts.kind != gfc_index_integer_kind)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_index_integer_kind;
+
+      gfc_convert_type_warn (dim, &ts, 2, 0);
+    }
+
+  return SUCCESS;
+}
 
 /* Given an expression that contains array references, update those array
    references to point to the right array specifications.  While this is
@@ -3948,6 +3987,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	case EXEC_BACKSPACE:
 	case EXEC_ENDFILE:
 	case EXEC_REWIND:
+	case EXEC_FLUSH:
 	  if (gfc_resolve_filepos (code->ext.filepos) == FAILURE)
 	    break;
 
@@ -4031,9 +4071,34 @@ resolve_symbol (gfc_symbol * sym)
   int i;
   const char *whynot;
   gfc_namelist *nl;
+  gfc_symtree * symtree;
+  gfc_symtree * this_symtree;
+  gfc_namespace * ns;
 
   if (sym->attr.flavor == FL_UNKNOWN)
     {
+
+    /* If we find that a flavorless symbol is an interface in one of the
+       parent namespaces, find its symtree in this namespace, free the
+       symbol and set the symtree to point to the interface symbol.  */
+      for (ns = gfc_current_ns->parent; ns; ns = ns->parent)
+	{
+	  symtree = gfc_find_symtree (ns->sym_root, sym->name);
+	  if (symtree && symtree->n.sym->generic)
+	    {
+	      this_symtree = gfc_find_symtree (gfc_current_ns->sym_root,
+					       sym->name);
+	      sym->refs--;
+	      if (!sym->refs)
+		gfc_free_symbol (sym);
+	      symtree->n.sym->refs++;
+	      this_symtree->n.sym = symtree->n.sym;
+	      return;
+	    }
+	}
+
+      /* Otherwise give it a flavor according to such attributes as
+	 it has.  */
       if (sym->attr.external == 0 && sym->attr.intrinsic == 0)
 	sym->attr.flavor = FL_VARIABLE;
       else
@@ -4727,7 +4792,7 @@ resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
    sequence derived type containing a pointer at any level of component
    selection, an automatic object, a function name, an entry name, a result
    name, a named constant, a structure component, or a subobject of any of
-   the preceding objects.  */
+   the preceding objects.  A substring shall not have length zero.  */
 
 static void
 resolve_equivalence (gfc_equiv *eq)
@@ -4740,6 +4805,69 @@ resolve_equivalence (gfc_equiv *eq)
   for (; eq; eq = eq->eq)
     {
       e = eq->expr;
+
+      e->ts = e->symtree->n.sym->ts;
+      /* match_varspec might not know yet if it is seeing
+	 array reference or substring reference, as it doesn't
+	 know the types.  */
+      if (e->ref && e->ref->type == REF_ARRAY)
+	{
+	  gfc_ref *ref = e->ref;
+	  sym = e->symtree->n.sym;
+
+	  if (sym->attr.dimension)
+	    {
+	      ref->u.ar.as = sym->as;
+	      ref = ref->next;
+	    }
+
+	  /* For substrings, convert REF_ARRAY into REF_SUBSTRING.  */
+	  if (e->ts.type == BT_CHARACTER
+	      && ref
+	      && ref->type == REF_ARRAY
+	      && ref->u.ar.dimen == 1
+	      && ref->u.ar.dimen_type[0] == DIMEN_RANGE
+	      && ref->u.ar.stride[0] == NULL)
+	    {
+	      gfc_expr *start = ref->u.ar.start[0];
+	      gfc_expr *end = ref->u.ar.end[0];
+	      void *mem = NULL;
+
+	      /* Optimize away the (:) reference.  */
+	      if (start == NULL && end == NULL)
+		{
+		  if (e->ref == ref)
+		    e->ref = ref->next;
+		  else
+		    e->ref->next = ref->next;
+		  mem = ref;
+		}
+	      else
+		{
+		  ref->type = REF_SUBSTRING;
+		  if (start == NULL)
+		    start = gfc_int_expr (1);
+		  ref->u.ss.start = start;
+		  if (end == NULL && e->ts.cl)
+		    end = gfc_copy_expr (e->ts.cl->length);
+		  ref->u.ss.end = end;
+		  ref->u.ss.length = e->ts.cl;
+		  e->ts.cl = NULL;
+		}
+	      ref = ref->next;
+	      gfc_free (mem);
+	    }
+
+	  /* Any further ref is an error.  */
+	  if (ref)
+	    {
+	      gcc_assert (ref->type == REF_ARRAY);
+	      gfc_error ("Syntax error in EQUIVALENCE statement at %L",
+			 &ref->u.ar.where);
+	      continue;
+	    }
+	}
+
       if (gfc_resolve_expr (e) == FAILURE)
         continue;
 
@@ -4802,19 +4930,30 @@ resolve_equivalence (gfc_equiv *eq)
           continue;
         }
 
-      /* Shall not be a structure component.  */
       r = e->ref;
       while (r)
         {
-          if (r->type == REF_COMPONENT)
-            {
-              gfc_error ("Structure component '%s' at %L cannot be an "
-                         "EQUIVALENCE object",
-                         r->u.c.component->name, &e->where);
-              break;
-            }
-          r = r->next;
-        }
+	  /* Shall not be a structure component.  */
+	  if (r->type == REF_COMPONENT)
+	    {
+	      gfc_error ("Structure component '%s' at %L cannot be an "
+			 "EQUIVALENCE object",
+			 r->u.c.component->name, &e->where);
+	      break;
+	    }
+
+	  /* A substring shall not have length zero.  */
+	  if (r->type == REF_SUBSTRING)
+	    {
+	      if (compare_bound (r->u.ss.start, r->u.ss.end) == CMP_GT)
+		{
+		  gfc_error ("Substring at %L has length zero",
+			     &r->u.ss.start->where);
+		  break;
+		}
+	    }
+	  r = r->next;
+	}
     }    
 }      
 
@@ -4914,7 +5053,7 @@ gfc_resolve (gfc_namespace * ns)
 
   gfc_traverse_ns (ns, resolve_values);
 
-  if (ns->save_all)
+  if (!gfc_option.flag_automatic || ns->save_all)
     gfc_save_all (ns);
 
   iter_stack = NULL;

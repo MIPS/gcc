@@ -1,8 +1,322 @@
+2005-09-13  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/19269
+	* intrinsics/cshift0.c (cshift0): Add an extra size argument.
+	(cshift0_1, cshift0_2, cshift0_4, cshift0_8): Replace explicit
+	implementations with...
+	(DEFINE_CSHIFT): ...this new macro.  Define character versions too.
+	* intrinsics/eoshift0.c (zeros): Delete.
+	(eoshift0): Add extra size and filler arguments.  Use memset if no
+	bound is provided.
+	(eoshift0_1, eoshift0_2, eoshift0_4, eoshift0_8): Replace explicit
+	implementations with...
+	(DEFINE_EOSHIFT): ...this new macro.  Define character versions too.
+	* intrinsics/eoshift2.c (zeros): Delete.
+	(eoshift2): Add extra size and filler arguments.  Use memset if no
+	bound is provided.
+	(eoshift2_1, eoshift2_2, eoshift2_4, eoshift2_8): Replace explicit
+	implementations with...
+	(DEFINE_EOSHIFT): ...this new macro.  Define character versions too.
+	* intrinsics/pack.c (pack_internal): New static function, reusing
+	the contents of pack and adding an extra size argument.  Change
+	"mptr" rather than "m" when calculating the array size.
+	(pack): Redefine as a forwarder to pack_internal.
+	(pack_s_internal): New static function, reusing the contents of
+	pack_s and adding an extra size argument.
+	(pack_s): Redefine as a forwarder to pack_s_internal.
+	(pack_char, pack_s_char): New functions.
+	* intrinsics/reshape.c (reshape_internal): New static function,
+	reusing the contents of reshape and adding an extra size argument.
+	(reshape): Redefine as a forwarder to reshape_internal.
+	(reshape_char): New function.
+	* intrinsics/spread.c (spread_internal): New static function,
+	reusing the contents of spread and adding an extra size argument.
+	(spread): Redefine as a forwarder to spread_internal.
+	(spread_char): New function.
+	* intrinsics/transpose.c (transpose_internal): New static function,
+	reusing the contents of transpose and adding an extra size argument.
+	(transpose): Redefine as a forwarder to transpose_internal.
+	(transpose_char): New function.
+	* intrinsics/unpack.c (unpack_internal): New static function, reusing
+	the contents of unpack1 and adding extra size and fsize arguments.
+	(unpack1): Redefine as a forwarder to unpack_internal.
+	(unpack0): Call unpack_internal instead of unpack1.
+	(unpack1_char, unpack0_char): New functions.
+	* m4/cshift1.m4 (cshift1): New static function, reusing the contents
+	of cshift1_<kind> and adding an extra size argument.
+	(cshift1_<kind>): Redefine as a forwarder to cshift1.
+	(cshift1_<kind>_char): New function.
+	* m4/eoshift1.m4 (zeros): Delete.
+	(eoshift1): New static function, reusing the contents of
+	eoshift1_<kind> and adding extra size and filler arguments.
+	Fix calculation of hstride.  Use memset if no bound is provided.
+	(eoshift1_<kind>): Redefine as a forwarder to eoshift1.
+	(eoshift1_<kind>_char): New function.
+	* m4/eoshift3.m4 (zeros): Delete.
+	(eoshift3): New static function, reusing the contents of
+	eoshift3_<kind> and adding extra size and filler arguments.
+	Use memset if no bound is provided.
+	(eoshift3_<kind>): Redefine as a forwarder to eoshift3.
+	(eoshift3_<kind>_char): New function.
+	* generated/cshift1_4.c, generated/cshift1_8.c,
+	* generated/eoshift1_4.c, generated/eoshift1_8.c,
+	* generated/eoshift3_4.c, generated/eoshift3_8.c: Regenerate.
+
+2005-09-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (is_preconnected): Add function to test if a stream
+	corresponds to a preconnected unit.
+	* io/io.h: Add prototype for is_preconnected.
+	* io/transfer.c (data_transfer_init): Do not truncate
+	preconnected units.
+
+2005-09-10  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* io/unix.c: Remove mmap code.
+
+2005-09-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23784
+	* io/close.c (st_close): Call library_end even in case of error.
+
+2005-09-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/io.h:  Add iomsg as last field of st_parameter.
+	* runtime/error.c (generate_error):  If iomsg is present, copy
+	the message there.
+
+2005-09-09  Richard Sandiford  <richard@codesourcery.com>
+
+	PR fortran/12840
+	* runtime/memory.c (internal_malloc_size): Return a null pointer
+	if the size is zero.
+	(internal_free): Do nothing if the pointer is null.
+	(internal_realloc_size, internal_realloc, internal_realloc64): New.
+
+2005-09-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23262
+	* acinclude.m4 (LIBGFOR_CHECK_CRLF): New check.
+	* configure.ac: Use new check.
+	* configure.in: Regenerate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* io/transfer.c (next_record_w): Add case for CRLF as line
+	terminator.
+	* io/unix.c (tempfile, regular_file): Open files with
+	O_BINARY on systems with CRLF.
+
+2005-09-07  Steve Ellcey  <sje@cup.hp.com>
+
+	PR libfortran/23419
+	* io/write.c (extract_int): Use memcpy to access buffer.
+	(extract_uint): Ditto.
+	(extract_real): Ditto.
+
+2005-09-05  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/list_read.c:  Adjust size of of value to 32 (to hold
+	kind=16 complex values).
+
+2005-09-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23321
+	* io/transfer.c(data_transfer_init):  Check for a too-large
+	record number.  Return if sseek failed.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/read.c (read_x): Take int argument instead of fnode * and
+	digging the N from F->u.n.
+	* io/io.h (read_x): Adjust prototype.
+	* io/transfer.c (formatted_transfer): Adjust callers.  Don't clobber
+	f->u.n for FMT_T.
+
+2005-09-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c (stream_ttyname): Protect use of ttyname by
+	HAVE_TTYNAME macro.
+	* configure.ac: Add check for ttyname.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2005-09-02  Andreas Jaeger  <aj@suse.de>
+
+	* libgfortran.h: Add prototype for init_compile_options.
+
+	* io/io.h: Add prototype for notify_std.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* io/read.c (set_integer): Use memcpy to fill buffer.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23556
+	* io/read.c (convert_real): Use memcpy to fill buffer.
+
+2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23598
+	* io/lock.c(library_start):  If ioparm.iostat is present, clear
+	it unconditionally.
+
+2005-08-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* acinclude.m4 (LIBGFOR_CHECK_UNLINK_OPEN_FILE): Add check to see
+	if target can unlink open files.
+	* configure.ac: Use this new test.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* aclocal.ac: Regenerate.
+	* io/io.h: Add prototype for unpack_filename.
+	* io/close.c (st_close): Delete file after closing unit if
+	HAVE_UNLINK_OPEN_FILE is not defined.
+	* io/unix.c (unpack_filename): Unlink scratch file after opening
+	it only if HAVE_UNLINK_OPEN_FILE is defined.
+
+2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* All files: Update FSF address.
+
+2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23428
+	* io/transfer.c (iolength_transfer):  Remove __attribute__ ((unused))
+	from type.  Return correct length for inquire(iolength=)
+	for complex variables.
+
+2005-08-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/20006
+	* Makefile.am: Add file runtime/compile_options.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h: Create structure compile_options_t. Define the
+	compile_options variable and GFC_STD_ macros.
+	* runtime/compile_options.c: New file.
+	* runtime/error.c (notify_std): New function.
+	* runtime/main.c (init): Call init_compile_options during
+	initialization.
+	* io/format.c: Use the new notify_std function for the $
+	descriptor extension.
+
+2005-08-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	* Makefile.am: Add file intrinsics/tty.c to Makefile process.
+	* Makefile.in: Regenerate.
+	* io/io.h: Prototypes for new functions stream_isatty and
+	stream_ttyname.
+	* io/unix (stream_isatty, stream_ttyname): New functions to call
+	isatty() and ttyname() on a given unit.
+	* intrinsics/tty.c: New file to implement g77 intrinsics TTYNAM
+	and ISATTY.
+
+2005-08-08  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libfortran/23154
+	* io/transfer.c (data_transfer_init): Initialize
+	current_unit->bytes_left for a read.
+
+2005-08-07  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	PR fortran/22390
+	* io/backspace.c: File removed, contents moved to ...
+	* io/endfile.c: Ditto.
+	* io/rewind.c: Ditto.
+	* io/file_pos.c: New file, ... here.
+	* Makefile.am: Add file_pos.c to list, remove obsolete files.
+	* Makefile.in: Regenerated.
+
+2005-08-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/io.h: Change DEFAULT_TEMPDIR to /tmp instead of /var/tmp.
+	* io/unix.c (tempfile): Look at the TEMP environment variable
+	to find the temporary files directory. Whitespace correction.
+
+2005-08-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c: Add O_RDWR to open() call.
+
+2005-08-04 Paul Thomas  <pault@gcc.gnu.org>
+
+	* transfer.c (data_transfer_init): Truncate file in
+	sequential WRITE when last_record == 0, rather than
+	current_record.  Cures problem on RH9.
+
+2005-08-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* libgfortran.h: When isfinite is not provided by the system,
+	define it as a macro, so that it can accept any floating point
+	type.
+
+2005-08-01  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23178
+	* intrinsics/flush.c (flush_i8): Add function flush_i8. Update
+	copyright years.
+
+2005-07-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21787
+	* intrinsics/abort.c (abort): Close units before aborting.
+	Updated copyright years.
+
+2005-07-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22436
+	* io/write.c (write_real): Add default formats for real(10) and
+	real(16).
+
+2005-07-30 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22570 and related issues.
+	* transfer.c (formatted_transfer): Make sure that there
+	really is data present before X- or T- editing. Move all
+	treatment of tabbing during writes to start of next data
+	producing format. Suppress incorrect zeroing of bytes_left
+	in slash formating. Insert int cast for assignment of a
+	difference of two gfc_offsets.
+
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* io/write.c (write_float): Revise output of IEEE exceptional
+	values to comply with F95 and F2003 standards.
+
+2005-07-22 Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/22570
+	* io/unit.c (init_units): Replace BLANK_ZERO with
+	BLANK_UNSPECIFIED.
+
+2005-07-22 Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/21875  (FM111.f)
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO
+	or BLANK_NULL are active.
+	(read_decimal): Interpret ' ' character correctly for BZ or BN.
+	(read_radix): Interpret ' ' character correctly for BZ or BN.
+	(read_f): Interpret ' ' character correctly for BZ or BN.
+
+2005-07-22 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/22570
+	* read.c (read_x): Correct the condition for doing the
+	x-editing during formatted input.
+	* transfer.c (formatted_transfer): Cast offset difference
+	as int, clean-up arithmetic with new variable, bytes_used,
+	zero counters for FMT_SLASH,
+	(data_transfer_init) Zero X- and T-editing counters
+	unconditionally.
+	(next_record_w) Zero X- and T-editing counters.
+	unconditionally.
+
 2005-07-17  Jerry DeLisle  <jvdelisle@verizon.net>
 
-    * io/write.c (write_float): Fix field width checks for
-    printing 'Infinity' or 'Inf'.
-    (output_float): Fix typo in comment.
+	* io/write.c (write_float): Fix field width checks for
+	printing 'Infinity' or 'Inf'.
+	(output_float): Fix typo in comment.
 
 2005-07-12 Paul Thomas  <pault@gcc.gnu.org>
 
@@ -27,22 +341,22 @@
 2005-07-12  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/21593
-	io/unix.c:  Add member special_file to type unix_stream.
+	* io/unix.c:  Add member special_file to type unix_stream.
 	(fd_truncate):  Don't call ftruncate or chsize if
 	s refers to a special file.
 	(fd_to_stream):  initialize s->special_file.
 
 2005-07-11  David Edelsohn  <edelsohn@gnu.org>
 
-        PR libgfortran/22412
-        * io/write.c (otoa): Bias p by SCRATCH_SIZE, not
-        sizeof (SCRATCH_SIZE).
-        (btoa): Same.
+	PR libgfortran/22412
+	* io/write.c (otoa): Bias p by SCRATCH_SIZE, not
+	sizeof (SCRATCH_SIZE).
+	(btoa): Same.
 
 2005-07-09  Jerry DeLisle  <jvdelisle@verizon.net>
 
 	PR libfortran/21875  (FM111.f)
-	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or 
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or
 	BLANK_NULL are active.
 	(read_decimal): Interpret ' ' character correctly for BZ or BN.
 	(read_radix): Interpret ' ' character correctly for BZ or BN.
@@ -55,7 +369,7 @@
 	PR libfortran/22217
 	* io/write.c (extract_unit):  New function; extract
 	ints as unsigned signed int of the correct size.
-	* io/write.c (write_int):  Use it.
+	(write_int):  Use it.
 	* runtime/error.c:  Adjust copyright years.
 	Adjust size of buffer to maximum that can occur.
 
@@ -161,17 +475,17 @@
 
 2005-06-25  Thomas Koenig  <Thomas.Koenig@online.de>
 
-        PR libfortran/22144
-        * m4/cshift1.m4: Remove const from argument ret.
-        Populate return array descriptor if ret->data is NULL.
-        * m4/eoshift1.m4: Likewise.
-        * m4/eoshift3.m4: Likewise.
-        * generated/cshift1_4.c:  Regenerated.
-        * generated/cshift1_8.c:  Regenerated.
-        * generated/eoshift1_4.c:  Regenerated.
-        * generated/eoshift1_8.c:  Regenerated.
-        * generated/eoshift3_4.c:  Regenerated.
-        * generated/eoshift3_8.c:  Regenerated.
+	PR libfortran/22144
+	* m4/cshift1.m4: Remove const from argument ret.
+	Populate return array descriptor if ret->data is NULL.
+	* m4/eoshift1.m4: Likewise.
+	* m4/eoshift3.m4: Likewise.
+	* generated/cshift1_4.c:  Regenerated.
+	* generated/cshift1_8.c:  Regenerated.
+	* generated/eoshift1_4.c:  Regenerated.
+	* generated/eoshift1_8.c:  Regenerated.
+	* generated/eoshift3_4.c:  Regenerated.
+	* generated/eoshift3_8.c:  Regenerated.
 
 2005-06-24  Jerry DeLisle <jvdelisle@verizon.net>
 
@@ -924,7 +1238,7 @@
 	(finalize_transfer):  If there is an EOR condition, raise the error.
 
 2005-04-09  Bud Davis  <bdavis@gfortran.org>
-            Steven G. Kargl <kargls@comcast.net>
+	    Steven G. Kargl <kargls@comcast.net>
 
 	PR fortran/19872
 	* io/transfer.c (data_transfer_init): truncate an existing
@@ -1039,7 +1353,7 @@
 	the scale factor, but it needs to be restored afterwards.
 
 2005-04-03  Dale Ranta  <dir@lanl.gov>
-            Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20068
 	PR libfortran/20125
@@ -1189,7 +1503,7 @@
 
 2005-02-19  Steven G. Kargl  <kargls@comcast.net>
 
-      *  intrinsic/date_and_time.c: Fix conformance problems.
+	*  intrinsic/date_and_time.c: Fix conformance problems.
 
 2005-02-01  Paul Thomas <paulthomas2@wanadoo.fr>
 
@@ -2328,7 +2642,7 @@
 	(random_r8): fix infinite loop.
 
 2004-06-12  Bud Davis  <bdavis9659@comcast.net>
-      Steve Kargl  <sgk@troutmask.apl.washington.edu>
+	    Steve Kargl  <sgk@troutmask.apl.washington.edu>
 
 	PR gfortran/15292
 	* intrinsics/c99_functions.c: New file.

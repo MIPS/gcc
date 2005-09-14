@@ -14,7 +14,8 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 
 # Define callbacks and load other libraries.  This file is loaded relatively
@@ -79,6 +80,7 @@ proc v3-copy-files {srcfiles} {
 # Called once, during runtest.exp setup.
 proc libstdc++_init { testfile } {
     global env
+    global v3-sharedlib 
     global srcdir blddir objdir tool_root_dir
     global cxx cxxflags
     global includes
@@ -126,6 +128,15 @@ proc libstdc++_init { testfile } {
         set gccdir [file dirname $gccdir]
     }
     v3track gccdir 3
+
+    # Look for shared library. (ie libstdc++.so.)
+    set v3-sharedlib 0
+    set sharedlibdir [lookfor_file $blddir src/.libs/libstdc++.so]
+    if {$sharedlibdir != ""} {
+        set v3-sharedlib 1
+	verbose -log "shared library support detected"
+    }
+    v3track v3-sharedlib 3
 
     # Compute what needs to be added to the existing LD_LIBRARY_PATH.
     if {$gccdir != ""} {
@@ -304,9 +315,16 @@ proc v3_target_compile { source dest type options } {
     set cxx_final [concat $cxx_final $cxxlibglossflags]
     set cxx_final [concat $cxx_final $cxxflags]
     set cxx_final [concat $cxx_final $includes]
-    # Link the support objects into executables.
+
+    # Flag setting based on type argument.
     if { $type == "executable" } {
+	# Link the support objects into executables.
 	set cxx_final [concat $cxx_final ${v3-test_objs}]
+    } else {
+	if { $type == "sharedlib" } {
+	    # Don't link in anything.
+	    set type "executable"
+	}
     }
 
     lappend options "compiler=$cxx_final"
@@ -319,11 +337,13 @@ proc v3_target_compile { source dest type options } {
 # addition, set v3-wchar_t, v3-threads, v3-test_objs, and v3-symver
 # appropriately.
 proc v3-build_support {} {
+    global cxx
     global srcdir
     global v3-wchar_t
     global v3-threads
     global v3-test_objs
     global v3-symver
+    global v3-sharedlib
 
     # Figure out whether or not the library supports certain features.
     set v3-wchar_t 0
@@ -353,7 +373,7 @@ proc v3-build_support {} {
 
     # Build the support objects.
     set source_files \
-	[list testsuite_abi.cc testsuite_allocator.cc testsuite_character.cc testsuite_hooks.cc]
+	[list testsuite_abi.cc testsuite_allocator.cc testsuite_character.cc testsuite_hooks.cc ]
     foreach f $source_files {
 	set object_file [file rootname $f].o
 	# Compile with "-w" so that warnings issued by the compiler
@@ -365,6 +385,27 @@ proc v3-build_support {} {
 	}
 	append v3-test_objs "$object_file "
     }
+
+    # Build the shared support objects.
+    if { ${v3-sharedlib} == 1 } {
+	set source_files \
+	    [list testsuite_shared.cc]
+	foreach f $source_files {
+	    set object_file [file rootname $f].so
+	    # Compile with "-w" so that warnings issued by the compiler
+	    # do not prevent compilation.
+	    if { [v3_target_compile $srcdir/$f $object_file "sharedlib" \
+	     [list "incdir=$srcdir" "additional_flags=-w -shared -fPIC -DPIC"]]
+		 != "" } {
+		error "could not compile $f"
+	    }
+	}
+    }
+}
+
+proc check_v3_target_sharedlib { } {
+    global v3-sharedlib
+    return ${v3-sharedlib}
 }
 
 proc check_v3_target_namedlocale { } {
@@ -453,4 +494,88 @@ proc check_v3_target_namedlocale { } {
 	}
     }
     return $et_namedlocale_saved
+}
+
+proc check_v3_target_cxa_atexit { } {
+    global et_cxa_atexit
+    global et_cxa_atexit_target_name
+    global tool	
+
+    if { ![info exists et_cxa_atexit_target_name] } {
+	set et_cxa_atexit_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_cxa_atexit_target_name } {
+	verbose "check_v3_target_cxa_atexit: `$et_cxa_atexit_target_name'" 2
+	set et_cxa_atexit_target_name $current_target
+	if [info exists et_cxa_atexit] {
+	    verbose "check_v3_target_cxa_atexit: removing cached result" 2
+	    unset et_cxa_atexit
+	}
+    }
+
+    if [info exists et_cxa_atexit] {
+	verbose "check_v3_target_cxa_atexit: using cached result" 2
+    } else {
+	set et_cxa_atexit 0
+
+	# Set up, compile, and execute a C++ test program that depends
+	# on correct ordering of static object destructors. This is
+	# indicative of the presence and use of __cxa_atexit.
+	set src cxaatexit[pid].cc
+	set exe cxaatexit[pid].x
+
+	set f [open $src "w"]
+	puts $f "#include <stdlib.h>"
+	puts $f "static unsigned int count;"
+	puts $f "struct X"
+	puts $f "{"
+	puts $f "  X() { count = 1; }"
+	puts $f "  ~X()"
+	puts $f "  {"
+	puts $f "    if (count != 3)"
+	puts $f "      exit(1);"
+	puts $f "    count = 4;"
+        puts $f "  }"
+        puts $f "};"
+	puts $f "void f()"
+	puts $f "{"
+	puts $f "  static X x;"
+        puts $f "}"
+	puts $f "struct Y"
+	puts $f "{"
+	puts $f "  Y() { f(); count = 2; }"
+	puts $f "  ~Y()"
+	puts $f "  {"
+	puts $f "    if (count != 2)"
+	puts $f "      exit(1);"
+	puts $f "    count = 3;"
+        puts $f "  }"
+        puts $f "};"
+	puts $f "Y y;"
+	puts $f "int main()"
+	puts $f "{ return 0; }"
+	close $f
+
+	set lines [v3_target_compile $src $exe executable ""]
+	file delete $src
+
+	if [string match "" $lines] {
+	    # No error message, compilation succeeded.
+	    set result [${tool}_load "./$exe" "" ""]
+	    set status [lindex $result 0]
+	    remote_file build delete $exe
+
+	    verbose "check_v3_target_cxa_atexit: status is <$status>" 2
+
+	    if { $status == "pass" } {
+		set et_cxa_atexit 1
+	    }
+	} else {
+	    verbose "check_v3_target_cxa_atexit: compilation failed" 2
+	}
+    }
+    return $et_cxa_atexit
 }

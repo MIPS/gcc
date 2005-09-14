@@ -60,6 +60,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 
 /* The (assembler) name of the first globally-visible object output.  */
+extern GTY(()) const char *first_global_object_name;
+extern GTY(()) const char *weak_global_object_name;
+
 const char *first_global_object_name;
 const char *weak_global_object_name;
 
@@ -841,7 +844,8 @@ decode_reg_name (const char *asmspec)
 	  = ADDITIONAL_REGISTER_NAMES;
 
 	for (i = 0; i < (int) ARRAY_SIZE (table); i++)
-	  if (! strcmp (asmspec, table[i].name))
+	  if (table[i].name[0]
+	      && ! strcmp (asmspec, table[i].name))
 	    return table[i].number;
       }
 #endif /* ADDITIONAL_REGISTER_NAMES */
@@ -1207,11 +1211,11 @@ notice_global_symbol (tree decl)
   if (!*type)
     {
       const char *p;
-      char *name;
+      const char *name;
       rtx decl_rtl = DECL_RTL (decl);
 
       p = targetm.strip_name_encoding (XSTR (XEXP (decl_rtl, 0), 0));
-      name = xstrdup (p);
+      name = ggc_strdup (p);
 
       *type = name;
     }
@@ -1271,11 +1275,13 @@ assemble_start_function (tree decl, const char *fnname)
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
       ASM_OUTPUT_LABEL (asm_out_file, cfun->cold_section_label);
-      if (BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
+
+      /* When the function starts with a cold section, we need to explicitly
+	 align the hot section and write out the hot section label.
+	 But if the current function is a thunk, we do not have a CFG.  */
+      if (!current_function_is_thunk
+	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
-	  /* Since the function starts with a cold section, we need to
-	     explicitly align the hot section and write out the hot
-	     section label.  */
 	  text_section ();
 	  assemble_align (FUNCTION_BOUNDARY);
 	  ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
@@ -1358,7 +1364,10 @@ assemble_start_function (tree decl, const char *fnname)
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
 
-  insert_section_boundary_note ();
+  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  Don't do this if the current
+     function is a thunk, because we don't have a CFG in that case.  */
+  if (!current_function_is_thunk)
+    insert_section_boundary_note ();
 }
 
 /* Output assembler code associated with defining the size of the
@@ -2400,13 +2409,14 @@ const_hash_1 (const tree exp)
 
     case CONSTRUCTOR:
       {
-	tree link;
+	unsigned HOST_WIDE_INT idx;
+	tree value;
 	
 	hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
 	
-	for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	  if (TREE_VALUE (link))
-	    hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
+	  if (value)
+	    hi = hi * 603 + const_hash_1 (value);
 	
 	return hi;
       }
@@ -2517,7 +2527,8 @@ compare_constant (const tree t1, const tree t2)
 
     case CONSTRUCTOR:
       {
-	tree l1, l2;
+	VEC(constructor_elt, gc) *v1, *v2;
+	unsigned HOST_WIDE_INT idx;
 	
 	typecode = TREE_CODE (TREE_TYPE (t1));
 	if (typecode != TREE_CODE (TREE_TYPE (t2)))
@@ -2540,28 +2551,34 @@ compare_constant (const tree t1, const tree t2)
 	      return 0;
 	  }
 
-	for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
-	     l1 && l2;
-	     l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
+	v1 = CONSTRUCTOR_ELTS (t1);
+	v2 = CONSTRUCTOR_ELTS (t2);
+	if (VEC_length (constructor_elt, v1)
+	    != VEC_length (constructor_elt, v2))
+	    return 0;
+
+	for (idx = 0; idx < VEC_length (constructor_elt, v1); ++idx)
 	  {
+	    constructor_elt *c1 = VEC_index (constructor_elt, v1, idx);
+	    constructor_elt *c2 = VEC_index (constructor_elt, v2, idx);
+
 	    /* Check that each value is the same...  */
-	    if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
+	    if (!compare_constant (c1->value, c2->value))
 	      return 0;
 	    /* ... and that they apply to the same fields!  */
 	    if (typecode == ARRAY_TYPE)
 	      {
-		if (! compare_constant (TREE_PURPOSE (l1),
-					TREE_PURPOSE (l2)))
+		if (!compare_constant (c1->index, c2->index))
 		  return 0;
 	      }
 	    else
 	      {
-		if (TREE_PURPOSE (l1) != TREE_PURPOSE (l2))
+		if (c1->index != c2->index)
 		  return 0;
 	      }
 	  }
 	
-	return l1 == NULL_TREE && l2 == NULL_TREE;
+	return 1;
       }
 
     case ADDR_EXPR:
@@ -2645,13 +2662,19 @@ copy_constant (tree exp)
     case CONSTRUCTOR:
       {
 	tree copy = copy_node (exp);
-	tree list = copy_list (CONSTRUCTOR_ELTS (exp));
-	tree tail;
-
-	CONSTRUCTOR_ELTS (copy) = list;
-	for (tail = list; tail; tail = TREE_CHAIN (tail))
-	  TREE_VALUE (tail) = copy_constant (TREE_VALUE (tail));
-
+	VEC(constructor_elt, gc) *v;
+	unsigned HOST_WIDE_INT idx;
+	tree purpose, value;
+	
+	v = VEC_alloc(constructor_elt, gc, VEC_length(constructor_elt,
+						      CONSTRUCTOR_ELTS (exp)));
+	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), idx, purpose, value)
+	  {
+	    constructor_elt *ce = VEC_quick_push (constructor_elt, v, NULL);
+	    ce->index = purpose;
+	    ce->value = copy_constant (value);
+	  }
+	CONSTRUCTOR_ELTS (copy) = v;
 	return copy;
       }
 
@@ -3476,10 +3499,12 @@ compute_reloc_for_constant (tree exp)
       break;
 
     case CONSTRUCTOR:
-      for (tem = CONSTRUCTOR_ELTS (exp); tem; tem = TREE_CHAIN (tem))
-	if (TREE_VALUE (tem) != 0)
-	  reloc |= compute_reloc_for_constant (TREE_VALUE (tem));
-
+      {
+	unsigned HOST_WIDE_INT idx;
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, tem)
+	  if (tem != 0)
+	    reloc |= compute_reloc_for_constant (tem);
+      }
       break;
 
     default:
@@ -3533,10 +3558,12 @@ output_addressed_constants (tree exp)
       break;
 
     case CONSTRUCTOR:
-      for (tem = CONSTRUCTOR_ELTS (exp); tem; tem = TREE_CHAIN (tem))
-	if (TREE_VALUE (tem) != 0)
-	  output_addressed_constants (TREE_VALUE (tem));
-
+      {
+	unsigned HOST_WIDE_INT idx;
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, tem)
+	  if (tem != 0)
+	    output_addressed_constants (tem);
+      }
       break;
 
     default:
@@ -3567,16 +3594,16 @@ initializer_constant_valid_p (tree value, tree endtype)
       if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
 	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
 	  && TREE_CONSTANT (value)
-	  && CONSTRUCTOR_ELTS (value))
+	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (value)))
 	{
+	  unsigned HOST_WIDE_INT idx;
 	  tree elt;
 	  bool absolute = true;
 
-	  for (elt = CONSTRUCTOR_ELTS (value); elt; elt = TREE_CHAIN (elt))
+	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (value), idx, elt)
 	    {
 	      tree reloc;
-	      value = TREE_VALUE (elt);
-	      reloc = initializer_constant_valid_p (value, TREE_TYPE (value));
+	      reloc = initializer_constant_valid_p (elt, TREE_TYPE (elt));
 	      if (!reloc)
 		return NULL_TREE;
 	      if (reloc != null_pointer_node)
@@ -3820,19 +3847,54 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   if (size == 0 || flag_syntax_only)
     return;
 
+  /* See if we're trying to initialize a pointer in a non-default mode
+     to the address of some declaration somewhere.  If the target says
+     the mode is valid for pointers, assume the target has a way of
+     resolving it.  */
+  if (TREE_CODE (exp) == NOP_EXPR
+      && POINTER_TYPE_P (TREE_TYPE (exp))
+      && targetm.valid_pointer_mode (TYPE_MODE (TREE_TYPE (exp))))
+    {
+      tree saved_type = TREE_TYPE (exp);
+
+      /* Peel off any intermediate conversions-to-pointer for valid
+	 pointer modes.  */
+      while (TREE_CODE (exp) == NOP_EXPR
+	     && POINTER_TYPE_P (TREE_TYPE (exp))
+	     && targetm.valid_pointer_mode (TYPE_MODE (TREE_TYPE (exp))))
+	exp = TREE_OPERAND (exp, 0);
+
+      /* If what we're left with is the address of something, we can
+	 convert the address to the final type and output it that
+	 way.  */
+      if (TREE_CODE (exp) == ADDR_EXPR)
+	exp = build1 (ADDR_EXPR, saved_type, TREE_OPERAND (exp, 0));
+    }
+
   /* Eliminate any conversions since we'll be outputting the underlying
      constant.  */
   while (TREE_CODE (exp) == NOP_EXPR || TREE_CODE (exp) == CONVERT_EXPR
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR
 	 || TREE_CODE (exp) == VIEW_CONVERT_EXPR)
-    exp = TREE_OPERAND (exp, 0);
+    {
+      HOST_WIDE_INT type_size = int_size_in_bytes (TREE_TYPE (exp));
+      HOST_WIDE_INT op_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (exp, 0)));
+
+      /* Make sure eliminating the conversion is really a no-op.  */
+      if (type_size != op_size)
+	internal_error ("no-op convert from %wd to %wd bytes in initializer",
+			op_size, type_size);
+
+      exp = TREE_OPERAND (exp, 0);
+    }
 
   code = TREE_CODE (TREE_TYPE (exp));
   thissize = int_size_in_bytes (TREE_TYPE (exp));
 
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
-  if (TREE_CODE (exp) == CONSTRUCTOR && CONSTRUCTOR_ELTS (exp) == 0)
+  if (TREE_CODE (exp) == CONSTRUCTOR
+      && VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (exp)))
     {
       assemble_zeros (size);
       return;
@@ -3942,6 +4004,8 @@ static unsigned HOST_WIDE_INT
 array_size_for_constructor (tree val)
 {
   tree max_index, i;
+  unsigned HOST_WIDE_INT cnt;
+  tree index, value;
 
   /* This code used to attempt to handle string constants that are not
      arrays of single-bytes, but nothing else does, so there's no point in
@@ -3950,10 +4014,8 @@ array_size_for_constructor (tree val)
     return TREE_STRING_LENGTH (val);
 
   max_index = NULL_TREE;
-  for (i = CONSTRUCTOR_ELTS (val); i; i = TREE_CHAIN (i))
+  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (val), cnt, index, value)
     {
-      tree index = TREE_PURPOSE (i);
-
       if (TREE_CODE (index) == RANGE_EXPR)
 	index = TREE_OPERAND (index, 1);
       if (max_index == NULL_TREE || tree_int_cst_lt (max_index, index))
@@ -3983,7 +4045,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 		    unsigned int align)
 {
   tree type = TREE_TYPE (exp);
-  tree link, field = 0;
+  tree field = 0;
   tree min_index = 0;
   /* Number of bytes output or skipped so far.
      In other words, current position within the constructor.  */
@@ -3991,6 +4053,8 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
   /* Nonzero means BYTE contains part of a byte, to be output.  */
   int byte_buffer_in_use = 0;
   int byte = 0;
+  unsigned HOST_WIDE_INT cnt;
+  constructor_elt *ce;
 
   gcc_assert (HOST_BITS_PER_WIDE_INT >= BITS_PER_UNIT);
 
@@ -4010,23 +4074,22 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
      There is always a maximum of one element in the chain LINK for unions
      (even if the initializer in a source program incorrectly contains
      more one).  */
-  for (link = CONSTRUCTOR_ELTS (exp);
-       link;
-       link = TREE_CHAIN (link),
-       field = field ? TREE_CHAIN (field) : 0)
+  for (cnt = 0;
+       VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (exp), cnt, ce);
+       cnt++, field = field ? TREE_CHAIN (field) : 0)
     {
-      tree val = TREE_VALUE (link);
+      tree val = ce->value;
       tree index = 0;
 
       /* The element in a union constructor specifies the proper field
 	 or index.  */
       if ((TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
 	   || TREE_CODE (type) == QUAL_UNION_TYPE)
-	  && TREE_PURPOSE (link) != 0)
-	field = TREE_PURPOSE (link);
+	  && ce->index != 0)
+	field = ce->index;
 
       else if (TREE_CODE (type) == ARRAY_TYPE)
-	index = TREE_PURPOSE (link);
+	index = ce->index;
 
 #ifdef ASM_COMMENT_START
       if (field && flag_verbose_asm)
@@ -4089,6 +4152,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 	     if each element has the proper size.  */
 	  if ((field != 0 || index != 0) && pos != total_bytes)
 	    {
+	      gcc_assert (pos >= total_bytes);
 	      assemble_zeros (pos - total_bytes);
 	      total_bytes = pos;
 	    }
@@ -4164,6 +4228,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 	      /* If still not at proper byte, advance to there.  */
 	      if (next_offset / BITS_PER_UNIT != total_bytes)
 		{
+		  gcc_assert (next_offset / BITS_PER_UNIT >= total_bytes);
 		  assemble_zeros (next_offset / BITS_PER_UNIT - total_bytes);
 		  total_bytes = next_offset / BITS_PER_UNIT;
 		}
@@ -4987,47 +5052,7 @@ default_select_section (tree decl, int reloc,
     data_section ();
 }
 
-/* A helper function for default_elf_select_section and
-   default_elf_unique_section.  Categorizes the DECL.  */
-
 enum section_category
-{
-  SECCAT_TEXT,
-
-  SECCAT_RODATA,
-  SECCAT_RODATA_MERGE_STR,
-  SECCAT_RODATA_MERGE_STR_INIT,
-  SECCAT_RODATA_MERGE_CONST,
-  SECCAT_SRODATA,
-
-  SECCAT_DATA,
-
-  /* To optimize loading of shared programs, define following subsections
-     of data section:
-	_REL	Contains data that has relocations, so they get grouped
-		together and dynamic linker will visit fewer pages in memory.
-	_RO	Contains data that is otherwise read-only.  This is useful
-		with prelinking as most relocations won't be dynamically
-		linked and thus stay read only.
-	_LOCAL	Marks data containing relocations only to local objects.
-		These relocations will get fully resolved by prelinking.  */
-  SECCAT_DATA_REL,
-  SECCAT_DATA_REL_LOCAL,
-  SECCAT_DATA_REL_RO,
-  SECCAT_DATA_REL_RO_LOCAL,
-
-  SECCAT_SDATA,
-  SECCAT_TDATA,
-
-  SECCAT_BSS,
-  SECCAT_SBSS,
-  SECCAT_TBSS
-};
-
-static enum section_category
-categorize_decl_for_section (tree, int, int);
-
-static enum section_category
 categorize_decl_for_section (tree decl, int reloc, int shlib)
 {
   enum section_category ret;

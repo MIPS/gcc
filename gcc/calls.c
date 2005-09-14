@@ -1444,7 +1444,7 @@ rtx_for_function_call (tree fndecl, tree addr)
    Mark all register-parms as living through the call, putting these USE
    insns in the CALL_INSN_FUNCTION_USAGE field.
 
-   When IS_SIBCALL, perform the check_sibcall_overlap_argument_overlap
+   When IS_SIBCALL, perform the check_sibcall_argument_overlap
    checking, setting *SIBCALL_FAILURE if appropriate.  */
 
 static void
@@ -2246,6 +2246,9 @@ expand_call (tree exp, rtx target, int ignore)
 	 if a libcall is deleted.  */
       if (pass && (flags & (ECF_LIBCALL_BLOCK | ECF_MALLOC)))
 	start_sequence ();
+
+      if (pass == 0 && cfun->stack_protect_guard)
+	stack_protect_epilogue ();
 
       adjusted_args_size = args_size;
       /* Compute the actual size of the argument block required.  The variable
@@ -3634,7 +3637,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		use = plus_constant (argblock,
 				     argvec[argnum].locate.offset.constant);
 	      else
-		/* When arguemnts are pushed, trying to tell alias.c where
+		/* When arguments are pushed, trying to tell alias.c where
 		   exactly this argument is won't work, because the
 		   auto-increment causes confusion.  So we merely indicate
 		   that we access something with a known mode somewhere on
@@ -4074,6 +4077,43 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
       if (arg->pass_on_stack)
 	stack_arg_under_construction--;
+    }
+
+  /* Check for overlap with already clobbered argument area.  */
+  if ((flags & ECF_SIBCALL) && MEM_P (arg->value))
+    {
+      int i = -1;
+      unsigned HOST_WIDE_INT k;
+      rtx x = arg->value;
+
+      if (XEXP (x, 0) == current_function_internal_arg_pointer)
+	i = 0;
+      else if (GET_CODE (XEXP (x, 0)) == PLUS
+	       && XEXP (XEXP (x, 0), 0) ==
+		  current_function_internal_arg_pointer
+	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	i = INTVAL (XEXP (XEXP (x, 0), 1));
+      else
+	i = -1;
+
+      if (i >= 0)
+	{
+#ifdef ARGS_GROW_DOWNWARD
+	  i = -i - arg->locate.size.constant;
+#endif
+	  if (arg->locate.size.constant > 0)
+	    {
+	      unsigned HOST_WIDE_INT sc = arg->locate.size.constant;
+
+	      for (k = 0; k < sc; k++)
+		if (i + k < stored_args_map->n_bits
+		    && TEST_BIT (stored_args_map, i + k))
+		  {
+		    sibcall_failure = 1;
+		    break;
+		  }
+	    }
+	}
     }
 
   /* Don't allow anything left on stack from computation

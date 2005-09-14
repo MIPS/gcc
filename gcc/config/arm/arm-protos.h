@@ -27,7 +27,7 @@
 extern void arm_override_options (void);
 extern int use_return_insn (int, rtx);
 extern int arm_regno_class (int);
-extern void arm_load_pic_register (unsigned int);
+extern void arm_load_pic_register (unsigned long);
 extern int arm_volatile_func (void);
 extern const char *arm_output_epilogue (rtx);
 extern void arm_expand_prologue (void);
@@ -52,7 +52,8 @@ extern int arm_hard_regno_mode_ok (unsigned int, enum machine_mode);
 extern int const_ok_for_arm (HOST_WIDE_INT);
 extern int arm_split_constant (RTX_CODE, enum machine_mode, rtx,
 			       HOST_WIDE_INT, rtx, rtx, int);
-extern RTX_CODE arm_canonicalize_comparison (RTX_CODE, rtx *);
+extern RTX_CODE arm_canonicalize_comparison (RTX_CODE, enum machine_mode,
+					     rtx *);
 extern int legitimate_pic_operand_p (rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int arm_legitimate_address_p  (enum machine_mode, rtx, RTX_CODE, int);
@@ -60,6 +61,8 @@ extern int thumb_legitimate_address_p (enum machine_mode, rtx, int);
 extern int thumb_legitimate_offset_p (enum machine_mode, HOST_WIDE_INT);
 extern rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
+extern rtx thumb_legitimize_reload_address (rtx *, enum machine_mode, int, int,
+					    int);
 extern int arm_const_double_rtx (rtx);
 extern int neg_const_double_rtx_ok_for_fpa (rtx);
 extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);
@@ -84,7 +87,6 @@ extern rtx arm_gen_load_multiple (int, int, rtx, int, int,
 extern rtx arm_gen_store_multiple (int, int, rtx, int, int,
 				   rtx, HOST_WIDE_INT *);
 extern int arm_gen_movmemqi (rtx *);
-extern rtx arm_gen_rotated_half_load (rtx);
 extern enum machine_mode arm_select_cc_mode (RTX_CODE, rtx, rtx);
 extern enum machine_mode arm_select_dominance_cc_mode (rtx, rtx,
 						       HOST_WIDE_INT);

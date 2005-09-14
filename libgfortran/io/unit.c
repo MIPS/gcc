@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -304,7 +304,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -326,7 +326,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -348,7 +348,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;

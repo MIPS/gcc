@@ -459,10 +459,10 @@ ssa_operand_alloc (unsigned size)
 }
 
 
-/* Make sure PTR is inn the correct immediate use list.  Since uses are simply
+/* Make sure PTR is in the correct immediate use list.  Since uses are simply
    pointers into the stmt TREE, there is no way of telling if anyone has
    changed what this pointer points to via TREE_OPERANDS (exp, 0) = <...>.
-   THe contents are different, but the the pointer is still the same.  This
+   The contents are different, but the pointer is still the same.  This
    routine will check to make sure PTR is in the correct list, and if it isn't
    put it in the correct list.  We cannot simply check the previous node 
    because all nodes in the same stmt might have be changed.  */
@@ -482,7 +482,7 @@ correct_use_link (use_operand_p ptr, tree stmt)
     {
       bool stmt_mod = true;
       /* Find the first element which isn't a SAFE iterator, is in a different
-	 stmt, and is not a a modified stmt,  That node is in the correct list,
+	 stmt, and is not a modified stmt.  That node is in the correct list,
 	 see if we are too.  */
 
       while (stmt_mod)
@@ -1207,9 +1207,9 @@ swap_tree_operands (tree stmt, tree *exp0, tree *exp1)
 }
 
 
-/* Recursively scan the expression pointed by EXPR_P in statement referred to
-   by INFO.  FLAGS is one of the OPF_* constants modifying how to interpret the
-   operands found.  */
+/* Recursively scan the expression pointed to by EXPR_P in statement referred
+   to by INFO.  FLAGS is one of the OPF_* constants modifying how to interpret
+   the operands found.  */
 
 static void
 get_expr_operands (tree stmt, tree *expr_p, int flags)
@@ -1390,10 +1390,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       {
 	/* General aggregate CONSTRUCTORs have been decomposed, but they
 	   are still in use as the COMPLEX_EXPR equivalent for vectors.  */
+	constructor_elt *ce;
+	unsigned HOST_WIDE_INT idx;
 
-	tree t;
-	for (t = TREE_OPERAND (expr, 0); t ; t = TREE_CHAIN (t))
-	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none);
+	for (idx = 0;
+	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (expr), idx, ce);
+	     idx++)
+	  get_expr_operands (stmt, &ce->value, opf_none);
 
 	return;
       }
@@ -1695,7 +1698,7 @@ get_tmr_operands (tree stmt, tree expr, int flags)
     }
 
   if (tag)
-    add_stmt_operand (&tag, stmt_ann (stmt), flags);
+    get_expr_operands (stmt, &tag, flags);
   else
     /* Something weird, so ensure that we will be careful.  */
     stmt_ann (stmt)->has_volatile_ops = true;

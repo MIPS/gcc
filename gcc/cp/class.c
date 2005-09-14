@@ -365,7 +365,8 @@ build_base_path (enum tree_code code,
 			 build2 (EQ_EXPR, boolean_type_node,
 				 current_in_charge_parm, integer_zero_node),
 			 v_offset,
-			 BINFO_OFFSET (binfo));
+			 convert_to_integer (ptrdiff_type_node,
+					     BINFO_OFFSET (binfo)));
       else
 	offset = v_offset;
     }
@@ -5544,7 +5545,7 @@ pop_lang_context (void)
 
 /* Given an OVERLOAD and a TARGET_TYPE, return the function that
    matches the TARGET_TYPE.  If there is no satisfactory match, return
-   error_mark_node, and issue a error & warning messages under control
+   error_mark_node, and issue an error & warning messages under control
    of FLAGS.  Permit pointers to member function if FLAGS permits.  If
    TEMPLATE_ONLY, the name of the overloaded function was a
    template-id, and EXPLICIT_TARGS are the explicitly provided
@@ -5644,7 +5645,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	       one, or vice versa.  */
 	    continue;
 
-	  /* Ignore anticipated decls of undeclared builtins.  */
+	  /* Ignore functions which haven't been explicitly
+	     declared.  */
 	  if (DECL_ANTICIPATED (fn))
 	    continue;
 
@@ -5655,7 +5657,7 @@ resolve_address_of_overloaded_function (tree target_type,
 	  else if (!is_reference)
 	    fntype = build_pointer_type (fntype);
 
-	  if (can_convert_arg (target_type, fntype, fn))
+	  if (can_convert_arg (target_type, fntype, fn, LOOKUP_NORMAL))
 	    matches = tree_cons (fn, NULL_TREE, matches);
 	}
     }
@@ -5703,7 +5705,7 @@ resolve_address_of_overloaded_function (tree target_type,
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
 	  if (fn_type_unification (fn, explicit_targs, targs,
 				   target_arg_types, target_ret_type,
-				   DEDUCE_EXACT))
+				   DEDUCE_EXACT, LOOKUP_NORMAL))
 	    /* Argument deduction failed.  */
 	    continue;
 
@@ -5720,7 +5722,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	      build_ptrmemfunc_type (build_pointer_type (instantiation_type));
 	  else if (!is_reference)
 	    instantiation_type = build_pointer_type (instantiation_type);
-	  if (can_convert_arg (target_type, instantiation_type, instantiation))
+	  if (can_convert_arg (target_type, instantiation_type, instantiation, 
+			       LOOKUP_NORMAL))
 	    matches = tree_cons (instantiation, fn, matches);
 	}
 
@@ -6437,8 +6440,8 @@ dump_class_hierarchy (tree t)
 static void
 dump_array (FILE * stream, tree decl)
 {
-  tree inits;
-  int ix;
+  tree value;
+  unsigned HOST_WIDE_INT ix;
   HOST_WIDE_INT elt;
   tree size = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (decl)));
 
@@ -6450,10 +6453,10 @@ dump_array (FILE * stream, tree decl)
 			   TFF_PLAIN_IDENTIFIER));
   fprintf (stream, "\n");
 
-  for (ix = 0, inits = CONSTRUCTOR_ELTS (DECL_INITIAL (decl));
-       inits; ix++, inits = TREE_CHAIN (inits))
+  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (DECL_INITIAL (decl)),
+			      ix, value)
     fprintf (stream, "%-4ld  %s\n", (long)(ix * elt),
-	     expr_as_string (TREE_VALUE (inits), TFF_PLAIN_IDENTIFIER));
+	     expr_as_string (value, TFF_PLAIN_IDENTIFIER));
 }
 
 static void

@@ -104,7 +104,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    life_analysis fills in certain vectors containing information about
    register usage: REG_N_REFS, REG_N_DEATHS, REG_N_SETS, REG_LIVE_LENGTH,
-   REG_N_CALLS_CROSSED and REG_BASIC_BLOCK.
+   REG_N_CALLS_CROSSED, REG_N_THROWING_CALLS_CROSSED and REG_BASIC_BLOCK.
 
    life_analysis sets current_function_sp_is_unchanging if the function
    doesn't modify the stack pointer.  */
@@ -572,7 +572,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 		  int prop_flags)
 {
   regset tmp;
-  unsigned i;
+  unsigned i = 0;
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
 
@@ -1589,6 +1589,7 @@ allocate_reg_life_data (void)
       REG_N_REFS (i) = 0;
       REG_N_DEATHS (i) = 0;
       REG_N_CALLS_CROSSED (i) = 0;
+      REG_N_THROWING_CALLS_CROSSED (i) = 0;
       REG_LIVE_LENGTH (i) = 0;
       REG_FREQ (i) = 0;
       REG_BASIC_BLOCK (i) = REG_BLOCK_UNKNOWN;
@@ -1820,6 +1821,9 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	  reg_set_iterator rsi;
 	  EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i, rsi)
 	    REG_N_CALLS_CROSSED (i)++;
+          if (can_throw_internal (insn))
+	    EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i, rsi)
+	      REG_N_THROWING_CALLS_CROSSED (i)++;
 	}
 
       /* Record sets.  Do this even for dead instructions, since they
@@ -3512,7 +3516,11 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
 	 that REGNO now crosses them.  */
       for (temp = insn; temp != incr; temp = NEXT_INSN (temp))
 	if (CALL_P (temp))
-	  REG_N_CALLS_CROSSED (regno)++;
+	  {
+	    REG_N_CALLS_CROSSED (regno)++;
+	    if (can_throw_internal (temp))
+	      REG_N_THROWING_CALLS_CROSSED (regno)++;
+	  }
 
       /* Invalidate alias info for Q since we just changed its value.  */
       clear_reg_alias_info (q);
@@ -4356,11 +4364,14 @@ recompute_reg_usage (void)
      in sched1 to die.  To solve this update the DEATH_NOTES
      here.  */
   update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
+
+  if (dump_file)
+    dump_flow_info (dump_file);
 }
 
 struct tree_opt_pass pass_recompute_reg_usage =
 {
-  NULL,                                 /* name */
+  "life2",                              /* name */
   NULL,                                 /* gate */
   recompute_reg_usage,                  /* execute */
   NULL,                                 /* sub */
@@ -4371,8 +4382,8 @@ struct tree_opt_pass pass_recompute_reg_usage =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'f'                                   /* letter */
 };
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
@@ -4383,7 +4394,7 @@ int
 count_or_remove_death_notes (sbitmap blocks, int kill)
 {
   int count = 0;
-  unsigned int i;
+  unsigned int i = 0;
   basic_block bb;
 
   /* This used to be a loop over all the blocks with a membership test
@@ -4489,7 +4500,7 @@ clear_log_links (sbitmap blocks)
     }
   else
     {
-      unsigned int i;
+      unsigned int i = 0;
       sbitmap_iterator sbi;
 
       EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
@@ -4538,7 +4549,7 @@ rest_of_handle_remove_death_notes (void)
 
 struct tree_opt_pass pass_remove_death_notes =
 {
-  NULL,                                 /* name */
+  "ednotes",                            /* name */
   gate_remove_death_notes,              /* gate */
   rest_of_handle_remove_death_notes,    /* execute */
   NULL,                                 /* sub */
@@ -4587,7 +4598,7 @@ rest_of_handle_life (void)
 
 struct tree_opt_pass pass_life =
 {
-  "life",                               /* name */
+  "life1",                              /* name */
   NULL,                                 /* gate */
   rest_of_handle_life,                  /* execute */
   NULL,                                 /* sub */
@@ -4606,11 +4617,6 @@ struct tree_opt_pass pass_life =
 static void
 rest_of_handle_flow2 (void)
 {
-  /* Re-create the death notes which were deleted during reload.  */
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
-
   /* If optimizing, then go ahead and split insns now.  */
 #ifndef STACK_REGS
   if (optimize > 0)

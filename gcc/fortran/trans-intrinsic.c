@@ -639,7 +639,6 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   gfc_ss *ss;
   int i;
 
-  gfc_init_se (&argse, NULL);
   arg = expr->value.function.actual;
   arg2 = arg->next;
 
@@ -671,7 +670,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   /* Get a descriptor for the first parameter.  */
   ss = gfc_walk_expr (arg->expr);
   gcc_assert (ss != gfc_ss_terminator);
-  argse.want_pointer = 0;
+  gfc_init_se (&argse, NULL);
   gfc_conv_expr_descriptor (&argse, arg->expr, ss);
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
@@ -2996,6 +2995,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_KILL:
     case GFC_ISYM_IERRNO:
     case GFC_ISYM_IRAND:
+    case GFC_ISYM_ISATTY:
     case GFC_ISYM_LINK:
     case GFC_ISYM_MATMUL:
     case GFC_ISYM_RAND:

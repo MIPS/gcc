@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* transfer.c -- Top level handling of data transfer statements.  */
@@ -444,7 +444,7 @@ require_type (bt expected, bt actual, fnode * f)
 static void
 formatted_transfer (bt type, void *p, int len)
 {
-  int pos;
+  int pos, bytes_used;
   fnode *f;
   format_token t;
   int n;
@@ -480,18 +480,29 @@ formatted_transfer (bt type, void *p, int len)
 	return;	      /* No data descriptors left (already raised).  */
 
       /* Now discharge T, TR and X movements to the right.  This is delayed
-	 until a data producing format to supress trailing spaces.  */
+	 until a data producing format to suppress trailing spaces.  */
       t = f->format;
-      if (g.mode == WRITING && skips > 0
-	&&    (t == FMT_I || t == FMT_B || t == FMT_O || t == FMT_Z
-	    || t == FMT_F || t == FMT_E || t == FMT_EN || t == FMT_ES
-	    || t == FMT_G || t == FMT_L || t == FMT_A || t == FMT_D
+      if (g.mode == WRITING && skips != 0
+	&& ((n>0 && (  t == FMT_I  || t == FMT_B  || t == FMT_O
+		    || t == FMT_Z  || t == FMT_F  || t == FMT_E
+		    || t == FMT_EN || t == FMT_ES || t == FMT_G
+		    || t == FMT_L  || t == FMT_A  || t == FMT_D))
 	    || t == FMT_STRING))
 	{
-	  write_x (skips, pending_spaces);
-	  max_pos = current_unit->recl - current_unit->bytes_left;
+	  if (skips > 0)
+	    {
+	      write_x (skips, pending_spaces);
+	      max_pos = (int)(current_unit->recl - current_unit->bytes_left);
+	    }
+	  if (skips < 0)
+	    {
+	      move_pos_offset (current_unit->s, skips);
+	      current_unit->bytes_left -= (gfc_offset)skips;
+	    }
 	  skips = pending_spaces = 0;
 	}
+
+      bytes_used = (int)(current_unit->recl - current_unit->bytes_left);
 
       switch (t)
 	{
@@ -687,21 +698,21 @@ formatted_transfer (bt type, void *p, int len)
 	case FMT_TR:
 	  consume_data_flag = 0 ;
 
-	  pos = current_unit->recl - current_unit->bytes_left + f->u.n;
-	  skips = f->u.n;
+	  pos = bytes_used + f->u.n + skips;
+	  skips = f->u.n + skips;
 	  pending_spaces = pos - max_pos;
 
 	  /* Writes occur just before the switch on f->format, above, so that
 	     trailing blanks are suppressed.  */
 	  if (g.mode == READING)
-	    read_x (f);
+	    read_x (f->u.n);
 
 	  break;
 
 	case FMT_TL:
 	case FMT_T:
 	  if (f->format == FMT_TL)
-	    pos = current_unit->recl - current_unit->bytes_left - f->u.n;
+	    pos = bytes_used - f->u.n;
 	  else /* FMT_T */
 	    {
 	      consume_data_flag = 0;
@@ -714,7 +725,7 @@ formatted_transfer (bt type, void *p, int len)
 	     bring us back again.  */
 	  pos = pos < 0 ? 0 : pos;
 
-	  skips = skips + pos - (current_unit->recl - current_unit->bytes_left);
+	  skips = skips + pos - bytes_used;
 	  pending_spaces =  pending_spaces + pos - max_pos;
 
 	  if (skips == 0)
@@ -722,19 +733,16 @@ formatted_transfer (bt type, void *p, int len)
 
 	  /* Writes occur just before the switch on f->format, above, so that
 	     trailing blanks are suppressed.  */
-	  if (skips > 0)
+	  if (g.mode == READING)
 	    {
-	      if (g.mode == READING)
+	      if (skips > 0)
+		read_x (skips);
+	      if (skips < 0)
 		{
-		  f->u.n = skips;
-		  read_x (f);
+		  move_pos_offset (current_unit->s, skips);
+		  current_unit->bytes_left -= (gfc_offset)skips;
+		  skips = pending_spaces = 0;
 		}
-	    }
-	  if (skips < 0)
-	    {
-	      move_pos_offset (current_unit->s, skips);
-	      current_unit->bytes_left -= skips;
-	      skips = pending_spaces = 0;
 	    }
 
 	  break;
@@ -776,6 +784,7 @@ formatted_transfer (bt type, void *p, int len)
 
 	case FMT_SLASH:
 	  consume_data_flag = 0 ;
+	  skips = pending_spaces = 0;
 	  next_record (0);
 	  break;
 
@@ -814,7 +823,7 @@ formatted_transfer (bt type, void *p, int len)
       if (g.mode == READING)
 	skips = 0;
 
-      pos = current_unit->recl - current_unit->bytes_left;
+      pos = (int)(current_unit->recl - current_unit->bytes_left);
       max_pos = (max_pos > pos) ? max_pos : pos;
 
     }
@@ -1016,7 +1025,9 @@ data_transfer_init (int read_flag)
     {
       current_unit->recl = file_length(current_unit->s);
       if (g.mode==WRITING)
-	empty_internal_buffer (current_unit->s);
+        empty_internal_buffer (current_unit->s);
+      else
+        current_unit->bytes_left = current_unit->recl;	
     }
 
   /* Check the action.  */
@@ -1149,17 +1160,30 @@ data_transfer_init (int read_flag)
       if (g.mode == READING && current_unit->mode  == WRITING)
 	 flush(current_unit->s);
 
+      /* Check whether the record exists to be read.  Only
+	 a partial record needs to exist.  */
+
+      if (g.mode == READING && (ioparm.rec -1)
+	  * current_unit->recl >= file_length (current_unit->s))
+	{
+	  generate_error (ERROR_BAD_OPTION, "Non-existing record number");
+	  return;
+	}
+
       /* Position the file.  */
       if (sseek (current_unit->s,
 	       (ioparm.rec - 1) * current_unit->recl) == FAILURE)
-	generate_error (ERROR_OS, NULL);
+	{
+	  generate_error (ERROR_OS, NULL);
+	  return;
+	}
     }
 
   /* Overwriting an existing sequential file ?
      it is always safe to truncate the file on the first write */
   if (g.mode == WRITING
       && current_unit->flags.access == ACCESS_SEQUENTIAL
-      && current_unit->current_record == 0)
+      && current_unit->last_record == 0 && !is_preconnected(current_unit->s))
 	struncate(current_unit->s);
 
   current_unit->mode = g.mode;
@@ -1225,8 +1249,7 @@ data_transfer_init (int read_flag)
     }
 
   /* Reset counters for T and X-editing.  */
-  if (current_unit->flags.form == FORM_FORMATTED)
-    max_pos = skips = pending_spaces = 0;
+  max_pos = skips = pending_spaces = 0;
 
   /* Start the data transfer if we are doing a formatted transfer.  */
   if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
@@ -1339,6 +1362,9 @@ next_record_w (void)
   int length;
   char *p;
 
+  /* Zero counters for X- and T-editing.  */
+  max_pos = skips = pending_spaces = 0;
+
   switch (current_mode ())
     {
     case FORMATTED_DIRECT:
@@ -1396,13 +1422,24 @@ next_record_w (void)
       break;
 
     case FORMATTED_SEQUENTIAL:
+#ifdef HAVE_CRLF
+      length = 2;
+#else
       length = 1;
+#endif
       p = salloc_w (current_unit->s, &length);
 
       if (!is_internal_unit())
 	{
 	  if (p)
-	    *p = '\n'; /* No CR for internal writes.  */
+	    {  /* No new line for internal writes.  */
+#ifdef HAVE_CRLF
+	      p[0] = '\r';
+	      p[1] = '\n';
+#else
+	      *p = '\n';
+#endif
+	    }
 	  else
 	    goto io_error;
 	}
@@ -1520,12 +1557,16 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type   __attribute__ ((unused)),
-		   void *dest __attribute__ ((unused)),
+iolength_transfer (bt type , void *dest __attribute__ ((unused)),
 		   int len)
 {
   if (ioparm.iolength != NULL)
-    *ioparm.iolength += len;
+    {
+      if (type == BT_COMPLEX)
+	*ioparm.iolength += 2*len;
+      else
+	*ioparm.iolength += len;
+    }
 }
 
 

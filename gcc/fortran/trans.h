@@ -138,8 +138,8 @@ typedef enum
      uses this temporary inside the scalarization loop.  */
   GFC_SS_CONSTRUCTOR,
 
-  /* A vector subscript.  Only used as the SS chain for a subscript.
-     Similar int format to a GFC_SS_SECTION.  */
+  /* A vector subscript.  The vector's descriptor is cached in the
+     "descriptor" field of the associated gfc_ss_info.  */
   GFC_SS_VECTOR,
 
   /* A temporary array allocated by the scalarizer.  Its rank can be less
@@ -275,20 +275,15 @@ tree gfc_chainon_list (tree, tree);
    when a POST chain may be created, and what the returned expression may be
    used for.  Note that character strings have special handling.  This
    should not be a problem as most statements/operations only deal with
-   numeric/logical types.  */
+   numeric/logical types.  See the implementations in trans-expr.c
+   for details of the individual functions.  */
 
-/* Entry point for expression translation.  */
 void gfc_conv_expr (gfc_se * se, gfc_expr * expr);
-/* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
-   numeric expressions.  */
 void gfc_conv_expr_val (gfc_se * se, gfc_expr * expr);
-/* Like gfc_conv_expr_val, but the value is also suitable for use in the lhs of
-   an assignment.  */
 void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
-/* Converts an expression so that it can be passed be reference.  */
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
-/* Equivalent to convert(type, gfc_conv_expr_val(se, expr)).  */
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
+
 /* Find the decl containing the auxiliary variables for assigned variables.  */
 void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
 /* If the value is not constant, Create a temporary and copy the value.  */
@@ -362,7 +357,7 @@ tree gfc_build_indirect_ref (tree);
 /* Build an ARRAY_REF.  */
 tree gfc_build_array_ref (tree, tree);
 
-/* Creates an label.  Decl is artificial if label_id == NULL_TREE.  */
+/* Creates a label.  Decl is artificial if label_id == NULL_TREE.  */
 tree gfc_build_label_decl (tree);
 
 /* Return the decl used to hold the function return value.
@@ -425,7 +420,7 @@ void gfc_trans_runtime_check (tree, tree, stmtblock_t *);
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *);
 
-/* Generate code for an pointer assignment.  */
+/* Generate code for a pointer assignment.  */
 tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
 
 /* Initialize function decls for library functions.  */
@@ -448,6 +443,8 @@ tree builtin_function (const char *, tree, int, enum built_in_class,
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;
 extern GTY(()) tree gfor_fndecl_internal_malloc64;
+extern GTY(()) tree gfor_fndecl_internal_realloc;
+extern GTY(()) tree gfor_fndecl_internal_realloc64;
 extern GTY(()) tree gfor_fndecl_internal_free;
 extern GTY(()) tree gfor_fndecl_allocate;
 extern GTY(()) tree gfor_fndecl_allocate64;
@@ -458,6 +455,7 @@ extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
 extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
+extern GTY(()) tree gfor_fndecl_set_std;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
 extern GTY(()) tree gfor_fndecl_associated;
@@ -574,4 +572,74 @@ struct lang_decl		GTY(())
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
+
+/* This group of functions allows a caller to evaluate an expression from
+   the callee's interface.  It establishes a mapping between the interface's
+   dummy arguments and the caller's actual arguments, then applies that
+   mapping to a given gfc_expr.
+
+   You can initialize a mapping structure like so:
+
+       gfc_interface_mapping mapping;
+       ...
+       gfc_init_interface_mapping (&mapping);
+
+   You should then evaluate each actual argument into a temporary
+   gfc_se structure, here called "se", and map the result to the
+   dummy argument's symbol, here called "sym":
+
+       gfc_add_interface_mapping (&mapping, sym, &se);
+
+   After adding all mappings, you should call:
+
+       gfc_finish_interface_mapping (&mapping, pre, post);
+
+   where "pre" and "post" are statement blocks for initialization
+   and finalization code respectively.  You can then evaluate an
+   interface expression "expr" as follows:
+
+       gfc_apply_interface_mapping (&mapping, se, expr);
+
+   Once you've evaluated all expressions, you should free
+   the mapping structure with:
+
+       gfc_free_interface_mapping (&mapping); */
+
+
+/* This structure represents a mapping from OLD to NEW, where OLD is a
+   dummy argument symbol and NEW is a symbol that represents the value
+   of an actual argument.  Mappings are linked together using NEXT
+   (in no particular order).  */
+typedef struct gfc_interface_sym_mapping
+{
+  struct gfc_interface_sym_mapping *next;
+  gfc_symbol *old;
+  gfc_symtree *new;
+}
+gfc_interface_sym_mapping;
+
+
+/* This structure is used by callers to evaluate an expression from
+   a callee's interface.  */
+typedef struct gfc_interface_mapping
+{
+  /* Maps the interface's dummy arguments to the values that the caller
+     is passing.  The whole list is owned by this gfc_interface_mapping.  */
+  gfc_interface_sym_mapping *syms;
+
+  /* A list of gfc_charlens that were needed when creating copies of
+     expressions.  The whole list is owned by this gfc_interface_mapping.  */
+  gfc_charlen *charlens;
+}
+gfc_interface_mapping;
+
+void gfc_init_interface_mapping (gfc_interface_mapping *);
+void gfc_free_interface_mapping (gfc_interface_mapping *);
+void gfc_add_interface_mapping (gfc_interface_mapping *,
+				gfc_symbol *, gfc_se *);
+void gfc_finish_interface_mapping (gfc_interface_mapping *,
+				   stmtblock_t *, stmtblock_t *);
+void gfc_apply_interface_mapping (gfc_interface_mapping *,
+				  gfc_se *, gfc_expr *);
+
 #endif /* GFC_TRANS_H */

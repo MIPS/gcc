@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -71,7 +71,7 @@ static int nml_read_error;
 /* Storage area for values except for strings.  Must be large enough
    to hold a complex value (two reals) of the largest kind.  */
 
-static char value[20];
+static char value[32];
 
 #define CASE_DIGITS   case '0': case '1': case '2': case '3': case '4': \
                       case '5': case '6': case '7': case '8': case '9'

@@ -228,7 +228,7 @@ enum emit_where
 static basic_block current_block;
 
 /* In the current_block, whether we're processing the first register
-   stack or call instruction, i.e. the the regstack is currently the
+   stack or call instruction, i.e. the regstack is currently the
    same as BLOCK_INFO(current_block)->stack_in.  */
 static bool starting_stack_p;
 
@@ -2770,7 +2770,7 @@ better_edge (edge e1, edge e2)
   if (EDGE_CRITICAL_P (e1) != EDGE_CRITICAL_P (e2))
     return EDGE_CRITICAL_P (e1) ? e1 : e2;
 
-  /* Avoid non-deterministic behaviour.  */
+  /* Avoid non-deterministic behavior.  */
   return (e1->src->index < e2->src->index) ? e1 : e2;
 }
 

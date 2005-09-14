@@ -251,10 +251,6 @@ static void compute_dom_prob_ps (int);
 #define IS_SPECULATIVE_INSN(INSN) (IS_SPECULATIVE (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
-/* Parameters affecting the decision of rank_for_schedule().
-   ??? Nope.  But MIN_PROBABILITY is used in compute_trg_info.  */
-#define MIN_PROBABILITY 40
-
 /* Speculative scheduling functions.  */
 static int check_live_1 (int, rtx);
 static void update_live_1 (int, rtx);
@@ -353,7 +349,7 @@ is_cfg_nonregular (void)
 static void
 extract_edgelst (sbitmap set, edgelst *el)
 {
-  unsigned int i;
+  unsigned int i = 0;
   sbitmap_iterator sbi;
 
   /* edgelst table space is reused in each call to extract_edgelst.  */
@@ -1013,7 +1009,7 @@ compute_trg_info (int trg)
       if (sp->is_valid)
 	{
 	  sp->src_prob = GET_SRC_PROB (i, trg);
-	  sp->is_valid = (sp->src_prob >= MIN_PROBABILITY);
+	  sp->is_valid = (sp->src_prob >= PARAM_VALUE (PARAM_MIN_SPEC_PROB));
 	}
 
       if (sp->is_valid)
@@ -1883,6 +1879,8 @@ add_branch_dependences (rtx head, rtx tail)
      cc0 setters remain at the end because they can't be moved away from
      their cc0 user.
 
+     COND_EXEC insns cannot be moved past a branch (see e.g. PR17808).
+
      Insns setting CLASS_LIKELY_SPILLED_P registers (usually return values)
      are not moved before reload because we can wind up with register
      allocation failures.  */
@@ -1906,7 +1904,8 @@ add_branch_dependences (rtx head, rtx tail)
 	{
 	  if (last != 0 && !find_insn_list (insn, LOG_LINKS (last)))
 	    {
-	      add_dependence (last, insn, REG_DEP_ANTI);
+	      if (! sched_insns_conditions_mutex_p (last, insn))
+		add_dependence (last, insn, REG_DEP_ANTI);
 	      INSN_REF_COUNT (insn)++;
 	    }
 
@@ -1932,9 +1931,61 @@ add_branch_dependences (rtx head, rtx tail)
 	if (INSN_REF_COUNT (insn) != 0)
 	  continue;
 
-	add_dependence (last, insn, REG_DEP_ANTI);
+	if (! sched_insns_conditions_mutex_p (last, insn))
+	  add_dependence (last, insn, REG_DEP_ANTI);
 	INSN_REF_COUNT (insn) = 1;
       }
+
+#ifdef HAVE_conditional_execution
+  /* Finally, if the block ends in a jump, and we are doing intra-block
+     scheduling, make sure that the branch depends on any COND_EXEC insns
+     inside the block to avoid moving the COND_EXECs past the branch insn.
+
+     We only have to do this after reload, because (1) before reload there
+     are no COND_EXEC insns, and (2) the region scheduler is an intra-block
+     scheduler after reload.
+
+     FIXME: We could in some cases move COND_EXEC insns past the branch if
+     this scheduler would be a little smarter.  Consider this code:
+
+		T = [addr]
+	C  ?	addr += 4
+	!C ?	X += 12
+	C  ?	T += 1
+	C  ?	jump foo
+
+     On a target with a one cycle stall on a memory access the optimal
+     sequence would be:
+
+		T = [addr]
+	C  ?	addr += 4
+	C  ?	T += 1
+	C  ?	jump foo
+	!C ?	X += 12
+
+     We don't want to put the 'X += 12' before the branch because it just
+     wastes a cycle of execution time when the branch is taken.
+
+     Note that in the example "!C" will always be true.  That is another
+     possible improvement for handling COND_EXECs in this scheduler: it
+     could remove always-true predicates.  */
+
+  if (!reload_completed || ! JUMP_P (tail))
+    return;
+
+  insn = tail;
+  while (insn != head)
+    {
+      insn = PREV_INSN (insn);
+
+      /* Note that we want to add this dependency even when
+	 sched_insns_conditions_mutex_p returns true.  The whole point
+	 is that we _want_ this dependency, even if these insns really
+	 are independent.  */
+      if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == COND_EXEC)
+	add_dependence (tail, insn, REG_DEP_ANTI);
+    }
+#endif
 }
 
 /* Data structures for the computation of data dependences in a regions.  We

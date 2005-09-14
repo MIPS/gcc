@@ -1010,6 +1010,11 @@ arm_override_options (void)
       target_flags &= ~MASK_APCS_FRAME;
     }
 
+  /* Callee super interworking implies thumb interworking.  Adding
+     this to the flags here simplifies the logic elsewhere.  */
+  if (TARGET_THUMB && TARGET_CALLEE_INTERWORKING)
+      target_flags |= MASK_INTERWORK;
+
   /* TARGET_BACKTRACE calls leaf_function_p, which causes a crash if done
      from here where no function is being compiled currently.  */
   if ((TARGET_TPCS_FRAME || TARGET_TPCS_LEAF_FRAME) && TARGET_ARM)
@@ -1229,10 +1234,6 @@ arm_override_options (void)
 
   if (optimize_size)
     {
-      /* There's some dispute as to whether this should be 1 or 2.  However,
-	 experiments seem to show that in pathological cases a setting of
-	 1 degrades less severely than a setting of 2.  This could change if
-	 other parts of the compiler change their behavior.  */
       arm_constant_limit = 1;
 
       /* If optimizing for size, bump the number of instructions that we
@@ -2328,9 +2329,12 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
    immediate value easier to load.  */
 
 enum rtx_code
-arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
+arm_canonicalize_comparison (enum rtx_code code, enum machine_mode mode,
+			     rtx * op1)
 {
   unsigned HOST_WIDE_INT i = INTVAL (*op1);
+  unsigned HOST_WIDE_INT maxval;
+  maxval = (((unsigned HOST_WIDE_INT) 1) << (GET_MODE_BITSIZE(mode) - 1)) - 1;
 
   switch (code)
     {
@@ -2340,7 +2344,7 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
     case GT:
     case LE:
-      if (i != ((((unsigned HOST_WIDE_INT) 1) << (HOST_BITS_PER_WIDE_INT - 1)) - 1)
+      if (i != maxval
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
 	  *op1 = GEN_INT (i + 1);
@@ -2350,7 +2354,7 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
     case GE:
     case LT:
-      if (i != (((unsigned HOST_WIDE_INT) 1) << (HOST_BITS_PER_WIDE_INT - 1))
+      if (i != ~maxval
 	  && (const_ok_for_arm (i - 1) || const_ok_for_arm (-(i - 1))))
 	{
 	  *op1 = GEN_INT (i - 1);
@@ -3277,7 +3281,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
    low register.  */
 
 void
-arm_load_pic_register (unsigned int scratch)
+arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 {
 #ifndef AOF_ASSEMBLER
   rtx l1, pic_tmp, pic_tmp2, pic_rtx;
@@ -3311,9 +3315,10 @@ arm_load_pic_register (unsigned int scratch)
     {
       if (REGNO (pic_offset_table_rtx) > LAST_LO_REGNUM)
 	{
-	  /* We will have pushed the pic register, so should always be
+	  /* We will have pushed the pic register, so we should always be
 	     able to find a work register.  */
-	  pic_tmp = gen_rtx_REG (SImode, scratch);
+	  pic_tmp = gen_rtx_REG (SImode,
+				 thumb_find_work_register (saved_regs));
 	  emit_insn (gen_pic_load_addr_thumb (pic_tmp, pic_rtx));
 	  emit_insn (gen_movsi (pic_offset_table_rtx, pic_tmp));
 	}
@@ -3750,6 +3755,34 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 	x = gen_rtx_MINUS (SImode, xop0, xop1);
     }
 
+  /* Make sure to take full advantage of the pre-indexed addressing mode
+     with absolute addresses which often allows for the base register to
+     be factorized for multiple adjacent memory references, and it might
+     even allows for the mini pool to be avoided entirely. */
+  else if (GET_CODE (x) == CONST_INT && optimize > 0)
+    {
+      unsigned int bits;
+      HOST_WIDE_INT mask, base, index;
+      rtx base_reg;
+
+      /* ldr and ldrb can use a 12 bit index, ldrsb and the rest can only
+         use a 8 bit index. So let's use a 12 bit index for SImode only and
+         hope that arm_gen_constant will enable ldrb to use more bits. */
+      bits = (mode == SImode) ? 12 : 8;
+      mask = (1 << bits) - 1;
+      base = INTVAL (x) & ~mask;
+      index = INTVAL (x) & mask;
+      if (bit_count (base & 0xffffffff) > (32 - bits)/2)
+        {
+	  /* It'll most probably be more efficient to generate the base
+	     with more bits set and use a negative index instead. */
+	  base |= mask;
+	  index -= mask;
+	}
+      base_reg = force_reg (SImode, GEN_INT (base));
+      x = gen_rtx_PLUS (SImode, base_reg, GEN_INT (index));
+    }
+
   if (flag_pic)
     {
       /* We need to find and carefully transform any SYMBOL and LABEL
@@ -3829,6 +3862,49 @@ thumb_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
     }
 
   return x;
+}
+
+rtx
+thumb_legitimize_reload_address(rtx *x_p,
+				enum machine_mode mode,
+				int opnum, int type,
+				int ind_levels ATTRIBUTE_UNUSED)
+{
+  rtx x = *x_p;
+  
+  if (GET_CODE (x) == PLUS
+      && GET_MODE_SIZE (mode) < 4
+      && REG_P (XEXP (x, 0))
+      && XEXP (x, 0) == stack_pointer_rtx
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && !thumb_legitimate_offset_p (mode, INTVAL (XEXP (x, 1))))
+    {
+      rtx orig_x = x;
+
+      x = copy_rtx (x);
+      push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
+		   Pmode, VOIDmode, 0, 0, opnum, type);
+      return x;
+    }
+
+  /* If both registers are hi-regs, then it's better to reload the
+     entire expression rather than each register individually.  That
+     only requires one reload register rather than two.  */
+  if (GET_CODE (x) == PLUS
+      && REG_P (XEXP (x, 0))
+      && REG_P (XEXP (x, 1))
+      && !REG_MODE_OK_FOR_REG_BASE_P (XEXP (x, 0), mode)
+      && !REG_MODE_OK_FOR_REG_BASE_P (XEXP (x, 1), mode))
+    {
+      rtx orig_x = x;
+
+      x = copy_rtx (x);
+      push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
+		   Pmode, VOIDmode, 0, 0, opnum, type);
+      return x;
+    }
+
+  return NULL;
 }
 
 
@@ -4920,7 +4996,7 @@ cirrus_memory_offset (rtx op)
   return 0;
 }
 
-/* Return TRUE if OP is a valid VFP memory address pattern.
+/* Return TRUE if OP is a valid coprocessor memory address pattern.
    WB if true if writeback address modes are allowed.  */
 
 int
@@ -6040,30 +6116,6 @@ arm_gen_movmemqi (rtx *operands)
 /* Generate a memory reference for a half word, such that it will be loaded
    into the top 16 bits of the word.  We can assume that the address is
    known to be alignable and of the form reg, or plus (reg, const).  */
-
-rtx
-arm_gen_rotated_half_load (rtx memref)
-{
-  HOST_WIDE_INT offset = 0;
-  rtx base = XEXP (memref, 0);
-
-  if (GET_CODE (base) == PLUS)
-    {
-      offset = INTVAL (XEXP (base, 1));
-      base = XEXP (base, 0);
-    }
-
-  /* If we aren't allowed to generate unaligned addresses, then fail.  */
-  if ((BYTES_BIG_ENDIAN ? 1 : 0) ^ ((offset & 2) == 0))
-    return NULL;
-
-  base = gen_rtx_MEM (SImode, plus_constant (base, offset & ~2));
-
-  if ((BYTES_BIG_ENDIAN ? 1 : 0) ^ ((offset & 2) == 2))
-    return base;
-
-  return gen_rtx_ROTATE (SImode, base, GEN_INT (16));
-}
 
 /* Select a dominance comparison mode if possible for a test of the general
    form (OP (COND_OR (X) (Y)) (const_int 0)).  We support three forms.
@@ -8052,8 +8104,9 @@ vfp_emit_fstmx (int base_reg, int count)
 
   XVECEXP (par, 0, 0)
     = gen_rtx_SET (VOIDmode,
-		   gen_rtx_MEM (BLKmode,
-				gen_rtx_PRE_DEC (BLKmode, stack_pointer_rtx)),
+		   gen_frame_mem (BLKmode,
+				  gen_rtx_PRE_DEC (BLKmode,
+						   stack_pointer_rtx)),
 		   gen_rtx_UNSPEC (BLKmode,
 				   gen_rtvec (1, reg),
 				   UNSPEC_PUSH_MULT));
@@ -8065,7 +8118,7 @@ vfp_emit_fstmx (int base_reg, int count)
   XVECEXP (dwarf, 0, 0) = tmp;
 
   tmp = gen_rtx_SET (VOIDmode,
-		     gen_rtx_MEM (DFmode, stack_pointer_rtx),
+		     gen_frame_mem (DFmode, stack_pointer_rtx),
 		     reg);
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 1) = tmp;
@@ -8077,10 +8130,10 @@ vfp_emit_fstmx (int base_reg, int count)
       XVECEXP (par, 0, i) = gen_rtx_USE (VOIDmode, reg);
 
       tmp = gen_rtx_SET (VOIDmode,
-			 gen_rtx_MEM (DFmode,
-				      gen_rtx_PLUS (SImode,
-						    stack_pointer_rtx,
-						    GEN_INT (i * 8))),
+			 gen_frame_mem (DFmode,
+					gen_rtx_PLUS (SImode,
+						      stack_pointer_rtx,
+						      GEN_INT (i * 8))),
 			 reg);
       RTX_FRAME_RELATED_P (tmp) = 1;
       XVECEXP (dwarf, 0, i + 1) = tmp;
@@ -8927,11 +8980,10 @@ thumb_compute_save_reg_mask (void)
     if (regs_ever_live[reg] && !call_used_regs[reg])
       mask |= 1 << reg;
 
-  if (flag_pic && !TARGET_SINGLE_PIC_BASE)
-    mask |= (1 << PIC_OFFSET_TABLE_REGNUM);
-
-  if (TARGET_SINGLE_PIC_BASE)
-    mask &= ~(1 << arm_pic_register);
+  if (flag_pic
+      && !TARGET_SINGLE_PIC_BASE
+      && current_function_uses_pic_offset_table)
+    mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
 
   /* See if we might need r11 for calls to _interwork_r11_call_via_rN().  */
   if (!frame_pointer_needed && CALLER_INTERWORKING_SLOT_SIZE > 0)
@@ -9776,9 +9828,9 @@ emit_multi_reg_push (unsigned long mask)
 
 	  XVECEXP (par, 0, 0)
 	    = gen_rtx_SET (VOIDmode,
-			   gen_rtx_MEM (BLKmode,
-					gen_rtx_PRE_DEC (BLKmode,
-							 stack_pointer_rtx)),
+			   gen_frame_mem (BLKmode,
+					  gen_rtx_PRE_DEC (BLKmode,
+							   stack_pointer_rtx)),
 			   gen_rtx_UNSPEC (BLKmode,
 					   gen_rtvec (1, reg),
 					   UNSPEC_PUSH_MULT));
@@ -9786,7 +9838,7 @@ emit_multi_reg_push (unsigned long mask)
 	  if (i != PC_REGNUM)
 	    {
 	      tmp = gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (SImode, stack_pointer_rtx),
+				 gen_frame_mem (SImode, stack_pointer_rtx),
 				 reg);
 	      RTX_FRAME_RELATED_P (tmp) = 1;
 	      XVECEXP (dwarf, 0, dwarf_par_index) = tmp;
@@ -9807,11 +9859,12 @@ emit_multi_reg_push (unsigned long mask)
 
 	  if (i != PC_REGNUM)
 	    {
-	      tmp = gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (SImode,
+	      tmp
+		= gen_rtx_SET (VOIDmode,
+			       gen_frame_mem (SImode,
 					      plus_constant (stack_pointer_rtx,
 							     4 * j)),
-				 reg);
+			       reg);
 	      RTX_FRAME_RELATED_P (tmp) = 1;
 	      XVECEXP (dwarf, 0, dwarf_par_index++) = tmp;
 	    }
@@ -9864,13 +9917,14 @@ emit_sfm (int base_reg, int count)
 
   XVECEXP (par, 0, 0)
     = gen_rtx_SET (VOIDmode,
-		   gen_rtx_MEM (BLKmode,
-				gen_rtx_PRE_DEC (BLKmode, stack_pointer_rtx)),
+		   gen_frame_mem (BLKmode,
+				  gen_rtx_PRE_DEC (BLKmode,
+						   stack_pointer_rtx)),
 		   gen_rtx_UNSPEC (BLKmode,
 				   gen_rtvec (1, reg),
 				   UNSPEC_PUSH_MULT));
   tmp = gen_rtx_SET (VOIDmode,
-		     gen_rtx_MEM (XFmode, stack_pointer_rtx), reg);
+		     gen_frame_mem (XFmode, stack_pointer_rtx), reg);
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 1) = tmp;
 
@@ -9880,9 +9934,9 @@ emit_sfm (int base_reg, int count)
       XVECEXP (par, 0, i) = gen_rtx_USE (VOIDmode, reg);
 
       tmp = gen_rtx_SET (VOIDmode,
-			 gen_rtx_MEM (XFmode,
-				      plus_constant (stack_pointer_rtx,
-						     i * 12)),
+			 gen_frame_mem (XFmode,
+					plus_constant (stack_pointer_rtx,
+						       i * 12)),
 			 reg);
       RTX_FRAME_RELATED_P (tmp) = 1;
       XVECEXP (dwarf, 0, i + 1) = tmp;
@@ -9941,7 +9995,7 @@ thumb_force_lr_save (void)
                             |    | \
                             |    |   local
                             |    |   variables
-                            |    | /
+     locals base pointer -> |    | /
                               --
                             |    | \
                             |    |   outgoing
@@ -10058,8 +10112,9 @@ arm_get_frame_offsets (void)
       && (offsets->soft_frame & 7))
     offsets->soft_frame += 4;
 
-  offsets->outgoing_args = offsets->soft_frame + frame_size
-			   + current_function_outgoing_args_size;
+  offsets->locals_base = offsets->soft_frame + frame_size;
+  offsets->outgoing_args = (offsets->locals_base
+			    + current_function_outgoing_args_size);
 
   if (ARM_DOUBLEWORD_ALIGN)
     {
@@ -10233,7 +10288,7 @@ arm_expand_prologue (void)
 	    {
 	      rtx dwarf;
 	      insn = gen_rtx_PRE_DEC (SImode, stack_pointer_rtx);
-	      insn = gen_rtx_MEM (SImode, insn);
+	      insn = gen_frame_mem (SImode, insn);
 	      insn = gen_rtx_SET (VOIDmode, insn, ip_rtx);
 	      insn = emit_insn (insn);
 
@@ -10322,7 +10377,7 @@ arm_expand_prologue (void)
       if (regs_ever_live[reg] && ! call_used_regs [reg])
 	{
 	  insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
-	  insn = gen_rtx_MEM (V2SImode, insn);
+	  insn = gen_frame_mem (V2SImode, insn);
 	  insn = emit_insn (gen_rtx_SET (VOIDmode, insn,
 					 gen_rtx_REG (V2SImode, reg)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
@@ -10341,7 +10396,7 @@ arm_expand_prologue (void)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
 	      {
 		insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
-		insn = gen_rtx_MEM (XFmode, insn);
+		insn = gen_frame_mem (XFmode, insn);
 		insn = emit_insn (gen_rtx_SET (VOIDmode, insn,
 					       gen_rtx_REG (XFmode, reg)));
 		RTX_FRAME_RELATED_P (insn) = 1;
@@ -10421,7 +10476,7 @@ arm_expand_prologue (void)
 	    {
 	      insn = gen_rtx_PLUS (SImode, hard_frame_pointer_rtx,
 				   GEN_INT (4));
-	      insn = gen_rtx_MEM (SImode, insn);
+	      insn = gen_frame_mem (SImode, insn);
 	    }
 
 	  emit_insn (gen_rtx_SET (SImode, ip_rtx, insn));
@@ -10459,7 +10514,7 @@ arm_expand_prologue (void)
 
 
   if (flag_pic)
-    arm_load_pic_register (INVALID_REGNUM);
+    arm_load_pic_register (0UL);
 
   /* If we are profiling, make sure no instructions are scheduled before
      the call to mcount.  Similarly if the user has requested no
@@ -13107,8 +13162,10 @@ arm_init_expanders (void)
 }
 
 
-/* Like arm_compute_initial_elimination offset.  Simpler because
-   THUMB_HARD_FRAME_POINTER isn't actually the ABI specified frame pointer.  */
+/* Like arm_compute_initial_elimination offset.  Simpler because there
+   isn't an ABI specified frame pointer for Thumb.  Instead, we set it
+   to point at the base of the local variables after static stack
+   space for a function has been allocated.  */
 
 HOST_WIDE_INT
 thumb_compute_initial_elimination_offset (unsigned int from, unsigned int to)
@@ -13128,9 +13185,11 @@ thumb_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	case FRAME_POINTER_REGNUM:
 	  return offsets->soft_frame - offsets->saved_args;
 
-	case THUMB_HARD_FRAME_POINTER_REGNUM:
 	case ARM_HARD_FRAME_POINTER_REGNUM:
 	  return offsets->saved_regs - offsets->saved_args;
+
+	case THUMB_HARD_FRAME_POINTER_REGNUM:
+	  return offsets->locals_base - offsets->saved_args;
 
 	default:
 	  gcc_unreachable ();
@@ -13143,9 +13202,11 @@ thumb_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	case STACK_POINTER_REGNUM:
 	  return offsets->outgoing_args - offsets->soft_frame;
 
-	case THUMB_HARD_FRAME_POINTER_REGNUM:
 	case ARM_HARD_FRAME_POINTER_REGNUM:
 	  return offsets->saved_regs - offsets->soft_frame;
+
+	case THUMB_HARD_FRAME_POINTER_REGNUM:
+	  return offsets->locals_base - offsets->soft_frame;
 
 	default:
 	  gcc_unreachable ();
@@ -13186,20 +13247,13 @@ thumb_expand_prologue (void)
   /* Load the pic register before setting the frame pointer,
      so we can use r7 as a temporary work register.  */
   if (flag_pic)
-    arm_load_pic_register (thumb_find_work_register (live_regs_mask));
+    arm_load_pic_register (live_regs_mask);
 
-  offsets = arm_get_frame_offsets ();
-
-  if (frame_pointer_needed)
-    {
-      insn = emit_insn (gen_movsi (hard_frame_pointer_rtx,
-				   stack_pointer_rtx));
-      RTX_FRAME_RELATED_P (insn) = 1;
-    }
-  else if (CALLER_INTERWORKING_SLOT_SIZE > 0)
+  if (!frame_pointer_needed && CALLER_INTERWORKING_SLOT_SIZE > 0)
     emit_move_insn (gen_rtx_REG (Pmode, ARM_HARD_FRAME_POINTER_REGNUM),
 		    stack_pointer_rtx);
 
+  offsets = arm_get_frame_offsets ();
   amount = offsets->outgoing_args - offsets->saved_regs;
   if (amount)
     {
@@ -13285,12 +13339,29 @@ thumb_expand_prologue (void)
 				     REG_NOTES (insn));
 	    }
 	}
-      /* If the frame pointer is needed, emit a special barrier that
-	 will prevent the scheduler from moving stores to the frame
-	 before the stack adjustment.  */
-      if (frame_pointer_needed)
-	emit_insn (gen_stack_tie (stack_pointer_rtx,
-				  hard_frame_pointer_rtx));
+    }
+
+  if (frame_pointer_needed)
+    {
+      amount = offsets->outgoing_args - offsets->locals_base;
+      
+      if (amount < 1024)
+	insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
+				      stack_pointer_rtx, GEN_INT (amount)));
+      else
+	{
+	  emit_insn (gen_movsi (hard_frame_pointer_rtx, GEN_INT (amount)));
+	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
+					hard_frame_pointer_rtx,
+					stack_pointer_rtx));
+	  dwarf = gen_rtx_SET (SImode, hard_frame_pointer_rtx,
+			       plus_constant (stack_pointer_rtx, amount));
+	  RTX_FRAME_RELATED_P (dwarf) = 1;
+	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
+						REG_NOTES (insn));
+	}
+
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
 
   if (current_function_profile || !TARGET_SCHED_PROLOG)
@@ -13322,8 +13393,12 @@ thumb_expand_epilogue (void)
   amount = offsets->outgoing_args - offsets->saved_regs;
 
   if (frame_pointer_needed)
-    emit_insn (gen_movsi (stack_pointer_rtx, hard_frame_pointer_rtx));
-  else if (amount)
+    {
+      emit_insn (gen_movsi (stack_pointer_rtx, hard_frame_pointer_rtx));
+      amount = offsets->locals_base - offsets->saved_regs;
+    }
+  
+  if (amount)
     {
       if (amount < 512)
 	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
@@ -13620,9 +13695,8 @@ thumb_load_double_from_address (rtx *operands)
   switch (GET_CODE (addr))
     {
     case REG:
-      operands[2] = gen_rtx_MEM (SImode,
-				 plus_constant (XEXP (operands[1], 0), 4));
-
+      operands[2] = adjust_address (operands[1], SImode, 4);
+      
       if (REGNO (operands[0]) == REGNO (addr))
 	{
 	  output_asm_insn ("ldr\t%H0, %2", operands);
@@ -13637,9 +13711,8 @@ thumb_load_double_from_address (rtx *operands)
 
     case CONST:
       /* Compute <address> + 4 for the high order load.  */
-      operands[2] = gen_rtx_MEM (SImode,
-				 plus_constant (XEXP (operands[1], 0), 4));
-
+      operands[2] = adjust_address (operands[1], SImode, 4);
+      
       output_asm_insn ("ldr\t%0, %1", operands);
       output_asm_insn ("ldr\t%H0, %2", operands);
       break;
@@ -13680,8 +13753,8 @@ thumb_load_double_from_address (rtx *operands)
       else
 	{
 	  /* Compute <address> + 4 for the high order load.  */
-	  operands[2] = gen_rtx_MEM (SImode,
-				     plus_constant (XEXP (operands[1], 0), 4));
+	  operands[2] = adjust_address (operands[1], SImode, 4);
+	  
 
 	  /* If the computed address is held in the low order register
 	     then load the high order register first, otherwise always
@@ -13702,8 +13775,7 @@ thumb_load_double_from_address (rtx *operands)
     case LABEL_REF:
       /* With no registers to worry about we can just load the value
          directly.  */
-      operands[2] = gen_rtx_MEM (SImode,
-				 plus_constant (XEXP (operands[1], 0), 4));
+      operands[2] = adjust_address (operands[1], SImode, 4);
 
       output_asm_insn ("ldr\t%H0, %2", operands);
       output_asm_insn ("ldr\t%0, %1", operands);
@@ -14598,7 +14670,7 @@ arm_set_return_address (rtx source, rtx scratch)
 
 	  addr = plus_constant (addr, delta);
 	}
-      emit_move_insn (gen_rtx_MEM (Pmode, addr), source);
+      emit_move_insn (gen_frame_mem (Pmode, addr), source);
     }
 }
 
@@ -14648,7 +14720,7 @@ thumb_set_return_address (rtx source, rtx scratch)
       else
 	addr = plus_constant (addr, delta);
 
-      emit_move_insn (gen_rtx_MEM (Pmode, addr), source);
+      emit_move_insn (gen_frame_mem (Pmode, addr), source);
     }
   else
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNUM), source);
@@ -14735,7 +14807,7 @@ arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
   if (reg < 16)
     {
       /* The function prologue may also push pc, but not annotate it as it is
-	 never restored.  We turn this into an stack pointer adjustment.  */
+	 never restored.  We turn this into a stack pointer adjustment.  */
       if (nregs * 4 == offset - 4)
 	{
 	  fprintf (asm_out_file, "\t.pad #4\n");

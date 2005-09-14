@@ -142,8 +142,12 @@ AC_SUBST(LIBGCJ_CXXFLAGS)
 AC_SUBST(LIBGCJ_JAVAFLAGS)
 AC_SUBST(LIBGCJ_LD_SYMBOLIC)
 
-AC_CONFIG_HEADERS([include/config.h gcj/libgcj-config.h])
+# Only use libltdl for non-newlib builds.
+if test "x${with_newlib}" = "x" || test "x${with_newlib}" = "xno"; then
+   AC_LTDL_SHLIBPATH
+fi
 
+AC_CONFIG_HEADERS([include/config.h gcj/libgcj-config.h])
 
 # See if the user has requested runtime debugging.
 LIBGCJDEBUG="disable"
@@ -175,12 +179,10 @@ for peer in $peerlibs ; do
         echo "*** xlib peers requested but no X library available" 1>&2
         exit 1
       else
-        # This code has bit-rotted a bit.
-	echo "*** xlib peers can't currently be compiled -- disabling" 1>&2
-#        use_xlib_awt="yes"
-#	if test -z "$TOOLKIT"; then
-#	   TOOLKIT=gnu.awt.xlib.XToolkit
-#	fi
+        use_xlib_awt="yes"
+	if test -z "$TOOLKIT"; then
+	   TOOLKIT=gnu.awt.xlib.XToolkit
+	fi
       fi
       ;;
     gtk)
@@ -208,6 +210,15 @@ done
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
 AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
 
+# Create standard.omit based on decisions we just made.
+cp $srcdir/standard.omit.in standard.omit
+if test "$use_xlib_awt" != yes; then
+   echo gnu/awt/xlib >> standard.omit
+   echo gnu/gcj/xlib >> standard.omit
+fi
+if test "$use_gtk_awt" != yes; then
+   echo gnu/java/awt/peer/gtk >> standard.omit
+fi
 
 if test -z "${with_multisubdir}"; then
    builddotdot=.
@@ -660,6 +671,17 @@ AC_SUBST(PANGOFT2_CFLAGS)
 
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
+
+# extra LD Flags which are required for targets
+case "${host}" in
+*-*-darwin[[0-7]].*)
+    # For now we have to disable it on darwin[8-9] because it slows down
+    # the linking phase. A possible bug in ld?
+    # on Darwin -single_module speeds up loading of the dynamic libraries.
+    extra_ldflags_libjava=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libjava)
 
 # Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
@@ -1135,14 +1157,21 @@ CPPFLAGS="$CPPFLAGS -I`${PWDCMD-pwd}` -I`cd $srcdir && ${PWDCMD-pwd}`"
 if test ! -f gnu/classpath/Configuration.java; then
   test -d gnu || mkdir gnu
   test -d gnu/classpath || mkdir gnu/classpath
-  sed -e "s,@LIBGCJDEBUG@,$LIBGCJDEBUG," \
-      -e "s,@TOOLKIT@,$TOOLKIT," \
-	< $srcdir/gnu/classpath/Configuration.java.in \
+  # Note that it is not crucial that all the values here be correct.
+  sed -e "s,@prefix@,$prefix," \
+      -e "s,@VERSION@,$VERSION," \
+      -e "s,@LIBDEBUG@,false," \
+      -e "s,@INIT_LOAD_LIBRARY@,false," \
+      -e "s,@@,$LIBGCJDEBUG," \
+      -e "s,@default_toolkit@,$TOOLKIT," \
+      -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
+      -e "s,@GTK_CAIRO_ENABLED@,false," \
+	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,
   # but we add /dev/null to the input list so that grep will print the
   # filename of Configuration.java in case it finds any matches.
-  if grep @ gnu/classpath/Configuration.java /dev/null; then
+  if grep '@.*@' gnu/classpath/Configuration.java /dev/null; then
     AC_MSG_ERROR([configure.ac is missing the substitutions above])
   fi
 fi

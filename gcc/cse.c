@@ -2498,6 +2498,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case PC:
     case CC0:
     case CONST_INT:
+    case CONST_DOUBLE:
       return x == y;
 
     case LABEL_REF:
@@ -3460,6 +3461,9 @@ fold_rtx_mem (rtx x, rtx insn)
 	    && addr_ent->const_rtx != NULL_RTX)
 	  addr = addr_ent->const_rtx;
       }
+
+    /* Call target hook to avoid the effects of -fpic etc....  */
+    addr = targetm.delegitimize_address (addr);
 
     /* If address is constant, split it into a base and integer
        offset.  */

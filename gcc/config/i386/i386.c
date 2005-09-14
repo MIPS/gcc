@@ -48,6 +48,7 @@ Boston, MA 02110-1301, USA.  */
 #include "langhooks.h"
 #include "cgraph.h"
 #include "tree-gimple.h"
+#include "dwarf2.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -471,7 +472,7 @@ struct processor_costs nocona_cost = {
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   16,					/* "large" insn */
-  9,					/* MOVE_RATIO */
+  17,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
   {4, 4, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -812,6 +813,11 @@ unsigned int ix86_preferred_stack_boundary;
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
 
+/* Variables which are this size or smaller are put in the data/bss
+   or ldata/lbss sections.  */
+
+int ix86_section_threshold = 65536;
+
 /* Prefix built by ASM_GENERATE_INTERNAL_LABEL.  */
 char internal_label_prefix[16];
 int internal_label_prefix_len;
@@ -945,6 +951,12 @@ static const char * const x86_64_reg_class_name[] = {
 static REAL_VALUE_TYPE ext_80387_constants_table [5];
 static bool ext_80387_constants_init = 0;
 static void init_ext_80387_constants (void);
+static bool ix86_in_large_data_p (tree) ATTRIBUTE_UNUSED;
+static void ix86_encode_section_info (tree, rtx, int) ATTRIBUTE_UNUSED;
+static void x86_64_elf_unique_section (tree decl, int reloc) ATTRIBUTE_UNUSED;
+static void x86_64_elf_select_section (tree decl, int reloc,
+				       unsigned HOST_WIDE_INT align)
+				      ATTRIBUTE_UNUSED;
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -964,6 +976,13 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
+
+#undef TARGET_ENCODE_SECTION_INFO
+#ifndef SUBTARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO ix86_encode_section_info
+#else
+#define TARGET_ENCODE_SECTION_INFO SUBTARGET_ENCODE_SECTION_INFO
+#endif
 
 #undef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN ""
@@ -1291,14 +1310,14 @@ override_options (void)
     {
       if (!strcmp (ix86_cmodel_string, "small"))
 	ix86_cmodel = flag_pic ? CM_SMALL_PIC : CM_SMALL;
+      else if (!strcmp (ix86_cmodel_string, "medium"))
+	ix86_cmodel = flag_pic ? CM_MEDIUM_PIC : CM_MEDIUM;
       else if (flag_pic)
 	sorry ("code model %s not supported in PIC mode", ix86_cmodel_string);
       else if (!strcmp (ix86_cmodel_string, "32"))
 	ix86_cmodel = CM_32;
       else if (!strcmp (ix86_cmodel_string, "kernel") && !flag_pic)
 	ix86_cmodel = CM_KERNEL;
-      else if (!strcmp (ix86_cmodel_string, "medium") && !flag_pic)
-	ix86_cmodel = CM_MEDIUM;
       else if (!strcmp (ix86_cmodel_string, "large") && !flag_pic)
 	ix86_cmodel = CM_LARGE;
       else
@@ -1502,6 +1521,14 @@ override_options (void)
       else
 	ix86_branch_cost = i;
     }
+  if (ix86_section_threshold_string)
+    {
+      i = atoi (ix86_section_threshold_string);
+      if (i < 0)
+	error ("-mlarge-data-threshold=%d is negative", i);
+      else
+	ix86_section_threshold = i;
+    }
 
   if (ix86_tls_dialect_string)
     {
@@ -1641,6 +1668,177 @@ override_options (void)
     flag_schedule_insns_after_reload = flag_schedule_insns = 0;
 }
 
+/* switch to the appropriate section for output of DECL.
+   DECL is either a `VAR_DECL' node or a constant of some sort.
+   RELOC indicates whether forming the initial value of DECL requires
+   link-time relocations.  */
+
+static void
+x86_64_elf_select_section (tree decl, int reloc,
+		         unsigned HOST_WIDE_INT align)
+{
+  if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
+      && ix86_in_large_data_p (decl))
+    {
+      const char *sname = NULL;
+      switch (categorize_decl_for_section (decl, reloc, flag_pic))
+	{
+	case SECCAT_DATA:
+	  sname = ".ldata";
+	  break;
+	case SECCAT_DATA_REL:
+	  sname = ".ldata.rel";
+	  break;
+	case SECCAT_DATA_REL_LOCAL:
+	  sname = ".ldata.rel.local";
+	  break;
+	case SECCAT_DATA_REL_RO:
+	  sname = ".ldata.rel.ro";
+	  break;
+	case SECCAT_DATA_REL_RO_LOCAL:
+	  sname = ".ldata.rel.ro.local";
+	  break;
+	case SECCAT_BSS:
+	  sname = ".lbss";
+	  break;
+	case SECCAT_RODATA:
+	case SECCAT_RODATA_MERGE_STR:
+	case SECCAT_RODATA_MERGE_STR_INIT:
+	case SECCAT_RODATA_MERGE_CONST:
+	  sname = ".lrodata";
+	  break;
+	case SECCAT_SRODATA:
+	case SECCAT_SDATA:
+	case SECCAT_SBSS:
+	  gcc_unreachable ();
+	case SECCAT_TEXT:
+	case SECCAT_TDATA:
+	case SECCAT_TBSS:
+	  /* We don't split these for medium model.  Place them into
+	     default sections and hope for best.  */
+	  break;
+	}
+      if (sname)
+	{
+          named_section (decl, sname, reloc);
+	  return;
+	}
+    }
+  default_elf_select_section (decl, reloc, align);
+}
+
+/* Build up a unique section name, expressed as a
+   STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
+   RELOC indicates whether the initial value of EXP requires
+   link-time relocations.  */
+
+static void
+x86_64_elf_unique_section (tree decl, int reloc)
+{
+  if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
+      && ix86_in_large_data_p (decl))
+    {
+      const char *prefix = NULL;
+      /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
+      bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
+
+      switch (categorize_decl_for_section (decl, reloc, flag_pic))
+	{
+	case SECCAT_DATA:
+	case SECCAT_DATA_REL:
+	case SECCAT_DATA_REL_LOCAL:
+	case SECCAT_DATA_REL_RO:
+	case SECCAT_DATA_REL_RO_LOCAL:
+          prefix = one_only ? ".gnu.linkonce.ld." : ".ldata.";
+	  break;
+	case SECCAT_BSS:
+          prefix = one_only ? ".gnu.linkonce.lb." : ".lbss.";
+	  break;
+	case SECCAT_RODATA:
+	case SECCAT_RODATA_MERGE_STR:
+	case SECCAT_RODATA_MERGE_STR_INIT:
+	case SECCAT_RODATA_MERGE_CONST:
+          prefix = one_only ? ".gnu.linkonce.lr." : ".lrodata.";
+	  break;
+	case SECCAT_SRODATA:
+	case SECCAT_SDATA:
+	case SECCAT_SBSS:
+	  gcc_unreachable ();
+	case SECCAT_TEXT:
+	case SECCAT_TDATA:
+	case SECCAT_TBSS:
+	  /* We don't split these for medium model.  Place them into
+	     default sections and hope for best.  */
+	  break;
+	}
+      if (prefix)
+	{
+	  const char *name;
+	  size_t nlen, plen;
+	  char *string;
+	  plen = strlen (prefix);
+
+	  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+	  name = targetm.strip_name_encoding (name);
+	  nlen = strlen (name);
+
+	  string = alloca (nlen + plen + 1);
+	  memcpy (string, prefix, plen);
+	  memcpy (string + plen, name, nlen + 1);
+
+	  DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
+	  return;
+	}
+    }
+  default_unique_section (decl, reloc);
+}
+
+#ifdef COMMON_ASM_OP
+/* This says how to output assembler code to declare an
+   uninitialized external linkage data object.
+
+   For medium model x86-64 we need to use .largecomm opcode for
+   large objects.  */
+void
+x86_elf_aligned_common (FILE *file,
+			const char *name, unsigned HOST_WIDE_INT size,
+			int align)
+{
+  if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
+      && size > (unsigned int)ix86_section_threshold)
+    fprintf (file, ".largecomm\t");
+  else
+    fprintf (file, "%s", COMMON_ASM_OP);
+  assemble_name (file, name);
+  fprintf (file, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
+	   size, align / BITS_PER_UNIT);
+}
+
+/* Utility function for targets to use in implementing
+   ASM_OUTPUT_ALIGNED_BSS.  */
+
+void
+x86_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
+			const char *name, unsigned HOST_WIDE_INT size,
+			int align)
+{
+  if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
+      && size > (unsigned int)ix86_section_threshold)
+    named_section (decl, ".lbss", 0);
+  else
+    bss_section ();
+  ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
+#ifdef ASM_DECLARE_OBJECT_NAME
+  last_assemble_variable_decl = decl;
+  ASM_DECLARE_OBJECT_NAME (file, name, decl);
+#else
+  /* Standard thing is just output label for the object.  */
+  ASM_OUTPUT_LABEL (file, name);
+#endif /* ASM_DECLARE_OBJECT_NAME */
+  ASM_OUTPUT_SKIP (file, size ? size : 1);
+}
+#endif
+
 void
 optimization_options (int level, int size ATTRIBUTE_UNUSED)
 {
@@ -1731,11 +1929,20 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
      function that does or, conversely, from a function that does return
      a float to a function that doesn't; the necessary stack adjustment
      would not be executed.  This is also the place we notice
-     differences in the return value ABI.  */
+     differences in the return value ABI.  Note that it is ok for one
+     of the functions to have void return type as long as the return
+     value of the other is passed in a register.  */
   a = ix86_function_value (TREE_TYPE (exp), func, false);
   b = ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)),
 			   cfun->decl, false);
-  if (! rtx_equal_p (a, b))
+  if (STACK_REG_P (a) || STACK_REG_P (b))
+    {
+      if (!rtx_equal_p (a, b))
+	return false;
+    }
+  else if (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (cfun->decl))))
+    ;
+  else if (!rtx_equal_p (a, b))
     return false;
 
   /* If this call is indirect, we'll need to be able to use a call-clobbered
@@ -1941,12 +2148,29 @@ ix86_function_regparm (tree type, tree decl)
 	  struct cgraph_local_info *i = cgraph_local_info (decl);
 	  if (i && i->local)
 	    {
+	      int local_regparm, globals = 0, regno;
+
+	      /* Make sure no regparm register is taken by a global register
+		 variable.  */
+	      for (local_regparm = 0; local_regparm < 3; local_regparm++)
+		if (global_regs[local_regparm])
+		  break;
 	      /* We can't use regparm(3) for nested functions as these use
 		 static chain pointer in third argument.  */
-	      if (DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
-		regparm = 2;
-	      else
-		regparm = 3;
+	      if (local_regparm == 3
+		  && DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
+		local_regparm = 2;
+	      /* Each global register variable increases register preassure,
+		 so the more global reg vars there are, the smaller regparm
+		 optimization use, unless requested by the user explicitly.  */
+	      for (regno = 0; regno < 6; regno++)
+		if (global_regs[regno])
+		  globals++;
+	      local_regparm
+		= globals < local_regparm ? local_regparm - globals : 0;
+
+	      if (local_regparm > regparm)
+		regparm = local_regparm;
 	    }
 	}
     }
@@ -3475,6 +3699,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       mem = gen_rtx_MEM (Pmode,
 			 plus_constant (save_area, i * UNITS_PER_WORD));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       emit_move_insn (mem, gen_rtx_REG (Pmode,
 					x86_64_int_parameter_registers[i]));
@@ -3517,6 +3742,7 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			      plus_constant (save_area,
 					     8 * REGPARM_MAX + 127)));
       mem = gen_rtx_MEM (BLKmode, plus_constant (tmp_reg, -127));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
@@ -4644,7 +4870,10 @@ ix86_expand_prologue (void)
 
   if (pic_reg_used)
     {
-      insn = emit_insn (gen_set_got (pic_offset_table_rtx));
+      if (TARGET_64BIT)
+        insn = emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
+      else
+        insn = emit_insn (gen_set_got (pic_offset_table_rtx));
 
       /* Even with accurate pre-reload life analysis, we can wind up
 	 deleting all references to the pic register after reload.
@@ -5173,6 +5402,8 @@ legitimate_constant_p (rtx x)
       if (GET_CODE (x) == UNSPEC)
 	switch (XINT (x, 1))
 	  {
+	  case UNSPEC_GOTOFF:
+	    return TARGET_64BIT;
 	  case UNSPEC_TPOFF:
 	  case UNSPEC_NTPOFF:
 	    return local_exec_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
@@ -5232,11 +5463,16 @@ legitimate_pic_operand_p (rtx x)
     {
     case CONST:
       inner = XEXP (x, 0);
+      if (GET_CODE (inner) == PLUS
+	  && GET_CODE (XEXP (inner, 1)) == CONST_INT)
+	inner = XEXP (inner, 0);
 
       /* Only some unspecs are valid as "constants".  */
       if (GET_CODE (inner) == UNSPEC)
 	switch (XINT (inner, 1))
 	  {
+	  case UNSPEC_GOTOFF:
+	    return TARGET_64BIT;
 	  case UNSPEC_TPOFF:
 	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
 	  default:
@@ -5269,7 +5505,7 @@ legitimate_pic_address_disp_p (rtx disp)
       if (tls_symbolic_operand (disp, GET_MODE (disp)))
 	return 0;
       if (GET_CODE (disp) == SYMBOL_REF
-	  && ix86_cmodel == CM_SMALL_PIC
+	  && !SYMBOL_REF_FAR_ADDR_P (disp)
 	  && SYMBOL_REF_LOCAL_P (disp))
 	return 1;
       if (GET_CODE (disp) == LABEL_REF)
@@ -5284,7 +5520,7 @@ legitimate_pic_address_disp_p (rtx disp)
 	  if (tls_symbolic_operand (op0, GET_MODE (op0)))
 	    return 0;
 	  if (((GET_CODE (op0) == SYMBOL_REF
-		&& ix86_cmodel == CM_SMALL_PIC
+		&& !SYMBOL_REF_FAR_ADDR_P (op0)
 		&& SYMBOL_REF_LOCAL_P (op0))
 	       || GET_CODE (op0) == LABEL_REF)
 	      && GET_CODE (op1) == CONST_INT
@@ -5302,7 +5538,8 @@ legitimate_pic_address_disp_p (rtx disp)
       /* We are unsafe to allow PLUS expressions.  This limit allowed distance
          of GOT tables.  We should not need these anyway.  */
       if (GET_CODE (disp) != UNSPEC
-	  || XINT (disp, 1) != UNSPEC_GOTPCREL)
+	  || (XINT (disp, 1) != UNSPEC_GOTPCREL
+	      && XINT (disp, 1) != UNSPEC_GOTOFF))
 	return 0;
 
       if (GET_CODE (XVECEXP (disp, 0, 0)) != SYMBOL_REF
@@ -5333,8 +5570,12 @@ legitimate_pic_address_disp_p (rtx disp)
 	return false;
       return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
     case UNSPEC_GOTOFF:
-      if (GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
-	  || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
+      /* Refuse GOTOFF in 64bit mode since it is always 64bit when used.
+	 While ABI specify also 32bit relocation but we don't produce it in
+	 small PIC model at all.  */
+      if ((GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
+	   || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
+	  && !TARGET_64BIT)
         return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
       return false;
     case UNSPEC_GOTTPOFF:
@@ -5488,8 +5729,17 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  && GET_CODE (XEXP (disp, 0)) == UNSPEC)
 	switch (XINT (XEXP (disp, 0), 1))
 	  {
+	  /* Refuse GOTOFF and GOT in 64bit mode since it is always 64bit when
+	     used.  While ABI specify also 32bit relocations, we don't produce
+	     them at all and use IP relative instead.  */
 	  case UNSPEC_GOT:
 	  case UNSPEC_GOTOFF:
+	    gcc_assert (flag_pic);
+	    if (!TARGET_64BIT)
+	      goto is_legitimate_pic;
+	    reason = "64bit address unspec";
+	    goto report_error;
+ 
 	  case UNSPEC_GOTPCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -5587,7 +5837,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
   return FALSE;
 }
 
-/* Return an unique alias set for the GOT.  */
+/* Return a unique alias set for the GOT.  */
 
 static HOST_WIDE_INT
 ix86_GOT_alias_set (void)
@@ -5632,6 +5882,40 @@ legitimize_pic_address (rtx orig, rtx reg)
 
   if (TARGET_64BIT && legitimate_pic_address_disp_p (addr))
     new = addr;
+  else if (TARGET_64BIT
+	   && ix86_cmodel != CM_SMALL_PIC
+	   && local_symbolic_operand (addr, Pmode))
+    {
+      rtx tmpreg;
+      /* This symbol may be referenced via a displacement from the PIC
+	 base address (@GOTOFF).  */
+
+      if (reload_in_progress)
+	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+      if (GET_CODE (addr) == CONST)
+	addr = XEXP (addr, 0);
+      if (GET_CODE (addr) == PLUS)
+	  {
+            new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, XEXP (addr, 0)), UNSPEC_GOTOFF);
+	    new = gen_rtx_PLUS (Pmode, new, XEXP (addr, 1));
+	  }
+	else
+          new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
+      new = gen_rtx_CONST (Pmode, new);
+      if (!reg)
+        tmpreg = gen_reg_rtx (Pmode);
+      else
+	tmpreg = reg;
+      emit_move_insn (tmpreg, new);
+
+      if (reg != 0)
+	{
+	  new = expand_simple_binop (Pmode, PLUS, reg, pic_offset_table_rtx,
+				     tmpreg, 1, OPTAB_DIRECT);
+	  new = reg;
+	}
+      else new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmpreg);
+    }
   else if (!TARGET_64BIT && local_symbolic_operand (addr, Pmode))
     {
       /* This symbol may be referenced via a displacement from the PIC
@@ -7884,7 +8168,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 #else
       if (GET_CODE (op0) == MEM)
 	op1 = force_reg (Pmode, op1);
-      else
+      else 
 	op1 = legitimize_address (op1, op1, Pmode);
 #endif /* TARGET_MACHO */
     }
@@ -8154,17 +8438,6 @@ ix86_fixup_binary_operands (enum rtx_code code, enum machine_mode mode,
       && GET_RTX_CLASS (code) != RTX_COMM_ARITH)
     src1 = force_reg (mode, src1);
 
-  /* If optimizing, copy to regs to improve CSE */
-  if (optimize && ! no_new_pseudos)
-    {
-      if (GET_CODE (dst) == MEM)
-	dst = gen_reg_rtx (mode);
-      if (GET_CODE (src1) == MEM)
-	src1 = force_reg (mode, src1);
-      if (GET_CODE (src2) == MEM)
-	src2 = force_reg (mode, src2);
-    }
-
   src1 = operands[1] = src1;
   src2 = operands[2] = src2;
   return dst;
@@ -8273,15 +8546,6 @@ ix86_expand_unary_operator (enum rtx_code code, enum machine_mode mode,
   /* When source operand is memory, destination must match.  */
   if (MEM_P (src) && !matching_memory)
     src = force_reg (mode, src);
-
-  /* If optimizing, copy to regs to improve CSE.  */
-  if (optimize && ! no_new_pseudos)
-    {
-      if (GET_CODE (dst) == MEM)
-	dst = gen_reg_rtx (mode);
-      if (GET_CODE (src) == MEM)
-	src = force_reg (mode, src);
-    }
 
   /* Emit the instruction.  */
 
@@ -8410,7 +8674,7 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
   matching_memory = false;
   if (MEM_P (dst))
     {
-      if (rtx_equal_p (dst, src) && (!optimize || no_new_pseudos))
+      if (rtx_equal_p (dst, src))
 	matching_memory = true;
       else
 	dst = gen_reg_rtx (mode);
@@ -16957,8 +17221,9 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
   enum machine_mode wmode;
   rtx const_vec, x;
 
-  XVECEXP (vals, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
-  const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (vals, 0)); 
+  const_vec = copy_rtx (vals);
+  XVECEXP (const_vec, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
+  const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (const_vec, 0));
 
   switch (mode)
     {
@@ -17490,7 +17755,7 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
     }
 }
 
-/* Expand a vector reduction on V4SFmode for SSE1.  FN is the binar
+/* Expand a vector reduction on V4SFmode for SSE1.  FN is the binary
    pattern to reduce; DEST is the destination; IN is the input vector.  */
 
 void
@@ -17543,6 +17808,49 @@ ix86_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
   clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),
 			clobbers);
   return clobbers;
+}
+
+/* Return true if this goes in small data/bss.  */
+
+static bool
+ix86_in_large_data_p (tree exp)
+{
+  if (ix86_cmodel != CM_MEDIUM && ix86_cmodel != CM_MEDIUM_PIC)
+    return false;
+
+  /* Functions are never large data.  */
+  if (TREE_CODE (exp) == FUNCTION_DECL)
+    return false;
+
+  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+    {
+      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      if (strcmp (section, ".ldata") == 0
+	  || strcmp (section, ".lbss") == 0)
+	return true;
+      return false;
+    }
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+
+      /* If this is an incomplete type with size 0, then we can't put it
+	 in data because it might be too big when completed.  */
+      if (!size || size > ix86_section_threshold)
+	return true;
+    }
+
+  return false;
+}
+static void
+ix86_encode_section_info (tree decl, rtx rtl, int first)
+{
+  default_encode_section_info (decl, rtl, first);
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+      && ix86_in_large_data_p (decl))
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= SYMBOL_FLAG_FAR_ADDR;
 }
 
 /* Worker function for REVERSE_CONDITION.  */
@@ -17686,6 +17994,32 @@ ix86_stack_protect_fail (void)
   return TARGET_64BIT
 	 ? default_external_stack_protect_fail ()
 	 : default_hidden_stack_protect_fail ();
+}
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.
+
+   ??? All x86 object file formats are capable of representing this.
+   After all, the relocation needed is the same as for the call insn.
+   Whether or not a particular assembler allows us to enter such, I
+   guess we'll have to see.  */
+int
+asm_preferred_eh_data_format (int code, int global)
+{
+  if (flag_pic)
+    {
+int type = DW_EH_PE_sdata8;
+      if (!TARGET_64BIT
+	  || ix86_cmodel == CM_SMALL_PIC
+	  || (ix86_cmodel == CM_MEDIUM_PIC && (global || code)))
+	type = DW_EH_PE_sdata4;
+      return (global ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | type;
+    }
+  if (ix86_cmodel == CM_SMALL
+      || (ix86_cmodel == CM_MEDIUM && code))
+    return DW_EH_PE_udata4;
+  return DW_EH_PE_absptr;
 }
 
 #include "gt-i386.h"

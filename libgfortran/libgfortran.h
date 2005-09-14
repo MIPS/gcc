@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfor.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -17,8 +17,8 @@ GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
 License along with libgfor; see the file COPYING.LIB.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -179,17 +179,11 @@ typedef off_t gfc_offset;
    alternatives, or bail out.  */
 #if (!defined(isfinite) || defined(__CYGWIN__))
 #undef isfinite
-static inline int
-isfinite (double x)
-{
 #if defined(fpclassify)
-  return (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE);
-#elif defined(HAVE_FINITE)
-  return finite (x);
+#define isfinite(x) (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE)
 #else
-#error "libgfortran needs isfinite, fpclassify, or finite"
+#define isfinite(x) ((x) - (x) == 0)
 #endif
-}
 #endif /* !defined(isfinite)  */
 
 /* TODO: find the C99 version of these an move into above ifdef.  */
@@ -301,9 +295,24 @@ typedef struct
 }
 options_t;
 
-
 extern options_t options;
 internal_proto(options);
+
+
+/* Compile-time options that will influence the library.  */
+
+typedef struct
+{
+  int warn_std;
+  int allow_std;
+}
+compile_options_t;
+
+extern compile_options_t compile_options;
+internal_proto(compile_options);
+
+extern void init_compile_options (void);
+internal_proto(init_compile_options);
 
 
 /* Structure for statement options.  */
@@ -338,6 +347,18 @@ typedef enum
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
+
+
+/* Flags to specify which standard/extension contains a feature.
+   Keep them in sync with their counterparts in gcc/fortran/gfortran.h.  */
+#define GFC_STD_LEGACY          (1<<6) /* Backward compatibility.  */
+#define GFC_STD_GNU             (1<<5)    /* GNU Fortran extension.  */
+#define GFC_STD_F2003           (1<<4)    /* New in F2003.  */
+/* Note that no features were obsoleted nor deleted in F2003.  */
+#define GFC_STD_F95             (1<<3)    /* New in F95.  */
+#define GFC_STD_F95_DEL         (1<<2)    /* Deleted in F95.  */
+#define GFC_STD_F95_OBS         (1<<1)    /* Obsoleted in F95.  */
+#define GFC_STD_F77             (1<<0)    /* Up to and including F77.  */
 
 
 /* The filename and line number don't go inside the globals structure.

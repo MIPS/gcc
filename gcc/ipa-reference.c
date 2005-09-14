@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  
 */
 
 /* This file gathers information about how variables whose scope is
@@ -592,7 +592,7 @@ get_static_decl (int index)
 }
 
 /* Lookup the tree node for the static variable that has UID and
-   conver the name to a string for debugging.  */
+   convert the name to a string for debugging.  */
 
 static const char *
 get_static_name (int index)
@@ -963,10 +963,17 @@ static_execute (void)
     EXECUTE_IF_SET_IN_BITMAP (module_statics_readonly, 0, index, bi)
       {
 	tree var = get_static_decl (index);
-	TREE_READONLY (var) = 1;
-	if (dump_file)
-	  fprintf (dump_file, "read-only var %s\n", 
-		   get_static_name (index)); 
+
+	/* Ignore variables in named sections - changing TREE_READONLY
+	   changes the section flags, potentially causing conflicts with
+	   other variables in the same named section.  */
+	if (DECL_SECTION_NAME (var) == NULL_TREE)
+	  {
+	    TREE_READONLY (var) = 1;
+	    if (dump_file)
+	      fprintf (dump_file, "read-only var %s\n", 
+		       get_static_name (index));
+	  }
 	if (DECL_INITIAL (var)
 	    && is_gimple_min_invariant (DECL_INITIAL (var)))
 	  {

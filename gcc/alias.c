@@ -1952,13 +1952,13 @@ nonoverlapping_component_refs_p (tree x, tree y)
       do
 	{
 	  fieldx = TREE_OPERAND (x, 1);
-	  typex = DECL_FIELD_CONTEXT (fieldx);
+	  typex = TYPE_MAIN_VARIANT (DECL_FIELD_CONTEXT (fieldx));
 
 	  y = orig_y;
 	  do
 	    {
 	      fieldy = TREE_OPERAND (y, 1);
-	      typey = DECL_FIELD_CONTEXT (fieldy);
+	      typey = TYPE_MAIN_VARIANT (DECL_FIELD_CONTEXT (fieldy));
 
 	      if (typex == typey)
 		goto found;
@@ -1971,12 +1971,7 @@ nonoverlapping_component_refs_p (tree x, tree y)
 	}
       while (x && TREE_CODE (x) == COMPONENT_REF);
       /* Never found a common type.  */
-/* FIXME: we don't find all common types, so this is unsafe.  */
-#if 0
-      return true;
-#else
-return false;
-#endif
+      return false;
 
     found:
       /* If we're left with accessing different fields of a structure,

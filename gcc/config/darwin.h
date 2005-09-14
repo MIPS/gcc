@@ -96,12 +96,12 @@ Boston, MA 02110-1301, USA.  */
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
    match with the longer one.
-   
+
    The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
    in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
    command-line option translations specific to the particular target
    architecture.  */
-   
+
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -139,6 +139,14 @@ Boston, MA 02110-1301, USA.  */
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+#define SUBTARGET_OS_CPP_BUILTINS()                     \
+  do							\
+    {							\
+      if (flag_pic)					\
+	builtin_define ("__PIC__");			\
+    }							\
+  while (0)
 
 /* These compiler options take n arguments.  */
 
@@ -207,7 +215,7 @@ Boston, MA 02110-1301, USA.  */
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
-    %{!nostdlib:%{!nodefaultlibs:%G %L}} \
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
@@ -260,6 +268,7 @@ Boston, MA 02110-1301, USA.  */
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
+   %{mmacosx-version-min=*:-macosx_version_min %*} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
@@ -393,9 +402,9 @@ Boston, MA 02110-1301, USA.  */
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
 
-/* The Darwin linker imposes two limitations on common symbols: they 
+/* The Darwin linker imposes two limitations on common symbols: they
    can't have hidden visibility, and they can't appear in dylibs.  As
-   a consequence, we should never use common symbols to represent 
+   a consequence, we should never use common symbols to represent
    vague linkage. */
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
@@ -414,7 +423,7 @@ Boston, MA 02110-1301, USA.  */
 #undef FRAME_BEGIN_LABEL
 #define FRAME_BEGIN_LABEL "EH_frame"
 
-/* Emit a label for the FDE corresponding to DECL.  EMPTY means 
+/* Emit a label for the FDE corresponding to DECL.  EMPTY means
    emit a label for an empty FDE. */
 #define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
@@ -567,7 +576,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
     unsigned HOST_WIDE_INT _new_size = SIZE;				\

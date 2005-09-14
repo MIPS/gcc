@@ -3615,11 +3615,13 @@ build_x_unary_op (enum tree_code code, tree xarg)
       if (!flag_ms_extensions && TREE_CODE (TREE_TYPE (xarg)) == METHOD_TYPE
 	  && (TREE_CODE (xarg) != OFFSET_REF || !PTRMEM_OK_P (xarg)))
 	{
-	  if (TREE_CODE (xarg) != OFFSET_REF)
+	  if (TREE_CODE (xarg) != OFFSET_REF
+	      || !TYPE_P (TREE_OPERAND (xarg, 0)))
 	    {
-	      error ("invalid use of %qE to form a pointer-to-member-function."
-		     "  Use a qualified-id.",
+	      error ("invalid use of %qE to form a pointer-to-member-function",
 		     xarg);
+	      if (TREE_CODE (xarg) != OFFSET_REF)
+		inform ("  a qualified-id is required");
 	      return error_mark_node;
 	    }
 	  else
@@ -3764,10 +3766,9 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	    if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
 	      arg = perform_integral_promotions (arg);
 
-	    /* Make sure the result is not a lvalue: a unary plus or minus
+	    /* Make sure the result is not an lvalue: a unary plus or minus
 	       expression is always a rvalue.  */
-	    if (real_lvalue_p (arg))
-	      arg = build1 (NON_LVALUE_EXPR, TREE_TYPE (arg), arg);
+	    arg = rvalue (arg);
 	  }
       }
       break;
@@ -4014,9 +4015,9 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	      tree type = build_pointer_type (TREE_TYPE (TREE_TYPE (arg)));
 	      arg = build1 (CONVERT_EXPR, type, arg);
 	    }
-	  else if (lvalue_p (arg))
+	  else
 	    /* Don't let this be an lvalue.  */
-	    return non_lvalue (arg);
+	    arg = rvalue (arg);
 	  return arg;
 	}
 
@@ -4339,7 +4340,7 @@ cxx_mark_addressable (tree exp)
 	if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x)
 	    && !DECL_ARTIFICIAL (x))
 	  {
-	    if (DECL_HARD_REGISTER (x) != 0)
+	    if (TREE_CODE (x) == VAR_DECL && DECL_HARD_REGISTER (x))
 	      {
 		error
 		  ("address of explicit register variable %qD requested", x);
@@ -4524,6 +4525,37 @@ convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 			     allow_inverse_p, c_cast_p);
 }
 
+/* If EXPR is an INTEGER_CST and ORIG is an arithmetic constant, return
+   a version of EXPR that has TREE_OVERFLOW and/or TREE_CONSTANT_OVERFLOW
+   set iff they are set in ORIG.  Otherwise, return EXPR unchanged.  */
+
+static tree
+ignore_overflows (tree expr, tree orig)
+{
+  if (TREE_CODE (expr) == INTEGER_CST
+      && CONSTANT_CLASS_P (orig)
+      && TREE_CODE (orig) != STRING_CST
+      && (TREE_OVERFLOW (expr) != TREE_OVERFLOW (orig)
+	  || TREE_CONSTANT_OVERFLOW (expr)
+	     != TREE_CONSTANT_OVERFLOW (orig)))
+    {
+      if (!TREE_OVERFLOW (orig) && !TREE_CONSTANT_OVERFLOW (orig))
+	/* Ensure constant sharing.  */
+	expr = build_int_cst_wide (TREE_TYPE (expr),
+				   TREE_INT_CST_LOW (expr),
+				   TREE_INT_CST_HIGH (expr));
+      else
+	{
+	  /* Avoid clobbering a shared constant.  */
+	  expr = copy_node (expr);
+	  TREE_OVERFLOW (expr) = TREE_OVERFLOW (orig);
+	  TREE_CONSTANT_OVERFLOW (expr)
+	    = TREE_CONSTANT_OVERFLOW (orig);
+	}
+    }
+  return expr;
+}
+
 /* Perform a static_cast from EXPR to TYPE.  When C_CAST_P is true,
    this static_cast is being attempted as one of the possible casts
    allowed by a C-style cast.  (In that case, accessibility of base
@@ -4627,20 +4659,14 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       result = convert_from_reference (result);
 
       /* Ignore any integer overflow caused by the cast.  */
-      if (TREE_CODE (result) == INTEGER_CST
-	  && CONSTANT_CLASS_P (orig))
-	{
-	  TREE_OVERFLOW (result) = TREE_OVERFLOW (orig);
-	  TREE_CONSTANT_OVERFLOW (result)
-	    = TREE_CONSTANT_OVERFLOW (orig);
-	}
+      result = ignore_overflows (result, orig);
+
       /* [expr.static.cast]
 
 	 If T is a reference type, the result is an lvalue; otherwise,
 	 the result is an rvalue.  */
-      if (TREE_CODE (type) != REFERENCE_TYPE
-	  && real_lvalue_p (result))
-	result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
+      if (TREE_CODE (type) != REFERENCE_TYPE)
+	result = rvalue (result);
       return result;
     }
 
@@ -4676,12 +4702,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       expr = ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL);
 
       /* Ignore any integer overflow caused by the cast.  */
-      if (TREE_CODE (expr) == INTEGER_CST
-	  && CONSTANT_CLASS_P (orig))
-	{
-	  TREE_OVERFLOW (expr) = TREE_OVERFLOW (orig);
-	  TREE_CONSTANT_OVERFLOW (expr) = TREE_CONSTANT_OVERFLOW (orig);
-	}
+      expr = ignore_overflows (expr, orig);
       return expr;
     }
 
@@ -5470,7 +5491,9 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
       from_array = TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE
 		   ? 1 + (modifycode != INIT_EXPR): 0;
-      return build_vec_init (lhs, NULL_TREE, newrhs, from_array);
+      return build_vec_init (lhs, NULL_TREE, newrhs, 
+			     /*explicit_default_init_p=*/false,
+			     from_array);
     }
 
   if (modifycode == INIT_EXPR)
@@ -5640,6 +5663,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   tree u = NULL_TREE;
   tree delta_field;
   tree pfn_field;
+  VEC(constructor_elt, gc) *v;
 
   /* Pull the FIELD_DECLs out of the type.  */
   pfn_field = TYPE_FIELDS (type);
@@ -5649,9 +5673,10 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   delta = convert_and_check (delta_type_node, delta);
 
   /* Finish creating the initializer.  */
-  u = tree_cons (pfn_field, pfn,
-		 build_tree_list (delta_field, delta));
-  u = build_constructor (type, u);
+  v = VEC_alloc(constructor_elt, gc, 2);
+  CONSTRUCTOR_APPEND_ELT(v, pfn_field, pfn);
+  CONSTRUCTOR_APPEND_ELT(v, delta_field, delta);
+  u = build_constructor (type, v);
   TREE_CONSTANT (u) = TREE_CONSTANT (pfn) & TREE_CONSTANT (delta);
   TREE_INVARIANT (u) = TREE_INVARIANT (pfn) & TREE_INVARIANT (delta);
   TREE_STATIC (u) = (TREE_CONSTANT (u)
@@ -5694,7 +5719,7 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
       tree n;
 
       if (!force
-	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn))
+	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn, LOOKUP_NORMAL))
 	error ("invalid conversion to type %qT from type %qT",
 	       to_type, pfn_type);
 
@@ -5946,6 +5971,17 @@ convert_for_assignment (tree type, tree rhs,
 	  return error_mark_node;
 	}
     }
+  if (warn_missing_format_attribute)
+    {
+      const enum tree_code codel = TREE_CODE (type);
+      if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
+	  && coder == codel
+	  && check_missing_format_attribute (type, rhstype))
+	warning (OPT_Wmissing_format_attribute,
+		 "%s might be a candidate for a format attribute",
+		 errtype);
+    }
+  
   return perform_implicit_conversion (strip_top_quals (type), rhs);
 }
 
@@ -6098,16 +6134,20 @@ maybe_warn_about_returning_address_of_local (tree retval)
 /* Check that returning RETVAL from the current function is valid.
    Return an expression explicitly showing all conversions required to
    change RETVAL into the function return type, and to assign it to
-   the DECL_RESULT for the function.  */
+   the DECL_RESULT for the function.  Set *NO_WARNING to true if
+   code reaches end of non-void function warning shouldn't be issued
+   on this RETURN_EXPR.  */
 
 tree
-check_return_expr (tree retval)
+check_return_expr (tree retval, bool *no_warning)
 {
   tree result;
   /* The type actually returned by the function, after any
      promotions.  */
   tree valtype;
   int fn_returns_value_p;
+
+  *no_warning = false;
 
   /* A `volatile' function is one that isn't supposed to return, ever.
      (This is a G++ extension, used to get better code for functions
@@ -6159,6 +6199,10 @@ check_return_expr (tree retval)
 	 end of a non-void function (which we don't, we gave a
 	 return!).  */
       current_function_returns_null = 0;
+      /* And signal caller that TREE_NO_WARNING should be set on the
+         RETURN_EXPR to avoid control reaches end of non-void function
+         warnings in tree-cfg.c.  */
+      *no_warning = true;
     }
   /* Check for a return statement with a value in a function that
      isn't supposed to return a value.  */

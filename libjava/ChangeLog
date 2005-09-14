@@ -1,3 +1,296 @@
+2005-09-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23762
+	* shlibpath.m4: New file.
+	* configure.ac: If libltdl is being used call AC_LTDL_SHLIBPATH
+	macro.
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties)
+	[USE_LTDL]: If it was not defined with -D set java.library.path to
+	the value of LTDL_SHLIBPATH_VAR.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	* java/net/URLClassLoader.java (addURLImpl): Synchronize on the
+	loader.
+	(toString): Likewise.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	PR java/22084
+	* include/i386-signal.h (HANDLE_DIVIDE_OVERFLOW): Bump IP by 1 if
+	R/M field in instruction is 100.
+
+2005-09-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23761
+	* include/java-props.h (_Jv_Module_Load_Path): Declare variable.
+	* java/lang/natRuntime.cc (init): Call lt_dlsetsearchpath after
+	lt_dlinit.
+	* gnu/classpath/natSystemProperties.cc (_Jv_Module_Load_Path):
+	Define variable.
+	(_Jv_SetDLLSearchPath): Do not call lt_dlsetsearchpath.  Set
+	_Jv_Module_Load_Path.
+
+2005-09-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23739:
+	* testsuite/libjava.jni/pr23739.c: New file.
+	* testsuite/libjava.jni/pr23739.java: New file.
+	* testsuite/libjava.jni/pr23739.out: New file.
+	* jni.cc (_Jv_JNI_IsAssignableFrom): Reversed arguments.
+	* java/lang/reflect/natMethod.cc (invoke): Updated.
+	* java/lang/natClass.cc (isAssignableFrom): Updated.
+	(isInstance): Likewise.
+	(_Jv_IsAssignableFrom): Reversed arguments.
+	(_Jv_IsInstanceOf): Updated.
+	(_Jv_CheckCast): Likewise.
+	(_Jv_CheckArrayStore): Likewise.
+	(_Jv_IsAssignableFromSlow): Reversed arguments.
+	(_Jv_InterfaceAssignableFrom): Likewise.
+	* link.cc (verify_type_assertions): Updated.
+	* prims.cc (_Jv_CheckAccess): Updated.
+
+2005-09-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Testsuite changes for PR java/23431.
+	* testsuite/libjava.jacks/jacks.xfail: Remove 8.1.1.1-12 and
+	8.4.6.2-hiding-5.
+	* testsuite/libjava.compile/PR23431_1.java: New testcase.
+	* testsuite/libjava.compile/PR23431_2.java: Likewise.
+	* testsuite/libjava.compile/PR23431_1.xfail: New file.
+	* testsuite/libjava.compile/PR23431_2.xfail: Likewise.
+
+2005-08-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23549
+	* gij.cc (main): Don't expect arguments to -enableassertions, -ea,
+	-disableassertions and -da.
+
+2005-08-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* configure.ac: Replace "*-*-darwin[0-7].*" with
+	"*-*-darwin[[0-7]].*"
+	* configure: Regenerate.
+
+2005-08-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac (extra_ldflags_libjava): Enable -single_module only for
+	darwin < 8.
+	* configure: Regenerate.
+
+2005-08-23  Roman Kennke  <roman@kennke.org>
+
+	* java/lang/Character.java
+	(toChars(int)): New JDK1.5 method.
+	(toChars(int, char[], int)): New JDK1.5 method.
+	(charCount): New JDK1.5 method.
+	(isSupplementaryCodePoint): New JDK1.5 method.
+	(isValidCodePoint): New JDK1.5 method.
+
+2005-08-23  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, Makefile.in: Rebuilt.
+	* Makefile.am (property_files): Added META-INF files.
+	(propertyo_files): Changed definition.
+	($(propertyo_files)): Updated patterns.
+
+2005-08-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/22622:
+	* configure: Rebuilt.
+	* configure.ac: Correctly create Configuration.java (for
+	temporary use).
+
+2005-08-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): Also include "..".
+	* acinclude.m4: Delete.  Extract CHECK_FOR_BROKEN_MINGW_LD to ...
+	* mingwld.m4: ... this new file.
+	* aclocal.m4, Makefile.in, gcj/Makefile.in: Regenerate. 
+	* include/Makefile.in, testsuite/Makfile.in: Regenerate.
+
+2005-08-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgcj/23507
+	* stacktrace.cc (_Jv_StackTrace::UnwindTraceFn): Fix typo in newLength
+	assignment.  Cast operands of compare to function pointer type.
+
+2005-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* HACKING: Updated for hacking classpath in libgcj.
+
+2005-08-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgcj/21692
+	* sysdep/pa/descriptor.h: New file.
+	* configure.host: Use sysdep/pa/descriptor.h on hppa*-*.
+
+2005-08-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.am (extra_ldflags_libjava): New variable to
+	substitute in.
+	(LIBLINK): Add extra_ldflags_libjava to it.
+	* configure.ac (extra_ldflags_libjava): Set for *-darwin* to
+	"-Wl,-single_module".
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-08-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_IsBinaryCompatibilityABI): Declare as
+	friend.
+	* include/jvm.h (_Jv_IsBinaryCompatibilityABI): New function.
+	* testsuite/libjava.lang/bclink.java: New file.
+	* testsuite/libjava.lang/bclink.out: New file.
+	* link.cc (print_class_loaded): Changed ABI test to look at
+	various _syms fields.
+
+2005-08-17  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.jacks/jacks.xfail: Remove 15.21-assoc-7,
+	15.21-assoc-8, 15.21-equal-3, 15.28-string-11.
+
+2005-08-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	More testsuite adjustments for PR java/19870.
+	* testsuite/libjava.lang/PR19870_2.java: New testcase.
+	* testsuite/libjava.lang/PR19870_2.out: Expected output for the
+	new testcase.
+	* testsuite/libjava.jacks/jacks.xfail: Remove
+	8.5.2-non-static-member-usage-2 and add 15.12.3-explicit-constructor-9.
+
+2005-08-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/xml/xpath/XPathParser.y: Removed.
+
+2005-08-12  Morgan Deters  <mdeters@morgandeters.com>
+
+	PR libgcj/23353:
+	* java/lang/natObject.cc (clone): Clear sync_info.
+
+2005-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/net/protocol/ftp/package.html,
+	gnu/javax/swing/text/html/package.html,
+	gnu/javax/swing/text/html/parser/package.html,
+	gnu/javax/swing/text/html/parser/models/package.html,
+	gnu/javax/swing/text/html/parser/support/package.html,
+	gnu/javax/swing/text/html/parser/support/low/package.html,
+	gnu/xml/aelfred2/package.html, gnu/xml/dom/package.html,
+	gnu/xml/pipeline/package.html, gnu/xml/transform/package.html,
+	gnu/xml/util/package.html, java/awt/geom/doc-files/Area-1.png,
+	java/awt/geom/doc-files/CubicCurve2D-1.png,
+	java/awt/geom/doc-files/CubicCurve2D-2.png,
+	java/awt/geom/doc-files/CubicCurve2D-3.png,
+	java/awt/geom/doc-files/CubicCurve2D-4.png,
+	java/awt/geom/doc-files/CubicCurve2D-5.png,
+	java/awt/geom/doc-files/Ellipse-1.png,
+	java/awt/geom/doc-files/FlatteningPathIterator-1.html,
+	java/awt/geom/doc-files/GeneralPath-1.png,
+	java/awt/geom/doc-files/QuadCurve2D-1.png,
+	java/awt/geom/doc-files/QuadCurve2D-2.png,
+	java/awt/geom/doc-files/QuadCurve2D-3.png,
+	java/awt/geom/doc-files/QuadCurve2D-4.png,
+	java/awt/geom/doc-files/QuadCurve2D-5.png,
+	javax/imageio/package.html, javax/imageio/event/package.html,
+	javax/imageio/metadata/package.html,
+	javax/imageio/spi/package.html, javax/imageio/stream/package.html,
+	javax/swing/border/doc-files/BevelBorder-1.png,
+	javax/swing/border/doc-files/BevelBorder-2.png,
+	javax/swing/border/doc-files/BevelBorder-3.png,
+	javax/swing/border/doc-files/EmptyBorder-1.png,
+	javax/swing/border/doc-files/EtchedBorder-1.png,
+	javax/swing/border/doc-files/EtchedBorder-2.png,
+	javax/swing/border/doc-files/LineBorder-1.png,
+	javax/swing/border/doc-files/MatteBorder-1.png,
+	javax/swing/border/doc-files/MatteBorder-2.png,
+	javax/swing/border/doc-files/MatteBorder-3.png,
+	javax/swing/border/doc-files/MatteBorder-4.png,
+	javax/swing/border/doc-files/MatteBorder-5.png,
+	javax/swing/border/doc-files/MatteBorder-6.png,
+	javax/swing/border/doc-files/SoftBevelBorder-1.png,
+	javax/swing/border/doc-files/SoftBevelBorder-2.png,
+	javax/swing/border/doc-files/SoftBevelBorder-3.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders-2.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.ButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.FieldBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.MarginBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.MenuBarBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.RadioButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneBorder-2.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneDividerBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.ToggleButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-1.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-2.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-3.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-4.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-5.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-6.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-7.png,
+	javax/swing/plaf/doc-files/ComponentUI-1.dia,
+	javax/swing/plaf/doc-files/ComponentUI-1.png,
+	javax/swing/plaf/doc-files/TreeUI-1.png,
+	javax/xml/datatype/package.html, javax/xml/namespace/package.html,
+	javax/xml/parsers/package.html, javax/xml/transform/package.html,
+	javax/xml/transform/dom/package.html,
+	javax/xml/transform/sax/package.html,
+	javax/xml/transform/stream/package.html,
+	javax/xml/validation/package.html, javax/xml/xpath/package.html:
+	Removed.
+
+2005-07-22  Tom Tromey  <tromey@redhat.com>
+
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am (tool_include__HEADERS): Include
+	classpath's jni.h.
+
+2005-07-20  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* Makefile.am (all_xlib_lo_files): Removed.
+	(all_libgcj_lo_files): Likewise.
+	(lib_gnu_awt_xlib_la_LIBADD): List correct .lo files.
+	(xlib_java_source_files): Removed.
+	(xlib_nat_headers): Updated.
+	* configure: Rebuilt.
+	* configure.ac: Create standard.omit.
+	* standard.omit.in: New file.
+	* standard.omit: Removed.
+	* scripts/makemake.tcl (gnu/gcj/xlib, gnu/awt/xlib): Now
+	'package'.
+	(emit_package_rule): Special case xlib peers.
+	(emit_source_var): Likewise.
+	Read standard.omit.in.
+	* gnu/awt/xlib/XToolkit.java (createEmbeddedWindow): New method.
+
+2005-07-18  Tom Tromey  <tromey@redhat.com>
+
+	* HACKING: Updated.
+
+2005-07-19  Matthias Klose  <doko@debian.org>
+
+	* classpath/java/awt/im/InputContext.java (clinit): Initialize
+	  line, im.
+
+2005-07-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgj/21058:
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (emit_bc_rule): Create a temporary list
+	file.
+	(emit_source_var): Don't emit patsubst with './'.
+
+2005-07-18  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am ($(libgij_la_OBJECTS)): Depend on headers.stamp.
+
 2005-07-17  Andreas Jaeger  <aj@suse.de>
 
 	* defineclass.cc (handleClassBegin): Remove unused variable.

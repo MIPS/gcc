@@ -23,7 +23,6 @@ Boston, MA 02110-1301, USA.  */
 
 /* Things to do:
 
-   - PREDICATE_CODES
    - incscc, decscc?
    - print active compiler options in assembler output
 */
@@ -456,7 +455,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    pointer to a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */

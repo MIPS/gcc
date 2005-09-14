@@ -148,3 +148,85 @@ extern void bar(void) __attribute__((alias(ULP "foo")));],
     AC_DEFINE(HAVE_ATTRIBUTE_ALIAS, 1,
       [Define to 1 if the target supports __attribute__((alias(...))).])
   fi])
+
+dnl Check whether target can unlink a file still open.
+AC_DEFUN([LIBGFOR_CHECK_UNLINK_OPEN_FILE], [
+  AC_CACHE_CHECK([whether the target can unlink an open file],
+                  have_unlink_open_file, [
+  AC_TRY_RUN([
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+int main ()
+{
+  int fd;
+
+  fd = open ("testfile", O_RDWR | O_CREAT, S_IWRITE | S_IREAD);
+  if (fd <= 0)
+    return 0;
+  if (unlink ("testfile") == -1)
+    return 1;
+  write (fd, "This is a test\n", 15);
+  close (fd);
+
+  if (open ("testfile", O_RDONLY, S_IWRITE | S_IREAD) == -1 && errno == ENOENT)
+    return 0;
+  else
+    return 1;
+}], have_unlink_open_file=yes, have_unlink_open_file=no, [
+case "${target}" in
+  *mingw*) have_unlink_open_file=no ;;
+  *) have_unlink_open_file=yes;;
+esac])])
+if test x"$have_unlink_open_file" = xyes; then
+  AC_DEFINE(HAVE_UNLINK_OPEN_FILE, 1, [Define if target can unlink open files.])
+fi])
+
+dnl Check whether CRLF is the line terminator
+AC_DEFUN([LIBGFOR_CHECK_CRLF], [
+  AC_CACHE_CHECK([whether the target has CRLF as line terminator],
+                  have_crlf, [
+  AC_TRY_RUN([
+/* This test program should exit with status 0 if system uses a CRLF as
+   line terminator, and status 1 otherwise.  
+   Since it is used to check for mingw systems, and should return 0 in any
+   other case, in case of a failure we will not use CRLF.  */
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+int main ()
+{
+#ifndef O_BINARY
+  exit(1);
+#else
+  int fd, bytes;
+  char buff[5];
+
+  fd = open ("foo", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+  if (fd < 0)
+    exit(1);
+  if (write (fd, "\n", 1) < 0)
+    perror ("write");
+  
+  close (fd);
+  
+  if ((fd = open ("foo", O_RDONLY | O_BINARY, S_IRWXU)) < 0)
+    exit(1);
+  bytes = read (fd, buff, 5);
+  if (bytes == 2 && buff[0] == '\r' && buff[1] == '\n')
+    exit(0);
+  else
+    exit(1);
+#endif
+}], have_crlf=yes, have_crlf=no, [
+case "${target}" in
+  *mingw*) have_crlf=yes ;;
+  *) have_crlf=no;;
+esac])])
+if test x"$have_crlf" = xyes; then
+  AC_DEFINE(HAVE_CRLF, 1, [Define if CRLF is line terminator.])
+fi])

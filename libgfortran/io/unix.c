@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Unix stream I/O module */
 
@@ -140,7 +140,7 @@ typedef struct
 
   int special_file;		/* =1 if the fd refers to a special file */
 
-  unsigned unbuffered:1, mmaped:1;
+  unsigned unbuffered:1;
 
   char small_buffer[BUFFER_SIZE];
 
@@ -218,6 +218,17 @@ fix_fd (int fd)
   return fd;
 }
 
+int
+is_preconnected (stream * s)
+{
+  int fd;
+
+  fd = ((unix_stream *) s)->fd;
+  if (fd == STDIN_FILENO || fd == STDOUT_FILENO || fd == STDERR_FILENO)
+    return 1;
+  else
+    return 0;
+}
 
 /* write()-- Write a buffer to a descriptor, allowing for short writes */
 
@@ -371,7 +382,6 @@ fd_alloc (unix_stream * s, gfc_offset where,
 
   s->buffer = new_buffer;
   s->len = read_len;
-  s->mmaped = 0;
 }
 
 
@@ -570,201 +580,6 @@ fd_open (unix_stream * s)
 }
 
 
-/*********************************************************************
-    mmap stream functions
-
- Because mmap() is not capable of extending a file, we have to keep
- track of how long the file is.  We also have to be able to detect end
- of file conditions.  If there are multiple writers to the file (which
- can only happen outside the current program), things will get
- confused.  Then again, things will get confused anyway.
-
-*********************************************************************/
-
-#if HAVE_MMAP
-
-static int page_size, page_mask;
-
-/* mmap_flush()-- Deletes a memory mapping if something is mapped. */
-
-static try
-mmap_flush (unix_stream * s)
-{
-  if (!s->mmaped)
-    return fd_flush (s);
-
-  if (s->buffer == NULL)
-    return SUCCESS;
-
-  if (munmap (s->buffer, s->active))
-    return FAILURE;
-
-  s->buffer = NULL;
-  s->active = 0;
-
-  return SUCCESS;
-}
-
-
-/* mmap_alloc()-- mmap() a section of the file.  The whole section is
- * guaranteed to be mappable. */
-
-static try
-mmap_alloc (unix_stream * s, gfc_offset where,
-	    int *len __attribute__ ((unused)))
-{
-  gfc_offset offset;
-  int length;
-  char *p;
-
-  if (mmap_flush (s) == FAILURE)
-    return FAILURE;
-
-  offset = where & page_mask;	/* Round down to the next page */
-
-  length = ((where - offset) & page_mask) + 2 * page_size;
-
-  p = mmap (NULL, length, s->prot, MAP_SHARED, s->fd, offset);
-  if (p == (char *) MAP_FAILED)
-    return FAILURE;
-
-  s->mmaped = 1;
-  s->buffer = p;
-  s->buffer_offset = offset;
-  s->active = length;
-
-  return SUCCESS;
-}
-
-
-static char *
-mmap_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
-{
-  gfc_offset m;
-
-  if (where == -1)
-    where = s->logical_offset;
-
-  m = where + *len;
-
-  if ((s->buffer == NULL || s->buffer_offset > where ||
-       m > s->buffer_offset + s->active) &&
-      mmap_alloc (s, where, len) == FAILURE)
-    return NULL;
-
-  if (m > s->file_length)
-    {
-      *len = s->file_length - s->logical_offset;
-      s->logical_offset = s->file_length;
-    }
-  else
-    s->logical_offset = m;
-
-  return s->buffer + (where - s->buffer_offset);
-}
-
-
-static char *
-mmap_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
-{
-  if (where == -1)
-    where = s->logical_offset;
-
-  /* If we're extending the file, we have to use file descriptor
-   * methods. */
-
-  if (where + *len > s->file_length)
-    {
-      if (s->mmaped)
-	mmap_flush (s);
-      return fd_alloc_w_at (s, len, where);
-    }
-
-  if ((s->buffer == NULL || s->buffer_offset > where ||
-       where + *len > s->buffer_offset + s->active ||
-       where < s->buffer_offset + s->active) &&
-      mmap_alloc (s, where, len) == FAILURE)
-    return NULL;
-
-  s->logical_offset = where + *len;
-
-  return s->buffer + where - s->buffer_offset;
-}
-
-
-static int
-mmap_seek (unix_stream * s, gfc_offset offset)
-{
-  s->logical_offset = offset;
-  return SUCCESS;
-}
-
-
-static try
-mmap_close (unix_stream * s)
-{
-  try t;
-
-  t = mmap_flush (s);
-
-  if (close (s->fd) < 0)
-    t = FAILURE;
-  free_mem (s);
-
-  return t;
-}
-
-
-static try
-mmap_sfree (unix_stream * s __attribute__ ((unused)))
-{
-  return SUCCESS;
-}
-
-
-/* mmap_open()-- mmap_specific open.  If the particular file cannot be
- * mmap()-ed, we fall back to the file descriptor functions. */
-
-static try
-mmap_open (unix_stream * s __attribute__ ((unused)))
-{
-  char *p;
-  int i;
-
-  page_size = getpagesize ();
-  page_mask = ~0;
-
-  p = mmap (0, page_size, s->prot, MAP_SHARED, s->fd, 0);
-  if (p == (char *) MAP_FAILED)
-    {
-      fd_open (s);
-      return SUCCESS;
-    }
-
-  munmap (p, page_size);
-
-  i = page_size >> 1;
-  while (i != 0)
-    {
-      page_mask <<= 1;
-      i >>= 1;
-    }
-
-  s->st.alloc_r_at = (void *) mmap_alloc_r_at;
-  s->st.alloc_w_at = (void *) mmap_alloc_w_at;
-  s->st.sfree = (void *) mmap_sfree;
-  s->st.close = (void *) mmap_close;
-  s->st.seek = (void *) mmap_seek;
-  s->st.truncate = (void *) fd_truncate;
-
-  if (lseek (s->fd, s->file_length, SEEK_SET) < 0)
-    return FAILURE;
-
-  return SUCCESS;
-}
-
-#endif
-
 
 /*********************************************************************
   memory stream functions - These are used for internal files
@@ -900,7 +715,7 @@ open_internal (char *base, int length)
  * around it. */
 
 static stream *
-fd_to_stream (int fd, int prot, int avoid_mmap)
+fd_to_stream (int fd, int prot)
 {
   struct stat statbuf;
   unix_stream *s;
@@ -920,14 +735,7 @@ fd_to_stream (int fd, int prot, int avoid_mmap)
   s->file_length = S_ISREG (statbuf.st_mode) ? statbuf.st_size : -1;
   s->special_file = !S_ISREG (statbuf.st_mode);
 
-#if HAVE_MMAP
-  if (avoid_mmap)
-    fd_open (s);
-  else
-    mmap_open (s);
-#else
   fd_open (s);
-#endif
 
   return (stream *) s;
 }
@@ -952,7 +760,7 @@ unit_to_fd(int unit)
  * buffer that is PATH_MAX characters, convert the fortran string to a
  * C string in the buffer.  Returns nonzero if this is not possible.  */
 
-static int
+int
 unpack_filename (char *cstring, const char *fstring, int len)
 {
   len = fstrlen (fstring, len);
@@ -984,6 +792,8 @@ tempfile (void)
   if (tempdir == NULL)
     tempdir = getenv ("TMP");
   if (tempdir == NULL)
+    tempdir = getenv ("TEMP");
+  if (tempdir == NULL)
     tempdir = DEFAULT_TEMPDIR;
 
   template = get_mem (strlen (tempdir) + 20);
@@ -998,7 +808,12 @@ tempfile (void)
 
   if (mktemp (template))
     do
-      fd = open (template, O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+#ifdef HAVE_CRLF
+      fd = open (template, O_RDWR | O_CREAT | O_EXCL | O_BINARY,
+                 S_IREAD | S_IWRITE);
+#else
+      fd = open (template, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+#endif
     while (!(fd == -1 && errno == EEXIST) && mktemp (template));
   else
     fd = -1;
@@ -1083,6 +898,10 @@ regular_file (unit_flags *flags)
 
   /* rwflag |= O_LARGEFILE; */
 
+#ifdef HAVE_CRLF
+  crflag |= O_BINARY;
+#endif
+
   mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
   fd = open (path, rwflag | crflag, mode);
   if (flags->action != ACTION_UNSPECIFIED)
@@ -1134,8 +953,11 @@ open_external (unit_flags *flags)
       fd = tempfile ();
       if (flags->action == ACTION_UNSPECIFIED)
         flags->action = ACTION_READWRITE;
+
+#if HAVE_UNLINK_OPEN_FILE
       /* We can unlink scratch files now and it will go away when closed. */
       unlink (ioparm.file);
+#endif
     }
   else
     {
@@ -1166,7 +988,7 @@ open_external (unit_flags *flags)
       internal_error ("open_external(): Bad action");
     }
 
-  return fd_to_stream (fd, prot, 0);
+  return fd_to_stream (fd, prot);
 }
 
 
@@ -1176,7 +998,7 @@ open_external (unit_flags *flags)
 stream *
 input_stream (void)
 {
-  return fd_to_stream (STDIN_FILENO, PROT_READ, 1);
+  return fd_to_stream (STDIN_FILENO, PROT_READ);
 }
 
 
@@ -1186,7 +1008,7 @@ input_stream (void)
 stream *
 output_stream (void)
 {
-  return fd_to_stream (STDOUT_FILENO, PROT_WRITE, 1);
+  return fd_to_stream (STDOUT_FILENO, PROT_WRITE);
 }
 
 
@@ -1196,7 +1018,7 @@ output_stream (void)
 stream *
 error_stream (void)
 {
-  return fd_to_stream (STDERR_FILENO, PROT_WRITE, 1);
+  return fd_to_stream (STDERR_FILENO, PROT_WRITE);
 }
 
 /* init_error_stream()-- Return a pointer to the error stream.  This
@@ -1532,6 +1354,22 @@ try
 flush (stream *s)
 {
   return fd_flush( (unix_stream *) s);
+}
+
+int
+stream_isatty (stream *s)
+{
+  return isatty (((unix_stream *) s)->fd);
+}
+
+char *
+stream_ttyname (stream *s)
+{
+#ifdef HAVE_TTYNAME
+  return ttyname (((unix_stream *) s)->fd);
+#else
+  return NULL;
+#endif
 }
 
 

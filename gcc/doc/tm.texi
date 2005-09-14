@@ -2753,7 +2753,7 @@ which is often wrong.
 @end defmac
 
 @defmac FRAME_GROWS_DOWNWARD
-Define this macro to non-zero value if the addresses of local variable slots
+Define this macro to nonzero value if the addresses of local variable slots
 are at negative offsets from the frame pointer.
 @end defmac
 
@@ -2812,14 +2812,11 @@ machines.  See @file{function.c} for details.
 
 @defmac INITIAL_FRAME_ADDRESS_RTX
 A C expression whose value is RTL representing the address of the initial
- stack frame. This address is passed to @code{RETURN_ADDR_RTX} and 
-@code{DYNAMIC_CHAIN_ADDRESS}.
-If you don't define this macro, the default is to return 
-@code{hard_frame_pointer_rtx}.
-This default is usually correct unless @code{-fomit-frame-pointer} is in 
-effect.
-Define this macro in order to make @code{__builtin_frame_address (0)} and 
-@code{__builtin_return_address (0)} work even in absence of a hard frame pointer.
+stack frame. This address is passed to @code{RETURN_ADDR_RTX} and 
+@code{DYNAMIC_CHAIN_ADDRESS}.  If you don't define this macro, a reasonable
+default value will be used.  Define this macro in order to make frame pointer
+elimination work in the presence of @code{__builtin_frame_address (count)} and 
+@code{__builtin_return_address (count)} for @code{count} not equal to zero.
 @end defmac
 
 @defmac DYNAMIC_CHAIN_ADDRESS (@var{frameaddr})
@@ -6576,7 +6573,7 @@ definition of this macro is provided which is correct for most systems.
 
 @findex assemble_name_raw
 @defmac ASM_OUTPUT_INTERNAL_LABEL (@var{stream}, @var{name})
-Identical to @code{ASM_OUTPUT_lABEL}, except that @var{name} is known
+Identical to @code{ASM_OUTPUT_LABEL}, except that @var{name} is known
 to refer to a compiler-generated label.  The default definition uses
 @code{assemble_name_raw}, which is like @code{assemble_name} except
 that it is more efficient.
@@ -8667,56 +8664,6 @@ is in effect.  The default is to return false to use @code{__cxa_atexit}.
 @c prevent bad page break with this line
 Here are several miscellaneous parameters.
 
-@defmac PREDICATE_CODES
-Define this if you have defined special-purpose predicates in the file
-@file{@var{machine}.c}.  This macro is called within an initializer of an
-array of structures.  The first field in the structure is the name of a
-predicate and the second field is an array of rtl codes.  For each
-predicate, list all rtl codes that can be in expressions matched by the
-predicate.  The list should have a trailing comma.  Here is an example
-of two entries in the list for a typical RISC machine:
-
-@smallexample
-#define PREDICATE_CODES \
-  @{"gen_reg_rtx_operand", @{SUBREG, REG@}@},  \
-  @{"reg_or_short_cint_operand", @{SUBREG, REG, CONST_INT@}@},
-@end smallexample
-
-Defining this macro does not affect the generated code (however,
-incorrect definitions that omit an rtl code that may be matched by the
-predicate can cause the compiler to malfunction).  Instead, it allows
-the table built by @file{genrecog} to be more compact and efficient,
-thus speeding up the compiler.  The most important predicates to include
-in the list specified by this macro are those used in the most insn
-patterns.
-
-For each predicate function named in @code{PREDICATE_CODES}, a
-declaration will be generated in @file{insn-codes.h}.
-
-Use of this macro is deprecated; use @code{define_predicate} instead.
-@xref{Defining Predicates}.
-@end defmac
-
-@defmac SPECIAL_MODE_PREDICATES
-Define this if you have special predicates that know special things
-about modes.  Genrecog will warn about certain forms of
-@code{match_operand} without a mode; if the operand predicate is
-listed in @code{SPECIAL_MODE_PREDICATES}, the warning will be
-suppressed.
-
-Here is an example from the IA-32 port (@code{ext_register_operand}
-specially checks for @code{HImode} or @code{SImode} in preparation
-for a byte extraction from @code{%ah} etc.).
-
-@smallexample
-#define SPECIAL_MODE_PREDICATES \
-  "ext_register_operand",
-@end smallexample
-
-Use of this macro is deprecated; use @code{define_special_predicate}
-instead.  @xref{Defining Predicates}.
-@end defmac
-
 @defmac HAS_LONG_COND_BRANCH
 Define this boolean macro to indicate whether or not your architecture
 has conditional branches that can span all of memory.  It is used in
@@ -9005,7 +8952,7 @@ this macro.
 @end defmac
 
 @defmac VECTOR_STORE_FLAG_VALUE (@var{mode})
-A C expression that gives a rtx representing the non-zero true element
+A C expression that gives a rtx representing the nonzero true element
 for vector comparisons.  The returned rtx should be valid for the inner
 mode of @var{mode} which is guaranteed to be a vector mode.  Define
 this macro on machines that have vector comparison operations that

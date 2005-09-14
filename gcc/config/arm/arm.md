@@ -3390,36 +3390,6 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_split
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(zero_extend:SI (match_operand:HI 1 "alignable_memory_operand" "")))
-   (clobber (match_operand:SI 2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0) (lshiftrt:SI (match_dup 2) (const_int 16)))]
-  "
-  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-    FAIL;
-  "
-)
-
-(define_split
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(match_operator:SI 3 "shiftable_operator"
-	 [(zero_extend:SI (match_operand:HI 1 "alignable_memory_operand" ""))
-	  (match_operand:SI 4 "s_register_operand" "")]))
-   (clobber (match_operand:SI 2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0)
-	(match_op_dup 3
-	 [(lshiftrt:SI (match_dup 2) (const_int 16)) (match_dup 4)]))]
-  "
-  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-    FAIL;
-  "
-)
-
 (define_expand "zero_extendqisi2"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "")))]
@@ -3721,10 +3691,8 @@
     rtx mem1, mem2;
     rtx addr = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
 
-    mem1 = gen_rtx_MEM (QImode, addr);
-    MEM_COPY_ATTRIBUTES (mem1, operands[1]);
-    mem2 = gen_rtx_MEM (QImode, plus_constant (addr, 1));
-    MEM_COPY_ATTRIBUTES (mem2, operands[1]);
+    mem1 = change_address (operands[1], QImode, addr);
+    mem2 = change_address (operands[1], QImode, plus_constant (addr, 1));
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[1] = mem1;
     operands[2] = gen_reg_rtx (SImode);
@@ -3775,35 +3743,6 @@
 		 (match_operand:SI 2 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch6"
   "sxtah%?\\t%0, %2, %1"
-)
-
-(define_split
-  [(set (match_operand:SI                 0 "s_register_operand" "")
-	(sign_extend:SI (match_operand:HI 1 "alignable_memory_operand" "")))
-   (clobber (match_operand:SI             2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0) (ashiftrt:SI (match_dup 2) (const_int 16)))]
-  "
-  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-    FAIL;
-  "
-)
-
-(define_split
-  [(set (match_operand:SI                   0 "s_register_operand" "")
-	(match_operator:SI                  3 "shiftable_operator"
-	 [(sign_extend:SI (match_operand:HI 1 "alignable_memory_operand" ""))
-	  (match_operand:SI                 4 "s_register_operand" "")]))
-   (clobber (match_operand:SI               2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0)
-	(match_op_dup 3
-	 [(ashiftrt:SI (match_dup 2) (const_int 16)) (match_dup 4)]))]
-  "if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-     FAIL;
-  "
 )
 
 (define_expand "extendqihi2"
@@ -4750,12 +4689,11 @@
 			   && GET_CODE (base = XEXP (base, 0)) == REG))
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 32)
 		    {
-		      HOST_WIDE_INT new_offset = INTVAL (offset) & ~3;
 		      rtx new;
 
-		      new = gen_rtx_MEM (SImode,
-					 plus_constant (base, new_offset));
-	              MEM_COPY_ATTRIBUTES (new, operands[1]);
+		      new = widen_memory_access (operands[1], SImode,
+						 ((INTVAL (offset) & ~3)
+						  - INTVAL (offset)));
 		      emit_insn (gen_movsi (reg, new));
 		      if (((INTVAL (offset) & 2) != 0)
 			  ^ (BYTES_BIG_ENDIAN ? 1 : 0))
@@ -4882,10 +4820,8 @@
     rtx mem1, mem2;
     rtx addr = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
 
-    mem1 = gen_rtx_MEM (QImode, addr);
-    MEM_COPY_ATTRIBUTES (mem1, operands[1]);
-    mem2 = gen_rtx_MEM (QImode, plus_constant (addr, 1));
-    MEM_COPY_ATTRIBUTES (mem2, operands[1]);
+    mem1 = change_address (operands[1], QImode, addr);
+    mem2 = change_address (operands[1], QImode, plus_constant (addr, 1));
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[1] = mem1;
     operands[2] = gen_reg_rtx (SImode);
@@ -4951,13 +4887,21 @@
   [(set_attr "predicable" "yes")]
 )
 
-(define_insn "thumb_movhi_clobber"
-  [(set (match_operand:HI     0 "memory_operand"   "=m")
-	(match_operand:HI     1 "register_operand" "l"))
-   (clobber (match_operand:SI 2 "register_operand" "=&l"))]
+(define_expand "thumb_movhi_clobber"
+  [(set (match_operand:HI     0 "memory_operand"   "")
+	(match_operand:HI     1 "register_operand" ""))
+   (clobber (match_operand:DI 2 "register_operand" ""))]
   "TARGET_THUMB"
-  "*
-  gcc_unreachable ();"
+  "
+  if (strict_memory_address_p (HImode, XEXP (operands[0], 0))
+      && REGNO (operands[1]) <= LAST_LO_REGNUM)
+    {
+      emit_insn (gen_movhi (operands[0], operands[1]));
+      DONE;
+    }
+  /* XXX Fixme, need to handle other cases here as well.  */
+  gcc_unreachable ();
+  "
 )
 	
 ;; We use a DImode scratch because we may occasionally need an additional
@@ -5225,7 +5169,8 @@
       emit_insn (gen_addsi3 (operands[2], XEXP (XEXP (operands[0], 0), 0),
 			     XEXP (XEXP (operands[0], 0), 1)));
 
-    emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_MEM (DFmode, operands[2]),
+    emit_insn (gen_rtx_SET (VOIDmode,
+			    replace_equiv_address (operands[0], operands[2]),
 			    operands[1]));
 
     if (code == POST_DEC)
@@ -9403,396 +9348,6 @@
   [(set_attr "length" "12")
    (set_attr "predicable" "yes")
    (set_attr "type" "load1")]
-)
-
-;; the arm can support extended pre-inc instructions
-
-;; In all these cases, we use operands 0 and 1 for the register being
-;; incremented because those are the operands that local-alloc will
-;; tie and these are the pair most likely to be tieable (and the ones
-;; that will benefit the most).
-
-;; We reject the frame pointer if it occurs anywhere in these patterns since
-;; elimination will cause too many headaches.
-
-(define_insn "*strqi_preinc"
-  [(set (mem:QI (plus:SI (match_operand:SI 1 "s_register_operand" "%0")
-			 (match_operand:SI 2 "index_operand" "rJ")))
-	(match_operand:QI 3 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "str%?b\\t%3, [%0, %2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strqi_predec"
-  [(set (mem:QI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operand:SI 2 "s_register_operand" "r")))
-	(match_operand:QI 3 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "str%?b\\t%3, [%0, -%2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadqi_preinc"
-  [(set (match_operand:QI 3 "s_register_operand" "=r")
-	(mem:QI (plus:SI (match_operand:SI 1 "s_register_operand" "%0")
-			 (match_operand:SI 2 "index_operand" "rJ"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "ldr%?b\\t%3, [%0, %2]!"
-  [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadqi_predec"
-  [(set (match_operand:QI 3 "s_register_operand" "=r")
-	(mem:QI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operand:SI 2 "s_register_operand" "r"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "ldr%?b\\t%3, [%0, -%2]!"
-  [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadqisi_preinc"
-  [(set (match_operand:SI 3 "s_register_operand" "=r")
-	(zero_extend:SI
-	 (mem:QI (plus:SI (match_operand:SI 1 "s_register_operand" "%0")
-			  (match_operand:SI 2 "index_operand" "rJ")))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "ldr%?b\\t%3, [%0, %2]!\\t%@ z_extendqisi"
-  [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadqisi_predec"
-  [(set (match_operand:SI 3 "s_register_operand" "=r")
-	(zero_extend:SI
-	 (mem:QI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			   (match_operand:SI 2 "s_register_operand" "r")))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "ldr%?b\\t%3, [%0, -%2]!\\t%@ z_extendqisi"
-  [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strsi_preinc"
-  [(set (mem:SI (plus:SI (match_operand:SI 1 "s_register_operand" "%0")
-			 (match_operand:SI 2 "index_operand" "rJ")))
-	(match_operand:SI 3 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "str%?\\t%3, [%0, %2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strsi_predec"
-  [(set (mem:SI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operand:SI 2 "s_register_operand" "r")))
-	(match_operand:SI 3 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "str%?\\t%3, [%0, -%2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadsi_preinc"
-  [(set (match_operand:SI 3 "s_register_operand" "=r")
-	(mem:SI (plus:SI (match_operand:SI 1 "s_register_operand" "%0")
-			 (match_operand:SI 2 "index_operand" "rJ"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "ldr%?\\t%3, [%0, %2]!"
-  [(set_attr "type" "load1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadsi_predec"
-  [(set (match_operand:SI 3 "s_register_operand" "=r")
-	(mem:SI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operand:SI 2 "s_register_operand" "r"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_dup 2)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[2])"
-  "ldr%?\\t%3, [%0, -%2]!"
-  [(set_attr "type" "load1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strqi_shiftpreinc"
-  [(set (mem:QI (plus:SI (match_operator:SI 2 "shift_operator"
-			  [(match_operand:SI 3 "s_register_operand" "r")
-			   (match_operand:SI 4 "const_shift_operand" "n")])
-			 (match_operand:SI 1 "s_register_operand" "0")))
-	(match_operand:QI 5 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_op_dup 2 [(match_dup 3)	(match_dup 4)])
-		 (match_dup 1)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "str%?b\\t%5, [%0, %3%S2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strqi_shiftpredec"
-  [(set (mem:QI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operator:SI 2 "shift_operator"
-			   [(match_operand:SI 3 "s_register_operand" "r")
-			    (match_operand:SI 4 "const_shift_operand" "n")])))
-	(match_operand:QI 5 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
-						 (match_dup 4)])))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "str%?b\\t%5, [%0, -%3%S2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadqi_shiftpreinc"
-  [(set (match_operand:QI 5 "s_register_operand" "=r")
-	(mem:QI (plus:SI (match_operator:SI 2 "shift_operator"
-			  [(match_operand:SI 3 "s_register_operand" "r")
-			   (match_operand:SI 4 "const_shift_operand" "n")])
-			 (match_operand:SI 1 "s_register_operand" "0"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_op_dup 2 [(match_dup 3)	(match_dup 4)])
-		 (match_dup 1)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "ldr%?b\\t%5, [%0, %3%S2]!"
-  [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadqi_shiftpredec"
-  [(set (match_operand:QI 5 "s_register_operand" "=r")
-	(mem:QI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operator:SI 2 "shift_operator"
-			   [(match_operand:SI 3 "s_register_operand" "r")
-			    (match_operand:SI 4 "const_shift_operand" "n")]))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
-						 (match_dup 4)])))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "ldr%?b\\t%5, [%0, -%3%S2]!"
-  [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strsi_shiftpreinc"
-  [(set (mem:SI (plus:SI (match_operator:SI 2 "shift_operator"
-			  [(match_operand:SI 3 "s_register_operand" "r")
-			   (match_operand:SI 4 "const_shift_operand" "n")])
-			 (match_operand:SI 1 "s_register_operand" "0")))
-	(match_operand:SI 5 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_op_dup 2 [(match_dup 3)	(match_dup 4)])
-		 (match_dup 1)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "str%?\\t%5, [%0, %3%S2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*strsi_shiftpredec"
-  [(set (mem:SI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operator:SI 2 "shift_operator"
-			   [(match_operand:SI 3 "s_register_operand" "r")
-			    (match_operand:SI 4 "const_shift_operand" "n")])))
-	(match_operand:SI 5 "s_register_operand" "r"))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
-						 (match_dup 4)])))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "str%?\\t%5, [%0, -%3%S2]!"
-  [(set_attr "type" "store1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadsi_shiftpreinc"
-  [(set (match_operand:SI 5 "s_register_operand" "=r")
-	(mem:SI (plus:SI (match_operator:SI 2 "shift_operator"
-			  [(match_operand:SI 3 "s_register_operand" "r")
-			   (match_operand:SI 4 "const_shift_operand" "n")])
-			 (match_operand:SI 1 "s_register_operand" "0"))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(plus:SI (match_op_dup 2 [(match_dup 3) (match_dup 4)])
-		 (match_dup 1)))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "ldr%?\\t%5, [%0, %3%S2]!"
-  [(set_attr "type" "load1")
-   (set_attr "predicable" "yes")]
-)
-
-(define_insn "*loadsi_shiftpredec"
-  [(set (match_operand:SI 5 "s_register_operand" "=r")
-	(mem:SI (minus:SI (match_operand:SI 1 "s_register_operand" "0")
-			  (match_operator:SI 2 "shift_operator"
-			   [(match_operand:SI 3 "s_register_operand" "r")
-			    (match_operand:SI 4 "const_shift_operand" "n")]))))
-   (set (match_operand:SI 0 "s_register_operand" "=r")
-	(minus:SI (match_dup 1) (match_op_dup 2 [(match_dup 3)
-						 (match_dup 4)])))]
-  "TARGET_ARM
-   && !arm_eliminable_register (operands[0])
-   && !arm_eliminable_register (operands[1])
-   && !arm_eliminable_register (operands[3])"
-  "ldr%?\\t%5, [%0, -%3%S2]!"
-  [(set_attr "type" "load1")
-   (set_attr "predicable" "yes")])
-
-; It can also support extended post-inc expressions, but combine doesn't
-; try these....
-; It doesn't seem worth adding peepholes for anything but the most common
-; cases since, unlike combine, the increment must immediately follow the load
-; for this pattern to match.
-; We must watch to see that the source/destination register isn't also the
-; same as the base address register, and that if the index is a register,
-; that it is not the same as the base address register.  In such cases the
-; instruction that we would generate would have UNPREDICTABLE behavior so 
-; we cannot use it.
-
-(define_peephole
-  [(set (mem:QI (match_operand:SI 0 "s_register_operand" "+r"))
-	(match_operand:QI 2 "s_register_operand" "r"))
-   (set (match_dup 0)
-	(plus:SI (match_dup 0) (match_operand:SI 1 "index_operand" "rJ")))]
-  "TARGET_ARM
-   && (REGNO (operands[2]) != REGNO (operands[0]))
-   && (GET_CODE (operands[1]) != REG
-       || (REGNO (operands[1]) != REGNO (operands[0])))"
-  "str%?b\\t%2, [%0], %1"
-)
-
-(define_peephole
-  [(set (match_operand:QI 0 "s_register_operand" "=r")
-	(mem:QI (match_operand:SI 1 "s_register_operand" "+r")))
-   (set (match_dup 1)
-	(plus:SI (match_dup 1) (match_operand:SI 2 "index_operand" "rJ")))]
-  "TARGET_ARM
-   && REGNO (operands[0]) != REGNO(operands[1])
-   && (GET_CODE (operands[2]) != REG
-       || REGNO(operands[0]) != REGNO (operands[2]))"
-  "ldr%?b\\t%0, [%1], %2"
-)
-
-(define_peephole
-  [(set (mem:SI (match_operand:SI 0 "s_register_operand" "+r"))
-	(match_operand:SI 2 "s_register_operand" "r"))
-   (set (match_dup 0)
-	(plus:SI (match_dup 0) (match_operand:SI 1 "index_operand" "rJ")))]
-  "TARGET_ARM
-   && (REGNO (operands[2]) != REGNO (operands[0]))
-   && (GET_CODE (operands[1]) != REG
-       || (REGNO (operands[1]) != REGNO (operands[0])))"
-  "str%?\\t%2, [%0], %1"
-)
-
-(define_peephole
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(mem:SI (match_operand:SI 1 "s_register_operand" "+r")))
-   (set (match_dup 1)
-	(plus:SI (match_dup 1) (match_operand:SI 2 "index_operand" "rJ")))]
-  "TARGET_ARM
-   && REGNO (operands[0]) != REGNO(operands[1])
-   && (GET_CODE (operands[2]) != REG
-       || REGNO(operands[0]) != REGNO (operands[2]))"
-  "ldr%?\\t%0, [%1], %2"
-)
-
-(define_peephole
-  [(set (mem:QI (plus:SI (match_operand:SI 0 "s_register_operand" "+r")
-			 (match_operand:SI 1 "index_operand" "rJ")))
-	(match_operand:QI 2 "s_register_operand" "r"))
-   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 1)))]
-  "TARGET_ARM
-   && (REGNO (operands[2]) != REGNO (operands[0]))
-   && (GET_CODE (operands[1]) != REG
-       || (REGNO (operands[1]) != REGNO (operands[0])))"
-  "str%?b\\t%2, [%0, %1]!"
-)
-
-(define_peephole
-  [(set (mem:QI (plus:SI (match_operator:SI 4 "shift_operator"
-			  [(match_operand:SI 0 "s_register_operand" "r")
-			   (match_operand:SI 1 "const_int_operand" "n")])
-			 (match_operand:SI 2 "s_register_operand" "+r")))
-	(match_operand:QI 3 "s_register_operand" "r"))
-   (set (match_dup 2) (plus:SI (match_op_dup 4 [(match_dup 0) (match_dup 1)])
-			       (match_dup 2)))]
-  "TARGET_ARM
-   && (REGNO (operands[3]) != REGNO (operands[2]))
-   && (REGNO (operands[0]) != REGNO (operands[2]))"
-  "str%?b\\t%3, [%2, %0%S4]!"
 )
 
 ; This pattern is never tried by combine, so do it as a peephole

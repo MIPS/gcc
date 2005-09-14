@@ -712,7 +712,7 @@ finish_record_type (tree record_type, tree fieldlist, bool has_rep,
       tree this_ada_size = DECL_SIZE (field);
 
       /* We need to make an XVE/XVU record if any field has variable size,
-	 whether or not the record does.  For example, if we have an union,
+	 whether or not the record does.  For example, if we have a union,
 	 it may be that all fields, rounded up to the alignment, have the
 	 same size, in which case we'll use that size.  But the debug
 	 output routines (except Dwarf2) won't be able to output the fields,
@@ -826,7 +826,7 @@ write_record_type_debug_info (tree record_type)
   for (field = fieldlist; field; field = TREE_CHAIN (field))
     {
       /* We need to make an XVE/XVU record if any field has variable size,
-	 whether or not the record does.  For example, if we have an union,
+	 whether or not the record does.  For example, if we have a union,
 	 it may be that all fields, rounded up to the alignment, have the
 	 same size, in which case we'll use that size.  But the debug
 	 output routines (except Dwarf2) won't be able to output the fields,
@@ -2703,9 +2703,10 @@ convert (tree type, tree expr)
       /* If we have just converted to this padded type, just get
 	 the inner expression.  */
       if (TREE_CODE (expr) == CONSTRUCTOR
-	  && CONSTRUCTOR_ELTS (expr)
-	  && TREE_PURPOSE (CONSTRUCTOR_ELTS (expr)) == TYPE_FIELDS (etype))
-	return TREE_VALUE (CONSTRUCTOR_ELTS (expr));
+	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (expr))
+	  && VEC_index (constructor_elt, CONSTRUCTOR_ELTS (expr), 0)->index
+	     == TYPE_FIELDS (etype))
+	return VEC_index (constructor_elt, CONSTRUCTOR_ELTS (expr), 0)->value;
       else
 	return convert (type,
 			build_component_ref (expr, NULL_TREE,
@@ -3025,7 +3026,9 @@ remove_conversions (tree exp, bool true_address)
       if (true_address
 	  && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
 	  && TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (exp)))
-	return remove_conversions (TREE_VALUE (CONSTRUCTOR_ELTS (exp)), true);
+	return remove_conversions (VEC_index (constructor_elt,
+					      CONSTRUCTOR_ELTS (exp), 0)->value,
+				   true);
       break;
 
     case COMPONENT_REF:

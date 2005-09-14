@@ -729,6 +729,15 @@ had been called:
 To aid this dialog, when input is from stdin, errors send their
 messages to stderr and execution continues, even if IOSTAT is set.
 
+PRINT namelist is permitted.  This causes an error if -std=f95 is used.
+@smallexample
+PROGRAM test_print
+  REAL, dimension (4)  ::  x = (/1.0, 2.0, 3.0, 4.0/)
+  NAMELIST /mynml/ x
+  PRINT mynml
+END PROGRAM test_print
+@end smallexample
+
 @node X format descriptor
 @section X format descriptor
 @cindex X format descriptor
@@ -798,7 +807,7 @@ As a GNU extension for backwards compatibility with other compilers,
 and vice versa.  When converting from a LOGICAL to an INTEGER, the numeric
 value of @code{.FALSE.} is zero, and that of @code{.TRUE.} is one.  When
 converting from INTEGER to LOGICAL, the value zero is interpreted as
-@code{.FALSE.} and any non-zero value is interpreted as @code{.TRUE.}.
+@code{.FALSE.} and any nonzero value is interpreted as @code{.TRUE.}.
 
 @smallexample
        INTEGER*4 i
@@ -952,9 +961,41 @@ please contact a project maintainer.
 The GNU Fortran 95 Compiler aims to be a conforming implementation of
 ISO/IEC 1539:1997 (Fortran 95).
 
-In the future it may also support other variants and extensions to the Fortran
-language.  This includes ANSI Fortran 77, Fortran 90, Fortran 2000 (not yet
-finalized), and OpenMP.
+In the future it may also support other variants of and extensions to
+the Fortran language.  These include ANSI Fortran 77, ISO Fortran 90,
+ISO Fortran 2003 and OpenMP.
+
+@menu
+* Fortran 2003 status::
+@end menu
+
+@node Fortran 2003 status
+@section Fortran 2003 status
+
+Although @command{gfortran} focuses on implementing the Fortran 95
+standard for the time being, a few Fortran 2003 features are currently
+available.
+
+@itemize
+@item 
+Intrinsics @code{command_argument_count}, @code{get_command},
+@code{get_command_argument}, and @code{get_environment_variable}.
+
+@item 
+Array constructors using square brackets. That is, @code{[...]} rather
+than @code{(/.../)}.
+
+@item 
+@code{FLUSH} statement.
+
+@item
+@code{IOMSG=} specifier for I/O statements.
+@end itemize
+
+
+@c ---------------------------------------------------------------------
+@c Index
+@c ---------------------------------------------------------------------
 
 @node Index
 @unnumbered Index

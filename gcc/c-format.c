@@ -864,7 +864,8 @@ check_function_format (tree attrs, tree params)
 	  /* Yup; check it.  */
 	  function_format_info info;
 	  decode_format_attr (TREE_VALUE (a), &info, 1);
-	  check_format_info (&info, params);
+	  if (warn_format)
+	    check_format_info (&info, params);
 	  if (warn_missing_format_attribute && info.first_arg_num == 0
 	      && (format_types[info.format_type].flags
 		  & (int) FMT_FLAG_ARG_CONVERT))
@@ -895,8 +896,8 @@ check_function_format (tree attrs, tree params)
 			break;
 		    }
 		  if (args != 0)
-		    warning (OPT_Wattributes, "function might be possible "
-			     "candidate for %qs format attribute",
+		    warning (OPT_Wmissing_format_attribute, "function might "
+			     "be possible candidate for %qs format attribute",
 			     format_types[info.format_type].name);
 		}
 	    }

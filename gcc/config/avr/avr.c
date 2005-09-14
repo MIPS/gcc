@@ -221,6 +221,12 @@ int avr_case_values_threshold = 30000;
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.long\t"
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.long\t"
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER avr_assemble_integer
 #undef TARGET_ASM_FILE_START
@@ -950,7 +956,7 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
     }
   if (TARGET_ALL_DEBUG)
     {
-      fprintf (stderr, "   ret = %c\n", r);
+      fprintf (stderr, "   ret = %c\n", r + '0');
     }
   return r == NO_REGS ? 0 : (int)r;
 }

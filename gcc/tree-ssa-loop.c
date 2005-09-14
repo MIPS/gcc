@@ -61,15 +61,15 @@ tree_loop_optimizer_init (FILE *dump)
 /* The loop superpass.  */
 
 static bool
-gate_loop (void)
+gate_tree_loop (void)
 {
   return flag_tree_loop_optimize != 0;
 }
 
-struct tree_opt_pass pass_loop = 
+struct tree_opt_pass pass_tree_loop = 
 {
   "loop",				/* name */
-  gate_loop,				/* gate */
+  gate_tree_loop,			/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -98,7 +98,7 @@ tree_ssa_loop_init (void)
   scev_initialize (current_loops);
 }
   
-struct tree_opt_pass pass_loop_init = 
+struct tree_opt_pass pass_tree_loop_init = 
 {
   "loopinit",				/* name */
   NULL,					/* gate */
@@ -166,7 +166,7 @@ gate_tree_ssa_loop_unswitch (void)
   return flag_unswitch_loops != 0;
 }
 
-struct tree_opt_pass pass_unswitch = 
+struct tree_opt_pass pass_tree_unswitch = 
 {
   "unswitch",				/* name */
   gate_tree_ssa_loop_unswitch,		/* gate */
@@ -212,7 +212,7 @@ struct tree_opt_pass pass_vectorize =
   PROP_cfg | PROP_ssa,                  /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  TODO_verify_loops,			/* todo_flags_start */
   TODO_dump_func | TODO_update_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
@@ -307,7 +307,8 @@ struct tree_opt_pass pass_scev_cprop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  TODO_dump_func | TODO_update_ssa_only_virtuals,
+					/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -454,7 +455,7 @@ tree_ssa_loop_done (void)
   current_loops = NULL;
 }
   
-struct tree_opt_pass pass_loop_done = 
+struct tree_opt_pass pass_tree_loop_done = 
 {
   "loopdone",				/* name */
   NULL,					/* gate */

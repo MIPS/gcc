@@ -389,10 +389,34 @@ typedef struct
 } referenced_var_iterator;
 
 
+/* This macro loops over all the referenced vars, one at a time, putting the
+   current var in VAR.  Note:  You are not allowed to add referenced variables
+   to the hashtable while using this macro.  Doing so may cause it to behave
+   erratically.  */
+
 #define FOR_EACH_REFERENCED_VAR(VAR, ITER) \
   for ((VAR) = first_referenced_var (&(ITER)); \
        !end_referenced_vars_p (&(ITER)); \
        (VAR) = next_referenced_var (&(ITER))) 
+
+
+typedef struct
+{
+  int i;
+} safe_referenced_var_iterator;
+
+/* This macro loops over all the referenced vars, one at a time, putting the
+   current var in VAR.  You are allowed to add referenced variables during the
+   execution of this macro, however, the macro will not iterate over them.  It
+   requires a temporary vector of trees, VEC, whose lifetime is controlled by
+   the caller.  The purpose of the vector is to temporarily store the
+   referenced_variables hashtable so that adding referenced variables does not
+   affect the hashtable.  */
+
+#define FOR_EACH_REFERENCED_VAR_SAFE(VAR, VEC, ITER) \
+  for ((ITER).i = 0, fill_referenced_var_vec (&(VEC)); \
+       VEC_iterate (tree, (VEC), (ITER).i, (VAR)); \
+       (ITER).i++)
 
 /* Array of all variables referenced in the function.  */
 extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
@@ -582,6 +606,7 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
@@ -635,7 +660,6 @@ bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
-bool expr_computes_nonzero (tree);
 tree vrp_evaluate_conditional (tree, bool);
 void simplify_stmt_using_ranges (tree);
 
@@ -699,12 +723,13 @@ void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
-				struct tree_niter_desc *niter);
+				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
-bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *);
+bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *,
+			    bool *);
 tree convert_step (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
@@ -714,6 +739,8 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
+void compute_phi_arg_on_exit (edge, tree, tree);
+unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);

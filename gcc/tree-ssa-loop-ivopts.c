@@ -712,7 +712,8 @@ niter_for_exit (struct ivopts_data *data, edge exit)
       nfe_desc = xmalloc (sizeof (struct nfe_cache_elt));
       nfe_desc->exit = exit;
       nfe_desc->valid_p = number_of_iterations_exit (data->current_loop,
-						     exit, &nfe_desc->niter);
+						     exit, &nfe_desc->niter,
+						     true);
       *slot = nfe_desc;
     }
   else
@@ -1442,6 +1443,8 @@ idx_find_step (tree base, tree *idx, void *data)
     /* The step for pointer arithmetics already is 1 byte.  */
     step = build_int_cst (sizetype, 1);
 
+  /* FIXME: convert_step should not be used outside chrec_convert: fix
+     this by calling chrec_convert.  */
   iv_step = convert_step (dta->ivopts_data->current_loop,
 			  sizetype, iv->base, iv->step, dta->stmt);
 
@@ -3414,12 +3417,11 @@ get_address_cost (bool symbol_present, bool var_present,
 
   return cost + acost;
 }
-/* Estimates cost of forcing EXPR into a variable.  DEPENDS_ON is a set of the
-   invariants the computation depends on.  */
 
-static unsigned
-force_var_cost (struct ivopts_data *data,
-		tree expr, bitmap *depends_on)
+/* Estimates cost of forcing expression EXPR into a variable.  */
+
+unsigned
+force_expr_to_var_cost (tree expr)
 {
   static bool costs_initialized = false;
   static unsigned integer_cost;
@@ -3451,7 +3453,7 @@ force_var_cost (struct ivopts_data *data,
 				    build_int_cst_type (type, 2000))) + 1;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "force_var_cost:\n");
+	  fprintf (dump_file, "force_expr_to_var_cost:\n");
 	  fprintf (dump_file, "  integer %d\n", (int) integer_cost);
 	  fprintf (dump_file, "  symbol %d\n", (int) symbol_cost);
 	  fprintf (dump_file, "  address %d\n", (int) address_cost);
@@ -3463,12 +3465,6 @@ force_var_cost (struct ivopts_data *data,
     }
 
   STRIP_NOPS (expr);
-
-  if (depends_on)
-    {
-      fd_ivopts_data = data;
-      walk_tree (&expr, find_depends, depends_on, NULL);
-    }
 
   if (SSA_VAR_P (expr))
     return 0;
@@ -3504,12 +3500,12 @@ force_var_cost (struct ivopts_data *data,
       if (is_gimple_val (op0))
 	cost0 = 0;
       else
-	cost0 = force_var_cost (data, op0, NULL);
+	cost0 = force_expr_to_var_cost (op0);
 
       if (is_gimple_val (op1))
 	cost1 = 0;
       else
-	cost1 = force_var_cost (data, op1, NULL);
+	cost1 = force_expr_to_var_cost (op1);
 
       break;
 
@@ -3547,6 +3543,22 @@ force_var_cost (struct ivopts_data *data,
      be shared between several iv uses, so letting this grow without
      limits would not give reasonable results.  */
   return cost < target_spill_cost ? cost : target_spill_cost;
+}
+
+/* Estimates cost of forcing EXPR into a variable.  DEPENDS_ON is a set of the
+   invariants the computation depends on.  */
+
+static unsigned
+force_var_cost (struct ivopts_data *data,
+		tree expr, bitmap *depends_on)
+{
+  if (depends_on)
+    {
+      fd_ivopts_data = data;
+      walk_tree (&expr, find_depends, depends_on, NULL);
+    }
+
+  return force_expr_to_var_cost (expr);
 }
 
 /* Estimates cost of expressing address ADDR  as var + symbol + offset.  The
@@ -5436,9 +5448,13 @@ get_ref_tag (tree ref)
     return NULL_TREE;
 
   if (TREE_CODE (var) == INDIRECT_REF)
-    var = TREE_OPERAND (var, 0);
-  if (TREE_CODE (var) == SSA_NAME)
     {
+      /* In case the base is a dereference of a pointer, first check its name
+	 mem tag, and if it does not have one, use type mem tag.  */
+      var = TREE_OPERAND (var, 0);
+      if (TREE_CODE (var) != SSA_NAME)
+	return NULL_TREE;
+
       if (SSA_NAME_PTR_INFO (var))
 	{
 	  tag = SSA_NAME_PTR_INFO (var)->name_mem_tag;
@@ -5447,18 +5463,21 @@ get_ref_tag (tree ref)
 	}
  
       var = SSA_NAME_VAR (var);
+      tag = var_ann (var)->type_mem_tag;
+      gcc_assert (tag != NULL_TREE);
+      return tag;
     }
- 
-  if (DECL_P (var))
-    {
+  else
+    { 
+      if (!DECL_P (var))
+	return NULL_TREE;
+
       tag = var_ann (var)->type_mem_tag;
       if (tag)
 	return tag;
 
       return var;
     }
-
-  return NULL_TREE;
 }
 
 /* Copies the reference information from OLD_REF to NEW_REF.  */
@@ -5599,7 +5618,7 @@ protect_loop_closed_ssa_form (edge exit, tree stmt)
    so that they are emitted on the correct place, and so that the loop closed
    ssa form is preserved.  */
 
-static void
+void
 compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
 {
   tree_stmt_iterator tsi;

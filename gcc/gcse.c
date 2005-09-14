@@ -2677,7 +2677,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	 have a note, and have no special SET, add a REG_EQUAL note to not
 	 lose information.  */
       if (!success && note == 0 && set != 0
-	  && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT)
+	  && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT
+	  && GET_CODE (SET_DEST (set)) != STRICT_LOW_PART)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
 
@@ -4898,7 +4899,7 @@ hoist_code (void)
 	  insn_inserted_p = 0;
 
 	  /* These tests should be the same as the tests above.  */
-	  if (TEST_BIT (hoist_vbeout[bb->index], i))
+	  if (TEST_BIT (hoist_exprs[bb->index], i))
 	    {
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it

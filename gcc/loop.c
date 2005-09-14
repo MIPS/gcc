@@ -1881,22 +1881,7 @@ combine_movables (struct loop_movables *movables, struct loop_regs *regs)
 	      && !m1->partial
 	      && (matched_regs[m1->regno]
 		  ||
-		  (
-		   /* Can combine regs with different modes loaded from the
-		      same constant only if the modes are the same or
-		      if both are integer modes with M wider or the same
-		      width as M1.  The check for integer is redundant, but
-		      safe, since the only case of differing destination
-		      modes with equal sources is when both sources are
-		      VOIDmode, i.e., CONST_INT.  */
-		   (GET_MODE (m->set_dest) == GET_MODE (m1->set_dest)
-		    || (GET_MODE_CLASS (GET_MODE (m->set_dest)) == MODE_INT
-			&& GET_MODE_CLASS (GET_MODE (m1->set_dest)) == MODE_INT
-			&& (GET_MODE_BITSIZE (GET_MODE (m->set_dest))
-			    >= GET_MODE_BITSIZE (GET_MODE (m1->set_dest)))
-			&& (TRULY_NOOP_TRUNCATION
-			    (GET_MODE_BITSIZE (GET_MODE (m1->set_dest)),
-			     GET_MODE_BITSIZE (GET_MODE (m->set_dest))))))
+		  (GET_MODE (m->set_dest) == GET_MODE (m1->set_dest)
 		   /* See if the source of M1 says it matches M.  */
 		   && ((REG_P (m1->set_src)
 			&& matched_regs[REGNO (m1->set_src)])
@@ -2060,14 +2045,26 @@ rtx_equal_for_loop_p (rtx x, rtx y, struct loop_movables *movables,
   if (GET_MODE (x) != GET_MODE (y))
     return 0;
 
-  /* These three types of rtx's can be compared nonrecursively.  */
-  if (code == REG)
-    return (REGNO (x) == REGNO (y) || regs_match_p (x, y, movables));
+  /* These types of rtx's can be compared nonrecursively.  */
+  switch (code)
+    {
+    case PC:
+    case CC0:
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return 0;
 
-  if (code == LABEL_REF)
-    return XEXP (x, 0) == XEXP (y, 0);
-  if (code == SYMBOL_REF)
-    return XSTR (x, 0) == XSTR (y, 0);
+    case REG:
+      return (REGNO (x) == REGNO (y) || regs_match_p (x, y, movables));
+
+    case LABEL_REF:
+      return XEXP (x, 0) == XEXP (y, 0);
+    case SYMBOL_REF:
+      return XSTR (x, 0) == XSTR (y, 0);
+
+    default:
+      break;
+    }
 
   /* Compare the elements.  If any pair of corresponding elements
      fail to match, return 0 for the whole things.  */
@@ -2648,23 +2645,7 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 		    {
 		      rtx temp;
 
-		      /* Schedule the reg loaded by M1
-			 for replacement so that shares the reg of M.
-			 If the modes differ (only possible in restricted
-			 circumstances, make a SUBREG.
-
-			 Note this assumes that the target dependent files
-			 treat REG and SUBREG equally, including within
-			 GO_IF_LEGITIMATE_ADDRESS and in all the
-			 predicates since we never verify that replacing the
-			 original register with a SUBREG results in a
-			 recognizable insn.  */
-		      if (GET_MODE (m->set_dest) == GET_MODE (m1->set_dest))
-			reg_map[m1->regno] = m->set_dest;
-		      else
-			reg_map[m1->regno]
-			  = gen_lowpart_common (GET_MODE (m1->set_dest),
-						m->set_dest);
+		      reg_map[m1->regno] = m->set_dest;
 
 		      /* Get rid of the matching insn
 			 and prevent further processing of it.  */
@@ -3987,6 +3968,24 @@ rtx_equal_for_prefetch_p (rtx x, rtx y)
     return 1;
   if (code != GET_CODE (y))
     return 0;
+
+  if (GET_MODE (x) != GET_MODE (y))
+    return 0;
+
+  switch (code)
+    {
+    case PC:
+    case CC0:
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return 0;
+
+    case LABEL_REF:
+      return XEXP (x, 0) == XEXP (y, 0);
+
+    default:
+      break;
+    }
 
   if (COMMUTATIVE_ARITH_P (x))
     {
@@ -8803,6 +8802,63 @@ biv_fits_mode_p (const struct loop *loop, struct iv_class *bl,
 }
 
 
+/* Return false iff it is provable that biv BL plus BIAS will not wrap
+   at any point in its update sequence.  Note that at the rtl level we
+   may not have information about the signedness of BL; in that case,
+   check for both signed and unsigned overflow.  */
+
+static bool
+biased_biv_may_wrap_p (const struct loop *loop, struct iv_class *bl,
+		       unsigned HOST_WIDE_INT bias)
+{
+  HOST_WIDE_INT incr;
+  bool check_signed, check_unsigned;
+  enum machine_mode mode;
+
+  /* If the increment is not monotonic, we'd have to check separately
+     at each increment step.  Not Worth It.  */
+  incr = get_monotonic_increment (bl);
+  if (incr == 0)
+    return true;
+
+  /* If this biv is the loop iteration variable, then we may be able to
+     deduce a sign based on the loop condition.  */
+  /* ??? This is not 100% reliable; consider an unsigned biv that is cast
+     to signed for the comparison.  However, this same bug appears all
+     through loop.c.  */
+  check_signed = check_unsigned = true;
+  if (bl->biv->src_reg == LOOP_INFO (loop)->iteration_var)
+    {
+      switch (LOOP_INFO (loop)->comparison_code)
+	{
+	case GTU: case GEU: case LTU: case LEU:
+	  check_signed = false;
+	  break;
+	case GT: case GE: case LT: case LE:
+	  check_unsigned = false;
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  mode = GET_MODE (bl->biv->src_reg);
+
+  if (check_unsigned
+      && !biased_biv_fits_mode_p (loop, bl, incr, mode, bias))
+    return true;
+
+  if (check_signed)
+    {
+      bias += (GET_MODE_MASK (mode) >> 1) + 1;
+      if (!biased_biv_fits_mode_p (loop, bl, incr, mode, bias))
+	return true;
+    }
+
+  return false;
+}
+
+
 /* Given that X is an extension or truncation of BL, return true
    if it is unaffected by overflow.  LOOP is the loop to which
    BL belongs and INCR is its per-iteration increment.  */
@@ -10213,195 +10269,56 @@ maybe_eliminate_biv_1 (const struct loop *loop, rtx x, rtx insn,
       else
 	break;
 
-      if (CONSTANT_P (arg))
-	{
-	  /* First try to replace with any giv that has constant positive
-	     mult_val and constant add_val.  We might be able to support
-	     negative mult_val, but it seems complex to do it in general.  */
+      if (GET_CODE (arg) != CONST_INT)
+	return 0;
 
-	  for (v = bl->giv; v; v = v->next_iv)
-	    if (GET_CODE (v->mult_val) == CONST_INT
-		&& INTVAL (v->mult_val) > 0
-		&& (GET_CODE (v->add_val) == SYMBOL_REF
-		    || GET_CODE (v->add_val) == LABEL_REF
-		    || GET_CODE (v->add_val) == CONST
-		    || (REG_P (v->add_val)
-			&& REG_POINTER (v->add_val)))
-		&& ! v->ignore && ! v->maybe_dead && v->always_computable
-		&& v->mode == mode)
-	      {
-		if (! biv_elimination_giv_has_0_offset (bl->biv, v, insn))
-		  continue;
+      /* Unless we're dealing with an equality comparison, if we can't
+	 determine that the original biv doesn't wrap, then we must not
+	 apply the transformation.  */
+      /* ??? Actually, what we must do is verify that the transformed
+	 giv doesn't wrap.  But the general case of this transformation
+	 was disabled long ago due to wrapping problems, and there's no
+	 point reviving it this close to end-of-life for loop.c.  The
+	 only case still enabled is known (via the check on add_val) to
+	 be pointer arithmetic, which in theory never overflows for
+	 valid programs.  */
+      /* Without lifetime analysis, we don't know how COMPARE will be
+	 used, so we must assume the worst.  */
+      if (code != EQ && code != NE
+	  && biased_biv_may_wrap_p (loop, bl, INTVAL (arg)))
+	return 0;
 
-		/* Don't eliminate if the linear combination that makes up
-		   the giv overflows when it is applied to ARG.  */
-		if (GET_CODE (arg) == CONST_INT)
-		  {
-		    rtx add_val;
+      /* Try to replace with any giv that has constant positive mult_val
+         and a pointer add_val.  */
+      for (v = bl->giv; v; v = v->next_iv)
+	if (GET_CODE (v->mult_val) == CONST_INT
+	    && INTVAL (v->mult_val) > 0
+	    && (GET_CODE (v->add_val) == SYMBOL_REF
+		|| GET_CODE (v->add_val) == LABEL_REF
+		|| GET_CODE (v->add_val) == CONST
+		|| (REG_P (v->add_val) && REG_POINTER (v->add_val)))
+	    && ! v->ignore && ! v->maybe_dead && v->always_computable
+	    && v->mode == mode)
+	  {
+	    if (! biv_elimination_giv_has_0_offset (bl->biv, v, insn))
+	      continue;
 
-		    if (GET_CODE (v->add_val) == CONST_INT)
-		      add_val = v->add_val;
-		    else
-		      add_val = const0_rtx;
+	    if (! eliminate_p)
+	      return 1;
 
-		    if (const_mult_add_overflow_p (arg, v->mult_val,
-						   add_val, mode, 1))
-		      continue;
-		  }
+	    /* Replace biv with the giv's reduced reg.  */
+	    validate_change (insn, &XEXP (x, 1 - arg_operand), v->new_reg, 1);
 
-		if (! eliminate_p)
-		  return 1;
+	    /* Load the value into a register.  */
+	    tem = gen_reg_rtx (mode);
+	    loop_iv_add_mult_emit_before (loop, arg, v->mult_val, v->add_val,
+					  tem, where_bb, where_insn);
 
-		/* Replace biv with the giv's reduced reg.  */
-		validate_change (insn, &XEXP (x, 1 - arg_operand), v->new_reg, 1);
+	    validate_change (insn, &XEXP (x, arg_operand), tem, 1);
 
-		/* If all constants are actually constant integers and
-		   the derived constant can be directly placed in the COMPARE,
-		   do so.  */
-		if (GET_CODE (arg) == CONST_INT
-		    && GET_CODE (v->add_val) == CONST_INT)
-		  {
-		    tem = expand_mult_add (arg, NULL_RTX, v->mult_val,
-					   v->add_val, mode, 1);
-		  }
-		else
-		  {
-		    /* Otherwise, load it into a register.  */
-		    tem = gen_reg_rtx (mode);
-		    loop_iv_add_mult_emit_before (loop, arg,
-						  v->mult_val, v->add_val,
-						  tem, where_bb, where_insn);
-		  }
-
-		validate_change (insn, &XEXP (x, arg_operand), tem, 1);
-
-		if (apply_change_group ())
-		  return 1;
-	      }
-
-	  /* Look for giv with positive constant mult_val and nonconst add_val.
-	     Insert insns to calculate new compare value.
-	     ??? Turn this off due to possible overflow.  */
-
-	  for (v = bl->giv; v; v = v->next_iv)
-	    if (GET_CODE (v->mult_val) == CONST_INT
-		&& INTVAL (v->mult_val) > 0
-		&& ! v->ignore && ! v->maybe_dead && v->always_computable
-		&& v->mode == mode
-		&& 0)
-	      {
-		rtx tem;
-
-		if (! biv_elimination_giv_has_0_offset (bl->biv, v, insn))
-		  continue;
-
-		if (! eliminate_p)
-		  return 1;
-
-		tem = gen_reg_rtx (mode);
-
-		/* Replace biv with giv's reduced register.  */
-		validate_change (insn, &XEXP (x, 1 - arg_operand),
-				 v->new_reg, 1);
-
-		/* Compute value to compare against.  */
-		loop_iv_add_mult_emit_before (loop, arg,
-					      v->mult_val, v->add_val,
-					      tem, where_bb, where_insn);
-		/* Use it in this insn.  */
-		validate_change (insn, &XEXP (x, arg_operand), tem, 1);
-		if (apply_change_group ())
-		  return 1;
-	      }
-	}
-      else if (REG_P (arg) || MEM_P (arg))
-	{
-	  if (loop_invariant_p (loop, arg) == 1)
-	    {
-	      /* Look for giv with constant positive mult_val and nonconst
-		 add_val. Insert insns to compute new compare value.
-		 ??? Turn this off due to possible overflow.  */
-
-	      for (v = bl->giv; v; v = v->next_iv)
-		if (GET_CODE (v->mult_val) == CONST_INT && INTVAL (v->mult_val) > 0
-		    && ! v->ignore && ! v->maybe_dead && v->always_computable
-		    && v->mode == mode
-		    && 0)
-		  {
-		    rtx tem;
-
-		    if (! biv_elimination_giv_has_0_offset (bl->biv, v, insn))
-		      continue;
-
-		    if (! eliminate_p)
-		      return 1;
-
-		    tem = gen_reg_rtx (mode);
-
-		    /* Replace biv with giv's reduced register.  */
-		    validate_change (insn, &XEXP (x, 1 - arg_operand),
-				     v->new_reg, 1);
-
-		    /* Compute value to compare against.  */
-		    loop_iv_add_mult_emit_before (loop, arg,
-						  v->mult_val, v->add_val,
-						  tem, where_bb, where_insn);
-		    validate_change (insn, &XEXP (x, arg_operand), tem, 1);
-		    if (apply_change_group ())
-		      return 1;
-		  }
-	    }
-
-	  /* This code has problems.  Basically, you can't know when
-	     seeing if we will eliminate BL, whether a particular giv
-	     of ARG will be reduced.  If it isn't going to be reduced,
-	     we can't eliminate BL.  We can try forcing it to be reduced,
-	     but that can generate poor code.
-
-	     The problem is that the benefit of reducing TV, below should
-	     be increased if BL can actually be eliminated, but this means
-	     we might have to do a topological sort of the order in which
-	     we try to process biv.  It doesn't seem worthwhile to do
-	     this sort of thing now.  */
-
-#if 0
-	  /* Otherwise the reg compared with had better be a biv.  */
-	  if (!REG_P (arg)
-	      || REG_IV_TYPE (ivs, REGNO (arg)) != BASIC_INDUCT)
-	    return 0;
-
-	  /* Look for a pair of givs, one for each biv,
-	     with identical coefficients.  */
-	  for (v = bl->giv; v; v = v->next_iv)
-	    {
-	      struct induction *tv;
-
-	      if (v->ignore || v->maybe_dead || v->mode != mode)
-		continue;
-
-	      for (tv = REG_IV_CLASS (ivs, REGNO (arg))->giv; tv;
-		   tv = tv->next_iv)
-		if (! tv->ignore && ! tv->maybe_dead
-		    && rtx_equal_p (tv->mult_val, v->mult_val)
-		    && rtx_equal_p (tv->add_val, v->add_val)
-		    && tv->mode == mode)
-		  {
-		    if (! biv_elimination_giv_has_0_offset (bl->biv, v, insn))
-		      continue;
-
-		    if (! eliminate_p)
-		      return 1;
-
-		    /* Replace biv with its giv's reduced reg.  */
-		    XEXP (x, 1 - arg_operand) = v->new_reg;
-		    /* Replace other operand with the other giv's
-		       reduced reg.  */
-		    XEXP (x, arg_operand) = tv->new_reg;
-		    return 1;
-		  }
-	    }
-#endif
-	}
+	    if (apply_change_group ())
+	      return 1;
+	  }
 
       /* If we get here, the biv can't be eliminated.  */
       return 0;

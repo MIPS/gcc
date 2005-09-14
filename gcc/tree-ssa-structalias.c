@@ -612,6 +612,8 @@ solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
 	{
 	  unsigned HOST_WIDE_INT fieldoffset = get_varinfo (i)->offset + offset;
 	  varinfo_t v = first_vi_for_offset (get_varinfo (i), fieldoffset);
+	  if (!v)
+	    continue;
 	  bitmap_set_bit (result, v->id);
 	}
       else if (get_varinfo (i)->is_artificial_var 
@@ -897,6 +899,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int to,
       add_graph_edge (graph, newe);
       olde.src = from;
       olde.dest = c->dest;
+      olde.weights = NULL;
       temp = get_graph_weights (graph, olde);
       weights = get_graph_weights (graph, newe);
       bitmap_ior_into (weights, temp);
@@ -917,6 +920,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int to,
       add_graph_edge (graph, newe);
       olde.src = c->dest;
       olde.dest = from;
+      olde.weights = NULL;
       temp = get_graph_weights (graph, olde);
       weights = get_graph_weights (graph, newe);
       bitmap_ior_into (weights, temp);
@@ -942,6 +946,7 @@ int_add_graph_edge (constraint_graph_t graph, unsigned int to,
       struct constraint_edge edge;
       edge.src = to;
       edge.dest = from;
+      edge.weights = NULL;
       r = add_graph_edge (graph, edge);
       r |= !bitmap_bit_p (get_graph_weights (graph, edge), weight);
       bitmap_set_bit (get_graph_weights (graph, edge), weight);
@@ -994,7 +999,7 @@ build_constraint_graph (void)
 	  /* x = &y */
 	  bitmap_set_bit (get_varinfo (lhs.var)->solution, rhs.var);
 	}
-      else if (rhs.var > anything_id && lhs.var > anything_id)
+      else if (lhs.var > anything_id)
 	{
 	  /* Ignore 0 weighted self edges, as they can't possibly contribute
 	     anything */
@@ -1113,6 +1118,7 @@ collapse_nodes (constraint_graph_t graph, unsigned int to, unsigned int from)
   merge_graph_nodes (graph, to, from);
   edge.src = to;
   edge.dest = to;
+  edge.weights = NULL;
   if (valid_graph_edge (graph, edge))
     {
       bitmap weights = get_graph_weights (graph, edge);
@@ -1216,6 +1222,7 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 	  bitmap_clear (tmp);
 	  edge.src = n;
 	  edge.dest = n;
+	  edge.weights = NULL;
 	  if (valid_graph_edge (graph, edge))
 	    {
 	      bitmap weights = get_graph_weights (graph, edge);
@@ -1327,6 +1334,8 @@ do_da_constraint (constraint_graph_t graph ATTRIBUTE_UNUSED,
 	  unsigned HOST_WIDE_INT fieldoffset = get_varinfo (j)->offset + offset;
 
 	  v = first_vi_for_offset (get_varinfo (j), fieldoffset);
+	  if (!v)
+	    continue;
 	  t = v->node;
 	  sol = get_varinfo (t)->solution;
 	  if (!bitmap_bit_p (sol, rhs))
@@ -1370,6 +1379,8 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	  unsigned int t;
 
 	  v = first_vi_for_offset (get_varinfo (j), fieldoffset);	  
+	  if (!v)
+	    continue;
 	  t = v->node;
 	  if (int_add_graph_edge (graph, lhs, t, 0))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);	  
@@ -1414,6 +1425,8 @@ do_ds_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
 	  unsigned HOST_WIDE_INT fieldoffset = get_varinfo (j)->offset + loff;
 
 	  v = first_vi_for_offset (get_varinfo (j), fieldoffset);
+	  if (!v)
+	    continue;
 	  t = v->node;
 	  if (int_add_graph_edge (graph, t, rhs, roff))
 	    {
@@ -1589,7 +1602,7 @@ perform_var_substitution (constraint_graph_t graph)
 	  unsigned int w;
 	  weight = get_graph_weights (graph, *ce);
 	
-	  /* We can't eliminate variables that have non-zero weighted
+	  /* We can't eliminate variables that have nonzero weighted
 	     edges between them.  */
 	  if (bitmap_other_than_zero_bit_set (weight))
 	    {
@@ -2550,7 +2563,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
       tree op, var;
       var_ann_t v_ann;
       struct ptr_info_def *pi;
-      bool is_store;
+      bool is_store, is_potential_deref;
       unsigned num_uses, num_derefs;
 
       op = USE_FROM_PTR (use_p);
@@ -2607,7 +2620,42 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	 is an escape point, whether OP escapes.  */
       count_uses_and_derefs (op, stmt, &num_uses, &num_derefs, &is_store);
 
-      if (num_derefs > 0)
+      /* Handle a corner case involving address expressions of the
+	 form '&PTR->FLD'.  The problem with these expressions is that
+	 they do not represent a dereference of PTR.  However, if some
+	 other transformation propagates them into an INDIRECT_REF
+	 expression, we end up with '*(&PTR->FLD)' which is folded
+	 into 'PTR->FLD'.
+
+	 So, if the original code had no other dereferences of PTR,
+	 the aliaser will not create memory tags for it, and when
+	 &PTR->FLD gets propagated to INDIRECT_REF expressions, the
+	 memory operations will receive no V_MAY_DEF/VUSE operands.
+
+	 One solution would be to have count_uses_and_derefs consider
+	 &PTR->FLD a dereference of PTR.  But that is wrong, since it
+	 is not really a dereference but an offset calculation.
+
+	 What we do here is to recognize these special ADDR_EXPR
+	 nodes.  Since these expressions are never GIMPLE values (they
+	 are not GIMPLE invariants), they can only appear on the RHS
+	 of an assignment and their base address is always an
+	 INDIRECT_REF expression.  */
+      is_potential_deref = false;
+      if (TREE_CODE (stmt) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == ADDR_EXPR
+	  && !is_gimple_val (TREE_OPERAND (stmt, 1)))
+	{
+	  /* If the RHS if of the form &PTR->FLD and PTR == OP, then
+	     this represents a potential dereference of PTR.  */
+	  tree rhs = TREE_OPERAND (stmt, 1);
+	  tree base = get_base_address (TREE_OPERAND (rhs, 0));
+	  if (TREE_CODE (base) == INDIRECT_REF
+	      && TREE_OPERAND (base, 0) == op)
+	    is_potential_deref = true;
+	}
+
+      if (num_derefs > 0 || is_potential_deref)
 	{
 	  /* Mark OP as dereferenced.  In a subsequent pass,
 	     dereferenced pointers that point to a set of
@@ -2678,7 +2726,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
    1- If the constraint for PTR is ADDRESSOF for a non-structure
       variable, then we can use it directly because adding or
       subtracting a constant may not alter the original ADDRESSOF
-      constraing (i.e., pointer arithmetic may not legally go outside
+      constraint (i.e., pointer arithmetic may not legally go outside
       an object's boundaries).
 
    2- If the constraint for PTR is ADDRESSOF for a structure variable,
@@ -2838,7 +2886,7 @@ find_func_aliases (tree t, struct alias_info *ai)
    OFFSET.
    Effectively, walk the chain of fields for the variable START to find the
    first field that overlaps with OFFSET.
-   Abort if we can't find one.  */
+   Return NULL if we can't find one.  */
 
 static varinfo_t 
 first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
@@ -2854,8 +2902,7 @@ first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
 	return curr;
       curr = curr->next;
     }
-
-  gcc_unreachable ();
+  return NULL;
 }
 
 
@@ -2932,6 +2979,7 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
     if (TREE_CODE (field) == FIELD_DECL)
       {
 	bool push = false;
+	int pushed = 0;
 	
 	if (has_union 
 	    && (TREE_CODE (TREE_TYPE (field)) == QUAL_UNION_TYPE
@@ -2940,7 +2988,7 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	
 	if (!var_can_have_subvars (field))
 	  push = true;
-	else if (!(push_fields_onto_fieldstack
+	else if (!(pushed = push_fields_onto_fieldstack
 		   (TREE_TYPE (field), fieldstack,
 		    offset + bitpos_of_field (field), has_union))
 		 && DECL_SIZE (field)
@@ -2959,6 +3007,8 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	    pair->offset = offset + bitpos_of_field (field);
 	    count++;
 	  }
+	else
+	  count += pushed;
       }
 
   return count;
@@ -3284,7 +3334,7 @@ find_what_p_points_to (tree p)
 	      if (vi->is_artificial_var)
 		{
 		  /* FIXME.  READONLY should be handled better so that
-		     flow insensitive aliasing can disregard writeable
+		     flow insensitive aliasing can disregard writable
 		     aliases.  */
 		  if (vi->id == nothing_id)
 		    pi->pt_null = 1;

@@ -17,7 +17,7 @@
 ##
 ## You should have received a copy of the GNU General Public License along
 ## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
 GLIBCXX_3.4 {
@@ -515,8 +515,8 @@ GLIBCXX_3.4.3 {
 } GLIBCXX_3.4.2;
 
 GLIBCXX_3.4.4 {
- 
-   _ZN9__gnu_cxx6__poolILb0EE13_M_initializeEv;
+
+    _ZN9__gnu_cxx6__poolILb0EE13_M_initializeEv;
     _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEPFvPvE;
     _ZN9__gnu_cxx6__poolILb1EE21_M_destroy_thread_keyEPv;
     _ZN9__gnu_cxx6__poolILb1EE16_M_get_thread_idEv;
@@ -566,11 +566,12 @@ GLIBCXX_3.4.6 {
     _ZNSt8ios_base17_M_call_callbacksENS_5eventE;
     _ZNSt8ios_base20_M_dispose_callbacksEv;
     _ZNSt6locale5facet13_S_get_c_nameEv;
-    _ZN11__gnu_debug13__fancy_abortEPKciS1_S1_;
 
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE9showmanycEv;
 
     _ZNKSt15basic_stringbufIwSt11char_traitsIwESaIwEE3strEv;
+
+   _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEv;
 
 } GLIBCXX_3.4.5;
 

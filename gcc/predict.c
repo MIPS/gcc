@@ -643,7 +643,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	    {
 	      tree niter = NULL;
 
-	      if (number_of_iterations_exit (loop, exits[j], &niter_desc))
+	      if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
 		niter = niter_desc.niter;
 	      if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
 	        niter = loop_niter_by_eval (loop, exits[j]);
@@ -1557,11 +1557,11 @@ typedef struct block_info_def
 /* Similar information for edges.  */
 typedef struct edge_info_def
 {
-  /* In case edge is an loopback edge, the probability edge will be reached
+  /* In case edge is a loopback edge, the probability edge will be reached
      in case header is.  Estimated number of iterations of the loop can be
      then computed as 1 / (1 - back_edge_prob).  */
   sreal back_edge_prob;
-  /* True if the edge is an loopback edge in the natural loop.  */
+  /* True if the edge is a loopback edge in the natural loop.  */
   unsigned int back_edge:1;
 } *edge_info;
 

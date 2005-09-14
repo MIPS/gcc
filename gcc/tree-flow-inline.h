@@ -56,7 +56,7 @@ end_htab_p (htab_iterator *hti)
   return false;
 }
 
-/* Advance the hashtable iterator pointed by HTI to the next element of the
+/* Advance the hashtable iterator pointed to by HTI to the next element of the
    hashtable.  */
 
 static inline void *
@@ -105,7 +105,19 @@ next_referenced_var (referenced_var_iterator *iter)
     return NULL;
   return itm->to;
 } 
- 
+
+/* Fill up VEC with the variables in the referenced vars hashtable.  */
+
+static inline void
+fill_referenced_var_vec (VEC (tree, heap) **vec)
+{
+  referenced_var_iterator rvi;
+  tree var;
+  *vec = NULL;
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    VEC_safe_push (tree, heap, *vec, var);
+}
+
 /* Return the variable annotation for T, which must be a _DECL node.
    Return NULL if the variable annotation doesn't already exist.  */
 static inline var_ann_t
@@ -309,7 +321,7 @@ link_imm_use (ssa_use_operand_t *linknode, tree def)
     }
 }
 
-/* Set the value of a use pointed by USE to VAL.  */
+/* Set the value of a use pointed to by USE to VAL.  */
 static inline void
 set_ssa_use_from_ptr (use_operand_p use, tree val)
 {
@@ -1179,7 +1191,7 @@ op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline tree
 single_ssa_tree_operand (tree stmt, int flags)
 {
@@ -1197,7 +1209,7 @@ single_ssa_tree_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline use_operand_p
 single_ssa_use_operand (tree stmt, int flags)
 {
@@ -1216,7 +1228,7 @@ single_ssa_use_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline def_operand_p
 single_ssa_def_operand (tree stmt, int flags)
 {
@@ -1234,7 +1246,7 @@ single_ssa_def_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline bool
 zero_ssa_operands (tree stmt, int flags)
 {
@@ -1506,7 +1518,7 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
     {
       return true;
     }
-  else if (offset < sv->offset && (offset + size > sv->offset))
+  else if (offset < sv->offset && (size > sv->offset - offset))
     {
       return true;
     }

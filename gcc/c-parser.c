@@ -2463,6 +2463,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	{
 	  tree new_attrs;
 	  c_parser_consume_token (parser);
+	  mark_forward_parm_decls ();
 	  new_attrs = c_parser_attributes (parser);
 	  return c_parser_parms_list_declarator (parser, new_attrs);
 	}
@@ -5721,6 +5722,11 @@ c_parser_objc_method_definition (c_parser *parser)
       c_parser_consume_token (parser);
       if (pedantic)
 	pedwarn ("extra semicolon in method definition specified");
+    }
+  if (!c_parser_next_token_is (parser, CPP_OPEN_BRACE))
+    {
+      c_parser_error (parser, "expected %<{%>");
+      return;
     }
   objc_pq_context = 0;
   objc_start_method_definition (decl);

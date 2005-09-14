@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <string.h>
@@ -79,20 +79,40 @@ extract_int (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = *((const GFC_INTEGER_1 *) p);
+      {
+	GFC_INTEGER_1 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 2:
-      i = *((const GFC_INTEGER_2 *) p);
+      {
+	GFC_INTEGER_2 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 4:
-      i = *((const GFC_INTEGER_4 *) p);
+      {
+	GFC_INTEGER_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 8:
-      i = *((const GFC_INTEGER_8 *) p);
+      {
+	GFC_INTEGER_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      i = *((const GFC_INTEGER_16 *) p);
+      {
+	GFC_INTEGER_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
     default:
@@ -113,20 +133,40 @@ extract_uint (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = (GFC_UINTEGER_1) *((const GFC_INTEGER_1 *) p);
+      {
+	GFC_INTEGER_1 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_1) tmp;
+      }
       break;
     case 2:
-      i = (GFC_UINTEGER_2) *((const GFC_INTEGER_2 *) p);
+      {
+	GFC_INTEGER_2 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_2) tmp;
+      }
       break;
     case 4:
-      i = (GFC_UINTEGER_4) *((const GFC_INTEGER_4 *) p);
+      {
+	GFC_INTEGER_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_4) tmp;
+      }
       break;
     case 8:
-      i = (GFC_UINTEGER_8) *((const GFC_INTEGER_8 *) p);
+      {
+	GFC_INTEGER_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_8) tmp;
+      }
       break;
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      i = (GFC_UINTEGER_16) *((const GFC_INTEGER_16 *) p);
+      {
+	GFC_INTEGER_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_16) tmp;
+      }
       break;
 #endif
     default:
@@ -143,19 +183,35 @@ extract_real (const void *p, int len)
   switch (len)
     {
     case 4:
-      i = *((const GFC_REAL_4 *) p);
+      {
+	GFC_REAL_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 8:
-      i = *((const GFC_REAL_8 *) p);
+      {
+	GFC_REAL_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #ifdef HAVE_GFC_REAL_10
     case 10:
-      i = *((const GFC_REAL_10 *) p);
+      {
+	GFC_REAL_10 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
 #ifdef HAVE_GFC_REAL_16
     case 16:
-      i = *((const GFC_REAL_16 *) p);
+      {
+	GFC_REAL_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
     default:
@@ -772,6 +828,11 @@ write_float (fnode *f, const char *source, int len)
       if (res == 0)
 	{
 	  nb =  f->u.real.w;
+	  
+	  /* If the field width is zero, the processor must select a width 
+	     not zero.  4 is chosen to allow output of '-Inf' or '+Inf' */
+	     
+	  if (nb == 0) nb = 4;
 	  p = write_block (nb);
 	  if (nb < 3)
 	    {
@@ -784,18 +845,43 @@ write_float (fnode *f, const char *source, int len)
 	  if (res != 0)
 	    {
 	      if (signbit(n))
-		fin = '-';
+	        {
+	        
+	          /* If the sign is negative and the width is 3, there is
+	             insufficient room to output '-Inf', so output asterisks */
+	             
+	          if (nb == 3)
+	            {
+	              memset (p, '*',nb);
+	              return;
+	            }
+	            
+	          /* The negative sign is mandatory */
+	            
+	          fin = '-';
+		}    
 	      else
-		fin = '+';
+	      
+	          /* The positive sign is optional, but we output it for
+	             consistency */
+	             
+		  fin = '+';
 
 	      if (nb > 8)
+	      
+	        /* We have room, so output 'Infinity' */
+	        
 		memcpy(p + nb - 8, "Infinity", 8);
 	      else
+	      
+	        /* For the case of width equals 8, there is not enough room
+	           for the sign and 'Infinity' so we go with 'Inf' */
+	            
 		memcpy(p + nb - 3, "Inf", 3);
 	      if (nb < 9 && nb > 3)
-		p[nb - 4] = fin;
+		p[nb - 4] = fin;  /* Put the sign in front of Inf */
 	      else if (nb > 8)
-		p[nb - 9] = fin;
+		p[nb - 9] = fin;  /* Put the sign in front of Infinity */
 	    }
 	  else
 	    memcpy(p + nb - 3, "NaN", 3);
@@ -1262,7 +1348,8 @@ write_character (const char *source, int length)
 
 
 /* Output a real number with default format.
-   This is 1PG14.7E2 for REAL(4) and 1PG23.15E3 for REAL(8).  */
+   This is 1PG14.7E2 for REAL(4), 1PG23.15E3 for REAL(8),
+   1PG24.15E4 for REAL(10) and 1PG40.31E4 for REAL(16).  */
 
 static void
 write_real (const char *source, int length)
@@ -1271,17 +1358,31 @@ write_real (const char *source, int length)
   int org_scale = g.scale_factor;
   f.format = FMT_G;
   g.scale_factor = 1;
-  if (length < 8)
+  switch (length)
     {
+    case 4:
       f.u.real.w = 14;
       f.u.real.d = 7;
       f.u.real.e = 2;
-    }
-  else
-    {
+      break;
+    case 8:
       f.u.real.w = 23;
       f.u.real.d = 15;
       f.u.real.e = 3;
+      break;
+    case 10:
+      f.u.real.w = 24;
+      f.u.real.d = 15;
+      f.u.real.e = 4;
+      break;
+    case 16:
+      f.u.real.w = 40;
+      f.u.real.d = 31;
+      f.u.real.e = 4;
+      break;
+    default:
+      internal_error ("bad real kind");
+      break;
     }
   write_float (&f, source , length);
   g.scale_factor = org_scale;

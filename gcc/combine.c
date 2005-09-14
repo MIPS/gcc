@@ -641,7 +641,7 @@ combine_instructions (rtx f, unsigned int nregs)
   rtx prev;
 #endif
   int i;
-  unsigned int j;
+  unsigned int j = 0;
   rtx links, nextlinks;
   sbitmap_iterator sbi;
 
@@ -860,16 +860,19 @@ combine_instructions (rtx f, unsigned int nregs)
 		  rtx temp = XEXP (links, 0);
 		  if ((set = single_set (temp)) != 0
 		      && (note = find_reg_equal_equiv_note (temp)) != 0
-		      && GET_CODE (XEXP (note, 0)) != EXPR_LIST
+		      && (note = XEXP (note, 0), GET_CODE (note)) != EXPR_LIST
 		      /* Avoid using a register that may already been marked
 			 dead by an earlier instruction.  */
-		      && ! unmentioned_reg_p (XEXP (note, 0), SET_SRC (set)))
+		      && ! unmentioned_reg_p (note, SET_SRC (set))
+		      && (GET_MODE (note) == VOIDmode
+			  ? SCALAR_INT_MODE_P (GET_MODE (SET_DEST (set)))
+			  : GET_MODE (SET_DEST (set)) == GET_MODE (note)))
 		    {
 		      /* Temporarily replace the set's source with the
 			 contents of the REG_EQUAL note.  The insn will
 			 be deleted or recognized by try_combine.  */
 		      rtx orig = SET_SRC (set);
-		      SET_SRC (set) = XEXP (note, 0);
+		      SET_SRC (set) = note;
 		      next = try_combine (insn, temp, NULL_RTX,
 					  &new_direct_jump_p);
 		      if (next)
@@ -1563,7 +1566,7 @@ struct likely_spilled_retval_info
   unsigned mask;
 };
 
-/* Called via note_stores by likely_spilled_retval_p.  remove from info->mask
+/* Called via note_stores by likely_spilled_retval_p.  Remove from info->mask
    hard registers that are known to be written to / clobbered in full.  */
 static void
 likely_spilled_retval_1 (rtx x, rtx set, void *data)
@@ -1661,6 +1664,29 @@ adjust_for_new_dest (rtx insn)
      of an insn just above it.  Call distribute_links to make a LOG_LINK from
      the next use of that destination.  */
   distribute_links (gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX));
+}
+
+/* Return TRUE if combine can reuse reg X in mode MODE.
+   ADDED_SETS is nonzero if the original set is still required.  */
+static bool
+can_change_dest_mode (rtx x, int added_sets, enum machine_mode mode)
+{
+  unsigned int regno;
+
+  if (!REG_P(x))
+    return false;
+
+  regno = REGNO (x);
+  /* Allow hard registers if the new mode is legal, and occupies no more
+     registers than the old mode.  */
+  if (regno < FIRST_PSEUDO_REGISTER)
+    return (HARD_REGNO_MODE_OK (regno, mode)
+	    && (hard_regno_nregs[regno][GET_MODE (x)]
+		>= hard_regno_nregs[regno][mode]));
+
+  /* Or a pseudo that is only used once.  */
+  return (REG_N_SETS (regno) == 1 && !added_sets
+	  && !REG_USERVAR_P (x));
 }
 
 /* Try to combine the insns I1 and I2 into I3.
@@ -2114,13 +2140,12 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 					      i2src, const0_rtx))
 	      != GET_MODE (SET_DEST (newpat))))
 	{
-	  unsigned int regno = REGNO (SET_DEST (newpat));
-	  rtx new_dest = gen_rtx_REG (compare_mode, regno);
-
-	  if (regno < FIRST_PSEUDO_REGISTER
-	      || (REG_N_SETS (regno) == 1 && ! added_sets_2
-		  && ! REG_USERVAR_P (SET_DEST (newpat))))
+	  if (can_change_dest_mode(SET_DEST (newpat), added_sets_2,
+				   compare_mode))
 	    {
+	      unsigned int regno = REGNO (SET_DEST (newpat));
+	      rtx new_dest = gen_rtx_REG (compare_mode, regno);
+
 	      if (regno >= FIRST_PSEUDO_REGISTER)
 		SUBST (regno_reg_rtx[regno], new_dest);
 
@@ -2353,14 +2378,12 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
       if (m_split == 0 && ! reg_overlap_mentioned_p (ni2dest, newpat))
 	{
+ 	  enum machine_mode new_mode = GET_MODE (SET_DEST (newpat));
 	  /* If I2DEST is a hard register or the only use of a pseudo,
 	     we can change its mode.  */
-	  if (GET_MODE (SET_DEST (newpat)) != GET_MODE (i2dest)
-	      && GET_MODE (SET_DEST (newpat)) != VOIDmode
-	      && REG_P (i2dest)
-	      && (REGNO (i2dest) < FIRST_PSEUDO_REGISTER
-		  || (REG_N_SETS (REGNO (i2dest)) == 1 && ! added_sets_2
-		      && ! REG_USERVAR_P (i2dest))))
+ 	  if (new_mode != GET_MODE (i2dest)
+ 	      && new_mode != VOIDmode
+ 	      && can_change_dest_mode (i2dest, added_sets_2, new_mode))
 	    ni2dest = gen_rtx_REG (GET_MODE (SET_DEST (newpat)),
 				   REGNO (i2dest));
 
@@ -2468,13 +2491,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	     isn't valid for it, or change the number of registers.  */
 	  && (GET_MODE (*split) == GET_MODE (i2dest)
 	      || GET_MODE (*split) == VOIDmode
-	      || (REGNO (i2dest) < FIRST_PSEUDO_REGISTER
-		  && HARD_REGNO_MODE_OK (REGNO (i2dest), GET_MODE (*split))
-		  && (hard_regno_nregs[REGNO (i2dest)][GET_MODE (i2dest)]
-		      == hard_regno_nregs[REGNO (i2dest)][GET_MODE (*split)]))
-	      || (REGNO (i2dest) >= FIRST_PSEUDO_REGISTER
-		  && REG_N_SETS (REGNO (i2dest)) == 1 && ! added_sets_2
-		  && ! REG_USERVAR_P (i2dest)))
+	      || can_change_dest_mode (i2dest, added_sets_2,
+				       GET_MODE (*split)))
 	  && (next_real_insn (i2) == i3
 	      || ! use_crosses_set_p (*split, INSN_CUID (i2)))
 	  /* We can't overwrite I2DEST if its value is still used by
@@ -5279,12 +5297,11 @@ simplify_set (rtx x)
 	 which case we can safely change its mode.  */
       if (compare_mode != GET_MODE (dest))
 	{
-	  unsigned int regno = REGNO (dest);
-	  rtx new_dest = gen_rtx_REG (compare_mode, regno);
-
-	  if (regno < FIRST_PSEUDO_REGISTER
-	      || (REG_N_SETS (regno) == 1 && ! REG_USERVAR_P (dest)))
+	  if (can_change_dest_mode (dest, 0, compare_mode))
 	    {
+	      unsigned int regno = REGNO (dest);
+	      rtx new_dest = gen_rtx_REG (compare_mode, regno);
+
 	      if (regno >= FIRST_PSEUDO_REGISTER)
 		SUBST (regno_reg_rtx[regno], new_dest);
 
@@ -6467,11 +6484,13 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	  && GET_MODE_SIZE (inner_mode) < GET_MODE_SIZE (is_mode))
 	offset -= GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (inner_mode);
 
-      /* If this is a constant position, we can move to the desired byte.  */
+      /* If this is a constant position, we can move to the desired byte.
+	 Be careful not to go beyond the original object. */
       if (pos_rtx == 0)
 	{
-	  offset += pos / BITS_PER_UNIT;
-	  pos %= GET_MODE_BITSIZE (wanted_inner_mode);
+	  enum machine_mode bfmode = smallest_mode_for_size (len, MODE_INT);
+	  offset += pos / GET_MODE_BITSIZE (bfmode);
+	  pos %= GET_MODE_BITSIZE (bfmode);
 	}
 
       if (BYTES_BIG_ENDIAN != BITS_BIG_ENDIAN
@@ -10222,7 +10241,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		      /* (A - C1) always sign-extends, like C2.  */
 		      && num_sign_bit_copies (a, inner_mode)
 			 > (unsigned int) (GET_MODE_BITSIZE (inner_mode)
-					   - mode_width - 1)))
+					   - (mode_width - 1))))
 		{
 		  op0 = SUBREG_REG (op0);
 		  continue;

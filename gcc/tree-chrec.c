@@ -30,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "real.h"
 #include "diagnostic.h"
 #include "varray.h"
 #include "cfgloop.h"
@@ -37,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 #include "params.h"
+#include "tree-scalar-evolution.h"
 
 
 
@@ -119,7 +121,9 @@ chrec_fold_plus_poly_poly (enum tree_code code,
 	  (CHREC_VARIABLE (poly1), 
 	   chrec_fold_minus (type, poly0, CHREC_LEFT (poly1)),
 	   chrec_fold_multiply (type, CHREC_RIGHT (poly1), 
-				build_int_cst_type (type, -1)));
+				SCALAR_FLOAT_TYPE_P (type)
+				? build_real (type, dconstm1)
+				: build_int_cst_type (type, -1)));
     }
   
   if (CHREC_VARIABLE (poly0) > CHREC_VARIABLE (poly1))
@@ -208,7 +212,9 @@ chrec_fold_multiply_poly_poly (tree type,
 						       CHREC_RIGHT (poly1)));
   /* "2*b*d".  */
   t2 = chrec_fold_multiply (type, CHREC_RIGHT (poly0), CHREC_RIGHT (poly1));
-  t2 = chrec_fold_multiply (type, build_int_cst_type (type, 2), t2);
+  t2 = chrec_fold_multiply (type, SCALAR_FLOAT_TYPE_P (type)
+			    ? build_real (type, dconst2)
+			    : build_int_cst_type (type, 2), t2);
 
   var = CHREC_VARIABLE (poly0);
   return build_polynomial_chrec (var, t0,
@@ -284,8 +290,10 @@ chrec_fold_plus_1 (enum tree_code code,
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (op1), 
 	       chrec_fold_minus (type, op0, CHREC_LEFT (op1)),
-	       chrec_fold_multiply (type, CHREC_RIGHT (op1),
-				    build_int_cst_type (type, -1)));
+	       chrec_fold_multiply (type, CHREC_RIGHT (op1), 
+				    SCALAR_FLOAT_TYPE_P (type)
+				    ? build_real (type, dconstm1)
+				    : build_int_cst_type (type, -1)));
 
 	default:
 	  {
@@ -531,6 +539,9 @@ chrec_apply (unsigned var,
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(chrec_apply \n");
+
+  if (TREE_CODE (x) == INTEGER_CST && SCALAR_FLOAT_TYPE_P (type))
+    x = build_real_from_int_cst (type, x);
 
   if (evolution_function_is_affine_p (chrec))
     {
@@ -924,9 +935,16 @@ evolution_function_is_invariant_rec_p (tree chrec, int loopnum)
 				   chrec))
     return true;
 
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
-      && CHREC_VARIABLE (chrec) == (unsigned) loopnum)
-    return false;
+  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
+    {
+      if (CHREC_VARIABLE (chrec) == (unsigned) loopnum
+	  || !evolution_function_is_invariant_rec_p (CHREC_RIGHT (chrec),
+						     loopnum)
+	  || !evolution_function_is_invariant_rec_p (CHREC_LEFT (chrec),
+						     loopnum))
+	return false;
+      return true;
+    }
 
   switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
     {
@@ -1110,11 +1128,46 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
 
   if (evolution_function_is_affine_p (chrec))
     {
-      tree step = convert_step (current_loops->parray[CHREC_VARIABLE (chrec)],
- 				type, CHREC_LEFT (chrec), CHREC_RIGHT (chrec),
- 				at_stmt);
+      tree base, step;
+      bool dummy;
+      struct loop *loop = current_loops->parray[CHREC_VARIABLE (chrec)];
+
+      base = instantiate_parameters (loop, CHREC_LEFT (chrec));
+      step = instantiate_parameters (loop, CHREC_RIGHT (chrec));
+
+      /* Avoid conversion of (signed char) {(uchar)1, +, (uchar)1}_x
+	 when it is not possible to prove that the scev does not wrap.
+	 See PR22236, where a sequence 1, 2, ..., 255 has to be
+	 converted to signed char, but this would wrap: 
+	 1, 2, ..., 127, -128, ...  The result should not be
+	 {(schar)1, +, (schar)1}_x, but instead, we should keep the
+	 conversion: (schar) {(uchar)1, +, (uchar)1}_x.  */
+      if (scev_probably_wraps_p (type, base, step, at_stmt, loop,
+				 &dummy, &dummy))
+	goto failed_to_convert;
+
+      step = convert_step (loop, type, base, step, at_stmt);
       if (!step)
- 	return fold_convert (type, chrec);
+ 	{
+	failed_to_convert:;
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "(failed conversion:");
+	      fprintf (dump_file, "\n  type: ");
+	      print_generic_expr (dump_file, type, 0);
+	      fprintf (dump_file, "\n  base: ");
+	      print_generic_expr (dump_file, base, 0);
+	      fprintf (dump_file, "\n  step: ");
+	      print_generic_expr (dump_file, step, 0);
+	      fprintf (dump_file, "\n  estimated_nb_iterations: ");
+	      print_generic_expr (dump_file, loop->estimated_nb_iterations, 0);
+	      fprintf (dump_file, "\n)\n");
+	    }
+
+	  /* Directly convert to "don't know": no worth dealing with
+	     difficult cases.  */
+	  return chrec_dont_know;
+	}
 
       return build_polynomial_chrec (CHREC_VARIABLE (chrec),
  				     chrec_convert (type, CHREC_LEFT (chrec),

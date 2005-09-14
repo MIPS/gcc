@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libtool_VERSION multi_basedir build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar glibcxx_builddir glibcxx_srcdir toplevel_srcdir CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LN_S AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBTOOL CXXCPP CPPFLAGS enable_shared enable_static GLIBCXX_HOSTED_TRUE GLIBCXX_HOSTED_FALSE GLIBCXX_BUILD_PCH_TRUE GLIBCXX_BUILD_PCH_FALSE glibcxx_PCHFLAGS CSTDIO_H BASIC_FILE_H BASIC_FILE_CC CPP EGREP check_msgfmt glibcxx_MOFILES glibcxx_POFILES glibcxx_localedir USE_NLS CLOCALE_H CMESSAGES_H CCODECVT_CC CCOLLATE_CC CCTYPE_CC CMESSAGES_CC CMONEY_CC CNUMERIC_CC CTIME_H CTIME_CC CLOCALE_CC CLOCALE_INTERNAL_H ALLOCATOR_H ALLOCATOR_NAME C_INCLUDE_DIR GLIBCXX_C_HEADERS_C_TRUE GLIBCXX_C_HEADERS_C_FALSE GLIBCXX_C_HEADERS_C_STD_TRUE GLIBCXX_C_HEADERS_C_STD_FALSE GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE DEBUG_FLAGS GLIBCXX_BUILD_DEBUG_TRUE GLIBCXX_BUILD_DEBUG_FALSE EXTRA_CXX_FLAGS glibcxx_thread_h WERROR SECTION_FLAGS SECTION_LDFLAGS OPT_LDFLAGS LIBMATHOBJS LIBICONV SYMVER_MAP port_specific_symbol_files GLIBCXX_BUILD_VERSIONED_SHLIB_TRUE GLIBCXX_BUILD_VERSIONED_SHLIB_FALSE baseline_dir ATOMICITY_SRCDIR ATOMIC_WORD_SRCDIR ABI_TWEAKS_SRCDIR OS_INC_SRCDIR glibcxx_prefixdir gxx_include_dir glibcxx_toolexecdir glibcxx_toolexeclibdir GLIBCXX_INCLUDES TOPLEVEL_INCLUDES OPTIMIZE_CXXFLAGS WARN_FLAGS LIBSUPCXX_PICFLAGS LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libtool_VERSION multi_basedir build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar glibcxx_builddir glibcxx_srcdir toplevel_srcdir CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LN_S AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBTOOL CXXCPP CPPFLAGS enable_shared enable_static GLIBCXX_HOSTED_TRUE GLIBCXX_HOSTED_FALSE GLIBCXX_BUILD_PCH_TRUE GLIBCXX_BUILD_PCH_FALSE glibcxx_PCHFLAGS CSTDIO_H BASIC_FILE_H BASIC_FILE_CC CPP EGREP check_msgfmt glibcxx_MOFILES glibcxx_POFILES glibcxx_localedir USE_NLS CLOCALE_H CMESSAGES_H CCODECVT_CC CCOLLATE_CC CCTYPE_CC CMESSAGES_CC CMONEY_CC CNUMERIC_CC CTIME_H CTIME_CC CLOCALE_CC CLOCALE_INTERNAL_H ALLOCATOR_H ALLOCATOR_NAME C_INCLUDE_DIR GLIBCXX_C_HEADERS_C_TRUE GLIBCXX_C_HEADERS_C_FALSE GLIBCXX_C_HEADERS_C_STD_TRUE GLIBCXX_C_HEADERS_C_STD_FALSE GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE DEBUG_FLAGS GLIBCXX_BUILD_DEBUG_TRUE GLIBCXX_BUILD_DEBUG_FALSE EXTRA_CXX_FLAGS glibcxx_thread_h WERROR SECTION_FLAGS SECTION_LDFLAGS OPT_LDFLAGS LIBMATHOBJS LIBICONV SYMVER_MAP port_specific_symbol_files ENABLE_SYMVERS_GNU_TRUE ENABLE_SYMVERS_GNU_FALSE ENABLE_SYMVERS_DARWIN_EXPORT_TRUE ENABLE_SYMVERS_DARWIN_EXPORT_FALSE baseline_dir ATOMICITY_SRCDIR ATOMIC_WORD_SRCDIR ABI_TWEAKS_SRCDIR OS_INC_SRCDIR glibcxx_prefixdir gxx_include_dir glibcxx_toolexecdir glibcxx_toolexeclibdir GLIBCXX_INCLUDES TOPLEVEL_INCLUDES OPTIMIZE_CXXFLAGS WARN_FLAGS LIBSUPCXX_PICFLAGS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -1542,7 +1542,24 @@ target_alias=${target_alias-$host_alias}
 if test "$build" != "$host"; then
   # We are being configured with some form of cross compiler.
   GLIBCXX_IS_NATIVE=false
+  case "$host","$target" in
+    # Darwin crosses can use the host system's libraries and headers,
+    # because of the fat library support.  Of course, it must be the
+    # same version of Darwin on both sides.  Allow the user to
+    # just say --target=foo-darwin without a version number to mean
+    # "the version on this system".
+      *-*-darwin*,*-*-darwin*)
+	hostos=`echo $host | sed 's/.*-darwin/darwin/'`
+	targetos=`echo $target | sed 's/.*-darwin/darwin/'`
+	if test $hostos = $targetos -o $targetos = darwin ; then
+	  GLIBCXX_IS_NATIVE=true
+	fi
+	;;
 
+      *)
+
+	;;
+  esac
 else
   GLIBCXX_IS_NATIVE=true
 fi
@@ -4439,7 +4456,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4442 "configure"' > conftest.$ac_ext
+  echo '#line 4459 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5059,7 +5076,7 @@ fi;
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 5062 "configure"
+#line 5079 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -29307,6 +29324,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for poll" >&5
+echo $ECHO_N "checking for poll... $ECHO_C" >&6
   if test "${glibcxx_cv_POLL+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -29374,8 +29393,12 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_POLL" >&5
+echo "${ECHO_T}$glibcxx_cv_POLL" >&6
 
 
+  echo "$as_me:$LINENO: checking for S_ISREG or S_IFREG" >&5
+echo $ECHO_N "checking for S_ISREG or S_IFREG... $ECHO_C" >&6
   if test "${glibcxx_cv_S_ISREG+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -29496,19 +29519,24 @@ rm -f conftest.err conftest.$ac_objext \
 
 fi
 
+  res=no
   if test $glibcxx_cv_S_ISREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_ISREG 1
 _ACEOF
 
+    res=S_ISREG
   elif test $glibcxx_cv_S_IFREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_IFREG 1
 _ACEOF
 
+    res=S_IFREG
   fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
   # For xsputn_2().
@@ -29663,6 +29691,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for writev" >&5
+echo $ECHO_N "checking for writev... $ECHO_C" >&6
   if test "${glibcxx_cv_WRITEV+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -29729,10 +29759,14 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_WRITEV" >&5
+echo "${ECHO_T}$glibcxx_cv_WRITEV" >&6
 
 
   # For the __streamoff_base_type typedef.
 
+  echo "$as_me:$LINENO: checking for int64_t" >&5
+echo $ECHO_N "checking for int64_t... $ECHO_C" >&6
   if test "${glibcxx_cv_INT64_T+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -29792,6 +29826,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_INT64_T" >&5
+echo "${ECHO_T}$glibcxx_cv_INT64_T" >&6
 
 
   # For LFS support.
@@ -29806,6 +29842,8 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
   ac_save_CXXFLAGS="$CXXFLAGS"
   CXXFLAGS="$CXXFLAGS -fno-exceptions"
+  echo "$as_me:$LINENO: checking for LFS support" >&5
+echo $ECHO_N "checking for LFS support... $ECHO_C" >&6
   if test "${glibcxx_cv_LFS+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -29880,6 +29918,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_LFS" >&5
+echo "${ECHO_T}$glibcxx_cv_LFS" >&6
   CXXFLAGS="$ac_save_CXXFLAGS"
   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -52060,6 +52100,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for poll" >&5
+echo $ECHO_N "checking for poll... $ECHO_C" >&6
   if test "${glibcxx_cv_POLL+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -52127,8 +52169,12 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_POLL" >&5
+echo "${ECHO_T}$glibcxx_cv_POLL" >&6
 
 
+  echo "$as_me:$LINENO: checking for S_ISREG or S_IFREG" >&5
+echo $ECHO_N "checking for S_ISREG or S_IFREG... $ECHO_C" >&6
   if test "${glibcxx_cv_S_ISREG+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -52249,19 +52295,24 @@ rm -f conftest.err conftest.$ac_objext \
 
 fi
 
+  res=no
   if test $glibcxx_cv_S_ISREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_ISREG 1
 _ACEOF
 
+    res=S_ISREG
   elif test $glibcxx_cv_S_IFREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_IFREG 1
 _ACEOF
 
+    res=S_IFREG
   fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
     # For xsputn_2().
@@ -52416,6 +52467,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for writev" >&5
+echo $ECHO_N "checking for writev... $ECHO_C" >&6
   if test "${glibcxx_cv_WRITEV+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -52482,6 +52535,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_WRITEV" >&5
+echo "${ECHO_T}$glibcxx_cv_WRITEV" >&6
 
 
     cat >>confdefs.h <<\_ACEOF
@@ -73811,6 +73866,8 @@ done
   CXXFLAGS="$ac_save_CXXFLAGS"
 
 
+  echo "$as_me:$LINENO: checking for S_ISREG or S_IFREG" >&5
+echo $ECHO_N "checking for S_ISREG or S_IFREG... $ECHO_C" >&6
   if test "${glibcxx_cv_S_ISREG+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -73931,19 +73988,24 @@ rm -f conftest.err conftest.$ac_objext \
 
 fi
 
+  res=no
   if test $glibcxx_cv_S_ISREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_ISREG 1
 _ACEOF
 
+    res=S_ISREG
   elif test $glibcxx_cv_S_IFREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_IFREG 1
 _ACEOF
 
+    res=S_IFREG
   fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_WRITEV 1
@@ -78270,6 +78332,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for poll" >&5
+echo $ECHO_N "checking for poll... $ECHO_C" >&6
   if test "${glibcxx_cv_POLL+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -78337,8 +78401,12 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_POLL" >&5
+echo "${ECHO_T}$glibcxx_cv_POLL" >&6
 
 
+  echo "$as_me:$LINENO: checking for S_ISREG or S_IFREG" >&5
+echo $ECHO_N "checking for S_ISREG or S_IFREG... $ECHO_C" >&6
   if test "${glibcxx_cv_S_ISREG+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -78459,19 +78527,24 @@ rm -f conftest.err conftest.$ac_objext \
 
 fi
 
+  res=no
   if test $glibcxx_cv_S_ISREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_ISREG 1
 _ACEOF
 
+    res=S_ISREG
   elif test $glibcxx_cv_S_IFREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_IFREG 1
 _ACEOF
 
+    res=S_IFREG
   fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
     # For xsputn_2().
@@ -78626,6 +78699,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for writev" >&5
+echo $ECHO_N "checking for writev... $ECHO_C" >&6
   if test "${glibcxx_cv_WRITEV+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -78692,6 +78767,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_WRITEV" >&5
+echo "${ECHO_T}$glibcxx_cv_WRITEV" >&6
 
 
     cat >>confdefs.h <<\_ACEOF
@@ -83049,6 +83126,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for poll" >&5
+echo $ECHO_N "checking for poll... $ECHO_C" >&6
   if test "${glibcxx_cv_POLL+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -83116,8 +83195,12 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_POLL" >&5
+echo "${ECHO_T}$glibcxx_cv_POLL" >&6
 
 
+  echo "$as_me:$LINENO: checking for S_ISREG or S_IFREG" >&5
+echo $ECHO_N "checking for S_ISREG or S_IFREG... $ECHO_C" >&6
   if test "${glibcxx_cv_S_ISREG+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -83238,19 +83321,24 @@ rm -f conftest.err conftest.$ac_objext \
 
 fi
 
+  res=no
   if test $glibcxx_cv_S_ISREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_ISREG 1
 _ACEOF
 
+    res=S_ISREG
   elif test $glibcxx_cv_S_IFREG = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_IFREG 1
 _ACEOF
 
+    res=S_IFREG
   fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
     # For xsputn_2().
@@ -83405,6 +83493,8 @@ fi
 done
 
 
+  echo "$as_me:$LINENO: checking for writev" >&5
+echo $ECHO_N "checking for writev... $ECHO_C" >&6
   if test "${glibcxx_cv_WRITEV+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -83471,6 +83561,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
+  echo "$as_me:$LINENO: result: $glibcxx_cv_WRITEV" >&5
+echo "${ECHO_T}$glibcxx_cv_WRITEV" >&6
 
     ;;
   *-qnx6.1* | *-qnx6.2*)
@@ -87145,7 +87237,7 @@ if test "${enable_symvers+set}" = set; then
   enableval="$enable_symvers"
 
       case "$enableval" in
-       yes|no|gnu) ;;
+       yes|no|gnu|darwin-export) ;;
        *) { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable symvers" >&5
 echo "$as_me: error: Unknown argument to enable/disable symvers" >&2;}
    { (exit 1); exit 1; }; } ;;
@@ -87159,11 +87251,28 @@ fi;
 # If we never went through the GLIBCXX_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks...
 
-# FIXME  The following test is too strict, in theory.
-if test $enable_shared = no ||
-        test "x$LD" = x ||
-        test x$glibcxx_gnu_ld_version = x; then
-  enable_symvers=no
+
+# Turn a 'yes' into a suitable default.
+if test x$enable_symvers = xyes ; then
+  if test $enable_shared = no ||
+     test "x$LD" = x ; then
+    enable_symvers=no
+  elif test $with_gnu_ld == yes ; then
+    enable_symvers=gnu
+  else
+    case ${target_os} in
+      darwin*)
+	enable_symvers=darwin-export ;;
+      *)
+      { echo "$as_me:$LINENO: WARNING: === You have requested some kind of symbol versioning, but" >&5
+echo "$as_me: WARNING: === You have requested some kind of symbol versioning, but" >&2;}
+      { echo "$as_me:$LINENO: WARNING: === you are not using a supported linker." >&5
+echo "$as_me: WARNING: === you are not using a supported linker." >&2;}
+      { echo "$as_me:$LINENO: WARNING: === Symbol versioning will be disabled." >&5
+echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
+	enable_symvers=no ;;
+    esac
+  fi
 fi
 
 # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
@@ -87292,48 +87401,44 @@ rm -f conftest.err conftest.$ac_objext \
 echo "${ECHO_T}$glibcxx_shared_libgcc" >&6
 fi
 
-# For GNU ld, we need at least this version.  The format is described in
-# GLIBCXX_CHECK_LINKER_FEATURES above.
-glibcxx_min_gnu_ld_version=21400
-
-# Check to see if unspecified "yes" value can win, given results above.
-# Change "yes" into either "no" or a style name.
-if test $enable_symvers = yes; then
-  if test $with_gnu_ld = yes &&
-     test $glibcxx_shared_libgcc = yes;
-  then
-    if test $glibcxx_gnu_ld_version -ge $glibcxx_min_gnu_ld_version ; then
-      enable_symvers=gnu
-    else
-      # The right tools, the right setup, but too old.  Fallbacks?
-      { echo "$as_me:$LINENO: WARNING: === Linker version $glibcxx_gnu_ld_version is too old for" >&5
-echo "$as_me: WARNING: === Linker version $glibcxx_gnu_ld_version is too old for" >&2;}
-      { echo "$as_me:$LINENO: WARNING: === full symbol versioning support in this release of GCC." >&5
-echo "$as_me: WARNING: === full symbol versioning support in this release of GCC." >&2;}
-      { echo "$as_me:$LINENO: WARNING: === You would need to upgrade your binutils to version" >&5
-echo "$as_me: WARNING: === You would need to upgrade your binutils to version" >&2;}
-      { echo "$as_me:$LINENO: WARNING: === $glibcxx_min_gnu_ld_version or later and rebuild GCC." >&5
-echo "$as_me: WARNING: === $glibcxx_min_gnu_ld_version or later and rebuild GCC." >&2;}
-      if test $glibcxx_gnu_ld_version -ge 21200 ; then
-        # Globbing fix is present, proper block support is not.
-        { echo "$as_me:$LINENO: WARNING: === Symbol versioning will be disabled." >&5
-echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
-        enable_symvers=no
-      else
-        # 2.11 or older.
-        { echo "$as_me:$LINENO: WARNING: === Symbol versioning will be disabled." >&5
-echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
-        enable_symvers=no
-      fi
-    fi
-  else
-    # just fail for now
+# If no shared libgcc, can't win.
+if test $glibcxx_shared_libgcc != yes &&
+   test $enable_symvers != no ; then
     { echo "$as_me:$LINENO: WARNING: === You have requested some kind of symbol versioning, but" >&5
 echo "$as_me: WARNING: === You have requested some kind of symbol versioning, but" >&2;}
-    { echo "$as_me:$LINENO: WARNING: === either you are not using a supported linker, or you are" >&5
-echo "$as_me: WARNING: === either you are not using a supported linker, or you are" >&2;}
-    { echo "$as_me:$LINENO: WARNING: === not building a shared libgcc_s (which is required)." >&5
-echo "$as_me: WARNING: === not building a shared libgcc_s (which is required)." >&2;}
+    { echo "$as_me:$LINENO: WARNING: === you are not building a shared libgcc_s." >&5
+echo "$as_me: WARNING: === you are not building a shared libgcc_s." >&2;}
+    { echo "$as_me:$LINENO: WARNING: === Symbol versioning will be disabled." >&5
+echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
+    enable_symvers=no
+  enable_symvers=no
+fi
+
+# Check to see if 'gnu' can win.
+if test $enable_symvers = gnu; then
+  # For GNU ld, we need at least this version.  The format is described in
+  # GLIBCXX_CHECK_LINKER_FEATURES above.
+  glibcxx_min_gnu_ld_version=21400
+
+  if test $with_gnu_ld != yes ; then
+    # just fail for now
+    { echo "$as_me:$LINENO: WARNING: === You have requested GNU symbol versioning, but" >&5
+echo "$as_me: WARNING: === You have requested GNU symbol versioning, but" >&2;}
+    { echo "$as_me:$LINENO: WARNING: === you are not using the GNU linker." >&5
+echo "$as_me: WARNING: === you are not using the GNU linker." >&2;}
+    { echo "$as_me:$LINENO: WARNING: === Symbol versioning will be disabled." >&5
+echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
+    enable_symvers=no
+  elif test $glibcxx_gnu_ld_version -lt $glibcxx_min_gnu_ld_version ; then
+    # The right tools, the right setup, but too old.  Fallbacks?
+    { echo "$as_me:$LINENO: WARNING: === Linker version $glibcxx_gnu_ld_version is too old for" >&5
+echo "$as_me: WARNING: === Linker version $glibcxx_gnu_ld_version is too old for" >&2;}
+    { echo "$as_me:$LINENO: WARNING: === full symbol versioning support in this release of GCC." >&5
+echo "$as_me: WARNING: === full symbol versioning support in this release of GCC." >&2;}
+    { echo "$as_me:$LINENO: WARNING: === You would need to upgrade your binutils to version" >&5
+echo "$as_me: WARNING: === You would need to upgrade your binutils to version" >&2;}
+    { echo "$as_me:$LINENO: WARNING: === $glibcxx_min_gnu_ld_version or later and rebuild GCC." >&5
+echo "$as_me: WARNING: === $glibcxx_min_gnu_ld_version or later and rebuild GCC." >&2;}
     { echo "$as_me:$LINENO: WARNING: === Symbol versioning will be disabled." >&5
 echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
     enable_symvers=no
@@ -87352,6 +87457,9 @@ cat >>confdefs.h <<\_ACEOF
 #define _GLIBCXX_SYMVER 1
 _ACEOF
 
+    ;;
+  darwin-export)
+    SYMVER_MAP=config/linker-map.gnu
     ;;
 esac
 
@@ -87481,14 +87589,14 @@ echo "${ECHO_T}$glibcxx_ptrdiff_t_is_i" >&6
 
 
 
+
 { echo "$as_me:$LINENO: versioning on shared library symbols is $enable_symvers" >&5
 echo "$as_me: versioning on shared library symbols is $enable_symvers" >&6;}
 
 
 # This depends on GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE.
 
-  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes &&
-			test $enable_symvers != no; then
+  if $GLIBCXX_IS_NATIVE ; then
     # Do checks for resource limit functions.
 
   setrlimit_have_headers=yes
@@ -87651,6 +87759,8 @@ done
   if test $setrlimit_have_headers = yes; then
     # Can't do these in a loop, else the resulting syntax is wrong.
 
+  echo "$as_me:$LINENO: checking for RLIMIT_DATA" >&5
+echo $ECHO_N "checking for RLIMIT_DATA... $ECHO_C" >&6
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -87704,8 +87814,13 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_LIMIT_DATA $glibcxx_mresult
 _ACEOF
 
+  if test $glibcxx_mresult = 1 ; then res=yes ; else res=no ; fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
+  echo "$as_me:$LINENO: checking for RLIMIT_RSS" >&5
+echo $ECHO_N "checking for RLIMIT_RSS... $ECHO_C" >&6
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -87759,8 +87874,13 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_LIMIT_RSS $glibcxx_mresult
 _ACEOF
 
+  if test $glibcxx_mresult = 1 ; then res=yes ; else res=no ; fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
+  echo "$as_me:$LINENO: checking for RLIMIT_VMEM" >&5
+echo $ECHO_N "checking for RLIMIT_VMEM... $ECHO_C" >&6
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -87814,8 +87934,13 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_LIMIT_VMEM $glibcxx_mresult
 _ACEOF
 
+  if test $glibcxx_mresult = 1 ; then res=yes ; else res=no ; fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
+  echo "$as_me:$LINENO: checking for RLIMIT_AS" >&5
+echo $ECHO_N "checking for RLIMIT_AS... $ECHO_C" >&6
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -87869,8 +87994,13 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_LIMIT_AS $glibcxx_mresult
 _ACEOF
 
+  if test $glibcxx_mresult = 1 ; then res=yes ; else res=no ; fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
+  echo "$as_me:$LINENO: checking for RLIMIT_FSIZE" >&5
+echo $ECHO_N "checking for RLIMIT_FSIZE... $ECHO_C" >&6
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -87924,6 +88054,9 @@ cat >>confdefs.h <<_ACEOF
 #define HAVE_LIMIT_FSIZE $glibcxx_mresult
 _ACEOF
 
+  if test $glibcxx_mresult = 1 ; then res=yes ; else res=no ; fi
+  echo "$as_me:$LINENO: result: $res" >&5
+echo "${ECHO_T}$res" >&6
 
 
     # Check for rlimit, setrlimit.
@@ -88185,17 +88318,16 @@ done
 
   fi
 
+  fi
 
-    if test $enable_symvers = no; then
-      enable_abi_check=no
-    else
-      case "$host" in
-        *-*-cygwin*)
-          enable_abi_check=no ;;
-        *)
-          enable_abi_check=yes ;;
-      esac
-    fi
+  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes &&
+     test $enable_symvers != no; then
+    case "$host" in
+      *-*-cygwin*)
+        enable_abi_check=no ;;
+      *)
+        enable_abi_check=yes ;;
+    esac
   else
     # Only build this as native, since automake does not understand
     # CXX_FOR_BUILD.
@@ -88290,12 +88422,23 @@ fi
 
 
 
-if test $enable_symvers != no; then
-  GLIBCXX_BUILD_VERSIONED_SHLIB_TRUE=
-  GLIBCXX_BUILD_VERSIONED_SHLIB_FALSE='#'
+if test $enable_symvers == gnu; then
+  ENABLE_SYMVERS_GNU_TRUE=
+  ENABLE_SYMVERS_GNU_FALSE='#'
 else
-  GLIBCXX_BUILD_VERSIONED_SHLIB_TRUE='#'
-  GLIBCXX_BUILD_VERSIONED_SHLIB_FALSE=
+  ENABLE_SYMVERS_GNU_TRUE='#'
+  ENABLE_SYMVERS_GNU_FALSE=
+fi
+
+
+
+
+if   test $enable_symvers == darwin-export; then
+  ENABLE_SYMVERS_DARWIN_EXPORT_TRUE=
+  ENABLE_SYMVERS_DARWIN_EXPORT_FALSE='#'
+else
+  ENABLE_SYMVERS_DARWIN_EXPORT_TRUE='#'
+  ENABLE_SYMVERS_DARWIN_EXPORT_FALSE=
 fi
 
 
@@ -88642,10 +88785,17 @@ echo "$as_me: error: conditional \"GLIBCXX_BUILD_DEBUG\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
-if test -z "${GLIBCXX_BUILD_VERSIONED_SHLIB_TRUE}" && test -z "${GLIBCXX_BUILD_VERSIONED_SHLIB_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"GLIBCXX_BUILD_VERSIONED_SHLIB\" was never defined.
+if test -z "${ENABLE_SYMVERS_GNU_TRUE}" && test -z "${ENABLE_SYMVERS_GNU_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"ENABLE_SYMVERS_GNU\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"GLIBCXX_BUILD_VERSIONED_SHLIB\" was never defined.
+echo "$as_me: error: conditional \"ENABLE_SYMVERS_GNU\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${ENABLE_SYMVERS_DARWIN_EXPORT_TRUE}" && test -z "${ENABLE_SYMVERS_DARWIN_EXPORT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"ENABLE_SYMVERS_DARWIN_EXPORT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"ENABLE_SYMVERS_DARWIN_EXPORT\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -89315,8 +89465,10 @@ s,@LIBMATHOBJS@,$LIBMATHOBJS,;t t
 s,@LIBICONV@,$LIBICONV,;t t
 s,@SYMVER_MAP@,$SYMVER_MAP,;t t
 s,@port_specific_symbol_files@,$port_specific_symbol_files,;t t
-s,@GLIBCXX_BUILD_VERSIONED_SHLIB_TRUE@,$GLIBCXX_BUILD_VERSIONED_SHLIB_TRUE,;t t
-s,@GLIBCXX_BUILD_VERSIONED_SHLIB_FALSE@,$GLIBCXX_BUILD_VERSIONED_SHLIB_FALSE,;t t
+s,@ENABLE_SYMVERS_GNU_TRUE@,$ENABLE_SYMVERS_GNU_TRUE,;t t
+s,@ENABLE_SYMVERS_GNU_FALSE@,$ENABLE_SYMVERS_GNU_FALSE,;t t
+s,@ENABLE_SYMVERS_DARWIN_EXPORT_TRUE@,$ENABLE_SYMVERS_DARWIN_EXPORT_TRUE,;t t
+s,@ENABLE_SYMVERS_DARWIN_EXPORT_FALSE@,$ENABLE_SYMVERS_DARWIN_EXPORT_FALSE,;t t
 s,@baseline_dir@,$baseline_dir,;t t
 s,@ATOMICITY_SRCDIR@,$ATOMICITY_SRCDIR,;t t
 s,@ATOMIC_WORD_SRCDIR@,$ATOMIC_WORD_SRCDIR,;t t

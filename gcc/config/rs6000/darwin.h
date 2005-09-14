@@ -55,6 +55,7 @@
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
       darwin_cpp_builtins (pfile);		\
+      SUBTARGET_OS_CPP_BUILTINS ();             \
     }                                           \
   while (0)
 
@@ -383,7 +384,13 @@ do {									\
 #define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
 
 #undef REGISTER_TARGET_PRAGMAS
-#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS() \
+  do \
+    { \
+      DARWIN_REGISTER_TARGET_PRAGMAS(); \
+      targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin; \
+    } \
+  while (0)
 
 /* Just like config/darwin.h's REAL_LIBGCC_SPEC, but use -lgcc_s_ppc64 for
    -m64.  */

@@ -91,7 +91,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    To vectorize stmt S2, the vectorizer first finds the stmt that defines
    the operand 'b' (S1), and gets the relevant vector def 'vb' from the
-   vector stmt VS1 pointed by STMT_VINFO_VEC_STMT (stmt_info (S1)). The
+   vector stmt VS1 pointed to by STMT_VINFO_VEC_STMT (stmt_info (S1)). The
    resulting sequence would be:
 
    VS1: vb = px[i];
@@ -137,6 +137,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfglayout.h"
 #include "expr.h"
 #include "optabs.h"
+#include "params.h"
 #include "toplev.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
@@ -179,6 +180,9 @@ unsigned int vect_loops_num;
 
 /* Loop location.  */
 static LOC vect_loop_location;
+
+/* Bitmap of virtual variables to be renamed.  */
+bitmap vect_vnames_to_rename;
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -511,6 +515,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
   basic_block orig_bb = loop->header;
   edge new_exit_e;
   tree current_new_name;
+  tree name;
 
   /* Create new bb between loop and new_merge_bb.  */
   *new_exit_bb = split_edge (loop->single_exit);
@@ -522,6 +527,15 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
        orig_phi && update_phi;
        orig_phi = PHI_CHAIN (orig_phi), update_phi = PHI_CHAIN (update_phi))
     {
+      /* Virtual phi; Mark it for renaming. We actually want to call
+	 mar_sym_for_renaming, but since all ssa renaming datastructures
+	 are going to be freed before we get to call ssa_upate, we just
+	 record this name for now in a bitmap, and will mark it for
+	 renaming later.  */
+      name = PHI_RESULT (orig_phi);
+      if (!is_gimple_reg (SSA_NAME_VAR (name)))
+        bitmap_set_bit (vect_vnames_to_rename, SSA_NAME_VERSION (name));
+
       /** 1. Handle new-merge-point phis  **/
 
       /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
@@ -640,6 +654,10 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
     {
       orig_phi = update_phi;
       orig_def = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
+      /* This loop-closed-phi actually doesn't represent a use
+         out of the loop - the phi arg is a constant.  */ 
+      if (TREE_CODE (orig_def) != SSA_NAME)
+        continue;
       orig_def_new_name = get_current_def (orig_def);
       arg = NULL_TREE;
 
@@ -845,7 +863,8 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
   new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
 
   copy_bbs (bbs, loop->num_nodes, new_bbs,
-	    &loop->single_exit, 1, &new_loop->single_exit, NULL);
+	    &loop->single_exit, 1, &new_loop->single_exit, NULL,
+	    e->src);
 
   /* Duplicating phi args at exit bbs as coming 
      also from exit of duplicated loop.  */
@@ -1142,7 +1161,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   add_bb_to_loop (bb_before_second_loop, first_loop->outer);
 
   pre_condition =
-    fold_build2 (LE_EXPR, boolean_type_node, first_niters, integer_zero_node);
+    fold_build2 (LE_EXPR, boolean_type_node, first_niters, 
+                 build_int_cst (TREE_TYPE (first_niters), 0));
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard1 (skip_e, first_loop,
@@ -1346,14 +1366,6 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
     STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
   else
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
-  STMT_VINFO_MEMTAG (res) = NULL;
-  STMT_VINFO_PTR_INFO (res) = NULL;
-  STMT_VINFO_SUBVARS (res) = NULL;
-  STMT_VINFO_VECT_DR_BASE_ADDRESS (res) = NULL;
-  STMT_VINFO_VECT_INIT_OFFSET (res) = NULL_TREE;
-  STMT_VINFO_VECT_STEP (res) = NULL_TREE;
-  STMT_VINFO_VECT_BASE_ALIGNED_P (res) = false;
-  STMT_VINFO_VECT_MISALIGNMENT (res) = NULL_TREE;
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
 
   return res;
@@ -1406,11 +1418,11 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
   LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
-			   "loop_write_datarefs");
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_READS (res), 20,
-			   "loop_read_datarefs");
+  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREFS (res), 20, "loop_datarefs");
+  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DDRS (res), 20, "loop_ddrs");
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
+  LOOP_VINFO_MAY_MISALIGN_STMTS (res)
+    = VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
 
   return res;
 }
@@ -1469,36 +1481,11 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
     }
 
   free (LOOP_VINFO_BBS (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_READS (loop_vinfo));
+  varray_clear (LOOP_VINFO_DATAREFS (loop_vinfo));
+  varray_clear (LOOP_VINFO_DDRS (loop_vinfo));
+  VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);
-}
-
-
-/* Function vect_strip_conversions
-
-   Strip conversions that don't narrow the mode.  */
-
-tree 
-vect_strip_conversion (tree expr)
-{
-  tree to, ti, oprnd0;
-  
-  while (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
-    {
-      to = TREE_TYPE (expr);
-      oprnd0 = TREE_OPERAND (expr, 0);
-      ti = TREE_TYPE (oprnd0);
- 
-      if (!INTEGRAL_TYPE_P (to) || !INTEGRAL_TYPE_P (ti))
-	return NULL_TREE;
-      if (GET_MODE_SIZE (TYPE_MODE (to)) < GET_MODE_SIZE (TYPE_MODE (ti)))
-	return NULL_TREE;
-      
-      expr = oprnd0;
-    }
-  return expr; 
 }
 
 
@@ -1792,7 +1779,7 @@ reduction_code_for_scalar_code (enum tree_code code,
   
    such that:
    1. operation is commutative and associative and it is safe to 
-      change the the order of the computation.
+      change the order of the computation.
    2. no uses for a2 in the loop (a2 is used out of the loop)
    3. no uses of a1 in the loop besides the reduction operation.
 
@@ -2041,6 +2028,10 @@ vectorize_loops (struct loops *loops)
   /* Fix the verbosity level if not defined explicitly by the user.  */
   vect_set_dump_settings ();
 
+  /* Allocate the bitmap that records which virtual variables that 
+     need to be renamed.  */
+  vect_vnames_to_rename = BITMAP_ALLOC (NULL);
+
   /*  ----------- Analyze loops. -----------  */
 
   /* If some loop was duplicated, it gets bigger number 
@@ -2062,7 +2053,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo, loops); 
+      vect_transform_loop (loop_vinfo, loops);
       num_vectorized_loops++;
     }
 
@@ -2071,6 +2062,8 @@ vectorize_loops (struct loops *loops)
 	     num_vectorized_loops);
 
   /*  ----------- Finalize. -----------  */
+
+  BITMAP_FREE (vect_vnames_to_rename);
 
   for (i = 1; i < vect_loops_num; i++)
     {

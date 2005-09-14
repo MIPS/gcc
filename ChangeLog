@@ -1,3 +1,104 @@
+2005-09-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* configure.in: Recognize f95 in the --enable-languages option,
+	and substitute it for fortran, issuing a warning.
+	* configure: Regenerate.
+
+2005-08-30  Phil Edwards  <phil@codesourcery.com>
+
+	* configure.in (*-*-vxworks*):  Add target-libstdc++-v3 to noconfigdirs.
+	* configure:  Regenerated.
+
+2005-08-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* MAINTAINERS: Add self as ms1 maintainer.
+
+2005-08-20  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* Makefile.def (libssp): Add to lang_env_dependencies.
+	* Makefile.in: Regenerate.
+
+2005-08-18  Ian Lance Taylor  <ian@airs.com>
+
+	* MAINTAINERS: Add myself as middle-end maintainer.
+
+2005-08-17  Christian Groessler  <chris@groessler.org>
+
+	* Makefile.tpl: (USUAL_CC_FOR_TARGET): Add missing trailing slash.
+	* Makefile.in: Regenerate.
+
+2005-08-15  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* MAINTAINERS (write after approval): Added myself.
+
+2005-08-12  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-08-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Replace NCN_STRICT_CHECK_TOOL with
+	NCN_STRICT_CHECK_TOOLS, and likewise for NCN_STRICT_CHECK_TARGET_TOOLS.
+	Look for alternate names of the target cc and c++
+	* configure: Regenerate.
+
+2005-08-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (CC_FOR_TARGET, CXX_FOR_TARGET, GCJ_FOR_TARGET,
+	GCC_FOR_TARGET, RAW_CXX_FOR_TARGET, GFORTRAN_FOR_TARGET): Find
+	them with NCN_STRICT_CHECK_TARGET_TOOL, like the other target
+	tools; remove code to manually set them.
+	(Target tools): Look in the environment for them.
+	* Makefile.tpl (CC_FOR_TARGET, CXX_FOR_TARGET, GCJ_FOR_TARGET,
+	GCC_FOR_TARGET, RAW_CXX_FOR_TARGET, GFORTRAN_FOR_TARGET): Redefine.
+	(AS_FOR_TARGET, LD_FOR_TARGET, NM_FOR_TARGET): Look into gcc
+	build directory.
+	(CONFIGURED_CC_FOR_TARGET, CONFIGURED_CXX_FOR_TARGET,
+	CONFIGURED_GCJ_FOR_TARGET, CONFIGURED_GCC_FOR_TARGET,
+	CONFIGURED_GFORTRAN_FOR_TARGET, USUAL_CC_FOR_TARGET,
+	USUAL_CXX_FOR_TARGET, USUAL_GCJ_FOR_TARGET, USUAL_GCC_FOR_TARGET,
+	USUAL_RAW_CXX_FOR_TARGET, USUAL_GFORTRAN_FOR_TARGET): New.
+	(CXX_FOR_TARGET_FOR_RECURSIVE_MAKE,
+	RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE, RECURSE_FLAGS): Delete.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2005-07-28  Ben Elliston  <bje@au.ibm.com>
+
+	* MAINTAINERS: Update for removed CPU targets.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.tpl (EXTRA_TARGET_FLAGS): Set LDFLAGS=LDFLAGS_FOR_TARGET.
+	* Makefile.def (flags_to_pass): Add LDFLAGS_FOR_TARGET. 
+	* Makefile.in: Regenerated.
+
+2005-07-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.tpl (SYSROOT_CFLAGS_FOR_TARGET): New variable.
+	(CFLAGS_FOR_TARGET): Use it.
+	(CXXFLAGS_FOR_TARGET): Likewise.
+	* Makefile.in: Regenerated.
+	* configure.in (--with-build-sysroot): New option.
+	* configure: Regenerated.
+
+2005-07-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl: Wrap install between unstage and stage
+	* Makefile.in: Regenerate.
+
+2005-07-21  Eric Christopher  <echristo@apple.com>
+
+	* MAINTAINERS: Update affiliation.
+
+2005-07-21  Paul Woegerer  <paul.woegerer@nsc.com>
+
+	* MAINTAINERS: Add self as crx port maintainer.
+
+2005-07-20  DJ Delorie  <dj@redhat.com>
+
+	* MAINTAINERS: Add self as m32c maintainer.
+
 2005-07-16  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* all files: Update FSF address.

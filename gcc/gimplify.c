@@ -236,7 +236,7 @@ append_to_statement_list_1 (tree t, tree *list_p)
   tsi_link_after (&i, t, TSI_CONTINUE_LINKING);
 }
 
-/* Add T to the end of the list container pointed by LIST_P.
+/* Add T to the end of the list container pointed to by LIST_P.
    If T is an expression with no effects, it is ignored.  */
 
 void
@@ -1409,7 +1409,7 @@ gimplify_conversion (tree *expr_p)
 }
 
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
-   node pointed by EXPR_P.
+   node pointed to by EXPR_P.
 
       compound_lval
 	      : min_lval '[' val ']'
@@ -1593,7 +1593,8 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
   return ret;
 }
 
-/*  Gimplify the self modifying expression pointed by EXPR_P (++, --, +=, -=).
+/*  Gimplify the self modifying expression pointed to by EXPR_P
+    (++, --, +=, -=).
 
     PRE_P points to the list where side effects that must happen before
 	*EXPR_P should be stored.
@@ -1721,7 +1722,7 @@ gimplify_arg (tree *expr_p, tree *pre_p)
   return gimplify_expr (expr_p, pre_p, NULL, test, fb);
 }
 
-/* Gimplify the CALL_EXPR node pointed by EXPR_P.  PRE_P points to the
+/* Gimplify the CALL_EXPR node pointed to by EXPR_P.  PRE_P points to the
    list where side effects that must happen before *EXPR_P should be stored.
    WANT_VALUE is true if the result of the call is desired.  */
 
@@ -2111,7 +2112,7 @@ gimple_boolify (tree expr)
     }
 }
 
-/*  Convert the conditional expression pointed by EXPR_P '(p) ? a : b;'
+/*  Convert the conditional expression pointed to by EXPR_P '(p) ? a : b;'
     into
 
     if (p)			if (p)
@@ -2385,9 +2386,12 @@ gimplify_init_ctor_preeval (tree *expr_p, tree *pre_p, tree *post_p,
   /* Recurse for nested constructors.  */
   if (TREE_CODE (*expr_p) == CONSTRUCTOR)
     {
-      tree list;
-      for (list = CONSTRUCTOR_ELTS (*expr_p); list ; list = TREE_CHAIN (list))
-	gimplify_init_ctor_preeval (&TREE_VALUE (list), pre_p, post_p, data);
+      unsigned HOST_WIDE_INT ix;
+      constructor_elt *ce;
+      VEC(constructor_elt,gc) *v = CONSTRUCTOR_ELTS (*expr_p);
+
+      for (ix = 0; VEC_iterate (constructor_elt, v, ix, ce); ix++)
+	gimplify_init_ctor_preeval (&ce->value, pre_p, post_p, data);
       return;
     }
 
@@ -2446,7 +2450,8 @@ gimplify_init_ctor_preeval (tree *expr_p, tree *pre_p, tree *post_p,
    Note that we never have to deal with SAVE_EXPRs here, because this has
    already been taken care of for us, in gimplify_init_ctor_preeval().  */
 
-static void gimplify_init_ctor_eval (tree, tree, tree *, bool);
+static void gimplify_init_ctor_eval (tree, VEC(constructor_elt,gc) *,
+				     tree *, bool);
 
 static void
 gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
@@ -2528,26 +2533,37 @@ zero_sized_field_decl (tree fdecl)
   return false;
 }
 
+/* Return true if TYPE is zero sized.  */
+   
+static bool
+zero_sized_type (tree type)
+{
+  if (AGGREGATE_TYPE_P (type) && TYPE_SIZE (type)
+      && integer_zerop (TYPE_SIZE (type)))
+    return true;
+  return false;
+}
+
 /* A subroutine of gimplify_init_constructor.  Generate individual
    MODIFY_EXPRs for a CONSTRUCTOR.  OBJECT is the LHS against which the
-   assignments should happen.  LIST is the CONSTRUCTOR_ELTS of the
+   assignments should happen.  ELTS is the CONSTRUCTOR_ELTS of the
    CONSTRUCTOR.  CLEARED is true if the entire LHS object has been
    zeroed first.  */
 
 static void
-gimplify_init_ctor_eval (tree object, tree list, tree *pre_p, bool cleared)
+gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
+			 tree *pre_p, bool cleared)
 {
   tree array_elt_type = NULL;
+  unsigned HOST_WIDE_INT ix;
+  tree purpose, value;
 
   if (TREE_CODE (TREE_TYPE (object)) == ARRAY_TYPE)
     array_elt_type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (object)));
 
-  for (; list; list = TREE_CHAIN (list))
+  FOR_EACH_CONSTRUCTOR_ELT (elts, ix, purpose, value)
     {
-      tree purpose, value, cref, init;
-
-      purpose = TREE_PURPOSE (list);
-      value = TREE_VALUE (list);
+      tree cref, init;
 
       /* NULL values are created above for gimplification errors.  */
       if (value == NULL)
@@ -2588,10 +2604,14 @@ gimplify_init_ctor_eval (tree object, tree list, tree *pre_p, bool cleared)
 			purpose, NULL_TREE, NULL_TREE);
 	}
       else
-	cref = build (COMPONENT_REF, TREE_TYPE (purpose),
-		      unshare_expr (object), purpose, NULL_TREE);
+	{
+	  gcc_assert (TREE_CODE (purpose) == FIELD_DECL);
+	  cref = build (COMPONENT_REF, TREE_TYPE (purpose),
+			unshare_expr (object), purpose, NULL_TREE);
+	}
 
-      if (TREE_CODE (value) == CONSTRUCTOR)
+      if (TREE_CODE (value) == CONSTRUCTOR
+	  && TREE_CODE (TREE_TYPE (value)) != VECTOR_TYPE)
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
@@ -2617,7 +2637,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
   tree ctor = TREE_OPERAND (*expr_p, 1);
   tree type = TREE_TYPE (ctor);
   enum gimplify_status ret;
-  tree elt_list;
+  VEC(constructor_elt,gc) *elts;
 
   if (TREE_CODE (ctor) != CONSTRUCTOR)
     return GS_UNHANDLED;
@@ -2628,7 +2648,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
     return ret;
   object = TREE_OPERAND (*expr_p, 0);
 
-  elt_list = CONSTRUCTOR_ELTS (ctor);
+  elts = CONSTRUCTOR_ELTS (ctor);
 
   ret = GS_ALL_DONE;
   switch (TREE_CODE (type))
@@ -2646,7 +2666,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	/* Aggregate types must lower constructors to initialization of
 	   individual elements.  The exception is that a CONSTRUCTOR node
 	   with no elements indicates zero-initialization of the whole.  */
-	if (elt_list == NULL)
+	if (VEC_empty (constructor_elt, elts))
 	  break;
 
 	categorize_ctor_elements (ctor, &num_nonzero_elements,
@@ -2686,13 +2706,18 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	   parts in, then generate code for the non-constant parts.  */
 	/* TODO.  There's code in cp/typeck.c to do this.  */
 
-	num_type_elements = count_type_elements (TREE_TYPE (ctor));
+	num_type_elements = count_type_elements (type, true);
 
-	/* If there are "lots" of zeros, then block clear the object first.  */
-	if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
-	    && num_nonzero_elements < num_type_elements/4)
+	/* If count_type_elements could not determine number of type elements
+	   for a constant-sized object, assume clearing is needed.
+	   Don't do this for variable-sized objects, as store_constructor
+	   will ignore the clearing of variable-sized objects.  */
+	if (num_type_elements < 0 && int_size_in_bytes (type) >= 0)
 	  cleared = true;
-
+	/* If there are "lots" of zeros, then block clear the object first.  */
+	else if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
+		 && num_nonzero_elements < num_type_elements/4)
+	  cleared = true;
 	/* ??? This bit ought not be needed.  For any element not present
 	   in the initializer, we should simply set them to zero.  Except
 	   we'd need to *find* the elements that are not present, and that
@@ -2758,7 +2783,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    /* Zap the CONSTRUCTOR element list, which simplifies this case.
 	       Note that we still have to gimplify, in order to handle the
 	       case of variable sized types.  Avoid shared tree structures.  */
-	    CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
+	    CONSTRUCTOR_ELTS (ctor) = NULL;
 	    object = unshare_expr (object);
 	    gimplify_stmt (expr_p);
 	    append_to_statement_list (*expr_p, pre_p);
@@ -2776,7 +2801,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 	    gimplify_init_ctor_preeval (&TREE_OPERAND (*expr_p, 1),
 					pre_p, post_p, &preeval_data);
-	    gimplify_init_ctor_eval (object, elt_list, pre_p, cleared);
+	    gimplify_init_ctor_eval (object, elts, pre_p, cleared);
 	  }
 
 	*expr_p = NULL_TREE;
@@ -2788,17 +2813,9 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	tree r, i;
 
 	/* Extract the real and imaginary parts out of the ctor.  */
-	r = i = NULL_TREE;
-	if (elt_list)
-	  {
-	    r = TREE_VALUE (elt_list);
-	    elt_list = TREE_CHAIN (elt_list);
-	    if (elt_list)
-	      {
-		i = TREE_VALUE (elt_list);
-		gcc_assert (!TREE_CHAIN (elt_list));
-	      }
-	  }
+	gcc_assert (VEC_length (constructor_elt, elts) == 2);
+	r = VEC_index (constructor_elt, elts, 0)->value;
+	i = VEC_index (constructor_elt, elts, 1)->value;
 	if (r == NULL || i == NULL)
 	  {
 	    tree zero = convert (TREE_TYPE (type), integer_zero_node);
@@ -2827,35 +2844,44 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
       break;
 
     case VECTOR_TYPE:
-      /* Go ahead and simplify constant constructors to VECTOR_CST.  */
-      if (TREE_CONSTANT (ctor))
-	{
-	  tree tem;
+      {
+	unsigned HOST_WIDE_INT ix;
+	constructor_elt *ce;
 
-	  /* Even when ctor is constant, it might contain non-*_CST
-	     elements (e.g. { 1.0/0.0 - 1.0/0.0, 0.0 }) and those don't
-	     belong into VECTOR_CST nodes.  */
-	  for (tem = elt_list; tem; tem = TREE_CHAIN (tem))
-	    if (! CONSTANT_CLASS_P (TREE_VALUE (tem)))
-	      break;
+	/* Go ahead and simplify constant constructors to VECTOR_CST.  */
+	if (TREE_CONSTANT (ctor))
+	  {
+	    bool constant_p = true;
+	    tree value;
 
-	  if (! tem)
-	    {
-	      TREE_OPERAND (*expr_p, 1) = build_vector (type, elt_list);
-	      break;
-	    }
-	}
+	    /* Even when ctor is constant, it might contain non-*_CST
+	      elements (e.g. { 1.0/0.0 - 1.0/0.0, 0.0 }) and those don't
+	      belong into VECTOR_CST nodes.  */
+	    FOR_EACH_CONSTRUCTOR_VALUE (elts, ix, value)
+	      if (!CONSTANT_CLASS_P (value))
+		{
+		  constant_p = false;
+		  break;
+		}
 
-      /* Vector types use CONSTRUCTOR all the way through gimple
-	 compilation as a general initializer.  */
-      for (; elt_list; elt_list = TREE_CHAIN (elt_list))
-	{
-	  enum gimplify_status tret;
-	  tret = gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
-	  if (tret == GS_ERROR)
-	    ret = GS_ERROR;
-	}
+	    if (constant_p)
+	      {
+		TREE_OPERAND (*expr_p, 1) = build_vector_from_ctor (type, elts);
+		break;
+	      }
+	  }
+
+	/* Vector types use CONSTRUCTOR all the way through gimple
+	  compilation as a general initializer.  */
+	for (ix = 0; VEC_iterate (constructor_elt, elts, ix, ce); ix++)
+	  {
+	    enum gimplify_status tret;
+	    tret = gimplify_expr (&ce->value, pre_p, post_p,
+				  is_gimple_val, fb_rvalue);
+	    if (tret == GS_ERROR)
+	      ret = GS_ERROR;
+	  }
+      }
       break;
 
     default:
@@ -3104,7 +3130,7 @@ gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
   return GS_ALL_DONE;
 }
 
-/* Gimplify the MODIFY_EXPR node pointed by EXPR_P.
+/* Gimplify the MODIFY_EXPR node pointed to by EXPR_P.
 
       modify_expr
 	      : varname '=' rhs
@@ -3132,6 +3158,18 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
   /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer useful.  */
   if (TREE_CODE (*expr_p) == INIT_EXPR)
     TREE_SET_CODE (*expr_p, MODIFY_EXPR);
+  
+  /* For zero sized types only gimplify the left hand side and right hand side
+     as statements and throw away the assignment.  */
+  if (zero_sized_type (TREE_TYPE (*from_p)))
+    {
+      gimplify_stmt (from_p);
+      gimplify_stmt (to_p);
+      append_to_statement_list (*from_p, pre_p);
+      append_to_statement_list (*to_p, pre_p);
+      *expr_p = NULL_TREE;
+      return GS_ALL_DONE;
+    }
 
   /* See if any simplifications can be done based on what the RHS is.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
@@ -3367,7 +3405,7 @@ gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
   return ret;
 }
 
-/*  Re-write the ADDR_EXPR node pointed by EXPR_P
+/*  Re-write the ADDR_EXPR node pointed to by EXPR_P
 
       unary_expr
 	      : ...
@@ -3863,7 +3901,7 @@ gimplify_to_stmt_list (tree *stmt_p)
 }
 
 
-/*  Gimplifies the expression tree pointed by EXPR_P.  Return 0 if
+/*  Gimplifies the expression tree pointed to by EXPR_P.  Return 0 if
     gimplification failed.
 
     PRE_P points to the list where side effects that must happen before
@@ -4159,10 +4197,14 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	     gimplify any element that has side-effects.  */
 	  if (fallback == fb_none)
 	    {
-	      for (tmp = CONSTRUCTOR_ELTS (*expr_p); tmp;
-		   tmp = TREE_CHAIN (tmp))
-		if (TREE_SIDE_EFFECTS (TREE_VALUE (tmp)))
-		  gimplify_expr (&TREE_VALUE (tmp), pre_p, post_p,
+	      unsigned HOST_WIDE_INT ix;
+	      constructor_elt *ce;
+	      for (ix = 0;
+		   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (*expr_p),
+				ix, ce);
+		   ix++)
+		if (TREE_SIDE_EFFECTS (ce->value))
+		  gimplify_expr (&ce->value, pre_p, post_p,
 				 gimple_test_f, fallback);
 
 	      *expr_p = NULL_TREE;
@@ -4411,8 +4453,17 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	{
 	  /* Historically, the compiler has treated a bare
 	     reference to a volatile lvalue as forcing a load.  */
-	  tree tmp = create_tmp_var (TREE_TYPE (*expr_p), "vol");
-	  *expr_p = build (MODIFY_EXPR, TREE_TYPE (tmp), tmp, *expr_p);
+	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
+	  /* Normally, we do want to create a temporary for a
+	     TREE_ADDRESSABLE type because such a type should not be
+	     copied by bitwise-assignment.  However, we make an
+	     exception here, as all we are doing here is ensuring that
+	     we read the bytes that make up the type.  We use
+	     create_tmp_var_raw because create_tmp_var will abort when
+	     given a TREE_ADDRESSABLE type.  */
+	  tree tmp = create_tmp_var_raw (type, "vol");
+	  gimple_add_tmp_var (tmp);
+	  *expr_p = build (MODIFY_EXPR, type, tmp, *expr_p);
 	}
       else
 	/* We can't do anything useful with a volatile reference to
@@ -4599,18 +4650,46 @@ gimplify_type_sizes (tree type, tree *list_p)
 void
 gimplify_one_sizepos (tree *expr_p, tree *stmt_p)
 {
+  tree type, expr = *expr_p;
+
   /* We don't do anything if the value isn't there, is constant, or contains
      A PLACEHOLDER_EXPR.  We also don't want to do anything if it's already
      a VAR_DECL.  If it's a VAR_DECL from another function, the gimplifier
      will want to replace it with a new variable, but that will cause problems
      if this type is from outside the function.  It's OK to have that here.  */
-  if (*expr_p == NULL_TREE || TREE_CONSTANT (*expr_p)
-      || TREE_CODE (*expr_p) == VAR_DECL
-      || CONTAINS_PLACEHOLDER_P (*expr_p))
+  if (expr == NULL_TREE || TREE_CONSTANT (expr)
+      || TREE_CODE (expr) == VAR_DECL
+      || CONTAINS_PLACEHOLDER_P (expr))
     return;
 
-  *expr_p = unshare_expr (*expr_p);
+  type = TREE_TYPE (expr);
+  *expr_p = unshare_expr (expr);
+
   gimplify_expr (expr_p, stmt_p, NULL, is_gimple_val, fb_rvalue);
+  expr = *expr_p;
+
+  /* Verify that we've an exact type match with the original expression.
+     In particular, we do not wish to drop a "sizetype" in favour of a
+     type of similar dimensions.  We don't want to pollute the generic
+     type-stripping code with this knowledge because it doesn't matter
+     for the bulk of GENERIC/GIMPLE.  It only matters that TYPE_SIZE_UNIT
+     and friends retain their "sizetype-ness".  */
+  if (TREE_TYPE (expr) != type
+      && TREE_CODE (type) == INTEGER_TYPE
+      && TYPE_IS_SIZETYPE (type))
+    {
+      tree tmp;
+
+      *expr_p = create_tmp_var (type, NULL);
+      tmp = build1 (NOP_EXPR, type, expr);
+      tmp = build2 (MODIFY_EXPR, type, *expr_p, expr);
+      if (EXPR_HAS_LOCATION (expr))
+	SET_EXPR_LOCUS (tmp, EXPR_LOCUS (expr));
+      else
+	SET_EXPR_LOCATION (tmp, input_location);
+
+      gimplify_and_add (tmp, stmt_p);
+    }
 }
 
 #ifdef ENABLE_CHECKING
@@ -4692,7 +4771,7 @@ check_pointer_types_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 }
 #endif
 
-/* Gimplify the body of statements pointed by BODY_P.  FNDECL is the
+/* Gimplify the body of statements pointed to by BODY_P.  FNDECL is the
    function decl containing BODY.  */
 
 void

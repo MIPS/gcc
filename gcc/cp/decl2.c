@@ -896,44 +896,39 @@ grokfield (const cp_declarator *declarator,
 	{
 	  /* Initializers for functions are rejected early in the parser.
 	     If we get here, it must be a pure specifier for a method.  */
-	  gcc_assert (TREE_CODE (TREE_TYPE (value)) == METHOD_TYPE);
-	  gcc_assert (error_operand_p (init) || integer_zerop (init));
-	  DECL_PURE_VIRTUAL_P (value) = 1;
+	  if (TREE_CODE (TREE_TYPE (value)) == METHOD_TYPE)
+	    {
+	      gcc_assert (error_operand_p (init) || integer_zerop (init));
+	      DECL_PURE_VIRTUAL_P (value) = 1;
+	    }
+	  else
+	    {
+	      gcc_assert (TREE_CODE (TREE_TYPE (value)) == FUNCTION_TYPE);
+	      error ("initializer specified for static member function %qD",
+		     value);
+	    }
 	}
       else if (pedantic && TREE_CODE (value) != VAR_DECL)
 	/* Already complained in grokdeclarator.  */
 	init = NULL_TREE;
-      else
+      else if (!processing_template_decl)
 	{
-	  /* We allow initializers to become parameters to base
-	     initializers.  */
-	  if (TREE_CODE (init) == TREE_LIST)
-	    {
-	      if (TREE_CHAIN (init) == NULL_TREE)
-		init = TREE_VALUE (init);
-	      else
-		init = digest_init (TREE_TYPE (value), init, (tree *)0);
-	    }
+	  if (TREE_CODE (init) == CONSTRUCTOR)
+	    init = digest_init (TREE_TYPE (value), init);
+	  else
+	    init = integral_constant_value (init);
 
-	  if (!processing_template_decl)
+	  if (init != error_mark_node && !TREE_CONSTANT (init))
 	    {
-	      if (TREE_CODE (init) == CONSTRUCTOR)
-		init = digest_init (TREE_TYPE (value), init, (tree *)0);
-	      else
-		init = integral_constant_value (init);
-
-	      if (init != error_mark_node && ! TREE_CONSTANT (init))
+	      /* We can allow references to things that are effectively
+		 static, since references are initialized with the
+		 address.  */
+	      if (TREE_CODE (TREE_TYPE (value)) != REFERENCE_TYPE
+		  || (TREE_STATIC (init) == 0
+		      && (!DECL_P (init) || DECL_EXTERNAL (init) == 0)))
 		{
-		  /* We can allow references to things that are effectively
-		     static, since references are initialized with the
-		     address.  */
-		  if (TREE_CODE (TREE_TYPE (value)) != REFERENCE_TYPE
-		      || (TREE_STATIC (init) == 0
-			  && (!DECL_P (init) || DECL_EXTERNAL (init) == 0)))
-		    {
-		      error ("field initializer is not constant");
-		      init = error_mark_node;
-		    }
+		  error ("field initializer is not constant");
+		  init = error_mark_node;
 		}
 	    }
 	}
@@ -1062,7 +1057,7 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 }
 
 /* Walks through the namespace- or function-scope anonymous union
-   OBJECT, with the indicated TYPE, building appropriate ALIAS_DECLs.
+   OBJECT, with the indicated TYPE, building appropriate VAR_DECLs.
    Returns one of the fields for use in the mangled name.  */
 
 static tree
@@ -1106,11 +1101,18 @@ build_anon_union_vars (tree type, tree object)
 
       if (DECL_NAME (field))
 	{
-	  decl = build_decl (ALIAS_DECL, DECL_NAME (field), TREE_TYPE (field));
-	  DECL_INITIAL (decl) = ref;
-	  TREE_PUBLIC (decl) = 0;
-	  TREE_STATIC (decl) = 0;
-	  DECL_EXTERNAL (decl) = 1;
+	  tree base;
+
+	  decl = build_decl (VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
+
+	  base = get_base_address (object);
+	  TREE_PUBLIC (decl) = TREE_PUBLIC (base);
+	  TREE_STATIC (decl) = TREE_STATIC (base);
+	  DECL_EXTERNAL (decl) = DECL_EXTERNAL (base);
+
+	  SET_DECL_VALUE_EXPR (decl, ref);
+	  DECL_HAS_VALUE_EXPR_P (decl) = 1;
+
 	  decl = pushdecl (decl);
 	}
       else if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
@@ -1262,11 +1264,12 @@ coerce_delete_type (tree type)
 static void
 mark_vtable_entries (tree decl)
 {
-  tree entries = CONSTRUCTOR_ELTS (DECL_INITIAL (decl));
+  tree fnaddr;
+  unsigned HOST_WIDE_INT idx;
 
-  for (; entries; entries = TREE_CHAIN (entries))
+  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (DECL_INITIAL (decl)),
+			      idx, fnaddr)
     {
-      tree fnaddr = TREE_VALUE (entries);
       tree fn;
 
       STRIP_NOPS (fnaddr);
@@ -1794,7 +1797,7 @@ import_export_decl (tree decl)
 	      /* The generic C++ ABI says that class data is always
 		 COMDAT, even if there is a key function.  Some
 		 variants (e.g., the ARM EABI) says that class data
-		 only has COMDAT linkage if the the class data might
+		 only has COMDAT linkage if the class data might
 		 be emitted in more than one translation unit.  */
 	      if (!CLASSTYPE_KEY_METHOD (class_type)
 		  || targetm.cxx.class_data_always_comdat ())
@@ -2980,18 +2983,22 @@ cp_finish_file (void)
 	  if (!DECL_SAVED_TREE (decl))
 	    continue;
 
-	  import_export_decl (decl);
-
 	  /* We lie to the back-end, pretending that some functions
 	     are not defined when they really are.  This keeps these
 	     functions from being put out unnecessarily.  But, we must
 	     stop lying when the functions are referenced, or if they
-	     are not comdat since they need to be put out now.  This
-	     is done in a separate for cycle, because if some deferred
-	     function is contained in another deferred function later
-	     in deferred_fns varray, rest_of_compilation would skip
-	     this function and we really cannot expand the same
-	     function twice.  */
+	     are not comdat since they need to be put out now.  If
+	     DECL_INTERFACE_KNOWN, then we have already set
+	     DECL_EXTERNAL appropriately, so there's no need to check
+	     again, and we do not want to clear DECL_EXTERNAL if a
+	     previous call to import_export_decl set it.
+	     
+	     This is done in a separate for cycle, because if some
+	     deferred function is contained in another deferred
+	     function later in deferred_fns varray,
+	     rest_of_compilation would skip this function and we
+	     really cannot expand the same function twice.  */
+	  import_export_decl (decl);
 	  if (DECL_NOT_REALLY_EXTERN (decl)
 	      && DECL_INITIAL (decl)
 	      && decl_needed_p (decl))
@@ -3051,13 +3058,12 @@ cp_finish_file (void)
 	  TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
 	  /* But not defined.  */
 	  && DECL_REALLY_EXTERN (decl)
-	  /* If we decided to emit this function in another
-	     translation unit, the fact that the definition was
-	     missing here likely indicates only that the repository
-	     decided to place the function elsewhere.  With -Winline,
-	     we will still warn if we could not inline the
-	     function.  */
-	  && !flag_use_repository
+	  /* If the definition actually was available here, then the
+	     fact that the function was not defined merely represents
+	     that for some reason (use of a template repository,
+	     #pragma interface, etc.) we decided not to emit the
+	     definition here.  */
+	  && !DECL_INITIAL (decl)
 	  /* An explicit instantiation can be used to specify
 	     that the body is in another unit. It will have
 	     already verified there was a definition.  */
@@ -3082,8 +3088,9 @@ cp_finish_file (void)
 			/*data=*/&locus);
   else
     {
-
-      if (static_ctors)
+      /* If we have a ctor or this is obj-c++ and we need a static init,
+         call generate_ctor_or_dtor_function.  */
+      if (static_ctors || (c_dialect_objc () && objc_static_init_needed_p ()))
 	generate_ctor_or_dtor_function (/*constructor_p=*/true,
 					DEFAULT_INIT_PRIORITY, &locus);
       if (static_dtors)
@@ -3109,8 +3116,12 @@ cp_finish_file (void)
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
   if (VEC_length (tree, pending_statics) != 0)
-    check_global_declarations (VEC_address (tree, pending_statics),
-			       VEC_length (tree, pending_statics));
+    {
+      check_global_declarations (VEC_address (tree, pending_statics),
+			         VEC_length (tree, pending_statics));
+      emit_debug_global_declarations (VEC_address (tree, pending_statics),
+				      VEC_length (tree, pending_statics));
+    }
 
   /* Generate hidden aliases for Java.  */
   build_java_method_aliases ();
@@ -3220,12 +3231,38 @@ check_default_args (tree x)
     }
 }
 
+/* Mark DECL as "used" in the program.  If DECL is a specialization or
+   implicitly declared class member, generate the actual definition.  */
+
 void
 mark_used (tree decl)
 {
+  HOST_WIDE_INT saved_processing_template_decl = 0;
+
   TREE_USED (decl) = 1;
-  if (processing_template_decl || skip_evaluation)
+  /* If we don't need a value, then we don't need to synthesize DECL.  */ 
+  if (skip_evaluation)
     return;
+  /* Normally, we can wait until instantiation-time to synthesize
+     DECL.  However, if DECL is a static data member initialized with
+     a constant, we need the value right now because a reference to
+     such a data member is not value-dependent.  */
+  if (processing_template_decl)
+    {
+      if (TREE_CODE (decl) == VAR_DECL
+	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_CLASS_SCOPE_P (decl)
+	  && !dependent_type_p (DECL_CONTEXT (decl)))
+	{
+	  /* Pretend that we are not in a template so that the
+	     initializer for the static data member will be full
+	     simplified.  */
+	  saved_processing_template_decl = processing_template_decl;
+	  processing_template_decl = 0;
+	}
+      else
+	return;  
+    }
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))
@@ -3273,12 +3310,20 @@ mark_used (tree decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	  || (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_INLINE (DECL_TEMPLATE_RESULT
-			      (template_for_substitution (decl))))))
+			      (template_for_substitution (decl))))
+	  /* We need to instantiate static data members so that there
+	     initializers are available in integral constant
+	     expressions.  */
+	  || (TREE_CODE (decl) == VAR_DECL
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
     /* We put off instantiating functions in order to improve compile
        times.  Maintaining a stack of active functions is expensive,
        and the inliner knows to instantiate any functions it might
        need.  */
-    instantiate_decl (decl, /*defer_ok=*/true, /*undefined_ok=*/0);
+    instantiate_decl (decl, /*defer_ok=*/true, 
+		      /*expl_inst_class_mem_p=*/false);
+
+  processing_template_decl = saved_processing_template_decl;
 }
 
 #include "gt-cp-decl2.h"

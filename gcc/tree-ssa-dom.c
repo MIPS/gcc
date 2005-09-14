@@ -166,6 +166,7 @@ struct opt_stats_d
   long num_re;
   long num_const_prop;
   long num_copy_prop;
+  long num_iterations;
 };
 
 static struct opt_stats_d opt_stats;
@@ -524,6 +525,8 @@ tree_ssa_dominator_optimize (void)
 	  if (value && !is_gimple_min_invariant (value))
 	    SSA_NAME_VALUE (name) = NULL;
 	}
+
+      opt_stats.num_iterations++;
     }
   while (optimize > 1 && cfg_altered);
 
@@ -845,8 +848,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	    {
 	      struct edge_info *edge_info;
 
-	      update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-					       e->count, taken_edge);
 	      if (e->aux)
 		edge_info = e->aux;
 	      else
@@ -884,7 +885,7 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 }
 
 /* Given an expression EXPR (a relational expression or a statement), 
-   initialize the hash table element pointed by by ELEMENT.  */
+   initialize the hash table element pointed to by ELEMENT.  */
 
 static void
 initialize_hash_element (tree expr, tree lhs, struct expr_hash_elt *element)
@@ -1355,6 +1356,9 @@ dump_dominator_optimization_stats (FILE *file)
 	   opt_stats.num_const_prop);
   fprintf (file, "    Copies propagated:                        %6ld\n",
 	   opt_stats.num_copy_prop);
+
+  fprintf (file, "\nTotal number of DOM iterations:             %6ld\n",
+	   opt_stats.num_iterations);
 
   fprintf (file, "\nHash table statistics:\n");
 
@@ -2633,7 +2637,7 @@ record_equivalences_from_stmt (tree stmt,
 	      || is_gimple_min_invariant (rhs)))
 	SSA_NAME_VALUE (lhs) = rhs;
 
-      if (expr_computes_nonzero (rhs))
+      if (tree_expr_nonzero_p (rhs))
 	record_var_is_nonzero (lhs);
     }
 
@@ -2851,7 +2855,7 @@ cprop_into_stmt (tree stmt)
 }
 
 
-/* Optimize the statement pointed by iterator SI.
+/* Optimize the statement pointed to by iterator SI.
    
    We try to perform some simplistic global redundancy elimination and
    constant propagation:
@@ -3061,7 +3065,7 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
    NULL_TREE.
 
    Also, when an expression is first inserted in the AVAIL_EXPRS table, it
-   is also added to the stack pointed by BLOCK_AVAIL_EXPRS_P, so that they
+   is also added to the stack pointed to by BLOCK_AVAIL_EXPRS_P, so that they
    can be removed when we finish processing this block and its children.
 
    NOTE: This function assumes that STMT is a MODIFY_EXPR node that

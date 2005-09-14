@@ -247,7 +247,7 @@ match_hollerith_constant (gfc_expr ** result)
 	&& gfc_match_char ('h') == MATCH_YES)
     {
       if (gfc_notify_std (GFC_STD_LEGACY,
-		"Extention: Hollerith constant at %C")
+		"Extension: Hollerith constant at %C")
 		== FAILURE)
 	goto cleanup;
 
@@ -760,7 +760,7 @@ next_string_char (char delimiter)
 
 /* Special case of gfc_match_name() that matches a parameter kind name
    before a string constant.  This takes case of the weird but legal
-   case of: weird case of:
+   case of:
 
      kind_____'string'
 
@@ -1517,27 +1517,41 @@ match_varspec (gfc_expr * primary, int equiv_flag)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_ref *substring, *tail;
   gfc_component *component;
-  gfc_symbol *sym;
+  gfc_symbol *sym = primary->symtree->n.sym;
   match m;
 
   tail = NULL;
 
-  if (primary->symtree->n.sym->attr.dimension
-      || (equiv_flag
-	  && gfc_peek_char () == '('))
+  if ((equiv_flag && gfc_peek_char () == '(')
+      || sym->attr.dimension)
     {
-
+      /* In EQUIVALENCE, we don't know yet whether we are seeing
+	 an array, character variable or array of character
+	 variables.  We'll leave the decision till resolve
+	 time.  */
       tail = extend_ref (primary, tail);
       tail->type = REF_ARRAY;
 
-      m = gfc_match_array_ref (&tail->u.ar, primary->symtree->n.sym->as,
-                               equiv_flag);
+      m = gfc_match_array_ref (&tail->u.ar, equiv_flag ? NULL : sym->as,
+			       equiv_flag);
       if (m != MATCH_YES)
 	return m;
+
+      if (equiv_flag && gfc_peek_char () == '(')
+	{
+	  tail = extend_ref (primary, tail);
+	  tail->type = REF_ARRAY;
+
+	  m = gfc_match_array_ref (&tail->u.ar, NULL, equiv_flag);
+	  if (m != MATCH_YES)
+	    return m;
+	}
     }
 
-  sym = primary->symtree->n.sym;
   primary->ts = sym->ts;
+
+  if (equiv_flag)
+    return MATCH_YES;
 
   if (sym->ts.type != BT_DERIVED || gfc_match_char ('%') != MATCH_YES)
     goto check_substring;
@@ -2159,10 +2173,15 @@ gfc_match_rvalue (gfc_expr ** result)
    starts as a symbol, can be a structure component or an array
    reference.  It can be a function if the function doesn't have a
    separate RESULT variable.  If the symbol has not been previously
-   seen, we assume it is a variable.  */
+   seen, we assume it is a variable.
 
-match
-gfc_match_variable (gfc_expr ** result, int equiv_flag)
+   This function is called by two interface functions:
+   gfc_match_variable, which has host_flag = 1, and
+   gfc_match_equiv_variable, with host_flag = 0, to restrict the
+   match of the symbol to the local scope.  */
+
+static match
+match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
 {
   gfc_symbol *sym;
   gfc_symtree *st;
@@ -2170,7 +2189,7 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   locus where;
   match m;
 
-  m = gfc_match_sym_tree (&st, 1);
+  m = gfc_match_sym_tree (&st, host_flag);
   if (m != MATCH_YES)
     return m;
   where = gfc_current_locus;
@@ -2244,3 +2263,16 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   *result = expr;
   return MATCH_YES;
 }
+
+match
+gfc_match_variable (gfc_expr ** result, int equiv_flag)
+{
+  return match_variable (result, equiv_flag, 1);
+}
+
+match
+gfc_match_equiv_variable (gfc_expr ** result)
+{
+  return match_variable (result, 1, 0);
+}
+

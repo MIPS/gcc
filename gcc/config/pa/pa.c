@@ -1377,12 +1377,12 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
   if (scratch_reg && reload_in_progress && GET_CODE (operand0) == MEM
       && ((tem = find_replacement (&XEXP (operand0, 0)))
 	  != XEXP (operand0, 0)))
-    operand0 = gen_rtx_MEM (GET_MODE (operand0), tem);
+    operand0 = replace_equiv_address (operand0, tem);
 
   if (scratch_reg && reload_in_progress && GET_CODE (operand1) == MEM
       && ((tem = find_replacement (&XEXP (operand1, 0)))
 	  != XEXP (operand1, 0)))
-    operand1 = gen_rtx_MEM (GET_MODE (operand1), tem);
+    operand1 = replace_equiv_address (operand1, tem);
 
   /* Handle secondary reloads for loads/stores of FP registers from
      REG+D addresses where D does not fit in 5 or 14 bits, including
@@ -1420,7 +1420,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
       else
 	emit_move_insn (scratch_reg, XEXP (operand1, 0));
       emit_insn (gen_rtx_SET (VOIDmode, operand0,
-			      gen_rtx_MEM (mode, scratch_reg)));
+			      replace_equiv_address (operand1, scratch_reg)));
       return 1;
     }
   else if (scratch_reg
@@ -1457,7 +1457,8 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	}
       else
 	emit_move_insn (scratch_reg, XEXP (operand0, 0));
-      emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_MEM (mode, scratch_reg),
+      emit_insn (gen_rtx_SET (VOIDmode,
+			      replace_equiv_address (operand0, scratch_reg),
 			      operand1));
       return 1;
     }
@@ -1474,7 +1475,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	   && CONSTANT_P (operand1)
 	   && fp_reg_operand (operand0, mode))
     {
-      rtx xoperands[2];
+      rtx const_mem, xoperands[2];
 
       /* SCRATCH_REG will hold an address and maybe the actual data.  We want
 	 it in WORD_MODE regardless of what mode it was originally given
@@ -1483,13 +1484,14 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 
       /* Force the constant into memory and put the address of the
 	 memory location into scratch_reg.  */
+      const_mem = force_const_mem (mode, operand1);
       xoperands[0] = scratch_reg;
-      xoperands[1] = XEXP (force_const_mem (mode, operand1), 0);
+      xoperands[1] = XEXP (const_mem, 0);
       emit_move_sequence (xoperands, Pmode, 0);
 
       /* Now load the destination register.  */
       emit_insn (gen_rtx_SET (mode, operand0,
-			      gen_rtx_MEM (mode, scratch_reg)));
+			      replace_equiv_address (const_mem, scratch_reg)));
       return 1;
     }
   /* Handle secondary reloads for SAR.  These occur when trying to load
@@ -1526,8 +1528,8 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	     OPERAND0.  */
 	  scratch_reg = force_mode (GET_MODE (operand0), scratch_reg);
 
-	  emit_move_insn (scratch_reg, gen_rtx_MEM (GET_MODE (operand0),
-						    scratch_reg));
+	  emit_move_insn (scratch_reg,
+			  replace_equiv_address (operand1, scratch_reg));
 	}
       else
 	{
@@ -1754,10 +1756,10 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 		       && (reload_completed || reload_in_progress)
 		       && flag_pic)
 		{
-		  operands[1] = force_const_mem (mode, operand1);
-		  operands[1] = legitimize_pic_address (XEXP (operands[1], 0),
+		  rtx const_mem = force_const_mem (mode, operand1);
+		  operands[1] = legitimize_pic_address (XEXP (const_mem, 0),
 							mode, temp);
-		  operands[1] = gen_rtx_MEM (mode, operands[1]);
+		  operands[1] = replace_equiv_address (const_mem, operands[1]);
 		  emit_move_sequence (operands, mode, temp);
 		}
 	      else
@@ -1998,10 +2000,12 @@ reloc_needed (tree exp)
 
     case CONSTRUCTOR:
       {
-	register tree link;
-	for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	  if (TREE_VALUE (link) != 0)
-	    reloc |= reloc_needed (TREE_VALUE (link));
+	tree value;
+	unsigned HOST_WIDE_INT ix;
+
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), ix, value)
+	  if (value)
+	    reloc |= reloc_needed (value);
       }
       break;
 
@@ -3502,7 +3506,7 @@ pa_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   /* The SAVE_SP flag is used to indicate that register %r3 is stored
      at the beginning of the frame and that it is used as the frame
      pointer for the frame.  We do this because our current frame
-     layout doesn't conform to that specified in the the HP runtime
+     layout doesn't conform to that specified in the HP runtime
      documentation and we need a way to indicate to programs such as
      GDB where %r3 is saved.  The SAVE_SP flag was chosen because it
      isn't used by HP compilers but is supported by the assembler.

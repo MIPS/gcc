@@ -56,8 +56,8 @@ set package_map(java/lang/Object.java) ignore
 
 # More special cases.  These end up in their own library.
 # Note that if we BC-compile AWT we must update these as well.
-set package_map(gnu/gcj/xlib) ignore
-set package_map(gnu/awt/xlib) ignore
+set package_map(gnu/gcj/xlib) package
+set package_map(gnu/awt/xlib) package
 
 # Some BC ABI packages have classes which must not be compiled BC.
 # This maps such packages to a grep expression for excluding such
@@ -204,16 +204,19 @@ proc emit_bc_rule {package} {
   }
   set varname [join [split $pkgname /] _]_source_files
   set loname [join [split $pkgname /] -].lo
+  set tname [join [split $pkgname /] -].list
 
   puts "$loname: \$($varname)"
-  puts "\t\$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o $loname \\"
+  # Create a temporary list file and then compile it.  This works
+  # around the libtool problem mentioned in PR 21058.  classpath was
+  # built first, so the class files are to be found there.
   set omit ""
   if {[info exists exclusion_map($package)]} {
     set omit "| grep -v $exclusion_map($package)"
   }
-  # classpath was built first, so the class files are to be found
-  # there.
-  puts  "\t\t`find classpath/lib/$package -name '*.class' | sort -r$omit`"
+  puts  "\t@find classpath/lib/$package -name '*.class'${omit} > $tname"
+  puts "\t\$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o $loname @$tname"
+  puts "\t@rm -f $tname"
   puts ""
 
   # We skip this one because it is built into its own library and is
@@ -250,7 +253,9 @@ proc emit_package_rule {package} {
   puts ""
   puts ""
 
-  lappend package_files $lname
+  if {$pkgname != "gnu/gcj/xlib" && $pkgname != "gnu/awt/xlib"} {
+    lappend package_files $lname
+  }
 }
 
 # Emit a source file variable for a package, and corresponding header
@@ -287,7 +292,9 @@ proc emit_source_var {package} {
     # Ugly code to build up the appropriate patsubst.
     set result "\$(patsubst %.java,%.h,\$($varname))"
     foreach dir [lsort [array names dirs]] {
-      set result "\$(patsubst $dir/%,%,$result)"
+      if {$dir != "."} {
+	set result "\$(patsubst $dir/%,%,$result)"
+      }
     }
 
     if {$package == "." || $package == "java/lang"} {
@@ -296,8 +303,10 @@ proc emit_source_var {package} {
     }
 
     puts "${uname}_header_files = $result"
-    lappend header_vars "${uname}_header_files"
     puts ""
+    if {$pkgname != "gnu/gcj/xlib" && $pkgname != "gnu/awt/xlib"} {
+      lappend header_vars "${uname}_header_files"
+    }
   }
 }
 
@@ -313,7 +322,7 @@ proc pp_var {name valueList {pre ""} {post ""}} {
 }
 
 # Read the proper .omit files.
-read_omit_file standard.omit
+read_omit_file standard.omit.in
 read_omit_file classpath/lib/standard.omit
 
 # Scan classpath first.

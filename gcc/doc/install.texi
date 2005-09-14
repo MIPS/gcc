@@ -398,6 +398,8 @@ snapshots of the development sources are also available via FTP@.
 Necessary when regenerating @file{Makefile} dependencies in libiberty.
 Necessary when regenerating @file{libiberty/functions.texi}.
 Necessary when generating manpages from Texinfo manuals.
+Necessary when targetting Darwin, building libstdc++,
+and not using @option{--disable-symvers}.
 Used by various scripts to generate some files included in CVS (mainly
 Unicode-related and rarely changing) from source tables.
 
@@ -1149,7 +1151,7 @@ Individual checks can be enabled with these flags @samp{assert},
 @samp{rtlflag}, @samp{runtime}, @samp{tree}, and @samp{valgrind}.
 
 The @samp{valgrind} check requires the external @command{valgrind}
-simulator, available from @uref{http://valgrind.kde.org/}.  The
+simulator, available from @uref{http://valgrind.org/}.  The
 @samp{rtl}, @samp{gcac} and @samp{valgrind} checks are very expensive.
 To disable all checking, @samp{--disable-checking} or
 @samp{--enable-checking=none} must be explicitly requested.  Disabling
@@ -1227,6 +1229,20 @@ in case @option{--with-sysroot} is not given an argument, is
 @option{$@{gcc_tooldir@}/sys-root}.  If the specified directory is a
 subdirectory of @option{$@{exec_prefix@}}, then it will be found relative to
 the GCC binaries if the installation tree is moved.
+
+@item --with-build-sysroot
+@itemx --with-build-sysroot=@var{dir}
+Tells GCC to consider @var{dir} as the system root (see
+@option{--with-sysroot}) while building target libraries, instead of
+the directory specified with @option{--with-sysroot}.  This option is
+only useful when you are already using @option{--with-sysroot}.  You
+can use @option{--with-build-sysroot} when you are configuring with
+@option{--prefix} set to a directory that is different from the one in
+which you are installing GCC and your target libraries.  
+
+This option affects the system root for the compiler used to build
+target libraries (which runs on the build system); it does not affect
+the compiler which is used to build GCC itself.
 
 @item --with-headers
 @itemx --with-headers=@var{dir}
@@ -2108,7 +2124,7 @@ Development Tools for the Renesas H8/300[HS] Series}.
 HP-UX:
 @itemize
 @item
-@uref{http://hpux.cae.wisc.edu/,,HP-UX Porting Center};
+@uref{http://hpux.cs.utah.edu/,,HP-UX Porting Center};
 
 @item
 @uref{ftp://sunsite.informatik.rwth-aachen.de/pub/packages/gcc_hpux/,,Binaries for HP-UX 11.00 at Aachen University of Technology}.
@@ -2121,9 +2137,6 @@ Development Tools for the Motorola 68HC11/68HC12}.
 @item
 @uref{http://www.sco.com/skunkware/devtools/index.html#gcc,,SCO
 OpenServer/Unixware}.
-
-@item
-Sinix/Reliant Unix---@uref{ftp://ftp.fujitsu-siemens.com/pub/pd/gnu/gcc/,,Siemens}.
 
 @item
 Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware}.
@@ -2153,11 +2166,15 @@ Solaris/SPARC 2.5.1, 2.6, 7, 8, and 9.
 @item
 @uref{http://www.openpkg.org/,,OpenPKG} offers binaries for quite a
 number of platforms.
+
+@item
+The @uref{http://gcc.gnu.org/wiki/GFortranBinaries,,GFortran Wiki} has
+links to gfortran binaries for several platforms.
 @end itemize
 
 In addition to those specific offerings, you can get a binary
 distribution CD-ROM from the
-@uref{http://www.fsf.org/order/order.html,,Free Software Foundation}.
+@uref{http://www.gnu.org/order/order.html,,Free Software Foundation}.
 It contains binaries for a number of platforms, and
 includes not only GCC, but other stuff as well.  The current CD does
 not contain the latest version of GCC, but it should allow
@@ -2244,9 +2261,9 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#x-ibm-aix,,*-ibm-aix*}
 @item
-@uref{#ip2k-x-elf,,ip2k-*-elf}
-@item
 @uref{#iq2000-x-elf,,iq2000-*-elf}
+@item
+@uref{#m32c-x-elf,,m32c-*-elf}
 @item
 @uref{#m32r-x-elf,,m32r-*-elf}
 @item
@@ -2505,7 +2522,7 @@ can also be obtained from:
 
 @itemize @bullet
 @item
-@uref{http://www.openavr.org,,http://www.openavr.org}
+@uref{http://www.nongnu.org/avr/,,http://www.nongnu.org/avr/}
 @item
 @uref{http://home.overta.ru/users/denisc/,,http://home.overta.ru/users/denisc/}
 @item
@@ -2605,6 +2622,32 @@ Pre-packaged tools can be obtained from
 @uref{ftp://ftp.axis.com/pub/axis/tools/cris/compiler-kit/}.  More
 information about this platform is available at
 @uref{http://developer.axis.com/}.
+
+@html
+<hr />
+@end html
+@heading @anchor{crx}CRX
+
+The CRX CompactRISC architecture is a low-power 32-bit architecture with
+fast context switching and architectural extensibility features.
+
+@ifnothtml
+@xref{CRX Options,, CRX Options, gcc, Using and Porting the GNU Compiler
+Collection (GCC)},
+@end ifnothtml
+
+@ifhtml
+See ``CRX Options'' in the main manual for a list of CRX-specific options.
+@end ifhtml
+
+Use @samp{configure --target=crx-elf --enable-languages=c,c++} to configure
+GCC@ for building a CRX cross-compiler. The option @samp{--target=crx-elf}
+is also used to build the @samp{newlib} C library for CRX.
+
+It is also possible to build libstdc++-v3 for the CRX architecture. This
+needs to be done in a separate step with the following configure settings:
+@samp{gcc/libstdc++-v3/configure --host=crx-elf --with-newlib
+--enable-sjlj-exceptions --enable-cxx-flags='-fexceptions -frtti'}
 
 @html
 <hr />
@@ -3178,19 +3221,16 @@ switch and using the configure option @option{--with-cpu-@var{cpu_type}}.
 @html
 <hr />
 @end html
-@heading @anchor{ip2k-x-elf}ip2k-*-elf
-Ubicom IP2022 micro controller.
-This configuration is intended for embedded systems.
-There are no standard Unix configurations.
-
-Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
+@heading @anchor{iq2000-x-elf}iq2000-*-elf
+Vitesse IQ2000 processors.  These are used in embedded
+applications.  There are no standard Unix configurations.
 
 @html
 <hr />
 @end html
-@heading @anchor{iq2000-x-elf}iq2000-*-elf
-Vitesse IQ2000 processors.  These are used in embedded
-applications.  There are no standard Unix configurations.
+@heading @anchor{m32c-x-elf}m32c-*-elf
+Renesas M32C processor.
+This configuration is intended for embedded systems.
 
 @html
 <hr />
@@ -3296,10 +3336,10 @@ the use of break, use the @option{--with-divide=breaks}
 @command{configure} option when configuring GCC@.  The default is to
 use traps on systems that support them.
 
-Cross-compilers for the Mips as target using the Mips assembler
+Cross-compilers for the MIPS as target using the MIPS assembler
 currently do not work, because the auxiliary programs
 @file{mips-tdump.c} and @file{mips-tfile.c} can't be compiled on
-anything but a Mips.  It does work to cross compile for a Mips
+anything but a MIPS.  It does work to cross compile for a MIPS
 if you use the GNU assembler and linker.
 
 @html
@@ -3432,7 +3472,7 @@ binaries are available at
 @uref{http://developer.apple.com/darwin/projects/compiler/} (free
 registration required).
 
-This version of GCC requires at least cctools-528.
+This version of GCC requires at least cctools-590.7.
 
 The version of GCC shipped by Apple typically includes a number of
 extensions not available in a standard GCC release.  These extensions
@@ -3575,11 +3615,12 @@ from the CVS repository or applying the patch
 @uref{http://sources.redhat.com/ml/binutils-cvs/2004-09/msg00036.html} to the
 release.
 
-We recommend using GNU binutils 2.16 or later in conjunction with GCC 4.x.
-However, for Solaris 10 and above, an additional patch is required in order
-for the GNU linker to be able to cope with a new flavor of shared libraries.
-You can obtain a working version by checking out the binutils-2_16-branch
-from the CVS repository or applying the patch
+We recommend using GNU binutils 2.16 or later in conjunction with GCC 4.x,
+or the vendor tools (Sun @command{as}, Sun @command{ld}).  However, for
+Solaris 10 and above, an additional patch is required in order for the GNU
+linker to be able to cope with a new flavor of shared libraries.  You
+can obtain a working version by checking out the binutils-2_16-branch from
+the CVS repository or applying the patch
 @uref{http://sourceware.org/ml/binutils-cvs/2005-07/msg00122.html} to the
 release.
 
@@ -3908,10 +3949,6 @@ with Microsoft's C++ compiler and there are no plans to make it do so.
 GCC does not currently support OS/2.  However, Andrew Zabolotny has been
 working on a generic OS/2 port with pgcc.  The current code can be found
 at @uref{http://www.goof.com/pcg/os2/,,http://www.goof.com/pcg/os2/}.
-
-An older copy of GCC 2.8.1 is included with the EMX tools available at
-@uref{ftp://ftp.leo.org/pub/comp/os/os2/leo/devtools/emx+gcc/,,
-ftp://ftp.leo.org/pub/comp/os/os2/leo/devtools/emx+gcc/}.
 
 @html
 <hr />

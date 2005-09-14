@@ -72,7 +72,7 @@ typedef enum conversion_rank {
 
 /* An implicit conversion sequence, in the sense of [over.best.ics].
    The first conversion to be performed is at the end of the chain.
-   That conversion is always an cr_identity conversion.  */
+   That conversion is always a cr_identity conversion.  */
 
 typedef struct conversion conversion;
 struct conversion {
@@ -1309,10 +1309,10 @@ add_function_candidate (struct z_candidate **candidates,
   tree orig_arglist;
   int viable = 1;
 
-  /* Built-in functions that haven't been declared don't really
-     exist.  */
-  if (DECL_ANTICIPATED (fn))
-    return NULL;
+  /* At this point we should not see any functions which haven't been
+     explicitly declared, except for friend functions which will have
+     been found using argument dependent lookup.  */
+  gcc_assert (!DECL_ANTICIPATED (fn) || DECL_HIDDEN_FRIEND_P (fn));
 
   /* The `this', `in_chrg' and VTT arguments to constructors are not
      considered in overload resolution.  */
@@ -1701,7 +1701,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 
 	  if (IS_AGGR_TYPE (c1) && DERIVED_FROM_P (c2, c1)
 	      && (TYPE_PTRMEMFUNC_P (type2)
-		  || is_complete (TREE_TYPE (TREE_TYPE (type2)))))
+		  || is_complete (TYPE_PTRMEM_POINTED_TO_TYPE (type2))))
 	    break;
 	}
       return;
@@ -2203,7 +2203,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 
   i = fn_type_unification (tmpl, explicit_targs, targs,
 			   args_without_in_chrg,
-			   return_type, strict);
+			   return_type, strict, flags);
 
   if (i != 0)
     return NULL;
@@ -2758,7 +2758,7 @@ perform_overload_resolution (tree fn,
    or a static member function) with the ARGS.  */
 
 tree
-build_new_function_call (tree fn, tree args)
+build_new_function_call (tree fn, tree args, bool koenig_p)
 {
   struct z_candidate *candidates, *cand;
   bool any_viable_p;
@@ -2768,6 +2768,22 @@ build_new_function_call (tree fn, tree args)
   args = resolve_args (args);
   if (args == error_mark_node)
     return error_mark_node;
+
+  /* If this function was found without using argument dependent
+     lookup, then we want to ignore any undeclared friend
+     functions.  */
+  if (!koenig_p)
+    {
+      tree orig_fn = fn;
+
+      fn = remove_hidden_names (fn);
+      if (!fn)
+	{
+	  error ("no matching function for call to %<%D(%A)%>",
+		 DECL_NAME (OVL_CURRENT (orig_fn)), args);
+	  return error_mark_node;
+	}
+    }
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);
@@ -3486,7 +3502,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
   /* If this expression is an rvalue, but might be mistaken for an
      lvalue, we must add a NON_LVALUE_EXPR.  */
   if (!lvalue_p && real_lvalue_p (result))
-    result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
+    result = rvalue (result);
 
   return result;
 }
@@ -4544,7 +4560,7 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum)
 
   if (TREE_CODE (arg) == CONSTRUCTOR)
     {
-      arg = digest_init (type, arg, 0);
+      arg = digest_init (type, arg);
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", fn, parmnum);
     }
@@ -4601,6 +4617,17 @@ convert_for_arg_passing (tree type, tree val)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
 				   TYPE_SIZE (integer_type_node)))
     val = perform_integral_promotions (val);
+  if (warn_missing_format_attribute)
+    {
+      tree rhstype = TREE_TYPE (val);
+      const enum tree_code coder = TREE_CODE (rhstype);
+      const enum tree_code codel = TREE_CODE (type);
+      if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
+	  && coder == codel
+	  && check_missing_format_attribute (type, rhstype))
+	warning (OPT_Wmissing_format_attribute,
+		 "argument of function call might be a candidate for a format attribute");
+    }
   return val;
 }
 
@@ -6275,13 +6302,13 @@ tourney (struct z_candidate *candidates)
 bool
 can_convert (tree to, tree from)
 {
-  return can_convert_arg (to, from, NULL_TREE);
+  return can_convert_arg (to, from, NULL_TREE, LOOKUP_NORMAL);
 }
 
 /* Returns nonzero if ARG (of type FROM) can be converted to TO.  */
 
 bool
-can_convert_arg (tree to, tree from, tree arg)
+can_convert_arg (tree to, tree from, tree arg, int flags)
 {
   conversion *t;
   void *p;
@@ -6291,7 +6318,7 @@ can_convert_arg (tree to, tree from, tree arg)
   p = conversion_obstack_alloc (0);
 
   t  = implicit_conversion (to, from, arg, /*c_cast_p=*/false, 
-			    LOOKUP_NORMAL);
+			    flags);
   ok_p = (t && !t->bad_p);
 
   /* Free all the conversions we allocated.  */

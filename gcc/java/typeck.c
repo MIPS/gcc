@@ -329,7 +329,7 @@ java_array_type_length (tree array_type)
   return -1;
 }
 
-/* An array of unknown length will be ultimately given an length of
+/* An array of unknown length will be ultimately given a length of
    -2, so that we can still have `length' producing a negative value
    even if found. This was part of an optimization aiming at removing
    `length' from static arrays. We could restore it, FIXME.  */
@@ -842,6 +842,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
 	   tree signature, tree (*signature_builder) (tree))
 {
   tree method;
+  tree orig_class = searched_class;
     
   if (searched_class == NULL_TREE)
     return NULL_TREE;
@@ -868,7 +869,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
   
   /* If that doesn't work, look in our interfaces.  */
   if (flags & SEARCH_INTERFACE)
-    method = find_method_in_interfaces (searched_class, flags, method_name, 
+    method = find_method_in_interfaces (orig_class, flags, method_name, 
 					signature, signature_builder);
   
   return method;

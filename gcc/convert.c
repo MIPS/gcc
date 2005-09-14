@@ -454,7 +454,7 @@ convert_to_integer (tree type, tree expr)
 	  else
 	    code = NOP_EXPR;
 
-	  return build1 (code, type, expr);
+	  return fold_build1 (code, type, expr);
 	}
 
       /* If TYPE is an enumeral type or a type with a precision less
@@ -684,7 +684,7 @@ convert_to_integer (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("aggregate value used where an integer was expected");
@@ -760,7 +760,7 @@ convert_to_vector (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("can't convert value to a vector");

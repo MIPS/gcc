@@ -339,6 +339,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Target pragma.  */
 #define REGISTER_TARGET_PRAGMAS() do {				\
   c_register_pragma (0, "longcall", rs6000_pragma_longcall);	\
+  targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin; \
 } while (0)
 
 /* Target #defines.  */
@@ -1104,28 +1105,32 @@ enum reg_class
 
    'Q' means that is a memory operand that is just an offset from a reg.
    'R' is for AIX TOC entries.
-   'S' is a constant that can be placed into a 64-bit mask operand
-   'T' is a constant that can be placed into a 32-bit mask operand
+   'S' is a constant that can be placed into a 64-bit mask operand.
+   'T' is a constant that can be placed into a 32-bit mask operand.
    'U' is for V.4 small data references.
    'W' is a vector constant that can be easily generated (no mem refs).
-   'Y' is a indexed or word-aligned displacement memory operand.
+   'Y' is an indexed or word-aligned displacement memory operand.
    'Z' is an indexed or indirect memory operand.
-   't' is for AND masks that can be performed by two rldic{l,r} insns.  */
+   'a'  is an indexed or indirect address operand.
+   't' is for AND masks that can be performed by two rldic{l,r} insns
+       (but excluding those that could match other constraints of anddi3.)  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
   ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG	\
    : (C) == 'R' ? legitimate_constant_pool_address_p (OP)		\
-   : (C) == 'S' ? mask_operand (OP, DImode)				\
-   : (C) == 'T' ? mask_operand (OP, SImode)				\
+   : (C) == 'S' ? mask64_operand (OP, DImode)				\
+   : (C) == 'T' ? mask_operand (OP, GET_MODE (OP))			\
    : (C) == 'U' ? (DEFAULT_ABI == ABI_V4				\
 		   && small_data_operand (OP, GET_MODE (OP)))		\
    : (C) == 't' ? (mask64_2_operand (OP, DImode)			\
 		   && (fixed_regs[CR0_REGNO]				\
 		       || !logical_operand (OP, DImode))		\
-		   && !mask_operand (OP, DImode))			\
+		   && !mask_operand (OP, DImode)			\
+		   && !mask64_operand (OP, DImode))			\
    : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
    : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
    : (C) == 'Z' ? (indexed_or_indirect_operand (OP, GET_MODE (OP)))	\
+   : (C) == 'a' ? (indexed_or_indirect_address (OP, GET_MODE (OP)))	\
    : 0)
 
 /* Define which constraints are memory constraints.  Tell reload
@@ -1134,6 +1139,12 @@ enum reg_class
 
 #define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
   ((C) == 'Q' || (C) == 'Y' || (C) == 'Z')
+
+/* Define which constraints should be treated like address constraints
+   by the reload pass.  */
+
+#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
+  ((C) == 'a')
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1226,7 +1237,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 /* Offsets recorded in opcodes are a multiple of this alignment factor.  */
 #define DWARF_CIE_DATA_ALIGNMENT (-((int) (TARGET_32BIT ? 4 : 8)))
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.
@@ -2489,6 +2500,18 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_ABS_V16QI,
   ALTIVEC_BUILTIN_MASK_FOR_LOAD,
   ALTIVEC_BUILTIN_MASK_FOR_STORE,
+  ALTIVEC_BUILTIN_VEC_INIT_V4SI,
+  ALTIVEC_BUILTIN_VEC_INIT_V8HI,
+  ALTIVEC_BUILTIN_VEC_INIT_V16QI,
+  ALTIVEC_BUILTIN_VEC_INIT_V4SF,
+  ALTIVEC_BUILTIN_VEC_SET_V4SI,
+  ALTIVEC_BUILTIN_VEC_SET_V8HI,
+  ALTIVEC_BUILTIN_VEC_SET_V16QI,
+  ALTIVEC_BUILTIN_VEC_SET_V4SF,
+  ALTIVEC_BUILTIN_VEC_EXT_V4SI,
+  ALTIVEC_BUILTIN_VEC_EXT_V8HI,
+  ALTIVEC_BUILTIN_VEC_EXT_V16QI,
+  ALTIVEC_BUILTIN_VEC_EXT_V4SF,
 
   /* Altivec overloaded builtins.  */
   ALTIVEC_BUILTIN_VCMPEQ_P,

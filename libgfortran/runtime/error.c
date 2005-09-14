@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -441,10 +441,10 @@ translate_error (int code)
 
 
 /* generate_error()-- Come here when an error happens.  This
- * subroutine is called if it is possible to continue on after the
- * error.  If an IOSTAT variable exists, we set it.  If the IOSTAT or
- * ERR label is present, we return, otherwise we terminate the program
- * after print a message.  The error code is always required but the
+ * subroutine is called if it is possible to continue on after the error.
+ * If an IOSTAT or IOMSG variable exists, we set it.  If IOSTAT or
+ * ERR labels are present, we return, otherwise we terminate the program
+ * after printing a message.  The error code is always required but the
  * message parameter can be NULL, in which case a string describing
  * the most recent operating system error is used. */
 
@@ -454,6 +454,13 @@ generate_error (int family, const char *message)
   /* Set the error status.  */
   if (ioparm.iostat != NULL)
     *ioparm.iostat = family;
+
+  if (message == NULL)
+    message =
+      (family == ERROR_OS) ? get_oserror () : translate_error (family);
+
+  if (ioparm.iomsg)
+    cf_strcpy (ioparm.iomsg, ioparm.iomsg_len, message);
 
   /* Report status back to the compiler.  */
   switch (family)
@@ -483,9 +490,31 @@ generate_error (int family, const char *message)
 
   /* Terminate the program */
 
-  if (message == NULL)
-    message =
-      (family == ERROR_OS) ? get_oserror () : translate_error (family);
-
   runtime_error (message);
+}
+
+
+
+/* Possibly issue a warning/error about use of a nonstandard (or deleted)
+   feature.  An error/warning will be issued if the currently selected
+   standard does not contain the requested bits.  */
+
+try
+notify_std (int std, const char * message)
+{
+  int warning;
+
+  warning = compile_options.warn_std & std;
+  if ((compile_options.allow_std & std) != 0 && !warning)
+    return SUCCESS;
+
+  show_locus ();
+  if (!warning)
+    {
+      st_printf ("Fortran runtime error: %s\n", message);
+      sys_exit (2);
+    }
+  else
+    st_printf ("Fortran runtime warning: %s\n", message);
+  return FAILURE;
 }

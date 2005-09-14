@@ -441,6 +441,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 				       fixed_offset, virtual_value, alias);
 
       assemble_end_function (thunk_fndecl, fnname);
+      init_insn_lengths ();
       current_function_decl = 0;
       cfun = 0;
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
@@ -979,7 +980,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   tree name;
   HOST_WIDE_INT saved_processing_template_decl;
 
-  /* Because we create declarations for implictly declared functions
+  /* Because we create declarations for implicitly declared functions
      lazily, we may be creating the declaration for a member of TYPE
      while in some completely different context.  However, TYPE will
      never be a dependent class (because we never want to do lookups

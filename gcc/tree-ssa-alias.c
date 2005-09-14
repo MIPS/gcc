@@ -344,12 +344,20 @@ struct count_ptr_d
    (ALIGN/MISALIGNED_)INDIRECT_REF nodes for the pointer passed in DATA.  */
 
 static tree
-count_ptr_derefs (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
+count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
 {
   struct count_ptr_d *count_p = (struct count_ptr_d *) data;
 
+  /* Do not walk inside ADDR_EXPR nodes.  In the expression &ptr->fld,
+     pointer 'ptr' is *not* dereferenced, it is simply used to compute
+     the address of 'fld' as 'ptr + offsetof(fld)'.  */
+  if (TREE_CODE (*tp) == ADDR_EXPR)
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
   if (INDIRECT_REF_P (*tp) && TREE_OPERAND (*tp, 0) == count_p->ptr)
-/*       || (TREE_CODE (*tp) == MEM_REF && MEM_REF_SYMBOL (*tp) == count_p->ptr)) */
     count_p->count++;
 
   return NULL_TREE;
@@ -1168,6 +1176,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
   size_t n_vars, num_addressable_vars, num_pointers;
   referenced_var_iterator rvi;
   tree var;
+  VEC (tree, heap) *varvec = NULL;
+  safe_referenced_var_iterator srvi;
 
   /* Size up the arrays ADDRESSABLE_VARS and POINTERS.  */
   num_addressable_vars = num_pointers = 0;
@@ -1204,7 +1214,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
      unnecessarily.  */
   n_vars = num_referenced_vars;
 
-  FOR_EACH_REFERENCED_VAR (var, rvi)
+  FOR_EACH_REFERENCED_VAR_SAFE (var, varvec, srvi)
     {
       var_ann_t v_ann = var_ann (var);
       subvar_t svars;
@@ -1336,6 +1346,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	    }
 	}
     }
+  VEC_free (tree, heap, varvec);
 }
 
 
@@ -1499,23 +1510,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
   gcc_assert (m_ann->mem_tag_kind == TYPE_TAG);
 
   alias_stats.tbaa_queries++;
-
-  /* If VAR is a pointer with the same alias set as PTR, then dereferencing
-     PTR can't possibly affect VAR.  Note, that we are specifically testing
-     for PTR's alias set here, not its pointed-to type.  We also can't
-     do this check with relaxed aliasing enabled.  */
-  if (POINTER_TYPE_P (TREE_TYPE (var))
-      && var_alias_set != 0
-      && mem_alias_set != 0)
-    {
-      HOST_WIDE_INT ptr_alias_set = get_alias_set (ptr);
-      if (ptr_alias_set == var_alias_set)
-	{
-	  alias_stats.alias_noalias++;
-	  alias_stats.tbaa_resolved++;
-	  return false;
-	}
-    }
 
   /* If the alias sets don't conflict then MEM cannot alias VAR.  */
   if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
@@ -2134,7 +2128,7 @@ dump_points_to_info (FILE *file)
 }
 
 
-/* Dump points-to info pointed by PTO into STDERR.  */
+/* Dump points-to info pointed to by PTO into STDERR.  */
 
 void
 debug_points_to_info (void)
@@ -2208,6 +2202,40 @@ may_be_aliased (tree var)
 }
 
 
+/* Given two symbols return TRUE if one is in the alias set of the other.  */
+bool
+is_aliased_with (tree tag, tree sym)
+{
+  size_t i;
+  varray_type aliases;
+
+  if (var_ann (sym)->is_alias_tag)
+    {
+      aliases = var_ann (tag)->may_aliases;
+
+      if (aliases == NULL)
+	return false;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	if (VARRAY_TREE (aliases, i) == sym)
+	  return true;
+    }
+  else
+    {
+      aliases = var_ann (sym)->may_aliases;
+
+      if (aliases == NULL)
+	return false;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	if (VARRAY_TREE (aliases, i) == tag)
+	  return true;
+    }
+
+  return false;
+}
+
+
 /* Add VAR to the list of may-aliases of PTR's type tag.  If PTR
    doesn't already have a type tag, create one.  */
 
@@ -2218,14 +2246,14 @@ add_type_alias (tree ptr, tree var)
   tree tag;
   var_ann_t ann = var_ann (ptr);
   subvar_t svars;
-  
+  VEC (tree, heap) *varvec = NULL;  
 
   if (ann->type_mem_tag == NULL_TREE)
     {
       tree q = NULL_TREE;
       tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
       HOST_WIDE_INT tag_set = get_alias_set (tag_type);
-      referenced_var_iterator rvi;
+      safe_referenced_var_iterator rvi;
 
       /* PTR doesn't have a type tag, create a new one and add VAR to
 	 the new tag's alias set.
@@ -2234,7 +2262,7 @@ add_type_alias (tree ptr, tree var)
 	 whether there is another pointer Q with the same alias set as
 	 PTR.  This could be sped up by having type tags associated
 	 with types.  */
-      FOR_EACH_REFERENCED_VAR (q, rvi)
+      FOR_EACH_REFERENCED_VAR_SAFE (q, varvec, rvi)
 	{
 	  if (POINTER_TYPE_P (TREE_TYPE (q))
 	      && tag_set == get_alias_set (TREE_TYPE (TREE_TYPE (q))))
@@ -2292,6 +2320,7 @@ found_tag:
       for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
     }
+  VEC_free (tree, heap, varvec);
 }
 
 
@@ -2766,7 +2795,8 @@ static void
 create_structure_vars (void)
 {
   basic_block bb;
-  referenced_var_iterator rvi;
+  safe_referenced_var_iterator rvi;
+  VEC (tree, heap) *varvec = NULL;
   tree var;
 
   used_portions = htab_create (10, used_part_map_hash, used_part_map_eq, 
@@ -2782,7 +2812,7 @@ create_structure_vars (void)
 					NULL);
 	}
     }
-  FOR_EACH_REFERENCED_VAR (var, rvi)
+  FOR_EACH_REFERENCED_VAR_SAFE (var, varvec, rvi)
     {
       /* The C++ FE creates vars without DECL_SIZE set, for some reason.  */
       if (var 	  
@@ -2793,6 +2823,7 @@ create_structure_vars (void)
 	create_overlap_variables_for (var);
     }
   htab_delete (used_portions);
+  VEC_free (tree, heap, varvec);
 
 }
 

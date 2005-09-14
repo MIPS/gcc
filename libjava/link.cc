@@ -1620,7 +1620,7 @@ _Jv_Linker::verify_type_assertions (jclass klass)
 	  if (cl1 == NULL || cl2 == NULL)
 	    continue;
 
-          if (! _Jv_IsAssignableFromSlow (cl2, cl1))
+          if (! _Jv_IsAssignableFromSlow (cl1, cl2))
 	    {
 	      jstring s = JvNewStringUTF ("Incompatible types: In class ");
 	      s = s->concat (klass->getName());
@@ -1659,11 +1659,10 @@ _Jv_Linker::print_class_loaded (jclass klass)
   if (codesource == NULL)
     codesource = "<no code source>";
 
-  // We use a somewhat bogus test for the ABI here.
   char *abi;
   if (_Jv_IsInterpretedClass (klass))
     abi = "bytecode";
-  else if (klass->state == JV_STATE_PRELOADING)
+  else if (_Jv_IsBinaryCompatibilityABI (klass))
     abi = "BC-compiled";
   else
     abi = "pre-compiled";

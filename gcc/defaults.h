@@ -61,17 +61,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
   } while (0)
 #endif
 
-/* This is how to output an element of a case-vector that is absolute.
-   Some targets don't use this, but we have to define it anyway.  */
-
-#ifndef ASM_OUTPUT_ADDR_VEC_ELT
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
-     (*targetm.asm_out.internal_label) (FILE, "L", (VALUE));			\
-     fputc ('\n', FILE);						\
-   } while (0)
-#endif
-
 /* Choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
@@ -844,6 +833,17 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 
 #ifndef FRAME_GROWS_DOWNWARD
 #define FRAME_GROWS_DOWNWARD 0
+#endif
+
+/* On most machines, the CFA coincides with the first incoming parm.  */
+#ifndef ARG_POINTER_CFA_OFFSET
+#define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
+#endif
+
+/* The offset from the incoming value of %sp to the top of the stack frame
+   for the current function.  */
+#ifndef INCOMING_FRAME_SP_OFFSET
+#define INCOMING_FRAME_SP_OFFSET 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

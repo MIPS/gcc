@@ -223,20 +223,35 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
     
   if (n_unroll)
     {
+      sbitmap wont_exit;
+      edge *edges_to_remove = xmalloc (sizeof (edge *) * n_unroll);
+      unsigned int n_to_remove = 0;
+
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
       update_stmt (cond);
       initialize_original_copy_tables ();
 
+      wont_exit = sbitmap_alloc (n_unroll + 1);
+      sbitmap_ones (wont_exit);
+      RESET_BIT (wont_exit, 0);
+
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					       loops, n_unroll, NULL,
-					       NULL, NULL, NULL, 0))
+					       loops, n_unroll, wont_exit,
+					       exit, edges_to_remove,
+					       &n_to_remove,
+					       DLTHE_FLAG_UPDATE_FREQ
+					       | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
 	  COND_EXPR_COND (cond) = old_cond;
 	  update_stmt (cond);
           free_original_copy_tables ();
+	  free (wont_exit);
+	  free (edges_to_remove);
 	  return false;
 	}
+      free (wont_exit);
+      free (edges_to_remove);
       free_original_copy_tables ();
     }
   
@@ -252,7 +267,7 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
 }
 
 /* Adds a canonical induction variable to LOOP if suitable.  LOOPS is the loops
-   tree.  CREATE_IV is true if we may create a new iv.  UL determines what
+   tree.  CREATE_IV is true if we may create a new iv.  UL determines 
    which loops we are allowed to completely unroll.  If TRY_EVAL is true, we try
    to determine the number of iterations of a loop by direct evaluation. 
    Returns true if cfg is changed.  */
@@ -350,7 +365,7 @@ tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
   unsigned i;
   struct loop *loop;
   bool changed = false;
-  enum unroll_level ul = may_increase_size ? UL_ALL : UL_NO_GROWTH;
+  enum unroll_level ul;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -359,6 +374,10 @@ tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
       if (!loop)
 	continue;
 
+      if (may_increase_size && maybe_hot_bb_p (loop->header))
+	ul = UL_ALL;
+      else
+	ul = UL_NO_GROWTH;
       changed |= canonicalize_loop_induction_variables (loops, loop,
 							false, ul,
 							!flag_tree_loop_ivcanon);
@@ -393,7 +412,7 @@ empty_loop_p (struct loop *loop)
     return false;
 
   /* The loop must be finite.  */
-  if (!number_of_iterations_exit (loop, exit, &niter))
+  if (!number_of_iterations_exit (loop, exit, &niter, false))
     return false;
 
   /* Values of all loop exit phi nodes must be invariants.  */
@@ -472,9 +491,16 @@ empty_loop_p (struct loop *loop)
 static void
 remove_empty_loop (struct loop *loop)
 {
-  edge exit = single_dom_exit (loop);
+  edge exit = single_dom_exit (loop), non_exit;
   tree cond_stmt = last_stmt (exit->src);
   tree do_exit;
+  basic_block *body;
+  unsigned n_before, freq_in, freq_h;
+  gcov_type exit_count = exit->count;
+
+  non_exit = EDGE_SUCC (exit->src, 0);
+  if (non_exit == exit)
+    non_exit = EDGE_SUCC (exit->src, 1);
 
   if (exit->flags & EDGE_TRUE_VALUE)
     do_exit = boolean_true_node;
@@ -483,6 +509,34 @@ remove_empty_loop (struct loop *loop)
 
   COND_EXPR_COND (cond_stmt) = do_exit;
   update_stmt (cond_stmt);
+
+  /* Let us set the probabilities of the edges coming from the exit block.  */
+  exit->probability = REG_BR_PROB_BASE;
+  non_exit->probability = 0;
+  non_exit->count = 0;
+
+  /* Update frequencies and counts.  Everything before
+     the exit needs to be scaled FREQ_IN/FREQ_H times,
+     where FREQ_IN is the frequency of the entry edge
+     and FREQ_H is the frequency of the loop header.
+     Everything after the exit has zero frequency.  */
+  freq_h = loop->header->frequency;
+  freq_in = EDGE_FREQUENCY (loop_preheader_edge (loop));
+  if (freq_h != 0)
+    {
+      body = get_loop_body_in_dom_order (loop);
+      for (n_before = 1; n_before <= loop->num_nodes; n_before++)
+	if (body[n_before - 1] == exit->src)
+	  break;
+      scale_bbs_frequencies_int (body, n_before, freq_in, freq_h);
+      scale_bbs_frequencies_int (body + n_before, loop->num_nodes - n_before,
+				 0, 1);
+      free (body);
+    }
+
+  /* Number of executions of exit is not changed, thus we need to restore
+     the original value.  */
+  exit->count = exit_count;
 }
 
 /* Removes LOOP if it is empty.  Returns true if LOOP is removed.  CHANGED
