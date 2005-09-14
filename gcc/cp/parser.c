@@ -17601,7 +17601,15 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 int
 cw_asm_typename_or_reserved (tree value)
 {
-  return (C_IS_RESERVED_WORD (value));
+  tree type_decl;
+  if (C_IS_RESERVED_WORD (value))
+    return 1;
+
+  type_decl = lookup_name_real (value, 0, 0, true, 0, 0);
+  return type_decl
+         && (TREE_CODE (type_decl) == TYPE_DECL
+             || TREE_CODE (type_decl) == NAMESPACE_DECL
+             || TREE_CODE (type_decl) == TEMPLATE_DECL);
 }
 /* APPLE LOCAL end CW asm blocks */
 

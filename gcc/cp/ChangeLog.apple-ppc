@@ -1,3 +1,8 @@
+2005-09-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4257049
+	* cp/parser.c (cw_asm_typename_or_reserved): Check for typename.
+
 2005-08-23  Mike Stump  <mrs@apple.com>
 
 	Radar 4211971
