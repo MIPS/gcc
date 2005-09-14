@@ -68,6 +68,8 @@ class bytecode_generator : public visitor
     // finally handler represents the finally part of a 'synchronized'
     // block.  This can be NULL for an ordinary try statement if it
     // has no finally clause; in this case variable will be -1.
+    // If BLOCK is NULL and VARIABLE is -2, then this is a dummy
+    // handler representing some labeled block in the tree.
     model_block *block;
     // Variable used by the 'try'.
     int variable;
@@ -76,6 +78,13 @@ class bytecode_generator : public visitor
       : statement (s),
 	block (b),
 	variable (v)
+    {
+    }
+
+    finally_handler (const model_stmt *s)
+      : statement (s),
+	block (NULL),
+	variable (-2)
     {
     }
   };

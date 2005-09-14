@@ -1,3 +1,16 @@
+2005-09-13  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/generate.hh (finally_handler): New constructor.
+	* bytecode/generate.cc (call_cleanups): Added assert.  Exit early
+	if dummy entry found.
+	(visit_break): Pass correct target to call_cleanups.
+	(visit_do): Push a dummy finally handler.
+	(visit_for_enhanced): Likewise.
+	(visit_for): Likewise.
+	(visit_label): Likewise.
+	(visit_switch): Likewise.
+	(visit_while): Likewise.
+
 2005-09-12  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/locals.cc (emit): Handle case where variable is

@@ -381,10 +381,17 @@ bytecode_generator::call_cleanups (const model_stmt *upto)
   while (! last_was_ours && ! finally_stack.empty ())
     {
       finally_handler h = finally_stack.back ();
+      last_was_ours = h.statement == upto;
+      // Exit early if we found a target statement.
+      if (h.statement == upto && h.variable == -2)
+	{
+	  assert (h.block == NULL);
+	  break;
+	}
       finally_stack.pop_back ();
       emit_saved_cleanup (h);
-      last_was_ours = h.statement == upto;
     }
+  assert (last_was_ours || upto == NULL);
   finally_stack = save;
 }
 
@@ -526,7 +533,7 @@ bytecode_generator::visit_break (model_break *brk, const ref_stmt &target)
   if (! real_target)
     real_target = brk->get_target ();
 
-  call_cleanups (real_target);
+  call_cleanups (target.get ());
 
   // Find the target statement.
   target_map_type::iterator iter = target_map.find (real_target);
@@ -586,6 +593,11 @@ bytecode_generator::visit_do (model_do *dstmt,
   bytecode_block *done (new_bytecode_block ());
   target_map[dstmt] = std::make_pair (test, done);
 
+  // Push a dummy finally handler that tells call_cleanups to exit
+  // early.
+  finally_handler dummy (dstmt);
+  stack_temporary<finally_handler> push (finally_stack, dummy);
+
   bytecode_block *top (new_bytecode_block ());
   define (top);
   body->visit (this);
@@ -630,6 +642,11 @@ bytecode_generator::visit_for_enhanced (model_for_enhanced *fstmt,
   note_line (fstmt);
 
   vars.push_scope (fstmt);
+
+  // Push a dummy finally handler that tells call_cleanups to exit
+  // early.
+  finally_handler dummy (fstmt);
+  stack_temporary<finally_handler> push (finally_stack, dummy);
 
   // We introduce a new scope so that the temporary locals are killed
   // at the right point.
@@ -790,6 +807,11 @@ bytecode_generator::visit_for (model_for *fstmt,
 {
   note_line (fstmt);
 
+  // Push a dummy finally handler that tells call_cleanups to exit
+  // early.
+  finally_handler dummy (fstmt);
+  stack_temporary<finally_handler> push (finally_stack, dummy);
+
   vars.push_scope (fstmt);
 
   if (init)
@@ -877,6 +899,11 @@ bytecode_generator::visit_label (model_label *label, const ref_stmt &stmt)
 {
   note_line (label);
 
+  // Push a dummy finally handler that tells call_cleanups to exit
+  // early.
+  finally_handler dummy (label);
+  stack_temporary<finally_handler> push (finally_stack, dummy);
+
   // We might not know the target of a break statement at semantic
   // analysis time, so we compute it here.
   if (label->get_break_target () == NULL)
@@ -945,6 +972,11 @@ bytecode_generator::visit_switch (model_switch *swstmt,
 				  const std::list<ref_switch_block> &blocks)
 {
   note_line (swstmt);
+
+  // Push a dummy finally handler that tells call_cleanups to exit
+  // early.
+  finally_handler dummy (swstmt);
+  stack_temporary<finally_handler> push (finally_stack, dummy);
 
   bytecode_block *finish = new_bytecode_block ();
 
@@ -1320,6 +1352,11 @@ bytecode_generator::visit_while (model_while *wstmt,
 				 const ref_stmt &body)
 {
   note_line (wstmt);
+
+  // Push a dummy finally handler that tells call_cleanups to exit
+  // early.
+  finally_handler dummy (wstmt);
+  stack_temporary<finally_handler> push (finally_stack, dummy);
 
   bytecode_block *body_bytes = new_bytecode_block ();
   bytecode_block *again = new_bytecode_block ();
