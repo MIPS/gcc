@@ -349,12 +349,15 @@ fixed_address_object_p (tree obj)
 static void
 add_to_parts (struct mem_address *parts, tree type, tree elt)
 {
+  tree elt_core = elt;
+  STRIP_NOPS (elt_core);
+
   /* Check if this is a symbol.  */
   if (!parts->symbol
-      && TREE_CODE (elt) == ADDR_EXPR
-      && fixed_address_object_p (TREE_OPERAND (elt, 0)))
+      && TREE_CODE (elt_core) == ADDR_EXPR
+      && fixed_address_object_p (TREE_OPERAND (elt_core, 0)))
     {
-      parts->symbol = TREE_OPERAND (elt, 0);
+      parts->symbol = TREE_OPERAND (elt_core, 0);
       return;
     }
 

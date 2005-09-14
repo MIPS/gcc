@@ -73,7 +73,7 @@ enum unroll_level
 /* Adds a canonical induction variable to LOOP iterating NITER times.  EXIT
    is the exit edge whose condition is replaced.  */
 
-static void
+void
 create_canonical_iv (struct loop *loop, edge exit, tree niter)
 {
   edge in;

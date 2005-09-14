@@ -37,6 +37,63 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfglayout.h"
 #include "tree-scalar-evolution.h"
 
+/* Adds statement to increment VAR_BEFORE by STEP at position INCR_POS
+   (after it if AFTER is true, before it otherwise).  VAR is the base variable
+   for the new ssa name.  INCR_OP is the operator applied to increment the
+   value.  */
+
+tree
+create_increment_stmt (block_stmt_iterator *incr_pos, bool after,
+		       tree var_before, enum tree_code incr_op, tree step,
+		       tree var)
+{
+  tree va = make_ssa_name (var, NULL_TREE);
+  tree stmt, stmts;
+  bool negate = false;
+
+  gcc_assert (incr_op == PLUS_EXPR || incr_op == MINUS_EXPR);
+
+  /* For easier readability of the created code, produce MINUS_EXPRs
+     when suitable.  */
+  if (TREE_CODE (step) == INTEGER_CST
+      && tree_int_cst_sign_bit (step)
+      && (TYPE_UNSIGNED (TREE_TYPE (step))
+	  || may_negate_without_overflow_p (step)))
+    {
+      step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
+      negate = true;
+    }
+  else if (TREE_CODE (step) == NEGATE_EXPR)
+    {
+      step = TREE_OPERAND (step, 0);
+      negate = true;
+    }
+
+  if (negate)
+    incr_op = (incr_op == PLUS_EXPR) ? MINUS_EXPR : PLUS_EXPR;
+
+  /* Gimplify the step if necessary.  */
+  step = force_gimple_operand (step, &stmts, true, NULL);
+  stmt = build2 (MODIFY_EXPR, void_type_node, va,
+		 build2 (incr_op, TREE_TYPE (var_before),
+			 var_before, step));
+  SSA_NAME_DEF_STMT (va) = stmt;
+  if (after)
+    {
+      if (stmts)
+	bsi_insert_after (incr_pos, stmts, BSI_CONTINUE_LINKING);
+      bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
+    }
+  else
+    {
+      bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
+      if (stmts)
+	bsi_insert_before (incr_pos, stmts, BSI_SAME_STMT);
+    }
+
+  return va;
+}
+
 /* Creates an induction variable with value BASE + STEP * iteration in LOOP.
    It is expected that neither BASE nor STEP are shared with other expressions
    (unless the sharing rules allow this).  Use VAR as a base var_decl for it
@@ -51,9 +108,8 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	   block_stmt_iterator *incr_pos, bool after,
 	   tree *var_before, tree *var_after)
 {
-  tree stmt, initial, step1, stmts;
+  tree stmt, initial, stmts;
   tree vb, va;
-  enum tree_code incr_op = PLUS_EXPR;
   edge pe = loop_preheader_edge (loop);
 
   if (!var)
@@ -65,48 +121,9 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   vb = make_ssa_name (var, NULL_TREE);
   if (var_before)
     *var_before = vb;
-  va = make_ssa_name (var, NULL_TREE);
+  va = create_increment_stmt (incr_pos, after, vb, PLUS_EXPR, step, var);
   if (var_after)
     *var_after = va;
-
-  /* For easier readability of the created code, produce MINUS_EXPRs
-     when suitable.  */
-  if (TREE_CODE (step) == INTEGER_CST)
-    {
-      if (TYPE_UNSIGNED (TREE_TYPE (step)))
-	{
-	  step1 = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
-	  if (tree_int_cst_lt (step1, step))
-	    {
-	      incr_op = MINUS_EXPR;
-	      step = step1;
-	    }
-	}
-      else
-	{
-	  if (!tree_expr_nonnegative_p (step)
-	      && may_negate_without_overflow_p (step))
-	    {
-	      incr_op = MINUS_EXPR;
-	      step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
-	    }
-	}
-    }
-
-  /* Gimplify the step if necessary.  We put the computations in front of the
-     loop (i.e. the step should be loop invariant).  */
-  step = force_gimple_operand (step, &stmts, true, var);
-  if (stmts)
-    bsi_insert_on_edge_immediate_loop (pe, stmts);
-
-  stmt = build2 (MODIFY_EXPR, void_type_node, va,
-		 build2 (incr_op, TREE_TYPE (base),
-			 vb, step));
-  SSA_NAME_DEF_STMT (va) = stmt;
-  if (after)
-    bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
 
   initial = force_gimple_operand (base, &stmts, true, var);
   if (stmts)

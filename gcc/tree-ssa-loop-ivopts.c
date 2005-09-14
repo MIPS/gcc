@@ -2293,6 +2293,19 @@ static void
 add_derived_ivs_candidates (struct ivopts_data *data)
 {
   unsigned i;
+  struct tree_niter_desc *niter = niter_for_single_dom_exit (data);
+
+  /* In case we know exact number of iterations of the loop, suggest
+     a countdown iv.  */
+  if (niter && zero_p (niter->may_be_zero))
+    {
+      tree type = TREE_TYPE (niter->niter);
+      tree base = fold_build2 (PLUS_EXPR, type, niter->niter,
+			       build_int_cst_type (type, 1));
+      tree step = build_int_cst_type (type, -1);
+
+      add_candidate (data, base, step, true, NULL);
+    }
 
   for (i = 0; i < n_iv_uses (data); i++)
     {
@@ -3131,6 +3144,8 @@ get_address_cost (bool symbol_present, bool var_present,
   acost = costs[symbol_present][var_present][offset_p][ratio_p];
   if (!acost)
     {
+      int old_cse_not_expected;
+
       acost = 0;
       
       addr = gen_raw_REG (Pmode, LAST_VIRTUAL_REGISTER + 1);
@@ -3159,8 +3174,13 @@ get_address_cost (bool symbol_present, bool var_present,
 	addr = gen_rtx_fmt_ee (PLUS, Pmode, addr, base);
   
       start_sequence ();
+      /* To avoid splitting addressing modes, pretend that no cse will
+	 follow.  */
+      old_cse_not_expected = cse_not_expected;
+      cse_not_expected = true;
       addr = memory_address (Pmode, addr);
       seq = get_insns ();
+      cse_not_expected = old_cse_not_expected;
       end_sequence ();
   
       acost = seq_cost (seq);
@@ -3174,6 +3194,43 @@ get_address_cost (bool symbol_present, bool var_present,
   return cost + acost;
 }
 
+/* Returs cost of conversion from mode MODE_FROM to mode MODE_TO.  UNSIGNED_P
+   is true if the conversion is unsigned.  */
+
+static unsigned
+convert_cost (enum machine_mode mode_to, enum machine_mode mode_from,
+	      bool unsigned_p)
+{
+  static unsigned costs[NUM_MACHINE_MODES][NUM_MACHINE_MODES][2];
+  unsigned cost;
+  rtx seq;
+
+  if (mode_to == mode_from)
+    return 0;
+
+  cost = costs[mode_to][mode_from][unsigned_p];
+  if (cost)
+    return cost;
+
+  start_sequence ();
+  convert_move (gen_raw_REG (mode_to, LAST_VIRTUAL_REGISTER + 1),
+		gen_raw_REG (mode_from, LAST_VIRTUAL_REGISTER + 2),
+		unsigned_p);
+  seq = get_insns ();
+  end_sequence ();
+
+  cost = seq_cost (seq);
+  if (!cost)
+    cost = 1;
+
+  costs[mode_to][mode_from][unsigned_p] = cost;
+      
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Conversion from %sto %s  costs %d\n",
+	     GET_MODE_NAME (mode_from), GET_MODE_NAME (mode_to), cost);
+  return cost;
+}
+
 /* Estimates cost of forcing expression EXPR into a variable.  */
 
 unsigned
@@ -3183,8 +3240,8 @@ force_expr_to_var_cost (tree expr)
   static unsigned integer_cost;
   static unsigned symbol_cost;
   static unsigned address_cost;
-  tree op0, op1;
-  unsigned cost0, cost1, cost;
+  tree op0, op1, inner_type;
+  unsigned cost0 = 0, cost1 = 0, cost;
   enum machine_mode mode;
 
   if (!costs_initialized)
@@ -3253,16 +3310,19 @@ force_expr_to_var_cost (tree expr)
       STRIP_NOPS (op0);
       STRIP_NOPS (op1);
 
-      if (is_gimple_val (op0))
-	cost0 = 0;
-      else
+      if (!is_gimple_val (op0))
 	cost0 = force_expr_to_var_cost (op0);
 
-      if (is_gimple_val (op1))
-	cost1 = 0;
-      else
+      if (!is_gimple_val (op1))
 	cost1 = force_expr_to_var_cost (op1);
 
+      break;
+
+    case CONVERT_EXPR:
+    case NOP_EXPR:
+      op0 = TREE_OPERAND (expr, 0);
+      STRIP_NOPS (op0);
+      cost0 = force_expr_to_var_cost (op0);
       break;
 
     default:
@@ -3285,6 +3345,13 @@ force_expr_to_var_cost (tree expr)
 	cost = multiply_by_cost (int_cst_value (op1), mode);
       else
 	return target_spill_cost;
+      break;
+
+    case CONVERT_EXPR:
+    case NOP_EXPR:
+      inner_type = TREE_TYPE (op0);
+      cost = convert_cost (mode, TYPE_MODE (inner_type),
+			   TYPE_UNSIGNED (inner_type));
       break;
 
     default:
@@ -3405,7 +3472,7 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
 {
   HOST_WIDE_INT rat = 1, off = 0;
   unsigned cost = 0, i, nelts;
-  bool symbol_present = false, var_present = false;
+  bool symbol_present = false, var_present = false, index_used = false;
   enum machine_mode mode = TYPE_MODE (comp->type);
 
   /* Try finding a symbol.  */
@@ -3449,6 +3516,8 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
 	      aff_combination_remove_elt (comp, i);
 	    }
 	  cost += n_add * add_cost (mode);
+
+	  index_used = true;
 	}
     }
 
@@ -3467,14 +3536,19 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
   if (comp->rest)
     nelts++;
 
-  cost += aff_combination_cost (data, comp, depends_on);
-
-  /* If there is more than one element, we can save one addition by using
-     BASE + INDEX addressing mode, if present.  */
-  if (nelts > 1)
+  if (nelts)
     {
-      var_present = true;
-      cost -= add_cost (mode);
+      cost += aff_combination_cost (data, comp, depends_on);
+
+      /* We can save one addition by using BASE + INDEX addressing mode,
+	 if present and if index is not used already.  */
+      if (index_used)
+	var_present = true;
+      else if (nelts > 1)
+	{
+	  var_present = true;
+	  cost -= add_cost (mode);
+	}
     }
 
   return cost + get_address_cost (symbol_present, var_present, off, rat);
@@ -3551,6 +3625,20 @@ get_computation_cost (struct ivopts_data *data,
 {
   return get_computation_cost_at (data,
 				  use, cand, address_p, depends_on, use->stmt);
+}
+
+/* Estimate cost of comparing with BOUND.  */
+
+static unsigned
+compare_cost (tree bound)
+{
+  /* Prefer costants, and prefer zero even more.  */
+  if (zero_p (bound))
+    return 0;
+  else if (TREE_CODE (bound) == INTEGER_CST)
+    return 1;
+  else
+    return 2;
 }
 
 /* Determines cost of basing replacement of USE on CAND in a generic
@@ -3651,20 +3739,6 @@ may_eliminate_iv (struct ivopts_data *data,
   return select_condition_shape (niter->niter, base, step,
 				 (exit->flags & EDGE_TRUE_VALUE) != 0,
 				 cmp, bound);
-}
-
-/* Estimate cost of comparing with BOUND.  */
-
-static unsigned
-compare_cost (tree bound)
-{
-  /* Prefer costants, and prefer zero even more.  */
-  if (zero_p (bound))
-    return 0;
-  else if (TREE_CODE (bound) == INTEGER_CST)
-    return 1;
-  else
-    return 2;
 }
 
 /* Determines cost of basing replacement of USE on CAND in a condition.  */

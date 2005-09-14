@@ -721,6 +721,7 @@ void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
 void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
+void tree_ssa_reverse_loops (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
@@ -736,8 +737,11 @@ void rewrite_into_loop_closed_ssa (bitmap, unsigned);
 void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
+void create_canonical_iv (struct loop *, edge, tree);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
+tree create_increment_stmt (block_stmt_iterator *, bool, tree, enum tree_code,
+			    tree, tree);
 void split_loop_exit_edge (edge);
 void compute_phi_arg_on_exit (edge, tree, tree);
 unsigned force_expr_to_var_cost (tree);
@@ -756,6 +760,7 @@ tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
 edge single_dom_exit (struct loop *);
 bool select_condition_shape (tree, tree, tree, bool, enum tree_code *, tree *);
+unsigned compare_cost (tree);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
