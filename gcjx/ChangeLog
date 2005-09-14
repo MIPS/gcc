@@ -1,5 +1,12 @@
 2005-09-13  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/byteutil.hh (return_p): New function.
+	* bytecode/block.cc (optimize): Handle 'if' optimization when
+	'goto' is in following block.  Optimize a 'goto' to a 'return'.
+	Include byteutil.hh.
+
+2005-09-13  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.hh (finally_handler): New constructor.
 	* bytecode/generate.cc (call_cleanups): Added assert.  Exit early
 	if dummy entry found.

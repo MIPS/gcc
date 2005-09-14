@@ -1,6 +1,6 @@
 // Bytecode utility functions.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -36,6 +36,14 @@ invert_if_opcode (java_opcode base)
   else if (base == op_ifnonnull)
     return op_ifnull;
   return java_opcode ((base & 1) ? base + 1 : base - 1);
+}
+
+/// Return true if the value is a 'return' bytecode of any kind.
+inline bool
+return_p (int op)
+{
+  return (op == op_ireturn || op == op_lreturn || op == op_freturn
+	  || op == op_dreturn || op == op_areturn || op == op_return);
 }
 
 inline bool

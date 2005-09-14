@@ -25,6 +25,7 @@
 #include "bytecode/block.hh"
 #include "bytecode/attribute.hh"
 #include "bytecode/generate.hh"
+#include "bytecode/byteutil.hh"
 
 bool
 bytecode_block::optimize ()
@@ -87,10 +88,33 @@ bytecode_block::optimize ()
 	      changed = true;
 	    }
 	}
+      else if (last->conditional_p ()
+	       && last->get_target () == next_block->next_block
+	       && ! next_block->relocations.empty ())
+	{
+	  // We might also encounter this case if the next block
+	  // starts with a goto.
+	  ref_relocation next_rel = next_block->relocations.front ();
+	  if (next_rel->get_kind () == reloc_goto)
+	    {
+	      // Remove the goto relocation and the byte representing
+	      // the instruction.
+	      next_block->relocations.pop_back ();
+	      next_block->bytecode.pop_back ();
+	      assert (! next_block->fall_through);
+	      next_block->fall_through = true;
+	      last->set_target (next_rel->get_target ());
+	      last->invert_condition ();
+	      // Rewrite the bytecode.  We know that the relocation
+	      // type can be directly converted to an instruction.
+	      bytecode[bytecode.size () - 1] = jbyte (last->get_kind ());
+	      changed = true;
+	    }
+	}
     }
 
-  // Second, we rewrite goto L; ... L: goto X by changing the first
-  // goto to jump directly to X.
+  // Rewrite goto L; ... L: goto X by changing the first goto to jump
+  // directly to X.
   for (std::list<ref_relocation>::iterator i = relocations.begin ();
        i != relocations.end ();
        ++i)
@@ -124,6 +148,22 @@ bytecode_block::optimize ()
 	  // Update here so that we don't have a chance to point to a
 	  // dead block.
 	  (*i)->update ();
+	  changed = true;
+	}
+    }
+
+  // If we see goto L; ... L: return, we hoist the return into the
+  // original block.  Do this after hoisting gotos so that a chain of
+  // gotos leading to a return is optimized.
+  if (! relocations.empty () && relocations.back ()->get_kind () == reloc_goto)
+    {
+      int ret = (relocations.back ()->get_target ()->bytecode[0] & 0xff);
+      if (return_p (java_opcode (ret)))
+	{
+	  // Delete our last relocation.
+	  relocations.pop_back ();
+	  // Turn the last bytecode value into the appropriate return.
+	  bytecode[bytecode.size () - 1] = ret;
 	  changed = true;
 	}
     }
