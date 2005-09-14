@@ -349,7 +349,7 @@ bytecode_generator::emit_saved_cleanup (const finally_handler &handler)
   // blocks.
   if (handler.block)
     handler.block->visit (this);
-  else if (handler.variable != -1)
+  else if (handler.variable >= 0)
     {
       // 'NULL' represents the handler for a synchronized block.
       model_class *obj = global->get_compiler ()->java_lang_Object ();
