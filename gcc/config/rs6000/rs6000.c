@@ -16348,8 +16348,8 @@ rs6000_emit_prologue (void)
 
 	  /* APPLE LOCAL reduce code size */
 	  RTVEC_ELT (p, count++) = gen_rtx_SET (VOIDmode, mem, reg);
-	}
       /* APPLE LOCAL begin C++ EH and setjmp (radar 2866661) */
+	}
 #if TARGET_MACHO
       /* Darwin version of these functions stores R0.  */
       RTVEC_ELT (p, count++) = gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 0));
