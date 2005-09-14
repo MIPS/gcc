@@ -1,5 +1,27 @@
 2005-09-14  Zdenek Dvorak  <dvorakz@suse.cz>
 
+	* tree-chrec.c (chrec_convert_aggressive): New function.
+	* tree-chrec.h (chrec_convert_aggressive): Declare it.
+	* tree-flow.h (tree_ssa_reverse_loops, create_canonical_iv,
+	create_increment_stmt, compare_cost): Declare.
+	* tree-scalar-evolution.c (instantiate_parameters_1,
+	instantiate_parameters, resolve_mixers): Add possibility
+	to fold no-op casts.
+	* tree-ssa-address.c (add_to_parts): Strip nops before looking for
+	symbol.
+	* tree-ssa-loop-ivcanon.c (create_canonical_iv): Export.
+	* tree-ssa-loop-ivopts.c (add_derived_ivs_candidates): Add a countdown
+	iv.
+	(get_address_cost): Set cse_not_expected to get more precise costs.
+	(convert_cost): New function.
+	(force_expr_to_var_cost): Use it.
+	(aff_combination_cost_address): Handle base+index addressing modes
+	correctly.
+	* tree-ssa-loop-manip.c (create_increment_stmt): Split from ...
+	(create_iv): ... here.
+
+2005-09-14  Zdenek Dvorak  <dvorakz@suse.cz>
+
 	* config/ia64/ia64.c (ia64_reload_gp): Set MEM_NOTRAP_P for the
 	created MEM.
 
