@@ -1,3 +1,8 @@
+2005-09-14  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* config/ia64/ia64.c (ia64_reload_gp): Set MEM_NOTRAP_P for the
+	created MEM.
+
 2005-09-09  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* tree-pretty-print.c (dump_bb_header): Fix merge conflict.

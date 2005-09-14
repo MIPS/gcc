@@ -1841,6 +1841,7 @@ ia64_reload_gp (void)
         }
 
       tmp = gen_rtx_MEM (DImode, pic_offset_table_rtx);
+      MEM_NOTRAP_P (tmp) = 1;
     }
 
   emit_move_insn (pic_offset_table_rtx, tmp);
