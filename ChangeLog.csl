@@ -1,5 +1,18 @@
 2005-09-14  Mark Mitchell  <mark@codesourcery.com>
 
+	As posted at http://gcc.gnu.org/ml/gcc-patches/2005-07/msg01945.html
+	2005-07-28  Mark Mitchell  <mark@codesourcery.com>
+	* libtool-ldflags: New script.
+	2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+	* src/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use it.
+	* libsupc++/Makefile.am (LLDFLAGS): New variable.
+	(CXXLINK): Use it.
+	* src/Makefile.in: Regenerated.
+	* libsupc++/Makefile.in: Likewise.
+
+2005-09-14  Mark Mitchell  <mark@codesourcery.com>
+
 	* gcc/config/vx-common.h (DBX_DEBUGGING_INFO): Define to 1.
 
 2005-08-24  Mark Mitchell  <mark@codesourcery.com>
