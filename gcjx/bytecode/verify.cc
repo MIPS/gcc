@@ -1967,7 +1967,8 @@ private:
       return type (int_type);
     else if (tag == JV_CONSTANT_Float)
       return type (float_type);
-    else if (vfy_is_15 (current_method) && tag == JV_CONSTANT_Class)
+    else if (vfy_is_15 (current_method)
+	     && (tag == JV_CONSTANT_ResolvedClass || tag == JV_CONSTANT_Class))
       return type (vfy_class_type (), this);
     verify_fail ("String, int, or float constant expected", start_PC);
   }

@@ -1,3 +1,6 @@
+sometimes we emit the wrong line numbers with -g
+see test case in kaffe
+
 error message if 'enum' is used as an identifier could be better
 
 use a using declaration to resolve overrides in

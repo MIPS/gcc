@@ -1,3 +1,10 @@
+2005-09-15  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/classwriter.cc (write): Write 1.5 version number if
+	needed.
+	* bytecode/verify.cc (check_constant): Handle resolved classes as
+	well.
+
 2005-09-14  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/block.cc (optimize): Ensure conditional occurs just

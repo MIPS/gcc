@@ -181,9 +181,9 @@ class_writer::write (directory_cache &dircache)
     std::cout << " [writing " << outname << "]" << std::endl;
 
   writer.put4 (MAGIC);
-  // FIXME: ask the compiler what version to use.
-  writer.put2 (MINOR_1_4);
-  writer.put2 (MAJOR_1_4);
+
+  writer.put2 (target_15 ? MINOR_1_5 : MINOR_1_4);
+  writer.put2 (target_15 ? MAJOR_1_5 : MAJOR_1_4);
 
   pool = new outgoing_constant_pool (the_class, writer);
 
