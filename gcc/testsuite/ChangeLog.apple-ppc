@@ -1,5 +1,14 @@
 2005-09-15  Devang Patel  <dpatel@apple.com>
 
+        dbxout_type rewrite.
+        * gcc.dg/stabs-attrib-vect-darwin.c: Update. 
+        * gcc.dg/stabs-4209166.c: New.
+        * gcc.dg/stabs-4223137.c: New.
+        * gcc.dg/stabs-4232445.c: New.
+	* obj-c++.dg/stabs-2.mm: Update.
+
+2005-09-15  Devang Patel  <dpatel@apple.com>
+
         Radar 4241538
 	* gcc.dg/altivec-4241538.c: New.
 

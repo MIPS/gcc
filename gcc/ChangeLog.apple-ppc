@@ -1,5 +1,22 @@
 2005-09-15  Devang Patel  <dpatel@apple.com>
 
+        dbxout_type rewrite.
+        * dbxout.c (enum typestatus): Add TYPE_QUEUED.
+        (dbxout_type):Rewrite. Use dbxout_partial_type and dbxout_complete_type
+        to do actual work.
+        (dbxout_partial_type, dbxout_complete_type, dbxout_type_xref,
+        dbxout_pointer_type, dbxout_void_type, dbxout_integer_type,
+        dbxout_real_type, dbxout_char_type, dbxout_complex_type, 
+        dbxout_file_type, dbxout_function_type, dbxout_reference_type,
+        dbxout_next_type_number, dbxout_cross_ref_type_p, dbxout_type_with_name,
+        dbxout_queue_type, dbxout_free_type_queue): New.
+        (dbxout_function_end): Flush type queue.
+        (dbxout_end_source_file): Same.
+        * final.c (debug_flush_symbol_queue): Same.
+        * debug.h (dbxout_flush_type_queue): New.
+
+2005-09-15  Devang Patel  <dpatel@apple.com>
+
         Radar 4241538
         * config/rs600.c (altivec_cov_rt_2p): Check NULL_TREE.
 

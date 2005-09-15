@@ -3945,6 +3945,11 @@ debug_flush_symbol_queue (void)
     }
 
   symbol_queue_index = 0;
+/* APPLE LOCAL begin dbxout_type rewrite.  */
+#ifdef DBX_DEBUGGING_INFO
+  dbxout_flush_type_queue ();
+#endif
+/* APPLE LOCAL end dbxout_type rewrite.  */
   --debug_nesting;
 }
 
