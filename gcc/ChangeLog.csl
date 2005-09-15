@@ -1,3 +1,9 @@
+2005-09-15  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_load_tp): Copy result to pseudo.
+	* config/arm/arm.h (CLASS_LIKELY_SPILLED_P): Return 1 for RETURN_REG.
+	* config/arm/arm.md (load_tp_soft): Set conds attr.
+
 2005-09-15  Joseph Myers  <joseph@codesourcery.com>
 
 	* testsuite/gcc.dg/torture/pr19683-1.c: Remove XFAIL.

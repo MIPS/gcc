@@ -10277,6 +10277,7 @@
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_SOFT_TP"
   "bl\\t__aeabi_read_tp\\t@ load_tp_soft"
+  [(set_attr "conds" "clob")]
 )
 
 ;; Load the FPA co-processor patterns

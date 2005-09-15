@@ -3695,20 +3695,25 @@ get_tls_get_addr (void)
 static rtx
 arm_load_tp (rtx target)
 {
+  if (!target)
+    target = gen_reg_rtx (SImode);
+
   if (TARGET_HARD_TP)
     {
       /* Can return in any reg.  */
-      if (!target)
-	target = gen_reg_rtx (SImode);
-      
       emit_insn (gen_load_tp_hard (target));
     }
   else
     {
       /* Always returned in R0 */
-      target = gen_rtx_REG (SImode, 0);
-      
-      emit_insn (gen_load_tp_soft (target));
+      rtx tmp;
+
+      /* Use a hard reg to avoid aborts in reload.  See gcc.dg/opt-5.c  */
+      tmp = gen_rtx_REG (SImode, 0);
+      emit_insn (gen_load_tp_soft (tmp));
+      /* Copy the result into a pseudo, otherwise other uses of r0
+	 (eg.  setting up function arguments) may clobber the value.  */
+      emit_move_insn (target, tmp);
     }
   return target;
 }

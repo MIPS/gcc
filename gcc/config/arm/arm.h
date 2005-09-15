@@ -1264,9 +1264,10 @@ enum reg_class
 /* We need to define this for LO_REGS on thumb.  Otherwise we can end up
    using r0-r4 for function arguments, r7 for the stack frame and don't
    have enough left over to do doubleword arithmetic.  */
-#define CLASS_LIKELY_SPILLED_P(CLASS)	\
+#define CLASS_LIKELY_SPILLED_P(CLASS)		\
     ((TARGET_THUMB && (CLASS) == LO_REGS)	\
-     || (CLASS) == CC_REG)
+     || (CLASS) == CC_REG			\
+     || (CLASS) == RETURN_REG)
 				      
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
