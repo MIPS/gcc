@@ -7403,6 +7403,9 @@ altivec_cov_rt_2p (tree t)
 { 
   /* Must be a pointer.  */
 
+  if (!t)
+    return NULL_TREE;
+
   if (TREE_CODE (t) != POINTER_TYPE)
     return NULL_TREE;
 

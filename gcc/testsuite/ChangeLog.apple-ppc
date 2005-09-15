@@ -1,3 +1,8 @@
+2005-09-15  Devang Patel  <dpatel@apple.com>
+
+        Radar 4241538
+	* gcc.dg/altivec-4241538.c: New.
+
 2005-09-08  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4220129

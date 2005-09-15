@@ -1,3 +1,8 @@
+2005-09-15  Devang Patel  <dpatel@apple.com>
+
+        Radar 4241538
+        * config/rs600.c (altivec_cov_rt_2p): Check NULL_TREE.
+
 2005-09-08  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4220129
