@@ -135,10 +135,35 @@ bitmap addressable_vars;
    having to keep track of too many V_MAY_DEF expressions at call sites.  */
 tree global_var;
 
+/* Return true if TAG can touch global memory.  */
+static bool
+tag_marked_global (tree tag)
+{
+  return DECL_EXTERNAL (tag);
+}
+
+/* Mark TAG, an alias tag, as possibly touching global memory.  */
+static void
+mark_tag_global (tree tag)
+{
+  DECL_EXTERNAL (tag) = 1;
+}
+
+/* qsort comparison function to sort type/name tags by DECL_UID.  */
+
+static int
+sort_tags_by_id (const void *pa, const void *pb)
+{
+  tree a = *(tree *)pa;
+  tree b = *(tree *)pb;
+ 
+  return DECL_UID (a) - DECL_UID (b);
+}
+
 /* Initialize WORKLIST to contain those memory tags that are marked call
    clobbered.  */
 
-static void 
+static void
 init_transitive_clobber_worklist (VEC (tree, heap) **worklist)
 {
   referenced_var_iterator rvi;
@@ -190,52 +215,95 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
    clobbered. */
 
 static void
-mark_global_tags (void)
+compute_tag_properties (void)
 {
   referenced_var_iterator rvi;
   tree tag;
+  bool changed = true;
+  VEC (tree, heap) *taglist = NULL;
 
-  /* Go through each tag not marked as global, and if it aliases
-     global vars, mark it global.
-
-     FIXME: When we move the stuff from group_aliases here, this needs
-     to iterate to a fixpoint.  Right now, we know there are no tags
-     in the aliases list, or if there are, they were properly marked
-     by group_aliases.  */
   FOR_EACH_REFERENCED_VAR (tag, rvi)
     {
-      varray_type ma;
-      unsigned int i;
+      var_ann_t ann = var_ann (tag);
 
-      if (var_ann (tag)->mem_tag_kind == NOT_A_TAG
-	  || var_ann (tag)->mem_tag_kind == STRUCT_FIELD)
+      if (ann->mem_tag_kind == NOT_A_TAG
+	  || ann->mem_tag_kind == STRUCT_FIELD)
 	continue;
+      VEC_safe_push (tree, heap, taglist, tag);
+    }
 
-      ma = may_aliases (tag);
-      if (!ma)
-	continue;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
+  /* We sort the taglist by DECL_UID, for two reasons.
+     1. To get a sequential ordering to make the bitmap accesses
+     faster.
+     2. Because of the way we compute aliases, it's more likely that
+     an earlier tag is included in a later tag, and this will reduce
+     the number of iterations.
+
+     If we had a real tag graph, we would just topo-order it and be
+     done with it.  */
+  qsort (VEC_address (tree, taglist),
+	 VEC_length (tree, taglist),
+	 sizeof (tree),
+	 sort_tags_by_id);
+
+  /* Go through each tag not marked as global, and if it aliases
+     global vars, mark it global. 
+     
+     If the tag contains call clobbered vars, mark it call
+     clobbered.  */
+
+  while (changed)
+    {
+      unsigned int k;
+
+      changed = false;      
+      for (k = 0; VEC_iterate (tree, taglist, k, tag); k++)
 	{
-	  tree entry = VARRAY_TREE (ma, i);
+	  varray_type ma;
+	  unsigned int i;
 
-	  if (is_call_clobbered (entry))
-	    mark_call_clobbered (tag);
-	  if (is_global_var (entry))
-	    DECL_EXTERNAL (tag) = 1;
+	  if (is_call_clobbered (tag) && tag_marked_global (tag))
+	    continue;
+	  
+	  ma = may_aliases (tag);
+	  if (!ma)
+	    continue;
+
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
+	    {
+	      tree entry = VARRAY_TREE (ma, i);
+
+	      /* Call clobbered entries cause the tag to be marked
+		 call clobbered.  */
+	      if (is_call_clobbered (entry) && !is_call_clobbered (tag))
+		{		  
+		  mark_call_clobbered (tag);
+		  changed = true;
+		}
+
+	      /* Global vars cause the tag to be marked global.  */
+	      if (is_global_var (entry) && !tag_marked_global (tag))
+		{
+		  mark_tag_global (tag);
+		  changed = true;
+		}
+	    }
 	}
     }
+  VEC_free (tree, heap, taglist);
 }
 
-/* Set up the initial variable clobbers.  
+/* Set up the initial variable clobbers and globalness.
    When this function completes, only tags whose aliases need to be
    clobbered will be set clobbered.  Tags clobbered because they
-   contain call clobbered vars are handled in mark_global_tags.  */
+   
+   contain call clobbered vars are handled in compute_tag_properties.  */
 
 static void
-set_initial_clobbers (struct alias_info *ai)
+set_initial_properties (struct alias_info *ai)
 {
   unsigned int i;
-  
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
@@ -260,7 +328,12 @@ set_initial_clobbers (struct alias_info *ai)
       if (pi->name_mem_tag
 	  && v_ann->type_mem_tag
 	  && is_call_clobbered (pi->name_mem_tag))
-	mark_call_clobbered (v_ann->type_mem_tag);    
+	mark_call_clobbered (v_ann->type_mem_tag);
+
+      if ((pi->pt_global_mem || pi->pt_anything) && pi->name_mem_tag)
+	mark_tag_global (pi->name_mem_tag);
+      if ((pi->pt_global_mem || pi->pt_anything) && v_ann->type_mem_tag)
+	mark_tag_global (v_ann->type_mem_tag);
     }
 }
 /* Compute which variables need to be marked call clobbered because
@@ -272,7 +345,7 @@ compute_call_clobbered (struct alias_info *ai)
 {
   VEC (tree, heap) *worklist = NULL;
 
-  set_initial_clobbers (ai);
+  set_initial_properties (ai);
   init_transitive_clobber_worklist (&worklist);
   while (VEC_length (tree, worklist) != 0)
     {
@@ -281,7 +354,7 @@ compute_call_clobbered (struct alias_info *ai)
       mark_aliases_call_clobbered (curr, &worklist);
     }
   VEC_free (tree, heap, worklist);
-  mark_global_tags ();
+  compute_tag_properties ();
 }
 
 /* Compute may-alias information for every variable referenced in function
@@ -425,12 +498,12 @@ compute_may_aliases (void)
      memory tags.  */
   compute_flow_insensitive_aliasing (ai);
 
-  /* Compute call clobbering information.  */
-  compute_call_clobbered (ai);
-
   /* Determine if we need to enable alias grouping.  */
   if (ai->total_alias_vops >= MAX_ALIASED_VOPS)
     group_aliases (ai);
+
+  /* Compute call clobbering information.  */
+  compute_call_clobbered (ai);
 
   /* If the program has too many call-clobbered variables and/or function
      calls, create .GLOBAL_VAR and use it to model call-clobbering
@@ -1204,17 +1277,6 @@ group_aliases (struct alias_info *ai)
 	    {
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
 
-	      if (!is_call_clobbered (tag1) && is_call_clobbered (tag2))
-		{
-		  mark_call_clobbered (tag1);
-		  mark_bitmap_call_clobbered (tag1_aliases);
-		}
-	      else if (is_call_clobbered (tag1) && !is_call_clobbered (tag2))
-		{
-		  mark_call_clobbered (tag2);
-		  mark_bitmap_call_clobbered (tag2_aliases);
-		}
-
 	      bitmap_ior_into (tag1_aliases, tag2_aliases);
 
 	      /* TAG2 does not need its aliases anymore.  */
@@ -1457,12 +1519,6 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		 then its memory tag must be marked as written-to.  */
 	      if (bitmap_bit_p (ai->dereferenced_ptrs_store, DECL_UID (var)))
 		bitmap_set_bit (ai->written_vars, DECL_UID (tag));
-
-	      /* If pointer VAR is a global variable or a PARM_DECL,
-		 then its memory tag should be considered a global
-		 variable.  */
-	      if (TREE_CODE (var) == PARM_DECL || is_global_var (var))
-		mark_call_clobbered (tag);
 
 	      /* All the dereferences of pointer VAR count as
 		 references of TAG.  Since TAG can be associated with
@@ -1900,13 +1956,6 @@ get_nmt_for (tree ptr)
 
   if (tag == NULL_TREE)
     tag = create_memory_tag (TREE_TYPE (TREE_TYPE (ptr)), false);
-
-  /* If PTR is a PARM_DECL, it points to a global variable or malloc,
-     then its name tag should be considered a global variable.  */
-  if (TREE_CODE (SSA_NAME_VAR (ptr)) == PARM_DECL
-      || pi->pt_global_mem)
-    mark_call_clobbered (tag);
-
   return tag;
 }
 

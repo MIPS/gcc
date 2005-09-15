@@ -852,13 +852,6 @@ is_call_clobbered (tree var)
 static inline void
 mark_call_clobbered (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  /* If VAR is a memory tag, then we need to consider it a global
-     variable.  This is because the pointer that VAR represents has
-     been found to point to either an arbitrary location or to a known
-     location in global memory.  */
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 1;
   bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
   ssa_call_clobbered_cache_valid = false;
   ssa_ro_call_cache_valid = false;

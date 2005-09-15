@@ -1,3 +1,20 @@
+2005-09-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow-inline (mark_call_clobbered): Don't auto-set
+	DECL_EXTERNAL on tags.
+	* tree-ssa-alias.c (tag_marked_global): New function.
+	(mark_tag_global): Ditto.
+	(sort_tags_by_id): New function.
+	(compute_tag_properties): Renamed from mark_global_tags.
+	Change to iteration and compute tag globalness properly as well.
+	(set_initial_properties): Renamed from set_initial_clobbers.
+	Set initial globalness as well.
+	(compute_call_properties): Call newly renamed functions.
+	(compute_may_aliases): Group aliases before clobbering.
+	(group_aliases): Don't deal with clobbering.
+	(setup_pointers_and_addressables): Ditto.
+	(get_nmt_for): Ditto.					  
+	
 2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-alias.c (mark_global_tags): Don't touch SFT's here. 
