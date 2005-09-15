@@ -465,7 +465,8 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (loops, latch_edge,
 		   single_pred_edge (get_bb_copy (loop->header)), switch_bb,
-		   BRANCH_EDGE (switch_bb), FALLTHRU_EDGE (switch_bb), true);
+		   BRANCH_EDGE (switch_bb), FALLTHRU_EDGE (switch_bb), true,
+		   prob, REG_BR_PROB_BASE - prob);
 
   /* Remove branches that are now unreachable in new loops.  */
   remove_path (loops, true_edge);

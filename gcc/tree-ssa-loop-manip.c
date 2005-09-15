@@ -635,3 +635,218 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
   return true;
 }
+
+/* Build if (COND) goto THEN_LABEL; else goto ELSE_LABEL;  */
+
+static tree
+build_if_stmt (tree cond, tree then_label, tree else_label)
+{
+  return build3 (COND_EXPR, void_type_node,
+		 cond,
+		 build1 (GOTO_EXPR, void_type_node, then_label),
+		 build1 (GOTO_EXPR, void_type_node, else_label));
+}
+
+/* Unroll LOOP FACTOR times.  LOOPS is the loops tree.  DESC describes
+   number of iterations of LOOP.  EXIT is the exit of the loop to that
+   DESC corresponds.
+   
+   If N is number of iterations of the loop and MAY_BE_ZERO is the condition
+   under that loop exits in the first iteration even if N != 0,
+   
+   while (1)
+     {
+       x = phi (init, next);
+
+       pre;
+       if (st)
+         break;
+       post;
+     }
+
+   becomes
+   
+   if (MAY_BE_ZERO || N < FACTOR)
+     goto rest;
+
+   do
+     {
+       x = phi (init, next);
+
+       pre;
+       post;
+       pre;
+       post;
+       ...
+       pre;
+       post;
+       N -= FACTOR;
+       
+     } while (N >= FACTOR);
+
+   rest:
+     init' = phi (init, next);
+
+   while (1)
+     {
+       x = phi (init', next);
+
+       pre;
+       if (st)
+         break;
+       post;
+     } */
+
+/* Probability in % that the unrolled loop is entered.  Just a guess.  */
+#define PROB_UNROLLED_LOOP_ENTERED 80
+
+void
+tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
+		  edge exit, struct tree_niter_desc *desc)
+{
+  tree cond, type, niter, stmts, ctr_before, ctr_after, dont_exit, exit_if;
+  tree phi_old_loop, phi_new_loop, phi_rest, init, next, new_init, var;
+  struct loop *new_loop;
+  basic_block rest, exit_bb;
+  edge old_entry, new_entry, old_latch, precond_edge, new_exit;
+  edge nonexit, new_nonexit;
+  block_stmt_iterator bsi;
+  use_operand_p op;
+  bool ok;
+  unsigned prob_entry, scale_unrolled, scale_rest, est_niter;
+  sbitmap wont_exit;
+
+  est_niter = expected_loop_iterations (loop);
+  niter = force_gimple_operand (unshare_expr (desc->niter), &stmts,
+				true, NULL_TREE);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+
+  type = TREE_TYPE (niter);
+  cond = fold_build2 (GE_EXPR, boolean_type_node,
+		      niter, build_int_cst_type (type, factor));
+  if (!zero_p (desc->may_be_zero))
+    cond = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+			invert_truthvalue (unshare_expr (desc->may_be_zero)),
+			cond);
+  cond = force_gimple_operand (cond, &stmts, false, NULL_TREE);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+  /* cond now may be a gimple comparison, which would be OK, but also any
+     other gimple rhs (say a && b).  In this case we need to force it to
+     operand.  */
+  if (!is_gimple_condexpr (cond))
+    {
+      cond = force_gimple_operand (cond, &stmts, true, NULL_TREE);
+      if (stmts)
+	bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+    }
+
+  /* Let us assume that the unrolled loop is quite likely to be entered.  */
+  if (nonzero_p (cond))
+    prob_entry = REG_BR_PROB_BASE;
+  else
+    prob_entry = PROB_UNROLLED_LOOP_ENTERED * REG_BR_PROB_BASE / 100;
+
+  /* Getting the profile right is nontrivial.  These values should at least
+     keep it consistent, and somewhat close to correct.  */
+  scale_unrolled = prob_entry;
+  scale_rest = REG_BR_PROB_BASE;
+     
+  new_loop = loop_version (loops, loop, cond, NULL, prob_entry, scale_unrolled,
+			   scale_rest, true);
+  gcc_assert (new_loop != NULL);
+  update_ssa (TODO_update_ssa);
+
+  /* Unroll the loop and remove the old exits.  */
+  dont_exit = ((exit->flags & EDGE_TRUE_VALUE)
+	       ? boolean_false_node
+	       : boolean_true_node);
+  if (exit == EDGE_SUCC (exit->src, 0))
+    nonexit = EDGE_SUCC (exit->src, 1);
+  else
+    nonexit = EDGE_SUCC (exit->src, 0);
+  nonexit->probability = REG_BR_PROB_BASE;
+  exit->probability = 0;
+  nonexit->count += exit->count;
+  exit->count = 0;
+  exit_if = last_stmt (exit->src);
+  COND_EXPR_COND (exit_if) = dont_exit;
+  update_stmt (exit_if);
+      
+  wont_exit = sbitmap_alloc (factor);
+  sbitmap_ones (wont_exit);
+  ok = tree_duplicate_loop_to_header_edge
+	  (loop, loop_latch_edge (loop), loops, factor - 1,
+	   wont_exit, NULL, NULL, NULL, DLTHE_FLAG_UPDATE_FREQ);
+  free (wont_exit);
+  gcc_assert (ok);
+  update_ssa (TODO_update_ssa);
+
+  /* Prepare the cfg and update the phi nodes.  */
+  rest = loop_preheader_edge (new_loop)->src;
+  precond_edge = single_pred_edge (rest);
+  loop_split_edge_with (loop_latch_edge (loop), NULL);
+  exit_bb = single_pred (loop->latch);
+
+  new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE);
+  new_exit->count = loop_preheader_edge (loop)->count;
+  est_niter = est_niter / factor + 1;
+  new_exit->probability = REG_BR_PROB_BASE / est_niter;
+
+  new_nonexit = single_pred_edge (loop->latch);
+  new_nonexit->flags = EDGE_TRUE_VALUE;
+  new_nonexit->probability = REG_BR_PROB_BASE - new_exit->probability;
+
+  old_entry = loop_preheader_edge (loop);
+  new_entry = loop_preheader_edge (new_loop);
+  old_latch = loop_latch_edge (loop);
+  for (phi_old_loop = phi_nodes (loop->header),
+       phi_new_loop = phi_nodes (new_loop->header);
+       phi_old_loop;
+       phi_old_loop = PHI_CHAIN (phi_old_loop),
+       phi_new_loop = PHI_CHAIN (phi_new_loop))
+    {
+      init = PHI_ARG_DEF_FROM_EDGE (phi_old_loop, old_entry);
+      op = PHI_ARG_DEF_PTR_FROM_EDGE (phi_new_loop, new_entry);
+      gcc_assert (operand_equal_for_phi_arg_p (init, USE_FROM_PTR (op)));
+      next = PHI_ARG_DEF_FROM_EDGE (phi_old_loop, old_latch);
+
+      /* Prefer using original variable as a base for the new ssa name.
+	 This is necessary for virtual ops, and useful in order to avoid
+	 losing debug info for real ops.  */
+      if (TREE_CODE (init) == SSA_NAME)
+	var = SSA_NAME_VAR (init);
+      else if (TREE_CODE (next) == SSA_NAME)
+	var = SSA_NAME_VAR (next);
+      else
+	{
+	  var = create_tmp_var (TREE_TYPE (init), "unrinittmp");
+	  add_referenced_tmp_var (var);
+	}
+
+      new_init = make_ssa_name (var, NULL_TREE);
+      phi_rest = create_phi_node (new_init, rest);
+      SSA_NAME_DEF_STMT (new_init) = phi_rest;
+
+      add_phi_arg (phi_rest, init, precond_edge);
+      add_phi_arg (phi_rest, next, new_exit);
+      SET_USE (op, new_init);
+    }
+
+  /* Finally create the new counter for number of iterations and add the new
+     exit instruction.  */
+  bsi = bsi_last (exit_bb);
+  create_iv (niter, build_int_cst_type (type, -factor), NULL_TREE, loop,
+	     &bsi, true, &ctr_before, &ctr_after);
+  exit_if = build_if_stmt (build2 (GE_EXPR, boolean_type_node, ctr_after,
+				   build_int_cst_type (type, factor)),
+			   tree_block_label (loop->latch),
+			   tree_block_label (rest));
+  bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
+
+  verify_flow_info ();
+  verify_dominators (CDI_DOMINATORS);
+  verify_loop_structure (loops);
+  verify_loop_closed_ssa ();
+}

@@ -370,7 +370,7 @@ loop_data (struct loop *loop)
 /* The single loop exit if it dominates the latch, NULL otherwise.  */
 
 edge
-single_dom_exit (struct loop *loop)
+single_dom_exit (const struct loop *loop)
 {
   edge exit = loop->single_exit;
 

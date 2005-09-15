@@ -468,12 +468,13 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    LATCH_EDGE source.  HEADER_EDGE is redirected to basic block SWITCH_BB,
    FALSE_EDGE of SWITCH_BB to original destination of HEADER_EDGE and
    TRUE_EDGE of SWITCH_BB to original destination of LATCH_EDGE.
-   Returns newly created loop.  */
+   Returns newly created loop.  Frequencies and counts in the new loop
+   are scaled by NEW_SCALE and in the old one by OLD_SCALE.  */
 
 struct loop *
 loopify (struct loops *loops, edge latch_edge, edge header_edge, 
 	 basic_block switch_bb, edge true_edge, edge false_edge,
-	 bool redirect_all_edges)
+	 bool redirect_all_edges, unsigned old_scale, unsigned new_scale)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
@@ -482,7 +483,7 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
   sbitmap seen;
   struct loop *loop = xcalloc (1, sizeof (struct loop));
   struct loop *outer = succ_bb->loop_father->outer;
-  int freq, prob, tot_prob;
+  int freq;
   gcov_type cnt;
   edge e;
   edge_iterator ei;
@@ -492,10 +493,6 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
 
   freq = EDGE_FREQUENCY (header_edge);
   cnt = header_edge->count;
-  prob = EDGE_SUCC (switch_bb, 0)->probability;
-  tot_prob = prob + EDGE_SUCC (switch_bb, 1)->probability;
-  if (tot_prob == 0)
-    tot_prob = 1;
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
@@ -523,12 +520,17 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
   add_bb_to_loop (switch_bb, outer);
 
   /* Fix frequencies.  */
-  switch_bb->frequency = freq;
-  switch_bb->count = cnt;
-  FOR_EACH_EDGE (e, ei, switch_bb->succs)
-    e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
-  scale_loop_frequencies (loop, prob, tot_prob);
-  scale_loop_frequencies (succ_bb->loop_father, tot_prob - prob, tot_prob);
+  if (redirect_all_edges)
+    {
+      switch_bb->frequency = freq;
+      switch_bb->count = cnt;
+      FOR_EACH_EDGE (e, ei, switch_bb->succs)
+	{
+	  e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
+	}
+    }
+  scale_loop_frequencies (loop, old_scale, REG_BR_PROB_BASE);
+  scale_loop_frequencies (succ_bb->loop_father, new_scale, REG_BR_PROB_BASE);
 
   /* Update dominators of blocks outside of LOOP.  */
   dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
@@ -1398,13 +1400,15 @@ create_loop_notes (void)
     --- edge e ---> [cond expr] ---> [first_head]
                         |
                         +---------> [second_head]
-*/
+
+  THEN_PROB is the probability of then branch of the condition.  */
 
 static basic_block
 lv_adjust_loop_entry_edge (basic_block first_head,
 			   basic_block second_head,
 			   edge e,
-			   tree cond_expr)
+			   tree cond_expr,
+			   unsigned then_prob)
 {
   basic_block new_head = NULL;
   edge e1;
@@ -1415,11 +1419,16 @@ lv_adjust_loop_entry_edge (basic_block first_head,
      insert conditional expr.  */
   new_head = split_edge (e);
 
-
   lv_add_condition_to_bb (first_head, second_head, new_head,
 			  cond_expr);
 
+  e = single_succ_edge (new_head);
   e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
+  e1->probability = then_prob;
+  e->probability = REG_BR_PROB_BASE - then_prob;
+  e1->count = RDIV (e->count * e1->probability, REG_BR_PROB_BASE);
+  e->count = RDIV (e->count * e->probability, REG_BR_PROB_BASE);
+
   set_immediate_dominator (CDI_DOMINATORS, first_head, new_head);
   set_immediate_dominator (CDI_DOMINATORS, second_head, new_head);
 
@@ -1438,12 +1447,15 @@ lv_adjust_loop_entry_edge (basic_block first_head,
    may be a run time test for things that were not resolved by static
    analysis (overlapping ranges (anti-aliasing), alignment, etc.).
 
+   THEN_PROB is the probability of the then edge of the if.
+   
    If PLACE_AFTER is true, we place the new loop after LOOP in the
    instruction stream, otherwise it is placed before LOOP.  */
 
 struct loop *
 loop_version (struct loops *loops, struct loop * loop, 
 	      void *cond_expr, basic_block *condition_bb,
+	      unsigned then_prob, unsigned then_scale, unsigned else_scale,
 	      bool place_after)
 {
   basic_block first_head, second_head;
@@ -1475,7 +1487,7 @@ loop_version (struct loops *loops, struct loop * loop,
 
   /* Split loop entry edge and insert new block with cond expr.  */
   cond_bb =  lv_adjust_loop_entry_edge (first_head, second_head,
-					entry, cond_expr);
+					entry, cond_expr, then_prob);
   if (condition_bb)
     *condition_bb = cond_bb;
 
@@ -1492,7 +1504,8 @@ loop_version (struct loops *loops, struct loop * loop,
 		   latch_edge,
 		   single_pred_edge (get_bb_copy (loop->header)),
 		   cond_bb, true_edge, false_edge,
-		   false /* Do not redirect all edges.  */);
+		   false /* Do not redirect all edges.  */,
+		   then_scale, else_scale);
 
   exit = loop->single_exit;
   if (exit)

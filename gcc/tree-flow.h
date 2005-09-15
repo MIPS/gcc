@@ -719,6 +719,7 @@ void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
+void tree_ssa_prefetch_arrays (struct loops *);
 void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 void tree_ssa_reverse_loops (struct loops *);
@@ -754,11 +755,13 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,
 					 edge, edge *,
 					 unsigned int *, int);
+void tree_unroll_loop (struct loops *, struct loop *, unsigned, edge,
+		       struct tree_niter_desc *);
 struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
+edge single_dom_exit (const struct loop *);
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
-edge single_dom_exit (struct loop *);
 bool select_condition_shape (tree, tree, tree, bool, enum tree_code *, tree *);
 unsigned compare_cost (tree);
 

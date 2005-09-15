@@ -932,6 +932,10 @@ build_loops_structure (FILE *dumpfile)
   return loops;
 }
 
+/* Probability in % that the sms-ed loop rolls enough so that optimized
+   version may be entered.  Just a guess.  */
+#define PROB_SMS_ENOUGH_ITERATIONS 80
+
 /* Main entry point, perform SMS scheduling on the loops of the function
    that consist of single basic blocks.  */
 void
@@ -947,8 +951,6 @@ sms_schedule (FILE *dump_file)
   struct df *df;
   struct loops *loops;
   basic_block bb = NULL;
-  /* vars to the versioning only if needed*/
-  struct loop * nloop;
   basic_block condition_bb = NULL;
   edge latch_edge;
   gcov_type trip_count = 0;
@@ -1260,9 +1262,12 @@ sms_schedule (FILE *dump_file)
 		{
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
+		  unsigned prob = (PROB_SMS_ENOUGH_ITERATIONS
+				   * REG_BR_PROB_BASE) / 100;
 
-		  nloop = loop_version (loops, loop, comp_rtx, &condition_bb,
-					true);
+		  loop_version (loops, loop, comp_rtx, &condition_bb,
+				prob, prob, REG_BR_PROB_BASE - prob,
+				true);
 		}
 
 	      /* Set new iteration count of loop kernel.  */

@@ -307,9 +307,10 @@ extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					   unsigned, sbitmap, edge, edge *,
 					   unsigned *, int);
 extern struct loop *loopify (struct loops *, edge, edge,
-			     basic_block, edge, edge, bool);
+			     basic_block, edge, edge, bool,
+			     unsigned, unsigned);
 struct loop * loop_version (struct loops *, struct loop *, void *,
-			    basic_block *, bool);
+			    basic_block *, unsigned, unsigned, unsigned, bool);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, void *);
 

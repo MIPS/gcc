@@ -50,24 +50,26 @@ enum tree_dump_index
 /* Bit masks to control dumping. Not all values are applicable to
    all dumps. Add new ones at the end. When you define new
    values, extend the DUMP_OPTIONS array in tree-dump.c */
-#define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
-#define TDF_SLIM	(1 << 1)	/* don't go wild following links */
-#define TDF_RAW  	(1 << 2)	/* don't unparse the function */
-#define TDF_DETAILS	(1 << 3)	/* show more detailed info about
-					   each pass */
-#define TDF_STATS	(1 << 4)	/* dump various statistics about
-					   each pass */
-#define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
-#define TDF_VOPS	(1 << 6)	/* display virtual operands */
-#define TDF_LINENO	(1 << 7)	/* display statement line numbers */
-#define TDF_UID		(1 << 8)	/* display decl UIDs */
+enum tdf
+{
+  TDF_ADDRESS =  (1 << 0),	/* dump node addresses */
+  TDF_SLIM =	 (1 << 1),	/* don't go wild following links */
+  TDF_RAW =	 (1 << 2),	/* don't unparse the function */
+  TDF_DETAILS =	 (1 << 3),	/* show more detailed info about each pass */
+  TDF_STATS =	 (1 << 4),	/* dump various statistics about each pass */
+  TDF_BLOCKS =	 (1 << 5),	/* display basic block boundaries */
+  TDF_VOPS =	 (1 << 6),	/* display virtual operands */
+  TDF_LINENO =	 (1 << 7),	/* display statement line numbers */
+  TDF_UID =	 (1 << 8),	/* display decl UIDs */
+  TDF_ANALYSIS = (1 << 9),	/* dump details of on-demand analyses */
 
-#define TDF_TREE	(1 << 9)	/* is a tree dump */
-#define TDF_RTL		(1 << 10)	/* is a RTL dump */
-#define TDF_IPA		(1 << 11)	/* is an IPA dump */
-#define TDF_STMTADDR	(1 << 12)	/* Address of stmt.  */
+  TDF_TREE =	 (1 << 10),	/* is a tree dump */
+  TDF_RTL =	 (1 << 11),	/* is a RTL dump */
+  TDF_IPA =	 (1 << 12),	/* is an IPA dump */
+  TDF_STMTADDR = (1 << 13),	/* Address of stmt.  */
 
-#define TDF_GRAPH	(1 << 13)	/* a graph dump is being emitted */
+  TDF_GRAPH =	 (1 << 14)	/* a graph dump is being emitted */
+};
 
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
@@ -235,6 +237,7 @@ extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
+extern struct tree_opt_pass pass_loop_prefetch;
 extern struct tree_opt_pass pass_iv_optimize;
 extern struct tree_opt_pass pass_tree_loop_done;
 extern struct tree_opt_pass pass_ch;

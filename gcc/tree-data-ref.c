@@ -845,7 +845,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   struct data_reference *res;
   VEC(tree,heap) *acc_fns;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "(analyze_array \n");
       fprintf (dump_file, "  (ref = ");
@@ -871,7 +871,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_MEMTAG (res) = NULL_TREE;
   DR_PTR_INFO (res) = NULL;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
   
   return res;
@@ -900,7 +900,7 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
   STRIP_NOPS (init);   
   if (access_fn == chrec_dont_know || !init || init == chrec_dont_know)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_ANALYSIS))
 	{
 	  fprintf (dump_file, "\nBad access function of ptr: ");
 	  print_generic_expr (dump_file, ref, TDF_SLIM);
@@ -909,7 +909,7 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
       return NULL;
     }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "\nAccess function of ptr: ");
       print_generic_expr (dump_file, access_fn, TDF_SLIM);
@@ -918,7 +918,7 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
 
   if (!expr_invariant_in_loop_p (loop, init))
     {
-    if (dump_file && (dump_flags & TDF_DETAILS))
+    if (dump_file && (dump_flags & TDF_ANALYSIS))
 	fprintf (dump_file, "\ninitial condition is not loop invariant.\n");	
     }
   else
@@ -934,12 +934,12 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
 	      if (TREE_CODE (evolution) == INTEGER_CST)
 		step = fold_convert (ssizetype, evolution);
 	      else
-		if (dump_file && (dump_flags & TDF_DETAILS))
+		if (dump_file && (dump_flags & TDF_ANALYSIS))
 		  fprintf (dump_file, "\nnon constant step for ptr access.\n");	
 	    }
 	}
       else
-	if (dump_file && (dump_flags & TDF_DETAILS))
+	if (dump_file && (dump_flags & TDF_ANALYSIS))
 	  fprintf (dump_file, "\nunknown evolution of ptr.\n");	
     }
   return init_data_ref (stmt, ref, NULL_TREE, access_fn, is_read, base_address, 
@@ -967,7 +967,7 @@ init_data_ref (tree stmt,
   struct data_reference *res;
   VEC(tree,heap) *acc_fns;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "(init_data_ref \n");
       fprintf (dump_file, "  (ref = ");
@@ -993,7 +993,7 @@ init_data_ref (tree stmt,
   DR_MEMTAG (res) = memtag;
   DR_PTR_INFO (res) = ptr_info;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
   
   return res;
@@ -1137,7 +1137,7 @@ analyze_offset_expr (tree expr,
   if (!BINARY_CLASS_P (expr))
     {
       /* We expect to get binary expressions (PLUS/MINUS and MULT).  */
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_ANALYSIS))
         {
 	  fprintf (dump_file, "\nNot binary expression ");
           print_generic_expr (dump_file, expr, TDF_SLIM);
@@ -1301,7 +1301,7 @@ address_analysis (tree expr, tree stmt, bool is_read, struct data_reference *dr,
 	 address.  */
       if ((base_addr0 && base_addr1) || (!base_addr0 && !base_addr1))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, 
 		    "\neither more than one address or no addresses in expr ");
@@ -1347,7 +1347,7 @@ address_analysis (tree expr, tree stmt, bool is_read, struct data_reference *dr,
     case SSA_NAME:
       if (!POINTER_TYPE_P (TREE_TYPE (expr)))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nnot pointer SSA_NAME ");
 	      print_generic_expr (dump_file, expr, TDF_SLIM);
@@ -1459,7 +1459,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
 	  else
 	    {
 	      /* FORNOW.  */
-	      if (dump_file && (dump_flags & TDF_DETAILS))
+	      if (dump_file && (dump_flags & TDF_ANALYSIS))
 		{
 		  fprintf (dump_file, "\ndata-ref of unsupported type ");
 		  print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1475,7 +1475,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
 				  &pmode, &punsignedp, &pvolatilep, false);
       if (!base)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nfailed to get inner ref for ");
 	      print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1490,7 +1490,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
 				   &object_misalign, &object_aligned_to,
 				   &object_step))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nfailed to compute offset or step for ");
 	      print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1505,7 +1505,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
       /* Check that there is no remainder in bits.  */
       if (pbitpos%BITS_PER_UNIT)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    fprintf (dump_file, "\nbit offset alignment.\n");
 	  return NULL_TREE;
 	}
@@ -1524,7 +1524,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
       /* We expect to get a decl only if we already have a DR.  */
       if (!(*dr))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nunhandled decl ");
 	      print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1562,7 +1562,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
       ptr_dr = analyze_indirect_ref (stmt, memref, is_read);
       if (!ptr_dr)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nfailed to create dr for ");
 	      print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1577,7 +1577,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
       if (!ptr_init || !ptr_step || !POINTER_TYPE_P (TREE_TYPE (ptr_init)))
 	{
 	  *dr = (*dr) ? *dr : ptr_dr;
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nbad pointer access ");
 	      print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1588,7 +1588,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
 
       if (integer_zerop (ptr_step) && !(*dr))
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS)) 
+	  if (dump_file && (dump_flags & TDF_ANALYSIS)) 
 	    fprintf (dump_file, "\nptr is loop invariant.\n");	
 	  *dr = ptr_dr;
 	  return NULL_TREE;
@@ -1610,7 +1610,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
 				       &address_aligned_to, &address_step);
       if (!base_address)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nfailed to analyze address ");
 	      print_generic_expr (dump_file, ptr_init, TDF_SLIM);
@@ -1632,7 +1632,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
 	  *memtag = TREE_OPERAND (base_address, 0);
 	  break;
 	default:
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
 	    {
 	      fprintf (dump_file, "\nno memtag for "); 
 	      print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1646,7 +1646,7 @@ object_analysis (tree memref, tree stmt, bool is_read,
   if (!base_address)
     {
       /* MEMREF cannot be analyzed.  */
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_ANALYSIS))
 	{
 	  fprintf (dump_file, "\ndata-ref of unsupported type ");
 	  print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1762,7 +1762,7 @@ create_data_ref (tree memref, tree stmt, bool is_read)
 				  &ptr_info, &subvars);
   if (!dr || !base_address)
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_ANALYSIS))
 	{
 	  fprintf (dump_file, "\ncreate_data_ref: failed to create a dr for ");
 	  print_generic_expr (dump_file, memref, TDF_SLIM);
@@ -1825,7 +1825,7 @@ create_data_ref (tree memref, tree stmt, bool is_read)
       VEC_replace (tree, DR_ACCESS_FNS (dr), 0, access_fn);
     }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       struct ptr_info_def *pi = DR_PTR_INFO (dr);
 
@@ -2009,7 +2009,7 @@ static inline void
 finalize_ddr_dependent (struct data_dependence_relation *ddr, 
 			tree chrec)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "(dependence classified: ");
       print_generic_expr (dump_file, chrec, 0);
@@ -2026,7 +2026,7 @@ finalize_ddr_dependent (struct data_dependence_relation *ddr,
 static inline void
 non_affine_dependence_relation (struct data_dependence_relation *ddr)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(Dependence relation cannot be represented by distance vector.) \n");
 
   DDR_AFFINE_P (ddr) = false;
@@ -2100,7 +2100,7 @@ analyze_ziv_subscript (tree chrec_a,
 {
   tree difference;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(analyze_ziv_subscript \n");
   
   difference = chrec_fold_minus (integer_type_node, chrec_a, chrec_b);
@@ -2134,7 +2134,7 @@ analyze_ziv_subscript (tree chrec_a,
       break;
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
 }
 
@@ -2484,7 +2484,7 @@ analyze_subscript_affine_affine (tree chrec_a,
   int tau1, tau2;
   lambda_matrix A, U, S;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(analyze_subscript_affine_affine \n");
   
   /* For determining the initial intersection, we have to solve a
@@ -2747,7 +2747,7 @@ analyze_subscript_affine_affine (tree chrec_a,
     }
 
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "  (overlaps_a = ");
       print_generic_expr (dump_file, *overlaps_a, 0);
@@ -2756,7 +2756,7 @@ analyze_subscript_affine_affine (tree chrec_a,
       fprintf (dump_file, ")\n");
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
 }
 
@@ -2774,7 +2774,7 @@ analyze_siv_subscript (tree chrec_a,
 		       tree *overlaps_b, 
 		       tree *last_conflicts)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(analyze_siv_subscript \n");
   
   if (evolution_function_is_constant_p (chrec_a)
@@ -2798,7 +2798,7 @@ analyze_siv_subscript (tree chrec_a,
       *last_conflicts = chrec_dont_know;
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
 }
 
@@ -2845,7 +2845,7 @@ analyze_miv_subscript (tree chrec_a,
   */
   tree difference;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(analyze_miv_subscript \n");
   
   difference = chrec_fold_minus (integer_type_node, chrec_a, chrec_b);
@@ -2904,7 +2904,7 @@ analyze_miv_subscript (tree chrec_a,
       *last_conflicts = chrec_dont_know;
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
 }
 
@@ -2925,7 +2925,7 @@ analyze_overlapping_iterations (tree chrec_a,
 				tree *overlap_iterations_b, 
 				tree *last_conflicts)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "(analyze_overlapping_iterations \n");
       fprintf (dump_file, "  (chrec_a = ");
@@ -2961,7 +2961,7 @@ analyze_overlapping_iterations (tree chrec_a,
 			   overlap_iterations_a, overlap_iterations_b,
 			   last_conflicts);
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "  (overlap_iterations_a = ");
       print_generic_expr (dump_file, *overlap_iterations_a, 0);
@@ -2985,7 +2985,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
   struct data_reference *drb = DDR_B (ddr);
   tree last_conflicts;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(subscript_dependence_tester \n");
   
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
@@ -3020,7 +3020,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	}
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
 }
 
@@ -3432,7 +3432,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "(compute_affine_dependence\n");
       fprintf (dump_file, "  (stmt_a = \n");
@@ -3456,7 +3456,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	finalize_ddr_dependent (ddr, chrec_dont_know);
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, ")\n");
 }
 
@@ -3774,7 +3774,7 @@ analyze_all_data_dependences (struct loops *loops)
       dump_data_dependence_relations (dump_file, dependence_relations);
       fprintf (dump_file, "\n\n");
 
-      if (dump_flags & TDF_DETAILS)
+      if (dump_flags & TDF_ANALYSIS)
 	dump_dist_dir_vectors (dump_file, dependence_relations);
 
       if (dump_flags & TDF_STATS)

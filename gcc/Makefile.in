@@ -940,7 +940,7 @@ OBJS-common = \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o		   \
  tree-vect-generic.o tree-ssa-loop.o tree-ssa-loop-niter.o		   \
- tree-ssa-loop-manip.o tree-ssa-threadupdate.o				   \
+ tree-ssa-loop-manip.o tree-ssa-threadupdate.o tree-ssa-loop-prefetch.o	   \
  tree-vectorizer.o tree-vect-analyze.o tree-vect-transform.o		   \
  tree-ssa-loop-ivcanon.o tree-ssa-propagate.o tree-ssa-address.o	   \
  tree-ssa-math-opts.o tree-ssa-loop-endcond.o tree-affine.o		   \
@@ -1826,9 +1826,7 @@ tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-cfgcleanup.o : tree-cfgcleanup.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
    $(DIAGNOSTIC_H) errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
-   $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) tree-pass.h \
-   $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h $(HASHTAB_H) toplev.h \
-   tree-ssa-propagate.h
+   tree-ssa-propagate.h $(SCEV_H)
 tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) function.h $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(DIAGNOSTIC_H) except.h tree-pass.h $(FLAGS_H) langhooks.h \
@@ -1898,6 +1896,12 @@ tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
    $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
    tree-chrec.h $(VARRAY_H) tree-affine.h
+tree-ssa-loop-prefetch.o: tree-ssa-loop-prefetch.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(EXPR_H) \
+   output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
+   tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
+   $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
+   tree-chrec.h toplev.h langhooks.h
 tree-ssa-loop-endcond.o : tree-ssa-loop-endcond.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(EXPR_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \

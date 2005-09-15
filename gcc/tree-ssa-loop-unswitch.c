@@ -74,7 +74,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    shape.  */
 
 static struct loop *tree_unswitch_loop (struct loops *, struct loop *, basic_block,
-				   tree);
+					tree);
 static bool tree_unswitch_single_loop (struct loops *, struct loop *, int);
 static tree tree_may_unswitch_on (basic_block, struct loop *);
 
@@ -274,13 +274,17 @@ static struct loop *
 tree_unswitch_loop (struct loops *loops, struct loop *loop,
 		    basic_block unswitch_on, tree cond)
 {
-  basic_block condition_bb;
+  unsigned prob_true;
+  edge edge_true, edge_false;
 
   /* Some sanity checking.  */
   gcc_assert (flow_bb_inside_loop_p (loop, unswitch_on));
   gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
   gcc_assert (loop->inner == NULL);
 
+  extract_true_false_edges_from_block (unswitch_on, &edge_true, &edge_false);
+  prob_true = edge_true->probability;
   return loop_version (loops, loop, unshare_expr (cond), 
-		       &condition_bb, false);
+		       NULL, prob_true, prob_true,
+		       REG_BR_PROB_BASE - prob_true, false);
 }
