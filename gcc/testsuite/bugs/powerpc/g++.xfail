@@ -123,3 +123,6 @@
 4157563: ./debug-1.H -O2 -g (test for excess errors)
 4157563: ./debug-1.H -O2 (test for excess errors)
 4157563: ./debug-1.H -fastcp (test for excess errors)
+#
+# The following tests fail only when the c++ suite is run on x86
+4241732: g++.dg/asm-block-11.C (test for excess errors)

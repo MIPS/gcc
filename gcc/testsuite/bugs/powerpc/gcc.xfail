@@ -214,6 +214,9 @@
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times b "L_printf 2
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times bl "L_printf 2
 4157559: gcc.dg/20050607-1.c (test for excess errors)
+3980137: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -fomit-frame-pointer
+3980137: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -g
+3980137: gcc.c-torture/execute/loop-2b.c compilation,  -Os
 #
 # the following failures are for x86 only
 4087300: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
@@ -314,3 +317,4 @@
 4189611: gcc.misc-tests/i386-pf-none-1.c  -march=i686  scan-assembler-not fetch
 4189611: gcc.misc-tests/i386-pf-none-1.c  -march=pentium2  scan-assembler-not fetch
 4218476: gcc.c-torture/execute/builtin-return-address-1.c execution,  -O3 -fomit-frame-pointer
+4241732: gcc.apple/asm-block-11.c (test for excess errors)
