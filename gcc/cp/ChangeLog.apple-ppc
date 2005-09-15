@@ -1,3 +1,9 @@
+2005-09-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4258924
+	* cp/parser.c (cp_parser_cw_asm_postfix_expression): Add check for
+	FUNCTION_DECL during lookahead.
+
 2005-09-14  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4257049

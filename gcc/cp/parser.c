@@ -17454,7 +17454,8 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	  if (TREE_CODE (postfix_expression) == INTEGER_CST
 	      || TREE_CODE (postfix_expression) == IDENTIFIER_NODE
 	      || TREE_CODE (postfix_expression) == COMPOUND_EXPR
-	      || TREE_CODE (postfix_expression) == LABEL_DECL)
+	      || TREE_CODE (postfix_expression) == LABEL_DECL
+	      || TREE_CODE (postfix_expression) == FUNCTION_DECL)
 	    return postfix_expression;
 
 	case CPP_DEREF:
