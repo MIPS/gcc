@@ -1,3 +1,7 @@
+2005-09-15  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md (load_tp_soft): Set conds attr.
+
 2005-09-09  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.h (PREFERRED_RELOAD_CLASS): Return LO_REGS for Thumb
