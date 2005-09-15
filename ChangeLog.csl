@@ -1,3 +1,7 @@
+2005-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/config/vx-common.h (DBX_DEBUGGING_INFO): Define to 1.
+
 2005-08-24  Mark Mitchell  <mark@codesourcery.com>
 
 	* include/libiberty.h (expandargv): New function.
