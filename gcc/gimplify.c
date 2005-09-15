@@ -2576,7 +2576,12 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	 so we don't have to figure out what's missing ourselves.  */
       gcc_assert (purpose);
 
-      if (zero_sized_field_decl (purpose))
+      /* Skip zero-sized fields, unless value has side-effects.  This can
+	 happen with calls to functions returning a zero-sized type, which
+	 we shouldn't discard.  As a number of downstream passes don't
+	 expect sets of zero-sized fields, we rely on the gimplification of
+	 the MODIFY_EXPR we make below to drop the assignment statement.  */
+      if (! TREE_SIDE_EFFECTS (value) && zero_sized_field_decl (purpose))
 	continue;
 
       /* If we have a RANGE_EXPR, we have to build a loop to assign the
@@ -4460,7 +4465,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	     exception here, as all we are doing here is ensuring that
 	     we read the bytes that make up the type.  We use
 	     create_tmp_var_raw because create_tmp_var will abort when
-	     given a TREE_ADDRESSSABLE type.  */
+	     given a TREE_ADDRESSABLE type.  */
 	  tree tmp = create_tmp_var_raw (type, "vol");
 	  gimple_add_tmp_var (tmp);
 	  *expr_p = build (MODIFY_EXPR, type, tmp, *expr_p);

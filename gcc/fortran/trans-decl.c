@@ -73,6 +73,8 @@ tree gfc_static_ctors;
 
 tree gfor_fndecl_internal_malloc;
 tree gfor_fndecl_internal_malloc64;
+tree gfor_fndecl_internal_realloc;
+tree gfor_fndecl_internal_realloc64;
 tree gfor_fndecl_internal_free;
 tree gfor_fndecl_allocate;
 tree gfor_fndecl_allocate64;
@@ -1891,6 +1893,18 @@ gfc_build_builtin_function_decls (void)
 				     pvoid_type_node, 1, gfc_int8_type_node);
   DECL_IS_MALLOC (gfor_fndecl_internal_malloc64) = 1;
 
+  gfor_fndecl_internal_realloc =
+    gfc_build_library_function_decl (get_identifier
+				     (PREFIX("internal_realloc")),
+				     pvoid_type_node, 2, pvoid_type_node,
+				     gfc_int4_type_node);
+
+  gfor_fndecl_internal_realloc64 =
+    gfc_build_library_function_decl (get_identifier
+				     (PREFIX("internal_realloc64")),
+				     pvoid_type_node, 2, pvoid_type_node,
+				     gfc_int8_type_node);
+
   gfor_fndecl_internal_free =
     gfc_build_library_function_decl (get_identifier (PREFIX("internal_free")),
 				     void_type_node, 1, pvoid_type_node);
@@ -2160,6 +2174,10 @@ gfc_create_module_variable (gfc_symbol * sym)
   if (sym->attr.use_assoc || sym->attr.in_common)
     return;
 
+  /* Equivalenced variables arrive here after creation.  */
+  if (sym->backend_decl && sym->equiv_built)
+      return;
+
   if (sym->backend_decl)
     internal_error ("backend decl for module variable %s already exists",
 		    sym->name);
@@ -2336,8 +2354,6 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   gfc_start_block (&block);
 
-  gfc_generate_contained_functions (ns);
-
   if (ns->entries && ns->proc_name->ts.type == BT_CHARACTER)
     {
       /* Copy length backend_decls to all entry point result
@@ -2353,6 +2369,8 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   /* Translate COMMON blocks.  */
   gfc_trans_common (ns);
+
+  gfc_generate_contained_functions (ns);
 
   generate_local_vars (ns);
 

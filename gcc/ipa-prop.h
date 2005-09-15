@@ -79,7 +79,7 @@ enum alias_info_d
 typedef enum alias_info_d ipaa_alias_info; 
 
 /* Represents the value of either jump function or cval.
-   value represnts a constant.
+   value represents a constant.
    formal_id is used only in jump function context and represents 
    pass-through parameter (the formal of caller is passed 
    as argument).  */

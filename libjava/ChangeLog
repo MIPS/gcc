@@ -1,3 +1,72 @@
+2005-09-15  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/23288:
+	* java/net/URLClassLoader.java (definePackage): Correctly order
+	arguments to definePackage.  Look up per-entry Attributes.
+	(getAttributeValue): New method.
+
+2005-09-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23762
+	* shlibpath.m4: New file.
+	* configure.ac: If libltdl is being used call AC_LTDL_SHLIBPATH
+	macro.
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties)
+	[USE_LTDL]: If it was not defined with -D set java.library.path to
+	the value of LTDL_SHLIBPATH_VAR.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	* java/net/URLClassLoader.java (addURLImpl): Synchronize on the
+	loader.
+	(toString): Likewise.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	PR java/22084
+	* include/i386-signal.h (HANDLE_DIVIDE_OVERFLOW): Bump IP by 1 if
+	R/M field in instruction is 100.
+
+2005-09-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23761
+	* include/java-props.h (_Jv_Module_Load_Path): Declare variable.
+	* java/lang/natRuntime.cc (init): Call lt_dlsetsearchpath after
+	lt_dlinit.
+	* gnu/classpath/natSystemProperties.cc (_Jv_Module_Load_Path):
+	Define variable.
+	(_Jv_SetDLLSearchPath): Do not call lt_dlsetsearchpath.  Set
+	_Jv_Module_Load_Path.
+
+2005-09-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23739:
+	* testsuite/libjava.jni/pr23739.c: New file.
+	* testsuite/libjava.jni/pr23739.java: New file.
+	* testsuite/libjava.jni/pr23739.out: New file.
+	* jni.cc (_Jv_JNI_IsAssignableFrom): Reversed arguments.
+	* java/lang/reflect/natMethod.cc (invoke): Updated.
+	* java/lang/natClass.cc (isAssignableFrom): Updated.
+	(isInstance): Likewise.
+	(_Jv_IsAssignableFrom): Reversed arguments.
+	(_Jv_IsInstanceOf): Updated.
+	(_Jv_CheckCast): Likewise.
+	(_Jv_CheckArrayStore): Likewise.
+	(_Jv_IsAssignableFromSlow): Reversed arguments.
+	(_Jv_InterfaceAssignableFrom): Likewise.
+	* link.cc (verify_type_assertions): Updated.
+	* prims.cc (_Jv_CheckAccess): Updated.
+
+2005-09-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Testsuite changes for PR java/23431.
+	* testsuite/libjava.jacks/jacks.xfail: Remove 8.1.1.1-12 and
+	8.4.6.2-hiding-5.
+	* testsuite/libjava.compile/PR23431_1.java: New testcase.
+	* testsuite/libjava.compile/PR23431_2.java: Likewise.
+	* testsuite/libjava.compile/PR23431_1.xfail: New file.
+	* testsuite/libjava.compile/PR23431_2.xfail: Likewise.
+
 2005-08-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	PR libgcj/23549

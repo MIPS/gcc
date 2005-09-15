@@ -1074,6 +1074,7 @@ struct lang_decl GTY(())
 
 #define TYPE_TO_RUNTIME_MAP(T)   (TYPE_LANG_SPECIFIC (T)->type_to_runtime_map)
 #define TYPE_ASSERTIONS(T)   	 (TYPE_LANG_SPECIFIC (T)->type_assertions)
+#define TYPE_PACKAGE(T)     	 (TYPE_LANG_SPECIFIC (T)->package)
 
 struct lang_type GTY(())
 {
@@ -1121,6 +1122,9 @@ struct lang_type GTY(())
   htab_t GTY ((param_is (struct type_assertion))) type_assertions;
 				/* Table of type assertions to be evaluated 
   				   by the runtime when this class is loaded. */
+
+  tree package;			/* IDENTIFIER_NODE for package this class is
+  				   a member of.  */
 
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
@@ -1660,12 +1664,12 @@ extern tree *type_map;
 #define INNER_CLASS_DECL_P(NODE) (TYPE_NAME (TREE_TYPE (NODE)) == NODE	\
 				  && DECL_CONTEXT (NODE))
 
-/* True if NODE is an top level class TYPE_DECL node: NODE isn't
+/* True if NODE is a top level class TYPE_DECL node: NODE isn't
    an inner class or NODE is a static class.  */
 #define TOPLEVEL_CLASS_DECL_P(NODE) (!INNER_CLASS_DECL_P (NODE) 	\
 				     || CLASS_STATIC (NODE))
 
-/* True if the class decl NODE was declared in a inner scope and is
+/* True if the class decl NODE was declared in an inner scope and is
    not a toplevel class */
 #define PURE_INNER_CLASS_DECL_P(NODE) \
   (INNER_CLASS_DECL_P (NODE) && !CLASS_STATIC (NODE))
@@ -1678,7 +1682,7 @@ extern tree *type_map;
 #define TOPLEVEL_CLASS_TYPE_P(NODE) (!INNER_CLASS_TYPE_P (NODE) 	\
 				     || CLASS_STATIC (TYPE_NAME (NODE)))
 
-/* True if the class type NODE was declared in a inner scope and is
+/* True if the class type NODE was declared in an inner scope and is
    not a toplevel class */
 #define PURE_INNER_CLASS_TYPE_P(NODE) \
   (INNER_CLASS_TYPE_P (NODE) && !CLASS_STATIC (TYPE_NAME (NODE)))

@@ -798,7 +798,7 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 	{
 	  tree call, decl;
 
-	  fold_stmt (&stmt);
+	  /* fold_stmt (&stmt); */
 
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
 	  call = get_call_expr_in (stmt);
