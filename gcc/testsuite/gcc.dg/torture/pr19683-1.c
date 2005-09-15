@@ -2,7 +2,6 @@
    reload would incorrectly inherit the high part of the multiplication
    result.  */
 /* { dg-do run { target mips*-*-* } } */
-/* { dg-do run { xfail mips-wrs-linux-gnu } } */
 
 extern void abort (void);
 extern void exit (int);

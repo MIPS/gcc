@@ -1,3 +1,15 @@
+2005-09-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/gcc.dg/torture/pr19683-1.c: Remove XFAIL.
+
+2005-09-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* reload1.c (inherit_piecemeal_p): New function.
+	(emit_reload_insns): When reloading a group of hard registers, use
+	inherit_piecemeal_p to decide whether the values of individual hard
+	registers can be inherited.
+	* testsuite/gcc.dg/torture/mips-hilo-2.c: New test.
+
 2005-08-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* hwint.h (HOST_WIDE_INT_PRINT): Use HOST_LONG_LONG_FORMAT.
