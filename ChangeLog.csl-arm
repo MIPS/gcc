@@ -1,3 +1,16 @@
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	As posted at http://gcc.gnu.org/ml/gcc-patches/2005-07/msg01945.html
+	2005-07-28  Mark Mitchell  <mark@codesourcery.com>
+	* libtool-ldflags: New script.
+	2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+	* src/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use it.
+	* libsupc++/Makefile.am (LLDFLAGS): New variable.
+	(CXXLINK): Use it.
+	* src/Makefile.in: Regenerated.
+	* libsupc++/Makefile.in: Likewise.
+
 2005-09-07  Paul Brook  <paul@codesourcery.com>
 
 	* libiberty/pex-win32.c (argv_to_cmdline): Fix escaping of backslash
