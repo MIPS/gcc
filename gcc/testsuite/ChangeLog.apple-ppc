@@ -1,3 +1,7 @@
+2005-09-16  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/altivec-4241538.c: Fix.
+
 2005-09-15  Devang Patel  <dpatel@apple.com>
 
         dbxout_type rewrite.
