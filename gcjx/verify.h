@@ -186,15 +186,60 @@ inline vfy_jclass vfy_find_class (vfy_method *method, vfy_jclass,
     return NULL;
 
   int nlen = len - offset;
-  if (name[offset] == 'L' && name[len - 1] == ';')
+
+  vfy_jclass result = NULL;
+  if (nlen == 1)
     {
-      ++offset;
-      nlen -= 2;
+      switch (name[offset])
+	{
+	case 'Z':
+	  result = primitive_boolean_type;
+	  break;
+	case 'B':
+	  result = primitive_byte_type;
+	  break;
+	case 'C':
+	  result = primitive_char_type;
+	  break;
+	case 'S':
+	  result = primitive_short_type;
+	  break;
+	case 'I':
+	  result = primitive_int_type;
+	  break;
+	case 'J':
+	  result = primitive_long_type;
+	  break;
+	case 'F':
+	  result = primitive_float_type;
+	  break;
+	case 'D':
+	  result = primitive_double_type;
+	  break;
+	case 'V':
+	  result = primitive_void_type;
+	  break;
+	default:
+	  // This is goofy but we handle either kind of descriptor
+	  // here and we might be looking for a class with a
+	  // 1-character name.
+	  break;
+	}
     }
-  std::string name_str (name, offset, nlen);
-  vfy_jclass result = method->unit->find_class_from_descriptor (method->scope,
-								method->method,
-								name_str);
+
+  if (result == NULL)
+    {
+      if (name[offset] == 'L' && name[len - 1] == ';')
+	{
+	  ++offset;
+	  nlen -= 2;
+	}
+      std::string name_str (name, offset, nlen);
+      result = method->unit->find_class_from_descriptor (method->scope,
+							 method->method,
+							 name_str);
+    }
+
   while (array_count-- > 0)
     result = result->array ();
 

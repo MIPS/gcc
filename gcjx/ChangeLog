@@ -1,5 +1,9 @@
 2005-09-15  Tom Tromey  <tromey@redhat.com>
 
+	* verify.h (vfy_find_class): Handle primitive types.
+
+2005-09-15  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/classwriter.cc (write): Write 1.5 version number if
 	needed.
 	* bytecode/verify.cc (check_constant): Handle resolved classes as
