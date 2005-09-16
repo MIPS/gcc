@@ -4982,9 +4982,16 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  /* Darwin uses a special PIC legitimizer.  */
 	  if (DEFAULT_ABI == ABI_DARWIN && MACHOPIC_INDIRECT)
 	    {
-	      operands[1] =
-		rs6000_machopic_legitimize_pic_address (operands[1], mode,
-							operands[0]);
+	      /* APPLE LOCAL begin radar 4232296 */
+	      /* If a symbol node has been generated but its flags not set; such as in the course of 
+		 cost computation of generated code, do not attempt to update the static tables which 
+		 rely on flags of the referenced symbol to have been set. Otherwise, bogus PIC stub
+		 will be generated. */
+              if (!(GET_CODE (operands[1]) == SYMBOL_REF && SYMBOL_REF_FLAGS (operands[1]) == 0))
+                operands[1] =
+                  rs6000_machopic_legitimize_pic_address (operands[1], mode,
+                                                          operands[0]);
+	      /* APPLE LOCAL end radar 4232296 */
 	      if (operands[0] != operands[1])
 		emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
 	      return;
