@@ -1,3 +1,7 @@
+2005-09-16  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.cc (add_captured_variable): Update field_map.
+
 2005-09-15  Tom Tromey  <tromey@redhat.com>
 
 	* verify.h (vfy_find_class): Handle primitive types.

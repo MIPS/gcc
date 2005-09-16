@@ -618,9 +618,9 @@ model_class::add_captured_variable (model_variable_decl *var)
   // Push on the front so we walk in reverse order later.
   captured_variables.push_front (var);
 
-  // Ensure users can find out about the field.  For now we don't
-  // bother with field_map.
+  // Ensure users can find out about the field.
   fields.push_back (field);
+  field_map.insert (std::make_pair (name, field.get ()));
 
   return field;
 }
