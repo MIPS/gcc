@@ -1,3 +1,16 @@
+2005-09-01  Richard Henderson  <rth@redhat.com>
+       
+        PR 23668
+	Radar 4232562
+        * config/i386/i386.c (ix86_expand_vector_init_one_var): Restore
+        conversion to CONST_VECTOR.
+
+2005-08-29  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4232562
+        * config/i386/i386.c (ix86_expand_vector_init_one_var): Don't modify
+        parts of 'vals'.
+
 2005-09-06  Jakub Jelinek  <jakub@redhat.com>
 
         PR rtl-optimization/23098

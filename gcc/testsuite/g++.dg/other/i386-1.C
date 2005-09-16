@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline 2005-09-16 */
 /* { dg-do run { target i?86-*-* } } */
 /* { dg-options "-march=pentium4" } */
 
@@ -18,3 +19,4 @@ int main(int argc, char** argv) {
     abort ();
   exit (0);
 }
+/* APPLE LOCAL end mainline 2005-09-16 */
