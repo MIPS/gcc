@@ -886,7 +886,7 @@ cgraph_finalize_compilation_unit (void)
 
   if (!quiet_flag)
     {
-      fprintf (stderr, "\nAnalyzing compilation unit");
+      fprintf (stderr, "\nLowering functions");
       fflush (stderr);
     }
 
@@ -973,6 +973,11 @@ cgraph_finalize_compilation_unit (void)
     {
       fprintf (cgraph_dump_file, "\n\nReclaimed ");
       dump_cgraph (cgraph_dump_file);
+    }
+  if (!quiet_flag)
+    {
+      fprintf (stderr, "\n");
+      fflush (stderr);
     }
   first_analyzed = cgraph_nodes;
   ggc_collect ();
@@ -1234,7 +1239,10 @@ cgraph_optimize (void)
 
   timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
-    fprintf (stderr, "Performing intraprocedural optimizations\n");
+    {
+      fprintf (stderr, "Interprocedural optimizations: function visibility");
+      fflush (stderr);
+    }
 
   cgraph_function_and_variable_visibility ();
   if (cgraph_dump_file)
@@ -1257,7 +1265,7 @@ cgraph_optimize (void)
 
   /* Output everything.  */
   if (!quiet_flag)
-    fprintf (stderr, "Assembling functions:\n");
+    fprintf (stderr, "\nOptimizing and outputting functions:\n");
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif

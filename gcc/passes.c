@@ -763,13 +763,19 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
 }
 
 static bool
-execute_one_pass (struct tree_opt_pass *pass)
+execute_one_pass (struct tree_opt_pass *pass, bool announce)
 {
   unsigned int todo; 
 
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
     return false;
+
+  if (!quiet_flag && announce)
+    {
+      fprintf (stderr, ", %s", pass->name);
+      fflush (stderr);
+    }
 
   /* Note that the folders should only create gimple expressions.
      This is a hack until the new folder is ready.  */
@@ -850,7 +856,7 @@ execute_pass_list (struct tree_opt_pass *pass)
 {
   do
     {
-      if (execute_one_pass (pass) && pass->sub)
+      if (execute_one_pass (pass, false) && pass->sub)
         execute_pass_list (pass->sub);
       pass = pass->next;
     }
@@ -864,7 +870,7 @@ execute_ipa_pass_list (struct tree_opt_pass *pass)
 {
   do
     {
-      if (execute_one_pass (pass) && pass->sub)
+      if (execute_one_pass (pass, true) && pass->sub)
 	{
 	  struct cgraph_node *node;
 	  for (node = cgraph_nodes; node; node = node->next)

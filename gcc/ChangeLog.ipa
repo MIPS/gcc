@@ -1,3 +1,13 @@
+2005-09-18  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Better dumping at -Q
+	(cgraph_optimize): Likewise.
+	* passes.c (execute_one_pass): New announce parameter.
+	(execute_ipa_pass_list): Use it.
+	(execute_pass_list): Likewise.
+	* tree-optimize.c (pass_early_local_passes,
+	gate_all_early_optimizations): Add names.
+
 2005-09-16  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (ipa-merge-20050915)
