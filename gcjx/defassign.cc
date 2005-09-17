@@ -170,8 +170,9 @@ public:
 
   // Perform checking after a loop completes.  THIS is the state
   // before the loop.  OTHER is the state after the loop.  Look for
-  // final variables which are not definitely unassigned in OTHER but
-  // are definitely unassigned here and issue errors for them.
+  // final variables which are definitely assigned and not definitely
+  // unassigned in OTHER but are definitely unassigned here and issue
+  // errors for them.
   void check_loop (model_element *request, const variable_state &other)
   {
     for (map_type::const_iterator i = other.unassign.begin ();
@@ -180,9 +181,9 @@ public:
       {
 	if ((*i).first->final_p () && ! (*i).second)
 	  {
-	    if (unassigned_p ((*i).first))
+	    if (other.assigned_p ((*i).first) && unassigned_p ((*i).first))
 	      {
-		std::cerr << request->error ("variable %1 may be assigned "
+		std::cerr << request->error ("variable %1 might be assigned "
 					     "multiple times")
 		  // FIXME: need operator% for this.
 		  % (*i).first->get_name ();
@@ -191,18 +192,23 @@ public:
       }
   }
 
-  /// For debugging convenience.
-  void print ()
+  /// For debugging convenience.  Prints the definitely [un]assigned
+  /// variables in this state.
+  void print () const
   {
     std::cout << "================" << std::endl;
-    for (map_type::iterator i = assign.begin ();
+
+    for (map_type::const_iterator i = assign.begin ();
 	 i != assign.end ();
 	 ++i)
-      std::cout << "assigned: " << (*i).first->get_name () << std::endl;
-    for (map_type::iterator i = unassign.begin ();
+      if ((*i).second)
+        std::cout << "assigned: " << (*i).first->get_name () << std::endl;
+
+    for (map_type::const_iterator i = unassign.begin ();
 	 i != unassign.end ();
 	 ++i)
-      std::cout << "unassigned: " << (*i).first->get_name () << std::endl;
+      if ((*i).second)
+        std::cout << "unassigned: " << (*i).first->get_name () << std::endl;
   }
 };
 
