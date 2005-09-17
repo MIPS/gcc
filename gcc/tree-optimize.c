@@ -91,7 +91,7 @@ gate_all_early_local_passes (void)
 
 struct tree_opt_pass pass_early_local_passes =
 {
-  "early local cleanups",		/* name */
+  "early_local_cleanups",		/* name */
   gate_all_early_local_passes,		/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
@@ -122,7 +122,7 @@ gate_all_early_optimizations (void)
 
 struct tree_opt_pass pass_all_early_optimizations =
 {
-  "early optimizations",		/* name */
+  "early_optimizations",		/* name */
   gate_all_early_optimizations,		/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
