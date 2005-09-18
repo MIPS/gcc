@@ -1,3 +1,6 @@
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
 // 2001-05-21 Benjamin Kosnik  <bkoz@redhat.com>
 
 // Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
@@ -15,7 +18,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.8.1.4 Overridden virtual functions
@@ -53,7 +56,7 @@ void test16()
   signal(SIGPIPE, SIG_IGN);
   unlink(name);
   
-  if (0 != try_mkfifo(name, S_IRWXU))
+  if (0 != mkfifo(name, S_IRWXU))
     {
       VERIFY( false );
     }

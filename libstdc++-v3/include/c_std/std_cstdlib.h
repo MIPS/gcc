@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -168,17 +168,14 @@ namespace __gnu_cxx
   inline long long
   abs(long long __x) { return __x >= 0 ? __x : -__x; }
 
-  inline long long
-  llabs(long long __x) { return __x >= 0 ? __x : -__x; }
-
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
+  using ::llabs;
+
   inline lldiv_t
   div(long long __n, long long __d)
   { lldiv_t __q; __q.quot = __n / __d; __q.rem = __n % __d; return __q; }
 
-  inline lldiv_t
-  lldiv(long long __n, long long __d)
-  { lldiv_t __q; __q.quot = __n / __d; __q.rem = __n % __d; return __q; }
+  using ::lldiv;
 #endif
 
 #if _GLIBCXX_USE_C99_LONG_LONG_CHECK || _GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
@@ -204,8 +201,8 @@ namespace std
 #endif
   using __gnu_cxx::_Exit;
   using __gnu_cxx::abs;
-  using __gnu_cxx::llabs;
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
+  using __gnu_cxx::llabs;
   using __gnu_cxx::div;
   using __gnu_cxx::lldiv;
 #endif

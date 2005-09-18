@@ -15,7 +15,7 @@ details.
 
 You should have received a copy of the GNU General Public License along with
 GCC; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with files compiled with
    GCC to produce an executable, this does not cause the resulting executable
@@ -23,9 +23,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    however invalidate any other reasons why the executable file might be
    covered by the GNU General Public License.  */
 
-#include "runtime.h"
-#include "sarray.h"
-#include "encoding.h"
+#include "objc/runtime.h"
+#include "objc/sarray.h"
+#include "objc/encoding.h"
 
 /* Initial selector hash table size. Value doesn't matter much */
 #define SELECTOR_HASH_SIZE 128

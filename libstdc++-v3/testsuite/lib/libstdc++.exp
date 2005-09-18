@@ -1,6 +1,6 @@
 # libstdc++ "tool init file" for DejaGNU
 
-# Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 
 # Define callbacks and load other libraries.  This file is loaded relatively
@@ -86,7 +86,8 @@ proc libstdc++_init { testfile } {
     global ld_library_path
     global target_triplet
 
-    # We set LC_ALL and LANG to C so that we get the same error messages as expected.
+    # We set LC_ALL and LANG to C so that we get the same error
+    # messages as expected.
     setenv LC_ALL C
     setenv LANG C
 
@@ -102,14 +103,7 @@ proc libstdc++_init { testfile } {
     # headers, or without assertions.
     global DEFAULT_CXXFLAGS
     if ![info exists DEFAULT_CXXFLAGS] then {
-	# Set up includes for stdc++.h.gch, the precompiled header file.
-	if { [file exists $flags_file] } {
-	    set cxxpchflags [exec sh $flags_file --cxxpchflags]
-	} else {
-	    set cxxpchflags ""
-	}
-	set DEFAULT_CXXFLAGS " ${cxxpchflags}"
-
+	set DEFAULT_CXXFLAGS ""
 	# Host specific goo here.
 	if { [string match "powerpc-*-darwin*" $target_triplet] } {
 	    append DEFAULT_CXXFLAGS " -multiply_defined suppress"
@@ -194,6 +188,28 @@ proc libstdc++_init { testfile } {
         }
     }
 
+    # If a PCH file is available, use it.  We must delay performing
+    # this check until $cxx and such have been initialized because we
+    # perform a test compilation.  (Ideally, gcc --print-file-name would
+    # list PCH files, but it does not.)
+    global PCH_CXXFLAGS
+    if ![info exists PCH_CXXFLAGS] then {
+	set src "config[pid].cc"
+	set f [open $src "w"]
+	puts $f "int main () {}"
+	close $f
+
+	set lines [v3_target_compile $src "config[pid].o" object \
+		   "additional_flags=-include additional_flags=bits/stdc++.h"]
+	if {$lines == "" } {
+	    set PCH_CXXFLAGS "-include bits/stdc++.h"
+	} else {
+	    set PCH_CXXFLAGS ""
+	}
+	file delete $src
+	v3track PCH_CXXFLAGS 2
+    }
+
     libstdc++_maybe_build_wrapper "${objdir}/testglue.o"
 }
 
@@ -261,6 +277,9 @@ set v3-wchar_t 0
 # True if the library supports threads.
 set v3-threads 0
 
+# True if the library supports symbol versioning.
+set v3-symver 0
+
 # A string naming object files to be linked into all tests.
 set v3-test_objs ""
 
@@ -295,39 +314,46 @@ proc v3_target_compile { source dest type options } {
     return [target_compile $source $dest $type $options]
 }
 
+
 # Build the support objects linked in with the libstdc++ tests.  In
-# addition, set v3-wchar_t, v3-threads, and v3-test_objs
+# addition, set v3-wchar_t, v3-threads, v3-test_objs, and v3-symver
 # appropriately.
 proc v3-build_support {} {
     global srcdir
     global v3-wchar_t
     global v3-threads
     global v3-test_objs
+    global v3-symver
 
     # Figure out whether or not the library supports certain features.
     set v3-wchar_t 0
     set v3-threads 0
+    set v3-symver 0
     set v3-test_objs ""
 
     set config_src "config.cc"
     set f [open $config_src "w"]
     puts $f "#include <bits/c++config.h>"
+    puts $f "#include <bits/gthr.h>"
     close $f
     set preprocessed [v3_target_compile $config_src "" \
 	    	       preprocess "additional_flags=-dN"]
-    foreach l $preprocessed {
-	if { [string first "_GLIBCXX_USE_WCHAR_T" $l] != -1 } {
-	    verbose -log "wchar_t support detected"
-	    set v3-wchar_t 1
-	} elseif { [string first "_GLIBCXX_HAVE_GTHR_DEFAULT" $l] != -1 } {
-	    verbose -log "thread support detected"
-	    set v3-threads 1
-	}
+    if { [string first "_GLIBCXX_USE_WCHAR_T" $preprocessed] != -1 } {
+	verbose -log "wchar_t support detected"
+	set v3-wchar_t 1
+    }
+    if { [string first "_GLIBCXX_SYMVER" $preprocessed] != -1 } {
+	verbose -log "symbol versioning support detected"
+	set v3-symver 1
+    }
+    if { [string first "__GTHREADS" $preprocessed] != -1 } {
+	verbose -log "thread support detected"
+	set v3-threads 1
     }
 
     # Build the support objects.
     set source_files \
-	[list testsuite_abi.cc testsuite_allocator.cc testsuite_hooks.cc]
+	[list testsuite_abi.cc testsuite_allocator.cc testsuite_character.cc testsuite_hooks.cc]
     foreach f $source_files {
 	set object_file [file rootname $f].o
 	# Compile with "-w" so that warnings issued by the compiler
@@ -339,4 +365,176 @@ proc v3-build_support {} {
 	}
 	append v3-test_objs "$object_file "
     }
+}
+
+proc check_v3_target_namedlocale { } {
+    global et_namedlocale_saved
+    global et_namedlocale_target_name
+    global tool	
+
+    if { ![info exists et_namedlocale_target_name] } {
+	set et_namedlocale_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_namedlocale_target_name } {
+	verbose "check_v3_target_namedlocale: `$et_namedlocale_target_name'" 2
+	set et_namedlocale_target_name $current_target
+	if [info exists et_namedlocale_saved] {
+	    verbose "check_v3_target_namedlocale: removing cached result" 2
+	    unset et_namedlocale_saved
+	}
+    }
+
+    if [info exists et_namedlocale_saved] {
+	verbose "check_v3_target_namedlocale: using cached result" 2
+    } else {
+	set et_namedlocale_saved 0
+
+	# Set up, compile, and execute a C++ test program that tries to use
+	# all the required named locales.
+	set src nlocale[pid].cc
+	set exe nlocale[pid].x
+
+	set f [open $src "w"]
+	puts $f "#include <locale>"
+	puts $f "using namespace std;"	
+	puts $f "int main ()"
+	puts $f "{"
+	puts $f "  try"	
+	puts $f "  {" 
+	puts $f "     locale(\"\");"
+	puts $f "     locale(\"de_DE\");"
+	puts $f "     locale(\"de_DE.ISO-8859-15@euro\");"
+	puts $f "     locale(\"de_DE@euro\");"
+	puts $f "     locale(\"en_HK\");"
+	puts $f "     locale(\"en_PH\");"
+	puts $f "     locale(\"en_US\");"
+	puts $f "     locale(\"en_US.ISO-8859-1\");"
+	puts $f "     locale(\"en_US.ISO-8859-15\");"
+	puts $f "     locale(\"en_US.UTF-8\");"
+	puts $f "     locale(\"es_ES\");"
+	puts $f "     locale(\"es_MX\");"
+	puts $f "     locale(\"fr_FR\");"
+	puts $f "     locale(\"fr_FR@euro\");"
+	puts $f "     locale(\"is_IS\");"
+	puts $f "     locale(\"is_IS.UTF-8\");"
+	puts $f "     locale(\"it_IT\");"
+	puts $f "     locale(\"ja_JP.eucjp\");"
+	puts $f "     locale(\"se_NO.UTF-8\");"
+	puts $f "     locale(\"ta_IN\");"
+	puts $f "     locale(\"zh_TW\");"
+	puts $f "     return 0;"
+	puts $f "  }"
+	puts $f "  catch(...)"
+	puts $f "  {"
+	puts $f "     return 1;"
+	puts $f "  }"	
+	puts $f "}"
+	close $f
+
+	set lines [v3_target_compile $src $exe executable ""]
+	file delete $src
+
+	if [string match "" $lines] {
+	    # No error message, compilation succeeded.
+	    set result [${tool}_load "./$exe" "" ""]
+	    set status [lindex $result 0]
+	    remote_file build delete $exe
+
+	    verbose "check_v3_target_namedlocale: status is <$status>" 2
+
+	    if { $status == "pass" } {
+		set et_namedlocale_saved 1
+	    }
+	} else {
+	    verbose "check_v3_target_namedlocale: compilation failed" 2
+	}
+    }
+    return $et_namedlocale_saved
+}
+
+proc check_v3_target_cxa_atexit { } {
+    global et_cxa_atexit
+    global et_cxa_atexit_target_name
+    global tool	
+
+    if { ![info exists et_cxa_atexit_target_name] } {
+	set et_cxa_atexit_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_cxa_atexit_target_name } {
+	verbose "check_v3_target_cxa_atexit: `$et_cxa_atexit_target_name'" 2
+	set et_cxa_atexit_target_name $current_target
+	if [info exists et_cxa_atexit] {
+	    verbose "check_v3_target_cxa_atexit: removing cached result" 2
+	    unset et_cxa_atexit
+	}
+    }
+
+    if [info exists et_cxa_atexit] {
+	verbose "check_v3_target_cxa_atexit: using cached result" 2
+    } else {
+	set et_cxa_atexit 0
+
+	# Set up, compile, and execute a C++ test program that depends
+	# on correct ordering of static object destructors. This is
+	# indicative of the presence and use of __cxa_atexit.
+	set src cxaatexit[pid].cc
+	set exe cxaatexit[pid].x
+
+	set f [open $src "w"]
+	puts $f "#include <stdlib.h>"
+	puts $f "static unsigned int count;"
+	puts $f "struct X"
+	puts $f "{"
+	puts $f "X() { count = 1; }"
+	puts $f "~X()"
+	puts $f "{"
+	puts $f "  if (count != 3)"
+	puts $f "    exit(1);"
+	puts $f "  count = 4;"
+        puts $f "}"
+        puts $f "};"
+	puts $f "void f()"
+	puts $f "{"
+	puts $f "static X x;"
+        puts $f "}"
+	puts $f "struct Y"
+	puts $f "{"
+	puts $f "Y() { f(); count = 2; }"
+	puts $f "~Y()"
+	puts $f "{"
+	puts $f "if (count != 2)"
+	puts $f "  exit(1);"
+	puts $f "count = 3;"
+        puts $f "}"
+        puts $f "};"
+	puts $f "Y y;"
+	puts $f "int main()"
+	puts $f "{ return 0; }"
+	close $f
+
+	set lines [v3_target_compile $src $exe executable ""]
+	file delete $src
+
+	if [string match "" $lines] {
+	    # No error message, compilation succeeded.
+	    set result [${tool}_load "./$exe" "" ""]
+	    set status [lindex $result 0]
+	    remote_file build delete $exe
+
+	    verbose "check_v3_target_cxa_atexit: status is <$status>" 2
+
+	    if { $status == "pass" } {
+		set et_cxa_atexit 1
+	    }
+	} else {
+	    verbose "check_v3_target_cxa_atexit: compilation failed" 2
+	}
+    }
+    return $et_cxa_atexit
 }

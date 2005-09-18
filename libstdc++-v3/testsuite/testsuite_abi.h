@@ -14,8 +14,8 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+// MA 02110-1301, USA.
 
 // As a special exception, you may use this file as part of a free
 // software library without restriction.  Specifically, if other files
@@ -38,8 +38,9 @@
 // Encapsulates symbol characteristics.
 struct symbol
 {
-  enum category { none, function, object, error };
-  enum designation { unknown, added, subtracted, compatible, incompatible };
+  enum category { function, object, uncategorized };
+  enum designation { existing, added, subtracted, undesignated };
+  enum version { none, compatible, incompatible, unversioned };
   enum compatibility 
     { 
       compat_type = 1, 
@@ -50,17 +51,21 @@ struct symbol
 
   category 	type;
   std::string 	name;
+  std::string 	raw_name; // Name with versioning info still attached.
   std::string 	demangled_name;
   int 		size;
   std::string 	version_name;
+  version	version_status;
   designation	status;
 
-  symbol() : type(none), size(0), status(unknown) { }
+  symbol() 
+  : type(uncategorized), size(0), version_status(unversioned), 
+    status(undesignated) { }
 
   symbol(const symbol& other) 
   : type(other.type), name(other.name), demangled_name(other.demangled_name), 
-   size(other.size), version_name(other.version_name),
-   status(other.status) { }
+    size(other.size), version_name(other.version_name), 
+    version_status(other.version_status), status(other.status) { }
 
   void
   print() const;
@@ -78,10 +83,10 @@ typedef std::pair<symbol_names, symbol_objects>		symbols;
 
 // Check.
 bool
-check_version(const symbol& test, bool added = false);
+check_version(symbol& test, bool added = false);
 
 bool 
-check_compatible(const symbol& lhs, const symbol& rhs, bool verbose = false);
+check_compatible(symbol& lhs, symbol& rhs, bool verbose = false);
 
 
 // Examine.

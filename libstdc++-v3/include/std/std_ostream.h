@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -175,9 +175,9 @@ namespace std
       __ostream_type& 
       operator<<(short __n)
       { 
-	ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
-	if (__fmt & ios_base::oct || __fmt & ios_base::hex)
-	  return this->operator<<(static_cast<unsigned long>
+	const ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
+	if (__fmt == ios_base::oct || __fmt == ios_base::hex)
+	  return this->operator<<(static_cast<long>
 				  (static_cast<unsigned short>(__n)));
 	else
 	  return this->operator<<(static_cast<long>(__n));
@@ -190,9 +190,9 @@ namespace std
       __ostream_type& 
       operator<<(int __n)
       { 
-	ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
-	if (__fmt & ios_base::oct || __fmt & ios_base::hex)
-	  return this->operator<<(static_cast<unsigned long>
+	const ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
+	if (__fmt == ios_base::oct || __fmt == ios_base::hex)
+	  return this->operator<<(static_cast<long>
 				  (static_cast<unsigned int>(__n)));
 	else
 	  return this->operator<<(static_cast<long>(__n));

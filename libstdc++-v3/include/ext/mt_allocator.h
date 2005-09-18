@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -503,7 +503,7 @@ namespace __gnu_cxx
 	static _Tune _S_tune(__align, sizeof(_Tp) * 64,
 			     sizeof(_Tp) * 2 >= __align ? sizeof(_Tp) * 2
 			                                : __align,
-			     sizeof(_Tp) * _Tune::_S_chunk_size,
+			     sizeof(_Tp) * size_t(_Tune::_S_chunk_size),
 			     _Tune::_S_max_threads,
 			     _Tune::_S_freelist_headroom,
 			     getenv("GLIBCXX_FORCE_NEW") ? true : false);
@@ -549,7 +549,7 @@ namespace __gnu_cxx
 	static _Tune _S_tune(__align, sizeof(_Tp) * 64,
 			     sizeof(_Tp) * 2 >= __align ? sizeof(_Tp) * 2
                                                         : __align,
-			     sizeof(_Tp) * _Tune::_S_chunk_size,
+			     sizeof(_Tp) * size_t(_Tune::_S_chunk_size),
 			     _Tune::_S_max_threads,
 			     _Tune::_S_freelist_headroom,
 			     getenv("GLIBCXX_FORCE_NEW") ? true : false);

@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 # libstdc++-v3 testsuite that uses the 'dg.exp' driver.
 
@@ -87,7 +87,8 @@ set tests [lsort $tests]
 
 # Main loop.
 global DEFAULT_CXXFLAGS
-dg-runtest $tests "" $DEFAULT_CXXFLAGS
+global PCH_CXXFLAGS
+dg-runtest $tests "" "$DEFAULT_CXXFLAGS $PCH_CXXFLAGS"
 
 # All done.
 dg-finish

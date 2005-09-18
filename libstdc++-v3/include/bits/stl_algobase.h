@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -94,7 +94,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_SGIAssignableConcept<_Tp>)
 
-      const _Tp __tmp = __a;
+      _Tp __tmp = __a;
       __a = __b;
       __b = __tmp;
     }
@@ -111,7 +111,7 @@ namespace std
         {
           typedef typename iterator_traits<_ForwardIterator1>::value_type
             _ValueType1;
-          const _ValueType1 __tmp = *__a;
+          _ValueType1 __tmp = *__a;
           *__a = *__b;
           *__b = __tmp; 
 	}

@@ -27,8 +27,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef __MF_IMPL_H
 #define __MF_IMPL_H
@@ -94,9 +94,17 @@ extern int __mf_heuristic_check (uintptr_t, uintptr_t);
 /* Type definitions. */
 /* ------------------------------------------------------------------------ */
 
-/* The mf_state type codes describe recursion and initialization order. */
+/* The mf_state type codes describe recursion and initialization order.
 
-enum __mf_state_enum { active, reentrant };
+   reentrant means we are inside a mf-runtime support routine, such as
+   __mf_register, and thus there should be no calls to any wrapped functions,
+   such as the wrapped malloc.  This indicates a bug if it occurs.
+   in_malloc means we are inside a real malloc call inside a wrapped malloc
+   call, and thus there should be no calls to any wrapped functions like the
+   wrapped mmap.  This happens on some systems due to how the system libraries
+   are constructed.  */
+
+enum __mf_state_enum { active, reentrant, in_malloc }; 
 
 /* The __mf_options structure records optional or tunable aspects of the
  mudflap library's behavior. There is a single global instance of this
@@ -167,24 +175,18 @@ struct __mf_options
 #endif
 
   /* Major operation mode */
-  enum
-  {
-    mode_nop,        /* mudflaps do nothing */
-    mode_populate,   /* mudflaps populate tree but do not check for violations */
-    mode_check,      /* mudflaps populate and check for violations (normal) */
-    mode_violate     /* mudflaps trigger a violation on every call (diagnostic) */
-  }
-  mudflap_mode;
+#define mode_nop 0      /* Do nothing.  */
+#define mode_populate 1 /* Populate tree but do not check for violations.  */
+#define mode_check 2    /* Populate and check for violations (normal).  */
+#define mode_violate 3  /* Trigger a violation on every call (diagnostic).  */
+  unsigned mudflap_mode;
 
   /* How to handle a violation. */
-  enum
-  {
-    viol_nop,        /* Return control to application. */
-    viol_segv,       /* Signal self with segv. */
-    viol_abort,      /* Call abort (). */
-    viol_gdb         /* Fork a debugger on self */
-  }
-  violation_mode;
+#define viol_nop 0   /* Return control to application. */
+#define viol_segv 1  /* Signal self with segv. */
+#define viol_abort 2 /* Call abort (). */
+#define viol_gdb 3   /* Fork a debugger on self */
+  unsigned violation_mode;
 
   /* Violation heuristics selection. */
   unsigned heur_stack_bound; /* allow current stack region */
@@ -213,9 +215,7 @@ enum __mf_dynamic_index
   dyn_munmap, dyn_realloc,
   dyn_INITRESOLVE,  /* Marker for last init-time resolution. */
 #ifdef LIBMUDFLAPTH
-  dyn_pthread_create,
-  dyn_pthread_join,
-  dyn_pthread_exit
+  dyn_pthread_create
 #endif
 };
 
@@ -239,12 +239,25 @@ extern pthread_mutex_t __mf_biglock;
 #define UNLOCKTH() do {} while (0)
 #endif
 
-#ifdef LIBMUDFLAPTH
-extern enum __mf_state_enum *__mf_state_perthread ();
-#define __mf_state (* __mf_state_perthread ())
+#if defined(LIBMUDFLAPTH) && !defined(HAVE_TLS)
+extern enum __mf_state_enum __mf_get_state (void);
+extern void __mf_set_state (enum __mf_state_enum);
 #else
-extern enum __mf_state_enum __mf_state;
+# ifdef LIBMUDFLAPTH
+extern __thread enum __mf_state_enum __mf_state_1;
+# else
+extern enum __mf_state_enum __mf_state_1;
+# endif
+static inline enum __mf_state_enum __mf_get_state (void)
+{
+  return __mf_state_1;
+}
+static inline void __mf_set_state (enum __mf_state_enum s)
+{
+  __mf_state_1 = s;
+}
 #endif
+
 extern int __mf_starting_p;
 extern struct __mf_options __mf_opts;
 
@@ -368,10 +381,14 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
   {                                         \
     return CALL_BACKUP(fname, __VA_ARGS__); \
   }                                         \
-  else if (UNLIKELY (__mf_state == reentrant))   \
+  else if (UNLIKELY (__mf_get_state () == reentrant))   \
   {                                         \
     extern unsigned long __mf_reentrancy;   \
     __mf_reentrancy ++; \
+    return CALL_REAL(fname, __VA_ARGS__);   \
+  }                                         \
+  else if (UNLIKELY (__mf_get_state () == in_malloc))   \
+  {                                         \
     return CALL_REAL(fname, __VA_ARGS__);   \
   }                                         \
   else                                      \
@@ -379,6 +396,14 @@ ret __mfwrap_ ## fname (__VA_ARGS__)
     TRACE ("%s\n", __PRETTY_FUNCTION__); \
   }
 
+/* There is an assumption here that these will only be called in routines
+   that call BEGIN_PROTECT at the start, and hence the state must always
+   be active when BEGIN_MALLOC_PROTECT is called.  */
+#define BEGIN_MALLOC_PROTECT() \
+  __mf_set_state (in_malloc)
+
+#define END_MALLOC_PROTECT() \
+  __mf_set_state (active)
 
 /* Unlocked variants of main entry points from mf-runtime.h.  */
 extern void __mfu_check (void *ptr, size_t sz, int type, const char *location);

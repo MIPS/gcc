@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -103,10 +103,12 @@ namespace std
     struct __truth_type<true>
     { typedef __true_type __type; };
 
+  // N.B. The conversions to bool are needed due to the issue
+  // explained in c++/19404.
   template<class _Sp, class _Tp>
     struct __traitor
     {
-      enum { __value = _Sp::__value || _Tp::__value };
+      enum { __value = bool(_Sp::__value) || bool(_Tp::__value) };
       typedef typename __truth_type<__value>::__type __type;
     };
 

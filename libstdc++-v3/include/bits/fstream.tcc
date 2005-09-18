@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -171,7 +171,15 @@ namespace std
 	  // For a stateful encoding (-1) the pending sequence might be just
 	  // shift and unshift prefixes with no actual character.
 	  __ret = this->egptr() - this->gptr();
+
+#if _GLIBCXX_HAVE_DOS_BASED_FILESYSTEM
+	  // About this workaround, see libstdc++/20806.
+	  const bool __testbinary = _M_mode & ios_base::binary;
+	  if (__check_facet(_M_codecvt).encoding() >= 0
+	      && __testbinary)
+#else
 	  if (__check_facet(_M_codecvt).encoding() >= 0)
+#endif
 	    __ret += _M_file.showmanyc() / _M_codecvt->max_length();
 	}
       return __ret;
@@ -195,8 +203,7 @@ namespace std
 	    return traits_type::to_int_type(*this->gptr());
 
 	  // Get and convert input sequence.
-	  const size_t __buflen = _M_buf_size > 1
-	                          ? _M_buf_size - 1 : 1;
+	  const size_t __buflen = _M_buf_size > 1 ? _M_buf_size - 1 : 1;
 
 	  // Will be set to true if ::read() returns 0 indicating EOF.
 	  bool __got_eof = false;
@@ -521,8 +528,8 @@ namespace std
        // future: when __n > __buflen we read directly instead of using the
        // buffer repeatedly.
        const bool __testin = _M_mode & ios_base::in;
-       const streamsize __buflen = _M_buf_size > 1 ? _M_buf_size - 1
-	                                                 : 1;
+       const streamsize __buflen = _M_buf_size > 1 ? _M_buf_size - 1 : 1;
+
        if (__n > __buflen && __check_facet(_M_codecvt).always_noconv()
 	   && __testin && !_M_writing)
 	 {
@@ -540,13 +547,28 @@ namespace std
 	       __n -= __avail;
 	     }
 
-	   const streamsize __len = _M_file.xsgetn(reinterpret_cast<char*>(__s),
-						   __n);
-	   if (__len == -1)
-	     __throw_ios_failure(__N("basic_filebuf::xsgetn "
-				     "error reading the file"));
-	   __ret += __len;
-	   if (__len == __n)
+	   // Need to loop in case of short reads (relatively common
+	   // with pipes).
+	   streamsize __len;
+	   for (;;)
+	     {
+	       __len = _M_file.xsgetn(reinterpret_cast<char*>(__s),
+				      __n);
+	       if (__len == -1)
+		 __throw_ios_failure(__N("basic_filebuf::xsgetn "
+					 "error reading the file"));
+	       if (__len == 0)
+		 break;
+
+	       __n -= __len;
+	       __ret += __len;
+	       if (__n == 0)
+		 break;
+
+	       __s += __len;
+	     }
+
+	   if (__n == 0)
 	     {
 	       _M_set_buffer(0);
 	       _M_reading = true;

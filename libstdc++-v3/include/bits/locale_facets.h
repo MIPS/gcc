@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -1950,7 +1950,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the bool @a v.  It does so by calling
-       *  num_put::do_put().
+       *  num_get::do_get().
        *
        *  If ios_base::boolalpha is set, attempts to read
        *  ctype<CharT>::truename() or ctype<CharT>::falsename().  Sets
@@ -1979,7 +1979,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the integral variable @a v.  It does so
-       *  by calling num_put::do_put().
+       *  by calling num_get::do_get().
        *
        *  Parsing is affected by the flag settings in @a io.
        *
@@ -2043,7 +2043,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the integral variable @a v.  It does so
-       *  by calling num_put::do_put().
+       *  by calling num_get::do_get().
        *
        *  The input characters are parsed like the scanf %g specifier.  The
        *  matching type length modifier is also used.
@@ -2084,7 +2084,7 @@ namespace std
        *  @brief  Numeric parsing.
        *
        *  Parses the input stream into the pointer variable @a v.  It does so
-       *  by calling num_put::do_put().
+       *  by calling num_get::do_get().
        *
        *  The input characters are parsed like the scanf %p specifier.
        *

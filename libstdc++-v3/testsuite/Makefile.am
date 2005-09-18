@@ -1,6 +1,6 @@
 ## Makefile for the testsuite subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+## Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -18,7 +18,7 @@
 
 ## You should have received a copy of the GNU General Public License along
 ## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
 AUTOMAKE_OPTIONS = dejagnu nostdinc
@@ -28,46 +28,6 @@ include $(top_srcdir)/fragment.am
 AM_MAKEFLAGS = -j1
 AM_RUNTESTFLAGS =
 
-## CXX is actually a "C" compiler. These are real C++ programs.
-testsuite_flags_script=${glibcxx_builddir}/scripts/testsuite_flags
-CXX         = $(shell ${SHELL} ${testsuite_flags_script} --build-cxx)
-GLIBCXX_INCLUDES = $(shell ${SHELL} ${testsuite_flags_script} \
-  --build-includes)
-AM_CXXFLAGS = $(shell ${SHELL} ${testsuite_flags_script} --cxxflags)
-
-GLIBGCC_DIR=`$(CC) -print-libgcc-file-name | sed 's,/[^/]*$$,,'`
-GLIBCXX_DIR=${glibcxx_builddir}/src/.libs
-
-CXXLINK = \
-	$(LIBTOOL) --tag=CXX --mode=link $(CXX) \
-	-R $(GLIBGCC_DIR) -R $(GLIBCXX_DIR) \
-	$(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -lv3test -L. -o $@
-
-## Build support library.
-noinst_LIBRARIES = libv3test.a
-libv3test_a_SOURCES = \
-	testsuite_abi.cc \
-	testsuite_allocator.cc \
-	testsuite_hooks.cc 
-
-all-local: stamp_wchar stamp_thread
-
-# Enable wchar_t tests if capable.
-if GLIBCXX_TEST_WCHAR_T
-stamp_wchar:
-	touch testsuite_wchar_t
-else
-stamp_wchar:
-endif
-
-# Enable thread tests if capable.
-if GLIBCXX_TEST_THREAD
-stamp_thread:
-	touch testsuite_thread
-else
-stamp_thread:
-endif
-
 # Generated lists of files to run.  All of these names are valid make
 # targets, if you wish to generate a list manually.
 lists_of_files = \
@@ -75,6 +35,10 @@ lists_of_files = \
    testsuite_files_interactive \
    testsuite_files_performance
 
+# This rule generates all of the testsuite_files* lists at once.
+${lists_of_files}:
+	${glibcxx_srcdir}/scripts/create_testsuite_files \
+	  ${glibcxx_srcdir}/testsuite `${PWD_COMMAND}`
 
 # We need more things in site.exp, but automake completely controls the
 # creation of that file; there's no way to append to it without messing up
@@ -103,6 +67,7 @@ site.exp: Makefile
 	@test ! -f site.exp || mv site.exp site.bak
 	@mv site.tmp site.exp
 
+
 baseline_file = ${baseline_dir}/baseline_symbols.txt
 extract_symvers = $(glibcxx_srcdir)/scripts/extract_symvers
 
@@ -124,29 +89,19 @@ new-abi-baseline:
 	  fi; \
 	  ${extract_symvers} ../src/.libs/libstdc++.so $${output})
 
-if GLIBCXX_TEST_ABI
 # Use 'new-abi-baseline' to create an initial symbol file.  Then run
 # 'check-abi' to test for changes against that file.
 check-abi: baseline_symbols site.exp
 	-@runtest --tool libstdc++ abi.exp
-else
-check-abi:
-endif
 
-
-# These two special 'check-script' rules use the bash script
-# 'check_survey' to do testing. This script is not as portable as the
-# dejagnu test harness, and is thus off by default. It does produce
-# interesting output however, including various performance analysis
-# items like compile time, execution time, and binary size.
-survey_script = ${glibcxx_builddir}/scripts/check_survey
-check-script: ${survey_script}
-	-@(chmod + ${survey_script}; \
-	  ${survey_script} 0)
-
-check-script-install: ${survey_script}
-	-@(chmod + ${survey_script}; \
-	  ${survey_script} 0)
+# Runs the testsuite, but in compile only mode.
+# Can be used to test sources with non-GNU FE's at various warning
+# levels and for checking compile time across releases.
+# See script.
+compile_script=${glibcxx_srcdir}/scripts/check_compile
+check-compile: testsuite_files ${compile_script}
+	-@(chmod + ${compile_script}; \
+	  ${compile_script} ${glibcxx_srcdir} ${glibcxx_builddir})
 
 
 # Runs the testsuite/performance tests.
@@ -158,22 +113,11 @@ check-performance: testsuite_files_performance ${performance_script}
 	-@(chmod + ${performance_script}; \
 	  ${performance_script} ${glibcxx_srcdir} ${glibcxx_builddir})
 
-# Runs the testsuite, but in compile only mode, and times it.
-# See script.
-compile_script=${glibcxx_srcdir}/scripts/check_compile
-check-compile: testsuite_files ${compile_script}
-	-@(chmod + ${compile_script}; \
-	  ${compile_script} ${glibcxx_srcdir} ${glibcxx_builddir})
 
-# This rule generates all of the testsuite_files* lists at once.
-${lists_of_files}:
-	${glibcxx_srcdir}/scripts/create_testsuite_files \
-	  ${glibcxx_srcdir}/testsuite `${PWD_COMMAND}`
-
-
-.PHONY: baseline_symbols new-abi-baseline check-abi check-abi-verbose \
-check-script check-script-install check-performance
+.PHONY: baseline_symbols new-abi-baseline \
+	check-abi check-compile check-performance
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = *.txt *.tst *.exe core* filebuf_* tmp* ostream_* *.log *.sum \
-	     testsuite_* site.exp abi_check baseline_symbols *TEST*
+	     testsuite_* site.exp abi_check baseline_symbols *TEST* *.dat \
+	     *.o *.cc
