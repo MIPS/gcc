@@ -935,7 +935,7 @@ OBJS-common = \
  tree-chrec.o tree-scalar-evolution.o tree-data-ref.o tree-elim-check.o	   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
  gimplify.o tree-pretty-print.o tree-into-ssa.o				   \
- tree-outof-ssa.o tree-ssa-ccp.o tree-ssa-align.o tree-vn.o                \ 
+ tree-outof-ssa.o tree-ssa-ccp.o tree-ssa-align.o tree-vn.o                \
  tree-ssa-uncprop.o                                                        \
  tree-ssa-dce.o  tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o	   \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
