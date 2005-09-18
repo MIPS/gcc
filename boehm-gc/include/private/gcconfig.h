@@ -229,7 +229,17 @@
 #    define ARM32
 #    define mach_type_known
 # endif
+# if defined(LINUX) && defined(__cris__)
+#    ifndef CRIS
+#	define CRIS
+#    endif
+#    define mach_type_known
+# endif
 # if defined(LINUX) && (defined(powerpc) || defined(__powerpc__) || defined(powerpc64) || defined(__powerpc64__))
+#    define POWERPC
+#    define mach_type_known
+# endif
+# if defined(FREEBSD) && (defined(powerpc) || defined(__powerpc__))
 #    define POWERPC
 #    define mach_type_known
 # endif
@@ -476,6 +486,8 @@
 		    /*		   POWERPC    ==> IBM/Apple PowerPC	*/
 		    /*			(MACOS(<=9),DARWIN(incl.MACOSX),*/
 		    /*			 LINUX, NETBSD, NOSYS variants)	*/
+		    /*		   CRIS       ==> Axis Etrax		*/
+		    /*		   M32R	      ==> Renesas M32R		*/
 
 
 /*
@@ -744,6 +756,7 @@
 #     if (defined (powerpc64) || defined(__powerpc64__))
 #       define ALIGNMENT 8
 #       define CPP_WORDSZ 64
+#       define HBLKSIZE 4096
 #     else
 #       define ALIGNMENT 4
 #     endif
@@ -788,6 +801,22 @@
       /* There seems to be some issues with trylock hanging on darwin. This
          should be looked into some more */
 #     define NO_PTHREAD_TRYLOCK
+#   endif
+#   ifdef FREEBSD
+#       define ALIGNMENT 4
+#       define OS_TYPE "FREEBSD"
+#       ifndef GC_FREEBSD_THREADS
+#           define MPROTECT_VDB
+#       endif
+#       define SIG_SUSPEND SIGUSR1
+#       define SIG_THR_RESTART SIGUSR2
+#       define FREEBSD_STACKBOTTOM
+#       ifdef __ELF__
+#           define DYNAMIC_LOADING
+#       endif
+        extern char etext[];
+        extern char * GC_FreeBSDGetDataStart();
+#       define DATASTART GC_FreeBSDGetDataStart(0x1000, &etext)
 #   endif
 #   ifdef NETBSD
 #     define ALIGNMENT 4
@@ -924,12 +953,10 @@
       extern ptr_t GC_SysVGetDataStart();
 #     ifdef __arch64__
 #	define DATASTART GC_SysVGetDataStart(0x100000, _etext)
-	/* libc_stack_end is not set reliably for sparc64 */
-#       define STACKBOTTOM ((ptr_t) 0x80000000000ULL)
 #     else
 #       define DATASTART GC_SysVGetDataStart(0x10000, _etext)
-#	define LINUX_STACKBOTTOM
 #     endif
+#     define LINUX_STACKBOTTOM
 #   endif
 #   ifdef OPENBSD
 #     define OS_TYPE "OPENBSD"
@@ -1550,7 +1577,7 @@
 #   endif
 #   ifdef LINUX
 #       define OS_TYPE "LINUX"
-#       define STACKBOTTOM ((ptr_t) 0x120000000)
+#       define LINUX_STACKBOTTOM
 #       ifdef __ELF__
 #	  define SEARCH_FOR_DATA_START
 #         define DYNAMIC_LOADING
@@ -1760,7 +1787,7 @@
 #   endif
 #   ifdef LINUX
 #       define OS_TYPE "LINUX"
-#       define HEURISTIC1
+#       define LINUX_STACKBOTTOM
 #       undef STACK_GRAN
 #       define STACK_GRAN 0x10000000
 #       define USE_GENERIC_PUSH_REGS
@@ -1803,6 +1830,19 @@
 #   endif
 #endif
 
+# ifdef CRIS
+#   define MACH_TYPE "CRIS"
+#   define CPP_WORDSZ 32
+#   define ALIGNMENT 1
+#   define OS_TYPE "LINUX"
+#   define DYNAMIC_LOADING
+#   define LINUX_STACKBOTTOM
+#   define USE_GENERIC_PUSH_REGS
+#   define SEARCH_FOR_DATA_START
+      extern int _end[];
+#   define DATAEND (_end)
+# endif
+
 # ifdef SH
 #   define MACH_TYPE "SH"
 #   define ALIGNMENT 4
@@ -1812,7 +1852,7 @@
 #   endif
 #   ifdef LINUX
 #     define OS_TYPE "LINUX"
-#     define STACKBOTTOM ((ptr_t) 0x7c000000)
+#     define LINUX_STACKBOTTOM
 #     define USE_GENERIC_PUSH_REGS
 #     define DYNAMIC_LOADING
 #     define SEARCH_FOR_DATA_START
@@ -2068,7 +2108,7 @@
 # endif
 
 # if defined(HP_PA) || defined(M88K) || defined(POWERPC) && !defined(DARWIN) \
-	     || defined(LINT) || defined(MSWINCE) || defined(ARM32) \
+	     || defined(LINT) || defined(MSWINCE) || defined(ARM32) || defined(CRIS) \
 	     || (defined(I386) && defined(__LCC__))
 	/* Use setjmp based hack to mark from callee-save registers.    */
 	/* The define should move to the individual platform 		*/
