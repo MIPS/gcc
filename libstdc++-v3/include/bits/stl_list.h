@@ -123,6 +123,7 @@ namespace _GLIBCXX_STD
       _List_iterator()
       : _M_node() { }
 
+      explicit
       _List_iterator(_List_node_base* __x)
       : _M_node(__x) { }
 
@@ -200,6 +201,7 @@ namespace _GLIBCXX_STD
       _List_const_iterator()
       : _M_node() { }
 
+      explicit
       _List_const_iterator(const _List_node_base* __x)
       : _M_node(__x) { }
 
@@ -302,8 +304,9 @@ namespace _GLIBCXX_STD
       : public _Node_alloc_type
       {
 	_List_node_base _M_node;
+
 	_List_impl(const _Node_alloc_type& __a)
-	: _Node_alloc_type(__a)
+	: _Node_alloc_type(__a), _M_node()
 	{ }
       };
 
@@ -607,7 +610,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       begin()
-      { return this->_M_impl._M_node._M_next; }
+      { return iterator(this->_M_impl._M_node._M_next); }
 
       /**
        *  Returns a read-only (constant) iterator that points to the
@@ -616,7 +619,7 @@ namespace _GLIBCXX_STD
        */
       const_iterator
       begin() const
-      { return this->_M_impl._M_node._M_next; }
+      { return const_iterator(this->_M_impl._M_node._M_next); }
 
       /**
        *  Returns a read/write iterator that points one past the last
@@ -624,7 +627,8 @@ namespace _GLIBCXX_STD
        *  order.
        */
       iterator
-      end() { return &this->_M_impl._M_node; }
+      end()
+      { return iterator(&this->_M_impl._M_node); }
 
       /**
        *  Returns a read-only (constant) iterator that points one past
@@ -633,7 +637,7 @@ namespace _GLIBCXX_STD
        */
       const_iterator
       end() const
-      { return &this->_M_impl._M_node; }
+      { return const_iterator(&this->_M_impl._M_node); }
 
       /**
        *  Returns a read/write reverse iterator that points to the last
@@ -802,7 +806,7 @@ namespace _GLIBCXX_STD
        */
       void
       pop_back()
-      { this->_M_erase(this->_M_impl._M_node._M_prev); }
+      { this->_M_erase(iterator(this->_M_impl._M_node._M_prev)); }
 
       /**
        *  @brief  Inserts given value into %list before specified iterator.

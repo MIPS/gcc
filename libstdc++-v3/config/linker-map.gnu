@@ -296,14 +296,17 @@ GLIBCXX_3.6 {
     _ZNSt8ios_base20_M_dispose_callbacksEv;
     _ZNSt6locale5facet13_S_get_c_nameEv;
 
+    # In GLIBCXX_3.4.6	
+    _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEv;
+
     # Added in libstdcxx_so_7-branch
     _ZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
     _ZNK9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
     _ZZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
     
-    _ZZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
-    _ZZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE18_S_initialize_onceEvE6__init;
-    _ZGVZN9__gnu_cxx20__common_pool_policyINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
+    _ZZN9__gnu_cxx13__common_poolINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
+    _ZZN9__gnu_cxx18__common_pool_baseINS_6__poolELb1EE18_S_initialize_onceEvE6__init;
+    _ZGVZN9__gnu_cxx13__common_poolINS_6__poolELb1EE11_S_get_poolEvE7_S_pool;
 
     _ZN9__gnu_cxx12__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
     _ZNK9__gnu_cxx12__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;

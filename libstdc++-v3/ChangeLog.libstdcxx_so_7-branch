@@ -1,3 +1,10 @@
+2005-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	Merged to mainline at tag libstdcxx_so_7-merge-20050918.
+
+	(Adjusted v7-specific exports in linker-map.gnu)
+	(Fixed libstdc++/23767 in a slightly different (more general) way)
+
 2005-09-11  Chris Jefferson <chris@bubblescope.net>
 
 	* include/bits/moveable.h (__move): Add overload for const references.

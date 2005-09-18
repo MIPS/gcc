@@ -364,6 +364,27 @@ namespace std
 	};
     };
 
+  //
+  // A stripped-down version of std::tr1::is_convertible
+  //
+  template<typename _From, typename _To>
+    struct __is_convertible
+    {
+    private:
+      typedef char __one;
+      typedef struct { char __arr[2]; } __two;
+      
+      static __one  __test(_To);
+      static __two  __test(...);
+      static _From& __makeFrom();
+    
+    public:
+      enum
+	{
+	  __value = sizeof(__test(__makeFrom())) == 1
+	};
+    };
+
 } // namespace std
 
 #endif //_CPP_TYPE_TRAITS_H
