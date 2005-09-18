@@ -130,7 +130,7 @@ AC_SUBST(OUTPUT_OPTION)
 
 AC_C_CONST
 AC_C_INLINE
-AC_C_BIGENDIAN_CROSS
+AC_C_BIGENDIAN
 
 dnl When we start using libtool:
 dnl Default to a non shared library.  This may be overridden by the
@@ -152,14 +152,82 @@ dnl When we start using automake:
 dnl AM_PROG_INSTALL
 AC_PROG_INSTALL
 
-. ${srcdir}/config.table
+# Don't build the shared library for build.
+if [[ -n "${with_build_subdir}" ]]; then
+  enable_shared=no
+fi
+
+frag=
+case "${host}" in
+  rs6000-ibm-aix3.1 | rs6000-ibm-aix)
+                        frag=mh-aix ;;
+  *-*-cxux7*)		frag=mh-cxux7 ;;
+  *-*-freebsd2.1.*)	frag=mh-fbsd21 ;;
+  *-*-freebsd2.2.[[012]])	frag=mh-fbsd21 ;;
+  i370-*-opened*)       frag=mh-openedition ;;
+  i[[34567]]86-*-windows*)	frag=mh-windows ;;
+esac
+
+if [[ -n "${frag}" ]]; then
+  frags=${libiberty_topdir}/libiberty/config/$frag
+else
+  frags=
+fi
+
+# If they didn't specify --enable-shared, don't generate shared libs.
+case "${enable_shared}" in
+  yes) shared=yes ;;
+  no) shared=no ;;
+  "") shared=no ;;
+  *) shared=yes ;;
+esac
+if [[ "${shared}" = "yes" ]]; then
+  frag=
+  case "${host}" in
+    *-*-cygwin*)	;;
+    alpha*-*-linux*)	frag=mh-elfalphapic ;;
+    arm*-*-*)		frag=mh-armpic ;;
+    hppa*-*-*)		frag=mh-papic ;;
+    i[[34567]]86-*-* | x86_64-*-*)
+			frag=mh-x86pic ;;
+    powerpc*-*-aix*)	;;
+    powerpc*-*-*)	frag=mh-ppcpic ;;
+    sparc*-*-*)		frag=mh-sparcpic ;;
+    s390*-*-*)		frag=mh-s390pic ;;
+    *)			frag=mh-${host_cpu}pic ;;
+  esac
+  if [[ -n "${frag}" ]]; then
+    frags="${frags} ${libiberty_topdir}/config/${frag}"
+  fi
+fi
+
+echo "# Warning: this fragment is automatically generated" > temp-frag
+
+for frag in ${frags}; do
+  if [[ -f ${frag} ]]; then
+    echo "Appending ${frag} to xhost-mkfrag"
+    echo "# Following fragment copied from ${frag}" >> temp-frag
+    cat ${frag} >> temp-frag
+  fi
+done
+
+# record if we want to build shared libs.
+if [[ "${shared}" = "yes" ]]; then
+  echo enable_shared = yes >> temp-frag
+else
+  echo enable_shared = no >> temp-frag
+fi
+
+frag=xhost-mkfrag
+${CONFIG_SHELL-/bin/sh} ${libiberty_topdir}/move-if-change temp-frag xhost-mkfrag
+
 host_makefile_frag=${frag}
 AC_SUBST_FILE(host_makefile_frag)
 
 # It's OK to check for header files.  Although the compiler may not be
 # able to link anything, it had better be able to at least compile
 # something.
-AC_CHECK_HEADERS(sys/file.h sys/param.h limits.h stdlib.h malloc.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h sys/pstat.h sys/sysmp.h sys/sysinfo.h machine/hal_sysinfo.h sys/table.h sys/sysctl.h sys/systemcfg.h stdint.h)
+AC_CHECK_HEADERS(sys/file.h sys/param.h limits.h stdlib.h malloc.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h sys/pstat.h sys/sysmp.h sys/sysinfo.h machine/hal_sysinfo.h sys/table.h sys/sysctl.h sys/systemcfg.h stdint.h stdio_ext.h)
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
 
@@ -254,6 +322,7 @@ funcs="$funcs strstr"
 funcs="$funcs strtod"
 funcs="$funcs strtol"
 funcs="$funcs strtoul"
+funcs="$funcs strverscmp"
 funcs="$funcs tmpnam"
 funcs="$funcs vasprintf"
 funcs="$funcs vfprintf"
@@ -268,7 +337,7 @@ vars="sys_errlist sys_nerr sys_siglist"
 
 checkfuncs="getrusage on_exit psignal strerror strsignal sysconf times sbrk gettimeofday"
 checkfuncs="$checkfuncs realpath canonicalize_file_name pstat_getstatic pstat_getdynamic sysmp"
-checkfuncs="$checkfuncs getsysinfo table sysctl wait3 wait4"
+checkfuncs="$checkfuncs getsysinfo table sysctl wait3 wait4 __fsetlocking"
 
 # These are neither executed nor required, but they help keep
 # autoheader happy without adding a bunch of text to acconfig.h.
@@ -277,11 +346,12 @@ if test "x" = "y"; then
   getcwd getpagesize gettimeofday index insque mkstemps memchr memcmp memcpy \
   memmove mempcpy memset putenv random rename rindex sigsetmask \
   strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strndup strrchr strstr \
-  strtod strtol strtoul tmpnam vasprintf vfprintf vprintf \
+  strtod strtol strtoul strverscmp tmpnam vasprintf vfprintf vprintf \
   vsprintf waitpid getrusage on_exit psignal strerror strsignal \
   sysconf times sbrk gettimeofday ffs snprintf vsnprintf \
   pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl wait3 wait4 \
-  realpath canonicalize_file_name)
+  realpath canonicalize_file_name __fsetlocking)
+  AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
   AC_DEFINE(HAVE_SYS_ERRLIST, 1, [Define if you have the sys_errlist variable.])
   AC_DEFINE(HAVE_SYS_NERR,    1, [Define if you have the sys_nerr variable.])
   AC_DEFINE(HAVE_SYS_SIGLIST, 1, [Define if you have the sys_siglist variable.])
@@ -327,7 +397,7 @@ if test -n "${with_target_subdir}"; then
     # dont have to check them here.
 
     # Of the functions in $checkfuncs, newlib only has strerror.
-    AC_DEFINE_NOAUTOHEADER(HAVE_STRERROR)
+    AC_DEFINE(HAVE_STRERROR)
 
     setobjs=yes
 
@@ -366,8 +436,8 @@ AC_SUBST(target_header_dir)
 
 case "${host}" in
   *-*-cygwin* | *-*-mingw*)
-    AC_DEFINE_NOAUTOHEADER(HAVE_SYS_ERRLIST)
-    AC_DEFINE_NOAUTOHEADER(HAVE_SYS_NERR)
+    AC_DEFINE(HAVE_SYS_ERRLIST)
+    AC_DEFINE(HAVE_SYS_NERR)
     ;;
 esac
 
@@ -405,7 +475,7 @@ if test -z "${setobjs}"; then
     # don't have to check them here.
 
     # Of the functions in $checkfuncs, VxWorks only has strerror.
-    AC_DEFINE_NOAUTOHEADER(HAVE_STRERROR)
+    AC_DEFINE(HAVE_STRERROR)
 
     setobjs=yes
     ;;
@@ -517,6 +587,9 @@ if test -z "${setobjs}"; then
     [AC_MSG_RESULT([no])])
 
   AC_CHECK_FUNCS($checkfuncs)
+  AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
+  AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
+  AC_CHECK_DECLS([strverscmp])
   libiberty_NEED_DECLARATION(canonicalize_file_name)
 fi
 

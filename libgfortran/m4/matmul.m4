@@ -1,5 +1,5 @@
 `/* Implementation of the MATMUL intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -93,15 +93,15 @@ matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
           retarray->dim[0].lbound = 0;
           retarray->dim[0].ubound = a->dim[0].ubound - a->dim[0].lbound;
           retarray->dim[0].stride = 1;
-          
+
           retarray->dim[1].lbound = 0;
           retarray->dim[1].ubound = b->dim[1].ubound - b->dim[1].lbound;
           retarray->dim[1].stride = retarray->dim[0].ubound+1;
         }
-          
+
       retarray->data
-	= internal_malloc_size (sizeof (rtype_name) * size0 (retarray));
-      retarray->base = 0;
+	= internal_malloc_size (sizeof (rtype_name) * size0 ((array_t *) retarray));
+      retarray->offset = 0;
     }
 
   abase = a->data;
@@ -159,7 +159,7 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       /* bystride should never be used for 1-dimensional b.
 	 in case it is we want it to cause a segfault, rather than
 	 an incorrect result. */
-      bystride = 0xDEADBEEF; 
+      bystride = 0xDEADBEEF;
       ycount = 1;
     }
   else
@@ -168,10 +168,6 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       bystride = b->dim[1].stride;
       ycount = b->dim[1].ubound + 1 - b->dim[1].lbound;
     }
-
-  assert (a->base == 0);
-  assert (b->base == 0);
-  assert (retarray->base == 0);
 
   abase = a->data;
   bbase = b->data;
@@ -184,7 +180,14 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       rtype_name *abase_n;
       rtype_name bbase_yn;
 
-      memset (dest, 0, (sizeof (rtype_name) * size0(retarray)));
+      if (rystride == ycount)
+	memset (dest, 0, (sizeof (rtype_name) * size0((array_t *) retarray)));
+      else
+	{
+	  for (y = 0; y < ycount; y++)
+	    for (x = 0; x < xcount; x++)
+	      dest[x + y*rystride] = (rtype_name)0;
+	}
 
       for (y = 0; y < ycount; y++)
 	{

@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfor.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -17,8 +17,8 @@ GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
 License along with libgfor; see the file COPYING.LIB.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -179,17 +179,11 @@ typedef off_t gfc_offset;
    alternatives, or bail out.  */
 #if (!defined(isfinite) || defined(__CYGWIN__))
 #undef isfinite
-static inline int
-isfinite (double x)
-{
 #if defined(fpclassify)
-  return (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE);
-#elif defined(HAVE_FINITE)
-  return finite (x);
+#define isfinite(x) (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE)
 #else
-#error "libgfortran needs isfinite, fpclassify, or finite"
+#define isfinite(x) ((x) - (x) == 0)
 #endif
-}
 #endif /* !defined(isfinite)  */
 
 /* TODO: find the C99 version of these an move into above ifdef.  */
@@ -197,25 +191,12 @@ isfinite (double x)
 #define IMAGPART(z) (__imag__(z))
 #define COMPLEX_ASSIGN(z_, r_, i_) {__real__(z_) = (r_); __imag__(z_) = (i_);}
 
-typedef int8_t GFC_INTEGER_1;
-typedef int16_t GFC_INTEGER_2;
-typedef int32_t GFC_INTEGER_4;
-typedef int64_t GFC_INTEGER_8;
-typedef uint8_t GFC_UINTEGER_1;
-typedef uint16_t GFC_UINTEGER_2;
-typedef uint32_t GFC_UINTEGER_4;
-typedef uint64_t GFC_UINTEGER_8;
-typedef GFC_INTEGER_4 GFC_LOGICAL_4;
-typedef GFC_INTEGER_8 GFC_LOGICAL_8;
-typedef float GFC_REAL_4;
-typedef double GFC_REAL_8;
-typedef complex float GFC_COMPLEX_4;
-typedef complex double GFC_COMPLEX_8;
+#include "kinds.h"
 
 /* The following two definitions must be consistent with the types used
    by the compiler.  */
 /* The type used of array indices, amongst other things.  */
-typedef size_t index_type;
+typedef ssize_t index_type;
 /* The type used for the lengths of character variables.  */
 typedef GFC_INTEGER_4 gfc_charlen_type;
 
@@ -248,7 +229,7 @@ descriptor_dimension;
 #define GFC_ARRAY_DESCRIPTOR(r, type) \
 struct {\
   type *data;\
-  type *base;\
+  size_t offset;\
   index_type dtype;\
   descriptor_dimension dim[r];\
 }
@@ -314,9 +295,24 @@ typedef struct
 }
 options_t;
 
-
 extern options_t options;
 internal_proto(options);
+
+
+/* Compile-time options that will influence the library.  */
+
+typedef struct
+{
+  int warn_std;
+  int allow_std;
+}
+compile_options_t;
+
+extern compile_options_t compile_options;
+internal_proto(compile_options);
+
+extern void init_compile_options (void);
+internal_proto(init_compile_options);
 
 
 /* Structure for statement options.  */
@@ -353,6 +349,18 @@ typedef enum
 error_codes;
 
 
+/* Flags to specify which standard/extension contains a feature.
+   Keep them in sync with their counterparts in gcc/fortran/gfortran.h.  */
+#define GFC_STD_LEGACY          (1<<6) /* Backward compatibility.  */
+#define GFC_STD_GNU             (1<<5)    /* GNU Fortran extension.  */
+#define GFC_STD_F2003           (1<<4)    /* New in F2003.  */
+/* Note that no features were obsoleted nor deleted in F2003.  */
+#define GFC_STD_F95             (1<<3)    /* New in F95.  */
+#define GFC_STD_F95_DEL         (1<<2)    /* Deleted in F95.  */
+#define GFC_STD_F95_OBS         (1<<1)    /* Obsoleted in F95.  */
+#define GFC_STD_F77             (1<<0)    /* Up to and including F77.  */
+
+
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
 
@@ -384,10 +392,10 @@ internal_proto(get_args);
 
 /* error.c */
 
-extern char *gfc_itoa (int64_t);
+extern char *gfc_itoa (GFC_INTEGER_LARGEST);
 internal_proto(gfc_itoa);
 
-extern char *xtoa (uint64_t);
+extern char *xtoa (GFC_UINTEGER_LARGEST);
 internal_proto(xtoa);
 
 extern void os_error (const char *) __attribute__ ((noreturn));
@@ -482,7 +490,7 @@ internal_proto(reshape_packed);
 
 /* Repacking functions.  */
 
-/* ??? These four aren't currently used by the compiler, though we
+/* ??? These eight aren't currently used by the compiler, though we
    certainly could do so.  */
 GFC_INTEGER_4 *internal_pack_4 (gfc_array_i4 *);
 internal_proto(internal_pack_4);
@@ -490,11 +498,23 @@ internal_proto(internal_pack_4);
 GFC_INTEGER_8 *internal_pack_8 (gfc_array_i8 *);
 internal_proto(internal_pack_8);
 
+GFC_COMPLEX_4 *internal_pack_c4 (gfc_array_c4 *);
+internal_proto(internal_pack_c4);
+
+GFC_COMPLEX_8 *internal_pack_c8 (gfc_array_c8 *);
+internal_proto(internal_pack_c8);
+
 extern void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 internal_proto(internal_unpack_4);
 
 extern void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 internal_proto(internal_unpack_8);
+
+extern void internal_unpack_c4 (gfc_array_c4 *, const GFC_COMPLEX_4 *);
+internal_proto(internal_unpack_c4);
+
+extern void internal_unpack_c8 (gfc_array_c8 *, const GFC_COMPLEX_8 *);
+internal_proto(internal_unpack_c8);
 
 /* string_intrinsics.c */
 

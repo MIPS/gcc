@@ -6,14 +6,23 @@
 /* libm includes acosf */
 #undef HAVE_ACOSF
 
+/* libm includes acoshf */
+#undef HAVE_ACOSHF
+
 /* libm includes asinf */
 #undef HAVE_ASINF
+
+/* libm includes asinhf */
+#undef HAVE_ASINHF
 
 /* libm includes atan2f */
 #undef HAVE_ATAN2F
 
 /* libm includes atanf */
 #undef HAVE_ATANF
+
+/* libm includes atanhf */
+#undef HAVE_ATANHF
 
 /* Define to 1 if the target supports __attribute__((alias(...))). */
 #undef HAVE_ATTRIBUTE_ALIAS
@@ -29,6 +38,9 @@
 
 /* Define to 1 if you have the `chdir' function. */
 #undef HAVE_CHDIR
+
+/* Define to 1 if you have the `chsize' function. */
+#undef HAVE_CHSIZE
 
 /* complex.h exists */
 #undef HAVE_COMPLEX_H
@@ -68,6 +80,9 @@
 
 /* libm includes frexpf */
 #undef HAVE_FREXPF
+
+/* Define to 1 if you have the `ftruncate' function. */
+#undef HAVE_FTRUNCATE
 
 /* libc includes getgid */
 #undef HAVE_GETGID
@@ -129,6 +144,9 @@
 /* libm includes log10f */
 #undef HAVE_LOG10F
 
+/* libm includes log10l */
+#undef HAVE_LOG10L
+
 /* libm includes logf */
 #undef HAVE_LOGF
 
@@ -161,6 +179,9 @@
 
 /* libm includes roundf */
 #undef HAVE_ROUNDF
+
+/* libm includes scalbn */
+#undef HAVE_SCALBN
 
 /* libm includes scalbnf */
 #undef HAVE_SCALBNF
@@ -206,6 +227,9 @@
 
 /* Define to 1 if you have the `strtof' function. */
 #undef HAVE_STRTOF
+
+/* Define to 1 if you have the `strtold' function. */
+#undef HAVE_STRTOLD
 
 /* Define to 1 if `st_blksize' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_BLKSIZE
@@ -258,8 +282,20 @@
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
 
+/* libm includes trunc */
+#undef HAVE_TRUNC
+
+/* libm includes truncf */
+#undef HAVE_TRUNCF
+
+/* Define to 1 if you have the `ttyname' function. */
+#undef HAVE_TTYNAME
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define if target can unlink open files. */
+#undef HAVE_UNLINK_OPEN_FILE
 
 /* libm includes y0 */
 #undef HAVE_Y0

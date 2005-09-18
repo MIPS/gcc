@@ -1,5 +1,5 @@
 `/* Implementation of the EOSHIFT intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -38,37 +38,37 @@ include(iparm.m4)dnl
 static const char zeros[16] =
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-extern void eoshift1_`'atype_kind (const gfc_array_char *,
+extern void eoshift1_`'atype_kind (gfc_array_char *,
 				     const gfc_array_char *,
 				     const atype *, const char *,
 				     const atype_name *);
 export_proto(eoshift1_`'atype_kind);
 
 void
-eoshift1_`'atype_kind (const gfc_array_char *ret,
+eoshift1_`'atype_kind (gfc_array_char *ret,
 		       const gfc_array_char *array,
 		       const atype *h, const char *pbound,
 		       const atype_name *pwhich)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
 `  /* h.* indicates the shift array.  */'
-  index_type hstride[GFC_MAX_DIMENSIONS - 1];
+  index_type hstride[GFC_MAX_DIMENSIONS];
   index_type hstride0;
   const atype_name *hptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
   index_type size;
   index_type len;
@@ -76,6 +76,12 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
   int which;
   atype_name sh;
   atype_name delta;
+
+  /* The compiler cannot figure out that these are set, initialize
+     them to avoid warnings.  */
+  len = 0;
+  soffset = 0;
+  roffset = 0;
 
   if (pwhich)
     which = *pwhich - 1;
@@ -90,6 +96,26 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
   extent[0] = 1;
   count[0] = 0;
   size = GFC_DESCRIPTOR_SIZE (array);
+
+  if (ret->data == NULL)
+    {
+      int i;
+
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
+      ret->offset = 0;
+      ret->dtype = array->dtype;
+      for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
+        {
+          ret->dim[i].lbound = 0;
+          ret->dim[i].ubound = array->dim[i].ubound - array->dim[i].lbound;
+
+          if (i == 0)
+            ret->dim[i].stride = 1;
+          else
+            ret->dim[i].stride = (ret->dim[i-1].ubound + 1) * ret->dim[i-1].stride;
+        }
+    }
+
   n = 0;
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -110,7 +136,7 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
           rstride[n] = ret->dim[dim].stride * size;
           sstride[n] = array->dim[dim].stride * size;
 
-          hstride[n] = h->dim[n].stride;
+          hstride[n] = h->dim[n].stride * size;
           n++;
         }
     }
@@ -133,7 +159,14 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
     {
 `      /* Do the shift for this dimension.  */'
       sh = *hptr;
-      delta = (sh >= 0) ? sh: -sh;
+      if (( sh >= 0 ? sh : -sh ) > len)
+	{
+	  delta = len;
+	  sh = len;
+	}
+      else
+	delta = (sh >= 0) ? sh: -sh;
+
       if (sh > 0)
         {
           src = &sptr[delta * soffset];

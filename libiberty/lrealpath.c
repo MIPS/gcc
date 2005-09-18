@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street - Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /*
 
@@ -117,7 +117,7 @@ lrealpath (const char *filename)
       {
 	/* PATH_MAX is bounded.  */
 	char *buf, *rp, *ret;
-	buf = malloc (path_max);
+	buf = (char *) malloc (path_max);
 	if (buf == NULL)
 	  return NULL;
 	rp = realpath (filename, buf);

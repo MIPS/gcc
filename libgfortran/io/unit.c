@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -248,7 +248,7 @@ find_unit (int n)
  * unit or the internal file. */
 
 gfc_unit *
-get_unit (int read_flag)
+get_unit (int read_flag __attribute__ ((unused)))
 {
   if (ioparm.internal_unit != NULL)
     {
@@ -275,7 +275,7 @@ get_unit (int read_flag)
  * not */
 
 int
-is_internal_unit ()
+is_internal_unit (void)
 {
   return current_unit == &internal_unit;
 }
@@ -288,13 +288,13 @@ is_internal_unit ()
 void
 init_units (void)
 {
-  gfc_offset m, n;
   gfc_unit *u;
-  int i;
+  unsigned int i;
 
   if (options.stdin_unit >= 0)
     {				/* STDIN */
       u = get_mem (sizeof (gfc_unit));
+      memset (u, '\0', sizeof (gfc_unit));
 
       u->unit_number = options.stdin_unit;
       u->s = input_stream ();
@@ -304,7 +304,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -316,6 +316,7 @@ init_units (void)
   if (options.stdout_unit >= 0)
     {				/* STDOUT */
       u = get_mem (sizeof (gfc_unit));
+      memset (u, '\0', sizeof (gfc_unit));
 
       u->unit_number = options.stdout_unit;
       u->s = output_stream ();
@@ -325,7 +326,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -337,6 +338,7 @@ init_units (void)
   if (options.stderr_unit >= 0)
     {				/* STDERR */
       u = get_mem (sizeof (gfc_unit));
+      memset (u, '\0', sizeof (gfc_unit));
 
       u->unit_number = options.stderr_unit;
       u->s = error_stream ();
@@ -346,7 +348,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -361,7 +363,7 @@ init_units (void)
    * set a 1 in the LSB and keep a running sum, stopping at MSB-1 bit. */
 
   g.max_offset = 0;
-  for (i=0; i < sizeof(g.max_offset) * 8 - 1; i++)
+  for (i = 0; i < sizeof (g.max_offset) * 8 - 1; i++)
     g.max_offset = g.max_offset + ((gfc_offset) 1 << i);
 
 }

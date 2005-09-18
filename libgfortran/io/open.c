@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -24,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <unistd.h>
@@ -38,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 static st_option access_opt[] = {
   {"sequential", ACCESS_SEQUENTIAL},
   {"direct", ACCESS_DIRECT},
-  {NULL}
+  {NULL, 0}
 };
 
 static st_option action_opt[] =
@@ -46,14 +47,14 @@ static st_option action_opt[] =
   { "read", ACTION_READ},
   { "write", ACTION_WRITE},
   { "readwrite", ACTION_READWRITE},
-  { NULL}
+  { NULL, 0}
 };
 
 static st_option blank_opt[] =
 {
   { "null", BLANK_NULL},
   { "zero", BLANK_ZERO},
-  { NULL}
+  { NULL, 0}
 };
 
 static st_option delim_opt[] =
@@ -61,14 +62,14 @@ static st_option delim_opt[] =
   { "none", DELIM_NONE},
   { "apostrophe", DELIM_APOSTROPHE},
   { "quote", DELIM_QUOTE},
-  { NULL}
+  { NULL, 0}
 };
 
 static st_option form_opt[] =
 {
   { "formatted", FORM_FORMATTED},
   { "unformatted", FORM_UNFORMATTED},
-  { NULL}
+  { NULL, 0}
 };
 
 static st_option position_opt[] =
@@ -76,7 +77,7 @@ static st_option position_opt[] =
   { "asis", POSITION_ASIS},
   { "rewind", POSITION_REWIND},
   { "append", POSITION_APPEND},
-  { NULL}
+  { NULL, 0}
 };
 
 static st_option status_opt[] =
@@ -86,14 +87,14 @@ static st_option status_opt[] =
   { "new", STATUS_NEW},
   { "replace", STATUS_REPLACE},
   { "scratch", STATUS_SCRATCH},
-  { NULL}
+  { NULL, 0}
 };
 
 static st_option pad_opt[] =
 {
   { "yes", PAD_YES},
   { "no", PAD_NO},
-  { NULL}
+  { NULL, 0}
 };
 
 
@@ -351,10 +352,18 @@ new_unit (unit_flags * flags)
   /* Create the unit structure.  */
 
   u = get_mem (sizeof (gfc_unit) + ioparm.file_len);
+  memset (u, '\0', sizeof (gfc_unit) + ioparm.file_len);
 
   u->unit_number = ioparm.unit;
   u->s = s;
   u->flags = *flags;
+
+  if (flags->position == POSITION_APPEND)
+  {
+    if (sseek (u->s, file_length (u->s)) == FAILURE)
+      generate_error (ERROR_OS, NULL);
+    u->endfile = AT_ENDFILE;
+  }
 
   /* Unspecified recl ends up with a processor dependent value.  */
 

@@ -1,5 +1,5 @@
 /* Generic implementation of the EOSHIFT intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -45,28 +45,34 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
 	  int shift, const gfc_array_char *bound, int which)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* b.* indicates the bound array.  */
-  index_type bstride[GFC_MAX_DIMENSIONS - 1];
+  index_type bstride[GFC_MAX_DIMENSIONS];
   index_type bstride0;
   const char *bptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
   index_type size;
   index_type len;
   index_type n;
+
+  /* The compiler cannot figure out that these are set, initialize
+     them to avoid warnings.  */
+  len = 0;
+  soffset = 0;
+  roffset = 0;
 
   size = GFC_DESCRIPTOR_SIZE (ret);
 
@@ -75,7 +81,7 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
       int i;
 
       ret->data = internal_malloc_size (size * size0 ((array_t *)array));
-      ret->base = 0;
+      ret->offset = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
@@ -133,15 +139,24 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
   bstride0 = bstride[0];
   rptr = ret->data;
   sptr = array->data;
+
+  if ((shift >= 0 ? shift : -shift ) > len)
+    {
+      shift = len;
+      len = 0;
+    }
+  else
+    {
+      if (shift > 0)
+	len = len - shift;
+      else
+	len = len + shift;
+    }
+  
   if (bound)
     bptr = bound->data;
   else
     bptr = zeros;
-
-  if (shift > 0)
-    len = len - shift;
-  else
-    len = len + shift;
 
   while (rptr)
     {
@@ -267,4 +282,3 @@ eoshift2_8 (gfc_array_char *ret, const gfc_array_char *array,
 {
   eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
 }
-

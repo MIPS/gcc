@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -63,17 +63,18 @@ iexport_data(filename);
 unsigned line = 0;
 iexport_data(line);
 
-static char buffer[32];		/* buffer for integer/ascii conversions */
+/* buffer for integer/ascii conversions.  */
+static char buffer[sizeof (GFC_UINTEGER_LARGEST) * 8 + 1];
 
 
 /* Returns a pointer to a static buffer. */
 
 char *
-gfc_itoa (int64_t n)
+gfc_itoa (GFC_INTEGER_LARGEST n)
 {
   int negative;
   char *p;
-  uint64_t t;
+  GFC_UINTEGER_LARGEST t;
 
   if (n == 0)
     {
@@ -109,7 +110,7 @@ gfc_itoa (int64_t n)
  * static buffer. */
 
 char *
-xtoa (uint64_t n)
+xtoa (GFC_UINTEGER_LARGEST n)
 {
   int digit;
   char *p;
@@ -487,4 +488,30 @@ generate_error (int family, const char *message)
       (family == ERROR_OS) ? get_oserror () : translate_error (family);
 
   runtime_error (message);
+}
+
+
+
+/* Possibly issue a warning/error about use of a nonstandard (or deleted)
+   feature.  An error/warning will be issued if the currently selected
+   standard does not contain the requested bits.  */
+
+try
+notify_std (int std, const char * message)
+{
+  int warning;
+
+  warning = compile_options.warn_std & std;
+  if ((compile_options.allow_std & std) != 0 && !warning)
+    return SUCCESS;
+
+  show_locus ();
+  if (!warning)
+    {
+      st_printf ("Fortran runtime error: %s\n", message);
+      sys_exit (2);
+    }
+  else
+    st_printf ("Fortran runtime warning: %s\n", message);
+  return FAILURE;
 }

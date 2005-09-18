@@ -39,16 +39,18 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-DIST_COMMON = README $(am__configure_deps) $(srcdir)/../config.guess \
+DIST_COMMON = $(am__configure_deps) $(srcdir)/../config.guess \
 	$(srcdir)/../config.sub $(srcdir)/../install-sh \
 	$(srcdir)/../ltmain.sh $(srcdir)/../missing \
 	$(srcdir)/../mkinstalldirs $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS
+	$(top_srcdir)/configure ChangeLog
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/../libtool.m4 $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/../config/lead-dot.m4 \
+	$(top_srcdir)/../config/no-executables.m4 \
+	$(top_srcdir)/acinclude.m4 $(top_srcdir)/../libtool.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -65,8 +67,8 @@ am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(toolexeclibdir)"
 toolexeclibLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
-am__objects_1 = environ.lo error.lo main.lo memory.lo pause.lo stop.lo \
-	string.lo select.lo
+am__objects_1 = compile_options.lo environ.lo error.lo main.lo \
+	memory.lo pause.lo stop.lo string.lo select.lo
 am__objects_2 = all_l4.lo all_l8.lo
 am__objects_3 = any_l4.lo any_l8.lo
 am__objects_4 = count_4_l4.lo count_8_l4.lo count_4_l8.lo \
@@ -102,9 +104,12 @@ am__objects_19 = shape_i4.lo shape_i8.lo
 am__objects_20 = eoshift1_4.lo eoshift1_8.lo
 am__objects_21 = eoshift3_4.lo eoshift3_8.lo
 am__objects_22 = cshift1_4.lo cshift1_8.lo
-am__objects_23 = reshape_i4.lo reshape_i8.lo
-am__objects_24 = in_pack_i4.lo in_pack_i8.lo
-am__objects_25 = in_unpack_i4.lo in_unpack_i8.lo
+am__objects_23 = reshape_i4.lo reshape_i8.lo reshape_c4.lo \
+	reshape_c8.lo
+am__objects_24 = in_pack_i4.lo in_pack_i8.lo in_pack_c4.lo \
+	in_pack_c8.lo
+am__objects_25 = in_unpack_i4.lo in_unpack_i8.lo in_unpack_c4.lo \
+	in_unpack_c8.lo
 am__objects_26 = exponent_r4.lo exponent_r8.lo
 am__objects_27 = fraction_r4.lo fraction_r8.lo
 am__objects_28 = nearest_r4.lo nearest_r8.lo
@@ -122,20 +127,20 @@ am__objects_31 = $(am__objects_2) $(am__objects_3) $(am__objects_4) \
 	$(am__objects_23) $(am__objects_24) $(am__objects_25) \
 	$(am__objects_26) $(am__objects_27) $(am__objects_28) \
 	$(am__objects_29) $(am__objects_30)
-am__objects_32 = backspace.lo close.lo endfile.lo format.lo inquire.lo \
-	list_read.lo lock.lo open.lo read.lo rewind.lo transfer.lo \
-	unit.lo unix.lo write.lo
+am__objects_32 = close.lo file_pos.lo format.lo inquire.lo \
+	list_read.lo lock.lo open.lo read.lo transfer.lo unit.lo \
+	unix.lo write.lo
 am__objects_33 = associated.lo abort.lo args.lo bessel.lo \
 	c99_functions.lo chdir.lo cpu_time.lo cshift0.lo \
 	date_and_time.lo env.lo erf.lo eoshift0.lo eoshift2.lo \
 	etime.lo exit.lo flush.lo fnum.lo gerror.lo getcwd.lo \
-	getlog.lo getXid.lo hostnm.lo kill.lo ierrno.lo ishftc.lo \
-	link.lo mvbits.lo pack_generic.lo perror.lo size.lo sleep.lo \
-	spread_generic.lo string_intrinsics.lo system.lo rand.lo \
-	random.lo rename.lo reshape_generic.lo reshape_packed.lo \
-	selected_int_kind.lo selected_real_kind.lo stat.lo symlnk.lo \
-	system_clock.lo time.lo transpose_generic.lo umask.lo \
-	unlink.lo unpack_generic.lo in_pack_generic.lo \
+	getlog.lo getXid.lo hyper.lo hostnm.lo kill.lo ierrno.lo \
+	ishftc.lo link.lo mvbits.lo pack_generic.lo perror.lo size.lo \
+	sleep.lo spread_generic.lo string_intrinsics.lo system.lo \
+	rand.lo random.lo rename.lo reshape_generic.lo \
+	reshape_packed.lo selected_int_kind.lo selected_real_kind.lo \
+	stat.lo symlnk.lo system_clock.lo time.lo transpose_generic.lo \
+	tty.lo umask.lo unlink.lo unpack_generic.lo in_pack_generic.lo \
 	in_unpack_generic.lo normalize.lo
 am__objects_34 =
 am__objects_35 = _abs_c4.lo _abs_c8.lo _abs_i4.lo _abs_i8.lo \
@@ -151,7 +156,8 @@ am__objects_35 = _abs_c4.lo _abs_c8.lo _abs_i4.lo _abs_i8.lo \
 am__objects_36 = _sign_i4.lo _sign_i8.lo _sign_r4.lo _sign_r8.lo \
 	_dim_i4.lo _dim_i8.lo _dim_r4.lo _dim_r8.lo _atan2_r4.lo \
 	_atan2_r8.lo _mod_i4.lo _mod_i8.lo _mod_r4.lo _mod_r8.lo
-am__objects_37 = $(am__objects_35) $(am__objects_36) dprod_r8.lo
+am__objects_37 = $(am__objects_35) $(am__objects_36) dprod_r8.lo \
+	f2c_specifics.lo
 am_libgfortran_la_OBJECTS = $(am__objects_1) $(am__objects_31) \
 	$(am__objects_32) $(am__objects_33) $(am__objects_34) \
 	$(am__objects_37)
@@ -162,6 +168,14 @@ libgfortranbegin_la_OBJECTS = $(am_libgfortranbegin_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp =
 am__depfiles_maybe =
+PPFCCOMPILE = $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS)
+LTPPFCCOMPILE = $(LIBTOOL) --mode=compile $(FC) $(DEFS) \
+	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
+	$(AM_FCFLAGS) $(FCFLAGS)
+FCLD = $(FC)
+FCLINK = $(LIBTOOL) --mode=link $(FCLD) $(AM_FFLAGS) $(FCFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) \
@@ -172,9 +186,6 @@ LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 FCCOMPILE = $(FC) $(AM_FCFLAGS) $(FCFLAGS)
 LTFCCOMPILE = $(LIBTOOL) --mode=compile $(FC) $(AM_FCFLAGS) $(FCFLAGS)
-FCLD = $(FC)
-FCLINK = $(LIBTOOL) --mode=link $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(libgfortran_la_SOURCES) $(EXTRA_libgfortran_la_SOURCES) \
 	$(libgfortranbegin_la_SOURCES)
 DIST_SOURCES = $(libgfortran_la_SOURCES) \
@@ -200,6 +211,8 @@ distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
+AM_CFLAGS = @AM_CFLAGS@
+AM_FCFLAGS = @AM_FCFLAGS@
 AR = @AR@
 AS = @AS@
 AUTOCONF = @AUTOCONF@
@@ -207,7 +220,6 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 CC = @CC@
-CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -266,6 +278,7 @@ datadir = @datadir@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
 exec_prefix = @exec_prefix@
+extra_ldflags_libgfortran = @extra_ldflags_libgfortran@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
@@ -293,26 +306,23 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 toolexecdir = @toolexecdir@
 toolexeclibdir = @toolexeclibdir@
-AM_CFLAGS = -std=gnu99
 ACLOCAL_AMFLAGS = -I ../config
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran)
 libgfortranbegin_la_SOURCES = fmain.c
 libgfortranbegin_la_LDFLAGS = -static
 AM_CPPFLAGS = -iquote$(srcdir)/io
 libgfortranincludedir = $(includedir)/gforio
 gfor_io_src = \
-io/backspace.c \
 io/close.c \
-io/endfile.c \
+io/file_pos.c \
 io/format.c \
 io/inquire.c \
 io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
-io/rewind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -343,6 +353,7 @@ intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \
 intrinsics/getXid.c \
+intrinsics/hyper.c \
 intrinsics/hostnm.c \
 intrinsics/kill.c \
 intrinsics/ierrno.c \
@@ -368,6 +379,7 @@ intrinsics/symlnk.c \
 intrinsics/system_clock.c \
 intrinsics/time.c \
 intrinsics/transpose_generic.c \
+intrinsics/tty.c \
 intrinsics/umask.c \
 intrinsics/unlink.c \
 intrinsics/unpack_generic.c \
@@ -376,6 +388,7 @@ runtime/in_unpack_generic.c \
 runtime/normalize.c
 
 gfor_src = \
+runtime/compile_options.c \
 runtime/environ.c \
 runtime/error.c \
 runtime/main.c \
@@ -473,7 +486,7 @@ i_dotprod_c = \
 generated/dotprod_i4.c \
 generated/dotprod_i8.c \
 generated/dotprod_r4.c \
-generated/dotprod_r8.c 
+generated/dotprod_r8.c
 
 i_dotprodl_c = \
 generated/dotprod_l4.c \
@@ -507,7 +520,9 @@ generated/shape_i8.c
 
 i_reshape_c = \
 generated/reshape_i4.c \
-generated/reshape_i8.c
+generated/reshape_i8.c \
+generated/reshape_c4.c \
+generated/reshape_c8.c
 
 i_eoshift1_c = \
 generated/eoshift1_4.c \
@@ -523,11 +538,15 @@ generated/cshift1_8.c
 
 in_pack_c = \
 generated/in_pack_i4.c \
-generated/in_pack_i8.c
+generated/in_pack_i8.c \
+generated/in_pack_c4.c \
+generated/in_pack_c8.c
 
 in_unpack_c = \
 generated/in_unpack_i4.c \
-generated/in_unpack_i8.c
+generated/in_unpack_i8.c \
+generated/in_unpack_c4.c \
+generated/in_unpack_c8.c
 
 i_exponent_c = \
 generated/exponent_r4.c \
@@ -575,7 +594,7 @@ gfor_built_src = $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) \
-    selected_int_kind.inc selected_real_kind.inc
+    selected_int_kind.inc selected_real_kind.inc kinds.h
 
 
 # We only use these if libm doesn't contain complex math functions.
@@ -679,7 +698,8 @@ generated/_mod_r8.f90
 gfor_specific_src = \
 $(gfor_built_specific_src) \
 $(gfor_built_specific2_src) \
-intrinsics/dprod_r8.f90
+intrinsics/dprod_r8.f90 \
+intrinsics/f2c_specifics.F90
 
 gfor_cmath_src = $(gfor_math_trig_c) $(gfor_math_exp_c) $(gfor_math_hyp_c)
 gfor_cmath_obj = $(gfor_math_trig_obj) $(gfor_math_exp_obj) \
@@ -702,7 +722,7 @@ all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .f90 .lo .o .obj
+.SUFFIXES: .F90 .c .f90 .lo .o .obj
 am--refresh:
 	@:
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
@@ -791,6 +811,18 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+.F90.o:
+	$(PPFCCOMPILE) -c -o $@ $<
+
+.F90.obj:
+	$(PPFCCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+.F90.lo:
+	$(LTPPFCCOMPILE) -c -o $@ $<
+
+f2c_specifics.lo: intrinsics/f2c_specifics.F90
+	$(LIBTOOL) --mode=compile $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) -c -o f2c_specifics.lo `test -f 'intrinsics/f2c_specifics.F90' || echo '$(srcdir)/'`intrinsics/f2c_specifics.F90
+
 .c.o:
 	$(COMPILE) -c $<
 
@@ -799,6 +831,9 @@ distclean-compile:
 
 .c.lo:
 	$(LTCOMPILE) -c -o $@ $<
+
+compile_options.lo: runtime/compile_options.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o compile_options.lo `test -f 'runtime/compile_options.c' || echo '$(srcdir)/'`runtime/compile_options.c
 
 environ.lo: runtime/environ.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o environ.lo `test -f 'runtime/environ.c' || echo '$(srcdir)/'`runtime/environ.c
@@ -1094,17 +1129,35 @@ reshape_i4.lo: generated/reshape_i4.c
 reshape_i8.lo: generated/reshape_i8.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_i8.lo `test -f 'generated/reshape_i8.c' || echo '$(srcdir)/'`generated/reshape_i8.c
 
+reshape_c4.lo: generated/reshape_c4.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_c4.lo `test -f 'generated/reshape_c4.c' || echo '$(srcdir)/'`generated/reshape_c4.c
+
+reshape_c8.lo: generated/reshape_c8.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_c8.lo `test -f 'generated/reshape_c8.c' || echo '$(srcdir)/'`generated/reshape_c8.c
+
 in_pack_i4.lo: generated/in_pack_i4.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_pack_i4.lo `test -f 'generated/in_pack_i4.c' || echo '$(srcdir)/'`generated/in_pack_i4.c
 
 in_pack_i8.lo: generated/in_pack_i8.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_pack_i8.lo `test -f 'generated/in_pack_i8.c' || echo '$(srcdir)/'`generated/in_pack_i8.c
 
+in_pack_c4.lo: generated/in_pack_c4.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_pack_c4.lo `test -f 'generated/in_pack_c4.c' || echo '$(srcdir)/'`generated/in_pack_c4.c
+
+in_pack_c8.lo: generated/in_pack_c8.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_pack_c8.lo `test -f 'generated/in_pack_c8.c' || echo '$(srcdir)/'`generated/in_pack_c8.c
+
 in_unpack_i4.lo: generated/in_unpack_i4.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_unpack_i4.lo `test -f 'generated/in_unpack_i4.c' || echo '$(srcdir)/'`generated/in_unpack_i4.c
 
 in_unpack_i8.lo: generated/in_unpack_i8.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_unpack_i8.lo `test -f 'generated/in_unpack_i8.c' || echo '$(srcdir)/'`generated/in_unpack_i8.c
+
+in_unpack_c4.lo: generated/in_unpack_c4.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_unpack_c4.lo `test -f 'generated/in_unpack_c4.c' || echo '$(srcdir)/'`generated/in_unpack_c4.c
+
+in_unpack_c8.lo: generated/in_unpack_c8.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o in_unpack_c8.lo `test -f 'generated/in_unpack_c8.c' || echo '$(srcdir)/'`generated/in_unpack_c8.c
 
 exponent_r4.lo: generated/exponent_r4.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o exponent_r4.lo `test -f 'generated/exponent_r4.c' || echo '$(srcdir)/'`generated/exponent_r4.c
@@ -1166,14 +1219,11 @@ pow_c4_i8.lo: generated/pow_c4_i8.c
 pow_c8_i8.lo: generated/pow_c8_i8.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pow_c8_i8.lo `test -f 'generated/pow_c8_i8.c' || echo '$(srcdir)/'`generated/pow_c8_i8.c
 
-backspace.lo: io/backspace.c
-	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o backspace.lo `test -f 'io/backspace.c' || echo '$(srcdir)/'`io/backspace.c
-
 close.lo: io/close.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o close.lo `test -f 'io/close.c' || echo '$(srcdir)/'`io/close.c
 
-endfile.lo: io/endfile.c
-	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o endfile.lo `test -f 'io/endfile.c' || echo '$(srcdir)/'`io/endfile.c
+file_pos.lo: io/file_pos.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o file_pos.lo `test -f 'io/file_pos.c' || echo '$(srcdir)/'`io/file_pos.c
 
 format.lo: io/format.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o format.lo `test -f 'io/format.c' || echo '$(srcdir)/'`io/format.c
@@ -1192,9 +1242,6 @@ open.lo: io/open.c
 
 read.lo: io/read.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o read.lo `test -f 'io/read.c' || echo '$(srcdir)/'`io/read.c
-
-rewind.lo: io/rewind.c
-	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rewind.lo `test -f 'io/rewind.c' || echo '$(srcdir)/'`io/rewind.c
 
 transfer.lo: io/transfer.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o transfer.lo `test -f 'io/transfer.c' || echo '$(srcdir)/'`io/transfer.c
@@ -1271,6 +1318,9 @@ getlog.lo: intrinsics/getlog.c
 getXid.lo: intrinsics/getXid.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getXid.lo `test -f 'intrinsics/getXid.c' || echo '$(srcdir)/'`intrinsics/getXid.c
 
+hyper.lo: intrinsics/hyper.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hyper.lo `test -f 'intrinsics/hyper.c' || echo '$(srcdir)/'`intrinsics/hyper.c
+
 hostnm.lo: intrinsics/hostnm.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hostnm.lo `test -f 'intrinsics/hostnm.c' || echo '$(srcdir)/'`intrinsics/hostnm.c
 
@@ -1339,6 +1389,9 @@ time.lo: intrinsics/time.c
 
 transpose_generic.lo: intrinsics/transpose_generic.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o transpose_generic.lo `test -f 'intrinsics/transpose_generic.c' || echo '$(srcdir)/'`intrinsics/transpose_generic.c
+
+tty.lo: intrinsics/tty.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o tty.lo `test -f 'intrinsics/tty.c' || echo '$(srcdir)/'`intrinsics/tty.c
 
 umask.lo: intrinsics/umask.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o umask.lo `test -f 'intrinsics/umask.c' || echo '$(srcdir)/'`intrinsics/umask.c
@@ -1658,7 +1711,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/.. $(distdir)/m4
+	$(mkdir_p) $(distdir)/.. $(distdir)/../config $(distdir)/m4
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -1885,6 +1938,9 @@ uninstall-am: uninstall-info-am uninstall-toolexeclibLTLIBRARIES
 	pdf-am ps ps-am tags uninstall uninstall-am uninstall-info-am \
 	uninstall-toolexeclibLTLIBRARIES
 
+
+kinds.h: $(srcdir)/mk-kinds-h.sh
+	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@
 
 selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
 	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@

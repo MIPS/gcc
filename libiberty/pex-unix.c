@@ -17,8 +17,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "libiberty.h"
@@ -252,7 +252,7 @@ pex_wait (struct pex_obj *obj, pid_t pid, int *status, struct pex_time *time)
 	  return cpid;
 	}
 
-      psl = xmalloc (sizeof (struct status_list));
+      psl = XNEW (struct status_list);
       psl->pid = cpid;
       psl->status = *status;
       if (time != NULL)

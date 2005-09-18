@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -24,12 +24,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "libgfortran.h"
 #include "io.h"
+#include <limits.h>
 
 typedef enum
 { CLOSE_DELETE, CLOSE_KEEP, CLOSE_UNSPECIFIED }
@@ -38,7 +39,7 @@ close_status;
 static st_option status_opt[] = {
   {"keep", CLOSE_KEEP},
   {"delete", CLOSE_DELETE},
-  {NULL}
+  {NULL, 0}
 };
 
 
@@ -50,6 +51,11 @@ st_close (void)
 {
   close_status status;
   gfc_unit *u;
+#if !HAVE_UNLINK_OPEN_FILE
+  char * path;
+
+  path = NULL;
+#endif
 
   library_start ();
 
@@ -68,14 +74,30 @@ st_close (void)
 	  if (status == CLOSE_KEEP)
 	    generate_error (ERROR_BAD_OPTION,
 			    "Can't KEEP a scratch file on CLOSE");
+#if !HAVE_UNLINK_OPEN_FILE
+	  path = (char *) gfc_alloca (u->file_len + 1);
+          unpack_filename (path, u->file, u->file_len);
+#endif
 	}
       else
 	{
 	  if (status == CLOSE_DELETE)
-	    delete_file (u);
+            {
+#if HAVE_UNLINK_OPEN_FILE
+	      delete_file (u);
+#else
+	      path = (char *) gfc_alloca (u->file_len + 1);
+              unpack_filename (path, u->file, u->file_len);
+#endif
+            }
 	}
 
       close_unit (u);
+
+#if !HAVE_UNLINK_OPEN_FILE
+      if (path != NULL)
+        unlink (path);
+#endif
     }
 
   library_end ();

@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -40,10 +40,10 @@ export_proto(any_l4);
 void
 any_l4 (gfc_array_l4 *retarray, gfc_array_l4 *array, index_type *pdim)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
-  index_type dstride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
+  index_type dstride[GFC_MAX_DIMENSIONS];
   GFC_LOGICAL_4 *base;
   GFC_LOGICAL_4 *dest;
   index_type rank;
@@ -55,11 +55,11 @@ any_l4 (gfc_array_l4 *retarray, gfc_array_l4 *array, index_type *pdim)
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
+
+  /* TODO:  It should be a front end job to correctly set the strides.  */
+
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   delta = array->dim[dim].stride;
@@ -92,9 +92,18 @@ any_l4 (gfc_array_l4 *retarray, gfc_array_l4 *array, index_type *pdim)
 	 = internal_malloc_size (sizeof (GFC_LOGICAL_4)
 		 		 * retarray->dim[rank-1].stride
 				 * extent[rank-1]);
-      retarray->base = 0;
+      retarray->offset = 0;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
     }
-          
+  else
+    {
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+
+      if (rank != GFC_DESCRIPTOR_RANK (retarray))
+	runtime_error ("rank of return array incorrect");
+    }
+
   for (n = 0; n < rank; n++)
     {
       count[n] = 0;

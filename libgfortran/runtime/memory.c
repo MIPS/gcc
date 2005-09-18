@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
    return memory that is guaranteed to be set to zero.  This can have
    a severe efficiency penalty, so it should never be set if good
    performance is desired, but it can help when you're debugging code.  */
-#define GFC_CLEAR_MEMORY
+/* #define GFC_CLEAR_MEMORY */
 
 /* If GFC_CHECK_MEMORY is defined, we do some sanity checks at runtime.
    This causes small overhead, but again, it also helps debugging.  */

@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include <setjmp.h>
 #include "libgfortran.h"
 
-#define DEFAULT_TEMPDIR "/var/tmp"
+#define DEFAULT_TEMPDIR "/tmp"
 
 /* Basic types used in data transfers.  */
 
@@ -74,32 +74,75 @@ stream;
 #define sseek(s, pos) ((s)->seek)(s, pos)
 #define struncate(s) ((s)->truncate)(s)
 
-/* Namelist represent object */
-/*
+/* Representation of a namelist object in libgfortran
+
    Namelist Records
-       &groupname  object=value [,object=value].../
+      &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]].../
      or
-       &groupname  object=value [,object=value]...&groupname
+      &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]]...&END
 
-  Even more complex, during the execution of a program containing a
-  namelist READ statement, you can specify a question mark character(?)
-  or a question mark character preceded by an equal sign(=?) to get
-  the information of the namelist group. By '?', the name of variables
-  in the namelist will be displayed, by '=?', the name and value of
-  variables will be displayed.
+   The object can be a fully qualified, compound name for an instrinsic
+   type, derived types or derived type components.  So, a substring
+   a(:)%b(4)%ch(2:4)(1:7) has to be treated correctly in namelist
+   read. Hence full information about the structure of the object has
+   to be available to list_read.c and write.
 
-  All these requirements need a new data structure to record all info
-  about the namelist.
-*/
+   These requirements are met by the following data structures.
+
+   nml_loop_spec contains the variables for the loops over index ranges
+   that are encountered.  Since the variables can be negative, ssize_t
+   is used.  */
+
+typedef struct nml_loop_spec
+{
+
+  /* Index counter for this dimension.  */
+  ssize_t idx;
+
+  /* Start for the index counter.  */
+  ssize_t start;
+
+  /* End for the index counter.  */
+  ssize_t end;
+
+  /* Step for the index counter.  */
+  ssize_t step;
+}
+nml_loop_spec;
+
+/* namelist_info type contains all the scalar information about the
+   object and arrays of descriptor_dimension and nml_loop_spec types for
+   arrays.  */
 
 typedef struct namelist_type
 {
-  char * var_name;
-  void * mem_pos;
-  int  value_acquired;
-  int len;
-  int string_length;
+
+  /* Object type, stored as GFC_DTYPE_xxxx.  */
   bt type;
+
+  /* Object name.  */
+  char * var_name;
+
+  /* Address for the start of the object's data.  */
+  void * mem_pos;
+
+  /* Flag to show that a read is to be attempted for this node.  */
+  int touched;
+
+  /* Length of intrinsic type in bytes.  */
+  int len;
+
+  /* Rank of the object.  */
+  int var_rank;
+
+  /* Overall size of the object in bytes.  */
+  index_type size;
+
+  /* Length of character string.  */
+  index_type string_length;
+
+  descriptor_dimension * dim;
+  nml_loop_spec * ls;
   struct namelist_type * next;
 }
 namelist_info;
@@ -187,7 +230,7 @@ typedef struct
   GFC_INTEGER_4 rec;
   GFC_INTEGER_4 *nextrec, *size;
 
-  GFC_INTEGER_4 recl_in; 
+  GFC_INTEGER_4 recl_in;
   GFC_INTEGER_4 *recl_out;
 
   GFC_INTEGER_4 *iolength;
@@ -300,7 +343,7 @@ typedef struct
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
   int scale_factor;
-  jmp_buf eof_jump;  
+  jmp_buf eof_jump;
 }
 global_t;
 
@@ -453,8 +496,17 @@ internal_proto(empty_internal_buffer);
 extern try flush (stream *);
 internal_proto(flush);
 
+extern int stream_isatty (stream *);
+internal_proto(stream_isatty);
+
+extern char * stream_ttyname (stream *);
+internal_proto(stream_ttyname);
+
 extern int unit_to_fd (int);
 internal_proto(unit_to_fd);
+
+extern int unpack_filename (char *, const char *, int);
+internal_proto(unpack_filename);
 
 /* unit.c */
 
@@ -519,10 +571,10 @@ internal_proto(next_record);
 
 /* read.c */
 
-extern void set_integer (void *, int64_t, int);
+extern void set_integer (void *, GFC_INTEGER_LARGEST, int);
 internal_proto(set_integer);
 
-extern uint64_t max_value (int, int);
+extern GFC_UINTEGER_LARGEST max_value (int, int);
 internal_proto(max_value);
 
 extern int convert_real (void *, const char *, int);
@@ -537,7 +589,7 @@ internal_proto(read_f);
 extern void read_l (fnode *, char *, int);
 internal_proto(read_l);
 
-extern void read_x (fnode *);
+extern void read_x (int);
 internal_proto(read_x);
 
 extern void read_radix (fnode *, char *, int, int);
@@ -554,13 +606,13 @@ internal_proto(list_formatted_read);
 extern void finish_list_read (void);
 internal_proto(finish_list_read);
 
-extern void init_at_eol();
+extern void init_at_eol (void);
 internal_proto(init_at_eol);
 
-extern void namelist_read();
+extern void namelist_read (void);
 internal_proto(namelist_read);
 
-extern void namelist_write();
+extern void namelist_write (void);
 internal_proto(namelist_write);
 
 /* write.c */
@@ -595,7 +647,7 @@ internal_proto(write_l);
 extern void write_o (fnode *, const char *, int);
 internal_proto(write_o);
 
-extern void write_x (fnode *);
+extern void write_x (int, int);
 internal_proto(write_x);
 
 extern void write_z (fnode *, const char *, int);
@@ -603,5 +655,9 @@ internal_proto(write_z);
 
 extern void list_formatted_write (bt, void *, int);
 internal_proto(list_formatted_write);
+
+/* error.c */
+extern try notify_std (int, const char *);
+internal_proto(notify_std);
 
 #endif

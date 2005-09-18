@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -24,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Unix stream I/O module */
 
@@ -137,6 +138,8 @@ typedef struct
   int prot;
   int ndirty;			/* Dirty bytes starting at dirty_offset */
 
+  int special_file;		/* =1 if the fd refers to a special file */
+
   unsigned unbuffered:1, mmaped:1;
 
   char small_buffer[BUFFER_SIZE];
@@ -153,26 +156,22 @@ move_pos_offset (stream* st, int pos_off)
   unix_stream * str = (unix_stream*)st;
   if (pos_off < 0)
     {
-      str->active  += pos_off;
-      if (str->active < 0)
-         str->active = 0;
+      str->logical_offset += pos_off;
 
-      str->logical_offset  += pos_off;
-
-      if (str->dirty_offset+str->ndirty > str->logical_offset)
+      if (str->dirty_offset + str->ndirty > str->logical_offset)
         {
-          if (str->ndirty +  pos_off > 0)
-            str->ndirty += pos_off ;
+          if (str->ndirty + pos_off > 0)
+            str->ndirty += pos_off;
           else
             {
               str->dirty_offset +=  pos_off + pos_off;
-              str->ndirty = 0 ;
+              str->ndirty = 0;
             }
         }
 
-    return pos_off ;
+    return pos_off;
   }
-  return 0 ;
+  return 0;
 }
 
 
@@ -329,7 +328,8 @@ fd_flush (unix_stream * s)
  * to come next. */
 
 static void
-fd_alloc (unix_stream * s, gfc_offset where, int *len)
+fd_alloc (unix_stream * s, gfc_offset where,
+	  int *len __attribute__ ((unused)))
 {
   char *new_buffer;
   int n, read_len;
@@ -511,10 +511,20 @@ fd_truncate (unix_stream * s)
     return FAILURE;
 
   /* non-seekable files, like terminals and fifo's fail the lseek.
-     the fd is a regular file at this point */
-
-  if (ftruncate (s->fd, s->logical_offset))
-    return FAILURE;
+     Using ftruncate on a seekable special file (like /dev/null)
+     is undefined, so we treat it as if the ftruncate failed.
+  */
+#ifdef HAVE_FTRUNCATE
+  if (s->special_file || ftruncate (s->fd, s->logical_offset))
+#else
+#ifdef HAVE_CHSIZE
+  if (s->special_file || chsize (s->fd, s->logical_offset))
+#endif
+#endif
+    {
+      s->physical_offset = s->file_length = 0;
+      return FAILURE;
+    }
 
   s->physical_offset = s->file_length = s->logical_offset;
 
@@ -531,8 +541,11 @@ fd_close (unix_stream * s)
   if (s->buffer != NULL && s->buffer != s->small_buffer)
     free_mem (s->buffer);
 
-  if (close (s->fd) < 0)
-    return FAILURE;
+  if (s->fd != STDOUT_FILENO && s->fd != STDERR_FILENO)
+    {
+      if (close (s->fd) < 0)
+        return FAILURE;
+    }
 
   free_mem (s);
 
@@ -597,7 +610,8 @@ mmap_flush (unix_stream * s)
  * guaranteed to be mappable. */
 
 static try
-mmap_alloc (unix_stream * s, gfc_offset where, int *len)
+mmap_alloc (unix_stream * s, gfc_offset where,
+	    int *len __attribute__ ((unused)))
 {
   gfc_offset offset;
   int length;
@@ -702,7 +716,7 @@ mmap_close (unix_stream * s)
 
 
 static try
-mmap_sfree (unix_stream * s)
+mmap_sfree (unix_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -712,7 +726,7 @@ mmap_sfree (unix_stream * s)
  * mmap()-ed, we fall back to the file descriptor functions. */
 
 static try
-mmap_open (unix_stream * s)
+mmap_open (unix_stream * s __attribute__ ((unused)))
 {
   char *p;
   int i;
@@ -818,7 +832,7 @@ mem_seek (unix_stream * s, gfc_offset offset)
 
 
 static int
-mem_truncate (unix_stream * s)
+mem_truncate (unix_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -834,7 +848,7 @@ mem_close (unix_stream * s)
 
 
 static try
-mem_sfree (unix_stream * s)
+mem_sfree (unix_stream * s __attribute__ ((unused)))
 {
   return SUCCESS;
 }
@@ -863,6 +877,7 @@ open_internal (char *base, int length)
   unix_stream *s;
 
   s = get_mem (sizeof (unix_stream));
+  memset (s, '\0', sizeof (unix_stream));
 
   s->buffer = base;
   s->buffer_offset = 0;
@@ -885,12 +900,13 @@ open_internal (char *base, int length)
  * around it. */
 
 static stream *
-fd_to_stream (int fd, int prot)
+fd_to_stream (int fd, int prot, int avoid_mmap)
 {
   struct stat statbuf;
   unix_stream *s;
 
   s = get_mem (sizeof (unix_stream));
+  memset (s, '\0', sizeof (unix_stream));
 
   s->fd = fd;
   s->buffer_offset = 0;
@@ -902,9 +918,13 @@ fd_to_stream (int fd, int prot)
 
   fstat (fd, &statbuf);
   s->file_length = S_ISREG (statbuf.st_mode) ? statbuf.st_size : -1;
+  s->special_file = !S_ISREG (statbuf.st_mode);
 
 #if HAVE_MMAP
-  mmap_open (s);
+  if (avoid_mmap)
+    fd_open (s);
+  else
+    mmap_open (s);
 #else
   fd_open (s);
 #endif
@@ -932,7 +952,7 @@ unit_to_fd(int unit)
  * buffer that is PATH_MAX characters, convert the fortran string to a
  * C string in the buffer.  Returns nonzero if this is not possible.  */
 
-static int
+int
 unpack_filename (char *cstring, const char *fstring, int len)
 {
   len = fstrlen (fstring, len);
@@ -964,6 +984,8 @@ tempfile (void)
   if (tempdir == NULL)
     tempdir = getenv ("TMP");
   if (tempdir == NULL)
+    tempdir = getenv ("TEMP");
+  if (tempdir == NULL)
     tempdir = DEFAULT_TEMPDIR;
 
   template = get_mem (strlen (tempdir) + 20);
@@ -978,7 +1000,7 @@ tempfile (void)
 
   if (mktemp (template))
     do
-      fd = open (template, O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+      fd = open (template, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
     while (!(fd == -1 && errno == EEXIST) && mktemp (template));
   else
     fd = -1;
@@ -1114,8 +1136,11 @@ open_external (unit_flags *flags)
       fd = tempfile ();
       if (flags->action == ACTION_UNSPECIFIED)
         flags->action = ACTION_READWRITE;
+
+#if HAVE_UNLINK_OPEN_FILE
       /* We can unlink scratch files now and it will go away when closed. */
       unlink (ioparm.file);
+#endif
     }
   else
     {
@@ -1146,7 +1171,7 @@ open_external (unit_flags *flags)
       internal_error ("open_external(): Bad action");
     }
 
-  return fd_to_stream (fd, prot);
+  return fd_to_stream (fd, prot, 0);
 }
 
 
@@ -1156,7 +1181,7 @@ open_external (unit_flags *flags)
 stream *
 input_stream (void)
 {
-  return fd_to_stream (STDIN_FILENO, PROT_READ);
+  return fd_to_stream (STDIN_FILENO, PROT_READ, 1);
 }
 
 
@@ -1166,7 +1191,7 @@ input_stream (void)
 stream *
 output_stream (void)
 {
-  return fd_to_stream (STDOUT_FILENO, PROT_WRITE);
+  return fd_to_stream (STDOUT_FILENO, PROT_WRITE, 1);
 }
 
 
@@ -1176,7 +1201,7 @@ output_stream (void)
 stream *
 error_stream (void)
 {
-  return fd_to_stream (STDERR_FILENO, PROT_WRITE);
+  return fd_to_stream (STDERR_FILENO, PROT_WRITE, 1);
 }
 
 /* init_error_stream()-- Return a pointer to the error stream.  This
@@ -1282,10 +1307,10 @@ stream_at_bof (stream * s)
 {
   unix_stream *us;
 
-  us = (unix_stream *) s;
+  if (!is_seekable (s))
+    return 0;
 
-  if (!us->mmaped)
-    return 0;			/* File is not seekable */
+  us = (unix_stream *) s;
 
   return us->logical_offset == 0;
 }
@@ -1299,10 +1324,10 @@ stream_at_eof (stream * s)
 {
   unix_stream *us;
 
-  us = (unix_stream *) s;
+  if (!is_seekable (s))
+    return 0;
 
-  if (!us->mmaped)
-    return 0;			/* File is not seekable */
+  us = (unix_stream *) s;
 
   return us->logical_offset == us->dirty_offset;
 }
@@ -1512,6 +1537,22 @@ try
 flush (stream *s)
 {
   return fd_flush( (unix_stream *) s);
+}
+
+int
+stream_isatty (stream *s)
+{
+  return isatty (((unix_stream *) s)->fd);
+}
+
+char *
+stream_ttyname (stream *s)
+{
+#ifdef HAVE_TTYNAME
+  return ttyname (((unix_stream *) s)->fd);
+#else
+  return NULL;
+#endif
 }
 
 

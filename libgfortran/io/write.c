@@ -1,5 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   Namelist output contibuted by Paul Thomas
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -24,17 +25,17 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <string.h>
+#include <ctype.h>
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "libgfortran.h"
 #include "io.h"
-
 
 #define star_fill(p, n) memset(p, '*', n)
 
@@ -43,6 +44,8 @@ typedef enum
 { SIGN_NONE, SIGN_MINUS, SIGN_PLUS }
 sign_t;
 
+
+static int no_leading_blank = 0 ;
 
 void
 write_a (fnode * f, const char *source, int len)
@@ -65,10 +68,10 @@ write_a (fnode * f, const char *source, int len)
     }
 }
 
-static int64_t
+static GFC_INTEGER_LARGEST
 extract_int (const void *p, int len)
 {
-  int64_t i = 0;
+  GFC_INTEGER_LARGEST i = 0;
 
   if (p == NULL)
     return i;
@@ -76,17 +79,22 @@ extract_int (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = *((const int8_t *) p);
+      i = *((const GFC_INTEGER_1 *) p);
       break;
     case 2:
-      i = *((const int16_t *) p);
+      i = *((const GFC_INTEGER_2 *) p);
       break;
     case 4:
-      i = *((const int32_t *) p);
+      i = *((const GFC_INTEGER_4 *) p);
       break;
     case 8:
-      i = *((const int64_t *) p);
+      i = *((const GFC_INTEGER_8 *) p);
       break;
+#ifdef HAVE_GFC_INTEGER_16
+    case 16:
+      i = *((const GFC_INTEGER_16 *) p);
+      break;
+#endif
     default:
       internal_error ("bad integer kind");
     }
@@ -94,23 +102,66 @@ extract_int (const void *p, int len)
   return i;
 }
 
-static double
+static GFC_UINTEGER_LARGEST
+extract_uint (const void *p, int len)
+{
+  GFC_UINTEGER_LARGEST i = 0;
+
+  if (p == NULL)
+    return i;
+
+  switch (len)
+    {
+    case 1:
+      i = (GFC_UINTEGER_1) *((const GFC_INTEGER_1 *) p);
+      break;
+    case 2:
+      i = (GFC_UINTEGER_2) *((const GFC_INTEGER_2 *) p);
+      break;
+    case 4:
+      i = (GFC_UINTEGER_4) *((const GFC_INTEGER_4 *) p);
+      break;
+    case 8:
+      i = (GFC_UINTEGER_8) *((const GFC_INTEGER_8 *) p);
+      break;
+#ifdef HAVE_GFC_INTEGER_16
+    case 16:
+      i = (GFC_UINTEGER_16) *((const GFC_INTEGER_16 *) p);
+      break;
+#endif
+    default:
+      internal_error ("bad integer kind");
+    }
+
+  return i;
+}
+
+static GFC_REAL_LARGEST
 extract_real (const void *p, int len)
 {
-  double i = 0.0;
+  GFC_REAL_LARGEST i = 0;
   switch (len)
     {
     case 4:
-      i = *((const float *) p);
+      i = *((const GFC_REAL_4 *) p);
       break;
     case 8:
-      i = *((const double *) p);
+      i = *((const GFC_REAL_8 *) p);
       break;
+#ifdef HAVE_GFC_REAL_10
+    case 10:
+      i = *((const GFC_REAL_10 *) p);
+      break;
+#endif
+#ifdef HAVE_GFC_REAL_16
+    case 16:
+      i = *((const GFC_REAL_16 *) p);
+      break;
+#endif
     default:
       internal_error ("bad real kind");
     }
   return i;
-
 }
 
 
@@ -144,11 +195,11 @@ calculate_sign (int negative_flag)
 
 /* Returns the value of 10**d.  */
 
-static double
+static GFC_REAL_LARGEST
 calculate_exp (int d)
 {
   int i;
-  double r = 1.0;
+  GFC_REAL_LARGEST r = 1.0;
 
   for (i = 0; i< (d >= 0 ? d : -d); i++)
     r *= 10;
@@ -177,13 +228,13 @@ calculate_exp (int d)
           for Gw.dEe, n' ' means e+2 blanks  */
 
 static fnode *
-calculate_G_format (fnode *f, double value, int len, int *num_blank)
+calculate_G_format (fnode *f, GFC_REAL_LARGEST value, int *num_blank)
 {
   int e = f->u.real.e;
   int d = f->u.real.d;
   int w = f->u.real.w;
   fnode *newf;
-  double m, exp_d;
+  GFC_REAL_LARGEST m, exp_d;
   int low, high, mid;
   int ubound, lbound;
 
@@ -195,8 +246,7 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
   /* In case of the two data magnitude ranges,
      generate E editing, Ew.d[Ee].  */
   exp_d = calculate_exp (d);
-  if ((m > 0.0 && m < 0.1 - 0.05 / (double) exp_d)
-      || (m >= (double) exp_d - 0.5 ))
+  if ((m > 0.0 && m < 0.1 - 0.05 / exp_d) || (m >= exp_d - 0.5 ))
     {
       newf->format = FMT_E;
       newf->u.real.w = w;
@@ -215,7 +265,7 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
 
   while (low <= high)
     {
-      double temp;
+      GFC_REAL_LARGEST temp;
       mid = (low + high) / 2;
 
       /* 0.1 * 10**mid - 0.5 * 10**(mid-d-1)  */
@@ -267,9 +317,9 @@ calculate_G_format (fnode *f, double value, int len, int *num_blank)
 /* Output a real number according to its format which is FMT_G free.  */
 
 static void
-output_float (fnode *f, double value, int len)
+output_float (fnode *f, GFC_REAL_LARGEST value)
 {
-  /* This must be large enough to accurately hold any value.  */ 
+  /* This must be large enough to accurately hold any value.  */
   char buffer[32];
   char *out;
   char *digits;
@@ -292,6 +342,7 @@ output_float (fnode *f, double value, int len)
   int nblanks;
   int i;
   sign_t sign;
+  double abslog;
 
   ft = f->format;
   w = f->u.real.w;
@@ -316,11 +367,17 @@ output_float (fnode *f, double value, int len)
     edigits = 2;
   else
     {
-      edigits = 1 + (int) log10 (fabs(log10 (value)));
-      if (edigits < 2)
+#if defined(HAVE_GFC_REAL_10) || defined(HAVE_GFC_REAL_16)
+      abslog = fabs((double) log10l(value));
+#else
+      abslog = fabs(log10(value));
+#endif
+      if (abslog < 100)
 	edigits = 2;
+      else
+        edigits = 1 + (int) log10(abslog);
     }
-  
+
   if (ft == FMT_F || ft == FMT_EN
       || ((ft == FMT_D || ft == FMT_E) && g.scale_factor != 0))
     {
@@ -339,8 +396,25 @@ output_float (fnode *f, double value, int len)
 	ndigits = 27 - edigits;
     }
 
-  sprintf (buffer, "%+-#31.*e", ndigits - 1, value);
-  
+  /* #   The result will always contain a decimal point, even if no
+   *     digits follow it
+   *
+   * -   The converted value is to be left adjusted on the field boundary
+   *
+   * +   A sign (+ or -) always be placed before a number
+   *
+   * 31  minimum field width
+   *
+   * *   (ndigits-1) is used as the precision
+   *
+   *   e format: [-]d.ddde±dd where there is one digit before the
+   *   decimal-point character and the number of digits after it is
+   *   equal to the precision. The exponent always contains at least two
+   *   digits; if the value is zero, the exponent is 00.
+   */
+  sprintf (buffer, "%+-#31.*" GFC_REAL_LARGEST_FORMAT "e",
+           ndigits - 1, value);
+
   /* Check the resulting string has punctuation in the correct places.  */
   if (buffer[2] != '.' || buffer[ndigits + 2] != 'e')
       internal_error ("printf is broken");
@@ -510,7 +584,7 @@ output_float (fnode *f, double value, int len)
       edigits = 1;
       for (i = abs (e); i >= 10; i /= 10)
 	edigits++;
-      
+
       if (f->u.real.e < 0)
 	{
 	  /* Width not specified.  Must be no more than 3 digits.  */
@@ -558,7 +632,7 @@ output_float (fnode *f, double value, int len)
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
   if (sign != SIGN_NONE)
     nblanks--;
-  
+
   /* Check the value fits in the specified field width.  */
   if (nblanks < 0 || edigits == -1)
     {
@@ -575,8 +649,10 @@ output_float (fnode *f, double value, int len)
   else
     leadzero = 0;
 
-  /* Padd to full field width.  */
-  if (nblanks > 0)
+  /* Pad to full field width.  */
+
+
+  if ( ( nblanks > 0 ) && !no_leading_blank )
     {
       memset (out, ' ', nblanks);
       out += nblanks;
@@ -634,7 +710,7 @@ output_float (fnode *f, double value, int len)
       ndigits -= i;
       out += nafter;
     }
-  
+
   /* Output the exponent.  */
   if (expchar)
     {
@@ -650,6 +726,13 @@ output_float (fnode *f, double value, int len)
 #endif
       memcpy (out, buffer, edigits);
     }
+
+  if ( no_leading_blank )
+    {
+      out += edigits;
+      memset( out , ' ' , nblanks );
+      no_leading_blank = 0;
+    }
 }
 
 
@@ -657,7 +740,7 @@ void
 write_l (fnode * f, char *source, int len)
 {
   char *p;
-  int64_t n;
+  GFC_INTEGER_LARGEST n;
 
   p = write_block (f->u.w);
   if (p == NULL)
@@ -673,7 +756,7 @@ write_l (fnode * f, char *source, int len)
 static void
 write_float (fnode *f, const char *source, int len)
 {
-  double n;
+  GFC_REAL_LARGEST n;
   int nb =0, res, save_scale_factor;
   char * p, fin;
   fnode *f2 = NULL;
@@ -682,10 +765,18 @@ write_float (fnode *f, const char *source, int len)
 
   if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
     {
-      res = isfinite (n);
+      /* TODO: there are some systems where isfinite is not able to work
+               with long double variables. We should detect this case and
+	       provide our own version for isfinite.  */
+      res = isfinite (n); 
       if (res == 0)
 	{
 	  nb =  f->u.real.w;
+	  
+	  /* If the field width is zero, the processor must select a width 
+	     not zero.  4 is chosen to allow output of '-Inf' or '+Inf' */
+	     
+	  if (nb == 0) nb = 4;
 	  p = write_block (nb);
 	  if (nb < 3)
 	    {
@@ -694,22 +785,47 @@ write_float (fnode *f, const char *source, int len)
 	    }
 
 	  memset(p, ' ', nb);
-	  res = !isnan (n); 
+	  res = !isnan (n);
 	  if (res != 0)
 	    {
-	      if (signbit(n))   
-		fin = '-';
+	      if (signbit(n))
+	        {
+	        
+	          /* If the sign is negative and the width is 3, there is
+	             insufficient room to output '-Inf', so output asterisks */
+	             
+	          if (nb == 3)
+	            {
+	              memset (p, '*',nb);
+	              return;
+	            }
+	            
+	          /* The negative sign is mandatory */
+	            
+	          fin = '-';
+		}    
 	      else
-		fin = '+';
+	      
+	          /* The positive sign is optional, but we output it for
+	             consistency */
+	             
+		  fin = '+';
 
-	      if (nb > 7)
-		memcpy(p + nb - 8, "Infinity", 8); 
+	      if (nb > 8)
+	      
+	        /* We have room, so output 'Infinity' */
+	        
+		memcpy(p + nb - 8, "Infinity", 8);
 	      else
+	      
+	        /* For the case of width equals 8, there is not enough room
+	           for the sign and 'Infinity' so we go with 'Inf' */
+	            
 		memcpy(p + nb - 3, "Inf", 3);
-	      if (nb < 8 && nb > 3)
-		p[nb - 4] = fin;
+	      if (nb < 9 && nb > 3)
+		p[nb - 4] = fin;  /* Put the sign in front of Inf */
 	      else if (nb > 8)
-		p[nb - 9] = fin; 
+		p[nb - 9] = fin;  /* Put the sign in front of Infinity */
 	    }
 	  else
 	    memcpy(p + nb - 3, "NaN", 3);
@@ -719,13 +835,13 @@ write_float (fnode *f, const char *source, int len)
 
   if (f->format != FMT_G)
     {
-      output_float (f, n, len);
+      output_float (f, n);
     }
   else
     {
       save_scale_factor = g.scale_factor;
-      f2 = calculate_G_format(f, n, len, &nb);
-      output_float (f2, n, len);
+      f2 = calculate_G_format(f, n, &nb);
+      output_float (f2, n);
       g.scale_factor = save_scale_factor;
       if (f2 != NULL)
         free_mem(f2);
@@ -740,17 +856,17 @@ write_float (fnode *f, const char *source, int len)
 
 
 static void
-write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
+write_int (fnode *f, const char *source, int len,
+           char *(*conv) (GFC_UINTEGER_LARGEST))
 {
-  uint32_t ns =0;
-  uint64_t n = 0;
+  GFC_UINTEGER_LARGEST n = 0;
   int w, m, digits, nzero, nblank;
   char *p, *q;
 
   w = f->u.integer.w;
   m = f->u.integer.m;
 
-  n = extract_int (source, len);
+  n = extract_uint (source, len);
 
   /* Special case:  */
 
@@ -767,15 +883,7 @@ write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
       goto done;
     }
 
-
-  if (len < 8)
-     {
-       ns = n;
-       q = conv (ns);
-     }
-  else
-      q = conv (n);
-
+  q = conv (n);
   digits = strlen (q);
 
   /* Select a width if none was specified.  The idea here is to always
@@ -802,22 +910,34 @@ write_int (fnode *f, const char *source, int len, char *(*conv) (uint64_t))
       goto done;
     }
 
+
+  if (!no_leading_blank)
+    {
   memset (p, ' ', nblank);
   p += nblank;
-
   memset (p, '0', nzero);
   p += nzero;
-
   memcpy (p, q, digits);
+    }
+  else
+    {
+      memset (p, '0', nzero);
+      p += nzero;
+      memcpy (p, q, digits);
+      p += digits;
+      memset (p, ' ', nblank);
+      no_leading_blank = 0;
+    }
 
  done:
   return;
 }
 
 static void
-write_decimal (fnode *f, const char *source, int len, char *(*conv) (int64_t))
+write_decimal (fnode *f, const char *source, int len,
+               char *(*conv) (GFC_INTEGER_LARGEST))
 {
-  int64_t n = 0;
+  GFC_INTEGER_LARGEST n = 0;
   int w, m, digits, nsign, nzero, nblank;
   char *p, *q;
   sign_t sign;
@@ -903,7 +1023,7 @@ write_decimal (fnode *f, const char *source, int len, char *(*conv) (int64_t))
 /* Convert unsigned octal to ascii.  */
 
 static char *
-otoa (uint64_t n)
+otoa (GFC_UINTEGER_LARGEST n)
 {
   char *p;
 
@@ -914,13 +1034,13 @@ otoa (uint64_t n)
       return scratch;
     }
 
-  p = scratch + sizeof (SCRATCH_SIZE) - 1;
+  p = scratch + SCRATCH_SIZE - 1;
   *p-- = '\0';
 
   while (n != 0)
     {
       *p = '0' + (n & 7);
-      p -- ;
+      p--;
       n >>= 3;
     }
 
@@ -931,7 +1051,7 @@ otoa (uint64_t n)
 /* Convert unsigned binary to ascii.  */
 
 static char *
-btoa (uint64_t n)
+btoa (GFC_UINTEGER_LARGEST n)
 {
   char *p;
 
@@ -942,7 +1062,7 @@ btoa (uint64_t n)
       return scratch;
     }
 
-  p = scratch + sizeof (SCRATCH_SIZE) - 1;
+  p = scratch + SCRATCH_SIZE - 1;
   *p-- = '\0';
 
   while (n != 0)
@@ -1020,15 +1140,16 @@ write_es (fnode *f, const char *p, int len)
 /* Take care of the X/TR descriptor.  */
 
 void
-write_x (fnode * f)
+write_x (int len, int nspaces)
 {
   char *p;
 
-  p = write_block (f->u.n);
+  p = write_block (len);
   if (p == NULL)
     return;
 
-  memset (p, ' ', f->u.n);
+  if (nspaces > 0)
+    memset (&p[len - nspaces], ' ', nspaces);
 }
 
 
@@ -1102,9 +1223,16 @@ write_integer (const char *source, int length)
   if(width < digits )
     width = digits ;
   p = write_block (width) ;
-
+  if (no_leading_blank)
+    {
+      memcpy (p, q, digits);
+      memset(p + digits ,' ', width - digits) ;
+    }
+  else
+    {
   memset(p ,' ', width - digits) ;
   memcpy (p + width - digits, q, digits);
+    }
 }
 
 
@@ -1164,7 +1292,8 @@ write_character (const char *source, int length)
 
 
 /* Output a real number with default format.
-   This is 1PG14.7E2 for REAL(4) and 1PG23.15E3 for REAL(8).  */
+   This is 1PG14.7E2 for REAL(4), 1PG23.15E3 for REAL(8),
+   1PG24.15E4 for REAL(10) and 1PG40.31E4 for REAL(16).  */
 
 static void
 write_real (const char *source, int length)
@@ -1173,17 +1302,31 @@ write_real (const char *source, int length)
   int org_scale = g.scale_factor;
   f.format = FMT_G;
   g.scale_factor = 1;
-  if (length < 8)
+  switch (length)
     {
+    case 4:
       f.u.real.w = 14;
       f.u.real.d = 7;
       f.u.real.e = 2;
-    }
-  else
-    {
+      break;
+    case 8:
       f.u.real.w = 23;
       f.u.real.d = 15;
       f.u.real.e = 3;
+      break;
+    case 10:
+      f.u.real.w = 24;
+      f.u.real.d = 15;
+      f.u.real.e = 4;
+      break;
+    case 16:
+      f.u.real.w = 40;
+      f.u.real.d = 31;
+      f.u.real.e = 4;
+      break;
+    default:
+      internal_error ("bad real kind");
+      break;
     }
   write_float (&f, source , length);
   g.scale_factor = org_scale;
@@ -1269,60 +1412,320 @@ list_formatted_write (bt type, void *p, int len)
   char_flag = (type == BT_CHARACTER);
 }
 
+/*			NAMELIST OUTPUT
+
+   nml_write_obj writes a namelist object to the output stream.  It is called
+   recursively for derived type components:
+	obj    = is the namelist_info for the current object.
+	offset = the offset relative to the address held by the object for
+		 derived type arrays.
+	base   = is the namelist_info of the derived type, when obj is a
+		 component.
+	base_name = the full name for a derived type, including qualifiers
+		    if any.
+   The returned value is a pointer to the object beyond the last one
+   accessed, including nested derived types.  Notice that the namelist is
+   a linear linked list of objects, including derived types and their
+   components.  A tree, of sorts, is implied by the compound names of
+   the derived type components and this is how this function recurses through
+   the list.  */
+
+/* A generous estimate of the number of characters needed to print
+   repeat counts and indices, including commas, asterices and brackets.  */
+
+#define NML_DIGITS 20
+
+/* Stores the delimiter to be used for character objects.  */
+
+static const char * nml_delim;
+
+static namelist_info *
+nml_write_obj (namelist_info * obj, index_type offset,
+	       namelist_info * base, char * base_name)
+{
+  int rep_ctr;
+  int num;
+  int nml_carry;
+  index_type len;
+  index_type obj_size;
+  index_type nelem;
+  index_type dim_i;
+  index_type clen;
+  index_type elem_ctr;
+  index_type obj_name_len;
+  void * p ;
+  char cup;
+  char * obj_name;
+  char * ext_name;
+  char rep_buff[NML_DIGITS];
+  namelist_info * cmp;
+  namelist_info * retval = obj->next;
+
+  /* Write namelist variable names in upper case. If a derived type,
+     nothing is output.  If a component, base and base_name are set.  */
+
+  if (obj->type != GFC_DTYPE_DERIVED)
+    {
+      write_character ("\n ", 2);
+      len = 0;
+      if (base)
+	{
+	  len =strlen (base->var_name);
+	  for (dim_i = 0; dim_i < (index_type) strlen (base_name); dim_i++)
+            {
+	      cup = toupper (base_name[dim_i]);
+	      write_character (&cup, 1);
+            }
+	}
+      for (dim_i =len; dim_i < (index_type) strlen (obj->var_name); dim_i++)
+	{
+	  cup = toupper (obj->var_name[dim_i]);
+	  write_character (&cup, 1);
+	}
+      write_character ("=", 1);
+    }
+
+  /* Counts the number of data output on a line, including names.  */
+
+  num = 1;
+
+  len = obj->len;
+  obj_size = len;
+  if (obj->type == GFC_DTYPE_COMPLEX)
+    obj_size = 2*len;
+  if (obj->type == GFC_DTYPE_CHARACTER)
+    obj_size = obj->string_length;
+  if (obj->var_rank)
+    obj_size = obj->size;
+
+  /* Set the index vector and count the number of elements.  */
+
+  nelem = 1;
+  for (dim_i=0; dim_i < obj->var_rank; dim_i++)
+    {
+      obj->ls[dim_i].idx = obj->dim[dim_i].lbound;
+      nelem = nelem * (obj->dim[dim_i].ubound + 1 - obj->dim[dim_i].lbound);
+    }
+
+  /* Main loop to output the data held in the object.  */
+
+  rep_ctr = 1;
+  for (elem_ctr = 0; elem_ctr < nelem; elem_ctr++)
+    {
+
+      /* Build the pointer to the data value.  The offset is passed by
+	 recursive calls to this function for arrays of derived types.
+	 Is NULL otherwise.  */
+
+      p = (void *)(obj->mem_pos + elem_ctr * obj_size);
+      p += offset;
+
+      /* Check for repeat counts of intrinsic types.  */
+
+      if ((elem_ctr < (nelem - 1)) &&
+	  (obj->type != GFC_DTYPE_DERIVED) &&
+	  !memcmp (p, (void*)(p + obj_size ), obj_size ))
+	{
+	  rep_ctr++;
+	}
+
+      /* Execute a repeated output.  Note the flag no_leading_blank that
+	 is used in the functions used to output the intrinsic types.  */
+
+      else
+	{
+	  if (rep_ctr > 1)
+	    {
+	      st_sprintf(rep_buff, " %d*", rep_ctr);
+	      write_character (rep_buff, strlen (rep_buff));
+	      no_leading_blank = 1;
+	    }
+	  num++;
+
+	  /* Output the data, if an intrinsic type, or recurse into this
+	     routine to treat derived types.  */
+
+	  switch (obj->type)
+	    {
+
+	    case GFC_DTYPE_INTEGER:
+              write_integer (p, len);
+              break;
+
+	    case GFC_DTYPE_LOGICAL:
+              write_logical (p, len);
+              break;
+
+	    case GFC_DTYPE_CHARACTER:
+	      if (nml_delim)
+		write_character (nml_delim, 1);
+	      write_character (p, obj->string_length);
+	      if (nml_delim)
+		write_character (nml_delim, 1);
+              break;
+
+	    case GFC_DTYPE_REAL:
+              write_real (p, len);
+              break;
+
+	    case GFC_DTYPE_COMPLEX:
+	      no_leading_blank = 0;
+	      num++;
+              write_complex (p, len);
+              break;
+
+	    case GFC_DTYPE_DERIVED:
+
+	      /* To treat a derived type, we need to build two strings:
+		 ext_name = the name, including qualifiers that prepends
+			    component names in the output - passed to
+			    nml_write_obj.
+		 obj_name = the derived type name with no qualifiers but %
+			    appended.  This is used to identify the
+			    components.  */
+
+	      /* First ext_name => get length of all possible components  */
+
+	      ext_name = (char*)get_mem ( (base_name ? strlen (base_name) : 0)
+					+ (base ? strlen (base->var_name) : 0)
+					+ strlen (obj->var_name)
+					+ obj->var_rank * NML_DIGITS
+					+ 1);
+
+	      strcpy(ext_name, base_name ? base_name : "");
+	      clen = base ? strlen (base->var_name) : 0;
+	      strcat (ext_name, obj->var_name + clen);
+
+	      /* Append the qualifier.  */
+
+	      for (dim_i = 0; dim_i < obj->var_rank; dim_i++)
+		{
+		  strcat (ext_name, dim_i ? "" : "(");
+		  clen = strlen (ext_name);
+		  st_sprintf (ext_name + clen, "%d", (int) obj->ls[dim_i].idx);
+		  strcat (ext_name, (dim_i == obj->var_rank - 1) ? ")" : ",");
+		}
+
+	      /* Now obj_name.  */
+
+	      obj_name_len = strlen (obj->var_name) + 1;
+	      obj_name = get_mem (obj_name_len+1);
+	      strcpy (obj_name, obj->var_name);
+	      strcat (obj_name, "%");
+
+	      /* Now loop over the components. Update the component pointer
+		 with the return value from nml_write_obj => this loop jumps
+		 past nested derived types.  */
+
+	      for (cmp = obj->next;
+		   cmp && !strncmp (cmp->var_name, obj_name, obj_name_len);
+		   cmp = retval)
+		{
+		  retval = nml_write_obj (cmp, (index_type)(p - obj->mem_pos),
+					  obj, ext_name);
+		}
+
+	      free_mem (obj_name);
+	      free_mem (ext_name);
+	      goto obj_loop;
+
+            default:
+              internal_error ("Bad type for namelist write");
+            }
+
+	  /* Reset the leading blank suppression, write a comma and, if 5
+	     values have been output, write a newline and advance to column
+	     2. Reset the repeat counter.  */
+
+	  no_leading_blank = 0;
+	  write_character (",", 1);
+	  if (num > 5)
+	    {
+	      num = 0;
+	      write_character ("\n ", 2);
+	    }
+	  rep_ctr = 1;
+	}
+
+    /* Cycle through and increment the index vector.  */
+
+obj_loop:
+
+    nml_carry = 1;
+    for (dim_i = 0; nml_carry && (dim_i < obj->var_rank); dim_i++)
+      {
+	obj->ls[dim_i].idx += nml_carry ;
+	nml_carry = 0;
+	if (obj->ls[dim_i].idx  > (ssize_t)obj->dim[dim_i].ubound)
+	  {
+	    obj->ls[dim_i].idx = obj->dim[dim_i].lbound;
+	    nml_carry = 1;
+	  }
+       }
+    }
+
+  /* Return a pointer beyond the furthest object accessed.  */
+
+  return retval;
+}
+
+/* This is the entry function for namelist writes.  It outputs the name
+   of the namelist and iterates through the namelist by calls to
+   nml_write_obj.  The call below has dummys in the arguments used in
+   the treatment of derived types.  */
+
 void
 namelist_write (void)
 {
-  namelist_info * t1, *t2;
-  int len,num;
-  void * p;
+  namelist_info * t1, *t2, *dummy = NULL;
+  index_type i;
+  index_type dummy_offset = 0;
+  char c;
+  char * dummy_name = NULL;
+  unit_delim tmp_delim;
 
-  num = 0;
-  write_character("&",1);
-  write_character (ioparm.namelist_name, ioparm.namelist_name_len);
-  write_character("\n",1);
+  /* Set the delimiter for namelist output.  */
+
+  tmp_delim = current_unit->flags.delim;
+  current_unit->flags.delim = DELIM_NONE;
+  switch (tmp_delim)
+    {
+    case (DELIM_QUOTE):
+      nml_delim = "\"";
+      break;
+
+    case (DELIM_APOSTROPHE):
+      nml_delim = "'";
+      break;
+
+    default:
+      nml_delim = NULL;
+    }
+
+  write_character ("&",1);
+
+  /* Write namelist name in upper case - f95 std.  */
+
+  for (i = 0 ;i < ioparm.namelist_name_len ;i++ )
+    {
+      c = toupper (ioparm.namelist_name[i]);
+      write_character (&c ,1);
+	    }
 
   if (ionml != NULL)
     {
       t1 = ionml;
       while (t1 != NULL)
 	{
-          num ++;
-          t2 = t1;
-          t1 = t1->next;
-          if (t2->var_name)
-            {
-              write_character(t2->var_name, strlen(t2->var_name));
-              write_character("=",1);
-            }
-          len = t2->len;
-          p = t2->mem_pos;
-          switch (t2->type)
-            {
-            case BT_INTEGER:
-              write_integer (p, len);
-              break;
-            case BT_LOGICAL:
-              write_logical (p, len);
-              break;
-            case BT_CHARACTER:
-              write_character (p, t2->string_length);
-              break;
-            case BT_REAL:
-              write_real (p, len);
-              break;
-            case BT_COMPLEX:
-              write_complex (p, len);
-              break;
-            default:
-              internal_error ("Bad type for namelist write");
-            }
-	  write_character(",",1);
-	  if (num > 5)
-	    {
-	      num = 0;
-	      write_character("\n",1);
-	    }
+	  t2 = t1;
+	  t1 = nml_write_obj (t2, dummy_offset, dummy, dummy_name);
 	}
     }
-  write_character("/",1);
+  write_character ("  /\n", 4);
+
+  /* Recover the original delimiter.  */
+
+  current_unit->flags.delim = tmp_delim;
 }
+
+#undef NML_DIGITS

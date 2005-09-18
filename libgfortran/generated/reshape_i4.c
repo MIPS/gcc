@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -47,25 +47,27 @@ reshape_4 (gfc_array_i4 * ret, gfc_array_i4 * source, shape_type * shape,
                       gfc_array_i4 * pad, shape_type * order)
 {
   /* r.* indicates the return array.  */
-  index_type rcount[GFC_MAX_DIMENSIONS - 1];
-  index_type rextent[GFC_MAX_DIMENSIONS - 1];
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rcount[GFC_MAX_DIMENSIONS];
+  index_type rextent[GFC_MAX_DIMENSIONS];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type rdim;
   index_type rsize;
+  index_type rs;
+  index_type rex;
   GFC_INTEGER_4 *rptr;
   /* s.* indicates the source array.  */
-  index_type scount[GFC_MAX_DIMENSIONS - 1];
-  index_type sextent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type scount[GFC_MAX_DIMENSIONS];
+  index_type sextent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type sdim;
   index_type ssize;
   const GFC_INTEGER_4 *sptr;
   /* p.* indicates the pad array.  */
-  index_type pcount[GFC_MAX_DIMENSIONS - 1];
-  index_type pextent[GFC_MAX_DIMENSIONS - 1];
-  index_type pstride[GFC_MAX_DIMENSIONS - 1];
+  index_type pcount[GFC_MAX_DIMENSIONS];
+  index_type pextent[GFC_MAX_DIMENSIONS];
+  index_type pstride[GFC_MAX_DIMENSIONS];
   index_type pdim;
   index_type psize;
   const GFC_INTEGER_4 *pptr;
@@ -74,8 +76,6 @@ reshape_4 (gfc_array_i4 * ret, gfc_array_i4 * source, shape_type * shape,
   int n;
   int dim;
 
-  if (ret->dim[0].stride == 0)
-    ret->dim[0].stride = 1;
   if (source->dim[0].stride == 0)
     source->dim[0].stride = 1;
   if (shape->dim[0].stride == 0)
@@ -85,7 +85,29 @@ reshape_4 (gfc_array_i4 * ret, gfc_array_i4 * source, shape_type * shape,
   if (order && order->dim[0].stride == 0)
     order->dim[0].stride = 1;
 
-  rdim = GFC_DESCRIPTOR_RANK (ret);
+  if (ret->data == NULL)
+    {
+      rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
+      rs = 1;
+      for (n=0; n < rdim; n++)
+	{
+	  ret->dim[n].lbound = 0;
+	  rex = shape->data[n * shape->dim[0].stride];
+	  ret->dim[n].ubound =  rex - 1;
+	  ret->dim[n].stride = rs;
+	  rs *= rex;
+	}
+      ret->offset = 0;
+      ret->data = internal_malloc_size ( rs * sizeof (GFC_INTEGER_4));
+      ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
+    }
+  else
+    {
+      rdim = GFC_DESCRIPTOR_RANK (ret);
+      if (ret->dim[0].stride == 0)
+	ret->dim[0].stride = 1;
+    }
+
   rsize = 1;
   for (n = 0; n < rdim; n++)
     {
@@ -105,7 +127,7 @@ reshape_4 (gfc_array_i4 * ret, gfc_array_i4 * source, shape_type * shape,
         rsize *= rextent[n];
       else
         rsize = 0;
-      if (rextent[dim] <= 0)
+      if (rextent[n] <= 0)
         return;
     }
 
@@ -127,8 +149,6 @@ reshape_4 (gfc_array_i4 * ret, gfc_array_i4 * source, shape_type * shape,
 
   if (pad)
     {
-      if (pad->dim[0].stride == 0)
-        pad->dim[0].stride = 1;
       pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
       for (n = 0; n < pdim; n++)
@@ -154,9 +174,9 @@ reshape_4 (gfc_array_i4 * ret, gfc_array_i4 * source, shape_type * shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= 4;
-      ssize *= 4;
-      psize *= 4;
+      rsize *= sizeof (GFC_INTEGER_4);
+      ssize *= sizeof (GFC_INTEGER_4);
+      psize *= sizeof (GFC_INTEGER_4);
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;

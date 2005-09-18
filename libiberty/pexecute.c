@@ -15,8 +15,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* pexecute is an old routine.  This implementation uses the newer
    pex_init/pex_run/pex_get_status/pex_free routines.  Don't use
@@ -47,7 +47,7 @@ pexecute (const char *program, char * const *argv, const char *pname,
     {
       if (pex != NULL)
 	{
-	  *errmsg_fmt = "pexecute already in progress";
+	  *errmsg_fmt = (char *) "pexecute already in progress";
 	  *errmsg_arg = NULL;
 	  return -1;
 	}
@@ -58,7 +58,7 @@ pexecute (const char *program, char * const *argv, const char *pname,
     {
       if (pex == NULL)
 	{
-	  *errmsg_fmt = "pexecute not in progress";
+	  *errmsg_fmt = (char *) "pexecute not in progress";
 	  *errmsg_arg = NULL;
 	  return -1;
 	}
@@ -99,7 +99,7 @@ pwait (int pid, int *status, int flags ATTRIBUTE_UNUSED)
     {
       int *vector;
 
-      vector = xmalloc (idx * sizeof (int));
+      vector = XNEWVEC (int, idx);
       if (!pex_get_status (pex, idx, vector))
 	return -1;
       *status = vector[pid];

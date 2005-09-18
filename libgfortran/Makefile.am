@@ -1,8 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-## We like to use C99 routines when available.  This makes sure that
-## __STDC_VERSION__ is set such that libc includes make them available.
-AM_CFLAGS = -std=gnu99
+
 ACLOCAL_AMFLAGS = -I ../config
 
 ## May be used by toolexeclibdir.
@@ -10,7 +8,7 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
 toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
 
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran)
 
 ## This should really go in the compiler lib dir, not the system lib dir.
 libgfortranbegin_la_SOURCES = fmain.c
@@ -23,16 +21,14 @@ AM_CPPFLAGS = -iquote$(srcdir)/io
 libgfortranincludedir = $(includedir)/gforio
 
 gfor_io_src= \
-io/backspace.c \
 io/close.c \
-io/endfile.c \
+io/file_pos.c \
 io/format.c \
 io/inquire.c \
 io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
-io/rewind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -63,6 +59,7 @@ intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \
 intrinsics/getXid.c \
+intrinsics/hyper.c \
 intrinsics/hostnm.c \
 intrinsics/kill.c \
 intrinsics/ierrno.c \
@@ -88,6 +85,7 @@ intrinsics/symlnk.c \
 intrinsics/system_clock.c \
 intrinsics/time.c \
 intrinsics/transpose_generic.c \
+intrinsics/tty.c \
 intrinsics/umask.c \
 intrinsics/unlink.c \
 intrinsics/unpack_generic.c \
@@ -96,6 +94,7 @@ runtime/in_unpack_generic.c \
 runtime/normalize.c
 
 gfor_src= \
+runtime/compile_options.c \
 runtime/environ.c \
 runtime/error.c \
 runtime/main.c \
@@ -193,7 +192,7 @@ i_dotprod_c= \
 generated/dotprod_i4.c \
 generated/dotprod_i8.c \
 generated/dotprod_r4.c \
-generated/dotprod_r8.c 
+generated/dotprod_r8.c
 
 i_dotprodl_c= \
 generated/dotprod_l4.c \
@@ -227,7 +226,9 @@ generated/shape_i8.c
 
 i_reshape_c= \
 generated/reshape_i4.c \
-generated/reshape_i8.c
+generated/reshape_i8.c \
+generated/reshape_c4.c \
+generated/reshape_c8.c
 
 i_eoshift1_c= \
 generated/eoshift1_4.c \
@@ -243,11 +244,15 @@ generated/cshift1_8.c
 
 in_pack_c = \
 generated/in_pack_i4.c \
-generated/in_pack_i8.c
+generated/in_pack_i8.c \
+generated/in_pack_c4.c \
+generated/in_pack_c8.c
 
 in_unpack_c = \
 generated/in_unpack_i4.c \
-generated/in_unpack_i8.c
+generated/in_unpack_i8.c \
+generated/in_unpack_c4.c \
+generated/in_unpack_c8.c
 
 i_exponent_c = \
 generated/exponent_r4.c \
@@ -295,7 +300,7 @@ gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) \
-    selected_int_kind.inc selected_real_kind.inc
+    selected_int_kind.inc selected_real_kind.inc kinds.h
 
 # We only use these if libm doesn't contain complex math functions.
 
@@ -394,7 +399,8 @@ foo
 gfor_specific_src= \
 $(gfor_built_specific_src) \
 $(gfor_built_specific2_src) \
-intrinsics/dprod_r8.f90
+intrinsics/dprod_r8.f90 \
+intrinsics/f2c_specifics.F90
 
 gfor_cmath_src= $(gfor_math_trig_c) $(gfor_math_exp_c) $(gfor_math_hyp_c)
 gfor_cmath_obj= $(gfor_math_trig_obj) $(gfor_math_exp_obj) \
@@ -413,6 +419,9 @@ libgfortran_la_DEPENDENCIES = @MATH_OBJ@
 I_M4_DEPS=m4/iparm.m4
 I_M4_DEPS0=$(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1=$(I_M4_DEPS) m4/ifunction.m4
+
+kinds.h: $(srcdir)/mk-kinds-h.sh
+	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@
 
 selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
 	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@
@@ -529,4 +538,3 @@ $(gfor_built_specific2_src): m4/specific2.m4 m4/head.m4
 endif
 
 EXTRA_DIST = $(m4_files)
-

@@ -16,8 +16,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This package implements basic hash table functionality.  It is possible
    to search for an entry, create an entry and destroy an entry.
@@ -63,15 +63,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef CHAR_BIT
 #define CHAR_BIT 8
 #endif
-
-/* This macro defines reserved value for empty table entry. */
-
-#define EMPTY_ENTRY    ((PTR) 0)
-
-/* This macro defines reserved value for table entry which contained
-   a deleted element. */
-
-#define DELETED_ENTRY  ((PTR) 1)
 
 static unsigned int higher_prime_index (unsigned long);
 static hashval_t htab_mod_1 (hashval_t, hashval_t, hashval_t, int);
@@ -216,20 +207,30 @@ eq_pointer (const PTR p1, const PTR p2)
   return p1 == p2;
 }
 
-/* Return the current size of given hash table. */
 
-inline size_t
-htab_size (htab_t htab)
+/* The parens around the function names in the next two definitions
+   are essential in order to prevent macro expansions of the name.
+   The bodies, however, are expanded as expected, so they are not
+   recursive definitions.  */
+
+/* Return the current size of given hash table.  */
+
+#define htab_size(htab)  ((htab)->size)
+
+size_t
+(htab_size) (htab_t htab)
 {
-  return htab->size;
+  return htab_size (htab);
 }
 
 /* Return the current number of elements in given hash table. */
 
-inline size_t
-htab_elements (htab_t htab)
+#define htab_elements(htab)  ((htab)->n_elements - (htab)->n_deleted)
+
+size_t
+(htab_elements) (htab_t htab)
 {
-  return htab->n_elements - htab->n_deleted;
+  return htab_elements (htab);
 }
 
 /* Return X % Y.  */
@@ -280,7 +281,7 @@ htab_mod_m2 (hashval_t hash, htab_t htab)
 
 /* This function creates table with length slightly longer than given
    source length.  Created hash table is initiated as empty (all the
-   hash table entries are EMPTY_ENTRY).  The function returns the
+   hash table entries are HTAB_EMPTY_ENTRY).  The function returns the
    created hash table, or NULL if memory allocation fails.  */
 
 htab_t
@@ -317,15 +318,10 @@ htab_create_alloc (size_t size, htab_hash hash_f, htab_eq eq_f,
    an extra argument.  */
 
 htab_t
-htab_create_alloc_ex (size, hash_f, eq_f, del_f, alloc_arg, alloc_f,
-		      free_f)
-     size_t size;
-     htab_hash hash_f;
-     htab_eq eq_f;
-     htab_del del_f;
-     PTR alloc_arg;
-     htab_alloc_with_arg alloc_f;
-     htab_free_with_arg free_f;
+htab_create_alloc_ex (size_t size, htab_hash hash_f, htab_eq eq_f,
+                      htab_del del_f, void *alloc_arg,
+                      htab_alloc_with_arg alloc_f,
+		      htab_free_with_arg free_f)
 {
   htab_t result;
   unsigned int size_prime_index;
@@ -396,7 +392,7 @@ htab_delete (htab_t htab)
 
   if (htab->del_f)
     for (i = size - 1; i >= 0; i--)
-      if (entries[i] != EMPTY_ENTRY && entries[i] != DELETED_ENTRY)
+      if (entries[i] != HTAB_EMPTY_ENTRY && entries[i] != HTAB_DELETED_ENTRY)
 	(*htab->del_f) (entries[i]);
 
   if (htab->free_f != NULL)
@@ -422,7 +418,7 @@ htab_empty (htab_t htab)
 
   if (htab->del_f)
     for (i = size - 1; i >= 0; i--)
-      if (entries[i] != EMPTY_ENTRY && entries[i] != DELETED_ENTRY)
+      if (entries[i] != HTAB_EMPTY_ENTRY && entries[i] != HTAB_DELETED_ENTRY)
 	(*htab->del_f) (entries[i]);
 
   memset (entries, 0, size * sizeof (PTR));
@@ -443,9 +439,9 @@ find_empty_slot_for_expand (htab_t htab, hashval_t hash)
   PTR *slot = htab->entries + index;
   hashval_t hash2;
 
-  if (*slot == EMPTY_ENTRY)
+  if (*slot == HTAB_EMPTY_ENTRY)
     return slot;
-  else if (*slot == DELETED_ENTRY)
+  else if (*slot == HTAB_DELETED_ENTRY)
     abort ();
 
   hash2 = htab_mod_m2 (hash, htab);
@@ -456,9 +452,9 @@ find_empty_slot_for_expand (htab_t htab, hashval_t hash)
 	index -= size;
 
       slot = htab->entries + index;
-      if (*slot == EMPTY_ENTRY)
+      if (*slot == HTAB_EMPTY_ENTRY)
 	return slot;
-      else if (*slot == DELETED_ENTRY)
+      else if (*slot == HTAB_DELETED_ENTRY)
 	abort ();
     }
 }
@@ -518,7 +514,7 @@ htab_expand (htab_t htab)
     {
       PTR x = *p;
 
-      if (x != EMPTY_ENTRY && x != DELETED_ENTRY)
+      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
 	{
 	  PTR *q = find_empty_slot_for_expand (htab, (*htab->hash_f) (x));
 
@@ -551,8 +547,8 @@ htab_find_with_hash (htab_t htab, const PTR element, hashval_t hash)
   index = htab_mod (hash, htab);
 
   entry = htab->entries[index];
-  if (entry == EMPTY_ENTRY
-      || (entry != DELETED_ENTRY && (*htab->eq_f) (entry, element)))
+  if (entry == HTAB_EMPTY_ENTRY
+      || (entry != HTAB_DELETED_ENTRY && (*htab->eq_f) (entry, element)))
     return entry;
 
   hash2 = htab_mod_m2 (hash, htab);
@@ -564,8 +560,8 @@ htab_find_with_hash (htab_t htab, const PTR element, hashval_t hash)
 	index -= size;
 
       entry = htab->entries[index];
-      if (entry == EMPTY_ENTRY
-	  || (entry != DELETED_ENTRY && (*htab->eq_f) (entry, element)))
+      if (entry == HTAB_EMPTY_ENTRY
+	  || (entry != HTAB_DELETED_ENTRY && (*htab->eq_f) (entry, element)))
 	return entry;
     }
 }
@@ -610,9 +606,9 @@ htab_find_slot_with_hash (htab_t htab, const PTR element,
   first_deleted_slot = NULL;
 
   entry = htab->entries[index];
-  if (entry == EMPTY_ENTRY)
+  if (entry == HTAB_EMPTY_ENTRY)
     goto empty_entry;
-  else if (entry == DELETED_ENTRY)
+  else if (entry == HTAB_DELETED_ENTRY)
     first_deleted_slot = &htab->entries[index];
   else if ((*htab->eq_f) (entry, element))
     return &htab->entries[index];
@@ -626,9 +622,9 @@ htab_find_slot_with_hash (htab_t htab, const PTR element,
 	index -= size;
       
       entry = htab->entries[index];
-      if (entry == EMPTY_ENTRY)
+      if (entry == HTAB_EMPTY_ENTRY)
 	goto empty_entry;
-      else if (entry == DELETED_ENTRY)
+      else if (entry == HTAB_DELETED_ENTRY)
 	{
 	  if (!first_deleted_slot)
 	    first_deleted_slot = &htab->entries[index];
@@ -644,7 +640,7 @@ htab_find_slot_with_hash (htab_t htab, const PTR element,
   if (first_deleted_slot)
     {
       htab->n_deleted--;
-      *first_deleted_slot = EMPTY_ENTRY;
+      *first_deleted_slot = HTAB_EMPTY_ENTRY;
       return first_deleted_slot;
     }
 
@@ -683,13 +679,13 @@ htab_remove_elt_with_hash (htab_t htab, PTR element, hashval_t hash)
   PTR *slot;
 
   slot = htab_find_slot_with_hash (htab, element, hash, NO_INSERT);
-  if (*slot == EMPTY_ENTRY)
+  if (*slot == HTAB_EMPTY_ENTRY)
     return;
 
   if (htab->del_f)
     (*htab->del_f) (*slot);
 
-  *slot = DELETED_ENTRY;
+  *slot = HTAB_DELETED_ENTRY;
   htab->n_deleted++;
 }
 
@@ -701,13 +697,13 @@ void
 htab_clear_slot (htab_t htab, PTR *slot)
 {
   if (slot < htab->entries || slot >= htab->entries + htab_size (htab)
-      || *slot == EMPTY_ENTRY || *slot == DELETED_ENTRY)
+      || *slot == HTAB_EMPTY_ENTRY || *slot == HTAB_DELETED_ENTRY)
     abort ();
 
   if (htab->del_f)
     (*htab->del_f) (*slot);
 
-  *slot = DELETED_ENTRY;
+  *slot = HTAB_DELETED_ENTRY;
   htab->n_deleted++;
 }
 
@@ -721,7 +717,7 @@ htab_traverse_noresize (htab_t htab, htab_trav callback, PTR info)
 {
   PTR *slot;
   PTR *limit;
-
+  
   slot = htab->entries;
   limit = slot + htab_size (htab);
 
@@ -729,7 +725,7 @@ htab_traverse_noresize (htab_t htab, htab_trav callback, PTR info)
     {
       PTR x = *slot;
 
-      if (x != EMPTY_ENTRY && x != DELETED_ENTRY)
+      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
 	if (!(*callback) (slot, info))
 	  break;
     }

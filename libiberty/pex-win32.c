@@ -16,8 +16,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "pex-common.h"
 
@@ -79,7 +79,7 @@ fix_argv (char * const *argvec)
 
   for (i = 0; argvec[i] != NULL; i++)
     ;
-  argv = xmalloc ((i + 1) * sizeof (char *));
+  argv = XNEWVEC (char *, i + 1);
   for (i = 0; argvec[i] != NULL; i++)
     argv[i] = xstrdup (argvec[i]);
   argv[i] = NULL;
@@ -105,7 +105,7 @@ fix_argv (char * const *argvec)
         {
           if (temp[j] == '"')
             {
-              newtemp = xmalloc (len + 2);
+              newtemp = XNEWVEC (char, len + 2);
               strncpy (newtemp, temp, j);
               newtemp [j] = '\\';
               strncpy (&newtemp [j+1], &temp [j], len-j);
@@ -150,7 +150,7 @@ fix_argv (char * const *argvec)
 
 	  len += 2;			/* and for the enclosing quotes. */
 
-	  temp = xmalloc (len + 1);
+	  temp = XNEWVEC (char, len + 1);
 	  temp[0] = '"';
 	  strcpy (temp + 1, argv[i]);
 	  if (trailing_backslash)

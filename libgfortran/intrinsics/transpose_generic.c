@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -69,7 +69,7 @@ transpose (gfc_array_char *ret, gfc_array_char *source)
       ret->dim[1].stride = ret->dim[0].ubound+1;
 
       ret->data = internal_malloc_size (size * size0 ((array_t*)ret));
-      ret->base = 0;
+      ret->offset = 0;
     }
 
   sxstride = source->dim[0].stride * size;

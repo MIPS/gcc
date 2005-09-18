@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -67,7 +67,7 @@ dyn_string_init (struct dyn_string *ds_struct_ptr, int space)
   if (ds_struct_ptr->s == NULL)
     return 0;
 #else
-  ds_struct_ptr->s = (char *) xmalloc (space);
+  ds_struct_ptr->s = XNEWVEC (char, space);
 #endif
   ds_struct_ptr->allocated = space;
   ds_struct_ptr->length = 0;
@@ -96,7 +96,7 @@ dyn_string_new (int space)
       return NULL;
     }
 #else
-  result = (dyn_string_t) xmalloc (sizeof (struct dyn_string));
+  result = XNEW (struct dyn_string);
   dyn_string_init (result, space);
 #endif
   return result;
@@ -159,7 +159,7 @@ dyn_string_resize (dyn_string_t ds, int space)
 	  return NULL;
 	}
 #else
-      ds->s = (char *) xrealloc (ds->s, ds->allocated);
+      ds->s = XRESIZEVEC (char, ds->s, ds->allocated);
 #endif
     }
 

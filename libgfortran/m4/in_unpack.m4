@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -35,13 +35,14 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-dnl Only the kind (ie size) is used to name the function.
+dnl Only the kind (ie size) is used to name the function for integers,
+dnl reals and logicals.  For complex, it's c4 and c8.
 void
-`internal_unpack_'rtype_kind (rtype * d, const rtype_name * src)
+`internal_unpack_'rtype_ccode (rtype * d, const rtype_name * src)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   index_type dsize;
@@ -73,7 +74,7 @@ void
 
   if (dsize != 0)
     {
-      memcpy (dest, src, dsize * rtype_kind);
+      memcpy (dest, src, dsize * sizeof (rtype_name));
       return;
     }
 

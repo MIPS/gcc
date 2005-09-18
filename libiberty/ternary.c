@@ -15,7 +15,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301,
    USA.  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -74,7 +74,7 @@ ternary_insert (ternary_tree *root, const char *s, PTR data, int replace)
   for (;;)
     {
       /* Allocate the memory for the node, and fill it in */
-      *pcurr = (ternary_tree) xmalloc (sizeof (ternary_node));
+      *pcurr = XNEW (ternary_node);
       curr = *pcurr;
       curr->splitchar = *s;
       curr->lokid = curr->hikid = curr->eqkid = 0;
