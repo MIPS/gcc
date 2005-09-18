@@ -467,15 +467,15 @@ init_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
-  /*NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_return_slot);
-  NEXT_PASS (pass_rename_ssa_copies);*/
   NEXT_PASS (pass_early_warn_uninitialized);
+
+  NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_dce);
+
   *p = NULL;
 
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
-  /*NEXT_PASS (pass_init_datastructures);*/
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
@@ -487,14 +487,9 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
-  /*NEXT_PASS (pass_referenced_vars);
-  NEXT_PASS (pass_create_structure_vars);
-  NEXT_PASS (pass_build_ssa);*/
   NEXT_PASS (pass_all_early_optimizations);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
-  /*NEXT_PASS (pass_rename_ssa_copies);
-  NEXT_PASS (pass_early_warn_uninitialized);*/
   NEXT_PASS (pass_eliminate_useless_stores);
 
   /* Initial scalar cleanups.  */

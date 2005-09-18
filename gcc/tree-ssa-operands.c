@@ -1604,6 +1604,10 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 	  v_ann = var_ann (ptr);
 	  if (v_ann->type_mem_tag)
 	    add_stmt_operand (&v_ann->type_mem_tag, s_ann, flags);
+	  /* Aliasing information is missing; mark statement as volatile so we
+	     won't optimize it out too actively.  */
+	  else if (s_ann && !aliases_computed_p)
+	    s_ann->has_volatile_ops = true;
 	}
     }
 
@@ -1798,6 +1802,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
       if (aliases == NULL)
 	{
+	  if (s_ann && !aliases_computed_p && TREE_ADDRESSABLE (var))
+	    s_ann->has_volatile_ops = true;
 	  /* The variable is not aliased or it is an alias tag.  */
 	  if (flags & opf_is_def)
 	    {

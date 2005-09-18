@@ -1,3 +1,10 @@
+2005-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* passes.c (init_optimization_passes): Remove commented out items; add early ccp/dce.
+	* tree-ssa-operands (get_indirect_ref_operands): Mark statments wirting
+	to memory as volatile before aliasing is built.
+	(add_stmt_operand): Likewise.
+
 2005-09-18  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_finalize_compilation_unit): Better dumping at -Q
