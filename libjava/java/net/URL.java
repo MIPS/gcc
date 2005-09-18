@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -125,7 +125,7 @@ import java.util.StringTokenizer;
 public final class URL implements Serializable
 {
   private static final String DEFAULT_SEARCH_PATH =
-    "org.metastatic.jessie|gnu.java.net.protocol|gnu.inet";
+    "gnu.java.net.protocol|gnu.inet";
 
   // Cached System ClassLoader
   private static ClassLoader systemClassLoader;
@@ -408,10 +408,7 @@ public final class URL implements Serializable
 	    // The 1.2 doc specifically says these are copied to the new URL.
 	    host = context.host;
 	    port = context.port;
-	    file = context.file;
             userInfo = context.userInfo;
-	    if (file == null || file.length() == 0)
-	      file = "/";
 	    authority = context.authority;
 	  }
       }
@@ -423,14 +420,18 @@ public final class URL implements Serializable
 	protocol = context.protocol;
 	host = context.host;
 	port = context.port;
-	file = context.file;
         userInfo = context.userInfo;
-	if (file == null || file.length() == 0)
-	  file = "/";
+	if (spec.indexOf(":/", 1) < 0)
+	  {
+	    file = context.file;
+	    if (file == null || file.length() == 0)
+	      file = "/";
+	  }
 	authority = context.authority;
       }
     else // Protocol NOT specified in spec. and no context available.
-      throw new MalformedURLException("Absolute URL required with null context");
+      throw new MalformedURLException("Absolute URL required with null"
+				      + " context: " + spec);
 
     protocol = protocol.trim();
 
@@ -900,7 +901,8 @@ public final class URL implements Serializable
 	  {
 	    systemClassLoader = (ClassLoader) AccessController.doPrivileged
 	      (new PrivilegedAction() {
-		  public Object run() {
+		  public Object run()
+	          {
 		    return ClassLoader.getSystemClassLoader();
 		  }
 		});
@@ -922,7 +924,10 @@ public final class URL implements Serializable
               {
                 throw death;
               }
-	    catch (Throwable t) { /* ignored */ }
+	    catch (Throwable t)
+	      {
+		// Ignored.
+	      }
 	  }
 	 while (ph == null && pkgPrefix.hasMoreTokens());
       }
@@ -949,4 +954,21 @@ public final class URL implements Serializable
   {
     oos.defaultWriteObject();
   }
+
+  /**
+   * Returns the equivalent <code>URI</code> object for this <code>URL</code>.
+   * This is the same as calling <code>new URI(this.toString())</code>.
+   * RFC2396-compliant URLs are guaranteed a successful conversion to
+   * a <code>URI</code> instance.  However, there are some values which
+   * form valid URLs, but which do not also form RFC2396-compliant URIs.
+   *
+   * @throws URISyntaxException if this URL is not RFC2396-compliant,
+   *         and thus can not be successfully converted to a URI.
+   */
+  public URI toURI()
+    throws URISyntaxException
+  {
+    return new URI(toString());
+  }
+
 }

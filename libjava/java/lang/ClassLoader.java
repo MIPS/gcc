@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -260,6 +260,9 @@ public abstract class ClassLoader
     return loadClass(name, false);
   }
 
+  private native Class loadClassFromSig(String name)
+    throws ClassNotFoundException;
+
   /**
    * Load a class using this ClassLoader or its parent, possibly resolving
    * it as well using <code>resolveClass()</code>. It first tries to find
@@ -283,29 +286,36 @@ public abstract class ClassLoader
   protected synchronized Class loadClass(String name, boolean resolve)
     throws ClassNotFoundException
   {
-    // Have we already loaded this class?
-    Class c = findLoadedClass(name);
-    if (c == null)
+    // Arrays are handled specially.
+    Class c;
+    if (name.charAt(0) == '[')
+      c = loadClassFromSig(name);
+    else
       {
-	// Can the class be loaded by a parent?
-	try
+	// Have we already loaded this class?
+	c = findLoadedClass(name);
+	if (c == null)
 	  {
-	    if (parent == null)
+	    // Can the class be loaded by a parent?
+	    try
 	      {
-		c = VMClassLoader.loadClass(name, resolve);
-		if (c != null)
-		  return c;
+		if (parent == null)
+		  {
+		    c = VMClassLoader.loadClass(name, resolve);
+		    if (c != null)
+		      return c;
+		  }
+		else
+		  {
+		    return parent.loadClass(name, resolve);
+		  }
 	      }
-	    else
+	    catch (ClassNotFoundException e)
 	      {
-		return parent.loadClass(name, resolve);
 	      }
+	    // Still not found, we have to do it ourself.
+	    c = findClass(name);
 	  }
-	catch (ClassNotFoundException e)
-	  {
-	  }
-	// Still not found, we have to do it ourself.
-	c = findClass(name);
       }
     if (resolve)
       resolveClass(c);

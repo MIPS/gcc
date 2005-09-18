@@ -52,6 +52,15 @@ details.  */
 
 static jclass loaded_classes[HASH_LEN];
 
+// This records classes which will be registered with the system class
+// loader when it is initialized.
+static jclass system_class_list;
+
+// This is used as the value of system_class_list after we have
+// initialized the system class loader; it lets us know that we should
+// no longer pay attention to the system abi flag.
+#define SYSTEM_LOADER_INITIALIZED ((jclass) -1)
+
 // This is the root of a linked list of classes
 static jclass stack_head;
 
@@ -62,6 +71,17 @@ static jclass stack_head;
 static jclass bootstrap_class_list[BOOTSTRAP_CLASS_LIST_SIZE];
 static int bootstrap_index;
 
+
+
+
+jclass
+java::lang::ClassLoader::loadClassFromSig(jstring name)
+{
+  int len = _Jv_GetStringUTFLength (name);
+  char sig[len + 1];
+  _Jv_GetStringUTFRegion (name, 0, name->length(), sig);
+  return _Jv_FindClassFromSignature(sig, this);
+}
 
 
 
@@ -87,6 +107,10 @@ _Jv_FindClassInCache (_Jv_Utf8Const *name)
 void
 _Jv_UnregisterClass (jclass the_class)
 {
+  // This can happen if the class could not be defined properly.
+  if (! the_class->name)
+    return;
+
   JvSynchronize sync (&java::lang::Class::class$);
   jint hash = HASH_UTF(the_class->name);
 
@@ -107,6 +131,14 @@ _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 {
   if (! loader)
     loader = java::lang::VMClassLoader::bootLoader;
+  if (! loader)
+    {
+      // Very early in the bootstrap process, the Bootstrap classloader may 
+      // not exist yet.
+      // FIXME: We could maintain a list of these and come back and register
+      // them later.
+      return;
+    }
   loader->loadedClasses->put(klass->name->toString(), klass);
 }
 
@@ -154,6 +186,22 @@ _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
 void
 _Jv_RegisterClassHookDefault (jclass klass)
 {
+  // This is bogus, but there doesn't seem to be a better place to do
+  // it.
+  if (! klass->engine)
+    klass->engine = &_Jv_soleCompiledEngine;
+
+  if (system_class_list != SYSTEM_LOADER_INITIALIZED)
+    {
+      unsigned long abi = (unsigned long) klass->next_or_version;
+      if (! _Jv_ClassForBootstrapLoader (abi))
+	{
+	  klass->next_or_version = system_class_list;
+	  system_class_list = klass;
+	  return;
+	}
+    }
+
   jint hash = HASH_UTF (klass->name);
 
   // If the class is already registered, don't re-register it.
@@ -182,9 +230,6 @@ _Jv_RegisterClassHookDefault (jclass klass)
 	}
     }
 
-  // FIXME: this is really bogus!
-  if (! klass->engine)
-    klass->engine = &_Jv_soleCompiledEngine;
   klass->next_or_version = loaded_classes[hash];
   loaded_classes[hash] = klass;
 }
@@ -203,6 +248,21 @@ _Jv_RegisterClass (jclass klass)
   classes[0] = klass;
   classes[1] = NULL;
   _Jv_RegisterClasses (classes);
+}
+
+// This is used during initialization to register all compiled-in
+// classes that are not part of the core with the system class loader.
+void
+_Jv_CopyClassesToSystemLoader (java::lang::ClassLoader *loader)
+{
+  for (jclass klass = system_class_list;
+       klass;
+       klass = klass->next_or_version)
+    {
+      klass->loader = loader;
+      loader->loadedClasses->put(klass->name->toString(), klass);
+    }
+  system_class_list = SYSTEM_LOADER_INITIALIZED;
 }
 
 jclass
@@ -272,12 +332,6 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	    }
 	}
     }
-  else
-    {
-      // We need classes to be in the hash while we're loading, so
-      // that they can refer to themselves.
-      _Jv_Linker::wait_for_state (klass, JV_STATE_LOADED);
-    }
 
   return klass;
 }
@@ -298,7 +352,7 @@ _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
   ret->superclass = superclass;
   ret->loader = loader;
 
-  _Jv_RegisterClass (ret);
+  _Jv_RegisterInitiatingLoader (ret, loader);
 
   return ret;
 }

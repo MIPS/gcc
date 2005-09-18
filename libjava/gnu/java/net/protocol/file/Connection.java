@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -33,38 +33,41 @@ module.  An independent module is a module which is not derived from
 or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
-exception statement from your version.  */
+exception statement from your version. */
 
 package gnu.java.net.protocol.file;
 
-import gnu.java.security.action.GetPropertyAction;
+import gnu.classpath.SystemProperties;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilePermission;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.Permission;
-import java.security.AccessController;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.net.MalformedURLException;
 
 /**
  * This subclass of java.net.URLConnection models a URLConnection via
  * the "file" protocol.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Nic Ferrier <nferrier@tapsellferrier.co.uk>
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Nic Ferrier (nferrier@tapsellferrier.co.uk)
+ * @author Warren Levy (warrenl@cygnus.com)
  */
 public class Connection extends URLConnection
 {
@@ -73,19 +76,29 @@ public class Connection extends URLConnection
    */
   private static final String DEFAULT_PERMISSION = "read";
 
-  /**
-   * HTTP-style DateFormat, used to format the last-modified header.
-   */
-  private static SimpleDateFormat dateFormat
-    = new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'",
-                           new Locale ("En", "Us", "Unix"));
+  private static class StaticData
+  {
+    /**
+     * HTTP-style DateFormat, used to format the last-modified header.
+     */
+    static SimpleDateFormat dateFormat
+      = new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'",
+                             new Locale ("En", "Us", "Unix"));
 
-  private static String lineSeparator;
+    static String lineSeparator =
+      SystemProperties.getProperty("line.separator");
+  }
+
   
   /**
    * This is a File object for this connection
    */
   private File file;
+
+  /**
+   * If a directory, contains a list of files in the directory.
+   */
+  private byte[] directoryListing;
 
   /**
    * InputStream if we are reading from the file
@@ -113,6 +126,54 @@ public class Connection extends URLConnection
   }
   
   /**
+   * Unquote "%" + hex quotes characters
+   *
+   * @param str The string to unquote or null.
+   *
+   * @return The unquoted string or null if str was null.
+   *
+   * @exception MalformedURLException If the given string contains invalid
+   * escape sequences.
+   *
+   * Sadly the same as URI.unquote, but there's nothing we can do to
+   * make it accessible.
+   *
+   */
+  public static String unquote(String str) throws MalformedURLException
+  {
+    if (str == null)
+      return null;
+    byte[] buf = new byte[str.length()];
+    int pos = 0;
+    for (int i = 0; i < str.length(); i++)
+      {
+	char c = str.charAt(i);
+	if (c > 127)
+	  throw new MalformedURLException(str + " : Invalid character");
+	if (c == '%')
+	  {
+	    if (i + 2 >= str.length())
+	      throw new MalformedURLException(str + " : Invalid quoted character");
+	    int hi = Character.digit(str.charAt(++i), 16);
+	    int lo = Character.digit(str.charAt(++i), 16);
+	    if (lo < 0 || hi < 0)
+	      throw new MalformedURLException(str + " : Invalid quoted character");
+	    buf[pos++] = (byte) (hi * 16 + lo);
+	  }
+	else
+	  buf[pos++] = (byte) c;
+      }
+    try
+      {
+	return new String(buf, 0, pos, "utf-8");
+      }
+    catch (java.io.UnsupportedEncodingException x2)
+      {
+	throw (Error) new InternalError().initCause(x2);
+      }
+  }
+
+  /**
    * "Connects" to the file by opening it.
    */
   public void connect() throws IOException
@@ -122,7 +183,7 @@ public class Connection extends URLConnection
       return;
     
     // If not connected, then file needs to be openned.
-    file = new File (getURL().getFile());
+    file = new File (unquote(getURL().getFile()));
 
     if (! file.isDirectory())
       {
@@ -136,19 +197,7 @@ public class Connection extends URLConnection
       {
 	if (doInput)
 	  {
-	    if (lineSeparator == null)
-	      {
-		GetPropertyAction getProperty = new GetPropertyAction("line.separator");
-		lineSeparator = (String) AccessController.doPrivileged(getProperty);
-	      }
-	    
-	    StringBuffer sb = new StringBuffer();
-	    String[] files = file.list();
-
-	    for (int index = 0; index < files.length; ++index)
-	       sb.append(files[index]).append(lineSeparator);
-
-	    inputStream = new ByteArrayInputStream(sb.toString().getBytes());
+            inputStream = new ByteArrayInputStream(getDirectoryListing());
 	  }
 
 	if (doOutput)
@@ -157,6 +206,32 @@ public class Connection extends URLConnection
       }
     
     connected = true;
+  }
+
+  /**
+   * Populates the <code>directoryListing</code> field with a byte array
+   * containing a representation of the directory listing.
+   */
+  byte[] getDirectoryListing()
+    throws IOException
+  {
+    if (directoryListing == null)
+      {
+        ByteArrayOutputStream sink = new ByteArrayOutputStream();
+        // NB uses default character encoding for this system
+        Writer writer = new OutputStreamWriter(sink);
+    
+        String[] files = file.list();
+    
+        for (int i = 0; i < files.length; i++)
+          {
+            writer.write(files[i]);
+            writer.write(StaticData.lineSeparator);
+          }
+
+        directoryListing = sink.toByteArray();
+      }
+    return directoryListing;  
   }
   
   /**
@@ -231,12 +306,19 @@ public class Connection extends URLConnection
 	if (field.equals("content-type"))
           return guessContentTypeFromName(file.getName());
 	else if (field.equals("content-length"))
-          return Long.toString(file.length());
+          {
+            if (file.isDirectory())
+              {
+                return Integer.toString(getContentLength());
+              }
+            return Long.toString(file.length());
+          }
 	else if (field.equals("last-modified"))
 	  {
-	    synchronized (dateFormat)
+	    synchronized (StaticData.dateFormat)
 	      {
-        	return dateFormat.format(new Date(file.lastModified()));
+        	return StaticData.dateFormat.format(
+                        new Date(file.lastModified()));
 	      }
 	  }
       }
@@ -259,6 +341,10 @@ public class Connection extends URLConnection
 	if (!connected)
 	  connect();
         
+        if (file.isDirectory())
+          {
+            return getDirectoryListing().length;
+          }
 	return (int) file.length();
       }
     catch (IOException e)

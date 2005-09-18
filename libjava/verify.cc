@@ -2198,8 +2198,9 @@ private:
 	    // We only have to do this checking in the situation where
 	    // control flow falls through from the previous
 	    // instruction.  Otherwise merging is done at the time we
-	    // push the branch.
-	    if (states[PC] != NULL)
+	    // push the branch.  Note that we'll catch the
+	    // off-the-end problem just below.
+	    if (PC < current_method->code_length && states[PC] != NULL)
 	      {
 		// We've already visited this instruction.  So merge
 		// the states together.  It is simplest, but not most
@@ -2925,8 +2926,8 @@ private:
 	  case op_new:
 	    {
 	      type t = check_class_constant (get_ushort ());
-	      if (t.isarray () || t.isinterface (this) || t.isabstract (this))
-		verify_fail ("type is array, interface, or abstract");
+	      if (t.isarray ())
+		verify_fail ("type is array");
 	      t.set_uninitialized (start_PC, this);
 	      push_type (t);
 	    }

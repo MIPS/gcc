@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -42,8 +42,8 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.JarURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
@@ -64,7 +64,7 @@ import java.util.zip.ZipFile;
  * This subclass of java.net.JarURLConnection models a URLConnection via
  * the "jar" protocol.
  *
- * @author Kresten Krab Thorup <krab@gnu.org>
+ * @author Kresten Krab Thorup (krab@gnu.org)
  */
 public final class Connection extends JarURLConnection
 {
@@ -151,7 +151,8 @@ public final class Connection extends JarURLConnection
     if (jarfile != null)
       {
 	// this is the easy way...
-	ZipEntry entry = jarfile.getEntry(getEntryName());
+	ZipEntry entry = jarfile.getEntry
+	  (gnu.java.net.protocol.file.Connection.unquote(getEntryName()));
         
 	if (entry != null)
 	  return jarfile.getInputStream (entry);
@@ -164,12 +165,14 @@ public final class Connection extends JarURLConnection
 	JarInputStream zis = new JarInputStream(
 			jarFileURLConnection.getInputStream ());
 
+	String entryName = gnu.java.net.protocol.file.Connection.unquote(getEntryName());
+
 	// This is hideous, we're doing a linear search...
 	for (ZipEntry entry = zis.getNextEntry(); 
 	     entry != null; 
 	     entry = zis.getNextEntry())
 	  {
-	    if (getEntryName().equals(entry.getName()))
+	    if (entryName.equals(entry.getName()))
 	      {
 		int size = (int) entry.getSize();
 		byte[] data = new byte[size];
@@ -203,12 +206,14 @@ public final class Connection extends JarURLConnection
 	    jar_file = (JarFile) file_cache.get (jarFileURL);
 	    if (jar_file == null)
 	      {
-		jar_file = new JarFile (jarFileURL.getFile());
+		jar_file = new JarFile 
+		  (gnu.java.net.protocol.file.Connection.unquote(jarFileURL.getFile()));
 		file_cache.put (jarFileURL, jar_file);
 	      }
 	  }
 	else
-	  jar_file = new JarFile (jarFileURL.getFile());
+	  jar_file = new JarFile 
+	    (gnu.java.net.protocol.file.Connection.unquote(jarFileURL.getFile()));
       }
     else
       {

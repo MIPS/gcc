@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -289,9 +289,23 @@ public class InputStreamReader extends Reader
 	  return -1;
 	converter.setInput(in.buf, in.pos, in.count);
 	int count = converter.read(buf, offset, length);
-	in.skip(converter.inpos - in.pos);
-	if (count > 0)
-	  return count;
+
+	// We might have bytes but not have made any progress.  In
+	// this case we try to refill.  If refilling fails, we assume
+	// we have a malformed character at the end of the stream.
+	if (count == 0 && converter.inpos == in.pos)
+	  {
+	    in.mark(in.count);
+	    if (! in.refill ())
+	      throw new CharConversionException ();
+	    in.reset();
+	  }
+	else
+	  {
+	    in.skip(converter.inpos - in.pos);
+	    if (count > 0)
+	      return count;
+	  }
       }
   }
 }

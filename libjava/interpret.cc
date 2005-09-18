@@ -1,6 +1,6 @@
 // interpret.cc - Code for the interpreter
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -25,12 +25,12 @@ details.  */
 #include <java/lang/StringBuffer.h>
 #include <java/lang/Class.h>
 #include <java/lang/reflect/Modifier.h>
-#include <java/lang/ClassCastException.h>
 #include <java/lang/VirtualMachineError.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/ArithmeticException.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/InstantiationException.h>
 #include <java/lang/Thread.h>
 #include <java-insns.h>
 #include <java-signal.h>
@@ -763,6 +763,10 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
   for (int i = 0; i < line_table_len; i++)
     {
       int byte_pc = line_table[i].bytecode_pc;
+      // It isn't worth throwing an exception if this table is
+      // corrupted, but at the same time we don't want a crash.
+      if (byte_pc < 0 || byte_pc >= code_length)
+	byte_pc = 0;
       line_table[i].pc = &insns[pc_mapping[byte_pc]];
     }  
 
@@ -2939,6 +2943,10 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	int index = GET2U ();
 	jclass klass = (_Jv_Linker::resolve_pool_entry (meth->defining_class,
 							  index)).clazz;
+	/* VM spec, section 3.11.5 */
+	if ((klass->getModifiers() & Modifier::ABSTRACT)
+	    || klass->isInterface())
+	  throw new java::lang::InstantiationException;
 	jobject res = _Jv_AllocObject (klass);
 	PUSHA (res);
 
@@ -3018,8 +3026,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	jclass to = (_Jv_Linker::resolve_pool_entry (meth->defining_class,
 						       index)).clazz;
 
-	if (value != NULL && ! to->isInstance (value))
-	  throw new java::lang::ClassCastException (to->getName());
+	value = (jobject) _Jv_CheckCast (to, value);
 
 	PUSHA (value);
 
@@ -3036,8 +3043,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
         SAVE_PC();
 	jobject value = POPA ();
 	jclass to = (jclass) AVAL ();
-	if (value != NULL && ! to->isInstance (value))
-	  throw new java::lang::ClassCastException (to->getName());
+	value = (jobject) _Jv_CheckCast (to, value);
 	PUSHA (value);
       }
       NEXT_INSN;
@@ -3751,7 +3757,6 @@ _Jv_InterpreterEngine::do_allocate_static_fields (jclass klass,
   _Jv_InterpClass *iclass = (_Jv_InterpClass *) klass->aux_info;
 
   char *static_data = (char *) _Jv_AllocBytes (static_size);
-  memset (static_data, 0, static_size);
 
   for (int i = 0; i < klass->field_count; i++)
     {

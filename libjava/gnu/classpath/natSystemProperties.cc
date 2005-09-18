@@ -38,15 +38,13 @@ details.  */
 #include <java/lang/String.h>
 #include <jni.h>
 
-char *_Jv_Module_Load_Path = NULL;
-
 #ifdef USE_LTDL
 #include <ltdl.h>
 
 void
 _Jv_SetDLLSearchPath (const char *path)
 {
-  _Jv_Module_Load_Path = strdup (path);
+  lt_dlsetsearchpath (path);
 }
 
 #else
@@ -352,16 +350,9 @@ gnu::classpath::SystemProperties::insertSystemProperties (java::util::Properties
   else
     {
       // Set a value for user code to see.
-#ifdef USE_LTDL
-      char *libpath = getenv (LTDL_SHLIBPATH_VAR);
-      if (libpath)
-        newprops->put(JvNewStringLatin1 ("java.library.path"),
-                      JvNewStringLatin1 (libpath));
-      else
-        SET ("java.library.path", "");
-#else
+      // FIXME: JDK sets this to the actual path used, including
+      // LD_LIBRARY_PATH, etc.
       SET ("java.library.path", "");
-#endif
     }
 
   // If java.class.path is still not set then set it according to the

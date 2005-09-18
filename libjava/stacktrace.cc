@@ -29,6 +29,7 @@ details.  */
 #include <gnu/gcj/runtime/NameFinder.h>
 
 #include <sysdep/backtrace.h>
+#include <sysdep/descriptor.h>
 
 using namespace java::lang;
 using namespace java::lang::reflect;
@@ -62,12 +63,12 @@ _Jv_StackTrace::UpdateNCodeMap ()
       for (int i=0; i < klass->method_count; i++)
         {
 	  _Jv_Method *method = &klass->methods[i];
+	  void *ncode = method->ncode;
 	  // Add non-abstract methods to ncodeMap.
-	  if (method->ncode)
+	  if (ncode)
 	    {
-	      //printf("map->put 0x%x / %s.%s\n", method->ncode, klass->name->data,
-	      //  method->name->data);
-	      ncodeMap->put ((java::lang::Object *) method->ncode, klass);
+	      ncode = UNWRAP_FUNCTION_DESCRIPTOR (ncode);
+	      ncodeMap->put ((java::lang::Object *)ncode, klass);
 	    }
 	}
     }
@@ -101,7 +102,7 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   // Check if the trace buffer needs to be extended.
   if (pos == state->length)
     {
-      int newLength = state->length *= 2;
+      int newLength = state->length * 2;
       void *newFrames = _Jv_AllocBytes (newLength * sizeof(_Jv_StackFrame));
       memcpy (newFrames, state->frames, state->length * sizeof(_Jv_StackFrame));      
       state->frames = (_Jv_StackFrame *) newFrames;
@@ -116,7 +117,7 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   // correspondance between call frames in the interpreted stack and occurances
   // of _Jv_InterpMethod::run() on the native stack.
 #ifdef INTERPRETER
-  if (func_addr == (_Unwind_Ptr) &_Jv_InterpMethod::run)
+  if ((void (*)(void)) func_addr == (void (*)(void)) &_Jv_InterpMethod::run)
     {
       state->frames[pos].type = frame_interpreter;
       state->frames[pos].interp.meth = state->interp_frame->self;
@@ -184,13 +185,13 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
 #endif
   // Use dladdr() to determine in which binary the address IP resides.
 #if defined (HAVE_DLFCN_H) && defined (HAVE_DLADDR)
-  extern char **_Jv_argv;
   Dl_info info;
   jstring binaryName = NULL;
+  const char *argv0 = _Jv_GetSafeArg(0);
 
   void *ip = frame->ip;
   _Unwind_Ptr offset = 0;
-  
+
   if (dladdr (ip, &info))
     {
       if (info.dli_fname)
@@ -199,7 +200,7 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
         return;
 
       // addr2line expects relative addresses for shared libraries.
-      if (strcmp (info.dli_fname, _Jv_argv[0]) == 0)
+      if (strcmp (info.dli_fname, argv0) == 0)
         offset = (_Unwind_Ptr) ip;
       else
         offset = (_Unwind_Ptr) ip - (_Unwind_Ptr) info.dli_fbase;

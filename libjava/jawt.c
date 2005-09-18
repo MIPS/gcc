@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GNU Classpath; see the file COPYING.  If not, write to the
-   Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.
+   Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301 USA.
 
    Linking this library statically or dynamically with other modules is
    making a combined work based on this library.  Thus, the terms and
@@ -76,14 +76,13 @@ JAWT_GetAWT (JNIEnv* env, JAWT* awt)
 static jint
 (JNICALL _Jv_Lock) (JAWT_DrawingSurface* surface)
 {
-  /* lock the drawing surface */
-  return classpath_jawt_lock ();
+  return classpath_jawt_object_lock (surface->lock);
 }
 
 static void
 (JNICALL _Jv_Unlock) (JAWT_DrawingSurface* surface)
 {
-  classpath_jawt_unlock ();
+  classpath_jawt_object_unlock (surface->lock);
 }
 
 static JAWT_DrawingSurfaceInfo*
@@ -109,6 +108,7 @@ static void
   surface_info_x11->drawable = 0;
   surface_info_x11->visualID = 0;
 
+  free (surface_info->platformInfo);
   free (surface_info);
   surface_info = NULL;
 }
@@ -135,6 +135,8 @@ static JAWT_DrawingSurface*
 
   surface->surface_info = (JAWT_DrawingSurfaceInfo*) malloc (sizeof (JAWT_DrawingSurfaceInfo));
 
+  surface->lock = classpath_jawt_create_lock ();
+
   if (surface->surface_info == NULL)
     return NULL;
 
@@ -158,6 +160,7 @@ static JAWT_DrawingSurface*
 static void
 (JNICALL _Jv_FreeDrawingSurface) (JAWT_DrawingSurface* surface)
 {
+  classpath_jawt_destroy_lock (surface->lock);
   free (surface);
 }
 

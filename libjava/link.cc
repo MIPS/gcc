@@ -44,9 +44,6 @@ details.  */
 
 using namespace gcj;
 
-// When true, print debugging information about class loading.
-bool gcj::verbose_class_flag;
-
 typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 
 template<typename T>
@@ -165,11 +162,14 @@ _Jv_Linker::has_field_p (jclass search, _Jv_Utf8Const *field_name)
 // KLASS is the class that is requesting the field.
 // OWNER is the class in which the field should be found.
 // FIELD_TYPE_NAME is the type descriptor for the field.
+// Fill FOUND_CLASS with the address of the class in which the field
+// is actually declared.
 // This function does the class loader type checks, and
 // also access checks.  Returns the field, or throws an
 // exception on error.
 _Jv_Field *
 _Jv_Linker::find_field (jclass klass, jclass owner,
+			jclass *found_class,
 			_Jv_Utf8Const *field_name,
 			_Jv_Utf8Const *field_type_name)
 {
@@ -180,9 +180,8 @@ _Jv_Linker::find_field (jclass klass, jclass owner,
   if (field_type == NULL)
     throw new java::lang::NoClassDefFoundError(field_name->toString());
 
-  jclass found_class = 0;
   _Jv_Field *the_field = find_field_helper (owner, field_name,
-					    field_type->name, &found_class);
+					    field_type->name, found_class);
 
   if (the_field == 0)
     {
@@ -195,7 +194,7 @@ _Jv_Linker::find_field (jclass klass, jclass owner,
       throw new java::lang::NoSuchFieldError (sb->toString());
     }
 
-  if (_Jv_CheckAccess (klass, found_class, the_field->flags))
+  if (_Jv_CheckAccess (klass, *found_class, the_field->flags))
     {
       // Note that the field returned by find_field_helper is always
       // resolved.  There's no point checking class loaders here,
@@ -212,7 +211,7 @@ _Jv_Linker::find_field (jclass klass, jclass owner,
 	= new java::lang::StringBuffer ();
       sb->append(klass->getName());
       sb->append(JvNewStringLatin1(": "));
-      sb->append(found_class->getName());
+      sb->append((*found_class)->getName());
       sb->append(JvNewStringLatin1("."));
       sb->append(_Jv_NewStringUtf8Const (field_name));
       throw new java::lang::IllegalAccessError(sb->toString());
@@ -300,9 +299,13 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	_Jv_Utf8Const *field_name = pool->data[name_index].utf8;
 	_Jv_Utf8Const *field_type_name = pool->data[type_index].utf8;
 
-	_Jv_Field *the_field = find_field (klass, owner, field_name,
+	jclass found_class = 0;
+	_Jv_Field *the_field = find_field (klass, owner, 
+					   &found_class,
+					   field_name,
 					   field_type_name);
-
+	if (owner != found_class)
+	  _Jv_InitClass (found_class);
 	pool->data[index].field = the_field;
 	pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
       }
@@ -711,8 +714,8 @@ _Jv_ThrowNoSuchMethodError ()
 }
 
 // This is put in empty vtable slots.
-static void
-_Jv_abstractMethodError (void)
+void
+_Jv_ThrowAbstractMethodError ()
 {
   throw new java::lang::AbstractMethodError();
 }
@@ -764,7 +767,7 @@ _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
 	      (_Jv_GetMethodString (klass, meth));
 
  	  if ((meth->accflags & Modifier::ABSTRACT) != 0)
-	    itable[pos] = (void *) &_Jv_abstractMethodError;
+	    itable[pos] = (void *) &_Jv_ThrowAbstractMethodError;
 	  else
 	    itable[pos] = meth->ncode;
 	}
@@ -967,7 +970,8 @@ _Jv_Linker::link_symbol_table (jclass klass)
       // Try fields.
       {
 	wait_for_state(target_class, JV_STATE_PREPARED);
-	_Jv_Field *the_field = find_field (klass, target_class,
+	jclass found_class;
+	_Jv_Field *the_field = find_field (klass, target_class, &found_class,
 					   sym.name, sym.signature);
 	if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	  throw new java::lang::IncompatibleClassChangeError;
@@ -1047,7 +1051,8 @@ _Jv_Linker::link_symbol_table (jclass klass)
       // Try fields.
       {
 	wait_for_state(target_class, JV_STATE_PREPARED);
-	_Jv_Field *the_field = find_field (klass, target_class,
+	jclass found_class;
+	_Jv_Field *the_field = find_field (klass, target_class, &found_class,
 					   sym.name, sym.signature);
 	if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	  klass->atable->addresses[index] = the_field->u.addr;
@@ -1223,7 +1228,8 @@ _Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable)
       if ((meth->accflags & Modifier::ABSTRACT))
 	// FIXME: it might be nice to have a libffi trampoline here,
 	// so we could pass in the method name and other information.
-	vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
+	vtable->set_method(meth->index,
+			   (void *) &_Jv_ThrowAbstractMethodError);
       else
 	vtable->set_method(meth->index, meth->ncode);
     }
@@ -1614,7 +1620,7 @@ _Jv_Linker::verify_type_assertions (jclass klass)
 	  if (cl1 == NULL || cl2 == NULL)
 	    continue;
 
-          if (! _Jv_IsAssignableFromSlow (cl2, cl1))
+          if (! _Jv_IsAssignableFromSlow (cl1, cl2))
 	    {
 	      jstring s = JvNewStringUTF ("Incompatible types: In class ");
 	      s = s->concat (klass->getName());
@@ -1653,11 +1659,10 @@ _Jv_Linker::print_class_loaded (jclass klass)
   if (codesource == NULL)
     codesource = "<no code source>";
 
-  // We use a somewhat bogus test for the ABI here.
   char *abi;
   if (_Jv_IsInterpretedClass (klass))
     abi = "bytecode";
-  else if (klass->state == JV_STATE_PRELOADING)
+  else if (_Jv_IsBinaryCompatibilityABI (klass))
     abi = "BC-compiled";
   else
     abi = "pre-compiled";
@@ -1720,7 +1725,8 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
 
       if (state >= JV_STATE_LINKED && klass->state < JV_STATE_LINKED)
 	{
-	  verify_class (klass);
+	  if (gcj::verifyClasses)
+	    verify_class (klass);
 
 	  ensure_class_linked (klass);
 	  link_exception_table (klass);

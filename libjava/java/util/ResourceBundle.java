@@ -1,5 +1,5 @@
 /* ResourceBundle -- aids in loading resource bundles
-   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,8 +41,6 @@ package java.util;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.ref.Reference;
-import java.lang.ref.SoftReference;
 
 /**
  * A resource bundle contains locale-specific data. If you need localized
@@ -175,9 +173,11 @@ public abstract class ResourceBundle
         if (o != null)
           return o;
       }
- 
-    throw new MissingResourceException("Key not found", getClass().getName(),
-				       key);
+
+    String className = getClass().getName();
+    throw new MissingResourceException("Key '" + key
+				       + "'not found in Bundle: "
+				       + className, className, key);
   }
 
   /**
@@ -493,7 +493,7 @@ public abstract class ResourceBundle
 	catch (IOException ex)
 	  {
 	    MissingResourceException mre = new MissingResourceException
-	      ("Failed to load bundle", localizedName, "");
+	      ("Failed to load bundle: " + localizedName, localizedName, "");
 	    mre.initCause(ex);
 	    throw mre;
 	  }

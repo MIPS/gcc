@@ -1,6 +1,6 @@
 // natObject.cc - Implementation of the Object class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -34,6 +34,8 @@ details.  */
 #endif
 
 
+
+using namespace java::lang;
 
 // This is used to represent synchronization information.
 struct _Jv_SyncInfo
@@ -102,6 +104,11 @@ java::lang::Object::clone (void)
     }
 
   memcpy ((void *) r, (void *) this, size);
+#ifndef JV_HASH_SYNCHRONIZATION
+  // Guarantee that the locks associated to the two objects are
+  // distinct.
+  r->sync_info = NULL;
+#endif
   return r;
 }
 
@@ -926,12 +933,22 @@ retry:
 	  release_set(&(he -> address), (address | REQUEST_CONVERSION | HEAVY));
 				// release lock on he
 	  LOG(REQ_CONV, (address | REQUEST_CONVERSION | HEAVY), self);
+	  // If _Jv_CondWait is interrupted, we ignore the interrupt, but
+	  // restore the thread's interrupt status flag when done.
+	  jboolean interrupt_flag = false;
 	  while ((he -> address & ~FLAGS) == (address & ~FLAGS))
 	    {
 	      // Once converted, the lock has to retain heavyweight
-	      // status, since heavy_count > 0 . 
-	      _Jv_CondWait (&(hl->si.condition), &(hl->si.mutex), 0, 0);
+	      // status, since heavy_count > 0.
+	      int r = _Jv_CondWait (&(hl->si.condition), &(hl->si.mutex), 0, 0);
+	      if (r == _JV_INTERRUPTED)
+	        {
+		  interrupt_flag = true;
+		  Thread::currentThread()->interrupt_flag = false;
+		}
 	    }
+	  if (interrupt_flag)
+	    Thread::currentThread()->interrupt_flag = interrupt_flag;
 	  keep_live(addr);
 		// Guarantee that hl doesn't get unlinked by finalizer.
 		// This is only an issue if the client fails to release

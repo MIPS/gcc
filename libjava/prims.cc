@@ -359,6 +359,22 @@ _Jv_ThrowNullPointerException ()
   throw new java::lang::NullPointerException;
 }
 
+// Resolve an entry in the constant pool and return the target
+// address.
+void *
+_Jv_ResolvePoolEntry (jclass this_class, jint index)
+{
+  _Jv_Constants *pool = &this_class->constants;
+
+  if ((pool->tags[index] & JV_CONSTANT_ResolvedFlag) != 0)
+    return pool->data[index].field->u.addr;
+
+  JvSynchronize sync (this_class);
+  return (_Jv_Linker::resolve_pool_entry (this_class, index))
+    .field->u.addr;
+}
+
+
 // Explicitly throw a no memory exception.
 // The collector calls this when it encounters an out-of-memory condition.
 void _Jv_ThrowNoMemory()
@@ -937,6 +953,12 @@ namespace gcj
   _Jv_Utf8Const *finit_name;
   
   bool runtimeInitialized = false;
+  
+  // When true, print debugging information about class loading.
+  bool verbose_class_flag;
+  
+  // When true, enable the bytecode verifier and BC-ABI type verification. 
+  bool verifyClasses = true;
 }
 
 // We accept all non-standard options accepted by Sun's java command,
@@ -1049,7 +1071,7 @@ static jint
 parse_verbose_args (char* option_string,
                     bool ignore_unrecognized)
 {
-  size_t len = sizeof ("-verbose");
+  size_t len = sizeof ("-verbose") - 1;
 
   if (strlen (option_string) < len)
     return -1;
@@ -1058,69 +1080,72 @@ parse_verbose_args (char* option_string,
       && option_string[len + 1] != '\0')
     {
       char* verbose_args = option_string + len + 1;
-      size_t last = 0;
 
       do
 	{
 	  if (! strncmp (verbose_args,
-			 "gc", (last = sizeof ("gc")) - 1)
-	      && (verbose_args[last] == '\0'
-		  || verbose_args[last] == ','))
-	    {
-	      // FIXME: we should add functions to boehm-gc that
-	      // toggle GC_print_stats, GC_PRINT_ADDRESS_MAP and
-	      // GC_print_back_height.
-
-	    }
+			 "gc", sizeof ("gc") - 1))
+            {
+              if (verbose_args[sizeof ("gc") - 1] == '\0'
+                  || verbose_args[sizeof ("gc") - 1] == ',')
+                {
+                  // FIXME: we should add functions to boehm-gc that
+                  // toggle GC_print_stats, GC_PRINT_ADDRESS_MAP and
+                  // GC_print_back_height.
+                  verbose_args += sizeof ("gc") - 1;
+                }
+              else
+                {
+                verbose_arg_err:
+                  fprintf (stderr, "libgcj: unknown verbose option: %s\n",
+                           option_string);
+                  return -1;
+                }
+            }
 	  else if (! strncmp (verbose_args,
 			      "class",
-			      (last = sizeof ("class")) - 1)
-		   && (verbose_args[last] == '\0'
-		       || verbose_args[last] == ','))
-	    {
-	      gcj::verbose_class_flag = true;
-	    }
+			      sizeof ("class") - 1))
+            {
+              if (verbose_args[sizeof ("class") - 1] == '\0'
+                  || verbose_args[sizeof ("class") - 1] == ',')
+                {
+                  gcj::verbose_class_flag = true;
+                  verbose_args += sizeof ("class") - 1;
+                }
+              else
+                goto verbose_arg_err;
+            }
 	  else if (! strncmp (verbose_args, "jni",
-			      (last = sizeof ("jni")) - 1)
-		   && (verbose_args[last] == '\0'
-		       || verbose_args[last] == ','))
-	    {
-	      // FIXME: enable JNI messages.
-	    }
+			      sizeof ("jni") - 1))
+            {
+              if (verbose_args[sizeof ("jni") - 1] == '\0'
+                  || verbose_args[sizeof ("jni") - 1] == ',')
+                {
+                  // FIXME: enable JNI messages.
+                  verbose_args += sizeof ("jni") - 1;
+                }
+              else
+                goto verbose_arg_err;
+            }
 	  else if (ignore_unrecognized
 		   && verbose_args[0] == 'X')
 	    {
 	      // ignore unrecognized non-standard verbose option
-	      last = 0;
-	      while (verbose_args[last] != '\0'
-		     && verbose_args[last++] != ',');
+	      while (verbose_args[0] != '\0'
+		     && verbose_args[0] != ',')
+                verbose_args++;
 	    }
+          else if (verbose_args[0] == ',')
+            {
+              verbose_args++;
+            }
+          else
+            goto verbose_arg_err;
 
-	  if (strlen (verbose_args) >= last)
-	    {
-	      if (verbose_args[last] == ',')
-		{
-		  if (verbose_args[last + 1] == '\0')
-		    // trailing comma
-		    return -1;
-		  else
-		    {
-		      verbose_args = verbose_args + last + 1;
-		      last = 0;
-		    }
-		}
-	      // here verbose_args[last] is either '\0' or
-	      // the first character in the next verbose
-	      // argument.
-	    }
-	  else
-	    // partial option
-	    return -1;
-
-	  // verbose_args[last] will be '\0' here if we're
-	  // done.
+          if (verbose_args[0] == ',')
+            verbose_args++;
 	}
-      while (verbose_args[last] != '\0');
+      while (verbose_args[0] != '\0');
     }
   else if (option_string[len] == 'g'
 	   && option_string[len + 1] == 'c'
@@ -1532,7 +1557,7 @@ _Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
   return ((self_klass == other_klass)
 	  || ((flags & Modifier::PUBLIC) != 0)
 	  || (((flags & Modifier::PROTECTED) != 0)
-	      && _Jv_IsAssignableFromSlow (other_klass, self_klass))
+	      && _Jv_IsAssignableFromSlow (self_klass, other_klass))
 	  || (((flags & Modifier::PRIVATE) == 0)
 	      && _Jv_ClassNameSamePackage (self_klass->name,
 					   other_klass->name)));

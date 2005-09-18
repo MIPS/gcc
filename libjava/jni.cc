@@ -552,7 +552,7 @@ _Jv_JNI_GetSuperclass (JNIEnv *env, jclass clazz)
 static jboolean JNICALL
 _Jv_JNI_IsAssignableFrom (JNIEnv *, jclass clazz1, jclass clazz2)
 {
-  return unwrap (clazz1)->isAssignableFrom (unwrap (clazz2));
+  return unwrap (clazz2)->isAssignableFrom (unwrap (clazz1));
 }
 
 static jint JNICALL
@@ -1112,10 +1112,10 @@ _Jv_JNI_NewObjectV (JNIEnv *env, jclass klass,
 		    jmethodID id, va_list args)
 {
   JvAssert (klass && ! klass->isArray ());
-  JvAssert (! strcmp (id->name->data, "<init>")
-	    && id->signature->length > 2
-	    && id->signature->data[0] == '('
-	    && ! strcmp (&id->signature->data[id->signature->length - 2],
+  JvAssert (! strcmp (id->name->chars(), "<init>")
+	    && id->signature->len() > 2
+	    && id->signature->chars()[0] == '('
+	    && ! strcmp (&id->signature->chars()[id->signature->len() - 2],
 			 ")V"));
 
   return _Jv_JNI_CallAnyMethodV<jobject, constructor> (env, NULL, klass,
@@ -1126,10 +1126,10 @@ static jobject JNICALL
 _Jv_JNI_NewObject (JNIEnv *env, jclass klass, jmethodID id, ...)
 {
   JvAssert (klass && ! klass->isArray ());
-  JvAssert (! strcmp (id->name->data, "<init>")
-	    && id->signature->length > 2
-	    && id->signature->data[0] == '('
-	    && ! strcmp (&id->signature->data[id->signature->length - 2],
+  JvAssert (! strcmp (id->name->chars(), "<init>")
+	    && id->signature->len() > 2
+	    && id->signature->chars()[0] == '('
+	    && ! strcmp (&id->signature->chars()[id->signature->len() - 2],
 			 ")V"));
 
   va_list args;
@@ -1148,10 +1148,10 @@ _Jv_JNI_NewObjectA (JNIEnv *env, jclass klass, jmethodID id,
 		    jvalue *args)
 {
   JvAssert (klass && ! klass->isArray ());
-  JvAssert (! strcmp (id->name->data, "<init>")
-	    && id->signature->length > 2
-	    && id->signature->data[0] == '('
-	    && ! strcmp (&id->signature->data[id->signature->length - 2],
+  JvAssert (! strcmp (id->name->chars(), "<init>")
+	    && id->signature->len() > 2
+	    && id->signature->chars()[0] == '('
+	    && ! strcmp (&id->signature->chars()[id->signature->len() - 2],
 			 ")V"));
 
   return _Jv_JNI_CallAnyMethodA<jobject, constructor> (env, NULL, klass,
@@ -1200,11 +1200,11 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
       char s[len + 1];
       for (int i = 0; i <= len; ++i)
 	s[i] = (sig[i] == '/') ? '.' : sig[i];
-      jclass field_class = _Jv_FindClassFromSignature ((char *) s, NULL);
+      java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
+      jclass field_class = _Jv_FindClassFromSignature ((char *) s, loader);
       if (! field_class)
 	throw new java::lang::ClassNotFoundException(JvNewStringUTF(s));
 
-      java::lang::ClassLoader *loader = clazz->getClassLoaderInternal ();
       while (clazz != NULL)
 	{
 	  // We acquire the class lock so that fields aren't resolved
@@ -1847,7 +1847,6 @@ natrehash ()
       nathash =
 	(JNINativeMethod *) _Jv_AllocBytes (nathash_size
 					    * sizeof (JNINativeMethod));
-      memset (nathash, 0, nathash_size * sizeof (JNINativeMethod));
     }
   else
     {
@@ -1857,7 +1856,6 @@ natrehash ()
       nathash =
 	(JNINativeMethod *) _Jv_AllocBytes (nathash_size
 					    * sizeof (JNINativeMethod));
-      memset (nathash, 0, nathash_size * sizeof (JNINativeMethod));
 
       for (int i = 0; i < savesize; ++i)
 	{

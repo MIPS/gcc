@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -63,7 +63,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import gnu.gcj.runtime.SharedLibHelper;
-
+import gnu.gcj.Core;
+import gnu.java.net.protocol.core.CoreInputStream;
 
 /**
  * A secure class loader that can load classes and resources from
@@ -610,7 +611,7 @@ public class URLClassLoader extends SecureClassLoader
     Resource getResource(String name)
     {
       File file = new File(dir, name);
-      if (file.exists() && ! file.isDirectory())
+      if (file.exists())
         return new FileResource(this, name, file);
       return null;
     }
@@ -628,11 +629,36 @@ public class URLClassLoader extends SecureClassLoader
 
     InputStream getInputStream() throws IOException
     {
+      // Delegate to the URL content handler mechanism to retrieve an
+      // HTML representation of the directory listing if a directory
+      if (file.isDirectory())
+        {
+          URL url = getURL();
+          return url.openStream();
+        }
+      // Otherwise simply return a FileInputStream
       return new FileInputStream(file);
     }
 
     public int getLength()
     {
+      // Delegate to the URL content handler mechanism to retrieve the
+      // length of the HTML representation of the directory listing if
+      // a directory, or -1 if an exception occurs opening the directory.
+      if (file.isDirectory())
+        {
+          URL url = getURL();
+          try
+            {
+              URLConnection connection = url.openConnection();
+              return connection.getContentLength();
+            }
+          catch (IOException e)
+            {
+              return -1;
+            }
+        }
+      // Otherwise simply return the file length
       return (int) file.length();
     }
 
@@ -642,6 +668,66 @@ public class URLClassLoader extends SecureClassLoader
         {
           return new URL(loader.baseURL, name,
                          loader.classloader.getURLStreamHandler("file"));
+        }
+      catch (MalformedURLException e)
+        {
+          InternalError ie = new InternalError();
+          ie.initCause(e);
+          throw ie;
+        }
+    }
+  }
+
+  /**
+   * A <code>CoreURLLoader</code> is a type of <code>URLLoader</code>
+   * only loading from core url.
+   */
+  static final class CoreURLLoader extends URLLoader
+  {
+    private String dir;
+
+    CoreURLLoader(URLClassLoader classloader, URL url)
+    {
+      super(classloader, url);
+      dir = baseURL.getFile();
+    }
+
+    /** get resource with the name "name" in the core url */
+    Resource getResource(String name)
+    {
+      Core core = Core.find (dir + name);
+      if (core != null)
+        return new CoreResource(this, name, core);
+      return null;
+    }
+  }
+
+  static final class CoreResource extends Resource
+  {
+    final Core core;
+
+    CoreResource(CoreURLLoader loader, String name, Core core)
+    {
+      super(loader, name);
+      this.core = core;
+    }
+
+    InputStream getInputStream() throws IOException
+    {
+      return new CoreInputStream(core);
+    }
+
+    public int getLength()
+    {
+      return core.length;
+    }
+
+    public URL getURL()
+    {
+      try
+        {
+          return new URL(loader.baseURL, name,
+                         loader.classloader.getURLStreamHandler("core"));
         }
       catch (MalformedURLException e)
         {
@@ -817,6 +903,8 @@ public class URLClassLoader extends SecureClassLoader
               loader = new JarURLLoader(this, newUrl);
             else if ("file".equals(protocol))
               loader = new FileURLLoader(this, newUrl);
+	    else if ("core".equals(protocol))
+	      loader = new CoreURLLoader(this, newUrl);
             else
               loader = new RemoteURLLoader(this, newUrl);
 
