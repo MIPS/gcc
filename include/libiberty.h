@@ -21,8 +21,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.
+   Foundation, Inc., 51 Franklin Street - Fifth Floor,
+   Boston, MA 02110-1301, USA.
    
    Written by Cygnus Support, 1994.
 
@@ -47,6 +47,26 @@ extern "C" {
 #include <stdarg.h>
 
 #include <stdio.h>
+
+/* If the OS supports it, ensure that the supplied stream is setup to
+   avoid any multi-threaded locking.  Otherwise leave the FILE pointer
+   unchanged.  If the stream is NULL do nothing.  */
+
+extern void unlock_stream (FILE *);
+
+/* If the OS supports it, ensure that the standard I/O streams, stdin,
+   stdout and stderr are setup to avoid any multi-threaded locking.
+   Otherwise do nothing.  */
+
+extern void unlock_std_streams (void);
+
+/* Open and return a FILE pointer.  If the OS supports it, ensure that
+   the stream is setup to avoid any multi-threaded locking.  Otherwise
+   return the FILE pointer unchanged.  */
+
+extern FILE *fopen_unlocked (const char *, const char *);
+extern FILE *fdopen_unlocked (int, const char *);
+extern FILE *freopen_unlocked (const char *, const char *, FILE *);
 
 /* Build an argument vector from a string.  Allocates memory using
    malloc.  Use freeargv to free the vector.  */
@@ -77,7 +97,10 @@ extern char **dupargv (char **) ATTRIBUTE_MALLOC;
 #if defined (__GNU_LIBRARY__ ) || defined (__linux__) || defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__NetBSD__) || defined (__CYGWIN__) || defined (__CYGWIN32__) || defined (__MINGW32__) || defined (HAVE_DECL_BASENAME)
 extern char *basename (const char *);
 #else
-extern char *basename ();
+/* Do not allow basename to be used if there is no prototype seen.  We
+   either need to use the above prototype or have one from
+   autoconf which would result in HAVE_DECL_BASENAME being set.  */
+#define basename basename_cannot_be_used_without_a_prototype
 #endif
 #endif
 
@@ -133,7 +156,7 @@ extern char *libiberty_concat_ptr;
    strings.  Allocates memory using alloca.  The arguments are
    evaluated twice!  */
 #define ACONCAT(ACONCAT_PARAMS) \
-  (libiberty_concat_ptr = alloca (concat_length ACONCAT_PARAMS + 1), \
+  (libiberty_concat_ptr = (char *) alloca (concat_length ACONCAT_PARAMS + 1), \
    concat_copy2 ACONCAT_PARAMS)
 
 /* Check whether two file descriptors refer to the same file.  */
@@ -245,18 +268,18 @@ extern void xmalloc_failed (size_t) ATTRIBUTE_NORETURN;
    message to stderr (using the name set by xmalloc_set_program_name,
    if any) and then call xexit.  */
 
-extern PTR xmalloc (size_t) ATTRIBUTE_MALLOC;
+extern void *xmalloc (size_t) ATTRIBUTE_MALLOC;
 
 /* Reallocate memory without fail.  This works like xmalloc.  Note,
    realloc type functions are not suitable for attribute malloc since
    they may return the same address across multiple calls. */
 
-extern PTR xrealloc (PTR, size_t);
+extern void *xrealloc (void *, size_t);
 
 /* Allocate memory without fail and set it to zero.  This works like
    xmalloc.  */
 
-extern PTR xcalloc (size_t, size_t) ATTRIBUTE_MALLOC;
+extern void *xcalloc (size_t, size_t) ATTRIBUTE_MALLOC;
 
 /* Copy a string into a memory buffer without fail.  */
 
@@ -268,7 +291,7 @@ extern char *xstrndup (const char *, size_t) ATTRIBUTE_MALLOC;
 
 /* Copy an existing memory buffer to a new memory buffer without fail.  */
 
-extern PTR xmemdup (const PTR, size_t, size_t) ATTRIBUTE_MALLOC;
+extern void *xmemdup (const void *, size_t, size_t) ATTRIBUTE_MALLOC;
 
 /* Physical memory routines.  Return values are in BYTES.  */
 extern double physmem_total (void);
@@ -303,7 +326,7 @@ extern double physmem_available (void);
 /* Type-safe obstack allocator.  */
 
 #define XOBNEW(O, T)		((T *) obstack_alloc ((O), sizeof (T)))
-
+#define XOBFINISH(O, T)         ((T) obstack_finish ((O)))
 
 /* hex character manipulation routines */
 
@@ -504,8 +527,22 @@ extern int asprintf (char **, const char *, ...) ATTRIBUTE_PRINTF_2;
 /* Like vsprintf but provides a pointer to malloc'd storage, which
    must be freed by the caller.  */
 
-extern int vasprintf (char **, const char *, va_list)
-  ATTRIBUTE_PRINTF(2,0);
+extern int vasprintf (char **, const char *, va_list) ATTRIBUTE_PRINTF(2,0);
+#endif
+
+#if defined(HAVE_DECL_SNPRINTF) && !HAVE_DECL_SNPRINTF
+/* Like sprintf but prints at most N characters.  */
+extern int snprintf (char *, size_t, const char *, ...) ATTRIBUTE_PRINTF_3;
+#endif
+
+#if defined(HAVE_DECL_VSNPRINTF) && !HAVE_DECL_VSNPRINTF
+/* Like vsprintf but prints at most N characters.  */
+extern int vsnprintf (char *, size_t, const char *, va_list) ATTRIBUTE_PRINTF(3,0);
+#endif
+
+#if defined(HAVE_DECL_STRVERSCMP) && !HAVE_DECL_STRVERSCMP
+/* Compare version strings.  */
+extern int strverscmp (const char *, const char *);
 #endif
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
@@ -516,7 +553,7 @@ extern int vasprintf (char **, const char *, va_list)
    USE_C_ALLOCA yourself.  The canonical autoconf macro C_ALLOCA is
    also set/unset as it is often used to indicate whether code needs
    to call alloca(0).  */
-extern PTR C_alloca (size_t) ATTRIBUTE_MALLOC;
+extern void *C_alloca (size_t) ATTRIBUTE_MALLOC;
 #undef alloca
 #if GCC_VERSION >= 2000 && !defined USE_C_ALLOCA
 # define alloca(x) __builtin_alloca(x)

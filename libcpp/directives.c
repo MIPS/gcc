@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -157,7 +157,10 @@ D(ident,	T_IDENT,	EXTENSION, IN_I)	   /*     11 */ \
 D(import,	T_IMPORT,	EXTENSION, INCL | EXPAND)  /* 0 ObjC */	\
 D(assert,	T_ASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
 D(unassert,	T_UNASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
-D(sccs,		T_SCCS,		EXTENSION, 0)		   /* 0 SVR4? */
+D(sccs,		T_SCCS,		EXTENSION, IN_I)	   /* 0 SVR4? */
+
+/* #sccs is synonymous with #ident.  */
+#define do_sccs do_ident
 
 /* Use the table to generate a series of prototypes, an enum for the
    directive names, and an array of directive handlers.  */
@@ -585,7 +588,7 @@ glue_header_name (cpp_reader *pfile)
 
   /* To avoid lexed tokens overwriting our glued name, we can only
      allocate from the string pool once we've lexed everything.  */
-  buffer = xmalloc (capacity);
+  buffer = XNEWVEC (char, capacity);
   for (;;)
     {
       token = get_token_no_padding (pfile);
@@ -602,7 +605,7 @@ glue_header_name (cpp_reader *pfile)
       if (total_len + len > capacity)
 	{
 	  capacity = (capacity + len) * 2;
-	  buffer = xrealloc (buffer, capacity);
+	  buffer = XRESIZEVEC (char, buffer, capacity);
 	}
 
       if (token->flags & PREV_WHITE)
@@ -630,7 +633,7 @@ parse_include (cpp_reader *pfile, int *pangle_brackets)
   header = get_token_no_padding (pfile);
   if (header->type == CPP_STRING || header->type == CPP_HEADER_NAME)
     {
-      fname = xmalloc (header->val.str.len - 1);
+      fname = XNEWVEC (char, header->val.str.len - 1);
       memcpy (fname, header->val.str.text + 1, header->val.str.len - 2);
       fname[header->val.str.len - 2] = '\0';
       *pangle_brackets = header->type == CPP_HEADER_NAME;
@@ -953,7 +956,8 @@ do_ident (cpp_reader *pfile)
   const cpp_token *str = cpp_get_token (pfile);
 
   if (str->type != CPP_STRING)
-    cpp_error (pfile, CPP_DL_ERROR, "invalid #ident directive");
+    cpp_error (pfile, CPP_DL_ERROR, "invalid #%s directive",
+	       pfile->directive->name);
   else if (pfile->cb.ident)
     pfile->cb.ident (pfile, pfile->directive_line, &str->val.str);
 
@@ -981,27 +985,27 @@ insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
 		     const cpp_hashnode *pragma, pragma_cb handler,
 		     bool allow_expansion, bool internal)
 {
-  struct pragma_entry *new;
+  struct pragma_entry *new_entry;
 
-  new = (struct pragma_entry *)
+  new_entry = (struct pragma_entry *)
     _cpp_aligned_alloc (pfile, sizeof (struct pragma_entry));
-  new->pragma = pragma;
+  new_entry->pragma = pragma;
   if (handler)
     {
-      new->is_nspace = 0;
-      new->u.handler = handler;
+      new_entry->is_nspace = 0;
+      new_entry->u.handler = handler;
     }
   else
     {
-      new->is_nspace = 1;
-      new->u.space = NULL;
+      new_entry->is_nspace = 1;
+      new_entry->u.space = NULL;
     }
 
-  new->allow_expansion = allow_expansion;
-  new->is_internal = internal;
-  new->next = *chain;
-  *chain = new;
-  return new;
+  new_entry->allow_expansion = allow_expansion;
+  new_entry->is_internal = internal;
+  new_entry->next = *chain;
+  *chain = new_entry;
+  return new_entry;
 }
 
 /* Register a pragma NAME in namespace SPACE.  If SPACE is null, it
@@ -1106,9 +1110,9 @@ save_registered_pragmas (struct pragma_entry *pe, char **sd)
     {
       if (pe->is_nspace)
 	sd = save_registered_pragmas (pe->u.space, sd);
-      *sd++ = xmemdup (HT_STR (&pe->pragma->ident),
-		       HT_LEN (&pe->pragma->ident),
-		       HT_LEN (&pe->pragma->ident) + 1);
+      *sd++ = (char *) xmemdup (HT_STR (&pe->pragma->ident),
+                                HT_LEN (&pe->pragma->ident),
+                                HT_LEN (&pe->pragma->ident) + 1);
     }
   return sd;
 }
@@ -1379,7 +1383,7 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
   const unsigned char *src, *limit;
   char *dest, *result;
 
-  dest = result = alloca (in->len - 1);
+  dest = result = (char *) alloca (in->len - 1);
   src = in->text + 1 + (in->text[0] == 'L');
   limit = in->text + in->len - 1;
   while (src < limit)
@@ -1472,12 +1476,6 @@ cpp_handle_deferred_pragma (cpp_reader *pfile, const cpp_string *s)
   pfile->cb.line_change = saved_line_change;
   pfile->state.in_deferred_pragma = false;
   CPP_OPTION (pfile, defer_pragmas) = saved_defer_pragmas;
-}
-
-/* Ignore #sccs on all systems.  */
-static void
-do_sccs (cpp_reader *pfile ATTRIBUTE_UNUSED)
-{
 }
 
 /* Handle #ifdef.  */
@@ -1762,7 +1760,7 @@ parse_assertion (cpp_reader *pfile, struct answer **answerp, int type)
   else if (parse_answer (pfile, answerp, type) == 0)
     {
       unsigned int len = NODE_LEN (predicate->val.node);
-      unsigned char *sym = alloca (len + 1);
+      unsigned char *sym = (unsigned char *) alloca (len + 1);
 
       /* Prefix '#' to get it out of macro namespace.  */
       sym[0] = '#';
@@ -1857,7 +1855,8 @@ do_assert (cpp_reader *pfile)
       if (pfile->hash_table->alloc_subobject)
 	{
 	  struct answer *temp_answer = new_answer;
-	  new_answer = pfile->hash_table->alloc_subobject (answer_size);
+	  new_answer = (struct answer *) pfile->hash_table->alloc_subobject
+            (answer_size);
 	  memcpy (new_answer, temp_answer, answer_size);
 	}
       else
@@ -1919,7 +1918,7 @@ cpp_define (cpp_reader *pfile, const char *str)
      tack " 1" on the end.  */
 
   count = strlen (str);
-  buf = alloca (count + 3);
+  buf = (char *) alloca (count + 3);
   memcpy (buf, str, count);
 
   p = strchr (str, '=');
@@ -1940,7 +1939,7 @@ void
 _cpp_define_builtin (cpp_reader *pfile, const char *str)
 {
   size_t len = strlen (str);
-  char *buf = alloca (len + 1);
+  char *buf = (char *) alloca (len + 1);
   memcpy (buf, str, len);
   buf[len] = '\n';
   run_directive (pfile, T_DEFINE, buf, len);
@@ -1951,7 +1950,7 @@ void
 cpp_undef (cpp_reader *pfile, const char *macro)
 {
   size_t len = strlen (macro);
-  char *buf = alloca (len + 1);
+  char *buf = (char *) alloca (len + 1);
   memcpy (buf, macro, len);
   buf[len] = '\n';
   run_directive (pfile, T_UNDEF, buf, len);
@@ -1980,7 +1979,7 @@ handle_assertion (cpp_reader *pfile, const char *str, int type)
 
   /* Copy the entire option so we can modify it.  Change the first
      "=" in the string to a '(', and tack a ')' on the end.  */
-  char *buf = alloca (count + 2);
+  char *buf = (char *) alloca (count + 2);
 
   memcpy (buf, str, count);
   if (p)
@@ -2038,20 +2037,20 @@ cpp_buffer *
 cpp_push_buffer (cpp_reader *pfile, const uchar *buffer, size_t len,
 		 int from_stage3)
 {
-  cpp_buffer *new = XOBNEW (&pfile->buffer_ob, cpp_buffer);
+  cpp_buffer *new_buffer = XOBNEW (&pfile->buffer_ob, cpp_buffer);
 
   /* Clears, amongst other things, if_stack and mi_cmacro.  */
-  memset (new, 0, sizeof (cpp_buffer));
+  memset (new_buffer, 0, sizeof (cpp_buffer));
 
-  new->next_line = new->buf = buffer;
-  new->rlimit = buffer + len;
-  new->from_stage3 = from_stage3;
-  new->prev = pfile->buffer;
-  new->need_line = true;
+  new_buffer->next_line = new_buffer->buf = buffer;
+  new_buffer->rlimit = buffer + len;
+  new_buffer->from_stage3 = from_stage3;
+  new_buffer->prev = pfile->buffer;
+  new_buffer->need_line = true;
 
-  pfile->buffer = new;
+  pfile->buffer = new_buffer;
 
-  return new;
+  return new_buffer;
 }
 
 /* Pops a single buffer, with a file change call-back if appropriate.

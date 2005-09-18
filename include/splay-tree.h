@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* For an easily readable description of splay-trees, see:
 
@@ -69,7 +69,7 @@ typedef int (*splay_tree_foreach_fn) (splay_tree_node, void*);
    node structures.  The first argument is the number of bytes needed;
    the second is a data pointer the splay tree functions pass through
    to the allocator.  This function must never return zero.  */
-typedef PTR (*splay_tree_allocate_fn) (int, void *);
+typedef void *(*splay_tree_allocate_fn) (int, void *);
 
 /* The type of a function used to free memory allocated using the
    corresponding splay_tree_allocate_fn.  The first argument is the
@@ -109,7 +109,7 @@ struct splay_tree_s GTY(())
   /* Allocate/free functions, and a data pointer to pass to them.  */
   splay_tree_allocate_fn allocate;
   splay_tree_deallocate_fn deallocate;
-  PTR GTY((skip)) allocate_data;
+  void * GTY((skip)) allocate_data;
 
 };
 typedef struct splay_tree_s *splay_tree;

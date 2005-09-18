@@ -1,3 +1,34 @@
+2005-09-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, vi.po: Update.
+
+2005-06-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* tr.po, vi.po: Update.
+
+2005-06-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, vi.po: Update.
+
+2005-06-14  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* fr.po, sv.po: Update.
+
+2005-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* cpplib.pot: Regenerate.
+
+2005-05-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* nl.po: Update.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, vi.po: Update.
+
 2005-04-06  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* rw.po: New file.

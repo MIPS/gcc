@@ -1,6 +1,9 @@
 /* Definitions for data structures and routines for the regular
    expression library, version 0.12.
-   Copyright (C) 1985,1989-1993,1995-1998, 2000 Free Software Foundation, Inc.
+
+   Copyright (C) 1985, 1989, 1990, 1991, 1992, 1993, 1995, 1996, 1997,
+   1998, 2000, 2005 Free Software Foundation, Inc.
+
    This file is part of the GNU C Library.  Its master source is NOT part of
    the C library, however.  The master source lives in /gd/gnu/lib.
 
@@ -16,8 +19,8 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.  */
+   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301 USA.  */
 
 #ifndef _REGEX_H
 #define _REGEX_H 1
@@ -533,6 +536,9 @@ extern int regcomp (regex_t *__restrict __preg,
                     const char *__restrict __pattern,
                     int __cflags);
 
+#if (__GNUC__)
+__extension__
+#endif
 extern int regexec (const regex_t *__restrict __preg,
                     const char *__restrict __string, size_t __nmatch,
                     regmatch_t __pmatch[__restrict_arr],
