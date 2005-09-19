@@ -602,6 +602,10 @@ foptimize-register-move
 Common Report Var(flag_regmove)
 Do the full register move optimization pass
 
+foptimize-related-values
+Common Report Var(flag_optimize_related_values)
+Enable additional regmove optimization for base reg + offset expressions
+
 foptimize-sibling-calls
 Common Report Var(flag_optimize_sibling_calls)
 Optimize sibling and tail recursive calls

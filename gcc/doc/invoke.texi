@@ -315,7 +315,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -funsafe-loop-optimizations  -ffinite-math-only @gol
 -fno-trapping-math  -fno-zero-initialized-in-bss @gol
--fomit-frame-pointer  -foptimize-register-move @gol
+-fomit-frame-pointer  -foptimize-register-move -foptimize-related-values @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
 -fregmove  -frename-registers @gol
@@ -4374,7 +4374,7 @@ also turns on the following optimization flags:
 -fpeephole2 @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
--fregmove @gol
+-fregmove -foptimize-related-values @gol
 -fstrict-aliasing @gol
 -fdelete-null-pointer-checks @gol
 -freorder-blocks  -freorder-functions @gol
@@ -4837,6 +4837,15 @@ Note @option{-fregmove} and @option{-foptimize-register-move} are the same
 optimization.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -foptimize-related-values
+@opindex foptimize-related-values
+For targets with auto-increment addressing modes, attempt to re-arrange
+register + offset calculations and memory acesses in order to reduce
+the overall instruction count and register pressure.
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, unless
+-foptimize-register-move is disabled.
 
 @item -fdelayed-branch
 @opindex fdelayed-branch

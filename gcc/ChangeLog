@@ -1,3 +1,41 @@
+2005-09-19  J"orn Rennecke <joern.rennecke@st.com>
+	    Bernd Schmidt  <bernds@redhat.com>
+
+	PR rtl-optimization/20211
+	* common.opt: Add optimize-related-values entry.
+	* opts.c (decode_options): Set flag_optimize_related_values.
+	* optabs.c (gen_add3_insn): If direct addition is not possible,
+	try to move the constant into the destination register first.
+	* regmove.c (obstack.h, ggc.h, optabs.h): Include.
+	(related, rel_use_chain, rel_mod, rel_use): New structures.
+	(related_baseinfo, update): Likewise.
+	(lookup_related, rel_build_chain): New functions.
+	(recognize_related_for_insn, record_reg_use, create_rel_use): Likewise.
+	(new_reg_use, rel_record_mem, new_base, invalidate_related): Likewise.
+	(find_related, find_related_toplev, chain_starts_earlier): Likewise.
+	(chain_ends_later, mod_before, remove_setting_insns): Likewise.
+	(perform_addition, modify_address): Likewise.
+	(optimize_related_values_1, optimize_related_values_0): Likewise.
+	(optimize_related_values, count_sets, link_chains): Likewise.
+	(init_add_limits): Likewise.
+	(REL_USE_HASH_SIZE, REL_USE_HASH, rel_alloc, rel_new): New macros.
+	(regno_related, rel_base_list, unrelatedly_used): New variables.
+	(related_obstack, add_limits): Likewise.
+	(regmove_optimize): Call optimize_related_values.
+	Include gt-regmove.h.
+	(have_3addr_const_add): New variable.
+	* Makefile.in (gt-regmove.h): New rule.
+	(regmove.o): Depend on $(OPTABS_H) and gt-regmove.h.
+	(GTFILES): Add regmove.c.
+	* doc/invoke.texi: Document -foptimize-related-values.
+
+2005-09-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* regmove.c (discover_flags_reg): Use the PATTERN of an INSN.
+
+	* regmove.c (fixup_match_1): When moving a death note, check if
+	it needs changing into a REG_UNUSED note.
+
 2005-09-14  J"orn Rennecke <joern.rennecke@st.com>
 	    Kaz Kojima  <kkojima@gcc.gnu.org>
 

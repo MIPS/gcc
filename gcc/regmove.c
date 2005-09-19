@@ -43,6 +43,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "toplev.h"
 #include "reload.h"
+#include "obstack.h"
+#include "ggc.h"
+#include "optabs.h"
 #include "timevar.h"
 #include "tree-pass.h"
 
@@ -53,6 +56,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define STACK_GROWS_DOWNWARD 1
 #else
 #define STACK_GROWS_DOWNWARD 0
+#endif
+/* Likewise for AUTO_INC_DEC.  */
+#ifdef AUTO_INC_DEC
+#undef AUTO_INC_DEC
+#define AUTO_INC_DEC 1
+#else
+#define AUTO_INC_DEC 0
 #endif
 
 static int perhaps_ends_bb_p (rtx);
@@ -82,6 +92,37 @@ static int stable_and_no_regs_but_for_p (rtx, rtx, rtx);
 static int regclass_compatible_p (int, int);
 static int replacement_quality (rtx);
 static int fixup_match_2 (rtx, rtx, rtx, rtx, FILE *);
+
+struct related;
+struct rel_use_chain;
+struct rel_mod;
+struct rel_use;
+
+static struct rel_use *lookup_related (int, enum reg_class, HOST_WIDE_INT, int);
+static void rel_build_chain (struct rel_use *, struct rel_use *,
+			     struct related *);
+static int recognize_related_for_insn (rtx, int, int);
+static void record_reg_use (rtx *, rtx, int, int);
+static struct rel_use *create_rel_use (rtx, rtx *, int, int, int);
+static void new_reg_use (rtx, rtx *, int, int, int, int);
+static void rel_record_mem (rtx *, rtx, int, int, int, rtx, int, int);
+static void new_base (rtx, rtx, int, int);
+static void invalidate_related (rtx, rtx, int, int);
+static void find_related (rtx *, rtx, int, int);
+static void find_related_toplev (rtx, int, int);
+static int chain_starts_earlier (const void *, const void *);
+static int chain_ends_later (const void *, const void *);
+static int mod_before (const void *, const void *);
+static void remove_setting_insns (struct related *, rtx);
+static rtx perform_addition (struct rel_mod *, struct rel_use *, rtx,
+			     struct rel_use_chain *);
+static void modify_address (struct rel_mod *, struct rel_use *, HOST_WIDE_INT);
+static void optimize_related_values_1 (struct related *, int, int, rtx, FILE *);
+static void optimize_related_values_0 (struct related *, int, int, rtx, FILE *);
+static void optimize_related_values (int, FILE *);
+static void count_sets (rtx, rtx, void *);
+static int link_chains (struct rel_use_chain *, struct rel_use_chain *,
+			enum machine_mode);
 
 /* Return nonzero if registers with CLASS1 and CLASS2 can be merged without
    causing too much register allocation problems.  */
@@ -173,6 +214,8 @@ discover_flags_reg (void)
 
   /* If we get something that isn't a simple set, or a
      [(set ..) (clobber ..)], this whole function will go wrong.  */
+  if (GET_CODE (tmp) == INSN)
+    tmp = PATTERN (tmp);
   if (GET_CODE (tmp) == SET)
     return NULL_RTX;
   else if (GET_CODE (tmp) == PARALLEL)
@@ -321,6 +364,1874 @@ flags_set_1 (rtx x, rtx pat, void *data ATTRIBUTE_UNUSED)
   if (GET_CODE (pat) == SET
       && reg_overlap_mentioned_p (x, flags_set_1_rtx))
     flags_set_1_set = 1;
+}
+
+static GTY (()) rtx test_addr;
+
+/* Some machines have two-address-adds and instructions that can
+   use only register-indirect addressing and auto_increment, but no
+   offsets.  If multiple fields of a struct are accessed more than
+   once, cse will load each of the member addresses in separate registers.
+   This not only costs a lot of registers, but also of instructions,
+   since each add to initialize an address register must be really expanded
+   into a register-register move followed by an add.
+   regmove_optimize uses some heuristics to detect this case; if these
+   indicate that this is likely, optimize_related_values is run once for
+   the entire function.
+
+   We build chains of uses of related values that can be satisfied with the
+   same base register by taking advantage of auto-increment address modes
+   instead of explicit add instructions.
+
+   We try to link chains with disjoint lifetimes together to reduce the
+   number of temporary registers and register-register copies.
+
+   This optimization pass operates on basic blocks one at a time; it could be
+   extended to work on extended basic blocks or entire functions.  */
+
+/* For each set of values related to a common base register, we use a
+   hash table which maps constant offsets to instructions.
+
+   The instructions mapped to are those that use a register which may,
+   (possibly with a change in addressing mode) differ from the initial
+   value of the base register by exactly that offset after the
+   execution of the instruction.
+   Here we define the size of the hash table, and the hash function to use.  */
+#define REL_USE_HASH_SIZE 43
+#define REL_USE_HASH(I) ((I) % (unsigned HOST_WIDE_INT) REL_USE_HASH_SIZE)
+
+/* For each register in a set of registers that are related, we keep a
+   struct related.
+
+   BASE points to the struct related of the base register (i.e. the one
+   that was the source of the first three-address add for this set of
+   related values).
+
+   INSN is the instruction that initialized the register, or, for the
+   base, the instruction that initialized the first non-base register.
+
+   BASE is the register number of the base register.
+
+   For the base register only, the member BASEINFO points to some extra data.
+
+   'luid' here means linear uid.  We count them starting at the function
+   start; they are used to avoid overlapping lifetimes.
+
+   UPDATES is a list of instructions that set the register to a new
+   value that is still related to the same base.
+
+   When a register in a set of related values is set to something that
+   is not related to the base, INVALIDATE_LUID is set to the luid of
+   the instruction that does this set.  This is used to avoid re-using
+   this register in an overlapping liftime for a related value.
+
+   DEATH is first used to store the insn (if any) where the register dies.
+   When the optimization is actually performed, the REG_DEAD note from
+   the insn denoted by DEATH is removed.
+   Thereafter, the removed death note is stored in DEATH, marking not
+   only that the register dies, but also making the note available for reuse.
+
+   We also use a struct related to keep track of registers that have been
+   used for anything that we don't recognize as related values.
+   The only really interesting datum for these is u.last_luid, which is
+   the luid of the last reference we have seen.  These struct relateds
+   are marked by a zero INSN field; most other members are not used and
+   remain uninitialized.  */
+
+struct related
+{
+  rtx insn;
+  rtx reg;
+  struct related *base;
+  HOST_WIDE_INT offset;
+  struct related *prev;
+  struct update *updates;
+  struct related_baseinfo *baseinfo;
+  int invalidate_luid;
+  rtx death;
+  int reg_orig_calls_crossed;
+  int reg_set_call_tally;
+};
+
+/* HASHTAB maps offsets to register uses with a matching MATCH_OFFSET.
+   PREV_BASE points to the struct related for the previous base register
+   that we currently keep track of.
+   INSN_LUID is the luid of the instruction that started this set of
+   related values.  */
+struct related_baseinfo
+{
+  struct rel_use *hashtab[REL_USE_HASH_SIZE];
+  struct rel_use_chain *chains;
+  struct related *prev_base;
+  int insn_luid;
+};
+
+/* INSN is an instruction that sets a register that previously contained
+   a related value to a new value that is related to the same base register.
+   When the optimization is performed, we have to delete INSN.
+   DEATH_INSN points to the insn (if any) where the register died that we
+   set in INSN.  When we perform the optimization, the REG_DEAD note has
+   to be removed from DEATH_INSN.
+   PREV points to the struct update that pertains to the previous
+   instruction pertaining to the same register that set it from one
+   related value to another one.  */
+struct update
+{
+  rtx insn;
+  rtx death_insn;
+  struct update *prev;
+};
+
+struct rel_use_chain
+{
+  /* Points to first use in this chain.  */
+  struct rel_use *uses;
+  struct rel_use_chain *prev;
+  struct rel_use_chain *linked;
+  /* The following fields are only set after the chain has been completed:  */
+  /* Last use in this chain.  */
+  struct rel_use *end;
+  int start_luid;
+  int end_luid;
+  int calls_crossed;
+  /* The register allocated for this chain.  */
+  rtx reg;
+  /* The death note for this register.  */
+  rtx death_note;
+  /* Offset after execution of last insn.  */
+  HOST_WIDE_INT match_offset;
+};
+
+/* ADDRP points to the place where the actual use of the related value is.
+   This is commonly a memory address, and has to be set to a register
+   or some auto_inc addressing of this register.
+   But ADDRP is also used for all other uses of related values to
+   the place where the register is inserted; we can tell that an
+   unardorned register is to be inserted because no offset adjustment
+   is required, hence this is handled by the same logic as register-indirect
+   addressing.  The only exception to this is when SET_IN_PARALLEL is set,
+   see below.
+
+   OFFSET is the offset that is actually used in this instance, i.e.
+   the value of the base register when the set of related values was
+   created plus OFFSET yields the value that is used.
+   This might be different from the value of the used register before
+   executing INSN if we elected to use pre-{in,de}crement addressing.
+   If we have the option to use post-{in,de}crement addressing, all
+   choices are linked cyclically together with the SIBLING field.
+   Otherwise, it's a one-link-cycle, i.e. SIBLING points at the
+   struct rel_use it is a member of.
+
+   MATCH_OFFSET is the offset that is available after the execution
+   of INSN.  It is the same as OFFSET for straight register-indirect
+   addressing and for pre-{in,de}crement addressing, while it differs
+   for the post-{in,de}crement addressing modes.
+
+   If SET_IN_PARALLEL is set, MATCH_OFFSET differs from OFFSET, yet
+   this is no post-{in,de}crement addressing.  Rather, it is a set
+   inside a PARALLEL that adds some constant to a register that holds
+   one value of a set of related values that we keep track of.
+
+   NEXT_CHAIN is the link in a chain of rel_use structures.  If nonzero,
+   we will ignore this rel_use in a hash table lookup, since it has
+   already been appended to.  This field can point to its containing
+   rel_use; this means that we found a reason not to append to this
+   chain anymore (e.g. if a use comes with a clobber).
+
+   ADDRP then points only to the set destination of this set; another
+   struct rel_use is used for the source of the set.
+
+   NO_LINK_PRED is nonzero for the last use in a chain if it cannot be
+   the predecessor for a another chain to be linked to.  This can happen
+   for uses that come with a clobber, and for uses by a register that
+   is live at the end of the processed range of insns (usually a basic
+   block).  */
+
+struct rel_use
+{
+  rtx insn, *addrp;
+  int luid;
+  int call_tally;
+  enum reg_class class;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT match_offset;
+  struct rel_use *next_chain;
+  struct rel_use **prev_chain_ref;
+  struct rel_use *next_hash;
+  struct rel_use *sibling;
+  unsigned int set_in_parallel:1;
+  unsigned int no_link_pred:1;
+};
+
+/* Describe a modification we have to do to the rtl when doing the
+   related value optimization.
+   There are two types of modifications: emitting a new add or move
+   insn, or updating an address within an existing insn.  We distinguish
+   between these two cases by testing whether the INSN field is nonzero.  */
+struct rel_mod
+{
+  /* Nonzero if we have to emit a new addition before this insn.
+     Otherwise, this describes an address update.  */
+  rtx insn;
+  /* The chain which this modification belongs to.  */
+  struct rel_use_chain *chain;
+  /* The position within the insn stream.  Used for sorting the set of
+     modifications in ascending order.  */
+  int luid;
+  /* Used to make the sort stable.  */
+  int count;
+  /* If this structure describes an addition, this is nonzero if the
+     source register is the base reg.  */
+  unsigned int from_base:1;
+};
+
+struct related **regno_related, *rel_base_list, *unrelatedly_used;
+
+#define rel_alloc(N) obstack_alloc(&related_obstack, (N))
+#define rel_new(X) ((X) = rel_alloc (sizeof *(X)))
+
+static struct obstack related_obstack;
+
+/* For each integer machine mode, the minimum and maximum constant that
+   can be added with a single constant.
+   This is supposed to define an interval around zero; if there are
+   singular points disconnected from this interval, we want to leave
+   them out.  */
+   
+static HOST_WIDE_INT add_limits[NUM_MACHINE_MODES][2];
+static char have_3addr_const_add[NUM_MACHINE_MODES];
+
+/* Try to find a related value with offset OFFSET from the base
+   register belonging to REGNO, using a register with preferred class
+   that is compatible with CLASS.  LUID is the insn in which we want
+   to use the matched register; this is used to avoid returning a
+   match that is an autoincrement within the same insn.  */
+
+static struct rel_use *
+lookup_related (int regno, enum reg_class class, HOST_WIDE_INT offset,
+		int luid)
+{
+  struct related *base = regno_related[regno]->base;
+  int hash = REL_USE_HASH (offset);
+  struct rel_use *match = base->baseinfo->hashtab[hash];
+  
+  for (; match; match = match->next_hash)
+    {
+      if (offset != match->match_offset)
+	continue;
+
+      /* If MATCH is an autoincrement in the same insn, ensure that it
+	 will not be used; otherwise we can end up with invalid rtl
+	 that uses the register outside the autoincrement.  */
+      if (match->luid == luid && match->offset != match->match_offset)
+	continue;
+
+      /* We are looking for a use which we can append to, so ignore
+	 anything that has already been appended to, and anything that
+	 must terminate a chain for other reasons.  */
+      if (match->next_chain)
+	continue;
+
+      if (regclass_compatible_p (class, match->class))
+	break;
+    }
+  
+  return match;
+}
+
+/* Add NEW_USE at the end of the chain that currently ends with MATCH;
+   If MATCH is not set, create a new chain.
+   BASE is the base register number the chain belongs to.  */
+
+static void
+rel_build_chain (struct rel_use *new_use, struct rel_use *match,
+		 struct related *base)
+{
+  int hash;
+
+  if (match)
+    {
+      struct rel_use *sibling = match;
+
+      do
+	{
+	  sibling->next_chain = new_use;
+	  if (sibling->prev_chain_ref)
+	    *sibling->prev_chain_ref = match;
+	  sibling = sibling->sibling;
+	}
+      while (sibling != match);
+
+      new_use->prev_chain_ref = &match->next_chain;
+    }
+  else
+    {
+      struct rel_use_chain *new_chain;
+
+      rel_new (new_chain);
+      new_chain->uses = new_use;
+      new_use->prev_chain_ref = &new_chain->uses;
+      new_chain->linked = 0;
+      new_chain->prev = base->baseinfo->chains;
+      base->baseinfo->chains = new_chain;
+    }
+  new_use->next_chain = 0;
+
+  hash = REL_USE_HASH (new_use->offset);
+  new_use->next_hash = base->baseinfo->hashtab[hash];
+  base->baseinfo->hashtab[hash] = new_use;
+}
+
+static struct rel_use *
+create_rel_use (rtx insn, rtx *xp, int regno, int luid, int call_tally)
+{
+  struct rel_use *new_use;
+  HOST_WIDE_INT offset = regno_related[regno]->offset;
+  enum reg_class class = reg_preferred_class (regno);
+
+  rel_new (new_use);
+  new_use->insn = insn;
+  new_use->addrp = xp;
+  new_use->luid = luid;
+  new_use->call_tally = call_tally;
+  new_use->class = class;
+  new_use->set_in_parallel = 0;
+  new_use->offset = offset;
+  new_use->match_offset = offset;
+  new_use->sibling = new_use;
+  new_use->no_link_pred = 0;
+
+  return new_use;
+}
+
+/* Record a new use of reg REGNO, which is found at address XP in INSN.
+   LUID and CALL_TALLY correspond to INSN.
+
+   There is a special case for uses of REGNO that must be preserved and
+   can't be optimized.  This case can happen either if we reach the end
+   of a block and a register which we track is still live, or if we find
+   a use of that register that can't be replaced inside an insn.  In
+   either case, TERMINATE should be set to a nonzero value.  */
+
+static void
+new_reg_use (rtx insn, rtx *xp, int regno, int luid, int call_tally,
+	     int terminate)
+{
+  struct rel_use *new_use, *match;
+  HOST_WIDE_INT offset = regno_related[regno]->offset;
+  enum reg_class class = reg_preferred_class (regno);
+  struct related *base = regno_related[regno]->base;
+
+  new_use = create_rel_use (insn, xp, regno, luid, call_tally);
+  match = lookup_related (regno, class, offset, luid);
+
+  rel_build_chain (new_use, match, base);
+  if (terminate)
+    new_use->next_chain = new_use;
+}
+
+/* Record the use of register ADDR in a memory reference.
+   ADDRP is the memory location where the address is stored.
+   MEM_MODE is the mode of the enclosing MEM.
+   SIZE is the size of the memory reference.
+   PRE_OFFS is the offset that has to be added to the value in ADDR
+   due to PRE_{IN,DE}CREMENT addressing in the original address; likewise,
+   POST_OFFSET denotes POST_{IN,DE}CREMENT addressing.  INSN is the
+   instruction that uses this address, LUID its luid, and CALL_TALLY
+   the current number of calls encountered since the start of the
+   function.  */
+      
+static void
+rel_record_mem (rtx *addrp, rtx addr, int size, int pre_offs, int post_offs,
+		rtx insn, int luid, int call_tally)
+{
+  rtx orig_addr = *addrp;
+  int regno;
+  struct related *base;
+  HOST_WIDE_INT offset;
+  struct rel_use *new_use, *match;
+  int hash;
+
+  gcc_assert (REG_P (addr));
+  
+  regno = REGNO (addr);
+
+  if (! regno_related[regno] || regno_related[regno]->invalidate_luid)
+    {
+      invalidate_related (addr, insn, luid, call_tally);
+      return;
+    }
+
+  offset = regno_related[regno]->offset += pre_offs;
+  base = regno_related[regno]->base;
+
+  if (base == 0)
+    return;
+
+  if (! test_addr)
+    test_addr = gen_rtx_PLUS (Pmode, addr, const0_rtx);
+
+  XEXP (test_addr, 0) = addr;
+  *addrp = test_addr;
+
+  new_use = create_rel_use (insn, addrp, regno, luid, call_tally);
+
+  match = lookup_related (regno, new_use->class, offset, luid);
+
+  /* Skip all the autoinc stuff if we found a match within the same insn.  */
+  if (match && match->luid == luid)
+    goto found_match;
+
+  if (! match)
+    {
+      /* We can choose PRE_{IN,DE}CREMENT on the spot with the information
+	 we have gathered about the preceding instructions, while we have
+	 to record POST_{IN,DE}CREMENT possibilities so that we can check
+	 later if we have a use for their output value.  */
+      /* We use recog here directly because we are only testing here if
+	 the changes could be made, but don't really want to make a
+	 change right now.  The caching from recog_memoized would only
+	 get in the way.  */
+
+      if (HAVE_PRE_INCREMENT)
+	{
+	  match = lookup_related (regno, new_use->class, offset - size, luid);
+	  PUT_CODE (test_addr, PRE_INC);
+	  if (match && match->luid != luid
+	      && recog (PATTERN (insn), insn, NULL) >= 0)
+	    goto found_match;
+	}
+
+      if (HAVE_PRE_DECREMENT)
+	{
+	  match = lookup_related (regno, new_use->class, offset + size, luid);
+	  PUT_CODE (test_addr, PRE_DEC);
+	  if (match && match->luid != luid
+	      && recog (PATTERN (insn), insn, NULL) >= 0)
+	    goto found_match;
+	}
+
+      match = 0;
+    }
+
+  PUT_CODE (test_addr, POST_INC);
+      
+  if (HAVE_POST_INCREMENT && recog (PATTERN (insn), insn, NULL) >= 0)
+    {
+      struct rel_use *inc_use;
+
+      rel_new (inc_use);
+      *inc_use = *new_use;
+      inc_use->sibling = new_use;
+      new_use->sibling = inc_use;
+      inc_use->prev_chain_ref = NULL;
+      inc_use->next_chain = NULL;
+      hash = REL_USE_HASH (inc_use->match_offset = offset + size);
+      inc_use->next_hash = base->baseinfo->hashtab[hash];
+      base->baseinfo->hashtab[hash] = inc_use;
+    }
+
+  PUT_CODE (test_addr, POST_DEC);
+
+  if (HAVE_POST_DECREMENT && recog (PATTERN (insn), insn, NULL) >= 0)
+    {
+      struct rel_use *dec_use;
+
+      rel_new (dec_use);
+      *dec_use = *new_use;
+      dec_use->sibling = new_use->sibling;
+      new_use->sibling = dec_use;
+      dec_use->prev_chain_ref = NULL;
+      dec_use->next_chain = NULL;
+      hash = REL_USE_HASH (dec_use->match_offset = offset + size);
+      dec_use->next_hash = base->baseinfo->hashtab[hash];
+      base->baseinfo->hashtab[hash] = dec_use;
+    }
+
+ found_match:
+      
+  rel_build_chain (new_use, match, base);
+  *addrp = orig_addr;
+
+  regno_related[regno]->offset += post_offs;
+}
+
+/* Note that REG is set to something that we do not regognize as a
+   related value, at an insn with linear uid LUID.  */
+
+static void
+invalidate_related (rtx reg, rtx insn, int luid, int call_tally)
+{
+  int regno = REGNO (reg);
+  struct related *rel = regno_related[regno];
+  if (rel && rel->base)
+    {
+      rel->invalidate_luid = luid;
+      rel->reg_orig_calls_crossed = call_tally - rel->reg_set_call_tally;
+    }
+  if (! rel || rel->base)
+    {
+      rel_new (rel);
+      regno_related[regno] = rel;
+      rel->prev = unrelatedly_used;
+      unrelatedly_used = rel;
+      rel->reg = reg;
+      rel->base = NULL;
+    }
+  rel->invalidate_luid = luid;
+  rel->insn = insn;
+}
+
+/* Record REG as a new base for related values.  INSN is the insn in which
+   we found it, LUID is its luid, and CALL_TALLY the number of calls seen
+   up to this point.  */
+
+static void
+new_base (rtx reg, rtx insn, int luid, int call_tally)
+{
+  int regno = REGNO (reg);
+  struct related *new_related;
+
+  rel_new (new_related);
+  new_related->reg = reg;
+  new_related->insn = insn;
+  new_related->updates = 0;
+  new_related->reg_set_call_tally = call_tally;
+  new_related->base = new_related;
+  new_related->offset = 0;
+  new_related->prev = 0;
+  new_related->invalidate_luid = 0;
+  new_related->death = NULL_RTX;
+  rel_new (new_related->baseinfo);
+  memset ((char *) new_related->baseinfo, 0, sizeof *new_related->baseinfo);
+  new_related->baseinfo->prev_base = rel_base_list;
+  rel_base_list = new_related;
+  new_related->baseinfo->insn_luid = luid;
+  regno_related[regno] = new_related;
+}
+
+/* Check out if INSN sets a new related value.  Return nonzero if we could
+   handle this insn.  */
+
+static int
+recognize_related_for_insn (rtx insn, int luid, int call_tally)
+{
+  rtx set = single_set (insn);
+  rtx src, dst;
+  rtx src_reg, src_const;
+  int src_regno, dst_regno;
+  struct related *new_related;
+
+  /* We don't care about register class differences here, since
+     we might still find multiple related values share the same
+     class even if it is disjunct from the class of the original
+     register.  */
+
+  if (set == 0)
+    return 0;
+
+  dst = SET_DEST (set);
+  src = SET_SRC (set);
+
+  /* First check that we have actually something like
+     (set (reg pseudo_dst) (plus (reg pseudo_src) (const_int))) .  */
+  if (GET_CODE (src) == PLUS)
+    {
+      src_reg = XEXP (src, 0);
+      src_const = XEXP (src, 1);
+    }
+  else if (REG_P (src) && GET_MODE_CLASS (GET_MODE (src)) == MODE_INT)
+    {
+      src_reg = src;
+      src_const = const0_rtx;
+    }
+  else
+    return 0;
+
+  if (!REG_P (src_reg) || GET_CODE (src_const) != CONST_INT || !REG_P (dst))
+    return 0;
+
+  dst_regno = REGNO (dst);
+  src_regno = REGNO (src_reg);
+
+  if (src_regno < FIRST_PSEUDO_REGISTER
+      || dst_regno < FIRST_PSEUDO_REGISTER)
+    return 0;
+
+  /* Check if this is merely an update of a register with a
+     value belonging to a group of related values we already
+     track.  */
+  if (regno_related[dst_regno] && ! regno_related[dst_regno]->invalidate_luid)
+    {
+      struct update *new_update;
+
+      /* If the base register changes, don't handle this as a
+	 related value.  We can currently only attribute the
+	 register to one base, and keep record of one lifetime
+	 during which we might re-use the register.  */
+      if (! regno_related[src_regno]
+	  || regno_related[src_regno]->invalidate_luid
+	  || (regno_related[dst_regno]->base
+	      != regno_related[src_regno]->base))
+	return 0;
+
+      regno_related[dst_regno]->offset
+	= regno_related[src_regno]->offset + INTVAL (src_const);
+      rel_new (new_update);
+      new_update->insn = insn;
+      new_update->death_insn = regno_related[dst_regno]->death;
+      regno_related[dst_regno]->death = NULL_RTX;
+      new_update->prev = regno_related[dst_regno]->updates;
+      regno_related[dst_regno]->updates = new_update;
+
+      return 1;
+    }
+
+  if (! regno_related[src_regno] || regno_related[src_regno]->invalidate_luid)
+    {
+      if (src_regno == dst_regno)
+	return 0;
+
+      new_base (src_reg, insn, luid, call_tally);
+    }
+  /* If the destination register has been used since we started
+     tracking this group of related values, there would be tricky
+     lifetime problems that we don't want to tackle right now.  */
+  else if (regno_related[dst_regno]
+	   && (regno_related[dst_regno]->invalidate_luid
+	       >= regno_related[src_regno]->base->baseinfo->insn_luid))
+    return 0;
+
+  rel_new (new_related);
+  new_related->reg = dst;
+  new_related->insn = insn;
+  new_related->updates = 0;
+  new_related->reg_set_call_tally = call_tally;
+  new_related->base = regno_related[src_regno]->base;
+  new_related->offset = regno_related[src_regno]->offset + INTVAL (src_const);
+  new_related->invalidate_luid = 0;
+  new_related->death = NULL_RTX;
+  new_related->prev = regno_related[src_regno]->prev;
+  regno_related[src_regno]->prev = new_related;
+  regno_related[dst_regno] = new_related;
+
+  return 1;
+}
+
+/* Record a use of a register at *XP, which is not inside a MEM which we
+   consider changing except for plain register substitution.  */
+static void
+record_reg_use (rtx *xp, rtx insn, int luid, int call_tally)
+{
+  rtx x = *xp;
+  int regno = REGNO (x);
+	
+  if (! regno_related[regno])
+    {
+      rel_new (regno_related[regno]);
+      regno_related[regno]->prev = unrelatedly_used;
+      unrelatedly_used = regno_related[regno];
+      regno_related[regno]->reg = x;
+      regno_related[regno]->base = NULL;
+      regno_related[regno]->invalidate_luid = luid;
+      regno_related[regno]->insn = insn;
+    }
+  else if (regno_related[regno]->invalidate_luid)
+    {
+      regno_related[regno]->invalidate_luid = luid;
+      regno_related[regno]->insn = insn;
+    }
+  else
+    new_reg_use (insn, xp, regno, luid, call_tally, 0);
+}
+
+/* Check the RTL fragment pointed to by XP for related values - that is,
+   if any new are created, or if they are assigned new values.  Also
+   note any other sets so that we can track lifetime conflicts.
+   INSN is the instruction XP points into, LUID its luid, and CALL_TALLY
+   the number of preceding calls in the function.  */
+
+static void
+find_related (rtx *xp, rtx insn, int luid, int call_tally)
+{
+  rtx x = *xp;
+  enum rtx_code code = GET_CODE (x);
+  const char *fmt;
+  int i;
+
+  if (code == REG)
+    record_reg_use (xp, insn, luid, call_tally);
+  else if (code == MEM)
+    {
+      enum machine_mode mem_mode = GET_MODE (x);
+      int size = GET_MODE_SIZE (mem_mode);
+      rtx *addrp= &XEXP (x, 0), addr = *addrp;
+
+      switch (GET_CODE (addr))
+	{
+	case REG:
+	  rel_record_mem (addrp, addr, size, 0, 0,
+			  insn, luid, call_tally);
+	  return;
+	case PRE_INC:
+	  rel_record_mem (addrp, XEXP (addr, 0), size, size, 0,
+			  insn, luid, call_tally);
+	  return;
+	case POST_INC:
+	  rel_record_mem (addrp, XEXP (addr, 0), size, 0, size,
+			  insn, luid, call_tally);
+	  return;
+	case PRE_DEC:
+	  rel_record_mem (addrp, XEXP (addr, 0), size, -size, 0,
+			  insn, luid, call_tally);
+	  return;
+	case POST_DEC:
+	  rel_record_mem (addrp, XEXP (addr, 0), size, 0, -size,
+			  insn, luid, call_tally);
+	  return;
+	default:
+	  break;
+	}
+    }
+  
+  fmt = GET_RTX_FORMAT (code);
+
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	find_related (&XEXP (x, i), insn, luid, call_tally);
+      
+      if (fmt[i] == 'E')
+	{
+	  register int j;
+	  
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    find_related (&XVECEXP (x, i, j), insn, luid, call_tally);
+	}
+    }
+}
+
+/* Process one insn for optimize_related_values.  INSN is the insn, LUID
+   and CALL_TALLY its corresponding luid and number of calls seen so
+   far.  */
+static void
+find_related_toplev (rtx insn, int luid, int call_tally)
+{
+  int i;
+
+  /* First try to process the insn as a whole.  */
+  if (recognize_related_for_insn (insn, luid, call_tally))
+    return;
+
+  if (GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    {
+      rtx *xp = &XEXP (PATTERN (insn), 0);
+      int regno;
+      
+      if (!REG_P (*xp))
+	{
+	  find_related (xp, insn, luid, call_tally);
+	  return;
+	}
+
+      regno = REGNO (*xp);
+      if (GET_CODE (PATTERN (insn)) == USE
+	  && regno_related[regno]
+	  && ! regno_related[regno]->invalidate_luid)
+	new_reg_use (insn, xp, regno, luid, call_tally, 1);
+      invalidate_related (*xp, insn, luid, call_tally);
+      return;
+    }
+
+  if (CALL_P (insn) && CALL_INSN_FUNCTION_USAGE (insn))
+    {
+      rtx usage;
+
+      for (usage = CALL_INSN_FUNCTION_USAGE (insn);
+	   usage;
+	   usage = XEXP (usage, 1))
+	find_related (&XEXP (usage, 0), insn, luid, call_tally);
+    }
+
+  extract_insn (insn);
+  /* Process all inputs.  */
+  for (i = 0; i < recog_data.n_operands; i++)
+    {
+      rtx *loc = recog_data.operand_loc[i];
+      rtx op = *loc;
+
+      if (op == NULL)
+	continue;
+
+      while (GET_CODE (op) == SUBREG
+	     || GET_CODE (op) == ZERO_EXTRACT
+	     || GET_CODE (op) == SIGN_EXTRACT
+	     || GET_CODE (op) == STRICT_LOW_PART)
+	loc = &XEXP (op, 0), op = *loc;
+
+      if (recog_data.operand_type[i] == OP_IN || !REG_P (op))
+	find_related (loc, insn, luid, call_tally);
+    }
+
+
+  /* If we have an OP_IN type operand with match_dups, process those
+     duplicates also.  */
+  for (i = 0; i < recog_data.n_dups; i++)
+    {
+      int opno = recog_data.dup_num[i];
+      rtx *loc = recog_data.dup_loc[i];
+      rtx op = *loc;
+
+      while (GET_CODE (op) == SUBREG
+	     || GET_CODE (op) == ZERO_EXTRACT
+	     || GET_CODE (op) == SIGN_EXTRACT
+	     || GET_CODE (op) == STRICT_LOW_PART)
+	loc = &XEXP (op, 0), op = *loc;
+
+      if (recog_data.operand_type[opno] == OP_IN || !REG_P (op))
+	find_related (loc, insn, luid, call_tally);
+    }
+  
+  /* Process outputs.  */
+  for (i = 0; i < recog_data.n_operands; i++)
+    {
+      enum op_type type = recog_data.operand_type[i];
+      rtx *loc = recog_data.operand_loc[i];
+      rtx op = *loc;
+
+      if (op == NULL)
+	continue;
+
+      while (GET_CODE (op) == SUBREG
+	     || GET_CODE (op) == ZERO_EXTRACT
+	     || GET_CODE (op) == SIGN_EXTRACT
+	     || GET_CODE (op) == STRICT_LOW_PART)
+	loc = &XEXP (op, 0), op = *loc;
+
+      /* Detect if we're storing into only one word of a multiword
+	 subreg.  */
+      if (loc != recog_data.operand_loc[i] && type == OP_OUT)
+	type = OP_INOUT;
+
+      if (REG_P (op))
+	{
+	  int regno = REGNO (op);
+
+	  if (type == OP_INOUT)
+	    {							
+	      /* This is a use we can't handle.  Add a dummy use of this
+		 register as well as invalidating it.  */
+	      if (regno_related[regno]
+		  && ! regno_related[regno]->invalidate_luid)
+		new_reg_use (insn, loc, regno, luid, call_tally, 1);
+	    }
+
+	  if (type != OP_IN)
+	    /* A set of a register invalidates it (unless the set was
+	       handled by recognize_related_for_insn).  */
+	    invalidate_related (op, insn, luid, call_tally);
+	}
+    }
+}
+
+/* Comparison functions for qsort.  */
+static int
+chain_starts_earlier (const void *chain1, const void *chain2)
+{
+  int d = ((*(struct rel_use_chain **)chain2)->start_luid
+	   - (*(struct rel_use_chain **)chain1)->start_luid);
+  if (! d)
+    d = ((*(struct rel_use_chain **)chain2)->uses->offset
+         - (*(struct rel_use_chain **)chain1)->uses->offset);
+  if (! d)
+    d = ((*(struct rel_use_chain **)chain2)->uses->set_in_parallel
+         - (*(struct rel_use_chain **)chain1)->uses->set_in_parallel);
+  
+  /* If set_in_parallel is not set on both chain's first use, they must
+     differ in start_luid or offset, since otherwise they would use the
+     same chain.
+     Thus the remaining problem is with set_in_parallel uses; for these, we
+     know that *addrp is a register.  Since the same register may not be set
+     multiple times in the same insn, the registers must be different.  */
+     
+  if (! d)
+    d = (REGNO (*(*(struct rel_use_chain **)chain2)->uses->addrp)
+         - REGNO (*(*(struct rel_use_chain **)chain1)->uses->addrp));
+  return d;
+}
+
+static int
+chain_ends_later (const void *chain1, const void *chain2)
+{
+  int d = ((*(struct rel_use_chain **)chain1)->end->no_link_pred
+	   - (*(struct rel_use_chain **)chain2)->end->no_link_pred);
+  if (! d)
+    d = ((*(struct rel_use_chain **)chain1)->end_luid
+	 - (*(struct rel_use_chain **)chain2)->end_luid);
+  if (! d)
+    d = ((*(struct rel_use_chain **)chain2)->uses->offset
+         - (*(struct rel_use_chain **)chain1)->uses->offset);
+  if (! d)
+    d = ((*(struct rel_use_chain **)chain2)->uses->set_in_parallel
+         - (*(struct rel_use_chain **)chain1)->uses->set_in_parallel);
+  
+  /* If set_in_parallel is not set on both chain's first use, they must
+     differ in start_luid or offset, since otherwise they would use the
+     same chain.
+     Thus the remaining problem is with set_in_parallel uses; for these, we
+     know that *addrp is a register.  Since the same register may not be set
+     multiple times in the same insn, the registers must be different.  */
+     
+  if (! d)
+    {
+      rtx reg1 = (*(*(struct rel_use_chain **)chain1)->uses->addrp);
+      rtx reg2 = (*(*(struct rel_use_chain **)chain2)->uses->addrp);
+
+      switch (GET_CODE (reg1))
+	{
+	case REG:
+	  break;
+
+	case PRE_INC:
+	case POST_INC:
+	case PRE_DEC:
+	case POST_DEC:
+	  reg1 = XEXP (reg1, 0);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      switch (GET_CODE (reg2))
+	{
+	case REG:
+	  break;
+
+	case PRE_INC:
+	case POST_INC:
+	case PRE_DEC:
+	case POST_DEC:
+	  reg2 = XEXP (reg2, 0);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+	d = (REGNO (reg2) - REGNO (reg1));
+    }
+  return d;
+}
+
+/* Called through qsort, used to sort rel_mod structures in ascending
+   order by luid.  */
+static int
+mod_before (const void *ptr1, const void *ptr2)
+{
+  const struct rel_mod *insn1 = ptr1;
+  const struct rel_mod *insn2 = ptr2;
+  if (insn1->luid != insn2->luid)
+    return insn1->luid - insn2->luid;
+  /* New add insns get inserted before the luid, modifications are
+     performed within this luid.  */
+  if (insn1->insn == 0 && insn2->insn != 0)
+    return 1;
+  if (insn2->insn == 0 && insn1->insn != 0)
+    return -1;
+  return insn1->count - insn2->count;
+}
+
+/* Update REG_N_SETS given a newly generated insn.  Called through
+   note_stores.  */
+static void
+count_sets (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
+{
+  if (REG_P (x))
+    REG_N_SETS (REGNO (x))++;
+}
+
+/* First pass of performing the optimization on a set of related values:
+   remove all the setting insns, death notes and refcount increments that
+   are now obsolete.
+   INSERT_BEFORE is an insn which we not must delete except by by turning it
+   into a note, since it is needed later.  */
+static void
+remove_setting_insns (struct related *rel_base, rtx insert_before)
+{
+  struct related *rel;
+
+  for (rel = rel_base; rel; rel = rel->prev)
+    {
+      struct update *update;
+      int regno = REGNO (rel->reg);
+
+      if (rel != rel_base)
+	{
+	  /* The first setting insn might be the start of a basic block.  */
+	  if (rel->insn == rel_base->insn
+	      /* We have to preserve insert_before.  */
+	      || rel->insn == insert_before)
+	    {
+	      PUT_CODE (rel->insn, NOTE);
+	      NOTE_LINE_NUMBER (rel->insn) = NOTE_INSN_DELETED;
+	      NOTE_SOURCE_FILE (rel->insn) = 0;
+	    }
+	  else
+	    delete_insn (rel->insn);
+	  REG_N_SETS (regno)--;
+	}
+
+      REG_N_CALLS_CROSSED (regno) -= rel->reg_orig_calls_crossed;
+	  
+      for (update = rel->updates; update; update = update->prev)
+	{
+	  rtx death_insn = update->death_insn;
+	      
+	  if (death_insn)
+	    {
+	      rtx death_note
+		= find_reg_note (death_insn, REG_DEAD, rel->reg);
+	      if (! death_note)
+		death_note
+		  = find_reg_note (death_insn, REG_UNUSED, rel->reg);
+	      remove_note (death_insn, death_note);
+	      REG_N_DEATHS (regno)--;
+	    }
+	      
+	  /* We have to preserve insert_before.  */
+	  if (update->insn == insert_before)
+	    {
+	      PUT_CODE (update->insn, NOTE);
+	      NOTE_LINE_NUMBER (update->insn) = NOTE_INSN_DELETED;
+	      NOTE_SOURCE_FILE (update->insn) = 0;
+	    }
+	  else
+	    delete_insn (update->insn);
+	      
+	  REG_N_SETS (regno)--;
+	}
+	  
+      if (rel->death)
+	{
+	  rtx death_note = find_reg_note (rel->death, REG_DEAD, rel->reg);
+	  if (! death_note)
+	    death_note = find_reg_note (rel->death, REG_UNUSED, rel->reg);
+	  remove_note (rel->death, death_note);
+	  rel->death = death_note;
+	  REG_N_DEATHS (regno)--;
+	}
+    }
+}
+
+/* Create a new add (or move) instruction as described by the modification
+   MOD, which is for the rel_use USE.  BASE_REG is the base register for
+   this set of related values, REL_BASE_REG_USER is the chain that uses
+   it.  */
+static rtx
+perform_addition (struct rel_mod *mod, struct rel_use *use, rtx base_reg,
+		  struct rel_use_chain *rel_base_reg_user)
+{
+  HOST_WIDE_INT use_offset = use->offset;
+  /* We have to generate a new addition or move insn and emit it
+     before the current use in this chain.  */
+  HOST_WIDE_INT new_offset = use_offset;
+  rtx reg = mod->chain->reg;
+  rtx src_reg;
+
+  if (mod->from_base)
+    {
+      src_reg = base_reg;
+      if (rel_base_reg_user)
+	use_offset -= rel_base_reg_user->match_offset;
+    }
+  else
+    {
+      src_reg = reg;
+      use_offset -= mod->chain->match_offset;
+    }
+
+  if (use_offset != 0 || src_reg != reg)
+    {
+      rtx new;
+      if (use_offset == 0)
+	new = gen_move_insn (reg, src_reg);
+      else
+	new = gen_add3_insn (reg, src_reg, GEN_INT (use_offset));
+
+      gcc_assert (new);
+
+      if (GET_CODE (new) == SEQUENCE)
+	{
+	  int i;
+
+	  for (i = XVECLEN (new, 0) - 1; i >= 0; i--)
+	    note_stores (PATTERN (XVECEXP (new, 0, i)), count_sets,
+			 NULL);
+	}
+      else
+	note_stores (new, count_sets, NULL);
+      new = emit_insn_before (new, mod->insn);
+
+      mod->chain->match_offset = new_offset;
+      return new;
+    }
+  return 0;
+}
+
+/* Perform the modification described by MOD, which applies to the use
+   described by USE.
+   This function calls validate_change; the caller must call
+   apply_change_group after all modifications for the same insn have
+   been performed.  */
+static void
+modify_address (struct rel_mod *mod, struct rel_use *use,
+		HOST_WIDE_INT current_offset)
+{
+  HOST_WIDE_INT use_offset = use->offset;
+  rtx reg = mod->chain->reg;
+  /* We have to perform a modification on a given use.  The
+     current use will be removed from the chain afterwards.  */
+  rtx addr = *use->addrp;
+
+  if (!REG_P (addr))
+    remove_note (use->insn,
+		 find_reg_note (use->insn, REG_INC,
+				XEXP (addr, 0)));
+
+  if (use_offset == current_offset)
+    {
+      if (use->set_in_parallel)
+	{
+	  REG_N_SETS (REGNO (addr))--;
+	  addr = reg;
+	}
+      else if (use->match_offset > use_offset)
+	addr = gen_rtx_POST_INC (Pmode, reg);
+      else if (use->match_offset < use_offset)
+	addr = gen_rtx_POST_DEC (Pmode, reg);
+      else
+	addr = reg;
+    }
+  else if (use_offset > current_offset)
+    addr = gen_rtx_PRE_INC (Pmode, reg);
+  else
+    addr = gen_rtx_PRE_DEC (Pmode, reg);
+
+  /* Group changes from the same chain for the same insn
+     together, to avoid failures for match_dups.  */
+  validate_change (use->insn, use->addrp, addr, 1);
+
+  if (addr != reg)
+    REG_NOTES (use->insn)
+      = gen_rtx_EXPR_LIST (REG_INC, reg, REG_NOTES (use->insn));
+
+  /* Update the chain's state: set match_offset as appropriate,
+     and move towards the next use.  */
+  mod->chain->match_offset = use->match_offset;
+  mod->chain->uses = use->next_chain;
+  if (mod->chain->uses == 0 && mod->chain->linked)
+    {
+      struct rel_use_chain *linked = mod->chain->linked;
+      mod->chain->linked = linked->linked;
+      mod->chain->uses = linked->uses;
+    }
+}
+
+/* Try to link SUCC_CHAIN as sucessor of PRED_CHAIN.  BASE_MODE is
+   the machine mode of the base register.  Return nonzero on success.  */
+static int
+link_chains (struct rel_use_chain *pred_chain,
+	     struct rel_use_chain *succ_chain, enum machine_mode base_mode)
+{
+  if (succ_chain->start_luid > pred_chain->end_luid
+      && ! pred_chain->end->no_link_pred
+      && regclass_compatible_p (succ_chain->uses->class,
+				pred_chain->uses->class)
+      /* add_limits is not valid for MODE_PARTIAL_INT .  */
+      && GET_MODE_CLASS (base_mode) == MODE_INT
+      && !have_3addr_const_add[(int) base_mode]
+      && (succ_chain->uses->offset - pred_chain->match_offset
+	  >= add_limits[(int) base_mode][0])
+      && (succ_chain->uses->offset - pred_chain->match_offset
+	  <= add_limits[(int) base_mode][1]))
+    {
+      /* We can link these chains together.  */
+      pred_chain->linked = succ_chain;
+      succ_chain->start_luid = 0;
+      pred_chain->end_luid = succ_chain->end_luid;
+      return 1;
+    }
+  return 0;
+}
+
+/* Perform the optimization for a single set of related values.
+   INSERT_BEFORE is an instruction before which we may emit instructions
+   to initialize registers that remain live beyond the end of the group
+   of instructions which have been examined.  */
+
+static void
+optimize_related_values_1 (struct related *rel_base, int luid, int call_tally,
+			   rtx insert_before, FILE *regmove_dump_file)
+{
+  struct related_baseinfo *baseinfo = rel_base->baseinfo;
+  struct related *rel;
+  struct rel_use_chain *chain, **chain_starttab, **chain_endtab;
+  struct rel_use_chain **pred_chainp, *pred_chain;
+  int num_regs, num_av_regs, num_chains, num_linked, max_end_luid, i;
+  int max_start_luid;
+  struct rel_use_chain *rel_base_reg_user;
+  enum machine_mode mode;
+  HOST_WIDE_INT rel_base_reg_user_offset = 0;
+
+  /* For any registers that are still live, we have to arrange
+     to have them set to their proper values.
+     Also count with how many registers (not counting base) we are
+     dealing with here.  */
+  for (num_regs = -1, rel = rel_base; rel; rel = rel->prev, num_regs++)
+    {
+      int regno = REGNO (rel->reg);
+
+      if (! rel->death && ! rel->invalidate_luid)
+	{
+	  new_reg_use (insert_before, &rel->reg, regno, luid, call_tally, 1);
+	  rel->reg_orig_calls_crossed = call_tally - rel->reg_set_call_tally;
+	}
+    }
+
+  /* Now for every chain of values related to the base, set start
+     and end luid, match_offset, and reg.  Also count the number of these
+     chains, and determine the largest end luid.  */
+  num_chains = 0;
+  
+  for (max_end_luid = 0, chain = baseinfo->chains; chain; chain = chain->prev)
+    {
+      struct rel_use *use, *next;
+
+      num_chains++;
+      next = chain->uses;
+      chain->start_luid = next->luid;
+      do
+	{
+	  use = next;
+	  next = use->next_chain;
+	}
+      while (next && next != use);
+
+      use->no_link_pred = next != NULL;
+      use->next_chain = 0;
+
+      chain->end = use;
+      chain->end_luid = use->luid;
+      chain->match_offset = use->match_offset;
+      chain->calls_crossed = use->call_tally - chain->uses->call_tally;
+      
+      chain->reg = ! use->no_link_pred ? NULL_RTX : *use->addrp;
+
+      if (use->luid > max_end_luid)
+	max_end_luid = use->luid;
+
+      if (regmove_dump_file)
+	fprintf (regmove_dump_file, "Chain start: %d end: %d\n",
+		 chain->start_luid, chain->end_luid);
+    }
+
+  if (regmove_dump_file)
+    fprintf (regmove_dump_file,
+	     "Insn %d reg %d: found %d chains.\n",
+	     INSN_UID (rel_base->insn), REGNO (rel_base->reg), num_chains);
+
+  if (! num_chains)
+    return;
+
+  /* For every chain, we try to find another chain the lifetime of which
+     ends before the lifetime of said chain starts.
+     So we first sort according to luid of first and last instruction that
+     is in the chain, respectively;  this is O(n * log n) on average.  */
+  chain_starttab = rel_alloc (num_chains * sizeof *chain_starttab);
+  chain_endtab = rel_alloc (num_chains * sizeof *chain_starttab);
+  
+  for (chain = baseinfo->chains, i = 0; chain; chain = chain->prev, i++)
+    {
+      chain_starttab[i] = chain;
+      chain_endtab[i] = chain;
+    }
+  
+  qsort (chain_starttab, num_chains, sizeof *chain_starttab,
+	 chain_starts_earlier);
+  qsort (chain_endtab, num_chains, sizeof *chain_endtab, chain_ends_later);
+
+  /* Now we go through every chain, starting with the one that starts
+     second (we can skip the first because we know there would be no match),
+     and check it against the chain that ends first.  */
+  /* ??? We assume here that reg_class_compatible_p will seldom return false.
+     If that is not true, we should do a more thorough search for suitable
+     chain combinations.  */
+  pred_chainp = chain_endtab;
+  pred_chain = *pred_chainp;
+  max_start_luid = chain_starttab[num_chains - 1]->start_luid;
+  
+  mode = GET_MODE (rel_base->reg);
+  for (num_linked = 0, i = num_chains - 2; i >= 0; i--)
+    {
+      struct rel_use_chain *succ_chain = chain_starttab[i];
+
+      if ((pred_chain->calls_crossed
+	   ? succ_chain->calls_crossed
+	   : succ_chain->end->call_tally == pred_chain->uses->call_tally)
+	  && link_chains (pred_chain, succ_chain, mode))
+	{
+	  num_linked++;
+	  pred_chain = *++pred_chainp;
+	}
+      else
+	max_start_luid = succ_chain->start_luid;
+    }
+
+  if (regmove_dump_file && num_linked)
+    fprintf (regmove_dump_file, "Linked to %d sets of chains.\n",
+	     num_chains - num_linked);
+
+  /* Now count the number of registers that are available for reuse.  */
+  /* ??? In rare cases, we might reuse more if we took different
+     end luids of the chains into account.  Or we could just allocate
+     some new regs.  But that would probably not be worth the effort.  */
+  /* ??? We should pay attention to preferred register classes here too,
+     if the to-be-allocated register have a life outside the range that
+     we handle.  */
+  for (num_av_regs = 0, rel = rel_base->prev; rel; rel = rel->prev)
+    {
+      if (! rel->invalidate_luid
+	  || rel->invalidate_luid > max_end_luid)
+	num_av_regs++;
+    }
+
+  /* Propagate mandatory register assignments to the first chain in
+     all sets of linked chains, and set rel_base_reg_user.  */
+  for (rel_base_reg_user = 0, i = 0; i < num_chains; i++)
+    {
+      struct rel_use_chain *chain = chain_starttab[i];
+      if (chain->linked)
+	chain->reg = chain->linked->reg;
+      if (chain->reg == rel_base->reg)
+	rel_base_reg_user = chain;
+    }
+    
+  /* If rel_base->reg is not a mandatory allocated register, allocate
+     it to that chain that starts first and has no allocated register,
+     and that allows the addition of the start value in a single
+     instruction.  */
+  if (! rel_base_reg_user)
+    {
+      for (i = num_chains - 1; i >= 0; --i)
+	{
+	  struct rel_use_chain *chain = chain_starttab[i];
+	  if (! chain->reg
+	      && chain->start_luid
+	      && (!have_3addr_const_add[(int) mode] || !chain->uses->offset)
+	      && chain->uses->offset >= add_limits[(int) mode][0]
+	      && chain->uses->offset <= add_limits[(int) mode][1]
+	      /* Also can't use this chain if its register is clobbered
+		 and other chains need to start later.  */
+	      && (! (chain->end->no_link_pred && chain->end->insn)
+		  || chain->end_luid >= max_start_luid)
+	      /* Also can't use it if it lasts longer than the
+		 base reg is available.  */
+	      && (! rel_base->invalidate_luid
+		  || rel_base->invalidate_luid > chain->end_luid))
+	    {
+	      chain->reg = rel_base->reg;
+	      rel_base_reg_user = chain;
+	      if (num_linked < num_chains - 1)
+		{
+		  int old_linked = num_linked;
+
+		  for (i = num_chains - 2; i >= 0; i--)
+		    {
+		      struct rel_use_chain *succ_chain = chain_starttab[i];
+
+		      while (chain->linked)
+			chain = chain->linked;
+		      if (succ_chain->start_luid
+			  && ! succ_chain->reg
+			  && link_chains (chain, succ_chain, mode))
+			{
+			  num_linked++;
+			  chain = succ_chain;
+			}
+		    }
+		  if (regmove_dump_file && num_linked > old_linked)
+		      fprintf (regmove_dump_file,
+			       "Linked to %d sets of chains.\n",
+			       num_chains - num_linked);
+		}
+	      break;
+	    }
+	}
+    }
+  else
+    rel_base_reg_user_offset = rel_base_reg_user->uses->offset;
+
+  /* If there are any chains that need to be initialized after the base
+     register has been invalidated, the optimization cannot be done.  */
+  for (i = 0; i < num_chains; i++)
+    {
+      struct rel_use_chain *chain = chain_starttab[i];
+
+      if (rel_base->invalidate_luid
+	  && chain->start_luid > rel_base->invalidate_luid)
+	return;
+    }
+
+  /* Now check if it is worth doing this optimization after all.
+     Using separate registers per value, like in the code generated by cse,
+     costs two instructions per register (one move and one add).
+     Using the chains we have set up, we need two instructions for every
+     linked set of chains, plus one instruction for every link;
+     however, if the base register is allocated to a chain
+     (i.e. rel_base_reg_user != 0), we don't need a move insn to start
+     that chain.
+     If we have a three-address add, however, the cost per value / chain
+     is just one insn, and linking chains is pointless.
+     We do the optimization if we save instructions, or if we
+     stay with the same number of instructions, but save registers.
+     We also require that we have enough registers available for reuse.
+     Moreover, we have to check that we can add the offset for
+     rel_base_reg_user, in case it is a mandatory allocated register.  */
+  if ((have_3addr_const_add[(int) mode]
+       ? (num_regs > num_chains - (rel_base_reg_user != 0))
+       : (2 * num_regs
+	  > ((2 * num_chains - num_linked - (rel_base_reg_user != 0))
+	     - (num_linked != 0))))
+      && num_av_regs + (rel_base_reg_user != 0) >= num_chains - num_linked
+      && rel_base_reg_user_offset >= add_limits[(int) mode][0]
+      && rel_base_reg_user_offset <= add_limits[(int) mode][1])
+    {
+      unsigned int base_regno = REGNO (rel_base->reg);
+      int num_mods;
+      int num_uses;
+      struct rel_mod *mods;
+      rtx last_changed_insn = 0;
+
+      /* Record facts about the last place where the base register is used.  */
+      int last_base_call_tally = rel_base->reg_set_call_tally;
+      rtx last_base_insn = 0;
+
+      if (regmove_dump_file)
+	fprintf (regmove_dump_file, "Optimization is worth while.\n");
+
+      remove_setting_insns (rel_base, insert_before);
+
+      /* Allocate regs for each chain, and count the number of uses.  */
+      rel = rel_base;
+      for (num_uses = 0, i = 0; i < num_chains; i++)
+	{
+	  struct rel_use_chain *chain0 = chain_starttab[i];
+	  unsigned int regno;
+	  int first_call_tally, last_call_tally;
+
+	  if (! chain0->start_luid)
+	    continue;
+
+	  /* If this chain has not got a register yet, assign one.  */
+	  if (! chain0->reg)
+	    {
+	      do
+		rel = rel->prev;
+	      while (! rel->death
+		     || (rel->invalidate_luid
+			 && rel->invalidate_luid <= max_end_luid));
+
+	      chain0->reg = rel->reg;
+	      chain0->death_note = rel->death;
+	    }
+	  else
+	    chain0->death_note = 0;
+
+	  /* For all registers except the base register, we can already
+	     determine the number of calls crossed at this point by
+	     examining the call_tally of the first and the last use.
+	     We can't do this for the base register yet, since we don't
+	     know its exact lifetime yet.  */
+	  regno = REGNO (chain0->reg);
+	  first_call_tally = last_call_tally = chain0->uses->call_tally;
+
+	  while (chain0)
+		{
+	      struct rel_use *use;
+	      for (use = chain0->uses; use; use = use->next_chain)
+		    {
+		  num_uses++;
+		  last_call_tally = use->call_tally;
+		    }
+	      chain0 = chain0->linked;
+		}
+
+	  if (regno != base_regno)
+	    REG_N_CALLS_CROSSED (regno) += last_call_tally - first_call_tally;
+	    }
+
+      /* Record all the modifications we need to perform together with
+	 their position, then sort the array by position.  */
+      mods = rel_alloc ((num_chains + num_uses) * sizeof *mods);
+      for (i = num_mods = 0; i < num_chains; i++)
+	{
+	  struct rel_use_chain *chain0 = chain_starttab[i];
+
+	  if (! chain0->start_luid)
+	    continue;
+
+	  for (chain = chain0; chain; chain = chain->linked)
+	    {
+	      struct rel_use *use = chain->uses;
+
+	      /* Initializing insn: an add (or move if offset == 0).  */
+	      mods[num_mods].from_base = use == chain0->uses;
+	      mods[num_mods].chain = chain0;
+	      mods[num_mods].insn = use->insn;
+	      mods[num_mods].luid = use->luid;
+	      mods[num_mods].count = num_mods;
+	      num_mods++;
+
+	      /* All the other uses: no additional insn, but offset
+		 updates.  */
+	      for (; use; use = use->next_chain)
+		{
+		  mods[num_mods].chain = chain0;
+		  mods[num_mods].insn = 0;
+		  mods[num_mods].luid = use->luid;
+		  mods[num_mods].count = num_mods;
+		  num_mods++;
+		}
+	    }
+	}
+
+      gcc_assert (num_mods == num_chains + num_uses);
+      qsort (mods, num_mods, sizeof *mods, mod_before);
+
+      /* Now we have a list of all changes we have to make, sorted in
+	 ascending order so we can go through the basic block from
+	 start to end and keep track of the current state at all times.  */
+      if (rel_base_reg_user)
+	rel_base_reg_user->match_offset = 0;
+      for (i = 0; i < num_mods; i++)
+	{
+	  struct rel_mod *this = mods + i;
+	  struct rel_use *use = this->chain->uses;
+	  HOST_WIDE_INT current_offset = this->chain->match_offset;
+	  rtx reg = this->chain->reg;
+
+	  /* Calling apply_change_group is deferred to this point from
+	     the call to validate_change in modify_address; the reason is
+	     that we want to group together multiple changes to the same insn,
+	     to avoid failures for match_dups.  */
+	  if (last_changed_insn
+	      && (this->insn != 0 || use->insn != last_changed_insn))
+	    {
+	      last_changed_insn = 0;
+	      /* Don't use gcc_assert on the result of apply_change_group
+		 because that would prevent setting a breakpoint on the
+		 failure.  */
+	      if (! apply_change_group ())
+		gcc_assert (0);
+	    }
+
+	  if (this->insn != 0)
+	    {
+	      rtx new = perform_addition (this, use, rel_base->reg,
+					  rel_base_reg_user);
+	      if (this->from_base && new)
+		{
+		  /* If perform_addition emitted more than one insn, find
+		     the last one that actually used the base register.  */
+		  while (! reg_overlap_mentioned_p (rel_base->reg,
+						    PATTERN (new)))
+		    new = PREV_INSN (new);
+		  last_base_call_tally = use->call_tally;
+		  last_base_insn = new;
+		}
+	    }
+	  else
+	    {
+	      if (! use->no_link_pred)
+		modify_address (this, use, current_offset);
+
+	      /* See if the register dies in this insn.  We cannot reliably
+		 detect this for the base register, which is handled later
+		 after all modifications are processed.  We can rely on the
+		 DEATH_NOTE field being 0 for the base register's chain.  */
+	      if (this->chain->death_note && this->chain->uses == 0)
+		{
+		  rtx note = this->chain->death_note;
+		  XEXP (note, 0) = reg;
+
+		  /* Note that passing only PATTERN (LAST_USE->insn) to
+		     reg_set_p here is not enough, since we might have
+		     created an REG_INC for REG above.  */
+
+		  PUT_MODE (note, (reg_set_p (reg, use->insn)
+				   ? REG_UNUSED : REG_DEAD));
+		  XEXP (note, 1) = REG_NOTES (use->insn);
+		  REG_NOTES (use->insn) = note;
+		  REG_N_DEATHS (REGNO (reg))++;
+		}
+
+	      if (REGNO (reg) == base_regno)
+		{
+		  last_base_call_tally = use->call_tally;
+		  last_base_insn = use->insn;
+		}
+	      last_changed_insn = use->insn;
+	    }
+	}
+
+      if (last_changed_insn)
+	if (! apply_change_group ())
+	  gcc_assert (0);
+
+      /* We now have performed all modifications, and we therefore know the
+	 last insn that uses the base register.  This means we can now update
+	 its life information.  */
+      if (rel_base->death)
+	{
+	  rtx note = rel_base->death;
+	  XEXP (note, 0) = rel_base->reg;
+
+	  /* Note that passing only PATTERN (LAST_USE->insn) to
+	     reg_set_p here is not enough, since we might have
+	     created an REG_INC for REG above.  */
+
+	  PUT_MODE (note, (reg_set_p (rel_base->reg, last_base_insn)
+			   ? REG_UNUSED : REG_DEAD));
+	  XEXP (note, 1) = REG_NOTES (last_base_insn);
+	  REG_NOTES (last_base_insn) = note;
+	  REG_N_DEATHS (base_regno)++;
+	}
+      else if (rel_base->invalidate_luid
+	       && ! reg_set_p (rel_base->reg, last_base_insn))
+	{
+	  REG_NOTES (last_base_insn)
+	    = alloc_EXPR_LIST (REG_DEAD, rel_base->reg,
+			       REG_NOTES (last_base_insn));
+	  REG_N_DEATHS (base_regno)++;
+	}
+
+      REG_N_CALLS_CROSSED (base_regno)
+	+= last_base_call_tally - rel_base->reg_set_call_tally;
+    }
+}
+
+/* Finalize the optimization for any related values know so far, and reset
+   the entries in regno_related that we have disturbed.  */
+static void
+optimize_related_values_0 (struct related *rel_base_list,
+			   int luid, int call_tally, rtx insert_before,
+			   FILE *regmove_dump_file)
+{
+  while (rel_base_list)
+    {
+      struct related *rel;
+      optimize_related_values_1 (rel_base_list, luid, call_tally,
+				 insert_before, regmove_dump_file);
+      /* Clear the entries that we used in regno_related.  We do it
+	 item by item here, because doing it with memset for each
+	 basic block would give O(n*n) time complexity.  */
+      for (rel = rel_base_list; rel; rel = rel->prev)
+	regno_related[REGNO (rel->reg)] = 0;
+      rel_base_list = rel_base_list->baseinfo->prev_base;
+    }
+  
+  for ( ; unrelatedly_used; unrelatedly_used = unrelatedly_used->prev)
+    regno_related[REGNO (unrelatedly_used->reg)] = 0;
+}
+
+/* For each integer mode, find minimum and maximum value for a single-
+   instruction reg-constant add.
+   The arm has SImode add patterns that will accept large values - with a
+   matching splitter - but when you use gen_addsi3, you already get
+   multiple instructions.  So getting one insn and testing if it can be
+   changed is not good enough; we need to try to generate each add from
+   scratch.  */
+static void
+init_add_limits (void)
+{
+  static int is_initialized;
+
+  enum machine_mode mode;
+
+  if (is_initialized)
+    return;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      rtx reg = gen_rtx_REG (mode, LAST_VIRTUAL_REGISTER+1);
+      rtx reg2 = gen_rtx_REG (mode, LAST_VIRTUAL_REGISTER+2);
+      int icode = (int) add_optab->handlers[(int) mode].insn_code;
+      HOST_WIDE_INT tmp;
+      rtx add = NULL, set = NULL;
+      int p, p_max;
+      rtx tmp_add;
+
+      have_3addr_const_add[(int) mode] = 0;
+      add_limits[(int) mode][0] = 0;
+      add_limits[(int) mode][1] = 0;
+      
+      if (icode == CODE_FOR_nothing
+	  || ! (*insn_data[icode].operand[0].predicate) (reg, mode)
+	  || ! (*insn_data[icode].operand[1].predicate) (reg, mode)
+	  || ! (*insn_data[icode].operand[2].predicate) (const1_rtx, mode))
+	continue;
+      
+      tmp_add = GEN_FCN (icode) (reg, reg2, const1_rtx);
+      if (tmp_add != NULL_RTX && !NEXT_INSN (tmp_add))
+	have_3addr_const_add[(int) mode] = 1;
+
+      p_max = GET_MODE_BITSIZE (mode) - 1;
+      
+      if (p_max > HOST_BITS_PER_WIDE_INT - 2)
+	p_max = HOST_BITS_PER_WIDE_INT - 2;
+      
+      for (p = 1; p < p_max; p++)
+	{
+	  rtx add_const = GEN_INT (((HOST_WIDE_INT) 1 << p) - 1);
+
+	  if (! (*insn_data[icode].operand[2].predicate) (add_const, mode))
+	    break;
+
+	  tmp_add = GEN_FCN (icode) (reg, reg, add_const);
+      
+	  if (tmp_add == NULL_RTX || NEXT_INSN (tmp_add))
+	    break;
+      
+	  set = single_set (tmp_add);
+      
+	  if (! set
+	      || GET_CODE (SET_SRC (set)) != PLUS
+	      || XEXP (SET_SRC (set), 1) != add_const)
+	    break;
+	  add = tmp_add;
+	}
+      
+      add_limits[(int) mode][1] = tmp = ((HOST_WIDE_INT) 1 << (p - 1)) - 1;
+      
+      /* We need a range of known good values for the constant of the add.
+	 Thus, before checking for the power of two, check for one less first,
+	 in case the power of two is an exceptional value.  */
+      if (add
+	  && validate_change (add, &XEXP (SET_SRC (set), 1), GEN_INT (-tmp), 0))
+	{
+	  if (validate_change (add, &XEXP (SET_SRC (set), 1),
+			       GEN_INT (-tmp - 1), 0))
+	    add_limits[(int) mode][0] = -tmp - 1;
+	  else
+	    add_limits[(int) mode][0] = -tmp;
+	}
+    }
+  is_initialized = 1;
+}
+
+/* Scan the entire function for instances where multiple registers are
+   set to values that differ only by a constant.
+   Then try to reduce the number of instructions and/or registers needed
+   by exploiting auto_increment and true two-address additions.
+   NREGS and REGMOVE_DUMP_FILE are the same as in regmove_optimize.  */
+    
+static void
+optimize_related_values (int nregs, FILE *regmove_dump_file)
+{
+  basic_block bb;
+  rtx insn;
+  int luid = 0;
+  int call_tally = 0;
+
+  if (regmove_dump_file)
+    fprintf (regmove_dump_file, "Starting optimize_related_values.\n");
+
+  init_add_limits ();
+  gcc_obstack_init (&related_obstack);
+  regno_related = rel_alloc (nregs * sizeof *regno_related);
+  memset ((char *) regno_related, 0, nregs * sizeof *regno_related);
+  rel_base_list = 0;
+
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      {
+	rtx set = NULL_RTX;
+
+	luid++;
+	
+	/* Don't do anything if this instruction is in the shadow of a
+	   live flags register.  */
+	if (GET_MODE (insn) == HImode)
+	  continue;
+
+	if (INSN_P (insn))
+	  {
+	    rtx note;
+
+	    set = single_set (insn);
+
+	    find_related_toplev (insn, luid, call_tally);
+
+	    for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
+	      {
+		if (REG_NOTE_KIND (note) == REG_DEAD
+		    || (REG_NOTE_KIND (note) == REG_UNUSED
+			&& REG_P (XEXP (note, 0))))
+		  {
+		    rtx reg = XEXP (note, 0);
+		    int regno = REGNO (reg);
+		    
+		    if (REG_NOTE_KIND (note) == REG_DEAD
+			&& reg_set_p (reg, PATTERN (insn)))
+		      {
+			remove_note (insn, note);
+			REG_N_DEATHS (regno)--;
+		      }
+		    else if (regno_related[regno]
+			     && ! regno_related[regno]->invalidate_luid)
+		      {
+			regno_related[regno]->death = insn;
+			regno_related[regno]->reg_orig_calls_crossed
+			  = call_tally - regno_related[regno]->reg_set_call_tally;
+		      }
+		  }
+	      }
+	    
+	    /* Inputs to a call insn do not cross the call, therefore CALL_TALLY
+	       must be bumped *after* they have been processed.  */
+	    if (CALL_P (insn))
+	      call_tally++;
+	  }
+	    
+	/* We end current processing at the end of a basic block, or when
+	   a flags register becomes live, or when we see a return value
+	   copy.
+
+	   Otherwise, we might end up with one or more extra instructions
+	   inserted in front of the user, to set up or adjust a register. 
+	   There are cases where flag register uses could be handled smarter,
+	   but most of the time the user will be a branch anyways, so the
+	   extra effort to handle the occasional conditional instruction is
+	   probably not justified by the little possible extra gain.  */
+
+	if (insn == BB_END (bb)
+	    || GET_MODE (insn) == QImode
+	    || (set
+		&& REG_P (SET_DEST (set))
+		&& REG_FUNCTION_VALUE_P (SET_DEST (set))))
+	  {
+	    optimize_related_values_0 (rel_base_list, luid, call_tally,
+				       insn, regmove_dump_file);
+	    rel_base_list = 0;
+	  }
+      }
+  obstack_free (&related_obstack, 0);
+  
+  if (regmove_dump_file)
+    fprintf (regmove_dump_file, "Finished optimize_related_values.\n");
 }
 
 static int *regno_src_regno;
@@ -970,35 +2881,36 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 			 "Fixed operand of insn %d.\n",
 			  INSN_UID (insn));
 
-#ifdef AUTO_INC_DEC
-	      for (p = PREV_INSN (insn); p; p = PREV_INSN (p))
+	      if (AUTO_INC_DEC)
 		{
-		  if (LABEL_P (p)
-		      || JUMP_P (p))
-		    break;
-		  if (! INSN_P (p))
-		    continue;
-		  if (reg_overlap_mentioned_p (dst, PATTERN (p)))
+		  for (p = PREV_INSN (insn); p; p = PREV_INSN (p))
 		    {
-		      if (try_auto_increment (p, insn, 0, dst, newconst, 0))
-			return 1;
-		      break;
+		      if (LABEL_P (p)
+			  || JUMP_P (p))
+			break;
+		      if (! INSN_P (p))
+			continue;
+		      if (reg_overlap_mentioned_p (dst, PATTERN (p)))
+			{
+			  if (try_auto_increment (p, insn, 0, dst, newconst, 0))
+			    return 1;
+			  break;
+			}
+		    }
+		  for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
+		    {
+		      if (LABEL_P (p)
+			  || JUMP_P (p))
+			break;
+		      if (! INSN_P (p))
+			continue;
+		      if (reg_overlap_mentioned_p (dst, PATTERN (p)))
+			{
+			  try_auto_increment (p, insn, 0, dst, newconst, 1);
+			  break;
+			}
 		    }
 		}
-	      for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
-		{
-		  if (LABEL_P (p)
-		      || JUMP_P (p))
-		    break;
-		  if (! INSN_P (p))
-		    continue;
-		  if (reg_overlap_mentioned_p (dst, PATTERN (p)))
-		    {
-		      try_auto_increment (p, insn, 0, dst, newconst, 1);
-		      break;
-		    }
-		}
-#endif
 	      return 1;
 	    }
 	}
@@ -1040,7 +2952,7 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 void
 regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 {
-  int old_max_uid = get_max_uid ();
+  int old_max_uid;
   rtx insn;
   struct match match;
   int pass;
@@ -1056,6 +2968,13 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
   /* Find out where a potential flags register is live, and so that we
      can suppress some optimizations in those zones.  */
   mark_flags_life_zones (discover_flags_reg ());
+
+  /* See the comment in front of REL_USE_HASH_SIZE what
+     this is about.  */
+  if (AUTO_INC_DEC && flag_regmove && flag_optimize_related_values)
+    optimize_related_values (nregs, regmove_dump_file);
+  /* That could have created new insns.  */
+  old_max_uid = get_max_uid ();
 
   regno_src_regno = xmalloc (sizeof *regno_src_regno * nregs);
   for (i = nregs; --i >= 0; ) regno_src_regno[i] = -1;
@@ -1999,6 +3918,8 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
       /* Move the death note for SRC from INSN to P.  */
       if (! overlap)
 	remove_note (insn, src_note);
+      if (find_reg_note (p, REG_INC, XEXP (src_note, 0)))
+	PUT_MODE (src_note, REG_UNUSED);
       XEXP (src_note, 1) = REG_NOTES (p);
       REG_NOTES (p) = src_note;
 
@@ -2540,3 +4461,4 @@ struct tree_opt_pass pass_stack_adjustments =
   0                                     /* letter */
 };
 
+#include "gt-regmove.h"

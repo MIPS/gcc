@@ -569,6 +569,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_schedule_insns_after_reload = 1;
 #endif
       flag_regmove = 1;
+      flag_optimize_related_values = 1;
       flag_strict_aliasing = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;

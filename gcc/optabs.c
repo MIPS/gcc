@@ -4076,18 +4076,40 @@ rtx
 gen_add3_insn (rtx r0, rtx r1, rtx c)
 {
   int icode = (int) add_optab->handlers[(int) GET_MODE (r0)].insn_code;
+  int mcode;
+  rtx s;
 
   if (icode == CODE_FOR_nothing
       || !(insn_data[icode].operand[0].predicate
-	   (r0, insn_data[icode].operand[0].mode))
-      || !(insn_data[icode].operand[1].predicate
-	   (r1, insn_data[icode].operand[1].mode))
-      || !(insn_data[icode].operand[2].predicate
-	   (c, insn_data[icode].operand[2].mode)))
+	   (r0, insn_data[icode].operand[0].mode)))
     return NULL_RTX;
 
-  return GEN_FCN (icode) (r0, r1, c);
+  if ((insn_data[icode].operand[1].predicate
+	   (r1, insn_data[icode].operand[1].mode))
+      && (insn_data[icode].operand[2].predicate
+	   (c, insn_data[icode].operand[2].mode)))
+    return GEN_FCN (icode) (r0, r1, c);
+  
+  mcode = (int) mov_optab->handlers[(int) GET_MODE (r0)].insn_code;
+  if (REGNO (r0) == REGNO (r1)
+      || !(insn_data[icode].operand[1].predicate
+	   (r0, insn_data[icode].operand[1].mode))
+      || !(insn_data[icode].operand[2].predicate
+	   (r1, insn_data[icode].operand[2].mode))
+      || !(insn_data[mcode].operand[0].predicate
+	   (r0, insn_data[mcode].operand[0].mode))
+      || !(insn_data[mcode].operand[1].predicate
+	   (c, insn_data[mcode].operand[1].mode)))
+    return NULL_RTX;
+
+  start_sequence ();
+  emit_insn (GEN_FCN (mcode) (r0, c));
+  emit_insn (GEN_FCN (icode) (r0, r0, r1));
+  s = get_insns ();
+  end_sequence ();
+  return s;
 }
+
 
 int
 have_add2_insn (rtx x, rtx y)
