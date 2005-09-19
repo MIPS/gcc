@@ -1,3 +1,11 @@
+2005-09-19  Ben Elliston  <bje@au.ibm.com>
+
+	Brought in from mainline:
+
+	2005-09-14  Andrew Pinski  <pinskia@physics.uc.edu>
+	* config/i386/i386.c (contains_128bit_aligned_vector_p): Add break
+	in the ARRAY_TYPE case.
+
 2005-09-13  Ben Elliston  <bje@au.ibm.com>
 
 	* decLibrary.c (__dfp_traps): New variable.
