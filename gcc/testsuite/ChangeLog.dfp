@@ -1,5 +1,11 @@
 2005-09-19  Yao Qi  <qiyaoltc@cn.ibm.com>
 
+	* gcc.dg/dfp/arg-passing-4.c: New test.
+	* gcc.dg/dfp/operatorspec-1.c: Likewise.
+	* gcc.dg/dfp/operatorspec-3.c: Likewise.
+
+2005-09-19  Yao Qi  <qiyaoltc@cn.ibm.com>
+
 	* gcc.dg/dfp/arg-passing-1.c: Remove unused locals in main.
 	* gcc.dg/dfp/varargs-1.c: Likewise.
 
