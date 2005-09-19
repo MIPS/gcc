@@ -2,6 +2,7 @@
 	    Bernd Schmidt  <bernds@redhat.com>
 
 	PR rtl-optimization/20211
+	http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01176.html
 	* common.opt: Add optimize-related-values entry.
 	* opts.c (decode_options): Set flag_optimize_related_values.
 	* optabs.c (gen_add3_insn): If direct addition is not possible,
@@ -30,6 +31,8 @@
 	* doc/invoke.texi: Document -foptimize-related-values.
 
 2005-09-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01176.html
 
 	* regmove.c (discover_flags_reg): Use the PATTERN of an INSN.
 
