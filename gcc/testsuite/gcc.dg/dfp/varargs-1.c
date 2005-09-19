@@ -52,10 +52,6 @@ vararg128 (unsigned arg, ...)
 
 int main()
 {
-  _Decimal32 d32;
-  _Decimal64 d64;
-  _Decimal128 d128;
-
   /* _Decimal32 variants.  */
   assert (vararg32 (0, 0.0df, 1.0df, 2.0df, 3.0df, 4.0df, 5.0df) == 0.0df);
   assert (vararg32 (1, 0.0df, 1.0df, 2.0df, 3.0df, 4.0df, 5.0df) == 1.0df);

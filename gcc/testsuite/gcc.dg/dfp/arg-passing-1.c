@@ -147,10 +147,6 @@ arg5_128 (_Decimal128 arg0, _Decimal128 arg1, _Decimal128 arg2,
 
 int main()
 {
-  _Decimal32 d32;
-  _Decimal64 d64;
-  _Decimal128 d128;
-
   /* _Decimal32 variants.  */
   assert (arg0_32 (0.0df, 1.0df, 2.0df, 3.0df, 4.0df, 5.0df) == 0.0df);
   assert (arg1_32 (0.0df, 1.0df, 2.0df, 3.0df, 4.0df, 5.0df) == 1.0df);
