@@ -573,6 +573,7 @@ init_optimization_passes (void)
      pass_may_alias.  */
   NEXT_PASS (pass_lower_vector_ssa);
   NEXT_PASS (pass_complete_unroll);
+  NEXT_PASS (pass_loop_reversal);
   NEXT_PASS (pass_loop_prefetch);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_tree_loop_done);

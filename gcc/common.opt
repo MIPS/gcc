@@ -709,6 +709,10 @@ frerun-loop-opt
 Common Report Var(flag_rerun_loop_opt)
 Run the loop optimizer twice
 
+freverse-loops
+Common Report Var(flag_loop_reversal) Init(0)
+Reverse loops when profittable.
+
 frounding-math
 Common Report Var(flag_rounding_math)
 Disable optimizations that assume default FP rounding behavior

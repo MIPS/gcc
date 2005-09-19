@@ -337,7 +337,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
--ftree-salias -fweb @gol
+-ftree-salias -fweb -freverse-loops @gol
 -ftree-copy-prop -ftree-store-ccp -ftree-store-copy-prop -fwhole-program @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -5001,6 +5001,11 @@ Create a canonical counter for number of iterations in the loop for that
 determining number of iterations requires complicated analysis.  Later
 optimizations then may determine the number easily.  Useful especially
 in connection with unrolling.
+
+@item -freverse-loops
+Reverse loops if it is profitable, i.e., enables the exit test of the
+loop to be a compare with zero or other constant, without need to
+introduce a new induction variable.
 
 @item -fivopts
 Perform induction variable optimizations (strength reduction, induction

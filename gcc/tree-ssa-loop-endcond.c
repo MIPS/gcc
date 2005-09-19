@@ -80,6 +80,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfgloop.h"
 #include "params.h"
 #include "langhooks.h"
+#include "tree-data-ref.h"
+#include "lambda.h"
 
 /* Returns period of induction variable with step STEP.  */
 
@@ -198,6 +200,19 @@ may_wrap_around_type_range_p (tree niter, tree step)
   return !nonzero_p (fold_build2 (LE_EXPR, boolean_type_node, niter, range));
 }
 
+/* Determines the final value of iv with base BASE and step STEP, in loop
+   that iterates NITER times.  */
+
+static tree
+final_value_of_iv (tree base, tree step, tree niter)
+{
+  tree type = TREE_TYPE (base);
+
+  return fold_build2 (PLUS_EXPR, type, base,
+		      fold_build2 (MULT_EXPR, type, step,
+				   fold_convert (type, niter)));
+}
+
 /* Given an exit condition comparing an induction variable with value
    BASE + STEP * i, such that the condition should be true
    (false if EXIT_P is true) for exactly NITER iterations, choose a best shape
@@ -214,7 +229,6 @@ select_condition_shape (tree niter, tree base, tree step,
 			bool exit_p, enum tree_code *cmp, tree *bound)
 {
   tree nit_type = TREE_TYPE (niter), per_type, wider_type;
-  tree iv_type = TREE_TYPE (step);
   tree period, final;
 
   /* To have chance to use this induction variable, its period must be at least
@@ -232,9 +246,7 @@ select_condition_shape (tree niter, tree base, tree step,
     return false;
 
   /* Determine the final value of the iv.  */
-  final = fold_build2 (PLUS_EXPR, iv_type, base,
-		       fold_build2 (MULT_EXPR, iv_type, step,
-				    fold_convert (iv_type, niter)));
+  final = final_value_of_iv (base, step, niter);
 
   /* At this point, we know that we can express the condition as
      IV != FINAL.  */
@@ -264,4 +276,370 @@ end:
     *cmp = invert_tree_comparison (*cmp, false);
 
   return true;
+}
+
+/* Estimate cost of comparing with BOUND.  */
+
+unsigned
+compare_cost (tree bound)
+{
+  /* Prefer costants, and prefer zero even more.  */
+  if (zero_p (bound))
+    return 0;
+  else if (TREE_CODE (bound) == INTEGER_CST)
+    return 1;
+  else
+    return 2;
+}
+
+/* Returns true if it is possible to reverse the LOOP.  List of data references
+   in LOOP is stored to DATAREFS.  Number of iterations is stored in NITER.  */
+
+static bool
+may_reverse_loop_p (struct loop *loop, varray_type *datarefs, tree *niter)
+{
+  edge exit = single_dom_exit (loop);
+  varray_type dependence_relations;
+  lambda_trans_matrix trans;
+  bool ret = false;
+  struct tree_niter_desc niter_desc;
+  tree phi;
+
+  /* Only consider innermost loops with just one exit.  Not strictly necessary,
+     but it makes things simpler.  */
+  if (loop->inner || !exit)
+    return false;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\nConsidering loop %d\n", loop->num);
+
+  /* Latch should be empty.  Similarly, this condition is not strictly
+     necessary, but keeps things simple.  */
+  if (!empty_block_p (loop->latch)
+      || !single_pred_p (loop->latch)
+      || single_pred (loop->latch) != exit->src)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  FAILED: nonempty latch\n");
+      return false;
+    }
+
+  /* We need to know # of iterations, and there should be no uses of values
+     defined inside loop outside of it, unless the values are invariants of
+     the loop.  */
+  if (!number_of_iterations_exit (loop, exit, &niter_desc, false)
+      || !zero_p (niter_desc.may_be_zero))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  FAILED: cannot determine precise number of iterations\n");
+      return false;
+    }
+  *niter = niter_desc.niter;
+
+  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
+    {
+      tree val = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+
+      if (is_gimple_reg (val)
+	  && !expr_invariant_in_loop_p (loop, val))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "  FAILED: value used outside loop\n");
+	  return false;
+	}
+    }
+
+  /* The iterations of the loop may comunicate only through bivs that can be
+     reversed.  */
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+    {
+      tree def = PHI_RESULT (phi), base, step;
+
+      if (is_gimple_reg (def)
+	  && !simple_iv (loop, phi, def, &base, &step, true))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "  FAILED: non-biv phi node\n");
+	  return false;
+	}
+    }
+
+  VARRAY_GENERIC_PTR_INIT (*datarefs, 10, "datarefs");
+  VARRAY_GENERIC_PTR_INIT (dependence_relations, 10, "dependence_relations");
+
+  /* Check for problems with dependences.  */
+  compute_data_dependences_for_loop (loop, true, datarefs,
+				     &dependence_relations);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_data_dependence_relations (dump_file, dependence_relations);
+
+  trans = lambda_trans_matrix_new (1, 1);
+  LTM_MATRIX (trans)[0][0] = -1;
+
+  if (lambda_transform_legal_p (trans, 1, dependence_relations))
+    {
+      ret = true;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  SUCCESS: may be reversed\n");
+    }
+  else if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "  FAILED: dependence check failed\n");
+
+  free_dependence_relations (dependence_relations);
+  return ret;
+}
+
+/* Returns cost of basing exit condition for loop that exits after NITER
+   iterations on induction variable with BASE and STEP.  If REVERSED
+   is true, we reverse the variable first.  */
+
+static unsigned
+endcond_candidate_cost (tree base, tree step, tree niter, bool reversed)
+{
+  tree bound;
+  enum tree_code cmp;
+
+  if (reversed)
+    {
+      base = final_value_of_iv (base, step, niter);
+      step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
+    }
+
+  if (!select_condition_shape (niter, base, step, true, &cmp, &bound))
+    return 10;
+
+  return compare_cost (bound);
+}
+
+/* Returns the best cost of ending condition of LOOP based on an index of one
+   of DATAREFS.  NITER is number of iterations of the loop.  If REVERSED
+   is true, cost for reversed loop is returned, otherwise cost for original
+   loop is returned.  */
+
+static unsigned
+best_endcond_candidate_cost (struct loop *loop, varray_type datarefs,
+			     tree niter, bool reversed)
+{
+  unsigned best = 10, act, i, it;
+  tree base, step;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+    {
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+
+      for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
+	{
+	  tree chrec = DR_ACCESS_FN (dr, it);
+
+	  if (TREE_CODE (chrec) != POLYNOMIAL_CHREC
+	      || CHREC_VARIABLE (chrec) != (unsigned) loop->num)
+	    continue;
+
+	  base = CHREC_LEFT (chrec);
+	  step = CHREC_RIGHT (chrec);
+	  if (TREE_CODE (step) != INTEGER_CST
+	      || tree_contains_chrecs (base, NULL)
+	      || chrec_contains_symbols_defined_in_loop (base, loop->num))
+	    continue;
+
+	  act = endcond_candidate_cost (base, step, niter, reversed);
+	  if (act < best)
+	    best = act;
+	}
+    }
+
+  return best;
+}
+
+/* Returns difference between number of arrays that are traversed forwards
+   and backwards in LOOP, according to DATAREFS.  */
+
+static int
+num_of_forward_traversals (struct loop *loop, varray_type datarefs)
+{
+  unsigned i, it;
+  int n_forward = 0;
+
+  /* Determine number of data references passed forwards/backwards
+     in loop.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+    {
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+
+      for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
+	{
+	  tree chrec = DR_ACCESS_FN (dr, it);
+	  tree tstride = evolution_part_in_loop_num (chrec, loop->num);
+	  
+	  if (tstride != NULL_TREE && !zero_p (tstride))
+	    {
+	      if (TREE_CODE (tstride) != INTEGER_CST)
+		{
+		  /* Let's be conservative, and assume everything we do not
+		     understand goes forward.  */
+		  n_forward++;
+		}
+	      else if (tree_int_cst_sign_bit (tstride))
+		n_forward--;
+	      else
+		n_forward++;
+	      break;
+	    }
+	}
+    }
+
+  return n_forward;
+}
+
+/* This can be redefined by md, for architectures that prefer the arrays to be
+   traversed forwards (because of some simplistic hardware prefetching).  */
+
+#ifndef PREFER_PASSING_MEMORY_FORWARDS
+#define PREFER_PASSING_MEMORY_FORWARDS 0
+#endif
+
+/* Returns true if it seems to be profitable to reverse the direction
+   in that loop iterates.  DATAREFS is the list of data references in
+   loop.  NITER is the number of iterations of a loop.  */
+
+static bool
+profitable_to_reverse_loop_p (struct loop *loop, varray_type datarefs,
+			      tree niter)
+{
+  unsigned orig_cost, reversed_cost;
+
+  if (PREFER_PASSING_MEMORY_FORWARDS && datarefs)
+    {
+      int n_forward = num_of_forward_traversals (loop, datarefs);
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  %d forward traversals\n", n_forward);
+
+      if (n_forward > 0)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "  FAILED: prefer traversing forwards\n");
+	  return false;
+	}
+
+      /* ??? Maybe we would like to reverse the loop just to get the arrays
+	 traversed in the right direction?  */
+    }
+
+  /* Check whether reversing the loop enables us to use a better ending
+     condition for it.  */
+  orig_cost = best_endcond_candidate_cost (loop, datarefs, niter, false);
+  reversed_cost = best_endcond_candidate_cost (loop, datarefs, niter, true);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "  costs: %d orig, %d reversed\n",
+	     orig_cost, reversed_cost);
+
+  if (orig_cost <= reversed_cost)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  FAILED: no gain from reversing the loop\n");
+      return false;
+    }
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "  SUCCESS: profitable to reverse\n");
+  return true;
+}
+
+/* Reverse the biv of LOOP defined in phi node PHI.  LOOP iterates NITER
+   times.  */
+
+static void
+reverse_biv (struct loop *loop, tree phi, tree niter)
+{
+  block_stmt_iterator bsi_incr = bsi_last (single_dom_exit (loop)->src);
+  edge entry = loop_preheader_edge (loop);
+  edge latch = loop_latch_edge (loop);
+  tree base, step, def = PHI_RESULT (phi), var = SSA_NAME_VAR (def);
+  tree new_def, stmts;
+  bool ok;
+      
+  ok = simple_iv (loop, phi, def, &base, &step, true);
+  gcc_assert (ok);
+
+  base = unshare_expr (final_value_of_iv (base, step, niter));
+  base = force_gimple_operand (base, &stmts, true, var);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (entry, stmts);
+
+  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, entry), base);
+
+  /* Create the increment.  */
+  new_def = create_increment_stmt (&bsi_incr, false, def, MINUS_EXPR,
+				   unshare_expr (step), var);
+  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, latch), new_def);
+}
+
+/* Replace exit condition of LOOP by a test whether NITER iterations
+   have elapsed.  */
+
+static void
+replace_exit_condition (struct loop *loop, tree niter)
+{
+  create_canonical_iv (loop, single_dom_exit (loop), niter);
+}
+
+/* Reverse LOOP.  NITER is number of its iterations.  */
+
+static void
+reverse_loop (struct loop *loop, tree niter)
+{
+  tree phi, var;
+
+  /* Rewrite the phi nodes and adjust increments of the bivs.  */
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+    {
+      var = PHI_RESULT (phi);
+      if (!is_gimple_reg (var))
+	continue;
+
+      reverse_biv (loop, phi, niter);
+    }
+
+  replace_exit_condition (loop, niter);
+}
+
+/* Reverse LOOP if possible and profitable.  Returns true if LOOP was
+   reversed.  */
+
+static bool
+loop_reversal (struct loop *loop)
+{
+  varray_type datarefs = NULL;
+  tree niter;
+  bool reversed = false;
+
+  if (may_reverse_loop_p (loop, &datarefs, &niter)
+      && profitable_to_reverse_loop_p (loop, datarefs, niter))
+    {
+      reverse_loop (loop, niter);
+      reversed = true;
+    }
+
+  free_data_refs (datarefs);
+  return reversed;
+}
+
+/* Try reversing the LOOPS, in case it gives a better ending condition.  */
+
+void
+tree_ssa_reverse_loops (struct loops *loops)
+{
+  unsigned i;
+  struct loop *loop;
+  bool changed = false;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (loop)
+	changed |= loop_reversal (loop);
+    }
+
+  if (changed)
+    scev_reset ();
 }

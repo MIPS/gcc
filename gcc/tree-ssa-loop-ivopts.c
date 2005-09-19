@@ -3627,20 +3627,6 @@ get_computation_cost (struct ivopts_data *data,
 				  use, cand, address_p, depends_on, use->stmt);
 }
 
-/* Estimate cost of comparing with BOUND.  */
-
-unsigned
-compare_cost (tree bound)
-{
-  /* Prefer costants, and prefer zero even more.  */
-  if (zero_p (bound))
-    return 0;
-  else if (TREE_CODE (bound) == INTEGER_CST)
-    return 1;
-  else
-    return 2;
-}
-
 /* Determines cost of basing replacement of USE on CAND in a generic
    expression.  */
 

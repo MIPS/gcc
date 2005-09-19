@@ -1,3 +1,29 @@
+2005-09-19  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* Makefile.in (tree-ssa-loop-endcond.o): Add TREE_DATA_REF_H and
+	LAMBDA_H dependency.
+	* common.opt (freverse-loops): New flag.
+	* passes.c (init_optimization_passes): Add pass_loop_reversal.
+	* timevar.def (TV_TREE_LOOP_REVERSE): New timevar.
+	* tree-pass.h (pass_loop_reversal): Declare.
+	* tree-ssa-loop-endcond.c: Include tree-data-ref.h and lambda.h.
+	(final_value_of_iv, may_reverse_loop_p, endcond_candidate_cost,
+	best_endcond_candidate_cost, num_of_forward_traversals,
+	profitable_to_reverse_loop_p, reverse_biv, replace_exit_condition,
+	reverse_loop, loop_reversal, tree_ssa_reverse_loops): New functions.
+	(select_condition_shape): Use final_value_of_iv.
+	(compare_cost): Moved from tree-ssa-loop-ivopts.c.
+	* tree-ssa-loop-ivopts.c (compare_cost): Moved to
+	tree-ssa-loop-endcond.c.
+	* tree-ssa-loop.c (tree_ssa_loop_reversal,
+	* gate_tree_ssa_loop_reversal, pass_loop_reversal): New.
+	* doc/invoke.texi (-freverse-loops): Document.
+	* doc/passes.texi: Document loop reversal, tree-affine.c and
+	tree-ssa-loop-endcond.c.
+
+	* testsuite/gcc.dg/20050105-1.c: Do not pass -floop-optimize2.
+	* testsuite/gcc.dg/tree-ssa/loop-12.c: New test.
+
 2005-09-15  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* tree-data-ref.c (analyze_array, analyze_indirect_ref, init_data_ref,

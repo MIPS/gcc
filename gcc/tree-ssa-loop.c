@@ -406,6 +406,41 @@ struct tree_opt_pass pass_complete_unroll =
   0					/* letter */
 };
 
+/* Loop reversal.  */
+
+static void
+tree_ssa_loop_reversal (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_reverse_loops (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_reversal (void)
+{
+  return flag_loop_reversal != 0;
+}
+
+struct tree_opt_pass pass_loop_reversal =
+{
+  "revloops",				/* name */
+  gate_tree_ssa_loop_reversal,		/* gate */
+  tree_ssa_loop_reversal,	       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_REVERSE,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  0					/* letter */
+};
+
+
 /* Prefetching.  */
 
 static void

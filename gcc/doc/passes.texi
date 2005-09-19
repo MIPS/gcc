@@ -388,10 +388,18 @@ loop using it, in case when a complicated analysis is necessary to determine
 the number of iterations.  Later optimizations then may determine the number
 easily.  The pass is implemented in @file{tree-ssa-loop-ivcanon.c}.
 
+Loop reversal.  This pass revereses loops if it is profitable, i.e, when
+this enables the exit test of the loop to be a compare with zero or other
+constant, without need to introduce a new induction variable, and this
+was not possible for the original loop.  This pass is implemented in
+@file{tree-ssa-loop-endcond.c}.
+
 Induction variable optimizations.  This pass performs standard induction
 variable optimizations, including strength reduction, induction variable
 merging and induction variable elimination.  The pass is implemented in
-@file{tree-ssa-loop-ivopts.c}.
+@file{tree-ssa-loop-ivopts.c}, and uses utility functions implemented in
+@file{tree-ssa-address.c}, @file{tree-affine.c} and
+@file{tree-ssa-loop-endcond.c}.
 
 Loop unswitching.  This pass moves the conditional jumps that are invariant
 out of the loops.  To achieve this, a duplicate of the loop is created for
