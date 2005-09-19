@@ -1,3 +1,10 @@
+2005-09-19  Devang Patel  <dpatel@apple.com>
+
+	Radar 4252541
+	* config/rs6000/rs6000.c (rs6000_expand_binop_builtin,
+	rs6000_expand_ternop_builtin, rs6000_expand_unop_builtin): Check expr
+	arguments.
+
 2005-09-16  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4232296

@@ -7754,11 +7754,22 @@ static rtx
 rs6000_expand_unop_builtin (enum insn_code icode, tree arglist, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  /* APPLE LOCAL begin Altivec */
+  tree arg0;
+  rtx op0;
+  /* APPLE LOCAL end Altivec */
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
+  /* APPLE LOCAL begin Altivec */
+  if (!arglist || !TREE_VALUE (arglist))
+    {
+      error ("too few arguments to function");
+      return const0_rtx;
+    }
+  arg0 = TREE_VALUE (arglist);
+  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  /* APPLE LOCAL end Altivec */
   if (icode == CODE_FOR_nothing)
     /* Builtin not supported on this processor.  */
     return 0;
@@ -7847,13 +7858,31 @@ static rtx
 rs6000_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  /* APPLE LOCAL begin Altivec */
+  tree arg0;
+  tree arg1;
+  rtx op0;
+  rtx op1;
+  /* APPLE LOCAL end Altivec */
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+
+  /* APPLE LOCAL begin Altivec */
+  if (!arglist
+      || !TREE_VALUE (arglist)
+      || !TREE_CHAIN (arglist)
+      || !TREE_VALUE (TREE_CHAIN (arglist)))
+    {
+      error ("too few arguments to function");
+      return const0_rtx;
+    }
+
+  arg0 = TREE_VALUE (arglist);
+  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  /* APPLE LOCAL end Altivec */
 
   if (icode == CODE_FOR_nothing)
     /* Builtin not supported on this processor.  */
@@ -8118,17 +8147,34 @@ static rtx
 rs6000_expand_ternop_builtin (enum insn_code icode, tree arglist, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-  rtx op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+  /* APPLE LOCAL begin Altivec.  */
+  tree arg0, arg1, arg2;
+  rtx op0, op1, op2;
+  /* APPLE LOCAL end  Altivec.  */
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
   enum machine_mode mode2 = insn_data[icode].operand[3].mode;
 
+  /* APPLE LOCAL begin Altivec.  */
+  if (!arglist
+      || !TREE_VALUE (arglist)
+      || !TREE_CHAIN (arglist)
+      || !TREE_VALUE (TREE_CHAIN (arglist))
+      || !TREE_CHAIN (TREE_CHAIN (arglist))
+      || !TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist))))
+    {
+      error ("too few arguments to function");
+      return const0_rtx;
+    }
+
+  arg0 = TREE_VALUE (arglist);
+  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+  /* APPLE LOCAL end Altivec.  */
   if (icode == CODE_FOR_nothing)
     /* Builtin not supported on this processor.  */
     return 0;
