@@ -1,3 +1,28 @@
+2005-09-08  David Daney  <ddaney@avtrex.com>
+
+	* java/io/ByteArrayOutputStream.java (toString(int)):  Pass
+	correct parameters to String constructor.
+
+2005-09-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23549
+	* gij.cc (main): Don't expect arguments to -enableassertions, -ea,
+	-disableassertions and -da.
+
+2005-06-29  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/22211:
+	* java/lang/natThread.cc (finish_): Synchronize when updating
+	alive_flag.
+	(_Jv_AttachCurrentThread): Likewise.
+	(interrupt): Only call _Jv_ThreadInterrupt if thread is alive.
+	* java/lang/Thread.java (isAlive): Now synchronized.
+
+2005-09-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23739:
+	* jni.cc (_Jv_JNI_IsAssignableFrom): Reversed arguments.
+
 2005-04-26  Andrew Haley  <aph@redhat.com>
 
 	PR libgcj/21020:

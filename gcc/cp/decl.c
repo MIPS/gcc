@@ -794,6 +794,7 @@ wrapup_globals_for_namespace (tree namespace, void* data)
   if (last_time)
     {
       check_global_declarations (vec, len);
+      emit_debug_global_declarations (vec, len);
       return 0;
     }
 
@@ -9029,8 +9030,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
       return error_mark_node;
     }
   else if (TREE_CODE (type) != ENUMERAL_TYPE
-	   && tag_code == enum_type
-	   && tag_code != typename_type)
+	   && tag_code == enum_type)
     {
       error ("%qT referred to as enum", type);
       cp_error_at ("%qT has a previous declaration here", type);

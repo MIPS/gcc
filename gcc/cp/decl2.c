@@ -1080,7 +1080,7 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 }
 
 /* Walks through the namespace- or function-scope anonymous union
-   OBJECT, with the indicated TYPE, building appropriate ALIAS_DECLs.
+   OBJECT, with the indicated TYPE, building appropriate VAR_DECLs.
    Returns one of the fields for use in the mangled name.  */
 
 static tree
@@ -1125,11 +1125,17 @@ build_anon_union_vars (tree type, tree object)
 
       if (DECL_NAME (field))
 	{
-	  decl = build_decl (ALIAS_DECL, DECL_NAME (field), TREE_TYPE (field));
-	  DECL_INITIAL (decl) = ref;	    
-	  TREE_PUBLIC (decl) = 0;
-	  TREE_STATIC (decl) = 0;
-	  DECL_EXTERNAL (decl) = 1;
+	  tree base;
+
+	  decl = build_decl (VAR_DECL, DECL_NAME (field), TREE_TYPE (field));
+
+	  base = get_base_address (object);
+	  TREE_PUBLIC (decl) = TREE_PUBLIC (base);
+	  TREE_STATIC (decl) = TREE_STATIC (base);
+	  DECL_EXTERNAL (decl) = DECL_EXTERNAL (base);
+
+	  DECL_VALUE_EXPR (decl) = ref;
+
 	  decl = pushdecl (decl);
 	}
       else if (ANON_AGGR_TYPE_P (TREE_TYPE (field)))
@@ -3068,8 +3074,12 @@ cp_finish_file (void)
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
   if (pending_statics)
-    check_global_declarations (&VARRAY_TREE (pending_statics, 0),
-			       pending_statics_used);
+    {
+      check_global_declarations (&VARRAY_TREE (pending_statics, 0),
+			         pending_statics_used);
+      emit_debug_global_declarations (&VARRAY_TREE (pending_statics, 0),
+				      pending_statics_used);
+    }
 
   finish_repo ();
 
@@ -3177,12 +3187,38 @@ check_default_args (tree x)
     }
 }
 
+/* Mark DECL as "used" in the program.  If DECL is a specialization or
+   implicitly declared class member, generate the actual definition.  */
+
 void
 mark_used (tree decl)
 {
+  HOST_WIDE_INT saved_processing_template_decl = 0;
+
   TREE_USED (decl) = 1;
-  if (processing_template_decl || skip_evaluation)
+  /* If we don't need a value, then we don't need to synthesize DECL.  */ 
+  if (skip_evaluation)
     return;
+  /* Normally, we can wait until instantiation-time to synthesize
+     DECL.  However, if DECL is a static data member initialized with
+     a constant, we need the value right now because a reference to
+     such a data member is not value-dependent.  */
+  if (processing_template_decl)
+    {
+      if (TREE_CODE (decl) == VAR_DECL
+	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_CLASS_SCOPE_P (decl)
+	  && !dependent_type_p (DECL_CONTEXT (decl)))
+	{
+	  /* Pretend that we are not in a template so that the
+	     initializer for the static data member will be full
+	     simplified.  */
+	  saved_processing_template_decl = processing_template_decl;
+	  processing_template_decl = 0;
+	}
+      else
+	return;  
+    }
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))
@@ -3241,6 +3277,8 @@ mark_used (tree decl)
        and the inliner knows to instantiate any functions it might
        need.  */
     instantiate_decl (decl, /*defer_ok=*/true, /*undefined_ok=*/0);
+
+  processing_template_decl = saved_processing_template_decl;
 }
 
 #include "gt-cp-decl2.h"

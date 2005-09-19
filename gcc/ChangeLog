@@ -1,3 +1,141 @@
+2005-09-16  Fariborz Jahanian <fjahanian@apple.com>
+
+	* config/darwin.c (indirect_data): Fix a typo.
+
+2005-09-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (DBX_OUTPUT_BRAC): Treat function name
+	passed as NAME as if it were label at start of function code.
+
+2005-09-13  Alan Modra  <amodra@bigpond.net.au>
+
+	Fix 4.1 version applied in error.
+	* config/rs6000/rs6000.md (restore_stack_block): Don't use 
+	gen_frame_mem.
+	(save_stack_nonlocal, restore_stack_nonlocal): Likewise.
+
+	PR target/23774
+	* config/rs6000/rs6000.md (restore_stack_block): Write the backchain
+	word before changing the stack pointer.	 Use gen_frame_mem for MEMs.
+	Use UNSPEC_TIE to prevent insn scheduling reordering the insns.
+	(restore_stack_nonlocal): Likewise.
+	(save_stack_nonlocal): Use template to emit insns, and gen_frame_mem.
+
+2005-09-12  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (get_next_active_insn): Rewrite using
+	CALL_P, JUMP_P and NONJUMP_INSN_P, so that barriers and labels
+	are omitted.  Exclude stack_tie insn too.
+
+2005-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (contains_placeholder_p) <tcc_expression>: Properly
+	handle CALL_EXPR again.
+
+2005-09-10  Richard Henderson  <rth@redhat.com>
+
+	PR debug/23806
+	* dbxout.c (dbxout_expand_expr): New.
+	(dbxout_symbol): Use it.
+
+2005-09-09  Josh Conner  <jconner@apple.com>
+
+	PR c++/21135
+	* expr.c (expand_expr_addr_expr_1): Don't invoke
+	expand_simple_binop for EXPAND_INITIALIZER.
+
+2005-09-09  Richard Henderson  <rth@redhat.com>
+
+	PR debug/20998
+	* dbxout.c: Include expr.h.
+	(dbxout_global_decl): Don't suppress for DECL_RTL unset.
+	(dbxout_symbol): Handle DECL_VALUE_EXPR.
+	* Makefile.in (dbxout.o): Add EXPR_H.
+
+2005-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/23624
+	* fold-const.c (fold): Check truth_value_p before calling
+	invert_truthvalue.
+
+2005-09-08  Richard Henderson  <rth@redhat.com>
+
+	PR debug/23190
+	* toplev.c (wrapup_global_declaration_1): Split out ...
+	(wrapup_global_declaration_2): ... from ...
+	(wrapup_global_declarations): ... here.  Return bool.
+	(check_global_declaration_1): Split out ...
+	(check_global_declarations): from here.
+	(emit_debug_global_declarations): New.
+	* toplev.h (wrapup_global_declaration_1, wrapup_global_declaration_2,
+	check_global_declaration_1, emit_debug_global_declarations): Declare.
+	* c-decl.c (c_write_global_declarations_1): Don't create a vector
+	of decls.  Call wrapup_global_declaration_1,
+	wrapup_global_declaration_2, check_global_declaration_1 directly.
+	(c_write_global_declarations_2): New.
+	(ext_block): New.
+	(c_write_global_declarations): Call c_write_global_declarations_2.
+	* langhooks.c (write_global_declarations): Call
+	emit_debug_global_declarations.
+
+2005-09-08  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	Backport from mainline
+	2005-09-01  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	* c-decl.c (diagnose_mismatched_decls):  With -Wredundant-decls,
+	do not issue warning for a variable definition following
+	a declaration.
+	
+2005-09-08  Richard Guenther  <rguenther@suse.de>
+	    Zdenek Dvorak  <rakdver@gcc.gnu.org>
+
+	PR tree-optimization/22348
+	* tree-ssa-loop-niter.c (number_of_iterations_cond): Fold
+	MINUS_EXPR.
+
+2005-09-08  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	PR target/23747
+	* config/m32r.md (movmemsi_internal): Canonicalize order of
+	operands in PLUS component of template.
+
+2005-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2005-06-08  Richard Henderson  <rth@redhat.com>
+	* config/ia64/ia64.h (NO_PROFILE_COUNTERS): New.
+	* config/ia64/ia64.c (ia64_output_function_profiler): Honor it.
+	Emit out3 load right after alloc.
+	2005-06-08  Richard Henderson  <rth@redhat.com>
+	* config/ia64/ia64.h (FUNCTION_PROFILER): Move implementation ...
+	* config/ia64/ia64.c (ia64_output_function_profiler): ... here; add
+	unwind markup.
+	* config/ia64/ia64-protos.h (ia64_output_function_profiler): Declare.
+
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/23075
+	* c-typeck.c (c_finish_return): Set TREE_NO_WARNING on RETURN_EXPR
+	if "return with no value, in function returning non-void" warning
+	has been issued.
+  	* tree-cfg.c (execute_warn_function_return): Don't look at
+	RETURN_EXPRs with TREE_NO_WARNING set.
+
+	PR target/22362
+	* config/i386/i386.c (ix86_function_regparm): Make sure automatic regparm
+	for internal functions doesn't use registers used by global registers
+	variables.  Use fewer register parameters if there are global register
+	variables.
+
+	PR rtl-optimization/23098
+	* cse.c (fold_rtx): Call delegitimize_address target hook.
+	* simplify-rtx.c (constant_pool_reference_p): New function.
+	* rtl.h (constant_pool_reference_p): New prototype.
+	* config/i386/i386.md (pushf split, mov[sdx]f split): Use
+	constant_pool_reference_p in condition and
+	avoid_constant_pool_reference in preparation statements.
+
 2005-09-06  Alan Modra  <amodra@bigpond.net.au>
 
 	PR middle-end/21460
@@ -38,11 +176,11 @@
 
 2005-09-02  Richard Guenther  <rguenther@suse.de>
 
-        PR tree-optimization/15366
-        * common.opt: Add -finline-functions-called-once.
-        * doc/invoke.texi: Document new option.
-        * cgraphunit.c (cgraph_decide_inlining): Honour
-        flag_inline_functions_called_once.
+	PR tree-optimization/15366
+	* common.opt: Add -finline-functions-called-once.
+	* doc/invoke.texi: Document new option.
+	* cgraphunit.c (cgraph_decide_inlining): Honour
+	flag_inline_functions_called_once.
 
 2005-09-01  Jakub Jelinek  <jakub@redhat.com>
 
@@ -55,12 +193,12 @@
 	TYPE_MAIN_VARIANT (type), not type.
 
 	PR rtl-optimization/23478
-        * regs.h (reg_info): Add throw_calls_crossed.
-        (REG_N_THROWING_CALLS_CROSSED): Define.
-        * flow.c (allocate_reg_life_data): Initialize
-        REG_N_THROWING_CALLS_CROSSED.
-        (propagate_one_insn, attempt_auto_inc): Update
-        REG_N_THROWING_CALLS_CROSSED.
+	* regs.h (reg_info): Add throw_calls_crossed.
+	(REG_N_THROWING_CALLS_CROSSED): Define.
+	* flow.c (allocate_reg_life_data): Initialize
+	REG_N_THROWING_CALLS_CROSSED.
+	(propagate_one_insn, attempt_auto_inc): Update
+	REG_N_THROWING_CALLS_CROSSED.
 	* local-alloc.c (struct qty): Add n_throwing_calls_crossed field.
 	(alloc_qty): Initialize it.
 	(update_equiv_regs): Clear REG_N_THROWING_CALLS_CROSSED.

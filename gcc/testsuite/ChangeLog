@@ -1,3 +1,165 @@
+2005-09-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/warn/huge-val1.C: Disable tests on values of HUGE_VAL,
+	HUGE_VALF and HUGE_VALL unless __GLIBC__ is defined.
+
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23914
+	* g++.dg/template/static18.C: New test.
+
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21514
+	* g++.dg/template/crash19.C: Remove dg-error marker.
+	* g++.dg/template/local4.C: New test.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23896
+	* g++.dg/template/static17.C: New test.
+
+2005-09-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/23139
+	* g++.dg/warn/huge-val1.C: New test.
+
+2005-09-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/19358
+	* gfortran.fortran-torture/assumed_dummy_1.f90: New test.
+
+2005-09-13  Bastian Blank <waldi@debian.org>
+
+	PR c++/16171
+	* g++.dg/abi/mangle26.C: New test. 
+	* g++.dg/abi/mangle27.C: New test. 
+	* g++.dg/abi/mangle28.C: New test. 
+	* g++.dg/abi/mangle29.C: New test. 
+
+2005-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23839
+	* g++.dg/parse/register1.C: New test.
+
+	PR c++/23842
+	* g++.dg/template/access16.C: New test.
+
+2005-09-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23841
+	* g++.dg/parse/template17.C: New test.
+
+	PR c++/23789
+	* g++.dg/template/nontype14.C: New test.
+
+2005-09-11  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/other/error8.C: Update expected diagnostic text.
+
+2005-09-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19872
+	* gfortran.dg/overwrite_1.f: New test.
+
+2005-09-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/iostat_2.f90: New test.
+
+2005-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/23624
+	* g++.dg/tree-ssa/pr23624.C: New testcase.
+
+2005-09-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18878
+	* gfortran.dg/module_double_reuse.f90: New.
+
+2005-09-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23270
+	PR fortran/22304
+	PR fortran/18870
+	PR fortran/17917
+	PR fortran/16511
+	* gfortran.dg/common_equivalence_1.f: New.
+	* gfortran.dg/common_equivalence_2.f: New.
+	* gfortran.dg/common_equivalence_3.f: New.
+	* gfortran.dg/contained_equivalence_1.f90: New.
+	* gfortran.dg/module_blank_common.f90: New. 
+	* gfortran.dg/module_commons_1.f90: New.
+	* gfortran.dg/module_equivalence_1.f90: New.
+	* gfortran.dg/nested_modules_1.f90: New.
+	* gfortran.dg/g77/19990905-0.f: Remove XFAIL, rearrange
+	equivalences and add comment to connect the test with
+	the PR.
+
+2005-09-09  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	Remove unintentionally added file:
+	* gfortran.dg/f2c_6.f90: Remove.
+
+2005-09-08  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	Backport from mainline:
+	2005-09-01  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+	* gcc.dg/Wredundant-decls-2.c: New test to check that
+	-Wredundant-decls does not issue warning for a variable 
+	definition following a declaration.
+
+2005-09-08  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/23765
+	* gfortran.dg/common_6.f90: New test.
+
+2005-09-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23691
+	* g++.dg/template/static16.C: New test.
+
+2005-09-08  Richard Guenther  <rguenther@suse.de>
+	Zdenek Dvorak  <rakdver@gcc.gnu.org>
+
+	PR tree-optimization/22348
+	* gcc.c-torture/execute/pr22348.c: New testcase.
+
+2005-09-07  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.dg/parameter+save.f90:  Rename to
+	* gfortran.dg/parameter_save.f90: .. this.
+
+2005-09-07  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/20848
+	* gfortran.dg/parameter+save.f90:  New test case.
+
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/23075
+	* gcc.dg/pr23075.c: New test.
+	* g++.dg/warn/pr23075.C: New test.
+
+	PR target/22362
+	* gcc.target/i386/pr22362.c: New test.
+
+	PR c++/23056
+	* g++.dg/opt/pr23056.C: New test.
+
+	PR rtl-optimization/23098
+	* gcc.target/i386/pr23098.c: New test.
+
+	* gcc.dg/debug/dwarf2/dwarf-char1.c: Further regex fixes.
+	* gcc.dg/debug/dwarf2/dwarf-char2.c: Likewise.
+	* gcc.dg/debug/dwarf2/dwarf-char3.c: Likewise.
+
+2005-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/expr/cast6.C: New test.
+
+	PR c++/9782
+	* g++.dg/init/new15.C: New test.
+
 2005-09-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/debug/dwarf2/dwarf-char1.c: Accept more assembler comment
@@ -849,6 +1011,10 @@
 2005-06-14  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/pr21171.c: Fix.
+
+2005-06-12  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/f2c_7.f90: New test.
 
 2005-06-08  Zdenek Dvorak  <dvorakz@suse.cz>
 

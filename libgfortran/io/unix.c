@@ -217,6 +217,17 @@ fix_fd (int fd)
   return fd;
 }
 
+int
+is_preconnected (stream * s)
+{
+  int fd;
+
+  fd = ((unix_stream *) s)->fd;
+  if (fd == STDIN_FILENO || fd == STDOUT_FILENO || fd == STDERR_FILENO)
+    return 1;
+  else
+    return 0;
+}
 
 /* write()-- Write a buffer to a descriptor, allowing for short writes */
 
@@ -997,7 +1008,12 @@ tempfile (void)
 
   if (mktemp (template))
     do
+#ifdef HAVE_CRLF
+      fd = open (template, O_RDWR | O_CREAT | O_EXCL | O_BINARY,
+                 S_IREAD | S_IWRITE);
+#else
       fd = open (template, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+#endif
     while (!(fd == -1 && errno == EEXIST) && mktemp (template));
   else
     fd = -1;
@@ -1081,6 +1097,10 @@ regular_file (unit_flags *flags)
     }
 
   /* rwflag |= O_LARGEFILE; */
+
+#ifdef HAVE_CRLF
+  crflag |= O_BINARY;
+#endif
 
   mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
   fd = open (path, rwflag | crflag, mode);

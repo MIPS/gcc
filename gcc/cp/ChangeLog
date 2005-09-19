@@ -1,3 +1,110 @@
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23914
+	* parser.c (cp_parser_enclosed_template_argument_list): Make sure
+	skip_evaluation is false when processing template arguments.
+
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21514
+	* pt.c (check_instantiated_args): Treat uses of anonymous types as
+	causing type-deduction failure.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23896
+	* pt.c (tsubst_aggr_type): Make sure skip_evaluation is false when
+	processing template arguments.
+
+2005-09-13  Bastian Blank <waldi@debian.org>
+
+	PR c++/16171
+	* mangle.c (find_substitution): Do not use special substitutions
+	for identifiers not in std::.
+	
+2005-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23839
+	* typeck.c (cxx_mark_addressable): Only check DECL_HARD_REGISTER
+	for VAR_DECLs.
+
+	PR c++/23842
+	* pt.c (tsubst_default_argument): Do treat default argument
+	expressions as occurring in the context of the function called. 
+
+2005-09-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23841
+	* parser.c (cp_parser_primary_expression): Recognize the closing
+	">" of a template-argument-list after a floating-point literal as
+	the end of a cast expression.
+
+	PR c++/23789
+	* cvt.c (perform_qualification_conversions): Don't create
+	unnecessary NOP_EXPRs.
+	* pt.c (tsubst_template_arg): Use fold_non_dependent_expr.
+
+2005-09-11  Richard Henderson  <rth@redhat.com>
+
+	* decl2.c (build_anon_union_vars): Copy attributes from the base addr.
+	* pt.c (tsubst_decl): Substitute in DECL_VALUE_EXPR.
+
+2005-09-09  Richard Henderson  <rth@redhat.com>
+
+	PR debug/20998
+	* cp-tree.def (ALIAS_DECL): Remove.
+	* cp-lang.c (cp_init_ts): Remove support for it.
+	* error.c (dump_decl): Likewise.
+	* name-lookup.c (pushdecl): Likewise.
+	* semantics.c (finish_id_expression): Likewise.
+	* decl2.c (build_anon_union_vars): Use a VAR_DECL with
+	DECL_VALUE_EXPR instead.
+
+2005-09-08  Richard Henderson  <rth@redhat.com>
+
+	PR debug/23190
+	* decl.c (wrapup_globals_for_namespace): Call
+	emit_debug_global_declarations.
+	* decl2.c (cp_finish_file): Likewise.
+
+2005-09-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23691
+	* decl2.c (mark_used): Instantiate static data members initialized
+	by constants, even in a template.
+
+2005-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/23075
+	* typeck.c (check_return_expr): Add no_warning argument.  Set
+	*no_warning to true if "return-statement with no value, in function
+	returning" warning has been issued.
+	* cp-tree.h (check_return_expr): Adjust prototype.
+	* semantics.c (finish_return_stmt): Set TREE_NO_WARNING if
+	check_return_expr set *no_warning to true.
+
+	PR c++/23056
+	* typeck.c (ignore_overflows): New helper function.
+	(build_static_cast_1): Use it.
+
+2005-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (rvalue): New function.
+	* call.c (build_conditional_expr): Use it.
+	* init.c (build_new_1): Likewise.
+	* rtti.c (build_dynamic_cast_1): Likewise.
+	* tree.c (rvalue): New function.
+	* typeck.c (build_unary_op): Use it.
+	(build_static_cast_1): Likewise.
+
+	PR c++/9782
+	* init.c (build_new_1): Make sure the entire array type is
+	complete, not just its element types.
+
+2005-09-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (check_elaborated_type_specifier): Remove redundant check.
+
 2005-09-05  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/23667
@@ -125,7 +232,7 @@
 
 	PR c++/21799
 	PR c++/8271
-        * pt.c (unify) <METHOD_TYPE>: Check this-pointer cv-qualifiers
+	* pt.c (unify) <METHOD_TYPE>: Check this-pointer cv-qualifiers
 	explicitly.
 
 2005-08-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
@@ -253,12 +360,12 @@
 
 	2005-06-10  Aldy Hernandez  <aldyh@redhat.com>
 
-        PR c++/10611
-        * cp/cvt.c (build_expr_type_conversion): Same.
-        * cp/typeck.c (build_binary_op): Handle vectors.
-        (common_type): Same.
-        (type_after_usual_arithmetic_conversions): Same.
-        * testsuite/g++.dg/conversion/simd2.C: New.
+	PR c++/10611
+	* cp/cvt.c (build_expr_type_conversion): Same.
+	* cp/typeck.c (build_binary_op): Handle vectors.
+	(common_type): Same.
+	(type_after_usual_arithmetic_conversions): Same.
+	* testsuite/g++.dg/conversion/simd2.C: New.
 
 2005-07-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
@@ -561,8 +668,8 @@
 
 2005-04-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
-        PR c++/18644
-        * call.c (build_new_op): Remove check for -Wsynth.
+	PR c++/18644
+	* call.c (build_new_op): Remove check for -Wsynth.
 	
 2005-03-29  Richard Henderson  <rth@redhat.com>
 

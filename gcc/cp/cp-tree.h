@@ -4282,6 +4282,7 @@ extern int cp_cannot_inline_tree_fn (tree*);
 extern tree cp_add_pending_fn_decls (void*,tree);
 extern int cp_auto_var_in_fn_p (tree,tree);
 extern tree fold_if_not_in_template             (tree);
+extern tree rvalue                              (tree);
 
 /* in typeck.c */
 extern int string_conv_p			(tree, tree, int);
@@ -4340,7 +4341,7 @@ extern tree type_after_usual_arithmetic_conversions (tree, tree);
 extern tree composite_pointer_type              (tree, tree, tree, tree,
 						       const char*);
 extern tree merge_types				(tree, tree);
-extern tree check_return_expr                   (tree);
+extern tree check_return_expr                   (tree, bool *);
 #define cp_build_binary_op(code, arg1, arg2) \
   build_binary_op(code, arg1, arg2, 1)
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)

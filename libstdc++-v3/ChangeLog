@@ -1,3 +1,37 @@
+2005-09-16  Janis Johnson  <janis187@us.ibm.com>
+
+	PR libstdc++/23871
+
+	Backport:
+	2005-07-11  Paolo Carlini  <pcarlini@suse.de>
+	* include/std/std_ostream.h (operator<<(short), operator<<(int)):
+	Adjust logic, as per the letter of the resolution of DR117 [WP].
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/7.cc: New.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/7.cc: New.
+	
+	* include/bits/ostream.tcc (operator<<(long), operator<<(long long)):
+	Adjust logic.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/23871.cc:
+	New.
+
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/23417
+	* include/bits/stl_list.h (_List_impl): Use member initialization
+	list for -Weffc++.
+	* include/bits/stl_tree.h (_Rb_tree_impl): Same.
+	
+2005-09-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c.cc:
+	XFAIL on *-*-linux*, not *-*-linux-gnu.
+
+2005-09-07  Thomas Kho  <tkho@ucla.edu>
+
+	PR libstdc++/23358
+	* include/bits/stl_construct.h (_Destroy(_ForwardIterator,
+	_ForwardIterator, allocator<_Tp>)): Removed unused template parameter.
+
 2005-09-02  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/tr1/6_containers/unordered/hashtable/23465.cc:
