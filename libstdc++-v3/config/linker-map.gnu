@@ -279,9 +279,7 @@ GLIBCXX_3.6 {
     modfl;
 
     # In GLIBCXX_3.4.4
-    _ZN9__gnu_cxx6__poolILb0EE13_M_initializeEv;
-    _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEPFvPvE;
-    _ZN9__gnu_cxx6__poolILb1EE21_M_destroy_thread_keyEPv;
+    _ZN9__gnu_cxx6__poolILb[01]EE13_M_initializeEv;
     _ZN9__gnu_cxx6__poolILb1EE16_M_get_thread_idEv;
     _ZN9__gnu_cxx6__poolILb[01]EE16_M_reserve_blockE[jm][jm];
     _ZN9__gnu_cxx6__poolILb[01]EE16_M_reclaim_blockEPc[jm];

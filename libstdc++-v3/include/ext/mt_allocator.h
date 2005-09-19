@@ -42,8 +42,6 @@
 
 namespace __gnu_cxx
 {
-  typedef void (*__destroy_handler)(void*);
-
   /// @brief  Base class for pool object.
   struct __pool_base
   {
@@ -305,10 +303,6 @@ namespace __gnu_cxx
 	// is initialized in _S_initialize().
 	__gthread_mutex_t*              _M_mutex;
       };
-      
-      // XXX GLIBCXX_ABI Deprecated
-      void
-      _M_initialize(__destroy_handler);
 
       void
       _M_initialize_once()
@@ -341,10 +335,6 @@ namespace __gnu_cxx
 	    ++__bin._M_used[__thread_id];
 	  }
       }
-
-      // XXX GLIBCXX_ABI Deprecated
-      void 
-      _M_destroy_thread_key(void*);
 
       size_t 
       _M_get_thread_id();

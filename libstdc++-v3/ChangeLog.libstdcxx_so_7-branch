@@ -1,3 +1,11 @@
+2005-09-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h (__destroy_handler): Remove.
+	(__pool<true>::_M_initialize(__destroy_handler): Remove.
+	(__pool<true>::_M_destroy_thread_key): Remove.
+	* src/mt_allocator.cc: Same.
+	* config/linker-map.gnu: Cleanups.
+
 2005-09-18  Paolo Carlini  <pcarlini@suse.de>
 
 	Merged to mainline at tag libstdcxx_so_7-merge-20050918.
