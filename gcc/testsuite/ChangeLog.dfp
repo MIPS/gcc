@@ -1,3 +1,7 @@
+2005-09-20  Yao Qi  <qiyaoltc@cn.ibm.com>
+
+	* gcc.dg/dfp/varargs-3.c: New test.
+
 2005-09-19  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/arg-passing-4.c: New test.
