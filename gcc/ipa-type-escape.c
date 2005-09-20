@@ -796,6 +796,8 @@ check_operand (tree t)
   if (TREE_CODE (t) == FUNCTION_DECL)
     check_function_parameter_and_return_types (t, true);
 
+  else if (TREE_CODE (t) == SSA_NAME)
+    has_proper_scope_for_analysis (SSA_NAME_VAR (t)); 
   else if (TREE_CODE (t) == VAR_DECL)
     has_proper_scope_for_analysis (t); 
 }
@@ -820,6 +822,9 @@ check_tree (tree t)
   if (INDIRECT_REF_P (t))
 /*  || TREE_CODE (t) == MEM_REF) */
     check_tree (TREE_OPERAND (t, 0));
+
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
 
   if (SSA_VAR_P (t) || (TREE_CODE (t) == FUNCTION_DECL))
     check_operand (t);
@@ -903,6 +908,8 @@ look_for_address_of (tree t)
 	  cref = TREE_OPERAND (cref, 0);
 	}
 
+      if (TREE_CODE (x) == SSA_NAME)
+	has_proper_scope_for_analysis (SSA_NAME_VAR (x)); 
       if (TREE_CODE (x) == VAR_DECL) 
 	has_proper_scope_for_analysis (x);
     }
@@ -1267,7 +1274,11 @@ scan_for_refs (tree *tp, int *walk_subtrees, void *data)
 		   result so we do mark the resulting cast as being
 		   bad.  */
 		if (check_call (rhs))
-		  bitmap_set_bit (results_of_malloc, DECL_UID (lhs));
+		  {
+		    if (TREE_CODE (lhs) == SSA_NAME)
+		      lhs = SSA_NAME_VAR (lhs);
+		    bitmap_set_bit (results_of_malloc, DECL_UID (lhs));
+		  }
 		break;
 	      default:
 		break;

@@ -1,3 +1,9 @@
+2005-09-21  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-type-escape.c (check_operand, check_tree, scan_for_refs): Handle
+	SSA_NAMEs.
+	(init_optimization_passes): Re-enable IPA passes.
+
 2005-09-19  Jan Hubicka  <jh@suse.cz>
 
 	* passes.c (init_optimization_passes): Remove commented out items; add early ccp/dce.
