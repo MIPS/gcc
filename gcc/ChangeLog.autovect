@@ -1,3 +1,9 @@
+2005-09-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* passes.c (pass_scev_cprop): Temporarily disable.
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars): 
+	Add comment for temporarily disabling eliminate_unnecessary_casts.
+
 2005-09-14  Ira Rosen  <irar@il.ibm.com>
 
 	Merge from mainline (autovect-merge-20050906)

@@ -13,5 +13,6 @@ foo (unsigned short *head)
   }
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* Fails until eliminate_unnecessary_casts is enabled again */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

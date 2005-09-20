@@ -35,7 +35,7 @@ int main ()
     }
 
   /* check results:  */
-  for (i = 0; i < 16; i++)
+  for (i = 0; i < N-20; i++)
     {
       if (A[i] != D[i+20])
 	abort ();

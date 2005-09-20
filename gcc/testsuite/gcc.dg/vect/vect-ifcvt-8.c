@@ -31,8 +31,7 @@ int main ()
   return 0;
 }
 
-
-
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */
+/* Fails until eliminate_unnecessary_casts is enabled again */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

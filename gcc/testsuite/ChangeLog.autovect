@@ -1,3 +1,12 @@
+2005-09-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-dv-2.c: Fix loop bound.
+	* gcc.dg/vect/vect-noreduc.c: Fix test according to new representation
+	after mainline merge.
+	* gcc.dg/vect/vect-ifcvt-8.c: Temporarily xfail (due to disabling
+	of eliminate_unnecessary_casts).
+	* gcc.dg/vect/vect-subsat.c: Likewise.
+
 2005-08-25  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/no_version/: Remove directory. Move the tests

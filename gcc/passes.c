@@ -561,7 +561,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_copy_prop);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_tree_unswitch);
+#if 0 /* FORNOW. FIXME */
   NEXT_PASS (pass_scev_cprop);
+#endif
   NEXT_PASS (pass_empty_loop);
   NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_elim_checks);

@@ -25,6 +25,6 @@ init_regset_vector (vector, space, nelts, bytes_per_elt)
     }
 }
 
-/* { dg-final { scan-tree-dump-times "not vectorized: unsupported pattern" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "not vectorized: unsupported use in stmt" 1 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -920,8 +920,10 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
   cfg_changed = false;
 
-/*  eliminate_unnecessary_casts ();
-*/
+#if 0 /* FORNOW. FIXME */
+  eliminate_unnecessary_casts ();
+#endif
+
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
