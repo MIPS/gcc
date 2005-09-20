@@ -1,5 +1,10 @@
 2005-09-20  Diego Novillo  <dnovillo@redhat.com>
 
+	* gimple-low.c (lower_gomp_parallel): Use a NULL argument if
+	there is no shared data to send to the child thread.
+
+2005-09-20  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (c-parser.o): Depend on vec.h.
 	(gimple-low.o): Depend on $(SPLAY_TREE_H)
 	* c-parser.c: Include vec.h.

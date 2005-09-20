@@ -681,10 +681,15 @@ lower_gomp_parallel (tree_stmt_iterator *tsi)
   emit_gomp_data_setup_code (tsi, ri_p);
 
   /* Take the address of RI_P->DATA_ARG_ORIG to pass to __gomp_fn.XXXX.  */
-  addr_data_arg = build1 (ADDR_EXPR,
-			  TREE_TYPE (ri_p->data_arg_dest),
-                          ri_p->data_arg_orig);
-  TREE_ADDRESSABLE (ri_p->data_arg_orig) = 1;
+  if (ri_p->data_arg_dest)
+    {
+      addr_data_arg = build1 (ADDR_EXPR,
+			      TREE_TYPE (ri_p->data_arg_dest),
+			      ri_p->data_arg_orig);
+      TREE_ADDRESSABLE (ri_p->data_arg_orig) = 1;
+    }
+  else
+    addr_data_arg = null_pointer_node;
 
   /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...) to PRE_P.  FIXME,
      num_threads should only be integer_zero_node if the clause
