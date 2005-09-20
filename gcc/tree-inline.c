@@ -2564,6 +2564,8 @@ optimize_inline_calls (tree fn, bool early)
       fold_cond_expr_cond ();
       cleanup_tree_cfg ();
       rebuild_cgraph_edges ();
+      if (need_ssa_update_p ())
+        update_ssa (TODO_update_ssa);
     }
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
