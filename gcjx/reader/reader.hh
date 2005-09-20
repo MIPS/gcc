@@ -45,6 +45,11 @@ protected:
     global->get_compiler ()->note_file_read (filename);
   }
 
+  location get_location ()
+  {
+    return location (filename.c_str ());
+  }
+
 public:
 
   virtual ~reader ()

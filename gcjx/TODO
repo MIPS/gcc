@@ -30,9 +30,6 @@ in a few places in the bytecode back end we
 add_utf(...->get_descriptor()).  this fails if the class is a member
 instead we need a new method on the constant pool
 
-we still get bogus error messages when reading a malformed .class file
-extra newline, no file name, bogus "while reading:" leader
-
 there's a bug with implicit qualifiers for field references.
 qualification in general needs some inspection.
 eg, for 'Foo.super.field', 'Foo.super' should probably be a qualifying

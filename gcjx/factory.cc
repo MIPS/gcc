@@ -197,7 +197,7 @@ jar_class_factory::open_zip_file ()
       throw make_error (oss.str ());
     }
 
-  archive = new mmap_byte_buffer (arch_fd);
+  archive = new mmap_byte_buffer (location (file.c_str ()), arch_fd);
   close (arch_fd);
 }
 

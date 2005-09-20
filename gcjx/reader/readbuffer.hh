@@ -1,6 +1,6 @@
 // Buffer that reads from a file descriptor.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -26,11 +26,14 @@
 
 class read_byte_buffer : public byte_buffer
 {
+  // Location for error reporting.
+  location where;
+
 public:
 
   /// Create a new read()-based buffer given a file descriptor.
   /// fixme document the exception thrown on error.
-  read_byte_buffer (int);
+  read_byte_buffer (const location &, int);
 
   /// Destructor for this buffer.
   ~read_byte_buffer ();

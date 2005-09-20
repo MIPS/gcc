@@ -1,6 +1,6 @@
 // Implementation of mmap()-based buffer.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -28,19 +28,19 @@
 
 #include "reader/mmapbuffer.hh"
 
-mmap_byte_buffer::mmap_byte_buffer (int fd)
+mmap_byte_buffer::mmap_byte_buffer (const location &w, int fd)
+  : where (w)
 {
   struct stat stat_buf;
   if (fstat (fd, &stat_buf) != 0 || ! S_ISREG (stat_buf.st_mode))
-    // fixme wrong exception, should include perror, etc.
-    throw class_file_error (LOCATION_UNKNOWN,
-			    "couldn't stat or not a regular file");
+    // FIXME: should include perror.
+    throw class_file_error (where, "couldn't stat or not a regular file");
 
   length = stat_buf.st_size;
   data = (uint8 *) mmap (NULL, length, PROT_READ, MAP_SHARED, fd, 0);
   if (data == (uint8 *) -1)
-    // fixme wrong exception, should include perror, etc.
-    throw class_file_error (LOCATION_UNKNOWN, "couldn't mmap");
+    // FIXME should include perror.
+    throw class_file_error (where, "couldn't mmap");
 }
 
 mmap_byte_buffer::~mmap_byte_buffer ()

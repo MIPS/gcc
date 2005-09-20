@@ -39,7 +39,7 @@ fd_reader::read_all ()
 {
   // FIXME: configury.
   note_read ();
-  return new mmap_byte_buffer (fd);
+  return new mmap_byte_buffer (get_location (), fd);
 }
 
 time_t
@@ -47,8 +47,8 @@ fd_reader::get_mtime ()
 {
   struct stat stat_buf;
   if (fstat (fd, &stat_buf) != 0 || ! S_ISREG (stat_buf.st_mode))
-    // fixme wrong exception, should include perror, etc.
-    throw class_file_error (LOCATION_UNKNOWN,
+    // FIXME should include perror.
+    throw class_file_error (get_location (),
 			    "couldn't stat or not a regular file");
   return stat_buf.st_mtime;
 }

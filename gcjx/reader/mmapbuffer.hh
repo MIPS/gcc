@@ -1,6 +1,6 @@
 // A buffer that mmap()s its contents.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -26,11 +26,14 @@
 
 class mmap_byte_buffer : public byte_buffer
 {
+  // Location for error reporting.
+  location where;
+
 public:
 
   /// Create a new mmap buffer given a file descriptor.
   /// fixme document the exception thrown on error.
-  mmap_byte_buffer (int);
+  mmap_byte_buffer (const location &, int);
 
   /// Destructor for this buffer.
   ~mmap_byte_buffer ();

@@ -1,6 +1,6 @@
 // Implementation of a buffer that read()s its contents.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -27,19 +27,19 @@
 #include "typedefs.hh"
 #include "reader/readbuffer.hh"
 
-read_byte_buffer::read_byte_buffer (int fd)
+read_byte_buffer::read_byte_buffer (const location &w, int fd)
+  : where (w)
 {
   struct stat stat_buf;
   if (fstat (fd, &stat_buf) != 0 || ! S_ISREG (stat_buf.st_mode))
-    // fixme wrong exception, should include perror, etc.
-    throw class_file_error (LOCATION_UNKNOWN,
-			    "couldn't stat or not a regular file");
+    // FIXME should include perror.
+    throw class_file_error (where, "couldn't stat or not a regular file");
 
   length = stat_buf.st_size;
   data = new uint8[length];
   if ((unsigned long) read (fd, data, length) != length)
-    // fixme wrong exception, should include perror, etc.
-    throw class_file_error (LOCATION_UNKNOWN, "read error");
+    // FIXME should include perror.
+    throw class_file_error (where, "read error");
 }
 
 read_byte_buffer::~read_byte_buffer ()

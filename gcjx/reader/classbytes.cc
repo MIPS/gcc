@@ -42,8 +42,8 @@ class_byte_creator::apply (bool emit)
     }
   catch (class_file_error &cfe)
     {
-      // fixme file name
-      std::cerr << global->get_compiler ()->get_name () << ": "
-		<< "while reading: " << cfe << std::endl;
+      // Note that the exception prints a newline for us, and includes
+      // the location.
+      std::cerr << global->get_compiler ()->get_name () << ": " << cfe;
     }
 }
