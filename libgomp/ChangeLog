@@ -1,3 +1,39 @@
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (AC_PROG_FC): Add.
+	(USE_FORTRAN): New automake conditional.
+	* configure: Rebuilt.
+	* Makefile.am (libgomp_la_SOURCES): Add fortran.c.
+	(nodist_include_HEADERS): Add omp_lib.h, omp_lib.f90 and libgomp_f.h.
+	If USE_FORTRAN, add also omp_lib.mod and omp_lib_kinds.mod.
+	Add rules to build them.
+	* Makefile.in: Rebuilt.
+	* mkomp_h.pl: Compute and replace also OMP_LOCK_KIND and
+	OMP_NEST_LOCK_KIND.
+	* libgomp.map: Add Fortran wrappers.
+	* libgomp_f.h.in: New file.
+	* omp_lib.h.in: New file.
+	* omp_lib.f90.in: New file.
+	* fortran.c: New file.
+	* testsuite/lib/libgomp-dg.exp: Load a few more .exp files.
+	Append libgfortran directory to LD_LIBRARY_PATH if it exists.
+	Add -Lpath_to_libgfortran and -lgfortran -lgfortranbegin if
+	libgfortran has been built.
+	* testsuite/libgomp.fortran/fortran.exp: New file.
+	* testsuite/libgomp.fortran/omp_cond1.f: New test.
+	* testsuite/libgomp.fortran/omp_cond2.f: New test.
+	* testsuite/libgomp.fortran/omp_cond3.F90: New test.
+	* testsuite/libgomp.fortran/omp_cond4.F90: New test.
+	* testsuite/libgomp.fortran/omp_hello.f: New test.
+	* testsuite/libgomp.fortran/omp_orphan.f: New test.
+	* testsuite/libgomp.fortran/omp_parse1.f90: New test.
+	* testsuite/libgomp.fortran/omp_parse2.f90: New test.
+	* testsuite/libgomp.fortran/omp_parse3.f90: New test.
+	* testsuite/libgomp.fortran/omp_parse4.f90: New test.
+	* testsuite/libgomp.fortran/omp_reduction.f: New test.
+	* testsuite/libgomp.fortran/omp_workshare1.f: New test.
+	* testsuite/libgomp.fortran/omp_workshare2.f: New test.
+
 2005-08-30  Richard Henderson  <rth@redhat.com>
 
 	* loop.c (GOMP_loop_static_start): Provide fallback wrapper

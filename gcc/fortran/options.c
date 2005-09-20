@@ -73,6 +73,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
   gfc_option.flag_d_lines = -1;
+  gfc_option.flag_openmp = 0;
 
   gfc_option.q_kind = gfc_default_double_kind;
 
@@ -358,6 +359,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ffree_form:
       gfc_option.source_form = FORM_FREE;
+      break;
+
+    case OPT_fopenmp:
+      gfc_option.flag_openmp = value;
       break;
 
     case OPT_funderscoring:

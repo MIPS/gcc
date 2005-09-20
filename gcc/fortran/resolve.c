@@ -3768,6 +3768,20 @@ resolve_blocks (gfc_code * b, gfc_namespace * ns)
 	case EXEC_DO_WHILE:
 	  break;
 
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  break;
+
 	default:
 	  gfc_internal_error ("resolve_block(): Bad block type");
 	}
@@ -4030,6 +4044,23 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	    gfc_error
 	      ("FORALL mask clause at %L requires a LOGICAL expression",
 	       &code->expr->where);
+	  break;
+
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_FLUSH:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  gfc_resolve_omp_directive (code, ns);
 	  break;
 
 	default:

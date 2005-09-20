@@ -39,6 +39,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
+@USE_FORTRAN_TRUE@am__append_1 = omp_lib.mod omp_lib_kinds.mod
 DIST_COMMON = $(am__configure_deps) $(srcdir)/../config.guess \
 	$(srcdir)/../config.sub $(srcdir)/../depcomp \
 	$(srcdir)/../install-sh $(srcdir)/../ltmain.sh \
@@ -71,7 +72,7 @@ libgomp_la_LIBADD =
 am_libgomp_la_OBJECTS = alloc.lo barrier.lo critical.lo env.lo \
 	error.lo iter.lo loop.lo ordered.lo parallel.lo sections.lo \
 	single.lo team.lo work.lo lock.lo mutex.lo proc.lo sem.lo \
-	time.lo
+	time.lo fortran.lo
 libgomp_la_OBJECTS = $(am_libgomp_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
@@ -137,10 +138,13 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FC = @FC@
+FCFLAGS = @FCFLAGS@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LDFLAGS = @LDFLAGS@
 LIBGOMP_BUILD_VERSIONED_SHLIB_FALSE = @LIBGOMP_BUILD_VERSIONED_SHLIB_FALSE@
 LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE = @LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE@
 LIBOBJS = @LIBOBJS@
@@ -164,11 +168,14 @@ SECTION_LDFLAGS = @SECTION_LDFLAGS@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+USE_FORTRAN_FALSE = @USE_FORTRAN_FALSE@
+USE_FORTRAN_TRUE = @USE_FORTRAN_TRUE@
 VERSION = @VERSION@
 XCFLAGS = @XCFLAGS@
 XLDFLAGS = @XLDFLAGS@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
+ac_ct_FC = @ac_ct_FC@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
@@ -233,9 +240,10 @@ libgomp_version_info = -version-info $(libtool_VERSION)
 libgomp_la_LDFLAGS = $(libgomp_version_info) $(libgomp_version_script) -lpthread
 libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	loop.c ordered.c parallel.c sections.c single.c team.c work.c \
-	lock.c mutex.c proc.c sem.c time.c 
+	lock.c mutex.c proc.c sem.c time.c fortran.c
 
-nodist_include_HEADERS = omp.h
+nodist_include_HEADERS = omp.h omp_lib.h omp_lib.f90 libgomp_f.h \
+	$(am__append_1)
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -332,6 +340,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/critical.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/error.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fortran.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lock.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/loop.Plo@am__quote@
@@ -798,6 +807,21 @@ uninstall-info: uninstall-info-recursive
 
 omp.h: omp.h.in mkomp_h.pl
 	$(PERL) -w $(srcdir)/mkomp_h.pl "$(COMPILE)" $(srcdir)/omp.h.in omp.h
+omp_lib.h: omp_lib.h.in mkomp_h.pl
+	$(PERL) -w $(srcdir)/mkomp_h.pl "$(COMPILE)" $(srcdir)/omp_lib.h.in \
+	omp_lib.h
+omp_lib.f90: omp_lib.f90.in mkomp_h.pl
+	$(PERL) -w $(srcdir)/mkomp_h.pl "$(COMPILE)" $(srcdir)/omp_lib.f90.in \
+	omp_lib.f90
+libgomp_f.h: libgomp_f.h.in mkomp_h.pl
+	$(PERL) -w $(srcdir)/mkomp_h.pl "$(COMPILE)" $(srcdir)/libgomp_f.h.in \
+	libgomp_f.h
+omp_lib_kinds.mod: omp_lib.mod
+	:
+omp_lib.mod: omp_lib.f90
+	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
+fortran.lo: libgomp_f.h
+fortran.o: libgomp_f.h
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

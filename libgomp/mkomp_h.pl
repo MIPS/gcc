@@ -94,6 +94,14 @@ $sizeof_omp_lock_t = resolve ("sizeof", "omp_lock_t");
 $alignof_omp_lock_t = resolve ("__alignof", "omp_lock_t");
 $sizeof_omp_nest_lock_t = resolve ("sizeof", "omp_nest_lock_t");
 $alignof_omp_nest_lock_t = resolve ("__alignof", "omp_nest_lock_t");
+$omp_lock_kind = $sizeof_omp_lock_t;
+$omp_nest_lock_kind = $sizeof_omp_nest_lock_t;
+if ($sizeof_omp_lock_t >= 8 || $alignof_omp_lock_t > $sizeof_omp_lock_t) {
+	$omp_lock_kind = 8;
+}
+if ($sizeof_omp_nest_lock_t >= 8 || $alignof_omp_nest_lock_t > $sizeof_omp_nest_lock_t) {
+	$omp_nest_lock_kind = 8;
+}
 
 # Edit the input template into the output.
 open IN, "<", $INFILE;
@@ -103,6 +111,8 @@ while (<IN>) {
 	s/OMP_LOCK_ALIGN/$alignof_omp_lock_t/o;
 	s/OMP_NEST_LOCK_SIZE/$sizeof_omp_nest_lock_t/o;
 	s/OMP_NEST_LOCK_ALIGN/$alignof_omp_nest_lock_t/o;
+	s/OMP_LOCK_KIND/$omp_lock_kind/o;
+	s/OMP_NEST_LOCK_KIND/$omp_nest_lock_kind/o;
 	print OUT;
 }
 

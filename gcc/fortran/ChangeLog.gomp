@@ -1,0 +1,67 @@
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (F95_PARSER_OBJS): Add fortran/openmp.o.
+	(F95_OBJS): Add fortran/trans-openmp.o.
+	(fortran/trans-openmp.o): Depend on $(GFORTRAN_TRANS_DEPS).
+	* lang.opt: Add -fopenmp option.
+	* options.c (gfc_init_options): Initialize it.
+	(gfc_handle_option): Handle it.
+	* gfortran.h (ST_OMP_ATOMIC, ST_OMP_BARRIER, ST_OMP_CRITICAL,
+	ST_OMP_END_CRITICAL, ST_OMP_END_DO, ST_OMP_END_MASTER,
+	ST_OMP_END_ORDERED, ST_OMP_END_PARALLEL, ST_OMP_END_PARALLEL_DO,
+	ST_OMP_END_PARALLEL_SECTIONS, ST_OMP_END_PARALLEL_WORKSHARE,
+	ST_OMP_END_SECTIONS, ST_OMP_END_SINGLE, ST_OMP_END_WORKSHARE,
+	ST_OMP_DO, ST_OMP_FLUSH, ST_OMP_MASTER, ST_OMP_ORDERED,
+	ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
+	ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION,
+	ST_OMP_SINGLE, ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE): New
+	statement codes.
+	(OMP_LIST_PRIVATE, OMP_LIST_FIRSTPRIVATE, OMP_LIST_LASTPRIVATE,
+	OMP_LIST_COPYPRIVATE, OMP_LIST_SHARED, OMP_LIST_COPYIN,
+	OMP_LIST_PLUS, OMP_LIST_REDUCTION_FIRST, OMP_LIST_MULT,
+	OMP_LIST_SUB, OMP_LIST_AND, OMP_LIST_OR, OMP_LIST_EQV,
+	OMP_LIST_NEQV, OMP_LIST_MAX, OMP_LIST_MIN, OMP_LIST_IAND,
+	OMP_LIST_IOR, OMP_LIST_IEOR, OMP_LIST_REDUCTION_LAST, OMP_LIST_NUM):
+	New OpenMP variable list types.
+	(gfc_omp_clauses): New typedef.
+	(gfc_get_omp_clauses): Define.
+	(EXEC_OMP_CRITICAL, EXEC_OMP_DO, EXEC_OMP_FLUSH, EXEC_OMP_MASTER,
+	EXEC_OMP_ORDERED, EXEC_OMP_PARALLEL, EXEC_OMP_PARALLEL_DO,
+	EXEC_OMP_PARALLEL_SECTIONS, EXEC_OMP_PARALLEL_WORKSHARE,
+	EXEC_OMP_SECTIONS, EXEC_OMP_SINGLE, EXEC_OMP_WORKSHARE,
+	EXEC_OMP_ATOMIC, EXEC_OMP_BARRIER, EXEC_OMP_END_NOWAIT,
+	EXEC_OMP_END_SINGLE): New OpenMP gfc_exec_op codes.
+	(struct gfc_code): Add omp_clauses, omp_name, omp_namelist
+	and omp_bool fields to ext union.
+	(flag_openmp): Declare.
+	(gfc_free_omp_clauses, gfc_resolve_omp_directive): New prototypes.
+	* scanner.c (openmp_flag, openmp_locus): New variables.
+	(skip_free_comments, skip_fixed_comments, gfc_next_char_literal):
+	Handle OpenMP directive lines and conditional compilation magic
+	comments.
+	* parse.h (COMP_OMP_STRUCTURED_BLOCK): New compile state.
+	* parse.c (decode_omp_directive, parse_omp_do, parse_omp_atomic,
+	parse_omp_structured_block): New functions.
+	(next_free, next_fixed): Parse OpenMP directives.
+	(case_executable, case_exec_markers, case_decl): Add ST_OMP_*
+	codes.
+	(gfc_ascii_statement): Handle ST_OMP_* codes.
+	(parse_executable): Rearrange the loop slightly, so that
+	parse_omp_do can return next_statement.
+	* match.h (gfc_match_omp_eos, gfc_match_omp_atomic,
+	gfc_match_omp_barrier, gfc_match_omp_critical, gfc_match_omp_do,
+	gfc_match_omp_flush, gfc_match_omp_master, gfc_match_omp_ordered,
+	gfc_match_omp_parallel, gfc_match_omp_parallel_do,
+	gfc_match_omp_parallel_sections, gfc_match_omp_parallel_workshare,
+	gfc_match_omp_sections, gfc_match_omp_single,
+	gfc_match_omp_threadprivate, gfc_match_omp_workshare,
+	gfc_match_omp_end_nowait, gfc_match_omp_end_single): New prototypes.
+	* resolve.c (resolve_blocks): Ignore EXEC_OMP_* block directives.
+	(resolve_code): Call gfc_resolve_omp_directive on EXEC_OMP_*
+	directives.
+	* trans.c (gfc_trans_code): Call gfc_trans_omp_directive for
+	EXEC_OMP_* directives.
+	* st.c (gfc_free_statement): Handle EXEC_OMP_* statement freeing.
+	* trans-stmt.h (gfc_trans_omp_directive): New prototype.
+	* openmp.c: New file.
+	* trans-openmp.c: New file.

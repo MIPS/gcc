@@ -117,6 +117,13 @@ AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
+# We need gfortran to compile parts of the library
+# We can't use AC_PROG_FC because it expects a fully working gfortran.
+#AC_PROG_FC(gfortran)
+FC="$GFORTRAN"
+AC_PROG_FC(gfortran)
+FCFLAGS="$FCFLAGS -Wall"
+
 # For libtool versioning info, format is CURRENT:REVISION:AGE
 libtool_VERSION=1:0:0
 AC_SUBST(libtool_VERSION)
@@ -172,6 +179,8 @@ if test ${multilib} = yes; then
 else
   multilib_arg=
 fi
+
+AM_CONDITIONAL([USE_FORTRAN], [test "$ac_cv_fc_compiler_gnu" = yes])
 
 AC_CONFIG_FILES(Makefile testsuite/Makefile)
 AC_OUTPUT

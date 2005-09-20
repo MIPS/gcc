@@ -13,12 +13,15 @@ load_gcc_lib file-format.exp
 load_gcc_lib target-supports.exp
 load_gcc_lib target-supports-dg.exp
 load_gcc_lib scanasm.exp
+load_gcc_lib scandump.exp
 load_gcc_lib scantree.exp
+load_gcc_lib scanipa.exp
 load_gcc_lib prune.exp
 load_gcc_lib target-libpath.exp
 load_gcc_lib wrapper.exp
 load_gcc_lib gcc-defs.exp
 load_gcc_lib gcc-dg.exp
+load_gcc_lib gfortran-dg.exp
 
 set dg-do-what-default run
 
@@ -79,6 +82,9 @@ proc libgomp_init { args } {
 
     # Compute what needs to be put into LD_LIBRARY_PATH
     set ld_library_path ".:${blddir}/.libs"
+    if [file exists "${blddir}/../libgfortran/.libs/libgfortranbegin.a"] {
+	append ld_library_path ":${blddir}/../libgfortran/.libs"
+    }
     append ld_library_path [gcc-set-multilib-library-path $GCC_UNDER_TEST]
     set_ld_library_path_env_vars
 
@@ -86,6 +92,9 @@ proc libgomp_init { args } {
     lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/.."
     lappend ALWAYS_CFLAGS "additional_flags=-I${blddir}"
     lappend ALWAYS_CFLAGS "ldflags=-L${blddir}/.libs -lgomp"
+    if [file exists "${blddir}/../libgfortran/.libs/libgfortranbegin.a"] {
+	lappend ALWAYS_CFLAGS "ldflags=-L${blddir}/../libgfortran/.libs -lgfortranbegin -lgfortran"
+    }
 
     # We use atomic operations in the testcases to validate results.
     if [istarget i?86-*-*] {
