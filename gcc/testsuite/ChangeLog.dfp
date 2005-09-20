@@ -1,6 +1,7 @@
 2005-09-20  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/varargs-3.c: New test.
+	* gcc.dg/dfp/struct-layout-1.c: Likewise.
 
 2005-09-19  Yao Qi  <qiyaoltc@cn.ibm.com>
 
