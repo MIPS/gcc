@@ -12,6 +12,12 @@ AC_ARG_WITH([bootclasspath],
   AS_HELP_STRING([--with-booclasspath=PATH], [set default boot classpath]),
   AC_DEFINE(BOOTCLASSPATH, "$withval", [Default -bootclasspath]))
 
+AC_ARG_ENABLE([gcjx-debugging],
+  AS_HELP_STRING([--with-gcjx-debugging], [enable debugging code]),
+  [if test "$enableval" != no; then
+    AC_DEFINE(_GLIBCXX_DEBUG, 1, [enable libstdc++ checking])
+  fi])
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC
@@ -25,7 +31,6 @@ AC_CHECK_LIB([z], [inflate])
 
 AC_C_BIGENDIAN
 
-AC_DEFINE(_GLIBCXX_DEBUG, 1, [enable libstdc++ checking])
 AC_DEFINE(_GLIBCPP_USE_C99, 1, [enable c99 features])
 
 AC_CONFIG_FILES([Makefile])

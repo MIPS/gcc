@@ -128,6 +128,8 @@ that indicates we only want canonical names.
 
 ext/dtoa.c has some #define tweaks we could apply
 we probably need to depending on host
+... note also that this version of dtoa is known to have some bugs;
+see classpath bugzilla for details
 
 Ranjit points out that some places we use ref_* where we needn't.
 eg, get_this_0() returns a ref_field but should return model_field*

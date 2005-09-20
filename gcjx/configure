@@ -826,6 +826,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
+  --with-gcjx-debugging   enable debugging code
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
   --enable-shared=PKGS  build shared libraries default=yes
@@ -1775,6 +1776,18 @@ cat >>confdefs.h <<\_ACEOF
 #define BOOTCLASSPATH "$withval"
 _ACEOF
 
+fi;
+
+# Check whether --enable-gcjx-debugging or --disable-gcjx-debugging was given.
+if test "${enable_gcjx_debugging+set}" = set; then
+  enableval="$enable_gcjx_debugging"
+  if test "$enableval" != no; then
+
+cat >>confdefs.h <<\_ACEOF
+#define _GLIBCXX_DEBUG 1
+_ACEOF
+
+  fi
 fi;
 
 # Checks for programs.
@@ -4135,7 +4148,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4138 "configure"' > conftest.$ac_ext
+  echo '#line 4151 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5233,11 +5246,6 @@ presetting ac_cv_c_bigendian=no (or yes) will help" >&2;}
    { (exit 1); exit 1; }; } ;;
 esac
 
-
-
-cat >>confdefs.h <<\_ACEOF
-#define _GLIBCXX_DEBUG 1
-_ACEOF
 
 
 cat >>confdefs.h <<\_ACEOF

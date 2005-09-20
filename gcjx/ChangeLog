@@ -1,5 +1,10 @@
 2005-09-20  Tom Tromey  <tromey@redhat.com>
 
+	* configure: Rebuilt.
+	* configure.ac: Added --enable-gcjx-debugging.
+
+2005-09-20  Tom Tromey  <tromey@redhat.com>
+
 	* factory.cc (open_zip_file): Updated.
 	* reader/readbuffer.cc (read_byte_buffer): Updated.
 	* reader/readbuffer.hh (read_byte_buffer::where): New field.
