@@ -2917,7 +2917,7 @@ parse::enum_body (ref_enum result)
 {
   require (TOKEN_OPEN_BRACE);
 
-  if (peek () != TOKEN_SEMI)
+  if (peek () != TOKEN_SEMI && peek () != TOKEN_CLOSE_BRACE)
     {
       while (true)
 	{
@@ -2935,12 +2935,15 @@ parse::enum_body (ref_enum result)
 	  if (peek () != TOKEN_COMMA)
 	    break;
 	  assume (TOKEN_COMMA);
+	  // We might have a trailing comma.
+	  if (peek () == TOKEN_SEMI || peek () == TOKEN_CLOSE_BRACE)
+	    break;
 	}
     }
 
   if (peek () == TOKEN_SEMI)
     {
-      require (TOKEN_SEMI);
+      assume (TOKEN_SEMI);
 
       // We push a new empty label to indicate to inner methods that
       // there is a class boundary on the label stack.  This lets us
@@ -2963,7 +2966,9 @@ parse::enum_declaration (const ref_modifier_list &mods)
 {
   location where = assume (TOKEN_ENUM);
   ref_enum result (new model_enum (where));
+  result->set_compilation_unit (unit);
   result->set_name (identifier ());
+  set_containing_class (result);
   result->set_modifiers (mods);
 
   if (peek () == TOKEN_IMPLEMENTS)
@@ -2984,9 +2989,10 @@ parse::annotation_type_declaration (const ref_modifier_list &mods)
   location where = require (TOKEN_INTERFACE);
 
   ref_annotation_type result (new model_annotation_type (where));
-  result->set_name (identifier ());
-  result->set_modifiers (mods);
   result->set_compilation_unit (unit);
+  result->set_name (identifier ());
+  set_containing_class (result);
+  result->set_modifiers (mods);
   class_body (result, true);
   return result;
 }

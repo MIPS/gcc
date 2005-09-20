@@ -1,6 +1,6 @@
 // Represent an enum class.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -109,7 +109,7 @@ model_enum::check_instantiation (model_element *request)
 void
 model_enum::resolve_hook (resolution_scope *scope)
 {
-  if (declaring_class && ! declaring_class->static_p ())
+  if (declaring_class && declaring_class->inner_p ())
     std::cerr << error ("enum invalid in inner class %1")
       % declaring_class;
 

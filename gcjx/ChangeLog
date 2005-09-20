@@ -1,5 +1,13 @@
 2005-09-20  Tom Tromey  <tromey@redhat.com>
 
+	* model/enum.cc (resolve_hook): Don't reject top-level classes.
+	* source/parse.cc (enum_body): Allow empty enum body.  Handle
+	trailing commas and semicolons properly.
+	(enum_declaration): Call set_containing_class.
+	(annotation_type_declaration): Likewise.
+
+2005-09-20  Tom Tromey  <tromey@redhat.com>
+
 	* configure: Rebuilt.
 	* configure.ac: Added --enable-gcjx-debugging.
 
