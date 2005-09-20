@@ -1383,8 +1383,31 @@ struct tree_constructor GTY(())
 		TREE_OPERAND (GOMP_PARALLEL_CHECK (NODE), 0)
 #define GOMP_PARALLEL_BODY(NODE)	\
 		TREE_OPERAND (GOMP_PARALLEL_CHECK (NODE), 1)
+
+#define GOMP_FOR_CLAUSES(NODE)		\
+  		TREE_OPERAND (GOMP_FOR_CHECK (NODE), 0)
+#define GOMP_FOR_INIT(NODE)		\
+  		TREE_OPERAND (GOMP_FOR_CHECK (NODE), 1)
+#define GOMP_FOR_COND(NODE)		\
+  		TREE_OPERAND (GOMP_FOR_CHECK (NODE), 2)
+#define GOMP_FOR_INCR(NODE)		\
+  		TREE_OPERAND (GOMP_FOR_CHECK (NODE), 3)
+#define GOMP_FOR_BODY(NODE)		\
+		TREE_OPERAND (GOMP_FOR_CHECK (NODE), 4)
+
 #define GOMP_PRIVATE_VARS(NODE)		\
   		TREE_OPERAND (GOMP_CLAUSE_PRIVATE_CHECK (NODE), 0)
+#define GOMP_SHARED_VARS(NODE)		\
+  		TREE_OPERAND (GOMP_CLAUSE_SHARED_CHECK (NODE), 0)
+#define GOMP_FIRSTPRIVATE_VARS(NODE)	\
+  		TREE_OPERAND (GOMP_CLAUSE_FIRSTPRIVATE_CHECK (NODE), 0)
+#define GOMP_LASTPRIVATE_VARS(NODE)	\
+  		TREE_OPERAND (GOMP_CLAUSE_LASTPRIVATE_CHECK (NODE), 0)
+#define GOMP_COPYIN_VARS(NODE)		\
+  		TREE_OPERAND (GOMP_CLAUSE_COPYIN_CHECK (NODE), 0)
+#define GOMP_COPYPRIVATE_VARS(NODE)	\
+  		TREE_OPERAND (GOMP_CLAUSE_COPYPRIVATE_CHECK (NODE), 0)
+
 
 struct tree_exp GTY(())
 {
@@ -3155,6 +3178,9 @@ extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
 extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
+extern tree build5_stat (enum tree_code, tree, tree, tree, tree, tree,
+			 tree MEM_STAT_DECL);
+#define build5(c,t1,t2,t3,t4,t5,t6) build5_stat (c,t1,t2,t3,t4,t5,t6 MEM_STAT_INFO)
 extern tree build7_stat (enum tree_code, tree, tree, tree, tree, tree,
 			 tree, tree, tree MEM_STAT_DECL);
 #define build7(c,t1,t2,t3,t4,t5,t6,t7,t8) \

@@ -1044,15 +1044,9 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
 void
 cgraph_add_new_function (tree fndecl)
 {
-  struct function *saved_cfun = cfun;
-  tree saved_current_function_decl = current_function_decl;
-
-  /* Add the new body to the call graph.  */
-  allocate_struct_function (fndecl);
-  DECL_SOURCE_LOCATION (fndecl) = input_location;
-  cfun->function_end_locus = input_location;
-  current_function_decl = fndecl;
+  /* Gimplify and add the new function to the call graph.  */
   gimplify_function_tree (fndecl);
+
   if (flag_unit_at_a_time)
     {
       /* Add the function to the callgraph to be processed after we
@@ -1070,10 +1064,6 @@ cgraph_add_new_function (tree fndecl)
       n->local.finalized = 1;
       cgraph_mark_needed_node (n);
     }
-
-  /* Restore CFUN and CURRENT_FUNCTION_DECL.  */
-  cfun = saved_cfun;
-  current_function_decl = saved_current_function_decl;
 }
 
 #include "gt-cgraph.h"

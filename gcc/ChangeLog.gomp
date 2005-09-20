@@ -1,3 +1,69 @@
+2005-09-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (c-parser.o): Depend on vec.h.
+	(gimple-low.o): Depend on $(SPLAY_TREE_H)
+	* c-parser.c: Include vec.h.
+	(curr_clause_set, omp_clauses_stack): New locals.
+	(omp_clauses): Remove.  Adjust all callers.
+	(push_omp_clauses, pop_omp_clauses, add_new_clause): New.
+	(c_parser_for_statement): Add new argument IS_OMP_FOR.
+	If true, emit a GOMP_FOR tree.
+	Adjust all callers.
+	(c_parser_omp_directive): Call pop_omp_clauses.
+	(c_parser_pragma_omp_clause_copyin): Call add_new_clause.
+	Don't return anything.  Adjust callers.
+	(c_parser_pragma_omp_clause_firstprivate): Call add_new_clause.
+	(c_parser_pragma_omp_clause_lastprivate): Likewise.
+	(c_parser_pragma_omp_clause_private): Likewise.
+	(c_parser_pragma_omp_clause_shared): Likewise.
+	Mark all shared variables addressable.
+	(c_parser_pragma_omp_for): Call push_omp_clauses.
+	(c_parser_pragma_omp_parallel_for): Remove printf.
+	(c_parser_pragma_omp_for): Call push_omp_clauses
+	(c_parser_pragma_omp_parallel_sections): Remove printf.
+	(c_parser_pragma_omp_parallel): Call push_omp_clauses.
+	(c_parser_pragma_omp_sections): Remove printf.
+	Call push_omp_clauses.
+	(c_parser_pragma_omp_single): Remove printf.
+	Call push_omp_clauses.
+	* cgraph.c (cgraph_add_new_function): Assume that FNDECL
+	already has a struct function associated.
+	* gimple-low.c: Include splay-tree.h
+	(struct remap_info_d, add_decls_to_set, build_remap_info,
+	remap_locals_r): Move from tree-inline.c.
+	(delete_remap_info, get_gomp_private_ref, get_gomp_shared_ref,
+	remap_locals): New.
+	(create_gomp_fn): Set DECL_ARG_TYPE and TREE_USED on
+	FN_DATA_ARG.
+	(emit_gomp_data_setup_code): New.
+	(lower_gomp_parallel): Rename from lower_gomp_expr.
+	Allocate the function structure before calling remap_locals.
+	Call emit_gomp_data_setup_code.
+	Call delete_remap_info.
+	(emit_gomp_for_static): New.
+	(lower_gomp_for): New.
+	(lower_stmt): Handle GOMP_FOR.
+	* gimplify.c (gimplify_gomp_for): New.
+	(gimplify_expr): Handle GOMP_FOR with a call to
+	gimplify_gomp_for.
+	* tree-gimple.c (is_gimple_stmt): Handle GOMP_FOR.
+	* tree-inline.c (remap_locals_d, add_decls_to_set,
+	build_remap_info, remap_locals_r): Move to gimple-low.c.
+	(remap_locals_in_gomp_body, move_decl_to): Remove.
+	* tree-inline.h (remap_locals_in_gomp_body): Remove.
+	* tree-pretty-print.c (dump_generic_node): Handle GOMP_FOR,
+	GOMP_CLAUSE_SHARED, GOMP_CLAUSE_FIRSTPRIVATE,
+	GOMP_CLAUSE_LASTPRIVATE, GOMP_CLAUSE_COPYIN,
+	GOMP_CLAUSE_COPYPRIVATE.
+	Adjust output for GOMP_PARALLEL.
+	* tree.c (build5_stat): New.
+	* tree.def (GOMP_FOR): Add operand GOMP_FOR_COND.
+	* tree.h (GOMP_FOR_CLAUSES, GOMP_FOR_INIT, GOMP_FOR_CODN,
+	GOMP_FOR_INCR, GOMP_FOR_BODY, GOMP_SHARED_VARS,
+	GOMP_FIRSTPRIVATE_VARS, GOMP_LASTPRIVATE_VARS,
+	GOMP_COPYIN_VARS, GOMP_COPYPRIVATE_VARS): Define.
+	(build5_stat, build5): Declare.
+
 2005-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): If -fopenmp, #define _OPENMP

@@ -954,10 +954,22 @@ DEFTREECODE (GOMP_PARALLEL, "gomp_parallel", tcc_expression, 2)
 
 /* OpenMP - #pragma omp for [clause1 ... clauseN]
    Operand 1: GOMP_FOR_CLAUSES: List of clauses.
-   Operand 2: GOMP_FOR_INIT: Initialization code.
-   Operand 3: GOMP_FOR_INCR: Loop index increment.
-   Operand 4: GOMP_FOR_BODY: Loop body.  */
-DEFTREECODE (GOMP_FOR, "gomp_for", tcc_expression, 4)
+   Operand 2: GOMP_FOR_INIT: Initialization code of the form
+                             	VAR = N1.
+   Operand 3: GOMP_FOR_COND: Loop conditional expression of the form
+                             	VAR { <, >, <=, >= } N2.
+   Operand 4: GOMP_FOR_INCR: Loop index increment of the form
+			     	VAR { +=, -= } INCR.
+   Operand 5: GOMP_FOR_BODY: Loop body.
+
+   VAR must be a signed integer variable, which is implicitly thread
+   private.
+
+   N1, N2 and INCR are required to be loop invariant integer
+   expressions that are evaluated without any synchronization.
+   The evaluation order, frequency of evaluation and side-effects are
+   unspecified by the standard.  */
+DEFTREECODE (GOMP_FOR, "gomp_for", tcc_expression, 5)
 
 /* OpenMP - #pragma omp sections [clause1 ... clauseN]
    Operand 1: GOMP_SECTIONS_CLAUSES: List of clauses.

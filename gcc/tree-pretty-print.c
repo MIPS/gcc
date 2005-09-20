@@ -1530,13 +1530,71 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, GOMP_PARALLEL_CLAUSES (node), spc, flags,
 			 false);
       newline_and_indent (buffer, spc + 2);
-      dump_generic_node (buffer, GOMP_PARALLEL_BODY (node), spc + 2, flags,
-		         false);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, GOMP_PARALLEL_BODY (node), spc + 4, flags,
+			 false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      is_expr = false;
+      break;
+
+    case GOMP_FOR:
+      pp_string (buffer, "#pragma omp for ");
+      dump_generic_node (buffer, GOMP_FOR_CLAUSES (node), spc, flags, false);
+      newline_and_indent (buffer, spc);
+      pp_string (buffer, "for (");
+      dump_generic_node (buffer, GOMP_FOR_INIT (node), spc, flags, false);
+      pp_string (buffer, "; ");
+      dump_generic_node (buffer, GOMP_FOR_COND (node), spc, flags, false);
+      pp_string (buffer, "; ");
+      dump_generic_node (buffer, GOMP_FOR_INCR (node), spc, flags, false);
+      pp_string (buffer, ")");
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, GOMP_FOR_BODY (node), spc + 4, flags, false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      is_expr = false;
       break;
 
     case GOMP_CLAUSE_PRIVATE:
       pp_string (buffer, "private (");
       dump_generic_node (buffer, GOMP_PRIVATE_VARS (node), spc, flags, false);
+      pp_string (buffer, ")");
+      break;
+
+    case GOMP_CLAUSE_SHARED:
+      pp_string (buffer, "shared (");
+      dump_generic_node (buffer, GOMP_SHARED_VARS (node), spc, flags, false);
+      pp_string (buffer, ")");
+      break;
+
+    case GOMP_CLAUSE_FIRSTPRIVATE:
+      pp_string (buffer, "firstprivate (");
+      dump_generic_node (buffer, GOMP_FIRSTPRIVATE_VARS (node), spc, flags,
+			 false);
+      pp_string (buffer, ")");
+      break;
+
+    case GOMP_CLAUSE_LASTPRIVATE:
+      pp_string (buffer, "lastprivate (");
+      dump_generic_node (buffer, GOMP_LASTPRIVATE_VARS (node), spc, flags,
+			 false);
+      pp_string (buffer, ")");
+      break;
+
+    case GOMP_CLAUSE_COPYIN:
+      pp_string (buffer, "copyin (");
+      dump_generic_node (buffer, GOMP_COPYIN_VARS (node), spc, flags, false);
+      pp_string (buffer, ")");
+      break;
+
+    case GOMP_CLAUSE_COPYPRIVATE:
+      pp_string (buffer, "copyprivate (");
+      dump_generic_node (buffer, GOMP_COPYPRIVATE_VARS (node), spc, flags,
+			 false);
       pp_string (buffer, ")");
       break;
 

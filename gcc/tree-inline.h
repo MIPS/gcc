@@ -34,7 +34,6 @@ int estimate_move_cost (tree type);
 void push_cfun (struct function *new_cfun);
 void pop_cfun (void);
 int estimate_num_insns (tree expr);
-void remap_locals_in_gomp_body (tree, tree);
 bool tree_versionable_function_p (tree);
 void tree_function_versioning (tree, tree, varray_type);
 
