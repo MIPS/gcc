@@ -355,9 +355,6 @@ struct rtx_iv
 
   /* Whether the first iteration needs to be handled specially.  */
   unsigned first_special : 1;
-
-  /* True if this is a biv.  */
-  unsigned biv_p : 1;
 };
 
 /* The description of an exit from the loop and of the number of iterations

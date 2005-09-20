@@ -48,6 +48,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "output.h"
 #include "toplev.h"
 #include "df.h"
+#include "hashtab.h"
 
 /* Possible return values of iv_get_reaching_def.  */
 
@@ -69,17 +70,29 @@ enum iv_grd_result
   GRD_SINGLE_DOM
 };
 
+/* Information about a biv.  */
+
+struct biv_entry
+{
+  unsigned regno;	/* The register of the biv.  */
+  struct rtx_iv iv;	/* Value of the biv.  */
+};
+
 /* Induction variable stored at the reference.  */
 #define DF_REF_IV(REF) ((struct rtx_iv *) DF_REF_DATA (REF))
 #define DF_REF_IV_SET(REF, IV) DF_REF_DATA (REF) = (IV)
 
 /* The current loop.  */
 
-struct loop *current_loop;
+static struct loop *current_loop;
 
 /* Dataflow information for the current loop.  */
 
-struct df *df;
+static struct df *df;
+
+/* Bivs of the current loop.  */
+
+static htab_t bivs;
 
 static bool iv_analyze_op (rtx, rtx, struct rtx_iv *);
 
@@ -184,6 +197,24 @@ clear_iv_info (void)
       free (iv);
       DF_REF_IV_SET (df->defs[i], NULL);
     }
+
+  htab_empty (bivs);
+}
+
+/* Returns hash value for biv B.  */
+
+static hashval_t
+biv_hash (const void *b)
+{
+  return ((const struct biv_entry *) b)->regno;
+}
+
+/* Compares biv B and register R.  */
+
+static int
+biv_eq (const void *b, const void *r)
+{
+  return ((const struct biv_entry *) b)->regno == REGNO ((rtx) r);
 }
 
 /* Prepare the data for an induction variable analysis of a LOOP.  */
@@ -201,7 +232,10 @@ iv_analysis_loop_init (struct loop *loop)
 
   /* Clear the information from the analysis of the previous loop.  */
   if (first_time)
-    df = df_init ();
+    {
+      df = df_init ();
+      bivs = htab_create (10, biv_hash, biv_eq, free);
+    }
   else
     clear_iv_info ();
 
@@ -329,7 +363,6 @@ iv_constant (struct rtx_iv *iv, rtx cst, enum machine_mode mode)
   iv->extend_mode = iv->mode;
   iv->delta = const0_rtx;
   iv->mult = const1_rtx;
-  iv->biv_p = false;
 
   return true;
 }
@@ -339,8 +372,6 @@ iv_constant (struct rtx_iv *iv, rtx cst, enum machine_mode mode)
 static bool
 iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
 {
-  iv->biv_p = false;
-
   /* If iv is invariant, just calculate the new value.  */
   if (iv->step == const0_rtx
       && !iv->first_special)
@@ -381,8 +412,6 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
 static bool
 iv_extend (struct rtx_iv *iv, enum rtx_code extend, enum machine_mode mode)
 {
-  iv->biv_p = false;
-
   /* If iv is invariant, just calculate the new value.  */
   if (iv->step == const0_rtx
       && !iv->first_special)
@@ -415,8 +444,6 @@ iv_extend (struct rtx_iv *iv, enum rtx_code extend, enum machine_mode mode)
 static bool
 iv_neg (struct rtx_iv *iv)
 {
-  iv->biv_p = false;
-
   if (iv->extend == UNKNOWN)
     {
       iv->base = simplify_gen_unary (NEG, iv->extend_mode,
@@ -442,8 +469,6 @@ iv_add (struct rtx_iv *iv0, struct rtx_iv *iv1, enum rtx_code op)
 {
   enum machine_mode mode;
   rtx arg;
-
-  iv0->biv_p = false;
 
   /* Extend the constant to extend_mode of the other operand if necessary.  */
   if (iv0->extend == UNKNOWN
@@ -513,8 +538,6 @@ iv_mult (struct rtx_iv *iv, rtx mby)
 {
   enum machine_mode mode = iv->extend_mode;
 
-  iv->biv_p = false;
-
   if (GET_MODE (mby) != VOIDmode
       && GET_MODE (mby) != mode)
     return false;
@@ -539,8 +562,6 @@ static bool
 iv_shift (struct rtx_iv *iv, rtx mby)
 {
   enum machine_mode mode = iv->extend_mode;
-
-  iv->biv_p = false;
 
   if (GET_MODE (mby) != VOIDmode
       && GET_MODE (mby) != mode)
@@ -760,6 +781,33 @@ record_iv (struct ref *def, struct rtx_iv *iv)
   DF_REF_IV_SET (def, recorded_iv);
 }
 
+/* If DEF was already analyzed for bivness, store the description of the biv to
+   IV and return true.  Otherwise return false.  */
+
+static bool
+analyzed_for_bivness_p (rtx def, struct rtx_iv *iv)
+{
+  struct biv_entry *biv = htab_find_with_hash (bivs, def, REGNO (def));
+
+  if (!biv)
+    return false;
+
+  *iv = biv->iv;
+  return true;
+}
+
+static void
+record_biv (rtx def, struct rtx_iv *iv)
+{
+  struct biv_entry *biv = xmalloc (sizeof (struct biv_entry));
+  void **slot = htab_find_slot_with_hash (bivs, def, REGNO (def), INSERT);
+
+  biv->regno = REGNO (def);
+  biv->iv = *iv;
+  gcc_assert (!*slot);
+  *slot = biv;
+}
+
 /* Determines whether DEF is a biv and if so, stores its description
    to *IV.  */
 
@@ -796,12 +844,10 @@ iv_analyze_biv (rtx def, struct rtx_iv *iv)
   if (!last_def)
     return iv_constant (iv, def, VOIDmode);
 
-  if (DF_REF_IV (last_def))
+  if (analyzed_for_bivness_p (def, iv))
     {
       if (dump_file)
 	fprintf (dump_file, "  already analysed.\n");
-
-      *iv = *DF_REF_IV (last_def);
       return iv->base != NULL_RTX;
     }
 
@@ -826,7 +872,6 @@ iv_analyze_biv (rtx def, struct rtx_iv *iv)
   iv->mult = const1_rtx;
   iv->delta = outer_step;
   iv->first_special = inner_mode != outer_mode;
-  iv->biv_p = true;
 
  end:
   if (dump_file)
@@ -836,7 +881,7 @@ iv_analyze_biv (rtx def, struct rtx_iv *iv)
       fprintf (dump_file, "\n");
     }
 
-  record_iv (last_def, iv);
+  record_biv (def, iv);
   return iv->base != NULL_RTX;
 }
 
@@ -955,7 +1000,6 @@ iv_analyze_expr (rtx insn, rtx rhs, enum machine_mode mode, struct rtx_iv *iv)
       break;
 
     default:
-      iv0.biv_p = false;
       break;
     }
 
@@ -1138,7 +1182,7 @@ biv_p (rtx insn, rtx reg)
   if (!iv_analyze_biv (reg, &iv))
     return false;
 
-  return iv.biv_p;
+  return iv.step != const0_rtx;
 }
 
 /* Calculates value of IV at ITERATION-th iteration.  */
@@ -1185,6 +1229,8 @@ iv_analysis_done (void)
       clear_iv_info ();
       df_finish (df);
       df = NULL;
+      htab_delete (bivs);
+      bivs = NULL;
     }
 }
 

@@ -1,3 +1,20 @@
+2005-09-20  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* Makefile.in (loop-iv.o): Add HASHTAB_H dependency.
+	* cfgloop.h (struct rtx_iv): Removed biv_p field.
+	* loop-iv.c: Include hashtab.h.
+	(current_loop, df): Made static.
+	(bivs): New variable.
+	(struct biv_entry): New.
+	(biv_hash, biv_eq, analyzed_for_bivness_p, record_biv): New functions.
+	(iv_analysis_loop_init): Initialize bivs variable.
+	(iv_constant, iv_subreg, iv_extend, iv_add, iv_mult, iv_shift):
+	Do not set biv_p.
+	(iv_analyze_biv): Use analyzed_for_bivness_p and record_biv.
+	(iv_analysis_done): Free bivs.
+	* tree-ssa-loop-ivopts.c (force_expr_to_var_cost): Initialize op0 and
+	op1.
+
 2005-09-19  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* Makefile.in (tree-ssa-loop-endcond.o): Add TREE_DATA_REF_H and

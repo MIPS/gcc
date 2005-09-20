@@ -3240,7 +3240,7 @@ force_expr_to_var_cost (tree expr)
   static unsigned integer_cost;
   static unsigned symbol_cost;
   static unsigned address_cost;
-  tree op0, op1, inner_type;
+  tree op0 = NULL_TREE, op1 = NULL_TREE, inner_type;
   unsigned cost0 = 0, cost1 = 0, cost;
   enum machine_mode mode;
 
