@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <omp.h>
 
 #define MAX	1000

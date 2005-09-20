@@ -1,5 +1,9 @@
 2005-09-20  Diego Novillo  <dnovillo@redhat.com>
 
+	* testsuite/libgom.dg/omp-loop01.c: Include stdio.h.
+
+2005-09-20  Diego Novillo  <dnovillo@redhat.com>
+
 	* testsuite/libgomp.dg/omp-loop01.c: New test.
 	* testsuite/libgomp.dg/omp-loop02.c: New test.
 
