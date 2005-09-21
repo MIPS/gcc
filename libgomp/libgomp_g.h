@@ -39,6 +39,8 @@ extern void GOMP_barrier (void);
 
 /* critical.c */
 
+extern void GOMP_critical_name_start (gomp_mutex_t **);
+extern void GOMP_critical_name_end (gomp_mutex_t **);
 extern void GOMP_critical_start (void);
 extern void GOMP_critical_end (void);
 
@@ -78,6 +80,11 @@ extern void GOMP_parallel_loop_runtime_start (void (*)(void *), void *,
 
 extern void GOMP_loop_end (void);
 extern void GOMP_loop_end_nowait (void);
+
+/* ordered.c */
+
+extern void GOMP_ordered_start (void);
+extern void GOMP_ordered_end (void);
 
 /* parallel.c */
 

@@ -30,11 +30,6 @@
 #include "libgomp.h"
 
 
-/* CRITICAL constructs with names go straight to omp_set_lock.  Constructs
-   without a name come through these routines.  This avoids the need for a
-   COPY relocation into the main application from libgomp.so.  */
-
-
 static gomp_mutex_t default_lock;
 
 void
@@ -49,9 +44,55 @@ GOMP_critical_end (void)
   gomp_mutex_unlock (&default_lock);
 }
 
+#ifndef HAVE_SYNC_BUILTINS
+static gomp_mutex_t create_lock_lock;
+#endif
+
+void
+GOMP_critical_name_start (gomp_mutex_t **pplock)
+{
+  gomp_mutex_t *plock = *pplock;
+
+  if (plock == NULL)
+    {
+#ifdef HAVE_SYNC_BUILTINS
+      gomp_mutex_t *nlock = gomp_malloc (sizeof (gomp_mutex_t));
+      gomp_mutex_init (nlock);
+
+      plock = __sync_val_compare_and_swap (pplock, plock, nlock);
+      if (plock != nlock)
+	{
+	  gomp_mutex_destroy (nlock);
+	  free (nlock);
+	}
+#else
+      gomp_mutex_lock (&create_lock_lock);
+      plock = *pplock;
+      if (plock == NULL)
+	{
+	  plock = gomp_malloc (sizeof (gomp_mutex_t));
+	  gomp_mutex_init (plock);
+	  __sync_synchronize ();
+	  *pplock = plock;
+	}
+      gomp_mutex_unlock (&create_lock_lock);
+#endif
+    }
+
+  gomp_mutex_lock (plock);
+}
+
+void
+GOMP_critical_name_end (gomp_mutex_t **pplock)
+{
+  gomp_mutex_unlock (*pplock);
+}
 
 static void __attribute__((constructor))
 initialize_critical (void)
 {
   gomp_mutex_init (&default_lock);
+#ifndef HAVE_SYNC_BUILTINS
+  gomp_mutex_init (&create_lock_lock);
+#endif
 }
