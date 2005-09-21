@@ -7435,7 +7435,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VIEW_CONVERT_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
 
-      /* APPLE LOCAL begin mainline 2005-09-19 */
+      /* APPLE LOCAL begin mainline 4.0.2 4043818 */
       /* If the input and output modes are both the same, we are done.  */
       if (TYPE_MODE (type) == GET_MODE (op0))
         ;
@@ -7457,7 +7457,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
                              TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
       /* As a last resort, spill op0 to memory, and reload it in a
          different mode.  */
-      /* APPLE LOCAL end mainline 2005-09-19 */
+      /* APPLE LOCAL end mainline 4.0.2 4043818 */
       else if (!MEM_P (op0))
 	{
 	  /* If the operand is not a MEM, force it into memory.  Since we

@@ -640,7 +640,7 @@ convert_to_integer (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      /* APPLE LOCAL mainline 2005-09-19 */
+      /* APPLE LOCAL mainline 4.0.2 4043818 */
       return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:

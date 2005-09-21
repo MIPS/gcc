@@ -1994,7 +1994,7 @@ fold_convert (tree type, tree arg)
       gcc_assert (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (orig)));
       gcc_assert (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig)
 		  || TREE_CODE (orig) == VECTOR_TYPE);
-      /* APPLE LOCAL mainline 2005-09-19 */
+      /* APPLE LOCAL mainline 4.0.2 4043818 */
       return fold (build1 (VIEW_CONVERT_EXPR, type, arg));
 
     case VOID_TYPE:
