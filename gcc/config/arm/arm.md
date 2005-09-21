@@ -4164,13 +4164,10 @@
 	(match_operand:DI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (TARGET_THUMB)
+  if (!no_new_pseudos)
     {
-      if (!no_new_pseudos)
-        {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (DImode, operands[1]);
-        }
+      if (GET_CODE (operands[0]) != REG)
+	operands[1] = force_reg (DImode, operands[1]);
     }
   "
 )
@@ -4179,8 +4176,10 @@
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r ,m")
 	(match_operand:DI 1 "di_operand"              "rIK,mi,r"))]
   "TARGET_ARM
-  && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
-  && !TARGET_IWMMXT"
+   && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
+   && !TARGET_IWMMXT
+   && (   register_operand (operands[0], DImode)
+       || register_operand (operands[1], DImode))"
   "*
   return (output_move_double (operands));
   "
@@ -5285,7 +5284,8 @@
   [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,m")
 	(match_operand:DF 1 "soft_df_operand" "r,mF,r"))]
   "TARGET_ARM && TARGET_SOFT_FLOAT
-  "
+   && (   register_operand (operands[0], DFmode)
+       || register_operand (operands[1], DFmode))"
   "* return output_move_double (operands);"
   [(set_attr "length" "8,8,8")
    (set_attr "type" "*,load2,store2")
