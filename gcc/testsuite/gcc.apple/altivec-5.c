@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec 3840704 */
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-faltivec" } */
+/* { dg-options "-mcpu=G3 -faltivec" } */
 /* { dg-final { scan-assembler-not "stvx" } } */
 
 void *memset(void *, int, unsigned long int);
