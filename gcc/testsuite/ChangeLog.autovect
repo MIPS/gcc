@@ -1,3 +1,10 @@
+2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect/vect-4.f90: Fix expected message for vect_no_align 
+        targets.
+	* gfortran.dg/vect/vect-6.f90: Fix expected message.
+	* gfortran.dg/vect/vect-7.f90: Fix expected message.
+
 2005-09-20  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-dv-2.c: Fix loop bound.
