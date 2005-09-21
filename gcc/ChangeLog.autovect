@@ -1,5 +1,52 @@
 2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* expr.c (expand_expr_real_1): Add case WIDEN_SUM_EXPR.
+	* genopinit.c (ssum_widen_optab): Init new optab.
+	(usum_widen_optab): Likewise.
+	* optabs.c (optab_for_tree_code): Add case WIDEN_SUM_EXPR.
+	(expand_widen_pattern_expr): New function.
+	(init_optabs): Initialize new optabs ssum_widen_optab and
+	usum_widen_optab.
+	* optabs.h (OTI_ssum_widen, OTI_usum_widen): New optabs.
+	(ssum_widen_optab,  usum_widen_optab): New optabs.
+	(expand_widen_pattern_expr): New function declaration.
+	* tree-pretty-print.c (dump_generic_node): Add case WIDEN_SUM_EXPR.
+	(op_prio): Add case WIDEN_SUM_EXPR.
+	(op_symbol): Add case WIDEN_SUM_EXPR.
+	* tree.def (WIDEN_SUM_EXPR): New tree-code.
+
+	* tree-vect-analyze.c (recog.h): Add include.
+	(vect_pattern_recog_funcs): Add function to initialization.
+	(vect_recog_widen_sum_pattern): New function.
+	(vect_pattern_recog_1): Update documentation.
+	* tree-vect-transform.c (vect_init_vector): Take vectype from the
+	reduction variable instead of STMT_VINFO_VECTYPE.
+	(get_initial_def_for_reduction): Likewise. Also add case WIDEN_SUM_EXPR.
+	(vect_create_epilog_for_reduction): Take vectype from the
+	reduction variable instead of STMT_VINFO_VECTYPE. Take code,
+	scalar_dest and scalar_type from orig_stmt if available. Add assert.
+	(vectorizable_reduction): Handle reduction patterns.
+	* tree-vectorizer.h (NUM_PATTERNS): Set to 2.
+	(vect_recog_widen_sum_pattern): New function declaration.
+	* tree-vect-generic (expand_vector_operations_1): Handle WIDEN_SUM_EXPR.
+
+	* config/rs6000/altivec.md (widen_usum<mode>3): New pattern.
+	(widen_ssumv16qi3, widen_ssumv8hi3): New patterns.
+	* config/rs6000/rs6000.c (altivec_builtin_widening_summation): Removed.
+	(target_vect_pattern_recog_funcs): Remove initialization.
+	(target_vect_recog_widening_summation_pattern): Function removed.
+	(rs6000_expand_builtin): Removed handling of case
+	ALTIVEC_BUILTIN_WIDENING_SUMMATION.
+	(altivec_init_builtins): Remove initialization of builtin
+	ALTIVEC_BUILTIN_WIDENING_SUMMATION.
+	* config/rs6000/rs6000.h (TARGET_VECT_NUM_PATTERNS): Set to 0.
+
+	* tree-pretty-print.c (op_symbol): Remove case REDUC_PLUS_EXPR.
+	* tree-vect-analyze.c (vect_recog_unsigned_subsat_pattern): Move
+	debug printout.
+
+2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
+
 	Bring over from mainline:
 
 	2005-09-20  Daniel Berlin  <dberlin@dberlin.org>

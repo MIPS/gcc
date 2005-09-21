@@ -959,6 +959,16 @@ DEFTREECODE (SAT_MINUS_EXPR, "sat_minus_expr", tcc_binary, 2)
 
 DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 7)
 
+/* Widenning summation.
+
+   The first argument is of type t1.
+   The second argument is of type t2, such that t2 is at least twice
+   the size of t1. The type of the entir expression is also t2.
+   WIDEN_SUM_EXPR is equivalent to first widening (promoting)
+   the first argument from type t1 to type t2, and then summing it
+   with the second argument.  */
+DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
+
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar
    result (e.g. summing the elements of the vector, finding the minimum over

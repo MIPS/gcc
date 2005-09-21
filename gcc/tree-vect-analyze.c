@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
+#include "recog.h"
 
 /* Main analysis functions.  */
 static loop_vec_info vect_analyze_loop_form (struct loop *);
@@ -67,7 +68,8 @@ static bool vect_can_advance_ivs_p (loop_vec_info);
 /* Pattern recognition functions  */
 tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
 _recog_func_ptr vect_pattern_recog_funcs[NUM_PATTERNS] = {
-        vect_recog_unsigned_subsat_pattern};
+        vect_recog_unsigned_subsat_pattern,
+	vect_recog_widen_sum_pattern};
 
 static void vect_update_misalignment_for_peel
   (struct data_reference *, struct data_reference *, int npeel);
@@ -1730,6 +1732,169 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 }
 
 
+/* Function vect_recog_widen_sum_pattern
+
+   Try to find the following pattern:
+
+     type x_t;
+     TYPE x_T, sum = init;
+   loop:
+     sum_0 = phi <init, sum_1>
+
+     S1  x_t = *p;
+     S2  x_T = (TYPE) x_t;
+     S3  sum_1 = x_T + sum_0;
+
+   where type 'TYPE' is at least double the size of type 'type', i.e - we're summing
+   elements of type 'type' into an accumulator of type 'TYPE'.
+
+   For example:
+
+     unsigned short *data, X;
+     unsigned int DX, sum = init;
+   loop:
+     sum_0 = phi <init, sum_1>
+
+     S1  X = *data.1_20;
+     S2  DX = (unsigned int) X;
+     S3  sum_1 = DX + sum_0;
+
+
+   Input:
+   LAST_STMT: A stmt from which the pattern search begins. In the example,
+   when this function is called with S3, the pattern {S2,S3} will be detected.
+
+   Output:
+   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+   are part of the pattern. In the example, STMT_LIST will consist of {S2,S3}.
+
+   PATTERN_TYPE: The vector type to be used for the returned new stmt.
+   For the example above, for targets that support vectors of 8 shorts,
+   we want to return PATTERN_TYPE=V8HI. (Note that the result
+   contains 4 ints, because we're dealing with fixed-sized vectors,
+   but it doesn't change the fact that the vectorization factor is 8, 
+   as the 4 results correspond to 8 elements from 8 different iterations).
+
+   Return value: A new stmt that will be used to replace the sequence of
+   stmts in STMT_LIST. In this case it will be:
+   WIDEN_SUM <X, sum_0>
+*/
+
+tree
+vect_recog_widen_sum_pattern (tree last_stmt,
+			       tree *pattern_type,
+			       varray_type *stmt_list)
+{
+  tree stmt, expr;
+  tree oprnd0, oprnd1;
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
+  tree type, half_type;
+  tree pattern_expr;
+  tree dummy;
+  enum vect_def_type dt;
+  enum machine_mode vec_mode;
+  enum insn_code icode;
+  optab optab;
+  tree vectype;
+
+  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (last_stmt, 1);
+  type = TREE_TYPE (expr);
+   
+  /* Look for the following pattern 
+          DX = (TYPE) X; 
+          sum_1 = DX + sum_0;
+     In which DX is at least double the size of X, and sum_1 has been
+     recognized as reduction.
+   */
+   
+  /* Starting from LAST_STMT, follow the defs of its uses in search
+     of the above pattern.  */
+
+  if (TREE_CODE (expr) != PLUS_EXPR)
+    return NULL;
+
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
+    return NULL;
+  
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1);
+  if (TREE_TYPE (oprnd0) != type || TREE_TYPE (oprnd1) != type)
+    return NULL;
+  
+  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
+  
+  /* So far so good.
+     Assumption: oprnd1 is the reduction variable (defined by a loop-header
+     phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
+     Left to check that oprnd0 is defined by a cast from type 'type'
+     to type 'TYPE'.
+
+          DX = (TYPE) X;
+          sum_1 = DX + sum_0;
+   */
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+
+  gcc_assert (stmt_vinfo);
+  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != NOP_EXPR)
+    return NULL;
+
+  oprnd0 = TREE_OPERAND (expr, 0);
+  if (!vect_is_simple_use (oprnd0, STMT_VINFO_LOOP_VINFO (stmt_vinfo),
+                           &dummy, &dummy, &dt))
+    return NULL;
+  if (dt != vect_loop_def)
+    return NULL;
+
+  half_type = TREE_TYPE (oprnd0);
+  if (!INTEGRAL_TYPE_P (type) || !INTEGRAL_TYPE_P (half_type)
+      || TYPE_UNSIGNED (type) != TYPE_UNSIGNED (half_type)
+      || TYPE_PRECISION (type) < TYPE_PRECISION (half_type) * 2)
+    return NULL;
+
+  /* Check target support  */
+  vectype = get_vectype_for_scalar_type (half_type);
+  optab = optab_for_tree_code (WIDEN_SUM_EXPR, vectype);
+  vec_mode = TYPE_MODE (vectype);
+  if (!optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "vect_recog_widen_sum_pattern: no optab");
+      return NULL;
+    }
+  if ((icode = optab->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || insn_data[icode].operand[0].mode 
+	 != TYPE_MODE (get_vectype_for_scalar_type (type)))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, 
+		 "vect_recog_widen_sum_pattern: mode not supported.");
+      return NULL;
+    }
+
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+  
+  /* Pattern detected. Create a stmt to be used to replace the pattern: */
+  pattern_expr = build (WIDEN_SUM_EXPR, type, oprnd0, oprnd1);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vect_recog_widen_sum_pattern: detected: ");
+      print_generic_expr (vect_dump, pattern_expr, TDF_SLIM);
+    }
+  *pattern_type = vectype;
+  return pattern_expr;
+}   
+
+ 
 /* Function vect_recog_unsigned_subsat_pattern
   
    Try to find a pattern of USAT(a-b) - an unsigned saturating subtraction. 
@@ -1879,14 +2044,14 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *pattern_type,
     return NULL;
 
   VARRAY_PUSH_TREE (*stmt_list, stmt);
-  if (vect_print_dump_info (REPORT_DETAILS))
-    {
-      fprintf (vect_dump, "vect_recog_unsigned_subsat_pattern: ");
-      print_generic_expr (vect_dump, stmt, TDF_SLIM);
-    }
 
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
   pattern_expr = build (SAT_MINUS_EXPR, type, a, b);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vect_recog_unsigned_subsat_pattern: detetced: ");
+      print_generic_expr (vect_dump, pattern_expr, TDF_SLIM);
+    }
   *pattern_type = get_vectype_for_scalar_type (TREE_TYPE (pattern_expr));
   return pattern_expr;
 }
@@ -1992,20 +2157,40 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, tree *, varray_type *),
   STMT_VINFO_RELATED_STMT (stmt_info) = pattern_expr;
   STMT_VINFO_DEF_TYPE (pattern_stmt_info) = STMT_VINFO_DEF_TYPE (stmt_info);
 
-  /* We created the following expr:
+  /* We've just created the following new stmt:
      	X = pattern_expr (args)
-     and set the type of X to the type of the pattern_expr.
-     The vectype of this new stmt (the type of the stmt when vectorized) is 
-     usually obtained by:
-        get_vectype_for_scalar_type (TREE_TYPE (X))
-     In some cases however, this is not the right vectype for the stmt. 
-     One such example is a reduction computation - some reductions (like
-     accumulation) may require one vectype for the epilog computation (which 
-     depends on the type of the reduction variable, X in this case), and a 
-     different vectype is used for the partial-sums computation that takes 
-     place inside the loop (which depends on the type of the other arguments to
-     the stmt, and may or may not be the same as the type of X). 
-     'pattern_vectype' is the vectype that will be used inside the loop.
+
+     The vectype of this new stmt (i.e., the vector type that is used when 
+     vectorizing the stmt), is obtained by:
+        get_vectype_for_scalar_type (TREE_TYPE (X)).
+     Usually we record this vectype in STMT_VINFO_VECTYPE. This field 
+     is used (1) when creating the vector version of the stmt, and (2) when 
+     determining the vectorization factor.
+
+     However, there are some computation-idioms for which the vectype that is 
+     used for vectorization cannot be used to determine the vectorization 
+     factor, because it consists of a different number of elements than the 
+     actual number of elements that are being operated upon in parallel.  
+     So far we have this situation only in cases of reduction patterns: 
+     	X = pattern_expr (arg0, arg1, ..., X)
+     in which the type of the reduction variable X is 
+     different than the type of the other arguments to the stmt.
+
+     For example, consider an accumulation of shorts into an int accumulator. 
+     On some targets it's possible to vectorize this pattern operating on 8
+     short's at a time (hence, the vectype for purposes of determining the
+     vectorization factor should be V8HI); on the other hand, the vectype that
+     is used to create the vector form is acrually V4SI (the type of the 
+     result). 
+
+     In STMT_VINFO_VECTYPE we record the vectype that indicates what is the
+     actual level of parallelism (V8HI in the example), so that the subsequent 
+     analyses passes will be able to derive the right vectorization factor.
+     This means that the following doesn't hold for reduction patterns:
+      STMT_VINFO_VECTYPE != get_vectype_for_scalar_type (TREE_TYPE (X))
+     Therefore in the transformation routines for reduction patterns,
+     we don't use the vectype recorded in STMT_VINFO_VECTYPE, but get the
+     vectype from the type of the result (X).
   */
   STMT_VINFO_VECTYPE (pattern_stmt_info) = pattern_vectype;
   

@@ -2295,7 +2295,7 @@ extern int flag_expensive_optimizations;
 extern int frame_pointer_needed;
 
 /* Target secific patterns that can be vectorized.  */
-#define TARGET_VECT_NUM_PATTERNS 1
+#define TARGET_VECT_NUM_PATTERNS 0
 
 enum rs6000_builtins
 {

@@ -161,12 +161,12 @@ enum rs6000_nop_insertion rs6000_sched_insert_nops;
 static GTY(()) tree altivec_builtin_mask_for_load;
 
 /* Pattern recognition functions  */
-static GTY(()) tree altivec_builtin_widening_summation;
-static tree target_vect_recog_widening_summation_pattern (tree, tree *, 
-							  varray_type *);
 static _recog_func_ptr
+*target_vect_pattern_recog_funcs;
+/* Replace the above with:
 target_vect_pattern_recog_funcs[TARGET_VECT_NUM_PATTERNS] = {
-	target_vect_recog_widening_summation_pattern};
+	target_vect_recog_SOME_pattern};
+   when TARGET_VECT_NUM_PATTERNS > 0.  */
 
 /* Size of long double */
 int rs6000_long_double_type_size;
@@ -1560,163 +1560,6 @@ rs6000_builtin_vect_pattern_recog (tree stmt)
       pattern_recog_func = target_vect_pattern_recog_funcs[j];
       vect_pattern_recog_1 (pattern_recog_func, si);
     }
-}
-
-/* Function target_vect_recog_widening_summation_pattern
-
-   Try to find the following pattern:
-
-     t x_t;
-     dt x_dt, sum = init;
-   loop:
-     sum_0 = phi <init, sum_1>
-
-     S1  x_t = *p;
-     S2  x_dt = (dt) x_t;
-     S3  sum_1 = x_dt + sum_0;
-
-   where type 'dt' is at least double the size of type 't', i.e - we're summing
-   elements of type 't' into an accumulator of type 'dt'.
-
-   For example:
-
-     unsigned short *data, X;
-     unsigned int DX, sum = init;
-   loop:
-     sum_0 = phi <init, sum_1>
-
-     S1  X = *data.1_20;
-     S2  DX = (unsigned int) X;
-     S3  sum_1 = DX + sum_0;
-
-
-   Input:
-   LAST_STMT: A stmt from which the pattern search begins. In the example,
-   when this function is called with S3, the pattern {S2,S3} will be detected.
-
-   Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
-   are part of the pattern. In the example, STMT_LIST will consist of {S2,S3}.
-
-   PATTERN_TYPE: The vector type to be used for the returned new stmt.
-   For the example above, we want to return PATTERN_TYPE=V8HI, because
-   it handles 8 short elements at a time. (Note that the result it
-   produces contains 4 ints, but it doesn't change the fact that the
-   vetorization factor is 8).
-
-   Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be: 
-   CALL_EXPR < altivec.builtin.widenning_summation (X,sum_0) >
-*/
-
-static tree
-target_vect_recog_widening_summation_pattern (tree last_stmt, 
-					      tree *pattern_type,
-					      varray_type *stmt_list)
-{
-  tree stmt, expr;
-  tree oprnd0, oprnd1;
-  stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
-  tree type, half_type;
-  tree pattern_expr;
-  tree builtin_decl;
-  tree params;
-  tree dummy;
-  enum vect_def_type dt;
-
-  if (!TARGET_ALTIVEC)
-    return NULL;
-
-  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
-    return NULL;
-
-  expr = TREE_OPERAND (last_stmt, 1);
-  type = TREE_TYPE (expr);
-
-  /* Look for the following pattern
-          DX = (unsigned int) X;
-          sum_1 = DX + sum_0;
-     In which DX is at least double the size of X, and sum_1 has been
-     recognized as reduction.
-   */
-
-  /* Starting from LAST_STMT, follow the defs of its uses in search
-     of the above pattern.  */
-
-  if (TREE_CODE (expr) != PLUS_EXPR)
-    return NULL;
-
-  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
-    return NULL;
-
-  oprnd0 = TREE_OPERAND (expr, 0);
-  oprnd1 = TREE_OPERAND (expr, 1);
-  if (TREE_TYPE (oprnd0) != type || TREE_TYPE (oprnd1) != type)
-    return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
-
-  /* So far so good.
-     Assumption: oprnd1 is the reduction variable (defined by a loop-header
-     phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
-     Left to check that oprnd0 is defined by a cast from type 'half_type'
-     to type 'type'.
-     
-          DX = (unsigned int) X;
-          sum_1 = DX + sum_0;
-   */
-  
-  stmt = SSA_NAME_DEF_STMT (oprnd0);
-  gcc_assert (stmt);
-  stmt_vinfo = vinfo_for_stmt (stmt);
-#ifdef ENABLE_CHECKING
-  gcc_assert (stmt_vinfo);
-  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-#endif
-  
-  expr = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (expr) != NOP_EXPR)
-    return NULL;
-  
-  oprnd0 = TREE_OPERAND (expr, 0);
-  if (!vect_is_simple_use (oprnd0, STMT_VINFO_LOOP_VINFO (stmt_vinfo),
-                           &dummy, &dummy, &dt))
-    return NULL;
-  if (dt != vect_loop_def) 
-    return NULL;
-   
-  half_type = TREE_TYPE (oprnd0);
-  if (!INTEGRAL_TYPE_P (type) || !INTEGRAL_TYPE_P (half_type)
-      || TYPE_UNSIGNED (type) != TYPE_UNSIGNED (half_type)
-      || TYPE_PRECISION (type) < TYPE_PRECISION (half_type) * 2)
-    return NULL;
-
-  /* We add support for summation of QIs that is being widened to SI,
-     and support for summation of HIs that is being widened to SI.
-     TODO: Support also QI->HI summation.  */
-
-  if (TYPE_MODE (half_type) != HImode && TYPE_MODE (half_type) != QImode)
-    return NULL;
-
-  /* Supporting HI->SI.  */
-  if (TYPE_MODE (half_type) == HImode && TYPE_MODE (type) != SImode)
-    return NULL;
-
-  /* Supporting QI->SI. */
-  if (TYPE_MODE (half_type) == QImode && TYPE_MODE (type) != SImode)
-    return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-
-  /* Pattern detected. Create a stmt to be used to replace the pattern: */
-  params = build_tree_list (NULL_TREE, oprnd1);
-  params = tree_cons (NULL_TREE, oprnd0, params);
-  builtin_decl = altivec_builtin_widening_summation;
-  pattern_expr = build_function_call_expr (builtin_decl, params);
-  *pattern_type = get_vectype_for_scalar_type (half_type);
-
-  return pattern_expr;
 }
 
 /* Handle generic options of the form -mfoo=yes/no.
@@ -7872,101 +7715,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return target;
     }
 
-  if (fcode == ALTIVEC_BUILTIN_WIDENING_SUMMATION)
-    {
-      /* we have:
-           altivec_builtin_widening_summation (t, op0, op1)
-         such that type(t) == type(op1)
-	 and type(op0) is half the size of type(t).
-
-         generate:
-           ones = gen_reg_rtx (V8HI)
-           gen_altivec_altivec_vspltish (ones, const1_rtx)
-           gen_altivec_vmsumuhm (t, op0, ones, op1)
-       */
-      int icode;
-      enum machine_mode tmode;
-      enum machine_mode mode0;
-      enum machine_mode mode1;
-      enum machine_mode mode2;
-      enum machine_mode mode, half_mode;
-      tree arg0, arg1;
-      tree type, half_type;
-      rtx op0, op1, ones, pat;
-
-      gcc_assert (TARGET_ALTIVEC);
-
-      /* prepare first argment: */
-      arg0 = TREE_VALUE (arglist);
-      half_type = TREE_TYPE (arg0);
-      half_mode = TYPE_MODE (TREE_TYPE (half_type));
-
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      type = TREE_TYPE (arg1);
-      mode = TYPE_MODE (TREE_TYPE (type));
-
-      gcc_assert (TYPE_PRECISION (TREE_TYPE (type)) >=
-		  TYPE_PRECISION (TREE_TYPE (half_type)) * 2);
-
-      /* Supporting QI->SI and HI->SI.
-         TODO: Support QI to HI.  */
-
-      if (half_mode == QImode && mode == SImode)
-        icode = TYPE_UNSIGNED (half_type) ? 
-			(int) CODE_FOR_altivec_vmsumubm :
-			(int) CODE_FOR_altivec_vmsummbm;
-      else if (half_mode == HImode && mode == SImode)
-        icode = TYPE_UNSIGNED (half_type) ? 
-			(int) CODE_FOR_altivec_vmsumuhm :
-			(int) CODE_FOR_altivec_vmsumshm;
-      else
-	gcc_unreachable ();
-
-      tmode = insn_data[icode].operand[0].mode;
-      mode0 = insn_data[icode].operand[1].mode;
-      mode1 = insn_data[icode].operand[2].mode;
-      mode2 = insn_data[icode].operand[3].mode;
-
-      op0 = expand_expr (arg0, NULL_RTX, mode0, EXPAND_NORMAL);
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0)
-          && mode0 != VOIDmode)
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      /* prepare second argment: */
-      ones = gen_reg_rtx (mode1);
-      if (mode1 == V16QImode)
-        emit_insn (gen_altivec_vspltisb (ones, const1_rtx));
-      else if (mode1 == V8HImode)
-        emit_insn (gen_altivec_vspltish (ones, const1_rtx));
-      else
-        gcc_unreachable ();
-      gcc_assert (mode0 == mode1);
-
-      /* prepare third argment: */
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      type = TREE_TYPE (arg1);
-      op1 = expand_expr (arg1, NULL_RTX, mode2, EXPAND_NORMAL);
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode2)
-          && mode1 != VOIDmode)
-	op1 = copy_to_mode_reg (mode2, op1);
-
-      /* prepare target:  */
-      if (target == 0
-          || GET_MODE (target) != tmode
-          || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-        target = gen_reg_rtx (tmode);
-
-      gcc_assert (tmode == mode2);
-
-      pat = GEN_FCN (icode) (target, op0, ones, op1);
-      if (!pat)
-        return 0;
-      emit_insn (pat);
-
-      return target;
-    }
-
-
   if (TARGET_ALTIVEC)
     {
       ret = altivec_expand_builtin (exp, target, &success);
@@ -8482,9 +8230,6 @@ altivec_init_builtins (void)
     = build_function_type_list (V16QI_type_node, V16QI_type_node, NULL_TREE);
   tree v4sf_ftype_v4sf
     = build_function_type_list (V4SF_type_node, V4SF_type_node, NULL_TREE);
-  tree v4si_ftype_v8hi_v4si
-    = build_function_type_list (V4SI_type_node,
-                                V8HI_type_node, V4SI_type_node, NULL_TREE);
   tree void_ftype_pcvoid_int_int
     = build_function_type_list (void_type_node,
 				pcvoid_type_node, integer_type_node,
@@ -8638,18 +8383,6 @@ altivec_init_builtins (void)
                                           NULL_TREE, NULL_TREE));
       /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
       altivec_builtin_mask_for_load = decl;
-
-      /* Initialize target builtin  */
-
-      decl = 
-	lang_hooks.builtin_function ("__builtin_altivec_widening_summation",
-			       v4si_ftype_v8hi_v4si,
-                               ALTIVEC_BUILTIN_WIDENING_SUMMATION,
-                               BUILT_IN_MD, NULL,
-                               tree_cons (get_identifier ("const"),
-                                          NULL_TREE, NULL_TREE));
-      /* Record the decl. Will be used by vect_recog_widening_summation.  */
-      altivec_builtin_widening_summation = decl;
     }
 
   /* Access to the vec_init patterns.  */

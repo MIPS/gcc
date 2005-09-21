@@ -10,14 +10,14 @@
 int main1 ()
 {
   int i;
-  unsigned short udata_sh[N] = {0,2,4,6,8,10,12,14,16,18,20,22,24,26,28};
-  unsigned char udata_ch[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-  unsigned int intsum = 0;
-  unsigned short shortsum = 0;
+  signed short data_sh[N] = {0,2,4,6,8,10,12,14,16,18,20,22,24,26,28};
+  signed char data_ch[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  signed int intsum = 0;
+  signed short shortsum = 0;
 
   /* widenning sum: sum shorts into int.  */
   for (i = 0; i < N; i++){
-    intsum += udata_sh[i];
+    intsum += data_sh[i];
   }
 
   /* check results:  */
@@ -27,7 +27,7 @@ int main1 ()
   /* widenning sum: sum chars into int.  */
   intsum = 0;
   for (i = 0; i < N; i++){
-    intsum += udata_ch[i];
+    intsum += data_ch[i];
   }
 
   /* check results:  */
@@ -36,12 +36,12 @@ int main1 ()
 
   /* widenning sum: sum chars into short.  */
   for (i = 0; i < N; i++){
-    shortsum += udata_ch[i];
+    shortsum += data_ch[i];
   }
 
   /* check results:  */
   if (shortsum != CH_SUM)
-  return 0;
+    return 0;
 }
 
 int main (void)

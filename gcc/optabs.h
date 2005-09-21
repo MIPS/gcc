@@ -231,6 +231,10 @@ enum optab_index
   /* Conditional add instruction.  */
   OTI_addcc,
 
+  /* Summation, with result machine mode one or more wider than args.  */
+  OTI_ssum_widen,
+  OTI_usum_widen,
+
   /* Reduction operations on a vector operand.  */
   OTI_reduc_smax,
   OTI_reduc_umax,
@@ -361,6 +365,9 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define cstore_optab (optab_table[OTI_cstore])
 #define push_optab (optab_table[OTI_push])
 #define addcc_optab (optab_table[OTI_addcc])
+
+#define ssum_widen_optab (optab_table[OTI_ssum_widen])
+#define usum_widen_optab (optab_table[OTI_usum_widen])
 
 #define reduc_smax_optab (optab_table[OTI_reduc_smax])
 #define reduc_umax_optab (optab_table[OTI_reduc_umax])
@@ -498,6 +505,9 @@ extern enum insn_code sync_lock_test_and_set[NUM_MACHINE_MODES];
 extern enum insn_code sync_lock_release[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
+
+extern rtx expand_widen_pattern_expr (tree exp, rtx op0, rtx op1,
+				      rtx target, int unsignedp);
 
 extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab,
 			      rtx op0, rtx op1, rtx op2, rtx target,

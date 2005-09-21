@@ -1041,6 +1041,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case RROTATE_EXPR:
     case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
+    case WIDEN_SUM_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
@@ -1783,6 +1784,7 @@ op_prio (tree op)
     case RROTATE_EXPR:
       return 11;
 
+    case WIDEN_SUM_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
     case SAT_MINUS_EXPR:
@@ -1935,8 +1937,8 @@ op_symbol (tree op)
     case PLUS_EXPR:
       return "+";
 
-    case REDUC_PLUS_EXPR:
-      return "r+";
+    case WIDEN_SUM_EXPR:
+      return "w+";
 
     case NEGATE_EXPR:
     case MINUS_EXPR:

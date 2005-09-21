@@ -481,7 +481,7 @@ vect_init_vector (tree stmt, tree vector_var)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree new_var;
   tree init_stmt;
-  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo); 
+  tree vectype = TREE_TYPE (vector_var);
   tree vec_oprnd;
   edge pe;
   tree new_temp;
@@ -712,8 +712,8 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
 static tree
 get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
 {
-  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+  tree vectype = 
+	get_vectype_for_scalar_type (TREE_TYPE (TREE_OPERAND (stmt ,0)));
   int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
   int nelements;
   enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1));
@@ -728,6 +728,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
   switch (code)
   {
   case PLUS_EXPR:
+  case WIDEN_SUM_EXPR:
     if (INTEGRAL_TYPE_P (type))
       def = build_int_cst (type, 0);
     else
@@ -835,13 +836,13 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
                                   enum tree_code reduc_code, tree reduction_phi)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree vectype = get_vectype_for_scalar_type (TREE_TYPE (reduction_op));
   enum machine_mode mode = TYPE_MODE (vectype);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block exit_bb;
-  tree scalar_dest = TREE_OPERAND (stmt, 0);
-  tree scalar_type = TREE_TYPE (scalar_dest);
+  tree scalar_dest;
+  tree scalar_type;
   tree new_phi;
   block_stmt_iterator exit_bsi;
   tree vec_dest;
@@ -850,14 +851,30 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
   tree epilog_stmt;
   tree new_scalar_dest, exit_phi;
   tree bitsize, bitpos, bytesize; 
-  enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1));
+  enum tree_code code;
   tree scalar_initial_def;
   tree vec_initial_def;
   tree orig_name;
   imm_use_iterator imm_iter;
   use_operand_p use_p;
   bool extract_scalar_result;
-  
+  tree orig_stmt;
+
+  /* Get the relevant tree-code to use:
+     1) in the epilog, if reduc_code is not avalilable.
+     2) in the final adjusment code.
+     In case STMT represents a reduction pattern, the tree-code is taken from
+     the original stmt that STMT replaces.
+     Otherwise, it is a regular reduction, take the tree-code from STMT.  */
+
+  orig_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
+  if (!orig_stmt)
+    orig_stmt = stmt;
+  code = TREE_CODE (TREE_OPERAND (orig_stmt, 1));
+  scalar_dest = TREE_OPERAND (orig_stmt, 0);
+  scalar_type = TREE_TYPE (scalar_dest);
+
+
   /*** 1. Create the reduction def-use cycle  ***/
   
   /* 1.1 set the loop-entry arg of the reduction-phi:  */
@@ -918,7 +935,6 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
     {
       enum tree_code shift_code;
       bool have_whole_vector_shift = true;
-      enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1)); /* CHECKME */
       int bit_offset;
       int element_bitsize = tree_low_cst (bitsize, 1);
       int vec_size_in_bits = tree_low_cst (TYPE_SIZE (vectype), 1);
@@ -1089,6 +1105,9 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
         }
     }
      
+  /* We expect to have found an exit_phi because of loop-closed-ssa form.  */
+  gcc_assert (exit_phi);
+
   orig_name = PHI_RESULT (exit_phi);
   
   FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, orig_name)
@@ -1166,7 +1185,8 @@ vectorizable_target_reduction_pattern (tree stmt, block_stmt_iterator *bsi,
     return false;
   orig_stmt_info = vinfo_for_stmt (orig_stmt);
   gcc_assert (STMT_VINFO_RELATED_STMT (orig_stmt_info) == stmt);
-  gcc_assert (STMT_VINFO_IN_PATTERN_P (orig_stmt_info));
+  if (!STMT_VINFO_IN_PATTERN_P (orig_stmt_info))
+    return false;
   
   /* 3. Is this a target-specific pattern?  */
     
@@ -1312,7 +1332,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree operation;
-  enum tree_code code, reduc_code = 0;
+  enum tree_code code, orig_code, epilog_reduc_code = 0;
   enum machine_mode vec_mode;
   int op_type;
   optab optab, reduc_optab;
@@ -1323,8 +1343,10 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree scalar_type;
   bool is_simple_use0;
   bool is_simple_use1;
+  tree orig_stmt;
+  stmt_vec_info orig_stmt_info;
 
-  /* Is vectorizable reduction?  */
+  /* 1. Is vectorizable reduction?  */
 
   /* Not supportable if the reduction variable is used in the loop.  */
   if (STMT_VINFO_RELEVANT_P (stmt_info))
@@ -1336,6 +1358,25 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Make sure it was already recognized as a reduction pattern.  */
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_reduction_def)
     return false;
+
+  /* 2. Has this been recognized as a reduction pattern? 
+
+     Check if STMT represents a pattern that has been recognized
+     in earlier analysis stages.  For stmts that represent a pattern,
+     the STMT_VINFO_RELATED_STMT field records the last stmt in
+     the original sequence that constitutes the pattern.  */
+
+  orig_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
+  if (orig_stmt)
+    {
+      orig_stmt_info = vinfo_for_stmt (orig_stmt);
+      gcc_assert (STMT_VINFO_RELATED_STMT (orig_stmt_info) == stmt);
+      gcc_assert (STMT_VINFO_IN_PATTERN_P (orig_stmt_info));
+    }
+
+  /* 3. Check the operands of the operation. The first operands are defined
+        inside the loop body. The last operand is the reduction variable,
+        which is defined by the loop-header-phi.  */
 
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
 
@@ -1351,7 +1392,6 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   scalar_dest = TREE_OPERAND (stmt, 0);
   scalar_type = TREE_TYPE (scalar_dest);
 
-  /* Check the first operand. It is expected to be defined inside the loop.  */
   is_simple_use0 =
         vect_is_simple_use (op0, loop_vinfo, &def_stmt0, &def0, &dt0);
   is_simple_use1 =
@@ -1362,14 +1402,17 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   gcc_assert (dt0 == vect_loop_def);
   gcc_assert (dt1 == vect_reduction_def);
   gcc_assert (TREE_CODE (def_stmt1) == PHI_NODE);
-  gcc_assert (stmt == vect_is_simple_reduction (loop, def_stmt1));
+  if (orig_stmt)
+    gcc_assert (orig_stmt == vect_is_simple_reduction (loop, def_stmt1));
+  else
+    gcc_assert (stmt == vect_is_simple_reduction (loop, def_stmt1));
 
   if (STMT_VINFO_LIVE_P (vinfo_for_stmt (def_stmt1)))
-   return false;
+    return false;
 
-  /* Supportable by target?  */
+  /* 4. Supportable by target?  */
 
-  /* check support for the operation in the loop  */
+  /* 4.1. Check support for the operation in the loop  */
   optab = optab_for_tree_code (code, vectype);
   if (!optab)
     {
@@ -1400,23 +1443,70 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
   
-  /* check support for the epilog operation  */
-  if (!reduction_code_for_scalar_code (code, &reduc_code))
+  /* 4.2. Check support for the epilog operation.
+
+          If STMT represents a reduction pattern, then the type of the
+          reduction variable may be different than the type of the rest
+          of the arguments.  For example, consider the case of accumulation
+          of shorts into an int accumulator; The original code:
+                        S1: int_a = (int) short_a;
+          orig_stmt->   S2: int_acc = plus <int_a ,int_acc>;
+
+          was replaced with:
+                        STMT: int_acc = widen_sum <short_a, int_acc>
+
+          This means that:
+          1. The tree-code that is used to create the vector operation in the
+             epilog code (that reduces the partial results) is not the
+             tree-code of STMT, but is rather the tree-code of the original
+             stmt from the pattern that STMT is replacing. I.e, in the example
+             above we want to use 'widen_sum' in the loop, but 'plus' in the
+             epilog.
+          2. The type (mode) we use to check the relevant optab for support
+             for the vector operation to be created in the epilog, is
+             determined by the type of the reduction variable (in the example
+             above: plus_optab[vect_int_mode]).
+             However the type (mode) we use to check the relevant optab for
+             support for the vector operation to be created inside the loop,
+             is determined by the type of the other arguments of STMT (in the
+             example: widen_sum_optab[vect_short_mode]).
+
+          Regular reductions have the types of all the arguments the same
+          as the type of the reduction variable. Therefore, we use the same
+          vector type when generating the epilog code as the vector type we
+          use when generating the code inside the loop.  */
+
+  if (orig_stmt)
+    {
+      /* This is a reduction pattern.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "reduction pattern.");
+      orig_code = TREE_CODE (TREE_OPERAND (orig_stmt, 1));
+      vectype = get_vectype_for_scalar_type (TREE_TYPE (def1));
+      vec_mode = TYPE_MODE (vectype);
+    }
+  else
+    {
+      /* Regular reduction.  */
+      orig_code = code;
+    }
+
+  if (!reduction_code_for_scalar_code (orig_code, &epilog_reduc_code))
     return false;
-  reduc_optab = optab_for_tree_code (reduc_code, vectype);
+  reduc_optab = optab_for_tree_code (epilog_reduc_code, vectype);
   if (!reduc_optab)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "no optab for reduction.");
-      reduc_code = NUM_TREE_CODES;
+      epilog_reduc_code = NUM_TREE_CODES;
     }
   if (reduc_optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "reduc op not supported by target.");
-      reduc_code = NUM_TREE_CODES;
+      epilog_reduc_code = NUM_TREE_CODES;
     }
- 
+
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = reduc_vec_info_type;
@@ -1431,25 +1521,23 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Create the destination vector  */
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
-
   /* Create the reduction-phi that defines the reduction-operand.  */
   new_phi = create_phi_node (vec_dest, loop->header);
-
 
   /* Prepare the operand that is defined inside the loop body  */
   loop_vec_def = vect_get_vec_def_for_operand (op0, stmt, NULL);
 
   /* Create the vectorized operation that computes the partial results  */
   *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
-                build2 (code, vectype, loop_vec_def, PHI_RESULT (new_phi)));
+		build2 (code, vectype, loop_vec_def, PHI_RESULT (new_phi)));
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
-
   /* Finalize the reduction-phi (set it's arguments) and create the
      epilog reduction code.  */
-  vect_create_epilog_for_reduction (new_temp, stmt, op1, reduc_code, new_phi);
+  vect_create_epilog_for_reduction (new_temp, stmt, op1,
+				    epilog_reduc_code, new_phi);
   return true;
 }
 
@@ -1691,7 +1779,8 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
   orig_stmt_in_pattern = STMT_VINFO_RELATED_STMT (stmt_info);
-  if (orig_stmt_in_pattern)
+  if (orig_stmt_in_pattern
+      && STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (orig_stmt_in_pattern)))
     {
       /* STMT is a new stmt that was inserted by the vectorizer to replace a 
          computation idiom. ORIG_STMT_IN_PATTERN is a stmt in the original

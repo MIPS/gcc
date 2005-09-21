@@ -1582,7 +1582,6 @@ vect_supportable_dr_alignment (struct data_reference *dr)
     return dr_aligned;
 
   /* Possibly unaligned access.  */
-  
   if (DR_IS_READ (dr))
     {
       if (vec_realign_load_optab->handlers[mode].insn_code != CODE_FOR_nothing

@@ -349,8 +349,9 @@ extern loop_vec_info vect_analyze_loop (struct loop *);
 extern void vect_pattern_recog_1 
   (tree (* ) (tree, tree *, varray_type *), block_stmt_iterator);
 tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
+tree vect_recog_widen_sum_pattern (tree, tree *, varray_type *);
 typedef tree (* _recog_func_ptr) (tree, tree *, varray_type *);
-#define NUM_PATTERNS 1
+#define NUM_PATTERNS 2
 extern _recog_func_ptr vect_pattern_recog_funcs[];
 
 /** In tree-vect-transform.c  **/
