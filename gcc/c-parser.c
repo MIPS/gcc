@@ -278,7 +278,7 @@ c_parse_init (void)
       ridpointers [(int) reswords[i].rid] = id;
     }
 
-  if (flag_openmp)
+  if (flag_openmp && !flag_preprocess_only)
     {
       /* we want to handle deferred pragmas */
       cpp_get_options (parse_in)->defer_pragmas = true;
