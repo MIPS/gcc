@@ -1,3 +1,179 @@
+2005-09-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-22.c: Require vect_float.
+	* gcc.dg/vect/vect-91.c: XFAIL if vect_no_int_add.
+
+2005-09-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/cpp/ucnid-1.C, g++.dg/cpp/normalize-1.C,
+	g++.dg/other/ucnid-1.C, gcc.dg/cpp/normalize-1.c,
+	gcc.dg/cpp/normalize-2.c, gcc.dg/cpp/normalize-3.c,
+	gcc.dg/cpp/normalize-4.c, gcc.dg/cpp/ucnid-1.c,
+	gcc.dg/cpp/ucnid-2.c, gcc.dg/cpp/ucnid-3.c, gcc.dg/cpp/ucnid-4.c,
+	gcc.dg/cpp/ucnid-5.c, gcc.dg/cpp/ucnid-7.c,gcc.dg/ucnid-1.c,
+	gcc.dg/ucnid-2.c, gcc.dg/ucnid-3.c, gcc.dg/ucnid-4.c,
+	gcc.dg/ucnid-5.c, gcc.dg/ucnid-6.c: Add -fextended-identifiers.
+	* gcc.dg/cpp/ucnid-8.c: New test.
+
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/23929
+	* gcc.c-torture/compile/pr23929.c: New test.
+
+2005-09-20  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/23186
+	* g++.dg/other/pr22003.C: Require named sections.
+
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/23947
+	* g++.dg/rtti/crash3.C: New test.
+
+	PR tree-optimization/23818
+	* gcc.dg/pr23818.c: New test.
+
+2005-09-20  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/23420
+	* gfortran.dg/print_fmt_4.f: New.
+
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/23663
+	* gfortran.fortran-torture/execute/entry_11.f90: New test.
+
+2005-09-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-40.c: Remove pointers to "aligned types".
+	Use pointers to local alignable arrays instead. Added comments.
+	* gcc.dg/vect/vect-46.c: Likewise.
+	* gcc.dg/vect/vect-48.c: Likewise.
+	* gcc.dg/vect/vect-49.c: Likewise.
+	* gcc.dg/vect/vect-52.c: Likewise.
+	* gcc.dg/vect/vect-53.c: Likewise.
+	* gcc.dg/vect/vect-54.c: Likewise.
+	* gcc.dg/vect/vect-56.c: Likewise.
+	* gcc.dg/vect/vect-57.c: Likewise.
+	* gcc.dg/vect/vect-58.c: Likewise.
+	* gcc.dg/vect/vect-60.c: Likewise.
+	* gcc.dg/vect/vect-61.c: Likewise.
+
+	* gcc.dg/vect/vect-42.c: Remove pointers to "aligned types".
+	The test is no longer vectorizable on vect_no_align targets.
+	* gcc.dg/vect/vect-43.c: Likewsie.
+
+	* gcc.dg/vect/vect-44.c: Added comments.
+	* gcc.dg/vect/vect-45.c: Added comments.
+	* gcc.dg/vect/vect-50.c: Added comments.
+	* gcc.dg/vect/vect-51.c: Added comments.
+
+	* gcc.dg/vect/vect-95.c: Use aligned arrays instead of arrays to
+	aligned type.
+	* gcc.dg/vect/Os-vect-95.c: Likewise. 
+
+	* gcc.dg/vect/vect-41.c: Test removed.
+	* gcc.dg/vect/vect-47.c: Test removed.
+	* gcc.dg/vect/vect-55.c: Test removed.
+	* gcc.dg/vect/vect-59.c: Test removed.
+
+2005-09-20  Dorit Nuzman  <dorit@il.ibm.com>
+        
+	* gcc.dg/vect/pr16105.c: Replace "aligned types" with regular types.
+	No longer vectorizable on vect_no_align targets.
+	* gcc.dg/vect/pr20122.c: Likewise.
+	* gcc.dg/vect/vect-74.c: Likewise.
+	* gcc.dg/vect/vect-75.c: Likewise.
+	* gcc.dg/vect/vect-76.c: Likewise.
+
+	* gcc.dg/vect/vect-37.c: Replace "aligned types" with regular types.
+	Will not be vectorizable on vect_no_align targets once aliasing issues
+	are resolved.
+	* gcc.dg/vect/vect-79.c: Likewise.
+
+	* gcc.dg/vect/vect-77.c: Replace "aligned types" with regular types.
+	* gcc.dg/vect/vect-78.c: Likewise.
+	* gcc.dg/vect/vect-97.c: Likewise.
+
+2005-09-19  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/pr23943.c: New test.
+
+2005-09-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/19181
+	* gfortran.dg/derived_pointer_null_1.f90: New test.
+
+2005-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23944
+	* gcc.c-torture/compile/pr23944.c: New testcase.
+
+2005-09-18  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/15975
+	* gfortran.dg/der_pointer_2.f90: New test.
+
+2005-09-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16861
+	* gfortran.dg/nested_modules_2.f90: New test.
+
+2005-09-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/18368
+	* g++.dg/other/semicolon.C: New test.
+
+2005-09-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/warn/huge-val1.C: Disable tests on values of HUGE_VAL,
+	HUGE_VALF and HUGE_VALL unless __GLIBC__ is defined.
+
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23914
+	* g++.dg/template/static18.C: New test.
+
+	PR c++/21514
+	* g++.dg/template/crash19.C: Remove dg-error marker.
+	* g++.dg/template/local4.C: New test.
+
+2005-09-16  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/23906
+	* gfortran.dg/dependency_1.f90: New test.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23896
+	* g++.dg/template/static17.C: New test.
+
+2005-09-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/23139
+	* g++.dg/warn/huge-val1.C: New test.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13140
+	* g++.dg/parse/class2.C: New test.
+	* g++.dg/template/explicit8.C: Likewise.
+	* g++.dg/template/spec25.C: Likewise.
+
+2005-09-14  Josh Conner  <jconner@apple.com>
+
+	PR middle-end/23584
+	* gcc.dg/pr23584.c: New test.
+
+2005-09-14  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR fortran/21875 Internal Unit Array I/O, NIST
+	* gfortran.dg/arrayio_1.f90: New test.
+	* gfortran.dg/arrayio_1.f90: New test.
+	* gfortran.dg/arrayio_1.f90: New test.
+	* gfortran.dg/arrayio_1.f90: New test.
+	* gfortran.dg/arrayio_1.f90: New test.
+
 2005-09-14  Uros Bizjak  <uros@kss-loka.si>
 
 	PR middle-end/22480

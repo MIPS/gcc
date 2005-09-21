@@ -1,3 +1,276 @@
+2005-09-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (get_constraint_for_component_ref): Add
+	argument.  Allow and set any offset if needs_anyoffset is passed
+	in.
+	(get_constraint_for): Add argument here too.
+	Pass it down.
+	(do_structure_copy): Pass NULL to get_constraint_for.
+	(handle_ptr_arith): Ditto.
+	(find_func_aliases): Ditto.
+
+2005-09-20  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR rtl-optimization/23898
+	* output.h (get_attr_min_length): Declare.
+	* final.c (get_attr_length_1): New function, broken out of:
+	(get_attr_length).
+	(get_attr_min_length): New function.
+	* bb-reorder.c (copy_bb_p, get_uncond_jump_length): Use it.
+	(duplicate_computed_gotos): Likewise.
+	* genattr.c (insn_min_length): Generate declaration.
+	* genattrtab.c (min_fn, min_attr_value): New functions.
+	(make_length_attrs): Generate insn_min_length.
+
+2005-09-20  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/pa/pa.c (output_cbranch): Check for zero in operands[2].
+
+2005-09-20  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (expand_expr_real_1) <INDIRECT_REF>: Allow modifier
+	EXPAND_STACK_PARM.
+
+2005-09-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c.opt (fextended-identifiers): New.
+	* c-opts.c (c_common_handle_option): Handle
+	-fextended-identifiers.
+	* doc/cpp.texi: Update documentation of extended identifiers.
+	* doc/cppopts.texi (-fextended-identifiers): Document.
+
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/23929
+	* tree-ssa-loop-niter.c (expand_simple_operations): Return immediately
+	if expr is NULL.
+
+	PR tree-optimization/23818
+	* tree-stdarg.c (execute_optimize_stdarg): Call
+	calculate_dominance_info.
+
+2005-09-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-data-ref.c (get_number_of_iters_for_loop): New function.
+	(analyze_siv_subscript_cst_affine): Add weak SIV test.
+	(compute_overlap_steps_for_affine_1_2): Use
+	get_number_of_iters_for_loop.
+	(analyze_subscript_affine_affine): Check whether difference is
+	zero first.
+	Use get_number_of_iters_for_loop.
+	Check whether overlap occurs outside of bounds.
+	(analyze_miv_subscript): Use get_number_of_iters_for_loop.
+
+2005-09-20  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* tree-ssa-address.c (create_mem_ref): Put the symbol reference into the
+	base register if possible.
+
+2005-09-20  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/18463
+	* tree-chrec.c (chrec_convert): Return fold_converted chrec if
+	converting it directly is not possible.
+	(chrec_convert_aggressive): New function.
+	* tree-chrec.h (chrec_convert_aggressive): Declare.
+	* tree-scalar-evolution.c (instantiate_parameters_1, resolve_mixers):
+	Fold chrec conversions aggressively if asked to.
+	(instantiate_parameters): Modified because of changes in
+	instantiate_parameters_1.
+
+2005-09-19  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/sse.md (reduc_splus_v4sf): Rename from reduc_plus_v4sf.
+	(reduc_splus_v2df): New.
+
+2005-09-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/arm/aof.h (REGISTER_NAMES): Add missing backslash.
+	(ADDITIONAL_REGISTER_NAMES): Add missing comma.  Remove final comma.
+
+2005-09-19  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/sse.md (vcondu<SSEMODE124>): Rename from
+	vcondu<SSEMODE12>.
+
+2005-09-19  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.c (ia64_expand_widen_sum): New.
+	(ia64_expand_dot_prod_v8qi): New.
+	* config/ia64/ia64-protos.h: Update.
+	* config/ia64/vect.md (pmpy2_r, pmpy2_l, widen_usumv8qi3,
+	widen_usumv4hi3, widen_ssumv8qi3, widen_ssumv4hi3, udot_prodv8qi,
+	sdot_prodv8qi, sdot_prodv4hi): New.
+	(reduc_splus_v2sf): Rename from reduc_plus_v2sf.
+
+2005-09-19  Richard Henderson  <rth@redhat.com>
+
+	PR 23941
+	* real.c (exact_real_truncate): Return false if the format cannot
+	represent the number as a normal.
+
+	* config/alpha/alpha.c (alpha_rtx_costs) <FLOAT_EXTEND>: Cost 0
+	for a memory source.
+
+2005-09-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-ssa-operands.c (swap_tree_operands): Export.
+	* tree.h (swap_tree_operands): Declare.
+	* tree-vectorizer.c (vect_is_simple_reduction): Remove ATTRIBUTE_UNUSED.
+	Call swap_tree_operands.
+	
+2005-09-19  Richard Henderson  <rth@redhat.com>
+
+	* tree-flow.h (merge_alias_info): Declare.
+	* tree-ssa-copy.c (merge_alias_info): Export.
+	* tree-vect-transform.c (vect_create_index_for_vector_ref): Remove.
+	(vect_create_data_ref_ptr): Use create_iv directly.
+	(vectorizable_load): Use correct types for integer constants.
+	(vect_generate_tmps_on_preheader): Likewise.
+	(vect_gen_niters_for_prolog_loop): Likewise.
+
+2005-09-19  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/23943
+	* cse.c (find_best_addr): Never propagate an EXPR_LIST rtx.
+
+2005-09-18  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (flags_from_decl_or_type): Do not set ECF_LIBCALL_BLOCK.
+
+2005-09-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* varasm.c (output_constant): Do not abort on conversions to union
+	types between different sizes.
+
+2005-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23944
+	* gimplify.c (fold_indirect_ref_rhs): Fix thinko in
+	fallback.
+
+2005-09-18  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnuib.c (__floatsidf): Don't rely on signed overflow.
+
+2005-09-17  Richard Henderson  <rth@redhat.com>
+
+	* tree-pass.h, tree-flow.h, tree-ssa-dce.c: Revert last change.
+	* tree-ssa-loop.c (pass_vect_dce): Remove.
+	* passes.c (init_optimization_passes): Add pass_dce as a sub-pass
+	of pass_vectorize.
+
+2005-09-17  Richard Henderson  <rth@redhat.com>
+
+	* tree-pass.h (pass_vect_dce): Declare.
+	* passes.c (init_optimization_passes): Add it.
+	* tree-flow.h (tree_ssa_dce): Declare.
+	* tree-ssa-dce.c (tree_ssa_dce): Export.
+	* tree-ssa-loop.c (tree_vectorize): Move current_loops check ...
+	(gate_tree_vectorize): ... here.
+	(pass_vect_dce): New.
+
+2005-09-17  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (struct eh_status): Turn region_array into vec.
+	(expand_resx_expr, collect_eh_region_array, remove_unreachable_regions,
+	convert_from_eh_region_ranges, find_exception_handler_labels, 
+	current_function_has_exception_handlers, assign_filter_values, 
+	build_post_landing_pads, dw2_build_landing_pads,
+	sjlj_find_directly_reachable_regions, sjlj_mark_call_sites,
+	sjlj_emit_dispatch_table, remove_eh_handler, for_each_eh_region,
+	foreach_reachable_handler, can_throw_internal_1,
+	convert_to_eh_region_ranges, verify_eh_tree): Update uses of
+	region_array.
+	(duplicate_eh_region_1): Update region_array.
+	(duplicate_eh_regions): Resize region_array and avoid recomputing.
+
+2005-09-17  David Edelsohn  <edelsohn@gnu.org>
+
+	PR middle-end/22067
+	* expmed.c (expand_mult): Substitute simple register for op0 when
+	computing max_cost.
+
+2005-09-17  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (emit_move_via_integer): Add force argument, pass it on
+	to emit_move_change_mode.  Update callers.
+	(emit_move_complex): Pass true to new force argument.
+	* function.c (expand_function_end): Move expand_eh_return call
+	earlier.  Merge sub-word complex values into a pseudo before
+	copying to the return hard register.
+
+2005-09-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* varasm.c (output_constant): Do not abort on VIEW_CONVERT_EXPRs
+	between different sizes.
+
+2005-09-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR 23903
+
+	* passes.c (init_optimization_passes): Register dump files for
+	IPA passes first.
+
+2005-09-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390-protos.h (s390_overlap_p): Prototype added.
+	* config/s390/s390.c (s390_overlap_p): New function.
+	* config/s390/s390.md ("*mvc" peephole2, "*nc" peephole2, "*oc"
+	peephole2, "*xc" peephole2): Added overlap check to the peephole2
+	condition.
+
+2005-09-16  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-pure-const.c (static_execute): Free auxiliar information.
+	* ipa-type-escape.c (discover_unique_type): Free temporary key.
+	* tree-vrp.c (remove_range_assertions): Free blocks_visited sbitmap.
+
+2005-09-15  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c-lib1.S (__m32c_eh_return): Fix typo.
+
+2005-09-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* optabs.c (expand_binop): Use swap_commutative_operands_with_target
+	to order operands.
+	(swap_commutative_operands_with_target): New.
+
+2005-09-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-data-ref.c (analyze_array_indexes): Add estimate_only
+	parameter.
+	Update callers.
+	(estimate_iters_using_array): New function.
+	* tree-data-ref.h (estimate_iters_using_array): Prototype
+	* tree-ssa-loop-niter.c (infer_loop_bounds_from_undefined):
+	Use estimate_iters_using_array instead of analyze_array.
+	
+2005-09-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-nested.c (get_frame_type): Mark the "non-local frame structure"
+	as addressable.
+
+2005-09-15  Michael Matz  <matz@suse.de>
+
+	* tree-vrp.c (vrp_int_const_binop <MINUS_EXPR>): Handle 0 - -INF.
+
+2005-09-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	PR tree-optimization/23835
+	* tree-ssa-alias.c (sort_pointers_by_pt_vars): New function.
+	(create_name_tags): Rewrite to be not O(num_ssa_names^2).
+
+2005-09-14  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/vect.md (addv2sf3, subv2sf3): Rewrite as expand.
+	(addv2sf3_1, addv2sf3_2, subv2sf3_1, subv2sf3_2): New.
+
+2005-09-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/i386/i386.c (contains_128bit_aligned_vector_p): Add break
+	in the ARRAY_TYPE case.
+
 2005-09-14  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree.c (substitute_in_expr, case 4): New case, for ARRAY_REF.
@@ -299,43 +572,43 @@
 
 2005-09-07  Richard Henderson  <rth@redhat.com>
 
-        * function.c (ARG_POINTER_CFA_OFFSET): Move ...
-        * defaults.h (ARG_POINTER_CFA_OFFSET): ... here.
+	* function.c (ARG_POINTER_CFA_OFFSET): Move ...
+	* defaults.h (ARG_POINTER_CFA_OFFSET): ... here.
 	(INCOMING_FRAME_SP_OFFSET): Move from dwarf2out.c.
-        * dwarf2out.c (struct cfa_loc): Change reg to unsigned int,
-        rearrange for better packing.
+	* dwarf2out.c (struct cfa_loc): Change reg to unsigned int,
+	rearrange for better packing.
 	(INCOMING_FRAME_SP_OFFSET): Move to defaults.h.
-        (lookup_cfa_1): Remove inline marker.
-        (cfa_equal_p): Split out of ...
-        (def_cfa_1): ... here.  Use INVALID_REGNUM.
-        (build_cfa_loc): Handle !cfa->indirect.
-        (frame_pointer_cfa_offset): New.
-        (dbx_reg_number): Assert register elimination performed; do
-        leaf register remapping.
-        (reg_loc_descriptor): Avoid calling dbx_reg_number when unused.
-        (eliminate_reg_to_offset): New.
-        (based_loc_descr): Remove can_use_fbreg argument.  Use fbreg only
-        for verifiably local stack frame addresses; re-base to CFA.
-        (mem_loc_descriptor): Remove can_use_fbreg argument.
-        (concat_loc_descriptor, loc_descriptor): Likewise.
-        (containing_function_has_frame_base): Remove.
-        (rtl_for_decl_location): Don't do register elimination or
-        leaf register remapping here.
-        (secname_for_decl): Split out from ..
-        (add_location_or_const_value_attribute): ... here.
-        (convert_cfa_to_loc_list): New.
-        (compute_frame_pointer_to_cfa_displacement): New.
-        (gen_subprogram_die): Use them.
-        * tree.h (frame_base_decl): Remove.
-        * var-tracking.c (frame_base_decl, frame_stack_adjust): Remove.
-        (prologue_stack_adjust): Remove.
-        (vt_stack_adjustments): Use INCOMING_FRAME_SP_OFFSET.
-        (adjust_stack_reference): Re-base memories to arg_pointer_rtx.
-        (set_frame_base_location): Remove.
-        (compute_bb_dataflow, emit_notes_in_bb): Don't call it.
-        (dump_attrs_list, dump_dataflow_set): Use string concatenation.
-        (vt_add_function_parameters): Don't eliminate_regs.
-        (vt_initialize): Don't create frame_base_decl.
+	(lookup_cfa_1): Remove inline marker.
+	(cfa_equal_p): Split out of ...
+	(def_cfa_1): ... here.  Use INVALID_REGNUM.
+	(build_cfa_loc): Handle !cfa->indirect.
+	(frame_pointer_cfa_offset): New.
+	(dbx_reg_number): Assert register elimination performed; do
+	leaf register remapping.
+	(reg_loc_descriptor): Avoid calling dbx_reg_number when unused.
+	(eliminate_reg_to_offset): New.
+	(based_loc_descr): Remove can_use_fbreg argument.  Use fbreg only
+	for verifiably local stack frame addresses; re-base to CFA.
+	(mem_loc_descriptor): Remove can_use_fbreg argument.
+	(concat_loc_descriptor, loc_descriptor): Likewise.
+	(containing_function_has_frame_base): Remove.
+	(rtl_for_decl_location): Don't do register elimination or
+	leaf register remapping here.
+	(secname_for_decl): Split out from ..
+	(add_location_or_const_value_attribute): ... here.
+	(convert_cfa_to_loc_list): New.
+	(compute_frame_pointer_to_cfa_displacement): New.
+	(gen_subprogram_die): Use them.
+	* tree.h (frame_base_decl): Remove.
+	* var-tracking.c (frame_base_decl, frame_stack_adjust): Remove.
+	(prologue_stack_adjust): Remove.
+	(vt_stack_adjustments): Use INCOMING_FRAME_SP_OFFSET.
+	(adjust_stack_reference): Re-base memories to arg_pointer_rtx.
+	(set_frame_base_location): Remove.
+	(compute_bb_dataflow, emit_notes_in_bb): Don't call it.
+	(dump_attrs_list, dump_dataflow_set): Use string concatenation.
+	(vt_add_function_parameters): Don't eliminate_regs.
+	(vt_initialize): Don't create frame_base_decl.
 
 2005-09-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
 

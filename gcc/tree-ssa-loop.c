@@ -188,16 +188,13 @@ struct tree_opt_pass pass_tree_unswitch =
 static void
 tree_vectorize (void)
 {
-  if (!current_loops)
-    return;
-
   vectorize_loops (current_loops);
 }
 
 static bool
 gate_tree_vectorize (void)
 {
-  return flag_tree_vectorize != 0;
+  return flag_tree_vectorize && current_loops;
 }
 
 struct tree_opt_pass pass_vectorize =
@@ -216,7 +213,6 @@ struct tree_opt_pass pass_vectorize =
   TODO_dump_func | TODO_update_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
-
 
 /* Loop nest optimizations.  */
 

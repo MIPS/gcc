@@ -576,6 +576,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_tree_loop_done);
   *p = NULL;
 
+  p = &pass_vectorize.sub;
+  NEXT_PASS (pass_dce);
+  *p = NULL;
+
   p = &pass_loop2.sub;
   NEXT_PASS (pass_rtl_loop_init);
   NEXT_PASS (pass_rtl_move_loop_invariants);
@@ -656,11 +660,9 @@ init_optimization_passes (void)
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
+  register_dump_files (all_ipa_passes, true, PROP_gimple_leh | PROP_cfg);
   register_dump_files (all_lowering_passes, false, PROP_gimple_any);
-  register_dump_files (all_passes, false, PROP_gimple_leh
-					  | PROP_cfg);
-  register_dump_files (all_ipa_passes, true, PROP_gimple_leh
-					     | PROP_cfg);
+  register_dump_files (all_passes, false, PROP_gimple_leh | PROP_cfg);
 }
 
 static unsigned int last_verified;
