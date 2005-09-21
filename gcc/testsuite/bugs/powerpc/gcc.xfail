@@ -97,11 +97,11 @@
 #4054717: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
 #
 # the following failures are for -mcpu=G5
-4085878: gcc.apple/altivec-5.c  (test for warnings, line 30)
-4085878: gcc.apple/altivec-5.c scan-assembler-not stvx
-4085878: gcc.apple/altivec-faltivec-1.c scan-assembler mainInt
+#4085878: gcc.apple/altivec-5.c  (test for warnings, line 30)
+#4085878: gcc.apple/altivec-5.c scan-assembler-not stvx
+#4085878: gcc.apple/altivec-faltivec-1.c scan-assembler mainInt
 #3939205 causes the following test to fail when run with -m64
-4085878: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
+#4085878: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
 3719311: gcc.apple/comma-expr-1.c  (test for errors, line 6)
 #4084907: gcc.c-torture/execute/20050316-1.c execution,  -O0 
 #4084907: gcc.c-torture/execute/20050316-1.c execution,  -O1 
@@ -214,14 +214,14 @@
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times b "L_printf 2
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times bl "L_printf 2
 4157559: gcc.dg/20050607-1.c (test for excess errors)
-3980137: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -fomit-frame-pointer
-3980137: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -g
-3980137: gcc.c-torture/execute/loop-2b.c compilation,  -Os
+4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -fomit-frame-pointer
+4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -g
+4239312: gcc.c-torture/execute/loop-2b.c compilation,  -Os
 #
 # the following failures are for x86 only
-4087300: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
-4087300: gcc.c-torture/execute/builtins/strlen-3.c compilation,  -fast
-4087300: gcc.c-torture/execute/builtins/strncmp-2.c execution,  -fast
+3846097: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
+3846097: gcc.c-torture/execute/builtins/strlen-3.c compilation,  -fast
+3846097: gcc.c-torture/execute/builtins/strncmp-2.c execution,  -fast
 4087313: gcc.dg/20011119-1.c (test for excess errors)
 4087319: gcc.dg/990424-1.c execution test
 4087219: gcc.dg/i386-asm-3.c (test for excess errors)
@@ -237,12 +237,12 @@
 #4015764: gcc.c-torture/compile/20000518-1.c  -fast  (test for excess errors)
 4087219: gcc.c-torture/compile/20000804-1.c  -O0  (test for excess errors)
 4015789: gcc.c-torture/compile/20011029-1.c  -O0  (test for excess errors)
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O1 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O2 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -fomit-frame-pointer 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -g 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -Os 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -fast 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O1 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O2 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -fomit-frame-pointer 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -g 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -Os 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -fast 
 4015789: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O0 
 4015789: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O1 
 4015789: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O2 
@@ -284,8 +284,8 @@
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?exp
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?tan
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?fmod
-4087344: gcc.dg/i386-387-3.c scan-assembler fldpi
-4087344: gcc.dg/i386-387-4.c scan-assembler fldpi
+#4087344: gcc.dg/i386-387-3.c scan-assembler fldpi
+#4087344: gcc.dg/i386-387-4.c scan-assembler fldpi
 4087344: gcc.dg/i386-387-5.c scan-assembler call\t_?atan
 4087344: gcc.dg/i386-387-5.c scan-assembler call\t_?log1p
 4087344: gcc.dg/i386-387-5.c scan-assembler call\t_?drem
@@ -295,7 +295,7 @@
 4087344: gcc.dg/i386-cmov1.c scan-assembler shr[^\\n]*magic_named
 4087344: gcc.dg/i386-cmov1.c scan-assembler shr[^\\n]*magic_namee
 4087344: gcc.dg/i386-cmov1.c scan-assembler shr[^\\n]*magic_namef
-4087344: gcc.dg/i386-cmov4.c scan-assembler cmov
+4261902: gcc.dg/i386-cmov4.c scan-assembler cmov
 4087344: gcc.dg/i386-local2.c scan-assembler-not sub[^\\n]*sp
 4087344: gcc.dg/i386-mul.c scan-assembler and[^\\n]*magic
 4087344: gcc.dg/i386-ssetype-1.c scan-assembler andpd[^\\n]*magic
