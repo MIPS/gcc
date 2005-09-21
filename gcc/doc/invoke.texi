@@ -399,8 +399,8 @@ Objective-C and Objective-C++ Dialects}.
 @c APPLE LOCAL lno
 -fscalar-evolutions -fall-data-deps @gol
 --param @var{name}=@var{value}
-@c APPLE LOCAL -fast 
--O  -O0  -O1  -O2  -O3  -Os -fast (APPLE ONLY)}
+@c APPLE LOCAL -fast, -Oz
+-O  -O0  -O1  -O2  -O3  -Os -Oz (APPLE ONLY) -fast (APPLE ONLY)}
 
 @item Preprocessor Options
 @xref{Preprocessor Options,,Options Controlling the Preprocessor}.
@@ -4390,7 +4390,8 @@ position in code.  Better debugging information is then generated
 (if the debugging information format supports this information).
 
 It is enabled by default when compiling with optimization (@option{-Os},
-@option{-O}, @option{-O2}, ...), debugging information (@option{-g}) and
+@c APPLE LOCAL -Oz
+@option{-O}, @option{-O2}, @option{-Oz} (APPLE ONLY), ...), debugging information (@option{-g}) and
 the debug info format supports it.
 
 @item -print-file-name=@var{library}
@@ -4632,32 +4633,47 @@ contain any code that changes alignment when this option is used.
 
 @c APPLE LOCAL end -fast
 
+@c APPLE LOCAL begin 4231761 -Oz
 @item -Os
 @opindex Os
-Optimize for size.  @option{-Os} enables all @option{-O2} optimizations that
-do not typically increase code size.  It also performs further
-optimizations designed to reduce code size.
+Optimize for size, but not at the expense of speed.
+@option{-Os} enables all @option{-O2} optimizations that
+do not typically increase code size.  However, instructions
+are chosen for best performance, regardless of size.
+To optimize solely for size, use @option{-Oz} (APPLE ONLY).
 
 @option{-Os} disables the following optimization flags:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
--falign-labels  -freorder-blocks  -freorder-blocks-and-partition -fprefetch-loop-arrays}
-
-@c APPLE LOCAL begin Disable string insns with -Os on Darwin (radar 3509006)
-When compiling for Apple powerPC targets, -Os disables use of the string
-instructions even though they would usually be smaller, because
-the kernel can't emulate them correctly in some rare cases.
-This behavior is not portable to any other gcc environment, and will
-not affect most programs at all.  If you really want the string instructions,
-use -mstring.
-@c APPLE LOCAL end Disable string insns with -Os on Darwin (radar 3509006)
+-falign-labels  -freorder-blocks  -freorder-blocks-and-partition @gol
+-fprefetch-loop-arrays}
 
 @c APPLE LOCAL begin 4200438
-On Darwin, @option{-Os} sets the inlining limits according to the
+On Darwin, @option{-Os} and @option{-Oz} (APPLE ONLY) set the inlining limits according to the
 input language; for C and Objective-C functions that are marked
 @code{inline}, functions up to 450 ``estimated insns'' in size can be
 inlined, and for C++ and Objective-C++, the limit is 30 ``estimated
 insns''.
 @c APPLE LOCAL end 4200438
+@c APPLE LOCAL begin Disable string insns with -Os on Darwin (radar 3509006)
+When compiling for Apple POWERPC targets, @option{-Os} and
+@option{-Oz} (APPLE ONLY) disable use of the string instructions even though they
+would usually be smaller, because the kernel can't emulate them
+correctly in some rare cases.  This behavior is not portable to any
+other gcc environment, and will not affect most programs at all.  If
+you really want the string instructions, use -mstring.
+@c APPLE LOCAL end Disable string insns with -Os on Darwin (radar 3509006)
+
+@item -Oz
+@opindex Oz
+(APPLE ONLY) Optimize for size, regardless of performance.
+@option{-Oz} enables all @option{-O2} optimizations that do not
+typically increase code size, plus further optimizations intended
+solely to reduce code size.  In particular, instructions that encode
+into fewer bytes are preferred over longer instructions that execute
+in fewer cycles.  @option{-Oz} is very similar to @option{-Os} in FSF
+distributions of GCC.  @option{-Oz} employs the same inlining limits
+and avoids the same string instructions that @option{-Os} does.
+@c APPLE LOCAL end 4231761 -Oz
 
 If you use multiple @option{-O} options, with or without level numbers,
 the last such option is the one that is effective.
@@ -4691,7 +4707,10 @@ returns.  For machines which must pop arguments after a function call,
 the compiler normally lets arguments accumulate on the stack for several
 function calls and pops them all at once.
 
-Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL begin 4231761 -Oz
+Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os},
+@option{-Oz} (APPLE ONLY).
+@c APPLE LOCAL end 4231761 -Oz
 
 @item -fforce-mem
 @opindex fforce-mem
@@ -4701,7 +4720,8 @@ references potential common subexpressions.  When they are not common
 subexpressions, instruction combination should eliminate the separate
 register-load.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fforce-addr
 @opindex fforce-addr
@@ -4724,13 +4744,15 @@ machine-description macro @code{FRAME_POINTER_REQUIRED} controls
 whether a target machine supports this flag.  @xref{Registers,,Register
 Usage, gccint, GNU Compiler Collection (GCC) Internals}.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -foptimize-sibling-calls
 @opindex foptimize-sibling-calls
 Optimize sibling and tail recursive calls.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fno-inline
 @opindex fno-inline
@@ -4813,7 +4835,8 @@ This option is the default for optimized compilation if the assembler and
 linker support it.  Use @option{-fno-merge-constants} to inhibit this
 behavior.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fmerge-all-constants
 Attempt to merge identical constants and identical variables.
@@ -4904,7 +4927,8 @@ erroneously read data to propagate within a program.
 Perform the optimizations of loop strength reduction and
 elimination of iteration variables.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fthread-jumps
 @opindex fthread-jumps
@@ -4914,7 +4938,8 @@ so, the first branch is redirected to either the destination of the
 second branch or a point immediately following it, depending on whether
 the condition is known to be true or false.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fcse-follow-jumps
 @opindex fcse-follow-jumps
@@ -4924,7 +4949,8 @@ example, when CSE encounters an @code{if} statement with an
 @code{else} clause, CSE will follow the jump when the condition
 tested is false.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fcse-skip-blocks
 @opindex fcse-skip-blocks
@@ -4934,20 +4960,23 @@ encounters a simple @code{if} statement with no else clause,
 @option{-fcse-skip-blocks} causes CSE to follow the jump around the
 body of the @code{if}.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -frerun-cse-after-loop
 @opindex frerun-cse-after-loop
 Re-run common subexpression elimination after loop optimizations has been
 performed.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -frerun-loop-opt
 @opindex frerun-loop-opt
 Run the loop optimizer twice.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fgcse
 @opindex fgcse
@@ -4959,7 +4988,8 @@ extension, you may get better runtime performance if you disable
 the global common subexpression elimination pass by adding
 @option{-fno-gcse} to the command line.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fgcse-lm
 @opindex fgcse-lm
@@ -4999,7 +5029,8 @@ redundant spilling.
 Perform loop optimizations: move constant expressions out of loops, simplify
 exit test conditions and optionally do strength-reduction as well.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -floop-optimize2
 @opindex floop-optimize2
@@ -5012,7 +5043,8 @@ by separate flags.
 Perform cross-jumping transformation.  This transformation unifies equivalent code and save code size.  The
 resulting code may or may not perform better than without cross-jumping.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fif-conversion
 @opindex if-conversion
@@ -5021,14 +5053,16 @@ include use of conditional moves, min, max, set flags and abs instructions, and
 some tricks doable by standard arithmetics.  The use of conditional execution
 on chips where it is available is controlled by @code{if-conversion2}.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fif-conversion2
 @opindex if-conversion2
 Use conditional execution (where available) to transform conditional jumps into
 branch-less equivalents.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks
@@ -5042,13 +5076,15 @@ safely dereference null pointers.  Use
 @option{-fno-delete-null-pointer-checks} to disable this optimization
 for programs which depend on that behavior.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fexpensive-optimizations
 @opindex fexpensive-optimizations
 Perform a number of minor optimizations that are relatively expensive.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -foptimize-register-move
 @itemx -fregmove
@@ -5062,7 +5098,8 @@ instructions.
 Note @option{-fregmove} and @option{-foptimize-register-move} are the same
 optimization.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fdelayed-branch
 @opindex fdelayed-branch
@@ -5070,7 +5107,8 @@ If supported for the target machine, attempt to reorder instructions
 to exploit instruction slots available after delayed branch
 instructions.
 
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fschedule-insns
 @opindex fschedule-insns
@@ -5080,7 +5118,8 @@ helps machines that have slow floating point or memory load instructions
 by allowing other instructions to be issued until the result of the load
 or floating point instruction is required.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fschedule-insns2
 @opindex fschedule-insns2
@@ -5089,7 +5128,8 @@ instruction scheduling after register allocation has been done.  This is
 especially useful on machines with a relatively small number of
 registers and where memory load instructions take more than one cycle.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fno-sched-interblock
 @opindex fno-sched-interblock
@@ -5167,7 +5207,8 @@ seems to result in better code than would otherwise be produced.
 This option is always enabled by default on certain machines, usually
 those which have no call-preserved registers to use instead.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.  This flag is
@@ -5196,7 +5237,8 @@ default at @option{-O} and higher.
 Perform loop header copying on trees.  This is beneficial since it increases
 effectiveness of code motion optimizations.  It also saves one jump.  This flag
 is enabled by default at @option{-O} and higher.  It is not enabled
-for @option{-Os}, since it usually increases code size.
+@c APPLE LOCAL 4231761 -Oz
+for @option{-Os} or @option{-Oz} (APPLE ONLY), since it usually increases code size.
 
 @c APPLE LOCAL begin lno
 @item -ftree-elim-checks 
@@ -5319,7 +5361,8 @@ are implemented in the compiler; some targets use one, some use the
 other, a few use both.
 
 @option{-fpeephole} is enabled by default.
-@option{-fpeephole2} enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+@option{-fpeephole2} enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fno-guess-branch-probability
 @opindex fno-guess-branch-probability
@@ -5336,7 +5379,8 @@ some cases, it may be useful to disable the heuristics so that the effects
 of @samp{__builtin_expect} are easier to understand.
 
 The default is @option{-fguess-branch-probability} at levels
-@option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+@option{-O}, @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -freorder-blocks
 @opindex freorder-blocks
@@ -5369,7 +5413,8 @@ place them in a reasonable way.
 Also profile feedback must be available in to make this option effective.  See
 @option{-fprofile-arcs} for details.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -fstrict-aliasing
 @opindex fstrict-aliasing
@@ -5416,7 +5461,8 @@ node, an alias set for the node.  Nodes in different alias sets are not
 allowed to alias.  For an example, see the C front-end function
 @code{c_get_alias_set}.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, @option{-Oz} (APPLE ONLY).
 
 @item -falign-functions
 @itemx -falign-functions=@var{n}
@@ -5545,7 +5591,8 @@ passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
 ``home register''.
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os},
+@c APPLE LOCAL 4231761 -Oz
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, and @option{-Oz} (APPLE ONLY)
 on targets where the default format for debugging information supports
 variable tracking.
 
@@ -5555,7 +5602,10 @@ After register allocation and post-register allocation instruction splitting,
 we perform a copy-propagation pass to try to reduce scheduling dependencies
 and occasionally eliminate the copy.
 
-Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+@c APPLE LOCAL begin 4231761 -Oz
+Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os},
+@option{-Oz} (APPLE ONLY).
+@c APPLE LOCAL end 4231761 -Oz
 
 @item -fprofile-generate
 @opindex fprofile-generate
@@ -5849,7 +5899,8 @@ of the loop on both branches (modified according to result of the condition).
 If supported by the target machine, generate instructions to prefetch
 memory to improve the performance of loops that access large arrays.
 
-Disabled at level @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Disabled at levels @option{-Os} and @option{-Oz} (APPLE ONLY).
 
 @item -ffunction-sections
 @itemx -fdata-sections
@@ -9365,7 +9416,8 @@ startup modules.
 Attempt to keep the stack boundary aligned to a 2 raised to @var{num}
 byte boundary.  If @option{-mpreferred-stack-boundary} is not specified,
 the default is 4 (16 bytes or 128 bits), except when optimizing for code
-size (@option{-Os}), in which case the default is the minimum correct
+@c APPLE LOCAL 4231761 -Oz
+size (@option{-Os} or @option{-Oz} (APPLE ONLY)), in which case the default is the minimum correct
 alignment (4 bytes for x86, and 8 bytes for x86-64).
 
 On Pentium and PentiumPro, @code{double} and @code{long double} values
@@ -11989,7 +12041,8 @@ which is incompatible with the SH ABI@.
 
 @item -mspace
 @opindex mspace
-Optimize for space instead of speed.  Implied by @option{-Os}.
+@c APPLE LOCAL 4231761 -Oz
+Optimize for space instead of speed.  Implied by @option{-Os} and @option{-Oz} (APPLE ONLY).
 
 @item -mprefergot
 @opindex mprefergot
