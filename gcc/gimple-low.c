@@ -671,6 +671,7 @@ lower_gomp_parallel (tree_stmt_iterator *tsi)
   ri_p = remap_locals (fn, GOMP_PARALLEL_CLAUSES (par_stmt));
 
   /* Add FN to the call graph.  */
+  gimplify_function_tree (fn);
   cgraph_add_new_function (fn);
 
   /* Restore CFUN (which was overwritten by the call to

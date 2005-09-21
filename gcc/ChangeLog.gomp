@@ -1,3 +1,15 @@
+2005-09-21  Richard Henderson  <rth@redhat.com>
+
+	* cgraph.c (cgraph_analyze_queue): New.
+	(cgraph_add_new_function): Do nothing but add the decl to this list.
+	* cgraph.h (cgraph_analyze_queue): Declare.
+	(cgraph_lower_function): Remove.
+	* cgraphunit.c (cgraph_lower_function): Make static.
+	(cgraph_finalize_pending_functions): New.
+	(cgraph_finalize_function): Call it.
+	(cgraph_finalize_compilation_unit): Likewise.
+	* gimple-low.c (lower_gomp_parallel): Call gimplify_function_tree.
+
 2005-09-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimple-low.c (lower_gomp_parallel): Use a NULL argument if

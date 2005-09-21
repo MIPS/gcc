@@ -113,6 +113,9 @@ struct cgraph_node *cgraph_nodes;
 /* Queue of cgraph nodes scheduled to be lowered.  */
 struct cgraph_node *cgraph_nodes_queue;
 
+/* Queue of cgraph nodes scheduled to be analyzed.  */
+struct cgraph_node *cgraph_analyze_queue;
+
 /* Number of nodes in existence.  */
 int cgraph_n_nodes;
 
@@ -1044,26 +1047,12 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
 void
 cgraph_add_new_function (tree fndecl)
 {
-  /* Gimplify and add the new function to the call graph.  */
-  gimplify_function_tree (fndecl);
-
-  if (flag_unit_at_a_time)
-    {
-      /* Add the function to the callgraph to be processed after we
-	 parse all the functions in the compilation unit.  */
-      cgraph_finalize_function (fndecl, false);
-    }
-  else
-    {
-      /* When not compiling the whole unit at a time, the compiler
-	 will output functions right after parsing them.  Since we are
-	 adding a brand new function body that the parser will not
-	 see, we need to make sure it's added at the end of the queue
-	 of callgraph nodes to be expanded.  */
-      struct cgraph_node *n = cgraph_node (fndecl);
-      n->local.finalized = 1;
-      cgraph_mark_needed_node (n);
-    }
+  /* We're called while lowering another function.  We can't do anything
+     at this time without recursing.  Which would cause a GC at an 
+     inappropriate time.  */
+  struct cgraph_node *n = cgraph_node (fndecl);
+  n->next_needed = cgraph_analyze_queue;
+  cgraph_analyze_queue = n;
 }
 
 #include "gt-cgraph.h"

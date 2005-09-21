@@ -218,6 +218,7 @@ extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
 extern bool cgraph_function_flags_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
+extern GTY(()) struct cgraph_node *cgraph_analyze_queue;
 
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
@@ -268,7 +269,6 @@ void cgraph_add_new_function (tree);
 bool cgraph_assemble_pending_functions (void);
 bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_finalize_function (tree, bool);
-void cgraph_lower_function (struct cgraph_node *);
 void cgraph_finalize_compilation_unit (void);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
