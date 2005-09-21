@@ -86,10 +86,12 @@
    (set_attr "mode" "DI")])
 
 (define_insn "*mov<mode>_internal"
+;; APPLE LOCAL begin radar 4043818
   [(set (match_operand:MMXMODEI 0 "nonimmediate_operand"
-			"=*y,*y ,m ,*y,*Y,*Y,*Y ,m ,*x,*x,*x,m ,?r ,?m")
+			"=*y,y ,m ,*y,*Y,*Y,*Y ,m ,*x,*x,*x,m ,?r ,?m")
 	(match_operand:MMXMODEI 1 "vector_move_operand"
-			"C  ,*ym,*y,*Y,*y,C ,*Ym,*Y,C ,*x,m ,*x,irm,r"))]
+			"C  ,ym,*y,*Y,*y,C ,*Ym,*Y,C ,*x,m ,*x,irm,r"))]
+;; APPLE LOCAL end radar 4043818
   "TARGET_MMX
    && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
   "@

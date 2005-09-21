@@ -7435,18 +7435,29 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VIEW_CONVERT_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
 
-      /* If the input and output modes are both the same, we are done.
-	 Otherwise, if neither mode is BLKmode and both are integral and within
-	 a word, we can use gen_lowpart.  If neither is true, make sure the
-	 operand is in memory and convert the MEM to the new mode.  */
+      /* APPLE LOCAL begin mainline 2005-09-19 */
+      /* If the input and output modes are both the same, we are done.  */
       if (TYPE_MODE (type) == GET_MODE (op0))
-	;
+        ;
+      /* If neither mode is BLKmode, and both modes are the same size
+         then we can use gen_lowpart.  */
       else if (TYPE_MODE (type) != BLKmode && GET_MODE (op0) != BLKmode
-	       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-	       && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	       && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_WORD
-	       && GET_MODE_SIZE (GET_MODE (op0)) <= UNITS_PER_WORD)
-	op0 = gen_lowpart (TYPE_MODE (type), op0);
+               && GET_MODE_SIZE (TYPE_MODE (type))
+                   == GET_MODE_SIZE (GET_MODE (op0)))
+        {
+          if (GET_CODE (op0) == SUBREG)
+            op0 = force_reg (GET_MODE (op0), op0);
+          op0 = gen_lowpart (TYPE_MODE (type), op0);
+        }
+      /* If both modes are integral, then we can convert from one to the
+         other.  */
+      else if (SCALAR_INT_MODE_P (GET_MODE (op0))
+               && SCALAR_INT_MODE_P (TYPE_MODE (type)))
+        op0 = convert_modes (TYPE_MODE (type), GET_MODE (op0), op0,
+                             TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+      /* As a last resort, spill op0 to memory, and reload it in a
+         different mode.  */
+      /* APPLE LOCAL end mainline 2005-09-19 */
       else if (!MEM_P (op0))
 	{
 	  /* If the operand is not a MEM, force it into memory.  Since we
@@ -7567,8 +7578,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    }
 
 	  else if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST
-		   /* APPLE LOCAL radar mainline 2005-08-31 */
-		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
+		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_INT
 		   && TREE_CONSTANT (TREE_OPERAND (exp, 0)))
 	    {
 	      rtx constant_part;

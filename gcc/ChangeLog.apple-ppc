@@ -1,3 +1,30 @@
+2005-09-21    Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4043818 (pr19653)
+        * /config/i386/mmx.md (mov<mode>_internal): Make cost of 'y' (mmx_regs)
+        computable.
+
+2005-08-31  Richard Henderson  <rth@redhat.com>
+
+        Radar 4043818 (pr19653)
+        * expr.c (expand_expr_real_1) <VIEW_CONVERT_EXPR>: Force subregs
+        into a pseudo before applying gen_lowpart.
+
+2005-08-30  Richard Henderson  <rth@redhat.com>
+
+        Radar 4043818 (pr19653)
+        PR target/23630
+        * expr.c (expand_expr_real_1) <VIEW_CONVERT_EXPR>: Use gen_lowpart
+        whenever the mode sizes match.
+
+2005-08-23  Paolo Bonzini  <bonzini@gnu.org>
+
+        Radar 4043818 (pr19653)
+        PR middle-end/23517
+        * fold-const.c (fold_convert): Use VIEW_CONVERT_EXPR to convert
+        between vectors.
+        * convert.c (convert_to_integer, convert_to_vector): Likewise.
+
 2005-09-19  Devang Patel  <dpatel@apple.com>
 
 	Radar 4252541

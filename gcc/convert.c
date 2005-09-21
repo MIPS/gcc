@@ -640,7 +640,8 @@ convert_to_integer (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      /* APPLE LOCAL mainline 2005-09-19 */
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("aggregate value used where an integer was expected");

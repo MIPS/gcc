@@ -1,3 +1,8 @@
+2005-09-21  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4043818
+	* gcc.target/i386/sse-2.c: New.
+
 2005-09-19  Devang Patel  <dpatel@apple.com>
 
 	Radar 4252541
