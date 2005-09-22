@@ -4174,8 +4174,14 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for)
   if (!is_omp_for)
     c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
   else
-    add_stmt (build (GOMP_FOR, void_type_node, pop_omp_clauses (), init, cond,
-	             incr, body));
+    {
+      tree t = c_finish_gomp_for (init, cond, incr, body, pop_omp_clauses ());
+      if (t)
+	add_stmt (t);
+      else
+	c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label,
+		       true);
+    }
   add_stmt (c_end_compound_stmt (block, flag_isoc99));
   c_break_label = save_break;
   c_cont_label = save_cont;

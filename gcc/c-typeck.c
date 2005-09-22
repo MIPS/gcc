@@ -8257,3 +8257,173 @@ c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
   else
     return expr;
 }
+
+
+/* Validate and emit code for the OpenMP directive #pragma omp for.
+   INIT, COND, INCR and BODY are the four basic elements of the loop
+   (initialization expression, controlling predicate, increment
+   expression and body of the loop).  CLAUSES is the set of data
+   sharing and copying clauses found at the start of the directive.  */
+
+tree
+c_finish_gomp_for (tree init, tree cond, tree incr, tree body, tree clauses)
+{
+  bool found;
+  tree t, loop_ix = NULL_TREE;
+
+  /* Validate the form of the loop.  It must be of the form (OpenMP
+     Public Draft v2.5)
+
+     	for (init-expr; var relop b; incr-expr)
+
+	init-expr	One of the following
+				var = lb
+				integer-type var = lb
+
+	incr-expr	One of the following
+				++var
+				var++
+				--var
+				var--
+				var += incr
+				var -= incr
+				var = var + incr
+				var = incr + var
+				var = var - incr
+
+	var		A signed integer variable.  If it was shared, 
+			it is implicitly made private.  It may only be
+			modified inside incr-expr.  After the loop its
+			value is indeterminate, unles it is marked
+			lastprivate.
+
+	relop		One of <, <=, > or >=
+
+	lb, b, incr	Loop invariant integer expressions.  There is
+			no synchronization during the evaluation of
+			these expressions.  Th order, frequency and
+			side-effects of these expressions are
+			unspecified.  */
+  if (cond == NULL_TREE)
+    {
+      error ("missing controlling predicate in %<omp for%> loop");
+      return NULL_TREE;
+    }
+  else
+    {
+      bool cond_ok = false;
+
+      if (TREE_CODE (cond) == LT_EXPR
+	  || TREE_CODE (cond) == LE_EXPR
+	  || TREE_CODE (cond) == GT_EXPR
+	  || TREE_CODE (cond) == GE_EXPR)
+	{
+	  loop_ix = TREE_OPERAND (cond, 0);
+	  if (DECL_P (loop_ix))
+	    cond_ok = true;
+	}
+
+      if (!cond_ok)
+	{
+	  error ("invalid controlling predicate in %<omp for%> loop");
+	  return NULL_TREE;
+	}
+    }
+
+  /* If we got to this point, we must have a loop index variable.  */
+  gcc_assert (loop_ix);
+
+  if (incr == NULL_TREE)
+    {
+      error ("missing increment expression in %<omp for%> loop");
+      return NULL_TREE;
+    }
+  else
+    {
+      bool incr_ok = false;
+      enum tree_code code = TREE_CODE (incr);
+
+      /* Check all the valid increment expressions: v++, v--, ++v, --v,
+	 v = v + incr, v = incr + v and v = v - incr.  */
+      if ((code == POSTINCREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
+	  || (code == PREINCREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
+	  || (code == POSTDECREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
+	  || (code == PREDECREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
+	  || (code == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+	      && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == loop_ix
+		  || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == loop_ix))
+	  || (code == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
+	      && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == loop_ix))
+	incr_ok = true;
+
+      if (!incr_ok)
+	{
+	  error ("invalid increment expression in %<omp for%> loop");
+	  return NULL_TREE;
+	}
+    }
+
+  if (init == NULL_TREE)
+    {
+      if (flag_isoc99)
+	{
+	  /* Only in C99 may the init expression be empty.  If the
+	     loop index variable has a DECL_INITIAL expression, use it
+	     to build the GOMP_FOR_INIT operand.  */
+	  if (DECL_INITIAL (loop_ix))
+	    init = build (MODIFY_EXPR, TREE_TYPE (loop_ix),
+			  loop_ix, DECL_INITIAL (loop_ix));
+	}
+
+      if (init == NULL_TREE)
+	{
+	  error ("missing initialization expression in %<omp for%> loop");
+	  return NULL_TREE;
+	}
+    }
+
+  /* The loop controlling variable is always private.  Add it to the
+     list of private clauses.  */
+  found = false;
+  for (t = clauses; t; t = TREE_CHAIN (t))
+    {
+      tree clause = TREE_VALUE (t);
+
+      if (TREE_CODE (clause) == GOMP_CLAUSE_PRIVATE)
+	{
+	  tree n;
+
+	  for (n = GOMP_PRIVATE_VARS (clause); n; n = TREE_CHAIN (n))
+	    {
+	      tree v = TREE_VALUE (n);
+	      if (v == loop_ix)
+		{
+		  found = true;
+		  break;
+		}
+	    }
+
+	  /* If LOOP_IX is not mentioned in a private clause, add it.  */
+	  if (!found)
+	    {
+	      GOMP_PRIVATE_VARS (clause) = 
+		tree_cons (NULL_TREE, loop_ix, GOMP_PRIVATE_VARS (clause));
+	      found = true;
+	      break;
+	    }
+	}
+    }
+
+  /* If we did not even have a private clause, add one.  */
+  if (!found)
+    clauses = tree_cons (NULL_TREE,
+			 build (GOMP_CLAUSE_PRIVATE,
+				NULL_TREE,
+				tree_cons (NULL_TREE, loop_ix, NULL_TREE)),
+			 clauses);
+
+  /* Build and return a GOMP_FOR tree.  */
+  return (build (GOMP_FOR, void_type_node, clauses, init, cond, incr, body));
+}

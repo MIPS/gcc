@@ -1,5 +1,13 @@
 2005-09-22  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-tree.h (c_finish_gomp_for): Declare
+	* c-typeck.c (c_finish_gomp_for): New.
+	* c-parser.c (c_parser_for_statement): Call it.  If the
+	parallel loop was malformed, call c_finish_loop to emit a
+	sequential loop.
+
+2005-09-22  Diego Novillo  <dnovillo@redhat.com>
+
 	* version.c: Update last merge date.
 
 2005-09-21  Richard Henderson  <rth@redhat.com>
