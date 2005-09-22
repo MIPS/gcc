@@ -1,5 +1,10 @@
 2005-09-22  Stuart Hastings  <stuart@apple.com>
 
+	Radar 4231761
+	* gcc/doc/invoke.texi: Tweak documentation for -Oz.
+
+2005-09-22  Stuart Hastings  <stuart@apple.com>
+
 	Radar 4205103
 	* gcc/config/i386/i386.c (ix86_function_value, ix86_value_regno): Backport new
 	three-argument versions from FSF mainline, add support for __attribute__ ((regparmandstackparm)).

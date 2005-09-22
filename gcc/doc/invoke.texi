@@ -4640,19 +4640,20 @@ Optimize for size, but not at the expense of speed.
 @option{-Os} enables all @option{-O2} optimizations that
 do not typically increase code size.  However, instructions
 are chosen for best performance, regardless of size.
-To optimize solely for size, use @option{-Oz} (APPLE ONLY).
+To optimize solely for size on Darwin, use @option{-Oz} (APPLE ONLY).
 
-@option{-Os} disables the following optimization flags:
+The following options are set for @option{-O2}, but are disabled under @option{-Os}:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
 -falign-labels  -freorder-blocks  -freorder-blocks-and-partition @gol
 -fprefetch-loop-arrays}
 
 @c APPLE LOCAL begin 4200438
-On Darwin, @option{-Os} and @option{-Oz} (APPLE ONLY) set the inlining limits according to the
-input language; for C and Objective-C functions that are marked
-@code{inline}, functions up to 450 ``estimated insns'' in size can be
-inlined, and for C++ and Objective-C++, the limit is 30 ``estimated
-insns''.
+When optimizing with @option{-Os} or @option{-Oz} (APPLE ONLY) on
+Darwin, any function up to 30 ``estimated insns'' in size will be
+considered for inlining.  When compiling C and Objective-C sourcefiles with
+@option{-Os} or @option{-Oz} on Darwin, functions explictly marked
+with the @code{inline} keyword up to 450 ``estimated insns'' in size
+will be considered for inlining.
 @c APPLE LOCAL end 4200438
 @c APPLE LOCAL begin Disable string insns with -Os on Darwin (radar 3509006)
 When compiling for Apple POWERPC targets, @option{-Os} and
@@ -4666,13 +4667,13 @@ you really want the string instructions, use -mstring.
 @item -Oz
 @opindex Oz
 (APPLE ONLY) Optimize for size, regardless of performance.
-@option{-Oz} enables all @option{-O2} optimizations that do not
-typically increase code size, plus further optimizations intended
-solely to reduce code size.  In particular, instructions that encode
-into fewer bytes are preferred over longer instructions that execute
-in fewer cycles.  @option{-Oz} is very similar to @option{-Os} in FSF
-distributions of GCC.  @option{-Oz} employs the same inlining limits
-and avoids the same string instructions that @option{-Os} does.
+@option{-Oz} enables the same optimization flags that @option{-Os}
+uses, but @option{-Oz} also enables other optimizations intended solely
+to reduce code size.  In particular, instructions that encode into
+fewer bytes are preferred over longer instructions that execute in
+fewer cycles.  @option{-Oz} on Darwin is very similar to @option{-Os}
+in FSF distributions of GCC.  @option{-Oz} employs the same inlining
+limits and avoids string instructions just like @option{-Os}.
 @c APPLE LOCAL end 4231761 -Oz
 
 If you use multiple @option{-O} options, with or without level numbers,
