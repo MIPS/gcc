@@ -34,6 +34,8 @@
 
 typedef int gomp_mutex_t;
 
+#define GOMP_MUTEX_INIT_0 1
+
 static inline void gomp_mutex_init (gomp_mutex_t *mutex)
 {
   *mutex = 0;

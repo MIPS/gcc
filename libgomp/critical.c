@@ -49,45 +49,70 @@ static gomp_mutex_t create_lock_lock;
 #endif
 
 void
-GOMP_critical_name_start (gomp_mutex_t **pplock)
+GOMP_critical_name_start (void **pptr)
 {
-  gomp_mutex_t *plock = *pplock;
+  gomp_mutex_t *plock;
 
-  if (plock == NULL)
+  /* If a mutex fits within the space for a pointer, and is zero initialized,
+     then use the pointer space directly.  */
+  if (GOMP_MUTEX_INIT_0
+      && sizeof (gomp_mutex_t) <= sizeof (void *)
+      && __alignof (gomp_mutex_t) <= sizeof (void *))
+    plock = (gomp_mutex_t *)pptr;
+
+  /* Otherwise we have to be prepared to malloc storage.  */
+  else
     {
-#ifdef HAVE_SYNC_BUILTINS
-      gomp_mutex_t *nlock = gomp_malloc (sizeof (gomp_mutex_t));
-      gomp_mutex_init (nlock);
+      plock = *pptr;
 
-      plock = __sync_val_compare_and_swap (pplock, plock, nlock);
-      if (plock != nlock)
-	{
-	  gomp_mutex_destroy (nlock);
-	  free (nlock);
-	}
-#else
-      gomp_mutex_lock (&create_lock_lock);
-      plock = *pplock;
       if (plock == NULL)
 	{
-	  plock = gomp_malloc (sizeof (gomp_mutex_t));
-	  gomp_mutex_init (plock);
-	  __sync_synchronize ();
-	  *pplock = plock;
-	}
-      gomp_mutex_unlock (&create_lock_lock);
+#ifdef HAVE_SYNC_BUILTINS
+	  gomp_mutex_t *nlock = gomp_malloc (sizeof (gomp_mutex_t));
+	  gomp_mutex_init (nlock);
+
+	  plock = __sync_val_compare_and_swap (pptr, plock, nlock);
+	  if (plock != nlock)
+	    {
+	      gomp_mutex_destroy (nlock);
+	      free (nlock);
+	    }
+#else
+	  gomp_mutex_lock (&create_lock_lock);
+	  plock = *pptr;
+	  if (plock == NULL)
+	    {
+	      plock = gomp_malloc (sizeof (gomp_mutex_t));
+	      gomp_mutex_init (plock);
+	      __sync_synchronize ();
+	      *pptr = plock;
+	    }
+	  gomp_mutex_unlock (&create_lock_lock);
 #endif
+	}
     }
 
   gomp_mutex_lock (plock);
 }
 
 void
-GOMP_critical_name_end (gomp_mutex_t **pplock)
+GOMP_critical_name_end (void **pptr)
 {
-  gomp_mutex_unlock (*pplock);
+  gomp_mutex_t *plock;
+
+  /* If a mutex fits within the space for a pointer, and is zero initialized,
+     then use the pointer space directly.  */
+  if (GOMP_MUTEX_INIT_0
+      && sizeof (gomp_mutex_t) <= sizeof (void *)
+      && __alignof (gomp_mutex_t) <= sizeof (void *))
+    plock = (gomp_mutex_t *)pptr;
+  else
+    plock = *pptr;
+
+  gomp_mutex_unlock (plock);
 }
 
+#if !GOMP_MUTEX_INIT_0
 static void __attribute__((constructor))
 initialize_critical (void)
 {
@@ -96,3 +121,4 @@ initialize_critical (void)
   gomp_mutex_init (&create_lock_lock);
 #endif
 }
+#endif

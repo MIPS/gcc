@@ -39,10 +39,10 @@ extern void GOMP_barrier (void);
 
 /* critical.c */
 
-extern void GOMP_critical_name_start (gomp_mutex_t **);
-extern void GOMP_critical_name_end (gomp_mutex_t **);
 extern void GOMP_critical_start (void);
 extern void GOMP_critical_end (void);
+extern void GOMP_critical_name_start (void **);
+extern void GOMP_critical_name_end (void **);
 
 /* loop.c */
 

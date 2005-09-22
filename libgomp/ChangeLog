@@ -1,3 +1,14 @@
+2005-09-22  Richard Henderson  <rth@redhat.com>
+
+	* critical.c (GOMP_critical_name_start): Change argument to void**.
+	Reuse the pointer space if the mutex fits.
+	(GOMP_critical_name_end): Likewise.
+	(initialize_critical): Don't define if GOMP_MUTEX_INIT_0.
+	* libgomp_g.h (GOMP_critical_name_start): Update decl.
+	(GOMP_critical_name_end): Likewise.
+	* config/linux/mutex.h (GOMP_MUTEX_INIT_0): New.
+	* config/posix/mutex.h (GOMP_MUTEX_INIT_0): New.
+
 2005-09-20  Richard Henderson  <rth@redhat.com>
 
 	* critical.c (GOMP_critical_name_start, GOMP_critical_name_end): New.

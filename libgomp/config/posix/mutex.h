@@ -35,6 +35,8 @@
 
 typedef pthread_mutex_t gomp_mutex_t;
 
+#define GOMP_MUTEX_INIT_0 0
+
 static inline void gomp_mutex_init (gomp_mutex_t *mutex)
 {
   pthread_mutex_init (mutex, NULL);
