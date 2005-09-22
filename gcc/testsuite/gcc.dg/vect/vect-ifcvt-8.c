@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec -fno-tree-vect-loop-version" { target powerpc*-*-* } } */
+/* { dg-require-effective-target vect_condition } */
 
 
 #include <stdarg.h>

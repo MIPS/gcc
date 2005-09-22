@@ -41,7 +41,9 @@ int main1 ()
 
   /* check results:  */
   if (shortsum != CH_SUM)
-    return 0;
+    abort ();
+
+  return 0;
 }
 
 int main (void)

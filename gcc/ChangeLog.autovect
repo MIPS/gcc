@@ -1,3 +1,8 @@
+2005-09-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (vect_create_epilog_for_reduction): Fix 
+	merge from mainline.
+
 2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* expr.c (expand_expr_real_1): Add case WIDEN_SUM_EXPR.

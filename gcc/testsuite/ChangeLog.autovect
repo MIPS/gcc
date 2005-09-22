@@ -1,3 +1,28 @@
+2005-09-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/fast-math-vect-reduc-5.c: Fix merge from mainline.
+	* gcc.dg/vect/fast-math-vect-reduc-7.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1char.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1short.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2char.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2short.c: Likewise.
+	* gcc.dg/vect/vect-reduc-3.c: Likewise.
+	* gcc.dg/vect/vect-reduc-6.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-2.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-3.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-4.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-5.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-6.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-7.c: Likewise.
+
+	* gcc.dg/vect/vect-ifcvt-8.c: Enable for vect_condition targets.
+	* gcc.dg/vect/vect-ifcvt-9.c: Likewise.
+
+	* gcc.dg/vect/vect-reduc-pattern-1.c: Fix test (missing abort/return 0)
+	* gcc.dg/vect/vect-reduc-pattern-2.c: Likewise.
+
 2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-reduc-pattern-1.c: New.
@@ -6,7 +31,7 @@
 2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gfortran.dg/vect/vect-4.f90: Fix expected message for vect_no_align 
-        targets.
+	targets.
 	* gfortran.dg/vect/vect-6.f90: Fix expected message.
 	* gfortran.dg/vect/vect-7.f90: Fix expected message.
 

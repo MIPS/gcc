@@ -42,10 +42,10 @@ int main (void)
 { 
   check_vect ();
   
-  return main1 (100 ,100);
-  return main1 (0, 15);
+  main1 (100 ,100);
+  main1 (0, 15);
+  return 0;
 }
 
 /* need -ffast-math to vectorizer these loops.  */
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" } } */
-/* { dg-final { cleanup-tree-dump "vect" } } */

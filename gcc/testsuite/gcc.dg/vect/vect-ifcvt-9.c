@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O3 -funroll-loops -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-require-effective-target vect_condition } */
 
 
 #include <stdarg.h>
@@ -35,7 +35,5 @@ int main ()
 }
 
 
-
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
-
