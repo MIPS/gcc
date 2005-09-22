@@ -1011,43 +1011,8 @@ restore_extension_diagnostics (int flags)
 }
 
 
-/* Stack of OpenMP clauses.  Each element of the stack is a
-   list of GOMP_CLAUSE_* trees.  */
-static VEC(tree,heap) *omp_clauses_stack = NULL;
-
 /* Current set of OpenMP clauses being parsed.  */
-static tree curr_clause_set = NULL_TREE;
-
-
-/* Push the current set of OpenMP clauses into the clause stack and
-   start a new set.  New clause sets are pushed in when we start parsing
-   the header of an OpenMP pragma.  Once the block associated with the
-   pragma has been parsed, the clause stack is popped when emitting
-   the corresponding GOMP_* tree.  */
-
-static inline void
-push_omp_clauses (void)
-{
-  VEC_safe_push (tree, heap, omp_clauses_stack, curr_clause_set);
-  curr_clause_set = NULL_TREE;
-}
-
-
-/* Return the current clause set and reset it to the clause set at the
-   top of the stack.  */
-
-static tree
-pop_omp_clauses (void)
-{
-  tree ret = curr_clause_set;
-  curr_clause_set = VEC_pop (tree, omp_clauses_stack);
-
-  /* If we popped the last element, free memory.  */
-  if (VEC_empty (tree, omp_clauses_stack))
-    VEC_free (tree, heap, omp_clauses_stack);
-
-  return ret;
-}
+static tree curr_clause_set;
 
 
 /* Add a new clause to the current set of clauses.  */
@@ -1113,7 +1078,7 @@ static void c_parser_if_statement (c_parser *);
 static void c_parser_switch_statement (c_parser *);
 static void c_parser_while_statement (c_parser *);
 static void c_parser_do_statement (c_parser *);
-static void c_parser_for_statement (c_parser *, bool);
+static void c_parser_for_statement (c_parser *, bool, tree);
 static tree c_parser_asm_statement (c_parser *);
 static tree c_parser_asm_operands (c_parser *, bool);
 static tree c_parser_asm_clobbers (c_parser *);
@@ -3813,7 +3778,7 @@ c_parser_statement_after_labels (c_parser *parser)
 	  c_parser_do_statement (parser);
 	  break;
 	case RID_FOR:
-	  c_parser_for_statement (parser, false);
+	  c_parser_for_statement (parser, false, NULL);
 	  break;
 	case RID_GOTO:
 	  c_parser_consume_token (parser);
@@ -4109,10 +4074,10 @@ c_parser_do_statement (c_parser *parser)
    check_for_loop_decls?
 
    IS_OMP_FOR is nonzero if we are parsing a loop marked with #pragma
-   omp for.   */
+   omp for.   OMP_CLAUSES will be the clauses parsed during the pragma.  */
 
 static void
-c_parser_for_statement (c_parser *parser, bool is_omp_for)
+c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
 {
   tree block, cond, incr, save_break, save_cont, body, init;
   location_t loc = UNKNOWN_LOCATION;
@@ -4197,7 +4162,7 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for)
     c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
   else
     {
-      tree t = c_finish_gomp_for (init, cond, incr, body, pop_omp_clauses ());
+      tree t = c_finish_gomp_for (init, cond, incr, body, omp_clauses);
       if (t)
 	add_stmt (t);
       else
@@ -6730,20 +6695,21 @@ c_parser_omp_directive (c_parser *parser)
   enum pragma_omp_kind code = c_parser_peek_token (parser)->omp_kind;
 
   /* Parse the pragma header.  */
+  curr_clause_set = NULL;
   c_parser_pragma (parser);
+  clause = curr_clause_set;
 
   switch (code)
     {
       case PRAGMA_OMP_PARALLEL:
 	stmt = c_parser_compound_statement (parser);
-	add_stmt (build (GOMP_PARALLEL, void_type_node, pop_omp_clauses (),
-		  stmt));
+	add_stmt (build (GOMP_PARALLEL, void_type_node, clause, stmt));
 	break;
 
       case PRAGMA_OMP_FOR:
       case PRAGMA_OMP_PARALLEL_FOR:
 	if (c_parser_next_token_is_keyword (parser, RID_FOR))
-	  c_parser_for_statement (parser, true);
+	  c_parser_for_statement (parser, true, clause);
 	else
 	  c_parser_error (parser, "for statement expected");
 	break;
@@ -6765,7 +6731,6 @@ c_parser_omp_directive (c_parser *parser)
 	break;
 
       case PRAGMA_OMP_CRITICAL:
-	clause = curr_clause_set;
 	stmt = push_stmt_list ();
 	c_parser_statement (parser);
 	stmt = pop_stmt_list (stmt);
@@ -7270,7 +7235,6 @@ c_parser_pragma_omp_no_args (cpp_reader *pfile ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_critical (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  curr_clause_set = NULL;
   if (c_parser_next_token_is (the_parser, CPP_OPEN_PAREN))
     {
       c_parser_consume_token (the_parser);
@@ -7318,8 +7282,6 @@ c_parser_pragma_omp_flush (cpp_reader *pfile ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_for (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  push_omp_clauses ();
-
   while (c_parser_next_token_is_not (the_parser, CPP_EOF))
     {
       const pragma_omp_clause c = c_parser_pragma_omp_clause (the_parser);
@@ -7465,8 +7427,6 @@ c_parser_pragma_omp_parallel_sections (c_parser *parser)
 static void
 c_parser_pragma_omp_parallel (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  push_omp_clauses ();
-
   if (c_parser_next_token_is_keyword (the_parser, RID_FOR))
     {
       /* Parse #pragma omp parallel for [clauses].  */
@@ -7543,8 +7503,6 @@ c_parser_pragma_omp_section (cpp_reader *pfile ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_sections (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  push_omp_clauses ();
-
   while (c_parser_next_token_is_not (the_parser, CPP_EOF))
     {
       const pragma_omp_clause c = c_parser_pragma_omp_clause (the_parser);
@@ -7580,8 +7538,6 @@ c_parser_pragma_omp_sections (cpp_reader *pfile ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_single (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  push_omp_clauses ();
-
   while (c_parser_next_token_is_not (the_parser, CPP_EOF))
     {
       const pragma_omp_clause c = c_parser_pragma_omp_clause (the_parser);
