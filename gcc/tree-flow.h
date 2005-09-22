@@ -244,6 +244,8 @@ struct var_ann_d GTY(())
      variables modified by function calls.  This field is only used
      for FUNCTION_DECLs.  */
   ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
+  
+  bitmap GTY((skip)) callees;
 
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */

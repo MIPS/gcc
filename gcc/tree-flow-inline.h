@@ -844,8 +844,7 @@ loop_containing_stmt (tree stmt)
 static inline bool
 is_call_clobbered (tree var)
 {
-  return is_global_var (var)
-    || bitmap_bit_p (call_clobbered_vars, DECL_UID (var));
+  return bitmap_bit_p (call_clobbered_vars, DECL_UID (var));
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */

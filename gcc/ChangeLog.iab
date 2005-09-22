@@ -1,3 +1,39 @@
+2005-09-22  Daniel Berlin  <dberlin@dberlin.org>
+	    Jan Hubicka <jh@suse.cz>
+	
+	* Makefile.in (ipa-callees.o): New.
+	
+	* ipa-reference.c (check_operand): Handle FUNCTION_DECL.
+	(look_for_address_of): Ditto.
+	(ipa_init): Add static functions to all_module_statics.
+	(static_execute): Don't touch readonly on FUNCTION_DECL.
+	
+	* cgraph.c (cgraph_create_node): Add to uid array.
+	(cgraph_remove_node): Remove from uid array.
+	(cgraph_node_by_uid): New function.
+	* cgraph.h (cgraph_node_by_uid): Prototype.
+	* cgraphunit.c (verify_cgraph_node): Make sure uid array doesn't
+	get corrupted.
+
+	* ipa-callees.c: New file.
+
+	* passes.c: (init_optimization_passes): Add pass_ipa_callees.
+	* timevar.def (TV_IPA_CALLEES): New.
+	* tree-dfa.c (add_referenced_var): Stop call clobbering on add.
+	* tree-flow-inline.h (is_call_clobbered): Remove is_global_var.
+	* tree-flow.h (struct var_ann_d): Add callees bitmap.
+	* tree-pass.h (pass_ipa_callees): New.
+	* tree-ssa-alias.c (mark_aliases_call_clobbered): Don't mark
+	unmodifiable vars call clobbered.
+	(set_initial_properties): Mark global but not unmodiifable vars
+	call clobbered here.
+	Check for unmodifiable var before call clobbering.
+	(create_global_var): This global var is call clobbered.
+	* tree-ssa-operands.c (add_call_clobber_ops): Remove
+	unmodifiable_var check, and rewrite into assert.
+	* tree-ssa-structalias.c (update_alias_info): Don't call clobber
+	unmodifiable vars.
+	
 2005-09-14  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow-inline (mark_call_clobbered): Don't auto-set

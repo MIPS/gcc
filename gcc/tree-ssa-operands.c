@@ -2024,9 +2024,7 @@ add_call_clobber_ops (tree stmt, tree callee)
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
-      if (unmodifiable_var_p (var))
-	add_stmt_operand (&var, &empty_ann, opf_none);
-      else
+      gcc_assert (!unmodifiable_var_p (var));
 	{
 	  bool not_read
 	    = not_read_b ? bitmap_bit_p (not_read_b, u) : false;

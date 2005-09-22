@@ -638,11 +638,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	*slot = (void *) var;
       
       referenced_var_insert (DECL_UID (var), var);
-
-      /* Global variables are always call-clobbered.  */
-      if (is_global_var (var))
-	mark_call_clobbered (var);
-
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  */

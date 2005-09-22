@@ -99,6 +99,7 @@ The varpool data structure:
 #include "intl.h"
 #include "tree-gimple.h"
 #include "tree-dump.h"
+#include "vec.h"
 
 static void cgraph_node_remove_callers (struct cgraph_node *node);
 static inline void cgraph_edge_remove_caller (struct cgraph_edge *e);
@@ -109,6 +110,10 @@ static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
 
 /* The linked list of cgraph nodes.  */
 struct cgraph_node *cgraph_nodes;
+typedef struct cgraph_node *cgraph_node_p;
+DEF_VEC_P(cgraph_node_p);
+DEF_VEC_ALLOC_P(cgraph_node_p,gc);
+static GTY(()) VEC(cgraph_node_p,gc) *cgraph_nodes_vec;
 
 /* Queue of cgraph nodes scheduled to be lowered.  */
 struct cgraph_node *cgraph_nodes_queue;
@@ -168,6 +173,9 @@ cgraph_create_node (void)
   node = ggc_alloc_cleared (sizeof (*node));
   node->next = cgraph_nodes;
   node->uid = cgraph_max_uid++;
+  if (!node->uid)
+    cgraph_nodes_vec = VEC_alloc (cgraph_node_p, gc, 1);
+  VEC_safe_insert (cgraph_node_p, gc, cgraph_nodes_vec, node->uid, node);
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
   node->previous = NULL;
@@ -420,6 +428,7 @@ cgraph_remove_node (struct cgraph_node *node)
   void **slot;
   bool kill_body = false;
 
+  VEC_replace (cgraph_node_p, cgraph_nodes_vec, node->uid, NULL);
   cgraph_node_remove_callers (node);
   cgraph_node_remove_callees (node);
   while (node->nested)
@@ -618,6 +627,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " redefined_extern_inline");
   if (TREE_ASM_WRITTEN (node->decl))
     fprintf (f, " asm_written");
+  if (TREE_ADDRESSABLE (node->decl))
+    fprintf (f, " addressable");
 
   fprintf (f, "\n  called by: ");
   for (edge = node->callers; edge; edge = edge->next_caller)
@@ -1034,6 +1045,13 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
   if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
     return AVAIL_OVERWRITABLE;
   return AVAIL_AVAILABLE;
+}
+
+/* Obvious.  */
+struct cgraph_node *
+cgraph_node_by_uid (int uid)
+{
+  return VEC_index (cgraph_node_p, cgraph_nodes_vec, uid);
 }
 
 #include "gt-cgraph.h"

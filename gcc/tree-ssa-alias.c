@@ -205,8 +205,11 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
     {
       tree entry = VARRAY_TREE (ma, i);
-      add_to_worklist (entry, worklist);
-      mark_call_clobbered (entry);
+      if (!unmodifiable_var_p (entry))
+	{
+	  add_to_worklist (entry, worklist);	  
+	  mark_call_clobbered (entry);
+	}
     }
 }
 
@@ -295,14 +298,22 @@ compute_tag_properties (void)
 
 /* Set up the initial variable clobbers and globalness.
    When this function completes, only tags whose aliases need to be
-   clobbered will be set clobbered.  Tags clobbered because they
-   
+   clobbered will be set clobbered.  Tags clobbered because they   
    contain call clobbered vars are handled in compute_tag_properties.  */
 
 static void
 set_initial_properties (struct alias_info *ai)
 {
   unsigned int i;
+  referenced_var_iterator rvi;
+  tree var;
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    {
+      if (is_global_var (var) && !var_can_have_subvars (var))
+	if (!unmodifiable_var_p (var))
+	  mark_call_clobbered (var);
+    }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
@@ -321,7 +332,13 @@ set_initial_properties (struct alias_info *ai)
 	    mark_call_clobbered (v_ann->type_mem_tag);
 
 	  if (pi->pt_vars)
-	    mark_bitmap_call_clobbered (pi->pt_vars);
+	    {
+	      bitmap_iterator bi;
+	      unsigned int j;	      
+	      EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
+		if (!unmodifiable_var_p (referenced_var (j)))
+		  mark_call_clobbered (referenced_var (j));
+	    }
 	}
       /* If the name tag is call clobbered, so is the type tag
 	 associated with the base VAR_DECL.  */
@@ -2056,7 +2073,7 @@ create_global_var (void)
   DECL_CONTEXT (global_var) = NULL_TREE;
   TREE_THIS_VOLATILE (global_var) = 0;
   TREE_ADDRESSABLE (global_var) = 0;
-
+  mark_call_clobbered (global_var);
   add_referenced_tmp_var (global_var);
   mark_sym_for_renaming (global_var);
 }

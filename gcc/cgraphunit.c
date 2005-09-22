@@ -655,6 +655,12 @@ verify_cgraph_node (struct cgraph_node *node)
   block_stmt_iterator bsi;
   bool error_found = false;
 
+  if (node != cgraph_node_by_uid (node->uid))
+    {
+       error ("cgraph_node_by_uid corrupted");
+       error_found = true;
+    }
+
   timevar_push (TV_CGRAPH_VERIFY);
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)

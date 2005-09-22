@@ -2557,7 +2557,11 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	  unsigned i;
 
 	  EXECUTE_IF_SET_IN_BITMAP (addr_taken, 0, i, bi)
-	    mark_call_clobbered (referenced_var (i));
+	    {
+	      tree rvar = referenced_var (i);
+	      if (!unmodifiable_var_p (rvar))
+		mark_call_clobbered (rvar);
+	    }
 	}
     }
 
