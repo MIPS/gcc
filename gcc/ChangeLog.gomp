@@ -1,5 +1,9 @@
 2005-09-22  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-typeck.c (c_finish_gomp_for): Update OpenMP spec version.
+
+2005-09-22  Diego Novillo  <dnovillo@redhat.com>
+
 	* gimple-low.c (process_gomp_clauses): Extract from ...
 	(build_remap_info): ... here.
 	(get_gomp_private_ref): Do not call copy_decl_for_dup.

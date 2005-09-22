@@ -8272,7 +8272,7 @@ c_finish_gomp_for (tree init, tree cond, tree incr, tree body, tree clauses)
   tree t, loop_ix = NULL_TREE;
 
   /* Validate the form of the loop.  It must be of the form (OpenMP
-     Public Draft v2.5)
+     public spec v2.5)
 
      	for (init-expr; var relop b; incr-expr)
 
