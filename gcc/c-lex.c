@@ -453,10 +453,11 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	  type = lex_string (tok, value, false);
 	  break;
 	}
+      *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
+      break;
       
-      /* FALLTHROUGH */
-
     case CPP_PRAGMA:
+      cb_line_change (parse_in, tok, false);
       *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
       break;
 
