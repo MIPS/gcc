@@ -53,6 +53,13 @@ Boston, MA 02111-1307, USA.  */
 #include "../../libcpp/internal.h"
 extern struct cpp_reader* parse_in;
 /* APPLE LOCAL end pascal strings */
+/* APPLE LOCAL begin regparmandstackparm */
+#include "integrate.h"
+#include "tree-inline.h"
+#include "splay-tree.h"
+#include "tree-pass.h"
+/* #include "c-tree.h" *//* Ugh.  CTI_MAX brought in with c-common.h collides with optabs.h */
+/* APPLE LOCAL end regparmandstackparm */
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -947,9 +954,10 @@ static int ix86_comp_type_attributes (tree, tree);
 static int ix86_function_regparm (tree, tree);
 const struct attribute_spec ix86_attribute_table[];
 static bool ix86_function_ok_for_sibcall (tree, tree);
-static tree ix86_handle_cdecl_attribute (tree *, tree, tree, int, bool *);
-static tree ix86_handle_regparm_attribute (tree *, tree, tree, int, bool *);
-static int ix86_value_regno (enum machine_mode);
+/* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+static tree ix86_handle_cconv_attribute (tree *, tree, tree, int, bool *);
+static int ix86_value_regno (enum machine_mode, tree, tree);
+/* APPLE LOCAL end mainline 2005-09-20 4205103 */
 static bool contains_128bit_aligned_vector_p (tree);
 static rtx ix86_struct_value_rtx (tree, int);
 static bool ix86_ms_bitfield_layout_p (tree);
@@ -1132,6 +1140,11 @@ static void init_ext_80387_constants (void);
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
 #endif
+
+/* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE ix86_function_value
+/* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1751,17 +1764,26 @@ reset_optimization_options (int level, int size ATTRIBUTE_UNUSED)
 const struct attribute_spec ix86_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
   /* Stdcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  { "stdcall",   0, 0, false, true,  true,  ix86_handle_cdecl_attribute },
+  { "stdcall",   0, 0, false, true,  true,  ix86_handle_cconv_attribute },
   /* Fastcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  { "fastcall",  0, 0, false, true,  true,  ix86_handle_cdecl_attribute },
+  { "fastcall",  0, 0, false, true,  true,  ix86_handle_cconv_attribute },
   /* Cdecl attribute says the callee is a normal C declaration */
-  { "cdecl",     0, 0, false, true,  true,  ix86_handle_cdecl_attribute },
+  { "cdecl",     0, 0, false, true,  true,  ix86_handle_cconv_attribute },
   /* Regparm attribute specifies how many integer arguments are to be
      passed in registers.  */
-  { "regparm",   1, 1, false, true,  true,  ix86_handle_regparm_attribute },
+  { "regparm",   1, 1, false, true,  true,  ix86_handle_cconv_attribute },
+  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
+  /* APPLE LOCAL begin regparmandstackparm */
+  /* regparmandstackparm means two entry points; a traditional stack-based
+     one, and another, with a mangled name, that employs regparm and
+     sseregparm.  */
+  { "regparmandstackparm", 0, 0, false, true, true, ix86_handle_cconv_attribute },
+  { "regparmandstackparmee", 0, 0, false, true, true, ix86_handle_cconv_attribute },
+  /* APPLE LOCAL end regparmandstackparm */
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
   { "dllimport", 0, 0, false, false, false, handle_dll_attribute },
   { "dllexport", 0, 0, false, false, false, handle_dll_attribute },
@@ -1782,6 +1804,10 @@ const struct attribute_spec ix86_attribute_table[] =
 static bool
 ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
+  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+  tree func;
+  rtx a, b;
+
   /* APPLE LOCAL begin indirect sibcall 4087330 */
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
@@ -1791,15 +1817,29 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
     return false;
   /* APPLE LOCAL end indirect sibcall 4087330 */
 
-  /* If we are returning floats on the 80387 register stack, we cannot
+  if (decl)
+    func = decl;
+  else
+    {
+      func = TREE_TYPE (TREE_OPERAND (exp, 0));
+      if (POINTER_TYPE_P (func))
+        func = TREE_TYPE (func);
+    }
+
+  /* Check that the return value locations are the same.  Like
+     if we are returning floats on the 80387 register stack, we cannot
      make a sibcall from a function that doesn't return a float to a
      function that does or, conversely, from a function that does return
      a float to a function that doesn't; the necessary stack adjustment
-     would not be executed.  */
-  if (STACK_REG_P (ix86_function_value (TREE_TYPE (exp)))
-      != STACK_REG_P (ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)))))
+     would not be executed.  This is also the place we notice
+     differences in the return value ABI.  */
+  a = ix86_function_value (TREE_TYPE (exp), func, false);
+  b = ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)),
+			   cfun->decl, false);
+  if (! rtx_equal_p (a, b))
     return false;
-
+  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
+  
   /* If this call is indirect, we'll need to be able to use a call-clobbered
      register for the address of the target function.  Make sure that all
      such registers are not used for passing parameters.  */
@@ -1831,94 +1871,127 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   return true;
 }
 
-/* Handle a "cdecl", "stdcall", or "fastcall" attribute;
+/* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+/* Handle "cdecl", "stdcall", "fastcall", "regparm" and "sseregparm"
+   calling convention attributes;
    arguments as in struct attribute_spec.handler.  */
+
 static tree
-ix86_handle_cdecl_attribute (tree *node, tree name,
-			     tree args ATTRIBUTE_UNUSED,
-			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+ix86_handle_cconv_attribute (tree *node, tree name,
+				   tree args,
+				   int flags ATTRIBUTE_UNUSED,
+				   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
       && TREE_CODE (*node) != METHOD_TYPE
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (/* OPT_Wattributes, */ "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
-    }
-  else
-    {
-      if (is_attribute_p ("fastcall", name))
-        {
-          if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (*node)))
-            {
-              error ("fastcall and stdcall attributes are not compatible");
-            }
-           else if (lookup_attribute ("regparm", TYPE_ATTRIBUTES (*node)))
-            {
-              error ("fastcall and regparm attributes are not compatible");
-            }
-        }
-      else if (is_attribute_p ("stdcall", name))
-        {
-          if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
-            {
-              error ("fastcall and stdcall attributes are not compatible");
-            }
-        }
+      return NULL_TREE;
     }
 
-  if (TARGET_64BIT)
-    {
-      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
-/* Handle a "regparm" attribute;
-   arguments as in struct attribute_spec.handler.  */
-static tree
-ix86_handle_regparm_attribute (tree *node, tree name, tree args,
-			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
-    {
-      warning ("%qs attribute only applies to functions",
-	       IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-  else
+  /* Can combine regparm with all attributes but fastcall.  */
+  if (is_attribute_p ("regparm", name))
     {
       tree cst;
+
+      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("fastcall and regparm attributes are not compatible");
+	}
+
+      /* APPLE LOCAL begin regparmandstackparm */
+      if (lookup_attribute ("regparmandstackparm", TYPE_ATTRIBUTES (*node))
+	  || lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("regparmandstackparm and regparm attributes are not compatible");
+	}
+      /* APPLE LOCAL end regparmandstackparm */
 
       cst = TREE_VALUE (args);
       if (TREE_CODE (cst) != INTEGER_CST)
 	{
-	  warning ("%qs attribute requires an integer constant argument",
+	  warning (/* OPT_Wattributes, */
+		   "%qs attribute requires an integer constant argument",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
       else if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	{
-	  warning ("argument to %qs attribute larger than %d",
+	  warning (/* OPT_Wattributes, */ "argument to %qs attribute larger than %d",
 		   IDENTIFIER_POINTER (name), REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
 
-      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
-	{
+      return NULL_TREE;
+    }
+
+  if (TARGET_64BIT)
+    {
+      warning (/*OPT_Wattributes, */ "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* Can combine fastcall with stdcall (redundant) and sseregparm.  */
+  /* APPLE LOCAL begin regparmandstackparm */
+  if (is_attribute_p ("fastcall", name)
+      || is_attribute_p ("regparmandstackparm", name))
+  /* APPLE LOCAL end regparmandstackparm */
+    {
+      if (lookup_attribute ("cdecl", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("fastcall and cdecl attributes are not compatible");
+	}
+      if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("fastcall and stdcall attributes are not compatible");
+	}
+      if (lookup_attribute ("regparm", TYPE_ATTRIBUTES (*node)))
+        {
 	  error ("fastcall and regparm attributes are not compatible");
 	}
     }
 
+  /* Can combine stdcall with fastcall (redundant), regparm and
+     sseregparm.  */
+  else if (is_attribute_p ("stdcall", name))
+    {
+      if (lookup_attribute ("cdecl", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("stdcall and cdecl attributes are not compatible");
+	}
+      /* APPLE LOCAL begin regparmandstackparm */
+      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node))
+	  || lookup_attribute ("regparmandstackparm", TYPE_ATTRIBUTES (*node)))
+      /* APPLE LOCAL end regparmandstackparm */
+        {
+	  error ("stdcall and fastcall attributes are not compatible");
+	}
+    }
+
+  /* Can combine cdecl with regparm and sseregparm.  */
+  else if (is_attribute_p ("cdecl", name))
+    {
+      if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("stdcall and cdecl attributes are not compatible");
+	}
+      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (*node)))
+        {
+	  error ("fastcall and cdecl attributes are not compatible");
+	}
+    }
+
+  /* Can combine sseregparm with all attributes.  */
+
   return NULL_TREE;
 }
+/* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
@@ -1933,17 +2006,23 @@ ix86_comp_type_attributes (tree type1, tree type2)
   if (TREE_CODE (type1) != FUNCTION_TYPE)
     return 1;
 
-  /*  Check for mismatched fastcall types */
-  if (!lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type1))
-      != !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
+  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+  /* Check for mismatched fastcall/regparm types.  */
+  if ((!lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type1))
+       != !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
+      || (ix86_function_regparm (type1, NULL)
+	  != ix86_function_regparm (type2, NULL)))
     return 0;
+
+  /* Check for mismatched sseregparm types.  */
+  if (!lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type1))
+      != !lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type2)))
+    return 0;
+  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
   /* Check for mismatched return types (cdecl vs stdcall).  */
   if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
       != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
-    return 0;
-  if (ix86_function_regparm (type1, NULL)
-      != ix86_function_regparm (type2, NULL))
     return 0;
   return 1;
 }
@@ -1968,7 +2047,10 @@ ix86_function_regparm (tree type, tree decl)
 	  user_convention = true;
 	}
 
-      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
+      /* APPLE LOCAL begin regparmandstackparm */
+      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type))
+	  || lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (type)))
+      /* APPLE LOCAL end regparmandstackparm */
 	{
 	  regparm = 2;
 	  user_convention = true;
@@ -1992,6 +2074,55 @@ ix86_function_regparm (tree type, tree decl)
     }
   return regparm;
 }
+
+/* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+/* Return 1 or 2, if we can pass up to 8 SFmode (1) and DFmode (2) arguments
+   in SSE registers for a function with the indicated TYPE and DECL.
+   DECL may be NULL when calling function indirectly
+   or considering a libcall.  Otherwise return 0.  */
+
+static int
+ix86_function_sseregparm (tree type, tree decl)
+{
+  /* Use SSE registers to pass SFmode and DFmode arguments if requested
+     by the sseregparm attribute.  */
+  if (TARGET_SSEREGPARM
+      || (type
+	  && lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type))))
+    {
+      if (!TARGET_SSE)
+	{
+	  if (decl)
+	    error ("Calling %qD with attribute sseregparm without "
+		   "SSE/SSE2 enabled", decl);
+	  else
+	    error ("Calling %qT with attribute sseregparm without "
+		   "SSE/SSE2 enabled", type);
+	  return 0;
+	}
+
+      return 2;
+    }
+
+  /* APPLE LOCAL begin regparmandstackparm */
+  if (type && lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (type)))
+    return 2;
+  /* APPLE LOCAL end regparmandstackparm */
+
+  /* For local functions, pass SFmode (and DFmode for SSE2) arguments
+     in SSE registers even for 32-bit mode and not just 3, but up to
+     8 SSE arguments in registers.  */
+  if (!TARGET_64BIT && decl
+      && TARGET_SSE_MATH && flag_unit_at_a_time && !profile_flag)
+    {
+      struct cgraph_local_info *i = cgraph_local_info (decl);
+      if (i && i->local)
+	return TARGET_SSE2 ? 2 : 1;
+    }
+
+  return 0;
+}
+/* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
 /* Return true if EAX is live at the start of the function.  Used by
    ix86_expand_prologue to determine if we need special help before
@@ -2149,6 +2280,12 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	}
     }
 
+  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+  /* Set up the number of SSE registers used for passing SFmode
+     and DFmode arguments.  Warn for mismatching ABI.  */
+  cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl);
+  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
+
   /* Determine if this function has variable arguments.  This is
      indicated by the last argument being 'void_type_mode' if there
      are no variable arguments.  If there are variable arguments, then
@@ -2170,6 +2307,8 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 		  cum->warn_sse = 0;
 		  cum->warn_mmx = 0;
 		  cum->fastcall = 0;
+		  /* APPLE LOCAL mainline 2005-09-20 4205103 */
+		  cum->float_in_sse = 0;
 		}
 	      cum->maybe_vaarg = true;
 	    }
@@ -2873,6 +3012,16 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    }
 	  break;
 
+	  /* APPLE LOCAL begin mainline 2005-09-20 */
+	case DFmode:
+	  if (cum->float_in_sse < 2)
+	    break;
+	case SFmode:
+	  if (cum->float_in_sse < 1)
+	    break;
+	  /* FALLTHRU */
+	  /* APPLE LOCAL end mainline 2005-09-20 */
+
 	case TImode:
 	case V16QImode:
 	case V8HImode:
@@ -2994,6 +3143,15 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
 	    ret = gen_rtx_REG (mode, regno);
 	  }
 	break;
+	/* APPLE LOCAL begin mainline 2005-09-20 */
+      case DFmode:
+	if (cum->float_in_sse < 2)
+	  break;
+      case SFmode:
+	if (cum->float_in_sse < 1)
+	  break;
+	/* FALLTHRU */
+	/* APPLE LOCAL end mainline 2005-09-20 */
       case TImode:
       case V16QImode:
       case V8HImode:
@@ -3180,12 +3338,14 @@ ix86_function_value_regno_p (int regno)
 	  || ((regno) == FIRST_FLOAT_REG && TARGET_FLOAT_RETURNS_IN_80387));
 }
 
+/* APPLE LOCAL begin mainline 2005-09-20 4205103 */
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 rtx
-ix86_function_value (tree valtype)
+ix86_function_value (tree valtype, tree fntype_or_decl,
+		     bool outgoing ATTRIBUTE_UNUSED)
 {
   enum machine_mode natmode = type_natural_mode (valtype);
 
@@ -3201,8 +3361,17 @@ ix86_function_value (tree valtype)
       return ret;
     }
   else
-    return gen_rtx_REG (TYPE_MODE (valtype), ix86_value_regno (natmode));
+    {
+      tree fn = NULL_TREE, fntype;
+      if (fntype_or_decl
+	  && DECL_P (fntype_or_decl))
+        fn = fntype_or_decl;
+      fntype = fn ? TREE_TYPE (fn) : fntype_or_decl;
+      return gen_rtx_REG (TYPE_MODE (valtype),
+			  ix86_value_regno (natmode, fn, fntype));
+    }
 }
+/* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
 /* Return false iff type is returned in memory.  */
 int
@@ -3303,23 +3472,51 @@ ix86_libcall_value (enum machine_mode mode)
 	}
     }
   else
-    return gen_rtx_REG (mode, ix86_value_regno (mode));
+    /* APPLE LOCAL mainline 2005-09-20 4205103 */
+    return gen_rtx_REG (mode, ix86_value_regno (mode, NULL, NULL));
 }
 
 /* Given a mode, return the register to use for a return value.  */
 
 static int
-ix86_value_regno (enum machine_mode mode)
+ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
 {
-  /* Floating point return values in %st(0).  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_FLOAT_RETURNS_IN_80387)
-    return FIRST_FLOAT_REG;
+  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+  gcc_assert (!TARGET_64BIT);
+
+  /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
+     we prevent this case when mmx is not available.  */
+  if ((VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8))
+    return FIRST_MMX_REG;
+
   /* 16-byte vector modes in %xmm0.  See ix86_return_in_memory for where
      we prevent this case when sse is not available.  */
   if (mode == TImode || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
     return FIRST_SSE_REG;
-  /* Everything else in %eax.  */
-  return 0;
+
+  /* APPLE LOCAL begin regparmandstackparm */
+  if (SSE_FLOAT_MODE_P(mode)
+      && fntype && lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (fntype)))
+    return FIRST_SSE_REG;
+  /* APPLE LOCAL end regparmandstackparm */
+
+  /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
+  if (GET_MODE_CLASS (mode) != MODE_FLOAT || !TARGET_FLOAT_RETURNS_IN_80387)
+    return 0;
+
+  /* Floating point return values in %st(0), except for local functions when
+     SSE math is enabled or for functions with sseregparm attribute.  */
+  if ((func || fntype)
+      && (mode == SFmode || mode == DFmode))
+    {
+      int sse_level = ix86_function_sseregparm (fntype, func);
+      if ((sse_level >= 1 && mode == SFmode)
+	  || (sse_level == 2 && mode == DFmode))
+        return FIRST_SSE_REG;
+    }
+
+  return FIRST_FLOAT_REG;
+  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
 }
 
 /* Create the va_list data type.  */
@@ -17584,6 +17781,402 @@ i386_solaris_elf_named_section (const char *name, unsigned int flags,
     }
   default_elf_asm_named_section (name, flags, decl);
 }
+
+/* APPLE LOCAL begin regparmandstackparm */
+
+/* Mark this fndecl as using the regparmandstackparm calling convention.  */
+static void
+ix86_make_regparmandstackparmee (tree *pt)
+{
+  decl_attributes (pt,
+		   tree_cons (get_identifier ("regparmandstackparmee"),
+			      NULL_TREE, TYPE_ATTRIBUTES (*pt)), 0);
+}
+
+/* Lookup fndecls marked 'regparmandstackparm', retrieve their $3SSE equivalents.  */
+static splay_tree ix86_darwin_regparmandstackparm_st;
+/* Cache for regparmandstackparm fntypes.  */
+static splay_tree ix86_darwin_fntype_st;
+
+/* Append "$3SSE" to an ID, returning a new IDENTIFIER_NODE.  */
+static tree
+ix86_darwin_regparmandstackparm_mangle_name (tree id)
+{
+  static const char *mangle_suffix = "$3SSE";
+  unsigned int mangle_length = strlen (mangle_suffix);
+  const char *name;
+  unsigned int orig_length;
+  char *buf;
+
+  if (!id)
+    return NULL_TREE;
+
+  name = IDENTIFIER_POINTER (id);
+  orig_length = strlen (name);
+  buf = alloca (orig_length + mangle_length + 1);
+
+  strcpy (buf, name);
+  strcat (buf, mangle_suffix);
+  return get_identifier (buf);	/* Expecting get_identifier to reallocate the string.  */
+}
+
+/* Given the "normal" TRAD_FNDECL marked with 'regparmandstackparm',
+   return a duplicate fndecl marked 'regparmandstackparmee' (note trailing
+   'ee').  Enter them as a pair in the splay tree ST, if non-null;
+   looking up the TRAD_FNDECL will return the new one.  */
+static tree
+ix86_darwin_regparmandstackparm_dup_fndecl (tree trad_fndecl, splay_tree st)
+{
+  tree fntype;
+  tree new_fndecl;
+
+  fntype = TREE_TYPE (trad_fndecl);
+
+  /* NEW_FNDECL will be compiled with the XMM-based calling
+     convention, and TRAD_FNDECL (the original) will be compiled with
+     the traditional stack-based calling convention.  */
+  new_fndecl = copy_node (trad_fndecl);
+  DECL_STRUCT_FUNCTION (new_fndecl) = (struct function *)0;
+  allocate_struct_function (new_fndecl);
+  DECL_STRUCT_FUNCTION (new_fndecl)->function_end_locus
+    = DECL_STRUCT_FUNCTION (trad_fndecl)->function_end_locus;
+  DECL_STRUCT_FUNCTION (new_fndecl)->static_chain_decl =
+    DECL_STRUCT_FUNCTION (trad_fndecl)->static_chain_decl;
+  DECL_RESULT (new_fndecl) = copy_node (DECL_RESULT (trad_fndecl));
+  DECL_CONTEXT (DECL_RESULT (new_fndecl)) = new_fndecl;
+  SET_DECL_ASSEMBLER_NAME (new_fndecl, 0);
+  DECL_NAME (new_fndecl) = ix86_darwin_regparmandstackparm_mangle_name (DECL_NAME (trad_fndecl));
+  TYPE_ATTRIBUTES (TREE_TYPE (new_fndecl))
+    = copy_list (TYPE_ATTRIBUTES (TREE_TYPE (trad_fndecl)));
+  ix86_make_regparmandstackparmee (&TREE_TYPE (new_fndecl));
+  /* Kludge: block copied from tree-inline.c(save_body).  Should
+     be refactored into a common shareable routine.  */	
+  {
+    tree *parg;
+
+    for (parg = &DECL_ARGUMENTS (new_fndecl);
+	 *parg;
+	 parg = &TREE_CHAIN (*parg))
+      {
+	tree new = copy_node (*parg);
+
+	lang_hooks.dup_lang_specific_decl (new);
+	DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (*parg);
+	DECL_CONTEXT (new) = new_fndecl;
+	/* Note: it may be possible to move the original parameters
+	   with the function body, making this splay tree
+	   unnecessary.  */
+	if (st)
+	  splay_tree_insert (st, (splay_tree_key) *parg, (splay_tree_value) new);
+	TREE_CHAIN (new) = TREE_CHAIN (*parg);
+	*parg = new;
+      }
+
+    if (DECL_STRUCT_FUNCTION (trad_fndecl)->static_chain_decl)
+      {
+	tree old = DECL_STRUCT_FUNCTION (trad_fndecl)->static_chain_decl;
+	tree new = copy_node (old);
+
+	lang_hooks.dup_lang_specific_decl (new);
+	DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (old);
+	DECL_CONTEXT (new) = new_fndecl;
+	if (st)
+	  splay_tree_insert (st, (splay_tree_key) old, (splay_tree_value) new);
+	TREE_CHAIN (new) = TREE_CHAIN (old);
+	DECL_STRUCT_FUNCTION (new_fndecl)->static_chain_decl = new;
+      }
+
+    if (st)
+      splay_tree_insert (st, (splay_tree_key) DECL_RESULT (trad_fndecl),
+			 (splay_tree_value) DECL_RESULT (new_fndecl));
+  }
+#if 0
+  /* Testing Kludge: If TREE_READONLY is set, cgen can and
+     occasionally will delete "pure" (no side-effect) calls to a
+     library function.  Cleared here to preclude this when
+     test-building libraries.  */
+  TREE_READONLY (new_fndecl) = false;
+#endif
+
+  return new_fndecl;
+}
+
+/* FNDECL has no body, but user has marked it as a regparmandstackparm
+   item.  Create a corresponding regparmandstackparm decl for it, and
+   arrange for calls to be redirected to the regparmandstackparm
+   version.  */
+static tree
+ix86_darwin_regparmandstackparm_extern_decl (tree trad_fndecl)
+{
+  tree new_fndecl;
+
+  /* new_fndecl = ix86_darwin_regparmandstackparm_dup_fndecl (trad_fndecl, (splay_tree)0); */
+  new_fndecl = copy_node (trad_fndecl);
+  DECL_NAME (new_fndecl) = ix86_darwin_regparmandstackparm_mangle_name (DECL_NAME (trad_fndecl));
+  DECL_STRUCT_FUNCTION (new_fndecl) = (struct function *)0;
+  SET_DECL_ASSEMBLER_NAME (new_fndecl, 0);
+  ix86_make_regparmandstackparmee (&TREE_TYPE (new_fndecl));
+  cgraph_finalize_function (new_fndecl, /* nested = */ true);
+  if (!ix86_darwin_regparmandstackparm_st)
+    ix86_darwin_regparmandstackparm_st
+      = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  splay_tree_insert (ix86_darwin_regparmandstackparm_st,
+		     (splay_tree_key) trad_fndecl, (splay_tree_value) new_fndecl);
+  return new_fndecl;
+}
+
+/* Invoked after all functions have been seen and digested, but before
+   any inlining decisions have been made.  Walk the callgraph, seeking
+   calls to functions that have regparmandstackparm variants.  Rewrite the
+   calls, directing them to the new 'regparmandstackparmee' versions.  */
+void
+ix86_darwin_redirect_calls(void)
+{
+  struct cgraph_node *fastcall_node, *node;
+  struct cgraph_edge *edge, *next_edge;
+  tree addr, fastcall_decl, orig_fntype;
+  splay_tree_node call_stn, type_stn;
+
+  if (!flag_unit_at_a_time)
+    return;
+
+  if (!ix86_darwin_fntype_st)
+    ix86_darwin_fntype_st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  
+  if (!ix86_darwin_regparmandstackparm_st)
+    ix86_darwin_regparmandstackparm_st
+      = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
+  /* Extern decls marked "regparmandstackparm" beget regparmandstackparmee
+     decls.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    if (!DECL_SAVED_TREE (node->decl)
+	&& lookup_attribute ("regparmandstackparm",
+			     TYPE_ATTRIBUTES (TREE_TYPE (node->decl)))
+	&& !lookup_attribute ("regparmandstackparmee",
+			      TYPE_ATTRIBUTES (TREE_TYPE (node->decl))))
+      {
+	fastcall_decl = ix86_darwin_regparmandstackparm_extern_decl (node->decl);
+	splay_tree_insert (ix86_darwin_regparmandstackparm_st,
+			   (splay_tree_key) node->decl,
+			   (splay_tree_value) fastcall_decl);
+      }
+
+  /* Walk the callgraph, rewriting calls as we go.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      call_stn = splay_tree_lookup (ix86_darwin_regparmandstackparm_st,
+				    (splay_tree_key)node->decl);
+      /* If this function was in our splay-tree, we previously created
+	 a regparmandstackparm version of it.  */
+      if (call_stn)
+	{
+	  fastcall_decl = (tree)call_stn->value;
+	  fastcall_node = cgraph_node (fastcall_decl);
+	  /* Redirect all calls to this fn to the regparmandstackparm
+	     version.  */
+	  for (edge = next_edge = node->callers ; edge ; edge = next_edge)
+	    {
+	      next_edge = next_edge->next_caller;
+	      cgraph_redirect_edge_callee (edge, fastcall_node);
+	      addr = TREE_OPERAND (edge->call_expr, 0);
+	      TREE_OPERAND (addr, 0) = fastcall_decl;
+	      orig_fntype = TREE_TYPE (addr);
+	      /* Likewise, revise the TYPE of the ADDR node between
+		 the CALL_EXPR and the FNDECL.  This type determines
+		 the parameters and calling convention applied to this
+		 CALL_EXPR.  */
+	      type_stn = splay_tree_lookup (ix86_darwin_fntype_st, (splay_tree_value)orig_fntype);
+	      if (type_stn)
+		TREE_TYPE (addr) = (tree)type_stn->value;
+	      else
+		{
+		  ix86_make_regparmandstackparmee (&TREE_TYPE (addr));
+		  splay_tree_insert (ix86_darwin_fntype_st,
+				     (splay_tree_key)orig_fntype,
+				     (splay_tree_value)TREE_TYPE (addr));
+		}
+	    }
+	}
+    }
+}
+
+/* Information necessary to re-context a function body.  */
+typedef struct {
+  tree old_context;
+  tree new_context;
+  splay_tree decl_map;
+} recontext_data;
+
+/* Visit every node of a function body; if it points at the
+   OLD_CONTEXT, re-direct it to the NEW_CONTEXT.  Invoked via
+   walk_tree.  DECL_MAP is a splay tree that maps the original
+   parameters to new ones.  */
+static tree
+ix86_darwin_re_context_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
+{
+  tree t;
+  recontext_data *rcd;
+  enum tree_code_class class;
+  splay_tree_node n;
+
+  if (!tp)
+      return NULL_TREE;
+
+  t = *tp;
+  if (!t)
+    return NULL_TREE;
+
+  rcd = (recontext_data *)data;
+  n = splay_tree_lookup (rcd->decl_map, (splay_tree_key) t);
+  if (n)
+    {
+      *tp = (tree)n->value;
+      return NULL_TREE;
+    }
+
+  class = TREE_CODE_CLASS (TREE_CODE (t));
+  if (class != tcc_declaration)
+    return NULL_TREE;
+
+  if (DECL_CONTEXT (t) == rcd->old_context)
+    DECL_CONTEXT (t) = rcd->new_context;
+
+  return NULL_TREE;
+}
+
+/* Walk a function body, updating every pointer to OLD_CONTEXT to
+   NEW_CONTEXT.  TP is the top of the function body, and ST is a splay
+   tree of replacements for the parameters.  */
+static tree
+ix86_darwin_re_context (tree *tp, tree old_context, tree new_context, splay_tree st)
+{
+  recontext_data rcd;
+  tree ret;
+
+  rcd.old_context = old_context;
+  rcd.new_context = new_context;
+  rcd.decl_map = st;
+
+  ret = walk_tree (tp, ix86_darwin_re_context_1,
+		   (void *)&rcd, (struct pointer_set_t *)0);
+  return ret;
+}
+
+/* Given TRAD_FNDECL, create a regparmandstackparm variant and hang the
+   DECL_SAVED_TREE body there.  Create a new, one-statement body for
+   TRAD_FNDECL that calls the new one.  If the return types are
+   compatible (e.g. non-FP), the call can usually be sibcalled.  The
+   inliner will often copy the body from NEW_FNDECL into TRAD_FNDECL,
+   and we do nothing to prevent this.  */
+static void
+ix86_darwin_regparmandstackparm_wrapper (tree trad_fndecl)
+{
+  tree new_fndecl;
+  splay_tree st;
+  tree bind, block, call, clone_parm, modify, parmlist, rdecl, rtn, stmt_list, type;
+  tree_stmt_iterator tsi;
+  /* Yuck.  This is extern-ed in c-common.h, but that duplicates the definition
+     of CTI_MAX; it appears that there are two enums consisting of CTI_<something>.
+     One in optabs.h, and another in c-common.h.  Sheesh.  */
+  extern tree build_function_call (tree, tree);
+  extern tree build_modify_expr (tree, enum tree_code, tree);
+
+  st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  new_fndecl = ix86_darwin_regparmandstackparm_dup_fndecl (trad_fndecl, st);
+
+  for (parmlist = NULL, clone_parm = DECL_ARGUMENTS (trad_fndecl);
+       clone_parm;
+       clone_parm = TREE_CHAIN (clone_parm))
+    {
+      gcc_assert (clone_parm);
+      DECL_ABSTRACT_ORIGIN (clone_parm) = NULL;
+      parmlist = tree_cons (NULL, clone_parm, parmlist);
+    }
+
+  /* We built this list backwards; fix now.  */
+  parmlist = nreverse (parmlist);
+  type = TREE_TYPE (TREE_TYPE (trad_fndecl));
+  call = build_function_call (new_fndecl, parmlist);
+  TREE_TYPE (call) = type;
+  if (type == void_type_node)
+    rtn = call;
+  else if (0 && ix86_return_in_memory (type))
+    {
+      /* Return without a RESULT_DECL: RETURN_EXPR (CALL).  */
+      rtn = make_node (RETURN_EXPR);
+      TREE_OPERAND (rtn, 0) = call;
+      TREE_TYPE (rtn) = type;
+    }
+  else	/* RETURN_EXPR(MODIFY(RESULT_DECL, CALL)).  */
+    {
+      rdecl = make_node (RESULT_DECL);
+      TREE_TYPE (rdecl) = type;
+      DECL_MODE (rdecl) = TYPE_MODE (type);
+      DECL_RESULT (trad_fndecl) = rdecl;
+      DECL_CONTEXT (rdecl) = trad_fndecl;
+      modify = build_modify_expr (rdecl, NOP_EXPR, call);
+      TREE_TYPE (modify) = type;
+      rtn = make_node (RETURN_EXPR);
+      TREE_OPERAND (rtn, 0) = modify;
+      TREE_TYPE (rtn) = type;
+    }
+  stmt_list = alloc_stmt_list ();
+  tsi = tsi_start (stmt_list);
+  tsi_link_after (&tsi, rtn, TSI_NEW_STMT);
+
+  /* This wrapper consists of "return <my_name>$3SSE (<my_arguments>);"
+     thus it has no local variables.  */
+  block = make_node (BLOCK);
+  TREE_USED (block) = true;
+  bind = make_node (BIND_EXPR);
+  BIND_EXPR_BLOCK (bind) = block;
+  BIND_EXPR_BODY (bind) = stmt_list;
+  TREE_TYPE (bind) = void_type_node;
+  TREE_SIDE_EFFECTS (bind) = true;
+
+  DECL_SAVED_TREE (trad_fndecl) = bind;
+
+  /* DECL_ABSTRACT_ORIGIN (new_fndecl) = NULL; *//* ? */
+
+  ix86_darwin_re_context (&new_fndecl, trad_fndecl, new_fndecl, st);
+  ix86_darwin_re_context (&DECL_SAVED_TREE (new_fndecl), trad_fndecl, new_fndecl, st);
+  splay_tree_delete (st);
+  gimplify_function_tree (new_fndecl);
+  cgraph_finalize_function (new_fndecl, /* nested = */ true);
+  gimplify_function_tree (trad_fndecl);
+  if (!ix86_darwin_regparmandstackparm_st)
+    ix86_darwin_regparmandstackparm_st
+      = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  splay_tree_insert (ix86_darwin_regparmandstackparm_st,
+		     (splay_tree_key) trad_fndecl, (splay_tree_value) new_fndecl);
+}
+
+/* Entry point into the regparmandstackparm stuff.  FNDECL might be marked
+   'regparmandstackparm'; if it is, create the fast version, &etc.  */
+void
+ix86_darwin_handle_regparmandstackparm (tree fndecl)
+{
+  static unsigned int already_running = 0;
+
+  /* We don't support variable-argument functions yet.  */
+  if (!fndecl || already_running)
+    return;
+
+  already_running++;
+
+  if (lookup_attribute ("regparmandstackparm", TYPE_ATTRIBUTES (TREE_TYPE (fndecl)))
+      && !lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (TREE_TYPE (fndecl))))
+    {
+      if (DECL_STRUCT_FUNCTION (fndecl) && DECL_STRUCT_FUNCTION (fndecl)->stdarg)
+	error ("regparmandstackparm is incompatible with varargs");
+      else if (DECL_SAVED_TREE (fndecl))
+	ix86_darwin_regparmandstackparm_wrapper (fndecl);
+    }
+
+  already_running--;
+}
+/* APPLE LOCAL end regparmandstackparm */
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Translate some register names seen in CW asm into GCC standard

@@ -1,3 +1,8 @@
+2005-09-22  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4205103
+	* gcc/testsuite/gcc.apple/i386-regandstackcall-1.c: New.
+
 2005-09-21  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4043818

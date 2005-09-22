@@ -135,9 +135,13 @@ extern int target_flags;
 #define MASK_64BIT		0x00100000	/* Produce 64bit code */
 #define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
 #define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
+/* APPLE LOCAL begin regparmandstackparm; delete at 4.1 merge (when i386.opt file appears) */
+#define MASK_SSEREGPARM		0x01000000	/* Pass float & double in SSE regs */
+#define TARGET_SSEREGPARM (target_flags & MASK_SSEREGPARM)
+/* APPLE LOCAL end regparmandstackparm; delete at 4.1 merge (when i386.opt file appears) */
 
 /* APPLE LOCAL dynamic-no-pic */
-/* Unused:			0x03000000	*/
+/* Unused:			0x02000000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -1717,8 +1721,10 @@ enum reg_class
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
+/* APPLE LOCAL begin mainline 2005-09-20 */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-   ix86_function_value (VALTYPE)
+   ix86_function_value (VALTYPE, FUNC, 0)
+/* APPLE LOCAL end mainline 2005-09-20 */
 
 #define FUNCTION_VALUE_REGNO_P(N) \
   ix86_function_value_regno_p (N)
@@ -1758,6 +1764,10 @@ typedef struct ix86_args {
   int mmx_nregs;		/* # mmx registers available for passing */
   int mmx_regno;		/* next available mmx register number */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
+  /* APPLE LOCAL begin mainline 2005-09-20 */
+  int float_in_sse;		/* 1 if in 32-bit mode SFmode (2 for DFmode) should
+				   be passed in SSE registers.  Otherwise 0.  */
+  /* APPLE LOCAL end mainline 2005-09-20 */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -2051,7 +2061,8 @@ do {							\
 
 #define REGPARM_MAX (TARGET_64BIT ? 6 : 3)
 
-#define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : (TARGET_SSE ? 3 : 0))
+/* APPLE LOCAL regparmandstackparm */
+#define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : (TARGET_MACHO ? 4 : (TARGET_SSE ? 3 : 0)))
 
 #define MMX_REGPARM_MAX (TARGET_64BIT ? 0 : (TARGET_MMX ? 3 : 0))
 
@@ -2459,6 +2470,11 @@ extern enum asm_dialect ix86_asm_dialect;
 
 extern int ix86_regparm;
 extern const char *ix86_regparm_string;
+
+/* APPLE LOCAL begin regparmandstackparm */
+extern void ix86_darwin_handle_regparmandstackparm (tree fndecl);
+extern void ix86_darwin_redirect_calls(void);
+/* APPLE LOCAL end regparmandstackparm */
 
 extern unsigned int ix86_preferred_stack_boundary;
 extern const char *ix86_preferred_stack_boundary_string;

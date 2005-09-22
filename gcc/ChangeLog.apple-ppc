@@ -1,3 +1,33 @@
+2005-09-22  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4205103
+	* gcc/config/i386/i386.c (ix86_function_value, ix86_value_regno): Backport new
+	three-argument versions from FSF mainline, add support for __attribute__ ((regparmandstackparm)).
+	(ix86_handle_cdecl_attribute, ix86_handle_regparm_attribute, ix86_handle_cconv_attribute):
+	Replace the first two with the third, from FSF mainline; added support for
+	__attribute__ ((regparmandstackparm)).
+	(ix86_function_regparm): Check for __attribute__ ((regparmandstackparm)).
+	(ix86_function_sseregparm):  Backported from FSF mainline, add check for
+	__attribute__ ((regparmandstackparm)).
+	(ix86_comp_type_attributes, init_cumulative_args, function_arg_advance, function_arg,
+	TARGET_FUNCTION_VALUE): Backport changes from FSF mainline.
+	(ix86_function_ok_for_sibcall): Backport new version from FSF mainline.
+	(ix86_darwin_make_regparmandstackparmee, ix86_darwin_regparmandstackparm_mangle_name,
+	ix86_darwin_regparmandstackparm_dup_fndecl, ix86_darwin_regparmandstackparm_extern_decl,
+	ix86_darwin_redirect_calls, ix86_darwin_re_context_1, ix86_darwin_re_context,
+	ix86_darwin_regparmandstackparm_wrapper): New.
+	(ix86_darwin_handle_regparmandstackparm, ix86_darwin_redirect_calls): New; support for
+	__attribute__ ((regparmandstackparm)).
+	* gcc/cgraphunit.c (cgraph_finalize_function): Use ix86_darwin_handle_regparmandstackparm.
+	(cgraph_finalize_compilation_unit): Use ix86_darwin_redirect_calls.
+	* gcc/config/i386/i386-protos.h(ix86_function_value): Updated extern decl.
+	* gcc/config/i386/i386.h (MASK_SSEREGPARM, TARGET_SSEREGPARM): New.
+	(FUNCTION_VALUE): Backported three-argument version from FSF mainline.
+	(struct ix86_args): Backported float_in_sse field from FSF mainline.
+	(SSE_REGPARM_MAX): Added Darwin/x86-specific support for __attribute__ ((regparmandstackparm)).
+	(ix86_darwin_handle_regparmandstackparm, ix86_darwin_redirect_calls): Declare.
+	* gcc/doc/extend.texi (regparmandstackparm): Documentation for __attribute__ ((regparmandstackparm)).
+
 2005-09-21    Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4043818 (pr19653)
