@@ -1133,6 +1133,7 @@ static struct c_expr c_parser_postfix_expression_after_primary (c_parser *,
 static struct c_expr c_parser_expression (c_parser *);
 static struct c_expr c_parser_expression_conv (c_parser *);
 static tree c_parser_expr_list (c_parser *, bool);
+static void c_parser_omp_directive (c_parser *parser);
 
 /* These Objective-C parser functions are only ever called when
    compiling Objective-C.  */
@@ -1302,8 +1303,9 @@ c_parser_pragma (c_parser *parser)
 
   cpp_handle_deferred_pragma (parse_in, &s);
 
-  /* Consume all tokens */
+  /* Consume all tokens; reset error state.  */
   parser->tokens_avail = 0;
+  parser->error = false;
 
   /* Clearing token->value here means that we will get an ICE if we
      try to process this #pragma again (which should be impossible). */
@@ -3570,6 +3572,28 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  else
 	    goto statement;
 	}
+      else if (c_parser_next_token_is (parser, CPP_PRAGMA))
+	{
+	  /* The barrier and flush directives are not associated with regular
+	     c code, and so are not to be considered statements syntactically.
+	     This ensures that the user doesn't put them places that would 
+	     turn into syntax errors if the directive were ignored.  */
+	  switch (c_parser_peek_token (parser)->omp_kind)
+	    {
+	    case PRAGMA_OMP_BARRIER:
+	      c_parser_pragma (parser);
+	      c_finish_omp_barrier ();
+	      break;
+
+	    case PRAGMA_OMP_FLUSH:
+	      c_parser_pragma (parser);
+	      c_finish_omp_flush ();
+	      break;
+
+	    default:
+	      goto statement;
+	    }
+	}
       else
 	{
 	statement:
@@ -3762,8 +3786,6 @@ c_parser_statement (c_parser *parser)
 }
 
 /* Parse a statement, other than a labeled statement.  */
-
-static void c_parser_omp_directive (c_parser *parser);
 
 static void
 c_parser_statement_after_labels (c_parser *parser)
@@ -6601,7 +6623,7 @@ c_parser_section_scope (c_parser *parser)
       }
     else
       {
-	c_parser_error (parser, "'#pragma omp section' expected");
+	c_parser_error (parser, "%<#pragma omp section%> expected");
 	break;
       }
 
@@ -6610,6 +6632,94 @@ c_parser_section_scope (c_parser *parser)
   return c_end_compound_stmt (stmt, true);
 }
 
+/* Parse the expression for #pragma omp atomic.  */
+
+static void
+c_parser_omp_atomic_expression (c_parser *parser)
+{
+  tree lhs, rhs, dummy;
+  enum tree_code code;
+  int last_errorcount = errorcount;
+
+  lhs = c_parser_unary_expression (parser).value;
+  switch (TREE_CODE (lhs))
+    {
+    case PREINCREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+      lhs = TREE_OPERAND (lhs, 0);
+      code = PLUS_EXPR;
+      rhs = integer_one_node;
+      break;
+
+    case PREDECREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+      lhs = TREE_OPERAND (lhs, 0);
+      code = MINUS_EXPR;
+      rhs = integer_one_node;
+      break;
+
+    default:
+      switch (c_parser_peek_token (parser)->type)
+	{
+	case CPP_MULT_EQ:
+	  code = MULT_EXPR;
+	  break;
+	case CPP_DIV_EQ:
+	  code = TRUNC_DIV_EXPR;
+	  break;
+	case CPP_PLUS_EQ:
+	  code = PLUS_EXPR;
+	  break;
+	case CPP_MINUS_EQ:
+	  code = MINUS_EXPR;
+	  break;
+	case CPP_LSHIFT_EQ:
+	  code = LSHIFT_EXPR;
+	  break;
+	case CPP_RSHIFT_EQ:
+	  code = RSHIFT_EXPR;
+	  break;
+	case CPP_AND_EQ:
+	  code = BIT_AND_EXPR;
+	  break;
+	case CPP_OR_EQ:
+	  code = BIT_IOR_EXPR;
+	  break;
+	case CPP_XOR_EQ:
+	  code = BIT_XOR_EXPR;
+	  break;
+	default:
+	  c_parser_error (parser,
+			  "invalid operator for %<#pragma omp atomic%>");
+	  return;
+	}
+
+      c_parser_consume_token (parser);
+      rhs = c_parser_expression (parser).value;
+      break;
+    }
+
+  /* We want rhs converted into a type compatible with lhs, without the
+     default promotions that would happen for normal arithmetic.  The
+     easiest way to do this is to build a dummy assignment expression
+     and then extract the components.  */
+
+  /* If we've reported an error for something, don't cascade.  We'll
+     see this instead of error_mark_node when lhs is readonly.  */
+  if (last_errorcount != errorcount)
+    return;
+  dummy = build_modify_expr (lhs, NOP_EXPR, rhs);
+  if (dummy == error_mark_node)
+    return;
+  if (last_errorcount != errorcount)
+    return;
+
+  gcc_assert (TREE_CODE (dummy) == MODIFY_EXPR);  
+  lhs = TREE_OPERAND (dummy, 0);
+  rhs = TREE_OPERAND (dummy, 1);
+
+  c_finish_omp_atomic (code, lhs, rhs);
+}
 
 /* Parse the body of an OpenMP directive.  */
 
@@ -6669,17 +6779,19 @@ c_parser_omp_directive (c_parser *parser)
 	c_finish_omp_ordered (stmt);
 	break;
 
-      case PRAGMA_OMP_BARRIER:
-	c_finish_omp_barrier ();
-	break;
-
       case PRAGMA_OMP_ATOMIC:
-	c_finish_omp_atomic (c_parser_expr_no_commas (parser, NULL).value);
+	c_parser_omp_atomic_expression (parser);
 	c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	break;
 
+      case PRAGMA_OMP_BARRIER:
+	error ("%<#pragma omp barrier%> may only be "
+	       "used in compound statements");
+	break;
+
       case PRAGMA_OMP_FLUSH:
-	c_finish_omp_flush ();
+	error ("%<#pragma omp flush%> may only be "
+	       "used in compound statements");
 	break;
 
       default:
@@ -7167,18 +7279,15 @@ c_parser_pragma_omp_critical (cpp_reader *pfile ATTRIBUTE_UNUSED)
 	  curr_clause_set = c_parser_peek_token (the_parser)->value;
 	  c_parser_consume_token (the_parser);
 	  c_parser_require (the_parser, CPP_CLOSE_PAREN, "expected %<)%>");
+	  if (c_parser_next_token_is (the_parser, CPP_EOF))
+	    return;
+	  c_parser_error (the_parser, "expected new-line");
 	}
       else
-	{
-	  c_parser_error (the_parser, "expected identifier");
-	  c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN, NULL);
-	}
+	c_parser_error (the_parser, "expected identifier");
     }
-
-  if (c_parser_next_token_is_not (the_parser, CPP_EOF))
-    {
-      c_parser_error (the_parser, "expected new-line");
-    }
+  else if (c_parser_next_token_is_not (the_parser, CPP_EOF))
+    c_parser_error (the_parser, "expected new-line or %<(%>");
 }
 
 /* OpenMP 2.5:
@@ -7194,11 +7303,13 @@ c_parser_pragma_omp_flush (cpp_reader *pfile ATTRIBUTE_UNUSED)
     {
       c_parser_consume_token (the_parser);
       c_parser_pragma_omp_variable_list (the_parser);
-      c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN, "expected %<)%>");
+      c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN,
+				 "expected %<,%> or %<)%>");
+      if (c_parser_next_token_is_not (the_parser, CPP_EOF))
+	c_parser_error (the_parser, "expected new-line");
     }
-
-  if (c_parser_next_token_is_not (the_parser, CPP_EOF))
-    c_parser_error (the_parser, "expected new-line");
+  else if (c_parser_next_token_is_not (the_parser, CPP_EOF))
+    c_parser_error (the_parser, "expected new-line or %<(%>");
 }
 
 /* OpenMP 2.5:

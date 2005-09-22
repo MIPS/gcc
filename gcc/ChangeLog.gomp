@@ -1,3 +1,22 @@
+2005-09-22  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (sync_resolve_return): Convert to the main variant.
+	* c-tree.h (pushdecl): Move decl ...
+	* c-common.h (pushdecl): ... here.
+	(c_finish_omp_atomic): Update decl.
+	* c-omp.c (c_finish_omp_atomic): Take code, lhs, rhs separately;
+	delete code to extract them.  Use TYPE_MAIN_VARIANT.  Return early
+	if lhs is not addressable.  Push new decls into current binding.
+	Use build_binary_op.
+	* c-parser.c (c_parser_pragma): Reset parser->error.
+	(c_parser_compound_statement_nostart): Reinstate special case for
+	barrier and flush.  Move parsing of these directives here.
+	(c_parser_section_scope): Fix quoting in error message.
+	(c_parser_omp_atomic_expression): New.
+	(c_parser_omp_directive): Use it.  Error on barrier or flush.
+	(c_parser_pragma_omp_critical): Tighten error corner cases.
+	(c_parser_pragma_omp_flush): Likewise.
+
 2005-09-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-typeck.c (c_finish_gomp_for): Update OpenMP spec version.

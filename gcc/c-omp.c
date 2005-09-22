@@ -140,71 +140,22 @@ c_finish_omp_barrier (void)
    implemented atomically is LHS code= RHS.  */
 
 void
-c_finish_omp_atomic (tree expr)
+c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
-  tree lhs, rhs, decl, x, y;
-  enum tree_code code;
+  tree decl, x, y;
   tree oldval, newval, rhsval, lhsaddr, type, label;
 
-  switch (TREE_CODE (expr))
+  /* ??? The OpenMP spec appears to allow floating-point types.  */
+  type = TYPE_MAIN_VARIANT (TREE_TYPE (lhs));
+  if (!INTEGRAL_TYPE_P (type))
     {
-    case PREINCREMENT_EXPR:
-    case POSTINCREMENT_EXPR:
-      code = PLUS_EXPR;
-      lhs = TREE_OPERAND (expr, 0);
-      rhs = fold_convert (TREE_TYPE (lhs), integer_one_node);
-      break;
-
-    case PREDECREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-      code = MINUS_EXPR;
-      lhs = TREE_OPERAND (expr, 0);
-      rhs = fold_convert (TREE_TYPE (lhs), integer_one_node);
-      break;
-
-    case MODIFY_EXPR:
-      lhs = TREE_OPERAND (expr, 0);
-      expr = TREE_OPERAND (expr, 1);
-      code = TREE_CODE (expr);
-      switch (code)
-	{
-	case PLUS_EXPR:
-	case MINUS_EXPR:
-	case BIT_AND_EXPR:
-	case BIT_IOR_EXPR:
-	case BIT_XOR_EXPR:
-	case MULT_EXPR:
-	case TRUNC_DIV_EXPR:
-	case RDIV_EXPR:
-	case LSHIFT_EXPR:
-	case RSHIFT_EXPR:
-	  x = TREE_OPERAND (expr, 0);
-	  y = TREE_OPERAND (expr, 1);
-	  break;
-
-	default:
-	  goto invalid;
-	}
-
-      if (operand_equal_p (lhs, x, 0))
-	;
-      else if (commutative_tree_code (code)
-	       && operand_equal_p (lhs, rhs, 0))
-	rhs = x;
-      else
-	goto invalid;
-      break;
-
-    default:
-      goto invalid;
+      error ("invalid expression type for %<#pragma omp atomic%>");
+      return;
     }
 
-  /* ??? The OpenMP spec appears to allow floating-point types.  */
-  type = TREE_TYPE (lhs);
-  if (!INTEGRAL_TYPE_P (type))
-    goto invalid;
-
   lhsaddr = build_unary_op (ADDR_EXPR, lhs, 0);
+  if (lhsaddr == error_mark_node)
+    return;
 
   switch (code)
     {
@@ -238,9 +189,9 @@ c_finish_omp_atomic (tree expr)
   /* In these cases, we don't have specialized __sync builtins,
      so we need to implement a compare and swap loop.  */
 
-  oldval = create_tmp_var_raw (type, NULL);
-  newval = create_tmp_var_raw (type, NULL);
-  rhsval = create_tmp_var_raw (type, NULL);
+  oldval = pushdecl (create_tmp_var_raw (type, NULL));
+  newval = pushdecl (create_tmp_var_raw (type, NULL));
+  rhsval = pushdecl (create_tmp_var_raw (type, NULL));
   label = create_artificial_label ();
   lhsaddr = save_expr (lhsaddr);
 
@@ -258,7 +209,7 @@ c_finish_omp_atomic (tree expr)
 
   add_stmt (build_stmt (LABEL_EXPR, label));
 
-  x = build2 (code, type, oldval, rhsval);
+  x = build_binary_op (code, oldval, rhsval, false);
   x = build2 (MODIFY_EXPR, void_type_node, newval, x);
   add_stmt (x);
 
@@ -275,10 +226,6 @@ c_finish_omp_atomic (tree expr)
   x = build3 (COND_EXPR, void_type_node, x, y, NULL);
   add_stmt (x);
   return;
-
- invalid:
-  error ("invalid expression for %<omp atomic%>");
-  add_stmt (expr);
 }
 
 

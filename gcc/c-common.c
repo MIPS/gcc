@@ -6142,6 +6142,7 @@ static tree
 sync_resolve_return (tree params, tree result)
 {
   tree ptype = TREE_TYPE (TREE_TYPE (TREE_VALUE (params)));
+  ptype = TYPE_MAIN_VARIANT (ptype);
   return convert (ptype, result);
 }
 

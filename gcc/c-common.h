@@ -296,6 +296,7 @@ extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
+extern tree pushdecl (tree);
 
 extern int c_expand_decl (tree);
 
@@ -933,7 +934,7 @@ extern void c_finish_omp_master (tree);
 extern void c_finish_omp_critical (tree, tree);
 extern void c_finish_omp_ordered (tree);
 extern void c_finish_omp_barrier (void);
-extern void c_finish_omp_atomic (tree);
+extern void c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
 
 /* In order for the format checking to accept the C frontend
