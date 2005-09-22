@@ -209,23 +209,14 @@ add_decls_to_set (bitmap *set_p, tree list)
 }
 
 
-/* Build and create a data sharing description structure to guide the
-   remapping actions done in remap_locals_r.  GOMP_FN is the function
-   holding the body of the directive to be processed.  CLAUSES is the
-   list of clauses controlling data sharing and copying.  */
+/* Process the list of data sharing and copying specified in
+   CLAUSES.  All the variables found in each clause are added to
+   the corresponding sets in the remap info structure pointed by RI_P.  */
 
-static struct remap_info_d *
-build_remap_info (tree gomp_fn, tree clauses)
+static void
+process_gomp_clauses (tree clauses, struct remap_info_d *ri_p)
 {
   tree c;
-  struct remap_info_d *ri_p;
-
-  /* Setup the mapping data.  */
-  ri_p = xmalloc (sizeof (*ri_p));
-  memset (ri_p, 0, sizeof (*ri_p));
-  ri_p->gomp_fn = gomp_fn;
-  ri_p->clauses = clauses;
-  ri_p->map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
   for (c = clauses; c; c = TREE_CHAIN (c))
     {
@@ -252,6 +243,26 @@ build_remap_info (tree gomp_fn, tree clauses)
   /* FIXME.  Add checking code to disallow variables in multiple sets.
      Variables may only appear in exactly one set, except for
      firstprivate and lastprivate.  */
+}
+
+
+/* Build and create a data sharing description structure to guide the
+   remapping actions done in remap_locals_r.  GOMP_FN is the function
+   holding the body of the directive to be processed.  CLAUSES is the
+   list of clauses controlling data sharing and copying.  */
+
+static struct remap_info_d *
+build_remap_info (tree gomp_fn, tree clauses)
+{
+  struct remap_info_d *ri_p;
+
+  /* Setup the mapping data.  */
+  ri_p = xmalloc (sizeof (*ri_p));
+  memset (ri_p, 0, sizeof (*ri_p));
+  ri_p->gomp_fn = gomp_fn;
+  ri_p->clauses = clauses;
+  ri_p->map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
+
   return ri_p;
 }
 
@@ -288,7 +299,8 @@ get_gomp_private_ref (tree var, struct remap_info_d *ri_p)
     {
       struct function *f = DECL_STRUCT_FUNCTION (ri_p->gomp_fn);
 
-      repl = copy_decl_for_dup (var, current_function_decl, ri_p->gomp_fn, 0);
+      repl = create_tmp_var_raw (TREE_TYPE (var), NULL);
+
       splay_tree_insert (ri_p->map, (splay_tree_key) var,
 			 (splay_tree_value) repl);
 
@@ -296,6 +308,7 @@ get_gomp_private_ref (tree var, struct remap_info_d *ri_p)
 	 unexpanded variable list of GOMP_FN.  */
       DECL_CONTEXT (repl) = ri_p->gomp_fn;
       DECL_SEEN_IN_BIND_EXPR_P (repl) = 1;
+      DECL_NAME (repl) = DECL_NAME (var);
       f->unexpanded_var_list = tree_cons (NULL_TREE, repl,
 					  f->unexpanded_var_list);
     }
@@ -387,6 +400,7 @@ remap_locals_r (tree *tp, int *ws, void *data)
   gomp_fn = ri_p->gomp_fn;
 
   t = *tp;
+
   code = TREE_CODE (t);
   if (code == VAR_DECL && !is_global_var (t))
     {
@@ -420,9 +434,24 @@ remap_locals_r (tree *tp, int *ws, void *data)
       else if (ri_p->copyprivate
 	       && bitmap_bit_p (ri_p->copyprivate, DECL_UID (t)))
 	gcc_unreachable ();
+      else
+	{
+	  /* By default, ask the FE what the implicit sharing rules
+	     should be.  FIXME, add langhooks.  Currently, this just
+	     uses C/C++ rules (every local is private).  */
+	  repl = get_gomp_private_ref (t, ri_p);
+	}
 
       if (repl)
-	*tp = repl;
+	{
+	  *tp = repl;
+
+	  /* Once replaced, do not keep walking this expression tree.
+	     The replacement may have inserted an expression that we
+	     are not really interested in mapping again (e.g., shared
+	     variables are replaced with *(PTR->FLD)).  */
+	  *ws = 0;
+	}
     }
   else if (code == LABEL_DECL)
     DECL_CONTEXT (t) = gomp_fn;
@@ -439,22 +468,40 @@ remap_locals_r (tree *tp, int *ws, void *data)
 	 need to refer to the original _DECL.  */
       *ws = 0;
     }
+  else if (code == GOMP_PARALLEL)
+    {
+      /* FIXME.  Copy-in/copy-out code needs to be added here.  */
+      process_gomp_clauses (GOMP_PARALLEL_CLAUSES (t), ri_p);
+    }
+  else if (code == GOMP_FOR)
+    {
+      /* FIXME.  Copy-in/copy-out code needs to be added here.  */
+      process_gomp_clauses (GOMP_FOR_CLAUSES (t), ri_p);
+    }
+  else if (code == GOMP_SECTIONS)
+    {
+      /* FIXME.  Copy-in/copy-out code needs to be added here.  */
+      process_gomp_clauses (GOMP_SECTIONS_CLAUSES (t), ri_p);
+    }
 
   return NULL_TREE;
 }
 
 
-/* Map local variables from the current function into GOMP_FN.
-   CLAUSES is the set of clauses controlling data sharing and copying.
-   Return mapping information as defined in struct remap_info_d.  */
+/* Map local variables from the current function into RI_P->GOMP_FN.
+   RI_P points to an instance of struct remap_info_d describing how
+   local variables should be mapped into the new function.
 
-static struct remap_info_d *
-remap_locals (tree gomp_fn, tree clauses)
+   BODY_P points to the code to be scanned with walk_tree.  */
+
+static void
+remap_locals (tree *body_p, struct remap_info_d *ri_p)
 {
-  struct remap_info_d *ri_p;
-  
-  ri_p = build_remap_info (gomp_fn, clauses);
-  walk_tree (&DECL_SAVED_TREE (gomp_fn), remap_locals_r, ri_p, NULL);
+  /* Add all the variables in each clause to the corresponding sets in
+     RI_P.  */
+  process_gomp_clauses (ri_p->clauses, ri_p);
+
+  walk_tree (body_p, remap_locals_r, ri_p, NULL);
 
   /* Once we have remapped all the locals, we can layout the
      structure type for RI_P->DATA_ARG_DEST.  */
@@ -463,8 +510,6 @@ remap_locals (tree gomp_fn, tree clauses)
       layout_type (TREE_TYPE (TREE_TYPE (ri_p->data_arg_dest)));
       layout_type (TREE_TYPE (ri_p->data_arg_dest));
     }
-
-  return ri_p;
 }
 
 
@@ -668,7 +713,8 @@ lower_gomp_parallel (tree_stmt_iterator *tsi)
      the function to the call graph also gimplifies its body.  And we
      can only gimplify the function after adjusting labels and local
      variable references.  */
-  ri_p = remap_locals (fn, GOMP_PARALLEL_CLAUSES (par_stmt));
+  ri_p = build_remap_info (fn, GOMP_PARALLEL_CLAUSES (par_stmt));
+  remap_locals (&DECL_SAVED_TREE (ri_p->gomp_fn), ri_p);
 
   /* Add FN to the call graph.  */
   gimplify_function_tree (fn);
@@ -957,18 +1003,11 @@ lower_gomp_for (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree for_stmt = tsi_stmt (*tsi);
   tree_stmt_iterator orig_tsi;
-  struct remap_info_d *ri_p;
 
   orig_tsi = *tsi;
 
   /* Lower the body of the loop.  */
   lower_stmt_body (GOMP_FOR_BODY (for_stmt), data);
-
-  /* Remap local variables according to the data clauses.  */
-  ri_p = remap_locals (current_function_decl, GOMP_FOR_CLAUSES (for_stmt));
-
-  /* Emit code to setup shared data before executing the loop.  */
-  emit_gomp_data_setup_code (tsi, ri_p);
 
   /* Emit code for the parallel loop according to the specified schedule.
      FIXME, only static schedules handled.  */
@@ -976,7 +1015,6 @@ lower_gomp_for (tree_stmt_iterator *tsi, struct lower_data *data)
 
   /* Remove the original statement and free memory used by the mappings.  */
   tsi_delink (&orig_tsi);
-  delete_remap_info (ri_p);
 }
 
 

@@ -1,5 +1,30 @@
 2005-09-22  Diego Novillo  <dnovillo@redhat.com>
 
+	* gimple-low.c (process_gomp_clauses): Extract from ...
+	(build_remap_info): ... here.
+	(get_gomp_private_ref): Do not call copy_decl_for_dup.
+	Set DECL_NAME of replacement to that of the original.
+	(remap_locals_r): Temporarily treat local variables as private
+	if they are not in any other clause.
+	Prevent walking into the expression that replaces a mapped
+	local.
+	Call process_gomp_clauses on GOMP_PARALLEL, GOMP_FOR and
+	GOMP_SECTIONS.
+	(remap_locals): Remove arguments GOMP_FN and CLAUSEs.
+	Add arguments BODY_P and RI_P.
+	Call process_gomp_clauses.
+	Call walk_tree on BODY_P.
+	Do not return anything.
+	Adjust callers.
+	(lower_gomp_parallel): Call build_remap_info.
+	(lower_gomp_for): Do not call remap_locals.
+	Do not call emit_gomp_data_setup_code.
+	Remove local RI_P.
+	* tree.h (GOMP_SECTIONS_CLAUSES): Define.
+	(GOMP_SECTIONS_BODY): Define.
+
+2005-09-22  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-tree.h (c_finish_gomp_for): Declare
 	* c-typeck.c (c_finish_gomp_for): New.
 	* c-parser.c (c_parser_for_statement): Call it.  If the
