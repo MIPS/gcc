@@ -1,3 +1,9 @@
+2005-09-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline:
+	2005-05-13  Josh Conner  <jconner@apple.com>
+	* arm.c (arm_return_in_memory): Add handling for vector return types.
+
 2005-09-21  Kazu Hirata  <kazu@codesourcery.com>
 
 	* config/arm/arm.md (movdi): Force operands[1] to a register

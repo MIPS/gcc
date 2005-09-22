@@ -2445,6 +2445,7 @@ arm_return_in_memory (tree type)
   HOST_WIDE_INT size;
 
   if (!AGGREGATE_TYPE_P (type) &&
+      (TREE_CODE (type) != VECTOR_TYPE) &&
       !(TARGET_AAPCS_BASED && TREE_CODE (type) == COMPLEX_TYPE))
     /* All simple types are returned in registers.
        For AAPCS, complex types are treated the same as aggregates.  */
@@ -2459,6 +2460,11 @@ arm_return_in_memory (tree type)
       return (size < 0 || size > UNITS_PER_WORD);
     }
   
+   /* To maximize backwards compatibility with previous versions of gcc,
+      return vectors up to 4 words in registers.  */
+   if (TREE_CODE (type) == VECTOR_TYPE)
+     return (size < 0 || size > (4 * UNITS_PER_WORD));
+ 
   /* For the arm-wince targets we choose to be compatible with Microsoft's
      ARM and Thumb compilers, which always return aggregates in memory.  */
 #ifndef ARM_WINCE
