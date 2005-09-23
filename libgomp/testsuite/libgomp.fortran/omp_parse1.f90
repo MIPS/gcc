@@ -53,6 +53,13 @@ contains
     if (e .ne. i) call abort
   end subroutine test_parallel
 
+  subroutine test_do_orphan
+    integer :: k, l
+!$omp parallel do private (l)
+    do 600 k = 1, 16, 2
+600   l = k
+  end subroutine test_do_orphan
+
   subroutine test_do
     integer :: i, j, k, l, n
     integer, dimension (64) :: d
@@ -67,6 +74,7 @@ contains
     if (omp_get_thread_num () .eq. 0) then
       k = omp_get_num_threads ()
     end if
+    call test_do_orphan
 !$omp do schedule (static) firstprivate (n)
     do 200 i = 1, j
       if (i .eq. 1 .and. n .ne. 24) call abort

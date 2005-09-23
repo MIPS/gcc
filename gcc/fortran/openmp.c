@@ -588,6 +588,281 @@ resolve_omp_clauses (gfc_code *code)
     }
 }
 
+/* Return true if SYM is ever referenced in EXPR.  */
+
+static bool
+expr_references_sym (gfc_expr *e, gfc_symbol *s)
+{
+  gfc_actual_arglist *arg;
+  if (e == NULL)
+    return false;
+  switch (e->expr_type)
+    {
+    case EXPR_CONSTANT:
+    case EXPR_NULL:
+    case EXPR_VARIABLE:
+    case EXPR_STRUCTURE:
+    case EXPR_ARRAY:
+      if (e->symtree != NULL
+	  && e->symtree->n.sym == s)
+	return true;
+      return false;
+    case EXPR_SUBSTRING:
+      if (e->ref != NULL
+	  && (expr_references_sym (e->ref->u.ss.start, s)
+	      || expr_references_sym (e->ref->u.ss.end, s)))
+	return true;
+      return false;
+    case EXPR_OP:
+      if (expr_references_sym (e->value.op.op2, s))
+	return true;
+      return expr_references_sym (e->value.op.op1, s);
+    case EXPR_FUNCTION:
+      for (arg = e->value.function.actual; arg; arg = arg->next)
+	if (expr_references_sym (arg->expr, s))
+	  return true;
+      return false;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+static void
+resolve_omp_atomic (gfc_code *code)
+{
+  gfc_symbol *var;
+  gfc_expr *expr2;
+
+  code = code->block->next;
+  gcc_assert (code->op == EXEC_ASSIGN);
+  gcc_assert (code->next == NULL);
+
+  if (code->expr->expr_type != EXPR_VARIABLE
+      || code->expr->symtree == NULL
+      || code->expr->rank != 0
+      || (code->expr->ts.type != BT_INTEGER
+	  && code->expr->ts.type != BT_REAL
+	  && code->expr->ts.type != BT_COMPLEX
+	  && code->expr->ts.type != BT_LOGICAL))
+    {
+      gfc_error ("!$OMP ATOMIC statement must set a scalar variable of"
+		 " intrinsic type at %L", &code->loc);
+      return;
+    }
+
+  var = code->expr->symtree->n.sym;
+  expr2 = code->expr2;
+
+  if (expr2->expr_type == EXPR_OP)
+    {
+      gfc_expr *v = NULL, *e;
+      gfc_intrinsic_op op = expr2->value.op.operator;
+      gfc_intrinsic_op alt_op = INTRINSIC_NONE;
+
+      switch (op)
+	{
+	case INTRINSIC_PLUS:
+	  alt_op = INTRINSIC_MINUS;
+	  break;
+	case INTRINSIC_TIMES:
+	  alt_op = INTRINSIC_DIVIDE;
+	  break;
+	case INTRINSIC_MINUS:
+	  alt_op = INTRINSIC_PLUS;
+	  break;
+	case INTRINSIC_DIVIDE:
+	  alt_op = INTRINSIC_TIMES;
+	  break;
+	case INTRINSIC_AND:
+	case INTRINSIC_OR:
+	  break;
+	case INTRINSIC_EQV:
+	  alt_op = INTRINSIC_NEQV;
+	  break;
+	case INTRINSIC_NEQV:
+	  alt_op = INTRINSIC_EQV;
+	  break;
+	default:
+	  gfc_error ("!$OMP ATOMIC assignment operator must be"
+		     " +, *, -, /, .AND., .OR., .EQV. or .NEQV. at %L",
+		     &expr2->where);
+	  return;
+	}
+
+      /* Check for var = var op expr resp. var = expr op var where
+	 expr doesn't reference var and var op expr is mathematically
+	 equivalent to var op (expr) resp. expr op var equivalent to
+	 (expr) op var.  We rely here on the fact that the matcher
+	 for x op1 y op2 z where op1 and op2 have equal precedence
+	 returns (x op1 y) op2 z.  */
+      if (expr2->value.op.op2->expr_type == EXPR_VARIABLE
+	  && expr2->value.op.op2->symtree != NULL
+	  && expr2->value.op.op2->symtree->n.sym == var)
+	v = expr2->value.op.op2;
+      else
+	{
+	  gfc_expr **p = NULL;
+	  for (e = expr2->value.op.op1; e; e = e->value.op.op1)
+	    if (e->expr_type == EXPR_VARIABLE
+		&& e->symtree != NULL
+		&& e->symtree->n.sym == var)
+	      {
+		v = e;
+		break;
+	      }
+	    else if (e->expr_type != EXPR_OP
+		     || (e->value.op.operator != op
+			 && e->value.op.operator != alt_op)
+		     || e->rank != 0)
+	      break;
+	    else if (p == NULL)
+	      p = &expr2->value.op.op1;
+	    else
+	      p = &(*p)->value.op.op1;
+
+	  if (v == NULL)
+	    {
+	      gfc_error ("!$OMP ATOMIC assignment must be var = var op expr"
+			 " or var = expr op var at %L", &expr2->where);
+	      return;
+	    }
+
+	  if (v != expr2->value.op.op1)
+	    {
+	      e = *p;
+	      switch (e->value.op.operator)
+		{
+		case INTRINSIC_MINUS:
+		case INTRINSIC_DIVIDE:
+		case INTRINSIC_EQV:
+		case INTRINSIC_NEQV:
+		  gfc_error ("!$OMP ATOMIC var = var op expr not"
+			     " mathematically equivalent to var = var op"
+			     " (expr) at %L", &expr2->where);
+		  break;
+		default:
+		  break;
+		}
+
+	      /* Canonicalize into var = var op (expr).  */
+	      gcc_assert (e->value.op.op1 == v);
+	      *p = e->value.op.op2;
+	      e->value.op.op2 = expr2;
+	      code->expr2 = expr2 = e;
+	    }
+	}
+
+      if (v == expr2->value.op.op1)
+	e = expr2->value.op.op2;
+      else
+	e = expr2->value.op.op1;
+
+      if (e->rank != 0 || expr_references_sym (e, var))
+	{
+	  if (v == expr2->value.op.op1)
+	    gfc_error ("expr in !$OMP ATOMIC assignment var = var op expr"
+		       " must be scalar and cannot reference var at %L",
+		       &expr2->where);
+	  else
+	    gfc_error ("expr in !$OMP ATOMIC assignment var = expr op var"
+		       " must be scalar and cannot reference var at %L",
+		       &expr2->where);
+	  return;
+	}
+    }
+  else if (expr2->expr_type == EXPR_FUNCTION
+	   && expr2->value.function.isym != NULL
+	   && expr2->value.function.esym == NULL
+	   && expr2->value.function.actual != NULL
+	   && expr2->value.function.actual->next != NULL)
+    {
+      gfc_actual_arglist *arg, *var_arg;
+
+      switch (expr2->value.function.isym->generic_id)
+	{
+	case GFC_ISYM_MIN:
+	case GFC_ISYM_MAX:
+	  break;
+	case GFC_ISYM_IAND:
+	case GFC_ISYM_IOR:
+	case GFC_ISYM_IEOR:
+	  if (expr2->value.function.actual->next->next != NULL)
+	    {
+	      gfc_error ("!$OMP ATOMIC assignment intrinsic IAND, IOR"
+			 "or IEOR must have two arguments at %L",
+			 &expr2->where);
+	      return;
+	    }
+	  break;
+	default:
+	  gfc_error ("!$OMP ATOMIC assignment intrinsic must be"
+		     " MIN, MAX, IAND, IOR or IEOR at %L",
+		     &expr2->where);
+	  return;
+	}
+
+      var_arg = NULL;
+      for (arg = expr2->value.function.actual; arg; arg = arg->next)
+	{
+	  if ((arg == expr2->value.function.actual
+	       || (var_arg == NULL && arg->next == NULL))
+	      && arg->expr->expr_type == EXPR_VARIABLE
+	      && arg->expr->symtree != NULL
+	      && arg->expr->symtree->n.sym == var)
+	    var_arg = arg;
+	  else if (expr_references_sym (arg->expr, var))
+	    gfc_error ("!$OMP ATOMIC intrinsic arguments except one must not"
+		       " reference %s at %L", var->name, &arg->expr->where);
+	  if (arg->expr->rank != 0)
+	    gfc_error ("!$OMP ATOMIC intrinsic arguments must be scalar"
+		       " at %L", &arg->expr->where);
+	}
+
+      if (var_arg == NULL)
+	{
+	  gfc_error ("First or last !$OMP ATOMIC intrinsic argument must"
+		     " be %s at %L", var->name, &expr2->where);
+	  return;
+	}
+
+      if (var_arg != expr2->value.function.actual)
+	{
+	  /* Canonicalize, so that var comes first.  */
+	  gcc_assert (var_arg->next == NULL);
+	  for (arg = expr2->value.function.actual;
+	       arg->next != var_arg; arg = arg->next)
+	    ;
+	  var_arg->next = expr2->value.function.actual;
+	  expr2->value.function.actual = var_arg;
+	  arg->next = NULL;
+	}
+    }
+  else
+    gfc_error ("!$OMP ATOMIC assignment must have an operator or intrinsic"
+	       " on right hand side at %L", &expr2->where);
+}
+
+static void
+resolve_omp_do (gfc_code *code)
+{
+  gfc_code *do_code;
+
+  if (code->ext.omp_clauses)
+    resolve_omp_clauses (code);
+
+  do_code = code->block->next;
+  if (do_code->op == EXEC_DO_WHILE)
+    gfc_error ("!$OMP DO cannot be a DO WHILE or DO without loop control at %L",
+	       &do_code->loc);
+  else
+    {
+      gcc_assert (do_code->op == EXEC_DO);
+      if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
+	gfc_error ("!$OMP DO iteration variable must be of type integer at %L",
+		   &do_code->loc);
+    }
+}
+
 /* Resolve OpenMP directive clauses and check various requirements
    of each directive.  */
 
@@ -597,16 +872,20 @@ gfc_resolve_omp_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
   switch (code->op)
     {
     case EXEC_OMP_DO:
-    case EXEC_OMP_END_SINGLE:
-    case EXEC_OMP_PARALLEL:
     case EXEC_OMP_PARALLEL_DO:
+      resolve_omp_do (code);
+      break;
+    case EXEC_OMP_WORKSHARE:
+    case EXEC_OMP_PARALLEL_WORKSHARE:
+    case EXEC_OMP_PARALLEL:
     case EXEC_OMP_PARALLEL_SECTIONS:
     case EXEC_OMP_SECTIONS:
     case EXEC_OMP_SINGLE:
-    case EXEC_OMP_WORKSHARE:
-    case EXEC_OMP_PARALLEL_WORKSHARE:
       if (code->ext.omp_clauses)
 	resolve_omp_clauses (code);
+      break;
+    case EXEC_OMP_ATOMIC:
+      resolve_omp_atomic (code);
       break;
     default:
       break;

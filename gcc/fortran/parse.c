@@ -2289,6 +2289,8 @@ parse_omp_do (gfc_statement omp_st)
 
   parse_do_block ();
   check_do_closure ();
+  pop_state ();
+
   st = next_statement ();
   if (st == (omp_st == ST_OMP_DO ? ST_OMP_END_DO : ST_OMP_END_PARALLEL_DO))
     {
@@ -2297,8 +2299,6 @@ parse_omp_do (gfc_statement omp_st)
       gfc_clear_new_st ();
       st = next_statement ();
     }
-
-  pop_state ();
   return st;
 }
 
