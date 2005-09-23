@@ -1,3 +1,10 @@
+2005-09-23  Devang Patel  <dpatel@apple.com>
+
+        * tree-ssa-forwaprop.c (replacable_use_in_cond_expr): Do not
+        a eliminate type conversion which feeds an equality comparison
+        if the original type or either operand in the comparison is a
+        function pointer.
+
 2005-09-23  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* expr.c (expand_expr_real_1): Add DOT_PROD_EXPR case. Tentatively add

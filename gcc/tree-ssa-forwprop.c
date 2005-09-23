@@ -680,7 +680,6 @@ forward_propagate_addr_expr (tree stmt)
   return false;
 }
 
-#if 0
 /* Return TRUE iff STMT is a MODIFY_EXPR of the form
    x = (cast) y;
 */
@@ -741,6 +740,17 @@ replacable_use_in_cond_expr (tree stmt, tree def_stmt, tree *new_stmt)
   else
     return false;
 
+  /* If either operand to the comparison is a pointer to
+     a function, then we can not apply this optimization
+     as some targets require function pointers to be
+     canonicalized and in this case this optimization would
+     eliminate a necessary canonicalization.  */
+  if ((POINTER_TYPE_P (TREE_TYPE (op0))
+       && TREE_CODE (TREE_TYPE (TREE_TYPE (op0))) == FUNCTION_TYPE)
+      || (POINTER_TYPE_P (TREE_TYPE (op1))
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (op1))) == FUNCTION_TYPE))
+    return false;
+
   if (!cast_conversion_assignment_p (def_stmt))
     return false;
 
@@ -749,6 +759,17 @@ replacable_use_in_cond_expr (tree stmt, tree def_stmt, tree *new_stmt)
      result is still equivalent to SRC.  */
   def_rhs = TREE_OPERAND (def_stmt, 1);
   def_rhs_inner_type = TREE_TYPE (TREE_OPERAND (def_rhs, 0));
+
+  /* If the inner type of the conversion is a pointer to
+     a function, then we can not apply this optimization
+     as some targets require function pointers to be
+     canonicalized.  This optimization would result in
+     canonicalization of the pointer when it was not originally
+     needed/intended.  */
+  if (POINTER_TYPE_P (def_rhs_inner_type)
+      && TREE_CODE (TREE_TYPE (def_rhs_inner_type)) == FUNCTION_TYPE)
+    return false;
+  
   temp = build1 (TREE_CODE (def_rhs), def_rhs_inner_type, other_op);
   temp = fold (temp);
   if (is_gimple_val (temp) && tree_int_cst_equal (temp, other_op))
@@ -909,7 +930,6 @@ eliminate_unnecessary_casts (void)
   /* Cleanup */
   BITMAP_FREE (vars);
 }
-#endif
 
 /* Main entry point for the forward propagation optimizer.  */
 
@@ -920,9 +940,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
   cfg_changed = false;
 
-#if 0 /* FORNOW. FIXME */
   eliminate_unnecessary_casts ();
-#endif
 
   FOR_EACH_BB (bb)
     {

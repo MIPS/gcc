@@ -1,3 +1,8 @@
+2005-09-23  Devang Patel  <dpatel@apple.com>
+
+        * gcc.dg/vect/vect-ifcvt-8.c: Enable.
+        * gcc.dg/vect/vect-subsat.c: Enable.
+
 2005-09-23  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-reduc-dot-s8.c: New.
