@@ -1611,6 +1611,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ")");
       break;
 
+    case OMP_CLAUSE_NOWAIT:
+      pp_string (buffer, "nowait");
+      break;
+
     case REDUC_MAX_EXPR:
       pp_string (buffer, " REDUC_MAX_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);

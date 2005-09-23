@@ -7031,7 +7031,7 @@ c_parser_pragma_omp_clause_lastprivate (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED)
 {
-  printf ("nowait\n");
+  add_new_clause (build (OMP_CLAUSE_NOWAIT, NULL_TREE));
 }
 
 /* OpenMP 2.5:

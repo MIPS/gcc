@@ -1,5 +1,13 @@
 2005-09-23  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree.def (OMP_CLAUSE_NOWAIT): Define.
+	* tree-pretty-print.c (dump_generic_node): Handle.
+	* c-parser.c (c_parser_pragma_omp_clause_nowait): Generate.
+	* gimple-low.c (lower_omp_for): If nowait has not been
+	specified, emit a barrier at the end of the parallel loop.
+
+2005-09-23  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-common.h (c_finish_omp_for): Declare
 	* c-omp.c (c_finish_omp_for): Rename from c_finish_gomp_for
 	and move from ...

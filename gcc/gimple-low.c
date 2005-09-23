@@ -1091,6 +1091,8 @@ lower_omp_for (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree for_stmt = tsi_stmt (*tsi);
   tree_stmt_iterator orig_tsi;
+  tree c;
+  bool has_nowait;
 
   orig_tsi = *tsi;
 
@@ -1100,6 +1102,23 @@ lower_omp_for (tree_stmt_iterator *tsi, struct lower_data *data)
   /* Emit code for the parallel loop according to the specified schedule.
      FIXME, only static schedules handled.  */
   emit_omp_for_static (tsi);
+
+  /* Emit a barrier at the end of the loop, unless the 'nowait' clause
+     has been specified.  */
+  has_nowait = false;
+  for (c = OMP_FOR_CLAUSES (for_stmt); c; c = TREE_CHAIN (c))
+    if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_NOWAIT)
+      {
+	has_nowait = true;
+	break;
+      }
+
+  if (!has_nowait)
+    {
+      tree barrier = built_in_decls[BUILT_IN_GOMP_BARRIER];
+      barrier = build_function_call_expr (barrier, NULL);
+      tsi_link_after (tsi, barrier, TSI_NEW_STMT);
+    }
 
   /* Remove the original statement and free memory used by the mappings.  */
   tsi_delink (&orig_tsi);
