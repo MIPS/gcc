@@ -1,3 +1,11 @@
+2005-09-23  Mike Stump  <mrs@apple.com>
+	
+	Radar 4259442
+	* g++.dg/asm-block-12.C: Add.
+	* g++.dg/asm-block-13.C: Add.
+	* gcc.apple/asm-block-12.c: Add.
+	* gcc.apple/asm-block-13.c: Add.
+
 2005-09-22  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4205103
