@@ -164,7 +164,7 @@ struct remap_info_d
   splay_tree map;
 
   /* Function holding the body of the OpenMP directive.  */
-  tree gomp_fn;
+  tree omp_fn;
 
   /* Data sharing and copying clauses associated with this directive.  */
   tree clauses;
@@ -214,7 +214,7 @@ add_decls_to_set (bitmap *set_p, tree list)
    the corresponding sets in the remap info structure pointed by RI_P.  */
 
 static void
-process_gomp_clauses (tree clauses, struct remap_info_d *ri_p)
+process_omp_clauses (tree clauses, struct remap_info_d *ri_p)
 {
   tree c;
 
@@ -223,17 +223,17 @@ process_gomp_clauses (tree clauses, struct remap_info_d *ri_p)
       tree clause = TREE_VALUE (c);
       bitmap *set_p = NULL;
 
-      if (TREE_CODE (clause) == GOMP_CLAUSE_PRIVATE)
+      if (TREE_CODE (clause) == OMP_CLAUSE_PRIVATE)
 	set_p = &ri_p->private;
-      else if (TREE_CODE (clause) == GOMP_CLAUSE_SHARED)
+      else if (TREE_CODE (clause) == OMP_CLAUSE_SHARED)
 	set_p = &ri_p->shared;
-      else if (TREE_CODE (clause) == GOMP_CLAUSE_FIRSTPRIVATE)
+      else if (TREE_CODE (clause) == OMP_CLAUSE_FIRSTPRIVATE)
 	set_p = &ri_p->firstprivate;
-      else if (TREE_CODE (clause) == GOMP_CLAUSE_LASTPRIVATE)
+      else if (TREE_CODE (clause) == OMP_CLAUSE_LASTPRIVATE)
 	set_p = &ri_p->lastprivate;
-      else if (TREE_CODE (clause) == GOMP_CLAUSE_COPYIN)
+      else if (TREE_CODE (clause) == OMP_CLAUSE_COPYIN)
 	set_p = &ri_p->copyin;
-      else if (TREE_CODE (clause) == GOMP_CLAUSE_COPYPRIVATE)
+      else if (TREE_CODE (clause) == OMP_CLAUSE_COPYPRIVATE)
 	set_p = &ri_p->copyprivate;
 
       if (set_p)
@@ -247,19 +247,19 @@ process_gomp_clauses (tree clauses, struct remap_info_d *ri_p)
 
 
 /* Build and create a data sharing description structure to guide the
-   remapping actions done in remap_locals_r.  GOMP_FN is the function
+   remapping actions done in remap_locals_r.  OMP_FN is the function
    holding the body of the directive to be processed.  CLAUSES is the
    list of clauses controlling data sharing and copying.  */
 
 static struct remap_info_d *
-build_remap_info (tree gomp_fn, tree clauses)
+build_remap_info (tree omp_fn, tree clauses)
 {
   struct remap_info_d *ri_p;
 
   /* Setup the mapping data.  */
   ri_p = xmalloc (sizeof (*ri_p));
   memset (ri_p, 0, sizeof (*ri_p));
-  ri_p->gomp_fn = gomp_fn;
+  ri_p->omp_fn = omp_fn;
   ri_p->clauses = clauses;
   ri_p->map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
@@ -284,12 +284,12 @@ delete_remap_info (struct remap_info_d *ri_p)
 
 
 /* Given a private variable VAR, get the variable that will replace
-   VAR inside the body of the function created for RI_P->GOMP_FN.  If
+   VAR inside the body of the function created for RI_P->OMP_FN.  If
    VAR had not been mapped before, add it to the unexpanded variable
-   list in ID->GOMP_FN.  */
+   list in ID->OMP_FN.  */
 
 static tree
-get_gomp_private_ref (tree var, struct remap_info_d *ri_p)
+get_omp_private_ref (tree var, struct remap_info_d *ri_p)
 {
   tree repl;
   splay_tree_node n;
@@ -297,7 +297,7 @@ get_gomp_private_ref (tree var, struct remap_info_d *ri_p)
   n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
   if (n == NULL)
     {
-      struct function *f = DECL_STRUCT_FUNCTION (ri_p->gomp_fn);
+      struct function *f = DECL_STRUCT_FUNCTION (ri_p->omp_fn);
 
       repl = create_tmp_var_raw (TREE_TYPE (var), NULL);
 
@@ -305,8 +305,8 @@ get_gomp_private_ref (tree var, struct remap_info_d *ri_p)
 			 (splay_tree_value) repl);
 
       /* Since this is first time that we map VAR, add it to the
-	 unexpanded variable list of GOMP_FN.  */
-      DECL_CONTEXT (repl) = ri_p->gomp_fn;
+	 unexpanded variable list of OMP_FN.  */
+      DECL_CONTEXT (repl) = ri_p->omp_fn;
       DECL_SEEN_IN_BIND_EXPR_P (repl) = 1;
       DECL_NAME (repl) = DECL_NAME (var);
       f->unexpanded_var_list = tree_cons (NULL_TREE, repl,
@@ -325,7 +325,7 @@ get_gomp_private_ref (tree var, struct remap_info_d *ri_p)
    OpenMP directive.  */
 
 static tree
-get_gomp_shared_ref (tree var, struct remap_info_d *ri_p)
+get_omp_shared_ref (tree var, struct remap_info_d *ri_p)
 {
   tree t, field;
   splay_tree_node n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
@@ -336,16 +336,16 @@ get_gomp_shared_ref (tree var, struct remap_info_d *ri_p)
       /* Add a new field to RI_P->DATA_ARG_DEST to hold the address of VAR.  */
       tree struct_ptr_type, struct_type;
 
-      /* Create the structure type and local pointer .GOMP_DATA.  */
+      /* Create the structure type and local pointer .OMP_DATA.  */
       if (ri_p->data_arg_dest == NULL)
 	{
-	  struct function *f = DECL_STRUCT_FUNCTION (ri_p->gomp_fn);
+	  struct function *f = DECL_STRUCT_FUNCTION (ri_p->omp_fn);
 	  struct_ptr_type = build_pointer_type (make_node (RECORD_TYPE));
 	  ri_p->data_arg_dest = create_tmp_var_raw (struct_ptr_type,
-						    ".gomp_data");
+						    ".omp_data");
 
-	  /* Add .GOMP_DATA to the unexpanded variable list of GOMP_FN.  */
-	  DECL_CONTEXT (ri_p->data_arg_dest) = ri_p->gomp_fn;
+	  /* Add .OMP_DATA to the unexpanded variable list of OMP_FN.  */
+	  DECL_CONTEXT (ri_p->data_arg_dest) = ri_p->omp_fn;
 	  DECL_SEEN_IN_BIND_EXPR_P (ri_p->data_arg_dest) = 1;
 	  f->unexpanded_var_list = tree_cons (NULL_TREE, 
 	                                      ri_p->data_arg_dest,
@@ -372,14 +372,14 @@ get_gomp_shared_ref (tree var, struct remap_info_d *ri_p)
   else
     field = (tree) n->value;
 
-  /* Build .GOMP_DATA->VAR.  */
+  /* Build .OMP_DATA->VAR.  */
   t = build (COMPONENT_REF, TREE_TYPE (field),
 	     build (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ri_p->data_arg_dest)),
 		    ri_p->data_arg_dest),
 	     field,
 	     NULL_TREE);
 
-  /* Return *(.GOMP_DATA->VAR).  */
+  /* Return *(.OMP_DATA->VAR).  */
   t = build (INDIRECT_REF, TREE_TYPE (var), t);
 
   return t;
@@ -394,10 +394,10 @@ static tree
 remap_locals_r (tree *tp, int *ws, void *data)
 {
   struct remap_info_d *ri_p = (struct remap_info_d *) data;
-  tree t, gomp_fn;
+  tree t, omp_fn;
   enum tree_code code;
 
-  gomp_fn = ri_p->gomp_fn;
+  omp_fn = ri_p->omp_fn;
 
   t = *tp;
 
@@ -406,13 +406,13 @@ remap_locals_r (tree *tp, int *ws, void *data)
     {
       tree repl = NULL_TREE;
 
-      /* Remap local variables into GOMP_FN if they appear in one of
+      /* Remap local variables into OMP_FN if they appear in one of
 	 the private sets.  */
       if (ri_p->private
 	  && bitmap_bit_p (ri_p->private, DECL_UID (t)))
 	{
-	  /* Private variables just need to be declared inside GOMP_FN.  */
-	  repl = get_gomp_private_ref (t, ri_p);
+	  /* Private variables just need to be declared inside OMP_FN.  */
+	  repl = get_omp_private_ref (t, ri_p);
 	}
       else if (ri_p->firstprivate
 	       && bitmap_bit_p (ri_p->firstprivate, DECL_UID (t)))
@@ -426,7 +426,7 @@ remap_locals_r (tree *tp, int *ws, void *data)
 	  /* Shared variables are declared as global pointers holding
 	     their address.  Each reference to T is replaced by a
 	     dereference of the pointer associated with T.  */
-	  repl = get_gomp_shared_ref (t, ri_p);
+	  repl = get_omp_shared_ref (t, ri_p);
 	}
       else if (ri_p->copyin
 	       && bitmap_bit_p (ri_p->copyin, DECL_UID (t)))
@@ -439,7 +439,7 @@ remap_locals_r (tree *tp, int *ws, void *data)
 	  /* By default, ask the FE what the implicit sharing rules
 	     should be.  FIXME, add langhooks.  Currently, this just
 	     uses C/C++ rules (every local is private).  */
-	  repl = get_gomp_private_ref (t, ri_p);
+	  repl = get_omp_private_ref (t, ri_p);
 	}
 
       if (repl)
@@ -454,41 +454,41 @@ remap_locals_r (tree *tp, int *ws, void *data)
 	}
     }
   else if (code == LABEL_DECL)
-    DECL_CONTEXT (t) = gomp_fn;
-  else if (code == GOMP_CLAUSE_PRIVATE
-	   || code == GOMP_CLAUSE_SHARED
-	   || code == GOMP_CLAUSE_FIRSTPRIVATE
-	   || code == GOMP_CLAUSE_LASTPRIVATE
-	   || code == GOMP_CLAUSE_REDUCTION
-	   || code == GOMP_CLAUSE_COPYIN
-	   || code == GOMP_CLAUSE_COPYPRIVATE)
+    DECL_CONTEXT (t) = omp_fn;
+  else if (code == OMP_CLAUSE_PRIVATE
+	   || code == OMP_CLAUSE_SHARED
+	   || code == OMP_CLAUSE_FIRSTPRIVATE
+	   || code == OMP_CLAUSE_LASTPRIVATE
+	   || code == OMP_CLAUSE_REDUCTION
+	   || code == OMP_CLAUSE_COPYIN
+	   || code == OMP_CLAUSE_COPYPRIVATE)
     {
       /* Variables may appear inside other clauses in nested OpenMP
 	 directives.  Avoid rewriting nested references because they
 	 need to refer to the original _DECL.  */
       *ws = 0;
     }
-  else if (code == GOMP_PARALLEL)
+  else if (code == OMP_PARALLEL)
     {
       /* FIXME.  Copy-in/copy-out code needs to be added here.  */
-      process_gomp_clauses (GOMP_PARALLEL_CLAUSES (t), ri_p);
+      process_omp_clauses (OMP_PARALLEL_CLAUSES (t), ri_p);
     }
-  else if (code == GOMP_FOR)
+  else if (code == OMP_FOR)
     {
       /* FIXME.  Copy-in/copy-out code needs to be added here.  */
-      process_gomp_clauses (GOMP_FOR_CLAUSES (t), ri_p);
+      process_omp_clauses (OMP_FOR_CLAUSES (t), ri_p);
     }
-  else if (code == GOMP_SECTIONS)
+  else if (code == OMP_SECTIONS)
     {
       /* FIXME.  Copy-in/copy-out code needs to be added here.  */
-      process_gomp_clauses (GOMP_SECTIONS_CLAUSES (t), ri_p);
+      process_omp_clauses (OMP_SECTIONS_CLAUSES (t), ri_p);
     }
 
   return NULL_TREE;
 }
 
 
-/* Map local variables from the current function into RI_P->GOMP_FN.
+/* Map local variables from the current function into RI_P->OMP_FN.
    RI_P points to an instance of struct remap_info_d describing how
    local variables should be mapped into the new function.
 
@@ -499,7 +499,7 @@ remap_locals (tree *body_p, struct remap_info_d *ri_p)
 {
   /* Add all the variables in each clause to the corresponding sets in
      RI_P.  */
-  process_gomp_clauses (ri_p->clauses, ri_p);
+  process_omp_clauses (ri_p->clauses, ri_p);
 
   walk_tree (body_p, remap_locals_r, ri_p, NULL);
 
@@ -514,16 +514,16 @@ remap_locals (tree *body_p, struct remap_info_d *ri_p)
 
 
 /* Build and return a new FUNCTION_DECL to hold the body of the OpenMP
-   directive GOMP_EXPR.  */
+   directive OMP_EXPR.  */
 
 static tree
-create_gomp_fn (tree gomp_expr)
+create_omp_fn (tree omp_expr)
 {
   tree fn_name, fn_type, fn_body, fn_decl, res_decl;
   tree fn_data_arg;
 
   /* Enclose the body in a BIND_EXPR, if it doesn't have one already.  */
-  fn_body = GOMP_PARALLEL_BODY (gomp_expr);
+  fn_body = OMP_PARALLEL_BODY (omp_expr);
   if (TREE_CODE (fn_body) != BIND_EXPR)
     {
       fn_body = build3 (BIND_EXPR, void_type_node, NULL, fn_body, NULL);
@@ -531,7 +531,7 @@ create_gomp_fn (tree gomp_expr)
     }
 
   /* Build the declaration of the new function.  */
-  fn_name = create_tmp_var_name ("__gomp_fn");
+  fn_name = create_tmp_var_name ("__omp_fn");
   fn_type = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
   fn_decl = build_fn_decl (IDENTIFIER_POINTER (fn_name), fn_type);
   res_decl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
@@ -621,7 +621,7 @@ create_gomp_parallel_end (void)
    RI_P points to the remap information computed by remap_locals.  */
 
 static void
-emit_gomp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
+emit_omp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
 {
   tree t, c;
 
@@ -631,7 +631,7 @@ emit_gomp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
   if (ri_p->data_arg_dest)
     {
       tree type = TREE_TYPE (TREE_TYPE (ri_p->data_arg_dest));
-      ri_p->data_arg_orig = create_tmp_var (type, ".gomp_data");
+      ri_p->data_arg_orig = create_tmp_var (type, ".omp_data");
     }
 
   /* Generate the necessary setup code for each variable mentioned in
@@ -640,7 +640,7 @@ emit_gomp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
     {
       tree clause = TREE_VALUE (c);
 
-      if (TREE_CODE (clause) == GOMP_CLAUSE_SHARED)
+      if (TREE_CODE (clause) == OMP_CLAUSE_SHARED)
 	{
 	  for (t = TREE_OPERAND (clause, 0); t; t = TREE_CHAIN (t))
 	    {
@@ -653,7 +653,7 @@ emit_gomp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
 		{
 		  tree ref, field, init, addr;
 
-		  /* Emit .GOMP_DATA.VAR = &VAR  */
+		  /* Emit .OMP_DATA.VAR = &VAR  */
 		  field = (tree) n->value;
 		  addr = build1 (ADDR_EXPR, TREE_TYPE (field), var);
 		  ref = build (COMPONENT_REF, TREE_TYPE (field),
@@ -665,15 +665,15 @@ emit_gomp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
 	}
     }
 
-  /* Emit receiving code inside RI_P->GOMP_FN.  */
+  /* Emit receiving code inside RI_P->OMP_FN.  */
   if (ri_p->data_arg_dest)
     {
       /* If RI_P->DATA_ARG_DEST has been created, then each thread
 	 needs to initialize its own copy from the function argument.
-	 Emit .GOMP_DATA = (STRUCT *) DATA at the start of the
+	 Emit .OMP_DATA = (STRUCT *) DATA at the start of the
 	 function.  */
-      tree body = BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->gomp_fn));
-      tree arg = DECL_ARGUMENTS (ri_p->gomp_fn);
+      tree body = BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->omp_fn));
+      tree arg = DECL_ARGUMENTS (ri_p->omp_fn);
       tree_stmt_iterator child_tsi = tsi_start (body);
       tree cast = build1 (NOP_EXPR, TREE_TYPE (ri_p->data_arg_dest), arg);
       tree t = build (MODIFY_EXPR, TREE_TYPE (ri_p->data_arg_dest),
@@ -710,10 +710,10 @@ emit_num_threads_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p,
     {
       tree clause = TREE_VALUE (c);
 
-      if (TREE_CODE (clause) == GOMP_CLAUSE_IF)
-	cond = GOMP_IF_EXPR (clause);
-      else if (TREE_CODE (clause) == GOMP_CLAUSE_NUM_THREADS)
-	val = GOMP_NUM_THREADS_EXPR (clause);
+      if (TREE_CODE (clause) == OMP_CLAUSE_IF)
+	cond = OMP_IF_EXPR (clause);
+      else if (TREE_CODE (clause) == OMP_CLAUSE_NUM_THREADS)
+	val = OMP_NUM_THREADS_EXPR (clause);
     }
 
   /* If we found either of 'if (expr)' or 'num_threads (expr)',
@@ -774,7 +774,7 @@ emit_num_threads_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p,
    runtime call.  DATA contains locus and scope information for TSI.  */
 
 static void
-lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
+lower_omp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree par_stmt, fn, call, args, num_threads, addr_data_arg;
   tree_stmt_iterator orig_tsi;
@@ -786,7 +786,7 @@ lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
 
   /* Build a new function out of the pragma's body and add it to the
      call graph.  */
-  fn = create_gomp_fn (par_stmt);
+  fn = create_omp_fn (par_stmt);
 
   /* Allocate memory for the function structure.  */
   saved_cfun = cfun;
@@ -799,8 +799,8 @@ lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
      the function to the call graph also gimplifies its body.  And we
      can only gimplify the function after adjusting labels and local
      variable references.  */
-  ri_p = build_remap_info (fn, GOMP_PARALLEL_CLAUSES (par_stmt));
-  remap_locals (&DECL_SAVED_TREE (ri_p->gomp_fn), ri_p);
+  ri_p = build_remap_info (fn, OMP_PARALLEL_CLAUSES (par_stmt));
+  remap_locals (&DECL_SAVED_TREE (ri_p->omp_fn), ri_p);
 
   /* Add FN to the call graph.  */
   gimplify_function_tree (fn);
@@ -811,9 +811,9 @@ lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
   cfun = saved_cfun;
 
   /* Emit code to setup the shared data before launching the threads.  */
-  emit_gomp_data_setup_code (tsi, ri_p);
+  emit_omp_data_setup_code (tsi, ri_p);
 
-  /* Take the address of RI_P->DATA_ARG_ORIG to pass to __gomp_fn.XXXX.  */
+  /* Take the address of RI_P->DATA_ARG_ORIG to pass to __omp_fn.XXXX.  */
   if (ri_p->data_arg_dest)
     {
       addr_data_arg = build1 (ADDR_EXPR,
@@ -829,11 +829,11 @@ lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
      that it is dynamically selected by the runtime.  */
   num_threads = emit_num_threads_setup_code (tsi, ri_p, data);
 
-  /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...).  */
+  /* Emit GOMP_parallel_start (__omp_fn.XXXX ...).  */
   call = create_gomp_parallel_start (fn, addr_data_arg, num_threads);
   tsi_link_after (tsi, call, TSI_CONTINUE_LINKING);
 
-  /* Emit __gomp_fn.XXXX (&gomp_data).  */
+  /* Emit __omp_fn.XXXX (&omp_data).  */
   args = tree_cons (NULL_TREE, unshare_expr (addr_data_arg), NULL_TREE);
   call = build_function_call_expr (fn, args);
   tsi_link_after (tsi, call, TSI_NEW_STMT);
@@ -852,7 +852,7 @@ lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
 
    The general form is:
 
-   GOMP_FOR <clause(s), V = N1, V {<, >, >=, <=} N2, V {+=, -=} INCR, BODY>
+   OMP_FOR <clause(s), V = N1, V {<, >, >=, <=} N2, V {+=, -=} INCR, BODY>
 
    The lowering process generates code to compute how many iterations
    will be assigned to each thread (CHUNK) and the local loop limits
@@ -900,7 +900,7 @@ lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
    included in the last iteration.  */
 
 static void
-emit_gomp_for_static (tree_stmt_iterator *tsi)
+emit_omp_for_static (tree_stmt_iterator *tsi)
 {
   tree for_stmt = tsi_stmt (*tsi);
   tree nthreads, tid, chunk, ni;
@@ -909,22 +909,22 @@ emit_gomp_for_static (tree_stmt_iterator *tsi)
   bool counts_up_p;
   tree stmt_list = alloc_stmt_list ();
 
-  body = GOMP_FOR_BODY (for_stmt);
+  body = OMP_FOR_BODY (for_stmt);
 
   /* Extract loop variable (V) and lower bound (N1).  */
-  init = GOMP_FOR_INIT (for_stmt);
+  init = OMP_FOR_INIT (for_stmt);
   gcc_assert (TREE_CODE (init) == MODIFY_EXPR
 	      && TREE_CODE (TREE_TYPE (init)) == INTEGER_TYPE);
   v = TREE_OPERAND (init, 0);
   n1 = TREE_OPERAND (init, 1);
 
   /* Extract the controlling predicate (COND) and upper bound (N2).  */
-  cond = GOMP_FOR_COND (for_stmt);
+  cond = OMP_FOR_COND (for_stmt);
   gcc_assert (TREE_OPERAND (cond, 0) == v);
   n2 = TREE_OPERAND (cond, 1);
 
   /* Extract the increment expression (V = V [+-] STEP).  */
-  incr = GOMP_FOR_INCR (for_stmt);
+  incr = OMP_FOR_INCR (for_stmt);
   gcc_assert (TREE_CODE (incr) == MODIFY_EXPR);
   gcc_assert (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
               || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR);
@@ -1080,14 +1080,14 @@ emit_gomp_for_static (tree_stmt_iterator *tsi)
 }
 
 
-/* Lower the GOMP_FOR structure pointed-to by TSI.  GOMP_FOR is a work
+/* Lower the OMP_FOR structure pointed-to by TSI.  OMP_FOR is a work
    sharing construct that distributes the iteration space of the
    original loop into all the available threads.  No new parallel
    regions are created.  This construct is *only* valid inside a
    parallel region.  */
 
 static void
-lower_gomp_for (tree_stmt_iterator *tsi, struct lower_data *data)
+lower_omp_for (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree for_stmt = tsi_stmt (*tsi);
   tree_stmt_iterator orig_tsi;
@@ -1095,11 +1095,11 @@ lower_gomp_for (tree_stmt_iterator *tsi, struct lower_data *data)
   orig_tsi = *tsi;
 
   /* Lower the body of the loop.  */
-  lower_stmt_body (GOMP_FOR_BODY (for_stmt), data);
+  lower_stmt_body (OMP_FOR_BODY (for_stmt), data);
 
   /* Emit code for the parallel loop according to the specified schedule.
      FIXME, only static schedules handled.  */
-  emit_gomp_for_static (tsi);
+  emit_omp_for_static (tsi);
 
   /* Remove the original statement and free memory used by the mappings.  */
   tsi_delink (&orig_tsi);
@@ -1149,12 +1149,12 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case SWITCH_EXPR:
       break;
 
-    case GOMP_PARALLEL:
-      lower_gomp_parallel (tsi, data);
+    case OMP_PARALLEL:
+      lower_omp_parallel (tsi, data);
       break;
 
-    case GOMP_FOR:
-      lower_gomp_for (tsi, data);
+    case OMP_FOR:
+      lower_omp_for (tsi, data);
       break;
 
     default:

@@ -1,5 +1,19 @@
 2005-09-23  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-common.h (c_finish_omp_for): Declare
+	* c-omp.c (c_finish_omp_for): Rename from c_finish_gomp_for
+	and move from ...
+	* c-typeck.c (c_finish_gomp_for): ... here.
+	* c-tree.h (c_finish_gomp_for): Remove.
+	* gimple-low.c: Rename gomp_* symbols into omp_*.
+	Update all users.
+	* gimplify.c: Likewise.
+	* tree.def: Rename GOMP_* tree codes to OMP_*.
+	Update all users.
+	* tree.h: Likewise.
+
+2005-09-23  Diego Novillo  <dnovillo@redhat.com>
+
 	Mainline merge (gomp-merge-20050923)
 
 2005-09-23  Diego Novillo  <dnovillo@redhat.com>

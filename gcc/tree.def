@@ -948,19 +948,19 @@ DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", tcc_expression, 3)
 DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 7)
 
 /* OpenMP - #pragma omp parallel [clause1 ... clauseN]
-   Operand 1: GOMP_PARALLEL_CLAUSES: List of clauses.
-   Operand 2: GOMP_PARALLEL_BODY: Code to be executed by all threads.  */
-DEFTREECODE (GOMP_PARALLEL, "gomp_parallel", tcc_expression, 2)
+   Operand 1: OMP_PARALLEL_CLAUSES: List of clauses.
+   Operand 2: OMP_PARALLEL_BODY: Code to be executed by all threads.  */
+DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_expression, 2)
 
 /* OpenMP - #pragma omp for [clause1 ... clauseN]
-   Operand 1: GOMP_FOR_CLAUSES: List of clauses.
-   Operand 2: GOMP_FOR_INIT: Initialization code of the form
+   Operand 1: OMP_FOR_CLAUSES: List of clauses.
+   Operand 2: OMP_FOR_INIT: Initialization code of the form
                              	VAR = N1.
-   Operand 3: GOMP_FOR_COND: Loop conditional expression of the form
+   Operand 3: OMP_FOR_COND: Loop conditional expression of the form
                              	VAR { <, >, <=, >= } N2.
-   Operand 4: GOMP_FOR_INCR: Loop index increment of the form
+   Operand 4: OMP_FOR_INCR: Loop index increment of the form
 			     	VAR { +=, -= } INCR.
-   Operand 5: GOMP_FOR_BODY: Loop body.
+   Operand 5: OMP_FOR_BODY: Loop body.
 
    VAR must be a signed integer variable, which is implicitly thread
    private.
@@ -969,63 +969,63 @@ DEFTREECODE (GOMP_PARALLEL, "gomp_parallel", tcc_expression, 2)
    expressions that are evaluated without any synchronization.
    The evaluation order, frequency of evaluation and side-effects are
    unspecified by the standard.  */
-DEFTREECODE (GOMP_FOR, "gomp_for", tcc_expression, 5)
+DEFTREECODE (OMP_FOR, "omp_for", tcc_expression, 5)
 
 /* OpenMP - #pragma omp sections [clause1 ... clauseN]
-   Operand 1: GOMP_SECTIONS_CLAUSES: List of clauses.
-   Operand 2: GOMP_SECTIONS_BODY: Sections body.  */
-DEFTREECODE (GOMP_SECTIONS, "gomp_sections", tcc_expression, 2)
+   Operand 1: OMP_SECTIONS_CLAUSES: List of clauses.
+   Operand 2: OMP_SECTIONS_BODY: Sections body.  */
+DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_expression, 2)
 
 /* OpenMP - #pragma omp section
-   Operand 1: GOMP_SECTION_BODY: Section body.  */
-DEFTREECODE (GOMP_SECTION, "gomp_section", tcc_expression, 1)
+   Operand 1: OMP_SECTION_BODY: Section body.  */
+DEFTREECODE (OMP_SECTION, "omp_section", tcc_expression, 1)
 
 /* OpenMP - #pragma omp single
-   Operand 1: GOMP_SINGLE_BODY: Single section body.  */
-DEFTREECODE (GOMP_SINGLE, "gomp_single", tcc_expression, 1)
+   Operand 1: OMP_SINGLE_BODY: Single section body.  */
+DEFTREECODE (OMP_SINGLE, "omp_single", tcc_expression, 1)
 
 /* OpenMP - #pragma omp master
-   Operand 1: GOMP_MASTER_BODY: Master section body.  */
-DEFTREECODE (GOMP_MASTER, "gomp_master", tcc_expression, 1)
+   Operand 1: OMP_MASTER_BODY: Master section body.  */
+DEFTREECODE (OMP_MASTER, "omp_master", tcc_expression, 1)
 
 /* OpenMP - #pragma omp critical [name]
-   Operand 1: GOMP_CRITICAL_NAME: Identifier for critical section.
-   Operand 2: GOMP_CRITICAL_BODY: Critical section body.  */
-DEFTREECODE (GOMP_CRITICAL, "gomp_critical", tcc_expression, 2)
+   Operand 1: OMP_CRITICAL_NAME: Identifier for critical section.
+   Operand 2: OMP_CRITICAL_BODY: Critical section body.  */
+DEFTREECODE (OMP_CRITICAL, "omp_critical", tcc_expression, 2)
 
 /* OpenMP - #pragma omp barrier.  */
-DEFTREECODE (GOMP_BARRIER, "gomp_barrier", tcc_expression, 0)
+DEFTREECODE (OMP_BARRIER, "omp_barrier", tcc_expression, 0)
 
 /* OpenMP - #pragma omp ordered.
-   Operand 1: GOMP_ORDERED_BODY: Body to be executed sequentially.  */
-DEFTREECODE (GOMP_ORDERED, "gomp_ordered", tcc_expression, 1)
+   Operand 1: OMP_ORDERED_BODY: Body to be executed sequentially.  */
+DEFTREECODE (OMP_ORDERED, "omp_ordered", tcc_expression, 1)
 
 /* OpenMP clause: private (variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_PRIVATE, "private", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_PRIVATE, "private", tcc_expression, 1)
 
 /* OpenMP clause: shared (variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_SHARED, "shared", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_SHARED, "shared", tcc_expression, 1)
 
 /* OpenMP clause: firstprivate (variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_FIRSTPRIVATE, "firstprivate", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_FIRSTPRIVATE, "firstprivate", tcc_expression, 1)
 
 /* OpenMP clause: lastprivate (variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_LASTPRIVATE, "lastprivate", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_LASTPRIVATE, "lastprivate", tcc_expression, 1)
 
 /* OpenMP clause: reduction (operator:variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_REDUCTION, "reduction", tcc_expression, 2)
+DEFTREECODE (OMP_CLAUSE_REDUCTION, "reduction", tcc_expression, 2)
 
 /* OpenMP clause: copyin (variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_COPYIN, "copyin", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_COPYIN, "copyin", tcc_expression, 1)
 
 /* OpenMP clause: copyprivate (variable_list).  */
-DEFTREECODE (GOMP_CLAUSE_COPYPRIVATE, "copyprivate", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_COPYPRIVATE, "copyprivate", tcc_expression, 1)
 
 /* OpenMP clause: if (scalar-expression).  */
-DEFTREECODE (GOMP_CLAUSE_IF, "if", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_IF, "if", tcc_expression, 1)
 
 /* OpenMP clause: num_threads (integer-expression).  */
-DEFTREECODE (GOMP_CLAUSE_NUM_THREADS, "num_threads", tcc_expression, 1)
+DEFTREECODE (OMP_CLAUSE_NUM_THREADS, "num_threads", tcc_expression, 1)
 
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar

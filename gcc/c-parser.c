@@ -4201,7 +4201,7 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
     c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
   else
     {
-      tree t = c_finish_gomp_for (init, cond, incr, body, omp_clauses);
+      tree t = c_finish_omp_for (init, cond, incr, body, omp_clauses);
       if (t)
 	add_stmt (t);
       else
@@ -6725,7 +6725,7 @@ c_parser_omp_directive (c_parser *parser)
     {
       case PRAGMA_OMP_PARALLEL:
 	stmt = c_parser_compound_statement (parser);
-	add_stmt (build (GOMP_PARALLEL, void_type_node, clause, stmt));
+	add_stmt (build (OMP_PARALLEL, void_type_node, clause, stmt));
 	break;
 
       case PRAGMA_OMP_FOR:
@@ -6916,7 +6916,7 @@ c_parser_pragma_omp_clause_copyin (c_parser *parser)
     {
       tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (GOMP_CLAUSE_COPYIN, NULL_TREE, vars));
+      add_new_clause (build (OMP_CLAUSE_COPYIN, NULL_TREE, vars));
     }
 }
 
@@ -6930,7 +6930,7 @@ c_parser_pragma_omp_clause_copyprivate (c_parser *parser)
     {
       tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (GOMP_CLAUSE_COPYPRIVATE, NULL_TREE, vars));
+      add_new_clause (build (OMP_CLAUSE_COPYPRIVATE, NULL_TREE, vars));
     }
 }
 
@@ -6982,7 +6982,7 @@ c_parser_pragma_omp_clause_firstprivate (c_parser *parser)
     {
       tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (GOMP_CLAUSE_FIRSTPRIVATE, NULL_TREE, vars));
+      add_new_clause (build (OMP_CLAUSE_FIRSTPRIVATE, NULL_TREE, vars));
     }
 }
 
@@ -6999,11 +6999,11 @@ c_parser_pragma_omp_clause_if (c_parser *parser)
 
       /* At most one 'if' clause may appear in the directive.  */
       for (c = curr_clause_set; c; c = TREE_CHAIN (c))
-	if (TREE_CODE (TREE_VALUE (c)) == GOMP_CLAUSE_IF)
+	if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_IF)
 	  error ("at most one %<if%> clause may appear in a parallel "
 	         "directive");
 
-      add_new_clause (build (GOMP_CLAUSE_IF, NULL_TREE, t));
+      add_new_clause (build (OMP_CLAUSE_IF, NULL_TREE, t));
     }
   else
     {
@@ -7021,7 +7021,7 @@ c_parser_pragma_omp_clause_lastprivate (c_parser *parser)
     {
       tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (GOMP_CLAUSE_LASTPRIVATE, NULL_TREE, vars));
+      add_new_clause (build (OMP_CLAUSE_LASTPRIVATE, NULL_TREE, vars));
     }
 }
 
@@ -7052,11 +7052,11 @@ c_parser_pragma_omp_clause_num_threads (c_parser *parser)
 
 	  /* At most one 'num_threads' clause may appear in the directive.  */
 	  for (c = curr_clause_set; c; c = TREE_CHAIN (c))
-	    if (TREE_CODE (TREE_VALUE (c)) == GOMP_CLAUSE_NUM_THREADS)
+	    if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_NUM_THREADS)
 	      error ("at most one %<num_threads%> clause may appear "
 		     "in a parallel directive");
 
-	  add_new_clause (build (GOMP_CLAUSE_NUM_THREADS, TREE_TYPE (t), t));
+	  add_new_clause (build (OMP_CLAUSE_NUM_THREADS, TREE_TYPE (t), t));
 	}
 
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -7082,7 +7082,7 @@ c_parser_pragma_omp_clause_private (c_parser *parser)
     {
       tree vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (GOMP_CLAUSE_PRIVATE, NULL_TREE, vars));
+      add_new_clause (build (OMP_CLAUSE_PRIVATE, NULL_TREE, vars));
     }
 }
 
@@ -7227,7 +7227,7 @@ c_parser_pragma_omp_clause_shared (c_parser *parser)
       tree t, vars;
       vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (GOMP_CLAUSE_SHARED, NULL_TREE, vars));
+      add_new_clause (build (OMP_CLAUSE_SHARED, NULL_TREE, vars));
 
       /* Since we are going to be taking the address of shared
 	 variables, mark them addressable early.  */

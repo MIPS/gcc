@@ -93,22 +93,22 @@ gfc_trans_omp_directive (gfc_code *code)
 	  switch (clause)
 	    {
 	    case OMP_LIST_PRIVATE:
-	      clause_code = GOMP_CLAUSE_PRIVATE;
+	      clause_code = OMP_CLAUSE_PRIVATE;
 	      break;
 	    case OMP_LIST_SHARED:
-	      clause_code = GOMP_CLAUSE_SHARED;
+	      clause_code = OMP_CLAUSE_SHARED;
 	      break;
 	    case OMP_LIST_FIRSTPRIVATE:
-	      clause_code = GOMP_CLAUSE_FIRSTPRIVATE;
+	      clause_code = OMP_CLAUSE_FIRSTPRIVATE;
 	      break;
 	    case OMP_LIST_LASTPRIVATE:
-	      clause_code = GOMP_CLAUSE_LASTPRIVATE;
+	      clause_code = OMP_CLAUSE_LASTPRIVATE;
 	      break;
 	    case OMP_LIST_COPYIN:
-	      clause_code = GOMP_CLAUSE_COPYIN;
+	      clause_code = OMP_CLAUSE_COPYIN;
 	      break;
 	    case OMP_LIST_COPYPRIVATE:
-	      clause_code = GOMP_CLAUSE_COPYPRIVATE;
+	      clause_code = OMP_CLAUSE_COPYPRIVATE;
 	      break;
 	    default:
 	      break;
@@ -124,5 +124,5 @@ gfc_trans_omp_directive (gfc_code *code)
 		}
 	    }
 	}
-  return build2 (GOMP_PARALLEL, void_type_node, omp_clauses, stmt);
+  return build2 (OMP_PARALLEL, void_type_node, omp_clauses, stmt);
 }

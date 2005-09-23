@@ -1,3 +1,7 @@
+2005-09-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans-openmp.c: Rename GOMP_* tree codes into OMP_*.
+
 2005-09-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* dump-parse-tree.c (show_symtree): Don't crash if ns->proc_name

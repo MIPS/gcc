@@ -3907,28 +3907,28 @@ gimplify_to_stmt_list (tree *stmt_p)
 }
 
 
-/* Gimplify a GOMP_FOR statement.  */
+/* Gimplify a OMP_FOR statement.  */
 
 static enum gimplify_status
-gimplify_gomp_for (tree *expr_p, tree *pre_p)
+gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
   enum gimplify_status ret;
 
-  ret = gimplify_modify_expr (&GOMP_FOR_INIT (*expr_p), pre_p, NULL, false);
+  ret = gimplify_modify_expr (&OMP_FOR_INIT (*expr_p), pre_p, NULL, false);
   if (ret != GS_ALL_DONE)
     return ret;
 
-  ret = gimplify_expr (&GOMP_FOR_COND (*expr_p), pre_p, NULL,
+  ret = gimplify_expr (&OMP_FOR_COND (*expr_p), pre_p, NULL,
 		       is_gimple_condexpr, fb_rvalue);
   if (ret != GS_ALL_DONE)
     return ret;
 
-  ret = gimplify_expr (&GOMP_FOR_INCR (*expr_p), pre_p, NULL,
+  ret = gimplify_expr (&OMP_FOR_INCR (*expr_p), pre_p, NULL,
 		       is_gimple_stmt, fb_none);
   if (ret != GS_ALL_DONE)
     return ret;
 
-  gimplify_to_stmt_list (&GOMP_FOR_BODY (*expr_p));
+  gimplify_to_stmt_list (&OMP_FOR_BODY (*expr_p));
 
   return ret;
 }
@@ -4375,12 +4375,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case GOMP_PARALLEL:
+	case OMP_PARALLEL:
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case GOMP_FOR:
-	  ret = gimplify_gomp_for (expr_p, pre_p);
+	case OMP_FOR:
+	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;
 
 	default:
