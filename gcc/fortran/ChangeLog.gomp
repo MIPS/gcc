@@ -1,3 +1,20 @@
+2005-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* dump-parse-tree.c (show_symtree): Don't crash if ns->proc_name
+	is NULL.
+
+	* dump-parse-tree.c (gfc_show_namelist, gfc_show_omp_node): New
+	functions.
+	(gfc_show_code_node): Call gfc_show_omp_node for EXEC_OMP_* nodes.
+
+	* parse.c (parse_omp_do): Call pop_state before next_statement.
+	* openmp.c (expr_references_sym, resolve_omp_atomic, resolve_omp_do):
+	New functions.
+	(gfc_resolve_omp_directive): Call them.
+	* match.c (match_exit_cycle): Issue error if EXIT or CYCLE statement
+	leaves an OpenMP structured block or if EXIT terminates !$omp do
+	loop.
+
 2005-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* Make-lang.in (F95_PARSER_OBJS): Add fortran/openmp.o.
