@@ -1,3 +1,20 @@
+2005-09-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-parser.c (c_parser_pragma_omp_clause): Fix dangling if().
+	(c_parser_pragma_omp_clause_if): Remove printf.
+	Check that only one clause 'if' is specified.
+	Call add_new_clause.
+	(c_parser_pragma_omp_clause_num_threads): Remove printf.
+	Check that only one clause 'num_threads' is specified.
+	Call add_new_clause.
+	* gimple-low.c (emit_num_threads_setup_code): New.
+	(lower_gomp_parallel): Call it.
+	Add new argument DATA.  Modify all callers.
+	* tree-pretty-print.c (dump_generic_node): Handle
+	GOMP_CLAUSE_IF and GOMP_CLAUSE_NUM_THREADS.
+	* tree.def (GOMP_CLAUSE_IF, GOMP_CLAUSE_NUM_THREADS): Define.
+	* tree.h (GOMP_IF_EXPR, GOMP_NUM_THREADS_EXPR): Define.
+
 2005-09-22  Richard Henderson  <rth@redhat.com>
 
 	* c-parser.c (c_parse_init): Tableize the omp pragmas; register

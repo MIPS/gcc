@@ -1598,6 +1598,19 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ")");
       break;
 
+    case GOMP_CLAUSE_IF:
+      pp_string (buffer, "if (");
+      dump_generic_node (buffer, GOMP_IF_EXPR (node), spc, flags, false);
+      pp_string (buffer, ")");
+      break;
+
+    case GOMP_CLAUSE_NUM_THREADS:
+      pp_string (buffer, "num_threads (");
+      dump_generic_node (buffer, GOMP_NUM_THREADS_EXPR (node), spc, flags,
+			 false);
+      pp_string (buffer, ")");
+      break;
+
     case REDUC_MAX_EXPR:
       pp_string (buffer, " REDUC_MAX_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);

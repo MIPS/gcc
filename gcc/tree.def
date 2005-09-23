@@ -1021,6 +1021,12 @@ DEFTREECODE (GOMP_CLAUSE_COPYIN, "copyin", tcc_expression, 1)
 /* OpenMP clause: copyprivate (variable_list).  */
 DEFTREECODE (GOMP_CLAUSE_COPYPRIVATE, "copyprivate", tcc_expression, 1)
 
+/* OpenMP clause: if (scalar-expression).  */
+DEFTREECODE (GOMP_CLAUSE_IF, "if", tcc_expression, 1)
+
+/* OpenMP clause: num_threads (integer-expression).  */
+DEFTREECODE (GOMP_CLAUSE_NUM_THREADS, "num_threads", tcc_expression, 1)
+
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar
    result (e.g. summing the elements of the vector, finding the minimum over

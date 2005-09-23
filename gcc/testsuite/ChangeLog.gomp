@@ -1,3 +1,7 @@
+2005-09-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/omp-parallel-if.c: New test.
+
 2005-09-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/gomp/omp-for-1.c: New test.

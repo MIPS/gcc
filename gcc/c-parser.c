@@ -6801,7 +6801,7 @@ c_parser_pragma_omp_clause (c_parser *parser)
     {
       result = PRAGMA_OMP_CLAUSE_IF;
     }
-  if (c_parser_next_token_is_keyword (parser, RID_DEFAULT))
+  else if (c_parser_next_token_is_keyword (parser, RID_DEFAULT))
     {
       result = PRAGMA_OMP_CLAUSE_DEFAULT;
     }
@@ -6992,13 +6992,18 @@ c_parser_pragma_omp_clause_firstprivate (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_if (c_parser *parser)
 {
-  printf ("if: ");
-
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
     {
       tree t = c_parser_paren_condition (parser);
-      print_generic_expr (stdout, t, 0);
-      printf ("\n");
+      tree c;
+
+      /* At most one 'if' clause may appear in the directive.  */
+      for (c = curr_clause_set; c; c = TREE_CHAIN (c))
+	if (TREE_CODE (TREE_VALUE (c)) == GOMP_CLAUSE_IF)
+	  error ("at most one %<if%> clause may appear in a parallel "
+	         "directive");
+
+      add_new_clause (build (GOMP_CLAUSE_IF, NULL_TREE, t));
     }
   else
     {
@@ -7035,23 +7040,27 @@ c_parser_pragma_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_clause_num_threads (c_parser *parser)
 {
-  printf ("num_threads: ");
-
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       tree t = c_parser_expression (parser).value;
 
-      if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
-	{
-	  print_generic_expr (stdout, t, 0);
-	}
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	c_parser_error (parser, "expected integer expression");
       else
 	{
-	  c_parser_error (parser, "expected integer expression");
+	  tree c;
+
+	  /* At most one 'num_threads' clause may appear in the directive.  */
+	  for (c = curr_clause_set; c; c = TREE_CHAIN (c))
+	    if (TREE_CODE (TREE_VALUE (c)) == GOMP_CLAUSE_NUM_THREADS)
+	      error ("at most one %<num_threads%> clause may appear "
+		     "in a parallel directive");
+
+	  add_new_clause (build (GOMP_CLAUSE_NUM_THREADS, TREE_TYPE (t), t));
 	}
+
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
-  printf ("\n");
 }
 
 /* OpenMP 2.5:

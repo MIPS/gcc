@@ -683,12 +683,98 @@ emit_gomp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
 }
 
 
+/* Static emit code to specify the number of threads to use in the
+   runtime.
+
+   TSI points to where the code should be emitted.
+
+   RI_P points to the remap structure holding clause information.
+
+   DATA points to GIMPLE lowering information.
+
+   Returns the argument that should be passed to GOMP_parallel_start.  */
+
+static tree
+emit_num_threads_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p,
+			     struct lower_data *data)
+{
+  tree val, cond, c;
+  tree clauses = ri_p->clauses;
+
+  /* By default, the value of NUM_THREADS is zero (selected at run
+     time) and there is no conditional.  */
+  cond = NULL_TREE;
+  val = integer_zero_node;
+
+  for (c = clauses; c; c = TREE_CHAIN (c))
+    {
+      tree clause = TREE_VALUE (c);
+
+      if (TREE_CODE (clause) == GOMP_CLAUSE_IF)
+	cond = GOMP_IF_EXPR (clause);
+      else if (TREE_CODE (clause) == GOMP_CLAUSE_NUM_THREADS)
+	val = GOMP_NUM_THREADS_EXPR (clause);
+    }
+
+  /* If we found either of 'if (expr)' or 'num_threads (expr)',
+     create a local variable and prepare a list of statements to be
+     inserted.  */
+  if (cond || val != integer_zero_node)
+    {
+      tree t;
+      tree num_threads = create_tmp_var (unsigned_type_node, ".num_threads");
+      tree stmt_list = alloc_stmt_list ();
+
+      if (cond)
+	{
+	  /* If we found the clause 'if (cond)', build the
+	     conditional:
+
+	     	if (cond)
+		  .num_threads = val
+		else
+		  .num_threads = 1  */
+	  t = build (COND_EXPR, void_type_node, cond, 
+		     build (MODIFY_EXPR, void_type_node, num_threads, val),
+		     build (MODIFY_EXPR, void_type_node, num_threads,
+			    integer_one_node));
+	  append_to_statement_list (t, &stmt_list);
+	}
+      else
+	{
+	  gcc_assert (val != integer_zero_node);
+
+	  /* Otherwise, if we found a num_threads clause with anything
+	     other than zero, assign that value to .num_threads:
+	     .num_threads = val  */
+	  t = build (MODIFY_EXPR, unsigned_type_node, num_threads, val);
+	  append_to_statement_list (t, &stmt_list);
+	}
+
+      /* Gimplify and lower the emitted code.  This is necessary
+	 mostly for COND and VAL, which can be arbitrary expressions.  */
+      push_gimplify_context ();
+      gimplify_stmt (&stmt_list);
+      pop_gimplify_context (NULL);
+      lower_stmt_body (stmt_list, data);
+
+      tsi_link_after (tsi, stmt_list, TSI_CONTINUE_LINKING);
+
+      return num_threads;
+    }
+
+  /* Otherwise, just return zero to specify that the number of threads
+     should be selected at runtime.  */
+  return integer_zero_node;
+}
+
+
 /* Lower the OpenMP parallel directive pointed by TSI.  Build a new
    function with the body of the pragma and emit the appropriate
    runtime call.  DATA contains locus and scope information for TSI.  */
 
 static void
-lower_gomp_parallel (tree_stmt_iterator *tsi)
+lower_gomp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree par_stmt, fn, call, args, num_threads, addr_data_arg;
   tree_stmt_iterator orig_tsi;
@@ -738,10 +824,12 @@ lower_gomp_parallel (tree_stmt_iterator *tsi)
   else
     addr_data_arg = null_pointer_node;
 
-  /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...) to PRE_P.  FIXME,
-     num_threads should only be integer_zero_node if the clause
-     num_threads is not present.  */
-  num_threads = integer_zero_node;
+  /* Emit code to set up the number of threads to use according to the
+     IF and NUM_THREADS clauses.  If both are missing, set it to 0 so
+     that it is dynamically selected by the runtime.  */
+  num_threads = emit_num_threads_setup_code (tsi, ri_p, data);
+
+  /* Emit GOMP_parallel_start (__gomp_fn.XXXX ...).  */
   call = create_gomp_parallel_start (fn, addr_data_arg, num_threads);
   tsi_link_after (tsi, call, TSI_CONTINUE_LINKING);
 
@@ -1062,7 +1150,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       break;
 
     case GOMP_PARALLEL:
-      lower_gomp_parallel (tsi);
+      lower_gomp_parallel (tsi, data);
       break;
 
     case GOMP_FOR:
