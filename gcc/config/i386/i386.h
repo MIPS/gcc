@@ -2601,580 +2601,672 @@ struct machine_function GTY(())
 #define X86_FILE_START_FLTUSED false
 
 /* APPLE LOCAL begin CW asm blocks */
+#define TARGET_CW_EXTRA_INFO			\
+  char mod[3];					\
+  bool as_offset;
+
+extern bool cw_x86_needs_swapping (const char *);
+#define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
+  do {									\
+    /* If we are outputting AT&T style assembly language, the argument	\
+       numbering is reversed.  */					\
+    if (cw_x86_needs_swapping (opcode))					\
+      NEWARGNUM = NUM_ARGS - ARGNUM + 1;				\
+  } while (0)
+
+#define CW_SYNTH_CONSTRAINTS(R, ARGNUM, NUM_ARGS, DB)					\
+  do {											\
+    /* On x86, operand 2 or 3 can be left out and the assembler will deal with it.	\
+											\
+       Take for example an opcode:							\
+											\
+	   opcode r m i									\
+											\
+       We allow:									\
+											\
+	   opcode r mi									\
+											\
+       when we have only 2 operands.  */						\
+    if (R										\
+	&& ARGNUM == 2									\
+	&& NUM_ARGS == 2								\
+	&& R < &DB[sizeof(DB) / sizeof (DB[0]) - 1]					\
+	&& strcmp (R[1].opcode, R->opcode) == 0						\
+	&& R[1].argnum == 3)								\
+      {											\
+	tree t;										\
+	size_t len = strlen (r->constraint) + strlen (r[1].constraint) + 1;		\
+	char *p = alloca (len);								\
+											\
+	sprintf(p, "%s%s", r->constraint, r[1].constraint);				\
+	t = build_string (len, p);							\
+	return TREE_STRING_POINTER (t);							\
+      }											\
+  } while (0);
+
+extern bool cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
+			 bool must_be_reg, bool must_not_be_reg, void *);
+#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E) \
+ cw_print_op (BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E)
+
+extern tree x86_canonicalize_operands (const char **, tree, void *);
+/* On x86, we can rewrite opcodes, change argument ordering and so no... */
+#define CW_CANONICALIZE_OPERANDS(OPCODE, IARGS, E, LEN)	\
+  do {								\
+    IARGS = x86_canonicalize_operands (&OPCODE, IARGS, E);	\
+    LEN = strlen (OPCODE);					\
+  } while (0)
+
+#define CW_SEE_OPCODE(YYCHAR, T)					\
+    /* If we see an int, arrange to see it as an identifier (opcode),	\
+       not as a type.  */						\
+    ((YYCHAR == TYPESPEC						\
+      && C_RID_CODE (T) == RID_INT)					\
+     ? IDENTIFIER : YYCHAR)
+
+#define CW_IMMED_PREFIX(E, BUF)			\
+  do {						\
+    if (! E->as_offset)				\
+      sprintf (BUF + strlen (BUF), "$");	\
+  } while (0)
+
+/* We can't yet expose ST(x) to reg-stack.c, don't try.  */
+#define CW_HIDE_REG(R) FP_REGNO_P (R)
+
+#define CW_SEE_OFFSET(E)			\
+  E->as_offset = true
+
+#define CW_SEE_NO_OFFSET(E)			\
+  E->as_offset = false
+
 /* Table of instructions that need extra constraints.  Keep this table sorted.  */
 #undef TARGET_CW_OP_CONSTRAINT
 #define TARGET_CW_OP_CONSTRAINT \
-  { "adc", 1, "i,i,i,r,m" },	\
-  { "adc", 2, "+r,m,m,m,r" },	\
-  { "add", 1, "i,i,i,r,m" },	\
-  { "add", 2, "+r,m,m,m,r" },	\
-  { "addsd", 1, "m"},		\
-  { "addsd", 2, "+x"},		\
-  { "addss", 1, "m"},		\
-  { "addss", 2, "+x"},		\
-  { "addsubpd", 1, "m"},	\
-  { "addsubpd", 2, "+x"},      	\
-  { "addsubps", 1, "m"},      	\
-  { "addsubps", 2, "+x"},	\
-  { "and", 1, "i,i,i,r,m"},	\
-  { "and", 2, "+r,m,m,m,r"},	\
-  { "andnpd", 1, "m"},		\
-  { "andnpd", 2, "+x"},		\
-  { "andnps", 1, "m"},		\
-  { "andnps", 2, "+x"},		\
-  { "andpd", 1, "m"},		\
-  { "andpd", 2, "+x"},		\
-  { "andps", 1, "m"},		\
-  { "andps", 2, "+x"},		\
-  { "arpl", 2, "+m"},		\
-  { "bound", 1, "m"},		\
-  { "bsf", 1, "m"},		\
-  { "bsr", 1, "m"},		\
-  { "bt", 1, "ri"},		\
-  { "bt", 2, "rm"},		\
-  { "btc", 1, "ri"},		\
-  { "btc", 2, "rm"},		\
-  { "btr", 1, "ri"},		\
-  { "btr", 2, "rm"},		\
-  { "bts", 1, "ri"},		\
-  { "bts", 2, "rm"},		\
+  { "adc", 1, "+rm,r" },	\
+  { "adc", 2, "ir,m" },		\
+  { "add", 1, "+rm,r" },	\
+  { "add", 2, "ir,m" },		\
+  { "addsd", 1, "+x"},		\
+  { "addsd", 2, "m"},		\
+  { "addss", 1, "+x"},		\
+  { "addss", 2, "m"},		\
+  { "addsubpd", 1, "+x"},      	\
+  { "addsubpd", 2, "m"},	\
+  { "addsubps", 1, "+x"},	\
+  { "addsubps", 2, "m"},      	\
+  { "and", 1, "+rm,r"},		\
+  { "and", 2, "ir,m"},		\
+  { "andnpd", 1, "+x"},		\
+  { "andnpd", 2, "m"},		\
+  { "andnps", 1, "+x"},		\
+  { "andnps", 2, "m"},		\
+  { "andpd", 1, "+x"},		\
+  { "andpd", 2, "m"},		\
+  { "andps", 1, "+x"},		\
+  { "andps", 2, "m"},		\
+  { "arpl", 1, "+" rm16},	\
+  { "arpl", 2, r16},		\
+  { "bound", 1, U("r")},	\
+  { "bound", 2, U("m")},	\
+  { "bsf", 1, "=r"},		\
+  { "bsf", 2, "rm"},		\
+  { "bsr", 1, "=r"},		\
+  { "bsr", 2, "rm"},		\
+  { "bt", 1, "rm"},		\
+  { "bt", 2, "ri"},		\
+  { "btc", 1, "rm"},		\
+  { "btc", 2, "ri"},		\
+  { "btr", 1, "rm"},		\
+  { "btr", 2, "ri"},		\
+  { "bts", 1, "rm"},		\
+  { "bts", 2, "ri"},		\
   { "call", 1, "rsm"},		\
   { "clflush", 1, "=m"},       	\
-  { "cmova", 1, "m"},		\
-  { "cmovae", 1, "m"},		\
-  { "cmovb", 1, "m"},		\
-  { "cmovbe", 1, "m"},		\
-  { "cmovc", 1, "m"},		\
-  { "cmove", 1, "m"},		\
-  { "cmovg", 1, "m"},		\
-  { "cmovge", 1, "m"},		\
-  { "cmovl", 1, "m"},		\
-  { "cmovle", 1, "m"},		\
-  { "cmovna", 1, "m"},		\
-  { "cmovnae", 1, "m"},		\
-  { "cmovnb", 1, "m"},		\
-  { "cmovnbe", 1, "m"},		\
-  { "cmovnc", 1, "m"},		\
-  { "cmovne", 1, "m"},		\
-  { "cmovng", 1, "m"},		\
-  { "cmovnge", 1, "m"},		\
-  { "cmovnl", 1, "m"},		\
-  { "cmovnle", 1, "m"},		\
-  { "cmovno", 1, "m"},		\
-  { "cmovnp", 1, "m"},		\
-  { "cmovns", 1, "m"},		\
-  { "cmovnz", 1, "m"},		\
-  { "cmovo", 1, "m"},		\
-  { "cmovp", 1, "m"},		\
-  { "cmovpe", 1, "m"},		\
-  { "cmovpo", 1, "m"},		\
-  { "cmovs", 1, "m"},		\
-  { "cmovz", 1, "m"},		\
-  { "cmp", 1, "i,i,i,r,m"},    	\
-  { "cmp", 2, "r,m,m,m,r"},    	\
-  { "cmppd", 1, "i"},		\
+  { "cmova", 2, "rm"},		\
+  { "cmovae", 2, "rm"},		\
+  { "cmovb", 2, "rm"},		\
+  { "cmovbe", 2, "rm"},		\
+  { "cmovc", 2, "rm"},		\
+  { "cmove", 2, "rm"},		\
+  { "cmovg", 2, "rm"},		\
+  { "cmovge", 2, "rm"},		\
+  { "cmovl", 2, "rm"},		\
+  { "cmovle", 2, "rm"},		\
+  { "cmovna", 2, "rm"},		\
+  { "cmovnae", 2, "rm"},	\
+  { "cmovnb", 2, "rm"},		\
+  { "cmovnbe", 2, "rm"},	\
+  { "cmovnc", 2, "rm"},		\
+  { "cmovne", 2, "rm"},		\
+  { "cmovng", 2, "rm"},		\
+  { "cmovnge", 2, "rm"},	\
+  { "cmovnl", 2, "rm"},		\
+  { "cmovnle", 2, "rm"},	\
+  { "cmovno", 2, "rm"},		\
+  { "cmovnp", 2, "rm"},		\
+  { "cmovns", 2, "rm"},		\
+  { "cmovnz", 2, "rm"},		\
+  { "cmovo", 2, "rm"},		\
+  { "cmovp", 2, "rm"},		\
+  { "cmovpe", 2, U("rm")},	\
+  { "cmovpo", 2, U("rm")},	\
+  { "cmovs", 2, "rm"},		\
+  { "cmovz", 2, U("rm")},	\
+  { "cmp", 1, "rm,r"},    	\
+  { "cmp", 2, "ir,m"},    	\
+  { "cmppd", 1, "=x"},		\
   { "cmppd", 2, "xm"},		\
-  { "cmppd", 3, "=x"},		\
-  { "cmpps", 1, "i"},		\
+  { "cmppd", 3, "i"},		\
+  { "cmpps", 1, "=x"},		\
   { "cmpps", 2, "xm"},		\
-  { "cmpps", 3, "=x"},		\
-  { "cmpsd", 1, "i"},		\
+  { "cmpps", 3, "i"},		\
+  { "cmpsd", 1, "=x"},		\
   { "cmpsd", 2, "xm"},		\
-  { "cmpsd", 3, "=x"},		\
-  { "cmpss", 1, "i"},		\
+  { "cmpsd", 3, "i"},		\
+  { "cmpss", 1, "=x"},		\
   { "cmpss", 2, "xm"},		\
-  { "cmpss", 3, "=x"},		\
-  { "cmpxchg", 2, "+mr"},      	\
-  { "comisd", 1, "m"},		\
-  { "comisd", 2, "x"},		\
-  { "comiss", 1, "m"},		\
-  { "comiss", 2, "x"},		\
-  { "cvtdq2pd", 1, "m"},	\
-  { "cvtdq2pd", 2, "=x"},	\
-  { "cvtdq2ps", 1, "m"},	\
-  { "cvtdq2ps", 2, "=x"},	\
-  { "cvtpd2pi", 1, "m"},	\
-  { "cvtpd2pi", 2, "=y"},	\
-  { "cvtpd2ps", 1, "m"},	\
-  { "cvtpd2ps", 2, "=x"},	\
-  { "cvtpi2pd", 1, "m"},	\
-  { "cvtpi2pd", 2, "=x"},	\
-  { "cvtpi2ps", 1, "m"},	\
-  { "cvtpi2ps", 2, "=x"},	\
-  { "cvtps2dq", 1, "m"},	\
-  { "cvtps2dq", 2, "=x"},	\
-  { "cvtps2pd", 1, "m"},	\
-  { "cvtps2pd", 2, "=x"},	\
-  { "cvtps2pi", 1, "m"},	\
-  { "cvtps2pi", 2, "=y"},	\
-  { "cvtsd2si", 1, "m"},	\
-  { "cvtsd2ss", 1, "m"},	\
-  { "cvtsd2ss", 2, "=x"},	\
-  { "cvtsi2sd", 1, "m"},	\
-  { "cvtsi2sd", 2, "=x"},	\
-  { "cvtsi2ss", 1, "m"},	\
-  { "cvtsi2ss", 2, "=x"},	\
-  { "cvtss2sd", 1, "m"},	\
-  { "cvtss2sd", 2, "=x"},	\
-  { "cvtss2si", 1, "m"},	\
-  { "cvtss2si", 2, "=x"},	\
-  { "cvttpd2dq", 1, "m"},	\
-  { "cvttpd2dq", 2, "=x"},	\
-  { "cvttpd2pi", 1, "m"},	\
-  { "cvttpd2pi", 2, "=y"},	\
-  { "cvttps2dq", 1, "m"},	\
-  { "cvttps2dq", 2, "=x"},	\
-  { "cvttps2pi", 1, "m"},	\
-  { "cvttps2pi", 2, "=y"},	\
-  { "cvttsd2si", 1, "m"},	\
-  { "cvttss2si", 1, "m"},	\
-  { "dec", 1, "+rm"},		\
-  { "div", 1, "+rm"},		\
-  { "divpd", 1, "m"},		\
-  { "divpd", 2, "+y"},		\
-  { "divps", 1, "m"},		\
-  { "divps", 2, "+y"},		\
-  { "divsd", 1, "m"},		\
-  { "divsd", 2, "+y"},		\
-  { "divss", 1, "m"},		\
-  { "divss", 2, "+y"},		\
+  { "cmpss", 3, "i"},		\
+  { "cmpxchg", 1, "+mr"},      	\
+  { "cmpxchg", 2, "r"},      	\
+  { "comisd", 1, "x"},		\
+  { "comisd", 2, "m"},		\
+  { "comiss", 1, "x"},		\
+  { "comiss", 2, "m"},		\
+  { "cvtdq2pd", 1, "=x"},	\
+  { "cvtdq2pd", 2, "m"},	\
+  { "cvtdq2ps", 1, "=x"},	\
+  { "cvtdq2ps", 2, "m"},	\
+  { "cvtpd2pi", 1, "=y"},	\
+  { "cvtpd2pi", 2, "m"},	\
+  { "cvtpd2ps", 1, "=x"},	\
+  { "cvtpd2ps", 2, "m"},	\
+  { "cvtpi2pd", 1, "=x"},	\
+  { "cvtpi2pd", 2, "m"},	\
+  { "cvtpi2ps", 1, "=x"},	\
+  { "cvtpi2ps", 2, "m"},	\
+  { "cvtps2dq", 1, "=x"},	\
+  { "cvtps2dq", 2, "m"},	\
+  { "cvtps2pd", 1, "=x"},	\
+  { "cvtps2pd", 2, "m"},	\
+  { "cvtps2pi", 1, "=y"},	\
+  { "cvtps2pi", 2, "m"},	\
+  { "cvtsd2si", 1, "=r"},	\
+  { "cvtsd2si", 2, "xm"},	\
+  { "cvtsd2ss", 1, "=x"},	\
+  { "cvtsd2ss", 2, "m"},	\
+  { "cvtsi2sd", 1, "=x"},	\
+  { "cvtsi2sd", 2, "m"},	\
+  { "cvtsi2ss", 1, "=x"},	\
+  { "cvtsi2ss", 2, "m"},	\
+  { "cvtss2sd", 1, "=x"},	\
+  { "cvtss2sd", 2, "m"},	\
+  { "cvtss2si", 1, "=r"},	\
+  { "cvtss2si", 2, "xm"},	\
+  { "cvttpd2dq", 1, "=x"},	\
+  { "cvttpd2dq", 2, "m"},	\
+  { "cvttpd2pi", 1, "=y"},	\
+  { "cvttpd2pi", 2, "m"},	\
+  { "cvttps2dq", 1, "=x"},	\
+  { "cvttps2dq", 2, "m"},	\
+  { "cvttps2pi", 1, "=y"},	\
+  { "cvttps2pi", 2, "m"},	\
+  { "cvttsd2si", 1, "=r"},	\
+  { "cvttsd2si", 2, "xm"},	\
+  { "cvttss2si", 1, "=r"},	\
+  { "cvttss2si", 2, "xm"},	\
+  { "dec", 1, "+" rm8rm16rm32},	\
+  { "div", 1, rm8rm16rm32},	\
+  { "divpd", 1, "+x"},		\
+  { "divpd", 2, "m"},		\
+  { "divps", 1, "+x"},		\
+  { "divps", 2, "m"},		\
+  { "divsd", 1, "+x"},		\
+  { "divsd", 2, "m"},		\
+  { "divss", 1, "+x"},		\
+  { "divss", 2, "m"},		\
   { "enter", 1, "i"},		\
   { "enter", 2, "i"},		\
-  { "fadd", 1, "G,f,t"},       	\
-  { "fadd", 2, "+t,f"},		\
-  { "faddp", 1, "t"},		\
-  { "faddp", 2, "+f"},		\
+  { "fadd", 1, "+t,f,@"},	\
+  { "fadd", 2, "f,t," m32fpm64fp},\
+  { "faddp", 1, "+f"},		\
+  { "faddp", 2, "t"},		\
   { "fbld", 1, "m"},		\
   { "fbstp", 1, "m"},		\
-  { "fcmovb", 1, "f"},		\
-  { "fcmovb", 2, "=t"},		\
-  { "fcmovbe", 1, "f"},		\
-  { "fcmovbe", 2, "=t"},       	\
-  { "fcmove", 1, "f"},		\
-  { "fcmove", 2, "=t"},		\
-  { "fcmovnb", 1, "f"},		\
-  { "fcmovnb", 2, "=t"},       	\
-  { "fcmovnbe", 1, "f"},	\
-  { "fcmovnbe", 2, "=t"},	\
-  { "fcmovne", 1, "f"},		\
-  { "fcmovne", 2, "=t"},       	\
-  { "fcmovnu", 1, "f"},		\
-  { "fcmovnu", 2, "=t"},       	\
-  { "fcmovu", 1, "f"},		\
-  { "fcmovu", 2, "=t"},		\
-  { "fcom", 1, "f,m"},		\
-  { "fcomi", 1, "f"},		\
-  { "fcomi", 2, "t"},		\
-  { "fcomip", 1, "f"},		\
-  { "fcomip", 2, "t"},		\
-  { "fcomp", 1, "f,m"},		\
-  { "fdiv", 1, "f,t,m"},       	\
-  { "fdiv", 2, "+t,f"},		\
-  { "fdivp", 1, "t"},		\
-  { "fdivp", 2, "+f"},		\
-  { "fdivr", 1, "f,m"},		\
-  { "fdivr", 2, "+t"},		\
-  { "fdivrp", 1, "t"},		\
-  { "fdivrp", 2, "+f"},		\
+  { "fcmovb", 1, "=t"},		\
+  { "fcmovb", 2, "f"},		\
+  { "fcmovbe", 1, "=t"},       	\
+  { "fcmovbe", 2, "f"},		\
+  { "fcmove", 1, "=t"},		\
+  { "fcmove", 2, "f"},		\
+  { "fcmovnb", 1, "=t"},       	\
+  { "fcmovnb", 2, "f"},		\
+  { "fcmovnbe", 1, "=t"},	\
+  { "fcmovnbe", 2, "f"},	\
+  { "fcmovne", 1, "=t"},       	\
+  { "fcmovne", 2, "f"},		\
+  { "fcmovnu", 1, "=t"},       	\
+  { "fcmovnu", 2, "f"},		\
+  { "fcmovu", 1, "=t"},		\
+  { "fcmovu", 2, "f"},		\
+  { "fcom", 1, "f" m32fpm64fp},	\
+  { "fcomi", 1, "t"},		\
+  { "fcomi", 2, "f"},		\
+  { "fcomip", 1, "t"},		\
+  { "fcomip", 2, "f"},		\
+  { "fcomp", 1, "f" m32fpm64fp},\
+  { "fdiv", 1, "+t,f,@"},	\
+  { "fdiv", 2, "f,t," m32fpm64fp},\
+  { "fdivp", 1, "+f"},		\
+  { "fdivp", 2, "t"},		\
+  { "fdivr", 1, "+t,@"},	\
+  { "fdivr", 2, "f,m"},		\
+  { "fdivrp", 1, "+f"},		\
+  { "fdivrp", 2, "t"},		\
   { "ffree", 1, "f"},		\
-  { "fiadd", 1, "m"},		\
-  { "ficom", 1, "m"},		\
-  { "ficomp", 1, "m"},		\
-  { "fidiv", 1, "m"},		\
+  { "fiadd", 1, m2m4},		\
+  { "ficom", 1, m2m4},		\
+  { "ficomp", 1, m2m4},		\
+  { "fidiv", 1, m2m4},		\
   { "fidivl", 1, "m"},		\
-  { "fidivr", 1, "m"},		\
+  { "fidivr", 1, m2m4},		\
   { "fidivrl", 1, "m"},		\
   { "fild", 1, "m"},		\
   { "fildl", 1, "m"},		\
   { "fildll", 1, "m"},		\
-  { "fimul", 1, "G"},		\
+  { "fimul", 1, m2m4},		\
   { "fist", 1, "=m"},		\
   { "fistp", 1, "=m"},		\
   { "fistpll", 1, "=m"},       	\
-  { "fisttp", 1, "=m"},		\
+  { "fisttp", 1, "=" m2m4},	\
   { "fisttpll", 1, "=m"},	\
-  { "fisub", 1, "m"},		\
-  { "fisubr", 1, "m"},		\
-  { "fld", 1, "f"},		\
-  { "fld", 1, "m"},		\
-  { "fldcw", 1, "L"},		\
-  { "fldenv", 1, "i"},		\
+  { "fisub", 1, m2m4},		\
+  { "fisubr", 1, m2m4},		\
+  { "fld", 1, "f" m32fpm64fpm80fp},\
+  { "fldcw", 1, m16},		\
+  { "fldenv", 1, "m"},		\
   { "fldt", 1, "m"},		\
-  { "fmul", 1, "G,t,f"},       	\
-  { "fmul", 2, "=f,t"},		\
-  { "fmulp", 1, "t"},		\
-  { "fmulp", 2, "=f"},		\
+  { "fmul", 1, "=f,t,@"},	\
+  { "fmul", 2, "t,f," m2m4},	\
+  { "fmulp", 1, "=f"},		\
+  { "fmulp", 2, "t"},		\
   { "fnsave", 1, "=m"},		\
   { "fnstcw", 1, "m"},		\
   { "fnstenv", 1, "m"},		\
-  { "fnstsw", 1, "m,a"},	\
+  { "fnstsw", 1, "ma"},		\
   { "frstor", 1, "m"},		\
   { "fsave", 1, "=m"},		\
-  { "fst", 1, "=m,f"},		\
+  { "fst", 1, "=f" m32fpm64fp},	\
   { "fstcw", 1, "=m"},		\
   { "fstenv", 1, "=m"},		\
-  { "fstp", 1, "=m,f"},		\
-  { "fstsw", 1, "=m,a"},       	\
-  { "fsub", 1, "m,t,f"},	\
-  { "fsub", 2, "=f,t"},		\
-  { "fsubr", 1, "m,t,f"},	\
-  { "fsubr", 2, "=f,t"},       	\
+  { "fstp", 1, "=f" m32fpm64fpm80fp},\
+  { "fstsw", 1, "=ma"},       	\
+  { "fsub", 1, "=f,t,@"},	\
+  { "fsub", 2, "t,f," m32fpm64fp},\
+  { "fsubr", 1, "=f,t," m32fpm64fp},\
+  { "fsubr", 2, "t,f,@"},	\
   { "fucom", 1, "f"},		\
-  { "fucomi", 1, "f"},		\
-  { "fucomi", 2, "t"},		\
-  { "fucomip", 1, "f"},		\
-  { "fucomip", 2, "t"},		\
+  { "fucomi", 1, "t"},		\
+  { "fucomi", 2, "f"},		\
+  { "fucomip", 1, "t"},		\
+  { "fucomip", 2, "f"},		\
   { "fucomp", 1, "f"},		\
   { "fxch", 1, "+f" },		\
   { "fxrstor", 1, "m"},		\
   { "fxsave", 1, "=m"},		\
-  { "haddpd", 1, "x,m"},	\
-  { "haddpd", 2, "+x"},		\
-  { "haddps", 1, "x,m"},	\
-  { "haddps", 2, "+x"},		\
-  { "hsubpd", 1, "x,m"},	\
-  { "hsubpd", 2, "+x"},		\
-  { "hsubps", 1, "x,m"},	\
-  { "hsubps", 2, "+x"},		\
-  { "idiv", 1, "+rm"},		\
-  { "imul", 1, "m,r,i"},	\
-  { "imul", 2, "+rm,mr"},      	\
-  { "imul", 3, "+r"},		\
-  { "in", 1, "i"},		\
-  { "in", 2, "=a"},		\
-  { "inc", 1, "+m,r"},		\
-  { "ins", 1, "d"},		\
-  { "ins", 2, "=m"},		\
+  { "haddpd", 1, "+x"},		\
+  { "haddpd", 2, "xm"},		\
+  { "haddps", 1, "+x"},		\
+  { "haddps", 2, "xm"},		\
+  { "hsubpd", 1, "+x"},		\
+  { "hsubpd", 2, "xm"},		\
+  { "hsubps", 1, "+x"},		\
+  { "hsubps", 2, "xm"},		\
+  { "idiv", 1, "r" m4},		\
+  { "imul", 1, "+r"},		\
+  { "imul", 2, "rm"},		\
+  { "imul", 3, "i"},		\
+  { "in", 1, "=a"},		\
+  { "in", 2, "i"},		\
+  { "inc", 1, "+r" m4},		\
+  { "ins", 1, U("=m")},		\
+  { "ins", 2, U("d")},		\
   { "int", 1, "i"},		\
   { "invlpg", 1, "m"},		\
-  { "ja", 1, "i"},		\
-  { "jae", 1, "i"},		\
-  { "jb", 1, "i"},		\
-  { "jbe", 1, "i"},		\
-  { "jc", 1, "i"},		\
-  { "jcxz", 1, "i"},		\
-  { "je", 1, "i"},		\
-  { "jecxz", 1, "i"},		\
-  { "jg", 1, "i"},		\
-  { "jge", 1, "i"},		\
-  { "jl", 1, "i"},		\
-  { "jle", 1, "i"},		\
-  { "jmp", 1, "i,m"},		\
-  { "jna", 1, "i"},		\
-  { "jnae", 1, "i"},		\
-  { "jnb", 1, "i"},		\
-  { "jnc", 1, "i"},		\
-  { "jne", 1, "i"},		\
-  { "jng", 1, "i"},		\
-  { "jnge", 1, "i"},		\
-  { "jnl", 1, "i"},		\
-  { "jnle", 1, "i"},		\
-  { "jno", 1, "i"},		\
-  { "jnp", 1, "i"},		\
-  { "jns", 1, "i"},		\
-  { "jnz", 1, "i"},		\
-  { "jo", 1, "i"},		\
-  { "jp", 1, "i"},		\
-  { "jpe", 1, "i"},		\
-  { "jpo", 1, "i"},		\
-  { "js", 1, "i"},		\
-  { "jz", 1, "i"},		\
-  { "lar", 1, "rm"},		\
-  { "lddqu", 1, "m"},		\
-  { "lddqu", 2, "=x"},		\
+  { "ja", 1, "s"},		\
+  { "jae", 1, "s"},		\
+  { "jb", 1, "s"},		\
+  { "jbe", 1, "s"},		\
+  { "jc", 1, "s"},		\
+  { "jcxz", 1, rel8},		\
+  { "je", 1, "s"},		\
+  { "jecxz", 1, rel8},		\
+  { "jg", 1, "s"},		\
+  { "jge", 1, "s"},		\
+  { "jl", 1, "s"},		\
+  { "jle", 1, "s"},		\
+  { "jmp", 1, "sm"},		\
+  { "jna", 1, "s"},		\
+  { "jnae", 1, "s"},		\
+  { "jnb", 1, "s"},		\
+  { "jnc", 1, "s"},		\
+  { "jne", 1, "s"},		\
+  { "jng", 1, "s"},		\
+  { "jnge", 1, "s"},		\
+  { "jnl", 1, "s"},		\
+  { "jnle", 1, "s"},		\
+  { "jno", 1, "s"},		\
+  { "jnp", 1, "s"},		\
+  { "jns", 1, "s"},		\
+  { "jnz", 1, "s"},		\
+  { "jo", 1, "s"},		\
+  { "jp", 1, "s"},		\
+  { "jpe", 1, "s"},		\
+  { "jpo", 1, "s"},		\
+  { "js", 1, "s"},		\
+  { "jz", 1, "s"},		\
+  { "lar", 1, "=r"},		\
+  { "lar", 2, "rm"},		\
+  { "lddqu", 1, "=x"},		\
+  { "lddqu", 2, "m"},		\
   { "ldmxcsr", 1, "m"},		\
-  { "lds", 1, "m"},		\
-  { "lea", 1, "m"},		\
-  { "les", 1, "m"},		\
-  { "lfs", 1, "m"},		\
+  { "lds", 1, "=r"},		\
+  { "lds", 2, m4},		\
+  { "lea", 1, "=r"},		\
+  { "lea", 2, "m"},		\
+  { "les", 1, "=r"},		\
+  { "les", 2, "m"},		\
+  { "lfs", 1, "=r"},		\
+  { "lfs", 2, "m"},		\
   { "lgdt", 1, "m"},		\
-  { "lgs", 1, "m"},		\
+  { "lgs", 1, "=r"},		\
+  { "lgs", 2, "m"},		\
   { "lidt", 1, "m"},		\
   { "lldt", 1, "rm"},		\
   { "lmsw", 1, "m"},		\
-  { "lods", 1, "m"},		\
-  { "loop", 1, "i"},		\
-  { "loope", 1, "i"},		\
-  { "loopne", 1, "i"},		\
-  { "loopnz", 1, "i"},		\
-  { "loopz", 1, "i"},		\
-  { "lsl", 1, "rm"},		\
-  { "lsl", 2, "=r"},		\
-  { "lss", 1, "m"},		\
+  { "lods", 1, U("m")},		\
+  { "loop", 1, rel8},		\
+  { "loope", 1, rel8},		\
+  { "loopne", 1, rel8},		\
+  { "loopnz", 1, rel8},		\
+  { "loopz", 1, rel8},		\
+  { "lsl", 1, "=" r16 "," r32},	\
+  { "lsl", 2, rm16 "," rm32},	\
+  { "lss", 1, "=r"},		\
+  { "lss", 2, m4},		\
   { "ltr", 1, "rm"},		\
   { "maskmovdqu", 1, "x"},	\
   { "maskmovdqu", 2, "x"},	\
   { "maskmovq", 1, "y"},	\
   { "maskmovq", 2, "y"},	\
-  { "maxpd", 1, "xm"},		\
-  { "maxpd", 2, "+x"},		\
-  { "maxps", 1, "xm"},		\
-  { "maxps", 2, "+x"},		\
-  { "maxsd", 1, "xm"},		\
-  { "maxsd", 2, "+x"},		\
-  { "maxss", 1, "xm"},		\
-  { "maxss", 2, "+x"},		\
-  { "minpd", 1, "xm"},		\
-  { "minpd", 2, "+x"},		\
-  { "minps", 1, "xm"},		\
-  { "minps", 2, "+x"},		\
-  { "minsd", 1, "xm"},		\
-  { "minsd", 2, "+x"},		\
-  { "minss", 1, "xm"},		\
-  { "minss", 2, "+x"},		\
-  { "mov", 1, "qrmi"},		\
-  { "mov", 2, "=qrmi"},		\
-  { "movapd", 1, "x,m"},       	\
-  { "movapd", 2, "=x,m"},	\
-  { "movaps", 1, "x,m"},	\
-  { "movaps", 2, "=x,m"},	\
-  { "movd", 1, "x,mx,y"},	\
-  { "movd", 2, "=xm,=x,=y"},	\
-  { "movddup", 1, "xm"},	\
-  { "movddup", 2, "=x"},	\
-  { "movdq2q", 1, "x"},		\
-  { "movdq2q", 2, "=y"},	\
-  { "movdqa", 1, "xm"},		\
-  { "movdqa", 2, "=x"},		\
-  { "movdqu", 1, "xm"},		\
-  { "movdqu", 2, "=x"},		\
-  { "movhlps", 1, "x"},		\
-  { "movhlps", 2, "=x"},	\
-  { "movhpd", 1, "xm"},		\
-  { "movhpd", 2, "=xm"},	\
-  { "movhps", 1, "xm"},		\
-  { "movhps", 2, "=xm"},	\
-  { "movlhps", 1, "x"},		\
-  { "movlhps", 2, "=x"},	\
-  { "movlpd", 1, "xm"},		\
-  { "movlpd", 2, "=xm"},	\
-  { "movlps", 1, "xm"},		\
-  { "movlps", 2, "=xm"},	\
-  { "movmskpd", 1, "x"},	\
-  { "movmskpd", 2, "=r"},	\
-  { "movmskps", 1, "x"},	\
-  { "movmskps", 2, "=r"},	\
-  { "movntdq", 1, "x"},		\
-  { "movntdq", 2, "=m"},	\
-  { "movnti", 1, "r"},		\
-  { "movnti", 2, "=m"},		\
-  { "movntpd", 1, "x"},		\
-  { "movntpd", 2, "=m"},	\
-  { "movntps", 1, "x"},		\
-  { "movntps", 2, "=m"},	\
-  { "movntq", 1, "y"},		\
-  { "movntq", 2, "=m"},		\
-  { "movq", 1, "xmy"},		\
-  { "movq", 2, "=xmy"},		\
-  { "movq2dq", 1, "y"},		\
-  { "movq2dq", 2, "=x"},	\
-  { "movs", 1, "m"},		\
-  { "movs", 2, "=m"},		\
-  { "movsd", 1, "xm"},		\
-  { "movsd", 2, "=xm"},		\
-  { "movshdup", 1, "xm"},	\
-  { "movshdup", 2, "=x"},	\
-  { "movsldup", 1, "xm"},	\
-  { "movsldup", 2, "=x"},	\
-  { "movss", 1, "xm"},		\
-  { "movss", 2, "=xm"},		\
-  { "movsx", 1, "rm"},		\
-  { "movsx", 2, "=r"},		\
-  { "movupd", 1, "xm"},		\
-  { "movupd", 2, "=xm"},	\
-  { "movups", 1, "xm"},		\
-  { "movups", 2, "=xm"},	\
-  { "movzx", 1, "qm" },		\
-  { "movzx", 2, "=r" },		\
-  { "mul", 1, "rm"},		\
-  { "mulpd", 1, "xm"},		\
-  { "mulpd", 2, "=x"},		\
-  { "mulps", 1, "xm"},		\
-  { "mulps", 2, "=x"},		\
-  { "mulsd", 1, "xm"},		\
-  { "mulsd", 2, "=x"},		\
-  { "mulss", 1, "xm"},		\
-  { "mulss", 2, "=x"},		\
-  { "neg", 1, "+rm"},		\
-  { "not", 1, "+rm"},		\
-  { "or", 1, "rim"},		\
-  { "or", 2, "+qm"},		\
-  { "orpd", 1, "xm"},		\
-  { "orpd", 2, "+x"},		\
-  { "orps", 1, "xm"},		\
-  { "orps", 2, "+x"},		\
-  { "out", 1, "q"},		\
-  { "out", 2, "id"},		\
-  { "outs", 1, "m"},		\
-  { "outs", 2, "d"},		\
-  { "packssdw", 1, "xym"},	\
-  { "packssdw", 2, "+xy"},	\
-  { "packsswb", 1, "xym"},	\
-  { "packsswb", 2, "+xy"},	\
-  { "packuswb", 1, "xym"},	\
-  { "packuswb", 2, "+xy"},	\
-  { "paddb", 1, "xym"},		\
-  { "paddb", 2, "+xy"},		\
-  { "paddd", 1, "xym"},		\
-  { "paddd", 2, "+xy"},		\
-  { "paddq", 1, "xym"},		\
-  { "paddq", 2, "+xy"},		\
-  { "paddsb", 1, "xym"},       	\
-  { "paddsb", 2, "+xy"},       	\
-  { "paddsw", 1, "xym"},       	\
-  { "paddsw", 2, "+xy"},       	\
-  { "paddusb", 1, "xym"},	\
-  { "paddusb", 2, "+xy"},	\
-  { "paddusw", 1, "xym"},	\
-  { "paddusw", 2, "+xy"},	\
-  { "paddw", 1, "xym"},		\
-  { "paddw", 2, "+xy"},		\
-  { "pand", 1, "xym"},		\
-  { "pand", 2, "+xy"},		\
-  { "pandn", 1, "xym"},		\
-  { "pandn", 2, "+xy"},		\
-  { "pavgb", 1, "xym"},		\
-  { "pavgb", 2, "+xy"},		\
-  { "pavgw", 1, "xym"},		\
-  { "pavgw", 2, "+xy"},		\
-  { "pcmpeqb", 1, "xmy"},	\
-  { "pcmpeqb", 2, "+xy"},	\
-  { "pcmpeqd", 1, "xmy"},	\
-  { "pcmpeqd", 2, "+xy"},	\
-  { "pcmpeqw", 1, "xmy"},	\
-  { "pcmpeqw", 2, "+xy"},	\
-  { "pcmpgtb", 1, "xmy"},	\
-  { "pcmpgtb", 2, "+xy"},	\
-  { "pcmpgtd", 1, "xmy"},	\
-  { "pcmpgtd", 2, "+xy"},	\
-  { "pcmpgtw", 1, "xmy"},	\
-  { "pcmpgtw", 2, "+xy"},	\
-  { "pextrw", 1, "i"},		\
+  { "maxpd", 1, "+x"},		\
+  { "maxpd", 2, "xm"},		\
+  { "maxps", 1, "+x"},		\
+  { "maxps", 2, "xm"},		\
+  { "maxsd", 1, "+x"},		\
+  { "maxsd", 2, "xm"},		\
+  { "maxss", 1, "+x"},		\
+  { "maxss", 2, "xm"},		\
+  { "minpd", 1, "+x"},		\
+  { "minpd", 2, "xm"},		\
+  { "minps", 1, "+x"},		\
+  { "minps", 2, "xm"},		\
+  { "minsd", 1, "+x"},		\
+  { "minsd", 2, "xm"},		\
+  { "minss", 1, "+x"},		\
+  { "minss", 2, "xm"},		\
+  { "mov", 1, "=rm" S("4") ",r"},\
+  { "mov", 2, "ri,rmi"},	\
+  { "movapd", 1, "=x,xm"},	\
+  { "movapd", 2, "xm,x"},      	\
+  { "movaps", 1, "=x,xm"},	\
+  { "movaps", 2, "xm,x"},	\
+  { "movd", 1, "=rm,x,y,rm"},	\
+  { "movd", 2, "x,rm,rm,y"},	\
+  { "movddup", 1, "=x"},	\
+  { "movddup", 2, "xm"},	\
+  { "movdq2q", 1, "=y"},	\
+  { "movdq2q", 2, "x"},		\
+  { "movdqa", 1, "=x"},		\
+  { "movdqa", 2, "xm"},		\
+  { "movdqu", 1, "=x"},		\
+  { "movdqu", 2, "xm"},		\
+  { "movhlps", 1, "=x"},	\
+  { "movhlps", 2, "x"},		\
+  { "movhpd", 1, "=x,m"},	\
+  { "movhpd", 2, "m,x"},	\
+  { "movhps", 1, "=x,m"},	\
+  { "movhps", 2, "m,x"},	\
+  { "movlhps", 1, "=x"},	\
+  { "movlhps", 2, "x"},		\
+  { "movlpd", 1, "=x,m"},	\
+  { "movlpd", 2, "m,x"},	\
+  { "movlps", 1, "=x,m"},	\
+  { "movlps", 2, "m,x"},	\
+  { "movmskpd", 1, "=r"},	\
+  { "movmskpd", 2, "x"},	\
+  { "movmskps", 1, "=r"},	\
+  { "movmskps", 2, "x"},	\
+  { "movntdq", 1, "=m"},	\
+  { "movntdq", 2, "x"},		\
+  { "movnti", 1, "=m"},		\
+  { "movnti", 2, "r"},		\
+  { "movntpd", 1, "=m"},	\
+  { "movntpd", 2, "x"},		\
+  { "movntps", 1, "=m"},	\
+  { "movntps", 2, "x"},		\
+  { "movntq", 1, "=m"},		\
+  { "movntq", 2, "y"},		\
+  { "movq", 1, "=x,m,y,m"},	\
+  { "movq", 2, "xm,x,ym,y"},	\
+  { "movq2dq", 1, "=x"},	\
+  { "movq2dq", 2, "y"},		\
+  { "movs", 1, U("=m")},	\
+  { "movs", 2, U("m")},		\
+  { "movsd", 1, "=xm,x"},	\
+  { "movsd", 2, "x,xm"},	\
+  { "movshdup", 1, "=x"},	\
+  { "movshdup", 2, "xm"},	\
+  { "movsldup", 1, "=x"},	\
+  { "movsldup", 2, "xm"},	\
+  { "movss", 1, "=xm,x"},	\
+  { "movss", 2, "x,xm"},	\
+  { "movsx", 1, "=" r16 "," r32},\
+  { "movsx", 2, rm8 "," rm8rm16},\
+  { "movupd", 1, "=x,xm"},	\
+  { "movupd", 2, "xm,x"},	\
+  { "movups", 1, "=x,xm"},	\
+  { "movups", 2, "xm,x"},	\
+  { "movzx", 1, "=" r16 "," r32},\
+  { "movzx", 2, rm8 "," rm8rm16},\
+  { "mul", 1, rm8rm16rm32},	\
+  { "mulpd", 1, "=x"},		\
+  { "mulpd", 2, "xm"},		\
+  { "mulps", 1, "=x"},		\
+  { "mulps", 2, "xm"},		\
+  { "mulsd", 1, "=x"},		\
+  { "mulsd", 2, "xm"},		\
+  { "mulss", 1, "=x"},		\
+  { "mulss", 2, "xm"},		\
+  { "neg", 1, "+" rm8rm16rm32},	\
+  { "not", 1, "+" rm8rm16rm32},	\
+  { "or", 1, "+" rm8 "," rm16 "," rm32 "," r8 "," r16 "," r32},\
+  { "or", 2, r8  "i," r16 "i," r32 "i," m8 "," m16 "," m32},\
+  { "orpd", 1, "+x"},		\
+  { "orpd", 2, "xm"},		\
+  { "orps", 1, "+x"},		\
+  { "orps", 2, "xm"},		\
+  { "out", 1, "id"},		\
+  { "out", 2, a8 a16 a32},	\
+  { "outs", 1, U("d")},		\
+  { "outs", 2, U("m")},		\
+  { "packssdw", 1, "+x,y"},	\
+  { "packssdw", 2, "xm,ym"},	\
+  { "packsswb", 1, "+x,y"},	\
+  { "packsswb", 2, "xm,ym"},	\
+  { "packuswb", 1, "+x,y"},	\
+  { "packuswb", 2, "xm,ym"},	\
+  { "paddb", 1, "+x,y"},	\
+  { "paddb", 2, "xm,ym"},	\
+  { "paddd", 1, "+x,y"},	\
+  { "paddd", 2, "xm,ym"},	\
+  { "paddq", 1, "+x,y"},	\
+  { "paddq", 2, "x,,ym"},	\
+  { "paddsb", 1, "+x,y"},       \
+  { "paddsb", 2, "xm,ym"},      \
+  { "paddsw", 1, "+x,y"},       \
+  { "paddsw", 2, "xm,ym"},      \
+  { "paddusb", 1, "+x,y"},	\
+  { "paddusb", 2, "xm,ym"},	\
+  { "paddusw", 1, "+x,y"},	\
+  { "paddusw", 2, "xm,ym"},	\
+  { "paddw", 1, "+x,y"},	\
+  { "paddw", 2, "xm,ym"},	\
+  { "pand", 1, "+x,y"},		\
+  { "pand", 2, "xm,ym"},	\
+  { "pandn", 1, "+x,y"},	\
+  { "pandn", 2, "xm,ym"},	\
+  { "pavgb", 1, "+x,y"},	\
+  { "pavgb", 2, "xm,ym"},	\
+  { "pavgw", 1, "+x,y"},		\
+  { "pavgw", 2, "xm,ym"},		\
+  { "pcmpeqb", 1, "+x,y"},	\
+  { "pcmpeqb", 2, "xm,ym"},	\
+  { "pcmpeqd", 1, "+x,y"},	\
+  { "pcmpeqd", 2, "xm,ym"},	\
+  { "pcmpeqw", 1, "+x,y"},	\
+  { "pcmpeqw", 2, "xm,ym"},	\
+  { "pcmpgtb", 1, "+x,y"},	\
+  { "pcmpgtb", 2, "xm,ym"},	\
+  { "pcmpgtd", 1, "+x,y"},	\
+  { "pcmpgtd", 2, "xm,ym"},	\
+  { "pcmpgtw", 1, "+x,y"},	\
+  { "pcmpgtw", 2, "xm,ym"},	\
+  { "pextrw", 1, "=q"},		\
   { "pextrw", 2, "xy"},		\
-  { "pextrw", 3, "=q"},		\
-  { "pinsrw", 1, "i"},		\
+  { "pextrw", 3, "i"},		\
+  { "pinsrw", 1, "=xy"},	\
   { "pinsrw", 2, "qm"},		\
-  { "pinsrw", 3, "=xy"},	\
-  { "pmaddwd", 1, "xym"},	\
-  { "pmaddwd", 2, "+xy"},	\
-  { "pmaxsw", 1, "xym"},	\
-  { "pmaxsw", 2, "+xy"},	\
-  { "pmaxub", 1, "xym"},	\
-  { "pmaxub", 2, "+xy"},	\
-  { "pminsw", 1, "xym"},	\
-  { "pminsw", 2, "+xy"},	\
-  { "pminub", 1, "xym"},	\
-  { "pminub", 2, "+xy"},	\
-  { "pmovmskb", 1, "xy"},	\
-  { "pmovmskb", 2, "+q"},	\
-  { "pmulhuw", 1, "xmy"},	\
-  { "pmulhuw", 2, "+xy"},	\
-  { "pmulhw", 1, "xmy"},	\
-  { "pmulhw", 2, "+xy"},	\
-  { "pmullw", 1, "xmy"},	\
-  { "pmullw", 2, "+xy"},	\
-  { "pmuludq", 1, "xmy"},	\
-  { "pmuludq", 2, "+xy"},	\
-  { "pop", 1, "qm"},		\
-  { "por", 1, "xmy"},		\
-  { "por", 2, "+xy"},		\
+  { "pinsrw", 3, "i"},		\
+  { "pmaddwd", 1, "+x,y"},	\
+  { "pmaddwd", 2, "xm,ym"},	\
+  { "pmaxsw", 1, "+x,y"},	\
+  { "pmaxsw", 2, "xm,ym"},	\
+  { "pmaxub", 1, "+x,y"},	\
+  { "pmaxub", 2, "xm,ym"},	\
+  { "pminsw", 1, "+x,y"},	\
+  { "pminsw", 2, "xm,ym"},	\
+  { "pminub", 1, "+x,y"},	\
+  { "pminub", 2, "xm,ym"},	\
+  { "pmovmskb", 1, "+" r32r64},	\
+  { "pmovmskb", 2, "xy"},	\
+  { "pmulhuw", 1, "+x,y"},	\
+  { "pmulhuw", 2, "xm,ym"},	\
+  { "pmulhw", 1, "+x,y"},	\
+  { "pmulhw", 2, "xm,ym"},	\
+  { "pmullw", 1, "+x,y"},	\
+  { "pmullw", 2, "xm,ym"},	\
+  { "pmuludq", 1, "+x,y"},	\
+  { "pmuludq", 2, "xm,ym"},	\
+  { "pop", 1, "rm"},		\
+  { "por", 1, "+x,y"},		\
+  { "por", 2, "xm,ym"},		\
+  { "prefetchnta", 1, "m"},	\
   { "prefetcht0", 1, "m"},	\
   { "prefetcht1", 1, "m"},	\
   { "prefetcht2", 1, "m"},	\
-  { "prefetchta", 1, "m"},	\
-  { "psadbw", 1, "xmy"},	\
-  { "psadbw", 2, "+xy"},	\
-  { "pshufd", 1, "i"},		\
+  { "psadbw", 1, "+x,y"},	\
+  { "psadbw", 2, "xm,ym"},	\
+  { "pshufd", 1, "=x"},		\
   { "pshufd", 2, "xm"},		\
-  { "pshufd", 3, "=x"},		\
-  { "pshufhw", 1, "i"},	       	\
-  { "pshufhw", 2, "xm"},       	\
-  { "pshufhw", 3, "=x"},	\
-  { "pshuflw", 1, "i"},		\
+  { "pshufd", 3, "i"},		\
+  { "pshufhw", 1, "=x"},	\
+  { "pshufhw", 2, "xm"},	\
+  { "pshufhw", 3, "i"},		\
+  { "pshuflw", 1, "=x"},	\
   { "pshuflw", 2, "xm"},	\
-  { "pshuflw", 3, "=x"},	\
-  { "pshufw", 1, "i"},		\
+  { "pshuflw", 3, "i"},		\
+  { "pshufw", 1, "=y"},		\
   { "pshufw", 2, "ym"},		\
-  { "pshufw", 3, "=y"},		\
-  { "pslld", 1, "yxmi"},       	\
-  { "pslld", 2, "+xy"},		\
-  { "pslldq", 1, "i"},		\
-  { "pslldq", 2, "+x"},		\
-  { "psllq", 1, "yxmi"},       	\
-  { "psllq", 2, "+xy"},		\
-  { "psllw", 1, "yxmi"},      	\
-  { "psllw", 2, "+xy"},		\
-  { "psrad", 1, "yxmi"},       	\
-  { "psrad", 2, "+xy"},		\
-  { "psraw", 1, "yxmi"},       	\
-  { "psraw", 2, "+xy"},		\
-  { "psrld", 1, "yxmi"},	\
-  { "psrld", 2, "+xy"},		\
-  { "psrldq", 1, "i"},		\
-  { "psrldq", 2, "+x"},		\
-  { "psrlq", 1, "yxmi"},	\
-  { "psrlq", 2, "+xy"},		\
-  { "psrlw", 1, "yxmi"},	\
-  { "psrlw", 2, "+xy"},		\
-  { "psubb", 1, "yxm"},		\
-  { "psubb", 2, "+yx"},		\
-  { "psubd", 1, "yxm"},		\
-  { "psubd", 2, "+yx"},		\
-  { "psubq", 1, "yxm"},		\
-  { "psubq", 2, "+yx"},		\
-  { "psubsb", 1, "yxm"},       	\
-  { "psubsb", 2, "+yx"},       	\
-  { "psubsw", 1, "yxm"},       	\
-  { "psubsw", 2, "+yx"},       	\
-  { "psubusb", 1, "yxm"},	\
-  { "psubusb", 2, "+yx"},	\
-  { "psubusw", 1, "yxm"},	\
-  { "psubusw", 2, "+yx"},	\
-  { "psubw", 1, "yxm"},		\
-  { "psubw", 2, "+yx"},		\
-  { "punpckhbw", 1, "yxm"},	\
-  { "punpckhbw", 2, "+yx"},	\
-  { "punpckhdq", 1, "yxm"},	\
-  { "punpckhdq", 2, "+yx"},	\
-  { "punpckhqdq", 1, "ym"},	\
-  { "punpckhqdq", 2, "+y"},	\
-  { "punpckhwd", 1, "yxm"},	\
-  { "punpckhwd", 2, "+yx"},	\
-  { "punpcklbw", 1, "yxm"},	\
-  { "punpcklbw", 2, "+yx"},	\
-  { "punpckldq", 1, "yxm"},	\
-  { "punpckldq", 2, "+yx"},	\
-  { "punpcklqdq", 1, "ym"},	\
-  { "punpcklqdq", 2, "+y"},	\
-  { "punpcklwd", 1, "yxm"},	\
-  { "punpcklwd", 2, "+yx"},	\
-  { "push", 1, "qi"},		\
-  { "pxor", 1, "yxm"},		\
-  { "pxor", 2, "+yx"},		\
-  { "rcl", 1, "i"},		\
-  { "rcl", 2, "+qm"},		\
-  { "rcpps", 1, "ym"},		\
-  { "rcpps", 2, "+y"},		\
-  { "rcpss", 1, "ym"},		\
-  { "rcpss", 2, "+y"},		\
-  { "rcr", 1, "i"},		\
-  { "rcr", 2, "+qm"},		\
+  { "pshufw", 3, "i"},		\
+  { "pslld", 1, "+x,y"},	\
+  { "pslld", 2, "xmi,ymi"},     \
+  { "pslldq", 1, "+x"},		\
+  { "pslldq", 2, "i"},		\
+  { "psllq", 1, "+x,y"},	\
+  { "psllq", 2, "xmi,ymi"},     \
+  { "psllw", 1, "+x,y"},	\
+  { "psllw", 2, "xmi,ymi"},     \
+  { "psrad", 1, "+x,y"},	\
+  { "psrad", 2, "xmi,ymi"},     \
+  { "psraw", 1, "+x,y"},	\
+  { "psraw", 2, "xmi,ymi"},	\
+  { "psrld", 1, "+x,y"},	\
+  { "psrld", 2, "xmi,ymi"},	\
+  { "psrldq", 1, "+x"},		\
+  { "psrldq", 2, "i"},		\
+  { "psrlq", 1, "+x,y"},	\
+  { "psrlq", 2, "xmi,ymi"},	\
+  { "psrlw", 1, "+x,y"},	\
+  { "psrlw", 2, "xmi,ymi"},	\
+  { "psubb", 1, "+x,y"},	\
+  { "psubb", 2, "xm,ym"},	\
+  { "psubd", 1, "+x,y"},	\
+  { "psubd", 2, "xm,ym"},	\
+  { "psubq", 1, "+x,y"},	\
+  { "psubq", 2, "xm,ym"},		\
+  { "psubsb", 1, "+x,y"},       	\
+  { "psubsb", 2, "xm,ym"},       	\
+  { "psubsw", 1, "+x,y"},       	\
+  { "psubsw", 2, "xm,ym"},       	\
+  { "psubusb", 1, "+x,y"},	\
+  { "psubusb", 2, "xm,ym"},	\
+  { "psubusw", 1, "+x,y"},	\
+  { "psubusw", 2, "xm,ym"},	\
+  { "psubw", 1, "+x,y"},		\
+  { "psubw", 2, "xm,ym"},		\
+  { "punpckhbw", 1, "+x,y"},	\
+  { "punpckhbw", 2, "xm,ym"},	\
+  { "punpckhdq", 1, "+x,y"},	\
+  { "punpckhdq", 2, "xm,ym"},	\
+  { "punpckhqdq", 1, "+x"},	\
+  { "punpckhqdq", 2, "xm"},	\
+  { "punpckhwd", 1, "+x,y"},	\
+  { "punpckhwd", 2, "xm,ym"},	\
+  { "punpcklbw", 1, "+x,y"},	\
+  { "punpcklbw", 2, "xm,ym"},	\
+  { "punpckldq", 1, "+x,y"},	\
+  { "punpckldq", 2, "xm,ym"},	\
+  { "punpcklqdq", 1, "+x"},	\
+  { "punpcklqdq", 2, "xm"},	\
+  { "punpcklwd", 1, "+x,y"},	\
+  { "punpcklwd", 2, "xm,ym"},	\
+  { "push", 1, "rmi"},		\
+  { "pxor", 1, "+x,y"},		\
+  { "pxor", 2, "xm,ym"},	\
+  { "rcl", 1, "+" rm8rm16rm32},	\
+  { "rcl", 2, "ic"},		\
+  { "rcpps", 1, "+x"},		\
+  { "rcpps", 2, "xm"},		\
+  { "rcpss", 1, "+x"},		\
+  { "rcpss", 2, "xm"},		\
+  { "rcr", 1, "+" rm8rm16rm32},	\
+  { "rcr", 2, "ic"},		\
   { "ret", 1, "i"},		\
-  { "rol", 1, "i"},		\
-  { "rol", 2, "+qm"},		\
-  { "ror", 1, "i"},		\
-  { "ror", 2, "+qm"},		\
-  { "rsqrtps", 1, "xm"},	\
-  { "rsqrtps", 2, "=x"},	\
-  { "rsqrtss", 1, "xm"},	\
-  { "rsqrtss", 2, "=x"},	\
-  { "sal", 1, "i"},		\
-  { "sal", 2, "+q"},		\
-  { "sar", 1, "i"},		\
-  { "sar", 2, "+q"},		\
-  { "sbb", 1, "iqm"},		\
-  { "sbb", 2, "+qm"},		\
-  { "scas", 1, "m"},		\
+  { "rol", 1, "+" rm8rm16rm32},	\
+  { "rol", 2, "ic"},		\
+  { "ror", 1, "+" rm8rm16rm32},	\
+  { "ror", 2, "ic"},		\
+  { "rsqrtps", 1, "=x"},	\
+  { "rsqrtps", 2, "xm"},	\
+  { "rsqrtss", 1, "=x"},	\
+  { "rsqrtss", 2, "xm"},	\
+  { "sal", 1, "+q"},		\
+  { "sal", 2, "i"},		\
+  { "sar", 1, "+q"},		\
+  { "sar", 2, "i"},		\
+  { "sbb", 1, "+" rm8 "," rm16 "," rm32 "," r8r16r32},	\
+  { "sbb", 2, ri8 "," ri16 "," ri32 ",m"},		\
+  { "scas", 1, U("m")},		\
   { "seta", 1, "=qm"},		\
   { "setae", 1, "=qm"},		\
   { "setb", 1, "=qm"},		\
@@ -3206,74 +3298,73 @@ struct machine_function GTY(())
   { "sets", 1, "=qm"},		\
   { "setz", 1, "=qm"},		\
   { "sgdt", 1, "=m"},		\
-  { "shl", 1, "i"},		\
-  { "shl", 2, "+q"},		\
-  { "shld", 1, "i"},		\
+  { "shl", 1, "+q"},		\
+  { "shl", 2, "i"},		\
+  { "shld", 1, "+rm"},		\
   { "shld", 2, "r"},		\
-  { "shld", 3, "+rm"},		\
-  { "shr", 1, "i"},		\
-  { "shr", 2, "+q"},		\
-  { "shrd", 1, "i"},		\
+  { "shld", 3, "i"},		\
+  { "shr", 1, "+q"},		\
+  { "shr", 2, "i"},		\
+  { "shrd", 1, "+rm"},		\
   { "shrd", 2, "r"},		\
-  { "shrd", 3, "+rm"},		\
-  { "shufpd", 1, "i"},		\
+  { "shrd", 3, "i"},		\
+  { "shufpd", 1, "+x"},		\
   { "shufpd", 2, "xm"},		\
-  { "shufpd", 3, "+x"},		\
-  { "shufps", 1, "i"},		\
+  { "shufpd", 3, "i"},		\
+  { "shufps", 1, "+x"},		\
   { "shufps", 2, "xm"},		\
-  { "shufps", 3, "+x"},		\
+  { "shufps", 3, "i"},		\
   { "sidt", 1, "=m"},		\
-  { "sldt", 1, "=qm"},		\
-  { "smsw", 1, "=qm"},		\
-  { "sqrtpd", 1, "xm"},		\
-  { "sqrtpd", 2, "=x"},		\
-  { "sqrtps", 1, "xm"},		\
-  { "sqrtps", 2, "=x"},		\
-  { "sqrtsd", 1, "xm"},		\
-  { "sqrtsd", 2, "=x"},		\
-  { "sqrtss", 1, "xm"},		\
-  { "sqrtss", 2, "=x"},		\
+  { "sldt", 1, "=q" S("2") "m"},\
+  { "smsw", 1, "=q" S("2") "m"},\
+  { "sqrtpd", 1, "=x"},		\
+  { "sqrtpd", 2, "xm"},		\
+  { "sqrtps", 1, "=x"},		\
+  { "sqrtps", 2, "xm"},		\
+  { "sqrtsd", 1, "=x"},		\
+  { "sqrtsd", 2, "xm"},		\
+  { "sqrtss", 1, "=x"},		\
+  { "sqrtss", 2, "xm"},		\
   { "stmxcsr", 1, "m"},		\
-  { "stos", 1, "=m"},		\
-  { "str", 1, "=qm"},		\
-  { "sub", 1, "iqm"},		\
-  { "sub", 2, "=qm"},		\
-  { "subpd", 1, "xm"},		\
-  { "subpd", 2, "+x"},		\
-  { "subps", 1, "xm"},		\
-  { "subps", 2, "+x"},		\
-  { "subsd", 1, "xm"},		\
-  { "subsd", 2, "+x"},		\
-  { "subss", 1, "xm"},		\
-  { "subss", 2, "+x"},		\
-  { "test", 1, "iq"},		\
-  { "test", 2, "+qm"},		\
-  { "ucomisd", 1, "xm"},	\
-  { "ucomisd", 2, "+x"},	\
-  { "ucomiss", 1, "xm"},	\
-  { "ucomiss", 2, "+x"},	\
-  { "unpckhpd", 1, "xm"},	\
-  { "unpckhpd", 2, "+x"},	\
-  { "unpckhps", 1, "xm"},	\
-  { "unpckhps", 2, "+x"},	\
-  { "unpcklpd", 1, "xm"},	\
-  { "unpcklpd", 2, "+x"},	\
-  { "unpcklps", 1, "xm"},	\
-  { "unpcklps", 2, "+x"},	\
-  { "verr", 1, "qm"},		\
-  { "verw", 1, "qm"},		\
-  { "xadd", 1, "q"},		\
-  { "xadd", 2, "+qm"},		\
-  { "xchg", 1, "&qm"},		\
-  { "xchg", 2, "+qm"},		\
-  { "xlat", 1, "m"},		\
-  { "xor", 1, "qim"},		\
-  { "xor", 2, "+qm"},		\
-  { "xorpd", 1, "xm"},		\
-  { "xorpd", 2, "+x"},		\
-  { "xorps", 1, "xm"},		\
-  { "xorps", 2, "+x"},
-
+  { "stos", 1, U("=m")},	\
+  { "str", 1, "=q" S("2") "m"},\
+  { "sub", 1, "=rm,r"},		\
+  { "sub", 2, "ir,m"},		\
+  { "subpd", 1, "+x"},		\
+  { "subpd", 2, "xm"},		\
+  { "subps", 1, "+x"},		\
+  { "subps", 2, "xm"},		\
+  { "subsd", 1, "+x"},		\
+  { "subsd", 2, "xm"},		\
+  { "subss", 1, "+x"},		\
+  { "subss", 2, "xm"},		\
+  { "test", 1, "+r," rm8rm16rm32},\
+  { "test", 2, "r,i"},		\
+  { "ucomisd", 1, "+x"},	\
+  { "ucomisd", 2, "xm"},	\
+  { "ucomiss", 1, "+x"},	\
+  { "ucomiss", 2, "xm"},	\
+  { "unpckhpd", 1, "+x"},	\
+  { "unpckhpd", 2, "xm"},	\
+  { "unpckhps", 1, "+x"},	\
+  { "unpckhps", 2, "xm"},	\
+  { "unpcklpd", 1, "+x"},	\
+  { "unpcklpd", 2, "xm"},	\
+  { "unpcklps", 1, "+x"},	\
+  { "unpcklps", 2, "xm"},	\
+  { "verr", 1, rm16},		\
+  { "verw", 1, rm16},		\
+  { "xadd", 1, "+" rm8 "," rm16 "," rm32},\
+  { "xadd", 2, r8 "," r16 "," r32},\
+  { "xchg", 1, "+rm,r"},	\
+  { "xchg", 2, "&r,m"},		\
+  { "xlat", 1, U("m")},		\
+  { "xor", 1, "+rm,r"},		\
+  { "xor", 2, "ri,m"},		\
+  { "xorpd", 1, "+x"},		\
+  { "xorpd", 2, "xm"},		\
+  { "xorps", 1, "+x"},		\
+  { "xorps", 2, "xm"},
 /* APPLE LOCAL end CW asm blocks */
 
 /*

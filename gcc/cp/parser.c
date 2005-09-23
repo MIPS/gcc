@@ -1700,7 +1700,8 @@ static void cp_parser_using_declaration
 static void cp_parser_using_directive
   (cp_parser *);
 static void cp_parser_asm_definition
-  (cp_parser *);
+  /* APPLE LOCAL CW asm blocks */
+  (cp_parser *, bool);
 static void cp_parser_linkage_specification
   (cp_parser *);
 
@@ -2078,6 +2079,12 @@ static tree
 cp_parser_cw_asm_top_statement (cp_parser *parser);
 static void
 cp_parser_cw_maybe_skip_comments (cp_parser *parser);
+
+#ifndef CW_SEE_OPCODE
+#define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
+#endif
+#define TYPESPEC 1
+#define IDENTIFIER 2
 /* APPLE LOCAL end CW asm blocks */
 
 /* Returns nonzero if we are parsing tentatively.  */
@@ -6663,7 +6670,13 @@ cp_parser_compound_statement (cp_parser *parser, tree in_statement_expr,
      following the decls.  */
   if (cw_asm_state >= cw_asm_decls)
     {
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
       cw_asm_in_decl = 1;
+      if (token->value && CW_SEE_OPCODE (TYPESPEC, token->value) == IDENTIFIER)
+	{
+	  token->keyword = RID_MAX;
+	  token->type = CPP_NAME;
+	}
       cp_parser_cw_asm_declaration_seq_opt (parser);
       cw_asm_in_decl = 0;
       cw_asm_state = cw_asm_asm;
@@ -7466,7 +7479,8 @@ cp_parser_block_declaration (cp_parser *parser,
     {
       if (statement_p)
 	cp_parser_commit_to_tentative_parse (parser);
-      cp_parser_asm_definition (parser);
+      /* APPLE LOCAL CW asm blocks */
+      cp_parser_asm_definition (parser, statement_p);
     }
   /* If the next keyword is `namespace', we have a
      namespace-alias-definition.  */
@@ -10991,7 +11005,8 @@ cp_parser_using_directive (cp_parser* parser)
                           : asm-operand-list [opt] ) ;  */
 
 static void
-cp_parser_asm_definition (cp_parser* parser)
+/* APPLE LOCAL CW asm blocks */
+cp_parser_asm_definition (cp_parser* parser, bool statement_p ATTRIBUTE_UNUSED)
 {
   tree string;
   tree outputs = NULL_TREE;
@@ -11008,6 +11023,13 @@ cp_parser_asm_definition (cp_parser* parser)
   if (flag_cw_asm_blocks)
     {
       nextup = cp_lexer_peek_nth_token (parser->lexer, 2);
+      if (statement_p
+	  && nextup->value
+	  && CW_SEE_OPCODE (TYPESPEC, nextup->value) == IDENTIFIER)
+	{
+	  nextup->keyword = RID_MAX;
+	  nextup->type = CPP_NAME;
+	}
       if (!((nextup->type == CPP_OPEN_PAREN)
 	    || (nextup->keyword == RID_VOLATILE
 		&& cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_OPEN_PAREN)
@@ -17014,15 +17036,19 @@ cp_parser_cw_identifier (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
       t = get_identifier (s);
     }
-  else
-    if (token->type == CPP_DOT)
+  else if (token->type == CPP_DOT)
       {
         /* .align */
         cp_lexer_consume_token (parser->lexer);
         t = cw_build_identifier_string (parser, ".");
       }
-    else
-      t = cp_parser_identifier (parser);
+  else if (CW_SEE_OPCODE (TYPESPEC, token->value) == IDENTIFIER)
+    {
+      cp_lexer_consume_token (parser->lexer);
+      t = token->value;
+    }
+  else
+    t = cp_parser_identifier (parser);
 
   if (t == error_mark_node)
     return t;
@@ -17603,6 +17629,10 @@ int
 cw_asm_typename_or_reserved (tree value)
 {
   tree type_decl;
+
+  if (CW_SEE_OPCODE (TYPESPEC, value) == IDENTIFIER)
+    return 0;
+
   if (C_IS_RESERVED_WORD (value))
     return 1;
 

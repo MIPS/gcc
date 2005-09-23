@@ -586,6 +586,11 @@ int cw_asm_at_bol;
 /* True when the lexer/parser is handling operands.  */
 int cw_asm_in_operands;
 
+/* Saved token when the next token is one of [.+-] and it is preceeded
+   by a whitespace; used when we are parsing an identifier for an
+   opcode, used to split up [.+-] from the id for cw_identifier1.  */
+const cpp_token *cw_split_next;
+
 /* Count used for synthetic labels derived from asm block labels.  */
 static GTY(()) int cw_asm_labelno;
 
@@ -602,9 +607,12 @@ static GTY(()) varray_type cw_asm_labels;
 static GTY(()) varray_type cw_asm_labels_uniq;
 
 static int cw_asm_expr_val (tree arg);
-static void print_cw_asm_operand (char *, tree, unsigned, tree *, tree *, bool, bool);
-static int cw_asm_get_register_var (tree, unsigned, bool);
+static int cw_asm_get_register_var (tree, unsigned, bool, cw_md_extra_info*);
 static tree cw_asm_identifier (tree expr);
+
+/* Return true iff the opcode wants memory to be stable.  We arrange
+   for a memory clobber in these instances.  */
+extern bool cw_memory_clobber (const char *);
 /* APPLE LOCAL end CW asm blocks */
 
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
@@ -6224,39 +6232,6 @@ cw_asm_default_function_conversion (tree exp)
   return exp;
 }
 
-#if defined(TARGET_386)
-/* We canonicalize the oprerands by swapping them if the output style
-   is in ATT syntax.  */
-
-static tree
-canonicalize_operands(const char *opcode, tree args)
-{
-  int noperands;
-
-  if (ASSEMBLER_DIALECT == ASM_INTEL)
-    return args;
-
-  if (strcmp (opcode, "bound") == 0)
-    return args;
-  if (strcmp (opcode, "invlpga") == 0)
-    return args;
-
-#if 0
-  /* GAS also checks the type of the arguments to determine if they
-     need swapping.  */
-  if ((argtype[0]&Imm) && (argtype[1]&Imm))
-    return args;
-#endif
-  noperands = list_length (args);
-  if (noperands == 2 || noperands == 3)
-    {
-      /* Swap first and last (0 and 1 or 0 and 2). */
-      return nreverse (args);
-    }
-  return args;
-}
-#endif
-
 /* The constraints table for CW style assembly.  Things not listed are
    usually considered as "+b", "+v" or "+f" depending upon context.  */
 
@@ -6291,11 +6266,58 @@ cw_op_comp (const void *a, const void *b)
   return 0;
 }
 
+#if defined(TARGET_386)
+/* These are unimplemented things in the assembler.  */
+#define U(X) ""
+/* This is used to denote the size for testcase generation.  */
+#define S(X)
+
+#define m1 "m" S("1")
+#define m2 "m" S("2")
+#define m4 "m" S("4")
+#define m2m4 m2 m4
+#define m8 m1
+#define m16 m2
+#define m32 m4
+#define r8 "r" S("1")
+#define r16 "r" S("2")
+#define r32 "r" S("4")
+#define r64 U("r" S("8"))
+#define a8 "a" S("1")
+#define a16 "a" S("2")
+#define a32 "a" S("4")
+#define r8r16r32 r8 r16 r32
+#define rm8 r8 m8
+#define rm32 r32 m32
+#define rm16 r16 m16
+#define rm8rm16 rm8 rm16
+#define rm8rm16rm32 rm8 rm16 rm32
+#define m8m16m32 m8 m16 m32
+#define r32r64 r32 r64
+#define ri8 r8 "i"
+#define ri16 r16 "i"
+#define ri32 r32 "i"
+#define rel8 "s" S("1")
+#define m32fp "m" S("3")
+#define m64fp "m" S("6")
+#define m80fp "m" S("8")
+#define m32fpm64fp m32fp m64fp
+#define m32fpm64fpm80fp m32fp m64fp m80fp
+#endif
+
+#ifndef TARGET_CW_REORDER_ARG
+#define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)
+#endif
+
+#ifndef CW_SYNTH_CONSTRAINTS
+#define CW_SYNTH_CONSTRAINTS(R, ARGNUM, NUM_ARGS, DB)
+#endif
+
 /* We lookup the OPCODE and return the constraint for the ARGNUM
    argument.  This is used only for otherwise ambiguous cases.  */
 
 static const char*
-cw_constraint_for (const char *opcode, unsigned argnum)
+cw_constraint_for (const char *opcode, unsigned argnum, unsigned ARG_UNUSED (num_args))
 {
   /* This table must be sorted.  */
   const struct cw_op_constraint db[] = {
@@ -6304,9 +6326,26 @@ cw_constraint_for (const char *opcode, unsigned argnum)
   struct cw_op_constraint key;
   struct cw_op_constraint *r;
 
+#ifdef ENABLE_CHECKING
+  /* Ensure that the table is sorted. */
+  static int once;
+  if (once == 0)
+    {
+      size_t i;
+      once = 1;
+      for (i=0; i < sizeof (db) / sizeof(db[0]) - 1; ++i)
+	gcc_assert (cw_op_comp (&db[i+1], &db[i]) >= 0);
+    }
+#endif
+
   key.opcode = opcode;
   key.argnum = argnum;
+  
+  TARGET_CW_REORDER_ARG(opcode, key.argnum, num_args, argnum);
+
   r = bsearch (&key, db, sizeof (db) / sizeof (db[0]), sizeof (db[0]), cw_op_comp);
+
+  CW_SYNTH_CONSTRAINTS(r, argnum, num_args, db);
 
   /* Any explicitly listed contraint is always used.  */
   if (r)
@@ -6315,37 +6354,60 @@ cw_constraint_for (const char *opcode, unsigned argnum)
   return NULL;
 }
 
-/* Return true iff the opcode wants memory to be stable.  We arrange
-   for a memory clobber in these instances.  */
-static bool
-cw_memory_clobber (const char *ARG_UNUSED (opcode))
-{
-#if defined(TARGET_TOC)
-  return strncmp (opcode, "st", 2) == 0
-    || (strncmp (opcode, "l", 1) == 0 && (strcmp (opcode, "la") != 0
-					  && strcmp (opcode, "li") != 0
-					  && strcmp (opcode, "lis") != 0))
-    || strcmp (opcode, "sc") == 0
-    || strncmp (opcode, "td", 2) == 0
-    || strcmp (opcode, "trap") == 0
-    || strncmp (opcode, "tw", 2) == 0;
-#else
-  return true;
+#if defined(TARGET_386)
+#undef m1
+#undef m2
+#undef m4
+#undef m2m4
+#undef m8
+#undef m16
+#undef m32
+#undef r8
+#undef r16
+#undef r32
+#undef r64
+#undef a8
+#undef a16
+#undef a32
+#undef r8r16r32
+#undef rm8
+#undef rm32
+#undef rm16
+#undef rm8rm16
+#undef rm8rm16rm32
+#undef m8m16m32
+#undef r32r64
+#undef ri8
+#undef ri16
+#undef ri32
+#undef rel8
+#undef m32fp
+#undef m64fp
+#undef m80fp
+#undef m32fpm64fp
+#undef m32fpm64fpm80fp
+
+#undef U
+#undef S
 #endif
-}
 
 /* MUST_BE_REG is true, iff we know the operand must be a register.  */
 
 static void
-cw_process_arg (const char *opcodename, tree var, unsigned argnum,
+cw_process_arg (const char *opcodename, tree var, unsigned argnum, int op_num,
 		bool must_be_reg,
-		tree *outputsp, tree *inputsp, tree *uses)
+		tree *outputsp, tree *inputsp, tree *uses, unsigned num_args,
+		cw_md_extra_info *e)
 {
   const char *s;
   bool was_output = true;
   tree str, one;
 
-  if (must_be_reg)
+  /* Sometimes we can deduce the constraints by context, if so, just use
+     that constraint now.  */
+  if (e->constraints[op_num])
+    s = e->constraints[op_num];
+  else if (must_be_reg)
     {
       /* This is the default constraint used for all instructions.  */
 #if defined(TARGET_TOC)
@@ -6355,7 +6417,7 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 #endif
     }
   else
-    s = cw_constraint_for (opcodename, argnum);
+    s = cw_constraint_for (opcodename, argnum, num_args);
 
   if (TREE_CODE (var) == FUNCTION_DECL)
     {
@@ -6422,7 +6484,8 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
 	     }
 	 }
     }
-  else if (TREE_CODE (var) == VAR_DECL && !strcmp(TREE_STRING_POINTER (str), "m") )
+  else if (TREE_CODE (var) == VAR_DECL
+	   && !strcmp(TREE_STRING_POINTER (str), "m"))
     TREE_ADDRESSABLE (var) = 1;
 }
 
@@ -6450,6 +6513,10 @@ cw_asm_identifier (tree expr)
   return expr;
 }
 
+#ifndef CW_CANONICALIZE_OPERANDS
+#define CW_CANONICALIZE_OPERANDS(OPCODE_P, IARGS, E, LEN)
+#endif
+
 /* Build an asm statement from CW-syntax bits.  */
 tree
 cw_asm_stmt (tree expr, tree args, int lineno)
@@ -6458,9 +6525,11 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   tree arg, tail;
   tree inputs, outputs, clobbers, uses, label;
   tree stmt;
-  unsigned int n;
+  unsigned int n, num_args;
   const char *opcodename;
   int opcodelen;
+  cw_md_extra_info e;
+  memset (&e, 0, sizeof (e));
 
   cw_asm_in_operands = 0;
   VARRAY_TREE_INIT (cw_asm_operands, 30, "cw_asm_operands");
@@ -6547,9 +6616,9 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   (void)add_stmt (stmt);
 
   cw_asm_buffer[0] = '\0';
-#if defined(TARGET_386)
-  args = canonicalize_operands (opcodename, args);
-#endif
+
+  CW_CANONICALIZE_OPERANDS(opcodename, args, &e, opcodelen);
+
   strncat (cw_asm_buffer, opcodename, opcodelen);
   strcat (cw_asm_buffer, " ");
   n = 1;
@@ -6559,9 +6628,10 @@ cw_asm_stmt (tree expr, tree args, int lineno)
       arg = TREE_VALUE (tail);
       if (tail != args)
 	strcat (cw_asm_buffer, ",");
-      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses, &label, false, false);
+      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses, &label, false, false, &e);
       ++n;
     }
+  num_args = n-1;
 
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
 
@@ -6575,8 +6645,8 @@ cw_asm_stmt (tree expr, tree args, int lineno)
       must_be_reg = argnum & 1;
       argnum >>= 1;
 
-      cw_process_arg (opcodename, var, argnum,
-		      must_be_reg, &outputs, &inputs, &uses);
+      cw_process_arg (opcodename, var, argnum, n,
+		      must_be_reg, &outputs, &inputs, &uses, num_args, &e);
     }
 
   clobbers = uses;
@@ -6646,26 +6716,30 @@ cw_asm_expr_val (tree arg)
   return 0;
 }
 
-#if defined(TARGET_386)
-/* Return true iff the operand is suitible for as the offset for a
-   memory instruction.  */
-static bool
-cw_is_offset (tree v)
-{
-  if (TREE_CODE (v) == INTEGER_CST)
-    return true;
-  return false;
-}
+#ifndef TARGET_CW_PRINT_OP
+#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E) false
+#endif
+#ifndef CW_IMMED_PREFIX
+#define CW_IMMED_PREFIX(E, BUF)
+#endif
+#ifndef CW_HIDE_REG
+#define CW_HIDE_REG(R) false
+#endif
+#ifndef CW_SEE_OFFSET
+#define CW_SEE_OFFSET(E)
+#endif
+#ifndef CW_SEE_NO_OFFSET
+#define CW_SEE_NO_OFFSET(E)
 #endif
 
 /* Print an operand according to its tree type.  MUST_BE_REG is true,
    iff we know the operand must be a register.  MUST_NOT_BE_REG is true,
    iff we know the operand must not be a register.  */
 
-static void
+void
 print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 		      tree *uses, tree *label,
-		      bool must_be_reg, bool must_not_be_reg)
+		      bool must_be_reg, bool must_not_be_reg, cw_md_extra_info *e)
 {
   int idnum;
   HOST_WIDE_INT bitsize, bitpos;
@@ -6679,6 +6753,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
   switch (TREE_CODE (arg))
     {
     case INTEGER_CST:
+      CW_IMMED_PREFIX (e, buf);
       sprintf (buf + strlen (buf), HOST_WIDE_INT_PRINT_DEC, tree_low_cst (arg, 0));
       break;
 
@@ -6688,9 +6763,15 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       /* Fall thru */
 
     case IDENTIFIER_NODE:
+      if (IDENTIFIER_LENGTH (arg) > 0 && IDENTIFIER_POINTER (arg)[0] == '%')
+	strcat (buf, "%");
       strncat (buf, IDENTIFIER_POINTER (arg), IDENTIFIER_LENGTH (arg));
       {
 	int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
+
+	if (CW_HIDE_REG (regno))
+	  regno = -1;
+
         if (regno >= 0)
 	  {
 	    tree tail;
@@ -6739,38 +6820,44 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
 	  mark_decl_referenced (arg);
 	}
-      else if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg)) >= 0)
+      else if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg, e)) >= 0)
 	sprintf (buf + strlen (buf), "%%%d", idnum);
       break;
 
     case FUNCTION_DECL:
-      if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg)) >= 0)
+      if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg, e)) >= 0)
 	sprintf (buf + strlen (buf), "%%z%d", idnum);
       break;
 
     case COMPOUND_EXPR:
       /* "Compound exprs" are really offset+register constructs.  */
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
-			    false, true);
+			    false, true, e);
       strcat (buf, "(");
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
-			    ! must_not_be_reg, must_not_be_reg);
+			    ! must_not_be_reg, must_not_be_reg, e);
       strcat (buf, ")");
       break;
 
     case MINUS_EXPR:
-      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
-	  && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
+    case PLUS_EXPR:
+      if ((TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
+	   && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE)
 	{
 	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
-				false, true);
-	  strcat (buf, "-");
+				false, true, e);
+	  if (TREE_CODE (arg) == MINUS_EXPR)
+	    strcat (buf, "-");
+	  else
+	    strcat (buf, "+");
+
+	  CW_SEE_OFFSET(e);
 	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum,
-				uses, label, false, true);
+				uses, label, false, true, e);
+	  CW_SEE_NO_OFFSET(e);
 	  break;
 	}
-      /* Fall Thru */
-    case PLUS_EXPR:
       sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
       break;
 
@@ -6783,7 +6870,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       op0 = TREE_OPERAND (arg, 0);
       if (TREE_CODE (op0) == VAR_DECL || TREE_CODE (op0) == COMPONENT_REF)
 	{
-	  idnum = cw_asm_get_register_var (arg, argnum, false);
+	  idnum = cw_asm_get_register_var (arg, argnum, false, e);
 	  if (idnum >= 0)
 	    sprintf (buf + strlen (buf), "%%%d", idnum);
         }
@@ -6795,7 +6882,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
         sprintf (buf + strlen (buf), "%lld", (long long int) (bitpos / BITS_PER_UNIT));
         strcat (buf, "(");
         /* Catch a couple different flavors of component refs.  */
-	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, label, true, false);
+	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, label, true, false, e);
         strcat (buf, ")");
       }
       /* APPLE LOCAL end radar 4218231 */
@@ -6812,88 +6899,14 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
     case NEGATE_EXPR:
       strcat (buf, "-");
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
-			    must_be_reg, must_not_be_reg);
+			    must_be_reg, must_not_be_reg, e);
       break;
-
-#if defined(TARGET_386)
-    case BRACKET_EXPR:
-      {
-	tree op2 = TREE_OPERAND (arg, 0);
-	tree op3 = TREE_OPERAND (arg, 1);
-	tree op0 = NULL_TREE, op1 = NULL_TREE;
-
-	if (TREE_CODE (op2) == BRACKET_EXPR)
-	  {
-	    op1 = TREE_OPERAND (op2, 0);
-	    op2 = TREE_OPERAND (op2, 1);
-	    if (TREE_CODE (op1) == BRACKET_EXPR)
-	      {
-		op0 = TREE_OPERAND (op1, 1);
-		op1 = TREE_OPERAND (op1, 0);
-	      }
-	  }
-	if (op0)
-	  {
-	    error ("block assembly operand not recognized");
-	    break;
-	  }
-	if (op2 == NULL_TREE)
-	  {
-	    op2 = op1;
-	    op1 = op0;
-	    op0 = NULL_TREE;
-	  }
-
-      if (ASSEMBLER_DIALECT == ASM_INTEL)
-	strcat (buf, "[");
-
-      if (op1 == 0 &&
-	  cw_is_offset (op2))
-	{
-	  op1 = op2;
-	  op2 = op3;
-	  op3 = NULL_TREE;
-	}
-
-      if (op1)
-	print_cw_asm_operand (buf, op1, argnum, uses, label,
-			      must_be_reg, must_not_be_reg);
-      else
-	strcat (buf, "0");
-      if (ASSEMBLER_DIALECT == ASM_INTEL)
-	strcat (buf, "]");
-      if (ASSEMBLER_DIALECT == ASM_INTEL)
-	strcat (buf, "[");
-      else
-	strcat (buf, "(");
-      print_cw_asm_operand (buf, op2, argnum, uses, label,
-			    must_be_reg, must_not_be_reg);
-      if (op3)
-	{
-	  if (ASSEMBLER_DIALECT == ASM_INTEL)
-	    strcat (buf, "][");
-	  else
-	    strcat (buf, ",");
-	  print_cw_asm_operand (buf, op3, argnum, uses, label,
-				must_be_reg, must_not_be_reg);
-	}
-      if (ASSEMBLER_DIALECT == ASM_INTEL)
-	strcat (buf, "]");
-      else
-	strcat (buf, ")");
-	}
-      break;
-
-    case MULT_EXPR:
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
-			    must_be_reg, must_not_be_reg);
-      strcat (buf, "*");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
-			    must_be_reg, must_not_be_reg);
-	  break;
-#endif
 
     default:
+      if (TARGET_CW_PRINT_OP (buf, arg, argnum, uses, label,
+			      must_be_reg, must_not_be_reg, e))
+	break;
+
       /* Something is wrong, most likely a user error.  */
       error ("block assembly operand not recognized");
       break;
@@ -6905,7 +6918,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
    operand must be a register.  */
 
 static int
-cw_asm_get_register_var (tree var, unsigned argnum, bool must_be_reg)
+cw_asm_get_register_var (tree var, unsigned argnum, bool must_be_reg, cw_md_extra_info *e)
 {
   unsigned int n;
 
@@ -6914,6 +6927,8 @@ cw_asm_get_register_var (tree var, unsigned argnum, bool must_be_reg)
       if (var == VARRAY_TREE (cw_asm_operands, n))
 	return n;
     }
+
+  ++(e->num);
 
   VARRAY_PUSH_TREE (cw_asm_operands, var);
   VARRAY_PUSH_UINT (cw_asm_operands_arg, (argnum<<1) + must_be_reg);
@@ -7031,17 +7046,17 @@ get_cw_asm_label (tree labid)
 
   if (!cw_ha16)
     {
-      cw_ha16 = define_label (input_location, get_identifier ("ha16"));
-      cw_hi16 = define_label (input_location, get_identifier ("hi16"));
-      cw_lo16 = define_label (input_location, get_identifier ("lo16"));
+      cw_ha16 = get_identifier ("ha16");
+      cw_hi16 = get_identifier ("hi16");
+      cw_lo16 = get_identifier ("lo16");
     }
 
   /* lo16(), ha16() and hi16() should be left unmolested.  */
-  if (labid == DECL_NAME (cw_lo16))
+  if (labid == cw_lo16)
     return cw_lo16;
-  else if (labid == DECL_NAME (cw_ha16))
+  else if (labid == cw_ha16)
     return cw_ha16;
-  else if (labid == DECL_NAME (cw_hi16))
+  else if (labid == cw_hi16)
     return cw_hi16;
 
   for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_labels); ++n)

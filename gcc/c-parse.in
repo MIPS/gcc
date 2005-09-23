@@ -30,7 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 @@ifc
 /* APPLE LOCAL CW asm blocks */
-%expect 15 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
+%expect 16 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
 @@end_ifc
 
 %{
@@ -252,7 +252,7 @@ do {									\
 %type <ttype> identifiers_or_typenames
 
 /* APPLE LOCAL begin CW asm blocks */
-%type <ttype> cw_identifier
+%type <ttype> cw_identifier cw_identifier1
 %type <exprtype> cw_asm_expr_no_commas cw_asm_unary_expr 
 %type <exprtype> cw_asm_primary
 %type <ttype> cw_asm_operands cw_nonnull_asm_operands 
@@ -378,8 +378,12 @@ static int yylexname (void);
 static inline int _yylex (void);
 static int  yylex (void);
 static void init_reswords (void);
-/* APPLE LOCAL CW asm blocks */
+/* APPLE LOCAL begin CW asm blocks */
 static int cw_asm_lineno = 0;
+#ifndef CW_SEE_OPCODE
+#define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
+#endif
+/* APPLE LOCAL end CW asm blocks */
 
   /* Initialization routine for this file.  */
 void
@@ -2114,7 +2118,7 @@ cw_asm_stmt_nobol: cw_save_location cw_asm_stmt_list CW_ASM_EOL
 cw_asm_stmt_list:
 	  /* empty */
 	| single_cw_asm_stmt
-	  {}
+		{}
 	| cw_asm_stmt_list ';' cw_maybe_comment single_cw_asm_stmt
 	| cw_asm_stmt_list ';' cw_maybe_comment
 	| cw_asm_stmt_list ASM_KEYWORD single_cw_asm_stmt
@@ -2122,26 +2126,43 @@ cw_asm_stmt_list:
 	;
 
 cw_maybe_comment:
-	  {
-	    if (flag_ms_asms)
-	      {
-		extern void cw_skip_to_eol ();
-		cw_skip_to_eol ();
-		yychar = YYEMPTY;
-	      }
-	  }
+		{
+		  if (flag_ms_asms)
+		    {
+		      extern void cw_skip_to_eol ();
+		      cw_skip_to_eol ();
+		      yychar = YYEMPTY;
+		    }
+		}
 	;
 
 cw_identifier:
+	  cw_identifier1 ' '
+		{ $$ = $1; }
+	| cw_identifier1
+		{ $$ = $1; cw_split_next = 0; }
+	;
+
+cw_identifier1:
 	  identifier
-	| cw_identifier '.'
-	  { $$ = cw_get_identifier ($1, "."); }
-	| cw_identifier '+'
-	  { $$ = cw_get_identifier ($1, "+"); }
-	| cw_identifier '-'
-	  { $$ = cw_get_identifier ($1, "-"); }
+		{
+		  if (cw_split_next &&
+		      (yychar == '.'
+		       || yychar == '+'
+		       || yychar == '-'))
+		    {
+		      cw_insert_saved_token ();
+		      yychar = ' ';
+		    }
+		}
+	| cw_identifier1 '.'
+		{ $$ = cw_get_identifier ($1, "."); }
+	| cw_identifier1 '+'
+		{ $$ = cw_get_identifier ($1, "+"); }
+	| cw_identifier1 '-'
+		{ $$ = cw_get_identifier ($1, "-"); }
 	| '.' identifier
-	  { $$ = prepend_char_identifier ($2, '.'); }
+		{ $$ = prepend_char_identifier ($2, '.'); }
 	;
 
 /* A single statement consists of one or more labels (identified by a
@@ -2214,13 +2235,14 @@ cw_asm_compstmt: ASM_KEYWORD
 			  cw_skip_to_eol ();
 			  yychar = YYEMPTY;
 			}
+		      yychar = CW_SEE_OPCODE (yychar, yylval.ttype);
 		    }
 		  else
 		    /* This will probably choke badly... */
 		    error ("asm blocks not enabled, use `-fasm-blocks'");
 		  $<ttype>$ = c_begin_compound_stmt (true);
 		}
-		cw_asm_stmt_nobol
+	  cw_asm_stmt_nobol
 		{
 		  $$ = c_finish_expr_stmt ($3);
 		  inside_cw_asm_block = 0;
@@ -2797,6 +2819,11 @@ cw_asm_primary:
                   $$.value = build_component_ref (expr, $3);
                   $$.original_code = ERROR_MARK;
                 }
+	| '.'
+		{
+		  $$.value = get_identifier (".");;
+		  $$.original_code = ERROR_MARK;
+		}
 	;
 /* APPLE LOCAL end CW asm blocks */
 
@@ -3756,6 +3783,13 @@ yylexname (void)
 	       won't matter to parser.  */
 	    if (next_tok_type != CPP_OPEN_PAREN)
 	      yycode = CW_ASM_KEYWORD;
+	  }
+	if (CW_SEE_OPCODE (TYPESPEC, yylval.ttype) == IDENTIFIER
+	    && cw_asm_state >= cw_asm_decls
+	    && cw_asm_in_operands == 0)
+	  {
+	    /* If this was an opcode, prefer it.  */
+	    return IDENTIFIER;
 	  }
 	/* APPLE LOCAL end CW asm blocks */
 	/* Return the canonical spelling for this keyword.  */

@@ -70,11 +70,13 @@ bool c_lex_return_raw_strings = false;
 
 /* APPLE LOCAL begin CW asm blocks */
 void cw_skip_to_eol (void);
+
 /* This points to the token that we're going to save briefly while
    returning EOL/BOL tokens.  (This is global but static instead
    static in c_lex() so as to avoid pointless init in non-asm
    case.)  */
 static const cpp_token *cw_asm_saved_token = NULL;
+
 /* This tracks recursion in c_lex calls.  Lexer recursion can happen
    in pragma processing for instance, but we don't any of the asm
    special handling to be active then.  */
@@ -90,6 +92,21 @@ cw_skip_to_eol (void)
 
   /* Now put it back.  */
   _cpp_backup_tokens (parse_in, 1);
+}
+
+/* Insert cw_split_next as the next character read from the lexer.
+   This is used in order to differentiate op. from op . in the parser,
+   we insert a space after op when op . is seen.  cw_split_next is the
+   . and here we push it so the lexer will return it.  When we move to
+   an rd parser, rewrite in the C++ style and just use PREV_WHITE
+   instead.  */
+
+void
+cw_insert_saved_token (void)
+{
+  gcc_assert (cw_asm_saved_token == 0);
+  cw_asm_saved_token = cw_split_next;
+  cw_split_next = 0;
 }
 /* APPLE LOCAL end CW asm blocks */
 
@@ -407,6 +424,8 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   if (flag_cw_asm_blocks_local && cw_asm_state != cw_asm_none && c_lex_depth == 1
       && type != CPP_PADDING)
     {
+      bool do_bol = false;
+
       /* "}" switches us out of our special mode.  */
       if (tok->type == CPP_CLOSE_BRACE && cw_asm_state >= cw_asm_decls)
 	{
@@ -431,16 +450,16 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       if (cw_asm_state == cw_asm_decls
 	  && !cw_asm_in_decl)
 	{
-	  if ((tok->flags & BOL)
-	      && (tok->type == CPP_ATSIGN
-		  || tok->type == CPP_DOT
-		  || (tok->type == CPP_SEMICOLON)
-		  || (tok->type == CPP_NAME
-		      && (*value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node)))
-		      && !cw_asm_typename_or_reserved (*value))))
+	  if (tok->type == CPP_ATSIGN
+	      || tok->type == CPP_DOT
+	      || (tok->type == CPP_SEMICOLON)
+	      || (tok->type == CPP_NAME
+		  && (*value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node)))
+		  && !cw_asm_typename_or_reserved (*value)))
 	    {
 	      cw_asm_state = cw_asm_asm;
 	      inside_cw_asm_block = 1;
+	      do_bol = true;
 	      cw_asm_at_bol = 1;
 	      clear_cw_asm_labels ();
 	    }
@@ -449,16 +468,30 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	      cw_asm_in_decl = 1;
 	    }
 	}
-      /* If we're in the asm block, save the token at the beginning of the
-	 line and return a beginning-of-line token instead.  */
-      if (cw_asm_state == cw_asm_asm && (tok->flags & BOL))
+      if (cw_asm_state == cw_asm_asm)
 	{
-	  cw_asm_saved_token = tok;
-	  cw_asm_at_bol = !cw_asm_at_bol;
-	  --c_lex_depth;
-	  /* In between lines, return first the EOL.  */
-	  timevar_pop (TV_CPP);
-	  return (cw_asm_at_bol ? CPP_EOL : CPP_BOL);
+	  /* If we're in the asm block, save the token at the
+	     beginning of the line and return a beginning-of-line
+	     token instead.  */
+	  if ((tok->flags & BOL) || do_bol)
+	    {
+	      cw_asm_saved_token = tok;
+	      cw_asm_at_bol = !cw_asm_at_bol;
+	      --c_lex_depth;
+	      /* In between lines, return first the EOL.  */
+	      timevar_pop (TV_CPP);
+	      return (cw_asm_at_bol ? CPP_EOL : CPP_BOL);
+	    }
+	  if (! cw_asm_in_operands
+	      && (type == CPP_DOT
+		  || type == CPP_MINUS
+		  || type == CPP_PLUS))
+	    {
+	      if (tok->flags & PREV_WHITE)
+		cw_split_next = tok;
+	      else
+		cw_split_next = 0;
+	    }
 	}
     }
  bypass:

@@ -4379,17 +4379,18 @@ each arbitrary expression.   @xref{Example of asm with clobbered asm reg}.
 
 In addition to writing single statements in assembly, you can also
 define blocks and entire functions to use a mixed assembly and C
-syntax.  The syntax follows that used in Metrowerks' CodeWarrior.
-This extension must be explicitly enabled with the
-@option{-fasm-blocks} option.
+syntax.  The syntax follows that used in Metrowerks' CodeWarrior on
+PowerPC and Microsoft Visual Studio on x86.  This extension must be
+explicitly enabled with the @option{-fasm-blocks} option.
 
 The block syntax consists of @code{asm} followed by braces, with the
 assembly instructions on separate lines.  (However, @code{';'} may be
-used to put several instructions on one line.)  You write labels with
-either a preceding @code{'@@'} or a trailing @code{':'} (or both, if
-you prefer); labels are always local to the asm block, and there is no
-way for a label in one block to refer to a label in another block.
-Comments and lexical rules are as for standard C/C++.
+used to put several instructions on one line in CW-style, and
+@code{asm} in either style.)  You write labels with either a preceding
+@code{'@@'} or a trailing @code{':'} (or both, if you prefer); labels
+are always local to the asm block, and there is no way for a label in
+one block to refer to a label in another block.  Comments and lexical
+rules are as for standard C/C++.
 
 @verbatim
 int foo (int arg) {
@@ -4428,13 +4429,13 @@ reported by the assembler.
 Also note that the use of literal registers (such as r3) in functions
 may not work properly with functions that are being inlined.
 
-The following instructions are assumed to affect memory: @code{l...}
+The following PowerPC instructions are assumed to affect memory: @code{l...}
 except @code{la}, @code{li} and @code{lis} (all memory loads),
 @code{st...} (all memory stores), @code{sc}, @code{td...},
 @code{trap}, @code{tw...}.  All other instructions are assumed to not
 affect memory.
 
-The following instructions take a memory operand (address operand) as
+The following PowerPC instructions take a memory operand (address operand) as
 their second operand, all other instructions are assumed to not:
 
 @code{la}, @code{lbzu}, @code{ld}, @code{ldu}, @code{lfd},
@@ -4448,6 +4449,22 @@ Arguments that require substitution beyond vector registers, floating
 point registers, general registers are not supported; an example
 would be trying to use the compiler to allocate condition code
 registers instead of just writting a specific condition code register.
+
+On x86, the following instructions are not yet implemented by the assembler:
+
+@code{bound r m}, 
+@code{cmovpe r rm}, 
+@code{cmovpo r rm}, 
+@code{cmovz r rm}, 
+@code{ins m d}, 
+@code{lods m}, 
+@code{movs m m}
+@code{scas m}, 
+@code{stos m}, and
+@code{xlat m}.
+
+Note, the letters after the instructions are the usual x86 contraint
+letters for the operands.
 @c APPLE LOCAL end CW asm blocks
 
 @node Alternate Keywords

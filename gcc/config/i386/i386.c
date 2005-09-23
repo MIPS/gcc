@@ -18179,6 +18179,11 @@ ix86_darwin_handle_regparmandstackparm (tree fndecl)
 /* APPLE LOCAL end regparmandstackparm */
 
 /* APPLE LOCAL begin CW asm blocks */
+#include "config/asm.h"
+#define CTI_MAX c_CTI_MAX
+#include "c-common.h"
+#undef CTI_MAX
+
 /* Translate some register names seen in CW asm into GCC standard
    forms.  */
 
@@ -18189,10 +18194,301 @@ i386_cw_asm_register_name (const char *regname, char *buf)
     {
       if (ASSEMBLER_DIALECT == ASM_INTEL)
 	return regname;
-      sprintf (buf, "%%%%%s", regname);
+      sprintf (buf, "%%%s", regname);
       return buf;
     }
   return NULL;
+}
+
+extern bool cw_memory_clobber (const char *);
+/* Return true iff the opcode wants memory to be stable.  We arrange
+   for a memory clobber in these instances.  */
+bool
+cw_memory_clobber (const char *ARG_UNUSED (opcode))
+{
+  return true;
+}
+
+/* Return true iff the operands need swapping.  */
+
+bool
+cw_x86_needs_swapping (const char *opcode)
+{
+  /* Don't swap if output format is the same as input format.  */
+  if (ASSEMBLER_DIALECT == ASM_INTEL)
+    return false;
+
+  /* These don't need swapping.  */
+  if (strcmp (opcode, "bound") == 0)
+    return false;
+  if (strcmp (opcode, "invlpga") == 0)
+    return false;
+
+  return true;
+}
+
+/* Swap operands, given in MS-style asm ordering when the output style
+   is in ATT syntax.  */
+
+static tree
+x86_swap_operands (const char *opcode, tree args)
+{
+  int noperands;
+
+  if (cw_x86_needs_swapping (opcode) == false)
+    return args;
+
+#if 0
+  /* GAS also checks the type of the arguments to determine if they
+     need swapping.  */
+  if ((argtype[0]&Imm) && (argtype[1]&Imm))
+    return args;
+#endif
+  noperands = list_length (args);
+  if (noperands == 2 || noperands == 3)
+    {
+      /* Swap first and last (1 and 2 or 1 and 3). */
+      return nreverse (args);
+    }
+  return args;
+}
+
+/* We canonicalize the instruction by swapping operands and rewritting
+   the opcode if the output style is in ATT syntax.  */
+
+tree
+x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
+{
+  cw_md_extra_info *e = ep;
+  static char buf[40];
+  tree args = iargs;
+  int argnum = 1;
+  const char *opcode = *opcode_p;
+
+  /* Don't transform if output format is the same as input format.  */
+  if (ASSEMBLER_DIALECT == ASM_INTEL)
+    return iargs;
+
+  while (args)
+    {
+      tree arg = TREE_VALUE (args);
+
+      /* Handle st(3) */
+      if (TREE_CODE (arg) == COMPOUND_EXPR
+	  && TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE
+	  && strcmp (IDENTIFIER_POINTER (TREE_OPERAND (arg, 0)), "%st") == 0
+	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
+	{
+	  int v = tree_low_cst (TREE_OPERAND (arg, 1), 0);
+
+	  if (v < 0 || v > 7)
+	    {
+	      error ("unknown floating point register st(%d)", v);
+	      v = 0;
+	    }
+
+	  /* Rewrite %st(0) to %st.  */
+	  if (v == 0)
+	    TREE_VALUE (args) = TREE_OPERAND (arg, 0);
+	  else
+	    {
+	      char buf[20];
+	      sprintf (buf, "%%st(%d)", v);
+	      TREE_VALUE (args) = get_identifier (buf);
+	    }
+	}
+
+      switch (TREE_CODE (arg))
+	{
+	case VAR_DECL:
+	case PARM_DECL:
+	  if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
+	    e->mod[argnum-1] = 'l';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == HImode)
+	    e->mod[argnum-1] = 'w';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == QImode)
+	    e->mod[argnum-1] = 'b';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == SFmode)
+	    e->mod[argnum-1] = 's';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == DFmode)
+	    e->mod[argnum-1] = 'l';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == XFmode)
+	    e->mod[argnum-1] = 't';
+	  break;
+	case LABEL_DECL:
+	  e->mod[argnum-1] = 'l';
+	  break;
+	case IDENTIFIER_NODE:
+	  if (IDENTIFIER_LENGTH (arg) > 2
+	      &&IDENTIFIER_POINTER (arg)[0] == '%')
+	    {
+	      if (IDENTIFIER_POINTER (arg)[1] == 'e')
+		e->mod[argnum-1] = 'l';
+	      else if (IDENTIFIER_POINTER (arg)[2] == 'h'
+		       || IDENTIFIER_POINTER (arg)[2] == 'l')
+		e->mod[argnum-1] = 'b';
+	      else if (IDENTIFIER_POINTER (arg)[2] == 'x')
+		e->mod[argnum-1] = 'w';
+	    }
+	  break;
+	default:
+	  break;
+	}
+      args = TREE_CHAIN (args);
+      ++argnum;
+    }
+  --argnum;
+
+  args = x86_swap_operands (opcode, iargs);
+
+  /* movsx isn't part of the AT&T syntax, they spell it movs.  */
+  if (strcmp (opcode, "movsx") == 0)
+    opcode = "movs";
+
+  /* movzx isn't part of the AT&T syntax, they spell it movz.  */
+  if (strcmp (opcode, "movzx") == 0)
+    opcode = "movz";
+
+  if (strncmp (opcode, "f", 1) == 0 &&
+      (!(strcmp (opcode, "fldcw") == 0)))
+    {
+      if (e->mod[0] == 'w')
+	e->mod[0] = 's';
+      if (e->mod[1] == 'w')
+	e->mod[1] = 's';
+    }
+
+  if (strcmp (opcode, "out") == 0)
+    e->mod[0] = 0;
+  else if (strcmp (opcode, "rcr") == 0
+	   || strcmp (opcode, "rcl") == 0
+	   || strcmp (opcode, "rol") == 0
+	   || strcmp (opcode, "sbb") == 0
+	   || strcmp (opcode, "ror") == 0)
+    e->mod[1] = 0;
+
+  if ((argnum == 1 && e->mod[0])
+      || (argnum == 2 && e->mod[0]
+	  && (e->mod[0] == e->mod[1]
+	      || e->mod[1] == 0)))
+    {
+      sprintf (buf, "%s%c", opcode, e->mod[0]);
+      *opcode_p = buf;
+    }
+  else if (argnum == 2 && e->mod[0] && e->mod[1])
+    {
+      sprintf (buf, "%s%c%c", opcode, e->mod[1], e->mod[0]);
+      *opcode_p = buf;
+    }
+
+  return args;
+}
+
+/* Return true iff the operand is suitible for as the offset for a
+   memory instruction.  */
+static bool
+cw_is_offset (tree v)
+{
+  if (TREE_CODE (v) == INTEGER_CST)
+    return true;
+  return false;
+}
+
+bool
+cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
+	     bool must_be_reg, bool must_not_be_reg, void *ep)
+{
+  cw_md_extra_info *e = ep;
+  switch (TREE_CODE (arg))
+    {
+    case BRACKET_EXPR:
+      {
+	tree op2 = TREE_OPERAND (arg, 0);
+	tree op3 = TREE_OPERAND (arg, 1);
+	tree op0 = NULL_TREE, op1 = NULL_TREE;
+
+	if (TREE_CODE (op2) == BRACKET_EXPR)
+	  {
+	    op1 = TREE_OPERAND (op2, 0);
+	    op2 = TREE_OPERAND (op2, 1);
+	    if (TREE_CODE (op1) == BRACKET_EXPR)
+	      {
+		op0 = TREE_OPERAND (op1, 1);
+		op1 = TREE_OPERAND (op1, 0);
+	      }
+	  }
+	if (op0)
+	  return false;
+	if (op2 == NULL_TREE)
+	  {
+	    op2 = op1;
+	    op1 = op0;
+	    op0 = NULL_TREE;
+	  }
+
+	if (ASSEMBLER_DIALECT == ASM_INTEL)
+	  strcat (buf, "[");
+
+	if (op1 == 0
+	    && cw_is_offset (op2))
+	  {
+	    op1 = op2;
+	    op2 = op3;
+	    op3 = NULL_TREE;
+	  }
+
+	if (op1)
+	  {
+	    e->as_offset = true;
+	    print_cw_asm_operand (buf, op1, argnum, uses, label,
+				  must_be_reg, must_not_be_reg, e);
+	    e->as_offset = false;
+	  }
+	else
+	  strcat (buf, "0");
+	if (ASSEMBLER_DIALECT == ASM_INTEL)
+	  strcat (buf, "]");
+	if (ASSEMBLER_DIALECT == ASM_INTEL)
+	  strcat (buf, "[");
+	else
+	  strcat (buf, "(");
+
+	/* We know by context, this has to be an R.  */
+	e->constraints[e->num] = "R";
+	print_cw_asm_operand (buf, op2, argnum, uses, label,
+			      must_be_reg, must_not_be_reg, e);
+	e->constraints[e->num] = 0;
+	if (op3)
+	  {
+	    if (ASSEMBLER_DIALECT == ASM_INTEL)
+	      strcat (buf, "][");
+	    else
+	      strcat (buf, ",");
+
+	    /* We know by context, this has to be an l.  */
+	    e->constraints[e->num] = "l";
+	    print_cw_asm_operand (buf, op3, argnum, uses, label,
+				  must_be_reg, must_not_be_reg, e);
+	    e->constraints[e->num] = 0;
+	  }
+	if (ASSEMBLER_DIALECT == ASM_INTEL)
+	  strcat (buf, "]");
+	else
+	  strcat (buf, ")");
+      }
+      break;
+
+    case MULT_EXPR:
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+			    must_be_reg, must_not_be_reg, e);
+      strcat (buf, "*");
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
+			    must_be_reg, must_not_be_reg, e);
+      break;
+    default:
+      return false;
+    }
+  return true;
 }
 /* APPLE LOCAL end CW asm blocks */
 

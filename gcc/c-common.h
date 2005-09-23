@@ -26,24 +26,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "ggc.h"
 
-/* APPLE LOCAL begin CW asm blocks */
-/* We use a small state machine to inform the lexer when to start
-   returning tokens marking the beginning of each asm line.  */
-enum cw_asm_states {
-  /* Normal code.  */
-  cw_asm_none,
-  /* '{' of asm block seen, decls may appear.  */
-  cw_asm_decls,
-  /* No more decls, in asm block proper, '}' not seen yet.  */
-  cw_asm_asm
-};
-
-extern enum cw_asm_states cw_asm_state;
-extern int cw_asm_in_decl;
-extern int inside_cw_asm_block;
-extern int cw_asm_at_bol;
-extern int cw_asm_in_operands;
-/* APPLE LOCAL end CW asm blocks */
+/* APPLE LOCAL CW asm blocks */
+#include "config/asm.h"
 
 /* Usage of TREE_LANG_FLAG_?:
    0: TREE_NEGATED_INT (in INTEGER_CST).

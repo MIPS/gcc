@@ -6837,9 +6837,17 @@ c_finish_goto_ptr (tree expr)
 }
 
 /* APPLE LOCAL begin CW asm blocks */
+#ifndef CW_SEE_OPCODE
+#define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
+#endif
+#define TYPESPEC 1
+#define IDENTIFIER 2
 int
 cw_asm_typename_or_reserved (tree value)
 {
+  if (CW_SEE_OPCODE (TYPESPEC, value) == IDENTIFIER)
+    return 0;
+
   return (C_IS_RESERVED_WORD (value));
 }
 

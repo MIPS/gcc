@@ -1,3 +1,12 @@
+2005-09-23  Mike Stump  <mrs@apple.com>
+	
+	Radar 4259442
+	* parser.c (cp_parser_compound_statement): Handle opcode int.
+	(cp_parser_asm_definition): Add statement_p parameter.
+	Handle opcode int.
+	(cp_parser_cw_identifier): Handle opcode int.
+	(cw_asm_typename_or_reserved): Likewise.
+
 2005-09-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4258924

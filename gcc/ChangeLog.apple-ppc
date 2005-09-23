@@ -1,3 +1,69 @@
+2005-09-23  Mike Stump  <mrs@apple.com>
+	
+	Radar 4259442
+	* c-common.c (cw_split_next): Add.
+	(print_cw_asm_operand): Add extra * parameter.
+	(cw_asm_get_register_var): Likewise.
+	(struct Extra): Add.
+	(cw_x86_needs_swapping): Split out from canonicalize_operands.
+	(canonicalize_operands): Handle %st(i) style references for x86.
+	Add code to support opcode modifiers based upon arguments.
+	Rewrite movsx to movs.
+	Rewrite movzx to movz.
+	(cw_constraint_for): Pass number of arguments.
+	Add checking code to ensure that opcode table is sorted.
+	Handle option second opcode.
+	(cw_process_arg): Add extra * and op_num parameters.
+	Allow contrainst to be constructed from context.
+	(cw_asm_stmt): Add extra data structure and pass it around to
+	callees.
+	(print_cw_asm_operand): Add extra * parameter.
+	Prefix constants with "$" unless they are part of an offset.
+	Double up % on register names.
+	Don't track ST(i) lifetimes yet.
+	Handle .+24 as we do for .-24.
+	Ensure that offsets are not output with "$".
+	Track context information and set constraints appropriately.
+	Don't use labels for non-labels like lo16, hi16 and ha16.
+	* config/asm.h: Add.
+	* c-common.h (cw_split_next): Add.
+	(cw_insert_saved_token): Add.
+	* c-lex.c (cw_insert_saved_token): Add.
+	(c_lex_with_flags): When starting a decl, we don't need a BOL to
+	see the start of an instruction.  When switching to cw_asm_asm,
+	also arrange for a BOL token to be returned.  Arrange to split
+	[.+-] from opcode when PREV_WHITE.
+	* cp-parse.in (cw_identifier1): Add.
+	(cw_identifier): Add trailing ' ' on identifiers to split out
+	[.+-] from opcode.
+	(cw_asm_compstmt): Handle opcode int.
+	(cw_asm_primary): Add '.'.
+	(yylexname): Handle opcode int.
+	* c-typeck.c (cw_asm_typename_or_reserved): Likewise.
+	* config/i386/i386.c (i386_cw_asm_register_name): Don't double up
+	on '%' as a register prefix, as then it doesn't match a register
+	name.
+	(cw_memory_clobber): Move to here.
+	(cw_x86_needs_swapping): Likewise.
+	(x86_swap_operands): Likewise.
+	(x86_canonicalize_operands): Likewise.
+	(cw_is_offset): Likewise.
+	(cw_print_op): Split out from print_cw_asm_operand.
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Massive fixups,
+	switch operand ordering.
+	(TARGET_CW_EXTRA_INFO): Add.
+	(TARGET_CW_EXTRA_INFO): Add.
+	(CW_SYNTH_CONSTRAINTS): Add.
+	(TARGET_CW_PRINT_OP): Add.
+	(CW_CANONICALIZE_OPERANDS): Add.
+	(CW_SEE_OPCODE): Add.
+	(CW_IMMED_PREFIX): Add.
+	(CW_HIDE_REG): Add.
+	(CW_SEE_OFFSET): Add.
+	(CW_SEE_NO_OFFSET): Add.
+	* doc/extend.texi (Asm Blocks and Functions): Update for x86.
+	* tree-cfg.c (set_bb_for_stmt): Handle label rewritting anywhere in opcode.
+	
 2005-09-22  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4231761

@@ -21393,6 +21393,22 @@ rs6000_cw_asm_register_name (const char *regname, char *buf)
     return "r2";
   return NULL;
 }
+
+extern bool cw_memory_clobber (const char *);
+/* Return true iff the opcode wants memory to be stable.  We arrange
+   for a memory clobber in these instances.  */
+bool
+cw_memory_clobber (const char *ARG_UNUSED (opcode))
+{
+  return strncmp (opcode, "st", 2) == 0
+    || (strncmp (opcode, "l", 1) == 0 && (strcmp (opcode, "la") != 0
+					  && strcmp (opcode, "li") != 0
+					  && strcmp (opcode, "lis") != 0))
+    || strcmp (opcode, "sc") == 0
+    || strncmp (opcode, "td", 2) == 0
+    || strcmp (opcode, "trap") == 0
+    || strncmp (opcode, "tw", 2) == 0;
+}
 /* APPLE LOCAL end CW asm blocks */
 
 /* target hook eh_return_filter_mode */
