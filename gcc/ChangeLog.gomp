@@ -1,3 +1,16 @@
+2005-09-23  Richard Henderson  <rth@redhat.com>
+
+	* c-omp.c (c_finish_omp_critical): Move implementation ...
+	* gimplify.c (gimplify_omp_critical): ... here.
+	(gimplify_expr): Call it.
+	(critical_name_mutexes): New.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_CRITICAL.
+	* tree.def (OMP_MASTER, OMP_BARRIER, OMP_ORDERED): Remove.
+	(OMP_PARALLEL, OMP_FOR, OMP_SECTIONS, OMP_SECTION,
+	OMP_SINGLE, OMP_CRITICAL): Change to tcc_statement; update operand
+	number comments.
+	* tree.h (OMP_CRITICAL_NAME, OMP_CRITICAL_BODY): New.
+
 2005-09-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree.def (OMP_CLAUSE_NOWAIT): Define.
@@ -49,9 +62,6 @@
 	(c_parser_pragma): ... here.
 	(c_lex_omp_pragma): Split out of ...
 	(c_lex_one_token): ... here.  Consume non-omp pragmas immediately.
-
-	* testsuite/gcc.dg/gomp/gomp.exp: Save and restore DEFAULT_CFLAGS
-	around the subdirectory.
 
 2005-09-22  Richard Henderson  <rth@redhat.com>
 
@@ -140,10 +150,6 @@
 2005-09-21  Richard Henderson  <rth@redhat.com>
 
 	* c-lex.c (c_lex_with_flags) <CPP_PRAGMA>: Set input_location.
-
-	* testsuite/gcc.dg/gomp/gomp.exp: New.
-	* testsuite/gcc.dg/gomp/master-1.c: New.
-	* testsuite/gcc.dg/gomp/master-2.c: New.
 
 2005-09-21  Richard Henderson  <rth@redhat.com>
 

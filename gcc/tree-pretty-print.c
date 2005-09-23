@@ -1559,6 +1559,26 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       is_expr = false;
       break;
 
+    case OMP_CRITICAL:
+      pp_string (buffer, "#pragma omp critical");
+      if (OMP_CRITICAL_NAME (node))
+	{
+	  pp_space (buffer);
+	  pp_character (buffer, '(');
+          dump_generic_node (buffer, OMP_CRITICAL_NAME (node), spc,
+			     flags, false);
+	  pp_character (buffer, ')');
+	}
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, OMP_CRITICAL_BODY (node), spc + 4, flags,
+			 false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      is_expr = false;
+      break;
+
     case OMP_CLAUSE_PRIVATE:
       pp_string (buffer, "private (");
       dump_generic_node (buffer, OMP_PRIVATE_VARS (node), spc, flags, false);

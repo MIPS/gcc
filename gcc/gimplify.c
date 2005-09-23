@@ -3933,6 +3933,82 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   return ret;
 }
 
+/* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
+   substitution of a couple of function calls.  But in the NAMED case,
+   requires that languages coordinate a symbol name.  It is therefore
+   best put here in common code.  */
+
+static GTY ((param_is (struct tree_map))) htab_t critical_name_mutexes;
+
+static enum gimplify_status
+gimplify_omp_critical (tree *expr_p, tree *pre_p, tree *post_p)
+{
+  tree expr = *expr_p;
+  tree lock, unlock, name;
+
+  name = OMP_CRITICAL_NAME (expr);
+  if (name)
+    {
+      char *new_str;
+      tree decl, args;
+      void **slot;
+      struct tree_map dummy, *ent;
+
+      new_str = ACONCAT ((".gomp_critical_user_",
+			  IDENTIFIER_POINTER (name), NULL));
+      name = get_identifier (new_str);
+
+      if (!critical_name_mutexes)
+	critical_name_mutexes
+	  = htab_create_ggc (17, tree_map_hash, tree_map_eq, NULL);
+
+      dummy.from = name;
+      dummy.hash = IDENTIFIER_HASH_VALUE (name);
+      slot = htab_find_slot_with_hash (critical_name_mutexes, &dummy,
+				       dummy.hash, INSERT);
+      ent = *slot;
+      if (ent == NULL)
+	{
+	  decl = create_tmp_var_raw (ptr_type_node, NULL);
+	  DECL_NAME (decl) = name;
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_COMMON (decl) = 1;
+	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
+	  cgraph_varpool_finalize_decl (decl);
+
+	  *slot = ent = ggc_alloc (sizeof (struct tree_map));
+	  ent->hash = IDENTIFIER_HASH_VALUE (name);
+	  ent->from = name;
+	  ent->to = decl;
+	}
+      else
+	decl = ent->to;
+
+      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
+      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_START];
+      lock = build_function_call_expr (lock, args);
+
+      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
+      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_END];
+      unlock = build_function_call_expr (unlock, args);
+    }
+  else
+    {
+      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_START];
+      lock = build_function_call_expr (lock, NULL);
+
+      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_END];
+      unlock = build_function_call_expr (unlock, NULL);
+    }
+
+  gimplify_and_add (lock, pre_p);
+  gimplify_and_add (unlock, post_p);
+  *expr_p = OMP_CRITICAL_BODY (expr);
+
+  return GS_OK;
+}
 
 /*  Gimplifies the expression tree pointed to by EXPR_P.  Return 0 if
     gimplification failed.
@@ -4381,6 +4457,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_FOR:
 	  ret = gimplify_omp_for (expr_p, pre_p);
+	  break;
+
+	case OMP_CRITICAL:
+	  ret = gimplify_omp_critical (expr_p, pre_p, post_p);
 	  break;
 
 	default:

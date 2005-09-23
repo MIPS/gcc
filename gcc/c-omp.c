@@ -59,48 +59,7 @@ c_finish_omp_master (tree stmt)
 void
 c_finish_omp_critical (tree stmt, tree name)
 {
-  tree lock, unlock;
-
-  if (name)
-    {
-      char *new_str;
-      tree decl, args;
-
-      new_str = ACONCAT ((".gomp_critical_user_",
-			  IDENTIFIER_POINTER (name), NULL));
-      name = get_identifier (new_str);
-      decl = identifier_global_value (name);
-      if (decl == NULL)
-	{
-	  decl = build_decl (VAR_DECL, name, ptr_type_node);
-	  TREE_PUBLIC (decl) = 1;
-	  TREE_STATIC (decl) = 1;
-	  DECL_COMMON (decl) = 1;
-	  DECL_ARTIFICIAL (decl) = 1;
-	  DECL_IGNORED_P (decl) = 1;
-	  decl = pushdecl_top_level (decl);
-	}
-
-      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
-      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_START];
-      lock = build_function_call_expr (lock, args);
-
-      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
-      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_END];
-      unlock = build_function_call_expr (unlock, args);
-    }
-  else
-    {
-      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_START];
-      lock = build_function_call_expr (lock, NULL);
-
-      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_END];
-      unlock = build_function_call_expr (unlock, NULL);
-    }
-
-  add_stmt (lock);
-  add_stmt (stmt);
-  add_stmt (unlock);
+  add_stmt (build2 (OMP_CRITICAL, void_type_node, name, stmt));
 }
 
 
