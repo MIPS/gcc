@@ -827,27 +827,25 @@ static char *atom_string, atom_name[MAX_ATOM_SIZE];
 static void bad_module (const char *) ATTRIBUTE_NORETURN;
 
 static void
-bad_module (const char *message)
+bad_module (const char *msgid)
 {
-  const char *p;
+  fclose (module_fp);
 
   switch (iomode)
     {
     case IO_INPUT:
-      p = "Reading";
+      gfc_fatal_error ("Reading module %s at line %d column %d: %s",
+	  	       module_name, module_line, module_column, msgid);
       break;
     case IO_OUTPUT:
-      p = "Writing";
+      gfc_fatal_error ("Writing module %s at line %d column %d: %s",
+	  	       module_name, module_line, module_column, msgid);
       break;
     default:
-      p = "???";
+      gfc_fatal_error ("Module %s at line %d column %d: %s",
+	  	       module_name, module_line, module_column, msgid);
       break;
     }
-
-  fclose (module_fp);
-
-  gfc_fatal_error ("%s module %s at line %d column %d: %s", p,
-		   module_name, module_line, module_column, message);
 }
 
 
@@ -1154,19 +1152,19 @@ require_atom (atom_type type)
       switch (type)
 	{
 	case ATOM_NAME:
-	  p = "Expected name";
+	  p = _("Expected name");
 	  break;
 	case ATOM_LPAREN:
-	  p = "Expected left parenthesis";
+	  p = _("Expected left parenthesis");
 	  break;
 	case ATOM_RPAREN:
-	  p = "Expected right parenthesis";
+	  p = _("Expected right parenthesis");
 	  break;
 	case ATOM_INTEGER:
-	  p = "Expected integer";
+	  p = _("Expected integer");
 	  break;
 	case ATOM_STRING:
-	  p = "Expected string";
+	  p = _("Expected string");
 	  break;
 	default:
 	  gfc_internal_error ("require_atom(): bad atom type required");
@@ -3101,7 +3099,7 @@ read_module (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_op i;
-  int ambiguous, symbol, j, nuse;
+  int ambiguous, j, nuse, series, symbol;
   pointer_info *info;
   gfc_use_rename *u;
   gfc_symtree *st;
@@ -3121,6 +3119,7 @@ read_module (void)
   mio_lparen ();
 
   /* Create the fixup nodes for all the symbols.  */
+  series = 0;
 
   while (peek_atom () != ATOM_RPAREN)
     {
@@ -3144,6 +3143,14 @@ read_module (void)
          being loaded again.  */
 
       sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
+
+      /* If a module contains subroutines with assumed shape dummy
+       arguments, the symbols for indices need to be different from
+       from those in the module proper(ns = 1).  */
+      if (sym !=NULL && info->u.rsym.ns != 1)
+	sym = find_true_name (info->u.rsym.true_name,
+		gfc_get_string ("%s@%d",module_name, series++));
+
       if (sym == NULL)
 	continue;
 
@@ -3486,11 +3493,6 @@ write_symbol1 (pointer_info * p)
 
   if (p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE)
     return 0;
-
-  /* FIXME: This shouldn't be necessary, but it works around
-     deficiencies in the module loader or/and symbol handling.  */
-  if (p->u.wsym.sym->module == NULL && p->u.wsym.sym->attr.dummy)
-    p->u.wsym.sym->module = gfc_get_string (module_name);
 
   p->u.wsym.state = WRITTEN;
   write_symbol (p->integer, p->u.wsym.sym);

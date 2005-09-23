@@ -672,6 +672,23 @@ check_specialization_namespace (tree tmpl)
     }
 }
 
+/* SPEC is an explicit instantiation.  Check that it is valid to
+   perform this explicit instantiation in the current namespace.  */
+
+static void
+check_explicit_instantiation_namespace (tree spec)
+{
+  tree ns;
+
+  /* DR 275: An explicit instantiation shall appear in an enclosing
+     namespace of its template.  */ 
+  ns = decl_namespace_context (spec);
+  if (!is_ancestor (current_namespace, ns))
+    pedwarn ("explicit instantiation of %qD in namespace %qD "
+	     "(which does not enclose namespace %qD)",
+	     spec, current_namespace, ns);
+}
+
 /* The TYPE is being declared.  If it is a template type, that means it
    is a partial specialization.  Do appropriate error-checking.  */
 
@@ -1187,6 +1204,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 		 there were no definition, and vice versa.  */
 	      DECL_INITIAL (fn) = NULL_TREE;
 	      duplicate_decls (spec, fn, is_friend);
+	      check_specialization_namespace (fn);
 
 	      return fn;
 	    }
@@ -2087,7 +2105,6 @@ check_explicit_specialization (tree declarator,
 	     template it specializes.  */
 	  TREE_PRIVATE (decl) = TREE_PRIVATE (gen_tmpl);
 	  TREE_PROTECTED (decl) = TREE_PROTECTED (gen_tmpl);
-
 	  /* The specialization has the same visibility as the
 	     template it specializes.  */
 	  if (DECL_VISIBILITY_SPECIFIED (gen_tmpl))
@@ -2095,6 +2112,19 @@ check_explicit_specialization (tree declarator,
 	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
 	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (gen_tmpl);
 	    }
+	  /* If DECL is a friend declaration, declared using an
+	     unqualified name, the namespace associated with DECL may
+	     have been set incorrectly.  For example, in:
+	     
+	       template <typename T> void f(T); 
+               namespace N {
+  	         struct S { friend void f<int>(int); }
+               }
+
+             we will have set the DECL_CONTEXT for the friend
+             declaration to N, rather than to the global namespace.  */
+	  if (DECL_NAMESPACE_SCOPE_P (decl))
+	    DECL_CONTEXT (decl) = DECL_CONTEXT (tmpl);
 
 	  if (is_friend && !have_def)
 	    /* This is not really a declaration of a specialization.
@@ -6039,6 +6069,11 @@ tsubst_aggr_type (tree t,
 	  tree argvec;
 	  tree context;
 	  tree r;
+	  bool saved_skip_evaluation;
+
+	  /* In "sizeof(X<I>)" we need to evaluate "I".  */
+	  saved_skip_evaluation = skip_evaluation;
+	  skip_evaluation = false;
 
 	  /* First, determine the context for the type we are looking
 	     up.  */
@@ -6059,12 +6094,17 @@ tsubst_aggr_type (tree t,
 	  argvec = tsubst_template_args (TYPE_TI_ARGS (t), args,
 					 complain, in_decl);
 	  if (argvec == error_mark_node)
-	    return error_mark_node;
+	    r = error_mark_node;
+	  else
+	    {
+	      r = lookup_template_class (t, argvec, in_decl, context,
+					 entering_scope, complain);
+	      r = cp_build_qualified_type_real (r, TYPE_QUALS (t), complain);
+	    }
+	  
+	  skip_evaluation = saved_skip_evaluation;
 
-	  r = lookup_template_class (t, argvec, in_decl, context,
-				     entering_scope, complain);
-
-	  return cp_build_qualified_type_real (r, TYPE_QUALS (t), complain);
+	  return r;
 	}
       else
 	/* This is not a template type, so there's nothing to do.  */
@@ -8927,7 +8967,6 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 {
   int ix, len = DECL_NTPARMS (tmpl);
   bool result = false;
-  bool error_p = complain & tf_error;
 
   for (ix = 0; ix != len; ix++)
     {
@@ -8944,12 +8983,16 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 
 	  if (nt)
 	    {
-	      if (TYPE_ANONYMOUS_P (nt))
-		error ("%qT is/uses anonymous type", t);
-	      else
-		error ("%qT uses local type %qT", t, nt);
+	      /* DR 488 makes use of a type with no linkage causes
+		 type deduction to fail.  */ 
+	      if (complain & tf_error)
+		{
+		  if (TYPE_ANONYMOUS_P (nt))
+		    error ("%qT is/uses anonymous type", t);
+		  else
+		    error ("%qT uses local type %qT", t, nt);
+		}
 	      result = true;
-	      error_p = true;
 	    }
 	  /* In order to avoid all sorts of complications, we do not
 	     allow variably-modified types as template arguments.  */
@@ -8971,7 +9014,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  result = true;
 	}
     }
-  if (result && error_p)
+  if (result && (complain & tf_error))
     error ("  trying to instantiate %qD", tmpl);
   return result;
 }
@@ -10998,7 +11041,8 @@ do_decl_instantiation (tree decl, tree storage)
     }
   else
     error ("storage class %qD applied to template instantiation", storage);
-
+  
+  check_explicit_instantiation_namespace (result);
   mark_decl_instantiated (result, extern_p);
   if (! extern_p)
     instantiate_decl (result, /*defer_ok=*/1, 
@@ -11130,6 +11174,7 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
 	return;
     }
 
+  check_explicit_instantiation_namespace (TYPE_NAME (t));
   mark_class_instantiated (t, extern_p);
 
   if (nomem_p)

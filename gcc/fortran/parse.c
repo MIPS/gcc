@@ -872,13 +872,13 @@ gfc_ascii_statement (gfc_statement st)
   switch (st)
     {
     case ST_ARITHMETIC_IF:
-      p = "arithmetic IF";
+      p = _("arithmetic IF");
       break;
     case ST_ALLOCATE:
       p = "ALLOCATE";
       break;
     case ST_ATTR_DECL:
-      p = "attribute declaration";
+      p = _("attribute declaration");
       break;
     case ST_BACKSPACE:
       p = "BACKSPACE";
@@ -908,7 +908,7 @@ gfc_ascii_statement (gfc_statement st)
       p = "CYCLE";
       break;
     case ST_DATA_DECL:
-      p = "data declaration";
+      p = _("data declaration");
       break;
     case ST_DATA:
       p = "DATA";
@@ -917,7 +917,7 @@ gfc_ascii_statement (gfc_statement st)
       p = "DEALLOCATE";
       break;
     case ST_DERIVED_DECL:
-      p = "Derived type declaration";
+      p = _("derived type declaration");
       break;
     case ST_DO:
       p = "DO";
@@ -996,7 +996,7 @@ gfc_ascii_statement (gfc_statement st)
       p = "GOTO";
       break;
     case ST_IF_BLOCK:
-      p = "block IF";
+      p = _("block IF");
       break;
     case ST_IMPLICIT:
       p = "IMPLICIT";
@@ -1005,7 +1005,7 @@ gfc_ascii_statement (gfc_statement st)
       p = "IMPLICIT NONE";
       break;
     case ST_IMPLIED_ENDDO:
-      p = "implied END DO";
+      p = _("implied END DO");
       break;
     case ST_INQUIRE:
       p = "INQUIRE";
@@ -1072,10 +1072,10 @@ gfc_ascii_statement (gfc_statement st)
       p = "WRITE";
       break;
     case ST_ASSIGNMENT:
-      p = "assignment";
+      p = _("assignment");
       break;
     case ST_POINTER_ASSIGNMENT:
-      p = "pointer assignment";
+      p = _("pointer assignment");
       break;
     case ST_SELECT_CASE:
       p = "SELECT CASE";
@@ -1084,7 +1084,7 @@ gfc_ascii_statement (gfc_statement st)
       p = "SEQUENCE";
       break;
     case ST_SIMPLE_IF:
-      p = "Simple IF";
+      p = _("simple IF");
       break;
     case ST_STATEMENT_FUNCTION:
       p = "STATEMENT FUNCTION";
@@ -1191,43 +1191,43 @@ gfc_state_name (gfc_compile_state state)
   switch (state)
     {
     case COMP_PROGRAM:
-      p = "a PROGRAM";
+      p = _("a PROGRAM");
       break;
     case COMP_MODULE:
-      p = "a MODULE";
+      p = _("a MODULE");
       break;
     case COMP_SUBROUTINE:
-      p = "a SUBROUTINE";
+      p = _("a SUBROUTINE");
       break;
     case COMP_FUNCTION:
-      p = "a FUNCTION";
+      p = _("a FUNCTION");
       break;
     case COMP_BLOCK_DATA:
-      p = "a BLOCK DATA";
+      p = _("a BLOCK DATA");
       break;
     case COMP_INTERFACE:
-      p = "an INTERFACE";
+      p = _("an INTERFACE");
       break;
     case COMP_DERIVED:
-      p = "a DERIVED TYPE block";
+      p = _("a DERIVED TYPE block");
       break;
     case COMP_IF:
-      p = "an IF-THEN block";
+      p = _("an IF-THEN block");
       break;
     case COMP_DO:
-      p = "a DO block";
+      p = _("a DO block");
       break;
     case COMP_SELECT:
-      p = "a SELECT block";
+      p = _("a SELECT block");
       break;
     case COMP_FORALL:
-      p = "a FORALL block";
+      p = _("a FORALL block");
       break;
     case COMP_WHERE:
-      p = "a WHERE block";
+      p = _("a WHERE block");
       break;
     case COMP_CONTAINS:
-      p = "a contained subprogram";
+      p = _("a contained subprogram");
       break;
 
     default:

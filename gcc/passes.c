@@ -576,6 +576,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_tree_loop_done);
   *p = NULL;
 
+  p = &pass_vectorize.sub;
+  NEXT_PASS (pass_dce);
+  *p = NULL;
+
   p = &pass_loop2.sub;
   NEXT_PASS (pass_rtl_loop_init);
   NEXT_PASS (pass_rtl_move_loop_invariants);

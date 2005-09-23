@@ -1,3 +1,70 @@
+2005-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21983
+	* class.c (find_final_overrider): Move diagnostic about no unique final
+	overrider to...
+	(update_vtable_entry_for_fn): ... here.
+
+2005-09-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23993
+	* init.c (integral_constant_value): Use DECL_INTEGRAL_CONSTANT_VAR_P.
+
+2005-09-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23965
+	* call.c (resolve_args): Return error_mark_node on arguments
+	whose TREE_TYPE is error_mark_node.
+
+2005-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/23947
+	* rtti.c (get_pseudo_ti_init): Recompute ti pointer after
+	get_tinfo_ptr calls.
+
+2005-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23914
+	* parser.c (cp_parser_enclosed_template_argument_list): Make sure
+	skip_evaluation is false when processing template arguments.
+
+	PR c++/21514
+	* pt.c (check_instantiated_args): Treat uses of anonymous types as
+	causing type-deduction failure.
+
+2005-09-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/23357
+	* cp-tree.def (SIZEOF_EXPR, ALIGNOF_EXPR): Change code class to
+	tcc_expression.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23896
+	* pt.c (tsubst_aggr_type): Make sure skip_evaluation is false when
+	processing template arguments.
+
+	* pt.c (check_explicit_instantiation_namespace): Fix typo.
+
+	PR c++/13140
+	* decl.c (check_class_member_definition_namespace): New function.
+	(grokfndecl): Use it.
+	(grokvardecl): Likewise.
+	(grokdecl): Improve documentation.
+	* pt.c (check_explicit_instantiation_namespace): New function.
+	(register_specialization): Call check_specialization_namespace
+	when replacing an implicitly instantiated function.
+	(check_explicit_specialization): Ensure that DECL_CONTEXT is set
+	correctly for namespace-scope specializations.
+	(do_decl_instantiation): Use
+	check_explicit_instantiation_namespace.
+	(do_type_instantiation): Likewise.
+
+2005-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23725
+	* error.c (dump_decl): <USING_DECL case> Use USING_DECL_SCOPE.
+
 2005-09-13  Bastian Blank <waldi@debian.org>
 
 	PR c++/16171

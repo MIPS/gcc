@@ -1,3 +1,39 @@
+2005-09-21  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	PR java/21418
+	* class.c (inherits_from_p): Try to lay out super class
+	if it is not already laid out.
+	(maybe_layout_super_class): Handle the case where SUPER_CLASS
+	is a NULL_TREE.
+
+2005-09-18  James A. Morrison  <phython@gcc.gnu.org>
+
+	* builtins.c (max_builtin, min_builtin, abs_builtin,
+	java_build_function_call_expr): Use fold_buildN.
+	* class.c (layout_class_method): Likewise.
+	* expr.c (java_truthvalue_conversion, build_java_jsr,
+	build_java_arrayaccess, expand_java_arrayload, expand_iinc,
+	build_java_binop, build_field_ref, expand_compare,
+	build_known_method_ref, build_invokevirtual,
+	process_jvm_instruction): Likewise.
+	* parse.y (patch_binop, patch_exit_expr): Likewise.
+	* typeck.c (convert_ieee_real_to_integer): Likewise.
+	(convert): Don't call fold after convert_ieee_real_to_integer.
+
+2005-09-14  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/23891
+	* parse.y (maybe_create_class_interface_decl): Set TYPE_PACKAGE for
+	the newly created type. Set import lists here, not in create_class.
+	(jdep_resolve_class): Set current_class.
+	(do_resolve_class): Use current_class's TYPE_PACKAGE to determine 
+	the current package context, not ctxp->package.
+	(cicp_cache): Removed.
+	(class_in_current_package): Simplify implementation using TYPE_PACKAGE.
+	* jcf-parse.c (give_name_to_class): Set TYPE_PACKAGE.
+	* java-tree.h (TYPE_PACKAGE): New macro.
+	(struct lang_type): New member 'package'.
+
 2005-09-09  Andrew Haley  <aph@redhat.com>
 
 	PR libgcj/23182 

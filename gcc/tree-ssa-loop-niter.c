@@ -634,11 +634,15 @@ expand_simple_operations (tree expr)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, stmt;
-  enum tree_code code = TREE_CODE (expr);
+  enum tree_code code;
+
+  if (expr == NULL_TREE)
+    return expr;
 
   if (is_gimple_min_invariant (expr))
     return expr;
 
+  code = TREE_CODE (expr);
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       n = TREE_CODE_LENGTH (code);
@@ -1434,10 +1438,10 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 		/* For each array access, analyze its access function
 		   and record a bound on the loop iteration domain.  */
 		if (TREE_CODE (op1) == ARRAY_REF)
-		  analyze_array (stmt, op1, true);
+		  estimate_iters_using_array (stmt, op1);
 
 		if (TREE_CODE (op0) == ARRAY_REF)
-		  analyze_array (stmt, op0, false);
+		  estimate_iters_using_array (stmt, op0);
 
 		/* For each signed type variable in LOOP, analyze its
 		   scalar evolution and record a bound of the loop
@@ -1488,7 +1492,7 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 		for (args = TREE_OPERAND (stmt, 1); args;
 		     args = TREE_CHAIN (args))
 		  if (TREE_CODE (TREE_VALUE (args)) == ARRAY_REF)
-		    analyze_array (stmt, TREE_VALUE (args), true);
+		    estimate_iters_using_array (stmt, TREE_VALUE (args));
 
 		break;
 	      }
