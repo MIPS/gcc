@@ -217,6 +217,7 @@
 4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -fomit-frame-pointer
 4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -g
 4239312: gcc.c-torture/execute/loop-2b.c compilation,  -Os
+4157563: gcc.dg/stabs-4232445.c (test for excess errors)
 #
 # the following failures are for x86 only
 3846097: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
