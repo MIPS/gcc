@@ -1,3 +1,8 @@
+2005-09-23    Fariborz Jahanian <fjahanian@apple.com>
+
+	* Radar 4266982
+	* combine.c (make_extraction): Check for valid use of subreg.
+
 2005-09-23  Mike Stump  <mrs@apple.com>
 	
 	Radar 4259442

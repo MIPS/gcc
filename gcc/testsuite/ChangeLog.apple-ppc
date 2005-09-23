@@ -1,3 +1,8 @@
+2005-09-23  Fariborz Jahanian <fjahanian@apple.com>
+
+	* Radar 4266982
+	* gcc.dg/i386-lshiftrt-1.c: New
+
 2005-09-23  Mike Stump  <mrs@apple.com>
 	
 	Radar 4259442

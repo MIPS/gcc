@@ -6197,7 +6197,8 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 
 		  /* Avoid creating invalid subregs, for example when
 		     simplifying (x>>32)&255.  */
-		  if (final_word >= GET_MODE_SIZE (inner_mode))
+		  /* APPLE LOCAL mainline 2005-09-23 */
+		  if (!validate_subreg (tmode, inner_mode, inner, final_word))
 		    return NULL_RTX;
 
 		  new = gen_rtx_SUBREG (tmode, inner, final_word);
