@@ -5,6 +5,7 @@ load_lib gcc-dg.exp
 
 # If a testcase doesn't have special options, use these.
 global DEFAULT_CFLAGS
+set save_DEFAULT_CFLAGS "$DEFAULT_CFLAGS"
 set DEFAULT_CFLAGS " -fopenmp"
 
 # Initialize `dg'.
@@ -13,6 +14,8 @@ dg-init
 # Main loop.
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[cS\]]] \
 	"" $DEFAULT_CFLAGS
+
+set DEFAULT_CFLAGS "$save_DEFAULT_CFLAGS"
 
 # All done.
 dg-finish

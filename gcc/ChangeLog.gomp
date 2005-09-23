@@ -1,5 +1,17 @@
 2005-09-22  Richard Henderson  <rth@redhat.com>
 
+	* c-parser.c (c_parse_init): Tableize the omp pragmas; register
+	them with expansion.
+	(c_handle_deferred_pragma): Split out of ...
+	(c_parser_pragma): ... here.
+	(c_lex_omp_pragma): Split out of ...
+	(c_lex_one_token): ... here.  Consume non-omp pragmas immediately.
+
+	* testsuite/gcc.dg/gomp/gomp.exp: Save and restore DEFAULT_CFLAGS
+	around the subdirectory.
+
+2005-09-22  Richard Henderson  <rth@redhat.com>
+
 	* Makefile.in (c-omp.o): Depend on C_TREE_H.
 	* c-parser.c (c_parser_omp_atomic_expression): Handle error_mark
 	from initial unary expression.  Move conversion code ...

@@ -277,22 +277,34 @@ c_parse_init (void)
 
   if (flag_openmp && !flag_preprocess_only)
     {
+      struct omp_pragma {
+	const char *name;
+	void (*handler) (struct cpp_reader *);
+      };
+      static struct omp_pragma const omp_pragmas[] = {
+	{ "atomic", c_parser_pragma_omp_no_args },
+	{ "barrier", c_parser_pragma_omp_no_args },
+	{ "critical", c_parser_pragma_omp_critical },
+	{ "flush", c_parser_pragma_omp_flush },
+	{ "for", c_parser_pragma_omp_for },
+	{ "master", c_parser_pragma_omp_no_args },
+	{ "ordered", c_parser_pragma_omp_no_args },
+	{ "parallel", c_parser_pragma_omp_parallel },
+	{ "section", c_parser_pragma_omp_section },
+	{ "sections", c_parser_pragma_omp_sections },
+	{ "single", c_parser_pragma_omp_single },
+	{ "threadprivate", c_parser_pragma_omp_threadprivate }
+      };
+
+      const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
+      int i;
+
+      for (i = 0; i < n_omp_pragmas; ++i)
+	c_register_pragma_with_expansion ("omp", omp_pragmas[i].name,
+					  omp_pragmas[i].handler);
+
       /* We want to handle deferred pragmas.  */
       cpp_get_options (parse_in)->defer_pragmas = true;
-
-      c_register_pragma ("omp", "atomic", c_parser_pragma_omp_no_args);
-      c_register_pragma ("omp", "barrier", c_parser_pragma_omp_no_args);
-      c_register_pragma ("omp", "critical", c_parser_pragma_omp_critical);
-      c_register_pragma ("omp", "flush", c_parser_pragma_omp_flush);
-      c_register_pragma ("omp", "for", c_parser_pragma_omp_for);
-      c_register_pragma ("omp", "master", c_parser_pragma_omp_no_args);
-      c_register_pragma ("omp", "ordered", c_parser_pragma_omp_no_args);
-      c_register_pragma ("omp", "parallel", c_parser_pragma_omp_parallel);
-      c_register_pragma ("omp", "section", c_parser_pragma_omp_section);
-      c_register_pragma ("omp", "sections", c_parser_pragma_omp_sections);
-      c_register_pragma ("omp", "single", c_parser_pragma_omp_single);
-      c_register_pragma ("omp", "threadprivate",
-			 c_parser_pragma_omp_threadprivate);
     }
 }
 
@@ -362,12 +374,121 @@ typedef struct c_parser GTY(())
   BOOL_BITFIELD error : 1;
 } c_parser;
 
+
+/* TOKEN is a CPP_PRAGMA.  Push it back through libcpp for processing.  */
+
+static void
+c_handle_deferred_pragma (c_token *token)
+{
+  cpp_string s;
+
+  gcc_assert (token->type == CPP_PRAGMA);
+  gcc_assert (token->value);
+
+  s.len = TREE_STRING_LENGTH (token->value);
+  s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
+
+  cpp_handle_deferred_pragma (parse_in, &s);
+}
+
+/* Categorize an OpenMP pragma, and set token->omp_kind.  Return false
+   if the pragma is not for OpenMP, and should not be inserted into the
+   stream.  */
+
+static bool
+c_lex_omp_pragma (c_token *token)
+{
+  const char *p = TREE_STRING_POINTER (token->value);
+
+  /* We should never get here at all unless openmp is enabled.  */
+  gcc_assert (flag_openmp);
+
+  token->id_kind = C_ID_NONE;
+  token->keyword = RID_MAX;
+      
+  /* Checking if this is an OpenMP pragma. */
+  while (*p != '\n' && ISSPACE (*p))
+    ++p;
+  if (strncmp ("omp", p, 3))
+    return false;
+  p += 3;
+  if (!ISSPACE (*p))
+    return false;
+  ++p;
+  while (*p != '\n' && ISSPACE (*p))
+    ++p;
+
+  /* This is an OpenMP pragma.  Get its kind. */
+  switch (*p)
+    {
+    case 'a':
+      token->omp_kind = PRAGMA_OMP_ATOMIC;
+      break;
+    case 'b':
+      token->omp_kind = PRAGMA_OMP_BARRIER;
+      break;
+    case 'c':
+      token->omp_kind = PRAGMA_OMP_CRITICAL;
+      break;
+    case 'f':
+      if (*(p + 1) == 'o')
+	token->omp_kind = PRAGMA_OMP_FOR;
+      else
+	token->omp_kind = PRAGMA_OMP_FLUSH;
+      break;
+    case 'm':
+      token->omp_kind = PRAGMA_OMP_MASTER;
+      break;
+    case 'o':
+      token->omp_kind = PRAGMA_OMP_ORDERED;
+      break;
+    case 'p':
+      p += 8;
+      while (*p != '\n' && ISSPACE (*p))
+	++p;
+      if (!strncmp ("for", p, 3))
+	{
+	  if (ISSPACE (*(p + 3)))
+	    {
+	      token->omp_kind = PRAGMA_OMP_PARALLEL_FOR;
+	      break;
+	    }
+	}
+      else if (!strncmp ("sections", p, 8))
+	{
+	  if (ISSPACE (*(p + 8)))
+	    {
+	      token->omp_kind = PRAGMA_OMP_PARALLEL_SECTIONS;
+	      break;
+	    }
+	}
+      token->omp_kind = PRAGMA_OMP_PARALLEL;
+      break;
+    case 's':
+      if (*(p + 1) == 'e')
+	{
+	  if (*(p + 7) != 's')
+	    token->omp_kind = PRAGMA_OMP_SECTION;
+	  else
+	    token->omp_kind = PRAGMA_OMP_SECTIONS;
+	}
+      else
+	token->omp_kind = PRAGMA_OMP_SINGLE;
+      break;
+    default:
+      token->omp_kind = PRAGMA_OMP_THREADPRIVATE;
+    }
+
+  return true;
+}
+
 /* Read in and lex a single token, storing it in *TOKEN.  */
 
 static void
 c_lex_one_token (c_token *token)
 {
   timevar_push (TV_LEX);
+ restart:
   token->type = c_lex_with_flags (&token->value, &token->location, NULL);
   token->in_system_header = in_system_header;
   token->omp_kind = PRAGMA_OMP_NONE;
@@ -452,87 +573,10 @@ c_lex_one_token (c_token *token)
       token->keyword = RID_MAX;
       break;
     case CPP_PRAGMA:
-      if (flag_openmp)
-	{
-	  const char *p = TREE_STRING_POINTER (token->value);
-
-	  token->id_kind = C_ID_NONE;
-	  token->keyword = RID_MAX;
-      
-	  /* Checking if this is an OpenMP pragma. */
-	  while (*p != '\n' && ISSPACE (*p))
-	    ++p;
-	  if (strncmp ("omp", p, 3))
-	    break;
-	  p += 3;
-	  if (!ISSPACE (*p))
-	    break;
-	  ++p;
-	  while (*p != '\n' && ISSPACE (*p))
-	    ++p;
-
-	  /* This is an OpenMP pragma.  Get its kind. */
-	  switch (*p)
-	    {
-	    case 'a':
-	      token->omp_kind = PRAGMA_OMP_ATOMIC;
-	      break;
-	    case 'b':
-	      token->omp_kind = PRAGMA_OMP_BARRIER;
-	      break;
-	    case 'c':
-	      token->omp_kind = PRAGMA_OMP_CRITICAL;
-	      break;
-	    case 'f':
-	      if (*(p + 1) == 'o')
-		token->omp_kind = PRAGMA_OMP_FOR;
-	      else
-		token->omp_kind = PRAGMA_OMP_FLUSH;
-	      break;
-	    case 'm':
-	      token->omp_kind = PRAGMA_OMP_MASTER;
-	      break;
-	    case 'o':
-	      token->omp_kind = PRAGMA_OMP_ORDERED;
-	      break;
-	    case 'p':
-	      p += 8;
-	      while (*p != '\n' && ISSPACE (*p))
-		++p;
-	      if (!strncmp ("for", p, 3))
-		{
-		  if (ISSPACE (*(p + 3)))
-		    {
-		      token->omp_kind = PRAGMA_OMP_PARALLEL_FOR;
-		      break;
-		    }
-		}
-	      else if (!strncmp ("sections", p, 8))
-		{
-		  if (ISSPACE (*(p + 8)))
-		    {
-		      token->omp_kind = PRAGMA_OMP_PARALLEL_SECTIONS;
-		      break;
-		    }
-		}
-	      token->omp_kind = PRAGMA_OMP_PARALLEL;
-	      break;
-	    case 's':
-	      if (*(p + 1) == 'e')
-		{
-		  if (*(p + 7) != 's')
-		    token->omp_kind = PRAGMA_OMP_SECTION;
-		  else
-		    token->omp_kind = PRAGMA_OMP_SECTIONS;
-		}
-	      else
-		token->omp_kind = PRAGMA_OMP_SINGLE;
-	      break;
-	    default:
-	      token->omp_kind = PRAGMA_OMP_THREADPRIVATE;
-	    }
-	  break;
-	}
+      if (c_lex_omp_pragma (token))
+	break;
+      c_handle_deferred_pragma (token);
+      goto restart;
     default:
       token->id_kind = C_ID_NONE;
       token->keyword = RID_MAX;
@@ -1258,16 +1302,10 @@ c_parser_external_declaration (c_parser *parser)
 static void
 c_parser_pragma (c_parser *parser)
 {
-  cpp_string s;
   c_token *token = c_parser_peek_token (parser);
   c_parser_consume_token (parser);
-  gcc_assert (token->type == CPP_PRAGMA);
-  gcc_assert (token->value);
 
-  s.len = TREE_STRING_LENGTH (token->value);
-  s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
-
-  cpp_handle_deferred_pragma (parse_in, &s);
+  c_handle_deferred_pragma (token);
 
   /* Consume all tokens; reset error state.  */
   parser->tokens_avail = 0;
