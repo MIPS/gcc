@@ -1,3 +1,15 @@
+2005-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def: Update DEF_BUILTIN comment to include COND argument.
+	Move all DEF_SYNC_BUILTIN () and DEF_GOMP_BUILTIN () builtins
+	into separate files.
+	* sync-builtins.def: New file, moved from builtins.def.
+	* omp-builtins.def: New file, moved from builtins.def.
+	* builtin-types.def (DEF_FUNCTION_TYPE_6, DEF_FUNCTION_TYPE_7,
+	DEF_FUNCTION_TYPE_VAR_4): Document.
+	* Makefile.in (BUILTINS_DEF): New variable.
+	(TREE_H, c-common.o, builtins.o): Use it instead of builtins.def.
+
 2005-09-23  Richard Henderson  <rth@redhat.com>
 
 	* c-omp.c (c_finish_omp_critical): Move implementation ...

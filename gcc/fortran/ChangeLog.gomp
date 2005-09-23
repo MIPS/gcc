@@ -1,3 +1,12 @@
+2005-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* f95-lang.c (builtin_type_for_size): New function.
+	(gfc_init_builtin_functions): Initialize synchronization and
+	OpenMP builtins.
+	* types.def: New file.
+	* Make-lang.in (f95-lang.o): Depend on $(BUILTINS_DEF) and
+	fortran/types.def.
+
 2005-09-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* trans-openmp.c: Rename GOMP_* tree codes into OMP_*.

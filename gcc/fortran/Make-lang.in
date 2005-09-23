@@ -282,7 +282,8 @@ GFORTRAN_TRANS_DEPS = fortran/gfortran.h fortran/intrinsic.h fortran/trans-array
     $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H) coretypes.h $(GGC_H)
 
 fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
-  gt-fortran-f95-lang.h gtype-fortran.h cgraph.h $(TARGET_H)
+  gt-fortran-f95-lang.h gtype-fortran.h cgraph.h $(TARGET_H) \
+  $(BUILTINS_DEF) fortran/types.def
 fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h \

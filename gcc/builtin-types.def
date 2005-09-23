@@ -33,6 +33,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    DEF_FUNCTION_TYPE_3 (ENUM, RETURN, ARG1, ARG2, ARG3)
    DEF_FUNCTION_TYPE_4 (ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)
    DEF_FUNCTION_TYPE_5 (ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)
+   DEF_FUNCTION_TYPE_6 (ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6)
+   DEF_FUNCTION_TYPE_7 (ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7)
 
      These macros describe function types.  ENUM is as above.  The
      RETURN type is one of the enumerals already defined.  ARG1, ARG2,
@@ -43,6 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    DEF_FUNCTION_TYPE_VAR_2 (ENUM, RETURN, ARG1, ARG2)
    DEF_FUNCTION_TYPE_VAR_3 (ENUM, RETURN, ARG1, ARG2, ARG3)
    DEF_FUNCTION_TYPE_VAR_4 (ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)
+   DEF_FUNCTION_TYPE_VAR_4 (ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)
 
      Similar, but for function types that take variable arguments.
      For example:
