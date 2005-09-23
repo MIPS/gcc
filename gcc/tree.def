@@ -947,6 +947,44 @@ DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", tcc_expression, 3)
  */
 DEFTREECODE (SAT_MINUS_EXPR, "sat_minus_expr", tcc_binary, 2)
 
+/* Widenning summation.
+
+   The first argument is of type t1.
+   The second argument is of type t2, such that t2 is at least twice 
+   the size of t1. The type of the entire expression is also t2.
+   WIDEN_SUM_EXPR is equivalent to first widening (promoting)
+   the first argument from type t1 to type t2, and then summing it
+   with the second argument.  */
+DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
+
+/* Widenning multiplication.
+
+   The two arguments are of type t1.
+   The result is of type t2, such that t2 is at least twice
+   the size of t1. WIDEN_MULT_EXPR is equivalent to first widening (promoting)
+   the arguments from type t1 to type t2, and then multiplying them.  */
+DEFTREECODE (WIDEN_MULT_EXPR, "widen_mult_expr", tcc_binary, 2)
+
+/* Mult High - Take the high part of the product of a multiplication.
+
+   The two arguments and the result are of the same type.
+   MULT_HI_EXPR is equivalent to:
+   tmp = WIDEN_MULT_EXPR(arg1, arg2);
+   arg3 =  tmp >> size
+   such that 'tmp' is double the size of arg1, arg2 and arg3,
+   and 'size' half the size of tmp (i.e. the shift gets the high
+   part of tmp).  */
+DEFTREECODE (MULT_HI_EXPR, "mult_hi_expr", tcc_binary, 2)
+
+/* Widenning dot-product.
+
+   The first two arguments are of type t1.
+   The third argument and the result are of type t2, such that t2 is at least 
+   twice the size of t1. DOT_PROD_EXPR(arg1,arg2,arg3) is equivalent to:
+   tmp = WIDEN_MULT_EXPR(arg1, arg2);
+   arg3 = PLUS_EXPR (tmp, arg3); */
+DEFTREECODE (DOT_PROD_EXPR, "dot_prod_expr", tcc_expression, 3)
+
 /* Low-level memory addressing.  Operands are SYMBOL (static or global
    variable), BASE (register), INDEX (register), STEP (integer constant),
    OFFSET (integer constant).  Corresponding address is
@@ -958,16 +996,6 @@ DEFTREECODE (SAT_MINUS_EXPR, "sat_minus_expr", tcc_binary, 2)
    argument is a tag representing results of the tree level alias analysis.  */
 
 DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 7)
-
-/* Widenning summation.
-
-   The first argument is of type t1.
-   The second argument is of type t2, such that t2 is at least twice
-   the size of t1. The type of the entir expression is also t2.
-   WIDEN_SUM_EXPR is equivalent to first widening (promoting)
-   the first argument from type t1 to type t2, and then summing it
-   with the second argument.  */
-DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
 
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar

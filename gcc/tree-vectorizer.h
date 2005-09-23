@@ -43,10 +43,11 @@ enum vect_var_kind {
   vect_scalar_var
 };
 
-/* Defines type of operation: unary or binary.  */
+/* Defines type of operation.  */
 enum operation_type {
   unary_op = 1,
-  binary_op
+  binary_op,
+  ternary_op
 };
 
 /* Define type of available alignment support.  */
@@ -343,15 +344,21 @@ extern void vectorize_loops (struct loops *);
 /** In tree-vect-analyze.c  **/
 /* Driver for analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *);
+
 /* Pattern recognition functions.
    Additional pattern recognition functions can (and will) be added
    in the future.  */
 extern void vect_pattern_recog_1 
   (tree (* ) (tree, tree *, varray_type *), block_stmt_iterator);
+
 tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
 tree vect_recog_widen_sum_pattern (tree, tree *, varray_type *);
+tree vect_recog_widen_mult_pattern (tree, tree *, varray_type *);
+tree vect_recog_mult_hi_pattern (tree, tree *, varray_type *);
+tree vect_recog_dot_prod_pattern (tree, tree *, varray_type *);
+
 typedef tree (* _recog_func_ptr) (tree, tree *, varray_type *);
-#define NUM_PATTERNS 2
+#define NUM_PATTERNS 5
 extern _recog_func_ptr vect_pattern_recog_funcs[];
 
 /** In tree-vect-transform.c  **/

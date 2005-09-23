@@ -64,16 +64,18 @@ static bool vect_analyze_data_ref_dependence
 static bool vect_compute_data_ref_alignment (struct data_reference *); 
 static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
+static void vect_update_misalignment_for_peel
+  (struct data_reference *, struct data_reference *, int npeel);
+static bool widened_name_p (tree, tree *, tree *);
 
 /* Pattern recognition functions  */
 tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
 _recog_func_ptr vect_pattern_recog_funcs[NUM_PATTERNS] = {
         vect_recog_unsigned_subsat_pattern,
+	vect_recog_widen_mult_pattern,
+	vect_recog_mult_hi_pattern,
+	vect_recog_dot_prod_pattern,
 	vect_recog_widen_sum_pattern};
-
-static void vect_update_misalignment_for_peel
-  (struct data_reference *, struct data_reference *, int npeel);
- 
 
 /* Function vect_determine_vectorization_factor
 
@@ -1731,6 +1733,423 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   return true;
 }
 
+static bool
+widened_name_p (tree name, tree *half_type, tree *def_stmt)
+{
+  tree stmt;
+  stmt_vec_info stmt_vinfo;
+  tree expr;
+  tree type = TREE_TYPE (name);
+  tree oprnd0;
+  tree dummy;
+  enum vect_def_type dt;
+
+  if (TREE_CODE (name) != SSA_NAME)
+    return false;
+
+  stmt = SSA_NAME_DEF_STMT (name);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  if (!stmt_vinfo)
+    return false;
+
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return false;
+
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != NOP_EXPR)
+    return false;
+
+  oprnd0 = TREE_OPERAND (expr, 0);
+  if (!vect_is_simple_use (oprnd0, STMT_VINFO_LOOP_VINFO (stmt_vinfo),
+                           &dummy, &dummy, &dt))
+    return false;
+
+  if (dt != vect_loop_def)
+    return false;
+
+  *half_type = TREE_TYPE (oprnd0);
+  if (!INTEGRAL_TYPE_P (type) || !INTEGRAL_TYPE_P (*half_type)
+      || (TYPE_UNSIGNED (type) != TYPE_UNSIGNED (*half_type))
+      || (TYPE_PRECISION (type) < (TYPE_PRECISION (*half_type) * 2)))
+    return false;
+
+  *def_stmt = stmt;
+  return true;
+}
+
+
+/* Function vect_recog_mult_hi_pattern  */
+
+tree
+vect_recog_mult_hi_pattern (tree last_stmt ATTRIBUTE_UNUSED,
+                            tree *pattern_type ATTRIBUTE_UNUSED,
+                            varray_type *stmt_list ATTRIBUTE_UNUSED)
+{
+  /* TODO */
+  return NULL;
+}
+
+
+/* Function vect_recog_dot_prod_pattern
+
+   Try to find the following pattern:
+
+     type x_t, y_t;
+     TYPE1 prod;
+     TYPE2 sum = init;
+   loop:
+     sum_0 = phi <init, sum_1>
+
+     S1  x_t = ...
+     S2  y_t = ...
+     S3  x_T = (TYPE1) x_t;
+     S4  y_T = (TYPE1) y_t;
+     S5  prod = x_T * y_T;
+     [S6  prod = x_T * y_T;  #optional. only if TYPE1 != TYPE2]
+     S7  sum_1 = prod + sum_0;
+
+   where 'TYPE1' is exactly double the size of type 'type',
+   and 'TYPE2' is the same size of 'TYPE1' or bigger.
+
+   Input:
+   LAST_STMT: A stmt from which the pattern search begins. In the example,
+   when this function is called with S7, the pattern {S3,S4,S5,S6,S7} will be
+   detected.
+
+   Output:
+   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+   are part of the pattern. In the example, STMT_LIST will consist of 
+   {S3,S4,S5,S6,S7}.
+
+   PATTERN_TYPE: The vector type to be used for the returned new stmt.
+
+   Return value: A new stmt that will be used to replace the sequence of
+   stmts in STMT_LIST. In this case it will be:
+   WIDEN_DOT_PRODUCT <x_t, y_t, sum_0>
+
+   TODO: detect the widen_sum pattern before dot_product,
+         and extend dot_product recognition to detect the
+         pattern:
+         DPROD = X w* Y;
+         sum_1 = DPROD w+ sum_0;
+*/
+
+tree
+vect_recog_dot_prod_pattern (tree last_stmt,
+                             tree *pattern_type,
+                             varray_type *stmt_list)
+{
+  tree stmt, expr;
+  tree oprnd0, oprnd1;
+  tree oprnd00, oprnd01;
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
+  tree type, half_type;
+  tree def_stmt;
+  tree pattern_expr;
+  enum machine_mode vec_mode;
+  enum insn_code icode;
+  optab optab;
+  tree vectype;
+  tree prod_type;
+
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
+    return NULL;
+
+  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (last_stmt, 1);
+  type = TREE_TYPE (expr);
+
+  /* Look for the following pattern 
+	  DX = (TYPE1) X;
+	  DY = (TYPE1) Y;
+          DPROD = DX * DY; 
+	  DDPROD = (TYPE2) DPROD;
+          sum_1 = DDPROD + sum_0;
+     In which 
+     - DX is double the size of X
+     - DY is double the size of Y
+     - DX, DY, DPROD all have the same type
+     - sum is the same size of PROD or bigger
+     - sum has been recognized as a reduction variable.
+
+     This is equivalent to:
+       DPROD = X w* Y;
+       sum_1 = DPROD w+ sum_0;
+     or
+       DPROD = X w* Y;
+       sum_1 = DPROD + sum_0;
+   */
+
+  /* Starting from LAST_STMT, follow the defs of its uses in search
+     of the above pattern.  */
+
+  if (TREE_CODE (expr) != PLUS_EXPR)
+    return NULL;
+
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
+    return NULL;
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1);
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
+      || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
+    return NULL;
+ 
+  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
+ 
+  /* So far so good.
+     Assumption: oprnd1 is the reduction variable (defined by a loop-header
+     phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
+     Left to check that oprnd0 is defined by a (widen_)mult_expr, possibly
+     followed by a cast  */
+
+  if (widened_name_p (oprnd0, &prod_type, &def_stmt))
+    {
+      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt)))
+        return NULL;
+      VARRAY_PUSH_TREE (*stmt_list, def_stmt);
+      expr = TREE_OPERAND (def_stmt, 1);
+      oprnd0 = TREE_OPERAND (expr, 0);
+    }
+  else
+    {
+      prod_type = type;
+    }
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  gcc_assert (stmt_vinfo);
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    return NULL;
+  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != WIDEN_MULT_EXPR
+      && TREE_CODE (expr) != MULT_EXPR)
+   return NULL;
+
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+
+  if (TREE_CODE (expr) == WIDEN_MULT_EXPR)
+    {
+      oprnd00 = TREE_OPERAND (expr, 0);
+      oprnd01 = TREE_OPERAND (expr, 1);
+    }
+  else /* MULT_EXPR */
+    {
+      tree oprnd0 = TREE_OPERAND (expr, 0);
+      tree oprnd1 = TREE_OPERAND (expr, 1);
+      tree half_type0, half_type1;
+      tree def_stmt0, def_stmt1;
+
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) 
+	  != TYPE_MAIN_VARIANT (prod_type)
+	  || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) 
+             != TYPE_MAIN_VARIANT (prod_type))
+	return NULL;
+
+      /* Check argument 0 */
+      if (!widened_name_p (oprnd0, &half_type0, &def_stmt0))
+	return NULL;
+
+      /* Check argument 1 */
+      if (!widened_name_p (oprnd1, &half_type1, &def_stmt1))
+	return NULL;
+
+      if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
+        return NULL;
+
+      if (TYPE_PRECISION (prod_type) != (TYPE_PRECISION (half_type0) * 2))
+	return NULL;
+
+      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt0)))
+        return NULL;
+
+      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt1)))
+        return NULL;
+
+      VARRAY_PUSH_TREE (*stmt_list, def_stmt0);
+      VARRAY_PUSH_TREE (*stmt_list, def_stmt1);
+
+      oprnd00 = TREE_OPERAND (TREE_OPERAND (def_stmt0, 1), 0);
+      oprnd01 = TREE_OPERAND (TREE_OPERAND (def_stmt1, 1), 0);
+    }
+
+  /* Check target support  */
+  half_type = TREE_TYPE (oprnd00);
+  vectype = get_vectype_for_scalar_type (half_type);
+  optab = optab_for_tree_code (DOT_PROD_EXPR, vectype);
+  vec_mode = TYPE_MODE (vectype);
+  if (!optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "vect_recog_dot_prod_pattern: no optab");
+      return NULL;
+    }
+  if ((icode = optab->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || insn_data[icode].operand[0].mode !=
+         TYPE_MODE (get_vectype_for_scalar_type (type)))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump,
+                 "vect_recog_dot_prod_pattern: mode not supported.");
+      return NULL;
+    }
+
+  /* Pattern detected. Create a stmt to be used to replace the pattern: */
+  pattern_expr = build (DOT_PROD_EXPR, type, oprnd00, oprnd01, oprnd1);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vect_recog_dot_prod_pattern: detected: ");
+      print_generic_expr (vect_dump, pattern_expr, TDF_SLIM);
+    }
+  *pattern_type = vectype;
+  return pattern_expr;
+}
+
+
+/* Function vect_recog_widen_mult_pattern
+
+   Try to find the following pattern:
+
+     type a_t, b_t;
+     TYPE a_T, b_T, prod_T;
+
+     S1  a_t = ;
+     S2  b_t = ;
+     S3  a_T = (TYPE) a_t;
+     S4  b_T = (TYPE) b_t;
+     S5  prod_T = a_T * b_T;
+
+   where type 'TYPE' is at least double the size of type 'type', 
+   i.e - we're multiplying elements of type 'type' into a result of type 'TYPE'.
+
+   For example:
+
+     unsigned short *in1, *in2, A, B;
+     unsigned int DA, DB, prod;
+
+     S1  A = *in1;
+     S2  B = *in2;
+     S3  DA = (unsigned int) A;
+     S4  DB = (unsigned int) B;
+     S5  prod = DA * DB;
+
+
+   Input:
+   LAST_STMT: A stmt from which the pattern search begins. In the example,
+   when this function is called with S5, the pattern {S3,S4,S5} is be detected.
+
+   Output:
+   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+   are part of the pattern. In the example, STMT_LIST consists of {S3,S4,S5}.
+
+   PATTERN_TYPE: The vector type to be used for the returned new stmt.
+   For the example above, for targets that support vectors of 8 shorts,
+   we want to return PATTERN_TYPE=V8HI. (Note that the result
+   contains 4 ints, because we're dealing with fixed-sized vectors,
+   but it doesn't change the fact that the vectorization factor is 8,
+   as the 4 results correspond to 8 elements from 8 different iterations).
+
+   Return value: A new stmt that will be used to replace the sequence of
+   stmts in STMT_LIST. In this case it will be:
+   WIDEN_MULT <A, B>
+*/
+   
+tree
+vect_recog_widen_mult_pattern (tree last_stmt,
+                               tree *pattern_type,
+                               varray_type *stmt_list)
+{
+  tree expr;
+  tree def_stmt0, def_stmt1;
+  tree oprnd0, oprnd1;
+  tree type, half_type0, half_type1;
+  tree pattern_expr;
+  enum machine_mode vec_mode;
+  enum insn_code icode;
+  optab optab;
+  tree vectype;
+
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
+    return NULL;
+
+  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (last_stmt, 1);
+  type = TREE_TYPE (expr);
+
+  /* Starting from LAST_STMT, follow the defs of its uses in search
+     of the above pattern.  */
+   
+  if (TREE_CODE (expr) != MULT_EXPR)
+    return NULL;
+
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1);
+  if (TREE_TYPE (oprnd0) != type || TREE_TYPE (oprnd1) != type)
+    return NULL;
+
+  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
+
+  /* Check argument 0 */
+  if (!widened_name_p (oprnd0, &half_type0, &def_stmt0))
+    return NULL;
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt0)))
+    return NULL;
+  oprnd0 = TREE_OPERAND (TREE_OPERAND (def_stmt0, 1), 0);
+
+  /* Check argument 1 */
+  if (!widened_name_p (oprnd1, &half_type1, &def_stmt1))
+    return NULL;
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt1)))
+    return NULL;
+  oprnd1 = TREE_OPERAND (TREE_OPERAND (def_stmt1, 1), 0);
+
+  if (half_type0 != half_type1) /* FIXME */
+    return NULL;
+
+  /* Check target support  */
+  vectype = get_vectype_for_scalar_type (half_type0);
+  optab = optab_for_tree_code (WIDEN_MULT_EXPR, vectype);
+  vec_mode = TYPE_MODE (vectype);
+  if (!optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "vect_recog_widen_mult_pattern: no optab");
+      return NULL;
+    }
+  if ((icode = optab->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || insn_data[icode].operand[0].mode != 
+         TYPE_MODE (get_vectype_for_scalar_type (type)))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump,
+                 "vect_recog_widen_mult_pattern: mode not supported.");
+      return NULL;
+    }
+
+  VARRAY_PUSH_TREE (*stmt_list, def_stmt0);
+  VARRAY_PUSH_TREE (*stmt_list, def_stmt1);
+  
+  /* Pattern detected. Create a stmt to be used to replace the pattern: */
+  pattern_expr = build (WIDEN_MULT_EXPR, type, oprnd0, oprnd1);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vect_recog_widen_mult_pattern: detected: ");
+      print_generic_expr (vect_dump, pattern_expr, TDF_SLIM);
+    }
+  *pattern_type = vectype;
+  return pattern_expr;
+}
+
 
 /* Function vect_recog_widen_sum_pattern
 
@@ -1745,8 +2164,9 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
      S2  x_T = (TYPE) x_t;
      S3  sum_1 = x_T + sum_0;
 
-   where type 'TYPE' is at least double the size of type 'type', i.e - we're summing
-   elements of type 'type' into an accumulator of type 'TYPE'.
+   where type 'TYPE' is at least double the size of type 'type', 
+   i.e - we're summing elements of type 'type' into an accumulator 
+   of type 'TYPE'.
 
    For example:
 
@@ -1790,12 +2210,13 @@ vect_recog_widen_sum_pattern (tree last_stmt,
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
   tree type, half_type;
   tree pattern_expr;
-  tree dummy;
-  enum vect_def_type dt;
   enum machine_mode vec_mode;
   enum insn_code icode;
   optab optab;
   tree vectype;
+
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
+    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -1821,7 +2242,8 @@ vect_recog_widen_sum_pattern (tree last_stmt,
   
   oprnd0 = TREE_OPERAND (expr, 0);
   oprnd1 = TREE_OPERAND (expr, 1);
-  if (TREE_TYPE (oprnd0) != type || TREE_TYPE (oprnd1) != type)
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type) 
+      || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
     return NULL;
   
   VARRAY_PUSH_TREE (*stmt_list, last_stmt);
@@ -1836,30 +2258,13 @@ vect_recog_widen_sum_pattern (tree last_stmt,
           sum_1 = DX + sum_0;
    */
 
-  stmt = SSA_NAME_DEF_STMT (oprnd0);
-  gcc_assert (stmt);
-  stmt_vinfo = vinfo_for_stmt (stmt);
-
-  gcc_assert (stmt_vinfo);
-  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-
-  expr = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (expr) != NOP_EXPR)
+  if (!widened_name_p (oprnd0, &half_type, &stmt))
     return NULL;
 
-  oprnd0 = TREE_OPERAND (expr, 0);
-  if (!vect_is_simple_use (oprnd0, STMT_VINFO_LOOP_VINFO (stmt_vinfo),
-                           &dummy, &dummy, &dt))
-    return NULL;
-  if (dt != vect_loop_def)
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt)))
     return NULL;
 
-  half_type = TREE_TYPE (oprnd0);
-  if (!INTEGRAL_TYPE_P (type) || !INTEGRAL_TYPE_P (half_type)
-      || TYPE_UNSIGNED (type) != TYPE_UNSIGNED (half_type)
-      || TYPE_PRECISION (type) < TYPE_PRECISION (half_type) * 2)
-    return NULL;
+  oprnd0 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
 
   /* Check target support  */
   vectype = get_vectype_for_scalar_type (half_type);
@@ -1872,8 +2277,8 @@ vect_recog_widen_sum_pattern (tree last_stmt,
       return NULL;
     }
   if ((icode = optab->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
-      || insn_data[icode].operand[0].mode 
-	 != TYPE_MODE (get_vectype_for_scalar_type (type)))
+      || insn_data[icode].operand[0].mode !=
+	 TYPE_MODE (get_vectype_for_scalar_type (type)))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, 
@@ -1936,6 +2341,9 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *pattern_type,
   tree a, b, a_minus_b, b_minus_1;
   tree pattern_expr;
   tree new;
+
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
+    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -2022,6 +2430,9 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *pattern_type,
 
   stmt = SSA_NAME_DEF_STMT (a_minus_b);
   if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL;
+
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt)))
     return NULL;
 
   expr = TREE_OPERAND (stmt, 1);

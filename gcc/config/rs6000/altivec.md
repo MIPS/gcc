@@ -642,40 +642,40 @@
 
 (define_insn "altivec_vmsumu<VI_char>m"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")
-		      (match_operand:VIshort 2 "register_operand" "v")
-                      (match_operand:V4SI 3 "register_operand" "v")]
-		     UNSPEC_VMSUMU))]
+	(plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+		   (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")
+		    		 (match_operand:VIshort 2 "register_operand" "v")] 
+				UNSPEC_VMSUMU)))]
   "TARGET_ALTIVEC"
   "vmsumu<VI_char>m %0,%1,%2,%3"
   [(set_attr "type" "veccomplex")])
 
 (define_insn "altivec_vmsumm<VI_char>m"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")
-		      (match_operand:VIshort 2 "register_operand" "v")
-                      (match_operand:V4SI 3 "register_operand" "v")]
-		     UNSPEC_VMSUMM))]
+	(plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+		   (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")
+		    		 (match_operand:VIshort 2 "register_operand" "v")] 
+				UNSPEC_VMSUMM)))]
   "TARGET_ALTIVEC"
   "vmsumm<VI_char>m %0,%1,%2,%3"
   [(set_attr "type" "veccomplex")])
 
 (define_insn "altivec_vmsumshm"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
-		      (match_operand:V8HI 2 "register_operand" "v")
-                      (match_operand:V4SI 3 "register_operand" "v")]
-		     UNSPEC_VMSUMSHM))]
+	(plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+		   (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
+		    		 (match_operand:V8HI 2 "register_operand" "v")] 
+				UNSPEC_VMSUMSHM)))]
   "TARGET_ALTIVEC"
   "vmsumshm %0,%1,%2,%3"
   [(set_attr "type" "veccomplex")])
 
 (define_insn "altivec_vmsumuhs"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
-		      (match_operand:V8HI 2 "register_operand" "v")
-                      (match_operand:V4SI 3 "register_operand" "v")]
-		     UNSPEC_VMSUMUHS))
+	(plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+		   (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
+		    		 (match_operand:V8HI 2 "register_operand" "v")] 
+				UNSPEC_VMSUMUHS)))
    (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
   "TARGET_ALTIVEC"
   "vmsumuhs %0,%1,%2,%3"
@@ -683,10 +683,10 @@
 
 (define_insn "altivec_vmsumshs"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
-		      (match_operand:V8HI 2 "register_operand" "v")
-                      (match_operand:V4SI 3 "register_operand" "v")]
-		     UNSPEC_VMSUMSHS))
+	(plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+		   (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
+		    		 (match_operand:V8HI 2 "register_operand" "v")] 
+				UNSPEC_VMSUMSHS)))
    (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
   "TARGET_ALTIVEC"
   "vmsumshs %0,%1,%2,%3"
@@ -2206,6 +2206,44 @@
   DONE; 
 }")
 
+(define_expand "udot_prod<mode>"
+  [(set (match_operand:V4SI 0 "register_operand" "=v")
+        (plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+                   (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")
+		                 (match_operand:VIshort 2 "register_operand" "v")]
+				UNSPEC_VMSUMU)))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmsumu<VI_char>m (operands[0], operands[1], operands[2], operands[3]));
+  DONE;
+}")
+
+(define_expand "sdot_prodv16qi"
+  [(set (match_operand:V4SI 0 "register_operand" "=v")
+        (plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+                   (unspec:V4SI [(match_operand:V16QI 1 "register_operand" "v")
+                                 (match_operand:V16QI 2 "register_operand" "v")]
+				UNSPEC_VMSUMM)))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmsummbm (operands[0], operands[1], operands[2], operands[3]));
+  DONE;
+}")
+
+(define_expand "sdot_prodv8hi"
+  [(set (match_operand:V4SI 0 "register_operand" "=v")
+        (plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
+                   (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")
+                                 (match_operand:V8HI 2 "register_operand" "v")] 
+				UNSPEC_VMSUMSHM)))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmsumshm (operands[0], operands[1], operands[2], operands[3]));
+  DONE;
+}")
 
 (define_expand "neg<mode>2"
   [(use (match_operand:VI 0 "register_operand" ""))
@@ -2244,7 +2282,8 @@
 (define_expand "widen_usum<mode>3"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (plus:V4SI (match_operand:V4SI 2 "register_operand" "v")
-                   (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")] 218)))]
+                   (unspec:V4SI [(match_operand:VIshort 1 "register_operand" "v")] 
+				UNSPEC_VMSUMU)))]
   "TARGET_ALTIVEC"
   "
 {
@@ -2258,7 +2297,8 @@
 (define_expand "widen_ssumv16qi3"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (plus:V4SI (match_operand:V4SI 2 "register_operand" "v")
-                   (unspec:V4SI [(match_operand:V16QI 1 "register_operand" "v")] 218)))]
+                   (unspec:V4SI [(match_operand:V16QI 1 "register_operand" "v")]
+				UNSPEC_VMSUMM)))]
   "TARGET_ALTIVEC"
   "
 {
@@ -2272,7 +2312,8 @@
 (define_expand "widen_ssumv8hi3"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (plus:V4SI (match_operand:V4SI 2 "register_operand" "v")
-                   (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")]218)))]
+                   (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")]
+				UNSPEC_VMSUMSHM)))]
   "TARGET_ALTIVEC"
   "
 {
@@ -2282,4 +2323,3 @@
   emit_insn (gen_altivec_vmsumshm (operands[0], operands[1], vones, operands[2]));
   DONE;
 }")
-

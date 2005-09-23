@@ -1042,6 +1042,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
     case WIDEN_SUM_EXPR:
+    case WIDEN_MULT_EXPR:
+    case MULT_HI_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
@@ -1534,6 +1536,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case DOT_PROD_EXPR:
+      pp_string (buffer, " DOT_PROD_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     case REDUC_MAX_EXPR:
       pp_string (buffer, " REDUC_MAX_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -1790,6 +1802,9 @@ op_prio (tree op)
     case SAT_MINUS_EXPR:
       return 12;
 
+    case WIDEN_MULT_EXPR:
+    case MULT_HI_EXPR:
+    case DOT_PROD_EXPR:
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
@@ -1939,6 +1954,12 @@ op_symbol (tree op)
 
     case WIDEN_SUM_EXPR:
       return "w+";
+
+    case WIDEN_MULT_EXPR:
+      return "w*";
+
+    case MULT_HI_EXPR:
+      return "h*";
 
     case NEGATE_EXPR:
     case MINUS_EXPR:

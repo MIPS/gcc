@@ -300,6 +300,15 @@ optab_for_tree_code (enum tree_code code, tree type)
     case WIDEN_SUM_EXPR:
       return TYPE_UNSIGNED (type) ? usum_widen_optab : ssum_widen_optab;
 
+    case WIDEN_MULT_EXPR:
+      return TYPE_UNSIGNED (type) ? umul_widen_optab : smul_widen_optab;
+
+    case MULT_HI_EXPR:
+      return TYPE_UNSIGNED (type) ? umul_highpart_optab : smul_highpart_optab;
+
+    case DOT_PROD_EXPR:
+      return TYPE_UNSIGNED (type) ? udot_prod_optab : sdot_prod_optab;
+
     case REDUC_MAX_EXPR:
       return TYPE_UNSIGNED (type) ? reduc_umax_optab : reduc_smax_optab;
 
@@ -344,32 +353,58 @@ optab_for_tree_code (enum tree_code code, tree type)
 
 
 rtx
-expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx target, int unsignedp)
+expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target, 
+			   int unsignedp)
 {
-  tree oprnd0 = TREE_OPERAND (exp, 0);
-  tree oprnd1 = TREE_OPERAND (exp, 1);
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (oprnd0));
-  enum machine_mode tmode = TYPE_MODE (TREE_TYPE (oprnd1));
-  optab widen_pattern_optab = 
-	optab_for_tree_code (TREE_CODE (exp), TREE_TYPE (oprnd0));
-  int icode = (int) widen_pattern_optab->handlers[(int) mode].insn_code;
-  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
-  enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+  tree oprnd0, oprnd1, oprnd2;
+  enum machine_mode wmode, tmode0, tmode1;
+  optab widen_pattern_optab;
+  int icode;
+  enum machine_mode xmode0, xmode1, wxmode;
   rtx temp;
   rtx pat;
-  rtx xop0, xop1;
+  rtx xop0, xop1, wxop;
+  int nops = TREE_CODE_LENGTH (TREE_CODE (exp));
 
-  if (widen_pattern_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing)
-    abort ();
+  gcc_assert (nops == 2 || nops == 3); 
+ 
+  oprnd0 = TREE_OPERAND (exp, 0);
+  tmode0 = TYPE_MODE (TREE_TYPE (oprnd0));
+  widen_pattern_optab =
+        optab_for_tree_code (TREE_CODE (exp), TREE_TYPE (oprnd0));
+  icode = (int) widen_pattern_optab->handlers[(int) tmode0].insn_code;
+  gcc_assert (icode != CODE_FOR_nothing);
+  xmode0 = insn_data[icode].operand[1].mode;
+
+  oprnd1 = TREE_OPERAND (exp, 1);
+  tmode1 = TYPE_MODE (TREE_TYPE (oprnd1));
+  xmode1 = insn_data[icode].operand[2].mode;
+
+  /* The last operand is of a wider mode than the rest
+     of the operands.  */
+  if (nops == 2)
+    {
+      wmode = tmode1;
+      wxmode = xmode1;
+    }
+  else
+    {
+      gcc_assert (tmode1 == tmode0);
+      gcc_assert (op1);
+      oprnd2 = TREE_OPERAND (exp, 2);
+      wmode = TYPE_MODE (TREE_TYPE (oprnd2));
+      wxmode = insn_data[icode].operand[3].mode;
+    }
 
   if (!target
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    temp = gen_reg_rtx (tmode);
+      || ! (*insn_data[icode].operand[0].predicate) (target, wmode))
+    temp = gen_reg_rtx (wmode);
   else
     temp = target;
 
   xop0 = op0; 
   xop1 = op1;
+  wxop = wide_op;
 
   /* In case the insn wants input operands in modes different from
      those of the actual operands, convert the operands.  It would
@@ -377,32 +412,55 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx target, int unsignedp
      that they're properly zero-extended, sign-extended or truncated
      for their mode.  */
 
-  if (GET_MODE (op0) != mode0 && mode0 != VOIDmode)
-    xop0 = convert_modes (mode0,
+  if (GET_MODE (op0) != xmode0 && xmode0 != VOIDmode)
+    xop0 = convert_modes (xmode0,
                           GET_MODE (op0) != VOIDmode
                           ? GET_MODE (op0)
-                          : mode,
+                          : tmode0,
                           xop0, unsignedp);
 
-  if (GET_MODE (op1) != mode1 && mode1 != VOIDmode)
-    xop1 = convert_modes (mode1,
-                          GET_MODE (op1) != VOIDmode
-                          ? GET_MODE (op1)
-                          : mode,
-                          xop1, unsignedp);
+  if (op1)
+    if (GET_MODE (op1) != xmode1 && xmode1 != VOIDmode)
+      xop1 = convert_modes (xmode1,
+                            GET_MODE (op1) != VOIDmode
+                            ? GET_MODE (op1)
+                            : tmode1,
+                            xop1, unsignedp);
+
+  if (GET_MODE (wide_op) != wxmode && wxmode != VOIDmode)
+    wxop = convert_modes (wxmode,
+                          GET_MODE (wide_op) != VOIDmode
+                          ? GET_MODE (wide_op)
+                          : wmode,
+                          wxop, unsignedp);
 
   /* Now, if insn's predicates don't allow our operands, put them into
      pseudo regs.  */
 
-  if (! (*insn_data[icode].operand[1].predicate) (xop0, mode0)
-      && mode0 != VOIDmode)
-    xop0 = copy_to_mode_reg (mode0, xop0);
+  if (! (*insn_data[icode].operand[1].predicate) (xop0, xmode0)
+      && xmode0 != VOIDmode)
+    xop0 = copy_to_mode_reg (xmode0, xop0);
 
-  if (! (*insn_data[icode].operand[2].predicate) (xop1, mode1)
-      && mode1 != VOIDmode)
-    xop1 = copy_to_mode_reg (mode1, xop1);
+  if (op1)
+    {
+      if (! (*insn_data[icode].operand[2].predicate) (xop1, xmode1)
+          && xmode1 != VOIDmode)
+        xop1 = copy_to_mode_reg (xmode1, xop1);
 
-  pat = GEN_FCN (icode) (temp, xop0, xop1);
+      if (! (*insn_data[icode].operand[3].predicate) (wxop, wxmode)
+          && wxmode != VOIDmode)
+        wxop = copy_to_mode_reg (wxmode, wxop);
+
+      pat = GEN_FCN (icode) (temp, xop0, xop1, wxop);
+    }
+  else
+    {
+      if (! (*insn_data[icode].operand[2].predicate) (wxop, wxmode)
+          && wxmode != VOIDmode)
+        wxop = copy_to_mode_reg (wxmode, wxop);
+
+      pat = GEN_FCN (icode) (temp, xop0, wxop);
+    }
 
   emit_insn (pat);
   return temp;
@@ -5144,6 +5202,8 @@ init_optabs (void)
 
   ssum_widen_optab = init_optab (UNKNOWN);
   usum_widen_optab = init_optab (UNKNOWN);
+  sdot_prod_optab = init_optab (UNKNOWN);
+  udot_prod_optab = init_optab (UNKNOWN);
 
   reduc_smax_optab = init_optab (UNKNOWN);
   reduc_umax_optab = init_optab (UNKNOWN);

@@ -1,3 +1,51 @@
+2005-09-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* expr.c (expand_expr_real_1): Add DOT_PROD_EXPR case. Tentatively add
+	 cases for WIDEN_MULT_EXPR and MULT_HI_EXPR.
+	* genopinit.c (sdot_prod_optab, udot_prod_optab): Initialize new optabs.
+	* optabs.c (optab_for_tree_code): Add cases for DOT_PROD_EXPR,
+	WIDEN_MULT_EXPR and MULT_HI_EXPR.
+	(expand_widen_pattern_expr): Extend to handled widening patterns with
+	more than two arguments. 
+	(init_optabs): Initalize new optabs sdot_prod_optab, udot_prod_optab.
+	* optabs.h (OTI_sdot_prod, OTI_udot_prod): New optabs indexes.
+	(expand_widen_pattern_expr): Add argument to function declaration,
+	* tree-inline.c (estimate_num_insns_1): Add cases for DOT_PROD_EXPR,
+	WIDEN_MULT_EXPR and MULT_HI_EXPR.
+	* tree-pretty-print.c (dump_generic_node, op_prio): Add cases for 
+	DOT_PROD_EXPR, WIDEN_MULT_EXPR and MULT_HI_EXPR.
+	(op_symbol): Added cases for WIDEN_MULT_EXPR and MULT_HI_EXPR.
+	* tree-ssa-operands (get_expr_operands): Add case for DOT_PROD_EXPR.
+	* tree.def (WIDEN_MULT_EXPR, MULT_HI_EXPR, DOT_PROD_EXPR): New 
+	tree-codes.
+	
+	* tree-vect-analyze.c (widened_name_p): New function.
+	(vect_pattern_recog_funcs): Add new pattern recognition functions to 
+	the initialization.
+	(vect_recog_mult_hi_pattern): New function (not yet implemented).
+	(vect_recog_dot_prod_pattern): New function.
+	(vect_recog_widen_mult_pattern): New function.
+	(vect_recog_widen_sum_pattern): Call widened_name_p. Fix type 
+	comparison. Do not consider stmts that have already been recognized
+	as part of a pattern.
+	(vect_recog_unsigned_subsat_pattern): Do not consider stmts that have
+	already been recognized as part of a pattern.
+	* tree-vect-transform.c (get_initial_def_for_reduction): Add case for
+	DOT_PROD_EXPR.
+	(vect_create_epilog_for_reduction): Add assert.	
+	(vectorizable_reduction): Support reductions with more than two 
+	arguments.
+	* tree-vectorizer.h (ternary_op): New operation_type.
+	(NUM_PATTERNS): Set to 5.
+	(vect_recog_widen_mult_pattern): New function declaration.
+	(vect_recog_mult_hi_pattern): New function declaration.	
+	(vect_recog_dot_prod_pattern): New function declaration.
+
+	* config/rs6000/altivec.md (altivec_vmsumshm, altivec_vmsumuhs):
+	(altivec_vmsumshs, altivec_vmsumu<VI_char>m, altivec_vmsumm<VI_char>m): 
+	(widen_usum<mode>3, widen_ssumv16qi3, widen_ssumv8hi3): Expose the PLUS.
+	(udot_prod<mode>, sdot_prodv16qi, sdot_prodv8hi): New patterns.
+
 2005-09-22  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-transform.c (vect_create_epilog_for_reduction): Fix 

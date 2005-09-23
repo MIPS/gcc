@@ -1766,6 +1766,9 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
     case WIDEN_SUM_EXPR:
+    case WIDEN_MULT_EXPR:
+    case MULT_HI_EXPR:
+    case DOT_PROD_EXPR:
 
     case RESX_EXPR:
 

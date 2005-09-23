@@ -1454,6 +1454,14 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	return;
       }
 
+    case DOT_PROD_EXPR:
+      {
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
+        return;
+      }
+
     case REALIGN_LOAD_EXPR:
       {
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);

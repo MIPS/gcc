@@ -243,6 +243,10 @@ enum optab_index
   OTI_reduc_splus,
   OTI_reduc_uplus,
 
+  /* Dot product, with result machine mode one or more wider than args.  */
+  OTI_sdot_prod,
+  OTI_udot_prod,
+
   /* Set specified field of vector operand.  */
   OTI_vec_set,
   /* Extract specified field of vector operand.  */
@@ -375,6 +379,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define reduc_umin_optab (optab_table[OTI_reduc_umin])
 #define reduc_splus_optab (optab_table[OTI_reduc_splus])
 #define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
+#define sdot_prod_optab (optab_table[OTI_sdot_prod])
+#define udot_prod_optab (optab_table[OTI_udot_prod])
 
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
@@ -506,7 +512,7 @@ extern enum insn_code sync_lock_release[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
 
-extern rtx expand_widen_pattern_expr (tree exp, rtx op0, rtx op1,
+extern rtx expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, 
 				      rtx target, int unsignedp);
 
 extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab,
