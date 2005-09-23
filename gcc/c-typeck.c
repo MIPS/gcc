@@ -2741,10 +2741,13 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
 	/* Report a read-only lvalue.  */
 	if (TREE_READONLY (arg))
-	  readonly_error (arg,
-			  ((code == PREINCREMENT_EXPR
-			    || code == POSTINCREMENT_EXPR)
-			   ? lv_increment : lv_decrement));
+	  {
+	    readonly_error (arg,
+			    ((code == PREINCREMENT_EXPR
+			      || code == POSTINCREMENT_EXPR)
+			     ? lv_increment : lv_decrement));
+	    return error_mark_node;
+	  }
 
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
@@ -3466,7 +3469,10 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       || ((TREE_CODE (lhstype) == RECORD_TYPE
 	   || TREE_CODE (lhstype) == UNION_TYPE)
 	  && C_TYPE_FIELDS_READONLY (lhstype)))
-    readonly_error (lhs, lv_assign);
+    {
+      readonly_error (lhs, lv_assign);
+      return error_mark_node;
+    }
 
   /* If storing into a structure or union member,
      it has probably been given type `int'.

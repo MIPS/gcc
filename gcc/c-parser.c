@@ -277,7 +277,7 @@ c_parse_init (void)
 
   if (flag_openmp && !flag_preprocess_only)
     {
-      /* we want to handle deferred pragmas */
+      /* We want to handle deferred pragmas.  */
       cpp_get_options (parse_in)->defer_pragmas = true;
 
       c_register_pragma ("omp", "atomic", c_parser_pragma_omp_no_args);
@@ -291,7 +291,8 @@ c_parse_init (void)
       c_register_pragma ("omp", "section", c_parser_pragma_omp_section);
       c_register_pragma ("omp", "sections", c_parser_pragma_omp_sections);
       c_register_pragma ("omp", "single", c_parser_pragma_omp_single);
-      c_register_pragma ("omp", "threadprivate", c_parser_pragma_omp_threadprivate);
+      c_register_pragma ("omp", "threadprivate",
+			 c_parser_pragma_omp_threadprivate);
     }
 }
 
@@ -6602,13 +6603,15 @@ c_parser_section_scope (c_parser *parser)
 static void
 c_parser_omp_atomic_expression (c_parser *parser)
 {
-  tree lhs, rhs, dummy;
+  tree lhs, rhs;
   enum tree_code code;
-  int last_errorcount = errorcount;
 
   lhs = c_parser_unary_expression (parser).value;
   switch (TREE_CODE (lhs))
     {
+    case ERROR_MARK:
+      return;
+
     case PREINCREMENT_EXPR:
     case POSTINCREMENT_EXPR:
       lhs = TREE_OPERAND (lhs, 0);
@@ -6663,25 +6666,6 @@ c_parser_omp_atomic_expression (c_parser *parser)
       rhs = c_parser_expression (parser).value;
       break;
     }
-
-  /* We want rhs converted into a type compatible with lhs, without the
-     default promotions that would happen for normal arithmetic.  The
-     easiest way to do this is to build a dummy assignment expression
-     and then extract the components.  */
-
-  /* If we've reported an error for something, don't cascade.  We'll
-     see this instead of error_mark_node when lhs is readonly.  */
-  if (last_errorcount != errorcount)
-    return;
-  dummy = build_modify_expr (lhs, NOP_EXPR, rhs);
-  if (dummy == error_mark_node)
-    return;
-  if (last_errorcount != errorcount)
-    return;
-
-  gcc_assert (TREE_CODE (dummy) == MODIFY_EXPR);  
-  lhs = TREE_OPERAND (dummy, 0);
-  rhs = TREE_OPERAND (dummy, 1);
 
   c_finish_omp_atomic (code, lhs, rhs);
 }

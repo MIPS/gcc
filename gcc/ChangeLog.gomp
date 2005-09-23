@@ -1,5 +1,16 @@
 2005-09-22  Richard Henderson  <rth@redhat.com>
 
+	* Makefile.in (c-omp.o): Depend on C_TREE_H.
+	* c-parser.c (c_parser_omp_atomic_expression): Handle error_mark
+	from initial unary expression.  Move conversion code ...
+	* c-omp.c (c_finish_omp_atomic): ... here.  Handle pointers and
+	floating-point.
+	* c-typeck.c (build_unary_op): Return error_mark after reporting
+	a readonly_error.
+	(build_modify_expr): Likewise.
+
+2005-09-22  Richard Henderson  <rth@redhat.com>
+
 	* c-parser.c (omp_clauses_stack): Remove.
 	(push_omp_clauses, pop_omp_clauses): Remove.
 	(c_parser_for_statement): New parameter omp_clauses; pass it on to

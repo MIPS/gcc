@@ -1579,7 +1579,7 @@ c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(CPPLIB_H) $(TREE_H) \
 	  $< $(OUTPUT_OPTION)
 
 c-omp.o : c-omp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-	$(FUNCTION_H) $(C_COMMON_H) toplev.h $(TREE_GIMPLE_H)
+	$(FUNCTION_H) $(C_COMMON_H) toplev.h $(TREE_GIMPLE_H) $(C_TREE_H)
 
 # Language-independent files.
 
