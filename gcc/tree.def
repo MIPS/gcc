@@ -989,6 +989,14 @@ DEFTREECODE (OMP_SINGLE, "omp_single", tcc_statement, 1)
    Operand 1: OMP_CRITICAL_BODY: Critical section body.  */
 DEFTREECODE (OMP_CRITICAL, "omp_critical", tcc_statement, 2)
 
+/* OpenMP - #pragma omp atomic
+   Operand 0: The address at which the atomic operation is to be performed.
+	This address should be stabilized with save_expr.
+   Operand 1: The expression to evaluate.  When the old value of the object
+	at the address is used in the expression, it should appear as if
+	build_fold_indirect_ref of the address.  */
+DEFTREECODE (OMP_ATOMIC, "omp_atomic", tcc_statement, 2)
+
 /* OpenMP clause: private (variable_list).  */
 DEFTREECODE (OMP_CLAUSE_PRIVATE, "private", tcc_expression, 1)
 

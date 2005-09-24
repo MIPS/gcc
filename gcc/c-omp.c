@@ -29,7 +29,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "function.h"
 #include "c-common.h"
-#include "c-tree.h"
 #include "toplev.h"
 #include "tree-gimple.h"
 
@@ -102,169 +101,45 @@ c_finish_omp_barrier (void)
 void
 c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
-  tree decl, x, y;
-  tree oldval, newval, rhsval, lhsaddr, type, label;
-  tree itype, oldival, newival, lhsiaddr;
+  tree x, type, addr;
 
   if (lhs == error_mark_node || rhs == error_mark_node)
     return;
 
-  type = TYPE_MAIN_VARIANT (TREE_TYPE (lhs));
-
-  /* We want rhs converted into a type compatible with lhs, without the
-     default promotions that would happen for normal arithmetic.  The
-     easiest way to do this is to build a dummy assignment expression
-     and then extract the components.  Except that that doesn't work for
-     pointer types, so we have to handle that by hand.  */
-  if (POINTER_TYPE_P (type))
-    {
-      if ((code != PLUS_EXPR && code != MINUS_EXPR)
-	  || !INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
-	{
-	  binary_op_error (code);
-	  return;
-	}
-
-      x = pointer_int_sum (code, lhs, rhs);
-      /* Stupid NON_LVALUE_EXPR... */
-      STRIP_TYPE_NOPS (x);
-      /* Be careful: pointer_int_sum calls fold.  Here we hope it can't
-	 do too much besides simplify to no operation.  */
-      if (x == lhs)
-	return;
-      gcc_assert (TREE_CODE (x) == code);
-      gcc_assert (TREE_OPERAND (x, 0) == lhs);
-      rhs = TREE_OPERAND (x, 1);
-    }
-  else if (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type))
-    {
-      x = build_modify_expr (lhs, NOP_EXPR, rhs);
-      if (x == error_mark_node)
-	return;
-      gcc_assert (TREE_CODE (x) == MODIFY_EXPR);  
-      lhs = TREE_OPERAND (x, 0);
-      rhs = TREE_OPERAND (x, 1);
-    }
-  else
+  /* ??? According to one reading of the OpenMP spec, complex type are
+     supported, but there are no atomic stores for any architecture.
+     But at least icc 9.0 doesn't support complex types here either.
+     And lets not even talk about vector types...  */
+  type = TREE_TYPE (lhs);
+  if (!INTEGRAL_TYPE_P (type)
+      && !POINTER_TYPE_P (type)
+      && !SCALAR_FLOAT_TYPE_P (type))
     {
       error ("invalid expression type for %<#pragma omp atomic%>");
       return;
     }
 
-  lhsaddr = build_unary_op (ADDR_EXPR, lhs, 0);
-  if (lhsaddr == error_mark_node)
+  /* ??? Validate that rhs does not overlap lhs.  */
+
+  /* Take and save the address of the lhs.  From then on we'll reference it
+     via indirection.  */
+  addr = build_unary_op (ADDR_EXPR, lhs, 0);
+  if (addr == error_mark_node)
     return;
+  addr = save_expr (addr);
+  lhs = build_indirect_ref (addr, NULL);
 
-  /* When possible, use specialized atomic update functions.  */
-  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
-    switch (code)
-      {
-      case PLUS_EXPR:
-	decl = built_in_decls[BUILT_IN_FETCH_AND_ADD_N];
-	goto do_fetch_op;
-      case MINUS_EXPR:
-	decl = built_in_decls[BUILT_IN_FETCH_AND_SUB_N];
-	goto do_fetch_op;
-      case BIT_AND_EXPR:
-	decl = built_in_decls[BUILT_IN_FETCH_AND_AND_N];
-	goto do_fetch_op;
-      case BIT_IOR_EXPR:
-	decl = built_in_decls[BUILT_IN_FETCH_AND_OR_N];
-	goto do_fetch_op;
-      case BIT_XOR_EXPR:
-	decl = built_in_decls[BUILT_IN_FETCH_AND_XOR_N];
-	goto do_fetch_op;
+  /* There are lots of warnings, errors, and conversions that need to happen
+     in the course of interpreting a statement.  Use the normal mechanisms
+     to do this, and then take it apart again.  */
+  x = build_modify_expr (lhs, code, rhs);
+  if (x == error_mark_node)
+    return;
+  gcc_assert (TREE_CODE (x) == MODIFY_EXPR);  
+  rhs = TREE_OPERAND (x, 1);
 
-      do_fetch_op:
-	y = tree_cons (NULL, rhs, NULL);
-	y = tree_cons (NULL, lhsaddr, y);
-	x = resolve_overloaded_builtin (decl, y);
-	add_stmt (x);
-	return;
-
-      default:
-	break;
-      }
-
-  /* In these cases, we don't have specialized __sync builtins,
-     so we need to implement a compare and swap loop.  */
-
-  itype = NULL;
-  if (SCALAR_FLOAT_TYPE_P (type))
-    {
-      if (TYPE_PRECISION (type) == 32 || TYPE_PRECISION (type) == 64)
-	itype = c_common_type_for_size (TYPE_PRECISION (type), true);
-      else
-	{
-	  sorry ("unsupported expression type for %<#pragma omp atomic%>");
-	  return;
-	}
-    }
-
-  oldival = oldval = pushdecl (create_tmp_var_raw (type, NULL));
-  newival = newval = pushdecl (create_tmp_var_raw (type, NULL));
-  lhsiaddr = lhsaddr = save_expr (lhsaddr);
-  if (itype)
-    {
-      oldival = pushdecl (create_tmp_var_raw (itype, NULL));
-      newival = pushdecl (create_tmp_var_raw (itype, NULL));
-      lhsiaddr = fold_convert (build_pointer_type (itype), lhsaddr);
-    }
-  rhsval = pushdecl (create_tmp_var_raw (type, NULL));
-  label = create_artificial_label ();
-
-  x = build_fold_indirect_ref (lhsaddr);
-  x = build2 (MODIFY_EXPR, void_type_node, oldval, x);
-  add_stmt (x);
-
-  if (itype)
-    {
-      x = build1 (VIEW_CONVERT_EXPR, itype, oldval);
-      x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
-      add_stmt (x);
-    }
-
-  if (TREE_CONSTANT (rhs))
-    rhsval = rhs;
-  else
-    {
-      x = build2 (MODIFY_EXPR, void_type_node, rhsval, rhs);
-      add_stmt (x);
-    }
-
-  add_stmt (build_stmt (LABEL_EXPR, label));
-
-  x = build_binary_op (code, oldval, rhsval, false);
-  x = build2 (MODIFY_EXPR, void_type_node, newval, x);
-  add_stmt (x);
-
-  if (itype)
-    {
-      x = build1 (VIEW_CONVERT_EXPR, itype, newval);
-      x = build2 (MODIFY_EXPR, void_type_node, newival, x);
-      add_stmt (x);
-    }
-
-  y = tree_cons (NULL, newival, NULL);
-  y = tree_cons (NULL, oldival, y);
-  y = tree_cons (NULL, lhsiaddr, y);
-  decl = built_in_decls[BUILT_IN_VAL_COMPARE_AND_SWAP_N];
-  x = resolve_overloaded_builtin (decl, y);
-  x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
-  add_stmt (x);
-
-  if (itype)
-    {
-      x = build1 (VIEW_CONVERT_EXPR, type, oldival);
-      x = build2 (MODIFY_EXPR, void_type_node, oldval, x);
-      add_stmt (x);
-    }
-
-  x = build2 (NE_EXPR, boolean_type_node, oldival, newival);
-  y = build1 (GOTO_EXPR, void_type_node, label);
-  x = build3 (COND_EXPR, void_type_node, x, y, NULL);
-  add_stmt (x);
-  return;
+  /* Punt the actual generation of atomic operations to common code.  */
+  add_stmt (build2 (OMP_ATOMIC, void_type_node, addr, rhs));
 }
 
 

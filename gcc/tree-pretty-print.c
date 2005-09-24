@@ -1579,6 +1579,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       is_expr = false;
       break;
 
+    case OMP_ATOMIC:
+      pp_string (buffer, "#pragma omp atomic");
+      newline_and_indent (buffer, spc + 2);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_space (buffer);
+      pp_character (buffer, '=');
+      pp_space (buffer);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      break;
+
     case OMP_CLAUSE_PRIVATE:
       pp_string (buffer, "private (");
       dump_generic_node (buffer, OMP_PRIVATE_VARS (node), spc, flags, false);

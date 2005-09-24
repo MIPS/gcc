@@ -1,31 +1,24 @@
 /* { dg-do compile } */
 
-#include <omp.h>
+extern int foo(void);
+extern void bar(void);
 
-int
-foo (void)
+int main ()
 {
-  return 10;
-}
-
-main ()
-{
-  int A = 0;
-
   /* Malformed uses of 'if' and 'num_threads'.  */
-  #pragma omp parallel if (foo () > 10) shared (A) if (foo () == 3)	/* { dg-error "at most one 'if'" } */
+  #pragma omp parallel if (foo () > 10) if (foo () == 3)	/* { dg-error "at most one 'if'" } */
     {
-      A = omp_get_num_threads ();
+      bar ();
     }
 
-  #pragma omp parallel if (foo () == 10) num_threads (3) shared (A) num_threads (20)	/* { dg-error "at most one 'num_threads'" } */
+  #pragma omp parallel num_threads (3) num_threads (20)	/* { dg-error "at most one 'num_threads'" } */
     {
-      A = omp_get_num_threads ();
+      bar ();
     }
 
   /* Valid uses of 'if' and 'num_threads'.  */
-  #pragma omp parallel if (foo () == 10) num_threads (foo ()) shared (A)
+  #pragma omp parallel if (foo () == 10) num_threads (foo ())
     {
-      A = omp_get_num_threads ();
+      bar ();
     }
 }

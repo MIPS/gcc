@@ -4010,6 +4010,256 @@ gimplify_omp_critical (tree *expr_p, tree *pre_p, tree *post_p)
   return GS_OK;
 }
 
+/* A subroutine of gimplify_omp_atomic.  The front end is supposed to have
+   stabilized the lhs of the atomic operation as *ADDR.  Return true if 
+   EXPR is this stabilized form.  */
+
+static bool
+goa_lhs_expr_p (tree expr, tree addr)
+{
+  /* Also include casts to other type variants.  The C front end is fond
+     of adding these for e.g. volatile variables.  This is like 
+     STRIP_TYPE_NOPS but includes the main variant lookup.  */
+  while ((TREE_CODE (expr) == NOP_EXPR
+          || TREE_CODE (expr) == CONVERT_EXPR
+          || TREE_CODE (expr) == NON_LVALUE_EXPR)
+         && TREE_OPERAND (expr, 0) != error_mark_node
+         && (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
+             == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (expr, 0)))))
+    expr = TREE_OPERAND (expr, 0);
+
+  if (TREE_CODE (expr) == INDIRECT_REF && TREE_OPERAND (expr, 0) == addr)
+    return true;
+  if (TREE_CODE (addr) == ADDR_EXPR && expr == TREE_OPERAND (addr, 0))
+    return true;
+  return false;
+}
+
+/* A subroutine of gimplify_omp_atomic.  Attempt to implement the atomic
+   operation as a __sync_fetch_and_op builtin.  INDEX is log2 of the
+   size of the data type, and thus usable to find the index of the builtin
+   decl.  Returns GS_UNHANDLED if the expression is not of the proper form.  */
+
+static enum gimplify_status
+gimplify_omp_atomic_fetch_op (tree *expr_p, tree addr, tree rhs, int index)
+{
+  enum built_in_function base;
+  tree decl, args, itype;
+
+  /* Check for one of the supported fetch-op operations.  */
+  switch (TREE_CODE (rhs))
+    {
+    case PLUS_EXPR:
+      base = BUILT_IN_FETCH_AND_ADD_N;
+      break;
+    case MINUS_EXPR:
+      base = BUILT_IN_FETCH_AND_SUB_N;
+      break;
+    case BIT_AND_EXPR:
+      base = BUILT_IN_FETCH_AND_AND_N;
+      break;
+    case BIT_IOR_EXPR:
+      base = BUILT_IN_FETCH_AND_OR_N;
+      break;
+    case BIT_XOR_EXPR:
+      base = BUILT_IN_FETCH_AND_XOR_N;
+      break;
+    default:
+      return GS_UNHANDLED;
+    }
+
+  /* Make sure the expression is of the proper form.  */
+  if (goa_lhs_expr_p (TREE_OPERAND (rhs, 0), addr))
+    rhs = TREE_OPERAND (rhs, 1);
+  else if (commutative_tree_code (TREE_CODE (rhs))
+	   && goa_lhs_expr_p (TREE_OPERAND (rhs, 1), addr))
+    rhs = TREE_OPERAND (rhs, 0);
+  else
+    return GS_UNHANDLED;
+
+  decl = built_in_decls[base + index + 1];
+  itype = TREE_TYPE (TREE_TYPE (decl));
+
+  args = tree_cons (NULL, fold_convert (itype, rhs), NULL);
+  args = tree_cons (NULL, addr, args);
+  *expr_p = build_function_call_expr (decl, args);
+  return GS_OK;
+}
+
+/* A subroutine of gimplify_omp_atomic_pipeline.  Walk *EXPR_P and replace
+   appearences of *LHS_ADDR with LHS_VAR.  If an expression does not involve
+   the lhs, evaluate it into a temporary.  Return 1 if the lhs appeared as
+   a subexpression, 0 if it did not, or -1 if an error was encountered.  */
+
+static int
+goa_stabilize_expr (tree *expr_p, tree *pre_p, tree lhs_addr, tree lhs_var)
+{
+  tree expr = *expr_p;
+  int saw_lhs;
+
+  if (goa_lhs_expr_p (expr, lhs_addr))
+    {
+      *expr_p = lhs_var;
+      return 1;
+    }
+  if (is_gimple_val (expr))
+    return 0;
+ 
+  saw_lhs = 0;
+  switch (TREE_CODE_CLASS (TREE_CODE (expr)))
+    {
+    case tcc_binary:
+      saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 1), pre_p,
+				     lhs_addr, lhs_var);
+    case tcc_unary:
+      saw_lhs |= goa_stabilize_expr (&TREE_OPERAND (expr, 0), pre_p,
+				     lhs_addr, lhs_var);
+      break;
+    default:
+      break;
+    }
+
+  if (saw_lhs == 0)
+    {
+      enum gimplify_status gs;
+      gs = gimplify_expr (expr_p, pre_p, NULL, is_gimple_val, fb_rvalue);
+      if (gs != GS_ALL_DONE)
+	saw_lhs = -1;
+    }
+
+  return saw_lhs;
+}
+
+/* A subroutine of gimplify_omp_atomic.  Implement the atomic operation as:
+
+	oldval = *addr;
+      repeat:
+	newval = rhs;	// with oldval replacing *addr in rhs
+	oldval = __sync_val_compare_and_swap (addr, oldval, newval);
+	if (oldval != newval)
+	  goto repeat;
+
+   INDEX is log2 of the size of the data type, and thus usable to find the
+   index of the builtin decl.  */
+
+static enum gimplify_status
+gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
+			      tree rhs, int index)
+{
+  tree oldval, oldival, newval, newival, label;
+  tree type, itype, cmpxchg, args, x;
+
+  cmpxchg = built_in_decls[BUILT_IN_VAL_COMPARE_AND_SWAP_N + index + 1];
+  type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
+  itype = TREE_TYPE (TREE_TYPE (cmpxchg));
+
+  oldval = create_tmp_var (type, NULL);
+  newval = create_tmp_var (type, NULL);
+
+  /* Precompute as much of RHS as possible.  In the same walk, replace
+     occurrences of the lhs value with our temporary.  */
+  if (goa_stabilize_expr (&rhs, pre_p, addr, oldval) < 0)
+    return GS_ERROR;
+
+  x = build_fold_indirect_ref (addr);
+  x = build2 (MODIFY_EXPR, void_type_node, oldval, x);
+  gimplify_and_add (x, pre_p);
+
+  /* For floating-point values, we'll need to view-convert them to integers
+     so that we can perform the atomic compare and swap.  Simplify the 
+     following code by always setting up the "i"ntegral variables.  */
+  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+    {
+      oldival = oldval;
+      newival = newval;
+    }
+  else
+    {
+      oldival = create_tmp_var (itype, NULL);
+      newival = create_tmp_var (itype, NULL);
+
+      x = build1 (VIEW_CONVERT_EXPR, itype, oldval);
+      x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
+      gimplify_and_add (x, pre_p);
+    }
+
+  label = create_artificial_label ();
+  x = build1 (LABEL_EXPR, void_type_node, label);
+  gimplify_and_add (x, pre_p);
+
+  x = build2 (MODIFY_EXPR, void_type_node, newval, rhs);
+  gimplify_and_add (x, pre_p);
+
+  if (newval != newival)
+    {
+      x = build1 (VIEW_CONVERT_EXPR, itype, newval);
+      x = build2 (MODIFY_EXPR, void_type_node, newival, x);
+      gimplify_and_add (x, pre_p);
+    }
+
+  args = tree_cons (NULL, fold_convert (itype, newival), NULL);
+  args = tree_cons (NULL, fold_convert (itype, oldival), args);
+  args = tree_cons (NULL, addr, args);
+  x = build_function_call_expr (cmpxchg, args);
+  if (oldval == oldival)
+    x = fold_convert (type, x);
+  x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
+  gimplify_and_add (x, pre_p);
+
+  /* For floating point, be prepared for the loop backedge.  */
+  if (oldval != oldival)
+    {
+      x = build1 (VIEW_CONVERT_EXPR, type, oldival);
+      x = build2 (MODIFY_EXPR, void_type_node, oldval, x);
+      gimplify_and_add (x, pre_p);
+    }
+
+  /* Note that we always perform the comparison as an integer, even for
+     floating point.  This allows the atomic operation to properly 
+     succeed even with NaNs and -0.0.  */
+  x = build3 (COND_EXPR, void_type_node,
+	      build2 (NE_EXPR, boolean_type_node, oldival, newival),
+	      build1 (GOTO_EXPR, void_type_node, label), NULL);
+  gimplify_and_add (x, pre_p);
+
+  *expr_p = NULL;
+  return GS_ALL_DONE;
+}
+
+/* Gimplify an OMP_ATOMIC statement.  */
+
+static enum gimplify_status
+gimplify_omp_atomic (tree *expr_p, tree *pre_p)
+{
+  tree addr = TREE_OPERAND (*expr_p, 0);
+  tree rhs = TREE_OPERAND (*expr_p, 1);
+  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
+  HOST_WIDE_INT index;
+
+  /* Make sure the type is one of the supported sizes.  */
+  index = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+  index = exact_log2 (index);
+  if (index < 0 || index > 3)
+    {
+      sorry ("unsupported expression type for openmp atomic");
+      return GS_ERROR;
+    }
+
+  /* When possible, use specialized atomic update functions.  */
+  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+    {
+      enum gimplify_status gs;
+      gs = gimplify_omp_atomic_fetch_op (expr_p, addr, rhs, index);
+      if (gs != GS_UNHANDLED)
+	return gs;
+    }
+
+  /* In these cases, we don't have specialized __sync builtins,
+     so we need to implement a compare and swap loop.  */
+  return gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
+}
+
+
 /*  Gimplifies the expression tree pointed to by EXPR_P.  Return 0 if
     gimplification failed.
 
@@ -4461,6 +4711,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_CRITICAL:
 	  ret = gimplify_omp_critical (expr_p, pre_p, post_p);
+	  break;
+
+	case OMP_ATOMIC:
+	  ret = gimplify_omp_atomic (expr_p, pre_p);
 	  break;
 
 	default:

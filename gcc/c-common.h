@@ -297,6 +297,8 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
+extern tree build_modify_expr (tree, enum tree_code, tree);
+extern tree build_indirect_ref (tree, const char *);
 
 extern int c_expand_decl (tree);
 

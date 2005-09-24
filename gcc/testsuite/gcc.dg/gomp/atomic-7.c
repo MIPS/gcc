@@ -1,23 +1,23 @@
 /* { dg-do compile } */
 
-float x, y;
+double x, y;
 
-void f1(void)
+void f2(void)
 {
   #pragma omp atomic
-    x++;
+    y++;
   #pragma omp atomic
-    x--;
+    y--;
   #pragma omp atomic
-    ++x;
+    ++y;
   #pragma omp atomic
-    --x;
+    --y;
   #pragma omp atomic
-    x += 1;
+    y += 1;
   #pragma omp atomic
-    x -= y;
+    y -= x;
   #pragma omp atomic
-    x *= 3;
+    y *= 3;
   #pragma omp atomic
-    x /= 3;
+    y /= 3;
 }

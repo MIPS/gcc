@@ -1,5 +1,19 @@
 2005-09-24  Richard Henderson  <rth@redhat.com>
 
+	* Makefile.in (c-omp.o): Remove C_TREE_H.
+	* c-tree.h (build_indirect_ref, build_modify_expr): Move ...
+	* c-common.h: ... here.
+	* c-omp.c: Don't include c-tree.h.
+	(c_finish_omp_atomic): Create an OMP_ATOMIC node.
+	* gimplify.c (goa_lhs_expr_p, gimplify_omp_atomic_fetch_op,
+	goa_stabilize_expr, gimplify_omp_atomic_pipeline): New.
+	(gimplify_omp_atomic): New.
+	(gimplify_expr): Call it.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_ATOMIC.
+	* tree.def (OMP_ATOMIC): New.
+
+2005-09-24  Richard Henderson  <rth@redhat.com>
+
 	* c-parser.c (c_parser_pragma_omp_clause): Tidy.
 	(c_parser_pragma_omp_clause_num_threads): Warn for not positive.
 	* gimple-low.c (emit_num_threads_setup_code): Fix type problems
