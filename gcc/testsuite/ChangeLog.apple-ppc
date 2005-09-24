@@ -1,3 +1,9 @@
+2005-09-24  Mike Stump  <mrs@apple.com>
+
+	Radar 4248159
+	* g++.dg/asm-block-15.C: Add.
+	* gcc.apple/asm-block-15.c: Add.
+
 2005-09-23  Fariborz Jahanian <fjahanian@apple.com>
 
 	* Radar 4266982

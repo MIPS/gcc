@@ -1,10 +1,16 @@
+2005-09-24  Mike Stump  <mrs@apple.com>
+
+	Radar 4248159
+	* config/i386/i386.c (x86_canonicalize_operands): Add (a+b) and
+	(a-b) support for memory references.
+
 2005-09-23    Fariborz Jahanian <fjahanian@apple.com>
 
 	* Radar 4266982
 	* combine.c (make_extraction): Check for valid use of subreg.
 
 2005-09-23  Mike Stump  <mrs@apple.com>
-	
+
 	Radar 4259442
 	* c-common.c (cw_split_next): Add.
 	(print_cw_asm_operand): Add extra * parameter.

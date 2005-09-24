@@ -18297,7 +18297,39 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	      TREE_VALUE (args) = get_identifier (buf);
 	    }
 	}
+      else if (TREE_CODE (arg) == BRACKET_EXPR && TREE_OPERAND (arg, 1) == NULL_TREE)
+	{
+	  tree arg0 = TREE_OPERAND (arg, 0);
+	  if (TREE_CODE (arg0) == PLUS_EXPR)
+	    {
+	      if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
+		{
+		  tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
+		  TREE_OPERAND (arg, 0) = op1;
+		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
+		}
+	      else
+		{
+		  tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
+		  TREE_OPERAND (arg, 0) = op1;
+		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
+		}
+	    }
+	  else if (TREE_CODE (arg0) == MINUS_EXPR)
+	    {
+	      tree val = TREE_OPERAND (arg0, 1);
+	      if (TREE_CODE (val) == INTEGER_CST)
+		{
+		  val = fold (build1 (NEGATE_EXPR,
+				      TREE_TYPE (val),
+				      val));
+		  TREE_OPERAND (arg, 0) = cw_build_bracket (val, NULL_TREE);
+		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
+		}
+	    }
+	}
 
+	  
       switch (TREE_CODE (arg))
 	{
 	case VAR_DECL:
