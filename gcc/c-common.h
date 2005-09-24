@@ -26,9 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "ggc.h"
 
-/* APPLE LOCAL CW asm blocks */
-#include "config/asm.h"
-
 /* Usage of TREE_LANG_FLAG_?:
    0: TREE_NEGATED_INT (in INTEGER_CST).
       IDENTIFIER_MARKED (used by search routines).
@@ -415,6 +412,8 @@ extern int flag_ms_extensions;
 extern int flag_no_asm;
 
 /* APPLE LOCAL begin CW asm blocks */
+#include "config/asm.h"
+
 /* Nonzero means that CodeWarrior-style inline assembler is to be parsed.  */
 
 extern int flag_cw_asm_blocks;
