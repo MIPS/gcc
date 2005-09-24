@@ -1,3 +1,10 @@
+2005-09-24  Richard Henderson  <rth@redhat.com>
+
+	* c-parser.c (c_parser_pragma_omp_clause): Tidy.
+	(c_parser_pragma_omp_clause_num_threads): Warn for not positive.
+	* gimple-low.c (emit_num_threads_setup_code): Fix type problems
+	with num_threads computation.
+
 2005-09-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.def: Update DEF_BUILTIN comment to include COND argument.
