@@ -269,6 +269,8 @@ extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 #endif
 
 /* APPLE LOCAL begin CW asm blocks */
-const char *
-i386_cw_asm_register_name (const char *regname, char *buf);
+extern const char *i386_cw_asm_register_name (const char *regname, char *buf);
+extern bool cw_x86_needs_swapping (const char *);
+extern bool cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
+			 bool must_be_reg, bool must_not_be_reg, void *);
 /* APPLE LOCAL end CW asm blocks */

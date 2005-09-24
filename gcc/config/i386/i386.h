@@ -2601,11 +2601,11 @@ struct machine_function GTY(())
 #define X86_FILE_START_FLTUSED false
 
 /* APPLE LOCAL begin CW asm blocks */
+#undef TARGET_CW_EXTRA_INFO
 #define TARGET_CW_EXTRA_INFO			\
   char mod[3];					\
   bool as_offset;
 
-extern bool cw_x86_needs_swapping (const char *);
 #define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
     /* If we are outputting AT&T style assembly language, the argument	\
@@ -2644,8 +2644,6 @@ extern bool cw_x86_needs_swapping (const char *);
       }											\
   } while (0);
 
-extern bool cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
-			 bool must_be_reg, bool must_not_be_reg, void *);
 #define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E) \
  cw_print_op (BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E)
 
