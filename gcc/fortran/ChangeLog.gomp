@@ -1,5 +1,10 @@
 2005-09-24  Jakub Jelinek  <jakub@redhat.com>
 
+	* trans-openmp.c (gfc_trans_omp_clauses, gfc_trans_omp_barrier,
+	gfc_trans_omp_critical, gfc_trans_omp_flush, gfc_trans_omp_master,
+	gfc_trans_omp_ordered, gfc_trans_omp_parallel): New functions.
+	(gfc_trans_omp_directive): Use them.
+
 	* openmp.c (expr_references_sym): Add SE argument, don't look
 	into SE tree.
 	(is_conversion): New function.

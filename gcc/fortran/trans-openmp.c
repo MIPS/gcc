@@ -51,6 +51,99 @@ gfc_trans_omp_variable_list (gfc_namelist *namelist)
 }
 
 static tree
+gfc_trans_omp_clauses (stmtblock_t *block, gfc_code *code)
+{
+  tree omp_clauses = NULL_TREE;
+  int clause;
+  enum tree_code clause_code;
+  gfc_se se;
+
+  if (code->ext.omp_clauses == NULL)
+    return NULL_TREE;
+
+  for (clause = 0; clause < OMP_LIST_NUM; clause++)
+    {
+      gfc_namelist *n = code->ext.omp_clauses->lists[clause];
+      tree list;
+
+      if (n == NULL)
+	continue;
+      if (clause >= OMP_LIST_REDUCTION_FIRST
+	  && clause <= OMP_LIST_REDUCTION_LAST)
+	{
+	  /* FIXME: reductions not handled yet.  */
+	  continue;
+	}
+      switch (clause)
+	{
+	case OMP_LIST_PRIVATE:
+	  clause_code = OMP_CLAUSE_PRIVATE;
+	  goto add_clause;
+	case OMP_LIST_SHARED:
+	  clause_code = OMP_CLAUSE_SHARED;
+	  goto add_clause;
+	case OMP_LIST_FIRSTPRIVATE:
+	  clause_code = OMP_CLAUSE_FIRSTPRIVATE;
+	  goto add_clause;
+	case OMP_LIST_LASTPRIVATE:
+	  clause_code = OMP_CLAUSE_LASTPRIVATE;
+	  goto add_clause;
+	case OMP_LIST_COPYIN:
+	  clause_code = OMP_CLAUSE_COPYIN;
+	  goto add_clause;
+	case OMP_LIST_COPYPRIVATE:
+	  clause_code = OMP_CLAUSE_COPYPRIVATE;
+	  /* FALLTHROUGH */
+	add_clause:
+	  list = gfc_trans_omp_variable_list (n);
+	  if (list != NULL_TREE)
+	    {
+	      list = build1 (clause_code, NULL_TREE, list);
+	      omp_clauses = tree_cons (NULL_TREE, list, omp_clauses);
+	    }
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  if (code->ext.omp_clauses->nowait)
+    omp_clauses = tree_cons (NULL_TREE, build0 (OMP_CLAUSE_NOWAIT, NULL_TREE),
+			     omp_clauses);
+
+  if (code->ext.omp_clauses->if_expr)
+    {
+      tree if_var = gfc_create_var (boolean_type_node, "if");
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr (&se, code->ext.omp_clauses->if_expr);
+      gfc_add_block_to_block (block, &se.pre);
+      gfc_add_modify_expr (block, if_var,
+			   convert (boolean_type_node, se.expr));
+      gfc_add_block_to_block (block, &se.post);
+      omp_clauses = tree_cons (NULL_TREE,
+			       build1 (OMP_CLAUSE_IF, NULL_TREE, if_var),
+			       omp_clauses);
+    }
+
+  if (code->ext.omp_clauses->num_threads)
+    {
+      tree num_threads = gfc_create_var (integer_type_node, "num_threads");
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr (&se, code->ext.omp_clauses->num_threads);
+      gfc_add_block_to_block (block, &se.pre);
+      gfc_add_modify_expr (block, num_threads,
+			   convert (integer_type_node, se.expr));
+      gfc_add_block_to_block (block, &se.post);
+      omp_clauses = tree_cons (NULL_TREE,
+			       build1 (OMP_CLAUSE_NUM_THREADS, NULL_TREE,
+				       num_threads),
+			       omp_clauses);
+    }
+
+  return omp_clauses;
+}
+
+static tree
 gfc_trans_omp_atomic (gfc_code *code)
 {
   gfc_se lse;
@@ -344,24 +437,95 @@ finish:
   return gfc_finish_block (&block);
 }
 
+static tree
+gfc_trans_omp_barrier (void)
+{
+  tree decl = built_in_decls [BUILT_IN_GOMP_BARRIER];
+  return gfc_build_function_call (decl, NULL);
+}
+
+static tree
+gfc_trans_omp_critical (gfc_code *code)
+{
+  tree name = NULL_TREE, stmt;
+  if (code->ext.omp_name != NULL)
+    name = get_identifier (code->ext.omp_name);
+  stmt = gfc_trans_code (code->block->next);
+  return build2 (OMP_CRITICAL, void_type_node, name, stmt);
+}
+
+static tree
+gfc_trans_omp_flush (void)
+{
+  tree decl = built_in_decls [BUILT_IN_SYNCHRONIZE];
+  return gfc_build_function_call (decl, NULL);
+}
+
+static tree
+gfc_trans_omp_master (gfc_code *code)
+{
+  tree decl = built_in_decls [BUILT_IN_OMP_GET_THREAD_NUM], x, stmt;
+  x = gfc_build_function_call (decl, NULL);
+  stmt = gfc_trans_code (code->block->next);
+  if (stmt == NULL_TREE || IS_EMPTY_STMT (stmt))
+    return stmt;
+  x = build2 (EQ_EXPR, boolean_type_node, x, integer_zero_node);
+  x = build3_v (COND_EXPR, x, stmt, build_empty_stmt ());
+  return x;
+}
+
+static tree
+gfc_trans_omp_ordered (gfc_code *code)
+{
+  stmtblock_t block;
+  tree decl = built_in_decls [BUILT_IN_GOMP_ORDERED_START];
+  gfc_init_block (&block);
+  gfc_add_expr_to_block (&block, gfc_build_function_call (decl, NULL));
+  gfc_add_expr_to_block (&block, gfc_trans_code (code->block->next));
+  decl = built_in_decls [BUILT_IN_GOMP_ORDERED_END];
+  gfc_add_expr_to_block (&block, gfc_build_function_call (decl, NULL));
+  return gfc_finish_block (&block);
+}
+
+static tree
+gfc_trans_omp_parallel (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, omp_clauses;
+
+  gfc_start_block (&block);
+  omp_clauses = gfc_trans_omp_clauses (&block, code);
+  stmt = gfc_trans_code (code->block->next);
+  if (0)
+    stmt = build2 (OMP_PARALLEL, void_type_node, omp_clauses, stmt);
+  gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
 tree
 gfc_trans_omp_directive (gfc_code *code)
 {
-  tree stmt, omp_clauses = NULL_TREE;
-  int clause;
-  enum tree_code clause_code;
-
   switch (code->op)
     {
     case EXEC_OMP_ATOMIC:
       return gfc_trans_omp_atomic (code);
+    case EXEC_OMP_BARRIER:
+      return gfc_trans_omp_barrier ();
+    case EXEC_OMP_CRITICAL:
+      return gfc_trans_omp_critical (code);
+    case EXEC_OMP_FLUSH:
+      return gfc_trans_omp_flush ();
+    case EXEC_OMP_MASTER:
+      return gfc_trans_omp_master (code);
+    case EXEC_OMP_ORDERED:
+      return gfc_trans_omp_ordered (code);
+    case EXEC_OMP_PARALLEL:
+      return gfc_trans_omp_parallel (code);
     default:
       break;
     }
 
   /* Temporary hack.  */
-  if (code->op == EXEC_OMP_FLUSH || code->op == EXEC_OMP_BARRIER)
-    return build_empty_stmt ();
   if (code->op == EXEC_OMP_SECTIONS
       || code->op == EXEC_OMP_PARALLEL_SECTIONS)
     {
@@ -369,59 +533,11 @@ gfc_trans_omp_directive (gfc_code *code)
       gfc_start_block (&block);
       for (code = code->block; code; code = code->block)
 	{
-	  stmt = gfc_trans_code (code->next);
+	  tree stmt = gfc_trans_code (code->next);
 	  if (stmt != NULL_TREE && ! IS_EMPTY_STMT (stmt))
 	    gfc_add_expr_to_block (&block, stmt);
 	}
       return gfc_finish_block (&block);
     }
   return gfc_trans_code (code->block->next);
-
-  stmt = gfc_trans_code (code->block->next);
-  if (code->ext.omp_clauses)
-    for (clause = 0; clause < OMP_LIST_NUM; clause++)
-      if (code->ext.omp_clauses->lists[clause])
-	{
-	  clause_code = ERROR_MARK;
-	  if (clause >= OMP_LIST_REDUCTION_FIRST
-	      && clause <= OMP_LIST_REDUCTION_LAST)
-	    {
-	      printf ("reduction not handled yet\n");
-	      continue;
-	    }
-	  switch (clause)
-	    {
-	    case OMP_LIST_PRIVATE:
-	      clause_code = OMP_CLAUSE_PRIVATE;
-	      break;
-	    case OMP_LIST_SHARED:
-	      clause_code = OMP_CLAUSE_SHARED;
-	      break;
-	    case OMP_LIST_FIRSTPRIVATE:
-	      clause_code = OMP_CLAUSE_FIRSTPRIVATE;
-	      break;
-	    case OMP_LIST_LASTPRIVATE:
-	      clause_code = OMP_CLAUSE_LASTPRIVATE;
-	      break;
-	    case OMP_LIST_COPYIN:
-	      clause_code = OMP_CLAUSE_COPYIN;
-	      break;
-	    case OMP_LIST_COPYPRIVATE:
-	      clause_code = OMP_CLAUSE_COPYPRIVATE;
-	      break;
-	    default:
-	      break;
-	    }
-	  if (clause_code != ERROR_MARK)
-	    {
-	      gfc_namelist *n = code->ext.omp_clauses->lists[clause];
-	      tree list = gfc_trans_omp_variable_list (n);
-	      if (list != NULL_TREE)
-		{
-		  list = build1 (clause_code, NULL_TREE, list);
-		  omp_clauses = tree_cons (NULL_TREE, list, omp_clauses);
-		}
-	    }
-	}
-  return build2 (OMP_PARALLEL, void_type_node, omp_clauses, stmt);
 }
