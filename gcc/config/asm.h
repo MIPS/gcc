@@ -1,3 +1,4 @@
+/* APPLE LOCAL file CW asm blocks */
 #ifndef CONFIG_ASM_H
 #define CONFIG_ASM_H
 
