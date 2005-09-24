@@ -1,5 +1,13 @@
 2005-09-24  Jakub Jelinek  <jakub@redhat.com>
 
+	* openmp.c (expr_references_sym): Add SE argument, don't look
+	into SE tree.
+	(is_conversion): New function.
+	(resolve_omp_atomic): Adjust expr_references_sym callers.  Handle
+	promoted expressions.
+	* trans-openmp.c (gfc_trans_omp_atomic): New function.
+	(gfc_trans_omp_directive): Call it.
+
 	* f95-lang.c (builtin_type_for_size): New function.
 	(gfc_init_builtin_functions): Initialize synchronization and
 	OpenMP builtins.

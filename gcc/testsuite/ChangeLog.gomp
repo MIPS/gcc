@@ -1,3 +1,8 @@
+2005-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/gomp.exp: Pass "-fopenmp" to gfortran-dg-runtest
+	directly.
+
 2005-09-23  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/gomp/gomp.exp: Discard both DEFAULT_CFLAGS and

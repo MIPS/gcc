@@ -588,13 +588,13 @@ resolve_omp_clauses (gfc_code *code)
     }
 }
 
-/* Return true if SYM is ever referenced in EXPR.  */
+/* Return true if SYM is ever referenced in EXPR except in the SE node.  */
 
 static bool
-expr_references_sym (gfc_expr *e, gfc_symbol *s)
+expr_references_sym (gfc_expr *e, gfc_symbol *s, gfc_expr *se)
 {
   gfc_actual_arglist *arg;
-  if (e == NULL)
+  if (e == NULL || e == se)
     return false;
   switch (e->expr_type)
     {
@@ -609,22 +609,55 @@ expr_references_sym (gfc_expr *e, gfc_symbol *s)
       return false;
     case EXPR_SUBSTRING:
       if (e->ref != NULL
-	  && (expr_references_sym (e->ref->u.ss.start, s)
-	      || expr_references_sym (e->ref->u.ss.end, s)))
+	  && (expr_references_sym (e->ref->u.ss.start, s, se)
+	      || expr_references_sym (e->ref->u.ss.end, s, se)))
 	return true;
       return false;
     case EXPR_OP:
-      if (expr_references_sym (e->value.op.op2, s))
+      if (expr_references_sym (e->value.op.op2, s, se))
 	return true;
-      return expr_references_sym (e->value.op.op1, s);
+      return expr_references_sym (e->value.op.op1, s, se);
     case EXPR_FUNCTION:
       for (arg = e->value.function.actual; arg; arg = arg->next)
-	if (expr_references_sym (arg->expr, s))
+	if (expr_references_sym (arg->expr, s, se))
 	  return true;
       return false;
     default:
       gcc_unreachable ();
     }
+}
+
+/* If EXPR is a conversion function that widens the type
+   if WIDENING is true or narrows the type if WIDENING is false,
+   return the inner expression, otherwise return NULL.  */
+
+static gfc_expr *
+is_conversion (gfc_expr *expr, bool widening)
+{
+  gfc_typespec *ts1, *ts2;
+
+  if (expr->expr_type != EXPR_FUNCTION
+      || expr->value.function.isym == NULL
+      || expr->value.function.esym != NULL
+      || expr->value.function.isym->generic_id != GFC_ISYM_CONVERSION)
+    return NULL;
+
+  if (widening)
+    {
+      ts1 = &expr->ts;
+      ts2 = &expr->value.function.actual->expr->ts;
+    }
+  else
+    {
+      ts1 = &expr->value.function.actual->expr->ts;
+      ts2 = &expr->ts;
+    }
+
+  if (ts1->type > ts2->type
+      || (ts1->type == ts2->type && ts1->kind > ts2->kind))
+    return expr->value.function.actual->expr;
+
+  return NULL;
 }
 
 static void
@@ -651,11 +684,13 @@ resolve_omp_atomic (gfc_code *code)
     }
 
   var = code->expr->symtree->n.sym;
-  expr2 = code->expr2;
+  expr2 = is_conversion (code->expr2, false);
+  if (expr2 == NULL)
+    expr2 = code->expr2;
 
   if (expr2->expr_type == EXPR_OP)
     {
-      gfc_expr *v = NULL, *e;
+      gfc_expr *v = NULL, *e, *c;
       gfc_intrinsic_op op = expr2->value.op.operator;
       gfc_intrinsic_op alt_op = INTRINSIC_NONE;
 
@@ -695,14 +730,20 @@ resolve_omp_atomic (gfc_code *code)
 	 (expr) op var.  We rely here on the fact that the matcher
 	 for x op1 y op2 z where op1 and op2 have equal precedence
 	 returns (x op1 y) op2 z.  */
-      if (expr2->value.op.op2->expr_type == EXPR_VARIABLE
-	  && expr2->value.op.op2->symtree != NULL
-	  && expr2->value.op.op2->symtree->n.sym == var)
-	v = expr2->value.op.op2;
+      e = expr2->value.op.op2;
+      if (e->expr_type == EXPR_VARIABLE
+	  && e->symtree != NULL
+	  && e->symtree->n.sym == var)
+	v = e;
+      else if ((c = is_conversion (e, true)) != NULL
+	       && c->expr_type == EXPR_VARIABLE
+	       && c->symtree != NULL
+	       && c->symtree->n.sym == var)
+	v = c;
       else
 	{
-	  gfc_expr **p = NULL;
-	  for (e = expr2->value.op.op1; e; e = e->value.op.op1)
+	  gfc_expr **p = NULL, **q;
+	  for (q = &expr2->value.op.op1; (e = *q) != NULL; )
 	    if (e->expr_type == EXPR_VARIABLE
 		&& e->symtree != NULL
 		&& e->symtree->n.sym == var)
@@ -710,15 +751,18 @@ resolve_omp_atomic (gfc_code *code)
 		v = e;
 		break;
 	      }
+	    else if ((c = is_conversion (e, true)) != NULL)
+	      q = &e->value.function.actual->expr;
 	    else if (e->expr_type != EXPR_OP
 		     || (e->value.op.operator != op
 			 && e->value.op.operator != alt_op)
 		     || e->rank != 0)
 	      break;
-	    else if (p == NULL)
-	      p = &expr2->value.op.op1;
 	    else
-	      p = &(*p)->value.op.op1;
+	      {
+		p = q;
+		q = &e->value.op.op1;
+	      }
 
 	  if (v == NULL)
 	    {
@@ -727,7 +771,7 @@ resolve_omp_atomic (gfc_code *code)
 	      return;
 	    }
 
-	  if (v != expr2->value.op.op1)
+	  if (p != NULL)
 	    {
 	      e = *p;
 	      switch (e->value.op.operator)
@@ -745,28 +789,32 @@ resolve_omp_atomic (gfc_code *code)
 		}
 
 	      /* Canonicalize into var = var op (expr).  */
-	      gcc_assert (e->value.op.op1 == v);
 	      *p = e->value.op.op2;
 	      e->value.op.op2 = expr2;
-	      code->expr2 = expr2 = e;
+	      e->ts = expr2->ts;
+	      if (code->expr2 == expr2)
+		code->expr2 = expr2 = e;
+	      else
+		code->expr2->value.function.actual->expr = expr2 = e;
+	      
+	      if (!gfc_compare_types (&expr2->value.op.op1->ts, &expr2->ts))
+		{
+		  for (p = &expr2->value.op.op1; *p != v;
+		       p = &(*p)->value.function.actual->expr)
+		    ;
+		  *p = NULL;
+		  gfc_free_expr (expr2->value.op.op1);
+		  expr2->value.op.op1 = v;
+		  gfc_convert_type (v, &expr2->ts, 2);
+		}
 	    }
 	}
 
-      if (v == expr2->value.op.op1)
-	e = expr2->value.op.op2;
-      else
-	e = expr2->value.op.op1;
-
-      if (e->rank != 0 || expr_references_sym (e, var))
+      if (e->rank != 0 || expr_references_sym (code->expr2, var, v))
 	{
-	  if (v == expr2->value.op.op1)
-	    gfc_error ("expr in !$OMP ATOMIC assignment var = var op expr"
-		       " must be scalar and cannot reference var at %L",
-		       &expr2->where);
-	  else
-	    gfc_error ("expr in !$OMP ATOMIC assignment var = expr op var"
-		       " must be scalar and cannot reference var at %L",
-		       &expr2->where);
+	  gfc_error ("expr in !$OMP ATOMIC assignment var = var op expr"
+		     " must be scalar and cannot reference var at %L",
+		     &expr2->where);
 	  return;
 	}
     }
@@ -810,7 +858,7 @@ resolve_omp_atomic (gfc_code *code)
 	      && arg->expr->symtree != NULL
 	      && arg->expr->symtree->n.sym == var)
 	    var_arg = arg;
-	  else if (expr_references_sym (arg->expr, var))
+	  else if (expr_references_sym (arg->expr, var, NULL))
 	    gfc_error ("!$OMP ATOMIC intrinsic arguments except one must not"
 		       " reference %s at %L", var->name, &arg->expr->where);
 	  if (arg->expr->rank != 0)
