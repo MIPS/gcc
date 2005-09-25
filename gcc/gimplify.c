@@ -4298,7 +4298,7 @@ gimplify_omp_section (tree *expr_p, tree *pre_p)
   case_lab = build3 (CASE_LABEL_EXPR, void_type_node, t, NULL, lab);
   VEC_safe_push (tree, heap, gimplify_ctxp->case_labels, case_lab);
 
-  gimplify_and_add (TREE_OPERAND (*expr_p, 0), pre_p);
+  gimplify_and_add (OMP_SECTION_BODY (*expr_p), pre_p);
 
   t = build1 (GOTO_EXPR, void_type_node, gimplify_ctxp->exit_label);
   *expr_p = t;

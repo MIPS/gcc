@@ -1559,6 +1559,32 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       is_expr = false;
       break;
 
+    case OMP_SECTIONS:
+      pp_string (buffer, "#pragma omp sections ");
+      dump_generic_node (buffer, OMP_SECTIONS_CLAUSES (node),
+			 spc, flags, false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, OMP_SECTIONS_BODY (node), spc + 4, flags,
+			 false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      is_expr = false;
+      break;
+
+    case OMP_SECTION:
+      pp_string (buffer, "#pragma omp section");
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, OMP_SECTION_BODY (node), spc + 4, flags,
+			 false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      is_expr = false;
+      break;
+
     case OMP_CRITICAL:
       pp_string (buffer, "#pragma omp critical");
       if (OMP_CRITICAL_NAME (node))
