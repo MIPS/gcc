@@ -54,6 +54,11 @@ static struct gimplify_ctx
   tree conditional_cleanups;
   tree exit_label;
   tree return_temp;
+  
+  /* Two stack variables used for emit_omp_for_generic.  These can be
+     reused throughout the function to preserve stack space.  */
+  tree omp_for_istart, omp_for_iend;
+
   VEC(tree,heap) *case_labels;
   /* The formal temporary table.  Should this be persistent?  */
   htab_t temp_htab;
@@ -3906,32 +3911,225 @@ gimplify_to_stmt_list (tree *stmt_p)
     }
 }
 
+/* A subroutine of gimplify_omp_for.  Generate code for a parallel
+   loop with any schedule.
+
+   The general form is:
+
+   OMP_FOR <clause(s), V = N1, V {<, >, >=, <=} N2, V {+=, -=} STEP, BODY>
+
+   For loops of the form V = N1; V < N2; V += STEP, it generates the
+   following pseudo-code (gimplified accordingly):
+
+	more = GOMP_loop_foo_start (N1, N2, STEP, CHUNK, &istart0, &iend0);
+	if (more) goto L0; else goto L3;
+    L0:
+	V = istart0;
+	iend = iend0;
+    L1:
+	BODY;
+	V += STEP;
+	if (V < iend) goto L1; else goto L2;
+    L2:
+	more = GOMP_loop_foo_next (&istart0, &iend0);
+	if (more) goto L0; else goto L3;
+    L3:
+
+   For '>' the transformation is the same, except for (V > iend).
+   For '<=' and '>=', we first adjust N2 by 1 to transform to a
+   strict inequality.  */
+
+/* ???  For static schedules with no chunk size and no ORDERED requirement,
+   we can omit the call to GOMP_loop_static_next.  */
+
+static void
+gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
+			  tree chunk_size, tree body,
+			  enum tree_code cond_code, tree *pre_p,
+			  enum built_in_function start_fn,
+			  enum built_in_function next_fn)
+{
+  tree l0, l1, l2, l3;
+  tree type, istart0, iend0, iend;
+  tree t, args;
+
+  type = TREE_TYPE (v);
+
+  if (gimplify_ctxp->omp_for_istart)
+    {
+      istart0 = gimplify_ctxp->omp_for_istart;
+      iend0 = gimplify_ctxp->omp_for_iend;
+    }
+  else
+    {
+      istart0 = create_tmp_var (long_integer_type_node, ".istart0");
+      iend0 = create_tmp_var (long_integer_type_node, ".istart0");
+      gimplify_ctxp->omp_for_istart = istart0;
+      gimplify_ctxp->omp_for_iend = iend0;
+    }
+
+  l0 = create_artificial_label ();
+  l1 = create_artificial_label ();
+  l2 = create_artificial_label ();
+  l3 = create_artificial_label ();
+  iend = create_tmp_var (type, NULL);
+
+  t = build_fold_addr_expr (iend0);
+  args = tree_cons (NULL, t, NULL);
+  t = build_fold_addr_expr (istart0);
+  args = tree_cons (NULL, t, args);
+  if (chunk_size)
+    {
+      t = fold_convert (long_integer_type_node, chunk_size);
+      args = tree_cons (NULL, t, args);
+    }
+  t = fold_convert (long_integer_type_node, step);
+  args = tree_cons (NULL, t, args);
+  t = fold_convert (long_integer_type_node, n2);
+  args = tree_cons (NULL, t, args);
+  t = fold_convert (long_integer_type_node, n1);
+  args = tree_cons (NULL, t, args);
+  t = build_function_call_expr (built_in_decls[start_fn], args);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l0), build_and_jump (&l3));
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l0);
+  gimplify_and_add (t, pre_p);
+
+  t = fold_convert (type, istart0);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = fold_convert (type, iend0);
+  t = build2 (MODIFY_EXPR, void_type_node, iend, t);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l1);
+  gimplify_and_add (t, pre_p);
+
+  gimplify_and_add (body, pre_p);
+
+  t = build2 (PLUS_EXPR, type, v, step);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+  
+  t = build2 (cond_code, boolean_type_node, v, iend);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l1), build_and_jump (&l2));
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l2);
+  gimplify_and_add (t, pre_p);
+
+  t = build_fold_addr_expr (iend0);
+  args = tree_cons (NULL, t, NULL);
+  t = build_fold_addr_expr (istart0);
+  args = tree_cons (NULL, t, args);
+  t = build_function_call_expr (built_in_decls[next_fn], args);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l0), build_and_jump (&l3));
+  gimplify_and_add (t, pre_p);
+  
+  t = build1 (LABEL_EXPR, void_type_node, l3);
+  gimplify_and_add (t, pre_p);
+}
 
 /* Gimplify a OMP_FOR statement.  */
 
 static enum gimplify_status
 gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
-  enum gimplify_status ret;
+  tree v, n1, n2, step;
+  tree t, for_stmt;
+  enum tree_code cond_code;
 
-  ret = gimplify_modify_expr (&OMP_FOR_INIT (*expr_p), pre_p, NULL, false);
-  if (ret != GS_ALL_DONE)
-    return ret;
+  for_stmt = *expr_p;
 
-  ret = gimplify_expr (&OMP_FOR_COND (*expr_p), pre_p, NULL,
-		       is_gimple_condexpr, fb_rvalue);
-  if (ret != GS_ALL_DONE)
-    return ret;
+  t = OMP_FOR_INIT (for_stmt);
+  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
+  v = TREE_OPERAND (t, 0);
+  gcc_assert (DECL_P (v));
+  gcc_assert (TREE_CODE (TREE_TYPE (v)) == INTEGER_TYPE);
+  n1 = TREE_OPERAND (t, 1);
 
-  ret = gimplify_expr (&OMP_FOR_INCR (*expr_p), pre_p, NULL,
-		       is_gimple_stmt, fb_none);
-  if (ret != GS_ALL_DONE)
-    return ret;
+  t = OMP_FOR_COND (for_stmt);
+  cond_code = TREE_CODE (t);
+  gcc_assert (TREE_OPERAND (t, 0) == v);
+  n2 = TREE_OPERAND (t, 1);
+  switch (cond_code)
+    {
+    case LT_EXPR:
+    case GT_EXPR:
+      break;
+    case LE_EXPR:
+      n2 = fold_build2 (PLUS_EXPR, TREE_TYPE (n2), n2,
+			build_int_cst (TREE_TYPE (n2), 1));
+      cond_code = LT_EXPR;
+      break;
+    case GE_EXPR:
+      n2 = fold_build2 (MINUS_EXPR, TREE_TYPE (n2), n2,
+			build_int_cst (TREE_TYPE (n2), 1));
+      cond_code = GT_EXPR;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
-  gimplify_to_stmt_list (&OMP_FOR_BODY (*expr_p));
+  t = OMP_FOR_INCR (*expr_p);
+  switch (TREE_CODE (t))
+    {
+    case MODIFY_EXPR:
+      gcc_assert (TREE_OPERAND (t, 0) == v);
+      t = TREE_OPERAND (t, 1);
+      gcc_assert (TREE_OPERAND (t, 0) == v);
+      switch (TREE_CODE (t))
+	{
+	case PLUS_EXPR:
+	  step = TREE_OPERAND (t, 1);
+	  break;
+	case MINUS_EXPR:
+	  step = TREE_OPERAND (t, 1);
+	  step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      break;
 
-  return ret;
+    case PREINCREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+      step = build_int_cst (TREE_TYPE (v), 1);
+      break;
+
+    case PREDECREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+      step = build_int_cst (TREE_TYPE (v), -1);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  gimplify_omp_for_generic (v, n1, n2, step, integer_zero_node,
+			    OMP_FOR_BODY (for_stmt), cond_code, pre_p,
+			    BUILT_IN_GOMP_LOOP_STATIC_START,
+			    BUILT_IN_GOMP_LOOP_STATIC_NEXT);
+
+  /* Emit a barrier at the end of the loop, unless the 'nowait' clause
+     has been specified.  */
+  for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = TREE_CHAIN (t))
+    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
+      {
+	*expr_p = NULL;
+	return GS_ALL_DONE;
+      }
+
+  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  *expr_p = build_function_call_expr (t, NULL);
+  return GS_OK;
 }
+
 
 /* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
    substitution of a couple of function calls.  But in the NAMED case,

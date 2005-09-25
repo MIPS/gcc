@@ -4120,17 +4120,20 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
 {
   tree block, cond, incr, save_break, save_cont, body, init;
   location_t loc = UNKNOWN_LOCATION;
+
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   init = NULL_TREE;
+
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       /* Parse the initialization declaration or expression.  */
       if (c_parser_next_token_is (parser, CPP_SEMICOLON))
 	{
 	  c_parser_consume_token (parser);
-	  c_finish_expr_stmt (NULL_TREE);
+	  if (!is_omp_for)
+	    c_finish_expr_stmt (NULL_TREE);
 	}
       else if (c_parser_next_token_starts_declspecs (parser))
 	{
@@ -4162,9 +4165,14 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
       else
 	{
 	init_expr:
-	  init = c_finish_expr_stmt (c_parser_expression (parser).value);
+	  init = c_parser_expression (parser).value;
+	  if (is_omp_for)
+	    init = c_process_expr_stmt (init);
+	  else
+	    init = c_finish_expr_stmt (init);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
+
       /* Parse the loop condition.  */
       loc = c_parser_peek_token (parser)->location;
       if (c_parser_next_token_is (parser, CPP_SEMICOLON))
@@ -4180,6 +4188,7 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
 	    SET_EXPR_LOCATION (cond, loc);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
+
       /* Parse the increment expression.  */
       if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	incr = c_process_expr_stmt (NULL_TREE);
@@ -4192,22 +4201,30 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
       cond = error_mark_node;
       incr = error_mark_node;
     }
+
   save_break = c_break_label;
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
   body = c_parser_c99_block_statement (parser);
-  if (!is_omp_for)
-    c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
-  else
+
+  switch (is_omp_for)
     {
-      tree t = c_finish_omp_for (init, cond, incr, body, omp_clauses);
-      if (t)
-	add_stmt (t);
-      else
-	c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label,
-		       true);
+    default:
+      {
+        tree t = c_finish_omp_for (init, cond, incr, body, omp_clauses);
+        if (t)
+	  {
+	    add_stmt (t);
+	    break;
+	  }
+      }
+      /* FALLTHRU */
+
+    case 0:
+      c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
     }
+
   add_stmt (c_end_compound_stmt (block, flag_isoc99));
   c_break_label = save_break;
   c_cont_label = save_cont;

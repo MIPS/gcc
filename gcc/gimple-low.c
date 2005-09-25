@@ -71,12 +71,11 @@ lower_function_body (void)
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
+  memset (&data, 0, sizeof (data));
   data.block = DECL_INITIAL (current_function_decl);
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
   TREE_ASM_WRITTEN (data.block) = 1;
-
-  data.return_statements = NULL_TREE;
 
   *body_p = alloc_stmt_list ();
   i = tsi_start (*body_p);
@@ -734,7 +733,7 @@ emit_num_threads_setup_code (tree_stmt_iterator *tsi,
       if (cond)
 	{
 	  if (integer_zerop (val))
-	    val = fold_convert (unsigned_type_node, cond);
+	    val = fold_convert (unsigned_type_node, invert_truthvalue (cond));
 	  else
 	    val = build3 (COND_EXPR, unsigned_type_node, cond, val,
 			  build_int_cst (unsigned_type_node, 1));
@@ -843,283 +842,6 @@ lower_omp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
 }
 
 
-/* Emit code for a parallel loop with static schedule.
-
-   The general form is:
-
-   OMP_FOR <clause(s), V = N1, V {<, >, >=, <=} N2, V {+=, -=} INCR, BODY>
-
-   The lowering process generates code to compute how many iterations
-   will be assigned to each thread (CHUNK) and the local loop limits
-   (V and Ni).  It then emits a sequential loop to execute BODY in
-   the iteration space V to Ni.
-   
-   For loops of the form V = N1; V < N2; V += STEP, it generates the
-   following pseudo-code (gimplified accordingly):
-
-   	NTHREADS = omp_get_num_threads ()
-	TID = omp_get_thread_num ()
-	NITER = (N2 - N1 + STEP) / STEP
-   	CHUNK = ((NITER + NTHREADS) / NTHREADS) * STEP
-	V = N1 + TID * CHUNK
-	Ni = MIN (V + CHUNK, N2)
-    L0:
-	if (V < Ni) goto L1 else goto L2
-    L1:
-	BODY
-	V += STEP
-	goto L0
-    L2:
-
-   The transformation is the same for '<=' with the exception that Ni
-   is computed as 'Ni = MIN (Ni + CHUNK, N2 + 1)', so that N2 is
-   included in the last iteration.
-
-   For loops of the form for (V = N2; V > N1; V -= STEP), it generates
-   the same setup code for computing the NTHREADS, TID and CHUNK, but
-   the bound computation is basically a mirror of the previous case:
-
-   	[ ... same as before ... ]
-	V = N2 - TID * CHUNK
-	Ni = MAX (V - CHUNK, N1)
-    L0:
-	if (V > Ni) goto L1 else goto L2
-    L1:
-	BODY
-	V -= STEP
-	goto L0
-    L2:
-
-   The transformation is the same for '>=' with the exception that Ni
-   is computed as 'Ni = MAX (V - CHUNK, N1 - 1)', so that N1 is
-   included in the last iteration.  */
-
-static void
-emit_omp_for_static (tree_stmt_iterator *tsi)
-{
-  tree for_stmt = tsi_stmt (*tsi);
-  tree nthreads, tid, chunk, ni;
-  tree init, cond, incr, step, niter, body, v, n1, n2, l0, l1, l2;
-  tree t;
-  bool counts_up_p;
-  tree stmt_list = alloc_stmt_list ();
-
-  body = OMP_FOR_BODY (for_stmt);
-
-  /* Extract loop variable (V) and lower bound (N1).  */
-  init = OMP_FOR_INIT (for_stmt);
-  gcc_assert (TREE_CODE (init) == MODIFY_EXPR
-	      && TREE_CODE (TREE_TYPE (init)) == INTEGER_TYPE);
-  v = TREE_OPERAND (init, 0);
-  n1 = TREE_OPERAND (init, 1);
-
-  /* Extract the controlling predicate (COND) and upper bound (N2).  */
-  cond = OMP_FOR_COND (for_stmt);
-  gcc_assert (TREE_OPERAND (cond, 0) == v);
-  n2 = TREE_OPERAND (cond, 1);
-
-  /* Extract the increment expression (V = V [+-] STEP).  */
-  incr = OMP_FOR_INCR (for_stmt);
-  gcc_assert (TREE_CODE (incr) == MODIFY_EXPR);
-  gcc_assert (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
-              || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR);
-  gcc_assert (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == v);
-  step = TREE_OPERAND (TREE_OPERAND (incr, 1), 1);
-
-  /* If the loop counts down instead of counting up, switch
-     around the values for N1 and N2.  This simplifies the computation
-     of CHUNK by guaranteeing N2 > N1.  */
-  counts_up_p = (TREE_CODE (cond) == LT_EXPR || TREE_CODE (cond) == LE_EXPR);
-  if (!counts_up_p)
-    {
-      t = n1;
-      n1 = n2;
-      n2 = t;
-    }
-
-  /* Create all the needed locals.  */
-  niter = create_tmp_var (integer_type_node, ".niter");
-  nthreads = create_tmp_var (integer_type_node, ".nthreads");
-  tid = create_tmp_var (integer_type_node, ".tid");
-  chunk = create_tmp_var (long_integer_type_node, ".chunk");
-  ni = create_tmp_var (long_integer_type_node, ".ni");
-
-  /* .nthreads = omp_get_num_threads ()  */
-  t = build_function_type_list (integer_type_node, void_type_node,
-				NULL_TREE);
-  t = build_fn_decl ("omp_get_num_threads", t);
-  t = build_function_call_expr (t, NULL_TREE);
-  t = build (MODIFY_EXPR, long_integer_type_node, nthreads, t);
-  tsi_link_after (tsi, t, TSI_NEW_STMT);
-
-  /* .tid = omp_get_thread_num ()  */
-  t = build_function_type_list (integer_type_node, void_type_node, NULL_TREE);
-  t = build_fn_decl ("omp_get_thread_num", t);
-  t = build_function_call_expr (t, NULL_TREE);
-  t = build (MODIFY_EXPR, long_integer_type_node, tid, t);
-  tsi_link_after (tsi, t, TSI_NEW_STMT);
-
-  /* .niter = (n2 - n1 + step) / step.  */
-  t = build (MODIFY_EXPR, long_integer_type_node,
-	     niter,
-	     fold_build2 (TRUNC_DIV_EXPR, long_integer_type_node,
-			  build (PLUS_EXPR, long_integer_type_node,
-				 build (MINUS_EXPR, long_integer_type_node,
-					unshare_expr (n2), unshare_expr (n1)),
-				 unshare_expr (step)),
-			  unshare_expr (step)));
-  append_to_statement_list (t, &stmt_list);
-
-  /* .chunk = ((.niter + .nthreads) / .nthreads) * step.  */
-  t = build (MODIFY_EXPR, long_integer_type_node,
-	     chunk,
-	     fold_build2 (MULT_EXPR, long_integer_type_node,
-			  build (TRUNC_DIV_EXPR, long_integer_type_node,
-				 build (PLUS_EXPR, long_integer_type_node,
-					niter, nthreads),
-				 nthreads),
-			  step));
-  append_to_statement_list (t, &stmt_list);
-
-  /* For loops counting up:	V = n1 + .tid * .chunk
-     For loops counting down:	V = n2 - .tid * .chunk  */
-  t = build (MODIFY_EXPR, long_integer_type_node,
-	     v,
-	     fold_build2 ((counts_up_p) ? PLUS_EXPR : MINUS_EXPR,
-			  long_integer_type_node,
-			  (counts_up_p) ? unshare_expr (n1) : unshare_expr (n2),
-			  fold_build2 (MULT_EXPR, long_integer_type_node,
-				       tid, chunk)));
-  append_to_statement_list (t, &stmt_list);
-
-  /* For loops counting up:	.ni = MIN_EXPR <v + chunk, n2>
-
-     If the test for the original loop was <=, we need to
-     include N2 in the iteration, so we use N2 + 1 instead of N2 in
-     MIN_EXPR.
-
-     For loops counting down:	.ni = MAX_EXPR <v - chunk, n1>
-
-     Similarly, if the loop is >=, then use N1 - 1 instead of N1 in
-     MAX_EXPR.  */
-  if (TREE_CODE (cond) == LT_EXPR)
-    t = unshare_expr (n2);
-  else if (TREE_CODE (cond) == LE_EXPR)
-    t = fold_build2 (PLUS_EXPR, long_integer_type_node, unshare_expr (n2),
-		     integer_one_node);
-  else if (TREE_CODE (cond) == GT_EXPR)
-    t = unshare_expr (n1);
-  else if (TREE_CODE (cond) == GE_EXPR)
-    t = fold_build2 (MINUS_EXPR, long_integer_type_node, unshare_expr (n1),
-		     integer_one_node);
-
-  t = build (MODIFY_EXPR, long_integer_type_node,
-	     ni,
-	     fold_build2 ((counts_up_p) ? MIN_EXPR : MAX_EXPR,
-			  long_integer_type_node,
-			  build ((counts_up_p) ? PLUS_EXPR : MINUS_EXPR,
-				 long_integer_type_node,
-				 v, chunk),
-			  t));
-  append_to_statement_list (t, &stmt_list);
-
-  /* Gimplify the iteration partitioning code we just generated.  */
-  push_gimplify_context ();
-  gimplify_stmt (&stmt_list);
-  pop_gimplify_context (NULL);
-
-  tsi_link_after (tsi, stmt_list, TSI_CONTINUE_LINKING);
-
-  /* L0:
-	if (V < Ni) goto L1 else goto L2
-     L1:
-	BODY
-	V += INCR
-	goto L0
-     L2:
-
-     If the loop counts down, the conditional is controlled by (V > Ni)
-     instead.  */
-  l0 = create_artificial_label ();
-  l1 = create_artificial_label ();
-  l2 = create_artificial_label ();
-
-  /* L0:  */
-  t = build (LABEL_EXPR, void_type_node, l0);
-  tsi_link_after (tsi, t, TSI_NEW_STMT);
-
-  /* For loops counting up:	if (V < Ni) goto L1 else goto L2
-     For loops counting down:	if (V > Ni) goto L1 else goto L2  */
-  t = build (COND_EXPR, void_type_node,
-	     (counts_up_p
-	      ? build (LT_EXPR, boolean_type_node, v, ni)
-	      : build (GT_EXPR, boolean_type_node, v, ni)),
-	     build_and_jump (&l1),
-	     build_and_jump (&l2));
-  tsi_link_after (tsi, t, TSI_NEW_STMT);
-
-  /* L1:  */
-  t = build (LABEL_EXPR, void_type_node, l1);
-  tsi_link_after (tsi, t, TSI_NEW_STMT);
-
-  /* BODY
-     V = V [+-] INCR
-     goto L0  */
-  tsi_link_after (tsi, body, TSI_CONTINUE_LINKING);
-  tsi_link_after (tsi, incr, TSI_NEW_STMT);
-  tsi_link_after (tsi, build_and_jump (&l0), TSI_NEW_STMT);
-
-  /* L2:  */
-  t = build (LABEL_EXPR, void_type_node, l2);
-  tsi_link_after (tsi, t, TSI_NEW_STMT);
-}
-
-
-/* Lower the OMP_FOR structure pointed-to by TSI.  OMP_FOR is a work
-   sharing construct that distributes the iteration space of the
-   original loop into all the available threads.  No new parallel
-   regions are created.  This construct is *only* valid inside a
-   parallel region.  */
-
-static void
-lower_omp_for (tree_stmt_iterator *tsi, struct lower_data *data)
-{
-  tree for_stmt = tsi_stmt (*tsi);
-  tree_stmt_iterator orig_tsi;
-  tree c;
-  bool has_nowait;
-
-  orig_tsi = *tsi;
-
-  /* Lower the body of the loop.  */
-  lower_stmt_body (OMP_FOR_BODY (for_stmt), data);
-
-  /* Emit code for the parallel loop according to the specified schedule.
-     FIXME, only static schedules handled.  */
-  emit_omp_for_static (tsi);
-
-  /* Emit a barrier at the end of the loop, unless the 'nowait' clause
-     has been specified.  */
-  has_nowait = false;
-  for (c = OMP_FOR_CLAUSES (for_stmt); c; c = TREE_CHAIN (c))
-    if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_NOWAIT)
-      {
-	has_nowait = true;
-	break;
-      }
-
-  if (!has_nowait)
-    {
-      tree barrier = built_in_decls[BUILT_IN_GOMP_BARRIER];
-      barrier = build_function_call_expr (barrier, NULL);
-      tsi_link_after (tsi, barrier, TSI_NEW_STMT);
-    }
-
-  /* Remove the original statement and free memory used by the mappings.  */
-  tsi_delink (&orig_tsi);
-}
-
-
 /* Lowers statement TSI.  DATA is passed through the recursion.  */
 
 static void
@@ -1165,10 +887,6 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 
     case OMP_PARALLEL:
       lower_omp_parallel (tsi, data);
-      break;
-
-    case OMP_FOR:
-      lower_omp_for (tsi, data);
       break;
 
     default:

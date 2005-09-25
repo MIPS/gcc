@@ -1,5 +1,19 @@
 2005-09-24  Richard Henderson  <rth@redhat.com>
 
+	* c-parser.c (c_parser_for_statement): Don't emit the init expr
+	when is_omp_for.
+	* gimple-low.c (lower_function_body): Clear data.
+	(emit_num_threads_setup_code): Fix num_threads logic when 
+	if clause present and num_threads clause absent.
+	(emit_omp_for_static, lower_omp_for): Remove.
+	(lower_stmt): Don't call it.
+	* gimplify.c (struct gimplify_ctx): Add omp_for_istart, omp_for_iend.
+	(gimplify_omp_for_generic): New.
+	(gimplify_omp_for): Extract all parameters, and expand the loop.
+	* omp-builtins.def (BUILT_IN_OMP_GET_NUM_THREADS): New.
+
+2005-09-24  Richard Henderson  <rth@redhat.com>
+
 	* Makefile.in (c-omp.o): Remove C_TREE_H.
 	* c-tree.h (build_indirect_ref, build_modify_expr): Move ...
 	* c-common.h: ... here.
