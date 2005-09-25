@@ -199,7 +199,6 @@ static void c_parser_pragma_omp_critical (cpp_reader *);
 static void c_parser_pragma_omp_flush (cpp_reader *);
 static void c_parser_pragma_omp_for (cpp_reader *);
 static void c_parser_pragma_omp_parallel (cpp_reader *);
-static void c_parser_pragma_omp_section (cpp_reader *);
 static void c_parser_pragma_omp_sections (cpp_reader *);
 static void c_parser_pragma_omp_single (cpp_reader *);
 static void c_parser_pragma_omp_threadprivate (cpp_reader *);
@@ -290,7 +289,7 @@ c_parse_init (void)
 	{ "master", c_parser_pragma_omp_no_args },
 	{ "ordered", c_parser_pragma_omp_no_args },
 	{ "parallel", c_parser_pragma_omp_parallel },
-	{ "section", c_parser_pragma_omp_section },
+	{ "section", c_parser_pragma_omp_no_args },
 	{ "sections", c_parser_pragma_omp_sections },
 	{ "single", c_parser_pragma_omp_single },
 	{ "threadprivate", c_parser_pragma_omp_threadprivate }
@@ -6623,34 +6622,65 @@ c_parser_objc_keywordexpr (c_parser *parser)
      section-directive[opt] structured-block
      section-sequence section-directive structured-block  */
 
-static tree
-c_parser_section_scope (c_parser *parser)
+static void
+c_parser_omp_sections_body (c_parser *parser, tree clauses)
 {
-  /* Taken from c_parser_compound_statement () */
-  tree stmt;
-  if (!c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
-    return error_mark_node;
+  tree stmt, substmt;
+  bool error_suppress = false;
 
-  stmt = c_begin_compound_stmt (true);
+  if (!c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
+    return;
+
+  stmt = push_stmt_list ();
 
   if (c_parser_peek_token (parser)->omp_kind != PRAGMA_OMP_SECTION)
-    c_parser_statement (parser);
+    {
+      substmt = push_stmt_list ();
 
-  while (c_parser_next_token_is_not (parser, CPP_CLOSE_BRACE))
-    if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
-      {
-	c_parser_pragma (parser);
-	c_parser_statement (parser);
-      }
-    else
-      {
-	c_parser_error (parser, "%<#pragma omp section%> expected");
+      while (1)
+	{
+          c_parser_statement (parser);
+
+	  if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
+	    break;
+	  if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
+	    break;
+	  if (c_parser_next_token_is (parser, CPP_EOF))
+	    break;
+	}
+
+      substmt = pop_stmt_list (substmt);
+      add_stmt (build1 (OMP_SECTION, void_type_node, substmt));
+    }
+
+  while (1)
+    {
+      if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
 	break;
-      }
+      if (c_parser_next_token_is (parser, CPP_EOF))
+	break;
 
-  c_parser_skip_until_found (parser, CPP_CLOSE_BRACE, 0);
+      if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
+	{
+	  c_parser_pragma (parser);
+	  error_suppress = false;
+	}
+      else if (!error_suppress)
+	{
+	  error ("expected %<#pragma omp section%> or %<}%>");
+	  error_suppress = true;
+	}
 
-  return c_end_compound_stmt (stmt, true);
+      substmt = push_stmt_list ();
+      c_parser_statement (parser);
+      substmt = pop_stmt_list (substmt);
+      add_stmt (build1 (OMP_SECTION, void_type_node, substmt));
+    }
+  c_parser_skip_until_found (parser, CPP_CLOSE_BRACE,
+			     "expected %<#pragma omp section%> or %<}%>");
+
+  stmt = pop_stmt_list (stmt);
+  add_stmt (build2 (OMP_SECTIONS, void_type_node, clauses, stmt));
 }
 
 /* Parse the expression for #pragma omp atomic.  */
@@ -6755,7 +6785,7 @@ c_parser_omp_directive (c_parser *parser)
 
       case PRAGMA_OMP_PARALLEL_SECTIONS:
       case PRAGMA_OMP_SECTIONS:
-	add_stmt (c_parser_section_scope (parser));
+	c_parser_omp_sections_body (parser, clause);
 	break;
 
       case PRAGMA_OMP_SINGLE:
@@ -7388,7 +7418,7 @@ c_parser_pragma_omp_for (cpp_reader *pfile ATTRIBUTE_UNUSED)
 
    # pragma omp parallel for parallel-for-clause[optseq] new-line  */
 
-static inline void
+static void
 c_parser_pragma_omp_parallel_for (c_parser *parser)
 {
   while (c_parser_next_token_is_not (parser, CPP_EOF))
@@ -7442,7 +7472,7 @@ c_parser_pragma_omp_parallel_for (c_parser *parser)
 
    #pragma omp parallel sections parallel-sections-clause[optseq] new-line  */
 
-static inline void
+static void
 c_parser_pragma_omp_parallel_sections (c_parser *parser)
 {
   while (c_parser_next_token_is_not (parser, CPP_EOF))
@@ -7548,20 +7578,6 @@ c_parser_pragma_omp_parallel (cpp_reader *pfile ATTRIBUTE_UNUSED)
 		return;
 	    }
 	}
-    }
-}
-
-/* OpenMP 2.5:
-   # pragma omp section new-line */
-
-static void
-c_parser_pragma_omp_section (cpp_reader *pfile ATTRIBUTE_UNUSED)
-{
-  printf ("#pragma omp section\n");
-
-  if (c_parser_next_token_is_not (the_parser, CPP_EOF))
-    {
-      c_parser_error (the_parser, "expected new-line");
     }
 }
 

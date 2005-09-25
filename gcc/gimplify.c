@@ -55,7 +55,7 @@ static struct gimplify_ctx
   tree exit_label;
   tree return_temp;
   
-  /* Two stack variables used for emit_omp_for_generic.  These can be
+  /* Two stack variables used for gimplify_omp_for.  These can be
      reused throughout the function to preserve stack space.  */
   tree omp_for_istart, omp_for_iend;
 
@@ -4159,6 +4159,154 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 }
 
 
+/* Gimplify an OMP_SECTIONS statement.  In pseudo code, we generate
+
+	v = GOMP_sections_start (n);
+    L0:
+	switch (v)
+	  {
+	  case 0:
+	    goto L2;
+	  case 1:
+	    section 1;
+	    goto L1;
+	  case 2:
+	    ...
+	  default:
+	    abort ();
+	  }
+    L1:
+	v = GOMP_sections_next ();
+	goto L0;
+    L2:
+*/
+
+static enum gimplify_status
+gimplify_omp_sections (tree *expr_p, tree *pre_p)
+{
+  VEC(tree,heap) *labels, *saved_labels;
+  tree saved_exit, label_vec;
+  tree l0, l1, l2, default_label;
+  tree t, u, v;
+  size_t i, len;
+
+  l0 = create_artificial_label ();
+  l1 = create_artificial_label ();
+  l2 = create_artificial_label ();
+  default_label = create_artificial_label ();
+  v = create_tmp_var (unsigned_type_node, ".section");
+
+  /* Process the body and create the switch statement simultaneously.  */
+
+  saved_labels = gimplify_ctxp->case_labels;
+  saved_exit = gimplify_ctxp->exit_label;
+  gimplify_ctxp->case_labels = VEC_alloc (tree, heap, 8);
+  gimplify_ctxp->exit_label = l1;
+
+  gimplify_to_stmt_list (&OMP_SECTIONS_BODY (*expr_p));
+
+  labels = gimplify_ctxp->case_labels;
+  gimplify_ctxp->case_labels = saved_labels;
+  gimplify_ctxp->exit_label = saved_exit;
+
+  /* Convert the labels vector into a TREE_VEC that we can place in the
+     SWITCH_LABELS slot of the SWITCH_EXPR.  Add case 0 for the "all done"
+     return value, and a default abort case for good measure.  */
+
+  len = VEC_length (tree, labels);
+  label_vec = make_tree_vec (len + 2);
+  for (i = 0; i < len; ++i)
+    TREE_VEC_ELT (label_vec, i + 1) = VEC_index (tree, labels, i);
+
+  t = build3 (CASE_LABEL_EXPR, void_type_node,
+	      build_int_cst (unsigned_type_node, 0), NULL, l2);
+  TREE_VEC_ELT (label_vec, 0) = t;
+  
+  t = build3 (CASE_LABEL_EXPR, void_type_node, NULL, NULL, default_label);
+  TREE_VEC_ELT (label_vec, len + 1) = t;
+
+  VEC_free (tree, heap, labels);
+
+  /* Begin putting the statements together.  */
+
+  t = build_int_cst (unsigned_type_node, len);
+  t = tree_cons (NULL, t, NULL);
+  u = built_in_decls[BUILT_IN_GOMP_SECTIONS_START];
+  t = build_function_call_expr (u, t);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l0);
+  gimplify_and_add (t, pre_p);
+
+  t = build3 (SWITCH_EXPR, void_type_node, v, NULL, label_vec);
+  gimplify_and_add (t, pre_p);
+
+  append_to_statement_list (OMP_SECTIONS_BODY (*expr_p), pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, default_label);
+  gimplify_and_add (t, pre_p);
+
+  t = built_in_decls[BUILT_IN_TRAP];
+  t = build_function_call_expr (t, NULL);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l1);
+  gimplify_and_add (t, pre_p);
+
+  t = built_in_decls[BUILT_IN_GOMP_SECTIONS_NEXT];
+  t = build_function_call_expr (t, NULL);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (GOTO_EXPR, void_type_node, l0);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l2);
+  gimplify_and_add (t, pre_p);
+
+  /* Unless there's a nowait clause, add a barrier afterward.  */
+
+  for (t = OMP_SECTIONS_CLAUSES (*expr_p); t ; t = TREE_CHAIN (t))
+    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
+      {
+	*expr_p = NULL;
+	return GS_ALL_DONE;
+      }
+
+  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  *expr_p = build_function_call_expr (t, NULL);
+  return GS_OK;
+}
+
+
+/* Gimplify an OMP_SECTION.  We treat this more or less like a case label.
+   Indeed, we create exactly that.  */
+
+static enum gimplify_status
+gimplify_omp_section (tree *expr_p, tree *pre_p)
+{
+  tree lab, case_lab, t;
+  size_t n;
+
+  lab = create_artificial_label ();
+  t = build1 (LABEL_EXPR, void_type_node, lab);
+  gimplify_and_add (t, pre_p);
+
+  n = VEC_length (tree, gimplify_ctxp->case_labels) + 1;
+  t = build_int_cst (unsigned_type_node, n);
+  case_lab = build3 (CASE_LABEL_EXPR, void_type_node, t, NULL, lab);
+  VEC_safe_push (tree, heap, gimplify_ctxp->case_labels, case_lab);
+
+  gimplify_and_add (TREE_OPERAND (*expr_p, 0), pre_p);
+
+  t = build1 (GOTO_EXPR, void_type_node, gimplify_ctxp->exit_label);
+  *expr_p = t;
+
+  return GS_OK;
+}
+
+
 /* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
    substitution of a couple of function calls.  But in the NAMED case,
    requires that languages coordinate a symbol name.  It is therefore
@@ -4933,6 +5081,14 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_FOR:
 	  ret = gimplify_omp_for (expr_p, pre_p);
+	  break;
+
+	case OMP_SECTIONS:
+	  ret = gimplify_omp_sections (expr_p, pre_p);
+	  break;
+
+	case OMP_SECTION:
+	  ret = gimplify_omp_section (expr_p, pre_p);
 	  break;
 
 	case OMP_CRITICAL:
