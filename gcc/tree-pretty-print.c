@@ -1645,6 +1645,39 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "nowait");
       break;
 
+    case OMP_CLAUSE_ORDERED:
+      pp_string (buffer, "ordered");
+      break;
+
+    case OMP_CLAUSE_SCHEDULE:
+      pp_string (buffer, "schedule (");
+      switch (OMP_CLAUSE_SCHEDULE_KIND (node))
+	{
+	case OMP_CLAUSE_SCHEDULE_STATIC:
+	  pp_string (buffer, "static");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_DYNAMIC:
+	  pp_string (buffer, "dynamic");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_GUIDED:
+	  pp_string (buffer, "guided");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_RUNTIME:
+	  pp_string (buffer, "runtime");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      if (OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (node))
+	{
+	  pp_character (buffer, ',');
+	  pp_space (buffer);
+	  dump_generic_node (buffer, OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (node),
+			     spc, flags, false);
+	}
+      pp_character (buffer, ')');
+      break;
+
     case REDUC_MAX_EXPR:
       pp_string (buffer, " REDUC_MAX_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);

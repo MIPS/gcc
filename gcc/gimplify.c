@@ -4041,8 +4041,11 @@ static enum gimplify_status
 gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
   tree v, n1, n2, step;
-  tree t, for_stmt;
+  tree t, for_stmt, chunk_size;
   enum tree_code cond_code;
+  bool have_nowait, have_ordered;
+  enum omp_clause_schedule_kind sched_kind;
+  int fn_index;
 
   for_stmt = *expr_p;
 
@@ -4111,19 +4114,44 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
       gcc_unreachable ();
     }
 
-  gimplify_omp_for_generic (v, n1, n2, step, integer_zero_node,
-			    OMP_FOR_BODY (for_stmt), cond_code, pre_p,
-			    BUILT_IN_GOMP_LOOP_STATIC_START,
-			    BUILT_IN_GOMP_LOOP_STATIC_NEXT);
+  have_nowait = have_ordered = false;
+  sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
+  chunk_size = NULL_TREE;
 
-  /* Emit a barrier at the end of the loop, unless the 'nowait' clause
-     has been specified.  */
   for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = TREE_CHAIN (t))
-    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
+    switch (TREE_CODE (TREE_VALUE (t)))
       {
-	*expr_p = NULL;
-	return GS_ALL_DONE;
+      case OMP_CLAUSE_NOWAIT:
+	have_nowait = true;
+	break;
+      case OMP_CLAUSE_ORDERED:
+	have_ordered = true;
+	break;
+      case OMP_CLAUSE_SCHEDULE:
+	sched_kind = OMP_CLAUSE_SCHEDULE_KIND (TREE_VALUE (t));
+	chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (TREE_VALUE (t));
+	break;
+      default:
+	break;
       }
+
+  if (sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
+    gcc_assert (chunk_size == NULL);
+  else if (chunk_size == NULL)
+    chunk_size = integer_zero_node;
+
+  fn_index = sched_kind + have_ordered * 4;
+
+  gimplify_omp_for_generic (v, n1, n2, step, chunk_size,
+			    OMP_FOR_BODY (for_stmt), cond_code, pre_p,
+			    BUILT_IN_GOMP_LOOP_STATIC_START + fn_index,
+			    BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index);
+
+  if (have_nowait)
+    {
+      *expr_p = NULL;
+      return GS_ALL_DONE;
+    }
 
   t = built_in_decls[BUILT_IN_GOMP_BARRIER];
   *expr_p = build_function_call_expr (t, NULL);

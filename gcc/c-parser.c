@@ -7033,6 +7033,13 @@ c_parser_pragma_omp_clause_lastprivate (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED)
 {
+  tree t;
+
+  /* At most one 'nowait' clause may appear in the directive.  */
+  for (t = curr_clause_set; t ; t = TREE_CHAIN (t))
+    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
+      error ("at most one %<nowait%> clause may appear in a for directive");
+
   add_new_clause (build (OMP_CLAUSE_NOWAIT, NULL_TREE));
 }
 
@@ -7079,7 +7086,14 @@ c_parser_pragma_omp_clause_num_threads (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED)
 {
-  printf ("ordered\n");
+  tree t;
+
+  /* At most one 'ordered' clause may appear in the directive.  */
+  for (t = curr_clause_set; t ; t = TREE_CHAIN (t))
+    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_ORDERED)
+      error ("at most one %<ordered%> clause may appear in a for directive");
+
+  add_new_clause (build (OMP_CLAUSE_ORDERED, NULL_TREE));
 }
 
 /* OpenMP 2.5:
@@ -7164,66 +7178,79 @@ c_parser_pragma_omp_clause_reduction (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_schedule (c_parser *parser)
 {
-  printf ("schedule\n");
+  tree c, t;
 
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+    return;
+
+  c = build1 (OMP_CLAUSE_SCHEDULE, NULL_TREE, NULL_TREE);
+
+  if (c_parser_next_token_is (parser, CPP_NAME))
     {
-      if (c_parser_next_token_is (parser, CPP_NAME))
+      tree kind = c_parser_peek_token (parser)->value;
+      const char *p = IDENTIFIER_POINTER (kind);
+
+      switch (p[0])
 	{
-	  const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-	  if (!strcmp ("dynamic", p))
-	    {
-	      printf ("\tdynamic\n");
-	    }
-	  else if (!strcmp ("guided", p))
-	    {
-	      printf ("\tguided\n");
-	    }
-	  else if (!strcmp ("runtime", p))
-	    {
-	      printf ("\truntime\n");
-	      c_parser_consume_token (parser);
-	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-	      return;
-	    }
-	  else
-	    {
-	      c_parser_error (parser, "unknown schedule kind");
-	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
-	      return;
-	    }
+	case 'd':
+	  if (strcmp ("dynamic", p) != 0)
+	    goto invalid_kind;
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_DYNAMIC;
+	  break;
+
+        case 'g':
+	  if (strcmp ("guided", p) != 0)
+	    goto invalid_kind;
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_GUIDED;
+	  break;
+
+	case 'r':
+	  if (strcmp ("runtime", p) != 0)
+	    goto invalid_kind;
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_RUNTIME;
+	  break;
+
+	default:
+	  goto invalid_kind;
 	}
-      else if (c_parser_next_token_is_keyword (parser, RID_STATIC))
-	{
-	  printf ("\tstatic\n");
-	}
-      else
-	{
-	  c_parser_error (parser, "unknown schedule kind");
-	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
-	  return;
-	}
+    }
+  else if (c_parser_next_token_is_keyword (parser, RID_STATIC))
+    OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_STATIC;
+  else
+    goto invalid_kind;
+
+  c_parser_consume_token (parser);
+  if (c_parser_next_token_is (parser, CPP_COMMA))
+    {
       c_parser_consume_token (parser);
-      if (c_parser_next_token_is (parser, CPP_COMMA))
-	{
-	  tree t;
-	  c_parser_consume_token (parser);
 
-	  t =  c_parser_expression (parser).value;
+      t = c_parser_expr_no_commas (parser, NULL).value;
 
-	  if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
-	    {
-	      printf ("\t");
-	      print_generic_expr (stdout, t, 0);
-	      printf ("\n");
-	    }
-	  else
-	    {
-	      c_parser_error (parser, "expected integer expression");
-	    }
-	}
+      if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_RUNTIME)
+	error ("schedule %<runtime%> does not take "
+	       "a %<chunk_size%> parameter");
+      else if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
+	OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (c) = t;
+      else
+	c_parser_error (parser, "expected integer expression");
+
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
+  else
+    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
+			       "expected %<,%> or %<)%>");
+
+  /* At most one 'schedule' clause may appear in the directive.  */
+  for (t = curr_clause_set; t ; t = TREE_CHAIN (c))
+    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_SCHEDULE)
+      error ("at most one %<schedule%> clause may appear in a for directive");
+
+  add_new_clause (c);
+  return;
+
+ invalid_kind:
+  c_parser_error (parser, "invalid schedule kind");
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
 }
 
 /* OpenMP 2.5:

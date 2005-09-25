@@ -1027,6 +1027,12 @@ DEFTREECODE (OMP_CLAUSE_NUM_THREADS, "num_threads", tcc_expression, 1)
 /* OpenMP clause: nowait.  */
 DEFTREECODE (OMP_CLAUSE_NOWAIT, "nowait", tcc_expression, 0)
 
+/* OpenMP clause: ordered.  */
+DEFTREECODE (OMP_CLAUSE_ORDERED, "ordered", tcc_expression, 0)
+
+/* OpenMP clause: schedule.  */
+DEFTREECODE (OMP_CLAUSE_SCHEDULE, "schedule", tcc_expression, 1)
+
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar
    result (e.g. summing the elements of the vector, finding the minimum over
