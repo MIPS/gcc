@@ -1,3 +1,10 @@
+2005-09-25  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/gomp/for-1.c: Rename from gcc.dg/gomp/omp-for-1.c.
+	* gcc.dg/gomp/for-2.c, gcc.dg/gomp/for-3.c, gcc.dg/gomp/for-4.c,
+	gcc.dg/gomp/for-5.c, gcc.dg/gomp/for-6.c, gcc.dg/gomp/for-7.c,
+	gcc.dg/gomp/for-8.c, gcc.dg/gomp/for-9.c, gcc.dg/gomp/for-10.c: New.
+
 2005-09-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/gomp.exp: Pass "-fopenmp" to gfortran-dg-runtest
