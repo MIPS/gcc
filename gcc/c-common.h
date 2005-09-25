@@ -939,6 +939,7 @@ extern void c_finish_omp_barrier (void);
 extern void c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
 extern tree c_finish_omp_for (tree, tree, tree, tree, tree);
+extern void c_split_parallel_clauses (tree, tree *, tree *);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

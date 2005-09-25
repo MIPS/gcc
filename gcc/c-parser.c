@@ -6760,7 +6760,7 @@ c_parser_omp_atomic_expression (c_parser *parser)
 static void
 c_parser_omp_directive (c_parser *parser)
 {
-  tree stmt, clause;
+  tree stmt, clause, par_clause, ws_clause;
   enum pragma_omp_kind code = c_parser_peek_token (parser)->omp_kind;
 
   /* Parse the pragma header.  */
@@ -6771,12 +6771,24 @@ c_parser_omp_directive (c_parser *parser)
   switch (code)
     {
       case PRAGMA_OMP_PARALLEL:
-	stmt = c_parser_compound_statement (parser);
+	stmt = push_stmt_list ();
+	c_parser_statement (parser);
+	stmt = pop_stmt_list (stmt);
 	add_stmt (build (OMP_PARALLEL, void_type_node, clause, stmt));
 	break;
 
-      case PRAGMA_OMP_FOR:
       case PRAGMA_OMP_PARALLEL_FOR:
+	stmt = push_stmt_list ();
+	c_split_parallel_clauses (clause, &par_clause, &ws_clause);
+	if (c_parser_next_token_is_keyword (parser, RID_FOR))
+	  c_parser_for_statement (parser, true, ws_clause);
+	else
+	  c_parser_error (parser, "for statement expected");
+	stmt = pop_stmt_list (stmt);
+	add_stmt (build (OMP_PARALLEL, void_type_node, par_clause, stmt));
+	break;
+
+      case PRAGMA_OMP_FOR:
 	if (c_parser_next_token_is_keyword (parser, RID_FOR))
 	  c_parser_for_statement (parser, true, clause);
 	else
@@ -6784,6 +6796,13 @@ c_parser_omp_directive (c_parser *parser)
 	break;
 
       case PRAGMA_OMP_PARALLEL_SECTIONS:
+	stmt = push_stmt_list ();
+	c_split_parallel_clauses (clause, &par_clause, &ws_clause);
+	c_parser_omp_sections_body (parser, ws_clause);
+	stmt = pop_stmt_list (stmt);
+	add_stmt (build (OMP_PARALLEL, void_type_node, par_clause, stmt));
+	break;
+
       case PRAGMA_OMP_SECTIONS:
 	c_parser_omp_sections_body (parser, clause);
 	break;

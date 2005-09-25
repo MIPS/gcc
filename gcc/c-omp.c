@@ -157,6 +157,53 @@ c_finish_omp_flush (void)
 }
 
 
+/* Divide CLAUSES into two lists: those that apply to a parallel construct,
+   and those that apply to a work-sharing construct.  Place the results in
+   *PAR_CLAUSES and *WS_CLAUSES respectively.  In addition, add a nowait
+   clause to the work-sharing list.  */
+
+void
+c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
+{
+  tree c, next;
+
+  *par_clauses = NULL;
+  *ws_clauses = NULL;
+
+  for (; clauses ; clauses = next)
+    {
+      next = TREE_CHAIN (clauses);
+
+      switch (TREE_CODE (TREE_VALUE (clauses)))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	  TREE_CHAIN (clauses) = *par_clauses;
+	  *par_clauses = clauses;
+	  break;
+
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_SCHEDULE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	  TREE_CHAIN (clauses) = *ws_clauses;
+	  *ws_clauses = clauses;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  c = build (OMP_CLAUSE_NOWAIT, NULL_TREE);
+  c = tree_cons (NULL_TREE, c, *ws_clauses);
+  *ws_clauses = c;
+}
+
 /* Validate and emit code for the OpenMP directive #pragma omp for.
    INIT, COND, INCR and BODY are the four basic elements of the loop
    (initialization expression, controlling predicate, increment
