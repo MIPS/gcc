@@ -2,8 +2,8 @@
 /* { dg-options "-std=gnu99" } */
 
 /* A few simple checks on arithmetic operations. */
-#include <stdio.h>
-#include <stdlib.h>
+
+extern void abort (void);
 
 int main()
 {

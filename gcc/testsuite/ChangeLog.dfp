@@ -1,3 +1,14 @@
+2005-09-26  Yao Qi  <qiyaoltc@cn.ibm.com>
+
+	* gcc.dg/dfp/modes.c: Remove unused variables.
+	* gcc.dg/dfp/conversions-1.c: Remove unused #includes.
+	* gcc.dg/dfp/conversions-3.c: Likewise.
+	* gcc.dg/dfp/conversions-4.c: Likewise.
+	* gcc.dg/dfp/conversions-7.c: Likewise.
+	* gcc.dg/dfp/conversions-8.c: Likewise.
+	* gcc.dg/dfp/inf-1.c: Likewise.
+	* gcc.dg/dfp/nan-1.c: Likewise.
+
 2005-09-26  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/call-by-value.c: New test.

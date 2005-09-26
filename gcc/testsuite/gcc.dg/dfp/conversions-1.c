@@ -2,8 +2,6 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */
-#include <stdio.h>
-#include <stdlib.h>
 
 /* Assertion that constant C is of type T.  */
 #define ASSERT_CONST_TYPE(C, T)                 \

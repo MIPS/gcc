@@ -13,6 +13,3 @@ int salign = __alignof (decimal32);
 int dalign = __alignof (decimal64);
 int talign = __alignof (decimal128);
 
-decimal32 sd1;
-decimal64 dd2;
-decimal128 td3;

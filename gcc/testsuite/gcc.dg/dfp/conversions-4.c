@@ -2,8 +2,8 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */
-#include <stdio.h>
-#include <stdlib.h>
+
+extern void abort (void);
 
 volatile _Decimal32 d32;
 volatile _Decimal64 d64;
