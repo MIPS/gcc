@@ -3912,14 +3912,11 @@ gimplify_to_stmt_list (tree *stmt_p)
 }
 
 /* A subroutine of gimplify_omp_for.  Generate code for a parallel
-   loop with any schedule.
+   loop with any schedule.  Given parameters:
 
-   The general form is:
+	for (V = N1; V cond N2; V += STEP) BODY;
 
-   OMP_FOR <clause(s), V = N1, V {<, >, >=, <=} N2, V {+=, -=} STEP, BODY>
-
-   For loops of the form V = N1; V < N2; V += STEP, it generates the
-   following pseudo-code (gimplified accordingly):
+   where COND is "<" or ">", we generate pseudocode
 
 	more = GOMP_loop_foo_start (N1, N2, STEP, CHUNK, &istart0, &iend0);
 	if (more) goto L0; else goto L3;
@@ -3929,18 +3926,12 @@ gimplify_to_stmt_list (tree *stmt_p)
     L1:
 	BODY;
 	V += STEP;
-	if (V < iend) goto L1; else goto L2;
+	if (V cond iend) goto L1; else goto L2;
     L2:
 	more = GOMP_loop_foo_next (&istart0, &iend0);
 	if (more) goto L0; else goto L3;
     L3:
-
-   For '>' the transformation is the same, except for (V > iend).
-   For '<=' and '>=', we first adjust N2 by 1 to transform to a
-   strict inequality.  */
-
-/* ???  For static schedules with no chunk size and no ORDERED requirement,
-   we can omit the call to GOMP_loop_static_next.  */
+*/
 
 static void
 gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
@@ -4035,6 +4026,281 @@ gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
   gimplify_and_add (t, pre_p);
 }
 
+/* A subroutine of gimplify_omp_for.  Generate code for a parallel
+   loop with static schedule and no specified chunk size.  Given parameters:
+
+	for (V = N1; V cond N2; V += STEP) BODY;
+
+   where COND is "<" or ">", we generate pseudocode
+
+	if (cond is <)
+	  adj = STEP - 1;
+	else
+	  adj = STEP + 1;
+	n = (adj + N2 - N1) / STEP;
+	q = n / nthreads;
+	q += (q * nthreads != n);
+	s0 = q * threadid;
+	e0 = min(s0 + q, n);
+	if (s0 >= e0) goto L2; else goto L0;
+    L0:
+	V = s0 * STEP + N1;
+	e = e0 * STEP + N1;
+    L1:
+	BODY;
+	V += STEP;
+	if (V cond e) goto L1; else goto L2;
+    L2:
+*/
+
+static void
+gimplify_omp_for_static_nochunk (tree v, tree n1, tree n2, tree step,
+				 tree body, enum tree_code cond_code,
+				 tree *pre_p)
+{
+  tree l0, l1, l2, n, q, s0, e0, e, t, nthreads, threadid;
+  tree type, utype;
+
+  l0 = create_artificial_label ();
+  l1 = create_artificial_label ();
+  l2 = create_artificial_label ();
+  
+  type = TREE_TYPE (v);
+  utype = lang_hooks.types.unsigned_type (type);
+
+  t = built_in_decls[BUILT_IN_OMP_GET_NUM_THREADS];
+  t = build_function_call_expr (t, NULL);
+  t = fold_convert (utype, t);
+  nthreads = get_formal_tmp_var (t, pre_p);
+  
+  t = built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM];
+  t = build_function_call_expr (t, NULL);
+  t = fold_convert (utype, t);
+  threadid = get_formal_tmp_var (t, pre_p);
+
+  n1 = fold_convert (type, n1);
+  if (!is_gimple_val (n1))
+    n1 = get_formal_tmp_var (n1, pre_p);
+
+  n2 = fold_convert (type, n2);
+  if (!is_gimple_val (n2))
+    n2 = get_formal_tmp_var (n2, pre_p);
+
+  step = fold_convert (type, step);
+  if (!is_gimple_val (step))
+    step = get_formal_tmp_var (step, pre_p);
+
+  t = build_int_cst (type, (cond_code == LT_EXPR ? -1 : 1));
+  t = fold_build2 (PLUS_EXPR, type, step, t);
+  t = fold_build2 (PLUS_EXPR, type, t, n2);
+  t = fold_build2 (MINUS_EXPR, type, t, n1);
+  t = fold_build2 (TRUNC_DIV_EXPR, type, t, step);
+  t = fold_convert (utype, t);
+  if (is_gimple_val (t))
+    n = t;
+  else
+    n = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (TRUNC_DIV_EXPR, utype, n, nthreads);
+  q = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (MULT_EXPR, utype, q, nthreads);
+  t = build2 (NE_EXPR, utype, t, n);
+  t = build2 (PLUS_EXPR, utype, q, t);
+  q = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (MULT_EXPR, utype, q, threadid);
+  s0 = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (PLUS_EXPR, utype, s0, q);
+  t = build2 (MIN_EXPR, utype, t, n);
+  e0 = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (GE_EXPR, boolean_type_node, s0, e0);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l2), build_and_jump (&l0));
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l0);
+  gimplify_and_add (t, pre_p);
+
+  t = fold_convert (type, s0);
+  t = build2 (MULT_EXPR, type, t, step);
+  t = build2 (PLUS_EXPR, type, t, n1);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = fold_convert (type, e0);
+  t = build2 (MULT_EXPR, type, t, step);
+  t = build2 (PLUS_EXPR, type, t, n1);
+  e = get_formal_tmp_var (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l1);
+  gimplify_and_add (t, pre_p);
+
+  gimplify_and_add (body, pre_p);
+
+  t = build2 (PLUS_EXPR, type, v, step);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = build2 (cond_code, boolean_type_node, v, e);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l1), build_and_jump (&l2));
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l2);
+  gimplify_and_add (t, pre_p);
+}
+
+/* A subroutine of gimplify_omp_for.  Generate code for a parallel
+   loop with static schedule and a specified chunk size.  Given parameters:
+
+	for (V = N1; V cond N2; V += STEP) BODY;
+
+   where COND is "<" or ">", we generate pseudocode
+
+	if (cond is <)
+	  adj = STEP - 1;
+	else
+	  adj = STEP + 1;
+	n = (adj + N2 - N1) / STEP;
+	trip = 0;
+    L0:
+	s0 = (trip * nthreads + threadid) * CHUNK;
+	e0 = min(s0 + CHUNK, n);
+	if (s0 < n) goto L1; else goto L4;
+    L1:
+	V = s0 * STEP + N1;
+	e = e0 * STEP + N1;
+    L2:
+	BODY;
+	V += STEP;
+	if (V cond e) goto L2; else goto L3;
+    L3:
+	trip += 1;
+	goto L0;
+    L4:
+*/
+
+static void
+gimplify_omp_for_static_chunk (tree v, tree n1, tree n2, tree step,
+			       tree body, enum tree_code cond_code,
+			       tree chunk, tree *pre_p)
+{
+  tree l0, l1, l2, l3, l4, n, s0, e0, e, t;
+  tree trip, nthreads, threadid;
+  tree type, utype;
+
+  l0 = create_artificial_label ();
+  l1 = create_artificial_label ();
+  l2 = create_artificial_label ();
+  l3 = create_artificial_label ();
+  l4 = create_artificial_label ();
+  
+  type = TREE_TYPE (v);
+  utype = lang_hooks.types.unsigned_type (type);
+
+  t = built_in_decls[BUILT_IN_OMP_GET_NUM_THREADS];
+  t = build_function_call_expr (t, NULL);
+  t = fold_convert (utype, t);
+  nthreads = get_formal_tmp_var (t, pre_p);
+  
+  t = built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM];
+  t = build_function_call_expr (t, NULL);
+  t = fold_convert (utype, t);
+  threadid = get_formal_tmp_var (t, pre_p);
+
+  n1 = fold_convert (type, n1);
+  if (!is_gimple_val (n1))
+    n1 = get_formal_tmp_var (n1, pre_p);
+
+  n2 = fold_convert (type, n2);
+  if (!is_gimple_val (n2))
+    n2 = get_formal_tmp_var (n2, pre_p);
+
+  step = fold_convert (type, step);
+  if (!is_gimple_val (step))
+    step = get_formal_tmp_var (step, pre_p);
+
+  chunk = fold_convert (utype, chunk);
+  if (!is_gimple_val (chunk))
+    chunk = get_formal_tmp_var (chunk, pre_p);
+
+  t = build_int_cst (type, (cond_code == LT_EXPR ? -1 : 1));
+  t = fold_build2 (PLUS_EXPR, type, step, t);
+  t = fold_build2 (PLUS_EXPR, type, t, n2);
+  t = fold_build2 (MINUS_EXPR, type, t, n1);
+  t = fold_build2 (TRUNC_DIV_EXPR, type, t, step);
+  t = fold_convert (utype, t);
+  if (is_gimple_val (t))
+    n = t;
+  else
+    n = get_formal_tmp_var (t, pre_p);
+
+  t = build_int_cst (utype, 0);
+  trip = get_initialized_tmp_var (t, pre_p, NULL);
+
+  t = build1 (LABEL_EXPR, void_type_node, l0);
+  gimplify_and_add (t, pre_p);
+
+  t = build2 (MULT_EXPR, utype, trip, nthreads);
+  t = build2 (PLUS_EXPR, utype, t, threadid);
+  t = build2 (MULT_EXPR, utype, t, chunk);
+  s0 = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (PLUS_EXPR, utype, s0, chunk);
+  t = build2 (MIN_EXPR, utype, t, n);
+  e0 = get_formal_tmp_var (t, pre_p);
+
+  t = build2 (LT_EXPR, boolean_type_node, s0, n);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l1), build_and_jump (&l4));
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l1);
+  gimplify_and_add (t, pre_p);
+
+  t = fold_convert (type, s0);
+  t = build2 (MULT_EXPR, type, t, step);
+  t = build2 (PLUS_EXPR, type, t, n1);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = fold_convert (type, e0);
+  t = build2 (MULT_EXPR, type, t, step);
+  t = build2 (PLUS_EXPR, type, t, n1);
+  e = get_formal_tmp_var (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l2);
+  gimplify_and_add (t, pre_p);
+
+  gimplify_and_add (body, pre_p);
+
+  t = build2 (PLUS_EXPR, type, v, step);
+  t = build2 (MODIFY_EXPR, void_type_node, v, t);
+  gimplify_and_add (t, pre_p);
+
+  t = build2 (cond_code, boolean_type_node, v, e);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l2), build_and_jump (&l3));
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l3);
+  gimplify_and_add (t, pre_p);
+
+  t = build_int_cst (utype, 1);
+  t = build2 (PLUS_EXPR, utype, trip, t);
+  t = build2 (MODIFY_EXPR, void_type_node, trip, t);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (GOTO_EXPR, void_type_node, l0);
+  gimplify_and_add (t, pre_p);
+
+  t = build1 (LABEL_EXPR, void_type_node, l4);
+  gimplify_and_add (t, pre_p);
+}
+
 /* Gimplify a OMP_FOR statement.  */
 
 static enum gimplify_status
@@ -4045,7 +4311,6 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   enum tree_code cond_code;
   bool have_nowait, have_ordered;
   enum omp_clause_schedule_kind sched_kind;
-  int fn_index;
 
   for_stmt = *expr_p;
 
@@ -4135,17 +4400,33 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	break;
       }
 
-  if (sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
-    gcc_assert (chunk_size == NULL);
-  else if (chunk_size == NULL)
-    chunk_size = integer_zero_node;
+  if (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC && !have_ordered)
+    {
+      if (chunk_size == NULL)
+	gimplify_omp_for_static_nochunk (v, n1, n2, step,
+					 OMP_FOR_BODY (for_stmt),
+					 cond_code, pre_p);
+      else
+	gimplify_omp_for_static_chunk (v, n1, n2, step,
+				       OMP_FOR_BODY (for_stmt), cond_code,
+				       chunk_size, pre_p);
+    }
+  else
+    {
+      int fn_index;
 
-  fn_index = sched_kind + have_ordered * 4;
+      if (sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
+	gcc_assert (chunk_size == NULL);
+      else if (chunk_size == NULL)
+	chunk_size = integer_zero_node;
 
-  gimplify_omp_for_generic (v, n1, n2, step, chunk_size,
-			    OMP_FOR_BODY (for_stmt), cond_code, pre_p,
-			    BUILT_IN_GOMP_LOOP_STATIC_START + fn_index,
-			    BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index);
+      fn_index = sched_kind + have_ordered * 4;
+
+      gimplify_omp_for_generic (v, n1, n2, step, chunk_size,
+				OMP_FOR_BODY (for_stmt), cond_code, pre_p,
+				BUILT_IN_GOMP_LOOP_STATIC_START + fn_index,
+				BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index);
+    }
 
   if (have_nowait)
     {

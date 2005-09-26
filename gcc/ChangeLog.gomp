@@ -1,5 +1,11 @@
 2005-09-25  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (gimplify_omp_for_generic): Tidy commentary.
+	(gimplify_omp_for_static_nochunk, gimplify_omp_for_static_chunk): New.
+	(gimplify_omp_for): Use them.
+
+2005-09-25  Richard Henderson  <rth@redhat.com>
+
 	* c-common.h (c_split_parallel_clauses): Declare.
 	* c-omp.c (c_split_parallel_clauses): New.
 	* c-parser.c (c_parser_omp_directive): Split PRAGMA_OMP_PARALLEL_FOR
