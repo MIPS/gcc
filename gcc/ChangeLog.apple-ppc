@@ -1,3 +1,7 @@
+2005-09-26  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config/i386/i386.c (ix86_comp_type_attributes): Moved APPLE LOCAL marker.
+
 2005-09-26  Mike Stump  <mrs@apple.com>
 
 	Radar 4271787

@@ -2018,13 +2018,13 @@ ix86_comp_type_attributes (tree type1, tree type2)
   if (!lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type1))
       != !lookup_attribute ("sseregparm", TYPE_ATTRIBUTES (type2)))
     return 0;
-  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
   /* Check for mismatched return types (cdecl vs stdcall).  */
   if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
       != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
     return 0;
   return 1;
+  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
 }
 
 /* Return the regparm value for a fuctio with the indicated TYPE and DECL.
