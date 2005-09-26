@@ -1,5 +1,10 @@
 2005-09-26  Diego Novillo  <dnovillo@redhat.com>
 
+	* omp-low.c (pass_lower_omp): Don't claim to destroy
+	PROP_gimple_any.
+
+2005-09-26  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (omp-low.o): New.
 	(OBJS-common): Add it.
 	* omp-low.c: New file.
