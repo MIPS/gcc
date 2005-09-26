@@ -2649,10 +2649,10 @@ struct machine_function GTY(())
 
 extern tree x86_canonicalize_operands (const char **, tree, void *);
 /* On x86, we can rewrite opcodes, change argument ordering and so no... */
-#define CW_CANONICALIZE_OPERANDS(OPCODE, IARGS, E, LEN)	\
+#define CW_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E)	\
   do {								\
-    IARGS = x86_canonicalize_operands (&OPCODE, IARGS, E);	\
-    LEN = strlen (OPCODE);					\
+    NEW_OPCODE = OPCODE;					\
+    IARGS = x86_canonicalize_operands (&NEW_OPCODE, IARGS, E);	\
   } while (0)
 
 #define CW_SEE_OPCODE(YYCHAR, T)					\

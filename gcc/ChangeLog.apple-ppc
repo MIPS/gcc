@@ -1,3 +1,11 @@
+2005-09-26  Mike Stump  <mrs@apple.com>
+
+	Radar 4271787
+	* c-common.c (CW_CANONICALIZE_OPERANDS): Arrange to save the
+	opcode before translation for constraint lookups.
+	(cw_asm_stmt): Likewise.
+	* config/i386/i386.c (CW_CANONICALIZE_OPERANDS): Likewise.
+
 2005-09-24  Mike Stump  <mrs@apple.com>
 
 	Radar 4248159

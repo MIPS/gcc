@@ -1,3 +1,9 @@
+2005-09-26  Mike Stump  <mrs@apple.com>
+
+	Radar 4271787
+	* g++.dg/asm-block-14.C: Add.
+	* gcc.apple/asm-block-14.c: Add.
+
 2005-09-24  Mike Stump  <mrs@apple.com>
 
 	Radar 4248159

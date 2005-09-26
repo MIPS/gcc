@@ -6514,7 +6514,7 @@ cw_asm_identifier (tree expr)
 }
 
 #ifndef CW_CANONICALIZE_OPERANDS
-#define CW_CANONICALIZE_OPERANDS(OPCODE_P, IARGS, E, LEN)
+#define CW_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E) (NEW_OPCODE = OPCODE)
 #endif
 
 /* Build an asm statement from CW-syntax bits.  */
@@ -6526,8 +6526,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   tree inputs, outputs, clobbers, uses, label;
   tree stmt;
   unsigned int n, num_args;
-  const char *opcodename;
-  int opcodelen;
+  const char *opcodename, *new_opcode;
   cw_md_extra_info e;
   memset (&e, 0, sizeof (e));
 
@@ -6548,7 +6547,6 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   expr = cw_asm_identifier (expr);
 
   opcodename = IDENTIFIER_POINTER (expr);
-  opcodelen = IDENTIFIER_LENGTH (expr);
 
   /* Handle special directives specially.  */
   if (strcmp (opcodename, "entry") == 0)
@@ -6617,9 +6615,9 @@ cw_asm_stmt (tree expr, tree args, int lineno)
 
   cw_asm_buffer[0] = '\0';
 
-  CW_CANONICALIZE_OPERANDS(opcodename, args, &e, opcodelen);
+  CW_CANONICALIZE_OPERANDS (opcodename, new_opcode, args, &e);
 
-  strncat (cw_asm_buffer, opcodename, opcodelen);
+  strcat (cw_asm_buffer, new_opcode);
   strcat (cw_asm_buffer, " ");
   n = 1;
   /* Iterate through operands, "printing" each into the asm string.  */
