@@ -1,3 +1,17 @@
+2005-09-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (omp-low.o): New.
+	(OBJS-common): Add it.
+	* omp-low.c: New file.
+	Move all the OpenMP lowering code from gimple-low.c.
+	(lower_omp): New.
+	(gate_lower_omp): New.
+	(pass_lower_omp): New.
+	* passes.c (init_optimization_passes): Schedule
+	pass_lower_omp.
+	* tree-pass.h (PROP_gimple_lomp): Define.
+	(pass_lower_omp): Declare.
+
 2005-09-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* varasm.c (assemble_variable): Handle thread-local COMMON data.

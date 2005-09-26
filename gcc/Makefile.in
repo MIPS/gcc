@@ -939,7 +939,7 @@ OBJS-common = \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
  tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
- tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o		   \
+ omp-low.o tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o	   \
  tree-vect-generic.o tree-ssa-loop.o tree-ssa-loop-niter.o		   \
  tree-ssa-loop-manip.o tree-ssa-threadupdate.o				   \
  tree-vectorizer.o tree-vect-analyze.o tree-vect-transform.o		   \
@@ -1941,6 +1941,11 @@ gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    coretypes.h except.h $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) output.h \
    $(GGC_H) gt-gimplify.h $(HASHTAB_H) real.h $(TARGET_H) toplev.h
 gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   $(DIAGNOSTIC_H) $(TREE_GIMPLE_H) tree-inline.h $(VARRAY_H) langhooks.h \
+   $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
+   except.h $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) tree-pass.h \
+   $(HASHTAB_H) toplev.h
+omp-low.o : omp-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(DIAGNOSTIC_H) $(TREE_GIMPLE_H) tree-inline.h $(VARRAY_H) langhooks.h \
    $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    except.h $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) tree-pass.h \
