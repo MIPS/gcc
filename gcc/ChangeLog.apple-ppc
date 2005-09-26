@@ -1,3 +1,10 @@
+2005-09-26  Fariborz Jahanian <fjahanian@apple.com>
+
+	PR target/23847
+	Radar 4263935
+        * config/rs6000/rs6000.c (rs6000_function_value): Parallel pattern
+        for __complex__ double in -mcpu=G5 mode.
+
 2005-09-26  Stuart Hastings  <stuart@apple.com>
 
 	* gcc/config/i386/i386.c (ix86_comp_type_attributes): Moved APPLE LOCAL marker.

@@ -21198,7 +21198,28 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 						   GP_ARG_RETURN + 1),
 				      GEN_INT (4))));
     }
-
+  /* APPLE LOCAL begin mainline 2005-09-26 */
+  if (TARGET_32BIT && TARGET_POWERPC64 && TYPE_MODE (valtype) == DCmode)
+    {
+      return gen_rtx_PARALLEL (DCmode,
+	gen_rtvec (4,
+		   gen_rtx_EXPR_LIST (VOIDmode,
+				      gen_rtx_REG (SImode, GP_ARG_RETURN),
+				      const0_rtx),
+		   gen_rtx_EXPR_LIST (VOIDmode,
+				      gen_rtx_REG (SImode,
+						   GP_ARG_RETURN + 1),
+				      GEN_INT (4)),
+		   gen_rtx_EXPR_LIST (VOIDmode,
+				      gen_rtx_REG (SImode,
+						   GP_ARG_RETURN + 2),
+				      GEN_INT (8)),
+		   gen_rtx_EXPR_LIST (VOIDmode,
+				      gen_rtx_REG (SImode,
+						   GP_ARG_RETURN + 3),
+				      GEN_INT (12))));
+    }
+  /* APPLE LOCAL end mainline 2005-09-26 */
   if ((INTEGRAL_TYPE_P (valtype)
        && TYPE_PRECISION (valtype) < BITS_PER_WORD)
       || POINTER_TYPE_P (valtype))
