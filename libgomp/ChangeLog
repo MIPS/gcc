@@ -1,3 +1,8 @@
+2005-09-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/libgomp.dg/shared-1.c: New test.
+	* testsuite/libgomp.dg/shared-2.c: New test.
+
 2005-09-24  Richard Henderson  <rth@redhat.com>
 
 	* testsuite/libgomp.dg/omp_workshare3.c: Mark dg-error.
