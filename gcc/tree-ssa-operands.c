@@ -1250,6 +1250,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     case SSA_NAME:
+    case STRUCT_FIELD_TAG:
+    case TYPE_MEMORY_TAG:
+    case NAME_MEMORY_TAG:
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
@@ -1844,8 +1847,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 		{
 		  /* Only regular variables or struct fields may get a
 		     V_MUST_DEF operand.  */
-		  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG 
-			      || v_ann->mem_tag_kind == STRUCT_FIELD);
+		  gcc_assert (!MTAG_P (var) 
+			      || TREE_CODE (var) == STRUCT_FIELD_TAG);
 		  /* V_MUST_DEF for non-aliased, non-GIMPLE register 
 		    variable definitions.  */
 		  append_v_must_def (var);
@@ -2031,9 +2034,7 @@ add_call_clobber_ops (tree stmt, tree callee)
 	  bool not_written
 	    = not_written_b ? bitmap_bit_p (not_written_b, u) : false;
 
-	  if ((TREE_READONLY (var)
-	       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
-	      || not_written)
+	  if (not_written)
 	    {
 	      if (!not_read)
 		add_stmt_operand (&var, &empty_ann, opf_none);

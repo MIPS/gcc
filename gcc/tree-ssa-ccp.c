@@ -316,6 +316,7 @@ get_default_value (tree var)
     }
   else if (TREE_STATIC (sym)
 	   && TREE_READONLY (sym)
+	   && !MTAG_P (sym)
 	   && DECL_INITIAL (sym)
 	   && is_gimple_min_invariant (DECL_INITIAL (sym)))
     {

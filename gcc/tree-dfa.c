@@ -638,6 +638,11 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	*slot = (void *) var;
       
       referenced_var_insert (DECL_UID (var), var);
+      
+      /* Tag's don't have DECL_INITIAL.  */
+      if (MTAG_P (var))
+	return;
+      
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  */
