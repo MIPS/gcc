@@ -1,3 +1,8 @@
+2005-09-26  Paul Brook  <paul@codesourcery.com>
+
+	* pex-win32.c (argv_to_cmdline): Fix escaping of backslash
+	characters.
+	
 2005-09-14  Mark Mitchell  <mark@codesourcery.com>
 
 	As posted at http://gcc.gnu.org/ml/gcc-patches/2005-07/msg01945.html
