@@ -41,6 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "vec.h"
 
 struct lower_data
 {
@@ -154,7 +155,8 @@ lower_stmt_body (tree expr, struct lower_data *data)
 }
 
 
-/* Data structure used for remap_locals_r.  */
+/* Data structure used for implementing all the data sharing/copying
+   clauses.  */
 
 struct remap_info_d
 {
@@ -165,93 +167,543 @@ struct remap_info_d
   /* Function holding the body of the OpenMP directive.  */
   tree omp_fn;
 
+  /* Iterator where to insert code in the parent function.  Initially,
+     this points at the OpenMP directive being lowered.  */
+  tree_stmt_iterator *tsi;
+
   /* Data sharing and copying clauses associated with this directive.  */
   tree clauses;
 
-  /* Sets of DECLs representing the different data sharing clauses.  */
-  bitmap private;
-  bitmap firstprivate;
-  bitmap lastprivate;
+  /* Set of local variables to be shared among the threads.  */
   bitmap shared;
-
-  /* Sets of DECLs representing the different data copying clauses.  */
-  bitmap copyin;
-  bitmap copyprivate;
 
   /* Structure holding addresses of shared and copy-in data to be
      passed to the children threads.  This is declared in the parent
      thread.  */
-  tree data_arg_orig;
+  tree omp_data;
 
-  /* Pointer to DATA_ARG_ORIG passed in as an argument to each child
-     thread.  */
-  tree data_arg_dest;
+  /* Pointer type to OMP_DATA.  */
+  tree ptr_to_omp_data;
+
+  /* Symbols that have DECL_VALUE_EXPR set.  */
+  VEC(tree,heap) *syms_with_value_expr;
 };
-  
 
-/* Add all the variables in LIST to the bitmap *SET_P.  Create a new
-   bitmap, if necessary.  */
+
+/* Create a new temporary of type TYPE and prefix PREFIX as a local
+   variable to function FN.  */
+
+static tree
+create_tmp_var_in (tree type, const char *prefix, tree fn)
+{
+  struct function *f = DECL_STRUCT_FUNCTION (fn);
+  tree var = create_tmp_var_raw (type, prefix);
+  DECL_CONTEXT (var) = fn;
+  DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
+  f->unexpanded_var_list = tree_cons (NULL_TREE, var, f->unexpanded_var_list);
+
+  return var;
+}
+
+
+/* Add a new field for VAR inside the structure RI_P->OMP_DATA.
+   Associate the new field with VAR in RI_P->MAP.  */
 
 static void
-add_decls_to_set (bitmap *set_p, tree list)
+add_omp_data_field (tree var, struct remap_info_d *ri_p)
 {
-  tree t;
+  tree field;
+  splay_tree_node n;
 
-  if (*set_p == NULL)
-    *set_p = BITMAP_ALLOC (NULL);
-
-  for (t = list; t; t = TREE_CHAIN (t))
+  if (ri_p->omp_data == NULL_TREE)
     {
-      tree var = TREE_VALUE (t);
-      bitmap_set_bit (*set_p, DECL_UID (var));
+      /* Create an empty 'struct .omp_data_s'.  */
+      tree struct_type = make_node (RECORD_TYPE);
+      TYPE_NAME (struct_type) = get_identifier (".omp_data_s");
+
+      /* Create the pointer type 'struct .omp_data_s *'.  */
+      ri_p->ptr_to_omp_data = build_pointer_type (struct_type);
+
+      /* Create 'struct .omp_data_s .omp_data', a local
+	 structure in the parent thread.  Note that we cannot call
+	 create_tmp_var here because the structure is still not
+	 finished.  */
+      ri_p->omp_data = create_tmp_var_raw (struct_type, ".omp_data");
+      gimple_add_tmp_var (ri_p->omp_data);
+    }
+
+  /* Add a new field for VAR inside struct .omp_data_s.  */
+  field = build_decl (FIELD_DECL, DECL_NAME (var), TREE_TYPE (var));
+  insert_field_into_struct (TREE_TYPE (ri_p->omp_data), field);
+
+  /* Associate FIELD with VAR in RI_P->MAP so that we can create the
+     proper dereferences later.  */
+  n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
+  gcc_assert (n == NULL);
+  splay_tree_insert (ri_p->map, (splay_tree_key) var, (splay_tree_value) field);
+}
+
+
+/* Get the field inside RI_P->OMP_DATA that corresponds to VAR.
+   Aborts if no associaton exists (the caller should've called
+   add_omp_data_field first).  */
+
+static tree
+get_omp_data_field_for (tree var, struct remap_info_d *ri_p)
+{
+  splay_tree_node n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
+  gcc_assert (n);
+  return (tree) n->value;
+}
+
+
+/* Insert firstprivate sending code for variable VAR.  This assumes
+   that there is a field VAR inside RI_P->OMP_DATA.  It generates the
+   following assignment before RI_P->TSI: .omp_data.var = var.  */
+
+static void
+emit_firstprivate_sending_code (tree var, struct remap_info_d *ri_p)
+{
+  tree field, ref, init;
+  
+  field = get_omp_data_field_for (var, ri_p);
+  ref = build (COMPONENT_REF, TREE_TYPE (field), ri_p->omp_data, field, 0);
+  init = build (MODIFY_EXPR, void_type_node, ref, var);
+  tsi_link_before (ri_p->tsi, init, TSI_SAME_STMT);
+}
+
+
+/* Insert firstprivate receiving code for variable VAR.  This assumes
+   that there is a field VAR inside RI_P->OMP_DATA.  It generates the
+   following assignment at the start of RI_P->OMP_FN:
+   var = ((struct .omp_data_s *) data)->var.  */
+
+static void
+emit_firstprivate_receiving_code (tree var, struct remap_info_d *ri_p)
+{
+  tree ptr_type, cast, field, t, body;
+  tree_stmt_iterator child_tsi;
+
+  /* Build ((struct .omp_data_s *) data)  */
+  ptr_type = ri_p->ptr_to_omp_data;
+  cast = fold_convert (ptr_type, DECL_ARGUMENTS (ri_p->omp_fn));
+
+  /* Build ((struct .omp_data_s *) data)->var  */
+  field = get_omp_data_field_for (var, ri_p);
+  t = build (COMPONENT_REF, TREE_TYPE (var),
+		  build (INDIRECT_REF, TREE_TYPE (ri_p->omp_data), cast),
+		  field,
+		  NULL_TREE);
+
+  /* Build var = ((struct .omp_data_s *) data)->var  */
+  t = build (MODIFY_EXPR, void_type_node, var, t);
+
+  /* Insert at the start of RI_P->OMP_FN.  */
+  body = BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->omp_fn));
+  child_tsi = tsi_start (body);
+  tsi_link_before (&child_tsi, t, TSI_NEW_STMT);
+}
+
+
+/* Prepare a private replacement for VAR.  This simply creates a
+   variable local to the child thread function RI_P->OMP_FN and sets
+   VAR's DECL_VALUE_EXPR to be the new local.  When RI_P->OMP_FN is
+   gimplified, all references to VAR will be replaced with the new
+   local.  */
+
+static tree
+get_omp_private_repl (tree var, struct remap_info_d *ri_p)
+{
+  tree repl;
+
+  if (DECL_HAS_VALUE_EXPR_P (var))
+    return DECL_VALUE_EXPR (var);
+
+  repl = create_tmp_var_in (TREE_TYPE (var), NULL, ri_p->omp_fn);
+
+  DECL_NAME (repl) = DECL_NAME (var);
+  SET_DECL_VALUE_EXPR (var, repl);
+  DECL_HAS_VALUE_EXPR_P (var) = 1;
+  VEC_safe_push (tree, heap, ri_p->syms_with_value_expr, var);
+
+  return repl;
+}
+
+
+/* Prepare a firstprivate replacement for VAR.  This is similar to the
+   private case, but the initial value of the replacement is sent via
+   the DATA argument from the parent to the child thread.  So, given
+
+   	#pragma omp parallel firstprivate (a)
+	  {
+	    ...
+	  }
+
+   we generate in the master thread:
+
+	struct .omp_data_s { int a; } .omp_data;
+   	.omp_data.a = a;
+	GOMP_parallel_start (__omp_fn.3, &.omp_data, ...);
+	__omp_fn.3 (&.omp_data);
+	GOMP_parallel_end ();
+
+   and in the child thread:
+
+	__omp_fn.3 (void *data)
+	{
+	  int a = ((struct .omp_data_s *) data)->a;
+	  ...
+	}
+   */
+
+static void
+get_omp_firstprivate_repl (tree var, struct remap_info_d *ri_p)
+{
+  get_omp_private_repl (var, ri_p);
+
+  /* Add a new field in struct .omp_data_s to hold VAR.  */
+  add_omp_data_field (var, ri_p);
+
+  /* Insert .omp_data_orig.var = var in the parent thread.  */
+  emit_firstprivate_sending_code (var, ri_p);
+
+  /* Insert repl = ((struct .omp_data_s *)data)->var in the child
+     thread.  */
+  emit_firstprivate_receiving_code (var, ri_p);
+}
+
+
+/* Prepare a shared replacement for variable VAR.  This moves the
+   whole variable inside .OMP_DATA.  The parent thread then passes the
+   address of this structure onto the children threads.  For instance,
+
+   		int i, j;
+		struct A x;
+
+		#pragma omp parallel shared (A, i, j)
+		  {
+		    ...
+		  }
+
+   The above snippet is lowered into:
+
+   		struct .omp_data_s {
+		  int i;
+		  int j;
+		  struct A x;
+		} .omp_data_orig;
+
+		GOMP_parallel_start (__omp_fn.9, &.omp_data_orig, num_threads);
+		__omp_fn.9 (&.omp_data_orig);
+		GOMP_parallel_end ();
+
+   All the local variables that are marked shared are grouped inside a
+   structure.  All the references to the original variables is
+   converted to a structure reference and the address of that
+   structure is passed on to the children threads.  */
+
+static void
+get_omp_shared_repl (tree var, struct remap_info_d *ri_p)
+{
+  tree ptr_type, cast, field, repl;
+
+  if (DECL_HAS_VALUE_EXPR_P (var))
+    return;
+
+  /* Add a new field in struct .omp_data_s to hold VAR.  */
+  add_omp_data_field (var, ri_p);
+
+  /* Mark the variable in RI_P->SHARED so that it can be re-written in
+     the body of the parent function.  */
+  if (ri_p->shared == NULL)
+    ri_p->shared = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (ri_p->shared, DECL_UID (var));
+
+  /* When the child thread RI_P->OMP_FN is gimplified, all references
+     to VAR will be converted to ((struct .omp_data_s *)data)->var.  */
+  ptr_type = ri_p->ptr_to_omp_data;
+  cast = fold_convert (ptr_type, DECL_ARGUMENTS (ri_p->omp_fn));
+  field = get_omp_data_field_for (var, ri_p);
+  repl = build (COMPONENT_REF, TREE_TYPE (var),
+		build (INDIRECT_REF, TREE_TYPE (ri_p->omp_data), cast),
+		field,
+		NULL_TREE);
+
+  SET_DECL_VALUE_EXPR (var, repl);
+  DECL_HAS_VALUE_EXPR_P (var) = 1;
+  VEC_safe_push (tree, heap, ri_p->syms_with_value_expr, var);
+}
+
+
+/* Insert lastprivate receiving code for variable VAR.  This assumes
+   that there is a field VAR inside RI_P->OMP_DATA.  It generates the
+   following assignment after the OpenMP parallel directive pointed by
+   RI_P->TSI: var = ((struct .omp_data_s *) data)->var.  */
+
+static void
+emit_lastprivate_receiving_code (tree var, struct remap_info_d *ri_p)
+{
+  tree field, ref, init;
+  
+  field = get_omp_data_field_for (var, ri_p);
+  ref = build (COMPONENT_REF, TREE_TYPE (field), ri_p->omp_data, field, 0);
+  init = build (MODIFY_EXPR, void_type_node, var, ref);
+  tsi_link_after (ri_p->tsi, init, TSI_SAME_STMT);
+}
+
+
+/* Insert lastprivate sending code for variable VAR in the workshare
+   directive pointed by TSI, which can be either 'omp for' or 'omp
+   sections'.  The assignment to be inserted is:
+   ((struct .omp_data_s *) data)->var = var.
+
+   For 'omp for' this should be computed for the last iteration of the
+   construct.  For 'omp sections', it should go in the lexically last
+   section construct.  */
+
+static void
+emit_lastprivate_sending_code (tree var, tree_stmt_iterator *tsi,
+			       struct remap_info_d *ri_p)
+{
+  tree ptr_type, cast, field, copy, t;
+  tree ws;
+
+  /* Build ((struct .omp_data_s *) data)  */
+  ptr_type = ri_p->ptr_to_omp_data;
+  cast = fold_convert (ptr_type, DECL_ARGUMENTS (ri_p->omp_fn));
+
+  /* Build ((struct .omp_data_s *) data)->var  */
+  field = get_omp_data_field_for (var, ri_p);
+  t = build (COMPONENT_REF, TREE_TYPE (var),
+		  build (INDIRECT_REF, TREE_TYPE (ri_p->omp_data), cast),
+		  field,
+		  NULL_TREE);
+
+  /* Build ((struct .omp_data_s *) data)->var = var  */
+  copy = build (MODIFY_EXPR, void_type_node, t, var);
+
+  /* Insert at the appropriate spot.  TSI points to the header of the
+     workshare directive.  For 'omp for'
+
+     	#pragma omp for
+	for (VAR = N1; VAR COND N2; VAR = VAR OP INCR)
+
+     Since we have to update at the last iteration, we emit a
+     conditional that will only trigger for the unique thread that
+     has VAR with a value larger (or smaller, depending on COND) than
+     N2.  So,
+
+     	if (VAR {>=, <=} N2)
+	  ((struct .omp_data_s *) data)->var = var
+
+     The conditional is >= if COND is < or <=, and <= if COND is > or
+     >=.  */
+  ws = tsi_stmt (*tsi);
+  if (TREE_CODE (ws) == OMP_FOR)
+    {
+      tree cond = OMP_FOR_COND (ws);
+      tree var = TREE_OPERAND (cond, 0);
+      tree n2 = TREE_OPERAND (cond, 1);
+      enum tree_code code = TREE_CODE (cond);
+
+      if (code == LT_EXPR || code == LE_EXPR)
+	code = GE_EXPR;
+      else if (code == GT_EXPR || code == GE_EXPR)
+	code = LT_EXPR;
+      else
+	gcc_unreachable ();
+
+      t = build (code, boolean_type_node, var, unshare_expr (n2));
+      t = build (COND_EXPR, void_type_node, t, copy, NULL_TREE);
+
+      tsi_link_after (tsi, t, TSI_NEW_STMT);
+    }
+  else if (TREE_CODE (ws) == OMP_SECTIONS)
+    {
+      /* For 'omp sections', just insert at the end of the lexically
+	 last section.  */
+      tree_stmt_iterator last = tsi_last (OMP_SECTIONS_BODY (ws));
+      tree last_sec = tsi_stmt (last);
+      tree last_body = OMP_SECTION_BODY (last_sec);
+
+      /* If the section consists of only one element, replace it with
+	 a new statement list.  */
+      if (TREE_CODE (last_body) != STATEMENT_LIST)
+	{
+	  tree list = alloc_stmt_list ();
+	  append_to_statement_list (last_body, &list);
+	  OMP_SECTION_BODY (last_sec) = list;
+	}
+
+      last = tsi_last (OMP_SECTION_BODY (last_sec));
+      tsi_link_after (&last, copy, TSI_SAME_STMT);
     }
 }
 
 
-/* Process the list of data sharing and copying specified in
-   CLAUSES.  All the variables found in each clause are added to
-   the corresponding sets in the remap info structure pointed by RI_P.  */
+/* Prepare a lastprivate replacement for VAR.  This is similar to the
+   firstprivate case, but the update process is reversed.  It is the
+   child thread the one updating VAR in the parent.  
+
+   	#pragma omp parallel firstprivate (a)
+	  {
+	    #pragma omp [for|sections]
+	      ...
+	  }
+
+   we generate in the master thread:
+
+	struct .omp_data_s { int a; } .omp_data;
+	GOMP_parallel_start (__omp_fn.3, &.omp_data, ...);
+	__omp_fn.3 (&.omp_data);
+	GOMP_parallel_end ();
+   	a = .omp_data.a;
+
+   
+   and in the child thread
+
+	__omp_fn.3 (void *data)
+	{
+	  int a;
+	  ...
+	  ((struct .omp_data_s *) data)->a = a;
+	}
+   */
 
 static void
-process_omp_clauses (tree clauses, struct remap_info_d *ri_p)
+get_omp_lastprivate_repl (tree var, tree_stmt_iterator *tsi,
+			  struct remap_info_d *ri_p)
+{
+  get_omp_private_repl (var, ri_p);
+
+  /* Add a new field in struct .omp_data_s to hold VAR.  */
+  add_omp_data_field (var, ri_p);
+
+  /* Insert .omp_data_orig.var = var in the child thread.  */
+  emit_lastprivate_sending_code (var, tsi, ri_p);
+
+  /* Insert repl = ((struct .omp_data_s *)data)->var in the parent
+     thread.  */
+  emit_lastprivate_receiving_code (var, ri_p);
+}
+
+
+/* Prepare a copyin replacement for VAR.  This is exactly like
+   firstprivate, except that this is done on threadprivate variables,
+   so there is no need to create a new local in the child thread.
+   So, given
+
+   	#pragma omp parallel copyin (a)
+	  {
+	    ...
+	  }
+
+   we generate in the master thread:
+
+	struct .omp_data_s { int a; } .omp_data;
+   	.omp_data.a = a;
+	GOMP_parallel_start (__omp_fn.3, &.omp_data, ...);
+	__omp_fn.3 (&.omp_data);
+	GOMP_parallel_end ();
+
+   and in the child thread:
+
+	__omp_fn.3 (void *data)
+	{
+	  a = ((struct .omp_data_s *) data)->a;
+	  ...
+	}
+   */
+
+static void
+get_omp_copyin_repl (tree var, struct remap_info_d *ri_p)
+{
+  /* Add a new field in struct .omp_data_s to hold VAR.  */
+  add_omp_data_field (var, ri_p);
+
+  /* Insert .omp_data_orig.var = var in the parent thread.  */
+  emit_firstprivate_sending_code (var, ri_p);
+
+  /* Insert repl = ((struct .omp_data_s *)data)->var in the child
+     thread.  */
+  emit_firstprivate_receiving_code (var, ri_p);
+}
+
+
+/* Prepare replacements for all the variables in CLAUSE, which is
+   assumed to be one of the data sharing/copying clauses (private,
+   shared, firstprivate, lastprivate, copyin or copyprivate).  TSI
+   points to the directive being processed.  */
+
+static void
+get_omp_sharing_replacements (tree clause, tree_stmt_iterator *tsi,
+			      struct remap_info_d *ri_p)
+{
+  tree t;
+
+  for (t = TREE_OPERAND (clause, 0); t; t = TREE_CHAIN (t))
+    {
+      tree var = TREE_VALUE (t);
+
+      if (TREE_CODE (clause) == OMP_CLAUSE_PRIVATE)
+	get_omp_private_repl (var, ri_p);
+      else if (TREE_CODE (clause) == OMP_CLAUSE_SHARED)
+	get_omp_shared_repl (var, ri_p);
+      else if (TREE_CODE (clause) == OMP_CLAUSE_FIRSTPRIVATE)
+	get_omp_firstprivate_repl (var, ri_p);
+      else if (TREE_CODE (clause) == OMP_CLAUSE_LASTPRIVATE)
+	get_omp_lastprivate_repl (var, tsi, ri_p);
+      else if (TREE_CODE (clause) == OMP_CLAUSE_REDUCTION)
+	gcc_unreachable (); /*get_omp_reduction_repl (var, ri_p);*/
+      else if (TREE_CODE (clause) == OMP_CLAUSE_COPYPRIVATE)
+	gcc_unreachable (); /*get_omp_copyprivate_repl (var, ri_p);*/
+      else if (TREE_CODE (clause) == OMP_CLAUSE_COPYIN)
+	get_omp_copyin_repl (var, ri_p);
+      else
+	gcc_unreachable ();
+    }
+}
+
+
+/* Process the list of data sharing and copying specified in CLAUSES.
+   All the variables found in each clause are added to the
+   corresponding sets in the remap info structure pointed by RI_P.
+   TSI points to the directive being processed.  */
+
+static void
+process_omp_clauses (tree clauses, tree_stmt_iterator *tsi,
+		     struct remap_info_d *ri_p)
 {
   tree c;
 
   for (c = clauses; c; c = TREE_CHAIN (c))
     {
       tree clause = TREE_VALUE (c);
-      bitmap *set_p = NULL;
 
-      if (TREE_CODE (clause) == OMP_CLAUSE_PRIVATE)
-	set_p = &ri_p->private;
-      else if (TREE_CODE (clause) == OMP_CLAUSE_SHARED)
-	set_p = &ri_p->shared;
-      else if (TREE_CODE (clause) == OMP_CLAUSE_FIRSTPRIVATE)
-	set_p = &ri_p->firstprivate;
-      else if (TREE_CODE (clause) == OMP_CLAUSE_LASTPRIVATE)
-	set_p = &ri_p->lastprivate;
-      else if (TREE_CODE (clause) == OMP_CLAUSE_COPYIN)
-	set_p = &ri_p->copyin;
-      else if (TREE_CODE (clause) == OMP_CLAUSE_COPYPRIVATE)
-	set_p = &ri_p->copyprivate;
-
-      if (set_p)
-	add_decls_to_set (set_p, TREE_OPERAND (clause, 0));
+      if (TREE_CODE (clause) == OMP_CLAUSE_PRIVATE
+	  || TREE_CODE (clause) == OMP_CLAUSE_SHARED
+	  || TREE_CODE (clause) == OMP_CLAUSE_FIRSTPRIVATE
+	  || TREE_CODE (clause) == OMP_CLAUSE_LASTPRIVATE
+	  || TREE_CODE (clause) == OMP_CLAUSE_REDUCTION
+	  || TREE_CODE (clause) == OMP_CLAUSE_COPYPRIVATE
+	  || TREE_CODE (clause) == OMP_CLAUSE_COPYIN)
+      get_omp_sharing_replacements (clause, tsi, ri_p);
     }
 
-  /* FIXME.  Add checking code to disallow variables in multiple sets.
-     Variables may only appear in exactly one set, except for
+  /* FIXME.  Add checking code to disallow variables in multiple clauses.
+     Variables may only appear in exactly one clause, except for
      firstprivate and lastprivate.  */
 }
 
 
 /* Build and create a data sharing description structure to guide the
-   remapping actions done in remap_locals_r.  OMP_FN is the function
-   holding the body of the directive to be processed.  CLAUSES is the
-   list of clauses controlling data sharing and copying.  */
+   remapping actions done in remap_locals_in_child_r.  OMP_FN is the
+   function holding the body of the directive to be processed.
+   CLAUSES is the list of clauses controlling data sharing and
+   copying.  TSI points to the OpenMP directive being lowered.  */
 
 static struct remap_info_d *
-build_remap_info (tree omp_fn, tree clauses)
+build_remap_info (tree omp_fn, tree clauses, tree_stmt_iterator *tsi)
 {
   struct remap_info_d *ri_p;
 
@@ -261,6 +713,8 @@ build_remap_info (tree omp_fn, tree clauses)
   ri_p->omp_fn = omp_fn;
   ri_p->clauses = clauses;
   ri_p->map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
+  ri_p->tsi = tsi;
+  ri_p->syms_with_value_expr = NULL;
 
   return ri_p;
 }
@@ -272,189 +726,48 @@ static void
 delete_remap_info (struct remap_info_d *ri_p)
 {
   splay_tree_delete (ri_p->map);
-  BITMAP_FREE (ri_p->private);
-  BITMAP_FREE (ri_p->firstprivate);
-  BITMAP_FREE (ri_p->lastprivate);
   BITMAP_FREE (ri_p->shared);
-  BITMAP_FREE (ri_p->copyin);
-  BITMAP_FREE (ri_p->copyprivate);
+  VEC_free (tree, heap, ri_p->syms_with_value_expr);
   free (ri_p);
-}
-
-
-/* Given a private variable VAR, get the variable that will replace
-   VAR inside the body of the function created for RI_P->OMP_FN.  If
-   VAR had not been mapped before, add it to the unexpanded variable
-   list in ID->OMP_FN.  */
-
-static tree
-get_omp_private_ref (tree var, struct remap_info_d *ri_p)
-{
-  tree repl;
-  splay_tree_node n;
-
-  n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
-  if (n == NULL)
-    {
-      struct function *f = DECL_STRUCT_FUNCTION (ri_p->omp_fn);
-
-      repl = create_tmp_var_raw (TREE_TYPE (var), NULL);
-
-      splay_tree_insert (ri_p->map, (splay_tree_key) var,
-			 (splay_tree_value) repl);
-
-      /* Since this is first time that we map VAR, add it to the
-	 unexpanded variable list of OMP_FN.  */
-      DECL_CONTEXT (repl) = ri_p->omp_fn;
-      DECL_SEEN_IN_BIND_EXPR_P (repl) = 1;
-      DECL_NAME (repl) = DECL_NAME (var);
-      f->unexpanded_var_list = tree_cons (NULL_TREE, repl,
-					  f->unexpanded_var_list);
-    }
-  else
-    repl = (tree) n->value;
-  
-  return repl;
-}
-
-
-/* Given a variable VAR, marked as shared inside the OpenMP shared
-   clause, return the INDIRECT_REF expression DATA->VAR.  DATA is the
-   argument passed in to the function implementing the body of the
-   OpenMP directive.  */
-
-static tree
-get_omp_shared_ref (tree var, struct remap_info_d *ri_p)
-{
-  tree t, field;
-  splay_tree_node n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
-
-  /* If no replacement exists for VAR, create a new one.  */
-  if (n == NULL)
-    {
-      /* Add a new field to RI_P->DATA_ARG_DEST to hold the address of VAR.  */
-      tree struct_ptr_type, struct_type;
-
-      /* Create the structure type and local pointer .OMP_DATA.  */
-      if (ri_p->data_arg_dest == NULL)
-	{
-	  struct function *f = DECL_STRUCT_FUNCTION (ri_p->omp_fn);
-	  struct_ptr_type = build_pointer_type (make_node (RECORD_TYPE));
-	  ri_p->data_arg_dest = create_tmp_var_raw (struct_ptr_type,
-						    ".omp_data");
-
-	  /* Add .OMP_DATA to the unexpanded variable list of OMP_FN.  */
-	  DECL_CONTEXT (ri_p->data_arg_dest) = ri_p->omp_fn;
-	  DECL_SEEN_IN_BIND_EXPR_P (ri_p->data_arg_dest) = 1;
-	  f->unexpanded_var_list = tree_cons (NULL_TREE, 
-	                                      ri_p->data_arg_dest,
-					      f->unexpanded_var_list);
-	}
-      else
-	struct_ptr_type = TREE_TYPE (ri_p->data_arg_dest);
-
-      /* Add a new field to hold the address of VAR.  */
-      struct_type = TREE_TYPE (struct_ptr_type);
-
-      field = build_decl (FIELD_DECL,
-			  DECL_NAME (var),
-			  build_pointer_type (TREE_TYPE (var)));
-      DECL_FIELD_CONTEXT (field) = struct_type;
-      TREE_CHAIN (field) = TYPE_FIELDS (struct_type);
-      TYPE_FIELDS (struct_type) = field;
-
-      /* Create a mapping between VAR and FIELD.  */
-      splay_tree_insert (ri_p->map,
-			 (splay_tree_key) var,
-			 (splay_tree_value) field);
-    }
-  else
-    field = (tree) n->value;
-
-  /* Build .OMP_DATA->VAR.  */
-  t = build (COMPONENT_REF, TREE_TYPE (field),
-	     build (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ri_p->data_arg_dest)),
-		    ri_p->data_arg_dest),
-	     field,
-	     NULL_TREE);
-
-  /* Return *(.OMP_DATA->VAR).  */
-  t = build (INDIRECT_REF, TREE_TYPE (var), t);
-
-  return t;
 }
 
 
 /* Callback for walk_tree to change the context of all the local
    variables found in *TP accordingly to what is described by the
-   sets in DATA.  */
+   sets in DATA.  This makes the replacements required by children
+   threads.  */
 
 static tree
-remap_locals_r (tree *tp, int *ws, void *data)
+remap_locals_in_child_r (tree *tp, int *ws, void *data)
 {
-  struct remap_info_d *ri_p = (struct remap_info_d *) data;
+  struct walk_stmt_info *wi = data;
+  struct remap_info_d *ri_p = wi->info;
   tree t, omp_fn;
   enum tree_code code;
 
   omp_fn = ri_p->omp_fn;
 
   t = *tp;
-
   code = TREE_CODE (t);
-  if (code == VAR_DECL && !is_global_var (t))
+
+  if ((code == PARM_DECL || code == VAR_DECL)
+      && DECL_CONTEXT (t) != omp_fn
+      && !is_global_var (t))
     {
-      tree repl = NULL_TREE;
-
-      /* Remap local variables into OMP_FN if they appear in one of
-	 the private sets.  */
-      if (ri_p->private
-	  && bitmap_bit_p (ri_p->private, DECL_UID (t)))
-	{
-	  /* Private variables just need to be declared inside OMP_FN.  */
-	  repl = get_omp_private_ref (t, ri_p);
-	}
-      else if (ri_p->firstprivate
-	       && bitmap_bit_p (ri_p->firstprivate, DECL_UID (t)))
-	gcc_unreachable ();
-      else if (ri_p->lastprivate
-	       && bitmap_bit_p (ri_p->lastprivate, DECL_UID (t)))
-	gcc_unreachable ();
-      else if (ri_p->shared
-	       && bitmap_bit_p (ri_p->shared, DECL_UID (t)))
-	{
-	  /* Shared variables are declared as global pointers holding
-	     their address.  Each reference to T is replaced by a
-	     dereference of the pointer associated with T.  */
-	  repl = get_omp_shared_ref (t, ri_p);
-	}
-      else if (ri_p->copyin
-	       && bitmap_bit_p (ri_p->copyin, DECL_UID (t)))
-	gcc_unreachable ();
-      else if (ri_p->copyprivate
-	       && bitmap_bit_p (ri_p->copyprivate, DECL_UID (t)))
-	gcc_unreachable ();
+      /* Remap locals in the parent function into the child function.
+	 Skip any symbols that we may have already generated with the
+	 correct scope.  By default, ask the FE what the implicit
+	 sharing rules should be.  FIXME, add langhooks.  Currently,
+	 this just uses C/C++ rules (every local is private).  */
+      if (!DECL_VALUE_EXPR (t))
+	*tp = get_omp_private_repl (t, ri_p);
       else
-	{
-	  /* By default, ask the FE what the implicit sharing rules
-	     should be.  FIXME, add langhooks.  Currently, this just
-	     uses C/C++ rules (every local is private).  */
-	  repl = get_omp_private_ref (t, ri_p);
-	}
-
-      if (repl)
-	{
-	  *tp = repl;
-
-	  /* Once replaced, do not keep walking this expression tree.
-	     The replacement may have inserted an expression that we
-	     are not really interested in mapping again (e.g., shared
-	     variables are replaced with *(PTR->FLD)).  */
-	  *ws = 0;
-	}
+	*tp = DECL_VALUE_EXPR (t);
     }
   else if (code == LABEL_DECL)
     DECL_CONTEXT (t) = omp_fn;
-  else if (code == OMP_CLAUSE_PRIVATE
+  else if (code == OMP_PARALLEL
+	   || code == OMP_CLAUSE_PRIVATE
 	   || code == OMP_CLAUSE_SHARED
 	   || code == OMP_CLAUSE_FIRSTPRIVATE
 	   || code == OMP_CLAUSE_LASTPRIVATE
@@ -467,47 +780,40 @@ remap_locals_r (tree *tp, int *ws, void *data)
 	 need to refer to the original _DECL.  */
       *ws = 0;
     }
-  else if (code == OMP_PARALLEL)
-    {
-      /* FIXME.  Copy-in/copy-out code needs to be added here.  */
-      process_omp_clauses (OMP_PARALLEL_CLAUSES (t), ri_p);
-    }
   else if (code == OMP_FOR)
-    {
-      /* FIXME.  Copy-in/copy-out code needs to be added here.  */
-      process_omp_clauses (OMP_FOR_CLAUSES (t), ri_p);
-    }
+    process_omp_clauses (OMP_FOR_CLAUSES (t), &wi->tsi, ri_p);
   else if (code == OMP_SECTIONS)
-    {
-      /* FIXME.  Copy-in/copy-out code needs to be added here.  */
-      process_omp_clauses (OMP_SECTIONS_CLAUSES (t), ri_p);
-    }
+    process_omp_clauses (OMP_SECTIONS_CLAUSES (t), &wi->tsi, ri_p);
 
   return NULL_TREE;
 }
 
 
+
 /* Map local variables from the current function into RI_P->OMP_FN.
    RI_P points to an instance of struct remap_info_d describing how
-   local variables should be mapped into the new function.
-
-   BODY_P points to the code to be scanned with walk_tree.  */
+   local variables should be mapped into the new function.  */
 
 static void
-remap_locals (tree *body_p, struct remap_info_d *ri_p)
+remap_locals_in_child (struct remap_info_d *ri_p)
 {
-  /* Add all the variables in each clause to the corresponding sets in
-     RI_P.  */
-  process_omp_clauses (ri_p->clauses, ri_p);
+  struct walk_stmt_info wi;
 
-  walk_tree (body_p, remap_locals_r, ri_p, NULL);
+  /* Process the clauses in the header of the omp parallel directive.  */
+  process_omp_clauses (ri_p->clauses, ri_p->tsi, ri_p);
+
+  /* Walk all statements in RI_P->OMP_FN doing the mappings.  */
+  wi.callback = remap_locals_in_child_r;
+  wi.info = ri_p;
+  walk_stmts (&wi, &DECL_SAVED_TREE (ri_p->omp_fn));
 
   /* Once we have remapped all the locals, we can layout the
-     structure type for RI_P->DATA_ARG_DEST.  */
-  if (ri_p->data_arg_dest)
+     structure type for RI_P->OMP_DATA.  */
+  if (ri_p->omp_data)
     {
-      layout_type (TREE_TYPE (TREE_TYPE (ri_p->data_arg_dest)));
-      layout_type (TREE_TYPE (ri_p->data_arg_dest));
+      layout_type (TREE_TYPE (ri_p->omp_data));
+      layout_type (ri_p->ptr_to_omp_data);
+      layout_decl (ri_p->omp_data, 0);
     }
 }
 
@@ -605,87 +911,159 @@ create_gomp_parallel_end (void)
 }
 
 
-/* Emit code needed to initialize shared and copied-in variables.
-   This emits code in the parent thread to store the addresses of
-   shared variables into a structure whose address is pass as an
-   argument to all the children threads.
+/* Return a GIMPLE value representing EXP.  If necessary, insert a new
+   assignment before TSI to create a new temporary to hold EXP (the
+   iterator TSI is not affected by this insertion).
 
-   Inside the child function, it inserts the corresponding receiving
-   code, which takes the incoming void * argument and casts it into a
-   pointer to the structure sent by the parent thread.
+   If EXP is already a GIMPLE value its returned, otherwise the new
+   temporary holding EXP is returned.  */
 
-   TSI points to the OpenMP directive that we are generating code for.
-      The initialization code is inserted before it.
-
-   RI_P points to the remap information computed by remap_locals.  */
-
-static void
-emit_omp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
+static tree
+convert_to_gimple_val (tree exp, tree_stmt_iterator *tsi)
 {
-  tree t, c;
+  tree tmp, stmt;
 
-  /* Create a local structure holding all the shared data.  Since
-     RI_P->DATA_ARG_DEST is a pointer to this structure, we want to
-     create a local stack object in the calling function.  */
-  if (ri_p->data_arg_dest)
-    {
-      tree type = TREE_TYPE (TREE_TYPE (ri_p->data_arg_dest));
-      ri_p->data_arg_orig = create_tmp_var (type, ".omp_data");
-    }
+  if (is_gimple_val (exp))
+    return exp;
 
-  /* Generate the necessary setup code for each variable mentioned in
-     all the clauses.  */
-  for (c = ri_p->clauses; c; c = TREE_CHAIN (c))
-    {
-      tree clause = TREE_VALUE (c);
+  tmp = create_tmp_var (TREE_TYPE (exp), NULL);
+  stmt = build (MODIFY_EXPR, void_type_node, tmp, exp);
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (tsi_stmt (*tsi)));
+  tsi_link_before (tsi, stmt, TSI_SAME_STMT);
 
-      if (TREE_CODE (clause) == OMP_CLAUSE_SHARED)
-	{
-	  for (t = TREE_OPERAND (clause, 0); t; t = TREE_CHAIN (t))
-	    {
-	      tree var;
-	      splay_tree_node n;
-
-	      var = TREE_VALUE (t);
-	      n = splay_tree_lookup (ri_p->map, (splay_tree_key) var);
-	      if (n)
-		{
-		  tree ref, field, init, addr;
-
-		  /* Emit .OMP_DATA.VAR = &VAR  */
-		  field = (tree) n->value;
-		  addr = build1 (ADDR_EXPR, TREE_TYPE (field), var);
-		  ref = build (COMPONENT_REF, TREE_TYPE (field),
-			       ri_p->data_arg_orig, field, NULL_TREE);
-		  init = build (MODIFY_EXPR, TREE_TYPE (field), ref, addr);
-		  tsi_link_after (tsi, init, TSI_NEW_STMT);
-		}
-	    }
-	}
-    }
-
-  /* Emit receiving code inside RI_P->OMP_FN.  */
-  if (ri_p->data_arg_dest)
-    {
-      /* If RI_P->DATA_ARG_DEST has been created, then each thread
-	 needs to initialize its own copy from the function argument.
-	 Emit .OMP_DATA = (STRUCT *) DATA at the start of the
-	 function.  */
-      tree body = BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->omp_fn));
-      tree arg = DECL_ARGUMENTS (ri_p->omp_fn);
-      tree_stmt_iterator child_tsi = tsi_start (body);
-      tree cast = build1 (NOP_EXPR, TREE_TYPE (ri_p->data_arg_dest), arg);
-      tree t = build (MODIFY_EXPR, TREE_TYPE (ri_p->data_arg_dest),
-		      ri_p->data_arg_dest, cast);
-      tsi_link_before (&child_tsi, t, TSI_NEW_STMT);
-    }
+  return tmp;
 }
 
 
-/* Static emit code to specify the number of threads to use in the
-   runtime.
+/* Callback for walk_tree to change the context of all the local
+   variables found in *TP accordingly to what is described by the
+   sets in DATA.
+   
+   This makes the replacements required by the parent thread.  It's
+   mostly modelled after convert_nonlocal_reference, which needs to do
+   similar rewriting when unnesting functions.  */
 
-   TSI points to where the code should be emitted.
+static tree
+remap_locals_in_parent_r (tree *tp, int *ws, void *data)
+{
+  struct walk_stmt_info *wi = data;
+  struct remap_info_d *ri_p = wi->info;
+  tree t = *tp;
+
+  switch (TREE_CODE (t))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+      if (!is_global_var (t)
+	  && ri_p->shared
+	  && bitmap_bit_p (ri_p->shared, DECL_UID (t)))
+	{
+	  tree r, field;
+
+	  /* If the replacement needs to be a GIMPLE value, assign it
+	     into a new temporary before TSI.  */
+	  field = get_omp_data_field_for (t, ri_p);
+	  r = build (COMPONENT_REF, TREE_TYPE (t), ri_p->omp_data, field, 0);
+
+	  if (wi->val_only)
+	    *tp = convert_to_gimple_val (r, &wi->tsi);
+	  else
+	    *tp = r;
+
+	  /* We don't want to recurse into the replacement we just added.  */
+	  *ws = 0;
+	}
+      break;
+
+    case ADDR_EXPR:
+      {
+	bool save_val_only = wi->val_only;
+
+	wi->val_only = false;
+	wi->is_lhs = false;
+	wi->changed = false;
+	walk_tree (&TREE_OPERAND (t, 0), remap_locals_in_parent_r, wi, NULL);
+	wi->val_only = true;
+
+	if (wi->changed)
+	  {
+	    /* If we changed anything, then TREE_INVARIANT may be
+	       wrong, since we're no longer directly referencing a
+	       decl.  */
+	    recompute_tree_invarant_for_addr_expr (t);
+
+	    /* If the callback converted the address argument in a
+	       context where we only accept variables (and
+	       min_invariant, presumably), then compute the address
+	       into a temporary.  */
+	    if (save_val_only)
+	      *tp = convert_to_gimple_val (t, &wi->tsi);
+	  }
+      }
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case BIT_FIELD_REF:
+      /* Go down this entire nest and just look at the final prefix
+	 and anything that describes the references.  Otherwise, we
+	 lose track of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a
+	 simple value.  */
+      wi->val_only = true;
+      wi->is_lhs = false;
+      for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
+	{
+	  if (TREE_CODE (t) == COMPONENT_REF)
+	    walk_tree (&TREE_OPERAND (t, 2), remap_locals_in_parent_r, wi,
+		       NULL);
+	  else if (TREE_CODE (t) == ARRAY_REF
+		   || TREE_CODE (t) == ARRAY_RANGE_REF)
+	    {
+	      walk_tree (&TREE_OPERAND (t, 1), remap_locals_in_parent_r, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 2), remap_locals_in_parent_r, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 3), remap_locals_in_parent_r, wi,
+			 NULL);
+	    }
+	  else if (TREE_CODE (t) == BIT_FIELD_REF)
+	    {
+	      walk_tree (&TREE_OPERAND (t, 1), remap_locals_in_parent_r, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 2), remap_locals_in_parent_r, wi,
+			 NULL);
+	    }
+	}
+      wi->val_only = false;
+      walk_tree (tp, remap_locals_in_parent_r, wi, NULL);
+      break;
+
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+      /* No need to handle these here.  */
+      *ws = 0;
+      break;
+
+    default:
+      if (!IS_TYPE_OR_DECL_P (t))
+	{
+	  *ws = 1;
+          wi->val_only = true;
+	  wi->is_lhs = false;
+	}
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+
+/* Emit code to specify the number of threads to use in the
+   runtime.
 
    RI_P points to the remap structure holding clause information.
 
@@ -694,9 +1072,7 @@ emit_omp_data_setup_code (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
    Returns the argument that should be passed to GOMP_parallel_start.  */
 
 static tree
-emit_num_threads_setup_code (tree_stmt_iterator *tsi,
-			     struct remap_info_d *ri_p,
-			     struct lower_data *data)
+emit_num_threads_setup_code (struct remap_info_d *ri_p, struct lower_data *data)
 {
   tree val, cond, c;
   tree clauses = ri_p->clauses;
@@ -750,7 +1126,7 @@ emit_num_threads_setup_code (tree_stmt_iterator *tsi,
       if (stmt_list)
 	{
 	  lower_stmt_body (stmt_list, data);
-	  tsi_link_after (tsi, stmt_list, TSI_CONTINUE_LINKING);
+	  tsi_link_after (ri_p->tsi, stmt_list, TSI_CONTINUE_LINKING);
 	}
 
       if (gs == GS_ALL_DONE)
@@ -770,50 +1146,55 @@ emit_num_threads_setup_code (tree_stmt_iterator *tsi,
 static void
 lower_omp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
 {
-  tree par_stmt, fn, call, args, num_threads, addr_data_arg;
+  tree t, par_stmt, fn, call, args, num_threads, addr_data_arg;
   tree_stmt_iterator orig_tsi;
   struct remap_info_d *ri_p;
   struct function *saved_cfun;
+  struct walk_stmt_info wi;
+  unsigned ix;
 
   orig_tsi = *tsi;
   par_stmt = tsi_stmt (*tsi);
 
-  /* Build a new function out of the pragma's body and add it to the
-     call graph.  */
+  /* Build a new function out of the pragma's body.  */
   fn = create_omp_fn (par_stmt);
 
-  /* Allocate memory for the function structure.  */
+  /* Allocate memory for the function structure.  We need to
+     save/restore CFUN because it gets clobbered by the call to
+     allocate_struct_function.  */
   saved_cfun = cfun;
   allocate_struct_function (fn);
   DECL_SOURCE_LOCATION (fn) = input_location;
   cfun->function_end_locus = input_location;
+  cfun = saved_cfun;
 
   /* Remap local variables according to the data clauses.  This must
-     be done before adding FN to the call graph because adding
-     the function to the call graph also gimplifies its body.  And we
-     can only gimplify the function after adjusting labels and local
-     variable references.  */
-  ri_p = build_remap_info (fn, OMP_PARALLEL_CLAUSES (par_stmt));
-  remap_locals (&DECL_SAVED_TREE (ri_p->omp_fn), ri_p);
+     be done before gimplification, because we can only gimplify the
+     function after adjusting labels and local variable references.  */
+  ri_p = build_remap_info (fn, OMP_PARALLEL_CLAUSES (par_stmt), tsi);
+  remap_locals_in_child (ri_p);
 
   /* Add FN to the call graph.  */
   gimplify_function_tree (fn);
   cgraph_add_new_function (fn);
 
-  /* Restore CFUN (which was overwritten by the call to
-     allocate_struct_function).  */
-  cfun = saved_cfun;
-
-  /* Emit code to setup the shared data before launching the threads.  */
-  emit_omp_data_setup_code (tsi, ri_p);
-
-  /* Take the address of RI_P->DATA_ARG_ORIG to pass to __omp_fn.XXXX.  */
-  if (ri_p->data_arg_dest)
+  /* Remove DECL_VALUE_EXPR from every symbol we processed.  */
+  for (ix = 0; VEC_iterate (tree, ri_p->syms_with_value_expr, ix, t); ix++)
     {
-      addr_data_arg = build1 (ADDR_EXPR,
-			      TREE_TYPE (ri_p->data_arg_dest),
-			      ri_p->data_arg_orig);
-      TREE_ADDRESSABLE (ri_p->data_arg_orig) = 1;
+      SET_DECL_VALUE_EXPR (t, NULL_TREE);
+      DECL_HAS_VALUE_EXPR_P (t) = 0;
+    }
+
+  /* Remap shared variables in the parent function.  */
+  wi.callback = remap_locals_in_parent_r;
+  wi.info = ri_p;
+  walk_stmts (&wi, &DECL_SAVED_TREE (current_function_decl));
+
+  /* Take the address of RI_P->OMP_DATA to pass to __omp_fn.XXXX.  */
+  if (ri_p->omp_data)
+    {
+      addr_data_arg = build1 (ADDR_EXPR, ri_p->ptr_to_omp_data, ri_p->omp_data);
+      TREE_ADDRESSABLE (ri_p->omp_data) = 1;
     }
   else
     addr_data_arg = null_pointer_node;
@@ -821,7 +1202,7 @@ lower_omp_parallel (tree_stmt_iterator *tsi, struct lower_data *data)
   /* Emit code to set up the number of threads to use according to the
      IF and NUM_THREADS clauses.  If both are missing, set it to 0 so
      that it is dynamically selected by the runtime.  */
-  num_threads = emit_num_threads_setup_code (tsi, ri_p, data);
+  num_threads = emit_num_threads_setup_code (ri_p, data);
 
   /* Emit GOMP_parallel_start (__omp_fn.XXXX ...).  */
   call = create_gomp_parallel_start (fn, addr_data_arg, num_threads);

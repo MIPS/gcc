@@ -7673,12 +7673,19 @@ c_parser_pragma_omp_single (cpp_reader *pfile ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_threadprivate (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  printf ("#pragma omp threadprivate\n");
-
   if (c_parser_require (the_parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      c_parser_pragma_omp_variable_list (the_parser);
+      extern enum tls_model decl_default_tls_model (tree);
+      tree t;
+      tree vars = c_parser_pragma_omp_variable_list (the_parser);
       c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
+      /* Mark every variable in VARS to be assigned thread local storage.  */
+      for (t = vars; t; t = TREE_CHAIN (t))
+	{
+	  tree v = TREE_VALUE (t);
+	  DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	}
     }
 
   if (c_parser_next_token_is_not (the_parser, CPP_EOF))

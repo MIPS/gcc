@@ -180,7 +180,7 @@ build_addr (tree exp, tree context)
 
 /* Insert FIELD into TYPE, sorted by alignment requirements.  */
 
-static void
+void
 insert_field_into_struct (tree type, tree field)
 {
   tree *p;
@@ -538,31 +538,10 @@ get_nl_goto_field (struct nesting_info *info)
   return field;
 }
 
-/* Convenience routines to walk all statements of a gimple function.
+/* Iterate over all sub-statements of *TP calling walk_tree with
+   WI->CALLBACK for every sub-expression in each statement found.  */
 
-   For each statement, we invoke CALLBACK via walk_tree.  The passed
-   data is a walk_stmt_info structure.  Of note here is a TSI that
-   points to the current statement being walked.  The VAL_ONLY flag
-   that indicates whether the *TP being examined may be replaced 
-   with something that matches is_gimple_val (if true) or something
-   slightly more complicated (if false).  "Something" technically 
-   means the common subset of is_gimple_lvalue and is_gimple_rhs, 
-   but we never try to form anything more complicated than that, so
-   we don't bother checking.  */
-
-struct walk_stmt_info
-{
-  walk_tree_fn callback;
-  tree_stmt_iterator tsi;
-  struct nesting_info *info;
-  bool val_only;
-  bool is_lhs;
-  bool changed;
-};
-
-/* A subroutine of walk_function.  Iterate over all sub-statements of *TP.  */
-
-static void
+void
 walk_stmts (struct walk_stmt_info *wi, tree *tp)
 {
   tree t = *tp;
