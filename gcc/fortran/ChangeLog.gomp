@@ -1,3 +1,37 @@
+2005-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.h (symbol_attribute): Add threadprivate bit.
+	(gfc_common_head): Add threadprivate member, change use_assoc
+	and saved into char to save space.
+	(gfc_add_threadprivate): New prototype.
+	* symbol.c (check_conflict): Handle threadprivate.
+	(gfc_add_threadprivate): New function.
+	(gfc_copy_attr): Copy threadprivate.
+	* trans-openmp.c (gfc_trans_omp_clauses): Avoid creating a temporary
+	if IF or NUM_THREADS is constant.  Create OMP_CLAUSE_SCHEDULE and
+	OMP_CLAUSE_ORDERED.
+	* resolve.c (resolve_symbol): Complain if a THREADPRIVATE symbol
+	outside a module and not in COMMON has is not SAVEd.
+	(resolve_equivalence): Ensure THREADPRIVATE objects don't get
+	EQUIVALENCEd.
+	* trans-common.c: Include target.h and rtl.h.
+	(build_common_decl): Set DECL_TLS_MODEL if THREADPRIVATE.
+	* trans-decl.c: Include rtl.h.
+	(gfc_finish_var_decl): Set DECL_TLS_MODEL if THREADPRIVATE.
+	* dump-parse-tree.c (gfc_show_attr): Handle THREADPRIVATE.
+	* Make-lang.in (fortran/trans-decl.o): Depend on $(RTL_H).
+	(fortran/trans-common.o): Depend on $(RTL_H) and $(TARGET_H).
+	* openmp.c (gfc_match_omp_variable_list): Ensure COMMON block
+	is from current namespace.
+	(gfc_match_omp_threadprivate): Rewrite.
+	(resolve_omp_clauses): Check some clause restrictions.
+	* module.c (ab_attribute): Add AB_THREADPRIVATE.
+	(attr_bits): Add THREADPRIVATE.
+	(mio_symbol_attribute, mio_symbol_attribute): Handle threadprivate.
+	(load_commons, write_common, write_blank_common): Adjust for type
+	change of saved, store/load threadprivate bit from the integer
+	as well.
+
 2005-09-25  Richard Henderson  <rth@redhat.com>
 
 	* types.def (BT_FN_UINT_UINT): New.

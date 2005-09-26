@@ -81,10 +81,9 @@ gfc_match_omp_variable_list (const char *str, gfc_namelist **list)
   gfc_namelist *head, *tail, *p;
   locus old_loc;
   char n[GFC_MAX_SYMBOL_LEN+1];
-  gfc_common_head *c;
   gfc_symbol *sym;
   match m;
-  gfc_namespace *ns;
+  gfc_symtree *st;
 
   head = tail = NULL;
 
@@ -122,22 +121,13 @@ gfc_match_omp_variable_list (const char *str, gfc_namelist **list)
       if (m == MATCH_NO)
 	goto syntax;
 
-      c = NULL;
-      for (ns = gfc_current_ns; ns != NULL; ns = ns->parent)
-	{
-	  gfc_symtree *st = gfc_find_symtree (ns->common_root, n);
-	  if (st != NULL)
-	    {
-	      c = st->n.common;
-	      break;
-	    }
-	}
-      if (c == NULL)
+      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      if (st == NULL)
 	{
 	  gfc_error ("COMMON block /%s/ not found at %C", n);
 	  goto cleanup;
 	}
-      for (sym = c->head; sym; sym = sym->common_next)
+      for (sym = st->n.common->head; sym; sym = sym->common_next)
 	{
 	  p = gfc_get_namelist ();
 	  if (head == NULL)
@@ -402,16 +392,67 @@ gfc_match_omp_flush (void)
 match
 gfc_match_omp_threadprivate (void)
 {
-  gfc_namelist *list = NULL;
-  gfc_match_omp_variable_list (" (", &list);
-  if (gfc_match_omp_eos () != MATCH_YES)
+  locus old_loc;
+  char n[GFC_MAX_SYMBOL_LEN+1];
+  gfc_symbol *sym;
+  match m;
+  gfc_symtree *st;
+
+  old_loc = gfc_current_locus;
+
+  m = gfc_match (" (");
+  if (m != MATCH_YES)
+    return m;
+
+  for (;;)
     {
-      gfc_free_namelist (list);
-      return MATCH_ERROR;
+      m = gfc_match_symbol (&sym, 0);
+      switch (m)
+	{
+	case MATCH_YES:
+	  if (sym->attr.in_common)
+	    gfc_error_now ("Threadprivate variable at %C is an element of"
+			   " a COMMON block");
+	  else
+	    gfc_add_threadprivate (&sym->attr, sym->name, &sym->declared_at);
+	  goto next_item;
+	case MATCH_NO:
+	  break;
+	case MATCH_ERROR:
+	  goto cleanup;
+	}
+
+      m = gfc_match (" / %n /", n);
+      if (m == MATCH_ERROR)
+	goto cleanup;
+      if (m == MATCH_NO || n[0] == '\0')
+	goto syntax;
+
+      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      if (st == NULL)
+	{
+	  gfc_error ("COMMON block /%s/ not found at %C", n);
+	  goto cleanup;
+	}
+      st->n.common->threadprivate = 1;
+      for (sym = st->n.common->head; sym; sym = sym->common_next)
+	gfc_add_threadprivate (&sym->attr, sym->name, &sym->declared_at);
+
+    next_item:
+      if (gfc_match_char (')') == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
     }
-  /* XXX Mark vars thread private now.  */
-  gfc_free_namelist (list);
+
   return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in !$OMP THREADPRIVATE list at %C");
+
+cleanup:
+  gfc_current_locus = old_loc;
+  return MATCH_ERROR;
 }
 
 match
@@ -558,6 +599,11 @@ static void
 resolve_omp_clauses (gfc_code *code)
 {
   gfc_omp_clauses *omp_clauses = code->ext.omp_clauses;
+  gfc_namelist *n;
+  int list;
+  static const char *clause_names[]
+    = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
+	"COPYIN", "REDUCTION" };
 
   if (omp_clauses == NULL)
     return;
@@ -586,6 +632,76 @@ resolve_omp_clauses (gfc_code *code)
 	gfc_error ("SCHEDULE clause's chunk_size at %L requires"
 		   " a scalar INTEGER expression", &expr->where);
     }
+
+  for (list = 0; list < OMP_LIST_NUM; list++)
+    if ((n = omp_clauses->lists[list]) != NULL)
+      {
+	const char *name;
+
+	if (list < OMP_LIST_REDUCTION_FIRST)
+	  name = clause_names[list];
+	else if (list <= OMP_LIST_REDUCTION_LAST)
+	  name = clause_names[OMP_LIST_REDUCTION_FIRST];
+	else
+	  gcc_unreachable ();
+
+	switch (list)
+	  {
+	  case OMP_LIST_COPYIN:
+	    for (; n != NULL; n = n->next)
+	      {
+		if (!n->sym->attr.threadprivate)
+		  gfc_error ("Non-THREADPRIVATE object %s in COPYIN clause",
+			     n->sym->name);
+		if (n->sym->attr.allocatable)
+		  gfc_error ("COPYIN clause object %s is ALLOCATABLE",
+			     n->sym->name);
+	      }
+	    break;
+	  case OMP_LIST_COPYPRIVATE:
+	    for (; n != NULL; n = n->next)
+	      {
+		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
+		  gfc_error ("Assumed size array %s in COPYPRIVATE clause",
+			     n->sym->name);
+		if (n->sym->attr.allocatable)
+		  gfc_error ("COPYPRIVATE clause object %s is ALLOCATABLE",
+			     n->sym->name);
+	      }
+	    break;
+	  case OMP_LIST_SHARED:
+	    for (; n != NULL; n = n->next)
+	      if (n->sym->attr.threadprivate)
+		gfc_error ("THREADPRIVATE object %s in SHARED clause",
+			   n->sym->name);
+	    break;
+	  default:
+	    for (; n != NULL; n = n->next)
+	      {
+		if (n->sym->attr.threadprivate)
+		  gfc_error ("THREADPRIVATE object %s in %s clause",
+			     n->sym->name, name);
+		if (list != OMP_LIST_PRIVATE)
+		  {
+		    if (n->sym->attr.pointer)
+		      gfc_error ("POINTER object %s in %s clause",
+				 n->sym->name, name);
+		    if (n->sym->attr.allocatable)
+		      gfc_error ("%s clause object %s is ALLOCATABLE",
+				 name, n->sym->name);
+		  }
+		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
+		  gfc_error ("Assumed size array %s in %s clause",
+			     n->sym->name, name);
+		if (n->sym->attr.in_namelist
+		    && (list < OMP_LIST_REDUCTION_FIRST
+			|| list > OMP_LIST_REDUCTION_LAST))
+		  gfc_error ("Variable %s in %s clause is used in"
+			     " NAMELIST statement", n->sym->name, name);
+	      }
+	    break;
+	  }
+      }
 }
 
 /* Return true if SYM is ever referenced in EXPR except in the SE node.  */
@@ -796,7 +912,7 @@ resolve_omp_atomic (gfc_code *code)
 		code->expr2 = expr2 = e;
 	      else
 		code->expr2->value.function.actual->expr = expr2 = e;
-	      
+
 	      if (!gfc_compare_types (&expr2->value.op.op1->ts, &expr2->ts))
 		{
 		  for (p = &expr2->value.op.op1; *p != v;

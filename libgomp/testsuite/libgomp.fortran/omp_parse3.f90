@@ -1,8 +1,8 @@
 ! { dg-do run }
 use omp_lib
   common /tlsblock/ x, y
-  common /tlsblock2/ z
   integer :: x, y, z
+  save z
 !$omp threadprivate (/tlsblock/, z)
 
   call test_flush
@@ -52,6 +52,8 @@ contains
   end subroutine test_ordered
 
   subroutine test_threadprivate
+    common /tlsblock/ x, y
+!$omp threadprivate (/tlsblock/)
     integer :: i, j
     logical :: m, n
     call omp_set_num_threads (4)

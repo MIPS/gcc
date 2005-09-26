@@ -542,6 +542,8 @@ gfc_show_attr (symbol_attribute * attr)
     gfc_status (" POINTER");
   if (attr->save)
     gfc_status (" SAVE");
+  if (attr->threadprivate)
+    gfc_status (" THREADPRIVATE");
   if (attr->target)
     gfc_status (" TARGET");
   if (attr->dummy)

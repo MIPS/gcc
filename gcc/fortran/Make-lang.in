@@ -287,7 +287,7 @@ fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
 fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h \
-  cgraph.h $(TARGET_H) function.h $(FLAGS_H) tree-gimple.h \
+  cgraph.h $(TARGET_H) function.h $(FLAGS_H) $(RTL_H) tree-gimple.h \
   tree-dump.h
 fortran/trans-types.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-types.h \
   real.h toplev.h $(TARGET_H)
@@ -300,5 +300,5 @@ fortran/trans-array.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-intrinsic.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
   gt-fortran-trans-intrinsic.h
 fortran/dependency.o: $(GFORTRAN_TRANS_DEPS) fortran/dependency.h
-fortran/trans-common.o: $(GFORTRAN_TRANS_DEPS)
+fortran/trans-common.o: $(GFORTRAN_TRANS_DEPS) $(TARGET_H) $(RTL_H)
 

@@ -96,6 +96,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "target.h"
 #include "tree.h"
 #include "toplev.h"
 #include "tm.h"
@@ -103,6 +104,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
+#include "rtl.h"
 
 
 /* Holds a single variable in an equivalence set.  */
@@ -350,6 +352,9 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       DECL_USER_ALIGN (decl) = 0;
 
       gfc_set_decl_location (decl, &com->where);
+
+      if (com->threadprivate && targetm.have_tls)
+	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 
       /* Place the back end declaration for this common block in
          GLOBAL_BINDING_LEVEL.  */

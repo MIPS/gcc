@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-types.h"
 #include "trans-array.h"
 #include "trans-const.h"
+#include "rtl.h"
 /* Only for gfc_trans_code.  Shouldn't need to include this.  */
 #include "trans-stmt.h"
 
@@ -450,6 +451,11 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       && INTEGER_CST_P (DECL_SIZE_UNIT (decl))
       && !gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl)))
     TREE_STATIC (decl) = 1;
+
+  /* Handle threadprivate variables.  */
+  if (sym->attr.threadprivate && targetm.have_tls
+      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+    DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 }
 
 

@@ -1,3 +1,8 @@
+2005-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (assemble_variable): Handle thread-local COMMON data.
+	* defaults.h (ASM_OUTPUT_TLS_COMMON): Define.
+
 2005-09-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (gimple-low.o): Depend on vec.h

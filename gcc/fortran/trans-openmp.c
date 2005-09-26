@@ -53,7 +53,7 @@ gfc_trans_omp_variable_list (gfc_namelist *namelist)
 static tree
 gfc_trans_omp_clauses (stmtblock_t *block, gfc_code *code)
 {
-  tree omp_clauses = NULL_TREE;
+  tree omp_clauses = NULL_TREE, chunk_size;
   int clause;
   enum tree_code clause_code;
   gfc_se se;
@@ -107,18 +107,20 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_code *code)
 	}
     }
 
-  if (code->ext.omp_clauses->nowait)
-    omp_clauses = tree_cons (NULL_TREE, build0 (OMP_CLAUSE_NOWAIT, NULL_TREE),
-			     omp_clauses);
-
   if (code->ext.omp_clauses->if_expr)
     {
-      tree if_var = gfc_create_var (boolean_type_node, "if");
+      tree if_var;
       gfc_init_se (&se, NULL);
       gfc_conv_expr (&se, code->ext.omp_clauses->if_expr);
       gfc_add_block_to_block (block, &se.pre);
-      gfc_add_modify_expr (block, if_var,
-			   convert (boolean_type_node, se.expr));
+      if (TREE_CONSTANT (se.expr))
+	if_var = se.expr;
+      else
+	{
+	  if_var = gfc_create_var (boolean_type_node, "if");
+	  gfc_add_modify_expr (block, if_var,
+			       convert (boolean_type_node, se.expr));
+	}
       gfc_add_block_to_block (block, &se.post);
       omp_clauses = tree_cons (NULL_TREE,
 			       build1 (OMP_CLAUSE_IF, NULL_TREE, if_var),
@@ -127,18 +129,71 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_code *code)
 
   if (code->ext.omp_clauses->num_threads)
     {
-      tree num_threads = gfc_create_var (integer_type_node, "num_threads");
+      tree num_threads;
       gfc_init_se (&se, NULL);
       gfc_conv_expr (&se, code->ext.omp_clauses->num_threads);
       gfc_add_block_to_block (block, &se.pre);
-      gfc_add_modify_expr (block, num_threads,
-			   convert (integer_type_node, se.expr));
+      if (TREE_CONSTANT (se.expr))
+	num_threads = se.expr;
+      else
+	{
+	  num_threads = gfc_create_var (integer_type_node, "num_threads");
+	  gfc_add_modify_expr (block, num_threads,
+			       convert (integer_type_node, se.expr));
+	}
       gfc_add_block_to_block (block, &se.post);
       omp_clauses = tree_cons (NULL_TREE,
 			       build1 (OMP_CLAUSE_NUM_THREADS, NULL_TREE,
 				       num_threads),
 			       omp_clauses);
     }
+
+  chunk_size = NULL_TREE;
+  if (code->ext.omp_clauses->chunk_size)
+    {
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr (&se, code->ext.omp_clauses->chunk_size);
+      gfc_add_block_to_block (block, &se.pre);
+      if (TREE_CONSTANT (se.expr))
+	chunk_size = se.expr;
+      else
+	{
+	  chunk_size = gfc_create_var (integer_type_node, "chunk_size");
+	  gfc_add_modify_expr (block, chunk_size,
+			       convert (integer_type_node, se.expr));
+	}
+      gfc_add_block_to_block (block, &se.post);
+    }
+
+  if (code->ext.omp_clauses->sched_kind != OMP_SCHED_NONE)
+    {
+      tree c = build1 (OMP_CLAUSE_SCHEDULE, NULL_TREE, chunk_size);
+      switch (code->ext.omp_clauses->sched_kind)
+	{
+	case OMP_SCHED_STATIC:
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_STATIC;
+	  break;
+	case OMP_SCHED_DYNAMIC:
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_DYNAMIC;
+	  break;
+	case OMP_SCHED_GUIDED:
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_GUIDED;
+	  break;
+	case OMP_SCHED_RUNTIME:
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_RUNTIME;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  if (code->ext.omp_clauses->nowait)
+    omp_clauses = tree_cons (NULL_TREE, build0 (OMP_CLAUSE_NOWAIT, NULL_TREE),
+			     omp_clauses);
+
+  if (code->ext.omp_clauses->ordered)
+    omp_clauses = tree_cons (NULL_TREE, build0 (OMP_CLAUSE_ORDERED, NULL_TREE),
+			     omp_clauses);
 
   return omp_clauses;
 }

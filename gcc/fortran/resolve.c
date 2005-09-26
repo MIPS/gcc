@@ -4429,6 +4429,11 @@ resolve_symbol (gfc_symbol * sym)
       gfc_resolve (sym->formal_ns);
       formal_ns_flag = formal_ns_save;
     }
+
+  /* Check threadprivate restrictions.  */
+  if (sym->attr.threadprivate && !sym->attr.save
+      && (!sym->attr.in_common || sym->module != NULL))
+    gfc_error ("Threadprivate at %L isn't SAVEd", &sym->declared_at);
 }
 
 
@@ -4984,7 +4989,7 @@ resolve_equivalence (gfc_equiv *eq)
       
       /* Shall not be a function name, ...  */
       if (sym->attr.function || sym->attr.result || sym->attr.entry
-          || sym->attr.subroutine)
+	  || sym->attr.subroutine || sym->attr.threadprivate)
         {
           gfc_error ("Entity '%s' at %L cannot be an EQUIVALENCE object",
                      sym->name, &e->where);
