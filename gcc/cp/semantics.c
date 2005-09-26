@@ -2441,24 +2441,8 @@ finish_id_expression (tree id_expression,
 	{
 	  /* Name lookup failed.  */
 	  /* APPLE LOCAL begin CW asm blocks */
-	  /* CW assembly has automagical handling of register names.
-	     It's also handy to assume undeclared names as labels,
-	     although it would be better to have a second pass and
-	     complain about names in the block that are not
-	     labels.  */
 	  if (inside_cw_asm_block)
-	    {
-	      tree new_id;
-	      if ((new_id = cw_asm_reg_name (id_expression)))
-		return new_id;
-#ifdef CW_ASM_SPECIAL_LABEL
-	      if ((new_id = CW_ASM_SPECIAL_LABEL (id_expression)))
-		return new_id;
-#endif
-	      /* Assume undeclared symbols are labels. */
-	      new_id = get_cw_asm_label (id_expression);
-	      return new_id;
-	    }
+	    return cw_do_id (id_expression);
 	  /* APPLE LOCAL end CW asm blocks */
 
 	  if (scope 

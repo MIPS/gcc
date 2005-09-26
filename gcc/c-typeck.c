@@ -1885,17 +1885,7 @@ build_external_ref (tree id, int fun)
 	  /* Locals and parms just need to be left alone for now.  */
 	}
       else
-	{
-	  tree newid;
-	  if ((newid = cw_asm_reg_name (id)))
-	    return newid;
-#ifdef CW_ASM_SPECIAL_LABEL
-	  if ((newid = CW_ASM_SPECIAL_LABEL (id)))
-	    return newid;
-#endif
-	  /* Assume undeclared symbols are labels. */
-	  return get_cw_asm_label (id);
-	}
+	return cw_do_id (id);
     }
   /* APPLE LOCAL end CW asm blocks */
 

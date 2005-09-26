@@ -2642,7 +2642,7 @@ struct machine_function GTY(())
 	t = build_string (len, p);							\
 	return TREE_STRING_POINTER (t);							\
       }											\
-  } while (0);
+  } while (0)
 
 #define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E) \
  cw_print_op (BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E)
@@ -2661,6 +2661,22 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
     ((YYCHAR == TYPESPEC						\
       && C_RID_CODE (T) == RID_INT)					\
      ? IDENTIFIER : YYCHAR)
+
+/* Return true iff the ID is a prefix for an instruction.  */
+
+#define CW_IS_PREFIX(ID)				\
+  do {							\
+    const char *myname = IDENTIFIER_POINTER (ID);	\
+    if (strcmp (myname, "lock") == 0			\
+	|| strcmp (myname, "rep") == 0			\
+	|| strcmp (myname, "repe") == 0			\
+	|| strcmp (myname, "repz") == 0			\
+        || strcmp (myname, "repne") == 0		\
+	|| strcmp (myname, "repnz") == 0)		\
+      return true;					\
+  } while (0)
+
+#define CW_PRINT_PREFIX(BUF, PREFIX_LIST) x86_cw_print_prefix(BUF, PREFIX_LIST)
 
 #define CW_IMMED_PREFIX(E, BUF)			\
   do {						\

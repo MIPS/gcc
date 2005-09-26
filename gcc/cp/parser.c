@@ -17106,6 +17106,24 @@ cp_parser_cw_identifier_or_number (cp_parser* parser)
   return cp_parser_identifier (parser);
 }
 
+static tree
+cp_parser_cw_asm_maybe_prefix (cp_parser *parser, tree id)
+{
+  tree prefix_list = NULL_TREE;
+
+  while (cw_is_prefix (id))
+    {
+      if (cp_lexer_cw_bol (parser->lexer))
+	break;
+      prefix_list = tree_cons (NULL_TREE, id, prefix_list);
+      id = cp_parser_cw_identifier (parser);
+    }
+
+  if (prefix_list)
+    id = tree_cons (NULL_TREE, id, prefix_list);
+  return id;
+}
+
 static void
 cp_parser_cw_asm_statement (cp_parser* parser)
 {
@@ -17155,6 +17173,7 @@ cp_parser_cw_asm_statement (cp_parser* parser)
 		}
 	      else
 		{
+		  aname = cp_parser_cw_asm_maybe_prefix (parser, aname);
 		  cw_asm_in_operands = 1;
 		  operands = cp_parser_cw_asm_operands (parser);
 		  cw_asm_stmt (aname, operands, input_line);

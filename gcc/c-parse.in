@@ -252,7 +252,7 @@ do {									\
 %type <ttype> identifiers_or_typenames
 
 /* APPLE LOCAL begin CW asm blocks */
-%type <ttype> cw_identifier cw_identifier1
+%type <ttype> cw_identifier cw_identifier1 cw_maybe_prefix
 %type <exprtype> cw_asm_expr_no_commas cw_asm_unary_expr 
 %type <exprtype> cw_asm_primary
 %type <ttype> cw_asm_operands cw_nonnull_asm_operands 
@@ -383,6 +383,8 @@ static int cw_asm_lineno = 0;
 #ifndef CW_SEE_OPCODE
 #define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
 #endif
+
+static tree c_parse_cw_maybe_prefix (tree id);
 /* APPLE LOCAL end CW asm blocks */
 
   /* Initialization routine for this file.  */
@@ -2129,7 +2131,6 @@ cw_maybe_comment:
 		{
 		  if (flag_ms_asms)
 		    {
-		      extern void cw_skip_to_eol ();
 		      cw_skip_to_eol ();
 		      yychar = YYEMPTY;
 		    }
@@ -2165,11 +2166,16 @@ cw_identifier1:
 		{ $$ = prepend_char_identifier ($2, '.'); }
 	;
 
+cw_maybe_prefix:
+	  cw_identifier
+		{ $$ = c_parse_cw_maybe_prefix ($1); }
+	;
+
 /* A single statement consists of one or more labels (identified by a
    leading '@' and/or a trailing ':'), optionally followed by opcode
    and operands.  */
 single_cw_asm_stmt:
-	  cw_identifier
+	  cw_maybe_prefix
 		{ cw_asm_in_operands = 1; }
 	  cw_asm_operands
 		{ $$ = cw_asm_stmt ($1, $3, cw_asm_lineno); }
@@ -2231,7 +2237,6 @@ cw_asm_compstmt: ASM_KEYWORD
 		      clear_cw_asm_labels ();
 		      if (yychar == ';' && flag_ms_asms)
 			{
-			  extern void cw_skip_to_eol ();
 			  cw_skip_to_eol ();
 			  yychar = YYEMPTY;
 			}
@@ -4008,6 +4013,33 @@ c_parse_file (void)
       malloced_yyss = 0;
     }
 }
+
+/* APPLE LOCAL begin CW asm blocks */
+static tree
+c_parse_cw_maybe_prefix (tree id)
+{
+  tree prefix_list = NULL_TREE;;
+
+  while (cw_is_prefix (id))
+    {
+      if (yychar == YYEMPTY)
+	yychar = YYLEX;
+      if (yychar == IDENTIFIER)
+	{
+	  prefix_list = tree_cons (NULL_TREE, id, prefix_list);
+	  id = yylval.ttype;
+	  yychar = YYEMPTY;
+	}
+      else
+	break;
+    }
+
+  if (prefix_list)
+    id = tree_cons (NULL_TREE, id, prefix_list);
+
+  return id;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 #ifdef __XGETTEXT__
 /* Depending on the version of Bison used to compile this grammar,

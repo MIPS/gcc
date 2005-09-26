@@ -15,6 +15,10 @@ enum cw_asm_states {
   cw_asm_asm
 };
 
+/* Nonzero means that CodeWarrior-style inline assembler is to be parsed.  */
+
+extern int flag_cw_asm_blocks;
+
 extern enum cw_asm_states cw_asm_state;
 extern int cw_asm_in_decl;
 extern int inside_cw_asm_block;
@@ -22,7 +26,7 @@ extern int cw_asm_at_bol;
 extern int cw_asm_in_operands;
 extern const cpp_token *cw_split_next;
 void cw_insert_saved_token (void);
-
+extern tree cw_do_id (tree);
 /* Maximum number of arguments.  */
 #define CW_MAX_ARG 20
 
@@ -49,4 +53,18 @@ typedef struct cw_md_Extra_info cw_md_extra_info;
 void print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 			   tree *uses, tree *label,
 			   bool must_be_reg, bool must_not_be_reg, cw_md_extra_info *e);
+
+extern tree cw_asm_stmt (tree, tree, int);
+extern tree cw_asm_build_register_offset (tree, tree);
+extern tree cw_asm_label (tree, int);
+extern tree prepend_char_identifier (tree, char);
+extern void clear_cw_asm_labels (void);
+extern tree cw_asm_reg_name (tree);
+extern tree cw_asm_entry (tree, tree, tree);
+extern int cw_asm_typename_or_reserved (tree);
+extern tree cw_asm_c_build_component_ref (tree, tree);
+extern tree cw_get_identifier (tree, const char *);
+extern tree cw_build_bracket (tree, tree);
+extern bool cw_is_prefix (tree);
+extern void cw_skip_to_eol (void);
 #endif

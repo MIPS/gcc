@@ -413,10 +413,6 @@ extern int flag_no_asm;
 
 /* APPLE LOCAL begin CW asm blocks */
 #include "config/asm.h"
-
-/* Nonzero means that CodeWarrior-style inline assembler is to be parsed.  */
-
-extern int flag_cw_asm_blocks;
 /* APPLE LOCAL end CW asm blocks */
 
 /* Nonzero means give string constants the type `const char *', as mandated
@@ -1061,21 +1057,6 @@ extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
-
-/* APPLE LOCAL begin CW asm blocks */
-extern tree cw_asm_stmt (tree, tree, int);
-extern tree cw_asm_build_register_offset (tree, tree);
-extern tree cw_asm_label (tree, int);
-extern tree prepend_char_identifier (tree, char);
-extern void clear_cw_asm_labels (void);
-extern tree cw_asm_reg_name (tree);
-extern tree get_cw_asm_label (tree);
-extern tree cw_asm_entry (tree, tree, tree);
-extern int cw_asm_typename_or_reserved (tree);
-extern tree cw_asm_c_build_component_ref (tree, tree);
-extern tree cw_get_identifier (tree, const char *);
-extern tree cw_build_bracket (tree, tree);
-/* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin AltiVec */
 /* The following function will convert expressions into

@@ -613,6 +613,7 @@ static tree cw_asm_identifier (tree expr);
 /* Return true iff the opcode wants memory to be stable.  We arrange
    for a memory clobber in these instances.  */
 extern bool cw_memory_clobber (const char *);
+static tree get_cw_asm_label (tree);
 /* APPLE LOCAL end CW asm blocks */
 
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
@@ -6516,6 +6517,20 @@ cw_asm_identifier (tree expr)
 #ifndef CW_CANONICALIZE_OPERANDS
 #define CW_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E) (NEW_OPCODE = OPCODE)
 #endif
+#ifndef CW_IS_PREFIX
+#define CW_IS_PREFIX(ID)
+#endif
+#ifndef CW_PRINT_PREFIX
+#define CW_PRINT_PREFIX(BUF, PREFIX_LIST)
+#endif
+
+/* Return true iff id is a instruction prefix.  */
+bool
+cw_is_prefix (tree ARG_UNUSED (id))
+{
+  CW_IS_PREFIX (id);
+  return false;
+}
 
 /* Build an asm statement from CW-syntax bits.  */
 tree
@@ -6524,6 +6539,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   tree sexpr;
   tree arg, tail;
   tree inputs, outputs, clobbers, uses, label;
+  tree prefix_list = NULL_TREE;
   tree stmt;
   unsigned int n, num_args;
   const char *opcodename, *new_opcode;
@@ -6540,6 +6556,12 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   label = NULL_TREE;
 
   STRIP_NOPS (expr);
+
+  if (TREE_CODE (expr) == TREE_LIST)
+    {
+      prefix_list = TREE_CHAIN (expr);
+      expr = TREE_VALUE (expr);
+    }
 
   if (TREE_CODE (expr) == ADDR_EXPR)
     expr = TREE_OPERAND (expr, 0);
@@ -6616,6 +6638,8 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   cw_asm_buffer[0] = '\0';
 
   CW_CANONICALIZE_OPERANDS (opcodename, new_opcode, args, &e);
+
+  CW_PRINT_PREFIX(cw_asm_buffer, prefix_list);
 
   strcat (cw_asm_buffer, new_opcode);
   strcat (cw_asm_buffer, " ");
@@ -7030,11 +7054,35 @@ static GTY(()) tree cw_ha16;
 static GTY(()) tree cw_hi16;
 static GTY(()) tree cw_lo16;
 
+/* Given an identifier not otherwise found in the high level language, create up
+   a meaning for it.  */
+
+/* CW assembly has automagical handling of register names.  It's also
+   handy to assume undeclared names as labels, although it would be
+   better to have a second pass and complain about names in the block
+   that are not labels.  */
+
+tree
+cw_do_id (tree id)
+{
+  tree newid;
+  if ((newid = cw_asm_reg_name (id)))
+    return newid;
+
+#ifdef CW_ASM_SPECIAL_LABEL
+  if ((newid = CW_ASM_SPECIAL_LABEL (id)))
+    return newid;
+#endif
+
+  /* Assume undeclared symbols are labels. */
+  return get_cw_asm_label (id);
+}
+
 /* Given a label identifier and a flag indicating whether it had an @
    preceding it, return a synthetic and unique label that the
    assembler will like.  */
 
-tree
+static tree
 get_cw_asm_label (tree labid)
 {
   unsigned int n;

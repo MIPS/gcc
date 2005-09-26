@@ -18426,6 +18426,26 @@ cw_is_offset (tree v)
   return false;
 }
 
+/* Character used to seperate the prefix words.  */
+#define CW_PREFIX_SEP '/'
+
+void
+x86_cw_print_prefix (char *buf, tree prefix_list)
+{
+  buf += strlen (buf);
+  while (prefix_list)
+    {
+      tree prefix = TREE_VALUE (prefix_list);
+      size_t len = IDENTIFIER_LENGTH (prefix);
+      memcpy (buf, IDENTIFIER_POINTER (prefix), len);
+      buf += len;
+      buf[0] = CW_PREFIX_SEP;
+      ++buf;
+      buf[0] = 0;
+      prefix_list = TREE_CHAIN (prefix_list);
+    }
+}
+
 bool
 cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
 	     bool must_be_reg, bool must_not_be_reg, void *ep)

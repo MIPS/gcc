@@ -11,6 +11,35 @@
 
 2005-09-26  Mike Stump  <mrs@apple.com>
 
+	Radar 4273781
+	* c-common.c (cw_asm_stmt): Add prefix support.
+	(cw_is_prefix): Add.
+	(cw_do_id): Add.
+	(get_cw_asm_label): Make static.
+	* c-common.h (cw_asm_stmt): Move to asm.h
+	(cw_asm_build_register_offset): Likewise.
+	(cw_asm_label): Likewise.
+	(prepend_char_identifier): Likewise.
+	(clear_cw_asm_labels): Likewise.
+	(cw_asm_reg_name): Likewise.
+	(get_cw_asm_label): Likewise.
+	(cw_asm_entry): Likewise.
+	(cw_asm_typename_or_reserved): Likewise.
+	(cw_asm_c_build_component_ref): Likewise.
+	(cw_get_identifier): Likewise.
+	(cw_build_bracket): Likewise.
+	(flag_cw_asm_blocks): Likewise.
+	* config/asm.h: Move various declarations to here.
+	* c-parse.in (c_parse_cw_maybe_prefix): Add.
+	(cw_skip_to_eol): Move decl to asm.h.
+	(cw_maybe_prefix): Add.
+	(single_cw_asm_stmt): Add prefix support.
+	* c-typeck.c (build_external_ref): Move some logic to cw_do_id.
+	* config/i386/i386.h (CW_SYNTH_CONSTRAINTS): Remove trailing ;.
+	(CW_IS_PREFIX): Add.
+	* config/i386/i386-protos.h (x86_cw_print_prefix): Add.
+	* config/i386/i386.c (x86_cw_print_prefix): Add.
+
 	Radar 4271787
 	* c-common.c (CW_CANONICALIZE_OPERANDS): Arrange to save the
 	opcode before translation for constraint lookups.
