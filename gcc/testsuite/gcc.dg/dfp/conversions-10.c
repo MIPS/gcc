@@ -6,7 +6,9 @@
    non-decimal floating tyeps.  */
 
 extern void abort (void);
-int main()
+
+int
+main ()
 {
   float f;
   long double ll;
@@ -107,4 +109,6 @@ int main()
   b = d128;
   if (b)
     abort ();
+
+  return 0;
 }

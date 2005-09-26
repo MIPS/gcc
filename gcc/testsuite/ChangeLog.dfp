@@ -1,5 +1,10 @@
 2005-09-26  Yao Qi  <qiyaoltc@cn.ibm.com>
 
+	* gcc.dg/dfp/cast-1.c: New test.
+	* gcc.dg/dfp/conversions-10.c (main): Return 0.
+
+2005-09-26  Yao Qi  <qiyaoltc@cn.ibm.com>
+
 	* gcc.dg/dfp/modes.c: Remove unused variables.
 	* gcc.dg/dfp/conversions-1.c: Remove unused #includes.
 	* gcc.dg/dfp/conversions-3.c: Likewise.
