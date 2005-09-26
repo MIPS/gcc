@@ -1,3 +1,5 @@
+/* { dg-do compile } */
+
 /******************************************************************************
 * OpenMP Example - Combined Parallel Loop Work-sharing - C/C++ Version
 * FILE: omp_workshare3.c
@@ -28,7 +30,7 @@ chunk = CHUNKSIZE;
   shared(a,b,c,chunk)            \
   private(i,tid)             \
   schedule(static,chunk)
-  {
+  {				/* { dg-error "expected" } */
   tid = omp_get_thread_num();
   for (i=0; i < N; i++)
     {

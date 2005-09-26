@@ -1,5 +1,9 @@
 2005-09-24  Richard Henderson  <rth@redhat.com>
 
+	* testsuite/libgomp.dg/omp_workshare3.c: Mark dg-error.
+
+2005-09-24  Richard Henderson  <rth@redhat.com>
+
 	* iter.c (gomp_iter_static_next): Round up when computing number
 	of iterations.  Don't bother distributing a remainder equally.
 
