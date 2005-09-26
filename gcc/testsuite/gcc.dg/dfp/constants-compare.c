@@ -10,6 +10,7 @@ int main()
   /* Compare like-typed positive constants. */
   if (2.0df != 2.0df)
     abort();
+
   /* Compare like-typed negative constants. */
   if (-2.0dl < -2.0dl)
     abort();

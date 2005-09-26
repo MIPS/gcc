@@ -6,6 +6,7 @@
    version of the type of the designated member.  */
 
 struct s {_Decimal32 d32; const _Decimal64 d64;};
+struct sv { volatile _Decimal32 d32; volatile _Decimal64 d64; };
 union u 
 {
   const _Decimal64 d64; 
@@ -14,12 +15,13 @@ union u
 };
 
 struct s s;
+struct sv sv;
 const struct s cs;
 
 union u u;
 const union u cu;
 
-struct s g(struct s s)
+struct s g (struct s s)
 {
   return s;
 }
@@ -52,5 +54,9 @@ void f()
      function f() returning a structure or union.  */
   g(s).d32 = 1.23dd;  /* { dg-error "invalid lvalue in assignment" } */
   h(u).d64 = 1.23df;  /* { dg-error "invalid lvalue in assignment" } */
+
+  /* Test assignment to volatile structure members.  */
+  sv.d32 = 1.1df;
+  sv.d64 = 1.1dd;
 }
 

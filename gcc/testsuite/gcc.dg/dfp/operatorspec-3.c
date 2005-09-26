@@ -40,5 +40,10 @@ main ()
   UNARY_OPERATOR(64, DD);
   UNARY_OPERATOR(128, DL);
 
+  /*  C99 6.5.3 Unary operators for zero values.  */
+  if (- +0.df != -0.df) abort ();
+  if (+ -0.df != -0.df) abort ();
+  if (- -0.df != +0.df) abort ();
+
   return 0;
 }

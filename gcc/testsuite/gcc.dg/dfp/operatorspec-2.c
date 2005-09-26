@@ -28,8 +28,22 @@ void operator_notfor_decimal()
   _Decimal64 d64;
   _Decimal128 d128;
 
+  /* C99 Section 6.5.7 Bitwise shift operators.  Operands must have
+     integer type (which the decimal float types are not).  */
+
+  d32 << 1;   /* { dg-error "invalid operands to binary" } */
+  d32 >> 1;   /* { dg-error "invalid operands to binary" } */
+  d64 << 1;   /* { dg-error "invalid operands to binary" } */
+  d64 >> 1;   /* { dg-error "invalid operands to binary" } */
+  d128 << 1;  /* { dg-error "invalid operands to binary" } */
+  d128 >> 1;  /* { dg-error "invalid operands to binary" } */
+
+  DECIMAL_BITWISE_OPERATOR(&,d32); /* { dg-error "invalid operands to binary" } */
+  DECIMAL_BITWISE_OPERATOR(&,d64); /* { dg-error "invalid operands to binary" } */
+  DECIMAL_BITWISE_OPERATOR(&,d128); /* { dg-error "invalid operands to binary" } */
+
   /* C99 Section 6.5.{10,11,12} Bitwise operator.  Constraints: Each of
-   the operands shall have integer type.  DFP type is reject by Compiler
+   the operands shall have integer type.  DFP type is reject by compiler
    when bitwise operation is performed.  */
 
   DECIMAL_BITWISE_OPERATOR(&,d32); /* { dg-error "invalid operands to binary" } */

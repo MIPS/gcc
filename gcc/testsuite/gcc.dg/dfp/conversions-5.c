@@ -14,7 +14,7 @@ volatile long double tf;
 
 int main()
 {
-  /* Conversions between decimal floats. */
+  /* Conversions from decimal float to binary float. */
 
   /* Conversions from _Decimal32. */
   d32 = 2.0df;
@@ -58,7 +58,7 @@ int main()
   if (df != 30.0)
     abort();
 
-  /* Conversions to regular floating point. */
+  /* Conversions from binary float to decimal float. */
   sf = 30.0f;
   d32 = sf;
   if (d32 != 30.0df)
