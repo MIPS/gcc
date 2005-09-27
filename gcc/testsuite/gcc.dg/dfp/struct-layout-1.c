@@ -3,18 +3,19 @@
 
 #include<stdarg.h>
 
-extern void abort ();
+extern void abort (void);
 
 struct S1
 {
   _Decimal128 a[0];
 };
+
 struct S2
 {
   struct
   {
     _Decimal128 e;
-  }b[0];
+  } b[0];
 };
 
 struct S3
@@ -22,7 +23,7 @@ struct S3
   union
   {
     _Decimal128 c;
-  }a[0];
+  } a[0];
 };
 
 struct S4
@@ -36,7 +37,7 @@ struct S5
   union
   {
     _Decimal128 c[0];
-  }a;
+  } a;
 };
 
 static int failcnt = 0;
@@ -87,6 +88,6 @@ int main ()
 
   if (failcnt)
     abort ();
+
   return 0;
 }
-

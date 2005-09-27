@@ -1,3 +1,8 @@
+2005-09-27  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/varargs-3.c: Fix abort prototype.
+	* gcc.dg/struct-layout-1.c: Likewise.
+
 2005-09-27  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/constants-compare.c: Remove surplus header files.

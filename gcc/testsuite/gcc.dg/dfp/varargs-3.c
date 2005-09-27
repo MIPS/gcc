@@ -3,7 +3,7 @@
 
 #include <stdarg.h>
 
-extern void abort ();
+extern void abort (void);
 
 struct S1
 {
