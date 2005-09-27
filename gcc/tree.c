@@ -2058,6 +2058,9 @@ contains_placeholder_p (tree exp)
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 2)));
 
+	case CALL_EXPR:
+	  return CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1));
+
 	default:
 	  break;
 	}
@@ -2177,7 +2180,7 @@ tree
 substitute_in_expr (tree exp, tree f, tree r)
 {
   enum tree_code code = TREE_CODE (exp);
-  tree op0, op1, op2;
+  tree op0, op1, op2, op3;
   tree new;
   tree inner;
 
@@ -2260,6 +2263,20 @@ substitute_in_expr (tree exp, tree f, tree r)
 	      return exp;
 
 	    new = fold_build3 (code, TREE_TYPE (exp), op0, op1, op2);
+	    break;
+
+	  case 4:
+	    op0 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 0), f, r);
+	    op1 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 1), f, r);
+	    op2 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 2), f, r);
+	    op3 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 3), f, r);
+
+	    if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1)
+		&& op2 == TREE_OPERAND (exp, 2)
+		&& op3 == TREE_OPERAND (exp, 3))
+	      return exp;
+
+	    new = fold (build4 (code, TREE_TYPE (exp), op0, op1, op2, op3));
 	    break;
 
 	  default:
@@ -3113,9 +3130,9 @@ annotate_with_file_line (tree node, const char *file, int line)
      a node with the same information already attached to that node!
      Just return instead of wasting memory.  */
   if (EXPR_LOCUS (node)
+      && EXPR_LINENO (node) == line
       && (EXPR_FILENAME (node) == file
-	  || ! strcmp (EXPR_FILENAME (node), file))
-      && EXPR_LINENO (node) == line)
+	  || !strcmp (EXPR_FILENAME (node), file)))
     {
       last_annotated_node = node;
       return;
@@ -3126,9 +3143,9 @@ annotate_with_file_line (tree node, const char *file, int line)
      than half.  */
   if (last_annotated_node
       && EXPR_LOCUS (last_annotated_node)
+      && EXPR_LINENO (last_annotated_node) == line
       && (EXPR_FILENAME (last_annotated_node) == file
-	  || ! strcmp (EXPR_FILENAME (last_annotated_node), file))
-      && EXPR_LINENO (last_annotated_node) == line)
+	  || !strcmp (EXPR_FILENAME (last_annotated_node), file)))
     {
       SET_EXPR_LOCUS (node, EXPR_LOCUS (last_annotated_node));
       return;
@@ -4244,7 +4261,7 @@ tree_int_cst_compare (tree t1, tree t2)
 
 /* Return 1 if T is an INTEGER_CST that can be manipulated efficiently on
    the host.  If POS is zero, the value can be represented in a single
-   HOST_WIDE_INT.  If POS is nonzero, the value must be positive and can
+   HOST_WIDE_INT.  If POS is nonzero, the value must be non-negative and can
    be represented in a single unsigned HOST_WIDE_INT.  */
 
 int
@@ -4262,7 +4279,7 @@ host_integerp (tree t, int pos)
 
 /* Return the HOST_WIDE_INT least significant bits of T if it is an
    INTEGER_CST and there is no overflow.  POS is nonzero if the result must
-   be positive.  We must be able to satisfy the above conditions.  */
+   be non-negative.  We must be able to satisfy the above conditions.  */
 
 HOST_WIDE_INT
 tree_low_cst (tree t, int pos)

@@ -372,6 +372,7 @@ gfc_simplify_adjustr (gfc_expr * e)
 gfc_expr *
 gfc_simplify_aimag (gfc_expr * e)
 {
+
   gfc_expr *result;
 
   if (e->expr_type != EXPR_CONSTANT)
@@ -2591,6 +2592,21 @@ gfc_simplify_real (gfc_expr * e, gfc_expr * k)
   return range_check (result, "REAL");
 }
 
+
+gfc_expr *
+gfc_simplify_realpart (gfc_expr * e)
+{
+  gfc_expr *result;
+
+  if (e->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (BT_REAL, e->ts.kind, &e->where);
+  mpfr_set (result->value.real, e->value.complex.r, GFC_RND_MODE);
+
+  return range_check (result, "REALPART");
+}
+
 gfc_expr *
 gfc_simplify_repeat (gfc_expr * e, gfc_expr * n)
 {
@@ -2858,7 +2874,7 @@ inc:
   for (i = 0; i < rank; i++)
     mpz_init_set_ui (e->shape[i], shape[i]);
 
-  e->ts = head->expr->ts;
+  e->ts = source->ts;
   e->rank = rank;
 
   return e;

@@ -404,7 +404,7 @@ get_name (tree t)
 static inline tree
 create_tmp_from_val (tree val)
 {
-  return create_tmp_var (TREE_TYPE (val), get_name (val));
+  return create_tmp_var (TYPE_MAIN_VARIANT (TREE_TYPE (val)), get_name (val));
 }
 
 /* Create a temporary to hold the value of VAL.  If IS_FORMAL, try to reuse
@@ -2576,7 +2576,12 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	 so we don't have to figure out what's missing ourselves.  */
       gcc_assert (purpose);
 
-      if (zero_sized_field_decl (purpose))
+      /* Skip zero-sized fields, unless value has side-effects.  This can
+	 happen with calls to functions returning a zero-sized type, which
+	 we shouldn't discard.  As a number of downstream passes don't
+	 expect sets of zero-sized fields, we rely on the gimplification of
+	 the MODIFY_EXPR we make below to drop the assignment statement.  */
+      if (! TREE_SIDE_EFFECTS (value) && zero_sized_field_decl (purpose))
 	continue;
 
       /* If we have a RANGE_EXPR, we have to build a loop to assign the
@@ -2945,9 +2950,10 @@ fold_indirect_ref_rhs (tree t)
     {
       tree type_domain;
       tree min_val = size_zero_node;
+      tree osub = sub;
       sub = fold_indirect_ref_rhs (sub);
       if (! sub)
-	sub = build1 (INDIRECT_REF, TREE_TYPE (subtype), sub);
+	sub = build1 (INDIRECT_REF, TREE_TYPE (subtype), osub);
       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
       if (type_domain && TYPE_MIN_VALUE (type_domain))
         min_val = TYPE_MIN_VALUE (type_domain);
@@ -4454,7 +4460,15 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  /* Historically, the compiler has treated a bare
 	     reference to a volatile lvalue as forcing a load.  */
 	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
-	  tree tmp = create_tmp_var (type, "vol");
+	  /* Normally, we do want to create a temporary for a
+	     TREE_ADDRESSABLE type because such a type should not be
+	     copied by bitwise-assignment.  However, we make an
+	     exception here, as all we are doing here is ensuring that
+	     we read the bytes that make up the type.  We use
+	     create_tmp_var_raw because create_tmp_var will abort when
+	     given a TREE_ADDRESSABLE type.  */
+	  tree tmp = create_tmp_var_raw (type, "vol");
+	  gimple_add_tmp_var (tmp);
 	  *expr_p = build (MODIFY_EXPR, type, tmp, *expr_p);
 	}
       else

@@ -2656,39 +2656,34 @@ cp_parser_translation_unit (cp_parser* parser)
       declarator_obstack_base = obstack_next_free (&declarator_obstack);
     }
 
-  while (true)
+  cp_parser_declaration_seq_opt (parser);
+  
+  /* If there are no tokens left then all went well.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))
     {
-      cp_parser_declaration_seq_opt (parser);
-
-      /* If there are no tokens left then all went well.  */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))
-	{
-	  /* Get rid of the token array; we don't need it any more.  */
-	  cp_lexer_destroy (parser->lexer);
-	  parser->lexer = NULL;
-
-	  /* This file might have been a context that's implicitly extern
-	     "C".  If so, pop the lang context.  (Only relevant for PCH.) */
-	  if (parser->implicit_extern_c)
-	    {
-	      pop_lang_context ();
-	      parser->implicit_extern_c = false;
-	    }
-
-	  /* Finish up.  */
-	  finish_translation_unit ();
-
-	  success = true;
-	  break;
-	}
-      else
-	{
-	  cp_parser_error (parser, "expected declaration");
-	  success = false;
-	  break;
-	}
+      /* Get rid of the token array; we don't need it any more.  */
+      cp_lexer_destroy (parser->lexer);
+      parser->lexer = NULL;
+      
+      /* This file might have been a context that's implicitly extern
+         "C".  If so, pop the lang context.  (Only relevant for PCH.) */
+      if (parser->implicit_extern_c)
+        {
+          pop_lang_context ();
+          parser->implicit_extern_c = false;
+        }
+      
+      /* Finish up.  */
+      finish_translation_unit ();
+      
+      success = true;
     }
-
+  else
+    {
+      cp_parser_error (parser, "expected declaration");
+      success = false;
+    }
+  
   /* Make sure the declarator obstack was fully cleaned up.  */
   gcc_assert (obstack_next_free (&declarator_obstack)
 	      == declarator_obstack_base);
@@ -2784,7 +2779,10 @@ cp_parser_primary_expression (cp_parser *parser,
 		  /* The end of the cast-expression.  */
 		  && next_token->type != CPP_CLOSE_PAREN
 		  /* The end of an array bound.  */
-		  && next_token->type != CPP_CLOSE_SQUARE)
+		  && next_token->type != CPP_CLOSE_SQUARE
+		  /* The closing ">" in a template-argument-list.  */
+		  && (next_token->type != CPP_GREATER
+		      || parser->greater_than_is_operator_p))
 		cast_p = false;
 	    }
 
@@ -12673,7 +12671,7 @@ cp_parser_class_specifier (cp_parser* parser)
       tree fn;
       tree class_type = NULL_TREE;
       tree pushed_scope = NULL_TREE;
-
+ 
       /* In a first pass, parse default arguments to the functions.
 	 Then, in a second pass, parse the bodies of the functions.
 	 This two-phased approach handles cases like:
@@ -12718,13 +12716,8 @@ cp_parser_class_specifier (cp_parser* parser)
 	{
 	  /* Figure out which function we need to process.  */
 	  fn = TREE_VALUE (queue_entry);
-
-	  /* A hack to prevent garbage collection.  */
-	  function_depth++;
-
 	  /* Parse the function.  */
 	  cp_parser_late_parsing_for_member (parser, fn);
-	  function_depth--;
 	}
     }
 
@@ -15418,6 +15411,7 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
   tree saved_qualifying_scope;
   tree saved_object_scope;
   bool saved_greater_than_is_operator_p;
+  bool saved_skip_evaluation;
 
   /* [temp.names]
 
@@ -15432,6 +15426,10 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
   saved_scope = parser->scope;
   saved_qualifying_scope = parser->qualifying_scope;
   saved_object_scope = parser->object_scope;
+  /* We need to evaluate the template arguments, even though this
+     template-id may be nested within a "sizeof".  */
+  saved_skip_evaluation = skip_evaluation;
+  skip_evaluation = false;
   /* Parse the template-argument-list itself.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
     arguments = NULL_TREE;
@@ -15481,6 +15479,7 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
   parser->scope = saved_scope;
   parser->qualifying_scope = saved_qualifying_scope;
   parser->object_scope = saved_object_scope;
+  skip_evaluation = saved_skip_evaluation;
 
   return arguments;
 }
@@ -16505,27 +16504,45 @@ cp_parser_objc_selector_expression (cp_parser* parser)
   cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
   token = cp_lexer_peek_token (parser->lexer);
 
-  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON)
+  while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON
+         || token->type == CPP_SCOPE)
     {
       tree selector = NULL_TREE;
 
-      if (token->type != CPP_COLON)
+      if (token->type != CPP_COLON
+	  || token->type == CPP_SCOPE)
 	selector = cp_parser_objc_selector (parser);
 
-      /* Detect if we have a unary selector.  */
-      if (maybe_unary_selector_p
-	  && cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COLON)
+          && cp_lexer_next_token_is_not (parser->lexer, CPP_SCOPE))
 	{
-	  sel_seq = selector;
-	  goto finish_selector;
+	  /* Detect if we have a unary selector.  */
+	  if (maybe_unary_selector_p)
+	    {
+	      sel_seq = selector;
+	      goto finish_selector;
+	    }
+	  else
+	    {
+	      cp_parser_error (parser, "expected %<:%>");
+	    }
 	}
-
       maybe_unary_selector_p = false;
-      cp_parser_require (parser, CPP_COLON, "`:'");
-
-      sel_seq
-	= chainon (sel_seq,
-		   build_tree_list (selector, NULL_TREE));
+      token = cp_lexer_consume_token (parser->lexer);
+      
+      if (token->type == CPP_SCOPE)
+        {
+	  sel_seq
+	    = chainon (sel_seq,
+		       build_tree_list (selector, NULL_TREE));
+	  sel_seq
+	    = chainon (sel_seq,
+		       build_tree_list (NULL_TREE, NULL_TREE));
+	}
+      else
+	sel_seq
+	  = chainon (sel_seq,
+		     build_tree_list (selector, NULL_TREE));
 
       token = cp_lexer_peek_token (parser->lexer);
     }

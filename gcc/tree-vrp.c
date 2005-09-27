@@ -956,8 +956,10 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
 	  /* For subtraction, the operands must be of different
 	     signs to yield an overflow.  Its sign is therefore
 	     that of the first operand or the opposite of that
-	     of the second operand.  */
-	  || (code == MINUS_EXPR && sgn1 > 0)
+	     of the second operand.  A first operand of 0 counts
+	     as positive here, for the corner case 0 - (-INF),
+	     which overflows, but must yield +INF.  */
+	  || (code == MINUS_EXPR && sgn1 >= 0)
 	  /* For division, the only case is -INF / -1 = +INF.  */
 	  || code == TRUNC_DIV_EXPR
 	  || code == FLOOR_DIV_EXPR
@@ -1341,7 +1343,7 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
 	      && tree_int_cst_equal (new_min, vr0.min)
 	      && tree_int_cst_equal (new_max, vr0.max)
 	      && compare_values (new_min, new_max) <= 0
-	      && compare_values (new_min, new_max) >= -2)
+	      && compare_values (new_min, new_max) >= -1)
 	    {
 	      set_value_range (vr, VR_RANGE, new_min, new_max, vr->equiv);
 	      return;
@@ -1517,10 +1519,10 @@ extract_range_from_expr (value_range_t *vr, tree expr)
     extract_range_from_unary_expr (vr, expr);
   else if (TREE_CODE_CLASS (code) == tcc_comparison)
     extract_range_from_comparison (vr, expr);
-  else if (vrp_expr_computes_nonzero (expr))
-    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
   else if (is_gimple_min_invariant (expr))
     set_value_range (vr, VR_RANGE, expr, expr, NULL);
+  else if (vrp_expr_computes_nonzero (expr))
+    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
   else
     set_value_range_to_varying (vr);
 }
@@ -2782,6 +2784,8 @@ remove_range_assertions (void)
 	else
 	  bsi_next (&si);
       }
+
+  sbitmap_free (blocks_visited);
 }
 
 

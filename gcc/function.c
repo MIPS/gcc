@@ -1211,12 +1211,6 @@ static int cfa_offset;
 #endif
 #endif
 
-/* On most machines, the CFA coincides with the first incoming parm.  */
-
-#ifndef ARG_POINTER_CFA_OFFSET
-#define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
-#endif
-
 
 /* Given a piece of RTX and a pointer to a HOST_WIDE_INT, if the RTX
    is a virtual register, return the equivalent hard register and set the
@@ -4409,6 +4403,10 @@ expand_function_end (void)
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
 
+  /* If this is an implementation of throw, do what's necessary to
+     communicate between __builtin_eh_return and the epilogue.  */
+  expand_eh_return ();
+
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */
@@ -4470,6 +4468,24 @@ expand_function_end (void)
 				 TREE_TYPE (decl_result),
 				 int_size_in_bytes (TREE_TYPE (decl_result)));
 	    }
+	  /* In the case of complex integer modes smaller than a word, we'll
+	     need to generate some non-trivial bitfield insertions.  Do that
+	     on a pseudo and not the hard register.  */
+	  else if (GET_CODE (decl_rtl) == CONCAT
+		   && GET_MODE_CLASS (GET_MODE (decl_rtl)) == MODE_COMPLEX_INT
+		   && GET_MODE_BITSIZE (GET_MODE (decl_rtl)) <= BITS_PER_WORD)
+	    {
+	      int old_generating_concat_p;
+	      rtx tmp;
+
+	      old_generating_concat_p = generating_concat_p;
+	      generating_concat_p = 0;
+	      tmp = gen_reg_rtx (GET_MODE (decl_rtl));
+	      generating_concat_p = old_generating_concat_p;
+
+	      emit_move_insn (tmp, decl_rtl);
+	      emit_move_insn (real_decl_rtl, tmp);
+	    }
 	  else
 	    emit_move_insn (real_decl_rtl, decl_rtl);
 	}
@@ -4510,10 +4526,6 @@ expand_function_end (void)
 	 of the result.  */
       current_function_return_rtx = outgoing;
     }
-
-  /* If this is an implementation of throw, do what's necessary to
-     communicate between __builtin_eh_return and the epilogue.  */
-  expand_eh_return ();
 
   /* Emit the actual code to clobber return register.  */
   {

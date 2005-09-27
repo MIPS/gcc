@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfor.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -38,14 +38,14 @@ Boston, MA 02110-1301, USA.  */
 #define M_PI 3.14159265358979323846264338327
 #endif
 
-#include "config.h"
-#include "c99_protos.h"
-
 #if HAVE_COMPLEX_H
 # include <complex.h>
 #else
 #define complex __complex__
 #endif
+
+#include "config.h"
+#include "c99_protos.h"
 
 #if HAVE_IEEEFP_H
 #include <ieeefp.h>
@@ -311,7 +311,8 @@ compile_options_t;
 extern compile_options_t compile_options;
 internal_proto(compile_options);
 
-
+extern void init_compile_options (void);
+internal_proto(init_compile_options);
 
 
 /* Structure for statement options.  */
@@ -343,6 +344,7 @@ typedef enum
   ERROR_BAD_US,
   ERROR_READ_VALUE,
   ERROR_READ_OVERFLOW,
+  ERROR_ARRAY_STRIDE,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;

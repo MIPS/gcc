@@ -1567,12 +1567,8 @@ build_offset_ref (tree type, tree name, bool address_p)
 tree
 integral_constant_value (tree decl)
 {
-  while ((TREE_CODE (decl) == CONST_DECL
-	  || (TREE_CODE (decl) == VAR_DECL
-	      /* And so are variables with a 'const' type -- unless they
-		 are also 'volatile'.  */
-	      && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
+  while (TREE_CODE (decl) == CONST_DECL
+	 || DECL_INTEGRAL_CONSTANT_VAR_P (decl))
     {
       tree init;
       /* If DECL is a static data member in a template class, we must
@@ -1838,6 +1834,9 @@ build_new_1 (tree exp)
 	}
     }
 
+  if (!complete_type_or_else (type, exp))
+    return error_mark_node;
+
   /* If our base type is an array, then make sure we know how many elements
      it has.  */
   for (elt_type = type;
@@ -1845,9 +1844,6 @@ build_new_1 (tree exp)
        elt_type = TREE_TYPE (elt_type))
     nelts = cp_build_binary_op (MULT_EXPR, nelts,
 				array_type_nelts_top (elt_type));
-
-  if (!complete_type_or_else (elt_type, exp))
-    return error_mark_node;
 
   if (TREE_CODE (elt_type) == VOID_TYPE)
     {
@@ -2227,8 +2223,7 @@ build_new_1 (tree exp)
   rval = build_nop (pointer_type, rval);
 
   /* A new-expression is never an lvalue.  */
-  if (real_lvalue_p (rval))
-    rval = build1 (NON_LVALUE_EXPR, TREE_TYPE (rval), rval);
+  rval = rvalue (rval);
 
   return rval;
 }

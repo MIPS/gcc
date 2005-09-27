@@ -77,19 +77,19 @@
    been written as independent functions without change.  */
 
 
-struct var_map_elt
+struct var_map_elt GTY(())
 {
   tree old;
   tree new;
 };
 
-struct nesting_info
+struct nesting_info GTY ((chain_next ("%h.next")))
 {
   struct nesting_info *outer;
   struct nesting_info *inner;
   struct nesting_info *next;
   
-  htab_t var_map;
+  htab_t GTY ((param_is (struct var_map_elt))) var_map;
   tree context;
   tree new_local_var_chain;
   tree frame_type;
@@ -220,6 +220,14 @@ get_frame_type (struct nesting_info *info)
 
       info->frame_type = type;
       info->frame_decl = create_tmp_var_for (info, type, "FRAME");
+
+      /* ??? Always make it addressable for now, since it is meant to
+	 be pointed to by the static chain pointer.  This pessimizes
+	 when it turns out that no static chains are needed because
+	 the nested functions referencing non-local variables are not
+	 reachable, but the true pessimization is to create the non-
+	 local frame structure in the first place.  */
+      TREE_ADDRESSABLE (info->frame_decl) = 1;
     }
   return type;
 }
@@ -288,7 +296,7 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
   
-      elt = xmalloc (sizeof (*elt));
+      elt = ggc_alloc (sizeof (*elt));
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -474,7 +482,7 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
 
-      elt = xmalloc (sizeof (*elt));
+      elt = ggc_alloc (sizeof (*elt));
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -698,8 +706,8 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
 static struct nesting_info *
 create_nesting_tree (struct cgraph_node *cgn)
 {
-  struct nesting_info *info = xcalloc (1, sizeof (*info));
-  info->var_map = htab_create (7, var_map_hash, var_map_eq, free);
+  struct nesting_info *info = ggc_calloc (1, sizeof (*info));
+  info->var_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->context = cgn->decl;
 
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
@@ -1108,7 +1116,7 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
 
   /* Enter this association into var_map so that we can insert the new
      label into the IL during a second pass.  */
-  elt = xmalloc (sizeof (*elt));
+  elt = ggc_alloc (sizeof (*elt));
   elt->old = label;
   elt->new = new_label;
   slot = htab_find_slot (i->var_map, elt, INSERT);
@@ -1474,11 +1482,13 @@ free_nesting_tree (struct nesting_info *root)
 	free_nesting_tree (root->inner);
       htab_delete (root->var_map);
       next = root->next;
-      free (root);
+      ggc_free (root);
       root = next;
     }
   while (root);
 }
+
+static GTY(()) struct nesting_info *root;
 
 /* Main entry point for this pass.  Process FNDECL and all of its nested
    subroutines and turn them into something less tightly bound.  */
@@ -1486,7 +1496,6 @@ free_nesting_tree (struct nesting_info *root)
 void
 lower_nested_functions (tree fndecl)
 {
-  struct nesting_info *root;
   struct cgraph_node *cgn;
 
   /* If there are no nested functions, there's nothing to do.  */
@@ -1502,6 +1511,7 @@ lower_nested_functions (tree fndecl)
   convert_all_function_calls (root);
   finalize_nesting_tree (root);
   free_nesting_tree (root);
+  root = NULL;
 }
 
 #include "gt-tree-nested.h"

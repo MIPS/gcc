@@ -9285,7 +9285,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  return omit_one_operand (type, integer_one_node, arg0);
 
 		case GT_EXPR:
-		  return fold_build2 (NE_EXPR, type, arg0, arg1);
+		  return fold_build2 (NE_EXPR, type, op0, op1);
 
 		default:
 		  break;
@@ -10006,7 +10006,8 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 
       /* If the second operand is simpler than the third, swap them
 	 since that produces better jump optimization results.  */
-      if (tree_swap_operands_p (op1, op2, false))
+      if (truth_value_p (TREE_CODE (arg0))
+	  && tree_swap_operands_p (op1, op2, false))
 	{
 	  /* See if this can be inverted.  If it can't, possibly because
 	     it was a floating-point inequality comparison, don't do

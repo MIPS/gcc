@@ -1,3 +1,11 @@
+2005-09-27  Ben Elliston  <bje@au.ibm.com>
+
+	* Merge with dfp-mergepoint-20050927.
+
+2005-09-27  Ben Elliston  <bje@au.ibm.com>
+
+	* move-if-change: Import new version from src repository.
+
 2005-09-02  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with dfp-mergepoint-20050902.

@@ -998,6 +998,28 @@ expand_simple_binop (enum machine_mode mode, enum rtx_code code, rtx op0,
   return expand_binop (mode, binop, op0, op1, target, unsignedp, methods);
 }
 
+
+/* Return whether OP0 and OP1 should be swapped when expanding a commutative
+   binop.  Order them according to commutative_operand_precedence and, if
+   possible, try to put TARGET first.  */
+static bool
+swap_commutative_operands_with_target (rtx target, rtx op0, rtx op1)
+{
+  int op0_prec = commutative_operand_precedence (op0);
+  int op1_prec = commutative_operand_precedence (op1);
+
+  if (op0_prec < op1_prec)
+    return true;
+
+  if (op0_prec > op1_prec)
+    return false;
+
+  /* With equal precedence, both orders are ok, but try to put the
+     target first.  */
+  return target && rtx_equal_p (op1, target);
+}
+
+
 /* Generate code to perform an operation specified by BINOPTAB
    on operands OP0 and OP1, with result having machine-mode MODE.
 
@@ -1060,10 +1082,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   /* Record where to delete back to if we backtrack.  */
   last = get_last_insn ();
 
-  /* If operation is commutative,
-     try to make the first operand a register.
-     Even better, try to make it the same as the target.
-     Also try to make the last operand a constant.  */
+  /* If operation is commutative, canonicalize the order of the operands.  */
   if (GET_RTX_CLASS (binoptab->code) == RTX_COMM_ARITH
       || binoptab == smul_widen_optab
       || binoptab == umul_widen_optab
@@ -1071,13 +1090,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       || binoptab == umul_highpart_optab)
     {
       commutative_op = 1;
-
-      if (((target == 0 || REG_P (target))
-	   ? ((REG_P (op1)
-	       && !REG_P (op0))
-	      || target == op1)
-	   : rtx_equal_p (op1, target))
-	  || GET_CODE (op0) == CONST_INT)
+      if (swap_commutative_operands_with_target (target, op0, op1))
 	{
 	  temp = op1;
 	  op1 = op0;
@@ -3000,9 +3013,10 @@ struct no_conflict_data
   bool must_stay;
 };
 
-/* Called via note_stores by emit_no_conflict_block.  Set P->must_stay
-   if the currently examined clobber / store has to stay in the list of
-   insns that constitute the actual no_conflict block.  */
+/* Called via note_stores by emit_no_conflict_block and emit_libcall_block.
+   Set P->must_stay if the currently examined clobber / store has to stay
+   in the list of insns that constitute the actual no_conflict block /
+   libcall block.  */
 static void
 no_conflict_move_test (rtx dest, rtx set, void *p0)
 {
@@ -3017,7 +3031,8 @@ no_conflict_move_test (rtx dest, rtx set, void *p0)
     return;
   /* If this insn sets / clobbers a register that feeds one of the insns
      already in the list, this insn has to stay too.  */
-  else if (reg_mentioned_p (dest, PATTERN (p->first))
+  else if (reg_overlap_mentioned_p (dest, PATTERN (p->first))
+	   || (CALL_P (p->first) && (find_reg_fusage (p->first, USE, dest)))
 	   || reg_used_between_p (dest, p->first, p->insn)
 	   /* Likewise if this insn depends on a register set by a previous
 	      insn in the list.  */
@@ -3243,23 +3258,27 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
       next = NEXT_INSN (insn);
 
       if (set != 0 && REG_P (SET_DEST (set))
-	  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
-	  && (insn == insns
-	      || ((! INSN_P(insns)
-		   || ! reg_mentioned_p (SET_DEST (set), PATTERN (insns)))
-		  && ! reg_used_between_p (SET_DEST (set), insns, insn)
-		  && ! modified_in_p (SET_SRC (set), insns)
-		  && ! modified_between_p (SET_SRC (set), insns, insn))))
+	  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER)
 	{
-	  if (PREV_INSN (insn))
-	    NEXT_INSN (PREV_INSN (insn)) = next;
-	  else
-	    insns = next;
+	  struct no_conflict_data data;
 
-	  if (next)
-	    PREV_INSN (next) = PREV_INSN (insn);
+	  data.target = const0_rtx;
+	  data.first = insns;
+	  data.insn = insn;
+	  data.must_stay = 0;
+	  note_stores (PATTERN (insn), no_conflict_move_test, &data);
+	  if (! data.must_stay)
+	    {
+	      if (PREV_INSN (insn))
+		NEXT_INSN (PREV_INSN (insn)) = next;
+	      else
+		insns = next;
 
-	  add_insn (insn);
+	      if (next)
+		PREV_INSN (next) = PREV_INSN (insn);
+
+	      add_insn (insn);
+	    }
 	}
 
       /* Some ports use a loop to copy large arguments onto the stack.

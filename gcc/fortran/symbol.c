@@ -434,6 +434,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (target);
       conf2 (dummy);
       conf2 (in_common);
+      conf2 (save);
       break;
 
     default:
@@ -904,9 +905,8 @@ gfc_add_procedure (symbol_attribute * attr, procedure_type t,
 
   if (attr->proc != PROC_UNKNOWN)
     {
-      gfc_error ("%s procedure at %L is already %s %s procedure",
+      gfc_error ("%s procedure at %L is already declared as %s procedure",
 		 gfc_code2string (procedures, t), where,
-		 gfc_article (gfc_code2string (procedures, attr->proc)),
 		 gfc_code2string (procedures, attr->proc));
 
       return FAILURE;

@@ -2156,12 +2156,30 @@ ix86_function_regparm (tree type, tree decl)
 	  struct cgraph_local_info *i = cgraph_local_info (decl);
 	  if (i && i->local)
 	    {
+	      int local_regparm, globals = 0, regno;
+
+	      /* Make sure no regparm register is taken by a global register
+		 variable.  */
+	      for (local_regparm = 0; local_regparm < 3; local_regparm++)
+		if (global_regs[local_regparm])
+		  break;
 	      /* We can't use regparm(3) for nested functions as these use
 		 static chain pointer in third argument.  */
-	      if (DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
-		regparm = 2;
-	      else
-		regparm = 3;
+	      if (local_regparm == 3
+		  && decl_function_context (decl)
+		  && !DECL_NO_STATIC_CHAIN (decl))
+		local_regparm = 2;
+	      /* Each global register variable increases register preassure,
+		 so the more global reg vars there are, the smaller regparm
+		 optimization use, unless requested by the user explicitly.  */
+	      for (regno = 0; regno < 6; regno++)
+		if (global_regs[regno])
+		  globals++;
+	      local_regparm
+		= globals < local_regparm ? local_regparm - globals : 0;
+
+	      if (local_regparm > regparm)
+		regparm = local_regparm;
 	    }
 	}
     }
@@ -9071,15 +9089,17 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
   int is_sse = TARGET_SSE_MATH && SSE_FLOAT_MODE_P (op_mode);
 
   /* All of the unordered compare instructions only work on registers.
-     The same is true of the fcomi compare instructions.  The same is
-     true of the XFmode compare instructions if not comparing with
-     zero (ftst insn is used in this case).  */
+     The same is true of the fcomi compare instructions.  The XFmode
+     compare instructions require registers except when comparing
+     against zero or when converting operand 1 from fixed point to
+     floating point.  */
 
   if (!is_sse
       && (fpcmp_mode == CCFPUmode
 	  || (op_mode == XFmode
 	      && ! (standard_80387_constant_p (op0) == 1
-		    || standard_80387_constant_p (op1) == 1))
+		    || standard_80387_constant_p (op1) == 1)
+	      && GET_CODE (op1) != FLOAT)
 	  || ix86_use_fcomi_compare (code)))
     {
       op0 = force_reg (op_mode, op0);
@@ -17237,6 +17257,7 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
 
   const_vec = copy_rtx (vals);
   XVECEXP (const_vec, 0, one_var) = CONST0_RTX (GET_MODE_INNER (mode));
+  const_vec = gen_rtx_CONST_VECTOR (mode, XVEC (const_vec, 0));
 
   switch (mode)
     {

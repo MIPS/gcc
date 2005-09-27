@@ -3848,7 +3848,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   if (size == 0 || flag_syntax_only)
     return;
 
-  /* See if we're trying to intialize a pointer in a non-default mode
+  /* See if we're trying to initialize a pointer in a non-default mode
      to the address of some declaration somewhere.  If the target says
      the mode is valid for pointers, assume the target has a way of
      resolving it.  */
@@ -3881,8 +3881,12 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       HOST_WIDE_INT type_size = int_size_in_bytes (TREE_TYPE (exp));
       HOST_WIDE_INT op_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (exp, 0)));
 
-      /* Make sure eliminating the conversion is really a no-op.  */
-      if (type_size != op_size)
+      /* Make sure eliminating the conversion is really a no-op, except with
+	 VIEW_CONVERT_EXPRs to allow for wild Ada unchecked conversions and
+	 union types to allow for Ada unchecked unions.  */
+      if (type_size != op_size
+	  && TREE_CODE (exp) != VIEW_CONVERT_EXPR
+	  && TREE_CODE (TREE_TYPE (exp)) != UNION_TYPE)
 	internal_error ("no-op convert from %wd to %wd bytes in initializer",
 			op_size, type_size);
 

@@ -30,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    time I looked, so by comparison this is perfectly reasonable.  */
 
 #include "system.h"
+#include "intl.h"
 #include "coretypes.h"
 #include "input.h"
 
@@ -76,6 +77,8 @@ char *alloca ();
    so we hide it behind a macro.  */
 #define PREFIX(x) "_gfortran_" x
 #define PREFIX_LEN 10
+
+#define BLANK_COMMON_NAME "__BLNK__"
 
 /* Macro to initialize an mstring structure.  */
 #define minit(s, t) { s, NULL, t }
@@ -419,7 +422,7 @@ typedef struct
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     use_assoc:1;		/* Symbol has been use-associated.  */
 
-  unsigned in_namelist:1, in_common:1;
+  unsigned in_namelist:1, in_common:1, in_equivalence:1;
   unsigned function:1, subroutine:1, generic:1;
   unsigned implicit_type:1;	/* Type defined via implicit rules.  */
   unsigned untyped:1;           /* No implicit type could be found.  */
@@ -706,6 +709,11 @@ typedef struct gfc_symbol
   gfc_component *components;	/* Derived type components */
 
   struct gfc_symbol *common_next;	/* Links for COMMON syms */
+
+  /* This is in fact a gfc_common_head but it is only used for pointer
+     comparisons to check if symbols are in the same common block.  */
+  struct gfc_common_head* common_head;
+
   /* Make sure setup code for dummy arguments is generated in the correct
      order.  */
   int dummy_order;
@@ -734,12 +742,12 @@ gfc_symbol;
 
 /* This structure is used to keep track of symbols in common blocks.  */
 
-typedef struct
+typedef struct gfc_common_head
 {
   locus where;
   int use_assoc, saved;
   char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_symbol *head;
+  struct gfc_symbol *head;
 } 
 gfc_common_head;
 
@@ -1194,6 +1202,7 @@ typedef struct gfc_equiv
 {
   struct gfc_equiv *next, *eq;
   gfc_expr *expr;
+  const char *module;
   int used;
 }
 gfc_equiv;
@@ -1262,7 +1271,7 @@ gfc_alloc;
 typedef struct
 {
   gfc_expr *unit, *file, *status, *access, *form, *recl,
-    *blank, *position, *action, *delim, *pad, *iostat;
+    *blank, *position, *action, *delim, *pad, *iostat, *iomsg;
   gfc_st_label *err;
 }
 gfc_open;
@@ -1270,7 +1279,7 @@ gfc_open;
 
 typedef struct
 {
-  gfc_expr *unit, *status, *iostat;
+  gfc_expr *unit, *status, *iostat, *iomsg;
   gfc_st_label *err;
 }
 gfc_close;
@@ -1278,7 +1287,7 @@ gfc_close;
 
 typedef struct
 {
-  gfc_expr *unit, *iostat;
+  gfc_expr *unit, *iostat, *iomsg;
   gfc_st_label *err;
 }
 gfc_filepos;
@@ -1289,7 +1298,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg;
 
   gfc_st_label *err;
 
@@ -1299,7 +1308,7 @@ gfc_inquire;
 
 typedef struct
 {
-  gfc_expr *io_unit, *format_expr, *rec, *advance, *iostat, *size;
+  gfc_expr *io_unit, *format_expr, *rec, *advance, *iostat, *size, *iomsg;
 
   gfc_symbol *namelist;
   /* A format_label of `format_asterisk' indicates the "*" format */
@@ -1524,7 +1533,6 @@ void gfc_free (void *);
 int gfc_terminal_width(void);
 void gfc_clear_ts (gfc_typespec *);
 FILE *gfc_open_file (const char *);
-const char *gfc_article (const char *);
 const char *gfc_basic_typename (bt);
 const char *gfc_typename (gfc_typespec *);
 

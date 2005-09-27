@@ -2275,7 +2275,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       rtx copy = copy_rtx (vals);
 
-      /* Load constant part of vector, substititute neighboring value for
+      /* Load constant part of vector, substitute neighboring value for
 	 varying element.  */
       XVECEXP (copy, 0, one_var) = XVECEXP (vals, 0, (one_var + 1) % n_elts);
       rs6000_expand_vector_init (target, copy);
@@ -3263,11 +3263,15 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       return x;
     }
 
-#if TARGET_MACHO
   if (GET_CODE (x) == SYMBOL_REF
-      && DEFAULT_ABI == ABI_DARWIN
       && !ALTIVEC_VECTOR_MODE (mode)
+#if TARGET_MACHO
+      && DEFAULT_ABI == ABI_DARWIN
       && (flag_pic || MACHO_DYNAMIC_NO_PIC_P)
+#else
+      && DEFAULT_ABI == ABI_V4
+      && !flag_pic
+#endif
       /* Don't do this for TFmode, since the result isn't offsettable.
 	 The same goes for TDmode and for DImode without 64-bit
 	 gprs.  */
@@ -3275,6 +3279,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && mode != TDmode
       && (mode != DImode || TARGET_POWERPC64))
     {
+#if TARGET_MACHO
       if (flag_pic)
 	{
 	  rtx offset = gen_rtx_CONST (Pmode,
@@ -3285,6 +3290,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 		  gen_rtx_HIGH (Pmode, offset)), offset);
 	}
       else
+#endif
 	x = gen_rtx_LO_SUM (GET_MODE (x),
 	      gen_rtx_HIGH (Pmode, x), x);
 
@@ -3294,7 +3300,6 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       *win = 1;
       return x;
     }
-#endif
 
   /* Reload an offset address wrapped by an AND that represents the
      masking of the lower bits.  Strip the outer AND and let reload
@@ -5489,7 +5494,8 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       mem = gen_rtx_MEM (BLKmode,
 			 plus_constant (save_area,
-					first_reg_offset * reg_size)),
+					first_reg_offset * reg_size));
+      MEM_NOTRAP_P (mem) = 1;
       set_mem_alias_set (mem, set);
       set_mem_align (mem, BITS_PER_WORD);
 
@@ -5524,6 +5530,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	   fregno++, off += UNITS_PER_FP_WORD, nregs++)
 	{
 	  mem = gen_rtx_MEM (DFmode, plus_constant (save_area, off));
+	  MEM_NOTRAP_P (mem) = 1;
 	  set_mem_alias_set (mem, set);
 	  set_mem_align (mem, GET_MODE_ALIGNMENT (DFmode));
 	  emit_move_insn (mem, gen_rtx_REG (DFmode, fregno));
@@ -12282,16 +12289,14 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      emit_insn (TARGET_32BIT
 			 ? gen_addsi3 (breg, breg, delta_rtx)
 			 : gen_adddi3 (breg, breg, delta_rtx));
-	      src = gen_rtx_MEM (mode, breg);
+	      src = replace_equiv_address (src, breg);
 	    }
 	  else if (! offsettable_memref_p (src))
 	    {
-	      rtx newsrc, basereg;
+	      rtx basereg;
 	      basereg = gen_rtx_REG (Pmode, reg);
 	      emit_insn (gen_rtx_SET (VOIDmode, basereg, XEXP (src, 0)));
-	      newsrc = gen_rtx_MEM (GET_MODE (src), basereg);
-	      MEM_COPY_ATTRIBUTES (newsrc, src);
-	      src = newsrc;
+	      src = replace_equiv_address (src, basereg);
 	    }
 
 	  breg = XEXP (src, 0);
@@ -12336,7 +12341,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		emit_insn (TARGET_32BIT
 			   ? gen_addsi3 (breg, breg, delta_rtx)
 			   : gen_adddi3 (breg, breg, delta_rtx));
-	      dst = gen_rtx_MEM (mode, breg);
+	      dst = replace_equiv_address (dst, breg);
 	    }
 	  else
 	    gcc_assert (offsettable_memref_p (dst));
@@ -13401,7 +13406,10 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
 	  || current_function_calls_alloca
 	  || info->total_size > 32767)
 	{
-	  emit_move_insn (operands[1], gen_rtx_MEM (Pmode, frame_rtx));
+	  tmp = gen_rtx_MEM (Pmode, frame_rtx);
+	  MEM_NOTRAP_P (tmp) = 1;
+	  set_mem_alias_set (tmp, rs6000_sr_alias_set);
+	  emit_move_insn (operands[1], tmp);
 	  frame_rtx = operands[1];
 	}
       else if (info->push_p)
@@ -13409,6 +13417,8 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
 
       tmp = plus_constant (frame_rtx, info->lr_save_offset + sp_offset);
       tmp = gen_rtx_MEM (Pmode, tmp);
+      MEM_NOTRAP_P (tmp) = 1;
+      set_mem_alias_set (tmp, rs6000_sr_alias_set);
       emit_move_insn (tmp, operands[0]);
     }
   else
@@ -13481,12 +13491,12 @@ rs6000_aix_emit_builtin_unwind_init (void)
   rtx tocompare = gen_reg_rtx (SImode);
   rtx no_toc_save_needed = gen_label_rtx ();
 
-  mem = gen_rtx_MEM (Pmode, hard_frame_pointer_rtx);
+  mem = gen_frame_mem (Pmode, hard_frame_pointer_rtx);
   emit_move_insn (stack_top, mem);
 
-  mem = gen_rtx_MEM (Pmode,
-		     gen_rtx_PLUS (Pmode, stack_top,
-				   GEN_INT (2 * GET_MODE_SIZE (Pmode))));
+  mem = gen_frame_mem (Pmode,
+		       gen_rtx_PLUS (Pmode, stack_top,
+				     GEN_INT (2 * GET_MODE_SIZE (Pmode))));
   emit_move_insn (opcode_addr, mem);
   emit_move_insn (opcode, gen_rtx_MEM (SImode, opcode_addr));
   emit_move_insn (tocompare, gen_int_mode (TARGET_32BIT ? 0x80410014
@@ -13496,9 +13506,9 @@ rs6000_aix_emit_builtin_unwind_init (void)
 			   SImode, NULL_RTX, NULL_RTX,
 			   no_toc_save_needed);
 
-  mem = gen_rtx_MEM (Pmode,
-		     gen_rtx_PLUS (Pmode, stack_top,
-				   GEN_INT (5 * GET_MODE_SIZE (Pmode))));
+  mem = gen_frame_mem (Pmode,
+		       gen_rtx_PLUS (Pmode, stack_top,
+				     GEN_INT (5 * GET_MODE_SIZE (Pmode))));
   emit_move_insn (mem, gen_rtx_REG (Pmode, 2));
   emit_label (no_toc_save_needed);
 }
@@ -16668,26 +16678,24 @@ rs6000_is_costly_dependence (rtx insn, rtx next, rtx link, int cost,
 static rtx
 get_next_active_insn (rtx insn, rtx tail)
 {
-  rtx next_insn;
-
-  if (!insn || insn == tail)
+  if (insn == NULL_RTX || insn == tail)
     return NULL_RTX;
 
-  next_insn = NEXT_INSN (insn);
-
-  while (next_insn
-  	 && next_insn != tail
-	 && (GET_CODE (next_insn) == NOTE
-	     || GET_CODE (PATTERN (next_insn)) == USE
-	     || GET_CODE (PATTERN (next_insn)) == CLOBBER))
+  while (1)
     {
-      next_insn = NEXT_INSN (next_insn);
+      insn = NEXT_INSN (insn);
+      if (insn == NULL_RTX || insn == tail)
+	return NULL_RTX;
+
+      if (CALL_P (insn)
+	  || JUMP_P (insn)
+	  || (NONJUMP_INSN_P (insn)
+	      && GET_CODE (PATTERN (insn)) != USE
+	      && GET_CODE (PATTERN (insn)) != CLOBBER
+	      && INSN_CODE (insn) != CODE_FOR_stack_tie))
+	break;
     }
-
-  if (!next_insn || next_insn == tail)
-    return NULL_RTX;
-
-  return next_insn;
+  return insn;
 }
 
 /* Return whether the presence of INSN causes a dispatch group termination

@@ -307,7 +307,6 @@ match_boz_constant (gfc_expr ** result)
   locus old_loc;
   char *buffer;
   gfc_expr *e;
-  const char *rname;
 
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
@@ -317,18 +316,15 @@ match_boz_constant (gfc_expr ** result)
     {
     case 'b':
       radix = 2;
-      rname = "binary";
       break;
     case 'o':
       radix = 8;
-      rname = "octal";
       break;
     case 'x':
       x_hex = 1;
       /* Fall through.  */
     case 'z':
       radix = 16;
-      rname = "hexadecimal";
       break;
     default:
       goto backup;
@@ -351,13 +347,33 @@ match_boz_constant (gfc_expr ** result)
   length = match_digits (0, radix, NULL);
   if (length == -1)
     {
-      gfc_error ("Empty set of digits in %s constants at %C", rname);
+      switch (radix)
+        {
+	case 2:
+          gfc_error ("Empty set of digits in binary constant at %C");
+	case 8:
+          gfc_error ("Empty set of digits in octal constant at %C");
+	case 16:
+          gfc_error ("Empty set of digits in hexadecimal constant at %C");
+        default:
+	  gcc_unreachable ();
+        }
       return MATCH_ERROR;
     }
 
   if (gfc_next_char () != delim)
     {
-      gfc_error ("Illegal character in %s constant at %C.", rname);
+      switch (radix)
+        {
+	case 2:
+	  gfc_error ("Illegal character in binary constant at %C");
+	case 8:
+	  gfc_error ("Illegal character in octal constant at %C");
+	case 16:
+	  gfc_error ("Illegal character in hexadecimal constant at %C");
+	default:
+	  gcc_unreachable ();
+	}
       return MATCH_ERROR;
     }
 
@@ -1308,11 +1324,27 @@ match_actual_arg (gfc_expr ** result)
 
 	  /* If the symbol is a function with itself as the result and
 	     is being defined, then we have a variable.  */
-	  if (sym->result == sym
-	      && (gfc_current_ns->proc_name == sym
+	  if (sym->attr.function && sym->result == sym)
+	    {
+	      if (gfc_current_ns->proc_name == sym
 		  || (gfc_current_ns->parent != NULL
-		      && gfc_current_ns->parent->proc_name == sym)))
-	    break;
+		      && gfc_current_ns->parent->proc_name == sym))
+		break;
+
+	      if (sym->attr.entry
+		  && (sym->ns == gfc_current_ns
+		      || sym->ns == gfc_current_ns->parent))
+		{
+		  gfc_entry_list *el = NULL;
+
+		  for (el = sym->ns->entries; el; el = el->next)
+		    if (sym == el->sym)
+		      break;
+
+		  if (el)
+		    break;
+		}
+	    }
 	}
 
       e = gfc_get_expr ();	/* Leave it unknown for now */
@@ -2173,10 +2205,15 @@ gfc_match_rvalue (gfc_expr ** result)
    starts as a symbol, can be a structure component or an array
    reference.  It can be a function if the function doesn't have a
    separate RESULT variable.  If the symbol has not been previously
-   seen, we assume it is a variable.  */
+   seen, we assume it is a variable.
 
-match
-gfc_match_variable (gfc_expr ** result, int equiv_flag)
+   This function is called by two interface functions:
+   gfc_match_variable, which has host_flag = 1, and
+   gfc_match_equiv_variable, with host_flag = 0, to restrict the
+   match of the symbol to the local scope.  */
+
+static match
+match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
 {
   gfc_symbol *sym;
   gfc_symtree *st;
@@ -2184,7 +2221,7 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   locus where;
   match m;
 
-  m = gfc_match_sym_tree (&st, 1);
+  m = gfc_match_sym_tree (&st, host_flag);
   if (m != MATCH_YES)
     return m;
   where = gfc_current_locus;
@@ -2258,3 +2295,16 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   *result = expr;
   return MATCH_YES;
 }
+
+match
+gfc_match_variable (gfc_expr ** result, int equiv_flag)
+{
+  return match_variable (result, equiv_flag, 1);
+}
+
+match
+gfc_match_equiv_variable (gfc_expr ** result)
+{
+  return match_variable (result, 1, 0);
+}
+

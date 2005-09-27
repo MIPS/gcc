@@ -1,3 +1,227 @@
+2005-09-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/mt_allocator/tune-1.cc: Clarify for single-thread.
+	* testsuite/ext/mt_allocator/tune-2.cc: Same.
+	* testsuite/ext/mt_allocator/tune-3.cc: Same.
+	* testsuite/ext/mt_allocator/tune-4.cc: Same.
+
+2005-09-21  Guillaume Melquiond  <guillaume.melquiond@ens-lyon.fr>
+
+	PR libstdc++/23956
+	* include/ext/mt_allocator.h: Remove excess
+	policy_type::_S_get_pool calls in constructors.
+	
+2005-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23417 (cont)
+	* include/bits/stl_tree.h (_Rb_tree_impl<true>): Use member
+	initialization list for -Weffc++.
+
+2005-09-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/23871.cc:
+	New.
+
+2005-09-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21674
+	PR libstdc++/22205
+	PR libstdc++/22222
+	* include/bits/c++config: Set _GLIBCXX_STD regardless of __GXX_WEAK__.
+	Add in check for __NO_INLINE__ for warning.
+	* testsuite/lib/dg-options.exp (dg-require-debug-mode): New.
+	* testsuite/lib/libstdc++.exp (check_v3_target_debug_mode): New.
+	* testsuite/21_strings/basic_string/element_access/char/21674.cc:
+	Use it.
+	* testsuite/21_strings/basic_string/element_access/wchar_t/21674.cc:
+	Use it.
+
+2005-09-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23875
+	* include/std/std_ostream.h (operator<<(short), operator<<(unsigned
+	short), operator<<(int), operator<<(unsigned int), operator<<(float)):
+	Don't call operator<<(long), operator<<(unsigned long), or
+	operator<<(double), do the work mandated by the resolution of DR117...
+	* include/bits/ostream.tcc (operator<<(short), operator<<(unsigned
+	short), operator<<(int), operator<<(unsigned int), operator<<(float)):
+	... here.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/pod/23875.cc: New.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/testsuite_character.h: Specialize character<>
+	templates in __gnu_cxx, not in __gnu_test.
+
+2005-09-13  Jonathan Wakely  <cow@compsoc.man.ac.uk>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21674
+	* testsuite/21_strings/basic_string/element_access/char/21674.cc: New.
+	* testsuite/21_strings/basic_string/element_access/wchar_t/21674.cc: 
+	New.
+
+2005-09-12  David Edelsohn  <dje@gcc.gnu.org>
+
+	PR libstdc++/22554
+	PR libstdc++/23734
+	* include/Makefile.am (stamp-assoc): Install each subgroup
+	of headers separately.
+	* include/Makefile.in: Regenerate.
+	
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/mt_allocator/22309_thread.cc: Remove dg-do run.
+	* testsuite/lib/libstdc++.exp ( proc libstdc++_init): Enable
+	shared only for linux.
+	
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+	    David Edelsohn  <dje@gcc.gnu.org>
+
+	PR libstdc++/22554
+	PR libstdc++/23734
+	* include/Makefile.am (assoc_headers): Break into five sub values.
+	(install-headers): Use them.
+	(stamp-assoc): Same.
+	* include/Makefile.in: Regenerate.
+	
+2005-09-12  Chris Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (search_n): Delegate to specializations.
+	(search_n(,,,,binary_predicate)): Likewise.
+	(__search_n(forward_iterator_tag)): Original search_n, tweak to
+	remove an unnecessary comparison.
+	(__search_n(,,,,binary_predicate,forward_iterator_tag)): Likewise.
+
+2005-09-12  Jim Xochellis  <jimxoch@yahoo.gr>
+
+	* include/bits/stl_algo.h
+	(__search_n(std::random_access_iterator_tag)): Add specialization.
+	(__search_n(,,,,binary_predicate,std::random_access_iterator_tag)):
+	Likewise.
+
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/23417
+	* include/bits/stl_list.h (_List_impl): Use member initialization
+	list for -Weffc++.
+	* include/bits/stl_tree.h (_Rb_tree_impl): Same.
+
+2005-09-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23767
+	* include/bits/stl_iterator.h (__normal_iterator::
+	__normal_iterator<>(const __normal_iterator<_Iter, _Container>&)):
+	Enable only when _Iter is equal to _Container::pointer.
+	* testsuite/21_strings/basic_string/types/23767.cc: New.
+	* testsuite/23_containers/vector/types/23767.cc: Likewise.
+	* testsuite/ext/vstring/types/23767.cc: Likewise.
+
+2005-09-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/19265
+	PR libstdc++/22309
+	* include/ext/mt_allocator.h
+	(__gnu_cxx::__create_handler): Remove.
+	(__pool<true>::_M_destroy_thread_key): Compatibility only.
+	(__pool<true>::_M_initialize(__destroy): Same.
+	(__pool<true>::_M_initialize): New.
+	(__pool<true>::_M_initialize_once): Nothing fancy.
+	(__pool<true>::_M_once): Remove.
+	(__common_pool): New.
+	(__common_pool_base): New.	
+	(__per_type_pool): New.
+	(__per_type_pool_base): New.
+	* src/mt_allocator.cc: Same.
+	* config/linker-map.gnu (__pool<true>::_M_initialize()): Add.
+	
+2005-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/19265
+	PR libstdc++/22309
+	* src/mt_allocator.cc (__gnu_internal::freelist_mutex): Make static.
+	(__gnu_internal::__freelist): New type.
+	(__gnu_internal::freelist): New variable.
+	(__gnu_internal::_M_destroy_thread_key): New function.
+	(__gnu_cxx::__pool<true>::_M_destroy): Don't delete
+	_M_thread_freelist_initial.
+	(__gnu_cxx::__pool<true>::_M_initialize): Make argument nameless.
+	Don't use _M_thread_freelist and _M_thread_freelist_initial
+	__pool<true> fields, instead use __gnu_internal::freelist fields, call
+	gthread_key_create just once.  Use
+	__gnu_internal::_M_destroy_thread_key as key destructor.	
+	(__gnu_cxx::__pool<true>::_M_get_thread_id): Store size_t id
+	rather than _Thread_record* in the thread specific value.  Don't
+	use _M_thread_freelist __pool<true> field, instead use
+	__gnu_internal::freelist fields.
+	(__gnu_cxx::__pool<true>::_M_destroy_thread_key): Do nothing.
+
+2005-09-11  Benjamin Kosnik  <bkoz@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/19265
+	PR libstdc++/22309	
+	* testsuite/testsuite_shared.cc: New.
+	* testsuite/lib/dg-options.exp (dg-require-sharedlib): New.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Look for shared
+	library, and set v3-sharedlib based on this.
+	(check_v3_target_sharedlib): New.
+	(proc v3-build_support): Build shared objects.
+	* testsuite/ext/mt_allocator/22309_thread.cc: New, use above.
+
+2005-09-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23781
+	* include/bits/stl_list.h (_List_iterator<>::
+	_List_iterator(_List_node_base*), _List_const_iterator<>::
+	_List_const_iterator(const _List_node_base*)): Make explicit.
+	(list<>::begin(), list<>::end(), list<>::pop_back()): Adjust
+	consistently.
+	* include/bits/list.tcc (list<>::insert, list<>::erase): Adjust
+	consistently.
+	* include/bits/stl_tree.h (_Rb_tree_iterator<>::
+	_Rb_tree_iterator(_Link_type), _Rb_tree_const_iterator<>::
+	_Rb_tree_const_iterator(_Link_type)): Make explicit.
+	(_Rb_tree<>::begin(), _Rb_tree<>::end()): Adjust consistently.
+	* include/ext/slist (_Slist_iterator<>::_Slist_iterator(_Node*)):
+	Make explicit.
+	(slist<>::erase(iterator), slist<>::erase(iterator, iterator)):
+	Adjust consistently.
+	* include/tr1/hashtable (hashtable_iterator<>::
+	hashtable_iterator(hash_node<>**)): Make explicit.
+	* testsuite/23_containers/list/23781.cc: New.
+	* testsuite/23_containers/map/23781.cc: Likewise.
+	* testsuite/23_containers/multimap/23781.cc: Likewise.
+	* testsuite/23_containers/multiset/23781.cc: Likewise.
+	* testsuite/23_containers/set/23781.cc: Likewise.
+	* testsuite/ext/slist/23781.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/23781.cc: Likewise.
+	* testsuite/23_containers/map/operators/1_neg.cc: Adjust dg-error
+	line numbers.
+	* testsuite/23_containers/set/operators/1_neg.cc: Likewise.
+
+	* include/tr1/array (array<>::begin(), array<>::end()): Adjust
+	stylistically for consistency with the other containers.
+
+2005-09-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c.cc:
+	XFAIL on *-*-linux*, not *-*-linux-gnu.
+
+2005-09-09  Benjamin Kosnik  <bkoz@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	* src/debug.cc (iterator_base_mutex): Make static for internal
+	linkage.
+	* src/locale_init.cc (locale_mutex): Same.
+	* src/mt_allocator.cc (freelist_mutex): Same.
+	* src/pool_allocator.cc (palloc_init_mutex): Same.
+	
+2005-09-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/6_containers/unordered/hashtable/23465.cc:
+	Reduce maximum size and lf.
+
 2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/c_std/std_cmath.h: Declare C99 functions and helper
@@ -11,24 +235,24 @@
 
 2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
 
-        * testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit): New.
-        * testsuite/lib/dg-options.exp (dg-require-cxa-atexit): New.
-        * testsuite/ext/mt_allocator/deallocate_local-6.cc: New.
-        * testsuite/ext/mt_allocator/deallocate_local-8.cc: New.
-        * testsuite/ext/mt_allocator/deallocate_local_thread-5.cc: New.
-        * testsuite/ext/mt_allocator/deallocate_local_thread-7.cc: New.
-        * docs/html/ext/mt_allocator.html: Add link to examples.
-        * testsuite/testsuite_allocator.h: Tweak.
-        * testsuite/ext/mt_allocator/deallocate_global-2.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_global-4.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_local-2.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_local-4.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Same.
-        * testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Same.
-        * testsuite/ext/new_allocator/deallocate_global.cc: Same.
-        * testsuite/ext/new_allocator/deallocate_local.cc: Same.
+	* testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit): New.
+	* testsuite/lib/dg-options.exp (dg-require-cxa-atexit): New.
+	* testsuite/ext/mt_allocator/deallocate_local-6.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local-8.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-5.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-7.cc: New.
+	* docs/html/ext/mt_allocator.html: Add link to examples.
+	* testsuite/testsuite_allocator.h: Tweak.
+	* testsuite/ext/mt_allocator/deallocate_global-2.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global-4.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-2.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-4.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Same.
+	* testsuite/ext/new_allocator/deallocate_global.cc: Same.
+	* testsuite/ext/new_allocator/deallocate_local.cc: Same.
 
 2005-08-31  Paolo Carlini  <pcarlini@suse.de>
 	    Kaspar Fischer <fischerk@inf.ethz.ch> 

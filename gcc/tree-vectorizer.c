@@ -137,6 +137,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfglayout.h"
 #include "expr.h"
 #include "optabs.h"
+#include "params.h"
 #include "toplev.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
@@ -1420,6 +1421,8 @@ new_loop_vec_info (struct loop *loop)
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREFS (res), 20, "loop_datarefs");
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DDRS (res), 20, "loop_ddrs");
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
+  LOOP_VINFO_MAY_MISALIGN_STMTS (res)
+    = VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
 
   return res;
 }
@@ -1480,6 +1483,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   free (LOOP_VINFO_BBS (loop_vinfo));
   varray_clear (LOOP_VINFO_DATAREFS (loop_vinfo));
   varray_clear (LOOP_VINFO_DDRS (loop_vinfo));
+  VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);
 }
@@ -1783,8 +1787,7 @@ reduction_code_for_scalar_code (enum tree_code code,
    Conditions 2,3 are tested in vect_mark_stmts_to_be_vectorized.  */
 
 tree
-vect_is_simple_reduction (struct loop *loop ATTRIBUTE_UNUSED, 
-			  tree phi ATTRIBUTE_UNUSED)
+vect_is_simple_reduction (struct loop *loop, tree phi)
 {
   edge latch_e = loop_latch_edge (loop);
   tree loop_arg = PHI_ARG_DEF_FROM_EDGE (phi, latch_e);
@@ -1926,9 +1929,6 @@ vect_is_simple_reduction (struct loop *loop ATTRIBUTE_UNUSED,
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
       && def1 == phi)
     {
-      use_operand_p use;
-      ssa_op_iter iter;
-
       /* Swap operands (just for simplicity - so that the rest of the code
 	 can assume that the reduction variable is always the last (second)
 	 argument).  */
@@ -1937,16 +1937,8 @@ vect_is_simple_reduction (struct loop *loop ATTRIBUTE_UNUSED,
           fprintf (vect_dump, "detected reduction: need to swap operands:");
           print_generic_expr (vect_dump, operation, TDF_SLIM);
         }
-
-      /* CHECKME */
-      FOR_EACH_SSA_USE_OPERAND (use, def_stmt, iter, SSA_OP_USE)
-        {
-          tree tuse = USE_FROM_PTR (use);
-          if (tuse == op1)
-            SET_USE (use, op2);
-          else if (tuse == op2)
-            SET_USE (use, op1);
-        }
+      swap_tree_operands (def_stmt, &TREE_OPERAND (operation, 0), 
+				    &TREE_OPERAND (operation, 1));
       return def_stmt;
     }
   else
@@ -2049,7 +2041,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo, loops); 
+      vect_transform_loop (loop_vinfo, loops);
       num_vectorized_loops++;
     }
 

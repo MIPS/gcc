@@ -411,13 +411,27 @@ resolve_entries (gfc_namespace * ns)
 	    {
 	      sym = el->sym->result;
 	      if (sym->attr.dimension)
-		gfc_error ("%s result %s can't be an array in FUNCTION %s at %L",
-			   el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
-			   ns->entries->sym->name, &sym->declared_at);
+	      {
+		if (el == ns->entries)
+		  gfc_error
+		  ("FUNCTION result %s can't be an array in FUNCTION %s at %L",
+		   sym->name, ns->entries->sym->name, &sym->declared_at);
+	        else
+		  gfc_error
+		    ("ENTRY result %s can't be an array in FUNCTION %s at %L",
+		     sym->name, ns->entries->sym->name, &sym->declared_at);
+	      }
 	      else if (sym->attr.pointer)
-		gfc_error ("%s result %s can't be a POINTER in FUNCTION %s at %L",
-			   el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
-			   ns->entries->sym->name, &sym->declared_at);
+	      {
+		if (el == ns->entries)
+		  gfc_error
+		  ("FUNCTION result %s can't be a POINTER in FUNCTION %s at %L",
+		   sym->name, ns->entries->sym->name, &sym->declared_at);
+	        else
+		  gfc_error
+		    ("ENTRY result %s can't be a POINTER in FUNCTION %s at %L",
+		     sym->name, ns->entries->sym->name, &sym->declared_at);
+	      }
 	      else
 		{
 		  ts = &sym->ts;
@@ -450,10 +464,18 @@ resolve_entries (gfc_namespace * ns)
 		      break;
 		    }
 		  if (sym)
-		    gfc_error ("%s result %s can't be of type %s in FUNCTION %s at %L",
-			       el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
-			       gfc_typename (ts), ns->entries->sym->name,
-			       &sym->declared_at);
+		  {
+		    if (el == ns->entries)
+		      gfc_error
+			("FUNCTION result %s can't be of type %s in FUNCTION %s at %L",
+			 sym->name, gfc_typename (ts), ns->entries->sym->name,
+			 &sym->declared_at);
+		    else
+		      gfc_error
+			("ENTRY result %s can't be of type %s in FUNCTION %s at %L",
+			 sym->name, gfc_typename (ts), ns->entries->sym->name,
+			 &sym->declared_at);
+		  }
 		}
 	    }
 	}
@@ -1417,7 +1439,7 @@ resolve_operator (gfc_expr * e)
 	  break;
 	}
 
-      sprintf (msg, "Operand of unary numeric operator '%s' at %%L is %s",
+      sprintf (msg, _("Operand of unary numeric operator '%s' at %%L is %s"),
 	       gfc_op2string (e->value.op.operator), gfc_typename (&e->ts));
       goto bad_op;
 
@@ -1433,7 +1455,7 @@ resolve_operator (gfc_expr * e)
 	}
 
       sprintf (msg,
-	       "Operands of binary numeric operator '%s' at %%L are %s/%s",
+	       _("Operands of binary numeric operator '%s' at %%L are %s/%s"),
 	       gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
 	       gfc_typename (&op2->ts));
       goto bad_op;
@@ -1447,7 +1469,7 @@ resolve_operator (gfc_expr * e)
 	}
 
       sprintf (msg,
-	       "Operands of string concatenation operator at %%L are %s/%s",
+	       _("Operands of string concatenation operator at %%L are %s/%s"),
 	       gfc_typename (&op1->ts), gfc_typename (&op2->ts));
       goto bad_op;
 
@@ -1466,7 +1488,7 @@ resolve_operator (gfc_expr * e)
 	  break;
 	}
 
-      sprintf (msg, "Operands of logical operator '%s' at %%L are %s/%s",
+      sprintf (msg, _("Operands of logical operator '%s' at %%L are %s/%s"),
 	       gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
 	       gfc_typename (&op2->ts));
 
@@ -1480,7 +1502,7 @@ resolve_operator (gfc_expr * e)
 	  break;
 	}
 
-      sprintf (msg, "Operand of .NOT. operator at %%L is %s",
+      sprintf (msg, _("Operand of .NOT. operator at %%L is %s"),
 	       gfc_typename (&op1->ts));
       goto bad_op;
 
@@ -1490,7 +1512,7 @@ resolve_operator (gfc_expr * e)
     case INTRINSIC_LE:
       if (op1->ts.type == BT_COMPLEX || op2->ts.type == BT_COMPLEX)
 	{
-	  strcpy (msg, "COMPLEX quantities cannot be compared at %L");
+	  strcpy (msg, _("COMPLEX quantities cannot be compared at %L"));
 	  goto bad_op;
 	}
 
@@ -1515,11 +1537,13 @@ resolve_operator (gfc_expr * e)
 	}
 
       if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
-	sprintf (msg, "Logicals at %%L must be compared with %s instead of %s",
+	sprintf (msg,
+	         _("Logicals at %%L must be compared with %s instead of %s"),
 		 e->value.op.operator == INTRINSIC_EQ ? ".EQV." : ".NEQV.",
 		 gfc_op2string (e->value.op.operator));
       else
-	sprintf (msg, "Operands of comparison operator '%s' at %%L are %s/%s",
+	sprintf (msg,
+	         _("Operands of comparison operator '%s' at %%L are %s/%s"),
 		 gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
 		 gfc_typename (&op2->ts));
 
@@ -1527,10 +1551,10 @@ resolve_operator (gfc_expr * e)
 
     case INTRINSIC_USER:
       if (op2 == NULL)
-	sprintf (msg, "Operand of user operator '%s' at %%L is %s",
+	sprintf (msg, _("Operand of user operator '%s' at %%L is %s"),
 		 e->value.op.uop->name, gfc_typename (&op1->ts));
       else
-	sprintf (msg, "Operands of user operator '%s' at %%L are %s/%s",
+	sprintf (msg, _("Operands of user operator '%s' at %%L are %s/%s"),
 		 e->value.op.uop->name, gfc_typename (&op1->ts),
 		 gfc_typename (&op2->ts));
 
@@ -2342,24 +2366,26 @@ gfc_resolve_expr (gfc_expr * e)
    INTEGER or (optionally) REAL type.  */
 
 static try
-gfc_resolve_iterator_expr (gfc_expr * expr, bool real_ok, const char * name)
+gfc_resolve_iterator_expr (gfc_expr * expr, bool real_ok,
+			   const char * name_msgid)
 {
   if (gfc_resolve_expr (expr) == FAILURE)
     return FAILURE;
 
   if (expr->rank != 0)
     {
-      gfc_error ("%s at %L must be a scalar", name, &expr->where);
+      gfc_error ("%s at %L must be a scalar", _(name_msgid), &expr->where);
       return FAILURE;
     }
 
   if (!(expr->ts.type == BT_INTEGER
 	|| (expr->ts.type == BT_REAL && real_ok)))
     {
-      gfc_error ("%s at %L must be INTEGER%s",
-		 name,
-		 &expr->where,
-		 real_ok ? " or REAL" : "");
+      if (real_ok)
+	gfc_error ("%s at %L must be INTEGER or REAL", _(name_msgid),
+		   &expr->where);
+      else
+	gfc_error ("%s at %L must be INTEGER", _(name_msgid), &expr->where);
       return FAILURE;
     }
   return SUCCESS;
@@ -2486,6 +2512,29 @@ derived_pointer (gfc_symbol * sym)
 
       if (c->ts.type == BT_DERIVED && derived_pointer (c->ts.derived))
 	return 1;
+    }
+
+  return 0;
+}
+
+
+/* Given a pointer to a symbol that is a derived type, see if it's
+   inaccessible, i.e. if it's defined in another module and the components are
+   PRIVATE.  The search is recursive if necessary.  Returns zero if no
+   inaccessible components are found, nonzero otherwise.  */
+
+static int
+derived_inaccessible (gfc_symbol *sym)
+{
+  gfc_component *c;
+
+  if (sym->attr.use_assoc && sym->component_access == ACCESS_PRIVATE)
+    return 1;
+
+  for (c = sym->components; c; c = c->next)
+    {
+        if (c->ts.type == BT_DERIVED && derived_inaccessible (c->ts.derived))
+          return 1;
     }
 
   return 0;
@@ -3158,7 +3207,8 @@ resolve_select (gfc_code * code)
 
 /* Resolve a transfer statement. This is making sure that:
    -- a derived type being transferred has only non-pointer components
-   -- a derived type being transferred doesn't have private components
+   -- a derived type being transferred doesn't have private components, unless 
+      it's being transferred from the module where the type was defined
    -- we're not trying to transfer a whole assumed size array.  */
 
 static void
@@ -3193,7 +3243,7 @@ resolve_transfer (gfc_code * code)
 	  return;
 	}
 
-      if (ts->derived->component_access == ACCESS_PRIVATE)
+      if (derived_inaccessible (ts->derived))
 	{
 	  gfc_error ("Data transfer element at %L cannot have "
 		     "PRIVATE components",&code->loc);
@@ -4147,9 +4197,12 @@ resolve_symbol (gfc_symbol * sym)
 	  || sym->as->type == AS_ASSUMED_SHAPE)
       && sym->attr.dummy == 0)
     {
-      gfc_error ("Assumed %s array at %L must be a dummy argument",
-		 sym->as->type == AS_ASSUMED_SIZE ? "size" : "shape",
-                 &sym->declared_at);
+      if (sym->as->type == AS_ASSUMED_SIZE)
+	gfc_error ("Assumed size array at %L must be a dummy argument",
+		   &sym->declared_at);
+      else
+	gfc_error ("Assumed shape array at %L must be a dummy argument",
+		   &sym->declared_at);
       return;
     }
 
@@ -4265,15 +4318,15 @@ resolve_symbol (gfc_symbol * sym)
       /* Can the sybol have an initializer?  */
       whynot = NULL;
       if (sym->attr.allocatable)
-	whynot = "Allocatable";
+	whynot = _("Allocatable");
       else if (sym->attr.external)
-	whynot = "External";
+	whynot = _("External");
       else if (sym->attr.dummy)
-	whynot = "Dummy";
+	whynot = _("Dummy");
       else if (sym->attr.intrinsic)
-	whynot = "Intrinsic";
+	whynot = _("Intrinsic");
       else if (sym->attr.result)
-	whynot = "Function Result";
+	whynot = _("Function Result");
       else if (sym->attr.dimension && !sym->attr.pointer)
 	{
 	  /* Don't allow initialization of automatic arrays.  */
@@ -4284,7 +4337,7 @@ resolve_symbol (gfc_symbol * sym)
 		  || sym->as->upper[i] == NULL
 		  || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
 		{
-		  whynot = "Automatic array";
+		  whynot = _("Automatic array");
 		  break;
 		}
 	    }
@@ -4299,7 +4352,8 @@ resolve_symbol (gfc_symbol * sym)
 	}
 
       /* Assign default initializer.  */
-      if (sym->ts.type == BT_DERIVED && !(sym->value || whynot))
+      if (sym->ts.type == BT_DERIVED && !(sym->value || whynot)
+          && !sym->attr.pointer)
 	sym->value = gfc_default_initializer (&sym->ts);
       break;
 

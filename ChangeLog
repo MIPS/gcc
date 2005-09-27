@@ -1,3 +1,19 @@
+2005-09-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.in (powerpc-*-aix*): Add target-libssp to noconfigdirs.
+	(rs6000-*-aix*): Same.
+	* configure: Regenerate.
+
+2005-09-16  Tom Tromey  <tromey@redhat.com>
+
+	* MAINTAINERS: Add self as java maintainer.
+
+2005-09-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* configure.in: Recognize f95 in the --enable-languages option,
+	and substitute it for fortran, issuing a warning.
+	* configure: Regenerate.
+
 2005-08-30  Phil Edwards  <phil@codesourcery.com>
 
 	* configure.in (*-*-vxworks*):  Add target-libstdc++-v3 to noconfigdirs.
