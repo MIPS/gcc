@@ -6808,7 +6808,10 @@ c_parser_omp_directive (c_parser *parser)
 	break;
 
       case PRAGMA_OMP_SINGLE:
+	stmt = push_stmt_list ();
 	c_parser_statement (parser);
+	stmt = pop_stmt_list (stmt);
+	add_stmt (build (OMP_SINGLE, void_type_node, clause, stmt));
 	break;
 
       case PRAGMA_OMP_MASTER:

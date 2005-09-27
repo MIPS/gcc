@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <omp.h>
 
+extern void abort (void);
+
 void
 parallel (int a, int b)
 {

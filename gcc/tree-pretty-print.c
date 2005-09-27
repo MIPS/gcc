@@ -1615,6 +1615,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
       break;
 
+    case OMP_SINGLE:
+      pp_string (buffer, "#pragma omp single");
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, OMP_SINGLE_BODY (node), spc + 4, flags,
+			 false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      is_expr = false;
+      break;
+
     case OMP_CLAUSE_PRIVATE:
       pp_string (buffer, "private (");
       dump_generic_node (buffer, OMP_PRIVATE_VARS (node), spc, flags, false);

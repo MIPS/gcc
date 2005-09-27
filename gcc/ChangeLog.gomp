@@ -1,5 +1,15 @@
 2005-09-27  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-parser.c (c_parser_omp_directive): Handle OMP_SINGLE
+	* gcc/gimplify.c (gimplify_omp_single): New.
+	(gimplify_expr): Call it.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_SINGLE.
+	* tree.def (OMP_SINGLE): Add second operand.
+	* tree.h (OMP_SINGLE_CLAUSES): Define.
+	(OMP_SINGLE_BODY): Define.
+
+2005-09-27  Diego Novillo  <dnovillo@redhat.com>
+
 	* omp-low.c (struct remap_info_d): Rename field 'map' to
 	'local_map'.  Update all users.
 	Remove field 'clauses'.

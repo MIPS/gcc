@@ -4914,6 +4914,68 @@ gimplify_omp_atomic (tree *expr_p, tree *pre_p)
   return gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
 }
 
+/* Gimplify an OMP_SINGLE statement.  */
+
+static enum gimplify_status
+gimplify_omp_single (tree *expr_p, tree *pre_p)
+{
+  tree t, sem, crit_body, tmp;
+  
+  /* Expand to the following semaphore protection:
+
+     	OMP_ATOMIC <.single_tid.XXXX, .single_tid.XXXX - 1>
+	if (.single_tid.XXXX == 0)
+	  body;
+	
+     .single_tid.XXXX is a global static variable initialized to 1 and
+     associated with this single construct.  Exactly one thread will
+     leave it at zero and execute BODY.
+
+     If the clause nowait is not present, add a barrier after the if().
+     FIXME, may need to add a flush after the assignment to
+     .single_tid.XXXX.  */
+  sem = create_tmp_var_raw (integer_type_node, ".single_tid");
+  DECL_CONTEXT (sem) = NULL_TREE;
+  DECL_INITIAL (sem) = integer_one_node;
+  TREE_PUBLIC (sem) = 1;
+  TREE_STATIC (sem) = 1;
+  DECL_COMMON (sem) = 1;
+  DECL_ARTIFICIAL (sem) = 1;
+  DECL_IGNORED_P (sem) = 1;
+  cgraph_varpool_finalize_decl (sem);
+
+  /* OMP_CRITICAL <NULL, { .single_tid.XXXX--; tmp = .single_tid.XXXX>  */
+  tmp = create_tmp_var (integer_type_node, NULL);
+  crit_body = alloc_stmt_list ();
+  t = build (MODIFY_EXPR, void_type_node,
+	     sem,
+	     build (MINUS_EXPR, integer_type_node, sem, integer_one_node));
+  append_to_statement_list (t, &crit_body);
+  t = build (MODIFY_EXPR, void_type_node, tmp, sem);
+  append_to_statement_list (t, &crit_body);
+  t = build (OMP_CRITICAL, void_type_node, NULL_TREE, crit_body);
+  gimplify_and_add (t, pre_p);
+
+  /* if (tmp == 0)
+        body;  */
+  t = build2 (EQ_EXPR, boolean_type_node, tmp, integer_zero_node);
+  t = build3 (COND_EXPR, void_type_node, t, OMP_SINGLE_BODY (*expr_p), NULL);
+  gimplify_and_add (t, pre_p);
+
+  for (t = OMP_SINGLE_CLAUSES (*expr_p); t; t = TREE_CHAIN (t))
+    if (TREE_CODE (t) == OMP_CLAUSE_NOWAIT)
+      {
+	*expr_p = build_empty_stmt ();
+	return GS_OK;
+      }
+
+  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  t = build_function_call_expr (t, NULL);
+  *expr_p = t;
+
+  return GS_OK;
+}
+
 
 /*  Gimplifies the expression tree pointed to by EXPR_P.  Return 0 if
     gimplification failed.
@@ -5378,6 +5440,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_ATOMIC:
 	  ret = gimplify_omp_atomic (expr_p, pre_p);
+	  break;
+
+	case OMP_SINGLE:
+	  ret = gimplify_omp_single (expr_p, pre_p);
 	  break;
 
 	default:

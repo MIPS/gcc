@@ -981,8 +981,9 @@ DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 2)
 DEFTREECODE (OMP_SECTION, "omp_section", tcc_statement, 1)
 
 /* OpenMP - #pragma omp single
+   Operand 0: OMP_SINGLE_CLAUSES: List of clauses.
    Operand 0: OMP_SINGLE_BODY: Single section body.  */
-DEFTREECODE (OMP_SINGLE, "omp_single", tcc_statement, 1)
+DEFTREECODE (OMP_SINGLE, "omp_single", tcc_statement, 2)
 
 /* OpenMP - #pragma omp critical [name]
    Operand 0: OMP_CRITICAL_NAME: Identifier for critical section.
