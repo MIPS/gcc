@@ -125,6 +125,7 @@ var_ann (tree t)
 {
   gcc_assert (t);
   gcc_assert (DECL_P (t));
+  gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
   return (var_ann_t) t->common.ann;
@@ -137,6 +138,27 @@ get_var_ann (tree var)
 {
   var_ann_t ann = var_ann (var);
   return (ann) ? ann : create_var_ann (var);
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Return NULL if the function annotation doesn't already exist.  */
+static inline function_ann_t
+function_ann (tree t)
+{
+  gcc_assert (t);
+  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+
+  return (function_ann_t) t->common.ann;
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Create the function annotation if it doesn't exist.  */
+static inline function_ann_t
+get_function_ann (tree var)
+{
+  function_ann_t ann = function_ann (var);
+  return (ann) ? ann : create_function_ann (var);
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -849,19 +871,10 @@ is_call_clobbered (tree var)
 
 /* Mark variable VAR as being clobbered by function calls.  */
 static inline void
-mark_call_clobbered (tree var)
+mark_call_clobbered (tree var, unsigned int escape_type)
 {
+  var_ann (var)->escape_mask |= escape_type;
   bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
-}
-
-/* Mark the variables in IDS (which is a set of DECL_UIDs), as being
-   clobbered by function calls.   */
-static inline void
-mark_bitmap_call_clobbered (bitmap ids)
-{
-  bitmap_ior_into (call_clobbered_vars, ids);
   ssa_call_clobbered_cache_valid = false;
   ssa_ro_call_cache_valid = false;
 }
@@ -870,6 +883,8 @@ mark_bitmap_call_clobbered (bitmap ids)
 static inline void
 clear_call_clobbered (tree var)
 {
+  var_ann_t ann = var_ann (var);
+  ann->escape_mask = 0;
   if (TREE_CODE (var) != STRUCT_FIELD_TAG && MTAG_P (var))
     MTAG_GLOBAL (var) = 0;
   bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));

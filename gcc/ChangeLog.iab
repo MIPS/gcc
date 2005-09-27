@@ -1,4 +1,37 @@
 2005-09-26  Daniel Berlin  <dberlin@dberlin.org>
+	   
+	* ipa-callees.c (callees_execute): Use function_ann.
+	* ipa-reference.c (get_reference_vars_info_from_cgraph): Ditto.
+	(get_local_reference_vars_info): Ditto.
+	(get_global_reference_vars_info): Ditto.
+	(analyze_function): Ditto.
+	(clean_function): Ditto.
+	* tree-dfa.c (create_function_ann): New function.
+	* tree-flow-inline.h (var_ann): FUNCTION_DECL's don't have
+	var_ann.
+	(function_ann): New.
+	(get_function_ann): Ditto.
+	(mark_call_clobbered): Add escape_type parameter.
+	Set escape mask.
+	(mark_bitmap_call_clobbered): Removed for now.
+	(clear_call_clobbered): Clear escape_mask.
+	* tree-flow.h (tree_ann_type): Add FUNCTION_ANN.
+	(struct var_ann_d): Add escape_mask.
+	Move callees and reference_vars_info to function annotation.
+	(struct function_ann_d): New.
+	(union tree_ann_d): Add function_ann.
+	(enum escape_type): New.
+	* tree-outof-ssa.c (create_temp): Copy escape_mask.
+	* tree-ssa-alias.c (mark_aliases_call_clobbered): Use escape mask.
+	(compute_tag_properties): Ditto.
+	(set_initial_properties): Ditto.
+	(compute_call_clobbered): Ditto.
+	(is_escape_site): Return escape type.
+	(create_global_var): Mark as escaped.
+	* tree-ssa-structalias.c (update_alias_info): Mark reason for
+	escaping. 
+
+2005-09-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* print-tree.c (print_node): Update to check for decl_common structure.
 	* tree-dfa.c (add_referenced_var): Tag's don't have DECL_INITIAL.

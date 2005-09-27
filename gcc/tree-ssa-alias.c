@@ -196,6 +196,7 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
 {
   unsigned int i;
   varray_type ma;
+  var_ann_t ta = var_ann (tag);
 
   if (!MTAG_P (tag))
     return;
@@ -208,7 +209,7 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
       if (!unmodifiable_var_p (entry))
 	{
 	  add_to_worklist (entry, worklist);	  
-	  mark_call_clobbered (entry);
+	  mark_call_clobbered (entry, ta->escape_mask);
 	}
     }
 }
@@ -277,7 +278,7 @@ compute_tag_properties (void)
 		 call clobbered.  */
 	      if (is_call_clobbered (entry) && !is_call_clobbered (tag))
 		{		  
-		  mark_call_clobbered (tag);
+		  mark_call_clobbered (tag, var_ann (entry)->escape_mask);
 		  changed = true;
 		}
 
@@ -309,7 +310,7 @@ set_initial_properties (struct alias_info *ai)
     {
       if (is_global_var (var) && !var_can_have_subvars (var))
 	if (!unmodifiable_var_p (var))
-	  mark_call_clobbered (var);
+	  mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
     }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
@@ -323,10 +324,10 @@ set_initial_properties (struct alias_info *ai)
 	  /* If PTR escapes or may point to anything, then its associated
 	     memory tags and pointed-to variables are call-clobbered.  */
 	  if (pi->name_mem_tag)
-	    mark_call_clobbered (pi->name_mem_tag);
+	    mark_call_clobbered (pi->name_mem_tag, v_ann->escape_mask);
 
 	  if (v_ann->type_mem_tag)
-	    mark_call_clobbered (v_ann->type_mem_tag);
+	    mark_call_clobbered (v_ann->type_mem_tag, v_ann->escape_mask);
 
 	  if (pi->pt_vars)
 	    {
@@ -334,7 +335,7 @@ set_initial_properties (struct alias_info *ai)
 	      unsigned int j;	      
 	      EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 		if (!unmodifiable_var_p (referenced_var (j)))
-		  mark_call_clobbered (referenced_var (j));
+		  mark_call_clobbered (referenced_var (j), v_ann->escape_mask);
 	    }
 	}
       /* If the name tag is call clobbered, so is the type tag
@@ -342,7 +343,7 @@ set_initial_properties (struct alias_info *ai)
       if (pi->name_mem_tag
 	  && v_ann->type_mem_tag
 	  && is_call_clobbered (pi->name_mem_tag))
-	mark_call_clobbered (v_ann->type_mem_tag);
+	mark_call_clobbered (v_ann->type_mem_tag, v_ann->escape_mask);
 
       if ((pi->pt_global_mem || pi->pt_anything) && pi->name_mem_tag)
 	mark_MTAG_GLOBAL (pi->name_mem_tag);
@@ -364,7 +365,7 @@ compute_call_clobbered (struct alias_info *ai)
   while (VEC_length (tree, worklist) != 0)
     {
       tree curr = VEC_pop (tree, worklist);
-      mark_call_clobbered (curr);
+      mark_call_clobbered (curr, ESCAPE_TRANSITIVE);
       mark_aliases_call_clobbered (curr, &worklist);
     }
   VEC_free (tree, heap, worklist);
@@ -1870,7 +1871,7 @@ set_pt_anything (tree ptr)
 
    AI points to the alias information collected so far.  */
 
-bool
+enum escape_type
 is_escape_site (tree stmt, struct alias_info *ai)
 {
   tree call = get_call_expr_in (stmt);
@@ -1881,10 +1882,10 @@ is_escape_site (tree stmt, struct alias_info *ai)
       if (!TREE_SIDE_EFFECTS (call))
 	ai->num_pure_const_calls_found++;
 
-      return true;
+      return ESCAPE_TO_CALL;
     }
   else if (TREE_CODE (stmt) == ASM_EXPR)
-    return true;
+    return ESCAPE_TO_ASM;
   else if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       tree lhs = TREE_OPERAND (stmt, 0);
@@ -1896,7 +1897,7 @@ is_escape_site (tree stmt, struct alias_info *ai)
       /* If we couldn't recognize the LHS of the assignment, assume that it
 	 is a non-local store.  */
       if (lhs == NULL_TREE)
-	return true;
+	return ESCAPE_UNKNOWN;
 
       /* If the RHS is a conversion between a pointer and an integer, the
 	 pointer escapes since we can't track the integer.  */
@@ -1906,12 +1907,12 @@ is_escape_site (tree stmt, struct alias_info *ai)
 	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND
 					(TREE_OPERAND (stmt, 1), 0)))
 	  && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
-	return true;
+	return ESCAPE_BAD_CAST;
 
       /* If the LHS is an SSA name, it can't possibly represent a non-local
 	 memory store.  */
       if (TREE_CODE (lhs) == SSA_NAME)
-	return false;
+	return NO_ESCAPE;
 
       /* FIXME: LHS is not an SSA_NAME.  Even if it's an assignment to a
 	 local variables we cannot be sure if it will escape, because we
@@ -1922,12 +1923,12 @@ is_escape_site (tree stmt, struct alias_info *ai)
 	 Midkiff, ``Escape analysis for java,'' in Proceedings of the
 	 Conference on Object-Oriented Programming Systems, Languages, and
 	 Applications (OOPSLA), pp. 1-19, 1999.  */
-      return true;
+      return ESCAPE_STORED_IN_GLOBAL;
     }
   else if (TREE_CODE (stmt) == RETURN_EXPR)
-    return true;
+    return ESCAPE_TO_RETURN;
 
-  return false;
+  return NO_ESCAPE;
 }
 
 
@@ -2094,7 +2095,8 @@ create_global_var (void)
   DECL_CONTEXT (global_var) = NULL_TREE;
   TREE_THIS_VOLATILE (global_var) = 0;
   TREE_ADDRESSABLE (global_var) = 0;
-  mark_call_clobbered (global_var);
+  create_var_ann (global_var);
+  mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
   add_referenced_tmp_var (global_var);
   mark_sym_for_renaming (global_var);
 }

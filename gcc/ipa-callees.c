@@ -87,12 +87,12 @@ callees_execute (void)
       {
 	tree decl = node->decl;
 	enum availability avail = cgraph_function_body_availability (node);
-	var_ann_t ann;
+	function_ann_t ann;
 	struct cgraph_edge *e;
 
 	if (TREE_ADDRESSABLE (decl) || avail == AVAIL_NOT_AVAILABLE)
 	  bitmap_set_bit (global_and_address_taken, node->uid);
-	ann = get_var_ann (decl);
+	ann = get_function_ann (decl);
 	ann->callees = BITMAP_ALLOC (&callee_obstack);
 	for (e = node->callees; e; e = e->next_callee)
 	  {
@@ -116,16 +116,16 @@ callees_execute (void)
 	  for (e = node->callees; e; e = e->next_callee)
 	    {
 	      struct cgraph_node *cnode = e->callee;
-	      var_ann_t ann;
+	      function_ann_t ann;
 	      if (!cnode->analyzed)
 		continue;
-	      ann = var_ann (node->decl);
+	      ann = function_ann (node->decl);
 
 	      if (cgraph_function_body_availability (cnode) == AVAIL_NOT_AVAILABLE)
 		changed |= bitmap_ior_into (ann->callees,
 					    global_and_address_taken);
 	      changed |= bitmap_ior_into (ann->callees,
-					  var_ann (cnode->decl)->callees);
+					  function_ann (cnode->decl)->callees);
 
 	    }
 	}
