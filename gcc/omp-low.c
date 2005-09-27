@@ -299,7 +299,14 @@ emit_firstprivate_receiving_code (tree var, struct remap_info_d *ri_p)
 
   /* Insert at the start of RI_P->OMP_FN.  */
   body = BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->omp_fn));
-  child_tsi = tsi_start (body);
+  if (TREE_CODE (body) != STATEMENT_LIST)
+    {
+      tree list = alloc_stmt_list ();
+      append_to_statement_list (body, &list);
+      BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->omp_fn)) = list;
+    }
+
+  child_tsi = tsi_start (BIND_EXPR_BODY (DECL_SAVED_TREE (ri_p->omp_fn)));
   tsi_link_before (&child_tsi, t, TSI_NEW_STMT);
 }
 

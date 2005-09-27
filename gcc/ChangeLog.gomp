@@ -1,5 +1,10 @@
 2005-09-27  Diego Novillo  <dnovillo@redhat.com>
 
+	* omp-low.c (emit_firstprivate_receiving_code): Handle cases
+	where RI_P->OMP_FN consists of a single statement.
+
+2005-09-27  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-parser.c (c_parser_omp_directive): Handle OMP_SINGLE
 	* gcc/gimplify.c (gimplify_omp_single): New.
 	(gimplify_expr): Call it.
