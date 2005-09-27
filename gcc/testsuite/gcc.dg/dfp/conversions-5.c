@@ -2,8 +2,6 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */
-#include <stdio.h>
-#include <stdlib.h>
 
 volatile _Decimal32 d32;
 volatile _Decimal64 d64;
@@ -11,6 +9,8 @@ volatile _Decimal128 d128;
 volatile float sf;
 volatile double df;
 volatile long double tf;
+
+extern void abort (void);
 
 int main()
 {
@@ -44,6 +44,11 @@ int main()
   if (tf != -7.0)
     abort();
 
+  d64 = 1.0000011dd;
+  d32 = d64;
+  if (d32 != 1.000001df)
+    abort ();
+
   /* Conversions from _Decimal128. */
   d128 = 30.0dl;
   sf = d128;
@@ -57,6 +62,16 @@ int main()
   df = d128;
   if (df != 30.0)
     abort();
+
+  d128 = 1.0000011dl;
+  d32 = d128;
+  if (d32 != 1.000001df)
+    abort ();
+
+  d128 = 1.0000000000000011dl;
+  d64 = d128;
+  if (d64 != 1.000000000000001dd)
+    abort ();
 
   /* Conversions from binary float to decimal float. */
   sf = 30.0f;
@@ -97,6 +112,18 @@ int main()
   d128 = tf;
   if (d128 != -22.0dl)
     abort();
+
+  /* 2**(-11) = 0.00048828125. */
+  d128 = 0.000488281251dl;
+  sf = d128;
+  if (sf != 0.00048828125f)
+    abort ();
+  /* 2**(-25) = 0.298023223876953125E-7.  */
+  d128 = 2.98023223876953125E-8dl;
+  df = d128;
+  if (df < (2.9802322387695312e-08 - 0.00000000001)
+      || df > (2.9802322387695312e-08 + 0.00000000001))
+    abort ();
 
   /* Test demotion to non-representable decimal floating type. */
   /* Assumes a default rounding mode of 'near'.  The rules are a 

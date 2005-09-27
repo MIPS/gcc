@@ -2,7 +2,8 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Test various conversions involving decimal floating types. */
-#include <stdlib.h>
+
+extern void abort (void);
 
 _Decimal32 d32;
 _Decimal64 d64;
@@ -12,7 +13,6 @@ signed long long di;
 
 int main()
 {
-
   /* Constant conversions to signed integers. */
   si = -1.50df;
   if (si != -1)
@@ -37,6 +37,18 @@ int main()
   di = -1555.55dl;
   if (di != -1555)
     abort();
+
+  si = 2147483648.0dd;
+  if (si != -2147483648)
+    abort ();
+
+  si = 2147483648.0dl;
+  if (si != -2147483648)
+    abort ();
+
+  di = 9223372036854775808.0dl;
+  if (di != -9223372036854775808ll)
+     abort ();
 
   /* Conversions from signed integer constants. */
   d32 = -1555;

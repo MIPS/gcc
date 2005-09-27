@@ -39,6 +39,19 @@ int main()
   if (udi != 1555)
     abort();
 
+  /*  conversion saturating.  */
+  usi = 4294967296.0dd; /* { dg-warning "overflow in implicit constant conversion" } */
+  if (usi !=0 )
+    abort ();
+
+  usi = 4294967296.0dl; /* { dg-warning "overflow in implicit constant conversion" } */
+  if (usi !=0 )
+    abort ();
+
+  udi = 18446744073709551615.0dl;
+  if (udi != 0)
+    abort ();
+
   /* Conversions from unsigned integer constants.*/
   d32 = 1555;
   if (d32 != 1555.0df)
@@ -63,6 +76,22 @@ int main()
   d128 = 1555LL;
   if (d128 != 1555.0dl)
     abort();
+
+  /*  conversion saturating.  */
+  d64 = 4294967296.0dd;
+  usi = d64;
+  if (usi !=0 )
+    abort ();
+
+  d128 = 4294967296.0dl;
+  usi = d128;
+  if (usi !=0 )
+    abort ();
+
+  d128 = 18446744073709551615.0dl;
+  udi = d128;
+  if (udi != 0)
+    abort ();
 
   return 0;
 }
