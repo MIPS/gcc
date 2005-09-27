@@ -1,3 +1,36 @@
+2005-09-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* omp-low.c (struct remap_info_d): Rename field 'map' to
+	'local_map'.  Update all users.
+	Remove field 'clauses'.
+	Add fields 'omp_data_map' and 'omp_fn_list'.
+	Update all users.
+	(add_omp_data_field): If VAR was already associated with a
+	field, do nothing.
+	(get_omp_private_repl): Do not set DECL_VALUE_EXPR.  Add a
+	mapping between VAR and its replacement in RI_P->LOCAL_MAP.
+	(get_omp_shared_repl): Likewise.
+	(build_remap_info): Remove all arguments.  Update users.
+	Initialize RI_P->OMP_DATA_MAP and RI_P->LOCAL_MAP.
+	(remap_locals_in_child_r): Do private and shared replacements.
+	(remap_locals_in_child): Remove.  Update all users.
+	(emit_num_threads_setup_code): Remove argument 'clauses'.
+	Update all users.
+	(lower_omp_parallel): Add argument RI_P.
+	Call process_omp_clauses.
+	Do not call gimplify_function_tree.  Add the function to
+	RI_P->OMP_FN_LIST.
+	Delete RI_P->LOCAL_MAP after the remapping all the locals in
+	RI_P->OMP_FN.
+	Do not call delete_remap_info.
+	(lower_omp_in_body): Remove.
+	(lower_omp_parallel_r): New.
+	(lower_omp_parallel): Re-organize to support multiple omp
+	parallel directives.  First lower all directives separately,
+	then remap shared locals in the parent, then layout the
+	structure used for shared data and then gimplify all the
+	functions created by the lowering.
+
 2005-09-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* omp-low.c (pass_lower_omp): Don't claim to destroy
