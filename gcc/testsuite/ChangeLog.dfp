@@ -1,6 +1,6 @@
 2005-09-27  Yao Qi  <qiyaoltc@cn.ibm.com>
 
-	* gcc.dg/dfp/constants-compare.c: Remove unused include files.
+	* gcc.dg/dfp/constants-compare.c: Remove surplus header files.
 	* gcc.dg/dfp/conversions-2.c: Likewise.
 	* gcc.dg/dfp/conversions-6.c: Likewise.
 	* gcc.dg/dfp/decfloat-constants.c: Likewise. Return from main.
