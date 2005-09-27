@@ -780,6 +780,7 @@ extern tree finish_label_address_expr (tree);
 /* Same function prototype, but the C and C++ front ends have
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
+extern tree lookup_name (tree);
 
 extern int vector_types_convertible_p (tree t1, tree t2);
 
@@ -939,7 +940,14 @@ extern void c_finish_omp_barrier (void);
 extern void c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
 extern tree c_finish_omp_for (tree, tree, tree, tree, tree);
+extern tree c_begin_omp_parallel (enum omp_clause_default_kind);
+extern void c_finish_omp_parallel (tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);
+extern void c_finish_omp_bindings (tree, tree *, tree *, tree *);
+
+/* Not in c-omp.c; provided by the front end.  */
+extern bool c_omp_sharing_predetermined (tree);
+extern tree c_omp_remap_decl (tree, bool);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

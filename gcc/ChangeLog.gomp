@@ -1,3 +1,87 @@
+2005-09-27  Richard Henderson  <rth@redhat.com>
+
+	* c-tree.h (check_for_loop_decls): Update decl.
+	(lookup_name_no_remap, c_omp_remap_private): Declare.
+	(lookup_name): Move decl ...
+	* c-common.h (lookup_name): ... here.
+	(c_begin_omp_parallel, c_finish_omp_parallel): Declare.
+	(c_omp_sharing_predetermined, c_omp_remap_decl): Declare.
+	* c-decl.c (struct c_scope): Add outer_omp_parallel, omp_shared,
+	omp_parallel_body, omp_default_none.
+	(current_omp_parallel_scope, omp_remap_private): New.
+	(push_scope): Clear current_omp_parallel_scope on nested function.
+	(pop_scope): Restore current_omp_parallel_scope.
+	(c_omp_sharing_implicitly_determined): New.
+	(c_omp_sharing_predetermined): New.
+	(c_omp_remap_decl_1, c_omp_remap_decl): New.
+	(lookup_name_no_remap): Rename from lookup_name.
+	(lookup_name): New.
+	(check_for_loop_decls): Return a singular decl found.
+	(c_begin_omp_parallel, c_finish_omp_parallel): New.
+	(c_omp_remap_private): New.
+	* c-omp.c (relookup_decls): New.
+	(c_split_parallel_clauses): Use it.
+	(c_finish_omp_for): Take decl as argument.  Simplify the rest
+	of the checks based on that.  Don't take clauses or process them.
+	(c_finish_omp_bindings): New.
+	* c-parser.c (c_lex_one_token): Use lookup_name_no_remap.
+	(c_parser_declspecs): Likewise.
+	(curr_clause_default): New.
+	(c_parser_for_statement): Revert all changes since mainline.
+	(c_parser_omp_for_statement): New.
+	(c_parser_omp_sections_body): Return the stmt created.
+	(c_parser_omp_directive): Use c_begin_omp_parallel, 
+	c_finish_omp_bindings, c_finish_omp_parallel as necessary.
+	(c_parser_pragma_omp_variable_list): Put parsed expression in
+	the TREE_PURPOSE of the list.
+	(c_parser_pragma_omp_clause_default): Implement.
+	(c_parser_pragma_omp_clause_if): Standardize error text.
+	(c_parser_pragma_omp_clause_nowait): Likewise.
+	(c_parser_pragma_omp_clause_num_threads): Likewise.
+	(c_parser_pragma_omp_clause_ordered): Likewise.
+	(c_parser_pragma_omp_clause_shared): Likewise.  Don't mark
+	variables addressable here.
+	(c_parser_pragma_omp_clause_reduction): Implement.
+	* cgraphunit.c (cgraph_finalize_pending_functions): Gimplify here.
+	* gimple-low.c (lower_stmt_again): New.
+	(lower_stmt): Allow OMP_PARALLEL.
+	* omp-low.c (struct remap_info_d): Remove local_map, omp_fn_list,
+	omp_data_map, ptr_to_omp_data; add copyin, copyout, omp_data_receive;
+	rename omp_data to omp_data_send, remove indirection on tsi.
+	(new_remap_info, delete_remap_info): Update to match.
+	(create_tmp_var_in): Remove.
+	(get_omp_data_field_for, get_omp_private_repl,
+	get_omp_shared_repl, emit_firstprivate_sending_code
+	emit_firstprivate_receiving_code, get_omp_firstprivate_repl,
+	emit_lastprivate_receiving_code, emit_lastprivate_sending_code,
+	get_omp_lastprivate_repl, get_omp_copyin_repl,
+	get_omp_sharing_replacements, remap_locals_in_child_r,
+	create_gomp_parallel_start, create_gomp_parallel_end,
+	convert_to_gimple_val, remap_locals_in_parent_r,
+	lower_omp_parallel_r): Remove.
+	(use_pointer_for_field, create_data_decl, recontext_vars_in_block,
+	split_out_parallel_function, emit_sender_copyin_1, emit_sender_copyin,
+	emit_sender_copyout_1, emit_sender_copyout, emit_parallel_start_end,
+	emit_omp_parallel_parent, setup_decl_value_expr_child,
+	remap_variables_receiver, remap_labels_child_1,
+	remap_labels_child): New.
+	(setup_data_fields): Rename from process_omp_clauses.
+	(create_child_function): Rename from create_omp_fn.
+	(compute_num_threads): Rename from emit_num_threads_setup_code.
+	Don't gimplify here.
+	(lower_omp_parallel): Rewrite.
+	(lower_omp_1): New.
+	(lower_omp): Use it.
+	* tree.def (OMP_PARALLEL): Add var_init and var_reduc operands.
+	(OMP_FOR): Add var_init, var_last, var_reduc operands.
+	(OMP_SECTIONS): Likewise.
+	(OMP_CLAUSE_REDUCTION): Remove second operand.
+	* tree.h (OMP_PARALLEL_VAR_INIT, OMP_PARALLEL_VAR_REDUC,
+	OMP_FOR_VAR_INIT, OMP_FOR_VAR_LAST, OMP_FOR_VAR_REDUC,
+	OMP_SECTIONS_VAR_INIT, OMP_SECTIONS_VAR_LAST, OMP_SECTIONS_VAR_REDUC,
+	OMP_CLAUSE_REDUCTION_CODE): New.
+	(enum omp_clause_default_kind): New.
+
 2005-09-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* omp-low.c (lower_omp_parallel): Initialize wi.tsi.

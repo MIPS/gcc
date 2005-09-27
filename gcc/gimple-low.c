@@ -196,11 +196,6 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       break;
 
     default:
-#ifdef ENABLE_CHECKING
-      print_node_brief (stderr, "", stmt, 0);
-      internal_error ("unexpected node");
-#endif
-    case COMPOUND_EXPR:
       gcc_unreachable ();
     }
 

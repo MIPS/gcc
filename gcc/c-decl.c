@@ -214,6 +214,7 @@ struct c_binding GTY((chain_next ("%h.prev")))
   BOOL_BITFIELD inner_comp : 1; /* incomplete array completed in inner scope */
   /* one free bit */
 };
+
 #define B_IN_SCOPE(b1, b2) ((b1)->depth == (b2)->depth)
 #define B_IN_CURRENT_SCOPE(b) ((b)->depth == current_scope->depth)
 #define B_IN_FILE_SCOPE(b) ((b)->depth == 1 /*file_scope->depth*/)
@@ -315,6 +316,10 @@ struct c_scope GTY((chain_next ("%h.outer")))
   /* The next outermost function scope.  */
   struct c_scope *outer_function;
 
+  /* The next outermost OpenMP parallel scope.  This is set in the 
+     outermost scope of a function_body, and in parallel scopes.  */
+  struct c_scope *outer_omp_parallel;
+
   /* All bindings in this scope.  */
   struct c_binding *bindings;
 
@@ -322,6 +327,10 @@ struct c_scope GTY((chain_next ("%h.outer")))
      for all the scopes that were entered and exited one level down.  */
   tree blocks;
   tree blocks_last;
+
+  /* A list of variables that have been remapped to shared for an
+     OpenMP parallel scope.  */
+  tree omp_shared;
 
   /* The depth of this scope.  Used to keep the ->shadowed chain of
      bindings sorted innermost to outermost.  */
@@ -344,6 +353,15 @@ struct c_scope GTY((chain_next ("%h.outer")))
 
   /* True means make a BLOCK for this scope no matter what.  */
   BOOL_BITFIELD keep : 1;
+
+  /* True if this is the outermost block scope of an OpenMP parallel
+     directive.  This is used to determine if the sharing rule for a
+     variable is predetermined private.  */
+  BOOL_BITFIELD omp_parallel_body : 1;
+
+  /* True if this OpenMP parallel directive contained default(none),
+     meaning that we should warn if we see this identifier used.  */
+  BOOL_BITFIELD omp_default_none : 1;
 };
 
 /* The scope currently in effect.  */
@@ -355,6 +373,10 @@ static GTY(()) struct c_scope *current_scope;
    bindings of __func__ and its friends get this scope.  */
 
 static GTY(()) struct c_scope *current_function_scope;
+
+/* The innermost OpenMP parallel scope.  */
+
+static GTY(()) struct c_scope *current_omp_parallel_scope;
 
 /* The C file scope.  This is reset for each input translation unit.  */
 
@@ -404,6 +426,11 @@ static bool keep_next_level_flag;
    expecting parameter decls.  */
 
 static bool next_is_function_body;
+
+/* True means remap decls crossing an omp parallel boundary private,
+   rather than remapping them shared.  */
+
+static bool omp_remap_private;
 
 /* Functions called automatically at the beginning and end of execution.  */
 
@@ -642,6 +669,8 @@ push_scope (void)
       current_scope->keep              = true;
       current_scope->outer_function    = current_function_scope;
       current_function_scope           = current_scope;
+      current_scope->outer_omp_parallel = current_omp_parallel_scope;
+      current_omp_parallel_scope       = NULL;
 
       keep_next_level_flag = false;
       next_is_function_body = false;
@@ -884,7 +913,12 @@ pop_scope (void)
   /* Pop the current scope, and free the structure for reuse.  */
   current_scope = scope->outer;
   if (scope->function_body)
-    current_function_scope = scope->outer_function;
+    {
+      current_function_scope = scope->outer_function;
+      current_omp_parallel_scope = scope->outer_omp_parallel;
+    }
+  else if (scope->omp_parallel_body)
+    current_omp_parallel_scope = scope->outer_omp_parallel;
 
   memset (scope, 0, sizeof (struct c_scope));
   scope->outer = scope_freelist;
@@ -2652,6 +2686,124 @@ pending_xref_error (void)
 }
 
 
+/* Return true if the sharing attribute for B is "implicitly determined"
+   with respect to scope S, as per OpenMP 2.5 section 2.8.1.1.
+
+   We actually go about this by returning false if it appears that the
+   sharing attribute for B is "predetermined".  However, if scope S is
+   not empty, this may actually include variables whose sharing attribute
+   is "explicitly determined".  It turns out that we don't care about 
+   this distinction once we begin doing non-trivial things with S, so
+   that seems reasonable.  */
+
+static bool
+c_omp_sharing_implicitly_determined (struct c_scope *s, struct c_binding *b)
+{
+  tree decl = b->decl;
+
+  /* Variables appearing in threadprivate directives are threadprivate.
+     To avoid rampant pedantry, GCC extends this to all TLS variables.  */
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
+      && DECL_THREAD_LOCAL_P (decl))
+    return false;
+
+  /* Variables of automatic storage duration which are declared in a 
+     scope inside the construct are private.  Note that this also
+     catches all explicitly determined variables.  If this is a nested
+     binding, then that means that the decl has already been remapped,
+     and so we should consider this as explicitly determined.  */
+  if (b->depth >= s->depth
+      && (b->nested
+	  || !(TREE_STATIC (decl) || DECL_EXTERNAL (decl))))
+    return false;
+
+  /* Variables of heap allocated storage are shared.  There are
+     no decls that are heap allocated.  */
+
+  /* Static data members are shared.  This is a C++ feature only.  */
+
+  /* The loop iteration variable in the for loop of a for or parallel for
+     is private.  This variable is true exactly when parsing that loop
+     iteration variable.  */
+  if (omp_remap_private)
+    return false;
+
+  /* Variables of const-qualified type ... are shared.  */
+  if (TREE_READONLY (decl))
+    return false;
+
+  return true;
+}
+
+/* Return true if the sharing attribute for B is "predetermined" with
+   respect to the current scope, as per OpenMP 2.5 section 2.8.1.1.
+
+   This function only produces correct results before (and during)
+   c_finish_omp_bindings, i.e. before "explicitly determined" variables
+   have been injected into the current scope.  */
+
+bool
+c_omp_sharing_predetermined (tree decl)
+{
+  struct c_binding *b;
+
+  for (b = I_SYMBOL_BINDING (DECL_NAME (decl)); b ; b = b->shadowed)
+    if (b->decl == decl)
+      break;
+
+  return !c_omp_sharing_implicitly_determined (current_scope, b);
+}
+
+/* Inject a new binding for OLD in scope S.  If SHARED is zero, then we
+   want a variable of sharing class private; otherwise we want a variable
+   of sharing class shared.  If SHARED is negative, then we're being
+   called from lookup_name and should add the mapping to the currently
+   active parallel construct.
+
+   Sometimes we can optimize away a binding -- global variables being
+   marked shared is semantically a no-op.  If FORCE_P is true, this 
+   optimization is suppressed in order to suppress errors that would be
+   generated by default(none).  */
+
+static tree
+c_omp_remap_decl_1 (struct c_scope *s, tree old, int shared, bool force_p)
+{
+  tree new;
+
+  /* Static and external variables are all trivially mapped to a
+     shared class.  Push the same decl into a new binding to prevent
+     default none errors.  */
+  if (shared && (TREE_STATIC (old) || DECL_EXTERNAL (old)))
+    {
+      if (force_p)
+        bind (DECL_NAME (old), old, s, false, true);
+      return old;
+    }
+
+  /* Otherwise create a new automatic.  */
+  new = build_decl (VAR_DECL, DECL_NAME (old), TREE_TYPE (old));
+  bind (DECL_NAME (old), new, s, false, false);
+
+  if (shared < 0)
+    current_omp_parallel_scope->omp_shared
+      = tree_cons (old, new, current_omp_parallel_scope->omp_shared);
+
+  return new;
+}
+
+/* Similarly, but inject OLD into the current scope.  This is called from
+   c_finish_omp_bindings, so OLD is "explicitly determined".  */
+
+tree
+c_omp_remap_decl (tree old, bool shared_p)
+{
+  bool force_p;
+
+  force_p = (current_omp_parallel_scope
+	     && current_omp_parallel_scope->omp_default_none);
+  return c_omp_remap_decl_1 (current_scope, old, shared_p, force_p);
+}
+
 /* Look up NAME in the current scope and its superiors
    in the namespace of variables, functions and typedefs.
    Return a ..._DECL node of some kind representing its definition,
@@ -2661,10 +2813,45 @@ tree
 lookup_name (tree name)
 {
   struct c_binding *b = I_SYMBOL_BINDING (name);
+  struct c_scope *pscope = current_omp_parallel_scope;
+
+  if (b == NULL || b->invisible)
+    return NULL;
+
+  if (pscope
+      && (TREE_CODE (b->decl) == VAR_DECL
+	  || TREE_CODE (b->decl) == PARM_DECL))
+    {
+      bool did_error = false;
+
+      /* Check that the any default(none) clause is honored.  */
+      if (pscope->omp_default_none
+	  && c_omp_sharing_implicitly_determined (pscope, b))
+	{
+	  error ("%qE not specified in enclosing %<#pragma omp parallel%>",
+		 name);
+	  did_error = true;
+	}
+
+      /* Re-bind the decl to something in scope of the omp parallel.  */
+      if (b->depth < pscope->depth)
+	return c_omp_remap_decl_1 (pscope, b->decl, -1, did_error);
+    }
+
+  return b->decl;
+}
+
+/* Similar, but never remap 'name'.  Used when interested in TYPE_DECLs.  */
+
+tree
+lookup_name_no_remap (tree name)
+{
+  struct c_binding *b = I_SYMBOL_BINDING (name);
   if (b && !b->invisible)
     return b->decl;
   return 0;
 }
+
 
 /* Similar to `lookup_name' but look only at the indicated scope.  */
 
@@ -6646,11 +6833,14 @@ c_expand_body (tree fndecl)
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
-   constraints.  */
-void
+   constraints.  If exactly one such decl is found, return it.  */
+
+tree
 check_for_loop_decls (void)
 {
   struct c_binding *b;
+  tree one_decl = NULL_TREE;
+  int n_decls = 0;
 
   if (!flag_isoc99)
     {
@@ -6658,8 +6848,9 @@ check_for_loop_decls (void)
 	 the C99 for loop scope.  This doesn't make much sense, so don't
 	 allow it.  */
       error ("%<for%> loop initial declaration used outside C99 mode");
-      return;
+      return NULL_TREE;
     }
+
   /* C99 subclause 6.8.5 paragraph 3:
 
        [#3]  The  declaration  part  of  a for statement shall only
@@ -6709,7 +6900,12 @@ check_for_loop_decls (void)
 	  error ("declaration of non-variable %q+D in %<for%> loop "
 		 "initial declaration", decl);
 	}
+
+      n_decls++;
+      one_decl = decl;
     }
+
+  return n_decls == 1 ? one_decl : NULL_TREE;
 }
 
 /* Save and reinitialize the variables
@@ -7645,6 +7841,56 @@ c_write_global_declarations (void)
     }
 
   ext_block = NULL;
+}
+
+/* Like c_begin_compound_stmt, except mark the new scope as belonging
+   to an omp parallel.  */
+
+tree
+c_begin_omp_parallel (enum omp_clause_default_kind def)
+{
+  tree block;
+
+  block = c_begin_compound_stmt (true);
+  current_scope->outer_omp_parallel = current_omp_parallel_scope;
+  current_scope->keep = 1;
+  current_scope->omp_parallel_body = 1;
+  current_scope->omp_default_none = (def == OMP_CLAUSE_DEFAULT_NONE);
+  current_omp_parallel_scope = current_scope;
+
+  return block;
+}
+
+void
+c_finish_omp_parallel (tree block, tree clauses, tree init, tree reduc)
+{
+  tree stmt, t;
+
+  /* Move all automatic variables that were implicitly determined to
+     be shared to the clauses list so that the middle-end can find them.  */
+  gcc_assert (current_scope->omp_parallel_body);
+  if (current_scope->omp_shared)
+    {
+      t = build1 (OMP_CLAUSE_SHARED, NULL, current_scope->omp_shared);
+      clauses = tree_cons (NULL, t, clauses);
+    }
+
+  block = c_end_compound_stmt (block, true);
+  
+  stmt = make_node (OMP_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_PARALLEL_CLAUSES (stmt) = clauses;
+  OMP_PARALLEL_BODY (stmt) = block;
+  OMP_PARALLEL_VAR_INIT (stmt) = init;
+  OMP_PARALLEL_VAR_REDUC (stmt) = reduc;
+
+  add_stmt (stmt);
+}
+
+void
+c_omp_remap_private (bool val)
+{
+  omp_remap_private = val;
 }
 
 #include "gt-c-decl.h"

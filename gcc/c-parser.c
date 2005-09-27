@@ -528,7 +528,7 @@ c_lex_one_token (c_token *token)
 	      }
 	  }
 
-	decl = lookup_name (token->value);
+	decl = lookup_name_no_remap (token->value);
 	if (decl)
 	  {
 	    if (TREE_CODE (decl) == TYPE_DECL)
@@ -1058,6 +1058,8 @@ restore_extension_diagnostics (int flags)
 /* Current set of OpenMP clauses being parsed.  */
 static tree curr_clause_set;
 
+/* Current value of a default clause.  */
+static enum omp_clause_default_kind curr_clause_default;
 
 /* Add a new clause to the current set of clauses.  */
 
@@ -1122,7 +1124,7 @@ static void c_parser_if_statement (c_parser *);
 static void c_parser_switch_statement (c_parser *);
 static void c_parser_while_statement (c_parser *);
 static void c_parser_do_statement (c_parser *);
-static void c_parser_for_statement (c_parser *, bool, tree);
+static void c_parser_for_statement (c_parser *);
 static tree c_parser_asm_statement (c_parser *);
 static tree c_parser_asm_operands (c_parser *, bool);
 static tree c_parser_asm_clobbers (c_parser *);
@@ -1696,7 +1698,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	      t.kind = ctsk_typedef;
 	      /* For a typedef name, record the meaning, not the name.
 		 In case of 'foo foo, bar;'.  */
-	      t.spec = lookup_name (value);
+	      t.spec = lookup_name_no_remap (value);
 	    }
 	  else
 	    {
@@ -3816,7 +3818,7 @@ c_parser_statement_after_labels (c_parser *parser)
 	  c_parser_do_statement (parser);
 	  break;
 	case RID_FOR:
-	  c_parser_for_statement (parser, false, NULL);
+	  c_parser_for_statement (parser);
 	  break;
 	case RID_GOTO:
 	  c_parser_consume_token (parser);
@@ -4109,30 +4111,23 @@ c_parser_do_statement (c_parser *parser)
    Note in particular that the nested function does not include a
    trailing ';', whereas the "declaration" production includes one.
    Also, can we reject bad declarations earlier and cheaper than
-   check_for_loop_decls?
-
-   IS_OMP_FOR is nonzero if we are parsing a loop marked with #pragma
-   omp for.   OMP_CLAUSES will be the clauses parsed during the pragma.  */
+   check_for_loop_decls?  */
 
 static void
-c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
+c_parser_for_statement (c_parser *parser)
 {
-  tree block, cond, incr, save_break, save_cont, body, init;
+  tree block, cond, incr, save_break, save_cont, body;
   location_t loc = UNKNOWN_LOCATION;
-
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
-  init = NULL_TREE;
-
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       /* Parse the initialization declaration or expression.  */
       if (c_parser_next_token_is (parser, CPP_SEMICOLON))
 	{
 	  c_parser_consume_token (parser);
-	  if (!is_omp_for)
-	    c_finish_expr_stmt (NULL_TREE);
+	  c_finish_expr_stmt (NULL_TREE);
 	}
       else if (c_parser_next_token_starts_declspecs (parser))
 	{
@@ -4164,14 +4159,9 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
       else
 	{
 	init_expr:
-	  init = c_parser_expression (parser).value;
-	  if (is_omp_for)
-	    init = c_process_expr_stmt (init);
-	  else
-	    init = c_finish_expr_stmt (init);
+	  c_finish_expr_stmt (c_parser_expression (parser).value);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
-
       /* Parse the loop condition.  */
       loc = c_parser_peek_token (parser)->location;
       if (c_parser_next_token_is (parser, CPP_SEMICOLON))
@@ -4187,7 +4177,6 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
 	    SET_EXPR_LOCATION (cond, loc);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
-
       /* Parse the increment expression.  */
       if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	incr = c_process_expr_stmt (NULL_TREE);
@@ -4200,30 +4189,12 @@ c_parser_for_statement (c_parser *parser, bool is_omp_for, tree omp_clauses)
       cond = error_mark_node;
       incr = error_mark_node;
     }
-
   save_break = c_break_label;
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
   body = c_parser_c99_block_statement (parser);
-
-  switch (is_omp_for)
-    {
-    default:
-      {
-        tree t = c_finish_omp_for (init, cond, incr, body, omp_clauses);
-        if (t)
-	  {
-	    add_stmt (t);
-	    break;
-	  }
-      }
-      /* FALLTHRU */
-
-    case 0:
-      c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
-    }
-
+  c_finish_loop (loc, cond, incr, body, c_break_label, c_cont_label, true);
   add_stmt (c_end_compound_stmt (block, flag_isoc99));
   c_break_label = save_break;
   c_cont_label = save_cont;
@@ -6612,6 +6583,99 @@ c_parser_objc_keywordexpr (c_parser *parser)
     }
 }
 
+/* Parse the restricted form of the for statment allowed by OpenMP.
+   The real trick here is to determine the loop control variable early
+   so that we can push a new decl if necessary to make it private.  */
+
+static tree
+c_parser_omp_for_statement (c_parser *parser)
+{
+  tree block, decl, cond, incr, save_break, save_cont, body, init;
+  tree ret;
+
+  if (!c_parser_next_token_is_keyword (parser, RID_FOR))
+    {
+      c_parser_error (parser, "for statement expected");
+      return NULL;
+    }
+  c_parser_consume_token (parser);
+  block = c_begin_compound_stmt (true);
+
+  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+    return NULL;
+
+  /* Parse the initialization declaration or expression.  */
+  if (c_parser_next_token_starts_declspecs (parser))
+    {
+      c_parser_declaration_or_fndef (parser, true, true, true, true);
+      decl = check_for_loop_decls ();
+      if (decl == NULL)
+	goto error_init;
+      init = decl;
+    }
+  else if (c_parser_next_token_is (parser, CPP_NAME)
+	   && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
+    {
+      c_omp_remap_private (true);
+      decl = c_parser_postfix_expression (parser).value;
+      c_omp_remap_private (false);
+
+      c_parser_require (parser, CPP_EQ, "expected %<=%>");
+
+      init = c_parser_expr_no_commas (parser, NULL).value;
+      init = build_modify_expr (decl, NOP_EXPR, init);
+      init = c_process_expr_stmt (init);
+
+      c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
+    }
+  else
+    goto error_init;
+
+  /* Parse the loop condition.  */
+  cond = NULL_TREE;
+  if (c_parser_next_token_is_not (parser, CPP_SEMICOLON))
+    {
+      cond = c_parser_expression_conv (parser).value;
+      cond = c_objc_common_truthvalue_conversion (cond);
+      if (EXPR_P (cond))
+	SET_EXPR_LOCATION (cond, input_location);
+    }
+  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
+
+  /* Parse the increment expression.  */
+  incr = NULL_TREE;
+  if (c_parser_next_token_is_not (parser, CPP_CLOSE_PAREN))
+    incr = c_process_expr_stmt (c_parser_expression (parser).value);
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
+ parse_body:
+  save_break = c_break_label;
+  c_break_label = NULL_TREE;
+  save_cont = c_cont_label;
+  c_cont_label = NULL_TREE;
+
+  body = c_parser_c99_block_statement (parser);
+
+  c_break_label = save_break;
+  c_cont_label = save_cont;
+
+  /* Only bother calling c_finish_omp_for if we havn't already generated
+     an error from the initialization parsing.  */
+  if (decl != NULL)
+    ret = c_finish_omp_for (decl, init, cond, incr, body);
+  else
+    ret = NULL_TREE;
+
+  add_stmt (c_end_compound_stmt (block, true));
+  return ret;
+
+ error_init:
+  c_parser_error (parser, "expected iteration declaration or initialization");
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+  decl = init = cond = incr = NULL_TREE;
+  goto parse_body;
+}
+
 
 /* OpenMP 2.5:
 
@@ -6622,14 +6686,14 @@ c_parser_objc_keywordexpr (c_parser *parser)
      section-directive[opt] structured-block
      section-sequence section-directive structured-block  */
 
-static void
-c_parser_omp_sections_body (c_parser *parser, tree clauses)
+static tree
+c_parser_omp_sections_body (c_parser *parser)
 {
   tree stmt, substmt;
   bool error_suppress = false;
 
   if (!c_parser_require (parser, CPP_OPEN_BRACE, "expected %<{%>"))
-    return;
+    return NULL_TREE;
 
   stmt = push_stmt_list ();
 
@@ -6679,8 +6743,13 @@ c_parser_omp_sections_body (c_parser *parser, tree clauses)
   c_parser_skip_until_found (parser, CPP_CLOSE_BRACE,
 			     "expected %<#pragma omp section%> or %<}%>");
 
-  stmt = pop_stmt_list (stmt);
-  add_stmt (build2 (OMP_SECTIONS, void_type_node, clauses, stmt));
+  substmt = pop_stmt_list (stmt);
+
+  stmt = make_node (OMP_SECTIONS);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_SECTIONS_BODY (stmt) = substmt;
+
+  return add_stmt (stmt);
 }
 
 /* Parse the expression for #pragma omp atomic.  */
@@ -6762,49 +6831,88 @@ c_parser_omp_directive (c_parser *parser)
 {
   tree stmt, clause, par_clause, ws_clause;
   enum pragma_omp_kind code = c_parser_peek_token (parser)->omp_kind;
+  tree block, init, fini, reduc;
 
   /* Parse the pragma header.  */
   curr_clause_set = NULL;
+  curr_clause_default = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
   c_parser_pragma (parser);
   clause = curr_clause_set;
 
   switch (code)
     {
       case PRAGMA_OMP_PARALLEL:
-	stmt = push_stmt_list ();
+	block = c_begin_omp_parallel (curr_clause_default);
+	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+	gcc_assert (fini == NULL);
+
 	c_parser_statement (parser);
-	stmt = pop_stmt_list (stmt);
-	add_stmt (build (OMP_PARALLEL, void_type_node, clause, stmt));
+
+	c_finish_omp_parallel (block, clause, init, reduc);
 	break;
 
       case PRAGMA_OMP_PARALLEL_FOR:
-	stmt = push_stmt_list ();
+	block = c_begin_omp_parallel (curr_clause_default);
+	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+
 	c_split_parallel_clauses (clause, &par_clause, &ws_clause);
-	if (c_parser_next_token_is_keyword (parser, RID_FOR))
-	  c_parser_for_statement (parser, true, ws_clause);
-	else
-	  c_parser_error (parser, "for statement expected");
-	stmt = pop_stmt_list (stmt);
-	add_stmt (build (OMP_PARALLEL, void_type_node, par_clause, stmt));
+	stmt = c_parser_omp_for_statement (parser);
+	if (stmt)
+	  {
+	    OMP_FOR_CLAUSES (stmt) = ws_clause;
+	    OMP_FOR_VAR_LAST (stmt) = fini;
+	  }
+
+	c_finish_omp_parallel (block, par_clause, init, reduc);
 	break;
 
       case PRAGMA_OMP_FOR:
-	if (c_parser_next_token_is_keyword (parser, RID_FOR))
-	  c_parser_for_statement (parser, true, clause);
-	else
-	  c_parser_error (parser, "for statement expected");
+	block = c_begin_compound_stmt (true);
+	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+
+	stmt = c_parser_omp_for_statement (parser);
+	if (stmt)
+	  {
+	    OMP_FOR_CLAUSES (stmt) = clause;
+	    OMP_FOR_VAR_INIT (stmt) = init;
+	    OMP_FOR_VAR_LAST (stmt) = fini;
+	    OMP_FOR_VAR_REDUC (stmt) = reduc;
+	  }
+
+	block = c_end_compound_stmt (block, true);
+	add_stmt (block);
 	break;
 
       case PRAGMA_OMP_PARALLEL_SECTIONS:
-	stmt = push_stmt_list ();
+	block = c_begin_omp_parallel (curr_clause_default);
+	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+
 	c_split_parallel_clauses (clause, &par_clause, &ws_clause);
-	c_parser_omp_sections_body (parser, ws_clause);
-	stmt = pop_stmt_list (stmt);
-	add_stmt (build (OMP_PARALLEL, void_type_node, par_clause, stmt));
+	stmt = c_parser_omp_sections_body (parser);
+	if (stmt)
+	  {
+	    OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
+	    OMP_SECTIONS_VAR_LAST (stmt) = fini;
+	  }
+
+	c_finish_omp_parallel (block, par_clause, init, reduc);
 	break;
 
       case PRAGMA_OMP_SECTIONS:
-	c_parser_omp_sections_body (parser, clause);
+	block = c_begin_compound_stmt (true);
+	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+
+	stmt = c_parser_omp_sections_body (parser);
+	if (stmt)
+	  {
+	    OMP_SECTIONS_CLAUSES (stmt) = clause;
+	    OMP_SECTIONS_VAR_INIT (stmt) = init;
+	    OMP_SECTIONS_VAR_LAST (stmt) = fini;
+	    OMP_SECTIONS_VAR_REDUC (stmt) = reduc;
+	  }
+
+	block = c_end_compound_stmt (block, true);
+	add_stmt (block);
 	break;
 
       case PRAGMA_OMP_SINGLE:
@@ -6946,7 +7054,7 @@ c_parser_pragma_omp_variable_list (c_parser *parser)
 	undeclared_variable (c_parser_peek_token (parser)->value,
 			     c_parser_peek_token (parser)->location);
       else if (t != error_mark_node)
-	list = tree_cons (NULL_TREE, t, list);
+	list = tree_cons (t, NULL_TREE, list);
 
       c_parser_consume_token (parser);
 
@@ -6994,36 +7102,45 @@ c_parser_pragma_omp_clause_copyprivate (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_default (c_parser *parser)
 {
-  printf ("default\n");
+  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+    return;
 
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-  {
-    if (c_parser_next_token_is (parser, CPP_NAME))
-      {
-	const char *const p
-	  = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-	if (!strcmp ("none", p))
-	  {
-	    printf ("\tnone\n");
-	    c_parser_consume_token (parser);
-	  }
-	else if (!strcmp ("shared", p))
-	  {
-	    printf ("\tshared\n");
-	    c_parser_consume_token (parser);
-	  }
-	else
-	  {
-	    c_parser_error (parser, "expected %<none%> or %<shared%>");
-	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
-	  }
-      }
-    else
-      {
-	c_parser_error (parser, "expected %<none%> or %<shared%>");
-      }
-    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-  }
+  if (c_parser_next_token_is (parser, CPP_NAME))
+    {
+      const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      enum omp_clause_default_kind kind;
+
+      switch (p[0])
+	{
+	case 'n':
+	  if (strcmp ("none", p) != 0)
+	    goto invalid_kind;
+	  kind = OMP_CLAUSE_DEFAULT_NONE;
+	  break;
+
+	case 's':
+	  if (strcmp ("shared", p) != 0)
+	    goto invalid_kind;
+	  kind = OMP_CLAUSE_DEFAULT_SHARED;
+	  break;
+
+	default:
+	  goto invalid_kind;
+	}
+
+      if (curr_clause_default != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
+	error ("too many %<default%> clauses");
+      curr_clause_default = kind;
+
+      c_parser_consume_token (parser);
+    }
+  else
+    {
+    invalid_kind:
+      c_parser_error (parser, "expected %<none%> or %<shared%>");
+    }
+
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
 }
 
 /* OpenMP 2.5:
@@ -7054,8 +7171,7 @@ c_parser_pragma_omp_clause_if (c_parser *parser)
       /* At most one 'if' clause may appear in the directive.  */
       for (c = curr_clause_set; c; c = TREE_CHAIN (c))
 	if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_IF)
-	  error ("at most one %<if%> clause may appear in a parallel "
-	         "directive");
+	  error ("too many %<if%> clauses");
 
       add_new_clause (build (OMP_CLAUSE_IF, NULL_TREE, t));
     }
@@ -7090,7 +7206,7 @@ c_parser_pragma_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED)
   /* At most one 'nowait' clause may appear in the directive.  */
   for (t = curr_clause_set; t ; t = TREE_CHAIN (t))
     if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
-      error ("at most one %<nowait%> clause may appear in a for directive");
+      error ("too many %<nowait%> clauses");
 
   add_new_clause (build (OMP_CLAUSE_NOWAIT, NULL_TREE));
 }
@@ -7125,8 +7241,7 @@ c_parser_pragma_omp_clause_num_threads (c_parser *parser)
       /* At most one 'num_threads' clause may appear in the directive.  */
       for (c = curr_clause_set; c; c = TREE_CHAIN (c))
 	if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_NUM_THREADS)
-	  error ("at most one %<num_threads%> clause may appear "
-		 "in a parallel directive");
+	  error ("too many %<num_threads%> clauses");
 
       add_new_clause (build (OMP_CLAUSE_NUM_THREADS, TREE_TYPE (t), t));
     }
@@ -7143,7 +7258,7 @@ c_parser_pragma_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED)
   /* At most one 'ordered' clause may appear in the directive.  */
   for (t = curr_clause_set; t ; t = TREE_CHAIN (t))
     if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_ORDERED)
-      error ("at most one %<ordered%> clause may appear in a for directive");
+      error ("too many %<ordered%> clauses");
 
   add_new_clause (build (OMP_CLAUSE_ORDERED, NULL_TREE));
 }
@@ -7170,36 +7285,36 @@ c_parser_pragma_omp_clause_private (c_parser *parser)
 
 static void
 c_parser_pragma_omp_clause_reduction (c_parser *parser)
- {
-  printf ("reduction\n");
-
+{
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
+      enum tree_code code;
+
       switch (c_parser_peek_token (parser)->type)
 	{
 	case CPP_PLUS:
-	  printf ("\treduction-operator: '+'\n");
+	  code = PLUS_EXPR;
 	  break;
 	case CPP_MULT:
-	  printf ("\treduction-operator: '*'\n");
+	  code = MULT_EXPR;
 	  break;
 	case CPP_MINUS:
-	  printf ("\treduction-operator: '-'\n");
+	  code = MINUS_EXPR;
 	  break;
 	case CPP_AND:
-	  printf ("\treduction-operator: '&'\n");
+	  code = BIT_AND_EXPR;
 	  break;
 	case CPP_XOR:
-	  printf ("\treduction-operator: '^'\n");
+	  code = BIT_XOR_EXPR;
 	  break;
 	case CPP_OR:
-	  printf ("\treduction-operator: '|'\n");
+	  code = BIT_IOR_EXPR;
 	  break;
 	case CPP_AND_AND:
-	  printf ("\treduction-operator: '&&'\n");
+	  code = TRUTH_ANDIF_EXPR;
 	  break;
 	case CPP_OR_OR:
-	  printf ("\treduction-operator: '||'\n");
+	  code = TRUTH_ORIF_EXPR;
 	  break;
 	default:
 	  c_parser_error (parser,
@@ -7211,7 +7326,13 @@ c_parser_pragma_omp_clause_reduction (c_parser *parser)
       c_parser_consume_token (parser);
       if (c_parser_require (parser, CPP_COLON, "expected %<:%>"))
 	{
-	  c_parser_pragma_omp_variable_list (parser);
+	  tree list, clause;
+
+	  list = c_parser_pragma_omp_variable_list (parser);
+	  clause = build1 (OMP_CLAUSE_REDUCTION, NULL, list);
+	  OMP_CLAUSE_REDUCTION_CODE (clause) = code;
+
+	  add_new_clause (clause);
 	}
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
@@ -7295,7 +7416,7 @@ c_parser_pragma_omp_clause_schedule (c_parser *parser)
   /* At most one 'schedule' clause may appear in the directive.  */
   for (t = curr_clause_set; t ; t = TREE_CHAIN (c))
     if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_SCHEDULE)
-      error ("at most one %<schedule%> clause may appear in a for directive");
+      error ("too many %<schedule%> clauses");
 
   add_new_clause (c);
   return;
@@ -7313,15 +7434,10 @@ c_parser_pragma_omp_clause_shared (c_parser *parser)
 {
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      tree t, vars;
+      tree vars;
       vars = c_parser_pragma_omp_variable_list (parser);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
       add_new_clause (build (OMP_CLAUSE_SHARED, NULL_TREE, vars));
-
-      /* Since we are going to be taking the address of shared
-	 variables, mark them addressable early.  */
-      for (t = vars; t; t = TREE_CHAIN (t))
-	TREE_ADDRESSABLE (TREE_VALUE (t)) = 1;
     }
 }
 

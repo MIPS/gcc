@@ -949,8 +949,12 @@ DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 7)
 
 /* OpenMP - #pragma omp parallel [clause1 ... clauseN]
    Operand 0: OMP_PARALLEL_CLAUSES: List of clauses.
-   Operand 1: OMP_PARALLEL_BODY: Code to be executed by all threads.  */
-DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 2)
+   Operand 1: OMP_PARALLEL_BODY: Code to be executed by all threads.
+   Operand 2: OMP_PARALLEL_VAR_INIT: Variable initializations from copyin
+	or reduction clauses.  Should be run before the body.
+   Operand 3: OMP_PARALLEL_VAR_REDUC: Variable updates from reduction clauses.
+	Should be run at the end of the body.  */
+DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 4)
 
 /* OpenMP - #pragma omp for [clause1 ... clauseN]
    Operand 0: OMP_FOR_CLAUSES: List of clauses.
@@ -961,6 +965,12 @@ DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 2)
    Operand 3: OMP_FOR_INCR: Loop index increment of the form
 			     	VAR { +=, -= } INCR.
    Operand 4: OMP_FOR_BODY: Loop body.
+   Operand 5: OMP_FOR_VAR_INIT: Variable initializations from firstprivate
+	or reduction clauses.  Should be run before the loop.
+   Operand 6: OMP_FOR_VAR_LAST: Variable copies from lastprivate clauses.
+	Should be run on the last iteration of the loop.
+   Operand 7: OMP_FOR_VAR_REDUC: Variable updates from reduction clauses.
+	Should be run at the end of the loop.
 
    VAR must be a signed integer variable, which is implicitly thread
    private.
@@ -969,12 +979,18 @@ DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 2)
    expressions that are evaluated without any synchronization.
    The evaluation order, frequency of evaluation and side-effects are
    unspecified by the standard.  */
-DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 5)
+DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 8)
 
 /* OpenMP - #pragma omp sections [clause1 ... clauseN]
    Operand 0: OMP_SECTIONS_CLAUSES: List of clauses.
-   Operand 1: OMP_SECTIONS_BODY: Sections body.  */
-DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 2)
+   Operand 1: OMP_SECTIONS_BODY: Sections body.
+   Operand 2: OMP_SECTIONS_VAR_INIT: Variable initializations from
+	firstprivate or reduction clauses.  Should be run first.
+   Operand 3: OMP_SECTIONS_VAR_LAST: Variable copies from lastprivate
+	clauses.  Should be run in the last section.
+   Operand 4: OMP_SECTIONS_VAR_REDUC: Variable updates from reduction
+	clauses.  Should be run at the end.  */
+DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 5)
 
 /* OpenMP - #pragma omp section
    Operand 0: OMP_SECTION_BODY: Section body.  */
@@ -1010,8 +1026,9 @@ DEFTREECODE (OMP_CLAUSE_FIRSTPRIVATE, "firstprivate", tcc_expression, 1)
 /* OpenMP clause: lastprivate (variable_list).  */
 DEFTREECODE (OMP_CLAUSE_LASTPRIVATE, "lastprivate", tcc_expression, 1)
 
-/* OpenMP clause: reduction (operator:variable_list).  */
-DEFTREECODE (OMP_CLAUSE_REDUCTION, "reduction", tcc_expression, 2)
+/* OpenMP clause: reduction (operator:variable_list).
+   OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.  */
+DEFTREECODE (OMP_CLAUSE_REDUCTION, "reduction", tcc_expression, 1)
 
 /* OpenMP clause: copyin (variable_list).  */
 DEFTREECODE (OMP_CLAUSE_COPYIN, "copyin", tcc_expression, 1)

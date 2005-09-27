@@ -31,18 +31,18 @@ void foo (int j, int k)
     }
 
   #pragma omp for
-  for (i = 0; ; i--)
+  for (i = 0; ; i--)	/* { dg-error "missing controlling predicate" } */
     {
       if (i >= 10)
 	break;
       baz (i);
-    }			/* { dg-error "missing controlling predicate" } */
+    }
 
   #pragma omp for
-  for (i = 0; i < 10 && j > 4; i-=3)
-    baz (i);		/* { dg-error "invalid controlling predicate" } */
+  for (i = 0; i < 10 && j > 4; i-=3)	/* { dg-error "invalid controlling predicate" } */
+    baz (i);
 
   #pragma omp for
-  for (i = 0; i < 10; i-=3, j+=2)
-    baz (i);		/* { dg-error "invalid increment expression" } */
+  for (i = 0; i < 10; i-=3, j+=2)	/* { dg-error "invalid increment expression" } */
+    baz (i);
 }

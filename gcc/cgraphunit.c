@@ -427,6 +427,8 @@ cgraph_finalize_pending_functions (void)
     {
       next = node->next_needed;
       node->next_needed = NULL;
+
+      gimplify_function_tree (node->decl);
       cgraph_finalize_function (node->decl, true);
     }
 }

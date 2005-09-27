@@ -437,7 +437,7 @@ extern int quals_from_declspecs (const struct c_declspecs *);
 extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 						    bool, bool);
 extern tree build_enumerator (tree, tree);
-extern void check_for_loop_decls (void);
+extern tree check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
 extern void declare_parm_level (void);
 extern void undeclared_variable (tree, location_t);
@@ -453,7 +453,7 @@ extern tree groktypename (struct c_type_name *);
 extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
-extern tree lookup_name (tree);
+extern tree lookup_name_no_remap (tree);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
@@ -602,6 +602,8 @@ extern bool c_eh_initialized_p;
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
 extern void c_write_global_declarations (void);
+
+extern void c_omp_remap_private (bool);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

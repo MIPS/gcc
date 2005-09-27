@@ -38,31 +38,36 @@ void foo (int j, int k)
     }
 
   #pragma omp for
-  for (i = 0; ; i--)
+  for (i = 0; ; i--)	/* { dg-error "missing controlling predicate" } */
     {
       if (i >= 10)
 	break;
       baz (i);
-    }			/* { dg-error "missing controlling predicate" } */
+    }
 
   #pragma omp for
-  for (i = 0; i < 10 && j > 4; i-=3)
-    baz (i);		/* { dg-error "invalid controlling predicate" } */
+  for (i = 0;
+       i < 10 && j > 4; /* { dg-error "invalid controlling predicate" } */
+       i-=3)
+    baz (i);
 
   #pragma omp for
-  for (i = 0; i < 10; i-=3, j+=2)
-    baz (i);		/* { dg-error "invalid increment expression" } */
+  for (i = 0;
+       i < 10;
+       i-=3, j+=2)	/* { dg-error "invalid increment expression" } */
+    baz (i);
 
   int m = 0;
   #pragma omp for
-  for (; m < 10; m++)
-    baz (m);		/* { dg-error "missing initialization expression" } */
+  for (; m < 10; m++)	/* { dg-error "expected" } */
+    baz (m);
 
   m = 0;
   #pragma omp for
-  for (int n = 0; m < 10; m++)
-    baz (m);		/* { dg-error "loop control variable mismatch" } */
+  for (int n = 0; m < 10; m++)	/* { dg-error "invalid controlling predicate|invalid increment expression" } */
+    baz (m);
 
-  for (m = 0; m < 10; i++)
-    baz (m);		/* { dg-error "loop control variable mismatch" } */
+  #pragma omp for
+  for (m = 0; m < 10; i++)	/* { dg-error "invalid increment expression" } */
+    baz (m);
 }

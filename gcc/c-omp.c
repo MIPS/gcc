@@ -31,6 +31,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "c-common.h"
 #include "toplev.h"
 #include "tree-gimple.h"
+#include "bitmap.h"
+#include "langhooks.h"
 
 
 /* Complete a #pragma omp master construct.  STMT is the structured-block
@@ -157,6 +159,24 @@ c_finish_omp_flush (void)
 }
 
 
+/* A subroutine of c_split_parallel_clauses.  For each decl in *TP,
+   replace it with the decl of the same name in the current binding.  */
+
+static tree
+relookup_decls (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		void *data ATTRIBUTE_UNUSED)
+{
+  tree old = *tp;
+
+  if (DECL_P (old))
+    {
+      gcc_assert (DECL_NAME (old) != NULL);
+      *tp = lookup_name (DECL_NAME (old));
+    }
+
+  return NULL_TREE;
+}
+
 /* Divide CLAUSES into two lists: those that apply to a parallel construct,
    and those that apply to a work-sharing construct.  Place the results in
    *PAR_CLAUSES and *WS_CLAUSES respectively.  In addition, add a nowait
@@ -187,8 +207,18 @@ c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
 	  *par_clauses = clauses;
 	  break;
 
-	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_SCHEDULE:
+	  /* We need this expression in the context of the block inside
+	     to the parallel, rather than outside.  Adjust.  */
+	  /* ??? Except when we start using GOMP_parallel_loop_*_start,
+	     when we'll need it in the outside context.  Likely we should
+	     provide both expressions.  */
+	  walk_tree_without_duplicates (
+		&OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (TREE_VALUE (clauses)),
+		relookup_decls, NULL);
+	  /* FALLTHRU */
+
+	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_LASTPRIVATE:
 	  TREE_CHAIN (clauses) = *ws_clauses;
 	  *ws_clauses = clauses;
@@ -207,52 +237,44 @@ c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
 /* Validate and emit code for the OpenMP directive #pragma omp for.
    INIT, COND, INCR and BODY are the four basic elements of the loop
    (initialization expression, controlling predicate, increment
-   expression and body of the loop).  CLAUSES is the set of data
-   sharing and copying clauses found at the start of the directive.  */
+   expression and body of the loop).  DECL is the iteration variable.  */
 
 tree
-c_finish_omp_for (tree init, tree cond, tree incr, tree body, tree clauses)
+c_finish_omp_for (tree decl, tree init, tree cond, tree incr, tree body)
 {
-  bool found;
-  tree t, loop_ix = NULL_TREE;
+  source_locus locus = EXPR_LOCUS (init);
+  bool fail = false;
 
-  /* Validate the form of the loop.  It must be of the form (OpenMP
-     public spec v2.5)
+  /* Validate the iteration variable.  */
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
+    {
+      error ("%Hinvalid type for iteration variable %qE", locus, decl);
+      fail = true;
+    }
+  if (TYPE_UNSIGNED (TREE_TYPE (decl)))
+    warning (0, "%Hiteration variable %qE is unsigned", locus, decl);
 
-     	for (init-expr; var relop b; incr-expr)
+  /* In the case of "for (int i = 0...)", init will be a decl.  It should
+     have a DECL_INITIAL that we can turn into an assignment.  */
+  if (init == decl)
+    {
+      init = DECL_INITIAL (decl);
+      if (init == NULL)
+	{
+	  error ("%J%qE is not initialized", decl, decl);
+	  init = integer_zero_node;
+	  fail = true;
+	}
 
-	init-expr	One of the following
-				var = lb
-				integer-type var = lb
-
-	incr-expr	One of the following
-				++var
-				var++
-				--var
-				var--
-				var += incr
-				var -= incr
-				var = var + incr
-				var = incr + var
-				var = var - incr
-
-	var		A signed integer variable.  If it was shared, 
-			it is implicitly made private.  It may only be
-			modified inside incr-expr.  After the loop its
-			value is indeterminate, unles it is marked
-			lastprivate.
-
-	relop		One of <, <=, > or >=
-
-	lb, b, incr	Loop invariant integer expressions.  There is
-			no synchronization during the evaluation of
-			these expressions.  Th order, frequency and
-			side-effects of these expressions are
-			unspecified.  */
+      init = build_modify_expr (decl, NOP_EXPR, init);
+    }
+  gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+  gcc_assert (TREE_OPERAND (init, 0) == decl);
+  
   if (cond == NULL_TREE)
     {
-      error ("missing controlling predicate in %<omp for%> loop");
-      return NULL_TREE;
+      error ("%Hmissing controlling predicate", locus);
+      fail = true;
     }
   else
     {
@@ -263,25 +285,29 @@ c_finish_omp_for (tree init, tree cond, tree incr, tree body, tree clauses)
 	  || TREE_CODE (cond) == GT_EXPR
 	  || TREE_CODE (cond) == GE_EXPR)
 	{
-	  loop_ix = TREE_OPERAND (cond, 0);
-	  if (DECL_P (loop_ix))
+	  if (decl == TREE_OPERAND (cond, 0))
 	    cond_ok = true;
+	  else if (decl == TREE_OPERAND (cond, 1))
+	    {
+	      TREE_SET_CODE (cond, swap_tree_comparison (TREE_CODE (cond)));
+	      TREE_OPERAND (cond, 1) = TREE_OPERAND (cond, 0);
+	      TREE_OPERAND (cond, 0) = decl;
+	      cond_ok = true;
+	    }
 	}
 
       if (!cond_ok)
 	{
-	  error ("invalid controlling predicate in %<omp for%> loop");
-	  return NULL_TREE;
+	  error ("%Hinvalid controlling predicate",
+		 EXPR_HAS_LOCATION (cond) ? EXPR_LOCUS (cond) : locus);
+	  fail = true;
 	}
     }
 
-  /* If we got to this point, we must have a loop index variable.  */
-  gcc_assert (loop_ix);
-
   if (incr == NULL_TREE)
     {
-      error ("missing increment expression in %<omp for%> loop");
-      return NULL_TREE;
+      error ("%Hmissing increment expression", locus);
+      fail = true;
     }
   else
     {
@@ -290,85 +316,212 @@ c_finish_omp_for (tree init, tree cond, tree incr, tree body, tree clauses)
 
       /* Check all the valid increment expressions: v++, v--, ++v, --v,
 	 v = v + incr, v = incr + v and v = v - incr.  */
-      if ((code == POSTINCREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
-	  || (code == PREINCREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
-	  || (code == POSTDECREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
-	  || (code == PREDECREMENT_EXPR && TREE_OPERAND (incr, 0) == loop_ix)
+      if ((code == POSTINCREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
+	  || (code == PREINCREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
+	  || (code == POSTDECREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
+	  || (code == PREDECREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
 	  || (code == MODIFY_EXPR
 	      && TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
-	      && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == loop_ix
-		  || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == loop_ix))
+	      && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
+		  || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
 	  || (code == MODIFY_EXPR
 	      && TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
-	      && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == loop_ix))
+	      && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl))
 	incr_ok = true;
 
       if (!incr_ok)
 	{
-	  error ("invalid increment expression in %<omp for%> loop");
-	  return NULL_TREE;
+	  error ("%Hinvalid increment expression",
+		 EXPR_HAS_LOCATION (incr) ? EXPR_LOCUS (incr) : locus);
+	  fail = true;
 	}
     }
 
-  if (init == NULL_TREE)
+  if (fail)
+    return NULL;
+  else
     {
-      if (flag_isoc99)
-	{
-	  /* Only in C99 may the init expression be empty.  If the
-	     loop index variable has a DECL_INITIAL expression, use it
-	     to build the OMP_FOR_INIT operand.  */
-	  if (DECL_INITIAL (loop_ix))
-	    init = build (MODIFY_EXPR, TREE_TYPE (loop_ix),
-			  loop_ix, DECL_INITIAL (loop_ix));
-	}
+      tree t = make_node (OMP_FOR);
 
-      if (init == NULL_TREE)
-	{
-	  error ("missing initialization expression in %<omp for%> loop");
-	  return NULL_TREE;
-	}
+      TREE_TYPE (t) = void_type_node;
+      OMP_FOR_INIT (t) = init;
+      OMP_FOR_COND (t) = cond;
+      OMP_FOR_INCR (t) = incr;
+      OMP_FOR_BODY (t) = body;
+
+      SET_EXPR_LOCUS (t, locus);
+      return add_stmt (t);
     }
+}
 
-  /* The loop controlling variable is always private.  Add it to the
-     list of private clauses.  */
-  found = false;
-  for (t = clauses; t; t = TREE_CHAIN (t))
+/* Instantiate new variables in the current scope to implement the private,
+   shared, firstprivate, lastprivate, and reduction openmp clauses.  If 
+   any initialization needed doing, it is added to INIT_SEQ.  Code for any
+   lastprivate copies is added to LAST_SEQ.  Code for finalizing the 
+   reductions is added to REDUC_SEQ.  */
+
+void
+c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
+		       tree *reduc_seq)
+{
+  tree clause, c, *plist, x;
+  enum tree_code kind;
+  bitmap_head spr_head, fp_head, lp_head, error_head;
+
+  bitmap_obstack_initialize (NULL);
+  bitmap_initialize (&spr_head, &bitmap_default_obstack);
+  bitmap_initialize (&fp_head, &bitmap_default_obstack);
+  bitmap_initialize (&lp_head, &bitmap_default_obstack);
+  bitmap_initialize (&error_head, &bitmap_default_obstack);
+
+  *init_seq = NULL;
+  *last_seq = NULL;
+  *reduc_seq = NULL;
+
+  for (clause = omp_clauses; clause ; clause = TREE_CHAIN (clause))
     {
-      tree clause = TREE_VALUE (t);
-
-      if (TREE_CODE (clause) == OMP_CLAUSE_PRIVATE)
+      c = TREE_VALUE (clause);
+      kind = TREE_CODE (c);
+      switch (kind)
 	{
-	  tree n;
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	  break;
+	default:
+	  continue;
+	}
+	
+      plist = &TREE_OPERAND (c, 0);
+      while (*plist)
+	{
+	  tree old, new;
+	  bool decl_ok = true;
+	  bitmap update_map;
 
-	  for (n = OMP_PRIVATE_VARS (clause); n; n = TREE_CHAIN (n))
+	  old = TREE_PURPOSE (*plist);
+
+	  /* OpenMP 2.5, section 2.8.3: A list item that specifies a given
+	     variable may not appear in more than one clause on the same
+	     directive, except that a variable may be specified in both
+	     firstprivate and lastprivate clauses.  */
+	  if (bitmap_bit_p (&spr_head, DECL_UID (old)))
+	    decl_ok = false;
+	  if (kind != OMP_CLAUSE_LASTPRIVATE
+	      && bitmap_bit_p (&fp_head, DECL_UID (old)))
+	    decl_ok = false;
+	  if (kind != OMP_CLAUSE_FIRSTPRIVATE
+	      && bitmap_bit_p (&lp_head, DECL_UID (old)))
+	    decl_ok = false;
+	  if (!decl_ok)
 	    {
-	      tree v = TREE_VALUE (n);
-	      if (v == loop_ix)
+	      if (!bitmap_bit_p (&error_head, DECL_UID (old)))
 		{
-		  found = true;
-		  break;
+		  error ("%qE listed more than once in sharing clauses", old);
+		  bitmap_set_bit (&error_head, DECL_UID (old));
 		}
+	      *plist = TREE_CHAIN (*plist);
+	      continue;
 	    }
 
-	  /* If LOOP_IX is not mentioned in a private clause, add it.  */
-	  if (!found)
+	  /* OpenMP 2.5 section 2.8.1.1: Variables with predetermined
+	     sharing attributes may not be listed in data-sharing clauses.  */
+	  if (c_omp_sharing_predetermined (old))
 	    {
-	      OMP_PRIVATE_VARS (clause) = 
-		tree_cons (NULL_TREE, loop_ix, OMP_PRIVATE_VARS (clause));
-	      found = true;
-	      break;
+	      if (!bitmap_bit_p (&error_head, DECL_UID (old)))
+		{
+		  error ("%qE may not be listed in a sharing clause", old);
+		  bitmap_set_bit (&error_head, DECL_UID (old));
+		}
+	      *plist = TREE_CHAIN (*plist);
+	      continue;
 	    }
+
+	  new = c_omp_remap_decl (old, kind != OMP_CLAUSE_SHARED);
+	  TREE_VALUE (*plist) = new;
+
+	  /* Shared variables can be remapped to themselves.  When this
+	     happens, remove the node from the list.  */
+	  if (old == new)
+	    *plist = TREE_CHAIN (*plist);
+	  else
+	    plist = &TREE_CHAIN (*plist);
+
+	  switch (kind)
+	    {
+	    case OMP_CLAUSE_PRIVATE:
+	      /* Nothing needs doing.  We've just created the new
+		 variable.  */
+	      update_map = &spr_head;
+	      break;
+
+	    case OMP_CLAUSE_SHARED:
+	      /* We'll set DECL_VALUE_EXPR on NEW when lowering the
+		 parallel.  But go ahead and mark OLD as addressable,
+		 since we'll be taking its address across the parallel.  */
+	      lang_hooks.mark_addressable (old);
+	      update_map = &spr_head;
+	      break;
+
+	    case OMP_CLAUSE_FIRSTPRIVATE:
+	      x = build_modify_expr (new, NOP_EXPR, old);
+	      if (x != error_mark_node)
+		append_to_statement_list (x, init_seq);
+
+	      update_map = &fp_head;
+	      break;
+
+	    case OMP_CLAUSE_LASTPRIVATE:
+	      x = build_modify_expr (old, NOP_EXPR, new);
+	      if (x != error_mark_node)
+		append_to_statement_list (x, last_seq);
+
+	      update_map = &lp_head;
+	      break;
+
+	    case OMP_CLAUSE_REDUCTION:
+	      switch (OMP_CLAUSE_REDUCTION_CODE (c))
+		{
+		case PLUS_EXPR:
+		case MINUS_EXPR:
+		case BIT_IOR_EXPR:
+		case BIT_XOR_EXPR:
+		case TRUTH_ORIF_EXPR:
+		  x = integer_zero_node;
+		  break;
+		case MULT_EXPR:
+		case TRUTH_ANDIF_EXPR:
+		  x = integer_one_node;
+		  break;
+		case BIT_AND_EXPR:
+		  x = integer_minus_one_node;
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      x = build_modify_expr (new, NOP_EXPR, x);
+	      if (x != error_mark_node)
+		append_to_statement_list (x, init_seq);
+	      x = build_modify_expr (old, OMP_CLAUSE_REDUCTION_CODE (c), new);
+	      if (x != error_mark_node)
+		append_to_statement_list (x, reduc_seq);
+
+	      update_map = &spr_head;
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+
+	  bitmap_set_bit (update_map, DECL_UID (old));
 	}
     }
 
-  /* If we did not even have a private clause, add one.  */
-  if (!found)
-    clauses = tree_cons (NULL_TREE,
-			 build (OMP_CLAUSE_PRIVATE,
-				NULL_TREE,
-				tree_cons (NULL_TREE, loop_ix, NULL_TREE)),
-			 clauses);
-
-  /* Build and return an OMP_FOR tree.  */
-  return (build (OMP_FOR, void_type_node, clauses, init, cond, incr, body));
+  bitmap_clear (&spr_head);
+  bitmap_clear (&fp_head);
+  bitmap_clear (&lp_head);
+  bitmap_clear (&error_head);
+  bitmap_obstack_initialize (NULL);
 }
