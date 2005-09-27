@@ -1,3 +1,7 @@
+2005-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.dg/omp-loop03.c: New test.
+
 2005-09-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/libgomp.dg/omp-parallel-for.c: New test.

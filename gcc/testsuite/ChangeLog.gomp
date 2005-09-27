@@ -1,5 +1,7 @@
 2005-09-27  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.dg/gomp/for-11.c: New test.
+
 	* gfortran.dg/gomp/omp_do1.f90: Add check for iteration var in
 	SHARED clause.
 	* gfortran.dg/gomp/omp_clauses1.f90: New test.
