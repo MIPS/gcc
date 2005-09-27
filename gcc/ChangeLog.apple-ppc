@@ -1,3 +1,11 @@
+2005-09-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4232445
+	* dbxout.c (dbxout_partial_type): Insert missing
+	TYPE_STUB_DECL accessor.
+	(dbxout_partial_type): Use TYPE_NAME instead of DECL_NAME
+	when accessing a ..._TYPE node.
+
 2005-09-26  Fariborz Jahanian <fjahanian@apple.com>
 
 	PR target/23847

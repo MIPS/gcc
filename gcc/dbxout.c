@@ -1922,7 +1922,7 @@ dbxout_partial_type (tree type, tree main_variant)
 	    result = true;
 	    if (orig_type
 		&& TYPE_STUB_DECL (orig_type)
-		&& ! DECL_IGNORED_P (orig_type))
+		&& ! DECL_IGNORED_P (TYPE_STUB_DECL (orig_type)))
 	      debug_queue_symbol (TYPE_STUB_DECL (orig_type));
 	    break;
 	  default:
@@ -4013,8 +4013,8 @@ dbxout_type_with_name (tree type)
 	   && COMPLETE_TYPE_P (type)
 	   && !TYPE_QUALS (type))
     {
-      if (DECL_NAME (type) && TREE_CODE (DECL_NAME (type)) != TYPE_DECL)
-	stabstr_I (DECL_NAME (type));
+      if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) != TYPE_DECL)
+	stabstr_I (TYPE_NAME (type));
       else if (TYPE_NAME (type)
 	       && DECL_NAME (TYPE_NAME (type)))
 	stabstr_I (DECL_NAME (TYPE_NAME (type)));
