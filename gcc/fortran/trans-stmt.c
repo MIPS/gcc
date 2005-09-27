@@ -639,7 +639,7 @@ gfc_trans_simple_do (gfc_code * code, stmtblock_t *pblock, tree dovar,
    to:
 
    [evaluate loop bounds and step]
-   count = to + step - from;
+   count = (to + step - from) / step;
    dovar = from;
    for (;;)
      {

@@ -2294,8 +2294,10 @@ parse_omp_do (gfc_statement omp_st)
   st = next_statement ();
   if (st == (omp_st == ST_OMP_DO ? ST_OMP_END_DO : ST_OMP_END_PARALLEL_DO))
     {
-      gcc_assert (new_st.op == EXEC_OMP_END_NOWAIT);
-      cp->ext.omp_clauses->nowait |= new_st.ext.omp_bool;
+      if (new_st.op == EXEC_OMP_END_NOWAIT)
+	cp->ext.omp_clauses->nowait |= new_st.ext.omp_bool;
+      else
+	gcc_assert (new_st.op == EXEC_NOP);
       gfc_clear_new_st ();
       st = next_statement ();
     }

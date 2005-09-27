@@ -47,6 +47,11 @@ last: do i = 1, 30
     if (i .eq. 21) exit last ! { dg-error "leaving OpenMP structured block" }
 !$omp end parallel
   end do last
+!$omp parallel do shared (i)
+  do i = 1, 30, 2 ! { dg-error "iteration variable present on clause" }
+    a(i) = 5
+  end do
+!$omp end parallel do
 end subroutine
 ! { dg-error "iteration variable must be of type integer" "" { target *-*-* } 27 }
 ! { dg-error "iteration variable must be of type integer" "" { target *-*-* } 31 }

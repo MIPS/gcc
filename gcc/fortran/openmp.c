@@ -633,6 +633,48 @@ resolve_omp_clauses (gfc_code *code)
 		   " a scalar INTEGER expression", &expr->where);
     }
 
+  /* Check that no symbol appears on multiple clauses, except that
+     a symbol can appear on both firstprivate and lastprivate.  */
+  for (list = 0; list < OMP_LIST_NUM; list++)
+    for (n = omp_clauses->lists[list]; n; n = n->next)
+      n->sym->mark = 0;
+
+  for (list = 0; list < OMP_LIST_NUM; list++)
+    if (list != OMP_LIST_FIRSTPRIVATE && list != OMP_LIST_LASTPRIVATE)
+      for (n = omp_clauses->lists[list]; n; n = n->next)
+	if (n->sym->mark)
+	  gfc_error ("Symbol %s present on multiple clauses at %L",
+		     n->sym->name, &code->loc);
+	else
+	  n->sym->mark = 1;
+
+  gcc_assert (OMP_LIST_LASTPRIVATE == OMP_LIST_FIRSTPRIVATE + 1);
+  for (list = OMP_LIST_FIRSTPRIVATE; list <= OMP_LIST_LASTPRIVATE; list++)
+    for (n = omp_clauses->lists[list]; n; n = n->next)
+      if (n->sym->mark)
+	{
+	  gfc_error ("Symbol %s present on multiple clauses at %L",
+		     n->sym->name, &code->loc);
+	  n->sym->mark = 0;
+	}
+
+  for (n = omp_clauses->lists[OMP_LIST_FIRSTPRIVATE]; n; n = n->next)
+    if (n->sym->mark)
+      gfc_error ("Symbol %s present on multiple clauses at %L",
+		 n->sym->name, &code->loc);
+    else
+      n->sym->mark = 1;
+
+  for (n = omp_clauses->lists[OMP_LIST_LASTPRIVATE]; n; n = n->next)
+    n->sym->mark = 0;
+
+  for (n = omp_clauses->lists[OMP_LIST_LASTPRIVATE]; n; n = n->next)
+    if (n->sym->mark)
+      gfc_error ("Symbol %s present on multiple clauses at %L",
+		 n->sym->name, &code->loc);
+    else
+      n->sym->mark = 1;
+
   for (list = 0; list < OMP_LIST_NUM; list++)
     if ((n = omp_clauses->lists[list]) != NULL)
       {
@@ -1010,6 +1052,9 @@ static void
 resolve_omp_do (gfc_code *code)
 {
   gfc_code *do_code;
+  int list;
+  gfc_namelist *n;
+  gfc_symbol *dovar;
 
   if (code->ext.omp_clauses)
     resolve_omp_clauses (code);
@@ -1024,6 +1069,21 @@ resolve_omp_do (gfc_code *code)
       if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
 	gfc_error ("!$OMP DO iteration variable must be of type integer at %L",
 		   &do_code->loc);
+      dovar = do_code->ext.iterator->var->symtree->n.sym;
+      if (dovar->attr.threadprivate)
+	gfc_error ("!$OMP DO iteration variable must not be THREADPRIVATE at %L",
+		   &do_code->loc);
+      if (code->ext.omp_clauses)
+	for (list = 0; list < OMP_LIST_NUM; list++)
+	  if (list != OMP_LIST_PRIVATE && list != OMP_LIST_LASTPRIVATE)
+	    for (n = code->ext.omp_clauses->lists[list]; n; n = n->next)
+	      if (dovar == n->sym)
+		{
+		  gfc_error ("!$OMP DO iteration variable present on clause"
+			     " other than PRIVATE or LASTPRIVATE at %L",
+			     &do_code->loc);
+		  break;
+		}
     }
 }
 

@@ -1,3 +1,25 @@
+2005-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Change second argument to
+	gfc_omp_clauses *.  Use gfc_evaluate_now instead of creating
+	temporaries by hand.
+	(gfc_trans_omp_atomic, gfc_trans_omp_critical): Use buildN_v macros.
+	(gfc_trans_omp_do): New function.
+	(gfc_trans_omp_master): Dont' check for gfc_trans_code returning NULL.
+	(gfc_trans_omp_parallel): Adjust gfc_trans_omp_clauses caller.
+	Use buildN_v macros.
+	(gfc_trans_omp_parallel_do, gfc_trans_omp_parallel_sections,
+	gfc_trans_omp_parallel_workshare, gfc_trans_omp_sections,
+	gfc_trans_omp_single, gfc_trans_omp_workshare): New functions.
+	(gfc_trans_omp_directive): Use them.
+	* trans-stmt.c (gfc_trans_simple_do): Fix comment.
+	* parse.c (parse_omp_do): Allow new_st.op == EXEC_NOP.
+	* openmp.c (resolve_omp_clauses): Check for list items present
+	in multiple clauses.
+	(resolve_omp_do): Check that iteration variable is not THREADPRIVATE
+	and is not present in any clause variable lists other than PRIVATE
+	or LASTPRIVATE.
+
 2005-09-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (symbol_attribute): Add threadprivate bit.
