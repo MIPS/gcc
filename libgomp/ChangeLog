@@ -1,5 +1,9 @@
 2005-09-27  Diego Novillo  <dnovillo@redhat.com>
 
+	* testsuite/libgomp.dg/omp-parallel-for.c: New test.
+
+2005-09-27  Diego Novillo  <dnovillo@redhat.com>
+
 	* testsuite/libgomp.dg/omp-single-1.c: New test.
 	* testsuite/libgomp.dg/shared-1.c: Return 0.
 	Add prototype for abort.
