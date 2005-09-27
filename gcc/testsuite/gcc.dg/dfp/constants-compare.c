@@ -2,8 +2,8 @@
 /* { dg-options "-std=gnu99" } */
 
 /* Compare floating point constants against each other. */
-#include <stdio.h>
-#include <stdlib.h>
+
+extern void abort (void);
 
 int main()
 {

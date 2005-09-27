@@ -1,12 +1,15 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
+/* N1107 Section 4, C995.2.4.2.2a[3], verfiy constants about range of
+   DFP and three componets of DFP defined in decfloat.h.  */
+
 /* Make sure we are exporting the right values to decfloat.h. */
-#include <stdlib.h>
+
+extern void abort (void);
 
 int main ()
 {
-  
   if (__DEC32_MANT_DIG__ != 7) abort();
   if (__DEC64_MANT_DIG__ != 16) abort();
   if (__DEC128_MANT_DIG__ != 34) abort();
@@ -35,4 +38,5 @@ int main ()
   if (__DEC64_DEN__ != 0.000000000000001E-383DD) abort();
   if (__DEC128_DEN__ != 0.000000000000000000000000000000001E-6143DL) abort();
 
+  return 0;
 }
