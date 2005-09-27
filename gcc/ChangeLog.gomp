@@ -1,5 +1,9 @@
 2005-09-27  Diego Novillo  <dnovillo@redhat.com>
 
+	* omp-low.c (lower_omp_parallel): Initialize wi.tsi.
+
+2005-09-27  Diego Novillo  <dnovillo@redhat.com>
+
 	* omp-low.c (emit_firstprivate_receiving_code): Handle cases
 	where RI_P->OMP_FN consists of a single statement.
 

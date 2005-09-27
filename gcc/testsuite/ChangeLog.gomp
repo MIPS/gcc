@@ -1,3 +1,7 @@
+2005-09-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/for-12.c: New test.
+
 2005-09-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/for-11.c: New test.

@@ -1051,6 +1051,7 @@ lower_omp_parallel (tree_stmt_iterator *tsi, struct remap_info_d *ri_p)
      function after adjusting labels and local variable references.  */
   wi.callback = remap_locals_in_child_r;
   wi.info = ri_p;
+  wi.tsi = *tsi;
   walk_stmts (&wi, &DECL_SAVED_TREE (ri_p->omp_fn));
 
   /* Once remapped, remove all the mappings.  */
