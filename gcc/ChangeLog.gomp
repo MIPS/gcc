@@ -1,3 +1,10 @@
+2005-09-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_omp_single): Handle by emitting calls
+	to GOMP_single_* and GOMP_barrier.
+	* omp-low.c (use_pointer_for_field): Make extern.
+	* tree-gimple.h (use_pointer_for_field): Declare.
+
 2005-09-27  Richard Henderson  <rth@redhat.com>
 
 	* c-parser.c: Include rtl.h.

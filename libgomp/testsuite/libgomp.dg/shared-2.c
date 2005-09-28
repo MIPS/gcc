@@ -46,4 +46,5 @@ parallel (int a, int b)
 main()
 {
   parallel (1, 2);
+  return 0;
 }

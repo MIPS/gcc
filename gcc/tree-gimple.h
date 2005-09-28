@@ -129,6 +129,9 @@ extern void free_stmt_list (tree);
 extern tree force_labels_r (tree *, int *, void *);
 extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
 
+/* In omp-low.c.  */
+bool use_pointer_for_field (tree, bool);
+
 /* In tree-nested.c.  */
 extern void lower_nested_functions (tree);
 void insert_field_into_struct (tree, tree);

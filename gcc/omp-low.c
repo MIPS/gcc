@@ -114,7 +114,7 @@ delete_remap_info (struct remap_info_d *ri_p)
 
 /* Return true if DECL should be copied by pointer.  */
 
-static bool
+bool
 use_pointer_for_field (tree decl, bool shared_p)
 {
   if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
