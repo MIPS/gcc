@@ -2,7 +2,7 @@
    (doesn't contain any instructions) and DWARF-2 couldn't find baz origin.  */
 /* { dg-do compile } */
 /* APPLE LOCAL testsuite nested funcs */
-/* { dg-options "-Wno-nested-funcs" } */
+/* { dg-xfail-if "" { *-*-darwin* } } */
 
 struct A { char *a, *b, *c, *d; };
 

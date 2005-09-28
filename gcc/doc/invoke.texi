@@ -207,8 +207,6 @@ in the following sections.
 -Wextra-tokens (APPLE ONLY) @gol
 @c APPLE LOCAL -Wpragma-once 2001-08-01 --sts **
 -Wpragma-once (APPLE ONLY) @gol
-@c APPLE LOCAL 4214718 subject to change
--Wno-nested-funcs (APPLE ONLY) @gol
 @c APPLE LOCAL -Wnewline-eof 2001-08-23 --sts **
 -Wnewline-eof (APPLE ONLY) @gol
 @c APPLE LOCAL -Wno-altivec-long-deprecated --ilr **
@@ -2448,12 +2446,6 @@ Warn about the use of @samp{#pragma once}.  (APPLE ONLY)
 @opindex Wextra-tokens
 Warn about extra tokens at the end of prepreprocessor directives.  (APPLE ONLY)
 @c APPLE LOCAL end -Wextra-tokens 2001-08-02 --sts **
-
-@c APPLE LOCAL begin 4214718 subject to change
-@item -Wno-nested-funcs
-@opindex Wno-nested-funcs
-Do not warn about nested functions.  (APPLE ONLY)
-@c APPLE LOCAL end 4214718 subject to change
 
 @c APPLE LOCAL begin -Wnewline-eof 2001-08-23 --sts **
 @item -Wnewline-eof

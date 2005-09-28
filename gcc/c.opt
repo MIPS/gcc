@@ -366,12 +366,6 @@ Wnested-externs
 C ObjC Var(warn_nested_externs)
 Warn about \"extern\" declarations not at file scope
 
-; APPLE LOCAL begin 4214718 subject to change
-Wnested-funcs
-C ObjC Var(warn_nested_funcs) Init(1)
-Warn about definitions of nested functions
-; APPLE LOCAL end 4214718 subject to change
-
 ; APPLE LOCAL begin -Wnewline-eof
 Wnewline-eof
 C ObjC C++ ObjC++

@@ -1532,11 +1532,9 @@ nested_function:
 	declarator
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
-/* APPLE LOCAL begin 4214718 subject to change */
-		  if (warn_nested_funcs)
-		    warning (
-		      "nested functions are deprecated on MacOSX, will not be supported on Intel");
-/* APPLE LOCAL end 4214718 subject to change */
+/* APPLE LOCAL begin 4258406 */
+		    error ("nested functions are not supported on MacOSX");
+/* APPLE LOCAL end 4258406 */
 
 		  push_function_context ();
 		  if (!start_function (current_declspecs, $1,
@@ -1567,11 +1565,9 @@ notype_nested_function:
 	notype_declarator
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
-/* APPLE LOCAL begin 4214718 subject to change */
-		  if (warn_nested_funcs)
-		    warning (
-		      "nested functions are deprecated on MacOSX, will not be supported on Intel");
-/* APPLE LOCAL end 4214718 subject to change */
+/* APPLE LOCAL begin 4258406 */
+		    error ("nested functions are not on MacOSX");
+/* APPLE LOCAL end 4258406 */
 
 		  push_function_context ();
 		  if (!start_function (current_declspecs, $1,

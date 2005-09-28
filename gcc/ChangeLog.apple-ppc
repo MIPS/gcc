@@ -1,3 +1,11 @@
+2005-09-28  Devang Patel  <dpatel@apple.com>
+
+	Radar 4258406
+	* c-parse.in (nested_function): Report an error, instead of a warning.
+	(nontype_nested_function): Same.
+	* c.opt (Wnested-funcs): Remove.
+	* doc/invoke.texi: Remove Wnested-funcs documentations.
+
 2005-09-28  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4228294 (revision)

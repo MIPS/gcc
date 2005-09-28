@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* APPLE LOCAL testsuite nested functions */
-/* { dg-options "-Wno-nested-funcs" } */
+/* { dg-xfail-if "" { *-*-darwin* } } */
 
 static int barf ();
 

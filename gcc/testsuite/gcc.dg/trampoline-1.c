@@ -3,7 +3,8 @@
 
 /* { dg-do run } */
 /* APPLE LOCAL testsuite nested functions */
-/* { dg-options "-O2 -Wno-nested-funcs" } */
+/* { dg-xfail-if "" { *-*-darwin* } } */
+/* { dg-options "-O2" } */
 
 /* This used to fail on various versions of Solaris 2 because the
    trampoline couldn't be made executable.  */

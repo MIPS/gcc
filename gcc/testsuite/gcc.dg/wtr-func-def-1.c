@@ -3,7 +3,8 @@
    Origin: Kaveh R. Ghazi <ghazi@caip.rutgers.edu> 6/30/2002.  */
 /* { dg-do compile } */
 /* APPLE LOCAL testsuite nested functions */
-/* { dg-options "-Wtraditional -Wno-nested-funcs" } */
+/* { dg-skip-if "" { "*-*-darwin*" } { "*" } { "" } } */
+/* { dg-options "-Wtraditional" } */
 
 /* Test some simple cases.  */
 

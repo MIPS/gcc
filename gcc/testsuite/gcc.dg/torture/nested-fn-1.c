@@ -2,7 +2,8 @@
 /* Test whether unused nested functions aren't emitted into the assembly.  */
 /* { dg-do compile } */
 /* APPLE LOCAL testsuite nested functions */
-/* { dg-options "-g0 -Wno-nested-funcs" } */
+/* { dg-xfail-if "" { *-*-darwin* } } */
+/* { dg-options "-g0" } */
 
 int
 fn1 (int x)
