@@ -42,6 +42,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "rtl.h"
 #include "langhooks.h"
 #include "input.h"
 #include "cpplib.h"
@@ -7794,16 +7795,20 @@ c_parser_pragma_omp_threadprivate (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   if (c_parser_require (the_parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      extern enum tls_model decl_default_tls_model (tree);
-      tree t;
-      tree vars = c_parser_pragma_omp_variable_list (the_parser);
+      tree vars, t;
+
+      vars = c_parser_pragma_omp_variable_list (the_parser);
       c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN, "expected %<)%>");
 
       /* Mark every variable in VARS to be assigned thread local storage.  */
       for (t = vars; t; t = TREE_CHAIN (t))
 	{
-	  tree v = TREE_VALUE (t);
-	  DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	  tree v = TREE_PURPOSE (t);
+
+	  if (TREE_USED (v))
+	    error ("%qE declared %<threadprivate%> after first use", v);
+	  else
+	    DECL_TLS_MODEL (v) = decl_default_tls_model (v);
 	}
     }
 

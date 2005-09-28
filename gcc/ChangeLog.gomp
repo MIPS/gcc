@@ -1,5 +1,12 @@
 2005-09-27  Richard Henderson  <rth@redhat.com>
 
+	* c-parser.c: Include rtl.h.
+	(c_parser_pragma_omp_threadprivate): Update for TREE_PURPOSE change.
+	Diagnose threadprivate after first use.
+	* Makefile.in (c-parser.o): Add RTL_H.
+
+2005-09-27  Richard Henderson  <rth@redhat.com>
+
 	* c-decl.c (lookup_name): Honor omp_remap_private.
 
 2005-09-27  Richard Henderson  <rth@redhat.com>
