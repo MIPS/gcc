@@ -39,18 +39,6 @@ int main()
   if (di != -1555)
     abort();
 
-  si = 2147483648.0dd;
-  if (si != 2147483648)
-    abort ();
-
-  si = 2147483648.0dl;
-  if (si != 2147483648)
-    abort ();
-
-  udi = 9223372036854775808.0dl;
-  if (udi != 9223372036854775808ll)
-     abort ();
-
   /* Conversions from signed integer constants. */
   d32 = -1555;
   if (d32 != -1555.0df)
