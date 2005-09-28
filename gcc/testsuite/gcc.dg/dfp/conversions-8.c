@@ -71,15 +71,15 @@ int main()
   if (si != INT_MAX)
     abort ();
 
-  si = - __DEC32_MAX__;
+  si = - __DEC32_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MIN)
     abort ();
 
-  si = - __DEC64_MAX__;
+  si = - __DEC64_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MIN)
     abort ();
 
-  si = - __DEC128_MAX__;
+  si = - __DEC128_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MIN)
     abort ();
 
