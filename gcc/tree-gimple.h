@@ -130,11 +130,12 @@ extern tree force_labels_r (tree *, int *, void *);
 extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
 
 /* In omp-low.c.  */
-bool use_pointer_for_field (tree, bool);
+extern bool use_pointer_for_field (tree, bool);
+extern tree find_omp_clause (tree, enum tree_code);
 
 /* In tree-nested.c.  */
 extern void lower_nested_functions (tree);
-void insert_field_into_struct (tree, tree);
+extern void insert_field_into_struct (tree, tree);
 
 /* Convenience routines to walk all statements of a gimple function.
    The difference between these walkers and the generic walk_tree is

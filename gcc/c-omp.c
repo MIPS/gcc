@@ -159,81 +159,6 @@ c_finish_omp_flush (void)
 }
 
 
-/* A subroutine of c_split_parallel_clauses.  For each decl in *TP,
-   replace it with the decl of the same name in the current binding.  */
-
-static tree
-relookup_decls (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		void *data ATTRIBUTE_UNUSED)
-{
-  tree old = *tp;
-
-  if (DECL_P (old))
-    {
-      gcc_assert (DECL_NAME (old) != NULL);
-      *tp = lookup_name (DECL_NAME (old));
-    }
-
-  return NULL_TREE;
-}
-
-/* Divide CLAUSES into two lists: those that apply to a parallel construct,
-   and those that apply to a work-sharing construct.  Place the results in
-   *PAR_CLAUSES and *WS_CLAUSES respectively.  In addition, add a nowait
-   clause to the work-sharing list.  */
-
-void
-c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
-{
-  tree c, next;
-
-  *par_clauses = NULL;
-  *ws_clauses = NULL;
-
-  for (; clauses ; clauses = next)
-    {
-      next = TREE_CHAIN (clauses);
-
-      switch (TREE_CODE (TREE_VALUE (clauses)))
-	{
-	case OMP_CLAUSE_PRIVATE:
-	case OMP_CLAUSE_SHARED:
-	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
-	case OMP_CLAUSE_REDUCTION:
-	case OMP_CLAUSE_COPYIN:
-	case OMP_CLAUSE_IF:
-	case OMP_CLAUSE_NUM_THREADS:
-	  TREE_CHAIN (clauses) = *par_clauses;
-	  *par_clauses = clauses;
-	  break;
-
-	case OMP_CLAUSE_SCHEDULE:
-	  /* We need this expression in the context of the block inside
-	     to the parallel, rather than outside.  Adjust.  */
-	  /* ??? Except when we start using GOMP_parallel_loop_*_start,
-	     when we'll need it in the outside context.  Likely we should
-	     provide both expressions.  */
-	  walk_tree_without_duplicates (
-		&OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (TREE_VALUE (clauses)),
-		relookup_decls, NULL);
-	  /* FALLTHRU */
-
-	case OMP_CLAUSE_ORDERED:
-	  TREE_CHAIN (clauses) = *ws_clauses;
-	  *ws_clauses = clauses;
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
-  c = build (OMP_CLAUSE_NOWAIT, NULL_TREE);
-  c = tree_cons (NULL_TREE, c, *ws_clauses);
-  *ws_clauses = c;
-}
-
 /* Validate and emit code for the OpenMP directive #pragma omp for.
    INIT, COND, INCR and BODY are the four basic elements of the loop
    (initialization expression, controlling predicate, increment
@@ -354,6 +279,82 @@ c_finish_omp_for (tree decl, tree init, tree cond, tree incr, tree body)
     }
 }
 
+
+/* A subroutine of c_split_parallel_clauses.  For each decl in *TP,
+   replace it with the decl of the same name in the current binding.  */
+
+static tree
+relookup_decls (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		void *data ATTRIBUTE_UNUSED)
+{
+  tree old = *tp;
+
+  if (DECL_P (old))
+    {
+      gcc_assert (DECL_NAME (old) != NULL);
+      *tp = lookup_name (DECL_NAME (old));
+    }
+
+  return NULL_TREE;
+}
+
+/* Divide CLAUSES into two lists: those that apply to a parallel construct,
+   and those that apply to a work-sharing construct.  Place the results in
+   *PAR_CLAUSES and *WS_CLAUSES respectively.  In addition, add a nowait
+   clause to the work-sharing list.  */
+
+void
+c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
+{
+  tree c, next;
+
+  *par_clauses = NULL;
+  *ws_clauses = NULL;
+
+  for (; clauses ; clauses = next)
+    {
+      next = OMP_CLAUSE_CHAIN (clauses);
+
+      switch (TREE_CODE (clauses))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	  OMP_CLAUSE_CHAIN (clauses) = *par_clauses;
+	  *par_clauses = clauses;
+	  break;
+
+	case OMP_CLAUSE_SCHEDULE:
+	  /* We need this expression in the context of the block inside
+	     to the parallel, rather than outside.  Adjust.  */
+	  /* ??? Except when we start using GOMP_parallel_loop_*_start,
+	     when we'll need it in the outside context.  Likely we should
+	     provide both expressions.  */
+	  walk_tree_without_duplicates (
+		&OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses),
+		relookup_decls, NULL);
+	  /* FALLTHRU */
+
+	case OMP_CLAUSE_ORDERED:
+	  OMP_CLAUSE_CHAIN (clauses) = *ws_clauses;
+	  *ws_clauses = clauses;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  c = make_node (OMP_CLAUSE_NOWAIT);
+  OMP_CLAUSE_CHAIN (c) = *ws_clauses;
+  *ws_clauses = c;
+}
+
 /* Instantiate new variables in the current scope to implement the private,
    shared, firstprivate, lastprivate, and reduction openmp clauses.  If 
    any initialization needed doing, it is added to INIT_SEQ.  Code for any
@@ -361,10 +362,10 @@ c_finish_omp_for (tree decl, tree init, tree cond, tree incr, tree body)
    reductions is added to REDUC_SEQ.  */
 
 void
-c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
+c_finish_omp_bindings (tree *pclauses, tree *init_seq, tree *last_seq,
 		       tree *reduc_seq)
 {
-  tree clause, c, *plist, x;
+  tree clause, x;
   enum tree_code kind;
   bitmap_head spr_head, fp_head, lp_head, error_head;
 
@@ -378,10 +379,13 @@ c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
   *last_seq = NULL;
   *reduc_seq = NULL;
 
-  for (clause = omp_clauses; clause ; clause = TREE_CHAIN (clause))
+  while (*pclauses)
     {
-      c = TREE_VALUE (clause);
-      kind = TREE_CODE (c);
+      bool remove_clause = false;
+
+      clause = *pclauses;
+      kind = TREE_CODE (clause);
+
       switch (kind)
 	{
 	case OMP_CLAUSE_SHARED:
@@ -389,147 +393,150 @@ c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_LASTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
+	  {
+	    tree old, new;
+	    bool decl_ok = true;
+	    bool existing_remap = false;
+	    bitmap update_map;
+
+	    old = OMP_CLAUSE_OUTER_DECL (clause);
+
+	    /* OpenMP 2.5, section 2.8.3: A list item that specifies a given
+	       variable may not appear in more than one clause on the same
+	       directive, except that a variable may be specified in both
+	       firstprivate and lastprivate clauses.  */
+	    if (bitmap_bit_p (&spr_head, DECL_UID (old)))
+	      decl_ok = false;
+	    if (bitmap_bit_p (&fp_head, DECL_UID (old)))
+	      {
+		if (kind == OMP_CLAUSE_LASTPRIVATE)
+		  existing_remap = true;
+		else
+		  decl_ok = false;
+	      }
+	    if (bitmap_bit_p (&lp_head, DECL_UID (old)))
+	      {
+		if (kind == OMP_CLAUSE_FIRSTPRIVATE)
+		  existing_remap = true;
+		else
+		  decl_ok = false;
+	      }
+	    if (!decl_ok)
+	      {
+		if (!bitmap_bit_p (&error_head, DECL_UID (old)))
+		  {
+		    error ("%qE listed in more than one sharing clause", old);
+		    bitmap_set_bit (&error_head, DECL_UID (old));
+		  }
+		remove_clause = true;
+		goto next_clause;
+	      }
+
+	    if (existing_remap)
+	      new = lookup_name (DECL_NAME (old));
+
+	    /* OpenMP 2.5 section 2.8.1.1: Variables with predetermined
+	       sharing attributes may not be listed in data-sharing
+	       clauses.  */
+	    else if (c_omp_sharing_predetermined (old))
+	      {
+		if (!bitmap_bit_p (&error_head, DECL_UID (old)))
+		  {
+		    error ("%qE may not be listed in a sharing clause", old);
+		    bitmap_set_bit (&error_head, DECL_UID (old));
+		  }
+		remove_clause = true;
+		goto next_clause;
+	      }
+	    else
+	      new = c_omp_remap_decl (old, kind == OMP_CLAUSE_SHARED);
+
+	    OMP_CLAUSE_INNER_DECL (clause) = new;
+
+	    /* Shared variables can be remapped to themselves.
+	       When this happens, remove the node from the list.  */
+	    remove_clause = (old == new);
+
+	    switch (kind)
+	      {
+	      case OMP_CLAUSE_PRIVATE:
+		/* Nothing needs doing.  We've just created the new
+		   variable.  */
+		update_map = &spr_head;
+		break;
+
+	      case OMP_CLAUSE_SHARED:
+		/* We'll set DECL_VALUE_EXPR on NEW when lowering the
+		   parallel.  But go ahead and mark OLD as addressable,
+		   since we'll be taking its address across the parallel.  */
+		lang_hooks.mark_addressable (old);
+		update_map = &spr_head;
+		break;
+
+	      case OMP_CLAUSE_FIRSTPRIVATE:
+		x = build_modify_expr (new, NOP_EXPR, old);
+		if (x != error_mark_node)
+		  append_to_statement_list (x, init_seq);
+
+		update_map = &fp_head;
+		break;
+
+	      case OMP_CLAUSE_LASTPRIVATE:
+		x = build_modify_expr (old, NOP_EXPR, new);
+		if (x != error_mark_node)
+		  append_to_statement_list (x, last_seq);
+
+		update_map = &lp_head;
+		break;
+
+	      case OMP_CLAUSE_REDUCTION:
+		kind = OMP_CLAUSE_REDUCTION_CODE (clause);
+		switch (kind)
+		  {
+		  case PLUS_EXPR:
+		  case MINUS_EXPR:
+		  case BIT_IOR_EXPR:
+		  case BIT_XOR_EXPR:
+		  case TRUTH_ORIF_EXPR:
+		    x = integer_zero_node;
+		    break;
+		  case MULT_EXPR:
+		  case TRUTH_ANDIF_EXPR:
+		    x = integer_one_node;
+		    break;
+		  case BIT_AND_EXPR:
+		    x = integer_minus_one_node;
+		    break;
+		  default:
+		    gcc_unreachable ();
+		  }
+		x = build_modify_expr (new, NOP_EXPR, x);
+		if (x != error_mark_node)
+		  append_to_statement_list (x, init_seq);
+		x = build_modify_expr (old, kind, new);
+		if (x != error_mark_node)
+		  append_to_statement_list (x, reduc_seq);
+
+		update_map = &spr_head;
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
+
+	    bitmap_set_bit (update_map, DECL_UID (old));
+	  }
 	  break;
+
 	default:
-	  continue;
+	  break;
 	}
-	
-      plist = &TREE_OPERAND (c, 0);
-      while (*plist)
-	{
-	  tree old, new;
-	  bool decl_ok = true;
-	  bool existing_remap = false;
-	  bitmap update_map;
 
-	  old = TREE_PURPOSE (*plist);
-
-	  /* OpenMP 2.5, section 2.8.3: A list item that specifies a given
-	     variable may not appear in more than one clause on the same
-	     directive, except that a variable may be specified in both
-	     firstprivate and lastprivate clauses.  */
-	  if (bitmap_bit_p (&spr_head, DECL_UID (old)))
-	    decl_ok = false;
-	  if (bitmap_bit_p (&fp_head, DECL_UID (old)))
-	    {
-	      if (kind == OMP_CLAUSE_LASTPRIVATE)
-		existing_remap = true;
-	      else
-		decl_ok = false;
-	    }
-	  if (bitmap_bit_p (&lp_head, DECL_UID (old)))
-	    {
-	      if (kind == OMP_CLAUSE_FIRSTPRIVATE)
-		existing_remap = true;
-	      else
-		decl_ok = false;
-	    }
-	  if (!decl_ok)
-	    {
-	      if (!bitmap_bit_p (&error_head, DECL_UID (old)))
-		{
-		  error ("%qE listed more than once in sharing clauses", old);
-		  bitmap_set_bit (&error_head, DECL_UID (old));
-		}
-	      *plist = TREE_CHAIN (*plist);
-	      continue;
-	    }
-
-	  if (existing_remap)
-	    new = lookup_name (DECL_NAME (old));
-
-	  /* OpenMP 2.5 section 2.8.1.1: Variables with predetermined
-	     sharing attributes may not be listed in data-sharing clauses.  */
-	  else if (c_omp_sharing_predetermined (old))
-	    {
-	      if (!bitmap_bit_p (&error_head, DECL_UID (old)))
-		{
-		  error ("%qE may not be listed in a sharing clause", old);
-		  bitmap_set_bit (&error_head, DECL_UID (old));
-		}
-	      *plist = TREE_CHAIN (*plist);
-	      continue;
-	    }
-	  else
-	    new = c_omp_remap_decl (old, kind == OMP_CLAUSE_SHARED);
-
-	  TREE_VALUE (*plist) = new;
-
-	  /* Shared variables can be remapped to themselves.  When this
-	     happens, remove the node from the list.  */
-	  if (old == new)
-	    *plist = TREE_CHAIN (*plist);
-	  else
-	    plist = &TREE_CHAIN (*plist);
-
-	  switch (kind)
-	    {
-	    case OMP_CLAUSE_PRIVATE:
-	      /* Nothing needs doing.  We've just created the new
-		 variable.  */
-	      update_map = &spr_head;
-	      break;
-
-	    case OMP_CLAUSE_SHARED:
-	      /* We'll set DECL_VALUE_EXPR on NEW when lowering the
-		 parallel.  But go ahead and mark OLD as addressable,
-		 since we'll be taking its address across the parallel.  */
-	      lang_hooks.mark_addressable (old);
-	      update_map = &spr_head;
-	      break;
-
-	    case OMP_CLAUSE_FIRSTPRIVATE:
-	      x = build_modify_expr (new, NOP_EXPR, old);
-	      if (x != error_mark_node)
-		append_to_statement_list (x, init_seq);
-
-	      update_map = &fp_head;
-	      break;
-
-	    case OMP_CLAUSE_LASTPRIVATE:
-	      x = build_modify_expr (old, NOP_EXPR, new);
-	      if (x != error_mark_node)
-		append_to_statement_list (x, last_seq);
-
-	      update_map = &lp_head;
-	      break;
-
-	    case OMP_CLAUSE_REDUCTION:
-	      switch (OMP_CLAUSE_REDUCTION_CODE (c))
-		{
-		case PLUS_EXPR:
-		case MINUS_EXPR:
-		case BIT_IOR_EXPR:
-		case BIT_XOR_EXPR:
-		case TRUTH_ORIF_EXPR:
-		  x = integer_zero_node;
-		  break;
-		case MULT_EXPR:
-		case TRUTH_ANDIF_EXPR:
-		  x = integer_one_node;
-		  break;
-		case BIT_AND_EXPR:
-		  x = integer_minus_one_node;
-		  break;
-		default:
-		  gcc_unreachable ();
-		}
-	      x = build_modify_expr (new, NOP_EXPR, x);
-	      if (x != error_mark_node)
-		append_to_statement_list (x, init_seq);
-	      x = build_modify_expr (old, OMP_CLAUSE_REDUCTION_CODE (c), new);
-	      if (x != error_mark_node)
-		append_to_statement_list (x, reduc_seq);
-
-	      update_map = &spr_head;
-	      break;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-
-	  bitmap_set_bit (update_map, DECL_UID (old));
-	}
+    next_clause:
+      if (remove_clause)
+	*pclauses = TREE_CHAIN (clause);
+      else
+	pclauses = &TREE_CHAIN (clause);
     }
 
   bitmap_clear (&spr_head);

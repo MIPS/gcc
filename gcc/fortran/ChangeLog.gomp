@@ -1,3 +1,11 @@
+2005-09-28  Richard Henderson  <rth@redhat.com>
+
+	* trans-openmp.c (gfc_trans_add_clause): New.
+	(gfc_trans_omp_variable_list): Take a tree code and build the clause
+	node here.  Link it to the head of a list.
+	(gfc_trans_omp_clauses): Update to match.
+	(gfc_trans_omp_do): Use gfc_trans_add_clause.
+
 2005-09-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses): Change second argument to

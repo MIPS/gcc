@@ -1,3 +1,55 @@
+2005-09-28  Richard Henderson  <rth@redhat.com>
+
+	* c-decl.c (c_omp_remap_decl_1): Create OMP_CLAUSE_SHARED node here.
+	(c_finish_omp_parallel): And not here.  Chain them in.
+	* c-omp.c (c_split_parallel_clauses): Rewrite to chain directly
+	through the clause nodes.
+	(c_finish_omp_bindings): Similarly.
+	* c-common.h (c_finish_omp_bindings): Update.
+	* c-parser.c (add_new_clause): Chain directly through the clauses.
+	(check_no_duplicate_clause): New.
+	(c_parser_pragma_omp_variable_list): Take a tree_code and create
+	clause nodes directly.
+	(c_parser_pragma_omp_variable_list_parens): New.
+	(c_parser_pragma_omp_clause_copyin): Use it.
+	(c_parser_pragma_omp_clause_copyprivate): Likewise.
+	(c_parser_pragma_omp_clause_firstprivate): Likewise.
+	(c_parser_pragma_omp_clause_lastprivate): Likewise.
+	(c_parser_pragma_omp_clause_private): Likewise.
+	(c_parser_pragma_omp_clause_shared): Likewise.
+	(c_parser_pragma_omp_clause_if): Use check_no_duplicate_clause.
+	(c_parser_pragma_omp_clause_nowait): Likewise.
+	(c_parser_pragma_omp_clause_num_threads): Likewise.
+	(c_parser_pragma_omp_clause_ordered): Likewise.
+	(c_parser_pragma_omp_clause_schedule): Likewise.
+	(c_parser_pragma_omp_clause_reduction): Update for chaining directly
+	through clauses; tidy error message.
+	* gimplify.c (gimplify_omp_for): Update for chaining directly
+	through clauses.  Use find_omp_clause.
+	(gimplify_omp_single_simple): Split out of gimplify_omp_single.
+	(gimplify_omp_single_copy): Likewise.  Update for chaining
+	directly through clauses.  Create BLOCK for stack variable.
+	* omp-low.c (find_omp_clause): New.
+	(compute_num_threads): Use it.
+	(setup_data_fields): Update for chaining directly through clauses.
+	(setup_decl_value_expr_child): Likewise.
+	* tree-gimple.h (find_omp_clause): Declare.
+	* tree-pretty-print.c (op_symbol_1): Split out of op_symbol.
+	(dump_omp_clauses): New.
+	(dump_generic_node): Don't handle clause nodes here.  Update
+	omp statements to use dump_omp_clauses.
+	* tree.def (OMP_CLAUSE_PRIVATE): Use 2 operands.
+	(OMP_CLAUSE_SHARED, OMP_CLAUSE_FIRSTPRIVATE): Likewise.
+	(OMP_CLAUSE_LASTPRIVATE, OMP_CLAUSE_REDUCTION): Likewise.
+	(OMP_CLAUSE_COPYIN, OMP_CLAUSE_COPYPRIVATE): Likewise.
+	* tree.h (OMP_PRIVATE_VARS, OMP_SHARED_VARS, OMP_FIRSTPRIVATE_VARS,
+	OMP_LASTPRIVATE_VARS, OMP_COPYIN_VARS, OMP_COPYPRIVATE_VARS): Remove.
+	(OMP_CLAUSE_CHAIN, OMP_CLAUSE_OUTER_DECL, OMP_CLAUSE_INNER_DECL): New.
+	(OMP_CLAUSE_NUM_THREADS_EXPR): Rename from OMP_NUM_THREADS_EXPR.
+	(OMP_CLAUSE_IF_EXPR): Rename from OMP_IF_EXPR.
+	(OMP_CLAUSE_SCHEDULE_CHUNK_EXPR): Rename from
+	OMP_CLAUSE_SCHEDULE_CHUNK_SIZE.
+
 2005-09-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (gimplify_omp_single): Handle by emitting calls

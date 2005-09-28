@@ -35,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
+static const char *op_symbol_1 (enum tree_code);
 static const char *op_symbol (tree);
 static void pretty_print_string (pretty_printer *, const char*);
 static void print_call_name (pretty_printer *, tree);
@@ -239,6 +240,126 @@ dump_array_domain (pretty_printer *buffer, tree domain, int spc, int flags)
   else
     pp_string (buffer, "<unknown>");
   pp_character (buffer, ']');
+}
+
+/* Dump the list of OpenMP clauses.  */
+
+static void
+dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
+{
+  const char *name;
+
+  if (clause == NULL)
+    return;
+
+  while (1)
+    {
+      switch (TREE_CODE (clause))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	  name = "private";
+	  goto print_remap;
+	case OMP_CLAUSE_SHARED:
+	  name = "shared";
+	  goto print_remap;
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	  name = "firstprivate";
+	  goto print_remap;
+	case OMP_CLAUSE_LASTPRIVATE:
+	  name = "lastprivate";
+	  goto print_remap;
+	case OMP_CLAUSE_COPYIN:
+	  name = "copyin";
+	  goto print_remap;
+	case OMP_CLAUSE_COPYPRIVATE:
+	  name = "copyprivate";
+	  goto print_remap;
+	print_remap:
+	  pp_string (buffer, name);
+	  pp_character (buffer, '(');
+	  dump_decl_name (buffer, OMP_CLAUSE_OUTER_DECL (clause), flags);
+	  if (OMP_CLAUSE_INNER_DECL (clause))
+	    {
+	      pp_string (buffer, ">>");
+	      dump_decl_name (buffer, OMP_CLAUSE_INNER_DECL (clause), flags);
+	    }
+	  pp_character (buffer, ')');
+	  break;
+
+	case OMP_CLAUSE_REDUCTION:
+	  pp_string (buffer, "reduction(");
+	  pp_string (buffer, op_symbol_1 (OMP_CLAUSE_REDUCTION_CODE (clause)));
+	  pp_character (buffer, ':');
+	  dump_decl_name (buffer, OMP_CLAUSE_OUTER_DECL (clause), flags);
+	  if (OMP_CLAUSE_INNER_DECL (clause))
+	    {
+	      pp_string (buffer, ">>");
+	      dump_decl_name (buffer, OMP_CLAUSE_INNER_DECL (clause), flags);
+	    }
+	  pp_character (buffer, ')');
+	  break;
+
+	case OMP_CLAUSE_IF:
+	  pp_string (buffer, "if(");
+	  dump_generic_node (buffer, OMP_CLAUSE_IF_EXPR (clause),
+			     spc, flags, false);
+	  pp_character (buffer, ')');
+	  break;
+
+	case OMP_CLAUSE_NUM_THREADS:
+	  pp_string (buffer, "num_threads(");
+	  dump_generic_node (buffer, OMP_CLAUSE_NUM_THREADS_EXPR (clause),
+			     spc, flags, false);
+	  pp_character (buffer, ')');
+	  break;
+
+	case OMP_CLAUSE_NOWAIT:
+	  pp_string (buffer, "nowait");
+	  break;
+	case OMP_CLAUSE_ORDERED:
+	  pp_string (buffer, "ordered");
+	  break;
+
+	case OMP_CLAUSE_SCHEDULE:
+	  pp_string (buffer, "schedule(");
+	  switch (OMP_CLAUSE_SCHEDULE_KIND (clause))
+	    {
+	    case OMP_CLAUSE_SCHEDULE_STATIC:
+	      pp_string (buffer, "static");
+	      break;
+	    case OMP_CLAUSE_SCHEDULE_DYNAMIC:
+	      pp_string (buffer, "dynamic");
+	      break;
+	    case OMP_CLAUSE_SCHEDULE_GUIDED:
+	      pp_string (buffer, "guided");
+	      break;
+	    case OMP_CLAUSE_SCHEDULE_RUNTIME:
+	      pp_string (buffer, "runtime");
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  if (OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause))
+	    {
+	      pp_character (buffer, ',');
+	      dump_generic_node (buffer,
+				 OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause),
+				 spc, flags, false);
+	    }
+	  pp_character (buffer, ')');
+	  break;
+
+	default:
+	  /* Should never happen.  */
+	  dump_generic_node (buffer, clause, spc, flags, false);
+	  break;
+	}
+
+      clause = OMP_CLAUSE_CHAIN (clause);
+      if (clause == NULL)
+	return;
+      pp_space (buffer);
+    }
 }
 
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
@@ -1527,8 +1648,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel ");
-      dump_generic_node (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags,
-			 false);
+      dump_omp_clauses (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags);
       newline_and_indent (buffer, spc + 2);
       pp_character (buffer, '{');
       newline_and_indent (buffer, spc + 4);
@@ -1541,7 +1661,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_FOR:
       pp_string (buffer, "#pragma omp for ");
-      dump_generic_node (buffer, OMP_FOR_CLAUSES (node), spc, flags, false);
+      dump_omp_clauses (buffer, OMP_FOR_CLAUSES (node), spc, flags);
       newline_and_indent (buffer, spc);
       pp_string (buffer, "for (");
       dump_generic_node (buffer, OMP_FOR_INIT (node), spc, flags, false);
@@ -1561,8 +1681,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_SECTIONS:
       pp_string (buffer, "#pragma omp sections ");
-      dump_generic_node (buffer, OMP_SECTIONS_CLAUSES (node),
-			 spc, flags, false);
+      dump_omp_clauses (buffer, OMP_SECTIONS_CLAUSES (node), spc, flags);
       newline_and_indent (buffer, spc + 2);
       pp_character (buffer, '{');
       newline_and_indent (buffer, spc + 4);
@@ -1617,6 +1736,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_SINGLE:
       pp_string (buffer, "#pragma omp single");
+      dump_omp_clauses (buffer, OMP_SINGLE_CLAUSES (node), spc, flags);
       newline_and_indent (buffer, spc + 2);
       pp_character (buffer, '{');
       newline_and_indent (buffer, spc + 4);
@@ -1625,95 +1745,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       newline_and_indent (buffer, spc + 2);
       pp_character (buffer, '}');
       is_expr = false;
-      break;
-
-    case OMP_CLAUSE_PRIVATE:
-      pp_string (buffer, "private (");
-      dump_generic_node (buffer, OMP_PRIVATE_VARS (node), spc, flags, false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_SHARED:
-      pp_string (buffer, "shared (");
-      dump_generic_node (buffer, OMP_SHARED_VARS (node), spc, flags, false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_FIRSTPRIVATE:
-      pp_string (buffer, "firstprivate (");
-      dump_generic_node (buffer, OMP_FIRSTPRIVATE_VARS (node), spc, flags,
-			 false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_LASTPRIVATE:
-      pp_string (buffer, "lastprivate (");
-      dump_generic_node (buffer, OMP_LASTPRIVATE_VARS (node), spc, flags,
-			 false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_COPYIN:
-      pp_string (buffer, "copyin (");
-      dump_generic_node (buffer, OMP_COPYIN_VARS (node), spc, flags, false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_COPYPRIVATE:
-      pp_string (buffer, "copyprivate (");
-      dump_generic_node (buffer, OMP_COPYPRIVATE_VARS (node), spc, flags,
-			 false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_IF:
-      pp_string (buffer, "if (");
-      dump_generic_node (buffer, OMP_IF_EXPR (node), spc, flags, false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_NUM_THREADS:
-      pp_string (buffer, "num_threads (");
-      dump_generic_node (buffer, OMP_NUM_THREADS_EXPR (node), spc, flags,
-			 false);
-      pp_string (buffer, ")");
-      break;
-
-    case OMP_CLAUSE_NOWAIT:
-      pp_string (buffer, "nowait");
-      break;
-
-    case OMP_CLAUSE_ORDERED:
-      pp_string (buffer, "ordered");
-      break;
-
-    case OMP_CLAUSE_SCHEDULE:
-      pp_string (buffer, "schedule (");
-      switch (OMP_CLAUSE_SCHEDULE_KIND (node))
-	{
-	case OMP_CLAUSE_SCHEDULE_STATIC:
-	  pp_string (buffer, "static");
-	  break;
-	case OMP_CLAUSE_SCHEDULE_DYNAMIC:
-	  pp_string (buffer, "dynamic");
-	  break;
-	case OMP_CLAUSE_SCHEDULE_GUIDED:
-	  pp_string (buffer, "guided");
-	  break;
-	case OMP_CLAUSE_SCHEDULE_RUNTIME:
-	  pp_string (buffer, "runtime");
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      if (OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (node))
-	{
-	  pp_character (buffer, ',');
-	  pp_space (buffer);
-	  dump_generic_node (buffer, OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (node),
-			     spc, flags, false);
-	}
-      pp_character (buffer, ')');
       break;
 
     case REDUC_MAX_EXPR:
@@ -2038,11 +2069,9 @@ op_prio (tree op)
 /* Return the symbol associated with operator OP.  */
 
 static const char *
-op_symbol (tree op)
+op_symbol_1 (enum tree_code code)
 {
-  gcc_assert (op);
-
-  switch (TREE_CODE (op))
+  switch (code)
     {
     case MODIFY_EXPR:
       return "=";
@@ -2183,6 +2212,12 @@ op_symbol (tree op)
     default:
       return "<<< ??? >>>";
     }
+}
+
+static const char *
+op_symbol (tree op)
+{
+  return op_symbol_1 (TREE_CODE (op));
 }
 
 /* Prints the name of a CALL_EXPR.  */

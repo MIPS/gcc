@@ -1062,15 +1062,6 @@ static tree curr_clause_set;
 /* Current value of a default clause.  */
 static enum omp_clause_default_kind curr_clause_default;
 
-/* Add a new clause to the current set of clauses.  */
-
-static inline void
-add_new_clause (tree c)
-{
-  curr_clause_set = tree_cons (NULL_TREE, c, curr_clause_set);
-}
-
-
 /* Possibly kinds of declarator to parse.  */
 typedef enum c_dtr_syn {
   /* A normal declarator with an identifier.  */
@@ -6844,7 +6835,7 @@ c_parser_omp_directive (c_parser *parser)
     {
       case PRAGMA_OMP_PARALLEL:
 	block = c_begin_omp_parallel (curr_clause_default);
-	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+	c_finish_omp_bindings (&clause, &init, &fini, &reduc);
 	gcc_assert (fini == NULL);
 
 	c_parser_statement (parser);
@@ -6854,7 +6845,7 @@ c_parser_omp_directive (c_parser *parser)
 
       case PRAGMA_OMP_PARALLEL_FOR:
 	block = c_begin_omp_parallel (curr_clause_default);
-	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+	c_finish_omp_bindings (&clause, &init, &fini, &reduc);
 
 	c_split_parallel_clauses (clause, &par_clause, &ws_clause);
 	stmt = c_parser_omp_for_statement (parser);
@@ -6869,7 +6860,7 @@ c_parser_omp_directive (c_parser *parser)
 
       case PRAGMA_OMP_FOR:
 	block = c_begin_compound_stmt (true);
-	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+	c_finish_omp_bindings (&clause, &init, &fini, &reduc);
 
 	stmt = c_parser_omp_for_statement (parser);
 	if (stmt)
@@ -6886,7 +6877,7 @@ c_parser_omp_directive (c_parser *parser)
 
       case PRAGMA_OMP_PARALLEL_SECTIONS:
 	block = c_begin_omp_parallel (curr_clause_default);
-	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+	c_finish_omp_bindings (&clause, &init, &fini, &reduc);
 
 	c_split_parallel_clauses (clause, &par_clause, &ws_clause);
 	stmt = c_parser_omp_sections_body (parser);
@@ -6901,7 +6892,7 @@ c_parser_omp_directive (c_parser *parser)
 
       case PRAGMA_OMP_SECTIONS:
 	block = c_begin_compound_stmt (true);
-	c_finish_omp_bindings (clause, &init, &fini, &reduc);
+	c_finish_omp_bindings (&clause, &init, &fini, &reduc);
 
 	stmt = c_parser_omp_sections_body (parser);
 	if (stmt)
@@ -7032,13 +7023,37 @@ c_parser_pragma_omp_clause (c_parser *parser)
   return result;
 }
 
+/* Add a new clause to the current set of clauses.  */
+
+static inline void
+add_new_clause (tree c)
+{
+  OMP_CLAUSE_CHAIN (c) = curr_clause_set;
+  curr_clause_set = c;
+}
+
+/* Validate that a clause of the given type does not already exist.  */
+
+static void
+check_no_duplicate_clause (enum tree_code code, const char *name)
+{
+  tree c;
+
+  for (c = curr_clause_set; c ; c = OMP_CLAUSE_CHAIN (c))
+    if (TREE_CODE (c) == code)
+      {
+	error ("too many %qs clauses", name);
+	break;
+      }
+}
+
 /* OpenMP 2.5:
    variable-list:
      identifier
      variable-list , identifier */
 
 static tree
-c_parser_pragma_omp_variable_list (c_parser *parser)
+c_parser_pragma_omp_variable_list (c_parser *parser, enum tree_code kind)
 {
   tree list = NULL_TREE;
 
@@ -7054,7 +7069,15 @@ c_parser_pragma_omp_variable_list (c_parser *parser)
       if (t == NULL_TREE)
 	undeclared_variable (c_parser_peek_token (parser)->value,
 			     c_parser_peek_token (parser)->location);
-      else if (t != error_mark_node)
+      else if (t == error_mark_node)
+	;
+      else if (kind != 0)
+	{
+	  tree u = make_node (kind);
+	  OMP_CLAUSE_OUTER_DECL (u) = t;
+	  add_new_clause (u);
+	}
+      else
 	list = tree_cons (t, NULL_TREE, list);
 
       c_parser_consume_token (parser);
@@ -7068,6 +7091,20 @@ c_parser_pragma_omp_variable_list (c_parser *parser)
   return list;
 }
 
+/* OpenMP 2.5:
+   variable-list-parens:
+     ( variable-list ) */
+
+static void
+c_parser_pragma_omp_variable_list_parens (c_parser *parser,
+					  enum tree_code kind)
+{
+  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+    {
+      c_parser_pragma_omp_variable_list (parser, kind);
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+    }
+}
 
 /* OpenMP 2.5:
    copyin ( variable-list ) */
@@ -7075,12 +7112,7 @@ c_parser_pragma_omp_variable_list (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_copyin (c_parser *parser)
 {
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      tree vars = c_parser_pragma_omp_variable_list (parser);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (OMP_CLAUSE_COPYIN, NULL_TREE, vars));
-    }
+  c_parser_pragma_omp_variable_list_parens (parser, OMP_CLAUSE_COPYIN);
 }
 
 /* OpenMP 2.5:
@@ -7089,12 +7121,7 @@ c_parser_pragma_omp_clause_copyin (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_copyprivate (c_parser *parser)
 {
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      tree vars = c_parser_pragma_omp_variable_list (parser);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (OMP_CLAUSE_COPYPRIVATE, NULL_TREE, vars));
-    }
+  c_parser_pragma_omp_variable_list_parens (parser, OMP_CLAUSE_COPYPRIVATE);
 }
 
 /* OpenMP 2.5:
@@ -7150,12 +7177,7 @@ c_parser_pragma_omp_clause_default (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_firstprivate (c_parser *parser)
 {
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      tree vars = c_parser_pragma_omp_variable_list (parser);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (OMP_CLAUSE_FIRSTPRIVATE, NULL_TREE, vars));
-    }
+  c_parser_pragma_omp_variable_list_parens (parser, OMP_CLAUSE_FIRSTPRIVATE);
 }
 
 /* OpenMP 2.5:
@@ -7169,12 +7191,11 @@ c_parser_pragma_omp_clause_if (c_parser *parser)
       tree t = c_parser_paren_condition (parser);
       tree c;
 
-      /* At most one 'if' clause may appear in the directive.  */
-      for (c = curr_clause_set; c; c = TREE_CHAIN (c))
-	if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_IF)
-	  error ("too many %<if%> clauses");
+      check_no_duplicate_clause (OMP_CLAUSE_IF, "if");
 
-      add_new_clause (build (OMP_CLAUSE_IF, NULL_TREE, t));
+      c = make_node (OMP_CLAUSE_IF);
+      OMP_CLAUSE_IF_EXPR (c) = t;
+      add_new_clause (c);
     }
   else
     {
@@ -7188,12 +7209,7 @@ c_parser_pragma_omp_clause_if (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_lastprivate (c_parser *parser)
 {
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      tree vars = c_parser_pragma_omp_variable_list (parser);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (OMP_CLAUSE_LASTPRIVATE, NULL_TREE, vars));
-    }
+  c_parser_pragma_omp_variable_list_parens (parser, OMP_CLAUSE_LASTPRIVATE);
 }
 
 /* OpenMP 2.5:
@@ -7202,14 +7218,8 @@ c_parser_pragma_omp_clause_lastprivate (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED)
 {
-  tree t;
-
-  /* At most one 'nowait' clause may appear in the directive.  */
-  for (t = curr_clause_set; t ; t = TREE_CHAIN (t))
-    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
-      error ("too many %<nowait%> clauses");
-
-  add_new_clause (build (OMP_CLAUSE_NOWAIT, NULL_TREE));
+  check_no_duplicate_clause (OMP_CLAUSE_NOWAIT, "nowait");
+  add_new_clause (make_node (OMP_CLAUSE_NOWAIT));
 }
 
 /* OpenMP 2.5:
@@ -7239,12 +7249,11 @@ c_parser_pragma_omp_clause_num_threads (c_parser *parser)
 	  t = integer_one_node;
 	}
 
-      /* At most one 'num_threads' clause may appear in the directive.  */
-      for (c = curr_clause_set; c; c = TREE_CHAIN (c))
-	if (TREE_CODE (TREE_VALUE (c)) == OMP_CLAUSE_NUM_THREADS)
-	  error ("too many %<num_threads%> clauses");
+      check_no_duplicate_clause (OMP_CLAUSE_NUM_THREADS, "num_threads");
 
-      add_new_clause (build (OMP_CLAUSE_NUM_THREADS, TREE_TYPE (t), t));
+      c = make_node (OMP_CLAUSE_NUM_THREADS);
+      OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
+      add_new_clause (c);
     }
 }
 
@@ -7254,14 +7263,8 @@ c_parser_pragma_omp_clause_num_threads (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED)
 {
-  tree t;
-
-  /* At most one 'ordered' clause may appear in the directive.  */
-  for (t = curr_clause_set; t ; t = TREE_CHAIN (t))
-    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_ORDERED)
-      error ("too many %<ordered%> clauses");
-
-  add_new_clause (build (OMP_CLAUSE_ORDERED, NULL_TREE));
+  check_no_duplicate_clause (OMP_CLAUSE_ORDERED, "ordered");
+  add_new_clause (make_node (OMP_CLAUSE_ORDERED));
 }
 
 /* OpenMP 2.5:
@@ -7270,12 +7273,7 @@ c_parser_pragma_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED)
 static void
 c_parser_pragma_omp_clause_private (c_parser *parser)
 {
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      tree vars = c_parser_pragma_omp_variable_list (parser);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (OMP_CLAUSE_PRIVATE, NULL_TREE, vars));
-    }
+  c_parser_pragma_omp_variable_list_parens (parser, OMP_CLAUSE_PRIVATE);
 }
 
 /* OpenMP 2.5:
@@ -7319,21 +7317,19 @@ c_parser_pragma_omp_clause_reduction (c_parser *parser)
 	  break;
 	default:
 	  c_parser_error (parser,
-			  "expected %<+%> or %<*%> or %<-%> or %<&%> "
-			  "or %<^%> or %<|%> or %<&&%> or %<||%>");
+			  "expected %<+%>, %<*%>, %<-%>, %<&%>, "
+			  "%<^%>, %<|%>, %<&&%>, or %<||%>");
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
 	  return;
 	}
       c_parser_consume_token (parser);
       if (c_parser_require (parser, CPP_COLON, "expected %<:%>"))
 	{
-	  tree list, clause;
+	  tree c, last = curr_clause_set;
 
-	  list = c_parser_pragma_omp_variable_list (parser);
-	  clause = build1 (OMP_CLAUSE_REDUCTION, NULL, list);
-	  OMP_CLAUSE_REDUCTION_CODE (clause) = code;
-
-	  add_new_clause (clause);
+	  c_parser_pragma_omp_variable_list (parser, OMP_CLAUSE_REDUCTION);
+	  for (c = curr_clause_set; c != last; c = OMP_CLAUSE_CHAIN (c))
+	    OMP_CLAUSE_REDUCTION_CODE (c) = code;
 	}
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
@@ -7357,7 +7353,7 @@ c_parser_pragma_omp_clause_schedule (c_parser *parser)
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return;
 
-  c = build1 (OMP_CLAUSE_SCHEDULE, NULL_TREE, NULL_TREE);
+  c = make_node (OMP_CLAUSE_SCHEDULE);
 
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
@@ -7404,7 +7400,7 @@ c_parser_pragma_omp_clause_schedule (c_parser *parser)
 	error ("schedule %<runtime%> does not take "
 	       "a %<chunk_size%> parameter");
       else if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
-	OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (c) = t;
+	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
       else
 	c_parser_error (parser, "expected integer expression");
 
@@ -7414,11 +7410,7 @@ c_parser_pragma_omp_clause_schedule (c_parser *parser)
     c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 			       "expected %<,%> or %<)%>");
 
-  /* At most one 'schedule' clause may appear in the directive.  */
-  for (t = curr_clause_set; t ; t = TREE_CHAIN (c))
-    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_SCHEDULE)
-      error ("too many %<schedule%> clauses");
-
+  check_no_duplicate_clause (OMP_CLAUSE_SCHEDULE, "schedule");
   add_new_clause (c);
   return;
 
@@ -7433,13 +7425,7 @@ c_parser_pragma_omp_clause_schedule (c_parser *parser)
 static void
 c_parser_pragma_omp_clause_shared (c_parser *parser)
 {
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      tree vars;
-      vars = c_parser_pragma_omp_variable_list (parser);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-      add_new_clause (build (OMP_CLAUSE_SHARED, NULL_TREE, vars));
-    }
+  c_parser_pragma_omp_variable_list_parens (parser, OMP_CLAUSE_SHARED);
 }
 
 
@@ -7503,7 +7489,7 @@ c_parser_pragma_omp_flush (cpp_reader *pfile ATTRIBUTE_UNUSED)
   if (c_parser_next_token_is (the_parser, CPP_OPEN_PAREN))
     {
       c_parser_consume_token (the_parser);
-      c_parser_pragma_omp_variable_list (the_parser);
+      c_parser_pragma_omp_variable_list (the_parser, 0);
       c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN,
 				 "expected %<,%> or %<)%>");
       if (c_parser_next_token_is_not (the_parser, CPP_EOF))
@@ -7797,7 +7783,7 @@ c_parser_pragma_omp_threadprivate (cpp_reader *pfile ATTRIBUTE_UNUSED)
     {
       tree vars, t;
 
-      vars = c_parser_pragma_omp_variable_list (the_parser);
+      vars = c_parser_pragma_omp_variable_list (the_parser, 0);
       c_parser_skip_until_found (the_parser, CPP_CLOSE_PAREN, "expected %<)%>");
 
       /* Mark every variable in VARS to be assigned thread local storage.  */

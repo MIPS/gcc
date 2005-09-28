@@ -2785,8 +2785,13 @@ c_omp_remap_decl_1 (struct c_scope *s, tree old, int shared, bool force_p)
   bind (DECL_NAME (old), new, s, false, false);
 
   if (shared < 0)
-    current_omp_parallel_scope->omp_shared
-      = tree_cons (old, new, current_omp_parallel_scope->omp_shared);
+    {
+      tree c = make_node (OMP_CLAUSE_SHARED);
+      OMP_CLAUSE_OUTER_DECL (c) = old;
+      OMP_CLAUSE_INNER_DECL (c) = new;
+      OMP_CLAUSE_CHAIN (c) = current_omp_parallel_scope->omp_shared;
+      current_omp_parallel_scope->omp_shared = c;
+    }
 
   return new;
 }
@@ -7865,16 +7870,13 @@ c_begin_omp_parallel (enum omp_clause_default_kind def)
 void
 c_finish_omp_parallel (tree block, tree clauses, tree init, tree reduc)
 {
-  tree stmt, t;
+  tree stmt;
 
   /* Move all automatic variables that were implicitly determined to
      be shared to the clauses list so that the middle-end can find them.  */
   gcc_assert (current_scope->omp_parallel_body);
   if (current_scope->omp_shared)
-    {
-      t = build1 (OMP_CLAUSE_SHARED, NULL, current_scope->omp_shared);
-      clauses = tree_cons (NULL, t, clauses);
-    }
+    clauses = chainon (clauses, current_scope->omp_shared);
 
   block = c_end_compound_stmt (block, true);
   

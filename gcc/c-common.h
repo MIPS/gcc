@@ -943,7 +943,7 @@ extern tree c_finish_omp_for (tree, tree, tree, tree, tree);
 extern tree c_begin_omp_parallel (enum omp_clause_default_kind);
 extern void c_finish_omp_parallel (tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);
-extern void c_finish_omp_bindings (tree, tree *, tree *, tree *);
+extern void c_finish_omp_bindings (tree *, tree *, tree *, tree *);
 
 /* Not in c-omp.c; provided by the front end.  */
 extern bool c_omp_sharing_predetermined (tree);

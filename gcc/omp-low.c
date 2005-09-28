@@ -112,6 +112,18 @@ delete_remap_info (struct remap_info_d *ri_p)
 }
 
 
+/* Find an OpenMP clause of type KIND within CLAUSES.  */
+
+tree
+find_omp_clause (tree clauses, enum tree_code kind)
+{
+  for (; clauses ; clauses = OMP_CLAUSE_CHAIN (clauses))
+    if (TREE_CODE (clauses) == kind)
+      return clauses;
+
+  return NULL_TREE;
+}
+
 /* Return true if DECL should be copied by pointer.  */
 
 bool
@@ -181,57 +193,39 @@ setup_data_fields (tree par_stmt, struct remap_info_d *ri_p)
 {
   tree c, t;
 
-  for (c = OMP_PARALLEL_CLAUSES (par_stmt); c ; c = TREE_CHAIN (c))
+  for (c = OMP_PARALLEL_CLAUSES (par_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
     {
-      enum tree_code kind = TREE_CODE (TREE_VALUE (c));
+      enum tree_code kind = TREE_CODE (c);
+      tree outer = OMP_CLAUSE_OUTER_DECL (c);
+      bool use_ptr;
 
       switch (kind)
 	{
 	case OMP_CLAUSE_SHARED:
+	  use_ptr = use_pointer_for_field (outer, true);
+	  bitmap_set_bit (ri_p->shared, DECL_UID (outer));
+	  bitmap_set_bit (ri_p->copyin, DECL_UID (outer));
+	  bitmap_set_bit (ri_p->copyout, DECL_UID (outer));
+	  break;
+
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
+	  use_ptr = use_pointer_for_field (outer, false);
+	  bitmap_set_bit (ri_p->copyin, DECL_UID (outer));
+	  break;
+
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_LASTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
+	  use_ptr = use_pointer_for_field (outer, false);
+	  bitmap_set_bit (ri_p->copyout, DECL_UID (outer));
 	  break;
 
 	default:
 	  continue;
 	}
 
-      for (t = TREE_OPERAND (TREE_VALUE (c), 0); t ; t = TREE_CHAIN (t))
-	{
-          tree outer = TREE_PURPOSE (t);
-	  bool use_ptr;
-
-	  switch (kind)
-	    {
-	    case OMP_CLAUSE_SHARED:
-	      use_ptr = use_pointer_for_field (outer, true);
-	      bitmap_set_bit (ri_p->shared, DECL_UID (outer));
-	      bitmap_set_bit (ri_p->copyin, DECL_UID (outer));
-	      bitmap_set_bit (ri_p->copyout, DECL_UID (outer));
-	      break;
-
-	    case OMP_CLAUSE_FIRSTPRIVATE:
-	    case OMP_CLAUSE_COPYIN:
-	      use_ptr = use_pointer_for_field (outer, false);
-	      bitmap_set_bit (ri_p->copyin, DECL_UID (outer));
-	      break;
-
-	    case OMP_CLAUSE_COPYPRIVATE:
-	    case OMP_CLAUSE_LASTPRIVATE:
-	    case OMP_CLAUSE_REDUCTION:
-	      use_ptr = use_pointer_for_field (outer, false);
-	      bitmap_set_bit (ri_p->copyout, DECL_UID (outer));
-	      break;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-
-	  add_omp_data_field (outer, use_ptr, ri_p);
-	}
+      add_omp_data_field (outer, use_ptr, ri_p);
     }
 
   if (ri_p->omp_data_send)
@@ -451,23 +445,21 @@ emit_sender_copyout (struct remap_info_d *ri_p)
 static tree
 compute_num_threads (tree par_stmt)
 {
-  tree val, cond, c;
   tree clauses = OMP_PARALLEL_CLAUSES (par_stmt);
+  tree val, cond, c;
 
   /* By default, the value of NUM_THREADS is zero (selected at run time)
      and there is no conditional.  */
   cond = NULL_TREE;
   val = build_int_cst (unsigned_type_node, 0);
 
-  for (c = clauses; c; c = TREE_CHAIN (c))
-    {
-      tree clause = TREE_VALUE (c);
+  c = find_omp_clause (clauses, OMP_CLAUSE_IF);
+  if (c)
+    cond = OMP_CLAUSE_IF_EXPR (c);
 
-      if (TREE_CODE (clause) == OMP_CLAUSE_IF)
-	cond = OMP_IF_EXPR (clause);
-      else if (TREE_CODE (clause) == OMP_CLAUSE_NUM_THREADS)
-	val = OMP_NUM_THREADS_EXPR (clause);
-    }
+  c = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
+  if (c)
+    val = OMP_CLAUSE_NUM_THREADS_EXPR (c);
 
   /* Ensure 'val' is of the correct type.  */
   val = fold_convert (unsigned_type_node, val);
@@ -541,33 +533,30 @@ emit_omp_parallel_parent (tree par_stmt, tree bind_expr,
 static void
 setup_decl_value_expr_child (tree par_stmt, struct remap_info_d *ri_p)
 {
-  tree c, t;
+  tree c;
 
-  for (c = OMP_PARALLEL_CLAUSES (par_stmt); c ; c = TREE_CHAIN (c))
+  for (c = OMP_PARALLEL_CLAUSES (par_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
     {
-      enum tree_code kind = TREE_CODE (TREE_VALUE (c));
+      tree outer, inner;
+      splay_tree_node n;
+      tree field, ref;
 
-      if (kind != OMP_CLAUSE_SHARED)
+      if (TREE_CODE (c) != OMP_CLAUSE_SHARED)
 	continue;
 
-      for (t = TREE_OPERAND (TREE_VALUE (c), 0); t ; t = TREE_CHAIN (t))
-	{
-          tree outer = TREE_PURPOSE (t);
-          tree inner = TREE_VALUE (t);
-	  splay_tree_node n;
-	  tree field, ref;
+      outer = OMP_CLAUSE_OUTER_DECL (c);
+      inner = OMP_CLAUSE_INNER_DECL (c);
 
-	  n = splay_tree_lookup (ri_p->map, (splay_tree_key) outer);
-	  field = (tree) n->value;
+      n = splay_tree_lookup (ri_p->map, (splay_tree_key) outer);
+      field = (tree) n->value;
 
-	  ref = build_fold_indirect_ref (ri_p->omp_data_receive);
-	  ref = build (COMPONENT_REF, TREE_TYPE (field), ref, field, NULL);
-	  if (use_pointer_for_field (outer, true))
-	    ref = build_fold_indirect_ref (ref);
+      ref = build_fold_indirect_ref (ri_p->omp_data_receive);
+      ref = build (COMPONENT_REF, TREE_TYPE (field), ref, field, NULL);
+      if (use_pointer_for_field (outer, true))
+	ref = build_fold_indirect_ref (ref);
 
-	  SET_DECL_VALUE_EXPR (inner, ref);
-	  DECL_HAS_VALUE_EXPR_P (inner) = 1;
-	}
+      SET_DECL_VALUE_EXPR (inner, ref);
+      DECL_HAS_VALUE_EXPR_P (inner) = 1;
     }
 }
 

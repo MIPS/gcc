@@ -4431,8 +4431,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
   chunk_size = NULL_TREE;
 
-  for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = TREE_CHAIN (t))
-    switch (TREE_CODE (TREE_VALUE (t)))
+  for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = OMP_CLAUSE_CHAIN (t))
+    switch (TREE_CODE (t))
       {
       case OMP_CLAUSE_NOWAIT:
 	have_nowait = true;
@@ -4441,8 +4441,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	have_ordered = true;
 	break;
       case OMP_CLAUSE_SCHEDULE:
-	sched_kind = OMP_CLAUSE_SCHEDULE_KIND (TREE_VALUE (t));
-	chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_SIZE (TREE_VALUE (t));
+	sched_kind = OMP_CLAUSE_SCHEDULE_KIND (t);
+	chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (t);
 	break;
       default:
 	break;
@@ -4624,13 +4624,11 @@ gimplify_omp_sections (tree *expr_p, tree *pre_p)
     gimplify_omp_reduction (OMP_SECTIONS_VAR_REDUC (sec_stmt), pre_p);
 
   /* Unless there's a nowait clause, add a barrier afterward.  */
-
-  for (t = OMP_SECTIONS_CLAUSES (*expr_p); t ; t = TREE_CHAIN (t))
-    if (TREE_CODE (TREE_VALUE (t)) == OMP_CLAUSE_NOWAIT)
-      {
-	*expr_p = NULL;
-	return GS_ALL_DONE;
-      }
+  if (find_omp_clause (OMP_SECTIONS_CLAUSES (*expr_p), OMP_CLAUSE_NOWAIT))
+    {
+      *expr_p = NULL;
+      return GS_ALL_DONE;
+    }
 
   t = built_in_decls[BUILT_IN_GOMP_BARRIER];
   *expr_p = build_function_call_expr (t, NULL);
@@ -4991,179 +4989,186 @@ gimplify_omp_atomic (tree *expr_p, tree *pre_p)
   return gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
 }
 
-/* Gimplify an OMP_SINGLE statement.  */
-
-static enum gimplify_status
-gimplify_omp_single (tree *expr_p, tree *pre_p)
-{
-  tree t, copyprivate, nowait, body;
-  
-  /* Two cases to handle:
-
-     copyprivate not present:
+/* A subroutine of gimplify_omp_single.  Expand the simple form of
+   an OMP_SINGLE, without a copyprivate clause:
 
      	if (GOMP_single_start ())
-	  body;
+	  BODY;
 	[ GOMP_barrier (); ]	-> unless 'nowait' is present.
+*/
 
+static enum gimplify_status
+gimplify_omp_single_simple (tree *expr_p, tree *pre_p)
+{
+  tree single_stmt = *expr_p;
+  tree t;
 
-     copyprivate (a, b, c) present:  Create a new structure to hold
-     copies of 'a', 'b' and 'c' and emit:
+  t = built_in_decls[BUILT_IN_GOMP_SINGLE_START];
+  t = build_function_call_expr (t, NULL);
+  t = build3 (COND_EXPR, void_type_node, t,
+	      OMP_SINGLE_BODY (single_stmt), NULL);
+  gimplify_and_add (t, pre_p);
 
-     	if ((copyout_p = GOMP_single_copy_start ()) == NULL)
+  if (find_omp_clause (OMP_SINGLE_CLAUSES (single_stmt), OMP_CLAUSE_NOWAIT))
+    {
+      *expr_p = NULL;
+      return GS_ALL_DONE;
+    }
+  else
+    {
+      t = built_in_decls[BUILT_IN_GOMP_BARRIER];
+      t = build_function_call_expr (t, NULL);
+      *expr_p = t;
+      return GS_OK;
+    }
+}
+
+/* A subroutine of gimplify_omp_single.  Expand the simple form of
+   an OMP_SINGLE, with a copyprivate clause:
+
+	#pragma omp single copyprivate (a, b, c)
+
+   Create a new structure to hold copies of 'a', 'b' and 'c' and emit:
+
+      {
+	if ((copyout_p = GOMP_single_copy_start ()) == NULL)
 	  {
-	    body;
+	    BODY;
 	    copyout.a = a;
 	    copyout.b = b;
 	    copyout.c = c;
 	    GOMP_single_copy_end (&copyout);
 	  }
-	if (copyout_p)
+	else
 	  {
 	    a = copyout_p->a;
 	    b = copyout_p->b;
 	    c = copyout_p->c;
 	  }
 	GOMP_barrier ();
-  */
-  body = OMP_SINGLE_BODY (*expr_p);
-  copyprivate = nowait = NULL_TREE;
-  for (t = OMP_SINGLE_CLAUSES (*expr_p); t; t = TREE_CHAIN (t))
-    {
-      tree c = TREE_VALUE (t);
-      if (TREE_CODE (c) == OMP_CLAUSE_COPYPRIVATE)
-	copyprivate = c;
-      else if (TREE_CODE (c) == OMP_CLAUSE_NOWAIT)
-	nowait = c;
+      }
+*/
 
-      if (copyprivate && nowait)
-	break;
+static enum gimplify_status
+gimplify_omp_single_copy (tree *expr_p)
+{
+  tree single_stmt = *expr_p;
+  tree field, cp, cp_t, ptr_cp_t;
+  tree cp_p, args, type, var, n, t;
+  tree copyout_seq, copyin_seq, whole_seq;
+  VEC(tree,heap) *fields = NULL;
+  unsigned i;
+
+  /* Create a structure to hold all the variables mentioned in the clause.  */
+
+  cp_t = make_node (RECORD_TYPE);
+  TYPE_NAME (cp_t) = create_tmp_var_name (".copyprivate_s");
+
+  for (n = OMP_SINGLE_CLAUSES (single_stmt); n ; n = OMP_CLAUSE_CHAIN (n))
+    {
+      if (TREE_CODE (n) != OMP_CLAUSE_COPYPRIVATE)
+	continue;
+
+      var = OMP_CLAUSE_OUTER_DECL (n);
+      type = TREE_TYPE (var);
+      if (use_pointer_for_field (var, false))
+	type = build_pointer_type (type);
+
+      field = build_decl (FIELD_DECL, DECL_NAME (var), type);
+      insert_field_into_struct (cp_t, field);
+      VEC_safe_push (tree, heap, fields, field);
     }
 
-  if (copyprivate == NULL_TREE)
+  layout_type (cp_t);
+  ptr_cp_t = build_pointer_type (cp_t);
+
+  /* .copyprivate is a local variable of type .copyprivate_s used
+     to copy data out of the thread that entered the single
+     construct.  */
+  cp = create_tmp_var_raw (cp_t, ".copyprivate");
+
+  /* .copyprivate_p is a local stack pointer whose value is set to
+     &.copyprivate when the thread inside the single construct
+     calls GOMP_single_copy_end.  */
+  cp_p = create_tmp_var_raw (ptr_cp_t, ".copyprivate_p");
+
+  /* Now create the copy-out and copy-in sequences.  */
+  copyout_seq = alloc_stmt_list ();
+  copyin_seq = alloc_stmt_list ();
+
+  /* We'll need the body of the clause before the copy-out
+     assignments, so add it now.  */
+  append_to_statement_list (OMP_SINGLE_BODY (single_stmt), &copyout_seq);
+
+  i = 0;
+  for (n = OMP_SINGLE_CLAUSES (single_stmt); n; n = OMP_CLAUSE_CHAIN (n))
     {
-      /* No copyprivate clause, emit the simplified form.  */
-      t = built_in_decls[BUILT_IN_GOMP_SINGLE_START];
-      t = build_function_call_expr (t, NULL);
-      t = build3 (COND_EXPR, void_type_node, t, body, NULL);
-      gimplify_and_add (t, pre_p);
-      if (nowait)
-	*expr_p = build_empty_stmt ();
-      else
-	{
-	  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
-	  t = build_function_call_expr (t, NULL);
-	  *expr_p = t;
-	}
-    }
-  else
-    {
-      /* Create a structure to hold all the variables mentioned in the
-	 clause.  */
-      tree field, cp, cp_t, ptr_cp_t;
-      tree cp_p, args, type;
-      tree copyout_seq, copyin_seq, var, n;
-      VEC(tree,heap) *fields = NULL;
-      unsigned i;
+      bool use_ptr;
 
-      cp_t = make_node (RECORD_TYPE);
-      TYPE_NAME (cp_t) = create_tmp_var_name (".copyprivate_s");
+      if (TREE_CODE (n) != OMP_CLAUSE_COPYPRIVATE)
+	continue;
 
-      for (n = OMP_COPYPRIVATE_VARS (copyprivate); n; n = TREE_CHAIN (n))
-	{
-	  var = TREE_PURPOSE (n);
-	  type = TREE_TYPE (var);
-	  if (use_pointer_for_field (var, false))
-	    type = build_pointer_type (type);
-	  field = build_decl (FIELD_DECL, DECL_NAME (var), type);
-	  insert_field_into_struct (cp_t, field);
-	  VEC_safe_push (tree, heap, fields, field);
-	}
+      var = OMP_CLAUSE_OUTER_DECL (n);
+      field = VEC_index (tree, fields, i++);
+      use_ptr = use_pointer_for_field (var, false);
 
-      layout_type (cp_t);
-      ptr_cp_t = build_pointer_type (cp_t);
-
-      /* .copyprivate is a local variable of type .copyprivate_s used
-	 to copy data out of the thread that entered the single
-	 construct.  */
-      cp = create_tmp_var (cp_t, ".copyprivate");
-
-      /* .copyprivate_p is a local stack pointer whose value is set to
-	 &.copyprivate when the thread inside the single construct
-	 calls GOMP_single_copy_end.  */
-      cp_p = create_tmp_var (ptr_cp_t, ".copyprivate_p");
-
-      /* Now create the copy-out and copy-in sequences.  */
-      copyout_seq = alloc_stmt_list ();
-      copyin_seq = alloc_stmt_list ();
-
-      /* We'll need the body of the clause before the copy-out
-	 assignments, so add it now.  */
-      append_to_statement_list (body, &copyout_seq);
-
-      for (i = 0, n = OMP_COPYPRIVATE_VARS (copyprivate); n; n = TREE_CHAIN (n))
-	{
-	  bool use_ptr;
-	  var = TREE_PURPOSE (n);
-	  field = VEC_index (tree, fields, i++);
-	  use_ptr = use_pointer_for_field (var, false);
-
-	  /* copyprivate.var = var into COPYOUT_SEQ.  */
-	  t = build (COMPONENT_REF, TREE_TYPE (field), cp, field, 0);
-	  t = build (MODIFY_EXPR, void_type_node, t,
-		     (use_ptr) ? build_fold_addr_expr (var) : var);
-	  append_to_statement_list (t, &copyout_seq);
-
-	  /* var = copyprivate_p->var into COPYIN_SEQ.  */
-	  t = build (COMPONENT_REF, TREE_TYPE (field),
-		     build (INDIRECT_REF, cp_t, cp_p), field, NULL_TREE);
-	  t = build (MODIFY_EXPR, void_type_node, var, 
-		     (use_ptr) ? build (INDIRECT_REF, TREE_TYPE (var), t) : t);
-	  append_to_statement_list (t, &copyin_seq);
-	}
-
-      VEC_free (tree, heap, fields);
-
-      /* Add the call to GOMP_single_copy_end() to COPYOUT_SEQ.  */
-      args = tree_cons (NULL, build_fold_addr_expr (cp), NULL);
-      t = built_in_decls[BUILT_IN_GOMP_SINGLE_COPY_END];
-      t = build_function_call_expr (t, args);
+      /* copyprivate.var = var into COPYOUT_SEQ.  */
+      t = build (COMPONENT_REF, TREE_TYPE (field), cp, field, 0);
+      t = build (MODIFY_EXPR, void_type_node, t,
+		 use_ptr ? build_fold_addr_expr (var) : var);
       append_to_statement_list (t, &copyout_seq);
 
-      /* Emit and gimplify
-
-	 if ((copyprivate_p = GOMP_single_copy_start ()) == NULL)
-	  {
-	    body;
-	    copyout_seq;
-	    GOMP_single_copy_end (&copyprivate);
-	  }
-	 if (copyout_p)
-	  {
-	    copyin_seq;
-	  }
-	 GOMP_barrier ();
-      */
-      t = built_in_decls[BUILT_IN_GOMP_SINGLE_COPY_START];
-      t = build_function_call_expr (t, NULL);
-      t = build (MODIFY_EXPR, ptr_type_node,
-		 cp_p, fold_convert (ptr_cp_t, t));
-      t = build (EQ_EXPR, boolean_type_node, t,
-		 fold_convert (ptr_type_node, integer_zero_node));
-      t = build (COND_EXPR, void_type_node, t, copyout_seq, NULL_TREE);
-      gimplify_and_add (t, pre_p);
-
-      t = build (COND_EXPR, void_type_node, cp_p, copyin_seq, 0);
-      gimplify_and_add (t, pre_p);
-
-      t = built_in_decls[BUILT_IN_GOMP_BARRIER];
-      t = build_function_call_expr (t, NULL);
-      gimplify_and_add (t, pre_p);
-
-      *expr_p = build_empty_stmt ();
+      /* var = copyprivate_p->var into COPYIN_SEQ.  */
+      t = build (COMPONENT_REF, TREE_TYPE (field),
+		 build_fold_indirect_ref (cp_p), field, NULL_TREE);
+      t = build (MODIFY_EXPR, void_type_node, var, 
+		 use_ptr ? build_fold_indirect_ref (t) : t);
+      append_to_statement_list (t, &copyin_seq);
     }
 
+  VEC_free (tree, heap, fields);
+
+  /* Add the call to GOMP_single_copy_end() to COPYOUT_SEQ.  */
+  args = tree_cons (NULL, build_fold_addr_expr (cp), NULL);
+  t = built_in_decls[BUILT_IN_GOMP_SINGLE_COPY_END];
+  t = build_function_call_expr (t, args);
+  append_to_statement_list (t, &copyout_seq);
+
+  whole_seq = alloc_stmt_list ();
+  t = built_in_decls[BUILT_IN_GOMP_SINGLE_COPY_START];
+  t = build_function_call_expr (t, NULL);
+  t = fold_convert (ptr_cp_t, t);
+  t = build (MODIFY_EXPR, ptr_cp_t, cp_p, t);
+  t = build (EQ_EXPR, boolean_type_node, t, build_int_cst (ptr_cp_t, 0));
+  t = build (COND_EXPR, void_type_node, t, copyout_seq, copyin_seq);
+  append_to_statement_list (t, &whole_seq);
+
+  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  t = build_function_call_expr (t, NULL);
+  append_to_statement_list (t, &whole_seq);
+
+  /* Now wrap the whole thing in a BIND_EXPR, so that we localize the 
+     lifetime of the .copyprivate stack variable, and can hopefully
+     share the stack space with something else.  Note that we're not
+     hooking the new block into the block tree; we rely on gimple-low
+     to fix things up.  */
+  n = make_node (BLOCK);
+  BLOCK_VARS (n) = cp;
+  TREE_CHAIN (cp) = cp_p;
+  *expr_p = build3 (BIND_EXPR, void_type_node, cp, whole_seq, n);
+
   return GS_OK;
+}
+
+/* Gimplify an OMP_SINGLE statement.  */
+
+static enum gimplify_status
+gimplify_omp_single (tree *expr_p, tree *pre_p)
+{
+  if (find_omp_clause (OMP_SINGLE_CLAUSES (*expr_p), OMP_CLAUSE_COPYPRIVATE))
+    return gimplify_omp_single_copy (expr_p);
+  else
+    return gimplify_omp_single_simple (expr_p, pre_p);
 }
 
 

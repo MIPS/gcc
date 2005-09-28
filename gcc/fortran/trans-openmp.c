@@ -38,16 +38,28 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 int omp_not_yet;
 
-static tree
-gfc_trans_omp_variable_list (gfc_namelist *namelist)
+
+static inline tree
+gfc_trans_add_clause (tree node, tree tail)
 {
-  tree list = NULL_TREE;
+  OMP_CLAUSE_CHAIN (node) = tail;
+  return node;
+}
+
+static tree
+gfc_trans_omp_variable_list (enum tree_code code, gfc_namelist *namelist,
+			     tree list)
+{
   for (; namelist != NULL; namelist = namelist->next)
     if (namelist->sym->attr.referenced)
       {
 	tree t = gfc_get_symbol_decl (namelist->sym);
 	if (t != error_mark_node)
-	  list = tree_cons (NULL_TREE, t, list);
+	  {
+	    tree node = make_node (code);
+	    OMP_CLAUSE_OUTER_DECL (node) = t;
+	    list = gfc_trans_add_clause (node, list);
+	  }
       }
   return list;
 }
@@ -55,7 +67,7 @@ gfc_trans_omp_variable_list (gfc_namelist *namelist)
 static tree
 gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
 {
-  tree omp_clauses = NULL_TREE, chunk_size;
+  tree omp_clauses = NULL_TREE, chunk_size, c;
   int clause;
   enum tree_code clause_code;
   gfc_se se;
@@ -66,7 +78,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
   for (clause = 0; clause < OMP_LIST_NUM; clause++)
     {
       gfc_namelist *n = clauses->lists[clause];
-      tree list;
 
       if (n == NULL)
 	continue;
@@ -97,12 +108,8 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
 	  clause_code = OMP_CLAUSE_COPYPRIVATE;
 	  /* FALLTHROUGH */
 	add_clause:
-	  list = gfc_trans_omp_variable_list (n);
-	  if (list != NULL_TREE)
-	    {
-	      list = build1 (clause_code, NULL_TREE, list);
-	      omp_clauses = tree_cons (NULL_TREE, list, omp_clauses);
-	    }
+	  omp_clauses
+	    = gfc_trans_omp_variable_list (clause_code, n, omp_clauses);
 	  break;
 	default:
 	  break;
@@ -112,28 +119,31 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
   if (clauses->if_expr)
     {
       tree if_var;
+
       gfc_init_se (&se, NULL);
       gfc_conv_expr (&se, clauses->if_expr);
       gfc_add_block_to_block (block, &se.pre);
       if_var = gfc_evaluate_now (se.expr, block);
       gfc_add_block_to_block (block, &se.post);
-      omp_clauses = tree_cons (NULL_TREE,
-			       build1 (OMP_CLAUSE_IF, NULL_TREE, if_var),
-			       omp_clauses);
+
+      c = make_node (OMP_CLAUSE_IF);
+      OMP_CLAUSE_IF_EXPR (c) = if_var;
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
   if (clauses->num_threads)
     {
       tree num_threads;
+
       gfc_init_se (&se, NULL);
       gfc_conv_expr (&se, clauses->num_threads);
       gfc_add_block_to_block (block, &se.pre);
       num_threads = gfc_evaluate_now (se.expr, block);
       gfc_add_block_to_block (block, &se.post);
-      omp_clauses = tree_cons (NULL_TREE,
-			       build1 (OMP_CLAUSE_NUM_THREADS, NULL_TREE,
-				       num_threads),
-			       omp_clauses);
+
+      c = make_node (OMP_CLAUSE_NUM_THREADS);
+      OMP_CLAUSE_NUM_THREADS_EXPR (c) = num_threads;
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
   chunk_size = NULL_TREE;
@@ -148,7 +158,8 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
 
   if (clauses->sched_kind != OMP_SCHED_NONE)
     {
-      tree c = build1 (OMP_CLAUSE_SCHEDULE, NULL_TREE, chunk_size);
+      c = make_node (OMP_CLAUSE_SCHEDULE);
+      OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = chunk_size;
       switch (clauses->sched_kind)
 	{
 	case OMP_SCHED_STATIC:
@@ -166,15 +177,20 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
 	default:
 	  gcc_unreachable ();
 	}
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
   if (clauses->nowait)
-    omp_clauses = tree_cons (NULL_TREE, build0 (OMP_CLAUSE_NOWAIT, NULL_TREE),
-			     omp_clauses);
+    {
+      c = make_node (OMP_CLAUSE_NOWAIT);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
 
   if (clauses->ordered)
-    omp_clauses = tree_cons (NULL_TREE, build0 (OMP_CLAUSE_ORDERED, NULL_TREE),
-			     omp_clauses);
+    {
+      c = make_node (OMP_CLAUSE_ORDERED);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
 
   return omp_clauses;
 }
@@ -591,28 +607,17 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
       gfc_add_modify_expr (&body, dovar, tmp);
     }
 
-  if (!dovar_found || !simple)
+  if (!dovar_found)
     {
-      tree clause = NULL, chain = NULL;
-
-      for (tmp = omp_clauses; tmp; tmp = TREE_CHAIN (tmp))
-	if (TREE_CODE (TREE_VALUE (tmp)) == OMP_CLAUSE_PRIVATE)
-	  {
-	    clause = TREE_VALUE (tmp);
-	    chain = OMP_PRIVATE_VARS (clause);
-	    break;
-	  }
-
-      if (!dovar_found)
-	chain = tree_cons (NULL_TREE, dovar, chain);
-      if (!simple)
-	chain = tree_cons (NULL_TREE, count, chain);
-      if (clause)
-	OMP_PRIVATE_VARS (clause) = chain;
-      else
-	omp_clauses = tree_cons (NULL_TREE,
-				 build1 (OMP_CLAUSE_PRIVATE, NULL_TREE, chain),
-				 omp_clauses);
+      tmp = make_node (OMP_CLAUSE_PRIVATE);
+      OMP_CLAUSE_OUTER_DECL (tmp) = dovar;
+      omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
+    }
+  if (!simple)
+    {
+      tmp = make_node (OMP_CLAUSE_PRIVATE);
+      OMP_CLAUSE_OUTER_DECL (tmp) = count;
+      omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
     }
 
   /* Cycle statement is implemented with a goto.  Exit statement must not be
