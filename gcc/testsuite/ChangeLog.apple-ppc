@@ -1,3 +1,8 @@
+2005-09-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4228294
+	* g++.dg/bitreverse-10.C:  New.
+
 2005-09-26  Mike Stump  <mrs@apple.com>
 
 	Radar 4273781
