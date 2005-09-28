@@ -153,6 +153,11 @@ add_omp_data_field (tree var, bool by_ref, struct remap_info_d *ri_p)
 {
   tree field, type;
 
+  /* We can have both firstprivate and lastprivate on a parallel.
+     Avoid creating two fields.  */
+  if (splay_tree_lookup (ri_p->map, (splay_tree_key)var) != NULL)
+    return;
+
   type = TREE_TYPE (var);
   if (by_ref)
     type = build_pointer_type (type);
@@ -163,7 +168,6 @@ add_omp_data_field (tree var, bool by_ref, struct remap_info_d *ri_p)
     create_data_decl (ri_p);
   insert_field_into_struct (TREE_TYPE (ri_p->omp_data_send), field);
 
-  gcc_assert (splay_tree_lookup (ri_p->map, (splay_tree_key)var) == NULL);
   splay_tree_insert (ri_p->map, (splay_tree_key)var, (splay_tree_value)field);
 }
 
@@ -633,6 +637,33 @@ remap_labels_child (tree fn)
 }
 
 
+/* Grr.  The sequence for lastprivate on a parallel for is not in the
+   parallel node itself.  Nor should it be, since it needs to be placed
+   by the loop code.  But we need to invoke remap_variables_receiver on it.
+
+   Grovel it out.  At this point the child function consists of a root
+   BIND_EXPR, and within that the original BIND_EXPR of the parallel.  So
+   if this is a combined parallel for, the single component of that second
+   BIND_EXPR should be an OMP_FOR node.  */
+
+static tree *
+get_lastprivate_sequence (tree_stmt_iterator *tsi)
+{
+  tree t;
+
+  t = tsi_stmt (*tsi);
+  t = expr_only (BIND_EXPR_BODY (t));
+
+  if (t == NULL)
+    return NULL;
+  if (TREE_CODE (t) == OMP_FOR)
+    return &OMP_FOR_VAR_LAST (t);
+  else if (TREE_CODE (t) == OMP_SECTIONS)
+    return &OMP_SECTIONS_VAR_LAST (t);
+
+  return NULL;
+}
+
 /* Lower the OpenMP parallel directive pointed by TSI.  Build a new
    function with the body of the pragma and emit the appropriate
    runtime call.  */
@@ -641,7 +672,7 @@ static void
 lower_omp_parallel (tree *stmt_p)
 {
   tree par_stmt = *stmt_p;
-  tree bind_stmt, fn;
+  tree bind_stmt, fn, *lastpriv;
   struct remap_info_d *ri_p;
   tree_stmt_iterator fn_tsi;
 
@@ -658,6 +689,10 @@ lower_omp_parallel (tree *stmt_p)
 
   fn = ri_p->omp_fn;
   fn_tsi = tsi_start (BIND_EXPR_BODY (DECL_SAVED_TREE (fn)));
+
+  lastpriv = get_lastprivate_sequence (&fn_tsi);
+  if (lastpriv)
+    walk_tree (lastpriv, remap_variables_receiver, ri_p, NULL);
 
   if (OMP_PARALLEL_VAR_INIT (par_stmt))
     {

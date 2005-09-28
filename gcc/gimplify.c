@@ -3911,6 +3911,37 @@ gimplify_to_stmt_list (tree *stmt_p)
     }
 }
 
+/* A subroutine of gimplify_omp_for and gimplify_omp_sections.  We need to
+   do something about synchronization during reductions.  There are lots 
+   of plausible-sounding possibilities.  One thing to be careful about 
+   though, is that atomic operations are expensive, so if there are more
+   than a couple of reduction variables, it's probably cheaper to take a
+   mutex around the lot.
+
+   ??? For now, just assume we'll be fine reusing a critical section.  */
+
+static void
+gimplify_omp_reduction (tree expr, tree *pre_p)
+{
+  expr = build2 (OMP_CRITICAL, void_type_node, NULL, expr);
+  gimplify_and_add (expr, pre_p);
+}
+
+/* A subroutine of gimplify_omp_for.  Generate code to emit the
+   for for a lastprivate clause.  Given a loop control predicate
+   of (V cond N2), we gate the clause on (!(V cond N2)).  */
+
+static void
+gimplify_omp_for_lastprivate (tree v, tree n2, enum tree_code cond_code,
+			      tree body, tree *pre_p)
+{
+  tree t;
+
+  t = build2 (cond_code, boolean_type_node, v, n2);
+  t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, body);
+  gimplify_and_add (t, pre_p);
+}
+
 /* A subroutine of gimplify_omp_for.  Generate code for a parallel
    loop with any schedule.  Given parameters:
 
@@ -3926,21 +3957,21 @@ gimplify_to_stmt_list (tree *stmt_p)
     L1:
 	BODY;
 	V += STEP;
-	if (V cond iend) goto L1; else goto L2;
-    L2:
+	if (V cond iend) goto L1;
 	more = GOMP_loop_foo_next (&istart0, &iend0);
-	if (more) goto L0; else goto L3;
+	if (more) goto L0;
+	lastprivate;
     L3:
 */
 
 static void
 gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
-			  tree chunk_size, tree body,
+			  tree chunk_size, tree for_stmt,
 			  enum tree_code cond_code, tree *pre_p,
 			  enum built_in_function start_fn,
 			  enum built_in_function next_fn)
 {
-  tree l0, l1, l2, l3;
+  tree l0, l1, l3;
   tree type, istart0, iend0, iend;
   tree t, args;
 
@@ -3961,7 +3992,6 @@ gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
 
   l0 = create_artificial_label ();
   l1 = create_artificial_label ();
-  l2 = create_artificial_label ();
   l3 = create_artificial_label ();
   iend = create_tmp_var (type, NULL);
 
@@ -3999,18 +4029,14 @@ gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
   t = build1 (LABEL_EXPR, void_type_node, l1);
   gimplify_and_add (t, pre_p);
 
-  gimplify_and_add (body, pre_p);
+  gimplify_and_add (OMP_FOR_BODY (for_stmt), pre_p);
 
   t = build2 (PLUS_EXPR, type, v, step);
   t = build2 (MODIFY_EXPR, void_type_node, v, t);
   gimplify_and_add (t, pre_p);
   
   t = build2 (cond_code, boolean_type_node, v, iend);
-  t = build3 (COND_EXPR, void_type_node, t,
-	      build_and_jump (&l1), build_and_jump (&l2));
-  gimplify_and_add (t, pre_p);
-
-  t = build1 (LABEL_EXPR, void_type_node, l2);
+  t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l1), NULL);
   gimplify_and_add (t, pre_p);
 
   t = build_fold_addr_expr (iend0);
@@ -4018,9 +4044,12 @@ gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
   t = build_fold_addr_expr (istart0);
   args = tree_cons (NULL, t, args);
   t = build_function_call_expr (built_in_decls[next_fn], args);
-  t = build3 (COND_EXPR, void_type_node, t,
-	      build_and_jump (&l0), build_and_jump (&l3));
+  t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l0), NULL);
   gimplify_and_add (t, pre_p);
+
+  if (OMP_FOR_VAR_LAST (for_stmt))
+    gimplify_omp_for_lastprivate (v, n2, cond_code,
+				  OMP_FOR_VAR_LAST (for_stmt), pre_p);
   
   t = build1 (LABEL_EXPR, void_type_node, l3);
   gimplify_and_add (t, pre_p);
@@ -4049,13 +4078,14 @@ gimplify_omp_for_generic (tree v, tree n1, tree n2, tree step,
     L1:
 	BODY;
 	V += STEP;
-	if (V cond e) goto L1; else goto L2;
+	if (V cond e) goto L1;
+	lastprivate;
     L2:
 */
 
 static void
 gimplify_omp_for_static_nochunk (tree v, tree n1, tree n2, tree step,
-				 tree body, enum tree_code cond_code,
+				 tree for_stmt, enum tree_code cond_code,
 				 tree *pre_p)
 {
   tree l0, l1, l2, n, q, s0, e0, e, t, nthreads, threadid;
@@ -4138,17 +4168,20 @@ gimplify_omp_for_static_nochunk (tree v, tree n1, tree n2, tree step,
   t = build1 (LABEL_EXPR, void_type_node, l1);
   gimplify_and_add (t, pre_p);
 
-  gimplify_and_add (body, pre_p);
+  gimplify_and_add (OMP_FOR_BODY (for_stmt), pre_p);
 
   t = build2 (PLUS_EXPR, type, v, step);
   t = build2 (MODIFY_EXPR, void_type_node, v, t);
   gimplify_and_add (t, pre_p);
 
   t = build2 (cond_code, boolean_type_node, v, e);
-  t = build3 (COND_EXPR, void_type_node, t,
-	      build_and_jump (&l1), build_and_jump (&l2));
+  t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l1), NULL);
   gimplify_and_add (t, pre_p);
 
+  if (OMP_FOR_VAR_LAST (for_stmt))
+    gimplify_omp_for_lastprivate (v, n2, cond_code,
+				  OMP_FOR_VAR_LAST (for_stmt), pre_p);
+  
   t = build1 (LABEL_EXPR, void_type_node, l2);
   gimplify_and_add (t, pre_p);
 }
@@ -4181,14 +4214,17 @@ gimplify_omp_for_static_nochunk (tree v, tree n1, tree n2, tree step,
 	trip += 1;
 	goto L0;
     L4:
+	if (trip == 0) goto L5;
+	lastprivate;
+    L5:
 */
 
 static void
 gimplify_omp_for_static_chunk (tree v, tree n1, tree n2, tree step,
-			       tree body, enum tree_code cond_code,
+			       tree for_stmt, enum tree_code cond_code,
 			       tree chunk, tree *pre_p)
 {
-  tree l0, l1, l2, l3, l4, n, s0, e0, e, t;
+  tree l0, l1, l2, l3, l4, l5, n, s0, e0, e, t;
   tree trip, nthreads, threadid;
   tree type, utype;
 
@@ -4197,6 +4233,7 @@ gimplify_omp_for_static_chunk (tree v, tree n1, tree n2, tree step,
   l2 = create_artificial_label ();
   l3 = create_artificial_label ();
   l4 = create_artificial_label ();
+  l5 = create_artificial_label ();
   
   type = TREE_TYPE (v);
   utype = lang_hooks.types.unsigned_type (type);
@@ -4275,7 +4312,7 @@ gimplify_omp_for_static_chunk (tree v, tree n1, tree n2, tree step,
   t = build1 (LABEL_EXPR, void_type_node, l2);
   gimplify_and_add (t, pre_p);
 
-  gimplify_and_add (body, pre_p);
+  gimplify_and_add (OMP_FOR_BODY (for_stmt), pre_p);
 
   t = build2 (PLUS_EXPR, type, v, step);
   t = build2 (MODIFY_EXPR, void_type_node, v, t);
@@ -4298,6 +4335,17 @@ gimplify_omp_for_static_chunk (tree v, tree n1, tree n2, tree step,
   gimplify_and_add (t, pre_p);
 
   t = build1 (LABEL_EXPR, void_type_node, l4);
+  gimplify_and_add (t, pre_p);
+
+  t = build_int_cst (utype, 0);
+  t = build2 (EQ_EXPR, boolean_type_node, trip, t);
+  t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l5), NULL);
+
+  if (OMP_FOR_VAR_LAST (for_stmt))
+    gimplify_omp_for_lastprivate (v, n2, cond_code,
+				  OMP_FOR_VAR_LAST (for_stmt), pre_p);
+  
+  t = build1 (LABEL_EXPR, void_type_node, l5);
   gimplify_and_add (t, pre_p);
 }
 
@@ -4400,15 +4448,16 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	break;
       }
 
+  if (OMP_FOR_VAR_INIT (for_stmt))
+    gimplify_and_add (OMP_FOR_VAR_INIT (for_stmt), pre_p);
+
   if (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC && !have_ordered)
     {
       if (chunk_size == NULL)
-	gimplify_omp_for_static_nochunk (v, n1, n2, step,
-					 OMP_FOR_BODY (for_stmt),
+	gimplify_omp_for_static_nochunk (v, n1, n2, step, for_stmt,
 					 cond_code, pre_p);
       else
-	gimplify_omp_for_static_chunk (v, n1, n2, step,
-				       OMP_FOR_BODY (for_stmt), cond_code,
+	gimplify_omp_for_static_chunk (v, n1, n2, step, for_stmt, cond_code,
 				       chunk_size, pre_p);
     }
   else
@@ -4423,10 +4472,13 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
       fn_index = sched_kind + have_ordered * 4;
 
       gimplify_omp_for_generic (v, n1, n2, step, chunk_size,
-				OMP_FOR_BODY (for_stmt), cond_code, pre_p,
+				for_stmt, cond_code, pre_p,
 				BUILT_IN_GOMP_LOOP_STATIC_START + fn_index,
 				BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index);
     }
+
+  if (OMP_FOR_VAR_REDUC (for_stmt))
+    gimplify_omp_reduction (OMP_FOR_VAR_REDUC (for_stmt), pre_p);
 
   if (have_nowait)
     {
@@ -4442,6 +4494,7 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
 /* Gimplify an OMP_SECTIONS statement.  In pseudo code, we generate
 
+	VAR_INIT;
 	v = GOMP_sections_start (n);
     L0:
 	switch (v)
@@ -4453,6 +4506,9 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	    goto L1;
 	  case 2:
 	    ...
+	  case n:
+	    ...
+	    VAR_LAST;
 	  default:
 	    abort ();
 	  }
@@ -4460,16 +4516,34 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	v = GOMP_sections_next ();
 	goto L0;
     L2:
+	VAR_REDUC;
 */
 
 static enum gimplify_status
 gimplify_omp_sections (tree *expr_p, tree *pre_p)
 {
   VEC(tree,heap) *labels, *saved_labels;
-  tree saved_exit, label_vec;
+  tree sec_stmt, saved_exit, label_vec;
   tree l0, l1, l2, default_label;
   tree t, u, v;
   size_t i, len;
+
+  sec_stmt = *expr_p;
+
+  if (OMP_SECTIONS_VAR_INIT (sec_stmt))
+    gimplify_and_add (OMP_SECTIONS_VAR_INIT (sec_stmt), pre_p);
+
+  if (OMP_SECTIONS_VAR_LAST (sec_stmt))
+    {
+      tree last = expr_last (OMP_SECTIONS_BODY (*expr_p));
+      gcc_assert (TREE_CODE (last) == OMP_SECTION);
+
+      t = OMP_SECTION_BODY (last);
+      OMP_SECTION_BODY (last) = NULL;
+      append_to_statement_list (t, &OMP_SECTION_BODY (last));
+      append_to_statement_list (OMP_SECTIONS_VAR_LAST (sec_stmt),
+				&OMP_SECTION_BODY (last));
+    }
 
   l0 = create_artificial_label ();
   l1 = create_artificial_label ();
@@ -4545,6 +4619,9 @@ gimplify_omp_sections (tree *expr_p, tree *pre_p)
 
   t = build1 (LABEL_EXPR, void_type_node, l2);
   gimplify_and_add (t, pre_p);
+
+  if (OMP_SECTIONS_VAR_REDUC (sec_stmt))
+    gimplify_omp_reduction (OMP_SECTIONS_VAR_REDUC (sec_stmt), pre_p);
 
   /* Unless there's a nowait clause, add a barrier afterward.  */
 

@@ -1,5 +1,21 @@
 2005-09-27  Richard Henderson  <rth@redhat.com>
 
+	* c-omp.c (c_split_parallel_clauses): Add lastprivate to parallel.
+	(c_finish_omp_bindings): Check for firstprivate+lastprivate and
+	do not create two decls.
+	* gimplify.c (gimplify_omp_reduction): New.
+	(gimplify_omp_for_lastprivate): New.
+	(gimplify_omp_for_generic): Use it.
+	(gimplify_omp_for_static_nochunk): Likewise.
+	(gimplify_omp_for_static_chunk): Likewise.
+	(gimplify_omp_for): Emit VAR_INIT and VAR_REDUC.
+	(gimplify_omp_sections): Likewise.
+	* omp-low.c (add_omp_data_field): Don't create duplicate fields.
+	(get_lastprivate_sequence): New.
+	(lower_omp_parallel): Use it.
+
+2005-09-27  Richard Henderson  <rth@redhat.com>
+
 	* c-tree.h (check_for_loop_decls): Update decl.
 	(lookup_name_no_remap, c_omp_remap_private): Declare.
 	(lookup_name): Move decl ...

@@ -199,6 +199,7 @@ c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_IF:
@@ -219,7 +220,6 @@ c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_ORDERED:
-	case OMP_CLAUSE_LASTPRIVATE:
 	  TREE_CHAIN (clauses) = *ws_clauses;
 	  *ws_clauses = clauses;
 	  break;
@@ -399,6 +399,7 @@ c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
 	{
 	  tree old, new;
 	  bool decl_ok = true;
+	  bool existing_remap = false;
 	  bitmap update_map;
 
 	  old = TREE_PURPOSE (*plist);
@@ -409,12 +410,20 @@ c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
 	     firstprivate and lastprivate clauses.  */
 	  if (bitmap_bit_p (&spr_head, DECL_UID (old)))
 	    decl_ok = false;
-	  if (kind != OMP_CLAUSE_LASTPRIVATE
-	      && bitmap_bit_p (&fp_head, DECL_UID (old)))
-	    decl_ok = false;
-	  if (kind != OMP_CLAUSE_FIRSTPRIVATE
-	      && bitmap_bit_p (&lp_head, DECL_UID (old)))
-	    decl_ok = false;
+	  if (bitmap_bit_p (&fp_head, DECL_UID (old)))
+	    {
+	      if (kind == OMP_CLAUSE_LASTPRIVATE)
+		existing_remap = true;
+	      else
+		decl_ok = false;
+	    }
+	  if (bitmap_bit_p (&lp_head, DECL_UID (old)))
+	    {
+	      if (kind == OMP_CLAUSE_FIRSTPRIVATE)
+		existing_remap = true;
+	      else
+		decl_ok = false;
+	    }
 	  if (!decl_ok)
 	    {
 	      if (!bitmap_bit_p (&error_head, DECL_UID (old)))
@@ -426,9 +435,12 @@ c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
 	      continue;
 	    }
 
+	  if (existing_remap)
+	    new = lookup_name (DECL_NAME (old));
+
 	  /* OpenMP 2.5 section 2.8.1.1: Variables with predetermined
 	     sharing attributes may not be listed in data-sharing clauses.  */
-	  if (c_omp_sharing_predetermined (old))
+	  else if (c_omp_sharing_predetermined (old))
 	    {
 	      if (!bitmap_bit_p (&error_head, DECL_UID (old)))
 		{
@@ -438,8 +450,9 @@ c_finish_omp_bindings (tree omp_clauses, tree *init_seq, tree *last_seq,
 	      *plist = TREE_CHAIN (*plist);
 	      continue;
 	    }
+	  else
+	    new = c_omp_remap_decl (old, kind == OMP_CLAUSE_SHARED);
 
-	  new = c_omp_remap_decl (old, kind != OMP_CLAUSE_SHARED);
 	  TREE_VALUE (*plist) = new;
 
 	  /* Shared variables can be remapped to themselves.  When this
