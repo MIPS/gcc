@@ -2835,7 +2835,8 @@ lookup_name (tree name)
 
       /* Re-bind the decl to something in scope of the omp parallel.  */
       if (b->depth < pscope->depth)
-	return c_omp_remap_decl_1 (pscope, b->decl, -1, did_error);
+	return c_omp_remap_decl_1 (pscope, b->decl, omp_remap_private ? 0 : -1,
+				   did_error);
     }
 
   return b->decl;
