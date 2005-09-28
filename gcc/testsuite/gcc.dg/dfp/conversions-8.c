@@ -3,11 +3,15 @@
 
 /* Test various conversions involving decimal floating types. */
 
+#include <limits.h>
+
 extern void abort (void);
 
 _Decimal32 d32;
 _Decimal64 d64;
 _Decimal128 d128;
+
+signed int si;
 unsigned int usi;
 unsigned long long udi;
 
@@ -39,17 +43,44 @@ int main()
   if (udi != 1555)
     abort();
 
-  /*  conversion saturating.  */
-  usi = 4294967296.0dd; /* { dg-warning "overflow in implicit constant conversion" } */
-  if (usi !=0 )
+  /* Test integer saturation.  */
+
+  /* Signed.  */
+  si = __DEC32_MIN__;
+  if (si != INT_MIN)
     abort ();
 
-  usi = 4294967296.0dl; /* { dg-warning "overflow in implicit constant conversion" } */
-  if (usi !=0 )
+  si = __DEC64_MIN__;
+  if (si != INT_MIN)
     abort ();
 
-  udi = 18446744073709551615.0dl;
-  if (udi != 0)
+  si = __DEC128_MIN__;
+  if (si != INT_MIN)
+    abort ();
+
+  si = __DEC32_MAX__;	/* { dg-warning "overflow in implicit constant conversion" } */
+  if (si != INT_MAX)
+    abort ();
+
+  si = __DEC64_MAX__;   /* { dg-warning "overflow in implicit constant conversion" } */
+  if (si != INT_MAX)
+    abort ();
+
+  si = __DEC128_MAX__;  /* { dg-warning "overflow in implicit constant conversion" } */
+  if (si != INT_MAX)
+    abort ();
+
+  /* Unsigned.  */
+  usi = __DEC32_MAX__;  /* { dg-warning "overflow in implicit constant conversion" } */
+  if (usi != UINT_MAX)
+    abort ();
+
+  usi = __DEC64_MAX__;  /* { dg-warning "overflow in implicit constant conversion" } */
+  if (usi != UINT_MAX)
+    abort ();
+
+  usi = __DEC128_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
+  if (usi != UINT_MAX)
     abort ();
 
   /* Conversions from unsigned integer constants.*/
@@ -77,20 +108,18 @@ int main()
   if (d128 != 1555.0dl)
     abort();
 
-  /*  conversion saturating.  */
-  d64 = 4294967296.0dd;
-  usi = d64;
-  if (usi !=0 )
+  /* Test DFP saturation.  */
+
+  d32 = ULONG_MAX;
+  if (! __builtin_isnand32 (d32))
     abort ();
 
-  d128 = 4294967296.0dl;
-  usi = d128;
-  if (usi !=0 )
+  d64 = ULONG_MAX;
+  if (! __builtin_isnand64 (d64))
     abort ();
 
-  d128 = 18446744073709551615.0dl;
-  udi = d128;
-  if (udi != 0)
+  d128 = ULONG_MAX;
+  if (! __builtin_isnand128 (d128))
     abort ();
 
   return 0;

@@ -10,6 +10,7 @@ _Decimal64 d64;
 _Decimal128 d128;
 signed int si;
 signed long long di;
+unsigned long long udi;
 
 int main()
 {
@@ -39,15 +40,15 @@ int main()
     abort();
 
   si = 2147483648.0dd;
-  if (si != -2147483648)
+  if (si != 2147483648)
     abort ();
 
   si = 2147483648.0dl;
-  if (si != -2147483648)
+  if (si != 2147483648)
     abort ();
 
-  di = 9223372036854775808.0dl;
-  if (di != -9223372036854775808ll)
+  udi = 9223372036854775808.0dl;
+  if (udi != 9223372036854775808ll)
      abort ();
 
   /* Conversions from signed integer constants. */

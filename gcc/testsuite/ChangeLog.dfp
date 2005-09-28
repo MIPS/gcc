@@ -1,3 +1,10 @@
+2005-09-28  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/cast-2.c: New test.
+	* gcc.dg/dfp/conversions-8.c: Add saturation and qNaN tests for
+	conversions between integers and decimal floating point types.
+	* gcc.dg/dfp/conversions-9.c: Correct some integer constants.
+
 2005-09-27  Yao Qi  <qiyaoltc@cn.ibm.com>
 
 	* gcc.dg/dfp/composite-type.c: Extend the tests.
