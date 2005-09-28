@@ -6,6 +6,7 @@ foo ()
 {
   int i;
   a = 30;
+#pragma omp barrier
 #pragma omp for lastprivate (a)
   for (i = 0; i < 1024; i++)
     {

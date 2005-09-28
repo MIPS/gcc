@@ -6,7 +6,8 @@ main()
 
   a = 30;
 
-#pragma omp parallel for firstprivate (a) lastprivate (a) num_threads (2)
+#pragma omp parallel for firstprivate (a) lastprivate (a) \
+	num_threads (2) schedule(static)
   for (i = 0; i < 10; i++)
     a = a + i;
 

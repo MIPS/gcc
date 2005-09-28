@@ -1,3 +1,8 @@
+2005-09-27  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libgomp.dg/omp-loop03.c: Add initial barrier.
+	* testsuite/libgomp.dg/omp-parallel-for.c: Specify static schedule.
+
 2005-09-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.dg/omp-loop03.c: New test.
