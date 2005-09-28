@@ -4877,7 +4877,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
 			      tree rhs, int index)
 {
   tree oldval, oldival, newval, newival, label;
-  tree type, itype, cmpxchg, args, x;
+  tree type, itype, cmpxchg, args, x, iaddr;
 
   cmpxchg = built_in_decls[BUILT_IN_VAL_COMPARE_AND_SWAP_N + index + 1];
   type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
@@ -4902,6 +4902,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
     {
       oldival = oldval;
       newival = newval;
+      iaddr = addr;
     }
   else
     {
@@ -4911,6 +4912,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
       x = build1 (VIEW_CONVERT_EXPR, itype, oldval);
       x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
       gimplify_and_add (x, pre_p);
+      iaddr = fold_convert (build_pointer_type (itype), addr);
     }
 
   label = create_artificial_label ();
@@ -4929,7 +4931,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
 
   args = tree_cons (NULL, fold_convert (itype, newival), NULL);
   args = tree_cons (NULL, fold_convert (itype, oldival), args);
-  args = tree_cons (NULL, addr, args);
+  args = tree_cons (NULL, iaddr, args);
   x = build_function_call_expr (cmpxchg, args);
   if (oldval == oldival)
     x = fold_convert (type, x);

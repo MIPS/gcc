@@ -67,27 +67,74 @@ gfc_trans_omp_variable_list (enum tree_code code, gfc_namelist *namelist,
 static tree
 gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
 {
-  tree omp_clauses = NULL_TREE, chunk_size, c;
-  int clause;
+  tree omp_clauses = NULL_TREE, chunk_size, c, old_clauses;
+  int list;
   enum tree_code clause_code;
   gfc_se se;
 
   if (clauses == NULL)
     return NULL_TREE;
 
-  for (clause = 0; clause < OMP_LIST_NUM; clause++)
+  for (list = 0; list < OMP_LIST_NUM; list++)
     {
-      gfc_namelist *n = clauses->lists[clause];
+      gfc_namelist *n = clauses->lists[list];
 
       if (n == NULL)
 	continue;
-      if (clause >= OMP_LIST_REDUCTION_FIRST
-	  && clause <= OMP_LIST_REDUCTION_LAST)
+      if (list >= OMP_LIST_REDUCTION_FIRST
+	  && list <= OMP_LIST_REDUCTION_LAST)
 	{
-	  /* FIXME: reductions not handled yet.  */
+	  enum tree_code reduction_code;
+	  switch (list)
+	    {
+	    case OMP_LIST_PLUS:
+	      reduction_code = PLUS_EXPR;
+	      break;
+	    case OMP_LIST_MULT:
+	      reduction_code = MULT_EXPR;
+	      break;
+	    case OMP_LIST_SUB:
+	      reduction_code = MINUS_EXPR;
+	      break;
+	    case OMP_LIST_AND:
+	      reduction_code = TRUTH_ANDIF_EXPR;
+	      break;
+	    case OMP_LIST_OR:
+	      reduction_code = TRUTH_ORIF_EXPR;
+	      break;
+	    case OMP_LIST_EQV:
+	      reduction_code = EQ_EXPR;
+	      break;
+	    case OMP_LIST_NEQV:
+	      reduction_code = NE_EXPR;
+	      break;
+	    case OMP_LIST_MAX:
+	      reduction_code = MAX_EXPR;
+	      break;
+	    case OMP_LIST_MIN:
+	      reduction_code = MIN_EXPR;
+	      break;
+	    case OMP_LIST_IAND:
+	      reduction_code = BIT_AND_EXPR;
+	      break;
+	    case OMP_LIST_IOR:
+	      reduction_code = BIT_IOR_EXPR;
+	      break;
+	    case OMP_LIST_IEOR:
+	      reduction_code = BIT_XOR_EXPR;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  old_clauses = omp_clauses;
+	  omp_clauses
+	    = gfc_trans_omp_variable_list (OMP_CLAUSE_REDUCTION, n,
+					   omp_clauses);
+	  for (c = omp_clauses; c != old_clauses; c = OMP_CLAUSE_CHAIN (c))
+	    OMP_CLAUSE_REDUCTION_CODE (c) = reduction_code;
 	  continue;
 	}
-      switch (clause)
+      switch (list)
 	{
 	case OMP_LIST_PRIVATE:
 	  clause_code = OMP_CLAUSE_PRIVATE;
@@ -206,12 +253,9 @@ gfc_trans_omp_atomic (gfc_code *code)
   gfc_expr *expr2, *e;
   gfc_symbol *var;
   stmtblock_t block;
-  int size;
-  tree lhsaddr, type, itype, x, oldival, oldval, newival, newval;
-  tree lhsiaddr, rhsval, label;
+  tree lhsaddr, type, rhs, x;
   enum tree_code op = ERROR_MARK;
   bool var_on_left = false;
-  enum built_in_function bcode;
 
   code = code->block->next;
   gcc_assert (code->op == EXEC_ASSIGN);
@@ -345,146 +389,22 @@ gfc_trans_omp_atomic (gfc_code *code)
       expr2 = expr2->value.function.actual->next->expr;
     }
 
-  /* When possible, use specialized atomic update functions.  */
-  if (code->expr->ts.type == BT_INTEGER && expr2->ts.type == BT_INTEGER)
-    {
-      switch (op)
-	{
-	case PLUS_EXPR:
-	  bcode = BUILT_IN_FETCH_AND_ADD_N;
-	  goto maybe_do_fetch_op;
-	case MINUS_EXPR:
-	  if (var_on_left)
-	    {
-	      bcode = BUILT_IN_FETCH_AND_SUB_N;
-	      goto maybe_do_fetch_op;
-	    }
-	  break;
-	case BIT_AND_EXPR:
-	  bcode = BUILT_IN_FETCH_AND_AND_N;
-	  goto maybe_do_fetch_op;
-	case BIT_IOR_EXPR:
-	  bcode = BUILT_IN_FETCH_AND_OR_N;
-	  goto maybe_do_fetch_op;
-	case BIT_XOR_EXPR:
-	  bcode = BUILT_IN_FETCH_AND_XOR_N;
-	  /* FALLTHROUGH */
-	maybe_do_fetch_op:
-	  switch (code->expr->ts.kind)
-	    {
-	    case 1:
-	      bcode += 1;
-	      goto do_fetch_op;
-	    case 2:
-	      bcode += 2;
-	      goto do_fetch_op;
-	    case 4:
-	      bcode += 3;
-	      goto do_fetch_op;
-	    case 8:
-	      bcode += 4;
-	      /* FALLTHROUGH */
-	    do_fetch_op:
-	      x = gfc_chainon_list (NULL_TREE, lhsaddr);
-	      x = gfc_chainon_list (x, convert (type, rse.expr));
-	      x = gfc_build_function_call (built_in_decls[bcode], x);
-	      gfc_add_expr_to_block (&block, x);
-	      goto finish;
-	    default:
-	      break;
-	    }
-	  break;
-	default:
-	  break;
-	}
-    }
-
-  /* In these cases, we don't have specialized __sync builtins,
-     so we need to implement a compare and swap loop.  */
-  itype = NULL;
-  size = GET_MODE_PRECISION (TYPE_MODE (type));
-  if (code->expr->ts.type != BT_INTEGER && code->expr->ts.type != BT_LOGICAL)
-    itype = gfc_type_for_size (size, true);
-
-  oldival = oldval = gfc_create_var (type, "oldval");
-  newival = newval = gfc_create_var (type, "newval");
-  lhsiaddr = lhsaddr = save_expr (lhsaddr);
-  if (itype)
-    {
-      oldival = gfc_create_var (itype, "oldival");
-      newival = gfc_create_var (itype, "newival");
-      lhsiaddr = convert (build_pointer_type (itype), lhsaddr);
-    }
-
-  if (TREE_CONSTANT (rse.expr))
-    rhsval = rse.expr;
-  else
-    rhsval = gfc_create_var (TREE_TYPE (rse.expr), "rhsval");
-  label = gfc_build_label_decl (NULL_TREE);
-  TREE_USED (label) = 1;
-
-  gfc_add_modify_expr (&block, oldval, gfc_build_indirect_ref (lhsaddr));
-
-  if (itype)
-    gfc_add_modify_expr (&block, oldival,
-			 build1 (VIEW_CONVERT_EXPR, itype, oldval));
-
-  if (!TREE_CONSTANT (rse.expr))
-    gfc_add_modify_expr (&block, rhsval, rse.expr);
-
-  gfc_add_expr_to_block (&block, build1_v (LABEL_EXPR, label));
-
-  x = convert (TREE_TYPE (rhsval), oldval);
+  lhsaddr = save_expr (lhsaddr);
+  rhs = gfc_evaluate_now (rse.expr, &block);
+  x = convert (TREE_TYPE (rhs), gfc_build_indirect_ref (lhsaddr));
 
   if (var_on_left)
-    x = fold_build2 (op, TREE_TYPE (rhsval), x, rhsval);
+    x = fold_build2 (op, TREE_TYPE (rhs), x, rhs);
   else
-    x = fold_build2 (op, TREE_TYPE (rhsval), rhsval, x);
+    x = fold_build2 (op, TREE_TYPE (rhs), rhs, x);
 
-  if (TREE_CODE (TREE_TYPE (rhsval)) == COMPLEX_TYPE
+  if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE
       && TREE_CODE (type) != COMPLEX_TYPE)
-    x = build1 (REALPART_EXPR, TREE_TYPE (TREE_TYPE (rhsval)), x);
+    x = build1 (REALPART_EXPR, TREE_TYPE (TREE_TYPE (rhs)), x);
 
-  gfc_add_modify_expr (&block, newval, convert (type, x));
-
-  if (itype)
-    gfc_add_modify_expr (&block, newival,
-			 build1 (VIEW_CONVERT_EXPR, itype, newval));
-
-  bcode = BUILT_IN_VAL_COMPARE_AND_SWAP_N;
-  switch (size)
-    {
-    case 8:
-      bcode += 1;
-      break;
-    case 16:
-      bcode += 2;
-      break;
-    case 32:
-      bcode += 3;
-      break;
-    case 64:
-      bcode += 4;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  x = gfc_chainon_list (NULL_TREE, lhsiaddr);
-  x = gfc_chainon_list (x, oldival);
-  x = gfc_chainon_list (x, newival);
-  x = gfc_build_function_call (built_in_decls[bcode], x);
-  gfc_add_modify_expr (&block, oldival, convert (TREE_TYPE (oldival), x));
-
-  if (itype)
-    gfc_add_modify_expr (&block, oldval,
-			 build1 (VIEW_CONVERT_EXPR, type, oldival));
-
-  x = build2 (NE_EXPR, boolean_type_node, oldival, newival);
-  x = build3_v (COND_EXPR, x, build1_v (GOTO_EXPR, label),
-		build_empty_stmt ());
+  x = build2_v (OMP_ATOMIC, lhsaddr, convert (type, x));
   gfc_add_expr_to_block (&block, x);
 
-finish:
   gfc_add_block_to_block (&block, &lse.pre);
   gfc_add_block_to_block (&block, &rse.pre);
 
@@ -814,8 +734,11 @@ gfc_trans_omp_sections (gfc_code *code, gfc_omp_clauses *clauses)
 static tree
 gfc_trans_omp_single (gfc_code *code, gfc_omp_clauses *clauses)
 {
-  gfc_trans_omp_clauses (NULL, clauses);
-  return gfc_trans_code (code->block->next);
+  tree omp_clauses = gfc_trans_omp_clauses (NULL, clauses);
+  tree stmt = gfc_trans_code (code->block->next);
+  if (omp_not_yet)
+    stmt = build2_v (OMP_SINGLE, omp_clauses, stmt);
+  return stmt;
 }
 
 static tree

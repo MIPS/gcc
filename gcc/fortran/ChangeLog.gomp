@@ -1,3 +1,11 @@
+2005-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Create OMP_CLAUSE_REDUCTION
+	clauses.
+	(gfc_trans_omp_atomic): Build OMP_ATOMIC instead of expanding
+	sync builtins directly.
+	(gfc_trans_omp_single): Build OMP_SINGLE statement.
+
 2005-09-28  Richard Henderson  <rth@redhat.com>
 
 	* trans-openmp.c (gfc_trans_add_clause): New.

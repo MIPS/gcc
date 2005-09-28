@@ -191,7 +191,7 @@ add_omp_data_field (tree var, bool by_ref, struct remap_info_d *ri_p)
 static void
 setup_data_fields (tree par_stmt, struct remap_info_d *ri_p)
 {
-  tree c, t;
+  tree c;
 
   for (c = OMP_PARALLEL_CLAUSES (par_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
     {

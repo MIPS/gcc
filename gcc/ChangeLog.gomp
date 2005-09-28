@@ -1,3 +1,10 @@
+2005-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.def (OMP_SINGLE): Fix a comment typo.
+	* gimplify.c (gimplify_omp_atomic_pipeline): Fix type of
+	pointer argument to BUILT_IN_VAL_COMPARE_AND_SWAP_x.
+	* omp-low.c (setup_data_fields): Remove unused variable.
+
 2005-09-28  Richard Henderson  <rth@redhat.com>
 
 	* c-decl.c (c_omp_remap_decl_1): Create OMP_CLAUSE_SHARED node here.

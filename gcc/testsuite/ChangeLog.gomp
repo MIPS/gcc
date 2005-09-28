@@ -1,3 +1,7 @@
+2005-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/atomic-10.c: New test.
+
 2005-09-27  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/gomp/tls-1.c: New.
