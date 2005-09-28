@@ -1,3 +1,9 @@
+2005-09-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4228294 (revision)
+	* stor-layout.c (layout_type):  Move setting of TREE_FIELDS_REVERSED...
+	(place_field):  ...to here.
+
 2005-09-26  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4232445
