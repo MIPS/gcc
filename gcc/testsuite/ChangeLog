@@ -1,3 +1,110 @@
+2005-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22147
+	* g++.dg/template/friend37.C: New test.
+	* g++.dg/parse/crash28.C: Adjust error markers.
+	
+2005-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/18518
+	* gfortran.fortran-torture/execute/save_2.f90: New decl.
+
+2005-09-27  Devang Patel  <dpatel@apple.com>
+
+	PR tree-optimization/23625
+	* gcc.dg/pr23625.c: New test.
+	
+2005-09-27  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.target/i386/pr22585.c: Run on 32-bit x86 only.
+	* gcc.target/i386/builtin-apply-mmx.c: Run on 32-bit x86 only.
+
+2005-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/23677
+	* gfortran.fortran-torture/execute/save_1.f90: New test.
+	* gfortran.dg/save_1.f90: New test.
+
+2005-09-26  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.target/i386/builtin-apply-mmx.c: New test.
+
+	PR target/22576
+	* gcc.target/i386/pr22576.c: New test.
+
+	PR target/22585
+	* gcc.target/i386/pr22585.c: New test.
+
+	PR target/23268
+	* gcc.target/i386/pr23268.c: New test.
+
+	PR middle-end/23831
+	* gcc.dg/vect/pr23831.c: New test.
+
+	PR target/24055
+	* gcc.target/i386/pr24055.c: New test.
+
+2005-09-25  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/23960
+	* gcc.c-torture/compile/pr23960.c: New.
+
+2005-09-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16861
+	* gfortran.dg/nested_modules_3.f90: New.
+
+2005-09-22 Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24005
+	gfortran.dg/interface_1.f90: New test.
+
+2005-09-22  Erik Edelmann  <erik.edelmann@iki.fi>
+	Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/23843
+	* gfortran.dg/der_io_2.f90, gfortran.dg/der_io_3.f90: New test.
+
+2005-09-22  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/23516
+	* gfortran.dg/imag_1.f: New test.
+	* gfortran.dg/imag_2.f: Ditto.
+
+2005-09-22  J"orn Rennecke <joern.rennecke@st.com>
+
+	* gcc.dg/intmax_t-1.c: Remove sh*-*-elf from dg-error statement.
+
+2005-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21983
+	* g++.dg/warn/pr21983.C: New test.
+
+2005-09-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23993
+	* g++.dg/template/array14.C: New test.
+
+2005-09-21  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/19929
+	* gfortran.dg/der_ptr_component_1.f90: New test.
+
+2005-09-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23965
+	* g++.dg/template/error1.C: Reject "no matching function" message.
+
+2005-09-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/17609
+	* g++.dg/lookup/error1.C: New test.
+
+2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-dv-2.c: Change loop bound and restore original
+	functionality of the testcase.
+
 2005-09-20  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/vect/vect-22.c: Require vect_float.
@@ -19,6 +126,11 @@
 
 	PR tree-optimization/23929
 	* gcc.c-torture/compile/pr23929.c: New test.
+
+2005-09-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gcc.dg/vect/vect-dv-2.c: Expect same alignment message only
+	for one loop.
 
 2005-09-20  Steve Ellcey  <sje@cup.hp.com>
 

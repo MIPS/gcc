@@ -1,3 +1,91 @@
+2005-09-27  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23552
+	* acinclude.m4 (LIBGFOR_CHECK_FOR_BROKEN_ISFINITE): New.
+	(LIBGFOR_CHECK_FOR_BROKEN_ISNAN): New.
+	(LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY): New.
+	* configure.ac (LIBGFOR_CHECK_FOR_BROKEN_ISFINITE): Add use.
+	(LIBGFOR_CHECK_FOR_BROKEN_ISNAN): Add use.
+	(LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY): Add use.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* libgfortan.h (isfinite): undef if broken, set if needed.
+	(isnan): undef if broken, set if needed.
+        (fpclassify): undef if broken, set if needed.
+	* io/write.c: Remove TODO comment about working isfinite.
+	* intrinsics/c99_functions.c (round): Use isfinite instead
+	of fpclassify.
+	* intrinsics/c99_functions.c (roundf): Ditto.
+
+2005-09-24  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	* io.h: Changed prototypes of list_formatted_{read|write}.
+	* list_read.c (list_formatted_read): Renamed to
+	list_formatted_read_scalar and made static.
+	(list_formatted_read): New function.
+	* transfer.c: Prototype for transfer_array. Changed transfer
+	function pointer.
+	(unformatted_read): Add nelems argument, use it.
+	(unformatted_write): Likewise.
+	(formatted_transfer): Changed name to formatted_transfer_scalar.
+	(formatted_transfer): New function.
+	(transfer_integer): Add nelems argument to transfer call, move
+	updating item count to transfer functions.
+	(transfer_real): Likewise.
+	(transfer_logical): Likewise.
+	(transfer_character): Likewise.
+	(transfer_complex): Likewise.
+	(transfer_array): New function.
+	(data_transfer_init): Call formatted_transfer with new argument.
+	(iolength_transfer): New argument, use it.
+	* write.c (list_formatted_write): Renamed to
+	list_formatted_write_scalar, made static.
+	(list_formatted_write): New function.
+
+2005-09-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.ac: Add check for __clog.
+	* configure: Regenerate.
+
+2005-09-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* c99_protos.h: Add prototypes for C99 complex functions.
+	* libgfortran.h: Include complex.h before c99_protos.h.
+	* intrinsics/c99_functions.c: Define HAVE_ macros for the
+	fallback functions we provide.
+	(cabsf, cabs, cabsl, cargf, carg, cargl, cexpf, cexp, cexpl,
+	clogf, clog, clogl, clog10f, clog10, clog10l, cpowf, cpow, cpowl,
+	cqsrtf, csqrt, csqrtl, csinhf, csinh, csinhl, ccoshf, ccosh,
+	ccoshl, ctanhf, ctanh, ctanhl, csinf, csin, csinl, ccosf, ccos,
+	ccosl, ctanf, ctan, ctanl): New fallback functions.
+	* Makefile.am (gfor_math_trig_c, gfor_math_trig_obj,
+	gfor_specific_c, gfor_cmath_src, gfor_cmath_obj): Remove.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove checks for csin. Add checks for all C99
+	complex functions.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2005-09-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libfortran/23803
+	* intrinsics/getXid.c: Add getpid wrapper for MinGW.
+	* intrinsics/getlog.c: Add getlogin wrapper for MinGW.
+	* intrinsics/hostnm.c: Add gethostname wrapper for MinGW.
+
+2005-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23802
+	* intrinsics/sleep.c: Add correct sleep macro for MinGW.
+
+2005-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23380
+	* intrinsics/cpu_time.c (__cpu_time_1): Provide a MS Windows
+	version.
+
 2005-09-14  Jerry DeLisle  <jvdelisle@verizon.net
 
 	PR fortran/21875 Internal Unit Array I/O, NIST

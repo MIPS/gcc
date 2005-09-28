@@ -3004,9 +3004,10 @@ struct no_conflict_data
   bool must_stay;
 };
 
-/* Called via note_stores by emit_no_conflict_block.  Set P->must_stay
-   if the currently examined clobber / store has to stay in the list of
-   insns that constitute the actual no_conflict block.  */
+/* Called via note_stores by emit_no_conflict_block and emit_libcall_block.
+   Set P->must_stay if the currently examined clobber / store has to stay
+   in the list of insns that constitute the actual no_conflict block /
+   libcall block.  */
 static void
 no_conflict_move_test (rtx dest, rtx set, void *p0)
 {
@@ -3021,13 +3022,20 @@ no_conflict_move_test (rtx dest, rtx set, void *p0)
     return;
   /* If this insn sets / clobbers a register that feeds one of the insns
      already in the list, this insn has to stay too.  */
-  else if (reg_mentioned_p (dest, PATTERN (p->first))
+  else if (reg_overlap_mentioned_p (dest, PATTERN (p->first))
+	   || (CALL_P (p->first) && (find_reg_fusage (p->first, USE, dest)))
 	   || reg_used_between_p (dest, p->first, p->insn)
 	   /* Likewise if this insn depends on a register set by a previous
-	      insn in the list.  */
+	      insn in the list, or if it sets a result (presumably a hard
+	      register) that is set or clobbered by a previous insn.
+	      N.B. the modified_*_p (SET_DEST...) tests applied to a MEM
+	      SET_DEST perform the former check on the address, and the latter
+	      check on the MEM.  */
 	   || (GET_CODE (set) == SET
 	       && (modified_in_p (SET_SRC (set), p->first)
-		   || modified_between_p (SET_SRC (set), p->first, p->insn))))
+		   || modified_in_p (SET_DEST (set), p->first)
+		   || modified_between_p (SET_SRC (set), p->first, p->insn)
+		   || modified_between_p (SET_DEST (set), p->first, p->insn))))
     p->must_stay = true;
 }
 
@@ -3247,23 +3255,27 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
       next = NEXT_INSN (insn);
 
       if (set != 0 && REG_P (SET_DEST (set))
-	  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
-	  && (insn == insns
-	      || ((! INSN_P(insns)
-		   || ! reg_mentioned_p (SET_DEST (set), PATTERN (insns)))
-		  && ! reg_used_between_p (SET_DEST (set), insns, insn)
-		  && ! modified_in_p (SET_SRC (set), insns)
-		  && ! modified_between_p (SET_SRC (set), insns, insn))))
+	  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER)
 	{
-	  if (PREV_INSN (insn))
-	    NEXT_INSN (PREV_INSN (insn)) = next;
-	  else
-	    insns = next;
+	  struct no_conflict_data data;
 
-	  if (next)
-	    PREV_INSN (next) = PREV_INSN (insn);
+	  data.target = const0_rtx;
+	  data.first = insns;
+	  data.insn = insn;
+	  data.must_stay = 0;
+	  note_stores (PATTERN (insn), no_conflict_move_test, &data);
+	  if (! data.must_stay)
+	    {
+	      if (PREV_INSN (insn))
+		NEXT_INSN (PREV_INSN (insn)) = next;
+	      else
+		insns = next;
 
-	  add_insn (insn);
+	      if (next)
+		PREV_INSN (next) = PREV_INSN (insn);
+
+	      add_insn (insn);
+	    }
 	}
 
       /* Some ports use a loop to copy large arguments onto the stack.

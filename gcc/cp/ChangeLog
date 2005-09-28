@@ -1,3 +1,55 @@
+2005-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22147
+	* name-lookup.c (maybe_process_template_type_declaration): Don't
+	treat forward declarations of classes as templates just because
+	we're processing_template_decl.
+	* pt.c (tsubst_decl): Clear DECL_TEMPLATE_INFO for friend
+	functions. 
+
+2005-09-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13764
+	* cp-tree.h (FUNCTION_NEEDS_BODY_BLOCK): New macro.
+	* name-lookup.c (pushdecl_maybe_friend): Check it.
+	* decl.c (begin_function_body): Do nothing if it's false.
+	(finish_function_body): Ditto.
+	(outer_curly_brace_block): New fn.
+	(finish_function): Use it.
+
+2005-09-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/15855
+	* decl2.c (do_static_destruction): Remove.
+	(finish_static_initialization_or_destruction): Likewise.
+	(DECL_EFFECTIVE_INIT_PRIORITY): New macro.
+	(NEEDS_GUARD_P): Likewise.
+	(do_static_initialization): Rename to
+	do_static_initialization_or_destruction.  Process all
+	initializers/destructors and handle common conditionalizing.
+	(start_static_initialization_or_destruction): Rename to
+	one_static_initialization_or_destruction.  Handle only
+	decl-specific conditionalizing.
+	(cp_finish_file): Call do_static_initialization_or_destruction.
+
+2005-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21983
+	* class.c (find_final_overrider): Move diagnostic about no unique final
+	overrider to...
+	(update_vtable_entry_for_fn): ... here.
+
+2005-09-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23993
+	* init.c (integral_constant_value): Use DECL_INTEGRAL_CONSTANT_VAR_P.
+
+2005-09-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23965
+	* call.c (resolve_args): Return error_mark_node on arguments
+	whose TREE_TYPE is error_mark_node.
+
 2005-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/23947

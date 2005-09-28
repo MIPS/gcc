@@ -42,6 +42,7 @@ set package_map(javax/imageio) bc
 set package_map(javax/xml) bc
 set package_map(gnu/java/beans) bc
 set package_map(gnu/java/awt/peer/gtk) bc
+set package_map(gnu/java/awt/peer/qt) bc
 set package_map(org/xml) bc
 set package_map(org/w3c) bc
 
@@ -219,9 +220,10 @@ proc emit_bc_rule {package} {
   puts "\t@rm -f $tname"
   puts ""
 
-  # We skip this one because it is built into its own library and is
-  # handled specially in Makefile.am.
-  if {$loname != "gnu-java-awt-peer-gtk.lo"} {
+  # We skip these because they are built into their own libraries and
+  # are handled specially in Makefile.am.
+  if {$loname != "gnu-java-awt-peer-gtk.lo"
+      && $loname != "gnu-java-awt-peer-qt.lo"} {
     lappend bc_objects $loname
   }
 }

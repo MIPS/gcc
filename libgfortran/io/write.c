@@ -821,9 +821,6 @@ write_float (fnode *f, const char *source, int len)
 
   if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
     {
-      /* TODO: there are some systems where isfinite is not able to work
-               with long double variables. We should detect this case and
-	       provide our own version for isfinite.  */
       res = isfinite (n); 
       if (res == 0)
 	{
@@ -1423,8 +1420,8 @@ write_separator (void)
    TODO: handle skipping to the next record correctly, particularly
    with strings.  */
 
-void
-list_formatted_write (bt type, void *p, int len)
+static void
+list_formatted_write_scalar (bt type, void *p, int len)
 {
   static int char_flag;
 
@@ -1466,6 +1463,29 @@ list_formatted_write (bt type, void *p, int len)
     }
 
   char_flag = (type == BT_CHARACTER);
+}
+
+
+void
+list_formatted_write (bt type, void *p, int len, size_t nelems)
+{
+  size_t elem;
+  int size;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  if (type == BT_COMPLEX)
+    size = 2 * len;
+  else
+    size = len;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      g.item_count++;
+      list_formatted_write_scalar (type, tmp + size*elem, len);
+    }
 }
 
 /*			NAMELIST OUTPUT

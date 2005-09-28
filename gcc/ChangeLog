@@ -1,3 +1,281 @@
+2005-09-27  Daniel Berlin  <dberlin@dberlin.org>
+	    Devang Patel  <dpatel@apple.com>
+
+	PR tree-optimization/23625
+	* tree-flow-inline.h (bsi_after_labels): Remove, first statement is
+	LABEL_EXPR, assertion check.
+	
+2005-09-27  J"orn Rennecke <joern.rennecke@st.com>
+
+	* optabs.c (no_conflict_move_test): Check if a result of a
+	to-be-moved insn would be clobbered by an originally
+	preceding insn.
+
+2005-09-27  Jeff Law  <law@redhat.com>
+
+	* passes.c (init_optimization_passes): Replace copy propagation
+	passes immediately after DOM with phi-only copy propagation
+	pases.  Add phi-only copy propagation pass after first DOM pass.
+	* tree-pass.h (pass_phi_only_copy_prop): Declare.
+	* tree-ssa-copy.c (init_copy_prop): Accept new PHI_ONLY argument.
+	If true, then mark all non-control statements with DONT_SIMULATE_AGAIN.
+	(execute_copy_prop): Accept new PHI_ONLY argument.  Pass it along
+	to init_copy_prop.  Callers updated.
+	(do_phi_only_copy_prop): New function.
+	(pass_phi_only_copy_prop): New pass descriptor.
+
+2005-09-27  Nick Clifton  <nickc@redhat.com>
+
+	* libgcc2.c (__popcount_tab): Remove redundant prototype.
+
+2005-09-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13764
+	* c-common.c (finish_fname_decls): Use append_to_statement_list_force.
+
+	* doc/invoke.texi: Clarify documentation of -fno-enforce-eh-specs.
+
+2005-09-26  James E Wilson  <wilson@specifix.com>
+
+	* config/ia64/crtbegin.asm, config/ia64/crtend.asm: Remove glibc
+	copyright.  Add gcc copyright plus libgcc exception.
+	* config/ia64/crtfastmath.asm: Remove glibc copyright.  Add gcc
+	copyright.
+	* config/ia64/lib1funcs.asm: Add gcc copyright plus libgcc exception.
+
+2005-09-26  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Be more selective
+	about when to iterate.
+
+2005-09-23  Fariborz Jahanian <fjahanian@apple.com>
+
+	PR target/23847
+        * config/rs6000/rs6000.c (rs6000_function_value): Parallel pattern
+        for __complex__ double in -mcpu=G5 mode.
+
+2005-09-26  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	PR tree-optimization/23942
+	* Makefile.in (SCEV_H): Depends on PARAMS_H.
+	* tree-scalar-evolution.c: Include params.h.
+	(t_bool): New enum.
+	(follow_ssa_edge, follow_ssa_edge_in_rhs,
+	follow_ssa_edge_in_condition_phi_branch,
+	follow_ssa_edge_in_condition_phi, follow_ssa_edge_inner_loop_phi): 
+	Change return type to t_bool.  Use a parameter to limit the size of
+	trees that are walked before stopping 
+	(analyze_evolution_in_loop): Initialize the limit to 0.
+	(follow_ssa_edge): Give up by returning t_dont_know if the limit 
+	exceeds PARAM_SCEV_MAX_EXPR_SIZE.
+
+2005-09-26  Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/23831
+	* simplify-rtx.c (simplify_immed_subreg) [MODE_INT]: Skip
+	simplification if elem_bitsize > 2 * HOST_BITS_PER_WIDE_INT.
+
+2005-09-26    Fariborz Jahanian <fjahanian@apple.com>
+
+        * combine.c (make_extraction): Check for valid use of subreg.
+
+2005-09-26  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/24055
+	* config/i386/i386.md ("*fistdi2_1"): New pattern.
+	("*fist<mode>2_1"): Use only HImode and SImode register operands.
+	("fist<mode>2_with_temp"): Use only register operands.
+
+2005-09-26  J"orn Rennecke <joern.rennecke@st.com>
+
+	* rtlanal.c (reg_used_between_p): Don't check for CLOBBERs in
+	CALL_INSN_FUNCTION_USAGE.
+
+2005-09-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/15855
+	* gcse.c: Include hashtab.h, define ldst entry hashtable.
+	(pre_ldst_expr_hash, pre_ldst_expr_eq): New functions.
+	(ldst_entry): Use the hashtable instead of list-walking.
+	(find_rtx_in_ldst): Likewise.
+	(free_ldst_entry): Free the hashtable.
+	(compute_ld_motion_mems): Create the hashtable.
+	(trim_ld_motion_mems): Remove entry from hashtable if
+	removing it from list.
+	(compute_store_table): Likewise^2.
+	(store_motion): Free hashtable in case we did not see
+	any stores.
+
+2005-09-25  Kazu Hirata  <kazu@codesourcery.com>
+
+	* fold-const.c (fold_binary): Use op0 and op1 instead of arg0
+	and arg1 if we are passing them to fold_build2.
+
+2005-09-25  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	PR 23828
+	* config/i386/i386.c (ix86_function_regparm): Fix the test for
+	a nested function.
+
+2005-09-25  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (tls_symbolic_operand_1): Trust
+	SYMBOL_REF_TLS_MODEL to be correct.
+
+2005-09-24  Richard Henderson  <rth@redhat.com>
+
+	* ipa-type-escape.c (discover_unique_type): Remove dead code at
+	end of function.  Reindent.
+
+2005-09-24  Ian Lance Taylor  <ian@airs.com>
+
+	* convert.c (convert_to_integer): Don't test for ENUMERAL_TYPE in
+	NEGATE_EXPR/BIT_NOT_EXPR case.
+
+2005-09-24  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (handle_mode_attribute): When not modifying in place,
+	create subtypes for enumerations.
+	(sync_resolve_return): Use TYPE_MAIN_VARIANT.
+	* gimplify.c (create_tmp_from_val): Likewise.
+
+2005-09-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/i386/i386.md (*tls_global_dynamic_64,
+	*tls_local_dynamic_base_64): Add missing mode to call.
+	(tls_global_dynamic_64, tls_local_dynamic_base_64): Likewise.
+
+2005-09-24  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_clone_edge): Make the scale gcov_type.
+	(cgraph_clone_node): Likewise.
+	* cgraph.h (cgraph_clone_edge): Update prototype.
+	(cgraph_mark_inline_edge, cgraph_clone_inlined_nodes): Remove
+	duplicated prototypes; add updating argument.
+	* cgraphunit.c (verify_cgraph_node): Verify that counts are non-negative.
+	* ipa-inline.c (cgraph_clone_inlined_nodes): Allow clonning without
+	updating profile.
+	(cgraph_mark_inline_edge): Likewise.
+	(cgraph_mark_inline): Update use of cgraph_mark_inline_edge.
+	(cgraph_flatten_node): Likewise.
+	(cgraph_decide_recursive_inlining): Likewise.
+	(cgraph_decide_inlining_of_small_function): Likewise.
+	* tree-optimize.c (tree_rest_of_compilation): Likewise.
+
+2005-09-23  David Edelsohn  <edelsohn@gnu.org>
+	    Pete Steinmetz <steinmtz@us.ibm.com>
+
+	* config/rs6000/rs6000.md (neg-minus-mult): Set type to dmul.
+	(rldic.): Set type to "compare".
+	(rldicr.): Same.
+	(movsf_hardfloat): Set type to mtjmpr for MTCTR/MTLR.  Set type to
+	mfjmpr for MFCTR/MFLR.
+	(movdf_hardfloat64): Same.
+	(movdf_softfloat64): Same.  Correct order of store and move types.
+	(movti_string): Set type to store_ux/load_ux.
+	(load_multiple): Set type to load_ux.
+	(store_multiple): Set type to store_ux.
+	(movmemsi): Set type to store_ux.
+	(output_cbranch direct_return): Set type to jmpreg.
+	(stmw): Set type to store_ux.
+	(lmw): Set type to load_ux.
+	* config/rs6000/40x.md (ppc403-store): Increase latency to 2.
+	* config/rs6000/440.md (ppc440-store): Increase latency to 6.
+	* config/rs6000/603.md (ppc603-store): Occupy LSU for 2 cycles.
+	* config/rs6000/6xx.md (ppc604-store): Increase latency to 3.
+	* config/rs6000/mpc.md (mpccore-store): Increase latency to 2.
+	* config/rs6000/rios1.md (rios1-store): Increase latency to 2.
+	(rios1-fpstore): Increase latency to 3.
+	* config/rs6000/rios2.md (rios2-store): Increase latency to 2.
+	* config/rs6000/rs64.md (rs64a-store): Increase latency to 2.
+
+2005-09-23  David Edelsohn  <edelsohn@gnu.org>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/sync.md (sync_<fetchop_name>si_internal): Change
+	operand2 constraint to "b".
+	(sync_<fetchop_name>di_internal): Same.
+	(sync_old_<fetchop_name>si_internal): Change operand3 constraint
+	to "b".
+	(sync_old_<fetchop_name>di_internal): Same.
+	(sync_new_<fetchop_name>si_internal): Same.
+	(sync_new_<fetchop_name>di_internal): Same.
+
+2005-09-23  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/23991
+	* final.c (insn_default_length, insn_min_length): In !HAVE_ATTR_length
+	case, define as macros.
+
+	PR rtl-optimization/23837
+	*  optabs.c (no_conflict_move_test): Don't set must_stay for a
+	clobber / clobber match between dest and p->first.
+
+	* optabs.c (emit_libcall_block): Use no_conflict_move_test.
+	(no_conflict_move_test): Update comments.
+
+2005-09-22  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* doc/install.texi: Update URL for Jacks.
+	* doc/sourcebuild.texi: Likewise.
+
+2005-09-22  David Edelsohn  <edelsohn@gnu.org>
+
+        PR target/24007
+        * config/rs6000/rs6000.md (movsf_hardfloat): Ignore special
+        registers when choosing register preferences.
+        (movdf_hardfloat64): Same.
+
+2005-09-22  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* expmed.c (expand_shift): Don't use the target of the rotate as
+	target for the first expanded shift insn.
+	* testsuite/gcc.dg/20050922-1.c: Testcase added.
+
+2005-09-21  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/22438
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Handle all
+	preserved iv rhs rewriting specially.
+
+2005-09-21  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-data-ref.c (analyze_array_indexes): Only estimate when
+	estimate_only  is true.
+	* tree-flow.h (ref_contains_indirect_ref): New prototype.
+	* tree-flow-inline.h (ref_contains_indirect_ref): Moved from
+	tree-ssa-structalias.c 
+	* tree-ssa-loop-niter.c (infer_loop_bounds_from_undefined): Use
+	ref_contains_indirect_ref.
+	* tree-ssa-structalias.c (ref_contains_indirect_ref): Moved.
+
+2005-09-21  DJ Delorie  <dj@redhat.com>
+
+	* config/mn10300/mn10300.c (TARGET_DEFAULT_TARGET_FLAGS): Add
+	MASK_PTR_A0D0.
+	(mn10300_return_in_memory): Support variable size types also.
+	(mn10300_pass_by_reference): Likewise.
+	(mn10300_function_value): New.
+	* config/mn10300/mn10300.h (FUNCTION_VALUE): Call the above.
+	(FUNCTION_OUTGOING_VALUE): Likewise.
+	* config/mn10300/mn10300.opt: Add -mreturn-pointer-on-d0.
+	* doc/invoke.texi: Document it.
+
+2005-09-21  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/22585
+	* config/i386/i386.c (ix86_prepare_fp_compare_args): Do not
+	force integer op1 into register for XFmode compares.
+
+2005-09-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR middle-end/23971
+	* expmed.c (alg_code): Add alg_impossible.
+	(alg_hash_entry): Add cost.
+	(synth_mult): Record alg_impossible in the hash table if
+	multiplication by a given integer is impossble within the
+	limit.  Speed up using alg_impossible.
+
 2005-09-20  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-structalias.c (get_constraint_for_component_ref): Add
@@ -49,7 +327,7 @@
 	* tree-stdarg.c (execute_optimize_stdarg): Call
 	calculate_dominance_info.
 
-2005-09-18  Daniel Berlin  <dberlin@dberlin.org>
+2005-09-20  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-data-ref.c (get_number_of_iters_for_loop): New function.
 	(analyze_siv_subscript_cst_affine): Add weak SIV test.

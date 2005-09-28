@@ -609,6 +609,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mmult-bug  -mno-mult-bug @gol
 -mam33  -mno-am33 @gol
 -mam33-2  -mno-am33-2 @gol
+-mreturn-pointer-on-d0 @gol
 -mno-crt0  -mrelax}
 
 @emph{MS1 Options}
@@ -1459,10 +1460,13 @@ call the copy constructor in all cases.
 
 @item -fno-enforce-eh-specs
 @opindex fno-enforce-eh-specs
-Don't check for violation of exception specifications at runtime.  This
-option violates the C++ standard, but may be useful for reducing code
-size in production builds, much like defining @samp{NDEBUG}.  The compiler
-will still optimize based on the exception specifications.
+Don't generate code to check for violation of exception specifications
+at runtime.  This option violates the C++ standard, but may be useful
+for reducing code size in production builds, much like defining
+@samp{NDEBUG}.  This does not give user code permission to throw
+exceptions in violation of the exception specifications; the compiler
+will still optimize based on the specifications, so throwing an
+unexpected exception will result in undefined behavior.
 
 @item -ffor-scope
 @itemx -fno-for-scope
@@ -10583,6 +10587,14 @@ Generate code which uses features specific to the AM33 processor.
 @opindex mno-am33
 Do not generate code which uses features specific to the AM33 processor.  This
 is the default.
+
+@item -mreturn-pointer-on-d0
+@opindex mreturn-pointer-on-d0
+When generating a function which returns a pointer, return the pointer
+in both @code{a0} and @code{d0}.  Otherwise, the pointer is returned
+only in a0, and attempts to call such functions without a prototype
+would result in errors.  Note that this option is on by default; use
+@option{-mno-return-pointer-on-d0} to disable it.
 
 @item -mno-crt0
 @opindex mno-crt0
