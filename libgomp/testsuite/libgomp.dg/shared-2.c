@@ -43,7 +43,7 @@ parallel (int a, int b)
     abort ();
 }
 
-main()
+int main()
 {
   parallel (1, 2);
   return 0;
