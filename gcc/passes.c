@@ -470,6 +470,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_early_warn_uninitialized);
 
   NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dce);
 
   *p = NULL;

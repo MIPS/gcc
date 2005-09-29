@@ -1,3 +1,9 @@
+2005-09-30  Jan Hubicka  <jh@suse.cz>
+
+	* loop-init.c (loop_optimizer_init): Avoid calling RTL optimizer too
+	early.
+	* passes.c (init_optimization_passes): Schedule early VRP pass.
+
 2005-09-22  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-operands (get_indirect_ref_operands, add_stmt_operand):

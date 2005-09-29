@@ -44,7 +44,8 @@ loop_optimizer_init (FILE *dumpfile)
   edge_iterator ei;
   static bool first_time = true;
 
-  if (first_time)
+  /* Do not initialize set cost before RTL backend is initialized. */
+  if (first_time && (ENTRY_BLOCK_PTR->flags & BB_RTL))
     {
       first_time = false;
       init_set_costs ();
