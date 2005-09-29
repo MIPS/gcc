@@ -1,5 +1,11 @@
 2005-09-29  Ben Elliston  <bje@au.ibm.com>
 
+	* gcc.dg/dfp/conversions-8.c: Disable integer to DFP saturation
+	tests as there are no integer types that are wide enough to exceed
+	the range of even the smallest decimal floating point type.
+
+2005-09-29  Ben Elliston  <bje@au.ibm.com>
+
 	* gcc.dg/dfp/conversions-8.c: Add some dg-warning annotations.
 
 2005-09-28  Ben Elliston  <bje@au.ibm.com>

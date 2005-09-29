@@ -108,19 +108,24 @@ int main()
   if (d128 != 1555.0dl)
     abort();
 
-  /* Test DFP saturation.  */
+  /* We cannot easily test DFP saturation because we don't have
+     integer types big enough!  The smallest decimal floating point
+     type (_Decimal32) has the range [E-96 to E+96] and we would need
+     around 300-bit wide integers to exceed that range.  */
 
-  d32 = ULONG_MAX;
-  if (! __builtin_isnand32 (d32))
-    abort ();
-
-  d64 = ULONG_MAX;
-  if (! __builtin_isnand64 (d64))
-    abort ();
-
-  d128 = ULONG_MAX;
-  if (! __builtin_isnand128 (d128))
-    abort ();
-
+  /*
+    d32 = ULONG_MAX;
+    if (! __builtin_isnand32 (d32))
+      abort ();
+  
+    d64 = ULONG_MAX;
+    if (! __builtin_isnand64 (d64))
+      abort ();
+    
+    d128 = ULONG_MAX;
+    if (! __builtin_isnand128 (d128))
+      abort ();
+  */
+    
   return 0;
 }
