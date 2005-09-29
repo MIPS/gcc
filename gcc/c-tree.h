@@ -604,6 +604,8 @@ extern void c_finish_incomplete_decl (tree);
 extern void c_write_global_declarations (void);
 
 extern void c_omp_remap_private (bool);
+extern tree c_begin_omp_parallel (enum omp_clause_default_kind);
+extern tree c_finish_omp_parallel (tree, tree, tree, tree);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

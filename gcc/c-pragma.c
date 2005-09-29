@@ -343,7 +343,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       t = c_lex (&x);
     }
   if (t != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma weak");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma weak%>");
 
   decl = identifier_global_value (name);
   if (decl && DECL_P (decl))
@@ -416,7 +416,7 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
     GCC_BAD ("malformed #pragma redefine_extname, ignored");
   t = c_lex (&x);
   if (t != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma redefine_extname");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma redefine_extname%>");
 
   if (!flag_mudflap && !targetm.handle_pragma_redefine_extname)
     {
@@ -484,7 +484,7 @@ handle_pragma_extern_prefix (cpp_reader * ARG_UNUSED (dummy))
     GCC_BAD ("malformed #pragma extern_prefix, ignored");
   t = c_lex (&x);
   if (t != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma extern_prefix");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma extern_prefix%>");
 
   if (targetm.handle_pragma_extern_prefix)
     /* Note that the length includes the null terminator.  */

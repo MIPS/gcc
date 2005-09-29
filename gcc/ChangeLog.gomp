@@ -1,3 +1,69 @@
+2005-09-29  Dmitry Kurochkin <dmitry.kurochkin@gmail.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_parse_error): Handle CPP_PRAGMA and CPP_PRAGMA_EOL.
+	* c-common.h (c_begin_omp_parallel, c_finish_omp_parallel): Move ...
+	* c-tree.h: ... here.
+	* c-decl.c (c_finish_omp_parallel): Return the statement created.
+	* c-lex.c (c_lex_with_flags): Smuggle pragma identifier in a tree.
+	* c-parser.c (c_parse_init): Use cpp_register_deferred_pragma.
+	(struct c_token): Remove one bit from omp_kind.
+	(struct c_parser): Add in_pragma.
+	(c_handle_deferred_pragma): Remove.
+	(c_lex_omp_pragma): Remove.
+	(c_lex_one_token): Remove pragma restart hack.  Tidy initialization.
+	Undo pragma identifier smuggling.
+	(c_parser_peek_2nd_token): Don't look past CPP_PRAGMA_EOL.
+	(c_parser_consume_token): Don't allow CPP_PRAGMA unless in error
+	recovery; don't allow CPP_PRAGMA_EOL unless we've escaped in_pragma.
+	(c_parser_consume_pragma): New.
+	(c_parser_skip_until_found): Don't skip CPP_PRAGMA_EOL when in_pragma.
+	(c_parser_skip_to_end_of_parameter): Likewise.
+	(c_parser_skip_to_end_of_block_or_statement): Likewise.
+	(c_parser_skip_to_pragma_eol): New.
+	(curr_clause_set, curr_clause_default): Remove.
+	(c_parser_pragma): Remove.
+	(c_parser_declaration_or_fndef): Update threadprivate test.
+	(c_parser_compound_statement_nostart): Test for EOF last.
+	Update omp parsing calls.
+	(c_parser_omp_clause_name): Rename from c_parser_pragma_omp_clause.
+	(add_new_clause): Remove.
+	(check_no_duplicate_clause): Pass in clause list.
+	(c_parser_omp_variable_list): Rename from
+	c_parser_pragma_omp_variable_list.  Pass in list tail, always
+	return the list head.
+	(c_parser_omp_var_list_parens, c_parser_omp_clause_copyin,
+	c_parser_omp_clause_copyprivate, c_parser_omp_clause_default,
+	c_parser_omp_clause_firstprivate, c_parser_omp_clause_if,
+	c_parser_omp_clause_lastprivate, c_parser_omp_clause_nowait,
+	c_parser_omp_clause_num_threads, c_parser_omp_clause_ordered,
+	c_parser_omp_clause_private, c_parser_omp_clause_reduction,
+	c_parser_omp_clause_schedule, c_parser_omp_clause_shared): Similarly.
+	(c_parser_pragma_omp_no_args): Remove.
+	(c_parser_omp_all_clauses): New.
+	(c_parser_omp_structured_block): New.
+	(c_parser_omp_atomic): Rename from c_parser_omp_atomic_expression;
+	use c_parser_skip_to_pragma_eol.
+	(c_parser_omp_barrier): New.
+	(c_parser_omp_critical): New.
+	(c_parser_omp_flush): Rename from c_parser_pragma_omp_flush;
+	call c_finish_omp_flush here.
+	(c_parser_omp_for_loop): Rename from c_parser_omp_for_statement.
+	(c_parser_omp_for): New.
+	(c_parser_omp_master): New.
+	(c_parser_omp_ordered): New.
+	(c_parser_omp_sections_scope): Rename from c_parser_omp_sections_body.
+	(c_parser_omp_sections): New.
+	(c_parser_omp_parallel): New.
+	(c_parser_omp_single): New.
+	(c_parser_omp_construct): Rename from c_parser_omp_directive; split
+	out all the code into new functions; don't use c_parser_pragma.
+	(c_parser_omp_threadprivate): Rename from
+	c_parser_pragma_omp_threadprivate; update for pragma parsing changes.
+	* c-pragma.c (handle_pragma_weak): Add quotes to warning message.
+	(handle_pragma_redefine_extname): Likewise.
+	(handle_pragma_extern_prefix): Likewise.
+
 2005-09-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.def (OMP_SINGLE): Fix a comment typo.

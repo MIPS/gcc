@@ -7867,7 +7867,7 @@ c_begin_omp_parallel (enum omp_clause_default_kind def)
   return block;
 }
 
-void
+tree
 c_finish_omp_parallel (tree block, tree clauses, tree init, tree reduc)
 {
   tree stmt;
@@ -7887,7 +7887,7 @@ c_finish_omp_parallel (tree block, tree clauses, tree init, tree reduc)
   OMP_PARALLEL_VAR_INIT (stmt) = init;
   OMP_PARALLEL_VAR_REDUC (stmt) = reduc;
 
-  add_stmt (stmt);
+  return add_stmt (stmt);
 }
 
 void
