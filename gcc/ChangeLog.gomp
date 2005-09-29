@@ -1,3 +1,14 @@
+2005-09-29  Richard Henderson  <rth@redhat.com>
+
+	* c-decl.c (struct c_scope): Add location.
+	(define_label): Use lookup_name_no_remap.
+	(c_omp_remap_decl_1): Add pscope argument.  Use it instead of
+	current_omp_parallel_scope.
+	(c_omp_remap_decl): Pass it current_omp_parallel_scope.
+	(maybe_remap_for_omp_parallel): New.
+	(lookup_name): Use it.
+	(c_begin_omp_parallel): Initialize location field.
+
 2005-09-29  Dmitry Kurochkin <dmitry.kurochkin@gmail.com>
 	    Richard Henderson  <rth@redhat.com>
 
