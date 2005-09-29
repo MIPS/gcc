@@ -1,4 +1,5 @@
 /* APPLE LOCAL file 4263352 */
+/* { dg-options "-fno-strict-aliasing" } */
 #include "pragma-1.h"
 
 extern void abort(void);
