@@ -195,23 +195,14 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
           nunits = TYPE_VECTOR_SUBPARTS (vectype);
           if (vect_print_dump_info (REPORT_DETAILS))
             fprintf (vect_dump, "nunits = %d", nunits);
-
-          if (vectorization_factor)
-            {
-              /* FORNOW: don't allow mixed units. 
-                 This restriction will be relaxed in the future.  */
-              if (nunits != vectorization_factor)
-                {
-                  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-                    fprintf (vect_dump, "not vectorized: mixed data-types");
-                  return false;
-                }
-            }
-          else
-            vectorization_factor = nunits;
-
+	
+          if (!vectorization_factor 
+	      || (nunits > vectorization_factor))
+	    vectorization_factor = nunits;
+#if 0
           gcc_assert (GET_MODE_SIZE (TYPE_MODE (scalar_type))
                         * vectorization_factor == UNITS_PER_SIMD_WORD);
+#endif
         }
     }
 
@@ -596,6 +587,8 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
   struct data_reference *drb = DDR_B (ddr);
   stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra)); 
   stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+  int dra_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dra))));
+  int drb_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (drb))));
          
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     return false;
@@ -637,7 +630,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
     fprintf (vect_dump, "dependence distance  = %d.",dist);
 
   /* Same loop iteration.  */
-  if (dist % vectorization_factor == 0)
+  if (dist % vectorization_factor == 0 && dra_size == drb_size)
     {
       /* Two references with distance zero have the same alignment.  */
       VEC_safe_push (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_a), drb);
@@ -844,12 +837,15 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
                                    struct data_reference *dr_peel, int npeel)
 {
   unsigned int i;
-  int drsize;
   VEC(dr_p,heap) *same_align_drs;
   struct data_reference *current_dr;
+  int dr_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+  int dr_peel_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr_peel))));
 
   if (known_alignment_for_access_p (dr)
-      && DR_MISALIGNMENT (dr) == DR_MISALIGNMENT (dr_peel))
+      && known_alignment_for_access_p (dr_peel)
+      && (DR_MISALIGNMENT (dr)/dr_size == 
+	  DR_MISALIGNMENT (dr_peel)/dr_peel_size))
     {
       DR_MISALIGNMENT (dr) = 0;
       return;
@@ -863,7 +859,8 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
     {
       if (current_dr != dr)
         continue;
-      gcc_assert (DR_MISALIGNMENT (dr) == DR_MISALIGNMENT (dr_peel));
+      gcc_assert (DR_MISALIGNMENT (dr)/dr_size == 
+		  DR_MISALIGNMENT (dr_peel)/dr_peel_size);
       DR_MISALIGNMENT (dr) = 0;
       return;
     }
@@ -871,12 +868,13 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
   if (known_alignment_for_access_p (dr)
       && known_alignment_for_access_p (dr_peel))
     {  
-      drsize = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
-      DR_MISALIGNMENT (dr) += npeel * drsize;
+      DR_MISALIGNMENT (dr) += npeel * dr_size;
       DR_MISALIGNMENT (dr) %= UNITS_PER_SIMD_WORD;
       return;
     }
 
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "Setting misalignment to -1.");
   DR_MISALIGNMENT (dr) = -1;
 }
 
@@ -1020,6 +1018,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   bool do_versioning = false;
   bool stat;
 
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "=== vect_enhance_data_refs_alignment ===");
+
   /* While cost model enhancements are expected in the future, the high level
      view of the code at this time is as follows:
 
@@ -1089,6 +1090,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
           mis = DR_MISALIGNMENT (dr0);
           mis /= GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr0))));
           npeel = LOOP_VINFO_VECT_FACTOR (loop_vinfo) - mis;
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "Try peeling by %d",npeel);
         }
 
       /* Ensure that all data refs can be vectorized after the peel.  */
@@ -1126,6 +1129,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	      if (dr == dr0)
 	        continue;
 	      vect_update_misalignment_for_peel (dr, dr0, npeel);
+              if (vect_print_dump_info (REPORT_DETAILS))
+                fprintf (vect_dump, "New alignment for dr = %d",
+				    DR_MISALIGNMENT (dr));
 	    }
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) = DR_MISALIGNMENT (dr0);
@@ -2699,7 +2705,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo)
   tree (* pattern_recog_func) (tree, tree *, varray_type *);
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "\n<<vect_pattern_recog>>\n");
+    fprintf (vect_dump, "=== vect_pattern_recog ===");
 
   /* Scan through the loop stmts, trying to apply the pattern recognition
      utility starting at each stmt visited:  */
@@ -2745,7 +2751,7 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
   /* Analyze phi functions of the loop header.  */
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "=== vect_can_advance_ivs_p ===");
+    fprintf (vect_dump, "vect_can_advance_ivs_p:");
 
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {

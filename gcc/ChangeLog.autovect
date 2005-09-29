@@ -1,9 +1,50 @@
+2005-09-29  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Don't fail
+	in the presence of data-types of different sizes. Record the maximum 
+	nunits as the vectorization-factor.
+	(vect_analyze_data_ref_dependence): Don't record datarefs as same_align
+	if they are of different sizes.
+	(vect_update_misalignment_for_peel): Compare misalignments in terms of
+	number of elements rather than number of bytes.
+	(vect_enhance_data_refs_alignment): Add debug printouts.
+	(vect_pattern_recog): Fix debug printout.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Add new argument - 
+	PTR_INCR.
+	(vect_finish_stmt_generation): Set a stmt_info to newly generated stmts.
+	(vect_create_epilog_for_reduction): Remove redundant assert.
+	(vectorizable_target_reduction_pattern): Check if multiple-types 
+	support is needed. If so - fail for now.
+	(vectorizable_reduction, vectorizable_assignment):
+	(vectorizable_condition): Likewise.
+	(vectorizable_operation): Support vectorization in the presence of
+	multiple-data-types (i.e. - the vectorization factor is bigger than
+	the number of elements in vectype for this operation).
+	(vectorizable_load, vectorizable_store): Likewise.
+	(vect_gen_niters_for_prolog_loop): element_size is calculated using
+	the data-types.
+	(vect_trsnform_loop): Remove assert.
+
+2005-09-29  Dorit Nuzman  <dorit@il.ibm.com>
+
+	Bring over from mainline:
+
+	2005-09-22  Richard Henderson  <rth@gcc.gnu.org>
+
+	* tree-flow.h (merge_alias_info): Declare.
+	* tree-ssa-copy.c (merge_alias_info): Export.
+	* tree-vect-transform.c (vect_create_index_for_vector_ref): Remove.
+	(vect_create_data_ref_ptr): Use create_iv directly.
+	(vectorizable_load): Use correct types for integer constants.
+	(vect_generate_tmps_on_preheader): Likewise.
+	(vect_gen_niters_for_prolog_loop): Likewise.
+
 2005-09-23  Devang Patel  <dpatel@apple.com>
 
-        * tree-ssa-forwaprop.c (replacable_use_in_cond_expr): Do not
-        a eliminate type conversion which feeds an equality comparison
-        if the original type or either operand in the comparison is a
-        function pointer.
+	* tree-ssa-forwaprop.c (replacable_use_in_cond_expr): Do not
+	a eliminate type conversion which feeds an equality comparison
+	if the original type or either operand in the comparison is a
+	function pointer.
 
 2005-09-23  Dorit Nuzman  <dorit@il.ibm.com>
 
