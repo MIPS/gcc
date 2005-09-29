@@ -132,8 +132,24 @@ use_pointer_for_field (tree decl, bool shared_p)
   if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
     return true;
 
-  if (shared_p && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
-    return true;
+  /* We can only use copy-in/copy-out semantics for shared varibles
+     when we know the value is not accessible from an outer scope.  */
+  if (shared_p)
+    {
+      /* ??? Trivially accessible from anywhere.  But why would we even
+	 be passing an address in this case?  Should we simply assert
+	 this to be false, or should we have a cleanup pass that removes
+	 these from the list of mappings?  */
+      if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+	return true;
+
+      /* For variables with DECL_HAS_VALUE_EXPR_P set, we cannot tell
+	 without analyzing the expression whether or not its location
+	 is accessible to anyone else.  In the case of nested parallel
+	 regions it certainly may be.  */
+      if (DECL_HAS_VALUE_EXPR_P (decl))
+	return true;
+    }
 
   return false;
 }

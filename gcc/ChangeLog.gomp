@@ -1,5 +1,10 @@
 2005-09-29  Richard Henderson  <rth@redhat.com>
 
+	* omp-low.c (use_pointer_for_field): True for shared variables
+	with DECL_HAS_VALUE_EXPR_P set.
+
+2005-09-29  Richard Henderson  <rth@redhat.com>
+
 	* c-decl.c (struct c_scope): Add location.
 	(define_label): Use lookup_name_no_remap.
 	(c_omp_remap_decl_1): Add pscope argument.  Use it instead of
