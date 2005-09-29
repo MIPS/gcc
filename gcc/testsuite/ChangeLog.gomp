@@ -1,3 +1,14 @@
+2005-09-29  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/gomp/atomic-5.c: Update expected errors.
+	* gcc.dg/gomp/barrier-2.c: Likewise.
+	* gcc.dg/gomp/critical-2.c: Likewise.
+	* gcc.dg/gomp/flush-2.c: Likewise.
+	* gcc.dg/gomp/master-2.c: Likewise.
+	* gcc.dg/gomp/ordered-2.c: Likewise.
+	* gcc.dg/gomp/macro-1.c: New.
+	* gcc.dg/gomp/macro-2.c: New.
+
 2005-09-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/atomic-10.c: New test.

@@ -2,7 +2,7 @@
 
 void f1(void)
 {
-  #pragma omp barrier a		/* { dg-error "expected new-line" } */
+  #pragma omp barrier a		/* { dg-error "expected end of line" } */
 }
 
 /* OpenMP 2.5, section 2.7.3:

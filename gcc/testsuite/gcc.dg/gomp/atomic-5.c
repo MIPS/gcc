@@ -26,12 +26,13 @@ void f1(void)
     bar();		/* { dg-error "invalid operator" } */
   #pragma omp atomic
     bar() += 1;		/* { dg-error "invalid lvalue" } */
-  {
+  #pragma omp atomic a	/* { dg-error "expected end of line" } */
+    x++;
   #pragma omp atomic
-    x
-  }			/* { dg-error "invalid operator" } */
-  #pragma omp atomic a	/* { dg-error "expected new-line" } */
     ;			/* { dg-error "expected expression" } */
-  #pragma omp atomic	/* { dg-error "expected expression" } */
   #pragma omp atomic
+  #pragma omp atomic	/* { dg-error "expected expression" } */
+    ;
+  /* Check that we didn't get stuck on the pragma eol marker.  */
+  undef;		/* { dg-error "" } */
 }
