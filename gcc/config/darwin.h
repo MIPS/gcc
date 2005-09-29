@@ -184,7 +184,7 @@ extern const char *darwin_one_byte_bool;
   
 /* APPLE LOCAL begin pragma reverse_bitfields */
 /* True if pragma reverse_bitfields is in effect. */
-extern int darwin_reverse_bitfields;
+extern GTY(()) int darwin_reverse_bitfields;
 /* APPLE LOCAL end pragma reverse_bitfields */
 
 extern int darwin_fix_and_continue;

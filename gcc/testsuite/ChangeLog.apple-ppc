@@ -1,5 +1,10 @@
 2005-09-28  Devang Patel  <dpatel@apple.com>
 
+        * g++.dg/pch/pragma-1.C: New.
+        * g++.dg/pch/pragma-1.Hs: New.
+
+2005-09-28  Devang Patel  <dpatel@apple.com>
+
 	Radar 4258406
 	* gcc.apple/Wnested-funcs-1.c: Remove.
 	* gcc.apple/nested-func-1.c: New.

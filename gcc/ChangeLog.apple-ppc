@@ -1,5 +1,9 @@
 2005-09-28  Devang Patel  <dpatel@apple.com>
 
+        * config/darwin.h (darwin_reverse_bitfields): Add GTY marker.
+
+2005-09-28  Devang Patel  <dpatel@apple.com>
+
 	Radar 4258406
 	* c-parse.in (nested_function): Report an error, instead of a warning.
 	(nontype_nested_function): Same.
