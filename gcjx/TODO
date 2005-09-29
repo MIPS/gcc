@@ -279,6 +279,8 @@ eg it could be a flag on modifier tokens only
 standardize error messages
 what do they refer to?  (what is wrong or what should be)
 voice, etc
+get source line from lexer and print a caret underneath pointing
+to the column in question.
 
 one thing that would be nice would be to unify the visitor API
 with the constant value computation stuff, so we'd only need a single
