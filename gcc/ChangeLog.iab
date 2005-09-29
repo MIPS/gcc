@@ -1,4 +1,9 @@
 2005-09-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ipa-callees.c (argument_readonly_nonpointer): Removed.
+	(has_pointer_arguments): Renamed from has_nonreadonly_pointer_arguments.
+
+2005-09-29  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* ipa-callees.c (scan_for_indirect_calls): New function.
 	(argument_readonly_nonpointer): New function

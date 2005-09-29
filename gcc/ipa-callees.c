@@ -108,23 +108,11 @@ scan_for_indirect_calls (tree fn, unsigned int uid, bitmap ids)
 
 }
 
-/* Return true if PARG, a pointer type, points to a readonly
-   non-pointer type.  */
+
+/* Return true if fn has pointer arguments.  */
 
 static bool
-argument_readonly_nonpointer (tree parg)
-{
-  if (POINTER_TYPE_P (TREE_TYPE (parg)))
-    return false;
-  if (!TYPE_READONLY (TREE_TYPE (parg)))
-    return false;
-  return true;
-}
-
-/* Return true if fn has non-readonly pointer arguments.  */
-
-static bool
-has_nonreadonly_pointer_arguments (tree fn)
+has_pointer_arguments (tree fn)
 {
   tree arg;
 
@@ -133,8 +121,7 @@ has_nonreadonly_pointer_arguments (tree fn)
        arg;
        arg = TREE_CHAIN (arg))
     {
-      if (POINTER_TYPE_P (TREE_TYPE (arg))
-	  && !argument_readonly_nonpointer (arg))
+      if (POINTER_TYPE_P (TREE_TYPE (arg)))
 	return true;
     }
 
@@ -142,8 +129,7 @@ has_nonreadonly_pointer_arguments (tree fn)
        arg && arg != void_list_node;
        arg = TREE_CHAIN (arg))
     {
-      if (POINTER_TYPE_P (TREE_VALUE (arg))
-	  && !argument_readonly_nonpointer (TREE_VALUE (arg)))
+      if (POINTER_TYPE_P (TREE_VALUE (arg)))
 	return true;
     }
 
@@ -173,7 +159,7 @@ callees_execute (void)
 	function_ann_t ann = get_function_ann (decl);
 	struct cgraph_edge *e;
 
-	ann->has_pointer_arguments = has_nonreadonly_pointer_arguments (decl);
+	ann->has_pointer_arguments = has_pointer_arguments (decl);
 	if (!node->analyzed)
 	  continue;
 	/* If this is global, addressable or no body is available,
