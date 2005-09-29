@@ -1,0 +1,22 @@
+2005-09-29  Dmitry Kurochkin <dmitry.kurochkin@gmail.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* directives.c (struct pragma_entry): Add is_deferred.  Add ident
+	entry to value union.
+	(end_directive): Don't eat the line if in_deferred_pragma.
+	(insert_pragma_entry): Remove.
+	(new_pragma_entry): New.
+	(register_pragma_1): Split out of register_pragma.  Only handle
+	the lookup tree and return the new entry.
+	(cpp_register_pragma): Fill in the pragma entry here.
+	(cpp_register_deferred_pragma): New.
+	(register_pragma_internal): New.
+	(_cpp_init_internal_pragmas): Use register_pragma_internal.
+	(do_pragma): Allow pragma expansion after namespace.  For deferred
+	pragmas, don't slurp the line into a string.
+	(cpp_handle_deferred_pragma): Remove.
+	* internal.h (struct lexer_state): Add pragma_allow_expansion.
+	* lex.c (_cpp_lex_token): Allow _cpp_handle_directive to return
+	a token.  Update the line number correctly if so.
+	(_cpp_lex_direct): Emit CPP_PRAGMA_EOL tokens.
+	(cpp_token_val_index): Return CPP_TOKEN_FLD_PRAGMA for pragmas.
