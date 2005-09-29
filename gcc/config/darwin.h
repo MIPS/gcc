@@ -1073,7 +1073,7 @@ objc_section_init (void)			\
     darwin_handle_odd_attribute },					     \
   /* APPLE LOCAL end KEXT double destructor */				     \
   /* APPLE LOCAL ObjC GC */						     \
-  { "objc_gc", 1, 1, 0, 0, 0, darwin_handle_objc_gc_attribute },	     \
+  { "objc_gc", 1, 1, false, true, false, darwin_handle_objc_gc_attribute },  \
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 

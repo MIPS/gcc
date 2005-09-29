@@ -1,3 +1,15 @@
+2005-09-29  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4136489
+	* objc-act.c (objc_is_gcable_type): Remove second parameter;
+	handle __weak attribute.
+	(objc_is_strong_p): New function.
+	(objc_is_object_ptr): Check main variant of pointee.
+	(objc_is_gcable_p): Hande __weak attribute.
+	(objc_generate_write_barrier): For GC-able objects, always generate
+	a strong-cast write barrier as a last resort, unless the object's
+	type is marked __weak.
+
 2005-08-23  Stuart Hastings <stuart@apple.com>
 	    Ziemowit Laski  <zlaski@apple.com>
 

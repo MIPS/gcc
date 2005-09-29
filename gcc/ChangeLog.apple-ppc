@@ -1,3 +1,15 @@
+2005-09-29  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4136489
+	* config/darwin-c.c (darwin_cpp_builtins): Define a '__weak'
+	macro if Objective-C GC is being used.
+	* config/darwin.c (darwin_handle_objc_gc_attribute): Correctly
+	propagate GC attribute to ..._TYPE nodes, even for functions
+	and arrays.
+	* config/darwin.h (SUBTARGET_ATTRIBUTE_TABLE): Restrict use of
+	GC attribute to ..._TYPE nodes.
+	* doc/invoke.texi: Document '-fobjc-gc' switch.
+
 2005-09-28  Devang Patel  <dpatel@apple.com>
 
         * config/darwin.h (darwin_reverse_bitfields): Add GTY marker.

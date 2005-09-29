@@ -246,6 +246,8 @@ Objective-C and Objective-C++ Dialects}.
 @c APPLE LOCAL mainline
 -fobjc-call-cxx-cdtors (APPLE ONLY) @gol
 -fobjc-exceptions @gol
+@c APPLE LOCAL ObjC GC
+-fobjc-gc @gol
 -freplace-objc-classes @gol
 -fzero-link @gol
 -gen-decls @gol
@@ -2226,6 +2228,39 @@ Unlike Java, Objective-C does not allow for entire methods to be marked
 @code{@@synchronized} blocks is allowed, and will cause the guarding object
 to be unlocked properly.
 
+@c APPLE LOCAL begin ObjC GC
+@item -fobjc-gc
+@opindex fobjc-gc
+Enable garbage collection (GC) for Objective-C objects.  The resulting binary
+can only be used on Mac OS X 10.5 (Leopard) and later systems, due to additional
+functionality needed in the (NeXT) Objective-C runtime.
+
+When the @option{-fobjc-gc} switch is specified, the compiler will replace
+assignments to instance variables (ivars) and to certain kinds of pointers to
+Objective-C object instances with calls to interceptor functions provided
+by the runtime garbage collector.  Two type qualifiers, @code{__strong} and
+@code{__weak}, also become available.  The @code{__strong} qualifier may be
+used to indicate that assignments to variables of this type should generate
+a GC interceptor call, e.g.:
+
+@smallexample
+  __strong void *p;  // assignments to 'p' will have interceptor calls
+  int *q;            // assignments to 'q' ordinarly will not
+    @dots{}
+  (__strong int *)q = 0;   // this assignment will call an interceptor
+@end smallexample
+
+Conversely, the @code{__weak} type qualifier may be used to suppress
+interceptor call generation:
+
+@smallexample
+  __weak id q;      // assignments to 'q' will not have interceptor calls
+  id p;             // assignments to 'p' will have interceptor calls
+    @dots{}
+  (__weak id)p = 0;   // suppress interceptor call for this assignment
+@end smallexample
+
+@c APPLE LOCAL end ObjC GC
 @item -freplace-objc-classes
 @opindex freplace-objc-classes
 Emit a special marker instructing @command{ld(1)} not to statically link in

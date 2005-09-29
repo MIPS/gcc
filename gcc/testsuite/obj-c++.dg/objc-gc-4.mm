@@ -32,7 +32,7 @@ id objc_assign_ivar(id value, id dest, unsigned int offset) {
 id objc_assign_strongCast(id value, __weak id *dest) {
   id base;
 
-  ++StrongCastAssigns ;
+  ++StrongCastAssigns;
   return (*dest = value);
 }
 
@@ -75,7 +75,7 @@ struct_with_ids_t GlobalStructArray[10];
 // The test cases
 void *rhs = 0;
 
-#define ASSIGNTEST(expr, global) expr = rhs; if (!global) { printf(# expr " is busted\n"); ++counter; }  global = 0
+#define ASSIGNTEST(expr, global) expr = (typeof(expr))rhs; if (!global) { printf(# expr " is busted\n"); ++counter; }  global = 0
 
 int testGlobals() {
   // Everything in this function generates assign_global intercepts

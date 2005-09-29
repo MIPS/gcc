@@ -976,10 +976,14 @@ darwin_cpp_builtins (cpp_reader *pfile)
   if (flag_objc_gc)
     {
       builtin_define ("__strong=__attribute__((objc_gc(strong)))");
+      builtin_define ("__weak=__attribute__((objc_gc(weak)))");
       builtin_define ("__OBJC_GC__");
     }
   else
-    builtin_define ("__strong=");
+    {
+      builtin_define ("__strong=");
+      builtin_define ("__weak=");
+    }
   /* APPLE LOCAL end ObjC GC */
   /* APPLE LOCAL begin radar 4224728 */
   if (flag_pic)

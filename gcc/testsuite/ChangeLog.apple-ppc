@@ -1,3 +1,13 @@
+2005-09-29  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4136489
+	* obj-c++.dg/objc-gc-[1-2].mm: Tweak message wording.
+	* obj-c++.dg/objc-gc-[4-8].mm: New.
+	* objc.dg/objc-gc-1.m: Tweak message wording.
+	* objc.dg/objc-gc-[2-3].m: Use __weak when implementing
+	write barriers.
+	* objc.dg/objc-gc-[5-7].m: New.
+
 2005-09-28  Devang Patel  <dpatel@apple.com>
 
         * g++.dg/pch/pragma-1.C: New.

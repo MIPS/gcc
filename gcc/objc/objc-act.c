@@ -182,12 +182,15 @@ static tree get_super_receiver (void);
 static void build_objc_exception_stuff (void);
 static void build_next_objc_exception_stuff (void);
 
+/* APPLE LOCAL ObjC GC */
+static int objc_is_gcable_type (tree);
 /* APPLE LOCAL begin mainline */
-static int objc_is_gcable_type (tree, int);
 static tree objc_substitute_decl (tree, tree, tree);
 static tree objc_build_ivar_assignment (tree, tree, tree);
 static tree objc_build_global_assignment (tree, tree);
 static tree objc_build_strong_cast_assignment (tree, tree);
+/* APPLE LOCAL ObjC GC */
+static int objc_is_strong_p (tree);
 static int objc_is_gcable_p (tree);
 static int objc_is_ivar_reference_p (tree);
 static int objc_is_global_reference_p (tree);
@@ -3286,30 +3289,54 @@ objc_is_object_ptr (tree type)
 
   ret = objc_is_id (type);
   if (!ret)
-    ret = objc_is_class_name (TREE_TYPE (type));
+    /* APPLE LOCAL ObjC GC */
+    ret = objc_is_class_name (TYPE_MAIN_VARIANT (TREE_TYPE (type)));
 
   return ret;
 }
 
+/* APPLE LOCAL begin ObjC GC */
+/* Return 1 if TYPE should be garbage collected, and 0 otherwise.  Types
+   marked with the '__strong' attribute are GC-able, whereas those marked with
+   __weak' are not.  Types marked with neither attribute are GC-able if
+   (a) they are Objective-C pointer types or (b) they are pointers to types
+   that are themselves GC-able.  */
+
+/* APPLE LOCAL end ObjC GC */
 /* APPLE LOCAL begin mainline */
 static int
-objc_is_gcable_type (tree type, int or_strong_p)
+/* APPLE LOCAL ObjC GC */
+objc_is_gcable_type (tree type)
 {
-  tree name; 
-
+  /* APPLE LOCAL ObjC GC */
+  /* CODE FRAGMENT REMOVED.  */
   if (!TYPE_P (type))
     return 0;
-  if (objc_is_id (TYPE_MAIN_VARIANT (type)))
-    return 1;
-  if (or_strong_p && lookup_attribute ("objc_gc", TYPE_ATTRIBUTES (type)))
-    return 1;
-  if (TREE_CODE (type) != POINTER_TYPE && TREE_CODE (type) != INDIRECT_REF)
-    return 0;
-  type = TREE_TYPE (type);
-  if (TREE_CODE (type) != RECORD_TYPE)
-    return 0;
-  name = TYPE_NAME (type);
-  return (objc_is_class_name (name) != NULL_TREE);
+  /* APPLE LOCAL begin ObjC GC */
+
+  do
+    {
+      /* The '__strong' and '__weak' keywords trump all.  */
+      int strong = objc_is_strong_p (type);
+
+      if (strong)
+	return (strong == 1 ? 1 : 0);
+
+      /* Function pointers are not GC-able.  */
+      if (TREE_CODE (type) == FUNCTION_TYPE)
+	return 0;
+
+      /* Objective-C objects are GC-able, unless they were tagged with
+	 '__weak'.  */
+      if (objc_is_object_ptr (type))
+	return (objc_is_strong_p (TREE_TYPE (type)) >= 0);
+
+      type = TREE_TYPE (type);
+    }
+  while (type);
+
+  return 0;
+  /* APPLE LOCAL end ObjC GC */
 }
 
 static tree
@@ -3394,21 +3421,68 @@ objc_build_strong_cast_assignment (tree lhs, tree rhs)
   return build_function_call (objc_assign_strong_cast_decl, func_params);
 }
 
+/* APPLE LOCAL begin ObjC GC */
+/* Return 1 if EXPR is marked with the __strong attribute, -1 if it is marked
+   with the __weak attribute, and 0 if it is marked with neither (regardless
+   if it is otherwise GC-able).  */
+
+static int
+objc_is_strong_p (tree expr)
+{
+  if (TYPE_P (expr) || DECL_P (expr))
+    {
+      tree attr = lookup_attribute ("objc_gc",
+				    (TYPE_P (expr)
+				     ? TYPE_ATTRIBUTES (expr)
+				     : DECL_ATTRIBUTES (expr)));
+
+      if (attr && TREE_VALUE (attr))
+	{
+	  if (TREE_VALUE (TREE_VALUE (attr)) == get_identifier ("strong"))
+	    return 1;
+
+	  if (TREE_VALUE (TREE_VALUE (attr)) == get_identifier ("weak"))
+	    return -1;
+	}
+    }
+
+  return 0;
+}
+
+/* Return 1 if a call to a write-barrier should be generated when assigning
+   to EXPR.  */
+
+/* APPLE LOCAL end ObjC GC */
 static int
 objc_is_gcable_p (tree expr)
 {
-  return (TREE_CODE (expr) == COMPONENT_REF
-	  ? objc_is_gcable_p (TREE_OPERAND (expr, 1))
-	  : TREE_CODE (expr) == ARRAY_REF
-	  ? (objc_is_gcable_p (TREE_TYPE (expr))
-	     || objc_is_gcable_p (TREE_OPERAND (expr, 0)))
-	  : TREE_CODE (expr) == ARRAY_TYPE
-	  ? objc_is_gcable_p (TREE_TYPE (expr))
-	  : TYPE_P (expr)
-	  ? objc_is_gcable_type (expr, 1)
-	  : (objc_is_gcable_p (TREE_TYPE (expr))
-	     || (DECL_P (expr)
-		 && lookup_attribute ("objc_gc", DECL_ATTRIBUTES (expr)))));
+  /* APPLE LOCAL begin ObjC GC */
+  tree t = TREE_TYPE (expr);
+  /* The '__strong' and '__weak' keywords trump all.  */
+  int strong = objc_is_strong_p (t);
+
+  if (strong)
+    return (strong == 1 ? 1 : 0);
+
+  /* Discard lvalue casts, if any.  */
+  while (TREE_CODE (expr) == INDIRECT_REF
+	 && TREE_CODE (TREE_OPERAND (expr, 0)) == NOP_EXPR
+	 && TREE_CODE (TREE_OPERAND (TREE_OPERAND (expr, 0), 0)) == ADDR_EXPR)
+    expr = TREE_OPERAND (TREE_OPERAND (TREE_OPERAND (expr, 0), 0), 0);
+
+  /* Zero in on the variable/parameter being assigned to.  */
+  while (TREE_CODE (expr) == COMPONENT_REF || TREE_CODE (expr) == ARRAY_REF)
+    expr = TREE_OPERAND (expr, 0);
+
+  /* Parameters and local variables (and their fields) are NOT GC-able.  */
+  if (TREE_CODE (expr) == PARM_DECL ||
+      (TREE_CODE (expr) == VAR_DECL
+       && DECL_CONTEXT (expr)
+       && !TREE_STATIC (expr)))
+    return 0;
+
+  return objc_is_gcable_type (t);
+  /* APPLE LOCAL end ObjC GC */
 }
 
 static int
@@ -3434,57 +3508,32 @@ objc_is_global_reference_p (tree expr)
 tree
 objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
 {
-  tree result = NULL_TREE, outer;
-  int strong_cast_p = 0, outer_gc_p = 0, indirect_p = 0;
+  /* APPLE LOCAL begin ObjC GC */
+  tree outer;
+  int indirect_p = 0;
+  /* APPLE LOCAL end ObjC GC */
 
-  /* See if we have any lhs casts, and strip them out.  NB: The lvalue casts
-     will have been transformed to the form '*(type *)&expr'.  */
-  if (TREE_CODE (lhs) == INDIRECT_REF)
-    {
-      outer = TREE_OPERAND (lhs, 0);
-
-      while (!strong_cast_p
-	     && (TREE_CODE (outer) == CONVERT_EXPR
-		 || TREE_CODE (outer) == NOP_EXPR
-		 || TREE_CODE (outer) == NON_LVALUE_EXPR))
-	{
-	  tree lhstype = TREE_TYPE (outer);
-
-	  /* Descend down the cast chain, and record the first objc_gc
-	     attribute found.  */
-	  if (POINTER_TYPE_P (lhstype))
-	    {
-	      tree attr
-		= lookup_attribute ("objc_gc",
-				    TYPE_ATTRIBUTES (TREE_TYPE (lhstype)));
-
-	      if (attr)
-		strong_cast_p = 1;
-	    }
-
-	  outer = TREE_OPERAND (outer, 0);
-	}
-    }
-
-  /* If we have a __strong cast, it trumps all else.  */
-  if (strong_cast_p)
-    {
-      if (modifycode != NOP_EXPR)
-        goto invalid_pointer_arithmetic;
-
-      if (warn_assign_intercept)
-	warning ("strong-cast assignment has been intercepted");
-
-      result = objc_build_strong_cast_assignment (lhs, rhs);
-
-      goto exit_point;
-    }
-
+  /* APPLE LOCAL begin ObjC GC */
   /* the lhs must be of a suitable type, regardless of its underlying
-     structure.  */
+     structure.  Furthermore, __weak must not have been used.  */
   if (!objc_is_gcable_p (lhs))
-    goto exit_point;
+    return NULL_TREE;
+  /* APPLE LOCAL end ObjC GC */
 
+  /* APPLE LOCAL begin ObjC GC */
+  /* At this point, we are committed to using one of the write-barriers,
+     unless the user is attempting to perform pointer arithmetic.  */
+  if (modifycode != NOP_EXPR)
+  /* APPLE LOCAL end ObjC GC */
+    {
+      /* APPLE LOCAL begin ObjC GC */
+      warning ("pointer arithmetic for garbage-collected objects not allowed");
+      return NULL_TREE;
+      /* APPLE LOCAL end ObjC GC */
+    }
+
+  /* APPLE LOCAL ObjC GC */
+  /* CODE FRAGMENT REMOVED.  */
   outer = lhs;
 
   while (outer
@@ -3498,66 +3547,45 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
       indirect_p = 1;
     }
 
-  outer_gc_p = objc_is_gcable_p (outer);
-  
+  /* APPLE LOCAL ObjC GC */
+  /* CODE FRAGMENT REMOVED.  */
+
   /* Handle ivar assignments. */
-  if (objc_is_ivar_reference_p (lhs))
+  /* APPLE LOCAL begin ObjC GC */
+  if (indirect_p && objc_is_ivar_reference_p (lhs)
+      && objc_is_object_ptr (TREE_TYPE (outer)))
+  /* APPLE LOCAL end ObjC GC */
     {
-      /* if the struct to the left of the ivar is not an Objective-C object (__strong
-	 doesn't cut it here), the best we can do here is suggest a cast.  */
-      if (!objc_is_gcable_type (TREE_TYPE (outer), 0))
-	{
-	  /* We may still be able to use the global write barrier... */
-	  if (!indirect_p && objc_is_global_reference_p (outer))
-	    goto global_reference;
-
-	 suggest_cast:
-	  if (modifycode == NOP_EXPR)
-	    {
-	      if (warn_assign_intercept)
-		warning ("strong-cast may possibly be needed");
-	    }
-
-	  goto exit_point;
-	}
-
-      if (modifycode != NOP_EXPR)
-        goto invalid_pointer_arithmetic;
-
+      /* APPLE LOCAL ObjC GC */
+      /* CODE FRAGMENT REMOVED.  */
       if (warn_assign_intercept)
 	warning ("instance variable assignment has been intercepted");
 
-      result = objc_build_ivar_assignment (outer, lhs, rhs);
-
-      goto exit_point;
+      /* APPLE LOCAL ObjC GC */
+      return objc_build_ivar_assignment (outer, lhs, rhs);
     }
 
   /* Likewise, intercept assignment to global/static variables if their type is
      GC-marked.  */    
-  if (objc_is_global_reference_p (outer))
+  /* APPLE LOCAL ObjC GC */
+  if (!indirect_p && objc_is_global_reference_p (outer))
     {
-      if (indirect_p)
-	goto suggest_cast;
-
-     global_reference:
-      if (modifycode != NOP_EXPR)
-	{
-	 invalid_pointer_arithmetic:
-	  if (outer_gc_p)
-	    warning ("pointer arithmetic for garbage-collected objects not allowed");
-
-	  goto exit_point;
-	}
-
+      /* APPLE LOCAL ObjC GC */
+      /* CODE FRAGMENT REMOVED.  */
       if (warn_assign_intercept)
 	warning ("global/static variable assignment has been intercepted");
 
-      result = objc_build_global_assignment (lhs, rhs);
+      /* APPLE LOCAL ObjC GC */
+      return objc_build_global_assignment (lhs, rhs);
     }
 
-  /* In all other cases, fall back to the normal mechanism.  */
- exit_point:
-  return result;
+  /* APPLE LOCAL begin ObjC GC */
+  /* Use the strong-cast write barrier as a last resort.  */
+  if (warn_assign_intercept)
+    warning ("strong-cast assignment has been intercepted");
+
+  return objc_build_strong_cast_assignment (lhs, rhs);
+  /* APPLE LOCAL end ObjC GC */
 }
 /* APPLE LOCAL end mainline */
 
