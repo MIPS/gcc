@@ -1,6 +1,6 @@
 // Token stream.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -32,27 +32,12 @@
 // filter the actual tokens according to what the parser requires.
 class token_stream : public lexer
 {
-  // Our buffer.  FIXME: size and stuff.. use some STL thing.
-  token *buffer;
-
-  // Size of buffer.
-  int buffer_size;
-
-  // Position of next free slot in buffer.
-  int buffer_end;
+  // Our buffer.
+  std::deque<token> buffer;
 
   // Position of next unread element in buffer.
   int read_position;
 
-  // All the marks we've set.
-  std::stack<int> marks;
-
-  // True if we're buffering tokens because there is a mark.
-  bool mark_buffering;
-
-  // True if we're buffering tokens because we're peeking.
-  bool peek_buffering;
-  
 
   // True if the parser can usefully interpret a javadoc comment as
   // the next token.  When false, we filter out such comments.
@@ -61,14 +46,17 @@ class token_stream : public lexer
 
   // Set a mark at the current point.  Only called by marker class.
   // Returns the position.
-  int set_mark ();
-
-  // Unset the mark at position.  Only called by marker class.
-  void unset_mark (int);
+  int set_mark ()
+  {
+    return read_position;
+  }
 
   // Reset the read pointer to a position.  Only called by marker
   // class.
-  void reset_to_mark (int);
+  void reset_to_mark (int where)
+  {
+    read_position = where;
+  }
 
   friend class marker;
 
@@ -76,24 +64,21 @@ class token_stream : public lexer
   // Return a token before any filtering is applied.
   token get_unfiltered_token ();
 
+  // Lex the file and fill our buffer.
+  void lex_file ();
+
 public:
 
   token_stream (ucs2_reader *source, const char *file)
     : lexer (source, file),
-      buffer (NULL),
-      buffer_size (0),
-      buffer_end (0),
       read_position (0),
-      mark_buffering (false),
-      peek_buffering (false),
       javadoc_is_ok (false)
   {
+    lex_file ();
   }
 
   ~token_stream ()
   {
-    if (buffer != NULL)
-      delete [] buffer;
   }
 
   // Indicate that it is ok for the next token to be TOKEN_JAVADOC.
@@ -135,7 +120,6 @@ public:
 
   ~marker ()
   {
-    stream->unset_mark (location);
   }
 
   void backtrack ()

@@ -1,3 +1,24 @@
+2005-09-28  Tom Tromey  <tromey@redhat.com>
+
+	* source/tstream.hh (token_stream::buffer): Changed type.
+	(token_stream::buffer_size): Removed.
+	(token_stream::buffer_end): Likewise.
+	(token_stream::marks): Likewise.
+	(token_stream::mark_buffering): Likewise.
+	(token_stream::peek_buffering): Likewise.
+	(token_stream::set_mark): Now inline.
+	(token_stream::reset_to_mark): Likewise.
+	(token_stream::unset_mark): Removed.
+	(token_stream::lex_file): Declare.
+	(token_stream): Updated.
+	(~token_stream): Updated.
+	(~marker): Updated.
+	* source/tstream.cc (set_mark, unset_mark, reset_to_mark):
+	Removed.
+	(lex_file): New method.
+	(get_unfiltered_token): Rewrote.
+	(peek_token, peek_token1): Updated.
+
 2005-09-20  Tom Tromey  <tromey@redhat.com>
 
 	* model/enum.cc (resolve_hook): Don't reject top-level classes.

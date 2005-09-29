@@ -1,6 +1,6 @@
 // Implementation of the token stream.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,85 +22,24 @@
 #include "typedefs.hh"
 #include "source/tstream.hh"
 
-int
-token_stream::set_mark ()
-{
-  if (marks.empty () && read_position > 0)
-    {
-      // There is no mark at present, but we're still buffering some
-      // tokens.  Let's move the tokens to the start of the buffer to
-      // make some space.  FIXME: or we could implement a circular
-      // buffer, which means more complex logic here and there.
-      // FIXME: or we could just optimistically wait until the buffer
-      // is about to overflow.
-      for (int i = read_position; i < buffer_end; ++i)
-	buffer[i - read_position] = buffer[i];
-      buffer_end -= read_position;
-      read_position = 0;
-    }
-  else if (buffer == NULL)
-    {
-      buffer_size = 64;
-      buffer = new token[buffer_size];
-    }
-
-  int result = read_position;
-  assert (! marks.empty () || read_position == 0);
-  marks.push (result);
-  mark_buffering = true;
-  return result;
-}
-
 void
-token_stream::unset_mark (int position)
+token_stream::lex_file ()
 {
-  assert (marks.top () == position);
-  marks.pop ();
-  mark_buffering = ! marks.empty ();
-}
-
-void
-token_stream::reset_to_mark (int position)
-{
-  // Since we require marks to be nested, and since the mark
-  // destructor removes it, we know we can only rewind to the most
-  // recent mark.
-  assert (position == marks.top ());
-  read_position = position;
+  token r;
+  do
+    {
+      r = lexer::get_token ();
+      buffer.push_back (r);
+    }
+  while (r != TOKEN_EOF);
 }
 
 token
 token_stream::get_unfiltered_token ()
 {
-  // If we're in the buffer, read from it.
-  if (read_position < buffer_end)
-    return buffer[read_position++];
-
-  // Ask the lexer, and buffer the result if needed.
-  token r = lexer::get_token ();
-  if (mark_buffering || peek_buffering)
-    {
-      if (buffer == NULL)
-	{
-	  buffer_size = 64;
-	  buffer = new token[buffer_size];
-	}
-      else if (buffer_end == buffer_size)
-	{
-	  buffer_size *= 2;
-	  token *nb = new token[buffer_size];
-	  for (int i = 0; i < buffer_end; ++i)
-	    nb[i] = buffer[i];
-	  delete [] buffer;
-	  buffer = nb;
-	}
-
-      buffer[buffer_end] = r;
-      ++buffer_end;
-      ++read_position;
-    }
-
-  return r;
+  if (read_position < buffer.size ())
+    ++read_position;
+  return buffer[read_position - 1];
 }
 
 token
@@ -161,7 +100,6 @@ token
 token_stream::peek_token ()
 {
   saver<bool> save_jd (javadoc_is_ok);
-  saver<bool> save_peek (peek_buffering, true);
   saver<int> save_read (read_position);
   token r = get_token ();
   return r;
@@ -171,7 +109,6 @@ token
 token_stream::peek_token1 ()
 {
   saver<bool> save_jd (javadoc_is_ok);
-  saver<bool> save_peek (peek_buffering, true);
   saver<int> save_read (read_position);
   get_token ();
   token r = get_token ();
