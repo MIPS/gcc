@@ -67,11 +67,95 @@ debug_bitmap_of_cgraph_nodes (bitmap a)
   print_bitmap_of_cgraph_nodes (stderr, a);
 }
 
+/* Mark UID in IDS if FN contains indirect function calls.  */
+
+static void
+scan_for_indirect_calls (tree fn, unsigned int uid, bitmap ids)
+{
+  struct function *cfun = DECL_STRUCT_FUNCTION (fn);
+  basic_block bb;
+
+  /* The pop happens in the caller due to the possible early return.  */
+  push_cfun (cfun);
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  tree possible_call = NULL;
+	  if (TREE_CODE (stmt) == RETURN_EXPR)
+	    stmt = TREE_OPERAND (stmt, 0);
+
+	  if (!stmt)
+	    continue;
+
+	  if (TREE_CODE (stmt) == MODIFY_EXPR
+	      || TREE_CODE (stmt) == RETURN_EXPR)
+	    possible_call = TREE_OPERAND (stmt, 1);
+	  else if (TREE_CODE (stmt) == CALL_EXPR)
+	    possible_call = stmt;
+
+	  if (possible_call && TREE_CODE (possible_call) == CALL_EXPR)
+	    if (!get_callee_fndecl (possible_call))
+	      {
+		bitmap_set_bit (ids, uid);
+		return;
+	      }
+	}
+    }
+
+}
+
+/* Return true if PARG, a pointer type, points to a readonly
+   non-pointer type.  */
+
+static bool
+argument_readonly_nonpointer (tree parg)
+{
+  if (POINTER_TYPE_P (TREE_TYPE (parg)))
+    return false;
+  if (!TYPE_READONLY (TREE_TYPE (parg)))
+    return false;
+  return true;
+}
+
+/* Return true if fn has non-readonly pointer arguments.  */
+
+static bool
+has_nonreadonly_pointer_arguments (tree fn)
+{
+  tree arg;
+
+
+  for (arg = DECL_ARGUMENTS (fn);
+       arg;
+       arg = TREE_CHAIN (arg))
+    {
+      if (POINTER_TYPE_P (TREE_TYPE (arg))
+	  && !argument_readonly_nonpointer (arg))
+	return true;
+    }
+
+  for (arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
+       arg && arg != void_list_node;
+       arg = TREE_CHAIN (arg))
+    {
+      if (POINTER_TYPE_P (TREE_VALUE (arg))
+	  && !argument_readonly_nonpointer (TREE_VALUE (arg)))
+	return true;
+    }
+
+  return false;
+}
+
 static void
 callees_execute (void)
 {
   struct cgraph_node *node;
   bitmap global_and_address_taken = BITMAP_ALLOC (NULL);
+  bitmap contains_indirect_call = BITMAP_ALLOC (NULL);
   struct cgraph_node **postorder = xcalloc (cgraph_n_nodes,
 					    sizeof (struct cgraph_node *));
   bool changed = true;
@@ -83,16 +167,29 @@ callees_execute (void)
   /* Go through the cgraph nodes, record which are global or address
      taken, and make a first pass at the callees.  */
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node))
       {
 	tree decl = node->decl;
 	enum availability avail = cgraph_function_body_availability (node);
-	function_ann_t ann;
+	function_ann_t ann = get_function_ann (decl);
 	struct cgraph_edge *e;
+
+	ann->has_pointer_arguments = has_nonreadonly_pointer_arguments (decl);
+	if (!node->analyzed)
+	  continue;
+	/* If this is global, addressable or no body is available,
+	   mark it global/address taken.  Otherwise, scan for indirect
+	   calls.  */
 
 	if (TREE_ADDRESSABLE (decl) || avail == AVAIL_NOT_AVAILABLE)
 	  bitmap_set_bit (global_and_address_taken, node->uid);
-	ann = get_function_ann (decl);
+	else if (avail != AVAIL_NOT_AVAILABLE)
+	  {
+
+	    scan_for_indirect_calls (node->decl, node->uid,
+				     contains_indirect_call);
+	    pop_cfun ();
+	  }
+
 	ann->callees = BITMAP_ALLOC (&callee_obstack);
 	for (e = node->callees; e; e = e->next_callee)
 	  {
@@ -104,7 +201,7 @@ callees_execute (void)
   order_pos = cgraph_postorder (postorder);
 
   /* Iterate in reverse postorder until we are done with the
-     closure.  
+     closure.
      XXX: Use the SCC stuff to make this faster.  */
   while (changed)
     {
@@ -112,25 +209,31 @@ callees_execute (void)
       for (i = order_pos - 1; i >= 0; i--)
 	{
 	  struct cgraph_edge *e;
+	  function_ann_t ann;
 	  node = postorder[i];
+	  ann = function_ann (node->decl);
+
+	  if (!node->analyzed)
+	    continue;
+
+	  if (bitmap_bit_p (contains_indirect_call, node->uid))
+	    changed |= bitmap_ior_into (ann->callees, global_and_address_taken);
 	  for (e = node->callees; e; e = e->next_callee)
 	    {
 	      struct cgraph_node *cnode = e->callee;
-	      function_ann_t ann;
-	      if (!cnode->analyzed)
-		continue;
-	      ann = function_ann (node->decl);
-
-	      if (cgraph_function_body_availability (cnode) == AVAIL_NOT_AVAILABLE)
+	      enum availability avail = cgraph_function_body_availability (cnode);
+	      if (avail == AVAIL_NOT_AVAILABLE)
 		changed |= bitmap_ior_into (ann->callees,
 					    global_and_address_taken);
-	      changed |= bitmap_ior_into (ann->callees,
-					  function_ann (cnode->decl)->callees);
+	      else
+		changed |= bitmap_ior_into (ann->callees,
+					    function_ann (cnode->decl)->callees);
 
 	    }
 	}
     }
   BITMAP_FREE (global_and_address_taken);
+  BITMAP_FREE (contains_indirect_call);
   free (postorder);
 }
 

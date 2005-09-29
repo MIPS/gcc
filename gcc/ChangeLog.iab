@@ -1,3 +1,34 @@
+2005-09-29  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* ipa-callees.c (scan_for_indirect_calls): New function.
+	(argument_readonly_nonpointer): New function
+	(has_nonreadonly_pointer_arguments): Ditto.
+	(callees_execute): Scan for indirect calls.
+	Cleanup a small amount.
+	* tree-flow-inline.h: (mark_call_clobbered): Remove used of call
+	call clobbered cache.
+	(mark_non_addressable): Ditto.
+	(clear_call_clobbered): Ditto.
+	* tree-flow.h (struct_function_ann_d): Add has_pointer_arguments.
+	* tree-ssa-alias.c: Fixup function names missed during global replace.
+	(init_transitive_clobber_worklist): Pass in reason worklist.
+	Push reason onto second worklist.
+	(add_to_worklist): Ditto.
+	(mark_aliases_call_clobbered): Ditto.
+	(compute_call_clobbered): Ditto.
+	(set_initial_properties): Handle subvars properly.
+	* tree-ssa-operands.c  (clobber_stats) :New.
+	(init_ssa_operands): Initialize clobber stats.
+	(fini_ssa_operands): Print out stats if requested. Remove call
+        clobbered caches
+	(add_call_read_ops): Add callee argument. Use escapable
+ 	and static read info to avoid clobbers.
+	Remove cache.
+	(callee_okay_for_noescape): New function.
+	(add_call_clobber_ops): Use it.
+	Use nonescaping info.
+	* tree-ssa-operands.h: Remove call clobbered cache.
+	
 2005-09-26  Daniel Berlin  <dberlin@dberlin.org>
 	   
 	* ipa-callees.c (callees_execute): Use function_ann.

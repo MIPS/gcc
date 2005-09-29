@@ -135,6 +135,9 @@ bitmap addressable_vars;
    having to keep track of too many V_MAY_DEF expressions at call sites.  */
 tree global_var;
 
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
+
 /* Return true if TAG can touch global memory.  */
 static bool
 tag_marked_global (tree tag)
@@ -145,7 +148,7 @@ tag_marked_global (tree tag)
 
 /* Mark TAG, an alias tag, as possibly touching global memory.  */
 static void
-mark_MTAG_GLOBAL (tree tag)
+mark_tag_global (tree tag)
 {
   gcc_assert (MTAG_P (tag));
   MTAG_GLOBAL (tag) = 1;
@@ -163,10 +166,12 @@ sort_tags_by_id (const void *pa, const void *pb)
 }
 
 /* Initialize WORKLIST to contain those memory tags that are marked call
-   clobbered.  */
+   clobbered.  Initialized WORKLIST2 to contain the reasons these
+   memory tags escaped.  */
 
 static void
-init_transitive_clobber_worklist (VEC (tree, heap) **worklist)
+init_transitive_clobber_worklist (VEC (tree, heap) **worklist,
+				  VEC (int, heap) **worklist2)
 {
   referenced_var_iterator rvi;
   tree curr;
@@ -174,25 +179,35 @@ init_transitive_clobber_worklist (VEC (tree, heap) **worklist)
   FOR_EACH_REFERENCED_VAR (curr, rvi)
     {
       if (MTAG_P (curr) && is_call_clobbered (curr))
-	VEC_safe_push (tree, heap, *worklist, curr);
+	{
+	  VEC_safe_push (tree, heap, *worklist, curr);
+	  VEC_safe_push (int, heap, *worklist2, var_ann (curr)->escape_mask);
+	}
     }
 }
 
-/* Add ALIAS to WORKLIST if ALIAS is not already marked call
-   clobbered, and is a memory tag.  */
+/* Add ALIAS to WORKLIST (and the reason for escaping REASON to WORKLIST2) if
+   ALIAS is not already marked call clobbered, and is a memory
+   tag.  */
 
 static void
-add_to_worklist (tree alias, VEC (tree, heap) **worklist)
+add_to_worklist (tree alias, VEC (tree, heap) **worklist,
+		 VEC (int, heap) **worklist2,
+		 int reason)
 {
   if (MTAG_P (alias) && !is_call_clobbered (alias))
-    VEC_safe_push (tree, heap, *worklist, alias);
+    {
+      VEC_safe_push (tree, heap, *worklist, alias);
+      VEC_safe_push (int, heap, *worklist2, reason);
+    }
 }
 
 /* Mark aliases of TAG as call clobbered, and place any tags on the
    alias list that were not already call clobbered on WORKLIST.  */
 
 static void
-mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
+mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist,
+			     VEC (int, heap) **worklist2)
 {
   unsigned int i;
   varray_type ma;
@@ -203,12 +218,13 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist)
   ma = may_aliases (tag);
   if (!ma)
     return;
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
     {
       tree entry = VARRAY_TREE (ma, i);
       if (!unmodifiable_var_p (entry))
 	{
-	  add_to_worklist (entry, worklist);	  
+	  add_to_worklist (entry, worklist, worklist2, ta->escape_mask);
 	  mark_call_clobbered (entry, ta->escape_mask);
 	}
     }
@@ -285,7 +301,7 @@ compute_tag_properties (void)
 	      /* Global vars cause the tag to be marked global.  */
 	      if (is_global_var (entry) && !tag_marked_global (tag))
 		{
-		  mark_MTAG_GLOBAL (tag);
+		  mark_tag_global (tag);
 		  changed = true;
 		}
 	    }
@@ -308,7 +324,9 @@ set_initial_properties (struct alias_info *ai)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      if (is_global_var (var) && !var_can_have_subvars (var))
+      if (is_global_var (var) 
+	  && (!var_can_have_subvars (var)
+	      || get_subvars_for_var (var) == NULL))
 	if (!unmodifiable_var_p (var))
 	  mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
     }
@@ -346,9 +364,9 @@ set_initial_properties (struct alias_info *ai)
 	mark_call_clobbered (v_ann->type_mem_tag, v_ann->escape_mask);
 
       if ((pi->pt_global_mem || pi->pt_anything) && pi->name_mem_tag)
-	mark_MTAG_GLOBAL (pi->name_mem_tag);
+	mark_tag_global (pi->name_mem_tag);
       if ((pi->pt_global_mem || pi->pt_anything) && v_ann->type_mem_tag)
-	mark_MTAG_GLOBAL (v_ann->type_mem_tag);
+	mark_tag_global (v_ann->type_mem_tag);
     }
 }
 /* Compute which variables need to be marked call clobbered because
@@ -359,16 +377,20 @@ static void
 compute_call_clobbered (struct alias_info *ai)
 {
   VEC (tree, heap) *worklist = NULL;
-
+  VEC(int,heap) *worklist2 = NULL;
+  
   set_initial_properties (ai);
-  init_transitive_clobber_worklist (&worklist);
+  init_transitive_clobber_worklist (&worklist, &worklist2);
   while (VEC_length (tree, worklist) != 0)
     {
       tree curr = VEC_pop (tree, worklist);
-      mark_call_clobbered (curr, ESCAPE_TRANSITIVE);
-      mark_aliases_call_clobbered (curr, &worklist);
+      int reason = VEC_pop (int, worklist2);
+      
+      mark_call_clobbered (curr, reason);
+      mark_aliases_call_clobbered (curr, &worklist, &worklist2);
     }
   VEC_free (tree, heap, worklist);
+  VEC_free (int, heap, worklist2);
   compute_tag_properties ();
 }
 

@@ -229,11 +229,18 @@ struct function_ann_d GTY(())
 {
   struct tree_ann_common_d common;
 
+  /* True if the function in question has an argument that is a
+     pointer.  */
+  unsigned int has_pointer_arguments:1;
+
   /* Pointer to the structure that contains the sets of global
      variables modified by function calls.  This field is only used
      for FUNCTION_DECLs.  */
   ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
   
+  /* This bitmap contains the cgraph node ids of all possible callees
+     of this function, including those called by callees (IE it is
+     post-transitive closure). */
   bitmap GTY((skip)) callees;
 };
 

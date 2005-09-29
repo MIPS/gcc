@@ -868,8 +868,6 @@ mark_call_clobbered (tree var, unsigned int escape_type)
 {
   var_ann (var)->escape_mask |= escape_type;
   bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
 }
   
 /* Clear the call-clobbered attribute from variable VAR.  */
@@ -881,8 +879,6 @@ clear_call_clobbered (tree var)
   if (TREE_CODE (var) != STRUCT_FIELD_TAG && MTAG_P (var))
     MTAG_GLOBAL (var) = 0;
   bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
 }
 
 /* Mark variable VAR as being non-addressable.  */
@@ -891,8 +887,6 @@ mark_non_addressable (tree var)
 {
   bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
   TREE_ADDRESSABLE (var) = 0;
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation

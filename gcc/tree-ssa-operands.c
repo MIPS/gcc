@@ -132,17 +132,8 @@ static GTY (()) struct opbuild_list_d build_vuses;
 /* Array for building all the v_must_def operands.  */
 static GTY (()) struct opbuild_list_d build_v_must_defs;
 
-/* True if the operands for call clobbered vars are cached and valid.  */
-bool ssa_call_clobbered_cache_valid;
-bool ssa_ro_call_cache_valid;
 
 /* These arrays are the cached operand vectors for call clobbered calls.  */
-static VEC(tree,heap) *clobbered_v_may_defs;
-static VEC(tree,heap) *clobbered_vuses;
-static VEC(tree,heap) *ro_call_vuses;
-static bool clobbered_aliased_loads;
-static bool clobbered_aliased_stores;
-static bool ro_call_aliased_loads;
 static bool ops_active = false;
 
 static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
@@ -158,7 +149,7 @@ static inline void append_use (tree *);
 static void append_v_may_def (tree);
 static void append_v_must_def (tree);
 static void add_call_clobber_ops (tree, tree);
-static void add_call_read_ops (tree);
+static void add_call_read_ops (tree, tree);
 static void add_stmt_operand (tree *, stmt_ann_t, int);
 static void build_ssa_operands (tree stmt);
                                                                                 
@@ -394,6 +385,17 @@ ssa_operands_active (void)
 }
 
 
+static struct 
+{
+  unsigned int clobbered_vars;
+  unsigned int static_write_clobbers_avoided;
+  unsigned int static_read_clobbers_avoided;
+  unsigned int unescapable_clobbers_avoided;
+  unsigned int readonly_clobbers;
+  unsigned int static_readonly_clobbers_avoided;
+  unsigned int unescapable_readonly_clobbers_avoided;
+} clobber_stats;
+  
 /* Initialize the operand cache routines.  */
 
 void
@@ -407,6 +409,8 @@ init_ssa_operands (void)
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
   ops_active = true;
+  memset (&clobber_stats, 0, sizeof (clobber_stats));
+  
 }
 
 
@@ -432,10 +436,19 @@ fini_ssa_operands (void)
       ggc_free (ptr);
     }
 
-  VEC_free (tree, heap, clobbered_v_may_defs);
-  VEC_free (tree, heap, clobbered_vuses);
-  VEC_free (tree, heap, ro_call_vuses);
   ops_active = false;
+  
+  if (dump_file && (dump_flags & TDF_STATS))
+    {
+      fprintf (dump_file, "Original clobbered vars:%d\n", clobber_stats.clobbered_vars);
+      fprintf (dump_file, "Static write clobbers avoided:%d\n", clobber_stats.static_write_clobbers_avoided);
+      fprintf (dump_file, "Static read clobbers avoided:%d\n", clobber_stats.static_read_clobbers_avoided);
+      fprintf (dump_file, "Unescapable clobbers avoided:%d\n", clobber_stats.unescapable_clobbers_avoided);
+      fprintf (dump_file, "Original readonly clobbers:%d\n", clobber_stats.readonly_clobbers);
+      fprintf (dump_file, "Static readonly clobbers avoided:%d\n", clobber_stats.static_readonly_clobbers_avoided);
+      fprintf (dump_file, "Unescapable readonly clobbers avoided:%d\n", clobber_stats.unescapable_readonly_clobbers_avoided);
+
+    }
 }
 
 
@@ -1742,7 +1755,7 @@ get_call_expr_operands (tree stmt, tree expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	add_call_clobber_ops (stmt, get_callee_fndecl (expr));
       else if (!(call_flags & ECF_CONST))
-	add_call_read_ops (stmt);
+	add_call_read_ops (stmt, get_callee_fndecl (expr));
     }
 
   /* Find uses in the called function.  */
@@ -1952,6 +1965,31 @@ add_to_addressable_set (tree ref, bitmap *addresses_taken)
     }
 }
 
+/* True if CALLEE doesn't clobber variables in NODE that only escape
+   by address through calls. */
+
+static bool
+callee_okay_for_noescape (struct cgraph_node *node, tree callee)
+{
+  function_ann_t fann;
+  bitmap callees;
+
+  if (callee == NULL)
+    return false;
+  fann = function_ann (callee);
+
+  if (!fann || fann->callees == NULL)
+    return false;
+  
+  if (fann->has_pointer_arguments)
+    return false;
+
+  callees = fann->callees;
+  if (bitmap_bit_p ( callees, node->uid))
+    return false;
+  
+  return true;
+}
 
 /* Add clobbering definitions for .GLOBAL_VAR or for each of the call
    clobbered variables in the function.  */
@@ -1959,14 +1997,14 @@ add_to_addressable_set (tree ref, bitmap *addresses_taken)
 static void
 add_call_clobber_ops (tree stmt, tree callee)
 {
-  int i;
   unsigned u;
-  tree t;
   bitmap_iterator bi;
   stmt_ann_t s_ann = stmt_ann (stmt);
-  struct stmt_ann_d empty_ann;
   bitmap not_read_b, not_written_b;
-
+  struct cgraph_node *ournode = cgraph_node (current_function_decl);
+  bool okay_for_call_skip = callee_okay_for_noescape (ournode, callee);
+  
+  
   /* Functions that are not const, pure or never return may clobber
      call-clobbered variables.  */
   if (s_ann)
@@ -1991,97 +2029,44 @@ add_call_clobber_ops (tree stmt, tree callee)
 
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
-
-  /* If cache is valid, copy the elements into the build vectors.  */
-  if (ssa_call_clobbered_cache_valid
-      && (!not_read_b || bitmap_empty_p (not_read_b))
-      && (!not_written_b || bitmap_empty_p (not_written_b)))
-    {
-      /* Process the caches in reverse order so we are always inserting at
-         the head of the list.  */
-      for (i = VEC_length (tree, clobbered_vuses) - 1; i >=0; i--)
-	{
-	  t = VEC_index (tree, clobbered_vuses, i);
-	  gcc_assert (TREE_CODE (t) != SSA_NAME);
-	  var_ann (t)->in_vuse_list = 1;
-	  opbuild_append_virtual (&build_vuses, t);
-	}
-      for (i = VEC_length (tree, clobbered_v_may_defs) - 1; i >= 0; i--)
-	{
-	  t = VEC_index (tree, clobbered_v_may_defs, i);
-	  gcc_assert (TREE_CODE (t) != SSA_NAME);
-	  var_ann (t)->in_v_may_def_list = 1;
-	  opbuild_append_virtual (&build_v_may_defs, t);
-	}
-      if (s_ann)
-	{
-	  s_ann->makes_aliased_loads = clobbered_aliased_loads;
-	  s_ann->makes_aliased_stores = clobbered_aliased_stores;
-	}
-      return;
-    }
-
-  memset (&empty_ann, 0, sizeof (struct stmt_ann_d));
-
   /* Add a V_MAY_DEF operand for every call clobbered variable.  */
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
+      bool not_read
+	= not_read_b ? bitmap_bit_p (not_read_b, u) : false;
+      bool not_written
+	= not_written_b ? bitmap_bit_p (not_written_b, u) : false;
+      bool before = okay_for_call_skip;
+      
       gcc_assert (!unmodifiable_var_p (var));
-	{
-	  bool not_read
-	    = not_read_b ? bitmap_bit_p (not_read_b, u) : false;
-	  bool not_written
-	    = not_written_b ? bitmap_bit_p (not_written_b, u) : false;
+      
+      clobber_stats.clobbered_vars++;
 
-	  if (not_written)
+      /* See if this variable is really clobbered by this function.  */
+      if (okay_for_call_skip)
+	{
+	  okay_for_call_skip &= (var_ann (var)->escape_mask & ~(ESCAPE_TO_CALL)) == 0;	  
+	  if (okay_for_call_skip)
 	    {
-	      if (!not_read)
-		add_stmt_operand (&var, &empty_ann, opf_none);
+	      clobber_stats.unescapable_clobbers_avoided++;
+	      continue;
 	    }
-	  else
-	    add_stmt_operand (&var, &empty_ann, opf_is_def);
 	}
-    }
-
-  if ((!not_read_b || bitmap_empty_p (not_read_b))
-      && (!not_written_b || bitmap_empty_p (not_written_b)))
-    {
-      clobbered_aliased_loads = empty_ann.makes_aliased_loads;
-      clobbered_aliased_stores = empty_ann.makes_aliased_stores;
-
-      /* Set the flags for a stmt's annotation.  */
-      if (s_ann)
+      okay_for_call_skip = before;
+      
+      if (not_written)
 	{
-	  s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
-	  s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
+	  clobber_stats.static_write_clobbers_avoided++;
+	  if (!not_read)
+	    add_stmt_operand (&var, s_ann, opf_none);
+	  else
+	    clobber_stats.static_read_clobbers_avoided++;
 	}
-
-      /* Prepare empty cache vectors.  */
-      VEC_truncate (tree, clobbered_vuses, 0);
-      VEC_truncate (tree, clobbered_v_may_defs, 0);
-
-      /* Now fill the clobbered cache with the values that have been found.  */
-      for (i = opbuild_first (&build_vuses);
-	   i != OPBUILD_LAST;
-	   i = opbuild_next (&build_vuses, i))
-	VEC_safe_push (tree, heap, clobbered_vuses,
-		       opbuild_elem_virtual (&build_vuses, i));
-
-      gcc_assert (opbuild_num_elems (&build_vuses) 
-		  == VEC_length (tree, clobbered_vuses));
-
-      for (i = opbuild_first (&build_v_may_defs);
-	   i != OPBUILD_LAST;
-	   i = opbuild_next (&build_v_may_defs, i))
-	VEC_safe_push (tree, heap, clobbered_v_may_defs, 
-		       opbuild_elem_virtual (&build_v_may_defs, i));
-
-      gcc_assert (opbuild_num_elems (&build_v_may_defs) 
-		  == VEC_length (tree, clobbered_v_may_defs));
-
-      ssa_call_clobbered_cache_valid = true;
+      else
+	add_stmt_operand (&var, s_ann, opf_is_def);
     }
+  
 }
 
 
@@ -2089,14 +2074,14 @@ add_call_clobber_ops (tree stmt, tree callee)
    function.  */
 
 static void
-add_call_read_ops (tree stmt)
+add_call_read_ops (tree stmt, tree callee)
 {
-  int i;
   unsigned u;
-  tree t;
   bitmap_iterator bi;
   stmt_ann_t s_ann = stmt_ann (stmt);
-  struct stmt_ann_d empty_ann;
+  bitmap not_read_b;
+  struct cgraph_node *ournode = cgraph_node (current_function_decl);
+  bool okay_for_call_skip = callee_okay_for_noescape (ournode, callee);
 
   /* if the function is not pure, it may reference memory.  Add
      a VUSE for .GLOBAL_VAR if it has been created.  See add_referenced_var
@@ -2107,50 +2092,36 @@ add_call_read_ops (tree stmt)
       return;
     }
   
-  /* If cache is valid, copy the elements into the build vector.  */
-  if (ssa_ro_call_cache_valid)
-    {
-      for (i = VEC_length (tree, ro_call_vuses) - 1; i >=0 ; i--)
-	{
-	  /* Process the caches in reverse order so we are always inserting at
-	     the head of the list.  */
-	  t = VEC_index (tree, ro_call_vuses, i);
-	  gcc_assert (TREE_CODE (t) != SSA_NAME);
-	  var_ann (t)->in_vuse_list = 1;
-	  opbuild_append_virtual (&build_vuses, t);
-	}
-      if (s_ann)
-	s_ann->makes_aliased_loads = ro_call_aliased_loads;
-      return;
-    }
-
-  memset (&empty_ann, 0, sizeof (struct stmt_ann_d));
+  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
 
   /* Add a VUSE for each call-clobbered variable.  */
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
-      add_stmt_operand (&var, &empty_ann, opf_none | opf_non_specific);
+      bool not_read = not_read_b ? bitmap_bit_p (not_read_b, u) : false;
+      bool before = okay_for_call_skip;
+      
+      clobber_stats.readonly_clobbers++;
+      
+      if (not_read)
+	{
+	  clobber_stats.static_readonly_clobbers_avoided++;
+	  continue;
+	}
+      
+      if (okay_for_call_skip)
+	{
+	  okay_for_call_skip &= (var_ann (var)->escape_mask & ~(ESCAPE_TO_CALL)) == 0;
+	  if (okay_for_call_skip)
+	    {
+	      clobber_stats.unescapable_clobbers_avoided++;
+	      continue;
+	    }
+	}
+      
+      add_stmt_operand (&var, s_ann, opf_none | opf_non_specific);
+      okay_for_call_skip = before;      
     }
-
-  ro_call_aliased_loads = empty_ann.makes_aliased_loads;
-  if (s_ann)
-    s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
-
-  /* Prepare empty cache vectors.  */
-  VEC_truncate (tree, ro_call_vuses, 0);
-
-  /* Now fill the clobbered cache with the values that have been found.  */
-  for (i = opbuild_first (&build_vuses);
-       i != OPBUILD_LAST;
-       i = opbuild_next (&build_vuses, i))
-    VEC_safe_push (tree, heap, ro_call_vuses,
-		   opbuild_elem_virtual (&build_vuses, i));
-
-  gcc_assert (opbuild_num_elems (&build_vuses) 
-	      == VEC_length (tree, ro_call_vuses));
-
-  ssa_ro_call_cache_valid = true;
 }
 
 
