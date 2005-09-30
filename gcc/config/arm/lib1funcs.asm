@@ -141,7 +141,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 .macro ARM_LDIV0
-LSYM(Ldiv0):
 	str	lr, [sp, #-4]!
 	bl	SYM (__div0) __PLT__
 	mov	r0, #0			@ About as wrong as it could be.
@@ -150,7 +149,6 @@ LSYM(Ldiv0):
 
 
 .macro THUMB_LDIV0
-LSYM(Ldiv0):
 	push	{ lr }
 	bl	SYM (__div0)
 	mov	r0, #0			@ About as wrong as it could be.

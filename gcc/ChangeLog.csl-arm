@@ -1,3 +1,18 @@
+2005-09-30  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config.gcc (arm*-*-linux*): Remove redundant extra_parts and
+	gnu_ld assignments.
+	* config/arm/lib1funcs.asm (ARM_LDIV0, THUMB_LDIV0): Remove
+	redundant labels.
+	* config/arm/t-linux-eabi (LIB1ASMFUNCS)
+	(EXTRA_MULTILIB_PARTS): Define.
+	* config/arm/linux-elf.h (NO_IMPLICIT_EXTERN_C, CPLUSPLUS_CPP_SPEC)
+	(STARTFILE_SPEC, ENDFILE_SPEC, CC1_SPEC)
+	(LINK_GCC_C_SEQUENCE_SPEC): Move to...
+	* config/arm/uclinux-elf.h (NO_IMPLICIT_EXTERN_C, CPLUSPLUS_CPP_SPEC)
+	(STARTFILE_SPEC, ENDFILE_SPEC, CC1_SPEC)
+	(LINK_GCC_C_SEQUENCE_SPEC): ... here.
+
 2005-09-22  Kazu Hirata  <kazu@codesourcery.com>
 
 	Backport from mainline:
