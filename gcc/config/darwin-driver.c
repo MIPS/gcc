@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Hack!.
    Pay the price for including darwin.h.  */
 typedef int tree;  
-
+#define GTY(x) /* nothing */
 /* Include darwin.h for SWITCH_TAKES_ARG and
    WORD_SWIATCH_TAKES_ARG. */
 

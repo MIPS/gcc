@@ -1,3 +1,8 @@
+2005-09-28  Devang Patel  <dpatel@apple.com>
+
+	Radar 4263352
+        * config/darwin-driver.c (GTY): Define empty macro.
+
 2005-09-29  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4136489
@@ -12,6 +17,7 @@
 
 2005-09-28  Devang Patel  <dpatel@apple.com>
 
+	Radar 4263352
         * config/darwin.h (darwin_reverse_bitfields): Add GTY marker.
 
 2005-09-28  Devang Patel  <dpatel@apple.com>
