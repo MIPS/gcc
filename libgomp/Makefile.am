@@ -25,7 +25,7 @@ else
 libgomp_version_script =
 endif
 libgomp_version_info = -version-info $(libtool_VERSION)
-libgomp_la_LDFLAGS = $(libgomp_version_info) $(libgomp_version_script) -lpthread
+libgomp_la_LDFLAGS = $(libgomp_version_info) $(libgomp_version_script)
 
 libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	loop.c ordered.c parallel.c sections.c single.c team.c work.c \

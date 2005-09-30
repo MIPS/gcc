@@ -4755,6 +4755,11 @@ FCFLAGS="$FCFLAGS -Wall"
 libtool_VERSION=1:0:0
 
 
+# In order to override CFLAGS_FOR_TARGET, all of our special flags go
+# in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
+# in both places for now and restore CFLAGS at the end of config.
+save_CFLAGS="$CFLAGS"
+
 # Check header files.
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -5608,6 +5613,105 @@ fi
 
 
 
+# Check to see if -pthread or -lpthread is needed.  Prefer the former.
+CFLAGS="$CFLAGS -pthread"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <pthread.h>
+   void *g(void *d) { return NULL; }
+int
+main ()
+{
+pthread_t t; pthread_create(&t,NULL,g,NULL);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  XCFLAGS="$XCFLAGS -Wc,-pthread"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <pthread.h>
+     void *g(void *d) { return NULL; }
+int
+main ()
+{
+pthread_t t; pthread_create(&t,NULL,g,NULL);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  :
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+{ { echo "$as_me:$LINENO: error: Pthreads are required to build libgomp" >&5
+echo "$as_me: error: Pthreads are required to build libgomp" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+
 # Check for functions needed.
 
 
@@ -6388,18 +6492,12 @@ fi
 echo "$as_me: versioning on shared library symbols is $enable_symvers" >&6;}
 
 
-# Get target configury
+# Get target configury.
 . ${srcdir}/configure.tgt
-
-
-
-
+CFLAGS="$save_CFLAGS $XCFLAGS"
 
 # Check for __sync_val_compare_and_swap, but only after the target has
 # had a chance to set XCFLAGS.
-
-save_CFLAGS="${CFLAGS}"
-CFLAGS="${CFLAGS} ${XCFLAGS}"
 
   echo "$as_me:$LINENO: checking whether the target supports __sync_*_compare_and_swap" >&5
 echo $ECHO_N "checking whether the target supports __sync_*_compare_and_swap... $ECHO_C" >&6
@@ -6463,9 +6561,13 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   fi
-CFLAGS="${save_CFLAGS}"
+
+
+
+
 
 # Cleanup and exit.
+CFLAGS="$save_CFLAGS"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure

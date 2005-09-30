@@ -128,12 +128,34 @@ FCFLAGS="$FCFLAGS -Wall"
 libtool_VERSION=1:0:0
 AC_SUBST(libtool_VERSION)
 
+# In order to override CFLAGS_FOR_TARGET, all of our special flags go
+# in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
+# in both places for now and restore CFLAGS at the end of config.
+save_CFLAGS="$CFLAGS"
+
 # Check header files.
 AC_STDC_HEADERS
 AC_HEADER_TIME
 AC_CHECK_HEADERS(unistd.h semaphore.h sys/time.h)
 AC_CHECK_HEADER([pthread.h],[],
   [AC_MSG_ERROR([Pthreads are required to build libgomp])])
+
+# Check to see if -pthread or -lpthread is needed.  Prefer the former.
+CFLAGS="$CFLAGS -pthread"
+AC_LINK_IFELSE(
+ [AC_LANG_PROGRAM(
+  [#include <pthread.h>
+   void *g(void *d) { return NULL; }],
+  [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
+ [XCFLAGS="$XCFLAGS -Wc,-pthread"],
+ [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
+  AC_LINK_IFELSE(
+   [AC_LANG_PROGRAM(
+    [#include <pthread.h>
+     void *g(void *d) { return NULL; }],
+    [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
+   [],
+   [AC_MSG_ERROR([Pthreads are required to build libgomp])])])
 
 # Check for functions needed.
 AC_CHECK_FUNCS(getloadavg clock_gettime)
@@ -156,22 +178,20 @@ LIBGOMP_CHECK_ATTRIBUTE_DLLEXPORT
 LIBGOMP_CHECK_ATTRIBUTE_ALIAS
 LIBGOMP_ENABLE_SYMVERS
 
-# Get target configury
+# Get target configury.
 . ${srcdir}/configure.tgt
+CFLAGS="$save_CFLAGS $XCFLAGS"
+
+# Check for __sync_val_compare_and_swap, but only after the target has
+# had a chance to set XCFLAGS.
+LIBGOMP_CHECK_SYNC_BUILTINS
 
 AC_SUBST(config_path)
 AC_SUBST(XCFLAGS)
 AC_SUBST(XLDFLAGS)
 
-# Check for __sync_val_compare_and_swap, but only after the target has 
-# had a chance to set XCFLAGS.
-
-save_CFLAGS="${CFLAGS}"
-CFLAGS="${CFLAGS} ${XCFLAGS}"
-LIBGOMP_CHECK_SYNC_BUILTINS
-CFLAGS="${save_CFLAGS}"
-
 # Cleanup and exit.
+CFLAGS="$save_CFLAGS"
 AC_CACHE_SAVE
 
 if test ${multilib} = yes; then
