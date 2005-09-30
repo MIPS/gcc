@@ -1,3 +1,10 @@
+2005-09-30  Devang Patel  <dpatel@apple.com>
+
+	Radar 4274611
+	* config/darwin-driver.c (do_nasm): New.
+	(fasm_seen): New variable.
+	(main): Check -fnasm.
+
 2005-09-28  Devang Patel  <dpatel@apple.com>
 
 	Radar 4263352

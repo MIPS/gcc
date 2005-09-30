@@ -68,6 +68,7 @@ const char *final_output = "a.out";
 int compile_only_request = 0;
 int asm_output_request = 0;
 int dash_capital_m_seen = 0;
+int fnasm_seen  = 0;
 int preprocessed_output_request = 0;
 int ima_is_used = 0;
 int dash_dynamiclib_seen = 0;
@@ -638,6 +639,23 @@ do_lipo_separately (void)
 	     strip_path_and_suffix (ifn->name, ".o"));
 }
 
+/* Invoke 'nasm' */
+static int 
+do_nasm ()
+{
+  int pid;
+  char *errmsg_fmt, *errmsg_arg; 
+  new_argv[0] = "nasm";
+  new_argv[new_argc] = NULL;
+  pid = pexecute (new_argv[0], (char *const *)new_argv, progname, NULL, 
+		  &errmsg_fmt, &errmsg_arg, PEXECUTE_SEARCH | PEXECUTE_LAST); 
+  
+  if (pid == -1)
+    pfatal_pexecute (errmsg_fmt, errmsg_arg);
+  
+  return do_wait (pid, new_argv[0]);
+}
+
 /* Replace -arch <blah> options with appropriate "-mcpu=<blah>" OR
    "-march=<blah>".  INDEX is the index in arches[] table. */
 
@@ -1168,6 +1186,10 @@ main (int argc, const char **argv)
 	{
 	  new_argv[new_argc++] = argv[i];
 	  dash_dynamiclib_seen = 1;
+        }	
+      else if (!strcmp (argv[i], "-fnasm"))
+	{
+	  fnasm_seen = 1;
 	}
       else if (!strcmp (argv[i], "-v"))
 	{
@@ -1290,6 +1312,9 @@ main (int argc, const char **argv)
   if (num_infiles == 0)
     fatal ("no input files");
 #endif
+
+  if (fnasm_seen)
+    return do_nasm ();
 
   if (num_arches > 1)
     {
