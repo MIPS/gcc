@@ -22,6 +22,10 @@
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;; Some FPA mnemonics are ambiguous between conditional infixes and
+;; conditional suffixes so all instructions use a conditional infix,
+;; even in unified assembly mode.
+
 ;; FPA automaton.
 (define_automaton "armfp")
 
@@ -103,8 +107,8 @@
 		 (match_operand:SF 2 "arm_float_add_operand"    "fG,H")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   adf%(s%)\\t%0, %1, %2
-   suf%(s%)\\t%0, %1, #%N2"
+   adf%?s\\t%0, %1, %2
+   suf%?s\\t%0, %1, #%N2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -115,8 +119,8 @@
 		 (match_operand:DF 2 "arm_float_add_operand"    "fG,H")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   adf%(d%)\\t%0, %1, %2
-   suf%(d%)\\t%0, %1, #%N2"
+   adf%?d\\t%0, %1, %2
+   suf%?d\\t%0, %1, #%N2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -128,8 +132,8 @@
 		 (match_operand:DF  2 "arm_float_add_operand"    "fG,H")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   adf%(d%)\\t%0, %1, %2
-   suf%(d%)\\t%0, %1, #%N2"
+   adf%?d\\t%0, %1, %2
+   suf%?d\\t%0, %1, #%N2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -140,7 +144,7 @@
 		 (float_extend:DF
 		  (match_operand:SF 2 "s_register_operand"  "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "adf%(d%)\\t%0, %1, %2"
+  "adf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -152,7 +156,7 @@
 		 (float_extend:DF
 		  (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "adf%(d%)\\t%0, %1, %2"
+  "adf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -163,8 +167,8 @@
 		  (match_operand:SF 2 "arm_float_rhs_operand" "fG,f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   suf%(s%)\\t%0, %1, %2
-   rsf%(s%)\\t%0, %2, %1"
+   suf%?s\\t%0, %1, %2
+   rsf%?s\\t%0, %2, %1"
   [(set_attr "type" "farith")]
 )
 
@@ -174,8 +178,8 @@
 		  (match_operand:DF 2 "arm_float_rhs_operand"    "fG,f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   suf%(d%)\\t%0, %1, %2
-   rsf%(d%)\\t%0, %2, %1"
+   suf%?d\\t%0, %1, %2
+   rsf%?d\\t%0, %2, %1"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -186,7 +190,7 @@
 		   (match_operand:SF 1 "s_register_operand"  "f"))
 		  (match_operand:DF  2 "arm_float_rhs_operand"    "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "suf%(d%)\\t%0, %1, %2"
+  "suf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -198,8 +202,8 @@
 		   (match_operand:SF 2 "s_register_operand" "f,f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   suf%(d%)\\t%0, %1, %2
-   rsf%(d%)\\t%0, %2, %1"
+   suf%?d\\t%0, %1, %2
+   rsf%?d\\t%0, %2, %1"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -211,7 +215,7 @@
 		  (float_extend:DF
 		   (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "suf%(d%)\\t%0, %1, %2"
+  "suf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
 )
@@ -221,7 +225,7 @@
 	(mult:SF (match_operand:SF 1 "s_register_operand" "f")
 		 (match_operand:SF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "fml%(s%)\\t%0, %1, %2"
+  "fml%?s\\t%0, %1, %2"
   [(set_attr "type" "ffmul")
    (set_attr "predicable" "yes")]
 )
@@ -231,7 +235,7 @@
 	(mult:DF (match_operand:DF 1 "s_register_operand" "f")
 		 (match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "muf%(d%)\\t%0, %1, %2"
+  "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
 )
@@ -242,7 +246,7 @@
 		  (match_operand:SF 1 "s_register_operand" "f"))
 		 (match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "muf%(d%)\\t%0, %1, %2"
+  "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
 )
@@ -253,7 +257,7 @@
 		 (float_extend:DF
 		  (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "muf%(d%)\\t%0, %1, %2"
+  "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
 )
@@ -264,7 +268,7 @@
 	 (float_extend:DF (match_operand:SF 1 "s_register_operand" "f"))
 	 (float_extend:DF (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "muf%(d%)\\t%0, %1, %2"
+  "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
 )
@@ -277,8 +281,8 @@
 		(match_operand:SF 2 "arm_float_rhs_operand" "fG,f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   fdv%(s%)\\t%0, %1, %2
-   frd%(s%)\\t%0, %2, %1"
+   fdv%?s\\t%0, %1, %2
+   frd%?s\\t%0, %2, %1"
   [(set_attr "type" "fdivs")
    (set_attr "predicable" "yes")]
 )
@@ -289,8 +293,8 @@
 		(match_operand:DF 2 "arm_float_rhs_operand" "fG,f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   dvf%(d%)\\t%0, %1, %2
-   rdf%(d%)\\t%0, %2, %1"
+   dvf%?d\\t%0, %1, %2
+   rdf%?d\\t%0, %2, %1"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -301,7 +305,7 @@
 		 (match_operand:SF 1 "s_register_operand" "f"))
 		(match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "dvf%(d%)\\t%0, %1, %2"
+  "dvf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -312,7 +316,7 @@
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "rdf%(d%)\\t%0, %2, %1"
+  "rdf%?d\\t%0, %2, %1"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -324,7 +328,7 @@
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "dvf%(d%)\\t%0, %1, %2"
+  "dvf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -334,7 +338,7 @@
 	(mod:SF (match_operand:SF 1 "s_register_operand" "f")
 		(match_operand:SF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "rmf%(s%)\\t%0, %1, %2"
+  "rmf%?s\\t%0, %1, %2"
   [(set_attr "type" "fdivs")
    (set_attr "predicable" "yes")]
 )
@@ -344,7 +348,7 @@
 	(mod:DF (match_operand:DF 1 "s_register_operand" "f")
 		(match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "rmf%(d%)\\t%0, %1, %2"
+  "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -355,7 +359,7 @@
 		 (match_operand:SF 1 "s_register_operand" "f"))
 		(match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "rmf%(d%)\\t%0, %1, %2"
+  "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -366,7 +370,7 @@
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "rmf%(d%)\\t%0, %1, %2"
+  "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -378,7 +382,7 @@
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "rmf%(d%)\\t%0, %1, %2"
+  "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
 )
@@ -387,7 +391,7 @@
   [(set (match_operand:SF         0 "s_register_operand" "=f")
 	(neg:SF (match_operand:SF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "mnf%(s%)\\t%0, %1"
+  "mnf%?s\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -396,7 +400,7 @@
   [(set (match_operand:DF         0 "s_register_operand" "=f")
 	(neg:DF (match_operand:DF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "mnf%(d%)\\t%0, %1"
+  "mnf%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -406,7 +410,7 @@
 	(neg:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "mnf%(d%)\\t%0, %1"
+  "mnf%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -415,7 +419,7 @@
   [(set (match_operand:SF          0 "s_register_operand" "=f")
 	 (abs:SF (match_operand:SF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "abs%(s%)\\t%0, %1"
+  "abs%?s\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -424,7 +428,7 @@
   [(set (match_operand:DF         0 "s_register_operand" "=f")
 	(abs:DF (match_operand:DF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "abs%(d%)\\t%0, %1"
+  "abs%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -434,7 +438,7 @@
 	(abs:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "abs%(d%)\\t%0, %1"
+  "abs%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -443,7 +447,7 @@
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(sqrt:SF (match_operand:SF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "sqt%(s%)\\t%0, %1"
+  "sqt%?s\\t%0, %1"
   [(set_attr "type" "float_em")
    (set_attr "predicable" "yes")]
 )
@@ -452,7 +456,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(sqrt:DF (match_operand:DF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "sqt%(d%)\\t%0, %1"
+  "sqt%?d\\t%0, %1"
   [(set_attr "type" "float_em")
    (set_attr "predicable" "yes")]
 )
@@ -462,7 +466,7 @@
 	(sqrt:DF (float_extend:DF
 		  (match_operand:SF 1 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "sqt%(d%)\\t%0, %1"
+  "sqt%?d\\t%0, %1"
   [(set_attr "type" "float_em")
    (set_attr "predicable" "yes")]
 )
@@ -471,7 +475,7 @@
   [(set (match_operand:SF           0 "s_register_operand" "=f")
 	(float:SF (match_operand:SI 1 "s_register_operand" "r")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "flt%(s%)\\t%0, %1"
+  "flt%?s\\t%0, %1"
   [(set_attr "type" "r_2_f")
    (set_attr "predicable" "yes")]
 )
@@ -480,7 +484,7 @@
   [(set (match_operand:DF           0 "s_register_operand" "=f")
 	(float:DF (match_operand:SI 1 "s_register_operand" "r")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "flt%(d%)\\t%0, %1"
+  "flt%?d\\t%0, %1"
   [(set_attr "type" "r_2_f")
    (set_attr "predicable" "yes")]
 )
@@ -489,7 +493,7 @@
   [(set (match_operand:SI         0 "s_register_operand" "=r")
 	(fix:SI (fix:SF (match_operand:SF 1 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "fix%(z%)\\t%0, %1"
+  "fix%?z\\t%0, %1"
   [(set_attr "type" "f_2_r")
    (set_attr "predicable" "yes")]
 )
@@ -498,7 +502,7 @@
   [(set (match_operand:SI         0 "s_register_operand" "=r")
 	(fix:SI (fix:DF (match_operand:DF 1 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "fix%(z%)\\t%0, %1"
+  "fix%?z\\t%0, %1"
   [(set_attr "type" "f_2_r")
    (set_attr "predicable" "yes")]
 )
@@ -508,7 +512,7 @@
 	(float_truncate:SF
 	 (match_operand:DF 1 "s_register_operand" "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "mvf%(s%)\\t%0, %1"
+  "mvf%?s\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
@@ -517,13 +521,11 @@
   [(set (match_operand:DF                  0 "s_register_operand" "=f")
 	(float_extend:DF (match_operand:SF 1 "s_register_operand"  "f")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "mvf%(d%)\\t%0, %1"
+  "mvf%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
 )
 
-;; stfs/ldfs always use a conditional infix.  This works around the
-;; ambiguity between "stf pl s" and "sftp ls".
 (define_insn "*movsf_fpa"
   [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,f, m,f,r,r,r, m")
 	(match_operand:SF 1 "general_operand"      "fG,H,mE,f,r,f,r,mE,r"))]
@@ -532,8 +534,8 @@
    && (GET_CODE (operands[0]) != MEM
        || register_operand (operands[1], SFmode))"
   "@
-   mvf%(s%)\\t%0, %1
-   mnf%(s%)\\t%0, #%N1
+   mvf%?s\\t%0, %1
+   mnf%?s\\t%0, #%N1
    ldf%?s\\t%0, %1
    stf%?s\\t%1, %0
    str%?\\t%1, [%|sp, #-4]!\;ldf%?s\\t%0, [%|sp], #4
@@ -566,10 +568,10 @@
     case 0: return \"ldm%(ia%)\\t%m1, %M0\\t%@ double\";
     case 1: return \"stm%(ia%)\\t%m0, %M1\\t%@ double\";
     case 2: case 3: case 4: return output_move_double (operands);
-    case 5: return \"mvf%(d%)\\t%0, %1\";
-    case 6: return \"mnf%(d%)\\t%0, #%N1\";
-    case 7: return \"ldf%(d%)\\t%0, %1\";
-    case 8: return \"stf%(d%)\\t%1, %0\";
+    case 5: return \"mvf%?d\\t%0, %1\";
+    case 6: return \"mnf%?d\\t%0, #%N1\";
+    case 7: return \"ldf%?d\\t%0, %1\";
+    case 8: return \"stf%?d\\t%1, %0\";
     case 9: return output_mov_double_fpa_from_arm (operands);
     case 10: return output_mov_double_arm_from_fpa (operands);
     }
@@ -596,10 +598,10 @@
   switch (which_alternative)
     {
     default:
-    case 0: return \"mvf%(e%)\\t%0, %1\";
-    case 1: return \"mnf%(e%)\\t%0, #%N1\";
-    case 2: return \"ldf%(e%)\\t%0, %1\";
-    case 3: return \"stf%(e%)\\t%1, %0\";
+    case 0: return \"mvf%?e\\t%0, %1\";
+    case 1: return \"mnf%?e\\t%0, #%N1\";
+    case 2: return \"ldf%?e\\t%0, %1\";
+    case 3: return \"stf%?e\\t%1, %0\";
     case 4: return output_mov_long_double_fpa_from_arm (operands);
     case 5: return output_mov_long_double_arm_from_fpa (operands);
     case 6: return output_mov_long_double_arm_from_arm (operands);
@@ -622,8 +624,8 @@
    && (GET_CODE (operands[0]) != MEM
        || register_operand (operands[1], SFmode))"
   "@
-   mvf%(s%)\\t%0, %1
-   mnf%(s%)\\t%0, #%N1
+   mvf%?s\\t%0, %1
+   mnf%?s\\t%0, #%N1
    ldf%?s\\t%0, %1
    stf%?s\\t%1, %0
    str%?\\t%1, [%|sp, #-4]!\;ldf%?s\\t%0, [%|sp], #4
@@ -658,10 +660,10 @@
     case 0: return \"ldm%(ia%)\\t%m1, %M0\\t%@ double\";
     case 1: return \"stm%(ia%)\\t%m0, %M1\\t%@ double\";
     case 2: case 3: case 4: return output_move_double (operands);
-    case 5: return \"mvf%(d%)\\t%0, %1\";
-    case 6: return \"mnf%(d%)\\t%0, #%N1\";
-    case 7: return \"ldf%(d%)\\t%0, %1\";
-    case 8: return \"stf%(d%)\\t%1, %0\";
+    case 5: return \"mvf%?d\\t%0, %1\";
+    case 6: return \"mnf%?d\\t%0, #%N1\";
+    case 7: return \"ldf%?d\\t%0, %1\";
+    case 8: return \"stf%?d\\t%1, %0\";
     case 9: return output_mov_double_fpa_from_arm (operands);
     case 10: return output_mov_double_arm_from_fpa (operands);
     }
@@ -688,10 +690,10 @@
   switch (which_alternative)
     {
     default:
-    case 0: return \"mvf%(e%)\\t%0, %1\";
-    case 1: return \"mnf%(e%)\\t%0, #%N1\";
-    case 2: return \"ldf%(e%)\\t%0, %1\";
-    case 3: return \"stf%(e%)\\t%1, %0\";
+    case 0: return \"mvf%?e\\t%0, %1\";
+    case 1: return \"mnf%?e\\t%0, #%N1\";
+    case 2: return \"ldf%?e\\t%0, %1\";
+    case 3: return \"stf%?e\\t%1, %0\";
     case 4: return output_mov_long_double_fpa_from_arm (operands);
     case 5: return output_mov_long_double_arm_from_fpa (operands);
     case 6: return output_mov_long_double_arm_from_arm (operands);
@@ -757,8 +759,8 @@
 		       (match_operand:SF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   cmf%(e%)\\t%0, %1
-   cnf%(e%)\\t%0, #%N1"
+   cmf%?e\\t%0, %1
+   cnf%?e\\t%0, #%N1"
   [(set_attr "conds" "set")
    (set_attr "type" "f_2_r")]
 )
@@ -769,8 +771,8 @@
 		       (match_operand:DF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   cmf%(e%)\\t%0, %1
-   cnf%(e%)\\t%0, #%N1"
+   cmf%?e\\t%0, %1
+   cnf%?e\\t%0, #%N1"
   [(set_attr "conds" "set")
    (set_attr "type" "f_2_r")]
 )
@@ -782,8 +784,8 @@
 		       (match_operand:DF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
-   cmf%(e%)\\t%0, %1
-   cnf%(e%)\\t%0, #%N1"
+   cmf%?e\\t%0, %1
+   cnf%?e\\t%0, #%N1"
   [(set_attr "conds" "set")
    (set_attr "type" "f_2_r")]
 )
@@ -794,7 +796,7 @@
 		       (float_extend:DF
 			(match_operand:SF 1 "s_register_operand" "f"))))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPA"
-  "cmf%(e%)\\t%0, %1"
+  "cmf%?e\\t%0, %1"
   [(set_attr "conds" "set")
    (set_attr "type" "f_2_r")]
 )

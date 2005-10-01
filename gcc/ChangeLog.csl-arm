@@ -1,3 +1,8 @@
+2005-10-01  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c: Always use conditional infixes on FPA insns.
+	* config/arm/fpa.md: Ditto.
+
 2005-09-30  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config.gcc (arm*-*-linux*): Remove redundant extra_parts and

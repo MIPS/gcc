@@ -8942,7 +8942,7 @@ output_mov_long_double_fpa_from_arm (rtx *operands)
   ops[2] = gen_rtx_REG (SImode, 2 + arm_reg0);
   
   output_asm_insn ("stm%(fd%)\t%|sp!, {%0, %1, %2}", ops);
-  output_asm_insn ("ldf%(e%)\t%0, [%|sp], #12", operands);
+  output_asm_insn ("ldf%?e\t%0, [%|sp], #12", operands);
   
   return "";
 }
@@ -8963,7 +8963,7 @@ output_mov_long_double_arm_from_fpa (rtx *operands)
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
   ops[2] = gen_rtx_REG (SImode, 2 + arm_reg0);
 
-  output_asm_insn ("stf%(e%)\t%1, [%|sp, #-12]!", operands);
+  output_asm_insn ("stf%?e\t%1, [%|sp, #-12]!", operands);
   output_asm_insn ("ldm%(fd%)\t%|sp!, {%0, %1, %2}", ops);
   return "";
 }
@@ -9018,7 +9018,7 @@ output_mov_double_fpa_from_arm (rtx *operands)
   ops[0] = gen_rtx_REG (SImode, arm_reg0);
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
   output_asm_insn ("stm%(fd%)\t%|sp!, {%0, %1}", ops);
-  output_asm_insn ("ldf%(d%)\t%0, [%|sp], #8", operands);
+  output_asm_insn ("ldf%?d\t%0, [%|sp], #8", operands);
   return "";
 }
 
@@ -9036,7 +9036,7 @@ output_mov_double_arm_from_fpa (rtx *operands)
 
   ops[0] = gen_rtx_REG (SImode, arm_reg0);
   ops[1] = gen_rtx_REG (SImode, 1 + arm_reg0);
-  output_asm_insn ("stf%(d%)\t%1, [%|sp, #-8]!", operands);
+  output_asm_insn ("stf%?d\t%1, [%|sp, #-8]!", operands);
   output_asm_insn ("ldm%(fd%)\t%|sp!, {%0, %1}", ops);
   return "";
 }
