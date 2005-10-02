@@ -3110,9 +3110,14 @@ fi
 
 
 
-# Add -Wall if we are using GCC.
+# In order to override CFLAGS_FOR_TARGET, all of our special flags go
+# in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
+# in both places for now and restore CFLAGS at the end of config.
+save_CFLAGS="$CFLAGS"
+
+# Add -Wall -Werror if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  CFLAGS="$CFLAGS -Wall"
+  XCFLAGS="$XCFLAGS -Wall -Werror"
 fi
 
 # Find other programs we need.
@@ -4221,7 +4226,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4224 "configure"' > conftest.$ac_ext
+  echo '#line 4229 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -4606,7 +4611,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:4609:" \
+echo "$as_me:4614:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -4754,11 +4759,6 @@ FCFLAGS="$FCFLAGS -Wall"
 # For libtool versioning info, format is CURRENT:REVISION:AGE
 libtool_VERSION=1:0:0
 
-
-# In order to override CFLAGS_FOR_TARGET, all of our special flags go
-# in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
-# in both places for now and restore CFLAGS at the end of config.
-save_CFLAGS="$CFLAGS"
 
 # Check header files.
 ac_ext=c

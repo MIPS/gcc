@@ -100,9 +100,14 @@ m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 AC_SUBST(CFLAGS)
 
-# Add -Wall if we are using GCC.
+# In order to override CFLAGS_FOR_TARGET, all of our special flags go
+# in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
+# in both places for now and restore CFLAGS at the end of config.
+save_CFLAGS="$CFLAGS"
+
+# Add -Wall -Werror if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  CFLAGS="$CFLAGS -Wall"
+  XCFLAGS="$XCFLAGS -Wall -Werror"
 fi
 
 # Find other programs we need.
@@ -127,11 +132,6 @@ FCFLAGS="$FCFLAGS -Wall"
 # For libtool versioning info, format is CURRENT:REVISION:AGE
 libtool_VERSION=1:0:0
 AC_SUBST(libtool_VERSION)
-
-# In order to override CFLAGS_FOR_TARGET, all of our special flags go
-# in XCFLAGS.  But we need them in CFLAGS during configury.  So put them
-# in both places for now and restore CFLAGS at the end of config.
-save_CFLAGS="$CFLAGS"
 
 # Check header files.
 AC_STDC_HEADERS

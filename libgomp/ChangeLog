@@ -1,3 +1,8 @@
+2005-10-02  Richard Henderson  <rth@redhat.com>
+
+	* configure.ac: Move save_CFLAGS hack earlier.  Append -Wall/-Werror
+	to XCFLAGS instead of CFLAGS.
+
 2005-09-30  Richard Henderson  <rth@redhat.com>
 
 	* configure.ac: Determine whether -pthread or -lpthread is needed.
