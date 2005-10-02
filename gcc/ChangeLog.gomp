@@ -1,3 +1,13 @@
+2005-10-01  Richard Henderson  <rth@redhat.com>
+
+	* tree-inline.c (struct copy_body_data): Rename from inline_data.
+	Rename callee->src, caller->dst.  Remove ipa_info.  Replace
+	cloning_p, saving_p, versioning_p with transform_parm_to_var,
+	transform_call_graph_edges, transform_new_cfg,
+	transform_return_to_modify, transform_lang_insert_block.  Update
+	all users.
+	(replace_ref_tree, inlining_p): Remove.
+
 2005-09-29  Richard Henderson  <rth@redhat.com>
 
 	* omp-low.c (use_pointer_for_field): True for shared variables
