@@ -1,3 +1,9 @@
+2005-10-02  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	2005-08-20  Richard Earnshaw  <richard.earnshaw@arm.com>
+	* testsuite/gcc.dg/arm-eabi1.c (main): Exit with 0 on success.
+
 2005-10-01  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c: Always use conditional infixes on FPA insns.
