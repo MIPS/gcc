@@ -1,3 +1,18 @@
+2005-10-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (var_anyoffset): Removed.
+	(anyoffset_tree): Ditto.
+	(anyoffset_id): Ditto.
+	(do_deref): Take vector of constraints, no return value.
+	Update to work on vector.		 
+	(get_constraint_for): Ditto.
+	(get_constraint_for_component_ref): Ditto.
+	(do_structure_copy): Ditto.
+	(handle_ptr_arith): Ditto.
+	(find_func_aliases): Ditto.
+	(set_uids_in_ptset): Remove anyoffset handling.
+	(init_base_vars): Ditto.
+
 2005-09-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* ipa-callees.c (argument_readonly_nonpointer): Removed.
