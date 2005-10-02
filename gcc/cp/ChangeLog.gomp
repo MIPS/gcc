@@ -1,0 +1,8 @@
+2005-10-01  Richard Henderson  <rth@redhat.com>
+
+	* name-lookup.c (lookup_name): Remove prefer_type argument.
+	(lookup_name_prefer_type): New function.
+	* name-lookup.h (lookup_name_prefer_type): Declare it.
+	* decl.c (lookup_and_check_tag): Use it.
+	* pt.c (tsubst_friend_class): Likewise. Update for lookup_name change.
+	(lookup_template_class, tsubst_copy_and_build): Likewise.

@@ -4003,7 +4003,13 @@ lookup_function_nonclass (tree name, tree args, bool block_p)
 }
 
 tree
-lookup_name (tree name, int prefer_type)
+lookup_name (tree name)
+{
+  return lookup_name_real (name, 0, 0, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+}
+
+tree
+lookup_name_prefer_type (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
 			   0, LOOKUP_COMPLAIN);
