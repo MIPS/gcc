@@ -2900,21 +2900,6 @@ find_func_aliases (tree t, struct alias_info *ai)
 				VEC_safe_push (ce_s, heap, rhsc, &tmp);
 			      }
 			  }
-#if 0
-			/* When taking the address of an aggregate
-			   type, from the LHS we can access any field
-			   of the RHS.  */
-			if (need_anyoffset || (rhs.type == ADDRESSOF
-			    && !(get_varinfo (rhs.var)->is_special_var)
-			    && AGGREGATE_TYPE_P (TREE_TYPE (TREE_TYPE (rhsop)))))
-			  {
-			    gcc_assert
-			    rhs.var = anyoffset_id;
-			    rhs.type = ADDRESSOF;
-			    rhs.offset = 0;
-			    process_constraint (new_constraint (lhs, rhs));
-			  }
-#endif
 
 			for (j = 0; VEC_iterate (ce_s, lhsc, j, c); j++)
 			  {
