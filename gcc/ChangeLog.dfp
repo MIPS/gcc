@@ -1,3 +1,18 @@
+2005-10-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* decContext.c: Run file through indent.
+	* decContext.h: Ditto.
+	* decDPD.h: Ditto.
+	* decNumber.c: Ditto.
+	* decNumber.h: Ditto.
+	* decNumberLocal.h: Ditto.
+	* decimal128.c: Ditto.
+	* decimal128.h: Ditto.
+	* decimal32.c: Ditto.
+	* decimal32.h: Ditto.
+	* decimal64.c: Ditto.
+	* decimal64.h: Ditto.
+
 2005-09-28  Ben Elliston  <bje@au.ibm.com>
 
 	* DEV-PHASE: Refresh datestamp.
