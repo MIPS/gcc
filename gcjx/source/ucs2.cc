@@ -1,6 +1,6 @@
 // Implementation of readers.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -29,8 +29,11 @@
 
 ucs2_reader::ucs2_reader (byte_buffer *in)
   : input (in),
+    begin (in->get ()),
     curr (in->get ()),
-    limit (in->get () + in->get_length ())
+    end (in->get () + in->get_length ()),
+    posn (0),
+    max_posn (in->get_length ())
 {
 }
 

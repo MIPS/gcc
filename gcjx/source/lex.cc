@@ -1315,6 +1315,60 @@ lexer::get_token ()
   return result;
 }
 
+const char *
+lexer::get_line (int line_number)
+{
+  // Save the relevant state of the lexer and the input reader before we
+  // rewind the input reader.
+  int save_line = line;
+  int save_column = column;
+  int save_backslash_count = backslash_count;
+  unicode_w_t save_unget_value = unget_value;
+  unicode_w_t save_cooked_unget_value = cooked_unget_value;
+  bool save_was_return = was_return;
+  int save_posn = input_filter->get_posn ();
+
+  // Reset the state of the lexer and the input reader.
+  line = 1;
+  column = 0;
+  backslash_count = 0;
+  unget_value = UNICODE_W_NONE;
+  cooked_unget_value = UNICODE_W_NONE;
+  was_return = false;
+  input_filter->set_posn (0);
+
+  // Ignore input until we reach the desired line (or end of file).
+  unicode_w_t c = UNICODE_W_NONE;
+  while (line < line_number && (c = get ()) != UNICODE_EOF)
+    ;
+
+  // Read in the characters on the desired line.
+  char *ret_val = NULL; 
+  if (c != UNICODE_EOF)
+    {
+      int offset = 0;
+      do
+        {
+          offset = scratch_insert_utf8 (offset, c);
+        } while ((c = get ()) != UNICODE_EOF && line == line_number);
+
+      ensure (offset + 1);
+      scratch[offset] = '\0';
+      ret_val = scratch;
+    }
+
+  // Restore the state of the lexer and the input reader.
+  line = save_line;
+  column = save_column;
+  backslash_count = save_backslash_count;
+  unget_value = save_unget_value;
+  cooked_unget_value = save_cooked_unget_value;
+  was_return = save_was_return;
+  input_filter->set_posn (save_posn);
+
+  return ret_val;
+}
+
 
 
 const char *

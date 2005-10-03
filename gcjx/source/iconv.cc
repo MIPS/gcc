@@ -1,6 +1,6 @@
 // iconv-based reader.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -62,7 +62,7 @@ iconv_ucs2_reader::refill ()
 {
   assert (last == next);
 
-  size_t in_rem = limit - curr;
+  size_t in_rem = end - curr;
   char *out_loc = (char *) translated;
   size_t out_rem = sizeof (translated);
 
@@ -99,7 +99,7 @@ iconv_ucs2_reader::get ()
 {
   if (next == last)
     {
-      if (curr == limit)
+      if (curr == end)
 	return UNICODE_EOF;
       refill ();
       assert (next != last);

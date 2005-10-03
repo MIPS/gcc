@@ -163,6 +163,11 @@ public:
 
   // Return the name of a token.
   static const char *token_to_string (token_value);
+
+  /// Return the line at the given position, counting from 1.  The characters
+  /// are encoded using UTF-8.  Returns NULL if the line number is out of
+  /// range.
+  const char *get_line (int line_number);
 };
 
 #endif // GCJX_SOURCE_LEX_HH

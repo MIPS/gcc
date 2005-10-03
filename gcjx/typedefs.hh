@@ -85,6 +85,20 @@ typedef unsigned int unicode_w_t;
 // The special EOF value.
 #define UNICODE_EOF ((unicode_w_t) -1)
 
+// Some integer extrema.
+#define MIN_INT  -0x80000000LL
+#define MAX_INT   0x7fffffffLL
+#define MIN_LONG -0x8000000000000000LL
+#define MAX_LONG  0x7fffffffffffffffLL
+
+#include "util.hh"
+
+#include "owner.hh"
+
+// Forward-declaration for use by the lexer headers.
+class model_element;
+typedef owner<model_element> ref_element;
+
 /// This is a list of possible warning states.
 typedef enum
   {
@@ -95,15 +109,6 @@ typedef enum
 
 #include "exception.hh"
 
-// Some integer extrema.
-#define MIN_INT  -0x80000000LL
-#define MAX_INT   0x7fffffffLL
-#define MIN_LONG -0x8000000000000000LL
-#define MAX_LONG  0x7fffffffffffffffLL
-
-#include "util.hh"
-
-#include "owner.hh"
 #include "global.hh"
 #include "factory.hh"
 #include "model/iscope.hh"
@@ -132,7 +137,6 @@ class visitor;
 #include "model/value.hh"
 
 #include "model/element.hh"
-typedef owner<model_element> ref_element;
 
 #include "model/modifier.hh"
 typedef owner<model_modifier_list> ref_modifier_list;

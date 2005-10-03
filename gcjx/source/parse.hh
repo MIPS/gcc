@@ -1,6 +1,6 @@
 // The parser.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -234,7 +234,6 @@ public:
 
   ~parse ()
   {
-    delete our_token_stream;
   }
 
   // Compile a file and return a compilation unit.  This may throw

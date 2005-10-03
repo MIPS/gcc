@@ -1,6 +1,6 @@
 // Formatting.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -24,6 +24,7 @@
 
 #include "location.hh"
 #include "owner.hh"
+#include "source/lex.hh"
 
 typedef enum
 {
@@ -54,6 +55,9 @@ class format_repr
 
   /// Location of this error.
   location where;
+
+  /// Lexer to use to retrieve lines from source files.
+  lexer *src_lexer;
 
   /// The formatting string passed in by the user.
   const char *plan;
@@ -105,6 +109,11 @@ public:
   void set_location (const location &w)
   {
     where = w;
+  }
+
+  void set_lexer (lexer *a_lexer)
+  {
+    src_lexer = a_lexer;
   }
 };
 

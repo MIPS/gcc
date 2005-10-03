@@ -1,6 +1,6 @@
 // Formatting.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -25,6 +25,7 @@
 format_repr::format_repr (format_type t, location w, const char *fmt)
   : refc (0),
     where (w),
+    src_lexer (NULL),
     plan (copy_str (fmt)),
     subst_count (0),
     type (t)
@@ -66,6 +67,24 @@ format_repr::dump (std::ostream &os) const
 		  || (type == format_warning
 		      && global->get_compiler ()->warnings_are_errors ()));
   os << where << (failure ? "error: " : "warning: ") << get_message () << "\n";
+
+  // If possible, print out the corresponding line from the source file.
+  if (src_lexer)
+    {
+      const char *line = src_lexer->get_line (where.get_line ());
+      if (line)
+        {
+          // FIXME: Assumes a terminal that can directly show UTF-8.
+          os << line << std::endl;
+
+          // Now print a caret underneath the column in question.
+          int col = where.get_column ();
+          for (int i = 0; i < col; i++)
+            os << ' ';
+          os << '^' << std::endl << std::endl;
+        }
+    }
+
   if (failure)
     global->get_compiler ()->set_failed ();
 }

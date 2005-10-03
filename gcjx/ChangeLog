@@ -1,3 +1,37 @@
+2005-10-03  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	Show lines from input files in diagnostics.
+	* source/ucs2.hh (ucs2_reader::limit): Rename to 'end'.
+	(ucs2_reader::begin): New field.
+	(ucs2_reader::posn): Likewise.
+	(ucs2_reader::max_posn): Likewise.
+	(ucs2_reader::get_uint8): Update POSN as needed.
+	(ucs2_reader::get_posn): New method.
+	(ucs2_reader::set_posn): Likewise.
+	* source/ucs2.cc (ucs2_reader::ucs2_reader): Initialise new fields.
+	* source/iconv.cc (iconv_ucs2_reader::refill): Use END instead of
+	LIMIT.
+	(iconv_ucs2_reader::get): Likewise.
+	* source/lex.hh (lexer::get_line): New method.
+	* source/lex.cc (lexer::get_line): Implementation of the above.
+	* location.hh (location::get_column): New method.
+	* format/format.hh (format_repr::src_lexer): New field.
+	(format_repr::set_lexer): New method.
+	* format/format.cc (format_repr::format_repr): Initialise SRC_LEXER.
+	(format_repr::dump): Show source line, if possible, using SRC_LEXER.
+	* exception.hh (exception_base::set_lexer): New method.
+	* model/unit.hh (model_unit::src_lexer): New field.
+	(model_unit::model_unit): Initialise SRC_LEXER.
+	(model_unit::~model_unit): New destructor.
+	(model_unit::set_lexer): New method.
+	(model_unit::get_lexer): Likewise.
+	* reader/source.cc (source_file_creator::apply): Set lexer for
+	compilation unit and exception, if any.
+	* source/parse.hh (parse::~parse): Do not destory token stream.
+	* typedefs.hh: Rearrange inclusion of headers.
+	* compiler.cc (compiler::do_analyze_unit): Set lexer for exception,
+	if any.
+
 2005-09-28  Tom Tromey  <tromey@redhat.com>
 
 	* source/tstream.hh (token_stream::buffer): Changed type.

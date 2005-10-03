@@ -1,6 +1,6 @@
 // Exceptions thrown by lexer, parser, etc.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -23,6 +23,7 @@
 #define GCJX_EXCEPTION_HH
 
 #include "format/format.hh"
+#include "source/lex.hh"
 
 class exception_base
 {
@@ -45,6 +46,12 @@ public:
   void set_location (const location &w)
   {
     formatter->set_location (w);
+  }
+
+  /// Set the lexer to use to retrieve lines from source files.
+  void set_lexer (lexer *src_lexer)
+  {
+    formatter->set_lexer (src_lexer);
   }
 
   friend std::ostream &operator<< (std::ostream &, const exception_base &);

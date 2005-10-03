@@ -1,6 +1,6 @@
 // ucs-2 readers.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -31,16 +31,31 @@ protected:
   /// The buffer holding all input data.
   byte_buffer *input;
 
+  /// Pointer to the beginning of input data.
+  const uint8 *begin;
+
   /// Current pointer.
   const uint8 *curr;
 
-  /// Limit pointer.
-  const uint8 *limit;
+  /// Pointer to the end of input data.
+  const uint8 *end;
+
+  /// Current position.
+  int posn;
+
+  /// Maximum possible position.
+  const int max_posn;
 
   /// Return the next uint8, or -1 on EOF.
   int get_uint8 ()
   {
-    return curr == limit ? -1 : *curr++;
+    if (curr == end)
+      return -1;
+    else
+      {
+        posn++;
+        return *curr++;
+      }
   }
 
   int here ();
@@ -56,6 +71,22 @@ public:
   /// conversion error; the caller is expected to set the location on
   /// this exception.
   virtual unicode_w_t get () = 0;
+
+  /// Gets the current position of this reader within the input data.
+  virtual int get_posn ()
+  {
+    return posn;
+  }
+
+  /// Sets the position of this reader within the input data, if possible.
+  virtual void set_posn (int a_posn)
+  {
+    if (a_posn >= 0 && a_posn <= max_posn)
+      {
+	posn = a_posn;
+	curr = begin + posn;
+      }
+  }
 };
 
 // Assume the input is utf-8.

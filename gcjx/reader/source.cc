@@ -1,6 +1,6 @@
 // Read .java files from a byte stream.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -49,10 +49,12 @@ source_file_creator::apply (bool emit)
     {
       ref_unit unit = p.compilation_unit ();
       unit->set_file_name (file);
+      unit->set_lexer (ts);
       global->get_compiler ()->add_unit (unit, emit);
     }
   catch (exception_base &exc)
     {
+      exc.set_lexer (ts);
       std::cerr << exc;
     }
   // fixme propagate the exceptions on up?

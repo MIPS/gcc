@@ -1,6 +1,6 @@
 // Represent a compilation unit.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_UNIT_HH
 #define GCJX_MODEL_UNIT_HH
 
+#include "source/lex.hh"
+
 /// This is the base class of all compilation units.
 class model_unit : public model_element, public IScope
 {
@@ -38,17 +40,27 @@ protected:
   // File name associated with this compilation unit.
   std::string filename;
 
+  // Lexer for this compilation unit.
+  lexer *src_lexer;
+
   // True if we've been resolved.
   bool resolved;
 
   model_unit (const location &w)
     : model_element (w),
       package (NULL),
+      src_lexer (NULL),
       resolved (false)
   {
   }
 
 public:
+
+  virtual ~model_unit ()
+  {
+    if (src_lexer)
+      delete src_lexer;
+  }
 
   void set_package (model_package *p)
   {
@@ -68,6 +80,16 @@ public:
   std::string get_file_name () const
   {
     return filename;
+  }
+
+  void set_lexer (lexer *a_lexer)
+  {
+    src_lexer = a_lexer;
+  }
+
+  lexer *get_lexer () const
+  {
+    return src_lexer;
   }
 
   void add (const ref_class &typ)
