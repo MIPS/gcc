@@ -776,7 +776,7 @@ static const char *trad_capable_cpp =
 static const char *pch = 
 /* APPLE LOCAL begin ss2 */
 "-o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} \
- %{fsave-repository=*: \n as -o %w%* %g.s %A}%V";
+ %{fsave-repository=*: \n as %{arch} -o %w%* %g.s %A}%V";
 /* APPLE LOCAL end ss2 */
 /* APPLE LOCAL end pch */
 

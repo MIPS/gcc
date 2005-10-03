@@ -1,5 +1,10 @@
 2005-01-03  Devang Patel  <dpatel@apple.com>
 
+	Radar 4278903
+	* gcc.c (invoke_as): Supply -arch when -fsave-repository is seen.
+
+2005-01-03  Devang Patel  <dpatel@apple.com>
+
 	Radar 4135682
 	* invoke.texi: Avoid using specific version number.
 
