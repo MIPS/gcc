@@ -34,10 +34,7 @@
 #include "decNumber.h"		/* base number library */
 #include "decNumberLocal.h"	/* decNumber local types, etc. */
 #include "decimal128.h"		/* our primary include */
-
-/* Utility routines [from decimal64.c] */
-extern void decDensePackCoeff (decNumber *, uByte *, Int, Int);
-extern void decDenseUnpackCoeff (uByte *, Int, decNumber *, Int, Int);
+#include "decUtility.h"		/* utility routines */
 
 #if DECTRACE || DECCHECK
 void decimal128Show (decimal128 *);	/* for debug */

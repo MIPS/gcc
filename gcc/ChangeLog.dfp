@@ -1,5 +1,14 @@
 2005-10-03  Janis Johnson  <janis187@us.ibm.com>
 
+	* decUtility.c: New file.
+	* decUtility.h: New file.
+	* decimal32.c: Use it.
+	* decimal64.c (decDensePackCoeff, decDenseUnpackCoeff): Move to
+	new file, include new header file.
+	* decimal128.c: Use it.
+	* Makefile.in: Depend on new header file, build new file.
+	* mklibgcc.in: Build new file.
+
 	* decContext.c: Run file through indent.
 	* decContext.h: Ditto.
 	* decDPD.h: Ditto.

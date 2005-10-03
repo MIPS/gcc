@@ -104,8 +104,9 @@ fpbit_c_dep='stmp-dirs config.status tsystem.h'
 
 # Dependencies for decnumber and friends.  This is an overzealous set,
 # but at least we can be sure to recompile if anything gets modified.
-decnumber_dep='stmp-dirs $(srcdir)/decContext.h $(srcdir)/decNumber.h $(srcdir)/decNumberLocal.h
-	$(srcdir)/decimal32.h $(srcdir)/decimal64.h $(srcdir)/decimal128.h $(srcdir)/decDPD.h'
+decnumber_dep='stmp-dirs $(srcdir)/decContext.h $(srcdir)/decNumber.h
+	$(srcdir)/decNumberLocal.h $(srcdir)/decimal32.h $(srcdir)/decimal64.h
+	$(srcdir)/decimal128.h $(srcdir)/decDPD.h $(srcdir)/decUtility.h'
 
 # Flag whether we need eh_dummy.c
 need_eh_dummy=
@@ -363,7 +364,7 @@ for ml in $MULTILIBS; do
 
   # Bring in the DFP support code if D32PBIT, D64PBIT or D128PBIT are set.
   if [ -n "$D32PBIT" -o -n "$D64PBIT" -o -n "$D128PBIT" ] ; then
-    dec_filenames="decContext decNumber decRound decLibrary"
+    dec_filenames="decContext decNumber decRound decLibrary decUtility"
   fi
 
   # Only bring in decimal*.c files for types we support.

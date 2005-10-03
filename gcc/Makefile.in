@@ -969,8 +969,8 @@ OBJS-common = \
  targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o		   \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
- tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o    			   \
- decNumber.o decimal128.o decimal64.o decimal32.o decContext.o dfp.o       \
+ tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o decNumber.o		   \
+ decUtility.o decimal128.o decimal64.o decimal32.o decContext.o dfp.o       \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
  tree-ssa-structalias.o tree-object-size.o
@@ -2164,12 +2164,16 @@ real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    toplev.h $(TM_P_H) real.h
 decContext.o : decContext.c decContext.h decNumberLocal.h
 decNumber.o : decNumber.c decNumber.h decContext.h decNumberLocal.h
-decimal32.o : decimal32.c decNumber.h decContext.h decNumberLocal.h decimal32.h
-decimal64.o : decimal64.c decNumber.h decContext.h decNumberLocal.h decimal64.h
-decimal128.o : decimal128.c decNumber.h decNumberLocal.h decimal128.h
+decimal32.o : decimal32.c decNumber.h decContext.h decNumberLocal.h \
+   decimal32.h decUtility.h
+decimal64.o : decimal64.c decNumber.h decContext.h decNumberLocal.h \
+   decimal64.h decUtility.h
+decimal128.o : decimal128.c decNumber.h decNumberLocal.h decimal128.h \
+   decUtility.h
+decUtility.o : decUtility.c decNumber.h decNumberLocal.h decUtility.h
 dfp.o : dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-toplev.h $(TMP_P_H) decContext.h decNumber.h decimal128.h decimal64.h \
-decimal64.h decDPD.h
+   toplev.h $(TMP_P_H) decContext.h decNumber.h decimal128.h decimal64.h \
+   decimal64.h decDPD.h
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) $(FLAGS_H) debug.h $(INTEGRATE_H) insn-config.h \
    $(EXPR_H) real.h $(REGS_H) intl.h function.h output.h $(RECOG_H) \
