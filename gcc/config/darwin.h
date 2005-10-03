@@ -444,15 +444,21 @@ do {					\
 /* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */
-/* APPLE LOCAL begin libgcc_static.a  */
-/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
-#define REAL_LIBGCC_SPEC \
-   "%{static|static-libgcc:-lgcc_static}                             \
-    %{!static:%{!static-libgcc:                                      \
-      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}                \
-      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
-/* APPLE LOCAL end libgcc_static.a  */
+/* APPLE LOCAL begin mainline 2005-10-02 4218570 */
+/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  
+   Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
+   libraries to link against.  */
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						\
+/* APPLE LOCAL libgcc_static.a  */					\
+   "%{static:-lgcc_static;						\
+      :%{shared-libgcc|Zdynamiclib					\
+         :%:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	\
+          %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	\
+          -lgcc;							\
+         :-lgcc -lgcc_eh}}"
 
+/* APPLE LOCAL end mainline 2005-10-02 4218570 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 /* We don't want anything to do with crt2.o in the 64-bit case;
    testing the PowerPC-specific -m64 flag here is a little irregular,

@@ -852,8 +852,12 @@ export INCLUDES
 export INSTALL_DATA
 export LIB1ASMSRC
 export LIBGCC2_CFLAGS
+ # APPLE LOCAL mainline 2005-10-02 4218570
+export LIPO_FOR_TARGET
 export MACHMODE_H
 export NM_FOR_TARGET
+ # APPLE LOCAL mainline 2005-10-02 4218570
+export STRIP_FOR_TARGET
 export RANLIB_FOR_TARGET
 export libsubdir
 export slibdir
@@ -4053,6 +4057,11 @@ stage1-start:
 	 do \
 	   if [ -d stage1/$$dir ] ; then true ; else mkdir stage1/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
+	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage1/specs
 	-mv $(STAGEMOVESTUFF) stage1
@@ -4063,9 +4072,8 @@ stage1-start:
 	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
-	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-cp libgcov.a stage1
@@ -4092,6 +4100,11 @@ stage2-start:
 	 do \
 	   if [ -d stage2/$$dir ] ; then true ; else mkdir stage2/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
+	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage2/specs
 	-mv $(STAGEMOVESTUFF) stage2
@@ -4102,9 +4115,8 @@ stage2-start:
 	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
-	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-cp libgcov.a stage2
@@ -4127,6 +4139,11 @@ stage3-start:
 	 do \
 	   if [ -d stage3/$$dir ] ; then true ; else mkdir stage3/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
+	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage3/specs
 	-mv $(STAGEMOVESTUFF) stage3
@@ -4137,9 +4154,8 @@ stage3-start:
 	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
-	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-cp libgcov.a stage3
@@ -4162,6 +4178,11 @@ stage4-start:
 	 do \
 	   if [ -d stage4/$$dir ] ; then true ; else mkdir stage4/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
+	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage4/specs
 	-mv $(STAGEMOVESTUFF) stage4
@@ -4172,9 +4193,8 @@ stage4-start:
 	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
-	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-cp libgcov.a stage4
@@ -4197,6 +4217,11 @@ stageprofile-start:
 	 do \
 	   if [ -d stageprofile/$$dir ] ; then true ; else mkdir stageprofile/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
+	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
+	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-mv $(STAGEMOVESTUFF) stageprofile
 	-mv build/* stageprofile/build
 	-cp -p $(STAGECOPYSTUFF) stageprofile
@@ -4205,9 +4230,8 @@ stageprofile-start:
 	-if [ -f as$(exeext) ] ; then (cd stageprofile && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
-	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
-	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stageprofile
 	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
 	-cp libgcov.a stageprofile
@@ -4230,6 +4254,12 @@ stagefeedback-start:
 	 do \
 	   if [ -d stagefeedback/$$dir ] ; then true ; else mkdir stagefeedback/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
+	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
+	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
+	-rm -f *.da
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-mv $(STAGEMOVESTUFF) stagefeedback
 	-mv build/* stagefeedback/build
 	-cp -p $(STAGECOPYSTUFF) stagefeedback
@@ -4238,10 +4268,8 @@ stagefeedback-start:
 	-if [ -f as$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
-	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
-	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
-	-rm -f *.da
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-for dir in fixinc po testsuite $(SUBDIRS); \
 	 do \
 	   rm -f $$dir/*.da ; \

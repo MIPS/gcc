@@ -493,17 +493,6 @@ extern const char *darwin_one_byte_bool;
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
 
-/* APPLE LOCAL begin libgcc_static.a  */
-/* APPLE LOCAL begin mainline 2005-04-11 */
-#undef LIBGCC_SPEC
-#undef REAL_LIBGCC_SPEC
-#define REAL_LIBGCC_SPEC						\
-   "%{static:-lgcc_static;                                              \
-      :%{shared-libgcc|Zdynamiclib:%{m64:-lgcc_s_ppc64;:-lgcc_s} -lgcc;	\
-         :-lgcc -lgcc_eh}}"
-/* APPLE LOCAL end mainline 2005-04-11 */
-/* APPLE LOCAL end libgcc_static.a  */
-
 #ifdef IN_LIBGCC2
 #include <stdbool.h>
 #endif

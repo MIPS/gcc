@@ -4550,10 +4550,82 @@ else
 fi
 
  if test -n "$ncn_target_tool_prefix"; then
+  # Extract the first word of "${ncn_target_tool_prefix}lipo", so it can be a program name with args.
+set dummy ${ncn_target_tool_prefix}lipo; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:4557: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_LIPO_FOR_TARGET'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$CONFIGURED_LIPO_FOR_TARGET"; then
+  ac_cv_prog_CONFIGURED_LIPO_FOR_TARGET="$CONFIGURED_LIPO_FOR_TARGET" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
+  ac_dummy="$PATH"
+  for ac_dir in $ac_dummy; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_CONFIGURED_LIPO_FOR_TARGET="${ncn_target_tool_prefix}lipo"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+fi
+fi
+CONFIGURED_LIPO_FOR_TARGET="$ac_cv_prog_CONFIGURED_LIPO_FOR_TARGET"
+if test -n "$CONFIGURED_LIPO_FOR_TARGET"; then
+  echo "$ac_t""$CONFIGURED_LIPO_FOR_TARGET" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+
+fi
+if test -z "$ac_cv_prog_CONFIGURED_LIPO_FOR_TARGET" ; then
+  if test $build = $target ; then
+    ncn_cv_CONFIGURED_LIPO_FOR_TARGET=$CONFIGURED_LIPO_FOR_TARGET
+    # Extract the first word of "lipo", so it can be a program name with args.
+set dummy lipo; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:4590: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_LIPO_FOR_TARGET'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$ncn_cv_CONFIGURED_LIPO_FOR_TARGET"; then
+  ac_cv_prog_ncn_cv_CONFIGURED_LIPO_FOR_TARGET="$ncn_cv_CONFIGURED_LIPO_FOR_TARGET" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
+  ac_dummy="$PATH"
+  for ac_dir in $ac_dummy; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_ncn_cv_CONFIGURED_LIPO_FOR_TARGET="lipo"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+  test -z "$ac_cv_prog_ncn_cv_CONFIGURED_LIPO_FOR_TARGET" && ac_cv_prog_ncn_cv_CONFIGURED_LIPO_FOR_TARGET="lipo"
+fi
+fi
+ncn_cv_CONFIGURED_LIPO_FOR_TARGET="$ac_cv_prog_ncn_cv_CONFIGURED_LIPO_FOR_TARGET"
+if test -n "$ncn_cv_CONFIGURED_LIPO_FOR_TARGET"; then
+  echo "$ac_t""$ncn_cv_CONFIGURED_LIPO_FOR_TARGET" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+ 
+    CONFIGURED_LIPO_FOR_TARGET=$ncn_cv_CONFIGURED_LIPO_FOR_TARGET
+  else
+    CONFIGURED_LIPO_FOR_TARGET="${ncn_target_tool_prefix}lipo"
+  fi
+else
+  CONFIGURED_LIPO_FOR_TARGET="$ac_cv_prog_CONFIGURED_LIPO_FOR_TARGET"
+fi
+
+ if test -n "$ncn_target_tool_prefix"; then
   # Extract the first word of "${ncn_target_tool_prefix}nm", so it can be a program name with args.
 set dummy ${ncn_target_tool_prefix}nm; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:4557: checking for $ac_word" >&5
+echo "configure:4629: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_NM_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -4586,7 +4658,7 @@ if test -z "$ac_cv_prog_CONFIGURED_NM_FOR_TARGET" ; then
     # Extract the first word of "nm", so it can be a program name with args.
 set dummy nm; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:4590: checking for $ac_word" >&5
+echo "configure:4662: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_NM_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -4625,7 +4697,7 @@ fi
   # Extract the first word of "${ncn_target_tool_prefix}ranlib", so it can be a program name with args.
 set dummy ${ncn_target_tool_prefix}ranlib; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:4629: checking for $ac_word" >&5
+echo "configure:4701: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_RANLIB_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -4658,7 +4730,7 @@ if test -z "$ac_cv_prog_CONFIGURED_RANLIB_FOR_TARGET" ; then
     # Extract the first word of "ranlib", so it can be a program name with args.
 set dummy ranlib; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:4662: checking for $ac_word" >&5
+echo "configure:4734: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_RANLIB_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -4694,10 +4766,82 @@ else
 fi
 
  if test -n "$ncn_target_tool_prefix"; then
+  # Extract the first word of "${ncn_target_tool_prefix}strip", so it can be a program name with args.
+set dummy ${ncn_target_tool_prefix}strip; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:4773: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_STRIP_FOR_TARGET'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$CONFIGURED_STRIP_FOR_TARGET"; then
+  ac_cv_prog_CONFIGURED_STRIP_FOR_TARGET="$CONFIGURED_STRIP_FOR_TARGET" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
+  ac_dummy="$PATH"
+  for ac_dir in $ac_dummy; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_CONFIGURED_STRIP_FOR_TARGET="${ncn_target_tool_prefix}strip"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+fi
+fi
+CONFIGURED_STRIP_FOR_TARGET="$ac_cv_prog_CONFIGURED_STRIP_FOR_TARGET"
+if test -n "$CONFIGURED_STRIP_FOR_TARGET"; then
+  echo "$ac_t""$CONFIGURED_STRIP_FOR_TARGET" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+
+fi
+if test -z "$ac_cv_prog_CONFIGURED_STRIP_FOR_TARGET" ; then
+  if test $build = $target ; then
+    ncn_cv_CONFIGURED_STRIP_FOR_TARGET=$CONFIGURED_STRIP_FOR_TARGET
+    # Extract the first word of "strip", so it can be a program name with args.
+set dummy strip; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:4806: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_STRIP_FOR_TARGET'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$ncn_cv_CONFIGURED_STRIP_FOR_TARGET"; then
+  ac_cv_prog_ncn_cv_CONFIGURED_STRIP_FOR_TARGET="$ncn_cv_CONFIGURED_STRIP_FOR_TARGET" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
+  ac_dummy="$PATH"
+  for ac_dir in $ac_dummy; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_ncn_cv_CONFIGURED_STRIP_FOR_TARGET="strip"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+  test -z "$ac_cv_prog_ncn_cv_CONFIGURED_STRIP_FOR_TARGET" && ac_cv_prog_ncn_cv_CONFIGURED_STRIP_FOR_TARGET="strip"
+fi
+fi
+ncn_cv_CONFIGURED_STRIP_FOR_TARGET="$ac_cv_prog_ncn_cv_CONFIGURED_STRIP_FOR_TARGET"
+if test -n "$ncn_cv_CONFIGURED_STRIP_FOR_TARGET"; then
+  echo "$ac_t""$ncn_cv_CONFIGURED_STRIP_FOR_TARGET" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+ 
+    CONFIGURED_STRIP_FOR_TARGET=$ncn_cv_CONFIGURED_STRIP_FOR_TARGET
+  else
+    CONFIGURED_STRIP_FOR_TARGET="${ncn_target_tool_prefix}strip"
+  fi
+else
+  CONFIGURED_STRIP_FOR_TARGET="$ac_cv_prog_CONFIGURED_STRIP_FOR_TARGET"
+fi
+
+ if test -n "$ncn_target_tool_prefix"; then
   # Extract the first word of "${ncn_target_tool_prefix}windres", so it can be a program name with args.
 set dummy ${ncn_target_tool_prefix}windres; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:4701: checking for $ac_word" >&5
+echo "configure:4845: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_CONFIGURED_WINDRES_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -4730,7 +4874,7 @@ if test -z "$ac_cv_prog_CONFIGURED_WINDRES_FOR_TARGET" ; then
     # Extract the first word of "windres", so it can be a program name with args.
 set dummy windres; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:4734: checking for $ac_word" >&5
+echo "configure:4878: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_ncn_cv_CONFIGURED_WINDRES_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -4788,8 +4932,10 @@ if test "x${build}" = "x${host}" ; then
   AS_FOR_TARGET="\$(USUAL_AS_FOR_TARGET)"
   DLLTOOL_FOR_TARGET="\$(USUAL_DLLTOOL_FOR_TARGET)"
   LD_FOR_TARGET="\$(USUAL_LD_FOR_TARGET)"
+  LIPO_FOR_TARGET="\$(USUAL_LIPO_FOR_TARGET)"
   NM_FOR_TARGET="\$(USUAL_NM_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(USUAL_RANLIB_FOR_TARGET)"
+  STRIP_FOR_TARGET="\$(USUAL_STRIP_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(USUAL_WINDRES_FOR_TARGET)"
 else
   # Just use the ones we found.
@@ -4797,10 +4943,14 @@ else
   AS_FOR_TARGET="\$(CONFIGURED_AS_FOR_TARGET)"
   DLLTOOL_FOR_TARGET="\$(CONFIGURED_DLLTOOL_FOR_TARGET)"
   LD_FOR_TARGET="\$(CONFIGURED_LD_FOR_TARGET)"
+  LIPO_FOR_TARGET="\$(CONFIGURED_LIPO_FOR_TARGET)"
   NM_FOR_TARGET="\$(CONFIGURED_NM_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(CONFIGURED_RANLIB_FOR_TARGET)"
+  STRIP_FOR_TARGET="\$(CONFIGURED_STRIP_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(CONFIGURED_WINDRES_FOR_TARGET)"  
 fi
+
+
 
 
 
@@ -4815,7 +4965,7 @@ RANLIB_FOR_TARGET=${RANLIB_FOR_TARGET}${extra_ranlibflags_for_target}
 NM_FOR_TARGET=${NM_FOR_TARGET}${extra_nmflags_for_target}
 
 echo $ac_n "checking whether to enable maintainer-specific portions of Makefiles""... $ac_c" 1>&6
-echo "configure:4819: checking whether to enable maintainer-specific portions of Makefiles" >&5
+echo "configure:4969: checking whether to enable maintainer-specific portions of Makefiles" >&5
 # Check whether --enable-maintainer-mode or --disable-maintainer-mode was given.
 if test "${enable_maintainer_mode+set}" = set; then
   enableval="$enable_maintainer_mode"
@@ -4862,7 +5012,7 @@ esac
 # gcc for stageN-gcc and stagePREV-gcc for stage(N-1).  In case this is not
 # possible, however, we can resort to mv.
 echo $ac_n "checking if symbolic links between directories work""... $ac_c" 1>&6
-echo "configure:4866: checking if symbolic links between directories work" >&5
+echo "configure:5016: checking if symbolic links between directories work" >&5
 if eval "test \"`echo '$''{'gcc_cv_prog_ln_s_dir'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5171,10 +5321,14 @@ s%@CONFIGURED_DLLTOOL_FOR_TARGET@%$CONFIGURED_DLLTOOL_FOR_TARGET%g
 s%@ncn_cv_CONFIGURED_DLLTOOL_FOR_TARGET@%$ncn_cv_CONFIGURED_DLLTOOL_FOR_TARGET%g
 s%@CONFIGURED_LD_FOR_TARGET@%$CONFIGURED_LD_FOR_TARGET%g
 s%@ncn_cv_CONFIGURED_LD_FOR_TARGET@%$ncn_cv_CONFIGURED_LD_FOR_TARGET%g
+s%@CONFIGURED_LIPO_FOR_TARGET@%$CONFIGURED_LIPO_FOR_TARGET%g
+s%@ncn_cv_CONFIGURED_LIPO_FOR_TARGET@%$ncn_cv_CONFIGURED_LIPO_FOR_TARGET%g
 s%@CONFIGURED_NM_FOR_TARGET@%$CONFIGURED_NM_FOR_TARGET%g
 s%@ncn_cv_CONFIGURED_NM_FOR_TARGET@%$ncn_cv_CONFIGURED_NM_FOR_TARGET%g
 s%@CONFIGURED_RANLIB_FOR_TARGET@%$CONFIGURED_RANLIB_FOR_TARGET%g
 s%@ncn_cv_CONFIGURED_RANLIB_FOR_TARGET@%$ncn_cv_CONFIGURED_RANLIB_FOR_TARGET%g
+s%@CONFIGURED_STRIP_FOR_TARGET@%$CONFIGURED_STRIP_FOR_TARGET%g
+s%@ncn_cv_CONFIGURED_STRIP_FOR_TARGET@%$ncn_cv_CONFIGURED_STRIP_FOR_TARGET%g
 s%@CONFIGURED_WINDRES_FOR_TARGET@%$CONFIGURED_WINDRES_FOR_TARGET%g
 s%@ncn_cv_CONFIGURED_WINDRES_FOR_TARGET@%$ncn_cv_CONFIGURED_WINDRES_FOR_TARGET%g
 s%@GCC_FOR_TARGET@%$GCC_FOR_TARGET%g
@@ -5190,8 +5344,10 @@ s%@AR_FOR_TARGET@%$AR_FOR_TARGET%g
 s%@AS_FOR_TARGET@%$AS_FOR_TARGET%g
 s%@DLLTOOL_FOR_TARGET@%$DLLTOOL_FOR_TARGET%g
 s%@LD_FOR_TARGET@%$LD_FOR_TARGET%g
+s%@LIPO_FOR_TARGET@%$LIPO_FOR_TARGET%g
 s%@NM_FOR_TARGET@%$NM_FOR_TARGET%g
 s%@RANLIB_FOR_TARGET@%$RANLIB_FOR_TARGET%g
+s%@STRIP_FOR_TARGET@%$STRIP_FOR_TARGET%g
 s%@WINDRES_FOR_TARGET@%$WINDRES_FOR_TARGET%g
 s%@MAINTAINER_MODE_TRUE@%$MAINTAINER_MODE_TRUE%g
 s%@MAINTAINER_MODE_FALSE@%$MAINTAINER_MODE_FALSE%g

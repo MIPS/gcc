@@ -153,7 +153,7 @@ PATH=$DIR/dst-$BUILD-$BUILD/usr/bin:$PATH
 # so we have to use a shell script for indirection, grrr.
 rm -rf $DIR/bin || exit 1
 mkdir $DIR/bin || exit 1
-for prog in ar nm ranlib ; do
+for prog in ar nm ranlib strip lipo ; do
   for t in `echo $TARGETS $HOSTS | sort -u`; do
     P=$DIR/bin/${t}-apple-darwin$DARWIN_VERS-${prog}
     echo '#!/bin/sh' > $P || exit 1
@@ -291,9 +291,9 @@ for t in $TARGETS ; do
     .$DEST_ROOT/lib/gcc || exit 1
 done
 
-SHARED_LIBS="libgcc_s.1.dylib libgcc_s.dylib"
+SHARED_LIBS="libgcc_s.1.dylib libgcc_s.10.4.dylib libgcc_s.10.5.dylib"
 if echo $HOSTS | grep -q powerpc ; then
-  SHARED_LIBS="${SHARED_LIBS} libgcc_s_ppc64.1.dylib libgcc_s_ppc64.dylib"
+  SHARED_LIBS="${SHARED_LIBS} libgcc_s_ppc64.1.dylib"
 fi
 for l in $SHARED_LIBS ; do
   CANDIDATES=()
@@ -415,9 +415,11 @@ find obj-* -name \*.\[chy\] -print | cpio -pdml $SYM_DIR/src || exit 1
 
 ########################################
 # Strip the executables and libraries
-find $DEST_DIR -perm -0111 \! -name \*.dylib \! -name fixinc.sh \! -name mkheaders -type f -print \
+find $DEST_DIR -perm -0111 \! -name \*.dylib \! -name fixinc.sh \
+    \! -name mkheaders -type f -print \
   | xargs strip || exit 1
-find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
+find $DEST_DIR \( -name \*.a -or -name \*.dylib \) \
+    \! -name libgcc_s.10.*.dylib -type f -print \
   | xargs strip -SX || exit 1
 find $DEST_DIR -name \*.a -type f -print \
   | xargs ranlib || exit 1

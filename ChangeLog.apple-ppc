@@ -1,3 +1,8 @@
+2005-10-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc: Make strip and lipo target versions.  Update libgcc
+	names.  Don't strip stub libraries.
+
 2005-07-11  Geoffrey Keating  <geoffk@apple.com>
 
 	* libstdc++-v3: Remove all APPLE LOCAL markers.
