@@ -48,7 +48,6 @@ iconv_ucs2_reader::iconv_ucs2_reader (byte_buffer *in,
   assert (handle != (iconv_t) -1);
 
   last = 0;
-  next = 0;
 }
 
 iconv_ucs2_reader::~iconv_ucs2_reader ()
@@ -60,8 +59,6 @@ iconv_ucs2_reader::~iconv_ucs2_reader ()
 void
 iconv_ucs2_reader::refill ()
 {
-  assert (last == next);
-
   size_t in_rem = end - curr;
   char *out_loc = (char *) translated;
   size_t out_rem = sizeof (translated);
@@ -86,23 +83,15 @@ iconv_ucs2_reader::refill ()
 	}
     }
 
-  // Now update our internal state to reflect the current situation.
-  next = 0;
-  
   // A UCS-2 character is always 2 bytes.
   assert ((out_loc - (char *) translated) % 2 == 0);
   last = (out_loc - (char *) translated) / 2;
 }
 
-unicode_w_t
-iconv_ucs2_reader::get ()
+jchar *
+iconv_ucs2_reader::get (int &size)
 {
-  if (next == last)
-    {
-      if (curr == end)
-	return UNICODE_EOF;
-      refill ();
-      assert (next != last);
-    }
-  return translated[next++];
+  refill ();
+  size = last;
+  return translated;
 }

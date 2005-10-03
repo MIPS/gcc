@@ -1,3 +1,120 @@
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
+	* source/lex.cc (get_raw): Increment column.
+	(get): Don't increment line number when newline comes from unget.
+
+	* source/iconv.cc (get): Rewrote.
+	(iconv_ucs2_reader): Updated.
+	(refill): Updated.
+	(get): Rewrote.
+	* source/iconv.hh (iconv_ucs2_reader::get): Updated.
+	(iconv_ucs2_reader::next): Removed.
+	* source/ucs2.cc (internal_get): New method.
+	(get): Rewrote.
+	* source/ucs2.hh (ucs2_reader::get): Changed prototype.
+	(fallback_ucs2_reader::val): New field.
+	(fallback_ucs2_reader::internal_get): Declare.
+	* source/lex.cc (lexer): Initialize new fields.
+	(get_raw): Rewrote.
+	* source/lex.hh (lexer::chars): New field.
+	(lexer::num_chars): Likewise.
+	(lexer::position): Likewise.
+
+	* scope.cc (resolution_scope): Initialize it.
+	(update_cache): New method.
+	(get_current_class): Removed.
+	(push_scope): New method.
+	(push_iscope): Moved from .hh file.
+	* scope.hh (resolution_scope::current_class): New field.
+	(resolution_scope::update_cache): Declare.
+	(resolution_scope::get_current_class): Now inline.
+	(push_iscope::save): New field.
+	(push_iscope): Outline.
+	(~push_iscope): New destructor.
+	(resolution_scope::push_scope): Outline.
+
+	* model/ideprecatable.hh (IDeprecatable::set_deprecated): Removed
+	overload.
+	* source/tstream.cc (lex_file): Handle javadoc here.
+	(get_javadoc): Rewrote.
+	(get_token): Removed.
+	(peek_token): Removed.
+	* source/parse.hh (class parse): Updated.
+	* source/parse.cc (any_method_declarator): Changed argument type
+	from ref_javadoc to bool.
+	(field_declarator): Likewise.
+	(void_method): Likewise.
+	(member_decl): Likewise.
+	(class_body_declaration): Updated.
+	(class_or_interface_declaration): Likewise.
+	* source/tstream.hh (token_stream::javadoc_is_ok): Removed.
+	(token_stream): Updated.
+	(token_stream::deprecated): New field.
+	(token_stream::get_token): Now inline.
+	(token_stream::get_javadoc): Changed return type.
+	(token_stream::peek_token): Now inline.
+	(token_stream::peek_token1): Likewise.
+	(token_stream::peek_token): Removed overload.
+
+	* source/parse.hh (parse::get): Return reference.
+	(parse::peek): Likewise.
+	(parse::peek1): Likewise.
+	(parse::require): Likewise.
+	(parse::assume): Likewise.
+	* source/lex.cc (lex_token): Renamed.
+	* source/lex.hh (lexer::lex_token): Renamed from get_token.  Now
+	protected.
+	* source/parse.cc (class_body_declaration): Use get_javadoc.
+	(class_or_interface_declaration): Likewise.
+	(require): Use and return reference.
+	(assume): Likewise.
+	(identifier): Use reference.
+	(new_something): Likewise.
+	(type_dot_class): Likewise.
+	(class_name_dot_this): Likewise.
+	(postfix_expression): Likewise.
+	(unary_expression_not_plus_minus): Likewise.
+	(unary_expression): Likewise.
+	(relational_expression): Likewise.
+	(assignment): Likewise.
+	(primitive_type): Likewise.
+	(type_name): Likewise.
+	(final_or_attributes): Likewise.
+	(assert_statement): Likewise.
+	(try_statement): Likewise.
+	(if_then_statement): Likewise.
+	(statement): Likewise.
+	(explicit_constructor_invocation): Likewise.
+	(type_parameters): Likewise.
+	(member_value): Likewise.
+	(any_method_declarator): Likewise.
+	(void_method): Likewise.
+	(member_decl): Likewise.
+	(class_body_declaration): Likewise.
+	(interface_declaration): Likewise.
+	(class_declaration): Likewise.
+	(class_or_interface_declaration): Likewise.
+	(type_declaration): Likewise.
+	* source/tstream.cc (get_unfiltered_token): Removed.
+	(peek_token): Updated.
+	(peek_token1): Updated.
+	(get_token): Rewrote.
+	(lex_file): Added assert.
+	(peek_token): New method.
+	(peek_token, peek_token1): Removed.
+	(class saver): Removed.
+	(get_javadoc): New method.
+	* source/tstream.hh (token_stream::get_unfiltered_token):
+	Removed.
+	(token_stream::position_type): New typedef.
+	(token_stream::read_position): Use it.
+	(token_stream::set_mark): Likewise.
+	(token_stream::reset_to_mark): Likewise.
+	(class marker): Likewise.
+	(token_stream::javadoc_ok): Removed.
+	(token_stream::peek_token): New overload.
+	(token_stream::peek_token1): Inline.
+
 2005-10-03  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	Show lines from input files in diagnostics.

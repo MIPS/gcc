@@ -1,6 +1,6 @@
 // "deprecatable" interface.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -46,14 +46,6 @@ public:
 
   virtual ~IDeprecatable ()
   {
-  }
-
-  /// This can be used to set the deprecation state based on a
-  /// javadoc comment.
-  void set_deprecated (const ref_javadoc &javadoc)
-  {
-    if (javadoc)
-      deprecated = javadoc->deprecated_p ();
   }
 
   /// Set the deprecation state of this object.

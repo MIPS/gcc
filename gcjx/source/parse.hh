@@ -60,30 +60,30 @@ class parse
 					 const std::string &);
 
   // Fetch the next token.
-  token get ()
+  token &get ()
   {
     return our_token_stream->get_token ();
   }
 
   // Peek ahead a token.
-  token peek ()
+  token &peek ()
   {
     return our_token_stream->peek_token ();
   }
 
   // Peek ahead two tokens.
-  token peek1 ()
+  token &peek1 ()
   {
     return our_token_stream->peek_token1 ();
   }
 
   // Require that the next token be of a certain type.  If not, throw
   // a parse exception.
-  token require (token_value val, const char *message = NULL);
+  token &require (token_value val, const char *message = NULL);
 
   // Require that the next token will be a certain type.  If not,
   // abort.
-  token assume (token_value);
+  token &assume (token_value);
 
   // Classify tokens.
   static bool parse::basic_type_p (token_value);
@@ -179,21 +179,21 @@ class parse
 				    const ref_modifier_list &,
 				    int,
 				    ref_forwarding_type,
-				    const ref_javadoc &);
+				    bool);
   void field_declarator (const ref_class &,
 			 const ref_forwarding_type &,
 			 const std::list<ref_annotation> &,
 			 const ref_modifier_list &,
-			 const ref_javadoc &);
+			 bool);
   void member_decl (const ref_class &,
 		    const std::list<ref_annotation> &,
 		    const ref_modifier_list &,
-		    const ref_javadoc &,
+		    bool,
 		    bool);
   ref_method void_method (const ref_class &,
 			  const std::list<ref_annotation> &,
 			  const ref_modifier_list &,
-			  const ref_javadoc &);
+			  bool);
   void class_body_block (const std::list<ref_annotation> &,
 			 const ref_modifier_list &);
   void class_body_declaration (const ref_class &, bool);

@@ -7,12 +7,6 @@ It shows the big pieces and what is missing.
 The lexer itself is in ok shape.  There are some FIXME comments,
 though, which must be cleaned up.
 
-The token stream wrapper around the lexer has some serious performance
-problems.  In particular peek() is too slow given the amount of use it
-sees.  Also perhaps the design has too much overhead.  A lot of the
-complexity is just for javadoc handling (which contributes only a
-single "deprecated" flag); maybe we could make it simpler.
-
 
 ================================================================
 == Model

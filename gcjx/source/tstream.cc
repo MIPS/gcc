@@ -28,89 +28,21 @@ token_stream::lex_file ()
   token r;
   do
     {
-      r = lexer::get_token ();
-      buffer.push_back (r);
-    }
-  while (r != TOKEN_EOF);
-}
-
-token
-token_stream::get_unfiltered_token ()
-{
-  if (read_position < buffer.size ())
-    ++read_position;
-  return buffer[read_position - 1];
-}
-
-token
-token_stream::get_token ()
-{
-  token r;
-  while (true)
-    {
-      r = get_unfiltered_token ();
+      r = lex_token ();
       // In theory the lexer will never return a repeat or invalid
       // token.
       assert (r != TOKEN_REPEAT && r != TOKEN_INVALID);
 
-      if (r != TOKEN_JAVADOC)
-	break;
-      if (javadoc_is_ok)
-	{
-	  // Look ahead -- if the next token is javadoc, we discard
-	  // this one.
-	  token n = peek_token ();
-	  if (n != TOKEN_JAVADOC)
-	    break;
-	}
+      if (r == TOKEN_JAVADOC)
+	deprecated.insert (buffer.size ());
+      else
+	buffer.push_back (r);
     }
-
-  javadoc_is_ok = false;
-  return r;
+  while (r != TOKEN_EOF);
 }
 
-template<typename T>
-class saver
+bool
+token_stream::get_javadoc ()
 {
-  T &location;
-  T save;
-
-public:
-
-  saver (T &loc, T new_val)
-    : location (loc),
-      save (loc)
-  {
-    location = new_val;
-  }
-
-  saver (T &loc)
-    : location (loc),
-      save (loc)
-  {
-  }
-
-  ~saver ()
-  {
-    location = save;
-  }
-};
-
-token
-token_stream::peek_token ()
-{
-  saver<bool> save_jd (javadoc_is_ok);
-  saver<int> save_read (read_position);
-  token r = get_token ();
-  return r;
-}
-
-token
-token_stream::peek_token1 ()
-{
-  saver<bool> save_jd (javadoc_is_ok);
-  saver<int> save_read (read_position);
-  get_token ();
-  token r = get_token ();
-  return r;
+  return deprecated.find (read_position) != deprecated.end ();
 }

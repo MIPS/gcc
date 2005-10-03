@@ -42,7 +42,10 @@ lexer::lexer (ucs2_reader *source, const char *file)
     filename (file),
     line (1),
     column (0),
-    tab_width (global->get_compiler ()->get_tab_width ())
+    tab_width (global->get_compiler ()->get_tab_width ()),
+    chars (NULL),
+    num_chars (0),
+    position (0)
 {
 }
 
@@ -215,30 +218,27 @@ lexer::get_raw ()
     {
       c = unget_value;
       unget_value = UNICODE_W_NONE;
+      return c;
     }
-  else
+
+  if (position >= num_chars)
     {
       try
 	{
-	  c = input_filter->get ();
+	  chars = input_filter->get (num_chars);
+	  position = num_chars > 0 ? 0 : -1;
 	}
       catch (conversion_error &exc)
 	{
 	  exc.set_location (here ());
 	  throw exc;
 	}
-
-      if (c == UNICODE_TAB)
-	{
-	  // Advance to next multiple of tab width.  Note we don't
-	  // subtract one from tab_width since we start columns at
-	  // zero.
-	  column = ((column + tab_width) / tab_width) * tab_width;
-	}
-      else
-	++column;
     }
-  return c;
+
+  if (position == -1)
+    return UNICODE_EOF;
+  ++column;
+  return chars[position++];
 }
 
 unicode_w_t
@@ -300,10 +300,12 @@ unicode_w_t
 lexer::get ()
 {
   unicode_w_t c;
+  bool can_incr = true;
   if (cooked_unget_value != UNICODE_W_NONE)
     {
       c = cooked_unget_value;
       cooked_unget_value = UNICODE_W_NONE;
+      can_incr = false;
     }
   else
     c = read_handling_escapes ();
@@ -322,7 +324,7 @@ lexer::get ()
       c = UNICODE_LINE_FEED;
     }
 
-  if (c == UNICODE_LINE_FEED)
+  if (can_incr && c == UNICODE_LINE_FEED)
     {
       // Note that it is somewhat bogus for this to be here, since it
       // means an escape like \u00a0 will increment the line number.
@@ -1300,7 +1302,7 @@ lexer::get_token_internal (location &where)
 }
 
 token
-lexer::get_token ()
+lexer::lex_token ()
 {
   token result;
   location where;

@@ -1,6 +1,6 @@
 // Scopes.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -24,7 +24,8 @@
 
 
 resolution_scope::resolution_scope ()
-  : warning_scope (static_cast<warning_scope *> (global->get_compiler ()))
+  : warning_scope (static_cast<warning_scope *> (global->get_compiler ())),
+    current_class (NULL)
 {
 }
 
@@ -55,18 +56,26 @@ resolution_scope::get_current_method () const
   return NULL;
 }
 
-model_class *
-resolution_scope::get_current_class () const
+void
+resolution_scope::update_cache ()
 {
-  for (std::deque<IScope *>::const_reverse_iterator i = scope_stack.rbegin ();
-       i != scope_stack.rend ();
-       ++i)
+  // Note that this is called before the last item is popped from the
+  // stack, due how push_iscope is implemented.
+  std::deque<IScope *>::reverse_iterator i = scope_stack.rbegin (); 
+  // Return early if stack is empty or if we aren't popping the
+  // current class.
+  if (i == scope_stack.rend () || *i != current_class)
+    return;
+  current_class = NULL;
+  for (++i; i != scope_stack.rend (); ++i)
     {
       model_class *r = dynamic_cast<model_class *> (*i);
       if (r != NULL)
-	return r;
+	{
+	  current_class = r;
+	  break;
+	}
     }
-  return NULL;
 }
 
 ICatcher *
@@ -223,4 +232,23 @@ resolution_scope::add_binding (model_class *klass)
     }
 
   scope_stack.back ()->add_binding (klass);
+}
+
+void
+resolution_scope::push_scope (IScope *i)
+{
+  scope_stack.push_back (i);
+  model_class *r = dynamic_cast<model_class *> (i);
+  if (r != NULL)
+    current_class = r;
+}
+
+resolution_scope::push_iscope::push_iscope (resolution_scope *scope,
+					    IScope *is)
+  : stack_temporary<IScope *> (scope->scope_stack, is),
+    save (scope)
+{
+  model_class *r = dynamic_cast<model_class *> (is);
+  if (r != NULL)
+    scope->current_class = r;
 }

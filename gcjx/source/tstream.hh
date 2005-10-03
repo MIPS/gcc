@@ -32,37 +32,35 @@
 // filter the actual tokens according to what the parser requires.
 class token_stream : public lexer
 {
+  typedef unsigned int position_type;
+
   // Our buffer.
   std::deque<token> buffer;
 
   // Position of next unread element in buffer.
-  int read_position;
+  position_type read_position;
 
-
-  // True if the parser can usefully interpret a javadoc comment as
-  // the next token.  When false, we filter out such comments.
-  bool javadoc_is_ok;
+  // This holds the location of all tokens that were preceded by a
+  // javadoc containing 'deprecated'.
+  std::set<position_type> deprecated;
 
 
   // Set a mark at the current point.  Only called by marker class.
   // Returns the position.
-  int set_mark ()
+  position_type set_mark ()
   {
     return read_position;
   }
 
   // Reset the read pointer to a position.  Only called by marker
   // class.
-  void reset_to_mark (int where)
+  void reset_to_mark (position_type where)
   {
     read_position = where;
   }
 
   friend class marker;
 
-
-  // Return a token before any filtering is applied.
-  token get_unfiltered_token ();
 
   // Lex the file and fill our buffer.
   void lex_file ();
@@ -71,8 +69,7 @@ public:
 
   token_stream (ucs2_reader *source, const char *file)
     : lexer (source, file),
-      read_position (0),
-      javadoc_is_ok (false)
+      read_position (0)
   {
     lex_file ();
   }
@@ -81,23 +78,28 @@ public:
   {
   }
 
-  // Indicate that it is ok for the next token to be TOKEN_JAVADOC.
-  // The token stream imposes some restraints on this that conform to
-  // javadoc processing.
-  void javadoc_ok ()
+  // Fetch the next token.  Javadoc tokens will be ignored.
+  token &get_token ()
   {
-    javadoc_is_ok = true;
+    return buffer[read_position++];
   }
 
-  // Fetch the next token.
-  token get_token ();
+  // If the next token is a javadoc token, return the javadoc item.
+  // Otherwise return an empty javadoc wrapper.
+  bool get_javadoc ();
 
   // Look at the next token without committing to it.
-  token peek_token ();
+  token &peek_token ()
+  {
+    return buffer[read_position];
+  }
 
   // Look ahead two tokens without committing.  This is ad hoc, but it
-  // seems to be all the parser requires.
-  token peek_token1 ();
+  // is all the parser requires.
+  token &peek_token1 ()
+  {
+    return buffer[read_position + 1];
+  }
 };
 
 // This marks a location in a token stream buffer and ensures that no
@@ -105,7 +107,7 @@ public:
 class marker
 {
   // The location of this mark.
-  int location;
+  token_stream::position_type location;
 
   // Associated token stream.
   token_stream *stream;

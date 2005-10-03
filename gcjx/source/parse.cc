@@ -79,10 +79,10 @@ parse::assignment_op_p (token_value val)
 
 
 
-inline token
+inline token &
 parse::require (token_value val, const char *message)
 {
-  token t = get ();
+  token &t = get ();
   if (t != val)
     {
       if (message)
@@ -93,10 +93,10 @@ parse::require (token_value val, const char *message)
   return t;
 }
 
-inline token
+inline token &
 parse::assume (token_value val)
 {
-  token t = get ();
+  token &t = get ();
   assert (t == val);
   return t;
 }
@@ -180,7 +180,7 @@ parse::find_lexically_enclosing_loop (model_element *request,
 std::string
 parse::identifier ()
 {
-  token t = require (TOKEN_IDENTIFIER, "identifier expected");
+  token &t = require (TOKEN_IDENTIFIER, "identifier expected");
   return ((ref_identifier) t)->get_identifier ();
 }
 
@@ -343,7 +343,7 @@ parse::new_something (bool primary_dot_new)
   // since in this case we must search the primary's class for the
   // member type named Name; instead we handle this when resolving the
   // 'new'.
-  token t = peek ();
+  token &t = peek ();
   if (t == TOKEN_OPEN_PAREN || primary_dot_new || require_class)
     {
       std::list<ref_expression> args (arguments ());
@@ -421,7 +421,7 @@ parse::type_dot_class ()
 {
   ref_forwarding_type the_type (type ());
   require (TOKEN_DOT);
-  token t = require (TOKEN_CLASS);
+  token &t = require (TOKEN_CLASS);
   return ref_expression (new model_class_ref (t, the_type));
 }
 
@@ -432,7 +432,7 @@ parse::class_name_dot_this ()
 {
   std::string name = identifier ();
   require (TOKEN_DOT);
-  token t = require (TOKEN_THIS);
+  token &t = require (TOKEN_THIS);
   std::list<std::string> fake_qual;
   fake_qual.push_back (name);
   ref_forwarding_type fwdt (new model_forwarding_simple (t, fake_qual));
@@ -534,7 +534,7 @@ ref_expression
 parse::primary ()
 {
   ref_expression result;
-  token t;
+  token t;			// FIXME
 
   // Introduce a new scope so the marker lives just as long as we may
   // need it.
@@ -753,7 +753,7 @@ parse::postfix_expression ()
   ref_expression result (primary ());
   while (true)
     {
-      token t = peek ();
+      token &t = peek ();
       if (t == TOKEN_INCREMENT)
 	{
 	  assume (TOKEN_INCREMENT);
@@ -782,7 +782,7 @@ ref_expression
 parse::unary_expression_not_plus_minus ()
 {
   ref_unary op;
-  token t = peek ();
+  token &t = peek ();
   switch (t.get_type ())
     {
     case TOKEN_BITWISE_NOT:
@@ -841,7 +841,7 @@ ref_expression
 parse::unary_expression ()
 {
   ref_unary op;
-  token t = peek ();
+  token &t = peek ();
   switch (t.get_type ())
     {
     case TOKEN_INCREMENT:
@@ -864,13 +864,13 @@ parse::unary_expression ()
   assume (t.get_type ());
   if (t == TOKEN_MINUS)
     {
-      t = peek ();
+      token &t2 = peek ();
       // This special case circumvents the value checking in the
       // ordinary case, allowing the largest negative value through.
-      if (t == TOKEN_DECIMAL_INT_LIT || t == TOKEN_DECIMAL_LONG_LIT)
+      if (t2 == TOKEN_DECIMAL_INT_LIT || t2 == TOKEN_DECIMAL_LONG_LIT)
 	{
-	  assume (t.get_type ());
-	  op->set_expression (ref_expression (t));
+	  assume (t2.get_type ());
+	  op->set_expression (ref_expression (t2));
 	  return op;
 	}
     }
@@ -942,7 +942,7 @@ parse::relational_expression ()
   while (true)
     {
       ref_binary op;
-      token t = peek ();
+      token &t = peek ();
       switch (t.get_type ())
 	{
 	case TOKEN_LESS_THAN:
@@ -1113,7 +1113,7 @@ ref_expression
 parse::assignment ()
 {
   ref_expression lhs (left_hand_side ());
-  token t = get ();
+  token &t = get ();
   if (! assignment_op_p (t.get_type ()))
     throw syntax_error (t, "assignment operator expected");
   ref_expression rhs (assignment_expression ());
@@ -1210,7 +1210,7 @@ parse::brackets_opt (ref_forwarding_type t)
 ref_forwarding_type
 parse::primitive_type ()
 {
-  token t = get ();
+  token &t = get ();
   if (! basic_type_p (t.get_type ()))
     throw syntax_error (t, "primitive type expected");
   ref_forwarding_type pt
@@ -1223,7 +1223,7 @@ parse::primitive_type ()
 ref_forwarding_type
 parse::type_name (int &lt_depth)
 {
-  token t = peek ();
+  token t = peek ();		// FIXME
   if (basic_type_p (t.get_type ()))
     {
       get ();
@@ -1243,7 +1243,7 @@ parse::type_name (int &lt_depth)
   while (true)
     {
       ids.push_back (identifier ());
-      token t = peek ();
+      token t = peek ();	// FIXME
 
       // '<' means we're starting the parameters of a generic type.
       if (t == TOKEN_LESS_THAN)
@@ -1438,7 +1438,7 @@ parse::final_or_attributes (bool &is_final, std::list<ref_annotation> &annos)
 {
   while (true)
     {
-      token t = peek ();
+      token &t = peek ();
       if (t == TOKEN_FINAL)
 	{
 	  // FIXME: if (is_final) throw ...
@@ -1515,7 +1515,7 @@ parse::formal_parameter_list (bool dots_ok, bool *dots_result)
 ref_assert 
 parse::assert_statement ()
 {
-  token t = assume (TOKEN_ASSERT);
+  token &t = assume (TOKEN_ASSERT);
   ref_assert result (new model_assert (t));
   result->set_expression (expression ());
 
@@ -1794,7 +1794,7 @@ parse::do_statement ()
 ref_try 
 parse::try_statement ()
 {
-  token t = assume (TOKEN_TRY);
+  token &t = assume (TOKEN_TRY);
   ref_try result (new model_try (t));
   result->set_block (block (new model_block (t)));  // FIXME location
 
@@ -1842,7 +1842,7 @@ parse::if_then_statement ()
 
   result->set_true_branch (statement ());
 
-  token t = peek ();
+  token &t = peek ();
   // The simple rule is, the inner-most "if" gets the "else".
   // We don't need to handle the no-short-if case specially.
   if (t == TOKEN_ELSE)
@@ -1866,6 +1866,7 @@ parse::if_then_statement ()
 void
 parse::switch_block_statement_groups (const ref_switch &result_switch)
 {
+  // FIXME
   for (token t = peek (); t == TOKEN_CASE || t == TOKEN_DEFAULT; t = peek ())
     {
       ref_switch_block swb (new model_switch_block (t));
@@ -1952,7 +1953,7 @@ parse::expression_statement ()
 ref_stmt 
 parse::statement ()
 {
-  token t = peek ();
+  token &t = peek ();
 
   switch (t.get_type ())
     {
@@ -2089,6 +2090,7 @@ parse::block_statements ()
   std::list<ref_stmt> result;
 
   // This function is also used when parsing a switch block.
+  // FIXME
   for (token t = peek ();
        t != TOKEN_CLOSE_BRACE && t != TOKEN_CASE && t != TOKEN_DEFAULT;
        t = peek ())
@@ -2129,7 +2131,7 @@ parse::modifiers_opt ()
 {
   ref_modifier_list mods (new model_modifier_list ());
 
-  for (token t = peek ();
+  for (token t = peek ();	// FIXME
        model_modifier_list::modifier_token_p (t);
        t = peek ())
     {
@@ -2154,7 +2156,7 @@ parse::explicit_constructor_invocation ()
   if (peek () == TOKEN_LESS_THAN)
     type_params = actual_type_parameters ();
 
-  token t = peek ();
+  token &t = peek ();
   bool need_default = false;
 
   switch (t.get_type ())
@@ -2325,18 +2327,18 @@ parse::type_parameters ()
   std::list<ref_type_variable> result;
 
   int lt_depth = 1;
-  token t;
   do
     {
       result.push_back (type_parameter (lt_depth));
       assert (lt_depth <= 1);
       if (! lt_depth)
 	break;
-      t = peek ();
-      if (t == TOKEN_COMMA)
-	assume (TOKEN_COMMA);
+      token &t = peek ();
+      if (t != TOKEN_COMMA)
+	break;
+      assume (TOKEN_COMMA);
     }
-  while (t == TOKEN_COMMA);
+  while (true);
 
   if (lt_depth)
     require (TOKEN_GREATER_THAN);
@@ -2350,7 +2352,7 @@ parse::type_parameters ()
 ref_expression
 parse::member_value ()
 {
-  token t = peek ();
+  token &t = peek ();
   if (t == TOKEN_OPEN_BRACE)
     {
       assume (TOKEN_OPEN_BRACE);
@@ -2397,7 +2399,7 @@ parse::annotation ()
     {
       assume (TOKEN_OPEN_PAREN);
       
-      token t = peek ();
+      token t = peek ();	// FIXME
       if (t == TOKEN_CLOSE_PAREN)
 	{
 	  // Marker annotation, do nothing.
@@ -2480,7 +2482,7 @@ parse::any_method_declarator (const std::list<ref_annotation> &annos,
 			      const ref_modifier_list &mods,
 			      int flags,
 			      ref_forwarding_type member_type,
-			      const ref_javadoc &javadoc)
+			      bool deprecated)
 {
   std::string id;
   bool is_interface = enclosing_class ()->interface_p ();
@@ -2498,7 +2500,7 @@ parse::any_method_declarator (const std::list<ref_annotation> &annos,
 
   result->set_return_type (member_type);
   result->set_annotations (annos);
-  result->set_deprecated (javadoc);
+  result->set_deprecated (deprecated);
   result->set_name (id);
 
   bool dots_found = false;
@@ -2536,7 +2538,7 @@ parse::any_method_declarator (const std::list<ref_annotation> &annos,
       result->set_throws (type_list ());
     }
 
-  token t = peek ();
+  token &t = peek ();
   if (t == TOKEN_OPEN_BRACE)
     {
       if (is_interface)
@@ -2562,7 +2564,7 @@ parse::field_declarator (const ref_class &klass,
 			 const ref_forwarding_type &member_type,
 			 const std::list<ref_annotation> &annos,
 			 const ref_modifier_list &mods,
-			 const ref_javadoc &javadoc)
+			 bool deprecated)
 {
   // We can have several fields from a single declarator.
   std::list<ref_variable_decl> vars = variable_declarators (member_type);
@@ -2584,7 +2586,7 @@ parse::field_declarator (const ref_class &klass,
       ref_field result (new model_field (*i));
       result->set_annotations (annos);
       result->set_modifiers (mods);
-      result->set_deprecated (javadoc);
+      result->set_deprecated (deprecated);
       klass->add (result);
     }
 }
@@ -2593,13 +2595,13 @@ ref_method
 parse::void_method (const ref_class &klass,
 		    const std::list<ref_annotation> &annos,
 		    const ref_modifier_list &mods,
-		    const ref_javadoc &javadoc)
+		    bool deprecated)
 {
-  token t = require (TOKEN_VOID);
+  token &t = require (TOKEN_VOID);
   ref_forwarding_type voidtype
     = new model_forwarding_resolved (t, primitive_void_type);
   ref_method decl = any_method_declarator (annos, mods, METHOD_VOID,
-					   voidtype, javadoc);
+					   voidtype, deprecated);
   klass->add (decl);
   return decl;
 }
@@ -2616,21 +2618,21 @@ void
 parse::member_decl (const ref_class &klass,
 		    const std::list<ref_annotation> &annos,
 		    const ref_modifier_list &mods,
-		    const ref_javadoc &javadoc,
+		    bool deprecated,
 		    bool parse_annotation)
 {
-  token t = peek ();
+  token &t = peek ();
   // You can't have a void method in an annotation; we throw an
   // exception for this later.
   if (! parse_annotation && t == TOKEN_VOID)
     {
-      void_method (klass, annos, mods, javadoc);
+      void_method (klass, annos, mods, deprecated);
       return;
     }
   else if (t == TOKEN_CLASS)
     {
       ref_class member = class_declaration (mods);
-      member->set_deprecated (javadoc);
+      member->set_deprecated (deprecated);
       member->set_annotations (annos);
       klass->add (member);
       return;
@@ -2638,7 +2640,7 @@ parse::member_decl (const ref_class &klass,
   else if (t == TOKEN_INTERFACE)
     {
       ref_class member = interface_declaration (mods);
-      member->set_deprecated (javadoc);
+      member->set_deprecated (deprecated);
       member->set_annotations (annos);
       klass->add (member);
       return;
@@ -2646,7 +2648,7 @@ parse::member_decl (const ref_class &klass,
   else if (t == TOKEN_ENUM)
     {
       ref_class member = enum_declaration (mods);
-      member->set_deprecated (javadoc);
+      member->set_deprecated (deprecated);
       member->set_annotations (annos);
       klass->add (member);
       return;
@@ -2654,7 +2656,7 @@ parse::member_decl (const ref_class &klass,
   else if (t == TOKEN_AT)
     {
       ref_class member = annotation_type_declaration (mods);
-      member->set_deprecated (javadoc);
+      member->set_deprecated (deprecated);
       member->set_annotations (annos);
       klass->add (member);
       return;
@@ -2673,7 +2675,7 @@ parse::member_decl (const ref_class &klass,
       // is not a "type".
       if (peek () == TOKEN_VOID)
 	{
-	  ref_method m = void_method (klass, annos, mods, javadoc);
+	  ref_method m = void_method (klass, annos, mods, deprecated);
 	  m->set_type_parameters (type_parms);
 	  return;
 	}
@@ -2683,7 +2685,7 @@ parse::member_decl (const ref_class &klass,
   int method_flags = 0;
   ref_forwarding_type member_type;
 
-  token pt = peek ();
+  token &pt = peek ();
   if (! parse_annotation
       && pt == TOKEN_IDENTIFIER
       && ((ref_identifier) pt)->get_identifier () == klass->get_name ()
@@ -2704,7 +2706,7 @@ parse::member_decl (const ref_class &klass,
       if (parse_annotation)
 	{
 	  assert (! must_be_method);
-	  // We just ignore JAVADOC here.  Perhaps we should give a
+	  // We just ignore javadoc here.  Perhaps we should give a
 	  // warning if it had @deprecated, since that is just
 	  // ignored.
 	  annotation_type_member (klass, mods, member_type);
@@ -2712,14 +2714,14 @@ parse::member_decl (const ref_class &klass,
       else
 	{
 	  ref_method meth (any_method_declarator (annos, mods, method_flags,
-						  member_type, javadoc));
+						  member_type, deprecated));
 	  if (! type_parms.empty ())
 	    meth->set_type_parameters (type_parms);
 	  klass->add (meth);
 	}
     }
   else
-    field_declarator (klass, member_type, annos, mods, javadoc);
+    field_declarator (klass, member_type, annos, mods, deprecated);
 }
 
 // Helper function for class_body_declaration.  This handles static
@@ -2754,7 +2756,7 @@ void
 parse::class_body_declaration (const ref_class &result,
 			       bool parse_annotation)
 {
-  token t = peek ();
+  token &t = peek ();
   if (t == TOKEN_SEMI)
     {
       assume (TOKEN_SEMI);
@@ -2771,24 +2773,17 @@ parse::class_body_declaration (const ref_class &result,
   // Javadoc is valid before the modifiers of a member.  Before a
   // static block we can just ignore the javadoc as it is an ordinary
   // comment.
-  our_token_stream->javadoc_ok ();
-  ref_javadoc javadoc;
-  t = peek ();
-  if (t == TOKEN_JAVADOC)
-    {
-      assume (TOKEN_JAVADOC);
-      javadoc = t;
-    }
+  bool deprecated = our_token_stream->get_javadoc ();
 
   // Always read modifiers at this point, since "static" is a valid
   // modifier.  Anything incorrect we diagnose later.
   ref_modifier_list mods = modifiers_opt ();
 
-  t = peek ();
-  if (! parse_annotation && t == TOKEN_OPEN_BRACE)
+  token t2 = peek ();
+  if (! parse_annotation && t2 == TOKEN_OPEN_BRACE)
     class_body_block (annos, mods);
   else
-    member_decl (result, annos, mods, javadoc, parse_annotation);
+    member_decl (result, annos, mods, deprecated, parse_annotation);
 }
 
 // class-body:
@@ -2845,7 +2840,7 @@ parse::interface_declaration (const ref_modifier_list &mods)
   set_containing_class (result);
   result->set_modifiers (mods);
 
-  token t = peek ();
+  token &t = peek ();
 
   if (global->get_compiler ()->feature_generics () && t == TOKEN_LESS_THAN)
     {
@@ -2880,7 +2875,7 @@ parse::class_declaration (const ref_modifier_list &mods)
   set_containing_class (result);
   result->set_modifiers (mods);
 
-  token t = peek ();
+  token &t = peek ();
 
   if (global->get_compiler ()->feature_generics () && t == TOKEN_LESS_THAN)
     {
@@ -3018,14 +3013,7 @@ parse::class_or_interface_declaration ()
   ref_class result;
 
   // Javadoc is valid before the modifiers of a class.
-  our_token_stream->javadoc_ok ();
-  ref_javadoc javadoc;
-  token t = peek ();
-  if (t == TOKEN_JAVADOC)
-    {
-      assume (TOKEN_JAVADOC);
-      javadoc = t;
-    }
+  bool deprecated = our_token_stream->get_javadoc ();
 
   // '@' could represent the start of annotations, or it could be
   // '@interface'.
@@ -3034,7 +3022,7 @@ parse::class_or_interface_declaration ()
     annos = annotations ();
 
   ref_modifier_list mods = modifiers_opt ();
-  t = peek ();
+  token &t = peek ();
   if (t == TOKEN_CLASS)
     result = class_declaration (mods);
   else if (t == TOKEN_INTERFACE)
@@ -3047,7 +3035,7 @@ parse::class_or_interface_declaration ()
     throw syntax_error (t, "%<class%>, %<interface%>, or %<enum%> "
 			"declaration expected");
 
-  result->set_deprecated (javadoc);
+  result->set_deprecated (deprecated);
   result->set_annotations (annos);
 
   return result;
@@ -3060,7 +3048,7 @@ parse::class_or_interface_declaration ()
 ref_class
 parse::type_declaration ()
 {
-  token t = peek ();
+  token &t = peek ();
   if (t == TOKEN_SEMI)
     {
       assume (TOKEN_SEMI);
@@ -3143,7 +3131,7 @@ parse::compilation_unit ()
   if (peek () == TOKEN_AT)
     annos = annotations ();
 
-  token t = peek ();
+  token t = peek ();		// FIXME
   if (t == TOKEN_PACKAGE)
     {
       // FIXME: we make a bogus new element just to hold the location

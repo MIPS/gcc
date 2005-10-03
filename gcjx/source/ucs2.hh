@@ -66,11 +66,7 @@ public:
 
   virtual ~ucs2_reader ();
 
-  /// @return the next UCS-2 character.  Return UNICODE_EOF on
-  /// end-of-file.  Throws conversion_error on any kind of character
-  /// conversion error; the caller is expected to set the location on
-  /// this exception.
-  virtual unicode_w_t get () = 0;
+  virtual jchar *get (int &size) = 0;
 
   /// Gets the current position of this reader within the input data.
   virtual int get_posn ()
@@ -92,11 +88,15 @@ public:
 // Assume the input is utf-8.
 class fallback_ucs2_reader : public ucs2_reader
 {
+  jchar val;
+
   // Just a dumb helper.
   bool in_range_p (unicode_w_t v, unicode_w_t min, unicode_w_t max)
   {
     return v >= min && v <= max;
   }
+
+  jchar internal_get ();
 
 public:
 
@@ -105,7 +105,7 @@ public:
   {
   }
 
-  unicode_w_t get ();
+  jchar *get (int &size);
 };
 
 

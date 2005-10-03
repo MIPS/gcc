@@ -268,14 +268,6 @@ performance is already a major problem :-(
 
 assignment expression parsing is just broken
 
-switch token stream to use a deque?
-also the lexer when constructing identifiers?
-really we should just get rid of token stream and never have
-the lexer return javadoc; instead the lexer could just put
-deprecation info directly into tokens somehow and we would change
-the parser to just notice that in the one or two important cases
-eg it could be a flag on modifier tokens only
-
 standardize error messages
 what do they refer to?  (what is wrong or what should be)
 voice, etc

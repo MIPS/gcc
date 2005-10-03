@@ -50,8 +50,8 @@ ucs2_reader::here ()
 
 
 
-unicode_w_t
-fallback_ucs2_reader::get ()
+jchar
+fallback_ucs2_reader::internal_get ()
 {
   int c = get_uint8 ();
 
@@ -101,6 +101,14 @@ fallback_ucs2_reader::get ()
   throw conversion_error (LOCATION_UNKNOWN,
 			  "malformed UTF-8 character at byte %1 in file")
     % here ();
+}
+
+jchar *
+fallback_ucs2_reader::get (int &len)
+{
+  val = internal_get ();
+  len = 1;
+  return &val;
 }
 
 

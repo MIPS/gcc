@@ -1,6 +1,6 @@
 // Scopes used during resolution.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -34,6 +34,12 @@ class resolution_scope : public warning_scope, public IScope
 {
   // Stack of scope objects.
   std::deque<IScope *> scope_stack;
+
+  // Cache the current class.
+  model_class *current_class;
+
+  // Update the class cache before popping a scope.
+  void update_cache ();
 
 public:
 
@@ -75,7 +81,10 @@ public:
   // Return the class we are currently resolving.  This will return
   // NULL outside of a class context, for instance while resolving
   // import declarations.
-  model_class *get_current_class () const;
+  model_class *get_current_class () const
+  {
+    return current_class;
+  }
 
   model_method *get_current_method () const;
 
@@ -88,21 +97,23 @@ public:
 
   /// Note the asymmetric API: we can push a scope on the stack with
   /// this method, but there is no way to pop a scope.
-  void push_scope (IScope *i)
-  {
-    scope_stack.push_back (i);
-  }
+  void push_scope (IScope *);
+
 
   /// This class is used, via the RAII idiom, to push a new IScope on
   /// the current resolution_scope, and then later remove it when this
   /// object is destroyed.
   class push_iscope : public stack_temporary<IScope *>
   {
+    resolution_scope *save;
+
   public:
 
-    push_iscope (resolution_scope *scope, IScope *is)
-      : stack_temporary<IScope *> (scope->scope_stack, is)
+    push_iscope (resolution_scope *, IScope *);
+
+    ~push_iscope ()
     {
+      save->update_cache ();
     }
   };
 };

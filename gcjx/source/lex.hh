@@ -64,6 +64,12 @@ class lexer
   // the compiler.
   int tab_width;
 
+  // Buffer of characters from the input reader, its size, and our
+  // position in it.
+  jchar *chars;
+  int num_chars;
+  int position;
+
   // Some methods to characterize characters.
   bool identifier_part_p (unicode_w_t);
   bool identifier_start_p (unicode_w_t);
@@ -152,14 +158,16 @@ class lexer
   // Internal interface to the lexer; does most of the work.
   token get_token_internal (location &);
 
+protected:
+
+  // Return a single token.
+  token lex_token ();
+
 public:
 
   lexer (ucs2_reader *source, const char *file);
 
   virtual ~lexer ();
-
-  // Return a single token.
-  token get_token ();
 
   // Return the name of a token.
   static const char *token_to_string (token_value);

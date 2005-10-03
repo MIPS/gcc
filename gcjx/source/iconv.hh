@@ -1,6 +1,6 @@
 // iconv-based reader.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -35,9 +35,6 @@ class iconv_ucs2_reader : public ucs2_reader
   // One past the last valid character in TRANSLATED.
   int last;
 
-  // Index of the next valid character.
-  int next;
-
   // Name of the input encoding.
   std::string input_encoding;
 
@@ -50,7 +47,7 @@ public:
 
   ~iconv_ucs2_reader ();
 
-  unicode_w_t get ();
+  jchar *get (int &);
 };
 
 #endif // GCJX_SOURCE_ICONV_HH
