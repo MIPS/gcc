@@ -2881,45 +2881,6 @@ set_bb_for_stmt (tree t, basic_block bb)
 	    gcc_assert (!bb || !VARRAY_BB (label_to_block_map, uid));
 	  VARRAY_BB (label_to_block_map, uid) = bb;
 	}
-      /* APPLE LOCAL begin CW asm blocks */
-      /* For ASM_EXPRs we uniquify labels as these can be
-	 replicated.  */
-      if (TREE_CODE (t) == ASM_EXPR
-	  && ASM_LABEL (t)
-	  && ASM_STRING (t))
-	{
-	  static int cw_asm_unique_labelno;
-	  static char *cw_asm_buffer;
-
-	  int uid;
-	  tree label = ASM_LABEL (t);
-	  tree string = ASM_STRING (t); 
-	  const char *label_str = IDENTIFIER_POINTER (DECL_NAME (label));
-	  size_t label_len = IDENTIFIER_LENGTH (DECL_NAME (label));
-	  char *spos;
-
-	  uid = LABEL_DECL_UID (label);
-	  /* Search for the label in the asm and replace it with a unique
-	     label.  */
-	  if (strlen (label_str) == label_len
-	      && (spos=strstr (TREE_STRING_POINTER (string), label_str)) != 0)
-	    {
-	      /* The length of the first part plus the label.  */
-	      size_t prefix_len = spos - TREE_STRING_POINTER (string) + label_len;
-	      /* The rest of the asm after the label.  */
-	      const char *rest = spos + label_len;
-	      int label_uid;
-	      if (cw_asm_buffer == NULL)
-		cw_asm_buffer = xmalloc (1024);
-	      gcc_assert (TREE_STRING_LENGTH (string) < 1024-1-10);
-	      label_uid = uid == -1 ? cw_asm_unique_labelno++ : uid;
-	      LABEL_DECL_UID (label) = label_uid;
-	      strncpy (cw_asm_buffer, TREE_STRING_POINTER (string), prefix_len);
-	      sprintf (cw_asm_buffer + prefix_len, "%d%s", label_uid, rest);
-	      ASM_STRING (t) = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-	    }
-	}
-      /* APPLE LOCAL end CW asm blocks */
     }
 }
 

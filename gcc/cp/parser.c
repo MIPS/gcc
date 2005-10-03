@@ -11012,6 +11012,8 @@ cp_parser_asm_definition (cp_parser* parser, bool statement_p ATTRIBUTE_UNUSED)
   tree outputs = NULL_TREE;
   tree inputs = NULL_TREE;
   tree clobbers = NULL_TREE;
+  /* APPLE LOCAL CW asm blocks */
+  tree uses = NULL_TREE;
   tree asm_stmt;
   bool volatile_p = false;
   bool extended_p = false;
@@ -11172,7 +11174,7 @@ cp_parser_asm_definition (cp_parser* parser, bool statement_p ATTRIBUTE_UNUSED)
   if (at_function_scope_p ())
     {
       asm_stmt = finish_asm_stmt (volatile_p, string, outputs,
-				  inputs, clobbers);
+				  inputs, clobbers, uses);
       /* If the extended syntax was not used, mark the ASM_EXPR.  */
       if (!extended_p)
 	{

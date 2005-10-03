@@ -18447,7 +18447,7 @@ x86_cw_print_prefix (char *buf, tree prefix_list)
 }
 
 bool
-cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
+cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	     bool must_be_reg, bool must_not_be_reg, void *ep)
 {
   cw_md_extra_info *e = ep;
@@ -18481,20 +18481,27 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
-	if (op1 == 0
-	    && cw_is_offset (op2))
+	if (op1 == 0)
 	  {
-	    op1 = op2;
-	    op2 = op3;
-	    op3 = NULL_TREE;
+	    if (op3 && cw_is_offset (op3))
+	      {
+		op1 = op3;
+		op3 = NULL_TREE;
+	      }
+	    else if (cw_is_offset (op2))
+	      {
+		op1 = op2;
+		op2 = op3;
+		op3 = NULL_TREE;
+	      }
 	  }
 
 	if (op1)
 	  {
-	    e->as_offset = true;
-	    print_cw_asm_operand (buf, op1, argnum, uses, label,
+	    e->as_immediate = true;
+	    print_cw_asm_operand (buf, op1, argnum, uses,
 				  must_be_reg, must_not_be_reg, e);
-	    e->as_offset = false;
+	    e->as_immediate = false;
 	  }
 	else
 	  strcat (buf, "0");
@@ -18506,10 +18513,10 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
 	  strcat (buf, "(");
 
 	/* We know by context, this has to be an R.  */
-	e->constraints[e->num] = "R";
-	print_cw_asm_operand (buf, op2, argnum, uses, label,
+	cw_force_constraint ("R", e);
+	print_cw_asm_operand (buf, op2, argnum, uses,
 			      must_be_reg, must_not_be_reg, e);
-	e->constraints[e->num] = 0;
+	cw_force_constraint (0, e);
 	if (op3)
 	  {
 	    if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -18518,10 +18525,10 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
 	      strcat (buf, ",");
 
 	    /* We know by context, this has to be an l.  */
-	    e->constraints[e->num] = "l";
-	    print_cw_asm_operand (buf, op3, argnum, uses, label,
+	    cw_force_constraint ("l", e);
+	    print_cw_asm_operand (buf, op3, argnum, uses,
 				  must_be_reg, must_not_be_reg, e);
-	    e->constraints[e->num] = 0;
+	    cw_force_constraint (0, e);
 	  }
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
@@ -18531,10 +18538,10 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses, tree *label,
       break;
 
     case MULT_EXPR:
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
       strcat (buf, "*");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
       break;
     default:

@@ -2604,7 +2604,7 @@ struct machine_function GTY(())
 #undef TARGET_CW_EXTRA_INFO
 #define TARGET_CW_EXTRA_INFO			\
   char mod[3];					\
-  bool as_offset;
+  bool as_immediate;
 
 #define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
@@ -2644,8 +2644,8 @@ struct machine_function GTY(())
       }											\
   } while (0)
 
-#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E) \
- cw_print_op (BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E)
+#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E) \
+ cw_print_op (BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E)
 
 extern tree x86_canonicalize_operands (const char **, tree, void *);
 /* On x86, we can rewrite opcodes, change argument ordering and so no... */
@@ -2680,18 +2680,18 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 
 #define CW_IMMED_PREFIX(E, BUF)			\
   do {						\
-    if (! E->as_offset)				\
+    if (! E->as_immediate)				\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
 /* We can't yet expose ST(x) to reg-stack.c, don't try.  */
 #define CW_HIDE_REG(R) FP_REGNO_P (R)
 
-#define CW_SEE_OFFSET(E)			\
-  E->as_offset = true
+#define CW_SEE_IMMEDIATE(E)			\
+  E->as_immediate = true
 
-#define CW_SEE_NO_OFFSET(E)			\
-  E->as_offset = false
+#define CW_SEE_NO_IMMEDIATE(E)			\
+  E->as_immediate = false
 
 /* Table of instructions that need extra constraints.  Keep this table sorted.  */
 #undef TARGET_CW_OP_CONSTRAINT

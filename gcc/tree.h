@@ -1290,7 +1290,6 @@ struct tree_vec GTY(())
 #define ASM_CLOBBERS(NODE)      TREE_OPERAND (ASM_EXPR_CHECK (NODE), 3)
 /* APPLE LOCAL begin CW asm blocks */
 #define ASM_USES(NODE)      TREE_OPERAND (ASM_EXPR_CHECK (NODE), 4)
-#define ASM_LABEL(NODE)      TREE_OPERAND (ASM_EXPR_CHECK (NODE), 5)
 /* APPLE LOCAL end CW asm blocks */
 /* Nonzero if we want to create an ASM_INPUT instead of an
    ASM_OPERAND with no operands.  */

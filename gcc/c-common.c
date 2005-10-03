@@ -591,15 +591,8 @@ int cw_asm_in_operands;
    opcode, used to split up [.+-] from the id for cw_identifier1.  */
 const cpp_token *cw_split_next;
 
-/* Count used for synthetic labels derived from asm block labels.  */
-static GTY(()) int cw_asm_labelno;
-
 /* Working buffer for building the assembly string.  */
 static char *cw_asm_buffer;
-
-/* An array tracking which variables to list as inputs and outputs.  */
-static GTY(()) varray_type cw_asm_operands;
-static GTY(()) varray_type cw_asm_operands_arg;
 
 /* Two arrays used as a map from user-supplied labels, local to an asm
    block, to unique global labels that the assembler will like.  */
@@ -607,7 +600,8 @@ static GTY(()) varray_type cw_asm_labels;
 static GTY(()) varray_type cw_asm_labels_uniq;
 
 static int cw_asm_expr_val (tree arg);
-static int cw_asm_get_register_var (tree, unsigned, bool, cw_md_extra_info*);
+static void cw_asm_get_register_var (tree, const char *, char *,
+				     unsigned, bool, cw_md_extra_info*);
 static tree cw_asm_identifier (tree expr);
 
 /* Return true iff the opcode wants memory to be stable.  We arrange
@@ -6392,22 +6386,24 @@ cw_constraint_for (const char *opcode, unsigned argnum, unsigned ARG_UNUSED (num
 #undef S
 #endif
 
-/* MUST_BE_REG is true, iff we know the operand must be a register.  */
-
 static void
-cw_process_arg (const char *opcodename, tree var, unsigned argnum, int op_num,
-		bool must_be_reg,
+cw_process_arg (const char *opcodename, int op_num,
 		tree *outputsp, tree *inputsp, tree *uses, unsigned num_args,
 		cw_md_extra_info *e)
 {
   const char *s;
   bool was_output = true;
   tree str, one;
+  tree var = e->dat[op_num].var;
+  unsigned argnum = e->dat[op_num].argnum;
+  /* must_be_reg is true, iff we know the operand must be a register.  */
+  bool must_be_reg = e->dat[op_num].must_be_reg;
+  
 
   /* Sometimes we can deduce the constraints by context, if so, just use
      that constraint now.  */
-  if (e->constraints[op_num])
-    s = e->constraints[op_num];
+  if (e->dat[op_num].constraint)
+    s = e->dat[op_num].constraint;
   else if (must_be_reg)
     {
       /* This is the default constraint used for all instructions.  */
@@ -6455,7 +6451,10 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum, int op_num,
 
   one = build_tree_list (build_tree_list (NULL_TREE, str), var);
   if (was_output)
-    *outputsp = chainon (*outputsp, one);
+    {
+      *outputsp = chainon (*outputsp, one);
+      e->dat[op_num].was_output = true;
+    }
   else
     *inputsp = chainon (*inputsp, one);
   if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
@@ -6538,22 +6537,20 @@ cw_asm_stmt (tree expr, tree args, int lineno)
 {
   tree sexpr;
   tree arg, tail;
-  tree inputs, outputs, clobbers, uses, label;
+  tree inputs, outputs, clobbers, uses;
   tree prefix_list = NULL_TREE;
   tree stmt;
   unsigned int n, num_args;
   const char *opcodename, *new_opcode;
   cw_md_extra_info e;
+  char *buf;
   memset (&e, 0, sizeof (e));
 
   cw_asm_in_operands = 0;
-  VARRAY_TREE_INIT (cw_asm_operands, 30, "cw_asm_operands");
-  VARRAY_UINT_INIT (cw_asm_operands_arg, 30, "cw_asm_operands");
   outputs = NULL_TREE;
   inputs = NULL_TREE;
   clobbers = NULL_TREE;
   uses = NULL_TREE;
-  label = NULL_TREE;
 
   STRIP_NOPS (expr);
 
@@ -6624,14 +6621,14 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   /* Build .file "file-name" directive. */
   sprintf(cw_asm_buffer, "%s \"%s\"", ".file", input_filename);
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   (void)add_stmt (stmt);
 
   /* Build .line "line-number" directive. */
   sprintf(cw_asm_buffer, "%s %d", ".line", lineno);
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, sexpr, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   (void)add_stmt (stmt);
 
@@ -6649,27 +6646,43 @@ cw_asm_stmt (tree expr, tree args, int lineno)
     {
       arg = TREE_VALUE (tail);
       if (tail != args)
-	strcat (cw_asm_buffer, ",");
-      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses, &label, false, false, &e);
+	strcat (cw_asm_buffer, ", ");
+      print_cw_asm_operand (cw_asm_buffer, arg, n, &uses, false, false, &e);
       ++n;
     }
   num_args = n-1;
 
-  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-
   /* Treat each C function seen as a input, and all parms/locals as
      both inputs and outputs.  */
-  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
-    {
-      tree var = VARRAY_TREE (cw_asm_operands, n);
-      unsigned argnum = VARRAY_UINT (cw_asm_operands_arg, n);
-      bool must_be_reg;
-      must_be_reg = argnum & 1;
-      argnum >>= 1;
+  for (n = 0; (int)n < e.num; ++n)
+    cw_process_arg (opcodename, n,
+		    &outputs, &inputs, &uses, num_args, &e);
 
-      cw_process_arg (opcodename, var, argnum, n,
-		      must_be_reg, &outputs, &inputs, &uses, num_args, &e);
-    }
+  /* First, process output args, as they come first to the asm.  */
+  buf = cw_asm_buffer + strlen (cw_asm_buffer);
+  {
+    int i = 0;
+    for (n = 0; (int)n < e.num; ++n)
+      {
+	if (e.dat[n].was_output)
+	  {
+	    gcc_assert (i < 10);
+	    e.dat[n].arg_p[0] = '0' + i++;
+	  }
+      }
+
+    /* Then, process non-output args as they come last.  */
+    for (n = 0; (int)n < e.num; ++n)
+      {
+	if (! e.dat[n].was_output)
+	  {
+	    gcc_assert (i < 10);
+	    e.dat[n].arg_p[0] = '0' + i++;
+	  }
+      }
+  }
+
+  sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
 
   clobbers = uses;
   if (cw_memory_clobber (opcodename))
@@ -6688,7 +6701,7 @@ cw_asm_stmt (tree expr, tree args, int lineno)
     TREE_VALUE (tail) = cw_asm_default_function_conversion (TREE_VALUE (tail));
 
   /* Treat as volatile always.  */
-  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses, label);
+  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses);
   ASM_VOLATILE_P (stmt) = 1;
   stmt = add_stmt (stmt);
   return stmt;
@@ -6739,7 +6752,7 @@ cw_asm_expr_val (tree arg)
 }
 
 #ifndef TARGET_CW_PRINT_OP
-#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, LABEL, MUST_BE_REG, MUST_NOT_BE_REG, E) false
+#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E) false
 #endif
 #ifndef CW_IMMED_PREFIX
 #define CW_IMMED_PREFIX(E, BUF)
@@ -6747,12 +6760,20 @@ cw_asm_expr_val (tree arg)
 #ifndef CW_HIDE_REG
 #define CW_HIDE_REG(R) false
 #endif
-#ifndef CW_SEE_OFFSET
-#define CW_SEE_OFFSET(E)
+#ifndef CW_SEE_IMMEDIATE
+#define CW_SEE_IMMEDIATE(E)
 #endif
-#ifndef CW_SEE_NO_OFFSET
-#define CW_SEE_NO_OFFSET(E)
+#ifndef CW_SEE_NO_IMMEDIATE
+#define CW_SEE_NO_IMMEDIATE(E)
 #endif
+
+/* Force the last operand to have constraint C.  */
+
+void
+cw_force_constraint (const char *c, cw_md_extra_info *e)
+{
+  e->dat[e->num].constraint = c;
+}
 
 /* Print an operand according to its tree type.  MUST_BE_REG is true,
    iff we know the operand must be a register.  MUST_NOT_BE_REG is true,
@@ -6760,10 +6781,9 @@ cw_asm_expr_val (tree arg)
 
 void
 print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
-		      tree *uses, tree *label,
+		      tree *uses,
 		      bool must_be_reg, bool must_not_be_reg, cw_md_extra_info *e)
 {
-  int idnum;
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   enum machine_mode mode;
@@ -6780,14 +6800,19 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case LABEL_DECL:
-      *label = arg;
-      arg = DECL_NAME (arg);
-      /* Fall thru */
+      TREE_USED (arg) = 1;
+      arg = build1 (ADDR_EXPR, ptr_type_node, arg);
+      /* There was no other spelling I could find that would work.
+	 :-( Hope this stays working.  */
+      cw_force_constraint ("X", e);
+      cw_asm_get_register_var (arg, "l", buf, argnum, must_be_reg, e);
+      cw_force_constraint (0, e);
+      break;
 
     case IDENTIFIER_NODE:
       if (IDENTIFIER_LENGTH (arg) > 0 && IDENTIFIER_POINTER (arg)[0] == '%')
 	strcat (buf, "%");
-      strncat (buf, IDENTIFIER_POINTER (arg), IDENTIFIER_LENGTH (arg));
+      strcat (buf, IDENTIFIER_POINTER (arg));
       {
 	int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
 
@@ -6831,32 +6856,42 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	    mark_referenced (id);
 
 	  if (name[0] == '*')
-	    strncat (buf, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg)) + 1,
-		     IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (arg)) - 1);
+	    strcat (buf, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg)) + 1);
 	  else
 	    {
 	      sprintf (buf + strlen (buf), "%s", user_label_prefix);
-	      strncat (buf, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg)),
-		       IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (arg)));
+	      strcat (buf, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg)));
 	    }
 
 	  mark_decl_referenced (arg);
 	}
-      else if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg, e)) >= 0)
-	sprintf (buf + strlen (buf), "%%%d", idnum);
+      else
+	{
+#if defined (TARGET_386)
+	  /* For now, on x86, we for all arguments to be from memory,
+	     unless they are tied to a register, or we're in a known
+	     context.  */
+	  if (! DECL_HARD_REGISTER (arg)
+	      && e->dat[e->num].constraint == 0)
+	    cw_force_constraint ("+m", e);
+#endif
+	  cw_asm_get_register_var (arg, "", buf, argnum, must_be_reg, e);
+#if defined (TARGET_386)
+	  cw_force_constraint (0, e);
+#endif
+	}
       break;
 
     case FUNCTION_DECL:
-      if ((idnum = cw_asm_get_register_var (arg, argnum, must_be_reg, e)) >= 0)
-	sprintf (buf + strlen (buf), "%%z%d", idnum);
+      cw_asm_get_register_var (arg, "z", buf, argnum, must_be_reg, e);
       break;
 
     case COMPOUND_EXPR:
       /* "Compound exprs" are really offset+register constructs.  */
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    false, true, e);
       strcat (buf, "(");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses, label,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
 			    ! must_not_be_reg, must_not_be_reg, e);
       strcat (buf, ")");
       break;
@@ -6867,17 +6902,17 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	   && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
 	  || TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE)
 	{
-	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 				false, true, e);
 	  if (TREE_CODE (arg) == MINUS_EXPR)
 	    strcat (buf, "-");
 	  else
 	    strcat (buf, "+");
 
-	  CW_SEE_OFFSET(e);
-	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum,
-				uses, label, false, true, e);
-	  CW_SEE_NO_OFFSET(e);
+	  CW_SEE_IMMEDIATE(e);
+	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
+				false, true, e);
+	  CW_SEE_NO_IMMEDIATE(e);
 	  break;
 	}
       sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
@@ -6891,21 +6926,21 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       /* APPLE LOCAL begin radar 4218231 */
       op0 = TREE_OPERAND (arg, 0);
       if (TREE_CODE (op0) == VAR_DECL || TREE_CODE (op0) == COMPONENT_REF)
+	cw_asm_get_register_var (arg, "", buf, argnum, false, e);
+      else
 	{
-	  idnum = cw_asm_get_register_var (arg, argnum, false, e);
-	  if (idnum >= 0)
-	    sprintf (buf + strlen (buf), "%%%d", idnum);
-        }
-      else {
-        get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, false);
-        /* Convert bit pos to byte pos, rounding down (this is asm,
-	   after all). */
-        /* APPLE LOCAL 32-bit HOST_WIDE_INT */
-        sprintf (buf + strlen (buf), "%lld", (long long int) (bitpos / BITS_PER_UNIT));
-        strcat (buf, "(");
-        /* Catch a couple different flavors of component refs.  */
-	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses, label, true, false, e);
-        strcat (buf, ")");
+	  get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode,
+			       &unsignedp, &volatilep, false);
+	  /* Convert bit pos to byte pos, rounding down (this is asm,
+	     after all). */
+	  /* APPLE LOCAL 32-bit HOST_WIDE_INT */
+	  sprintf (buf + strlen (buf), "%lld",
+		   (long long int) (bitpos / BITS_PER_UNIT));
+	  strcat (buf, "(");
+	  /* Catch a couple different flavors of component refs.  */
+	  print_cw_asm_operand (buf, TREE_OPERAND (op0, 0), argnum, uses,
+				true, false, e);
+	  strcat (buf, ")");
       }
       /* APPLE LOCAL end radar 4218231 */
       break;
@@ -6920,12 +6955,12 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case NEGATE_EXPR:
       strcat (buf, "-");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses, label,
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
       break;
 
     default:
-      if (TARGET_CW_PRINT_OP (buf, arg, argnum, uses, label,
+      if (TARGET_CW_PRINT_OP (buf, arg, argnum, uses,
 			      must_be_reg, must_not_be_reg, e))
 	break;
 
@@ -6939,22 +6974,38 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
    %1, etc in the asm string.  MUST_BE_REG is true, iff we know the
    operand must be a register.  */
 
-static int
-cw_asm_get_register_var (tree var, unsigned argnum, bool must_be_reg, cw_md_extra_info *e)
+static void
+cw_asm_get_register_var (tree var, const char *modifier, char *buf, unsigned argnum,
+			 bool must_be_reg, cw_md_extra_info *e)
 {
   unsigned int n;
 
-  for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
+  buf += strlen (buf);
+
+  for (n = 0; (int)n < e->num; ++n)
     {
-      if (var == VARRAY_TREE (cw_asm_operands, n))
-	return n;
+      if (var == e->dat[n].var)
+	{
+	  sprintf (buf, "%%%s", modifier);
+	  buf += strlen (buf);
+	  gcc_assert (n < 10);
+	  sprintf (buf, "%d", n);
+	  e->dat[n].arg_p = buf;
+	  return;
+	}
     }
 
-  ++(e->num);
+  e->dat[n].var = var;
+  e->dat[n].argnum = argnum;
+  e->dat[n].must_be_reg = must_be_reg;
 
-  VARRAY_PUSH_TREE (cw_asm_operands, var);
-  VARRAY_PUSH_UINT (cw_asm_operands_arg, (argnum<<1) + must_be_reg);
-  return VARRAY_ACTIVE_SIZE (cw_asm_operands) - 1;
+  sprintf (buf, "%%%s", modifier);
+  buf += strlen (buf);
+  gcc_assert (n < 10);
+  sprintf (buf, "%d", n);
+  e->dat[n].arg_p = buf;
+
+  ++(e->num);
 }
 
 tree
@@ -6979,7 +7030,8 @@ cw_asm_label (tree labid, int atsign)
   tree sexpr;
   tree inputs = NULL_TREE, outputs = NULL_TREE, clobbers = NULL_TREE;
   tree stmt;
-  tree label;
+  tree label, l;
+  tree str, one;
 
   STRIP_NOPS (labid);
 
@@ -7000,15 +7052,48 @@ cw_asm_label (tree labid, int atsign)
 
   cw_asm_buffer[0] = '\0';
   label = get_cw_asm_label (labid);
+#if 0
+  /* Ideally I'd like to do this, but, it moves the label in:
+
+	nop
+     L2:
+	nop
+	jmp L2
+
+     so that generates:
+
+     L2:
+	nop
+	nop
+	jmp L2
+
+     for some odd reason.  The statement list seems correct.  */
+  
+  stmt = add_stmt (build_stmt (LABEL_EXPR, label));
+#else
+#if 0
   strcat (cw_asm_buffer, IDENTIFIER_POINTER (DECL_NAME (label)));
   strcat (cw_asm_buffer, ":");
+#else
+  /* Arrange for the label to be a parameter to the ASM_EXPR, as only then will the
+     backend `manage it' for us, say, making a unique copy for inline expansion.  */
+  sprintf (cw_asm_buffer, "%%l0: # %s", IDENTIFIER_POINTER (DECL_NAME (label)));
+#endif
 
+  l = build1 (ADDR_EXPR, ptr_type_node, label);
+
+  /* There was no other spelling I could find that would work.  :-(
+     Hope this stays working.  */
+  str = build_string (1, "X");
+  one = build_tree_list (build_tree_list (NULL_TREE, str), l);
+  inputs = chainon (NULL_TREE, one);
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
-
+  
   /* Simple asm statements are treated as volatile.  */
-  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, NULL_TREE, label);
+  stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   stmt = add_stmt (stmt);
+#endif
   return stmt;
 }
 
@@ -7113,7 +7198,7 @@ get_cw_asm_label (tree labid)
   /* Not already seen, make up a label.  */
   VARRAY_PUSH_TREE (cw_asm_labels, labid);
   buf = (char *) alloca (IDENTIFIER_LENGTH (labid) + 20);
-  sprintf (buf, "LASM%d$", cw_asm_labelno++);
+  sprintf (buf, "LASM$");
   /* Assembler won't like a leading @-sign, so make it into a $ if
      seen.  */
   labname = IDENTIFIER_POINTER (labid);
@@ -7187,14 +7272,14 @@ cw_asm_entry (tree keyword, tree scspec, tree fn)
     {
       strlab = build_string (9, ".globl %0");
       /* Treat as volatile always.  */
-      stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE, NULL_TREE);
+      stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE);
       ASM_VOLATILE_P (stmt) = 1;
       stmt = add_stmt (stmt);
     }
 
   strlab = build_string (3, "%0:");
   /* Treat as volatile always.  */
-  stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE, NULL_TREE);
+  stmt = build_stmt (ASM_EXPR, strlab, NULL_TREE, inputs, NULL_TREE, NULL_TREE);
   ASM_VOLATILE_P (stmt) = 1;
   stmt = add_stmt (stmt);
   return stmt;

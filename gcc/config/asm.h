@@ -28,7 +28,7 @@ extern const cpp_token *cw_split_next;
 void cw_insert_saved_token (void);
 extern tree cw_do_id (tree);
 /* Maximum number of arguments.  */
-#define CW_MAX_ARG 20
+#define CW_MAX_ARG 11
 
 #ifndef TARGET_CW_EXTRA_INFO
 #define TARGET_CW_EXTRA_INFO
@@ -43,15 +43,21 @@ struct cw_md_Extra_info {
 	where foo and bar are C expressions.  */
   int num;
 
-  /* Constraints for all operands to the ASM_EXPR.  */
-  const char *constraints[CW_MAX_ARG];
+  struct {
+    /* Constraints for operand to the ASM_EXPR.  */
+    const char *constraint;
+    tree var;
+    unsigned int argnum;
+    char *arg_p;
+    bool must_be_reg;
+    bool was_output;
+  } dat[CW_MAX_ARG];
 
   TARGET_CW_EXTRA_INFO
 };
 typedef struct cw_md_Extra_info cw_md_extra_info;
 
-void print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
-			   tree *uses, tree *label,
+void print_cw_asm_operand (char *buf, tree arg, unsigned argnum, tree *uses,
 			   bool must_be_reg, bool must_not_be_reg, cw_md_extra_info *e);
 
 extern tree cw_asm_stmt (tree, tree, int);
@@ -67,4 +73,5 @@ extern tree cw_get_identifier (tree, const char *);
 extern tree cw_build_bracket (tree, tree);
 extern bool cw_is_prefix (tree);
 extern void cw_skip_to_eol (void);
+extern void cw_force_constraint (const char *c, cw_md_extra_info *e);
 #endif
