@@ -1,5 +1,13 @@
 2005-10-03  Janis Johnson  <janis187@us.ibm.com>
 
+	* decContext.h: Prepend underscores to global symbols for libgcc.
+	* decNumber.h: Ditto.
+	* decUtility.h: Ditto.
+	* decimal128.h: Ditto.
+	* decimal32.h: Ditto.
+	* decimal64.h: Ditto.
+	* config/dfp-bit.h: Prepend underscores to decNumber functions.
+
 	* decUtility.c: New file.
 	* decUtility.h: New file.
 	* decimal32.c: Use it.

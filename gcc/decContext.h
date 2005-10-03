@@ -164,6 +164,12 @@ typedef struct
 #define DEC_INIT_DECIMAL128 128
 
   /* decContext routines */
+#ifdef IN_LIBGCC2
+#define decContextDefault __decContextDefault
+#define decContextSetStatus __decContextSetStatus
+#define decContextStatusToString __decContextStatusToString
+#define decContextSetStatusFromString __decContextSetStatusFromString
+#endif
 decContext *decContextDefault (decContext *, int32_t);
 decContext *decContextSetStatus (decContext *, uint32_t);
 const char *decContextStatusToString (decContext *);

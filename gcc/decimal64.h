@@ -86,6 +86,15 @@ typedef struct
   /* ------------------------------------------------------------------ */
   /* Routines                                                           */
   /* ------------------------------------------------------------------ */
+
+#ifdef IN_LIBGCC2
+#define decimal64FromString __decimal64FromString
+#define decimal64ToString __decimal64ToString
+#define decimal64ToEngString __decimal64ToEngString
+#define decimal64FromNumber __decimal64FromNumber
+#define decimal64ToNumber __decimal64ToNumber
+#endif
+
   /* String conversions */
 decimal64 *decimal64FromString (decimal64 *, char *, decContext *);
 char *decimal64ToString (decimal64 *, char *);

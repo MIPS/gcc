@@ -45,24 +45,24 @@
 #if WIDTH == 32
 #define DFP_C_TYPE	_Decimal32
 #define IEEE_TYPE	decimal32
-#define TO_INTERNAL	decimal32ToNumber
-#define TO_ENCODED	decimal32FromNumber
-#define FROM_STRING	decimal32FromString
-#define TO_STRING	decimal32ToString
+#define TO_INTERNAL	__decimal32ToNumber
+#define TO_ENCODED	__decimal32FromNumber
+#define FROM_STRING	__decimal32FromString
+#define TO_STRING	__decimal32ToString
 #elif WIDTH == 64
 #define DFP_C_TYPE	_Decimal64
 #define IEEE_TYPE	decimal64
-#define TO_INTERNAL	decimal64ToNumber
-#define TO_ENCODED	decimal64FromNumber
-#define FROM_STRING	decimal64FromString
-#define TO_STRING	decimal64ToString
+#define TO_INTERNAL	__decimal64ToNumber
+#define TO_ENCODED	__decimal64FromNumber
+#define FROM_STRING	__decimal64FromString
+#define TO_STRING	__decimal64ToString
 #elif WIDTH == 128
 #define DFP_C_TYPE	_Decimal128
 #define IEEE_TYPE	decimal128
-#define TO_INTERNAL	decimal128ToNumber
-#define TO_ENCODED	decimal128FromNumber
-#define FROM_STRING	decimal128FromString
-#define TO_STRING	decimal128ToString
+#define TO_INTERNAL	__decimal128ToNumber
+#define TO_ENCODED	__decimal128FromNumber
+#define FROM_STRING	__decimal128FromString
+#define TO_STRING	__decimal128ToString
 #else
 #error invalid decimal float word width
 #endif
@@ -106,15 +106,15 @@ extern void __dfp_raise (int);
 #if WIDTH_TO == 32
 #define DFP_C_TYPE_TO	_Decimal32
 #define IEEE_TYPE_TO	decimal32
-#define TO_ENCODED_TO	decimal32FromNumber
+#define TO_ENCODED_TO	__decimal32FromNumber
 #elif WIDTH_TO == 64
 #define DFP_C_TYPE_TO	_Decimal64
 #define IEEE_TYPE_TO	decimal64
-#define TO_ENCODED_TO	decimal64FromNumber
+#define TO_ENCODED_TO	__decimal64FromNumber
 #elif WIDTH_TO == 128
 #define DFP_C_TYPE_TO	_Decimal128
 #define IEEE_TYPE_TO	decimal128
-#define TO_ENCODED_TO	decimal128FromNumber
+#define TO_ENCODED_TO	__decimal128FromNumber
 #endif
 
 /* Conversions between decimal float types and integral types use INT_KIND

@@ -97,6 +97,37 @@ typedef struct
   /* ------------------------------------------------------------------ */
   /* decNumber public functions and macros                              */
   /* ------------------------------------------------------------------ */
+
+#ifdef IN_LIBGCC2
+#define decNumberFromString __decNumberFromString
+#define decNumberToString __decNumberToString
+#define decNumberToEngString __decNumberToEngString
+#define decNumberAbs __decNumberAbs
+#define decNumberAdd __decNumberAdd
+#define decNumberCompare __decNumberCompare
+#define decNumberDivide __decNumberDivide
+#define decNumberDivideInteger __decNumberDivideInteger
+#define decNumberMax __decNumberMax
+#define decNumberMin __decNumberMin
+#define decNumberMinus __decNumberMinus
+#define decNumberMultiply __decNumberMultiply
+#define decNumberNormalize __decNumberNormalize
+#define decNumberPlus __decNumberPlus
+#define decNumberPower __decNumberPower
+#define decNumberQuantize __decNumberQuantize
+#define decNumberRemainder __decNumberRemainder
+#define decNumberRemainderNear __decNumberRemainderNear
+#define decNumberRescale __decNumberRescale
+#define decNumberSameQuantum __decNumberSameQuantum
+#define decNumberSquareRoot __decNumberSquareRoot
+#define decNumberSubtract __decNumberSubtract
+#define decNumberToIntegralValue __decNumberToIntegralValue
+#define decNumberCopy __decNumberCopy
+#define decNumberTrim __decNumberTrim
+#define decNumberVersion __decNumberVersion
+#define decNumberZero __decNumberZero
+#endif
+
   /* Conversions */
 decNumber *decNumberFromString (decNumber *, char *, decContext *);
 char *decNumberToString (decNumber *, char *);

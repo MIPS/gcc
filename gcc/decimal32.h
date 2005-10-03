@@ -83,6 +83,15 @@ typedef struct
   /* ------------------------------------------------------------------ */
   /* Routines                                                           */
   /* ------------------------------------------------------------------ */
+
+#ifdef IN_LIBGCC2
+#define decimal32FromString __decimal32FromString
+#define decimal32ToString __decimal32ToString
+#define decimal32ToEngString __decimal32ToEngString
+#define decimal32FromNumber __decimal32FromNumber
+#define decimal32ToNumber __decimal32ToNumber
+#endif
+
   /* String conversions */
 decimal32 *decimal32FromString (decimal32 *, char *, decContext *);
 char *decimal32ToString (decimal32 *, char *);

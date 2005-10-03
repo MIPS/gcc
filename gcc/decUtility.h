@@ -19,5 +19,10 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
+#ifdef IN_LIBGCC2
+#define decDensePackCoeff __decDensePackCoeff
+#define decDenseUnpackCoeff __decDenseUnpackCoeff
+#endif
+
 extern void decDensePackCoeff (decNumber *, uByte *, Int, Int);
 extern void decDenseUnpackCoeff (uByte *, Int, decNumber *, Int, Int);

@@ -92,6 +92,15 @@ typedef struct
   /* ------------------------------------------------------------------ */
   /* Routines                                                           */
   /* ------------------------------------------------------------------ */
+
+#ifdef IN_LIBGCC2
+#define decimal128FromString __decimal128FromString
+#define decimal128ToString __decimal128ToString
+#define decimal128ToEngString __decimal128ToEngString
+#define decimal128FromNumber __decimal128FromNumber
+#define decimal128ToNumber __decimal128ToNumber
+#endif
+
   /* String conversions */
 decimal128 *decimal128FromString (decimal128 *, char *, decContext *);
 char *decimal128ToString (decimal128 *, char *);
