@@ -17044,7 +17044,8 @@ cp_parser_cw_identifier (cp_parser* parser)
         cp_lexer_consume_token (parser->lexer);
         t = cw_build_identifier_string (parser, ".");
       }
-  else if (CW_SEE_OPCODE (TYPESPEC, token->value) == IDENTIFIER)
+  else if (token->value
+	   && CW_SEE_OPCODE (TYPESPEC, token->value) == IDENTIFIER)
     {
       cp_lexer_consume_token (parser->lexer);
       t = token->value;
@@ -17192,6 +17193,25 @@ cp_parser_cw_asm_statement (cp_parser* parser)
   cp_parser_cw_maybe_skip_comments (parser);
 }
 
+/* Eat tokens until we get back to something we recognize.  */
+
+static void
+cp_parser_cw_skip_to_next_asm (cp_parser *parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  do
+    {
+      if (cp_lexer_cw_bol (parser->lexer)
+	  || token->type == CPP_SEMICOLON
+	  || token->type == CPP_CLOSE_BRACE
+	  || token->type == CPP_EOF
+	  || token->keyword == RID_ASM)
+	return;
+      cp_lexer_consume_token (parser->lexer);
+    }
+  while (1);
+}
+
 tree
 cp_parser_cw_asm_operands (cp_parser *parser)
 {
@@ -17209,7 +17229,7 @@ cp_parser_cw_asm_operands (cp_parser *parser)
 
       operand = cp_parser_cw_asm_operand (parser);
 
-      if (operand)
+      if (operand && operand != error_mark_node)
 	{
 	  operands = chainon (operands, build_tree_list (NULL_TREE, operand));
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
@@ -17217,7 +17237,8 @@ cp_parser_cw_asm_operands (cp_parser *parser)
 	}
       else
 	{
-	  return error_mark_node;
+	  cp_parser_cw_skip_to_next_asm (parser);
+	  return NULL_TREE;
 	}
     }
 
