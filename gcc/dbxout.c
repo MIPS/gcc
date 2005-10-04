@@ -1170,6 +1170,8 @@ dbxout_init (const char *input_file_name)
 	dbxout_symbol (TREE_VALUE (t), 0);
       preinit_symbols = 0;
     }
+  /* APPLE LOCAL dbxout_type rewrite.  */
+  dbxout_flush_type_queue ();
   /* APPLE LOCAL 4215975 */
   anon_place_holder = get_identifier ("__anon__");
 }
@@ -4030,9 +4032,9 @@ dbxout_type_with_name (tree type)
   dbxout_finish_complex_stabs (0, N_LSYM, 0, 0, 0);
 }
 
-static tree *type_queue;
-int type_queue_index = 0;
-static int type_queue_size = 0;
+static GTY ((length ("type_queue_index"))) tree *type_queue;
+static GTY (()) int type_queue_index = 0;
+static GTY (()) int type_queue_size = 0;
 
 /* Generate the type definitions for queued up types.  */
 
@@ -4066,7 +4068,7 @@ dbxout_queue_type (tree type)
   if (type_queue_index >= type_queue_size)
     {
       type_queue_size += 10;
-      type_queue = xrealloc (type_queue,
+      type_queue = ggc_realloc (type_queue,
 			     type_queue_size * sizeof (tree));
     }
 
@@ -4081,7 +4083,7 @@ dbxout_free_type_queue (void)
   dbxout_flush_type_queue ();
   if (type_queue)
     {
-      free (type_queue);
+      ggc_free (type_queue);
       type_queue = NULL;
       type_queue_size = 0;
     }

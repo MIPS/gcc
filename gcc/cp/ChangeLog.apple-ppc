@@ -1,3 +1,8 @@
+2005-10-04  Devang Patel  <dpatel@apple.com>
+
+        Radar 4278470
+	* parser.c (cp_lexer_new_main): Initialized saved_pos.value.
+
 2005-09-23  Mike Stump  <mrs@apple.com>
 	
 	Radar 4259442

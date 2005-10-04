@@ -1,3 +1,11 @@
+2005-10-04  Devang Patel  <dpatel@apple.com>
+
+        Radar 4278470
+        * dbxout.c (dbxut_init): Flush type queue.
+        (type_queue, type_queue_index, type_queue_size): GTY'ed.
+        (dbxout_queue_type): Use ggc_realloc.
+        (dbxout_free_type_queue): Use ggc_free.
+
 2005-01-03  Devang Patel  <dpatel@apple.com>
 
 	Radar 4278903

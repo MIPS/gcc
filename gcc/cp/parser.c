@@ -317,7 +317,8 @@ cp_lexer_new_main (void)
 	  cp_token saved_pos;
 	  cp_lexer_file *tmp;
 	  cp_lexer_file *fs = cp_lexer_file_stack;
-
+	  /* APPLE LOCAL 4278470 */
+	  saved_pos.value = NULL_TREE;
 	  /* Copy position content, so that it added into to the next position
 	     afterwards.  */
 	  cp_lexer_copy_token (&saved_pos, pos);
