@@ -18427,6 +18427,7 @@ cw_is_offset (tree v)
 }
 
 /* Character used to seperate the prefix words.  */
+/* See radr://4141844 for the enhancement to make this uniformly ' '.  */
 #define CW_PREFIX_SEP '/'
 
 void
