@@ -91,6 +91,9 @@ extern "C"
 // define is just an optimization.  But FIXME anyway.
 #undef get_identifier
 
+// libiberty lameness.
+#undef hex_value
+
 // Now include things from gcjx.
 #include "typedefs.hh"
 #include "aot/aotclass.hh"
