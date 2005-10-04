@@ -45,6 +45,8 @@
 #if WIDTH == 32
 #define DFP_C_TYPE	_Decimal32
 #define IEEE_TYPE	decimal32
+#define HOST_TO_IEEE	__host_to_ieee_32
+#define IEEE_TO_HOST	__ieee_to_host_32
 #define TO_INTERNAL	__decimal32ToNumber
 #define TO_ENCODED	__decimal32FromNumber
 #define FROM_STRING	__decimal32FromString
@@ -52,6 +54,8 @@
 #elif WIDTH == 64
 #define DFP_C_TYPE	_Decimal64
 #define IEEE_TYPE	decimal64
+#define HOST_TO_IEEE	__host_to_ieee_64
+#define IEEE_TO_HOST	__ieee_to_host_64
 #define TO_INTERNAL	__decimal64ToNumber
 #define TO_ENCODED	__decimal64FromNumber
 #define FROM_STRING	__decimal64FromString
@@ -59,6 +63,8 @@
 #elif WIDTH == 128
 #define DFP_C_TYPE	_Decimal128
 #define IEEE_TYPE	decimal128
+#define HOST_TO_IEEE	__host_to_ieee_128
+#define IEEE_TO_HOST	__ieee_to_host_128
 #define TO_INTERNAL	__decimal128ToNumber
 #define TO_ENCODED	__decimal128FromNumber
 #define FROM_STRING	__decimal128FromString
@@ -107,14 +113,17 @@ extern void __dfp_raise (int);
 #define DFP_C_TYPE_TO	_Decimal32
 #define IEEE_TYPE_TO	decimal32
 #define TO_ENCODED_TO	__decimal32FromNumber
+#define IEEE_TO_HOST_TO __ieee_to_host_32
 #elif WIDTH_TO == 64
 #define DFP_C_TYPE_TO	_Decimal64
 #define IEEE_TYPE_TO	decimal64
 #define TO_ENCODED_TO	__decimal64FromNumber
+#define IEEE_TO_HOST_TO __ieee_to_host_64
 #elif WIDTH_TO == 128
 #define DFP_C_TYPE_TO	_Decimal128
 #define IEEE_TYPE_TO	decimal128
 #define TO_ENCODED_TO	__decimal128FromNumber
+#define IEEE_TO_HOST_TO __ieee_to_host_128
 #endif
 
 /* Conversions between decimal float types and integral types use INT_KIND

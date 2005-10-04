@@ -1,3 +1,33 @@
+2005-10-04  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (D32PBIT_FUNCS): Add _conv_sd.
+	(D64PBIT_FUNCS): Likewise, add _conv_dd.
+	(D128PBIT_FUNCS): Likewise, add _conv_td.
+	* decUtility.h (__ieee_byte_order): Prototype.
+	* decUtility.c (__ieee_byte_order): Implement.
+	* dfp.c (encode_decimal32): Put word(s) into IEEE byte order.
+	(encode_decimal64): Likewise.
+	(encode_decimal128): Likewise.
+	* config/dfp-bit.h (HOST_TO_IEEE): Define for various widths.
+	(IEEE_TO_HOST): Likewise.
+	(IEEE_TO_HOST_TO): Likewise.
+	* config/dfp-bit.c (LIBGCC2_FLOAT_WORDS_BIG_ENDIAN): Define.
+	(dfp_unary_op): Swap words to/from IEEE byte order when invoking
+	decNumber routines.
+	(dfp_binary_op, dfp_compare_op): Likewise.
+	(__host_to_ieee_32): New.
+	(__ieee_to_host_32): Likewise.
+	(__swap64): Likewise.
+	(__host_to_ieee_64): New.
+	(__ieee_to_host_64): Likewise.
+	(__swap128): Likewise.
+	(__host_to_ieee_128): New.
+	(__ieee_to_host_128): Likewise.
+	(DFP_TO_DFP): Swap words to/from IEEE byte order when invoking
+	decNumber routines.
+	(DFP_TO_INT, INT_TO_DFP, DFP_TO_BFP, BFP_TO_DFP: Likewise.
+	(DFP_UNORD): Likewise.
+
 2005-10-03  Janis Johnson  <janis187@us.ibm.com>
 
 	* decContext.h: Prepend underscores to global symbols for libgcc.

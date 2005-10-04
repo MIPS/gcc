@@ -144,7 +144,10 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decimal_to_decnumber (r, &dn); 
   decimal32FromNumber(&d32, &dn, &set);
 
-  buf[0] = *(uint32_t *) d32.bytes;
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    buf[0] = *(uint32_t *) d32.bytes;
+  else
+    buf[0] = __dec_byte_swap (*(uint32_t *) d32.bytes);
 }
 
 void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -167,8 +170,16 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decimal_to_decnumber (r, &dn);
   decimal64FromNumber(&d64, &dn, &set);
 
-  buf[0] = *(uint32_t *) &d64.bytes[0];
-  buf[1] = *(uint32_t *) &d64.bytes[4];
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    {
+      buf[0] = *(uint32_t *) &d64.bytes[0];
+      buf[1] = *(uint32_t *) &d64.bytes[4];
+    }
+  else
+    {
+      buf[1] = __dec_byte_swap (*(uint32_t *) &d64.bytes[0]);
+      buf[0] = __dec_byte_swap (*(uint32_t *) &d64.bytes[4]);
+    }
 }
 
 void 
@@ -191,10 +202,20 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decimal_to_decnumber (r, &dn);
   decimal128FromNumber (&d128, &dn, &set);
 
-  buf[0] = *(uint32_t *) &d128.bytes[0];
-  buf[1] = *(uint32_t *) &d128.bytes[4];
-  buf[2] = *(uint32_t *) &d128.bytes[8];
-  buf[3] = *(uint32_t *) &d128.bytes[12];
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    {
+      buf[0] = *(uint32_t *) &d128.bytes[0];
+      buf[1] = *(uint32_t *) &d128.bytes[4];
+      buf[2] = *(uint32_t *) &d128.bytes[8];
+      buf[3] = *(uint32_t *) &d128.bytes[12];
+    }
+  else
+    {
+      buf[0] = __dec_byte_swap (*(uint32_t *) &d128.bytes[12]);
+      buf[1] = __dec_byte_swap (*(uint32_t *) &d128.bytes[8]);
+      buf[2] = __dec_byte_swap (*(uint32_t *) &d128.bytes[4]);
+      buf[3] = __dec_byte_swap (*(uint32_t *) &d128.bytes[0]);
+    }
 }
 
 void 

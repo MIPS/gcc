@@ -51,6 +51,24 @@ Boston, MA 02111-1307, USA.  */
 #include "tm.h"
 #include "config/dfp-bit.h"
 
+#ifndef LIBGCC2_FLOAT_WORDS_BIG_ENDIAN
+#define LIBGCC2_FLOAT_WORDS_BIG_ENDIAN FLOAT_WORDS_BIG_ENDIAN
+#endif
+
+/* Forward declarations.  */
+#if WIDTH == 32 || WIDTH_TO == 32
+void __host_to_ieee_32 (_Decimal32 in, decimal32 *out);
+void __ieee_to_host_32 (decimal32 in, _Decimal32 *out);
+#endif
+#if WIDTH == 64 || WIDTH_TO == 64
+void __host_to_ieee_64 (_Decimal64 in, decimal64 *out);
+void __ieee_to_host_64 (decimal64 in, _Decimal64 *out);
+#endif
+#if WIDTH == 128 || WIDTH_TO == 128
+void __host_to_ieee_128 (_Decimal128 in, decimal128 *out);
+void __ieee_to_host_128 (decimal128 in, _Decimal128 *out);
+#endif
+
 /* A pointer to a unary decNumber operation.  */
 typedef decNumber* (*dfp_unary_func)
      (decNumber *, decNumber *, decContext *);
@@ -70,7 +88,7 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
   decNumber arg1, res;
   IEEE_TYPE a, encoded_result;
 
-  memcpy (&a, &arg, sizeof (a));
+  HOST_TO_IEEE (arg, &a);
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
@@ -84,7 +102,7 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
     DFP_RAISE (0);
 
   TO_ENCODED (&encoded_result, &res, &context);
-  memcpy (&result, &encoded_result, sizeof (result));
+  IEEE_TO_HOST (encoded_result, &result);
   return result;
 }
 
@@ -98,8 +116,8 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   decNumber arg1, arg2, res;
   IEEE_TYPE a, b, encoded_result;
 
-  memcpy (&a, &arg_a, sizeof (a));
-  memcpy (&b, &arg_b, sizeof (b));
+  HOST_TO_IEEE (arg_a, &a);
+  HOST_TO_IEEE (arg_b, &b);
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
@@ -114,7 +132,7 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
     DFP_RAISE (0);
 
   TO_ENCODED (&encoded_result, &res, &context);
-  memcpy (&result, &encoded_result, sizeof (result));
+  IEEE_TO_HOST (encoded_result, &result);
   return result;
 }
 
@@ -128,8 +146,8 @@ dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   decNumber arg1, arg2, res;
   int result;
 
-  memcpy (&a, &arg_a, sizeof (a));
-  memcpy (&b, &arg_b, sizeof (b));
+  HOST_TO_IEEE (arg_a, &a);
+  HOST_TO_IEEE (arg_b, &b);
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
@@ -154,6 +172,108 @@ dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 }
 
 
+#if defined(L_conv_sd)
+void
+__host_to_ieee_32 (_Decimal32 in, decimal32 *out)
+{
+  uint32_t t;
+
+  if (!LIBGCC2_FLOAT_WORDS_BIG_ENDIAN)
+    {
+      memcpy (&t, &in, 4);
+      t = __ieee_byte_order (t);
+      memcpy (out, &t, 4);
+    }
+  else
+    memcpy (out, &in, 4);
+}
+
+void
+__ieee_to_host_32 (decimal32 in, _Decimal32 *out)
+{
+  uint32_t t;
+
+  if (!LIBGCC2_FLOAT_WORDS_BIG_ENDIAN)
+    {
+      memcpy (&t, &in, 4);
+      t = __ieee_byte_order (t);
+      memcpy (out, &t, 4);
+    }
+  else
+    memcpy (out, &in, 4);
+}
+#endif /* L_conv_sd */
+
+#if defined(L_conv_dd)
+static void
+__swap64 (char *src, char *dst)
+{
+  uint32_t t1, t2;
+
+  if (!LIBGCC2_FLOAT_WORDS_BIG_ENDIAN) 
+    {
+      memcpy (&t1, src, 4);
+      memcpy (&t2, src + 4, 4);
+      t1 = __ieee_byte_order (t1);
+      t2 = __ieee_byte_order (t2);
+      memcpy (dst, &t2, 4);
+      memcpy (dst + 4, &t1, 4);
+    }
+  else
+    memcpy (dst, src, 8);
+}
+
+void
+__host_to_ieee_64 (_Decimal64 in, decimal64 *out)
+{
+  __swap64 ((char *) &in, (char *) out);
+}
+
+void
+__ieee_to_host_64 (decimal64 in, _Decimal64 *out)
+{
+  __swap64 ((char *) &in, (char *) out);
+}
+#endif /* L_conv_dd */
+
+#if defined(L_conv_td)
+static void
+__swap128 (char *src, char *dst)
+{
+  uint32_t t1, t2, t3, t4;
+
+  if (!LIBGCC2_FLOAT_WORDS_BIG_ENDIAN)
+    {
+      memcpy (&t1, src, 4);
+      memcpy (&t2, src + 4, 4);
+      memcpy (&t3, src + 8, 4);
+      memcpy (&t4, src + 12, 4);
+      t1 = __ieee_byte_order (t1);
+      t2 = __ieee_byte_order (t2);
+      t3 = __ieee_byte_order (t3);
+      t4 = __ieee_byte_order (t4);
+      memcpy (dst, &t4, 4);
+      memcpy (dst + 4, &t3, 4);
+      memcpy (dst + 8, &t2, 4);
+      memcpy (dst + 12, &t1, 4);
+    }
+  else
+    memcpy (dst, src, 16);
+}
+
+void
+__host_to_ieee_128 (_Decimal128 in, decimal128 *out)
+{
+  __swap128 ((char *) &in, (char *) out);
+}
+
+void
+__ieee_to_host_128 (decimal128 in, _Decimal128 *out)
+{
+  __swap128 ((char *) &in, (char *) out);
+}
+#endif /* L_conv_td */
+
 #if defined(L_addsub_sd) || defined(L_addsub_dd) || defined(L_addsub_td)
 DFP_C_TYPE
 DFP_ADD (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
@@ -255,29 +375,25 @@ DFP_GE (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 #if defined (L_sd_to_dd) || defined (L_sd_to_td) || defined (L_dd_to_sd) \
  || defined (L_dd_to_td) || defined (L_td_to_sd) || defined (L_td_to_dd)
 DFP_C_TYPE_TO
-DFP_TO_DFP (DFP_C_TYPE f)
+DFP_TO_DFP (DFP_C_TYPE f_from)
 {
-  union {
-    DFP_C_TYPE f;
-    IEEE_TYPE s;
-  } uf;
-  union {
-    DFP_C_TYPE_TO f;
-    IEEE_TYPE_TO s;
-  } ut;
+  DFP_C_TYPE_TO f_to;
+  IEEE_TYPE s_from;
+  IEEE_TYPE_TO s_to;
   decNumber d;
   decContext context;
 
   decContextDefault (&context, CONTEXT_INIT);
   context.round = CONTEXT_ROUND;
 
-  uf.f = f;
-  TO_INTERNAL (&uf.s, &d);
-  TO_ENCODED_TO (&ut.s, &d, &context);
+  HOST_TO_IEEE (f_from, &s_from);
+  TO_INTERNAL (&s_from, &d);
+  TO_ENCODED_TO (&s_to, &d, &context);
   if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
     DFP_RAISE (DEC_Inexact);
 
-  return ut.f;
+  IEEE_TO_HOST_TO (s_to, &f_to);
+  return f_to;
 }
 #endif
 
@@ -290,10 +406,8 @@ DFP_TO_INT (DFP_C_TYPE x)
 {
   /* decNumber's decimal* types have the same format as C's _Decimal*
      types, but they have different calling conventions.  */
-  union {
-    DFP_C_TYPE f;
-    IEEE_TYPE s;
-  } u;
+
+  IEEE_TYPE s;
   char buf[BUFMAX];
   char *pos;
   decNumber qval, n1, n2;
@@ -303,8 +417,8 @@ DFP_TO_INT (DFP_C_TYPE x)
   /* Need non-default rounding mode here.  */
   context.round = DEC_ROUND_DOWN;
 
-  u.f = x;
-  TO_INTERNAL (&u.s, &n1);
+  HOST_TO_IEEE (x, &s);
+  TO_INTERNAL (&s, &n1);
   /* Rescale if the exponent is less than zero.  */
   decNumberToIntegralValue (&n2, &n1, &context);
   /* Get a value to use for the quanitize call.  */
@@ -352,12 +466,8 @@ DFP_TO_INT (DFP_C_TYPE x)
 DFP_C_TYPE
 INT_TO_DFP (INT_TYPE i)
 {
-  /* decNumber's decimal* types have the same format as C's _Decimal*
-     types, but they have different calling conventions.  */
-  union {
-    DFP_C_TYPE f;
-    IEEE_TYPE s;
-  } u;
+  DFP_C_TYPE f;
+  IEEE_TYPE s;
   char buf[BUFMAX];
   decContext context;
 
@@ -367,10 +477,11 @@ INT_TO_DFP (INT_TYPE i)
   /* Use a C library function to get a floating point string.  */
   sprintf (buf, INT_FMT ".0", CAST_FOR_FMT(i));
   /* Convert from the floating point string to a decimal* type.  */
-  FROM_STRING (&u.s, buf, &context);
+  FROM_STRING (&s, buf, &context);
+  IEEE_TO_HOST (s, &f);
   if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
     DFP_RAISE (DEC_Inexact);
-  return u.f;
+  return f;
 }
 #endif
 
@@ -379,19 +490,14 @@ INT_TO_DFP (INT_TYPE i)
  || ((defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)) \
      && LIBGCC2_HAS_XF_MODE)
 BFP_TYPE
-DFP_TO_BFP (DFP_C_TYPE x)
+DFP_TO_BFP (DFP_C_TYPE f)
 {
-  /* decNumber's decimal* types have the same format as C's _Decimal*
-     types, but they have different calling conventions.  */
-  union {
-    DFP_C_TYPE f;
-    IEEE_TYPE s;
-  } u;
+  IEEE_TYPE s;
   char buf[BUFMAX];
 
-  u.f = x;
+  HOST_TO_IEEE (f, &s);
   /* Write the value to a string.  */
-  TO_STRING (&u.s, buf);
+  TO_STRING (&s, buf);
   /* Read it as the binary floating point type and return that.  */
   return STR_TO_BFP (buf, NULL);
 }
@@ -404,12 +510,8 @@ DFP_TO_BFP (DFP_C_TYPE x)
 DFP_C_TYPE
 BFP_TO_DFP (BFP_TYPE x)
 {
-  /* decNumber's decimal* types have the same format as C's _Decimal*
-     types, but they have different calling conventions.  */
-  union {
-    DFP_C_TYPE f;
-    IEEE_TYPE s;
-  } u;
+  DFP_C_TYPE f;
+  IEEE_TYPE s;
   char buf[BUFMAX];
   decContext context;
 
@@ -425,10 +527,11 @@ BFP_TO_DFP (BFP_TYPE x)
 #endif
 
   /* Convert from the floating point string to a decimal* type.  */
-  FROM_STRING (&u.s, buf, &context);
+  FROM_STRING (&s, buf, &context);
+  IEEE_TO_HOST (s, &f);
   if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
     DFP_RAISE (DEC_Inexact);
-  return u.f;
+  return f;
 }
 #endif
 
@@ -439,8 +542,8 @@ DFP_UNORD (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   decNumber arg1, arg2;
   IEEE_TYPE a, b;
 
-  memcpy (&a, &arg_a, sizeof (a));
-  memcpy (&b, &arg_b, sizeof (b));
+  HOST_TO_IEEE (arg_a, &a);
+  HOST_TO_IEEE (arg_b, &b);
   TO_INTERNAL (&a, &arg1);
   TO_INTERNAL (&b, &arg2);
   return (decNumberIsNaN (&arg1) || decNumberIsNaN (&arg2));
