@@ -1,4 +1,7 @@
-2005-10-04  Ben Elliston  <bje@au.ibm.com>
+2005-10-04  Ben Elliston  <bje@au.ibm.co>
+
+	* config/dfp-bit.c: Replace calls to __ieee_byte_order with
+	__dec_byte_swap to indicate that the function always swaps.
 
 	* Makefile.in (D32PBIT_FUNCS): Add _conv_sd.
 	(D64PBIT_FUNCS): Likewise, add _conv_dd.

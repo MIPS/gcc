@@ -181,7 +181,7 @@ __host_to_ieee_32 (_Decimal32 in, decimal32 *out)
   if (!LIBGCC2_FLOAT_WORDS_BIG_ENDIAN)
     {
       memcpy (&t, &in, 4);
-      t = __ieee_byte_order (t);
+      t = __dec_byte_swap (t);
       memcpy (out, &t, 4);
     }
   else
@@ -196,7 +196,7 @@ __ieee_to_host_32 (decimal32 in, _Decimal32 *out)
   if (!LIBGCC2_FLOAT_WORDS_BIG_ENDIAN)
     {
       memcpy (&t, &in, 4);
-      t = __ieee_byte_order (t);
+      t = __dec_byte_swap (t);
       memcpy (out, &t, 4);
     }
   else
@@ -214,8 +214,8 @@ __swap64 (char *src, char *dst)
     {
       memcpy (&t1, src, 4);
       memcpy (&t2, src + 4, 4);
-      t1 = __ieee_byte_order (t1);
-      t2 = __ieee_byte_order (t2);
+      t1 = __dec_byte_swap (t1);
+      t2 = __dec_byte_swap (t2);
       memcpy (dst, &t2, 4);
       memcpy (dst + 4, &t1, 4);
     }
@@ -248,10 +248,10 @@ __swap128 (char *src, char *dst)
       memcpy (&t2, src + 4, 4);
       memcpy (&t3, src + 8, 4);
       memcpy (&t4, src + 12, 4);
-      t1 = __ieee_byte_order (t1);
-      t2 = __ieee_byte_order (t2);
-      t3 = __ieee_byte_order (t3);
-      t4 = __ieee_byte_order (t4);
+      t1 = __dec_byte_swap (t1);
+      t2 = __dec_byte_swap (t2);
+      t3 = __dec_byte_swap (t3);
+      t4 = __dec_byte_swap (t4);
       memcpy (dst, &t4, 4);
       memcpy (dst + 4, &t3, 4);
       memcpy (dst + 8, &t2, 4);
