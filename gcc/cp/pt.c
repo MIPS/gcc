@@ -8230,8 +8230,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	 tsubst_expr (ASM_STRING (t), args, complain, in_decl),
 	 tsubst_expr (ASM_OUTPUTS (t), args, complain, in_decl),
 	 tsubst_expr (ASM_INPUTS (t), args, complain, in_decl), 
+	 /* APPLE LOCAL begin CW asm blocks */
 	 tsubst_expr (ASM_CLOBBERS (t), args, complain, in_decl),
 	 tsubst_expr (ASM_USES (t), args, complain, in_decl));
+	 /* APPLE LOCAL end CW asm blocks */
       {
 	tree asm_expr = tmp;
 	if (TREE_CODE (asm_expr) == CLEANUP_POINT_EXPR)
