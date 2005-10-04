@@ -287,7 +287,9 @@ compiler::compile_resource (const std::string &name, reader *contents)
 bool
 compiler::semantic_analysis ()
 {
-  assert (state == PARSING_FILES);
+  // Note that if no source files were parsed, the state won't be
+  // PARSING_FILES.
+  assert (state <= PARSING_FILES);
   state = ANALYZING_CLASSES;
   // After we're finished parsing things from the command line, there
   // is no longer a reason for the class reader to keep method bodies

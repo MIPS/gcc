@@ -1,3 +1,7 @@
+2005-10-04  Tom Tromey  <tromey@redhat.com>
+
+	* compiler.cc (semantic_analysis): Updated assert.
+
 2005-10-03  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* source/lex.cc (lexer::get_line): Also save and restore NUM_CHARS
