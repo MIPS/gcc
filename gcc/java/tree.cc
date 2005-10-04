@@ -1922,6 +1922,8 @@ tree_generator::visit_field_ref (model_field_ref *elt,
 				 const ref_expression &expr,
 				 const model_field *field)
 {
+  bool should_inline = const_cast<model_field *> (field)->inlineable_p ();
+
   // Note that we don't need any special handling for 'array.length'
   // -- the generic code here works fine.
   tree expr_tree = NULL_TREE;
@@ -1929,25 +1931,45 @@ tree_generator::visit_field_ref (model_field_ref *elt,
     {
       expr->visit (this);
       expr_tree = current;
+
+      // A very obscure case: if we have 'foo.bar', and bar is
+      // inlineable, we must inline it but we must also null-check
+      // 'foo'.
+      if (should_inline && ! field->static_p ())
+	expr_tree = gcc_builtins->check_reference (expr_tree, true);
     }
 
+  if (should_inline)
+    {
+      model_expression *init = field->get_initializer ().get ();
+      // This assertion should be true due to constant folding when
+      // resolving the field.
+      assert (dynamic_cast<model_literal_base *> (init));
+      init->visit (this);
+
+      if (expr_tree != NULL_TREE)
+	current = build2 (COMPOUND_EXPR, TREE_TYPE (current),
+			  expr_tree, current);
+
+      // FIXME: should annotate() here if possible.
+    }
+  else
+    {
+      // FIXME: Note that map_field_ref does not handle the case of a
+      // non-static reference to a static field.
+
 #if 0
-  // FIXME: where should this go?  [ In the ABI ]
-  if (expr->type () != field->get_declaring_class ())
-    // FIXME: is this right?
-    emit_type_assertion (field->get_declaring_class (), expr->type ());
+      // FIXME: where should this go?  [ In the ABI ]
+      if (expr->type () != field->get_declaring_class ())
+	// FIXME: is this right?
+	emit_type_assertion (field->get_declaring_class (), expr->type ());
 #endif
 
-  // FIXME: handle inlining constant fields here (this is not
-  // abi-specific)
-
-  // FIXME: Note that map_field_ref does not handle the case of a
-  // non-static reference to a static field.
-
-  gcc_builtins->lay_out_class (field->get_declaring_class ());
-  current = gcc_builtins->map_field_ref (class_wrapper, expr_tree,
-					 const_cast<model_field *> (field));
-  annotate (current, elt);
+      gcc_builtins->lay_out_class (field->get_declaring_class ());
+      current = gcc_builtins->map_field_ref (class_wrapper, expr_tree,
+					     const_cast<model_field *> (field));
+      annotate (current, elt);
+    }
 }
 
 void

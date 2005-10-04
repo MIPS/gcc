@@ -1,5 +1,9 @@
 2005-10-04  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_field_ref): Handle constant expressions.
+
+2005-10-04  Tom Tromey  <tromey@redhat.com>
+
 	* Make-lang.in (JAVA_OBJS): Added resource.o.
 	* resource.cc: New file.
 	* treegen.cc (compile_resource): New method.
