@@ -18458,6 +18458,7 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	tree op2 = TREE_OPERAND (arg, 0);
 	tree op3 = TREE_OPERAND (arg, 1);
 	tree op0 = NULL_TREE, op1 = NULL_TREE;
+	tree scale = NULL_TREE;
 
 	if (TREE_CODE (op2) == BRACKET_EXPR)
 	  {
@@ -18495,6 +18496,30 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 		op3 = NULL_TREE;
 	      }
 	  }
+	if (op2 && TREE_CODE (op2) == MULT_EXPR)
+	  {
+	    tree t;
+	    t = op3;
+	    op3 = op2;
+	    op2 = t;
+	  }
+
+	/* Crack out the scaling, if any.  */
+	if (ASSEMBLER_DIALECT == ASM_ATT
+	    && op3
+	    && TREE_CODE (op3) == MULT_EXPR)
+	  {
+	    if (TREE_CODE (TREE_OPERAND (op3, 1)) == INTEGER_CST)
+	      {
+		scale = TREE_OPERAND (op3, 1);
+		op3 = TREE_OPERAND (op3, 0);
+	      }
+	    else if (TREE_CODE (TREE_OPERAND (op3, 0)) == INTEGER_CST)
+	      {
+		scale = TREE_OPERAND (op3, 0);
+		op3 = TREE_OPERAND (op3, 1);
+	      }
+	  }
 
 	if (op1)
 	  {
@@ -18512,11 +18537,14 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	else
 	  strcat (buf, "(");
 
-	/* We know by context, this has to be an R.  */
-	cw_force_constraint ("R", e);
-	print_cw_asm_operand (buf, op2, argnum, uses,
-			      must_be_reg, must_not_be_reg, e);
-	cw_force_constraint (0, e);
+	if (op2)
+	  {
+	    /* We know by context, this has to be an R.  */
+	    cw_force_constraint ("R", e);
+	    print_cw_asm_operand (buf, op2, argnum, uses,
+				  must_be_reg, must_not_be_reg, e);
+	    cw_force_constraint (0, e);
+	  }
 	if (op3)
 	  {
 	    if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -18529,6 +18557,14 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    print_cw_asm_operand (buf, op3, argnum, uses,
 				  must_be_reg, must_not_be_reg, e);
 	    cw_force_constraint (0, e);
+	    if (scale)
+	      {
+		strcat (buf, ",");
+		e->as_immediate = true;
+		print_cw_asm_operand (buf, scale, argnum, uses,
+				      must_be_reg, must_not_be_reg, e);
+		e->as_immediate = false;
+	      }
 	  }
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
