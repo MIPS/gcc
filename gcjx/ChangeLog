@@ -1,3 +1,8 @@
+2005-10-03  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* source/lex.cc (lexer::get_line): Also save and restore NUM_CHARS
+	and POSITION.
+
 2005-10-03  Tom Tromey  <tromey@redhat.com>
 
 	* source/lex.cc (get_raw): Increment column.

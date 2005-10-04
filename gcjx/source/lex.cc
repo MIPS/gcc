@@ -1328,7 +1328,9 @@ lexer::get_line (int line_number)
   unicode_w_t save_unget_value = unget_value;
   unicode_w_t save_cooked_unget_value = cooked_unget_value;
   bool save_was_return = was_return;
-  int save_posn = input_filter->get_posn ();
+  int save_num_chars = num_chars;
+  int save_position = position;
+  int save_if_posn = input_filter->get_posn ();
 
   // Reset the state of the lexer and the input reader.
   line = 1;
@@ -1337,6 +1339,8 @@ lexer::get_line (int line_number)
   unget_value = UNICODE_W_NONE;
   cooked_unget_value = UNICODE_W_NONE;
   was_return = false;
+  num_chars = 0;
+  position = 0;
   input_filter->set_posn (0);
 
   // Ignore input until we reach the desired line (or end of file).
@@ -1366,7 +1370,9 @@ lexer::get_line (int line_number)
   unget_value = save_unget_value;
   cooked_unget_value = save_cooked_unget_value;
   was_return = save_was_return;
-  input_filter->set_posn (save_posn);
+  num_chars = save_num_chars;
+  position = save_position;
+  input_filter->set_posn (save_if_posn);
 
   return ret_val;
 }
