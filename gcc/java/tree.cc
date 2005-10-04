@@ -2396,8 +2396,7 @@ tree_generator::build_new_array (model_type *elt_type, tree size,
 
   tree array_type_tree = gcc_builtins->map_type (array_type);
 
-  tree insn = build3 (CALL_EXPR,
-		      TREE_TYPE (TREE_TYPE (builtin_Jv_NewPrimArray)),
+  tree insn = build3 (CALL_EXPR, ptr_type_node,
 		      builtin_Jv_NewPrimArray,
 		      tree_cons (NULL_TREE,
 				 build_class_ref (elt_type, request),

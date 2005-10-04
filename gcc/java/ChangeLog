@@ -1,5 +1,10 @@
 2005-10-03  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (build_new_array): Use correct return type for function
+	call.
+
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
 	* Make-lang.in (java.tags): Updated.
 
 2005-10-03  Tom Tromey  <tromey@redhat.com>

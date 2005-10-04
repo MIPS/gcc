@@ -633,7 +633,7 @@ initialize_builtin_functions ()
   builtin_Jv_Throw
     = build_address_of (builtin_Jv_Throw);
 
-  t = build_function_type (void_type_node, void_list_node);
+  t = build_function_type (void_type_node, void_list_node);  // FIXME
   builtin_Jv_MonitorEnter 
     = gcjx::builtin_function ("_Jv_MonitorEnter", t, 0, NOT_BUILT_IN,
 			      NULL, NULL_TREE);
