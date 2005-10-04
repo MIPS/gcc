@@ -1,5 +1,9 @@
 2005-10-03  Tom Tromey  <tromey@redhat.com>
 
+	* Make-lang.in (java.tags): Updated.
+
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
 	* glue.hh (hex_value): Undef.
 
 2005-09-11  Tom Tromey  <tromey@redhat.com>

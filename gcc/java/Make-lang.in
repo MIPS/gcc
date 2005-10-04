@@ -116,8 +116,7 @@ java.rest.encap:
 
 
 java.tags: force
-	cd $(srcdir)/java; etags -o TAGS.sub *.y *.c *.h --language=none \
-	  --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' java-tree.def; \
+	cd $(srcdir)/java; etags -o TAGS.sub *.c *.h *.cc *.hh; \
 	etags --include TAGS.sub --include ../TAGS.sub
 
 
