@@ -45,6 +45,9 @@
 // libstdc++'s use of those same identifiers.
 #include <iostream>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #define IN_GCC
 
 extern "C"

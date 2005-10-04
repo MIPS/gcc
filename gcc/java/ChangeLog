@@ -1,3 +1,17 @@
+2005-10-04  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (JAVA_OBJS): Added resource.o.
+	* resource.cc: New file.
+	* treegen.cc (compile_resource): New method.
+	* hooks.hh (resource_list): Declare.
+	(compile_resource_file, compile_resource_data): Likewise.
+	* decl.cc (resource_list): New global.
+	* driver.cc (arg_info::resource_name): New field.
+	(arg_info): Initialize it.
+	(handle_option): Set resource_name.
+	(process_one_file): Handle resource_name.
+	* treegen.hh (tree_code_generator::compile_resource): Declare.
+
 2005-10-03  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (build_new_array): Use correct return type for function

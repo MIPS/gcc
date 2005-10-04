@@ -48,6 +48,10 @@ struct arg_info
   // Input file name.
   const char *filename;
 
+  // If --resource was given, the resource name.  If this is NULL then
+  // we are not compiling a resource file.
+  const char *resource_name;
+
   // Dependency tracking structure.
   struct deps *dependencies;
   // True if we should print phony targets.
@@ -69,6 +73,7 @@ struct arg_info
       encoding (NULL),
       output (NULL),
       filename (NULL),
+      resource_name (NULL),
       dependencies (NULL),
       print_phonies (false),
       include_system_files (false),
@@ -335,7 +340,7 @@ gcjx::handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fcompile_resource_:
-      //      resource_name = arg;
+      arguments->resource_name = arg;
       break;
 
     case OPT_fdump_:
@@ -618,9 +623,10 @@ register_classes (tree classes)
 static void
 process_one_file (const std::string &filename)
 {
-  // FIXME: need special handling for resources, class files, jar
-  // files.
-  our_compiler->load_source_file (filename);
+  if (arguments->resource_name)
+    compile_resource_file (arguments->resource_name, filename.c_str ());
+  else
+    our_compiler->load_source_file (filename);
 }
 
 void

@@ -39,6 +39,8 @@ public:
 
   void generate (model_class *);
 
+  void compile_resource (const std::string &, byte_buffer *);
+
   bool handles_class_p () const
   {
     return true;

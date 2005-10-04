@@ -102,12 +102,16 @@ extern GTY (()) tree field_slot_d;
 extern GTY (()) tree field_slot_o;
 extern GTY (()) tree gcj_abi_version;
 extern GTY (()) tree class_list;
+extern GTY (()) tree resource_list;
 
 
 extern tree build_address_of (tree);
 extern void push_field (tree record, tree &field, const char *name,
 			tree field_type, bool is_private = false);
 extern void pushdecl (tree);
+extern void compile_resource_data (const char *, const char *, int);
+extern void compile_resource_file (const char *, const char *);
+
 
 namespace gcjx
 {

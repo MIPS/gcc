@@ -24,6 +24,7 @@
 #include "codegen.hh"
 #include "java/treegen.hh"
 #include "java/tree.hh"
+#include "buffer.hh"
 
 tree_code_generator::tree_code_generator (compiler *, directory_cache &dirs)
   : code_generator (dirs),
@@ -35,6 +36,18 @@ tree_code_generator::tree_code_generator (compiler *, directory_cache &dirs)
 tree_code_generator::~tree_code_generator ()
 {
   delete builtins;
+}
+
+void
+tree_code_generator::compile_resource (const std::string &name,
+				       byte_buffer *contents)
+{
+  char *buf = new char[name.length () + contents->get_length ()];
+  strcpy (buf, name.c_str ());
+  // We intentionally copy over the \0 byte here.
+  memcpy (buf + name.length (), contents->get (), contents->get_length ());
+  compile_resource_data (name.c_str (), buf, (int) contents->get_length ());
+  // FIXME: can we delete BUF here?  For now just leak.
 }
 
 void

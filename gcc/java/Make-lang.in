@@ -78,7 +78,8 @@ gt-java-decl.h gt-java-hooks.h gt-java-langhooks.h : s-gtype ; @true
 
 # Executables built by this Makefile:
 JAVA_OBJS = java/abi.o java/builtins.o java/classobj.o java/decl.o \
-java/driver.o java/langhooks.o java/lower.o java/tree.o java/treegen.o
+java/driver.o java/langhooks.o java/lower.o java/tree.o java/treegen.o \
+java/resource.o
 # later:
 # java/boehm.o java/mangle_name.o
 

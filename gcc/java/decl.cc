@@ -200,6 +200,10 @@ tree gcj_abi_version;
 // a TREE_LIST.
 tree class_list;
 
+// This holds the constructors for all the resources we've compiled,
+// as a TREE_LIST.
+tree resource_list;
+
 
 
 // In gcjx this is used only to protect the tree from garbage
