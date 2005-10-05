@@ -1,3 +1,7 @@
+2005-10-05  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.md (insv): Use gen_int_mode in more places.
+
 2005-10-02  Paul Brook  <paul@codesourcery.com>
 
 	* testsuite/gcc.dg/20050629-1.c: Add missing close comment.
