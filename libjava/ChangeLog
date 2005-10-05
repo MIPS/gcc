@@ -1,3 +1,55 @@
+2005-10-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	More testsuite adjustments for PR java/19870.
+	* testsuite/libjava.lang/PR19870_2.java: New testcase.
+	* testsuite/libjava.lang/PR19870_2.out: Expected output for the
+	new testcase.
+	* testsuite/libjava.jacks/jacks.xfail: Remove
+	8.5.2-non-static-member-usage-2 and add
+	15.12.3-explicit-constructor-9.
+
+2005-10-05  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21844:
+	* testsuite/libjava.lang/pr21844.java: New file.
+	* testsuite/libjava.lang/pr21844.out: New file.
+
+2005-10-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Testsuite adjustments for PR java/19870.
+	* testsuite/libjava.lang/PR19870.java: New testcase.
+	* testsuite/libjava.lang/PR19870.out: Expected output for the
+	testcase.
+	* testsuite/libjava.jacks/jacks.xfail: Add
+	8.5.2-accessible-static-member-usage-3 and 15.8.4-static-2
+
+2005-10-01  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Update to reflect
+	PR java/23891 fix.
+
+2005-10-01  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/gcj/runtime/BootClassLoader.java (BootClassLoader): Pass
+	`null' parent ClassLoader to parent constructor.
+	* gnu/gcj/runtime/HelperClassLoader.java (HelperClassLoader): New
+	constructor.
+
+2005-09-30  Tom Tromey  <tromey@redhat.com>
+
+	Workaround for PR libgcj/23367:
+	* java/lang/natClass.cc (_Jv_FindMethodInCache): Disable.
+	(_Jv_AddMethodToCache): Likewise.
+	(method_cache): Remove.
+	(MCACHE_SIZE): Likewise.
+	(struct _Jv_mcache): Likewise.
+
+2005-09-30  Andrew Haley  <aph@redhat.com>
+
+	* java/net/URLClassLoader.java: (addURLImpl): Synchronize on the
+	loader.
+	(toString): Likewise.
+
 2005-09-20  Release Manager
 
 	* GCC 4.0.2 released.

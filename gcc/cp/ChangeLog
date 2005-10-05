@@ -1,11 +1,63 @@
-2005-09-27  Release Manager
+2005-10-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
-	* GCC 4.0.2 released.
+	PR c++/23965
+	* call.c (resolve_args): Return error_mark_node on arguments
+	whose TREE_TYPE is error_mark_node.
+
+2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR tree-optimization/21419
+        PR tree-optimization/24146
+        PR tree-optimization/24151
+
+        * semantics.c (finish_asm_stmt): Call readonly_error if outputs are
+        read-only.  Set ASM_VOLATILE_P for asms without outputs.
+
+2005-10-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23513
+	* call.c (joust): Adjust length count to more_specialized_fn.
+	* pt.c (more_specialized_fn): Cope with non-static member vs
+	non-member.
+
+2005-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23125
+	* decl.c (make_rtl_for_nonlocal_decl): Use set_user_assembler_name
+	instead of change_decl_assembler_name.
+
+2005-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17775
+	* repo.c: Include flags.h.
+	(finish_repo): Add -frandom-seed to the arguments.
+
+2005-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22621
+	* parser.c (cp_parser_template_argument): Don't turn "T::f" into
+	"(*this).T::f".
+	* pt.c (convert_nontype_argument): Remove ??? comment.
+
+	PR c++/23840
+	* tree.c (lvalue_p_1): A VA_ARG_EXPR with class type is an lvalue,
+	when class rvalues are lvalues.
+
+2005-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21983
+	* class.c (find_final_overrider): Move diagnostic about no unique final
+	overrider to...
+	(update_vtable_entry_for_fn): ... here.
 
 2005-09-21  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/23993
 	* init.c (integral_constant_value): Use DECL_INTEGRAL_CONSTANT_VAR_P.
+
+2005-09-27  Release Manager
+
+	* GCC 4.0.2 released.
 
 2005-09-16  Mark Mitchell  <mark@codesourcery.com>
 

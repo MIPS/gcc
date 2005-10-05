@@ -1,3 +1,77 @@
+2005-10-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/20606
+	PR middle-end/24069
+	* reload.c (subst_reloads): When adding a REG_LABEL to a
+	jump instruction, also update JUMP_LABEL.
+
+2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR tree-optimization/21419
+        PR tree-optimization/24146
+        PR tree-optimization/24151
+
+        * c-typeck.c (readonly_error): Handle USE being lv_asm.
+        (build_asm_expr): Call it if outputs are read-only.
+        * gimplify.c (gimplify_asm_expr): Remove former fix to PR 21419.
+
+2005-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23125
+	* c-decl.c (finish_decl): Use set_user_assembler_name even for
+	register variables.
+	* varasm.c (make_decl_rtl): If a register variable does not
+	have a set user assmbler name, error out.
+	Decode the asmspec is now name+1 bypassing '*'.
+
+2005-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/22052
+	PR c/21975
+	* c-decl.c (diagnose_mismatched_decls): Fix check for both
+	decls being "extern inline".
+
+2005-10-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR ada/19382
+	* builtins.c (fold_builtin_memcmp): When constructing the pointer
+	type used to access data in the inlined length == 1 case, use
+	build_pointer_type_for_mode with CAN_ALIAS_ALL set to true.
+	(fold_builtin_strcmp, fold_builtin_strncmp): Likewise.
+
+2005-10-04  Richard Guenther  <rguenther@suse.de>
+
+	PR c/23576
+	* c-decl.c (grokdeclarator): Don't write to fields
+	of error_mark_node.
+
+2005-10-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_register_move_cost): Add case for moving
+	from T_REGS to FP register class.
+
+2005-10-03  Richard Henderson  <rth@redhat.com>
+
+        PR 24135
+        * tree-nested.c (convert_nl_goto_reference): Lookup a translation
+        before creating a new one.
+
+2005-10-02  Matthias Klose  <doko@debian.org>
+
+        * doc/invoke.texi: Fix typo and speling error.
+
+2005-09-30  Paolo Bonzini  <bonzini@gnu.org>
+	
+	PR c/21419
+	* gimplify.c (gimplify_asm_expr): Raise an error if an output is
+	read-only.
+
+2005-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/24109
+	* c-decl.c (c_write_global_declarations_1): If any
+	wrapup_global_declaration_2 call returned true, restart the loop.
+
 2005-09-29  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/24102
@@ -10,15 +84,15 @@
 	marker.  Increment version.
 	* doc/include/gcc-common.texi: Increment version.
 
-2005-09-27  Release Manager
-
-	* GCC 4.0.2 released.
-
 2005-09-21  Andreas Schwab  <schwab@suse.de>
 
 	PR rtl-optimization/23043
 	* postreload-gcse.c (eliminate_partially_redundant_load): Fix typo
 	when allocating a struct unoccr.
+
+2005-09-27  Release Manager
+
+	* GCC 4.0.2 released.
 
 2005-09-19  Richard Henderson  <rth@redhat.com>
 

@@ -1,11 +1,110 @@
-2005-09-27  Release Manager
+2005-10-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
-	* GCC 4.0.2 released.
+	PR c++/23965
+	* g++.dg/template/error1.C: Reject "no matching function" message.
+
+2005-10-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/17609
+	* g++.dg/lookup/error1.C: New test.
+
+	PR c++/18368
+	* g++.dg/other/semicolon.C: New test.
+
+2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR tree-optimization/21419
+        PR tree-optimization/24146
+        PR tree-optimization/24151
+
+        * g++.dg/ext/asm7.C: New.
+        * g++.dg/ext/asm8.C: New.
+        * gcc.dg/asm-1.c: Compile on all targets.
+        * gcc.dg/asm-pr24146.c: New.
+        * gcc.dg/pr21419.c: Adjust error messages.
+
+2005-10-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/23513
+	* g++.dg/template/spec22.C: Robustify test.
+	* g++.dg/template/spec26.C: New.
+
+2005-10-05  Richard Guenther  <rguenther@suse.de>
+
+	PR fortran/24176
+	* gfortran.fortran-torture/compile/empty.f90: New testcase.
+
+2005-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23125
+	* gcc.dg/register-var-3.c: New test.
+
+2005-10-04  Eric Christopher  <echristo@apple.com>
+	
+	PR c/22052
+	PR c/21975
+	* gcc.dg/inline1.c: New test.
+	* gcc.dg/inline2.c: Ditto.
+	* gcc.dg/inline3.c: Ditto.
+	* gcc.dg/inline4.c: Ditto.
+	* gcc.dg/inline5.c: Ditto.
+
+2005-10-04  Richard Guenther  <rguenther@suse.de>
+
+	PR c/23576
+	* gcc.dg/noncompile/pr23576.c: New testcase.
+
+2005-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17775
+	* g++.dg/template/repo4.C: New test.
+
+2005-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22621
+	* g++.dg/template/overload5.C : New test.
+
+	PR c++/23840
+	* g++.dg/expr/stdarg1.C: New test.
+
+2005-09-30  Paolo Bonzini  <bonzini@gnu.org>
+	
+	PR c/21419
+	* gcc.dg/pr21419.c: New test.
+
+2005-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/24109
+	* gcc.c-torture/execute/20050929-1.c: New test.
+
+	PR fortran/18518
+	* gfortran.fortran-torture/execute/save_2.f90: New decl.
+
+	PR fortran/23677
+	* gfortran.fortran-torture/execute/save_1.f90: New test.
+	* gfortran.dg/save_1.f90: New test.
+
+2005-09-29  Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/24005
+	gfortran.dg/interface_1.f90: New test.
+
+2005-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21983
+	* g++.dg/warn/pr21983.C: New test.
+
+	PR fortran/23663
+	* gfortran.fortran-torture/execute/entry_11.f90: New test.
 
 2005-09-21  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/23993
 	* g++.dg/template/array14.C: New test.
+
+2005-09-27  Release Manager
+
+	* GCC 4.0.2 released.
 
 2005-09-16  Joseph S. Myers  <joseph@codesourcery.com>
 
