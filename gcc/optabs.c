@@ -998,28 +998,6 @@ expand_simple_binop (enum machine_mode mode, enum rtx_code code, rtx op0,
   return expand_binop (mode, binop, op0, op1, target, unsignedp, methods);
 }
 
-
-/* Return whether OP0 and OP1 should be swapped when expanding a commutative
-   binop.  Order them according to commutative_operand_precedence and, if
-   possible, try to put TARGET first.  */
-static bool
-swap_commutative_operands_with_target (rtx target, rtx op0, rtx op1)
-{
-  int op0_prec = commutative_operand_precedence (op0);
-  int op1_prec = commutative_operand_precedence (op1);
-
-  if (op0_prec < op1_prec)
-    return true;
-
-  if (op0_prec > op1_prec)
-    return false;
-
-  /* With equal precedence, both orders are ok, but try to put the
-     target first.  */
-  return target && rtx_equal_p (op1, target);
-}
-
-
 /* Generate code to perform an operation specified by BINOPTAB
    on operands OP0 and OP1, with result having machine-mode MODE.
 
@@ -1049,6 +1027,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 		  || binoptab->code == ROTATERT);
   rtx entry_last = get_last_insn ();
   rtx last;
+  bool first_pass_p = true;
 
   class = GET_MODE_CLASS (mode);
 
@@ -1082,7 +1061,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   /* Record where to delete back to if we backtrack.  */
   last = get_last_insn ();
 
-  /* If operation is commutative, canonicalize the order of the operands.  */
+  /* If operation is commutative,
+     try to make the first operand a register.
+     Even better, try to make it the same as the target.
+     Also try to make the last operand a constant.  */
   if (GET_RTX_CLASS (binoptab->code) == RTX_COMM_ARITH
       || binoptab == smul_widen_optab
       || binoptab == umul_widen_optab
@@ -1090,13 +1072,21 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       || binoptab == umul_highpart_optab)
     {
       commutative_op = 1;
-      if (swap_commutative_operands_with_target (target, op0, op1))
+
+      if (((target == 0 || REG_P (target))
+	   ? ((REG_P (op1)
+	       && !REG_P (op0))
+	      || target == op1)
+	   : rtx_equal_p (op1, target))
+	  || GET_CODE (op0) == CONST_INT)
 	{
 	  temp = op1;
 	  op1 = op0;
 	  op0 = temp;
 	}
     }
+
+ retry:
 
   /* If we can do it with a three-operand insn, do so.  */
 
@@ -1181,6 +1171,22 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	}
       else
 	delete_insns_since (last);
+    }
+
+  /* If we were trying to rotate by a constant value, and that didn't
+     work, try rotating the other direction before falling back to
+     shifts and bitwise-or.  */
+  if (first_pass_p
+      && (binoptab == rotl_optab || binoptab == rotr_optab)
+      && class == MODE_INT
+      && GET_CODE (op1) == CONST_INT
+      && INTVAL (op1) > 0
+      && (unsigned int) INTVAL (op1) < GET_MODE_BITSIZE (mode))
+    {
+      first_pass_p = false;
+      op1 = GEN_INT (GET_MODE_BITSIZE (mode) - INTVAL (op1));
+      binoptab = binoptab == rotl_optab ? rotr_optab : rotl_optab;
+      goto retry;
     }
 
   /* If this is a multiply, see if we can do a widening operation that

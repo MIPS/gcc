@@ -460,7 +460,7 @@ Objective-C and Objective-C++ Dialects}.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded -F -gused -gfull -mmacosx-min-version=@var{version} @gol
+-whatsloaded -F -gused -gfull -mmacosx-version-min=@var{version} @gol
 -mone-byte-bool}
 
 @emph{DEC Alpha Options}
@@ -2608,7 +2608,7 @@ This warning is enabled by @option{-Wall}.
 @item -Wunused-function
 @opindex Wunused-function
 Warn whenever a static function is declared but not defined or a
-non\-inline static function is unused.
+non-inline static function is unused.
 This warning is enabled by @option{-Wall}.
 
 @item -Wunused-label
@@ -5912,7 +5912,7 @@ Bound on size of expressions used in the scalar evolutions analyzer.
 Large expressions slow the analyzer.
 
 @item vect-max-version-checks
-The maxinum number of runtime checks that can be performed when doing
+The maximum number of runtime checks that can be performed when doing
 loop versioning in the vectorizer.  See option ftree-vect-loop-version
 for more information.
 
@@ -9261,15 +9261,20 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex mno-sse
 @opindex m3dnow
 @opindex mno-3dnow
-These switches enable or disable the use of built-in functions that allow
-direct access to the MMX, SSE, SSE2, SSE3 and 3Dnow extensions of the
-instruction set.
-
-@xref{X86 Built-in Functions}, for details of the functions enabled
-and disabled by these switches.
+These switches enable or disable the use of instructions in the MMX,
+SSE, SSE2 or 3DNow! extended instruction sets.  These extensions are
+also available as built-in functions: see @ref{X86 Built-in Functions},
+for details of the functions enabled and disabled by these switches.
 
 To have SSE/SSE2 instructions generated automatically from floating-point
-code, see @option{-mfpmath=sse}.
+code (as opposed to 387 instructions), see @option{-mfpmath=sse}.
+
+These options will enable GCC to use these extended instructions in
+generated code, even without @option{-mfpmath=sse}.  Applications which
+perform runtime CPU detection must compile separate files for each
+supported architecture, using the appropriate flags.  In particular,
+the file containing the CPU detection code should be compiled without
+these options.
 
 @item -mpush-args
 @itemx -mno-push-args
@@ -12625,7 +12630,7 @@ multiplication operations.
 This option instructs the compiler to assume that signed arithmetic
 overflow of addition, subtraction and multiplication wraps around
 using twos-complement representation.  This flag enables some optimizations
-and disables other.  This option is enabled by default for the Java
+and disables others.  This option is enabled by default for the Java
 front-end, as required by the Java language specification.
 
 @item -fexceptions
