@@ -147,4 +147,11 @@ extern char sizeof_long_long_must_be_8[sizeof(long long) == 8 ? 1 : -1];
 #  define HOST_BITS_PER_WIDEST_FAST_INT HOST_BITS_PER_LONG
 #endif
 
+/* A structure containing a large integer.  */
+
+typedef struct
+{
+  unsigned HOST_WIDE_INT low, high;
+} double_int;
+
 #endif /* ! GCC_HWINT_H */

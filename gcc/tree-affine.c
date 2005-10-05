@@ -34,51 +34,70 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Restricts constant CST according to precision of combination COMB.  */
 
 static inline double_int
-restrict_cst_to_precision (aff_tree *comb, double_int cst)
+restrict_cst_to_precision (double_int mask, double_int cst)
 {
   double_int r;
   
-  r.low = cst.low & comb->mask.low;
-  r.high = cst.high & comb->mask.high;
+  r.low = cst.low & mask.low;
+  r.high = cst.high & mask.high;
 
   return r;
 }
 
 /* Returns true if X fits in HOST_WIDE_INT, with respect to precision
-   of COMB.  */
+   of MASK.  */
 
 bool
-double_int_fits_in_hwi_p (aff_tree *comb, double_int x)
+double_int_fits_in_hwi_p (double_int mask, double_int x)
 {
-  return x.high == comb->mask.high;
-}
-
-/* Returns true if SCALE is negative in precision of COMB.  */
-
-bool
-double_int_negative_p (aff_tree *comb, double_int scale)
-{
-  if (comb->mask.high)
-    return (scale.high & ~(comb->mask.high >> 1)) != 0;
+  if (double_int_negative_p (mask, x))
+    return x.high == mask.high;
   else
-    return (scale.low & ~(comb->mask.low >> 1)) != 0;
+    return x.high == 0 && (HOST_WIDE_INT) x.low >= 0;
 }
 
-/* Returns value of X with respect to precision of COMB.  */
+/* Returns true if X fits in unsigned HOST_WIDE_INT.  */
+
+bool
+double_int_fits_in_unsigned_hwi_p (double_int x)
+{
+  return x.high == 0;
+}
+
+/* Returns true if SCALE is negative in precision of MASK.  */
+
+bool
+double_int_negative_p (double_int mask, double_int scale)
+{
+  if (mask.high)
+    return (scale.high & ~(mask.high >> 1)) != 0;
+  else
+    return (scale.low & ~(mask.low >> 1)) != 0;
+}
+
+/* Returns value of X with respect to precision of MASK.  */
 
 HOST_WIDE_INT
-double_int_to_hwi (aff_tree *comb, double_int x)
+double_int_to_hwi (double_int mask, double_int x)
 {
-  if (comb->mask.high || !double_int_negative_p (comb, x))
+  if (mask.high || !double_int_negative_p (mask, x))
     return x.low;
   else
-    return x.low | ~comb->mask.low;
+    return x.low | ~mask.low;
 }
 
-/* Returns A * B, truncated so that it fits COMB.  */
+/* Returns value of X.  */
+
+unsigned HOST_WIDE_INT
+double_int_to_unsigned_hwi (double_int x)
+{
+  return x.low;
+}
+
+/* Returns A * B, truncated so that it fits MASK.  */
 
 double_int
-double_int_mul (aff_tree *comb, double_int a, double_int b)
+double_int_mul (double_int mask, double_int a, double_int b)
 {
   unsigned HOST_WIDE_INT lo;
   HOST_WIDE_INT hi;
@@ -88,13 +107,13 @@ double_int_mul (aff_tree *comb, double_int a, double_int b)
   ret.low = lo;
   ret.high = hi;
 
-  return restrict_cst_to_precision (comb, ret);
+  return restrict_cst_to_precision (mask, ret);
 }
 
-/* Returns A + B, truncated so that it fits COMB.  */
+/* Returns A + B, truncated so that it fits MASK.  */
 
 double_int
-double_int_add (aff_tree *comb, double_int a, double_int b)
+double_int_add (double_int mask, double_int a, double_int b)
 {
   unsigned HOST_WIDE_INT lo;
   HOST_WIDE_INT hi;
@@ -104,13 +123,13 @@ double_int_add (aff_tree *comb, double_int a, double_int b)
   ret.low = lo;
   ret.high = hi;
 
-  return restrict_cst_to_precision (comb, ret);
+  return restrict_cst_to_precision (mask, ret);
 }
 
-/* Returns -A, truncated so that it fits COMB.  */
+/* Returns -A, truncated so that it fits MASK.  */
 
 double_int
-double_int_negate (aff_tree *comb, double_int a)
+double_int_negate (double_int mask, double_int a)
 {
   unsigned HOST_WIDE_INT lo;
   HOST_WIDE_INT hi;
@@ -120,9 +139,25 @@ double_int_negate (aff_tree *comb, double_int a)
   ret.low = lo;
   ret.high = hi;
 
-  return restrict_cst_to_precision (comb, ret);
+  return restrict_cst_to_precision (mask, ret);
 }
 
+/* Returns A / B (computed as unsigned, rounded down).  */
+
+double_int
+double_int_divide (double_int a, double_int b)
+{
+  unsigned HOST_WIDE_INT lo, rem_lo;
+  HOST_WIDE_INT hi, rem_hi;
+  double_int ret;
+
+  div_and_round_double (FLOOR_DIV_EXPR, true, a.low, a.high, b.low, b.high,
+			&lo, &hi, &rem_lo, &rem_hi);
+  ret.low = lo;
+  ret.high = hi;
+
+  return ret;
+}
 /* Constructs tree in type TYPE from double_int CST.  */
 
 tree
@@ -153,24 +188,94 @@ double_int_to_tree (tree type, double_int cst)
   return build_int_cst_wide (type, lo, hi);
 }
 
-/* Initializes mask of COMB according to its type.  */
+/* Returns true if VAL is smaller or equal to the maximal value
+   representable in TYPE.  */
 
-static void
-affine_combination_set_mask (aff_tree *comb)
+bool
+double_int_fits_to_type_p (tree type, double_int val)
 {
-  unsigned prec = TYPE_PRECISION (comb->type);
+  unsigned prec = TYPE_PRECISION (type);
+  double_int mask = double_int_mask (TYPE_UNSIGNED (type) ? prec : prec - 1);
+
+  return (((val.low & mask.low) == val.low)
+	  && ((val.high & mask.high) == val.high));
+}
+
+/* Returns true if A < B, unsigned comparison.  */
+
+bool
+double_int_smaller_p (double_int a, double_int b)
+{
+  if (a.high < b.high)
+    return true;
+  if (a.high > b.high)
+    return false;
+  return a.low < b.low;
+}
+
+/* Splits last digit of *X in BASE and returns it.  */
+
+static unsigned
+double_int_split_digit (double_int *x, unsigned base)
+{
+  unsigned HOST_WIDE_INT resl, reml;
+  HOST_WIDE_INT resh, remh;
+
+  div_and_round_double (FLOOR_DIV_EXPR, true, x->low, x->high, base, 0,
+			&resl, &resh, &reml, &remh);
+  x->high = resh;
+  x->low = resl;
+
+  return reml;
+}
+
+/* Dumps X (in precision MASK) to FILE.  If SIGN is true, X is considered to
+   be signed.  */
+
+void
+dump_double_int (FILE *file, double_int mask, double_int x, bool sign)
+{
+  unsigned digits[100], n;
+  int i;
+
+  if (double_int_zero_p (x))
+    {
+      fprintf (file, "0");
+      return;
+    }
+
+  if (sign && double_int_negative_p (mask, x))
+    {
+      fprintf (file, "-");
+      x = double_int_negate (mask, x);
+    }
+
+  for (n = 0; !double_int_zero_p (x); n++)
+    digits[n] = double_int_split_digit (&x, 10);
+  for (i = n - 1; i >= 0; i--)
+    fprintf (file, "%u", digits[i]);
+}
+
+/* Returns a MASK for PREC bytes.  */
+
+double_int 
+double_int_mask (unsigned prec)
+{
+  double_int mask;
 
   if (prec > HOST_BITS_PER_WIDE_INT)
     {
       prec -= HOST_BITS_PER_WIDE_INT;
-      comb->mask.high = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
-      comb->mask.low = ~(unsigned HOST_WIDE_INT) 0;
+      mask.high = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
+      mask.low = ~(unsigned HOST_WIDE_INT) 0;
     }
   else
     {
-      comb->mask.high = 0;
-      comb->mask.low = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
+      mask.high = 0;
+      mask.low = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
     }
+
+  return mask;
 }
 
 /* Initializes affine combination COMB so that its value is zero in TYPE.  */
@@ -179,7 +284,7 @@ static void
 aff_combination_zero (aff_tree *comb, tree type)
 {
   comb->type = type;
-  affine_combination_set_mask (comb);
+  comb->mask = double_int_mask (TYPE_PRECISION (type));
 
   comb->offset.low = 0;
   comb->offset.high = 0;
@@ -193,7 +298,7 @@ void
 aff_combination_const (aff_tree *comb, tree type, double_int cst)
 {
   aff_combination_zero (comb, type);
-  comb->offset = restrict_cst_to_precision (comb, cst);
+  comb->offset = restrict_cst_to_precision (comb->mask, cst);
 }
 
 /* Sets COMB to single element ELT.  */
@@ -215,7 +320,7 @@ aff_combination_scale (aff_tree *comb, double_int scale)
 {
   unsigned i, j;
 
-  scale = restrict_cst_to_precision (comb, scale);
+  scale = restrict_cst_to_precision (comb->mask, scale);
   if (double_int_one_p (scale))
     return;
 
@@ -225,10 +330,10 @@ aff_combination_scale (aff_tree *comb, double_int scale)
       return;
     }
 
-  comb->offset = double_int_mul (comb, scale, comb->offset);
+  comb->offset = double_int_mul (comb->mask, scale, comb->offset);
   for (i = 0, j = 0; i < comb->n; i++)
     {
-      comb->coefs[j] = double_int_mul (comb, scale, comb->coefs[i]);
+      comb->coefs[j] = double_int_mul (comb->mask, scale, comb->coefs[i]);
       comb->elts[j] = comb->elts[i];
       /* A coefficient may become zero due to overflow.  Remove the zero
 	 elements.  */
@@ -265,7 +370,7 @@ aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
   for (i = 0; i < comb->n; i++)
     if (operand_equal_p (comb->elts[i], elt, 0))
       {
-	comb->coefs[i] = double_int_add (comb, comb->coefs[i], scale);
+	comb->coefs[i] = double_int_add (comb->mask, comb->coefs[i], scale);
 	if (!double_int_zero_p (comb->coefs[i]))
 	  return;
 
@@ -302,7 +407,7 @@ aff_combination_add (aff_tree *comb1, aff_tree *comb2)
 {
   unsigned i;
 
-  comb1->offset = double_int_add (comb1, comb1->offset, comb2->offset);
+  comb1->offset = double_int_add (comb1->mask, comb1->offset, comb2->offset);
   for (i = 0; i < comb2->n; i++)
     aff_combination_add_elt (comb1, comb2->elts[i], comb2->coefs[i]);
   if (comb2->rest)
@@ -324,12 +429,12 @@ aff_combination_convert (aff_tree *comb, tree type)
 
   if (TYPE_PRECISION (type) == TYPE_PRECISION (comb_type))
     return;
-  affine_combination_set_mask (comb);
+  comb->mask = double_int_mask (TYPE_PRECISION (type));
 
-  comb->offset = restrict_cst_to_precision (comb, comb->offset);
+  comb->offset = restrict_cst_to_precision (comb->mask, comb->offset);
   for (i = j = 0; i < comb->n; i++)
     {
-      comb->coefs[j] = restrict_cst_to_precision (comb, comb->coefs[i]);
+      comb->coefs[j] = restrict_cst_to_precision (comb->mask, comb->coefs[i]);
       if (double_int_zero_p (comb->coefs[j]))
 	continue;
       comb->elts[j] = fold_convert (type, comb->elts[i]);
@@ -428,7 +533,7 @@ add_elt_to_tree (tree expr, tree type, tree elt, double_int scale,
 {
   enum tree_code code;
 
-  scale = restrict_cst_to_precision (comb, scale);
+  scale = restrict_cst_to_precision (comb->mask, scale);
   elt = fold_convert (type, elt);
 
   if (double_int_one_p (scale))
@@ -439,7 +544,7 @@ add_elt_to_tree (tree expr, tree type, tree elt, double_int scale,
       return fold_build2 (PLUS_EXPR, type, expr, elt);
     }
 
-  if (double_int_minus_one_p (comb, scale))
+  if (double_int_minus_one_p (comb->mask, scale))
     {
       if (!expr)
 	return fold_build1 (NEGATE_EXPR, type, elt);
@@ -451,10 +556,10 @@ add_elt_to_tree (tree expr, tree type, tree elt, double_int scale,
     return fold_build2 (MULT_EXPR, type, elt,
 			double_int_to_tree (type, scale));
 
-  if (double_int_negative_p (comb, scale))
+  if (double_int_negative_p (comb->mask, scale))
     {
       code = MINUS_EXPR;
-      scale = double_int_negate (comb, scale);
+      scale = double_int_negate (comb->mask, scale);
     }
   else
     code = PLUS_EXPR;
@@ -479,10 +584,10 @@ aff_combination_to_tree (aff_tree *comb)
   for (i = 0; i < comb->n; i++)
     expr = add_elt_to_tree (expr, type, comb->elts[i], comb->coefs[i], comb);
 
-  if (double_int_negative_p (comb, comb->offset))
+  if (double_int_negative_p (comb->mask, comb->offset))
     {
       /* Offset is negative.  */
-      off = double_int_negate (comb, comb->offset);
+      off = double_int_negate (comb->mask, comb->offset);
       sgn = comb->mask;
     }
   else

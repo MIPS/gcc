@@ -749,51 +749,53 @@ estimate_niter_from_size_of_data (struct loop *loop,
 				  tree access_fn, 
 				  tree stmt)
 {
-  tree estimation = NULL_TREE;
-  tree array_size, data_size, element_size;
-  tree init, step;
+  tree low, high, next;
+  tree init, step, type;
+  bool sign;
 
   init = initial_condition (access_fn);
   step = evolution_part_in_loop_num (access_fn, loop->num);
-
-  array_size = TYPE_SIZE (TREE_TYPE (opnd0));
-  element_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (opnd0)));
-  if (array_size == NULL_TREE 
-      || TREE_CODE (array_size) != INTEGER_CST
-      || TREE_CODE (element_size) != INTEGER_CST)
+  if (!init
+      || !step
+      || TREE_CODE (step) != INTEGER_CST
+      || zero_p (step)
+      || tree_contains_chrecs (init, NULL)
+      || chrec_contains_symbols_defined_in_loop (init, loop->num))
     return;
 
-  data_size = fold_build2 (EXACT_DIV_EXPR, integer_type_node,
-			   array_size, element_size);
+  low = array_ref_low_bound (opnd0);
+  high = array_ref_up_bound (opnd0);
 
-  if (init != NULL_TREE
-      && step != NULL_TREE
-      && TREE_CODE (init) == INTEGER_CST
-      && TREE_CODE (step) == INTEGER_CST)
-    {
-      tree i_plus_s = fold_build2 (PLUS_EXPR, integer_type_node, init, step);
-      tree sign = fold_build2 (GT_EXPR, boolean_type_node, i_plus_s, init);
+  /* The case of nonconstant bounds could be handled, but it would be
+     complicated.  */
+  if (TREE_CODE (low) != INTEGER_CST
+      || !high
+      || TREE_CODE (high) != INTEGER_CST)
+    return;
+  sign = tree_int_cst_sign_bit (step);
+  type = TREE_TYPE (step);
 
-      if (sign == boolean_true_node)
-	estimation = fold_build2 (CEIL_DIV_EXPR, integer_type_node,
-				  fold_build2 (MINUS_EXPR, integer_type_node,
-					       data_size, init), step);
+  /* In case the relevant bound of the array does not fit in type, or
+     it does, but bound + step (in type) falls into the range of the
+     array, the index still might overflow.  To make things simpler,
+     we require both bounds to fit into type, although there are cases
+     where this would not be strightly necessary.  */
+  if (!int_fits_type_p (high, type)
+      || !int_fits_type_p (low, type))
+    return;
+  low = fold_convert (type, low);
+  high = fold_convert (type, high);
 
-      /* When the step is negative, as in PR23386: (init = 3, step =
-	 0ffffffff, data_size = 100), we have to compute the
-	 estimation as ceil_div (init, 0 - step) + 1.  */
-      else if (sign == boolean_false_node)
-	estimation = 
-	  fold_build2 (PLUS_EXPR, integer_type_node,
-		       fold_build2 (CEIL_DIV_EXPR, integer_type_node,
-				    init,
-				    fold_build2 (MINUS_EXPR, unsigned_type_node,
-						 integer_zero_node, step)),
-		       integer_one_node);
+  if (sign)
+    next = fold_build2 (PLUS_EXPR, type, low, step);
+  else
+    next = fold_build2 (PLUS_EXPR, type, high, step);
+  
+  if (nonzero_p (fold_build2 (LE_EXPR, boolean_type_node, low, next))
+      && nonzero_p (fold_build2 (LE_EXPR, boolean_type_node, next, high)))
+    return;
 
-      if (estimation)
-	record_estimate (loop, estimation, boolean_true_node, stmt);
-    }
+  record_nonwrapping_iv (loop, init, step, stmt, low, high);
 }
 
 /* Given an ARRAY_REF node REF, records its access functions.
@@ -820,8 +822,8 @@ analyze_array_indexes (struct loop *loop,
   access_fn = instantiate_parameters 
     (loop, analyze_scalar_evolution (loop, opnd1));
 
-  if (chrec_contains_undetermined (loop->estimated_nb_iterations))
-    estimate_niter_from_size_of_data (loop, opnd0, access_fn, stmt);
+  if (loop->niter_bounds_state == NBS_RECORDING)
+    estimate_niter_from_size_of_data (loop, ref, access_fn, stmt);
   
   VEC_safe_push (tree, heap, *access_fns, access_fn);
   
@@ -2358,49 +2360,27 @@ compute_overlap_steps_for_affine_1_2 (tree chrec_a, tree chrec_b,
 {
   bool xz_p, yz_p, xyz_p;
   int step_x, step_y, step_z;
-  int niter_x, niter_y, niter_z, niter;
-  tree numiter_x, numiter_y, numiter_z;
+  unsigned HOST_WIDE_INT niter_x, niter_y, niter_z, niter;
   tree overlaps_a_xz, overlaps_b_xz, last_conflicts_xz;
   tree overlaps_a_yz, overlaps_b_yz, last_conflicts_yz;
   tree overlaps_a_xyz, overlaps_b_xyz, last_conflicts_xyz;
+  struct loop *loop_x = current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))];
+  struct loop *loop_y = current_loops->parray[CHREC_VARIABLE (chrec_a)];
+  struct loop *loop_z = current_loops->parray[CHREC_VARIABLE (chrec_b)];
 
   step_x = int_cst_value (CHREC_RIGHT (CHREC_LEFT (chrec_a)));
   step_y = int_cst_value (CHREC_RIGHT (chrec_a));
   step_z = int_cst_value (CHREC_RIGHT (chrec_b));
 
-  numiter_x = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))]);
-  numiter_y = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-  numiter_z = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-  if (TREE_CODE (numiter_x) != INTEGER_CST)
-    numiter_x = current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))]
-      ->estimated_nb_iterations;
-  if (TREE_CODE (numiter_y) != INTEGER_CST)
-    numiter_y = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-      ->estimated_nb_iterations;
-  if (TREE_CODE (numiter_z) != INTEGER_CST)
-    numiter_z = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-      ->estimated_nb_iterations;
-
-  if (chrec_contains_undetermined (numiter_x)
-      || chrec_contains_undetermined (numiter_y)
-      || chrec_contains_undetermined (numiter_z)
-      || TREE_CODE (numiter_x) != INTEGER_CST
-      || TREE_CODE (numiter_y) != INTEGER_CST
-      || TREE_CODE (numiter_z) != INTEGER_CST)
+  if (!get_max_loop_niter (loop_x, &niter_x)
+      || !get_max_loop_niter (loop_y, &niter_y)
+      || !get_max_loop_niter (loop_z, &niter_z))
     {
       *overlaps_a = chrec_dont_know;
       *overlaps_b = chrec_dont_know;
       *last_conflicts = chrec_dont_know;
       return;
     }
-
-  niter_x = int_cst_value (numiter_x);
-  niter_y = int_cst_value (numiter_y);
-  niter_z = int_cst_value (numiter_z);
 
   niter = MIN (niter_x, niter_z);
   compute_overlap_steps_for_affine_univar (niter, step_x, step_z,
@@ -2524,24 +2504,12 @@ analyze_subscript_affine_affine (tree chrec_a,
       if (nb_vars_a == 1 && nb_vars_b == 1)
 	{
 	  int step_a, step_b;
-	  int niter, niter_a, niter_b;
-	  tree numiter_a, numiter_b;
+	  unsigned HOST_WIDE_INT niter, niter_a, niter_b;
+	  struct loop *loop_a = current_loops->parray[CHREC_VARIABLE (chrec_a)];
+	  struct loop *loop_b = current_loops->parray[CHREC_VARIABLE (chrec_b)];
 
-	  numiter_a = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-	  numiter_b = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-	  if (TREE_CODE (numiter_a) != INTEGER_CST)
-	    numiter_a = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-	      ->estimated_nb_iterations;
-	  if (TREE_CODE (numiter_b) != INTEGER_CST)
-	    numiter_b = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-	      ->estimated_nb_iterations;
-	  if (chrec_contains_undetermined (numiter_a)
-	      || chrec_contains_undetermined (numiter_b)
-	      || TREE_CODE (numiter_a) != INTEGER_CST
-	      || TREE_CODE (numiter_b) != INTEGER_CST)
+	  if (!get_max_loop_niter (loop_a, &niter_a)
+	      || !get_max_loop_niter (loop_b, &niter_b))
 	    {
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;
@@ -2549,8 +2517,6 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      return;
 	    }
 
-	  niter_a = int_cst_value (numiter_a);
-	  niter_b = int_cst_value (numiter_b);
 	  niter = MIN (niter_a, niter_b);
 
 	  step_a = int_cst_value (CHREC_RIGHT (chrec_a));
@@ -2628,24 +2594,12 @@ analyze_subscript_affine_affine (tree chrec_a,
 	     dependence.  X0, Y0 are two solutions of the Diophantine
 	     equation: chrec_a (X0) = chrec_b (Y0).  */
 	  int x0, y0;
-	  int niter, niter_a, niter_b;
-	  tree numiter_a, numiter_b;
-
-	  numiter_a = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-	  numiter_b = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-	  if (TREE_CODE (numiter_a) != INTEGER_CST)
-	    numiter_a = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-	      ->estimated_nb_iterations;
-	  if (TREE_CODE (numiter_b) != INTEGER_CST)
-	    numiter_b = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-	      ->estimated_nb_iterations;
-	  if (chrec_contains_undetermined (numiter_a)
-	      || chrec_contains_undetermined (numiter_b)
-	      || TREE_CODE (numiter_a) != INTEGER_CST
-	      || TREE_CODE (numiter_b) != INTEGER_CST)
+	  unsigned HOST_WIDE_INT niter, niter_a, niter_b;
+	  struct loop *loop_a = current_loops->parray[CHREC_VARIABLE (chrec_a)];
+	  struct loop *loop_b = current_loops->parray[CHREC_VARIABLE (chrec_b)];
+	  
+	  if (!get_max_loop_niter (loop_a, &niter_a)
+	      || !get_max_loop_niter (loop_b, &niter_b))
 	    {
 	      *overlaps_a = chrec_dont_know;
 	      *overlaps_b = chrec_dont_know;
@@ -2653,8 +2607,6 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      return;
 	    }
 
-	  niter_a = int_cst_value (numiter_a);
-	  niter_b = int_cst_value (numiter_b);
 	  niter = MIN (niter_a, niter_b);
 
 	  i0 = U[0][0] * gamma / gcd_alpha_beta;
@@ -2679,13 +2631,13 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      if (i1 > 0)
 		{
 		  tau1 = CEIL (-i0, i1);
-		  tau2 = FLOOR_DIV (niter - i0, i1);
+		  tau2 = FLOOR_DIV ((int) niter - i0, i1);
 
 		  if (j1 > 0)
 		    {
 		      int last_conflict, min_multiple;
 		      tau1 = MAX (tau1, CEIL (-j0, j1));
-		      tau2 = MIN (tau2, FLOOR_DIV (niter - j0, j1));
+		      tau2 = MIN (tau2, FLOOR_DIV ((int) niter - j0, j1));
 
 		      x0 = i1 * tau1 + i0;
 		      y0 = j1 * tau1 + j0;

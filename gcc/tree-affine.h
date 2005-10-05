@@ -18,13 +18,6 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* A structure containing a large integer.  */
-
-typedef struct
-{
-  unsigned HOST_WIDE_INT low, high;
-} double_int;
-
 /* Affine combination of trees.  We keep track of at most MAX_AFF_ELTS elements
    to make things simpler; this is sufficient in most cases.  */
 
@@ -66,12 +59,19 @@ void tree_to_aff_combination (tree, tree, aff_tree *);
 tree aff_combination_to_tree (aff_tree *);
 void unshare_aff_combination (aff_tree *);
 tree double_int_to_tree (tree, double_int);
-bool double_int_fits_in_hwi_p (aff_tree *, double_int);
-HOST_WIDE_INT double_int_to_hwi (aff_tree *, double_int);
-double_int double_int_mul (aff_tree *, double_int, double_int);
-double_int double_int_add (aff_tree *, double_int, double_int);
-double_int double_int_negate (aff_tree *, double_int);
-bool double_int_negative_p (aff_tree *, double_int);
+bool double_int_fits_to_type_p (tree, double_int);
+bool double_int_fits_in_hwi_p (double_int, double_int);
+HOST_WIDE_INT double_int_to_hwi (double_int, double_int);
+bool double_int_fits_in_unsigned_hwi_p (double_int);
+unsigned HOST_WIDE_INT double_int_to_unsigned_hwi (double_int);
+double_int double_int_mul (double_int, double_int, double_int);
+double_int double_int_add (double_int, double_int, double_int);
+double_int double_int_negate (double_int, double_int);
+double_int double_int_divide (double_int, double_int);
+bool double_int_negative_p (double_int, double_int);
+bool double_int_smaller_p (double_int, double_int);
+void dump_double_int (FILE *, double_int, double_int, bool);
+double_int double_int_mask (unsigned);
 
 /* Constructs double_int from tree CST.  */
 
@@ -99,6 +99,14 @@ hwi_to_double_int (HOST_WIDE_INT cst)
   return r;
 }
 
+/* Constructs mask with all bits 1.  */
+
+static inline double_int
+double_int_all (void)
+{
+  return hwi_to_double_int (-1);
+}
+
 /* Returns true if CST is zero.  */
 
 static inline bool
@@ -115,12 +123,12 @@ double_int_one_p (double_int cst)
   return cst.low == 1 && cst.high == 0;
 }
 
-/* Returns true if CST is minus one in precision of COMB.  */
+/* Returns true if CST is minus one in precision of MASK.  */
 
 static inline bool
-double_int_minus_one_p (aff_tree *comb, double_int cst)
+double_int_minus_one_p (double_int mask, double_int cst)
 {
-  return cst.low == comb->mask.low && cst.high == comb->mask.high;
+  return cst.low == mask.low && cst.high == mask.high;
 }
 
 /* Returns true if CST1 == CST2.  */

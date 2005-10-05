@@ -43,15 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
          ((signed) STEP > 0), whose final value V satisfies
 	 -STEP <= V < 0 and whose initial value satisfies (signed) BASE >= 0,
 	 we use (signed) X >= 0 compare.
-      -- if X = BASE + STEP * i and final value V is of shape V' + C, where
-         0 < C <= STEP, and there is no overflow, then we use
-	 X <= V' compare.
-      -- otherwise we use X != V compare.
-      
-   TODO: implement loop reversal
-	 addition removal in condition shape selection
-	 use information about bounds on number of iterations in condition
-	   shape selection  */
+      -- otherwise we use X != V compare.  */
 
 #include "config.h"
 #include "system.h"
@@ -105,23 +97,53 @@ iv_period (tree step)
   return period;
 }
 
-/* Given exit condition based on induction variable BASE + STEP * i,
+/* Check whether iv of LOOP with step STEP may wraps around the range of
+   the type.  */
+
+static bool
+may_wrap_around_type_range_p (struct loop *loop, tree step)
+{
+  tree unsigned_type = unsigned_type_for (TREE_TYPE (step));
+  tree range = iv_period (build_int_cst_type (unsigned_type, 1));
+
+  step = fold_convert (unsigned_type, step);
+  if (tree_int_cst_sign_bit (step))
+    step = fold_build1 (NEGATE_EXPR, unsigned_type, step);
+  if (tree_int_cst_sign_bit (step))
+    return true;
+ 
+  /* We need to check whether niter * step <= range.  */
+  range = fold_build2 (FLOOR_DIV_EXPR, unsigned_type, range, step);
+
+  return !loop_iterations_at_most_p (loop, range, NULL_TREE);
+}
+
+/* Given exit condition of LOOP based on induction variable BASE + STEP * i,
    whose final value is *BOUND, try altering comparison operator *CMP so
    that the *BOUND can be replaced by zero.  Return true if this succeeds,
    false otherwise.  */
 
 static bool
-modify_to_compare_with_zero (tree base, tree step,
+modify_to_compare_with_zero (struct loop *loop,
+			     tree base, tree step,
 			     enum tree_code *cmp, tree *bound)
 {
   tree type = TREE_TYPE (step), signed_type = signed_type_for (type);
+  tree unsigned_type = unsigned_type_for (type);
   tree signed_bound = fold_convert (signed_type, *bound);
   tree signed_step = fold_convert (signed_type, step);
   tree signed_base = fold_convert (signed_type, base);
   tree signed_zero = build_int_cst_type (signed_type, 0);
+  tree nit_bound;
+  enum tree_code ok_cmp = ERROR_MARK;
+
+  if (may_wrap_around_type_range_p (loop, step))
+    return false;
 
   if (tree_int_cst_sign_bit (step))
     {
+      ok_cmp = GE_EXPR;
+
       step = fold_build1 (NEGATE_EXPR, type, step);
       if (tree_int_cst_sign_bit (step))
 	{
@@ -135,69 +157,69 @@ modify_to_compare_with_zero (tree base, tree step,
       if (!nonzero_p (fold_build2 (LE_EXPR, boolean_type_node,
 				   signed_step, signed_bound))
 	  || !nonzero_p (fold_build2 (LT_EXPR, boolean_type_node,
-				      signed_bound, signed_zero))
-	  /* We can apply the optimization, assuming that BASE >= 0.  */
-	  || !nonzero_p (fold_build2 (GE_EXPR, boolean_type_node,
-				      signed_base, signed_zero)))
+				      signed_bound, signed_zero)))
 	return false;
 
-      *cmp = GE_EXPR;
+
+      /* We can apply the optimization, assuming that the initial value
+	 of the counter (signed_base) is >= the final value (signed_bound).  */
+      if (condition_holds_in_loop_p (loop,
+				     fold_build2 (GE_EXPR, boolean_type_node,
+						  signed_base, signed_bound)))
+	goto ok;
+
+      /* The other way how to check this is using the fact that
+	 signed_base = signed_bound + step * niter, and to prove that
+
+	 niter <= (signed_max - bound) / step.  */
+      nit_bound = fold_convert (unsigned_type,
+				upper_bound_in_type (signed_type, signed_type));
+      step = fold_convert (unsigned_type, step);
+      nit_bound = fold_build2 (PLUS_EXPR, unsigned_type,
+			       nit_bound,
+			       fold_convert (unsigned_type, *bound));
+      nit_bound = fold_build2 (FLOOR_DIV_EXPR, unsigned_type, nit_bound, step);
+      if (loop_iterations_at_most_p (loop, nit_bound, NULL_TREE))
+	goto ok;
     }
   else
     {
+      ok_cmp = LE_EXPR;
       /* Condition in shape base + step * i.  This case does not appear as
 	 often in practice, but let's try anyway.  Check whether
 	 0 < bound <= step.  */
       if (!nonzero_p (fold_build2 (LT_EXPR, boolean_type_node,
 				   signed_zero, signed_bound))
 	  || !nonzero_p (fold_build2 (LE_EXPR, boolean_type_node,
-				      signed_bound, signed_step))
-	  /* We can apply the optimization, assuming that BASE <= 0.  */
-	  || !nonzero_p (fold_build2 (LE_EXPR, boolean_type_node,
-				      signed_base, signed_zero)))
+				      signed_bound, signed_step)))
 	return false;
 
-      *cmp = LE_EXPR;
+      if (condition_holds_in_loop_p (loop,
+				     fold_build2 (LE_EXPR, boolean_type_node,
+						  signed_base, signed_bound)))
+	goto ok;
+
+      /* The other way how to check this is using the fact that
+	 signed_base = signed_bound - step * niter, and to prove that
+
+	 niter <= (bound - signed_min) / step.  */
+      nit_bound = fold_convert (unsigned_type,
+				lower_bound_in_type (signed_type, signed_type));
+      step = fold_convert (unsigned_type, step);
+      nit_bound = fold_build2 (MINUS_EXPR, unsigned_type,
+			       fold_convert (unsigned_type, *bound),
+			       nit_bound);
+      nit_bound = fold_build2 (FLOOR_DIV_EXPR, unsigned_type, nit_bound, step);
+      if (loop_iterations_at_most_p (loop, nit_bound, NULL_TREE))
+	goto ok;
     }
-  
+ 
+  return false;
+
+ok:
+  *cmp = ok_cmp;
   *bound = signed_zero;
   return true;
-}
-
-/* Given exit condition based on induction variable BASE + STEP * i,
-   whose final value is *BOUND, try altering comparison operator *CMP and
-   *BOUND so that *BOUND does not contain unnecessary additions.  Return
-   true if this succeeds, false otherwise.  */
-
-static bool
-try_removing_addition_from_bound (tree base ATTRIBUTE_UNUSED,
-				  tree step ATTRIBUTE_UNUSED,
-				  enum tree_code *cmp ATTRIBUTE_UNUSED,
-				  tree *bound ATTRIBUTE_UNUSED)
-{
-  /* NIY.  */
-  return false;
-}
-
-/* Check whether iv with step STEP wraps around the range of the type
-   after at most NITER iterations.  */
-
-static bool
-may_wrap_around_type_range_p (tree niter, tree step)
-{
-  tree unsigned_type = unsigned_type_for (TREE_TYPE (step));
-  tree range = iv_period (build_int_cst_type (unsigned_type, 1));
-
-  step = fold_convert (unsigned_type, step);
-  if (tree_int_cst_sign_bit (step))
-    step = fold_build1 (NEGATE_EXPR, unsigned_type, step);
-  if (tree_int_cst_sign_bit (step))
-    return true;
-  niter = fold_convert (unsigned_type, niter);
- 
-  /* We need to check whether niter * step <= range.  */
-  range = fold_build2 (FLOOR_DIV_EXPR, unsigned_type, range, step);
-  return !nonzero_p (fold_build2 (LE_EXPR, boolean_type_node, niter, range));
 }
 
 /* Determines the final value of iv with base BASE and step STEP, in loop
@@ -225,7 +247,7 @@ final_value_of_iv (tree base, tree step, tree niter)
    if we succeed.  */
 
 bool
-select_condition_shape (tree niter, tree base, tree step,
+select_condition_shape (struct loop *loop, tree niter, tree base, tree step,
 			bool exit_p, enum tree_code *cmp, tree *bound)
 {
   tree nit_type = TREE_TYPE (niter), per_type, wider_type;
@@ -257,19 +279,8 @@ select_condition_shape (tree niter, tree base, tree step,
   if (zero_p (final))
     goto end;
 
-  /* Check whether the variable wraps around the type range, i.e., whether
-     niter * step >= range.  If this is the case, we cannot do any of the
-     following optimizations.  */
-  if (may_wrap_around_type_range_p (niter, step))
-    goto end;
-
-  /* Else try transforming the condition to a compare with zero.  */
-  if (!modify_to_compare_with_zero (base, step, cmp, bound))
-    {
-      /* If everything else failed, try removing addition or subtraction
-	 from the bound.  */
-      try_removing_addition_from_bound (base, step, cmp, bound);
-    }
+  /* Try transforming the condition to a compare with zero.  */
+  modify_to_compare_with_zero (loop, base, step, cmp, bound);
 
 end:
   if (exit_p)
@@ -389,12 +400,13 @@ may_reverse_loop_p (struct loop *loop, varray_type *datarefs, tree *niter)
   return ret;
 }
 
-/* Returns cost of basing exit condition for loop that exits after NITER
+/* Returns cost of basing exit condition for LOOP that exits after NITER
    iterations on induction variable with BASE and STEP.  If REVERSED
    is true, we reverse the variable first.  */
 
 static unsigned
-endcond_candidate_cost (tree base, tree step, tree niter, bool reversed)
+endcond_candidate_cost (struct loop *loop,
+			tree base, tree step, tree niter, bool reversed)
 {
   tree bound;
   enum tree_code cmp;
@@ -405,7 +417,7 @@ endcond_candidate_cost (tree base, tree step, tree niter, bool reversed)
       step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
     }
 
-  if (!select_condition_shape (niter, base, step, true, &cmp, &bound))
+  if (!select_condition_shape (loop, niter, base, step, true, &cmp, &bound))
     return 10;
 
   return compare_cost (bound);
@@ -442,7 +454,7 @@ best_endcond_candidate_cost (struct loop *loop, varray_type datarefs,
 	      || chrec_contains_symbols_defined_in_loop (base, loop->num))
 	    continue;
 
-	  act = endcond_candidate_cost (base, step, niter, reversed);
+	  act = endcond_candidate_cost (loop, base, step, niter, reversed);
 	  if (act < best)
 	    best = act;
 	}

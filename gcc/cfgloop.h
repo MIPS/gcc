@@ -43,19 +43,9 @@ struct lpt_decision
   unsigned times;
 };
 
-/* The structure describing a bound on number of iterations of a loop.  */
+/* The structure describing an induction variable that does not overflow.  */
 
-struct nb_iter_bound
-{
-  tree bound;		/* The expression whose value is an upper bound on the
-			   number of executions of anything after ...  */
-  tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* A conjunction of conditions the operands of BOUND
-			   satisfy.  The additional information about the value
-			   of the bound may be derived from it.  */
-  struct nb_iter_bound *next;
-			/* The next bound in a list.  */
-};
+struct iv_no_overflow;
 
 /* Structure to hold information for each natural loop.  */
 struct loop
@@ -151,19 +141,31 @@ struct loop
      loops nested inside it.  */
   int exit_count;
 
-  /* The probable number of times the loop is executed at runtime.
+  /* The number of times the loop is executed at runtime.
      This is an INTEGER_CST or an expression containing symbolic
      names.  Don't access this field directly:
      number_of_iterations_in_loop computes and caches the computed
      information in this field.  */
   tree nb_iterations;
 
-  /* An INTEGER_CST estimation of the number of iterations.  NULL_TREE
-     if there is no estimation.  */
-  tree estimated_nb_iterations;
+  /* State of the estimate on number of iterations of the loop.  */
+  enum
+    {
+      NBS_NONE,		/* No estimate available.  */
+      NBS_RECORDING,	/* Currently determining the estimate.  */
+      NBS_READY		/* The estimate is recorded.  */
+    } niter_bounds_state;
 
-  /* Upper bound on number of iterations of a loop.  */
-  struct nb_iter_bound *bounds;
+  /* An upper bound on the number of iterations.  */
+  double_int max_nb_iterations;
+
+  /* True if the estimates on number of iterations exclude the case
+     that the loop is infinite.  */
+  bool is_finite;
+
+  /* Information about induction variables that do not overflow in the
+     loop.  */
+  struct iv_no_overflow *iv_no_overflow;
 
   /* If not NULL, loop has just single exit edge stored here (edges to the
      EXIT_BLOCK_PTR do not count.  */
@@ -452,7 +454,6 @@ enum
 extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
-extern void record_estimate (struct loop *, tree, tree, tree);
 
 /* Old loop optimizer interface.  */
 

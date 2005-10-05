@@ -1880,7 +1880,7 @@ tree-ssa-loop-niter.o : tree-ssa-loop-niter.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(PARAMS_H) \
    tree-inline.h output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    $(FLAGS_H) tree-pass.h $(SCEV_H) $(TREE_DATA_REF_H) $(BASIC_BLOCK_H) \
-   $(GGC_H) hard-reg-set.h tree-chrec.h intl.h
+   $(GGC_H) hard-reg-set.h tree-chrec.h intl.h tree-affine.h
 tree-ssa-loop-ivcanon.o : tree-ssa-loop-ivcanon.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(PARAMS_H) \
    tree-inline.h output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \

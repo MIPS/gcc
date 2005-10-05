@@ -322,11 +322,6 @@ struct iv_ca_delta
 #define ALWAYS_PRUNE_CAND_SET_BOUND \
   ((unsigned) PARAM_VALUE (PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND))
 
-/* The list of trees for that the decl_rtl field must be reset is stored
-   here.  */
-
-static VEC(tree,heap) *decl_rtl_to_reset;
-
 /* Number of uses recorded in DATA.  */
 
 static inline unsigned
@@ -726,6 +721,10 @@ niter_for_exit (struct ivopts_data *data, edge exit)
 						     exit, &nfe_desc->niter,
 						     true);
       *slot = nfe_desc;
+
+      if (nfe_desc->valid_p)
+	nfe_desc->niter.niter
+		= expand_simple_operations (nfe_desc->niter.niter);
     }
   else
     nfe_desc = *slot;
@@ -773,7 +772,6 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
 
   data->iv_uses = VEC_alloc (iv_use_p, heap, 20);
   data->iv_candidates = VEC_alloc (iv_cand_p, heap, 20);
-  decl_rtl_to_reset = VEC_alloc (tree, heap, 20);
 }
 
 /* Returns a memory object to that EXPR points.  In case we are able to
@@ -2582,106 +2580,6 @@ seq_cost (rtx seq)
   return cost;
 }
 
-/* Produce DECL_RTL for object obj so it looks like it is stored in memory.  */
-static rtx
-produce_memory_decl_rtl (tree obj, int *regno)
-{
-  rtx x;
-  
-  gcc_assert (obj);
-  if (TREE_STATIC (obj) || DECL_EXTERNAL (obj))
-    {
-      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (obj));
-      x = gen_rtx_SYMBOL_REF (Pmode, name);
-    }
-  else
-    x = gen_raw_REG (Pmode, (*regno)++);
-
-  return gen_rtx_MEM (DECL_MODE (obj), x);
-}
-
-/* Prepares decl_rtl for variables referred in *EXPR_P.  Callback for
-   walk_tree.  DATA contains the actual fake register number.  */
-
-static tree
-prepare_decl_rtl (tree *expr_p, int *ws, void *data)
-{
-  tree obj = NULL_TREE;
-  rtx x = NULL_RTX;
-  int *regno = data;
-
-  switch (TREE_CODE (*expr_p))
-    {
-    case ADDR_EXPR:
-      for (expr_p = &TREE_OPERAND (*expr_p, 0);
-	   handled_component_p (*expr_p);
-	   expr_p = &TREE_OPERAND (*expr_p, 0))
-	continue;
-      obj = *expr_p;
-      if (DECL_P (obj))
-        x = produce_memory_decl_rtl (obj, regno);
-      break;
-
-    case SSA_NAME:
-      *ws = 0;
-      obj = SSA_NAME_VAR (*expr_p);
-      if (!DECL_RTL_SET_P (obj))
-	x = gen_raw_REG (DECL_MODE (obj), (*regno)++);
-      break;
-
-    case VAR_DECL:
-    case PARM_DECL:
-    case RESULT_DECL:
-      *ws = 0;
-      obj = *expr_p;
-
-      if (DECL_RTL_SET_P (obj))
-	break;
-
-      if (DECL_MODE (obj) == BLKmode)
-	x = produce_memory_decl_rtl (obj, regno);
-      else
-	x = gen_raw_REG (DECL_MODE (obj), (*regno)++);
-
-      break;
-
-    default:
-      break;
-    }
-
-  if (x)
-    {
-      VEC_safe_push (tree, heap, decl_rtl_to_reset, obj);
-      SET_DECL_RTL (obj, x);
-    }
-
-  return NULL_TREE;
-}
-
-/* Determines cost of the computation of EXPR.  */
-
-static unsigned
-computation_cost (tree expr)
-{
-  rtx seq, rslt;
-  tree type = TREE_TYPE (expr);
-  unsigned cost;
-  /* Avoid using hard regs in ways which may be unsupported.  */
-  int regno = LAST_VIRTUAL_REGISTER + 1;
-
-  walk_tree (&expr, prepare_decl_rtl, &regno, NULL);
-  start_sequence ();
-  rslt = expand_expr (expr, NULL_RTX, TYPE_MODE (type), EXPAND_NORMAL);
-  seq = get_insns ();
-  end_sequence ();
-
-  cost = seq_cost (seq);
-  if (MEM_P (rslt))
-    cost += address_cost (XEXP (rslt, 0), TYPE_MODE (type));
-
-  return cost;
-}
-
 /* Returns variable containing the value of candidate CAND at statement AT.  */
 
 static tree
@@ -2869,7 +2767,7 @@ get_computation_aff (struct loop *loop,
      happen, fold is able to apply the distributive law to obtain this form
      anyway.  */
 
-  aff_combination_scale (&cbase_aff, double_int_negate (&cbase_aff, rat));
+  aff_combination_scale (&cbase_aff, double_int_negate (cbase_aff.mask, rat));
   aff_combination_scale (&expr_aff, rat);
   aff_combination_add (aff, &cbase_aff);
   aff_combination_add (aff, &expr_aff);
@@ -3226,9 +3124,51 @@ convert_cost (enum machine_mode mode_to, enum machine_mode mode_from,
   costs[mode_to][mode_from][unsigned_p] = cost;
       
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Conversion from %sto %s  costs %d\n",
+    fprintf (dump_file, "Conversion from %sto %s costs %d\n",
 	     GET_MODE_NAME (mode_from), GET_MODE_NAME (mode_to), cost);
   return cost;
+}
+
+/* Returns the cost of forcing an integer constant in MODE to be
+   an operand.  Not implemented yet, for now we assume all constants
+   are cheap (which is not always the case).  */
+
+static unsigned
+integer_cost (enum machine_mode mode)
+{
+  static unsigned costs[NUM_MACHINE_MODES];
+
+  if (!costs[mode])
+    {
+      /* TODO -- determine the cost.  */
+      costs[mode] = 1;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Cost of integer constant in %s is 0\n",
+		 GET_MODE_NAME (mode));
+    }
+  return costs[mode] - 1;
+}
+
+/* Retunrs the cost of using a fixed address as an operand.  Not implemented
+   yet, for now we assume all such expressions are cheap (which is not always
+   the case).  */
+
+static unsigned
+fixed_address_cost (void)
+{
+  static unsigned cost = 0;
+
+  if (!cost)
+    {
+      /* TODO -- determine the cost.  */
+      cost = 1;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Cost of taking a fixed address is 0\n");
+    }
+
+  return cost - 1;
 }
 
 /* Estimates cost of forcing expression EXPR into a variable.  */
@@ -3236,68 +3176,25 @@ convert_cost (enum machine_mode mode_to, enum machine_mode mode_from,
 unsigned
 force_expr_to_var_cost (tree expr)
 {
-  static bool costs_initialized = false;
-  static unsigned integer_cost;
-  static unsigned symbol_cost;
-  static unsigned address_cost;
   tree op0 = NULL_TREE, op1 = NULL_TREE, inner_type;
   unsigned cost0 = 0, cost1 = 0, cost;
   enum machine_mode mode;
-
-  if (!costs_initialized)
-    {
-      tree var = create_tmp_var_raw (integer_type_node, "test_var");
-      rtx x = gen_rtx_MEM (DECL_MODE (var),
-			   gen_rtx_SYMBOL_REF (Pmode, "test_var"));
-      tree addr;
-      tree type = build_pointer_type (integer_type_node);
-
-      integer_cost = computation_cost (build_int_cst_type (integer_type_node,
-							   2000));
-
-      SET_DECL_RTL (var, x);
-      TREE_STATIC (var) = 1;
-      addr = build1 (ADDR_EXPR, type, var);
-      symbol_cost = computation_cost (addr) + 1;
-
-      address_cost
-	= computation_cost (build2 (PLUS_EXPR, type,
-				    addr,
-				    build_int_cst_type (type, 2000))) + 1;
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "force_expr_to_var_cost:\n");
-	  fprintf (dump_file, "  integer %d\n", (int) integer_cost);
-	  fprintf (dump_file, "  symbol %d\n", (int) symbol_cost);
-	  fprintf (dump_file, "  address %d\n", (int) address_cost);
-	  fprintf (dump_file, "  other %d\n", (int) target_spill_cost);
-	  fprintf (dump_file, "\n");
-	}
-
-      costs_initialized = true;
-    }
 
   STRIP_NOPS (expr);
 
   if (SSA_VAR_P (expr))
     return 0;
 
+  mode = TYPE_MODE (TREE_TYPE (expr));
+
   if (TREE_INVARIANT (expr))
     {
       if (TREE_CODE (expr) == INTEGER_CST)
-	return integer_cost;
+	return integer_cost (mode);
 
-      if (TREE_CODE (expr) == ADDR_EXPR)
-	{
-	  tree obj = TREE_OPERAND (expr, 0);
-
-	  if (TREE_CODE (obj) == VAR_DECL
-	      || TREE_CODE (obj) == PARM_DECL
-	      || TREE_CODE (obj) == RESULT_DECL)
-	    return symbol_cost;
-	}
-
-      return address_cost;
+      /* TODO -- this might also be address of parameter, or other invariants
+	 that do not really qualify as object with fixed address.  */
+      return fixed_address_cost ();
     }
 
   switch (TREE_CODE (expr))
@@ -3330,7 +3227,6 @@ force_expr_to_var_cost (tree expr)
       return target_spill_cost;
     }
 
-  mode = TYPE_MODE (TREE_TYPE (expr));
   switch (TREE_CODE (expr))
     {
     case PLUS_EXPR:
@@ -3386,16 +3282,22 @@ force_var_cost (struct ivopts_data *data,
 
 /* Determines the cost of the computation COMP.  A set of invariants
    the expression depends on is stored in DEPENDS_ON.  COMP is modified
-   in the progress.  */
+   in the progress.  OUTER_ADDITION is set to true if there is an
+   addition outside any multiplication in the final expression.  */
 
 static unsigned
 aff_combination_cost (struct ivopts_data *data, aff_tree *comp,
-		      bitmap *depends_on)
+		      bitmap *depends_on, bool *outer_addition)
 {
   int n_adds = comp->n - 1;
   unsigned i, j, cost = 0;
-  bool all_negated = true;
+  unsigned positive_terms = 0;
   enum machine_mode mode = TYPE_MODE (comp->type);
+  double_int positive, negative;
+  bool seen_positive;
+
+  if (outer_addition)
+    *outer_addition = false;
   
   if (comp->n == 0 && !comp->rest)
     {
@@ -3408,55 +3310,75 @@ aff_combination_cost (struct ivopts_data *data, aff_tree *comp,
     {
       n_adds++;
       cost += force_var_cost (data, comp->rest, depends_on);
-      all_negated = false;
+      positive_terms++;
     }
   if (!double_int_zero_p (comp->offset))
     {
       n_adds++;
-      all_negated = false;
+      positive_terms++;
     }
 
-  /* Compute the cost of multiplications.  Using distributivity, each
-     coefficient needs to be considered only once.  Furthermore, we
-     do not need to consider both constant and its negation.
+  for (i = 0; i < comp->n; i++)
+    cost += force_var_cost (data, comp->elts[i], depends_on);
+
+  /* Compute the cost of multiplications and number of additions.  Using
+     distributivity, each coefficient needs to be considered only once.
+     Furthermore, we do not need to consider both constant and its negation.
 
      If all elements are multiplied by negative number, we must perform one
      multiplication by a negative constant (and use MINUS_EXPR for the rest).
-     Otherwise, it is possible to always multiply be a positive constant.  */
+     Otherwise, it is possible to always multiply be a positive constant,
+     which should usually be cheaper.  */
   for (i = 0; i < comp->n; i++)
     {
-      cost += force_var_cost (data, comp->elts[i], depends_on);
-      if (double_int_negative_p (comp, comp->coefs[i]))
-	comp->coefs[i] = double_int_negate (comp, comp->coefs[i]);
+      if (double_int_zero_p (comp->coefs[i]))
+	continue;
+
+      if (double_int_negative_p (comp->mask, comp->coefs[i]))
+	{
+	  negative = comp->coefs[i];
+	  positive = double_int_negate (comp->mask, comp->coefs[i]);
+	  seen_positive = false;
+	}
       else
-	all_negated = false;
+	{
+	  positive = comp->coefs[i];
+	  negative = double_int_negate (comp->mask, comp->coefs[i]);
+	  seen_positive = true;
+	}
 
-      if (double_int_one_p (comp->coefs[i]))
-	continue;
+      for (j = i + 1; j < comp->n; j++)
+	{
+	  if (double_int_equal_p (positive, comp->coefs[j]))
+	    seen_positive = true;
+	  else if (!double_int_equal_p (negative, comp->coefs[j]))
+	    continue;
+	  comp->coefs[j] = hwi_to_double_int (0);
+	}
 
-      for (j = 0; j < i; j++)
-	if (double_int_equal_p (comp->coefs[i], comp->coefs[j]))
-	  break;
-      if (j < i)
-	continue;
-
-      if (double_int_fits_in_hwi_p (comp, comp->coefs[i]))
+      if (!double_int_fits_in_hwi_p (comp->mask, comp->coefs[i]))
 	{
 	  /* comp->coefs[i] almost always fits into HOST_WIDE_INT, so do not
 	     worry about this this case.  */
 	  cost += target_spill_cost;
 	}
       else
-	cost += multiply_by_cost (double_int_to_hwi (comp, comp->coefs[i]),
+	cost += multiply_by_cost (double_int_to_hwi (comp->mask, comp->coefs[i]),
 				  mode);
+
+      if (seen_positive)
+	positive_terms++;
     }
 
-  if (all_negated)
+  if (positive_terms == 0)
     {
       /* This is not really precise -- multiplying by a negative constant could
 	 be cheaper than multiplyiing by its negation and negating.  */
       cost += multiply_by_cost (-1, mode);
     }
+
+  if (outer_addition)
+    *outer_addition = (positive_terms >= 2);
 
   return cost + n_adds * add_cost (mode);
 }
@@ -3474,6 +3396,7 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
   unsigned cost = 0, i, nelts;
   bool symbol_present = false, var_present = false, index_used = false;
   enum machine_mode mode = TYPE_MODE (comp->type);
+  bool outer_addition;
 
   /* Try finding a symbol.  */
   for (i = 0; i < comp->n; i++)
@@ -3489,7 +3412,7 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
 	}
     }
 
-  if (double_int_fits_in_hwi_p (comp, ratio)
+  if (double_int_fits_in_hwi_p (comp->mask, ratio)
       && !double_int_one_p (ratio))
     {
       /* Try separating index from comp.  */
@@ -3499,9 +3422,9 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
 
       if (i < comp->n)
 	{
-	  double_int ratio_neg = double_int_negate (comp, ratio);
+	  double_int ratio_neg = double_int_negate (comp->mask, ratio);
 	  int n_add = -1;
-	  rat = double_int_to_hwi (comp, ratio);
+	  rat = double_int_to_hwi (comp->mask, ratio);
 
 	  for (; i < comp->n; )
 	    {
@@ -3525,9 +3448,9 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
 
   if (!double_int_zero_p (comp->offset))
     {
-      if (double_int_fits_in_hwi_p (comp, comp->offset))
+      if (double_int_fits_in_hwi_p (comp->mask, comp->offset))
 	{
-	  off = double_int_to_hwi (comp, comp->offset);
+	  off = double_int_to_hwi (comp->mask, comp->offset);
 	  comp->offset = hwi_to_double_int (0);
 	}
       else
@@ -3538,13 +3461,13 @@ aff_combination_cost_address (struct ivopts_data *data, aff_tree *comp,
 
   if (nelts)
     {
-      cost += aff_combination_cost (data, comp, depends_on);
+      cost += aff_combination_cost (data, comp, depends_on, &outer_addition);
 
       /* We can save one addition by using BASE + INDEX addressing mode,
 	 if present and if index is not used already.  */
       if (index_used)
 	var_present = true;
-      else if (nelts > 1)
+      else if (outer_addition)
 	{
 	  var_present = true;
 	  cost -= add_cost (mode);
@@ -3606,7 +3529,7 @@ get_computation_cost_at (struct ivopts_data *data,
   if (address_p)
     cost = aff_combination_cost_address (data, &comp, depends_on, rat);
   else
-    cost = aff_combination_cost (data, &comp, depends_on);
+    cost = aff_combination_cost (data, &comp, depends_on, NULL);
 
   gcc_assert ((signed) cost >= 0);
   return cost;
@@ -3722,7 +3645,7 @@ may_eliminate_iv (struct ivopts_data *data,
 
   if (stmt_after_increment (loop, cand, use->stmt))
     base = fold_build2 (PLUS_EXPR, type, base, step);
-  return select_condition_shape (niter->niter, base, step,
+  return select_condition_shape (loop, niter->niter, base, step,
 				 (exit->flags & EDGE_TRUE_VALUE) != 0,
 				 cmp, bound);
 }
@@ -5616,7 +5539,6 @@ free_loop_data (struct ivopts_data *data)
 {
   unsigned i, j;
   bitmap_iterator bi;
-  tree obj;
 
   htab_empty (data->niters);
 
@@ -5670,11 +5592,6 @@ free_loop_data (struct ivopts_data *data)
     }
 
   data->max_inv_id = 0;
-
-  for (i = 0; VEC_iterate (tree, decl_rtl_to_reset, i, obj); i++)
-    SET_DECL_RTL (obj, NULL_RTX);
-
-  VEC_truncate (tree, decl_rtl_to_reset, 0);
 }
 
 /* Finalizes data structures used by the iv optimization pass.  LOOPS is the
@@ -5698,7 +5615,6 @@ tree_ssa_iv_optimize_finalize (struct loops *loops, struct ivopts_data *data)
   BITMAP_FREE (data->important_candidates);
   htab_delete (data->niters);
 
-  VEC_free (tree, heap, decl_rtl_to_reset);
   VEC_free (iv_use_p, heap, data->iv_uses);
   VEC_free (iv_cand_p, heap, data->iv_candidates);
 }

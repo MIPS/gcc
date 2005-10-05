@@ -693,18 +693,6 @@ struct tree_niter_desc
 			   a loop (provided that assumptions == true and
 			   may_be_zero == false), more precisely the number
 			   of executions of the latch of the loop.  */
-  tree additional_info;	/* The boolean expression.  Sometimes we use additional
-			   knowledge to simplify the other expressions
-			   contained in this structure (for example the
-			   knowledge about value ranges of operands on entry to
-			   the loop).  If this is a case, conjunction of such
-			   condition is stored in this field, so that we do not
-			   lose the information: for example if may_be_zero
-			   is (n <= 0) and niter is (unsigned) n, we know
-			   that the number of iterations is at most
-			   MAX_SIGNED_INT.  However if the (n <= 0) assumption
-			   is eliminated (by looking at the guard on entry of
-			   the loop), then the information would be lost.  */
 };
 
 /* In tree-vectorizer.c */
@@ -762,8 +750,14 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 edge single_dom_exit (const struct loop *);
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
-bool select_condition_shape (tree, tree, tree, bool, enum tree_code *, tree *);
+bool select_condition_shape (struct loop *, tree, tree, tree, bool,
+			     enum tree_code *, tree *);
 unsigned compare_cost (tree);
+bool loop_iterations_at_most_p (struct loop *, tree, tree);
+bool condition_holds_in_loop_p (struct loop *, tree);
+bool get_max_loop_niter (struct loop *, unsigned HOST_WIDE_INT *);
+void record_niter_bound (struct loop *, tree, bool);
+void record_nonwrapping_iv (struct loop *, tree, tree, tree, tree, tree);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */

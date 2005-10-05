@@ -1,3 +1,86 @@
+2005-10-05  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* Makefile.in (tree-ssa-loop-niter.o): Add tree-affine.h dependency.
+	* cfgloop.h (struct nb_iter_bound): Removed.
+	(struct loop): Fields estimated_nb_iterations and bounds removed,
+	fields niter_bounds_state, max_nb_iterations, is_finite and
+	iv_no_overflow added.
+	(record_estimate): Declaration removed.
+	* hwint.h (double_int): Declaration moved from tree-affine.h.
+	* tree-affine.c (restrict_cst_to_precision, double_int_fits_in_hwi_p,
+	double_int_negative_p, double_int_to_hwi, double_int_mul,
+	double_int_add, double_int_negate): Take mask instead of affine
+	combination as an argument.
+	(double_int_fits_in_unsigned_hwi_p, double_int_to_unsigned_hwi,
+	double_int_divide, double_int_fits_to_type_p, double_int_smaller_p,
+	double_int_split_digit, dump_double_int): New functions.
+	(affine_combination_set_mask): Replaced with ...
+	(double_int_mask): ... new function.
+	(aff_combination_zero, aff_combination_const, aff_combination_scale,
+	aff_combination_add_elt, aff_combination_add, aff_combination_convert,
+	add_elt_to_tree, aff_combination_to_tree): Use new calling conventions
+	of double_int functions.
+	* tree-affine.h (double_int): Moved to hwint.h.
+	(double_int_fits_in_hwi_p, double_int_to_hwi, double_int_mul,
+	double_int_add, double_int_negate, double_int_negative_p): Declaration
+	changed.
+	(double_int_fits_to_type_p, double_int_fits_in_unsigned_hwi_p,
+	double_int_to_unsigned_hwi, double_int_divide, double_int_smaller_p,
+	dump_double_int, double_int_mask): Declare.
+	(double_int_all): New inline function.
+	(double_int_minus_one_p): Take mask instead of affine combination as
+	an argument.
+	* tree-data-ref.c (estimate_niter_from_size_of_data,
+	analyze_array_indexes): Use array bounds instead of type size.
+	(compute_overlap_steps_for_affine_1_2, analyze_subscript_affine_affine):
+	Use get_max_loop_niter.
+	* tree-flow.h (struct tree_niter_desc): Removed additional_info field.
+	(select_condition_shape): Declaration changed.
+	(loop_iterations_at_most_p, condition_holds_in_loop_p,
+	get_max_loop_niter, record_niter_bound, record_nonwrapping_iv): Declare.
+	* tree-ssa-address.c (most_expensive_mult_to_index): Use new calling
+	conventions of double_int functions.
+	* tree-ssa-loop-endcond.c (modify_to_compare_with_zero,
+	may_wrap_around_type_range_p, select_condition_shape,
+	endcond_candidate_cost, best_endcond_candidate_cost): Use information
+	about bounds on # of iterations.
+	(try_removing_addition_from_bound): Removed.
+	* tree-ssa-loop-ivopts.c (decl_rtl_to_reset): Removed.
+	(tree_ssa_iv_optimize_init, free_loop_data,
+	tree_ssa_iv_optimize_finalize): Do not set decl_rtl_to_reset.
+	(produce_memory_decl_rtl, prepare_decl_rtl, computation_cost): Removed.
+	(integer_cost, fixed_address_cost): New functions.
+	(force_expr_to_var_cost): Do not use computation_cost.
+	(niter_for_exit): Expand simple operations in # of iterations.
+	(get_computation_aff, (aff_combination_cost,
+	aff_combination_cost_address, get_computation_cost_at): Use new calling
+	conventions of double_int functions.
+	(may_eliminate_iv): Pass loop to select_condition_shape.
+	* tree-ssa-loop-niter.c: Include tree-affine.h.
+	(number_of_iterations_special, simplify_using_initial_conditions,
+	number_of_iterations_exit): Do not set additional_info field.
+	(struct iv_no_overflow): New.
+	(record_estimate, compute_estimated_nb_iterations): Replaced by ...
+	(record_niter_bound, record_nonwrapping_iv): ... new functions.
+	(nonnegative_in_loop_p, derive_integral_bound, nonwrapping_due_to,
+	in_nonwrapping_ivs_list_p): New functions.
+	(infer_loop_bounds_from_array): Use record_nonwrapping_iv.
+	(infer_loop_bounds_from_signedness): New function.
+	(infer_loop_bounds_from_undefined): Split some code to
+	infer_loop_bounds_from_signedness.
+	(estimate_numbers_of_iterations_loop): Set state of # of iterations
+	estimation.
+	(stmt_dominates_stmt_p): Removed.
+	(proved_non_wrapping_p): Replaced with ...
+	(loop_iterations_at_most_p): ... new function.
+	(convert_step_widening, scev_probably_wraps_p): Use
+	in_nonwrapping_ivs_list_p and loop_iterations_at_most_p.
+	(free_numbers_of_iterations_estimates_loop, substitute_in_loop_info):
+	Modified.
+	(condition_holds_in_loop_p, get_max_loop_niter): New functions.
+
+	* testsuite/gcc.dg/tree-ssa/loop-13.c: New test.
+
 2005-09-20  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* Makefile.in (loop-iv.o): Add HASHTAB_H dependency.

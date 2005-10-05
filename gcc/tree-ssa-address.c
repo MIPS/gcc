@@ -395,10 +395,10 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
 
   for (i = 0; i < addr->n; i++)
     {
-      if (!double_int_fits_in_hwi_p (addr, addr->coefs[i]))
+      if (!double_int_fits_in_hwi_p (addr->mask, addr->coefs[i]))
 	continue;
 
-      coef = double_int_to_hwi (addr, addr->coefs[i]);
+      coef = double_int_to_hwi (addr->mask, addr->coefs[i]);
       if (coef == 1
 	  || !multiplier_allowed_in_address_p (coef))
 	continue;
@@ -419,7 +419,7 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
   for (i = j = 0; i < addr->n; i++)
     {
       amult = addr->coefs[i];
-      amult_neg = double_int_negate (addr, amult);
+      amult_neg = double_int_negate (addr->mask, amult);
 
       if (double_int_equal_p (amult, best_mult))
 	op_code = PLUS_EXPR;
