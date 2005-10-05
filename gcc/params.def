@@ -349,6 +349,12 @@ DEFPARAM(PARAM_MIN_CROSSJUMP_INSNS,
      "The minimum number of matching instructions to consider for crossjumping",
      5, 0, 0)
 
+/* The maximum number expansion factor when copying basic blocks.  */
+DEFPARAM(PARAM_MAX_GROW_COPY_BB_INSNS,
+     "max-grow-copy-bb-insns",
+     "The maximum expansion factor when copying basic blocks",
+     8, 0, 0)
+
 /* The maximum number of insns to duplicate when unfactoring computed gotos.  */
 DEFPARAM(PARAM_MAX_GOTO_DUPLICATION_INSNS,
      "max-goto-duplication-insns",
@@ -397,6 +403,11 @@ DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
  	 "scev-max-expr-size",
 	 "Bound on size of expressions used in the scalar evolutions analyzer",
 	 20, 0, 0)
+
+DEFPARAM(PARAM_VECT_MAX_VERSION_CHECKS,
+         "vect-max-version-checks",
+         "Bound on number of runtime checks inserted by the vectorizer's loop versioning",
+         6, 0, 0)
 
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */

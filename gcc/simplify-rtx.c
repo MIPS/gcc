@@ -209,6 +209,14 @@ avoid_constant_pool_reference (rtx x)
 
   return x;
 }
+
+/* Return true if X is a MEM referencing the constant pool.  */
+
+bool
+constant_pool_reference_p (rtx x)
+{
+  return avoid_constant_pool_reference (x) != x;
+}
 
 /* Make a unary operation by first seeing if it folds and otherwise making
    the specified operation.  */
@@ -1653,7 +1661,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  && ((INTVAL (trueop1) & GET_MODE_MASK (mode))
 	      == GET_MODE_MASK (mode)))
 	return simplify_gen_unary (NOT, mode, op0, mode);
-      if (trueop0 == trueop1
+      if (rtx_equal_p (trueop0, trueop1)
 	  && ! side_effects_p (op0)
 	  && GET_MODE_CLASS (mode) != MODE_CC)
 	 return CONST0_RTX (mode);
@@ -1688,7 +1696,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	  && (nonzero_bits (trueop0, mode) & ~INTVAL (trueop1)) == 0)
 	return op0;
-      if (trueop0 == trueop1 && ! side_effects_p (op0)
+      if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0)
 	  && GET_MODE_CLASS (mode) != MODE_CC)
 	return op0;
       /* A & (~A) -> 0 */
@@ -3735,8 +3743,10 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 	       know why.  */
 	    if (elem_bitsize <= HOST_BITS_PER_WIDE_INT)
 	      elems[elem] = gen_int_mode (lo, outer_submode);
-	    else
+	    else if (elem_bitsize <= 2 * HOST_BITS_PER_WIDE_INT)
 	      elems[elem] = immed_double_const (lo, hi, outer_submode);
+	    else
+	      return NULL_RTX;
 	  }
 	  break;
       

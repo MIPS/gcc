@@ -200,35 +200,9 @@ convert_to_real (tree type, tree expr)
 	  break;
 	}
     }
-  if (optimize
-      && (((fcode == BUILT_IN_FLOORL
-	   || fcode == BUILT_IN_CEILL
-	   || fcode == BUILT_IN_ROUNDL
-	   || fcode == BUILT_IN_RINTL
-	   || fcode == BUILT_IN_TRUNCL
-	   || fcode == BUILT_IN_NEARBYINTL)
-	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
-	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
-	  || ((fcode == BUILT_IN_FLOOR
-	       || fcode == BUILT_IN_CEIL
-	       || fcode == BUILT_IN_ROUND
-	       || fcode == BUILT_IN_RINT
-	       || fcode == BUILT_IN_TRUNC
-	       || fcode == BUILT_IN_NEARBYINT)
-	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
-    {
-      tree fn = mathfn_built_in (type, fcode);
-
-      if (fn)
-	{
-	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
-									1)));
-	  tree arglist = build_tree_list (NULL_TREE,
-					  fold (convert_to_real (type, arg0)));
-
-	  return build_function_call_expr (fn, arglist);
-	}
-    }
+  /* This code formerly changed (float)floor(double d) to
+     floorf((float)d).  This is incorrect, because (float)d uses
+     round-to-nearest and can round up to the next integer. */
 
   /* Propagate the cast into the operation.  */
   if (itype != type && FLOAT_TYPE_P (type))
@@ -620,30 +594,18 @@ convert_to_integer (tree type, tree expr)
 	  /* This is not correct for ABS_EXPR,
 	     since we must test the sign before truncation.  */
 	  {
-	    tree typex = type;
+	    tree typex;
 
-	    /* Can't do arithmetic in enumeral types
-	       so use an integer type that will hold the values.  */
-	    if (TREE_CODE (typex) == ENUMERAL_TYPE)
-	      typex = lang_hooks.types.type_for_size
-		(TYPE_PRECISION (typex), TYPE_UNSIGNED (typex));
-
-	    /* But now perhaps TYPEX is as wide as INPREC.
-	       In that case, do nothing special here.
-	       (Otherwise would recurse infinitely in convert.  */
-	    if (TYPE_PRECISION (typex) != inprec)
-	      {
-		/* Don't do unsigned arithmetic where signed was wanted,
-		   or vice versa.  */
-		if (TYPE_UNSIGNED (TREE_TYPE (expr)))
-		  typex = lang_hooks.types.unsigned_type (typex);
-		else
-		  typex = lang_hooks.types.signed_type (typex);
-		return convert (type,
-				fold_build1 (ex_form, typex,
-					     convert (typex,
-						      TREE_OPERAND (expr, 0))));
-	      }
+	    /* Don't do unsigned arithmetic where signed was wanted,
+	       or vice versa.  */
+	    if (TYPE_UNSIGNED (TREE_TYPE (expr)))
+	      typex = lang_hooks.types.unsigned_type (type);
+	    else
+	      typex = lang_hooks.types.signed_type (type);
+	    return convert (type,
+			    fold_build1 (ex_form, typex,
+					 convert (typex,
+						  TREE_OPERAND (expr, 0))));
 	  }
 
 	case NOP_EXPR:

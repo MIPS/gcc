@@ -29,6 +29,7 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
+#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 #include <float.h>
@@ -79,20 +80,40 @@ extract_int (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = *((const GFC_INTEGER_1 *) p);
+      {
+	GFC_INTEGER_1 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 2:
-      i = *((const GFC_INTEGER_2 *) p);
+      {
+	GFC_INTEGER_2 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 4:
-      i = *((const GFC_INTEGER_4 *) p);
+      {
+	GFC_INTEGER_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 8:
-      i = *((const GFC_INTEGER_8 *) p);
+      {
+	GFC_INTEGER_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      i = *((const GFC_INTEGER_16 *) p);
+      {
+	GFC_INTEGER_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
     default:
@@ -113,20 +134,40 @@ extract_uint (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = (GFC_UINTEGER_1) *((const GFC_INTEGER_1 *) p);
+      {
+	GFC_INTEGER_1 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_1) tmp;
+      }
       break;
     case 2:
-      i = (GFC_UINTEGER_2) *((const GFC_INTEGER_2 *) p);
+      {
+	GFC_INTEGER_2 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_2) tmp;
+      }
       break;
     case 4:
-      i = (GFC_UINTEGER_4) *((const GFC_INTEGER_4 *) p);
+      {
+	GFC_INTEGER_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_4) tmp;
+      }
       break;
     case 8:
-      i = (GFC_UINTEGER_8) *((const GFC_INTEGER_8 *) p);
+      {
+	GFC_INTEGER_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_8) tmp;
+      }
       break;
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      i = (GFC_UINTEGER_16) *((const GFC_INTEGER_16 *) p);
+      {
+	GFC_INTEGER_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_16) tmp;
+      }
       break;
 #endif
     default:
@@ -143,19 +184,35 @@ extract_real (const void *p, int len)
   switch (len)
     {
     case 4:
-      i = *((const GFC_REAL_4 *) p);
+      {
+	GFC_REAL_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 8:
-      i = *((const GFC_REAL_8 *) p);
+      {
+	GFC_REAL_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #ifdef HAVE_GFC_REAL_10
     case 10:
-      i = *((const GFC_REAL_10 *) p);
+      {
+	GFC_REAL_10 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
 #ifdef HAVE_GFC_REAL_16
     case 16:
-      i = *((const GFC_REAL_16 *) p);
+      {
+	GFC_REAL_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
     default:
@@ -765,9 +822,6 @@ write_float (fnode *f, const char *source, int len)
 
   if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
     {
-      /* TODO: there are some systems where isfinite is not able to work
-               with long double variables. We should detect this case and
-	       provide our own version for isfinite.  */
       res = isfinite (n); 
       if (res == 0)
 	{
@@ -857,11 +911,13 @@ write_float (fnode *f, const char *source, int len)
 
 static void
 write_int (fnode *f, const char *source, int len,
-           char *(*conv) (GFC_UINTEGER_LARGEST))
+           const char *(*conv) (GFC_UINTEGER_LARGEST, char *, size_t))
 {
   GFC_UINTEGER_LARGEST n = 0;
   int w, m, digits, nzero, nblank;
-  char *p, *q;
+  char *p;
+  const char *q;
+  char itoa_buf[GFC_BTOA_BUF_SIZE];
 
   w = f->u.integer.w;
   m = f->u.integer.m;
@@ -883,7 +939,7 @@ write_int (fnode *f, const char *source, int len,
       goto done;
     }
 
-  q = conv (n);
+  q = conv (n, itoa_buf, sizeof (itoa_buf));
   digits = strlen (q);
 
   /* Select a width if none was specified.  The idea here is to always
@@ -935,12 +991,14 @@ write_int (fnode *f, const char *source, int len,
 
 static void
 write_decimal (fnode *f, const char *source, int len,
-               char *(*conv) (GFC_INTEGER_LARGEST))
+               const char *(*conv) (GFC_INTEGER_LARGEST, char *, size_t))
 {
   GFC_INTEGER_LARGEST n = 0;
   int w, m, digits, nsign, nzero, nblank;
-  char *p, *q;
+  char *p;
+  const char *q;
   sign_t sign;
+  char itoa_buf[GFC_BTOA_BUF_SIZE];
 
   w = f->u.integer.w;
   m = f->u.integer.m;
@@ -967,7 +1025,7 @@ write_decimal (fnode *f, const char *source, int len,
     n = -n;
 
   nsign = sign == SIGN_NONE ? 0 : 1;
-  q = conv (n);
+  q = conv (n, itoa_buf, sizeof (itoa_buf));
 
   digits = strlen (q);
 
@@ -1022,56 +1080,51 @@ write_decimal (fnode *f, const char *source, int len,
 
 /* Convert unsigned octal to ascii.  */
 
-static char *
-otoa (GFC_UINTEGER_LARGEST n)
+static const char *
+otoa (GFC_UINTEGER_LARGEST n, char *buffer, size_t len)
 {
   char *p;
 
-  if (n == 0)
-    {
-      scratch[0] = '0';
-      scratch[1] = '\0';
-      return scratch;
-    }
+  assert (len >= GFC_OTOA_BUF_SIZE);
 
-  p = scratch + SCRATCH_SIZE - 1;
-  *p-- = '\0';
+  if (n == 0)
+    return "0";
+
+  p = buffer + GFC_OTOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (n != 0)
     {
-      *p = '0' + (n & 7);
-      p--;
+      *--p = '0' + (n & 7);
       n >>= 3;
     }
 
-  return ++p;
+  return p;
 }
 
 
 /* Convert unsigned binary to ascii.  */
 
-static char *
-btoa (GFC_UINTEGER_LARGEST n)
+static const char *
+btoa (GFC_UINTEGER_LARGEST n, char *buffer, size_t len)
 {
   char *p;
 
-  if (n == 0)
-    {
-      scratch[0] = '0';
-      scratch[1] = '\0';
-      return scratch;
-    }
+  assert (len >= GFC_BTOA_BUF_SIZE);
 
-  p = scratch + SCRATCH_SIZE - 1;
-  *p-- = '\0';
+  if (n == 0)
+    return "0";
+
+  p = buffer + GFC_BTOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (n != 0)
     {
-      *p-- = '0' + (n & 1);
+      *--p = '0' + (n & 1);
       n >>= 1;
     }
 
-  return ++p;
+  return p;
 }
 
 
@@ -1192,8 +1245,9 @@ write_integer (const char *source, int length)
   const char *q;
   int digits;
   int width;
+  char itoa_buf[GFC_ITOA_BUF_SIZE];
 
-  q = gfc_itoa (extract_int (source, length));
+  q = gfc_itoa (extract_int (source, length), itoa_buf, sizeof (itoa_buf));
 
   switch (length)
     {
@@ -1367,8 +1421,8 @@ write_separator (void)
    TODO: handle skipping to the next record correctly, particularly
    with strings.  */
 
-void
-list_formatted_write (bt type, void *p, int len)
+static void
+list_formatted_write_scalar (bt type, void *p, int len)
 {
   static int char_flag;
 
@@ -1410,6 +1464,29 @@ list_formatted_write (bt type, void *p, int len)
     }
 
   char_flag = (type == BT_CHARACTER);
+}
+
+
+void
+list_formatted_write (bt type, void *p, int len, size_t nelems)
+{
+  size_t elem;
+  int size;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  if (type == BT_COMPLEX)
+    size = 2 * len;
+  else
+    size = len;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      g.item_count++;
+      list_formatted_write_scalar (type, tmp + size*elem, len);
+    }
 }
 
 /*			NAMELIST OUTPUT

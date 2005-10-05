@@ -344,6 +344,7 @@ AR_FOR_TARGET := $(shell \
 AR_FLAGS_FOR_TARGET =
 AR_CREATE_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) rc
 AR_EXTRACT_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) x
+LIPO_FOR_TARGET = lipo
 ORIGINAL_AS_FOR_TARGET = @ORIGINAL_AS_FOR_TARGET@
 RANLIB_FOR_TARGET := $(shell \
   if [ -f $(objdir)/../binutils/ranlib ] ; then \
@@ -358,6 +359,16 @@ RANLIB_FOR_TARGET := $(shell \
 ORIGINAL_LD_FOR_TARGET = @ORIGINAL_LD_FOR_TARGET@
 ORIGINAL_NM_FOR_TARGET = @ORIGINAL_NM_FOR_TARGET@
 NM_FOR_TARGET = ./nm
+STRIP_FOR_TARGET := $(shell \
+  if [ -f $(objdir)/../binutils/strip ] ; then \
+    echo $(objdir)/../binutils/strip ; \
+  else \
+    if [ "$(host)" = "$(target)" ] ; then \
+      echo strip; \
+    else \
+       t='$(program_transform_name)'; echo strip | sed -e $$t ; \
+    fi; \
+  fi)
 
 # --------
 # UNSORTED
@@ -767,7 +778,7 @@ TREE_SSA_LIVE_H = tree-ssa-live.h $(PARTITION_H)
 PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
 C_PRETTY_PRINT_H = c-pretty-print.h $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
-SCEV_H = tree-scalar-evolution.h $(GGC_H) tree-chrec.h
+SCEV_H = tree-scalar-evolution.h $(GGC_H) tree-chrec.h $(PARAMS_H)
 LAMBDA_H = lambda.h tree.h vec.h $(GGC_H)
 TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H)
 VARRAY_H = varray.h $(MACHMODE_H) $(SYSTEM_H) coretypes.h $(TM_H)
@@ -863,8 +874,10 @@ export INCLUDES
 export INSTALL_DATA
 export LIB1ASMSRC
 export LIBGCC2_CFLAGS
+export LIPO_FOR_TARGET
 export MACHMODE_H
 export NM_FOR_TARGET
+export STRIP_FOR_TARGET
 export RANLIB_FOR_TARGET
 export libsubdir
 export slibdir
@@ -1350,7 +1363,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) specs \
 # All the things that might cause us to want to recompile bits of libgcc.
 LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
 	libgcc.mk $(srcdir)/libgcc2.c $(srcdir)/libgcov.c $(TCONFIG_H) \
-	$(MACHMODE_H) longlong.h gbl-ctors.h config.status \
+	$(MACHMODE_H) longlong.h gbl-ctors.h config.status $(srcdir)/libgcc2.h \
 	tsystem.h $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
 	$(LIB2ADD_ST) $(LIB2ADDEH) $(LIB2ADDEHDEP) $(EXTRA_PARTS) \
 	$(srcdir)/config/$(LIB1ASMSRC) \
@@ -1957,8 +1970,8 @@ tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) tree-inline.h $(DIAGNOSTIC_H) $(HASHTAB_H) \
    $(TM_H) coretypes.h
 tree-chrec.o: tree-chrec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(GGC_H) $(TREE_H) real.h tree-chrec.h tree-pass.h $(PARAMS_H) \
-   $(DIAGNOSTIC_H) $(VARRAY_H) $(CFGLOOP_H) $(TREE_FLOW_H)
+   $(GGC_H) $(TREE_H) real.h $(SCEV_H) tree-pass.h $(PARAMS_H) \
+   $(DIAGNOSTIC_H) $(VARRAY_H) $(CFGLOOP_H) $(TREE_FLOW_H) tree-affine.h
 tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(GGC_H) $(TREE_H) real.h $(RTL_H) \
    $(BASIC_BLOCK_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) \
@@ -1972,7 +1985,7 @@ tree-vect-analyze.o: tree-vect-analyze.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
    tree-vectorizer.h $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H) tree-chrec.h
 tree-vect-transform.o: tree-vect-transform.c $(CONFIG_H) $(SYSTEM_H) \
-   coretypes.h $(TM_H) $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) \
+   coretypes.h $(TM_H) $(GGC_H) $(OPTABS_H) $(RECOG_H) $(TREE_H) $(RTL_H) \
    $(BASIC_BLOCK_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) \
    $(TIMEVAR_H) $(CFGLOOP_H) $(TARGET_H) tree-pass.h $(EXPR_H) \
    tree-vectorizer.h $(TREE_DATA_REF_H) $(SCEV_H) langhooks.h toplev.h \
@@ -2116,10 +2129,10 @@ optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) insn-config.h $(EXPR_H) $(OPTABS_H) libfuncs.h \
    $(RECOG_H) reload.h toplev.h $(GGC_H) real.h $(TM_P_H) except.h \
    gt-optabs.h $(BASIC_BLOCK_H) $(TARGET_H) function.h
-dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
-   $(FLAGS_H) $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h langhooks.h \
-   insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h \
-   $(GGC_H) $(OBSTACK_H) gt-dbxout.h
+dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+   $(RTL_H) $(FLAGS_H) $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h \
+   langhooks.h insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h \
+   toplev.h $(GGC_H) $(OBSTACK_H) $(EXPR_H) gt-dbxout.h
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) debug.h \
    $(TREE_H) $(GGC_H) $(RTL_H) $(REGS_H) $(FLAGS_H) insn-config.h \
@@ -4297,6 +4310,9 @@ stage1-start:
 	 do \
 	   if [ -d stage1/$$dir ] ; then true ; else mkdir stage1/$$dir ; fi ; \
 	 done
+	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
+	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage1/specs
 	-mv $(STAGEMOVESTUFF) stage1
@@ -4307,9 +4323,6 @@ stage1-start:
 	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
-	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-cp libgcov.a stage1
@@ -4336,6 +4349,9 @@ stage2-start:
 	 do \
 	   if [ -d stage2/$$dir ] ; then true ; else mkdir stage2/$$dir ; fi ; \
 	 done
+	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
+	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage2/specs
 	-mv $(STAGEMOVESTUFF) stage2
@@ -4346,9 +4362,6 @@ stage2-start:
 	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
-	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-cp libgcov.a stage2
@@ -4371,6 +4384,9 @@ stage3-start:
 	 do \
 	   if [ -d stage3/$$dir ] ; then true ; else mkdir stage3/$$dir ; fi ; \
 	 done
+	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
+	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage3/specs
 	-mv $(STAGEMOVESTUFF) stage3
@@ -4381,9 +4397,6 @@ stage3-start:
 	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
-	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-cp libgcov.a stage3
@@ -4406,6 +4419,9 @@ stage4-start:
 	 do \
 	   if [ -d stage4/$$dir ] ; then true ; else mkdir stage4/$$dir ; fi ; \
 	 done
+	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
+	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage4/specs
 	-mv $(STAGEMOVESTUFF) stage4
@@ -4416,9 +4432,6 @@ stage4-start:
 	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
-	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-cp libgcov.a stage4
@@ -4441,6 +4454,9 @@ stageprofile-start:
 	 do \
 	   if [ -d stageprofile/$$dir ] ; then true ; else mkdir stageprofile/$$dir ; fi ; \
 	 done
+	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
+	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
+	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
 	-mv $(STAGEMOVESTUFF) stageprofile
 	-mv build/* stageprofile/build
 	-cp -p $(STAGECOPYSTUFF) stageprofile
@@ -4449,9 +4465,6 @@ stageprofile-start:
 	-if [ -f as$(exeext) ] ; then (cd stageprofile && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
-	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
-	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stageprofile
 	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
 	-cp libgcov.a stageprofile
@@ -4474,6 +4487,10 @@ stagefeedback-start:
 	 do \
 	   if [ -d stagefeedback/$$dir ] ; then true ; else mkdir stagefeedback/$$dir ; fi ; \
 	 done
+	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
+	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
+	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
+	-rm -f *.da
 	-mv $(STAGEMOVESTUFF) stagefeedback
 	-mv build/* stagefeedback/build
 	-cp -p $(STAGECOPYSTUFF) stagefeedback
@@ -4482,10 +4499,6 @@ stagefeedback-start:
 	-if [ -f as$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
-	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
-	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
-	-rm -f *.da
 	-for dir in fixinc po testsuite $(SUBDIRS); \
 	 do \
 	   rm -f $$dir/*.da ; \

@@ -158,8 +158,12 @@ lvalue_p_1 (tree ref,
     case TARGET_EXPR:
       return treat_class_rvalues_as_lvalues ? clk_class : clk_none;
 
-    case CALL_EXPR:
     case VA_ARG_EXPR:
+      return (treat_class_rvalues_as_lvalues
+	      && CLASS_TYPE_P (TREE_TYPE (ref))
+	      ? clk_class : clk_none);
+
+    case CALL_EXPR:
       /* Any class-valued call would be wrapped in a TARGET_EXPR.  */
       return clk_none;
 
@@ -363,6 +367,26 @@ tree
 get_target_expr (tree init)
 {
   return build_target_expr_with_type (init, TREE_TYPE (init));
+}
+
+/* EXPR is being used in an rvalue context.  Return a version of EXPR
+   that is marked as an rvalue.  */
+
+tree
+rvalue (tree expr)
+{
+  tree type;
+  if (real_lvalue_p (expr))
+    {
+      type = TREE_TYPE (expr);
+      /* [basic.lval]
+	 
+         Non-class rvalues always have cv-unqualified types.  */
+      if (!CLASS_TYPE_P (type))
+	type = TYPE_MAIN_VARIANT (type);
+      expr = build1 (NON_LVALUE_EXPR, type, expr);
+    }
+  return expr;
 }
 
 

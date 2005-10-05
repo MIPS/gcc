@@ -78,6 +78,9 @@ export_proto(transfer_character);
 extern void transfer_complex (void *, int);
 export_proto(transfer_complex);
 
+extern void transfer_array (gfc_array_char *, gfc_charlen_type);
+export_proto(transfer_array);
+
 gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
 static int eor_condition = 0;
@@ -94,14 +97,14 @@ static char *line_buffer = NULL;
 
 static unit_advance advance_status;
 
-static st_option advance_opt[] = {
+static const st_option advance_opt[] = {
   {"yes", ADVANCE_YES},
   {"no", ADVANCE_NO},
   {NULL, 0}
 };
 
 
-static void (*transfer) (bt, void *, int);
+static void (*transfer) (bt, void *, int, size_t);
 
 
 typedef enum
@@ -292,14 +295,14 @@ void *
 write_block (int length)
 {
   char *dest;
-
-  if (!is_internal_unit() && current_unit->bytes_left < length)
+  
+  if (current_unit->bytes_left < length)
     {
       generate_error (ERROR_EOR, NULL);
       return NULL;
     }
 
-  current_unit->bytes_left -= length;
+  current_unit->bytes_left -= (gfc_offset)length;
   dest = salloc_w (current_unit->s, &length);
 
   if (ioparm.size != NULL)
@@ -312,10 +315,12 @@ write_block (int length)
 /* Master function for unformatted reads.  */
 
 static void
-unformatted_read (bt type, void *dest, int length)
+unformatted_read (bt type, void *dest, int length, size_t nelems)
 {
   void *source;
   int w;
+
+  length *= nelems;
 
   /* Transfer functions get passed the kind of the entity, so we have
      to fix this for COMPLEX data which are twice the size of their
@@ -337,17 +342,20 @@ unformatted_read (bt type, void *dest, int length)
 /* Master function for unformatted writes.  */
 
 static void
-unformatted_write (bt type, void *source, int length)
+unformatted_write (bt type, void *source, int length, size_t nelems)
 {
   void *dest;
+  size_t len;
+
+  len = length * nelems;
 
   /* Correction for kind vs. length as in unformatted_read.  */
   if (type == BT_COMPLEX)
-    length *= 2;
+    len *= 2;
 
-  dest = write_block (length);
+  dest = write_block (len);
   if (dest != NULL)
-    memcpy (dest, source, length);
+    memcpy (dest, source, len);
 }
 
 
@@ -442,7 +450,7 @@ require_type (bt expected, bt actual, fnode * f)
    of the next element, then comes back here to process it.  */
 
 static void
-formatted_transfer (bt type, void *p, int len)
+formatted_transfer_scalar (bt type, void *p, int len)
 {
   int pos, bytes_used;
   fnode *f;
@@ -705,7 +713,7 @@ formatted_transfer (bt type, void *p, int len)
 	  /* Writes occur just before the switch on f->format, above, so that
 	     trailing blanks are suppressed.  */
 	  if (g.mode == READING)
-	    read_x (f);
+	    read_x (f->u.n);
 
 	  break;
 
@@ -736,10 +744,7 @@ formatted_transfer (bt type, void *p, int len)
 	  if (g.mode == READING)
 	    {
 	      if (skips > 0)
-		{
-		  f->u.n = skips;
-		  read_x (f);
-		}
+		read_x (skips);
 	      if (skips < 0)
 		{
 		  move_pos_offset (current_unit->s, skips);
@@ -840,6 +845,29 @@ formatted_transfer (bt type, void *p, int len)
   unget_format (f);
 }
 
+static void
+formatted_transfer (bt type, void *p, int len, size_t nelems)
+{
+  size_t elem;
+  int  size;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  if (type == BT_COMPLEX)
+    size = 2 * len;
+  else
+    size = len;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      g.item_count++;
+      formatted_transfer_scalar (type, tmp + size*elem, len);
+    }
+}
+
+
 
 /* Data transfer entry points.  The type of the data entity is
    implicit in the subroutine call.  This prevents us from having to
@@ -848,50 +876,153 @@ formatted_transfer (bt type, void *p, int len)
 void
 transfer_integer (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_INTEGER, p, kind);
+  transfer (BT_INTEGER, p, kind, 1);
 }
 
 
 void
 transfer_real (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_REAL, p, kind);
+  transfer (BT_REAL, p, kind, 1);
 }
 
 
 void
 transfer_logical (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_LOGICAL, p, kind);
+  transfer (BT_LOGICAL, p, kind, 1);
 }
 
 
 void
 transfer_character (void *p, int len)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_CHARACTER, p, len);
+  transfer (BT_CHARACTER, p, len, 1);
 }
 
 
 void
 transfer_complex (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_COMPLEX, p, kind);
+  transfer (BT_COMPLEX, p, kind, 1);
+}
+
+
+void
+transfer_array (gfc_array_char *desc, gfc_charlen_type charlen)
+{
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
+  index_type stride0, rank, size, type, n, kind;
+  size_t tsize;
+  char *data;
+  bt iotype;
+
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
+
+  type = GFC_DESCRIPTOR_TYPE (desc);
+  size = GFC_DESCRIPTOR_SIZE (desc);
+  kind = size;
+
+  /* FIXME: What a kludge: Array descriptors and the IO library use
+     different enums for types.  */
+  switch (type)
+    {
+    case GFC_DTYPE_UNKNOWN:
+      iotype = BT_NULL;  /* Is this correct?  */
+      break;
+    case GFC_DTYPE_INTEGER:
+      iotype = BT_INTEGER;
+      break;
+    case GFC_DTYPE_LOGICAL:
+      iotype = BT_LOGICAL;
+      break;
+    case GFC_DTYPE_REAL:
+      iotype = BT_REAL;
+      break;
+    case GFC_DTYPE_COMPLEX:
+      iotype = BT_COMPLEX;
+      kind /= 2;
+      break;
+    case GFC_DTYPE_CHARACTER:
+      iotype = BT_CHARACTER;
+      /* FIXME: Currently dtype contains the charlen, which is
+	 clobbered if charlen > 2**24. That's why we use a separate
+	 argument for the charlen. However, if we want to support
+	 non-8-bit charsets we need to fix dtype to contain
+	 sizeof(chartype) and fix the code below.  */
+      size = charlen;
+      kind = charlen;
+      break;
+    case GFC_DTYPE_DERIVED:
+      internal_error ("Derived type I/O should have been handled via the frontend.");
+      break;
+    default:
+      internal_error ("transfer_array(): Bad type");
+    }
+
+  if (desc->dim[0].stride == 0)
+    desc->dim[0].stride = 1;
+
+  rank = GFC_DESCRIPTOR_RANK (desc);
+  for (n = 0; n < rank; n++)
+    {
+      count[n] = 0;
+      stride[n] = desc->dim[n].stride;
+      extent[n] = desc->dim[n].ubound + 1 - desc->dim[n].lbound;
+
+      /* If the extent of even one dimension is zero, then the entire
+	 array section contains zero elements, so we return.  */
+      if (extent[n] == 0)
+	return;
+    }
+
+  stride0 = stride[0];
+
+  /* If the innermost dimension has stride 1, we can do the transfer
+     in contiguous chunks.  */
+  if (stride0 == 1)
+    tsize = extent[0];
+  else
+    tsize = 1;
+
+  data = GFC_DESCRIPTOR_DATA (desc);
+
+  while (data)
+    {
+      transfer (iotype, data, kind, tsize);
+      data += stride0 * size * tsize;
+      count[0] += tsize;
+      n = 0;
+      while (count[n] == extent[n])
+	{
+	  count[n] = 0;
+	  data -= stride[n] * extent[n] * size;
+	  n++;
+	  if (n == rank)
+	    {
+	      data = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      data += stride[n] * size;
+	    }
+	}
+    }
 }
 
 
@@ -1024,15 +1155,6 @@ data_transfer_init (int read_flag)
   if (current_unit == NULL)
     return;
 
-  if (is_internal_unit())
-    {
-      current_unit->recl = file_length(current_unit->s);
-      if (g.mode==WRITING)
-        empty_internal_buffer (current_unit->s);
-      else
-        current_unit->bytes_left = current_unit->recl;	
-    }
-
   /* Check the action.  */
 
   if (read_flag && current_unit->flags.action == ACTION_WRITE)
@@ -1163,17 +1285,30 @@ data_transfer_init (int read_flag)
       if (g.mode == READING && current_unit->mode  == WRITING)
 	 flush(current_unit->s);
 
+      /* Check whether the record exists to be read.  Only
+	 a partial record needs to exist.  */
+
+      if (g.mode == READING && (ioparm.rec -1)
+	  * current_unit->recl >= file_length (current_unit->s))
+	{
+	  generate_error (ERROR_BAD_OPTION, "Non-existing record number");
+	  return;
+	}
+
       /* Position the file.  */
       if (sseek (current_unit->s,
 	       (ioparm.rec - 1) * current_unit->recl) == FAILURE)
-	generate_error (ERROR_OS, NULL);
+	{
+	  generate_error (ERROR_OS, NULL);
+	  return;
+	}
     }
 
   /* Overwriting an existing sequential file ?
      it is always safe to truncate the file on the first write */
   if (g.mode == WRITING
       && current_unit->flags.access == ACCESS_SEQUENTIAL
-      && current_unit->last_record == 0)
+      && current_unit->last_record == 0 && !is_preconnected(current_unit->s))
 	struncate(current_unit->s);
 
   current_unit->mode = g.mode;
@@ -1244,7 +1379,7 @@ data_transfer_init (int read_flag)
   /* Start the data transfer if we are doing a formatted transfer.  */
   if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
       && ioparm.namelist_name == NULL && ionml == NULL)
-    formatted_transfer (0, NULL, 0);
+    formatted_transfer (0, NULL, 0, 1);
 }
 
 
@@ -1257,7 +1392,7 @@ data_transfer_init (int read_flag)
 static void
 next_record_r (void)
 {
-  int rlength, length;
+  int rlength, length, bytes_left;
   gfc_offset new;
   char *p;
 
@@ -1311,15 +1446,17 @@ next_record_r (void)
 	  break;
 	}
 
-      do
+      if (is_internal_unit())
+	{
+	  bytes_left = (int) current_unit->bytes_left;
+	  p = salloc_r (current_unit->s, &bytes_left);
+	  if (p != NULL)
+	    current_unit->bytes_left = current_unit->recl;
+	  break;
+	}
+      else do
 	{
 	  p = salloc_r (current_unit->s, &length);
-
-	  /* In case of internal file, there may not be any '\n'.  */
-	  if (is_internal_unit() && p == NULL)
-	    {
-	       break;
-	    }
 
 	  if (p == NULL)
 	    {
@@ -1349,7 +1486,7 @@ static void
 next_record_w (void)
 {
   gfc_offset c, m;
-  int length;
+  int length, bytes_left;
   char *p;
 
   /* Zero counters for X- and T-editing.  */
@@ -1412,19 +1549,48 @@ next_record_w (void)
       break;
 
     case FORMATTED_SEQUENTIAL:
-      length = 1;
-      p = salloc_w (current_unit->s, &length);
 
-      if (!is_internal_unit())
+      if (current_unit->bytes_left == 0)
+	break;
+	
+      if (is_internal_unit())
 	{
+	  if (is_array_io())
+	    {
+	      bytes_left = (int) current_unit->bytes_left;
+	      p = salloc_w (current_unit->s, &bytes_left);
+	      if (p != NULL)
+		{
+		  memset(p, ' ', bytes_left);
+	          current_unit->bytes_left = current_unit->recl;
+		}
+	    }
+	  else
+	    {
+	      length = 1;
+	      p = salloc_w (current_unit->s, &length);
+	    }
+ 	}
+      else
+	{
+#ifdef HAVE_CRLF
+	  length = 2;
+#else
+	  length = 1;
+#endif
+	  p = salloc_w (current_unit->s, &length);
 	  if (p)
-	    *p = '\n'; /* No CR for internal writes.  */
+	    {  /* No new line for internal writes.  */
+#ifdef HAVE_CRLF
+	      p[0] = '\r';
+	      p[1] = '\n';
+#else
+	      *p = '\n';
+#endif
+	    }
 	  else
 	    goto io_error;
 	}
-
-      if (sfree (current_unit->s) == FAILURE)
-	goto io_error;
 
       break;
 
@@ -1536,15 +1702,15 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type , void *dest __attribute__ ((unused)),
-		   int len)
+iolength_transfer (bt type, void *dest __attribute__ ((unused)),
+		   int len, size_t nelems)
 {
   if (ioparm.iolength != NULL)
     {
       if (type == BT_COMPLEX)
-	*ioparm.iolength += 2*len;
+	*ioparm.iolength += 2 * len * nelems;
       else
-	*ioparm.iolength += len;
+	*ioparm.iolength += len * nelems;
     }
 }
 

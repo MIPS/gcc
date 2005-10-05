@@ -38,6 +38,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 #include "params.h"
+#include "tree-scalar-evolution.h"
+#include "tree-affine.h"
 
 
 
@@ -536,7 +538,7 @@ chrec_apply (unsigned var,
       || chrec_contains_symbols (x))
     return chrec_dont_know;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     fprintf (dump_file, "(chrec_apply \n");
 
   if (TREE_CODE (x) == INTEGER_CST && SCALAR_FLOAT_TYPE_P (type))
@@ -566,7 +568,7 @@ chrec_apply (unsigned var,
   else
     res = chrec_dont_know;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_ANALYSIS))
     {
       fprintf (dump_file, "  (varying_loop = %d\n", var);
       fprintf (dump_file, ")\n  (chrec = ");
@@ -934,9 +936,16 @@ evolution_function_is_invariant_rec_p (tree chrec, int loopnum)
 				   chrec))
     return true;
 
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
-      && CHREC_VARIABLE (chrec) == (unsigned) loopnum)
-    return false;
+  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
+    {
+      if (CHREC_VARIABLE (chrec) == (unsigned) loopnum
+	  || !evolution_function_is_invariant_rec_p (CHREC_RIGHT (chrec),
+						     loopnum)
+	  || !evolution_function_is_invariant_rec_p (CHREC_LEFT (chrec),
+						     loopnum))
+	return false;
+      return true;
+    }
 
   switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
     {
@@ -1120,8 +1129,12 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
 
   if (evolution_function_is_affine_p (chrec))
     {
-      tree step;
+      tree base, step;
       bool dummy;
+      struct loop *loop = current_loops->parray[CHREC_VARIABLE (chrec)];
+
+      base = instantiate_parameters (loop, CHREC_LEFT (chrec));
+      step = instantiate_parameters (loop, CHREC_RIGHT (chrec));
 
       /* Avoid conversion of (signed char) {(uchar)1, +, (uchar)1}_x
 	 when it is not possible to prove that the scev does not wrap.
@@ -1130,16 +1143,35 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
 	 1, 2, ..., 127, -128, ...  The result should not be
 	 {(schar)1, +, (schar)1}_x, but instead, we should keep the
 	 conversion: (schar) {(uchar)1, +, (uchar)1}_x.  */
-      if (scev_probably_wraps_p (type, CHREC_LEFT (chrec), CHREC_RIGHT (chrec),
-				 at_stmt,
-				 current_loops->parray[CHREC_VARIABLE (chrec)],
+      if (scev_probably_wraps_p (type, base, step, at_stmt, loop,
 				 &dummy, &dummy))
-	return fold_convert (type, chrec);
+	goto failed_to_convert;
 
-      step = convert_step (current_loops->parray[CHREC_VARIABLE (chrec)], type,
-			   CHREC_LEFT (chrec), CHREC_RIGHT (chrec), at_stmt);
+      step = convert_step (loop, type, base, step, at_stmt);
       if (!step)
- 	return fold_convert (type, chrec);
+ 	{
+	failed_to_convert:;
+	  if (dump_file && (dump_flags & TDF_ANALYSIS))
+	    {
+	      fprintf (dump_file, "(failed conversion:");
+	      fprintf (dump_file, "\n  type: ");
+	      print_generic_expr (dump_file, type, 0);
+	      fprintf (dump_file, "\n  base: ");
+	      print_generic_expr (dump_file, base, 0);
+	      fprintf (dump_file, "\n  step: ");
+	      print_generic_expr (dump_file, step, 0);
+	      if (loop->niter_bounds_state != NBS_NONE
+		  && loop->is_finite)
+		{
+		  fprintf (dump_file, "\n  max_nb_iterations: ");
+		  dump_double_int (dump_file, double_int_all (),
+				   loop->max_nb_iterations, false);
+		}
+	      fprintf (dump_file, "\n)\n");
+	    }
+
+	  return fold_convert (type, chrec);
+	}
 
       return build_polynomial_chrec (CHREC_VARIABLE (chrec),
  				     chrec_convert (type, CHREC_LEFT (chrec),

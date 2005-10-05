@@ -364,7 +364,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
   *-*-darwin*)
-    noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
+    noconfigdirs="$noconfigdirs ld gas gdb gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -496,6 +496,12 @@ case "${target}" in
   avr-*-*)
     noconfigdirs="$noconfigdirs target-libiberty target-libstdc++-v3 ${libgcj}"
     ;;
+  bfin-*-*)
+    noconfigdirs="$noconfigdirs target-libgloss gdb"
+    if [ x${is_cross_compiler} != xno ] ; then
+      target_configdirs="${target_configdirs} target-bsp target-cygmon"
+    fi
+    ;;
   c4x-*-* | tic4x-*-*)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj}"
     ;;
@@ -506,15 +512,15 @@ case "${target}" in
     unsupported_languages="$unsupported_languages java"
     case "${target}" in
       *-*-aout)
-	unsupported_languages="$unsupported_languages f95"
+	unsupported_languages="$unsupported_languages fortran"
 	noconfigdirs="$noconfigdirs target-libffi target-boehm-gc";;
       *-*-elf)
-	unsupported_languages="$unsupported_languages f95"
+	unsupported_languages="$unsupported_languages fortran"
 	noconfigdirs="$noconfigdirs target-boehm-gc";;
       *-*-linux*)
 	noconfigdirs="$noconfigdirs target-newlib target-libgloss";;
       *)
-	unsupported_languages="$unsupported_languages f95"
+	unsupported_languages="$unsupported_languages fortran"
 	noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss";;
     esac
     ;;
@@ -665,7 +671,7 @@ case "${target}" in
     ;;
   mmix-*-*)
     noconfigdirs="$noconfigdirs target-libffi target-boehm-gc gdb libgloss"
-    unsupported_languages="$unsupported_languages f95 java"
+    unsupported_languages="$unsupported_languages fortran java"
     ;;
   mn10200-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -678,7 +684,7 @@ case "${target}" in
     ;;
   powerpc-*-aix*)
     # copied from rs6000-*-* entry
-    noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss target-libssp ${libgcj}"
     ;;
   powerpc*-*-winnt* | powerpc*-*-pe* | ppc*-*-pe)
     target_configdirs="$target_configdirs target-winsup"
@@ -702,7 +708,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-newlib gprof ${libgcj}"
     ;;
   rs6000-*-aix*)
-    noconfigdirs="$noconfigdirs gprof target-libgloss ${libgcj}"
+    noconfigdirs="$noconfigdirs gprof target-libgloss target-libssp ${libgcj}"
     ;;
   rs6000-*-*)
     noconfigdirs="$noconfigdirs gprof ${libgcj}"
@@ -1142,6 +1148,15 @@ if test -d ${srcdir}/gcc; then
     fi
   fi
   enable_languages=`echo "${enable_languages}" | sed -e 's/[[ 	,]][[ 	,]]*/,/g' -e 's/,$//'`
+
+  # 'f95' is the old name for the 'fortran' language. We issue a warning
+  # and make the substitution.
+  case ,${enable_languages}, in
+    *,f95,*)
+      echo configure.in: warning: 'f95' as language name is deprecated, use 'fortran' instead 1>&2
+      enable_languages=`echo "${enable_languages}" | sed -e 's/f95/fortran/g'`
+      ;;
+  esac
 
   # First scan to see if an enabled language requires some other language.
   # We assume that a given config-lang.in will list all the language
@@ -1765,18 +1780,14 @@ esac
 case "$enable_bootstrap" in
   yes)
     bootstrap_lean='#'
-    default_target=bootstrap
     bootstrap_suffix=bootstrap ;;
   lean)
     bootstrap_lean=''
-    default_target=bootstrap
     bootstrap_suffix=bootstrap ;;
   no)
-    default_target=all
     bootstrap_suffix=no-bootstrap ;;
 esac
 AC_SUBST(bootstrap_lean)
-AC_SUBST(default_target)
 
 for module in ${build_configdirs} ; do
   if test -z "${no_recursion}" \
@@ -2107,8 +2118,10 @@ NCN_STRICT_CHECK_TARGET_TOOLS(GCC_FOR_TARGET, gcc, ${CC_FOR_TARGET})
 NCN_STRICT_CHECK_TARGET_TOOLS(GCJ_FOR_TARGET, gcj)
 NCN_STRICT_CHECK_TARGET_TOOLS(GFORTRAN_FOR_TARGET, gfortran)
 NCN_STRICT_CHECK_TARGET_TOOLS(LD_FOR_TARGET, ld)
+NCN_STRICT_CHECK_TARGET_TOOLS(LIPO_FOR_TARGET, lipo)
 NCN_STRICT_CHECK_TARGET_TOOLS(NM_FOR_TARGET, nm)
 NCN_STRICT_CHECK_TARGET_TOOLS(RANLIB_FOR_TARGET, ranlib, :)
+NCN_STRICT_CHECK_TARGET_TOOLS(STRIP_FOR_TARGET, strip)
 NCN_STRICT_CHECK_TARGET_TOOLS(WINDRES_FOR_TARGET, windres)
 
 CONFIGURED_AR_FOR_TARGET="$AR_FOR_TARGET"
@@ -2120,8 +2133,10 @@ CONFIGURED_GCC_FOR_TARGET="$GCC_FOR_TARGET"
 CONFIGURED_GCJ_FOR_TARGET="$GCJ_FOR_TARGET"
 CONFIGURED_GFORTRAN_FOR_TARGET="$GFORTRAN_FOR_TARGET"
 CONFIGURED_LD_FOR_TARGET="$LD_FOR_TARGET"
+CONFIGURED_LIPO_FOR_TARGET="$LIPO_FOR_TARGET"
 CONFIGURED_NM_FOR_TARGET="$NM_FOR_TARGET"
 CONFIGURED_RANLIB_FOR_TARGET="$RANLIB_FOR_TARGET"
+CONFIGURED_STRIP_FOR_TARGET="$STRIP_FOR_TARGET"
 CONFIGURED_WINDRES_FOR_TARGET="$WINDRES_FOR_TARGET"
 
 AC_SUBST(CONFIGURED_AR_FOR_TARGET)dnl
@@ -2133,8 +2148,10 @@ AC_SUBST(CONFIGURED_GCC_FOR_TARGET)dnl
 AC_SUBST(CONFIGURED_GCJ_FOR_TARGET)dnl
 AC_SUBST(CONFIGURED_GFORTRAN_FOR_TARGET)dnl
 AC_SUBST(CONFIGURED_LD_FOR_TARGET)dnl
+AC_SUBST(CONFIGURED_LIPO_FOR_TARGET)dnl
 AC_SUBST(CONFIGURED_NM_FOR_TARGET)dnl
 AC_SUBST(CONFIGURED_RANLIB_FOR_TARGET)dnl
+AC_SUBST(CONFIGURED_STRIP_FOR_TARGET)dnl
 AC_SUBST(CONFIGURED_WINDRES_FOR_TARGET)dnl
 AC_SUBST(FLAGS_FOR_TARGET)
 
@@ -2156,8 +2173,10 @@ if test "x${build}" = "x${host}" ; then
   GCJ_FOR_TARGET="\$(USUAL_GCJ_FOR_TARGET)"
   GFORTRAN_FOR_TARGET="\$(USUAL_GFORTRAN_FOR_TARGET)"
   LD_FOR_TARGET="\$(USUAL_LD_FOR_TARGET)"
+  LIPO_FOR_TARGET="\$(USUAL_LIPO_FOR_TARGET)"
   NM_FOR_TARGET="\$(USUAL_NM_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(USUAL_RANLIB_FOR_TARGET)"
+  STRIP_FOR_TARGET="\$(USUAL_STRIP_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(USUAL_WINDRES_FOR_TARGET)"
 else
   # Just use the ones we found.
@@ -2171,8 +2190,10 @@ else
   GCJ_FOR_TARGET="\$(CONFIGURED_GCJ_FOR_TARGET)"
   GFORTRAN_FOR_TARGET="\$(CONFIGURED_GFORTRAN_FOR_TARGET)"
   LD_FOR_TARGET="\$(CONFIGURED_LD_FOR_TARGET)"
+  LIPO_FOR_TARGET="\$(CONFIGURED_LIPO_FOR_TARGET)"
   NM_FOR_TARGET="\$(CONFIGURED_NM_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(CONFIGURED_RANLIB_FOR_TARGET)"
+  STRIP_FOR_TARGET="\$(CONFIGURED_STRIP_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(CONFIGURED_WINDRES_FOR_TARGET)"  
 fi
 

@@ -743,8 +743,9 @@ tree
 finish_return_stmt (tree expr)
 {
   tree r;
+  bool no_warning;
 
-  expr = check_return_expr (expr);
+  expr = check_return_expr (expr, &no_warning);
   if (!processing_template_decl)
     {
       if (DECL_DESTRUCTOR_P (current_function_decl)
@@ -760,6 +761,7 @@ finish_return_stmt (tree expr)
     }
 
   r = build_stmt (RETURN_EXPR, expr);
+  TREE_NO_WARNING (r) |= no_warning;
   r = maybe_cleanup_point_expr_void (r);
   r = add_stmt (r);
   finish_stmt ();
@@ -1163,18 +1165,17 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 {
   tree r;
   tree t;
+  int ninputs = list_length (input_operands);
+  int noutputs = list_length (output_operands);
 
   if (!processing_template_decl)
     {
-      int ninputs, noutputs;
       const char *constraint;
       const char **oconstraints;
       bool allows_mem, allows_reg, is_inout;
       tree operand;
       int i;
 
-      ninputs = list_length (input_operands);
-      noutputs = list_length (output_operands);
       oconstraints = (const char **) alloca (noutputs * sizeof (char *));
 
       string = resolve_asm_operand_names (string, output_operands,
@@ -1194,6 +1195,19 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 
 	  if (!lvalue_or_else (operand, lv_asm))
 	    operand = error_mark_node;
+
+          if (operand != error_mark_node
+	      && (TREE_READONLY (operand)
+		  || CP_TYPE_CONST_P (TREE_TYPE (operand))
+	          /* Functions are not modifiable, even though they are
+	             lvalues.  */
+	          || TREE_CODE (TREE_TYPE (operand)) == FUNCTION_TYPE
+	          || TREE_CODE (TREE_TYPE (operand)) == METHOD_TYPE
+	          /* If it's an aggregate and any field is const, then it is
+	             effectively const.  */
+	          || (CLASS_TYPE_P (TREE_TYPE (operand))
+	              && C_TYPE_FIELDS_READONLY (TREE_TYPE (operand)))))
+	    readonly_error (operand, "assignment (via 'asm' output)", 0);
 
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
 	  oconstraints[i] = constraint;
@@ -1252,7 +1266,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
   r = build_stmt (ASM_EXPR, string,
 		  output_operands, input_operands,
 		  clobbers);
-  ASM_VOLATILE_P (r) = volatile_p;
+  ASM_VOLATILE_P (r) = volatile_p || noutputs == 0;
   r = maybe_cleanup_point_expr_void (r);
   return add_stmt (r);
 }
@@ -1540,67 +1554,85 @@ begin_stmt_expr (void)
 }
 
 /* Process the final expression of a statement expression. EXPR can be
-   NULL, if the final expression is empty.  Build up a TARGET_EXPR so
-   that the result value can be safely returned to the enclosing
-   expression.  */
+   NULL, if the final expression is empty.  Return a STATEMENT_LIST
+   containing all the statements in the statement-expression, or
+   ERROR_MARK_NODE if there was an error.  */
 
 tree
 finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
-  tree result = NULL_TREE;
-
   if (error_operand_p (expr))
     return error_mark_node;
 
+  /* If the last statement does not have "void" type, then the value
+     of the last statement is the value of the entire expression.  */ 
   if (expr)
     {
-      if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
+      tree type;
+      type = TREE_TYPE (expr);
+      if (!dependent_type_p (type) && !VOID_TYPE_P (type))
 	{
-	  tree type = TREE_TYPE (expr);
-
-	  if (TREE_CODE (type) == ARRAY_TYPE
-	      || TREE_CODE (type) == FUNCTION_TYPE)
-	    expr = decay_conversion (expr);
-
-	  expr = require_complete_type (expr);
-
+	  expr = decay_conversion (expr);
+	  if (error_operand_p (expr))
+	    return error_mark_node;
 	  type = TREE_TYPE (expr);
+	}
+      /* The type of the statement-expression is the type of the last
+	 expression.  */
+      TREE_TYPE (stmt_expr) = type;
+      /* We must take particular care if TYPE is a class type.  In
+	 particular if EXPR creates a temporary of class type, then it
+	 must be destroyed at the semicolon terminating the last
+	 statement -- but we must make a copy before that happens.
 
-	  /* Build a TARGET_EXPR for this aggregate.  finish_stmt_expr
-	     will then pull it apart so the lifetime of the target is
-	     within the scope of the expression containing this statement
-	     expression.  */
-	  if (TREE_CODE (expr) == TARGET_EXPR)
-	    ;
-	  else if (!IS_AGGR_TYPE (type) || TYPE_HAS_TRIVIAL_INIT_REF (type))
-	    expr = build_target_expr_with_type (expr, type);
+	 This problem is solved by using a TARGET_EXPR to initialize a
+	 new temporary variable.  The TARGET_EXPR itself is placed
+	 outside the statement-expression.  However, the last
+	 statement in the statement-expression is transformed from
+	 EXPR to (approximately) T = EXPR, where T is the new
+	 temporary variable.  Thus, the lifetime of the new temporary
+	 extends to the full-expression surrounding the
+	 statement-expression.  */
+      if (!processing_template_decl && !VOID_TYPE_P (type))
+	{
+	  tree target_expr; 
+	  if (CLASS_TYPE_P (type) 
+	      && !TYPE_HAS_TRIVIAL_INIT_REF (type)) 
+	    {
+	      target_expr = build_target_expr_with_type (expr, type);
+	      expr = TARGET_EXPR_INITIAL (target_expr);
+	    }
 	  else
 	    {
-	      /* Copy construct.  */
-	      expr = build_special_member_call
-		(NULL_TREE, complete_ctor_identifier,
-		 build_tree_list (NULL_TREE, expr),
-		 type, LOOKUP_NORMAL);
-	      expr = build_cplus_new (type, expr);
-	      gcc_assert (TREE_CODE (expr) == TARGET_EXPR);
+	      /* Normally, build_target_expr will not create a
+		 TARGET_EXPR for scalars.  However, we need the
+		 temporary here, in order to solve the scoping
+		 problem described above.  */
+	      target_expr = force_target_expr (type, expr);
+	      expr = TARGET_EXPR_INITIAL (target_expr);
+	      expr = build2 (INIT_EXPR, 
+			     type,
+			     TARGET_EXPR_SLOT (target_expr),
+			     expr);
 	    }
-	}
-
-      if (expr != error_mark_node)
-	{
-	  result = build_stmt (EXPR_STMT, expr);
-	  EXPR_STMT_STMT_EXPR_RESULT (result) = 1;
-	  add_stmt (result);
+	  TARGET_EXPR_INITIAL (target_expr) = NULL_TREE;
+	  /* Save away the TARGET_EXPR in the TREE_TYPE field of the
+	     STATEMENT_EXPR.  We will retrieve it in
+	     finish_stmt_expr.  */
+	  TREE_TYPE (stmt_expr) = target_expr;
 	}
     }
 
-  finish_stmt ();
+  /* Having modified EXPR to reflect the extra initialization, we now
+     treat it just like an ordinary statement.  */
+  expr = finish_expr_stmt (expr);
 
-  /* Remember the last expression so that finish_stmt_expr
-     can pull it apart.  */
-  TREE_TYPE (stmt_expr) = result;
+  /* Mark the last statement so that we can recognize it as such at
+     template-instantiation time.  */
+  if (expr && processing_template_decl)
+    EXPR_STMT_STMT_EXPR_RESULT (expr) = 1;
 
-  return result;
+  return stmt_expr;
 }
 
 /* Finish a statement-expression.  EXPR should be the value returned
@@ -1610,49 +1642,16 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 tree
 finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 {
-  tree result, result_stmt, type;
-  tree *result_stmt_p = NULL;
+  tree type;
+  tree result;
 
-  result_stmt = TREE_TYPE (stmt_expr);
-  TREE_TYPE (stmt_expr) = void_type_node;
+  if (error_operand_p (stmt_expr))
+    return error_mark_node;
+
+  gcc_assert (TREE_CODE (stmt_expr) == STATEMENT_LIST);
+
+  type = TREE_TYPE (stmt_expr);
   result = pop_stmt_list (stmt_expr);
-
-  if (!result_stmt || VOID_TYPE_P (result_stmt))
-    type = void_type_node;
-  else
-    {
-      /* We need to search the statement expression for the result_stmt,
-	 since we'll need to replace it entirely.  */
-      tree t;
-      result_stmt_p = &result;
-      while (1)
-	{
-	  t = *result_stmt_p;
-	  if (t == result_stmt)
-	    break;
-
-	  switch (TREE_CODE (t))
-	    {
-	    case STATEMENT_LIST:
-	      {
-		tree_stmt_iterator i = tsi_last (t);
-		result_stmt_p = tsi_stmt_ptr (i);
-		break;
-	      }
-	    case BIND_EXPR:
-	      result_stmt_p = &BIND_EXPR_BODY (t);
-	      break;
-	    case TRY_FINALLY_EXPR:
-	    case TRY_CATCH_EXPR:
-	    case CLEANUP_STMT:
-	      result_stmt_p = &TREE_OPERAND (t, 0);
-	      break;
-	    default:
-	      gcc_unreachable ();
-	    }
-	}
-      type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
-    }
 
   if (processing_template_decl)
     {
@@ -1660,43 +1659,12 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
       TREE_SIDE_EFFECTS (result) = 1;
       STMT_EXPR_NO_SCOPE (result) = has_no_scope;
     }
-  else if (!VOID_TYPE_P (type))
+  else if (!TYPE_P (type))
     {
-      /* Pull out the TARGET_EXPR that is the final expression. Put
-	 the target's init_expr as the final expression and then put
-	 the statement expression itself as the target's init
-	 expr. Finally, return the target expression.  */
-      tree init, target_expr = EXPR_STMT_EXPR (result_stmt);
-      gcc_assert (TREE_CODE (target_expr) == TARGET_EXPR);
-
-      /* The initializer will be void if the initialization is done by
-	 AGGR_INIT_EXPR; propagate that out to the statement-expression as
-	 a whole.  */
-      init = TREE_OPERAND (target_expr, 1);
-      type = TREE_TYPE (init);
-
-      init = maybe_cleanup_point_expr (init);
-      *result_stmt_p = init;
-
-      if (VOID_TYPE_P (type))
-	/* No frobbing needed.  */;
-      else if (TREE_CODE (result) == BIND_EXPR)
-	{
-	  /* The BIND_EXPR created in finish_compound_stmt is void; if we're
-	     returning a value directly, give it the appropriate type.  */
-	  if (VOID_TYPE_P (TREE_TYPE (result)))
-	    TREE_TYPE (result) = type;
-	  else
-	    gcc_assert (same_type_p (TREE_TYPE (result), type));
-	}
-      else if (TREE_CODE (result) == STATEMENT_LIST)
-	/* We need to wrap a STATEMENT_LIST in a BIND_EXPR so it can have a
-	   type other than void.  FIXME why can't we just return a value
-	   from STATEMENT_LIST?  */
-	result = build3 (BIND_EXPR, type, NULL, result, NULL);
-
-      TREE_OPERAND (target_expr, 1) = result;
-      result = target_expr;
+      gcc_assert (TREE_CODE (type) == TARGET_EXPR);
+      TARGET_EXPR_INITIAL (type) = result;
+      TREE_TYPE (result) = void_type_node;
+      result = type;
     }
 
   return result;
@@ -1866,7 +1834,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args);
+	result = build_new_function_call (fn, args, koenig_p);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -2302,20 +2270,6 @@ void
 note_decl_for_pch (tree decl)
 {
   gcc_assert (pch_file);
-
-  /* A non-template inline function with external linkage will always
-     be COMDAT.  As we must eventually determine the linkage of all
-     functions, and as that causes writes to the data mapped in from
-     the PCH file, it's advantageous to mark the functions at this
-     point.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && TREE_PUBLIC (decl)
-      && DECL_DECLARED_INLINE_P (decl)
-      && !DECL_IMPLICIT_INSTANTIATION (decl))
-    {
-      comdat_linkage (decl);
-      DECL_INTERFACE_KNOWN (decl) = 1;
-    }
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
@@ -2805,11 +2759,6 @@ finish_id_expression (tree id_expression,
 
 	  decl = convert_from_reference (decl);
 	}
-
-      /* Resolve references to variables of anonymous unions
-	 into COMPONENT_REFs.  */
-      if (TREE_CODE (decl) == ALIAS_DECL)
-	decl = unshare_expr (DECL_INITIAL (decl));
     }
 
   if (TREE_DEPRECATED (decl))
@@ -3044,8 +2993,11 @@ expand_or_defer_fn (tree fn)
       /* Normally, collection only occurs in rest_of_compilation.  So,
 	 if we don't collect here, we never collect junk generated
 	 during the processing of templates until we hit a
-	 non-template function.  */
-      ggc_collect ();
+	 non-template function.  It's not safe to do this inside a
+	 nested class, though, as the parser may have local state that
+	 is not a GC root.  */
+      if (!function_depth)
+	ggc_collect ();
       return;
     }
 
@@ -3082,11 +3034,28 @@ expand_or_defer_fn (tree fn)
      these functions so that it can inline them as appropriate.  */
   if (DECL_DECLARED_INLINE_P (fn) || DECL_IMPLICIT_INSTANTIATION (fn))
     {
-      if (!at_eof)
+      if (DECL_INTERFACE_KNOWN (fn))
+	/* We've already made a decision as to how this function will
+	   be handled.  */;
+      else if (!at_eof)
 	{
 	  DECL_EXTERNAL (fn) = 1;
 	  DECL_NOT_REALLY_EXTERN (fn) = 1;
 	  note_vague_linkage_fn (fn);
+	  /* A non-template inline function with external linkage will
+	     always be COMDAT.  As we must eventually determine the
+	     linkage of all functions, and as that causes writes to
+	     the data mapped in from the PCH file, it's advantageous
+	     to mark the functions at this point.  */
+	  if (!DECL_IMPLICIT_INSTANTIATION (fn))
+	    {
+	      /* This function must have external linkage, as
+		 otherwise DECL_INTERFACE_KNOWN would have been
+		 set.  */
+	      gcc_assert (TREE_PUBLIC (fn));
+	      comdat_linkage (fn);
+	      DECL_INTERFACE_KNOWN (fn) = 1;
+	    }
 	}
       else
 	import_export_decl (fn);

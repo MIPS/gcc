@@ -152,6 +152,14 @@ gfc_init_kinds (void)
       if (!targetm.scalar_mode_supported_p (mode))
 	continue;
 
+      /* Only let float/double/long double go through because the fortran
+	 library assumes these are the only floating point types.  */
+
+      if (mode != TYPE_MODE (float_type_node)
+	  && (mode != TYPE_MODE (double_type_node))
+          && (mode != TYPE_MODE (long_double_type_node)))
+	continue;
+
       /* Let the kind equal the precision divided by 8, rounding up.  Again,
 	 this insulates the programmer from the underlying byte size.
 
@@ -566,29 +574,29 @@ gfc_init_types (void)
 tree
 gfc_get_int_type (int kind)
 {
-  int index = gfc_validate_kind (BT_INTEGER, kind, false);
-  return gfc_integer_types[index];
+  int index = gfc_validate_kind (BT_INTEGER, kind, true);
+  return index < 0 ? 0 : gfc_integer_types[index];
 }
 
 tree
 gfc_get_real_type (int kind)
 {
-  int index = gfc_validate_kind (BT_REAL, kind, false);
-  return gfc_real_types[index];
+  int index = gfc_validate_kind (BT_REAL, kind, true);
+  return index < 0 ? 0 : gfc_real_types[index];
 }
 
 tree
 gfc_get_complex_type (int kind)
 {
-  int index = gfc_validate_kind (BT_COMPLEX, kind, false);
-  return gfc_complex_types[index];
+  int index = gfc_validate_kind (BT_COMPLEX, kind, true);
+  return index < 0 ? 0 : gfc_complex_types[index];
 }
 
 tree
 gfc_get_logical_type (int kind)
 {
-  int index = gfc_validate_kind (BT_LOGICAL, kind, false);
-  return gfc_logical_types[index];
+  int index = gfc_validate_kind (BT_LOGICAL, kind, true);
+  return index < 0 ? 0 : gfc_logical_types[index];
 }
 
 /* Create a character type with the given kind and length.  */

@@ -29,6 +29,7 @@ Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -63,25 +64,19 @@ iexport_data(filename);
 unsigned line = 0;
 iexport_data(line);
 
-/* buffer for integer/ascii conversions.  */
-static char buffer[sizeof (GFC_UINTEGER_LARGEST) * 8 + 1];
+/* gfc_itoa()-- Integer to decimal conversion. */
 
-
-/* Returns a pointer to a static buffer. */
-
-char *
-gfc_itoa (GFC_INTEGER_LARGEST n)
+const char *
+gfc_itoa (GFC_INTEGER_LARGEST n, char *buffer, size_t len)
 {
   int negative;
   char *p;
   GFC_UINTEGER_LARGEST t;
 
+  assert (len >= GFC_ITOA_BUF_SIZE);
+
   if (n == 0)
-    {
-      buffer[0] = '0';
-      buffer[1] = '\0';
-      return buffer;
-    }
+    return "0";
 
   negative = 0;
   t = n;
@@ -91,39 +86,36 @@ gfc_itoa (GFC_INTEGER_LARGEST n)
       t = -n; /*must use unsigned to protect from overflow*/
     }
 
-  p = buffer + sizeof (buffer) - 1;
-  *p-- = '\0';
+  p = buffer + GFC_ITOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (t != 0)
     {
-      *p-- = '0' + (t % 10);
+      *--p = '0' + (t % 10);
       t /= 10;
     }
 
   if (negative)
-    *p-- = '-';
-  return ++p;
+    *--p = '-';
+  return p;
 }
 
 
-/* xtoa()-- Integer to hexadecimal conversion.  Returns a pointer to a
- * static buffer. */
+/* xtoa()-- Integer to hexadecimal conversion.  */
 
-char *
-xtoa (GFC_UINTEGER_LARGEST n)
+const char *
+xtoa (GFC_UINTEGER_LARGEST n, char *buffer, size_t len)
 {
   int digit;
   char *p;
 
-  if (n == 0)
-    {
-      buffer[0] = '0';
-      buffer[1] = '\0';
-      return buffer;
-    }
+  assert (len >= GFC_XTOA_BUF_SIZE);
 
-  p = buffer + sizeof (buffer) - 1;
-  *p-- = '\0';
+  if (n == 0)
+    return "0";
+
+  p = buffer + GFC_XTOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (n != 0)
     {
@@ -131,11 +123,11 @@ xtoa (GFC_UINTEGER_LARGEST n)
       if (digit > 9)
 	digit += 'A' - '0' - 10;
 
-      *p-- = '0' + digit;
+      *--p = '0' + digit;
       n >>= 4;
     }
 
-  return ++p;
+  return p;
 }
 
 
@@ -149,8 +141,10 @@ st_printf (const char *format, ...)
 {
   int count, total;
   va_list arg;
-  char *p, *q;
+  char *p;
+  const char *q;
   stream *s;
+  char itoa_buf[GFC_ITOA_BUF_SIZE];
 
   total = 0;
   s = init_error_stream ();
@@ -187,7 +181,7 @@ st_printf (const char *format, ...)
 	  break;
 
 	case 'd':
-	  q = gfc_itoa (va_arg (arg, int));
+	  q = gfc_itoa (va_arg (arg, int), itoa_buf, sizeof (itoa_buf));
 	  count = strlen (q);
 
 	  p = salloc_w (s, &count);
@@ -196,7 +190,7 @@ st_printf (const char *format, ...)
 	  break;
 
 	case 'x':
-	  q = xtoa (va_arg (arg, unsigned));
+	  q = xtoa (va_arg (arg, unsigned), itoa_buf, sizeof (itoa_buf));
 	  count = strlen (q);
 
 	  p = salloc_w (s, &count);
@@ -240,8 +234,10 @@ void
 st_sprintf (char *buffer, const char *format, ...)
 {
   va_list arg;
-  char c, *p;
+  char c;
+  const char *p;
   int count;
+  char itoa_buf[GFC_ITOA_BUF_SIZE];
 
   va_start (arg, format);
 
@@ -264,7 +260,7 @@ st_sprintf (char *buffer, const char *format, ...)
 	  break;
 
 	case 'd':
-	  p = gfc_itoa (va_arg (arg, int));
+	  p = gfc_itoa (va_arg (arg, int), itoa_buf, sizeof (itoa_buf));
 	  count = strlen (p);
 
 	  memcpy (buffer, p, count);
@@ -431,6 +427,10 @@ translate_error (int code)
       p = "Numeric overflow on read";
       break;
 
+    case ERROR_ARRAY_STRIDE:
+      p = "Array unit stride must be 1";
+      break;
+
     default:
       p = "Unknown error code";
       break;
@@ -441,10 +441,10 @@ translate_error (int code)
 
 
 /* generate_error()-- Come here when an error happens.  This
- * subroutine is called if it is possible to continue on after the
- * error.  If an IOSTAT variable exists, we set it.  If the IOSTAT or
- * ERR label is present, we return, otherwise we terminate the program
- * after print a message.  The error code is always required but the
+ * subroutine is called if it is possible to continue on after the error.
+ * If an IOSTAT or IOMSG variable exists, we set it.  If IOSTAT or
+ * ERR labels are present, we return, otherwise we terminate the program
+ * after printing a message.  The error code is always required but the
  * message parameter can be NULL, in which case a string describing
  * the most recent operating system error is used. */
 
@@ -454,6 +454,13 @@ generate_error (int family, const char *message)
   /* Set the error status.  */
   if (ioparm.iostat != NULL)
     *ioparm.iostat = family;
+
+  if (message == NULL)
+    message =
+      (family == ERROR_OS) ? get_oserror () : translate_error (family);
+
+  if (ioparm.iomsg)
+    cf_strcpy (ioparm.iomsg, ioparm.iomsg_len, message);
 
   /* Report status back to the compiler.  */
   switch (family)
@@ -482,10 +489,6 @@ generate_error (int family, const char *message)
     return;
 
   /* Terminate the program */
-
-  if (message == NULL)
-    message =
-      (family == ERROR_OS) ? get_oserror () : translate_error (family);
 
   runtime_error (message);
 }

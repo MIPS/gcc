@@ -3426,8 +3426,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      && !TREE_STATIC (decl))
 	    warning (0, "ignoring asm-specifier for non-static local "
 		     "variable %q+D", decl);
-	  else if (C_DECL_REGISTER (decl))
-	    change_decl_assembler_name (decl, get_identifier (asmspec));
 	  else
 	    set_user_assembler_name (decl, asmspec);
 	}
@@ -4250,16 +4248,19 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else
 	      type = build_array_type (type, itype);
 
-	    if (size_varies)
-	      C_TYPE_VARIABLE_SIZE (type) = 1;
-
-	    /* The GCC extension for zero-length arrays differs from
-	       ISO flexible array members in that sizeof yields
-	       zero.  */
-	    if (size && integer_zerop (size))
+	    if (type != error_mark_node)
 	      {
-		TYPE_SIZE (type) = bitsize_zero_node;
-		TYPE_SIZE_UNIT (type) = size_zero_node;
+		if (size_varies)
+		C_TYPE_VARIABLE_SIZE (type) = 1;
+
+		/* The GCC extension for zero-length arrays differs from
+		   ISO flexible array members in that sizeof yields
+		   zero.  */
+		if (size && integer_zerop (size))
+		  {
+		    TYPE_SIZE (type) = bitsize_zero_node;
+		    TYPE_SIZE_UNIT (type) = size_zero_node;
+		  }
 	      }
 
 	    if (decl_context != PARM
@@ -7540,20 +7541,19 @@ build_cdtor (int method_type, tree cdtors)
   cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
 }
 
-/* Perform final processing on one file scope's declarations (or the
-   external scope's declarations), GLOBALS.  */
+/* A subroutine of c_write_global_declarations.  Perform final processing
+   on one file scope's declarations (or the external scope's declarations),
+   GLOBALS.  */
+
 static void
 c_write_global_declarations_1 (tree globals)
 {
-  size_t len = list_length (globals);
-  tree *vec = XNEWVEC (tree, len);
-  size_t i;
   tree decl;
+  bool reconsider;
 
   /* Process the decls in the order they were written.  */
-  for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
+  for (decl = globals; decl; decl = TREE_CHAIN (decl))
     {
-      vec[i] = decl;
       /* Check for used but undefined static functions using the C
 	 standard's definition of "used", and set TREE_NO_WARNING so
 	 that check_global_declarations doesn't repeat the check.  */
@@ -7566,18 +7566,41 @@ c_write_global_declarations_1 (tree globals)
 	  pedwarn ("%q+F used but never defined", decl);
 	  TREE_NO_WARNING (decl) = 1;
 	}
+
+      wrapup_global_declaration_1 (decl);
     }
 
-  wrapup_global_declarations (vec, len);
-  check_global_declarations (vec, len);
+  do
+    {
+      reconsider = false;
+      for (decl = globals; decl; decl = TREE_CHAIN (decl))
+	reconsider |= wrapup_global_declaration_2 (decl);
+    }
+  while (reconsider);
 
-  free (vec);
+  for (decl = globals; decl; decl = TREE_CHAIN (decl))
+    check_global_declaration_1 (decl);
 }
+
+/* A subroutine of c_write_global_declarations Emit debug information for each
+   of the declarations in GLOBALS.  */
+
+static void
+c_write_global_declarations_2 (tree globals)
+{
+  tree decl;
+
+  for (decl = globals; decl ; decl = TREE_CHAIN (decl))
+    debug_hooks->global_decl (decl);
+}
+
+/* Preserve the external declarations scope across a garbage collect.  */
+static GTY(()) tree ext_block;
 
 void
 c_write_global_declarations (void)
 {
-  tree ext_block, t;
+  tree t;
 
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
@@ -7593,10 +7616,6 @@ c_write_global_declarations (void)
   external_scope = 0;
   gcc_assert (!current_scope);
 
-  /* Process all file scopes in this compilation, and the external_scope,
-     through wrapup_global_declarations and check_global_declarations.  */
-  for (t = all_translation_units; t; t = TREE_CHAIN (t))
-    c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   if (ext_block)
     {
       tree tmp = BLOCK_VARS (ext_block);
@@ -7608,6 +7627,11 @@ c_write_global_declarations (void)
           dump_end (TDI_tu, stream);
         }
     }
+
+  /* Process all file scopes in this compilation, and the external_scope,
+     through wrapup_global_declarations and check_global_declarations.  */
+  for (t = all_translation_units; t; t = TREE_CHAIN (t))
+    c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
   /* Generate functions to call static constructors and destructors
@@ -7619,6 +7643,19 @@ c_write_global_declarations (void)
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */
   cgraph_optimize ();
+
+  /* After cgraph has had a chance to emit everything that's going to
+     be emitted, output debug information for globals.  */
+  if (errorcount == 0 && sorrycount == 0)
+    {
+      timevar_push (TV_SYMOUT);
+      for (t = all_translation_units; t; t = TREE_CHAIN (t))
+	c_write_global_declarations_2 (BLOCK_VARS (DECL_INITIAL (t)));
+      c_write_global_declarations_2 (BLOCK_VARS (ext_block));
+      timevar_pop (TV_SYMOUT);
+    }
+
+  ext_block = NULL;
 }
 
 #include "gt-c-decl.h"

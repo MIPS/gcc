@@ -1901,7 +1901,8 @@
 	HOST_WIDE_INT op3_value = mask & INTVAL (operands[3]);
 	HOST_WIDE_INT mask2 = ((mask & ~op3_value) << start_bit);
 
-	emit_insn (gen_andsi3 (op1, operands[0], GEN_INT (~mask2)));
+	emit_insn (gen_andsi3 (op1, operands[0],
+			       gen_int_mode (~mask2, SImode)));
 	emit_insn (gen_iorsi3 (subtarget, op1,
 			       gen_int_mode (op3_value << start_bit, SImode)));
       }
@@ -1939,7 +1940,7 @@
       }
     else
       {
-	rtx op0 = GEN_INT (mask);
+	rtx op0 = gen_int_mode (mask, SImode);
 	rtx op1 = gen_reg_rtx (SImode);
 	rtx op2 = gen_reg_rtx (SImode);
 
@@ -1958,7 +1959,7 @@
 	    && (const_ok_for_arm (mask << start_bit)
 		|| const_ok_for_arm (~(mask << start_bit))))
 	  {
-	    op0 = GEN_INT (~(mask << start_bit));
+	    op0 = gen_int_mode (~(mask << start_bit), SImode);
 	    emit_insn (gen_andsi3 (op2, operands[0], op0));
 	  }
 	else
@@ -3390,36 +3391,6 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_split
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(zero_extend:SI (match_operand:HI 1 "alignable_memory_operand" "")))
-   (clobber (match_operand:SI 2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0) (lshiftrt:SI (match_dup 2) (const_int 16)))]
-  "
-  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-    FAIL;
-  "
-)
-
-(define_split
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(match_operator:SI 3 "shiftable_operator"
-	 [(zero_extend:SI (match_operand:HI 1 "alignable_memory_operand" ""))
-	  (match_operand:SI 4 "s_register_operand" "")]))
-   (clobber (match_operand:SI 2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0)
-	(match_op_dup 3
-	 [(lshiftrt:SI (match_dup 2) (const_int 16)) (match_dup 4)]))]
-  "
-  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-    FAIL;
-  "
-)
-
 (define_expand "zero_extendqisi2"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "")))]
@@ -3721,10 +3692,8 @@
     rtx mem1, mem2;
     rtx addr = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
 
-    mem1 = gen_rtx_MEM (QImode, addr);
-    MEM_COPY_ATTRIBUTES (mem1, operands[1]);
-    mem2 = gen_rtx_MEM (QImode, plus_constant (addr, 1));
-    MEM_COPY_ATTRIBUTES (mem2, operands[1]);
+    mem1 = change_address (operands[1], QImode, addr);
+    mem2 = change_address (operands[1], QImode, plus_constant (addr, 1));
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[1] = mem1;
     operands[2] = gen_reg_rtx (SImode);
@@ -3775,35 +3744,6 @@
 		 (match_operand:SI 2 "s_register_operand" "r")))]
   "TARGET_ARM && arm_arch6"
   "sxtah%?\\t%0, %2, %1"
-)
-
-(define_split
-  [(set (match_operand:SI                 0 "s_register_operand" "")
-	(sign_extend:SI (match_operand:HI 1 "alignable_memory_operand" "")))
-   (clobber (match_operand:SI             2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0) (ashiftrt:SI (match_dup 2) (const_int 16)))]
-  "
-  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-    FAIL;
-  "
-)
-
-(define_split
-  [(set (match_operand:SI                   0 "s_register_operand" "")
-	(match_operator:SI                  3 "shiftable_operator"
-	 [(sign_extend:SI (match_operand:HI 1 "alignable_memory_operand" ""))
-	  (match_operand:SI                 4 "s_register_operand" "")]))
-   (clobber (match_operand:SI               2 "s_register_operand" ""))]
-  "TARGET_ARM && (!arm_arch4)"
-  [(set (match_dup 2) (match_dup 1))
-   (set (match_dup 0)
-	(match_op_dup 3
-	 [(ashiftrt:SI (match_dup 2) (const_int 16)) (match_dup 4)]))]
-  "if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
-     FAIL;
-  "
 )
 
 (define_expand "extendqihi2"
@@ -4750,12 +4690,11 @@
 			   && GET_CODE (base = XEXP (base, 0)) == REG))
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 32)
 		    {
-		      HOST_WIDE_INT new_offset = INTVAL (offset) & ~3;
 		      rtx new;
 
-		      new = gen_rtx_MEM (SImode,
-					 plus_constant (base, new_offset));
-	              MEM_COPY_ATTRIBUTES (new, operands[1]);
+		      new = widen_memory_access (operands[1], SImode,
+						 ((INTVAL (offset) & ~3)
+						  - INTVAL (offset)));
 		      emit_insn (gen_movsi (reg, new));
 		      if (((INTVAL (offset) & 2) != 0)
 			  ^ (BYTES_BIG_ENDIAN ? 1 : 0))
@@ -4791,8 +4730,13 @@
     {
       if (!no_new_pseudos)
         {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (HImode, operands[1]);
+	  if (GET_CODE (operands[1]) == CONST_INT)
+	    {
+	      rtx reg = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_movsi (reg, operands[1]));
+	      operands[1] = gen_lowpart (HImode, reg);
+	    }
 
           /* ??? We shouldn't really get invalid addresses here, but this can
 	     happen if we are passed a SP (never OK for HImode/QImode) or 
@@ -4815,11 +4759,23 @@
 	    operands[1]
 	      = replace_equiv_address (operands[1],
 				       copy_to_reg (XEXP (operands[1], 0)));
+
+	  if (GET_CODE (operands[1]) == MEM && optimize > 0)
+	    {
+	      rtx reg = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_zero_extendhisi2 (reg, operands[1]));
+	      operands[1] = gen_lowpart (HImode, reg);
+	    }
+
+          if (GET_CODE (operands[0]) == MEM)
+	    operands[1] = force_reg (HImode, operands[1]);
         }
-      /* Handle loading a large integer during reload.  */
       else if (GET_CODE (operands[1]) == CONST_INT
 	        && !CONST_OK_FOR_THUMB_LETTER (INTVAL (operands[1]), 'I'))
         {
+	  /* Handle loading a large integer during reload.  */
+
           /* Writing a constant to memory needs a scratch, which should
 	     be handled with SECONDARY_RELOADs.  */
           gcc_assert (GET_CODE (operands[0]) == REG);
@@ -4882,10 +4838,8 @@
     rtx mem1, mem2;
     rtx addr = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
 
-    mem1 = gen_rtx_MEM (QImode, addr);
-    MEM_COPY_ATTRIBUTES (mem1, operands[1]);
-    mem2 = gen_rtx_MEM (QImode, plus_constant (addr, 1));
-    MEM_COPY_ATTRIBUTES (mem2, operands[1]);
+    mem1 = change_address (operands[1], QImode, addr);
+    mem2 = change_address (operands[1], QImode, plus_constant (addr, 1));
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[1] = mem1;
     operands[2] = gen_reg_rtx (SImode);
@@ -5002,37 +4956,20 @@
         (match_operand:QI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (TARGET_ARM)
+  /* Everything except mem = const or mem = mem can be done easily */
+
+  if (!no_new_pseudos)
     {
-      /* Everything except mem = const or mem = mem can be done easily */
+      if (GET_CODE (operands[1]) == CONST_INT)
+	{
+	  rtx reg = gen_reg_rtx (SImode);
 
-      if (!no_new_pseudos)
-        {
-          if (GET_CODE (operands[1]) == CONST_INT)
-	    {
-	      rtx reg = gen_reg_rtx (SImode);
+	  emit_insn (gen_movsi (reg, operands[1]));
+	  operands[1] = gen_lowpart (QImode, reg);
+	}
 
-	      emit_insn (gen_movsi (reg, operands[1]));
-	      operands[1] = gen_lowpart (QImode, reg);
-	    }
-	  if (GET_CODE (operands[1]) == MEM && optimize > 0)
-	    {
-	      rtx reg = gen_reg_rtx (SImode);
-
-	      emit_insn (gen_zero_extendqisi2 (reg, operands[1]));
-	      operands[1] = gen_lowpart (QImode, reg);
-	    }
-          if (GET_CODE (operands[0]) == MEM)
-	    operands[1] = force_reg (QImode, operands[1]);
-        }
-    }
-  else /* TARGET_THUMB */
-    {
-      if (!no_new_pseudos)
-        {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (QImode, operands[1]);
-
+      if (TARGET_THUMB)
+	{
           /* ??? We shouldn't really get invalid addresses here, but this can
 	     happen if we are passed a SP (never OK for HImode/QImode) or
 	     virtual register (rejected by GO_IF_LEGITIMATE_ADDRESS for
@@ -5053,19 +4990,32 @@
 	     operands[1]
 	       = replace_equiv_address (operands[1],
 					copy_to_reg (XEXP (operands[1], 0)));
-        }
-      /* Handle loading a large integer during reload.  */
-      else if (GET_CODE (operands[1]) == CONST_INT
-	       && !CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'I'))
-        {
-          /* Writing a constant to memory needs a scratch, which should
-	     be handled with SECONDARY_RELOADs.  */
-          gcc_assert (GET_CODE (operands[0]) == REG);
+	}
 
-          operands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
-          emit_insn (gen_movsi (operands[0], operands[1]));
-          DONE;
-       }
+      if (GET_CODE (operands[1]) == MEM && optimize > 0)
+	{
+	  rtx reg = gen_reg_rtx (SImode);
+
+	  emit_insn (gen_zero_extendqisi2 (reg, operands[1]));
+	  operands[1] = gen_lowpart (QImode, reg);
+	}
+
+      if (GET_CODE (operands[0]) == MEM)
+	operands[1] = force_reg (QImode, operands[1]);
+    }
+  else if (TARGET_THUMB
+	   && GET_CODE (operands[1]) == CONST_INT
+	   && !CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'I'))
+    {
+      /* Handle loading a large integer during reload.  */
+
+      /* Writing a constant to memory needs a scratch, which should
+	 be handled with SECONDARY_RELOADs.  */
+      gcc_assert (GET_CODE (operands[0]) == REG);
+
+      operands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
+      emit_insn (gen_movsi (operands[0], operands[1]));
+      DONE;
     }
   "
 )
@@ -5233,7 +5183,8 @@
       emit_insn (gen_addsi3 (operands[2], XEXP (XEXP (operands[0], 0), 0),
 			     XEXP (XEXP (operands[0], 0), 1)));
 
-    emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_MEM (DFmode, operands[2]),
+    emit_insn (gen_rtx_SET (VOIDmode,
+			    replace_equiv_address (operands[0], operands[2]),
 			    operands[1]));
 
     if (code == POST_DEC)

@@ -1453,7 +1453,7 @@ lv_adjust_loop_entry_edge (basic_block first_head,
    instruction stream, otherwise it is placed before LOOP.  */
 
 struct loop *
-loop_version (struct loops *loops, struct loop * loop, 
+loop_version (struct loops *loops, struct loop *loop, 
 	      void *cond_expr, basic_block *condition_bb,
 	      unsigned then_prob, unsigned then_scale, unsigned else_scale,
 	      bool place_after)

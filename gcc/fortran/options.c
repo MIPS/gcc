@@ -87,7 +87,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   gfc_option.warn_nonstd_intrinsics = 0;
 
-  return CL_F95;
+  return CL_Fortran;
 }
 
 
@@ -222,6 +222,10 @@ gfc_post_options (const char **pfilename)
      otherwise.  */
   if (gfc_option.flag_second_underscore == -1)
     gfc_option.flag_second_underscore = gfc_option.flag_f2c;
+
+  /* Implement -fno-automatic as -fmax-stack-var-size=0.  */
+  if (!gfc_option.flag_automatic)
+    gfc_option.flag_max_stack_var_size = 0;
 
   return false;
 }

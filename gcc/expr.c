@@ -2812,7 +2812,7 @@ emit_move_change_mode (enum machine_mode new_mode,
    emitted, or NULL if such a move could not be generated.  */
 
 static rtx
-emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
+emit_move_via_integer (enum machine_mode mode, rtx x, rtx y, bool force)
 {
   enum machine_mode imode;
   enum insn_code code;
@@ -2827,10 +2827,10 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
   if (code == CODE_FOR_nothing)
     return NULL_RTX;
 
-  x = emit_move_change_mode (imode, mode, x, false);
+  x = emit_move_change_mode (imode, mode, x, force);
   if (x == NULL_RTX)
     return NULL_RTX;
-  y = emit_move_change_mode (imode, mode, y, false);
+  y = emit_move_change_mode (imode, mode, y, force);
   if (y == NULL_RTX)
     return NULL_RTX;
   return emit_insn (GEN_FCN (code) (x, y));
@@ -2973,7 +2973,7 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 	  return get_last_insn ();
 	}
 
-      ret = emit_move_via_integer (mode, x, y);
+      ret = emit_move_via_integer (mode, x, y, true);
       if (ret)
 	return ret;
     }
@@ -3011,7 +3011,7 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
     }
 
   /* Otherwise, find the MODE_INT mode of the same width.  */
-  ret = emit_move_via_integer (mode, x, y);
+  ret = emit_move_via_integer (mode, x, y, false);
   gcc_assert (ret != NULL);
   return ret;
 }
@@ -3119,7 +3119,7 @@ emit_move_insn_1 (rtx x, rtx y)
      fits within a HOST_WIDE_INT.  */
   if (!CONSTANT_P (y) || GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
     {
-      rtx ret = emit_move_via_integer (mode, x, y);
+      rtx ret = emit_move_via_integer (mode, x, y, false);
       if (ret)
 	return ret;
     }
@@ -6338,7 +6338,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       result = convert_memory_address (tmode, result);
       tmp = convert_memory_address (tmode, tmp);
 
-      if (modifier == EXPAND_SUM)
+      if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER)
 	result = gen_rtx_PLUS (tmode, result, tmp);
       else
 	{
@@ -6966,7 +6966,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    int icode;
 	    rtx reg, insn;
 
-	    gcc_assert (modifier == EXPAND_NORMAL);
+	    gcc_assert (modifier == EXPAND_NORMAL
+			|| modifier == EXPAND_STACK_PARM);
 
 	    /* The vectorizer should have already checked the mode.  */
 	    icode = movmisalign_optab->handlers[mode].insn_code;
@@ -7178,25 +7179,30 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 			  || modifier == EXPAND_STACK_PARM)
 			 ? modifier : EXPAND_NORMAL);
 
-	/* If this is a constant, put it into a register if it is a
-	   legitimate constant and OFFSET is 0 and memory if it isn't.  */
+	/* If this is a constant, put it into a register if it is a legitimate
+	   constant, OFFSET is 0, and we won't try to extract outside the
+	   register (in case we were passed a partially uninitialized object
+	   or a view_conversion to a larger size).  Force the constant to
+	   memory otherwise.  */
 	if (CONSTANT_P (op0))
 	  {
 	    enum machine_mode mode = TYPE_MODE (TREE_TYPE (tem));
 	    if (mode != BLKmode && LEGITIMATE_CONSTANT_P (op0)
-		&& offset == 0)
+		&& offset == 0
+		&& bitpos + bitsize <= GET_MODE_BITSIZE (mode))
 	      op0 = force_reg (mode, op0);
 	    else
 	      op0 = validize_mem (force_const_mem (mode, op0));
 	  }
 
- 	/* Otherwise, if this object not in memory and we either have an
- 	   offset or a BLKmode result, put it there.  This case can't occur in
- 	   C, but can in Ada if we have unchecked conversion of an expression
- 	   from a scalar type to an array or record type or for an
- 	   ARRAY_RANGE_REF whose type is BLKmode.  */
+	/* Otherwise, if this object not in memory and we either have an
+	   offset, a BLKmode result, or a reference outside the object, put it
+	   there.  Such cases can occur in Ada if we have unchecked conversion
+	   of an expression from a scalar type to an array or record type or
+	   for an ARRAY_RANGE_REF whose type is BLKmode.  */
 	else if (!MEM_P (op0)
 		 && (offset != 0
+		     || (bitpos + bitsize > GET_MODE_BITSIZE (GET_MODE (op0)))
 		     || (code == ARRAY_RANGE_REF && mode == BLKmode)))
 	  {
 	    tree nt = build_qualified_type (TREE_TYPE (tem),

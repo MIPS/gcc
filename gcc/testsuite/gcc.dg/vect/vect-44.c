@@ -19,6 +19,14 @@ void bar (float *pa, float *pb, float *pc)
   return;
 }
 
+/* Unaligned pointer accesses, with unknown alignment.
+   The loop bound is known and divisible by the vectorization factor.
+   No aliasing problems.
+   vect-50.c is similar to this one with one difference:
+        the loop bound is unknown.
+   vect-45.c is similar to this one with one difference:
+        can't prove that pointers don't alias.  */
+
 int
 main1 (float * __restrict__ pa, float * __restrict__ pb, float * __restrict__ pc)
 {
@@ -51,7 +59,12 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
+/* For targets that don't support misaligned loads we version for the 
+   all three accesses (peeling to align the store will not force the
+   two loads to be aligned).  */
+
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail vect_no_align } } } */
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning." 3 "vect" { target vect_no_align } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

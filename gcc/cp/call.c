@@ -1309,10 +1309,10 @@ add_function_candidate (struct z_candidate **candidates,
   tree orig_arglist;
   int viable = 1;
 
-  /* Built-in functions that haven't been declared don't really
-     exist.  */
-  if (DECL_ANTICIPATED (fn))
-    return NULL;
+  /* At this point we should not see any functions which haven't been
+     explicitly declared, except for friend functions which will have
+     been found using argument dependent lookup.  */
+  gcc_assert (!DECL_ANTICIPATED (fn) || DECL_HIDDEN_FRIEND_P (fn));
 
   /* The `this', `in_chrg' and VTT arguments to constructors are not
      considered in overload resolution.  */
@@ -2689,7 +2689,7 @@ resolve_args (tree args)
     {
       tree arg = TREE_VALUE (t);
 
-      if (arg == error_mark_node)
+      if (arg == error_mark_node || error_operand_p (arg))
 	return error_mark_node;
       else if (VOID_TYPE_P (TREE_TYPE (arg)))
 	{
@@ -2758,7 +2758,7 @@ perform_overload_resolution (tree fn,
    or a static member function) with the ARGS.  */
 
 tree
-build_new_function_call (tree fn, tree args)
+build_new_function_call (tree fn, tree args, bool koenig_p)
 {
   struct z_candidate *candidates, *cand;
   bool any_viable_p;
@@ -2768,6 +2768,22 @@ build_new_function_call (tree fn, tree args)
   args = resolve_args (args);
   if (args == error_mark_node)
     return error_mark_node;
+
+  /* If this function was found without using argument dependent
+     lookup, then we want to ignore any undeclared friend
+     functions.  */
+  if (!koenig_p)
+    {
+      tree orig_fn = fn;
+
+      fn = remove_hidden_names (fn);
+      if (!fn)
+	{
+	  error ("no matching function for call to %<%D(%A)%>",
+		 DECL_NAME (OVL_CURRENT (orig_fn)), args);
+	  return error_mark_node;
+	}
+    }
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);
@@ -3486,7 +3502,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
   /* If this expression is an rvalue, but might be mistaken for an
      lvalue, we must add a NON_LVALUE_EXPR.  */
   if (!lvalue_p && real_lvalue_p (result))
-    result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
+    result = rvalue (result);
 
   return result;
 }
@@ -6117,17 +6133,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
       winner = more_specialized_fn
 	(TI_TEMPLATE (cand1->template_decl),
 	 TI_TEMPLATE (cand2->template_decl),
-	 /* Tell the deduction code how many real function arguments
-	    we saw, not counting the implicit 'this' argument.  But,
-	    add_function_candidate() suppresses the "this" argument
-	    for constructors.
-
-	    [temp.func.order]: The presence of unused ellipsis and default
+	 /* [temp.func.order]: The presence of unused ellipsis and default
 	    arguments has no effect on the partial ordering of function
-	    templates.  */
-	 cand1->num_convs
-	 - (DECL_NONSTATIC_MEMBER_FUNCTION_P (cand1->fn)
-	    - DECL_CONSTRUCTOR_P (cand1->fn)));
+	    templates.   add_function_candidate() will not have
+	    counted the "this" argument for constructors.  */
+	 cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
       if (winner)
 	return winner;
     }

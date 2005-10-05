@@ -555,7 +555,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	expr = build_base_path (PLUS_EXPR, convert_from_reference (expr),
 				binfo, 0);
 	if (TREE_CODE (exprtype) == POINTER_TYPE)
-	  expr = non_lvalue (expr);
+	  expr = rvalue (expr);
 	return expr;
       }
   }
@@ -1020,7 +1020,9 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 	tree base_binfo = BINFO_BASE_BINFO (TYPE_BINFO (type), 0);
 	tree tinfo = get_tinfo_ptr (BINFO_TYPE (base_binfo));
 	tree base_inits = tree_cons (NULL_TREE, tinfo, NULL_TREE);
-	
+
+	/* get_tinfo_ptr might have reallocated the tinfo_descs vector.  */
+	ti = VEC_index (tinfo_s, tinfo_descs, tk_index);
 	return class_initializer (ti, type, base_inits);
       }
 
@@ -1079,6 +1081,9 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 	base_inits = tree_cons (NULL_TREE,
 				build_int_cst (NULL_TREE, hint),
 				base_inits);
+
+	/* get_tinfo_ptr might have reallocated the tinfo_descs vector.  */
+	ti = VEC_index (tinfo_s, tinfo_descs, tk_index);
 	return class_initializer (ti, type, base_inits);
       }
     }

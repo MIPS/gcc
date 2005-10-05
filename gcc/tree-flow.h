@@ -614,6 +614,7 @@ extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
+static inline bool ref_contains_indirect_ref (tree);
 extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
 					    unsigned HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
@@ -669,6 +670,7 @@ extern void debug_dominator_optimization_stats (void);
 int loop_depth_of_name (tree);
 
 /* In tree-ssa-copy.c  */
+extern void merge_alias_info (tree, tree);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
@@ -756,6 +758,7 @@ unsigned compare_cost (tree);
 bool loop_iterations_at_most_p (struct loop *, tree, tree);
 bool condition_holds_in_loop_p (struct loop *, tree);
 bool get_max_loop_niter (struct loop *, unsigned HOST_WIDE_INT *);
+tree get_max_loop_niter_tree (struct loop *, tree);
 void record_niter_bound (struct loop *, tree, bool);
 void record_nonwrapping_iv (struct loop *, tree, tree, tree, tree, tree);
 

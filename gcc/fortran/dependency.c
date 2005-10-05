@@ -175,6 +175,45 @@ gfc_is_same_range (gfc_array_ref * ar1, gfc_array_ref * ar2, int n, int def)
 }
 
 
+/* Return true if the result of reference REF can only be constructed
+   using a temporary array.  */
+
+bool
+gfc_ref_needs_temporary_p (gfc_ref *ref)
+{
+  int n;
+  bool subarray_p;
+
+  subarray_p = false;
+  for (; ref; ref = ref->next)
+    switch (ref->type)
+      {
+      case REF_ARRAY:
+	/* Vector dimensions are generally not monotonic and must be
+	   handled using a temporary.  */
+	if (ref->u.ar.type == AR_SECTION)
+	  for (n = 0; n < ref->u.ar.dimen; n++)
+	    if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
+	      return true;
+
+	subarray_p = true;
+	break;
+
+      case REF_SUBSTRING:
+	/* Within an array reference, character substrings generally
+	   need a temporary.  Character array strides are expressed as
+	   multiples of the element size (consistent with other array
+	   types), not in characters.  */
+	return subarray_p;
+
+      case REF_COMPONENT:
+	break;
+      }
+
+  return false;
+}
+
+
 /* Dependency checking for direct function return by reference.
    Returns true if the arguments of the function depend on the
    destination.  This is considerably less conservative than other
@@ -185,9 +224,7 @@ int
 gfc_check_fncall_dependency (gfc_expr * dest, gfc_expr * fncall)
 {
   gfc_actual_arglist *actual;
-  gfc_ref *ref;
   gfc_expr *expr;
-  int n;
 
   gcc_assert (dest->expr_type == EXPR_VARIABLE
 	  && fncall->expr_type == EXPR_FUNCTION);
@@ -205,31 +242,8 @@ gfc_check_fncall_dependency (gfc_expr * dest, gfc_expr * fncall)
       switch (expr->expr_type)
 	{
 	case EXPR_VARIABLE:
-	  if (expr->rank > 1)
-	    {
-	      /* This is an array section.  */
-	      for (ref = expr->ref; ref; ref = ref->next)
-		{
-		  if (ref->type == REF_ARRAY && ref->u.ar.type != AR_ELEMENT)
-		    break;
-		}
-	      gcc_assert (ref);
-	      /* AR_FULL can't contain vector subscripts.  */
-	      if (ref->u.ar.type == AR_SECTION)
-		{
-		  for (n = 0; n < ref->u.ar.dimen; n++)
-		    {
-		      if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
-			break;
-		    }
-		  /* Vector subscript array sections will be copied to a
-		     temporary.  */
-		  if (n != ref->u.ar.dimen)
-		    continue;
-		}
-	    }
-
-	  if (gfc_check_dependency (dest, actual->expr, NULL, 0))
+	  if (!gfc_ref_needs_temporary_p (expr->ref)
+	      && gfc_check_dependency (dest, expr, NULL, 0))
 	    return 1;
 	  break;
 
@@ -378,7 +392,7 @@ get_deps (mpz_t x1, mpz_t x2, mpz_t y)
 }
 
 
-/* Transforms a sections l and r such that 
+/* Perform the same linear transformation on sections l and r such that 
    (l_start:l_end:l_stride) -> (0:no_of_elements)
    (r_start:r_end:r_stride) -> (X1:X2)
    Where r_end is implicit as both sections must have the same number of
@@ -420,7 +434,7 @@ transform_sections (mpz_t X1, mpz_t X2, mpz_t no_of_elements,
     mpz_mul (X2, no_of_elements, r_stride->value.integer);
 
   if (l_stride != NULL)
-    mpz_cdiv_q (X2, X2, r_stride->value.integer);
+    mpz_cdiv_q (X2, X2, l_stride->value.integer);
   mpz_add (X2, X2, X1);
 
   return 0;

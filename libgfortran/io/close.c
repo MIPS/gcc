@@ -36,7 +36,7 @@ typedef enum
 { CLOSE_DELETE, CLOSE_KEEP, CLOSE_UNSPECIFIED }
 close_status;
 
-static st_option status_opt[] = {
+static const st_option status_opt[] = {
   {"keep", CLOSE_KEEP},
   {"delete", CLOSE_DELETE},
   {NULL, 0}
@@ -64,7 +64,10 @@ st_close (void)
 		 "Bad STATUS parameter in CLOSE statement");
 
   if (ioparm.library_return != LIBRARY_OK)
+  {
+    library_end ();
     return;
+  }
 
   u = find_unit (ioparm.unit);
   if (u != NULL)

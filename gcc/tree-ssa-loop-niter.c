@@ -603,11 +603,15 @@ expand_simple_operations (tree expr)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, stmt;
-  enum tree_code code = TREE_CODE (expr);
+  enum tree_code code;
+
+  if (expr == NULL_TREE)
+    return expr;
 
   if (is_gimple_min_invariant (expr))
     return expr;
 
+  code = TREE_CODE (expr);
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       n = TREE_CODE_LENGTH (code);
@@ -1625,19 +1629,26 @@ infer_loop_bounds_from_array (tree stmt)
 
       /* For each array access, analyze its access function
 	 and record a bound on the loop iteration domain.  */
-      if (TREE_CODE (op1) == ARRAY_REF)
-	analyze_array (stmt, op1, true);
+      if (TREE_CODE (op1) == ARRAY_REF
+	  && !ref_contains_indirect_ref (op1))
+	estimate_iters_using_array (stmt, op1);
 
-      if (TREE_CODE (op0) == ARRAY_REF)
-	analyze_array (stmt, op0, false);
+      if (TREE_CODE (op0) == ARRAY_REF
+	  && !ref_contains_indirect_ref (op0))
+	estimate_iters_using_array (stmt, op0);
     }
   else if (TREE_CODE (stmt) == CALL_EXPR)
     {
-      tree args;
+      tree args, op;
 
       for (args = TREE_OPERAND (stmt, 1); args; args = TREE_CHAIN (args))
-	if (TREE_CODE (TREE_VALUE (args)) == ARRAY_REF)
-	  analyze_array (stmt, TREE_VALUE (args), true);
+	{
+	  op = TREE_VALUE (args);
+
+	  if (TREE_CODE (op) == ARRAY_REF
+	      && !ref_contains_indirect_ref (op))
+	    estimate_iters_using_array (stmt, op);
+	}
     }
 }
 
@@ -2012,7 +2023,9 @@ scev_probably_wraps_p (tree type, tree base, tree step,
 	}
     }
 
-  if (TREE_CODE (base) == REAL_CST
+  if (chrec_contains_undetermined (base)
+      || chrec_contains_undetermined (step)
+      || TREE_CODE (base) == REAL_CST
       || TREE_CODE (step) == REAL_CST)
     {
       *unknown_max = true;
@@ -2131,7 +2144,13 @@ tree
 convert_step (struct loop *loop, tree new_type, tree base, tree step,
 	      tree at_stmt)
 {
-  tree base_type = TREE_TYPE (base);
+  tree base_type;
+
+  if (chrec_contains_undetermined (base)
+      || chrec_contains_undetermined (step))
+    return NULL_TREE;
+
+  base_type = TREE_TYPE (base);
 
   /* When not using wrapping arithmetic, signed types don't wrap.  */
   if (!flag_wrapv && !TYPE_UNSIGNED (base_type))
@@ -2212,4 +2231,18 @@ get_max_loop_niter (struct loop *loop, unsigned HOST_WIDE_INT *niter)
 
   *niter = double_int_to_unsigned_hwi (loop->max_nb_iterations);
   return true;
+}
+
+/* Gets estimated number of iterations of LOOP in TYPE, if it fits to it,
+   or NULL otherwise.  */
+
+tree
+get_max_loop_niter_tree (struct loop *loop, tree type)
+{
+  if (loop->niter_bounds_state == NBS_NONE
+      || !loop->is_finite
+      || !double_int_fits_to_type_p (type, loop->max_nb_iterations))
+    return NULL_TREE;
+
+  return double_int_to_tree (type, loop->max_nb_iterations);
 }

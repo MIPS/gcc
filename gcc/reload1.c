@@ -3788,24 +3788,6 @@ fixup_eh_region_note (rtx insn, rtx prev, rtx next)
 	REG_NOTES (i)
 	  = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (note, 0), REG_NOTES (i));
       }
-
-  /* ??? Since we entered with one eh insn, we should exit with one eh insn;
-     otherwise we're unsure that we're not losing an exception.  Except that
-     the instruction stream incoming to reload doesn't pass the "if 
-     reg_eh_region is present, may_trap_p is true" smoke test.
-
-     Worse, even if it did, rtx_addr_can_trap_p returns false for some forms
-     of address that include constants regardless of the actual value of the
-     constant.  If we decide that "int a[3]; a[100000]" should be considered
-     non-trapping, we should get that story straight across more of the
-     compiler.  If we decide that it should trap, then we cannot decide
-     may_trap_p on the basis of rtx_addr_can_trap_p at all.  Which may not
-     be such a big thing -- it doesn't seem hard to get MEM_NOTRAP_P set
-     correctly in the first place.
-
-     Fixing all that is not in the cards for gcc 4.2, so for the nonce we
-     allow all eh insns to evaporate.  */
-  gcc_assert (trap_count <= 1);
 }
 
 /* Reload pseudo-registers into hard regs around each insn as needed.
@@ -6101,6 +6083,8 @@ merge_assigned_reloads (rtx insn)
       if (j == n_reloads
 	  && max_input_address_opnum <= min_conflicting_input_opnum)
 	{
+	  gcc_assert (rld[i].when_needed != RELOAD_FOR_OUTPUT);
+
 	  for (j = 0; j < n_reloads; j++)
 	    if (i != j && rld[j].reg_rtx != 0
 		&& rtx_equal_p (rld[i].reg_rtx, rld[j].reg_rtx)
@@ -6119,16 +6103,17 @@ merge_assigned_reloads (rtx insn)
 	     if they were for inputs, RELOAD_OTHER for outputs.  Note that
 	     this test is equivalent to looking for reloads for this operand
 	     number.  */
-	  /* We must take special care when there are two or more reloads to
-	     be merged and a RELOAD_FOR_OUTPUT_ADDRESS reload that loads the
-	     same value or a part of it; we must not change its type if there
-	     is a conflicting input.  */
+	  /* We must take special care with RELOAD_FOR_OUTPUT_ADDRESS; it may
+	     share registers with a RELOAD_FOR_INPUT, so we can not change it
+	     to RELOAD_FOR_OTHER_ADDRESS.  We should never need to, since we
+	     do not modify RELOAD_FOR_OUTPUT.  */
 
 	  if (rld[i].when_needed == RELOAD_OTHER)
 	    for (j = 0; j < n_reloads; j++)
 	      if (rld[j].in != 0
 		  && rld[j].when_needed != RELOAD_OTHER
 		  && rld[j].when_needed != RELOAD_FOR_OTHER_ADDRESS
+		  && rld[j].when_needed != RELOAD_FOR_OUTPUT_ADDRESS
 		  && (! conflicting_input
 		      || rld[j].when_needed == RELOAD_FOR_INPUT_ADDRESS
 		      || rld[j].when_needed == RELOAD_FOR_INPADDR_ADDRESS)
@@ -8189,6 +8174,15 @@ fixup_abnormal_edges (void)
 	  else
 	    purge_dead_edges (bb);
 	}
+    }
+
+  /* We've possibly turned single trapping insn into multiple ones.  */
+  if (flag_non_call_exceptions)
+    {
+      sbitmap blocks;
+      blocks = sbitmap_alloc (last_basic_block);
+      sbitmap_ones (blocks);
+      find_many_sub_basic_blocks (blocks);
     }
 
   if (inserted)

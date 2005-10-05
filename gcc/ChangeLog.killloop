@@ -1,5 +1,9 @@
 2005-10-05  Zdenek Dvorak  <dvorakz@suse.cz>
 
+	Merge from mainline (killloop-merge-20051005).
+
+2005-10-05  Zdenek Dvorak  <dvorakz@suse.cz>
+
 	* Makefile.in (tree-ssa-loop-niter.o): Add tree-affine.h dependency.
 	* cfgloop.h (struct nb_iter_bound): Removed.
 	(struct loop): Fields estimated_nb_iterations and bounds removed,

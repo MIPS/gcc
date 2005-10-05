@@ -220,6 +220,14 @@ get_frame_type (struct nesting_info *info)
 
       info->frame_type = type;
       info->frame_decl = create_tmp_var_for (info, type, "FRAME");
+
+      /* ??? Always make it addressable for now, since it is meant to
+	 be pointed to by the static chain pointer.  This pessimizes
+	 when it turns out that no static chains are needed because
+	 the nested functions referencing non-local variables are not
+	 reachable, but the true pessimization is to create the non-
+	 local frame structure in the first place.  */
+      TREE_ADDRESSABLE (info->frame_decl) = 1;
     }
   return type;
 }
@@ -1081,7 +1089,7 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info, *i;
   tree t = *tp, label, new_label, target_context, x, arg, field;
-  struct var_map_elt *elt;
+  struct var_map_elt *elt, dummy;
   void **slot;
 
   *walk_subtrees = 0;
@@ -1102,17 +1110,23 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
      control transfer.  This new label will be marked LABEL_NONLOCAL; this
      mark will trigger proper behavior in the cfg, as well as cause the
      (hairy target-specific) non-local goto receiver code to be generated
-     when we expand rtl.  */
-  new_label = create_artificial_label ();
-  DECL_NONLOCAL (new_label) = 1;
+     when we expand rtl.  Enter this association into var_map so that we
+     can insert the new label into the IL during a second pass.  */
+  dummy.old = label;
+  slot = htab_find_slot (i->var_map, &dummy, INSERT);
+  elt = *slot;
+  if (elt == NULL)
+    {
+      new_label = create_artificial_label ();
+      DECL_NONLOCAL (new_label) = 1;
 
-  /* Enter this association into var_map so that we can insert the new
-     label into the IL during a second pass.  */
-  elt = ggc_alloc (sizeof (*elt));
-  elt->old = label;
-  elt->new = new_label;
-  slot = htab_find_slot (i->var_map, elt, INSERT);
-  *slot = elt;
+      elt = ggc_alloc (sizeof (*elt));
+      elt->old = label;
+      elt->new = new_label;
+      *slot = elt;
+    }
+  else
+    new_label = elt->new;
   
   /* Build: __builtin_nl_goto(new_label, &chain->nl_goto_field).  */
   field = get_nl_goto_field (i);
