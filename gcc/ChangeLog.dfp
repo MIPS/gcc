@@ -1,3 +1,7 @@
+2005-10-05  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (decUtility.o): Add new dependencies.
+
 2005-10-04  Ben Elliston  <bje@au.ibm.co>
 
 	* config/dfp-bit.c: Replace calls to __ieee_byte_order with
