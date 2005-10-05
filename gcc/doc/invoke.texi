@@ -519,10 +519,10 @@ Objective-C and Objective-C++ Dialects}.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
-@c APPLE LOCAL begin mainline 2005-09-01 3449986
--whatsloaded -F -gused -gfull -mmacosx-min-version=@var{version} @gol
+@c APPLE LOCAL begin mainline 2005-09-04 4283992
+-whatsloaded -F -gused -gfull -mmacosx-version-min=@var{version} @gol
 -mone-byte-bool}
-@c APPLE LOCAL end mainline 2005-09-01 3449986
+@c APPLE LOCAL end mainline 2005-09-04 4283992
 
 @c APPLE LOCAL prune man page
 @ignore

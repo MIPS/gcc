@@ -1,3 +1,8 @@
+2005-10-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/invoke.texi (Option Summary): Correct spelling
+	of -mmacosx-version-min.
+
 2005-09-30  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/t-slibgcc-darwin (libgcc_s_%.dylib): Remove old symlinks
