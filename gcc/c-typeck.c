@@ -6868,6 +6868,12 @@ cw_asm_c_build_component_ref (tree typename, tree component)
     }
   else
     {
+      /* We allow [eax].16 to refer to [eax + 16].  */
+      if (TREE_CODE (component) == INTEGER_CST
+	  && TREE_CODE (typename) == BRACKET_EXPR)
+	{
+	  return cw_build_bracket (typename, component);
+	}
       /* A structure tag will have been assumed to be a label; pick
 	 out the original name.  */
       if (strncmp ("LASM", IDENTIFIER_POINTER (typename), 4) == 0)

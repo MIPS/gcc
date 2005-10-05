@@ -2826,6 +2826,10 @@ cw_asm_primary:
 	| cw_asm_primary '.' identifier
 		{ $$.value = cw_asm_c_build_component_ref ($1.value, $3);
                   $$.original_code = ERROR_MARK; }
+	| cw_asm_primary '.' CONSTANT
+		{ /* We allow [eax].16 to refer to [eax + 16].  */
+		  $$.value = cw_asm_c_build_component_ref ($1.value, $3);
+                  $$.original_code = ERROR_MARK; }
 	| cw_asm_primary POINTSAT identifier
 		{
                   tree expr = build_indirect_ref ($1.value, "->");

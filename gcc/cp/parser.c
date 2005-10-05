@@ -17540,6 +17540,23 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	    tree scope = NULL_TREE;
             enum cpp_ttype token_type = token->type;
 
+	    /* We allow [eax].16 to refer to [eax + 16].  */
+	    if (TREE_CODE (postfix_expression) == BRACKET_EXPR)
+	      {
+		cp_token *new_token;
+
+		new_token = cp_lexer_peek_nth_token (parser->lexer, 2);
+		if (new_token->type == CPP_NUMBER)
+		  {
+		    /* Consume the `.' or `->' operator.  */
+		    cp_lexer_consume_token (parser->lexer);
+		    postfix_expression = cw_build_bracket (postfix_expression,
+							   new_token->value);
+		    cp_lexer_consume_token (parser->lexer);
+		    break;
+		  }
+	      }
+
 	    /* If this is a `->' operator, dereference the pointer.  */
 	    if (token->type == CPP_DEREF)
 	      postfix_expression = build_x_arrow (postfix_expression);
