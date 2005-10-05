@@ -18347,6 +18347,22 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == XFmode)
 	    e->mod[argnum-1] = 't';
 	  break;
+	case BRACKET_EXPR:
+	  /* We use the TREE_TYPE to indicate the type of operand, it
+	     it set with code like: inc dword ptr [eax].  */
+	  if (TREE_CODE (TREE_TYPE (arg)) == IDENTIFIER_NODE)
+	    {
+	      const char *s = IDENTIFIER_POINTER (TREE_TYPE (arg));
+	      if (strcasecmp (s, "byte") == 0)
+		e->mod[argnum-1] = 'b';
+	      else if (strcasecmp (s, "word") == 0)
+		e->mod[argnum-1] = 'w';
+	      else if (strcasecmp (s, "dword") == 0)
+		e->mod[argnum-1] = 'l';
+	      else if (strcasecmp (s, "qword") == 0)
+		e->mod[argnum-1] = 'q';
+	    }
+	  break;
 	case LABEL_DECL:
 	  e->mod[argnum-1] = 'l';
 	  break;

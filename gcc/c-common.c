@@ -7159,6 +7159,22 @@ cw_do_id (tree id)
     return newid;
 #endif
 
+#if defined (TARGET_386)
+  {
+    /* We allow all these as part of the syntax for things like:
+       inc dword ptr [eax]  */
+    const char *s = IDENTIFIER_POINTER (id);
+    if (strcasecmp (s, "byte") == 0
+	|| strcasecmp (s, "word") == 0
+	|| strcasecmp (s, "dword") == 0
+	|| strcasecmp (s, "fword") == 0
+	|| strcasecmp (s, "qword") == 0
+	|| strcasecmp (s, "tbyte") == 0
+	|| strcasecmp (s, "oword") == 0)
+      return id;
+  }
+#endif
+
   /* Assume undeclared symbols are labels. */
   return get_cw_asm_label (id);
 }

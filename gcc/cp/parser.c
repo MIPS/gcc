@@ -17659,6 +17659,19 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	  }
 	  break;
 
+	case CPP_NAME:
+	  if (strcasecmp (IDENTIFIER_POINTER (token->value), "ptr") == 0)
+	    {
+	      /* Handle things like: inc dword ptr [eax]  */
+	      tree type = postfix_expression;
+	      cp_lexer_consume_token (parser->lexer);
+	      postfix_expression = cp_parser_cw_asm_postfix_expression (parser, address_p);
+	      if (! (TREE_TYPE (postfix_expression) == void_type_node
+		     && TREE_CODE (postfix_expression) == BRACKET_EXPR))
+		cp_parser_error (parser, "ptr expression misplaced");
+	      TREE_TYPE (postfix_expression) = type;
+	    }
+
 	default:
 	  return postfix_expression;
 	}
