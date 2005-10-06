@@ -1,3 +1,7 @@
+2005-10-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/t-slibgcc-darwin (SHLIB_MAPFILES): Use '+='.
+
 2005-10-04  Geoffrey Keating  <geoffk@apple.com>
 
 	* doc/invoke.texi (Option Summary): Correct spelling
