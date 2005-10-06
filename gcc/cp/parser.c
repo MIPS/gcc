@@ -248,7 +248,7 @@ cp_lexer_new_main (void)
   cp_lexer_get_preprocessor_token (NULL, &first_token);
 
   /* Tell cpplib we want CPP_PRAGMA tokens.  */
-  cpp_get_options (parse_in)->defer_pragmas = true;
+  /* FIXME: cpp_get_options (parse_in)->defer_pragmas = true; */
 
   /* Tell c_lex not to merge string constants.  */
   c_lex_return_raw_strings = true;
@@ -626,7 +626,7 @@ cp_lexer_handle_pragma (cp_lexer *lexer)
   s.len = TREE_STRING_LENGTH (token->value);
   s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
 
-  cpp_handle_deferred_pragma (parse_in, &s);
+  /* FIXME: cpp_handle_deferred_pragma (parse_in, &s); */
 
   /* Clearing token->value here means that we will get an ICE if we
      try to process this #pragma again (which should be impossible).  */

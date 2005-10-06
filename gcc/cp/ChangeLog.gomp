@@ -1,3 +1,8 @@
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (cp_lexer_new_main): Comment out defer_pragmas.
+	(cp_lexer_handle_pragma): Comment out cpp_handle_deferred_pragma.
+
 2005-10-01  Richard Henderson  <rth@redhat.com>
 
 	* name-lookup.c (lookup_name): Remove prefer_type argument.
