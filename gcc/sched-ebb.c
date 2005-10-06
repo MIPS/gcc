@@ -41,6 +41,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "sched-int.h"
 #include "target.h"
+#include "df.h"
+
 
 /* The number of insns to be scheduled in total.  */
 static int target_n_insns;
@@ -183,9 +185,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	 it may guard the fallthrough block from using a value that has
 	 conditionally overwritten that of the main codepath.  So we
 	 consider that it restores the value of the main codepath.  */
-      bitmap_and (set, e->dest->il.rtl->global_live_at_start, cond_set);
+      bitmap_and (set, DF_LIVE_IN (rtl_df, e->dest), cond_set);
     else
-      bitmap_ior_into (used, e->dest->il.rtl->global_live_at_start);
+      bitmap_ior_into (used, DF_LIVE_IN (rtl_df, e->dest));
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -568,7 +570,7 @@ schedule_ebbs (FILE *dump_file)
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
   sched_init (dump_file);

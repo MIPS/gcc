@@ -703,7 +703,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	     conditional has no loop header successors as not taken.  */
 	  if (!header_found)
 	    FOR_EACH_EDGE (e, ei, bb->succs)
-	      if (e->dest->index < 0
+	      if (e->dest->index < NUM_FIXED_BLOCKS
 		  || !flow_bb_inside_loop_p (loop, e->dest))
 		predict_edge
 		  (e, PRED_LOOP_EXIT,
@@ -1267,7 +1267,7 @@ tree_bb_level_predictions (void)
   int *heads;
 
   heads = xmalloc (sizeof (int) * last_basic_block);
-  memset (heads, -1, sizeof (int) * last_basic_block);
+  memset (heads, ENTRY_BLOCK, sizeof (int) * last_basic_block);
   heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
 
   apply_return_prediction (heads);
@@ -1520,10 +1520,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
       while (next_ai != bb)
 	{
 	  next_ai = ai;
-	  if (heads[ai->index] == ENTRY_BLOCK)
-	    ai = ENTRY_BLOCK_PTR;
-	  else
-	    ai = BASIC_BLOCK (heads[ai->index]);
+	  ai = BASIC_BLOCK (heads[ai->index]);
 	  heads[next_ai->index] = head;
 	}
     }
@@ -1534,7 +1531,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
   if (y == last_basic_block)
     return;
   FOR_EACH_EDGE (e, ei, BASIC_BLOCK (y)->succs)
-    if (e->dest->index >= 0
+    if (e->dest->index >= NUM_FIXED_BLOCKS
 	&& dominated_by_p (CDI_POST_DOMINATORS, e->dest, bb))
       predict_edge_def (e, pred, taken);
 }
@@ -1592,12 +1589,7 @@ propagate_freq (struct loop *loop, bitmap tovisit)
        /* The outermost "loop" includes the exit block, which we can not
 	  look up via BASIC_BLOCK.  Detect this and use EXIT_BLOCK_PTR
 	  directly.  Do the same for the entry block.  */
-     if (i == (unsigned)ENTRY_BLOCK)
-       bb = ENTRY_BLOCK_PTR;
-     else if (i == (unsigned)EXIT_BLOCK)
-       bb = EXIT_BLOCK_PTR;
-     else
-       bb = BASIC_BLOCK (i);
+      bb = BASIC_BLOCK (i);
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{

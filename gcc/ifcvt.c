@@ -43,7 +43,7 @@
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
-
+#include "df.h"
 
 #ifndef HAVE_conditional_execution
 #define HAVE_conditional_execution 0
@@ -2366,9 +2366,6 @@ merge_if_block (struct ce_if_block * ce_info)
 
   if (then_bb)
     {
-      if (combo_bb->il.rtl->global_live_at_end)
-	COPY_REG_SET (combo_bb->il.rtl->global_live_at_end,
-		      then_bb->il.rtl->global_live_at_end);
       merge_blocks (combo_bb, then_bb);
       num_true_changes++;
     }
@@ -2419,10 +2416,6 @@ merge_if_block (struct ce_if_block * ce_info)
 	   && join_bb != EXIT_BLOCK_PTR)
     {
       /* We can merge the JOIN.  */
-      if (combo_bb->il.rtl->global_live_at_end)
-	COPY_REG_SET (combo_bb->il.rtl->global_live_at_end,
-		      join_bb->il.rtl->global_live_at_end);
-
       merge_blocks (combo_bb, join_bb);
       num_true_changes++;
     }
@@ -3008,6 +3001,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest, new_bb;
   int then_bb_index;
+  int * block_list = alloca (2 * sizeof (int));
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -3062,11 +3056,6 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_ior (test_bb->il.rtl->global_live_at_end,
-	      else_bb->il.rtl->global_live_at_start,
-	      then_bb->il.rtl->global_live_at_end);
-
-
   /* We can avoid creating a new basic block if then_bb is immediately
      followed by else_bb, i.e. deleting then_bb allows test_bb to fall
      thru to else_bb.  */
@@ -3089,16 +3078,30 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
      block we removed.  */
   if (new_bb)
     {
+      int old_index = new_bb->index;
+#if 0
       new_bb->index = then_bb_index;
+#endif     
+      /* This is so rude.  */
+      df_bb_replace (rtl_df, then_bb_index, new_bb);
+#if 0
       BASIC_BLOCK (then_bb_index) = new_bb;
+#endif
+      BASIC_BLOCK (old_index) = NULL;
       /* Since the fallthru edge was redirected from test_bb to new_bb,
          we need to ensure that new_bb is in the same partition as
          test bb (you can not fall through across section boundaries).  */
       BB_COPY_PARTITION (new_bb, test_bb);
-    }
-  /* We've possibly created jump to next insn, cleanup_cfg will solve that
-     later.  */
+      /* We've possibly created jump to next insn, cleanup_cfg will solve that
+	 later.  */
+      block_list[0] = new_bb->index;
+      block_list[1] = test_bb->index;
 
+      df_analyze_simple_change_some_blocks (rtl_df, block_list, 2);
+    }
+  else
+    df_analyze_simple_change_one_block (rtl_df, test_bb);
+   
   num_true_changes++;
   num_updated_if_blocks++;
 
@@ -3149,14 +3152,14 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
     return FALSE;
 
   /* THEN is not EXIT.  */
-  if (then_bb->index < 0)
+  if (then_bb->index < NUM_FIXED_BLOCKS)
     return FALSE;
 
   /* ELSE is predicted or SUCC(ELSE) postdominates THEN.  */
   note = find_reg_note (BB_END (test_bb), REG_BR_PROB, NULL_RTX);
   if (note && INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2)
     ;
-  else if (else_succ->dest->index < 0
+  else if (else_succ->dest->index < NUM_FIXED_BLOCKS
 	   || dominated_by_p (CDI_POST_DOMINATORS, then_bb,
 			      else_succ->dest))
     ;
@@ -3180,11 +3183,9 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_ior (test_bb->il.rtl->global_live_at_end,
-	      then_bb->il.rtl->global_live_at_start,
-	      else_bb->il.rtl->global_live_at_end);
-
   delete_basic_block (else_bb);
+
+  df_analyze_simple_change_one_block (rtl_df, test_bb);
 
   num_true_changes++;
   num_updated_if_blocks++;
@@ -3367,7 +3368,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
 
-      COPY_REG_SET (test_live, other_bb->il.rtl->global_live_at_start);
+      COPY_REG_SET (test_live, DF_LIVE_IN (rtl_df, other_bb));
       pbi = init_propagate_block_info (test_bb, test_live, test_set, test_set,
 				       0);
 
@@ -3383,13 +3384,12 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       /* We can perform the transformation if
 	   MERGE_SET & (TEST_SET | TEST_LIVE)
 	 and
-	   TEST_SET & merge_bb->il.rtl->global_live_at_start
+	   TEST_SET & DF_LIVE_IN (rtl_df, merge_bb)
 	 are empty.  */
 
       if (bitmap_intersect_p (test_set, merge_set)
 	  || bitmap_intersect_p (test_live, merge_set)
-	  || bitmap_intersect_p (test_set,
-	    			 merge_bb->il.rtl->global_live_at_start))
+	  || bitmap_intersect_p (test_set, DF_LIVE_IN (rtl_df, merge_bb)))
 	fail = 1;
 
       FREE_REG_SET (tmp);
@@ -3680,8 +3680,8 @@ rest_of_handle_if_after_reload (void)
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
   cleanup_cfg (CLEANUP_EXPENSIVE
-               | CLEANUP_UPDATE_LIFE
-               | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+             | CLEANUP_UPDATE_LIFE
+             | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
   if (flag_if_conversion2)
     if_convert (1);
 }

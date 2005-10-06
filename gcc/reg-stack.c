@@ -173,6 +173,7 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
+#include "df.h"
 
 /* We use this array to cache info about insns, because otherwise we
    spend too much time in stack_regs_mentioned_p.
@@ -3030,6 +3031,17 @@ reg_to_stack (FILE *file)
   int i;
   int max_uid;
 
+#if 0
+  fprintf (stderr, "\n\n\n\n");
+
+  df_dump (rtl_df, DF_LR | DF_UR, stderr);
+
+  FOR_EACH_BB (bb)
+    {
+      fprintf (stderr, "\n");
+      dump_bb (bb, stderr, 0);
+    }
+#endif
   /* Clean up previous run.  */
   stack_regs_mentioned_data = 0;
 
@@ -3074,9 +3086,9 @@ reg_to_stack (FILE *file)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_end, reg))
+	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (rtl_df, bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, reg))
+	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }
@@ -3146,7 +3158,7 @@ rest_of_handle_stack_regs (void)
                        | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
           && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
         {
-          reorder_basic_blocks (0);
+          reorder_basic_blocks ();
           cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
         }
     }

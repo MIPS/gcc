@@ -65,6 +65,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "hashtab.h"
 #include "alloc-pool.h"
+#include "df.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -161,21 +162,30 @@ void
 compact_blocks (void)
 {
   int i;
-  basic_block bb;
 
-  i = 0;
-  FOR_EACH_BB (bb)
+  BASIC_BLOCK(ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
+  BASIC_BLOCK(EXIT_BLOCK) = EXIT_BLOCK_PTR;
+  
+  if (rtl_df)
+    df_compact_blocks (rtl_df);
+  else 
     {
-      BASIC_BLOCK (i) = bb;
-      bb->index = i;
-      i++;
+      basic_block bb;
+      
+      i = NUM_FIXED_BLOCKS;
+      FOR_EACH_BB (bb)
+	{
+	  BASIC_BLOCK (i) = bb;
+	  bb->index = i;
+	  i++;
+	}
+      gcc_assert (i == n_basic_blocks);
+
+      for (; i < last_basic_block; i++)
+	BASIC_BLOCK (i) = NULL;
     }
-
-  gcc_assert (i == n_basic_blocks);
-
-  for (; i < last_basic_block; i++)
-    BASIC_BLOCK (i) = NULL;
-
+  
+  
   last_basic_block = n_basic_blocks;
 }
 
@@ -546,16 +556,16 @@ dump_flow_info (FILE *file)
 
       if (bb->flags & BB_RTL)
 	{
-	  if (bb->il.rtl->global_live_at_start)
+	  if (rtl_df)
 	    {
 	      fprintf (file, "\nRegisters live at start:");
-	      dump_regset (bb->il.rtl->global_live_at_start, file);
+	      dump_regset (DF_LIVE_IN (rtl_df, bb), file);
 	    }
 
-	  if (bb->il.rtl->global_live_at_end)
+	  if (rtl_df)
 	    {
 	      fprintf (file, "\nRegisters live at end:");
-	      dump_regset (bb->il.rtl->global_live_at_end, file);
+	      dump_regset (DF_LIVE_OUT (rtl_df, bb), file);
 	    }
 	}
 

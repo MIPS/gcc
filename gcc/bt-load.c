@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Target register optimizations - these are performed after reload.  */
 
@@ -461,7 +462,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
   defs_uses_info info;
 
   sbitmap_vector_zero (bb_gen, n_basic_blocks);
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
     {
       basic_block bb = BASIC_BLOCK (i);
       int reg;
@@ -478,7 +479,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
       CLEAR_HARD_REG_SET (info.btrs_written_in_block);
       for (reg = first_btr; reg <= last_btr; reg++)
 	if (TEST_HARD_REG_BIT (all_btrs, reg)
-	    && REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, reg))
+	    && REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb), reg))
 	  SET_HARD_REG_BIT (info.btrs_live_in_block, reg);
 
       for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
@@ -579,7 +580,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
       COPY_HARD_REG_SET (btrs_live[i], info.btrs_live_in_block);
       COPY_HARD_REG_SET (btrs_written[i], info.btrs_written_in_block);
 
-      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], bb->il.rtl->global_live_at_end);
+      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], DF_LIVE_OUT (rtl_df, bb));
       /* If this block ends in a jump insn, add any uses or even clobbers
 	 of branch target registers that it might have.  */
       for (insn = BB_END (bb); insn != BB_HEAD (bb) && ! INSN_P (insn); )
@@ -622,7 +623,7 @@ compute_kill (sbitmap *bb_kill, sbitmap *btr_defset,
   /* For each basic block, form the set BB_KILL - the set
      of definitions that the block kills.  */
   sbitmap_vector_zero (bb_kill, n_basic_blocks);
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
     {
       for (regno = first_btr; regno <= last_btr; regno++)
 	if (TEST_HARD_REG_BIT (all_btrs, regno)
@@ -645,14 +646,14 @@ compute_out (sbitmap *bb_out, sbitmap *bb_gen, sbitmap *bb_kill, int max_uid)
   int changed;
   sbitmap bb_in = sbitmap_alloc (max_uid);
 
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
     sbitmap_copy (bb_out[i], bb_gen[i]);
 
   changed = 1;
   while (changed)
     {
       changed = 0;
-      for (i = 0; i < n_basic_blocks; i++)
+      for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
 	{
 	  sbitmap_union_of_preds (bb_in, bb_out, i);
 	  changed |= sbitmap_union_of_diff_cg (bb_out[i], bb_gen[i],
@@ -671,7 +672,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
 
   /* Link uses to the uses lists of all of their reaching defs.
      Count up the number of reaching defs of each use.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
     {
       basic_block bb = BASIC_BLOCK (i);
       rtx insn;
@@ -1397,7 +1398,7 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
     {
       int i;
 
-      for (i = 0; i < n_basic_blocks; i++)
+      for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
 	{
 	  basic_block bb = BASIC_BLOCK (i);
 	  fprintf(dump_file,

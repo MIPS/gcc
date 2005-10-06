@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "function.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "df.h"
 
 /* We want target macros for the mode switching code to be able to refer
    to instruction attribute values.  */
@@ -221,7 +222,6 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
     if (eg->flags & EDGE_FALLTHRU)
       {
 	basic_block src_bb = eg->src;
-	regset live_at_end = src_bb->il.rtl->global_live_at_end;
 	rtx last_insn, ret_reg;
 
 	gcc_assert (!pre_exit);
@@ -370,8 +370,6 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	else
 	  {
 	    pre_exit = split_edge (eg);
-	    COPY_REG_SET (pre_exit->il.rtl->global_live_at_start, live_at_end);
-	    COPY_REG_SET (pre_exit->il.rtl->global_live_at_end, live_at_end);
 	  }
       }
 
@@ -401,7 +399,6 @@ optimize_mode_switching (FILE *file)
   bool emited = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
 
-  clear_bb_flags ();
 
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
     if (OPTIMIZE_MODE_SWITCHING (e))
@@ -454,8 +451,7 @@ optimize_mode_switching (FILE *file)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now,
-				   bb->il.rtl->global_live_at_start);
+	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (rtl_df, bb));
 	  for (insn = BB_HEAD (bb);
 	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
@@ -584,8 +580,7 @@ optimize_mode_switching (FILE *file)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge,
-				       src_bb->il.rtl->global_live_at_end);
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (rtl_df, src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);

@@ -84,6 +84,7 @@
 #include "params.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "df.h"
 
 #ifndef HAVE_conditional_execution
 #define HAVE_conditional_execution 0
@@ -1600,21 +1601,12 @@ fix_crossing_conditional_branches (void)
 		{
 		  /* Create new basic block to be dest for
 		     conditional jump.  */
-		  
+
 		  new_bb = create_basic_block (NULL, NULL, last_bb);
 		  new_bb->aux = last_bb->aux;
 		  last_bb->aux = new_bb;
 		  prev_bb = last_bb;
 		  last_bb = new_bb;
-		  
-		  /* Update register liveness information.  */
-		  
-		  new_bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-		  new_bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-		  COPY_REG_SET (new_bb->il.rtl->global_live_at_end,
-				prev_bb->il.rtl->global_live_at_end);
-		  COPY_REG_SET (new_bb->il.rtl->global_live_at_start,
-				prev_bb->il.rtl->global_live_at_end);
 		  
 		  /* Put appropriate instructions in new bb.  */
 		  
@@ -1642,6 +1634,10 @@ fix_crossing_conditional_branches (void)
 		  new_bb->il.rtl->footer = unlink_insn_chain (barrier, 
 							   barrier);
 		  
+		  /* Update register liveness information.  */
+		  if (rtl_df)
+		    df_analyze_simple_change_one_block (rtl_df, new_bb);
+  
 		  /* Make sure new bb is in same partition as source
 		     of conditional branch.  */
 		  BB_COPY_PARTITION (new_bb, cur_bb);
@@ -1887,19 +1883,19 @@ verify_hot_cold_block_grouping (void)
    the set of flags to pass to cfg_layout_initialize().  */
 
 void
-reorder_basic_blocks (unsigned int flags)
+reorder_basic_blocks (void)
 {
   int n_traces;
   int i;
   struct trace *traces;
 
-  if (n_basic_blocks <= 1)
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
 
   if (targetm.cannot_modify_jumps_p ())
     return;
 
-  cfg_layout_initialize (flags);
+  cfg_layout_initialize (0);
 
   set_edge_can_fallthru_flag ();
   mark_dfs_back_edges ();
@@ -1985,7 +1981,7 @@ duplicate_computed_gotos (void)
   bitmap candidates;
   int max_size;
 
-  if (n_basic_blocks <= 1)
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
 
   if (targetm.cannot_modify_jumps_p ())
@@ -2168,7 +2164,7 @@ partition_hot_cold_basic_blocks (void)
   int n_crossing_edges;
   int max_edges = 2 * last_basic_block;
   
-  if (n_basic_blocks <= 1)
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
   
   crossing_edges = xcalloc (max_edges, sizeof (edge));
@@ -2176,8 +2172,8 @@ partition_hot_cold_basic_blocks (void)
   cfg_layout_initialize (0);
   
   FOR_EACH_BB (cur_bb)
-    if (cur_bb->index >= 0
- 	&& cur_bb->next_bb->index >= 0)
+    if (cur_bb->index >= NUM_FIXED_BLOCKS
+ 	&& cur_bb->next_bb->index >= NUM_FIXED_BLOCKS)
       cur_bb->aux = cur_bb->next_bb;
   
   find_rarely_executed_basic_blocks_and_crossing_edges (crossing_edges, 
@@ -2204,32 +2200,32 @@ static void
 rest_of_handle_reorder_blocks (void)
 {
   bool changed;
-  unsigned int liveness_flags;
+  if (rtl_df)
+    {
+      df_finish (rtl_df);
+      rtl_df = NULL;
+    }
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  liveness_flags = (!HAVE_conditional_execution ? CLEANUP_UPDATE_LIFE : 0);
-  changed = cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
+  changed = cleanup_cfg (CLEANUP_EXPENSIVE);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     {
       timevar_push (TV_TRACER);
-      tracer (liveness_flags);
+      tracer (0);
       timevar_pop (TV_TRACER);
     }
 
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-    reorder_basic_blocks (liveness_flags);
+    reorder_basic_blocks ();
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    changed |= cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
+    changed |= cleanup_cfg (CLEANUP_EXPENSIVE);
 
-  /* On conditional execution targets we can not update the life cheaply, so
-     we deffer the updating to after both cleanups.  This may lose some cases
-     but should not be terribly bad.  */
-  if (changed && HAVE_conditional_execution)
-    update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-                      PROP_DEATH_NOTES);
+  rtl_df = df_init ();
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		    PROP_DEATH_NOTES);
 }
 
 struct tree_opt_pass pass_reorder_blocks =

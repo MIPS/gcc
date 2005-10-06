@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "flags.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer, cfg_layout_function_header;
@@ -601,7 +602,7 @@ fixup_reorder_chain (void)
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb, index = 0;
+  for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
        bb != 0;
        bb = bb->aux, index++)
     {
@@ -818,7 +819,7 @@ fixup_reorder_chain (void)
   if (dump_file)
     {
       fprintf (dump_file, "Reordered sequence:\n");
-      for (bb = ENTRY_BLOCK_PTR->next_bb, index = 0;
+      for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
 	   bb;
 	   bb = bb->aux, index++)
 	{
@@ -837,7 +838,7 @@ fixup_reorder_chain (void)
 
   prev_bb = ENTRY_BLOCK_PTR;
   bb = ENTRY_BLOCK_PTR->next_bb;
-  index = 0;
+  index = NUM_FIXED_BLOCKS;
 
   for (; bb; prev_bb = bb, bb = bb->aux, index ++)
     {
@@ -1061,6 +1062,7 @@ duplicate_insn_chain (rtx from, rtx to)
    it to cfgrtl.c since it would require also moving quite a lot of related
    code.  */
 extern basic_block cfg_layout_duplicate_bb (basic_block);
+extern void cfg_layout_duplicate_bb_end (basic_block);
 
 basic_block
 cfg_layout_duplicate_bb (basic_block bb)
@@ -1094,18 +1096,17 @@ cfg_layout_duplicate_bb (basic_block bb)
 	new_bb->il.rtl->footer = unlink_insn_chain (insn, get_last_insn ());
     }
 
-  if (bb->il.rtl->global_live_at_start)
-    {
-      new_bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      new_bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-      COPY_REG_SET (new_bb->il.rtl->global_live_at_start,
-		    bb->il.rtl->global_live_at_start);
-      COPY_REG_SET (new_bb->il.rtl->global_live_at_end,
-		    bb->il.rtl->global_live_at_end);
-    }
-
   return new_bb;
 }
+
+/* Fix up the dataflow for the new basic block.  This can only be done
+   after all of the edges have been connected.  */
+void
+cfg_layout_duplicate_bb_end (basic_block bb)
+{
+  df_analyze_simple_change_one_block (rtl_df, bb);
+}
+
 
 /* Main entry point to this module - initialize the datastructures for
    CFG layout changes.  It keeps LOOPS up-to-date if not null.

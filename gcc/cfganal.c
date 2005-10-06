@@ -152,7 +152,7 @@ could_fall_through (basic_block src, basic_block target)
      Steven Muchnick
      Morgan Kaufmann, 1997
 
-   and heavily borrowed from flow_depth_first_order_compute.  */
+   and heavily borrowed from pre_and_rev_post_order_compute.  */
 
 bool
 mark_dfs_back_edges (void)
@@ -345,7 +345,7 @@ create_edge_list (void)
   basic_block bb;
   edge_iterator ei;
 
-  block_count = n_basic_blocks + 2;   /* Include the entry and exit blocks.  */
+  block_count = n_basic_blocks; /* Include the entry and exit blocks.  */
 
   num_edges = 0;
 
@@ -391,7 +391,7 @@ print_edge_list (FILE *f, struct edge_list *elist)
   int x;
 
   fprintf (f, "Compressed edge list, %d BBs + entry & exit, and %d edges\n",
-	   elist->num_blocks - 2, elist->num_edges);
+	   elist->num_blocks, elist->num_edges);
 
   for (x = 0; x < elist->num_edges; x++)
     {
@@ -645,15 +645,20 @@ connect_infinite_loops_to_exit (void)
   return;
 }
 
-/* Compute reverse top sort order.  */
+/* Compute reverse top sort order.  
 
-void
-flow_reverse_top_sort_order_compute (int *rts_order)
+   This is computing a post order numbering of the graph.  */
+
+int
+post_order_compute (int *post_order, bool include_entry_exit)
 {
   edge_iterator *stack;
   int sp;
-  int postnum = 0;
+  int post_order_num = 0;
   sbitmap visited;
+
+  if (include_entry_exit)
+    post_order[post_order_num++] = EXIT_BLOCK;
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
@@ -690,12 +695,12 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	       time, check its successors.  */
 	    stack[sp++] = ei_start (dest->succs);
 	  else
-	    rts_order[postnum++] = dest->index;
+	    post_order[post_order_num++] = dest->index;
 	}
       else
 	{
 	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR)
-	   rts_order[postnum++] = src->index;
+	   post_order[post_order_num++] = src->index;
 
 	  if (!ei_one_before_end_p (ei))
 	    ei_next (&stack[sp - 1]);
@@ -704,29 +709,49 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	}
     }
 
+  if (include_entry_exit)
+    post_order[post_order_num++] = ENTRY_BLOCK;
+
   free (stack);
   sbitmap_free (visited);
+  return post_order_num;
 }
 
 /* Compute the depth first search order and store in the array
-  DFS_ORDER if nonzero, marking the nodes visited in VISITED.  If
-  RC_ORDER is nonzero, return the reverse completion number for each
+  PRE_ORDER if nonzero, marking the nodes visited in VISITED.  If
+  REV_POST_ORDER is nonzero, return the reverse completion number for each
   node.  Returns the number of nodes visited.  A depth first search
   tries to get as far away from the starting point as quickly as
-  possible.  */
+  possible. 
+
+  pre_order is a really a preorder numbering of the graph.
+  rev_post_order is really a reverse postorder numbering of the graph.
+ */
 
 int
-flow_depth_first_order_compute (int *dfs_order, int *rc_order)
+pre_and_rev_post_order_compute (int *pre_order, int *rev_post_order, 
+				bool include_entry_exit)
 {
   edge_iterator *stack;
   int sp;
-  int dfsnum = 0;
-  int rcnum = n_basic_blocks - 1;
+  int pre_order_num = 0;
+  int rev_post_order_num = n_basic_blocks - 1;
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
+
+  if (include_entry_exit)
+    {
+      if (pre_order)
+	pre_order[pre_order_num] = ENTRY_BLOCK;
+      pre_order_num++;
+      if (rev_post_order)
+	rev_post_order[rev_post_order_num--] = ENTRY_BLOCK;
+    }
+  else 
+    rev_post_order_num -= NUM_FIXED_BLOCKS;
 
   /* Allocate bitmap to track nodes that have been visited.  */
   visited = sbitmap_alloc (last_basic_block);
@@ -754,27 +779,27 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	  /* Mark that we have visited the destination.  */
 	  SET_BIT (visited, dest->index);
 
-	  if (dfs_order)
-	    dfs_order[dfsnum] = dest->index;
+	  if (pre_order)
+	    pre_order[pre_order_num] = dest->index;
 
-	  dfsnum++;
+	  pre_order_num++;
 
 	  if (EDGE_COUNT (dest->succs) > 0)
 	    /* Since the DEST node has been visited for the first
 	       time, check its successors.  */
 	    stack[sp++] = ei_start (dest->succs);
-	  else if (rc_order)
+	  else if (rev_post_order)
 	    /* There are no successors for the DEST node so assign
 	       its reverse completion number.  */
-	    rc_order[rcnum--] = dest->index;
+	    rev_post_order[rev_post_order_num--] = dest->index;
 	}
       else
 	{
 	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR
-	      && rc_order)
+	      && rev_post_order)
 	    /* There are no more successors for the SRC node
 	       so assign its reverse completion number.  */
-	    rc_order[rcnum--] = src->index;
+	    rev_post_order[rev_post_order_num--] = src->index;
 
 	  if (!ei_one_before_end_p (ei))
 	    ei_next (&stack[sp - 1]);
@@ -786,10 +811,23 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   free (stack);
   sbitmap_free (visited);
 
-  /* The number of nodes visited should be the number of blocks.  */
-  gcc_assert (dfsnum == n_basic_blocks);
+  if (include_entry_exit)
+    {
+      if (pre_order)
+	pre_order[pre_order_num] = EXIT_BLOCK;
+      pre_order_num++;
+      if (rev_post_order)
+	rev_post_order[rev_post_order_num--] = EXIT_BLOCK;
+      /* The number of nodes visited should be the number of blocks minus
+	 the entry and exit blocks which are not visited here.  */
+      gcc_assert (pre_order_num == n_basic_blocks);
+    }
+  else
+    /* The number of nodes visited should be the number of blocks minus
+       the entry and exit blocks which are not visited here.  */
+    gcc_assert (pre_order_num == n_basic_blocks - NUM_FIXED_BLOCKS);
 
-  return dfsnum;
+  return pre_order_num;
 }
 
 /* Compute the depth first search order on the _reverse_ graph and
@@ -826,12 +864,11 @@ static void
 flow_dfs_compute_reverse_init (depth_first_search_ds data)
 {
   /* Allocate stack for back-tracking up CFG.  */
-  data->stack = xmalloc ((n_basic_blocks - (INVALID_BLOCK + 1))
-			 * sizeof (basic_block));
+  data->stack = xmalloc (n_basic_blocks * sizeof (basic_block));
   data->sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
-  data->visited_blocks = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
+  data->visited_blocks = sbitmap_alloc (last_basic_block);
 
   /* None of the nodes in the CFG have been visited yet.  */
   sbitmap_zero (data->visited_blocks);
@@ -847,7 +884,7 @@ static void
 flow_dfs_compute_reverse_add_bb (depth_first_search_ds data, basic_block bb)
 {
   data->stack[data->sp++] = bb;
-  SET_BIT (data->visited_blocks, bb->index - (INVALID_BLOCK + 1));
+  SET_BIT (data->visited_blocks, bb->index);
 }
 
 /* Continue the depth-first search through the reverse graph starting with the
@@ -869,14 +906,13 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data,
 
       /* Perform depth-first search on adjacent vertices.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
-	if (!TEST_BIT (data->visited_blocks,
-		       e->src->index - (INVALID_BLOCK + 1)))
+	if (!TEST_BIT (data->visited_blocks, e->src->index))
 	  flow_dfs_compute_reverse_add_bb (data, e->src);
     }
 
   /* Determine if there are unvisited basic blocks.  */
   FOR_BB_BETWEEN (bb, last_unvisited, NULL, prev_bb)
-    if (!TEST_BIT (data->visited_blocks, bb->index - (INVALID_BLOCK + 1)))
+    if (!TEST_BIT (data->visited_blocks, bb->index))
       return bb;
 
   return NULL;
@@ -912,12 +948,12 @@ dfs_enumerate_from (basic_block bb, int reverse,
   static sbitmap visited;
   static unsigned v_size;
 
-#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index + 2))
-#define UNMARK_VISITED(BB) (RESET_BIT (visited, (BB)->index + 2))
-#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index + 2))
+#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index)) 
+#define UNMARK_VISITED(BB) (RESET_BIT (visited, (BB)->index)) 
+#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index)) 
 
   /* Resize the VISITED sbitmap if necessary.  */
-  size = last_basic_block + 2;
+  size = last_basic_block; 
   if (size < 10)
     size = 10;
 

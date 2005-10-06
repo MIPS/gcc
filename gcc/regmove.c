@@ -45,7 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "reload.h"
 #include "timevar.h"
 #include "tree-pass.h"
-
+#include "df.h"
 
 /* Turn STACK_GROWS_DOWNWARD into a boolean.  */
 #ifdef STACK_GROWS_DOWNWARD
@@ -268,8 +268,7 @@ mark_flags_life_zones (rtx flags)
       {
 	int i;
 	for (i = 0; i < flags_nregs; ++i)
-	  live |= REGNO_REG_SET_P (block->il.rtl->global_live_at_start,
-				   flags_regno + i);
+	  live |= REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, block), flags_regno + i);
       }
 #endif
 

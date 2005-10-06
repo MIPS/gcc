@@ -41,6 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "reload.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "df.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -2858,7 +2859,7 @@ int peep2_current_count;
 
 /* A non-insn marker indicating the last insn of the block.
    The live_before regset for this element is correct, indicating
-   global_live_at_end for the block.  */
+   DF_LIVE_OUT for the block.  */
 #define PEEP2_EOB	pc_rtx
 
 /* Return the Nth non-note insn after `current', or return NULL_RTX if it
@@ -3069,7 +3070,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      COPY_REG_SET (live, bb->il.rtl->global_live_at_end);
+      COPY_REG_SET (live, DF_LIVE_OUT (rtl_df, bb));
       COPY_REG_SET (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
 #ifdef HAVE_conditional_execution
@@ -3286,8 +3287,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 
       /* Some peepholes can decide the don't need one or more of their
 	 inputs.  If this happens, local life update is not enough.  */
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->il.rtl->global_live_at_start, live,
-				      0, j, rsi)
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (DF_LIVE_IN (rtl_df, bb), live, 0, j, rsi)
 	{
 	  do_global_life_update = true;
 	  break;

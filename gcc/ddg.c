@@ -225,7 +225,7 @@ static void
 add_deps_for_def (ddg_ptr g, struct df *df, struct ref *rd)
 {
   int regno = DF_REF_REGNO (rd);
-  struct bb_info *bb_info = DF_BB_INFO (df, g->bb);
+  struct df_bb_info *bb_info = DF_BB_INFO (df, g->bb);
   struct df_link *r_use;
   int use_before_def = false;
   rtx def_insn = DF_REF_INSN (rd);
@@ -285,7 +285,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct ref *use)
   struct ref *first_def = df_bb_regno_first_def_find (df, g->bb, regno);
   ddg_node_ptr use_node;
   ddg_node_ptr def_node;
-  struct bb_info *bb_info;
+  struct df_bb_info *bb_info;
 
   bb_info = DF_BB_INFO (df, g->bb);
 
@@ -313,7 +313,7 @@ static void
 build_inter_loop_deps (ddg_ptr g, struct df *df)
 {
   unsigned rd_num, u_num;
-  struct bb_info *bb_info;
+  struct df_bb_info *bb_info;
   bitmap_iterator bi;
 
   bb_info = DF_BB_INFO (df, g->bb);

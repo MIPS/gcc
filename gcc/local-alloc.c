@@ -80,6 +80,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Next quantity number available for allocation.  */
 
@@ -784,11 +785,8 @@ update_equiv_regs (void)
   rtx insn;
   basic_block bb;
   int loop_depth;
-  regset_head cleared_regs;
-  int clear_regnos = 0;
 
   reg_equiv = xcalloc (max_regno, sizeof *reg_equiv);
-  INIT_REG_SET (&cleared_regs);
   reg_equiv_init = ggc_alloc_cleared (max_regno * sizeof (rtx));
   reg_equiv_init_size = max_regno;
 
@@ -1149,10 +1147,6 @@ update_equiv_regs (void)
 		      reg_equiv[regno].init_insns
 			= XEXP (reg_equiv[regno].init_insns, 1);
 
-		      /* Remember to clear REGNO from all basic block's live
-			 info.  */
-		      SET_REGNO_REG_SET (&cleared_regs, regno);
-		      clear_regnos++;
 		      reg_equiv_init[regno] = NULL_RTX;
 		    }
 		  /* Move the initialization of the register to just before
@@ -1182,10 +1176,6 @@ update_equiv_regs (void)
 		      if (insn == BB_HEAD (bb))
 			BB_HEAD (bb) = PREV_INSN (insn);
 
-		      /* Remember to clear REGNO from all basic block's live
-			 info.  */
-		      SET_REGNO_REG_SET (&cleared_regs, regno);
-		      clear_regnos++;
 		      reg_equiv_init[regno]
 			= gen_rtx_INSN_LIST (VOIDmode, new_insn, NULL_RTX);
 		    }
@@ -1194,39 +1184,10 @@ update_equiv_regs (void)
 	}
     }
 
-  /* Clear all dead REGNOs from all basic block's live info.  */
-  if (clear_regnos)
-    {
-      unsigned j;
-      
-      if (clear_regnos > 8)
-	{
-	  FOR_EACH_BB (bb)
-	    {
-	      AND_COMPL_REG_SET (bb->il.rtl->global_live_at_start,
-			         &cleared_regs);
-	      AND_COMPL_REG_SET (bb->il.rtl->global_live_at_end,
-			         &cleared_regs);
-	    }
-	}
-      else
-	{
-	  reg_set_iterator rsi;
-	  EXECUTE_IF_SET_IN_REG_SET (&cleared_regs, 0, j, rsi)
-	    {
-	      FOR_EACH_BB (bb)
-		{
-		  CLEAR_REGNO_REG_SET (bb->il.rtl->global_live_at_start, j);
-		  CLEAR_REGNO_REG_SET (bb->il.rtl->global_live_at_end, j);
-		}
-	    }
-	}
-    }
 
   out:
   /* Clean up.  */
   end_alias_analysis ();
-  CLEAR_REG_SET (&cleared_regs);
   free (reg_equiv);
 }
 
@@ -1299,8 +1260,7 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live,
-		  	   BASIC_BLOCK (b)->il.rtl->global_live_at_start);
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_LIVE_IN (rtl_df, BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.

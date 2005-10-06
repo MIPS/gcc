@@ -98,6 +98,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Number of attempts to combine instructions in this function.  */
 
@@ -284,10 +285,6 @@ static rtx added_links_insn;
 /* Basic block in which we are performing combines.  */
 static basic_block this_basic_block;
 
-/* A bitmap indicating which blocks had registers go dead at entry.
-   After combine, we'll need to re-do global life analysis with
-   those blocks as starting points.  */
-static sbitmap refresh_blocks;
 
 /* The following array records the insn_rtx_cost for every insn
    in the instruction stream.  */
@@ -641,9 +638,7 @@ combine_instructions (rtx f, unsigned int nregs)
   rtx prev;
 #endif
   int i;
-  unsigned int j = 0;
   rtx links, nextlinks;
-  sbitmap_iterator sbi;
 
   int new_direct_jump_p = 0;
 
@@ -691,8 +686,6 @@ combine_instructions (rtx f, unsigned int nregs)
 
   setup_incoming_promotions ();
 
-  refresh_blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (refresh_blocks);
 
   /* Allocate array of current insn_rtx_costs.  */
   uid_insn_cost = xcalloc (max_uid_cuid + 1, sizeof (int));
@@ -889,19 +882,14 @@ combine_instructions (rtx f, unsigned int nregs)
 	    }
 	}
     }
-  clear_bb_flags ();
 
-  EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, j, sbi)
-    BASIC_BLOCK (j)->flags |= BB_DIRTY;
+  clear_bb_flags ();
   new_direct_jump_p |= purge_all_dead_edges ();
   delete_noop_moves ();
-
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 				    PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
 				    | PROP_KILL_DEAD_CODE);
-
   /* Clean up.  */
-  sbitmap_free (refresh_blocks);
   free (uid_insn_cost);
   free (reg_stat);
   free (uid_cuid);
@@ -991,7 +979,7 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set,
       /* If this register is undefined at the start of the file, we can't
 	 say what its contents were.  */
       && ! REGNO_REG_SET_P
-         (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start, REGNO (x))
+         (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))
       && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT)
     {
       if (set == 0 || GET_CODE (set) == CLOBBER)
@@ -8378,7 +8366,7 @@ reg_nonzero_bits_for_combine (rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && ! REGNO_REG_SET_P
-	         (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
+	      (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb),
 		  REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
@@ -8446,8 +8434,8 @@ reg_num_sign_bit_copies_for_combine (rtx x, enum machine_mode mode,
           || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && ! REGNO_REG_SET_P
-	         (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
-		  REGNO (x))))
+	      (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb),
+	       REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *result = reg_stat[REGNO (x)].last_set_sign_bit_copies;
@@ -11281,7 +11269,7 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 	    || (! (regno >= FIRST_PSEUDO_REGISTER
 		   && REG_N_SETS (regno) == 1
 		   && (! REGNO_REG_SET_P
-		       (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
+		       (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb),
 			regno)))
 		&& reg_stat[j].last_set_label > tick))
 	  {
@@ -11392,8 +11380,7 @@ get_last_value (rtx x)
 	  && (regno < FIRST_PSEUDO_REGISTER
 	      || REG_N_SETS (regno) != 1
 	      || (REGNO_REG_SET_P
-		  (ENTRY_BLOCK_PTR->next_bb->il.rtl->global_live_at_start,
-		   regno)))))
+		  (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), regno)))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,
@@ -11554,7 +11541,7 @@ reg_dead_at_p (rtx reg, rtx insn)
     }
 
   for (i = reg_dead_regno; i < reg_dead_endregno; i++)
-    if (REGNO_REG_SET_P (block->il.rtl->global_live_at_start, i))
+    if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, block), i))
       return 0;
 
   return 1;
@@ -12315,15 +12302,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		    break;
 		}
 
-	      /* We haven't found an insn for the death note and it
-		 is still a REG_DEAD note, but we have hit the beginning
-		 of the block.  If the existing life info says the reg
-		 was dead, there's nothing left to do.  Otherwise, we'll
-		 need to do a global life update after combine.  */
-	      if (REG_NOTE_KIND (note) == REG_DEAD && place == 0
-		  && REGNO_REG_SET_P (bb->il.rtl->global_live_at_start,
-				      REGNO (XEXP (note, 0))))
-		SET_BIT (refresh_blocks, this_basic_block->index);
 	    }
 
 	  /* If the register is set or already dead at PLACE, we needn't do
@@ -12336,11 +12314,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 	    {
 	      unsigned int regno = REGNO (XEXP (note, 0));
 
-	      /* Similarly, if the instruction on which we want to place
-		 the note is a noop, we'll need do a global live update
-		 after we remove them in delete_noop_moves.  */
-	      if (noop_move_p (place))
-		SET_BIT (refresh_blocks, this_basic_block->index);
 
 	      if (dead_or_set_p (place, XEXP (note, 0))
 		  || reg_bitfield_target_p (XEXP (note, 0), PATTERN (place)))
@@ -12409,11 +12382,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 				if (! INSN_P (tem))
 				  {
 				    if (tem == BB_HEAD (bb))
-				      {
-					SET_BIT (refresh_blocks,
-						 this_basic_block->index);
-					break;
-				      }
+			 	      break;
 				    continue;
 				  }
 				if (dead_or_set_p (tem, piece)

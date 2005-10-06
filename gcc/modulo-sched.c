@@ -2536,7 +2536,6 @@ rest_of_handle_sms (void)
 {
 #ifdef INSN_SCHEDULING
   basic_block bb;
-  sbitmap blocks;
 
   /* We want to be able to create new pseudos.  */
   no_new_pseudos = 0;
@@ -2547,9 +2546,7 @@ rest_of_handle_sms (void)
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_ones (blocks);
-  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                     (PROP_DEATH_NOTES
                      | PROP_REG_INFO
                      | PROP_KILL_DEAD_CODE

@@ -594,7 +594,7 @@ static void free_pre_mem (void);
 static void compute_pre_data (void);
 static int pre_expr_reaches_here_p (basic_block, struct expr *,
 				    basic_block);
-static void insert_insn_end_bb (struct expr *, basic_block, int);
+static void insert_insn_end_basic_block (struct expr *, basic_block, int);
 static void pre_insert_copy_insn (struct expr *, rtx);
 static void pre_insert_copies (void);
 static int pre_delete (void);
@@ -638,7 +638,7 @@ static bool store_killed_in_insn (rtx, rtx, rtx, int);
 static bool store_killed_after (rtx, rtx, rtx, basic_block, int *, rtx *);
 static bool store_killed_before (rtx, rtx, rtx, basic_block, int *);
 static void build_store_vectors (void);
-static void insert_insn_start_bb (rtx, basic_block);
+static void insert_insn_start_basic_block (rtx, basic_block);
 static int insert_store (struct ls_expr *, edge);
 static void remove_reachable_equiv_notes (basic_block, struct ls_expr *);
 static void replace_store_insn (rtx, rtx, basic_block, struct ls_expr *);
@@ -3985,7 +3985,7 @@ process_insert_insn (struct expr *expr)
    no sense for code hoisting.  */
 
 static void
-insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
+insert_insn_end_basic_block (struct expr *expr, basic_block bb, int pre)
 {
   rtx insn = BB_END (bb);
   rtx new_insn;
@@ -4162,7 +4162,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 			   now.  */
 
 			if (eg->flags & EDGE_ABNORMAL)
-			  insert_insn_end_bb (index_map[j], bb, 0);
+			  insert_insn_end_basic_block (index_map[j], bb, 0);
 			else
 			  {
 			    insn = process_insert_insn (index_map[j]);
@@ -4954,7 +4954,7 @@ hoist_code (void)
 		      occr->deleted_p = 1;
 		      if (!insn_inserted_p)
 			{
-			  insert_insn_end_bb (index_map[i], bb, 0);
+			  insert_insn_end_basic_block (index_map[i], bb, 0);
 			  insn_inserted_p = 1;
 			}
 		    }
@@ -6104,7 +6104,7 @@ build_store_vectors (void)
    the BB_HEAD if needed.  */
 
 static void
-insert_insn_start_bb (rtx insn, basic_block bb)
+insert_insn_start_basic_block (rtx insn, basic_block bb)
 {
   /* Insert at start of successor block.  */
   rtx prev = PREV_INSN (BB_HEAD (bb));
@@ -6178,7 +6178,7 @@ insert_store (struct ls_expr * expr, edge e)
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	  RESET_BIT (pre_insert_map[index], expr->index);
 	}
-      insert_insn_start_bb (insn, bb);
+      insert_insn_start_basic_block (insn, bb);
       return 0;
     }
 

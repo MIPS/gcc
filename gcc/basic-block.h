@@ -265,12 +265,6 @@ struct rtl_bb_info GTY(())
   rtx head_;
   rtx end_;
 
-  /* The registers that are live on entry to this block.  */
-  bitmap GTY ((skip (""))) global_live_at_start;
-
-  /* The registers that are live on exit from this block.  */
-  bitmap GTY ((skip (""))) global_live_at_end;
-
   /* In CFGlayout mode points to insn notes/jumptables to be placed just before
      and after the block.   */
   rtx header;
@@ -427,16 +421,35 @@ extern bool rediscover_loops_after_threading;
 
 #define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN(BB, cfun)
 
+#define FOR_EACH_BB_IN_REGION(BB, REGION) \
+  for (BB= (REGION)->region_info->first_bb_in_region; BB; BB = BB->next_bb_in_region)
+
+#define FOR_EACH_BB_REVERSE_IN_REGION(BB, REGION) \
+  for (BB= (REGION)->region_info->last_bb_in_region; BB; BB = BB->prev_bb_in_region)
+
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
   for ((INSN) = BB_HEAD (BB);			\
-       (INSN) != NEXT_INSN (BB_END (BB));	\
+       (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
        (INSN) = NEXT_INSN (INSN))
+
+/* For iterating over insns in basic block when we might remove the
+   current insn.  */
+#define FOR_BB_INSNS_SAFE(BB, INSN, CURR)			\
+  for ((INSN) = BB_HEAD (BB), (CURR)=(INSN) ? NEXT_INSN ((INSN)): NULL;	\
+       (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
+       (INSN) = (CURR), (CURR) = (INSN) ? NEXT_INSN ((INSN)) : NULL)
+       
 
 #define FOR_BB_INSNS_REVERSE(BB, INSN)		\
   for ((INSN) = BB_END (BB);			\
-       (INSN) != PREV_INSN (BB_HEAD (BB));	\
+       (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
        (INSN) = PREV_INSN (INSN))
+
+#define FOR_BB_INSNS_REVERSE_SAFE(BB, INSN, CURR)	\
+  for ((INSN) = BB_END (BB),(CURR)=(INSN) ? PREV_INSN ((INSN)) : NULL;	\
+       (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
+       (INSN) = (CURR), (CURR) = (INSN) ? PREV_INSN ((INSN)) : NULL)
 
 /* Cycles through _all_ basic blocks, even the fake ones (entry and
    exit block).  */
@@ -467,11 +480,12 @@ extern bitmap_obstack reg_obstack;
 #define BB_END(B)       (B)->il.rtl->end_
 
 /* Special block numbers [markers] for entry and exit.  */
-#define ENTRY_BLOCK (-1)
-#define EXIT_BLOCK (-2)
+#define ENTRY_BLOCK (0)
+#define EXIT_BLOCK (1)
 
-/* Special block number not valid for any block.  */
-#define INVALID_BLOCK (-3)
+/* The two blocks that are always in the cfg.  */
+#define NUM_FIXED_BLOCKS (2)
+
 
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
@@ -502,8 +516,8 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
-extern void flow_reverse_top_sort_order_compute (int *);
-extern int flow_depth_first_order_compute (int *, int *);
+extern int post_order_compute (int *, bool);
+extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
@@ -803,10 +817,11 @@ enum update_life_extent
 					   by dead code removal.  */
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
 #define PROP_SCAN_DEAD_STORES	128	/* Scan for dead code.  */
-#define PROP_ASM_SCAN		256	/* Internal flag used within flow.c
-					   to flag analysis of asms.  */
 #define PROP_DEAD_INSN		1024	/* Internal flag used within flow.c
 					   to flag analysis of dead insn.  */
+#define PROP_NO_UNINITIALIZED_LL 2048   /* Build log links without anding in
+					   uninitialized var info.  */
+
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
@@ -816,7 +831,6 @@ enum update_life_extent
 				 | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE \
 				 | PROP_SCAN_DEAD_STORES)
-
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
 					   except for edge forwarding */
 #define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
@@ -933,7 +947,7 @@ extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (unsigned int);
+extern void reorder_basic_blocks (void);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In dominance.c */

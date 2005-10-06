@@ -26,19 +26,37 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "bitmap.h"
 #include "basic-block.h"
+#include "alloc-pool.h"
 
 #define DF_RD		1	/* Reaching definitions.  */
 #define DF_RU		2	/* Reaching uses.  */
 #define DF_LR		4	/* Live registers.  */
-#define DF_DU_CHAIN	8	/* Def-use chain.  */
-#define DF_UD_CHAIN	16	/* Use-def chain.  */
-#define DF_REG_INFO	32	/* Register info.  */
-#define DF_RD_CHAIN	64	/* Reg-def chain.  */
-#define DF_RU_CHAIN	128	/* Reg-use chain.  */
-#define DF_ALL		255
-#define DF_HARD_REGS	1024	/* Mark hard registers.  */
-#define DF_EQUIV_NOTES	2048	/* Mark uses present in EQUIV/EQUAL notes.  */
-#define DF_SUBREGS	4096	/* Return subregs rather than the inner reg.  */
+#define DF_UR           8	/* Uninitialized registers.  */
+#define DF_DU_CHAIN	16	/* Def-use chain.  */
+#define DF_UD_CHAIN	32	/* Use-def chain.  */
+#define DF_REG_INFO	64	/* Register info.  */
+#define DF_RD_CHAIN	128	/* Reg-def chain.  */
+#define DF_RU_CHAIN	256	/* Reg-use chain.  */
+#define DF_ALL		511
+
+#define DF_HARD_REGS	2048	/* Mark hard registers.  */
+#define DF_EQUIV_NOTES	4096	/* Mark uses present in EQUIV/EQUAL notes.  */
+#define DF_SUBREGS	8192	/* Return subregs rather than the inner reg.  */
+#define DF_ARTIFICIAL_DEFS  16384  /* Create artificial definitions
+				      for call clobbering, etc. */
+#define DF_ARTIFICIAL_USES  32768  /* Create artificial uses for 
+				      always live registers, etc.  */
+
+/* The way that registers are processed, especially hard registers,
+   changes as the compilation proceeds. These states are passed to
+   df_set_state to control this processing.  */
+
+#define DF_SCAN_INITIAL    1    /* Processing from beginning of rtl to
+				   global-alloc.  */
+#define DF_SCAN_GLOBAL     2    /* Processing before global
+				   allocation.  */
+#define DF_SCAN_POST_ALLOC 4    /* Processing after register
+				   allocation.  */
 
 enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
 		  DF_REF_REG_MEM_STORE};
@@ -62,7 +80,15 @@ enum df_ref_flags
     /* This flag is set, if we stripped the subreg from the reference.
        In this case we must make conservative guesses, at what the
        outer mode was.  */
-    DF_REF_STRIPPED = 2
+    DF_REF_STRIPPED = 2,
+    
+    /* If this flag is set, this is not a real definition/use, but an
+       artificial one created to model always live registers, eh uses, etc.  */
+    DF_REF_ARTIFICIAL = 4,
+
+    /* This flag is set if the use is inside a REG_EQUAL note.  */
+    DF_REF_IN_NOTE = 8
+    
   };
 
 
@@ -72,6 +98,7 @@ enum df_ref_flags
 struct ref
 {
   rtx reg;			/* The register referenced.  */
+  unsigned int regno;           /* The register number referenced.  */
   rtx insn;			/* Insn containing ref.  */
   rtx *loc;			/* The location of the reg.  */
   struct df_link *chain;	/* Head of def-use or use-def chain.  */
@@ -90,6 +117,7 @@ struct insn_info
   /* ???? The following luid field should be considered private so that
      we can change it on the fly to accommodate new insns?  */
   int luid;			/* Logical UID.  */
+  bool contains_asm;            /* Contains an asm instruction.  */
 };
 
 
@@ -105,7 +133,7 @@ struct reg_info
 
 
 /* One of these structures is allocated for every basic block.  */
-struct bb_info
+struct df_bb_info
 {
   /* Reaching def bitmaps have def_id elements.  */
   bitmap rd_kill;
@@ -117,21 +145,30 @@ struct bb_info
   bitmap ru_gen;
   bitmap ru_in;
   bitmap ru_out;
-  /* Live variable bitmaps have n_regs elements.  */
+  /* Live register bitmaps have n_regs elements.  */
   bitmap lr_def;
   bitmap lr_use;
   bitmap lr_in;
   bitmap lr_out;
+  /* Reaching register bitmaps have n_regs elements.  */
+  bitmap rr_earlyclobber;
+  bitmap rr_kill;
+  bitmap rr_gen;
+  bitmap rr_in;
+  bitmap rr_out;
   int rd_valid;
   int ru_valid;
   int lr_valid;
+  int rr_valid;
+  struct df_link *artificial_defs;
+  struct df_link *artificial_uses;
 };
-
 
 struct df
 {
   int flags;			/* Indicates what's recorded.  */
-  struct bb_info *bbs;		/* Basic block table.  */
+  int state;                    /* Indicates where we are in the compilation.  */
+  struct df_bb_info *bbs;	/* Basic block table.  */
   struct ref **defs;		/* Def table, indexed by def_id.  */
   struct ref **uses;		/* Use table, indexed by use_id.  */
   struct ref **reg_def_last;	/* Indexed by regno.  */
@@ -152,13 +189,18 @@ struct df
   bitmap insns_modified;	/* Insns that (may) have changed.  */
   bitmap bbs_modified;		/* Blocks that (may) have changed.  */
   bitmap all_blocks;		/* All blocks in CFG.  */
+#ifdef STACK_REGS
+  bitmap stack_regs;		/* Registers that may be allocated to a STACK_REGS.  */
+#endif
   int *dfs_order;		/* DFS order -> block number.  */
-  int *rc_order;		/* Reverse completion order -> block number.  */
-  int *rts_order;		/* Reverse top sort order -> block number.  */
-  int *inverse_rc_map;		/* Block number -> reverse completion order.  */
-  int *inverse_dfs_map;		/* Block number -> DFS order.  */
-  int *inverse_rts_map;		/* Block number -> reverse top-sort order.  */
+  int *postorder;		/* Reverse completion order -> block number.  */
+  int *reverse_postorder;	/* Reverse top sort order -> block number.  */
+  bool earlyclobbers_found;     /* True if any instruction contains an
+				   earlyclobber.  */
+  alloc_pool ref_pool;
+  alloc_pool link_pool;
 };
+
 
 
 struct df_map
@@ -168,14 +210,32 @@ struct df_map
 };
 
 
-#define DF_BB_INFO(REFS, BB) (&REFS->bbs[(BB)->index])
+#define DF_BB_INFO(DF, BB) (&DF->bbs[(BB)->index])
+
+/* Most transformations that wish to use live register analysis will
+   use these macros.  The DF_UPWARD_LIVE* macros are only half of the
+   solution.  */
+#define DF_LIVE_IN(DF, BB) (DF_BB_INFO(DF, BB)->rr_in) 
+#define DF_LIVE_OUT(DF, BB) (DF_BB_INFO(DF, BB)->rr_out) 
+
+/* These macros are currently used by only reg-stack since it is not
+   tolerant of uninitialized variables.  This intolerance should be
+   fixed because it causes other problems.  */ 
+#define DF_UPWARD_LIVE_IN(DF, BB) (DF_BB_INFO(DF, BB)->lr_in) 
+#define DF_UPWARD_LIVE_OUT(DF, BB) (DF_BB_INFO(DF, BB)->lr_out) 
+
+/* This next macro gives access to the old information before the live
+   register rewrite. It should not be used except in old consisteny
+   tests.  */
+#define DF_LL_LIVE_IN(DF, BB) (DF_BB_INFO(DF, BB)->lr_in)
 
 
 /* Macros to access the elements within the ref structure.  */
 
+
 #define DF_REF_REAL_REG(REF) (GET_CODE ((REF)->reg) == SUBREG \
 				? SUBREG_REG ((REF)->reg) : ((REF)->reg))
-#define DF_REF_REGNO(REF) REGNO (DF_REF_REAL_REG (REF))
+#define DF_REF_REGNO(REF) ((REF)->regno)
 #define DF_REF_REAL_LOC(REF) (GET_CODE ((REF)->reg) == SUBREG \
 			        ? &SUBREG_REG ((REF)->reg) : ((REF)->loc))
 #define DF_REF_REG(REF) ((REF)->reg)
@@ -215,6 +275,7 @@ struct df_map
 
 /* Macros to access the elements within the insn_info structure table.  */
 
+#define DF_INSN_CONTAINS_ASM(DF, INSN) ((DF)->insns[INSN_UID (INSN)].contains_asm)
 #define DF_INSN_LUID(DF, INSN) ((DF)->insns[INSN_UID (INSN)].luid)
 #define DF_INSN_DEFS(DF, INSN) ((DF)->insns[INSN_UID (INSN)].defs)
 #define DF_INSN_USES(DF, INSN) ((DF)->insns[INSN_UID (INSN)].uses)
@@ -223,9 +284,12 @@ struct df_map
 /* Functions to build and analyze dataflow information.  */
 
 extern struct df *df_init (void);
+extern void df_set_state (struct df *, int);
 
 extern int df_analyze (struct df *, bitmap, int);
 extern void df_analyze_subcfg (struct df *, bitmap, int);
+extern void df_analyze_simple_change_some_blocks (struct df *, int *, unsigned int);
+extern void df_analyze_simple_change_one_block (struct df *, basic_block);
 
 extern void df_finish (struct df *);
 
@@ -249,9 +313,14 @@ extern rtx df_pattern_emit_after (struct df *, rtx, basic_block, rtx);
 extern rtx df_insn_move_before (struct df *, basic_block, rtx, basic_block,
 				rtx);
 
+extern struct df_link *df_chain_copy (struct df *, struct df_link *);
+
 extern int df_reg_replace (struct df *, bitmap, rtx, rtx);
 
 extern int df_ref_reg_replace (struct df *, struct ref *, rtx, rtx);
+
+extern struct ref *df_ref_create (struct df *, rtx, rtx *, rtx,  
+                                  enum df_ref_type, enum df_ref_flags);
 
 extern int df_ref_remove (struct df *, struct ref *);
 
@@ -275,13 +344,17 @@ extern int df_insn_dominates_all_uses_p (struct df *, basic_block, rtx);
 
 extern int df_insn_dominates_uses_p (struct df *, basic_block, rtx, bitmap);
 
+extern bitmap df_bb_reg_live_start (struct df *, basic_block);
+
+extern bitmap df_bb_reg_live_end (struct df *, basic_block);
+
 extern int df_bb_reg_live_start_p (struct df *, basic_block, rtx);
 
 extern int df_bb_reg_live_end_p (struct df *, basic_block, rtx);
 
 extern int df_bb_regs_lives_compare (struct df *, basic_block, rtx, rtx);
 
-extern bool df_local_def_available_p (struct df *, struct ref *, struct ref *);
+extern bool df_local_def_available_p (struct df *, struct ref *, rtx);
 
 extern rtx df_bb_single_def_use_insn_find (struct df *, basic_block, rtx,
 					   rtx);
@@ -291,10 +364,15 @@ extern struct ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigne
 
 extern struct ref *df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);
 
+extern void df_insert_def (struct df *, struct ref *, struct df_link *);
+ 
+extern void df_insert_use (struct df *, struct ref *, struct df_link *);
+ 
 extern struct ref *df_find_def (struct df *, rtx, rtx);
 
 extern int df_reg_used (struct df *, rtx, rtx);
 
+extern void df_bb_replace (struct df *, int, basic_block);
 /* Functions for debugging from GDB.  */
 
 extern void debug_df_insn (rtx);
@@ -331,40 +409,59 @@ enum df_flow_dir
     DF_BACKWARD
   };
 
-
+struct dataflow;
+typedef void (*setbits_function) (struct dataflow *, basic_block);
 typedef void (*transfer_function) (int, int *, void *, void *,
 				   void *, void *, void *);
+typedef void (*finalizer_function) (struct df*, bitmap);
 
-/* The description of a dataflow problem to solve.  */
 
-enum set_representation
-{
-  SR_SBITMAP,		/* Represent sets by bitmaps.  */
-  SR_BITMAP		/* Represent sets by sbitmaps.  */
+/* The static description of a dataflow problem to solve.  */
+
+struct df_problem {
+  enum df_flow_dir dir;			/* Dataflow direction.  */
+  enum df_confluence_op conf_op;	/* Confluence operator.  */ 
+  setbits_function setbitsfun;          /* Function to copy bitvec 
+                                           pointers to dflow. */
+  transfer_function transfun;		/* The transfer function.  */
+  finalizer_function finalizefun;       /* The finalizer function.  */
+  bool prop_fake;                       /* True if info is to be propagated along
+					   fake edges.  */
 };
 
+
+/* The specific instance of the problem to solve.  */
 struct dataflow
 {
-  enum set_representation repr;		/* The way the sets are represented.  */
-
   /* The following arrays are indexed by block indices, so they must always
      be large enough even if we restrict ourselves just to a subset of cfg.  */
   void **gen, **kill;			/* Gen and kill sets.  */
   void **in, **out;			/* Results.  */
 
-  enum df_flow_dir dir;			/* Dataflow direction.  */
-  enum df_confluence_op conf_op;	/* Confluence operator.  */ 
-  unsigned n_blocks;			/* Number of basic blocks in the
-					   order.  */
-  int *order;				/* The list of basic blocks to work
-					   with, in the order they should
-					   be processed in.  */
-  transfer_function transfun;		/* The transfer function.  */
   void *data;				/* Data used by the transfer
 					   function.  */
+  struct df *df;                        /* Instance of df we are working in.  */
+  bitmap viewing;                       /* Basic blocks that can be 
+					   examined during iteration.  */
+  bitmap iterating;                     /* Basic blocks that are to be
+					   iterated over.  Must have
+					   no blocks not in
+					   viewing. */
+  int * postorder;                      /* Basic blocks that are to be
+					   iterated over for a
+					   backwards problem.  */
+  int n_blocks;                         /* Number of basic blocks in postorder.  */ 
+  bool single_pass;                     /* Stop the iteration after 1 pass.  */
+  struct df_problem * problem;          /* The problem to be solved.  */
+  sbitmap visited, pending, considered; /* Communication between
+                                           iterative_dataflow and
+                                           hybrid_search. */
+  bitmap init;                          /* Bitmap to or with gen set
+					   to initialize problem.  */
 };
 
 extern void iterative_dataflow (struct dataflow *);
 extern bool read_modify_subreg_p (rtx);
+extern void df_compact_blocks (struct df *);
 
 #endif /* GCC_DF_H */

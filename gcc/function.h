@@ -21,7 +21,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
-
 struct var_refs_queue GTY(())
 {
   rtx modified;
@@ -356,6 +355,9 @@ struct function GTY(())
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
 
+  /* The rtl dataflow information.  */
+  struct df* GTY ((skip (""))) df;
+
   /* Assembly labels for the hot and cold text sections, to
      be used by debugger functions for determining the size of text
      sections.  */
@@ -518,6 +520,7 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+#define rtl_df (cfun->df)
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */

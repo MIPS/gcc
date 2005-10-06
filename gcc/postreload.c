@@ -46,6 +46,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "df.h"
 
 static int reload_cse_noop_set_p (rtx);
 static void reload_cse_simplify (rtx, rtx);
@@ -740,10 +741,8 @@ reload_combine (void)
 	{
 	  HARD_REG_SET live;
 
-	  REG_SET_TO_HARD_REG_SET (live,
-				   bb->il.rtl->global_live_at_start);
-	  compute_use_by_pseudos (&live,
-				  bb->il.rtl->global_live_at_start);
+	  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (rtl_df, bb));
+	  compute_use_by_pseudos (&live, DF_LIVE_IN (rtl_df, bb));
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}

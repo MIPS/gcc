@@ -212,7 +212,7 @@ init_reassoc (void)
 
   /* Reverse RPO (Reverse Post Order) will give us something where
      deeper loops come later.  */
-  flow_reverse_top_sort_order_compute (bbs);
+  post_order_compute (bbs, false);
   bb_rank = xcalloc (last_basic_block + 1, sizeof (unsigned int));
   value_rank = htab_create (511, valrank_hash,
 			    valrank_eq, free);
@@ -239,7 +239,7 @@ init_reassoc (void)
     }
   
   /* Set up rank for each BB  */
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     bb_rank[bbs[i]] = ++rank  << 16;
 
   free (bbs);

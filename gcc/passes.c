@@ -82,6 +82,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#include "df.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -419,6 +420,34 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
   return &(*list)->next;
           
 }
+#if 0
+static void
+magicify_life (void)
+{
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL,
+  	    (reload_completed ? PROP_DEATH_NOTES
+  	     : PROP_DEATH_NOTES | PROP_REG_INFO));
+  /* df_dump (rtl_df, DF_LR | DF_UR, stderr); */
+}
+
+static struct tree_opt_pass pass_magic_life =
+{
+  "magic",                              /* name */
+  NULL,                                 /* gate */
+  magicify_life,                        /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FLOW,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_verify_flow,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'f'                                   /* letter */
+};
+#endif
 
 /* Construct the pass tree.  */
 
@@ -641,6 +670,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
+  /* NEXT_PASS (pass_web); */
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
   NEXT_PASS (pass_postreload);
@@ -652,11 +682,13 @@ init_optimization_passes (void)
   NEXT_PASS (pass_flow2);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
+
   NEXT_PASS (pass_if_after_reload);
   NEXT_PASS (pass_regrename);
   NEXT_PASS (pass_reorder_blocks);
   NEXT_PASS (pass_branch_target_load_optimize);
   NEXT_PASS (pass_leaf_regs);
+/*   NEXT_PASS (pass_magic_life); */
   NEXT_PASS (pass_sched2);
   NEXT_PASS (pass_split_before_regstack);
   NEXT_PASS (pass_stack_regs);
@@ -682,6 +714,7 @@ init_optimization_passes (void)
   register_dump_files (all_lowering_passes, false, PROP_gimple_any);
   register_dump_files (all_passes, false, PROP_gimple_leh | PROP_cfg);
 }
+
 
 static unsigned int last_verified;
 

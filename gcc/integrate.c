@@ -46,6 +46,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Round to the next highest integer that meets the alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
@@ -350,14 +351,10 @@ allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
 		  /* Update global register liveness information.  */
 		  FOR_EACH_BB (bb)
 		    {
-		      struct rtl_bb_info *info = bb->il.rtl;
-
-		      if (REGNO_REG_SET_P(info->global_live_at_start, regno))
-			SET_REGNO_REG_SET (info->global_live_at_start,
-					   new_regno);
-		      if (REGNO_REG_SET_P(info->global_live_at_end, regno))
-			SET_REGNO_REG_SET (info->global_live_at_end,
-					   new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_IN (rtl_df, bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_OUT (rtl_df, bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb), new_regno);
 		    }
 		}
 	    }

@@ -51,6 +51,7 @@ Boston, MA 02110-1301, USA.  */
 #include "targhooks.h"
 #include "integrate.h"
 #include "langhooks.h"
+#include "df.h"
 
 #ifndef FRV_INLINE
 #define FRV_INLINE inline
@@ -5293,15 +5294,15 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
       for (j = CC_FIRST; j <= CC_LAST; j++)
 	if (TEST_HARD_REG_BIT (tmp_reg->regs, j))
 	  {
-	    if (REGNO_REG_SET_P (then_bb->il.rtl->global_live_at_start, j))
+	    if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, then_bb), j))
 	      continue;
 
 	    if (else_bb
-		&& REGNO_REG_SET_P (else_bb->il.rtl->global_live_at_start, j))
+		&& REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, else_bb), j))
 	      continue;
 
 	    if (join_bb
-		&& REGNO_REG_SET_P (join_bb->il.rtl->global_live_at_start, j))
+		&& REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, join_bb), j))
 	      continue;
 
 	    SET_HARD_REG_BIT (frv_ifcvt.nested_cc_ok_rewrite, j);
@@ -5323,7 +5324,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Remove anything live at the beginning of the join block from being
          available for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (join_bb->il.rtl->global_live_at_start, 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (DF_LIVE_IN (rtl_df, join_bb), 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -5367,7 +5368,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 
       /* Anything live at the beginning of the block is obviously unavailable
          for allocation.  */
-      EXECUTE_IF_SET_IN_REG_SET (bb[j]->il.rtl->global_live_at_start, 0, regno, rsi)
+      EXECUTE_IF_SET_IN_REG_SET (DF_LIVE_IN (rtl_df, bb[j]), 0, regno, rsi)
 	{
 	  if (regno < FIRST_PSEUDO_REGISTER)
 	    CLEAR_HARD_REG_BIT (tmp_reg->regs, regno);
@@ -6021,7 +6022,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 		  severely.  */
 	       && ce_info->join_bb
 	       && ! (REGNO_REG_SET_P
-		     (ce_info->join_bb->il.rtl->global_live_at_start,
+		     (DF_LIVE_IN (rtl_df, ce_info->join_bb),
 		      REGNO (SET_DEST (set))))
 	       /* Similarly, we must not unconditionally set a reg
 		  used as scratch in the THEN branch if the same reg
@@ -6029,7 +6030,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 	       && (! ce_info->else_bb
 		   || BLOCK_FOR_INSN (insn) == ce_info->else_bb
 		   || ! (REGNO_REG_SET_P
-			 (ce_info->else_bb->il.rtl->global_live_at_start,
+			 (DF_LIVE_IN (rtl_df, ce_info->else_bb),
 			  REGNO (SET_DEST (set))))))
 	pattern = set;
 
