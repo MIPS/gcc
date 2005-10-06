@@ -441,6 +441,7 @@ c_lex_one_token (c_token *token)
       break;
     case CPP_AT_NAME:
       /* This only happens in Objective-C; it must be a keyword.  */
+      token->type = CPP_KEYWORD;
       token->keyword = C_RID_CODE (token->value);
       break;
     case CPP_COLON:

@@ -1,3 +1,8 @@
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	* c-parser.c (c_lex_one_token): Fix CPP_AT_NAME translation
+	to CPP_KEYWORD.
+
 2005-10-01  Richard Henderson  <rth@redhat.com>
 
 	* tree-inline.c (struct copy_body_data): Rename from inline_data.
