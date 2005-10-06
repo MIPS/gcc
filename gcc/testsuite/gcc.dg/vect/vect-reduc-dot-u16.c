@@ -31,7 +31,6 @@ foo1(int len) {
 unsigned int
 foo2(int len) {
   int i;
-  unsigned int prod;
   unsigned int result = 0;
 
   for (i=0; i<len; i++) {

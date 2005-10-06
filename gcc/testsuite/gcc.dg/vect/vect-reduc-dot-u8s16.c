@@ -2,24 +2,23 @@
 
 #include <stdarg.h>
 #include "tree-vect.h"
-#include <stdio.h>
 
 #define N 64
 
 #define DOT1 43680
-#define DOT2 -20832
+#define DOT2 360096
 
 signed short X[N] __attribute__ ((__aligned__(16)));
 signed short Y[N] __attribute__ ((__aligned__(16)));
-signed char CX[N] __attribute__ ((__aligned__(16)));
-signed char CY[N] __attribute__ ((__aligned__(16)));
+unsigned char CX[N] __attribute__ ((__aligned__(16)));
+unsigned char CY[N] __attribute__ ((__aligned__(16)));
 
 void
 foo1(int len) {
   int i;
   int result1 = 0;
-  int result2 = 0;
-  short prod;
+  unsigned int result2 = 0;
+  unsigned short prod;
 
   for (i=0; i<len; i++) {
     result1 += (X[i] * Y[i]);
@@ -50,6 +49,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target powerpc*-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -1296,7 +1296,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree vec_dest;
   tree scalar_dest;
   tree op;
-  tree loop_vec_def0, loop_vec_def1;
+  tree loop_vec_def0 = NULL_TREE, loop_vec_def1 = NULL_TREE;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
@@ -1306,7 +1306,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum machine_mode vec_mode;
   int op_type;
   optab optab, reduc_optab;
-  tree new_temp;
+  tree new_temp = NULL_TREE;
   tree def, def_stmt;
   enum vect_def_type dt;
   tree new_phi;
@@ -1318,10 +1318,14 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int i;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
+  tree vec_stmt_for_operand;
+  stmt_vec_info prev_stmt_info;
+  stmt_vec_info def_stmt_info;
+  tree reduc_def;
+  tree new_stmt = NULL_TREE;
+  int j; 
 
   gcc_assert (ncopies >= 1);
-  if (ncopies > 1)
-    return false; /* FORNOW */
 
   /* 1. Is vectorizable reduction?  */
   
@@ -1502,30 +1506,84 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Create the reduction-phi that defines the reduction-operand.  */
   new_phi = create_phi_node (vec_dest, loop->header);
 
-  /* Prepare the operands that are defined inside the loop body  */
-  op = TREE_OPERAND (operation, 0);
-  loop_vec_def0 = vect_get_vec_def_for_operand (op, stmt, NULL);
-  if (op_type == binary_op)
-    expr = build2 (code, vectype, loop_vec_def0, PHI_RESULT (new_phi));
-  else if (op_type == ternary_op)
+  /* In case the vectorization factor (VF) is bigger than the number
+     of elements that we can fit in a vectype (nunits), we have to generate
+     more than one vector stmt - i.e - we need to "unroll" the 
+     vector stmt by a factor VF/nunits.  For more details see documentation
+     in vectorizable_operation.  */
+	
+  prev_stmt_info = NULL;
+  for (j = 0; j < ncopies; j++)
     {
-      op = TREE_OPERAND (operation, 1);
-      loop_vec_def1 = vect_get_vec_def_for_operand (op, stmt, NULL);
-      expr = build3 (code, vectype, loop_vec_def0, loop_vec_def1, 
-		     PHI_RESULT (new_phi));
-    }
+      /* Handle uses.  */
+      if (j == 0)
+        {
+	  op = TREE_OPERAND (operation, 0);
+	  loop_vec_def0 = vect_get_vec_def_for_operand (op, stmt, NULL);
+	  if (op_type == ternary_op)
+	    {
+	      op = TREE_OPERAND (operation, 1);
+	      loop_vec_def1 = vect_get_vec_def_for_operand (op, stmt, NULL);
+	    }
 
-  /* Create the vectorized operation that computes the partial results  */
-  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, expr);
-  new_temp = make_ssa_name (vec_dest, *vec_stmt);
-  TREE_OPERAND (*vec_stmt, 0) = new_temp;
-  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+	  reduc_def = PHI_RESULT (new_phi);
+        }
+      else
+        {
+	  /* For the j'th copy, get the vectorized def for operand0 from 
+	     the vector stmt recorded in the STMT_VINFO_RELATED_STMT field 
+	     of the j-1 copy of the vector stmt that defines operand0
+	     (denoted VEC_STMT_FOR_OPERAND).  */
+	  vec_stmt_for_operand = SSA_NAME_DEF_STMT (loop_vec_def0);
+	  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+	  gcc_assert (def_stmt_info);
+	  vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+	  gcc_assert (vec_stmt_for_operand);
+	  loop_vec_def0 = TREE_OPERAND (vec_stmt_for_operand, 0);
+	  if (op_type == ternary_op)
+	    {
+	      /* Similarly for operand1  */
+	      vec_stmt_for_operand = SSA_NAME_DEF_STMT (loop_vec_def1);
+	      def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+	      gcc_assert (def_stmt_info);
+	      vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+	      gcc_assert (vec_stmt_for_operand);
+	      loop_vec_def1 = TREE_OPERAND (vec_stmt_for_operand, 0);
+	    }
+
+	  /* Get the vector def for the reduction variable from the vectorized
+	     reduction operation generated in the previous iteration (j-1)  */
+	  reduc_def = TREE_OPERAND (new_stmt ,0);
+        }
+
+      /* Arguments are ready. create the new vector stmt.  */
+
+      if (op_type == binary_op)
+	expr = build2 (code, vectype, loop_vec_def0, reduc_def);
+      else
+	expr = build3 (code, vectype, loop_vec_def0, loop_vec_def1, reduc_def);
+      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, expr);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      TREE_OPERAND (new_stmt, 0) = new_temp;
+      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+      if (j == 0)
+        STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+      else
+        {
+          gcc_assert (prev_stmt_info);
+          STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+        }
+      prev_stmt_info = vinfo_for_stmt (new_stmt);
+    }
 
   /* Finalize the reduction-phi (set it's arguments) and create the
      epilog reduction code.  */
   op = TREE_OPERAND (operation, op_type-1);
   vect_create_epilog_for_reduction (new_temp, stmt, op, 
 				    epilog_reduc_code, new_phi);
+
+  *vec_stmt = NULL;
   return true;
 }
 
@@ -1663,6 +1721,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   stmt_vec_info def_stmt_info;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
+  tree vec_stmt_for_operand;
   int j;
 
   gcc_assert (ncopies >= 1);
@@ -1765,6 +1824,59 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   scalar_dest = TREE_OPERAND (stmt, 0);
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
+  /* In case the vectorization factor (VF) is bigger than the number
+     of elements that we can fit in a vectype (nunits), we have to generate
+     more than one vector stmt - i.e - we need to "unroll" the
+     vector stmt by a factor VF/nunits. In doing so, we record a pointer
+     from one copy of the vector stmt to the next, in the field
+     STMT_VINFO_RELATED_STMT. This is necessary in oder to allow following
+     stages to find the correct vector defs to be used when vectorizing
+     stmts that use the defs of the current stmt. The example below illustrates
+     the vectorization process when VF=16 and nunits=4 (i.e - we need to create
+     4 vectorized stmts):
+
+     before vectorization:
+                                RELATED_STMT    VEC_STMT
+        S1:     x = memref      -               -
+        S2:     z = x + 1       -               -
+
+     step 1: vectorize stmt S1 (done in vectorizable_load. See more details
+	     there):
+                                RELATED_STMT    VEC_STMT
+        VS1_0:  vx0 = memref0   VS1_1           -
+        VS1_1:  vx1 = memref1   VS1_2           -
+        VS1_2:  vx2 = memref2   VS1_3           -
+        VS1_3:  vx3 = memref3   -               -
+        S1:     x = load        -               VS1_0
+        S2:     z = x + 1       -               -
+
+     step2: vectorize stmt S2 (done here):
+        To vectorize stmt S2 we first need to find the relevant vector
+        def for the first operand 'x'. This is, as usual, obtained from
+        the vector stmt recorded in the STMT_VINFO_VEC_STMT of the stmt
+        that defines 'x' (S1). This way we find the stmt VS1_0, and the
+        relevant vector def 'vx0'. Having found 'vx0' we can generated
+        the vector stmt VS2_0, and as usual, record it in the
+        STMT_VINFO_VEC_STMT of stmt S2.
+        When creating the second copy (VS2_1), we obtain the relevant vector
+        def from the vector stmt recorded in the STMT_VINFO_RELATED_STMT of
+        stmt VS1_0. This way we find the stmt VS1_1 and the relevant
+        vector def 'vx1'. Using 'vx1' we create stmt VS2_1 and record a
+        pointer to it in the STMT_VINFO_RELATED_STMT of the vector stmt VS2_0.
+        Similarly when creating stmts VS2_2 and VS2_3. This is the resulting
+        chain of stmts and pointers:
+                                RELATED_STMT    VEC_STMT
+        VS1_0:  vx0 = memref0   VS1_1           -
+        VS1_1:  vx1 = memref1   VS1_2           -
+        VS1_2:  vx2 = memref2   VS1_3           -
+        VS1_3:  vx3 = memref3   -               -
+        S1:     x = load        -               VS1_0
+        VS2_0:  vz0 = vx0 + v1  VS2_1           -
+        VS2_1:  vz1 = vx1 + v1  VS2_2           -
+        VS2_2:  vz2 = vx2 + v1  VS2_3           -
+        VS2_3:  vz3 = vx3 + v1  -               -
+        S2:     z = x + 1       -               VS2_0  */
+
   prev_stmt_info = NULL;
   for (j = 0; j < ncopies; j++)
     {
@@ -1777,19 +1889,36 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	}
       else
 	{
-          tree vec_stmt = SSA_NAME_DEF_STMT (vec_oprnd0);
-          def_stmt_info = vinfo_for_stmt (vec_stmt);
-          gcc_assert (def_stmt_info);
-          vec_stmt = STMT_VINFO_RELATED_STMT (def_stmt_info);
-          gcc_assert (vec_stmt);
-          vec_oprnd0 = TREE_OPERAND (vec_stmt, 0);
+	  if (dt0 == vect_invariant_def || dt0 == vect_constant_def)
+            /* Do nothing; can reuse same def.  */ ;
+	  else	
+	    {
+	      /* For the j'th copy, get the vectorized def for operand0 from
+	         the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
+	         of the j-1 copy of the vector stmt that defines operand0
+	         (denoted VEC_STMT_FOR_OPERAND).  */
+	      vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd0);
+	      def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+	      gcc_assert (def_stmt_info);
+	      vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+	      gcc_assert (vec_stmt_for_operand);
+	      vec_oprnd0 = TREE_OPERAND (vec_stmt_for_operand, 0);
+	    }
+
 	  if (op_type == binary_op)
 	    {
-              def_stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (vec_oprnd1));
-              gcc_assert (def_stmt_info);
-              vec_stmt = STMT_VINFO_RELATED_STMT (def_stmt_info);
-              gcc_assert (vec_stmt);
-              vec_oprnd1 = TREE_OPERAND (vec_stmt, 0);
+	      if (dt1 == vect_invariant_def || dt1 == vect_constant_def)
+		/* Do nothing; can reuse same def.  */ ;
+	      else	
+		{
+		  /* Similarly for opernad1  */
+		  vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd1);
+		  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+		  gcc_assert (def_stmt_info);
+	          vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+		  gcc_assert (vec_stmt_for_operand);
+		  vec_oprnd1 = TREE_OPERAND (vec_stmt_for_operand, 0);
+		}
 	    }
 	}
 
@@ -1911,27 +2040,37 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   gcc_assert (alignment_support_cheme);
   gcc_assert (alignment_support_cheme == dr_aligned);  /* FORNOW */
 
+   /* In case the vectorization factor (VF) is bigger than the number
+     of elements that we can fit in a vectype (nunits), we have to generate
+     more than one vector stmt - i.e - we need to "unroll" the
+     vector stmt by a factor VF/nunits.  For more details see documentation in 
+     vectorizable_operation.  */
+
   prev_stmt_info = NULL;
   for (j = 0; j < ncopies; j++)
     {
       tree new_stmt;
       stmt_vec_info def_stmt_info;
-      tree vec_stmt;
+      tree vec_stmt_for_operand;
       tree ptr_incr;
 
       /* Handle use - get the vectorized def from the defining stmt.  */
       if (j == 0)
-        vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
+	vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
       else 
 	if (dt == vect_invariant_def || dt == vect_constant_def)
-          /* Do nothing; can reuse same def.  */ ;
+	  /* Do nothing; can reuse same def.  */ ;
 	else
 	  {
-            def_stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (vec_oprnd));
+	    /* For the j'th copy, get the vectorized def from the vector stmt 
+	       recorded in the STMT_VINFO_RELATED_STMT field of the j-1 copy 
+	       of the vector stmt that defines the operand
+	       (denoted VEC_STMT_FOR_OPERAND).  */
+	    def_stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (vec_oprnd));
 	    gcc_assert (def_stmt_info);
-            vec_stmt = STMT_VINFO_RELATED_STMT (def_stmt_info);
-	    gcc_assert (vec_stmt);
-            vec_oprnd = TREE_OPERAND (vec_stmt, 0);
+	    vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+	    gcc_assert (vec_stmt_for_operand);
+	    vec_oprnd = TREE_OPERAND (vec_stmt_for_operand, 0);
           }
 
 
@@ -2119,6 +2258,40 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   alignment_support_cheme = vect_supportable_dr_alignment (dr);
   gcc_assert (alignment_support_cheme);
+
+  /* In case the vectorization factor (VF) is bigger than the number
+     of elements that we can fit in a vectype (nunits), we have to generate
+     more than one vector stmt - i.e - we need to "unroll" the
+     vector stmt by a factor VF/nunits. In doing so, we record a pointer
+     from one copy of the vector stmt to the next, in the field
+     STMT_VINFO_RELATED_STMT. This is necessary in oder to allow following
+     stages to find the correct vector defs to be used when vectorizing
+     stmts that use the defs of the current stmt. The example below illustrates
+     the vectorization process when VF=16 and nunits=4 (i.e - we need to create
+     4 vectorized stmts):
+
+     before vectorization:
+                                RELATED_STMT    VEC_STMT
+        S1:     x = memref      -               -
+        S2:     z = x + 1       -               -
+
+     step 1: vectorize stmt S1:
+        We first create the vector stmt VS1_0, and, as usual, record a
+        pointer to it in the STMT_VINFO_VEC_STMT of the scalar stmt S1.
+        Next, we create the vector stmt VS1_1, and record a pointer to
+        it in the STMT_VINFO_RELATED_STMT of the vector stmt VS1_0.
+        Similarly, for VS1_2 and VS1_3. This is the resulting chain of
+        stmts and pointers:
+                                RELATED_STMT    VEC_STMT
+        VS1_0:  vx0 = memref0   VS1_1           -
+        VS1_1:  vx1 = memref1   VS1_2           -
+        VS1_2:  vx2 = memref2   VS1_3           -
+        VS1_3:  vx3 = memref3   -               -
+        S1:     x = load        -               VS1_0
+        S2:     z = x + 1       -               -
+
+     See in documentation in vectorizable_operation for how the information
+     we recorded in RELATED_STMT field is used to vectorize stmt S2.  */
 
   if (alignment_support_cheme == dr_aligned
       || alignment_support_cheme == dr_unaligned_supported)

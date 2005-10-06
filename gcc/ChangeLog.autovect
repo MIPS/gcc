@@ -1,3 +1,13 @@
+2005-10-06  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (vectorizable_reduction): Support vectorization in 
+	the presence of multiple-data-types (i.e. - the vectorization factor is 
+	bigger than the number of elements in vectype for this operation).
+	(vectorizable_operation): Add documentation. Fix support for constant and
+	invariant operands.
+	(vectorizable_store, vectorizable_load): Add documentation.
+	* config/rs6000/altivec.md (sdot_prodv16qi): Pattern removed.
+
 2005-09-29  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_determine_vectorization_factor): Don't fail

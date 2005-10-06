@@ -2219,19 +2219,6 @@
   DONE;
 }")
 
-(define_expand "sdot_prodv16qi"
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
-                   (unspec:V4SI [(match_operand:V16QI 1 "register_operand" "v")
-                                 (match_operand:V16QI 2 "register_operand" "v")]
-				UNSPEC_VMSUMM)))]
-  "TARGET_ALTIVEC"
-  "
-{
-  emit_insn (gen_altivec_vmsummbm (operands[0], operands[1], operands[2], operands[3]));
-  DONE;
-}")
-
 (define_expand "sdot_prodv8hi"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (plus:V4SI (match_operand:V4SI 3 "register_operand" "v")
