@@ -463,6 +463,8 @@ static const char *default_constant_string_class_name;
 #define TAG_SYNCEXIT			"objc_sync_exit"
 #define TAG_SETJMP			"_setjmp"
 #define UTAG_EXCDATA			"_objc_exception_data"
+/* APPLE LOCAL radar 4280641 */
+#define TAG_MSGSEND_FPRET		"objc_msgSend_fpret"
 
 /* APPLE LOCAL begin mainline */
 #define TAG_ASSIGNIVAR			"objc_assign_ivar"
@@ -1879,9 +1881,20 @@ synth_module_prologue (void)
 	= tree_cons (get_identifier ("hard_coded_address"), 
 		     build_int_cst (NULL_TREE, OFFS_MSGSEND_FAST),
 		     NULL_TREE);
+      /* APPLE LOCAL begin radar 4280641 */
+      /* Note needed for ppc */
+      umsg_fpret_decl = NULL_TREE;
+      /* APPLE LOCAL end radar 4280641 */
 #else
       /* Not needed on x86 (at least for now).  */
       umsg_fast_decl = umsg_decl;
+      /* APPLE LOCAL begin radar 4280641 */
+#if defined (TARGET_386)
+      umsg_fpret_decl = builtin_function (TAG_MSGSEND_FPRET,
+					  type, 0, NOT_BUILT_IN,
+					  NULL, NULL_TREE);
+#endif
+      /* APPLE LOCAL end radar 4280641 */
 #endif
       /* APPLE LOCAL end mainline */
 
@@ -6843,6 +6856,12 @@ build_objc_method_call (int super_flag, tree method_prototype,
 	  && targetm.calls.return_in_memory (ret_type, 0))
 	sender = (super_flag ? umsg_super_stret_decl :
 		flag_nil_receivers ? umsg_stret_decl : umsg_nonnil_stret_decl);
+      /* APPLE LOCAL begin radar 4280641 */
+      else 
+	if (!super_flag &&
+	    umsg_fpret_decl != NULL_TREE && SCALAR_FLOAT_TYPE_P (ret_type))
+	  sender = umsg_fpret_decl;
+      /* APPLE LOCAL end radar 4280641 */
 
       method_params = tree_cons (NULL_TREE, lookup_object,
 				 tree_cons (NULL_TREE, selector,

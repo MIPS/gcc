@@ -1,3 +1,9 @@
+2005-10-06  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4280641
+	* obj-c++.dg/objc-fpret-1.mm: New.
+	* objc.dg/objc-fpret-1.m: New.
+
 2005-10-03  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4279065

@@ -1,3 +1,14 @@
+2005-10-06  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4280641
+	* objc-act.c (TAG_MSGSEND_FPRET): New objc runtime call name.
+	(synth_module_prologue): Build bultin function for this runtime
+	function (x86 only).
+	(build_objc_method_call): Call this runtime for methods returning
+	floats and if not call to super receiver.
+	* objc-act.h (OCTI_UMSG_FPRET_DECL): New definition.
+	(umsg_fpret_decl): New definition.
+	
 2005-09-29  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4136489

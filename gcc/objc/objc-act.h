@@ -302,6 +302,8 @@ enum objc_tree_index
     OCTI_EVAL_ONCE_DECL,
     OCTI_CATCH_TYPE,
     OCTI_EXECCLASS_DECL,
+    /* APPLE LOCAL radar 4280641 */
+    OCTI_UMSG_FPRET_DECL,
 
     /* APPLE LOCAL begin mainline */
     OCTI_ASSIGN_IVAR_DECL,
@@ -442,6 +444,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
 
 #define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]
+/* APPLE LOCAL radar 4280641 */
+#define umsg_fpret_decl		objc_global_trees[OCTI_UMSG_FPRET_DECL]
 
 /* APPLE LOCAL begin mainline */
 #define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
