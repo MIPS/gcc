@@ -611,6 +611,16 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       /* FALLTHROUGH */
     case CPP_HASH:
     case CPP_PASTE:
+      /* APPLE LOCAL begin CW asm blocks C++ comments 4248139 */
+      /* Because we don't recognize inline asm commments during
+	 lexing, we have to pass this back to the parser to error out
+	 with or eat as a comment as appropriate.  */
+      if (flag_cw_asm_blocks_local)
+	{
+	  *value = NULL;
+	  break;
+	}
+      /* APPLE LOCAL end CW asm blocks C++ comments 4248139 */
       {
 	unsigned char name[4];
 	
@@ -626,6 +636,16 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       {
 	cppchar_t c = tok->val.str.text[0];
 
+	/* APPLE LOCAL begin CW asm blocks C++ comments 4248139 */
+	/* Because we don't recognize inline asm commments during
+	   lexing, we have to pass this back to the parser to error
+	   out with or eat as a comment as appropriate.  */
+	if (flag_cw_asm_blocks_local)
+	  {
+	    *value = NULL;
+	    break;
+	  }
+	/* APPLE LOCAL end CW asm blocks C++ comments 4248139 */
 	if (c == '"' || c == '\'')
 	  error ("missing terminating %c character", (int) c);
 	else if (ISGRAPH (c))

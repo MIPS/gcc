@@ -3957,6 +3957,8 @@ _yylex (void)
       /* These tokens should not survive translation phase 4.  */
     case CPP_HASH:
     case CPP_PASTE:
+    /* APPLE LOCAL CW asm blocks C++ comments 4248139 */
+    case CPP_OTHER:
       error ("syntax error at %qs token", NAME(last_token));
       goto get_next;
 

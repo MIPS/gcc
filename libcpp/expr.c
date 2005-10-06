@@ -270,6 +270,13 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
       result = interpret_int_suffix (pfile, str, limit - str);
       if (result == 0)
 	{
+	  /* APPLE LOCAL begin CW asm blocks C++ comments 4248139 */
+	  /* Because we don't regonize inline asm comments during
+	     lexing, we have to avoid erroring out now.  */
+	  if (cpp_get_options (pfile)->h_suffix)
+	    return CPP_N_INVALID;
+	  /* APPLE LOCAL end CW asm blocks C++ comments 4248139 */
+
 	  cpp_error (pfile, CPP_DL_ERROR,
 		     "invalid suffix \"%.*s\" on integer constant",
 		     (int) (limit - str), str);
