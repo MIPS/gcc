@@ -1,6 +1,6 @@
 // Primitive types.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -27,6 +27,12 @@ model_primitive_base::assignable_from_p (model_type *other)
   if (! other->primitive_p ())
     return false;
   return assignment_conversion (this, other) != NULL;
+}
+
+void
+model_primitive_base::visit (visitor *v)
+{
+  v->visit_primitive (this, pretty_name);
 }
 
 template<typename T, char sig_char, long long MIN, long long MAX>

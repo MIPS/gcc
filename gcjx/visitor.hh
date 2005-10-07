@@ -337,6 +337,41 @@ public:
 
   virtual void visit_simple_variable_ref (model_simple_variable_ref *,
 					  const model_variable_decl *) = 0;
+
+  virtual void visit_forwarding_type (model_forwarding_type *,
+                                      const model_type *) = 0;
+
+  virtual void visit_variable_decl (model_variable_decl *,
+                                    const std::string &,
+                                    const ref_forwarding_type &,
+                                    const ref_expression &,
+                                    bool,
+                                    bool) = 0;
+
+  virtual void visit_parameter_decl (model_variable_decl *,
+                                     const std::string &,
+                                     const ref_forwarding_type &,
+                                     const ref_expression &,
+                                     bool,
+                                     bool) = 0;
+
+  virtual void visit_catch_decl (model_variable_decl *,
+                                 const std::string &,
+                                 const ref_forwarding_type &,
+                                 const ref_expression &,
+                                 bool,
+                                 bool) = 0;
+
+  virtual void visit_package (model_package *,
+                              const std::list<std::string> &) = 0;
+
+  virtual void visit_primitive (model_primitive_base *, const char *) = 0;
+
+  virtual void visit_type (model_type *, const std::string &) = 0;
+
+  virtual void visit_identifier (model_identifier *, const std::string &) = 0;
+
+  virtual void visit_element (model_element *) = 0;
 };
 
 

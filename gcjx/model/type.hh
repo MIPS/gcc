@@ -1,6 +1,6 @@
 // Represent a type, primitive or not.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -152,6 +152,8 @@ public:
   // Return a "pretty" name for this type.  This is a name that the
   // user is likely to recognize as a type name.
   virtual std::string get_pretty_name () const = 0;
+
+  void visit (visitor *);
 };
 
 const format &operator% (const format &fmt, const model_type *t);

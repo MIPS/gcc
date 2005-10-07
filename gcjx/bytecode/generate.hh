@@ -710,6 +710,67 @@ public:
 
   void visit_simple_variable_ref (model_simple_variable_ref *,
 				  const model_variable_decl *);
+
+  void visit_forwarding_type (model_forwarding_type *,
+                              const model_type *)
+  {
+    // Nothing.
+  }
+
+  void visit_variable_decl (model_variable_decl *,
+                            const std::string &,
+                            const ref_forwarding_type &,
+                            const ref_expression &,
+                            bool,
+                            bool)
+  {
+    // Nothing.
+  }
+
+  void visit_parameter_decl (model_variable_decl *,
+                             const std::string &,
+                             const ref_forwarding_type &,
+                             const ref_expression &,
+                             bool,
+                             bool)
+  {
+    // Nothing.
+  }
+
+  void visit_catch_decl (model_variable_decl *,
+                         const std::string &,
+                         const ref_forwarding_type &,
+                         const ref_expression &,
+                         bool,
+                         bool)
+  {
+    // Nothing.
+  }
+
+  void visit_package (model_package *, const std::list<std::string> &)
+  {
+    // Nothing.
+  }
+
+  void visit_primitive (model_primitive_base *, const char *)
+  {
+    // Nothing.
+  }
+
+  void visit_type (model_type *, const std::string &)
+  {
+    // Nothing.
+  }
+
+  void visit_identifier (model_identifier *, const std::string &)
+  {
+    // Nothing.
+  }
+
+  void visit_element (model_element *)
+  {
+    // Nothing.
+  }
 };
 
 #endif // GCJX_BYTECODE_GENERATE_HH

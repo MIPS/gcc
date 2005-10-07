@@ -1,3 +1,41 @@
+2005-10-07  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* visitor.hh (visitor::visit_forwarding_type): New method.
+	(visitor::visit_variable_decl): Likewise.
+	(visitor::visit_parameter_decl): Likewise.
+	(visitor::visit_catch_decl): Likewise.
+	(visitor::visit_package): Likewise.
+	(visitor::visit_primitive): Likewise.
+	(visitor::visit_type): Likewise.
+	(visitor::visit_identifier): Likewise.
+	(visitor::visit_element): Likewise.
+	* model/element.hh (model_element::visit): New method.
+	* model/element.cc: New file.
+	* model/identifier.hh (model_identifier::visit): New method.
+	* model/identifier.cc: New file.
+	* model/fwdtype.hh (model_forwarding_type::visit): New method.
+	* model/fwdtype.cc (model_forwarding_type::visit): Implement.
+	* model/variable.hh (model_variable::visit): New method.
+	(model_parameter_decl::visit): Likewise.
+	(model_catch_decl::visit): Likewise.
+	* model/variable.cc (model_variable::visit): Implement.
+	(model_parameter_decl::visit): Likewise.
+	(model_catch_decl::visit): Likewise.
+	* model/package.hh (model_package::visit): New method.
+	* model/package.cc (model_package::visit): Implement.
+	* model/primitive.hh (model_primitive_base::visit): New method.
+	* model/primitive.cc (model_primitive_base::visit): Implement.
+	* model/type.hh (model_type::visit): New method.
+	* model/type.cc (model_type::visit): Implement.
+	* model/javadoc.hh (model_javadoc::visit): New method.
+	* bytecode/generate.hh: Dummy implementations of new visitor methods.
+	* defassign.cc: Likewise.
+	* dump.cc: Likewise.
+	* fold.cc: Likewise.
+	* Makefile.am (model_sources): Add "model/element.cc" and
+	"model/identifier.cc".
+	* Makefile.in: Regenerated.
+
 2005-10-04  Tom Tromey  <tromey@redhat.com>
 
 	* compiler.cc (semantic_analysis): Updated assert.

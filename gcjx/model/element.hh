@@ -1,6 +1,6 @@
 // Represent an element.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -94,6 +94,11 @@ public:
   {
     return where;
   }
+
+  /// Call the appropriate method of the visitor with information
+  /// about the tree.
+  /// @param v  the visitor to call
+  virtual void visit (visitor *v);
 };
 
 #endif // GCJX_MODEL_ELEMENT_HH

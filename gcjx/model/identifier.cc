@@ -1,6 +1,6 @@
-// Represent a javadoc comment.
+// An identifier.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -19,35 +19,10 @@
 // not, write to the Free Software Foundation, Inc.,
 // 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-#ifndef GCJX_MODEL_JAVADOC_HH
-#define GCJX_MODEL_JAVADOC_HH
+#include "typedefs.hh"
 
-class model_javadoc : public model_element
+void
+model_identifier::visit (visitor *v)
 {
-  bool deprecated;
-
-public:
-
-  model_javadoc (const location &w)
-    : model_element (w),
-      deprecated (false)
-  {
-  }
-
-  void set_deprecated ()
-  {
-    deprecated = true;
-  }
-
-  bool deprecated_p () const
-  {
-    return deprecated;
-  }
-
-  void visit (visitor *)
-  {
-    // Nothing.
-  }
-};
-
-#endif // GCJX_MODEL_JAVADOC_HH
+  v->visit_identifier (this, identifier);
+}

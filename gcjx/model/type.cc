@@ -1,6 +1,6 @@
 // Implementation of type base class.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -49,6 +49,12 @@ model_type::erasure ()
 {
   // In many cases the erasure of a type is the type itself.
   return this;
+}
+
+void
+model_type::visit (visitor *v)
+{
+  v->visit_type (this, descriptor);
 }
 
 const format &

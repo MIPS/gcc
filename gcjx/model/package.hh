@@ -117,6 +117,8 @@ public:
   {
     return join (name, '/');
   }
+
+  void visit (visitor *);
 };
 
 class model_unnamed_package : public model_package

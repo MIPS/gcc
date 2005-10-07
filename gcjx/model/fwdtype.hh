@@ -69,6 +69,8 @@ public:
   {
     return false;
   }
+
+  void visit (visitor *);
 };
 
 /// This is a forwarding type whose target is already known when the

@@ -1,6 +1,6 @@
 // Package representation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -80,6 +80,12 @@ model_package::find_class (const std::string &n)
   model_class *result = global->get_compiler ()->find_class (full);
   name_cache[n] = result;
   return result;
+}
+
+void
+model_package::visit (visitor *v)
+{
+  v->visit_package (this, name);
 }
 
 const format &

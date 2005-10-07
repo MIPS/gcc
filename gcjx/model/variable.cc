@@ -98,6 +98,12 @@ model_variable_decl::check_referenced (resolution_scope *scope)
 }
 
 void
+model_variable_decl::visit (visitor *v)
+{
+  v->visit_variable_decl (this, name, decltype, initializer, final, used);
+}
+
+void
 model_parameter_decl::check_referenced (resolution_scope *scope)
 {
   warning_scope::push_warnings push (scope, this);
@@ -105,4 +111,16 @@ model_parameter_decl::check_referenced (resolution_scope *scope)
     std::cerr << warn (global->get_compiler ()->warn_unused_parameter (),
 		       "parameter %1 unused")
       % this->get_name ();
+}
+
+void
+model_parameter_decl::visit (visitor *v)
+{
+  v->visit_parameter_decl (this, name, decltype, initializer, final, used);
+}
+
+void
+model_catch_decl::visit (visitor *v)
+{
+  v->visit_catch_decl (this, name, decltype, initializer, final, used);
 }

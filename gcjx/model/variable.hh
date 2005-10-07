@@ -1,6 +1,6 @@
 // Represent a variable.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -161,6 +161,8 @@ public:
   }
 
   virtual void check_referenced (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 /// This is a variable that happens to be a method parameter.
@@ -197,6 +199,8 @@ public:
   }
 
   void check_referenced (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 /// This is a variable that happens to be a 'catch' parameter.
@@ -238,6 +242,8 @@ public:
     // are not used.  Perhaps we should and just make the user use
     // SuppressWarnings?
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_VARIABLE_HH

@@ -41,6 +41,12 @@ model_forwarding_type::resolve_classes (resolution_scope *scope)
     }
 }
 
+void
+model_forwarding_type::visit (visitor *v)
+{
+  v->visit_forwarding_type (this, resolved_type);
+}
+
 
 
 void
