@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target vect_int } */
+/* { dg-require-effective-target vect_shift } */
 
 void
 test_1 (void)
@@ -28,3 +28,5 @@ test_3 (void)
  for (j = 0; j < 16;j++)
    bm[j] <<= am[j];
 }
+
+/* { dg-final { cleanup-tree-dump "vect" } } */

@@ -1,3 +1,175 @@
+2005-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (allocate_size): Malloc 1 byte if size == 0.
+
+2005-10-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19308
+	PR libfortran/22437
+	* Makefile.am: Add generated files for large real and integers
+	kinds. Add a rule to create the kinds.inc c99_protos.inc files.
+	Use kinds.inc to preprocess Fortran generated files.
+	* libgfortran.h: Add macro definitions for GFC_INTEGER_16_HUGE,
+	GFC_REAL_10_HUGE and GFC_REAL_16_HUGE. Add types gfc_array_i16,
+	gfc_array_r10, gfc_array_r16, gfc_array_c10, gfc_array_c16,
+	gfc_array_l16.
+	* mk-kinds-h.sh: Define macros HAVE_GFC_LOGICAL_* and
+	HAVE_GFC_COMPLEX_* when these types are available.
+	* intrinsics/ishftc.c (ishftc16): New function for GFC_INTEGER_16.
+	* m4/all.m4, m4/any.m4, m4/count.m4, m4/cshift1.m4, m4/dotprod.m4,
+	m4/dotprodc.m4, m4/dotprodl.m4, m4/eoshift1.m4, m4/eoshift3.m4,
+	m4/exponent.m4, m4/fraction.m4, m4/in_pack.m4, m4/in_unpack.m4,
+	m4/matmul.m4, m4/matmull.m4, m4/maxloc0.m4, m4/maxloc1.m4,
+	m4/maxval.m4, m4/minloc0.m4, m4/minloc1.m4, m4/minval.m4, m4/mtype.m4,
+	m4/nearest.m4, m4/pow.m4, m4/product.m4, m4/reshape.m4,
+	m4/set_exponent.m4, m4/shape.m4, m4/specific.m4, m4/specific2.m4,
+	m4/sum.m4, m4/transpose.m4: Protect generated functions with
+	appropriate "#if defined (HAVE_GFC_type_kind)" preprocessor directives.
+	* Makefile.in: Regenerate.
+	* all files in generated/: Regenerate.
+
+2005-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (malloc_t): Remove.
+	(GFC_MALLOC_MAGIC, HEADER_SIZE, DATA_POINTER, DATA_HEADER): Remove.
+	(mem_root, runtime_cleanup, malloc_with_header): Remove.
+	(internal_malloc_size): Use just get_mem if size != 0, return NULL
+	otherwise.
+	(internal_free): Just free if non-NULL.
+	(internal_realloc_size): Remove debugging stuff.
+	(allocate_size): Use malloc directly, remove debugging stuff.
+	(deallocate): Use free directly, fix error message wording.
+
+	* libgfortran.h (GFC_ITOA_BUF_SIZE, GFC_XTOA_BUF_SIZE,
+	GFC_OTOA_BUF_SIZE, GFC_BTOA_BUF_SIZE): Define.
+	(gfc_itoa, xtoa): Add 2 extra arguments.
+	* runtime/environ.c: Include stdio.h.
+	(check_buffered): Use sprintf.
+	* runtime/error.c: Include assert.h.
+	(gfc_itoa, xtoa): Add 2 extra arguments, avoid using static
+	buffers.
+	(st_printf, st_sprintf): Adjust callers.
+	* io/write.c (otoa, btoa): Add 2 extra arguments, avoid using
+	static buffers.
+	(write_int, write_decimal): Add 2 extra arguments to conv
+	function pointer, adjust caller.
+	(write_integer): Adjust gfc_itoa caller.
+
+	* io/unit.c (get_array_unit_len): Return 0 rather than NULL.
+
+	* io/read.c (read_f): Remove spurious pointer dereference.
+
+2005-09-30  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	PR 24112
+	* io/open.c (edit_modes): Check for correct flag.
+
+2005-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/string.c (find_option): Change 3rd argument to
+	const st_option *.
+	* libgfortran.h (find_option): Likewise.
+	* runtime/environ.c (rounding, precision, signal_choices): Constify.
+	(init_choice, show_choice): Change 2nd argument to const choice *.
+	* io/open.c (access_opt, action_opt, blank_opt, delim_opt, form_opt,
+	position_opt, status_opt, pad_opt): Constify.
+	* io/transfer.c (advance_opt): Likewise.
+	* io/inquire.c (undefined): Likewise.
+	* io/close.c (status_opt): Likewise.
+	* io/format.c (posint_required, period_required, nonneg_required,
+	unexpected_element, unexpected_end, bad_string, bad_hollerith,
+	reversion_error): Likewise.
+	* io/unix.c (yes, no, unknown): Change from const char *
+	into const char [].
+
+2005-09-27  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23552
+	* acinclude.m4 (LIBGFOR_CHECK_FOR_BROKEN_ISFINITE): New.
+	(LIBGFOR_CHECK_FOR_BROKEN_ISNAN): New.
+	(LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY): New.
+	* configure.ac (LIBGFOR_CHECK_FOR_BROKEN_ISFINITE): Add use.
+	(LIBGFOR_CHECK_FOR_BROKEN_ISNAN): Add use.
+	(LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY): Add use.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* libgfortan.h (isfinite): undef if broken, set if needed.
+	(isnan): undef if broken, set if needed.
+	(fpclassify): undef if broken, set if needed.
+	* io/write.c: Remove TODO comment about working isfinite.
+	* intrinsics/c99_functions.c (round): Use isfinite instead
+	of fpclassify.
+	* intrinsics/c99_functions.c (roundf): Ditto.
+
+2005-09-24  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	* io.h: Changed prototypes of list_formatted_{read|write}.
+	* list_read.c (list_formatted_read): Renamed to
+	list_formatted_read_scalar and made static.
+	(list_formatted_read): New function.
+	* transfer.c: Prototype for transfer_array. Changed transfer
+	function pointer.
+	(unformatted_read): Add nelems argument, use it.
+	(unformatted_write): Likewise.
+	(formatted_transfer): Changed name to formatted_transfer_scalar.
+	(formatted_transfer): New function.
+	(transfer_integer): Add nelems argument to transfer call, move
+	updating item count to transfer functions.
+	(transfer_real): Likewise.
+	(transfer_logical): Likewise.
+	(transfer_character): Likewise.
+	(transfer_complex): Likewise.
+	(transfer_array): New function.
+	(data_transfer_init): Call formatted_transfer with new argument.
+	(iolength_transfer): New argument, use it.
+	* write.c (list_formatted_write): Renamed to
+	list_formatted_write_scalar, made static.
+	(list_formatted_write): New function.
+
+2005-09-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.ac: Add check for __clog.
+	* configure: Regenerate.
+
+2005-09-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* c99_protos.h: Add prototypes for C99 complex functions.
+	* libgfortran.h: Include complex.h before c99_protos.h.
+	* intrinsics/c99_functions.c: Define HAVE_ macros for the
+	fallback functions we provide.
+	(cabsf, cabs, cabsl, cargf, carg, cargl, cexpf, cexp, cexpl,
+	clogf, clog, clogl, clog10f, clog10, clog10l, cpowf, cpow, cpowl,
+	cqsrtf, csqrt, csqrtl, csinhf, csinh, csinhl, ccoshf, ccosh,
+	ccoshl, ctanhf, ctanh, ctanhl, csinf, csin, csinl, ccosf, ccos,
+	ccosl, ctanf, ctan, ctanl): New fallback functions.
+	* Makefile.am (gfor_math_trig_c, gfor_math_trig_obj,
+	gfor_specific_c, gfor_cmath_src, gfor_cmath_obj): Remove.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove checks for csin. Add checks for all C99
+	complex functions.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2005-09-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libfortran/23803
+	* intrinsics/getXid.c: Add getpid wrapper for MinGW.
+	* intrinsics/getlog.c: Add getlogin wrapper for MinGW.
+	* intrinsics/hostnm.c: Add gethostname wrapper for MinGW.
+
+2005-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23802
+	* intrinsics/sleep.c: Add correct sleep macro for MinGW.
+
+2005-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23380
+	* intrinsics/cpu_time.c (__cpu_time_1): Provide a MS Windows
+	version.
+
 2005-09-14  Jerry DeLisle  <jvdelisle@verizon.net
 
 	PR fortran/21875 Internal Unit Array I/O, NIST

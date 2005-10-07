@@ -262,7 +262,9 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
     *public = "PUBLIC", *optional = "OPTIONAL", *entry = "ENTRY",
     *function = "FUNCTION", *subroutine = "SUBROUTINE",
-    *dimension = "DIMENSION", *threadprivate = "THREADPRIVATE";
+    *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
+    *use_assoc = "USE ASSOCIATED";
+  static const char *threadprivate = "THREADPRIVATE";
 
   const char *a1, *a2;
 
@@ -323,6 +325,16 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (in_common, allocatable);
   conf (in_common, result);
   conf (dummy, result);
+
+  conf (in_equivalence, use_assoc);
+  conf (in_equivalence, dummy);
+  conf (in_equivalence, target);
+  conf (in_equivalence, pointer);
+  conf (in_equivalence, function);
+  conf (in_equivalence, result);
+  conf (in_equivalence, entry);
+  conf (in_equivalence, allocatable);
+  conf (in_equivalence, threadprivate);
 
   conf (in_namelist, pointer);
   conf (in_namelist, allocatable);
@@ -740,6 +752,21 @@ gfc_add_in_common (symbol_attribute * attr, const char *name, locus * where)
 
   /* Duplicate attribute already checked for.  */
   attr->in_common = 1;
+  if (check_conflict (attr, name, where) == FAILURE)
+    return FAILURE;
+
+  if (attr->flavor == FL_VARIABLE)
+    return SUCCESS;
+
+  return gfc_add_flavor (attr, FL_VARIABLE, name, where);
+}
+
+try
+gfc_add_in_equivalence (symbol_attribute * attr, const char *name, locus * where)
+{
+
+  /* Duplicate attribute already checked for.  */
+  attr->in_equivalence = 1;
   if (check_conflict (attr, name, where) == FAILURE)
     return FAILURE;
 
@@ -2370,7 +2397,7 @@ gfc_is_var_automatic (gfc_symbol * sym)
   /* Check for non-constant length character variables.  */
   if (sym->ts.type == BT_CHARACTER
       && sym->ts.cl
-      && gfc_is_constant_expr (sym->ts.cl->length))
+      && !gfc_is_constant_expr (sym->ts.cl->length))
     return true;
   return false;
 }

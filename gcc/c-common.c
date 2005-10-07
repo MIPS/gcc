@@ -695,7 +695,7 @@ finish_fname_decls (void)
       if (TREE_CODE (*bodyp) == BIND_EXPR)
 	bodyp = &BIND_EXPR_BODY (*bodyp);
 
-      append_to_statement_list (*bodyp, &stmts);
+      append_to_statement_list_force (*bodyp, &stmts);
       *bodyp = stmts;
     }
 
@@ -972,6 +972,8 @@ vector_types_convertible_p (tree t1, tree t2)
   return targetm.vector_opaque_p (t1)
 	 || targetm.vector_opaque_p (t2)
          || (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
+	     && (TREE_CODE (t1) != REAL_TYPE || 
+		 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
 	     && INTEGRAL_TYPE_P (TREE_TYPE (t1))
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
 }

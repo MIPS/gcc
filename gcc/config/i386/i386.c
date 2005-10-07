@@ -1653,6 +1653,21 @@ override_options (void)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
 
+  /* ??? Unwind info is not correct around the CFG unless either a frame
+     pointer is present or M_A_O_A is set.  Fixing this requires rewriting
+     unwind info generation to be aware of the CFG and propagating states
+     around edges.  */
+  if ((flag_unwind_tables || flag_asynchronous_unwind_tables
+       || flag_exceptions || flag_non_call_exceptions)
+      && flag_omit_frame_pointer
+      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
+    {
+      if (target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
+	warning (0, "unwind tables currently require either a frame pointer "
+		 "or -maccumulate-outgoing-args for correctness");
+      target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
+    }
+
   /* Figure out what ASM_GENERATE_INTERNAL_LABEL builds as a prefix.  */
   {
     char *p;
@@ -2158,7 +2173,8 @@ ix86_function_regparm (tree type, tree decl)
 	      /* We can't use regparm(3) for nested functions as these use
 		 static chain pointer in third argument.  */
 	      if (local_regparm == 3
-		  && DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
+		  && decl_function_context (decl)
+		  && !DECL_NO_STATIC_CHAIN (decl))
 		local_regparm = 2;
 	      /* Each global register variable increases register preassure,
 		 so the more global reg vars there are, the smaller regparm

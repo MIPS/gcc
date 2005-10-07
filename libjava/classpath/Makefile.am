@@ -4,7 +4,8 @@
 SUBDIRS = lib doc external include native resource scripts $(EXAMPLESDIR)
 DIST_SUBDIRS = lib doc external include native resource scripts examples
 
-ACLOCAL_AMFLAGS = -I m4 -I ../..
+## GCJ LOCAL: we need an extra -I here.
+ACLOCAL_AMFLAGS = -I m4 -I ../.. -I ../../config
 
 native: lib
 

@@ -1,3 +1,109 @@
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (struct __sso_string_local):
+	Remove, actually POD types cannot have user defined constructors
+	(being aggregates) and therefore can always be members of unions.
+	(class __sso_string_base): Adjust consistently.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24198
+	* testsuite/27_io/basic_filebuf/3.cc: Use __gnu_test::pod_ushort
+	instead.
+	* testsuite/27_io/basic_filebuf/seekoff/10132-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/10132-3.cc: Likewise.
+	* testsuite/27_io/basic_fstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ifstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ios/3.cc: Likewise.
+	* testsuite/27_io/basic_iostream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_istream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_istringstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ofstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ostream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ostringstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_streambuf/3.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/3.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/3.cc: Likewise; run the test.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11729 (DR 280, [Ready])
+	* include/bits/stl_iterator.h: Add reverse_iterator global
+	functions with two template parameters (operator==, !=, <,
+	>, <=, >=, -).
+	* testsuite/24_iterators/reverse_iterator/11729.cc: New.
+	* docs/html/ext/howto.html: Add an entry for issue 280.
+
+2005-10-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable
+	(node_iterator::node_iterator(const node_iterator<,true,>&)): Fix to
+	take a "false" (i.e., is_const == false) node_iterator.
+	(hashtable_iterator::hashtable_iterator(const hashtable_iterator<,
+	true,>&)): Likewise for hashtable_iterator.
+	(hashtable::const_local_iterator): Fix typedef (is_const == true).
+	(hashtable::const_iterator): Likewise.
+	* testsuite/tr1/6_containers/unordered/types/map_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/multimap_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/set_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/multiset_iterator.cc: New.
+ 
+2005-10-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24054
+	* include/tr1/hashtable (erase(const key_type&)): Return the
+	number of elements erased.
+	* testsuite/tr1/6_containers/unordered/hashtable/24054.cc: New.
+
+2005-10-01  Kenny Simpson  <theonetruekenny@yahoo.com>
+
+	* include/tr1/tuple_iterate.h (tuple::operator=(const std::pair<>&)):
+	Add missing return.
+
+2005-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24064
+	* include/tr1/hashtable (hash_code_base<>::store_code): Add.
+	(hashtable<>::insert(const value_type&)): Use it.
+	* testsuite/tr1/6_containers/unordered/hashtable/24064.cc: New.
+
+2005-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23953
+	* include/bits/locale_facets.tcc (__numpunct_cache<>::_M_cache,
+	__moneypunct_cache<>::_M_cache): Check that grouping()[0] > 0.
+	(__verify_grouping): Do the last check only if __grouping[__min] > 0.
+	(__add_grouping<>): End recursion if *__gbeg <= 0.
+	* testsuite/22_locale/num_get/get/char/23953.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/char/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/23953.cc: Likewise.
+
+2005-09-29  Chris Jefferson <chris@bubblescope.net>
+
+	PR libstdc++/23978
+	* include/tr1/tuple_iterate.h (tuple): Add operator=(std::pair).
+	* testsuite/tr1/6_containers/tuple/creation_functions/23978.cc: New.
+	
+	* include/tr1/functional (ref, cref): Make inline.
+	* include/tr1/tuple_iterate.h (tie): Correct formatting.
+	(make_tuple): Make inline.
+
+2005-09-25  Benjamin Kosnik  <bkoz@redhat.com>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* include/ext/mt_allocator.h
+	(__per_type_pool<...true>::_S_initialize_once): Always call
+	_M_initialize_once.
+	(__common_pool<...true>::_S_initialize_once): Same.
+
+2005-09-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/mt_allocator/tune-1.cc: Clarify for single-thread.
+	* testsuite/ext/mt_allocator/tune-2.cc: Same.
+	* testsuite/ext/mt_allocator/tune-3.cc: Same.
+	* testsuite/ext/mt_allocator/tune-4.cc: Same.
+
 2005-09-21  Guillaume Melquiond  <guillaume.melquiond@ens-lyon.fr>
 
 	PR libstdc++/23956

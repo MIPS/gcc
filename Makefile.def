@@ -224,11 +224,13 @@ flags_to_pass = { flag= DLLTOOL_FOR_TARGET ; };
 flags_to_pass = { flag= GCJ_FOR_TARGET ; };
 flags_to_pass = { flag= GFORTRAN_FOR_TARGET ; };
 flags_to_pass = { flag= LD_FOR_TARGET ; };
+flags_to_pass = { flag= LIPO_FOR_TARGET ; };
 flags_to_pass = { flag= LDFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= LIBCFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= LIBCXXFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= NM_FOR_TARGET ; };
 flags_to_pass = { flag= RANLIB_FOR_TARGET ; };
+flags_to_pass = { flag= STRIP_FOR_TARGET ; };
 flags_to_pass = { flag= WINDRES_FOR_TARGET ; };
 
 // Inter-module dependencies
@@ -417,6 +419,7 @@ lang_env_dependencies = { module=libada; };
 lang_env_dependencies = { module=libgfortran; };
 lang_env_dependencies = { module=libffi; };
 lang_env_dependencies = { module=libjava; cxx=true; };
+lang_env_dependencies = { module=libmudflap; };
 lang_env_dependencies = { module=libobjc; };
 lang_env_dependencies = { module=libssp; };
 lang_env_dependencies = { module=libstdc++-v3; };

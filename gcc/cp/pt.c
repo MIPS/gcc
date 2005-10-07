@@ -3613,9 +3613,7 @@ convert_nontype_argument (tree type, tree expr)
   else if (TYPE_PTRFN_P (type))
     {
       /* If the argument is a template-id, we might not have enough
-	 context information to decay the pointer.
-	 ??? Why static5.C requires decay and subst1.C works fine
-	 even without it?  */
+	 context information to decay the pointer.  */
       if (!type_unknown_p (expr_type))
 	{
 	  expr = decay_conversion (expr);
@@ -6510,6 +6508,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		&& !uses_template_parms (argvec))
 	      tsubst_default_arguments (r);
 	  }
+	else
+	  DECL_TEMPLATE_INFO (r) = NULL_TREE;
 
 	/* Copy the list of befriending classes.  */
 	for (friends = &DECL_BEFRIENDING_CLASSES (r);
@@ -10491,17 +10491,30 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   tree args2 = TYPE_ARG_TYPES (TREE_TYPE (decl2));
   int better1 = 0;
   int better2 = 0;
-
-  /* If only one is a member function, they are unordered.  */
-  if (DECL_FUNCTION_MEMBER_P (decl1) != DECL_FUNCTION_MEMBER_P (decl2))
-    return 0;
-
-  /* Don't consider 'this' parameter.  */
+  
+  /* Remove the this parameter from non-static member functions.  If
+     one is a non-static member function and the other is not a static
+     member function, remove the first parameter from that function
+     also.  This situation occurs for operator functions where we
+     locate both a member function (with this pointer) and non-member
+     operator (with explicit first operand).  */
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl1))
-    args1 = TREE_CHAIN (args1);
-  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
-    args2 = TREE_CHAIN (args2);
-
+    {
+      len--; /* LEN is the number of significant arguments for DECL1 */
+      args1 = TREE_CHAIN (args1);
+      if (!DECL_STATIC_FUNCTION_P (decl2))
+	args2 = TREE_CHAIN (args2);
+    }
+  else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
+    {
+      args2 = TREE_CHAIN (args2);
+      if (!DECL_STATIC_FUNCTION_P (decl1))
+	{
+	  len--;
+	  args1 = TREE_CHAIN (args1);
+	}
+    }
+    
   /* If only one is a conversion operator, they are unordered.  */
   if (DECL_CONV_FN_P (decl1) != DECL_CONV_FN_P (decl2))
     return 0;

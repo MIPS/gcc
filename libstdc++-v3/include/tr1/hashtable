@@ -171,7 +171,7 @@ namespace Internal
       node_iterator(hash_node<Value, cache>* p = 0)
       : node_iterator_base<Value, cache>(p) { }
 
-      node_iterator(const node_iterator<Value, true, cache>& x)
+      node_iterator(const node_iterator<Value, false, cache>& x)
       : node_iterator_base<Value, cache>(x.m_cur) { }
 
       reference
@@ -266,7 +266,7 @@ namespace Internal
       hashtable_iterator(hash_node<Value, cache>** b)
       : hashtable_iterator_base<Value, cache>(*b, b) { }
   
-      hashtable_iterator(const hashtable_iterator<Value, true, cache>& x)
+      hashtable_iterator(const hashtable_iterator<Value, false, cache>& x)
       : hashtable_iterator_base<Value, cache>(x.m_cur_node, x.m_cur_bucket) { }
 
       reference
@@ -627,6 +627,10 @@ namespace Internal
       { return m_eq (k, m_extract(n->m_v)); }
 
       void
+      store_code(hash_node<Value, false>*, hash_code_t) const
+      { }
+
+      void
       copy_code(hash_node<Value, false>*, const hash_node<Value, false>*) const
       { }
       
@@ -699,6 +703,10 @@ namespace Internal
       { return m_eq (k, m_extract(n->m_v)); }
 
       void
+      store_code(hash_node<Value, false>*, hash_code_t) const
+      { }
+
+      void
       copy_code(hash_node<Value, false>*, const hash_node<Value, false>*) const
       { }
 
@@ -755,6 +763,10 @@ namespace Internal
       bool
       compare(const Key& k, hash_code_t c, hash_node<Value, true>* n) const
       { return c == n->hash_code && m_eq(k, m_extract(n->m_v)); }
+
+      void
+      store_code(hash_node<Value, true>* n, hash_code_t c) const
+      { n->hash_code = c; }
 
       void
       copy_code(hash_node<Value, true>* to,
@@ -878,13 +890,13 @@ namespace tr1
       typedef Internal::node_iterator<value_type, !mutable_iterators,
 				      cache_hash_code>
         local_iterator;
-      typedef Internal::node_iterator<value_type, false, cache_hash_code>
+      typedef Internal::node_iterator<value_type, true, cache_hash_code>
         const_local_iterator;
 
       typedef Internal::hashtable_iterator<value_type, !mutable_iterators,
 					   cache_hash_code>
         iterator;
-      typedef Internal::hashtable_iterator<value_type, false, cache_hash_code>
+      typedef Internal::hashtable_iterator<value_type, true, cache_hash_code>
         const_iterator;
 
     private:
@@ -1508,6 +1520,7 @@ namespace tr1
 	    }
 
 	  new_node->m_next = m_buckets[n];
+	  this->store_code(new_node, code);
 	  m_buckets[n] = new_node;
 	  ++m_element_count;
 	  return std::make_pair(iterator(new_node, m_buckets + n), true);
@@ -1549,6 +1562,7 @@ namespace tr1
 	  new_node->m_next = m_buckets[n];
 	  m_buckets[n] = new_node;
 	}
+      this->store_code(new_node, code);
 
       ++m_element_count;
       return iterator(new_node, m_buckets + n);
@@ -1614,6 +1628,7 @@ namespace tr1
     {
       typename hashtable::hash_code_t code = this->m_hash_code (k);
       size_type n = this->bucket_index(k, code, m_bucket_count);
+      size_type result = 0;
       
       node** slot = m_buckets + n;
       while (*slot && ! this->compare (k, code, *slot))
@@ -1625,7 +1640,10 @@ namespace tr1
 	  *slot = n->m_next;
 	  m_deallocate_node (n);
 	  --m_element_count;
+	  ++result;
 	}
+
+      return result;
     }
 
   // ??? This could be optimized by taking advantage of the bucket
