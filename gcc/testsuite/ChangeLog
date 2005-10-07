@@ -1,3 +1,23 @@
+2005-10-06  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/22576
+	* gcc.target/i386/pr22576.c: New test.
+
+	PR target/22585
+	* gcc.target/i386/pr22585.c: New test.
+
+	PR target/23570
+	* gcc.target/i386/pr23570.c: New test.
+
+2005-10-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/inline1.c: Remove extraneous +.
+
+2005-10-05  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR 18568
+	* gfortran.dg/der_pointer_3.f90: New test.
+
 2005-10-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/23818
