@@ -3201,8 +3201,10 @@ assign_parms (tree fndecl)
   /* See how many bytes, if any, of its args a function should try to pop
      on return.  */
 
+  /* APPLE LOCAL begin stdcall vs 16 byte alignment 4284121 */
   current_function_pops_args = RETURN_POPS_ARGS (fndecl, TREE_TYPE (fndecl),
-						 current_function_args_size);
+						 cfun->unrounded_args_size);
+  /* APPLE LOCAL end stdcall vs 16 byte alignment 4284121 */
 
   /* For stdarg.h function, save info about
      regs and stack space used by the named args.  */

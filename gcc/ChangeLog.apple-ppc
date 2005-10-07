@@ -1,3 +1,8 @@
+2005-10-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4284121
+	* function.c (assign_parms):  Fix RETURN_POPS_ARGS call.
+
 2005-10-04  Devang Patel  <dpatel@apple.com>
 
         Radar 4278470
