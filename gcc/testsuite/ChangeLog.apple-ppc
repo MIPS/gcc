@@ -1,3 +1,8 @@
+2005-10-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4284121
+	* gcc.target/i386/stdcall.c:  New.
+
 2005-10-06  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4280641
