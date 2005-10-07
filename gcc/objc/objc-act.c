@@ -3540,7 +3540,12 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
   /* APPLE LOCAL end ObjC GC */
     {
       /* APPLE LOCAL begin ObjC GC */
+/* APPLE LOCAL begin radar 4292010 */
+#if 0
+      /* stop emitting this warning till post-chardonnay */
       warning ("pointer arithmetic for garbage-collected objects not allowed");
+#endif
+/* APPLE LOCAL end radar 4292010 */
       return NULL_TREE;
       /* APPLE LOCAL end ObjC GC */
     }

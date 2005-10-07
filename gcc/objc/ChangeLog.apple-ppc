@@ -1,3 +1,9 @@
+2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	radar 4292010
+	* objc-act.c (objc_generate_write_barrier): Turn off gc-specific 
+	warning till post chardonnay.
+
 2005-10-06  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4280641
