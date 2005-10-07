@@ -1,3 +1,8 @@
+2005-10-06  Devang Patel  <dpatel@apple.com>
+
+	Radar 4257091
+	* c-common.c (vector_types_compatible_p): Check REAL_TYPE's precision.
+
 2005-10-06  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4284121

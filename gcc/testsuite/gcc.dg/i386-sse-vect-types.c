@@ -9,7 +9,7 @@
 #define static
 #define __inline
 
-#include <xmmintrin.h>
+#include <emmintrin.h>
 
 __m128d foo1(__m128d z, __m128d  a, int N) { 
   int i;
