@@ -3478,10 +3478,10 @@ ix86_libcall_value (enum machine_mode mode)
 
 /* Given a mode, return the register to use for a return value.  */
 
+/* APPLE LOCAL begin mainline 2005-09-20 4205103 */
 static int
 ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
 {
-  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
   gcc_assert (!TARGET_64BIT);
 
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
