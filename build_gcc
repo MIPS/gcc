@@ -364,24 +364,26 @@ for t in $TARGETS ; do
 done
 
 # Build driver-driver using fully-named drivers
-for t in $TARGETS ; do
-    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
+for h in $HOSTS ; do
+    $DEST_DIR$DEST_ROOT/bin/$h-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
 	-DPDN="\"-apple-darwin$DARWIN_VERS-gcc-$VERS\""                                    \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
-	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
-	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin$DARWIN_VERS/lib/                    \
-	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-gcc-$MAJ_VERS || exit 1
+	-liberty -L$DIR/dst-$BUILD-$h$DEST_ROOT/lib/                           \
+	-L$DIR/dst-$BUILD-$h$DEST_ROOT/$h-apple-darwin$DARWIN_VERS/lib/                    \
+        -L$DIR/obj-$h-$BUILD/libiberty/                                        \
+	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$h-gcc-$MAJ_VERS || exit 1
 
-    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
+    $DEST_DIR$DEST_ROOT/bin/$h-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
 	-DPDN="\"-apple-darwin$DARWIN_VERS-g++-$VERS\""                                    \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
-	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
-	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin$DARWIN_VERS/lib/                    \
-	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-g++-$MAJ_VERS || exit 1
+	-liberty -L$DIR/dst-$BUILD-$h$DEST_ROOT/lib/                           \
+	-L$DIR/dst-$BUILD-$h$DEST_ROOT/$h-apple-darwin$DARWIN_VERS/lib/                    \
+        -L$DIR/obj-$h-$BUILD/libiberty/                                        \
+	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$h-g++-$MAJ_VERS || exit 1
 done
 
 lipo -output $DEST_DIR/$DEST_ROOT/bin/gcc-$MAJ_VERS -create \

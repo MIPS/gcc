@@ -1,3 +1,9 @@
+2005-10-07  Matthew Sachs  <msachs@apple.com>
+
+	Radar 4193453
+	* build_gcc: Link against gcc's copy of libiberty when building the
+	Darwin driver; build Darwin driver for hosts, not targets.
+
 2005-10-01  Geoffrey Keating  <geoffk@apple.com>
 
 	* build_gcc: Make strip and lipo target versions.  Update libgcc
