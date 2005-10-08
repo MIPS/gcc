@@ -1,3 +1,145 @@
+2005-10-08  Steven Bosscher  <stevenb@suse.de>
+
+	PR other/22202
+	* params.def (PARAM_MAX_VARIABLE_EXPANSIONS): Remove superfluous
+	spaces.
+	(PARAM_SMS_DFA_HISTORY): Likewise.
+
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR middle-end/23150
+	* calls.c (mem_overlaps_already_clobbered_arg_p): New.
+	(load_register_parameters): Call it.
+	(check_sibcall_argument_overlap_1): Likewise.
+	(store_one_arg): Likewise.
+
+2005-10-07  James E. Wilson  <wilson@specifix.com>
+
+	* config/ia64/vect.md (ashl<mode>3, ashr<mode>3, lshr<mode>3): Use
+	DImode not VECINT24 for operand 2.
+
+	PR target/23644
+	* doc/invoke.texi (IA-64 Options, item -mtune): Renamed from
+	-mtune-arch.
+
+	PR target/24193
+	* config/ia64/ia64.md (movbi, movti_internal, gr_spill_internal,
+	fr_spill): Use destination_operand for operand 0.
+
+2005-10-07  DJ Delorie  <dj@redhat.com>
+
+	* varasm.c (output_constant): Limit error to expanding
+	conversions.
+
+2005-10-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24227
+	* fold-const.c (fold_binary): Fix operand types during folding
+	of X op (A, Y).  Evaluation order of the side-effects of
+	X and A are frontend-defined, so ensure we honour that even for
+	tcc_comparison class operands; eased by removing duplicate code.
+
+2005-10-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* stor-layout.c (layout_type): Do not allow alignment of array
+	elements to be greater than their size.
+
+2005-10-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* config.host (hppa*-*-hpux*): Change out_host_hook_obj and
+	host_xmake_file.
+	(hppa*-*-linux*): Ditto.
+	(ia64-*-hpux*): Add out_host_hook_obj and host_xmake_file.
+	* config/host-hpux.c: New.
+	* config/x-hpux: New.
+	* config/pa/x-hpux: Remove.
+	* config/pa/x-linux: Remove.
+	* config/pa/pa-host.c: Remove.
+
+2005-10-07  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (dom_opt_finalize_block): Fix conditions to
+	determine whether or not to try and thread outgoing edges.
+
+2005-10-07  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (eqsi_power): New.
+	(neg_eq0si): Add TARGET_POWER to final condition.
+	(neg_eqsi): Same.
+
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	* config/rs6000/rs6000.c: Revert last change.
+
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_cannot_force_const_mem): New.
+	(TARGET_CANNOT_FORCE_CONST_MEM): Use it.
+
+2005-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/22216
+	PR middle-end/23651
+	* cfgexpand.c (tree_expand_cfg): After expanding the functions, clear
+	out return_label and naked_return_label.
+
+2005-10-06  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-structalias.c (check_for_overlaps): Fix bug in last
+        change.
+
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	PR tree-opt/22237
+	* tree-inline.c (declare_return_variable): Handle modify_dest not
+	being a DECL.
+
+2005-10-06  Daniel Berlin  <dberlin@dberlin.org>
+	
+	Fix PR tree-optimization/22488
+	* tree-ssa-structalias.c (check_for_overlaps): New function.
+	(create_variable_info_for): Use it.
+
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	PR debug/24070
+	* dwarf2out.c (lookup_filename): Return the result of maybe_emit_file.
+	(dwarf2out_start_source_file): Print it.
+
+2005-10-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/t-slibgcc-darwin (SHLIB_MAPFILES): Use '+='.
+
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	PR 23706
+	* mode-switching.c (optimize_mode_switching): Clear transp bit
+	for block with incomming abnormal edges.
+
+	* config/sh/sh.c (fpscr_values, emit_fpu_switch): New.
+	(fpscr_set_from_mem): Use them.
+	* config/sh/sh.md (fpu_switch0, fpu_switch1): Remove.
+	(fpscr postinc splitters): Rewrite as peephole2+split.
+
+2005-10-06  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (eq<mode>): Add !TARGET_POWER.
+	(eq<mode>_compare): Same.
+
+2005-10-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/24238
+	* tree-ssa-alias.c (find_used_portions): Handle RESULT_DECL.
+
+2005-10-06  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* acinclude.m4 (gcc_AC_CHECK_TOOL): Handle environment variables
+	here.  Use AC_PATH_PROG for environment variables instead of
+	test -x.
+	* configure.ac: Update calls to gcc_AC_CHECK_TOOL.  Use it for
+	objdump also.
+	* configure: Regenerated.
+
 2005-10-06  Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	PR target/23783

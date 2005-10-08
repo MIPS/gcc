@@ -5035,12 +5035,87 @@ if test -z "$ac_cv_prog_NM_FOR_TARGET" ; then
   fi
 fi
 
- for ncn_progname in ranlib; do
+ for ncn_progname in objdump; do
   if test -n "$ncn_target_tool_prefix"; then
     # Extract the first word of "${ncn_target_tool_prefix}${ncn_progname}", so it can be a program name with args.
 set dummy ${ncn_target_tool_prefix}${ncn_progname}; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
 echo "configure:5044: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_OBJDUMP_FOR_TARGET'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$OBJDUMP_FOR_TARGET"; then
+  ac_cv_prog_OBJDUMP_FOR_TARGET="$OBJDUMP_FOR_TARGET" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
+  ac_dummy="$PATH"
+  for ac_dir in $ac_dummy; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_OBJDUMP_FOR_TARGET="${ncn_target_tool_prefix}${ncn_progname}"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+fi
+fi
+OBJDUMP_FOR_TARGET="$ac_cv_prog_OBJDUMP_FOR_TARGET"
+if test -n "$OBJDUMP_FOR_TARGET"; then
+  echo "$ac_t""$OBJDUMP_FOR_TARGET" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+
+  fi
+  if test -z "$ac_cv_prog_OBJDUMP_FOR_TARGET" && test $build = $target ; then
+    # Extract the first word of "${ncn_progname}", so it can be a program name with args.
+set dummy ${ncn_progname}; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:5075: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_OBJDUMP_FOR_TARGET'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$OBJDUMP_FOR_TARGET"; then
+  ac_cv_prog_OBJDUMP_FOR_TARGET="$OBJDUMP_FOR_TARGET" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
+  ac_dummy="$PATH"
+  for ac_dir in $ac_dummy; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_OBJDUMP_FOR_TARGET="${ncn_progname}"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+fi
+fi
+OBJDUMP_FOR_TARGET="$ac_cv_prog_OBJDUMP_FOR_TARGET"
+if test -n "$OBJDUMP_FOR_TARGET"; then
+  echo "$ac_t""$OBJDUMP_FOR_TARGET" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+ 
+  fi
+  test -n "$ac_cv_prog_OBJDUMP_FOR_TARGET" && break
+done
+
+if test -z "$ac_cv_prog_OBJDUMP_FOR_TARGET" ; then
+  set dummy objdump
+  if test $build = $target ; then
+    OBJDUMP_FOR_TARGET="$2"
+  else
+    OBJDUMP_FOR_TARGET="${ncn_target_tool_prefix}$2"
+  fi
+fi
+
+ for ncn_progname in ranlib; do
+  if test -n "$ncn_target_tool_prefix"; then
+    # Extract the first word of "${ncn_target_tool_prefix}${ncn_progname}", so it can be a program name with args.
+set dummy ${ncn_target_tool_prefix}${ncn_progname}; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:5119: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_RANLIB_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5071,7 +5146,7 @@ fi
     # Extract the first word of "${ncn_progname}", so it can be a program name with args.
 set dummy ${ncn_progname}; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:5075: checking for $ac_word" >&5
+echo "configure:5150: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_RANLIB_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5110,7 +5185,7 @@ fi
     # Extract the first word of "${ncn_target_tool_prefix}${ncn_progname}", so it can be a program name with args.
 set dummy ${ncn_target_tool_prefix}${ncn_progname}; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:5114: checking for $ac_word" >&5
+echo "configure:5189: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_STRIP_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5141,7 +5216,7 @@ fi
     # Extract the first word of "${ncn_progname}", so it can be a program name with args.
 set dummy ${ncn_progname}; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:5145: checking for $ac_word" >&5
+echo "configure:5220: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_STRIP_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5185,7 +5260,7 @@ fi
     # Extract the first word of "${ncn_target_tool_prefix}${ncn_progname}", so it can be a program name with args.
 set dummy ${ncn_target_tool_prefix}${ncn_progname}; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:5189: checking for $ac_word" >&5
+echo "configure:5264: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_WINDRES_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5216,7 +5291,7 @@ fi
     # Extract the first word of "${ncn_progname}", so it can be a program name with args.
 set dummy ${ncn_progname}; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:5220: checking for $ac_word" >&5
+echo "configure:5295: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_WINDRES_FOR_TARGET'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5267,6 +5342,7 @@ CONFIGURED_GFORTRAN_FOR_TARGET="$GFORTRAN_FOR_TARGET"
 CONFIGURED_LD_FOR_TARGET="$LD_FOR_TARGET"
 CONFIGURED_LIPO_FOR_TARGET="$LIPO_FOR_TARGET"
 CONFIGURED_NM_FOR_TARGET="$NM_FOR_TARGET"
+CONFIGURED_OBJDUMP_FOR_TARGET="$OBJDUMP_FOR_TARGET"
 CONFIGURED_RANLIB_FOR_TARGET="$RANLIB_FOR_TARGET"
 CONFIGURED_STRIP_FOR_TARGET="$STRIP_FOR_TARGET"
 CONFIGURED_WINDRES_FOR_TARGET="$WINDRES_FOR_TARGET"
@@ -5293,6 +5369,7 @@ if test "x${build}" = "x${host}" ; then
   LD_FOR_TARGET="\$(USUAL_LD_FOR_TARGET)"
   LIPO_FOR_TARGET="\$(USUAL_LIPO_FOR_TARGET)"
   NM_FOR_TARGET="\$(USUAL_NM_FOR_TARGET)"
+  OBJDUMP_FOR_TARGET="\$(USUAL_OBJDUMP_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(USUAL_RANLIB_FOR_TARGET)"
   STRIP_FOR_TARGET="\$(USUAL_STRIP_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(USUAL_WINDRES_FOR_TARGET)"
@@ -5310,6 +5387,7 @@ else
   LD_FOR_TARGET="\$(CONFIGURED_LD_FOR_TARGET)"
   LIPO_FOR_TARGET="\$(CONFIGURED_LIPO_FOR_TARGET)"
   NM_FOR_TARGET="\$(CONFIGURED_NM_FOR_TARGET)"
+  OBJDUMP_FOR_TARGET="\$(CONFIGURED_OBJDUMP_FOR_TARGET)"
   RANLIB_FOR_TARGET="\$(CONFIGURED_RANLIB_FOR_TARGET)"
   STRIP_FOR_TARGET="\$(CONFIGURED_STRIP_FOR_TARGET)"
   WINDRES_FOR_TARGET="\$(CONFIGURED_WINDRES_FOR_TARGET)"  
@@ -5323,7 +5401,7 @@ RANLIB_FOR_TARGET=${RANLIB_FOR_TARGET}${extra_ranlibflags_for_target}
 NM_FOR_TARGET=${NM_FOR_TARGET}${extra_nmflags_for_target}
 
 echo $ac_n "checking whether to enable maintainer-specific portions of Makefiles""... $ac_c" 1>&6
-echo "configure:5327: checking whether to enable maintainer-specific portions of Makefiles" >&5
+echo "configure:5405: checking whether to enable maintainer-specific portions of Makefiles" >&5
 # Check whether --enable-maintainer-mode or --disable-maintainer-mode was given.
 if test "${enable_maintainer_mode+set}" = set; then
   enableval="$enable_maintainer_mode"
@@ -5370,7 +5448,7 @@ esac
 # gcc for stageN-gcc and stagePREV-gcc for stage(N-1).  In case this is not
 # possible, however, we can resort to mv.
 echo $ac_n "checking if symbolic links between directories work""... $ac_c" 1>&6
-echo "configure:5374: checking if symbolic links between directories work" >&5
+echo "configure:5452: checking if symbolic links between directories work" >&5
 if eval "test \"`echo '$''{'gcc_cv_prog_ln_s_dir'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -5666,6 +5744,7 @@ s%@GFORTRAN_FOR_TARGET@%$GFORTRAN_FOR_TARGET%g
 s%@LD_FOR_TARGET@%$LD_FOR_TARGET%g
 s%@LIPO_FOR_TARGET@%$LIPO_FOR_TARGET%g
 s%@NM_FOR_TARGET@%$NM_FOR_TARGET%g
+s%@OBJDUMP_FOR_TARGET@%$OBJDUMP_FOR_TARGET%g
 s%@RANLIB_FOR_TARGET@%$RANLIB_FOR_TARGET%g
 s%@STRIP_FOR_TARGET@%$STRIP_FOR_TARGET%g
 s%@WINDRES_FOR_TARGET@%$WINDRES_FOR_TARGET%g
@@ -5680,6 +5759,7 @@ s%@CONFIGURED_GFORTRAN_FOR_TARGET@%$CONFIGURED_GFORTRAN_FOR_TARGET%g
 s%@CONFIGURED_LD_FOR_TARGET@%$CONFIGURED_LD_FOR_TARGET%g
 s%@CONFIGURED_LIPO_FOR_TARGET@%$CONFIGURED_LIPO_FOR_TARGET%g
 s%@CONFIGURED_NM_FOR_TARGET@%$CONFIGURED_NM_FOR_TARGET%g
+s%@CONFIGURED_OBJDUMP_FOR_TARGET@%$CONFIGURED_OBJDUMP_FOR_TARGET%g
 s%@CONFIGURED_RANLIB_FOR_TARGET@%$CONFIGURED_RANLIB_FOR_TARGET%g
 s%@CONFIGURED_STRIP_FOR_TARGET@%$CONFIGURED_STRIP_FOR_TARGET%g
 s%@CONFIGURED_WINDRES_FOR_TARGET@%$CONFIGURED_WINDRES_FOR_TARGET%g
