@@ -8,7 +8,7 @@ void foo()
     {
     #pragma omp parallel
       {
-      #pragma omp parallel default(none)	// { dg-error "enclosing" }
+      #pragma omp parallel default(none)
         {
  	  i++;					// { dg-error "not specified" }
 	}

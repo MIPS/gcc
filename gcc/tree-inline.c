@@ -115,10 +115,7 @@ int flag_inline_trees = 0;
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
 static tree copy_generic_body (copy_body_data *);
 static bool inlinable_function_p (tree);
-static tree remap_decl (tree, copy_body_data *);
-static tree remap_type (tree, copy_body_data *);
 static void remap_block (tree *, copy_body_data *);
-static tree remap_decl (tree, copy_body_data *);
 static tree remap_decls (tree, copy_body_data *);
 static void copy_bind_expr (tree *, int *, copy_body_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
@@ -130,7 +127,6 @@ static void add_lexical_block (tree current_block, tree new_block);
 static tree copy_decl_to_var (tree, copy_body_data *);
 static tree copy_decl_no_change (tree, copy_body_data *);
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
-
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
    that the trees should be variables, it is used for more than that.  */
@@ -150,7 +146,7 @@ insert_decl_map (copy_body_data *id, tree key, tree value)
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
-static tree
+tree
 remap_decl (tree decl, copy_body_data *id)
 {
   splay_tree_node n;
@@ -198,7 +194,7 @@ remap_decl (tree decl, copy_body_data *id)
   return unshare_expr ((tree) n->value);
 }
 
-static tree
+tree
 remap_type (tree type, copy_body_data *id)
 {
   splay_tree_node node;

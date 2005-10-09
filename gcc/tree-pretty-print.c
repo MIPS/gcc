@@ -277,12 +277,7 @@ dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 	print_remap:
 	  pp_string (buffer, name);
 	  pp_character (buffer, '(');
-	  dump_decl_name (buffer, OMP_CLAUSE_OUTER_DECL (clause), flags);
-	  if (OMP_CLAUSE_INNER_DECL (clause))
-	    {
-	      pp_string (buffer, ">>");
-	      dump_decl_name (buffer, OMP_CLAUSE_INNER_DECL (clause), flags);
-	    }
+	  dump_decl_name (buffer, OMP_CLAUSE_DECL (clause), flags);
 	  pp_character (buffer, ')');
 	  break;
 
@@ -290,12 +285,7 @@ dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 	  pp_string (buffer, "reduction(");
 	  pp_string (buffer, op_symbol_1 (OMP_CLAUSE_REDUCTION_CODE (clause)));
 	  pp_character (buffer, ':');
-	  dump_decl_name (buffer, OMP_CLAUSE_OUTER_DECL (clause), flags);
-	  if (OMP_CLAUSE_INNER_DECL (clause))
-	    {
-	      pp_string (buffer, ">>");
-	      dump_decl_name (buffer, OMP_CLAUSE_INNER_DECL (clause), flags);
-	    }
+	  dump_decl_name (buffer, OMP_CLAUSE_DECL (clause), flags);
 	  pp_character (buffer, ')');
 	  break;
 

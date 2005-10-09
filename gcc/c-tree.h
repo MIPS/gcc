@@ -453,7 +453,6 @@ extern tree groktypename (struct c_type_name *);
 extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
-extern tree lookup_name_no_remap (tree);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
@@ -571,6 +570,8 @@ extern tree c_finish_goto_ptr (tree);
 extern void c_begin_vm_scope (unsigned int);
 extern void c_end_vm_scope (unsigned int);
 extern tree c_expr_to_decl (tree, bool *, bool *, bool *);
+extern tree c_begin_omp_parallel (void);
+extern tree c_finish_omp_parallel (tree, tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -602,10 +603,6 @@ extern bool c_eh_initialized_p;
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
 extern void c_write_global_declarations (void);
-
-extern void c_omp_remap_private (bool);
-extern tree c_begin_omp_parallel (enum omp_clause_default_kind);
-extern tree c_finish_omp_parallel (tree, tree, tree, tree);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

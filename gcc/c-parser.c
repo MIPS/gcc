@@ -412,7 +412,7 @@ c_lex_one_token (c_token *token)
 	      }
 	  }
 
-	decl = lookup_name_no_remap (token->value);
+	decl = lookup_name (token->value);
 	if (decl)
 	  {
 	    if (TREE_CODE (decl) == TYPE_DECL)
@@ -941,9 +941,12 @@ c_parser_skip_to_pragma_eol (c_parser *parser)
 	c_token *token = c_parser_peek_token (parser);
 	if (token->type == CPP_EOF)
 	  break;
-	c_parser_consume_token (parser);
 	if (token->type == CPP_PRAGMA_EOL)
-	  break;
+	  {
+	    c_parser_consume_token (parser);
+	    break;
+	  }
+	c_parser_consume_token (parser);
       }
 
   parser->error = false;
@@ -1584,7 +1587,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	      t.kind = ctsk_typedef;
 	      /* For a typedef name, record the meaning, not the name.
 		 In case of 'foo foo, bar;'.  */
-	      t.spec = lookup_name_no_remap (value);
+	      t.spec = lookup_name (value);
 	    }
 	  else
 	    {
@@ -6556,7 +6559,7 @@ check_no_duplicate_clause (tree clauses, enum tree_code code, const char *name)
      variable-list , identifier
 
    If KIND is nonzero, create the appropriate node and install the decl
-   in OMP_CLAUSE_OUTER_DECL and add the node to the head of the list.
+   in OMP_CLAUSE_DECL and add the node to the head of the list.
 
    If KIND is zero, create a TREE_LIST with the decl in TREE_PURPOSE;
    return the list created.  */
@@ -6581,7 +6584,7 @@ c_parser_omp_variable_list (c_parser *parser, enum tree_code kind, tree list)
       else if (kind != 0)
 	{
 	  tree u = make_node (kind);
-	  OMP_CLAUSE_OUTER_DECL (u) = t;
+	  OMP_CLAUSE_DECL (u) = t;
 	  OMP_CLAUSE_CHAIN (u) = list;
 	  list = u;
 	}
@@ -6634,13 +6637,14 @@ c_parser_omp_clause_copyprivate (c_parser *parser, tree list)
 /* OpenMP 2.5:
    default ( shared | none ) */
 
-static enum omp_clause_default_kind 
-c_parser_omp_clause_default (c_parser *parser)
+static tree
+c_parser_omp_clause_default (c_parser *parser, tree list)
 {
   enum omp_clause_default_kind kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+  tree c;
 
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    return kind;
+    return list;
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
@@ -6672,7 +6676,15 @@ c_parser_omp_clause_default (c_parser *parser)
     }
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
 
-  return kind;
+  if (kind == OMP_CLAUSE_DEFAULT_UNSPECIFIED)
+    return list;
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_DEFAULT, "default");
+  c = make_node (OMP_CLAUSE_DEFAULT);
+  OMP_CLAUSE_CHAIN (c) = list;
+  OMP_CLAUSE_DEFAULT_KIND (c) = kind;
+
+  return c;
 }
 
 /* OpenMP 2.5:
@@ -6953,11 +6965,9 @@ c_parser_omp_clause_shared (c_parser *parser, tree list)
    of clause default goes in *pdefault.  */
 
 static tree
-c_parser_omp_all_clauses (c_parser *parser,
-			  enum omp_clause_default_kind *pdefault,
-			  unsigned int mask, const char *where)
+c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
+			  const char *where)
 {
-  enum omp_clause_default_kind default_kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
   tree clauses = NULL;
 
   while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
@@ -6976,15 +6986,8 @@ c_parser_omp_all_clauses (c_parser *parser,
 	  c_name = "copyprivate";
 	  break;
 	case PRAGMA_OMP_CLAUSE_DEFAULT:
-	  {
-	    enum omp_clause_default_kind d_kind;
-	    d_kind = c_parser_omp_clause_default (parser);
-	    if (default_kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED
-		&& d_kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
-	      error ("too many %<default%> clauses");
-	    default_kind = d_kind;
-	    c_name = "default";
-	  }
+	  clauses = c_parser_omp_clause_default (parser, clauses);
+	  c_name = "default";
 	  break;
 	case PRAGMA_OMP_CLAUSE_FIRSTPRIVATE:
 	  clauses = c_parser_omp_clause_firstprivate (parser, clauses);
@@ -7037,8 +7040,6 @@ c_parser_omp_all_clauses (c_parser *parser,
  saw_error:
   c_parser_skip_to_pragma_eol (parser);
 
-  if (pdefault)
-    *pdefault = default_kind;
   return clauses;
 }
 
@@ -7241,9 +7242,7 @@ c_parser_omp_for_loop (c_parser *parser)
   else if (c_parser_next_token_is (parser, CPP_NAME)
 	   && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
     {
-      c_omp_remap_private (true);
       decl = c_parser_postfix_expression (parser).value;
-      c_omp_remap_private (false);
 
       c_parser_require (parser, CPP_EQ, "expected %<=%>");
 
@@ -7304,33 +7303,27 @@ c_parser_omp_for_loop (c_parser *parser)
      for-loop
 */
 
+#define OMP_FOR_CLAUSE_MASK				\
+	( (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_REDUCTION)		\
+	| (1u << PRAGMA_OMP_CLAUSE_ORDERED)		\
+	| (1u << PRAGMA_OMP_CLAUSE_SCHEDULE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_NOWAIT))
+
 static tree
 c_parser_omp_for (c_parser *parser)
 {
-  unsigned int mask = 0;
-  tree block, clauses, init, fini, reduc, ret;
+  tree block, clauses, ret;
 
-  mask |= 1u << PRAGMA_OMP_CLAUSE_PRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_REDUCTION;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_ORDERED;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_SCHEDULE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_NOWAIT;
-  clauses = c_parser_omp_all_clauses (parser, NULL, mask, "#pragma omp for");
+  clauses = c_parser_omp_all_clauses (parser, OMP_FOR_CLAUSE_MASK,
+				      "#pragma omp for");
 
   block = c_begin_compound_stmt (true);
-  c_finish_omp_bindings (&clauses, &init, &fini, &reduc);
-
   ret = c_parser_omp_for_loop (parser);
   if (ret)
-    {
-      OMP_FOR_CLAUSES (ret) = clauses;
-      OMP_FOR_VAR_INIT (ret) = init;
-      OMP_FOR_VAR_LAST (ret) = fini;
-      OMP_FOR_VAR_REDUC (ret) = reduc;
-    }
-
+    OMP_FOR_CLAUSES (ret) = clauses;
   block = c_end_compound_stmt (block, true);
   add_stmt (block);
 
@@ -7451,32 +7444,25 @@ c_parser_omp_sections_scope (c_parser *parser)
      sections-scope
 */
 
+#define OMP_SECTIONS_CLAUSE_MASK			\
+	( (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_REDUCTION)		\
+	| (1u << PRAGMA_OMP_CLAUSE_NOWAIT))
+
 static tree
 c_parser_omp_sections (c_parser *parser)
 {
-  unsigned int mask = 0;
-  tree block, clauses, init, fini, reduc, ret;
+  tree block, clauses, ret;
 
-  mask |= 1u << PRAGMA_OMP_CLAUSE_PRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_REDUCTION;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_NOWAIT;
-  clauses = c_parser_omp_all_clauses (parser, NULL, mask,
+  clauses = c_parser_omp_all_clauses (parser, OMP_SECTIONS_CLAUSE_MASK,
 				      "#pragma omp sections");
 
   block = c_begin_compound_stmt (true);
-  c_finish_omp_bindings (&clauses, &init, &fini, &reduc);
-
   ret = c_parser_omp_sections_scope (parser);
   if (ret)
-    {
-      OMP_SECTIONS_CLAUSES (ret) = clauses;
-      OMP_SECTIONS_VAR_INIT (ret) = init;
-      OMP_SECTIONS_VAR_LAST (ret) = fini;
-      OMP_SECTIONS_VAR_REDUC (ret) = reduc;
-    }
-
+    OMP_SECTIONS_CLAUSES (ret) = clauses;
   block = c_end_compound_stmt (block, true);
   add_stmt (block);
 
@@ -7489,97 +7475,73 @@ c_parser_omp_sections (c_parser *parser)
    # pragma parallel sections parallel-sections-clause new-line
 */
 
+#define OMP_PARALLEL_CLAUSE_MASK			\
+	( (1u << PRAGMA_OMP_CLAUSE_IF)			\
+	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
+	| (1u << PRAGMA_OMP_CLAUSE_SHARED)		\
+	| (1u << PRAGMA_OMP_CLAUSE_COPYIN)		\
+	| (1u << PRAGMA_OMP_CLAUSE_REDUCTION)		\
+	| (1u << PRAGMA_OMP_CLAUSE_NUM_THREADS))
+
 static tree
 c_parser_omp_parallel (c_parser *parser)
 {
   enum pragma_omp_kind p_kind = PRAGMA_OMP_PARALLEL;
   const char *p_name = "#pragma omp parallel";
-  enum omp_clause_default_kind d_kind;
-  tree stmt, clauses, par_clause, ws_clause;
-  tree block, init, fini, reduc;
-  unsigned int mask = 0;
-
-  mask |= 1u << PRAGMA_OMP_CLAUSE_IF;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_PRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_DEFAULT;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_SHARED;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_COPYIN;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_REDUCTION;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_NUM_THREADS;
+  tree stmt, clauses, par_clause, ws_clause, block;
+  unsigned int mask = OMP_PARALLEL_CLAUSE_MASK;
 
   if (c_parser_next_token_is_keyword (parser, RID_FOR))
     {
-      mask |= 1u << PRAGMA_OMP_CLAUSE_PRIVATE;
-      mask |= 1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
-      mask |= 1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE;
-      mask |= 1u << PRAGMA_OMP_CLAUSE_REDUCTION;
-      mask |= 1u << PRAGMA_OMP_CLAUSE_ORDERED;
-      mask |= 1u << PRAGMA_OMP_CLAUSE_SCHEDULE;
-      mask |= 1u << PRAGMA_OMP_CLAUSE_NOWAIT;
-
       c_parser_consume_token (parser);
       p_kind = PRAGMA_OMP_PARALLEL_FOR;
       p_name = "#pragma omp parallel for";
+      mask |= OMP_FOR_CLAUSE_MASK;
     }
   else if (c_parser_next_token_is (parser, CPP_NAME))
     {
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
       if (strcmp (p, "sections") == 0)
 	{
-	  mask |= 1u << PRAGMA_OMP_CLAUSE_PRIVATE;
-	  mask |= 1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
-	  mask |= 1u << PRAGMA_OMP_CLAUSE_LASTPRIVATE;
-	  mask |= 1u << PRAGMA_OMP_CLAUSE_REDUCTION;
-	  mask |= 1u << PRAGMA_OMP_CLAUSE_NOWAIT;
-
 	  c_parser_consume_token (parser);
 	  p_kind = PRAGMA_OMP_PARALLEL_SECTIONS;
 	  p_name = "#pragma omp parallel sections";
+	  mask |= OMP_SECTIONS_CLAUSE_MASK;
 	}
     }
 
-  clauses = c_parser_omp_all_clauses (parser, &d_kind, mask, p_name);
+  clauses = c_parser_omp_all_clauses (parser, mask, p_name);
 
   switch (p_kind)
     {
     case PRAGMA_OMP_PARALLEL:
-      block = c_begin_omp_parallel (d_kind);
-      c_finish_omp_bindings (&clauses, &init, &fini, &reduc);
-
+      block = c_begin_omp_parallel ();
       c_parser_statement (parser);
-
-      stmt = c_finish_omp_parallel (block, clauses, init, reduc);
+      stmt = c_finish_omp_parallel (clauses, block);
       break;
 
     case PRAGMA_OMP_PARALLEL_FOR:
-      block = c_begin_omp_parallel (d_kind);
-      c_finish_omp_bindings (&clauses, &init, &fini, &reduc);
+      block = c_begin_omp_parallel ();
 
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
       stmt = c_parser_omp_for_loop (parser);
       if (stmt)
-	{
-	  OMP_FOR_CLAUSES (stmt) = ws_clause;
-	  OMP_FOR_VAR_LAST (stmt) = fini;
-	}
+	OMP_FOR_CLAUSES (stmt) = ws_clause;
 
-      stmt = c_finish_omp_parallel (block, par_clause, init, reduc);
+      stmt = c_finish_omp_parallel (par_clause, block);
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
-      block = c_begin_omp_parallel (d_kind);
-      c_finish_omp_bindings (&clauses, &init, &fini, &reduc);
+      block = c_begin_omp_parallel ();
 
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
       stmt = c_parser_omp_sections_scope (parser);
       if (stmt)
-	{
-	  OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
-	  OMP_SECTIONS_VAR_LAST (stmt) = fini;
-	}
+	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
 
-      stmt = c_finish_omp_parallel (block, par_clause, init, reduc);
+      stmt = c_finish_omp_parallel (par_clause, block);
       break;
 
     default:
@@ -7594,17 +7556,18 @@ c_parser_omp_parallel (c_parser *parser)
      structured-block
 */
 
+#define OMP_SINGLE_CLAUSE_MASK				\
+	( (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_COPYPRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_NOWAIT))
+
 static tree
 c_parser_omp_single (c_parser *parser)
 {
-  unsigned int mask = 0;
   tree stmt, clauses;
 
-  mask |= 1u << PRAGMA_OMP_CLAUSE_PRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_COPYPRIVATE;
-  mask |= 1u << PRAGMA_OMP_CLAUSE_NOWAIT;
-  clauses = c_parser_omp_all_clauses (parser, NULL, mask,
+  clauses = c_parser_omp_all_clauses (parser, OMP_SINGLE_CLAUSE_MASK,
 				      "#pragma omp single");
 
   stmt = c_parser_omp_structured_block (parser);

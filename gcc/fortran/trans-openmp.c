@@ -57,7 +57,7 @@ gfc_trans_omp_variable_list (enum tree_code code, gfc_namelist *namelist,
 	if (t != error_mark_node)
 	  {
 	    tree node = make_node (code);
-	    OMP_CLAUSE_OUTER_DECL (node) = t;
+	    OMP_CLAUSE_DECL (node) = t;
 	    list = gfc_trans_add_clause (node, list);
 	  }
       }
@@ -530,13 +530,13 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
   if (!dovar_found)
     {
       tmp = make_node (OMP_CLAUSE_PRIVATE);
-      OMP_CLAUSE_OUTER_DECL (tmp) = dovar;
+      OMP_CLAUSE_DECL (tmp) = dovar;
       omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
     }
   if (!simple)
     {
       tmp = make_node (OMP_CLAUSE_PRIVATE);
-      OMP_CLAUSE_OUTER_DECL (tmp) = count;
+      OMP_CLAUSE_DECL (tmp) = count;
       omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
     }
 

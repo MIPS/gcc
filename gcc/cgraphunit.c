@@ -422,13 +422,10 @@ cgraph_finalize_pending_functions (void)
   struct cgraph_node *next, *node = cgraph_analyze_queue;
 
   cgraph_analyze_queue = NULL;
-  
   for (; node ; node = next)
     {
       next = node->next_needed;
       node->next_needed = NULL;
-
-      gimplify_function_tree (node->decl);
       cgraph_finalize_function (node->decl, true);
     }
 }

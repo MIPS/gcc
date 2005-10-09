@@ -130,7 +130,6 @@ extern tree force_labels_r (tree *, int *, void *);
 extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
 
 /* In omp-low.c.  */
-extern bool use_pointer_for_field (tree, bool);
 extern tree find_omp_clause (tree, enum tree_code);
 
 /* In tree-nested.c.  */
@@ -161,6 +160,10 @@ struct walk_stmt_info
   /* Points to the current statement being walked.  */
   tree_stmt_iterator tsi;
   
+  /* Additional data that CALLBACK may want to carry through the
+     recursion.  */
+  void *info;
+
   /* Indicates whether the *TP being examined may be replaced 
      with something that matches is_gimple_val (if true) or something
      slightly more complicated (if false).  "Something" technically 
@@ -181,9 +184,11 @@ struct walk_stmt_info
   /* Optional.  Set to true by CALLBACK if it made any changes.  */
   bool changed;
 
-  /* Additional data that CALLBACK may want to carry through the
-     recursion.  */
-  void *info;
+  /* True if we're interested in seeing BIND_EXPRs.  */
+  bool want_bind_expr;
+
+  /* True if we're interested in location information.  */
+  bool want_locations;
 };
 
 void walk_stmts (struct walk_stmt_info *, tree *);

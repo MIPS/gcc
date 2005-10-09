@@ -1,3 +1,12 @@
+2005-10-08  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/gomp/for-10.c: Look in .t19.lower dump.
+	* gcc.dg/gomp/for-13.c, gcc.dg/gomp/for-4.c: Likewise.
+	* gcc.dg/gomp/for-5.c, gcc.dg/gomp/for-6.c: Likewise.
+	* gcc.dg/gomp/for-7.c, gcc.dg/gomp/for-8.c: Likewise.
+	* gcc.dg/gomp/for-9.c: Likewise.
+	* gcc.dg/gomp/parallel-2.c: Update expected errors.
+
 2005-09-29  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/gomp/atomic-5.c: Update expected errors.

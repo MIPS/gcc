@@ -1,3 +1,71 @@
+2005-10-08  Richard Henderson  <rth@redhat.com>
+
+	* omp-low.c: Rewrite from scratch.
+	* c-common.h (c_finish_omp_bindings): Remove.
+	* c-decl.c (struct c_scope, push_scope, pop_scope,
+	define_label, lookup_name): Revert all changes.
+	(current_omp_parallel_scope, omp_remap_private): Remove.
+	(c_omp_sharing_implicitly_determined): Remove.
+	(c_omp_sharing_predetermined): Remove.
+	(c_omp_remap_decl_1, c_omp_remap_decl): Remove.
+	(maybe_remap_for_omp_parallel): Remove.
+	(lookup_name_no_remap, c_omp_remap_private): Remove.
+	(c_begin_omp_parallel, c_finish_omp_parallel): Remove.
+	* c-omp.c (relookup_decls): Remove.
+	(c_split_parallel_clauses): Don't call it.  Handle DEFAULT.
+	(c_finish_omp_bindings): Remove.
+	* c-parser.c (c_lex_one_token): Revert use of lookup_name_no_remap.
+	(c_parser_declspecs): Likewise.
+	(c_parser_skip_to_pragma_eol): Consume CPP_PRAGMA_EOL properly.
+	(c_parser_omp_clause_default): Emit OMP_CLAUSE_DEFAULT.
+	(c_parser_omp_all_clauses): Don't pass default by enum.
+	(c_parser_omp_for_loop): Don't call c_omp_remap_private.
+	(OMP_FOR_CLAUSE_MASK, OMP_SECTIONS_CLAUSE_MASK): New.
+	(OMP_PARALLEL_CLAUSE_MASK, OMP_SINGLE_CLAUSE_MASK): New.
+	(c_parser_omp_for): Don't use c_finish_omp_bindings.
+	(c_parser_omp_sections): Likewise.
+	(c_parser_omp_parallel): Likewise.
+	* c-tree.h (lookup_name_no_remap, c_omp_remap_private): Remove
+	(c_begin_omp_parallel, c_finish_omp_parallel): Update.
+	* c-typeck.c (c_begin_omp_parallel, c_finish_omp_parallel): New.
+	* cgraphunit.c (cgraph_finalize_pending_functions): Don't
+	gimplify the function.
+	* gimplify.c (struct gimplify_ctx): Add prev_context.  Remove
+	omp_for_istart, omp_for_iend.
+	(push_gimplify_context, pop_gimplify_context): Allow nesting.
+	(gimplify_omp_reduction, gimplify_omp_for_lastprivate,
+	gimplify_omp_for_generic, gimplify_omp_for_static_nochunk,
+	gimplify_omp_for_static_chunk, gimplify_omp_sections,
+	gimplify_omp_section, gimplify_omp_single_simple,
+	gimplify_omp_single_copy, gimplify_omp_single): Remove.
+	(gimplify_omp_parallel): New.
+	(gimplify_omp_for): Only gimplify the body and verify the form.
+	(gimplify_expr): Use gimplify_omp_parallel.  Pass the bodies of
+	OMP_SECTIONS, OMP_SECTION, OMP_SINGLE, through gimplify_to_stmt_list.
+	(gimplify_body): Verify gimplify_ctxp is empty after gimplification.
+	* tree-gimple.c (is_gimple_stmt): Add OMP_SECTIONS, OMP_SECTION, 
+	and OMP_SINGLE.
+	* tree-gimple.h (use_pointer_for_field): Remove.
+	(struct walk_stmt_info): Add want_bind_expr, want_locations.
+	* tree-nested.c (walk_stmts): Honor them.
+	* tree-inline.c (remap_decl, remap_type): Export.
+	* tree-inline.h (remap_decl, remap_type): Declare.
+	* tree-pretty-print.c (dump_omp_clauses): Don't dump
+	OMP_CLAUSE_INNER_DECL.
+	* tree.def (OMP_PARALLEL, OMP_FOR, OMP_SECTIONS): Remove INIT, LAST,
+	REDUC operands.
+	(OMP_CLAUSE_PRIVATE, OMP_CLAUSE_SHARED, OMP_CLAUSE_FIRSTPRIVATE,
+	OMP_CLAUSE_LASTPRIVATE, OMP_CLAUSE_REDUCTION, OMP_CLAUSE_COPYIN,
+	OMP_CLAUSE_COPYPRIVATE): Remove INNER operand.
+	(OMP_CLAUSE_DEFAULT): New.
+	 * tree.h (OMP_PARALLEL_VAR_INIT, OMP_PARALLEL_VAR_REDUC,
+	OMP_FOR_VAR_INIT, OMP_FOR_VAR_LAST, OMP_FOR_VAR_REDUC,
+	OMP_SECTIONS_VAR_INIT, OMP_SECTIONS_VAR_LAST,
+	OMP_SECTIONS_VAR_REDUC): Remove.
+	(OMP_CLAUSE_DECL): Rename from OMP_CLAUSE_OUTER_DECL. 
+	(OMP_CLAUSE_INNER_DECL): Remove.
+	(OMP_CLAUSE_DEFAULT_KIND): New.
+
 2005-10-08  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge (gomp-merge-20051008).

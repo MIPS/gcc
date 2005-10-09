@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-fopenmp -fdump-tree-gimple" } */
+/* { dg-options "-fopenmp -fdump-tree-lower" } */
 
 extern void bar(int);
 
@@ -12,6 +12,6 @@ void foo (int n)
     bar(i);
 }
 
-/* { dg-final { scan-tree-dump-times "GOMP_loop_ordered_dynamic_start" 1 "gimple" } } */
-/* { dg-final { scan-tree-dump-times "GOMP_loop_ordered_dynamic_next" 1 "gimple" } } */
-/* { dg-final { cleanup-tree-dump "gimple" } } */
+/* { dg-final { scan-tree-dump-times "GOMP_loop_ordered_dynamic_start" 1 "lower" } } */
+/* { dg-final { scan-tree-dump-times "GOMP_loop_ordered_dynamic_next" 1 "lower" } } */
+/* { dg-final { cleanup-tree-dump "lower" } } */

@@ -8383,3 +8383,32 @@ c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
   else
     return expr;
 }
+
+
+/* Like c_begin_compound_stmt, except force the retension of the BLOCK.  */
+
+tree
+c_begin_omp_parallel (void)
+{
+  tree block;
+
+  keep_next_level ();
+  block = c_begin_compound_stmt (true);
+
+  return block;
+}
+
+tree
+c_finish_omp_parallel (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (block, true);
+
+  stmt = make_node (OMP_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_PARALLEL_CLAUSES (stmt) = clauses;
+  OMP_PARALLEL_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}

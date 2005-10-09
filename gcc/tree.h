@@ -1383,10 +1383,6 @@ struct tree_constructor GTY(())
 		TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 0)
 #define OMP_PARALLEL_BODY(NODE)		\
 		TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 1)
-#define OMP_PARALLEL_VAR_INIT(NODE)	\
-		TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 2)
-#define OMP_PARALLEL_VAR_REDUC(NODE)	\
-		TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 3)
 
 #define OMP_FOR_CLAUSES(NODE)		\
   		TREE_OPERAND (OMP_FOR_CHECK (NODE), 0)
@@ -1398,23 +1394,11 @@ struct tree_constructor GTY(())
   		TREE_OPERAND (OMP_FOR_CHECK (NODE), 3)
 #define OMP_FOR_BODY(NODE)		\
 		TREE_OPERAND (OMP_FOR_CHECK (NODE), 4)
-#define OMP_FOR_VAR_INIT(NODE)		\
-		TREE_OPERAND (OMP_FOR_CHECK (NODE), 5)
-#define OMP_FOR_VAR_LAST(NODE)		\
-		TREE_OPERAND (OMP_FOR_CHECK (NODE), 6)
-#define OMP_FOR_VAR_REDUC(NODE)		\
-		TREE_OPERAND (OMP_FOR_CHECK (NODE), 7)
 
 #define OMP_SECTIONS_CLAUSES(NODE)	\
   		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
 #define OMP_SECTIONS_BODY(NODE)		\
   		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
-#define OMP_SECTIONS_VAR_INIT(NODE)	\
-		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 2)
-#define OMP_SECTIONS_VAR_LAST(NODE)	\
-		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 3)
-#define OMP_SECTIONS_VAR_REDUC(NODE)	\
-		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 4)
 
 #define OMP_SECTION_BODY(NODE)		\
   		TREE_OPERAND (OMP_SECTION_CHECK (NODE), 0)
@@ -1430,10 +1414,8 @@ struct tree_constructor GTY(())
   		TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 1)
 
 /* ??? Could perhaps use a new tree code class to validate these.  */
-#define OMP_CLAUSE_CHAIN(NODE) TREE_CHAIN (NODE)
-
-#define OMP_CLAUSE_OUTER_DECL(NODE) TREE_OPERAND (NODE, 0)
-#define OMP_CLAUSE_INNER_DECL(NODE) TREE_OPERAND (NODE, 1)
+#define OMP_CLAUSE_CHAIN(NODE)	TREE_CHAIN (NODE)
+#define OMP_CLAUSE_DECL(NODE)	TREE_OPERAND (NODE, 0)
 
 #define OMP_CLAUSE_IF_EXPR(NODE)		\
   		TREE_OPERAND (OMP_CLAUSE_IF_CHECK (NODE), 0)
@@ -1453,12 +1435,8 @@ enum omp_clause_schedule_kind
   OMP_CLAUSE_SCHEDULE_RUNTIME
 };
 
-#define OMP_CLAUSE_SCHEDULE_KIND(NODE)	\
+#define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
 		(OMP_CLAUSE_SCHEDULE_CHECK (NODE)->exp.complexity)
-
-/* For completeness, an enumeration for value for the default clause.
-   This should be handled entirely within the front end, and so the
-   clause itself does not appear as a node.  */
 
 enum omp_clause_default_kind
 {
@@ -1467,6 +1445,9 @@ enum omp_clause_default_kind
   OMP_CLAUSE_DEFAULT_NONE,
   OMP_CLAUSE_DEFAULT_PRIVATE
 };
+
+#define OMP_CLAUSE_DEFAULT_KIND(NODE) \
+		(OMP_CLAUSE_DEFAULT_CHECK (NODE)->exp.complexity)
 
 struct tree_exp GTY(())
 {

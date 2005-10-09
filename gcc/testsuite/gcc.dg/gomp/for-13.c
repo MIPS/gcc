@@ -2,7 +2,7 @@
 // for iteration variable as private.
 
 // { dg-do compile }
-// { dg-options "-fopenmp -fdump-tree-gimple" }
+// { dg-options "-fopenmp -fdump-tree-lower" }
 
 extern void bar(int);
 void foo(void)
@@ -14,5 +14,5 @@ void foo(void)
     bar(i);
 }
 
-// { dg-final { scan-tree-dump-times "shared" 0 "gimple" } }
-// { dg-final { cleanup-tree-dump "gimple" } }
+// { dg-final { scan-tree-dump-times "omp_data_o" 0 "lower" } }
+// { dg-final { cleanup-tree-dump "lower" } }

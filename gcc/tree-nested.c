@@ -548,6 +548,9 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
   if (!t)
     return;
 
+  if (wi->want_locations && EXPR_HAS_LOCATION (t))
+    input_location = EXPR_LOCATION (t);
+
   switch (TREE_CODE (t))
     {
     case STATEMENT_LIST:
@@ -577,7 +580,15 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
       walk_stmts (wi, &TREE_OPERAND (t, 0));
       walk_stmts (wi, &TREE_OPERAND (t, 1));
       break;
+
     case BIND_EXPR:
+      if (wi->want_bind_expr)
+	{
+	  int walk_subtrees = 1;
+	  wi->callback (tp, &walk_subtrees, wi);
+	  if (!walk_subtrees)
+	    break;
+	}
       walk_stmts (wi, &BIND_EXPR_BODY (t));
       break;
 
