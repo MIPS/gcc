@@ -1,5 +1,9 @@
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (visit_field_ref): Removed unneeded casts.
+
+2005-10-09  Tom Tromey  <tromey@redhat.com>
+
 	* model/class.cc (class field_init_forwarding_catcher): New class.
 	(class static_field_catcher): Likewise.
 	(resolve): Use it.

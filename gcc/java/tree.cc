@@ -1966,8 +1966,7 @@ tree_generator::visit_field_ref (model_field_ref *elt,
 #endif
 
       gcc_builtins->lay_out_class (field->get_declaring_class ());
-      current = gcc_builtins->map_field_ref (class_wrapper, expr_tree,
-					     const_cast<model_field *> (field));
+      current = gcc_builtins->map_field_ref (class_wrapper, expr_tree, field);
       annotate (current, elt);
     }
 }

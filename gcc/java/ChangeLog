@@ -1,5 +1,9 @@
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_field_ref): Removed unneeded cast.
+
+2005-10-09  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_field_ref): Removed 'const'.
 	(visit_method_invocation): Likewise.
 

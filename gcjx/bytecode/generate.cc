@@ -2709,8 +2709,7 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
   // From the binary compatibility spec, we must inline any 'final'
   // field that has an initializer which is a compile-time constant.
   // This applies to both instance and static fields.
-  // FIXME: ugly cast here.
-  bool should_inline = const_cast<model_field *> (field)->inlineable_p ();
+  bool should_inline = field->inlineable_p ();
 
   if (expr)
     {
@@ -2745,9 +2744,7 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
     {
       // Emit a call to the trampoline method.
       model_method *tm
-	// FIXME: remove this cast.
-	= accessed->get_accessor (const_cast<model_field *> (field),
-				  expr_target == LEFT_HAND_SIDE);
+	= accessed->get_accessor (field, expr_target == LEFT_HAND_SIDE);
       assert (tm->static_p ());
 
       if (expr_target == LEFT_HAND_SIDE)
@@ -2756,8 +2753,7 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
 	  lhs_info.kind = METHOD_CALL;
 	  lhs_info.index = -1;
 	  lhs_info.type = field->static_p () ? accessed : expr->type ();
-	  // FIXME: cast
-	  lhs_info.field = const_cast<model_field *> (field);
+	  lhs_info.field = field;
 	}
       else
 	{
@@ -2770,12 +2766,9 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
     {
       assert (! expr || ! expr->type ()->array_p ());
       lhs_info.kind = field->static_p () ? STATIC_FIELD : INSTANCE_FIELD;
-      // fixme cast
-      lhs_info.index = cpool->add (ref->get_qualifying_class (),
-				   (model_field *) field);
+      lhs_info.index = cpool->add (ref->get_qualifying_class (), field);
       lhs_info.type = field->static_p () ? NULL : expr->type ();
-      // fixme cast
-      lhs_info.field = (model_field *) field;
+      lhs_info.field = field;
     }
   else
     {
@@ -2787,9 +2780,7 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
       else
 	{
 	  emit (field->static_p () ? op_getstatic : op_getfield);
-	  // fixme cast
-	  emit2 (cpool->add (ref->get_qualifying_class (),
-			     (model_field *) field));
+	  emit2 (cpool->add (ref->get_qualifying_class (), field));
 	}
 
       if (expr && ! field->static_p ())
