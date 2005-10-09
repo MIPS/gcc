@@ -1,6 +1,6 @@
 // Represent a literal.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -31,7 +31,7 @@ class model_literal_base : public model_expression
     return true;
   }
 
-public:
+protected:
 
   model_literal_base (const location &w)
     : model_expression (w)

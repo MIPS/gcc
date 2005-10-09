@@ -38,12 +38,12 @@ protected:
     return lhs->constant_p () && rhs->constant_p ();
   }
 
-public:
-
   model_binary_base (const location &w)
     : model_expression (w)
   {
   }
+
+public:
 
   void set_lhs (const ref_expression &n)
   {
@@ -70,16 +70,6 @@ public:
     lhs->resolve (scope);
     rhs->resolve (scope);
     // The subclass must call set_type().
-  }
-};
-
-class model_binary : public model_binary_base
-{
-public:
-
-  model_binary (const location &w)
-    : model_binary_base (w)
-  {
   }
 };
 
@@ -135,12 +125,12 @@ public:
   }
 };
 
-class model_plus : public model_binary
+class model_plus : public model_binary_base
 {
 public:
 
   model_plus (const location &w)
-    : model_binary (w)
+    : model_binary_base (w)
   {
   }
 
@@ -194,12 +184,12 @@ typedef model_bitwise_binary<&model_primitive_base::bor, OP_OR> model_or;
 typedef model_bitwise_binary<&model_primitive_base::bxor, OP_XOR> model_xor;
 
 template<binary_function OP, operator_name NAME>
-class model_arith_shift : public model_binary
+class model_arith_shift : public model_binary_base
 {
 public:
 
   model_arith_shift (const location &w)
-    : model_binary (w)
+    : model_binary_base (w)
   {
   }
 
@@ -225,7 +215,7 @@ typedef model_arith_shift<&model_primitive_base::unsigned_right_shift,
 
 
 template<comparator OP, operator_name NAME>
-class model_equality_comparison : public model_binary
+class model_equality_comparison : public model_binary_base
 {
 protected:
 
@@ -236,7 +226,7 @@ protected:
 public:
 
   model_equality_comparison (const location &w)
-    : model_binary (w),
+    : model_binary_base (w),
       promoted_type (NULL)
   {
   }
@@ -260,7 +250,7 @@ typedef model_equality_comparison<&model_primitive_base::not_equal,
   model_notequal;
 
 template<comparator OP, operator_name NAME>
-class model_numeric_comparison : public model_binary
+class model_numeric_comparison : public model_binary_base
 {
 protected:
 
@@ -271,7 +261,7 @@ protected:
 public:
 
   model_numeric_comparison (const location &w)
-    : model_binary (w),
+    : model_binary_base (w),
       promoted_type (NULL)
   {
   }
@@ -302,18 +292,18 @@ typedef model_numeric_comparison<&model_primitive_base::greater_than_equal,
   model_greaterthanequal;
 
 
-class model_logical_binary : public model_binary
+class model_logical_binary : public model_binary_base
 {
 protected:
   // Overloaded in subclasses to return name of operator.
   virtual const char *get_name () = 0;
 
-public:
-
   model_logical_binary (const location &w)
-    : model_binary (w)
+    : model_binary_base (w)
   {
   }
+
+public:
 
   void resolve (resolution_scope *);
 };

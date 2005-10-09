@@ -1,6 +1,6 @@
 // Binary operators.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -203,7 +203,7 @@ model_bitwise_binary<OP, NAME>::visit (visitor *v)
 void
 model_plus::resolve (resolution_scope *scope)
 {
-  model_binary::resolve (scope);
+  model_binary_base::resolve (scope);
 
   model_type *t;
   model_type *strtype
@@ -310,7 +310,7 @@ template<binary_function OP, operator_name NAME>
 void
 model_arith_shift<OP, NAME>::resolve (resolution_scope *scope)
 {
-  model_binary::resolve (scope);
+  model_binary_base::resolve (scope);
   model_type *nt = unary_numeric_promotion (rhs);
   if (nt == NULL)
     throw rhs->error ("couldn't apply unary numeric promotion "
@@ -414,7 +414,7 @@ template<comparator OP, operator_name NAME>
 void
 model_equality_comparison<OP, NAME>::resolve (resolution_scope *scope)
 {
-  model_binary::resolve (scope);
+  model_binary_base::resolve (scope);
   model_type *ltype = lhs->type ();
   model_type *rtype = rhs->type ();
 
@@ -481,7 +481,7 @@ template<comparator OP, operator_name NAME>
 void
 model_numeric_comparison<OP, NAME>::resolve (resolution_scope *scope)
 {
-  model_binary::resolve (scope);
+  model_binary_base::resolve (scope);
 
   // FIXME: can't tell which argument was the problem.
   // Could give more precise error message.
@@ -499,7 +499,7 @@ model_numeric_comparison<OP, NAME>::resolve (resolution_scope *scope)
 void
 model_logical_binary::resolve (resolution_scope *scope)
 {
-  model_binary::resolve (scope);
+  model_binary_base::resolve (scope);
   if (! boolean_conversion (lhs))
     throw lhs->error ("boolean type required as operand to %1")
       % get_name ();

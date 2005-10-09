@@ -1,6 +1,6 @@
 // Represent a statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -100,12 +100,12 @@ protected:
   friend bool compute_normal_completion (normal_completion_state &,
 					 std::list< owner<model_stmt> > &);
 
-public:
-
   model_stmt (const location &w)
     : model_element (w)
   {
   }
+
+public:
 
   /// This is called for a statement which is the target of a "break"
   /// statement.  It is used to indicate that the particular label

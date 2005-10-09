@@ -55,7 +55,7 @@ class model_primitive_base : public model_type
   // Pretty name of this type.
   const char *pretty_name;
 
-public:
+protected:
 
   model_primitive_base (char sig_char, const char *pname)
     : model_type (LOCATION_UNKNOWN),
@@ -63,6 +63,8 @@ public:
   {
     descriptor = std::string (1, sig_char);
   }
+
+public:
 
   bool primitive_p () const
   {
@@ -263,12 +265,14 @@ public:
 template<typename T, char sig_char>
 class model_primitive : public model_primitive_base
 {
-public:
+protected:
 
   model_primitive (const char *pname)
     : model_primitive_base (sig_char, pname)
   {
   }
+
+public:
 
   std::string to_string (const jvalue &val) const
   {

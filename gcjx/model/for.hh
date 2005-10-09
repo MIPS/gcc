@@ -31,12 +31,12 @@ protected:
   // Body.
   ref_stmt body;
 
-public:
-
   model_for_base (const location &w)
     : model_loop (w)
   {
   }
+
+public:
 
   void set_body (const ref_stmt &b)
   {

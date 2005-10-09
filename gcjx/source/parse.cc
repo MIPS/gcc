@@ -3134,10 +3134,10 @@ parse::compilation_unit ()
   token t = peek ();		// FIXME
   if (t == TOKEN_PACKAGE)
     {
+      assume (TOKEN_PACKAGE);
       // FIXME: we make a bogus new element just to hold the location
       // as an error target.
-      assume (TOKEN_PACKAGE);
-      ref_element loc (new model_element (t));
+      ref_empty loc (new model_empty (t));
       std::list<std::string> name (qualified_identifier ());
       require (TOKEN_SEMI);
       // It is simple enough to create the package now, and it means

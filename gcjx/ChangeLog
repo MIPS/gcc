@@ -1,5 +1,32 @@
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
+	* model/element.hh (model_element): Constructor now protected.
+	* source/parse.cc (compilation_unit): Make an empty statement,
+	not a model_element, for error reporting.
+	* model/binary.cc (resolve): Updated for removal of model_binary.
+	* model/binary.hh (model_binary_base): Constructor now protected.
+	(class model_binary): Removed.
+	(class model_plus): Updated.
+	(class model_arith_shift): Likewise.
+	(class model_equality_comparison): Likewise.
+	(class model_numeric_comparison): Likewise.
+	(class model_logical_binary): Likewise.  Constructor now
+	protected.
+	* model/expr.hh (model_expression): Constructor now protected.
+	* model/invoke.hh (model_invocation_base): Constructor now
+	protected.
+	* model/literal.hh (model_literal_base): Constructor now
+	protected.
+	* model/primitive.hh (model_primitive_base): Constructor now
+	protected.
+	(model_primitive): Likewise.
+	* model/stmt.hh (model_stmt): Constructor now protected.
+	* model/type.hh (model_type): Constructor now protected.
+	* model/loop.hh (model_loop): Constructor now protected.
+	* model/for.hh (model_for_base): Constructor now protected.
+
+2005-10-09  Tom Tromey  <tromey@redhat.com>
+
 	* model/forenhanced.hh (class model_for_enhanced): Added
 	documentation.
 	* model/for.hh (class model_for_base): Added documentation.

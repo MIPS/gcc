@@ -34,14 +34,14 @@ protected:
   // True if a reachable break statement was found.
   bool break_found;
 
-public:
-
   model_loop (const location &w)
     : model_stmt (w),
       continue_found (false),
       break_found (false)
   {
   }
+
+public:
 
   void continue_reached ()
   {

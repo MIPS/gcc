@@ -46,12 +46,12 @@ protected:
   {
   }
 
-public:
-
   model_type (const location &w)
     : model_element (w)
   {
   }
+
+public:
 
   std::string get_descriptor ()
   {

@@ -80,8 +80,6 @@ protected:
   // A helper function that handles most of the steps of resolution.
   void handle_resolve (resolution_scope *, bool = false);
 
-public:
-
   model_invocation_base (const location &w)
     : model_expression (w),
       method (NULL),
@@ -89,6 +87,8 @@ public:
       unqualified (false)
   {
   }
+
+public:
 
   void set_method (const std::string &mname)
   {

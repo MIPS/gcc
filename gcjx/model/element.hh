@@ -55,8 +55,6 @@ protected:
   {
   }
 
-public:
-
   /// Constructor.
   /// @param w Location of this object in the source.
   model_element (const location &w)
@@ -64,6 +62,8 @@ public:
       where (w)
   {
   }
+
+public:
 
   virtual ~model_element ()
   {
