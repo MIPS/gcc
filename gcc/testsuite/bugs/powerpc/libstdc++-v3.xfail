@@ -40,3 +40,8 @@
 4183678: 26_numerics/complex/complex_value.cc execution test
 4183678: 26_numerics/complex/pow.cc execution test
 4129761: 26_numerics/complex/13450.cc execution test
+4283396: 26_numerics/cmath/c_math.cc (test for excess errors)
+4283396: 26_numerics/cmath/c_math_dynamic.cc (test for excess errors)
+4283396: 26_numerics/complex/13450.cc (test for excess errors)
+4283396: 26_numerics/complex/complex_value.cc (test for excess errors)
+4283396: 26_numerics/complex/pow.cc (test for excess errors)
