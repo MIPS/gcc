@@ -1920,9 +1920,9 @@ tree_generator::visit_conditional (model_conditional *m_cond,
 void
 tree_generator::visit_field_ref (model_field_ref *elt,
 				 const ref_expression &expr,
-				 const model_field *field)
+				 model_field *field)
 {
-  bool should_inline = const_cast<model_field *> (field)->inlineable_p ();
+  bool should_inline = field->inlineable_p ();
 
   // Note that we don't need any special handling for 'array.length'
   // -- the generic code here works fine.
@@ -2164,7 +2164,7 @@ tree_generator::handle_invocation (const model_method *meth,
 
 void
 tree_generator::visit_method_invocation (model_method_invocation *elt,
-					 const model_method *meth,
+					 model_method *meth,
 					 const ref_expression &this_expr,
 					 const std::list<ref_expression> &args)
 {
