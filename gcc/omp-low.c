@@ -216,6 +216,24 @@ build_receiver_ref (tree var, bool by_ref, omp_context *ctx)
   return x;
 }
 
+/* Build tree nodes to access VAR in the scope outer to CTX.  In the case
+   of a parallel, this is a component reference; for workshare constructs
+   this is some variable.  */
+
+static tree
+build_outer_var_ref (tree var, omp_context *ctx)
+{
+  if (is_parallel_ctx (ctx))
+    {
+      bool by_ref = use_pointer_for_field (var, false);
+      return build_receiver_ref (var, by_ref, ctx);
+    }
+  else if (ctx->outer)
+    return lookup_decl (var, ctx->outer);
+  else
+    return var;
+}
+
 /* Build tree nodes to access the field for VAR on the sender side.  */
 
 static tree
@@ -442,6 +460,10 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
 	      by_ref = use_pointer_for_field (decl, false);
 	      install_var_field (decl, by_ref, ctx);
 	    }
+	  /* If we're in a nested context, force a remapping in the outer
+	     context.  We'll need this mapping later when we emit code.  */
+	  else if (ctx->outer)
+	    omp_copy_decl (decl, &ctx->outer->cb);
 	  install_var_private (decl, ctx);
 	  break;
 
@@ -800,8 +822,7 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  var = OMP_CLAUSE_DECL (c);
 	  new_var = lookup_decl (var, ctx);
-	  by_ref = use_pointer_for_field (var, false);
-	  x = build_receiver_ref (var, by_ref, ctx);
+	  x = build_outer_var_ref (var, ctx);
 	  break;
 
 	case OMP_CLAUSE_COPYIN:
@@ -860,22 +881,13 @@ expand_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
       tree var, new_var;
-      bool by_ref;
 
       if (TREE_CODE (c) != OMP_CLAUSE_LASTPRIVATE)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
       new_var = lookup_decl (var, ctx);
-
-      if (is_parallel_ctx (ctx))
-	{
-	  by_ref = use_pointer_for_field (var, false);
-	  x = build_receiver_ref (var, by_ref, ctx);
-	}
-      else
-	x = var;
-
+      x = build_outer_var_ref (var, ctx);
       x = build2 (MODIFY_EXPR, void_type_node, x, new_var);
       append_to_statement_list (x, &sub_list);
     }
@@ -897,7 +909,6 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
       tree var, ref, new_var;
-      bool by_ref;
 
       if (TREE_CODE (c) != OMP_CLAUSE_REDUCTION)
 	continue;
@@ -905,17 +916,11 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       var = OMP_CLAUSE_DECL (c);
       new_var = lookup_decl (var, ctx);
 
-      if (is_parallel_ctx (ctx))
-	{
-	  by_ref = use_pointer_for_field (var, false);
-	  ref = build_receiver_ref (var, by_ref, ctx);
-	}
-      else
-	ref = var;
-
+      ref = build_outer_var_ref (var, ctx);
       x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
 		  TREE_TYPE (ref), ref, new_var);
-      x = build2 (MODIFY_EXPR, void_type_node, unshare_expr (ref), x);
+      ref = build_outer_var_ref (var, ctx);
+      x = build2 (MODIFY_EXPR, void_type_node, ref, x);
       append_to_statement_list (x, &sub_list);
     }
 
