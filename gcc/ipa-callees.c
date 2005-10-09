@@ -166,7 +166,7 @@ callees_execute (void)
 	   mark it global/address taken.  Otherwise, scan for indirect
 	   calls.  */
 
-	if (TREE_ADDRESSABLE (decl) || avail == AVAIL_NOT_AVAILABLE)
+	if (TREE_ADDRESSABLE (decl) || node->local.externally_visible)
 	  bitmap_set_bit (global_and_address_taken, node->uid);
 	else if (avail != AVAIL_NOT_AVAILABLE)
 	  {

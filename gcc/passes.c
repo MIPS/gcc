@@ -438,6 +438,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_pure_const); 
   NEXT_PASS (pass_ipa_type_escape);
   NEXT_PASS (pass_ipa_callees);
+  /*  NEXT_PASS (pass_ipa_pta);  */
   *p = NULL;
 
   /* All passes needed to lower the function into shape optimizers can operate
