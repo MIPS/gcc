@@ -201,3 +201,9 @@ model_field::require_resolution ()
       resolve (&scope);
     }
 }
+
+void
+model_field::visit (visitor *v)
+{
+  v->visit_field (this);
+}

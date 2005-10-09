@@ -2704,7 +2704,7 @@ bytecode_generator::visit_conditional (model_conditional *cond_obj,
 void
 bytecode_generator::visit_field_ref (model_field_ref *ref,
 				     const ref_expression &expr,
-				     const model_field *field)
+				     model_field *field)
 {
   // From the binary compatibility spec, we must inline any 'final'
   // field that has an initializer which is a compile-time constant.
@@ -3193,7 +3193,7 @@ bytecode_generator::handle_invocation (java_opcode opcode,
 
 void
 bytecode_generator::visit_method_invocation (model_method_invocation *inv,
-					     const model_method *meth,
+					     model_method *meth,
 					     const ref_expression &this_expr,
 					     const std::list<ref_expression> &args)
 {

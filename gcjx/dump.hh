@@ -1,6 +1,6 @@
 // Print the model for debugging.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -21,6 +21,10 @@
 
 #ifndef GCJX_DUMP_HH
 #define GCJX_DUMP_HH
+
+/// Print out a human-readable representation of the AST.
+/// @param e a pointer to the node from which to start printing the tree.
+void dump_tree (model_element *e);
 
 void dump_method (model_method *);
 

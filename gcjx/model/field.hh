@@ -1,6 +1,6 @@
 // Represent a field.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -143,6 +143,8 @@ public:
   void check_referenced (resolution_scope *);
 
   model_variable_decl *apply_type_map (const model_type_map &, model_class *);
+
+  void visit (visitor *);
 };
 
 class model_ambiguous_field : public model_field_base

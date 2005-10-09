@@ -432,7 +432,7 @@ public:
 
   void visit_field_ref (model_field_ref *,
 			const ref_expression &expr,
-			const model_field *)
+			model_field *)
   {
     if (expr)
       expr->visit (this);
@@ -443,6 +443,11 @@ public:
   {
     // This is a statement, so we should never reach it.
     abort ();
+  }
+
+  void visit_field (model_field *)
+  {
+    // Nothing.
   }
 
   void visit_instanceof (model_instanceof *,
@@ -514,7 +519,7 @@ public:
   }
 
   void visit_method_invocation (model_method_invocation *invocation,
-				const model_method *,
+				model_method *,
 				const ref_expression &expr,
 				const std::list<ref_expression> &arguments)
   {
@@ -626,7 +631,61 @@ public:
   }
 
   void visit_forwarding_type (model_forwarding_type *,
-                              const model_type *)
+                              model_type *)
+  {
+    // Nothing.
+  }
+
+  void visit_forwarding_resolved (model_forwarding_resolved *,
+                                  model_type *)
+  {
+    // Nothing.
+  }
+
+  void visit_forwarding_owned (model_forwarding_owned *,
+                               const ref_type &)
+  {
+    // Nothing.
+  }
+
+  void visit_forwarding_simple (model_forwarding_simple *,
+                                const std::list<std::string> &)
+  {
+    // Nothing.
+  }
+
+  void
+  visit_forwarding_array (model_forwarding_array *,
+                          const owner<model_forwarding_type> &)
+  {
+    // Nothing.
+  }
+
+  void
+  visit_forwarding_element (model_forwarding_element *,
+                            const owner<model_forwarding_type> &)
+  {
+    // Nothing.
+  }
+
+  void visit_forwarding_full (model_forwarding_full *,
+                              const std::string &)
+  {
+    // Nothing.
+  }
+
+  void
+  visit_forwarding_inner (model_forwarding_inner *,
+                          const std::list<std::string> &,
+                          const owner<model_forwarding_type> &)
+  {
+    // Nothing.
+  }
+
+  void
+  visit_forwarding_parameterized (model_forwarding_parameterized *,
+                                  const owner<model_forwarding_type> &,
+                                  const std::list< owner<model_forwarding_type> > &)
   {
     // Nothing.
   }

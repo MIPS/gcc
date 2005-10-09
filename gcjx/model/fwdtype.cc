@@ -50,6 +50,22 @@ model_forwarding_type::visit (visitor *v)
 
 
 void
+model_forwarding_resolved::visit (visitor *v)
+{
+  v->visit_forwarding_resolved (this, resolved_type);
+}
+
+
+
+void
+model_forwarding_owned::visit (visitor *v)
+{
+  v->visit_forwarding_owned (this, ref);
+}
+
+
+
+void
 model_forwarding_simple::resolve (resolution_scope *scope)
 {
   // We've already been resolved.
@@ -60,6 +76,12 @@ model_forwarding_simple::resolve (resolution_scope *scope)
   resolved_type = classify_type_name (scope, this, name);
 }
 
+void
+model_forwarding_simple::visit (visitor *v)
+{
+  v->visit_forwarding_simple (this, name);
+}
+
 
 
 void
@@ -67,6 +89,12 @@ model_forwarding_array::resolve (resolution_scope *scope)
 {
   element->resolve (scope);
   resolved_type = element->type ()->array ();
+}
+
+void
+model_forwarding_array::visit (visitor *v)
+{
+  v->visit_forwarding_array (this, element);
 }
 
 
@@ -84,6 +112,12 @@ model_forwarding_element::resolve (resolution_scope *scope)
   resolved_type = ary->element_type ();
 }
 
+void
+model_forwarding_element::visit (visitor *v)
+{
+  v->visit_forwarding_element (this, array_type);
+}
+
 
 
 void
@@ -96,6 +130,12 @@ model_forwarding_full::resolve (resolution_scope *scope)
 	throw error ("couldn't find type named %1")
 	  % name;
     }
+}
+
+void
+model_forwarding_full::visit (visitor *v)
+{
+  v->visit_forwarding_full (this, name);
 }
 
 
@@ -120,6 +160,12 @@ model_forwarding_inner::resolve (resolution_scope *scope)
   if (! r->reference_p ())
     throw error ("reference type expected");
   resolved_type = r;
+}
+
+void
+model_forwarding_inner::visit (visitor *v)
+{
+  v->visit_forwarding_inner (this, name, parent);
 }
 
 
@@ -153,6 +199,12 @@ model_forwarding_parameterized::resolve (resolution_scope *scope)
 
   model_class *k = assert_cast<model_class *> (r);
   resolved_type = k->create_instance (this, rp);
+}
+
+void
+model_forwarding_parameterized::visit (visitor *v)
+{
+  v->visit_forwarding_parameterized (this, base, parameters);
 }
 
 

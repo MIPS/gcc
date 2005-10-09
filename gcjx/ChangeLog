@@ -1,3 +1,60 @@
+2005-10-08  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	Start implementation of a pretty-printer for AST nodes.
+	* dump.hh (dump_tree): New method for printing a node from the AST.
+	* dump.cc (dumper::visit_field_ref): Remove const qualifier from
+	model_field * parameter
+	(dumper::visit_field): New method.
+	(dumper::visit_method_invocation): Remove const qualifier for METH.
+	(dumper::visit_forwarding_type): Remove const qualifier for
+	model_type * parameter.
+	(dumper::visit_forwarding_resolved): New method.
+	(dumper::visit_forwarding_owned): Likewise.
+	(dumper::visit_forwarding_simple): Likewise.
+	(dumper::visit_forwarding_array): Likewise.
+	(dumper::visit_forwarding_element): Likewise.
+	(dumper::visit_forwarding_full): Likewise.
+	(dumper::visit_forwarding_inner): Likewise.
+	(dumper::visit_forwarding_parameterized): Likewise.
+	(pretty_printer): New class for pretty-printing AST nodes.
+	(dump_tree): Implement.
+	* visitor.hh (visitor::visit_field_ref): Remove const qualifier from
+	model_field * parameter
+	(visitor::visit_field): New method.
+	(visitor::visit_method_invocation): Remove const qualifier for METH.
+	(visitor::visit_forwarding_type): Remove const qualifier for
+	model_type * parameter.
+	(visitor::visit_forwarding_resolved): New method.
+	(visitor::visit_forwarding_owned): Likewise.
+	(visitor::visit_forwarding_simple): Likewise.
+	(visitor::visit_forwarding_array): Likewise.
+	(visitor::visit_forwarding_element): Likewise.
+	(visitor::visit_forwarding_full): Likewise.
+	(visitor::visit_forwarding_inner): Likewise.
+	(visitor::visit_forwarding_parameterized): Likewise.
+	* model/fwdtype.hh (model_forwarding_resolved::visit): New method.
+	(model_forwarding_owned::visit): Likewise.
+	(model_forwarding_simple::visit): Likewise.
+	(model_forwarding_array::visit): Likewise.
+	(model_forwarding_element::visit): Likewise.
+	(model_forwarding_full::visit): Likewise.
+	(model_forwarding_inner::visit): Likewise.
+	(model_forwarding_parameterized::visit): Likewise.
+	* model/fwdtype.cc (model_forwarding::resolved::visit): Implement.
+	(model_forwarding_owned::visit): Likewise.
+	(model_forwarding_simple::visit): Likewise.
+	(model_forwarding_array::visit): Likewise.
+	(model_forwarding_element::visit): Likewise.
+	(model_forwarding_full::visit): Likewise.
+	(model_forwarding_inner::visit): Likewise.
+	(model_forwarding_parameterized::visit): Likewise.
+	* model/field.hh (model_field::visit): New method.
+	* model/field.cc (model_field::visit): Implement.
+	* fold.cc (fold_visitor): Adjust for visitor changes.
+	* defassign.cc (definite_assignment_visitor): Likewise.
+	* bytecode/generate.hh (bytecode_generator): Likewise.
+	* bytecode/generate.cc (bytecode_generator): Likewise.
+
 2005-10-07  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* visitor.hh (visitor::visit_forwarding_type): New method.

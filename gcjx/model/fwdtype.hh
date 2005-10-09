@@ -95,6 +95,8 @@ public:
   {
     // Nothing to do.
   }
+
+  void visit (visitor *);
 };
 
 /// This is like model_forwarding_resolved, but it owns the resulting
@@ -110,6 +112,8 @@ public:
       ref (t)
   {
   }
+
+  void visit (visitor *);
 };  
 
 class model_forwarding_simple : public model_forwarding_type
@@ -126,6 +130,8 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 // This represents an array where the element type is also a
@@ -149,6 +155,8 @@ public:
   {
     return true;
   }
+
+  void visit (visitor *);
 };
 
 // This represents the element type of an array where the array's type
@@ -167,6 +175,8 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 /// This is a forwarding type whose argument is always fully-qualified
@@ -198,6 +208,8 @@ public:
   {
     return name;
   }
+
+  void visit (visitor *);
 };
 
 /// This is a forwarding type which finds its argument as a member of
@@ -222,6 +234,8 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 /// This is a forwarding type whose argument is an instance of a
@@ -261,6 +275,8 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 const format &operator% (const format &, const owner<model_forwarding_type> &);
