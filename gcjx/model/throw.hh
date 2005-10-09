@@ -1,6 +1,6 @@
 // Represent the throw statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_THROW_HH
 #define GCJX_MODEL_THROW_HH
 
+/// This represents a 'throw' statement.  It holds the expression to
+/// be thrown.
 class model_throw : public model_stmt
 {
   // The expression to throw.

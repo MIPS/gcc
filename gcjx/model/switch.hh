@@ -1,6 +1,6 @@
 // Represent a switch statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -24,6 +24,9 @@
 
 #include <algorithm>
 
+/// This represents a single "switch block" -- a group of 'case'
+/// statements which share the same code.  It holds the switch labels
+/// and a list of corresponding statements.
 class model_switch_block : public model_element
 {
   // The switch labels for this block.
@@ -80,6 +83,9 @@ public:
 
 typedef owner<model_switch_block> ref_switch_block;
 
+/// This represents a 'switch' statement.  It holds the switch
+/// expression, a list of switch blocks making up the body of the
+/// statement, and a pointer to the 'default' block, if any.
 class model_switch : public model_stmt, public Ilabel
 {
   // The switch expression;

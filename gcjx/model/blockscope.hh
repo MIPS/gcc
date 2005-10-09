@@ -1,6 +1,6 @@
 // Represent a block scope.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,14 @@
 #ifndef GCJX_MODEL_BLOCKSCOPE_HH
 #define GCJX_MODEL_BLOCKSCOPE_HH
 
+/// This represents a variable binding contour.  An instance is
+/// created during resolution and will be attached to the resolution
+/// scope.  Other statements during resolution can add variables to
+/// the bindings or look up names.  A model_block_scope object is
+/// transient and is destroyed when its corresponding block has
+/// finished resolving.
+/// FIXME: This is not properly part of the model, it should have a
+/// different name.
 class model_block_scope : public IScope
 {
   // The scope we're attached to.

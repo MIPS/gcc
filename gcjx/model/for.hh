@@ -1,6 +1,6 @@
 // Represent the for statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_FOR_HH
 #define GCJX_MODEL_FOR_HH
 
+/// This is the base class for both kinds of 'for' loop.  It is not
+/// instantiated directly, only subclassed.
 class model_for_base : public model_loop
 {
 protected:
@@ -42,16 +44,18 @@ public:
   }
 };
 
+/// This is an "old-style" for loop.
 class model_for : public model_for_base
 {
-  // Initialization.  This might be NULL.
+  // Initialization.  This is null if there is no initializer
+  // statement.
   ref_stmt initializer;
 
-  // Condition.  This might be NULL, which should be taken to mean
-  // 'true'.
+  // Condition.  This is null if there is no condition expression;
+  // this should be taken to mean 'true'.
   ref_expression cond_expr;
 
-  // Update.  This might be NULL.
+  // Update.  This is null if there is no update statement.
   ref_stmt update;
 
 public:

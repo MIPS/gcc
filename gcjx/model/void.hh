@@ -1,6 +1,6 @@
 // The void type.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,8 +22,10 @@
 #ifndef GCJX_MODEL_VOID_HH
 #define GCJX_MODEL_VOID_HH
 
-// Note that we don't override erasure().  It does make sense to ask
-// for the erasure of the void type.
+/// This represents the 'void' type.  There is only a single instance
+/// of the void type in a program -- primitive_void_type is one of the
+/// few globals in gcjx.  Note that we don't override erasure().  It
+/// does make sense to ask for the erasure of the void type.
 class model_void_type : public model_type
 {
 public:

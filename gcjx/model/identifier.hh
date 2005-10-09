@@ -22,7 +22,8 @@
 #ifndef GCJX_MODEL_IDENTIFIER_HH
 #define GCJX_MODEL_IDENTIFIER_HH
 
-// This is just a small wrapper around a string.
+/// This is just a small wrapper around a string.  These are only used
+/// by the lexer and parser.
 class model_identifier : public model_element
 {
   // The identifier.

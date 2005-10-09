@@ -1,6 +1,6 @@
 // Represent new of an array.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_NEWARRAY_HH
 #define GCJX_MODEL_NEWARRAY_HH
 
+/// This represents a 'new' expression which creates an array.  Any
+/// dimension of array is handled here, as are initialized arrays.
 class model_new_array : public model_expression
 {
   // The element type.
@@ -30,7 +32,8 @@ class model_new_array : public model_expression
   // Expressions for array sizes.
   std::list<ref_expression> sizes;
 
-  // The initializer, if any.
+  // The initializer, if any.  This will be null if there is no
+  // initializer.
   ref_expression initializer;
 
   bool compute_constant_p ()

@@ -1,6 +1,6 @@
 // Represent the if statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -34,7 +34,8 @@ class model_if : public model_stmt
   // The true branch.
   ref_stmt true_branch;
 
-  // The false branch.
+  // The false branch.  This will be null if there is no 'else'
+  // clause.
   ref_stmt false_branch;
 
 public:

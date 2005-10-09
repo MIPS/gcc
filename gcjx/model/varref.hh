@@ -1,6 +1,6 @@
 // Variable and field references.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,8 +22,9 @@
 #ifndef GCJX_MODEL_VARREF_HH
 #define GCJX_MODEL_VARREF_HH
 
-// These aren't constructed by the parser, but are constructed by
-// forwarding member references as needed.
+/// This represents a reference to a local variable, either a read or
+/// an assignment.  Note that these aren't constructed by the parser,
+/// but are constructed by forwarding member references as needed.
 class model_simple_variable_ref : public model_expression
 {
   // The simple name.

@@ -22,6 +22,11 @@
 #ifndef GCJX_MODEL_JAVADOC_HH
 #define GCJX_MODEL_JAVADOC_HH
 
+/// Represents a javadoc comment.  The only state this holds is
+/// whether or not '@deprecated' was seen.  Note that javadoc comment
+/// objects do not live past parsing -- they are created by the lexer
+/// but the parser simply marks their referent as deprecated, when
+/// appropriate.
 class model_javadoc : public model_element
 {
   bool deprecated;

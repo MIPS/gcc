@@ -1,6 +1,6 @@
 // Represent a loop of some kind.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_LOOP_HH
 #define GCJX_MODEL_LOOP_HH
 
+/// This is the base class for the looping statements -- for, do, and
+/// while.  It is never instantiated, only subclassed.
 class model_loop : public model_stmt, public Ilabel
 {
 protected:

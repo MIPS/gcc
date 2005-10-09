@@ -1,6 +1,6 @@
 // Represent the instanceof operator.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_INSTANCEOF_HH
 #define GCJX_MODEL_INSTANCEOF_HH
 
+/// This represents the 'instanceof' expression.  It holds an
+/// expression and a type against which to compare.
 class model_instanceof : public model_expression
 {
   // The expression.

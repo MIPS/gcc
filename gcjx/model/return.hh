@@ -1,6 +1,6 @@
 // Represent the return statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_RETURN_HH
 #define GCJX_MODEL_RETURN_HH
 
+/// This represents the 'return' statement.  It holds the return
+/// expression, if there is one.
 class model_return : public model_stmt
 {
   // The expression to return, or NULL if no expression.

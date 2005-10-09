@@ -1,3 +1,49 @@
+2005-10-09  Tom Tromey  <tromey@redhat.com>
+
+	* model/forenhanced.hh (class model_for_enhanced): Added
+	documentation.
+	* model/for.hh (class model_for_base): Added documentation.
+	(class model_for): Likewise.
+	* model/identifier.hh (class model_identifier): Updated
+	documentation.
+	* model/instanceof.hh (class model_instanceof): Added
+	documentation.
+	* model/loop.hh (class model_loop): Added documentation.
+	* model/label.hh (class model_label): Added documentation.
+	* model/javadoc.hh (class model_javadoc): Added documentation.
+	* model/newarray.hh (class model_new_array): Added documentation.
+	* model/null.hh (class model_null_type): Added documentation.
+	(class model_null_literal): Likewise.
+	* model/return.hh (class model_return): Added documentation.
+	* model/switch.hh (class model_switch_block): Added
+	documentation.
+	(class model_switch): Likewise.
+	* watch.hh (class watch): Added documentation.
+	* model/throw.hh (class model_throw): Added documentation.
+	* model/throwsclause.hh (class model_throws_clause): Added
+	documentation.
+	* model/try.hh (class model_try): Added documentation.
+	* model/unary.hh (class model_unary): Added documentation.
+	(class model_prefix_simple): Likewise.
+	(model_logical_not): Likewise.
+	(class model_prefix_side_effect): Likewise.
+	(class model_postfix): Likewise.
+	* model/varref.hh (class model_simple_variable_ref): Added
+	documentation.
+	* model/varstmt.hh (class model_variable_stmt): Added
+	documentation.
+	* model/void.hh (class model_void_type): Added documentation.
+	* model/blockscope.hh (class model_block_scope): Added
+	documentation.
+	* model/bytecode.hh (class model_bytecode_block): Added
+	documentation.
+	* model/declstmt.hh (class model_class_decl_stmt): Added
+	documentation.
+	* model/cond.hh (class model_conditional): Added documentation.
+	* model/binary.hh (class model_binary_base): Added documentation.
+	* model/assert.hh (model_assert::result): Added documentation.
+	* model/if.hh (model_if::false_branch): Added documentation.
+
 2005-10-08  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	Start implementation of a pretty-printer for AST nodes.

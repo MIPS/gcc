@@ -1,6 +1,6 @@
 // Represent a unary operator.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_UNARY_HH
 #define GCJX_MODEL_UNARY_HH
 
+/// This is the base class for all unary expressions.  It is never
+/// directly instantiated, only subclassed.
 class model_unary : public model_expression
 {
 protected:
@@ -59,6 +61,8 @@ public:
 
 
 
+/// This template is used for a number of different "simple" prefix
+/// operators, such as unary "+".
 template<unary_function OP, predicate P, char NAME>
 class model_prefix_simple : public model_unary
 {
@@ -103,6 +107,7 @@ typedef model_prefix_simple<&model_primitive_base::bnot,
 
 
 
+/// This represents the prefix "!" operator.
 class model_logical_not
   : public model_prefix_simple<&model_primitive_base::lnot,
 			       &model_type::boolean_p,
@@ -124,6 +129,8 @@ public:
 
 
 
+/// This template handles the side-effecting prefix operators, "++"
+/// and "--".
 template<char NAME>
 class model_prefix_side_effect : public model_unary
 {
@@ -151,6 +158,8 @@ typedef model_prefix_side_effect<'-'> model_prefix_minusminus;
 
 
 
+/// This template handles the side-effecting postfix operators, "++"
+/// and "--".
 template<char NAME>
 class model_postfix : public model_unary
 {

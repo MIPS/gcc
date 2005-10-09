@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_FORENHANCED_HH
 #define GCJX_MODEL_FORENHANCED_HH
 
+/// This is the "enhanced" for loop, which iterates over Iterable
+/// objects.
 class model_for_enhanced : public model_for_base
 {
   // Expression that yields an Iterable.

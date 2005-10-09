@@ -29,7 +29,11 @@ class model_unit_class;
 /// to .o, put the bytecode for a method here.  If we aren't
 /// compiling, just leave this empty, it is convenient to have this so
 /// that error checking in model_method doesn't have to have special
-/// cases.
+/// cases.  Note that a model_bytecode_block is not attached to a
+/// method when generating bytecode -- only when reading it.  However,
+/// if the "verify after generating bytecode" flag is enabled, a dummy
+/// model_bytecode_block will be constructed.  However, this dummy
+/// object is transient and will be deleted again after verification.
 /// FIXME: model_block has some state we don't need, we should have a
 /// new base class.
 class model_bytecode_block : public model_block

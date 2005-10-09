@@ -1,6 +1,6 @@
 // A wrapper that ensures that a variable is set before use.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,9 @@
 #ifndef GCJX_WATCH_HH
 #define GCJX_WATCH_HH
 
+/// This class is used to catch a certain type of programming error.
+/// This template wraps a value and verifies that the value is never
+/// used before it is set.
 template<typename T>
 class watch
 {

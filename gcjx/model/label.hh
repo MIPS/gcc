@@ -1,6 +1,6 @@
 // Represent a label.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_LABEL_HH
 #define GCJX_MODEL_LABEL_HH
 
+/// Represents a label statement.  This holds the name of the label
+/// and a contained statement.
 class model_label : public model_stmt, public Ilabel
 {
   // The name of the label.

@@ -1,6 +1,6 @@
 // Represent the try statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,15 +22,18 @@
 #ifndef GCJX_MODEL_TRY_HH
 #define GCJX_MODEL_TRY_HH
 
+/// This represents a try/finally statement.  It holds the try block,
+/// a possibly-empty list of catch clauses, and an optional finally
+/// block.
 class model_try : public model_stmt, public ICatcher, public IScope
 {
   // The block to attempt.
   ref_block block;
 
-  // Each catch clause.
+  // Each catch clause.  This list can be empty.
   std::list<ref_catch> catchers;
 
-  // finally block.
+  // finally block.  This is null if there is no 'finally' clause.
   ref_block finally;
 
   // Flag determining where a thrown exception should be recorded.

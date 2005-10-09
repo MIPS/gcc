@@ -1,6 +1,6 @@
 // Represent the conditional operator.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,7 @@
 #ifndef GCJX_MODEL_COND_HH
 #define GCJX_MODEL_COND_HH
 
+/// This represents a conditional expression.
 class model_conditional : public model_expression
 {
   // The condition.

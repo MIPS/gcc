@@ -1,6 +1,6 @@
 // Represent an assert statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -29,7 +29,8 @@ class model_assert : public model_stmt
   // The expression to evaluate.
   ref_expression expression;
 
-  // The expression to print, if any.
+  // The expression to print, if any.  This is null if there is no
+  // message clause in the assert statement.
   ref_expression result;
 
 public:

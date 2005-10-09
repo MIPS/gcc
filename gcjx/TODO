@@ -555,7 +555,9 @@ mjw suggests:
 
 X Are you sure you want to override finalise and not finaliZe?
   [ users can use @Override too ]
-
+- a visible field with a non-visible type
+  a visible method with a non-visible return/argument/throws type
+  also type parameter bounds?
 
 from jikes:
 

@@ -1,6 +1,6 @@
 // The null literal and type.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_NULL_HH
 #define GCJX_MODEL_NULL_HH
 
+/// This represents the null type.  Note that there is only one
+/// instance of this class, given by the global 'null_type'.
 class model_null_type : public model_type
 {
 public:
@@ -61,6 +63,7 @@ public:
 
 extern model_null_type *null_type;
 
+/// This represents a 'null' literal.
 class model_null_literal : public model_expression
 {
   bool compute_constant_p ()

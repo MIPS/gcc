@@ -1,6 +1,6 @@
 // Class or interface declaration statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_DECLSTMT_HH
 #define GCJX_MODEL_DECLSTMT_HH
 
+/// This represents a class declaration statement, that is, the
+/// declaration of a class local to a method.
 class model_class_decl_stmt : public model_stmt
 {
   // The class being declared.
