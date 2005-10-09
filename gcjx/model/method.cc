@@ -490,6 +490,9 @@ model_method::note_throw_type (model_type *exc_type)
   if (declaring_class->anonymous_p ()
       && (constructor_p () || instance_initializer_p ()))
     {
+      // FIXME: we may end up with a given type listed here several
+      // times.  In this case we should unique-ify the list as we
+      // construct it.
       ref_forwarding_type e
 	= new model_forwarding_resolved (LOCATION_UNKNOWN, exc_type);
       throw_decls.add (e);

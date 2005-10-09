@@ -1,3 +1,9 @@
+2005-10-09  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.cc (class field_init_forwarding_catcher): New class.
+	(class static_field_catcher): Likewise.
+	(resolve): Use it.
+
 2005-10-09  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* dump.cc (pretty_printer): Implement all the remaining visitor

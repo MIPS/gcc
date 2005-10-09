@@ -23,6 +23,58 @@
 #include <iterator>
 #include <sstream>
 
+
+
+/// This is a scope and a catcher that understands how to forward a
+/// 'throws' notification to a particular method.  This is used to
+/// implement the special rules for handling field initialization
+/// expressions that can throw exceptions.
+class field_init_forwarding_catcher : public IScope, public ICatcher
+{
+  // The method to which the exception is forwarded.
+  model_method *method;
+
+public:
+
+  field_init_forwarding_catcher (model_method *m)
+    : method (m)
+  {
+  }
+
+  void note_throw_type (model_type *t)
+  {
+    method->note_throw_type (t);
+  }
+};
+
+/// This is a scope and a catcher used to handle 'throws'
+/// notifications from a static field initializer.  While we could
+/// just do this via the <clinit> method, ensuring that this was
+/// created at the right time looked like a pain, and this approach
+/// gives a nicer error message.
+class static_field_catcher : public IScope, public ICatcher
+{
+  /// The field we are handling.
+  model_field *field;
+
+public:
+
+  static_field_catcher (model_field *f)
+    : field (f)
+  {
+  }
+
+  void note_throw_type (model_type *t)
+  {
+    if (t->checked_exception_p ())
+      std::cerr << field->error ("initializer for %1 "
+				 "throws a checked exception of type %2")
+	% field % t;
+  }
+};
+
+
+
 void
 model_class::compute_super_types (std::list<model_class *> &all_super_types)
 {
@@ -1733,14 +1785,20 @@ model_class::resolve (resolution_scope *scope)
 
       model_static_context_scope static_holder (f->static_p ());
       resolution_scope::push_iscope holder (scope, &static_holder);
-      if (! f->static_p () && f->has_initializer_p ())
+      if (! f->static_p ())
 	{
-	  // FIXME!
-	  // push_catcher push (scope, finit_.get ());
+	  // If a field's initializer can throw, the thrown exception
+	  // types must be forwarded to finit$ for special handling.
+	  field_init_forwarding_catcher catcher (finit_.get ());
+	  resolution_scope::push_iscope catch_holder (scope, &catcher);
 	  f->resolve (scope);
 	}
       else
-	f->resolve (scope);
+	{
+	  static_field_catcher catcher (f.get ());
+	  resolution_scope::push_iscope catch_holder (scope, &catcher);
+	  f->resolve (scope);
+	}
 
       if (inner_p () && f->static_p () && ! f->constant_p ())
 	std::cerr << f->error ("%<static%> field of inner class must "
