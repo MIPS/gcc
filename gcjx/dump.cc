@@ -21,6 +21,8 @@
 
 #include "typedefs.hh"
 
+#include <cctype>
+
 class dumper : public visitor
 {
   // The output stream to use.
@@ -1096,7 +1098,11 @@ protected:
       {
         indentation += 2;
         out << std::endl;
+
+        // FIXME: Keep track of nodes already visited so that we do not
+        // inadvertently cause an infinite recursion and blow the stack.
         e->visit (this);
+
         indentation -= 2;
       }
   }
@@ -1214,8 +1220,7 @@ public:
   {
     begin_element (meth, "method");
 
-    out << " " << meth->get_declaring_class ()->get_pretty_name ()
-        << "." << meth->get_name ();
+    out << " " << meth->get_name ();
 
     descend (meth->get_return_type ());
     descend (args);
@@ -1225,10 +1230,15 @@ public:
     end_element ();
   }
 
-  void visit_assert (model_assert *, const ref_expression &,
-                     const ref_expression &)
+  void visit_assert (model_assert *a, const ref_expression &eval_expr,
+                     const ref_expression &res_expr)
   {
-    // TODO.
+    begin_element (a, "assert");
+    if (eval_expr)
+      descend (eval_expr.get ());
+    if (res_expr)
+      descend (res_expr.get ());
+    end_element ();
   }
 
   void visit_block (model_block *block, const std::list<ref_stmt> &stmts)
@@ -1238,36 +1248,73 @@ public:
     end_element ();
   }
 
-  void visit_bytecode_block (model_bytecode_block *,
-                             int, int, int, const uint8 *)
+  void visit_bytecode_block (model_bytecode_block *bc_block,
+                             int max_stack, int max_locals, int length,
+                             const uint8 *bytes)
   {
-    // TODO.
+    begin_element (bc_block, "bytecode_block");
+    out << " MAX_STACK=" << max_stack;
+    out << " MAX_LOCALS=" << max_locals;
+    out << " LENGTH=" << length;
+    end_element ();
   }
 
-  void visit_break (model_break *, const ref_stmt &)
+  void visit_break (model_break *brk, const ref_stmt &target)
   {
-    // TODO.
+    begin_element (brk, "break");
+    
+    // We can not descend to the target statement, as it would already
+    // have been printed and this could cause an infinite loop.
+    // For now, just print out the address of the target statement.
+    if (target)
+      out << " TARGET_STMT=" << target.get ();
+
+    end_element ();
   }
 
-  void visit_catch (model_catch *, const ref_variable_decl &,
-                    const ref_block &)
+  void visit_catch (model_catch *catch_stmt,
+                    const ref_variable_decl &var_decl,
+                    const ref_block &catch_block)
   {
-    // TODO.
+    begin_element (catch_stmt, "catch");
+    if (var_decl)
+      descend (var_decl.get ());
+    if (catch_block)
+      descend (catch_block.get ());
+    end_element ();
   }
 
-  void visit_continue (model_continue *, const ref_stmt &)
+  void visit_continue (model_continue *cnt, const ref_stmt &target)
   {
-    // TODO.
+    begin_element (cnt, "continue");
+    
+    // We can not descend to the target loop, as it would already
+    // have been printed and this could cause an infinite loop.
+    // For now, just print out the address of the target loop.
+    if (target)
+      out << " TARGET_LOOP=" << target.get ();
+
+    end_element ();
   }
 
-  void visit_class_decl_stmt (model_class_decl_stmt *, const ref_class &)
+  void visit_class_decl_stmt (model_class_decl_stmt *stmt,
+                              const ref_class &decl)
   {
-    // TODO.
+    begin_element (stmt, "class_decl");
+    if (decl)
+      descend (decl.get ());
+    end_element ();
   }
 
-  void visit_do (model_do *, const ref_expression &, const ref_stmt &)
+  void visit_do (model_do *do_stmt, const ref_expression &expr,
+                 const ref_stmt &stmt)
   {
-    // TODO.
+    begin_element (do_stmt, "do");
+    if (expr)
+      descend (expr.get ());
+    if (stmt)
+      descend (stmt.get ());
+    end_element ();
   }
 
   void visit_empty (model_empty *e)
@@ -1285,62 +1332,129 @@ public:
     end_element ();
   }
 
-  void visit_for_enhanced (model_for_enhanced *,
-                           const ref_stmt &, const ref_expression &,
-                           const ref_variable_decl &)
+  void visit_for_enhanced (model_for_enhanced *for_enh,
+                           const ref_stmt &body,
+                           const ref_expression &expr,
+                           const ref_variable_decl &var)
   {
-    // TODO.
+    begin_element (for_enh, "for_enhanced");
+
+    model_type *elt_type = for_enh->get_element_type ();
+    if (elt_type != NULL)
+      out << " ELT_TYPE=" << elt_type->get_pretty_name ();
+
+    if (var)
+      descend (var.get ());
+    if (expr)
+      descend (expr.get ());
+    if (body)
+      descend (body.get ());
+
+    end_element ();
   }
 
-  void visit_for (model_for *, const ref_stmt &, const ref_expression &,
-                  const ref_stmt &, const ref_stmt &)
+  void visit_for (model_for *for_stmt, const ref_stmt &initializer,
+                  const ref_expression &cond_expr, const ref_stmt &update,
+                  const ref_stmt &body)
   {
-    // TODO.
+    begin_element (for_stmt, "for");
+    if (initializer)
+      descend (initializer.get ());
+    if (cond_expr)
+      descend (cond_expr.get ());
+    if (update)
+      descend (update.get ());
+    if (body)
+      descend (body.get ());
+    end_element ();
   }
 
-  void visit_if (model_if *, const ref_expression &, const ref_stmt &,
-                 const ref_stmt &)
+  void visit_if (model_if *if_stmt, const ref_expression &cond_expr,
+                 const ref_stmt &true_branch, const ref_stmt &false_branch)
   {
-    // TODO.
+    begin_element (if_stmt, "if");
+    if (cond_expr)
+      descend (cond_expr.get ());
+    if (true_branch)
+      descend (true_branch.get ());
+    if (false_branch)
+      descend (false_branch.get ());
+    end_element ();
   }
 
-  void visit_label (model_label *, const ref_stmt &)
+  void visit_label (model_label *lbl, const ref_stmt &stmt)
   {
-    // TODO.
+    begin_element (lbl, "label");
+    out << " " << lbl->get_name ();
+    if (stmt)
+      descend (stmt.get ());
+    end_element ();
   }
 
-  void visit_return (model_return *, const ref_expression &)
+  void visit_return (model_return *ret, const ref_expression &ret_expr)
   {
-    // TODO.
+    begin_element (ret, "return");
+    if (ret_expr)
+      descend (ret_expr.get ());
+    end_element ();
   }
 
-  void visit_switch (model_switch *, const ref_expression &,
-                     const std::list<ref_switch_block> &)
+  void visit_switch (model_switch *sw, const ref_expression &expr,
+                     const std::list<ref_switch_block> &sw_blocks)
   {
-    // TODO.
+    begin_element (sw, "switch");
+    if (expr)
+      descend (expr.get ());
+    descend (sw_blocks);
+    end_element ();
   }
 
-  void visit_switch_block (model_switch_block *,
-                           const std::list<ref_stmt> &)
+  void visit_switch_block (model_switch_block *sw_block,
+                           const std::list<ref_stmt> &stmts)
   {
-    // TODO.
+    begin_element (sw_block, "switch_block");
+
+    if (sw_block->can_complete_normally ())
+      out << " COMPLETES_NORMALLY";
+
+    std::list<ref_expression> labels = sw_block->get_labels ();
+    descend (labels);
+
+    descend (stmts);
+    end_element ();
   }
 
-  void visit_synchronized (model_synchronized *, const ref_expression &,
-                           const ref_stmt &)
+  void visit_synchronized (model_synchronized *synch,
+                           const ref_expression &expr,
+                           const ref_stmt &stmt)
   {
-    // TODO.
+    begin_element (synch, "synchronized");
+    if (expr)
+      descend (expr.get ());
+    if (stmt)
+      descend (stmt.get ());
+    end_element ();
   }
 
-  void visit_throw (model_throw *, const ref_expression &)
+  void visit_throw (model_throw *th, const ref_expression &expr)
   {
-    // TODO.
+    begin_element (th, "throw");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_try (model_try *, const ref_block &,
-                  const std::list<ref_catch> &, const ref_block &)
+  void visit_try (model_try *tr, const ref_block &try_block,
+                  const std::list<ref_catch> &catchers,
+                  const ref_block &finally_block)
   {
-    // TODO.
+    begin_element (tr, "try");
+    if (try_block)
+      descend (try_block.get ());
+    descend (catchers);
+    if (finally_block)
+      descend (finally_block.get ());
+    end_element ();
   }
 
   void visit_variable_stmt (model_variable_stmt *var_stmt,
@@ -1351,176 +1465,326 @@ public:
     end_element ();
   }
 
-  void visit_while (model_while *, const ref_expression &, const ref_stmt &)
+  void visit_while (model_while *wh, const ref_expression &expr,
+                    const ref_stmt &body)
   {
-    // TODO.
+    begin_element (wh, "while");
+    if (expr)
+      descend (expr.get ());
+    if (body)
+      descend (body.get ());
+    end_element ();
   }
 
-  void visit_array_initializer (model_array_initializer *,
-                                const ref_forwarding_type &,
-                                const std::list<ref_expression> &)
+  void visit_array_initializer (model_array_initializer *arr_init,
+                                const ref_forwarding_type &elt_type,
+                                const std::list<ref_expression> &initializers)
   {
-    // TODO.
+    begin_element (arr_init, "array_init");
+    if (elt_type)
+      descend (elt_type.get ());
+    descend (initializers);
+    end_element ();
   }
 
-  void visit_array_ref (model_array_ref *, const ref_expression &,
-                        const ref_expression &)
+  void visit_array_ref (model_array_ref *arr_ref,
+                        const ref_expression &array,
+                        const ref_expression &index)
   {
-    // TODO.
+    begin_element (arr_ref, "array_ref");
+    if (array)
+      descend (array.get ());
+    if (index)
+      descend (index.get ());
+    end_element ();
   }
 
-  void visit_assignment (model_assignment *, const ref_expression &,
-                         const ref_expression &)
+  void visit_assignment (model_assignment *assgn,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "assign");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_minus_equal *,
-                            const ref_expression &, const ref_expression &)
+  void visit_op_assignment (model_minus_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "minus_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_mult_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_mult_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "mult_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_div_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_div_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "div_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_and_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_and_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "and_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_or_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_or_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "or_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_plus_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_plus_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "plus_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_xor_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_xor_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "xor_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_mod_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_mod_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "mod_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_ls_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_ls_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "lshift_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_rs_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_rs_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "rshift_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_op_assignment (model_urs_equal *,
-                            const ref_expression &,
-                            const ref_expression &)
+  void visit_op_assignment (model_urs_equal *assgn,
+                            const ref_expression &lhs,
+                            const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (assgn, "urshift_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_minus *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_minus *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "minus");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_mult *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_mult *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "mult");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_div *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_div *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "div");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_mod *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_mod *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "mod");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_and *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_and *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "and");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_or *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_or *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "or");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_xor *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_xor *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "xor");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_binary (model_plus *,
-                           const ref_expression &, const ref_expression &)
+  void visit_arith_binary (model_plus *op,
+                           const ref_expression &lhs,
+                           const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "plus");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_shift (model_left_shift *,
-                          const ref_expression &, const ref_expression &)
+  void visit_arith_shift (model_left_shift *op,
+                          const ref_expression &lhs,
+                          const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "lshift");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_shift (model_right_shift *,
-                          const ref_expression &, const ref_expression &)
+  void visit_arith_shift (model_right_shift *op,
+                          const ref_expression &lhs,
+                          const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "rshift");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_arith_shift (model_unsigned_right_shift *,
-                          const ref_expression &, const ref_expression &)
+  void visit_arith_shift (model_unsigned_right_shift *op,
+                          const ref_expression &lhs,
+                          const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "urshift");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_cast (model_cast *, const ref_forwarding_type &,
-                   const ref_expression &)
+  void visit_cast (model_cast *cast,
+                   const ref_forwarding_type &target_type,
+                   const ref_expression &expr)
   {
-    // TODO.
+    begin_element (cast, "cast");
+    if (target_type)
+      descend (target_type.get ());
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
   void visit_class_ref (model_class_ref *cref,
@@ -1532,47 +1796,91 @@ public:
     end_element ();
   }
 
-  void visit_comparison (model_equal *,
-                         const ref_expression &, const ref_expression &)
+  void visit_comparison (model_equal *comp,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (comp, "equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_comparison (model_notequal *,
-                         const ref_expression &, const ref_expression &)
+  void visit_comparison (model_notequal *comp,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (comp, "not_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_comparison (model_lessthan *,
-                         const ref_expression &, const ref_expression &)
+  void visit_comparison (model_lessthan *comp,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (comp, "less_than");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_comparison (model_greaterthan *,
-                         const ref_expression &, const ref_expression &)
+  void visit_comparison (model_greaterthan *comp,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (comp, "greater_than");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_comparison (model_lessthanequal *,
-                         const ref_expression &, const ref_expression &)
+  void visit_comparison (model_lessthanequal *comp,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (comp, "less_than_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_comparison (model_greaterthanequal *,
-                         const ref_expression &, const ref_expression &)
+  void visit_comparison (model_greaterthanequal *comp,
+                         const ref_expression &lhs,
+                         const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (comp, "greater_than_equal");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_conditional (model_conditional *,
-                          const ref_expression &, const ref_expression &,
-                          const ref_expression &)
+  void visit_conditional (model_conditional *cond,
+                          const ref_expression &cond_expr,
+                          const ref_expression &true_branch,
+                          const ref_expression &false_branch)
   {
-    // TODO.
+    begin_element (cond, "conditional");
+    if (cond_expr)
+      descend (cond_expr.get ());
+    if (true_branch)
+      descend (true_branch.get ());
+    if (false_branch)
+      descend (false_branch.get ());
+    end_element ();
   }
 
   void visit_field_ref (model_field_ref *f,
@@ -1592,9 +1900,12 @@ public:
     end_element ();
   }
 
-  void visit_field_initializer (model_field_initializer *, model_field *)
+  void visit_field_initializer (model_field_initializer *f_init,
+                                model_field *f)
   {
-    // TODO.
+    begin_element (f_init, "field_init");
+    descend (f);
+    end_element ();
   }
 
   void visit_field (model_field *field)
@@ -1609,69 +1920,128 @@ public:
     end_element ();
   }
 
-  void visit_instanceof (model_instanceof *,
-                         const ref_expression &,
-                         const ref_forwarding_type &)
+  void visit_instanceof (model_instanceof *inst_of,
+                         const ref_expression &expr,
+                         const ref_forwarding_type &check_type)
   {
-    // TODO.
+    begin_element (inst_of, "instanceof");
+    if (expr)
+      descend (expr.get ());
+    if (check_type)
+      descend (check_type.get ());
+    end_element ();
   }
 
-  void visit_logical_binary (model_lor *,
-                             const ref_expression &, const ref_expression &)
+  void visit_logical_binary (model_lor *op,
+                             const ref_expression &lhs,
+                             const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "logical_or");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_logical_binary (model_land *, const ref_expression &,
-                             const ref_expression &)
+  void visit_logical_binary (model_land *op,
+                             const ref_expression &lhs,
+                             const ref_expression &rhs)
   {
-    // TODO.
+    begin_element (op, "logical_and");
+    if (lhs)
+      descend (lhs.get ());
+    if (rhs)
+      descend (rhs.get ());
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jboolean &val)
+  void visit_simple_literal (model_literal_base *lit, const jboolean &val)
   {
-    // TODO.
+    begin_element (lit, "jboolean");
+    out << (val ? " TRUE" : " FALSE");
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jbyte &val)
+  void visit_simple_literal (model_literal_base *lit, const jbyte &val)
   {
-    // TODO.
+    begin_element (lit, "jbyte");
+    out << " " << val;
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jchar &val)
+  void visit_simple_literal (model_literal_base *lit, const jchar &val)
   {
-    // TODO.
+    begin_element (lit, "jchar");
+    if (::isgraph (val))
+      out << " \'" << (char) val << "\'";
+    else
+      {
+        switch (val)
+          {
+          case ' ':
+            out << " \' \'";
+            break;
+          case '\t':
+            out << " \'\\t\'";
+            break;
+          case '\n':
+            out << " \'\\n\'";
+            break;
+          case '\r':
+            out << " \'\\r\'";
+            break;
+          default:
+            // FIXME: Show Unicode escape sequence.
+            out << " " << std::hex << std::showbase << val;
+            break;
+          }
+      }
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jshort &val)
+  void visit_simple_literal (model_literal_base *lit, const jshort &val)
   {
-    // TODO.
+    begin_element (lit, "jshort");
+    out << " " << val;
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jint &val)
+  void visit_simple_literal (model_literal_base *lit, const jint &val)
   {
-    // TODO.
+    begin_element (lit, "jint");
+    out << " " << val;
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jlong &val)
+  void visit_simple_literal (model_literal_base *lit, const jlong &val)
   {
-    // TODO.
+    begin_element (lit, "jlong");
+    out << " " << val;
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jfloat &val)
+  void visit_simple_literal (model_literal_base *lit, const jfloat &val)
   {
-    // TODO.
+    begin_element (lit, "jfloat");
+    out << " " << val;
+    end_element ();
   }
 
-  void visit_simple_literal (model_literal_base *, const jdouble &val)
+  void visit_simple_literal (model_literal_base *lit, const jdouble &val)
   {
-    // TODO.
+    begin_element (lit, "jdouble");
+    out << " " << val;
+    end_element ();
   }
 
   void visit_string_literal (model_string_literal *s, const std::string &val)
   {
     begin_element (s, "string");
+    
+    // FIXME: Need to escape certain characters.
     out << " \"" << val << "\"";
+
     end_element ();
   }
 
@@ -1689,101 +2059,166 @@ public:
   }
 
   void
-  visit_type_qualified_invocation (model_type_qualified_invocation *,
-				   const model_method *,
-				   const std::list<ref_expression> &,
-				   bool)
+  visit_type_qualified_invocation (model_type_qualified_invocation *tqi,
+				   const model_method *meth,
+				   const std::list<ref_expression> &args,
+				   bool is_super)
   {
-    // TODO.
+    begin_element (tqi, "type_qual_invocation");
+    if (is_super)
+      out << " SUPER";
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    end_element ();
   }
 
-  void visit_super_invocation (model_super_invocation *,
-                               const model_method *,
-                               const std::list<ref_expression> &)
+  void visit_super_invocation (model_super_invocation *si,
+                               const model_method *meth,
+                               const std::list<ref_expression> &args)
   {
-    // TODO.
+    begin_element (si, "super_invocation");
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    end_element ();
   }
 
-  void visit_this_invocation (model_this_invocation *,
-                              const model_method *,
-                              const std::list<ref_expression> &)
+  void visit_this_invocation (model_this_invocation *ti,
+                              const model_method *meth,
+                              const std::list<ref_expression> &args)
   {
-    // TODO.
+    begin_element (ti, "this_invocation");
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    end_element ();
   }
 
-  void visit_new (model_new *, const model_method *,
-                  const ref_forwarding_type &,
-                  const std::list<ref_expression> &)
+  void visit_new (model_new *n, const model_method *meth,
+                  const ref_forwarding_type &klass,
+                  const std::list<ref_expression> &args)
   {
-    // TODO.
+    begin_element (n, "new");
+    if (klass)
+      descend (klass.get ());
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    end_element ();
   }
 
-  void visit_new_array (model_new_array *,
-                        const ref_forwarding_type &,
-                        const std::list<ref_expression> &,
-                        const ref_expression &)
+  void visit_new_array (model_new_array *na,
+                        const ref_forwarding_type &klass,
+                        const std::list<ref_expression> &sizes,
+                        const ref_expression &initializer)
   {
-    // TODO.
+    begin_element (na, "new_array");
+    if (klass)
+      descend (klass.get ());
+    descend (sizes);
+    if (initializer)
+      descend (initializer.get ());
+    end_element ();
   }
 
-  void visit_null_literal (model_null_literal *)
+  void visit_null_literal (model_null_literal *n)
   {
-    // TODO.
+    begin_element (n, "null");
+    end_element ();
   }
 
-  void visit_prefix_simple (model_prefix_plus *, const ref_expression &)
+  void visit_prefix_simple (model_prefix_plus *p, const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "prefix_plus");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_prefix_simple (model_prefix_minus *, const ref_expression &)
+  void visit_prefix_simple (model_prefix_minus *p, const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "prefix_minus");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_prefix_simple (model_bitwise_not *, const ref_expression &)
+  void visit_prefix_simple (model_bitwise_not *p, const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "bitwise_not");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_prefix_simple (model_logical_not *, const ref_expression &)
+  void visit_prefix_simple (model_logical_not *p, const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "logical_not");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_prefix_side_effect (model_prefix_plusplus *,
-                                 const ref_expression &)
+  void visit_prefix_side_effect (model_prefix_plusplus *p,
+                                 const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "prefix_plusplus");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_prefix_side_effect (model_prefix_minusminus *,
-                                 const ref_expression &)
+  void visit_prefix_side_effect (model_prefix_minusminus *p,
+                                 const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "prefix_minusminus");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_postfix_side_effect (model_postfix_plusplus *,
-                                  const ref_expression &)
+  void visit_postfix_side_effect (model_postfix_plusplus *p,
+                                  const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "postfix_plusplus");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_postfix_side_effect (model_postfix_minusminus *,
-                                  const ref_expression &)
+  void visit_postfix_side_effect (model_postfix_minusminus *p,
+                                  const ref_expression &expr)
   {
-    // TODO.
+    begin_element (p, "postfix_minusminus");
+    if (expr)
+      descend (expr.get ());
+    end_element ();
   }
 
-  void visit_this (model_this *)
+  void visit_this (model_this *t)
   {
-    // TODO.
+    begin_element (t, "this");
+    end_element ();
   }
 
-  void visit_simple_variable_ref (model_simple_variable_ref *,
-                                  const model_variable_decl *)
+  void visit_simple_variable_ref (model_simple_variable_ref *ref,
+                                  const model_variable_decl *var)
   {
-    // TODO.
+    begin_element (ref, "variable_ref");
+    if (var != NULL)
+      out << " " << var->get_name ();
+    else
+      out << " NULL";
+    end_element ();
   }
 
   void visit_forwarding_type (model_forwarding_type *fwd_type,
@@ -1919,16 +2354,32 @@ public:
     end_element ();
   }
 
-  void visit_catch_decl (model_variable_decl *, const std::string &,
-                         const ref_forwarding_type &, const ref_expression &,
-                         bool, bool)
+  void visit_catch_decl (model_variable_decl *decl, const std::string &name,
+                         const ref_forwarding_type &decltype,
+                         const ref_expression &initializer,
+                         bool is_final, bool is_used)
   {
-    // TODO.
+    begin_element (decl, "catch_decl");
+
+    out << " " << name;
+    if (is_final)
+      out << " FINAL";
+    if (!is_used)
+      out << " UNUSED";
+
+    if (decltype)
+      descend (decltype.get ());
+    if (initializer)
+      descend (initializer.get ());
+
+    end_element ();
   }
 
-  void visit_package (model_package *, const std::list<std::string> &)
+  void visit_package (model_package *p, const std::list<std::string> &name)
   {
-    // TODO.
+    begin_element (p, "package");
+    print_multi_name (name);
+    end_element ();
   }
 
   void visit_primitive (model_primitive_base *prim, const char *name)
@@ -1941,7 +2392,7 @@ public:
   void visit_type (model_type *t, const std::string &descriptor)
   {
     begin_element (t, "type");
-    out << " " << descriptor;
+    out << " " << t->get_pretty_name ();
     end_element ();
   }
 
@@ -1975,5 +2426,5 @@ dump_tree (model_element *e)
       e->visit (&p);
     }
   else
-    std::cout << "NULL" << std::endl;
+    std::cout << "(NULL)" << std::endl;
 }

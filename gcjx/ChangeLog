@@ -1,3 +1,8 @@
+2005-10-09  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* dump.cc (pretty_printer): Implement all the remaining visitor
+	methods.
+
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
 	* model/element.hh (model_element): Constructor now protected.
