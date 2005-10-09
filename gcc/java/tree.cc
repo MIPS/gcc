@@ -1071,6 +1071,11 @@ void
 tree_generator::visit_variable_stmt (model_variable_stmt *,
 				     const std::list<ref_variable_decl> &decls)
 {
+  // The result here is a statement list that initializes all the
+  // variables, as needed.  The statement list might be empty.
+  tree result = alloc_stmt_list ();
+  tree_stmt_iterator out = tsi_start (result);
+
   for (std::list<ref_variable_decl>::const_iterator i = decls.begin ();
        i != decls.end ();
        ++i)
@@ -1080,9 +1085,18 @@ tree_generator::visit_variable_stmt (model_variable_stmt *,
 	{
 	  ref_expression init = (*i)->get_initializer ();
 	  init->visit (this);
-	  DECL_INITIAL (decl) = current;
+
+	  // Apparently setting DECL_INITIAL is not enough for locals
+	  // -- instead we must emit explicit initializations.
+	  // DECL_INITIAL (decl) = current;  -- does not work.
+	  tree modify = build2 (MODIFY_EXPR, TREE_TYPE (decl),
+				decl, current);
+	  TREE_SIDE_EFFECTS (modify) = 1;
+	  tsi_link_after (&out, modify, TSI_CONTINUE_LINKING);
 	}
     }
+
+  current = result;
 }
 
 void

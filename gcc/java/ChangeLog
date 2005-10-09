@@ -1,5 +1,10 @@
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_variable_stmt): Build a series of MODIFY_EXPRs
+	to initialize variables.
+
+2005-10-09  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_field_ref): Removed unneeded cast.
 
 2005-10-09  Tom Tromey  <tromey@redhat.com>
