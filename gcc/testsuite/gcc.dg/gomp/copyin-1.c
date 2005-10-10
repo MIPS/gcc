@@ -15,11 +15,11 @@ void foo(void)
 
   #pragma omp parallel copyin(i)
     bar();
-  #pragma omp parallel copyin(j)
+  #pragma omp parallel copyin(j)	// { dg-error "threadprivate" }
     bar();
-  #pragma omp parallel copyin(k)
+  #pragma omp parallel copyin(k)	// { dg-error "threadprivate" }
     bar();
-  #pragma omp parallel copyin(l)
+  #pragma omp parallel copyin(l)	// { dg-error "threadprivate" }
     bar();
   #pragma omp parallel copyin(m)
     bar();

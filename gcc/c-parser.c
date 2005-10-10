@@ -6622,7 +6622,22 @@ c_parser_omp_var_list_parens (c_parser *parser, enum tree_code kind, tree list)
 static tree
 c_parser_omp_clause_copyin (c_parser *parser, tree list)
 {
-  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_COPYIN, list);
+  tree nlist, t;
+  bool saw_error = false;
+
+  nlist = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_COPYIN, list);
+
+  for (t = nlist; t != list; t = OMP_CLAUSE_CHAIN (t))
+    {
+      tree decl = OMP_CLAUSE_DECL (t);
+      if (!DECL_THREAD_LOCAL_P (decl))
+	{
+	  error ("%qE used in %<copyin%> is not %<threadprivate%>", decl);
+	  saw_error = true;
+	}
+    }
+
+  return saw_error ? list : nlist;
 }
 
 /* OpenMP 2.5:
