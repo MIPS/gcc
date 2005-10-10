@@ -367,7 +367,8 @@ omp_copy_decl (tree var, copy_body_data *cb)
   switch (default_kind)
     {
     case OMP_CLAUSE_DEFAULT_NONE:
-      error ("%qE not specified in enclosing parallel", var);
+      error ("%qs not specified in enclosing parallel",
+	     IDENTIFIER_POINTER (DECL_NAME (var)));
       error ("%Henclosing parallel", EXPR_LOCUS (ctx->stmt));
       /* FALLTHRU */
 
