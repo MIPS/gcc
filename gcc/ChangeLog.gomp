@@ -1,5 +1,10 @@
 2005-10-10  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (gimplify_omp_for): Don't pass the entire OMP_FOR_INCR
+	through gimplify_expr, but do normalize autoinc.
+
+2005-10-10  Richard Henderson  <rth@redhat.com>
+
 	* omp-low.c (scan_sharing_clauses): Scan the outer context for
 	copyprivate, if, num_threads, and schedule.
 

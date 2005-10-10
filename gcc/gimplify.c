@@ -3992,6 +3992,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
   decl = TREE_OPERAND (t, 0);
   gcc_assert (DECL_P (decl));
+  gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
+  gcc_assert (!TYPE_UNSIGNED (TREE_TYPE (decl)));
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
 			is_gimple_val, fb_rvalue);
 
@@ -4001,14 +4003,35 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
 			is_gimple_val, fb_rvalue);
 
-  ret |= gimplify_expr (&OMP_FOR_INCR (for_stmt), pre_p, NULL,
-			is_gimple_stmt, fb_none);
   t = OMP_FOR_INCR (for_stmt);
-  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
-  gcc_assert (TREE_OPERAND (t, 0) == decl);
-  t = TREE_OPERAND (t, 1);
-  gcc_assert (TREE_CODE (t) == PLUS_EXPR || TREE_CODE (t) == MINUS_EXPR);
-  gcc_assert (TREE_OPERAND (t, 0) == decl);
+  switch (TREE_CODE (t))
+    {
+    case PREINCREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+      t = build_int_cst (TREE_TYPE (decl), 1);
+      goto build_modify;
+    case PREDECREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+      t = build_int_cst (TREE_TYPE (decl), -1);
+      goto build_modify;
+    build_modify:
+      t = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, t);
+      t = build2 (MODIFY_EXPR, void_type_node, decl, t);
+      OMP_FOR_INCR (for_stmt) = t;
+      break;
+      
+    case MODIFY_EXPR:
+      gcc_assert (TREE_OPERAND (t, 0) == decl);
+      t = TREE_OPERAND (t, 1);
+      gcc_assert (TREE_CODE (t) == PLUS_EXPR || TREE_CODE (t) == MINUS_EXPR);
+      gcc_assert (TREE_OPERAND (t, 0) == decl);
+      ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
+			    is_gimple_val, fb_rvalue);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
 
   gimplify_to_stmt_list (&OMP_FOR_BODY (for_stmt));
 
