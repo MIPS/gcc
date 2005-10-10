@@ -1,3 +1,5 @@
+2005-10-08  Jakub Jelinek  <jakub@redhat.com>
+
 	PR fortran/14943
 	PR fortran/21647
 	* Make-lang.in (fortran/trans-io.o): Depend on fortran/ioparm.def.
