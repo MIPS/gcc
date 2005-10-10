@@ -1,7 +1,4 @@
 /* { dg-do compile } */
-/* This test won't currently work on targets with types larger than 8 bytes. */
-/* { dg-xfail-if "" { "i?86-*-*" } { "*" } { "" } } */
-/* { dg-xfail-if "" { "x86_64-*-*" } { "*" } { "" } } */
 
 long double z;
 

@@ -1,5 +1,6 @@
 2005-10-09  Richard Henderson  <rth@redhat.com>
 
+	* gcc.dg/gomp/atomic-8.c: Remove xfails.
 	* gcc.dg/gomp/atomic-10.c: Move to libgomp testsuite.
 
 2005-10-08  Jakub Jelinek  <jakub@redhat.com>
