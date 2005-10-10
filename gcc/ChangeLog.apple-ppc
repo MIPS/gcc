@@ -1,3 +1,9 @@
+2005-10-07  Evan Cheng  <evan.cheng@apple.com>
+
+        Radar 4109832	
+	* config/i386/xmmintrin.h (_MM_TRANSPOSE4_PS): Rewrite using high/low
+	moves and unpack to speed up.
+
 2005-10-07  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4205103
