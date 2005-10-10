@@ -485,15 +485,6 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
   return type;
 }
 
-/* The interface the pragma parsers have to the lexer.  */
-
-enum cpp_ttype
-pragma_lex (tree *value)
-{
-  location_t loc;
-  return c_lex_with_flags (value, &loc, NULL);
-}
-
 /* Returns the narrowest C-visible unsigned type, starting with the
    minimum specified by FLAGS, that can fit HIGH:LOW, or itk_none if
    there isn't one.  */

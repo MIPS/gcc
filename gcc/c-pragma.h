@@ -24,6 +24,29 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include <cpplib.h> /* For enum cpp_ttype.  */
 
+/* Pragma identifiers built in to the front end parsers.  Identifiers
+   for anciliary handlers will follow these.  */
+typedef enum pragma_kind {
+  PRAGMA_NONE = 0,
+
+  PRAGMA_OMP_ATOMIC,
+  PRAGMA_OMP_BARRIER,
+  PRAGMA_OMP_CRITICAL,
+  PRAGMA_OMP_FLUSH,
+  PRAGMA_OMP_FOR,
+  PRAGMA_OMP_MASTER,
+  PRAGMA_OMP_ORDERED,
+  PRAGMA_OMP_PARALLEL,
+  PRAGMA_OMP_PARALLEL_FOR,
+  PRAGMA_OMP_PARALLEL_SECTIONS,
+  PRAGMA_OMP_SECTION,
+  PRAGMA_OMP_SECTIONS,
+  PRAGMA_OMP_SINGLE,
+  PRAGMA_OMP_THREADPRIVATE,
+
+  PRAGMA_FIRST_EXTERNAL
+} pragma_kind;
+
 /* Cause the `yydebug' variable to be defined.  */
 #define YYDEBUG 1
 extern int yydebug;
@@ -53,12 +76,13 @@ extern struct cpp_reader* parse_in;
 
 extern void init_pragma (void);
 
-/* Front-end wrappers for pragma registration to avoid dragging
-   cpplib.h in almost everywhere.  */
-extern void c_register_pragma (const char *, const char *,
-			       void (*) (struct cpp_reader *));
+/* Front-end wrappers for pragma registration.  */
+typedef void (*pragma_handler)(struct cpp_reader *);
+extern void c_register_pragma (const char *, const char *, pragma_handler);
 extern void c_register_pragma_with_expansion (const char *, const char *,
-					      void (*) (struct cpp_reader *));
+					      pragma_handler);
+extern void c_invoke_pragma_handler (unsigned int);
+
 extern void maybe_apply_pragma_weak (tree);
 extern void maybe_apply_pending_pragma_weaks (void);
 extern tree maybe_apply_renaming_pragma (tree, tree);

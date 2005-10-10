@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "vec.h"
 #include "target.h"
 
+
 #define GCC_BAD(gmsgid) \
   do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
 #define GCC_BAD2(gmsgid, arg) \
@@ -667,26 +668,84 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
 
 #endif
 
+/* A vector of registered pragma callbacks.  */
+
+DEF_VEC_O (pragma_handler);
+DEF_VEC_ALLOC_O (pragma_handler, heap);
+
+static VEC(pragma_handler, heap) *registered_pragmas;
+
 /* Front-end wrappers for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
-void
-c_register_pragma (const char *space, const char *name,
-		   void (*handler) (struct cpp_reader *))
+
+static void
+c_register_pragma_1 (const char *space, const char *name,
+		     pragma_handler handler, bool allow_expansion)
 {
-  cpp_register_pragma (parse_in, space, name, handler, 0);
+  unsigned id;
+
+  VEC_safe_push (pragma_handler, heap, registered_pragmas, &handler);
+  id = VEC_length (pragma_handler, registered_pragmas);
+  id += PRAGMA_FIRST_EXTERNAL - 1;
+
+  cpp_register_deferred_pragma (parse_in, space, name, id,
+				allow_expansion, false);
+}
+
+void
+c_register_pragma (const char *space, const char *name, pragma_handler handler)
+{
+  c_register_pragma_1 (space, name, handler, false);
 }
 
 void
 c_register_pragma_with_expansion (const char *space, const char *name,
-				  void (*handler) (struct cpp_reader *))
+				  pragma_handler handler)
 {
-  cpp_register_pragma (parse_in, space, name, handler, 1);
+  c_register_pragma_1 (space, name, handler, true);
+}
+
+void
+c_invoke_pragma_handler (unsigned int id)
+{
+  pragma_handler handler;
+
+  id -= PRAGMA_FIRST_EXTERNAL;
+  handler = *VEC_index (pragma_handler, registered_pragmas, id);
+
+  handler (parse_in);
 }
 
 /* Set up front-end pragmas.  */
 void
 init_pragma (void)
 {
+  if (flag_openmp && !flag_preprocess_only)
+    {
+      struct omp_pragma_def { const char *name; unsigned int id; };
+      static const struct omp_pragma_def omp_pragmas[] = {
+	{ "atomic", PRAGMA_OMP_ATOMIC },
+	{ "barrier", PRAGMA_OMP_BARRIER },
+	{ "critical", PRAGMA_OMP_CRITICAL },
+	{ "flush", PRAGMA_OMP_FLUSH },
+	{ "for", PRAGMA_OMP_FOR },
+	{ "master", PRAGMA_OMP_MASTER },
+	{ "ordered", PRAGMA_OMP_ORDERED },
+	{ "parallel", PRAGMA_OMP_PARALLEL },
+	{ "section", PRAGMA_OMP_SECTION },
+	{ "sections", PRAGMA_OMP_SECTIONS },
+	{ "single", PRAGMA_OMP_SINGLE },
+	{ "threadprivate", PRAGMA_OMP_THREADPRIVATE }
+      };
+
+      const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
+      int i;
+
+      for (i = 0; i < n_omp_pragmas; ++i)
+	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
+				      omp_pragmas[i].id, true, true);
+    }
+
 #ifdef HANDLE_PRAGMA_PACK
 #ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
   c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);

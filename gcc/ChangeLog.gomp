@@ -1,5 +1,31 @@
 2005-10-10  Richard Henderson  <rth@redhat.com>
 
+	* Makefile.in (GTFILES): Add c-pragma.h.
+	* c-lex.c (pragma_lex): Remove.
+	* c-parser.c (enum pragma_omp_kind): Move to c-pragma.h.
+	(c_parse_init): Move omp pragma registration to init_pragma.
+	(struct c_token): Rename omp_kind to pragma_kind.
+	(the_parser): Move earlier in the file.
+	(c_token_starts_declspecs): False for all pragmas.
+	(c_parser_declaration_or_fndef): Don't allow PRAGMA_OMP_THREADPRIVATE.
+	(enum pragma_context, c_parser_pragma): New.
+	(c_parser_external_declaration): Use it.
+	(c_parser_compound_statement_nostart): Likewise.
+	(c_parser_statement_after_labels): Likewise.
+	(pragma_lex): New.
+	(c_parser_omp_construct): Don't handle BARRIER or FLUSH here.
+	(c_parser_new): Merge into ...
+	(c_parse_file): ... here.  Use c_parser_pragma.
+	* c-pragma.c (registered_pragmas, c_register_pragma_1): New.
+	(c_register_pragma, c_register_pragma_with_expansion): Use it.
+	(c_invoke_pragma_handler): New.
+	(init_pragma): Do omp pragma registration here.
+	* c-pragma.h (enum pragma_kind): Move from c-parser.c.
+	(pragma_handler): New.
+	(c_invoke_pragma_handler): Declare.
+
+2005-10-10  Richard Henderson  <rth@redhat.com>
+
 	* gimplify.c (gimplify_omp_for): Don't pass the entire OMP_FOR_INCR
 	through gimplify_expr, but do normalize autoinc.
 

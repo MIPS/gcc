@@ -195,26 +195,6 @@ static const struct resword reswords[] =
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
 
-/* All OpenMP pragmas.  OpenMP 2.5.  */
-typedef enum pragma_omp_kind {
-  PRAGMA_OMP_NONE = 0,
-
-  PRAGMA_OMP_ATOMIC,
-  PRAGMA_OMP_BARRIER,
-  PRAGMA_OMP_CRITICAL,
-  PRAGMA_OMP_FLUSH,
-  PRAGMA_OMP_FOR,
-  PRAGMA_OMP_MASTER,
-  PRAGMA_OMP_ORDERED,
-  PRAGMA_OMP_PARALLEL,
-  PRAGMA_OMP_PARALLEL_FOR,
-  PRAGMA_OMP_PARALLEL_SECTIONS,
-  PRAGMA_OMP_SECTION,
-  PRAGMA_OMP_SECTIONS,
-  PRAGMA_OMP_SINGLE,
-  PRAGMA_OMP_THREADPRIVATE
-} pragma_omp_kind;
-
 /* All OpenMP clauses.  OpenMP 2.5.  */
 typedef enum pragma_omp_clause {
   PRAGMA_OMP_CLAUSE_NONE = 0,
@@ -263,35 +243,6 @@ c_parse_init (void)
       C_IS_RESERVED_WORD (id) = 1;
       ridpointers [(int) reswords[i].rid] = id;
     }
-
-  if (flag_openmp && !flag_preprocess_only)
-    {
-      struct omp_pragma {
-	const char *name;
-	pragma_omp_kind ident;
-      };
-      static struct omp_pragma const omp_pragmas[] = {
-	{ "atomic", PRAGMA_OMP_ATOMIC },
-	{ "barrier", PRAGMA_OMP_BARRIER },
-	{ "critical", PRAGMA_OMP_CRITICAL },
-	{ "flush", PRAGMA_OMP_FLUSH },
-	{ "for", PRAGMA_OMP_FOR },
-	{ "master", PRAGMA_OMP_MASTER },
-	{ "ordered", PRAGMA_OMP_ORDERED },
-	{ "parallel", PRAGMA_OMP_PARALLEL },
-	{ "section", PRAGMA_OMP_SECTION },
-	{ "sections", PRAGMA_OMP_SECTIONS },
-	{ "single", PRAGMA_OMP_SINGLE },
-	{ "threadprivate", PRAGMA_OMP_THREADPRIVATE }
-      };
-
-      const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
-      int i;
-
-      for (i = 0; i < n_omp_pragmas; ++i)
-	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
-				      omp_pragmas[i].ident, true, true);
-    }
 }
 
 /* The C lexer intermediates between the lexer in cpplib and c-lex.c
@@ -335,8 +286,8 @@ typedef struct c_token GTY (())
      Otherwise, this value is RID_MAX.  */
   ENUM_BITFIELD (rid) keyword : 8;
   /* If this token is a CPP_PRAGMA, this indicates the pragma that
-     was seen.  Otherwise it is PRAGMA_OMP_NONE.  */
-  ENUM_BITFIELD (pragma_omp_kind) omp_kind : 7;
+     was seen.  Otherwise it is PRAGMA_NONE.  */
+  ENUM_BITFIELD (pragma_kind) pragma_kind : 7;
   /* True if this token is from a system header.  */
   BOOL_BITFIELD in_system_header : 1;
   /* The value associated with this token, if any.  */
@@ -364,6 +315,12 @@ typedef struct c_parser GTY(())
 } c_parser;
 
 
+/* The actual parser and external interface.  ??? Does this need to be
+   garbage-collected?  */
+
+static GTY (()) c_parser *the_parser;
+
+
 /* Read in and lex a single token, storing it in *TOKEN.  */
 
 static void
@@ -374,7 +331,7 @@ c_lex_one_token (c_token *token)
   token->type = c_lex_with_flags (&token->value, &token->location, NULL);
   token->id_kind = C_ID_NONE;
   token->keyword = RID_MAX;
-  token->omp_kind = PRAGMA_OMP_NONE;
+  token->pragma_kind = PRAGMA_NONE;
   token->in_system_header = in_system_header;
 
   switch (token->type)
@@ -454,7 +411,7 @@ c_lex_one_token (c_token *token)
       break;
     case CPP_PRAGMA:
       /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
-      token->omp_kind = TREE_INT_CST_LOW (token->value);
+      token->pragma_kind = TREE_INT_CST_LOW (token->value);
       token->value = NULL;
       break;
     default:
@@ -630,10 +587,6 @@ c_token_starts_declspecs (c_token *token)
       if (c_dialect_objc ())
 	return true;
       return false;
-    case CPP_PRAGMA:
-      if (token->omp_kind == PRAGMA_OMP_THREADPRIVATE)
-	return true;
-      return false;
     default:
       return false;
     }
@@ -703,23 +656,6 @@ c_parser_set_source_position_from_token (c_token *token)
       input_location = token->location;
       in_system_header = token->in_system_header;
     }
-}
-
-/* Allocate a new parser.  */
-
-static c_parser *
-c_parser_new (void)
-{
-  /* Use local storage to lex the first token because loading a PCH
-     file may cause garbage collection.  */
-  c_parser tparser;
-  c_parser *ret;
-  memset (&tparser, 0, sizeof tparser);
-  c_lex_one_token (&tparser.tokens[0]);
-  tparser.tokens_avail = 1;
-  ret = GGC_NEW (c_parser);
-  memcpy (ret, &tparser, sizeof tparser);
-  return ret;
 }
 
 /* Issue a diagnostic of the form
@@ -1059,6 +995,9 @@ static void c_parser_omp_threadprivate (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
 static void c_parser_omp_flush (c_parser *);
 
+enum pragma_context { pragma_external, pragma_stmt, pragma_compound };
+static bool c_parser_pragma (c_parser *, enum pragma_context);
+
 /* These Objective-C parser functions are only ever called when
    compiling Objective-C.  */
 static void c_parser_objc_class_definition (c_parser *);
@@ -1190,6 +1129,9 @@ c_parser_external_declaration (c_parser *parser)
 	pedwarn ("ISO C does not allow extra %<;%> outside of a function");
       c_parser_consume_token (parser);
       break;
+    case CPP_PRAGMA:
+      c_parser_pragma (parser, pragma_external);
+      break;
     case CPP_PLUS:
     case CPP_MINUS:
       if (c_dialect_objc ())
@@ -1275,13 +1217,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
   tree prefix_attrs;
   tree all_prefix_attrs;
   bool diagnosed_no_specs = false;
-
-  if (fndef_ok
-      && c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_THREADPRIVATE)
-    {
-      c_parser_omp_threadprivate (parser);
-      return;
-    }
 
   specs = build_null_declspecs ();
   c_parser_declspecs (parser, specs, true, true, start_attr_ok);
@@ -3463,21 +3398,13 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	}
       else if (c_parser_next_token_is (parser, CPP_PRAGMA))
 	{
-	  /* The barrier and flush directives are not associated with regular
-	     c code, and so are not to be considered statements syntactically.
-	     This ensures that the user doesn't put them places that would 
-	     turn into syntax errors if the directive were ignored.  */
-	  switch (c_parser_peek_token (parser)->omp_kind)
-	    {
-	    case PRAGMA_OMP_BARRIER:
-	      c_parser_omp_barrier (parser);
-	      break;
-	    case PRAGMA_OMP_FLUSH:
-	      c_parser_omp_flush (parser);
-	      break;
-	    default:
-	      goto statement;
-	    }
+	  /* External pragmas, and some omp pragmas, are not associated
+	     with regular c code, and so are not to be considered statements
+	     syntactically.  This ensures that the user doesn't put them
+	     places that would turn into syntax errors if the directive
+	     were ignored.  */
+	  if (c_parser_pragma (parser, pragma_compound))
+	    last_label = false, last_stmt = true;
 	}
       else if (c_parser_next_token_is (parser, CPP_EOF))
 	{
@@ -3784,7 +3711,7 @@ c_parser_statement_after_labels (c_parser *parser)
       c_parser_consume_token (parser);
       break;
     case CPP_PRAGMA:
-      c_parser_omp_construct (parser);
+      c_parser_pragma (parser, pragma_stmt);
       break;
     default:
     expr_stmt:
@@ -6469,6 +6396,96 @@ c_parser_objc_keywordexpr (c_parser *parser)
 }
 
 
+/* Handle pragmas.  Some OpenMP pragmas are associated with, and therefore
+   should be considered, statements.  ALLOW_STMT is true if we're within
+   the context of a function and such pragmas are to be allowed.  Returns
+   true if we actually parsed such a pragma.  */
+
+static bool
+c_parser_pragma (c_parser *parser, enum pragma_context context)
+{
+  unsigned int id;
+
+  id = c_parser_peek_token (parser)->pragma_kind;
+  gcc_assert (id != PRAGMA_NONE);
+
+  switch (id)
+    {
+    case PRAGMA_OMP_BARRIER:
+      if (context != pragma_compound)
+	{
+	  if (context == pragma_stmt)
+	    c_parser_error (parser, "%<#pragma omp barrier%> may only be "
+			    "used in compound statements");
+	  goto bad_stmt;
+	}
+      c_parser_omp_barrier (parser);
+      return false;
+
+    case PRAGMA_OMP_FLUSH:
+      if (context != pragma_compound)
+	{
+	  if (context == pragma_stmt)
+	    c_parser_error (parser, "%<#pragma omp flush%> may only be "
+			    "used in compound statements");
+	  goto bad_stmt;
+	}
+      c_parser_omp_flush (parser);
+      return false;
+
+    case PRAGMA_OMP_THREADPRIVATE:
+      c_parser_omp_threadprivate (parser);
+      return false;
+
+    default:
+      if (id < PRAGMA_FIRST_EXTERNAL)
+	{
+	  if (context == pragma_external)
+	    {
+	    bad_stmt:
+	      c_parser_error (parser, "expected declaration specifiers");
+	      c_parser_skip_until_found (parser, CPP_PRAGMA_EOL, NULL);
+	      return false;
+	    }
+	  c_parser_omp_construct (parser);
+	  return true;
+	}
+      break;
+    }
+
+  c_parser_consume_pragma (parser);
+  c_invoke_pragma_handler (id);
+
+  /* Skip to EOL, but suppress any error message.  Those will have been 
+     generated by the handler routine through calling error, as opposed
+     to calling c_parser_error.  */
+  parser->error = true;
+  c_parser_skip_to_pragma_eol (parser);
+
+  return false;
+}
+
+/* The interface the pragma parsers have to the lexer.  */
+
+enum cpp_ttype
+pragma_lex (tree *value)
+{
+  c_token *tok = c_parser_peek_token (the_parser);
+  enum cpp_ttype ret = tok->type;
+
+  *value = tok->value;
+  if (ret == CPP_PRAGMA_EOL || ret == CPP_EOF)
+    ret = CPP_EOF;
+  else
+    {
+      if (ret == CPP_KEYWORD)
+	ret = CPP_NAME;
+      c_parser_consume_token (the_parser);
+    }
+
+  return ret;
+}
+
 /* OpenMP 2.5 parsing routines.  */
 
 /* Returns name of the next clause.
@@ -7395,7 +7412,7 @@ c_parser_omp_sections_scope (c_parser *parser)
   stmt = push_stmt_list ();
 
   loc = c_parser_peek_token (parser)->location;
-  if (c_parser_peek_token (parser)->omp_kind != PRAGMA_OMP_SECTION)
+  if (c_parser_peek_token (parser)->pragma_kind != PRAGMA_OMP_SECTION)
     {
       substmt = push_stmt_list ();
 
@@ -7403,7 +7420,7 @@ c_parser_omp_sections_scope (c_parser *parser)
 	{
           c_parser_statement (parser);
 
-	  if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
+	  if (c_parser_peek_token (parser)->pragma_kind == PRAGMA_OMP_SECTION)
 	    break;
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
 	    break;
@@ -7425,7 +7442,7 @@ c_parser_omp_sections_scope (c_parser *parser)
 	break;
 
       loc = c_parser_peek_token (parser)->location;
-      if (c_parser_peek_token (parser)->omp_kind == PRAGMA_OMP_SECTION)
+      if (c_parser_peek_token (parser)->pragma_kind == PRAGMA_OMP_SECTION)
 	{
 	  c_parser_consume_pragma (parser);
 	  c_parser_skip_to_pragma_eol (parser);
@@ -7503,7 +7520,7 @@ c_parser_omp_sections (c_parser *parser)
 static tree
 c_parser_omp_parallel (c_parser *parser)
 {
-  enum pragma_omp_kind p_kind = PRAGMA_OMP_PARALLEL;
+  enum pragma_kind p_kind = PRAGMA_OMP_PARALLEL;
   const char *p_name = "#pragma omp parallel";
   tree stmt, clauses, par_clause, ws_clause, block;
   unsigned int mask = OMP_PARALLEL_CLAUSE_MASK;
@@ -7597,12 +7614,12 @@ c_parser_omp_single (c_parser *parser)
 static void
 c_parser_omp_construct (c_parser *parser)
 {
-  enum pragma_omp_kind p_kind;
+  enum pragma_kind p_kind;
   location_t loc;
   tree stmt;
 
   loc = c_parser_peek_token (parser)->location;
-  p_kind = c_parser_peek_token (parser)->omp_kind;
+  p_kind = c_parser_peek_token (parser)->pragma_kind;
   c_parser_consume_pragma (parser);
 
   switch (p_kind)
@@ -7610,18 +7627,8 @@ c_parser_omp_construct (c_parser *parser)
     case PRAGMA_OMP_ATOMIC:
       c_parser_omp_atomic (parser);
       return;
-    case PRAGMA_OMP_BARRIER:
-      c_parser_error (parser, "%<#pragma omp barrier%> may only be "
-		      "used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
-      return;
     case PRAGMA_OMP_CRITICAL:
       c_parser_omp_critical (parser);
-      return;
-    case PRAGMA_OMP_FLUSH:
-      c_parser_error (parser, "%<#pragma omp flush%> may only be "
-		      "used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
       return;
     case PRAGMA_OMP_FOR:
       stmt = c_parser_omp_for (parser);
@@ -7676,17 +7683,25 @@ c_parser_omp_threadprivate (c_parser *parser)
 }
 
 
-/* The actual parser and external interface.  ??? Does this need to be
-   garbage-collected?  */
-
-static GTY (()) c_parser *the_parser;
-
 /* Parse a single source file.  */
 
 void
 c_parse_file (void)
 {
-  the_parser = c_parser_new ();
+  /* Use local storage to begin.  If the first token is a pragma, parse it.
+     If it is #pragma GCC pch_preprocess, then this will load a PCH file
+     which will cause garbage collection.  */
+  c_parser tparser;
+
+  memset (&tparser, 0, sizeof tparser);
+  the_parser = &tparser;
+
+  if (c_parser_next_token_is (&tparser, CPP_PRAGMA))
+    c_parser_pragma (&tparser, pragma_external);
+
+  the_parser = GGC_NEW (c_parser);
+  *the_parser = tparser;
+
   c_parser_translation_unit (the_parser);
   the_parser = NULL;
 }
