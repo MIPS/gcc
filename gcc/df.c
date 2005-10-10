@@ -39,10 +39,7 @@ reference (def or use) and this records the insn and bb the ref is
 found within.  The refs are linked together in chains of uses and defs
 for each insn and for each register.  Each ref also has a chain field
 that links all the use refs for a def or all the def refs for a use.
-This is used to create use-def o  update_life_info (blocks, UPDATE_LIFE_LOCAL,
-		    (reload_completed ? PROP_DEATH_NOTES
-		     : PROP_DEATH_NOTES | PROP_REG_INFO));
-r def-use chains.
+This is used to create use-def or def-use chains.
 
 
 USAGE:
