@@ -2414,8 +2414,15 @@ tree_generator::build_int (jint val, tree override)
 tree
 tree_generator::build_long (jlong val)
 {
-  // FIXME: what if HOST_WIDE_INT is smaller than jlong?
-  return build_int_cst (type_jlong, val);
+  unsigned HOST_WIDE_INT low;
+  HOST_WIDE_INT high;
+  unsigned HOST_WIDE_INT v2;
+
+  v2 = (unsigned HOST_WIDE_INT) ((val >> 32) & 0xffffffffLL);
+  lshift_double (v2, 0, 32, 64, &low, &high, 0);
+  add_double (low, high, (unsigned HOST_WIDE_INT) (val & 0xffffffffLL),
+	      0, &low, &high);
+  tree value = build_int_cst_wide (type_jlong, low, high);
 }
 
 tree
