@@ -1,3 +1,39 @@
+2005-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (x86_cmpxchg8b, x86_cmpxchg16b): New decls.
+	(TARGET_CMPXCHG8B, TARGET_CMPXCHG16B): Define.
+	* config/i386/i386.c (x86_cmpxchg8b, x86_cmpxchg16b): New variables.
+	* config/i386/sync.md (CASMODE, DCASMODE): New mode macros.
+	(doublemodesuffix, DCASHMODE): New mode attrs.
+	(sync_compare_and_swap<mode>): Change into expand, use CASMODE
+	instead of IMODE, if mode is wider than a word, expand into
+	sync_double_compare_and_swap*.
+	(*sync_compare_and_swap<mode>): New insn.
+	(sync_double_compare_and_swap<mode>): Likewise.
+	(*sync_double_compare_and_swapdi_pic): Likewise.
+	(sync_compare_and_swap_cc<mode>): Use CASMODE instead of IMODE, if
+	mode is wider than a word, expand into
+	sync_double_compare_and_swap_cc*.
+	(sync_double_compare_and_swap_cc<mode>): New insn.
+	(*sync_double_compare_and_swap_ccdi_pic): Likewise.
+	* sync-builtins.def (BUILT_IN_FETCH_AND_ADD_16,
+	BUILT_IN_FETCH_AND_SUB_16, BUILT_IN_FETCH_AND_OR_16,
+	BUILT_IN_FETCH_AND_AND_16, BUILT_IN_FETCH_AND_XOR_16,
+	BUILT_IN_FETCH_AND_NAND_16, BUILT_IN_ADD_AND_FETCH_16,
+	BUILT_IN_SUB_AND_FETCH_16, BUILT_IN_OR_AND_FETCH_16,
+	BUILT_IN_AND_AND_FETCH_16, BUILT_IN_XOR_AND_FETCH_16,
+	BUILT_IN_NAND_AND_FETCH_16, BUILT_IN_BOOL_COMPARE_AND_SWAP_16,
+	BUILT_IN_VAL_COMPARE_AND_SWAP_16, BUILT_IN_LOCK_TEST_AND_SET_16,
+	BUILT_IN_LOCK_RELEASE_16): New builtins.
+	* builtin-types.def (BT_I16, BT_FN_I16_VPTR_I16,
+	BT_FN_BOOL_VPTR_I16_I16, BT_FN_I16_VPTR_I16_I16): Add.
+	* builtins.c (get_builtin_sync_mode): Use 0 as last argument to
+	mode_for_size.
+	(expand_builtin): Handle sync BUILT_IN_*_16 builtins.
+	* c-common.c (sync_resolve_size): Handle also 128 bit sync builtins.
+	* gimplify.c (gimplify_omp_atomic): Also support 128 bit atomic.
+	Only use __sync_* builtins if memory is sufficiently aligned.
+
 2005-10-10  Richard Henderson  <rth@redhat.com>
 
 	* Makefile.in (GTFILES): Add c-pragma.h.

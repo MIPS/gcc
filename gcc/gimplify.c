@@ -4391,23 +4391,37 @@ gimplify_omp_atomic (tree *expr_p, tree *pre_p)
   /* Make sure the type is one of the supported sizes.  */
   index = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
   index = exact_log2 (index);
-  if (index >= 0 && index <= 3)
+  if (index >= 0 && index <= 4)
     {
       enum gimplify_status gs;
+      unsigned int align;
 
-      /* When possible, use specialized atomic update functions.  */
-      if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+      if (DECL_P (TREE_OPERAND (addr, 0)))
+	align = DECL_ALIGN_UNIT (TREE_OPERAND (addr, 0));
+      else if (TREE_CODE (TREE_OPERAND (addr, 0)) == COMPONENT_REF
+	       && TREE_CODE (TREE_OPERAND (TREE_OPERAND (addr, 0), 1))
+		  == FIELD_DECL)
+	align = DECL_ALIGN_UNIT (TREE_OPERAND (TREE_OPERAND (addr, 0), 1));
+      else
+	align = TYPE_ALIGN_UNIT (type);
+
+      /* __sync builtins require strict data alignment.  */
+      if (exact_log2 (align) >= index)
 	{
-	  gs = gimplify_omp_atomic_fetch_op (expr_p, addr, rhs, index);
+	  /* When possible, use specialized atomic update functions.  */
+	  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+	    {
+	      gs = gimplify_omp_atomic_fetch_op (expr_p, addr, rhs, index);
+	      if (gs != GS_UNHANDLED)
+		return gs;
+	    }
+
+	  /* If we don't have specialized __sync builtins, try and implement
+	     as a compare and swap loop.  */
+	  gs = gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
 	  if (gs != GS_UNHANDLED)
 	    return gs;
 	}
-
-      /* If we don't have specialized __sync builtins, try and implement
-	 as a compare and swap loop.  */
-      gs = gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
-      if (gs != GS_UNHANDLED)
-	return gs;
     }
 
   /* The ultimate fallback is wrapping the operation in a mutex.  */

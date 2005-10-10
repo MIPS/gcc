@@ -1,5 +1,8 @@
 2005-10-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* types.def (BT_I16, BT_FN_I16_VPTR_I16,
+	BT_FN_BOOL_VPTR_I16_I16, BT_FN_I16_VPTR_I16_I16): Add.
+
 	* trans-openmp.c (gfc_trans_omp_clauses): Create OMP_CLAUSE_DEFAULT.
 	(gfc_trans_omp_code): New function.
 	(gfc_trans_omp_do): Use it, remove omp_not_yet uses.
