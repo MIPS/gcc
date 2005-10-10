@@ -1,3 +1,8 @@
+2005-10-10  Ben Elliston  <bje@au.ibm.com>
+
+	* config/dfp-bit.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Define.
+	(LIBGCC2_HAS_XF_MODE): Likewise.	
+
 2005-10-07  Ben Elliston  <bje@au.ibm.com>
 
 	Brought in from mainline to assist AIX builds:
