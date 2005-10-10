@@ -1,5 +1,11 @@
 2005-10-10  Ben Elliston  <bje@au.ibm.com>
 
+	* config/rs6000/rs6000.md (*movsd_no_fprs): Remove.
+	(*movdd_nofprs32): Likewise.
+	(*movdd_nofprs64): Likewise.
+
+2005-10-10  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Define.
 	(LIBGCC2_HAS_XF_MODE): Likewise.	
 
