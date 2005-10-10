@@ -485,8 +485,10 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
   return type;
 }
 
+/* The interface the pragma parsers have to the lexer.  */
+
 enum cpp_ttype
-c_lex (tree *value)
+pragma_lex (tree *value)
 {
   location_t loc;
   return c_lex_with_flags (value, &loc, NULL);

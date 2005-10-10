@@ -1,5 +1,12 @@
 2005-10-09  Richard Henderson  <rth@redhat.com>
 
+	* c-lex.c (pragma_lex): Rename from c_lex.
+	* c-pch.c, c-pragma.c, c-pragma.h, config/darwin-c.c, config/sol2-c.c,
+	config/c4x/c4x-c.c, config/ia64/ia64-c.c, config/m32c/m32c-pragma.c,
+	config/rs6000/rs6000-c.c, config/v850/v850-c.c: Update to match.
+
+2005-10-09  Richard Henderson  <rth@redhat.com>
+
 	* omp-low.c (omp_copy_decl): Use %qs instead of %qE.
 
 2005-10-09  Richard Henderson  <rth@redhat.com>

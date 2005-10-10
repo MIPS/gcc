@@ -250,7 +250,7 @@ cp_lexer_new_main (void)
   /* Tell cpplib we want CPP_PRAGMA tokens.  */
   /* FIXME: cpp_get_options (parse_in)->defer_pragmas = true; */
 
-  /* Tell c_lex not to merge string constants.  */
+  /* Tell c_lex_with_flags not to merge string constants.  */
   c_lex_return_raw_strings = true;
 
   c_common_no_more_pch ();
@@ -293,8 +293,8 @@ cp_lexer_new_main (void)
   lexer->next_token = lexer->buffer_length ? buffer : (cp_token *)&eof_token;
 
   /* Pragma processing (via cpp_handle_deferred_pragma) may result in
-     direct calls to c_lex.  Those callers all expect c_lex to do
-     string constant concatenation.  */
+     direct calls to pragma_lex.  Those callers all expect pragma_lex
+     to do string constant concatenation.  */
   c_lex_return_raw_strings = false;
 
   gcc_assert (lexer->next_token->type != CPP_PURGED);

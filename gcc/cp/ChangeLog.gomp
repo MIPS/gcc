@@ -1,3 +1,9 @@
+2005-10-09  Richard Henderson  <rth@redhat.com>
+
+	* lex.c (parse_strconst_pragma): Update for c_lex name change.
+	(handle_pragma_java_exceptions): Likewise.
+	* parser.c (cp_lexer_new_main): Likewise.
+
 2005-10-06  Richard Henderson  <rth@redhat.com>
 
 	* parser.c (cp_lexer_new_main): Comment out defer_pragmas.
