@@ -1,5 +1,9 @@
 2005-10-10  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_this): Rewrote.
+
+2005-10-10  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (build_long): Rewrote.
 
 2005-10-10  Tom Tromey  <tromey@redhat.com>

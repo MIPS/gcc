@@ -2388,10 +2388,49 @@ tree_generator::visit_postfix_side_effect (model_postfix_minusminus *elt,
 }
 
 void
-tree_generator::visit_this (model_this *)
+tree_generator::visit_this (model_this *this_expr)
 {
   assert (this_tree != NULL_TREE);
-  current = this_tree;
+
+  model_class *rtype = assert_cast<model_class *> (this_expr->type ());
+  model_class *prev = rtype;
+  model_class *iter = method->get_declaring_class ();
+
+  tree expr_tree;
+  if (method->constructor_p () && ! this_expr->check_match (rtype, iter))
+    {
+      // In <init>, we want to reference the argument
+      // corresponding to this$0, not the field.  This is more
+      // efficient, and also without it we can create unverifiable
+      // bytecode before invoking the superclass constructor.
+      // Obviously this doesn't make sense for a pure "this", only
+      // an outer "this".
+      model_constructor *cons
+	= assert_cast<model_constructor *> (method);
+      model_variable_decl *th0 = cons->get_this0_parameter ();
+      expr_tree = gcc_builtins->map_variable (method_tree, th0);
+      prev = iter;
+      iter = iter->get_lexically_enclosing_class ();
+    }
+  else
+    expr_tree = this_tree;
+
+  for (;
+       ! this_expr->check_match (rtype, iter);
+       iter = iter->get_lexically_enclosing_class ())
+    {
+      assert (iter != NULL);
+
+      ref_field th0 = iter->get_this_0 ();
+      gcc_builtins->lay_out_class (iter);
+      expr_tree = gcc_builtins->map_field_ref (class_wrapper, expr_tree,
+					       th0.get ());
+
+      prev = iter;
+    }
+
+  current = expr_tree;
+  // Note: can't annotate here as we have a DECL, not an expression.
 }
 
 void
