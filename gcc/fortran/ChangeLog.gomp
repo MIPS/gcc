@@ -1,3 +1,14 @@
+2005-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Create OMP_CLAUSE_DEFAULT.
+	(gfc_trans_omp_code): New function.
+	(gfc_trans_omp_do): Use it, remove omp_not_yet uses.
+	(gfc_trans_omp_parallel, gfc_trans_omp_single): Likewise.
+	(gfc_trans_omp_sections): Likewise.  Only treat empty last section
+	specially if lastprivate clause is present.
+	* f95-lang.c (gfc_init_builtin_functions): Create BUILT_IN_TRAP
+	builtin.
+
 2005-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/14943

@@ -227,6 +227,26 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
+  if (clauses->default_sharing != OMP_DEFAULT_UNKNOWN)
+    {
+      c = make_node (OMP_CLAUSE_DEFAULT);
+      switch (clauses->default_sharing)
+	{
+	case OMP_DEFAULT_NONE:
+	  OMP_CLAUSE_DEFAULT_KIND (c) = OMP_CLAUSE_DEFAULT_NONE;
+	  break;
+	case OMP_DEFAULT_SHARED:
+	  OMP_CLAUSE_DEFAULT_KIND (c) = OMP_CLAUSE_DEFAULT_SHARED;
+	  break;
+	case OMP_DEFAULT_PRIVATE:
+	  OMP_CLAUSE_DEFAULT_KIND (c) = OMP_CLAUSE_DEFAULT_PRIVATE;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
+
   if (clauses->nowait)
     {
       c = make_node (OMP_CLAUSE_NOWAIT);
@@ -241,6 +261,31 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses)
 
   return omp_clauses;
 }
+
+/* Like gfc_trans_code, but force creation of a BIND_EXPR around it.  */
+
+static tree
+gfc_trans_omp_code (gfc_code *code, bool force_empty)
+{
+  tree stmt;
+
+  pushlevel (0);
+  stmt = gfc_trans_code (code);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    {
+      if (!IS_EMPTY_STMT (stmt) || force_empty)
+	{
+	  tree block = poplevel (1, 0, 0);
+	  stmt = build3_v (BIND_EXPR, NULL, stmt, block);
+	}
+      else
+	poplevel (0, 0, 0);
+    }
+  else
+    poplevel (0, 0, 0);
+  return stmt;
+}
+
 
 static tree gfc_trans_omp_sections (gfc_code *, gfc_omp_clauses *);
 static tree gfc_trans_omp_workshare (gfc_code *, gfc_omp_clauses *);
@@ -442,9 +487,6 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
   code = code->block->next;
   gcc_assert (code->op == EXEC_DO);
 
-  if (!omp_not_yet)
-    return gfc_trans_code (code);
-
   gfc_start_block (&block);
 
   omp_clauses = gfc_trans_omp_clauses (&block, clauses);
@@ -552,7 +594,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
   code->block->backend_decl = tree_cons (cycle_label, NULL, NULL);
 
   /* Main loop body.  */
-  tmp = gfc_trans_code (code->block->next);
+  tmp = gfc_trans_omp_code (code->block->next, true);
   gfc_add_expr_to_block (&body, tmp);
 
   /* Label for cycle statements (if needed).  */
@@ -612,9 +654,8 @@ gfc_trans_omp_parallel (gfc_code *code)
 
   gfc_start_block (&block);
   omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses);
-  stmt = gfc_trans_code (code->block->next);
-  if (omp_not_yet)
-    stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  stmt = gfc_trans_omp_code (code->block->next, true);
+  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -704,28 +745,28 @@ gfc_trans_omp_sections (gfc_code *code, gfc_omp_clauses *clauses)
 {
   stmtblock_t block, body;
   tree omp_clauses, stmt;
+  bool has_lastprivate = clauses->lists[OMP_LIST_LASTPRIVATE] != NULL;
 
   gfc_start_block (&block);
 
   omp_clauses = gfc_trans_omp_clauses (&block, clauses);
 
-  gfc_start_block (&body);
+  gfc_init_block (&body);
   for (code = code->block; code; code = code->block)
     {
-      stmt = gfc_trans_code (code->next);
       /* Last section is special because of lastprivate, so even if it
 	 is empty, chain it in.  */
-      if (code->block == NULL || ! IS_EMPTY_STMT (stmt))
+      stmt = gfc_trans_omp_code (code->next,
+				 has_lastprivate && code->block == NULL);
+      if (! IS_EMPTY_STMT (stmt))
 	{
-	  if (omp_not_yet)
-	    stmt = build1_v (OMP_SECTION, stmt);
+	  stmt = build1_v (OMP_SECTION, stmt);
 	  gfc_add_expr_to_block (&body, stmt);
 	}
     }
   stmt = gfc_finish_block (&body);
 
-  if (omp_not_yet)
-    stmt = build2_v (OMP_SECTIONS, omp_clauses, stmt);
+  stmt = build2_v (OMP_SECTIONS, omp_clauses, stmt);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);
@@ -735,9 +776,8 @@ static tree
 gfc_trans_omp_single (gfc_code *code, gfc_omp_clauses *clauses)
 {
   tree omp_clauses = gfc_trans_omp_clauses (NULL, clauses);
-  tree stmt = gfc_trans_code (code->block->next);
-  if (omp_not_yet)
-    stmt = build2_v (OMP_SINGLE, omp_clauses, stmt);
+  tree stmt = gfc_trans_omp_code (code->block->next, true);
+  stmt = build2_v (OMP_SINGLE, omp_clauses, stmt);
   return stmt;
 }
 

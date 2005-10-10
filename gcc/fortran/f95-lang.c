@@ -1026,11 +1026,15 @@ gfc_init_builtin_functions (void)
     {
 #undef DEF_GOMP_BUILTIN
 #define DEF_GOMP_BUILTIN(code, name, type, attr) \
-    gfc_define_builtin ("__builtin_" name, builtin_types[type], \
-			code, name, attr == ATTR_CONST_NOTHROW_LIST);
+      gfc_define_builtin ("__builtin_" name, builtin_types[type], \
+			  code, name, attr == ATTR_CONST_NOTHROW_LIST);
 #include "../omp-builtins.def"
 #undef DEF_GOMP_BUILTIN
     }
+
+  gfc_define_builtin ("__builtin_trap", builtin_types[BT_FN_VOID],
+		      BUILT_IN_TRAP, NULL, false);
+  TREE_THIS_VOLATILE (built_in_decls[BUILT_IN_TRAP]) = 1;
 
   build_common_builtin_nodes ();
   targetm.init_builtins ();
