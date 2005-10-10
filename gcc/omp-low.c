@@ -477,7 +477,8 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_COPYPRIVATE:
-	  scan_omp (pc, ctx);
+	  if (ctx->outer)
+	    scan_omp (pc, ctx->outer);
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_COPYIN:
@@ -493,7 +494,8 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
-	  scan_omp (pc, ctx);
+	  if (ctx->outer)
+	    scan_omp (pc, ctx->outer);
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
