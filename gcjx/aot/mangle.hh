@@ -44,6 +44,7 @@ class mangler
   void update (model_package *);
   void update_array (model_array_type *);
   void update (model_type *, bool);
+  void update_cxx (const std::string &);
 
 public:
 

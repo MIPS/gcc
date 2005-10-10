@@ -1,3 +1,18 @@
+2005-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* aot/mangle.cc (update_cxx): New method.
+	(mangler): Use it.
+	* aot/mangle.hh (mangler::update_cxx): Declare.
+	* header/cni.hh (cni_code_generator::keyword_p): Removed.
+	* header/cni.cc (keywords): Moved to util.cc.
+	(NUM_KEYWORDS): Likewise.
+	(keyword_p): Likewise.
+	(write_method): Updated.
+	(write_field): Likewise.
+	* util.cc (keywords): New global.
+	(NUM_KEYWORDS): New macro.
+	* util.hh (cxx_keyword_p): Declare.
+
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/generate.cc (visit_field_ref): Removed unneeded casts.

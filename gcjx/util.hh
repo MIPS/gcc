@@ -137,4 +137,7 @@ bool class_file_p (const std::string &);
 /// Return true if the string names a java source file.
 bool java_file_p (const std::string &);
 
+/// Return true if the string is a C++ keyword.
+bool cxx_keyword_p (const std::string &);
+
 #endif // GCJX_UTIL_HH

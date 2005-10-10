@@ -25,126 +25,11 @@
 
 #include <fstream>
 
-// Sorted list of C++ keywords.
-// FIXME: doesn't include some things that G++ might consider as
-// keywords.
-static const char *const keywords[] =
-{
-  "and",
-  "and_eq",
-  "asm",
-  "auto",
-  "bitand",
-  "bitor",
-  "bool",
-  "break",
-  "case",
-  "catch",
-  "char",
-  "class",
-  "compl",
-  "const",
-  "const_cast",
-  "continue",
-  "default",
-  "delete",
-  "do",
-  "double",
-  "dynamic_cast",
-  "else",
-  "enum",
-  "explicit",
-  "export",
-  "extern",
-  "false",
-  "float",
-  "for",
-  "friend",
-  "goto",
-  "if",
-  "inline",
-  "int",
-  "long",
-  "mutable",
-  "namespace",
-  "new",
-  "not",
-  "not_eq",
-  "operator",
-  "or",
-  "or_eq",
-  "private",
-  "protected",
-  "public",
-  "register",
-  "reinterpret_cast",
-  "return",
-  "short",
-  "signed",
-  "sizeof",
-  "static",
-  "static_cast",
-  "struct",
-  "switch",
-  "template",
-  "this",      
-  "throw",
-  "true",
-  "try",
-  "typedef",
-  "typeid",
-  "typename",
-  "typeof",
-  "union",
-  "unsigned",
-  "using",
-  "virtual",
-  "void",
-  "volatile",
-  "wchar_t",
-  "while",
-  "xor",
-  "xor_eq"
-};
-
-#define NUM_KEYWORDS  (sizeof (keywords) / sizeof (keywords[0]))
-
 cni_code_generator::cni_code_generator (compiler *c, directory_cache &dirs)
   : code_generator (dirs),
     comp (c),
     std_headers_ok (true)
 {
-}
-
-bool
-cni_code_generator::keyword_p (const std::string &name)
-{
-  // Strip '$'s off the end.
-  int i;
-  for (i = name.length () - 1; i >= 0 && name[i] == '$'; --i)
-    ;
-  std::string newname = name.substr (0, i + 1);
-
-  int low = 0;
-  int high = NUM_KEYWORDS;
-  int last = -1;
-
-  while (true)
-    {
-      int current = (low + high) / 2;
-      if (current == last)
-	break;
-      int cmp = newname.compare (keywords[current]);
-      if (cmp == 0)
-	return true;
-      else if (cmp > 0)
-	low = current;
-      else
-	high = current;
-      last = current;
-    }
-
-  return false;
 }
 
 void
@@ -504,7 +389,7 @@ cni_code_generator::write_method (std::ostream &out,
       if (! meth->get_return_type ()->reference_p ())
 	out << " ";
       out << meth->get_name ();
-      if (keyword_p (meth->get_name ()))
+      if (cxx_keyword_p (meth->get_name ()))
 	out << "$";
     }
   out << " (";
@@ -560,7 +445,7 @@ cni_code_generator::write_field (std::ostream &out,
   out << field->get_name ();
   if (method_names.find (field->get_name ()) != method_names.end ())
     out << "__";
-  else if (keyword_p (field->get_name ()))
+  else if (cxx_keyword_p (field->get_name ()))
     out << "$";
 
   if (field->static_p () && field->constant_p () && ftype->integral_p ())

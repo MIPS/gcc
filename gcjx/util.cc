@@ -23,6 +23,94 @@
 
 #include <fstream>
 
+
+
+// Sorted list of C++ keywords.
+// FIXME: doesn't include some things that G++ might consider as
+// keywords.
+static const char *const keywords[] =
+{
+  "and",
+  "and_eq",
+  "asm",
+  "auto",
+  "bitand",
+  "bitor",
+  "bool",
+  "break",
+  "case",
+  "catch",
+  "char",
+  "class",
+  "compl",
+  "const",
+  "const_cast",
+  "continue",
+  "default",
+  "delete",
+  "do",
+  "double",
+  "dynamic_cast",
+  "else",
+  "enum",
+  "explicit",
+  "export",
+  "extern",
+  "false",
+  "float",
+  "for",
+  "friend",
+  "goto",
+  "if",
+  "inline",
+  "int",
+  "long",
+  "mutable",
+  "namespace",
+  "new",
+  "not",
+  "not_eq",
+  "operator",
+  "or",
+  "or_eq",
+  "private",
+  "protected",
+  "public",
+  "register",
+  "reinterpret_cast",
+  "return",
+  "short",
+  "signed",
+  "sizeof",
+  "static",
+  "static_cast",
+  "struct",
+  "switch",
+  "template",
+  "this",      
+  "throw",
+  "true",
+  "try",
+  "typedef",
+  "typeid",
+  "typename",
+  "typeof",
+  "union",
+  "unsigned",
+  "using",
+  "virtual",
+  "void",
+  "volatile",
+  "wchar_t",
+  "while",
+  "xor",
+  "xor_eq"
+};
+
+#define NUM_KEYWORDS  (sizeof (keywords) / sizeof (keywords[0]))
+
+
+
 std::list<std::string>
 drop_last_element (const std::list<std::string> &in)
 {
@@ -210,4 +298,35 @@ java_file_p (const std::string &name)
   //   1. Fix this for case-insensitive file systems.
   //   2. Ensure that name actually represents an existing file6
   return name_len > 5 && name.compare (name_len - 5, 5, ".java") == 0;
+}
+
+bool
+cxx_keyword_p (const std::string &name)
+{
+  // Strip '$'s off the end.
+  int i;
+  for (i = name.length () - 1; i >= 0 && name[i] == '$'; --i)
+    ;
+  std::string newname = name.substr (0, i + 1);
+
+  int low = 0;
+  int high = NUM_KEYWORDS;
+  int last = -1;
+
+  while (true)
+    {
+      int current = (low + high) / 2;
+      if (current == last)
+	break;
+      int cmp = newname.compare (keywords[current]);
+      if (cmp == 0)
+	return true;
+      else if (cmp > 0)
+	low = current;
+      else
+	high = current;
+      last = current;
+    }
+
+  return false;
 }

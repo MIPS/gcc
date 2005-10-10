@@ -62,7 +62,6 @@ protected:
   aot_class_factory factory;
 
 
-  bool keyword_p (const std::string &);
   std::string cxxname (model_type *, bool = true);
   void update_modifiers (std::ostream &, modifier_t, modifier_t &);
   void add (model_type *, std::set<model_class *> &,

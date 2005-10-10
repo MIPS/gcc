@@ -332,6 +332,8 @@ things to document about trees:
 - having a NULL type for a SWITCH_EXPR causes a crash,
   despite what tree.def says
 - CALL_EXPR requires the address of the function
+- DECL_INITIAL is not sufficient for local variables, instead you
+  need to emit MODIFY_EXPRs for them
 
 we should use explicit temporaries instead of save_expr
 

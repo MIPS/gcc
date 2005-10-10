@@ -212,6 +212,18 @@ mangler::update (const std::string &name)
 }
 
 void
+mangler::update_cxx (const std::string &name)
+{
+  update (name);
+  // If we have a member whose name is a C++ keyword, we append '$'.
+  // Note that, strangely, we do this after encoding the length of the
+  // member name.  E.g., we end up with things like "6delete$" rather
+  // than "7delete$".
+  if (cxx_keyword_p (name))
+    result = result + "$";
+}
+
+void
 mangler::update (model_package *p)
 {
   int n = find_compression (p, false);
@@ -332,7 +344,7 @@ mangler::mangler (model_method *m)
   if (m->constructor_p ())
     result += "C1";
   else
-    update (m->get_name ());
+    update_cxx (m->get_name ());
 
   result += "E";
 
@@ -354,7 +366,7 @@ mangler::mangler (model_field *f)
   : result ("_Z")
 {
   update (f->get_declaring_class (), false);
-  update (f->get_name ());
+  update_cxx (f->get_name ());
   result += "E";
 }
 
