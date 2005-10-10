@@ -1595,10 +1595,18 @@ tree_generator::handle_op_assignment (model_element *element,
   if (! is_shift)
     lhs_dup_tree = fold (convert (rhs_type, lhs_dup_tree));
 
+  // The 'mod' operation requires a special case as it may expand to a
+  // builtin or a function call.
+  tree operation;
+  if (op == TRUNC_MOD_EXPR)
+    operation = build_mod (rhs_type, lhs_dup_tree, rhs_tree);
+  else
+    operation = build2 (op, rhs_type, lhs_dup_tree, rhs_tree);
+  TREE_SIDE_EFFECTS (operation) = (TREE_SIDE_EFFECTS (lhs_tree)
+				   | TREE_SIDE_EFFECTS (rhs_tree));
+
   current = build2 (MODIFY_EXPR, TREE_TYPE (lhs_tree), lhs_tree,
-		    fold (convert (TREE_TYPE (lhs_tree),
-				   build2 (op, rhs_type,
-					   lhs_dup_tree, rhs_tree))));
+		    fold (convert (TREE_TYPE (lhs_tree), operation)));
   TREE_SIDE_EFFECTS (current) = 1;
   annotate (current, element);
 
@@ -1674,19 +1682,7 @@ tree_generator::visit_op_assignment (model_mod_equal *op,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  lhs->visit (this);
-  tree lhs_tree = save_expr (current);
-  rhs->visit (this);
-  tree rhs_tree = current;
-
-  tree div_type = gcc_builtins->map_type (op->type ());
-
-  current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
-		    lhs_tree,
-		    build_mod (div_type, lhs_tree,
-			       rhs_tree));
-  TREE_SIDE_EFFECTS (current) = 1;
-  annotate (current, op);
+  handle_op_assignment (op, TRUNC_MOD_EXPR, lhs, rhs);
 }
 
 void

@@ -1,3 +1,8 @@
+2005-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (visit_op_assignment): Use handle_op_assignment.
+	(handle_op_assignment): Handle 'mod' specially.
+
 2005-10-09  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_variable_stmt): Build a series of MODIFY_EXPRs
