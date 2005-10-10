@@ -1,3 +1,13 @@
+2005-10-09  Richard Henderson  <rth@redhat.com>
+
+	* critical.c (atomic_lock): New.
+	(initialize_critical): Initialize it.
+	(GOMP_atomic_start, GOMP_atomic_end): New.
+	* libgomp.map: Export them.
+	* libgomp_g.h: Declare them.
+
+	* testsuite/libgomp.dg/atomic-10.c: Move from gcc testsuite.
+
 2005-10-02  Richard Henderson  <rth@redhat.com>
 
 	* configure.ac: Move save_CFLAGS hack earlier.  Append -Wall/-Werror

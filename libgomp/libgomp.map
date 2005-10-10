@@ -57,6 +57,8 @@ OMP_2.0 {
 
 GOMP_1.0 {
   global:
+	GOMP_atomic_end;
+	GOMP_atomic_start;
 	GOMP_barrier;
 	GOMP_critical_end;
 	GOMP_critical_name_end;

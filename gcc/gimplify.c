@@ -46,6 +46,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "toplev.h"
 #include "target.h"
+#include "optabs.h"
+
 
 static struct gimplify_ctx
 {
@@ -4125,24 +4127,30 @@ gimplify_omp_atomic_fetch_op (tree *expr_p, tree addr, tree rhs, int index)
 {
   enum built_in_function base;
   tree decl, args, itype;
+  enum insn_code *optab;
 
   /* Check for one of the supported fetch-op operations.  */
   switch (TREE_CODE (rhs))
     {
     case PLUS_EXPR:
       base = BUILT_IN_FETCH_AND_ADD_N;
+      optab = sync_add_optab;
       break;
     case MINUS_EXPR:
       base = BUILT_IN_FETCH_AND_SUB_N;
+      optab = sync_add_optab;
       break;
     case BIT_AND_EXPR:
       base = BUILT_IN_FETCH_AND_AND_N;
+      optab = sync_and_optab;
       break;
     case BIT_IOR_EXPR:
       base = BUILT_IN_FETCH_AND_OR_N;
+      optab = sync_ior_optab;
       break;
     case BIT_XOR_EXPR:
       base = BUILT_IN_FETCH_AND_XOR_N;
+      optab = sync_xor_optab;
       break;
     default:
       return GS_UNHANDLED;
@@ -4159,6 +4167,9 @@ gimplify_omp_atomic_fetch_op (tree *expr_p, tree addr, tree rhs, int index)
 
   decl = built_in_decls[base + index + 1];
   itype = TREE_TYPE (TREE_TYPE (decl));
+
+  if (optab[TYPE_MODE (itype)] == CODE_FOR_nothing)
+    return GS_UNHANDLED;
 
   args = tree_cons (NULL, fold_convert (itype, rhs), NULL);
   args = tree_cons (NULL, addr, args);
@@ -4232,6 +4243,9 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
   cmpxchg = built_in_decls[BUILT_IN_VAL_COMPARE_AND_SWAP_N + index + 1];
   type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
   itype = TREE_TYPE (TREE_TYPE (cmpxchg));
+
+  if (sync_compare_and_swap[TYPE_MODE (itype)] == CODE_FOR_nothing)
+    return GS_UNHANDLED;
 
   oldval = create_tmp_var (type, NULL);
   newval = create_tmp_var (type, NULL);
@@ -4308,6 +4322,39 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
   return GS_ALL_DONE;
 }
 
+/* A subroutine of gimplify_omp_atomic.  Implement the atomic operation as:
+
+	GOMP_atomic_start ();
+	*addr = rhs;
+	GOMP_atomic_end ();
+
+   The result is not globally atomic, but works so long as all parallel
+   references are within #pragma omp atomic directives.  According to
+   responses received from omp@openmp.org, appears to be within spec.
+   Which makes sense, since that's how several other compilers handle
+   this situation as well.  */
+
+static enum gimplify_status
+gimplify_omp_atomic_mutex (tree *expr_p, tree *pre_p, tree addr, tree rhs)
+{
+  tree t;
+
+  t = built_in_decls[BUILT_IN_GOMP_ATOMIC_START];
+  t = build_function_call_expr (t, NULL);
+  gimplify_and_add (t, pre_p);
+
+  t = build_fold_indirect_ref (addr);
+  t = build2 (MODIFY_EXPR, void_type_node, t, rhs);
+  gimplify_and_add (t, pre_p);
+  
+  t = built_in_decls[BUILT_IN_GOMP_ATOMIC_END];
+  t = build_function_call_expr (t, NULL);
+  gimplify_and_add (t, pre_p);
+
+  *expr_p = NULL;
+  return GS_ALL_DONE;
+}
+
 /* Gimplify an OMP_ATOMIC statement.  */
 
 static enum gimplify_status
@@ -4321,24 +4368,27 @@ gimplify_omp_atomic (tree *expr_p, tree *pre_p)
   /* Make sure the type is one of the supported sizes.  */
   index = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
   index = exact_log2 (index);
-  if (index < 0 || index > 3)
-    {
-      sorry ("unsupported expression type for openmp atomic");
-      return GS_ERROR;
-    }
-
-  /* When possible, use specialized atomic update functions.  */
-  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+  if (index >= 0 && index <= 3)
     {
       enum gimplify_status gs;
-      gs = gimplify_omp_atomic_fetch_op (expr_p, addr, rhs, index);
+
+      /* When possible, use specialized atomic update functions.  */
+      if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+	{
+	  gs = gimplify_omp_atomic_fetch_op (expr_p, addr, rhs, index);
+	  if (gs != GS_UNHANDLED)
+	    return gs;
+	}
+
+      /* If we don't have specialized __sync builtins, try and implement
+	 as a compare and swap loop.  */
+      gs = gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
       if (gs != GS_UNHANDLED)
 	return gs;
     }
 
-  /* In these cases, we don't have specialized __sync builtins,
-     so we need to implement a compare and swap loop.  */
-  return gimplify_omp_atomic_pipeline (expr_p, pre_p, addr, rhs, index);
+  /* The ultimate fallback is wrapping the operation in a mutex.  */
+  return gimplify_omp_atomic_mutex (expr_p, pre_p, addr, rhs);
 }
 
 /*  Gimplifies the expression tree pointed to by EXPR_P.  Return 0 if

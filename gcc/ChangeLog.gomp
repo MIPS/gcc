@@ -1,5 +1,17 @@
 2005-10-09  Richard Henderson  <rth@redhat.com>
 
+	* Makefile.in (gimplify.o): Add OPTABS_H.
+	* gimplify.c: Include optabs.h.
+	(gimplify_omp_atomic_fetch_op): Fail if the atomic operation
+	isn't supported on the target.
+	(gimplify_omp_atomic_pipeline): Likewise.
+	(gimplify_omp_atomic_mutex): New.
+	(gimplify_omp_atomic): Use it when all else fails.
+	* omp-builtins.def (BUILT_IN_GOMP_ATOMIC_START): New.
+	(BUILT_IN_GOMP_ATOMIC_END): New.
+
+2005-10-09  Richard Henderson  <rth@redhat.com>
+
 	* omp-low.c (scan_sharing_clauses): Force a remapping to ocurr in
 	the context outer to a non-parallel firstprivate, lastprivate or
 	reduction clause.
