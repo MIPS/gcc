@@ -1,3 +1,8 @@
+2005-10-11  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4134111
+	gcc.c-torture/execute/memcmp_x.c:  New.
+
 2005-10-11  Devang Patel  <dpatel@apple.com>
 
 	Radar 4117876
