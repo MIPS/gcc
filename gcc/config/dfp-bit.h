@@ -21,9 +21,18 @@
 #ifndef _DFPBIT_H
 #define _DFPBIT_H
 
+#include "tconfig.h"
+#include "coretypes.h"
+#include "tm.h"
+
+#ifndef LIBGCC2_FLOAT_WORDS_BIG_ENDIAN
+#define LIBGCC2_FLOAT_WORDS_BIG_ENDIAN LIBGCC2_WORDS_BIG_ENDIAN
+#endif
+
 #ifndef LIBGCC2_LONG_DOUBLE_TYPE_SIZE
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
 #endif
+
 #ifndef LIBGCC2_HAS_XF_MODE
 #define LIBGCC2_HAS_XF_MODE \
   (BITS_PER_UNIT == 8 && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)

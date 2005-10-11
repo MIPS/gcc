@@ -46,14 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include <limits.h>
 
-#include "tconfig.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "config/dfp-bit.h"
-
-#ifndef LIBGCC2_FLOAT_WORDS_BIG_ENDIAN
-#define LIBGCC2_FLOAT_WORDS_BIG_ENDIAN FLOAT_WORDS_BIG_ENDIAN
-#endif
 
 /* Forward declarations.  */
 #if WIDTH == 32 || WIDTH_TO == 32

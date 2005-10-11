@@ -1,3 +1,10 @@
+2005-10-11  Ben Elliston  <bje@au.ibm.com>
+
+	* config/dfp-bit.h: Include "tconfig.h", "coretypes.h", "tm.h".
+	(LIBGCC2_FLOAT_WORDS_BIG_ENDIAN): Define, if not already.
+	* config/dfp-bit.c: Don't include the aforementioned headers.
+	(LIBGCC_FLOAT_WORDS_BIG_ENDIAN): Remove.
+
 2005-10-10  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/rs6000.md (*movsd_no_fprs): Remove.
