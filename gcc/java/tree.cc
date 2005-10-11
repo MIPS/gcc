@@ -1737,9 +1737,9 @@ tree_generator::visit_op_assignment (model_plus_equal *elt,
   model_class *sb_class;
   tree buffer_tree = create_stringbuffer (&sb_class, elt);
 
-  // Wrap the LHS in a SAVE_EXPR so we only evaluate it once.
+  // Wrap the LHS so we only evaluate it once.
   lhs->visit (this);
-  tree lhs_tree = save_expr (current);
+  tree lhs_tree = stabilize_reference (current);
 
   // Add the LHS and RHS to the StringBuffer.
   stringbuffer_append (lhs.get (), buffer_tree, sb_class, lhs_tree);

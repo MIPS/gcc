@@ -1,5 +1,9 @@
 2005-10-10  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_op_assignment): Use stabilize_reference.
+
+2005-10-10  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_new_array): Correctly handle multi-dimensional
 	case.
 
