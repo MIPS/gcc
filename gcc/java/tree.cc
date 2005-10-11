@@ -1580,7 +1580,7 @@ tree_generator::handle_op_assignment (model_element *element,
 				      const ref_expression &rhs)
 {
   lhs->visit (this);
-  tree lhs_tree = save_expr (current);
+  tree lhs_tree = stabilize_reference (current);
   rhs->visit (this);
   tree rhs_tree = current;
 
@@ -1600,6 +1600,8 @@ tree_generator::handle_op_assignment (model_element *element,
   tree operation;
   if (op == TRUNC_MOD_EXPR)
     operation = build_mod (rhs_type, lhs_dup_tree, rhs_tree);
+  else if (op == RDIV_EXPR)
+    operation = build_divide (rhs_type, lhs_dup_tree, rhs_tree);
   else
     operation = build2 (op, rhs_type, lhs_dup_tree, rhs_tree);
   TREE_SIDE_EFFECTS (operation) = (TREE_SIDE_EFFECTS (lhs_tree)
@@ -1638,19 +1640,7 @@ tree_generator::visit_op_assignment (model_div_equal *op,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  lhs->visit (this);
-  tree lhs_tree = save_expr (current);
-  rhs->visit (this);
-  tree rhs_tree = current;
-
-  tree div_type = gcc_builtins->map_type (op->type ());
-
-  current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
-		    lhs_tree,
-		    build_divide (div_type, lhs_tree,
-				  rhs_tree));
-  TREE_SIDE_EFFECTS (current) = 1;
-  annotate (current, op);
+  handle_op_assignment (op, RDIV_EXPR, lhs, rhs);
 }
 
 void
