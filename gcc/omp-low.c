@@ -855,8 +855,8 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	  var = OMP_CLAUSE_DECL (c);
 	  new_var = lookup_decl (var, ctx);
 	  x = build_reduction_init (c);
-	  continue;
-	  
+	  break;
+
 	default:
 	  continue;
 	}

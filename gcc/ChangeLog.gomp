@@ -1,11 +1,11 @@
 2005-10-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (expand_rec_input_clauses): Fix a typo.
+
 	* omp-low.c (expand_reduction_clauses): If there is just
 	one reduction clause, expand it as OMP_ATOMIC instead of
 	using a lock.  Use GOMP_atomic_{start,end} instead of
 	GOMP_critical_{start,end}.
-
-2005-10-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-pretty-print.c (dump_omp_clauses): Handle OMP_CLAUSE_DEFAULT.
 	(op_symbol_1): Handle MAX_EXPR and MIN_EXPR.
