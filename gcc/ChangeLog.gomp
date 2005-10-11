@@ -1,3 +1,12 @@
+2005-10-11  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (enum c_builtin_type): Move to top-level from
+	c_common_nodes_and_builtins enum builtin_type.
+	(builtin_types): Move from c_common_nodes_and_builtins.
+	(def_fn_type): New.
+	(c_common_nodes_and_builtins): Use it.
+	(def_builtin_1): Check for error_mark_node.
+
 2005-10-10  Richard Henderson  <rth@redhat.com>
 
 	* omp-low.c (install_var_field): Set DECL_ABSTRACT_ORIGIN.
