@@ -604,8 +604,63 @@ public:
   {
     // Nothing.
   }
+  
+  void visit_annotation_member (model_annotation_member *,
+                                const ref_forwarding_type &)
+  {
+    // Nothing.
+  }
 
-  void visit_element (model_element *)
+  void visit_annotation_value (model_annotation_value *,
+                               const std::string &, const ref_expression &)
+  {
+    // Nothing.
+  }
+
+  void visit_import_single (model_import_single *,
+                            const std::list<std::string> &, model_class *)
+  {
+    // Nothing.
+  }
+
+  void visit_import_on_demand (model_import_on_demand *,
+                               const std::list<std::string> &, Iname *, bool)
+  {
+    // Nothing.
+  }
+
+  void visit_static_import_single (model_static_import_single *,
+				   const std::list<std::string> &,
+				   model_class *, const std::string &)
+  {
+    // Nothing.
+  }
+
+  void visit_static_import_on_demand (model_static_import_on_demand *,
+				      const std::list<std::string> &,
+				      model_class *)
+  {
+    // Nothing.
+  }
+  
+  void visit_unit_source (model_unit_source *, model_package *,
+			  const std::list<ref_class> &,
+			  const std::string &,
+			  bool, const std::list<ref_import> &)
+  {
+    // Nothing.
+  }
+  
+  void visit_unit_class (model_unit_class *, model_package *,
+			 const std::list<ref_class> &,
+			 const std::string &, bool)
+  {
+    // Nothing.
+  }
+  
+  void visit_unit_fake (model_unit_fake *, model_package *,
+			const std::list<ref_class> &,
+			const std::string &, bool)
   {
     // Nothing.
   }

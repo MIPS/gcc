@@ -1,3 +1,8 @@
+2005-10-10  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* tree.hh (tree_generator): Remove visit_element() and add dummy
+	implementations of new visitor methods.
+
 2005-10-10  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_op_assignment): Use stabilize_reference.
