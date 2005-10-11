@@ -251,13 +251,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	    reduction = OMP_LIST_NEQV;
 	  else if (gfc_match ("max") == MATCH_YES)
 	    reduction = OMP_LIST_MAX;
-	  else if (gfc_match (".min.") == MATCH_YES)
+	  else if (gfc_match ("min") == MATCH_YES)
 	    reduction = OMP_LIST_MIN;
-	  else if (gfc_match (".iand.") == MATCH_YES)
+	  else if (gfc_match ("iand") == MATCH_YES)
 	    reduction = OMP_LIST_IAND;
-	  else if (gfc_match (".ior.") == MATCH_YES)
+	  else if (gfc_match ("ior") == MATCH_YES)
 	    reduction = OMP_LIST_IOR;
-	  else if (gfc_match (".ieor.") == MATCH_YES)
+	  else if (gfc_match ("ieor") == MATCH_YES)
 	    reduction = OMP_LIST_IEOR;
 	  if (reduction != OMP_LIST_NUM
 	      && gfc_match_omp_variable_list (" :", &c->lists[reduction])

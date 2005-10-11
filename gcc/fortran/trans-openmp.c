@@ -36,8 +36,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-const.h"
 #include "arith.h"
 
-int omp_not_yet;
-
 
 static inline tree
 gfc_trans_add_clause (tree node, tree tail)
@@ -674,21 +672,22 @@ gfc_trans_omp_parallel_do (gfc_code *code)
     {
       memcpy (&parallel_clauses, code->ext.omp_clauses,
 	      sizeof (parallel_clauses));
-      do_clauses.lists[OMP_LIST_LASTPRIVATE]
-	= parallel_clauses.lists[OMP_LIST_LASTPRIVATE];
       do_clauses.sched_kind = parallel_clauses.sched_kind;
       do_clauses.chunk_size = parallel_clauses.chunk_size;
       do_clauses.ordered = parallel_clauses.ordered;
-      parallel_clauses.lists[OMP_LIST_LASTPRIVATE] = NULL;
       parallel_clauses.sched_kind = OMP_SCHED_NONE;
       parallel_clauses.chunk_size = NULL;
       parallel_clauses.ordered = false;
       omp_clauses = gfc_trans_omp_clauses (&block, &parallel_clauses);
     }
   do_clauses.nowait = true;
+  pushlevel (0);
   stmt = gfc_trans_omp_do (code, &do_clauses);
-  if (omp_not_yet)
-    stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
+  else
+    poplevel (0, 0, 0);
+  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -697,25 +696,21 @@ static tree
 gfc_trans_omp_parallel_sections (gfc_code *code)
 {
   stmtblock_t block;
-  gfc_omp_clauses parallel_clauses, section_clauses;
-  tree stmt, omp_clauses = NULL_TREE;
-
-  gfc_start_block (&block);
+  gfc_omp_clauses section_clauses;
+  tree stmt, omp_clauses;
 
   memset (&section_clauses, 0, sizeof (section_clauses));
-  if (code->ext.omp_clauses != NULL)
-    {
-      memcpy (&parallel_clauses, code->ext.omp_clauses,
-	      sizeof (parallel_clauses));
-      section_clauses.lists[OMP_LIST_LASTPRIVATE]
-	= parallel_clauses.lists[OMP_LIST_LASTPRIVATE];
-      parallel_clauses.lists[OMP_LIST_LASTPRIVATE] = NULL;
-      omp_clauses = gfc_trans_omp_clauses (&block, &parallel_clauses);
-    }
   section_clauses.nowait = true;
+
+  gfc_start_block (&block);
+  omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses);
+  pushlevel (0);
   stmt = gfc_trans_omp_sections (code, &section_clauses);
-  if (omp_not_yet)
-    stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
+  else
+    poplevel (0, 0, 0);
+  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -731,11 +726,14 @@ gfc_trans_omp_parallel_workshare (gfc_code *code)
   workshare_clauses.nowait = true;
 
   gfc_start_block (&block);
-
   omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses);
+  pushlevel (0);
   stmt = gfc_trans_omp_workshare (code, &workshare_clauses);
-  if (omp_not_yet)
-    stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
+  else
+    poplevel (0, 0, 0);
+  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }

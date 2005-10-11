@@ -1,3 +1,14 @@
+2005-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (gfc_match_omp_clauses): Match min/iand/ior/ieor
+	rather than .min. etc.
+
+	* trans-openmpc.c (omp_not_yet): Remove.
+	(gfc_trans_omp_parallel_do): Keep listprivate clause on parallel.
+	Force creation of BIND_EXPR around the workshare construct.
+	(gfc_trans_omp_parallel_sections): Likewise.
+	(gfc_trans_omp_parallel_workshare): Likewise.
+
 2005-10-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def (BT_I16, BT_FN_I16_VPTR_I16,
