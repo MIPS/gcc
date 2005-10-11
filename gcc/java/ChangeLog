@@ -1,5 +1,19 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* tree.hh (tree_generator::build_arguments): Declare.
+	* tree.cc (binary_operator): Force evaluation order.
+	(binary_operator): Likewise.  Special case division and mod.
+	(visit_arith_binary): Use binary_operator.
+	(visit_arith_binary): Likewise.
+	(arith_shift): Force evaluation order.
+	(visit_op_assignment): Use stabilize_reference; force evaluation
+	order.
+	(build_arguments): New method.
+	(handle_invocation): Use it.
+	(build_array_reference): Force evaluation order.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (handle_convert): Use convert_to_integer.
 	* tree.cc (visit_cast): Handle float->integral conversions
 	properly.

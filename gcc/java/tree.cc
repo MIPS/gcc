@@ -1216,7 +1216,16 @@ tree_generator::binary_operator (model_element *element,
   tree rhs_tree = current;
   if (result_type == NULL_TREE)
     result_type = gcc_builtins->map_type (lhs->type ());
-  current = build2 (code, result_type, lhs_tree, rhs_tree);
+
+  // A trick to force evaluation order to be correct.
+  lhs_tree = save_expr (lhs_tree);
+
+  if (code == TRUNC_MOD_EXPR)
+    current = build_mod (result_type, lhs_tree, rhs_tree);
+  else if (code == RDIV_EXPR)
+    current = build_divide (result_type, lhs_tree, rhs_tree);
+  else
+    current = build2 (code, result_type, lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 || TREE_SIDE_EFFECTS (rhs_tree));
   annotate (current, element);
@@ -1243,16 +1252,7 @@ tree_generator::visit_arith_binary (model_div *op,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  lhs->visit (this);
-  tree lhs_tree = current;
-  rhs->visit (this);
-  tree rhs_tree = current;
-
-  current = build_divide (gcc_builtins->map_type (op->type ()),
-			  lhs_tree, rhs_tree);
-  TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
-				 | TREE_SIDE_EFFECTS (rhs_tree));
-  annotate (current, op);
+  binary_operator (op, RDIV_EXPR, lhs, rhs);
 }
 
 void
@@ -1260,16 +1260,7 @@ tree_generator::visit_arith_binary (model_mod *op,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  lhs->visit (this);
-  tree lhs_tree = current;
-  rhs->visit (this);
-  tree rhs_tree = current;
-
-  current = build_mod (gcc_builtins->map_type (op->type ()),
-		       lhs_tree, rhs_tree);
-  TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
-				 | TREE_SIDE_EFFECTS (rhs_tree));
-  annotate (current, op);
+  binary_operator (op, TRUNC_MOD_EXPR, lhs, rhs);
 }
 
 void
@@ -1486,6 +1477,9 @@ tree_generator::arith_shift (model_element *element,
   rhs->visit (this);
   tree rhs_tree = current;
 
+  // A trick to force evaluation order to be correct.
+  lhs_tree = save_expr (lhs_tree);
+
   // Convert right hand side to 'int' if required.
   if (rhs->type () == primitive_long_type)
     {
@@ -1595,6 +1589,9 @@ tree_generator::handle_op_assignment (model_element *element,
   if (! is_shift)
     lhs_dup_tree = fold (convert (rhs_type, lhs_dup_tree));
 
+  // A trick to force evaluation order to be correct.
+  lhs_dup_tree = save_expr (lhs_dup_tree);
+
   // The 'mod' operation requires a special case as it may expand to a
   // builtin or a function call.
   tree operation;
@@ -1697,7 +1694,7 @@ tree_generator::visit_op_assignment (model_urs_equal *op,
 				     const ref_expression &rhs)
 {
   lhs->visit (this);
-  tree lhs_tree = save_expr (current);
+  tree lhs_tree = stabilize_reference (current);
 
   tree utype;
   if (lhs->type () == primitive_int_type)
@@ -1708,7 +1705,8 @@ tree_generator::visit_op_assignment (model_urs_equal *op,
       utype = type_julong;
     }
 
-  tree ulhs_tree = build1 (NOP_EXPR, utype, lhs_tree);
+  // We save_expr() here as a trick to force evaluation order.
+  tree ulhs_tree = convert (utype, save_expr (lhs_tree));
 
   rhs->visit (this);
   tree rhs_tree = current;
@@ -2157,15 +2155,8 @@ tree_generator::handle_invocation (const model_method *meth,
 				   const std::list<ref_expression> &args,
 				   bool is_super)
 {
-  tree arg_tree = NULL_TREE;
-  for (std::list<ref_expression>::const_iterator i = args.begin ();
-       i != args.end ();
-       ++i)
-    {
-      (*i)->visit (this);
-      arg_tree = tree_cons (NULL_TREE, current, arg_tree);
-    }
-  arg_tree = nreverse (arg_tree);
+  tree compound;
+  tree arg_tree = build_arguments (args, compound);
 
   // Handle the reference-checking part of a non-static reference to a
   // static method here.  The rest is handled by map_method_call.
@@ -2181,6 +2172,8 @@ tree_generator::handle_invocation (const model_method *meth,
 					   this_expr_tree, arg_tree,
 					   const_cast<model_method *> (meth),
 					   is_super);
+  if (compound != NULL_TREE)
+    current = build2 (COMPOUND_EXPR, TREE_TYPE (current), compound, current);
 }
 
 void
@@ -2248,15 +2241,8 @@ tree_generator::visit_new (model_new *elt,
 			   const ref_forwarding_type &klass,
 			   const std::list<ref_expression> &args)
 {
-  tree arg_tree = NULL_TREE;
-  for (std::list<ref_expression>::const_iterator i = args.begin ();
-       i != args.end ();
-       ++i)
-    {
-      (*i)->visit (this);
-      arg_tree = tree_cons (NULL_TREE, current, arg_tree);
-    }
-  arg_tree = nreverse (arg_tree);
+  tree compound;
+  tree arg_tree = build_arguments (args, compound);
 
   // FIXME: layout should be done by the ABI, not us.
   model_class *klassp = assert_cast<model_class *> (klass->type ());
@@ -2265,6 +2251,9 @@ tree_generator::visit_new (model_new *elt,
     = gcc_builtins->map_new (class_wrapper, klassp,
 			     const_cast<model_method *>(constructor),
 			     arg_tree);
+  if (compound != NULL_TREE)
+    current = build2 (COMPOUND_EXPR, TREE_TYPE (current), compound, current);
+
   annotate (current, elt);
 }
 
@@ -2713,5 +2702,48 @@ tree_generator::build_array_reference (tree array, tree index,
 				    || TREE_SIDE_EFFECTS (index));
     }
 
+  // This is a trick to force evaluation order to be correct.
+  result = build2 (COMPOUND_EXPR, result_type,
+		   build2 (COMPOUND_EXPR, TREE_TYPE (index),
+			   array, index),
+		   result);
+
   return result;
+}
+
+tree
+tree_generator::build_arguments (const std::list<ref_expression> &args,
+				 tree &compound)
+{
+  // Build the argument list, and also build a COMPOUND_EXPR which is
+  // used to force evaluation order.
+  tree arg_tree = NULL_TREE;
+  compound = NULL_TREE;
+  for (std::list<ref_expression>::const_iterator i = args.begin ();
+       i != args.end ();
+       ++i)
+    {
+      (*i)->visit (this);
+
+      // Promote the argument if required.
+      tree type = TREE_TYPE (current);
+      if (targetm.calls.promote_prototypes (type)
+	  && (*i)->type ()->integral_p ())
+	{
+	  model_type *type = (*i)->type ();
+	  if (type != primitive_int_type && type != primitive_long_type)
+	    current = fold_convert (type_jint, current);
+	}
+
+      tree saved = save_expr (current);
+      if (compound == NULL_TREE)
+	compound = saved;
+      else
+	compound = build2 (COMPOUND_EXPR, void_type_node, compound, saved);
+
+      arg_tree = tree_cons (NULL_TREE, saved, arg_tree);
+    }
+  arg_tree = nreverse (arg_tree);
+
+  return arg_tree;
 }
