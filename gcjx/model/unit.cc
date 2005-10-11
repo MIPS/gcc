@@ -238,6 +238,12 @@ model_unit_source::check_imports ()
     (*i)->check_referenced ();
 }
 
+void
+model_unit_source::visit (visitor *v)
+{
+  v->visit_unit_source (this, package, types, filename, resolved, imports);
+}
+
 
 
 model_class *
@@ -374,6 +380,12 @@ model_unit_class::find_class_from_descriptor (resolution_scope *scope,
     }
 }
 
+void
+model_unit_class::visit (visitor *v)
+{
+  v->visit_unit_class (this, package, types, filename, resolved);
+}
+
 
 
 model_class *
@@ -387,4 +399,10 @@ model_unit_fake::find_class_from_descriptor (resolution_scope *,
     throw request->error ("couldn't find class with descriptor %1")
       % descriptor;
   return (*i).second;
+}
+
+void
+model_unit_fake::visit (visitor *v)
+{
+  v->visit_unit_fake (this, package, types, filename, resolved);
 }

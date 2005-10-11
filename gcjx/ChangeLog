@@ -1,3 +1,47 @@
+2005-10-10  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* model/element.hh (model_element::visit): Make abstract.
+	* model/element.cc: Remove file.
+	* visitor.hh (visitor::visit_element): Remove.
+	(visitor::visit_annotation_member): New method.
+	(visitor::visit_annotation_value): Likewise.
+	(visitor::visit_import_single): Likewise.
+	(visitor::visit_import_on_demand): Likewise.
+	(visitor::visit_static_import_single): Likewise.
+	(visitor::visit_static_import_on_demand): Likewise.
+	(visitor::visit_unit_source): Likewise.
+	(visitor::visit_unit_class): Likewise.
+	(visitor::visit_unit_fake): Likewise.
+	* model/annovalue.hh (model_annotation_value::visit): New method.
+	* model/annovalue.cc: New file.
+	* model/annomember.hh (model_annotation_member::visit): New method.
+	* model/annomember.cc (model_annotation_member::visit): Implement.
+	* model/import.hh (model_import_base::visit): New method.
+	(model_import_single::visit): Likewise.
+	(model_import_on_demand::visit): Likewise.
+	(model_static_import_base::visit): Likewise.
+	(model_static_import_single::visit): Likewise.
+	(model_static_import_on_demand::visit): Likewise.
+	* model/import.cc (model_import_single::visit): Implement.
+	(model_import_on_demand::visit): Likewise.
+	(model_static_import_single::visit): Likewise.
+	(model_static_import_on_demand::visit): Likewise.
+	* model/unit.hh (model_unit::visit): New method.
+	(model_unit_source::visit): Likewise.
+	(model_unit_class::visit): Likewise.
+	(model_unit_fake::visit): Likewise.
+	* model/unit.cc (model_unit_source::visit): Implement.
+	(model_unit_class::visit): Implement.
+	(model_unit_fake::visit): Implement.
+	* dump.cc (dumper, pretty_printer): Dummy implementations of new
+	visitor methods.
+	* defassign.cc (definite_assignment_vistor): Likewise.
+	* fold.cc (fold_visitor): Likewise.
+	* bytecode/generate.hh (bytecode_generator): Likewise.
+	* Makefile.am (model_sources): Add model/annovalue.cc and remove
+	model/element.cc.
+	* Makefile.in: Regenerated.
+
 2005-10-10  Tom Tromey  <tromey@redhat.com>
 
 	* aot/mangle.cc (update_cxx): New method.

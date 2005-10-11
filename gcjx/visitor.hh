@@ -403,7 +403,42 @@ public:
 
   virtual void visit_identifier (model_identifier *, const std::string &) = 0;
 
-  virtual void visit_element (model_element *) = 0;
+  virtual void visit_annotation_member (model_annotation_member *,
+                                        const ref_forwarding_type &) = 0;
+
+  virtual void visit_annotation_value (model_annotation_value *,
+                                       const std::string &,
+                                       const ref_expression &) = 0;
+
+  virtual void visit_import_single (model_import_single *,
+                                    const std::list<std::string> &,
+                                    model_class *) = 0;
+
+  virtual void visit_import_on_demand (model_import_on_demand *,
+                                       const std::list<std::string> &,
+                                       Iname *, bool) = 0;
+
+  virtual void visit_static_import_single (model_static_import_single *,
+                                           const std::list<std::string> &,
+                                           model_class *,
+                                           const std::string &) = 0;
+
+  virtual void visit_static_import_on_demand (model_static_import_on_demand *,
+                                              const std::list<std::string> &,
+                                              model_class *) = 0;
+  
+  virtual void visit_unit_source (model_unit_source *, model_package *,
+                                  const std::list<ref_class> &,
+                                  const std::string &,
+                                  bool, const std::list<ref_import> &) = 0;
+  
+  virtual void visit_unit_class (model_unit_class *, model_package *,
+                                 const std::list<ref_class> &,
+                                 const std::string &, bool) = 0;
+  
+  virtual void visit_unit_fake (model_unit_fake *, model_package *,
+                                const std::list<ref_class> &,
+                                const std::string &, bool) = 0;
 };
 
 

@@ -64,6 +64,12 @@ model_import_single::find_class (const std::string &n)
   abort ();
 }
 
+void
+model_import_single::visit (visitor *v)
+{
+  v->visit_import_single (this, name, resolved_type);
+}
+
 
 
 void
@@ -109,6 +115,12 @@ model_import_on_demand::find_class (const std::string &n)
     }
 
   return result;
+}
+
+void
+model_import_on_demand::visit (visitor *v)
+{
+  v->visit_import_on_demand (this, name, resolved_type, implicit);
 }
 
 
@@ -244,10 +256,22 @@ model_static_import_single::find_method (const std::string &name,
     model_static_import_base::find_method (name, context, accessible);
 }
 
+void
+model_static_import_single::visit (visitor *v)
+{
+  v->visit_static_import_single (this, name, resolved_type, member_name);
+}
+
 
 
 model_class *
 model_static_import_on_demand::find_class (const std::string &name)
 {
   return search_for_class (name);
+}
+
+void
+model_static_import_on_demand::visit (visitor *v)
+{
+  v->visit_static_import_on_demand (this, name, resolved_type);
 }

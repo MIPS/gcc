@@ -1,6 +1,6 @@
 // Represent an annotation type member declaration.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -58,4 +58,10 @@ model_annotation_member::resolve (resolution_scope *scope)
       % type;
   if (value && ! annotation_commensurate_p (type->type (), value.get ()))
     throw error ("value is not commensurate with type of annotation member");
+}
+
+void
+model_annotation_member::visit (visitor *v)
+{
+  v->visit_annotation_member (this, type);
 }

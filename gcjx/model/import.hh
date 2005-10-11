@@ -88,6 +88,8 @@ public:
 
   /// Check whether we've been referenced and emit a warning if not.
   void check_referenced ();
+
+  void visit (visitor *) = 0;
 };
 
 // "import foo"
@@ -116,6 +118,8 @@ public:
   {
     return true;
   }
+
+  void visit (visitor *);
 };
 
 // "import foo.*"
@@ -147,6 +151,8 @@ public:
   {
     return false;
   }
+
+  void visit (visitor *);
 };
 
 /// Base class for both types of static import.
@@ -176,6 +182,8 @@ public:
 
   void find_method (const std::string &, IContext *,
 		    std::set<model_method *> &);
+
+  void visit (visitor *) = 0;
 };
 
 // "import static foo.bar"
@@ -209,6 +217,8 @@ public:
   {
     return true;
   }
+
+  void visit (visitor *);
 };
 
 // "import static foo.bar.*"
@@ -228,6 +238,8 @@ public:
   {
     return false;
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_IMPORT_HH

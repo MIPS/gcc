@@ -98,7 +98,7 @@ public:
   /// Call the appropriate method of the visitor with information
   /// about the tree.
   /// @param v  the visitor to call
-  virtual void visit (visitor *v);
+  virtual void visit (visitor *v) = 0;
 };
 
 #endif // GCJX_MODEL_ELEMENT_HH

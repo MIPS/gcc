@@ -1,6 +1,6 @@
 // Represent an annotation type member declaration.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -56,6 +56,8 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_ANNOMEMBER_HH

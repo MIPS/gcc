@@ -130,6 +130,8 @@ public:
   {
     scope->push_scope (this);
   }
+
+  void visit (visitor *) = 0;
 };
 
 /// This represents a single .java source file.
@@ -188,6 +190,8 @@ public:
 		     std::set<model_method *> &result,
 		     IContext *request,
 		     model_class *qualifier);
+
+  void visit (visitor *);
 };
 
 /// This represents a single '.class' file.
@@ -263,6 +267,8 @@ public:
   {
     return use_15;
   }
+
+  void visit (visitor *);
 };
 
 /// This class represents a "fake" .class-based compilation unit.
@@ -294,6 +300,8 @@ public:
 
   model_class *find_class_from_descriptor (resolution_scope *, model_element *,
 					   const std::string &);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_UNIT_HH

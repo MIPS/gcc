@@ -75,13 +75,13 @@ am__objects_1 = access.lo classcache.lo compiler.lo conversions.lo \
 	location.lo name.lo owner.lo scope.lo util.lo warnings.lo
 am__dirstamp = $(am__leading_dot)dirstamp
 am__objects_2 = model/annotation.lo model/annomember.lo \
-	model/annotype.lo model/arrayinit.lo model/arrayref.lo \
-	model/arraytype.lo model/assert.lo model/assign.lo \
-	model/binary.lo model/block.lo model/blockscope.lo \
-	model/break.lo model/bytecode.lo model/cast.lo model/catch.lo \
-	model/class.lo model/classinst.lo model/classref.lo \
-	model/cond.lo model/constructor.lo model/continue.lo \
-	model/declstmt.lo model/do.lo model/element.lo model/empty.lo \
+	model/annotype.lo model/annovalue.lo model/arrayinit.lo \
+	model/arrayref.lo model/arraytype.lo model/assert.lo \
+	model/assign.lo model/binary.lo model/block.lo \
+	model/blockscope.lo model/break.lo model/bytecode.lo \
+	model/cast.lo model/catch.lo model/class.lo model/classinst.lo \
+	model/classref.lo model/cond.lo model/constructor.lo \
+	model/continue.lo model/declstmt.lo model/do.lo model/empty.lo \
 	model/enum.lo model/expr.lo model/exprstmt.lo model/field.lo \
 	model/fieldinit.lo model/fieldref.lo model/for.lo \
 	model/forenhanced.lo model/fwdtype.lo model/iannotatable.lo \
@@ -319,25 +319,25 @@ dot_sources = access.cc classcache.cc compiler.cc conversions.cc \
 defassign.cc directory.cc dump.cc factory.cc fold.cc init.cc \
 location.cc name.cc owner.cc scope.cc util.cc warnings.cc
 
-model_sources = model/annotation.cc model/annomember.cc	\
-model/annotype.cc model/arrayinit.cc model/arrayref.cc \
+model_sources = model/annotation.cc model/annomember.cc model/annotype.cc \
+model/annovalue.cc model/arrayinit.cc model/arrayref.cc \
 model/arraytype.cc model/assert.cc model/assign.cc model/binary.cc \
 model/block.cc model/blockscope.cc model/break.cc model/bytecode.cc \
 model/cast.cc model/catch.cc model/class.cc model/classinst.cc \
 model/classref.cc model/cond.cc model/constructor.cc model/continue.cc \
-model/declstmt.cc model/do.cc model/element.cc model/empty.cc \
-model/enum.cc model/expr.cc model/exprstmt.cc model/field.cc \
-model/fieldinit.cc model/fieldref.cc model/for.cc model/forenhanced.cc \
-model/fwdtype.cc model/iannotatable.cc model/identifier.cc model/if.cc \
-model/import.cc model/imodifiable.cc model/init.cc model/instanceof.cc \
-model/invoke.cc model/label.cc model/literal.cc model/memberref.cc \
-model/method.cc model/modifier.cc model/newarray.cc model/new.cc \
-model/null.cc model/package.cc model/parameters.cc model/primitive.cc \
-model/return.cc model/stmt.cc model/switch.cc model/synchronized.cc \
-model/this.cc model/throw.cc model/throwsclause.cc model/try.cc \
-model/type.cc model/typemap.cc model/typevar.cc model/unary.cc \
-model/unit.cc model/value.cc model/variable.cc model/varref.cc \
-model/varstmt.cc model/while.cc model/wildcard.cc
+model/declstmt.cc model/do.cc model/empty.cc model/enum.cc model/expr.cc \
+model/exprstmt.cc model/field.cc model/fieldinit.cc model/fieldref.cc \
+model/for.cc model/forenhanced.cc model/fwdtype.cc model/iannotatable.cc \
+model/identifier.cc model/if.cc model/import.cc model/imodifiable.cc \
+model/init.cc model/instanceof.cc model/invoke.cc model/label.cc \
+model/literal.cc model/memberref.cc model/method.cc model/modifier.cc \
+model/newarray.cc model/new.cc model/null.cc model/package.cc \
+model/parameters.cc model/primitive.cc model/return.cc model/stmt.cc \
+model/switch.cc model/synchronized.cc model/this.cc model/throw.cc \
+model/throwsclause.cc model/try.cc model/type.cc model/typemap.cc \
+model/typevar.cc model/unary.cc model/unit.cc model/value.cc \
+model/variable.cc model/varref.cc model/varstmt.cc model/while.cc \
+model/wildcard.cc
 
 bytecode_sources = bytecode/attribute.cc bytecode/block.cc \
 bytecode/bytegen.cc bytecode/classreader.cc bytecode/classwriter.cc \
@@ -463,6 +463,8 @@ model/annomember.lo: model/$(am__dirstamp) \
 	model/$(DEPDIR)/$(am__dirstamp)
 model/annotype.lo: model/$(am__dirstamp) \
 	model/$(DEPDIR)/$(am__dirstamp)
+model/annovalue.lo: model/$(am__dirstamp) \
+	model/$(DEPDIR)/$(am__dirstamp)
 model/arrayinit.lo: model/$(am__dirstamp) \
 	model/$(DEPDIR)/$(am__dirstamp)
 model/arrayref.lo: model/$(am__dirstamp) \
@@ -493,8 +495,6 @@ model/continue.lo: model/$(am__dirstamp) \
 model/declstmt.lo: model/$(am__dirstamp) \
 	model/$(DEPDIR)/$(am__dirstamp)
 model/do.lo: model/$(am__dirstamp) model/$(DEPDIR)/$(am__dirstamp)
-model/element.lo: model/$(am__dirstamp) \
-	model/$(DEPDIR)/$(am__dirstamp)
 model/empty.lo: model/$(am__dirstamp) model/$(DEPDIR)/$(am__dirstamp)
 model/enum.lo: model/$(am__dirstamp) model/$(DEPDIR)/$(am__dirstamp)
 model/expr.lo: model/$(am__dirstamp) model/$(DEPDIR)/$(am__dirstamp)
@@ -916,6 +916,8 @@ mostlyclean-compile:
 	-rm -f model/annotation.lo
 	-rm -f model/annotype.$(OBJEXT)
 	-rm -f model/annotype.lo
+	-rm -f model/annovalue.$(OBJEXT)
+	-rm -f model/annovalue.lo
 	-rm -f model/arrayinit.$(OBJEXT)
 	-rm -f model/arrayinit.lo
 	-rm -f model/arrayref.$(OBJEXT)
@@ -956,8 +958,6 @@ mostlyclean-compile:
 	-rm -f model/declstmt.lo
 	-rm -f model/do.$(OBJEXT)
 	-rm -f model/do.lo
-	-rm -f model/element.$(OBJEXT)
-	-rm -f model/element.lo
 	-rm -f model/empty.$(OBJEXT)
 	-rm -f model/empty.lo
 	-rm -f model/enum.$(OBJEXT)
@@ -1164,6 +1164,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annomember.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annotation.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annotype.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annovalue.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/arrayinit.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/arrayref.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/arraytype.Plo@am__quote@
@@ -1184,7 +1185,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/continue.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/declstmt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/do.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/element.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/empty.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/enum.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/expr.Plo@am__quote@
