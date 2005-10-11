@@ -1,5 +1,10 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (build_new_object_array): Build reference to element
+	type, not array type.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (handle_convert): Keep non-converted copy of min/max
 	for results.
 

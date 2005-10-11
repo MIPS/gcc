@@ -2504,7 +2504,7 @@ tree_generator::build_new_object_array (model_type *elt_type, tree size)
 {
   model_class *array_type = assert_cast<model_class *> (elt_type->array ());
 
-  tree elt_type_tree = build_class_ref (array_type, elt_type);
+  tree elt_type_tree = build_class_ref (elt_type, elt_type);
   tree array_type_tree = gcc_builtins->lay_out_class (array_type);
 
   tree args = tree_cons (NULL_TREE, size,
