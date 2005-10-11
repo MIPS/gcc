@@ -1,3 +1,12 @@
+2005-10-11  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4134111
+	* config/i386/i386.md (cmpstrsi):  Modify for Darwin.
+	(darwin_cmpstrqi_nz_1):  New.
+	(*darwin_cmpstrqi_nz_1):  New.
+	(darwin_cmpstrqi_1):  New.
+	(*darwin_cmpstrqi_nz_1):  New.
+
 2005-10-11  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4276161
