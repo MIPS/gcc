@@ -9,7 +9,7 @@ struct S1
 {
   struct
   {
-    _Decimal128 e;
+    _Decimal64 e;
   } b[0];
 };
 
