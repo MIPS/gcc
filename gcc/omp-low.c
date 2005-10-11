@@ -261,6 +261,12 @@ install_var_field (tree var, bool by_ref, omp_context *ctx)
     type = build_pointer_type (type);
 
   field = build_decl (FIELD_DECL, DECL_NAME (var), type);
+
+  /* Remember what variable this field was created for.  This does have a
+     side effect of making dwarf2out ignore this member, so for helpful
+     debugging we clear it later in delete_omp_context.  */
+  DECL_ABSTRACT_ORIGIN (field) = var;
+
   insert_field_into_struct (ctx->record_type, field);
 
   splay_tree_insert (ctx->field_map, (splay_tree_key) var,
@@ -428,8 +434,19 @@ delete_omp_context (splay_tree_value value)
   omp_context *ctx = (omp_context *) value;
 
   splay_tree_delete (ctx->cb.decl_map);
+
   if (ctx->field_map)
     splay_tree_delete (ctx->field_map);
+
+  /* We hijacked DECL_ABSTRACT_ORIGIN earlier.  We need to clear it before
+     it produces corrupt debug information.  */
+  if (ctx->record_type)
+    {
+      tree t;
+      for (t = TYPE_FIELDS (ctx->record_type); t ; t = TREE_CHAIN (t))
+	DECL_ABSTRACT_ORIGIN (t) = NULL;
+    }
+
   XDELETE (ctx);
 }
 
@@ -1034,19 +1051,21 @@ expand_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
    This is trickier, since OMP_PARALLEL_CLAUSES doesn't list things that
    got automatically shared.  */
 
-static int
-expand_send_shared_vars_1 (splay_tree_node n, void *data)
+static void
+expand_send_shared_vars (tree *ilist, tree *olist, omp_context *ctx)
 {
-  void **xdata = data;
-  omp_context *ctx = xdata[0];
-  tree *ilist = xdata[1];
-  tree *olist = xdata[2];
-  tree ovar, nvar, x;
+  tree ovar, nvar, f, x;
+
+  if (ctx->record_type == NULL)
+    return;
   
-  ovar = (tree) n->key;
-  nvar = maybe_lookup_decl (ovar, ctx);
-  if (nvar && DECL_HAS_VALUE_EXPR_P (nvar))
+  for (f = TYPE_FIELDS (ctx->record_type); f ; f = TREE_CHAIN (f))
     {
+      ovar = DECL_ABSTRACT_ORIGIN (f);
+      nvar = maybe_lookup_decl (ovar, ctx);
+      if (!nvar || !DECL_HAS_VALUE_EXPR_P (nvar))
+	continue;
+
       if (use_pointer_for_field (ovar, true))
 	{
 	  x = build_sender_ref (ovar, ctx);
@@ -1065,18 +1084,6 @@ expand_send_shared_vars_1 (splay_tree_node n, void *data)
 	  gimplify_and_add (x, olist);
 	}
     }
-  return 0;
-}
-
-static void
-expand_send_shared_vars (tree *ilist, tree *olist, omp_context *ctx)
-{
-  void *xdata[3];
-
-  xdata[0] = ctx;
-  xdata[1] = ilist;
-  xdata[2] = olist;
-  splay_tree_foreach (ctx->field_map, expand_send_shared_vars_1, xdata);
 }
 
 /* Build the function calls to GOMP_parallel_start etc to actually 

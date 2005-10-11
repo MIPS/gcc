@@ -1,3 +1,11 @@
+2005-10-10  Richard Henderson  <rth@redhat.com>
+
+	* omp-low.c (install_var_field): Set DECL_ABSTRACT_ORIGIN.
+	(delete_omp_context): Clear it again.
+	(expand_send_shared_vars_1): Merge into ...
+	(expand_send_shared_vars): ... here.  Iterate over the record
+	fields, instead of over the splay tree.
+
 2005-10-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.h (x86_cmpxchg8b, x86_cmpxchg16b): New decls.
