@@ -1,5 +1,10 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (handle_convert): Keep non-converted copy of min/max
+	for results.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* tree.hh (tree_generator::build_arguments): Declare.
 	* tree.cc (binary_operator): Force evaluation order.
 	(binary_operator): Likewise.  Special case division and mod.

@@ -1648,8 +1648,8 @@ tree_generator::handle_convert (model_type *dest_type, tree expr)
     }
   assert (TREE_TYPE (min_tree) == dest_tree);
 
-  min_tree = convert (TREE_TYPE (expr), min_tree);
-  max_tree = convert (TREE_TYPE (expr), max_tree);
+  tree flt_min_tree = convert (TREE_TYPE (expr), min_tree);
+  tree flt_max_tree = convert (TREE_TYPE (expr), max_tree);
 
   expr = save_expr (expr);
 
@@ -1667,13 +1667,13 @@ tree_generator::handle_convert (model_type *dest_type, tree expr)
   // Now build:
   //   if (val <= (FROM) min) return min; else [ the above ]
   cond = build3 (COND_EXPR, dest_tree,
-		 build2 (LE_EXPR, type_jboolean, expr, min_tree),
+		 build2 (LE_EXPR, type_jboolean, expr, flt_min_tree),
 		 min_tree, cond);
 
   // Finally:
   //   if (val >= (FROM) max) return max; else [ the above ]
   return build3 (COND_EXPR, dest_tree,
-		 build2 (GE_EXPR, type_jboolean, expr, max_tree),
+		 build2 (GE_EXPR, type_jboolean, expr, flt_max_tree),
 		 max_tree, cond);
 }
 
