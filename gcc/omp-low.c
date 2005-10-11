@@ -925,6 +925,16 @@ static void
 expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 {
   tree sub_list = NULL, x, c;
+  int count = 0;
+
+  /* First see if there is exactly one reduction clause.  Use OMP_ATOMIC
+     update in that case, otherwise use a lock.  */
+  for (c = clauses; c && count < 2; c = OMP_CLAUSE_CHAIN (c))
+    if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION)
+      count++;
+
+  if (count == 0)
+    return;
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
@@ -937,6 +947,18 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       new_var = lookup_decl (var, ctx);
 
       ref = build_outer_var_ref (var, ctx);
+      if (count == 1)
+	{
+	  tree addr = build_fold_addr_expr (ref);
+
+	  addr = save_expr (addr);
+	  ref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (addr)), addr);
+	  x = fold_build2 (OMP_CLAUSE_REDUCTION_CODE (c), TREE_TYPE (ref),
+			   ref, new_var);
+	  x = build2 (OMP_ATOMIC, void_type_node, addr, x);
+	  gimplify_and_add (x, stmt_list);
+	  return;
+	}
       x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
 		  TREE_TYPE (ref), ref, new_var);
       ref = build_outer_var_ref (var, ctx);
@@ -944,18 +966,13 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       append_to_statement_list (x, &sub_list);
     }
 
-  if (sub_list == NULL)
-    return;
-
-  /* ??? Maybe transform to atomic operations.  */
-
-  x = built_in_decls[BUILT_IN_GOMP_CRITICAL_START];
+  x = built_in_decls[BUILT_IN_GOMP_ATOMIC_START];
   x = build_function_call_expr (x, NULL);
   gimplify_and_add (x, stmt_list);
 
   gimplify_and_add (sub_list, stmt_list);
 
-  x = built_in_decls[BUILT_IN_GOMP_CRITICAL_END];
+  x = built_in_decls[BUILT_IN_GOMP_ATOMIC_END];
   x = build_function_call_expr (x, NULL);
   gimplify_and_add (x, stmt_list);
 }
