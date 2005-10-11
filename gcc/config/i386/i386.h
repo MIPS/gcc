@@ -527,6 +527,9 @@ extern int x86_prefetch_sse;
    numbered.  */
 /* Not true for 80386 */
 #define WORDS_BIG_ENDIAN 0
+#ifdef IN_LIBGCC2
+#define LIBGCC2_WORDS_BIG_ENDIAN 0
+#endif /* IN_LIBGCC2 */
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)

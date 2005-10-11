@@ -1,5 +1,9 @@
 2005-10-11  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.h (LIBGCC2_WORDS_BIG_ENDIAN): Define.
+
+2005-10-11  Ben Elliston  <bje@au.ibm.com>
+
 	* config/dfp-bit.h: Include "tconfig.h", "coretypes.h", "tm.h".
 	(LIBGCC2_FLOAT_WORDS_BIG_ENDIAN): Define, if not already.
 	* config/dfp-bit.c: Don't include the aforementioned headers.
