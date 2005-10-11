@@ -1,3 +1,9 @@
+2005-10-11  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4276161
+	* config/darwin.h (REAL_LIBGCC_SPEC): Link in shared libgcc depending
+	on -mmacosx-version-min setting.
+
 2005-10-11  Devang Patel  <dpatel@apple.com>
 
 	Radar 4117876

@@ -444,21 +444,30 @@ do {					\
 /* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */
-/* APPLE LOCAL begin mainline 2005-10-02 4218570 */
-/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  
-   Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
-   libraries to link against.  */
-#undef REAL_LIBGCC_SPEC
-#define REAL_LIBGCC_SPEC						\
-/* APPLE LOCAL libgcc_static.a  */					\
-   "%{static:-lgcc_static;						\
-      :%{shared-libgcc|Zdynamiclib					\
-         :%:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	\
-          %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	\
-          -lgcc;							\
-         :-lgcc -lgcc_eh}}"
+/* APPLE LOCAL begin 4276161 */
+/* Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
+   libraries to link against, and by not linking against libgcc_s on
+   earlier-than-10.3.9.
 
-/* APPLE LOCAL end mainline 2005-10-02 4218570 */
+   Note that by default, -lgcc_eh is not linked against!  This is
+   because in a future version of Darwin the EH frame information may
+   be in a new format, or the fallback routine might be changed; if
+   you want to explicitly link against the static version of those
+   routines, because you know you don't need to unwind through system
+   libraries, you need to explicitly say -static-libgcc.  */
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						   \
+/* APPLE LOCAL libgcc_static.a  */					   \
+   "%{static:-lgcc_static; static-libgcc: -lgcc -lgcc_eh;		   \
+      shared-libgcc|fexceptions:					   \
+       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       -lgcc;								   \
+      :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       -lgcc}"
+
+/* APPLE LOCAL end 4276161 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 /* We don't want anything to do with crt2.o in the 64-bit case;
    testing the PowerPC-specific -m64 flag here is a little irregular,
