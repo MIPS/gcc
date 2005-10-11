@@ -1,3 +1,8 @@
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* model/primitive.hh (model_int_primitive::convert): Perform
+	intermediate conversions.
+
 2005-10-10  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* model/element.hh (model_element::visit): Make abstract.

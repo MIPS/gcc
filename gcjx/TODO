@@ -294,6 +294,9 @@ X gcjh has options to add text to the header in different places;
 
 Tree generation
 
+when doing 'String +' we emit explicit null pointer checks
+in this case this is useless
+
 see Wilson's note on 2005-08-10
 CHAR_TYPE is preferable for char types
 
@@ -334,6 +337,8 @@ things to document about trees:
 - CALL_EXPR requires the address of the function
 - DECL_INITIAL is not sufficient for local variables, instead you
   need to emit MODIFY_EXPRs for them
+- instead of save_expr() for a complex LHS of an assignment,
+  use stabilize_reference.
 
 we should use explicit temporaries instead of save_expr
 

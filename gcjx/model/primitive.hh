@@ -467,12 +467,25 @@ public:
 
   jvalue convert (const model_type *from_type, const jvalue &from_val)
   {
-    if (from_type == primitive_float_type)
-      return convert_from_float<T, jfloat> (from_val, MIN, MAX);
-    else if (from_type == primitive_double_type)
-      return convert_from_float<T, jdouble> (from_val, MIN, MAX);
-    else
-      return model_primitive<T, sig_char>::convert (from_type, from_val);
+    if (from_type == primitive_float_type
+	|| from_type == primitive_double_type)
+      {
+	if (this != primitive_int_type && this != primitive_long_type)
+	  {
+	    // Must use an intermediate cast.
+	    model_primitive_base *mpb
+	      = assert_cast<model_primitive_base *> (primitive_int_type);
+	    jvalue inter = mpb->convert (from_type, from_val);
+	    return convert (mpb, inter);
+	  }
+
+	if (from_type == primitive_float_type)
+	  return convert_from_float<T, jfloat> (from_val, MIN, MAX);
+	else
+	  return convert_from_float<T, jdouble> (from_val, MIN, MAX);
+      }
+
+    return model_primitive<T, sig_char>::convert (from_type, from_val);
   }
 
   // This is out-of-line so we can specialize for jlong.
