@@ -1,3 +1,8 @@
+2005-10-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 4117876
+	* gcc.apple/altivec-5.c: Do not expect warning.
+
 2005-10-10  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4271187

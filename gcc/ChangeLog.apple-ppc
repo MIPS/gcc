@@ -1,3 +1,9 @@
+2005-10-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 4117876
+	* config/rs6000.c (expand_block_clear, expand_block_move): Remove
+	vectorized memset/memcpy warning.
+
 2005-10-10  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4271187

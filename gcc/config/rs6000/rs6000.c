@@ -10815,17 +10815,6 @@ expand_block_clear (rtx operands[])
   if (bytes <= 0)
     return 1;
 
-  /* APPLE LOCAL begin Altivec 3840704 */
-  {
-    static bool warned;
-    if (flag_disable_opts_for_faltivec && align >= 128 && ! warned)
-      {
-	warned = true;
-	warning ("vectorised memset disabled due to use of -faltivec without -maltivec");
-      }
-  }
-  /* APPLE LOCAL end Altivec 3840704 */
-
   /* Use the builtin memset after a point, to avoid huge code bloat.
      When optimize_size, avoid any significant code bloat; calling
      memset is about 4 instructions, so allow for one instruction to
@@ -10939,18 +10928,6 @@ expand_block_move (rtx operands[])
       } gen_func;
       enum machine_mode mode = BLKmode;
       rtx src, dest;
-
-      /* APPLE LOCAL begin Altivec 3840704 */
-      {
-	static bool warned;
-	if (flag_disable_opts_for_faltivec && bytes >= 16 && align >= 128 
-	    && ! warned)
-	  {
-	    warned = true;
-	    warning ("vectorised memcpy disabled due to use of -faltivec without -maltivec");
-	  }
-      }
-      /* APPLE LOCAL end Altivec 3840704 */
 
       /* Altivec first, since it will be faster than a string move
 	 when it applies, and usually not significantly larger.  */
