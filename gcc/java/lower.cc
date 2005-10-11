@@ -1631,50 +1631,25 @@ tree_generator::cast (tree from, tree to)
 tree
 tree_generator::handle_convert (model_type *dest_type, tree expr)
 {
+  assert (dest_type == primitive_int_type || dest_type == primitive_long_type);
+
   tree min_tree, max_tree;
   tree dest_tree = gcc_builtins->map_type (dest_type);
 
-  {
-    // Crazy gyrations to avoid dependency on sizeof (HOST_WIDE_INT).
-    // Some bit-twiddling genius should rewrite this.
-    HOST_WIDE_INT minlo, minhi, maxlo, maxhi;
-    HOST_WIDE_INT *pmin = &minlo, *pmax = &maxlo;
-    int n = dest_type == primitive_int_type ? 4 : 8;
-    int i, bits;
-    for (i = 0, bits = 0; i < 2 * sizeof (HOST_WIDE_INT); ++i, bits += 8)
-      {
-	if (i == sizeof (HOST_WIDE_INT))
-	  {
-	    pmin = &minhi;
-	    pmax = &maxhi;
-	  }
+  if (dest_type == primitive_int_type)
+    {
+      min_tree = build_int (MIN_INT);
+      max_tree = build_int (MAX_INT);
+    }
+  else
+    {
+      min_tree = build_long (MIN_LONG);
+      max_tree = build_long (MAX_LONG);
+    }
+  assert (TREE_TYPE (min_tree) == dest_tree);
 
-	HOST_WIDE_INT minbits, maxbits;
-	if (i > n)
-	  {
-	    minbits = 0xff;
-	    maxbits = 0x00;
-	  }
-	else if (i == n)
-	  {
-	    minbits = 0x80;
-	    maxbits = 0x7f;
-	  }
-	else
-	  {
-	    minbits = 0x00;
-	    maxbits = 0xff;
-	  }
-
-	*pmin |= minbits << bits;
-	*pmax |= maxbits << bits;
-      }
-
-    min_tree = convert (TREE_TYPE (expr),
-			build_int_cst_wide (dest_tree, minlo, minhi));
-    max_tree = convert (TREE_TYPE (expr),
-			build_int_cst_wide (dest_tree, maxlo, maxhi));
-  }
+  min_tree = convert (TREE_TYPE (expr), min_tree);
+  max_tree = convert (TREE_TYPE (expr), max_tree);
 
   expr = save_expr (expr);
 
@@ -1687,7 +1662,7 @@ tree_generator::handle_convert (model_type *dest_type, tree expr)
   tree ne = build2 (NE_EXPR, type_jboolean, expr, expr);
   tree cond = build3 (COND_EXPR, dest_tree, ne,
 		      build_int_cst (dest_tree, 0),
-		      convert (dest_tree, expr));
+		      convert_to_integer (dest_tree, expr));
 
   // Now build:
   //   if (val <= (FROM) min) return min; else [ the above ]

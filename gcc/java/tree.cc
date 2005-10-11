@@ -1764,7 +1764,8 @@ tree_generator::visit_cast (model_cast *elt,
   tree expr_tree = current;
 
   model_type *dest_type = dest->type ();
-  if (dest_type->primitive_p () != expr->type ()->primitive_p ())
+  model_type *expr_type = expr->type ();
+  if (dest_type->primitive_p () != expr_type->primitive_p ())
     {
       if (dest_type->primitive_p ())
 	{
@@ -1776,13 +1777,13 @@ tree_generator::visit_cast (model_cast *elt,
 	  // FIXME: for the C++ ABI we could reference fields directly
 	  // in some situations.
 	  model_type *tmp_dest_type = dest_type;
-	  if (expr->type () == global->get_compiler ()->java_lang_Character ())
+	  if (expr_type == global->get_compiler ()->java_lang_Character ())
 	    tmp_dest_type = primitive_char_type;
 	  std::string method_name = (tmp_dest_type->get_pretty_name ()
 				     + "Value");
 	  model_method *call
 	    = find_method (method_name.c_str (),
-			   assert_cast<model_class *> (expr->type ()),
+			   assert_cast<model_class *> (expr_type),
 			   NULL, tmp_dest_type, elt);
 	  current = gcc_builtins->map_method_call (class_wrapper, expr_tree,
 						   NULL_TREE, call, false);
@@ -1799,7 +1800,7 @@ tree_generator::visit_cast (model_cast *elt,
 	  // conversion.
 	  model_class *dest_class = assert_cast<model_class *> (dest_type);
 	  model_method *call = find_method ("valueOf", dest_class,
-					    expr->type (), dest_class,
+					    expr_type, dest_class,
 					    elt);
 	  tree args = build_tree_list (NULL_TREE, expr_tree);
 	  current = gcc_builtins->map_method_call (class_wrapper, NULL_TREE,
@@ -1809,16 +1810,32 @@ tree_generator::visit_cast (model_cast *elt,
     }
   else if (dest_type->primitive_p ())
     {
-      // We can't use fold_convert() here since, apparently, it can't
-      // convert a float to an int.
-      current = convert (gcc_builtins->map_type (dest_type), expr_tree);
-      TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
+      if (dest_type->integral_p () && (expr_type == primitive_float_type
+				       || expr_type == primitive_double_type))
+	{
+	  // We have to use 'int' as an intermediate type in cases
+	  // like float->byte.
+	  model_type *inter = dest_type;
+	  if (dest_type != primitive_int_type
+	      && dest_type != primitive_long_type)
+	    inter = primitive_int_type;
+	  current = handle_convert (inter, expr_tree);
+	  if (inter != dest_type)
+	    current = convert (gcc_builtins->map_type (dest_type), current);
+	  TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
+	}
+      else
+	{
+	  current = fold_convert (gcc_builtins->map_type (dest_type),
+				  expr_tree);
+	  TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
+	}
     }
   else
     {
       // Reference types.  We only need to emit a cast check if the
       // types are known to be incompatible.
-      if (! dest_type->assignable_from_p (expr->type ()))
+      if (! dest_type->assignable_from_p (expr_type))
 	{
 	  current = build3 (CALL_EXPR, gcc_builtins->map_type (dest_type),
 			    builtin_Jv_CheckCast,
@@ -1830,7 +1847,7 @@ tree_generator::visit_cast (model_cast *elt,
 	}
       else
 	{
-	  emit_type_assertion (dest_type, expr->type ());
+	  emit_type_assertion (dest_type, expr_type);
 	  current = build1 (NOP_EXPR, gcc_builtins->map_type (dest_type),
 			    expr_tree);
 	  TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
