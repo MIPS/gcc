@@ -1,5 +1,10 @@
 2005-10-10  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_new_array): Correctly handle multi-dimensional
+	case.
+
+2005-10-10  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (handle_op_assignment): Special case RDIV_EXPR.  Use
 	stabilize_reference, not save_expr.
 	(visit_op_assignment): Use handle_op_assignment.

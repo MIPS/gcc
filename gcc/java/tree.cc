@@ -2271,6 +2271,7 @@ tree_generator::visit_new_array (model_new_array *new_elt,
     }
   else if (indices.size () != 0)
     {
+      int num = 0;
       tree args = NULL_TREE;
       for (std::list<ref_expression>::const_iterator i = indices.begin ();
 	   i != indices.end ();
@@ -2278,12 +2279,21 @@ tree_generator::visit_new_array (model_new_array *new_elt,
 	{
 	  (*i)->visit (this);
 	  args = tree_cons (NULL_TREE, current, args);
+	  ++num;
 	}
+      // We constructed the dimension arguments in reverse order.
+      args = nreverse (args);
+
+      args = tree_cons (NULL_TREE, build_int (num), args);
+      args = tree_cons (NULL_TREE,
+			build_class_ref (new_elt->type (), new_elt),
+			args);
 
       tree array_type_tree = gcc_builtins->map_type (new_elt->type ());
-      current = build3 (CALL_EXPR, array_type_tree,
-			builtin_Jv_NewMultiArray,
-			nreverse (args), NULL_TREE);
+      current = convert (array_type_tree,
+			 build3 (CALL_EXPR, ptr_type_node,
+				 builtin_Jv_NewMultiArray,
+				 args, NULL_TREE));
       annotate (current, new_elt);
     }
   else
