@@ -2110,8 +2110,13 @@ tree_generator::handle_double (jdouble val)
   jint w[2];
   double_to_words (w, val);
   long wl[2];
+#ifdef WORDS_BIGENDIAN
   wl[0] = w[0];
   wl[1] = w[1];
+#else
+  wl[0] = w[1];
+  wl[1] = w[0];
+#endif // WORDS_BIGENDIAN
   REAL_VALUE_TYPE d;
   real_from_target_fmt (&d, wl, &ieee_double_format);
   return build_real (type_jdouble, d);
