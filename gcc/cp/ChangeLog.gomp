@@ -1,3 +1,16 @@
+2005-10-11  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (struct cp_token): Add pragma_kind.
+	(eof_token): Initialize it.
+	(cp_lexer_handle_pragma): Remove.
+	(cp_parser_initial_pragma): New.
+	(cp_lexer_new_main): Use it.
+	(cp_lexer_get_preprocessor_token): Initialize pragma_kind.
+	(cp_lexer_print_token): Don't handle CPP_PRAGMA.
+	(cp_parser_skip_to_pragma_eol): New.
+	(cp_parser_error): Use it.
+	(pragma_lex): New.
+
 2005-10-09  Richard Henderson  <rth@redhat.com>
 
 	* lex.c (parse_strconst_pragma): Update for c_lex name change.

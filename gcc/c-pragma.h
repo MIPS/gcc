@@ -44,6 +44,8 @@ typedef enum pragma_kind {
   PRAGMA_OMP_SINGLE,
   PRAGMA_OMP_THREADPRIVATE,
 
+  PRAGMA_GCC_PCH_PREPROCESS,
+
   PRAGMA_FIRST_EXTERNAL
 } pragma_kind;
 

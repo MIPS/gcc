@@ -6437,6 +6437,11 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
       c_parser_omp_threadprivate (parser);
       return false;
 
+    case PRAGMA_GCC_PCH_PREPROCESS:
+      c_parser_error (parser, "%<#pragma GCC pch_preprocess%> must be first");
+      c_parser_skip_until_found (parser, CPP_PRAGMA_EOL, NULL);
+      return false;
+
     default:
       if (id < PRAGMA_FIRST_EXTERNAL)
 	{
@@ -6484,6 +6489,25 @@ pragma_lex (tree *value)
     }
 
   return ret;
+}
+
+static void
+c_parser_pragma_pch_preprocess (c_parser *parser)
+{
+  tree name = NULL;
+
+  c_parser_consume_pragma (parser);
+  if (c_parser_next_token_is (parser, CPP_STRING))
+    {
+      name = c_parser_peek_token (parser)->value;
+      c_parser_consume_token (parser);
+    }
+  else
+    c_parser_error (parser, "expected string literal");
+  c_parser_skip_to_pragma_eol (parser);
+
+  if (name)
+    c_common_pch_pragma (parse_in, TREE_STRING_POINTER (name));
 }
 
 /* OpenMP 2.5 parsing routines.  */
@@ -7696,8 +7720,8 @@ c_parse_file (void)
   memset (&tparser, 0, sizeof tparser);
   the_parser = &tparser;
 
-  if (c_parser_next_token_is (&tparser, CPP_PRAGMA))
-    c_parser_pragma (&tparser, pragma_external);
+  if (c_parser_peek_token (&tparser)->pragma_kind == PRAGMA_GCC_PCH_PREPROCESS)
+    c_parser_pragma_pch_preprocess (&tparser);
 
   the_parser = GGC_NEW (c_parser);
   *the_parser = tparser;

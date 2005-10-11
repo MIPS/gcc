@@ -55,6 +55,8 @@ typedef struct cp_token GTY (())
   ENUM_BITFIELD (rid) keyword : 8;
   /* Token flags.  */
   unsigned char flags;
+  /* Identifier for the pragma.  */
+  ENUM_BITFIELD (pragma_kind) pragma_kind : 6;
   /* True if this token is from a system header.  */
   BOOL_BITFIELD in_system_header : 1;
   /* True if this token is from a context where it is implicitly extern "C" */
@@ -72,7 +74,7 @@ DEF_VEC_ALLOC_P (cp_token_position,heap);
 
 static const cp_token eof_token =
 {
-  CPP_EOF, RID_MAX, 0, 0, 0, NULL_TREE,
+  CPP_EOF, RID_MAX, 0, PRAGMA_NONE, 0, 0, NULL_TREE,
 #if USE_MAPPED_LOCATION
   0
 #else
@@ -162,8 +164,6 @@ static void cp_lexer_purge_token
   (cp_lexer *);
 static void cp_lexer_purge_tokens_after
   (cp_lexer *, cp_token_position);
-static void cp_lexer_handle_pragma
-  (cp_lexer *);
 static void cp_lexer_save_tokens
   (cp_lexer *);
 static void cp_lexer_commit_tokens
@@ -191,6 +191,9 @@ static void cp_lexer_stop_debugging
 
 static cp_token_cache *cp_token_cache_new
   (cp_token *, cp_token *);
+
+static void cp_parser_initial_pragma
+  (cp_token *);
 
 /* Manifest constants.  */
 #define CP_LEXER_BUFFER_SIZE 10000
@@ -240,15 +243,10 @@ cp_lexer_new_main (void)
   size_t space;
   cp_token *buffer;
 
-  /* It's possible that lexing the first token will load a PCH file,
-     which is a GC collection point.  So we have to grab the first
-     token before allocating any memory.  Pragmas must not be deferred
-     as -fpch-preprocess can generate a pragma to load the PCH file in
-     the preprocessed output used by -save-temps.  */
-  cp_lexer_get_preprocessor_token (NULL, &first_token);
-
-  /* Tell cpplib we want CPP_PRAGMA tokens.  */
-  /* FIXME: cpp_get_options (parse_in)->defer_pragmas = true; */
+  /* It's possible that parsing the first pragma will load a PCH file,
+     which is a GC collection point.  So we have to do that before
+     allocating any memory.  */
+  cp_parser_initial_pragma (&first_token);
 
   /* Tell c_lex_with_flags not to merge string constants.  */
   c_lex_return_raw_strings = true;
@@ -291,11 +289,6 @@ cp_lexer_new_main (void)
   lexer->buffer_length = alloc - space;
   lexer->last_token = pos;
   lexer->next_token = lexer->buffer_length ? buffer : (cp_token *)&eof_token;
-
-  /* Pragma processing (via cpp_handle_deferred_pragma) may result in
-     direct calls to pragma_lex.  Those callers all expect pragma_lex
-     to do string constant concatenation.  */
-  c_lex_return_raw_strings = false;
 
   gcc_assert (lexer->next_token->type != CPP_PURGED);
   return lexer;
@@ -386,6 +379,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
    /* Get a new token from the preprocessor.  */
   token->type
     = c_lex_with_flags (&token->value, &token->location, &token->flags);
+  token->keyword = RID_MAX;
+  token->pragma_kind = PRAGMA_NONE;
   token->in_system_header = in_system_header;
 
   /* On some systems, some header files are surrounded by an
@@ -395,23 +390,26 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
   pending_lang_change = 0;
   token->implicit_extern_c = is_extern_c > 0;
 
-  /* Check to see if this token is a keyword.  */
-  if (token->type == CPP_NAME
-      && C_IS_RESERVED_WORD (token->value))
+  switch (token->type)
     {
-      /* Mark this token as a keyword.  */
-      token->type = CPP_KEYWORD;
-      /* Record which keyword.  */
-      token->keyword = C_RID_CODE (token->value);
-      /* Update the value.  Some keywords are mapped to particular
-	 entities, rather than simply having the value of the
-	 corresponding IDENTIFIER_NODE.  For example, `__const' is
-	 mapped to `const'.  */
-      token->value = ridpointers[token->keyword];
-    }
-  /* Handle Objective-C++ keywords.  */
-  else if (token->type == CPP_AT_NAME)
-    {
+    case CPP_NAME:
+      /* Check to see if this token is a keyword.  */
+      if (C_IS_RESERVED_WORD (token->value))
+	{
+	  /* Mark this token as a keyword.  */
+	  token->type = CPP_KEYWORD;
+	  /* Record which keyword.  */
+	  token->keyword = C_RID_CODE (token->value);
+	  /* Update the value.  Some keywords are mapped to particular
+	     entities, rather than simply having the value of the
+	     corresponding IDENTIFIER_NODE.  For example, `__const' is
+	     mapped to `const'.  */
+	  token->value = ridpointers[token->keyword];
+	}
+      break;
+
+    case CPP_AT_NAME:
+      /* Handle Objective-C++ keywords.  */
       token->type = CPP_KEYWORD;
       switch (C_RID_CODE (token->value))
 	{
@@ -425,9 +423,17 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	case RID_CATCH: token->keyword = RID_AT_CATCH; break;
 	default: token->keyword = C_RID_CODE (token->value);
 	}
+      break;
+
+    case CPP_PRAGMA:
+      /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
+      token->pragma_kind = TREE_INT_CST_LOW (token->value);
+      token->value = NULL;
+      break;
+
+    default:
+      break;
     }
-  else
-    token->keyword = RID_MAX;
 }
 
 /* Update the globals input_location and in_system_header from TOKEN.  */
@@ -614,25 +620,6 @@ cp_lexer_purge_tokens_after (cp_lexer *lexer, cp_token *tok)
     }
 }
 
-/* Consume and handle a pragma token.  */
-static void
-cp_lexer_handle_pragma (cp_lexer *lexer)
-{
-  cpp_string s;
-  cp_token *token = cp_lexer_consume_token (lexer);
-  gcc_assert (token->type == CPP_PRAGMA);
-  gcc_assert (token->value);
-
-  s.len = TREE_STRING_LENGTH (token->value);
-  s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
-
-  /* FIXME: cpp_handle_deferred_pragma (parse_in, &s); */
-
-  /* Clearing token->value here means that we will get an ICE if we
-     try to process this #pragma again (which should be impossible).  */
-  token->value = NULL;
-}
-
 /* Begin saving tokens.  All tokens consumed after this point will be
    preserved.  */
 
@@ -715,7 +702,6 @@ cp_lexer_print_token (FILE * stream, cp_token *token)
 
     case CPP_STRING:
     case CPP_WSTRING:
-    case CPP_PRAGMA:
       fprintf (stream, " \"%s\"", TREE_STRING_POINTER (token->value));
       break;
 
@@ -1661,6 +1647,8 @@ static bool cp_parser_extension_opt
   (cp_parser *, int *);
 static void cp_parser_label_declaration
   (cp_parser *);
+static void cp_parser_pragma
+  (cp_parser *);
 
 /* Objective-C++ Productions */
 
@@ -1805,6 +1793,8 @@ static void cp_parser_skip_to_closing_brace
   (cp_parser *);
 static void cp_parser_skip_until_found
   (cp_parser *, enum cpp_ttype, const char *);
+static void cp_parser_skip_to_pragma_eol
+  (cp_parser*, cp_token *);
 static bool cp_parser_error_occurred
   (cp_parser *);
 static bool cp_parser_allow_gnu_extensions_p
@@ -1865,12 +1855,14 @@ cp_parser_error (cp_parser* parser, const char* message)
       /* This diagnostic makes more sense if it is tagged to the line
 	 of the token we just peeked at.  */
       cp_lexer_set_source_position_from_token (token);
+
       if (token->type == CPP_PRAGMA)
 	{
 	  error ("%<#pragma%> is not allowed here");
-	  cp_lexer_purge_token (parser->lexer);
+	  cp_parser_skip_to_pragma_eol (parser, token);
 	  return;
 	}
+
       c_parse_error (message,
 		     /* Because c_parser_error does not understand
 			CPP_KEYWORD, keywords are treated like
@@ -2388,6 +2380,29 @@ cp_parser_skip_to_closing_brace (cp_parser *parser)
       /* Consume the token.  */
       cp_lexer_consume_token (parser->lexer);
     }
+}
+
+/* Consume tokens until we reach the end of the pragma.  */
+
+static void
+cp_parser_skip_to_pragma_eol (cp_parser* parser, cp_token *pragma_tok)
+{
+  cp_token *token;
+
+  token = cp_lexer_peek_token (parser->lexer);
+  while (true)
+    {
+      enum cpp_ttype type = token->type;
+
+      if (type == CPP_EOF)
+	break;
+      token = cp_lexer_consume_token (parser->lexer);
+      if (type == CPP_PRAGMA_EOL)
+	break;
+    }
+
+  /* Ensure that the pragma is not parsed again.  */
+  cp_lexer_purge_tokens_after (parser->lexer, pragma_tok);
 }
 
 /* This is a simple wrapper around make_typename_type. When the id is
@@ -6089,7 +6104,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr)
      a statement all its own.  */
   else if (token->type == CPP_PRAGMA)
     {
-      cp_lexer_handle_pragma (parser->lexer);
+      cp_parser_pragma (parser);
       return;
     }
 
@@ -6869,7 +6884,7 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
 	     A nested declaration cannot, so this is done here and not
 	     in cp_parser_declaration.  (A #pragma at block scope is
 	     handled in cp_parser_statement.)  */
-	  cp_lexer_handle_pragma (parser->lexer);
+	  cp_parser_pragma (parser);
 	  continue;
 	}
 
@@ -13167,7 +13182,7 @@ cp_parser_member_specification_opt (cp_parser* parser)
 	  /* Accept #pragmas at class scope.  */
 	  if (token->type == CPP_PRAGMA)
 	    {
-	      cp_lexer_handle_pragma (parser->lexer);
+	      cp_parser_pragma (parser);
 	      break;
 	    }
 
@@ -16871,7 +16886,7 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
     cp_parser_linkage_specification (parser);
   /* Handle #pragma, if any.  */
   else if (token->type == CPP_PRAGMA)
-    cp_lexer_handle_pragma (parser->lexer);
+    cp_parser_pragma (parser);
   /* Allow stray semicolons.  */
   else if (token->type == CPP_SEMICOLON)
     cp_lexer_consume_token (parser->lexer);
@@ -17367,6 +17382,96 @@ cp_parser_objc_statement (cp_parser * parser) {
 
 static GTY (()) cp_parser *the_parser;
 
+
+/* Special handling for the first token or line in the file.  The first
+   thing in the file might be #pragma GCC pch_preprocess, which loads a
+   PCH file, which is a GC collection point.  So we need to handle this
+   first pragma without benefit of an existing lexer structure.
+
+   Always returns one token to the caller in *FIRST_TOKEN.  This is 
+   either the true first token of the file, or the first token after
+   the initial pragma.  */
+
+static void
+cp_parser_initial_pragma (cp_token *first_token)
+{
+  tree name = NULL;
+
+  cp_lexer_get_preprocessor_token (NULL, first_token);
+  if (first_token->pragma_kind != PRAGMA_GCC_PCH_PREPROCESS)
+    return;
+
+  cp_lexer_get_preprocessor_token (NULL, first_token);
+  if (first_token->type == CPP_STRING)
+    {
+      name = first_token->value;
+
+      cp_lexer_get_preprocessor_token (NULL, first_token);
+      if (first_token->type != CPP_PRAGMA_EOL)
+	error ("junk at end of %<#pragma GCC pch_preprocess%>");
+    }
+  else
+    error ("expected string literal");
+
+  /* Skip to the end of the pragma.  */
+  while (first_token->type != CPP_PRAGMA_EOL && first_token->type != CPP_EOF)
+    cp_lexer_get_preprocessor_token (NULL, first_token);
+
+  /* Read one more token to return to our caller.  */
+  cp_lexer_get_preprocessor_token (NULL, first_token);
+
+  /* Now actually load the PCH file.  */
+  if (name)
+    c_common_pch_pragma (parse_in, TREE_STRING_POINTER (name));
+}
+
+/* Normal parsing of a pragma token.  Here we can (and must) use the
+   regular lexer.  */
+
+static void
+cp_parser_pragma (cp_parser *parser)
+{
+  cp_token *pragma_tok;
+  unsigned int id;
+
+  pragma_tok = cp_lexer_peek_token (parser->lexer);
+  gcc_assert (pragma_tok->type == CPP_PRAGMA);
+  id = pragma_tok->pragma_kind;
+  gcc_assert (id >= PRAGMA_FIRST_EXTERNAL);
+  
+  cp_lexer_consume_token (parser->lexer);
+  c_invoke_pragma_handler (id);
+  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+}
+
+/* The interface the pragma parsers have to the lexer.  */
+
+enum cpp_ttype
+pragma_lex (tree *value)
+{
+  cp_token *tok;
+  enum cpp_ttype ret;
+
+  tok = cp_lexer_peek_token (the_parser->lexer);
+
+  ret = tok->type;
+  *value = tok->value;
+
+  if (ret == CPP_PRAGMA_EOL || ret == CPP_EOF)
+    ret = CPP_EOF;
+  else if (ret == CPP_STRING)
+    *value = cp_parser_string_literal (the_parser, false, false);
+  else
+    {
+      cp_lexer_consume_token (the_parser->lexer);
+      if (ret == CPP_KEYWORD)
+	ret = CPP_NAME;
+    }
+
+  return ret;
+}
+
+
 /* External interface.  */
 
 /* Parse one entire translation unit.  */

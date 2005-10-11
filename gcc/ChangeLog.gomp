@@ -1,5 +1,18 @@
 2005-10-11  Richard Henderson  <rth@redhat.com>
 
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_GCC_PCH_PREPROCESS.
+	* c-pragma.c (c_register_pragma_1): Assert id in range of the
+	field used by the c++ front end.
+	(init_pragma): Register GCC pch_preprocess as an internal pragma.
+	* c-pch.c (c_common_pch_pragma): Take name argument.  Don't do the
+	actual lexing of this pragma here.
+	* c-common.h (c_common_pch_pragma): Update.
+	* c-parser.c (c_parser_pragma): Handle PRAGMA_GCC_PCH_PREPROCESS.
+	(c_parser_pragma_pch_preprocess): New.
+	(c_parse_file): Call it.
+
+2005-10-11  Richard Henderson  <rth@redhat.com>
+
 	* c-common.c (enum c_builtin_type): Move to top-level from
 	c_common_nodes_and_builtins enum builtin_type.
 	(builtin_types): Move from c_common_nodes_and_builtins.

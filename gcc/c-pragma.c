@@ -688,6 +688,10 @@ c_register_pragma_1 (const char *space, const char *name,
   id = VEC_length (pragma_handler, registered_pragmas);
   id += PRAGMA_FIRST_EXTERNAL - 1;
 
+  /* The C++ front end allocates 6 bits in cp_token; the C front end
+     allocates 7 bits in c_token.  At present this is sufficient.  */
+  gcc_assert (id < 64);
+
   cpp_register_deferred_pragma (parse_in, space, name, id,
 				allow_expansion, false);
 }
@@ -746,6 +750,9 @@ init_pragma (void)
 				      omp_pragmas[i].id, true, true);
     }
 
+  cpp_register_deferred_pragma (parse_in, "GCC", "pch_preprocess",
+				PRAGMA_GCC_PCH_PREPROCESS, false, false);
+
 #ifdef HANDLE_PRAGMA_PACK
 #ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
   c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);
@@ -762,8 +769,6 @@ init_pragma (void)
 
   c_register_pragma (0, "redefine_extname", handle_pragma_redefine_extname);
   c_register_pragma (0, "extern_prefix", handle_pragma_extern_prefix);
-
-  c_register_pragma ("GCC", "pch_preprocess", c_common_pch_pragma);
 
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS ();
