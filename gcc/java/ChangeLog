@@ -1,5 +1,9 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_new_array): Fix evaluation order.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (build_new_object_array): Build reference to element
 	type, not array type.
 

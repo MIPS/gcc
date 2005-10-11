@@ -2277,18 +2277,9 @@ tree_generator::visit_new_array (model_new_array *new_elt,
     }
   else if (indices.size () != 0)
     {
-      int num = 0;
-      tree args = NULL_TREE;
-      for (std::list<ref_expression>::const_iterator i = indices.begin ();
-	   i != indices.end ();
-	   ++i)
-	{
-	  (*i)->visit (this);
-	  args = tree_cons (NULL_TREE, current, args);
-	  ++num;
-	}
-      // We constructed the dimension arguments in reverse order.
-      args = nreverse (args);
+      int num = indices.size ();
+      tree compound;
+      tree args = build_arguments (indices, compound);
 
       args = tree_cons (NULL_TREE, build_int (num), args);
       args = tree_cons (NULL_TREE,
@@ -2300,6 +2291,11 @@ tree_generator::visit_new_array (model_new_array *new_elt,
 			 build3 (CALL_EXPR, ptr_type_node,
 				 builtin_Jv_NewMultiArray,
 				 args, NULL_TREE));
+
+      // This is to force evaluation order to be correct.
+      if (compound != NULL_TREE)
+	current = build2 (COMPOUND_EXPR, TREE_TYPE (current), compound,
+			  current);
       annotate (current, new_elt);
     }
   else
