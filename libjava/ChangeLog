@@ -1,5 +1,9 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* testsuite/libjava.lang/err12.java: Use correct constant.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/libjava.lang/ExtraClassLoader.out: New file.
 	* testsuite/libjava.lang/TestProxy.java (MyInvocationHandler):
 	Now static.

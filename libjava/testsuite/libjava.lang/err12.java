@@ -19,8 +19,8 @@ public class err12 {
 			System.out.println("OK");
 		} else {
 			System.out.println("NG");
-			System.out.println("x1:[65520]-->[" +(x1-0)+"]");
-			System.out.println("x2:[65520]-->[" +(x2-0)+"]");
+			System.out.println("x1:[55536]-->[" +(x1-0)+"]");
+			System.out.println("x2:[55536]-->[" +(x2-0)+"]");
 		}
 	}
 }
