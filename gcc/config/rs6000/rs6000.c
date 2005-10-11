@@ -19783,7 +19783,8 @@ rs6000_fatal_bad_address (rtx op)
 
 #if TARGET_MACHO
 
-static tree branch_island_list = 0;
+/* APPLE LOCAL mlongcall long names 4271187 */
+static GTY (()) tree branch_island_list = 0;
 
 /* Remember to generate a branch island for far calls to the given
    function.  */
@@ -19812,8 +19813,10 @@ add_compiler_branch_island (tree label_name, tree function_name,
 static void
 macho_branch_islands (void)
 {
-  char tmp_buf[512];
+  /* APPLE LOCAL begin mlongcall long names 4271187 */
+  char *tmp_buf;
   tree branch_island;
+  unsigned int label_len, name_len;
 
   for (branch_island = branch_island_list;
        branch_island;
@@ -19823,7 +19826,14 @@ macho_branch_islands (void)
 	IDENTIFIER_POINTER (BRANCH_ISLAND_LABEL_NAME (branch_island));
       const char *name  =
 	IDENTIFIER_POINTER (BRANCH_ISLAND_FUNCTION_NAME (branch_island));
-      char name_buf[512];
+      char *name_buf;
+
+      name_len = 2 + strlen (name);
+      name_buf = alloca (name_len);
+      label_len = 1 + strlen (label);
+      tmp_buf = alloca (512 + (4 * label_len) + (2 * name_len));
+      /* APPLE LOCAL end mlongcall long names 4271187 */
+
       /* Cheap copy of the details from the Darwin ASM_OUTPUT_LABELREF().  */
       if (name[0] == '*' || name[0] == '&')
 	strcpy (name_buf, name+1);

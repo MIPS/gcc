@@ -3480,6 +3480,7 @@ ix86_libcall_value (enum machine_mode mode)
 
 /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
 static int
+/* APPLE LOCAL mainline 2005-09-20 4205103 */
 ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
 {
   gcc_assert (!TARGET_64BIT);

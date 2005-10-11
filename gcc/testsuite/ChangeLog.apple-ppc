@@ -1,3 +1,8 @@
+2005-10-10  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4271187
+	* gcc.apple/longcall-1.c: New.
+
 2005-10-06  Devang Patel  <dpatel@apple.com>
 
 	Radar 4257091

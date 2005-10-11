@@ -1,3 +1,8 @@
+2005-10-10  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4271187
+	* gcc/config/rs6000/rs6000.c (macho_branch_islands): Avoid fixed-size buffers.
+
 2005-10-07  Evan Cheng  <evan.cheng@apple.com>
 
         Radar 4109832	
