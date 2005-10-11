@@ -1,3 +1,8 @@
+2005-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-pretty-print.c (dump_omp_clauses): Handle OMP_CLAUSE_DEFAULT.
+	(op_symbol_1): Handle MAX_EXPR and MIN_EXPR.
+
 2005-10-11  Richard Henderson  <rth@redhat.com>
 
 	* c-pragma.h (enum pragma_kind): Add PRAGMA_GCC_PCH_PREPROCESS.

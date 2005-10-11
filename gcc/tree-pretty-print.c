@@ -310,6 +310,27 @@ dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 	  pp_string (buffer, "ordered");
 	  break;
 
+	case OMP_CLAUSE_DEFAULT:
+	  pp_string (buffer, "default(");
+	  switch (OMP_CLAUSE_DEFAULT_KIND (clause))
+	    {
+	    case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
+	      break;
+	    case OMP_CLAUSE_DEFAULT_SHARED:
+	      pp_string (buffer, "shared");
+	      break;
+	    case OMP_CLAUSE_DEFAULT_NONE:
+	      pp_string (buffer, "none");
+	      break;
+	    case OMP_CLAUSE_DEFAULT_PRIVATE:
+	      pp_string (buffer, "private");
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  pp_character (buffer, ')');
+	  break;
+
 	case OMP_CLAUSE_SCHEDULE:
 	  pp_string (buffer, "schedule(");
 	  switch (OMP_CLAUSE_SCHEDULE_KIND (clause))
@@ -2198,6 +2219,12 @@ op_symbol_1 (enum tree_code code)
 
     case POSTINCREMENT_EXPR:
       return "++ ";
+
+    case MAX_EXPR:
+      return "max";
+
+    case MIN_EXPR:
+      return "min";
 
     default:
       return "<<< ??? >>>";
