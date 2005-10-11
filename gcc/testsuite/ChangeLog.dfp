@@ -1,3 +1,9 @@
+2005-10-11  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/struct-layout-1.c: Use _Decimal64 as the type of the
+	single member in struct S1, not _Decimal128 due to an unrelated
+	GCC bug (target/24306).  Undefine DBG.
+
 2005-09-30  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/operatorspec-3.c: Formatting.
