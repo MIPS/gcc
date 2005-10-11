@@ -1,3 +1,9 @@
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.lang/ExtraClassLoader.out: New file.
+	* testsuite/libjava.lang/TestProxy.java (MyInvocationHandler):
+	Now static.
+
 2005-06-04  Tom Tromey  <tromey@redhat.com>
 
 	* include/jvm.h (_Jv_ThrowAbstractMethodError): Declare.
