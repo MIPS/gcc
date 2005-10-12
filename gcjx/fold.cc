@@ -539,9 +539,13 @@ public:
 
   void visit_super_invocation (model_super_invocation *invocation,
 			       const model_method *,
-			       const std::list<ref_expression> &arguments)
+			       const std::list<ref_expression> &arguments,
+			       const ref_expression &finit)
   {
     invocation->set_arguments (fold (arguments));
+    // We can't fold the call but perhaps we can fold an argument.
+    if (finit)
+      finit->visit (this);
   }
 
   void visit_this_invocation (model_this_invocation *invocation,

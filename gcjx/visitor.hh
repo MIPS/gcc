@@ -294,7 +294,8 @@ public:
 
   virtual void visit_super_invocation (model_super_invocation *,
 				       const model_method *,
-				       const std::list<ref_expression> &) = 0;
+				       const std::list<ref_expression> &,
+				       const ref_expression &) = 0;
 
   virtual void visit_this_invocation (model_this_invocation *,
 				      const model_method *,

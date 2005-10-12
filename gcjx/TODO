@@ -297,6 +297,9 @@ Tree generation
 when doing 'String +' we emit explicit null pointer checks
 in this case this is useless
 
+no need to do InitClass in a 'class$' method?
+why are we even generating these for .o files?
+
 see Wilson's note on 2005-08-10
 CHAR_TYPE is preferable for char types
 

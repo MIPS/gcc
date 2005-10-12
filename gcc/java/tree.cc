@@ -2220,10 +2220,20 @@ tree_generator::visit_type_qualified_invocation
 void
 tree_generator::visit_super_invocation (model_super_invocation *elt,
 					const model_method *meth,
-					const std::list<ref_expression> &args)
+					const std::list<ref_expression> &args,
+					const ref_expression &finit)
 {
   handle_invocation (meth, this_tree, args, true);
   annotate (current, elt);
+
+  if (finit)
+    {
+      tree save = current;
+      finit->visit (this);
+      current = build2 (COMPOUND_EXPR, TREE_TYPE (current), save, current);
+      TREE_SIDE_EFFECTS (current) = 1;
+      annotate (current, elt);
+    }
 }
 
 void
@@ -2249,7 +2259,7 @@ tree_generator::visit_new (model_new *elt,
   gcc_builtins->lay_out_class (klassp);
   current
     = gcc_builtins->map_new (class_wrapper, klassp,
-			     const_cast<model_method *>(constructor),
+			     const_cast<model_method *> (constructor),
 			     arg_tree);
   if (compound != NULL_TREE)
     current = build2 (COMPOUND_EXPR, TREE_TYPE (current), compound, current);

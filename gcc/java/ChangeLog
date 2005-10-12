@@ -1,5 +1,11 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_super_invocation): Added argument.
+	* tree.hh (tree_generator::visit_super_invocation): Added
+	argument.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_new_array): Fix evaluation order.
 
 2005-10-11  Tom Tromey  <tromey@redhat.com>

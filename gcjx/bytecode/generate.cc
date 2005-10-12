@@ -3246,7 +3246,8 @@ void
 bytecode_generator::visit_super_invocation
     (model_super_invocation *inv,
      const model_method *meth,
-     const std::list<ref_expression> &args)
+     const std::list<ref_expression> &args,
+     const ref_expression &finit)
 {
   // FIXME: duplicate code.
   model_class *accessed;
@@ -3261,6 +3262,9 @@ bytecode_generator::visit_super_invocation
   handle_invocation (op_invokespecial, inv->get_qualifying_class (),
 		     meth, args, inv->get_expression () != NULL,
 		     nonstatic_accessor);
+
+  if (finit)
+    finit->visit (this);
 }
 
 void

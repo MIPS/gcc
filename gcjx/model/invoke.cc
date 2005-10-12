@@ -555,10 +555,7 @@ model_super_invocation::resolve (resolution_scope *scope)
 void
 model_super_invocation::visit (visitor *v)
 {
-  v->visit_super_invocation (this, method, arguments);
-  // Now separately visit the invocation.
-  if (finit)
-    finit->visit (v);
+  v->visit_super_invocation (this, method, arguments, finit);
 }
 
 

@@ -1391,10 +1391,13 @@ public:
 
   void visit_super_invocation (model_super_invocation *,
 			       const model_method *,
-			       const std::list<ref_expression> &exprs)
+			       const std::list<ref_expression> &exprs,
+			       const ref_expression &finit)
   {
     assert (constructor);
     visit (exprs);
+    if (finit)
+      finit->visit (this);
   }
 
   void visit_this_invocation (model_this_invocation *,

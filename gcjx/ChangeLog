@@ -1,5 +1,18 @@
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
+	* model/invoke.cc (visit): Pass 'finit' as argument to visitor.
+	* defassign.cc (definite_assignment_visitor::visit_super_invocation):
+	Updated.
+	* fold.cc (fold_visitor::visit_super_invocation): Updated.
+	* bytecode/generate.cc (visit_super_invocation): Updated.
+	* bytecode/generate.hh (bytecode_generator::visit_super_invocation):
+	Updated.
+	* dump.cc (dumper::visit_super_invocation): Updated.
+	(pretty_printer::visit_super_invocation): Likewise.
+	* visitor.hh (visitor::visit_super_invocation): Added argument.
+
+2005-10-11  Tom Tromey  <tromey@redhat.com>
+
 	* model/primitive.hh (model_int_primitive::convert): Perform
 	intermediate conversions.
 

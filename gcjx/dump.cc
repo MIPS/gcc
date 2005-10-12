@@ -820,10 +820,13 @@ public:
 
   void visit_super_invocation (model_super_invocation *,
 			       const model_method *,
-			       const std::list<ref_expression> &args)
+			       const std::list<ref_expression> &args,
+			       const ref_expression &finit)
   {
     out << "super";
     handle_args (args);
+    if (finit)
+      finit->visit (this);
   }
 
   void visit_this_invocation (model_this_invocation *,
@@ -2132,7 +2135,8 @@ public:
 
   void visit_super_invocation (model_super_invocation *si,
                                const model_method *meth,
-                               const std::list<ref_expression> &args)
+                               const std::list<ref_expression> &args,
+			       const ref_expression &finit)
   {
     begin_element (si, "super_invocation");
     if (meth != NULL)
@@ -2141,6 +2145,8 @@ public:
       out << " NULL";
     descend (args);
     end_element ();
+    if (finit)
+      finit->visit (this);
   }
 
   void visit_this_invocation (model_this_invocation *ti,

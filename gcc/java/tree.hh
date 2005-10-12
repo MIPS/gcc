@@ -450,7 +450,8 @@ public:
 
   void visit_super_invocation (model_super_invocation *,
 			       const model_method *,
-			       const std::list<ref_expression> &);
+			       const std::list<ref_expression> &,
+			       const ref_expression &);
 
   void visit_this_invocation (model_this_invocation *,
 			      const model_method *,
