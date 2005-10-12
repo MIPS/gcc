@@ -154,6 +154,20 @@ public:
   tree map_catch_class (model_class *, model_class *);
 
   std::map<model_class *, tree> *get_catch_map (model_class *);
+
+  // Like the get_descriptor() methods, but returns the format wanted
+  // by libgcj.  FIXME: why do we have these?
+  static std::string get_descriptor (model_type *t)
+  {
+    // Why do we do this?
+    return join (split (t->get_descriptor (), '/'), '.');
+  }
+
+  static std::string get_descriptor (model_method *m)
+  {
+    // Why do we do this?
+    return join (split (m->get_descriptor (), '/'), '.');
+  }
 };
 
 #endif // GCC_JAVA_BUILTINS_HH

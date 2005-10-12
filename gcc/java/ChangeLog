@@ -1,3 +1,15 @@
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
+	* abi.cc (build_method_call): Use new get_descriptor.  Correctly
+	look up class object.  Put 'obj' onto argument list.
+	* classobj.cc (get_descriptor): Removed.
+	(get_descriptor): Likewise.
+	(create_one_field_record): Updated.
+	(create_method_throws): Likewise.
+	(create_one_method_record): Likewise.
+	(create_index_table): Likewise.
+	* builtins.hh (tree_builtins::get_descriptor): New methods.
+
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_super_invocation): Added argument.

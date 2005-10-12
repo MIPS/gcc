@@ -81,20 +81,6 @@ record_creator::finish_record ()
 
 
 
-static std::string
-get_descriptor (model_type *t)
-{
-  // Why do we do this?
-  return join (split (t->get_descriptor (), '/'), '.');
-}
-
-static std::string
-get_descriptor (model_method *m)
-{
-  // Why do we do this?
-  return join (split (m->get_descriptor (), '/'), '.');
-}
-
 tree
 class_object_creator::make_decl (tree type, tree value)
 {
@@ -118,7 +104,7 @@ class_object_creator::create_one_field_record (model_field *field)
   inst.set_field ("name", builtins->map_utf8const (field->get_name ()));
   // FIXME: ABI difference here.
   inst.set_field ("type",
-		  builtins->map_utf8const (get_descriptor (field->type ())));
+		  builtins->map_utf8const (tree_builtins::get_descriptor (field->type ())));
   inst.set_field ("accflags", build_int_cst (type_jint,
 					     field->get_modifiers ()));
   inst.set_field ("bsize", TYPE_SIZE_UNIT (TREE_TYPE (fdecl)));
@@ -189,7 +175,7 @@ class_object_creator::create_method_throws (model_method *method)
        i != throw_list.end ();
        ++i)
     {
-      tree utf = builtins->map_utf8const (get_descriptor ((*i)->type ()));
+      tree utf = builtins->map_utf8const (tree_builtins::get_descriptor ((*i)->type ()));
       cons_list = tree_cons (NULL_TREE, utf, cons_list);
     }
 
@@ -213,7 +199,7 @@ class_object_creator::create_one_method_record (model_method *method)
     mdecl = build_address_of (builtins->map_method (method));
   inst.set_field ("name", builtins->map_utf8const (method->get_name()));
   inst.set_field ("signature",
-		  builtins->map_utf8const (get_descriptor (method)));
+		  builtins->map_utf8const (tree_builtins::get_descriptor (method)));
   inst.set_field ("accflags",
 		  build_int_cst (type_jushort, method->get_modifiers ()));
   gcj_abi *abi = builtins->find_abi ();
@@ -279,16 +265,16 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
       if (dynamic_cast<model_field *> (*i))
 	{
 	  model_field *field = assert_cast<model_field *> (*i);
-	  class_desc = get_descriptor (field->get_declaring_class ());
+	  class_desc = tree_builtins::get_descriptor (field->get_declaring_class ());
 	  name = field->get_name ();
-	  descriptor = get_descriptor (field->type ());
+	  descriptor = tree_builtins::get_descriptor (field->type ());
 	}
       else
 	{
 	  model_method *method = assert_cast<model_method *> (*i);
-	  class_desc = get_descriptor (method->get_declaring_class ());
+	  class_desc = tree_builtins::get_descriptor (method->get_declaring_class ());
 	  name = method->get_name ();
-	  descriptor = get_descriptor (method);
+	  descriptor = tree_builtins::get_descriptor (method);
 	}
 
       tree class_tree = builtins->map_utf8const (class_desc);

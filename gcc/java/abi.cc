@@ -67,14 +67,27 @@ cxx_abi::build_method_call (tree_builtins *builtins,
 
       // FIXME: use _Jv_LookupInterfaceMethodIdx.
 
-      tree klass_tree
-	= builtins->map_class_object (meth->get_declaring_class ());
+      obj = save_expr (obj);
+      args = tree_cons (NULL_TREE, obj, args);
+
+      obj = builtins->check_reference (obj);
+      tree dtable = build1 (INDIRECT_REF, type_object,
+			    build1 (NOP_EXPR, type_object_ptr, obj));
+      dtable = build3 (COMPONENT_REF, type_dtable_ptr,
+		       dtable,
+		       builtins->find_decl (type_object, "vtable"),
+		       NULL_TREE);
+
+      tree obj_class = build3 (COMPONENT_REF, type_class_ptr,
+			       build1 (INDIRECT_REF, type_dtable, dtable),
+			       builtins->find_decl (type_dtable, "class"),
+			       NULL_TREE);
+
       tree name_tree = builtins->map_utf8const (meth->get_name ());
-      // FIXME: use our own get_descriptor().
-      tree desc_tree = builtins->map_utf8const (meth->get_descriptor ());
+      tree desc_tree = builtins->map_utf8const (tree_builtins::get_descriptor (meth));
 
       tree lookup_args
-	= tree_cons (NULL_TREE, klass_tree,
+	= tree_cons (NULL_TREE, obj_class,
 		     tree_cons (NULL_TREE, name_tree,
 				build_tree_list (NULL_TREE, desc_tree)));
 
@@ -99,6 +112,7 @@ cxx_abi::build_method_call (tree_builtins *builtins,
       // leave it to the optimizers to deduce that 'this != null' and
       // remove checks in this case.  We force a real check because in
       // the case of a final method, a SEGV will not be generated.
+      // FIXME: we may need a check anyway, depending on platform.
       if (! meth->constructor_p ()
 	  && (meth->get_modifiers () & ACC_PRIVATE) == 0)
 	obj = builtins->check_reference (obj, true);
@@ -321,6 +335,9 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
     {
       assert (obj != NULL_TREE);
 
+      obj = save_expr (obj);
+      args = tree_cons (NULL_TREE, obj, args);
+
       int slot = 2 * current->register_interface_call (meth);
       tree itable = builtins->get_itable_decl (current->get ());
 
@@ -370,9 +387,12 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
       tree atable = builtins->get_atable_decl (current->get ());
 
       // For final methods we have to do an explicit check.
+      // FIXME: we may need a check anyway, depending on platform.
       if (! meth->constructor_p ()
 	  && (meth->get_modifiers () & ACC_PRIVATE) == 0)
 	obj = builtins->check_reference (obj, true);
+
+      args = tree_cons (NULL_TREE, obj, args);
 
       tree atable_ref = build4 (ARRAY_REF, ptr_type_node, atable,
 				build_int_cst (type_jint, slot),
@@ -387,6 +407,9 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
 
       // Virtual dispatch.
       assert (obj != NULL_TREE);
+
+      obj = save_expr (obj);
+      args = tree_cons (NULL_TREE, obj, args);
 
       int slot = current->register_indirect_call (meth);
 
