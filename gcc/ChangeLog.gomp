@@ -1,3 +1,15 @@
+2005-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (omp_copy_decl_2): New function.
+	(omp_copy_decl_1): Use it.
+	(install_var_private): Handle REFERENCE_TYPE private variables.
+	(build_reduction_init): Add type argument.
+	(expand_rec_input_clauses): Expand initializers of context block
+	variables.  Handle REFERENCE_TYPE variables.  Adjust
+	build_reduction_init caller.
+	(expand_reduction_clauses, expand_copyprivate_clauses,
+	expand_send_clauses): Handle REFERENCE_TYPE variables.
+
 2005-10-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_rec_input_clauses): Fix a typo.

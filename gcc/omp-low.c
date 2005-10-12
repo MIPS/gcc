@@ -182,9 +182,9 @@ use_pointer_for_field (tree decl, bool shared_p)
 /* Construct a new automatic decl similar to VAR.  */
 
 static tree
-omp_copy_decl_1 (tree var, omp_context *ctx)
+omp_copy_decl_2 (tree var, tree name, tree type, omp_context *ctx)
 {
-  tree copy = build_decl (VAR_DECL, DECL_NAME (var), TREE_TYPE (var));
+  tree copy = build_decl (VAR_DECL, name, type);
 
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (var);
   DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (var);
@@ -199,6 +199,12 @@ omp_copy_decl_1 (tree var, omp_context *ctx)
   ctx->block_vars = copy;
 
   return copy;
+}
+
+static tree
+omp_copy_decl_1 (tree var, omp_context *ctx)
+{
+  return omp_copy_decl_2 (var, DECL_NAME (var), TREE_TYPE (var), ctx);
 }
 
 /* Build tree nodes to access the field for VAR on the receiver side.  */
@@ -285,7 +291,21 @@ install_var_new (tree new_var, tree var, omp_context *ctx)
 static tree
 install_var_private (tree var, omp_context *ctx)
 {
-  tree new_var = omp_copy_decl_1 (var, ctx);
+  tree new_var;
+  new_var = omp_copy_decl_1 (var, ctx);
+  if (TREE_CODE (TREE_TYPE (var)) == REFERENCE_TYPE)
+    {
+      tree tmp_name = DECL_NAME (var), x;
+
+      if (tmp_name != NULL)
+	tmp_name = create_tmp_var_name (IDENTIFIER_POINTER (tmp_name));
+      x = omp_copy_decl_2 (var, tmp_name, TREE_TYPE (TREE_TYPE (var)), ctx);
+      DECL_ARTIFICIAL (x) = 1;
+      DECL_IGNORED_P (x) = 1;
+      DECL_ABSTRACT_ORIGIN (x) = NULL;
+      x = fold_convert (TREE_TYPE (var), build_fold_addr_expr (x));
+      DECL_INITIAL (new_var) = x;
+    }
   return install_var_new (new_var, var, ctx);
 }
 
@@ -778,10 +798,8 @@ maybe_lookup_ctx (tree stmt)
 /* Construct the initialization value for reduction CLAUSE.  */
 
 static tree
-build_reduction_init (tree clause)
+build_reduction_init (tree clause, tree type)
 {
-  tree type = TREE_TYPE (OMP_CLAUSE_DECL (clause));
-
   switch (OMP_CLAUSE_REDUCTION_CODE (clause))
     {
     case PLUS_EXPR:
@@ -825,12 +843,22 @@ build_reduction_init (tree clause)
 }
 
 /* Generate code to implement the input clauses, FIRSTPRIVATE and COPYIN,
-   from the receiver (aka child) side.  */
+   from the receiver (aka child) side and initializers for REFERENCE_TYPE
+   private variables.  */
 
 static void
 expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 {
   tree c;
+
+  for (c = ctx->block_vars; c; c = TREE_CHAIN (c))
+    if (DECL_INITIAL (c))
+      {
+	tree init = DECL_INITIAL (c);
+	DECL_INITIAL (c) = NULL;
+	init = build (MODIFY_EXPR, void_type_node, c, init);
+	gimplify_and_add (init, stmt_list);
+      }
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
@@ -843,18 +871,30 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	  var = OMP_CLAUSE_DECL (c);
 	  new_var = lookup_decl (var, ctx);
 	  x = build_outer_var_ref (var, ctx);
+	  if (TREE_CODE (TREE_TYPE (var)) == REFERENCE_TYPE)
+	    {
+	      new_var = build_fold_indirect_ref (new_var);
+	      x = build_fold_indirect_ref (x);
+	    }
 	  break;
 
 	case OMP_CLAUSE_COPYIN:
 	  new_var = var = OMP_CLAUSE_DECL (c);
 	  by_ref = use_pointer_for_field (var, false);
 	  x = build_receiver_ref (var, by_ref, ctx);
+	  /* What to do with thread-private REFERENCE_TYPEs?  */
 	  break;
 
 	case OMP_CLAUSE_REDUCTION:
 	  var = OMP_CLAUSE_DECL (c);
 	  new_var = lookup_decl (var, ctx);
-	  x = build_reduction_init (c);
+	  if (TREE_CODE (TREE_TYPE (var)) == REFERENCE_TYPE)
+	    {
+	      new_var = build_fold_indirect_ref (new_var);
+	      x = build_reduction_init (c, TREE_TYPE (TREE_TYPE (var)));
+	    }
+	  else
+	    x = build_reduction_init (c, TREE_TYPE (var));
 	  break;
 
 	default:
@@ -945,8 +985,14 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 
       var = OMP_CLAUSE_DECL (c);
       new_var = lookup_decl (var, ctx);
-
       ref = build_outer_var_ref (var, ctx);
+
+      if (TREE_CODE (TREE_TYPE (var)) == REFERENCE_TYPE)
+	{
+	  new_var = build_fold_indirect_ref (new_var);
+	  ref = build_fold_indirect_ref (ref);
+	}
+
       if (count == 1)
 	{
 	  tree addr = build_fold_addr_expr (ref);
@@ -959,9 +1005,12 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	  gimplify_and_add (x, stmt_list);
 	  return;
 	}
+
       x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
 		  TREE_TYPE (ref), ref, new_var);
       ref = build_outer_var_ref (var, ctx);
+      if (TREE_CODE (TREE_TYPE (var)) == REFERENCE_TYPE)
+	ref = build_fold_indirect_ref (ref);
       x = build2 (MODIFY_EXPR, void_type_node, ref, x);
       append_to_statement_list (x, &sub_list);
     }
@@ -1002,6 +1051,11 @@ expand_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
       gimplify_and_add (x, slist);
 
       ref = build_receiver_ref (var, by_ref, ctx);
+      if (TREE_CODE (TREE_TYPE (var)) == REFERENCE_TYPE)
+	{
+	  ref = build_fold_indirect_ref (ref);
+	  var = build_fold_indirect_ref (var);
+	}
       x = build2 (MODIFY_EXPR, void_type_node, var, ref);
       gimplify_and_add (x, rlist);
     }
@@ -1032,7 +1086,7 @@ expand_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	case OMP_CLAUSE_LASTPRIVATE:
 	  val = OMP_CLAUSE_DECL (c);
 	  by_ref = use_pointer_for_field (val, false);
-	  if (by_ref)
+	  if (by_ref || TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE)
 	    do_in = true;
 	  else
 	    do_out = true;
@@ -1042,7 +1096,7 @@ expand_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	  val = OMP_CLAUSE_DECL (c);
 	  by_ref = use_pointer_for_field (val, false);
 	  do_in = true;
-	  do_out = !by_ref;
+	  do_out = !(by_ref || TREE_CODE (TREE_TYPE (val)) == REFERENCE_TYPE);
 	  break;
 	default:
 	  continue;
