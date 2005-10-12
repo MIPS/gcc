@@ -1,6 +1,6 @@
-// 'null'
+// Represent an enum constant.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,15 +22,7 @@
 #include "typedefs.hh"
 
 void
-model_null_type::visit (visitor *v)
+model_enum_constant::visit (visitor *v)
 {
-  v->visit_null_type (this, descriptor);
-}
-
-
-
-void
-model_null_literal::visit (visitor *v)
-{
-  v->visit_null_literal (this);
+  v->visit_enum_constant (this, descriptor, name, arguments);
 }

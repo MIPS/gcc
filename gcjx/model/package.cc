@@ -88,6 +88,18 @@ model_package::visit (visitor *v)
   v->visit_package (this, name);
 }
 
+void
+model_unnamed_package::visit (visitor *v)
+{
+  v->visit_unnamed_package (this, name);
+}
+
+void
+model_primordial_package::visit (visitor *v)
+{
+  v->visit_primordial_package (this, name);
+}
+
 const format &
 operator% (const format &fmt, model_package *pkg)
 {

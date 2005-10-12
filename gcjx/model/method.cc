@@ -751,6 +751,14 @@ model_method::apply_type_map (const model_type_map &type_map,
 
 
 
+void
+model_abstract_method::visit (visitor *v)
+{
+  v->visit_abstract_method (this, parameters, body, original);
+}
+
+
+
 const format &
 operator% (const format &fmt, model_method *meth)
 {

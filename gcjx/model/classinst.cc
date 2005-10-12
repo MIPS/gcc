@@ -1,6 +1,6 @@
 // A parameterized class instance.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -118,4 +118,10 @@ model_class_instance::get_signature_map_fragment ()
 
   result += ">";
   return result;
+}
+
+void
+model_class_instance::visit (visitor *v)
+{
+  v->visit_class_instance (this, descriptor, name, parent);
 }

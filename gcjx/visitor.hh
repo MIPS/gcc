@@ -398,8 +398,6 @@ public:
   virtual void visit_package (model_package *,
                               const std::list<std::string> &) = 0;
 
-  virtual void visit_primitive (model_primitive_base *, const char *) = 0;
-
   virtual void visit_type (model_type *, const std::string &) = 0;
 
   virtual void visit_identifier (model_identifier *, const std::string &) = 0;
@@ -440,6 +438,98 @@ public:
   virtual void visit_unit_fake (model_unit_fake *, model_package *,
                                 const std::list<ref_class> &,
                                 const std::string &, bool) = 0;
+
+  virtual void visit_abstract_method (model_abstract_method *,
+                                      const std::list<ref_variable_decl> &,
+                                      const ref_block &,
+                                      model_method *) = 0;
+
+  virtual void visit_annotation_type (model_annotation_type *,
+                                      const std::string &,
+                                      const std::string &) = 0;
+  
+  virtual void visit_array_type (model_array_type *,
+                                 const std::string &,
+                                 const std::string &, model_type *) = 0;
+
+  virtual void visit_class (model_class *, const std::string &,
+                            const std::string &) = 0;
+
+  virtual void visit_class_instance (model_class_instance *,
+                                     const std::string &,
+                                     const std::string &, model_class *) = 0;
+  
+  virtual void visit_constructor (model_constructor *,
+                                  const std::list<ref_variable_decl> &,
+                                  const ref_block &) = 0;
+
+  virtual void visit_enum (model_enum *, const std::string &,
+                           const std::string &,
+                           const std::list<ref_enum_constant> &) = 0;
+
+  virtual void visit_enum_constant (model_enum_constant *,
+                                    const std::string &,
+                                    const std::string &,
+                                    const std::list<ref_expression> &) = 0;
+
+  virtual void visit_fp_primitive (model_primitive_base *, char, jfloat) = 0;
+
+  virtual void visit_fp_primitive (model_primitive_base *, char, jdouble) = 0;
+
+  virtual void visit_int_primitive (model_primitive_base *, char,
+                                    long long, long long, jbyte) = 0;
+
+  virtual void visit_int_primitive (model_primitive_base *, char,
+                                    long long, long long, jchar) = 0;
+
+  virtual void visit_int_primitive (model_primitive_base *, char,
+                                    long long, long long, jshort) = 0;
+
+  virtual void visit_int_primitive (model_primitive_base *, char,
+                                    long long, long long, jint) = 0;
+
+  virtual void visit_int_primitive (model_primitive_base *, char,
+                                    long long, long long, jlong) = 0;
+
+  virtual void visit_primitive_boolean (model_primitive_boolean *) = 0;
+
+  virtual void visit_initializer_block (model_initializer_block *,
+                                        const std::list<ref_stmt> &,
+                                        bool) = 0;
+
+  virtual void visit_new_primary (model_new_primary *, const model_method *,
+                                  const ref_forwarding_type &,
+                                  const std::list<ref_expression> &,
+                                  const std::string &,
+                                  const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void visit_null_type (model_null_type *, const std::string &) = 0;
+
+  virtual void visit_phony_block (model_phony_block *,
+                                  const std::list<ref_stmt> &) = 0;
+
+  virtual void visit_primordial_package (model_primordial_package *,
+                                         const std::list<std::string> &) = 0;
+
+  virtual void visit_unnamed_package (model_unnamed_package *,
+                                      const std::list<std::string> &) = 0;
+
+  virtual void visit_synthetic_this (model_synthetic_this *) = 0;
+
+  virtual void visit_this_outer (model_this_outer *) = 0;
+
+  virtual void
+  visit_type_variable (model_type_variable *,
+                       const std::string &, const std::string &,
+                       const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void visit_void_type (model_void_type *, const std::string &) = 0;
+
+  virtual void visit_wildcard (model_wildcard *, const std::string &,
+                               const std::string &, bool,
+                               const ref_forwarding_type &) = 0;
+
+  virtual void visit_javadoc (model_javadoc *, bool) = 0;
 };
 
 

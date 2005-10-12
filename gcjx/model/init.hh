@@ -1,6 +1,6 @@
 // Represent an initializer block.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -50,6 +50,8 @@ public:
   void resolve (resolution_scope *);
 
   void compute_normal_completion (normal_completion_state &);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_INIT_HH

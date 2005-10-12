@@ -222,6 +222,8 @@ public:
   {
     // Nothing.
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_BYTECODE_HH

@@ -89,6 +89,8 @@ public:
   /// This returns the signature as used by the class signature (as
   /// opposed to the type signature).
   std::string get_formal_signature ();
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_TYPEVAR_HH

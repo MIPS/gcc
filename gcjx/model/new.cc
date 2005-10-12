@@ -1,6 +1,6 @@
 // "new" operator
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -231,4 +231,11 @@ model_new_primary::determine_search_class (resolution_scope *scope,
   klass = new model_forwarding_resolved (get_location (), *result);
 
   finish_search_class (scope, result, qualifier);
+}
+
+void
+model_new_primary::visit (visitor *v)
+{
+  v->visit_new_primary (this, method, klass, arguments, simple_name,
+                        type_params);
 }

@@ -1,6 +1,6 @@
 // Represent an annotation type.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -67,6 +67,8 @@ public:
   /// Throw exception, using request as the location, on error.
   void check_completeness (const std::list<ref_annotation_value> &args,
 			   model_element *request);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_ANNOTYPE_HH

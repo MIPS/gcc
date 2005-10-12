@@ -30,9 +30,9 @@ model_primitive_base::assignable_from_p (model_type *other)
 }
 
 void
-model_primitive_base::visit (visitor *v)
+model_primitive_boolean::visit (visitor *v)
 {
-  v->visit_primitive (this, pretty_name);
+  v->visit_primitive_boolean (this);
 }
 
 template<typename T, char sig_char, long long MIN, long long MAX>
@@ -47,10 +47,28 @@ model_int_primitive<T,sig_char,MIN,MAX>::divide (model_element *request,
   return (T) l / (T) r;
 }
 
+template<typename T, char sig_char, long long MIN, long long MAX>
+void
+model_int_primitive<T,sig_char,MIN,MAX>::visit (visitor *v)
+{
+  T dummy = 0;
+  v->visit_int_primitive (this, sig_char, MIN, MAX, dummy);
+}
+
+template<typename T, char sig_char>
+void
+model_fp_primitive<T,sig_char>::visit (visitor *v)
+{
+  T dummy = 0.0;
+  v->visit_fp_primitive (this, sig_char, dummy);
+}
+
 
 
 // Instantiations.
 
+template class model_fp_primitive<jfloat, 'F'>;
+template class model_fp_primitive<jdouble, 'D'>;
 template class model_int_primitive<jbyte, 'B', -128, 127>;
 template class model_int_primitive<jchar, 'C', 0, 65536>;
 template class model_int_primitive<jshort, 'S', -32768, 32767>;

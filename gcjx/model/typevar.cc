@@ -1,6 +1,6 @@
 // A type variable.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -170,4 +170,10 @@ std::string
 model_type_variable::get_signature ()
 {
   return "T" + name + ";";
+}
+
+void
+model_type_variable::visit (visitor *v)
+{
+  v->visit_type_variable (this, descriptor, name, bounds);
 }

@@ -59,6 +59,8 @@ public:
   {
     return std::string ("null");
   }
+
+  void visit (visitor *);
 };
 
 extern model_null_type *null_type;

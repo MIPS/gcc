@@ -1,6 +1,6 @@
 // Represent an enum class.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -56,6 +56,8 @@ public:
   {
     return constants.size ();
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_ENUM_HH

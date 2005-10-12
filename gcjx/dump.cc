@@ -1035,11 +1035,6 @@ public:
     // Nothing.
   }
 
-  void visit_primitive (model_primitive_base *, const char *)
-  {
-    // Nothing.
-  }
-
   void visit_type (model_type *, const std::string &)
   {
     // Nothing.
@@ -1109,6 +1104,179 @@ public:
   {
     // Nothing.
   }
+
+  void visit_abstract_method (model_abstract_method *am,
+                              const std::list<ref_variable_decl> &params,
+			      const ref_block &body, model_method *)
+  {
+    visit_method (am, params, body);
+  }
+
+  void visit_annotation_type (model_annotation_type *at,
+                              const std::string &descr,
+                              const std::string &name)
+  {
+    visit_class (at, descr, name);
+  }
+  
+  void visit_array_type (model_array_type *at, const std::string &descr,
+                         const std::string &name, model_type *)
+  {
+    visit_class (at, descr, name);
+  }
+
+  void visit_class (model_class *c, const std::string &descr,
+                    const std::string &)
+  {
+    visit_type (c, descr);
+  }
+
+  void visit_class_instance (model_class_instance *ci,
+                             const std::string &descr,
+                             const std::string &name, model_class *)
+  {
+    visit_class (ci, descr, name);
+  }
+  
+  void visit_constructor (model_constructor *c,
+                          const std::list<ref_variable_decl> &params,
+                          const ref_block &body)
+  {
+    visit_method (c, params, body);
+  }
+
+  void visit_enum (model_enum *e, const std::string &descr,
+                   const std::string &name,
+                   const std::list<ref_enum_constant> &)
+  {
+    visit_class (e, descr, name);
+  }
+
+  void visit_enum_constant (model_enum_constant *ec,
+                            const std::string &descr,
+                            const std::string &name,
+                            const std::list<ref_expression> &)
+  {
+    visit_class (ec, descr, name);
+  }
+
+  void visit_fp_primitive (model_primitive_base *, char, jfloat)
+  {
+    // Nothing.
+  }
+
+  void visit_fp_primitive (model_primitive_base *, char, jdouble)
+  {
+    // Nothing.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jbyte)
+  {
+    // Nothing.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jchar)
+  {
+    // Nothing.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jshort)
+  {
+    // Nothing.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jint)
+  {
+    // Nothing.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jlong)
+  {
+    // Nothing.
+  }
+
+  void visit_primitive_boolean (model_primitive_boolean *)
+  {
+    // Nothing.
+  }
+
+  void visit_initializer_block (model_initializer_block *ib,
+                                const std::list<ref_stmt> &stmts, bool)
+  {
+    visit_block (ib, stmts);
+  }
+
+  void visit_new_primary (model_new_primary *np, const model_method *meth,
+			  const ref_forwarding_type &klass,
+			  const std::list<ref_expression> &args,
+			  const std::string &,
+			  const std::list<ref_forwarding_type> &)
+  {
+    visit_new (np, meth, klass, args);
+  }
+
+  void visit_null_type (model_null_type *nt, const std::string &descr)
+  {
+    visit_type (nt, descr);
+  }
+
+  void visit_phony_block (model_phony_block *pb,
+                          const std::list<ref_stmt> &stmts)
+  {
+    visit_block (pb, stmts);
+  }
+
+  void visit_primordial_package (model_primordial_package *pp,
+                                 const std::list<std::string> &name)
+  {
+    visit_package (pp, name);
+  }
+
+  void visit_unnamed_package (model_unnamed_package *up,
+                              const std::list<std::string> &name)
+  {
+    visit_package (up, name);
+  }
+
+  void visit_synthetic_this (model_synthetic_this *st)
+  {
+    visit_this (st);
+  }
+
+  void visit_this_outer (model_this_outer *to)
+  {
+    visit_this (to);
+  }
+
+  void
+  visit_type_variable (model_type_variable *tv,
+                       const std::string &descr, const std::string &name,
+                       const std::list<ref_forwarding_type> &)
+  {
+    visit_class (tv, descr, name);
+  }
+
+  void visit_void_type (model_void_type *vt, const std::string &descr)
+  {
+    visit_type (vt, descr);
+  }
+
+  void visit_wildcard (model_wildcard *w, const std::string &descr,
+                       const std::string &name, bool,
+                       const ref_forwarding_type &)
+  {
+    visit_class (w, descr, name);
+  }
+
+  void visit_javadoc (model_javadoc *, bool)
+  {
+    // Nothing.
+  }  
 };
 
 /// A simple pretty-printer for the model elements.
@@ -2443,13 +2611,6 @@ public:
     end_element ();
   }
 
-  void visit_primitive (model_primitive_base *prim, const char *name)
-  {
-    begin_element (prim, "primitive");
-    out << " " << name;
-    end_element ();
-  }
-
   void visit_type (model_type *t, const std::string &descriptor)
   {
     begin_element (t, "type");
@@ -2523,6 +2684,179 @@ public:
   {
     // TODO.
   }
+
+  void visit_abstract_method (model_abstract_method *am,
+                              const std::list<ref_variable_decl> &params,
+			      const ref_block &body, model_method *)
+  {
+    // TODO.
+  }
+
+  void visit_annotation_type (model_annotation_type *at,
+                              const std::string &descr,
+                              const std::string &name)
+  {
+    // TODO.
+  }
+  
+  void visit_array_type (model_array_type *at, const std::string &descr,
+                         const std::string &name, model_type *)
+  {
+    // TODO.
+  }
+
+  void visit_class (model_class *c, const std::string &descr,
+                    const std::string &)
+  {
+    // TODO.
+  }
+
+  void visit_class_instance (model_class_instance *ci,
+                             const std::string &descr,
+                             const std::string &name, model_class *)
+  {
+    // TODO.
+  }
+  
+  void visit_constructor (model_constructor *c,
+                          const std::list<ref_variable_decl> &params,
+                          const ref_block &body)
+  {
+    // TODO.
+  }
+
+  void visit_enum (model_enum *e, const std::string &descr,
+                   const std::string &name,
+                   const std::list<ref_enum_constant> &)
+  {
+    // TODO.
+  }
+
+  void visit_enum_constant (model_enum_constant *ec,
+                            const std::string &descr,
+                            const std::string &name,
+                            const std::list<ref_expression> &)
+  {
+    // TODO.
+  }
+
+  void visit_fp_primitive (model_primitive_base *, char, jfloat)
+  {
+    // TODO.
+  }
+
+  void visit_fp_primitive (model_primitive_base *, char, jdouble)
+  {
+    // TODO.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jbyte)
+  {
+    // TODO.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jchar)
+  {
+    // TODO.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jshort)
+  {
+    // TODO.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jint)
+  {
+    // TODO.
+  }
+
+  void visit_int_primitive (model_primitive_base *, char,
+                            long long, long long, jlong)
+  {
+    // TODO.
+  }
+
+  void visit_primitive_boolean (model_primitive_boolean *)
+  {
+    // TODO.
+  }
+
+  void visit_initializer_block (model_initializer_block *ib,
+                                const std::list<ref_stmt> &stmts, bool)
+  {
+    // TODO.
+  }
+
+  void visit_new_primary (model_new_primary *np, const model_method *meth,
+			  const ref_forwarding_type &klass,
+			  const std::list<ref_expression> &args,
+			  const std::string &,
+			  const std::list<ref_forwarding_type> &)
+  {
+    // TODO.
+  }
+
+  void visit_null_type (model_null_type *nt, const std::string &descr)
+  {
+    // TODO.
+  }
+
+  void visit_phony_block (model_phony_block *pb,
+                          const std::list<ref_stmt> &stmts)
+  {
+    // TODO.
+  }
+
+  void visit_primordial_package (model_primordial_package *pp,
+                                 const std::list<std::string> &name)
+  {
+    // TODO.
+  }
+
+  void visit_unnamed_package (model_unnamed_package *up,
+                              const std::list<std::string> &name)
+  {
+    // TODO.
+  }
+
+  void visit_synthetic_this (model_synthetic_this *st)
+  {
+    // TODO.
+  }
+
+  void visit_this_outer (model_this_outer *to)
+  {
+    // TODO.
+  }
+
+  void
+  visit_type_variable (model_type_variable *tv,
+                       const std::string &descr, const std::string &name,
+                       const std::list<ref_forwarding_type> &)
+  {
+    // TODO.
+  }
+
+  void visit_void_type (model_void_type *vt, const std::string &descr)
+  {
+    // TODO.
+  }
+
+  void visit_wildcard (model_wildcard *w, const std::string &descr,
+                       const std::string &name, bool,
+                       const ref_forwarding_type &)
+  {
+    // TODO.
+  }
+
+  void visit_javadoc (model_javadoc *, bool)
+  {
+    // TODO.
+  }  
 };
 
 void

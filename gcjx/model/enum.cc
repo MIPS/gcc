@@ -129,3 +129,9 @@ model_enum::resolve_hook (resolution_scope *scope)
   values->set_modifiers (ACC_STATIC);
   add (values);
 }
+
+void
+model_enum::visit (visitor *v)
+{
+  v->visit_enum (this, descriptor, name, constants);
+}

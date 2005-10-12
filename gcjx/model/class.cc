@@ -2498,3 +2498,9 @@ model_class::push_on_scope_for_class (resolution_scope *scope)
   scope->push_warning_context (this);
   scope->push_scope (this);
 }
+
+void
+model_class::visit (visitor *v)
+{
+  v->visit_class (this, descriptor, name);
+}

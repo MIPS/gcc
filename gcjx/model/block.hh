@@ -1,6 +1,6 @@
 // Represent a block.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -25,6 +25,8 @@
 /// This represents a block of statements.
 class model_block : public model_stmt
 {
+protected:
+
   // The statements in the block.
   std::list<ref_stmt> statements;
 

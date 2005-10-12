@@ -1,6 +1,6 @@
 // Type parameter wildcards.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -87,4 +87,10 @@ model_wildcard::get_signature ()
       result += bound->type ()->get_signature ();
     }
   return result;
+}
+
+void
+model_wildcard::visit (visitor *v)
+{
+  v->visit_wildcard (this, descriptor, name, is_super, bound);
 }

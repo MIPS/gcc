@@ -1,6 +1,6 @@
 // Represent an initializer block.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -37,4 +37,10 @@ model_initializer_block::compute_normal_completion
     std::cerr << error (instance
 			? "instance initializer cannot complete normally"
 			: "static initializer cannot complete normally");
+}
+
+void
+model_initializer_block::visit (visitor *v)
+{
+  v->visit_initializer_block (this, statements, instance);
 }

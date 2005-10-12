@@ -1,6 +1,6 @@
 // "this" in various flavors.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -84,6 +84,8 @@ public:
     : model_this (w, t)
   {
   }
+
+  void visit (visitor *);
 };
 
 class model_synthetic_this : public model_this
@@ -103,6 +105,8 @@ public:
   }
 
   bool check_match (model_class *, model_class *);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_THIS_HH

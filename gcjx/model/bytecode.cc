@@ -70,3 +70,11 @@ model_bytecode_block::visit (visitor *v)
 {
   v->visit_bytecode_block (this, max_stack, max_locals, length, bytes);
 }
+
+
+
+void
+model_phony_block::visit (visitor *v)
+{
+  v->visit_phony_block (this, statements);
+}

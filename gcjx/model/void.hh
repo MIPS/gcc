@@ -61,6 +61,8 @@ public:
   {
     return std::string ("void");
   }
+
+  void visit (visitor *);
 };
 
 extern model_void_type *primitive_void_type;

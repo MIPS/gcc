@@ -202,7 +202,7 @@ public:
     abort ();
   }
 
-  void visit (visitor *);
+  void visit (visitor *) = 0;
 };
 
 class model_primitive_boolean : public model_primitive_base
@@ -260,6 +260,8 @@ public:
     assert (from_type == primitive_boolean_type);
     return from_val;
   }
+
+  void visit (visitor *);
 };
 
 template<typename T, char sig_char>
@@ -372,6 +374,8 @@ public:
       return convert_value<T, jdouble> (from_val);
     abort ();
   }
+
+  void visit (visitor *) = 0;
 };
 
 template<typename T, char sig_char, long long MIN, long long MAX>
@@ -490,6 +494,8 @@ public:
 
   // This is out-of-line so we can specialize for jlong.
   bool representable_p (int val);
+
+  void visit (visitor *v);
 };
 
 template<typename T, char sig_char, long long MIN, long long MAX>
@@ -538,6 +544,8 @@ public:
 
     return T (fmod (lv, rv));
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_PRIMITIVE_HH

@@ -1,6 +1,6 @@
 // 'this' expression.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -105,8 +105,24 @@ model_this::get_synthetic_this (const location &where, model_class *referrer,
   return new model_this (where, referrer);
 }
 
+
+
+void
+model_synthetic_this::visit (visitor *v)
+{
+  v->visit_synthetic_this (this);
+}
+
 bool
 model_synthetic_this::check_match (model_class *self, model_class *target)
 {
   return self->assignable_from_p (target);
+}
+
+
+
+void
+model_this_outer::visit (visitor *v)
+{
+  v->visit_this_outer (this);
 }

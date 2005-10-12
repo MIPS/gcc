@@ -369,6 +369,8 @@ public:
   {
     return original;
   }
+
+  void visit (visitor *);
 };
 
 const format &operator% (const format &, model_method *);

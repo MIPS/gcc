@@ -89,6 +89,8 @@ public:
   /// Prepend some statements to the constructor body.
   void prepend_statements (resolution_scope *, std::list<ref_stmt> &,
 			   bool = true);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_CONSTRUCTOR_HH

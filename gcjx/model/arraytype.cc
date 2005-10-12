@@ -1,6 +1,6 @@
 // Array types.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -72,4 +72,10 @@ model_type *
 model_array_type::erasure ()
 {
   return element->erasure ()->array ();
+}
+
+void
+model_array_type::visit (visitor *v)
+{
+  v->visit_array_type (this, descriptor, name, element);
 }

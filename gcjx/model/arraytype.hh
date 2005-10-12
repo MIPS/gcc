@@ -1,6 +1,6 @@
 // Represent an array type.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -56,6 +56,8 @@ public:
     // an ordinary 'new' when the argument type is an array.
     abort ();
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_ARRAYTYPE_HH

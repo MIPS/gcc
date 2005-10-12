@@ -1,3 +1,90 @@
+2005-10-12  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* model/annotype.hh (model_annotation_type::visit): Declare.
+	* model/annotype.cc (model_annotation_type::visit): Implement.
+	* model/arraytype.hh (model_array_type::visit): Declare.
+	* model/arraytype.cc (model_array_type::visit): Implement.
+	* model/block.hh (model_block::statements): Make protected.
+	* model/bytecode.hh (model_phony_block::visit): Declare.
+	* model/bytecode.cc (model_phony_block::visit): Implement.
+	* model/class.hh (model_class::visit): Declare.
+	* model/class.cc (model_class::visit): Implement.
+	* model/classinst.hh (model_class_instance::visit): Declare.
+	* model/classinst.cc (model_class_instance::visit): Implement.
+	* model/constructor.hh (model_constructor::visit): Declare.
+	* model/constructor.cc (model_constructor::visit): Implement.
+	* model/enum.hh (model_enum::visit): Declare.
+	* model/enum.cc (model_enum::visit): Implement.
+	* model/enumconst.hh (model_enum_constant::visit): Declare.
+	* model/enumconst.cc: New file.
+	* model/init.hh (model_initializer_block::visit): Declare.
+	* model/init.cc (model_initializer_block::visit): Implement.
+	* model/javadoc.hh (model_javadoc::visit): Declare.
+	* model/javadoc.cc: New file.
+	* model/method.hh (model_abstract_method::visit): Declare.
+	* model/method.cc (model_abstract_method::visit): Implement.
+	* model/new.hh (model_new_primary::visit): Declare.
+	* model/new.cc (model_new_primary::visit): Implement.
+	* model/null.hh (model_null_type::visit): Declare.
+	* model/null.cc (model_null_type::visit): Implement.
+	* model/package.hh (model_package::name): Make protected.
+	(model_unnamed_package::visit): Declare.
+	(model_primordial_package::visit): Declare.
+	* model/package.cc (model_unnamed_package::visit): Implement.
+	(model_primordial_package::visit): Likewise.
+	* model/primitive.hh (model_primitive_base::visit): Make abstract.
+	(model_primitive_boolean::visit): Declare.
+	(model_int_primitive::visit): Likewise.
+	(model_fp_primitive::visit): Likewise.
+	* model/primitive.cc (model_primitive_base::visit): Remove.
+	(model_primitive_boolean::visit): Implement.
+	(model_int_primitive::visit): Likewise.
+	(model_fp_primitive::visit): Likewise.
+	(model_fp_primitive<jfloat>): Instantiate.
+	(model_fp_primitive<jdouble>): Likewise.
+	* model/this.hh (model_this_outer::visit): Declare.
+	(model_synthetic_this::visit): Likewise.
+	* model/this.cc (model_synthetic_this::visit): Implement.
+	(model_this_outer::visit): Likewise.
+	* model/typevar.hh (model_type_variable::visit): Declare.
+	* model/typevar.cc (model_type_variable::visit): Implement.
+	* model/void.hh (model_void_type::visit): Declare.
+	* model/void.cc: New file.
+	* model/wildcard.hh (model_wildcard::visit): Declare.
+	* model/wildcard.cc (model_wildcard::visit): Implement.
+	* visitor.hh (visitor::visit_primitive): Remove.
+	(visitor::visit_abstract_method): New method.
+	(visitor::visit_annotation_type): Likewise.
+	(visitor::visit_array_type): Likewise.
+	(visitor::visit_class): Likewise.
+	(visitor::visit_class_instance): Likewise.
+	(visitor::visit_constructor): Likewise.
+	(visitor::visit_enum): Likewise.
+	(visitor::visit_enum_constant): Likewise.
+	(visitor::visit_fp_primitive): Likewise.
+	(visitor::visit_int_primitive): Likewise.
+	(visitor::visit_primitive_boolean): Likewise.
+	(visitor::visit_initializer_block): Likewise.
+	(visitor::visit_new_primary): Likewise.
+	(visitor::visit_null_type): Likewise.
+	(visitor::visit_phony_block): Likewise.
+	(visitor::visit_primordial_package): Likewise.
+	(visitor::visit_unnamed_package): Likewise.
+	(visitor::visit_synthetic_this): Likewise.
+	(visitor::visit_this_outer): Likewise.
+	(visitor::visit_type_variable): Likewise.
+	(visitor::visit_void_type): Likewise.
+	(visitor::visit_wildcard): Likewise.
+	(visitor::visit_javadoc): Likewise.
+	* defassign.cc (definite_assignment_visitor): Implement new visitor
+	methods.
+	* dump.cc (dumper, pretty_printer): Likewise.
+	* fold.cc (fold_visitor): Likewise.
+	* bytecode/generate.hh (bytecode_generator): Likewise.
+	* Makefile.am (model_sources): Add model/enumconst.cc,
+	model/javadoc.cc and model/void.cc.
+	* Makefile.in: Regenerate.
+
 2005-10-11  Tom Tromey  <tromey@redhat.com>
 
 	* model/invoke.cc (visit): Pass 'finit' as argument to visitor.

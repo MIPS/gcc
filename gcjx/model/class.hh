@@ -707,6 +707,8 @@ public:
   {
     return source_order_methods;
   }
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_CLASS_HH

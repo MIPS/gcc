@@ -86,18 +86,19 @@ model/arraytype.cc model/assert.cc model/assign.cc model/binary.cc \
 model/block.cc model/blockscope.cc model/break.cc model/bytecode.cc \
 model/cast.cc model/catch.cc model/class.cc model/classinst.cc \
 model/classref.cc model/cond.cc model/constructor.cc model/continue.cc \
-model/declstmt.cc model/do.cc model/empty.cc model/enum.cc model/expr.cc \
-model/exprstmt.cc model/field.cc model/fieldinit.cc model/fieldref.cc \
-model/for.cc model/forenhanced.cc model/fwdtype.cc model/iannotatable.cc \
-model/identifier.cc model/if.cc model/import.cc model/imodifiable.cc \
-model/init.cc model/instanceof.cc model/invoke.cc model/label.cc \
-model/literal.cc model/memberref.cc model/method.cc model/modifier.cc \
-model/newarray.cc model/new.cc model/null.cc model/package.cc \
-model/parameters.cc model/primitive.cc model/return.cc model/stmt.cc \
-model/switch.cc model/synchronized.cc model/this.cc model/throw.cc \
-model/throwsclause.cc model/try.cc model/type.cc model/typemap.cc \
-model/typevar.cc model/unary.cc model/unit.cc model/value.cc \
-model/variable.cc model/varref.cc model/varstmt.cc model/while.cc \
+model/declstmt.cc model/do.cc model/empty.cc model/enum.cc \
+model/enumconst.cc model/expr.cc model/exprstmt.cc model/field.cc \
+model/fieldinit.cc model/fieldref.cc model/for.cc model/forenhanced.cc \
+model/fwdtype.cc model/iannotatable.cc model/identifier.cc model/if.cc \
+model/import.cc model/imodifiable.cc model/init.cc model/instanceof.cc \
+model/invoke.cc model/javadoc.cc model/label.cc model/literal.cc \
+model/memberref.cc model/method.cc model/modifier.cc model/newarray.cc \
+model/new.cc model/null.cc model/package.cc model/parameters.cc \
+model/primitive.cc model/return.cc model/stmt.cc model/switch.cc \
+model/synchronized.cc model/this.cc model/throw.cc model/throwsclause.cc \
+model/try.cc model/type.cc model/typemap.cc model/typevar.cc \
+model/unary.cc model/unit.cc model/value.cc model/variable.cc \
+model/varref.cc model/varstmt.cc model/void.cc model/while.cc \
 model/wildcard.cc
 
 bytecode_sources = bytecode/attribute.cc bytecode/block.cc \

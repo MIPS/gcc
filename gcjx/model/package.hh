@@ -25,6 +25,8 @@
 class model_package : public model_element, public Iname, public IContext,
 		      public IAnnotatable
 {
+protected:
+
   // The fully-qualified name of this package.  For the unnamed
   // package, this is empty.
   std::list<std::string> name;
@@ -129,6 +131,8 @@ public:
     : model_package (LOCATION_UNKNOWN)
   {
   }
+
+  void visit (visitor *);
 };
 
 class model_primordial_package : public model_package
@@ -139,6 +143,8 @@ public:
     : model_package (LOCATION_UNKNOWN)
   {
   }
+
+  void visit (visitor *);
 };
 
 const format &operator% (const format &fmt, model_package *pkg);

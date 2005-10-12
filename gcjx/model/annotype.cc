@@ -226,3 +226,9 @@ model_annotation_type::get_retention_policy ()
 
   return annotation_retention (policy);
 }
+
+void
+model_annotation_type::visit (visitor *v)
+{
+  v->visit_annotation_type (this, descriptor, name);
+}

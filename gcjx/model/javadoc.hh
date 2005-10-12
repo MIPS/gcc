@@ -49,10 +49,7 @@ public:
     return deprecated;
   }
 
-  void visit (visitor *)
-  {
-    // Nothing.
-  }
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_JAVADOC_HH

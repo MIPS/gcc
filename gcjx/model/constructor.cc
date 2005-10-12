@@ -189,3 +189,9 @@ model_constructor::apply_type_map (const model_type_map &type_map,
 {
   return new model_constructor (this, type_map, enclosing);
 }
+
+void
+model_constructor::visit (visitor *v)
+{
+  v->visit_constructor (this, parameters, body);
+}
