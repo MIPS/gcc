@@ -130,11 +130,13 @@ class tree_generator : public visitor
   model_type *find_model_class (const std::string &);
   tree build_divide (tree, tree, tree);
   tree build_mod (tree, tree, tree);
-  tree build_array_reference (tree, tree, tree, bool = true);
+  tree build_array_reference (tree, tree, tree, bool = true, tree = NULL_TREE);
   tree build_exception_object_ref (tree);
   tree build_label ();
   tree make_block ();
   tree build_arguments (const std::list<ref_expression> &, tree &);
+  void handle_array_ref (model_array_ref *, model_expression *,
+			 model_expression *, tree = NULL_TREE);
 
   void stringbuffer_append (model_expression *, tree &, model_class *,
 			    tree = NULL_TREE);

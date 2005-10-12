@@ -1194,9 +1194,10 @@ tree_generator::visit_array_initializer (model_array_initializer *initx,
 }
 
 void
-tree_generator::visit_array_ref (model_array_ref *aref,
-				 const ref_expression &array,
-				 const ref_expression &index)
+tree_generator::handle_array_ref (model_array_ref *aref,
+				  model_expression *array,
+				  model_expression *index,
+				  tree rhs)
 {
   array->visit (this);
   tree array_tree = current;
@@ -1208,8 +1209,17 @@ tree_generator::visit_array_ref (model_array_ref *aref,
   // FIXME: this should be handled more generically.
   gcc_builtins->lay_out_class (assert_cast<model_class *> (array->type ()));
 
-  current = build_array_reference (array_tree, index_tree, component_type);
+  current = build_array_reference (array_tree, index_tree, component_type,
+				   true, rhs);
   annotate (current, aref);
+}
+
+void
+tree_generator::visit_array_ref (model_array_ref *aref,
+				 const ref_expression &array,
+				 const ref_expression &index)
+{
+  handle_array_ref (aref, array.get (), index.get ());
 }
 
 void
@@ -1565,11 +1575,24 @@ tree_generator::visit_assignment (model_assignment *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  lhs->visit (this);
-  tree lhs_tree = current;
+  // It is ok to visit the RHS first, since we don't keep much state
+  // in this class.
   rhs->visit (this);
   tree rhs_tree = current;
-  // FIXME: if LHS is array, may need assign. check.
+
+  // This is pretty ugly, but it is reasonably simple to do this as a
+  // special case here.  If we see an array reference on the LHS, we
+  // must emit a check as well.  Note that we don't need a check if
+  // the RHS is 'null' or if the array has primitive type.
+  model_array_ref *ref = dynamic_cast<model_array_ref *> (lhs.get ());
+  if (ref != NULL
+      && rhs->type () != null_type
+      && ref->type ()->reference_p ())
+    handle_array_ref (ref, ref->get_array (), ref->get_index (), rhs_tree);
+  else
+    lhs->visit (this);
+  tree lhs_tree = current;
+
   current = build2 (MODIFY_EXPR, TREE_TYPE (lhs_tree),
 		    lhs_tree, convert (TREE_TYPE (lhs_tree), rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
@@ -1582,10 +1605,23 @@ tree_generator::handle_op_assignment (model_element *element,
 				      const ref_expression &lhs,
 				      const ref_expression &rhs)
 {
-  lhs->visit (this);
-  tree lhs_tree = stabilize_reference (current);
+  // It is ok to visit the RHS first, since we don't keep much state
+  // in this class.
   rhs->visit (this);
   tree rhs_tree = current;
+
+  // This is pretty ugly, but it is reasonably simple to do this as a
+  // special case here.  If we see an array reference on the LHS, we
+  // must emit a check as well.  Note that we don't need a check if
+  // the RHS is 'null' or if the array has primitive type.
+  model_array_ref *ref = dynamic_cast<model_array_ref *> (lhs.get ());
+  if (ref != NULL
+      && rhs->type () != null_type
+      && ref->type ()->reference_p ())
+    handle_array_ref (ref, ref->get_array (), ref->get_index (), rhs_tree);
+  else
+    lhs->visit (this);
+  tree lhs_tree = current;
 
   bool is_shift = (op == LSHIFT_EXPR || op == RSHIFT_EXPR);
 
@@ -2673,7 +2709,8 @@ tree_generator::build_mod (tree result_type, tree lhs, tree rhs)
 tree
 tree_generator::build_array_reference (tree array, tree index,
 				       tree result_type,
-				       bool use_checks)
+				       bool use_checks,
+				       tree rhs)
 {
   tree array_type = TREE_TYPE (TREE_TYPE (array));
   // Note that the 'data' field is a back-end invention; it does not
@@ -2693,6 +2730,22 @@ tree_generator::build_array_reference (tree array, tree index,
 	      NULL_TREE, NULL_TREE);
   TREE_SIDE_EFFECTS (result) = (TREE_SIDE_EFFECTS (array)
 				|| TREE_SIDE_EFFECTS (index));
+
+  // The bounds check takes precedence over the array store check, but
+  // we are building things bottom-up, so we construct the array store
+  // check first.
+  if (rhs != NULL_TREE)
+    {
+      tree call = build3 (CALL_EXPR, void_type_node,
+			  builtin_Jv_CheckArrayStore,
+			  tree_cons (NULL_TREE, array,
+				     build_tree_list (NULL_TREE, rhs)),
+			  NULL_TREE);
+      TREE_SIDE_EFFECTS (call) = 1;
+
+      result = build2 (COMPOUND_EXPR, result_type, call, result);
+      TREE_SIDE_EFFECTS (result) = 1;
+    }
 
   if (use_checks && flag_bounds_check)
     {

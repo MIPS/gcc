@@ -1,3 +1,14 @@
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
+	* tree.hh (tree_generator::handle_array_ref): Declare.
+	(tree_generator::build_array_reference): Added argument.
+	* tree.cc (handle_array_ref): New method
+	(visit_array_ref): Use it.
+	(build_array_reference): Added 'rhs' argument.  Emit call to
+	_Jv_CheckArrayStore.
+	(visit_assignment): Special case assignment to an array element.
+	(handle_op_assignment): Likewise.
+
 2005-10-12  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* tree.hh (tree_generator): Implement new methods from the visitor
