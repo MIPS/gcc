@@ -1,3 +1,8 @@
+2005-10-12  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* tree.hh (tree_generator): Implement new methods from the visitor
+	interface.
+
 2005-10-12  Tom Tromey  <tromey@redhat.com>
 
 	* abi.cc (get_catch_initializer): New methods.
