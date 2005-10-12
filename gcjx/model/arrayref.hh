@@ -1,6 +1,6 @@
 // Array references.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -50,6 +50,16 @@ public:
   void set_index (const ref_expression &e)
   {
     index = e;
+  }
+
+  model_expression *get_array () const
+  {
+    return array.get ();
+  }
+
+  model_expression *get_index () const
+  {
+    return index.get ();
   }
 
   void resolve (resolution_scope *);

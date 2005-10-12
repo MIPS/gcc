@@ -1,3 +1,8 @@
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
+	* model/arrayref.hh (model_array_ref::get_array): New method.
+	(model_array_ref::get_index): Likewise.
+
 2005-10-12  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* model/annotype.hh (model_annotation_type::visit): Declare.

@@ -339,9 +339,12 @@ things to document about trees:
   despite what tree.def says
 - CALL_EXPR requires the address of the function
 - DECL_INITIAL is not sufficient for local variables, instead you
-  need to emit MODIFY_EXPRs for them
+  need to emit MODIFY_EXPRs for them.  Actually, it turns out
+  that DECL_INITIAL is used if you have a DECL_EXPR for the variable
 - instead of save_expr() for a complex LHS of an assignment,
   use stabilize_reference.
+- Set TREE_USED on a BLOCK to indicate that debug info should be
+  generated for variables in the block
 
 we should use explicit temporaries instead of save_expr
 
