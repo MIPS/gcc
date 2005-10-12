@@ -1,3 +1,8 @@
+2005-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_do): Put count into BLOCK, not BODY.
+	Fix typo in condition.  Fix DOVAR initialization.
+
 2005-10-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (gfc_match_omp_clauses): Match min/iand/ior/ieor

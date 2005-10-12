@@ -1,5 +1,8 @@
 2005-10-12  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (expand_omp_for_1): Default to chunk size 1 unless
+	static or runtime schedule.
+
 	* omp-low.c (omp_copy_decl_2): New function.
 	(omp_copy_decl_1): Use it.
 	(install_var_private): Handle REFERENCE_TYPE private variables.

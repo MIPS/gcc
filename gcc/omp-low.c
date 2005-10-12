@@ -1809,7 +1809,8 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
       if (sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
 	gcc_assert (fd.chunk_size == NULL);
       else if (fd.chunk_size == NULL)
-	fd.chunk_size = integer_zero_node;
+	fd.chunk_size = (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC)
+	                ? integer_zero_node : integer_one_node;
 
       fn_index = sched_kind + have_ordered * 4;
 

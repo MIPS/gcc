@@ -532,8 +532,6 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
     simple = -1;
 
   /* Loop body.  */
-  gfc_start_block (&body);
-
   if (simple)
     {
       init = build2_v (MODIFY_EXPR, dovar, from);
@@ -541,6 +539,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
 		     dovar, to);
       incr = fold_build2 (PLUS_EXPR, type, dovar, step);
       incr = fold_build2 (MODIFY_EXPR, type, dovar, incr);
+      gfc_start_block (&body);
     }
   else
     {
@@ -557,12 +556,14 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
       tmp = gfc_evaluate_now (tmp, &block);
       count = gfc_create_var (type, "count");
       init = build2_v (MODIFY_EXPR, count, build_int_cst (type, 0));
-      cond = build2 (GT_EXPR, boolean_type_node, count, tmp);
+      cond = build2 (LT_EXPR, boolean_type_node, count, tmp);
       incr = fold_build2 (PLUS_EXPR, type, count, build_int_cst (type, 1));
       incr = fold_build2 (MODIFY_EXPR, type, count, incr);
 
+      gfc_start_block (&body);
+
       /* Initialize DOVAR.  */
-      tmp = fold_build2 (MULT_EXPR, type, count, incr);
+      tmp = fold_build2 (MULT_EXPR, type, count, step);
       tmp = build2 (PLUS_EXPR, type, from, tmp);
       gfc_add_modify_expr (&body, dovar, tmp);
     }
