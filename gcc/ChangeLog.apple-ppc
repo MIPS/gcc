@@ -1,3 +1,9 @@
+2005-10-12  Devang Patel  <dpatel@apple.com>
+
+	Radar 4278903
+	* gcc.c (invoke_as): Process ASM_SPEC when -fsave-repository 
+	is seen.
+
 2005-10-11  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4134111
