@@ -302,6 +302,14 @@ cxx_abi::get_vtable_index (aot_class *klass, model_method *method)
   return build_int_cst (type_jint, klass->find_in_vtable (method));
 }
 
+tree
+cxx_abi::get_catch_initializer (tree_builtins *builtins,
+				model_class *klass)
+{
+  // We know a NULL argument here is always ok.
+  return build_class_reference (builtins, NULL, klass);
+}
+
 
 
 tree
@@ -591,4 +599,11 @@ bc_abi::build_new (tree_builtins *builtins, aot_class *current,
   TREE_SIDE_EFFECTS (n) = 1;
 
   return n;
+}
+
+tree
+bc_abi::get_catch_initializer (tree_builtins *builtins,
+			       model_class *klass)
+{
+  return builtins->map_utf8const (klass->get_fully_qualified_name ());
 }

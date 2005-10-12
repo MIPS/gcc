@@ -139,6 +139,10 @@ public:
   /// Return tree representing index into vtable where this method can
   /// be found.  Should return -1 for a static method or constructor.
   virtual tree get_vtable_index (aot_class *klass, model_method *method) = 0;
+
+  /// Return the initializer representing a 'catch' type.
+  virtual tree get_catch_initializer (tree_builtins *builtins,
+				      model_class *klass) = 0;
 };
 
 /// This class handles C++ ABI code.
@@ -201,6 +205,9 @@ public:
   tree get_vtable (tree_builtins *, model_class *);
 
   tree get_vtable_index (aot_class *klass, model_method *method);
+
+  tree get_catch_initializer (tree_builtins *builtins,
+			      model_class *klass);
 };
 
 /// This class handles the binary compatibility ABI.
@@ -267,6 +274,8 @@ public:
   {
     return integer_minus_one_node;
   }
+
+  tree get_catch_initializer (tree_builtins *builtins, model_class *klass);
 };
 
 #endif // GCC_JAVA_ABI_HH

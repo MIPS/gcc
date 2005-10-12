@@ -602,36 +602,35 @@ tree
 tree_builtins::map_catch_class (model_class *current, model_class *caught)
 {
   catch_map_type::iterator it = catch_map.find (current);
-  if (it != catch_map.end ())
+  std::map<model_class *, tree> *inner_map;
+  if (it == catch_map.end ())
     {
-      std::map<model_class *, tree> &inner_map ((*it).second);
-      std::map<model_class *, tree>::iterator inner_it
-	= inner_map.find (caught);
-      if (inner_it != inner_map.end ())
-	return (*inner_it).second;
-
-      tree decl = build_decl (VAR_DECL, get_symbol (), type_class_ptr);
-      TREE_STATIC (decl) = 1;
-      DECL_ARTIFICIAL (decl) = 1;
-      DECL_IGNORED_P (decl) = 1;
-      rest_of_decl_compilation (decl, 1, 0);
-      pushdecl (decl);
-
-      inner_map[caught] = decl;
-      return decl;
+      std::map<model_class *, tree> new_map;
+      catch_map[current] = new_map;
+      inner_map = &new_map;
     }
+  else
+    inner_map = &((*it).second);
 
-  std::map<model_class *, tree> inner_map;
-  // FIXME: duplicated code.
+  std::map<model_class *, tree>::iterator inner_it
+    = (*inner_map).find (caught);
+  if (inner_it != (*inner_map).end ())
+    return (*inner_it).second;
+
   tree decl = build_decl (VAR_DECL, get_symbol (), type_class_ptr);
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
-  pushdecl (decl);
-  rest_of_decl_compilation (decl, 1, 0);
-  inner_map[caught] = decl;
-  catch_map[current] = inner_map;
 
+  // get_catch_initializer will always return the correct DECL_INITIAL
+  // -- but for the BC ABI do we need more processing as well?
+  gcj_abi *abi = find_abi ();
+  DECL_INITIAL (decl) = abi->get_catch_initializer (this, caught);
+
+  rest_of_decl_compilation (decl, 1, 0);
+  pushdecl (decl);
+
+  (*inner_map)[caught] = decl;
   return decl;
 }
 

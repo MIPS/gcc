@@ -1,5 +1,13 @@
 2005-10-12  Tom Tromey  <tromey@redhat.com>
 
+	* abi.cc (get_catch_initializer): New methods.
+	* abi.hh (gcj_abi::get_catch_initializer): Declare.
+	(cxx_abi::get_catch_initializer): Declare.
+	(bc_abi::get_catch_initializer): Declare.
+	* builtins.cc (map_catch_class): Removed duplicate code.
+
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
 	* tree.hh (tree_generator::make_block): Declare.
 	* tree.cc (make_block): New method.
 	(visit_method): Use it.
