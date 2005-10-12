@@ -272,9 +272,10 @@ extern int x86_prefetch_sse;
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
 /* APPLE LOCAL mainline 2005-03-16 4054919 */
-/* APPLE LOCAL mainline 2005-10-05 4196991 */
+/* APPLE LOCAL begin mainline 2005-10-05 4196991 */
 #define TARGET_FISTTP (((x86_fisttp & (1 << ix86_arch)) || TARGET_SSE3) \
 			&& TARGET_80387)
+/* APPLE LOCAL end mainline 2005-10-05 4196991 */
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
