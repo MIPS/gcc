@@ -1,5 +1,7 @@
 2005-10-12  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.fortran/character1.f90: New test.
+
 	* testsuite/libgomp.dg/nested-1.c: New test.
 	* testsuite/libgomp.dg/nested-2.c: New test.
 	* testsuite/libgomp.fortran/do1.f90: New test.
