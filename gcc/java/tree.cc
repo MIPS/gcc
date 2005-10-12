@@ -119,6 +119,15 @@ tree_generator::build_label ()
   return result;
 }
 
+tree
+tree_generator::make_block ()
+{
+  tree b = make_node (BLOCK);
+  // This determines 
+  TREE_USED (b) = 1;
+  return b;
+}
+
 
 
 void
@@ -139,7 +148,7 @@ tree_generator::visit_method (model_method *meth,
       if (! meth->static_p ())
 	this_tree = DECL_ARGUMENTS (method_tree);
 
-      current_block = make_node (BLOCK);
+      current_block = make_block ();
       BLOCK_SUPERCONTEXT (current_block) = method_tree;
       DECL_INITIAL (method_tree) = current_block;
 
@@ -200,7 +209,7 @@ tree_generator::visit_method (model_method *meth,
 tree
 tree_generator::build_jni_stub ()
 {
-  current_block = make_node (BLOCK);
+  current_block = make_block ();
   BLOCK_SUPERCONTEXT (current_block) = method_tree;
   DECL_INITIAL (method_tree) = current_block;
 
@@ -446,7 +455,7 @@ tree_generator::visit_block (model_block *block,
 			     const std::list<ref_stmt> &statements)
 {
   // Create a new block for the body.
-  save_tree saver (current_block, make_node (BLOCK));
+  save_tree saver (current_block, make_block ());
   BLOCK_SUPERCONTEXT (current_block) = saver.get ();
 
   tree body = transform_list (statements);
@@ -480,7 +489,7 @@ tree_generator::visit_catch (model_catch *stmt,
 			     const ref_block &body)
 {
   // Create a new block for the body.
-  save_tree saver (current_block, make_node (BLOCK));
+  save_tree saver (current_block, make_block ());
   BLOCK_SUPERCONTEXT (current_block) = saver.get ();
 
   // Make a new variable and link it in.
@@ -602,7 +611,7 @@ tree_generator::visit_for_enhanced (model_for_enhanced *fstmt,
   target_map[fstmt] = std::make_pair (update_tree, done_tree);
 
   // Push a new block around the loop.
-  save_tree saver (current_block, make_node (BLOCK));
+  save_tree saver (current_block, make_block ());
   BLOCK_SUPERCONTEXT (current_block) = saver.get ();
 
   tree body_tree = alloc_stmt_list ();
@@ -764,7 +773,7 @@ tree_generator::visit_for (model_for *fstmt,
   tree done_tree = build_label ();
   target_map[fstmt] = std::make_pair (update_tree, done_tree);
 
-  save_tree saver (current_block, make_node (BLOCK));
+  save_tree saver (current_block, make_block ());
   BLOCK_SUPERCONTEXT (current_block) = saver.get ();
 
   tree result = alloc_stmt_list ();

@@ -133,6 +133,7 @@ class tree_generator : public visitor
   tree build_array_reference (tree, tree, tree, bool = true);
   tree build_exception_object_ref (tree);
   tree build_label ();
+  tree make_block ();
   tree build_arguments (const std::list<ref_expression> &, tree &);
 
   void stringbuffer_append (model_expression *, tree &, model_class *,

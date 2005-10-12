@@ -1,5 +1,16 @@
 2005-10-12  Tom Tromey  <tromey@redhat.com>
 
+	* tree.hh (tree_generator::make_block): Declare.
+	* tree.cc (make_block): New method.
+	(visit_method): Use it.
+	(build_jni_stub): Likewise.
+	(visit_block): Likewise.
+	(visit_catch): Likewise.
+	(visit_for_enhanced): Likewise.
+	(visit_for): Likewise.
+
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
 	* abi.cc (build_method_call): Use new get_descriptor.  Correctly
 	look up class object.  Put 'obj' onto argument list.
 	* classobj.cc (get_descriptor): Removed.
