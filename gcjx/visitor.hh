@@ -530,6 +530,50 @@ public:
                                const ref_forwarding_type &) = 0;
 
   virtual void visit_javadoc (model_javadoc *, bool) = 0;
+
+  virtual void
+  visit_generic_invocation (model_type_qualified_invocation *,
+                            const model_method *,
+                            const std::list<ref_expression> &, bool,
+                            const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void
+  visit_generic_invocation (model_super_invocation *,
+                            const model_method *,
+                            const std::list<ref_expression> &,
+                            const ref_expression &,
+                            const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void
+  visit_generic_invocation (model_this_invocation *, const model_method *,
+                            const std::list<ref_expression> &,
+                            const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void
+  visit_generic_invocation (model_new *, const model_method *,
+                            const ref_forwarding_type &,
+                            const std::list<ref_expression> &,
+                            const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void
+  visit_generic_invocation (model_new_primary *, const model_method *,
+                            const ref_forwarding_type &,
+                            const std::list<ref_expression> &,
+                            const std::string &,
+                            const std::list<ref_forwarding_type> &,
+                            const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void
+  visit_annotation (model_annotation *, const ref_forwarding_type &,
+                    const std::list<ref_annotation_value> &) = 0;
+  virtual void
+  visit_annotation_initializer (model_annotation_initializer *,
+                                const ref_forwarding_type &,
+                                const std::list<ref_expression> &) = 0;
+
+  virtual void visit_memberref_enum (model_memberref_enum *,
+                                     const ref_forwarding_type &,
+                                     const std::string &) = 0;
 };
 
 

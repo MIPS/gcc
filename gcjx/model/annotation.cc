@@ -48,10 +48,9 @@ model_annotation::resolve (resolution_scope *scope)
 }
 
 void
-model_annotation::visit (visitor *)
+model_annotation::visit (visitor *v)
 {
-  // FIXME
-  abort ();
+  v->visit_annotation (this, name, args);
 }
 
 model_annotation_value *

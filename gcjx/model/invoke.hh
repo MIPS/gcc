@@ -145,16 +145,16 @@ public:
 
 class model_type_qualified_invocation : public model_invocation_base
 {
+  void determine_search_class (resolution_scope *, model_class **,
+			       model_class **);
+
+protected:
+
   // The class to search.
   ref_forwarding_type klass;
 
   // If true, this is a 'super' call.
   bool super;
-
-  void determine_search_class (resolution_scope *, model_class **,
-			       model_class **);
-
-protected:
 
   bool super_call_p () const
   {
@@ -190,8 +190,13 @@ public:
 /// reuse the method lookup code.
 class model_super_invocation : public model_invocation_base
 {
+  void determine_search_class (resolution_scope *, model_class **,
+			       model_class **);
+
   // If not NULL, the lexically enclosing class.
   model_class *enclosing;
+
+protected:
 
   // Any constructor with a 'super' call must initialize the local
   // fields after the superclass is initialized.  It is simplest for
@@ -202,9 +207,6 @@ class model_super_invocation : public model_invocation_base
   // True if this is a synthetic 'super' call, false if it appears in
   // the source code.
   bool synthetic;
-
-  void determine_search_class (resolution_scope *, model_class **,
-			       model_class **);
 
 public:
 
@@ -276,6 +278,8 @@ public:
 
   model_generic_invocation (const location &,
 			    const std::list<ref_forwarding_type> &);
+
+  void visit (visitor *);
 };
 
 /// These classes are used to represent explicitly-parameterized

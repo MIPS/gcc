@@ -72,10 +72,9 @@ model_annotation_initializer::resolve (resolution_scope *scope)
 }
 
 void
-model_annotation_initializer::visit (visitor *)
+model_annotation_initializer::visit (visitor *v)
 {
-  // Shouldn't be possible to visit one of these.
-  abort ();
+  v->visit_annotation_initializer (this, element_type, initializers);
 }
 
 void

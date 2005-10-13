@@ -77,8 +77,7 @@ model_memberref_enum::resolve (resolution_scope *scope)
 }
 
 void
-model_memberref_enum::visit (visitor *)
+model_memberref_enum::visit (visitor *v)
 {
-  // Not needed.
-  abort ();
+  v->visit_memberref_enum (this, base_type, field_name);
 }

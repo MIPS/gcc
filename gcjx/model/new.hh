@@ -90,13 +90,13 @@ public:
 /// This is used in the 'primary . new Type' case.
 class model_new_primary : public model_new
 {
+protected:
+
   // The simple name of the class.
   std::string simple_name;
 
   // Type parameters, if any.
   std::list<ref_forwarding_type> type_params;
-
-protected:
 
   void determine_search_class (resolution_scope *, model_class **,
 			       model_class **);

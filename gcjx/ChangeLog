@@ -1,5 +1,30 @@
 2005-10-13  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
+	* model/invoke.hh (model_type_qualified_invocation::klass): Make
+	protected instead of private.
+	(model_type_qualified_invocation::super): Likewise.
+	(model_super_invocation::finit): Likewise.
+	(model_super_invocation::synthetic): Likewise.
+	(model_generic_invocation::visit): Declare.
+	* model/invoke.cc (model_generic_invocation::visit): Implement
+	for all the default instantiations.
+	* model/annotation.cc (model_annotation::visit): Do not abort.
+	* model/memberref.cc (model_memberref_enum::visit): Likewise.
+	* model/arrayinit.cc (model_annotation_initializer::visit): Likewise.
+	* model/new.hh (model_new_primary::simple_name): Make protected
+	instead of private.
+	(model_new_primary::type_params): Likewise.
+	* visitor.hh (visitor::visit_generic_invocation): New method.
+	(visitor::visit_annotation): Likewise.
+	(visitor::visit_annotation_initializer): Likewise.
+	(visitor::visit_memberref_enum): Likewise.
+	* fold.cc (fold_visitor): Implement new visitor methods.
+	* defassign.cc (definite_assignment_visitor): Likewise.
+	* dump.cc (dumper, pretty_printer): Likewise.
+	* bytecode/generate.hh (bytecode_generator): Likewise.
+
+2005-10-13  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
 	Add a new -fdump-tree flag for printing out the AST.
 	* compiler.hh (compiler::dump_tree): New compiler flag.
 	* compiler.cc (compiler::dump_tree): Initialize to false.

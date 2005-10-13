@@ -970,7 +970,78 @@ public:
   void visit_javadoc (model_javadoc *, bool)
   {
     // Nothing.
-  }  
+  }
+
+  void
+  visit_generic_invocation (model_type_qualified_invocation *tqi,
+                            const model_method *meth,
+                            const std::list<ref_expression> &args,
+			    bool is_super,
+                            const std::list<ref_forwarding_type> &)
+  {
+    visit_type_qualified_invocation (tqi, meth, args, is_super);
+  }
+
+  void
+  visit_generic_invocation (model_super_invocation *si,
+                            const model_method *meth,
+                            const std::list<ref_expression> &args,
+                            const ref_expression &finit,
+                            const std::list<ref_forwarding_type> &)
+  {
+    visit_super_invocation (si, meth, args, finit);
+  }
+
+  void
+  visit_generic_invocation (model_this_invocation *ti,
+                            const model_method *meth,
+                            const std::list<ref_expression> &args,
+                            const std::list<ref_forwarding_type> &)
+  {
+    visit_this_invocation (ti, meth, args);
+  }
+
+  void
+  visit_generic_invocation (model_new *n, const model_method *meth,
+                            const ref_forwarding_type &klass,
+                            const std::list<ref_expression> &args,
+                            const std::list<ref_forwarding_type> &)
+  {
+    visit_new (n, meth, klass, args);
+  }
+
+  void
+  visit_generic_invocation (model_new_primary *np, const model_method *meth,
+                            const ref_forwarding_type &klass,
+                            const std::list<ref_expression> &args,
+                            const std::string &simple_name,
+                            const std::list<ref_forwarding_type> &type_params,
+                            const std::list<ref_forwarding_type> &)
+  {
+    visit_new_primary (np, meth, klass, args, simple_name, type_params);
+  }
+
+  void
+  visit_annotation (model_annotation *, const ref_forwarding_type &,
+                    const std::list<ref_annotation_value> &)
+  {
+    abort ();
+  }
+
+  void
+  visit_annotation_initializer (model_annotation_initializer *,
+                                const ref_forwarding_type &,
+                                const std::list<ref_expression> &)
+  {
+    abort ();
+  }
+
+  void visit_memberref_enum (model_memberref_enum *,
+                             const ref_forwarding_type &,
+                             const std::string &)
+  {
+    abort ();
+  }
 
   ref_expression fold (const ref_expression &expr)
   {
