@@ -2015,7 +2015,7 @@ dbxout_partial_type (tree type, tree main_variant)
 	  /* Write the argument types out longhand.  */
 	  dbxout_type (TYPE_METHOD_BASETYPE (type), 1);
 	  stabstr_C (',');
-	  dbxout_type (TREE_TYPE (type), 1);
+	  dbxout_type (TREE_TYPE (type), 0);
 	  dbxout_args (TYPE_ARG_TYPES (type));
 	  stabstr_C (';');
 	}

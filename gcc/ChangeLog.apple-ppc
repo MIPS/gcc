@@ -1,3 +1,8 @@
+2005-10-13  Devang Patel  <dpatel@apple.com>
+
+	R4281384
+	* dbxout.c (dbxout_partial_type): Partially describe method types.
+
 2005-10-11  Evan Cheng  <evan.cheng@apple.com>
 
 	Radar 4228294
