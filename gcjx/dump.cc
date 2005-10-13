@@ -1411,13 +1411,14 @@ protected:
   void descend (const std::list<T> &l)
   {
     typename std::list<T>::const_iterator i = l.begin ();
-    if (i != l.end ())
+    while (i != l.end ())
       {
         indentation += 2;
         out << std::endl;
         if (*i)
           (*i)->visit (this);
         indentation -= 2;
+        i++;
       }
   }
 
@@ -1440,7 +1441,7 @@ protected:
           first = false;
 
         out << (*i);
-        ++i;
+        i++;
       }
   }
 
@@ -1503,6 +1504,43 @@ protected:
       out << " ENUM";
   }
 
+  virtual void print_method (model_method *meth,
+                             const std::list<ref_variable_decl> &args,
+                             const ref_block &body)
+  {
+    out << " " << meth->get_name ();
+    modifier_t mods = meth->get_modifiers ();
+    print_modifiers (mods);
+    descend (meth->get_return_type ());
+    descend (args);
+    if (body)
+      descend (body.get ());
+  }
+
+  virtual void print_class (model_class *c, const std::string &name)
+  {
+    out << " " << name;
+
+    if (c->interface_p ())
+      out << " INTERFACE";
+
+    model_class *super_class = c->get_superclass ();
+    if (super_class != NULL)
+      out << " extends " << super_class->get_pretty_name ();
+
+    modifier_t mods = c->get_modifiers ();
+    print_modifiers (mods);
+
+    const std::list<ref_forwarding_type> interfaces = c->get_interfaces ();
+    descend (interfaces);
+
+    std::list<ref_field> fields = c->get_fields ();
+    descend (fields);
+
+    std::list<ref_method> methods = c->get_methods ();
+    descend (methods);
+  }
+
 public:
 
   pretty_printer (std::ostream &o)
@@ -1516,14 +1554,7 @@ public:
                      const ref_block &body)
   {
     begin_element (meth, "method");
-
-    out << " " << meth->get_name ();
-
-    descend (meth->get_return_type ());
-    descend (args);
-    if (body)
-      descend (body.get ());
-
+    print_method (meth, args, body);
     end_element ();
   }
 
@@ -2186,13 +2217,18 @@ public:
   {
     begin_element (f, "field_ref");
 
-    if (f->qualified_p ())
-      out << " QUALIFIED";
+    if (field != NULL)
+      {
+        model_class *qual_class = f->get_qualifying_class ();
 
-    descend (f->get_qualifying_class ());
+        if (qual_class != NULL)
+          out << " " << qual_class->get_name () << "." << field->get_name ();
+        else
+          out << " " << field->get_name ();
+      }
+
     if (expr)
       descend (expr.get ());
-    descend (field);
      
     end_element ();
   }
@@ -2255,21 +2291,21 @@ public:
 
   void visit_simple_literal (model_literal_base *lit, const jboolean &val)
   {
-    begin_element (lit, "jboolean");
+    begin_element (lit, "boolean_literal");
     out << (val ? " TRUE" : " FALSE");
     end_element ();
   }
 
   void visit_simple_literal (model_literal_base *lit, const jbyte &val)
   {
-    begin_element (lit, "jbyte");
+    begin_element (lit, "byte_literal");
     out << " " << val;
     end_element ();
   }
 
   void visit_simple_literal (model_literal_base *lit, const jchar &val)
   {
-    begin_element (lit, "jchar");
+    begin_element (lit, "char_literal");
     if (::isgraph (val))
       out << " \'" << (char) val << "\'";
     else
@@ -2299,42 +2335,42 @@ public:
 
   void visit_simple_literal (model_literal_base *lit, const jshort &val)
   {
-    begin_element (lit, "jshort");
+    begin_element (lit, "short_literal");
     out << " " << val;
     end_element ();
   }
 
   void visit_simple_literal (model_literal_base *lit, const jint &val)
   {
-    begin_element (lit, "jint");
+    begin_element (lit, "int_literal");
     out << " " << val;
     end_element ();
   }
 
   void visit_simple_literal (model_literal_base *lit, const jlong &val)
   {
-    begin_element (lit, "jlong");
+    begin_element (lit, "long_literal");
     out << " " << val;
     end_element ();
   }
 
   void visit_simple_literal (model_literal_base *lit, const jfloat &val)
   {
-    begin_element (lit, "jfloat");
+    begin_element (lit, "float_literal");
     out << " " << val;
     end_element ();
   }
 
   void visit_simple_literal (model_literal_base *lit, const jdouble &val)
   {
-    begin_element (lit, "jdouble");
+    begin_element (lit, "double_literal");
     out << " " << val;
     end_element ();
   }
 
   void visit_string_literal (model_string_literal *s, const std::string &val)
   {
-    begin_element (s, "string");
+    begin_element (s, "string_literal");
     
     // FIXME: Need to escape certain characters.
     out << " \"" << val << "\"";
@@ -2348,7 +2384,8 @@ public:
                                 const std::list<ref_expression> &args)
   {
     begin_element (meth_inv, "method_invocation");
-    descend (meth);
+    if (meth != NULL)
+      out << " " << meth->get_name ();
     if (expr)
       descend (expr.get ());
     descend (args);
@@ -2383,9 +2420,9 @@ public:
     else
       out << " NULL";
     descend (args);
-    end_element ();
     if (finit)
       finit->visit (this);
+    end_element ();
   }
 
   void visit_this_invocation (model_this_invocation *ti,
@@ -2696,237 +2733,355 @@ public:
     end_element ();
   }
   
-  void visit_annotation_member (model_annotation_member *,
-                                const ref_forwarding_type &)
+  void visit_annotation_member (model_annotation_member *am,
+                                const ref_forwarding_type &member_type)
   {
-    // TODO.
+    begin_element (am, "annotation_member");
+    if (member_type)
+      descend (member_type.get ());
+    end_element ();
   }
 
-  void visit_annotation_value (model_annotation_value *,
-                               const std::string &, const ref_expression &)
+  void visit_annotation_value (model_annotation_value *av,
+                               const std::string &name,
+                               const ref_expression &value)
   {
-    // TODO.
+    begin_element (av, "annotation_value");
+    out << " " << name;
+    if (value)
+      descend (value.get ());
+    end_element ();
   }
 
-  void visit_import_single (model_import_single *,
-                            const std::list<std::string> &, model_class *)
+  void visit_import_single (model_import_single *is,
+                            const std::list<std::string> &name,
+                            model_class *)
   {
-    // TODO.
+    begin_element (is, "import_single");
+    print_multi_name (name);
+    end_element ();
   }
 
-  void visit_import_on_demand (model_import_on_demand *,
-                               const std::list<std::string> &, Iname *, bool)
+  void visit_import_on_demand (model_import_on_demand *iod,
+                               const std::list<std::string> &name,
+                               Iname *, bool implicit)
   {
-    // TODO.
+    begin_element (iod, "import_on_demand");
+    print_multi_name (name);
+    out << ".*";
+    if (implicit)
+      out << " IMPLICIT";
+    end_element ();
   }
 
-  void visit_static_import_single (model_static_import_single *,
-				   const std::list<std::string> &,
-				   model_class *, const std::string &)
+  void visit_static_import_single (model_static_import_single *sis,
+				   const std::list<std::string> &name,
+				   model_class *,
+                                   const std::string &member_name)
   {
-    // TODO.
+    begin_element (sis, "static_import_single");
+    print_multi_name (name);
+    out << "." << member_name;
+    end_element ();
   }
 
-  void visit_static_import_on_demand (model_static_import_on_demand *,
-				      const std::list<std::string> &,
+  void visit_static_import_on_demand (model_static_import_on_demand *siod,
+				      const std::list<std::string> &name,
 				      model_class *)
   {
-    // TODO.
+    begin_element (siod, "static_import_on_demand");
+    print_multi_name (name);
+    out << ".*";
+    end_element ();
   }
   
-  void visit_unit_source (model_unit_source *, model_package *,
-			  const std::list<ref_class> &,
-			  const std::string &,
-			  bool, const std::list<ref_import> &)
+  void visit_unit_source (model_unit_source *us, model_package *pkg,
+			  const std::list<ref_class> &types,
+			  const std::string &filename,
+			  bool resolved,
+                          const std::list<ref_import> &imports)
   {
-    // TODO.
+    begin_element (us, "unit_source");
+    out << " " << filename;
+    if (resolved)
+      out << " RESOLVED";
+    descend (pkg);
+    descend (imports);
+    descend (types);
+    end_element ();
   }
   
-  void visit_unit_class (model_unit_class *, model_package *,
-			 const std::list<ref_class> &,
-			 const std::string &, bool)
+  void visit_unit_class (model_unit_class *uc, model_package *pkg,
+			 const std::list<ref_class> &types,
+			 const std::string &filename, bool resolved)
   {
-    // TODO.
+    begin_element (uc, "unit_class");
+    out << " " << filename;
+    if (resolved)
+      out << " RESOLVED";
+    descend (pkg);
+    descend (types);
+    end_element ();
   }
   
-  void visit_unit_fake (model_unit_fake *, model_package *,
-			const std::list<ref_class> &,
-			const std::string &, bool)
+  void visit_unit_fake (model_unit_fake *uf, model_package *pkg,
+			const std::list<ref_class> &types,
+			const std::string &filename, bool resolved)
   {
-    // TODO.
+    begin_element (uf, "unit_fake");
+    out << " " << filename;
+    if (resolved)
+      out << " RESOLVED";
+    descend (pkg);
+    descend (types);
+    end_element ();
   }
 
   void visit_abstract_method (model_abstract_method *am,
-                              const std::list<ref_variable_decl> &params,
+                              const std::list<ref_variable_decl> &args,
 			      const ref_block &body, model_method *)
   {
-    // TODO.
+    begin_element (am, "abstract_method");
+    print_method (am, args, body);
+    end_element ();
   }
 
   void visit_annotation_type (model_annotation_type *at,
                               const std::string &descr,
                               const std::string &name)
   {
-    // TODO.
+    begin_element (at, "annotation_type");
+    out << " " << name;
+    end_element ();
   }
   
   void visit_array_type (model_array_type *at, const std::string &descr,
-                         const std::string &name, model_type *)
+                         const std::string &name, model_type *elt_type)
   {
-    // TODO.
+    begin_element (at, "array_type");
+    out << " " << name;
+    if (elt_type != NULL)
+      out << " " << elt_type->get_pretty_name ();
+    end_element ();
   }
 
   void visit_class (model_class *c, const std::string &descr,
-                    const std::string &)
+                    const std::string &name)
   {
-    // TODO.
+    begin_element (c, "class");
+    print_class (c, name);
+    end_element ();
   }
 
   void visit_class_instance (model_class_instance *ci,
                              const std::string &descr,
                              const std::string &name, model_class *)
   {
-    // TODO.
+    begin_element (ci, "class_instance");
+    print_class (ci, name);
+    end_element ();
   }
   
   void visit_constructor (model_constructor *c,
-                          const std::list<ref_variable_decl> &params,
+                          const std::list<ref_variable_decl> &args,
                           const ref_block &body)
   {
-    // TODO.
+    begin_element (c, "constructor");
+    print_method (c, args, body);
+    end_element ();
   }
 
   void visit_enum (model_enum *e, const std::string &descr,
                    const std::string &name,
-                   const std::list<ref_enum_constant> &)
+                   const std::list<ref_enum_constant> &constants)
   {
-    // TODO.
+    begin_element (e, "enum");
+    print_class (e, name);
+    descend (constants);
+    end_element ();
   }
 
   void visit_enum_constant (model_enum_constant *ec,
                             const std::string &descr,
                             const std::string &name,
-                            const std::list<ref_expression> &)
+                            const std::list<ref_expression> &args)
   {
-    // TODO.
+    begin_element (ec, "enum_constant");
+    print_class (ec, name);
+    descend (args);
+    end_element ();
   }
 
-  void visit_fp_primitive (model_primitive_base *, char, jfloat)
+  void visit_fp_primitive (model_primitive_base *p, char sig_char, jfloat)
   {
-    // TODO.
+    begin_element (p, "float");
+    out << " \'" << sig_char << "\'";
+    end_element ();
   }
 
-  void visit_fp_primitive (model_primitive_base *, char, jdouble)
+  void visit_fp_primitive (model_primitive_base *p, char sig_char, jdouble)
   {
-    // TODO.
+    begin_element (p, "double");
+    out << " \'" << sig_char << "\'";
+    end_element ();
   }
 
-  void visit_int_primitive (model_primitive_base *, char,
-                            long long, long long, jbyte)
+  void visit_int_primitive (model_primitive_base *p, char sig_char,
+                            long long MIN, long long MAX, jbyte)
   {
-    // TODO.
+    begin_element (p, "byte");
+    out << " \'" << sig_char << "\'";
+    out << " MIN=" << MIN << " MAX=" << MAX;
+    end_element ();
   }
 
-  void visit_int_primitive (model_primitive_base *, char,
-                            long long, long long, jchar)
+  void visit_int_primitive (model_primitive_base *p, char sig_char,
+                            long long MIN, long long MAX, jchar)
   {
-    // TODO.
+    begin_element (p, "char");
+    out << " \'" << sig_char << "\'";
+    out << " MIN=" << MIN << " MAX=" << MAX;
+    end_element ();
   }
 
-  void visit_int_primitive (model_primitive_base *, char,
-                            long long, long long, jshort)
+  void visit_int_primitive (model_primitive_base *p, char sig_char,
+                            long long MIN, long long MAX, jshort)
   {
-    // TODO.
+    begin_element (p, "short");
+    out << " \'" << sig_char << "\'";
+    out << " MIN=" << MIN << " MAX=" << MAX;
+    end_element ();
   }
 
-  void visit_int_primitive (model_primitive_base *, char,
-                            long long, long long, jint)
+  void visit_int_primitive (model_primitive_base *p, char sig_char,
+                            long long MIN, long long MAX, jint)
   {
-    // TODO.
+    begin_element (p, "int");
+    out << " \'" << sig_char << "\'";
+    out << " MIN=" << MIN << " MAX=" << MAX;
+    end_element ();
   }
 
-  void visit_int_primitive (model_primitive_base *, char,
-                            long long, long long, jlong)
+  void visit_int_primitive (model_primitive_base *p, char sig_char,
+                            long long MIN, long long MAX, jlong)
   {
-    // TODO.
+    begin_element (p, "long");
+    out << " \'" << sig_char << "\'";
+    out << " MIN=" << MIN << " MAX=" << MAX;
+    end_element ();
   }
 
-  void visit_primitive_boolean (model_primitive_boolean *)
+  void visit_primitive_boolean (model_primitive_boolean *p)
   {
-    // TODO.
+    begin_element (p, "boolean");
+    end_element ();
   }
 
   void visit_initializer_block (model_initializer_block *ib,
-                                const std::list<ref_stmt> &stmts, bool)
+                                const std::list<ref_stmt> &stmts, bool inst)
   {
-    // TODO.
+    begin_element (ib, "initializer_block");
+    if (inst)
+      out << " INSTANCE";
+    descend (stmts);
+    end_element ();
   }
 
   void visit_new_primary (model_new_primary *np, const model_method *meth,
 			  const ref_forwarding_type &klass,
 			  const std::list<ref_expression> &args,
-			  const std::string &,
-			  const std::list<ref_forwarding_type> &)
+			  const std::string &simple_name,
+			  const std::list<ref_forwarding_type> &type_params)
   {
-    // TODO.
+    begin_element (np, "new_primary");
+    out << " " << simple_name;
+    descend (type_params);
+    if (klass)
+      descend (klass.get ());
+    descend (args);
+    end_element ();
   }
 
   void visit_null_type (model_null_type *nt, const std::string &descr)
   {
-    // TODO.
+    begin_element (nt, "null_type");
+    out << " " << nt->get_pretty_name ();
+    end_element ();
   }
 
   void visit_phony_block (model_phony_block *pb,
                           const std::list<ref_stmt> &stmts)
   {
-    // TODO.
+    begin_element (pb, "phony_block");
+    descend (stmts);
+    end_element ();
   }
 
   void visit_primordial_package (model_primordial_package *pp,
                                  const std::list<std::string> &name)
   {
-    // TODO.
+    begin_element (pp, "primordial_package");
+    print_multi_name (name);
+    end_element ();
   }
 
   void visit_unnamed_package (model_unnamed_package *up,
                               const std::list<std::string> &name)
   {
-    // TODO.
+    begin_element (up, "unnamed_package");
+    print_multi_name (name);
+    end_element ();
   }
 
   void visit_synthetic_this (model_synthetic_this *st)
   {
-    // TODO.
+    begin_element (st, "synthetic_this");
+    end_element ();
   }
 
   void visit_this_outer (model_this_outer *to)
   {
-    // TODO.
+    begin_element (to, "this_outer");
+    end_element ();
   }
 
   void
   visit_type_variable (model_type_variable *tv,
                        const std::string &descr, const std::string &name,
-                       const std::list<ref_forwarding_type> &)
+                       const std::list<ref_forwarding_type> &bounds)
   {
-    // TODO.
+    begin_element (tv, "type_variable");
+    out << " " << name;
+    descend (bounds);
+    end_element ();
   }
 
   void visit_void_type (model_void_type *vt, const std::string &descr)
   {
-    // TODO.
+    begin_element (vt, "void_type");
+    out << " " << vt->get_pretty_name ();
+    end_element ();
   }
 
   void visit_wildcard (model_wildcard *w, const std::string &descr,
-                       const std::string &name, bool,
-                       const ref_forwarding_type &)
+                       const std::string &name, bool is_super,
+                       const ref_forwarding_type &bound)
   {
-    // TODO.
+    begin_element (w, "wildcard");
+    out << " " << name;
+    if (is_super)
+      out << " SUPER";
+    if (bound)
+      descend (bound.get ());
+    end_element ();
   }
 
-  void visit_javadoc (model_javadoc *, bool)
+  void visit_javadoc (model_javadoc *j, bool deprecated)
   {
-    // TODO.
+    begin_element (j, "javadoc");
+    if (deprecated)
+      out << " DEPRECATED";
+    end_element ();
   }
 
   void
@@ -2934,9 +3089,18 @@ public:
                             const model_method *meth,
                             const std::list<ref_expression> &args,
 			    bool is_super,
-                            const std::list<ref_forwarding_type> &)
+                            const std::list<ref_forwarding_type> &params)
   {
-    // TODO.
+    begin_element (tqi, "generic_invocation<type_qual>");
+    if (is_super)
+      out << " SUPER";
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    descend (params);
+    end_element ();
   }
 
   void
@@ -2944,27 +3108,51 @@ public:
                             const model_method *meth,
                             const std::list<ref_expression> &args,
                             const ref_expression &finit,
-                            const std::list<ref_forwarding_type> &)
+                            const std::list<ref_forwarding_type> &params)
   {
-    // TODO.
+    begin_element (si, "generic_invocation<super>");
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    if (finit)
+      finit->visit (this);
+    descend (params);
+    end_element ();
   }
 
   void
   visit_generic_invocation (model_this_invocation *ti,
                             const model_method *meth,
                             const std::list<ref_expression> &args,
-                            const std::list<ref_forwarding_type> &)
+                            const std::list<ref_forwarding_type> &params)
   {
-    // TODO.
+    begin_element (ti, "generic_invocation<this>");
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    descend (params);
+    end_element ();
   }
 
   void
   visit_generic_invocation (model_new *n, const model_method *meth,
                             const ref_forwarding_type &klass,
                             const std::list<ref_expression> &args,
-                            const std::list<ref_forwarding_type> &)
+                            const std::list<ref_forwarding_type> &params)
   {
-    // TODO.
+    begin_element (n, "generic_invocation<new>");
+    if (klass)
+      descend (klass.get ());
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    descend (args);
+    end_element ();
   }
 
   void
@@ -2973,31 +3161,50 @@ public:
                             const std::list<ref_expression> &args,
                             const std::string &simple_name,
                             const std::list<ref_forwarding_type> &type_params,
-                            const std::list<ref_forwarding_type> &)
+                            const std::list<ref_forwarding_type> &params)
   {
-    // TODO.
+    begin_element (np, "generic_invocation<new>");
+    out << " " << simple_name;
+    descend (type_params);
+    if (klass)
+      descend (klass.get ());
+    descend (args);
+    descend (params);
+    end_element ();
   }
 
   void
-  visit_annotation (model_annotation *, const ref_forwarding_type &,
-                    const std::list<ref_annotation_value> &)
+  visit_annotation (model_annotation *a, const ref_forwarding_type &name,
+                    const std::list<ref_annotation_value> &args)
   {
-    // TODO.
+    begin_element (a, "annotation");
+    if (name)
+      descend (name.get ());
+    descend (args);
+    end_element ();
   }
 
   void
-  visit_annotation_initializer (model_annotation_initializer *,
-                                const ref_forwarding_type &,
-                                const std::list<ref_expression> &)
+  visit_annotation_initializer (model_annotation_initializer *ai,
+                                const ref_forwarding_type &elt_type,
+                                const std::list<ref_expression> &init_exprs)
   {
-    // TODO.
+    begin_element (ai, "annotation_initializer");
+    if (elt_type)
+      descend (elt_type.get ());
+    descend (init_exprs);
+    end_element ();
   }
 
-  void visit_memberref_enum (model_memberref_enum *,
-                             const ref_forwarding_type &,
-                             const std::string &)
+  void visit_memberref_enum (model_memberref_enum *me,
+                             const ref_forwarding_type &base_type,
+                             const std::string &field_name)
   {
-    // TODO.
+    begin_element (me, "memberref_enum");
+    out << " " << field_name;
+    if (base_type);
+      descend (base_type.get ());
+    end_element ();
   }
 };
 
