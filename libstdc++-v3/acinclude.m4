@@ -1753,7 +1753,7 @@ if test x$enable_symvers = xyes ; then
   if test $enable_shared = no ||
      test "x$LD" = x ; then
     enable_symvers=no
-  elif test $with_gnu_ld == yes ; then
+  elif test $with_gnu_ld = yes ; then
     enable_symvers=gnu
   else
     case ${target_os} in
@@ -1859,9 +1859,9 @@ AH_VERBATIM([_GLIBCXX_SYMVERextra],
 
 AC_SUBST(SYMVER_MAP)
 AC_SUBST(port_specific_symbol_files)
-GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers == gnu)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers = gnu)
 GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_DARWIN_EXPORT, dnl
-  test $enable_symvers == darwin-export)
+  test $enable_symvers = darwin-export)
 AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
 ])
 

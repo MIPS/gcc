@@ -296,6 +296,9 @@ GLIBCXX_3.6 {
 
     # In GLIBCXX_3.4.6	
     _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEv;
+    
+    # In GLIBCXX_3.4.7		
+    _ZNSt6locale5_Impl16_M_install_cacheEPKNS_5facetE[jm];
 
     # Added in libstdcxx_so_7-branch
     _ZN9__gnu_cxx11__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
@@ -324,10 +327,12 @@ CXXABI_1.3 {
     __cxa_bad_cast;
     __cxa_bad_typeid;
     __cxa_begin_catch;
+    __cxa_begin_cleanup;	
     __cxa_call_unexpected;
     __cxa_current_exception_type;
     __cxa_demangle;
     __cxa_end_catch;
+    __cxa_end_cleanup;
     __cxa_free_exception;
     __cxa_get_globals;
     __cxa_get_globals_fast;

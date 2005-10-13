@@ -422,8 +422,11 @@ namespace __gnu_cxx
 		static __gthread_once_t __once = __GTHREAD_ONCE_INIT;
 		__gthread_once(&__once, _S_initialize);
 	      }
-	    else
-	      _S_get_pool()._M_initialize_once(); 
+
+	    // Double check initialization. May be necessary on some
+	    // systems for proper construction when not compiling with
+	    // thread flags.
+	    _S_get_pool()._M_initialize_once(); 
 	    __init = true;
 	  }
       }
@@ -514,8 +517,11 @@ namespace __gnu_cxx
 		static __gthread_once_t __once = __GTHREAD_ONCE_INIT;
 		__gthread_once(&__once, _S_initialize);
 	      }
-	    else
-	      _S_get_pool()._M_initialize_once(); 
+
+	    // Double check initialization. May be necessary on some
+	    // systems for proper construction when not compiling with
+	    // thread flags.
+	    _S_get_pool()._M_initialize_once(); 
 	    __init = true;
 	  }
       }
@@ -610,15 +616,12 @@ namespace __gnu_cxx
 	  typedef __mt_alloc<_Tp1, pol_type> other;
 	};
 
-      __mt_alloc() throw() 
-      { __policy_type::_S_get_pool(); }
+      __mt_alloc() throw() { }
 
-      __mt_alloc(const __mt_alloc&) throw() 
-      { __policy_type::_S_get_pool(); }
+      __mt_alloc(const __mt_alloc&) throw() { }
 
       template<typename _Tp1, typename _Poolp1>
-        __mt_alloc(const __mt_alloc<_Tp1, _Poolp1>& obj) throw()  
-        { __policy_type::_S_get_pool(); }
+        __mt_alloc(const __mt_alloc<_Tp1, _Poolp1>& obj) throw() { }
 
       ~__mt_alloc() throw() { }
 
