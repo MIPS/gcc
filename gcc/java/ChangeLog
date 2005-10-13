@@ -1,3 +1,10 @@
+2005-10-13  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* tree.hh (tree_generator::visit_generic_invocation): Implement.
+	(tree_generator::visit_annotation): Likewise.
+	(tree_generator::visit_annotation_initializer): Likewise.
+	(tree_generator::visit_memberref_enum): Likewise.
+
 2005-10-12  Tom Tromey  <tromey@redhat.com>
 
 	* classobj.cc (create_class_instance): Field count includes
