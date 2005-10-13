@@ -1,3 +1,7 @@
+unset lang_library_path
+unset lang_test_file
+unset lang_link_flags
+
 load_lib libgomp-dg.exp
 
 # If a testcase doesn't have special options, use these.

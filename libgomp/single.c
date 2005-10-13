@@ -82,13 +82,16 @@ GOMP_single_copy_end (void *data)
   struct gomp_team *team = thr->ts.team;
   unsigned int i, n, me;
 
-  thr->ts.work_share->copyprivate = data;
+  if (team != NULL)
+    {
+      thr->ts.work_share->copyprivate = data;
 
-  n = team->nthreads;
-  me = thr->ts.team_id;
-  for (i = 0; i < n; ++i)
-    if (i != me)
-      gomp_sem_post (&team->threads[i]->release);
+      n = team->nthreads;
+      me = thr->ts.team_id;
+      for (i = 0; i < n; ++i)
+	if (i != me)
+	  gomp_sem_post (&team->threads[i]->release);
+    }
 
   gomp_work_share_end_nowait ();
 }
