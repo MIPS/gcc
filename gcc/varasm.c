@@ -4007,14 +4007,6 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 		  last = head;
 		  afterlast = TREE_CHAIN (head);
 		  while (afterlast && TREE_PURPOSE (afterlast)
-                         /* APPLE LOCAL begin bitfield reversal 4296479 */
-#if 0
-                         /* If the field happens to fall on the right alignment
-                            and has the right size, e.g. 8, then stor-layout.c
-                            may unset the field. */
-			 && DECL_BIT_FIELD (TREE_PURPOSE (afterlast))
-#endif
-                         /* APPLE LOCAL end bitfield reversal 4296479 */
 			 && int_bit_position (TREE_PURPOSE (afterlast)) < pos)
 		    {
 		      last = afterlast;
