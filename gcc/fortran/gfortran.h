@@ -103,6 +103,15 @@ mstring;
 #define GFC_STD_F95_OBS		(1<<1)    /* Obsoleted in F95.  */
 #define GFC_STD_F77		(1<<0)    /* Up to and including F77.  */
 
+/* Bitmasks for the various FPE that can be enabled.  */
+#define GFC_FPE_INVALID    (1<<0)
+#define GFC_FPE_DENORMAL   (1<<1)
+#define GFC_FPE_ZERO       (1<<2)
+#define GFC_FPE_OVERFLOW   (1<<3)
+#define GFC_FPE_UNDERFLOW  (1<<4)
+#define GFC_FPE_PRECISION  (1<<5)
+
+
 /*************************** Enums *****************************/
 
 /* The author remains confused to this day about the convention of
@@ -1453,6 +1462,8 @@ typedef struct
 
   int q_kind;
 
+  int fpe;
+
   int warn_std;
   int allow_std;
   int warn_nonstd_intrinsics;
@@ -1639,6 +1650,7 @@ try gfc_add_dummy (symbol_attribute *, const char *, locus *);
 try gfc_add_generic (symbol_attribute *, const char *, locus *);
 try gfc_add_common (symbol_attribute *, locus *);
 try gfc_add_in_common (symbol_attribute *, const char *, locus *);
+try gfc_add_in_equivalence (symbol_attribute *, const char *, locus *);
 try gfc_add_data (symbol_attribute *, const char *, locus *);
 try gfc_add_in_namelist (symbol_attribute *, const char *, locus *);
 try gfc_add_sequence (symbol_attribute *, const char *, locus *);

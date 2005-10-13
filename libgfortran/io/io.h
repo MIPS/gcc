@@ -56,6 +56,8 @@ typedef struct stream
   try (*close) (struct stream *);
   try (*seek) (struct stream *, gfc_offset);
   try (*truncate) (struct stream *);
+  int (*read) (struct stream *, void *, size_t *);
+  int (*write) (struct stream *, const void *, size_t *);
 }
 stream;
 
@@ -73,6 +75,8 @@ stream;
 
 #define sseek(s, pos) ((s)->seek)(s, pos)
 #define struncate(s) ((s)->truncate)(s)
+#define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
+#define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
 /* Representation of a namelist object in libgfortran
 
@@ -613,7 +617,7 @@ internal_proto(read_decimal);
 
 /* list_read.c */
 
-extern void list_formatted_read (bt, void *, int);
+extern void list_formatted_read (bt, void *, int, size_t);
 internal_proto(list_formatted_read);
 
 extern void finish_list_read (void);
@@ -666,7 +670,7 @@ internal_proto(write_x);
 extern void write_z (fnode *, const char *, int);
 internal_proto(write_z);
 
-extern void list_formatted_write (bt, void *, int);
+extern void list_formatted_write (bt, void *, int, size_t);
 internal_proto(list_formatted_write);
 
 /* error.c */

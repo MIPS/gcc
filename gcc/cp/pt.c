@@ -3613,9 +3613,7 @@ convert_nontype_argument (tree type, tree expr)
   else if (TYPE_PTRFN_P (type))
     {
       /* If the argument is a template-id, we might not have enough
-	 context information to decay the pointer.
-	 ??? Why static5.C requires decay and subst1.C works fine
-	 even without it?  */
+	 context information to decay the pointer.  */
       if (!type_unknown_p (expr_type))
 	{
 	  expr = decay_conversion (expr);
@@ -4984,6 +4982,8 @@ uses_template_parms (tree t)
   else if (TREE_CODE (t) == TREE_LIST)
     dependent_p = (uses_template_parms (TREE_VALUE (t))
 		   || uses_template_parms (TREE_CHAIN (t)));
+  else if (TREE_CODE (t) == TYPE_DECL)
+    dependent_p = dependent_type_p (TREE_TYPE (t));
   else if (DECL_P (t)
 	   || EXPR_P (t)
 	   || TREE_CODE (t) == TEMPLATE_PARM_INDEX
@@ -6510,6 +6510,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		&& !uses_template_parms (argvec))
 	      tsubst_default_arguments (r);
 	  }
+	else
+	  DECL_TEMPLATE_INFO (r) = NULL_TREE;
 
 	/* Copy the list of befriending classes.  */
 	for (friends = &DECL_BEFRIENDING_CLASSES (r);
@@ -10491,17 +10493,30 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   tree args2 = TYPE_ARG_TYPES (TREE_TYPE (decl2));
   int better1 = 0;
   int better2 = 0;
-
-  /* If only one is a member function, they are unordered.  */
-  if (DECL_FUNCTION_MEMBER_P (decl1) != DECL_FUNCTION_MEMBER_P (decl2))
-    return 0;
-
-  /* Don't consider 'this' parameter.  */
+  
+  /* Remove the this parameter from non-static member functions.  If
+     one is a non-static member function and the other is not a static
+     member function, remove the first parameter from that function
+     also.  This situation occurs for operator functions where we
+     locate both a member function (with this pointer) and non-member
+     operator (with explicit first operand).  */
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl1))
-    args1 = TREE_CHAIN (args1);
-  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
-    args2 = TREE_CHAIN (args2);
-
+    {
+      len--; /* LEN is the number of significant arguments for DECL1 */
+      args1 = TREE_CHAIN (args1);
+      if (!DECL_STATIC_FUNCTION_P (decl2))
+	args2 = TREE_CHAIN (args2);
+    }
+  else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
+    {
+      args2 = TREE_CHAIN (args2);
+      if (!DECL_STATIC_FUNCTION_P (decl1))
+	{
+	  len--;
+	  args1 = TREE_CHAIN (args1);
+	}
+    }
+    
   /* If only one is a conversion operator, they are unordered.  */
   if (DECL_CONV_FN_P (decl1) != DECL_CONV_FN_P (decl2))
     return 0;
@@ -11545,12 +11560,21 @@ instantiate_decl (tree d, int defer_ok,
 	  && !DECL_INITIAL (d) 
 	  && DECL_INITIAL (code_pattern))
 	{
+	  tree ns;
+	  tree init;
+
+	  ns = decl_namespace_context (d);
+	  push_nested_namespace (ns);
 	  push_nested_class (DECL_CONTEXT (d));
-	  DECL_INITIAL (d)
-	    = tsubst_expr (DECL_INITIAL (code_pattern), 
-			   args,
-			   tf_error | tf_warning, NULL_TREE);
+	  init = tsubst_expr (DECL_INITIAL (code_pattern), 
+			      args,
+			      tf_error | tf_warning, NULL_TREE);
+	  DECL_INITIAL (d) = NULL_TREE;
+	  finish_static_data_member_decl (d, init, 
+					  /*asmspec_tree=*/NULL_TREE,
+					  LOOKUP_ONLYCONVERTING);
 	  pop_nested_class ();
+	  pop_nested_namespace (ns);
 	}
 
       /* We restore the source position here because it's used by
@@ -12420,6 +12444,8 @@ type_dependent_expression_p (tree expression)
       return false;
     }
 
+  gcc_assert (TREE_CODE (expression) != TYPE_DECL);
+  
   return (dependent_type_p (TREE_TYPE (expression)));
 }
 
@@ -12615,7 +12641,9 @@ build_non_dependent_expr (tree expr)
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
   inner_expr = (TREE_CODE (expr) == ADDR_EXPR ?
-		TREE_OPERAND (expr, 0) : expr);
+		TREE_OPERAND (expr, 0) :
+		TREE_CODE (expr) == COMPONENT_REF ?
+		TREE_OPERAND (expr, 1) : expr);
   if (is_overloaded_fn (inner_expr)
       || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
@@ -12654,6 +12682,9 @@ build_non_dependent_expr (tree expr)
 		   TREE_OPERAND (expr, 0),
 		   build_non_dependent_expr (TREE_OPERAND (expr, 1)));
 
+  /* If the type is unknown, it can't really be non-dependent */
+  gcc_assert (TREE_TYPE (expr) != unknown_type_node);
+  
   /* Otherwise, build a NON_DEPENDENT_EXPR.
 
      REFERENCE_TYPEs are not stripped for expressions in templates

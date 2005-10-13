@@ -836,7 +836,7 @@ check_global_declaration_1 (tree decl)
       && ! TREE_USED (decl)
       /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	 to handle multiple external decls in different scopes.  */
-      && ! TREE_USED (DECL_NAME (decl))
+      && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
       && ! DECL_EXTERNAL (decl)
       && ! TREE_PUBLIC (decl)
       /* A volatile variable might be used in some non-obvious way.  */
@@ -1778,6 +1778,18 @@ process_options (void)
     }
   if (!flag_stack_protect)
     warn_stack_protect = 0;
+
+  /* ??? Unwind info is not correct around the CFG unless either a frame
+     pointer is present or A_O_A is set.  Fixing this requires rewriting
+     unwind info generation to be aware of the CFG and propagating states
+     around edges.  */
+  if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
+      && flag_omit_frame_pointer)
+    {
+      warning (0, "unwind tables currently requires a frame pointer "
+	       "for correctness");
+      flag_omit_frame_pointer = 0;
+    }
 }
 
 /* Initialize the compiler back end.  */

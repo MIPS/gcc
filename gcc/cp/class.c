@@ -3101,6 +3101,9 @@ walk_subobject_offsets (tree type,
   if (max_offset && INT_CST_LT (max_offset, offset))
     return 0;
 
+  if (type == error_mark_node)
+    return 0;
+  
   if (!TYPE_P (type))
     {
       if (abi_version_at_least (2))
@@ -5024,6 +5027,11 @@ finish_struct_1 (tree t)
 
   if (warn_overloaded_virtual)
     warn_hidden (t);
+
+  /* Class layout, assignment of virtual table slots, etc., is now
+     complete.  Give the back end a chance to tweak the visibility of
+     the class or perform any other required target modifications.  */
+  targetm.cxx.adjust_class_at_definition (t);
 
   maybe_suppress_debug_info (t);
 

@@ -923,10 +923,16 @@ make_decl_rtl (tree decl)
     }
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-
-  if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+  
+  if (name[0] != '*' && TREE_CODE (decl) != FUNCTION_DECL
+      && DECL_REGISTER (decl))
     {
-      reg_number = decode_reg_name (name);
+      error ("register name not specified for %q+D", decl);	
+    }
+  else if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+    {
+      const char *asmspec = name+1;
+      reg_number = decode_reg_name (asmspec);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
 	error ("register name not specified for %q+D", decl);
@@ -3638,7 +3644,7 @@ initializer_constant_valid_p (tree value, tree endtype)
       if (value
 	  && TREE_CODE (value) == FUNCTION_DECL
 	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
-	      || DECL_NON_ADDR_CONST_P (value)))
+	      || DECL_DLLIMPORT_P (value)))
 	return NULL_TREE;
       return value;
 
@@ -3884,7 +3890,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       /* Make sure eliminating the conversion is really a no-op, except with
 	 VIEW_CONVERT_EXPRs to allow for wild Ada unchecked conversions and
 	 union types to allow for Ada unchecked unions.  */
-      if (type_size != op_size
+      if (type_size > op_size
 	  && TREE_CODE (exp) != VIEW_CONVERT_EXPR
 	  && TREE_CODE (TREE_TYPE (exp)) != UNION_TYPE)
 	internal_error ("no-op convert from %wd to %wd bytes in initializer",

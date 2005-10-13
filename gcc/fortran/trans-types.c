@@ -152,6 +152,14 @@ gfc_init_kinds (void)
       if (!targetm.scalar_mode_supported_p (mode))
 	continue;
 
+      /* Only let float/double/long double go through because the fortran
+	 library assumes these are the only floating point types.  */
+
+      if (mode != TYPE_MODE (float_type_node)
+	  && (mode != TYPE_MODE (double_type_node))
+          && (mode != TYPE_MODE (long_double_type_node)))
+	continue;
+
       /* Let the kind equal the precision divided by 8, rounding up.  Again,
 	 this insulates the programmer from the underlying byte size.
 
@@ -566,29 +574,29 @@ gfc_init_types (void)
 tree
 gfc_get_int_type (int kind)
 {
-  int index = gfc_validate_kind (BT_INTEGER, kind, false);
-  return gfc_integer_types[index];
+  int index = gfc_validate_kind (BT_INTEGER, kind, true);
+  return index < 0 ? 0 : gfc_integer_types[index];
 }
 
 tree
 gfc_get_real_type (int kind)
 {
-  int index = gfc_validate_kind (BT_REAL, kind, false);
-  return gfc_real_types[index];
+  int index = gfc_validate_kind (BT_REAL, kind, true);
+  return index < 0 ? 0 : gfc_real_types[index];
 }
 
 tree
 gfc_get_complex_type (int kind)
 {
-  int index = gfc_validate_kind (BT_COMPLEX, kind, false);
-  return gfc_complex_types[index];
+  int index = gfc_validate_kind (BT_COMPLEX, kind, true);
+  return index < 0 ? 0 : gfc_complex_types[index];
 }
 
 tree
 gfc_get_logical_type (int kind)
 {
-  int index = gfc_validate_kind (BT_LOGICAL, kind, false);
-  return gfc_logical_types[index];
+  int index = gfc_validate_kind (BT_LOGICAL, kind, true);
+  return index < 0 ? 0 : gfc_logical_types[index];
 }
 
 /* Create a character type with the given kind and length.  */
@@ -1407,21 +1415,30 @@ gfc_get_derived_type (gfc_symbol * derived)
       derived->backend_decl = typenode;
     }
 
+  /* Go through the derived type components, building them as
+     necessary. The reason for doing this now is that it is
+     possible to recurse back to this derived type through a
+     pointer component (PR24092). If this happens, the fields
+     will be built and so we can return the type.  */
+  for (c = derived->components; c; c = c->next)
+    {
+      if (c->ts.type != BT_DERIVED)
+	continue;
+
+      if (!c->pointer || c->ts.derived->backend_decl == NULL)
+	c->ts.derived->backend_decl = gfc_get_derived_type (c->ts.derived);
+    }
+
+  if (TYPE_FIELDS (derived->backend_decl))
+    return derived->backend_decl;
+
   /* Build the type member list. Install the newly created RECORD_TYPE
      node as DECL_CONTEXT of each FIELD_DECL.  */
   fieldlist = NULL_TREE;
   for (c = derived->components; c; c = c->next)
     {
-      if (c->ts.type == BT_DERIVED && c->pointer)
-        {
-          if (c->ts.derived->backend_decl)
-	    /* We already saw this derived type so use the exiting type.
-	       It doesn't matter if it is incomplete.  */
-	    field_type = c->ts.derived->backend_decl;
-          else
-	    /* Recurse into the type.  */
-	    field_type = gfc_get_derived_type (c->ts.derived);
-        }
+      if (c->ts.type == BT_DERIVED)
+        field_type = c->ts.derived->backend_decl;
       else
 	{
 	  if (c->ts.type == BT_CHARACTER)
@@ -1456,8 +1473,9 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       DECL_PACKED (field) |= TYPE_PACKED (typenode);
 
-      gcc_assert (!c->backend_decl);
-      c->backend_decl = field;
+      gcc_assert (field);
+      if (!c->backend_decl)
+	c->backend_decl = field;
     }
 
   /* Now we have the final fieldlist.  Record it, then lay out the

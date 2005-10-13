@@ -2689,7 +2689,7 @@ resolve_args (tree args)
     {
       tree arg = TREE_VALUE (t);
 
-      if (arg == error_mark_node || error_operand_p (arg))
+      if (error_operand_p (arg))
 	return error_mark_node;
       else if (VOID_TYPE_P (TREE_TYPE (arg)))
 	{
@@ -2930,9 +2930,14 @@ build_object_call (tree obj, tree args)
       return error_mark_node;
     }
 
-  fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
-  if (fns == error_mark_node)
-    return error_mark_node;
+  if (TYPE_BINFO (type))
+    {
+      fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
+      if (fns == error_mark_node)
+	return error_mark_node;
+    }
+  else
+    fns = NULL_TREE;
 
   args = resolve_args (args);
 
@@ -4298,7 +4303,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
       if (inner >= 0)
-	expr = integral_constant_value (expr);
+	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
       return expr;
@@ -6133,17 +6138,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
       winner = more_specialized_fn
 	(TI_TEMPLATE (cand1->template_decl),
 	 TI_TEMPLATE (cand2->template_decl),
-	 /* Tell the deduction code how many real function arguments
-	    we saw, not counting the implicit 'this' argument.  But,
-	    add_function_candidate() suppresses the "this" argument
-	    for constructors.
-
-	    [temp.func.order]: The presence of unused ellipsis and default
+	 /* [temp.func.order]: The presence of unused ellipsis and default
 	    arguments has no effect on the partial ordering of function
-	    templates.  */
-	 cand1->num_convs
-	 - (DECL_NONSTATIC_MEMBER_FUNCTION_P (cand1->fn)
-	    - DECL_CONSTRUCTOR_P (cand1->fn)));
+	    templates.   add_function_candidate() will not have
+	    counted the "this" argument for constructors.  */
+	 cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
       if (winner)
 	return winner;
     }

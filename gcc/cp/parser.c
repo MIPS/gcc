@@ -3956,6 +3956,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 
 	/* Consume the `typename' token.  */
 	cp_lexer_consume_token (parser->lexer);
+
 	/* Look for the optional `::' operator.  */
 	cp_parser_global_scope_opt (parser,
 				    /*current_scope_valid_p=*/false);
@@ -3986,8 +3987,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 	  return error_mark_node;
 	/* If we look up a template-id in a non-dependent qualifying
 	   scope, there's no need to create a dependent type.  */
-	else if (TREE_CODE (id) == TYPE_DECL
-	    && !dependent_type_p (parser->scope))
+	if (TREE_CODE (id) == TYPE_DECL
+	    && (!TYPE_P (scope)
+	        || !dependent_type_p (parser->scope)))
 	  type = TREE_TYPE (id);
 	/* Create a TYPENAME_TYPE to represent the type to which the
 	   functional cast is being performed.  */
@@ -8903,9 +8905,18 @@ cp_parser_template_argument_list (cp_parser* parser)
   tree *arg_ary = fixed_args;
   tree vec;
   bool saved_in_template_argument_list_p;
+  bool saved_ice_p;
+  bool saved_non_ice_p;
 
   saved_in_template_argument_list_p = parser->in_template_argument_list_p;
   parser->in_template_argument_list_p = true;
+  /* Even if the template-id appears in an integral
+     constant-expression, the contents of the argument list do 
+     not.  */ 
+  saved_ice_p = parser->integral_constant_expression_p;
+  parser->integral_constant_expression_p = false;
+  saved_non_ice_p = parser->non_integral_constant_expression_p;
+  parser->non_integral_constant_expression_p = false;
   do
     {
       tree argument;
@@ -8939,6 +8950,8 @@ cp_parser_template_argument_list (cp_parser* parser)
 
   if (arg_ary != fixed_args)
     free (arg_ary);
+  parser->non_integral_constant_expression_p = saved_non_ice_p;
+  parser->integral_constant_expression_p = saved_ice_p;
   parser->in_template_argument_list_p = saved_in_template_argument_list_p;
   return vec;
 }
@@ -9099,11 +9112,20 @@ cp_parser_template_argument (cp_parser* parser)
 	      argument = TREE_OPERAND (argument, 0);
 	    }
 
-	  if (qualifying_class)
+	  /* If ADDRESS_P, then we use finish_qualified_id_expr so
+	     that we get a pointer-to-member, if appropriate.
+	     However, if ADDRESS_P is false, we don't want to turn
+	     "T::f" into "(*this).T::f".  */
+	  if (qualifying_class && address_p)
 	    argument = finish_qualified_id_expr (qualifying_class,
 						 argument,
 						 /*done=*/true,
-						 address_p);
+						 /*address_p=*/true);
+	  else if (TREE_CODE (argument) == BASELINK)
+	    /* We don't need the information about what class was used
+	       to name the overloaded functions.  */  
+	    argument = BASELINK_FUNCTIONS (argument);
+
 	  if (TREE_CODE (argument) == VAR_DECL)
 	    {
 	      /* A variable without external linkage might still be a
@@ -10045,6 +10067,8 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	     declaration context.  */
 
 	  tag_scope ts;
+	  bool template_p;
+
 	  if (is_friend)
 	    /* Friends have special name lookup rules.  */
 	    ts = ts_within_enclosing_non_class;
@@ -10061,8 +10085,11 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	    warning (OPT_Wattributes,
 		     "type attributes are honored only at type definition");
 
-	  type = xref_tag (tag_type, identifier, ts,
-			   parser->num_template_parameter_lists);
+	  template_p = 
+	    (parser->num_template_parameter_lists
+	     && (cp_parser_next_token_starts_class_definition_p (parser)
+		 || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)));
+	  type = xref_tag (tag_type, identifier, ts, template_p);
 	}
     }
   if (tag_type != enum_type)
@@ -15329,8 +15356,10 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
   cast = build_functional_cast (type, expression_list);
   /* [expr.const]/1: In an integral constant expression "only type
      conversions to integral or enumeration type can be used".  */
-  if (cast != error_mark_node && !type_dependent_expression_p (type)
-      && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (type)))
+  if (TREE_CODE (type) == TYPE_DECL)
+    type = TREE_TYPE (type);
+  if (cast != error_mark_node && !dependent_type_p (type)
+      && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (cp_parser_non_integral_constant_expression
 	  (parser, "a call to a constructor"))

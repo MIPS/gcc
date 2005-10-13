@@ -177,13 +177,33 @@ typedef off_t gfc_offset;
 
    When isfinite is not available, try to use one of the
    alternatives, or bail out.  */
-#if (!defined(isfinite) || defined(__CYGWIN__))
+
+#if defined(HAVE_BROKEN_ISFINITE) || defined(__CYGWIN__)
 #undef isfinite
-#if defined(fpclassify)
-#define isfinite(x) (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE)
-#else
-#define isfinite(x) ((x) - (x) == 0)
 #endif
+
+#if defined(HAVE_BROKEN_ISNAN)
+#undef isnan
+#endif
+
+#if defined(HAVE_BROKEN_FPCLASSIFY)
+#undef fpclassify
+#endif
+
+#if !defined(isfinite)
+#if !defined(fpclassify)
+#define isfinite(x) ((x) - (x) == 0)
+#else
+#define isfinite(x) (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE)
+#endif /* !defined(fpclassify) */
+#endif /* !defined(isfinite)  */
+
+#if !defined(isnan)
+#if !defined(fpclassify)
+#define isnan(x) ((x) != (x))
+#else
+#define isnan(x) (fpclassify(x) == FP_NAN)
+#endif /* !defined(fpclassify) */
 #endif /* !defined(isfinite)  */
 
 /* TODO: find the C99 version of these an move into above ifdef.  */
@@ -211,8 +231,19 @@ internal_proto(l8_to_l4_offset);
   (GFC_INTEGER_4)((((GFC_UINTEGER_4)1) << 31) - 1)
 #define GFC_INTEGER_8_HUGE \
   (GFC_INTEGER_8)((((GFC_UINTEGER_8)1) << 63) - 1)
+#ifdef HAVE_GFC_INTEGER_16
+#define GFC_INTEGER_16_HUGE \
+  (GFC_INTEGER_16)((((GFC_UINTEGER_16)1) << 127) - 1)
+#endif
+
 #define GFC_REAL_4_HUGE FLT_MAX
 #define GFC_REAL_8_HUGE DBL_MAX
+#ifdef HAVE_GFC_REAL_10
+#define GFC_REAL_10_HUGE LDBL_MAX
+#endif
+#ifdef HAVE_GFC_REAL_16
+#define GFC_REAL_16_HUGE LDBL_MAX
+#endif
 
 #ifndef GFC_MAX_DIMENSIONS
 #define GFC_MAX_DIMENSIONS 7
@@ -239,12 +270,30 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) gfc_array_void;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, char) gfc_array_char;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
+#ifdef HAVE_GFC_INTEGER_16
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_16) gfc_array_i16;
+#endif
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_4) gfc_array_r4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_8) gfc_array_r8;
+#ifdef HAVE_GFC_REAL_10
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_10) gfc_array_r10;
+#endif
+#ifdef HAVE_GFC_REAL_16
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_16) gfc_array_r16;
+#endif
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_4) gfc_array_c4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_8) gfc_array_c8;
+#ifdef HAVE_GFC_COMPLEX_10
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_10) gfc_array_c10;
+#endif
+#ifdef HAVE_GFC_COMPLEX_16
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_16) gfc_array_c16;
+#endif
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_4) gfc_array_l4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_8) gfc_array_l8;
+#ifdef HAVE_GFC_LOGICAL_16
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
+#endif
 
 #define GFC_DTYPE_RANK_MASK 0x07
 #define GFC_DTYPE_TYPE_SHIFT 3
@@ -288,8 +337,7 @@ typedef struct
   int mem_check;
   int use_stderr, all_unbuffered, default_recl;
 
-  int fpu_round, fpu_precision, fpu_invalid, fpu_denormal, fpu_zerodiv,
-    fpu_overflow, fpu_underflow, fpu_precision_loss;
+  int fpu_round, fpu_precision, fpe;
 
   int sighup, sigint;
 }
@@ -361,6 +409,14 @@ error_codes;
 #define GFC_STD_F95_OBS         (1<<1)    /* Obsoleted in F95.  */
 #define GFC_STD_F77             (1<<0)    /* Up to and including F77.  */
 
+/* Bitmasks for the various FPE that can be enabled.
+   Keep them in sync with their counterparts in gcc/fortran/gfortran.h.  */
+#define GFC_FPE_INVALID    (1<<0)
+#define GFC_FPE_DENORMAL   (1<<1)
+#define GFC_FPE_ZERO       (1<<2)
+#define GFC_FPE_OVERFLOW   (1<<3)
+#define GFC_FPE_UNDERFLOW  (1<<4)
+#define GFC_FPE_PRECISION  (1<<5)
 
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
@@ -393,10 +449,15 @@ internal_proto(get_args);
 
 /* error.c */
 
-extern char *gfc_itoa (GFC_INTEGER_LARGEST);
+#define GFC_ITOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 3 + 2)
+#define GFC_XTOA_BUF_SIZE (sizeof (GFC_UINTEGER_LARGEST) * 2 + 1)
+#define GFC_OTOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 3 + 1)
+#define GFC_BTOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 8 + 1)
+
+extern const char *gfc_itoa (GFC_INTEGER_LARGEST, char *, size_t);
 internal_proto(gfc_itoa);
 
-extern char *xtoa (GFC_UINTEGER_LARGEST);
+extern const char *xtoa (GFC_UINTEGER_LARGEST, char *, size_t);
 internal_proto(xtoa);
 
 extern void os_error (const char *) __attribute__ ((noreturn));
@@ -431,6 +492,11 @@ internal_proto(translate_error);
 extern void generate_error (int, const char *);
 internal_proto(generate_error);
 
+/* fpu.c */
+
+extern void set_fpu (void);
+internal_proto(set_fpu);
+
 /* memory.c */
 
 extern void *get_mem (size_t) __attribute__ ((malloc));
@@ -458,7 +524,7 @@ internal_proto(show_variables);
 
 /* string.c */
 
-extern int find_option (const char *, int, st_option *, const char *);
+extern int find_option (const char *, int, const st_option *, const char *);
 internal_proto(find_option);
 
 extern int fstrlen (const char *, int);

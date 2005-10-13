@@ -1,3 +1,176 @@
+2005-10-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libstdc++/23926
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Fix typo in check
+	for GNU LD.
+	* configure: Regenerate.
+
+2005-10-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:7:0.
+	* configure: Regenerate.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.7.
+	* config/linker-map.gnu: Export locale::_Impl::_M_install_cache.
+
+2005-10-10  Ian Lance Taylor  <ian@airs.com>
+
+	PR libstdc++/13583
+	* include/bits/locale_classes.h (locale::_Impl::_M_install_cache):
+	Move out of line.
+	* src/locale.cc: Define here, add mutex.
+
+2005-10-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24061 (issue 6.19)
+	* include/tr1/hashtable (struct node_const_iterator, struct
+	hashtable_const_iterator): New, add const variants to enable separate
+	overloadings for iterator and const_iterator in unordered_set and
+	unordered_multiset (as required by issue 6.19).
+	(class hashtable): Change the mutable_iterators template parameter
+	to constant_iterators and adjust throughout the logic.
+	(hashtable::insert(iterator, const value_type&), erase(iterator)
+	erase(iterator, iterator)): New, as per issue 6.19.
+	(hashtable::m_erase(node*, node**)): New, called by erase(iterator)
+	and erase(const_iterator).
+	(hashtable::Insert_Conv_Type): New, used by insert(iterator,
+	const value_type&) and insert(const_iterator, const value_type&)
+	to delegate the work to insert(const value_type&).
+	* include/tr1/unordered_map (class unordered_map, unordered_multimap):
+	Adjust typedefs.
+	* include/tr1/unordered_set (class unordered_set, unordered_multiset):
+	Likewise.
+	* testsuite/tr1/6_containers/unordered/erase/24061-map.cc: New.
+	* testsuite/tr1/6_containers/unordered/erase/24061-multimap.cc: New.
+	* testsuite/tr1/6_containers/unordered/erase/24061-multiset.cc: New.
+	* testsuite/tr1/6_containers/unordered/erase/24061-set.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-map.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-multimap.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-multiset.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-set.cc: New.
+
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	Merge from csl-arm-branch:
+	2004-12-15  Daniel Jacobowitz  <dan@codesourcery.com>
+	* libstdc++-v3/config/linker-map.gnu: Add ARM EABI symbols.
+
+2005-10-07  Paolo Carlini  <pcarlini@suse.de>
+
+	Fix libstdc++/24196 for ext/vstring/rc by returning to the behavior
+	of basic_string pre-2003-06-13; remove fully-dynamic-string stuff.
+	* include/ext/rc_string_base.h (_M_refcopy): Move inside the
+	_Rep class and remove code in macro.
+	(__rc_string_base()): Construct with _S_empty_rep()._M_refcopy().
+	(_M_dispose, _M_leak_hard): Remove code in macro.
+	(_S_construct): Return _S_empty_rep()._M_refcopy() for empty string.
+	(_M_grab): Adjust.
+
+	* include/ext/rc_string_base.h (_Rep::_M_refdata()): Minor tweak,
+	mark throw().
+
+2005-10-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Update to Doyxygen 1.4.4.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (struct __sso_string_local):
+	Remove, actually POD types cannot have user defined constructors
+	(being aggregates) and therefore can always be members of unions.
+	(class __sso_string_base): Adjust consistently.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24198
+	* testsuite/27_io/basic_filebuf/3.cc: Use __gnu_test::pod_ushort
+	instead.
+	* testsuite/27_io/basic_filebuf/seekoff/10132-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/10132-3.cc: Likewise.
+	* testsuite/27_io/basic_fstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ifstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ios/3.cc: Likewise.
+	* testsuite/27_io/basic_iostream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_istream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_istringstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ofstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ostream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ostringstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_streambuf/3.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/3.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/3.cc: Likewise; run the test.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11729 (DR 280, [Ready])
+	* include/bits/stl_iterator.h: Add reverse_iterator global
+	functions with two template parameters (operator==, !=, <,
+	>, <=, >=, -).
+	* testsuite/24_iterators/reverse_iterator/11729.cc: New.
+	* docs/html/ext/howto.html: Add an entry for issue 280.
+
+2005-10-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable
+	(node_iterator::node_iterator(const node_iterator<,true,>&)): Fix to
+	take a "false" (i.e., is_const == false) node_iterator.
+	(hashtable_iterator::hashtable_iterator(const hashtable_iterator<,
+	true,>&)): Likewise for hashtable_iterator.
+	(hashtable::const_local_iterator): Fix typedef (is_const == true).
+	(hashtable::const_iterator): Likewise.
+	* testsuite/tr1/6_containers/unordered/types/map_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/multimap_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/set_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/multiset_iterator.cc: New.
+ 
+2005-10-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24054
+	* include/tr1/hashtable (erase(const key_type&)): Return the
+	number of elements erased.
+	* testsuite/tr1/6_containers/unordered/hashtable/24054.cc: New.
+
+2005-10-01  Kenny Simpson  <theonetruekenny@yahoo.com>
+
+	* include/tr1/tuple_iterate.h (tuple::operator=(const std::pair<>&)):
+	Add missing return.
+
+2005-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24064
+	* include/tr1/hashtable (hash_code_base<>::store_code): Add.
+	(hashtable<>::insert(const value_type&)): Use it.
+	* testsuite/tr1/6_containers/unordered/hashtable/24064.cc: New.
+
+2005-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23953
+	* include/bits/locale_facets.tcc (__numpunct_cache<>::_M_cache,
+	__moneypunct_cache<>::_M_cache): Check that grouping()[0] > 0.
+	(__verify_grouping): Do the last check only if __grouping[__min] > 0.
+	(__add_grouping<>): End recursion if *__gbeg <= 0.
+	* testsuite/22_locale/num_get/get/char/23953.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/char/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/23953.cc: Likewise.
+
+2005-09-29  Chris Jefferson <chris@bubblescope.net>
+
+	PR libstdc++/23978
+	* include/tr1/tuple_iterate.h (tuple): Add operator=(std::pair).
+	* testsuite/tr1/6_containers/tuple/creation_functions/23978.cc: New.
+	
+	* include/tr1/functional (ref, cref): Make inline.
+	* include/tr1/tuple_iterate.h (tie): Correct formatting.
+	(make_tuple): Make inline.
+
+2005-09-25  Benjamin Kosnik  <bkoz@redhat.com>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* include/ext/mt_allocator.h
+	(__per_type_pool<...true>::_S_initialize_once): Always call
+	_M_initialize_once.
+	(__common_pool<...true>::_S_initialize_once): Same.
+
 2005-09-23  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/ext/mt_allocator/tune-1.cc: Clarify for single-thread.

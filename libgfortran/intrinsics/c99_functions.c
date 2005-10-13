@@ -344,12 +344,8 @@ double
 round(double x)
 {
    double t;
-#if defined(fpclassify)
-   int i;
-   i = fpclassify(x);
-   if (i == FP_INFINITE || i == FP_NAN)
+   if (!isfinite (x))
      return (x);
-#endif
 
    if (x >= 0.0) 
     {
@@ -377,13 +373,8 @@ float
 roundf(float x)
 {
    float t;
-#if defined(fpclassify)
-   int i;
-
-   i = fpclassify(x);
-   if (i == FP_INFINITE || i == FP_NAN)
+   if (!isfinite (x))
      return (x);
-#endif
 
    if (x >= 0.0) 
     {
@@ -678,7 +669,7 @@ csqrtf (float complex z)
 
       r = sqrtf (0.5 * fabsf (im));
 
-      COMPLEX_ASSIGN (v, copysignf (r, im), r);
+      COMPLEX_ASSIGN (v, r, copysignf (r, im));
     }
   else
     {
@@ -731,7 +722,7 @@ csqrt (double complex z)
 
       r = sqrt (0.5 * fabs (im));
 
-      COMPLEX_ASSIGN (v, copysign (r, im), r);
+      COMPLEX_ASSIGN (v, r, copysign (r, im));
     }
   else
     {

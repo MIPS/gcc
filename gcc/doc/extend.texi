@@ -3056,14 +3056,6 @@ The @var{tls_model} argument should be one of @code{global-dynamic},
 
 Not all targets support this attribute.
 
-@item transparent_union
-This attribute, attached to a function parameter which is a union, means
-that the corresponding argument may have the type of any union member,
-but the argument is passed as if its type were that of the first union
-member.  For more details see @xref{Type Attributes}.  You can also use
-this attribute on a @code{typedef} for a union data type; then it
-applies to all function parameters with that type.
-
 @item unused
 This attribute, attached to a variable, means that the variable is meant
 to be possibly unused.  GCC will not produce a warning for this
@@ -6502,6 +6494,14 @@ into the data cache.  The instruction will be issued in slot I1@.
 
 These built-in functions are available for the i386 and x86-64 family
 of computers, depending on the command-line switches used.
+
+Note that, if you specify command-line switches such as @option{-msse},
+the compiler could use the extended instruction sets even if the built-ins
+are not used explicitly in the program.  For this reason, applications
+which perform runtime CPU detection must compile separate files for each
+supported architecture, using the appropriate flags.  In particular,
+the file containing the CPU detection code should be compiled without
+these options.
 
 The following machine modes are available for use with MMX built-in functions
 (@pxref{Vector Extensions}): @code{V2SI} for a vector of two 32-bit integers,

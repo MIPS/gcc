@@ -699,7 +699,7 @@ finish_fname_decls (void)
       if (TREE_CODE (*bodyp) == BIND_EXPR)
 	bodyp = &BIND_EXPR_BODY (*bodyp);
 
-      append_to_statement_list (*bodyp, &stmts);
+      append_to_statement_list_force (*bodyp, &stmts);
       *bodyp = stmts;
     }
 
@@ -976,6 +976,8 @@ vector_types_convertible_p (tree t1, tree t2)
   return targetm.vector_opaque_p (t1)
 	 || targetm.vector_opaque_p (t2)
          || (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
+	     && (TREE_CODE (t1) != REAL_TYPE || 
+		 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
 	     && INTEGRAL_TYPE_P (TREE_TYPE (t1))
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
 }
@@ -4337,39 +4339,43 @@ handle_transparent_union_attribute (tree *node, tree name,
 				    tree ARG_UNUSED (args), int flags,
 				    bool *no_add_attrs)
 {
-  tree decl = NULL_TREE;
-  tree *type = NULL;
-  int is_type = 0;
+  tree type = NULL;
+
+  *no_add_attrs = true;
 
   if (DECL_P (*node))
     {
-      decl = *node;
-      type = &TREE_TYPE (decl);
-      is_type = TREE_CODE (*node) == TYPE_DECL;
+      if (TREE_CODE (*node) != TYPE_DECL)
+	goto ignored;
+      node = &TREE_TYPE (*node);
+      type = *node;
     }
   else if (TYPE_P (*node))
-    type = node, is_type = 1;
-
-  if (is_type
-      && TREE_CODE (*type) == UNION_TYPE
-      && (decl == 0
-	  || (TYPE_FIELDS (*type) != 0
-	      && TYPE_MODE (*type) == DECL_MODE (TYPE_FIELDS (*type)))))
-    {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	*type = build_variant_type_copy (*type);
-      TYPE_TRANSPARENT_UNION (*type) = 1;
-    }
-  else if (decl != 0 && TREE_CODE (decl) == PARM_DECL
-	   && TREE_CODE (*type) == UNION_TYPE
-	   && TYPE_MODE (*type) == DECL_MODE (TYPE_FIELDS (*type)))
-    DECL_TRANSPARENT_UNION (decl) = 1;
+    type = *node;
   else
+    goto ignored;
+
+  if (TREE_CODE (type) == UNION_TYPE)
     {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
+      /* When IN_PLACE is set, leave the check for FIELDS and MODE to
+	 the code in finish_struct.  */
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	{
+	  if (TYPE_FIELDS (type) == NULL_TREE
+	      || TYPE_MODE (type) != DECL_MODE (TYPE_FIELDS (type)))
+	    goto ignored;
+
+	  /* A type variant isn't good enough, since we don't a cast
+	     to such a type removed as a no-op.  */
+	  *node = type = build_duplicate_type (type);
+	}
+
+      TYPE_TRANSPARENT_UNION (type) = 1;
+      return NULL_TREE;
     }
 
+ ignored:
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
   return NULL_TREE;
 }
 

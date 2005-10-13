@@ -221,12 +221,18 @@ convert_to_real (tree type, tree expr)
 
       if (fn)
 	{
-	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
-									1)));
-	  tree arglist = build_tree_list (NULL_TREE,
-					  fold (convert_to_real (type, arg0)));
+	  tree arg
+	    = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
 
-	  return build_function_call_expr (fn, arglist);
+	  /* Make sure (type)arg0 is an extension, otherwise we could end up
+	     changing (float)floor(double d) into floorf((float)d), which is
+	     incorrect because (float)d uses round-to-nearest and can round
+	     up to the next integer.  */
+	  if (TYPE_PRECISION (type) >= TYPE_PRECISION (TREE_TYPE (arg)))
+	    return
+	      build_function_call_expr (fn,
+					build_tree_list (NULL_TREE,
+					  fold (convert_to_real (type, arg))));
 	}
     }
 

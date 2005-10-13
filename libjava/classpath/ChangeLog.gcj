@@ -1,3 +1,28 @@
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
+	* native/jawt/Makefile.in: Rebuilt.
+	* native/jawt/Makefile.am (noinst_LTLIBRARIES): Renamed.
+	* native/jni/xmlj/Makefile.in: Rebuilt.
+	* native/jni/xmlj/Makefile.am (noinst_LTLIBRARIES): Renamed.
+	* native/jni/qt-peer/Makefile.in: Rebuilt.
+	* native/jni/qt-peer/Makefile.am (noinst_LTLIBRARIES): Renamed.
+	* native/jni/gtk-peer/Makefile.in: Rebuilt.
+	* native/jni/gtk-peer/Makefile.am (noinst_LTLIBRARIES): Renamed.
+
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24057:
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am: Don't install headers.
+
+2005-09-30  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24051:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ACLOCAL_AMFLAGS): Added -I ../../config
+	* configure: Rebuilt.
+	* configure.ac: Use GCC_NO_EXECUTABLES
+
 2005-09-23  Tom Tromey  <tromey@redhat.com>
 
 	* native/jawt/.cvsignore: Likewise.

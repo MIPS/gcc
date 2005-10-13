@@ -105,9 +105,17 @@ gfc_resolve_aimag (gfc_expr * f, gfc_expr * x)
 void
 gfc_resolve_aint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 {
+  gfc_typespec ts;
+  
   f->ts.type = a->ts.type;
   f->ts.kind = (kind == NULL) ? a->ts.kind : mpz_get_si (kind->value.integer);
 
+  if (a->ts.kind != f->ts.kind)
+    {
+      ts.type = f->ts.type;
+      ts.kind = f->ts.kind;
+      gfc_convert_type (a, &ts, 2);
+    }
   /* The resolved name is only used for specific intrinsics where
      the return kind is the same as the arg kind.  */
   f->value.function.name =
@@ -143,8 +151,17 @@ gfc_resolve_all (gfc_expr * f, gfc_expr * mask, gfc_expr * dim)
 void
 gfc_resolve_anint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 {
+  gfc_typespec ts;
+  
   f->ts.type = a->ts.type;
   f->ts.kind = (kind == NULL) ? a->ts.kind : mpz_get_si (kind->value.integer);
+
+  if (a->ts.kind != f->ts.kind)
+    {
+      ts.type = f->ts.type;
+      ts.kind = f->ts.kind;
+      gfc_convert_type (a, &ts, 2);
+    }
 
   /* The resolved name is only used for specific intrinsics where
      the return kind is the same as the arg kind.  */
@@ -1217,7 +1234,8 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
     {
     case 4:
     case 8:
-    /* case 16: */
+    case 10:
+    case 16:
       if (source->ts.type == BT_COMPLEX)
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%c%d"),
@@ -1538,6 +1556,8 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
     {
     case 4:
     case 8:
+    case 10:
+    case 16:
       switch (matrix->ts.type)
         {
         case BT_COMPLEX:

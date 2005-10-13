@@ -1,3 +1,24 @@
+2005-10-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* at-file.texi: Fix typo.
+
+2005-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* at-file.texi: New file.
+
+2005-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* argv.c (expandargv): Do not use xmalloc_failed.
+
+2005-09-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* argv.c (safe-ctype.h): Include it.
+	(ISBLANK): Remove.
+	(stdio.h): Include.
+	(buildargv): Use ISSPACE instead of ISBLANK.
+	(expandargv): New function.
+	* Makefile.in: Regenerated.
+
 2005-09-14  Christopher Faylor  <cgf@timesys.com>
 
 	* pex-win32.c: Include "windows.h".
