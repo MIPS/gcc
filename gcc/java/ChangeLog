@@ -1,5 +1,10 @@
 2005-10-12  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.cc (create_class_instance): Field count includes
+	static fields.
+
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.cc (create_method_throws): Emit fully qualified name,
 	not descriptor.
 

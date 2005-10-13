@@ -550,7 +550,9 @@ class_object_creator::create_class_instance (tree class_tree)
 
   inst.set_field ("fields", field_array);
   inst.set_field ("size_in_bytes", abi->get_size_in_bytes (class_tree));
-  inst.set_field ("field_count", build_int_cst (type_jshort, num_fields));
+  inst.set_field ("field_count", build_int_cst (type_jshort,
+						(num_fields
+						 + num_static_fields)));
   inst.set_field ("static_field_count",
 		  build_int_cst (type_jshort, num_static_fields));
 
