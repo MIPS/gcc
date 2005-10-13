@@ -70,6 +70,7 @@ typedef decNumber* (*dfp_unary_func)
 typedef decNumber* (*dfp_binary_func)
      (decNumber *, decNumber *, decNumber *, decContext *);
 
+extern unsigned long __dec_byte_swap (unsigned long);
 
 /* Unary operations.  */
 

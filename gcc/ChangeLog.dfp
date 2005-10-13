@@ -1,3 +1,9 @@
+2005-10-13  Ben Elliston  <bje@au.ibm.com>
+
+	* decLibrary.c (isinfd32, isinfd64, isinfd128): Prototype.
+	(__dfp_enable_traps, __dfp_raise): Likewise.
+	* config/dfp-bit.c (__dec_byte_swap): Likewise.
+
 2005-10-11  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.h (LIBGCC2_WORDS_BIG_ENDIAN): Define.

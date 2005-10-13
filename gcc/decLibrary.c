@@ -25,6 +25,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "decimal64.h"
 #include "decimal32.h"
 
+extern int isinfd32 (_Decimal32);
+extern int isinfd64 (_Decimal64);
+extern int isinfd128 (_Decimal128);
+extern void __dfp_enable_traps (void);
+extern void __dfp_raise (int exception __attribute__ ((unused)));
+
 int
 isinfd32 (_Decimal32 arg)
 {
