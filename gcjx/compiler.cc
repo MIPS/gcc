@@ -24,6 +24,7 @@
 #include "bytecode/bytegen.hh"
 #include "reader/reader.hh"
 #include "buffer.hh"
+#include "dump.hh"
 
 compiler::compiler (const std::string &name)
   : work_monitor (),
@@ -130,6 +131,7 @@ compiler::compiler (const std::string &name)
     pedantic (false),
     warnings_are_errors (false),
     dump_methods (false),
+    dump_tree (false),
     feature_assert (true),
     feature_enum (true),
     feature_static_import (true),
@@ -650,4 +652,8 @@ compiler::do_analyze_unit (model_unit *unit)
     }
 
   unit->check_imports ();
+
+  // Dump the AST to stdout now if it was requested.
+  if (dump_tree ())
+    ::dump_tree (unit);
 }

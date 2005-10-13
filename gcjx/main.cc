@@ -59,6 +59,8 @@ static flag_and_name features[] =
     "verify bytecode after creating it" },
   { "dump-methods", &compiler::dump_methods,
     "print method bodies to stdout (for debugging)" },
+  { "dump-tree", &compiler::dump_tree,
+    "print abstract syntax tree to stdout (for debugging)" },
   { NULL, NULL, NULL }
 };
 

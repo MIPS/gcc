@@ -291,6 +291,7 @@ public:
   compiler_flag pedantic;
   compiler_flag warnings_are_errors;
   compiler_flag dump_methods;
+  compiler_flag dump_tree;
 
   // These control whether a certain feature is recognized in the
   // source.
