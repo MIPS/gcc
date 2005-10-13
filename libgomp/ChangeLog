@@ -1,3 +1,7 @@
+2005-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/threadprivate1.f90: New test.
+
 2005-10-12  Richard Henderson  <rth@redhat.com>
 
 	* testsuite/lib/libgomp-dg.exp: Set blddir at toplevel.
