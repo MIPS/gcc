@@ -175,7 +175,8 @@ class_object_creator::create_method_throws (model_method *method)
        i != throw_list.end ();
        ++i)
     {
-      tree utf = builtins->map_utf8const (tree_builtins::get_descriptor ((*i)->type ()));
+      model_class *tk = assert_cast<model_class *> ((*i)->type ());
+      tree utf = builtins->map_utf8const (tk->get_fully_qualified_name ());
       cons_list = tree_cons (NULL_TREE, utf, cons_list);
     }
 
