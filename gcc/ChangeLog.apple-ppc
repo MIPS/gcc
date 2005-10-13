@@ -1,3 +1,10 @@
+2005-10-11  Evan Cheng  <evan.cheng@apple.com>
+
+	Radar 4228294
+	Radar 4296479
+	* varasm.c (output_constructor):  Reverse initializer list for
+	types with reversed_flag set (revision).
+
 2005-10-12  Devang Patel  <dpatel@apple.com>
 
 	Radar 4278903
