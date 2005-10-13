@@ -1,3 +1,25 @@
+2005-10-12  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/lib/libgomp-dg.exp: Set blddir at toplevel.
+	(libgomp_init): Use lang_test_file, lang_library_path, and
+	lang_link_flags, set by the subdirectory files.  Add -fopenmp here.
+
+	* testsuite/libgomp.fortran/fortran.exp (lang_library_path): New.
+	(lang_test_file, lang_link_flags): New.
+	(DEFAULT_FFLAGS, ALWAYS_CFLAGS, multilibs, blddir): Remove.
+
+	* testsuite/libgomp.c++/c++.exp, testsuite/libgomp.c++/loop-1.C,
+	testsuite/libgomp.c++/loop-2.C, testsuite/libgomp.c++/loop-3.C,
+	testsuite/libgomp.c++/loop-4.C, testsuite/libgomp.c++/nested-1.C,
+	testsuite/libgomp.c++/parallel-1.C,
+	testsuite/libgomp.c++/reduction-1.C,
+	testsuite/libgomp.c++/reduction-2.C,
+	testsuite/libgomp.c++/reduction-3.C,
+	testsuite/libgomp.c++/sections-1.C, testsuite/libgomp.c++/shared-1.C,
+	testsuite/libgomp.c++/shared-2.C, testsuite/libgomp.c++/single-1.C,
+	testsuite/libgomp.c++/single-2.C, testsuite/libgomp.c++/single-3.C:
+	New files, largely cribbed from the C testsuite.
+
 2005-10-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/character1.f90: New test.

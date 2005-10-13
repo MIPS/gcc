@@ -3169,7 +3169,52 @@ finalize_nrv (tree *tp, tree var, tree result)
   walk_tree (tp, finalize_nrv_r, &data, 0);
   htab_delete (data.visited);
 }
+
+/* For all variables in the tree_list VARS, mark them as thread local.  */
 
+void
+finish_omp_threadprivate (tree vars)
+{
+  tree t;
+
+  /* Mark every variable in VARS to be assigned thread local storage.  */
+  for (t = vars; t; t = TREE_CHAIN (t))
+    {
+      tree v = TREE_PURPOSE (t);
+
+      if (TREE_USED (v))
+	error ("%qE declared %<threadprivate%> after first use", v);
+      else
+	DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+    }
+}
+
+/* Like c_begin_compound_stmt, except force the retension of the BLOCK.  */
+
+tree
+begin_omp_parallel (void)
+{
+  push_stmt_list ();
+  keep_next_level (true);
+  return begin_compound_stmt (0);
+}
+
+tree
+finish_omp_parallel (tree clauses, tree block)
+{
+  tree stmt, body = TREE_CHAIN (block);
+
+  finish_compound_stmt (block);
+  body = pop_stmt_list (body);
+
+  stmt = make_node (OMP_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_PARALLEL_CLAUSES (stmt) = clauses;
+  OMP_PARALLEL_BODY (stmt) = body;
+
+  return add_stmt (stmt);
+}
+
 /* Perform initialization related to this module.  */
 
 void

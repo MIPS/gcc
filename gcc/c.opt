@@ -615,7 +615,7 @@ ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
 
 fopenmp
-C Var(flag_openmp)
+C ObjC C++ ObjC++ Var(flag_openmp)
 Enable OpenMP
 
 foperator-names

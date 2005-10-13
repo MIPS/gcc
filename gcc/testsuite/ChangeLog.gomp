@@ -1,3 +1,25 @@
+2005-10-12  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/dg.exp: Don't run gomp tests.
+	* g++.dg/gomp/atomic-1.C, g++.dg/gomp/atomic-2.C,
+	g++.dg/gomp/atomic-3.C, g++.dg/gomp/atomic-4.C, g++.dg/gomp/atomic-5.C,
+	g++.dg/gomp/atomic-6.C, g++.dg/gomp/atomic-7.C, g++.dg/gomp/atomic-8.C,
+	g++.dg/gomp/atomic-9.C, g++.dg/gomp/barrier-1.C,
+	g++.dg/gomp/barrier-2.C, g++.dg/gomp/copyin-1.C,
+	g++.dg/gomp/critical-1.C, g++.dg/gomp/critical-2.C,
+	g++.dg/gomp/flush-1.C, g++.dg/gomp/flush-2.C, g++.dg/gomp/for-1.C,
+	g++.dg/gomp/for-10.C, g++.dg/gomp/for-11.C, g++.dg/gomp/for-12.C,
+	g++.dg/gomp/for-13.C, g++.dg/gomp/for-14.C, g++.dg/gomp/for-2.C,
+	g++.dg/gomp/for-3.C, g++.dg/gomp/for-4.C, g++.dg/gomp/for-5.C, 
+	g++.dg/gomp/for-6.C, g++.dg/gomp/for-7.C, g++.dg/gomp/for-8.C,
+	g++.dg/gomp/for-9.C, g++.dg/gomp/gomp.exp, g++.dg/gomp/macro-1.C,
+	g++.dg/gomp/macro-2.C, g++.dg/gomp/master-1.C, g++.dg/gomp/master-2.C,
+	g++.dg/gomp/master-3.C, g++.dg/gomp/ordered-1.C,
+	g++.dg/gomp/ordered-2.C, g++.dg/gomp/parallel-1.C, 
+	g++.dg/gomp/parallel-2.C, g++.dg/gomp/parallel-3.C, 
+	g++.dg/gomp/parallel-4.C, g++.dg/gomp/sections-1.C,
+	g++.dg/gomp/sections-2.C, g++.dg/gomp/tls-1.C: New files.
+
 2005-10-11  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/parse/pragma2.C: Update expected errors.

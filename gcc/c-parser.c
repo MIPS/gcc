@@ -7272,16 +7272,16 @@ c_parser_omp_flush (c_parser *parser)
 static tree
 c_parser_omp_for_loop (c_parser *parser)
 {
-  tree block, decl, cond, incr, save_break, save_cont, body, init;
-  tree ret = NULL;
+  tree decl, cond, incr, save_break, save_cont, body, init;
+  location_t loc;
 
   if (!c_parser_next_token_is_keyword (parser, RID_FOR))
     {
       c_parser_error (parser, "for statement expected");
       return NULL;
     }
+  loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
-  block = c_begin_compound_stmt (true);
 
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return NULL;
@@ -7342,10 +7342,8 @@ c_parser_omp_for_loop (c_parser *parser)
   /* Only bother calling c_finish_omp_for if we havn't already generated
      an error from the initialization parsing.  */
   if (decl != NULL)
-    ret = c_finish_omp_for (decl, init, cond, incr, body);
-
-  add_stmt (c_end_compound_stmt (block, true));
-  return ret;
+    return c_finish_omp_for (loc, decl, init, cond, incr, body);
+  return NULL;
 
  error_init:
   c_parser_error (parser, "expected iteration declaration or initialization");

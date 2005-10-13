@@ -57,10 +57,10 @@ c_finish_omp_master (tree stmt)
    that follows the pragma, NAME is the identifier in the pragma, or null
    if it was omitted.  */
 
-void
+tree
 c_finish_omp_critical (tree stmt, tree name)
 {
-  add_stmt (build2 (OMP_CRITICAL, void_type_node, name, stmt));
+  return add_stmt (build2 (OMP_CRITICAL, void_type_node, name, stmt));
 }
 
 
@@ -165,45 +165,55 @@ c_finish_omp_flush (void)
    expression and body of the loop).  DECL is the iteration variable.  */
 
 tree
-c_finish_omp_for (tree decl, tree init, tree cond, tree incr, tree body)
+c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
+		  tree incr, tree body)
 {
-  source_locus locus = EXPR_LOCUS (init);
+  location_t elocus = locus;
   bool fail = false;
+
+  if (EXPR_HAS_LOCATION (init))
+    elocus = EXPR_LOCATION (init);
 
   /* Validate the iteration variable.  */
   if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
     {
-      error ("%Hinvalid type for iteration variable %qE", locus, decl);
+      error ("%Hinvalid type for iteration variable %qE", &elocus, decl);
       fail = true;
     }
   if (TYPE_UNSIGNED (TREE_TYPE (decl)))
-    warning (0, "%Hiteration variable %qE is unsigned", locus, decl);
+    warning (0, "%Hiteration variable %qE is unsigned", &elocus, decl);
 
   /* In the case of "for (int i = 0...)", init will be a decl.  It should
      have a DECL_INITIAL that we can turn into an assignment.  */
   if (init == decl)
     {
+      elocus = DECL_SOURCE_LOCATION (decl);
+
       init = DECL_INITIAL (decl);
       if (init == NULL)
 	{
-	  error ("%J%qE is not initialized", decl, decl);
+	  error ("%H%qE is not initialized", &elocus, decl);
 	  init = integer_zero_node;
 	  fail = true;
 	}
 
       init = build_modify_expr (decl, NOP_EXPR, init);
+      SET_EXPR_LOCATION (init, elocus);
     }
   gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
   gcc_assert (TREE_OPERAND (init, 0) == decl);
   
   if (cond == NULL_TREE)
     {
-      error ("%Hmissing controlling predicate", locus);
+      error ("%Hmissing controlling predicate", &elocus);
       fail = true;
     }
   else
     {
       bool cond_ok = false;
+
+      if (EXPR_HAS_LOCATION (cond))
+	elocus = EXPR_LOCATION (cond);
 
       if (TREE_CODE (cond) == LT_EXPR
 	  || TREE_CODE (cond) == LE_EXPR
@@ -223,41 +233,50 @@ c_finish_omp_for (tree decl, tree init, tree cond, tree incr, tree body)
 
       if (!cond_ok)
 	{
-	  error ("%Hinvalid controlling predicate",
-		 EXPR_HAS_LOCATION (cond) ? EXPR_LOCUS (cond) : locus);
+	  error ("%Hinvalid controlling predicate", &elocus);
 	  fail = true;
 	}
     }
 
   if (incr == NULL_TREE)
     {
-      error ("%Hmissing increment expression", locus);
+      error ("%Hmissing increment expression", &elocus);
       fail = true;
     }
   else
     {
       bool incr_ok = false;
-      enum tree_code code = TREE_CODE (incr);
+
+      if (EXPR_HAS_LOCATION (incr))
+	elocus = EXPR_LOCATION (incr);
 
       /* Check all the valid increment expressions: v++, v--, ++v, --v,
 	 v = v + incr, v = incr + v and v = v - incr.  */
-      if ((code == POSTINCREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
-	  || (code == PREINCREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
-	  || (code == POSTDECREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
-	  || (code == PREDECREMENT_EXPR && TREE_OPERAND (incr, 0) == decl)
-	  || (code == MODIFY_EXPR
-	      && TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+      switch (TREE_CODE (incr))
+	{
+	case POSTINCREMENT_EXPR:
+	case PREINCREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	case PREDECREMENT_EXPR:
+	  incr_ok = (TREE_OPERAND (incr, 0) == decl);
+	  break;
+
+	case MODIFY_EXPR:
+	  if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
 	      && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
 		  || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
-	  || (code == MODIFY_EXPR
-	      && TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
-	      && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl))
-	incr_ok = true;
+	    incr_ok = true;
+	  else if (TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
+		   && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl)
+	    incr_ok = true;
+	  break;
 
+	default:
+	  break;
+	}
       if (!incr_ok)
 	{
-	  error ("%Hinvalid increment expression",
-		 EXPR_HAS_LOCATION (incr) ? EXPR_LOCUS (incr) : locus);
+	  error ("%Hinvalid increment expression", &elocus);
 	  fail = true;
 	}
     }
@@ -274,7 +293,7 @@ c_finish_omp_for (tree decl, tree init, tree cond, tree incr, tree body)
       OMP_FOR_INCR (t) = incr;
       OMP_FOR_BODY (t) = body;
 
-      SET_EXPR_LOCUS (t, locus);
+      SET_EXPR_LOCATION (t, locus);
       return add_stmt (t);
     }
 }

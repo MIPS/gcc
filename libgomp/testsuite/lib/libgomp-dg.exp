@@ -35,6 +35,13 @@ set libgomp_compile_options ""
 # libgomp_init -- This gets run more than it should be....
 #
 
+if [info exists TOOL_OPTIONS] {
+    set multilibs [get_multilibs $TOOL_OPTIONS]
+} else {
+    set multilibs [get_multilibs]
+}
+set blddir [lookfor_file $multilibs libgomp]
+
 proc libgomp_init { args } {
     global srcdir blddir objdir tool_root_dir
     global libgomp_initialized
@@ -47,6 +54,9 @@ proc libgomp_init { args } {
     global TESTING_IN_BUILD_TREE
     global target_triplet
     global ld_library_path
+    global lang_test_file
+    global lang_library_path
+    global lang_link_flags
 
     # We set LC_ALL and LANG to C so that we get the same error
     # messages as expected.
@@ -69,21 +79,15 @@ proc libgomp_init { args } {
 	unset gluefile
     }
 
-    if [info exists TOOL_OPTIONS] {
-	set multilibs [get_multilibs $TOOL_OPTIONS]
-    } else {
-	set multilibs [get_multilibs]
-    }
-    set blddir [lookfor_file $multilibs libgomp]
-
     if {![info exists CFLAGS]} {
 	set CFLAGS ""
     }
 
     # Compute what needs to be put into LD_LIBRARY_PATH
     set ld_library_path ".:${blddir}/.libs"
-    if [file exists "${blddir}/../libgfortran/.libs/libgfortranbegin.a"] {
-	append ld_library_path ":${blddir}/../libgfortran/.libs"
+
+    if { [info exists lang_test_file] && [file exists "${blddir}/"] } {
+	append ld_library_path ":${blddir}/${lang_library_path}"
     }
     append ld_library_path [gcc-set-multilib-library-path $GCC_UNDER_TEST]
     set_ld_library_path_env_vars
@@ -92,8 +96,8 @@ proc libgomp_init { args } {
     lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/.."
     lappend ALWAYS_CFLAGS "additional_flags=-I${blddir}"
     lappend ALWAYS_CFLAGS "ldflags=-L${blddir}/.libs -lgomp"
-    if [file exists "${blddir}/../libgfortran/.libs/libgfortranbegin.a"] {
-	lappend ALWAYS_CFLAGS "ldflags=-L${blddir}/../libgfortran/.libs -lgfortranbegin -lgfortran"
+    if { [info exists lang_test_file] && [file exists "${blddir}/"] } {
+	lappend ALWAYS_CFLAGS "ldflags=-L${blddir}/${lang_library_path} ${lang_link_flags}"
     }
 
     # We use atomic operations in the testcases to validate results.
@@ -108,6 +112,9 @@ proc libgomp_init { args } {
     # Make sure that lines are not wrapped.  That can confuse the
     # error-message parsing machinery.
     lappend ALWAYS_CFLAGS "additional_flags=-fmessage-length=0"
+
+    # And, gee, turn on OpenMP.
+    lappend ALWAYS_CFLAGS "additional_flags=-fopenmp"
 }
 
 #

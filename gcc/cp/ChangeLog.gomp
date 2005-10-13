@@ -1,3 +1,41 @@
+2005-10-12  Richard Henderson  <rth@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Add c-omp.o.
+	* cp-tree.h (begin_omp_parallel, finish_omp_parallel): Declare.
+	(finish_omp_threadprivate): Declare.
+	* parser.c (struct cp_lexer): Add in_pragma.
+	(cp_lexer_consume_token): Don't consume a PRAGMA_EOL when in_pragma.
+	(cp_parser_skip_to_closing_parenthesis): Stop at PRAGMA_EOL.
+	(cp_parser_skip_to_end_of_statement): Likewise.
+	(cp_parser_skip_to_end_of_block_or_statement): Likewise.
+	(cp_parser_skip_to_closing_brace): Likewise.
+	(cp_parser_skip_to_pragma_eol): Reset in_pragma.
+	(cp_parser_require_pragma_eol): New.
+	(cp_parser_statement): Add in_compound argument; update all callers.
+	Restart if a non-statement pragma seen outside a compound.
+	(cp_parser_statement_seq_opt): Stop at PRAGMA_EOL.
+	(cp_parser_declaration_seq_opt): Likewise.
+	(cp_parser_member_specification_opt): Likewise.
+	(cp_parser_function_definition_after_decl): Likewise.
+	(cp_parser_skip_until_found): Likewise.
+	(cp_parser_cache_group): Likewise.
+	(enum pragma_omp_clause, cp_parser_omp_clause_name,
+	check_no_duplicate_clause, cp_parser_omp_var_list_no_open, 
+	cp_parser_omp_var_list, cp_parser_omp_clause_copyin,
+	cp_parser_omp_clause_default, cp_parser_omp_clause_if,
+	cp_parser_omp_clause_nowait, cp_parser_omp_clause_num_threads,
+	cp_parser_omp_clause_ordered, cp_parser_omp_clause_reduction,
+	cp_parser_omp_clause_schedule, cp_parser_omp_all_clauses,
+	cp_parser_omp_structured_block, cp_parser_omp_atomic,
+	cp_parser_omp_barrier, cp_parser_omp_critical, cp_parser_omp_flush,
+	cp_parser_omp_for_loop, cp_parser_omp_for, cp_parser_omp_master,
+	cp_parser_omp_ordered, cp_parser_omp_sections_scope, 
+	cp_parser_omp_sections, cp_parser_omp_parallel, cp_parser_omp_single,
+	cp_parser_omp_threadprivate, cp_parser_omp_construct): New.
+	(cp_parser_pragma): Handle OpenMP pragmas.
+	* semantics.c (finish_omp_threadprivate): New.
+	(begin_omp_parallel, finish_omp_parallel): New.
+
 2005-10-11  Richard Henderson  <rth@redhat.com>
 
 	* parser.c (struct cp_token): Add pragma_kind.

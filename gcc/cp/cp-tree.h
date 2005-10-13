@@ -4208,6 +4208,9 @@ extern tree finish_qualified_id_expr		(tree, tree, bool, bool);
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
+extern tree begin_omp_parallel			(void);
+extern tree finish_omp_parallel			(tree, tree);
+extern void finish_omp_threadprivate		(tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,

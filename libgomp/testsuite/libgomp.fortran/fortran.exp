@@ -1,33 +1,19 @@
-load_lib libgomp-dg.exp
+set lang_library_path	"../libgfortran/.libs"
+set lang_test_file	"${lang_library_path}/libgfortranbegin.a"
+set lang_link_flags	"-lgfortranbegin -lgfortran"
 
-# If a testcase doesn't have special options, use these.
-if ![info exists DEFAULT_FFLAGS] then {
-    set DEFAULT_FFLAGS "-O2 -fopenmp"
-}
+load_lib libgomp-dg.exp
 
 # Initialize dg.
 dg-init
 
-global ALWAYS_CFLAGS
-
-lappend ALWAYS_CFLAGS "-lgfortranbegin -lgfortran"
-
-global TOOL_OPTIONS
-
-if [info exists TOOL_OPTIONS] {
-    set multilibs [get_multilibs $TOOL_OPTIONS]
-} else {
-    set multilibs [get_multilibs]
-}
-set blddir [lookfor_file $multilibs libgomp]
-
-if [file exists "${blddir}/../libgfortran/.libs/libgfortranbegin.a"] {
+if [file exists "${blddir}/${lang_test_file}"] {
 
     # Gather a list of all tests.
     set tests [lsort [glob -nocomplain $srcdir/$subdir/*.\[fF\]{,90,95}]]
 
     # Main loop.
-    gfortran-dg-runtest $tests $DEFAULT_FFLAGS
+    gfortran-dg-runtest $tests ""
 }
 
 # All done.

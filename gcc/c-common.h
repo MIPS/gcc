@@ -934,12 +934,12 @@ extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
 extern void c_finish_omp_master (tree);
-extern void c_finish_omp_critical (tree, tree);
+extern tree c_finish_omp_critical (tree, tree);
 extern void c_finish_omp_ordered (tree);
 extern void c_finish_omp_barrier (void);
 extern void c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
-extern tree c_finish_omp_for (tree, tree, tree, tree, tree);
+extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);
 
 /* Not in c-omp.c; provided by the front end.  */
