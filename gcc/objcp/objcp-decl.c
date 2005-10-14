@@ -90,7 +90,7 @@ objcp_finish_function (void)
 tree
 objcp_lookup_name (tree name)
 {
-  return lookup_name (name, -1);
+  return lookup_name_prefer_type (name, -1);
 }
 
 tree
