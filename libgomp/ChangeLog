@@ -1,3 +1,30 @@
+2005-10-13  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.am (libgomp_la_SOURCES): Add bar.c.
+	* Makefile.in: Regenerate.
+	* barrier.c (GOMP_barrier): Use gomp_barrier_wait.
+	* libgomp.h: Include bar.h.
+	(struct gomp_barrier): Remove.
+	(struct gomp_team): Add barrier.  Replace master_barrier with
+	master_release.  Replace threads with ordered_release.
+	(struct gomp_thread): Replace barrier with release.
+	* ordered.c (gomp_ordered_first): Update for ordered_release change.
+	(gomp_ordered_last, gomp_ordered_next, gomp_ordered_static_init,
+	gomp_ordered_static_next, gomp_ordered_sync): Likewise.
+	* single.c (GOMP_single_copy_start): Use gomp_barrier_wait.
+	(GOMP_single_copy_end): Likewise.
+	* team.c (gomp_threads_dock): New.
+	(gomp_barrier_init, gomp_barrier_destroy): Remove.
+	(gomp_thread_start): Use gomp_barrier_wait.
+	(new_team, free_team): Update for gomp_team changes.
+	(gomp_team_start): Use gomp_barrier_wait and gomp_barrier_reinit.
+	(gomp_team_end): Use gomp_barrier_wait.
+	(initialize_team): Update for gomp_thread changes.
+	* work.c (gomp_work_share_end): Use gomp_barrier_wait_start.
+	(gomp_work_share_end_nowait): Use atomic ops when available.
+	* config/linux/bar.c, config/linux/bar.h: New files.
+	* config/posix/bar.c, config/posix/bar.h: New files.
+
 2005-10-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* single.c (GOMP_single_copy_end): Don't segfault if team is NULL.

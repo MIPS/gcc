@@ -25,20 +25,39 @@
    any other reasons why the executable file might be covered by the GNU
    General Public License.  */
 
-/* This file handles the BARRIER construct.  */
+/* This is the default implementation of a barrier synchronization mechanism
+   for libgomp.  This type is private to the library.  Note that we rely on
+   being able to adjust the barrier count while threads are blocked, so the
+   POSIX pthread_barrier_t won't work.  */
 
-#include "libgomp.h"
+#ifndef GOMP_BARRIER_H
+#define GOMP_BARRIER_H 1
 
+#include <pthread.h>
 
-void
-GOMP_barrier (void)
+typedef struct
 {
-  struct gomp_thread *thr = gomp_thread ();
-  struct gomp_team *team = thr->ts.team;
+  gomp_mutex_t mutex1;
+#ifndef HAVE_SYNC_BUILTINS
+  gomp_mutex_t mutex2;
+#endif
+  gomp_sem_t sem1;
+  gomp_sem_t sem2;
+  unsigned total;
+  unsigned arrived;
+} gomp_barrier_t;
 
-  /* It is legal to have orphaned barriers.  */
-  if (team == NULL)
-    return;
+extern void gomp_barrier_init (gomp_barrier_t *, unsigned);
+extern void gomp_barrier_reinit (gomp_barrier_t *, unsigned);
+extern void gomp_barrier_destroy (gomp_barrier_t *);
 
-  gomp_barrier_wait (&team->barrier);
+extern void gomp_barrier_wait (gomp_barrier_t *);
+extern void gomp_barrier_wait_end (gomp_barrier_t *, bool);
+
+static inline bool gomp_barrier_wait_start (gomp_barrier_t *bar)
+{
+  gomp_mutex_lock (&bar->mutex1);
+  return ++bar->arrived == bar->total;
 }
+
+#endif /* GOMP_BARRIER_H */

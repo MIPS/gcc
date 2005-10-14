@@ -55,7 +55,7 @@ gomp_ordered_first (void)
      no one to release us when we get to our ordered section.  Post to
      our own release queue now so that we won't block later.  */
   if (ws->ordered_num_used++ == 0)
-    gomp_sem_post (&team->threads[thr->ts.team_id]->release);
+    gomp_sem_post (team->ordered_release[thr->ts.team_id]);
 }
 
 /* This function is called when completing the last iteration block.  That
@@ -89,7 +89,7 @@ gomp_ordered_last (void)
       ws->ordered_cur = next;
 
       next_id = ws->ordered_team_ids[next];
-      gomp_sem_post (&team->threads[next_id]->release);
+      gomp_sem_post (team->ordered_release[next_id]);
     }
 }
 
@@ -120,7 +120,7 @@ gomp_ordered_next (void)
     {
       /* We have a similar situation as in gomp_ordered_first
 	 where we need to post to our own release semaphore.  */
-      gomp_sem_post (&team->threads[thr->ts.team_id]->release);
+      gomp_sem_post (team->ordered_release[thr->ts.team_id]);
       return;
     }
 
@@ -141,7 +141,7 @@ gomp_ordered_next (void)
   ws->ordered_cur = index;
 
   next_id = ws->ordered_team_ids[index];
-  gomp_sem_post (&team->threads[next_id]->release);
+  gomp_sem_post (team->ordered_release[next_id]);
 }
 
 
@@ -157,7 +157,7 @@ gomp_ordered_static_init (void)
   if (team == NULL || team->nthreads == 1)
     return;
 
-  gomp_sem_post (&team->threads[0]->release);
+  gomp_sem_post (team->ordered_release[0]);
 }
 
 /* This function is called when a statically scheduled loop is moving to
@@ -183,7 +183,7 @@ gomp_ordered_static_next (void)
   if (++id == team->nthreads)
     id = 0;
   ws->ordered_team_ids[0] = id;
-  gomp_sem_post (&team->threads[id]->release);
+  gomp_sem_post (team->ordered_release[id]);
 }
 
 /* This function is called when we need to assert that the thread owns the
@@ -214,7 +214,7 @@ gomp_ordered_sync (void)
 
   if (ws->ordered_owner != thr->ts.team_id)
     {
-      gomp_sem_wait (&team->threads[thr->ts.team_id]->release);
+      gomp_sem_wait (team->ordered_release[thr->ts.team_id]);
       ws->ordered_owner = thr->ts.team_id;
     }
 }

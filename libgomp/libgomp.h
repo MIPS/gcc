@@ -48,19 +48,7 @@
 
 #include "sem.h"
 #include "mutex.h"
-
-
-/* This structure implements the various BARRIER semantics required by OpenMP.
-   When a thread reaches the barrier it posts to WAITING and then waits on
-   RELEASE.  The master thread waits on WAITING for all of the other threads
-   in the team; once all have arrived at the barrier it posts to RELEASE in
-   turn.  This scheme is also used to re-schedule idle threads.  */
-
-struct gomp_barrier
-{
-  gomp_sem_t waiting;
-  gomp_sem_t release;
-};
+#include "bar.h"
 
 
 /* This structure contains the data to control one work-sharing construct,
@@ -199,13 +187,17 @@ struct gomp_team
      the current thread was created.  */
   struct gomp_team_state prev_ts;
 
-  /* This barrier structure should be used by the master thread when it
-     is a part of this team.  */
-  struct gomp_barrier master_barrier;
+  /* This barrier is used for most synchronization of the team.  */
+  gomp_barrier_t barrier;
 
-  /* This array contains pointers to the barrier struct of the threads
+  /* This semaphore should be used by the master thread instead of its
+     "native" semaphore in the thread structure.  Required for nested
+     parallels, as the master is a member of two teams.  */
+  gomp_sem_t master_release;
+
+  /* This array contains pointers to the release semaphore of the threads
      in the team.  */
-  struct gomp_barrier *threads[];
+  gomp_sem_t *ordered_release[];
 };
 
 /* This structure contains all data that is private to libgomp and is
@@ -221,8 +213,8 @@ struct gomp_thread
      is NULL only if the thread is idle.  */
   struct gomp_team_state ts;
 
-  /* This is the initial barrier block for this thread.  */
-  struct gomp_barrier barrier;
+  /* This semaphore is used for ordered loops.  */
+  gomp_sem_t release;
 };
 
 /* ... and here is that TLS data.  */

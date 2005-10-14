@@ -147,40 +147,33 @@ gomp_work_share_end (void)
 {
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
+  struct gomp_work_share *ws = thr->ts.work_share;
+  bool last;
+
+  thr->ts.work_share = NULL;
 
   /* Work sharing constructs can be orphaned.  */
   if (team == NULL)
     {
-      free_work_share (thr->ts.work_share);
-      thr->ts.work_share = NULL;
+      free_work_share (ws);
       return;
     }
 
-  if (thr->ts.team_id == 0)
-    {
-      unsigned i, n = team->nthreads;
-      unsigned ws_index;
+  last = gomp_barrier_wait_start (&team->barrier);
 
-      for (i = 1; i < n; ++i)
-	gomp_sem_wait (&team->threads[i]->waiting);
+  if (last)
+    {
+      unsigned ws_index;
 
       ws_index = thr->ts.work_share_generation & team->generation_mask;
       team->work_shares[ws_index] = NULL;
       team->oldest_live_gen++;
       team->num_live_gen = 0;
 
-      for (i = 1; i < n; ++i)
-	gomp_sem_post (&team->threads[i]->release);
-
-      free_work_share (thr->ts.work_share);
-    }
-  else
-    {
-      gomp_sem_post (&thr->barrier.waiting);
-      gomp_sem_wait (&thr->barrier.release);
+      free_work_share (ws);
     }
 
-  thr->ts.work_share = NULL;
+  gomp_barrier_wait_end (&team->barrier, last);
 }
 
 
@@ -193,19 +186,26 @@ gomp_work_share_end_nowait (void)
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
   struct gomp_work_share *ws = thr->ts.work_share;
+  unsigned completed;
+
+  thr->ts.work_share = NULL;
 
   /* Work sharing constructs can be orphaned.  */
   if (team == NULL)
     {
-      free_work_share (thr->ts.work_share);
-      thr->ts.work_share = NULL;
+      free_work_share (ws);
       return;
     }
 
-  /* ??? The following can be done better via atomic update.  */
+#ifdef HAVE_SYNC_BUILTINS
+  completed = __sync_add_and_fetch (&ws->threads_completed, 1);
+#else
   gomp_mutex_lock (&ws->lock);
+  completed = ++ws->threads_completed;
+  gomp_mutex_unlock (&ws->lock);
+#endif
 
-  if (++ws->threads_completed == team->nthreads)
+  if (completed == team->nthreads)
     {
       unsigned ws_index;
 
@@ -220,8 +220,4 @@ gomp_work_share_end_nowait (void)
 
       free_work_share (ws);
     }
-  else
-    gomp_mutex_unlock (&ws->lock);
-
-  thr->ts.work_share = NULL;
 }

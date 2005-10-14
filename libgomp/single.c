@@ -63,7 +63,7 @@ GOMP_single_copy_start (void)
     ret = NULL;
   else
     {
-      gomp_sem_wait (&thr->ts.team->threads[thr->ts.team_id]->release);
+      gomp_barrier_wait (&thr->ts.team->barrier);
 
       ret = thr->ts.work_share->copyprivate;
       gomp_work_share_end_nowait ();
@@ -80,17 +80,11 @@ GOMP_single_copy_end (void *data)
 {
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
-  unsigned int i, n, me;
 
   if (team != NULL)
     {
       thr->ts.work_share->copyprivate = data;
-
-      n = team->nthreads;
-      me = thr->ts.team_id;
-      for (i = 0; i < n; ++i)
-	if (i != me)
-	  gomp_sem_post (&team->threads[i]->release);
+      gomp_barrier_wait (&team->barrier);
     }
 
   gomp_work_share_end_nowait ();

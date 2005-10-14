@@ -25,20 +25,40 @@
    any other reasons why the executable file might be covered by the GNU
    General Public License.  */
 
-/* This file handles the BARRIER construct.  */
+/* This is a Linux specific implementation of a barrier synchronization
+   mechanism for libgomp.  This type is private to the library.  This 
+   implementation uses atomic instructions and the futex syscall.  */
 
 #include "libgomp.h"
+#include "futex.h"
+#include <limits.h>
 
 
 void
-GOMP_barrier (void)
+gomp_barrier_wait_end (gomp_barrier_t *bar, bool last)
 {
-  struct gomp_thread *thr = gomp_thread ();
-  struct gomp_team *team = thr->ts.team;
+  if (last)
+    {
+      bar->generation++;
+      futex_wake (&bar->generation, INT_MAX);
+    }
+  else
+    {
+      unsigned int generation = bar->generation;
 
-  /* It is legal to have orphaned barriers.  */
-  if (team == NULL)
-    return;
+      gomp_mutex_unlock (&bar->mutex);
 
-  gomp_barrier_wait (&team->barrier);
+      do
+	futex_wait (&bar->generation, generation);
+      while (bar->generation == generation);
+    }
+
+  if (__sync_add_and_fetch (&bar->arrived, -1) == 0)
+    gomp_mutex_unlock (&bar->mutex);
+}
+
+void
+gomp_barrier_wait (gomp_barrier_t *barrier)
+{
+  gomp_barrier_wait_end (barrier, gomp_barrier_wait_start (barrier));
 }
