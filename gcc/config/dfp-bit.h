@@ -93,7 +93,13 @@
 /* We define __DEC_EVAL_METHOD__ to 2, saying that we evaluate all
    operations and constants to the range and precision of the _Decimal128
    type.  Make it so.  */
+#if WIDTH == 32
+#define CONTEXT_INIT DEC_INIT_DECIMAL32
+#elif WIDTH == 64
+#define CONTEXT_INIT DEC_INIT_DECIMAL64
+#elif WIDTH == 128
 #define CONTEXT_INIT DEC_INIT_DECIMAL128
+#endif
 
 /* Define CONTEXT_ROUND to obtain the current decNumber rounding mode.  */
 extern enum rounding	__decGetRound (void);

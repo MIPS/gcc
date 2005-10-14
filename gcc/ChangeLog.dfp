@@ -1,5 +1,10 @@
 2005-10-14  Ben Elliston  <bje@au.ibm.com>
 
+	* config/dfp-bit.h (CONTEXT_INIT): Choose the right DEC_INIT macro
+	based on the value of WIDTH.
+
+2005-10-14  Ben Elliston  <bje@au.ibm.com>
+
 	* decLibrary.c (isinfd32): Convert host words to IEEE byte order
 	before converting to a decNumber.
 	(isinfd64, isinfd128): Likewise.
