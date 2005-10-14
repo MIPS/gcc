@@ -1,5 +1,5 @@
 /* APPLE LOCAL file 4278461 */
-/* { dg-do execute { target i?86-*-darwin* } } */
+/* { dg-do execute { target "i?86-*-darwin*" } } */
 /* { dg-options "-fPIC -msse2" } */
 /* Radar 4278461, GCC used a pic-base it neglected to set.  */
 typedef double __v2df __attribute__ ((__vector_size__ (16)));

@@ -1,6 +1,11 @@
 2005-10-13  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4278461
+	* gcc.apple/execute/picbase-1.c: Fix DJ quoting.
+
+2005-10-13  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4278461
 	* gcc.apple/execute/picbase-1.c: New.
 
 2005-10-13  Devang Patel  <dpatel@apple.com>
