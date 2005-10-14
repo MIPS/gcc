@@ -46,6 +46,7 @@ class constant_pool
 
 
   void get_name_and_type (uint16, std::string &, std::string &);
+  void get_indices (uint16, uint16 &, uint16 &);
 
 public:
 

@@ -49,6 +49,21 @@ constant_pool::get_class (uint16 index)
 }
 
 void
+constant_pool::get_indices (uint16 index, uint16 &first, uint16 &second)
+{
+  jword whole = value (index);
+  // FIXME: we should have a more general unpacker than this.
+  // There is more code like this in the gcc front end.
+#ifdef WORDS_BIGENDIAN
+  first = whole & 0xffff;
+  second = (whole >> 16) & 0xffff;
+#else
+  second = whole & 0xffff;
+  first = (whole >> 16) & 0xffff;
+#endif
+}
+
+void
 constant_pool::get_name_and_type (uint16 index,
 				  std::string &name,
 				  std::string &type)
@@ -57,8 +72,10 @@ constant_pool::get_name_and_type (uint16 index,
     throw class_file_error (where,
 			    "expected CONSTANT_NameAndType tag at index %1")
       % int (index);
-  name = get_utf8 (value (index) & 0xffff);
-  type = get_utf8 ((value (index) >> 16) & 0xffff);
+  uint16 n, t;
+  get_indices (index, n, t);
+  name = get_utf8 (n);
+  type = get_utf8 (t);
 }
 
 void
@@ -70,8 +87,10 @@ constant_pool::get_fieldref (uint16 index, std::string &class_name,
     throw class_file_error (where, "expected CONSTANT_Fieldref tag "
 			    "at index %1")
       % int (index);
-  class_name = get_class (value (index) & 0xffff);
-  get_name_and_type ((value (index) >> 16) & 0xffff, field_name, descriptor);
+  uint16 n, t;
+  get_indices (index, n, t);
+  class_name = get_class (n);
+  get_name_and_type (t, field_name, descriptor);
 }
 
 void
@@ -83,6 +102,8 @@ constant_pool::get_methodref (uint16 index, std::string &class_name,
     throw class_file_error (where, "expected CONSTANT_Methodref tag "
 			    "at index %1")
       % int (index);
-  class_name = get_class (value (index) & 0xffff);
-  get_name_and_type ((value (index) >> 16) & 0xffff, method_name, descriptor);
+  uint16 n, t;
+  get_indices (index, n, t);
+  class_name = get_class (n);
+  get_name_and_type (t, method_name, descriptor);
 }

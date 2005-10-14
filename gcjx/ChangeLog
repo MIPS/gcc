@@ -1,5 +1,13 @@
 2005-10-14  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/cpool.hh (constant_pool::get_indices): Declare.
+	* bytecode/cpool.cc (get_indices): New method.
+	(get_name_and_type): Use it.
+	(get_fieldref): Likewise.
+	(get_methodref): Likewise.
+
+2005-10-14  Tom Tromey  <tromey@redhat.com>
+
 	* factory.cc (find_derived_file): Handle case where directory is
 	the empty string.
 
