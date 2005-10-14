@@ -1,6 +1,6 @@
 // Parameters for a generic method or class.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -48,6 +48,11 @@ public:
   bool empty () const
   {
     return type_parameters.empty ();
+  }
+
+  unsigned int size () const
+  {
+    return type_parameters.size ();
   }
 
   /// Create a type map that maps our type variables onto the other

@@ -151,12 +151,29 @@ model_method::more_specific_p (model_method *other)
 }
 
 bool
+model_method::potentially_applicable_p (const std::list<model_type *> &args)
+{
+  int args_size = args.size ();
+  int params_size = parameters.size ();
+  if ((! varargs && args_size != params_size)
+      || (varargs && args_size < params_size - 1))
+    return false;
+  return true;
+}
+
+bool
+model_method::potentially_applicable_p (const std::list<model_type *> &args,
+					const std::list<ref_forwarding_type> &type_args)
+{
+  if (type_parameters.size () != type_args.size ())
+    return false;
+  return potentially_applicable_p (args);
+}
+
+bool
 model_method::method_conversion_p (const std::list<model_type *> &args,
 				   method_phase phase)
 {
-  if (! varargs && args.size () != parameters.size ())
-    return false;
-
   std::list<ref_variable_decl>::const_iterator this_it
     = parameters.begin ();
   std::list<model_type *>::const_iterator args_it = args.begin ();
@@ -170,8 +187,8 @@ model_method::method_conversion_p (const std::list<model_type *> &args,
       // varargs methods.
       ++this_it;
 
-      // We're handling varargs if we're in phase 3, this is the last
-      // argument of a varargs method, and if the feature is enabled.
+      // We're handling varargs if: we're in phase 3, this is the last
+      // argument of a varargs method, and the feature is enabled.
       if (phase == PHASE_3
 	  && this_it == parameters.end ()
 	  && varargs

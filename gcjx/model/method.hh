@@ -274,6 +274,14 @@ public:
   /// method is applicable and we can apply all necessary conversions.
   void method_conversion (std::list<ref_expression> &);
 
+  /// Check for potential applicability.
+  bool potentially_applicable_p (const std::list<model_type *> &);
+
+  /// Check for potential applicability, where explicit type
+  /// parameters are given.
+  bool potentially_applicable_p (const std::list<model_type *> &,
+				 const std::list<ref_forwarding_type> &);
+
   /// Add an argument to a constructor.  This is only used for new
   /// hidden parameters, like captured 'final' local variables.
   virtual void add_parameter (const ref_variable_decl &)

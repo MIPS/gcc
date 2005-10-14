@@ -6,10 +6,6 @@ error message if 'enum' is used as an identifier could be better
 use a using declaration to resolve overrides in
 various MI cases.
 
-check to see if:
-  public static void main(String... args)
-will be picked up by 'java klass'
-
 make sure we don't resolve too many classes
 see email around Mar 28 2005 on the gcj list
 
@@ -89,10 +85,6 @@ Elliott suggests:
 
 it is invalid to look up a cached class while parsing
 the compiler ought to enforce this with asserts
-
-varargs: what if the final argument is `Object... x'
-and the invocation's final argument is an int[]?
-we handle this wrong
 
 some forms of boxing still don't work
 see model_prefix_simple::resolve
@@ -257,7 +249,6 @@ reading .class files
 the modifier class is a bit strange
 we should probably rewrite to make it more like ordinary
 model classes
-the token stuff could go into source/ instead of in the model
 
 name.cc is very inefficient
 it should probably be rewritten in a more intelligent way
@@ -293,6 +284,23 @@ X gcjh has options to add text to the header in different places;
 ================================================================
 
 Tree generation
+
+compiling Class with -g -O2 fails
+cgraph complains about the native methods
+
+we have '.zero 2' at the end of a utf8const ... why?
+old gcj has '.zero 1'
+
+for BC mode we aren't emitting [ao]table refs with
+the qualifying type
+
+when compiling bytecode, an error in the bytecode doesn't seem
+to result in the compiler doing exit(1).  why?
+eg:
+    opsy. gcj -c HelloWorld.class
+    error: expected CONSTANT_Class tag at index '9'
+    opsy. echo $?
+    0
 
 when doing 'String +' we emit explicit null pointer checks
 in this case this is useless

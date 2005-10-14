@@ -21,6 +21,13 @@
 
 #include "typedefs.hh"
 
+bool
+model_invocation_base::potentially_applicable_p (model_method *meth,
+						 const std::list<model_type *> &actual_types)
+{
+  return meth->potentially_applicable_p (actual_types);
+}
+
 void
 model_invocation_base::try_method_conversion
   (const std::set<model_method *> &accessible,
@@ -51,7 +58,8 @@ model_invocation_base::try_method_conversion
 	   i != accessible.end ();
 	   ++i)
 	{
-	  if ((*i)->method_conversion_p (actual_types, phase))
+	  if (potentially_applicable_p (*i, actual_types)
+	      && (*i)->method_conversion_p (actual_types, phase))
 	    applicable.insert (*i);
 	}
       if (! should_loop)
@@ -613,6 +621,14 @@ model_generic_invocation<T>::model_generic_invocation (const location &w,
   : T (w),
     actual_type_params (params)
 {
+}
+
+template<typename T>
+bool
+model_generic_invocation<T>::potentially_applicable_p (model_method *meth,
+						       const std::list<model_type *> &actual_types)
+{
+  return meth->potentially_applicable_p (actual_types, actual_type_params);
 }
 
 

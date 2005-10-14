@@ -1,5 +1,18 @@
 2005-10-14  Tom Tromey  <tromey@redhat.com>
 
+	* model/invoke.cc (potentially_applicable_p): New methods.
+	* model/invoke.hh (model_invocation_base::potentially_applicable_p):
+	Declare.
+	(model_generic_invocation::potentially_applicable_p): Likewise.
+	* model/parameters.hh (model_parameters::size): New method.
+	* model/method.hh (model_method::potentially_applicable_p):
+	Declare.
+	* model/method.cc (method_conversion_p): Removed early
+	applicability test.
+	(potentially_applicable_p): New methods.
+
+2005-10-14  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/cpool.hh (constant_pool::get_indices): Declare.
 	* bytecode/cpool.cc (get_indices): New method.
 	(get_name_and_type): Use it.

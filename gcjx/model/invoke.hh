@@ -58,6 +58,9 @@ protected:
 				  const std::list<model_type *> &,
 				  std::set<model_method *> &);
 
+  virtual bool potentially_applicable_p (model_method *,
+					 const std::list<model_type *> &);
+
   // This returns the class or interface we must search to find the
   // method named NAME, as well as the qualifying class or interface.
   virtual void determine_search_class (resolution_scope *,
@@ -273,6 +276,9 @@ class model_generic_invocation : public T
 {
   /// The actual type parameters.
   std::list<ref_forwarding_type> actual_type_params;
+
+  bool potentially_applicable_p (model_method *,
+				 const std::list<model_type *> &);
 
 public:
 
