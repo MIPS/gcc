@@ -746,6 +746,10 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 						   PIC_OFFSET_TABLE_REGNUM)));
 #endif
 
+	      /* APPLE LOCAL begin 4278461 */	
+	      if (reload_in_progress)
+		regs_ever_live[REGNO (pic)] = 1;
+	      /* APPLE LOCAL end 4278461 */	
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic,
 				      gen_rtx_CONST (Pmode,
@@ -822,6 +826,10 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  emit_insn (gen_rtx_USE (VOIDmode,
 					  pic_offset_table_rtx));
 #endif
+	      /* APPLE LOCAL begin 4278461 */	
+	      if (reload_in_progress)
+		regs_ever_live[REGNO (pic)] = 1;
+	      /* APPLE LOCAL end 4278461 */	
 		  pic_ref = gen_rtx_PLUS (Pmode,
 					  pic,
 					  gen_rtx_CONST (Pmode,
