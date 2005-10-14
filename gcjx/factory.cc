@@ -129,7 +129,10 @@ class_instance_creator *
 directory_class_factory::find_derived_file (const std::string &name)
 {
   assert (! is_source_only ());
-  std::string file = directory + FILE_SEPARATOR + name;
+  std::string file = directory;
+  if (! file.empty ())
+    file += FILE_SEPARATOR;
+  file += name;
   int fd = open (file.c_str (), O_RDONLY | O_BINARY);
   if (fd < 0)
     return NULL;
