@@ -82,9 +82,11 @@ record_creator::finish_record ()
 
 
 tree
-class_object_creator::make_decl (tree type, tree value)
+class_object_creator::make_decl (tree type, tree value, tree name)
 {
-  tree decl = build_decl (VAR_DECL, builtins->get_symbol (), type);
+  if (name == NULL_TREE)
+    name = builtins->get_symbol ();
+  tree decl = build_decl (VAR_DECL, name, type);
   DECL_INITIAL (decl) = value;
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
@@ -240,7 +242,8 @@ class_object_creator::create_method_array (model_class *real_class,
 }
 
 void
-class_object_creator::create_index_table (const std::vector<model_element *> &table,
+class_object_creator::create_index_table (const char *prefix,
+					  const std::vector<model_element *> &table,
 					  tree &result_table,
 					  tree &result_syms,
 					  tree table_decl)
@@ -266,14 +269,16 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
       if (dynamic_cast<model_field *> (*i))
 	{
 	  model_field *field = assert_cast<model_field *> (*i);
-	  class_desc = tree_builtins::get_descriptor (field->get_declaring_class ());
+	  class_desc
+	    = field->get_declaring_class ()->get_fully_qualified_name ();
 	  name = field->get_name ();
 	  descriptor = tree_builtins::get_descriptor (field->type ());
 	}
       else
 	{
 	  model_method *method = assert_cast<model_method *> (*i);
-	  class_desc = tree_builtins::get_descriptor (method->get_declaring_class ());
+	  class_desc
+	    = method->get_declaring_class ()->get_fully_qualified_name ();
 	  name = method->get_name ();
 	  descriptor = tree_builtins::get_descriptor (method);
 	}
@@ -298,7 +303,8 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
     = build_array_type (type_method_symbol,
 			build_index_type (build_int_cst (type_jint,
 							 table.size ())));
-  result_syms = make_decl (type, build_constructor (type, result_list));
+  result_syms = make_decl (type, build_constructor (type, result_list),
+			   builtins->washed_name (prefix, klass->get ()));
 
   // Note that the table itself has an extra element for the status.
   // FIXME: itable is double the size.
@@ -562,17 +568,17 @@ class_object_creator::create_class_instance (tree class_tree)
   inst.set_field ("dtable", dtable);
 
   tree table, syms;
-  create_index_table (klass->get_otable (), table, syms,
+  create_index_table ("_otable_syms_", klass->get_otable (), table, syms,
 		      builtins->get_otable_decl (real_class));
   inst.set_field ("otable", table);
   inst.set_field ("otable_syms", syms);
 
-  create_index_table (klass->get_atable (), table, syms,
+  create_index_table ("_atable_syms_", klass->get_atable (), table, syms,
 		      builtins->get_atable_decl (real_class));
   inst.set_field ("atable", table);
   inst.set_field ("atable_syms", syms);
 
-  create_index_table (klass->get_itable (), table, syms,
+  create_index_table ("_itable_syms_", klass->get_itable (), table, syms,
 		      builtins->get_itable_decl (real_class));
   inst.set_field ("itable", table);
   inst.set_field ("itable_syms", syms);

@@ -464,7 +464,7 @@ tree_builtins::map_utf8const (const std::string &value)
       utf.set_field ("hash", build_int_cst (type_jushort, hash & 0xffff));
       utf.set_field ("length", build_int_cst (type_jushort, value.length ()));
 
-      tree str = build_string (value.length () + 1, value.c_str ());
+      tree str = build_string (value.length (), value.c_str ());
       tree strtype = TREE_TYPE (find_decl (type, "data"));
       TREE_TYPE (str) = strtype;
       TREE_CONSTANT (str) = 1;
@@ -542,7 +542,7 @@ tree_builtins::get_constant_pool_decl (model_class *klass)
     {
       tree type = build_array_type (ptr_type_node,
 				    build_index_type (integer_zero_node));
-      tree decl = build_decl (VAR_DECL, get_symbol (), type);
+      tree decl = build_decl (VAR_DECL, washed_name ("_cpool_", klass), type);
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
@@ -557,7 +557,8 @@ tree_builtins::get_atable_decl (model_class *klass)
 {
   if (atable_map.find (klass) == atable_map.end ())
     {
-      tree decl = build_decl (VAR_DECL, get_symbol (), type_atable);
+      tree decl = build_decl (VAR_DECL, washed_name ("_atable_", klass),
+			      type_atable);
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
@@ -572,7 +573,8 @@ tree_builtins::get_otable_decl (model_class *klass)
 {
   if (otable_map.find (klass) == otable_map.end ())
     {
-      tree decl = build_decl (VAR_DECL, get_symbol (), type_otable);
+      tree decl = build_decl (VAR_DECL, washed_name ("_otable_", klass),
+			      type_otable);
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
@@ -588,7 +590,8 @@ tree_builtins::get_itable_decl (model_class *klass)
   if (itable_map.find (klass) == itable_map.end ())
     {
       // Note: uses same type as atable.
-      tree decl = build_decl (VAR_DECL, get_symbol (), type_atable);
+      tree decl = build_decl (VAR_DECL, washed_name ("_itable_", klass),
+			      type_atable);
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
@@ -808,6 +811,14 @@ tree_builtins::get_symbol ()
   sprintf (buf, "_temp_%d", symbol_count);
   ++symbol_count;
   return get_identifier (buf);
+}
+
+tree
+tree_builtins::washed_name (const std::string &prefix, model_class *klass)
+{
+  std::string result = klass->get_fully_qualified_name ();
+  replace_all (result, '.', '_');
+  return get_identifier ((prefix + result).c_str ());
 }
 
 tree

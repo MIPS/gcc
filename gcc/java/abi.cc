@@ -489,6 +489,10 @@ bc_abi::build_field_reference (tree_builtins *builtins, aot_class *current,
     {
       assert (obj == NULL_TREE);
 
+      // FIXME: must call _Jv_ResolvePoolEntry and ought to cache the
+      // result.  In this case... it seems that we do not need an
+      // atable entry, but instead a constant pool entry.
+
       tree atable = builtins->get_atable_decl (current->get ());
       tree atable_ref = build4 (ARRAY_REF, ptr_type_node, atable,
 				build_int_cst (type_jint, slot),
@@ -536,6 +540,8 @@ tree
 bc_abi::build_class_reference (tree_builtins *builtins, aot_class *current,
 			       const std::string &classname)
 {
+  // FIXME: direct reference to 'current'.
+
   // FIXME: handle primitive classes
   int index = current->add_class (classname);
   tree cpool = builtins->get_constant_pool_decl (current->get ());
@@ -550,6 +556,15 @@ bc_abi::build_class_reference (tree_builtins *builtins, aot_class *current,
 			       model_type *klass)
 {
   assert (! klass->primitive_p () && klass != primitive_void_type);
+
+  // Build a direct reference to the current class, otherwise go via
+  // the constant pool.
+  if (current->get () == klass)
+    {
+      tree class_obj = builtins->map_class_object (current->get ());
+      return build1 (ADDR_EXPR, type_class_ptr, class_obj);
+    }
+
   int index = current->add (assert_cast<model_class *> (klass));
   tree cpool = builtins->get_constant_pool_decl (current->get ());
   return convert (type_class_ptr, build4 (ARRAY_REF, ptr_type_node,

@@ -1,3 +1,23 @@
+2005-10-14  Tom Tromey  <tromey@redhat.com>
+
+	* hooks.hh (builtin_Jv_ResolvePoolEntry): Declare.
+	* decl.cc (initialize_builtins): Define __builtin_expect.
+	(initialize_builtin_functions): Define _Jv_ResolvePoolEntry.
+	(builtin_Jv_ResolvePoolEntry): Define.
+	* classobj.hh (class_object_creator::make_decl): Updated.
+	(class_object_creator::create_index_table): Likewise.
+	* classobj.cc (create_index_table): Added 'prefix' argument.
+	Give name to symbol table.  Use fully qualified class name.
+	(make_decl): Added 'name' argument.
+	(create_class_instance): Updated.
+	* builtins.cc (washed_name): New method.
+	(get_itable_decl): Use it.
+	(get_otable_decl): Likewise.
+	(get_atable_decl): Likewise.
+	(get_constant_pool_decl): Likewise.
+	(map_utf8const): Pass correct length to build_string.
+	* builtins.hh (tree_builtins::washed_name): Declare.
+
 2005-10-13  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* tree.hh (tree_generator::visit_generic_invocation): Implement.

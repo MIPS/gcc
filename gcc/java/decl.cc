@@ -173,6 +173,7 @@ tree builtin_Jv_divI;
 tree builtin_Jv_remI;
 tree builtin_Jv_divJ;
 tree builtin_Jv_remJ;
+tree builtin_Jv_ResolvePoolEntry;
 
 // Vtables for primitive types.
 tree boolean_array_vtable;
@@ -821,6 +822,15 @@ initialize_builtin_functions ()
 			      0, NOT_BUILT_IN, NULL, NULL_TREE);
   builtin_Jv_remJ
     = build_address_of (builtin_Jv_remJ);
+
+  t = tree_cons (NULL_TREE, type_class_ptr,
+		 tree_cons (NULL_TREE, type_jint, void_list_node));
+  builtin_Jv_ResolvePoolEntry
+    = gcjx::builtin_function ("_Jv_ResolvePoolEntry",
+			      build_function_type (ptr_type_node, t),
+			      0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_PURE (builtin_Jv_ResolvePoolEntry) = 1;
+  builtin_Jv_ResolvePoolEntry = build_address_of (builtin_Jv_ResolvePoolEntry);
 }
 
 static void
@@ -980,6 +990,13 @@ initialize_builtins ()
 		  double_ftype_double, "_ZN4java4lang4Math4sqrtEd");
   define_builtin (BUILT_IN_TAN, "__builtin_tan",
 		  double_ftype_double, "_ZN4java4lang4Math3tanEd");
+
+  t = tree_cons (NULL_TREE, boolean_type_node,
+		 tree_cons (NULL_TREE, boolean_type_node, void_list_node));
+  tree boolean_ftype_boolean_boolean
+    = build_function_type (boolean_type_node, t);
+  define_builtin (BUILT_IN_EXPECT, "__builtin_expect",
+		  boolean_ftype_boolean_boolean, "__builtin_expect");
 
   // Only on trunk for now.
   // build_common_builtin_nodes ();

@@ -168,6 +168,10 @@ public:
     // Why do we do this?
     return join (split (m->get_descriptor (), '/'), '.');
   }
+
+  // Return an identifier node that includes a "washed" form of the
+  // class name and the given prefix.
+  tree washed_name (const std::string &prefix, model_class *klass);
 };
 
 #endif // GCC_JAVA_BUILTINS_HH

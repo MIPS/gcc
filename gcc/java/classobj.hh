@@ -63,14 +63,14 @@ class class_object_creator
   // The resulting tree.
   tree result;
 
-  tree make_decl (tree, tree);
+  tree make_decl (tree, tree, tree = NULL_TREE);
   tree create_one_field_record (model_field *);
   tree create_field_array (model_class *, int &, int &);
   tree create_one_method_record (model_method *);
   tree create_method_throws (model_method *);
   tree create_method_array (model_class *, int &);
   void handle_interfaces (model_class *, tree &, tree &);
-  void create_index_table (const std::vector<model_element *> &,
+  void create_index_table (const char *, const std::vector<model_element *> &,
 			   tree &, tree &, tree);
   void create_class_instance (tree);
   tree create_constants ();
