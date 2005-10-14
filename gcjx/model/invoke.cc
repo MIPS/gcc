@@ -625,6 +625,7 @@ template class model_generic_invocation<model_this_invocation>;
 template class model_generic_invocation<model_new>;
 template class model_generic_invocation<model_new_primary>;
 
+template<>
 void
 model_generic_invocation<model_type_qualified_invocation>::visit (visitor *v)
 {
@@ -632,6 +633,7 @@ model_generic_invocation<model_type_qualified_invocation>::visit (visitor *v)
                                actual_type_params);
 }
 
+template<>
 void
 model_generic_invocation<model_super_invocation>::visit (visitor *v)
 {
@@ -639,12 +641,14 @@ model_generic_invocation<model_super_invocation>::visit (visitor *v)
                                actual_type_params);
 }
 
+template<>
 void
 model_generic_invocation<model_this_invocation>::visit (visitor *v)
 {
   v->visit_generic_invocation (this, method, arguments, actual_type_params);
 }
 
+template<>
 void
 model_generic_invocation<model_new>::visit (visitor *v)
 {
@@ -652,6 +656,7 @@ model_generic_invocation<model_new>::visit (visitor *v)
                                actual_type_params);
 }
 
+template<>
 void
 model_generic_invocation<model_new_primary>::visit (visitor *v)
 {

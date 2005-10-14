@@ -1,3 +1,7 @@
+2005-10-14  Tom Tromey  <tromey@redhat.com>
+
+	* model/invoke.cc (visit): Added missing 'template<>'s.
+
 2005-10-13  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* dump.cc (pretty_printer::descend): Actually iterate over the given
