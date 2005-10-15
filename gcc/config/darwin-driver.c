@@ -645,8 +645,13 @@ do_nasm ()
 {
   int pid;
   char *errmsg_fmt, *errmsg_arg; 
+
+  /* Explicitly set arguments.  This is a hack.  */
   new_argv[0] = "nasm";
-  new_argv[new_argc] = NULL;
+  new_argv[1] = "-f macho";
+  new_argv[2] = in_files->name;
+  new_argv[3] = NULL;
+
   pid = pexecute (new_argv[0], (char *const *)new_argv, progname, NULL, 
 		  &errmsg_fmt, &errmsg_arg, PEXECUTE_SEARCH | PEXECUTE_LAST); 
   
