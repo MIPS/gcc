@@ -47,9 +47,31 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "target.h"
 #include "optabs.h"
+#include "pointer-set.h"
 
 
-static struct gimplify_ctx
+enum gimplify_omp_var_data
+{
+  GOVD_SEEN = 1,
+  GOVD_SHARED = 2,
+  GOVD_PRIVATE = 4,
+  GOVD_FIRSTPRIVATE = 8,
+  GOVD_SPECIALPRIVATE = 16,
+  GOVD_LOCAL = 32,
+  GOVD_GLOBAL = 64
+};
+
+struct gimplify_omp_ctx
+{
+  struct gimplify_omp_ctx *outer_context;
+  splay_tree variables;
+  struct pointer_set_t *privatized_types;
+  location_t location;
+  enum omp_clause_default_kind default_kind;
+  bool is_parallel;
+};
+
+struct gimplify_ctx
 {
   struct gimplify_ctx *prev_context;
 
@@ -62,10 +84,15 @@ static struct gimplify_ctx
   VEC(tree,heap) *case_labels;
   /* The formal temporary table.  Should this be persistent?  */
   htab_t temp_htab;
+
   int conditions;
   bool save_stack;
   bool into_ssa;
-} *gimplify_ctxp;
+};
+
+static struct gimplify_ctx *gimplify_ctxp;
+static struct gimplify_omp_ctx *gimplify_omp_ctxp;
+
 
 
 /* Formal (expression) temporary table handling: Multiple occurrences of
@@ -213,6 +240,48 @@ gimple_pop_condition (tree *pre_p)
       gimplify_ctxp->conditional_cleanups = NULL_TREE;
     }
 }
+
+/* A stable comparison routine for use with splay trees and DECLs.  */
+
+static int
+splay_tree_compare_decl_uid (splay_tree_key xa, splay_tree_key xb)
+{
+  tree a = (tree) xa;
+  tree b = (tree) xb;
+
+  return DECL_UID (a) - DECL_UID (b);
+}
+
+/* Create a new omp construct that deals with variable remapping.  */
+
+static struct gimplify_omp_ctx *
+new_omp_context (bool is_parallel)
+{
+  struct gimplify_omp_ctx *c;
+
+  c = XCNEW (struct gimplify_omp_ctx);
+  c->outer_context = gimplify_omp_ctxp;
+  c->variables = splay_tree_new (splay_tree_compare_decl_uid, 0, 0);
+  c->privatized_types = pointer_set_create ();
+  c->location = input_location;
+  c->is_parallel = is_parallel;
+  c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
+
+  return c;
+}
+
+/* Destroy an omp construct that deals with variable remapping.  */
+
+static void
+delete_omp_context (struct gimplify_omp_ctx *c)
+{
+  splay_tree_delete (c->variables);
+  pointer_set_destroy (c->privatized_types);
+  XDELETE (c);
+}
+
+static void omp_add_variable (struct gimplify_omp_ctx *, tree, unsigned int);
+static void omp_notice_variable (struct gimplify_omp_ctx *, tree, bool);
 
 /* A subroutine of append_to_statement_list{,_force}.  T is not NULL.  */
 
@@ -601,6 +670,16 @@ gimple_add_tmp_var (tree tmp)
     {
       TREE_CHAIN (tmp) = gimplify_ctxp->temps;
       gimplify_ctxp->temps = tmp;
+
+      /* Mark temporaries local within the nearest enclosing parallel.  */
+      if (gimplify_omp_ctxp)
+	{
+	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
+	  while (ctx && !ctx->is_parallel)
+	    ctx = ctx->outer_context;
+	  if (ctx)
+	    omp_add_variable (ctx, tmp, GOVD_LOCAL | GOVD_SEEN);
+	}
     }
   else if (cfun)
     record_vars (tmp);
@@ -931,6 +1010,16 @@ gimplify_bind_expr (tree *expr_p, tree temp, tree *pre_p)
 	  && (TREE_CODE (t) == VAR_DECL && !DECL_HARD_REGISTER (t))
 	  && !needs_to_live_in_memory (t))
 	DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
+    }
+
+  /* Mark variables seen in this bind expr as locals.  */
+  if (gimplify_omp_ctxp)
+    {
+      struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
+
+      for (t = BIND_EXPR_VARS (bind_expr); t ; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == VAR_DECL && !is_global_var (t))
+	  omp_add_variable (ctx, t, GOVD_LOCAL | GOVD_SEEN);
     }
 
   gimple_push_bind_expr (bind_expr);
@@ -3966,14 +4055,396 @@ gimplify_to_stmt_list (tree *stmt_p)
     }
 }
 
-/* Gimplify the gross structure of an OMP_PARALLEL statement.  */
+/* Add FIRSTPRIVATE entries for DECL in the OpenMP the surrounding parallels
+   to CTX.  If entries already exist, force them to be some flavor of private.
+   If there is no enclosing parallel, do nothing.  */
+
+static void
+omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
+{
+  splay_tree_node n;
+
+  if (decl == NULL || !DECL_P (decl))
+    return;
+
+  do
+    {
+      n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
+      if (n != NULL)
+	{
+	  if (n->value & GOVD_SHARED)
+	    n->value = GOVD_FIRSTPRIVATE | (n->value & GOVD_SEEN);
+	  else
+	    return;
+	}
+      else if (ctx->is_parallel)
+	omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
+
+      ctx = ctx->outer_context;
+    }
+  while (ctx);
+}
+
+/* Similarly for each of the type sizes of TYPE.  */
+
+static void
+omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *ctx, tree type)
+{
+  if (type == NULL || type == error_mark_node)
+    return;
+  type = TYPE_MAIN_VARIANT (type);
+
+  if (pointer_set_insert (ctx->privatized_types, type))
+    return;
+
+  switch (TREE_CODE (type))
+    {
+    case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+    case CHAR_TYPE:
+    case REAL_TYPE:
+      omp_firstprivatize_variable (ctx, TYPE_MIN_VALUE (type));
+      omp_firstprivatize_variable (ctx, TYPE_MAX_VALUE (type));
+      break;
+
+    case ARRAY_TYPE:
+      omp_firstprivatize_type_sizes (ctx, TREE_TYPE (type));
+      omp_firstprivatize_type_sizes (ctx, TYPE_DOMAIN (type));
+      break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      {
+	tree field;
+	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	  if (TREE_CODE (field) == FIELD_DECL)
+	    {
+	      omp_firstprivatize_variable (ctx, DECL_FIELD_OFFSET (field));
+	      omp_firstprivatize_type_sizes (ctx, TREE_TYPE (field));
+	    }
+      }
+      break;
+
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      omp_firstprivatize_type_sizes (ctx, TREE_TYPE (type));
+      break;
+
+    default:
+      break;
+    }
+
+  omp_firstprivatize_variable (ctx, TYPE_SIZE (type));
+  omp_firstprivatize_variable (ctx, TYPE_SIZE_UNIT (type));
+}
+
+/* Add an entry for DECL in the OpenMP context CTX with FLAGS.  */
+
+static void
+omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
+{
+  splay_tree_node n;
+  unsigned int nflags;
+  tree t;
+
+  n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
+  if (n != NULL)
+    {
+      /* Except for the SEEN bit, we shouldn't be re-adding the decl with
+	 the same data sharing class.  */
+      gcc_assert ((n->value & ~GOVD_SEEN & flags) == 0);
+      /* The only combination of data sharing classes we should see is
+	 FIRSTPRIVATE and LASTPRIVATE.  */
+      nflags = n->value | flags;
+      gcc_assert ((nflags & ~GOVD_SEEN)
+		  == (GOVD_FIRSTPRIVATE | GOVD_SPECIALPRIVATE));
+      n->value = nflags;
+      return;
+    }
+
+  /* When adding a variable-sized variable, we have to handle all sorts
+     of additional bits of data: the pointer replacement variable, and 
+     the parameters of the type.  */
+  if (!TREE_CONSTANT (DECL_SIZE (decl)))
+    {
+      /* Add the pointer replacement variable as PRIVATE if the variable
+	 replacement is private, else FIRSTPRIVATE since we'll need the
+	 address of the original variable either for SHARED, or for the
+	 copy into or out of the context.  */
+      if (!(flags & GOVD_LOCAL))
+	{
+	  nflags = flags & GOVD_PRIVATE ? GOVD_PRIVATE : GOVD_FIRSTPRIVATE;
+	  nflags |= flags & GOVD_SEEN;
+	  t = DECL_VALUE_EXPR (decl);
+	  gcc_assert (TREE_CODE (t) == INDIRECT_REF);
+	  t = TREE_OPERAND (t, 0);
+	  gcc_assert (DECL_P (t));
+	  omp_add_variable (ctx, t, nflags);
+	}
+
+      /* Add all of the variable and type parameters (which should have
+	 been gimplified to a formal temporary) as FIRSTPRIVATE.  */
+      nflags = flags & GOVD_SHARED ? 0 : GOVD_SEEN;
+      omp_firstprivatize_variable (ctx, DECL_SIZE_UNIT (decl));
+      omp_firstprivatize_variable (ctx, DECL_SIZE (decl));
+      omp_firstprivatize_type_sizes (ctx, TREE_TYPE (decl));
+
+      /* The variable-sized variable itself is never SHARED, only some form
+	 of PRIVATE.  The sharing would take place via the pointer variable
+	 which we remapped above.  */
+      if (flags & GOVD_SHARED)
+	flags = GOVD_PRIVATE | (flags & GOVD_SEEN);
+
+      /* We're going to make use of the TYPE_SIZE_UNIT at least in the 
+	 alloca statement we generate for the variable, so make sure it
+	 is available.  This isn't automatically needed for the SHARED
+	 case, since we won't be allocating local storage then.  */
+      else
+	omp_notice_variable (ctx, TYPE_SIZE_UNIT (TREE_TYPE (decl)), true);
+    }
+
+  splay_tree_insert (ctx->variables, (splay_tree_key)decl, flags);
+}
+
+/* Record the fact that DECL was used within the OpenMP context CTX.
+   IN_CODE is true when real code uses DECL, and false when we should
+   merely emit default(none) errors.  */
+
+static void
+omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
+{
+  splay_tree_node n;
+  unsigned flags = in_code ? GOVD_SEEN : 0;
+
+  if (is_global_var (decl))
+    return;
+
+  n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
+  if (n == NULL)
+    {
+      enum omp_clause_default_kind default_kind;
+
+      if (!ctx->is_parallel)
+	goto do_outer;
+
+      /* ??? Some compiler-generated variables (like SAVE_EXPRs) could be
+	 remapped firstprivate instead of shared.  To some extent this is
+	 addressed in omp_firstprivatize_type_sizes, but not effectively.  */
+      default_kind = ctx->default_kind;
+      if (DECL_ARTIFICIAL (decl))
+	default_kind = OMP_CLAUSE_DEFAULT_SHARED;
+
+      switch (default_kind)
+	{
+	case OMP_CLAUSE_DEFAULT_NONE:
+	  error ("%qs not specified in enclosing parallel",
+		 IDENTIFIER_POINTER (DECL_NAME (decl)));
+	  error ("%Henclosing parallel", &ctx->location);
+	  /* FALLTHRU */
+	case OMP_CLAUSE_DEFAULT_SHARED:
+	  flags |= GOVD_SHARED;
+	  break;
+	case OMP_CLAUSE_DEFAULT_PRIVATE:
+	  flags |= GOVD_PRIVATE;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      omp_add_variable (ctx, decl, flags);
+      goto do_outer;
+    }
+
+  /* If nothing changed, there's nothing left to do.  */
+  if ((n->value & flags) == flags)
+    return;
+  flags |= n->value;
+  n->value = flags;
+
+ do_outer:
+  /* If the variable is private in the current context, then we don't
+     need to propagate anything to an outer context.  Note that FIRSTPRIVATE
+     isn't listed here because we want to propagate the SEEN bit back to
+     the outer context.  */
+  if (flags & (GOVD_PRIVATE | GOVD_SPECIALPRIVATE))
+    return;
+  if (ctx->outer_context)
+    omp_notice_variable (ctx->outer_context, decl, in_code);
+}
+
+/* Verify that DECL is private within CTX.  If there's specific information
+   to the contrary in the innermost scope, generate an error.  */
+
+static bool
+omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
+{
+  splay_tree_node n;
+
+  n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
+  if (n != NULL)
+    {
+      if (n->value & GOVD_SHARED)
+	{
+	  if (ctx == gimplify_omp_ctxp)
+	    error ("iteration variable %qs should be private",
+		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+	  n->value = GOVD_PRIVATE;
+	}
+      return true;
+    }
+
+  if (ctx->outer_context)
+    return omp_is_private (ctx->outer_context, decl);
+  else if (ctx->is_parallel)
+    return false;
+  else
+    return !is_global_var (decl);
+}
+
+/* Scan the OpenMP clauses in *LIST_P, installing mappings into a new
+   and previous omp contexts.  We remove those clauses that can be 
+   potentially optimized away due to variables not actually being used.
+   These will be put back in gimplify_reconstruct_omp_clauses.  */
+
+static void
+gimplify_deconstruct_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel)
+{
+  struct gimplify_omp_ctx *ctx, *outer_ctx;
+  tree clause;
+
+  ctx = new_omp_context (in_parallel);
+  outer_ctx = ctx->outer_context;
+
+  while ((clause = *list_p) != NULL)
+    {
+      enum gimplify_status gs;
+      bool remove = false;
+
+      switch (TREE_CODE (clause))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause), GOVD_PRIVATE);
+	  remove = true;
+	  break;
+
+	case OMP_CLAUSE_SHARED:
+	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause), GOVD_SHARED);
+	  if (outer_ctx)
+	    omp_notice_variable (outer_ctx, OMP_CLAUSE_DECL (clause), false);
+	  remove = true;
+	  break;
+
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause), GOVD_FIRSTPRIVATE);
+	  if (outer_ctx)
+	    omp_notice_variable (outer_ctx, OMP_CLAUSE_DECL (clause), false);
+	  remove = true;
+	  break;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause), GOVD_SPECIALPRIVATE);
+	  if (outer_ctx)
+	    omp_notice_variable (outer_ctx, OMP_CLAUSE_DECL (clause), true);
+	  break;
+
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COPYPRIVATE:
+	  if (outer_ctx)
+	    omp_notice_variable (outer_ctx, OMP_CLAUSE_DECL (clause), true);
+	  break;
+
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	  gs = gimplify_expr (&TREE_OPERAND (clause, 0), pre_p, NULL,
+			      is_gimple_val, fb_rvalue);
+	  remove = (gs == GS_ERROR);
+	  break;
+
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	  break;
+
+	case OMP_CLAUSE_DEFAULT:
+	  ctx->default_kind = OMP_CLAUSE_DEFAULT_KIND (clause);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      if (remove)
+	*list_p = OMP_CLAUSE_CHAIN (clause);
+      else
+	list_p = &OMP_CLAUSE_CHAIN (clause);
+    }
+
+  gimplify_omp_ctxp = ctx;
+}
+
+/* For all variables that were actually used within the current context,
+   regenerate PRIVATE, SHARED, and FIRSTPRIVATE clauses.  */
+
+static int
+gimplify_reconstruct_omp_clauses_1 (splay_tree_node n, void *data)
+{
+  tree *list_p = (tree *) data;
+  tree decl = (tree) n->key;
+  tree clause;
+  unsigned flags = n->value;
+  enum tree_code code;
+
+  if ((flags & GOVD_SEEN) == 0)
+    return 0;
+  if (flags & GOVD_SHARED)
+    code = OMP_CLAUSE_SHARED;
+  else if (flags & GOVD_PRIVATE)
+    code = OMP_CLAUSE_PRIVATE;
+  else if (flags & GOVD_FIRSTPRIVATE)
+    code = OMP_CLAUSE_FIRSTPRIVATE;
+  else
+    return 0;
+
+  clause = build1 (code, void_type_node, decl);
+  OMP_CLAUSE_CHAIN (clause) = *list_p;
+  *list_p = clause;
+
+  return 0;
+}
+
+static void
+gimplify_reconstruct_omp_clauses (tree *list_p)
+{
+  struct gimplify_omp_ctx *ctx;
+
+  splay_tree_foreach (gimplify_omp_ctxp->variables,
+		      gimplify_reconstruct_omp_clauses_1, list_p);
+  
+  ctx = gimplify_omp_ctxp;
+  gimplify_omp_ctxp = ctx->outer_context;
+  delete_omp_context (ctx);
+}
+
+/* Gimplify the contents of an OMP_PARALLEL statement.  This involves
+   gimplification of the body, as well as scanning the body for used
+   variables.  We need to do this scan now, because variable-sized
+   decls will be decomposed during gimplification.  */
 
 static enum gimplify_status
-gimplify_omp_parallel (tree *expr_p)
+gimplify_omp_parallel (tree *expr_p, tree *pre_p)
 {
+  tree expr = *expr_p;
+
+  gimplify_deconstruct_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p, true);
+
   push_gimplify_context ();
-  gimplify_stmt (&OMP_PARALLEL_BODY (*expr_p));
-  pop_gimplify_context (OMP_PARALLEL_BODY (*expr_p));
+  gimplify_stmt (&OMP_PARALLEL_BODY (expr));
+  pop_gimplify_context (OMP_PARALLEL_BODY (expr));
+
+  gimplify_reconstruct_omp_clauses (&OMP_PARALLEL_CLAUSES (expr));
 
   return GS_ALL_DONE;
 }
@@ -3988,12 +4459,21 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
   for_stmt = *expr_p;
 
+  gimplify_deconstruct_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, false);
+
   t = OMP_FOR_INIT (for_stmt);
   gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
   decl = TREE_OPERAND (t, 0);
   gcc_assert (DECL_P (decl));
   gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
   gcc_assert (!TYPE_UNSIGNED (TREE_TYPE (decl)));
+
+  /* Make sure the iteration variable is private.  */
+  if (omp_is_private (gimplify_omp_ctxp, decl))
+    omp_notice_variable (gimplify_omp_ctxp, decl, true);
+  else
+    omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
+
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
 			is_gimple_val, fb_rvalue);
 
@@ -4035,7 +4515,42 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
   gimplify_to_stmt_list (&OMP_FOR_BODY (for_stmt));
 
+  gimplify_reconstruct_omp_clauses (&OMP_FOR_CLAUSES (for_stmt));
+
   return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;
+}
+
+/* Gimplify the gross structure of an OMP_SECTIONS statement.  */
+
+static enum gimplify_status
+gimplify_omp_sections (tree *expr_p, tree *pre_p)
+{
+  tree sec_stmt = *expr_p;
+
+  gimplify_deconstruct_omp_clauses (&OMP_SECTIONS_CLAUSES (sec_stmt),
+				    pre_p, false);
+
+  gimplify_to_stmt_list (&OMP_SECTIONS_BODY (sec_stmt));
+  
+  gimplify_reconstruct_omp_clauses (&OMP_SECTIONS_CLAUSES (sec_stmt));
+
+  return GS_ALL_DONE;
+}
+
+/* Gimplify the gross structure of an OMP_SINGLE statement.  */
+
+static enum gimplify_status
+gimplify_omp_single (tree *expr_p, tree *pre_p)
+{
+  tree stmt = *expr_p;
+
+  gimplify_deconstruct_omp_clauses (&OMP_SINGLE_CLAUSES (stmt), pre_p, false);
+
+  gimplify_to_stmt_list (&OMP_SINGLE_BODY (stmt));
+  
+  gimplify_reconstruct_omp_clauses (&OMP_SINGLE_CLAUSES (stmt));
+
+  return GS_ALL_DONE;
 }
 
 /* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
@@ -4852,6 +5367,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case PARM_DECL:
 	  tmp = *expr_p;
 
+	  /* When within an OpenMP context, notice uses of variables.  */
+	  if (gimplify_omp_ctxp)
+	    omp_notice_variable (gimplify_omp_ctxp, tmp, true);
+
 	  /* If this is a local variable sized decl, it must be accessed
 	     indirectly.  Perform that substitution.  */
 	  if (DECL_HAS_VALUE_EXPR_P (tmp))
@@ -4870,7 +5389,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case OMP_PARALLEL:
-	  ret = gimplify_omp_parallel (expr_p);
+	  ret = gimplify_omp_parallel (expr_p, pre_p);
 	  break;
 
 	case OMP_FOR:
@@ -4878,8 +5397,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case OMP_SECTIONS:
-	  gimplify_to_stmt_list (&OMP_SECTIONS_BODY (*expr_p));
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_omp_sections (expr_p, pre_p);
 	  break;
 
 	case OMP_SECTION:
@@ -4888,8 +5406,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case OMP_SINGLE:
-	  gimplify_to_stmt_list (&OMP_SINGLE_BODY (*expr_p));
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_omp_single (expr_p, pre_p);
 	  break;
 
 	case OMP_CRITICAL:

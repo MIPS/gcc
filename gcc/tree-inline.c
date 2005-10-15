@@ -171,6 +171,9 @@ remap_decl (tree decl, copy_body_data *id)
 	 need this decl for TYPE_STUB_DECL.  */
       insert_decl_map (id, decl, t);
 
+      if (!DECL_P (t))
+	return t;
+
       /* Remap types, if necessary.  */
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
       if (TREE_CODE (t) == TYPE_DECL)

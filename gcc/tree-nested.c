@@ -618,10 +618,10 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
     }
 }
 
-/* Invoke CALLBACK on all statements of INFO->CONTEXT.  */
+/* Invoke CALLBACK on all statements of *STMT_P.  */
 
 static void
-walk_function (walk_tree_fn callback, struct nesting_info *info)
+walk_body (walk_tree_fn callback, struct nesting_info *info, tree *stmt_p)
 {
   struct walk_stmt_info wi;
 
@@ -630,7 +630,15 @@ walk_function (walk_tree_fn callback, struct nesting_info *info)
   wi.info = info;
   wi.val_only = true;
 
-  walk_stmts (&wi, &DECL_SAVED_TREE (info->context));
+  walk_stmts (&wi, stmt_p);
+}
+
+/* Invoke CALLBACK on all statements of INFO->CONTEXT.  */
+
+static inline void
+walk_function (walk_tree_fn callback, struct nesting_info *info)
+{
+  walk_body (callback, info, &DECL_SAVED_TREE (info->context));
 }
 
 /* Similarly for ROOT and all functions nested underneath, depth first.  */
@@ -792,12 +800,15 @@ get_frame_field (struct nesting_info *info, tree target_context,
    be CHAIN->FOO.  For two levels it'll be CHAIN->__chain->FOO.  Further
    indirections apply to decls for which use_pointer_in_frame is true.  */
 
+static bool convert_nonlocal_omp_clauses (tree *, struct walk_stmt_info *);
+
 static tree
 convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info;
   tree t = *tp;
+  tree save_local_var_chain;
 
   *walk_subtrees = 0;
   switch (TREE_CODE (t))
@@ -925,6 +936,44 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       walk_tree (tp, convert_nonlocal_reference, wi, NULL);
       break;
 
+    case OMP_PARALLEL:
+      if (convert_nonlocal_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
+	{
+	  tree c;
+	  c = get_chain_decl (info);
+	  c = build1 (OMP_CLAUSE_FIRSTPRIVATE, void_type_node, c);
+	  OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
+	  OMP_PARALLEL_CLAUSES (t) = c;
+	}
+
+      save_local_var_chain = info->new_local_var_chain;
+      info->new_local_var_chain = NULL;
+
+      walk_body (convert_nonlocal_reference, info, &OMP_PARALLEL_BODY (t));
+
+      if (info->new_local_var_chain)
+	declare_tmp_vars (info->new_local_var_chain, OMP_PARALLEL_BODY (t));
+      info->new_local_var_chain = save_local_var_chain;
+      break;
+
+    case OMP_FOR:
+      convert_nonlocal_omp_clauses (&OMP_FOR_CLAUSES (t), wi);
+      walk_body (convert_nonlocal_reference, info, &OMP_FOR_BODY (t));
+      break;
+
+    case OMP_SECTIONS:
+      convert_nonlocal_omp_clauses (&OMP_SECTIONS_CLAUSES (t), wi);
+      walk_body (convert_nonlocal_reference, info, &OMP_SECTIONS_BODY (t));
+      break;
+    case OMP_SECTION:
+      walk_body (convert_nonlocal_reference, info, &OMP_SECTION_BODY (t));
+      break;
+
+    case OMP_SINGLE:
+      convert_nonlocal_omp_clauses (&OMP_SINGLE_CLAUSES (t), wi);
+      walk_body (convert_nonlocal_reference, info, &OMP_SINGLE_BODY (t));
+      break;
+
     default:
       if (!IS_TYPE_OR_DECL_P (t))
 	{
@@ -938,9 +987,74 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+static bool
+convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
+{
+  bool ret = false;
+  tree clause;
+  int dummy;
+
+  while ((clause = *pclauses) != NULL)
+    {
+      bool remove = false;
+
+      switch (TREE_CODE (clause))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_COPYPRIVATE:
+	  wi->val_only = false;
+	  wi->changed = false;
+	  convert_nonlocal_reference (&OMP_CLAUSE_DECL (clause), &dummy, wi);
+	  /* FIXME -- need to retain the decl, with the value_expr set.  */
+	  gcc_assert (!wi->changed);
+	  break;
+
+	case OMP_CLAUSE_SHARED:
+	  wi->val_only = false;
+	  wi->changed = false;
+	  convert_nonlocal_reference (&OMP_CLAUSE_DECL (clause), &dummy, wi);
+	  ret |= wi->changed;
+	  remove = wi->changed;
+	  break;
+
+	case OMP_CLAUSE_SCHEDULE:
+	  if (OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause) == NULL)
+	    break;
+	  /* FALLTHRU */
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	  wi->val_only = true;
+	  wi->is_lhs = false;
+	  convert_nonlocal_reference (&TREE_OPERAND (clause, 0), &dummy, wi);
+	  break;
+
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	case OMP_CLAUSE_COPYIN:
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      if (remove)
+	*pclauses = OMP_CLAUSE_CHAIN (clause);
+      else
+	pclauses = &OMP_CLAUSE_CHAIN (clause);
+    }
+
+  return ret;
+}
+
 /* Called via walk_function+walk_tree, rewrite all references to VAR
    and PARM_DECLs that were referenced by inner nested functions.
    The rewrite will be a structure reference to the local frame variable.  */
+
+static bool convert_local_omp_clauses (tree *, struct walk_stmt_info *);
 
 static tree
 convert_local_reference (tree *tp, int *walk_subtrees, void *data)
@@ -949,6 +1063,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
   struct nesting_info *info = wi->info;
   tree t = *tp, field, x;
   bool save_val_only;
+  tree save_local_var_chain;
 
   *walk_subtrees = 0;
   switch (TREE_CODE (t))
@@ -1056,6 +1171,44 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       wi->val_only = save_val_only;
       break;
 
+    case OMP_PARALLEL:
+      if (convert_local_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
+	{
+	  tree c;
+	  (void) get_frame_type (info);
+	  c = build1 (OMP_CLAUSE_SHARED, void_type_node, info->frame_decl);
+	  OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
+	  OMP_PARALLEL_CLAUSES (t) = c;
+	}
+
+      save_local_var_chain = info->new_local_var_chain;
+      info->new_local_var_chain = NULL;
+
+      walk_body (convert_local_reference, info, &OMP_PARALLEL_BODY (t));
+
+      if (info->new_local_var_chain)
+	declare_tmp_vars (info->new_local_var_chain, OMP_PARALLEL_BODY (t));
+      info->new_local_var_chain = save_local_var_chain;
+      break;
+
+    case OMP_FOR:
+      convert_local_omp_clauses (&OMP_FOR_CLAUSES (t), wi);
+      walk_body (convert_local_reference, info, &OMP_FOR_BODY (t));
+      break;
+
+    case OMP_SECTIONS:
+      convert_local_omp_clauses (&OMP_SECTIONS_CLAUSES (t), wi);
+      walk_body (convert_local_reference, info, &OMP_SECTIONS_BODY (t));
+      break;
+    case OMP_SECTION:
+      walk_body (convert_local_reference, info, &OMP_SECTION_BODY (t));
+      break;
+
+    case OMP_SINGLE:
+      convert_local_omp_clauses (&OMP_SINGLE_CLAUSES (t), wi);
+      walk_body (convert_local_reference, info, &OMP_SINGLE_BODY (t));
+      break;
+
     default:
       if (!IS_TYPE_OR_DECL_P (t))
 	{
@@ -1067,6 +1220,69 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
     }
 
   return NULL_TREE;
+}
+
+static bool
+convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
+{
+  bool ret = false;
+  tree clause;
+  int dummy;
+
+  while ((clause = *pclauses) != NULL)
+    {
+      bool remove = false;
+
+      switch (TREE_CODE (clause))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_COPYPRIVATE:
+	  wi->val_only = false;
+	  wi->changed = false;
+	  convert_local_reference (&OMP_CLAUSE_DECL (clause), &dummy, wi);
+	  /* FIXME -- need to retain the decl, with the value_expr set.  */
+	  gcc_assert (!wi->changed);
+	  break;
+
+	case OMP_CLAUSE_SHARED:
+	  wi->val_only = false;
+	  wi->changed = false;
+	  convert_local_reference (&OMP_CLAUSE_DECL (clause), &dummy, wi);
+	  ret |= wi->changed;
+	  remove = wi->changed;
+	  break;
+
+	case OMP_CLAUSE_SCHEDULE:
+	  if (OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause) == NULL)
+	    break;
+	  /* FALLTHRU */
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	  wi->val_only = true;
+	  wi->is_lhs = false;
+	  convert_local_reference (&TREE_OPERAND (clause, 0), &dummy, wi);
+	  break;
+
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	case OMP_CLAUSE_COPYIN:
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      if (remove)
+	*pclauses = OMP_CLAUSE_CHAIN (clause);
+      else
+	pclauses = &OMP_CLAUSE_CHAIN (clause);
+    }
+
+  return ret;
 }
 
 /* Called via walk_function+walk_tree, rewrite all GOTO_EXPRs that 
@@ -1326,7 +1542,6 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   tree stmt_list = NULL;
   tree context = root->context;
   struct function *sf;
-  struct cgraph_node *node;
 
   /* If we created a non-local frame type or decl, we need to lay them
      out at this time.  */
@@ -1442,7 +1657,27 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 
   /* Dump the translated tree function.  */
   dump_function (TDI_nested, root->context);
-  node = cgraph_node (root->context);
+}
+
+static void
+finalize_nesting_tree (struct nesting_info *root)
+{
+  do
+    {
+      if (root->inner)
+	finalize_nesting_tree (root->inner);
+      finalize_nesting_tree_1 (root);
+      root = root->next;
+    }
+  while (root);
+}
+
+/* Unnest the nodes and pass them to cgraph.  */
+
+static void
+unnest_nesting_tree_1 (struct nesting_info *root)
+{
+  struct cgraph_node *node = cgraph_node (root->context);
 
   /* For nested functions update the cgraph to reflect unnesting.
      We also delay finalizing of these functions up to this point.  */
@@ -1454,13 +1689,13 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 }
 
 static void
-finalize_nesting_tree (struct nesting_info *root)
+unnest_nesting_tree (struct nesting_info *root)
 {
   do
     {
       if (root->inner)
-	finalize_nesting_tree (root->inner);
-      finalize_nesting_tree_1 (root);
+	unnest_nesting_tree (root->inner);
+      unnest_nesting_tree_1 (root);
       root = root->next;
     }
   while (root);
@@ -1506,6 +1741,7 @@ lower_nested_functions (tree fndecl)
   walk_all_functions (convert_nl_goto_receiver, root);
   convert_all_function_calls (root);
   finalize_nesting_tree (root);
+  unnest_nesting_tree (root);
   free_nesting_tree (root);
   root = NULL;
 }

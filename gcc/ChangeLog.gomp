@@ -1,3 +1,48 @@
+2005-10-14  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (enum gimplify_omp_var_data): New.
+	(struct gimplify_omp_ctx, gimplify_omp_ctxp): New.
+	(splay_tree_compare_decl_uid): New.
+	(new_omp_context, delete_omp_context): New.
+	(gimple_add_tmp_var): Call omp_add_variable.
+	(gimplify_bind_expr): Likewise.
+	(omp_firstprivatize_variable, omp_firstprivatize_type_sizes): New.
+	(omp_add_variable, omp_notice_variable, omp_is_private): New.
+	(gimplify_deconstruct_omp_clauses): New.
+	(gimplify_reconstruct_omp_clauses_1): New.
+	(gimplify_reconstruct_omp_clauses): New.
+	(gimplify_omp_parallel): Use them.
+	(gimplify_omp_for): Likewise.
+	(gimplify_omp_sections, gimplify_omp_single): New.
+	(gimplify_expr): Call omp_notice_variable.
+	* omp-low.c (is_variable_sized, is_reference): New.
+	(omp_copy_decl_2): Don't set DECL_ABSTRACT_ORIGIN.
+	(build_outer_var_ref): Handle variable sized and reference types here.
+	(install_var_private): Use is_reference.
+	(omp_copy_decl): Don't handle defaults.  Return error_mark_node for
+	any decl not remapped.
+	(scan_sharing_clauses): Handle variable sized types.
+	(create_omp_child_function): Set DECL_ARTIFICIAL on the argument.
+	(build_modify_expr): New.
+	(expand_rec_input_clauses): Handle variable sized types.
+	(expand_lastprivate_clauses): Use build_modify_expr.
+	(expand_reduction_clauses): Don't explicitly handle references.
+	(expand_copyprivate_clauses): Use is_reference.
+	(expand_send_clauses): Handle variable sized types.
+	(build_parallel_call): Use EQ_EXPR instead of invert_truthvalue.
+	(expand_omp_1): Do nothing for omp forms if no context.
+	* tree-inline.c (remap_decl): Early exit if copy produces a
+	non-decl.
+	* tree-nested.c (walk_body): Split out of walk_function.
+	(convert_nonlocal_omp_clauses, convert_local_omp_clauses): New.
+	(convert_nonlocal_reference): Handle omp statements.
+	(convert_local_reference): Likewise.
+	(unnest_nesting_tree_1): Split out of finalize_nesting_tree_1.
+	(unnest_nesting_tree): New.
+	(lower_nested_functions): Call it.
+	* tree-pretty-print.c (dump_omp_clauses): Don't use dump_decl_name
+	directly.
+
 2005-10-12  Richard Henderson  <rth@redhat.com>
 
 	* c-omp.c (c_finish_omp_critical): Return statement.
