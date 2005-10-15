@@ -1,3 +1,6 @@
+/* APPLE LOCAL file bincl/eincl stabs */
+/* Test BINCL/EINCL stabs.  */
+/* Contributed by Devang Patel  <dpatel@apple.com>  */
 
 #ifndef BINCL_2_H
 #define BINCL_2_H
