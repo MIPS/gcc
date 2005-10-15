@@ -1,3 +1,12 @@
+2005-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (gfc_match_omp_variable_list): Add ALLOW_COMMON argument.
+	Disallow COMMON matching if it is set.
+	(gfc_match_omp_clauses, gfc_match_omp_flush): Adjust all callers.
+	(resolve_omp_clauses): Show locus in error messages.  Check that
+	variable types in reduction clauses are appropriate for reduction
+	operators.
+
 2005-10-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* resolve.c (resolve_symbol): Don't error if a threadprivate module

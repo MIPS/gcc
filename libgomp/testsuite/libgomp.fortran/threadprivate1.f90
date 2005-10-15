@@ -1,11 +1,12 @@
 ! { dg-do run }
+
 module threadprivate1
   double precision :: d
 !$omp threadprivate (d)
 end module threadprivate1
 
+!$ use omp_lib
   use threadprivate1
-  integer omp_get_thread_num
   logical :: l
   l = .false.
 !$omp parallel num_threads (4) reduction (.or.:l)

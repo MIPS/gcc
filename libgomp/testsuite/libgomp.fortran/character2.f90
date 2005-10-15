@@ -14,7 +14,6 @@ contains
     character (len = n) :: t
     character (len = n) :: u
     integer, dimension (n + 4) :: s
-    integer omp_get_thread_num
     logical :: l
     integer :: m
     r = ''

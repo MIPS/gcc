@@ -76,7 +76,8 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
 /* Match a variable/common block list and construct a namelist from it.  */
 
 static match
-gfc_match_omp_variable_list (const char *str, gfc_namelist **list)
+gfc_match_omp_variable_list (const char *str, gfc_namelist **list,
+			     bool allow_common)
 {
   gfc_namelist *head, *tail, *p;
   locus old_loc;
@@ -114,6 +115,9 @@ gfc_match_omp_variable_list (const char *str, gfc_namelist **list)
 	case MATCH_ERROR:
 	  goto cleanup;
 	}
+
+      if (!allow_common)
+	goto syntax;
 
       m = gfc_match (" / %n /", n);
       if (m == MATCH_ERROR)
@@ -202,32 +206,35 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	continue;
       if ((mask & OMP_CLAUSE_PRIVATE)
 	  && gfc_match_omp_variable_list ("private (",
-					  &c->lists[OMP_LIST_PRIVATE])
+					  &c->lists[OMP_LIST_PRIVATE], true)
 	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_FIRSTPRIVATE)
 	  && gfc_match_omp_variable_list ("firstprivate (",
-					  &c->lists[OMP_LIST_FIRSTPRIVATE])
+					  &c->lists[OMP_LIST_FIRSTPRIVATE],
+					  true)
 	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_LASTPRIVATE)
 	  && gfc_match_omp_variable_list ("lastprivate (",
-					  &c->lists[OMP_LIST_LASTPRIVATE])
+					  &c->lists[OMP_LIST_LASTPRIVATE],
+					  true)
 	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_COPYPRIVATE)
 	  && gfc_match_omp_variable_list ("copyprivate (",
-					  &c->lists[OMP_LIST_COPYPRIVATE])
+					  &c->lists[OMP_LIST_COPYPRIVATE],
+					  true)
 	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_SHARED)
 	  && gfc_match_omp_variable_list ("shared (",
-					  &c->lists[OMP_LIST_SHARED])
+					  &c->lists[OMP_LIST_SHARED], true)
 	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_COPYIN)
 	  && gfc_match_omp_variable_list ("copyin (",
-					  &c->lists[OMP_LIST_COPYIN])
+					  &c->lists[OMP_LIST_COPYIN], true)
 	     == MATCH_YES)
 	continue;
       old_loc = gfc_current_locus;
@@ -260,7 +267,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	  else if (gfc_match ("ieor") == MATCH_YES)
 	    reduction = OMP_LIST_IEOR;
 	  if (reduction != OMP_LIST_NUM
-	      && gfc_match_omp_variable_list (" :", &c->lists[reduction])
+	      && gfc_match_omp_variable_list (" :", &c->lists[reduction],
+					      false)
 		 == MATCH_YES)
 	    continue;
 	  else
@@ -378,7 +386,7 @@ match
 gfc_match_omp_flush (void)
 {
   gfc_namelist *list = NULL;
-  gfc_match_omp_variable_list (" (", &list);
+  gfc_match_omp_variable_list (" (", &list, true);
   if (gfc_match_omp_eos () != MATCH_YES)
     {
       gfc_free_namelist (list);
@@ -693,53 +701,100 @@ resolve_omp_clauses (gfc_code *code)
 	    for (; n != NULL; n = n->next)
 	      {
 		if (!n->sym->attr.threadprivate)
-		  gfc_error ("Non-THREADPRIVATE object %s in COPYIN clause",
-			     n->sym->name);
+		  gfc_error ("Non-THREADPRIVATE object %s in COPYIN clause"
+			     " at %L", n->sym->name, &code->loc);
 		if (n->sym->attr.allocatable)
-		  gfc_error ("COPYIN clause object %s is ALLOCATABLE",
-			     n->sym->name);
+		  gfc_error ("COPYIN clause object %s is ALLOCATABLE at %L",
+			     n->sym->name, &code->loc);
 	      }
 	    break;
 	  case OMP_LIST_COPYPRIVATE:
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
-		  gfc_error ("Assumed size array %s in COPYPRIVATE clause",
-			     n->sym->name);
+		  gfc_error ("Assumed size array %s in COPYPRIVATE clause"
+			     " at %L", n->sym->name, &code->loc);
 		if (n->sym->attr.allocatable)
-		  gfc_error ("COPYPRIVATE clause object %s is ALLOCATABLE",
-			     n->sym->name);
+		  gfc_error ("COPYPRIVATE clause object %s is ALLOCATABLE"
+			     " at %L", n->sym->name, &code->loc);
 	      }
 	    break;
 	  case OMP_LIST_SHARED:
 	    for (; n != NULL; n = n->next)
 	      if (n->sym->attr.threadprivate)
-		gfc_error ("THREADPRIVATE object %s in SHARED clause",
-			   n->sym->name);
+		gfc_error ("THREADPRIVATE object %s in SHARED clause at %L",
+			   n->sym->name, &code->loc);
 	    break;
 	  default:
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->attr.threadprivate)
-		  gfc_error ("THREADPRIVATE object %s in %s clause",
-			     n->sym->name, name);
+		  gfc_error ("THREADPRIVATE object %s in %s clause at %L",
+			     n->sym->name, name, &code->loc);
 		if (list != OMP_LIST_PRIVATE)
 		  {
 		    if (n->sym->attr.pointer)
-		      gfc_error ("POINTER object %s in %s clause",
-				 n->sym->name, name);
+		      gfc_error ("POINTER object %s in %s clause at %L",
+				 n->sym->name, name, &code->loc);
 		    if (n->sym->attr.allocatable)
-		      gfc_error ("%s clause object %s is ALLOCATABLE",
-				 name, n->sym->name);
+		      gfc_error ("%s clause object %s is ALLOCATABLE at %L",
+				 name, n->sym->name, &code->loc);
 		  }
 		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
-		  gfc_error ("Assumed size array %s in %s clause",
-			     n->sym->name, name);
+		  gfc_error ("Assumed size array %s in %s clause at %L",
+			     n->sym->name, name, &code->loc);
 		if (n->sym->attr.in_namelist
 		    && (list < OMP_LIST_REDUCTION_FIRST
 			|| list > OMP_LIST_REDUCTION_LAST))
 		  gfc_error ("Variable %s in %s clause is used in"
-			     " NAMELIST statement", n->sym->name, name);
+			     " NAMELIST statement at %L",
+			     n->sym->name, name, &code->loc);
+		switch (list)
+		  {
+		  case OMP_LIST_PLUS:
+		  case OMP_LIST_MULT:
+		  case OMP_LIST_SUB:
+		    if (!gfc_numeric_ts (&n->sym->ts))
+		      gfc_error ("%c REDUCTION variable %s is %s at %L",
+				 list == OMP_LIST_PLUS ? '+'
+				 : list == OMP_LIST_MULT ? '*' : '-',
+				 n->sym->name, gfc_typename (&n->sym->ts),
+				 &code->loc);
+		    break;
+		  case OMP_LIST_AND:
+		  case OMP_LIST_OR:
+		  case OMP_LIST_EQV:
+		  case OMP_LIST_NEQV:
+		    if (n->sym->ts.type != BT_LOGICAL)
+		      gfc_error ("%s REDUCTION variable %s must be LOGICAL"
+				 " at %L",
+				 list == OMP_LIST_AND ? ".AND."
+				 : list == OMP_LIST_OR ? ".OR."
+				 : list == OMP_LIST_EQV ? ".EQV." : ".NEQV.",
+				 n->sym->name, &code->loc);
+		    break;
+		  case OMP_LIST_MAX:
+		  case OMP_LIST_MIN:
+		    if (n->sym->ts.type != BT_INTEGER
+			&& n->sym->ts.type != BT_REAL)
+		      gfc_error ("%s REDUCTION variable %s must be"
+				 " INTEGER or REAL at %L",
+				 list == OMP_LIST_MAX ? "MAX" : "MIN",
+				 n->sym->name, &code->loc);
+		    break;
+		  case OMP_LIST_IAND:
+		  case OMP_LIST_IOR:
+		  case OMP_LIST_IEOR:
+		    if (n->sym->ts.type != BT_INTEGER)
+		      gfc_error ("%s REDUCTION variable %s must be INTEGER"
+				 " at %L",
+				 list == OMP_LIST_IAND ? "IAND"
+				 : list == OMP_LIST_MULT ? "IOR" : "IEOR",
+				 n->sym->name, &code->loc);
+		    break;
+		  default:
+		    break;
+		  }
 	      }
 	    break;
 	  }
