@@ -846,6 +846,9 @@ maybe_lookup_ctx (tree stmt)
 static tree
 build_reduction_init (tree clause, tree type)
 {
+  while (TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
   switch (OMP_CLAUSE_REDUCTION_CODE (clause))
     {
     case PLUS_EXPR:
@@ -855,11 +858,13 @@ build_reduction_init (tree clause, tree type)
     case TRUTH_OR_EXPR:
     case TRUTH_ORIF_EXPR:
     case TRUTH_XOR_EXPR:
+    case NE_EXPR:
       return fold_convert (type, integer_zero_node);
 
     case MULT_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_ANDIF_EXPR:
+    case EQ_EXPR:
       return fold_convert (type, integer_one_node);
 
     case BIT_AND_EXPR:
@@ -867,7 +872,17 @@ build_reduction_init (tree clause, tree type)
 
     case MAX_EXPR:
       if (SCALAR_FLOAT_TYPE_P (type))
-	gcc_unreachable (); /* FIXME */
+	{
+	  REAL_VALUE_TYPE max, min;
+	  if (HONOR_INFINITIES (TYPE_MODE (type)))
+	    {
+	      real_inf (&max);
+	      real_arithmetic (&min, NEGATE_EXPR, &max, NULL);
+	    }
+	  else
+	    real_maxval (&min, 1, TYPE_MODE (type));
+	  return build_real (type, min);
+	}
       else
 	{
 	  gcc_assert (INTEGRAL_TYPE_P (type));
@@ -876,7 +891,14 @@ build_reduction_init (tree clause, tree type)
 
     case MIN_EXPR:
       if (SCALAR_FLOAT_TYPE_P (type))
-	gcc_unreachable (); /* FIXME */
+	{
+	  REAL_VALUE_TYPE max;
+	  if (HONOR_INFINITIES (TYPE_MODE (type)))
+	    real_inf (&max);
+	  else
+	    real_maxval (&max, 0, TYPE_MODE (type));
+	  return build_real (type, max);
+	}
       else
 	{
 	  gcc_assert (INTEGRAL_TYPE_P (type));
@@ -913,6 +935,59 @@ build_modify_expr (tree dst, tree src, bool dst_local)
     t = build2 (MODIFY_EXPR, void_type_node, dst, src);
 
   return t;
+}
+
+/* Initialize all entries of array VAR to value X.  */
+
+static void
+array_reduction_init (tree var, tree x, tree *stmt_list)
+{
+  tree ptr_type, array = var, ptr;
+  tree test_label = NULL, loop_label, end_label = NULL;
+  tree stmt, end, cond;
+
+  while (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
+    {
+      tree type_domain = TYPE_DOMAIN (TREE_TYPE (array));
+      tree min_val = size_zero_node;
+      if (type_domain && TYPE_MIN_VALUE (type_domain))
+	min_val = TYPE_MIN_VALUE (type_domain);
+      array = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (array)),
+		      array, min_val, NULL_TREE, NULL_TREE);
+    }
+  array = build_fold_addr_expr (array);
+  ptr_type = TREE_TYPE (array);
+  ptr = create_tmp_var (ptr_type, NULL);
+
+  stmt = build2 (MODIFY_EXPR, void_type_node, ptr, array);
+  gimplify_and_add (stmt, stmt_list);
+
+  append_to_statement_list (build_and_jump (&test_label), stmt_list);
+
+  loop_label = create_artificial_label ();
+  stmt = build1 (LABEL_EXPR, void_type_node, loop_label);
+  append_to_statement_list (stmt, stmt_list);
+
+  stmt = build2 (MODIFY_EXPR, void_type_node,
+		 build_fold_indirect_ref (ptr), x);
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build2 (POSTINCREMENT_EXPR, ptr_type, ptr,
+		 fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (x))));
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build1 (LABEL_EXPR, void_type_node, test_label);
+  append_to_statement_list (stmt, stmt_list);
+
+  end = build2 (PLUS_EXPR, ptr_type, array,
+		fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (var))));
+  cond = build2 (GT_EXPR, boolean_type_node, end, ptr);
+  stmt = build3 (COND_EXPR, void_type_node, cond,
+		 build_and_jump (&loop_label), build_and_jump (&end_label));
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build1 (LABEL_EXPR, void_type_node, end_label);
+  append_to_statement_list (stmt, stmt_list);
 }
 
 /* Generate code to implement the input clauses, FIRSTPRIVATE and COPYIN,
@@ -1000,6 +1075,11 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 
 	    case OMP_CLAUSE_REDUCTION:
 	      x = build_reduction_init (c, TREE_TYPE (new_var));
+	      if (TREE_CODE (TREE_TYPE (new_var)) == ARRAY_TYPE)
+		{
+		  array_reduction_init (new_var, x, stmt_list);
+		  continue;
+		}
 	      break;
 
 	    default:
@@ -1066,6 +1146,78 @@ expand_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
   gimplify_and_add (x, stmt_list);
 }
 
+/* Perform DST[x] = DST[x] OP SRC[x] on all entries of the arrays.  */
+
+static void
+array_reduction_op (enum tree_code op, tree dst, tree src, tree *stmt_list)
+{
+  tree ptr_type, dst_array = dst, src_array = src, dstp, srcp;
+  tree test_label = NULL, loop_label, end_label = NULL;
+  tree stmt, end, cond, x, size;
+
+  while (TREE_CODE (TREE_TYPE (src_array)) == ARRAY_TYPE)
+    {
+      tree type_domain = TYPE_DOMAIN (TREE_TYPE (src_array));
+      tree min_val = size_zero_node;
+      if (type_domain && TYPE_MIN_VALUE (type_domain))
+	min_val = TYPE_MIN_VALUE (type_domain);
+      src_array = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (src_array)),
+			  src_array, min_val, NULL_TREE, NULL_TREE);
+    }
+  while (TREE_CODE (TREE_TYPE (dst_array)) == ARRAY_TYPE)
+    {
+      tree type_domain = TYPE_DOMAIN (TREE_TYPE (dst_array));
+      tree min_val = size_zero_node;
+      if (type_domain && TYPE_MIN_VALUE (type_domain))
+	min_val = TYPE_MIN_VALUE (type_domain);
+      dst_array = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (dst_array)),
+			  dst_array, min_val, NULL_TREE, NULL_TREE);
+    }
+  src_array = build_fold_addr_expr (src_array);
+  dst_array = build_fold_addr_expr (dst_array);
+  ptr_type = TREE_TYPE (src_array);
+  srcp = create_tmp_var (ptr_type, NULL);
+  dstp = create_tmp_var (ptr_type, NULL);
+
+  stmt = build2 (MODIFY_EXPR, void_type_node, srcp, src_array);
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build2 (MODIFY_EXPR, void_type_node, dstp, dst_array);
+  gimplify_and_add (stmt, stmt_list);
+
+  append_to_statement_list (build_and_jump (&test_label), stmt_list);
+
+  loop_label = create_artificial_label ();
+  stmt = build1 (LABEL_EXPR, void_type_node, loop_label);
+  append_to_statement_list (stmt, stmt_list);
+
+  x = build2 (op, TREE_TYPE (ptr_type), build_fold_indirect_ref (dstp),
+	      build_fold_indirect_ref (srcp));
+  stmt = build2 (MODIFY_EXPR, void_type_node,
+		 build_fold_indirect_ref (dstp), x);
+  gimplify_and_add (stmt, stmt_list);
+
+  size = fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (ptr_type)));
+  stmt = build2 (POSTINCREMENT_EXPR, ptr_type, srcp, size);
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build2 (POSTINCREMENT_EXPR, ptr_type, dstp, size);
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build1 (LABEL_EXPR, void_type_node, test_label);
+  append_to_statement_list (stmt, stmt_list);
+
+  end = build2 (PLUS_EXPR, ptr_type, src_array,
+		fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (src))));
+  cond = build2 (GT_EXPR, boolean_type_node, end, srcp);
+  stmt = build3 (COND_EXPR, void_type_node, cond,
+		 build_and_jump (&loop_label), build_and_jump (&end_label));
+  gimplify_and_add (stmt, stmt_list);
+
+  stmt = build1 (LABEL_EXPR, void_type_node, end_label);
+  append_to_statement_list (stmt, stmt_list);
+}
+
 /* Generate code to implement the REDUCTION clauses.  */
 
 static void
@@ -1078,7 +1230,18 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
      update in that case, otherwise use a lock.  */
   for (c = clauses; c && count < 2; c = OMP_CLAUSE_CHAIN (c))
     if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION)
-      count++;
+      {
+	tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
+	if (is_reference (OMP_CLAUSE_DECL (c)))
+	  type = TREE_TYPE (type);
+	/* Never use OMP_ATOMIC for array reductions.  */
+	if (TREE_CODE (type) == ARRAY_TYPE)
+	  {
+	    count = -1;
+	    break;
+	  }
+	count++;
+      }
 
   if (count == 0)
     return;
@@ -1109,11 +1272,17 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	  return;
 	}
 
-      x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
-		  TREE_TYPE (ref), ref, new_var);
-      ref = build_outer_var_ref (var, ctx);
-      x = build2 (MODIFY_EXPR, void_type_node, ref, x);
-      append_to_statement_list (x, &sub_list);
+      if (TREE_CODE (TREE_TYPE (new_var)) == ARRAY_TYPE)
+	array_reduction_op (OMP_CLAUSE_REDUCTION_CODE (c),
+			    ref, new_var, &sub_list);
+      else
+	{
+	  x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
+		      TREE_TYPE (ref), ref, new_var);
+	  ref = build_outer_var_ref (var, ctx);
+	  x = build2 (MODIFY_EXPR, void_type_node, ref, x);
+	  append_to_statement_list (x, &sub_list);
+	}
     }
 
   x = built_in_decls[BUILT_IN_GOMP_ATOMIC_START];
@@ -1923,7 +2092,7 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
 	gcc_assert (fd.chunk_size == NULL);
       else if (fd.chunk_size == NULL)
 	fd.chunk_size = (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC)
-	                ? integer_zero_node : integer_one_node;
+			? integer_zero_node : integer_one_node;
 
       fn_index = sched_kind + have_ordered * 4;
 

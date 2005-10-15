@@ -1,3 +1,13 @@
+2005-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (build_reduction_init): Use array member type for arrays.
+	Handle NE_EXPR and EQ_EXPR.  Handle floating point MAX_EXPR/MIN_EXPR
+	initialization.
+	(array_reduction_init): New function.
+	(expand_rec_input_clauses): Use it.
+	(array_reduction_op): New function.
+	(expand_reduction_clauses): Use it.
+
 2005-10-14  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (enum gimplify_omp_var_data): New.
