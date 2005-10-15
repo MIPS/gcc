@@ -1282,6 +1282,8 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 #ifdef DBX_USE_BINCL
   struct dbx_file *n = xmalloc (sizeof *n);
 
+  /* APPLE LOCAL dbxout_type rewrite.  */
+  dbxout_flush_type_queue ();
   n->next = current_file;
   n->next_type_number = 1;
   /* Do not assign file number now. 

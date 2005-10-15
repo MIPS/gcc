@@ -1,3 +1,10 @@
+2005-10-14  Devang Patel  <dpatel@apple.com>
+
+	Radar 4300871
+	* g++.dg/bincl-2.C: New.
+        * g++.dg/bincl-2.h: New.
+        * g++.dg/bincl-22.h: New.
+
 2005-10-13  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4278461
