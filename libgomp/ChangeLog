@@ -1,5 +1,9 @@
 2005-10-15  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.dg/vla-1.c: New test.
+
+	* testsuite/libgomp.fortran/reference2.f90: New test.
+
 	* testsuite/libgomp.fortran/character2.f90: Remove explicit
 	declaration of omp_get_thread_num.
 	* testsuite/libgomp.fortran/threadprivate1.f90: Likewise.  Add
