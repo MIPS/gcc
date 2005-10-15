@@ -1,7 +1,13 @@
 2005-10-14  Eric Christopher  <echristo@apple.com>
 
+	Radar 4302779
+	* config/darwin-driver.c (do_nasm): Include -o in
+	explicit args.
+
+2005-10-14  Eric Christopher  <echristo@apple.com>
+
 	Radar 4302595
-	* gcc/config/darwin-driver.c (do_nasm): Specify all
+	* config/darwin-driver.c (do_nasm): Specify all
 	arguments to nasm explicitly.
 
 2005-10-14  Devang Patel  <dpatel@apple.com>

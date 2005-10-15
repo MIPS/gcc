@@ -646,11 +646,16 @@ do_nasm ()
   int pid;
   char *errmsg_fmt, *errmsg_arg; 
 
-  /* Explicitly set arguments.  This is a hack.  */
+  /* We're explicitly setting all of the arguments here and
+     ignoring any additional that come in via the command line
+     since XCode passes gcc and gas command line options and these
+     can conflict with nasm's command line options.  */
   new_argv[0] = "nasm";
   new_argv[1] = "-f macho";
   new_argv[2] = in_files->name;
-  new_argv[3] = NULL;
+  new_argv[3] = "-o";
+  new_argv[4] = output_filename;
+  new_argv[5] = NULL;
 
   pid = pexecute (new_argv[0], (char *const *)new_argv, progname, NULL, 
 		  &errmsg_fmt, &errmsg_arg, PEXECUTE_SEARCH | PEXECUTE_LAST); 
