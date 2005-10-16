@@ -2752,18 +2752,23 @@ tree_generator::build_array_reference (tree array, tree index,
       tree field = gcc_builtins->find_decl (array_type, "length");
 
       // First: if ((unsigned) index >= (unsigned) length) throw
+      // ArrayIndexOutOfBoundsException.  Note that this unsigned
+      // comparison also takes care of checking for INDEX < 0.
       tree length = build3 (COMPONENT_REF, type_jint,
 			    // Note we don't use check_reference here,
 			    // as we it would be redundant.
 			    build1 (INDIRECT_REF, array_type, array),
 			    field, NULL_TREE);
+      tree call = build3 (CALL_EXPR, void_type_node,
+                          builtin_Jv_ThrowBadArrayIndex,
+                          build_tree_list (NULL_TREE, index),
+                          NULL_TREE);
+      TREE_SIDE_EFFECTS (call) = 1;
       tree check = build3 (COND_EXPR, void_type_node,
 			   build2 (GE_EXPR, type_jboolean,
 				   build1 (NOP_EXPR, type_juint, index),
 				   build1 (NOP_EXPR, type_juint, length)),
-			   build3 (CALL_EXPR, void_type_node,
-				   builtin_Jv_ThrowBadArrayIndex,
-				   NULL_TREE, NULL_TREE),
+                           call,
 			   build_empty_stmt ());
       result = build2 (COMPOUND_EXPR, result_type, check, result);
       TREE_SIDE_EFFECTS (result) = (TREE_SIDE_EFFECTS (array)

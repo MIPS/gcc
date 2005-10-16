@@ -1,3 +1,10 @@
+2005-10-15  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* tree.cc (tree_generator::build_array_reference): Make CALL_EXPR
+	to call _Jv_ThrowBadArrayIndex have TREE_SIDE_EFFECTS and give
+	it the missing INDEX parameter.  Explain that converting to 
+	unsigned and comparing also takes care of checking for INDEX < 0.
+
 2005-10-14  Tom Tromey  <tromey@redhat.com>
 
 	* hooks.hh (builtin_Jv_ResolvePoolEntry): Declare.
