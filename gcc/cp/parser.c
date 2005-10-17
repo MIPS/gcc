@@ -18219,17 +18219,74 @@ cp_parser_omp_for_loop (cp_parser *parser)
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
     return NULL;
 
-  /* FIXME: handle declarations.  */
   init = decl = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
     {
-      init = cp_parser_expression (parser, false);
+      cp_decl_specifier_seq type_specifiers;
 
-      if (TREE_CODE (init) == MODIFY_EXPR)
+      /* First, try to parse as an initialized declaration.  See
+	 cp_parser_condition, from whence the bulk of this is copied.  */
+
+      cp_parser_parse_tentatively (parser);
+      cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
+				    &type_specifiers);
+      if (!cp_parser_error_occurred (parser))
 	{
-	  decl = TREE_OPERAND (init, 0);
-	  if (!DECL_P (decl))
-	    decl = NULL;
+	  tree asm_specification, attributes;
+	  cp_declarator *declarator;
+
+	  declarator = cp_parser_declarator (parser,
+					     CP_PARSER_DECLARATOR_NAMED,
+					     /*ctor_dtor_or_conv_p=*/NULL,
+					     /*parenthesized_p=*/NULL,
+					     /*member_p=*/false);
+	  attributes = cp_parser_attributes_opt (parser);
+	  asm_specification = cp_parser_asm_specification_opt (parser);
+
+	  cp_parser_require (parser, CPP_EQ, "`='");
+	  if (cp_parser_parse_definitely (parser))
+	    {
+	      tree stmt_list = push_stmt_list ();
+	      tree pushed_scope;
+
+	      decl = start_decl (declarator, &type_specifiers,
+				 /*initialized_p=*/false, attributes,
+				 /*prefix_attributes=*/NULL_TREE,
+				 &pushed_scope);
+
+	      init = cp_parser_assignment_expression (parser, false);
+
+	      cp_finish_decl (decl, NULL_TREE, asm_specification,
+			      LOOKUP_ONLYCONVERTING);
+
+	      if (pushed_scope)
+		pop_scope (pushed_scope);
+
+	      /* Discard the DECL_EXPR that cp_finish_decl added.  If the
+		 variable is integral as its supposed to be, it isn't
+		 needed.  We'll be checking that later.  */
+	      pop_stmt_list (stmt_list);
+
+	      /* Build the initialization of decl by hand.  This seems to
+		 be the easiest way to re-capture the expression after the
+		 fact.  */
+	      init = build_modify_expr (decl, NOP_EXPR, init);
+	    }
+	}
+
+      /* If parsing as an initialized declaration failed, try again as
+	 a simple expression.  */
+      if (decl == NULL)
+	{
+	  cp_parser_abort_tentative_parse (parser);
+	  init = cp_parser_expression (parser, false);
+
+	  if (TREE_CODE (init) == MODIFY_EXPR)
+	    {
+	      decl = TREE_OPERAND (init, 0);
+	      if (!DECL_P (decl))
+		decl = NULL;
+	    }
 	}
     }
   if (decl == NULL)

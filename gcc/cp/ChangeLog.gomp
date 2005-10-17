@@ -1,3 +1,7 @@
+2005-10-17  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): Handle declarations.
+
 2005-10-12  Richard Henderson  <rth@redhat.com>
 
 	* Make-lang.in (CXX_C_OBJS): Add c-omp.o.
