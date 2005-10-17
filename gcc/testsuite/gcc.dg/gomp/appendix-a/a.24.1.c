@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-#include <omp.h>
+extern int omp_get_num_threads (void);
 int x, y, z[1000];
 #pragma omp threadprivate(x)
 void

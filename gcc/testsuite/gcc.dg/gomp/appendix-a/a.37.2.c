@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 
-#include <omp.h>
+extern int omp_get_thread_num (void);
 void work (int i);
 void
 correct ()

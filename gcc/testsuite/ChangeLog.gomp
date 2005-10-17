@@ -1,3 +1,14 @@
+2005-10-17  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/gomp/appendix-a/a.24.1.c: Avoid <omp.h>.
+	* gcc.dg/gomp/appendix-a/a.37.1.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.37.2.c: Likewise.
+
+	* gcc.dg/gomp/appendix-a/a.33.3.c: Move to libgomp.
+	* gcc.dg/gomp/appendix-a/a.36.1.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.37.1.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.40.1.c: Likewise.
+
 2005-10-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/gomp/appendix-a/a.1.1.c: New test.
