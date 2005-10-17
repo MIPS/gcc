@@ -1,3 +1,10 @@
+2005-10-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (process_constraint): Remove code to
+	transform addressofs into scalar.
+	(create_variable_info_for): In whole-program IPA, globals don't
+	point to ANYTHING by default.
+
 2005-10-08  Daniel Berlin  <dberlin@dberlin.org>
 
 	* ipa-callees.c (callees_execute): Use externally visible.

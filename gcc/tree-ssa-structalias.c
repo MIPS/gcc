@@ -2198,9 +2198,6 @@ process_constraint (constraint_t t)
   gcc_assert (rhs.var < VEC_length (varinfo_t, varmap));
   gcc_assert (lhs.var < VEC_length (varinfo_t, varmap));
 
-  if (rhs.var == anything_id && rhs.type != SCALAR)
-    rhs.type = SCALAR;
-
   /* ANYTHING == ANYTHING is pointless.  */
   if (lhs.var == anything_id && rhs.var == anything_id)
     return;
@@ -3733,7 +3730,7 @@ create_variable_info_for (tree decl, const char *name)
   
   insert_id_for_tree (vi->decl, index);  
   VEC_safe_push (varinfo_t, heap, varmap, vi);
-  if (is_global)
+  if (is_global && (!flag_whole_program || !in_ipa_mode))
     make_constraint_to_anything (vi);
 
   stats.total_vars++;
@@ -3797,7 +3794,7 @@ create_variable_info_for (tree decl, const char *name)
 	  newvi->fullsize = vi->fullsize;
 	  insert_into_field_list (vi, newvi);
 	  VEC_safe_push (varinfo_t, heap, varmap, newvi);
-	  if (is_global)
+	  if (is_global && (!flag_whole_program || !in_ipa_mode))
 	    make_constraint_to_anything (newvi);
 
 	  stats.total_vars++;
