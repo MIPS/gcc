@@ -30,8 +30,7 @@ BOOTSTRAP=${BOOTSTRAP-bootstrap}
 # $RC_NONARCH_CFLAGS (and mysteriously prepends '-pipe' thereto).
 # We will allow this to override the default $CFLAGS and $CXXFLAGS.
 
-CFLAGS=${RC_NONARCH_CFLAGS/-pipe/}
-CFLAGS=${CFLAGS:-"-g -O2"}
+CFLAGS="-g -O2 ${RC_NONARCH_CFLAGS/-pipe/}"
 
 # This isn't a parameter; it is the architecture of the current machine.
 BUILD=`arch | $TRANSLATE_ARCH`

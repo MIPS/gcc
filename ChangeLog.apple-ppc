@@ -1,3 +1,8 @@
+2005-10-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4278941
+	* build_gcc (CFLAGS): Just prepend to RC_NONARCH_CFLAGS.
+
 2005-10-07  Matthew Sachs  <msachs@apple.com>
 
 	Radar 4193453
