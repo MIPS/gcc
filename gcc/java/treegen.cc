@@ -76,6 +76,10 @@ tree_code_generator::generate (model_class *the_class)
       if (((*i)->get_modifiers () & ACC_ABSTRACT) != 0)
 	continue;
 
+      // Skip native methods when not using JNI.
+      if ((*i)->native_p () && ! flag_jni)
+        continue;
+
       tree_generator gen (builtins, wrapper);
       tree method = gen.generate ((*i).get ());
 

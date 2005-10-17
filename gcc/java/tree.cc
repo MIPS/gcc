@@ -2756,7 +2756,7 @@ tree_generator::build_array_reference (tree array, tree index,
       // comparison also takes care of checking for INDEX < 0.
       tree length = build3 (COMPONENT_REF, type_jint,
 			    // Note we don't use check_reference here,
-			    // as we it would be redundant.
+			    // as it would be redundant.
 			    build1 (INDIRECT_REF, array_type, array),
 			    field, NULL_TREE);
       tree call = build3 (CALL_EXPR, void_type_node,
