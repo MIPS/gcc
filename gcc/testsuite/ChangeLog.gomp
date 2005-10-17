@@ -1,3 +1,44 @@
+2005-10-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/appendix-a/a.1.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.10.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.12.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.13.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.14.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.17.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.17.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.20.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.20.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.21.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.21.3.c: New test.
+	* gcc.dg/gomp/appendix-a/a.22.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.22.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.24.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.26.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.27.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.30.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.31.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.31.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.32.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.33.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.33.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.33.3.c: New test.
+	* gcc.dg/gomp/appendix-a/a.34.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.34.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.35.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.35.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.35.3.c: New test.
+	* gcc.dg/gomp/appendix-a/a.35.4.c: New test.
+	* gcc.dg/gomp/appendix-a/a.35.5.c: New test.
+	* gcc.dg/gomp/appendix-a/a.35.6.c: New test.
+	* gcc.dg/gomp/appendix-a/a.36.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.37.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.37.2.c: New test.
+	* gcc.dg/gomp/appendix-a/a.40.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.8.1.c: New test.
+	* gcc.dg/gomp/appendix-a/a.9.1.c: New test.
+	* gcc.dg/gomp/appendix-a/appendix-a.exp: New file.
+
 2005-10-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/sharing-1.c: New test.
