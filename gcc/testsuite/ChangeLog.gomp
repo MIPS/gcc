@@ -1,3 +1,61 @@
+2005-10-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* gfortran.dg/gomp/gomp.exp: Also gather tests from
+	subdirectories.
+	* gfortran.dg/gomp/appendix-a/a.1.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.3.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.4.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.5.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.6.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.11.7.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.12.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.13.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.14.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.17.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.17.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.17.3.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.21.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.21.3.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.22.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.22.4.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.22.5.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.22.6.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.23.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.23.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.23.3.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.23.4.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.23.5.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.24.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.25.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.26.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.27.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.30.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.31.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.31.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.32.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.33.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.33.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.33.4.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.34.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.34.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.35.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.35.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.35.3.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.35.4.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.35.5.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.35.6.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.36.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.37.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.37.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.6.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.6.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.7.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.7.2.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.8.1.f90: New test.
+	* gfortran.dg/gomp/appendix-a/a.9.1.f90: New test.
+
 2005-10-17  Jakub Jelinek  <jakub@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
 

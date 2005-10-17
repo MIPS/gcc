@@ -1,3 +1,33 @@
+2005-10-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/libgomp.fortran/fortran.exp: Also gather tests
+	from subdirectories.
+	* testsuite/libgomp.fortran/appendix-a/a.15.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.16.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.18.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.19.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.2.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.21.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.22.7.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.22.8.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.26.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.28.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.28.2.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.28.3.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.28.4.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.28.5.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.3.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.31.3.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.31.4.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.31.5.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.33.3.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.38.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.39.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.4.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.40.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a.5.1.f90: New test.
+	* testsuite/libgomp.fortran/appendix-a/a10.1.f90: New test.
+
 2005-10-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.dg/dg.exp: Only unset lang_* if
