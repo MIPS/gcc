@@ -1,3 +1,9 @@
+2005-10-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4122763
+	* libgcc2.c [LIBCC_KEXT] (panic): Declare properly.
+	[LIBCC_KEXT] (abort): Don't abort with no string.
+
 2005-10-14  Eric Christopher  <echristo@apple.com>
 
 	Radar 4302779
