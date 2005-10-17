@@ -294,9 +294,12 @@ struct gcc_target
   struct vectorize
   {
     /* The following member value is a pointer to a function called
-       by the vectorizer, and return the decl of the target builtin
+       by the vectorizer, and returns the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
+
+    tree (* builtin_mul_widen_even) (tree);
+    tree (* builtin_mul_widen_odd) (tree);
 
     void (* builtin_vect_pattern_recog) (tree);
   } vectorize;

@@ -324,6 +324,24 @@ optab_for_tree_code (enum tree_code code, tree type)
     case VEC_RSHIFT_EXPR:
       return vec_shr_optab;
 
+    case VEC_WIDEN_MULT_HI_EXPR:
+      return TYPE_UNSIGNED (type) ? vec_widen_umult_hi_optab : vec_widen_smult_hi_optab;
+
+    case VEC_WIDEN_MULT_LO_EXPR:
+      return TYPE_UNSIGNED (type) ? vec_widen_umult_lo_optab : vec_widen_smult_lo_optab;
+
+    case VEC_UNPACK_HI_EXPR:
+      return vec_unpack_hi_optab;
+
+    case VEC_UNPACK_LO_EXPR:
+      return vec_unpack_lo_optab;
+
+    case VEC_PACK_MOD_EXPR:
+      return vec_pack_mod_optab;
+
+    case VEC_PACK_SAT_EXPR:
+      return vec_pack_sat_optab;
+
     default:
       break;
     }
@@ -352,22 +370,40 @@ optab_for_tree_code (enum tree_code code, tree type)
 }
 
 
+/* Expand vector widening operations.
+
+   There are two different classes of operations handled here:
+   1) Operations whose result is wider than all the arguments to the operation.
+      Examples: VEC_UNPACK_HI/LO_EXPR, VEC_WIDEN_MULT_HI/LO_EXPR
+      In this case OP0 and optionally OP1 will be initialized,
+      but WIDE_OP wouldn't (not relevant for this case).
+   2) Operations whose result is of the same size as the lase argument to the
+      operations, but wider than all the other arguments to the operation.
+      Examples: WIDEN_SUM_EXPR, VEC_DOT_PROD_EXPR.
+      In the case WIDE_OP, OP0 and optionally OP1 will be initialized.
+
+   E.g, when called to expand the following operations, thes is how
+   the arguments will be initialized:
+				nops	OP0	OP1	WIDE_OP
+   widening-sum			2	oprnd0	-	oprnd1		
+   widening-dot-product		3	oprnd0	oprnd1	oprnd2
+   widening-mult		2	oprnd0	oprnd1	-
+   type-promotion (vec-unpack)	1	oprmd0	-	-  */
+
 rtx
 expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target, 
 			   int unsignedp)
 {
   tree oprnd0, oprnd1, oprnd2;
-  enum machine_mode wmode, tmode0, tmode1;
+  enum machine_mode wmode = 0, tmode0, tmode1 = 0;
   optab widen_pattern_optab;
   int icode;
-  enum machine_mode xmode0, xmode1, wxmode;
+  enum machine_mode xmode0, xmode1 = 0, wxmode = 0;
   rtx temp;
   rtx pat;
   rtx xop0, xop1, wxop;
   int nops = TREE_CODE_LENGTH (TREE_CODE (exp));
 
-  gcc_assert (nops == 2 || nops == 3); 
- 
   oprnd0 = TREE_OPERAND (exp, 0);
   tmode0 = TYPE_MODE (TREE_TYPE (oprnd0));
   widen_pattern_optab =
@@ -376,9 +412,12 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
   gcc_assert (icode != CODE_FOR_nothing);
   xmode0 = insn_data[icode].operand[1].mode;
 
-  oprnd1 = TREE_OPERAND (exp, 1);
-  tmode1 = TYPE_MODE (TREE_TYPE (oprnd1));
-  xmode1 = insn_data[icode].operand[2].mode;
+  if (nops >= 2)
+    {
+      oprnd1 = TREE_OPERAND (exp, 1);
+      tmode1 = TYPE_MODE (TREE_TYPE (oprnd1));
+      xmode1 = insn_data[icode].operand[2].mode;
+    }
 
   /* The last operand is of a wider mode than the rest
      of the operands.  */
@@ -387,7 +426,7 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
       wmode = tmode1;
       wxmode = xmode1;
     }
-  else
+  else if (nops == 3)
     {
       gcc_assert (tmode1 == tmode0);
       gcc_assert (op1);
@@ -395,6 +434,9 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
       wmode = TYPE_MODE (TREE_TYPE (oprnd2));
       wxmode = insn_data[icode].operand[3].mode;
     }
+
+  if (!wide_op)
+    wmode = wxmode = insn_data[icode].operand[0].mode;
 
   if (!target
       || ! (*insn_data[icode].operand[0].predicate) (target, wmode))
@@ -427,12 +469,15 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
                             : tmode1,
                             xop1, unsignedp);
 
-  if (GET_MODE (wide_op) != wxmode && wxmode != VOIDmode)
-    wxop = convert_modes (wxmode,
+  if (wide_op)
+    {
+      if (GET_MODE (wide_op) != wxmode && wxmode != VOIDmode)
+        wxop = convert_modes (wxmode,
                           GET_MODE (wide_op) != VOIDmode
                           ? GET_MODE (wide_op)
                           : wmode,
                           wxop, unsignedp);
+    }
 
   /* Now, if insn's predicates don't allow our operands, put them into
      pseudo regs.  */
@@ -447,19 +492,29 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
           && xmode1 != VOIDmode)
         xop1 = copy_to_mode_reg (xmode1, xop1);
 
-      if (! (*insn_data[icode].operand[3].predicate) (wxop, wxmode)
-          && wxmode != VOIDmode)
-        wxop = copy_to_mode_reg (wxmode, wxop);
+      if (wide_op)
+	{
+	  if (! (*insn_data[icode].operand[3].predicate) (wxop, wxmode)
+              && wxmode != VOIDmode)
+            wxop = copy_to_mode_reg (wxmode, wxop);
 
-      pat = GEN_FCN (icode) (temp, xop0, xop1, wxop);
+          pat = GEN_FCN (icode) (temp, xop0, xop1, wxop);
+	}
+      else
+	pat = GEN_FCN (icode) (temp, xop0, xop1);
     }
   else
     {
-      if (! (*insn_data[icode].operand[2].predicate) (wxop, wxmode)
-          && wxmode != VOIDmode)
-        wxop = copy_to_mode_reg (wxmode, wxop);
+      if (wide_op)
+	{
+	  if (! (*insn_data[icode].operand[2].predicate) (wxop, wxmode)
+	      && wxmode != VOIDmode)
+	    wxop = copy_to_mode_reg (wxmode, wxop);
 
-      pat = GEN_FCN (icode) (temp, xop0, wxop);
+	  pat = GEN_FCN (icode) (temp, xop0, wxop);
+	}
+      else
+	pat = GEN_FCN (icode) (temp, xop0);
     }
 
   emit_insn (pat);
@@ -5219,6 +5274,14 @@ init_optabs (void)
   vec_shr_optab = init_optab (UNKNOWN);
   vec_realign_load_optab = init_optab (UNKNOWN);
   movmisalign_optab = init_optab (UNKNOWN);
+  vec_widen_umult_hi_optab = init_optab (UNKNOWN);
+  vec_widen_umult_lo_optab = init_optab (UNKNOWN);
+  vec_widen_smult_hi_optab = init_optab (UNKNOWN);
+  vec_widen_smult_lo_optab = init_optab (UNKNOWN);
+  vec_unpack_hi_optab = init_optab (UNKNOWN);
+  vec_unpack_lo_optab = init_optab (UNKNOWN);
+  vec_pack_mod_optab = init_optab (UNKNOWN);
+  vec_pack_sat_optab = init_optab (UNKNOWN);
 
   powi_optab = init_optab (UNKNOWN);
 

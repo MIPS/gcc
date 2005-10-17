@@ -26,14 +26,16 @@ foo1(int len) {
   return result;
 }
 
-/* char->short->short dot product. Not yet vectorized on ppc. */
+/* char->short->short dot product. 
+   For now vectorized on ppc as widening-mult + summation.
+   Should eventually be vectorized as widening-dot-product.  */
 unsigned short
 foo2(int len) {
   int i;
   unsigned short result = 0;
 
   for (i=0; i<len; i++) {
-    result += (X[i] * Y[i]);
+    result += (unsigned short)(X[i] * Y[i]);
   }
   return result;
 }
@@ -78,6 +80,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target powerpc*-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

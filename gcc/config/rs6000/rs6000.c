@@ -661,6 +661,8 @@ static int pad_groups (FILE *, int, rtx, rtx);
 static void rs6000_sched_finish (FILE *, int);
 static int rs6000_use_sched_lookahead (void);
 static tree rs6000_builtin_mask_for_load (void);
+static tree rs6000_builtin_mul_widen_even (tree);
+static tree rs6000_builtin_mul_widen_odd (tree);
 static void rs6000_builtin_vect_pattern_recog (tree);
 
 static void def_builtin (int, const char *, tree, int);
@@ -914,6 +916,11 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
+
+#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
+#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
 
 #undef TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG
 #define TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG rs6000_builtin_vect_pattern_recog
@@ -1544,6 +1551,50 @@ rs6000_builtin_mask_for_load (void)
     return altivec_builtin_mask_for_load;
   else
     return 0;
+}
+
+/* Implement targetm.vectorize.builtin_mul_widen_even.  */
+static tree
+rs6000_builtin_mul_widen_even (tree type)
+{
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+
+  switch (TYPE_MODE (type))
+    {
+    case V8HImode:
+      return TYPE_UNSIGNED (type) ? 
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH] :
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
+    case V16QImode:
+      return TYPE_UNSIGNED (type) ? 
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB] :
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Implement targetm.vectorize.builtin_mul_widen_odd.  */
+static tree
+rs6000_builtin_mul_widen_odd (tree type)
+{
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+
+  switch (TYPE_MODE (type))
+    {
+    case V8HImode:
+      return TYPE_UNSIGNED (type) ?
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH] :
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
+    case V16QImode:
+      return TYPE_UNSIGNED (type) ?
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB] :
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
+    default:
+      return NULL_TREE;
+    }
 }
 
 /* Implement targetm.vectorize.builtin_vect_pattern_recog.  */
@@ -8368,22 +8419,16 @@ altivec_init_builtins (void)
       def_builtin (d->mask, d->name, type, d->code);
     }
 
-  if (TARGET_ALTIVEC)
-    {
-      tree decl;
+  /* Initialize target builtin that implements
+     targetm.vectorize.builtin_mask_for_load.  */
 
-      /* Initialize target builtin that implements
-         targetm.vectorize.builtin_mask_for_load.  */
-
-      decl = lang_hooks.builtin_function ("__builtin_altivec_mask_for_load",
+  altivec_builtin_mask_for_load =
+	lang_hooks.builtin_function ("__builtin_altivec_mask_for_load",
                                v16qi_ftype_long_pcvoid,
                                ALTIVEC_BUILTIN_MASK_FOR_LOAD,
                                BUILT_IN_MD, NULL,
                                tree_cons (get_identifier ("const"),
                                           NULL_TREE, NULL_TREE));
-      /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
-      altivec_builtin_mask_for_load = decl;
-    }
 
   /* Access to the vec_init patterns.  */
   ftype = build_function_type_list (V4SI_type_node, integer_type_node,

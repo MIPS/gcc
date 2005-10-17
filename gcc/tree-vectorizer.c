@@ -145,6 +145,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "input.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
+#include "recog.h"
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -1726,6 +1727,145 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
         fprintf (vect_dump, "induction not supported.");
       return false;
     }
+
+  return true;
+}
+
+
+/* Function supportable_widening_operation
+
+   Check whether an operation represented by the code CODE is a 
+   widening operation that is supported by the target platform in 
+   vector form - i.e., if operating on arguments of type VECTYPE.
+
+   STMT is either the stmt that performs the operation in question,
+   or the last stmt in a sequence that eas detected as a pattern
+   that performs the operation in question.
+
+   The two kind of widening operations we currently support are
+   NOP and WIDEN_MULT. This function checks if these oprations
+   are supported by the target platform either via vector tree-codes,
+   or via target builtins.
+
+   Output:
+   - CODE1 and CODE2 are codes of vector operations to be used when 
+   vectorizing the operation, if available. 
+   - DECL1 and DECL2 are decls of target builtin functions to be used
+   when vectorizing the operation, if available. In this case,
+   CODE1 and CODE2 are CALL_EXPR.
+*/
+
+bool
+supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
+                                tree *decl1, tree *decl2,
+                                enum tree_code *code1, enum tree_code *code2)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  bool ordered_p;
+  enum machine_mode vec_mode;
+  enum insn_code icode1, icode2;
+  optab optab1, optab2;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  tree expr = TREE_OPERAND (stmt, 1);
+  tree type = TREE_TYPE (expr);
+  tree wide_vectype = get_vectype_for_scalar_type (type);
+  tree scalar_dest = TREE_OPERAND (stmt, 0);
+
+  /* The result of a vectorized widening operation usually requires two vectors 
+     (because the widened results do not fit int one vector). The generated 
+     vector results would normally be expected to be generated in the same 
+     order as in the original scalar computation. i.e. if 8 results are 
+     generated in each vector iteration, they are to be organized as follows:
+        vect1: [res1,res2,res3,res4], vect2: [res5,res6,res7,res8]. 
+
+     However, in the special case that the result of the widening operation is 
+     used in a reduction copmutation only, the order doesn't matter (because 
+     when vectorizing a reduction we change the oreder of the computation). 
+     Some targets can take advatage of this and generate more efficient code. For
+     example, targets like Altivec, that support widen_mult using a sequence
+     of {mult_even,mult_odd} generate the following vectors:
+        vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8]. 
+   */
+
+   /* FORNOW: just check if all the immediate uses are directly used in a 
+      reduction operation.
+      TODO: enhance the analysis to uses beyond the immediate ones.  */
+
+   ordered_p = false;
+   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, scalar_dest)
+    {
+      tree use_stmt = USE_STMT (use_p);
+      stmt_vec_info stmt_vinfo = vinfo_for_stmt (use_stmt);
+
+      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (use_stmt)))
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "widening-operation: order is important.");
+          ordered_p = true;
+          break;
+        }
+
+      if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+	{
+	  use_stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+	  stmt_vinfo = vinfo_for_stmt (use_stmt);
+	}
+
+      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "widening-operation: order is important.");
+          ordered_p = true;
+          break;
+        }
+    }
+
+  if (!ordered_p
+      && code == WIDEN_MULT_EXPR
+      && targetm.vectorize.builtin_mul_widen_even
+      && targetm.vectorize.builtin_mul_widen_even (vectype)
+      && targetm.vectorize.builtin_mul_widen_odd
+      && targetm.vectorize.builtin_mul_widen_odd (vectype))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "Unordered widening operation detected.");
+
+      *code1 = *code2 = CALL_EXPR;
+      *decl1 = targetm.vectorize.builtin_mul_widen_even (vectype);
+      *decl2 = targetm.vectorize.builtin_mul_widen_odd (vectype);
+      return true;
+    }
+
+  switch (code)
+    {
+    case WIDEN_MULT_EXPR:
+      *code1 = VEC_WIDEN_MULT_HI_EXPR;
+      *code2 = VEC_WIDEN_MULT_LO_EXPR;
+      optab1 = optab_for_tree_code (VEC_WIDEN_MULT_HI_EXPR, vectype);
+      optab2 = optab_for_tree_code (VEC_WIDEN_MULT_LO_EXPR, vectype);
+      break;
+    case NOP_EXPR:
+      *code1 = VEC_UNPACK_HI_EXPR;
+      *code2 = VEC_UNPACK_LO_EXPR;
+      optab1 = optab_for_tree_code (VEC_UNPACK_HI_EXPR, vectype);
+      optab2 = optab_for_tree_code (VEC_UNPACK_LO_EXPR, vectype);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  if (!optab1 || !optab2)
+    return false;
+
+  vec_mode = TYPE_MODE (vectype);
+  if ((icode1 = optab1->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || insn_data[icode1].operand[0].mode != TYPE_MODE (wide_vectype)
+      || (icode2 = optab2->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
+    return false;
 
   return true;
 }

@@ -1,10 +1,81 @@
+2005-10-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree.def (VEC_WIDEN_MULT_HI_EXPR, VEC_WIDEN_MULT_LO_EXPR):
+	(VEC_UNPACK_HI_EXPR, VEC_UNPACK_LO_EXPR, VEC_PACK_MOD_EXPR):
+	(VEC_PACK_SAT_EXPR): New tree-codes.
+	* expr.c (expand_expr_real_1): Add cases for VEC_UNPACK_HI_EXPR,
+	VEC_UNPACK_LO_EXPR, VEC_WIDEN_MULT_HI_EXPR, VEC_WIDEN_MULT_LO_EXPR. 
+	Remove WIDEN_MULT_EXPR case.  Add cases for VEC_PACK_MOD_EXPR and 
+	VEC_PACK_SAT_EXPR (yet to be implemented).
+	* genopinit.c (vec_widen_umult_hi_optab, vec_widen_smult_hi_optab):
+	(vec_widen_umult_lo_optab, vec_widen_smult_lo_optab):
+	(vec_unpack_hi_optab, vec_unpack_hi_optab, vec_pack_mod_optab):
+	(vec_pack_sat_optab): New optabs.
+	* optabs.c (optab_for_tree_code): Add cases for new tree-codes.
+	(expand_widen_pattern_expr): Add documentation. Add support for
+	widening-multiplication and type-conversion.
+	(init_optabs): Initalize new optabs.
+	* optabs.h (OTI_vec_widen_umult_hi, OTI_vec_widen_smult_hi):
+	(OTI_vec_widen_umult_lo, OTI_vec_widen_smult_lo, OTI_vec_unpack_hi):
+	(OTI_vec_unpack_lo, OTI_vec_pack_mod, OTI_vec_pack_sat): New optab 
+	indices.
+	* target-def.h (TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN):
+	(TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD): New hooks.
+	* target.h (builtin_mul_widen_even, builtin_mul_widen_odd): New hooks.
+	* tree-inline.c (estimate_num_insns_1): Add cases for new tree-codes.
+	* tree-pretty-print.c (dump_generic_node): Add cases for new tree-codes.
+	(op_prio): Add cases for new tree-codes.
+	* tree-vect-anlyze.c (vect_analyze_operations): Call 
+	vectorizable_type_promotion. 
+	(vect_mark_relevant): Add check for STMT_VINFO_RELATED_STMT.
+	(vect_mark_stmts_to_be_vectorized): Fix typo.
+	(widened_name_p): Add documentation.
+	(vect_recog_mult_hi_pattern, vect_recog_dot_prod_pattern):
+	(vect_recog_widen_mult_pattern, vect_recog_widen_sum_pattern):
+	(vect_recog_unsigned_subsat_pattern): Change arguement name from
+	pattern_type to pattern_vectype.
+	(vect_recog_widen_mult_pattern): Call supportable_widening_operation.
+	(vect_recog_unsigned_subsat_pattern): Check target support.
+	(vect_pattern_recog_1): Remove target support check. Record
+	STMT_VINFO_RELATED_STMT for all the stmts in the sequence.
+	* tree-vect-generic.c (expand_vector_operations_1): Check for
+	VEC_WIDEN_MULT_HI_EXPR, VEC_WIDEN_MULT_LO_EXPR, VEC_UNPACK_HI_EXPR,
+	and VEC_UNPACK_LO_EXPR.
+	* tree-vect-transform.c (vect_create_epilog_for_reduction):
+	(vectorizable_target_reduction_pattern, vectorizable_reduction): Add
+	check for STMT_VINFO_IN_PATTERN_P.
+	(vectorizable_operation): Check if result size is same as arguments 
+	size.
+	(vectorizable_type_promotion): New function.
+	(vect_transform_stmt): Call vectorizable_type_promotion.
+	* tree-vectorizer.c (supportable_widening_operation): New function.
+	* tree-vectorizer.h (type_promotion_vec_info_type):
+	(type_promotion_vec_info_type): New stmt_vec_info_type enum values.
+	(supportable_widening_operation, vectorizable_type_promotion): New
+	function declarations.
+	* config/rs6000/altivec.md (UNSPEC_VMULWHUB, UNSPEC_VMULWLUB):
+	(UNSPEC_VMULWHSB, UNSPEC_VMULWLSB, UNSPEC_VMULWHUH, UNSPEC_VMULWLUH):
+	(UNSPEC_VMULWHSH, UNSPEC_VMULWLSH): New define_constants.
+	(vec_unpack_hi_v16qi, vec_unpack_hi_v8hi, vec_unpack_lo_v16qi):
+	(vec_unpack_lo_v8hi, vec_widen_umult_hi_v16qi):
+	(vec_widen_umult_lo_v16qi, vec_widen_smult_hi_v16qi):
+	(vec_widen_smult_lo_v16qi, vec_widen_umult_hi_v8hi):
+	(vec_widen_umult_lo_v8hi, vec_widen_smult_hi_v8hi):
+	(vec_widen_smult_lo_v8hi): New define_expands.
+	* config/rs6000/rs6000.c (rs6000_builtin_mul_widen_even):
+	(rs6000_builtin_mul_widen_even): New function declarations.
+	(TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN):
+	(TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD): Define.
+	(rs6000_builtin_mul_widen_even, rs6000_builtin_mul_widen_odd): New.
+	(altivec_init_builtins): Remove TARGET_ALTIVEC check.
+
 2005-10-06  Dorit Nuzman  <dorit@il.ibm.com>
 
-	* tree-vect-transform.c (vectorizable_reduction): Support vectorization in 
-	the presence of multiple-data-types (i.e. - the vectorization factor is 
-	bigger than the number of elements in vectype for this operation).
-	(vectorizable_operation): Add documentation. Fix support for constant and
-	invariant operands.
+	* tree-vect-transform.c (vectorizable_reduction): Support vectorization 
+	in the presence of multiple-data-types (i.e. - the vectorization factor
+	is bigger than the number of elements in vectype for this operation).
+	(vectorizable_operation): Add documentation. Fix support for constant 
+	and invariant operands.
 	(vectorizable_store, vectorizable_load): Add documentation.
 	* config/rs6000/altivec.md (sdot_prodv16qi): Pattern removed.
 
@@ -59,7 +130,7 @@
 2005-09-23  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* expr.c (expand_expr_real_1): Add DOT_PROD_EXPR case. Tentatively add
-	 cases for WIDEN_MULT_EXPR and MULT_HI_EXPR.
+	cases for WIDEN_MULT_EXPR and MULT_HI_EXPR.
 	* genopinit.c (sdot_prod_optab, udot_prod_optab): Initialize new optabs.
 	* optabs.c (optab_for_tree_code): Add cases for DOT_PROD_EXPR,
 	WIDEN_MULT_EXPR and MULT_HI_EXPR.

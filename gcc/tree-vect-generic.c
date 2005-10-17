@@ -411,11 +411,14 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   gcc_assert (code != CONVERT_EXPR);
   op = optab_for_tree_code (code, type);
 
-  if (code == WIDEN_SUM_EXPR)
-    {
-      type = TREE_TYPE (TREE_OPERAND (rhs, 0));
-      /* CHECKME: instead, maybe just return? */
-    }
+  /* For widening operations, the relevant type is of the arguments,
+     not the widened result.  */
+  if (code == WIDEN_SUM_EXPR
+      || code == VEC_WIDEN_MULT_HI_EXPR
+      || code == VEC_WIDEN_MULT_LO_EXPR
+      || code == VEC_UNPACK_HI_EXPR
+      || code == VEC_UNPACK_LO_EXPR)
+    type = TREE_TYPE (TREE_OPERAND (rhs, 0));
 
   /* Optabs will try converting a negation into a subtraction, so
      look for it as well.  TODO: negation of floating-point vectors
@@ -453,6 +456,9 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 
   gcc_assert (code != VEC_LSHIFT_EXPR && code != VEC_RSHIFT_EXPR);
   gcc_assert (code != WIDEN_SUM_EXPR);
+  gcc_assert (code != VEC_WIDEN_MULT_HI_EXPR && code != VEC_WIDEN_MULT_LO_EXPR);
+  gcc_assert (code != VEC_UNPACK_HI_EXPR && code != VEC_UNPACK_LO_EXPR);
+
   rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
   if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
     *p_rhs = rhs;

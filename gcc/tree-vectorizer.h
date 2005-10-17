@@ -166,6 +166,8 @@ enum stmt_vec_info_type {
   assignment_vec_info_type,
   condition_vec_info_type,
   reduc_vec_info_type,
+  type_promotion_vec_info_type,
+  type_demotion_vec_info_type,
   target_reduc_pattern_vec_info_type
 };
 
@@ -333,6 +335,9 @@ extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
 extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
+extern bool supportable_widening_operation (enum tree_code, tree, tree, 
+  tree *, tree *, enum tree_code *, enum tree_code *);
+
 
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
@@ -365,6 +370,7 @@ extern _recog_func_ptr vect_pattern_recog_funcs[];
 extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_target_reduction_pattern 
   (tree, block_stmt_iterator *, tree *);

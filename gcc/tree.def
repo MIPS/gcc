@@ -958,7 +958,6 @@ DEFTREECODE (SAT_MINUS_EXPR, "sat_minus_expr", tcc_binary, 2)
 DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
 
 /* Widenning multiplication.
-
    The two arguments are of type t1.
    The result is of type t2, such that t2 is at least twice
    the size of t1. WIDEN_MULT_EXPR is equivalent to first widening (promoting)
@@ -966,11 +965,10 @@ DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
 DEFTREECODE (WIDEN_MULT_EXPR, "widen_mult_expr", tcc_binary, 2)
 
 /* Mult High - Take the high part of the product of a multiplication.
-
    The two arguments and the result are of the same type.
    MULT_HI_EXPR is equivalent to:
-   tmp = WIDEN_MULT_EXPR(arg1, arg2);
-   arg3 =  tmp >> size
+     tmp = WIDEN_MULT_EXPR(arg1, arg2);
+     arg3 =  tmp >> size
    such that 'tmp' is double the size of arg1, arg2 and arg3,
    and 'size' half the size of tmp (i.e. the shift gets the high
    part of tmp).  */
@@ -1012,6 +1010,28 @@ DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
    Operand 1 is an integer shift amount in bits.  */
 DEFTREECODE (VEC_LSHIFT_EXPR, "vec_lshift_expr", tcc_binary, 2)
 DEFTREECODE (VEC_RSHIFT_EXPR, "vec_rshift_expr", tcc_binary, 2)
+
+/* Widening vector multiplication.
+   The two operands are vectors with N elements of size S. Multiplying the 
+   elements of the two vectors will results in N producs of size 2*S.
+   VEC_WIDEN_MULT_HI_EXPR computes the N/2 high products.
+   VEC_WIDEN_MULT_LO_EXPR computes the N/2 low products.  */
+DEFTREECODE (VEC_WIDEN_MULT_HI_EXPR, "widen_mult_hi_expr", tcc_binary, 2)
+DEFTREECODE (VEC_WIDEN_MULT_LO_EXPR, "widen_mult_hi_expr", tcc_binary, 2)
+
+/* Unpack (extract and promote/widen) the high/low elements of the input vector
+   into the output vector. The input vector has twice as many elements 
+   as the output vector, that are half the size of the elements
+   of the output vector.  This is used to support type promotion. */
+DEFTREECODE (VEC_UNPACK_HI_EXPR, "vec_unpack_hi_expr", tcc_unary, 1)
+DEFTREECODE (VEC_UNPACK_LO_EXPR, "vec_unpack_lo_expr", tcc_unary, 1)
+
+/* Pack (demote/narrow and merge) the elements of the two input vectors
+   into the output vector, using modulo/saturating arithmetic. 
+   The elements of the input vectors are twice the size of the elements of the 
+   output vector.  This is used to support type demotion.  */
+DEFTREECODE (VEC_PACK_MOD_EXPR, "vec_pack_mod_expr", tcc_binary, 2)
+DEFTREECODE (VEC_PACK_SAT_EXPR, "vec_pack_sat_expr", tcc_binary, 2)
 
 /*
 Local variables:

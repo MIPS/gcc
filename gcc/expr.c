@@ -8454,12 +8454,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	return target;
       }
 
-    case WIDEN_MULT_EXPR:
-      {
-	/* Not being generated yet. */
-	abort ();
-      }
-
     case MULT_HI_EXPR:
       {
 	/* Not being generated yet. */
@@ -8496,6 +8490,37 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       {
 	target = expand_vec_shift_expr (exp, target);
 	return target;
+      }
+
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
+      {
+	op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
+	this_optab = optab_for_tree_code (code, type);
+	temp = expand_widen_pattern_expr (exp, op0, NULL_RTX, NULL_RTX, 
+					  target, unsignedp);
+	gcc_assert (temp);
+	return temp;
+      }
+
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
+      {
+	tree oprnd0 = TREE_OPERAND (exp, 0); 
+	tree oprnd1 = TREE_OPERAND (exp, 1);
+
+	expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, 0);
+	target = expand_widen_pattern_expr (exp, op0, op1, NULL_RTX, 
+					    target, unsignedp);
+	gcc_assert (target);
+	return target;
+      }
+
+    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_SAT_EXPR:
+      {
+	/* TODO */
+	abort ();
       }
 
     default:

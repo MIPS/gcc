@@ -12,8 +12,9 @@
 signed char X[N] __attribute__ ((__aligned__(16)));
 signed char Y[N] __attribute__ ((__aligned__(16)));
 
-/* char->short->int dot product. Not vectorized on ppc
-   (no support for signed char multiplication). */
+/* char->short->int dot product.
+   Vectorized on ppc as widening-mult + widening-summation.
+   (no support for signed char dot product). */
 int
 foo1(int len) {
   int i;
@@ -27,7 +28,9 @@ foo1(int len) {
   return result;
 }
 
-/* char->short->short dot product. Not yet vectorized on ppc. */
+/* char->short->short dot product. 
+   Vectorized on ppc as widening-mult + summation.
+   (no support for signed char dot product). */
 short
 foo2(int len) {
   int i;
@@ -78,6 +81,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target powerpc*-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

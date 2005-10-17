@@ -802,6 +802,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
      Otherwise, it is a regular reduction, take the tree-code from STMT.  */
   
   orig_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
+  gcc_assert (! STMT_VINFO_IN_PATTERN_P (stmt_info));
   if (!orig_stmt)  
     orig_stmt = stmt;
   code = TREE_CODE (TREE_OPERAND (orig_stmt, 1)); 
@@ -1157,6 +1158,7 @@ vectorizable_target_reduction_pattern (tree stmt, block_stmt_iterator *bsi,
   gcc_assert (STMT_VINFO_RELATED_STMT (orig_stmt_info) == stmt);
   if (!STMT_VINFO_IN_PATTERN_P (orig_stmt_info))
     return false;
+  gcc_assert (!STMT_VINFO_IN_PATTERN_P (stmt_info));
   
   /* 3. Is this a target-specific pattern?  */
     
@@ -1353,6 +1355,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       orig_stmt_info = vinfo_for_stmt (orig_stmt);
       gcc_assert (STMT_VINFO_RELATED_STMT (orig_stmt_info) == stmt);
       gcc_assert (STMT_VINFO_IN_PATTERN_P (orig_stmt_info));
+      gcc_assert (!STMT_VINFO_IN_PATTERN_P (stmt_info));
     }
 
   /* 3. Check the operands of the operation. The first operands are defined
@@ -1719,8 +1722,10 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree new_stmt;
   stmt_vec_info prev_stmt_info;
   stmt_vec_info def_stmt_info;
-  int nunits = TYPE_VECTOR_SUBPARTS (vectype);
-  int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
+  int nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
+  int nunits_out;
+  tree vectype_out;
+  int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
   tree vec_stmt_for_operand;
   int j;
 
@@ -1744,6 +1749,12 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     return false;
 
   if (TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+    return false;
+
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  vectype_out = get_vectype_for_scalar_type (TREE_TYPE (scalar_dest));
+  nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
+  if (nunits_out != nunits_in)
     return false;
 
   operation = TREE_OPERAND (stmt, 1);
@@ -1799,7 +1810,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     }
 
   /* Worthwhile without SIMD support?  */
-  if (!VECTOR_MODE_P (TYPE_MODE (vectype))
+  if (!VECTOR_MODE_P (vec_mode)
       && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
 	 < vect_min_worthwhile_factor (code))
     {
@@ -1821,7 +1832,6 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 			ncopies);
 
   /* Handle def.  */
-  scalar_dest = TREE_OPERAND (stmt, 0);
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
   /* In case the vectorization factor (VF) is bigger than the number
@@ -1956,6 +1966,297 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
        */
       STMT_VINFO_VEC_STMT (vinfo_for_stmt (orig_stmt_in_pattern)) = 
 	STMT_VINFO_VEC_STMT (stmt_info);
+    }
+
+  *vec_stmt = NULL_TREE;
+  return true;
+}
+
+
+/* Function vectorizable_type_promotion
+
+   Check if STMT performs a binary or unary operation that involves
+   type promotion, and if it can be vectorized.
+   If VEC_STMT is also passed, vectorize the STMT: create a vectorized
+   stmt to replace it, put it in VEC_STMT, and insert it at BSI.
+   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+
+bool
+vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
+                             tree *vec_stmt)
+{ 
+  tree vec_dest;
+  tree scalar_dest;
+  tree operation;
+  tree op0, op1 = NULL;
+  tree vec_oprnd0=NULL, vec_oprnd1=NULL;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  enum tree_code code, code1 = CODE_FOR_nothing, code2 = CODE_FOR_nothing;
+  tree decl1 = NULL_TREE, decl2 = NULL_TREE;
+  tree new_temp;
+  int op_type;
+  tree orig_stmt_in_pattern = NULL_TREE;
+  tree def, def_stmt;
+  enum vect_def_type dt0, dt1;
+  tree new_stmt;
+  stmt_vec_info prev_stmt_info;
+  stmt_vec_info def_stmt_info;
+  int nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
+  int nunits_out;
+  tree vectype_out;
+  int ncopies;
+  tree vec_stmt_for_operand;
+  int j;
+  tree vec_params;
+  tree expr;
+  tree sym;
+  ssa_op_iter iter;
+  tree tmp_stmt;
+  tree tmp_vectype;
+
+  /* Is STMT a vectorizable type-promotion operation?  */
+
+  if (!STMT_VINFO_RELEVANT_P (stmt_info))
+    return false;
+
+  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_info) == vect_loop_def);
+
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      /* FORNOW: not yet supported.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "value used after loop.");
+      return false;
+    }
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  if (TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+    return false;
+
+  operation = TREE_OPERAND (stmt, 1);
+  code = TREE_CODE (operation);
+  if (code == NOP_EXPR)
+    {
+      tree scalar_type = TREE_TYPE (TREE_OPERAND (operation, 0));
+      tmp_vectype = get_vectype_for_scalar_type (scalar_type);
+      nunits_in = TYPE_VECTOR_SUBPARTS (tmp_vectype);
+    }
+  else
+    tmp_vectype = vectype;
+  ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
+  gcc_assert (ncopies >= 1);
+
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  vectype_out = get_vectype_for_scalar_type (TREE_TYPE (scalar_dest));
+  nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
+  if (nunits_out != nunits_in/2) /* FORNOW */
+    return false;
+
+  /* Check the operands of the operation.  */
+  if (code != NOP_EXPR && code != WIDEN_MULT_EXPR)
+    return false;
+
+  op_type = TREE_CODE_LENGTH (code);
+
+  op0 = TREE_OPERAND (operation, 0);
+  if (!vect_is_simple_use (op0, loop_vinfo, &def_stmt, &def, &dt0))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "use not simple.");
+      return false;
+    }
+
+  if (op_type == binary_op)
+    {
+      op1 = TREE_OPERAND (operation, 1);
+      if (!vect_is_simple_use (op1, loop_vinfo, &def_stmt, &def, &dt1))
+        {
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "use not simple.");
+          return false;
+        }
+    }
+
+  orig_stmt_in_pattern = STMT_VINFO_RELATED_STMT (stmt_info);
+  if (orig_stmt_in_pattern
+      && STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (orig_stmt_in_pattern)))
+    tmp_stmt = orig_stmt_in_pattern;
+  else
+    {
+      orig_stmt_in_pattern = NULL_TREE;
+      tmp_stmt = stmt;
+    }
+
+  /* Supportable by target?  */
+  if (!supportable_widening_operation (code, tmp_stmt, tmp_vectype,
+				       &decl1, &decl2, &code1, &code2))
+    return false;
+
+  if (!vec_stmt) /* transformation not required.  */
+    {
+      STMT_VINFO_TYPE (stmt_info) = type_promotion_vec_info_type;
+      return true;
+    }
+
+  /** Transform.  **/
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "transform type promotion operation. ncopies = %d.",
+                        ncopies);
+
+  /* Handle def.  */
+  vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
+
+  /* In case the vectorization factor (VF) is bigger than the number
+     of elements that we can fit in a vectype (nunits), we have to generate
+     more than one vector stmt - i.e - we need to "unroll" the
+     vector stmt by a factor VF/nunits.   */
+  prev_stmt_info = NULL;
+  for (j = 0; j < ncopies; j++)
+    {
+      /* Handle uses.  */
+      if (j == 0)
+        {
+          vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt, NULL);
+          if (op_type == binary_op)
+            vec_oprnd1 = vect_get_vec_def_for_operand (op1, stmt, NULL);
+        }
+      else
+        {
+          if (dt0 == vect_invariant_def || dt0 == vect_constant_def)
+            /* Do nothing; can reuse same def.  */ ;
+          else
+            {
+              /* For the j'th copy, get the vectorized def for operand0 from
+                 the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
+                 of the j-1 copy of the vector stmt that defines operand0
+                 (denoted VEC_STMT_FOR_OPERAND).  */
+              vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd0);
+              def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+              gcc_assert (def_stmt_info);
+              vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+              gcc_assert (vec_stmt_for_operand);
+              vec_oprnd0 = TREE_OPERAND (vec_stmt_for_operand, 0);
+            }
+
+          if (op_type == binary_op)
+            {
+              if (dt1 == vect_invariant_def || dt1 == vect_constant_def)
+                /* Do nothing; can reuse same def.  */ ;
+              else
+                {
+                  /* Similarly for opernad1  */
+                  vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd1);
+                  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+                  gcc_assert (def_stmt_info);
+                  vec_stmt_for_operand = 
+				STMT_VINFO_RELATED_STMT (def_stmt_info);
+                  gcc_assert (vec_stmt_for_operand);
+                  vec_oprnd1 = TREE_OPERAND (vec_stmt_for_operand, 0);
+                }
+            }
+        }
+
+      /* Arguments are ready. Create the new vector stmt.  We are creating 
+	 two vector defs because the widened result does not fit in one vector.
+         The vectorized stmt can be expressed as a call to a taregt builtin,
+         or a using a tree-code.
+       */
+
+      /* Generate first half of the widened result:  */
+      if (code1 == CALL_EXPR)
+	{
+	  /* Target specific support  */
+	  vec_params = build_tree_list (NULL_TREE, vec_oprnd0);
+	  if (op_type == binary_op)
+	    vec_params = tree_cons (NULL_TREE, vec_oprnd1, vec_params);
+	  expr = build_function_call_expr (decl1, vec_params);
+	}
+      else
+	{
+	  /* Generic support */
+	  gcc_assert (op_type == TREE_CODE_LENGTH (code1));
+	  if (op_type == binary_op)
+	    expr = build2 (code1, vectype_out, vec_oprnd0, vec_oprnd1);	
+	  else
+	    expr = build1 (code1, vectype_out, vec_oprnd0);
+	}
+      new_stmt = build2 (MODIFY_EXPR, vectype_out, vec_dest, expr);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      TREE_OPERAND (new_stmt, 0) = new_temp;
+      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+      if (code1 == CALL_EXPR)
+	{
+	  FOR_EACH_SSA_TREE_OPERAND (sym, new_stmt, iter, SSA_OP_ALL_VIRTUALS)
+	    {
+	      if (TREE_CODE (sym) == SSA_NAME)
+		sym = SSA_NAME_VAR (sym);
+	      mark_sym_for_renaming (sym);
+	    }
+	}
+
+      if (j == 0)
+        STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+      else
+        {
+          gcc_assert (prev_stmt_info);
+          STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+        }
+
+      prev_stmt_info = vinfo_for_stmt (new_stmt);
+
+      /* Generate second half of the widened result:  */
+      if (code2 == CALL_EXPR)
+        {
+          /* Target specific support  */
+          vec_params = build_tree_list (NULL_TREE, vec_oprnd0);
+          if (op_type == binary_op)
+            vec_params = tree_cons (NULL_TREE, vec_oprnd1, vec_params);
+          expr = build_function_call_expr (decl2, vec_params);
+        }
+      else
+        {
+          /* Generic support  */
+	  gcc_assert (op_type == TREE_CODE_LENGTH (code2));
+          if (op_type == binary_op)
+            expr = build2 (code2, vectype_out, vec_oprnd0, vec_oprnd1);
+	  else
+            expr = build1 (code2, vectype_out, vec_oprnd0);
+        }
+      new_stmt = build2 (MODIFY_EXPR, vectype_out, vec_dest, expr);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      TREE_OPERAND (new_stmt, 0) = new_temp;
+      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+      STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+
+      if (code2 == CALL_EXPR)
+        {
+          FOR_EACH_SSA_TREE_OPERAND (sym, new_stmt, iter, SSA_OP_ALL_VIRTUALS)
+            {
+              if (TREE_CODE (sym) == SSA_NAME)
+                sym = SSA_NAME_VAR (sym);
+              mark_sym_for_renaming (sym);
+            }
+        }
+
+      prev_stmt_info = vinfo_for_stmt (new_stmt);
+    }
+
+  if (orig_stmt_in_pattern)
+    {
+      /* STMT is a new stmt that was inserted by the vectorizer to replace a
+         computation idiom. ORIG_STMT_IN_PATTERN is a stmt in the original
+         sequence that computed this idiom. We need to record a pointer to
+         VEC_STMT in the stmt_info of ORIG_STMT_IN_PATTERN. See more detail in
+         the documentation of vect_pattern_recog.
+       */
+      STMT_VINFO_VEC_STMT (vinfo_for_stmt (orig_stmt_in_pattern)) =
+        STMT_VINFO_VEC_STMT (stmt_info);
     }
 
   *vec_stmt = NULL_TREE;
@@ -2769,6 +3070,11 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
     {
       switch (STMT_VINFO_TYPE (stmt_info))
       {
+      case type_promotion_vec_info_type:
+	done = vectorizable_type_promotion (stmt, bsi, &vec_stmt);
+	gcc_assert (done);
+	break;
+
       case op_vec_info_type:
 	done = vectorizable_operation (stmt, bsi, &vec_stmt);
 	gcc_assert (done);
