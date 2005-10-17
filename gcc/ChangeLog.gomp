@@ -1,3 +1,7 @@
+2005-10-16  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge (gomp-merge-20051016).
+
 2005-10-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (build_reduction_init): Use array member type for arrays.

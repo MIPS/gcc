@@ -2930,9 +2930,14 @@ build_object_call (tree obj, tree args)
       return error_mark_node;
     }
 
-  fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
-  if (fns == error_mark_node)
-    return error_mark_node;
+  if (TYPE_BINFO (type))
+    {
+      fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
+      if (fns == error_mark_node)
+	return error_mark_node;
+    }
+  else
+    fns = NULL_TREE;
 
   args = resolve_args (args);
 
@@ -4211,21 +4216,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else
 	    warning (0, "converting to %qT from %qT", t, TREE_TYPE (expr));
 	}
-      /* And warn about assigning a negative value to an unsigned
-	 variable.  */
-      else if (TYPE_UNSIGNED (t) && TREE_CODE (t) != BOOLEAN_TYPE)
-	{
-	  if (TREE_CODE (expr) == INTEGER_CST && TREE_NEGATED_INT (expr))
-	    {
-	      if (fn)
-		warning (0, "passing negative value %qE for argument %P to %qD",
-			 expr, argnum, fn);
-	      else
-		warning (0, "converting negative value %qE to %qT", expr, t);
-	    }
-
-	  overflow_warning (expr);
-	}
     }
 
   switch (convs->kind)
@@ -4298,7 +4288,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
       if (inner >= 0)
-	expr = integral_constant_value (expr);
+	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
       return expr;
@@ -4425,8 +4415,13 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     default:
       break;
     }
-  return ocp_convert (totype, expr, CONV_IMPLICIT,
-		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
+
+  if (issue_conversion_warnings)
+    expr = convert_and_check (totype, expr);
+  else
+    expr = convert (totype, expr);
+
+  return expr;
 }
 
 /* Build a call to __builtin_trap.  */
@@ -5343,6 +5338,7 @@ build_new_method_call (tree instance, tree fns, tree args,
       tree type = build_pointer_type (basetype);
       if (!same_type_p (type, TREE_TYPE (instance_ptr)))
 	instance_ptr = build_nop (type, instance_ptr);
+      name = complete_dtor_identifier;
     }
 
   class_type = (conversion_path ? BINFO_TYPE (conversion_path) : NULL_TREE);

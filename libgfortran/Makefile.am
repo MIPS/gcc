@@ -20,8 +20,6 @@ AM_CPPFLAGS = -iquote$(srcdir)/io -I$(srcdir)/$(MULTISRCTOP)../gcc \
 	      -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
 	      -I$(MULTIBUILDTOP)../../gcc -D_GNU_SOURCE
 
-libgfortranincludedir = $(includedir)/gforio
-
 gfor_io_src= \
 io/close.c \
 io/file_pos.c \
@@ -99,6 +97,7 @@ gfor_src= \
 runtime/compile_options.c \
 runtime/environ.c \
 runtime/error.c \
+runtime/fpu.c \
 runtime/main.c \
 runtime/memory.c \
 runtime/pause.c \
@@ -435,7 +434,7 @@ gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) \
     selected_int_kind.inc selected_real_kind.inc kinds.h \
-    kinds.inc c99_protos.inc
+    kinds.inc c99_protos.inc fpu-target.h
 
 # Machine generated specifics
 gfor_built_specific_src= \
@@ -593,6 +592,9 @@ selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
 
 selected_real_kind.inc: $(srcdir)/mk-srk-inc.sh
 	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@
+
+fpu-target.h: $(srcdir)/$(FPU_HOST_HEADER)
+	cp $(srcdir)/$(FPU_HOST_HEADER) $@
 
 ## A 'normal' build shouldn't need to regenerate these
 ## so we only include them in maintainer mode

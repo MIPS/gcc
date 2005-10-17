@@ -2270,12 +2270,11 @@ struct tree_decl_common GTY(())
   /* In LABEL_DECL, this is DECL_ERROR_ISSUED.
      In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
   unsigned decl_flag_0 : 1;
-  /* In FIELD_DECL, this is DECL_PACKED
-     In PARM_DECL, this is DECL_TRANSPARENT_UNION.  */
+  /* In FIELD_DECL, this is DECL_PACKED.  */
   unsigned decl_flag_1 : 1;
   /* In FIELD_DECL, this is DECL_BIT_FIELD
      In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL. 
-     In TYPE_DECL, this is TYPE_DECL_SUPRESS_DEBUG*/  
+     In TYPE_DECL, this is TYPE_DECL_SUPRESS_DEBUG.  */  
   unsigned decl_flag_2 : 1;  
   /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
      In VAR_DECL and PARM_DECL, this is DECL_HAS_VALUE_EXPR.  */
@@ -2457,12 +2456,6 @@ struct tree_const_decl GTY(())
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
 
-/* Used in PARM_DECLs whose type are unions to indicate that the
-   argument should be passed in the same way that the first union
-   alternative would be passed.  */
-#define DECL_TRANSPARENT_UNION(NODE) \
-  (PARM_DECL_CHECK (NODE)->decl_common.decl_flag_1)
-
 struct tree_parm_decl GTY(())
 {
   struct tree_decl_with_rtl common;
@@ -2492,9 +2485,8 @@ struct tree_parm_decl GTY(())
 #define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
   DECL_WITH_VIS_CHECK (DECL)->decl_with_vis.gimple_formal_temp
 
-/* Used to indicate that the pointer to this DECL cannot be treated as
-   an address constant.  */
-#define DECL_NON_ADDR_CONST_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.non_addr_const_p)
+/* Used to indicate that the DECL is a dllimport.  */
+#define DECL_DLLIMPORT_P(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
 
 /* DECL_BASED_ON_RESTRICT_P records whether a VAR_DECL is a temporary
    based on a variable with a restrict qualified type.  If it is,
@@ -2585,7 +2577,7 @@ struct tree_decl_with_vis GTY(())
  unsigned common_flag:1; 
  unsigned in_text_section : 1;
  unsigned gimple_formal_temp : 1;
- unsigned non_addr_const_p : 1;
+ unsigned dllimport_flag : 1; 
  unsigned based_on_restrict_p : 1;
  /* Used by C++.  Might become a generic decl flag.  */
  unsigned shadowed_for_var_p : 1;
@@ -4065,6 +4057,7 @@ extern bool debug_find_tree (tree, tree);
 /* This is in tree-inline.c since the routine uses
    data structures from the inliner.  */
 extern tree unsave_expr_now (tree);
+extern tree build_duplicate_type (tree);
 
 /* In emit-rtl.c */
 extern rtx emit_line_note (location_t);

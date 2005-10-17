@@ -325,16 +325,14 @@ build_base_path (enum tree_code code,
 
       if (fixed_type_p < 0 && in_base_initializer)
 	{
-	  /* In a base member initializer, we cannot rely on
-	     the vtable being set up. We have to use the vtt_parm.  */
-	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
+	  /* In a base member initializer, we cannot rely on the
+	     vtable being set up.  We have to indirect via the
+	     vtt_parm.  */
 	  tree t;
 
-	  t = TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived)));
+	  t = TREE_TYPE (TYPE_VFIELD (current_class_type));
 	  t = build_pointer_type (t);
 	  v_offset = convert (t, current_vtt_parm);
-	  v_offset = build2 (PLUS_EXPR, t, v_offset,
-			     BINFO_VPTR_INDEX (derived));
 	  v_offset = build_indirect_ref (v_offset, NULL);
 	}
       else
@@ -1539,7 +1537,10 @@ maybe_warn_about_overly_private_class (tree t)
       return;
     }
 
-  if (TYPE_HAS_CONSTRUCTOR (t))
+  if (TYPE_HAS_CONSTRUCTOR (t)
+      /* Implicitly generated constructors are always public.  */
+      && (!CLASSTYPE_LAZY_DEFAULT_CTOR (t)
+	  || !CLASSTYPE_LAZY_COPY_CTOR (t)))
     {
       int nonprivate_ctor = 0;
 
@@ -3101,6 +3102,9 @@ walk_subobject_offsets (tree type,
   if (max_offset && INT_CST_LT (max_offset, offset))
     return 0;
 
+  if (type == error_mark_node)
+    return 0;
+  
   if (!TYPE_P (type))
     {
       if (abi_version_at_least (2))
@@ -5024,6 +5028,11 @@ finish_struct_1 (tree t)
 
   if (warn_overloaded_virtual)
     warn_hidden (t);
+
+  /* Class layout, assignment of virtual table slots, etc., is now
+     complete.  Give the back end a chance to tweak the visibility of
+     the class or perform any other required target modifications.  */
+  targetm.cxx.adjust_class_at_definition (t);
 
   maybe_suppress_debug_info (t);
 

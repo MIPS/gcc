@@ -51,6 +51,7 @@ struct diagnostic_context;
       BIND_EXPR_TRY_BLOCK (in BIND_EXPR)
       TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
       REFERENCE_REF_P (in INDIRECT_EXPR)
+      QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -69,6 +70,7 @@ struct diagnostic_context;
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
       BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
+      DECL_NON_TRIVIALLY_INITIALIZED_P (in VAR_DECL)
    4: TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
 	  or FIELD_DECL).
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
@@ -1784,10 +1786,16 @@ struct lang_decl GTY(())
    should be allocated.  */
 #define DECL_IN_AGGR_P(NODE) (DECL_LANG_FLAG_3 (NODE))
 
-/* Nonzero for a VAR_DECL means that the variable's initialization has
-   been processed.  */
+/* Nonzero for a VAR_DECL means that the variable's initialization (if
+   any) has been processed.  (In general, DECL_INITIALIZED_P is
+   !DECL_EXTERN, but static data members may be initialized even if
+   not defined.)  */
 #define DECL_INITIALIZED_P(NODE) \
    (TREE_LANG_FLAG_1 (VAR_DECL_CHECK (NODE)))
+
+/* Nonzero for a VAR_DECL iff an explicit initializer was provided.  */
+#define DECL_NONTRIVIALLY_INITIALIZED_P(NODE)	\
+   (TREE_LANG_FLAG_3 (VAR_DECL_CHECK (NODE)))
 
 /* Nonzero for a VAR_DECL that was initialized with a
    constant-expression.  */
@@ -2925,6 +2933,11 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    possible for the target to be a thunk too.  */
 #define THUNK_TARGET(NODE)				\
   (DECL_LANG_SPECIFIC (NODE)->u.f.befriending_classes)
+
+/* True for a SCOPE_REF iff the "template" keyword was used to
+   indicate that the qualified name denotes a template.  */
+#define QUALIFIED_NAME_IS_TEMPLATE(NODE) \
+  (TREE_LANG_FLAG_0 (SCOPE_REF_CHECK (NODE)))
 
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */
@@ -4192,9 +4205,11 @@ extern tree finish_template_type		(tree, tree, int);
 extern tree finish_base_specifier		(tree, tree, bool);
 extern void finish_member_declaration		(tree);
 extern void qualified_name_lookup_error		(tree, tree, tree);
+extern void check_template_keyword              (tree);
 extern tree finish_id_expression		(tree, tree, tree,
-						 cp_id_kind *, tree *,
+						 cp_id_kind *,
 						 bool, bool, bool *,
+						 bool, bool, bool, bool,
 						 const char **);
 extern tree finish_typeof			(tree);
 extern void finish_decl_cleanup			(tree, tree);
@@ -4204,7 +4219,8 @@ extern void finish_mem_initializers		(tree);
 extern tree check_template_template_default_arg (tree);
 extern void expand_or_defer_fn			(tree);
 extern void check_accessibility_of_qualified_id (tree, tree, tree);
-extern tree finish_qualified_id_expr		(tree, tree, bool, bool);
+extern tree finish_qualified_id_expr		(tree, tree, bool, bool,
+						 bool, bool);
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
@@ -4237,6 +4253,7 @@ extern tree get_target_expr			(tree);
 extern tree build_cplus_array_type		(tree, tree);
 extern tree hash_tree_cons			(tree, tree, tree);
 extern tree hash_tree_chain			(tree, tree);
+extern tree build_qualified_name                (tree, tree, tree, bool);
 extern int is_overloaded_fn			(tree);
 extern tree get_first_fn			(tree);
 extern tree ovl_cons				(tree, tree);
@@ -4300,7 +4317,7 @@ extern tree inline_conversion			(tree);
 extern tree decay_conversion			(tree);
 extern tree default_conversion			(tree);
 extern tree build_class_member_access_expr      (tree, tree, tree, bool);
-extern tree finish_class_member_access_expr     (tree, tree);
+extern tree finish_class_member_access_expr     (tree, tree, bool);
 extern tree build_x_indirect_ref		(tree, const char *);
 extern tree build_indirect_ref			(tree, const char *);
 extern tree build_array_ref			(tree, tree);

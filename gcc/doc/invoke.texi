@@ -923,7 +923,7 @@ objective-c++ objective-c++-header objective-c++-cpp-output
 assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input  ratfor
-f95
+f95  f95-cpp-input
 java
 treelang
 @end smallexample
@@ -7160,7 +7160,7 @@ architectures:
 @item -mabi=@var{name}
 @opindex mabi
 Generate code for the specified ABI@.  Permissible values are: @samp{apcs-gnu},
-@samp{atpcs}, @samp{aapcs} and @samp{iwmmxt}.
+@samp{atpcs}, @samp{aapcs}, @samp{aapcs-linux} and @samp{iwmmxt}.
 
 @item -mapcs-frame
 @opindex mapcs-frame

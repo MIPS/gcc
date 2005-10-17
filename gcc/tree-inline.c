@@ -197,8 +197,8 @@ remap_decl (tree decl, copy_body_data *id)
   return unshare_expr ((tree) n->value);
 }
 
-tree
-remap_type (tree type, copy_body_data *id)
+static tree
+remap_type_1 (tree type, copy_body_data *id)
 {
   splay_tree_node node;
   tree new, t;
@@ -294,7 +294,18 @@ remap_type (tree type, copy_body_data *id)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      walk_tree (&TYPE_FIELDS (new), copy_body_r, id, NULL);
+      {
+	tree f, nf = NULL;
+
+	for (f = TYPE_FIELDS (new); f ; f = TREE_CHAIN (f))
+	  {
+	    t = remap_decl (f, id);
+	    DECL_CONTEXT (t) = new;
+	    TREE_CHAIN (t) = nf;
+	    nf = t;
+	  }
+	TYPE_FIELDS (new) = nreverse (nf);
+      }
       break;
 
     case OFFSET_TYPE:
@@ -307,6 +318,29 @@ remap_type (tree type, copy_body_data *id)
   walk_tree (&TYPE_SIZE_UNIT (new), copy_body_r, id, NULL);
 
   return new;
+}
+
+tree
+remap_type (tree type, copy_body_data *id)
+{
+  splay_tree_node node;
+
+  if (type == NULL)
+    return type;
+
+  /* See if we have remapped this type.  */
+  node = splay_tree_lookup (id->decl_map, (splay_tree_key) type);
+  if (node)
+    return (tree) node->value;
+
+  /* The type only needs remapping if it's variably modified.  */
+  if (! variably_modified_type_p (type, id->src_fn))
+    {
+      insert_decl_map (id, type, type);
+      return type;
+    }
+
+  return remap_type_1 (type, id);
 }
 
 static tree
@@ -2854,4 +2888,24 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map)
   splay_tree_delete (id.decl_map);
   fold_cond_expr_cond ();
   return;
+}
+
+/* Duplicate a type, fields and all.  */
+
+tree
+build_duplicate_type (tree type)
+{
+  struct copy_body_data id;
+
+  memset (&id, 0, sizeof (id));
+  id.src_fn = current_function_decl;
+  id.dst_fn = current_function_decl;
+  id.src_cfun = cfun;
+  id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
+  type = remap_type_1 (type, &id);
+
+  splay_tree_delete (id.decl_map);
+
+  return type;
 }

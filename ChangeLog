@@ -1,3 +1,14 @@
+2005-10-15  Jie Zhang  <jie.zhang@analog.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.in (arm-*-linux-gnueabi): Add to noconfigdirs
+	target-libffi, target-qthreads, target-libjava, and
+	targetlibobjc.
+	* configure: Regenerate.
+
 2005-10-06  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* Makefile.def (flags_to_pass): Add OBJDUMP_FOR_TARGET.
