@@ -1,6 +1,8 @@
-unset lang_library_path
-unset lang_test_file
-unset lang_link_flags
+if [info exists lang_library_path] then {
+    unset lang_library_path
+    unset lang_test_file
+    unset lang_link_flags
+}
 
 load_lib libgomp-dg.exp
 
@@ -13,7 +15,7 @@ if ![info exists DEFAULT_CFLAGS] then {
 dg-init
 
 # Gather a list of all tests.
-set tests [lsort [glob -nocomplain $srcdir/$subdir/*.c]]
+set tests [lsort [find $srcdir/$subdir *.c]]
 
 # Main loop.
 dg-runtest $tests "" $DEFAULT_CFLAGS

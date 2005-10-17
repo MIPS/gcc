@@ -1,3 +1,9 @@
+2005-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.dg/dg.exp: Only unset lang_* if
+	lang_library_path exists.  Use find instead of glob to gather tests.
+	* testsuite/libgomp.dg/appendix-a/appendix-a.exp: Removed.
+
 2005-10-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/libgomp.dg/appendix-a/a.15.1.c: New test.
