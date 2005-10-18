@@ -486,7 +486,7 @@ gfc_trans_omp_critical (gfc_code *code)
   if (code->ext.omp_name != NULL)
     name = get_identifier (code->ext.omp_name);
   stmt = gfc_trans_code (code->block->next);
-  return build2_v (OMP_CRITICAL, name, stmt);
+  return build2_v (OMP_CRITICAL, stmt, name);
 }
 
 static tree
@@ -624,7 +624,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
   /* End of loop body.  */
   stmt = gfc_finish_block (&body);
 
-  stmt = build (OMP_FOR, void_type_node, omp_clauses, init, cond, incr, stmt);
+  stmt = build (OMP_FOR, void_type_node, stmt, omp_clauses, init, cond, incr);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);
@@ -672,7 +672,7 @@ gfc_trans_omp_parallel (gfc_code *code)
   gfc_start_block (&block);
   omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses);
   stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -706,7 +706,7 @@ gfc_trans_omp_parallel_do (gfc_code *code)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
     poplevel (0, 0, 0);
-  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -729,7 +729,7 @@ gfc_trans_omp_parallel_sections (gfc_code *code)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
     poplevel (0, 0, 0);
-  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -752,7 +752,7 @@ gfc_trans_omp_parallel_workshare (gfc_code *code)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
     poplevel (0, 0, 0);
-  stmt = build2_v (OMP_PARALLEL, omp_clauses, stmt);
+  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -783,7 +783,7 @@ gfc_trans_omp_sections (gfc_code *code, gfc_omp_clauses *clauses)
     }
   stmt = gfc_finish_block (&body);
 
-  stmt = build2_v (OMP_SECTIONS, omp_clauses, stmt);
+  stmt = build2_v (OMP_SECTIONS, stmt, omp_clauses);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);
@@ -794,7 +794,7 @@ gfc_trans_omp_single (gfc_code *code, gfc_omp_clauses *clauses)
 {
   tree omp_clauses = gfc_trans_omp_clauses (NULL, clauses);
   tree stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build2_v (OMP_SINGLE, omp_clauses, stmt);
+  stmt = build2_v (OMP_SINGLE, stmt, omp_clauses);
   return stmt;
 }
 

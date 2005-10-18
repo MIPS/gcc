@@ -1,3 +1,8 @@
+2005-10-18  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (cp_parser_omp_single): Use make_node and accessors
+	instead of build.
+
 2005-10-17  Richard Henderson  <rth@redhat.com>
 
 	* parser.c (cp_parser_omp_for_loop): Handle declarations.

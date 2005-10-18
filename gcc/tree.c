@@ -6056,6 +6056,41 @@ tree_class_check_failed (const tree node, const enum tree_code_class cl,
      TREE_CODE_CLASS_STRING (TREE_CODE_CLASS (TREE_CODE (node))),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
+
+/* Similar to tree_check_failed, except that instead of specifying a
+   dozen codes, use the knowledge that they're all sequential.  */
+
+void
+tree_range_check_failed (const tree node, const char *file, int line,
+			 const char *function, enum tree_code c1,
+			 enum tree_code c2)
+{
+  char *buffer;
+  unsigned length = 0;
+  enum tree_code c;
+
+  for (c = c1; c <= c2; ++c)
+    length += 4 + strlen (tree_code_name[c]);
+
+  length += strlen ("expected ");
+  buffer = alloca (length);
+  length = 0;
+
+  for (c = c1; c <= c2; ++c)
+    {
+      const char *prefix = length ? " or " : "expected ";
+
+      strcpy (buffer + length, prefix);
+      length += strlen (prefix);
+      strcpy (buffer + length, tree_code_name[c]);
+      length += strlen (tree_code_name[c]);
+    }
+
+  internal_error ("tree check: %s, have %s in %s, at %s:%d",
+		  buffer, tree_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
+}
+
 #undef DEFTREESTRUCT
 #define DEFTREESTRUCT(VAL, NAME) NAME,
 

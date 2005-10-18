@@ -7620,13 +7620,13 @@ c_parser_omp_parallel (c_parser *parser)
 static tree
 c_parser_omp_single (c_parser *parser)
 {
-  tree stmt, clauses;
+  tree stmt = make_node (OMP_SINGLE);
+  TREE_TYPE (stmt) = void_type_node;
 
-  clauses = c_parser_omp_all_clauses (parser, OMP_SINGLE_CLAUSE_MASK,
-				      "#pragma omp single");
-
-  stmt = c_parser_omp_structured_block (parser);
-  stmt = build2 (OMP_SINGLE, void_type_node, clauses, stmt);
+  OMP_SINGLE_CLAUSES (stmt)
+    = c_parser_omp_all_clauses (parser, OMP_SINGLE_CLAUSE_MASK,
+				"#pragma omp single");
+  OMP_SINGLE_BODY (stmt) = c_parser_omp_structured_block (parser);
 
   return add_stmt (stmt);
 }

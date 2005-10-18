@@ -1,3 +1,28 @@
+2005-10-18  Richard Henderson  <rth@redhat.com>
+
+	* c-omp.c (c_finish_omp_critical): Use make_node and accessors
+	instead of build.
+	* c-parser.c (c_parser_omp_single): Likewise.
+	* tree.c (tree_range_check_failed): New.
+	* tree.def: Update comments around omp codes.
+	* tree.h (TREE_RANGE_CHECK): New.
+	(OMP_BODY, OMP_CLAUSES): New.
+	(OMP_PARALLEL_BODY, OMP_PARALLEL_CLAUSES, OMP_FOR_BODY,
+	OMP_FOR_CLAUSES, OMP_FOR_INIT, OMP_FOR_COND, OMP_FOR_INCR,
+	OMP_SECTIONS_BODY, OMP_SECTIONS_CLAUSES, OMP_SINGLE_BODY,
+	OMP_SINGLE_CLAUSES, OMP_CRITICAL_BODY, OMP_CRITICAL_NAME): Renumber
+	arguments to canonical form.
+	(OMP_CLAUSE_CHAIN, OMP_CLAUSE_DECL): Add checking.
+
+	* omp-low.c (struct omp_context): Add is_nested.
+	(fixup_variable_sized): Split out of...
+	(scan_sharing_clauses): ... here.  Avoid unnecessary indirection.
+	(omp_copy_decl): Don't remap global variables.
+	(scan_omp_nested): New.
+	(scan_omp_1): Use it.
+	(expand_omp_1): Avoid walking nested contexts.  Regimplify
+	INDIRECT_REF properly.
+
 2005-10-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* langhooks.h (struct lang_hooks_for_decls): Add

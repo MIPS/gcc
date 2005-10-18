@@ -11,8 +11,8 @@ struct T
 {
   static T t;
   int i;
-} t;
-T::t = { 6 };
+};
+T T::t = { 6 };
 /* const qualified type, but mutable member -> not predetermined.  */
 const struct U
 {

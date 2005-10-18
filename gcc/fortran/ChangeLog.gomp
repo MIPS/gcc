@@ -1,3 +1,11 @@
+2005-10-18  Richard Henderson  <rth@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_critical): Update for changed
+	operand numbering.
+	(gfc_trans_omp_do, gfc_trans_omp_parallel, gfc_trans_omp_parallel_do,
+	gfc_trans_omp_parallel_sections, gfc_trans_omp_parallel_workshare,
+	gfc_trans_omp_sections, gfc_trans_omp_single): Likewise.
+
 2005-10-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans.h (gfc_omp_privatize_by_reference): New prototype.

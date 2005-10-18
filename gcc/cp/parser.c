@@ -18581,13 +18581,13 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
 static tree
 cp_parser_omp_single (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree stmt, clauses;
+  tree stmt = make_node (OMP_SINGLE);
+  TREE_TYPE (stmt) = void_type_node;
 
-  clauses = cp_parser_omp_all_clauses (parser, OMP_SINGLE_CLAUSE_MASK,
-				       "#pragma omp single", pragma_tok);
-
-  stmt = cp_parser_omp_structured_block (parser);
-  stmt = build2 (OMP_SINGLE, void_type_node, clauses, stmt);
+  OMP_SINGLE_CLAUSES (stmt)
+    = cp_parser_omp_all_clauses (parser, OMP_SINGLE_CLAUSE_MASK,
+				 "#pragma omp single", pragma_tok);
+  OMP_SINGLE_BODY (stmt) = cp_parser_omp_structured_block (parser);
 
   return add_stmt (stmt);
 }

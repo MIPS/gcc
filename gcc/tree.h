@@ -566,6 +566,13 @@ enum tree_node_structure_enum {
 			       __FUNCTION__);				\
     __t; })
 
+#define TREE_RANGE_CHECK(T, CODE1, CODE2) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) < (CODE1) && TREE_CODE (__t) > (CODE2))		\
+      tree_range_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,	\
+			       (CODE1), (CODE2));			\
+    __t; })
+
 /* These checks have to be special cased.  */
 #define EXPR_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
@@ -647,6 +654,9 @@ extern void tree_not_check_failed (const tree, const char *, int, const char *,
 extern void tree_class_check_failed (const tree, const enum tree_code_class,
 				     const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void tree_range_check_failed (const tree, const char *, int,
+				     const char *, enum tree_code,
+				     enum tree_code);
 extern void tree_vec_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;
@@ -671,6 +681,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
 #define TREE_NOT_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
 #define TREE_CLASS_CHECK(T, CODE)		(T)
+#define TREE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define EXPR_CHECK(T)				(T)
 #define NON_TYPE_CHECK(T)			(T)
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
@@ -1379,53 +1390,47 @@ struct tree_constructor GTY(())
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
 /* OpenMP directive and clause accessors.  */
-#define OMP_PARALLEL_CLAUSES(NODE)	\
-		TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 0)
-#define OMP_PARALLEL_BODY(NODE)		\
-		TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 1)
 
-#define OMP_FOR_CLAUSES(NODE)		\
-  		TREE_OPERAND (OMP_FOR_CHECK (NODE), 0)
-#define OMP_FOR_INIT(NODE)		\
-  		TREE_OPERAND (OMP_FOR_CHECK (NODE), 1)
-#define OMP_FOR_COND(NODE)		\
-  		TREE_OPERAND (OMP_FOR_CHECK (NODE), 2)
-#define OMP_FOR_INCR(NODE)		\
-  		TREE_OPERAND (OMP_FOR_CHECK (NODE), 3)
-#define OMP_FOR_BODY(NODE)		\
-		TREE_OPERAND (OMP_FOR_CHECK (NODE), 4)
+#define OMP_BODY(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_CRITICAL), 0)
+#define OMP_CLAUSES(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_SINGLE), 1)
 
-#define OMP_SECTIONS_CLAUSES(NODE)	\
-  		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
-#define OMP_SECTIONS_BODY(NODE)		\
-  		TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
+#define OMP_PARALLEL_BODY(NODE)    TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 0)
+#define OMP_PARALLEL_CLAUSES(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 1)
 
-#define OMP_SECTION_BODY(NODE)		\
-  		TREE_OPERAND (OMP_SECTION_CHECK (NODE), 0)
+#define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 0)
+#define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 1)
+#define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 2)
+#define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 3)
+#define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 4)
 
-#define OMP_CRITICAL_NAME(NODE)		\
-  		TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 0)
-#define OMP_CRITICAL_BODY(NODE)		\
-  		TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 1)
+#define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
+#define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
 
-#define OMP_SINGLE_CLAUSES(NODE)	\
-		TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 0)
-#define OMP_SINGLE_BODY(NODE)		\
-  		TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 1)
+#define OMP_SECTION_BODY(NODE)	   TREE_OPERAND (OMP_SECTION_CHECK (NODE), 0)
 
-/* ??? Could perhaps use a new tree code class to validate these.  */
-#define OMP_CLAUSE_CHAIN(NODE)	TREE_CHAIN (NODE)
-#define OMP_CLAUSE_DECL(NODE)	TREE_OPERAND (NODE, 0)
+#define OMP_SINGLE_BODY(NODE)	   TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 0)
+#define OMP_SINGLE_CLAUSES(NODE)   TREE_OPERAND (OMP_SINGLE_CHECK (NODE), 1)
 
-#define OMP_CLAUSE_IF_EXPR(NODE)		\
-  		TREE_OPERAND (OMP_CLAUSE_IF_CHECK (NODE), 0)
-#define OMP_CLAUSE_NUM_THREADS_EXPR(NODE)	\
-  		TREE_OPERAND (OMP_CLAUSE_NUM_THREADS_CHECK (NODE), 0)
-#define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE)	\
-		TREE_OPERAND (OMP_CLAUSE_SCHEDULE_CHECK (NODE), 0)
+#define OMP_CRITICAL_BODY(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 0)
+#define OMP_CRITICAL_NAME(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 1)
+
+#define OMP_CLAUSE_CHAIN(NODE) \
+  TREE_CHAIN (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, OMP_CLAUSE_DEFAULT))
+#define OMP_CLAUSE_DECL(NODE) \
+  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
+				  OMP_CLAUSE_COPYPRIVATE), 0)
+
+#define OMP_CLAUSE_IF_EXPR(NODE) \
+  TREE_OPERAND (OMP_CLAUSE_IF_CHECK (NODE), 0)
+#define OMP_CLAUSE_NUM_THREADS_EXPR(NODE) \
+  TREE_OPERAND (OMP_CLAUSE_NUM_THREADS_CHECK (NODE), 0)
+#define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE) \
+  TREE_OPERAND (OMP_CLAUSE_SCHEDULE_CHECK (NODE), 0)
 
 #define OMP_CLAUSE_REDUCTION_CODE(NODE)	\
-		(OMP_CLAUSE_REDUCTION_CHECK (NODE)->exp.complexity)
+  (OMP_CLAUSE_REDUCTION_CHECK (NODE)->exp.complexity)
 
 enum omp_clause_schedule_kind
 {
@@ -1436,7 +1441,7 @@ enum omp_clause_schedule_kind
 };
 
 #define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
-		(OMP_CLAUSE_SCHEDULE_CHECK (NODE)->exp.complexity)
+  (OMP_CLAUSE_SCHEDULE_CHECK (NODE)->exp.complexity)
 
 enum omp_clause_default_kind
 {
@@ -1447,7 +1452,7 @@ enum omp_clause_default_kind
 };
 
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
-		(OMP_CLAUSE_DEFAULT_CHECK (NODE)->exp.complexity)
+  (OMP_CLAUSE_DEFAULT_CHECK (NODE)->exp.complexity)
 
 struct tree_exp GTY(())
 {

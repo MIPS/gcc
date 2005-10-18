@@ -1,3 +1,8 @@
+2005-10-18  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/gomp/sharing-1.C: Fix typo defining T::t.
+	* g++.dg/parse/pragma2.C: Update expected errors.
+
 2005-10-17  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/gomp/for-11.C: Remove error marker.

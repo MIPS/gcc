@@ -84,6 +84,7 @@ typedef struct omp_context
   enum omp_clause_default_kind default_kind;
 
   bool is_parallel;
+  bool is_nested;
 } omp_context;
 
 static splay_tree all_contexts;
@@ -349,6 +350,27 @@ install_var_shared (tree var, bool by_ref, omp_context *ctx)
   return install_var_new (new_var, var, ctx);
 }
 
+/* Adjust the replacement for DECL in CTX for the new context.  This means
+   copying the DECL_VALUE_EXPR, and fixing up the type.  */
+
+static void
+fixup_variable_sized (tree decl, omp_context *ctx)
+{
+  tree new_decl, ve;
+
+  new_decl = lookup_decl (decl, ctx);
+  ve = DECL_VALUE_EXPR (decl);
+
+  walk_tree (&ve, copy_body_r, &ctx->cb, NULL);
+  SET_DECL_VALUE_EXPR (new_decl, ve);
+  DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
+
+  DECL_SIZE (new_decl) = remap_decl (DECL_SIZE (decl), &ctx->cb);
+  DECL_SIZE_UNIT (new_decl)
+    = remap_decl (DECL_SIZE_UNIT (decl), &ctx->cb);
+  TREE_TYPE (new_decl) = remap_type (TREE_TYPE (decl), &ctx->cb);
+}
+
 /* Return true if VAR is private in the context of the enclosing parallel.  */
 
 static bool
@@ -389,7 +411,7 @@ omp_copy_decl (tree var, copy_body_data *cb)
   omp_context *ctx = (omp_context *) cb;
   tree new_var;
 
-  if (decl_function_context (var) != ctx->cb.src_fn)
+  if (is_global_var (var) || decl_function_context (var) != ctx->cb.src_fn)
     return var;
 
   if (TREE_CODE (var) == LABEL_DECL)
@@ -476,14 +498,13 @@ delete_omp_context (splay_tree_value value)
    specified by CLAUSES.  */
 
 static void
-scan_sharing_clauses (tree *pclauses, omp_context *ctx)
+scan_sharing_clauses (tree clauses, omp_context *ctx)
 {
   bool saw_var_sized = false;
-  tree c, *pc;
+  tree c, decl;
 
-  for (pc = pclauses; (c = *pc) != NULL ; pc = &OMP_CLAUSE_CHAIN (c))
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
-      tree decl;
       bool by_ref;
 
       switch (TREE_CODE (c))
@@ -524,7 +545,7 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
 
 	case OMP_CLAUSE_COPYPRIVATE:
 	  if (ctx->outer)
-	    scan_omp (pc, ctx->outer);
+	    scan_omp (&OMP_CLAUSE_DECL (c), ctx->outer);
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_COPYIN:
@@ -541,7 +562,7 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
 	  if (ctx->outer)
-	    scan_omp (pc, ctx->outer);
+	    scan_omp (&TREE_OPERAND (c, 0), ctx->outer);
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
@@ -557,10 +578,8 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
      to do this as a separate pass, since we need the pointer and size
      decls installed first.  */
   if (saw_var_sized)
-    for (c = *pclauses; c ; c = OMP_CLAUSE_CHAIN (c))
+    for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
       {
-	tree decl, new_decl, ve;
-
 	switch (TREE_CODE (c))
 	  {
 	  case OMP_CLAUSE_PRIVATE:
@@ -574,19 +593,8 @@ scan_sharing_clauses (tree *pclauses, omp_context *ctx)
 	  }
 
 	decl = OMP_CLAUSE_DECL (c);
-	if (!is_variable_sized (decl))
-	  continue;
-	new_decl = lookup_decl (decl, ctx);
-
-	ve = DECL_VALUE_EXPR (decl);
-	walk_tree (&ve, copy_body_r, &ctx->cb, NULL);
-	SET_DECL_VALUE_EXPR (new_decl, ve);
-	DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
-
-	DECL_SIZE (new_decl) = remap_decl (DECL_SIZE (decl), &ctx->cb);
-	DECL_SIZE_UNIT (new_decl)
-	  = remap_decl (DECL_SIZE_UNIT (decl), &ctx->cb);
-	TREE_TYPE (new_decl) = remap_type (TREE_TYPE (decl), &ctx->cb);
+	if (is_variable_sized (decl))
+	  fixup_variable_sized (decl, ctx);
       }
 }
 
@@ -652,7 +660,7 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
   TYPE_NAME (ctx->record_type) = create_tmp_var_name (".omp_data_s");
   create_omp_child_function (ctx);
 
-  scan_sharing_clauses (&OMP_PARALLEL_CLAUSES (*stmt_p), ctx);
+  scan_sharing_clauses (OMP_PARALLEL_CLAUSES (*stmt_p), ctx);
   scan_omp (&OMP_PARALLEL_BODY (*stmt_p), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
@@ -670,7 +678,7 @@ scan_omp_for (tree *stmt_p, omp_context *outer_ctx)
   tree iter, stmt = *stmt_p;
 
   ctx = new_omp_context (stmt, outer_ctx);
-  scan_sharing_clauses (&OMP_FOR_CLAUSES (stmt), ctx);
+  scan_sharing_clauses (OMP_FOR_CLAUSES (stmt), ctx);
 
   /* Make sure the iteration variable is private.  */
   iter = TREE_OPERAND (OMP_FOR_INIT (stmt), 0);
@@ -697,7 +705,7 @@ scan_omp_sections (tree *stmt_p, omp_context *outer_ctx)
   omp_context *ctx;
 
   ctx = new_omp_context (stmt, outer_ctx);
-  scan_sharing_clauses (&OMP_SECTIONS_CLAUSES (stmt), ctx);
+  scan_sharing_clauses (OMP_SECTIONS_CLAUSES (stmt), ctx);
   scan_omp (&OMP_SECTIONS_BODY (stmt), ctx);
 }
 
@@ -714,13 +722,92 @@ scan_omp_single (tree *stmt_p, omp_context *outer_ctx)
   ctx->record_type = make_node (RECORD_TYPE);
   TYPE_NAME (ctx->record_type) = create_tmp_var_name (".omp_copy_s");
 
-  scan_sharing_clauses (&OMP_SINGLE_CLAUSES (stmt), ctx);
+  scan_sharing_clauses (OMP_SINGLE_CLAUSES (stmt), ctx);
   scan_omp (&OMP_SINGLE_BODY (stmt), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
     ctx->record_type = NULL;
   else
     layout_type (ctx->record_type);
+}
+
+/* Similar, except this is either a parallel nested within another
+   parallel, or a workshare construct nested within a nested parallel.
+   In this case we want to do minimal processing, as the real work 
+   will be done during lowering of the function generated by the
+   outermost parallel.
+
+   The minimal amount of work is processing private clauses, and simply
+   scanning the reset.  Private clauses are the only ones that don't
+   also imply a reference in the outer parallel.  We must set up a
+   translation lest the default behaviour in omp_copy_decl substitute
+   error_mark_node.  */
+
+static void
+scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
+{
+  omp_context *ctx;
+  bool saw_var_sized = false;
+  tree c, decl, stmt = *stmt_p;
+
+  ctx = new_omp_context (stmt, outer_ctx);
+  ctx->is_nested = true;
+
+  for (c = OMP_CLAUSES (stmt); c ; c = OMP_CLAUSE_CHAIN (c))
+    {
+      switch (TREE_CODE (c))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (is_variable_sized (decl))
+	    saw_var_sized = true;
+	  install_var_private (decl, ctx);
+	  break;
+
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	  scan_omp (&TREE_OPERAND (c, 0), ctx->outer);
+	  break;
+
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Instantiate the VALUE_EXPR for variable sized variables.  We have
+     to do this as a separate pass, since we need the pointer and size
+     decls installed first.  */
+  if (saw_var_sized)
+    for (c = OMP_CLAUSES (stmt); c ; c = OMP_CLAUSE_CHAIN (c))
+      {
+	if (TREE_CODE (c) != OMP_CLAUSE_PRIVATE)
+	  continue;
+
+	decl = OMP_CLAUSE_DECL (c);
+	if (is_variable_sized (decl))
+	  fixup_variable_sized (decl, ctx);
+      }
+
+  scan_omp (&OMP_BODY (stmt), ctx);
+
+  if (TREE_CODE (stmt) == OMP_FOR)
+    {
+      scan_omp (&OMP_FOR_INIT (stmt), ctx);
+      scan_omp (&OMP_FOR_COND (stmt), ctx);
+      scan_omp (&OMP_FOR_INCR (stmt), ctx);
+    }
 }
 
 /* Lower OpenMP directives in CURRENT_FUNCTION_DECL.  */
@@ -739,44 +826,32 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case OMP_PARALLEL:
-      switch (parallel_nesting_level)
-	{
-	case 0:
-	  parallel_nesting_level = 1;
-	  scan_omp_parallel (tp, ctx);
-	  parallel_nesting_level = 0;
-	  break;
-	case 1:
-	  parallel_nesting_level = 2;
-	  walk_tree (&OMP_PARALLEL_CLAUSES (t), scan_omp_1, wi, NULL);
-	  walk_tree (&OMP_PARALLEL_BODY (t), scan_omp_1, wi, NULL);
-	  parallel_nesting_level = 1;
-	  break;
-	default:
-	  *walk_subtrees = 1;
-	  break;
-	}
+      if (++parallel_nesting_level == 1)
+	scan_omp_parallel (tp, ctx);
+      else
+	scan_omp_nested (tp, ctx);
+      parallel_nesting_level--;
       break;
 
     case OMP_FOR:
       if (parallel_nesting_level <= 1)
 	scan_omp_for (tp, ctx);
       else
-	*walk_subtrees = 1;
+	scan_omp_nested (tp, ctx);
       break;
 
     case OMP_SECTIONS:
       if (parallel_nesting_level <= 1)
 	scan_omp_sections (tp, ctx);
       else
-	*walk_subtrees = 1;
+	scan_omp_nested (tp, ctx);
       break;
 
     case OMP_SINGLE:
       if (parallel_nesting_level <= 1)
 	scan_omp_single (tp, ctx);
       else
-	*walk_subtrees = 1;
+	scan_omp_nested (tp, ctx);
       break;
 
     case BIND_EXPR:
@@ -2419,44 +2494,39 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
   omp_context *ctx = wi->info;
   tree t = *tp;
 
+  *walk_subtrees = 0;
   switch (TREE_CODE (*tp))
     {
     case OMP_PARALLEL:
       ctx = maybe_lookup_ctx (t);
-      if (ctx)
+      if (!ctx->is_nested)
 	expand_omp_parallel (tp, ctx);
-      *walk_subtrees = 0;
       break;
 
     case OMP_FOR:
       ctx = maybe_lookup_ctx (t);
       gcc_assert (ctx);
       expand_omp_for (tp, ctx);
-      *walk_subtrees = 0;
       break;
 
     case OMP_SECTIONS:
       ctx = maybe_lookup_ctx (t);
       gcc_assert (ctx);
       expand_omp_sections (tp, ctx);
-      *walk_subtrees = 0;
       break;
 
     case OMP_SINGLE:
       ctx = maybe_lookup_ctx (t);
       gcc_assert (ctx);
       expand_omp_single (tp, ctx);
-      *walk_subtrees = 0;
       break;
 
     case VAR_DECL:
-      *walk_subtrees = 0;
       if (ctx && DECL_HAS_VALUE_EXPR_P (t))
 	expand_regimplify (tp, wi);
       break;
 
     case ADDR_EXPR:
-      *walk_subtrees = 0;
       if (ctx)
 	expand_regimplify (tp, wi);
       break;
@@ -2467,14 +2537,22 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
     case IMAGPART_EXPR:
     case COMPONENT_REF:
     case VIEW_CONVERT_EXPR:
-      *walk_subtrees = 0;
       if (ctx)
 	expand_regimplify (tp, wi);
       break;
 
+    case INDIRECT_REF:
+      if (ctx)
+	{
+	  wi->is_lhs = false;
+	  wi->val_only = true;
+	  expand_regimplify (tp, wi);
+	}
+      break;
+
     default:
-      if (TYPE_P (t) || DECL_P (t))
-	*walk_subtrees = 0;
+      if (!TYPE_P (t) && !DECL_P (t))
+	*walk_subtrees = 1;
       break;
     }
 

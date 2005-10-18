@@ -58,9 +58,13 @@ c_finish_omp_master (tree stmt)
    if it was omitted.  */
 
 tree
-c_finish_omp_critical (tree stmt, tree name)
+c_finish_omp_critical (tree body, tree name)
 {
-  return add_stmt (build2 (OMP_CRITICAL, void_type_node, name, stmt));
+  tree stmt = make_node (OMP_CRITICAL);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_CRITICAL_BODY (stmt) = body;
+  OMP_CRITICAL_NAME (stmt) = name;
+  return add_stmt (stmt);
 }
 
 
