@@ -1,3 +1,8 @@
+2005-10-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* omp-low.c (use_pointer_for_field): Return true for
+	TREE_ADDRESSABLE decls.
+
 2005-10-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* langhooks.h (struct lang_hooks_for_decls): Add

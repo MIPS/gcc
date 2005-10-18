@@ -61,7 +61,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 typedef struct omp_context
 {
-  /* This field must be at the beginning, as we do "inheritence".  */
+  /* This field must be at the beginning, as we do "inheritance".  */
   copy_body_data cb;
 
   /* The tree of contexts corresponding to the encountered constructs.  */
@@ -166,12 +166,18 @@ maybe_lookup_field (tree var, omp_context *ctx)
   return n ? (tree) n->value : NULL_TREE;
 }
 
-/* Return true if DECL should be copied by pointer.  */
+/* Return true if DECL should be copied by pointer.  SHARED_P is true
+   if DECL is to be shared.  */
 
 static bool
 use_pointer_for_field (tree decl, bool shared_p)
 {
   if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
+    return true;
+
+  /* Do not use copy-in/copy-out for variables that have their address
+     taken.  */
+  if (TREE_ADDRESSABLE (decl))
     return true;
 
   /* We can only use copy-in/copy-out semantics for shared varibles
