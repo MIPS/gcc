@@ -3674,6 +3674,26 @@ create_function_info_for (tree decl, const char *name)
   return index;
 }  
 
+
+/* Return true if FIELDSTACK contains fields that overlap. 
+   FIELDSTACK is assumed to be sorted by offset.  */
+
+static bool
+check_for_overlaps (VEC (fieldoff_s,heap) *fieldstack)
+{
+  fieldoff_s *fo = NULL;
+  unsigned int i;
+  HOST_WIDE_INT lastoffset = -1;
+
+  for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
+    {
+      if (fo->offset == lastoffset)
+	return true;
+      lastoffset = fo->offset;
+    }
+  return false;
+}
+
 /* Create a varinfo structure for NAME and DECL, and add it to VARMAP.
    This will also create any varinfo structures necessary for fields
    of DECL.  */
@@ -3760,7 +3780,15 @@ create_variable_info_for (tree decl, const char *name)
 	 without creating varinfos for the fields anyway, so sorting them is a
 	 waste to boot.  */
       if (!notokay)
-	sort_fieldstack (fieldstack);
+	{	
+	  sort_fieldstack (fieldstack);
+	  /* Due to some C++ FE issues, like PR 22488, we might end up
+	     what appear to be overlapping fields even though they,
+	     in reality, do not overlap.  Until the C++ FE is fixed,
+	     we will simply disable field-sensitivity for these cases.  */
+	  notokay = check_for_overlaps (fieldstack);
+	}
+      
       
       if (VEC_length (fieldoff_s, fieldstack) != 0)
 	fo = VEC_index (fieldoff_s, fieldstack, 0);

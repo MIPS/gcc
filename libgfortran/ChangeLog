@@ -1,3 +1,90 @@
+2005-10-14  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/fpu-387.h (set_fpu): Remove extra ":" in stmxcsr.
+	Change cw and cw_sse variables to unsigned.
+	(SSE): New definition.
+	(has_sse): Use it.
+
+2005-10-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/unix.c(fd_alloc_r_at):  Use read() instead of do_read()
+	only in case of special files (e.g. terminals).
+
+2005-10-13  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/fpu-387.h (set_fpu): Add "=m" for stmxcsr.
+
+2005-10-12  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Add fpu.c to the build process, and
+	target-dependent code as fpu-target.h.
+	* Makefile.in: Regenerate.
+	* configure.ac: Add call to configure.host to set
+	FPU_HOST_HEADER.
+	* configure: Regenerate.
+	* configure.host: New script to determine which host-dependent
+	code should go in.
+	* libgfortran.h: Add fpe option, remove previous fpu_ options.
+	Add bitmasks for different FPE traps. Add prototype for set_fpu.
+	* runtime/environ.c: Remove environment variables to control
+	fpu behaviour.
+	* runtime/fpu.c (set_fpe): New function for the front-end.
+	* runtime/main.c (init): Set FPU state.
+	* config: New directory to store host-dependent code.
+	* config/fpu-387.h: New file with code handling the i387 FPU.
+	* config/fpu-glibc.h: New file with code for glibc systems.
+	* config/fpu-generic.h: Fallback for the most generic host. Issue
+	warnings.
+
+2005-10-12  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	* io/unix.c(fd_alloc_r_at): Remove parts of patch of 2005/10/07 that
+	cause input from the terminal to hang.
+
+2005-10-11  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/24313
+	*  c99_functions.c (csqrtf, csqrt): Fix choice of branch cut.  Note
+	csqrt{f} were imported from glibc, and this bug is still present 
+	there. glibc PR is 1146.
+
+2005-10-07  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	PR fortran/16339
+	PR fortran/23363
+	* io/io.h: Add read and write members to stream, define access
+	macros.
+	* io/transfer.c (read_block_direct): New function.
+	(write_block_direct): New function.
+	(unformatted_read): Change to use read_block_direct.
+	(unformatted_write): Change to use write_block_direct.
+	* io/unix.c: Remove mmap includes and defines.
+	(writen): Remove.
+	(readn): Remove.
+	(reset_stream): New function.
+	(do_read): New function.
+	(do_write): New function.
+	(fd_flush): Change to use do_write() instead of writen().
+	(fd_alloc_r_at): Change to use do_read().
+	(fd_seek): Change return type to try, as the prototype. Add check
+	to avoid syscall overhead if possible.
+	(fd_read): New function.
+	(fd_write): New function.
+	(fd_open): Set pointers for new functions.
+	(mem_read): New function.
+	(mem_write): New function.
+	(open_internal): Set pointers for new functions.
+	(is_seekable): Clean up comment.
+
+2005-10-07  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        * io/transfer.c (write_block): Add test for end-of-file condition,
+        removed from mem_alloc_w_at. (next_record_w): Clean up checks for
+        NULL pointer returns from s_alloc_w.
+        * io/unix.c (mem_alloc_w_at): Remove call to generate_error end-of-file.
+        * io/write.c (write_float): Add checks for NULL pointer returns from
+        write_block calls. (write_integer): Same.
+        
 2005-10-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* runtime/memory.c (allocate_size): Malloc 1 byte if size == 0.

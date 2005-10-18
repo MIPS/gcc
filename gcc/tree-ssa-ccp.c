@@ -2461,7 +2461,7 @@ execute_fold_all_builtins (void)
 		  gcc_assert (ok);
 		}
 	    }
-	  update_stmt (*stmtp);
+	  mark_new_vars_to_rename (*stmtp);
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;

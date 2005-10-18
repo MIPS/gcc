@@ -386,8 +386,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    }
 	}
 
-      if (TREE_CODE (node) == PARM_DECL && DECL_TRANSPARENT_UNION (node))
-	fputs (" transparent-union", file);
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  
 	  if (DECL_VIRTUAL_P (node))

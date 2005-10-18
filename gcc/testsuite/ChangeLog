@@ -1,3 +1,378 @@
+2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21383
+	* g++.dg/overload/koenig2.C: New.
+
+	PR c++/23118
+	* g++.dg/overload/error2.C: New.
+
+	PR c++/22604
+	* g++.dg/inherit/covariant14.C: New.
+
+2005-10-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23440
+	* g++.dg/parse/for1.C: New test.
+
+2005-10-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23446
+	* gfortran.dg/host_dummy_index_1.f90: New test.
+
+	PR fortran/21459
+	* gfortran.dg/automatic_char_len_2.f90: New test.
+
+	PR fortran/20866
+	* gfortran.dg/recursive_statement_functions.f90: New test.
+
+	PR fortran/20853
+	* gfortran.dg/assumed_size_dt_dummy.f90: New test.
+
+	PR fortran/20849
+	* gfortran.dg/external_initializer.f90: New test.
+
+	PR fortran/20837
+	* non_module_public.f90: New test.
+
+2005-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24386
+	* g++.dg/template/overload7.C: New.
+
+	PR c++/22551
+	* g++.dg/other/switch2.C: Remove expected warnings.
+
+	PR c++/21353
+	* g++.dg/template/defarg6.C: New.
+
+2005-10-17  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/24315
+	* gcc.target/i386/pr24315.c: New test.
+
+2005-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24389
+	* g++.dg/template/static21.C: New test.
+	* g++.dg/template/static21-a.cc: Likewise.
+
+2005-10-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/23959
+	* g++.dg/warn/Wswitch-default-1.C: New test.
+	* g++.dg/warn/Wswitch-default-2.C: New test.
+
+2005-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22173
+	* g++.dg/parse/template18.C: New test.
+	* g++.dg/template/nontype15.C: Likewise.
+
+2005-10-16  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/22273
+	* gfortran.dg/spec_expr_2.f90: New.
+
+2005-10-16  Hans-Peter Nilsson  <hp@axis.com>
+
+	* g++.dg/debug/debug3.C, g++.dg/ext/visibility/noPLT.C,
+	g++.dg/opt/vt1.C, g++.old-deja/g++.other/local-alloc1.C,
+	gcc.dg/20001009-1.c, gcc.dg/20010912-1.c, gcc.dg/20020122-4.c,
+	gcc.dg/20020415-1.c, gcc.dg/20020430-1.c, gcc.dg/20021018-1.c,
+	gcc.dg/20021023-1.c, gcc.dg/20021029-1.c, gcc.dg/20021116-1.c,
+	gcc.dg/20030120-1.c, gcc.dg/20030213-1.c, gcc.dg/20030225-1.c,
+	gcc.dg/20030702-1.c, gcc.dg/20030708-1.c, gcc.dg/20040311-2.c,
+	gcc.dg/inline-2.c: Guard test with { target fpic }.  Remove
+	previous target-specific skips and warning-message matches where
+	applicable.
+
+2005-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21347
+	* g++.dg/warn/Wctor-dtor.C: New test.
+
+2005-10-14  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/23439
+	* gcc.dg/for-1.c: New test.
+
+2005-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19565
+	* g++.dg/warn/Wconversion1.C: New test.
+	* g++.dg/ext/packed4.C: Compile with -w.
+	* g++.dg/opt/20050511-1.C: Likewise.
+	* g++.old-deja/g++.other/warn4.C: Compiler with -Wconversion.
+
+2005-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/boz_5.f90: New test.
+
+2005-10-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/22551
+	* g++.dg/other/switch2.C: New.
+
+	PR c++/23984
+	* g++.dg/init/ctor7.C: New.
+
+2005-10-13  David Edelsohn  <edelsohn@gnu.org>
+
+	PR c++/23730
+	* g++.dg/parse/crash32.C: New test.
+
+2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20721
+	* g++.dg/init/goto2.C: New test.
+
+	PR c++/22464
+	* g++.dg/template/crash/41.C: New test.
+
+	PR c++/22180
+	* g++.dg/template/crash40.C: New test.
+
+	PR c++/23694
+	* g++.dg/parse/friend5.C: New test.
+	
+	PR c++/23307
+	* g++.dg/template/crash38.C: New test.
+	
+	PR c++/22352
+	* g++.dg/template/friend38.C: New test.
+	
+	PR c++/22405
+	* g++.dg/template/crash39.C: New test.
+	
+2005-10-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/debug/dwarf2/dwarf-char1.c,
+	gcc.dg/debug/dwarf2/dwarf-char2.c,
+	gcc.dg/debug/dwarf2/dwarf-char3.c: Skip for mmix-*-*
+
+	* gcc.dg/intmax_t-1.c: Remove mmix-*-* from dg-error statement.
+
+2005-10-12  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* gcc.dg/dll-2.c: Add tests for warnings.
+	* gcc.dg/dll-3.c: Likewise.
+	* gcc.dg/dll-4.c: Likewise.
+
+	* g++.dg/ext/dllimport1.C: Adjust tests for warnings.
+	* g++.dg/ext/dllimport2.C: Likewise.
+	* g++.dg/ext/dllimport3.C: Likewise.
+	* g++.dg/ext/dllimport7.C: Likewise.
+	* g++.dg/ext/dllimport8.C: Likewise.
+	* g++.dg/ext/dllimport9.C: Likewise.
+
+2005-10-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24092
+	* gfortran.dg/derived_pointer_recursion.f90: New test.
+
+2005-10-12  Adrian Straetling <straetling@de.ibm.com>
+
+	* gcc.c-torture/execute/20051012-1.c: New test.
+
+2005-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18082
+	* gfortran.dg/automatic_char_len_1.f90: New test.
+
+2005-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20847
+	* gfortran.dg/save_common.f90: New test.
+
+	PR fortran/20856
+	* gfortran.dg/save_result.f90: New test.
+
+2005-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21592
+	* g++.dg/template/dependent-expr1.C: Add new expected error.
+	* g++.dg/template/dependent-expr2.C: Adjust error text.
+	* g++.dg/template/overload6.C: New.
+
+	PR c++/23797
+	* g++.dg/other/typename8.C: New.
+
+	PR c++/21117
+	* g++.dg/other/return1.C: New.
+
+2005-10-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/24052
+	* g++.dg/ext/label5.C: New.
+
+2005-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19964
+	* g++.dg/parse/crash31.C: New.
+
+2005-10-12  Razya Ladelsky <razya@il.ibm.com>
+
+        * g++.dg/ipa/ipa-1.c: New test.
+        * g++.dg/ipa/ipa-2.c: New test.
+        * g++.dg/ipa/ipa-3.c: New test.
+        * g++.dg/ipa/ipa-4.c: New test.
+        * g++.dg/ipa/ipa-5.c: New test.
+        * g++.dg/ipa/ipa.exp: New file.
+
+2005-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24207
+	* gfortran.dg/private_type_3.f90: New test.
+
+2005-10-11  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20786
+	gfortran.dg/aint_anint_1.f90: New test.
+
+2005-10-11  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/24313
+	gfortran.dg/csqrt.f: New test.
+
+2005-10-11  Ian Lance Taylor  <ian@airs.com>
+
+	PR c++/8057
+	* g++.dg/warn/noeffect7.C: New test.
+	* g++.dg/warn/noeffect2.C: Instantiate templates.
+	* g++.dg/warn/noeffect4.C: Instantiate template.  Add new error
+	and warning.
+
+2005-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21089
+	* g++.dg/init/float1.C: New test.
+
+	PR c++/24277
+	* g++.dg/init/member1.C: Tweak error markers.
+
+2005-10-11  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/24281
+	* gcc.dg/compat/struct-layout-1_generator.c (generate_fields):
+	Check for null pointer.
+
+2005-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21369
+	* g++.dg/parse/ret-type3.C: New test.
+
+2005-10-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/23946
+	* gcc.c-torture/compile/pr23946.c: New test.
+
+2005-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/mmx2.C: New test.
+
+2005-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24277
+	* g++.dg/template/static20.C: New test.
+
+	PR c++/24302
+	* g++.dg/warn/Wunused-12.C: New test.
+
+	PR c++/23437
+	* g++.dg/template/arg4.C: New test.
+
+2005-10-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/ucnid-2.c: XFAIL on Solaris.
+	* gcc.dg/ucnid-3.c: Likewise.
+	* gcc.dg/ucnid-4.c: Likewise.
+	* gcc.dg/tree-ssa/gen-vect-25.c (main): Return a value.
+	* g++.dg/other/ucnid-1.C: Likewise.
+	* gcc.dg/sparc-frame-1.c: New test.
+
+2005-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24139
+	* g++.dg/template/spec27.C: New test. 
+
+	PR c++/24275
+	* g++.dg/template/static19.C: New test.
+
+2005-10-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20050922-1.c: Skip on Solaris 2.5.1 to 9.
+	* g++.dg/warn/miss-format-1.C: XFAIL vscanf test on Solaris 2.5.1 to 8.
+
+2005-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/24136
+	* gfortran.fortran-torture/compile/pr24136.f: New test.
+
+2005-10-08  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c++/22172
+	* g++.dg/parse/crash30.C: New test.
+
+2005-10-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24227
+	* gcc.c-torture/compile/pr24227.c: New testcase.
+
+2005-10-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c (generate_fields):
+	Do not put aligned attributes on array elements.
+
+2005-10-07  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR testsuite/23611, PR testsuite/23615
+	* obj-c++.dg/bitfield-3.mm: Include standard headers instead of
+	writing prototypes of library functions by hand.
+	* obj-c++.dg/bitfield-4.mm: Likewise.
+	* obj-c++.dg/const-str-4.mm: Likewise.
+	* obj-c++.dg/encode-4.mm: Likewise.
+	* obj-c++.dg/encode-5.mm: Likewise.
+	* obj-c++.dg/encode-6.mm: Likewise.
+	* obj-c++.dg/gnu-runtime-3.mm: Likewise.
+	* obj-c++.dg/method-10.mm: Likewise.
+	* obj-c++.dg/method-17.mm: Likewise.
+	* obj-c++.dg/method-19.mm: Likewise.
+	* obj-c++.dg/try-catch-2.mm: Likewise.
+
+2005-10-06  Richard Henderson  <rth@redhat.com>
+
+	PR 24236
+	* gcc.dg/i386-sse-10.c: Add -fno-omit-frame-pointer.
+
+2005-10-06  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/20030125-1.c:  Correct.
+
+2005-10-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/24238
+	* g++.dg/tree-ssa/pr24238.C: New testcase.
+
+2005-10-07  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR 18568
+	* gfortran.dg/der_pointer_3.f90: New test.
+
+2005-10-05  Devang Patel  <dpatel@apple.com>
+
+	PR Debug/23205
+	* g++.dg/other/PR23205.C: New.
+	
+2005-10-05  Richard Henderson  <rth@redhat.com>
+
+	PR target/23602
+	* g++.dg/eh/omit-frame-pointer.C: Remove i?86 specific options.
+	* g++.dg/eh/omit-frame-pointer2.C: Likewise.
+
+2005-10-05  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/float-floor.c:  New.
+
 2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR tree-optimization/21419

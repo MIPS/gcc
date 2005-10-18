@@ -746,6 +746,13 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	  /* Update symbol character length according initializer.  */
 	  if (sym->ts.cl->length == NULL)
 	    {
+	      /* If there are multiple CHARACTER variables declared on
+		 the same line, we don't want them to share the same
+	        length.  */
+	      sym->ts.cl = gfc_get_charlen ();
+	      sym->ts.cl->next = gfc_current_ns->cl_list;
+	      gfc_current_ns->cl_list = sym->ts.cl;
+
 	      if (init->expr_type == EXPR_CONSTANT)
 		sym->ts.cl->length =
 			gfc_int_expr (init->value.character.length);
@@ -900,7 +907,7 @@ gfc_match_null (gfc_expr ** result)
    symbol table or the current interface.  */
 
 static match
-variable_decl (void)
+variable_decl (int elem)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_expr *initializer, *char_len;
@@ -944,8 +951,20 @@ variable_decl (void)
 	  cl->length = char_len;
 	  break;
 
+	/* Non-constant lengths need to be copied after the first
+	   element.  */
 	case MATCH_NO:
-	  cl = current_ts.cl;
+	  if (elem > 1 && current_ts.cl->length
+		&& current_ts.cl->length->expr_type != EXPR_CONSTANT)
+	    {
+	      cl = gfc_get_charlen ();
+	      cl->next = gfc_current_ns->cl_list;
+	      gfc_current_ns->cl_list = cl;
+	      cl->length = gfc_copy_expr (current_ts.cl->length);
+	    }
+	  else
+	    cl = current_ts.cl;
+
 	  break;
 
 	case MATCH_ERROR:
@@ -1855,6 +1874,20 @@ match_attr_spec (void)
 	  goto cleanup;
 	}
 
+      if ((d == DECL_PRIVATE || d == DECL_PUBLIC)
+	     && gfc_current_state () != COMP_MODULE)
+	{
+	  if (d == DECL_PRIVATE)
+	    attr = "PRIVATE";
+	  else
+	    attr = "PUBLIC";
+
+	  gfc_error ("%s attribute at %L is not allowed outside of a MODULE",
+		     attr, &seen_at[d]);
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
+
       switch (d)
 	{
 	case DECL_ALLOCATABLE:
@@ -1944,6 +1977,7 @@ gfc_match_data_decl (void)
 {
   gfc_symbol *sym;
   match m;
+  int elem;
 
   m = match_type_spec (&current_ts, 0);
   if (m != MATCH_YES)
@@ -1995,10 +2029,12 @@ ok:
   if (m == MATCH_NO && current_ts.type == BT_CHARACTER && old_char_selector)
     gfc_match_char (',');
 
-  /* Give the types/attributes to symbols that follow.  */
+  /* Give the types/attributes to symbols that follow. Give the element
+     a number so that repeat character length expressions can be copied.  */
+  elem = 1;
   for (;;)
     {
-      m = variable_decl ();
+      m = variable_decl (elem++);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)

@@ -103,34 +103,21 @@ Boston, MA 02110-1301, USA.  */
    to distinguish "reset the world" events from explicit MODIFY_EXPRs.  */
 #define opf_non_specific  (1 << 3)
 
-/* This structure maintain a sorted list of operands which is created by
-   parse_ssa_operand.  */
-struct opbuild_list_d GTY (())
-{
-  varray_type vars;     /* The VAR_DECLS tree.  */
-  varray_type uid;      /* The sort value for virtual symbols.  */
-  varray_type next;     /* The next index in the sorted list.  */
-  int first;            /* First element in list.  */
-  unsigned num;		/* Number of elements.  */
-};
-                                                                                
-#define OPBUILD_LAST     -1
-                                                                                
 
 /* Array for building all the def operands.  */
-static GTY (()) struct opbuild_list_d build_defs;
+static VEC(tree,heap) *build_defs;
 
 /* Array for building all the use operands.  */
-static GTY (()) struct opbuild_list_d build_uses;
+static VEC(tree,heap) *build_uses;
 
 /* Array for building all the v_may_def operands.  */
-static GTY (()) struct opbuild_list_d build_v_may_defs;
+static VEC(tree,heap) *build_v_may_defs;
 
 /* Array for building all the vuse operands.  */
-static GTY (()) struct opbuild_list_d build_vuses;
+static VEC(tree,heap) *build_vuses;
 
 /* Array for building all the v_must_def operands.  */
-static GTY (()) struct opbuild_list_d build_v_must_defs;
+static VEC(tree,heap) *build_v_must_defs;
 
 
 /* These arrays are the cached operand vectors for call clobbered calls.  */
@@ -159,221 +146,64 @@ static vuse_optype_p free_vuses = NULL;
 static maydef_optype_p free_maydefs = NULL;
 static mustdef_optype_p free_mustdefs = NULL;
 
-/* Initialize a virtual operand build LIST called NAME with NUM elements.  */
 
-static inline void
-opbuild_initialize_virtual (struct  opbuild_list_d *list, int num, 
-			   const char *name)
-{
-  list->first = OPBUILD_LAST;
-  list->num = 0;
-  VARRAY_TREE_INIT (list->vars, num, name);
-  VARRAY_UINT_INIT (list->uid, num, "List UID");
-  VARRAY_INT_INIT (list->next, num, "List NEXT");
-}
-
-
-/* Initialize a real operand build LIST called NAME with NUM elements.  */
-
-static inline void
-opbuild_initialize_real (struct opbuild_list_d *list, int num, const char *name)
-{
-  list->first = OPBUILD_LAST;
-  list->num = 0;
-  VARRAY_TREE_PTR_INIT (list->vars, num, name);
-  VARRAY_INT_INIT (list->next, num, "List NEXT");
-  /* The UID field is not needed since we sort based on the pointer value.  */
-  list->uid = NULL;
-}
-
-
-/* Free memory used in virtual operand build object LIST.  */
-
-static inline void
-opbuild_free (struct opbuild_list_d *list)
-{
-  list->vars = NULL;
-  list->uid = NULL;
-  list->next = NULL;
-}
-
-
-/* Number of elements in an opbuild list.  */
+/* Return the DECL_UID of the base varaiable of T.  */
 
 static inline unsigned
-opbuild_num_elems (struct opbuild_list_d *list)
+get_name_decl (tree t)
 {
-  return list->num;
+  if (TREE_CODE (t) != SSA_NAME)
+    return DECL_UID (t);
+  else
+    return DECL_UID (SSA_NAME_VAR (t));
 }
 
+/* Comparison function for qsort used in operand_build_sort_virtual.  */
 
-/* Add VAR to the real operand list LIST, keeping it sorted and avoiding
-   duplicates.  The actual sort value is the tree pointer value.  */
-
-static inline void
-opbuild_append_real (struct opbuild_list_d *list, tree *var)
+static int
+operand_build_cmp (const void *p, const void *q)
 {
-  int index;
+  tree e1 = *((const tree *)p);
+  tree e2 = *((const tree *)q);
+  unsigned int u1,u2;
 
+  u1 = get_name_decl (e1);
+  u2 = get_name_decl (e2);
+
+  /* We want to sort in ascending order.  They can never be equal.  */
 #ifdef ENABLE_CHECKING
-  /* Ensure the real operand doesn't exist already.  */
-  for (index = list->first; 
-       index != OPBUILD_LAST; 
-       index = VARRAY_INT (list->next, index))
-    gcc_assert (VARRAY_TREE_PTR (list->vars, index) != var);
+  gcc_assert (u1 != u2);
 #endif
-
-  /* First item in the list.  */
-  index = VARRAY_ACTIVE_SIZE (list->vars);
-  if (index == 0)
-    list->first = index;
-  else
-    VARRAY_INT (list->next, index - 1) = index;
-  VARRAY_PUSH_INT (list->next, OPBUILD_LAST);
-  VARRAY_PUSH_TREE_PTR (list->vars, var);
-  list->num++;
+  return (u1 > u2 ? 1 : -1);
 }
 
-
-/* Add VAR to the virtual operand list LIST, keeping it sorted and avoiding
-   duplicates.  The actual sort value is the DECL UID of the base variable.  */
+/* Sort the virtual operands in LIST from lowest DECL_UID to highest.  */
 
 static inline void
-opbuild_append_virtual (struct opbuild_list_d *list, tree var)
+operand_build_sort_virtual (VEC(tree,heap) *list)
 {
-  int index, curr, last;
-  unsigned int var_uid;
-
-  if (TREE_CODE (var) != SSA_NAME)
-    var_uid = DECL_UID (var);
-  else
-    var_uid = DECL_UID (SSA_NAME_VAR (var));
-
-  index = VARRAY_ACTIVE_SIZE (list->vars);
-
-  if (index == 0)
+  int num = VEC_length (tree, list);
+  if (num < 2)
+    return;
+  if (num == 2)
     {
-      VARRAY_PUSH_TREE (list->vars, var);
-      VARRAY_PUSH_UINT (list->uid, var_uid);
-      VARRAY_PUSH_INT (list->next, OPBUILD_LAST);
-      list->first = 0;
-      list->num = 1;
+      if (get_name_decl (VEC_index (tree, list, 0)) 
+	  > get_name_decl (VEC_index (tree, list, 1)))
+	{  
+	  /* Swap elements if in the wrong order.  */
+	  tree tmp = VEC_index (tree, list, 0);
+	  VEC_replace (tree, list, 0, VEC_index (tree, list, 1));
+	  VEC_replace (tree, list, 1, tmp);
+	}
       return;
     }
-
-  last = OPBUILD_LAST;
-  /* Find the correct spot in the sorted list.  */
-  for (curr = list->first; 
-       curr != OPBUILD_LAST; 
-       last = curr, curr = VARRAY_INT (list->next, curr))
-    {
-      if (VARRAY_UINT (list->uid, curr) > var_uid)
-        break;
-    }
-
-  if (last == OPBUILD_LAST)
-    {
-      /* First item in the list.  */
-      VARRAY_PUSH_INT (list->next, list->first);
-      list->first = index;
-    }
-  else
-    {
-      /* Don't enter duplicates at all.  */
-      if (VARRAY_UINT (list->uid, last) == var_uid)
-        return;
-      
-      VARRAY_PUSH_INT (list->next, VARRAY_INT (list->next, last));
-      VARRAY_INT (list->next, last) = index;
-    }
-  VARRAY_PUSH_TREE (list->vars, var);
-  VARRAY_PUSH_UINT (list->uid, var_uid);
-  list->num++;
+  /* There are 3 or more elements, call qsort.  */
+  qsort (VEC_address (tree, list), 
+	 VEC_length (tree, list), 
+	 sizeof (tree),
+	 operand_build_cmp);
 }
 
-
-/*  Return the first element index in LIST.  OPBUILD_LAST means there are no 
-    more elements.  */
-
-static inline int
-opbuild_first (struct opbuild_list_d *list)
-{
-  if (list->num > 0)
-    return list->first;
-  else
-    return OPBUILD_LAST;
-}
-
-
-/* Return the next element after PREV in LIST.  */
-
-static inline int
-opbuild_next (struct opbuild_list_d *list, int prev)
-{
-  return VARRAY_INT (list->next, prev);
-}
-
-
-/* Return the real element at index ELEM in LIST.  */
-
-static inline tree *
-opbuild_elem_real (struct opbuild_list_d *list, int elem)
-{
-  return VARRAY_TREE_PTR (list->vars, elem);
-}
-
-
-/* Return the virtual element at index ELEM in LIST.  */
-
-static inline tree
-opbuild_elem_virtual (struct opbuild_list_d *list, int elem)
-{
-  return VARRAY_TREE (list->vars, elem);
-}
-
-
-/* Return the virtual element uid at index ELEM in LIST.  */
-static inline unsigned int
-opbuild_elem_uid (struct opbuild_list_d *list, int elem)
-{
-  return VARRAY_UINT (list->uid, elem);
-}
-
-
-/* Reset an operand build list.  */
-
-static inline void
-opbuild_clear (struct opbuild_list_d *list)
-{
-  list->first = OPBUILD_LAST;
-  VARRAY_POP_ALL (list->vars);
-  VARRAY_POP_ALL (list->next);
-  if (list->uid)
-    VARRAY_POP_ALL (list->uid);
-  list->num = 0;
-}
-
-
-/* Remove ELEM from LIST where PREV is the previous element.  Return the next 
-   element.  */
-
-static inline int 
-opbuild_remove_elem (struct opbuild_list_d *list, int elem, int prev)
-{
-  int ret;
-  if (prev != OPBUILD_LAST)
-    {
-      gcc_assert (VARRAY_INT (list->next, prev) == elem);
-      ret = VARRAY_INT (list->next, prev) = VARRAY_INT (list->next, elem);
-    }
-  else
-    {
-      gcc_assert (list->first == elem);
-      ret = list->first = VARRAY_INT (list->next, elem);
-    }
-  list->num--;
-  return ret;
-}
 
 
 /*  Return true if the ssa operands cache is active.  */
@@ -401,11 +231,12 @@ static struct
 void
 init_ssa_operands (void)
 {
-  opbuild_initialize_real (&build_defs, 5, "build defs");
-  opbuild_initialize_real (&build_uses, 10, "build uses");
-  opbuild_initialize_virtual (&build_vuses, 25, "build_vuses");
-  opbuild_initialize_virtual (&build_v_may_defs, 25, "build_v_may_defs");
-  opbuild_initialize_virtual (&build_v_must_defs, 25, "build_v_must_defs");
+  build_defs = VEC_alloc (tree, heap, 5);
+  build_uses = VEC_alloc (tree, heap, 10);
+  build_vuses = VEC_alloc (tree, heap, 25);
+  build_v_may_defs = VEC_alloc (tree, heap, 25);
+  build_v_must_defs = VEC_alloc (tree, heap, 25);
+
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
   ops_active = true;
@@ -420,11 +251,11 @@ void
 fini_ssa_operands (void)
 {
   struct ssa_operand_memory_d *ptr;
-  opbuild_free (&build_defs);
-  opbuild_free (&build_uses);
-  opbuild_free (&build_v_must_defs);
-  opbuild_free (&build_v_may_defs);
-  opbuild_free (&build_vuses);
+  VEC_free (tree, heap, build_defs);
+  VEC_free (tree, heap, build_uses);
+  VEC_free (tree, heap, build_v_must_defs);
+  VEC_free (tree, heap, build_v_may_defs);
+  VEC_free (tree, heap, build_vuses);
   free_defs = NULL;
   free_uses = NULL;
   free_vuses = NULL;
@@ -543,8 +374,10 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
 
 
 #define FINALIZE_OPBUILD		build_defs
-#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_real (&build_defs, (I))
-#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_real (&build_defs, (I))
+#define FINALIZE_OPBUILD_BASE(I)	(tree *)VEC_index (tree,	\
+							   build_defs, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	(tree *)VEC_index (tree,	\
+							   build_defs, (I))
 #define FINALIZE_FUNC			finalize_ssa_def_ops
 #define FINALIZE_ALLOC			alloc_def
 #define FINALIZE_FREE			free_defs
@@ -563,7 +396,7 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
 static void
 finalize_ssa_defs (tree stmt)
 {
-  unsigned int num = opbuild_num_elems (&build_defs);
+  unsigned int num = VEC_length (tree, build_defs);
   /* There should only be a single real definition per assignment.  */
   gcc_assert ((stmt && TREE_CODE (stmt) != MODIFY_EXPR) || num <= 1);
 
@@ -571,12 +404,14 @@ finalize_ssa_defs (tree stmt)
      find the elements at the beginning that are the same as the vector.  */
 
   finalize_ssa_def_ops (stmt);
-  opbuild_clear (&build_defs);
+  VEC_truncate (tree, build_defs, 0);
 }
 
 #define FINALIZE_OPBUILD	build_uses
-#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_real (&build_uses, (I))
-#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_real (&build_uses, (I))
+#define FINALIZE_OPBUILD_BASE(I)	(tree *)VEC_index (tree,	\
+							   build_uses, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	(tree *)VEC_index (tree,	\
+							   build_uses, (I))
 #define FINALIZE_FUNC		finalize_ssa_use_ops
 #define FINALIZE_ALLOC		alloc_use
 #define FINALIZE_FREE		free_uses
@@ -602,25 +437,26 @@ finalize_ssa_uses (tree stmt)
 #ifdef ENABLE_CHECKING
   {
     unsigned x;
-    unsigned num = opbuild_num_elems (&build_uses);
+    unsigned num = VEC_length (tree, build_uses);
 
     /* If the pointer to the operand is the statement itself, something is
        wrong.  It means that we are pointing to a local variable (the 
        initial call to get_stmt_operands does not pass a pointer to a 
        statement).  */
     for (x = 0; x < num; x++)
-      gcc_assert (*(opbuild_elem_real (&build_uses, x)) != stmt);
+      gcc_assert (*((tree *)VEC_index (tree, build_uses, x)) != stmt);
   }
 #endif
   finalize_ssa_use_ops (stmt);
-  opbuild_clear (&build_uses);
+  VEC_truncate (tree, build_uses, 0);
 }
                                                                               
                                                                               
 /* Return a new v_may_def operand vector for STMT, comparing to OLD_OPS_P.  */                                                                                
 #define FINALIZE_OPBUILD	build_v_may_defs
-#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_virtual (&build_v_may_defs, (I))
-#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_uid (&build_v_may_defs, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	VEC_index (tree, build_v_may_defs, (I))
+#define FINALIZE_OPBUILD_BASE(I)	get_name_decl (VEC_index (tree,	\
+							build_v_may_defs, (I)))
 #define FINALIZE_FUNC		finalize_ssa_v_may_def_ops
 #define FINALIZE_ALLOC		alloc_maydef
 #define FINALIZE_FREE		free_maydefs
@@ -630,8 +466,7 @@ finalize_ssa_uses (tree stmt)
 #define FINALIZE_USE_PTR(PTR)	MAYDEF_OP_PTR (PTR)
 #define FINALIZE_CORRECT_USE	set_virtual_use_link
 #define FINALIZE_BASE_ZERO	0
-#define FINALIZE_BASE(VAR)	((TREE_CODE (VAR) == SSA_NAME)		\
-				? DECL_UID (SSA_NAME_VAR (VAR)) : DECL_UID ((VAR)))
+#define FINALIZE_BASE(VAR)	get_name_decl (VAR)
 #define FINALIZE_BASE_TYPE	unsigned
 #define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
 				(PTR)->def_var = (VAL);			\
@@ -655,24 +490,25 @@ static inline void
 cleanup_v_may_defs (void)
 {
   unsigned x, num;
-  num = opbuild_num_elems (&build_v_may_defs);
+  num = VEC_length (tree, build_v_may_defs);
 
   for (x = 0; x < num; x++)
     {
-      tree t = opbuild_elem_virtual (&build_v_may_defs, x);
+      tree t = VEC_index (tree, build_v_may_defs, x);
       if (TREE_CODE (t) != SSA_NAME)
 	{
 	  var_ann_t ann = var_ann (t);
 	  ann->in_v_may_def_list = 0;
 	}
     }
-  opbuild_clear (&build_v_may_defs);
+  VEC_truncate (tree, build_v_may_defs, 0);
 }                                                                             
 
                                                                               
 #define FINALIZE_OPBUILD	build_vuses
-#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_virtual (&build_vuses, (I))
-#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_uid (&build_vuses, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	VEC_index (tree, build_vuses, (I))
+#define FINALIZE_OPBUILD_BASE(I)	get_name_decl (VEC_index (tree,	\
+							build_vuses, (I)))
 #define FINALIZE_FUNC		finalize_ssa_vuse_ops
 #define FINALIZE_ALLOC		alloc_vuse
 #define FINALIZE_FREE		free_vuses
@@ -682,8 +518,7 @@ cleanup_v_may_defs (void)
 #define FINALIZE_USE_PTR(PTR)	VUSE_OP_PTR (PTR)
 #define FINALIZE_CORRECT_USE	set_virtual_use_link
 #define FINALIZE_BASE_ZERO	0
-#define FINALIZE_BASE(VAR)	((TREE_CODE (VAR) == SSA_NAME)		\
-				? DECL_UID (SSA_NAME_VAR (VAR)) : DECL_UID ((VAR)))
+#define FINALIZE_BASE(VAR)	get_name_decl (VAR)
 #define FINALIZE_BASE_TYPE	unsigned
 #define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
 				(PTR)->use_var = (VAL);			\
@@ -699,7 +534,7 @@ static void
 finalize_ssa_vuses (tree stmt)
 {
   unsigned num, num_v_may_defs;
-  int vuse_index;
+  unsigned vuse_index;
 
   /* Remove superfluous VUSE operands.  If the statement already has a
    V_MAY_DEF operation for a variable 'a', then a VUSE for 'a' is not
@@ -713,39 +548,35 @@ finalize_ssa_vuses (tree stmt)
   The VUSE <a_2> is superfluous because it is implied by the V_MAY_DEF
   operation.  */
 
-  num = opbuild_num_elems (&build_vuses);
-  num_v_may_defs = opbuild_num_elems (&build_v_may_defs);
+  num = VEC_length (tree, build_vuses);
+  num_v_may_defs = VEC_length (tree, build_v_may_defs);
 
   if (num > 0 && num_v_may_defs > 0)
     {
-      int last = OPBUILD_LAST;
-      vuse_index = opbuild_first (&build_vuses);
-      for ( ; vuse_index != OPBUILD_LAST; )
+      for (vuse_index = 0; vuse_index < VEC_length (tree, build_vuses); )
         {
 	  tree vuse;
-	  vuse = opbuild_elem_virtual (&build_vuses, vuse_index);
+	  vuse = VEC_index (tree, build_vuses, vuse_index);
 	  if (TREE_CODE (vuse) != SSA_NAME)
 	    {
 	      var_ann_t ann = var_ann (vuse);
 	      ann->in_vuse_list = 0;
 	      if (ann->in_v_may_def_list)
 	        {
-		  vuse_index = opbuild_remove_elem (&build_vuses, vuse_index, 
-						    last);
+		  VEC_ordered_remove (tree, build_vuses, vuse_index);
 		  continue;
 		}
 	    }
-	  last = vuse_index;
-	  vuse_index = opbuild_next (&build_vuses, vuse_index);
+	  vuse_index++;
 	}
     }
   else
     /* Clear out the in_list bits.  */
-    for (vuse_index = opbuild_first (&build_vuses);
-	 vuse_index != OPBUILD_LAST;
-	 vuse_index = opbuild_next (&build_vuses, vuse_index))
+    for (vuse_index = 0;
+	 vuse_index < VEC_length (tree, build_vuses);
+	 vuse_index++)
       {
-	tree t = opbuild_elem_virtual (&build_vuses, vuse_index);
+	tree t = VEC_index (tree, build_vuses, vuse_index);
 	if (TREE_CODE (t) != SSA_NAME)
 	  {
 	    var_ann_t ann = var_ann (t);
@@ -758,15 +589,16 @@ finalize_ssa_vuses (tree stmt)
   cleanup_v_may_defs ();
                                                                               
   /* Free the vuses build vector.  */
-  opbuild_clear (&build_vuses);
+  VEC_truncate (tree, build_vuses, 0);
 
 }
                                                                               
 /* Return a new v_must_def operand vector for STMT, comparing to OLD_OPS_P.  */
                                                                               
 #define FINALIZE_OPBUILD	build_v_must_defs
-#define FINALIZE_OPBUILD_ELEM(I)	opbuild_elem_virtual (&build_v_must_defs, (I))
-#define FINALIZE_OPBUILD_BASE(I)	opbuild_elem_uid (&build_v_must_defs, (I))
+#define FINALIZE_OPBUILD_ELEM(I)	VEC_index (tree, build_v_must_defs, (I))
+#define FINALIZE_OPBUILD_BASE(I)	get_name_decl (VEC_index (tree,	\
+							build_v_must_defs, (I)))
 #define FINALIZE_FUNC		finalize_ssa_v_must_def_ops
 #define FINALIZE_ALLOC		alloc_mustdef
 #define FINALIZE_FREE		free_mustdefs
@@ -776,8 +608,7 @@ finalize_ssa_vuses (tree stmt)
 #define FINALIZE_USE_PTR(PTR)	MUSTDEF_KILL_PTR (PTR)
 #define FINALIZE_CORRECT_USE	set_virtual_use_link
 #define FINALIZE_BASE_ZERO	0
-#define FINALIZE_BASE(VAR)	((TREE_CODE (VAR) == SSA_NAME)		\
-				? DECL_UID (SSA_NAME_VAR (VAR)) : DECL_UID ((VAR)))
+#define FINALIZE_BASE(VAR)	get_name_decl (VAR)
 #define FINALIZE_BASE_TYPE	unsigned
 #define FINALIZE_INITIALIZE(PTR, VAL, STMT)				\
 				(PTR)->def_var = (VAL);			\
@@ -798,7 +629,7 @@ finalize_ssa_v_must_defs (tree stmt)
      having subvars, and have num >1, you have hit a bug. */
 
   finalize_ssa_v_must_def_ops (stmt);
-  opbuild_clear (&build_v_must_defs);
+  VEC_truncate (tree, build_v_must_defs, 0);
 }
 
 
@@ -820,11 +651,11 @@ finalize_ssa_stmt_operands (tree stmt)
 static inline void
 start_ssa_stmt_operands (void)
 {
-  gcc_assert (opbuild_num_elems (&build_defs) == 0);
-  gcc_assert (opbuild_num_elems (&build_uses) == 0);
-  gcc_assert (opbuild_num_elems (&build_vuses) == 0);
-  gcc_assert (opbuild_num_elems (&build_v_may_defs) == 0);
-  gcc_assert (opbuild_num_elems (&build_v_must_defs) == 0);
+  gcc_assert (VEC_length (tree, build_defs) == 0);
+  gcc_assert (VEC_length (tree, build_uses) == 0);
+  gcc_assert (VEC_length (tree, build_vuses) == 0);
+  gcc_assert (VEC_length (tree, build_v_may_defs) == 0);
+  gcc_assert (VEC_length (tree, build_v_must_defs) == 0);
 }
 
 
@@ -833,7 +664,7 @@ start_ssa_stmt_operands (void)
 static inline void
 append_def (tree *def_p)
 {
-  opbuild_append_real (&build_defs, def_p);
+  VEC_safe_push (tree, heap, build_defs, (tree)def_p);
 }
 
 
@@ -842,7 +673,7 @@ append_def (tree *def_p)
 static inline void
 append_use (tree *use_p)
 {
-  opbuild_append_real (&build_uses, use_p);
+  VEC_safe_push (tree, heap, build_uses, (tree)use_p);
 }
 
 
@@ -861,7 +692,7 @@ append_v_may_def (tree var)
       ann->in_v_may_def_list = 1;
     }
 
-  opbuild_append_virtual (&build_v_may_defs, var);
+  VEC_safe_push (tree, heap, build_v_may_defs, (tree)var);
 }
 
 
@@ -881,7 +712,7 @@ append_vuse (tree var)
       ann->in_vuse_list = 1;
     }
 
-  opbuild_append_virtual (&build_vuses, var);
+  VEC_safe_push (tree, heap, build_vuses, (tree)var);
 }
 
 
@@ -893,11 +724,11 @@ append_v_must_def (tree var)
   unsigned i;
 
   /* Don't allow duplicate entries.  */
-  for (i = 0; i < opbuild_num_elems (&build_v_must_defs); i++)
-    if (var == opbuild_elem_virtual (&build_v_must_defs, i))
+  for (i = 0; i < VEC_length (tree, build_v_must_defs); i++)
+    if (var == VEC_index (tree, build_v_must_defs, i))
       return;
 
-  opbuild_append_virtual (&build_v_must_defs, var);
+  VEC_safe_push (tree, heap, build_v_must_defs, (tree)var);
 }
 
 
@@ -1027,6 +858,9 @@ build_ssa_operands (tree stmt)
   start_ssa_stmt_operands ();
 
   parse_ssa_operands (stmt);
+  operand_build_sort_virtual (build_vuses);
+  operand_build_sort_virtual (build_v_may_defs);
+  operand_build_sort_virtual (build_v_must_defs);
 
   finalize_ssa_stmt_operands (stmt);
 }
@@ -1095,9 +929,9 @@ copy_virtual_operands (tree dest, tree src)
   FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMUSTDEF)
     append_v_must_def (t);
 
-  if (opbuild_num_elems (&build_vuses) == 0
-      && opbuild_num_elems (&build_v_may_defs) == 0
-      && opbuild_num_elems (&build_v_must_defs) == 0)
+  if (VEC_length (tree, build_vuses) == 0
+      && VEC_length (tree, build_v_may_defs) == 0
+      && VEC_length (tree, build_v_must_defs) == 0)
     return;
 
   /* Now commit the virtual operands to this stmt.  */
@@ -1161,9 +995,9 @@ create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
   start_ssa_stmt_operands ();
   parse_ssa_operands (new_stmt);
 
-  for (x = 0; x < opbuild_num_elems (&build_vuses); x++)
+  for (x = 0; x < VEC_length (tree, build_vuses); x++)
     {
-      tree t = opbuild_elem_virtual (&build_vuses, x);
+      tree t = VEC_index (tree, build_vuses, x);
       if (TREE_CODE (t) != SSA_NAME)
 	{
 	  var_ann_t ann = var_ann (t);
@@ -1171,9 +1005,9 @@ create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
 	}
     }
    
-  for (x = 0; x < opbuild_num_elems (&build_v_may_defs); x++)
+  for (x = 0; x < VEC_length (tree, build_v_may_defs); x++)
     {
-      tree t = opbuild_elem_virtual (&build_v_may_defs, x);
+      tree t = VEC_index (tree, build_v_may_defs, x);
       if (TREE_CODE (t) != SSA_NAME)
 	{
 	  var_ann_t ann = var_ann (t);
@@ -1181,9 +1015,9 @@ create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
 	}
     }
   /* Remove any virtual operands that were found.  */
-  opbuild_clear (&build_v_may_defs);
-  opbuild_clear (&build_v_must_defs);
-  opbuild_clear (&build_vuses);
+  VEC_truncate (tree, build_v_may_defs, 0);
+  VEC_truncate (tree, build_v_must_defs, 0);
+  VEC_truncate (tree, build_vuses, 0);
 
   /* For each VDEF on the original statement, we want to create a
      VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
