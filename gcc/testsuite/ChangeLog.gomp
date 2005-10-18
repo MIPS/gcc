@@ -1,5 +1,10 @@
 2005-10-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* gcc.dg/gomp/appendix-a/a.24.1.c: Fix expected messages,
+	for real now.
+
+2005-10-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* gcc.dg/gomp/appendix-a/a.24.1.c: Fix expected messages.
 
 2005-10-18  Richard Henderson  <rth@redhat.com>
