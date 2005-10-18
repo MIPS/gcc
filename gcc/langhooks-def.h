@@ -70,7 +70,6 @@ extern tree lhd_expr_size (tree);
 extern size_t lhd_tree_size (enum tree_code);
 extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
 extern tree lhd_expr_to_decl (tree, bool *, bool *, bool *);
-extern bool lhd_omp_privatize_by_reference (tree);
 
 /* Declarations of default tree inlining hooks.  */
 extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
@@ -240,7 +239,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
 #define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
-#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE lhd_omp_privatize_by_reference
+#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE hook_bool_tree_false
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \

@@ -1,3 +1,10 @@
+2005-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* langhooks.c (lhd_omp_privatize_by_reference): Remove.
+	* langhooks-def.h (lhd_omp_privatize_by_reference): Remove prototype.
+	(LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE): Use hook_bool_tree_false
+	instead.
+
 2005-10-18  Richard Henderson  <rth@redhat.com>
 
 	* c-omp.c (c_finish_omp_critical): Use make_node and accessors
