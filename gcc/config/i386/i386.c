@@ -7247,6 +7247,19 @@ print_operand (FILE *file, rtx x, int code)
       fprintf (file, "0x%08lx", l);
     }
 
+  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == SDmode)
+    {
+      REAL_VALUE_TYPE r;
+      long l;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+      REAL_VALUE_TO_TARGET_DECIMAL32 (r, l);
+
+      if (ASSEMBLER_DIALECT == ASM_ATT)
+	putc ('$', file);
+      fprintf (file, "0x%08lx", l);
+    }
+
   /* These float cases don't actually occur as immediate operands.  */
   else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
     {

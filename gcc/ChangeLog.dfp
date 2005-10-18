@@ -1,3 +1,11 @@
+2005-10-18  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.md (*pushsd2): New pattern.
+	(*movsd_constant): Likewise.
+	* config/i386/i386.c (print_operand): Handle SDmode constants.
+	* config/i386/i386.h (ALIGN_MODE_128): TDmode handling is subsumed
+	by SSE_REG_MODE_P.
+
 2005-10-14  Ben Elliston  <bje@au.ibm.com>
 
 	* config/dfp-bit.h (CONTEXT_INIT): Choose the right DEC_INIT macro
