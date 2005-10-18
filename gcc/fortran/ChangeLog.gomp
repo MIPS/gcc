@@ -1,3 +1,9 @@
+2005-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (gfc_match_omp_clauses): For max/min/iand/ior/ieor,
+	look up symbol if it exists, use its name instead and, if it is not
+	INTRINSIC, issue diagnostics.
+
 2005-10-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* parse.c (parse_omp_do): Handle implied end do properly.

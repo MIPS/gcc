@@ -242,6 +242,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	  && gfc_match ("reduction ( ") == MATCH_YES)
 	{
 	  int reduction = OMP_LIST_NUM;
+	  char buffer[GFC_MAX_SYMBOL_LEN + 1];
 	  if (gfc_match_char ('+') == MATCH_YES)
 	    reduction = OMP_LIST_PLUS;
 	  else if (gfc_match_char ('*') == MATCH_YES)
@@ -256,16 +257,31 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	    reduction = OMP_LIST_EQV;
 	  else if (gfc_match (".neqv.") == MATCH_YES)
 	    reduction = OMP_LIST_NEQV;
-	  else if (gfc_match ("max") == MATCH_YES)
-	    reduction = OMP_LIST_MAX;
-	  else if (gfc_match ("min") == MATCH_YES)
-	    reduction = OMP_LIST_MIN;
-	  else if (gfc_match ("iand") == MATCH_YES)
-	    reduction = OMP_LIST_IAND;
-	  else if (gfc_match ("ior") == MATCH_YES)
-	    reduction = OMP_LIST_IOR;
-	  else if (gfc_match ("ieor") == MATCH_YES)
-	    reduction = OMP_LIST_IEOR;
+	  else if (gfc_match_name (buffer) == MATCH_YES)
+	    {
+	      gfc_symbol *sym;
+	      const char *n = buffer;
+
+	      gfc_find_symbol (buffer, NULL, 1, &sym);
+	      if (sym != NULL)
+		{
+		  if (!sym->attr.intrinsic)
+		    gfc_error_now ("%s is not INTRINSIC procedure name at %C",
+				   buffer);
+		  else
+		    n = sym->name;
+		}
+	      if (strcmp (n, "max") == 0)
+		reduction = OMP_LIST_MAX;
+	      else if (strcmp (n, "min") == 0)
+		reduction = OMP_LIST_MIN;
+	      else if (strcmp (n, "iand") == 0)
+		reduction = OMP_LIST_IAND;
+	      else if (strcmp (n, "ior") == 0)
+		reduction = OMP_LIST_IOR;
+	      else if (strcmp (n, "ieor") == 0)
+		reduction = OMP_LIST_IEOR;
+	    }
 	  if (reduction != OMP_LIST_NUM
 	      && gfc_match_omp_variable_list (" :", &c->lists[reduction],
 					      false)
