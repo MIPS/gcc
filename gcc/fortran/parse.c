@@ -2288,6 +2288,22 @@ parse_omp_do (gfc_statement omp_st)
     }
 
   parse_do_block ();
+  if (gfc_statement_label != NULL
+      && gfc_state_stack->previous != NULL
+      && gfc_state_stack->previous->state == COMP_DO
+      && gfc_state_stack->previous->ext.end_do_label == gfc_statement_label)
+    {
+      /* In
+         DO 100 I=1,10
+           !$OMP DO
+             DO J=1,10
+             ...
+             100 CONTINUE
+         there should be no !$OMP END DO.  */
+      pop_state ();
+      return ST_IMPLIED_ENDDO;
+    }
+
   check_do_closure ();
   pop_state ();
 
@@ -2599,6 +2615,8 @@ parse_executable (gfc_statement st)
 	case ST_OMP_DO:
 	case ST_OMP_PARALLEL_DO:
 	  st = parse_omp_do (st);
+	  if (st == ST_IMPLIED_ENDDO)
+	    return st;
 	  continue;
 
 	case ST_OMP_ATOMIC:

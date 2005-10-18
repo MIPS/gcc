@@ -1,3 +1,9 @@
+2005-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* parse.c (parse_omp_do): Handle implied end do properly.
+	(parse_executable): If parse_omp_do returned ST_IMPLIED_ENDDO,
+	return it instead of continuing.
+
 2005-10-18  Richard Henderson  <rth@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_critical): Update for changed

@@ -1,3 +1,8 @@
+2005-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/appendix-a/a.24.1.f90: Add dg-error lines.
+	* gfortran.dg/gomp/appendix-a/a.6.2.f90: Likewise.
+
 2005-10-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/gomp/appendix-a/a.24.1.c: Fix expected messages,

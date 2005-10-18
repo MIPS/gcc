@@ -17,6 +17,9 @@
                !       - Z is listed in SHARED clause
       X=1      ! O.K. - X is THREADPRIVATE
       Z(I) = Y ! Error - cannot reference I or Y here
+! { dg-error "'i' not specified" "" { target *-*-* } 19 } */
+! { dg-error "enclosing parallel" "" { target *-*-* } 13 } */
+! { dg-error "'y' not specified" "" { target *-*-* } 19 }  */
 !$OMP DO firstprivate(y)
       DO I = 1,10
         Z(I) = Y ! O.K. - I is the loop iteration variable

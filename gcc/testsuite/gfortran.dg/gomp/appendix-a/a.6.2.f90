@@ -11,5 +11,5 @@
         DO 100 J = 1,10
         CALL WORK(I,J)
         100      CONTINUE
-!$OMP ENDDO
+!$OMP ENDDO	! { dg-error "Unexpected ..OMP END DO statement" }
         END SUBROUTINE A6_WRONG
