@@ -554,6 +554,11 @@ void set_flags_from_O (unsigned int cmdline)
     {
       if (cmdline)
         flag_inline_functions = 1;
+      /* APPLE LOCAL begin 4203984 */
+#ifdef TARGET_POWERPC
+      flag_rename_registers = 1;
+#endif
+      /* APPLE LOCAL end 4203984 */
       flag_unswitch_loops = 1;
       flag_gcse_after_reload = 1;
     }
