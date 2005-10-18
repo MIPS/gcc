@@ -1,3 +1,8 @@
+2005-10-18  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp: Pass -mpreferred-stack-boundary=4
+	when passing -Os on x86 and x86-64 targets.
+
 2005-10-11  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/struct-layout-1.c: Use _Decimal64 as the type of the
