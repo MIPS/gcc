@@ -1,3 +1,15 @@
+2005-10-17  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4203984
+	* ifcvt.c (find_if_case_1):  Adjust cost test for ppc.
+	(find_if_case_2):  Ditto.
+	* regrename.c (regrename_optimize):  Change to do more
+	renaming.
+	* opts.c (set_flags_from_O):  Reenable regrename at -O3.
+	* cfgloopmanip.c (create_loop_notes):  Add code to move
+	code logically inside a loop but physically outside,
+	to a place physically inside.
+
 2005-10-14  Eric Christopher  <echristo@apple.com>
 
 	Radar 4302779
