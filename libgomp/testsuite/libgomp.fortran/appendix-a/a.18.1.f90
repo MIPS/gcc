@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-options "-ffixed-form" }
       REAL FUNCTION FN1(I)
         INTEGER I
         FN1 = I * 2.0
@@ -39,10 +40,9 @@
         ELSE
             NEIGHBOR = IAM - 1
         ENDIF
-! FIXME: Add this flush once PR 24414 is fixed.
-!        DO WHILE (ISYNC(NEIGHBOR) .EQ. 0)
-!!$OMP FLUSH(ISYNC)
-!        END DO
+        DO WHILE (ISYNC(NEIGHBOR) .EQ. 0)
+!$OMP FLUSH(ISYNC)
+        END DO
 !$OMP FLUSH(WORK, ISYNC)
         RESULT(IAM) = FN2(WORK(NEIGHBOR), WORK(IAM))
 !$OMP END PARALLEL

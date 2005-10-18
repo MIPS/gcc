@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-options "-ffixed-form" }
         MODULE DATA
         USE OMP_LIB, ONLY: OMP_NEST_LOCK_KIND
         TYPE LOCKED_PAIR
