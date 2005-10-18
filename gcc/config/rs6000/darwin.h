@@ -162,9 +162,17 @@ do {									\
    mcpu=G5:ppc970;				\
    :ppc}}"
 
+/* APPLE LOCAL begin 4271575 */
+/* crt2.o is at least partially required for 10.3.x and earlier.  */
+#define DARWIN_CRT2_SPEC \
+  "%{!m64:%:version-compare(!> 10.4 mmacosx-version-min= crt2.o%s)}"
+/* APPLE LOCAL end 4271575 */
+
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
   { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  /* APPLE LOCAL 4271575 */			\
+  { "darwin_crt2", DARWIN_CRT2_SPEC },		\
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
 
 /* Output a .machine directive.  */

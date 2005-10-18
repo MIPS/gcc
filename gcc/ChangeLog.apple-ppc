@@ -1,3 +1,13 @@
+2005-10-11  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4271575
+	* config/rs6000/darwin.h (DARWIN_CRT2_SPEC): New.
+	(SUBTARGET_EXTRA_SPECS): Define %(darwin_crt2).
+	* config/i386/darwin.h (SUBTARGET_EXTRA_SPECS): Define %(darwin_crt2)
+	as empty.
+	* config/darwin.h (STARTFILE_SPEC): Use %(darwin_crt2) to possibly
+	link in crt2.o.
+	
 2005-10-17  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4203984

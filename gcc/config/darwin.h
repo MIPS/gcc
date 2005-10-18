@@ -469,10 +469,7 @@ do {					\
 
 /* APPLE LOCAL end 4276161 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
-/* We don't want anything to do with crt2.o in the 64-bit case;
-   testing the PowerPC-specific -m64 flag here is a little irregular,
-   but it's overkill to make copies of this spec for each target
-   arch.  */
+/* APPLE LOCAL begin 4271575 */
 
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC  \
@@ -480,11 +477,12 @@ do {					\
      %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
                      %{!static:%{object:-lgcrt0.o} \
                                %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o %{!m64: crt2.o%s}}}}} \
+                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}} \
                 %{!pg:%{static:-lcrt0.o} \
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o %{!m64: crt2.o%s}}}}}}}"
+                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}"
+/* APPLE LOCAL end 4271575 */
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
