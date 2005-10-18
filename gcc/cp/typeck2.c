@@ -695,16 +695,26 @@ digest_init (tree type, tree init, tree* tail)
 	      || (element && TREE_CODE (element) == STRING_CST)))
 	{
 	  tree string = element ? element : init;
+	  /* APPLE LOCAL begin pascal strings */
+	  bool pascal_p
+	    = (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+	       == unsigned_char_type_node);
+	  /* APPLE LOCAL end pascal strings */
 
 	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       != char_type_node)
+	      /* APPLE LOCAL pascal strings */
+	      && !pascal_p
 	      && TYPE_PRECISION (typ1) == BITS_PER_UNIT)
 	    {
 	      error ("char-array initialized from wide string");
 	      return error_mark_node;
 	    }
-	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
+          /* APPLE LOCAL begin pascal strings */
+	  if (((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       == char_type_node)
+	      || pascal_p)	       
+	      /* APPLE LOCAL end pascal strings */
 	      && TYPE_PRECISION (typ1) != BITS_PER_UNIT)
 	    {
 	      error ("int-array initialized from non-wide string");
@@ -721,7 +731,13 @@ digest_init (tree type, tree init, tree* tail)
 		 because it's ok to ignore the terminating null char that is
 		 counted in the length of the constant, but in C++ this would
 		 be invalid.  */
-	      if (size < TREE_STRING_LENGTH (string))
+	      /* APPLE LOCAL begin pascal strings */
+	      /* For Pascal strings, though, ignoring the terminating NUL
+		 is still cool.  */
+	      if (size < (pascal_p
+			  ? TREE_STRING_LENGTH (string) - 1
+			  : TREE_STRING_LENGTH (string)))
+	      /* APPLE LOCAL end pascal strings */
 		pedwarn ("initializer-string for array of chars is too long");
 	    }
 	  return string;
@@ -780,7 +796,8 @@ digest_init (tree type, tree init, tree* tail)
 	    }
 	  return process_init_constructor (type, init, (tree *)0);
 	}
-      else if (can_convert_arg (type, TREE_TYPE (init), init)
+      /* APPLE LOCAL radar 4187916 */
+      else if (can_convert_arg (type, TREE_TYPE (init), init, LOOKUP_NORMAL)
 	       || TYPE_NON_AGGREGATE_CLASS (type))
 	/* These are never initialized from multiple constructor elements.  */;
       else if (tail != 0)
@@ -789,7 +806,15 @@ digest_init (tree type, tree init, tree* tail)
 	  return process_init_constructor (type, 0, tail);
 	}
 
-      if (code != ARRAY_TYPE)
+      /* APPLE LOCAL begin AltiVec */
+      if (code == VECTOR_TYPE
+	  && TREE_CODE (init) == CONSTRUCTOR
+	  && TREE_CODE (TREE_TYPE (init)) == VECTOR_TYPE
+	  && vector_types_convertible_p (TREE_TYPE (init), type)
+	  && TREE_CONSTANT (init))
+        return build_vector (type, CONSTRUCTOR_ELTS (init));
+      else if (code != ARRAY_TYPE)
+      /* APPLE LOCAL end AltiVec */
 	{
 	  int flags = LOOKUP_NORMAL;
 	  /* Initialization from { } is copy-initialization.  */
@@ -1123,7 +1148,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
   result = build_constructor (type, nreverse (members));
   if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == NULL_TREE)
-    complete_array_type (type, result, /*do_default=*/0);
+    cp_complete_array_type (&TREE_TYPE (result), result, /*do_default=*/0);
   if (init)
     TREE_HAS_CONSTRUCTOR (result) = TREE_HAS_CONSTRUCTOR (init);
   if (allconstant)

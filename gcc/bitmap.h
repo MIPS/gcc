@@ -159,15 +159,9 @@ extern unsigned bitmap_first_set_bit (bitmap);
 /* Allocate a gc'd bitmap.  */
 #define BITMAP_GGC_ALLOC() bitmap_gc_alloc ()
 
-/* Allocate a bitmap with xmalloc.  */
-#define BITMAP_XMALLOC() BITMAP_ALLOC (NULL)
-
 /* Do any cleanup needed on a bitmap when it is no longer used.  */
 #define BITMAP_FREE(BITMAP)			\
       	((void)(bitmap_obstack_free (BITMAP), (BITMAP) = NULL))
-
-/* Do any cleanup needed on an xmalloced bitmap when it is no longer used.  */
-#define BITMAP_XFREE(BITMAP) BITMAP_FREE (BITMAP)
 
 /* Iterator for bitmaps.  */
 
@@ -555,5 +549,10 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
 				&(BITNUM)); 				\
        bmp_iter_and_compl (&(ITER), &(BITNUM));				\
        bmp_iter_next (&(ITER), &(BITNUM)))
+
+/* APPLE LOCAL begin loops-to-memset  */
+/* True if MAP is an empty bitmap.  */
+#define bitmap_empty_p(MAP) (!(MAP)->first)
+/* APPLE LOCAL end loops-to-memset  */
 
 #endif /* GCC_BITMAP_H */

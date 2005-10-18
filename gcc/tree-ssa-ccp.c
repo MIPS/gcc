@@ -1060,9 +1060,7 @@ visit_assignment (tree stmt, tree *output_p)
       val = evaluate_stmt (stmt);
 
   /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
-     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
-     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
-     aggregate type is valid.
+     value to be a VIEW_CONVERT_EXPR of the old constant value.
 
      ??? Also, if this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
@@ -1073,10 +1071,18 @@ visit_assignment (tree stmt, tree *output_p)
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
       {
-	val.const_val = build1 (VIEW_CONVERT_EXPR,
-				TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-				val.const_val);
+	tree w = fold (build1 (VIEW_CONVERT_EXPR,
+			       TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			       val.const_val));
+
 	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+	if (w && is_gimple_min_invariant (w))
+	  val.const_val = w;
+	else
+	  {
+	    val.lattice_val = VARYING;
+	    val.const_val = NULL;
+	  }
       }
 
     if (val.lattice_val == CONSTANT
@@ -1285,9 +1291,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < field_size; i++)
 	mask |= ((HOST_WIDE_INT) 1) << i;
 
-      wide_val = build (BIT_AND_EXPR, TREE_TYPE (var), val, 
-			fold_convert (TREE_TYPE (var),
-				      build_int_cst (NULL_TREE, mask)));
+      wide_val = build2 (BIT_AND_EXPR, TREE_TYPE (var), val, 
+			 build_int_cst (TREE_TYPE (var), mask));
     }
   else
     {
@@ -1297,9 +1302,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < (var_size - field_size); i++)
 	mask |= ((HOST_WIDE_INT) 1) << (var_size - i - 1);
 
-      wide_val = build (BIT_IOR_EXPR, TREE_TYPE (var), val,
-			fold_convert (TREE_TYPE (var),
-				      build_int_cst (NULL_TREE, mask)));
+      wide_val = build2 (BIT_IOR_EXPR, TREE_TYPE (var), val,
+			 build_int_cst (TREE_TYPE (var), mask));
     }
 
   return fold (wide_val);
@@ -1961,7 +1965,7 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Try to use the dataflow information gathered by the CCP process.  */
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
 
   memset (strlen_val, 0, sizeof (strlen_val));
   for (i = 0, a = arglist;
@@ -1974,7 +1978,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 	  strlen_val[i] = NULL_TREE;
       }
 
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
 
   result = NULL_TREE;
   switch (DECL_FUNCTION_CODE (callee))

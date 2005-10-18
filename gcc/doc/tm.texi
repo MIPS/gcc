@@ -31,7 +31,6 @@ through the macros defined in the @file{.h} file.
 * Per-Function Data::   Defining data structures for per-function information.
 * Storage Layout::      Defining sizes and alignments of data.
 * Type Layout::         Defining sizes and properties of basic user data types.
-* Escape Sequences::    Defining the value of target character escape sequences
 * Registers::           Naming and describing the hardware registers.
 * Register Classes::    Defining the classes of hardware registers.
 * Stack and Calling::   Defining which way the stack grows and by how much.
@@ -413,20 +412,10 @@ while the @file{config/rs6000/eabiaix.h} target file defines
 @end smallexample
 @end defmac
 
-@defmac LINK_LIBGCC_SPECIAL
-Define this macro if the driver program should find the library
-@file{libgcc.a} itself and should not pass @option{-L} options to the
-linker.  If you do not define this macro, the driver program will pass
-the argument @option{-lgcc} to tell the linker to do the search and will
-pass @option{-L} options to it.
-@end defmac
-
 @defmac LINK_LIBGCC_SPECIAL_1
 Define this macro if the driver program should find the library
 @file{libgcc.a}.  If you do not define this macro, the driver program will pass
 the argument @option{-lgcc} to tell the linker to do the search.
-This macro is similar to @code{LINK_LIBGCC_SPECIAL}, except that it does
-not affect @option{-L} options.
 @end defmac
 
 @defmac LINK_GCC_C_SEQUENCE_SPEC
@@ -860,7 +849,7 @@ checking the state of the option (documentation is elided for brevity).
 
 @smallexample
 [chip.c]
-char *chip_alu = ""; /* Specify default here.  */
+char *chip_alu = ""; /* @r{Specify default here.}  */
 
 [chip.h]
 extern char *chip_alu;
@@ -1646,6 +1635,36 @@ the target machine.  If you don't define this, the default is two
 words.
 @end defmac
 
+@defmac LIBGCC2_LONG_DOUBLE_TYPE_SIZE
+Define this macro if @code{LONG_DOUBLE_TYPE_SIZE} is not constant or
+if you want routines in @file{libgcc2.a} for a size other than
+@code{LONG_DOUBLE_TYPE_SIZE}.  If you don't define this, the
+default is @code{LONG_DOUBLE_TYPE_SIZE}.
+@end defmac
+
+@defmac LIBGCC2_HAS_DF_MODE
+Define this macro if neither @code{LIBGCC2_DOUBLE_TYPE_SIZE} nor 
+@code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is
+@code{DFmode} but you want @code{DFmode} routines in @file{libgcc2.a}
+anyway.  If you don't define this and either @code{LIBGCC2_DOUBLE_TYPE_SIZE}
+or @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is 64 then the default is 1,
+otherwise it is 0.
+@end defmac
+
+@defmac LIBGCC2_HAS_XF_MODE
+Define this macro if @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is not 
+@code{XFmode} but you want @code{XFmode} routines in @file{libgcc2.a}
+anyway.  If you don't define this and @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE}
+is 80 then the default is 1, otherwise it is 0.
+@end defmac
+
+@defmac LIBGCC2_HAS_TF_MODE
+Define this macro if @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is not 
+@code{TFmode} but you want @code{TFmode} routines in @file{libgcc2.a}
+anyway.  If you don't define this and @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE}
+is 128 then the default is 1, otherwise it is 0.
+@end defmac
+
 @defmac TARGET_FLT_EVAL_METHOD
 A C expression for the value for @code{FLT_EVAL_METHOD} in @file{float.h},
 assuming, if applicable, that the floating-point control word is in its
@@ -1815,42 +1834,6 @@ zero.  If these entries must be padded (say, to preserve the alignment
 specified by @code{TARGET_VTABLE_ENTRY_ALIGN}), set this to the number
 of words in each data entry.
 @end defmac
-
-@node Escape Sequences
-@section Target Character Escape Sequences
-@cindex escape sequences
-
-By default, GCC assumes that the C character escape sequences and other
-characters take on their ASCII values for the target.  If this is not
-correct, you must explicitly define all of the macros below.  All of
-them must evaluate to constants; they are used in @code{case}
-statements.
-
-@findex TARGET_BELL
-@findex TARGET_BS
-@findex TARGET_CR
-@findex TARGET_DIGIT0
-@findex TARGET_ESC
-@findex TARGET_FF
-@findex TARGET_NEWLINE
-@findex TARGET_TAB
-@findex TARGET_VT
-@multitable {@code{TARGET_NEWLINE}} {Escape} {ASCII character}
-@item Macro                 @tab Escape             @tab ASCII character
-@item @code{TARGET_BELL}    @tab @kbd{\a}           @tab @code{07}, @code{BEL}
-@item @code{TARGET_BS}      @tab @kbd{\b}           @tab @code{08}, @code{BS}
-@item @code{TARGET_CR}      @tab @kbd{\r}           @tab @code{0D}, @code{CR}
-@item @code{TARGET_DIGIT0}  @tab @kbd{0}            @tab @code{30}, @code{ZERO}
-@item @code{TARGET_ESC}     @tab @kbd{\e}, @kbd{\E} @tab @code{1B}, @code{ESC}
-@item @code{TARGET_FF}      @tab @kbd{\f}           @tab @code{0C}, @code{FF}
-@item @code{TARGET_NEWLINE} @tab @kbd{\n}           @tab @code{0A}, @code{LF}
-@item @code{TARGET_TAB}     @tab @kbd{\t}           @tab @code{09}, @code{HT}
-@item @code{TARGET_VT}      @tab @kbd{\v}           @tab @code{0B}, @code{VT}
-@end multitable
-
-@noindent
-Note that the @kbd{\e} and @kbd{\E} escapes are GNU extensions, not
-part of the C standard.
 
 @node Registers
 @section Register Usage
@@ -2929,6 +2912,18 @@ on the stack, e.g., by @code{alloca}.
 The default value for this macro is @code{STACK_POINTER_OFFSET} plus the
 length of the outgoing arguments.  The default is correct for most
 machines.  See @file{function.c} for details.
+@end defmac
+
+@defmac INITIAL_FRAME_ADDRESS_RTX
+A C expression whose value is RTL representing the address of the initial
+ stack frame. This address is passed to @code{RETURN_ADDR_RTX} and 
+@code{DYNAMIC_CHAIN_ADDRESS}.
+If you don't define this macro, the default is to return 
+@code{hard_frame_pointer_rtx}.
+This default is usually correct unless @code{-fomit-frame-pointer} is in 
+effect.
+Define this macro in order to make @code{__builtin_frame_address (0)} and 
+@code{__builtin_return_address (0)} work even in absence of a hard frame pointer.
 @end defmac
 
 @defmac DYNAMIC_CHAIN_ADDRESS (@var{frameaddr})
@@ -4837,7 +4832,7 @@ This macro should evaluate to @code{true} if the integer comparison
 functions (like @code{__cmpdi2}) return 0 to indicate that the first
 operand is smaller than the second, 1 to indicate that they are equal,
 and 2 to indicate that the first operand is greater than the second.
-If this macro evalutes to @code{false} the comparison functions return
+If this macro evaluates to @code{false} the comparison functions return
 @minus{}1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
 in @file{libgcc.a}, you do not need to define this macro.
 @end defmac
@@ -5537,7 +5532,7 @@ used to set a chunk of memory to a constant value, or whether some other
 mechanism will be used.  Used by @code{__builtin_memset} when storing
 values other than constant zero and by @code{__builtin_strcpy} when
 when called with a constant source string.
-Defaults to to 1 if @code{move_by_pieces_ninsns} returns less
+Defaults to 1 if @code{move_by_pieces_ninsns} returns less
 than @code{MOVE_RATIO}.
 @end defmac
 
@@ -9223,7 +9218,7 @@ arguments of @samp{#pragma pack}.
 
 @defmac TARGET_DEFAULT_PACK_STRUCT
 If your target requires a structure packing default other than 0 (meaning
-the machine default), define this macro the the necessary value (in bytes).
+the machine default), define this macro to the necessary value (in bytes).
 This must be a value that would also valid to be used with
 @samp{#pragma pack()} (that is, a small power of two).
 @end defmac
@@ -9591,6 +9586,14 @@ many recent processors which implement a policy of ``relaxed,''
 ``weak,'' or ``release'' memory consistency, such as Alpha, PowerPC,
 and ia64.  The default is @code{false}.
 @end deftypefn
+
+@c APPLE LOCAL begin mainline 2005-04-14
+@deftypefn {Target Hook} const char *TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN (tree @var{typelist}, tree @var{funcdecl}, tree @var{val})
+If defined, this macro returns the diagnostic message when it is
+illegal to pass argument @var{val} to function @var{funcdecl}
+with prototype @var{typelist}.
+@end deftypefn
+@c APPLE LOCAL end mainline 2005-04-14
 
 @defmac TARGET_USE_JCR_SECTION
 This macro determines whether to use the JCR section to register Java

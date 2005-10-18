@@ -249,6 +249,15 @@ struct function GTY(())
      needed by inner routines.  */
   rtx x_arg_pointer_save_area;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Nonzero if this is an all-assembly function.  */
+  unsigned int cw_asm_function : 1;
+  /* Nonzero if we don't want to emit any return instructions. */
+  unsigned int cw_asm_noreturn : 1;
+  /* If nonzero, use this as the explicitly-defined frame size.  */
+  int cw_asm_frame_size;
+  /* APPLE LOCAL end CW asm blocks */
+
   /* Offset to end of allocated area of stack frame.
      If stack grows down, this is the address of the last stack slot allocated.
      If stack grows up, this is the address for the next slot.  */
@@ -284,11 +293,19 @@ struct function GTY(())
   int no_debugging_symbols;
   rtvec original_arg_vector;
   tree original_decl_initial;
+
   /* Highest label number in current function.  */
   int inl_max_label_num;
 
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
+
+  /* For flow.c.  */
+
+  /* Highest loop depth seen so far in loop analysis.  Used in flow.c
+     for the "failure strategy" when doing liveness analysis starting
+     with non-empty initial sets.  */
+  int max_loop_depth;
 
   /* For md files.  */
 
@@ -328,6 +345,10 @@ struct function GTY(())
   /* Maximal number of entities in the single jumptable.  Used to estimate
      final flowgraph size.  */
   int max_jumptable_ents;
+
+  /* APPLE LOCAL begin sibcall optimization stomped CW frames (radar 3007352) */
+  int unrounded_args_size;
+  /* APPLE LOCAL end sibcall optimization stomped CW frames (radar 3007352) */
 
   /* UIDs for LABEL_DECLs.  */
   int last_label_uid;
@@ -422,6 +443,15 @@ struct function GTY(())
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
+
+  /* APPLE LOCAL begin lno */
+  /* Nonzero if the loops that are possibly infinite are marked.  */
+  unsigned int marked_maybe_inf_loops : 1;
+  /* APPLE LOCAL end lno */
+
+  /* APPLE LOCAL begin 3837835  */
+  unsigned int uses_vector : 1;
+  /* APPLE LOCAL end 3837835  */
 };
 
 /* The function currently being compiled.  */

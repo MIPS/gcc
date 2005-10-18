@@ -276,7 +276,8 @@ typedef struct loop_mem_info
 {
   rtx mem;      /* The MEM itself.  */
   rtx reg;      /* Corresponding pseudo, if any.  */
-  int optimize; /* Nonzero if we can optimize access to this MEM.  */
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+  int optimizable; /* Nonzero if we can optimize access to this MEM.  */
 } loop_mem_info;
 
 
@@ -502,12 +503,25 @@ struct loop_info
 #define PREFETCH_CONDITIONAL 1
 #endif
 
+/* APPLE LOCAL begin avoid out-of-bounds refs */
+/* If the first or last uid lies outside the loop, assume the
+   lifetime extends to that end of the loop. */
 #define LOOP_REG_LIFETIME(LOOP, REGNO) \
-((REGNO_LAST_LUID (REGNO) - REGNO_FIRST_LUID (REGNO)))
+(((REGNO_LAST_UID (REGNO) > max_uid_for_loop) \
+  ? (INSN_LUID ((LOOP)->end)) \
+  : (REGNO_LAST_LUID (REGNO))) \
+ - ((REGNO_FIRST_UID (REGNO) > max_uid_for_loop) \
+  ? (INSN_LUID ((LOOP)->start)) \
+  : (REGNO_FIRST_LUID (REGNO))))
 
+/* uid's that are too big are derived from nested loops and are
+   not referenced outside this loop, hence they are not global. */
 #define LOOP_REG_GLOBAL_P(LOOP, REGNO) \
-((REGNO_LAST_LUID (REGNO) > INSN_LUID ((LOOP)->end) \
- || REGNO_FIRST_LUID (REGNO) < INSN_LUID ((LOOP)->start)))
+((REGNO_LAST_UID (REGNO) > max_uid_for_loop) ? 0 : \
+(((REGNO_FIRST_UID (REGNO) > max_uid_for_loop) ? 0 : \
+((((REGNO_LAST_LUID (REGNO) > INSN_LUID ((LOOP)->end) \
+ || REGNO_FIRST_LUID (REGNO) < INSN_LUID ((LOOP)->start))))))))
+/* APPLE LOCAL end avoid out-of-bounds refs */
 
 #define LOOP_REGNO_NREGS(REGNO, SET_DEST) \
 ((REGNO) < FIRST_PSEUDO_REGISTER \
@@ -1076,8 +1090,23 @@ scan_loop (struct loop *loop, int flags)
 	 the loop.  */
       && INSN_IN_RANGE_P (JUMP_LABEL (p), loop_start, loop_end))
     {
+      /* APPLE LOCAL begin 4130216 */
+      rtx end_test = prev_real_insn (loop_end);
       loop->top = next_label (loop->scan_start);
       loop->scan_start = JUMP_LABEL (p);
+      /* Make sure that loop->top is, in fact, the target of the end-test.
+	 If it is not the logic for giv's will not work.  The tree optimizers
+	 can produce such loops. */
+      if ((any_condjump_p (end_test) || any_uncondjump_p (end_test))
+	  && JUMP_LABEL (end_test) != loop->top)
+	{
+	  if (loop_dump_stream)
+	    fprintf (loop_dump_stream, 
+		     "\nLoop from %d to %d is too complex.\n\n",
+		     INSN_UID (loop_start), INSN_UID (loop_end));
+	  return;
+	}  
+      /* APPLE LOCAL end 4130216 */
     }
 
   /* If LOOP->SCAN_START was an insn created by loop, we don't know its luid
@@ -1893,6 +1922,8 @@ combine_movables (struct loop_movables *movables, struct loop_regs *regs)
 			&& GET_MODE_CLASS (GET_MODE (m1->set_dest)) == MODE_INT
 			&& (GET_MODE_BITSIZE (GET_MODE (m->set_dest))
 			    >= GET_MODE_BITSIZE (GET_MODE (m1->set_dest)))))
+		   /* APPLE LOCAL combine hoisted consts */
+		   && m1->regno >= FIRST_PSEUDO_REGISTER
 		   /* See if the source of M1 says it matches M.  */
 		   && ((REG_P (m1->set_src)
 			&& matched_regs[REGNO (m1->set_src)])
@@ -4655,12 +4686,18 @@ for_each_insn_in_loop (struct loop *loop, loop_insn_callback fncall)
   int not_every_iteration = 0;
   int maybe_multiple = 0;
   int past_loop_latch = 0;
+  bool exit_test_is_entry = false;
   rtx p;
 
-  /* If loop_scan_start points to the loop exit test, we have to be wary of
-     subversive use of gotos inside expression statements.  */
+  /* If loop_scan_start points to the loop exit test, the loop body
+     cannot be counted on running on every iteration, and we have to
+     be wary of subversive use of gotos inside expression
+     statements.  */
   if (prev_nonnote_insn (loop->scan_start) != prev_nonnote_insn (loop->start))
-    maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
+    {
+      exit_test_is_entry = true;
+      maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
+    }
 
   /* Scan through loop and update NOT_EVERY_ITERATION and MAYBE_MULTIPLE.  */
   for (p = next_insn_in_loop (loop, loop->scan_start);
@@ -4718,10 +4755,12 @@ for_each_insn_in_loop (struct loop *loop, loop_insn_callback fncall)
          beginning, don't set not_every_iteration for that.
          This can be any kind of jump, since we want to know if insns
          will be executed if the loop is executed.  */
-	  && !(JUMP_LABEL (p) == loop->top
-	       && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
-		    && any_uncondjump_p (p))
-		   || (NEXT_INSN (p) == loop->end && any_condjump_p (p)))))
+	  && (exit_test_is_entry
+	      || !(JUMP_LABEL (p) == loop->top
+		   && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
+			&& any_uncondjump_p (p))
+		       || (NEXT_INSN (p) == loop->end
+			   && any_condjump_p (p))))))
 	{
 	  rtx label = 0;
 
@@ -5470,9 +5509,20 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	mark_reg_pointer (v->new_reg, 0);
 
       if (v->giv_type == DEST_ADDR)
-	/* Store reduced reg as the address in the memref where we found
-	   this giv.  */
-	validate_change (v->insn, v->location, v->new_reg, 0);
+	{
+	  /* Store reduced reg as the address in the memref where we found
+	     this giv.  */
+	  if (!validate_change (v->insn, v->location, v->new_reg, 0))
+	    {
+	      if (loop_dump_stream)
+		fprintf (loop_dump_stream,
+			 "unable to reduce iv to register in insn %d\n",
+			 INSN_UID (v->insn));
+	      bl->all_reduced = 0;
+	      v->ignore = 1;
+	      continue;
+	    }
+	}
       else if (v->replaceable)
 	{
 	  reg_map[REGNO (v->dest_reg)] = v->new_reg;
@@ -5571,7 +5621,8 @@ loop_giv_reduce_benefit (struct loop *loop ATTRIBUTE_UNUSED,
       /* Increasing the benefit is risky, since this is only a guess.
 	 Avoid increasing register pressure in cases where there would
 	 be no other benefit from reducing this giv.  */
-      && benefit > 0
+      /* APPLE LOCAL  compare >= 0, not > 0.  */
+      && benefit >= 0
       && GET_CODE (v->mult_val) == CONST_INT)
     {
       int size = GET_MODE_SIZE (GET_MODE (v->mem));
@@ -6504,10 +6555,25 @@ strength_reduce (struct loop *loop, int flags)
 	     value, so we don't need another one.  We can't calculate the
 	     proper final value for such a biv here anyways.  */
 	  if (bl->final_value && ! bl->reversed)
-	      loop_insn_sink_or_swim (loop,
-				      gen_load_of_final_value (bl->biv->dest_reg,
-							       bl->final_value));
-
+	    /* APPLE LOCAL begin put this insn after the loop in all cases */
+	    /* Putting it before the loop can cause problems in an
+	       obscure case.  "a" is the variable we're currently
+	       looking at: 
+	         b <- a
+                 loop beginning
+                 b++;   and references
+                 a++;   no references
+               if we put the final value for a before the loop, then
+	       eliminate b in favor of c later on, we'll get this
+	       before the loop:
+                 b <- a
+                 a <- final value
+                 c <- a
+               which is no good.  */
+	    loop_insn_sink (loop, gen_load_of_final_value (bl->biv->dest_reg,
+							   bl->final_value));
+	    /* APPLE LOCAL end put this insn after the loop in all cases */
+	  
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "Reg %d: biv eliminated\n",
 		     bl->regno);
@@ -10542,7 +10608,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
 	  /* The modes of the two memory accesses are different.  If
 	     this happens, something tricky is going on, and we just
 	     don't optimize accesses to this MEM.  */
-	  loop_info->mems[i].optimize = 0;
+	  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	  loop_info->mems[i].optimizable = 0;
 
 	return 0;
       }
@@ -10565,7 +10632,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
      because we can't put it in a register.  We still store it in the
      table, though, so that if we see the same address later, but in a
      non-BLK mode, we'll not think we can optimize it at that point.  */
-  loop_info->mems[loop_info->mems_idx].optimize = (GET_MODE (m) != BLKmode);
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+  loop_info->mems[loop_info->mems_idx].optimizable = (GET_MODE (m) != BLKmode);
   loop_info->mems[loop_info->mems_idx].reg = NULL_RTX;
   ++loop_info->mems_idx;
 
@@ -10812,7 +10880,8 @@ load_mems (const struct loop *loop)
       if (MEM_VOLATILE_P (mem)
 	  || loop_invariant_p (loop, XEXP (mem, 0)) != 1)
 	/* There's no telling whether or not MEM is modified.  */
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
       /* Go through the MEMs written to in the loop to see if this
 	 one is aliased by one of them.  */
@@ -10825,7 +10894,8 @@ load_mems (const struct loop *loop)
 				    mem, rtx_varies_p))
 	    {
 	      /* MEM is indeed aliased by this store.  */
-	      loop_info->mems[i].optimize = 0;
+	      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	      loop_info->mems[i].optimizable = 0;
 	      break;
 	    }
 	  mem_list_entry = XEXP (mem_list_entry, 1);
@@ -10833,11 +10903,13 @@ load_mems (const struct loop *loop)
 
       if (flag_float_store && written
 	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
       /* If this MEM is written to, we must be sure that there
 	 are no reads from another MEM that aliases this one.  */
-      if (loop_info->mems[i].optimize && written)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (loop_info->mems[i].optimizable && written)
 	{
 	  int j;
 
@@ -10853,7 +10925,8 @@ load_mems (const struct loop *loop)
 		  /* It's not safe to hoist loop_info->mems[i] out of
 		     the loop because writes to it might not be
 		     seen by reads from loop_info->mems[j].  */
-		  loop_info->mems[i].optimize = 0;
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+		  loop_info->mems[i].optimizable = 0;
 		  break;
 		}
 	    }
@@ -10862,9 +10935,11 @@ load_mems (const struct loop *loop)
       if (maybe_never && may_trap_p (mem))
 	/* We can't access the MEM outside the loop; it might
 	   cause a trap that wouldn't have happened otherwise.  */
-	loop_info->mems[i].optimize = 0;
+        /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
-      if (!loop_info->mems[i].optimize)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (!loop_info->mems[i].optimizable)
 	/* We thought we were going to lift this MEM out of the
 	   loop, but later discovered that we could not.  */
 	continue;
@@ -10927,7 +11002,8 @@ load_mems (const struct loop *loop)
 				      CALL_INSN_FUNCTION_USAGE (p)))
 		{
 		  cancel_changes (0);
-		  loop_info->mems[i].optimize = 0;
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+		  loop_info->mems[i].optimizable = 0;
 		  break;
 		}
 	      else
@@ -10941,11 +11017,13 @@ load_mems (const struct loop *loop)
 	    maybe_never = 1;
 	}
 
-      if (! loop_info->mems[i].optimize)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (! loop_info->mems[i].optimizable)
 	; /* We found we couldn't do the replacement, so do nothing.  */
       else if (! apply_change_group ())
 	/* We couldn't replace all occurrences of the MEM.  */
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
       else
 	{
 	  /* Load the memory immediately before LOOP->START, which is

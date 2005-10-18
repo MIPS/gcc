@@ -1317,16 +1317,40 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     case tcc_binary:
       {
 	tree_stmt_iterator tsi;
+	tree forced_stmts;
 	tree genop1, genop2;
 	tree temp;
+	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
 	genop1 = find_or_generate_expression (block, op1, stmts);
 	genop2 = find_or_generate_expression (block, op2, stmts);
 	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
 	add_referenced_tmp_var (temp);
-	newexpr = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
-			       genop1, genop2));
+	
+	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
+			      genop1, genop2));
+	newexpr = force_gimple_operand (unshare_expr (folded), 
+					&forced_stmts, false, NULL);
+	if (forced_stmts)
+	  {
+	    tsi = tsi_start (forced_stmts);
+	    for (; !tsi_end_p (tsi); tsi_next (&tsi))
+	      {
+		tree stmt = tsi_stmt (tsi);
+		tree forcedname = TREE_OPERAND (stmt, 0);
+		tree forcedexpr = TREE_OPERAND (stmt, 1);
+		tree val = vn_lookup_or_add (forcedexpr, NULL);
+
+		VEC_safe_push (tree_on_heap, inserted_exprs, stmt);
+		vn_add (forcedname, val, NULL);		
+		bitmap_value_replace_in_set (NEW_SETS (block), forcedname); 
+		bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
+	      }
+
+	    tsi = tsi_last (stmts);
+	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
+	  }
 	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
 			 temp, newexpr);
 	NECESSARY (newexpr) = 0;
@@ -1341,14 +1365,36 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     case tcc_unary:
       {
 	tree_stmt_iterator tsi;
+	tree forced_stmts = NULL;
 	tree genop1;
 	tree temp;
+	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
 	genop1 = find_or_generate_expression (block, op1, stmts);
 	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
 	add_referenced_tmp_var (temp);
-	newexpr = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
-			       genop1));
+	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
+			      genop1));
+	newexpr = force_gimple_operand (unshare_expr (folded), 
+					&forced_stmts, false, NULL);
+	if (forced_stmts)
+	  {
+	    tsi = tsi_start (forced_stmts);
+	    for (; !tsi_end_p (tsi); tsi_next (&tsi))
+	      {
+		tree stmt = tsi_stmt (tsi);
+		tree forcedname = TREE_OPERAND (stmt, 0);
+		tree forcedexpr = TREE_OPERAND (stmt, 1);
+		tree val = vn_lookup_or_add (forcedexpr, NULL);
+		
+		VEC_safe_push (tree_on_heap, inserted_exprs, stmt);
+		vn_add (forcedname, val, NULL);		
+		bitmap_value_replace_in_set (NEW_SETS (block), forcedname); 
+		bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
+	      }
+	    tsi = tsi_last (stmts);
+	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
+	  }
 	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
 			 temp, newexpr);
 	name = make_ssa_name (temp, newexpr);
@@ -1653,7 +1699,7 @@ insert_aux (basic_block block)
 		      /* If all edges produce the same value and that value is
 			 an invariant, then the PHI has the same value on all
 			 edges.  Note this.  */
-		      else if (all_same && eprime 
+		      else if (!cant_insert && all_same && eprime 
 			       && is_gimple_min_invariant (eprime)
 			       && !is_gimple_min_invariant (val))
 			{
@@ -2170,7 +2216,7 @@ init_pre (bool do_fre)
       AVAIL_OUT (bb) = bitmap_set_new ();
     }
 
-  need_eh_cleanup = BITMAP_XMALLOC ();
+  need_eh_cleanup = BITMAP_ALLOC (NULL);
 }
 
 
@@ -2208,7 +2254,7 @@ fini_pre (bool do_fre)
       cleanup_tree_cfg ();
     }
 
-  BITMAP_XFREE (need_eh_cleanup);
+  BITMAP_FREE (need_eh_cleanup);
 
   /* Wipe out pointers to VALUE_HANDLEs.  In the not terribly distant
      future we will want them to be persistent though.  */

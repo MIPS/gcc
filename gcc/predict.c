@@ -145,7 +145,8 @@ bool
 probably_never_executed_bb_p (basic_block bb)
 {
   if (profile_info && flag_branch_probabilities)
-    return ((bb->count + profile_info->runs / 2) / profile_info->runs) == 0;
+    /* APPLE LOCAL hot/cold partitioning */
+    return (bb->count == 0);
   return false;
 }
 
@@ -696,6 +697,11 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
       /* Free basic blocks from get_loop_body.  */
       free (bbs);
     }
+      
+  /* APPLE LOCAL begin lno */
+  if (rtlsimpleloops)
+    iv_analysis_done ();
+  /* APPLE LOCAL end lno */
 
   if (!rtlsimpleloops)
     scev_finalize ();
@@ -1043,9 +1049,9 @@ tree_predict_by_opcode (basic_block bb)
     return;
   op0 = TREE_OPERAND (cond, 0);
   type = TREE_TYPE (op0);
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
   val = expr_expected_value (cond, visited);
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   if (val)
     {
       if (integer_zerop (val))
@@ -1819,7 +1825,7 @@ estimate_bb_frequencies (struct loops *loops)
       EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->probability = REG_BR_PROB_BASE;
 
       /* Set up block info for each basic block.  */
-      tovisit = BITMAP_XMALLOC ();
+      tovisit = BITMAP_ALLOC (NULL);
       alloc_aux_for_blocks (sizeof (struct block_info_def));
       alloc_aux_for_edges (sizeof (struct edge_info_def));
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -1857,7 +1863,7 @@ estimate_bb_frequencies (struct loops *loops)
 
       free_aux_for_blocks ();
       free_aux_for_edges ();
-      BITMAP_XFREE (tovisit);
+      BITMAP_FREE (tovisit);
     }
   compute_function_frequency ();
   if (flag_reorder_functions)

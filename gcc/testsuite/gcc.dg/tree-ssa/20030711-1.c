@@ -1,5 +1,6 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom3" } */
+/* APPLE LOCAL lno */
+/* { dg-options "-O1 -fdump-tree-dom3 -ftree-loop-optimize" } */
  
 extern void abort (void);
 

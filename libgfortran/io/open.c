@@ -351,14 +351,22 @@ new_unit (unit_flags * flags)
   /* Create the unit structure.  */
 
   u = get_mem (sizeof (gfc_unit) + ioparm.file_len);
+  memset (u, '\0', sizeof (gfc_unit) + ioparm.file_len);
 
   u->unit_number = ioparm.unit;
   u->s = s;
   u->flags = *flags;
 
+  if (flags->position == POSITION_APPEND)
+  {
+    if (sseek (u->s, file_length (u->s)) == FAILURE)
+      generate_error (ERROR_OS, NULL);
+    u->endfile = AT_ENDFILE;
+  }
+
   /* Unspecified recl ends up with a processor dependent value.  */
 
-  u->recl = (ioparm.recl_in != 0) ? ioparm.recl_in : DEFAULT_RECL;
+  u->recl = (ioparm.recl_in != 0) ? ioparm.recl_in : g.max_offset;
   u->last_record = 0;
   u->current_record = 0;
 
@@ -481,7 +489,10 @@ st_open (void)
     flags.position = POSITION_ASIS;
 
   if (ioparm.library_return != LIBRARY_OK)
+  {
+    library_end ();
     return;
+  }
 
   u = find_unit (ioparm.unit);
 

@@ -1,3 +1,26 @@
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-05-08  Richard Henderson  <rth@redhat.com>
+
+	PR libffi/21285
+	* src/alpha/osf.S: Update unwind into to match code.
+
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-02-22  Andrew Haley  <aph@redhat.com>
+
+	* src/powerpc/ffi.c (ffi_prep_cif_machdep): Bump alignment to
+	odd-numbered register pairs for 64-bit integer types.
+
+2005-02-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR libffi/20104
+	* testsuite/libffi.call/return_ll1.c: New test case.
+
 2005-02-11  Janis Johnson  <janis187@us.ibm.com>
 
 	* testsuite/libffi.call/cls_align_longdouble.c: Remove dg-options.
@@ -1192,7 +1215,7 @@
 
 2003-03-03  Andreas Tobler <a.tobler@schweiz.ch>
 
-        * src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
+	* src/powerpc/darwin_closure.S: Recode to fit dynamic libraries.
 
 2003-02-06  Andreas Tobler <a.tobler@schweiz.ch>
 
@@ -1211,12 +1234,12 @@
 2003-01-31  Christian Cornelssen  <ccorn@cs.tu-berlin.de>,
 	    Andreas Schwab  <schwab@suse.de>
 
-        * configure.in: Adjust command to source config-ml.in to account
+	* configure.in: Adjust command to source config-ml.in to account
 	for changes to the libffi_basedir definition.
 	(libffi_basedir): Remove ${srcdir} from value and include trailing
 	slash if nonempty.
 
-        * configure: Regenerate.
+	* configure: Regenerate.
 
 2003-01-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
@@ -1265,12 +1288,12 @@
 2003-01-13 Andreas Tobler <a.tobler@schweiz.ch>
 
 	* libffi/src/ffitest.c
-         add closure testcases
+	 add closure testcases
 
 2003-01-13 Kevin B. Hendricks <khendricks@ivey.uwo.ca>
 
 	* libffi/src/powerpc/ffi.c
-         fix alignment bug for float (4 byte aligned iso 8 byte)
+	 fix alignment bug for float (4 byte aligned iso 8 byte)
 
 2003-01-09  Geoffrey Keating  <geoffk@apple.com>
 

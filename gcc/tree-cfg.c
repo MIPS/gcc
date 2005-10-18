@@ -440,6 +440,29 @@ create_bb (void *h, void *e, basic_block after)
 				 Edge creation
 ---------------------------------------------------------------------------*/
 
+/* Fold COND_EXPR_COND of each COND_EXPR.  */
+
+static void
+fold_cond_expr_cond (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      tree stmt = last_stmt (bb);
+
+      if (stmt
+	  && TREE_CODE (stmt) == COND_EXPR)
+	{
+	  tree cond = fold (COND_EXPR_COND (stmt));
+	  if (integer_zerop (cond))
+	    COND_EXPR_COND (stmt) = integer_zero_node;
+	  else if (integer_onep (cond))
+	    COND_EXPR_COND (stmt) = integer_one_node;
+	}
+    }
+}
+
 /* Join all the blocks in the flowgraph.  */
 
 static void
@@ -477,6 +500,9 @@ make_edges (void)
   /* We do not care about fake edges, so remove any that the CFG
      builder inserted for completeness.  */
   remove_fake_exit_edges ();
+
+  /* Fold COND_EXPR_COND of each COND_EXPR.  */
+  fold_cond_expr_cond ();
 
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
@@ -2198,14 +2224,7 @@ find_taken_edge (basic_block bb, tree val)
   gcc_assert (is_ctrl_stmt (stmt));
   gcc_assert (val);
 
-  /* If VAL is a predicate of the form N RELOP N, where N is an
-     SSA_NAME, we can usually determine its truth value.  */
-  if (COMPARISON_CLASS_P (val))
-    val = fold (val);
-
-  /* If VAL is not a constant, we can't determine which edge might
-     be taken.  */
-  if (!really_constant_p (val))
+  if (TREE_CODE (val) != INTEGER_CST)
     return NULL;
 
   if (TREE_CODE (stmt) == COND_EXPR)
@@ -2228,21 +2247,12 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   edge true_edge, false_edge;
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-
-  /* Otherwise, try to determine which branch of the if() will be taken.
-     If VAL is a constant but it can't be reduced to a 0 or a 1, then
-     we don't really know which edge will be taken at runtime.  This
-     may happen when comparing addresses (e.g., if (&var1 == 4)).  */
-  if (integer_nonzerop (val))
-    return true_edge;
-  else if (integer_zerop (val))
-    return false_edge;
-  else
-    return NULL;
+  
+  gcc_assert (TREE_CODE (val) == INTEGER_CST);
+  return (zero_p (val) ? false_edge : true_edge);
 }
 
-
-/* Given a constant value VAL and the entry block BB to a SWITCH_EXPR
+/* Given an INTEGER_CST VAL and the entry block BB to a SWITCH_EXPR
    statement, determine which edge will be taken out of the block.  Return
    NULL if any edge may be taken.  */
 
@@ -2252,9 +2262,6 @@ find_taken_edge_switch_expr (basic_block bb, tree val)
   tree switch_expr, taken_case;
   basic_block dest_bb;
   edge e;
-
-  if (TREE_CODE (val) != INTEGER_CST)
-    return NULL;
 
   switch_expr = last_stmt (bb);
   taken_case = find_case_label_for_value (switch_expr, val);
@@ -4466,7 +4473,8 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     return ret;
 
   if (e->dest == dest)
-    return NULL;
+  /* APPLE LOCAL lno */
+    return e;
 
   label = tree_block_label (dest);
 
@@ -4609,9 +4617,17 @@ tree_split_block (basic_block bb, void *stmt)
   bsi_tgt = bsi_start (new_bb);
   while (!bsi_end_p (bsi))
     {
+      /* APPLE LOCAL lno */
+      bool was_modified;
       act = bsi_stmt (bsi);
+      /* APPLE LOCAL lno */
+      was_modified = stmt_modified_p (act);
       bsi_remove (&bsi);
       bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
+      /* APPLE LOCAL begin lno */
+      if (!was_modified)
+	unmodify_stmt (act);
+      /* APPLE LOCAL end lno */
     }
 
   return new_bb;
@@ -5079,7 +5095,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
     free (region_copy);
 
   unmark_all_for_rewrite ();
-  BITMAP_XFREE (definitions);
+  BITMAP_FREE (definitions);
 
   return true;
 }
@@ -5272,12 +5288,21 @@ print_loop_ir (FILE *file)
 
 /* Debugging loops structure at tree level.  */
 
+/* APPLE LOCAL begin lno */
 void 
-debug_loop_ir (void)
+tree_debug_loops (void)
 {
   print_loop_ir (stderr);
 }
 
+/* Debugging loops structure at tree level.  */
+
+void 
+tree_debug_loop (struct loop *loop)
+{
+  print_loop (stderr, loop, 0);
+}
+/* APPLE LOCAL end lno */
 
 /* Return true if BB ends with a call, possibly followed by some
    instructions that must stay with the call.  Return false,
@@ -5287,6 +5312,10 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
+  /* APPLE LOCAL begin tree-profiling-branch --dbj */
+  if (bsi_end_p (bsi))
+    return false;
+  /* APPLE LOCAL end tree-profiling-branch --dbj */
   return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
 
@@ -5297,8 +5326,15 @@ tree_block_ends_with_call_p (basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (basic_block bb)
 {
-  tree stmt = tsi_stmt (bsi_last (bb).tsi);
-  return (TREE_CODE (stmt) == COND_EXPR);
+  /* APPLE LOCAL begin tree-profiling-branch --dbj */
+  block_stmt_iterator bsi = bsi_last (bb);
+  if (!bsi_end_p (bsi))
+    {
+      tree stmt = bsi_stmt (bsi);
+      return (TREE_CODE (stmt) == COND_EXPR);
+    }
+  else return false;
+  /* APPLE LOCAL end tree-profiling-branch --dbj */
 }
 
 

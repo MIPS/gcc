@@ -202,3 +202,18 @@ has_c_linkage (tree decl)
 {
   return DECL_EXTERN_C_P (decl);
 }
+
+/* APPLE LOCAL begin kext identify vtables */
+/* Return true if t is a vtable.  In kexts (only) these may
+   be overridden by other modules, so we can't do the
+   normal optimizations we do on initialized const objects.  */
+int
+cp_vtable_p (tree t)
+{
+  if (TREE_CODE (t) == VAR_DECL
+      && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
+      && TREE_TYPE (TREE_TYPE (t)) == vtable_entry_type)
+    return 1;
+  return 0;
+}
+/* APPLE LOCAL end kext identify vtables */

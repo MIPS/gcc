@@ -1,6 +1,7 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -322,7 +323,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
   *is_inout = (*p == '+');
 
   /* Canonicalize the output constraint so that it begins with `='.  */
-  if (p != constraint || is_inout)
+  if (p != constraint || *is_inout)
     {
       char *buf;
       size_t c_len = strlen (constraint);
@@ -610,15 +611,19 @@ decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
 
    VOL nonzero means the insn is volatile; don't optimize it.  */
 
+/* APPLE LOCAL begin CW asm blocks. */
 static void
 expand_asm_operands (tree string, tree outputs, tree inputs,
-		     tree clobbers, int vol, location_t locus)
+		     tree clobbers, int vol, tree uses, location_t locus)
+/* APPLE LOCAL end CW asm blocks. */
 {
   rtvec argvec, constraintvec;
   rtx body;
   int ninputs = list_length (inputs);
   int noutputs = list_length (outputs);
   int ninout;
+  /* APPLE LOCAL CW asm blocks. */
+  int nuses = 0;
   int nclobbers;
   HARD_REG_SET clobbered_regs;
   int clobber_conflict_found = 0;
@@ -675,7 +680,12 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       if (i >= 0)
         {
 	  /* Clobbering the PIC register is an error.  */
-	  if (i == (int) PIC_OFFSET_TABLE_REGNUM)
+	  /* APPLE LOCAL begin CW asm blocks. */
+	  /* Clobbering of PIC register is allowed in CW asm block.
+	     We check this condition by checking value of 'uses'.
+	     'uses' is non-null for a CW asm expression only. */
+	  if (uses == NULL && i == (int) PIC_OFFSET_TABLE_REGNUM)
+	  /* APPLE LOCAL end CW asm blocks. */
 	    {
 	      error ("PIC register %qs clobbered in %<asm%>", regname);
 	      return;
@@ -905,6 +915,18 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       generating_concat_p = old_generating_concat_p;
       ASM_OPERANDS_INPUT (body, i) = op;
 
+      /* APPLE LOCAL begin CW asm blocks. */
+      /* Crude way of detecting an entry static label declaration 
+	 (See cw_asm_entry).  Make this a local symbol. */
+      if (i == 0 && !TREE_CHAIN (tail) 
+	  && strcmp (TREE_STRING_POINTER (string), "%0:") == 0
+	  && GET_CODE (op) == SYMBOL_REF)
+        {
+	  SYMBOL_REF_FLAGS (op) |= SYMBOL_FLAG_LOCAL;
+          SYMBOL_REF_FLAGS (op) &= ~SYMBOL_FLAG_EXTERNAL;
+        }
+      /* APPLE LOCAL end CW asm blocks. */
+
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
 			     ggc_strdup (constraints[i + noutputs]));
@@ -932,6 +954,10 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	= gen_rtx_ASM_INPUT (inout_mode[i], ggc_strdup (buffer));
     }
 
+    /* APPLE LOCAL begin CW asm blocks. */
+    for (tail = uses; tail; tail = TREE_CHAIN (tail))
+      nuses++;
+    /* APPLE LOCAL end CW asm blocks. */
   generating_concat_p = old_generating_concat_p;
 
   /* Now, for each output, construct an rtx
@@ -939,13 +965,15 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 			       ARGVEC CONSTRAINTS OPNAMES))
      If there is more than one, put them inside a PARALLEL.  */
 
-  if (noutputs == 1 && nclobbers == 0)
+  /* APPLE LOCAL CW asm blocks. */
+  if (noutputs == 1 && nclobbers == 0 && nuses == 0)
     {
       ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
       emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
-  else if (noutputs == 0 && nclobbers == 0)
+  /* APPLE LOCAL CW asm blocks. */
+  else if (noutputs == 0 && nclobbers == 0 && nuses == 0)
     {
       /* No output operands: put in a raw ASM_OPERANDS rtx.  */
       emit_insn (body);
@@ -959,7 +987,8 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       if (num == 0)
 	num = 1;
 
-      body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num + nclobbers));
+      /* APPLE LOCAL CW asm blocks. */
+      body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num + nclobbers + nuses));
 
       /* For each output operand, store a SET.  */
       for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
@@ -1035,6 +1064,17 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	    = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
 	}
 
+      /* APPLE LOCAL begin CW asm blocks. */
+      for (tail = uses; tail; tail = TREE_CHAIN (tail))
+        {
+          int regno;
+          rtx rtx_reg;
+          const char *use_regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+          regno = decode_reg_name (use_regname);
+          rtx_reg = gen_rtx_REG (QImode, regno);
+	  XVECEXP (body, 0, i++) = gen_rtx_USE (VOIDmode, rtx_reg);
+        }
+      /* APPLE LOCAL end CW asm blocks. */
       emit_insn (body);
     }
 
@@ -1073,6 +1113,8 @@ expand_asm_expr (tree exp)
      OUTPUTS some trees for where the values were actually stored.  */
   expand_asm_operands (ASM_STRING (exp), outputs, ASM_INPUTS (exp),
 		       ASM_CLOBBERS (exp), ASM_VOLATILE_P (exp),
+  /* APPLE LOCAL CW asm blocks. */
+		       ASM_USES (exp),
 		       input_location);
 
   /* Copy all the intermediate outputs into the specified outputs.  */
@@ -2238,8 +2280,8 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
   qsort (test, count, sizeof(*test), case_bit_test_cmp);
 
   index_expr = fold (build2 (MINUS_EXPR, index_type,
-			     convert (index_type, index_expr),
-			     convert (index_type, minval)));
+			     fold_convert (index_type, index_expr),
+			     fold_convert (index_type, minval)));
   index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
   do_pending_stack_adjust ();
 
@@ -2359,7 +2401,7 @@ expand_case (tree exp)
 
       uniq = 0;
       count = 0;
-      label_bitmap = BITMAP_XMALLOC ();
+      label_bitmap = BITMAP_ALLOC (NULL);
       for (n = case_list; n; n = n->right)
 	{
 	  /* Count the elements and track the largest and smallest
@@ -2390,11 +2432,17 @@ expand_case (tree exp)
 	    }
 	}
 
-      BITMAP_XFREE (label_bitmap);
+      BITMAP_FREE (label_bitmap);
 
       /* cleanup_tree_cfg removes all SWITCH_EXPR with a single
-	 destination, such as one with a default case only.  */
-      gcc_assert (count != 0);
+	 destination, such as one with a default case only.  However,
+	 it doesn't remove cases that are out of range for the switch
+	 type, so we may still get a zero here.  */
+      if (count == 0)
+	{
+	  emit_jump (default_label);
+	  return;
+	}
 
       /* Compute span of values.  */
       range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
@@ -2611,8 +2659,7 @@ static int
 estimate_case_costs (case_node_ptr node)
 {
   tree min_ascii = integer_minus_one_node;
-  tree max_ascii = convert (TREE_TYPE (node->high),
-			    build_int_cst (NULL_TREE, 127));
+  tree max_ascii = build_int_cst (TREE_TYPE (node->high), 127);
   case_node_ptr n;
   int i;
 

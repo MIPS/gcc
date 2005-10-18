@@ -27,6 +27,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
+
+/* APPLE LOCAL begin Mach time */
+#ifdef HAVE_MACH_MACH_TIME_H
+#include <mach/mach_time.h>
+#define HAVE_MACH_TIME 1
+static double timeBaseRatio;
+static struct mach_timebase_info tbase;
+#else
+#define HAVE_MACH_TIME 0
+#endif
+/* APPLE LOCAL end Mach time */
 #include "coretypes.h"
 #include "tm.h"
 #include "intl.h"
@@ -69,6 +80,34 @@ struct tms
 
 /* Prefer times to getrusage to clock (each gives successively less
    information).  */
+/* APPLE LOCAL begin Mach time */
+/* On Darwin, prefer getrusage, plus Mach absolute time for the wall
+   clock time.  Use PPC intrinsics if possible.  */
+#if defined(__APPLE__) && defined(__POWERPC__) && HAVE_MACH_TIME
+#if __POWERPC__
+# include "../more-hdrs/ppc_intrinsics.h"
+# define HAVE_WALL_TIME
+# define USE_PPC_INTRINSICS
+static inline double
+ppc_intrinsic_time (void)
+{
+  unsigned long hi, lo;
+  do 
+    {
+      hi = __mftbu();
+      lo = __mftb();
+    } while (hi != (unsigned long) __mftbu());
+  return (hi * 0x100000000ull + lo) * timeBaseRatio;
+}
+#endif /* __POWERPC__ */
+#elif HAVE_MACH_TIME
+# define USE_GETRUSAGE
+# define USE_MACH_TIME
+# define HAVE_USER_TIME
+# define HAVE_SYS_TIME
+# define HAVE_WALL_TIME
+# else
+/* APPLE LOCAL end Mach time */
 #ifdef HAVE_TIMES
 # if defined HAVE_DECL_TIMES && !HAVE_DECL_TIMES
   extern clock_t times (struct tms *);
@@ -95,6 +134,8 @@ struct tms
 #endif
 #endif
 #endif
+/* APPLE LOCAL Mach time */
+#endif /* HAVE_MACH_TIME */
 
 /* libc is very likely to have snuck a call to sysconf() into one of
    the underlying constants, and that can be very slow, so we have to
@@ -203,6 +244,14 @@ get_time (struct timevar_time_def *now)
 #ifdef USE_CLOCK
     now->user = clock () * clocks_to_msec;
 #endif
+    /* APPLE LOCAL begin Mach time */
+#ifdef USE_MACH_TIME
+    now->wall = mach_absolute_time() * timeBaseRatio;
+#endif
+#ifdef USE_PPC_INTRINSICS
+    now->wall = ppc_intrinsic_time();
+#endif
+    /* APPLE LOCAL end Mach time */
   }
 }
 
@@ -240,6 +289,12 @@ timevar_init (void)
 #ifdef USE_CLOCK
   clocks_to_msec = CLOCKS_TO_MSEC;
 #endif
+  /* APPLE LOCAL begin Mach time */
+#if defined(USE_MACH_TIME) || defined(USE_PPC_INTRINSICS)
+  mach_timebase_info(&tbase);
+  timeBaseRatio = ((double) tbase.numer / (double) tbase.denom) * 1e-9;
+#endif
+  /* APPLE LOCAL end Mach time */
 }
 
 /* Push TIMEVAR onto the timing stack.  No further elapsed time is
@@ -450,14 +505,19 @@ timevar_print (FILE *fp)
   /* Print total time.  */
   fputs (_(" TOTAL                 :"), fp);
 #ifdef HAVE_USER_TIME
-  fprintf (fp, "%7.2f          ", total->user);
+  /* APPLE LOCAL time formatting */
+  fprintf (fp, "%7.2f", total->user);
 #endif
 #ifdef HAVE_SYS_TIME
-  fprintf (fp, "%7.2f          ", total->sys);
+  /* APPLE LOCAL time formatting */
+  fprintf (fp, "          %7.2f", total->sys);
 #endif
 #ifdef HAVE_WALL_TIME
-  fprintf (fp, "%7.2f\n", total->wall);
+  /* APPLE LOCAL time formatting */
+  fprintf (fp, "          %7.2f", total->wall);
 #endif
+  /* APPLE LOCAL time formatting */
+  putc ('\n', fp);
 
 #ifdef ENABLE_CHECKING
   fprintf (fp, "Extra diagnostic checks enabled; compiler may run slowly.\n");

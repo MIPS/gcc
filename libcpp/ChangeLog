@@ -1,3 +1,74 @@
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-05-12  Ryota Kunisawa  <kunisawa@access.co.jp>
+
+	PR bootstrap/21230
+	* configure: Regenerate.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.ac (libcpp_UNLOCKED_FUNCS): New.
+	(AC_CHECK_FUNCS, AC_CHECK_DECLS): Check for libcpp_UNLOCKED_FUNCS.
+	* system.h (putchar, getc, getchar, clearerr, feof, fileno,
+	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
+	_unlocked function.
+	(fwrite_unlocked): Fix prototype.
+	
+	* configure, config.in: Regenerate.
+
+	* system.h (fopen, fdopen, freopen): Define these to the unlocked
+	libiberty functions.
+
+2005-04-19  Per Bothner  <per@bothner.com>
+
+	PR preprocessor/20907
+	* line-map.c (linemap_line_start): Fix bug when we need to increse
+	column_bits but can re-use the current line_map.
+
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/19475
+	* macro.c (create_iso_definition): For < ISO C99, don't
+	pedwarn if there is no whitespace between macro name and its
+	replacement, but the replacement starts with a basic character
+	set character.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Consistently use solaris2.1[0-9]* instead of
+	solaris2.1[0-9].
+	* configure: Regenerate.
+
+2005-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/20282
+	PR bootstrap/20305
+	* macro.c (replace_args, cpp_get_token): Copy whole
+	cpp_token_u instead of just cpp_string field from it.
+
+2005-02-28  Devang Patel  <dpatel@apple.com>
+
+	* directives.c (do_line): Save sysp early before line table is
+	realloc'ed.
+	
+2005-02-20  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18785
+	* charset.c (LAST_POSSIBLY_BASIC_SOURCE_CHAR): New helper macro.
+	(cpp_host_to_exec_charset): New function.
+	* include/cpplib.h: Declare cpp_host_to_exec_charset.
+
+2005-02-19  Devang Patel  <dpatel@apple.com>
+
+	* charset.c (_cpp_convert_input): Check '\r' before inserting
+	'\n' at the end.
+
 2005-02-15  Eric Christopher  <echristo@redhat.com>
 
 	PR preprocessor/19077
@@ -36,7 +107,7 @@
 	* include/cpplib.h (c_lang): Fix comment to say cpp_create_reader.
 
 	* include/cpplib.h: Also update copyright years.
-	
+
 2005-01-03  Geoffrey Keating  <geoffk@apple.com>
 
 	* files.c (_cpp_find_file): Add files found by search_path_exhausted
@@ -59,7 +130,7 @@
 
 2004-11-28  Nathanael Nerode  <neroden@gcc.gnu.org>
 
-	PR preprocessor/17610 
+	PR preprocessor/17610
 	* directives.c (do_include_common): Error out if an empty filename
 	is given for #include (or #include_next or #import).
 
@@ -82,7 +153,7 @@
 	* configure: Regenerate.
 
 2004-11-23  Daniel Jacobowitz  <dan@codesourcery.com>
-            Joseph Myers  <joseph@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
 
 	* internal.h (struct lexer_state): Add in_deferred_pragma.
 	* directives.c (struct pragma_entry): Add allow_expansion.
@@ -95,7 +166,7 @@
 	* include/cpplib.h (cpp_register_pragma): Update prototype.
 
 2004-11-18  Daniel Jacobowitz  <dan@codesourcery.com>
-            Mark Mitchell  <mark@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
 
 	* configure.ac (i[34567]86-*-solaris2.1[0-9]*): Set
 	need_64bit_hwint=yes.
@@ -110,7 +181,7 @@
 	Remove local srcdir path from generated file.
 
 2004-11-04  Zack Weinberg  <zack@codesourcery.com>
-            Gerald Pfeifer  <gerald@pfeifer.com>
+	    Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* internal.h (HAVE_ICONV): Undefine if we do not have HAVE_ICONV_H
 	as well.

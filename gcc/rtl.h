@@ -1424,6 +1424,10 @@ extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
 extern rtx assign_stack_local (enum machine_mode, HOST_WIDE_INT, int);
+/* APPLE LOCAL begin next declaration */
+extern rtx assign_stack_local_with_alias (enum machine_mode, 
+					  HOST_WIDE_INT, int);
+/* APPLE LOCAL end next declaration */
 extern rtx assign_stack_temp (enum machine_mode, HOST_WIDE_INT, int);
 extern rtx assign_stack_temp_for_type (enum machine_mode,
 				       HOST_WIDE_INT, int, tree);
@@ -1540,6 +1544,8 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
+/* APPLE LOCAL mainline 2005-09-07 */
+extern bool constant_pool_reference_p (rtx x);
 extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
@@ -2122,6 +2128,8 @@ extern int read_rtx_lineno;
 extern void clear_reg_alias_info (rtx);
 extern rtx canon_rtx (rtx);
 extern int true_dependence (rtx, enum machine_mode, rtx, int (*)(rtx, int));
+/* APPLE LOCAL nop on true-dependence. */
+extern int must_true_dependence (rtx, rtx);
 extern rtx get_addr (rtx);
 extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 				  int (*)(rtx, int));

@@ -40,7 +40,10 @@ struct macro_arg
 
 /* Macro expansion.  */
 
-static int enter_macro_context (cpp_reader *, cpp_hashnode *);
+/* APPLE LOCAL begin CW asm blocks */
+extern int flag_cw_asm_blocks;
+static int enter_macro_context (cpp_reader *, cpp_hashnode *, int bol_p);
+/* APPLE LOCAL end CW asm blocks */
 static int builtin_macro (cpp_reader *, cpp_hashnode *);
 static void push_token_context (cpp_reader *, cpp_hashnode *,
 				const cpp_token *, unsigned int);
@@ -380,13 +383,17 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 	{
 	  _cpp_buff *buff = _cpp_get_buff (pfile, len);
 	  unsigned char *buf = BUFF_FRONT (buff);
-	  len = cpp_spell_token (pfile, token, buf) - buf;
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+	  len = cpp_spell_token (pfile, token, buf, true) - buf;
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 	  dest = cpp_quote_string (dest, buf, len);
 	  _cpp_release_buff (pfile, buff);
 	}
       else
-	dest = cpp_spell_token (pfile, token, dest);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+	dest = cpp_spell_token (pfile, token, dest, true);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
       if (token->type == CPP_OTHER && token->val.str.text[0] == '\\')
 	backslash_count++;
       else
@@ -422,15 +429,19 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
   lhs = *plhs;
   len = cpp_token_len (lhs) + cpp_token_len (rhs) + 1;
   buf = alloca (len);
-  end = cpp_spell_token (pfile, lhs, buf);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  end = cpp_spell_token (pfile, lhs, buf, false);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   /* Avoid comment headers, since they are still processed in stage 3.
      It is simpler to insert a space here, rather than modifying the
      lexer to ignore comments in some circumstances.  Simply returning
      false doesn't work, since we want to clear the PASTE_LEFT flag.  */
   if (lhs->type == CPP_DIV && rhs->type != CPP_EQ)
     *end++ = ' ';
-  end = cpp_spell_token (pfile, rhs, end);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  end = cpp_spell_token (pfile, rhs, end, false);
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   *end = '\n';
 
   cpp_push_buffer (pfile, buf, end - buf, /* from_stage3 */ true);
@@ -714,7 +725,8 @@ funlike_invocation_p (cpp_reader *pfile, cpp_hashnode *node)
    containing its yet-to-be-rescanned replacement list and return one.
    Otherwise, we don't push a context and return zero.  */
 static int
-enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
+/* APPLE LOCAL CW asm blocks */
+enter_macro_context (cpp_reader *pfile, cpp_hashnode *node, int bol_p)
 {
   /* The presence of a macro invalidates a file's controlling macro.  */
   pfile->mi_valid = false;
@@ -760,6 +772,12 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
 
       if (macro->paramc == 0)
 	push_token_context (pfile, node, macro->exp.tokens, macro->count);
+
+      /* APPLE LOCAL begin CW asm blocks */
+      /* Mark this context as being at the beginning of a line.  */
+      if (bol_p && pfile->context)
+	pfile->context->bol_p = true;
+      /* APPLE LOCAL end CW asm blocks */
 
       return 1;
     }
@@ -886,7 +904,7 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro, macro_arg
 	{
 	  cpp_token *token = _cpp_temp_token (pfile);
 	  token->type = (*paste_flag)->type;
-	  token->val.str = (*paste_flag)->val.str;
+	  token->val = (*paste_flag)->val;
 	  if (src->flags & PASTE_LEFT)
 	    token->flags = (*paste_flag)->flags | PASTE_LEFT;
 	  else
@@ -947,6 +965,8 @@ push_ptoken_context (cpp_reader *pfile, cpp_hashnode *macro, _cpp_buff *buff,
   context->direct_p = false;
   context->macro = macro;
   context->buff = buff;
+  /* APPLE LOCAL CW asm blocks */
+  context->bol_p = false;
   FIRST (context).ptoken = first;
   LAST (context).ptoken = first + count;
 }
@@ -961,6 +981,8 @@ push_token_context (cpp_reader *pfile, cpp_hashnode *macro,
   context->direct_p = true;
   context->macro = macro;
   context->buff = NULL;
+  /* APPLE LOCAL CW asm blocks */
+  context->bol_p = false;
   FIRST (context).token = first;
   LAST (context).token = first + count;
 }
@@ -1076,6 +1098,16 @@ cpp_get_token (cpp_reader *pfile)
 	  else
 	    result = *FIRST (context).ptoken++;
 
+	  /* APPLE LOCAL begin CW asm blocks */
+	  /* Make the context's bol flag stick to the first token, and
+	     only the first.  */
+	  if (context->bol_p)
+	    {
+	      ((cpp_token *)result)->flags |= BOL;
+	      context->bol_p = false;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
+
 	  if (result->flags & PASTE_LEFT)
 	    {
 	      paste_all_tokens (pfile, result);
@@ -1106,7 +1138,15 @@ cpp_get_token (cpp_reader *pfile)
       if (!(node->flags & NODE_DISABLED))
 	{
 	  if (!pfile->state.prevent_expansion
-	      && enter_macro_context (pfile, node))
+              /* APPLE LOCAL begin AltiVec */
+              /* Conditional macros require that a predicate be
+                 evaluated first.  */
+              && (!(node->flags & NODE_CONDITIONAL)
+                  || (pfile->cb.macro_to_expand
+                      && (node = pfile->cb.macro_to_expand (pfile, result))))
+              /* APPLE LOCAL end AltiVec */
+	      /* APPLE LOCAL CW asm blocks */
+	      && enter_macro_context (pfile, node, (flag_cw_asm_blocks && result->flags & BOL)))
 	    {
 	      if (pfile->state.in_directive)
 		continue;
@@ -1120,7 +1160,7 @@ cpp_get_token (cpp_reader *pfile)
 	  cpp_token *t = _cpp_temp_token (pfile);
 	  t->type = result->type;
 	  t->flags = result->flags | NO_EXPAND;
-	  t->val.str = result->val.str;
+	  t->val = result->val;
 	  result = t;
 	}
 
@@ -1164,26 +1204,34 @@ cpp_scan_nooutput (cpp_reader *pfile)
   pfile->state.prevent_expansion--;
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Step back one or more tokens obtained from the lexer.  */
+void
+_cpp_backup_tokens_direct (cpp_reader *pfile, unsigned int count)
+{
+  pfile->lookaheads += count;
+  while (count--)
+    {
+      pfile->cur_token--;
+      if (pfile->cur_token == pfile->cur_run->base
+          /* Possible with -fpreprocessed and no leading #line.  */
+          && pfile->cur_run->prev != NULL)
+        {
+          pfile->cur_run = pfile->cur_run->prev;
+          pfile->cur_token = pfile->cur_run->limit;
+        }
+    }
+}
+/* APPLE LOCAL end AltiVec */
+
 /* Step back one (or more) tokens.  Can only step mack more than 1 if
    they are from the lexer, and not from macro expansion.  */
 void
 _cpp_backup_tokens (cpp_reader *pfile, unsigned int count)
 {
   if (pfile->context->prev == NULL)
-    {
-      pfile->lookaheads += count;
-      while (count--)
-	{
-	  pfile->cur_token--;
-	  if (pfile->cur_token == pfile->cur_run->base
-	      /* Possible with -fpreprocessed and no leading #line.  */
-	      && pfile->cur_run->prev != NULL)
-	    {
-	      pfile->cur_run = pfile->cur_run->prev;
-	      pfile->cur_token = pfile->cur_run->limit;
-	    }
-	}
-    }
+    /* APPLE LOCAL AltiVec */
+    _cpp_backup_tokens_direct (pfile, count);
   else
     {
       if (count != 1)
@@ -1208,6 +1256,13 @@ warn_of_redefinition (cpp_reader *pfile, const cpp_hashnode *node,
   /* Some redefinitions need to be warned about regardless.  */
   if (node->flags & NODE_WARN)
     return true;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* Redefinitions of conditional (context-sensitive) macros, on
+     the other hand, must be allowed silently.  */
+  if (node->flags & NODE_CONDITIONAL)
+    return false;
+  /* APPLE LOCAL end AltiVec */
 
   /* Redefinition of a macro is allowed if and only if the old and new
      definitions are the same.  (6.10.3 paragraph 2).  */
@@ -1430,8 +1485,39 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       macro->fun_like = 1;
     }
   else if (ctoken->type != CPP_EOF && !(ctoken->flags & PREV_WHITE))
-    cpp_error (pfile, CPP_DL_PEDWARN,
-	       "ISO C requires whitespace after the macro name");
+    {
+      /* While ISO C99 requires whitespace before replacement text
+	 in a macro definition, ISO C90 with TC1 allows there characters
+	 from the basic source character set.  */
+      if (CPP_OPTION (pfile, c99))
+	cpp_error (pfile, CPP_DL_PEDWARN,
+		   "ISO C99 requires whitespace after the macro name");
+      else
+	{
+	  int warntype = CPP_DL_WARNING;
+	  switch (ctoken->type)
+	    {
+	    case CPP_ATSIGN:
+	    case CPP_AT_NAME:
+	    case CPP_OBJC_STRING:
+	      /* '@' is not in basic character set.  */
+	      warntype = CPP_DL_PEDWARN;
+	      break;
+	    case CPP_OTHER:
+	      /* Basic character set sans letters, digits and _.  */
+	      if (strchr ("!\"#%&'()*+,-./:;<=>?[\\]^{|}~",
+			  ctoken->val.str.text[0]) == NULL)
+		warntype = CPP_DL_PEDWARN;
+	      break;
+	    default:
+	      /* All other tokens start with a character from basic
+		 character set.  */
+	      break;
+	    }
+	  cpp_error (pfile, warntype,
+		     "missing whitespace after the macro name");
+	}
+    }
 
   if (macro->fun_like)
     token = lex_expansion_token (pfile, macro);
@@ -1751,8 +1837,10 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	      buffer += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	    }
 	  else
-	    buffer = cpp_spell_token (pfile, token, buffer);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+	    buffer = cpp_spell_token (pfile, token, buffer, false);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 	  if (token->flags & PASTE_LEFT)
 	    {
 	      *buffer++ = ' ';

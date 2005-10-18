@@ -126,7 +126,7 @@ static void move_by_pieces_1 (rtx (*) (rtx, ...), enum machine_mode,
 			      struct move_by_pieces *);
 static bool block_move_libcall_safe_for_call_parm (void);
 static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned);
-static rtx emit_block_move_via_libcall (rtx, rtx, rtx);
+static rtx emit_block_move_via_libcall (rtx, rtx, rtx, bool);
 static tree emit_block_move_libcall_fn (int);
 static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
 static rtx clear_by_pieces_1 (void *, HOST_WIDE_INT, enum machine_mode);
@@ -135,7 +135,7 @@ static void store_by_pieces_1 (struct store_by_pieces *, unsigned int);
 static void store_by_pieces_2 (rtx (*) (rtx, ...), enum machine_mode,
 			       struct store_by_pieces *);
 static bool clear_storage_via_clrmem (rtx, rtx, unsigned);
-static rtx clear_storage_via_libcall (rtx, rtx);
+static rtx clear_storage_via_libcall (rtx, rtx, bool);
 static tree clear_storage_libcall_fn (int);
 static rtx compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
@@ -155,7 +155,8 @@ static void expand_operands (tree, tree, rtx, rtx*, rtx*,
 static rtx reduce_to_bit_field_precision (rtx, rtx, tree);
 static rtx do_store_flag (tree, rtx, enum machine_mode, int);
 #ifdef PUSH_ROUNDING
-static void emit_single_push_insn (enum machine_mode, rtx, tree);
+/* APPLE LOCAL radar 4087332 */
+static void emit_single_push_insn (enum machine_mode, rtx, tree, rtx);
 #endif
 static void do_tablejump (rtx, enum machine_mode, rtx, rtx, rtx);
 static rtx const_vector_from_tree (tree);
@@ -1084,7 +1085,8 @@ move_by_pieces_1 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
       else
 	{
 #ifdef PUSH_ROUNDING
-	  emit_single_push_insn (mode, from1, NULL);
+	  /* APPLE LOCAL radar 4087332 */
+	  emit_single_push_insn (mode, from1, NULL, NULL_RTX);
 #else
 	  gcc_unreachable ();
 #endif
@@ -1124,6 +1126,7 @@ emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
   switch (method)
     {
     case BLOCK_OP_NORMAL:
+    case BLOCK_OP_TAILCALL:
       may_use_call = true;
       break;
 
@@ -1172,7 +1175,8 @@ emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
   else if (emit_block_move_via_movmem (x, y, size, align))
     ;
   else if (may_use_call)
-    retval = emit_block_move_via_libcall (x, y, size);
+    retval = emit_block_move_via_libcall (x, y, size,
+					  method == BLOCK_OP_TAILCALL);
   else
     emit_block_move_via_loop (x, y, size, align);
 
@@ -1301,7 +1305,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align)
    Return the return value from memcpy, 0 otherwise.  */
 
 static rtx
-emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
+emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
 {
   rtx dst_addr, src_addr;
   tree call_expr, arg_list, fn, src_tree, dst_tree, size_tree;
@@ -1343,6 +1347,7 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		      call_expr, arg_list, NULL_TREE);
+  CALL_EXPR_TAILCALL (call_expr) = tailcall;
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
@@ -2403,10 +2408,12 @@ store_by_pieces_2 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
    its length in bytes.  */
 
 rtx
-clear_storage (rtx object, rtx size)
+clear_storage (rtx object, rtx size, enum block_op_methods method)
 {
   enum machine_mode mode = GET_MODE (object);
   unsigned int align;
+
+  gcc_assert (method == BLOCK_OP_NORMAL || method == BLOCK_OP_TAILCALL);
 
   /* If OBJECT is not BLKmode and SIZE is the same size as its mode,
      just move a zero.  Otherwise, do this a piece at a time.  */
@@ -2444,7 +2451,8 @@ clear_storage (rtx object, rtx size)
   else if (clear_storage_via_clrmem (object, size, align))
     ;
   else
-    return clear_storage_via_libcall (object, size);
+    return clear_storage_via_libcall (object, size,
+				      method == BLOCK_OP_TAILCALL);
 
   return NULL;
 }
@@ -2509,7 +2517,7 @@ clear_storage_via_clrmem (rtx object, rtx size, unsigned int align)
    Return the return value of memset, 0 otherwise.  */
 
 static rtx
-clear_storage_via_libcall (rtx object, rtx size)
+clear_storage_via_libcall (rtx object, rtx size, bool tailcall)
 {
   tree call_expr, arg_list, fn, object_tree, size_tree;
   enum machine_mode size_mode;
@@ -2542,6 +2550,7 @@ clear_storage_via_libcall (rtx object, rtx size)
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
 		      call_expr, arg_list, NULL_TREE);
+  CALL_EXPR_TAILCALL (call_expr) = tailcall;
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
 
@@ -2877,19 +2886,14 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
   if (push_operand (x, mode))
     return emit_move_complex_push (mode, x, y);
 
-  /* For memory to memory moves, optimal behavior can be had with the
-     existing block move logic.  */
-  if (MEM_P (x) && MEM_P (y))
-    {
-      emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
-		       BLOCK_OP_NO_LIBCALL);
-      return get_last_insn ();
-    }
-
   /* See if we can coerce the target into moving both values at once.  */
 
+  /* Move floating point as parts.  */
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+      && mov_optab->handlers[GET_MODE_INNER (mode)].insn_code != CODE_FOR_nothing)
+    try_int = false;
   /* Not possible if the values are inherently not adjacent.  */
-  if (GET_CODE (x) == CONCAT || GET_CODE (y) == CONCAT)
+  else if (GET_CODE (x) == CONCAT || GET_CODE (y) == CONCAT)
     try_int = false;
   /* Is possible if both are registers (or subregs of registers).  */
   else if (register_operand (x, mode) && register_operand (y, mode))
@@ -2907,7 +2911,18 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 
   if (try_int)
     {
-      rtx ret = emit_move_via_integer (mode, x, y);
+      rtx ret;
+
+      /* For memory to memory moves, optimal behavior can be had with the
+	 existing block move logic.  */
+      if (MEM_P (x) && MEM_P (y))
+	{
+	  emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
+			   BLOCK_OP_NO_LIBCALL);
+	  return get_last_insn ();
+	}
+
+      ret = emit_move_via_integer (mode, x, y);
       if (ret)
 	return ret;
     }
@@ -3138,8 +3153,15 @@ compress_float_constant (rtx x, rtx y)
   enum machine_mode orig_srcmode = GET_MODE (y);
   enum machine_mode srcmode;
   REAL_VALUE_TYPE r;
+/* APPLE LOCAL begin mainline 4095526 */
+  int oldcost, newcost;
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, y);
+
+  if (LEGITIMATE_CONSTANT_P (y))
+    oldcost = rtx_cost (y, SET);
+  else
+    oldcost = rtx_cost (force_const_mem (dstmode, y), SET);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
        srcmode != orig_srcmode;
@@ -3165,9 +3187,21 @@ compress_float_constant (rtx x, rtx y)
 	     the extension.  */
 	  if (! (*insn_data[ic].operand[1].predicate) (trunc_y, srcmode))
 	    continue;
+	  /* This is valid, but may not be cheaper than the original. */
+	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET);
+	  if (oldcost < newcost)
+	    continue;
 	}
       else if (float_extend_from_mem[dstmode][srcmode])
-	trunc_y = validize_mem (force_const_mem (srcmode, trunc_y));
+	{
+	  trunc_y = force_const_mem (srcmode, trunc_y);
+	  /* This is valid, but may not be cheaper than the original. */
+	  newcost = rtx_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y), SET);
+	  if (oldcost < newcost)
+	    continue;
+	  trunc_y = validize_mem (trunc_y);
+	}
+/* APPLE LOCAL end mainline 4095526 */
       else
 	continue;
 
@@ -3243,7 +3277,8 @@ push_block (rtx size, int extra, int below)
 /* Emit single push insn.  */
 
 static void
-emit_single_push_insn (enum machine_mode mode, rtx x, tree type)
+/* APPLE LOCAL radar 4087332 */
+emit_single_push_insn (enum machine_mode mode, rtx x, tree type, rtx args_so_far)
 {
   rtx dest_addr;
   unsigned rounded_size = PUSH_ROUNDING (GET_MODE_SIZE (mode));
@@ -3252,6 +3287,22 @@ emit_single_push_insn (enum machine_mode mode, rtx x, tree type)
   insn_operand_predicate_fn pred;
 
   stack_pointer_delta += PUSH_ROUNDING (GET_MODE_SIZE (mode));
+  /* APPLE LOCAL begin radar 4087332 */
+  if (args_so_far != NULL_RTX && GET_CODE (args_so_far) == CONST_INT)
+    {
+      int offset = INTVAL (args_so_far);
+      unsigned int unit_stack_boundary = cfun->preferred_stack_boundary / BITS_PER_UNIT;
+      if (!(offset % unit_stack_boundary) && (stack_pointer_delta % unit_stack_boundary))
+	{
+	  /* argument must be aligned on stack boundary, but it is not.
+	     align 'sp' before the push. */
+	  int delta = unit_stack_boundary - (stack_pointer_delta % unit_stack_boundary);	
+	  expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
+			       GEN_INT (-delta), stack_pointer_rtx, 1, OPTAB_DIRECT);
+	  stack_pointer_delta += delta;
+	}
+    }
+  /* APPLE LOCAL end radar 4087332 */
   /* If there is push pattern, use it.  Otherwise try old way of throwing
      MEM representing push operation to move expander.  */
   icode = push_optab->handlers[(int) mode].insn_code;
@@ -3514,7 +3565,8 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       int not_stack;
       /* # bytes of start of argument
 	 that we must make space for but need not store.  */
-      int offset = partial % (PARM_BOUNDARY / BITS_PER_WORD);
+      /* APPLE LOCAL mainline 2005-04-21 */
+      int offset = partial % (PARM_BOUNDARY / BITS_PER_UNIT);
       int args_offset = INTVAL (args_so_far);
       int skip;
 
@@ -3531,9 +3583,12 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       if (args_addr == 0)
 	offset = 0;
 
+      /* APPLE LOCAL begin mainline 2005-04-21 */
       /* Now NOT_STACK gets the number of words that we don't need to
-	 allocate on the stack.  */
+	 allocate on the stack. Convert OFFSET to words too. */
       not_stack = (partial - offset) / UNITS_PER_WORD;
+      offset /= UNITS_PER_WORD;
+      /* APPLE LOCAL end mainline 2005-04-21 */
 
       /* If the partial register-part of the arg counts in its stack size,
 	 skip the part of stack space corresponding to the registers.
@@ -3580,7 +3635,8 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 
 #ifdef PUSH_ROUNDING
       if (args_addr == 0 && PUSH_ARGS)
-	emit_single_push_insn (mode, x, type);
+	/* APPLE LOCAL radar 4087332 */
+	emit_single_push_insn (mode, x, type, args_so_far);
       else
 #endif
 	{
@@ -4240,7 +4296,7 @@ store_expr (tree exp, rtx target, int call_param_p)
 		}
 
 	      if (size != const0_rtx)
-		clear_storage (target, size);
+		clear_storage (target, size, BLOCK_OP_NORMAL);
 
 	      if (label)
 		emit_label (label);
@@ -4595,7 +4651,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		 && ! CONSTRUCTOR_ELTS (exp))
 	  /* If the constructor is empty, clear the union.  */
 	  {
-	    clear_storage (target, expr_size (exp));
+	    clear_storage (target, expr_size (exp), BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 
@@ -4623,7 +4679,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		     || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
 			 == size)))
 	  {
-	    clear_storage (target, GEN_INT (size));
+	    clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 
@@ -4823,7 +4879,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    if (REG_P (target))
 	      emit_move_insn (target,  CONST0_RTX (GET_MODE (target)));
 	    else
-	      clear_storage (target, GEN_INT (size));
+	      clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 
@@ -5068,7 +5124,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    if (REG_P (target))
 	      emit_move_insn (target,  CONST0_RTX (GET_MODE (target)));
 	    else
-	      clear_storage (target, GEN_INT (size));
+	      clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 	
@@ -7379,18 +7435,29 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VIEW_CONVERT_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
 
-      /* If the input and output modes are both the same, we are done.
-	 Otherwise, if neither mode is BLKmode and both are integral and within
-	 a word, we can use gen_lowpart.  If neither is true, make sure the
-	 operand is in memory and convert the MEM to the new mode.  */
+      /* APPLE LOCAL begin mainline 4.0.2 4043818 */
+      /* If the input and output modes are both the same, we are done.  */
       if (TYPE_MODE (type) == GET_MODE (op0))
-	;
+        ;
+      /* If neither mode is BLKmode, and both modes are the same size
+         then we can use gen_lowpart.  */
       else if (TYPE_MODE (type) != BLKmode && GET_MODE (op0) != BLKmode
-	       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-	       && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	       && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_WORD
-	       && GET_MODE_SIZE (GET_MODE (op0)) <= UNITS_PER_WORD)
-	op0 = gen_lowpart (TYPE_MODE (type), op0);
+               && GET_MODE_SIZE (TYPE_MODE (type))
+                   == GET_MODE_SIZE (GET_MODE (op0)))
+        {
+          if (GET_CODE (op0) == SUBREG)
+            op0 = force_reg (GET_MODE (op0), op0);
+          op0 = gen_lowpart (TYPE_MODE (type), op0);
+        }
+      /* If both modes are integral, then we can convert from one to the
+         other.  */
+      else if (SCALAR_INT_MODE_P (GET_MODE (op0))
+               && SCALAR_INT_MODE_P (TYPE_MODE (type)))
+        op0 = convert_modes (TYPE_MODE (type), GET_MODE (op0), op0,
+                             TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+      /* As a last resort, spill op0 to memory, and reload it in a
+         different mode.  */
+      /* APPLE LOCAL end mainline 4.0.2 4043818 */
       else if (!MEM_P (op0))
 	{
 	  /* If the operand is not a MEM, force it into memory.  Since we
@@ -7511,7 +7578,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    }
 
 	  else if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST
-		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_INT
+		   /* APPLE LOCAL radar mainline 2005-08-31 */
+		   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 		   && TREE_CONSTANT (TREE_OPERAND (exp, 0)))
 	    {
 	      rtx constant_part;

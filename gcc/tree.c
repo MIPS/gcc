@@ -113,7 +113,8 @@ struct type_hash GTY(())
 };
 
 /* Initial size of the hash table (rounded to next prime).  */
-#define TYPE_HASH_INITIAL_SIZE 1000
+/* APPLE LOCAL fsf candidate */
+#define TYPE_HASH_INITIAL_SIZE 4111
 
 /* Now here is the hash table.  When recording a type, it is added to
    the slot whose index is the hash code.  Note that the hash table is
@@ -242,6 +243,10 @@ tree_size (tree node)
     case PHI_NODE:
       return (sizeof (struct tree_phi_node)
 	      + (PHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d));
+
+    case TREE_BINFO:
+      return (offsetof (struct tree_binfo, base_binfos)
+	      + VEC_embedded_size (tree, BINFO_N_BASE_BINFOS (node)));
 
     case TREE_VEC:
       return (sizeof (struct tree_vec)
@@ -753,6 +758,10 @@ build_vector (tree type, tree vals)
   tree v = make_node (VECTOR_CST);
   int over1 = 0, over2 = 0;
   tree link;
+  /* APPLE LOCAL begin AltiVec */
+  int max_index, count = 0;
+  tree list = NULL_TREE;
+  /* APPLE LOCAL end AltiVec */
 
   TREE_VECTOR_CST_ELTS (v) = vals;
   TREE_TYPE (v) = type;
@@ -762,9 +771,28 @@ build_vector (tree type, tree vals)
     {
       tree value = TREE_VALUE (link);
 
+      /* APPLE LOCAL begin AltiVec */
+      value = fold (value);
+      TREE_VALUE (link) = value;
+      count++;
+      list = link;
+      /* APPLE LOCAL end AltiVec */
       over1 |= TREE_OVERFLOW (value);
       over2 |= TREE_CONSTANT_OVERFLOW (value);
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  max_index = TYPE_VECTOR_SUBPARTS (type);
+  if (count > 0 && count < max_index)
+    {
+      int index;
+      tree expr = TREE_VALUE (list);
+      for (index = count; index < max_index; ++index)
+         list = chainon (list,
+                         build_tree_list (NULL_TREE,
+                                          convert (TREE_TYPE (type), expr)));
+    }
+  /* APPLE LOCAL end AltiVec */
 
   TREE_OVERFLOW (v) = over1;
   TREE_CONSTANT_OVERFLOW (v) = over2;
@@ -2605,6 +2633,10 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   /* Expressions without side effects may be constant if their
      arguments are as well.  */
   constant = (TREE_CODE_CLASS (code) == tcc_comparison
+	      /* APPLE LOCAL begin Altivec */
+	      || (targetm.cast_expr_as_vector_init
+		  && code == COMPOUND_EXPR)
+	      /* APPLE LOCAL end AltiVec */
 	      || TREE_CODE_CLASS (code) == tcc_binary);
   read_only = 1;
   side_effects = TREE_SIDE_EFFECTS (t);
@@ -4726,11 +4758,19 @@ get_unwidened (tree op, tree for_type)
        && TYPE_UNSIGNED (type));
   tree win = op;
 
-  while (TREE_CODE (op) == NOP_EXPR)
+  while (TREE_CODE (op) == NOP_EXPR
+	 || TREE_CODE (op) == CONVERT_EXPR)
     {
-      int bitschange
-	= TYPE_PRECISION (TREE_TYPE (op))
-	  - TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op, 0)));
+      int bitschange;
+
+      /* TYPE_PRECISION on vector types has different meaning
+	 (TYPE_VECTOR_SUBPARTS) and casts from vectors are view conversions,
+	 so avoid them here.  */
+      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op, 0))) == VECTOR_TYPE)
+	break;
+
+      bitschange = TYPE_PRECISION (TREE_TYPE (op))
+		   - TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op, 0)));
 
       /* Truncations are many-one so cannot be removed.
 	 Unless we are later going to truncate down even farther.  */
@@ -4756,7 +4796,9 @@ get_unwidened (tree op, tree for_type)
 	  /* TYPE_UNSIGNED says whether this is a zero-extension.
 	     Let's avoid computing it if it does not affect WIN
 	     and if UNS will not be needed again.  */
-	  if ((uns || TREE_CODE (op) == NOP_EXPR)
+	  if ((uns
+	       || TREE_CODE (op) == NOP_EXPR
+	       || TREE_CODE (op) == CONVERT_EXPR)
 	      && TYPE_UNSIGNED (TREE_TYPE (op)))
 	    {
 	      uns = 1;
@@ -5842,7 +5884,7 @@ build_common_builtin_nodes (void)
       tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
       tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
       tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
-      ftype = build_function_type (ptr_type_node, tmp);
+      ftype = build_function_type (integer_type_node, tmp);
       local_define_builtin ("__builtin_memcmp", ftype, BUILT_IN_MEMCMP,
 			    "memcmp", ECF_PURE | ECF_NOTHROW);
     }
@@ -5965,7 +6007,11 @@ reconstruct_complex_type (tree type, tree bottom)
   if (POINTER_TYPE_P (type))
     {
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
+      /* APPLE LOCAL begin AltiVec */
+      outer = (TREE_CODE (type) == REFERENCE_TYPE
+	       ? build_reference_type (inner)
+	       : build_pointer_type (inner));
+      /* APPLE LOCAL end AltiVec */
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

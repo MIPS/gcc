@@ -94,7 +94,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_SGIAssignableConcept<_Tp>)
 
-      const _Tp __tmp = __a;
+      _Tp __tmp = __a;
       __a = __b;
       __b = __tmp;
     }
@@ -111,7 +111,7 @@ namespace std
         {
           typedef typename iterator_traits<_ForwardIterator1>::value_type
             _ValueType1;
-          const _ValueType1 __tmp = *__a;
+          _ValueType1 __tmp = *__a;
           *__a = *__b;
           *__b = __tmp; 
 	}
@@ -155,7 +155,14 @@ namespace std
 				  _ValueType2>)
       __glibcxx_function_requires(_ConvertibleConcept<_ValueType2,
 				  _ValueType1>)
-      std::__iter_swap<__are_same<_ValueType1, _ValueType2>::__value>::
+
+      typedef typename iterator_traits<_ForwardIterator1>::reference
+	_ReferenceType1;
+      typedef typename iterator_traits<_ForwardIterator2>::reference
+	_ReferenceType2;
+      std::__iter_swap<__are_same<_ValueType1, _ValueType2>::__value &&
+	__are_same<_ValueType1 &, _ReferenceType1>::__value &&
+	__are_same<_ValueType2 &, _ReferenceType2>::__value>::
 	iter_swap(__a, __b);
     }
 

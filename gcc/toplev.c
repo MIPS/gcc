@@ -108,6 +108,8 @@ static void init_asm_output (const char *);
 static void finalize (void);
 
 static void crash_signal (int) ATTRIBUTE_NORETURN;
+/* APPLE LOCAL interrupt signal handler (radar 2941633)  --ilr */
+static void interrupt_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
 
@@ -199,22 +201,11 @@ enum graph_dump_types graph_dump_format;
 /* Name for output file of assembly code, specified with -o.  */
 
 const char *asm_file_name;
+/* APPLE LOCAL  ss2 */
+char *asm_file_name2;
 
-/* Nonzero means do optimizations.  -O.
-   Particular numeric values stand for particular amounts of optimization;
-   thus, -O2 stores 2 here.  However, the optimizations beyond the basic
-   ones are not controlled directly by this variable.  Instead, they are
-   controlled by individual `flag_...' variables that are defaulted
-   based on this variable.  */
-
-int optimize = 0;
-
-/* Nonzero means optimize for size.  -Os.
-   The only valid values are zero and nonzero. When optimize_size is
-   nonzero, optimize defaults to 2, but certain individual code
-   bloating optimizations are disabled.  */
-
-int optimize_size = 0;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
@@ -252,6 +243,19 @@ int flag_signed_char;
 
 int flag_short_enums;
 
+/* APPLE LOCAL begin -fast */
+/* Nonzero if we should perform SPEC oriented optimizations.  */
+int flag_fast = 0;
+int flag_fastf = 0;
+int flag_fastcp = 0;
+/* APPLE LOCAL end -fast */
+
+/* APPLE LOCAL begin -ffppc 2001-08-01 --sts */
+/* Nonzero if the floating point precision control pass should
+   be performed. (x86 only really, but we pretend it's generic)  */
+int flag_fppc = 0;
+/* APPLE LOCAL end -ffppc 2001-08-01 --sts */
+
 /* Nonzero if structures and unions should be returned in memory.
 
    This should only be defined if compatibility with another compiler or
@@ -265,11 +269,28 @@ int flag_short_enums;
 
 int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
 
+/* APPLE LOCAL begin fwritable strings  */
+/* Nonzero for -fwritable-strings:
+   store string constants in data segment and don't uniquize them.  */
+
+int flag_writable_strings = 0;
+/* APPLE LOCAL end fwritable strings  */
+
+/* APPLE LOCAL Altivec */
+int flag_disable_opts_for_faltivec = 0;
+
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex multiply and divide.  */
 
-int flag_complex_method = 0;
+int flag_complex_method = 1;
+
+/* APPLE LOCAL begin -fobey-inline */
+/* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
+   of codesize.  */
+
+int flag_obey_inline;
+/* APPLE LOCAL end -fobey-inline */
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
@@ -325,6 +346,10 @@ rtx stack_limit_rtx;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+/* APPLE LOCAL begin predictive compilation */
+int predictive_compilation = -1;
+/* APPLE LOCAL end predictive compilation */
+
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
@@ -341,9 +366,11 @@ bool user_defined_section_attribute = false;
    of two not less than the variable, for .align output.  */
 
 int align_loops_log;
-int align_loops_max_skip;
+/* APPLE LOCAL -falign-loops-max-skip */
+/* Delete int align_loops_max_skip; */
 int align_jumps_log;
-int align_jumps_max_skip;
+/* APPLE LOCAL -falign-jumps-max-skip */
+/* Delete int align_jumps_max_skip; */
 int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;
@@ -413,6 +440,11 @@ FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
 const char *dump_file_name;
+
+/* APPLE LOCAL begin ss2 */
+int flag_pch_file;
+int flag_save_repository;
+/* APPLE LOCAL end ss2 */
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -574,6 +606,30 @@ floor_log2 (unsigned HOST_WIDE_INT x)
 
   return t;
 }
+
+/* APPLE LOCAL begin interrupt signal handler (radar 2941633)  --ilr */
+/* If the compilation is interrupted do some cleanup. Any files created
+   by the compilation are deleted.  The compilation is terminated from
+   here.  */
+static void
+interrupt_signal (int signo ATTRIBUTE_UNUSED)
+{
+  /* Close the dump files.  */
+  if (flag_gen_aux_info)
+    {
+      fclose (aux_info_file);
+      unlink (aux_info_file_name);
+    }
+  if (asm_out_file)
+    {
+      fclose (asm_out_file);
+      if (asm_file_name && *asm_file_name)
+      	unlink (asm_file_name);
+    }
+
+  exit (FATAL_EXIT_CODE);
+}
+/* APPLE LOCAL end interrupt signal handler */
 
 /* Return the logarithm of X, base 2, considering X unsigned,
    if X is a power of 2.  Otherwise, returns -1.  */
@@ -781,6 +837,8 @@ wrapup_global_declarations (tree *vec, int len)
 
 	      if (flag_unit_at_a_time && node->finalized)
 		needed = 0;
+	      else if (node->alias)
+		needed = 0;
 	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
@@ -935,6 +993,46 @@ warn_deprecated_use (tree node)
     }
 }
 
+/* APPLE LOCAL begin "unavailable" attribute (radar 2809697) --ilr */
+/* Warn about a use of an identifier which was marked deprecated.  */
+void
+warn_unavailable_use (tree node)
+{
+  if (node == 0)
+    return;
+
+  if (DECL_P (node))
+    warning ("%qs is unavailable (declared at %s:%d)",
+	     IDENTIFIER_POINTER (DECL_NAME (node)),
+	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+  else if (TYPE_P (node))
+    {
+      const char *what = NULL;
+      tree decl = TYPE_STUB_DECL (node);
+
+      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	what = IDENTIFIER_POINTER (TYPE_NAME (node));
+      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+	       && DECL_NAME (TYPE_NAME (node)))
+	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+
+      if (what)
+	{
+	  if (decl)
+	    warning ("%qs is unavailable (declared at %s:%d)", what,
+		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	  else
+	    warning ("%qs is unavailable", what);
+	}
+      else if (decl)
+	warning ("type is unavailable (declared at %s:%d)",
+		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+      else
+	warning ("type is unavailable");
+    }
+}
+/* APPLE LOCAL end "unavailable" attribute (radar 2809697) --ilr */
+
 /* Save the current INPUT_LOCATION on the top entry in the
    INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
    INPUT_LOCATION accordingly.  */
@@ -1007,8 +1105,8 @@ compile_file (void)
     return;
 
   lang_hooks.decls.final_write_globals ();
-
   cgraph_varpool_assemble_pending_decls ();
+  finish_aliases_2 ();
 
   /* This must occur after the loop to output deferred functions.
      Else the coverage initializer would not be emitted if all the
@@ -1042,9 +1140,6 @@ compile_file (void)
      assemble_external calls from the front end, but the RTL
      expander can also generate them.  */
   process_pending_assemble_externals ();
-
-  /* Flush any pending equate directives.  */
-  process_pending_assemble_output_defs ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
@@ -1326,6 +1421,18 @@ print_switch_values (FILE *file, int pos, int max,
 	  continue;
 	if ((*p)[1] == 'd')
 	  continue;
+        /* APPLE LOCAL begin -fast or -fastf or -fastcp */
+        if ((flag_fast || flag_fastf || flag_fastcp)
+            && (*p)[0] == '-' && (*p)[1] == 'O')
+          {
+            int optimize_val;
+            if ((*p)[2] == 's' && (*p)[3] == '\0')
+              continue;
+            optimize_val = read_integral_parameter (*p+2, 0, -1);
+            if (optimize_val != 3)
+              continue;
+          }
+        /* APPLE LOCAL end -fast or -fastf or -fastcp */
 
 	pos = print_single_switch (file, pos, max, indent, sep, term, *p, "");
       }
@@ -1341,11 +1448,23 @@ print_switch_values (FILE *file, int pos, int max,
 
   for (j = 0; j < cl_options_count; j++)
     {
-      if (!cl_options[j].flag_var
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+      if (!(cl_options[j].flag_var || cl_options[j].access_flag)
 	  || !(cl_options[j].flags & CL_REPORT))
 	continue;
 
-      if (cl_options[j].has_set_value)
+      if (cl_options[j].access_flag && !cl_options[j].has_set_value)
+	{
+	  if (!(cl_options[j].access_flag (0, 0)))
+	    continue;
+	}
+      else if (cl_options[j].access_flag && cl_options[j].has_set_value)
+	{
+	  if ((cl_options[j].access_flag (0, 0)) != cl_options[j].set_value)
+	    continue;
+	}
+      else if (cl_options[j].has_set_value)
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 	{
 	  if (*cl_options[j].flag_var != cl_options[j].set_value)
 	    continue;
@@ -1409,7 +1528,19 @@ init_asm_output (const char *name)
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
       else
-	asm_out_file = fopen (asm_file_name, "w+b");
+      /* APPLE LOCAL begin ss2 */
+	{
+	  if (flag_save_repository
+	      && flag_pch_file && !flag_debug_only_used_symbols)
+	    {
+	      asm_file_name2 = (char *) xmalloc (strlen (asm_file_name) + 3);
+	      sprintf (asm_file_name2, "%s.t", asm_file_name);
+	      asm_out_file = fopen (asm_file_name2, "w+b");
+	    }
+	  else
+	    asm_out_file = fopen (asm_file_name, "w+b");
+	}
+      /* APPLE LOCAL end ss2 */
       if (asm_out_file == 0)
 	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
     }
@@ -1603,6 +1734,9 @@ general_init (const char *argv0)
 
   hex_init ();
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   /* Initialize the diagnostics reporting machinery, so option parsing
@@ -1628,12 +1762,37 @@ general_init (const char *argv0)
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
   signal (SIGIOT, crash_signal);
 #endif
+  /* APPLE LOCAL begin interrupt signal handler (radar 2941633)  --ilr */
+  /* Handle compilation interrupts.  */
+  if (signal (SIGINT, SIG_IGN) != SIG_IGN)
+    signal (SIGINT, interrupt_signal);
+  if (signal (SIGKILL, SIG_IGN) != SIG_IGN)
+    signal (SIGINT, interrupt_signal);
+  if (signal (SIGTERM, SIG_IGN) != SIG_IGN)
+    signal (SIGTERM, interrupt_signal);
+  /* APPLE LOCAL end interrupt signal handler */
 #ifdef SIGFPE
   signal (SIGFPE, crash_signal);
 #endif
 
   /* Other host-specific signal setup.  */
   (*host_hooks.extra_signals)();
+
+  /* APPLE LOCAL begin setrlimit */
+#ifdef RLIMIT_STACK
+  /* Get rid of any avoidable limit on stack size.  */
+  {
+    struct rlimit rlim;
+
+    /* Set the stack limit huge.  (Compiles normally work within
+       a megabyte of stack, but the normal limit on OSX is 512K for
+       some reason.) */
+    getrlimit (RLIMIT_STACK, &rlim);
+    rlim.rlim_cur = rlim.rlim_max;
+    setrlimit (RLIMIT_STACK, &rlim);
+  }
+#endif /* RLIMIT_STACK defined */
+  /* APPLE LOCAL end setrlimit */
 
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */
@@ -1948,14 +2107,20 @@ process_options (void)
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
+
+  /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
+  if (flag_cx_limited_range)
+    flag_complex_method = 0;
+
+  /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  cl_pf_opts_cooked = cl_pf_opts;
+  /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 }
 
 /* Initialize the compiler back end.  */
 static void
 backend_init (void)
 {
-  init_adjust_machine_modes ();
-
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -1977,7 +2142,11 @@ backend_init (void)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expmed ();
-  if (flag_caller_saves)
+  /* APPLE LOCAL begin 4111151 optimization pragmas */
+  /* We must do this if it will ever be turned on by pragmas.  It's not
+     that expensive so just do it unconditionally.  */
+  /* if (flag_caller_saves) */
+  /* APPLE LOCAL end 4111151 optimization pragmas */
     init_caller_save ();
   expand_dummy_function_end ();
 }
@@ -2012,6 +2181,8 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
+  /* APPLE LOCAL lno */
+  init_set_costs ();
   expand_dummy_function_end ();
 
   /* If dbx symbol table desired, initialize writing it and output the
@@ -2053,7 +2224,13 @@ finalize (void)
     {
       if (ferror (asm_out_file) != 0)
 	fatal_error ("error writing to %s: %m", asm_file_name);
-      if (fclose (asm_out_file) != 0)
+      /* APPLE LOCAL begin ss2 */
+      if (flag_save_repository
+	  && flag_pch_file 
+	  && !flag_debug_only_used_symbols)
+	unlink (asm_file_name2);
+      else if (fclose (asm_out_file) != 0)
+	/* APPLE LOCAL end ss2 */
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
 
@@ -2092,6 +2269,11 @@ do_compile (void)
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)
     {
+      /* This must be run always, because it is needed to compute the FP
+	 predefined macros, such as __LDBL_MAX__, for targets using non
+	 default FP formats.  */
+      init_adjust_machine_modes ();
+
       /* Set up the back-end if requested.  */
       if (!no_backend)
 	backend_init ();

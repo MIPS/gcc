@@ -32,7 +32,7 @@ proc dg-require-weak { args } {
 # test.
 
 proc dg-require-visibility { args } {
-    set visibility_available [ check_visibility_available ]
+    set visibility_available [ check_visibility_available [lindex $args 1 ] ]
     if { $visibility_available == -1 } {
 	upvar name name
 	unresolved "$name"
@@ -117,6 +117,24 @@ proc dg-require-named-sections { args } {
 proc dg-require-effective-target { args } {
     set args [lreplace $args 0 0]
     if { ![is-effective-target [lindex $args 0]] } {
+	upvar dg-do-what dg-do-what
+        set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    }
+}
+
+# If this target does not have fork, skip this test.
+
+proc dg-require-fork { args } {
+    if { ![check_fork_available] } {
+	upvar dg-do-what dg-do-what
+        set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    }
+}
+
+# If this target does not have mkfifo, skip this test.
+
+proc dg-require-mkfifo { args } {
+    if { ![check_mkfifo_available] } {
 	upvar dg-do-what dg-do-what
         set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
     }

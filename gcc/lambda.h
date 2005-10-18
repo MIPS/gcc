@@ -23,6 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define LAMBDA_H
 
 #include "vec.h"
+/* APPLE LOCAL lno */
+#include "ggc.h"
 
 /* An integer vector.  A vector formally consists of an element of a vector
    space. A vector space is a set that is closed under vector addition

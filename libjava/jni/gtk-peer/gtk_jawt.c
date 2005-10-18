@@ -85,6 +85,40 @@ classpath_jawt_get_default_display (JNIEnv* env, jobject canvas)
   return xdisplay;
 }
 
+VisualID
+classpath_jawt_get_visualID (JNIEnv* env, jobject canvas)
+{
+  GtkWidget *widget;
+  Visual *visual;
+  void *ptr;
+  jobject peer;
+  jclass class_id;
+  jmethodID method_id;
+
+  class_id = (*env)->GetObjectClass (env, canvas);
+
+  method_id = (*env)->GetMethodID (env, class_id,
+				   "getPeer",
+				   "()Ljava/awt/peer/ComponentPeer;");
+
+  peer = (*env)->CallObjectMethod (env, canvas, method_id);
+
+  ptr = NSA_GET_PTR (env, peer);
+
+  gdk_threads_enter ();
+
+  widget = GTK_WIDGET (ptr);
+
+  g_assert (GTK_WIDGET_REALIZED (widget));
+
+  visual = gdk_x11_visual_get_xvisual (gtk_widget_get_visual (widget));
+  g_assert (visual != NULL);
+
+  gdk_threads_leave ();
+
+  return visual->visualid;
+}
+
 Drawable
 classpath_jawt_get_drawable (JNIEnv* env, jobject canvas)
 {
@@ -119,6 +153,21 @@ classpath_jawt_get_drawable (JNIEnv* env, jobject canvas)
 }
 
 jint
+classpath_jawt_object_lock (jobject lock)
+{
+  JNIEnv *env = gdk_env();
+  (*env)->MonitorEnter (env, lock);
+  return 0;
+}
+
+void
+classpath_jawt_object_unlock (jobject lock)
+{
+  JNIEnv *env = gdk_env();
+  (*env)->MonitorExit (env, lock);
+}
+
+jint
 classpath_jawt_lock ()
 {
   gdk_threads_enter ();
@@ -129,4 +178,20 @@ void
 classpath_jawt_unlock ()
 {
   gdk_threads_leave ();
+}
+
+jobject
+classpath_jawt_create_lock ()
+{
+  JNIEnv *env = gdk_env ();
+  jobject lock = (*env)->NewStringUTF (env, "jawt-lock");
+  NSA_SET_GLOBAL_REF (env, lock);
+  return lock;
+}
+
+void
+classpath_jawt_destroy_lock (jobject lock)
+{
+  JNIEnv *env = gdk_env ();
+  NSA_DEL_GLOBAL_REF (env, lock);
 }

@@ -49,31 +49,59 @@ objc-warn = $(STRICT_WARN)
 # Bison-1.75 output yields (harmless) -Wtraditional warnings
 objc/objc-parse.o-warn = -Wno-error
 
+# APPLE LOCAL begin order files  --ilr
+ifeq ($(ORDER_FILES),yes)
+CC1OBJ_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1obj.order ]; then \
+		        echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1obj.order -e start ; fi`
+else
+CC1OBJ_ORDER_FLAGS =
+endif
+# APPLE LOCAL end order files  --ilr
+
 # Language-specific object files for Objective C.
 OBJC_OBJS = objc/objc-lang.o objc/objc-parse.o objc/objc-act.o
 
-cc1obj$(exeext): $(OBJC_OBJS) $(C_AND_OBJC_OBJS) $(BACKEND) $(LIBDEPS)
+# APPLE LOCAL begin order files  --ilr
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+cc1obj-dummy$(exeext): $(OBJC_OBJS) $(C_AND_OBJC_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(OBJC_OBJS) $(C_AND_OBJC_OBJS) $(BACKEND) $(LIBS)
+	      $(OBJC_OBJS) $(C_AND_OBJC_OBJS) dummy-checksum.o \
+	      $(BACKEND) $(LIBS) $(CC1OBJ_ORDER_FLAGS)
+
+cc1obj-checksum.c : cc1obj-dummy$(exeext) build/genchecksum$(exeext)
+	build/genchecksum$(exeext) cc1obj-dummy$(exeext) > $@
+
+cc1obj-checksum.o : cc1obj-checksum.c
+
+cc1obj$(exeext): $(OBJC_OBJS) $(C_AND_OBJC_OBJS) cc1obj-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+	      $(OBJC_OBJS) $(C_AND_OBJC_OBJS) cc1obj-checksum.o \
+	      $(BACKEND) $(LIBS) $(CC1OBJ_ORDER_FLAGS)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
+# APPLE LOCAL end order files  --ilr
 
 # Objective C language specific files.
 
+# APPLE LOCAL begin mainline
 objc/objc-lang.o : objc/objc-lang.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(C_TREE_H) $(C_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
    $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-objc.h \
-   c-objc-common.h objc/objc-act.h
+   c-objc-common.h objc/objc-act.h tree-gimple.h
+# APPLE LOCAL end mainline
 
 objc/objc-parse.o : objc/objc-parse.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
    toplev.h $(GGC_H) input.h flags.h output.h langhooks.h $(C_COMMON_H) \
    $(C_PRAGMA_H)
 
+# APPLE LOCAL begin mainline
 objc/objc-act.o : objc/objc-act.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) $(TM_P_H) \
    $(EXPR_H) $(TARGET_H) $(C_TREE_H) diagnostic.h toplev.h flags.h \
-   objc/objc-act.h input.h function.h output.h debug.h langhooks.h \
-   $(LANGHOOKS_DEF_H) $(HASHTAB_H) c-pragma.h gt-objc-objc-act.h
+   objc/objc-act.h input.h function.h output.h debug.h langhooks.h opts.h \
+   $(LANGHOOKS_DEF_H) $(HASHTAB_H) c-pragma.h gt-objc-objc-act.h tree-gimple.h
+# APPLE LOCAL end mainline
 
 objc.srcextra: objc/objc-parse.c objc/objc-parse.y
 	-cp -p $^ $(srcdir)/objc

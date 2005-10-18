@@ -35,7 +35,7 @@
    obligated to do so.  If you do not wish to do so, delete this
    exception statement from your version. */
 
-
+#include <stdlib.h>
 #include <jni.h>
 #include <jawt.h>
 #include <jawt_md.h>
@@ -50,6 +50,8 @@ static void (JNICALL _Jv_FreeDrawingSurfaceInfo)
 static JAWT_DrawingSurface* (JNICALL _Jv_GetDrawingSurface) (JNIEnv* env,
 							     jobject canvas);
 static void (JNICALL _Jv_FreeDrawingSurface) (JAWT_DrawingSurface* surface);
+static void (JNICALL _Jv_AWTLock) (JNIEnv*);
+static void (JNICALL _Jv_AWTUnlock) (JNIEnv*);
 
 JNIEXPORT jboolean JNICALL
 JAWT_GetAWT (JNIEnv* env, JAWT* awt)
@@ -63,6 +65,8 @@ JAWT_GetAWT (JNIEnv* env, JAWT* awt)
 
   awt->GetDrawingSurface = _Jv_GetDrawingSurface;
   awt->FreeDrawingSurface = _Jv_FreeDrawingSurface;
+  awt->Lock = _Jv_AWTLock;
+  awt->Unlock = _Jv_AWTUnlock;
 
   return JNI_TRUE;
 }
@@ -72,14 +76,13 @@ JAWT_GetAWT (JNIEnv* env, JAWT* awt)
 static jint
 (JNICALL _Jv_Lock) (JAWT_DrawingSurface* surface)
 {
-  /* lock the drawing surface */
-  return classpath_jawt_lock ();
+  return classpath_jawt_object_lock (surface->lock);
 }
 
 static void
 (JNICALL _Jv_Unlock) (JAWT_DrawingSurface* surface)
 {
-  classpath_jawt_unlock ();
+  classpath_jawt_object_unlock (surface->lock);
 }
 
 static JAWT_DrawingSurfaceInfo*
@@ -103,7 +106,9 @@ static void
 
   surface_info_x11->display = NULL;
   surface_info_x11->drawable = 0;
+  surface_info_x11->visualID = 0;
 
+  free (surface_info->platformInfo);
   free (surface_info);
   surface_info = NULL;
 }
@@ -130,6 +135,8 @@ static JAWT_DrawingSurface*
 
   surface->surface_info = (JAWT_DrawingSurfaceInfo*) malloc (sizeof (JAWT_DrawingSurfaceInfo));
 
+  surface->lock = classpath_jawt_create_lock ();
+
   if (surface->surface_info == NULL)
     return NULL;
 
@@ -142,6 +149,7 @@ static JAWT_DrawingSurface*
 
   surface_info_x11->display = classpath_jawt_get_default_display (env, canvas);
   surface_info_x11->drawable = classpath_jawt_get_drawable (env, canvas);
+  surface_info_x11->visualID = classpath_jawt_get_visualID (env, canvas);
 
   /* FIXME: also include bounding rectangle of drawing surface */
   /* FIXME: also include current clipping region */
@@ -152,5 +160,19 @@ static JAWT_DrawingSurface*
 static void
 (JNICALL _Jv_FreeDrawingSurface) (JAWT_DrawingSurface* surface)
 {
+  classpath_jawt_destroy_lock (surface->lock);
   free (surface);
 }
+
+static void
+(JNICALL _Jv_AWTLock) (JNIEnv* env)
+{
+  classpath_jawt_lock ();
+}
+
+static void
+(JNICALL _Jv_AWTUnlock) (JNIEnv* env)
+{
+  classpath_jawt_unlock ();
+}
+

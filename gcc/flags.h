@@ -82,14 +82,8 @@ struct visibility_flags
 /* Global visibility options.  */
 extern struct visibility_flags visibility_options;
 
-/* Nonzero means do optimizations.  -opt.  */
-
-extern int optimize;
-
-/* Nonzero means optimize for size.  -Os.  */
-
-extern int optimize_size;
-
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 /* Do print extra warnings (such as for uninitialized variables).
    -W/-Wextra.  */
 
@@ -143,11 +137,25 @@ extern int flag_short_enums;
 
 extern int flag_pcc_struct_return;
 
+/* APPLE LOCAL begin fwritable-strings  */
+/* Nonzero for -fwritable-strings:
+   store string constants in data segment and don't uniquize them.  */
+
+extern int flag_writable_strings;
+/* APPLE LOCAL end fwritable-strings  */
+
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex multiply and divide.  */
 
 extern int flag_complex_method;
+
+/* APPLE LOCAL begin -fobey-inline */
+/* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
+   of codesize.  */
+
+extern int flag_obey_inline;
+/* APPLE LOCAL end -fobey-inline */
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
@@ -287,5 +295,39 @@ extern const char *flag_random_seed;
    and the rounding mode is important.  */
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
   (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
+
+/* APPLE LOCAL begin -fast or -fastf or -fastcp */
+/* Nonzero if we should perform SPEC oriented optimizations for C.  */
+extern int flag_fast;
+/* Nonzero if we should perform SPEC oriented optimizations for C that is
+   produced by the NAG Fortan-to-C translator.  */
+extern int flag_fastf;
+/* Nonzero if we should perform SPEC oriented optimizations for C++.  */
+extern int flag_fastcp;
+/* APPLE LOCAL end -fast or -fastf or -fastcp */
+
+/* APPLE LOCAL begin gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+/* Nonzero if generating debugger info for used symbols only.  */
+extern int flag_debug_only_used_symbols;
+#endif
+/* APPLE LOCAL end gdb only used symbols */
+
+/* APPLE LOCAL begin predictive compilation */
+extern int predictive_compilation;
+/* APPLE LOCAL end predictive compilation */
+
+/* APPLE LOCAL begin disable_typechecking_for_spec_flag */
+extern int disable_typechecking_for_spec_flag;
+/* APPLE LOCAL end disable_typechecking_for_spec_flag */
+
+/* APPLE LOCAL begin Altivec */
+extern int flag_disable_opts_for_faltivec;
+/* APPLE LOCAL end Altivec */
+
+/* APPLE LOCAL begin ss2 */
+extern int flag_pch_file;
+extern int flag_save_repository;
+/* APPLE LOCAL end ss2 */
 
 #endif /* ! GCC_FLAGS_H */

@@ -1,5 +1,5 @@
 /* InputContext.java -- provides the context for text input
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -74,7 +74,7 @@ import java.util.Locale;
  * one entry per line in UTF-8 encoding, each class in the jar that implements
  * java.awt.im.spi.InputMethodDescriptor.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Component#getInputContext()
  * @see Component#enableInputMethods(boolean)
  * @since 1.2
@@ -102,8 +102,8 @@ public class InputContext
     while (e.hasMoreElements())
       {
         URL url = (URL) e.nextElement();
-        BufferedReader in = null;
-        String line = null;
+        BufferedReader in;
+        String line;
         try
           {
             in = new BufferedReader

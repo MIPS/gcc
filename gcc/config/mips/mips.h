@@ -111,6 +111,7 @@ extern const char *mips_tune_string;    /* for -mtune=<xxx> */
 extern const char *mips_isa_string;	/* for -mips{1,2,3,4} */
 extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
 extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
+extern const char *mips_fix_vr4130_string;
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
@@ -164,6 +165,7 @@ extern const struct mips_cpu_info *mips_tune_info;
                                            break instead of trap. */
 #define MASK_PAIRED_SINGLE 0x10000000   /* Support paired-single FPU.  */
 #define MASK_MIPS3D        0x20000000   /* Support MIPS-3D instructions.  */
+#define MASK_SYM32	   0x40000000	/* Assume 32-bit symbol values.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -235,6 +237,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 					/* Work around R4400 errata.  */
 #define TARGET_FIX_R4400	((target_flags & MASK_FIX_R4400) != 0)
 #define TARGET_FIX_VR4120	((target_flags & MASK_FIX_VR4120) != 0)
+#define TARGET_FIX_VR4130	(mips_fix_vr4130_string != 0)
 #define TARGET_VR4130_ALIGN	((target_flags & MASK_VR4130_ALIGN) != 0)
 
 #define TARGET_FP_EXCEPTIONS	((target_flags & MASK_FP_EXCEPTIONS) != 0)
@@ -242,6 +245,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_PAIRED_SINGLE_FLOAT	\
 				((target_flags & MASK_PAIRED_SINGLE) != 0)
 #define TARGET_MIPS3D		((target_flags & MASK_MIPS3D) != 0)
+#define TARGET_SYM32		((target_flags & MASK_SYM32) != 0)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
@@ -669,6 +673,10 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("FP exceptions are enabled") },					\
   {"no-fp-exceptions", 	  -MASK_FP_EXCEPTIONS,				\
      N_("FP exceptions are not enabled") },				\
+  {"sym32",		  MASK_SYM32,					\
+     N_("Assume all symbols have 32-bit values") },			\
+  {"no-sym32",		  -MASK_SYM32,					\
+     N_("Don't assume all symbols have 32-bit values") },		\
   {"debug",		  MASK_DEBUG,					\
      NULL},								\
   {"debugd",		  MASK_DEBUG_D,					\
@@ -788,6 +796,8 @@ extern const struct mips_cpu_info *mips_tune_info;
       N_("Don't call any cache flush functions"), 0},			\
   { "flush-func=", &mips_cache_flush_func,				\
       N_("Specify cache flush function"), 0},				\
+  { "fix-vr4130", &mips_fix_vr4130_string,				\
+      N_("Work around VR4130 mflo/mfhi errata"), 0},			\
 }
 
 /* This is meant to be redefined in the host dependent files.  */
@@ -843,7 +853,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 /* True if symbols are 64 bits wide.  At present, n64 is the only
    ABI for which this is true.  */
-#define ABI_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64)
+#define ABI_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64 && !TARGET_SYM32)
 
 /* ISA has instructions for managing 64 bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
@@ -932,6 +942,11 @@ extern const struct mips_cpu_info *mips_tune_info;
                                  || TARGET_MIPS5500                     \
                                  || TARGET_SR71K                        \
                                  )
+
+/* ISA has NEC VR-style MACC, MACCHI, DMACC and DMACCHI instructions.  */
+#define ISA_HAS_MACCHI		(!TARGET_MIPS16				\
+				 && (TARGET_MIPS4120			\
+				     || TARGET_MIPS4130))
 
 /* ISA has 32-bit rotate right instruction.  */
 #define ISA_HAS_ROTR_SI         (!TARGET_MIPS16                         \
@@ -1088,11 +1103,12 @@ extern const struct mips_cpu_info *mips_tune_info;
 %{mips32} %{mips32r2} %{mips64} \
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
 %{mips3d:-mips3d} \
-%{mfix-vr4120} \
+%{mfix-vr4120} %{mfix-vr4130} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
+%{msym32} %{mno-sym32} \
 %{mtune=*} %{v} \
 %(subtarget_asm_spec)"
 
@@ -1218,7 +1234,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* Offsets recorded in opcodes are a multiple of this alignment factor.
    The default for this in 64-bit mode is 8, which causes problems with
    SFmode register saves.  */
-#define DWARF_CIE_DATA_ALIGNMENT 4
+#define DWARF_CIE_DATA_ALIGNMENT -4
 
 /* Correct the offset of automatic variables and arguments.  Note that
    the MIPS debug format wants all automatic variables and arguments
@@ -2873,18 +2889,9 @@ do {									\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
 } while (0)
 
-/* When generating mips16 code we want to put the jump table in the .text
-   section.  In all other cases, we want to put the jump table in the .rdata
-   section.  Unfortunately, we can't use JUMP_TABLES_IN_TEXT_SECTION, because
-   it is not conditional.  Instead, we use ASM_OUTPUT_CASE_LABEL to switch back
-   to the .text section if appropriate.  */
-#undef ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, INSN)			\
-do {									\
-  if (TARGET_MIPS16)							\
-    function_section (current_function_decl);				\
-  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
-} while (0)
+/* When generating MIPS16 code, we want the jump table to be in the text
+   section so that we can load its address using a PC-relative addition.  */
+#define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16
 
 /* This is how to output an assembler line
    that says to advance the location counter

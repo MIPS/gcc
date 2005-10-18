@@ -1,6 +1,6 @@
 /* Utility routines for data type conversion for GCC.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997, 1998,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "flags.h"
 #include "convert.h"
+/* APPLE LOCAL begin AltiVec */
+#include "c-tree.h"
+#include "c-common.h"
+/* APPLE LOCAL end AltiVec */
 #include "toplev.h"
 #include "langhooks.h"
 #include "real.h"
@@ -204,35 +208,11 @@ convert_to_real (tree type, tree expr)
 	  break;
 	}
     }
-  if (optimize
-      && (((fcode == BUILT_IN_FLOORL
-	   || fcode == BUILT_IN_CEILL
-	   || fcode == BUILT_IN_ROUNDL
-	   || fcode == BUILT_IN_RINTL
-	   || fcode == BUILT_IN_TRUNCL
-	   || fcode == BUILT_IN_NEARBYINTL)
-	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
-	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
-	  || ((fcode == BUILT_IN_FLOOR
-	       || fcode == BUILT_IN_CEIL
-	       || fcode == BUILT_IN_ROUND
-	       || fcode == BUILT_IN_RINT
-	       || fcode == BUILT_IN_TRUNC
-	       || fcode == BUILT_IN_NEARBYINT)
-	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
-    {
-      tree fn = mathfn_built_in (type, fcode);
-
-      if (fn)
-	{
-	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
-									1)));
-	  tree arglist = build_tree_list (NULL_TREE,
-					  fold (convert_to_real (type, arg0)));
-
-	  return build_function_call_expr (fn, arglist);
-	}
-    }
+  /* APPLE LOCAL begin 4221664 FSF candidate */
+  /* This code used to transform (float)floor(double d) into
+     floorf((float)d).  This is incorrect, because (float)d is
+     done as round-to-nearest and can round up to the next integer.  */
+  /* APPLE LOCAL end 4221664 FSF candidate */
 
   /* Propagate the cast into the operation.  */
   if (itype != type && FLOAT_TYPE_P (type))
@@ -660,7 +640,8 @@ convert_to_integer (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      /* APPLE LOCAL mainline 4.0.2 4043818 */
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("aggregate value used where an integer was expected");
@@ -722,6 +703,31 @@ convert_to_complex (tree type, tree expr)
     }
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Build a COMPOUND_LITERAL_EXPR.  TYPE is the type given in the compound
+   literal.  INIT is a CONSTRUCTOR that initializes the compound literal.  */
+
+static tree
+build_compound_literal_vector (tree type, tree init) 
+{  
+  tree decl;
+  tree complit;
+  tree stmt;
+
+  decl = build_decl (VAR_DECL, NULL_TREE, type);
+  DECL_EXTERNAL (decl) = 0;
+  TREE_PUBLIC (decl) = 0;
+  TREE_USED (decl) = 1;
+  TREE_TYPE (decl) = type;
+  TREE_READONLY (decl) = TYPE_READONLY (type);
+  store_init_value (decl, init);
+  stmt = build_stmt (DECL_EXPR, decl);
+  complit = build1 (COMPOUND_LITERAL_EXPR, TREE_TYPE (decl), stmt);
+  layout_decl (decl, 0);
+  return complit;
+}
+/* APPLE LOCAL end AltiVec */
+
 /* Convert EXPR to the vector type TYPE in the usual ways.  */
 
 tree
@@ -736,6 +742,14 @@ convert_to_vector (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
+      /* APPLE LOCAL begin AltiVec */
+      if (TREE_CODE (type) == VECTOR_TYPE  
+	  && TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE
+	  && TREE_CODE (expr) == CONSTRUCTOR && TREE_CONSTANT (expr))
+	  /* converting a constant vector to new vector type with Motorola Syntax. */
+	  return convert (type, build_compound_literal_vector (TREE_TYPE (expr), expr));
+      /* APPLE LOCAL end AltiVec */
+
       return build1 (NOP_EXPR, type, expr);
 
     default:

@@ -323,6 +323,12 @@ struct gcc_target
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) (tree record_type);
 
+  /* APPLE LOCAL begin pragma reverse_bitfields */
+  /* Return true if bitfields in RECORD_TYPE should be allocated
+     reversed (e.g. right to left on a big-endian machine).  */
+  bool (* reverse_bitfields_p) (tree record_type);
+  /* APPLE LOCAL end pragma reverse_bitfields */
+
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
 
@@ -332,6 +338,18 @@ struct gcc_target
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
+
+  /* APPLE LOCAL begin constant cfstrings */
+  /* Expand a platform-specific (but machine-independent) builtin.  */
+  tree (* expand_tree_builtin) (tree function, tree params,
+				tree coerced_params);
+
+  /* Construct a target-specific Objective-C string object based on the
+     STRING_CST passed in STR, or NULL if the default Objective-C objects
+     (based on NSConstantString or NXConstantString) should be used
+     instead.  */
+  tree (* construct_objc_string) (tree str);
+  /* APPLE LOCAL end constant cfstrings */
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree exp, bool ignore);
@@ -525,6 +543,9 @@ struct gcc_target
     /* Given a complex type T, return true if a parameter of type T
        should be passed as two scalars.  */
     bool (* split_complex_arg) (tree type);
+    /* APPLE LOCAL begin Altivec */
+    bool (*skip_vec_args) (tree, int, int*);
+    /* APPLE LOCAL end Altivec */
 
     /* Return true if type T, mode MODE, may not be passed in registers,
        but must be passed on the stack.  */
@@ -543,6 +564,12 @@ struct gcc_target
        in registers; the balance is therefore passed on the stack.  */
     int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			       tree type, bool named);
+    /* APPLE LOCAL begin mainline 2005-04-14 */
+    /* Return the diagnostic message string if function without a prototype
+       is not allowed for this 'val' argument; NULL otherwise. */
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist,
+                                                    tree funcdecl, tree val);
+    /* APPLE LOCAL end mainline 2005-04-14 */
   } calls;
 
   /* Functions specific to the C++ frontend.  */
@@ -598,6 +625,17 @@ struct gcc_target
      at the beginning of assembly output.  */
   bool file_start_file_directive;
 
+  /* APPLE LOCAL begin AltiVec */
+  /* True if it is permissible to use cast expressions as
+     vector initializers, e.g.:
+
+       (vector unsigned int)(3, 4, 5, 6)
+       (vector float)(2.5)
+
+     This is required for the Motorola AltiVec syntax on the PowerPC.  */
+  bool cast_expr_as_vector_init;
+  /* APPLE LOCAL end AltiVec */
+  
   /* True if #pragma redefine_extname is to be supported.  */
   bool handle_pragma_redefine_extname;
 

@@ -109,6 +109,10 @@ struct dump_file_info
 #define TODO_verify_stmts	(1 << 5)
 #define TODO_fix_def_def_chains (1 << 6)        /* rewrite def-def chains  */
 #define TODO_cleanup_cfg        (1 << 7)        /* cleanup the cfg.  */
+/* APPLE LOCAL begin lno */
+/* well not exactly, this was 2 in lno, renumbered to mimize diffs */
+#define TODO_write_loop_closed	(1 << 8)	/* rewrite into loop-closed-ssa */
+/* APPLE LOCAL end lno */
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -127,14 +131,24 @@ extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
 extern struct tree_opt_pass pass_loop;
 extern struct tree_opt_pass pass_loop_init;
+/* APPLE LOCAL lno */
+extern struct tree_opt_pass pass_loop_test;
 extern struct tree_opt_pass pass_lim;
+/* APPLE LOCAL begin loops-to-memset */
+extern struct tree_opt_pass pass_memset;
+/* APPLE LOCAL end loops-to-memset */
 extern struct tree_opt_pass pass_unswitch;
+/* APPLE LOCAL begin lno */
+extern struct tree_opt_pass pass_mark_maybe_inf_loops;
+/* APPLE LOCAL end lno */
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
 extern struct tree_opt_pass pass_iv_optimize;
+/* APPLE LOCAL lno */
+extern struct tree_opt_pass pass_loop_prefetch;
 extern struct tree_opt_pass pass_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
@@ -166,6 +180,5 @@ extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
-extern struct tree_opt_pass pass_maybe_create_global_var;
 
 #endif /* GCC_TREE_PASS_H */

@@ -1367,15 +1367,19 @@ write_identifier (const char *identifier)
 
    Currently, allocating constructors are never used. 
 
-   We also need to provide mangled names for the maybe-in-charge
-   constructor, so we treat it here too.  mangle_decl_string will
-   append *INTERNAL* to that, to make sure we never emit it.  */
+   APPLE LOCAL decloning
+   Deleted comment.  */
 
 static void
 write_special_name_constructor (const tree ctor)
 {
   if (DECL_BASE_CONSTRUCTOR_P (ctor))
     write_string ("C2");
+  /* APPLE LOCAL begin decloning */  
+  /* This is the old-style "[unified]" constructor.  */
+  else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (ctor))
+    write_string ("C4");
+  /* APPLE LOCAL end decloning */  
   else
     {
       gcc_assert (DECL_COMPLETE_CONSTRUCTOR_P (ctor)
@@ -1406,6 +1410,11 @@ write_special_name_destructor (const tree dtor)
     write_string ("D0");
   else if (DECL_BASE_DESTRUCTOR_P (dtor))
     write_string ("D2");
+  /* APPLE LOCAL begin decloning */  
+  else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (dtor))
+    /* This is the old-style "[unified]" destructor.  */
+    write_string ("D4");
+  /* APPLE LOCAL end decloning */  
   else
     {
       gcc_assert (DECL_COMPLETE_DESTRUCTOR_P (dtor)
@@ -2230,7 +2239,7 @@ write_template_arg (tree node)
   MANGLE_TRACE_TREE ("template-arg", node);
 
   /* A template template parameter's argument list contains TREE_LIST
-     nodes of which the value field is the the actual argument.  */
+     nodes of which the value field is the actual argument.  */
   if (code == TREE_LIST)
     {
       node = TREE_VALUE (node);

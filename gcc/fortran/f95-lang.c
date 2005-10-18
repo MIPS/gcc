@@ -145,6 +145,30 @@ static void gfc_expand_function (tree);
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
+/* APPLE LOCAL begin constant cfstrings */
+enum { blabla } c_language;
+const char *constant_string_class_name = "die die";
+int flag_next_runtime = 1;
+/* APPLE LOCAL end constant cfstrings */
+
+/* APPLE LOCAL disable_typechecking_for_spec_flag */
+int disable_typechecking_for_spec_flag = 0;
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Dummies needed because we use them from cpplib, yuck.  */
+int flag_cw_asm_blocks;
+int cw_asm_state;
+int cw_asm_in_operands;
+/* APPLE LOCAL end CW asm blocks */
+
+/* APPLE LOCAL begin 4174833 */
+tree
+objc_is_class_name (tree ARG_UNUSED (arg))
+{
+  return 0;
+}
+
+/* APPLE LOCAL end 4174833 */
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
    that have names.  Here so we can clear out their names' definitions
    at the end of the function.  */
@@ -781,15 +805,15 @@ gfc_init_builtin_functions (void)
 
   /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
-  gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
-		      BUILT_IN_FLOOR, "floor", true);
-  gfc_define_builtin ("__builtin_floorf", mfunc_float[0], 
-		      BUILT_IN_FLOORF, "floorf", true);
   gfc_define_builtin ("__builtin_round", mfunc_double[0], 
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
-  
+  gfc_define_builtin ("__builtin_trunc", mfunc_double[0],
+                      BUILT_IN_TRUNC, "trunc", true);
+  gfc_define_builtin ("__builtin_truncf", mfunc_float[0],
+                      BUILT_IN_TRUNCF, "truncf", true);
+
   gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
@@ -828,6 +852,12 @@ gfc_init_builtin_functions (void)
   ftype = build_function_type (long_integer_type_node, tmp);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
+  /* APPLE LOCAL begin lno */
+  ftype = build_function_type (void_type_node, void_list_node);
+  gfc_define_builtin ("__builtin_maybe_infinite_loop", ftype,
+		      BUILT_IN_MAYBE_INFINITE_LOOP, "maybe_infinite_loop",
+		      false);
+  /* APPLE LOCAL end lno */
 
   build_common_builtin_nodes ();
   targetm.init_builtins ();

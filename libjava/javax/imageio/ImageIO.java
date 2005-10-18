@@ -1,5 +1,5 @@
 /* ImageIO.java --
-   Copyright (C) 2004  Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,15 +38,15 @@ exception statement from your version. */
 
 package javax.imageio;
 
-import java.awt.image.RenderedImage;
 import java.awt.image.BufferedImage;
-import java.net.URL;
+import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -55,8 +55,8 @@ import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.spi.ImageWriterSpi;
 import javax.imageio.spi.ServiceRegistry;
-import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
@@ -80,7 +80,7 @@ public final class ImageIO
     {
       if (provider instanceof ImageReaderSpi)
         {
-          ImageWriterSpi spi = (ImageWriterSpi) provider;
+          ImageReaderSpi spi = (ImageReaderSpi) provider;
           String[] formatNames = spi.getFormatNames();
 
           for (int i = formatNames.length - 1; i >= 0; --i)

@@ -251,6 +251,10 @@ rest_of_decl_compilation (tree decl,
       debug_hooks->type_decl (decl, !top_level);
       timevar_pop (TV_SYMOUT);
     }
+
+  /* Let cgraph know about the existance of variables.  */
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+    cgraph_varpool_node (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -327,7 +331,10 @@ rest_of_handle_final (void)
      *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
-  (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL begin aaa */
+  if (!flag_save_repository || !flag_pch_file)
+    (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL end aaa */
   timevar_pop (TV_SYMOUT);
 
   ggc_collect ();
@@ -571,6 +578,8 @@ rest_of_handle_partition_blocks (void)
 static void
 rest_of_handle_sms (void)
 {
+  sbitmap blocks;
+
   timevar_push (TV_SMS);
   open_dump_file (DFI_sms, current_function_decl);
 
@@ -583,10 +592,14 @@ rest_of_handle_sms (void)
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES
-				     | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_ones (blocks);
+  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		    (PROP_DEATH_NOTES
+		     | PROP_REG_INFO
+		     | PROP_KILL_DEAD_CODE
+		     | PROP_SCAN_DEAD_CODE));
+
   no_new_pseudos = 1;
 
   ggc_collect ();
@@ -895,6 +908,7 @@ rest_of_handle_combine (void)
       rebuild_jump_labels (get_insns ());
       timevar_pop (TV_JUMP);
 
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
     }
 
@@ -971,6 +985,9 @@ rest_of_handle_cse (void)
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
   cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
+  if (tem)
+    delete_dead_jumptables ();
+
   if (tem || optimize > 1)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
@@ -1006,6 +1023,7 @@ rest_of_handle_cse2 (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
@@ -1053,6 +1071,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       timevar_pop (TV_JUMP);
     }
@@ -1473,6 +1492,37 @@ rest_of_clean_state (void)
 }
 
 
+/* APPLE LOCAL begin radar 4216496 */
+/* APPLE LOCAL begin radar 4120689 */
+#ifdef TARGET_386
+static int MaxAlignForThisBlock (tree block)
+{
+  tree decl, t;
+  unsigned int align, max_align = 0;
+
+  for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
+     {
+       if (TREE_CODE (decl) == VAR_DECL
+	   && DECL_ALIGN (decl) > max_align)
+	 max_align = DECL_ALIGN (decl);
+     }
+
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+     if ((align = MaxAlignForThisBlock (t)) > max_align)
+       max_align = align;
+
+  return max_align;
+ 
+}
+
+static int
+LargestAlignmentOfVariables (void)
+{
+  return MaxAlignForThisBlock (DECL_INITIAL (current_function_decl));
+}
+#endif
+/* APPLE LOCAL end radar 4120689 */
+/* APPLE LOCAL end radar 4216496 */
 /* This function is called from the pass manager in tree-optimize.c
    after all tree passes have finished for a single function, and we
    have expanded the function body from trees to RTL.
@@ -1485,6 +1535,11 @@ rest_of_clean_state (void)
 static void
 rest_of_compilation (void)
 {
+  /* APPLE LOCAL begin radar 4095567 */
+#ifdef TARGET_386
+  unsigned int save_PREFERRED_STACK_BOUNDARY = 0;
+#endif
+  /* APPLE LOCAL end radar 4095567 */
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
   {
@@ -1653,6 +1708,28 @@ rest_of_compilation (void)
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
+  /* APPLE LOCAL begin 4229407 */
+  /* APPLE LOCAL begin radar 4095567 */
+#ifdef TARGET_386
+  {
+    int align;
+    if ((optimize > 0 || optimize_size)
+	 && current_function_is_leaf
+	 && PREFERRED_STACK_BOUNDARY >= 128
+  /* APPLE LOCAL begin radar 4120689 */
+	 && !DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector
+	 && (align = LargestAlignmentOfVariables()) < 128)
+  /* APPLE LOCAL end radar 4120689 */
+      {
+	save_PREFERRED_STACK_BOUNDARY = PREFERRED_STACK_BOUNDARY;
+	PREFERRED_STACK_BOUNDARY = MAX (align, 32);
+	cfun->stack_alignment_needed = STACK_BOUNDARY;
+	cfun->preferred_stack_boundary = STACK_BOUNDARY;
+      }
+  }
+#endif
+  /* APPLE LOCAL end radar 4095567 */
+  /* APPLE LOCAL end 4229407 */
 
   if (rest_of_handle_old_regalloc ())
     goto exit_rest_of_compilation;
@@ -1738,6 +1815,16 @@ rest_of_compilation (void)
 
  exit_rest_of_compilation:
 
+  /* APPLE LOCAL begin radar 4095567 */
+#ifdef TARGET_386
+  if (save_PREFERRED_STACK_BOUNDARY > 0)
+    {
+      PREFERRED_STACK_BOUNDARY = save_PREFERRED_STACK_BOUNDARY;
+      cfun->stack_alignment_needed = STACK_BOUNDARY;
+      cfun->preferred_stack_boundary = STACK_BOUNDARY;
+    }
+#endif
+  /* APPLE LOCAL end radar 4095567 */
   rest_of_clean_state ();
 }
 

@@ -1,3 +1,246 @@
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* jv-scan.c (fatal_error, warning): Use gmsgid instead of msgid for
+	argument name.
+	* gjavah.c (error): Likewise.
+	* java-tree.h (parse_error_context): Likewise.
+	* parse.y (parse_error_context, parse_warning_context,
+	issue_warning_error_from_context): Likewise.
+
+2005-06-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21722:
+	* class.c (build_static_field_ref): Don't fold constant fields if
+	current class is from a .class file and we're using indirect
+	dispatch.
+
+2005-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* decl.c (GCJ_BINARYCOMPAT_ADDITION, 
+	GCJ_BOOTSTRAP_LOADER_ADDITION): Removed.
+	(FLAG_BINARYCOMPAT_ABI, MINOR_BINARYCOMPAT_ABI_VERSION): New.
+	(GCJ_CURRENT_BC_ABI_VERSION): Use new method to calculate version ID.
+	(parse_version): Calculate version ID using new method. Use bit-flag
+	for flag_indirect_dispatch.
+
+2005-05-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21519:
+	* jcf-write.c (generate_bytecode_insns) <SAVE_EXPR>: Don't call
+	NOTE_PUSH.
+
+2005-05-13  Aaron Luchko <aluchko@redhat.com>
+
+	* gcj.texi: Add '-verify', '-noverify', and '-verifyremote'.
+
+2005-04-28  Andrew Haley  <aph@redhat.com>
+
+	PR java/19285
+	* java-tree.h (soft_resolvepoolentry_node): New.
+	(alloc_constant_fieldref): Declare.
+	* expr.c (expand_java_field_op): Don't call class_init for
+	accesses to static fields with indirect dispatch.
+	* builtins.c (initialize_builtins): Add "__builtin_expect".
+	* decl.c (soft_resolvepoolentry_node): New variable.
+	(java_init_decl_processing): Create a decl for
+	"_Jv_ResolvePoolEntry".
+	* class.c (build_fieldref_cache_entry): New function.
+	* class.c (build_static_field_ref): New function.
+	(build_static_field_ref): Rewrite for indirect dispatch.
+	* constants.c (find_name_and_type_constant_tree): New function.
+	(alloc_constant_fieldref): Likewise.
+	(build_constants_constructor): Handle CONSTANT_Fieldref and
+	CONSTANT_NameAndType.
+
+2005-05-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR java/20309
+	* Make-lang.in (java): Add gjnih.
+	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Likewise.
+	(GJNIH_OBJS): New variable.
+	(gjnih$(exeext)): New target.
+	(JAVA_MANFILES): Add gjnih.1.
+	(java.uninstall): Add gjnih.1.
+	(java.mostlyclean): Add gjnih.
+	(java.maintainer-clean): Add gjnih.1.
+	(java/gjavah-jni.o): New target.
+	(.INTERMEDIATE): Add gjnih.pod.
+	(gjnih.pod): New target.
+	* config-lang.in (stagestuff): Add gjnih.
+	* gcj.texi (Top): Add gjnih node.
+	(Invoking gcjh): Add descriptions of -force, -old, -trace, -J and
+	-bootclasspath options.
+	(Invoking gjnih): New node.
+	* gjavah.c Initialize flag_jni to 1 if JNI_DEFAULT is defined.
+	(TOOLNAME): New macro.
+	(error): Replace hard-coded gcjh with TOOLNAME.
+	(process_file): Likewise.
+	(usage): Likewise.
+	(version): Likewise.
+	(help): Likewise.  Add help output for -force, -old, -trace and -J
+	options.
+	(OPT_FORCE, OPT_OLD, OPT_TRACE): New macros.
+	(options): Add force, old, trace and J fields.
+	(main): Handle -force, -old, -trace and -J options.
+
+2005-04-28  Andrew Haley  <aph@redhat.com>
+
+	PR java/21115
+	* expr.c (force_evaluation_order): Convert outgoing args smaller
+	than integer.
+
+	PR java/20768
+        * java-except.h (struct eh_range.handler): Remove unused field.
+        (handle_nested_ranges): Remove function declaration.
+        (sanity_check_exception_range): Add function declaration.
+        * verify.c (verify_jvm_instructions): Remove call to
+        handle_nested_ranges.
+	(start_pc_cmp): Remove function.
+	(verify_jvm_instructions): Remove PC sorting of exception regions.
+        * verify-glue.c (verify_jvm_instructions_new): Call
+        sanity_check_exception_range.
+        * except.c (link_handler, eh_range_freelist, link_handler,
+        handle_nested_ranges): Remove.
+        (add_handler): Rewrite.
+        (sanity_check_exception_range): New function.
+        (print_ranges): New function.
+
+2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c, jcf-dump.c, jv-scan.c, jvgenmain.c: Replace calls
+	to `unlock_stream' with `unlock_std_streams'.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c (main): Unlock the stdio streams.
+	* jcf-dump.c (main): Likewise.
+	* jv-scan.c (main): Likewise.
+	* jvgenmain.c (main): Likewise.
+
+2005-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (java/decl.o, java/resource.o): Depend on $(EXPR_H)
+	instead of just expr.h.
+
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-07  Andrew Haley  <aph@redhat.com>
+
+	* gcj.texi: Correct gcj-dbtool instructions.
+
+2005-04-06  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.runtime.endorsed.dirs.
+
+2005-04-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gcj.texi (Invoking gij): Add descriptions of new -X options.
+	Mention recognized-and-ignored compatibility options.
+	(Memory allocation): Add descriptions of JvMalloc, JvRealloc and
+	JvFree.
+	(About CNI): Add Memory allocation section.
+
+2005-04-01  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (java_init_decl_processing): Fix types of
+	_Jv_MonitorEnter, _Jv_MonitorExit, _Jv_AllocObject,
+	_Jv_AllocObjectNoFinalizer, _Jv_Throw, _Jv_NewPrimArray,
+	_Jv_JNI_PopSystemFrame, _Jv_divI, _Jv_remI, _Jv_divJ, _Jv_remJ.
+
+2005-03-24  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Invoking gcj-dbtool): Document new LIBDIR option to
+	'gcj-dbtool -p'.
+
+2005-03-18  Andrew Haley  <aph@redhat.com>
+
+	PR java/20522
+	* decl.c (update_aliases): Don't update variables that are about
+	to die.
+	(maybe_poplevels): Add comment.
+
+2005-03-16  Andrew Haley  <aph@redhat.com>
+
+        * expr.c (expand_java_arrayload): Don't generate a
+        NullPointerException based on the type of the node.
+        (build_java_array_length_access): Likewise.
+
+2005-03-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-io.c (caching_stat): Use __extension__ to avoid pedantic
+	warning.
+	* Make-lang.in: Don't elide warnings in jcf-io.c.
+
+2005-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Invoking gcj-dbtool): Document 'gcj-dbtool -p'.
+	(libgcj Runtime Properties): Document the default .db.
+
+2005-03-07  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* verify-glue.c (vfy_is_assignable_from): Perform static check using
+	can_widen_reference_to if the C++ ABI is in use.
+	(vfy_get_interface_count, vfy_get_interface): Remove unused functions.
+	* verify-impl.c (debug_print, make_utf8_const, init_type, copy_type,
+	type_isresolved, init_state, set_pc, state_get_pc,
+	_Jv_BytecodeVerifier): Clean up unused and disabled functions.
+	(verify_fail): Report the current PC from the verifier context.
+	(free_state): Remove #if 0 block to enable this function.
+	(free_verifier_context): Call free_state on state_list iterator
+	values before freeing them.
+	* expr.c (pop_type_0): Pop correct type for error message when stack
+	contains a multi-word type.
+
+2005-03-07  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* expr.c (build_java_array_length_access): Remove !flag_new_verifier
+	for known NULL array length access.
+
+2005-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Invoking gcj-dbtool): Document '-f'.
+
+2005-03-04  Andrew Haley  <aph@redhat.com>
+
+	PR java/18362
+	* class.c (set_method_index): Don't set method_index if it is
+	NULL_TREE.
+	(layout_class_method): Don't complain about "non-static method foo
+	overrides static method" in the case of indirect dispatch.
+
+2005-02-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/16923
+	* gcj.texi (Invocation): Add descriptions of JvVMInitArgs and
+	JvVMOption.
+
+2005-02-22  Tom Tromey  <tromey@redhat.com>
+
+	PR java/20056:
+	* verify-impl.c (EITHER): New define.
+	(types_compatible): Handle it.
+	(check_field_constant): Use it.
+
+2005-02-18  Tom Tromey  <tromey@redhat.com>
+
+	PR java/20056:
+	* verify-impl.c (types_equal): Fixed test.
+
+	PR java/20056:
+	* verify-glue.c (vfy_class_has_field): New function.
+	* verify.h (vfy_class_has_field): Declare.
+	* verify-impl.c (check_field_constant): Added 'putfield'
+	argument.
+	(verify_instructions_0): Updated.
+	(types_equal): New function.
+
 2005-02-14  Tom Tromey  <tromey@redhat.com>
 
 	PR java/19921:

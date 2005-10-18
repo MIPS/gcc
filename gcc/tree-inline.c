@@ -114,6 +114,12 @@ typedef struct inline_data
      gimple form when we insert the inlined function.   It is not
      used when we are not dealing with gimple trees.  */
   tree_stmt_iterator tsi;
+
+  /* APPLE LOCAL begin radar 4152603 */
+  /* Set location of each copied statement to call_location. */
+  bool call_location_p;
+  location_t call_location;
+  /* APPLE LOCAL end radar 4152603 */
 } inline_data;
 
 /* Prototypes.  */
@@ -173,6 +179,11 @@ remap_decl (tree decl, inline_data *id)
       /* Make a copy of the variable or label.  */
       tree t = copy_decl_for_inlining (decl, fn, VARRAY_TREE (id->fns, 0));
 
+      /* Remember it, so that if we encounter this local entity again
+	 we can reuse this copy.  Do this early because remap_type may
+	 need this decl for TYPE_STUB_DECL.  */
+      insert_decl_map (id, decl, t);
+
       /* Remap types, if necessary.  */
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
       if (TREE_CODE (t) == TYPE_DECL)
@@ -215,9 +226,6 @@ remap_decl (tree decl, inline_data *id)
 	}
 #endif
 
-      /* Remember it, so that if we encounter this local entity
-	 again we can reuse this copy.  */
-      insert_decl_map (id, decl, t);
       return t;
     }
 
@@ -285,6 +293,9 @@ remap_type (tree type, inline_data *id)
       TYPE_MAIN_VARIANT (new) = new;
       TYPE_NEXT_VARIANT (new) = NULL;
     }
+
+  if (TYPE_STUB_DECL (type))
+    TYPE_STUB_DECL (new) = remap_decl (TYPE_STUB_DECL (type), id);
 
   /* Lazily create pointer and reference types.  */
   TYPE_POINTER_TO (new) = NULL;
@@ -631,6 +642,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  recompute_tree_invarant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
+      /* APPLE LOCAL begin radar 4152603 */
+      if (id->call_location_p && EXPR_P (*tp))
+	SET_EXPR_LOCATION (*tp, id->call_location);
+      /* APPLE LOCAL end radar 4152603 */
     }
 
   /* Keep iterating.  */
@@ -966,7 +981,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined because it uses "
+	    = G_("%Jfunction %qF can never be inlined because it uses "
 		 "alloca (override using the always_inline attribute)");
 	  return node;
 	}
@@ -978,7 +993,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (setjmp_call_p (t))
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined because it uses setjmp");
+	    = G_("%Jfunction %qF can never be inlined because it uses setjmp");
 	  return node;
 	}
 
@@ -992,7 +1007,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  case BUILT_IN_NEXT_ARG:
 	  case BUILT_IN_VA_END:
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because it "
+	      = G_("%Jfunction %qF can never be inlined because it "
 		   "uses variable argument lists");
 	    return node;
 
@@ -1003,15 +1018,26 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	       function calling __builtin_longjmp to be inlined into the
 	       function calling __builtin_setjmp, Things will Go Awry.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses setjmp-longjmp exception handling");
 	    return node;
 
 	  case BUILT_IN_NONLOCAL_GOTO:
 	    /* Similarly.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses non-local goto");
+	    return node;
+
+	  case BUILT_IN_RETURN:
+	  case BUILT_IN_APPLY_ARGS:
+	    /* If a __builtin_apply_args caller would be inlined,
+	       it would be saving arguments of the function it has
+	       been inlined into.  Similarly __builtin_return would
+	       return from the function the inline has been inlined into.  */
+	    inline_forbidden_reason
+	      = G_("%Jfunction %qF can never be inlined because "
+		   "it uses __builtin_return or __builtin_apply_args");
 	    return node;
 
 	  default:
@@ -1029,7 +1055,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE (t) != LABEL_DECL)
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined "
+	    = G_("%Jfunction %qF can never be inlined "
 		 "because it contains a computed goto");
 	  return node;
 	}
@@ -1043,7 +1069,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	     because we cannot remap the destination label used in the
 	     function that is performing the non-local goto.  */
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined "
+	    = G_("%Jfunction %qF can never be inlined "
 		 "because it receives a non-local goto");
 	  return node;
 	}
@@ -1068,7 +1094,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	if (variably_modified_type_p (TREE_TYPE (t), NULL))
 	  {
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined "
+	      = G_("%Jfunction %qF can never be inlined "
 		   "because it uses variable sized variables");
 	    return node;
 	  }
@@ -1165,6 +1191,23 @@ inlinable_function_p (tree fn)
   return inlinable;
 }
 
+/* Estimate the cost of a memory move.  Use machine dependent
+   word size and take possible memcpy call into account.  */
+
+int
+estimate_move_cost (tree type)
+{
+  HOST_WIDE_INT size;
+
+  size = int_size_in_bytes (type);
+
+  if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
+    /* Cost of a memcpy call, 3 arguments and the call.  */
+    return 4;
+  else
+    return ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
+}
+
 /* Used by estimate_num_insns.  Estimate number of instructions seen
    by given statement.  */
 
@@ -1243,28 +1286,50 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       return NULL;
 
-    /* Recognize assignments of large structures and constructors of
-       big arrays.  */
+    /* Try to estimate the cost of assignments.  We have three cases to
+       deal with:
+	1) Simple assignments to registers;
+	2) Stores to things that must live in memory.  This includes
+	   "normal" stores to scalars, but also assignments of large
+	   structures, or constructors of big arrays;
+	3) TARGET_EXPRs.
+
+       Let us look at the first two cases, assuming we have "a = b + C":
+       <modify_expr <var_decl "a"> <plus_expr <var_decl "b"> <constant C>>
+       If "a" is a GIMPLE register, the assignment to it is free on almost
+       any target, because "a" usually ends up in a real register.  Hence
+       the only cost of this expression comes from the PLUS_EXPR, and we
+       can ignore the MODIFY_EXPR.
+       If "a" is not a GIMPLE register, the assignment to "a" will most
+       likely be a real store, so the cost of the MODIFY_EXPR is the cost
+       of moving something into "a", which we compute using the function
+       estimate_move_cost.
+
+       The third case deals with TARGET_EXPRs, for which the semantics are
+       that a temporary is assigned, unless the TARGET_EXPR itself is being
+       assigned to something else.  In the latter case we do not need the
+       temporary.  E.g. in <modify_expr <var_decl "a"> <target_expr>>, the
+       MODIFY_EXPR is free.  */
     case INIT_EXPR:
     case MODIFY_EXPR:
-      x = TREE_OPERAND (x, 0);
-      /* FALLTHRU */
+      /* Is the right and side a TARGET_EXPR?  */
+      if (TREE_CODE (TREE_OPERAND (x, 1)) == TARGET_EXPR)
+	break;
+      /* ... fall through ...  */
+
     case TARGET_EXPR:
+      x = TREE_OPERAND (x, 0);
+      /* Is this an assignments to a register?  */
+      if (is_gimple_reg (x))
+	break;
+      /* Otherwise it's a store, so fall through to compute the move cost.  */
+      
     case CONSTRUCTOR:
-      {
-	HOST_WIDE_INT size;
-
-	size = int_size_in_bytes (TREE_TYPE (x));
-
-	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
-	  *count += 10;
-	else
-	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
-      }
+      *count += estimate_move_cost (TREE_TYPE (x));
       break;
 
-      /* Assign cost of 1 to usual operations.
-	 ??? We may consider mapping RTL costs to this.  */
+    /* Assign cost of 1 to usual operations.
+       ??? We may consider mapping RTL costs to this.  */
     case COND_EXPR:
 
     case PLUS_EXPR:
@@ -1351,6 +1416,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case CALL_EXPR:
       {
 	tree decl = get_callee_fndecl (x);
+	tree arg;
 
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
@@ -1363,7 +1429,21 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	    default:
 	      break;
 	    }
-	*count += 10;
+
+	/* Our cost must be kept in sync with cgraph_estimate_size_after_inlining
+	   that does use function declaration to figure out the arguments.  */
+	if (!decl)
+	  {
+	    for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
+	      *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
+	  }
+	else
+	  {
+	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
+	      *count += estimate_move_cost (TREE_TYPE (arg));
+	  }
+
+	*count += PARAM_VALUE (PARAM_INLINE_CALL_COST);
 	break;
       }
     default:
@@ -1524,6 +1604,13 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   if (! lang_hooks.tree_inlining.start_inlining (fn))
     goto egress;
 
+  /* APPLE LOCAL begin 4113078 */
+  /* If we inline a vector-containing function into one that didn't,
+     mark the outer function as vector-containing.  */
+  if (DECL_STRUCT_FUNCTION (edge->callee->decl)->uses_vector)
+    DECL_STRUCT_FUNCTION (edge->caller->decl)->uses_vector = 1;
+  /* APPLE LOCAL end 4113078 */
+
   /* Build a block containing code to initialize the arguments, the
      actual inline expansion of the body, and a label for the return
      statements within the function to jump to.  The type of the
@@ -1538,6 +1625,14 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   st = id->decl_map;
   id->decl_map = splay_tree_new (splay_tree_compare_pointers,
 				 NULL, NULL);
+
+  /* APPLE LOCAL begin radar 4152603 */
+  if (lookup_attribute ("nodebug", DECL_ATTRIBUTES (fn)) != NULL)
+    {
+      id->call_location_p = true;
+      id->call_location = input_location;
+    }
+  /* APPLE LOCAL end radar 4152603 */
 
   /* Initialize the parameters.  */
   args = TREE_OPERAND (t, 1);
@@ -1623,7 +1718,10 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	&& !TREE_NO_WARNING (fn)
 	&& !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
 	&& return_slot_addr == NULL_TREE
-	&& block_may_fallthru (copy))
+	/* APPLE LOCAL begin mainline 4.0 2005-07-08 4121982 */
+	&& block_may_fallthru (copy)
+	&& !DECL_IN_SYSTEM_HEADER (fn))
+	/* APPLE LOCAL end mainline 4.0 2005-07-08 4121982 */
       {
 	warning ("control may reach end of non-void function %qD being inlined",
 		 fn);

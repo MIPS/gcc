@@ -118,7 +118,7 @@ typedef enum
      scalarization loop.  */
   GFC_SS_SCALAR,
 
-  /* Like GFC_SS_SCALAR except it evaluates a pointer the the expression.
+  /* Like GFC_SS_SCALAR except it evaluates a pointer to the expression.
      Used for elemental function parameters.  */
   GFC_SS_REFERENCE,
 
@@ -289,6 +289,8 @@ void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
 /* Equivalent to convert(type, gfc_conv_expr_val(se, expr)).  */
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
+/* Find the decl containing the auxiliary variables for assigned variables.  */
+void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
 /* If the value is not constant, Create a temporary and copy the value.  */
 tree gfc_evaluate_now (tree, stmtblock_t *);
 
@@ -390,6 +392,9 @@ void gfc_shadow_sym (gfc_symbol *, tree, gfc_saved_var *);
 
 /* Restore the original variable.  */
 void gfc_restore_sym (gfc_symbol *, gfc_saved_var *);
+
+/* Returns true if a variable of specified size should go on the stack.  */
+int gfc_can_put_var_on_stack (tree);
 
 /* Allocate the lang-spcific part of a decl node.  */
 void gfc_allocate_lang_decl (tree);

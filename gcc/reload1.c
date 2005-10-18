@@ -383,7 +383,7 @@ static int eliminate_regs_in_insn (rtx, int);
 static void update_eliminable_offsets (void);
 static void mark_not_eliminable (rtx, rtx, void *);
 static void set_initial_elim_offsets (void);
-static void verify_initial_elim_offsets (void);
+static bool verify_initial_elim_offsets (void);
 static void set_initial_label_offsets (void);
 static void set_offsets_for_label (rtx);
 static void init_elim_table (void);
@@ -972,6 +972,13 @@ reload (rtx first, int global)
       if (starting_frame_size != get_frame_size ())
 	something_changed = 1;
 
+      /* Even if the frame size remained the same, we might still have
+	 changed elimination offsets, e.g. if find_reloads called 
+	 force_const_mem requiring the back end to allocate a constant
+	 pool base register that needs to be saved on the stack.  */
+      else if (!verify_initial_elim_offsets ())
+	something_changed = 1;
+
       {
 	HARD_REG_SET to_spill;
 	CLEAR_HARD_REG_SET (to_spill);
@@ -1063,8 +1070,7 @@ reload (rtx first, int global)
 
       gcc_assert (old_frame_size == get_frame_size ());
 
-      if (num_eliminable)
-	verify_initial_elim_offsets ();
+      gcc_assert (verify_initial_elim_offsets ());
     }
 
   /* If we were able to eliminate the frame pointer, show that it is no
@@ -3275,23 +3281,32 @@ mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
    where something illegal happened during reload_as_needed that could
    cause incorrect code to be generated if we did not check for it.  */
 
-static void
+static bool
 verify_initial_elim_offsets (void)
 {
   HOST_WIDE_INT t;
 
-#ifdef ELIMINABLE_REGS
-  struct elim_table *ep;
+  if (!num_eliminable)
+    return true;
 
-  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-    {
-      INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
-      gcc_assert (t == ep->initial_offset);
-    }
+#ifdef ELIMINABLE_REGS
+  {
+   struct elim_table *ep;
+
+   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+     {
+       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
+       if (t != ep->initial_offset)
+	 return false;
+     }
+  }
 #else
   INITIAL_FRAME_POINTER_OFFSET (t);
-  gcc_assert (t == reg_eliminate[0].initial_offset);
+  if (t != reg_eliminate[0].initial_offset)
+    return false;
 #endif
+
+  return true;
 }
 
 /* Reset all offsets on eliminable registers to their initial values.  */
@@ -3458,16 +3473,20 @@ init_elim_table (void)
 
   /* Does this function require a frame pointer?  */
 
-  frame_pointer_needed = (! flag_omit_frame_pointer
-			  /* ?? If EXIT_IGNORE_STACK is set, we will not save
-			     and restore sp for alloca.  So we can't eliminate
-			     the frame pointer in that case.  At some point,
-			     we should improve this by emitting the
-			     sp-adjusting insns for this case.  */
-			  || (current_function_calls_alloca
-			      && EXIT_IGNORE_STACK)
-			  || FRAME_POINTER_REQUIRED);
-
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+    frame_pointer_needed = 0;
+  else
+    frame_pointer_needed = (! flag_omit_frame_pointer
+			    /* ?? If EXIT_IGNORE_STACK is set, we will not save
+			       and restore sp for alloca.  So we can't eliminate
+			       the frame pointer in that case.  At some point,
+			       we should improve this by emitting the
+			       sp-adjusting insns for this case.  */
+			    || (current_function_calls_alloca
+			        && EXIT_IGNORE_STACK)
+			    || FRAME_POINTER_REQUIRED);
+  /* APPLE LOCAL end CW asm blocks */
   num_eliminable = 0;
 
 #ifdef ELIMINABLE_REGS
@@ -5411,19 +5430,18 @@ choose_reload_regs (struct insn_chain *chain)
 		    need_mode = mode;
 		  else
 		    need_mode
-		      = smallest_mode_for_size (GET_MODE_SIZE (mode) + byte,
+		      = smallest_mode_for_size (GET_MODE_BITSIZE (mode)
+						+ byte * BITS_PER_UNIT,
 						GET_MODE_CLASS (mode));
 
-		  if (
-#ifdef CANNOT_CHANGE_MODE_CLASS
-		      (!REG_CANNOT_CHANGE_MODE_P (i, GET_MODE (last_reg),
-						  need_mode)
-		       &&
-#endif
-		      (GET_MODE_SIZE (GET_MODE (last_reg))
+		  if ((GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
 #ifdef CANNOT_CHANGE_MODE_CLASS
-		      )
+		      /* Verify that the register in "i" can be obtained
+			 from LAST_REG.  */
+		      && !REG_CANNOT_CHANGE_MODE_P (REGNO (last_reg),
+						    GET_MODE (last_reg),
+						    mode)
 #endif
 		      && reg_reloaded_contents[i] == regno
 		      && TEST_HARD_REG_BIT (reg_reloaded_valid, i)
@@ -5605,23 +5623,18 @@ choose_reload_regs (struct insn_chain *chain)
 		 and of the desired class.  */
 	      if (equiv != 0)
 		{
-		  int regs_used = 0;
+		  /* APPLE LOCAL begin don't reload unavailable hard regs. PR/16028 */
 		  int bad_for_class = 0;
 		  int max_regno = regno + rld[r].nregs;
 
 		  for (i = regno; i < max_regno; i++)
-		    {
-		      regs_used |= TEST_HARD_REG_BIT (reload_reg_used_at_all,
-						      i);
 		      bad_for_class |= ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
 							   i);
-		    }
-
-		  if ((regs_used
-		       && ! free_for_value_p (regno, rld[r].mode,
-					      rld[r].opnum, rld[r].when_needed,
-					      rld[r].in, rld[r].out, r, 1))
-		      || bad_for_class)
+                  if (bad_for_class
+                      || ! free_for_value_p (regno, rld[r].mode,
+                                             rld[r].opnum, rld[r].when_needed,
+                                             rld[r].in, rld[r].out, r, 1))
+		  /* APPLE LOCAL end don't reload unavailable hard regs. PR/16028 */
 		    equiv = 0;
 		}
 

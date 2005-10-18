@@ -780,6 +780,23 @@ objc_layout_structure (const char *type,
   layout->record_align = MAX (layout->record_align, STRUCTURE_SIZE_BOUNDARY);
 }
 
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
+#ifdef RS6000_PIC_OFFSET_TABLE_REGNUM
+/* Ick, darwin.h doesn't work anymore...  Fix this please. */
+#undef ROUND_TYPE_ALIGN
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
+    || TREE_CODE (STRUCT) == UNION_TYPE					\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
+   && TARGET_ALIGN_NATURAL == 0                         		\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
+   : (TREE_CODE (STRUCT) == VECTOR_TYPE					\
+      && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT))) 			\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
+   : MAX ((COMPUTED), (SPECIFIED)))
+#define TARGET_ALIGN_MAC68K 0
+#endif
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
 
 BOOL
 objc_layout_structure_next_member (struct objc_struct_layout *layout)
@@ -845,9 +862,11 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
 #ifdef BIGGEST_FIELD_ALIGNMENT
   desired_align = MIN (desired_align, BIGGEST_FIELD_ALIGNMENT);
 #endif
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
 #ifdef ADJUST_FIELD_ALIGN
-  desired_align = ADJUST_FIELD_ALIGN (type, desired_align);
+  desired_align = ADJUST_FIELD_ALIGN (type, desired_align, layout->prev_type == 0);
 #endif
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
 
   /* Record must have at least as much alignment as any field.
      Otherwise, the alignment of the field within the record

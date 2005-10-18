@@ -1,5 +1,5 @@
 /* GtkFontPeer.java -- Implements FontPeer with GTK+
-   Copyright (C) 1999, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -46,7 +46,6 @@ import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphVector;
 import java.awt.font.LineMetrics;
 import java.awt.geom.Rectangle2D;
-import java.awt.peer.FontPeer;
 import java.text.CharacterIterator;
 import java.util.Locale;
 import java.util.MissingResourceException;
@@ -68,7 +67,7 @@ public class GtkFontPeer extends ClasspathFontPeer
       }
   }
 
-  final private String Xname;
+  private final String Xname;
 
   public GtkFontPeer (String name, int style)
   {

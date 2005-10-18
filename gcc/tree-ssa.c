@@ -341,7 +341,7 @@ verify_flow_insensitive_alias_info (void)
 {
   size_t i;
   tree var;
-  bitmap visited = BITMAP_XMALLOC ();
+  bitmap visited = BITMAP_ALLOC (NULL);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -384,7 +384,7 @@ verify_flow_insensitive_alias_info (void)
 	}
     }
 
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   return;
 
 err:
@@ -480,7 +480,7 @@ verify_name_tags (void)
   bitmap first, second;  
   VEC (tree) *name_tag_reps = NULL;
   VEC (bitmap) *pt_vars_for_reps = NULL;
-  bitmap type_aliases = BITMAP_XMALLOC ();
+  bitmap type_aliases = BITMAP_ALLOC (NULL);
 
   /* First we compute the name tag representatives and their points-to sets.  */
   for (i = 0; i < num_ssa_names; i++)
@@ -604,7 +604,7 @@ verify_ssa (void)
   ssa_op_iter iter;
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
-  bitmap names_defined_in_bb = BITMAP_XMALLOC ();
+  bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
 
   timevar_push (TV_TREE_SSA_VERIFY);
 
@@ -702,7 +702,7 @@ verify_ssa (void)
   else
     dom_computed[CDI_DOMINATORS] = orig_dom_state;
   
-  BITMAP_XFREE (names_defined_in_bb);
+  BITMAP_FREE (names_defined_in_bb);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
 
@@ -717,12 +717,13 @@ void
 init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
-  call_clobbered_vars = BITMAP_XMALLOC ();
-  addressable_vars = BITMAP_XMALLOC ();
+  call_clobbered_vars = BITMAP_ALLOC (NULL);
+  addressable_vars = BITMAP_ALLOC (NULL);
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
+  aliases_computed_p = false;
 }
 
 
@@ -762,11 +763,12 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
-  BITMAP_XFREE (call_clobbered_vars);
+  BITMAP_FREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
-  BITMAP_XFREE (addressable_vars);
+  BITMAP_FREE (addressable_vars);
   addressable_vars = NULL;
   modified_noreturn_calls = NULL;
+  aliases_computed_p = false;
 }
 
 
@@ -776,11 +778,17 @@ delete_tree_ssa (void)
 bool
 tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 {
+  if (inner_type == outer_type)
+    return true;
+
+  /* Changes in machine mode are never useless conversions.  */
+  if (TYPE_MODE (inner_type) != TYPE_MODE (outer_type))
+    return false;
+
   /* If the inner and outer types are effectively the same, then
      strip the type conversion and enter the equivalence into
      the table.  */
-  if (inner_type == outer_type
-     || (lang_hooks.types_compatible_p (inner_type, outer_type)))
+  if (lang_hooks.types_compatible_p (inner_type, outer_type))
     return true;
 
   /* If both types are pointers and the outer type is a (void *), then
@@ -791,17 +799,26 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      implement the ABI.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
 	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
+  /* APPLE LOCAL begin mainline 4.0.2 4098854 */
+  /* Don't lose casts between pointers to volatile and non-volatile
+     qualified types.  Doing so would result in changing the semantics
+     of later accesses.  */
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
+	   && TYPE_VOLATILE (TREE_TYPE (outer_type))
+	   != TYPE_VOLATILE (TREE_TYPE (inner_type)))
+    return false;
+  /* APPLE LOCAL end mainline 4.0.2 4098854 */
+
   /* Pointers and references are equivalent once we get to GENERIC,
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
 	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
            && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
@@ -817,7 +834,6 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      mean that testing of precision is necessary.  */
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     {
@@ -1330,7 +1346,7 @@ struct tree_opt_pass pass_redundant_phi =
    warning text is in MSGID and LOCUS may contain a location or be null.  */
 
 static void
-warn_uninit (tree t, const char *msgid, location_t *locus)
+warn_uninit (tree t, const char *gmsgid, location_t *locus)
 {
   tree var = SSA_NAME_VAR (t);
   tree def = SSA_NAME_DEF_STMT (t);
@@ -1355,7 +1371,7 @@ warn_uninit (tree t, const char *msgid, location_t *locus)
 
   if (!locus)
     locus = &DECL_SOURCE_LOCATION (var);
-  warning (msgid, locus, var);
+  warning (gmsgid, locus, var);
   TREE_NO_WARNING (var) = 1;
 }
    

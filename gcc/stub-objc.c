@@ -63,14 +63,42 @@ objc_is_reserved_word (tree ARG_UNUSED (ident))
   return 0;
 }
 
-int
-objc_comptypes (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs),
-                int ARG_UNUSED (reflexive))
+/* APPLE LOCAL begin 4154928 */
+tree
+objc_common_type (tree ARG_UNUSED (type1), tree ARG_UNUSED (type2))
 {
-  return -1;
+  return 0;
+}
+
+/* APPLE LOCAL end 4154928 */
+/* APPLE LOCAL begin mainline */
+/* The 'objc_comptypes' routine has been removed.  */
+bool
+objc_compare_types (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp),
+		    int ARG_UNUSED (argno), tree ARG_UNUSED (callee))
+{
+  return false;
+}
+
+void
+objc_volatilize_decl (tree ARG_UNUSED (decl))
+{
+}
+
+bool
+objc_type_quals_match (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp))
+{
+  return false;
 }
 
 tree
+objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
+{
+  return function;
+}
+
+tree
+/* APPLE LOCAL end mainline */
 objc_message_selector (void)
 { 
   return 0;
@@ -230,6 +258,14 @@ objc_get_class_reference (tree ARG_UNUSED (name))
   return 0;
 }
 
+/* APPLE LOCAL begin mainline */
+tree
+objc_get_class_ivars (tree ARG_UNUSED (name))
+{
+  return 0;
+}
+/* APPLE LOCAL end mainline */
+
 tree
 objc_get_protocol_qualified_type (tree ARG_UNUSED (name),
 				  tree ARG_UNUSED (protos))
@@ -254,3 +290,52 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
 {
   return 1;
 }
+
+/* APPLE LOCAL begin mainline */
+tree
+objc_build_throw_stmt (tree ARG_UNUSED (expr))
+{
+  return 0;
+}
+
+void
+objc_begin_try_stmt (location_t ARG_UNUSED (loc), tree ARG_UNUSED (stmt))
+{
+}
+
+tree
+objc_finish_try_stmt (void)
+{
+  return 0;
+}
+
+void
+objc_begin_catch_clause (tree ARG_UNUSED (parm))
+{
+}
+
+void
+objc_finish_catch_clause (void) {
+}
+
+void
+objc_build_finally_clause (location_t ARG_UNUSED (location),
+			   tree ARG_UNUSED (stmt))
+{
+}
+
+tree
+objc_build_synchronized (location_t ARG_UNUSED (location), 
+			 tree ARG_UNUSED (lock), tree ARG_UNUSED (stmt))
+{
+  return 0;
+}
+
+tree
+objc_generate_write_barrier (tree ARG_UNUSED (lhs),
+			     enum tree_code ARG_UNUSED (modifycode),
+			     tree ARG_UNUSED (rhs))
+{
+  return 0;
+}  
+/* APPLE LOCAL end mainline */

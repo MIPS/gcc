@@ -175,6 +175,8 @@ struct resword
    _true_.  */
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
+/* APPLE LOCAL mainline */
+#define D_OBJC		0x08	/* Objective C++ only */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 
@@ -203,6 +205,8 @@ static const struct resword reswords[] =
   { "__inline__",	RID_INLINE,	0 },
   { "__label__",	RID_LABEL,	0 },
   { "__null",		RID_NULL,	0 },
+   /* APPLE LOCAL private extern */
+  { "__private_extern__", RID_PRIVATE_EXTERN, 0 },
   { "__real",		RID_REALPART,	0 },
   { "__real__",		RID_REALPART,	0 },
   { "__restrict",	RID_RESTRICT,	0 },
@@ -279,6 +283,33 @@ static const struct resword reswords[] =
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
 
+  /* APPLE LOCAL begin mainline */
+  /* The remaining keywords are specific to Objective-C++.  NB:
+     All of them will remain _disabled_, since they are context-
+     sensitive.  */
+
+  /* These ObjC keywords are recognized only immediately after
+     an '@'.  NB: The following C++ keywords double as
+     ObjC keywords in this context: RID_CLASS, RID_PRIVATE,
+     RID_PROTECTED, RID_PUBLIC, RID_THROW, RID_TRY and RID_CATCH.  */
+  { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
+  { "defs",		RID_AT_DEFS,		D_OBJC },
+  { "encode",		RID_AT_ENCODE,		D_OBJC },
+  { "end",		RID_AT_END,		D_OBJC },
+  { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
+  { "interface",	RID_AT_INTERFACE,	D_OBJC },
+  { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
+  { "selector",		RID_AT_SELECTOR,	D_OBJC },
+  { "finally",		RID_AT_FINALLY,		D_OBJC },
+  { "synchronized",	RID_AT_SYNCHRONIZED,	D_OBJC },
+  /* These are recognized only in protocol-qualifier context.  */
+  { "bycopy",		RID_BYCOPY,		D_OBJC },
+  { "byref",		RID_BYREF,		D_OBJC },
+  { "in",		RID_IN,			D_OBJC },
+  { "inout",		RID_INOUT,		D_OBJC },
+  { "oneway",		RID_ONEWAY,		D_OBJC },
+  { "out",		RID_OUT,		D_OBJC },
+  /* APPLE LOCAL end mainline */
 };
 
 void
@@ -287,6 +318,8 @@ init_reswords (void)
   unsigned int i;
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
+	      /* APPLE LOCAL mainline */
+	      | D_OBJC
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
   ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
@@ -298,6 +331,25 @@ init_reswords (void)
       if (! (reswords[i].disable & mask))
 	C_IS_RESERVED_WORD (id) = 1;
     }
+    
+  /* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
+  /* For C++ there is always a -D__private_extern__=extern on the
+     command line.  However, if -fpreprocessed was specified then
+     macros are not expanded so the -D is meaningless.  But this
+     replacement is required for C++.  There for we have to "pretend"
+     that '__private_extern__' is 'extern' and we can do this simply by
+     making the rid code for '__private_extern__' be the same as for
+     extern.  Note, we probably could always do this here since
+     '__private_extern__' is always to be treated like 'extern' for
+     c++.  But we'll be conservative and only do it when -fpreprocessed
+     is specified and depend on the macro substitution in all other
+     cases.  */
+  if (flag_preprocessed)
+    {
+      id = get_identifier ("__private_extern__");
+      C_RID_CODE (id) = RID_EXTERN;
+    }
+  /* APPLE LOCAL end private extern  Radar 2872481 --ilr */
 }
 
 static void
@@ -347,11 +399,6 @@ cxx_init (void)
   class_type_node = ridpointers[(int) RID_CLASS];
 
   cxx_init_decl_processing ();
-
-  /* Create the built-in __null node.  It is important that this is
-     not shared.  */
-  null_node = make_node (INTEGER_CST);
-  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 
   /* The fact that G++ uses COMDAT for many entities (inline
      functions, template instantiations, virtual tables, etc.) mean

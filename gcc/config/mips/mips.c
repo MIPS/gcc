@@ -562,6 +562,9 @@ int mips16_hard_float;
 
 const char *mips_cache_flush_func = CACHE_FLUSH_FUNC;
 
+/* Holds string <X> if -mfix-vr4130<X> was passed on the command line.  */
+const char *mips_fix_vr4130_string;
+
 /* If TRUE, we split addresses into their high and low parts in the RTL.  */
 int mips_split_addresses;
 
@@ -2609,8 +2612,6 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       switch (*code)
 	{
 	case NE:
-	case UNGE:
-	case UNGT:
 	case LTGT:
 	case ORDERED:
 	  cmp_code = reverse_condition_maybe_unordered (*code);
@@ -4132,8 +4133,11 @@ override_options (void)
     }
 
   /* Deprecate -mint64. Remove after 4.0 branches.  */
-  if ((target_flags_explicit & MASK_INT64) != 0)
+  if (TARGET_INT64)
     warning ("-mint64 is a deprecated option");
+
+  if (mips_fix_vr4130_string && mips_fix_vr4130_string[0] != 0)
+    error ("unrecognized option %<-mfix-vr4130%s%>", mips_fix_vr4130_string);
 
   if (MIPS_MARCH_CONTROLS_SOFT_FLOAT
       && (target_flags_explicit & MASK_SOFT_FLOAT) == 0)
@@ -5135,56 +5139,20 @@ mips_output_ascii (FILE *stream, const char *string_param, size_t len,
     {
       register int c = string[i];
 
-      switch (c)
+      if (ISPRINT (c))
 	{
-	case '\"':
-	case '\\':
-	  putc ('\\', stream);
-	  putc (c, stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_NEWLINE:
-	  fputs ("\\n", stream);
-	  if (i+1 < len
-	      && (((c = string[i+1]) >= '\040' && c <= '~')
-		  || c == TARGET_TAB))
-	    cur_pos = 32767;		/* break right here */
-	  else
-	    cur_pos += 2;
-	  break;
-
-	case TARGET_TAB:
-	  fputs ("\\t", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_FF:
-	  fputs ("\\f", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_BS:
-	  fputs ("\\b", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_CR:
-	  fputs ("\\r", stream);
-	  cur_pos += 2;
-	  break;
-
-	default:
-	  if (c >= ' ' && c < 0177)
+	  if (c == '\\' || c == '\"')
 	    {
-	      putc (c, stream);
+	      putc ('\\', stream);
 	      cur_pos++;
 	    }
-	  else
-	    {
-	      fprintf (stream, "\\%03o", c);
-	      cur_pos += 4;
-	    }
+	  putc (c, stream);
+	  cur_pos++;
+	}
+      else
+	{
+	  fprintf (stream, "\\%03o", c);
+	  cur_pos += 4;
 	}
 
       if (cur_pos > 72 && i+1 < len)
@@ -6075,8 +6043,18 @@ mips_set_frame_expr (rtx frame_pattern)
 static rtx
 mips_frame_set (rtx mem, rtx reg)
 {
-  rtx set = gen_rtx_SET (VOIDmode, mem, reg);
+  rtx set;
+
+  /* If we're saving the return address register and the dwarf return
+     address column differs from the hard register number, adjust the
+     note reg to refer to the former.  */
+  if (REGNO (reg) == GP_REG_FIRST + 31
+      && DWARF_FRAME_RETURN_COLUMN != GP_REG_FIRST + 31)
+    reg = gen_rtx_REG (GET_MODE (reg), DWARF_FRAME_RETURN_COLUMN);
+
+  set = gen_rtx_SET (VOIDmode, mem, reg);
   RTX_FRAME_RELATED_P (set) = 1;
+
   return set;
 }
 
@@ -7777,11 +7755,7 @@ dump_constants (struct mips16_constant *constants, rtx insn)
   emit_barrier_after (insn);
 }
 
-/* Return the length of instruction INSN.
-
-   ??? MIPS16 switch tables go in .text, but we don't define
-   JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-   compute their lengths correctly.  */
+/* Return the length of instruction INSN.  */
 
 static int
 mips16_insn_length (rtx insn)
@@ -8330,10 +8304,24 @@ mips_avoid_hazards (void)
   cfun->machine->ignore_hazard_length_p = true;
   shorten_branches (get_insns ());
 
-  /* The profiler code uses assembler macros.  -mfix-vr4120 relies on
-     assembler nop insertion.  */
-  cfun->machine->all_noreorder_p = (!current_function_profile
-				    && !TARGET_FIX_VR4120);
+  cfun->machine->all_noreorder_p = true;
+
+  /* Profiled functions can't be all noreorder because the profiler
+     support uses assembler macros.  */
+  if (current_function_profile)
+    cfun->machine->all_noreorder_p = false;
+
+  /* Code compiled with -mfix-vr4120 can't be all noreorder because
+     we rely on the assembler to work around some errata.  */
+  if (TARGET_FIX_VR4120)
+    cfun->machine->all_noreorder_p = false;
+
+  /* The same is true for -mfix-vr4130 if we might generate mflo or
+     mfhi instructions.  Note that we avoid using mflo and mfhi if
+     the VR4130 macc and dmacc instructions are available instead;
+     see the *mfhilo_{si,di}_macc patterns.  */
+  if (TARGET_FIX_VR4130 && !ISA_HAS_MACCHI)
+    cfun->machine->all_noreorder_p = false;
 
   last_insn = 0;
   hilo_delay = 2;

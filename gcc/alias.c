@@ -97,7 +97,8 @@ typedef struct alias_set_entry *alias_set_entry;
 
 static int rtx_equal_for_memref_p (rtx, rtx);
 static rtx find_symbolic_term (rtx);
-static int memrefs_conflict_p (int, rtx, int, rtx, HOST_WIDE_INT);
+/* APPLE LOCAL nop on true-dependence. */
+static int memrefs_conflict_p (int, rtx, int, rtx, HOST_WIDE_INT, int);
 static void record_set (rtx, rtx, void *);
 static int base_alias_check (rtx, rtx, enum machine_mode,
 			     enum machine_mode);
@@ -113,6 +114,8 @@ static bool nonoverlapping_component_refs_p (tree, tree);
 static tree decl_for_component_ref (tree);
 static rtx adjust_offset_for_component_ref (tree, rtx);
 static int nonoverlapping_memrefs_p (rtx, rtx);
+/* APPLE LOCAL aliasing improvement */
+static int overlapping_memrefs_p (rtx, rtx);
 static int write_dependence_p (rtx, rtx, int);
 
 static int nonlocal_mentioned_p_1 (rtx *, void *);
@@ -1612,6 +1615,8 @@ addr_side_effect_eval (rtx addr, int size, int n_refs)
   return addr;
 }
 
+/* APPLE LOCAL begin nop on true-dependence. */
+
 /* Return nonzero if X and Y (memory addresses) could reference the
    same location in memory.  C is an offset accumulator.  When
    C is nonzero, we are testing aliases between X and Y + C.
@@ -1627,11 +1632,19 @@ addr_side_effect_eval (rtx addr, int size, int n_refs)
    being referenced as a side effect.  This can happen when using AND to
    align memory references, as is done on the Alpha.
 
+   Caller can decide what value to return by passing memrefs_may_conflist as
+   0 or 1. If 1, caller wants memrefs_conflict_p to assume conflict if
+   aliasing info is insufficient to decide on memory conflict. If 0, 
+   caller wants memrefs_conflict_p to assume no conflict for insufficient
+   aliasing info.
+
    Nice to notice that varying addresses cannot conflict with fp if no
    local variables had their addresses taken, but that's too hard now.  */
 
+
 static int
-memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
+memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c,
+		    int memrefs_may_conflist)
 {
   if (GET_CODE (x) == VALUE)
     x = get_addr (x);
@@ -1679,25 +1692,31 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	  rtx y1 = XEXP (y, 1);
 
 	  if (rtx_equal_for_memref_p (x1, y1))
-	    return memrefs_conflict_p (xsize, x0, ysize, y0, c);
+	    return memrefs_conflict_p (xsize, x0, ysize, y0, c, 
+				       memrefs_may_conflist);
 	  if (rtx_equal_for_memref_p (x0, y0))
-	    return memrefs_conflict_p (xsize, x1, ysize, y1, c);
+	    return memrefs_conflict_p (xsize, x1, ysize, y1, c,
+				       memrefs_may_conflist);
 	  if (GET_CODE (x1) == CONST_INT)
 	    {
 	      if (GET_CODE (y1) == CONST_INT)
 		return memrefs_conflict_p (xsize, x0, ysize, y0,
-					   c - INTVAL (x1) + INTVAL (y1));
+					   c - INTVAL (x1) + INTVAL (y1),
+					   memrefs_may_conflist);
 	      else
 		return memrefs_conflict_p (xsize, x0, ysize, y,
-					   c - INTVAL (x1));
+					   c - INTVAL (x1),
+					   memrefs_may_conflist);
 	    }
 	  else if (GET_CODE (y1) == CONST_INT)
-	    return memrefs_conflict_p (xsize, x, ysize, y0, c + INTVAL (y1));
+	    return memrefs_conflict_p (xsize, x, ysize, y0, c + INTVAL (y1),
+				       memrefs_may_conflist);
 
-	  return 1;
+	  return memrefs_may_conflist;
 	}
       else if (GET_CODE (x1) == CONST_INT)
-	return memrefs_conflict_p (xsize, x0, ysize, y, c - INTVAL (x1));
+	return memrefs_conflict_p (xsize, x0, ysize, y, c - INTVAL (x1),
+				   memrefs_may_conflist);
     }
   else if (GET_CODE (y) == PLUS)
     {
@@ -1707,9 +1726,10 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
       rtx y1 = XEXP (y, 1);
 
       if (GET_CODE (y1) == CONST_INT)
-	return memrefs_conflict_p (xsize, x, ysize, y0, c + INTVAL (y1));
+	return memrefs_conflict_p (xsize, x, ysize, y0, c + INTVAL (y1),
+				   memrefs_may_conflist);
       else
-	return 1;
+	return memrefs_may_conflist;
     }
 
   if (GET_CODE (x) == GET_CODE (y))
@@ -1724,7 +1744,7 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	  rtx x1 = canon_rtx (XEXP (x, 1));
 	  rtx y1 = canon_rtx (XEXP (y, 1));
 	  if (! rtx_equal_for_memref_p (x1, y1))
-	    return 1;
+	    return memrefs_may_conflist;
 	  x0 = canon_rtx (XEXP (x, 0));
 	  y0 = canon_rtx (XEXP (y, 0));
 	  if (rtx_equal_for_memref_p (x0, y0))
@@ -1733,11 +1753,12 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 
 	  /* Can't properly adjust our sizes.  */
 	  if (GET_CODE (x1) != CONST_INT)
-	    return 1;
+	    return memrefs_may_conflist;
 	  xsize /= INTVAL (x1);
 	  ysize /= INTVAL (x1);
 	  c /= INTVAL (x1);
-	  return memrefs_conflict_p (xsize, x0, ysize, y0, c);
+	  return memrefs_conflict_p (xsize, x0, ysize, y0, c,
+				     memrefs_may_conflist);
 	}
 
       case REG:
@@ -1754,7 +1775,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	      break;
 
 	    if (! memrefs_conflict_p (xsize, i_x ? i_x : x,
-				      ysize, i_y ? i_y : y, c))
+				      ysize, i_y ? i_y : y, c,
+				      memrefs_may_conflist))
 	      return 0;
 	  }
 	break;
@@ -1771,7 +1793,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
     {
       if (GET_CODE (y) == AND || ysize < -INTVAL (XEXP (x, 1)))
 	xsize = -1;
-      return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)), ysize, y, c);
+      return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)), ysize, y, c,
+				 memrefs_may_conflist);
     }
   if (GET_CODE (y) == AND && GET_CODE (XEXP (y, 1)) == CONST_INT)
     {
@@ -1781,7 +1804,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	 a following reference, so we do nothing with that for now.  */
       if (GET_CODE (x) == AND || xsize < -INTVAL (XEXP (y, 1)))
 	ysize = -1;
-      return memrefs_conflict_p (xsize, x, ysize, canon_rtx (XEXP (y, 0)), c);
+      return memrefs_conflict_p (xsize, x, ysize, canon_rtx (XEXP (y, 0)), c,
+				 memrefs_may_conflist);
     }
 
   if (CONSTANT_P (x))
@@ -1797,24 +1821,28 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	{
 	  if (GET_CODE (y) == CONST)
 	    return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)),
-				       ysize, canon_rtx (XEXP (y, 0)), c);
+				       ysize, canon_rtx (XEXP (y, 0)), c,
+				       memrefs_may_conflist);
 	  else
 	    return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)),
-				       ysize, y, c);
+				       ysize, y, c,
+				       memrefs_may_conflist);
 	}
       if (GET_CODE (y) == CONST)
 	return memrefs_conflict_p (xsize, x, ysize,
-				   canon_rtx (XEXP (y, 0)), c);
+				   canon_rtx (XEXP (y, 0)), c,
+				   memrefs_may_conflist);
 
       if (CONSTANT_P (y))
 	return (xsize <= 0 || ysize <= 0
 		|| (rtx_equal_for_memref_p (x, y)
 		    && ((c >= 0 && xsize > c) || (c < 0 && ysize+c > 0))));
 
-      return 1;
+      return memrefs_may_conflist;
     }
-  return 1;
+  return memrefs_may_conflist;
 }
+/* APPLE LOCAL end nop on true-dependence. */
 
 /* Functions to compute memory dependencies.
 
@@ -2117,6 +2145,119 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   return sizex >= 0 && offsety >= offsetx + sizex;
 }
 
+/* APPLE LOCAL begin aliasing improvement */
+/* Helper for the following.  Return 1 only if we're sure of overlap. */
+
+static int
+overlapping_trees_p (tree exprx, tree expry)
+{
+  /* If no info about either one, can't tell. */
+  if (exprx == 0 || expry == 0)
+    return 0;
+
+  /* Top level code must match. */
+  if (TREE_CODE (exprx) != TREE_CODE (expry))
+    return 0;
+
+  /* Components.  */
+  if (TREE_CODE (exprx) == COMPONENT_REF)
+    {
+      /* They must refer to the same field... */
+      if (TREE_OPERAND (exprx, 1) != TREE_OPERAND (expry, 1))
+        return 0;   
+      /* ...of the same object.  (The object may be null, which
+         will compare as not overlapping.) */
+      return overlapping_trees_p (TREE_OPERAND (exprx, 0),
+                                  TREE_OPERAND (expry, 0));
+    }
+
+  /* Pointers. */
+  if (TREE_CODE (exprx) == INDIRECT_REF)
+    return overlapping_trees_p (TREE_OPERAND (exprx, 0),         
+                                TREE_OPERAND (expry, 0));
+
+  if (TREE_CODE (exprx) == VAR_DECL
+      || TREE_CODE (exprx) == PARM_DECL
+      || TREE_CODE (exprx) == CONST_DECL
+      || TREE_CODE (exprx) == FUNCTION_DECL)  
+    return exprx == expry;
+
+  return 0;
+}
+
+/* Return 1 if memrefs definitely overlap, 0 otherwise. */
+
+
+static int
+overlapping_memrefs_p (rtx x, rtx y)   
+{
+  tree exprx = MEM_EXPR (x), expry = MEM_EXPR (y);
+  rtx offsetx = MEM_OFFSET (x), offsety = MEM_OFFSET (y);
+
+  /* See if offsets collide.  Known but different offsets do not
+     overlap.  Unknown offsets will if the underlying object is the same. */
+  if (offsetx != 0 && offsety != 0 && !rtx_equal_p (offsetx, offsety))
+    return 0;
+
+  return overlapping_trees_p (exprx, expry);
+}
+/* APPLE LOCAL end aliasing improvement */
+
+
+/* APPLE LOCAL begin nop on true-dependence. */
+/* 
+   True dependence: X is read after store in MEM takes place. 
+   This is similar to true_dependence. Except that function returns 1
+   only if it can determine the conflict. If it cannot or if there
+   is no conflict, it returns 0.
+*/
+
+int
+must_true_dependence (rtx mem, rtx x)
+{
+  rtx x_addr, mem_addr;
+  enum machine_mode mem_mode;
+
+  if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
+    return 1;
+
+  /* (mem:BLK (scratch)) is a special mechanism to conflict with everything.
+     This is used in epilogue deallocation functions.  */
+  if (GET_MODE (x) == BLKmode && GET_CODE (XEXP (x, 0)) == SCRATCH)
+    return 1;
+  if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
+    return 1;
+
+  mem_mode = GET_MODE (mem);
+  x_addr = get_addr (XEXP (x, 0));
+  mem_addr = get_addr (XEXP (mem, 0));
+
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
+
+  if (aliases_everything_p (x))
+    return 1;
+
+  x_addr = canon_rtx (x_addr);
+  mem_addr = canon_rtx (mem_addr);
+
+  /* We cannot use aliases_everything_p to test MEM, since we must look
+     at MEM_MODE, rather than GET_MODE (MEM).  */
+  if (mem_mode == QImode || GET_CODE (mem_addr) == AND)
+    return 1;
+
+  /* In true_dependence we also allow BLKmode to alias anything.  Why
+     don't we do this in anti_dependence and output_dependence?  */
+  if (mem_mode == BLKmode || GET_MODE (x) == BLKmode)
+    return 1;
+
+  return memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
+		             SIZE_FOR_MODE (x), x_addr, 0, 0);
+}
+/* APPLE LOCAL end nop on true-dependence. */
+
 /* True dependence: X is read after store in MEM takes place.  */
 
 int
@@ -2160,6 +2301,11 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
 		   && CONSTANT_POOL_ADDRESS_P (base))))
     return 0;
 
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
+
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
 
@@ -2167,7 +2313,8 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
   mem_addr = canon_rtx (mem_addr);
 
   if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
-			    SIZE_FOR_MODE (x), x_addr, 0))
+			    /* APPLE LOCAL nop on true-dependence. */
+			    SIZE_FOR_MODE (x), x_addr, 0, 1))
     return 0;
 
   if (aliases_everything_p (x))
@@ -2223,12 +2370,18 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 
   x_addr = get_addr (XEXP (x, 0));
 
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
+
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
 
   x_addr = canon_rtx (x_addr);
   if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
-			    SIZE_FOR_MODE (x), x_addr, 0))
+			    /* APPLE LOCAL nop on true-dependence. */
+			    SIZE_FOR_MODE (x), x_addr, 0, 1))
     return 0;
 
   if (aliases_everything_p (x))
@@ -2268,6 +2421,19 @@ write_dependence_p (rtx mem, rtx x, int writep)
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
 
+  /* APPLE LOCAL begin make SPEC gcc work with strict aliasing */
+  x_addr = get_addr (XEXP (x, 0));
+  mem_addr = get_addr (XEXP (mem, 0));
+
+  /* If two addresses are "the same" they conflict, even if type
+     checking says they don't.  This is a bit too conservative
+     since there's no guarantee identical registers will have the
+     same values in both addresses.  This is required to build
+     the (nonstandard) version of gcc found in SPEC.  */
+  if (rtx_equal_p (x_addr, mem_addr))
+    return 1;
+  /* APPLE LOCAL end make SPEC gcc work with strict aliasing */
+
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
@@ -2290,6 +2456,11 @@ write_dependence_p (rtx mem, rtx x, int writep)
 	return 0;
     }
 
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
+
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x),
 			  GET_MODE (mem)))
     return 0;
@@ -2298,7 +2469,8 @@ write_dependence_p (rtx mem, rtx x, int writep)
   mem_addr = canon_rtx (mem_addr);
 
   if (!memrefs_conflict_p (SIZE_FOR_MODE (mem), mem_addr,
-			   SIZE_FOR_MODE (x), x_addr, 0))
+			   /* APPLE LOCAL nop on true-dependence. */
+			   SIZE_FOR_MODE (x), x_addr, 0, 1))
     return 0;
 
   fixed_scalar

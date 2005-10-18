@@ -61,7 +61,8 @@ c_disregard_inline_limits (tree fn)
     return 1;
 
   return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
-	  && DECL_EXTERNAL (fn));
+	  /* APPLE LOCAL obey inline */
+	  && (DECL_EXTERNAL (fn) || flag_obey_inline));
 }
 
 int

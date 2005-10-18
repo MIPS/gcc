@@ -171,7 +171,15 @@ namespace std
 	  // For a stateful encoding (-1) the pending sequence might be just
 	  // shift and unshift prefixes with no actual character.
 	  __ret = this->egptr() - this->gptr();
+
+#if _GLIBCXX_HAVE_DOS_BASED_FILESYSTEM
+	  // About this workaround, see libstdc++/20806.
+	  const bool __testbinary = _M_mode & ios_base::binary;
+	  if (__check_facet(_M_codecvt).encoding() >= 0
+	      && __testbinary)
+#else
 	  if (__check_facet(_M_codecvt).encoding() >= 0)
+#endif
 	    __ret += _M_file.showmanyc() / _M_codecvt->max_length();
 	}
       return __ret;
@@ -521,8 +529,8 @@ namespace std
        // future: when __n > __buflen we read directly instead of using the
        // buffer repeatedly.
        const bool __testin = _M_mode & ios_base::in;
-       const streamsize __buflen = _M_buf_size > 1 ? _M_buf_size - 1
-	                                                 : 1;
+       const streamsize __buflen = _M_buf_size > 1 ? _M_buf_size - 1 : 1;
+
        if (__n > __buflen && __check_facet(_M_codecvt).always_noconv()
 	   && __testin && !_M_writing)
 	 {
@@ -540,13 +548,28 @@ namespace std
 	       __n -= __avail;
 	     }
 
-	   const streamsize __len = _M_file.xsgetn(reinterpret_cast<char*>(__s),
-						   __n);
-	   if (__len == -1)
-	     __throw_ios_failure(__N("basic_filebuf::xsgetn "
-				     "error reading the file"));
-	   __ret += __len;
-	   if (__len == __n)
+	   // Need to loop in case of short reads (relatively common
+	   // with pipes).
+	   streamsize __len;
+	   for (;;)
+	     {
+	       __len = _M_file.xsgetn(reinterpret_cast<char*>(__s),
+				      __n);
+	       if (__len == -1)
+		 __throw_ios_failure(__N("basic_filebuf::xsgetn "
+					 "error reading the file"));
+	       if (__len == 0)
+		 break;
+
+	       __n -= __len;
+	       __ret += __len;
+	       if (__n == 0)
+		 break;
+
+	       __s += __len;
+	     }
+
+	   if (__n == 0)
 	     {
 	       _M_set_buffer(0);
 	       _M_reading = true;
