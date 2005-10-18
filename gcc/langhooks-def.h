@@ -88,6 +88,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
+extern enum omp_clause_default_kind lhd_omp_predetermined_sharing (tree);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -240,6 +241,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
 #define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
 #define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE hook_bool_tree_false
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING lhd_omp_predetermined_sharing
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -251,7 +253,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
   LANG_HOOKS_COMDAT_GROUP, \
-  LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE \
+  LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE, \
+  LANG_HOOKS_OMP_PREDETERMINED_SHARING \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */

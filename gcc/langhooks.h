@@ -196,6 +196,10 @@ struct lang_hooks_for_decls
   /* True if OpenMP should privatize what this DECL points to rather
      than the DECL itself.  */
   bool (*omp_privatize_by_reference) (tree);
+
+  /* Return sharing kind if OpenMP sharing attribute of DECL is
+     predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+  enum omp_clause_default_kind (*omp_predetermined_sharing) (tree);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */

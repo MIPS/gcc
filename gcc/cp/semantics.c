@@ -3260,6 +3260,28 @@ finish_omp_parallel (tree clauses, tree block)
   return add_stmt (stmt);
 }
 
+/* True if OpenMP sharing attribute of DECL is predetermined.  */
+
+enum omp_clause_default_kind
+cxx_omp_predetermined_sharing (tree decl)
+{
+  enum omp_clause_default_kind kind;
+
+  kind = c_omp_predetermined_sharing (decl);
+  if (kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
+    return kind;
+
+  /* Static data members are predetermined as shared.  */
+  if (TREE_STATIC (decl))
+    {
+      tree ctx = CP_DECL_CONTEXT (decl);
+      if (TYPE_P (ctx) && IS_AGGR_TYPE (ctx))
+	return OMP_CLAUSE_DEFAULT_SHARED;
+    }
+
+  return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+}
+
 /* Perform initialization related to this module.  */
 
 void

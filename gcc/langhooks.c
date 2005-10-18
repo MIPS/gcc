@@ -550,3 +550,12 @@ lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
 {
   return expr;
 }
+
+/* Return sharing kind if OpenMP sharing attribute of DECL is
+   predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+
+enum omp_clause_default_kind
+lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
+{
+  return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+}

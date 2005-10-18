@@ -1,3 +1,9 @@
+2005-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (cxx_omp_predetermined_sharing): New function.
+	* cp-tree.h (cxx_omp_predetermined_sharing): New prototype.
+	* cp-objcp-common.h (LANG_HOOKS_OMP_PREDETERMINED_SHARING): Redefine.
+
 2005-10-18  Richard Henderson  <rth@redhat.com>
 
 	* parser.c (cp_parser_omp_single): Use make_node and accessors

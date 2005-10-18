@@ -516,6 +516,25 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  install_var_private (decl, ctx);
 	  break;
 
+	case OMP_CLAUSE_SHARED:
+	  gcc_assert (is_parallel_ctx (ctx));
+	  decl = OMP_CLAUSE_DECL (c);
+	  by_ref = use_pointer_for_field (decl, true);
+	  gcc_assert (!is_variable_sized (decl));
+	  if (! TREE_READONLY (decl)
+	      || TREE_ADDRESSABLE (decl)
+	      || by_ref
+	      || is_reference (decl))
+	    {
+	      install_var_field (decl, by_ref, ctx);
+	      install_var_shared (decl, by_ref, ctx);
+	      break;
+	    }
+	  else
+	    /* We don't need to copy const scalar vars back.  */
+	    TREE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
+	  /* FALLTHRU */
+
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_LASTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
@@ -532,15 +551,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      install_var_field (decl, by_ref, ctx);
 	    }
 	  install_var_private (decl, ctx);
-	  break;
-
-	case OMP_CLAUSE_SHARED:
-	  gcc_assert (is_parallel_ctx (ctx));
-	  decl = OMP_CLAUSE_DECL (c);
-	  by_ref = use_pointer_for_field (decl, true);
-	  gcc_assert (!is_variable_sized (decl));
-	  install_var_field (decl, by_ref, ctx);
-	  install_var_shared (decl, by_ref, ctx);
 	  break;
 
 	case OMP_CLAUSE_COPYPRIVATE:

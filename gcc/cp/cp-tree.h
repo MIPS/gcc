@@ -4227,6 +4227,7 @@ extern void note_decl_for_pch			(tree);
 extern tree begin_omp_parallel			(void);
 extern tree finish_omp_parallel			(tree, tree);
 extern void finish_omp_threadprivate		(tree);
+extern enum omp_clause_default_kind cxx_omp_predetermined_sharing (tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,

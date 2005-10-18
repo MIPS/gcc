@@ -1,5 +1,22 @@
 2005-10-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* langhooks.h (struct lang_hooks_for_decls): Add
+	omp_predetermined_sharing hook.
+	* langhooks.c (lhd_omp_predetermined_sharing): New function.
+	* langhooks-def.h (lhd_omp_predetermined_sharing): New prototype.
+	(LANG_HOOKS_OMP_PREDETERMINED_SHARING): Define.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_OMP_PREDETERMINED_SHARING.
+	* gimplify.c (omp_notice_variable): Only return immediately
+	if a global var is DECL_THREAD_LOCAL_P.  Use
+	omp_predetermined_sharing langhook.
+	(gimplify_reconstruct_omp_clauses_1): Do not add global vars
+	into OMP_CLAUSE_SHARED clause.
+	* c-common.h (c_omp_predetermined_sharing): New prototype.
+	* c-objc-common.h (LANG_HOOKS_OMP_PREDETERMINED_SHARING): Redefine.
+	* c-omp.c (c_omp_predetermined_sharing): New function.
+	* omp-low.c (scan_sharing_clauses): Handle const shared scalar
+	vars as if they were firstprivate.
+
 	* langhooks.c (lhd_omp_privatize_by_reference): Remove.
 	* langhooks-def.h (lhd_omp_privatize_by_reference): Remove prototype.
 	(LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE): Use hook_bool_tree_false

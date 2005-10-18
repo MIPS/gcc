@@ -4269,13 +4269,25 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   splay_tree_node n;
   unsigned flags = in_code ? GOVD_SEEN : 0;
 
+  /* Threadprivate variables are predetermined.  */
   if (is_global_var (decl))
-    return;
+    {
+      if (DECL_THREAD_LOCAL_P (decl))
+	return;
+
+      if (DECL_HAS_VALUE_EXPR_P (decl))
+	{
+	  tree value = get_base_address (DECL_VALUE_EXPR (decl));
+
+	  if (value && DECL_P (value) && DECL_THREAD_LOCAL_P (value))
+	    return;
+	}
+    }
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
   if (n == NULL)
     {
-      enum omp_clause_default_kind default_kind;
+      enum omp_clause_default_kind default_kind, kind;
 
       if (!ctx->is_parallel)
 	goto do_outer;
@@ -4286,6 +4298,12 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
       default_kind = ctx->default_kind;
       if (DECL_ARTIFICIAL (decl))
 	default_kind = OMP_CLAUSE_DEFAULT_SHARED;
+      else
+	{
+	  kind = lang_hooks.decls.omp_predetermined_sharing (decl);
+	  if (kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
+	    default_kind = kind;
+	}
 
       switch (default_kind)
 	{
@@ -4451,7 +4469,11 @@ gimplify_reconstruct_omp_clauses_1 (splay_tree_node n, void *data)
   if ((flags & GOVD_SEEN) == 0)
     return 0;
   if (flags & GOVD_SHARED)
-    code = OMP_CLAUSE_SHARED;
+    {
+      if (is_global_var (decl))
+	return 0;
+      code = OMP_CLAUSE_SHARED;
+    }
   else if (flags & GOVD_PRIVATE)
     code = OMP_CLAUSE_PRIVATE;
   else if (flags & GOVD_FIRSTPRIVATE)
