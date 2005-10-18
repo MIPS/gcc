@@ -116,6 +116,7 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
+#undef LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -134,6 +135,7 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 #define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
+#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE	gfc_omp_privatize_by_reference
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

@@ -37,6 +37,24 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "arith.h"
 
 
+/* True if OpenMP should privatize what this DECL points to rather
+   than the DECL itself.  */
+
+bool
+gfc_omp_privatize_by_reference (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    return true;
+
+  /* POINTER/ALLOCATABLE have aggregate types, all user variables
+     that have POINTER_TYPE type are supposed to be privatized
+     by reference.  */
+  return !DECL_ARTIFICIAL (decl) && TREE_CODE (type) == POINTER_TYPE;
+}
+
+
 static inline tree
 gfc_trans_add_clause (tree node, tree tail)
 {

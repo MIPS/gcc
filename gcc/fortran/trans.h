@@ -440,6 +440,9 @@ tree gfc_truthvalue_conversion (tree);
 tree builtin_function (const char *, tree, int, enum built_in_class,
 		       const char *, tree);
 
+/* In trans-openmp.c */
+bool gfc_omp_privatize_by_reference (tree);
+
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;
 extern GTY(()) tree gfor_fndecl_internal_malloc64;

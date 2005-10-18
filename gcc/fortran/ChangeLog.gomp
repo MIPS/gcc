@@ -1,3 +1,12 @@
+2005-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (gfc_omp_privatize_by_reference): New prototype.
+	* f95-lang.c (LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE): Redefine
+	to gfc_omp_privatize_by_reference.
+	* trans-openmp.c (gfc_omp_privatize_by_reference): New function.
+
+	* trans-stmt.h (gfc_trans_omp_directive): Add comment.
+
 2005-10-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (gfc_match_omp_variable_list): Add ALLOW_COMMON argument.

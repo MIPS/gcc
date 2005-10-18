@@ -1,3 +1,14 @@
+2005-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* langhooks.h (struct lang_hooks_for_decls): Add
+	omp_privatize_by_reference hook.
+	* langhooks-def.h (lhd_omp_privatize_by_reference): New prototype.
+	(LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE): Define.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE.
+	* langhooks.c (lhd_omp_privatize_by_reference): New function.
+	* omp-low.c (is_reference): Call omp_privatize_by_reference
+	langhook.
+
 2005-10-17  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (gimplify_omp_for): Canonicalize the operand order

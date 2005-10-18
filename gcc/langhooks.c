@@ -456,6 +456,15 @@ lhd_comdat_group (tree decl)
   return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 }
 
+/* True if OpenMP should privatize what this DECL points to rather
+   than the DECL itself.  */
+
+bool
+lhd_omp_privatize_by_reference (tree decl ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 /* lang_hooks.decls.final_write_globals: perform final processing on
    global variables.  */
 void

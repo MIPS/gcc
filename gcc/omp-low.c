@@ -126,7 +126,7 @@ is_variable_sized (tree expr)
 static inline bool
 is_reference (tree decl)
 {
-  return TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE;
+  return lang_hooks.decls.omp_privatize_by_reference (decl);
 }
 
 /* Lookup variables in the decl or field splay trees.  The "maybe" form

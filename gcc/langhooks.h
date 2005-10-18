@@ -192,6 +192,10 @@ struct lang_hooks_for_decls
      value will be the string already stored in an
      IDENTIFIER_NODE.)  */
   const char * (*comdat_group) (tree);
+
+  /* True if OpenMP should privatize what this DECL points to rather
+     than the DECL itself.  */
+  bool (*omp_privatize_by_reference) (tree);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
