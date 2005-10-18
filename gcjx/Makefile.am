@@ -74,11 +74,12 @@ reader/classinst.hh reader/reader.hh reader/fdreader.hh	\
 reader/zereader.hh reader/mmapbuffer.hh reader/readbuffer.hh \
 reader/zebuffer.hh reader/source.hh resolve.hh scope.hh source/lex.hh \
 source/machine.hh source/parse.hh source/token.hh source/tstream.hh \
-source/ucs2.hh typedefs.hh util.hh visitor.hh warnings.hh watch.hh
+source/ucs2.hh typedefs.hh unify.hh util.hh visitor.hh warnings.hh \
+watch.hh
 
 dot_sources = access.cc classcache.cc compiler.cc conversions.cc \
 defassign.cc directory.cc dump.cc factory.cc fold.cc init.cc \
-location.cc name.cc owner.cc scope.cc util.cc warnings.cc
+location.cc name.cc owner.cc scope.cc unify.cc util.cc warnings.cc
 
 model_sources = model/annotation.cc model/annomember.cc model/annotype.cc \
 model/annovalue.cc model/arrayinit.cc model/arrayref.cc \

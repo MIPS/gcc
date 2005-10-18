@@ -58,9 +58,13 @@ model_invocation_base::try_method_conversion
 	   i != accessible.end ();
 	   ++i)
 	{
-	  if (potentially_applicable_p (*i, actual_types)
-	      && (*i)->method_conversion_p (actual_types, phase))
-	    applicable.insert (*i);
+	  if (potentially_applicable_p (*i, actual_types))
+	    {
+	      model_method *newmeth
+		= (*i)->method_conversion_p (actual_types, phase);
+	      if (newmeth)
+		applicable.insert (newmeth);
+	    }
 	}
       if (! should_loop)
 	break;

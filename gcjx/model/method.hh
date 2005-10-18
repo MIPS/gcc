@@ -84,8 +84,16 @@ protected:
   // this is used by GCC for debugging information.
   location method_end;
 
+  // All generic instantiations of this method.
+  model_instance_cache<model_method> instance_cache;
+
   void massage_modifiers (const ref_modifier_list &);
   bool return_type_substitutable_p (model_type *, model_type *) const;
+  model_method *do_method_conversion_p (const std::list<model_type *> &,
+					method_phase);
+  model_method *do_method_conversion_p (const model_type_map &,
+					const std::list<model_type *> &,
+					method_phase);
 
   annotation_kind get_annotation_kind () const
   {
@@ -213,6 +221,11 @@ public:
     type_parameters = ts;
   }
 
+  const model_parameters &get_type_parameters () const
+  {
+    return type_parameters;
+  }
+
   void set_return_type (const ref_forwarding_type &t)
   {
     return_type = t;
@@ -263,10 +276,19 @@ public:
   // Return TRUE if this method is more specific than OTHER.
   bool more_specific_p (model_method *other);
 
-  /// Return TRUE if arguments of the given types can be passed to
-  /// this method.  The phase determines what kinds of conversions are
-  /// considered.
-  bool method_conversion_p (const std::list<model_type *> &, method_phase);
+  /// Return the method if arguments of the given types can be passed
+  /// to this method.  The phase determines what kinds of conversions
+  /// are considered.  The returned method might differ from 'this' if
+  /// a generic instance is created.
+  model_method *method_conversion_p (const std::list<model_type *> &,
+				     method_phase);
+
+  /// Like the above, but handles method conversion in the case where
+  /// there are explicit type parameters to the invocation of a
+  /// generic method.
+  model_method *method_conversion_p (const std::list<model_class *> &,
+				     const std::list<model_type *> &,
+				     method_phase);
 
   /// Like the above, but wrap actual arguments in casts as
   /// appropriate.  Note that there is no phase argument here; when

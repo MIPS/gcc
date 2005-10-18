@@ -1,3 +1,6 @@
+eclipse has generic test cases somewhere
+find them
+
 sometimes we emit the wrong line numbers with -g
 see test case in kaffe
 

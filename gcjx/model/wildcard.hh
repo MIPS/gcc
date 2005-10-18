@@ -44,6 +44,13 @@ public:
   {
   }
 
+  model_wildcard (const location &w, model_class *b, bool spr = false)
+    : model_class (w),
+      is_super (spr),
+      bound (new model_forwarding_resolved (w, b))
+  {
+  }
+
   void set_bound (const ref_forwarding_type &b)
   {
     bound = b;
@@ -52,6 +59,28 @@ public:
   void set_super ()
   {
     is_super = true;
+  }
+
+  bool super_p () const
+  {
+    return is_super;
+  }
+
+  bool wildcard_p () const
+  {
+    return true;
+  }
+
+  model_class *get_bound () const
+  {
+    if (! bound)
+      return NULL;
+    return assert_cast<model_class *> (bound->type ());
+  }
+
+  bool has_bound_p () const
+  {
+    return bool (bound);
   }
 
   model_type *erasure ();

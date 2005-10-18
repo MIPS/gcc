@@ -45,6 +45,16 @@ public:
     type_parameters = ts;
   }
 
+  std::list<ref_type_variable>::const_iterator begin () const
+  {
+    return type_parameters.begin ();
+  }
+
+  std::list<ref_type_variable>::const_iterator end () const
+  {
+    return type_parameters.end ();
+  }
+
   bool empty () const
   {
     return type_parameters.empty ();
@@ -60,6 +70,9 @@ public:
   /// otherwise.
   bool create_type_map (model_type_map &, const model_parameters &) const;
 
+  void create_type_map (model_type_map &, model_element *,
+			const std::list<model_class *> &);
+
   void resolve_classes (resolution_scope *scope);
 
   void look_up_name (const std::string &name,
@@ -73,6 +86,29 @@ public:
 
   /// Return a signature that represents these type parameters.
   std::string get_signature ();
+};
+
+/// This is a cache of instances of a given class, either a
+/// model_class_instance or a model_method.
+template<typename T>
+class model_instance_cache
+{
+  // FIXME: this implies copying the type map...
+  typedef std::list< std::pair< model_type_map, owner<T> > >
+    data_type;
+
+  // List of all the known instances.
+  data_type instances;
+
+public:
+
+  /// Look up an instantiation.  If the element is found in the cache,
+  /// returns it.  Otherwise, returns NULL.
+  T *find_instance (const model_type_map &type_map);
+
+  /// Add an element to the cache.
+  void add_instance (const model_type_map &type_map,
+		     const owner<T> &instance);
 };
 
 #endif // GCJX_MODEL_PARAMETERS_HH

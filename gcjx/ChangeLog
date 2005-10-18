@@ -1,3 +1,54 @@
+2005-10-18  Tom Tromey  <tromey@redhat.com>
+
+	* model/classinst.hh (model_class_instance::type_map_match_p):
+	Removed.
+	* model/method.cc (apply_type_map): Updated.
+	* model/method.hh (model_method::instance_cache): New field.
+	* model/class.cc (create_instance): Updated.
+	* model/class.hh (model_class::instances): Removed.
+	(model_class::instance_cache): New field.
+	* model/parameters.cc (find_instance): New method.
+	(add_instance): Likewise.
+	* model/parameters.hh (class model_instance_cache): New class.
+
+	* model/class.cc (create_type_map): Removed.
+	(create_instance): Updated.
+	* model/parameters.hh (model_parameters::create_type_map):
+	Declare.
+	* model/parameters.cc (create_type_map): New method.
+	* model/class.hh (model_class::create_instance): Updated
+	documentation.
+	(model_class::create_type_map): Removed.
+	* model/method.hh (model_method::do_method_conversion_p):
+	Declare.
+	(model_method::method_conversion_p): Likewise.
+	* model/method.cc (do_method_conversion_p): New methods.
+	(method_conversion_p): Use it.  Return a method.
+	(method_conversion_p): New overload.
+
+	* model/invoke.hh (model_invocation_base::compute_type_parameters):
+	Declare.
+	* unify.cc: New file.
+	* unify.hh: New file.
+	* Makefile.am (headers): Added unify.hh.
+	(model_sources): Added unify.cc.
+	* model/classinst.cc (get_type_map): New method.
+	* model/classinst.hh (model_class_instance::get_type_map): New
+	overload.
+	* model/wildcard.hh (model_wildcard::wildcard_p): New method.
+	(model_wildcard): New constructor.
+	(model_wildcard::has_bound_p): New method.
+	* model/class.hh (model_class::get_type_parameters): New method.
+	(model_class::wildcard_p): Likewise.
+	* model/parameters.hh (model_parameters::begin): New method.
+	(model_parameters::end): Likewise.
+	* model/method.hh (model_method::get_type_parameters): New
+	method.
+	* model/classinst.hh (model_class_instance::get_type_map):
+	Declare.
+	* model/wildcard.hh (model_wildcard::super_p): New method.
+	(model_wildcard::get_bound): Likewise.
+
 2005-10-14  Tom Tromey  <tromey@redhat.com>
 
 	* model/invoke.cc (potentially_applicable_p): New methods.

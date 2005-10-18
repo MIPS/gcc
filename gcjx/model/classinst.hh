@@ -48,13 +48,6 @@ public:
   {
   }
 
-  /// Return true if the given type map is an exact match for our type
-  /// map.  This is used to cache class instances.
-  bool type_map_match_p (const model_type_map &other) const
-  {
-    return type_map == other;
-  }
-
   bool parameterized_p () const
   {
     return true;
@@ -64,6 +57,15 @@ public:
   {
     return parent;
   }
+
+  const model_type_map &get_type_map () const
+  {
+    return type_map;
+  }
+
+  // Retrieve the type map in "argument form" -- in the same order as
+  // the parameters given when instantiating this class.
+  void get_type_map (std::list<model_class *> &result);
 
   model_class *apply_type_map (model_element *, const model_type_map &);
 

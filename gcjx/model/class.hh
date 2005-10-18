@@ -61,7 +61,6 @@ private:
 /// all the needed functionality (fields, methods, etc).  It also
 /// knows the inheritance rules and other things like that.
 ///
-
 /// A model_class is also used as the type of a class.  In particular,
 /// for ordinary classes, the model_class is both the declaration and
 /// the type.  For generic classes, the model_class is the declaration
@@ -181,8 +180,8 @@ protected:
   // The 'class$' method, if one is needed.
   ref_method class_;
 
-  // List of all class instances.
-  std::list<ref_class_instance> instances;
+  // All the instances of this class.
+  model_instance_cache<model_class_instance> instance_cache;
 
   // This holds any accessor methods we had to create.  This maps the
   // referenced member to the accessor.
@@ -303,6 +302,11 @@ public:
   void set_type_parameters (const model_parameters &tps)
   {
     type_parameters = tps;
+  }
+
+  const model_parameters &get_type_parameters () const
+  {
+    return type_parameters;
   }
 
   void set_name (const std::string &n)
@@ -471,6 +475,12 @@ public:
     return false;
   }
 
+  // Return true if this class is a wildcard class.
+  virtual bool wildcard_p () const
+  {
+    return false;
+  }
+
   // Return true if this class was defined in a static context.
   bool static_context_p () const
   {
@@ -584,10 +594,6 @@ public:
     used = true;
   }
 
-  /// Construct a new type map for this class given a list of types.
-  void create_type_map (model_type_map &, model_element *,
-			const std::list<model_class *> &);
-
   /// Apply the type map to this generic type and return a
   /// parameterized instance.  Multiple calls to this with the
   /// equivalent type map will all return the same result.
@@ -595,7 +601,9 @@ public:
 				       const model_type_map &);
 
   /// Create a parameterized instance of this class given a list of
-  /// argument types.
+  /// argument types.  This should only be called on a model_class,
+  /// not on an instance of a subclass; to apply a type map
+  /// composition, use apply_type_map.
   model_class *create_instance (model_element *,
 				const std::list<model_class *> &);
 

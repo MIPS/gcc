@@ -69,6 +69,16 @@ model_class_instance::resolve_member_hook (resolution_scope *scope)
     }
 }
 
+void
+model_class_instance::get_type_map (std::list<model_class *> &result)
+{
+  for (std::list<ref_type_variable>::const_iterator i
+	 = type_parameters.begin ();
+       i != type_parameters.end ();
+       ++i)
+    result.push_back (type_map.find ((*i).get ()));
+}
+
 model_class *
 model_class_instance::apply_type_map (model_element *request,
 				      const model_type_map &other_type_map)

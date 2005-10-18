@@ -22,6 +22,7 @@
 #include "typedefs.hh"
 #include "defassign.hh"
 #include "dump.hh"
+#include "unify.hh"
 
 // FIXME this should probably be a method on model_type.
 // FIXME duplicated in throwsclause.cc
@@ -170,9 +171,9 @@ model_method::potentially_applicable_p (const std::list<model_type *> &args,
   return potentially_applicable_p (args);
 }
 
-bool
-model_method::method_conversion_p (const std::list<model_type *> &args,
-				   method_phase phase)
+model_method *
+model_method::do_method_conversion_p (const std::list<model_type *> &args,
+				      method_phase phase)
 {
   std::list<ref_variable_decl>::const_iterator this_it
     = parameters.begin ();
@@ -202,7 +203,7 @@ model_method::method_conversion_p (const std::list<model_type *> &args,
       ++args_it;
 
       if (! method_invocation_conversion (formal_type, actual_type, phase))
-	return false;
+	return NULL;
     }
 
   // Actually handle varargs.  We do this here because it is valid for
@@ -226,18 +227,53 @@ model_method::method_conversion_p (const std::list<model_type *> &args,
 	  model_type *actual_type = *args_it;
 	  if (! method_invocation_conversion (formal_type, actual_type,
 					      phase))
-	    return false;
+	    return NULL;
 	  ++args_it;
 	}
 
-      return true;
+      return this;
     }
 
   // Wrong number of arguments.
   if (this_it != parameters.end () || args_it != args.end ())
-    return false;
+    return NULL;
 
-  return true;
+  return this;
+}
+
+model_method *
+model_method::do_method_conversion_p (const model_type_map &typeargs,
+				      const std::list<model_type *> &args,
+				      method_phase phase)
+{
+  model_method *new_meth = apply_type_map (typeargs, get_declaring_class ());
+  return new_meth->do_method_conversion_p (args, phase);
+}
+
+model_method *
+model_method::method_conversion_p (const std::list<model_type *> &args,
+				   method_phase phase)
+{
+  if (! type_parameters.empty ())
+    {
+      model_type_map typeargs;
+      // FIXME: return result..?  error detection?
+      // FIXME: pass in argument for varargs handling.
+      unify (args, this, NULL /* FIXME */, typeargs);
+      return do_method_conversion_p (typeargs, args, phase);
+    }
+  return do_method_conversion_p (args, phase);
+}
+
+model_method *
+model_method::method_conversion_p (const std::list<model_class *> &typeargs,
+				   const std::list<model_type *> &args,
+				   method_phase phase)
+{
+  model_type_map the_map;
+  // FIXME: error handling?
+  type_parameters.create_type_map (the_map, this /* FIXME */, typeargs);
+  return do_method_conversion_p (the_map, args, phase);
 }
 
 void
@@ -762,8 +798,15 @@ model_method::apply_type_map (const model_type_map &type_map,
 			      model_class *enclosing)
 {
   // FIXME: if argument and return types don't change, perhaps we
-  // should just return 'this'.
-  return new model_method (this, type_map, enclosing);
+  // should just return 'this'?
+
+  model_method *cache = instance_cache.find_instance (type_map);
+  if (cache != NULL)
+    return cache;
+
+  model_method *result = new model_method (this, type_map, enclosing);
+  instance_cache.add_instance (type_map, result);
+  return result;
 }
 
 

@@ -1998,35 +1998,6 @@ model_class::ensure_enclosing (model_class *inner)
 }
 
 void
-model_class::create_type_map (model_type_map &result,
-			      model_element *request,
-			      const std::list<model_class *> &type_list)
-{
-  std::list<model_class *>::const_iterator type_iter
-    = type_list.begin ();
-  std::list<ref_type_variable>::const_iterator var_iter
-    = type_parameters.type_parameters.begin ();
-
-  while (type_iter != type_list.end ()
-	 && var_iter != type_parameters.type_parameters.end ())
-    {
-      (*var_iter)->validate (request, *type_iter);
-      result.add ((*var_iter).get (), *type_iter);
-      ++type_iter;
-      ++var_iter;
-    }
-
-  if (type_iter == type_list.end ()
-      && var_iter != type_parameters.type_parameters.end ())
-    throw request->error ("too few type parameters to %1")
-      % this;
-  else if (type_iter != type_list.end ()
-	   && var_iter == type_parameters.type_parameters.end ())
-    throw request->error ("too many type parameters to %1")
-      % this;
-}
-
-void
 model_class::check_interface_instances (model_class *base,
 					std::map<model_class *, model_class *> &track)
 {
@@ -2078,19 +2049,15 @@ model_class::create_instance (model_element *request,
 			      const std::list<model_class *> &params)
 {
   model_type_map type_map;
-  create_type_map (type_map, request, params);
+  type_parameters.create_type_map (type_map, request, params);
 
   if (type_parameters.empty () || type_map.empty_p ())
     return this;
 
   // See if this instance has been cached.
-  for (std::list<ref_class_instance>::const_iterator i = instances.begin ();
-       i != instances.end ();
-       ++i)
-    {
-      if ((*i)->type_map_match_p (type_map))
-	return (*i).get ();
-    }
+  model_class_instance *cache = instance_cache.find_instance (type_map);
+  if (cache != NULL)
+    return cache;
 
   // We need to have our superclasses installed before we can proceed.
   resolve_classes ();
@@ -2145,7 +2112,7 @@ model_class::create_instance (model_element *request,
   if (this_0)
     result->set_this_0 (this_0);
 
-  instances.push_back (result);
+  instance_cache.add_instance (type_map, result);
   return result.get ();
 }
 

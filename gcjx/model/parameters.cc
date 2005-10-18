@@ -71,6 +71,32 @@ model_parameters::create_type_map (model_type_map &result,
 	  && other_it == other.type_parameters.end ());
 }
 
+void
+model_parameters::create_type_map (model_type_map &result,
+				   model_element *request,
+				   const std::list<model_class *> &type_list)
+{
+  std::list<model_class *>::const_iterator type_iter
+    = type_list.begin ();
+  std::list<ref_type_variable>::const_iterator var_iter
+    = type_parameters.begin ();
+
+  while (type_iter != type_list.end () && var_iter != type_parameters.end ())
+    {
+      (*var_iter)->validate (request, *type_iter);
+      result.add ((*var_iter).get (), *type_iter);
+      ++type_iter;
+      ++var_iter;
+    }
+
+  if (type_iter == type_list.end () && var_iter != type_parameters.end ())
+    throw request->error ("too few type parameters to %1")
+      % "FIXME";
+  else if (type_iter != type_list.end () && var_iter == type_parameters.end ())
+    throw request->error ("too many type parameters to %1")
+      % "FIXME";
+}
+
 std::string
 model_parameters::get_pretty_name () const
 {
@@ -105,3 +131,34 @@ model_parameters::get_signature ()
     }
   return result;
 }
+
+
+
+template<typename T>
+T *
+model_instance_cache<T>::find_instance (const model_type_map &type_map)
+{
+  for (typename data_type::const_iterator i = instances.begin ();
+       i != instances.end ();
+       ++i)
+    {
+      if ((*i).first == type_map)
+	return (*i).second.get ();
+    }
+
+  return NULL;
+}
+
+template<typename T>
+void
+model_instance_cache<T>::add_instance (const model_type_map &type_map,
+				       const owner<T> &instance)
+{
+  instances.push_back (std::make_pair (type_map, instance));
+}
+
+
+
+// Instantiations.
+template class model_instance_cache<model_class_instance>;
+template class model_instance_cache<model_method>;
