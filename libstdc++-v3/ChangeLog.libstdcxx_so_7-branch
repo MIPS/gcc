@@ -1,4 +1,4 @@
-2005-10-17  Chris Jefferson <chris@bubblescope.net>
+2005-10-18  Chris Jefferson <chris@bubblescope.net>
 
 	* include/bits/deque.tcc (deque::erase(iterator)): Make rvalref aware.
 	(deque::erase(iterator, iterator)): Likewise.
