@@ -35,14 +35,20 @@
 #ifndef _GLIBCXX_MOVEABLE_H
 #define _GLIBCXX_MOVEABLE_H	1
 
+// Would include <iterator>, but we only need iterator_traits and need to
+// avoid cyclic dependancies.
+#include <bits/c++config.h>
+#include <cstddef>
+#include <bits/stl_iterator_base_types.h>
+
 namespace __gnu_cxx
 {
 
-  template<class _Tp>
+  template<typename _Tp>
     struct __is_moveable
     { static const bool __value = false; };
 
-  template<class _Tp>
+  template<typename _Tp>
     struct __rvalref
     {
       _Tp& __ref;
@@ -51,7 +57,7 @@ namespace __gnu_cxx
       __rvalref(_Tp& __inref) : __ref(__inref) { }
     };
 
-  template<class _Tp, bool = __is_moveable<_Tp>::__value>
+  template<typename _Tp, bool = __is_moveable<_Tp>::__value>
     struct __move_helper
     {
       typedef _Tp& __type;
@@ -60,7 +66,7 @@ namespace __gnu_cxx
       { return __in; }
     };
 
-  template<class _Tp>
+  template<typename _Tp>
     struct __move_helper<_Tp, true>
     {
       typedef __rvalref<_Tp> __type;
@@ -69,7 +75,7 @@ namespace __gnu_cxx
       { return __rvalref<_Tp>(__in); }
     };
        
-  template<class _Tp>
+  template<typename _Tp>
     inline typename __move_helper<_Tp>::__type 
     __move(_Tp& __in)
     { return __move_helper<_Tp>::__move(__in); }
@@ -78,10 +84,163 @@ namespace __gnu_cxx
   // for forward (and better) iterators whose operator*() returns by value.
   // The standard say there shouldn't be any such iterators.  Then someone
   // wrote vector<bool>, which breaks that rule.
-  template<class _Tp>
+  template<typename _Tp>
     inline const _Tp&
     __move(const _Tp& __in)
     { return __in; }
+
+  /**
+   *  @if maint
+   *  This class takes a range of iterators and wraps them so when they
+   *  are dereferenced they return any rvalue reference instead of a plain
+   *  reference. While you can wrap forward and better classes
+   *  of iterators, the resulting iterators aren't really iterators of that
+   *  type, as operator* returns by value not reference.
+   *  @endif
+   */
+  template<typename _Iterator>
+    struct __move_iterator
+    {
+      _Iterator __iterator;
+
+      typedef _Iterator __iterator_type;
+      typedef typename std::iterator_traits<_Iterator>::difference_type
+        difference_type;
+      typedef typename std::iterator_traits<_Iterator>::pointer
+        pointer;
+      typedef typename std::iterator_traits<_Iterator>::value_type
+        value_type;
+      typedef typename std::iterator_traits<_Iterator>::iterator_category
+        iterator_category;
+      typedef typename __move_helper<value_type>::__type reference;
+
+      __move_iterator() 
+      { }
+    
+      explicit __move_iterator(__iterator_type __in) 
+      : __iterator(__in)
+      { }
+    
+      template<typename _Tp> 
+	__move_iterator(const __move_iterator<_Tp>& __in)
+	: __iterator(__in)
+	{ }
+
+      __iterator_type 
+      base() const
+      { return __iterator; }
+    
+      reference 
+      operator*() const
+      { return __gnu_cxx::__move(*__iterator); }
+    
+      pointer   
+      operator->() const
+      { return &**this; }
+
+      __move_iterator& 
+      operator++()
+      { ++__iterator; }
+    
+      __move_iterator  
+      operator++(int)
+      { 
+	__move_iterator __tmp(*this);
+	++__iterator;
+	return __tmp;
+      }
+      
+      __move_iterator& 
+      operator--()
+      { --__iterator; }
+    
+      __move_iterator  
+      operator--(int)
+      {
+	__move_iterator __tmp(*this);
+	--__iterator;
+	return __tmp;
+      }
+
+      __move_iterator  
+      operator+(difference_type __distance) const
+      { return __move_iterator(__iterator + __distance); }
+
+      __move_iterator& 
+      operator+=(difference_type __distance)
+      {
+	__iterator += __distance;
+	return *this;
+      }
+    
+      __move_iterator  
+      operator-(difference_type __distance) const
+      { return __move_iterator(__iterator - __distance); }
+    
+      __move_iterator& 
+      operator-=(difference_type __distance)
+      { 
+	__iterator -= __distance;
+	return *this;
+      }
+    
+      reference 
+      operator[](difference_type __distance) const
+      { return __iterator[__distance]; }
+    };
+
+  template<typename _Iterator>
+    bool
+    operator==(const __move_iterator<_Iterator>& __lhs,
+	       const __move_iterator<_Iterator>& __rhs)
+    { return __lhs.__iterator == __rhs.__iterator; }
+
+  template<typename _Iterator>
+    bool
+    operator!=(const __move_iterator<_Iterator>& __lhs,
+	       const __move_iterator<_Iterator>& __rhs)
+    { return __lhs.__iterator != __rhs.__iterator; }
+
+  template<typename _Iterator>
+    bool
+    operator<(const __move_iterator<_Iterator>& __lhs,
+	      const __move_iterator<_Iterator>& __rhs)
+    { return __lhs.__iterator < __rhs.__iterator; }
+
+  template<typename _Iterator>
+    bool
+    operator<=(const __move_iterator<_Iterator>& __lhs,
+	       const __move_iterator<_Iterator>& __rhs)
+    { return __lhs.__iterator <= __rhs.__iterator; }
+
+  template<typename _Iterator>
+    bool
+    operator>(const __move_iterator<_Iterator>& __lhs,
+	      const __move_iterator<_Iterator>& __rhs)
+    { return __rhs.__iterator > __lhs.__iterator; }
+
+  template<typename _Iterator>
+    bool
+    operator>=(const __move_iterator<_Iterator>& __lhs,
+	       const __move_iterator<_Iterator>& __rhs)
+    { return __lhs.__iterator >= __rhs.__iterator; }
+
+  template<typename _Iterator>
+    typename __move_iterator<_Iterator>::difference_type
+    operator-(const __move_iterator<_Iterator>& __lhs,
+	      const __move_iterator<_Iterator>& __rhs)
+    { return __lhs.__iterator - __rhs.__iterator; }
+
+  template<typename _Iterator>
+    __move_iterator<_Iterator>
+    operator+(typename __move_iterator<_Iterator>::difference_type __distance,
+	      const __move_iterator<_Iterator>& __iterator)
+    { return __distance + __iterator; }
+
+  template<typename _Iterator>
+    __move_iterator<_Iterator>
+    __make_move_iterator(const _Iterator& __iterator)
+    { return __move_iterator<_Iterator>(__iterator); }
 
 } // namespace __gnu_cxx
 

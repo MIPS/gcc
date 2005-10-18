@@ -1,3 +1,48 @@
+2005-10-17  Chris Jefferson <chris@bubblescope.net>
+
+	* include/bits/deque.tcc (deque::erase(iterator)): Make rvalref aware.
+	(deque::erase(iterator, iterator)): Likewise.
+	(deque::_M_push_back_aux): Template to allow both normal and rvalue
+	references, make rvalref aware.
+	(deque::_M_push_front_aux): Likewise.
+	(deque::_M_insert_aux(iterator, value_type)): Make rvalref aware.
+	(deque::_M_insert_aux(iterator, size_type, value_type)): Make rvalref
+	aware, add std quantification to fill.
+	(deque::_M_insert_aux(iterator, iterator, iterator, size_type)): Make
+	rvalref aware.
+	(deque::_M_reallocate_map(size_type, bool)): Likewise.
+	* include/bits/moveable.h (__move_iterator): Implemented from N1771.
+	(__make_move_iterator): Likewise.
+	* include/bits/stl_construct.h (_Construct_a): New.
+	(_Construct_move_a) : Remove unused function.
+	* include/bits/stl_deque.h (deque::push_front(__rvalref),
+	deque::push_back(__rvalref)): New.
+	(_M_push_front_aux, _M_push_back_aux): Make templated.
+	* include/bits/stl_uninitialized.h (__uninitialized_copy_move,
+	__uninitialized_move_copy, __uninitialized_fill_move, 
+	__uninitialized_move_fill): New.
+	* include/bits/stl_vector.h (vector::push_back(__rvalref)): New.
+	(vector::_M_insert_aux): Make templated.
+	* include/bits/vector.tcc (vector::erase(iterator),
+	vector::erase(iterator, iterator)): New.
+	(vector::_M_insert_aux(iterator, value_type): Template to allow both
+	normal and rvalue references, make rvalref aware.
+	(vector::_M_fill_insert(iterator, size_type, value_type)): Make
+	rvalref aware.
+	* testsuite/23_containers/deque/cons/moveable.cc: New.
+	* testsuite/23_containers/deque/modifiers/1.cc: New.
+	* testsuite/23_containers/deque/modifiers/moveable.cc: New.
+	* testsuite/23_containers/deque/modifiers/moveable2.cc: New.
+	* testsuite/23_containers/deque/resize/moveable.cc: New.
+	* testsuite/23_containers/vector/cons/moveable.cc: New.
+	* testsuite/23_containers/vector/modifiers/3.cc: New.
+	* testsuite/23_containers/vector/modifiers/moveable.cc: Tweak.
+	* testsuite/23_containers/vector/modifiers/moveable2.cc: New.
+	* testsuite/23_containers/vector/resize/moveable.cc: New.
+	* testsuite/testsuite_rvalref.h (copycounter::copycounter()):
+	Allow copying default-constructed values.
+	(copycounter::~copycounter()): Add destructor.
+
 2005-10-13  Paolo Carlini  <pcarlini@suse.de>
 
 	Merged to mainline at tag libstdcxx_so_7-merge-20051013.

@@ -641,6 +641,30 @@ namespace _GLIBCXX_STD
       }
 
       /**
+       *  @brief  Add data to the end of the %vector.
+       *  @param  x  Data to be added.
+       *
+       *  This is a typical stack operation.  The function creates an
+       *  element at the end of the %vector and moves the given data
+       *  to it.  Due to the nature of a %vector this operation can be
+       *  done in constant time if the %vector has preallocated space
+       *  available.
+       */
+      template<typename _Value_type>
+	void
+	push_back(__gnu_cxx::__rvalref<_Value_type> __x)
+	{
+	  if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
+	    {
+	      _Construct_a(this->_M_impl._M_finish, __x,
+			   _M_get_Tp_allocator());
+	      ++this->_M_impl._M_finish;
+	    }
+	  else
+	    _M_insert_aux(end(), __x);
+	}
+      
+      /**
        *  @brief  Removes last element.
        *
        *  This is a typical stack operation. It shrinks the %vector by one.
@@ -962,8 +986,9 @@ namespace _GLIBCXX_STD
       _M_fill_insert(iterator __pos, size_type __n, const value_type& __x);
 
       // Called by insert(p,x)
-      void
-      _M_insert_aux(iterator __position, const value_type& __x);
+      template<typename _Value>
+	void
+	_M_insert_aux(iterator __position, const _Value&);
     };
 
 

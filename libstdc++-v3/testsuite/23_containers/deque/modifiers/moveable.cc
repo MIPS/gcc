@@ -25,113 +25,110 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <vector>
+#include <deque>
 #include <testsuite_hooks.h>
 #include <testsuite_rvalref.h>
 
 using namespace __gnu_test;
 
-// Test vector::push_back makes no unneeded copies.
+// Test deque::push_back makes no unneeded copies.
 void
 test01()
 {
   bool test __attribute__((unused)) = true;
 
-  std::vector<copycounter> a;
+  std::deque<copycounter> a;
   copycounter c(1);
   copycounter::copycount = 0;
-  for(int i = 0; i < 10; ++i)
-    a.push_back(c);
-  VERIFY(copycounter::copycount == 10);
-
-  for(int i = 0; i < 100; ++i)
-    a.insert(a.begin() + i, c);
-  VERIFY(copycounter::copycount == 110);
-
   for(int i = 0; i < 1000; ++i)
-    a.insert(a.end(), c);
-  VERIFY(copycounter::copycount == 1110);
+    a.push_back(c);
+  VERIFY(copycounter::copycount == 1000);
 }
 
-// Test vector::insert(iterator, iterator, iterator) makes no unneeded copies
-// when it has to also reallocate the vector's internal buffer.
+// Test deque::push_front makes no unneeded copies.
 void
 test02()
 {
   bool test __attribute__((unused)) = true;
 
+  std::deque<copycounter> a;
   copycounter c(1);
-  std::vector<copycounter> a(10, c), b(100, c);
   copycounter::copycount = 0;
-  a.insert(a.begin(), b.begin(), b.begin() + 20);
-  VERIFY(copycounter::copycount == 20);
-  a.insert(a.end(), b.begin(), b.begin() + 50);
-  VERIFY(copycounter::copycount == 70);
-  a.insert(a.begin() + 50, b.begin(), b.end());
-  VERIFY(copycounter::copycount == 170);
+  for(int i = 0; i < 1000; ++i)
+    a.push_front(c);
+  VERIFY(copycounter::copycount == 1000);
 }
 
-// Test vector::insert(iterator, iterator, iterator) makes no unneeded copies
-// when it doesn't have to reallocate the vector's internal buffer.
+// Test deque::insert makes no unneeded copies.
 void
 test03()
 {
   bool test __attribute__((unused)) = true;
-  
-  copycounter c(1);
-  std::vector<copycounter> a(10, c), b(100, c);
-  copycounter::copycount = 0;
-  a.reserve(1000);
-  VERIFY(copycounter::copycount == 0);
-  a.insert(a.begin(), b.begin(), b.begin() + 20);
-  VERIFY(copycounter::copycount == 20);
-  a.insert(a.end(), b.begin(), b.begin() + 50);
-  VERIFY(copycounter::copycount == 70);
-  a.insert(a.begin() + 50, b.begin(), b.end());
-  VERIFY(copycounter::copycount == 170);
-}  
 
-// Test vector::insert(iterator, count, value) makes no unneeded copies
-// when it has to also reallocate the vector's internal buffer.
+  std::deque<copycounter> a(1000);
+  copycounter c(1);
+  copycounter::copycount = 0;
+  a.insert(a.begin(),c);
+  a.insert(a.end(),c);
+  for(int i = 0; i < 500; ++i)
+    a.insert(a.begin() + i, c);
+  VERIFY(copycounter::copycount == 502);
+}
+
+// Test deque::insert(iterator, count, value) makes no unneeded copies
+// when it has to also reallocate the deque's internal buffer.
 void
 test04()
 {
   bool test __attribute__((unused)) = true;
 
   copycounter c(1);
-  std::vector<copycounter> a(10, c);
+  std::deque<copycounter> a(10, c);
   copycounter::copycount = 0;
   a.insert(a.begin(), 20, c);
-  VERIFY(copycounter::copycount == 20 + 1);
+  VERIFY(copycounter::copycount == 20);
   a.insert(a.end(), 50, c);
-  VERIFY(copycounter::copycount == 70 + 2);
-  a.insert(a.begin() + 50, 100, c);
-  VERIFY(copycounter::copycount == 170 + 3);
+  VERIFY(copycounter::copycount == 70);
+  // NOTE : These values are each one higher than might be expected, as
+  // deque::insert(iterator, count, value) copies the value it is given
+  // when it has to move elements in the deque in case that value is
+  // in the deque.
+  
+  // Near the start
+  a.insert(a.begin() + 10, 100, c);
+  VERIFY(copycounter::copycount == 170 + 1);
+  // Near the end
+  a.insert(a.end() - 10, 1000, c);
+  VERIFY(copycounter::copycount == 1170 + 2);
 }
 
-// Test vector::insert(iterator, count, value) makes no unneeded copies
-// when it doesn't have to reallocate the vector's internal buffer.
+// Test deque::insert(iterator, count, value) makes no unneeded copies
+// when it doesn't have to reallocate the deque's internal buffer.
 void
 test05()
 {
   bool test __attribute__((unused)) = true;
-
+  
   copycounter c(1);
-  std::vector<copycounter> a(10, c);
+  std::deque<copycounter> a(10, c);
   copycounter::copycount = 0;
-  a.reserve(1000);
+  //a.reserve(1000);
   a.insert(a.begin(), 20, c);
-  // NOTE : These values are each one higher than might be expected, as
-  // vector::insert(iterator, count, value) copies the value it is given
-  // when it doesn't reallocate the buffer.
-  VERIFY(copycounter::copycount == 20 + 1);
+  VERIFY(copycounter::copycount == 20 );
   a.insert(a.end(), 50, c);
-  VERIFY(copycounter::copycount == 70 + 2);
-  a.insert(a.begin() + 50, 100, c);
-  VERIFY(copycounter::copycount == 170 + 3);
+  VERIFY(copycounter::copycount == 70 );
+  
+  // NOTE : These values are each one higher than might be expected, as
+  // deque::insert(iterator, count, value) copies the value it is given
+  // when it has to move elements in the deque in case that value is
+  // in the deque.
+  // Near the start
+  a.insert(a.begin() + 10, 100, c);
+  VERIFY(copycounter::copycount == 170 + 1);
+  // Near the end
+  a.insert(a.end() - 10, 200, c);
+  VERIFY(copycounter::copycount == 370 + 2);
 }
-
-
 
 int main()
 {

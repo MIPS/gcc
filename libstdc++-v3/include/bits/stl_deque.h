@@ -1054,6 +1054,29 @@ namespace _GLIBCXX_STD
       }
 
       /**
+       *  @brief  Add data to the front of the %deque.
+       *  @param  x  Data to be added.
+       *
+       *  This is a typical stack operation.  The function creates an
+       *  element at the front of the %deque and moves the given
+       *  data to it.  Due to the nature of a %deque this operation
+       *  can be done in constant time.
+       */
+      template<typename _Value_type>
+	void
+	push_front(__gnu_cxx::__rvalref<_Value_type> __x)
+	{
+	  if (this->_M_impl._M_start._M_cur != this->_M_impl._M_start._M_first)
+	    {
+	      _Construct_a(this->_M_impl._M_start._M_cur - 1, __x,
+			   _M_get_Tp_allocator());
+	      --this->_M_impl._M_start._M_cur;
+	    }
+	  else
+	    _M_push_front_aux(__x);
+	}
+
+      /**
        *  @brief  Add data to the end of the %deque.
        *  @param  x  Data to be added.
        *
@@ -1075,6 +1098,30 @@ namespace _GLIBCXX_STD
 	  _M_push_back_aux(__x);
       }
 
+      /**
+       *  @brief  Add data to the end of the %deque.
+       *  @param  x  Data to be added.
+       *
+       *  This is a typical stack operation.  The function creates an
+       *  element at the end of the %deque and moves the given data
+       *  to it.  Due to the nature of a %deque this operation can be
+       *  done in constant time.
+       */
+      template<typename _Value_type>
+	void
+	push_back(__gnu_cxx::__rvalref<_Value_type> __x)
+	{
+	  if (this->_M_impl._M_finish._M_cur
+	      != this->_M_impl._M_finish._M_last - 1)
+	    {
+	      _Construct_a(this->_M_impl._M_finish._M_cur, __x,
+				_M_get_Tp_allocator());
+	      ++this->_M_impl._M_finish._M_cur;
+	    }
+	  else
+	    _M_push_back_aux(__x);
+        }
+      
       /**
        *  @brief  Removes first element.
        *
@@ -1357,8 +1404,10 @@ namespace _GLIBCXX_STD
        *  @brief Helper functions for push_* and pop_*.
        *  @endif
        */
-      void _M_push_back_aux(const value_type&);
-      void _M_push_front_aux(const value_type&);
+      template<typename _Value_type>
+	void _M_push_back_aux(const _Value_type&);
+      template<typename _Value_type>
+	void _M_push_front_aux(const _Value_type&);
       void _M_pop_back_aux();
       void _M_pop_front_aux();
       //@}

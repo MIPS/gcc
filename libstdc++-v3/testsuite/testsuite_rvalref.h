@@ -122,7 +122,7 @@ namespace __gnu_test
     int val;
     bool valid;
     
-    copycounter() : val(0), valid(false)
+    copycounter() : val(0), valid(true)
     { }
 
     copycounter(int inval) : val(inval), valid(true)
@@ -167,6 +167,9 @@ namespace __gnu_test
       valid = true;
       return *this;
     }
+    
+    ~copycounter()
+    { valid = false; }
   };
 
   int copycounter::copycount = 0;

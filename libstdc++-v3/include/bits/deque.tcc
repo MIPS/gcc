@@ -63,7 +63,7 @@
 
 namespace _GLIBCXX_STD
 {
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     deque<_Tp, _Alloc>&
     deque<_Tp, _Alloc>::
     operator=(const deque& __x)
@@ -84,7 +84,7 @@ namespace _GLIBCXX_STD
       return *this;
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     insert(iterator position, const value_type& __x)
@@ -105,7 +105,7 @@ namespace _GLIBCXX_STD
         return _M_insert_aux(position, __x);
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     erase(iterator __position)
@@ -115,18 +115,18 @@ namespace _GLIBCXX_STD
       const size_type __index = __position - this->_M_impl._M_start;
       if (__index < (size() >> 1))
 	{
-	  std::copy_backward(this->_M_impl._M_start, __position, __next);
+	  std::__move_backward(this->_M_impl._M_start, __position, __next);
 	  pop_front();
 	}
       else
 	{
-	  std::copy(__next, this->_M_impl._M_finish, __position);
+	  std::__move(__next, this->_M_impl._M_finish, __position);
 	  pop_back();
 	}
       return this->_M_impl._M_start + __index;
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
@@ -144,7 +144,7 @@ namespace _GLIBCXX_STD
 						  - this->_M_impl._M_start);
 	  if (static_cast<size_type>(__elems_before) < (size() - __n) / 2)
 	    {
-	      std::copy_backward(this->_M_impl._M_start, __first, __last);
+	      std::__move_backward(this->_M_impl._M_start, __first, __last);
 	      iterator __new_start = this->_M_impl._M_start + __n;
 	      std::_Destroy(this->_M_impl._M_start, __new_start,
 			    _M_get_Tp_allocator());
@@ -154,7 +154,7 @@ namespace _GLIBCXX_STD
 	    }
 	  else
 	    {
-	      std::copy(__last, this->_M_impl._M_finish, __first);
+	      std::__move(__last, this->_M_impl._M_finish, __first);
 	      iterator __new_finish = this->_M_impl._M_finish - __n;
 	      std::_Destroy(__new_finish, this->_M_impl._M_finish,
 			    _M_get_Tp_allocator());
@@ -166,7 +166,7 @@ namespace _GLIBCXX_STD
 	}
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     clear()
@@ -198,8 +198,8 @@ namespace _GLIBCXX_STD
       this->_M_impl._M_finish = this->_M_impl._M_start;
     }
 
-  template <typename _Tp, class _Alloc>
-    template <typename _InputIterator>
+  template<typename _Tp, class _Alloc>
+    template<typename _InputIterator>
       void
       deque<_Tp, _Alloc>::
       _M_assign_aux(_InputIterator __first, _InputIterator __last,
@@ -214,7 +214,7 @@ namespace _GLIBCXX_STD
           insert(end(), __first, __last);
       }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     _M_fill_insert(iterator __pos, size_type __n, const value_type& __x)
@@ -257,7 +257,7 @@ namespace _GLIBCXX_STD
         _M_insert_aux(__pos, __n, __x);
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     _M_fill_initialize(const value_type& __value)
@@ -282,8 +282,8 @@ namespace _GLIBCXX_STD
         }
     }
 
-  template <typename _Tp, typename _Alloc>
-    template <typename _InputIterator>
+  template<typename _Tp, typename _Alloc>
+    template<typename _InputIterator>
       void
       deque<_Tp, _Alloc>::
       _M_range_initialize(_InputIterator __first, _InputIterator __last,
@@ -302,8 +302,8 @@ namespace _GLIBCXX_STD
           }
       }
 
-  template <typename _Tp, typename _Alloc>
-    template <typename _ForwardIterator>
+  template<typename _Tp, typename _Alloc>
+    template<typename _ForwardIterator>
       void
       deque<_Tp, _Alloc>::
       _M_range_initialize(_ForwardIterator __first, _ForwardIterator __last,
@@ -339,54 +339,60 @@ namespace _GLIBCXX_STD
       }
 
   // Called only if _M_impl._M_finish._M_cur == _M_impl._M_finish._M_last - 1.
-  template <typename _Tp, typename _Alloc>
-    void
-    deque<_Tp, _Alloc>::
-    _M_push_back_aux(const value_type& __t)
-    {
-      value_type __t_copy = __t;
-      _M_reserve_map_at_back();
-      *(this->_M_impl._M_finish._M_node + 1) = this->_M_allocate_node();
-      try
-        {
-          this->_M_impl.construct(this->_M_impl._M_finish._M_cur, __t_copy);
-          this->_M_impl._M_finish._M_set_node(this->_M_impl._M_finish._M_node
-					      + 1);
-          this->_M_impl._M_finish._M_cur = this->_M_impl._M_finish._M_first;
-        }
-      catch(...)
-        {
-          _M_deallocate_node(*(this->_M_impl._M_finish._M_node + 1));
-          __throw_exception_again;
-        }
-    }
+  template<typename _Tp, typename _Alloc>
+    template<typename _Value>
+      void
+      deque<_Tp, _Alloc>::
+      _M_push_back_aux(const _Value& __t)
+      {
+	value_type __t_copy(__t);
+	_M_reserve_map_at_back();
+	*(this->_M_impl._M_finish._M_node + 1) = this->_M_allocate_node();
+	try
+	  {
+	    _Construct_a(this->_M_impl._M_finish._M_cur,
+			 __gnu_cxx::__move(__t_copy),
+			 _M_get_Tp_allocator());
+	    this->_M_impl._M_finish._M_set_node(this->_M_impl._M_finish._M_node
+						+ 1);
+	    this->_M_impl._M_finish._M_cur = this->_M_impl._M_finish._M_first;
+	  }
+	catch(...)
+	  {
+	    _M_deallocate_node(*(this->_M_impl._M_finish._M_node + 1));
+	    __throw_exception_again;
+	  }
+      }
 
   // Called only if _M_impl._M_start._M_cur == _M_impl._M_start._M_first.
-  template <typename _Tp, typename _Alloc>
-    void
-    deque<_Tp, _Alloc>::
-    _M_push_front_aux(const value_type& __t)
-    {
-      value_type __t_copy = __t;
-      _M_reserve_map_at_front();
-      *(this->_M_impl._M_start._M_node - 1) = this->_M_allocate_node();
-      try
-        {
-          this->_M_impl._M_start._M_set_node(this->_M_impl._M_start._M_node
+  template<typename _Tp, typename _Alloc>
+    template<typename _Value>
+      void
+      deque<_Tp, _Alloc>::
+      _M_push_front_aux(const _Value& __t)
+      {
+	value_type __t_copy(__t);
+	_M_reserve_map_at_front();
+	*(this->_M_impl._M_start._M_node - 1) = this->_M_allocate_node();
+	try
+	  {
+	    this->_M_impl._M_start._M_set_node(this->_M_impl._M_start._M_node
 					     - 1);
-          this->_M_impl._M_start._M_cur = this->_M_impl._M_start._M_last - 1;
-          this->_M_impl.construct(this->_M_impl._M_start._M_cur, __t_copy);
-        }
-      catch(...)
-        {
-          ++this->_M_impl._M_start;
-          _M_deallocate_node(*(this->_M_impl._M_start._M_node - 1));
-          __throw_exception_again;
-        }
-    }
+	    this->_M_impl._M_start._M_cur = this->_M_impl._M_start._M_last - 1;
+	    _Construct_a(this->_M_impl._M_start._M_cur,
+			 __gnu_cxx::__move(__t_copy),
+			 _M_get_Tp_allocator());
+	  }
+	catch(...)
+	  {
+	    ++this->_M_impl._M_start;
+	    _M_deallocate_node(*(this->_M_impl._M_start._M_node - 1));
+	    __throw_exception_again;
+	  }
+      }
 
   // Called only if _M_impl._M_finish._M_cur == _M_impl._M_finish._M_first.
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void deque<_Tp, _Alloc>::
     _M_pop_back_aux()
     {
@@ -401,7 +407,7 @@ namespace _GLIBCXX_STD
   // member function), and if
   //   _M_impl._M_start._M_cur == _M_impl._M_start._M_last,
   // then the deque must have at least two nodes.
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void deque<_Tp, _Alloc>::
     _M_pop_front_aux()
     {
@@ -411,8 +417,8 @@ namespace _GLIBCXX_STD
       this->_M_impl._M_start._M_cur = this->_M_impl._M_start._M_first;
     }
 
-  template <typename _Tp, typename _Alloc>
-    template <typename _InputIterator>
+  template<typename _Tp, typename _Alloc>
+    template<typename _InputIterator>
       void
       deque<_Tp, _Alloc>::
       _M_range_insert_aux(iterator __pos,
@@ -420,8 +426,8 @@ namespace _GLIBCXX_STD
                           std::input_iterator_tag)
       { std::copy(__first, __last, std::inserter(*this, __pos)); }
 
-  template <typename _Tp, typename _Alloc>
-    template <typename _ForwardIterator>
+  template<typename _Tp, typename _Alloc>
+    template<typename _ForwardIterator>
       void
       deque<_Tp, _Alloc>::
       _M_range_insert_aux(iterator __pos,
@@ -466,7 +472,7 @@ namespace _GLIBCXX_STD
           _M_insert_aux(__pos, __first, __last, __n);
       }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     _M_insert_aux(iterator __pos, const value_type& __x)
@@ -475,31 +481,31 @@ namespace _GLIBCXX_STD
       value_type __x_copy = __x; // XXX copy
       if (static_cast<size_type>(__index) < size() / 2)
 	{
-	  push_front(front());
-	  iterator __front1 = this->_M_impl._M_start;
+	  push_front(__gnu_cxx::__move(front()));
+	  iterator __front1 = begin();
 	  ++__front1;
 	  iterator __front2 = __front1;
 	  ++__front2;
 	  __pos = this->_M_impl._M_start + __index;
 	  iterator __pos1 = __pos;
 	  ++__pos1;
-	  std::copy(__front2, __pos1, __front1);
+	  std::__move(__front2, __pos1, __front1);
 	}
       else
 	{
-	  push_back(back());
-	  iterator __back1 = this->_M_impl._M_finish;
+	  push_back(__gnu_cxx::__move(back()));
+	  iterator __back1 = end();
 	  --__back1;
 	  iterator __back2 = __back1;
 	  --__back2;
 	  __pos = this->_M_impl._M_start + __index;
-	  std::copy_backward(__pos, __back2, __back1);
+	  std::__move_backward(__pos, __back2, __back1);
 	}
-      *__pos = __x_copy;
+      *__pos = __gnu_cxx::__move(__x_copy);
       return __pos;
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     _M_insert_aux(iterator __pos, size_type __n, const value_type& __x)
@@ -518,16 +524,16 @@ namespace _GLIBCXX_STD
 		{
 		  iterator __start_n = (this->_M_impl._M_start
 					+ difference_type(__n));
-		  std::__uninitialized_copy_a(this->_M_impl._M_start,
+		  std::__uninitialized_move_a(this->_M_impl._M_start,
 					      __start_n, __new_start,
 					      _M_get_Tp_allocator());
 		  this->_M_impl._M_start = __new_start;
-		  std::copy(__start_n, __pos, __old_start);
-		  fill(__pos - difference_type(__n), __pos, __x_copy);
+		  std::__move(__start_n, __pos, __old_start);
+		  std::fill(__pos - difference_type(__n), __pos, __x_copy);
 		}
 	      else
 		{
-		  std::__uninitialized_copy_fill(this->_M_impl._M_start,
+		  std::__uninitialized_move_fill(this->_M_impl._M_start,
 						 __pos, __new_start,
 						 this->_M_impl._M_start,
 						 __x_copy,
@@ -556,17 +562,17 @@ namespace _GLIBCXX_STD
 		{
 		  iterator __finish_n = (this->_M_impl._M_finish
 					 - difference_type(__n));
-		  std::__uninitialized_copy_a(__finish_n,
+		  std::__uninitialized_move_a(__finish_n,
 					      this->_M_impl._M_finish,
 					      this->_M_impl._M_finish,
 					      _M_get_Tp_allocator());
 		  this->_M_impl._M_finish = __new_finish;
-		  std::copy_backward(__pos, __finish_n, __old_finish);
+		  std::__move_backward(__pos, __finish_n, __old_finish);
 		  std::fill(__pos, __pos + difference_type(__n), __x_copy);
 		}
 	      else
 		{
-		  std::__uninitialized_fill_copy(this->_M_impl._M_finish,
+		  std::__uninitialized_fill_move(this->_M_impl._M_finish,
 						 __pos + difference_type(__n),
 						 __x_copy, __pos,
 						 this->_M_impl._M_finish,
@@ -584,8 +590,8 @@ namespace _GLIBCXX_STD
 	}
     }
 
-  template <typename _Tp, typename _Alloc>
-    template <typename _ForwardIterator>
+  template<typename _Tp, typename _Alloc>
+    template<typename _ForwardIterator>
       void
       deque<_Tp, _Alloc>::
       _M_insert_aux(iterator __pos,
@@ -605,18 +611,18 @@ namespace _GLIBCXX_STD
 		  {
 		    iterator __start_n = (this->_M_impl._M_start
 					  + difference_type(__n));
-		    std::__uninitialized_copy_a(this->_M_impl._M_start,
+		    std::__uninitialized_move_a(this->_M_impl._M_start,
 						__start_n, __new_start,
 						_M_get_Tp_allocator());
 		    this->_M_impl._M_start = __new_start;
-		    std::copy(__start_n, __pos, __old_start);
+		    std::__move(__start_n, __pos, __old_start);
 		    std::copy(__first, __last, __pos - difference_type(__n));
 		  }
 		else
 		  {
 		    _ForwardIterator __mid = __first;
 		    std::advance(__mid, difference_type(__n) - __elemsbefore);
-		    std::__uninitialized_copy_copy(this->_M_impl._M_start,
+		    std::__uninitialized_move_copy(this->_M_impl._M_start,
 						   __pos, __first, __mid,
 						   __new_start,
 						   _M_get_Tp_allocator());
@@ -644,19 +650,19 @@ namespace _GLIBCXX_STD
 		{
 		  iterator __finish_n = (this->_M_impl._M_finish
 					 - difference_type(__n));
-		  std::__uninitialized_copy_a(__finish_n,
+		  std::__uninitialized_move_a(__finish_n,
 					      this->_M_impl._M_finish,
 					      this->_M_impl._M_finish,
 					      _M_get_Tp_allocator());
 		  this->_M_impl._M_finish = __new_finish;
-		  std::copy_backward(__pos, __finish_n, __old_finish);
+		  std::__move_backward(__pos, __finish_n, __old_finish);
 		  std::copy(__first, __last, __pos);
 		}
               else
 		{
 		  _ForwardIterator __mid = __first;
 		  std::advance(__mid, __elemsafter);
-		  std::__uninitialized_copy_copy(__mid, __last, __pos,
+		  std::__uninitialized_copy_move(__mid, __last, __pos,
 						 this->_M_impl._M_finish,
 						 this->_M_impl._M_finish,
 						 _M_get_Tp_allocator());
@@ -673,7 +679,7 @@ namespace _GLIBCXX_STD
         }
       }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     _M_new_elements_at_front(size_type __new_elems)
@@ -695,7 +701,7 @@ namespace _GLIBCXX_STD
         }
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     _M_new_elements_at_back(size_type __new_elems)
@@ -717,7 +723,7 @@ namespace _GLIBCXX_STD
         }
     }
 
-  template <typename _Tp, typename _Alloc>
+  template<typename _Tp, typename _Alloc>
     void
     deque<_Tp, _Alloc>::
     _M_reallocate_map(size_type __nodes_to_add, bool __add_at_front)
@@ -733,13 +739,13 @@ namespace _GLIBCXX_STD
 					 - __new_num_nodes) / 2
 	                 + (__add_at_front ? __nodes_to_add : 0);
 	  if (__new_nstart < this->_M_impl._M_start._M_node)
-	    std::copy(this->_M_impl._M_start._M_node,
-		    this->_M_impl._M_finish._M_node + 1,
-		    __new_nstart);
+	    std::__move(this->_M_impl._M_start._M_node,
+			this->_M_impl._M_finish._M_node + 1,
+			__new_nstart);
 	  else
-	    std::copy_backward(this->_M_impl._M_start._M_node,
-			       this->_M_impl._M_finish._M_node + 1,
-			       __new_nstart + __old_num_nodes);
+	    std::__move_backward(this->_M_impl._M_start._M_node,
+				 this->_M_impl._M_finish._M_node + 1,
+				 __new_nstart + __old_num_nodes);
 	}
       else
 	{
@@ -750,9 +756,9 @@ namespace _GLIBCXX_STD
 	  _Map_pointer __new_map = this->_M_allocate_map(__new_map_size);
 	  __new_nstart = __new_map + (__new_map_size - __new_num_nodes) / 2
 	                 + (__add_at_front ? __nodes_to_add : 0);
-	  std::copy(this->_M_impl._M_start._M_node,
-		    this->_M_impl._M_finish._M_node + 1,
-		    __new_nstart);
+	  std::__move(this->_M_impl._M_start._M_node,
+		      this->_M_impl._M_finish._M_node + 1,
+		      __new_nstart);
 	  _M_deallocate_map(this->_M_impl._M_map, this->_M_impl._M_map_size);
 
 	  this->_M_impl._M_map = __new_map;

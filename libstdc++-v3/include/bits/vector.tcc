@@ -110,7 +110,7 @@ namespace _GLIBCXX_STD
     erase(iterator __position)
     {
       if (__position + 1 != end())
-        std::copy(__position + 1, end(), __position);
+        std::__move(__position + 1, end(), __position);
       --this->_M_impl._M_finish;
       this->_M_impl.destroy(this->_M_impl._M_finish);
       return __position;
@@ -121,7 +121,7 @@ namespace _GLIBCXX_STD
     vector<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
     {
-      iterator __i(std::copy(__last, end(), __first));
+      iterator __i(std::__move(__last, end(), __first));
       std::_Destroy(__i, end(), _M_get_Tp_allocator());
       this->_M_impl._M_finish = this->_M_impl._M_finish - (__last - __first);
       return __first;
@@ -244,67 +244,69 @@ namespace _GLIBCXX_STD
       }
 
   template<typename _Tp, typename _Alloc>
-    void
-    vector<_Tp, _Alloc>::
-    _M_insert_aux(iterator __position, const _Tp& __x)
-    {
-      if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
-	{
-	  std::_Construct_move_a(this->_M_impl._M_finish,
-	  			 *(this->_M_impl._M_finish - 1),
-	  			 _M_get_Tp_allocator());
-	  ++this->_M_impl._M_finish;
-	  _Tp __x_copy(__x);
-	  std::__move_backward(__position,
-			       iterator(this->_M_impl._M_finish-2),
-			       iterator(this->_M_impl._M_finish-1));
-	  *__position = __gnu_cxx::__move(__x_copy);
-	}
-      else
-	{
-	  const size_type __old_size = size();
-	  if (__old_size == this->max_size())
-	    __throw_length_error(__N("vector::_M_insert_aux"));
-
-	  // When sizeof(value_type) == 1 and __old_size > size_type(-1)/2
-	  // __len overflows: if we don't notice and _M_allocate doesn't
-	  // throw we crash badly later.
-	  size_type __len = __old_size != 0 ? 2 * __old_size : 1;	  
-	  if (__len < __old_size)
-	    __len = this->max_size();
-
-	  iterator __new_start(this->_M_allocate(__len));
-	  iterator __new_finish(__new_start);
-	  try
-	    {
-	      __new_finish =
-		std::__uninitialized_move_a(iterator(this->_M_impl._M_start),
-					    __position,
-					    __new_start,
-					    _M_get_Tp_allocator());
-	      this->_M_impl.construct(__new_finish.base(), __x);
-	      ++__new_finish;
-	      __new_finish =
-		std::__uninitialized_move_a(__position,
-					    iterator(this->_M_impl._M_finish),
-					    __new_finish,
-					    _M_get_Tp_allocator());
-	    }
-	  catch(...)
-	    {
-	      std::_Destroy(__new_start, __new_finish, _M_get_Tp_allocator());
-	      _M_deallocate(__new_start.base(),__len);
-	      __throw_exception_again;
-	    }
-	  std::_Destroy(begin(), end(), _M_get_Tp_allocator());
-	  _M_deallocate(this->_M_impl._M_start,
-			this->_M_impl._M_end_of_storage
-			- this->_M_impl._M_start);
-	  this->_M_impl._M_start = __new_start.base();
-	  this->_M_impl._M_finish = __new_finish.base();
-	  this->_M_impl._M_end_of_storage = __new_start.base() + __len;
-	}
-    }
+    template<typename _Value>
+      void
+      vector<_Tp, _Alloc>::
+      _M_insert_aux(iterator __position, const _Value& __x)
+      {
+	value_type __x_copy(__x);
+	if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
+	  {
+	    std::_Construct_a(this->_M_impl._M_finish,
+			      __gnu_cxx::__move(*(this->_M_impl._M_finish 
+						  - 1)),
+			      _M_get_Tp_allocator());
+	    ++this->_M_impl._M_finish;
+	    std::__move_backward(__position,
+				 iterator(this->_M_impl._M_finish-2),
+				 iterator(this->_M_impl._M_finish-1));
+	    *__position = __gnu_cxx::__move(__x_copy);
+	  }
+	else
+	  {
+	    const size_type __old_size = size();
+	    if (__old_size == this->max_size())
+	      __throw_length_error(__N("vector::_M_insert_aux"));
+	    
+	    // When sizeof(value_type) == 1 and __old_size > size_type(-1)/2
+	    // __len overflows: if we don't notice and _M_allocate doesn't
+	    // throw we crash badly later.
+	    size_type __len = __old_size != 0 ? 2 * __old_size : 1;	  
+	    if (__len < __old_size)
+	      __len = this->max_size();
+	    
+	    iterator __new_start(this->_M_allocate(__len));
+	    iterator __new_finish(__new_start);
+	    try
+	      {
+		__new_finish =
+		  std::__uninitialized_move_a(iterator(this->_M_impl._M_start),
+					      __position, __new_start,
+					      _M_get_Tp_allocator());
+		_Construct_a(__new_finish.base(), __gnu_cxx::__move(__x_copy),
+			     _M_get_Tp_allocator());
+		++__new_finish;
+		__new_finish =
+		  std::__uninitialized_move_a(__position,
+					      iterator(this->_M_impl._M_finish),
+					      __new_finish,
+					      _M_get_Tp_allocator());
+	      }
+	    catch(...)
+	      {
+		std::_Destroy(__new_start, __new_finish, _M_get_Tp_allocator());
+		_M_deallocate(__new_start.base(),__len);
+		__throw_exception_again;
+	      }
+	    std::_Destroy(begin(), end(), _M_get_Tp_allocator());
+	    _M_deallocate(this->_M_impl._M_start,
+			  this->_M_impl._M_end_of_storage
+			  - this->_M_impl._M_start);
+	    this->_M_impl._M_start = __new_start.base();
+	    this->_M_impl._M_finish = __new_finish.base();
+	    this->_M_impl._M_end_of_storage = __new_start.base() + __len;
+	  }
+      }
 
   template<typename _Tp, typename _Alloc>
     void
@@ -346,6 +348,7 @@ namespace _GLIBCXX_STD
 	    }
 	  else
 	    {
+	      value_type __x_copy(__x);
 	      const size_type __old_size = size();
 	      if (this->max_size() - __old_size < __n)
 		__throw_length_error(__N("vector::_M_fill_insert"));
@@ -363,7 +366,7 @@ namespace _GLIBCXX_STD
 		    std::__uninitialized_move_a(begin(), __position,
 						__new_start,
 						_M_get_Tp_allocator());
-		  std::__uninitialized_fill_n_a(__new_finish, __n, __x,
+		  std::__uninitialized_fill_n_a(__new_finish, __n, __x_copy,
 						_M_get_Tp_allocator());
 		  __new_finish += __n;
 		  __new_finish =
@@ -459,16 +462,17 @@ namespace _GLIBCXX_STD
 		try
 		  {
 		    __new_finish =
-		      std::__uninitialized_move_a(iterator(this->_M_impl._M_start),
-						  __position,
-						  __new_start,
+		      std::__uninitialized_move_a(iterator(this->
+							   _M_impl._M_start),
+						  __position, __new_start,
 						  _M_get_Tp_allocator());
 		    __new_finish =
 		      std::__uninitialized_copy_a(__first, __last, __new_finish,
 						  _M_get_Tp_allocator());
 		    __new_finish =
 		      std::__uninitialized_move_a(__position,
-						  iterator(this->_M_impl._M_finish),
+						  iterator(this->
+							   _M_impl._M_finish),
 						  __new_finish,
 						  _M_get_Tp_allocator());
 		  }

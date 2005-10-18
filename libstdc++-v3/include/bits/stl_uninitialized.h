@@ -429,6 +429,64 @@ namespace std
 	}
     }
 
+  // __uninitialized_copy_move
+  // Copies [first1, last1) into [result, result + (last1 - first1)), and
+  //  move [first2, last2) into
+  //  [result, result + (last1 - first1) + (last2 - first2)).
+
+  template<typename _InputIterator1, typename _InputIterator2,
+	   typename _ForwardIterator, typename _Allocator>
+    inline _ForwardIterator
+    __uninitialized_copy_move(_InputIterator1 __first1,
+			      _InputIterator1 __last1,
+			      _InputIterator2 __first2,
+			      _InputIterator2 __last2,
+			      _ForwardIterator __result,
+			      _Allocator __alloc)
+    {
+      _ForwardIterator __mid = std::__uninitialized_copy_a(__first1, __last1,
+							   __result,
+							   __alloc);
+      try
+	{
+	  return std::__uninitialized_move_a(__first2, __last2, __mid, __alloc);
+	}
+      catch(...)
+	{
+	  std::_Destroy(__result, __mid, __alloc);
+	  __throw_exception_again;
+	}
+    }
+    
+  // __uninitialized_move_copy
+  // Moves [first1, last1) into [result, result + (last1 - first1)), and
+  //  copies [first2, last2) into
+  //  [result, result + (last1 - first1) + (last2 - first2)).
+
+  template<typename _InputIterator1, typename _InputIterator2,
+	   typename _ForwardIterator, typename _Allocator>
+    inline _ForwardIterator
+    __uninitialized_move_copy(_InputIterator1 __first1,
+			      _InputIterator1 __last1,
+			      _InputIterator2 __first2,
+			      _InputIterator2 __last2,
+			      _ForwardIterator __result,
+			      _Allocator __alloc)
+    {
+      _ForwardIterator __mid = std::__uninitialized_move_a(__first1, __last1,
+							   __result,
+							   __alloc);
+      try
+	{
+	  return std::__uninitialized_copy_a(__first2, __last2, __mid, __alloc);
+	}
+      catch(...)
+	{
+	  std::_Destroy(__result, __mid, __alloc);
+	  __throw_exception_again;
+	}
+    }
+
   // __uninitialized_fill_copy
   // Fills [result, mid) with x, and copies [first, last) into
   //  [mid, mid + (last - first)).
@@ -451,6 +509,31 @@ namespace std
 	  __throw_exception_again;
 	}
     }
+
+  // __uninitialized_fill_move
+  // Fills [result, mid) with x, and moves [first, last) into
+  //  [mid, mid + (last - first)).
+  template<typename _ForwardIterator, typename _Tp, typename _InputIterator,
+	   typename _Allocator>
+    inline _ForwardIterator
+    __uninitialized_fill_move(_ForwardIterator __result, _ForwardIterator __mid,
+			      const _Tp& __x, _InputIterator __first,
+			      _InputIterator __last,
+			      _Allocator __alloc)
+    {
+      std::__uninitialized_fill_a(__result, __mid, __x, __alloc);
+      try
+	{
+	  return std::__uninitialized_move_a(__first, __last, __mid, __alloc);
+	}
+      catch(...)
+	{
+	  std::_Destroy(__result, __mid, __alloc);
+	  __throw_exception_again;
+	}
+    }
+
+ 
 
   // __uninitialized_copy_fill
   // Copies [first1, last1) into [first2, first2 + (last1 - first1)), and
@@ -476,6 +559,32 @@ namespace std
 	  __throw_exception_again;
 	}
     }
+
+  // __uninitialized_move_fill
+  // Moves [first1, last1) into [first2, first2 + (last1 - first1)), and
+  //  fills [first2 + (last1 - first1), last2) with x.
+  template<typename _InputIterator, typename _ForwardIterator, typename _Tp,
+	   typename _Allocator>
+    inline void
+    __uninitialized_move_fill(_InputIterator __first1, _InputIterator __last1,
+			      _ForwardIterator __first2,
+			      _ForwardIterator __last2, const _Tp& __x,
+			      _Allocator __alloc)
+    {
+      _ForwardIterator __mid2 = std::__uninitialized_move_a(__first1, __last1,
+							    __first2,
+							    __alloc);
+      try
+	{
+	  std::__uninitialized_fill_a(__mid2, __last2, __x, __alloc);
+	}
+      catch(...)
+	{
+	  std::_Destroy(__first2, __mid2, __alloc);
+	  __throw_exception_again;
+	}
+    }
+
 
 } // namespace std
 
