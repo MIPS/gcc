@@ -4554,8 +4554,21 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
     case MODIFY_EXPR:
       gcc_assert (TREE_OPERAND (t, 0) == decl);
       t = TREE_OPERAND (t, 1);
-      gcc_assert (TREE_CODE (t) == PLUS_EXPR || TREE_CODE (t) == MINUS_EXPR);
-      gcc_assert (TREE_OPERAND (t, 0) == decl);
+      switch (TREE_CODE (t))
+	{
+	case PLUS_EXPR:
+	  if (TREE_OPERAND (t, 1) == decl)
+	    {
+	      TREE_OPERAND (t, 1) = TREE_OPERAND (t, 0);
+	      TREE_OPERAND (t, 0) = decl;
+	      break;
+	    }
+	case MINUS_EXPR:
+	  gcc_assert (TREE_OPERAND (t, 0) == decl);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
       ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
 			    is_gimple_val, fb_rvalue);
       break;
