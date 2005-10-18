@@ -1,3 +1,56 @@
+2005-10-17  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4290840
+
+	obj-c++.dg/syntax-error-7.mm: New
+
+2005-10-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4294425
+
+	obj-c++.dg/syntax-error-6.mm: New
+
+2005-10-13  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4261146
+
+	obj-c++.dg/syntax-error-5.mm: New
+
+2005-10-11  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4291785
+	
+	objc.dg/naming-4.m: New
+	objc.dg/naming-5.m: New
+	obj-c++.dg/naming-1.mm: New
+	obj-c++.dg/naming-2.mm: New
+
+2005-10-10  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4291099
+	obj-c++.dg/objc-gc-9.mm: New.
+
+2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4204796
+	obj-c++.dg/try-catch-12.mm: New
+	obj-c++.dg/try-catch-13.mm: New
+	obj-c++.dg/try-catch-14.mm: New
+	objc.dg/try-catch-11.m: New
+	objc.dg/try-catch-12.m: New
+	objc.dg/try-catch-13.m: New
+	
+2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278236
+	* obj-c++.dg/bad-forward-decl.mm: New
+
+2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4281748
+	* objc.dg/naming-2.m: Update
+	* objc.dg/naming-3.m: New
+
 2005-10-14  Devang Patel  <dpatel@apple.com>
 
 	Radar 4300871

@@ -1,3 +1,47 @@
+2005-10-17  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4290840
+
+	* objc-act.c (objc_start_method_definition): Check for error_mark_node for
+	the selector name and make a quick exit.
+
+2005-10-12  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4291785
+
+	* objc-act.c (objc_get_interface_ivars): New function.
+	(objc_detect_field_duplicates): Ditto.
+	(objc_collecting_ivars): New flag.
+	(continue_class): Set and reset objc_collecting_ivars for context.
+	* objc-act.h (TOTAL_CLASS_RAW_IVARS): New field for interface types.
+	
+2005-10-10  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4291099
+	* objc-act.c (objc_generate_write_barrier): Add write-barriers for 
+	c++'s ctor initializer list.
+
+2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4204796
+	* objc-act.c (objc_build_volatilized_type): Build 'volatilzed'
+	types with proper attribute set and correctly.
+	(objc_volatilize_decl): Remove unneeded code.
+	(objc_type_quals_match): Use the new attribute to check on
+	'volatilzed' type.
+	(hash_init): removed unneeded code.
+	
+2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278236
+	* objc-act.c (objc_declare_class): Pick the right
+	type tree.
+
+2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4281748
+	* objc-act.c (objc_check_global_decl): New
+
 2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	radar 4292010

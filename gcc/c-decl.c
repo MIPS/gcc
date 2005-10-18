@@ -3316,6 +3316,14 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
     warning ("%Jinline function %qD given attribute noinline", decl, decl);
 
+    
+  /* APPLE LOCAL begin radar 4281748 */
+  if (c_dialect_objc () 
+      && (TREE_CODE (decl) == VAR_DECL
+          || TREE_CODE (decl) == FUNCTION_DECL))
+      objc_check_global_decl (decl);
+  /* APPLE LOCAL end radar 4281748 */
+
   /* Add this decl to the current scope.
      TEM may equal DECL or it may be a previous decl of the same name.  */
   tem = pushdecl (decl);
@@ -5476,7 +5484,12 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	saw_named_field = 1;
     }
 
-  detect_field_duplicates (fieldlist);
+  /* APPLE LOCAL begin radar 4291785 */
+  if (c_dialect_objc ())
+    objc_detect_field_duplicates (objc_get_interface_ivars (fieldlist));
+  else
+    detect_field_duplicates (fieldlist);
+  /* APPLE LOCAL end radar 4291785 */
 
   /* Now we have the nearly final fieldlist.  Record it,
      then lay out the structure or union (including the fields).  */

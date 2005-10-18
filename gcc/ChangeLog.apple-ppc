@@ -1,3 +1,28 @@
+2005-10-12  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4291785
+
+	* c-common.h (objc_get_interface_ivars): New declaration
+	(objc_detect_field_duplicates): Ditto.
+	* c-decl.c (finish_struct): Check for duplicate among
+	flattened fields if objective-c.
+	* stub-objc.c (objc_get_interface_ivars): New stub.
+	(objc_detect_field_duplicates): Ditto.
+
+2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4204796
+	* c-parse.in (typespec_nonreserved_nonattr): Remove volatile from
+	'volatalized' type used in a typeof operator.
+
+2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4281748
+	* c-common.h (objc_check_global_decl): New declaration.
+	* stub-objc.c (objc_check_global_decl): New stub.
+	* c-decl.c (start_decl): Check for redeclaration of class name.
+	* c-parse.in (after_type_declarator): Recognize CLASSNAME.
+	
 2005-10-17  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4122763

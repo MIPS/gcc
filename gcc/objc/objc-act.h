@@ -39,13 +39,16 @@ tree objc_fold_obj_type_ref (tree, tree);
 /* The 'objc_types_compatible_p' routine has been removed.  */
 /* APPLE LOCAL mainline */
 enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
+/* APPLE LOCAL radar 4291785 */
+void objc_detect_field_duplicates (tree);
 
 /* NB: The remaining public functions are prototyped in c-common.h, for the
    benefit of stub-objc.c and objc-act.c.  */
 
 /* Objective-C structures */
 
-#define CLASS_LANG_SLOT_ELTS		5
+/* APPLE LOCAL radar 4291785 */
+#define CLASS_LANG_SLOT_ELTS		6
 #define PROTOCOL_LANG_SLOT_ELTS		2
 #define OBJC_INFO_SLOT_ELTS		2
 
@@ -72,6 +75,8 @@ enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
+/* APPLE LOCAL radar 4291785 */
+#define TOTAL_CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 5)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
 #define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)

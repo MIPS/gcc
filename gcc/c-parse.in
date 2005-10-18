@@ -1324,6 +1324,12 @@ typespec_nonreserved_nonattr:
 		    error ("%<typeof%> applied to a bit-field");
 		  $$.kind = ctsk_typeof;
 		  $$.spec = TREE_TYPE ($3.value);
+		  /* APPLE LOCAL begin radar 4204796 */
+		  if (c_dialect_objc() 
+		      && lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES ($$.spec)))
+		    $$.spec = build_qualified_type
+				($$.spec, (TYPE_QUALS ($$.spec) & ~TYPE_QUAL_VOLATILE));
+		  /* APPLE LOCAL end radar 4204796 */
 		  pop_maybe_used (variably_modified_type_p ($$.spec,
 							    NULL_TREE)); }
 	| typeof '(' typename ')'
@@ -1615,6 +1621,12 @@ after_type_declarator:
 		{ $$ = make_pointer_declarator ($2, $3); }
 	| TYPENAME
 		{ $$ = build_id_declarator ($1); }
+/* APPLE LOCAL begin radar 4281748 */
+@@ifobjc
+	| CLASSNAME
+		{ $$ = build_id_declarator ($1); }
+@@end_ifobjc
+/* APPLE LOCAL end radar 4281748 */
 	;
 
 /* Kinds of declarator that can appear in a parameter list

@@ -989,6 +989,8 @@ extern void c_parse_error (const char *, enum cpp_ttype, tree);
 extern tree objc_is_class_name (tree);
 extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
+/* APPLE LOCAL radar 4281748 */
+extern void objc_check_global_decl (tree);
 extern int objc_is_reserved_word (tree);
 /* APPLE LOCAL 4154928 */
 extern tree objc_common_type (tree, tree);
@@ -1016,6 +1018,10 @@ extern tree objc_build_string_object (tree);
 extern tree objc_get_protocol_qualified_type (tree, tree);
 extern tree objc_get_class_reference (tree);
 extern tree objc_get_class_ivars (tree);
+/* APPLE LOCAL begin radar 4291785 */
+extern tree objc_get_interface_ivars (tree);
+extern void objc_detect_field_duplicates (tree);
+/* APPLE LOCAL end radar 4291785 */
 extern void objc_start_class_interface (tree, tree, tree);
 extern void objc_start_category_interface (tree, tree, tree);
 extern void objc_start_protocol (tree, tree);

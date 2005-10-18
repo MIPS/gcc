@@ -1,3 +1,26 @@
+2005-10-17  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4290840
+	
+	* parser.c (cp_parser_objc_method_keyword_params): Check for valid
+	method parameters and issue error.
+	(cp_parser_objc_method_definition_list): Check for invalid tokens
+	which cannot start a function definition.
+
+2005-10-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4294425
+
+	* parser.c (cp_parser_objc_message_args): Check for missing message
+	arguments and syntax error.
+
+2005-10-13  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4261146
+
+	* parser.c (cp_parser_objc_class_ivars): Check for @end/eof while
+	looking for '}'.
+
 2005-10-04  Devang Patel  <dpatel@apple.com>
 
         Radar 4278470

@@ -510,6 +510,9 @@ int objc_public_flag;
 /* Use to generate method labels.  */
 static int method_slot = 0;
 
+/* APPLE LOCAL radar 4291785 */
+static int objc_collecting_ivars = 0;
+
 #define BUFSIZE		1024
 
 static char *errbuf;	/* Buffer for error diagnostics */
@@ -548,10 +551,9 @@ struct volatilized_type GTY(())
   tree type;
 };
 
-static GTY((param_is (struct volatilized_type))) htab_t volatilized_htab;
-
-static hashval_t volatilized_hash (const void *);
-static int volatilized_eq (const void *, const void *);
+/* APPLE LOCAL begin radar 4204796 */
+/* code removed */
+/* APPLE LOCAL end radar 4204796 */
 
 /* APPLE LOCAL end mainline */
 FILE *gen_declaration_file;
@@ -900,6 +902,11 @@ objc_start_method_definition (tree decl)
   if (!objc_implementation_context)
     fatal_error ("method definition not in @implementation context");
 
+  /* APPLE LOCAL begin radar 4290840 */
+  if (decl != NULL_TREE  && METHOD_SEL_NAME (decl) == error_mark_node)
+    return;
+  /* APPLE LOCAL begin radar 4290840 */
+
   objc_add_method (objc_implementation_context,
 		   decl,
 		   objc_inherit_code == CLASS_METHOD_DECL);
@@ -1060,6 +1067,13 @@ objc_build_volatilized_type (tree type)
 	  && (TREE_TYPE (t) != TREE_TYPE (type)))
 	continue;
 
+      /* APPLE LOCAL begin radar 4204796 */
+      /* Only match up the types which were previously volatilized in similar fashion and not
+	 because they were declared as such. */
+      if (!lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (t)))
+	continue;
+      /* APPLE LOCAL end radar 4204796 */
+      
       /* Everything matches up!  */
       return t;
     }
@@ -1068,7 +1082,14 @@ objc_build_volatilized_type (tree type)
      a new one.  */
   t = build_variant_type_copy (type);
   TYPE_VOLATILE (t) = 1;
-  
+  /* APPLE LOCAL begin radar 4204796 */
+  TYPE_ATTRIBUTES (t) = merge_attributes (TYPE_ATTRIBUTES (type),
+                      			  tree_cons (get_identifier ("objc_volatilized"),
+                                 	  NULL_TREE,
+                                 	  NULL_TREE));
+  if (TREE_CODE (t) == ARRAY_TYPE)
+    TREE_TYPE (t) = objc_build_volatilized_type (TREE_TYPE (t));
+  /* APPLE LOCAL end radar 4204796 */
   return t;
 }
 
@@ -1085,18 +1106,14 @@ objc_volatilize_decl (tree decl)
 	  || TREE_CODE (decl) == PARM_DECL))
     {
       tree t = TREE_TYPE (decl);
-      struct volatilized_type key;
-      void **loc;
+      /* APPLE LOCAL begin radar 4204796 */
+      /* code removed */
+      /* APPLE LOCAL end radar 4204796 */
 
       t = objc_build_volatilized_type (t);
-      key.type = t;
-      loc = htab_find_slot (volatilized_htab, &key, INSERT);
-
-      if (!*loc)
-	{
-	  *loc = ggc_alloc (sizeof (key));
-	  ((struct volatilized_type *) *loc)->type = t;
-	}
+      /* APPLE LOCAL begin radar 4204796 */
+      /* code removed */
+      /* APPLE LOCAL end radar 4204796 */
 
       TREE_TYPE (decl) = t;
       TREE_THIS_VOLATILE (decl) = 1;
@@ -1433,17 +1450,14 @@ bool
 objc_type_quals_match (tree ltyp, tree rtyp)
 {
   int lquals = TYPE_QUALS (ltyp), rquals = TYPE_QUALS (rtyp);
-  struct volatilized_type key;
 
-  key.type = ltyp;
-
-  if (htab_find_slot (volatilized_htab, &key, NO_INSERT))
+  /* APPLE LOCAL begin radar 4204796 */
+  if (lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (ltyp)))
     lquals &= ~TYPE_QUAL_VOLATILE;
 
-  key.type = rtyp;
-
-  if (htab_find_slot (volatilized_htab, &key, NO_INSERT))
+  if (lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (rtyp)))
     rquals &= ~TYPE_QUAL_VOLATILE;
+  /* APPLE LOCAL end radar 4204796 */
 
   return (lquals == rquals);
 }
@@ -1544,22 +1558,9 @@ objc_xref_basetypes (tree ref, tree basetype)
     }
 }
 
-static hashval_t
-volatilized_hash (const void *ptr)
-{
-  tree typ = ((struct volatilized_type *)ptr)->type;
-
-  return (hashval_t) typ;
-}
-
-static int
-volatilized_eq (const void *ptr1, const void *ptr2)
-{
-  tree typ1 = ((struct volatilized_type *)ptr1)->type;
-  tree typ2 = ((struct volatilized_type *)ptr2)->type;
-
-  return typ1 == typ2;
-}
+/* APPLE LOCAL begin radar 4204796 */
+/* code removed */
+/* APPLE LOCAL end radar 4204796 */
 
 /* APPLE LOCAL end mainline */
 /* Called from finish_decl.  */
@@ -1575,6 +1576,16 @@ objc_check_decl (tree decl)
     error ("statically allocated instance of Objective-C class %qs",
 	   IDENTIFIER_POINTER (type));
 }
+
+/* APPLE LOCAL begin radar 4281748 */
+void
+objc_check_global_decl (tree decl)
+{
+  tree id = DECL_NAME (decl);
+  if (objc_is_class_name (id) && global_bindings_p())
+    error ("redeclaration of Objective-C class %qs", IDENTIFIER_POINTER (id));
+}
+/* APPLE LOCAL end radar 4281748 */
 
 /* Construct a PROTOCOLS-qualified variant of INTERFACE, where INTERFACE may
    either name an Objective-C class, or refer to the special 'id' or 'Class'
@@ -3209,7 +3220,11 @@ objc_declare_class (tree ident_list)
 	  if (record)
 	    {
 	      if (TREE_CODE (record) == TYPE_DECL)
-		type = DECL_ORIGINAL_TYPE (record);
+	      /* APPLE LOCAL begin radar 4278236 */
+		type = DECL_ORIGINAL_TYPE (record) ? 
+			DECL_ORIGINAL_TYPE (record) : 
+			TREE_TYPE (record);
+	      /* APPLE LOCAL end radar 4278236 */
 
 	      if (!TYPE_HAS_OBJC_INFO (type)
 		  || !TYPE_OBJC_INTERFACE (type))
@@ -3536,7 +3551,8 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
   /* APPLE LOCAL begin ObjC GC */
   /* At this point, we are committed to using one of the write-barriers,
      unless the user is attempting to perform pointer arithmetic.  */
-  if (modifycode != NOP_EXPR)
+  /* APPLE LOCAL begin radar 4291099 */
+  if (modifycode != NOP_EXPR && modifycode != INIT_EXPR)
   /* APPLE LOCAL end ObjC GC */
     {
       /* APPLE LOCAL begin ObjC GC */
@@ -3549,6 +3565,8 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
       return NULL_TREE;
       /* APPLE LOCAL end ObjC GC */
     }
+  /* APPLE LOCAL begin radar 4291099 */
+  gcc_assert (modifycode != INIT_EXPR || c_dialect_cxx ());
 
   /* APPLE LOCAL ObjC GC */
   /* CODE FRAGMENT REMOVED.  */
@@ -3640,6 +3658,122 @@ objc_get_class_ivars (tree class_name)
 
   return error_mark_node;
 }
+
+/* APPLE LOCAL begin radar 4291785 */
+/* Generate an error for any duplicate field names in FIELDLIST.  Munge
+   the list such that this does not present a problem later.  */
+
+void
+objc_detect_field_duplicates (tree fieldlist)
+{
+  tree x, y;
+  int timeout = 10;
+#ifdef OBJCPLUS
+  /* for objective-c++, we only care about duplicate checking of ivars. */
+  if (!objc_collecting_ivars)
+    return;
+#endif
+
+  /* First, see if there are more than "a few" fields.
+     This is trivially true if there are zero or one fields.  */
+  if (!fieldlist)
+    return;
+  x = TREE_CHAIN (fieldlist);
+  if (!x)
+    return;
+  do {
+    timeout--;
+    x = TREE_CHAIN (x);
+  } while (timeout > 0 && x);
+
+  /* If there were "few" fields, avoid the overhead of allocating
+     a hash table.  Instead just do the nested traversal thing.  */
+  if (timeout > 0)
+    {
+      for (x = TREE_CHAIN (fieldlist); x ; x = TREE_CHAIN (x))
+        if (DECL_NAME (x))
+          {
+            for (y = fieldlist; y != x; y = TREE_CHAIN (y))
+              if (DECL_NAME (y) == DECL_NAME (x))
+                {
+		  if (objc_collecting_ivars)
+		    {
+		      error ("%Jduplicate member %qD", y, y);
+		      DECL_NAME (y) = NULL_TREE;
+		    }
+		  else
+		    {
+		      error ("%Jduplicate member %qD", x, x);
+		      DECL_NAME (x) = NULL_TREE;
+		    }
+                }
+          }
+    }
+  else
+    {
+      htab_t htab = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
+      void **slot;
+
+      for (x = fieldlist; x ; x = TREE_CHAIN (x))
+        if ((y = DECL_NAME (x)) != 0)
+          {
+            slot = htab_find_slot (htab, y, INSERT);
+            if (*slot)
+              {
+	        if (objc_collecting_ivars)
+	          {
+		    tree z;
+		    /* Hackery to get the correct position of the duplicate field.
+		       It is slow, but we are reporting error, remember. */
+		    for (z = fieldlist; z ; z = TREE_CHAIN (z))
+		      if (DECL_NAME (x) == DECL_NAME (z))
+			{
+		          error ("%Jduplicate member %qD", z, z);
+			  DECL_NAME (z) = NULL_TREE;
+		          break;
+			}
+		  }
+	        else
+		  {
+		    error ("%Jduplicate member %qD", x, x);
+                    DECL_NAME (x) = NULL_TREE;
+		  }
+              }
+            *slot = y;
+          }
+
+      htab_delete (htab);
+    }
+}
+
+/* For current interface with inherited interface chain, this function returns the
+   flattened list of ivars in current and inherited interfaces. Otherwise, it
+   returns the argument passed to it. */
+tree
+objc_get_interface_ivars (tree fieldlist)
+{
+  tree ivar_chain;
+  tree interface;
+  if (!objc_collecting_ivars || !objc_interface_context 
+      || TREE_CODE (objc_interface_context) != CLASS_INTERFACE_TYPE
+      || CLASS_SUPER_NAME (objc_interface_context) == NULL_TREE)
+    return fieldlist;
+  interface = objc_interface_context;
+  gcc_assert (TOTAL_CLASS_RAW_IVARS (objc_interface_context) == NULL_TREE);
+  ivar_chain = copy_list (CLASS_RAW_IVARS (interface));
+  if (CLASS_SUPER_NAME (interface))
+    {
+      /* Prepend super-class ivars.  */
+      interface = lookup_interface (CLASS_SUPER_NAME (interface));
+      /* Root base interface may not have its TOTAL_CLASS_RAW_IVARS set yet. */
+      if (TOTAL_CLASS_RAW_IVARS (interface) == NULL_TREE)
+        TOTAL_CLASS_RAW_IVARS (interface) = copy_list (CLASS_RAW_IVARS (interface));
+      ivar_chain = chainon (ivar_chain, TOTAL_CLASS_RAW_IVARS (interface));
+    }
+  TOTAL_CLASS_RAW_IVARS (objc_interface_context) = ivar_chain;
+  return ivar_chain;
+}
+/* APPLE LOCAL end radar 4291785 */
 
 /* Used by: build_private_template, continue_class,
    and for @defs constructs.  */
@@ -4414,7 +4548,7 @@ build_private_template (tree class)
 {
   if (!CLASS_STATIC_TEMPLATE (class))
     {
-      tree record = objc_build_struct (class,
+      tree record = objc_build_struct (class, 
 				       get_class_ivars (class, false),
 				       CLASS_SUPER_NAME (class));
 
@@ -6512,7 +6646,8 @@ objc_build_message_expr (tree mess)
 #endif
   tree method_params = NULL_TREE;
 
-  if (TREE_CODE (receiver) == ERROR_MARK)
+  /* APPLE LOCAL radar 4294425 */
+  if (TREE_CODE (receiver) == ERROR_MARK || TREE_CODE (args) == ERROR_MARK)
     return error_mark_node;
 
   /* Obtain the full selector name.  */
@@ -7098,11 +7233,9 @@ hash_init (void)
   /* Initialize the hash table used to hold the constant string objects.  */
   string_htab = htab_create_ggc (31, string_hash,
 				   string_eq, NULL);
-  /* APPLE LOCAL begin mainline */
-  /* Initialize the hash table used to hold EH-volatilized types.  */
-  volatilized_htab = htab_create_ggc (31, volatilized_hash,
-				      volatilized_eq, NULL);
-  /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL begin radar 4204796 */
+  /* code removed */
+  /* APPLE LOCAL end radar 4204796 */
 }
 
 /* WARNING!!!!  hash_enter is called with a method, and will peek
@@ -8028,7 +8161,11 @@ continue_class (tree class)
       push_lang_context (lang_name_c);
 #endif /* OBJCPLUS */
 
+      /* APPLE LOCAL radar 4291785 */
+      objc_collecting_ivars = 1;
       build_private_template (class);
+      /* APPLE LOCAL radar 4291785 */
+      objc_collecting_ivars = 0;
 
 #ifdef OBJCPLUS
       pop_lang_context ();

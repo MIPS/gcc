@@ -17883,7 +17883,13 @@ cp_parser_objc_message_args (cp_parser* parser)
 
       token = cp_lexer_peek_token (parser->lexer);
     }
-
+  /* APPLE LOCAL begin radar 4294425 */
+  if (sel_args == NULL_TREE && addl_args == NULL_TREE)
+    {
+      cp_parser_error (parser, "objective-c++ message argument(s) are expected");
+      return build_tree_list (error_mark_node, error_mark_node);
+    }
+  /* APPLE LOCAL end radar 4294425 */
   return build_tree_list (sel_args, addl_args);
 }
 
@@ -18245,7 +18251,13 @@ cp_parser_objc_method_keyword_params (cp_parser* parser)
 
       token = cp_lexer_peek_token (parser->lexer);
     }
-
+  /* APPLE LOCAL begin radar 4290840 */
+  if (params == NULL_TREE)
+    {
+      cp_parser_error (parser, "objective-c++ method declaration is expected");
+      return error_mark_node;
+    }
+  /* APPLE LOCAL end radar 4290840 */
   return params;
 }
 
@@ -18366,6 +18378,8 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 
       if (token->type == CPP_PLUS || token->type == CPP_MINUS)
 	{
+	  /* APPLE LOCAL radar 4290840 */
+	  cp_token *ptk;
 	  push_deferring_access_checks (dk_deferred);
 	  objc_start_method_definition
 	   (cp_parser_objc_method_signature (parser));
@@ -18374,12 +18388,20 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
 	    cp_lexer_consume_token (parser->lexer);
 
-	  perform_deferred_access_checks ();
-	  stop_deferring_access_checks ();
-	  meth = cp_parser_function_definition_after_declarator (parser,
-								 false);
-	  pop_deferring_access_checks ();
-	  objc_finish_method_definition (meth);
+	  /* APPLE LOCAL begin radar 4290840 */
+	  /* Check for all possibilities of illegal lookahead tokens. */
+	  ptk = cp_lexer_peek_token (parser->lexer);
+	  if (!(ptk->type == CPP_PLUS || ptk->type == CPP_MINUS 
+		|| ptk->type == CPP_EOF || ptk->keyword == RID_AT_END))
+	    {
+	      perform_deferred_access_checks ();
+	      stop_deferring_access_checks ();
+	      meth = cp_parser_function_definition_after_declarator (parser,
+								     false);
+	      pop_deferring_access_checks ();
+	      objc_finish_method_definition (meth);
+	    }
+	  /* APPLE LOCAL end radar 4290840 */
 	}
       else
 	/* Allow for interspersed non-ObjC++ code.  */
@@ -18404,7 +18426,10 @@ cp_parser_objc_class_ivars (cp_parser* parser)
   cp_lexer_consume_token (parser->lexer);  /* Eat '{'.  */
   token = cp_lexer_peek_token (parser->lexer);
 
-  while (token->type != CPP_CLOSE_BRACE)
+  /* APPLE LOCAL begin radar 4261146 */
+  while (token->type != CPP_CLOSE_BRACE 
+	&& token->keyword != RID_AT_END && token->type != CPP_EOF)
+  /* APPLE LOCAL end radar 4261146 */
     {
       cp_decl_specifier_seq declspecs;
       int decl_class_or_enum_p;
