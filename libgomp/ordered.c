@@ -43,7 +43,7 @@ gomp_ordered_first (void)
   unsigned index;
 
   /* Work share constructs can be orphaned.  */
-  if (team == NULL)
+  if (team == NULL || team->nthreads == 1)
     return;
 
   index = ws->ordered_cur + ws->ordered_num_used;
@@ -74,7 +74,7 @@ gomp_ordered_last (void)
   unsigned next_id;
 
   /* Work share constructs can be orphaned.  */
-  if (team == NULL)
+  if (team == NULL || team->nthreads == 1)
     return;
 
   /* We're no longer the owner.  */
@@ -109,7 +109,7 @@ gomp_ordered_next (void)
   unsigned index, next_id;
 
   /* Work share constructs can be orphaned.  */
-  if (team == NULL)
+  if (team == NULL || team->nthreads == 1)
     return;
 
   /* We're no longer the owner.  */
@@ -199,7 +199,7 @@ gomp_ordered_sync (void)
 
   /* Work share constructs can be orphaned.  But this clearly means that
      we are the only thread, and so we automatically own the section.  */
-  if (team == NULL)
+  if (team == NULL || team->nthreads == 1)
     return;
 
   /* ??? I believe it to be safe to access this data without taking the

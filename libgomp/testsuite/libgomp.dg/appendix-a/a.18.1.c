@@ -7,11 +7,7 @@ extern void abort (void);
 
 #define NUMBER_OF_THREADS 4
 
-/* 'volatile' should not be needed here.  Optimizations are
-   hoisting the load from 'synch' out of the busy-wait loop waiting
-   for neighbor.  The presence of 'flush' should stop optimizers from
-   doing the hoist.  */
-volatile int synch[NUMBER_OF_THREADS];
+int synch[NUMBER_OF_THREADS];
 int work[NUMBER_OF_THREADS];
 int result[NUMBER_OF_THREADS];
 int
@@ -67,8 +63,5 @@ main ()
 	abort ();
     }
 
-  /* Fail unconditionally until we figure out the need for 'volatile'
-     in array 'synch'.  */
-  /*return 0;*/
-  abort ();
+  return 0;
 }

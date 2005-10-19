@@ -1,6 +1,6 @@
 ! { dg-do run }
         SUBROUTINE F1(Q)
-        COMMON /DATA/ X, P
+        COMMON /DATA/ P, X
         INTEGER, TARGET :: X
         INTEGER, POINTER :: P
         INTEGER Q
@@ -10,7 +10,7 @@
         ! because they are shared and accessible
       END SUBROUTINE F1
       SUBROUTINE F2(Q)
-        COMMON /DATA/ X, P
+        COMMON /DATA/ P, X
         INTEGER, TARGET :: X
         INTEGER, POINTER :: P
         INTEGER Q
@@ -23,7 +23,7 @@
         END SUBROUTINE F2
 
       INTEGER FUNCTION G(N)
-          COMMON /DATA/ X, P
+          COMMON /DATA/ P, X
           INTEGER, TARGET :: X
           INTEGER, POINTER :: P
           INTEGER N
@@ -47,7 +47,7 @@
       END FUNCTION G
 
       PROGRAM A19
-        COMMON /DATA/ X, P
+        COMMON /DATA/ P, X
         INTEGER, TARGET :: X
         INTEGER, POINTER :: P
         INTEGER RESULT, G

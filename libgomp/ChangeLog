@@ -1,3 +1,15 @@
+2005-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* ordered.c (gomp_ordered_first, gomp_ordered_last, gomp_ordered_next,
+	gomp_ordered_sync): Do nothing if team->nthreads == 1.
+	* testsuite/libgomp.dg/ordered-3.c: New test.
+
+	* testsuite/libgomp.dg/appendix-a/a.18.1.c: Remove unconditional abort.
+	Remove volatile keyword.
+
+	* testsuite/libgomp.fortran/appendix-a/a.19.1.f90: Reorder variables
+	in COMMON block to avoid warnings on 64-bit targets.
+
 2005-10-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/libgomp.dg/shared-3.c: New test.
