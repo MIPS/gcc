@@ -44,8 +44,8 @@
 
 // Define the base class to std::basic_string.
 #include <bits/c++string.h>
-
 #include <debug/debug.h>
+#include <bits/moveable.h>
 
 namespace std
 {
@@ -164,6 +164,21 @@ namespace std
       : __string_base(__str) { }
 
       /**
+       *  @brief  String move constructor.
+       *  @param  str  Source string.
+       *
+       *  The newly-constructed %string contains the exact contents of @a str.
+       *  The contents of @a str are a valid, but unspecified string. This
+       *  constructor is templated to avoid it being used while deducing
+       *  the things convertible to string, and will only compile
+       *  when the input string has identical type.
+       */
+      template<typename _String>
+        basic_string(__gnu_cxx::__rvalref<_String> __str)
+	: __string_base(__str.__ref.get_allocator())
+	{ this->swap(__str.__ref); }
+
+      /**
        *  @brief  Construct string as copy of a substring.
        *  @param  str  Source string.
        *  @param  pos  Index of first character to copy from.
@@ -244,6 +259,24 @@ namespace std
       basic_string&
       operator=(const basic_string& __str) 
       { return this->assign(__str); }
+
+      /**
+       *  @brief  String move assignment operator.
+       *  @param  str  Source string.
+       *
+       *  The contents of @a str are moved into this string (without copying).
+       *  @a str is a valid, but unspecified string. This operator is templated
+       *  to avoid it being used while deducing the things convertible
+       *  to string, and will only compile when the input string has 
+       *  identical type. 
+       */
+      template<typename _String>
+	basic_string&
+	operator=(__gnu_cxx::__rvalref<_String> __str)
+	{ 
+	  this->swap(__str.__ref);
+	  return *this;
+	}
 
       /**
        *  @brief  Copy contents of @a s into this string.
@@ -2155,5 +2188,12 @@ namespace std
   // Undefine.
 #undef __glibcxx_base_string
 } // namespace std
+
+namespace __gnu_cxx
+{
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    struct __is_moveable<std::basic_string<_CharT, _Traits, _Alloc> >
+    { static const bool __value = true; };
+}
 
 #endif /* _BASIC_STRING_H */
