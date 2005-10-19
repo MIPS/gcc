@@ -1,5 +1,10 @@
 2005-10-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* omp-low.c (use_pointer_for_field): Fix thinko in
+	handling of TREE_ADDRESSABLE decls.
+
+2005-10-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* omp-low.c (use_pointer_for_field): Return true for
 	TREE_ADDRESSABLE decls.
 
