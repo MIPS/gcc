@@ -1,3 +1,13 @@
+2005-10-19  Eric Christopher  <echristo@apple.com>
+
+	Radar 3907496
+	Import from mainline:
+	2005-08-10  Eric Christopher  <echristo@apple.com>
+
+	* config/rs6000/rs6000.c (mems_ok_for_quad_peep): Rewrite.
+	* config/rs6000/rs6000.md (*lfq_power2, *stfq_power2): Use
+	V2DFmode.
+
 2005-10-10  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4301047
