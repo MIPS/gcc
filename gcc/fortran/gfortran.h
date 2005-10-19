@@ -1830,6 +1830,8 @@ void gfc_free_case_list (gfc_case *);
 /* openmp.c */
 void gfc_free_omp_clauses (gfc_omp_clauses *);
 void gfc_resolve_omp_directive (gfc_code *, gfc_namespace *);
+void gfc_resolve_do_iterator (gfc_symbol *);
+void gfc_resolve_omp_parallel_blocks (gfc_code *, gfc_namespace *);
 
 /* expr.c */
 void gfc_free_actual_arglist (gfc_actual_arglist *);
@@ -1877,6 +1879,7 @@ void gfc_free_statements (gfc_code *);
 /* resolve.c */
 try gfc_resolve_expr (gfc_expr *);
 void gfc_resolve (gfc_namespace *);
+void gfc_resolve_blocks (gfc_code *, gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);

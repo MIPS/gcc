@@ -1,5 +1,21 @@
 2005-10-19  Jakub Jelinek  <jakub@redhat.com>
 
+	* gfortran.h (gfc_resolve_do_iterator, gfc_resolve_blocks,
+	gfc_resolve_omp_parallel_blocks): New prototypes.
+	* resolve.c (resolve_blocks): Renamed to...
+	(gfc_resolve_blocks): ... this.  Remove static.
+	(gfc_resolve_forall): Adjust caller.
+	(resolve_code): Only call gfc_resolve_blocks if code->block != 0
+	and not for EXEC_OMP_PARALLEL* directives.  Call
+	gfc_resolve_omp_parallel_blocks for EXEC_OMP_PARALLEL* directives.
+	Call gfc_resolve_do_iterator if resolved successfully EXEC_DO
+	iterator.
+	* openmp.c: Include pointer-set.h.
+	(omp_current_ctx): New variable.
+	(gfc_resolve_omp_parallel_blocks, gfc_resolve_do_iterator): New
+	functions.
+	* Make-lang.in (fortran/openmp.o): Depend on pointer-set.h.
+
 	* openmp.c (gfc_match_omp_clauses): For max/min/iand/ior/ieor,
 	look up symbol if it exists, use its name instead and, if it is not
 	INTRINSIC, issue diagnostics.

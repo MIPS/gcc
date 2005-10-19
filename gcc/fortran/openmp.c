@@ -26,6 +26,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "pointer-set.h"
 
 /* Match an end of OpenMP directive.  End of OpenMP directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -1117,6 +1118,68 @@ resolve_omp_atomic (gfc_code *code)
   else
     gfc_error ("!$OMP ATOMIC assignment must have an operator or intrinsic"
 	       " on right hand side at %L", &expr2->where);
+}
+
+struct omp_context
+{
+  gfc_code *code;
+  struct pointer_set_t *sharing_clauses;
+  struct pointer_set_t *private_iterators;
+  struct omp_context *previous;
+} *omp_current_ctx;
+
+void
+gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
+{
+  struct omp_context ctx;
+  gfc_omp_clauses *omp_clauses = code->ext.omp_clauses;
+  gfc_namelist *n;
+  int list;
+
+  ctx.code = code;
+  ctx.sharing_clauses = pointer_set_create ();
+  ctx.private_iterators = pointer_set_create ();
+  ctx.previous = omp_current_ctx;
+  omp_current_ctx = &ctx;
+
+  for (list = 0; list < OMP_LIST_NUM; list++)
+    for (n = omp_clauses->lists[list]; n; n = n->next)
+      pointer_set_insert (ctx.sharing_clauses, n->sym);
+
+  gfc_resolve_blocks (code->block, ns);
+
+  omp_current_ctx = ctx.previous;
+  pointer_set_destroy (ctx.sharing_clauses);
+  pointer_set_destroy (ctx.private_iterators);
+}
+
+/* Note a DO iterator variable.  This is special in !$omp parallel
+   construct, where they are predetermined private.  */
+
+void
+gfc_resolve_do_iterator (gfc_symbol *sym)
+{
+  struct omp_context *ctx;
+
+  if (sym->attr.threadprivate)
+    return;
+
+  for (ctx = omp_current_ctx; ctx; ctx = ctx->previous)
+    {
+      if (pointer_set_contains (ctx->sharing_clauses, sym))
+	continue;
+
+      if (! pointer_set_insert (ctx->private_iterators, sym))
+	{
+	  gfc_omp_clauses *omp_clauses = ctx->code->ext.omp_clauses;
+	  gfc_namelist *p;
+
+	  p = gfc_get_namelist ();
+	  p->sym = sym;
+	  p->next = omp_clauses->lists[OMP_LIST_PRIVATE];
+	  omp_clauses->lists[OMP_LIST_PRIVATE] = p;
+	}
+    }
 }
 
 static void

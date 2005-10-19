@@ -3679,7 +3679,7 @@ gfc_resolve_forall_body (gfc_code *code, int nvar, gfc_expr **var_expr)
           gfc_resolve_assign_in_forall (c, nvar, var_expr);
           break;
 
-        /* Because the resolve_blocks() will handle the nested FORALL,
+        /* Because the gfc_resolve_blocks() will handle the nested FORALL,
            there is no need to handle it here.  */
         case EXEC_FORALL:
           break;
@@ -3697,8 +3697,6 @@ gfc_resolve_forall_body (gfc_code *code, int nvar, gfc_expr **var_expr)
 
 /* Given a FORALL construct, first resolve the FORALL iterator, then call
    gfc_resolve_forall_body to resolve the FORALL body.  */
-
-static void resolve_blocks (gfc_code *, gfc_namespace *);
 
 static void
 gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
@@ -3765,7 +3763,7 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   gfc_resolve_forall_body (code, nvar, var_expr);
 
   /* May call gfc_resolve_forall to resolve the inner FORALL loop.  */
-  resolve_blocks (code->block, ns);
+  gfc_resolve_blocks (code->block, ns);
 
   /* Free VAR_EXPR after the whole FORALL construct resolved.  */
   for (i = 0; i < total_var; i++)
@@ -3782,8 +3780,8 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
 
 static void resolve_code (gfc_code *, gfc_namespace *);
 
-static void
-resolve_blocks (gfc_code * b, gfc_namespace * ns)
+void
+gfc_resolve_blocks (gfc_code * b, gfc_namespace * ns)
 {
   try t;
 
@@ -3874,8 +3872,21 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  forall_flag = 1;
           gfc_resolve_forall (code, ns, forall_save);
         }
-      else
-        resolve_blocks (code->block, ns);
+      else if (code->block)
+	{
+	  switch (code->op)
+	    {
+	    case EXEC_OMP_PARALLEL:
+	    case EXEC_OMP_PARALLEL_DO:
+	    case EXEC_OMP_PARALLEL_SECTIONS:
+	    case EXEC_OMP_PARALLEL_WORKSHARE:
+	      gfc_resolve_omp_parallel_blocks (code, ns);
+	      break;
+	    default:
+	      gfc_resolve_blocks (code->block, ns);
+	      break;
+	    }
+	}
 
       if (code->op == EXEC_FORALL)
 	forall_flag = forall_save;
@@ -4006,7 +4017,11 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 
 	case EXEC_DO:
 	  if (code->ext.iterator != NULL)
-	    gfc_resolve_iterator (code->ext.iterator, true);
+	    {
+	      gfc_iterator *iter = code->ext.iterator;
+	      if (gfc_resolve_iterator (iter, true) != FAILURE)
+		gfc_resolve_do_iterator (iter->var->symtree->n.sym);
+	    }
 	  break;
 
 	case EXEC_DO_WHILE:
