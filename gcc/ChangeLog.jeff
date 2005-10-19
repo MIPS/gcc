@@ -1,6 +1,16 @@
 2005-10-19  Jeff Law  <law@redhat.com>
 
-	* tree-ssa-dom.c (simplifY_switch_and_lookup_avail_expr):  Code
+        * tree-ssa-ccp.c (fold_stmt_r): DATA argument is now a pointer to
+        a structure containing state rather than a pointer to a bool.
+        (case ARRAY_REF): New code to handle folding some array references.
+        (case ADDR_EXPR): Note when we are processing expressions found
+        within an ADDR_EXPR.
+        (fold_stmt, fold_stmt_inplace): Pass in a structure to fold_stmt_r
+        for state variables rather than just a pointer to a boolean.
+        * tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Remove
+        handling of constant string references.
+
+	* tree-ssa-dom.c (simplify_switch_and_lookup_avail_expr):  Code
 	to simplify SWITCH_EXPR_COND moved from here to ...
 	* tree-ssa-forwprop.c (simplify_switch_expr): Here.
 	(tree_ssa_forward_propagate_single_use_vars): Call
