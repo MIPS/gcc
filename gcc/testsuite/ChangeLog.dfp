@@ -1,3 +1,10 @@
+2005-10-20  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Simplify.
+	(target-specific-flags): New proc.
+	(process-test-case): Append [target-specific-flags] to the list of
+	arguments passed to c-torture-execute.
+
 2005-10-18  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp: Pass -mpreferred-stack-boundary=4
