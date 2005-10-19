@@ -2319,7 +2319,7 @@
   DONE;
 }")
 
-(define_expand "vec_unpack_hi_v16qi"
+(define_expand "vec_unpacks_hi_v16qi"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
         (unspec:V8HI [(match_operand:V16QI 1 "register_operand" "v")]
                      UNSPEC_VUPKHSB))]
@@ -2330,7 +2330,7 @@
   DONE;
 }")
 
-(define_expand "vec_unpack_hi_v8hi"
+(define_expand "vec_unpacks_hi_v8hi"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")]
                      UNSPEC_VUPKHSH))]
@@ -2341,7 +2341,7 @@
   DONE;
 }")
 
-(define_expand "vec_unpack_lo_v16qi"
+(define_expand "vec_unpacks_lo_v16qi"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
         (unspec:V8HI [(match_operand:V16QI 1 "register_operand" "v")]
                      UNSPEC_VUPKLSB))]
@@ -2352,7 +2352,7 @@
   DONE;
 }")
 
-(define_expand "vec_unpack_lo_v8hi"
+(define_expand "vec_unpacks_lo_v8hi"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")]
                      UNSPEC_VUPKLSH))]
@@ -2499,3 +2499,26 @@
   DONE;
 }")
 
+(define_expand "vec_pack_mod_v8hi"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+        (unspec:V16QI [(match_operand:V8HI 1 "register_operand" "v")
+                       (match_operand:V8HI 2 "register_operand" "v")]
+                      UNSPEC_VPKUHUM))]
+  "TARGET_ALTIVEC"
+  "
+{ 
+  emit_insn (gen_altivec_vpkuhum (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_expand "vec_pack_mod_v4si"
+  [(set (match_operand:V8HI 0 "register_operand" "=v")
+        (unspec:V8HI [(match_operand:V4SI 1 "register_operand" "v")
+                      (match_operand:V4SI 2 "register_operand" "v")]
+                     UNSPEC_VPKUWUM))]
+  "TARGET_ALTIVEC"
+  "
+{ 
+  emit_insn (gen_altivec_vpkuwum (operands[0], operands[1], operands[2]));
+  DONE;
+}")

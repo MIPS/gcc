@@ -1,3 +1,38 @@
+2005-10-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* expr.c (expand_expr_real_1): Add implementation for cases 
+	VEC_PACK_MOD_EXPR and VEC_PACK_SAT_EXPR;
+	* genopinit.c (vec_pack_sat): Removed. Replaced with...
+	(vec_spack_sat, vec_upack_sat): New optabs.
+	(vec_unpack_hi_optab, vec_unpack_lo_optab): Removed. Replaced with:
+	(vec_unpacks_hi_optab, vec_unpacks_lo_optab, vec_unpacku_hi_optab):
+	(vec_unpacku_lo_optab): New optabs.
+	* optabs.c (optab_for_tree_code): Fix uses of removed optabs.
+	(expand_binop): Support expand for vec_*pack_*_optab.
+	(init_optabs): Fix uses of removed optabs.
+	* optabs.h (optabs_index, optab_table): Fix uses of removed optabs.
+	* tree-vect-analyze.c (widened_name_p): Takes additional argument. 
+	Extended to support defs out-side the loop. Move check for 
+	STMT_VINFO_IN_PATTERN_P from callers into the function.
+	(vect_recog_dot_prod_pattern, vect_recog_widen_mult_pattern):
+	(vect_recog_widen_sum_pattern): Update calls to widened_name_p.
+	(vect_pattern_recog_1): Check if stmt is in the loop before attempting
+	to access it's stmt_vec_info.
+	* tree-vect-generic.c (expand_vector_operations_1): 
+	Check for VEC_PACK_*_EXPR.	
+	* tree-vect-transform.c (vectorizable_type_demotion): New function.
+	(vectorizable_type_promotion): Minor cleanup.
+	(vect_transform_stmt): Add call to vectorizable_type_demotion.
+	* tree-vectorizer.c (supportable_widening_operation): Fix 80 column
+	overflow.
+	* tree-vectorizer.h (vectorizable_type_demotion): New function 
+	declaration.
+	* config/rs6000/altivec.md (vec_unpack_hi_v16qi, vec_unpack_hi_v8hi):
+	(vec_unpack_lo_v16qi, vec_unpack_lo_v8hi): Removed. Replaced with:
+	(vec_unpacks_hi_v16qi, vec_unpacks_hi_v8hi, vec_unpacks_lo_v16qi):
+	(vec_unpacks_lo_v8hi): New patterns.
+	(vec_pack_mod_v8hi, altivec_pack_mod_v4si): New patterns.
+
 2005-10-17  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree.def (VEC_WIDEN_MULT_HI_EXPR, VEC_WIDEN_MULT_LO_EXPR):

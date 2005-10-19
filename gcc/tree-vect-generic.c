@@ -416,6 +416,8 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   if (code == WIDEN_SUM_EXPR
       || code == VEC_WIDEN_MULT_HI_EXPR
       || code == VEC_WIDEN_MULT_LO_EXPR
+      || code == VEC_PACK_MOD_EXPR
+      || code == VEC_PACK_SAT_EXPR
       || code == VEC_UNPACK_HI_EXPR
       || code == VEC_UNPACK_LO_EXPR)
     type = TREE_TYPE (TREE_OPERAND (rhs, 0));
@@ -458,6 +460,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   gcc_assert (code != WIDEN_SUM_EXPR);
   gcc_assert (code != VEC_WIDEN_MULT_HI_EXPR && code != VEC_WIDEN_MULT_LO_EXPR);
   gcc_assert (code != VEC_UNPACK_HI_EXPR && code != VEC_UNPACK_LO_EXPR);
+  gcc_assert (code != VEC_PACK_MOD_EXPR && code != VEC_PACK_SAT_EXPR);
 
   rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
   if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))

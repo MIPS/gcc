@@ -331,16 +331,16 @@ optab_for_tree_code (enum tree_code code, tree type)
       return TYPE_UNSIGNED (type) ? vec_widen_umult_lo_optab : vec_widen_smult_lo_optab;
 
     case VEC_UNPACK_HI_EXPR:
-      return vec_unpack_hi_optab;
+      return TYPE_UNSIGNED (type) ? vec_unpacku_hi_optab : vec_unpacks_hi_optab;
 
     case VEC_UNPACK_LO_EXPR:
-      return vec_unpack_lo_optab;
+      return TYPE_UNSIGNED (type) ? vec_unpacku_lo_optab : vec_unpacks_lo_optab;
 
     case VEC_PACK_MOD_EXPR:
       return vec_pack_mod_optab;
 
     case VEC_PACK_SAT_EXPR:
-      return vec_pack_sat_optab;
+      return TYPE_UNSIGNED (type) ? vec_pack_usat_optab : vec_pack_ssat_optab;
 
     default:
       break;
@@ -1280,6 +1280,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       int icode = (int) binoptab->handlers[(int) mode].insn_code;
       enum machine_mode mode0 = insn_data[icode].operand[1].mode;
       enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+      enum machine_mode tmp_mode;
       rtx pat;
       rtx xop0 = op0, xop1 = op1;
 
@@ -1333,8 +1334,18 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  && mode1 != VOIDmode)
 	xop1 = copy_to_mode_reg (mode1, xop1);
 
-      if (!insn_data[icode].operand[0].predicate (temp, mode))
-	temp = gen_reg_rtx (mode);
+      if (binoptab == vec_pack_mod_optab || binoptab == vec_pack_usat_optab 
+	  || binoptab == vec_pack_ssat_optab)
+	{
+	  tmp_mode = insn_data[icode].operand[0].mode;
+	  if (GET_MODE_NUNITS (tmp_mode) != 2*GET_MODE_NUNITS (mode))
+	    return 0;	
+	}
+      else
+	tmp_mode = mode;
+
+      if (!insn_data[icode].operand[0].predicate (temp, tmp_mode))
+	temp = gen_reg_rtx (tmp_mode);
 
       pat = GEN_FCN (icode) (temp, xop0, xop1);
       if (pat)
@@ -5278,10 +5289,13 @@ init_optabs (void)
   vec_widen_umult_lo_optab = init_optab (UNKNOWN);
   vec_widen_smult_hi_optab = init_optab (UNKNOWN);
   vec_widen_smult_lo_optab = init_optab (UNKNOWN);
-  vec_unpack_hi_optab = init_optab (UNKNOWN);
-  vec_unpack_lo_optab = init_optab (UNKNOWN);
+  vec_unpacks_hi_optab = init_optab (UNKNOWN);
+  vec_unpacks_lo_optab = init_optab (UNKNOWN);
+  vec_unpacku_hi_optab = init_optab (UNKNOWN);
+  vec_unpacku_lo_optab = init_optab (UNKNOWN);
   vec_pack_mod_optab = init_optab (UNKNOWN);
-  vec_pack_sat_optab = init_optab (UNKNOWN);
+  vec_pack_usat_optab = init_optab (UNKNOWN);
+  vec_pack_ssat_optab = init_optab (UNKNOWN);
 
   powi_optab = init_optab (UNKNOWN);
 

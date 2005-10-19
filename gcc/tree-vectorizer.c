@@ -1784,8 +1784,8 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
      However, in the special case that the result of the widening operation is 
      used in a reduction copmutation only, the order doesn't matter (because 
      when vectorizing a reduction we change the oreder of the computation). 
-     Some targets can take advatage of this and generate more efficient code. For
-     example, targets like Altivec, that support widen_mult using a sequence
+     Some targets can take advatage of this and generate more efficient code. 
+     For example, targets like Altivec, that support widen_mult using a sequence
      of {mult_even,mult_odd} generate the following vectors:
         vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8]. 
    */
@@ -1863,7 +1863,8 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   vec_mode = TYPE_MODE (vectype);
   if ((icode1 = optab1->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
       || insn_data[icode1].operand[0].mode != TYPE_MODE (wide_vectype)
-      || (icode2 = optab2->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+      || (icode2 = optab2->handlers[(int) vec_mode].insn_code) 
+							== CODE_FOR_nothing
       || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
     return false;
 

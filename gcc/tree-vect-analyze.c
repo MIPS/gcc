@@ -66,7 +66,7 @@ static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
 static void vect_update_misalignment_for_peel
   (struct data_reference *, struct data_reference *, int npeel);
-static bool widened_name_p (tree, tree *, tree *);
+static bool widened_name_p (tree, tree, tree *, tree *);
 
 /* Pattern recognition functions  */
 tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
@@ -313,6 +313,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
               gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
  
               ok = (vectorizable_type_promotion (stmt, NULL, NULL)
+		    || vectorizable_type_demotion (stmt, NULL, NULL)
 		    || vectorizable_operation (stmt, NULL, NULL)
 		    || vectorizable_assignment (stmt, NULL, NULL)
 		    || vectorizable_load (stmt, NULL, NULL)
@@ -1747,47 +1748,49 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 /* Function widened_name_p
 
-   Check whether NAME is a result of a type-promotion, such that:
+   Check whether NAME, an ssa-name used in USE_STMT,
+   is a result of a type-promotion, such that:
      DEF_STMT: NAME = NOP (name0)
    where the type of name0 (HALF_TYPE) is smaller than the type of NAME. 
 */
 
 static bool
-widened_name_p (tree name, tree *half_type, tree *def_stmt)
+widened_name_p (tree name, tree use_stmt, tree *half_type, tree *def_stmt) 
 {
-  tree stmt;
+  tree dummy;
+  loop_vec_info loop_vinfo;
   stmt_vec_info stmt_vinfo;
   tree expr;
   tree type = TREE_TYPE (name);
   tree oprnd0;
-  tree dummy;
   enum vect_def_type dt;
+  tree def;
+  
+  stmt_vinfo = vinfo_for_stmt (use_stmt);
+  loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
 
-  if (TREE_CODE (name) != SSA_NAME)
+  if (!vect_is_simple_use (name, loop_vinfo, def_stmt, &def, &dt))
     return false;
 
-  stmt = SSA_NAME_DEF_STMT (name);
-  gcc_assert (stmt);
-  stmt_vinfo = vinfo_for_stmt (stmt);
-  if (!stmt_vinfo)
+  if (dt == vect_loop_def)
+    {
+      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (*def_stmt)))
+        return false;
+    }
+  else if (dt != vect_invariant_def && dt != vect_constant_def)
     return false;
 
-  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+  if (! *def_stmt)
     return false;
 
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+  if (TREE_CODE (*def_stmt) != MODIFY_EXPR)
+    return false;
 
-  expr = TREE_OPERAND (stmt, 1);
+  expr = TREE_OPERAND (*def_stmt, 1);
   if (TREE_CODE (expr) != NOP_EXPR)
     return false;
 
   oprnd0 = TREE_OPERAND (expr, 0);
-  if (!vect_is_simple_use (oprnd0, STMT_VINFO_LOOP_VINFO (stmt_vinfo),
-                           &dummy, &dummy, &dt))
-    return false;
-
-  if (dt != vect_loop_def)
-    return false;
 
   *half_type = TREE_TYPE (oprnd0);
   if (!INTEGRAL_TYPE_P (type) || !INTEGRAL_TYPE_P (*half_type)
@@ -1795,7 +1798,13 @@ widened_name_p (tree name, tree *half_type, tree *def_stmt)
       || (TYPE_PRECISION (type) < (TYPE_PRECISION (*half_type) * 2)))
     return false;
 
-  *def_stmt = stmt;
+  if (!vect_is_simple_use (oprnd0, loop_vinfo, &dummy, &dummy, &dt))
+    return false;
+
+  if (dt != vect_invariant_def && dt != vect_constant_def
+      && dt != vect_loop_def)
+    return false;
+
   return true;
 }
 
@@ -1926,18 +1935,14 @@ vect_recog_dot_prod_pattern (tree last_stmt,
      Left to check that oprnd0 is defined by a (widen_)mult_expr, possibly
      followed by a cast  */
 
-  if (widened_name_p (oprnd0, &prod_type, &def_stmt))
+  if (widened_name_p (oprnd0, last_stmt, &prod_type, &def_stmt))
     {
-      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt)))
-        return NULL;
       VARRAY_PUSH_TREE (*stmt_list, def_stmt);
       expr = TREE_OPERAND (def_stmt, 1);
       oprnd0 = TREE_OPERAND (expr, 0);
     }
   else
-    {
-      prod_type = type;
-    }
+    prod_type = type;
 
   stmt = SSA_NAME_DEF_STMT (oprnd0);
   gcc_assert (stmt);
@@ -1974,11 +1979,11 @@ vect_recog_dot_prod_pattern (tree last_stmt,
 	return NULL;
 
       /* Check argument 0 */
-      if (!widened_name_p (oprnd0, &half_type0, &def_stmt0))
+      if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt0))
 	return NULL;
 
       /* Check argument 1 */
-      if (!widened_name_p (oprnd1, &half_type1, &def_stmt1))
+      if (!widened_name_p (oprnd1, stmt, &half_type1, &def_stmt1))
 	return NULL;
 
       if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
@@ -1986,12 +1991,6 @@ vect_recog_dot_prod_pattern (tree last_stmt,
 
       if (TYPE_PRECISION (prod_type) != (TYPE_PRECISION (half_type0) * 2))
 	return NULL;
-
-      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt0)))
-        return NULL;
-
-      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt1)))
-        return NULL;
 
       VARRAY_PUSH_TREE (*stmt_list, def_stmt0);
       VARRAY_PUSH_TREE (*stmt_list, def_stmt1);
@@ -2118,20 +2117,16 @@ vect_recog_widen_mult_pattern (tree last_stmt,
   VARRAY_PUSH_TREE (*stmt_list, last_stmt);
 
   /* Check argument 0 */
-  if (!widened_name_p (oprnd0, &half_type0, &def_stmt0))
-    return NULL;
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt0)))
+  if (!widened_name_p (oprnd0, last_stmt, &half_type0, &def_stmt0))
     return NULL;
   oprnd0 = TREE_OPERAND (TREE_OPERAND (def_stmt0, 1), 0);
 
   /* Check argument 1 */
-  if (!widened_name_p (oprnd1, &half_type1, &def_stmt1))
-    return NULL;
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (def_stmt1)))
+  if (!widened_name_p (oprnd1, last_stmt, &half_type1, &def_stmt1))
     return NULL;
   oprnd1 = TREE_OPERAND (TREE_OPERAND (def_stmt1, 1), 0);
 
-  if (half_type0 != half_type1) /* FIXME */
+  if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
     return NULL;
 
   /* Check target support  */
@@ -2263,10 +2258,7 @@ vect_recog_widen_sum_pattern (tree last_stmt,
           sum_1 = DX + sum_0;
    */
 
-  if (!widened_name_p (oprnd0, &half_type, &stmt))
-    return NULL;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt)))
+  if (!widened_name_p (oprnd0, last_stmt, &half_type, &stmt))
     return NULL;
 
   oprnd0 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
@@ -2506,6 +2498,7 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, tree *, varray_type *),
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   stmt_vec_info pattern_stmt_info;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   varray_type stmt_list;
   tree pattern_expr;
   tree pattern_vectype;
@@ -2590,9 +2583,16 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, tree *, varray_type *),
   while (VARRAY_ACTIVE_SIZE (stmt_list) > 0)
     {
       tree stmt_in_pattern = VARRAY_TOP_TREE (stmt_list);
+      basic_block bb = bb_for_stmt (stmt_in_pattern);
+
       VARRAY_POP (stmt_list);
-      STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt_in_pattern)) = true;
-      STMT_VINFO_RELATED_STMT (vinfo_for_stmt (stmt_in_pattern)) = pattern_expr;
+      if (flow_bb_inside_loop_p (loop, bb))
+	{
+	  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt_in_pattern);
+
+	  STMT_VINFO_IN_PATTERN_P (stmt_vinfo) = true;
+	  STMT_VINFO_RELATED_STMT (stmt_vinfo) = pattern_expr;
+	}
     }
   varray_clear (stmt_list);
   

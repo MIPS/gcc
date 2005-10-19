@@ -8519,8 +8519,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VEC_PACK_MOD_EXPR:
     case VEC_PACK_SAT_EXPR:
       {
-	/* TODO */
-	abort ();
+	mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+	goto binop;
       }
 
     default:

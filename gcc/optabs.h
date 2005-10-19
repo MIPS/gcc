@@ -264,12 +264,15 @@ enum optab_index
   OTI_vec_widen_umult_lo,
   OTI_vec_widen_smult_hi,
   OTI_vec_widen_smult_lo,
-  /* Extract and widen the high/low part of a vector.  */
-  OTI_vec_unpack_hi,
-  OTI_vec_unpack_lo,
+  /* Extract and widen the high/low part of a vector of signed/unsigned elements.  */
+  OTI_vec_unpacks_hi,
+  OTI_vec_unpacks_lo,
+  OTI_vec_unpacku_hi,
+  OTI_vec_unpacku_lo,
   /* Narrow (demote) and merge the elements of two vectors.  */
   OTI_vec_pack_mod,
-  OTI_vec_pack_sat,
+  OTI_vec_pack_usat,
+  OTI_vec_pack_ssat,
 
   /* Saturated arithmetic.  */
   OTI_ssat_sub,
@@ -404,10 +407,13 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_widen_umult_lo_optab (optab_table[OTI_vec_widen_umult_lo])
 #define vec_widen_smult_hi_optab (optab_table[OTI_vec_widen_smult_hi])
 #define vec_widen_smult_lo_optab (optab_table[OTI_vec_widen_smult_lo])
-#define vec_unpack_hi_optab (optab_table[OTI_vec_unpack_hi])
-#define vec_unpack_lo_optab (optab_table[OTI_vec_unpack_lo])
+#define vec_unpacks_hi_optab (optab_table[OTI_vec_unpacks_hi])
+#define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
+#define vec_unpacks_lo_optab (optab_table[OTI_vec_unpacks_lo])
+#define vec_unpacku_lo_optab (optab_table[OTI_vec_unpacku_lo])
 #define vec_pack_mod_optab (optab_table[OTI_vec_pack_mod])
-#define vec_pack_sat_optab (optab_table[OTI_vec_pack_sat])
+#define vec_pack_ssat_optab (optab_table[OTI_vec_pack_ssat])
+#define vec_pack_usat_optab (optab_table[OTI_vec_pack_usat])
 
 #define ssat_sub_optab (optab_table[OTI_ssat_sub])
 #define usat_sub_optab (optab_table[OTI_usat_sub])

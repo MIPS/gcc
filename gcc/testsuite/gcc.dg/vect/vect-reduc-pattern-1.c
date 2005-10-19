@@ -35,7 +35,7 @@ int main1 ()
     abort ();
 
   /* widenning sum: sum chars into short.
-     currently vectorized using data unpacking.  */
+     could also be vectorized using data unpacking, if supported.  */
   for (i = 0; i < N; i++){
     shortsum += udata_ch[i];
   }
@@ -54,4 +54,4 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { target powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target powerpc*-*-* } } } */
