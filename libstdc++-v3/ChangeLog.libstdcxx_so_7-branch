@@ -1,3 +1,12 @@
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string.h (_S_terminal): Remove.
+	(_M_set_length): Adjust.
+	(_S_max_size): Change to anonymous enum.
+	(_M_max_size()): Add, returns the latter.
+	* include/ext/sso_string.h: Likewise.
+	* include/bits/basic_string.h (max_size): Adjust.
+
 2005-10-18  Chris Jefferson <chris@bubblescope.net>
 
 	* include/bits/deque.tcc (deque::erase(iterator)): Make rvalref aware.

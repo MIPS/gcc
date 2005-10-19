@@ -89,7 +89,7 @@ namespace std
       typedef std::reverse_iterator<const_iterator>	const_reverse_iterator;
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
-      // Data Members (public):
+      // Data Member (public):
       // NB: This is an unsigned type, and thus represents the maximum
       // size that the allocator can hold.
       ///  Value returned by various member functions when they fail.
@@ -359,7 +359,7 @@ namespace std
       /// Returns the size() of the largest possible %string.
       size_type
       max_size() const
-      { return __string_base::_S_max_size; }
+      { return this->_M_max_size(); }
 
       /**
        *  @brief  Resizes the %string to the specified number of characters.
