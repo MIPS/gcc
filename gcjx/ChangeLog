@@ -1,3 +1,11 @@
+2005-10-19  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* dump.cc (pretty_printer::print_method): Do not descend into
+	the return type of the method, just print the pretty name.
+	(pretty_printer::visit_forwarding_type): Do not descend into
+	RES_TYPE, just print the pretty name.
+	(pretty_printer::visit_forwarding_resolved): Likewise.
+
 2005-10-18  Tom Tromey  <tromey@redhat.com>
 
 	* model/method.cc (model_method): Set body,

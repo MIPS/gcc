@@ -1511,7 +1511,9 @@ protected:
     out << " " << meth->get_name ();
     modifier_t mods = meth->get_modifiers ();
     print_modifiers (mods);
-    descend (meth->get_return_type ());
+    model_type *ret_type = meth->get_return_type ();
+    if (ret_type != NULL)
+      out << " " << ret_type->get_pretty_name ();
     descend (args);
     if (body)
       descend (body.get ());
@@ -2562,7 +2564,8 @@ public:
                               model_type *res_type)
   {
     begin_element (fwd_type, "fwd_type");
-    descend (res_type);
+    if (res_type != NULL)
+      out << " " << res_type->get_pretty_name ();
     end_element ();
   }
 
@@ -2570,7 +2573,8 @@ public:
                                   model_type *res_type)
   {
     begin_element (fwd_resolved, "fwd_type_resolved");
-    descend (res_type);
+    if (res_type != NULL)
+      out << " " << res_type->get_pretty_name ();
     end_element ();
   }
 
