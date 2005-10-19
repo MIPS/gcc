@@ -1,5 +1,15 @@
 2005-10-19  Richard Henderson  <rth@redhat.com>
 
+	* omp-low.c (struct omp_context): Add depth.
+	(new_omp_context): Set it.
+	(all_labels): New.
+	(execute_lower_omp): Allocate and delete it.
+	(scan_omp_1): Fill it in.
+	(expand_omp_1): Check for goto that cross contexts.
+	(expand_omp): Set want_locations.
+
+2005-10-19  Richard Henderson  <rth@redhat.com>
+
 	* omp-low.c (expand_omp_1) <INDIRECT_REF>: Fix thinko in
 	expand_regimplify the operand.
 

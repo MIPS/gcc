@@ -83,11 +83,17 @@ typedef struct omp_context
      attributes.  */
   enum omp_clause_default_kind default_kind;
 
+  /* Nesting depth of this context.  Used to beautify error messages re
+     invalid gotos.  The outermost ctx is depth 1, with depth 0 being
+     reserved for the main body of the function.  */
+  int depth;
+
   bool is_parallel;
   bool is_nested;
 } omp_context;
 
 static splay_tree all_contexts;
+static splay_tree all_labels;
 static int parallel_nesting_level;
 
 static void scan_omp (tree *, omp_context *);
@@ -457,6 +463,7 @@ new_omp_context (tree stmt, omp_context *outer_ctx)
       ctx->outer = outer_ctx;
       ctx->cb = outer_ctx->cb;
       ctx->cb.block = NULL;
+      ctx->depth = outer_ctx->depth + 1;
     }
   else
     {
@@ -468,6 +475,7 @@ new_omp_context (tree stmt, omp_context *outer_ctx)
       ctx->cb.copy_decl = omp_copy_decl;
       ctx->cb.eh_region = -1;
       ctx->cb.transform_call_graph_edges = CB_CGE_MOVE;
+      ctx->depth = 1;
     }
 
   ctx->cb.decl_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
@@ -882,6 +890,17 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
 	    insert_decl_map (&ctx->cb, var, var);
 	  }
       }
+      break;
+
+    case LABEL_EXPR:
+      if (ctx)
+	{
+	  splay_tree_insert (all_labels, (splay_tree_key) LABEL_EXPR_LABEL (t),
+			     (splay_tree_value) ctx);
+	  LABEL_EXPR_LABEL (t) = remap_decl (LABEL_EXPR_LABEL (t), &ctx->cb);
+	}
+      splay_tree_insert (all_labels, (splay_tree_key) LABEL_EXPR_LABEL (t),
+			 (splay_tree_value) ctx);
       break;
 
     case VAR_DECL:
@@ -2566,6 +2585,52 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
 	}
       break;
 
+    case GOTO_EXPR:
+      {
+	splay_tree_node n;
+	omp_context *lctx;
+        bool exit_p = true;
+
+	t = TREE_OPERAND (t, 0);
+	if (TREE_CODE (t) != LABEL_DECL)
+	  break;
+
+	n = splay_tree_lookup (all_labels, (splay_tree_key) t);
+
+	/* The lookup may fail when the label is outside a surrounding
+	   parallel.  In that case the label_expr label would not be 
+	   remapped, but the goto_expr label would, expecting that the
+	   label ought to be found later.  In this case it is sufficient
+	   to say that the label has no context.  */
+	lctx = NULL;
+	if (n)
+	  {
+	    lctx = (omp_context *) n->value;
+	    if (ctx == lctx)
+	      break;
+	  }
+
+        /* Try to avoid confusing the user by producing and error message
+	   with correct "exit" or "enter" verbage.  We prefer "exit"
+	   unless we can show that LCTX is nested within CTX.  */
+	if (ctx == NULL)
+	  exit_p = false;
+	else if (lctx && lctx->depth > ctx->depth)
+	  {
+	    while (lctx && lctx != ctx)
+	      lctx = lctx->outer;
+	    if (lctx)
+	      exit_p = false;
+	  }
+	if (exit_p)
+	  error ("invalid exit from OpenMP structured block");
+	else
+	  error ("invalid entry to OpenMP structured block");
+
+	*tp = build_empty_stmt ();
+      }
+      break;
+
     default:
       if (!TYPE_P (t) && !DECL_P (t))
 	*walk_subtrees = 1;
@@ -2584,6 +2649,7 @@ expand_omp (tree *stmt_p, omp_context *ctx)
   wi.callback = expand_omp_1;
   wi.info = ctx;
   wi.val_only = true;
+  wi.want_locations = true;
 
   walk_stmts (&wi, stmt_p);
 }
@@ -2595,6 +2661,7 @@ execute_lower_omp (void)
 {
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
 				 delete_omp_context);
+  all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
   scan_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
   gcc_assert (parallel_nesting_level == 0);
@@ -2602,8 +2669,9 @@ execute_lower_omp (void)
   if (all_contexts->root)
     expand_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
 
+  splay_tree_delete (all_labels);
   splay_tree_delete (all_contexts);
-  all_contexts = NULL;
+  all_contexts = all_labels = NULL;
 }
 
 static bool
