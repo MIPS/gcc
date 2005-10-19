@@ -40,23 +40,21 @@ if test $enable_linux_futex = yes; then
     # Note that bare i386 is not included here.  We need cmpxchg.
     i[456]86-*-linux*)
 	config_path="linux/x86 linux posix"
-	case " ${CFLAGS} " in
-	  *" -march="*)	;;
-	  *)		XCFLAGS="${XCFLAGS} -march=i486" ;;
-	esac
+	if test -z "$with_arch"; then
+	  XCFLAGS="${XCFLAGS} -march=i486 -mtune=${target_cpu}"
+	fi
 	;;
 
-    # Similar jiggery-pokery for x86_64 multilibs.
+    # Similar jiggery-pokery for x86_64 multilibs, except here we
+    # can't rely on the --with-arch configure option, since that
+    # applies to the 64-bit side.
     x86_64-*-linux*)
+	config_path="linux/x86 linux posix"
 	case " ${CC} ${CFLAGS} " in
 	  *" -m32 "*)
-	    case " ${CFLAGS} " in
-		*" -march="*) ;;
-		*)            XCFLAGS="${XCFLAGS} -march=i486" ;;
-	    esac
+	    XCFLAGS="${XCFLAGS} -march=i486 -mtune=i686"
 	    ;;
 	esac
-	config_path="linux/x86 linux posix"
 	;;
   esac
 fi

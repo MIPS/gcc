@@ -179,7 +179,7 @@ omp_get_thread_num_ (void)
 int32_t
 omp_test_nest_lock_ (omp_nest_lock_arg_t lock)
 {
-  return omp_test_nest_lock_ (omp_nest_lock_arg (lock));
+  return omp_test_nest_lock (omp_nest_lock_arg (lock));
 }
 
 double

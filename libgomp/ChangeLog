@@ -1,3 +1,11 @@
+2005-10-19  Richard Henderson  <rth@redhat.com>
+
+	* configure.tgt (i?86-linux): Default to with_arch instead of
+	CFLAGS.  Add -mtune to match target_cpu.
+	(x86_64-linux): Tune to i686.
+
+	* fortran.c (omp_test_nest_lock_): Fix typo.
+
 2005-10-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* ordered.c (gomp_ordered_first, gomp_ordered_last, gomp_ordered_next,
