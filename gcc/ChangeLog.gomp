@@ -1,3 +1,8 @@
+2005-10-19  Richard Henderson  <rth@redhat.com>
+
+	* omp-low.c (expand_omp_1) <INDIRECT_REF>: Fix thinko in
+	expand_regimplify the operand.
+
 2005-10-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* omp-low.c (use_pointer_for_field): Fix thinko in

@@ -2562,7 +2562,7 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
 	{
 	  wi->is_lhs = false;
 	  wi->val_only = true;
-	  expand_regimplify (tp, wi);
+	  expand_regimplify (&TREE_OPERAND (t, 0), wi);
 	}
       break;
 
