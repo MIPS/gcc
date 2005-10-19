@@ -1,5 +1,9 @@
 2005-10-19  Richard Henderson  <rth@redhat.com>
 
+	* semantics.c (finish_omp_atomic): Revert to uses_template_parms.
+
+2005-10-19  Richard Henderson  <rth@redhat.com>
+
 	* semantics.c (finish_omp_clauses): Avoid DECL_THREAD_LOCAL_P
 	on a PARM_DECL.  Remove some stub asserts guaranteed to fail.
 

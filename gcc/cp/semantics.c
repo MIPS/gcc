@@ -3635,7 +3635,11 @@ finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
      and use the same tree code for this, even though the operands 
      are of totally different form, thus we need to remember which
      statements are which, thus the lang_flag bit.  */
-  if (type_dependent_expression_p (lhs) || type_dependent_expression_p (rhs))
+  /* ??? We ought to be using type_dependent_expression_p, but the
+     invocation of build_modify_expr in c_finish_omp_atomic can result
+     in the creation of CONVERT_EXPRs, which are not handled by
+     tsubst_copy_and_build.  */
+  if (uses_template_parms (lhs) || uses_template_parms (rhs))
     {
       tree stmt = build2 (OMP_ATOMIC, void_type_node, lhs, rhs);
       OMP_ATOMIC_DEPENDENT_P (stmt) = 1;
