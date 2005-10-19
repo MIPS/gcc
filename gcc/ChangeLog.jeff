@@ -1,4 +1,10 @@
 2005-10-19  Jeff Law  <law@redhat.com>
+	
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Code to
+	simplify ~~x and --x moved from here to ...
+	* tree-ssa-forwprop.c (simplify_not_neg_expr): Here.
+	(tree_ssa_forward_propagate_single_use_vars): Call
+	simplify_not_neg_expr when appropriate.
 
         * tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
         cases the forwarder block dominates the destination.

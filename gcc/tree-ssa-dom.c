@@ -1744,34 +1744,6 @@ simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
   enum tree_code rhs_code = TREE_CODE (rhs);
   tree result = NULL;
 
-  /* If we have lhs = ~x, look and see if we earlier had x = ~y.
-     In which case we can change this statement to be lhs = y.
-     Which can then be copy propagated. 
-
-     Similarly for negation.  */
-  if ((rhs_code == BIT_NOT_EXPR || rhs_code == NEGATE_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
-    {
-      /* Get the definition statement for our RHS.  */
-      tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-
-      /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
-	{
-	  tree rhs_def_operand;
-
-	  rhs_def_operand = TREE_OPERAND (TREE_OPERAND (rhs_def_stmt, 1), 0);
-
-	  /* Verify that RHS_DEF_OPERAND is a suitable SSA variable.  */
-	  if (TREE_CODE (rhs_def_operand) == SSA_NAME
-	      && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs_def_operand))
-	    result = update_rhs_and_lookup_avail_expr (stmt,
-						       rhs_def_operand,
-						       insert);
-	}
-    }
-
   /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
      If OP is associative, create and fold (y OP C2) OP C1 which
      should result in (y OP C3), use that as the RHS for the
