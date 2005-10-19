@@ -427,7 +427,7 @@ magicify_life (void)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL,
   	    (reload_completed ? PROP_DEATH_NOTES
   	     : PROP_DEATH_NOTES | PROP_REG_INFO));
-  /* df_dump (rtl_df, DF_LR | DF_UR, stderr); */
+  /* df_dump (rtl_df, stderr); */
 }
 
 static struct tree_opt_pass pass_magic_life =

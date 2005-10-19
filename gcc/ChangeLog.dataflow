@@ -1,0 +1,40 @@
+2005-10-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df.c (df_bitmap_ior_edge, df_lr_confluence_0
+	df_lr_confluence_n, df_ur_confluence_n, df_ur_set_bitmaps): New functions.
+	* df.c (df_exit_lr_local_compute, dataflow_set_a_op_b): Removed functions.
+	* df.c (df_ur_set_bitmaps, mark_reg_change, df_ur_local_finalize,
+	mark_reg_use_for_earlyclobber, df_ur_local_compute, 
+	df_bb_reg_live_start, df_bb_reg_live_end, df_bb_reg_live_start_p,
+	df_bb_reg_live_end_p): 
+	Renamed "reaching registers" 
+	problem (rr) to "uninitialized registers" problem. 
+	* df.c (df_free): Changed variables freed.
+	* df.c (df_ref_record): Added more sophisticated hard register scan.
+	* df.c (df_insn_refs_record): Changed way invalidated_by_call is processed.
+	* df.c (df_bb_refs_record, df_exit_lr_local_compute, 
+	df_bb_lr_local_compute): Removed bad way to simulate edge functions.  
+	There are now real confluence functions.
+	* df.c (notice_stack_pointer_modification): Sisabled.
+	* df.c (df_bb_lr_local_compute) Disabled call to 
+	notice_stack_pointer_modification. Added code to properly handle hard 
+	regs at call site.
+	* df.c (df_lr_local_compute): Added more hard reg processing. 
+	Changed order exit block is processed.
+	*df.c (df_init): Added some invariant hard regs initialization.
+	*df.c (df_refs_process): Removed artifical special case. 
+	*df.c (df_print_bb_index, df_dump): Removed parameter to df_dump.
+	*df.c (hybrid_search_forward, hybrid_search_backward): Added confluence
+	function calls
+	*df.c (iterative_dataflow): Added hack to initialize in and out sets with
+	hard registers
+	*df.h: Removed DF_ARTIFICIAL_DEFS.  Renamed "reaching registers" 
+	problem (rr) to "uninitialized registers" problem. Changed confluence 
+	operator to general confluence functions.
+	*flow.c (verify_wide_reg, verify_local_live_at_start): Removed parameter
+	to df_dump. 
+	*reg_stack.c (reg_to_stack): Ditto.
+	*sched_rgn.c (init_regions, schedule_insns): Ditto.
+	*web.c (web_main): Ditto.
+	*flow.c: (update_life_info): Removed DF_ARTIFICIAL_DEFS.
+	*global.c (global_alloc): Ditto.

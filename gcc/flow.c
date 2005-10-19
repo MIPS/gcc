@@ -471,7 +471,7 @@ verify_wide_reg (int regno, basic_block bb)
       head = NEXT_INSN (head);
     }
 
-  df_dump (rtl_df, DF_LR | DF_UR, stderr);
+  df_dump (rtl_df, stderr);
   if (dump_file)
     {
       fprintf (dump_file, "Register %d died unexpectedly.\n", regno);
@@ -508,7 +508,7 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	  FOR_EACH_BB (bb)
 	    dump_bb (bb, stderr, 0);
 	    
-	  df_dump (rtl_df, DF_LR | DF_UR, stderr);
+	  df_dump (rtl_df, stderr);
 	  fatal_error ("internal consistency failure");
 	}
     }
@@ -527,7 +527,7 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	    {
 	      if (stderr)
 		{
-		  df_dump (rtl_df, DF_LR | DF_UR, stderr);
+		  df_dump (rtl_df, stderr);
 
 		  fprintf (stderr,
 			   "Register %d died unexpectedly.\n", i);
@@ -604,7 +604,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	{
 	  int changed = 0;
 	  
-	  df_analyze (rtl_df, blocks_in_bitmap, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_DEFS | DF_ARTIFICIAL_USES);
+	  df_analyze (rtl_df, blocks_in_bitmap, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_USES);
 
 	  if ((prop_flags & (PROP_KILL_DEAD_CODE | PROP_ALLOW_CFG_CHANGES))
 	      != (PROP_KILL_DEAD_CODE | PROP_ALLOW_CFG_CHANGES))

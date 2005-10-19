@@ -42,9 +42,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define DF_HARD_REGS	2048	/* Mark hard registers.  */
 #define DF_EQUIV_NOTES	4096	/* Mark uses present in EQUIV/EQUAL notes.  */
 #define DF_SUBREGS	8192	/* Return subregs rather than the inner reg.  */
-#define DF_ARTIFICIAL_DEFS  16384  /* Create artificial definitions
-				      for call clobbering, etc. */
-#define DF_ARTIFICIAL_USES  32768  /* Create artificial uses for 
+#define DF_ARTIFICIAL_USES  16384  /* Create artificial uses for 
 				      always live registers, etc.  */
 
 /* The way that registers are processed, especially hard registers,
@@ -151,16 +149,15 @@ struct df_bb_info
   bitmap lr_in;
   bitmap lr_out;
   /* Reaching register bitmaps have n_regs elements.  */
-  bitmap rr_earlyclobber;
-  bitmap rr_kill;
-  bitmap rr_gen;
-  bitmap rr_in;
-  bitmap rr_out;
+  bitmap ur_earlyclobber;
+  bitmap ur_kill;
+  bitmap ur_gen;
+  bitmap ur_in;
+  bitmap ur_out;
   int rd_valid;
   int ru_valid;
   int lr_valid;
-  int rr_valid;
-  struct df_link *artificial_defs;
+  int ur_valid;
   struct df_link *artificial_uses;
 };
 
@@ -189,6 +186,7 @@ struct df
   bitmap insns_modified;	/* Insns that (may) have changed.  */
   bitmap bbs_modified;		/* Blocks that (may) have changed.  */
   bitmap all_blocks;		/* All blocks in CFG.  */
+  bitmap hardware_regs_used;    /* The set of hardware registers used.  */
 #ifdef STACK_REGS
   bitmap stack_regs;		/* Registers that may be allocated to a STACK_REGS.  */
 #endif
@@ -215,8 +213,8 @@ struct df_map
 /* Most transformations that wish to use live register analysis will
    use these macros.  The DF_UPWARD_LIVE* macros are only half of the
    solution.  */
-#define DF_LIVE_IN(DF, BB) (DF_BB_INFO(DF, BB)->rr_in) 
-#define DF_LIVE_OUT(DF, BB) (DF_BB_INFO(DF, BB)->rr_out) 
+#define DF_LIVE_IN(DF, BB) (DF_BB_INFO(DF, BB)->ur_in) 
+#define DF_LIVE_OUT(DF, BB) (DF_BB_INFO(DF, BB)->ur_out) 
 
 /* These macros are currently used by only reg-stack since it is not
    tolerant of uninitialized variables.  This intolerance should be
@@ -293,7 +291,7 @@ extern void df_analyze_simple_change_one_block (struct df *, basic_block);
 
 extern void df_finish (struct df *);
 
-extern void df_dump (struct df *, int, FILE *);
+extern void df_dump (struct df *, FILE *);
 
 
 /* Functions to modify insns.  */
@@ -393,15 +391,6 @@ extern void df_insn_debug (struct df *, rtx, FILE *);
 
 extern void df_insn_debug_regno (struct df *, rtx, FILE *);
 
-
-/* Meet over any path (UNION) or meet over all paths (INTERSECTION).  */
-enum df_confluence_op
-  {
-    DF_UNION,
-    DF_INTERSECTION
-  };
-
-
 /* Dataflow direction.  */
 enum df_flow_dir
   {
@@ -410,6 +399,9 @@ enum df_flow_dir
   };
 
 struct dataflow;
+
+typedef void (*confluence_function_0) (struct df *, void *, basic_block);
+typedef void (*confluence_function_n) (struct df *, void *, void *, edge);
 typedef void (*setbits_function) (struct dataflow *, basic_block);
 typedef void (*transfer_function) (int, int *, void *, void *,
 				   void *, void *, void *);
@@ -420,13 +412,16 @@ typedef void (*finalizer_function) (struct df*, bitmap);
 
 struct df_problem {
   enum df_flow_dir dir;			/* Dataflow direction.  */
-  enum df_confluence_op conf_op;	/* Confluence operator.  */ 
   setbits_function setbitsfun;          /* Function to copy bitvec 
                                            pointers to dflow. */
+  confluence_function_0 confun_0;       /* The function to provide
+					   information when there are
+					   no edges.  */
+  confluence_function_n confun_n;       /* The function to merge the
+					   bits from the pred blocks
+					   into the current block.  */
   transfer_function transfun;		/* The transfer function.  */
   finalizer_function finalizefun;       /* The finalizer function.  */
-  bool prop_fake;                       /* True if info is to be propagated along
-					   fake edges.  */
 };
 
 

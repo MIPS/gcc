@@ -250,7 +250,7 @@ web_main (void)
   used = xcalloc (max, sizeof (char));
 
   if (dump_file)
-    df_dump (df, DF_UD_CHAIN | DF_DU_CHAIN, dump_file);
+    df_dump (df, dump_file);
 
   /* Produce the web.  */
   for (i = 0; i < df->n_uses; i++)

@@ -3034,7 +3034,7 @@ reg_to_stack (FILE *file)
 #if 0
   fprintf (stderr, "\n\n\n\n");
 
-  df_dump (rtl_df, DF_LR | DF_UR, stderr);
+  df_dump (rtl_df, stderr);
 
   FOR_EACH_BB (bb)
     {

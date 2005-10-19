@@ -337,12 +337,9 @@ global_alloc (FILE *file)
   size_t i;
   rtx x;
 
+  max_regno = max_reg_num ();
   compact_blocks ();
-  add_noreturn_fake_exit_edges ();
-  connect_infinite_loops_to_exit ();
-  df_analyze (rtl_df,  0, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_DEFS | DF_ARTIFICIAL_USES);
-  remove_fake_edges ();
-
+  df_analyze (rtl_df, 0, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_USES);
   max_allocno = 0;
 
   /* A machine may have certain hard registers that

@@ -2526,7 +2526,7 @@ init_regions (void)
 #if 0
       basic_block bb;
       fprintf (stderr, "before:\n");
-      df_dump (rtl_df, DF_LR | DF_UR, stderr);
+      df_dump (rtl_df, stderr);
       FOR_EACH_BB (bb)
 	dump_bb (bb, stderr, 0);
 #endif
@@ -2641,7 +2641,7 @@ schedule_insns (FILE *dump_file)
 
 #if 0
       fprintf (stderr, "after:\n");
-      df_dump (rtl_df, DF_LR | DF_UR, stderr);
+      df_dump (rtl_df, stderr);
 #endif
       /* Verify the counts of basic block notes in single the basic block
          regions.  */
