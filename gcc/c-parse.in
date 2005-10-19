@@ -3331,7 +3331,8 @@ objc_qual:
 objc_quals:
 	  objc_quals objc_qual
 		{
-		  $$ = chainon ($1, build_tree_list (NULL_TREE, $2));
+		  /* APPLE LOCAL radar 4301047 */
+		  $$ = chainon (build_tree_list (NULL_TREE, $2), $1);
 		}
 	| /* NULL */
 		{

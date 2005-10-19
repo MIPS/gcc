@@ -1,3 +1,9 @@
+2005-10-10  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4301047
+
+	* objc-act.c (encode_type): Remove the hack.
+
 2005-10-17  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4290840

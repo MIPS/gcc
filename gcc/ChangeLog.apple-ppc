@@ -1,3 +1,10 @@
+2005-10-10  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4301047
+
+	* c-parse.in (objc_quals): Build objc qualifier list same way
+	as gcc-3.3
+	
 2005-10-11  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4271575

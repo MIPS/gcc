@@ -8685,12 +8685,9 @@ encode_type (tree type, int curtype, int format)
       /* Rewrite "in const" from "nr" to "rn".  */
       if (curtype >= 1 && !strncmp (enc - 1, "nr", 2))
         strncpy (enc - 1, "rn", 2);
-      /* Rewrite "bycopy in" from "On" to "nO".  */
-      else if (curtype >= 2 && !strncmp (enc - 2, "On", 2))
-	strncpy (enc - 2, "nO", 2);
-      /* Rewrite "bycopy out" from "Oo" to "oO".  */
-      else if (curtype >= 2 && !strncmp (enc - 2, "Oo", 2))
-	strncpy (enc - 2, "oO", 2);
+      /* APPLE LOCAL begin radar 4301047 */
+      /* code removed */
+      /* APPLE LOCAL end radar 4301047 */
     }
   /* APPLE LOCAL end 4136935 */
 }

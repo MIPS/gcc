@@ -1,3 +1,12 @@
+2005-10-19  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4301047
+
+	obj-c++.dg/proto-qual-1.mm: Fix test to match 3.3 ABI
+	objc.dg/proto-qual-1.m: Ditto
+	obj-c++.dg/threedotthree-abi-1.mm: New
+	objc.dg/threedotthree-abi-1.m: New
+
 2005-10-17  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4290840
