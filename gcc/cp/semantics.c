@@ -3485,7 +3485,7 @@ finish_omp_clauses (tree clauses)
 	{
 	  const char *share_name = NULL;
 
-	  if (DECL_THREAD_LOCAL_P (t))
+	  if (TREE_CODE (t) == VAR_DECL && DECL_THREAD_LOCAL_P (t))
 	    share_name = "threadprivate";
 	  else switch (cxx_omp_predetermined_sharing (t))
 	    {
@@ -3510,8 +3510,6 @@ finish_omp_clauses (tree clauses)
       if (need_default_ctor | need_copy_ctor | need_copy_assignment)
 	{
 	  /* FIXME */
-	  gcc_assert (!TYPE_HAS_CONSTRUCTOR (TREE_TYPE (t)));
-	  gcc_assert (!TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (t)));
 	}
 
       if (remove)

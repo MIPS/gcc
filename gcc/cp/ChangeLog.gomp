@@ -1,5 +1,10 @@
 2005-10-19  Richard Henderson  <rth@redhat.com>
 
+	* semantics.c (finish_omp_clauses): Avoid DECL_THREAD_LOCAL_P
+	on a PARM_DECL.  Remove some stub asserts guaranteed to fail.
+
+2005-10-19  Richard Henderson  <rth@redhat.com>
+
 	* cp-tree.h (OMP_ATOMIC_DEPENDENT_P, OMP_ATOMIC_CODE): New.
 	(finish_omp_clauses, finish_omp_for, finish_omp_atomic): New.
 	* parser.c (cp_parser_omp_clause_copyin): Remove.
