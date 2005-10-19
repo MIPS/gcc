@@ -2998,7 +2998,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	     escapes and so the pointed-to variables need to
 	     be marked call-clobbered.  */
 	  pi->value_escapes_p = 1;
-	  v_ann->escape_mask |= stmt_escape_type;
+	  pi->escape_mask |= stmt_escape_type;
 
 	  /* If the statement makes a function call, assume
 	     that pointer OP will be dereferenced in a store

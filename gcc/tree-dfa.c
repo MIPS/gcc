@@ -353,7 +353,35 @@ dump_variable (FILE *file, tree var)
     fprintf (file, ", is volatile");
 
   if (is_call_clobbered (var))
-    fprintf (file, ", call clobbered");
+    {
+      fprintf (file, ", call clobbered");
+      if (dump_flags & TDF_DETAILS)
+	{
+	  var_ann_t va = var_ann (var);
+	  unsigned int escape_mask = va->escape_mask;
+	  
+	  fprintf (file, " (");
+	  if (escape_mask & ESCAPE_STORED_IN_GLOBAL)
+	    fprintf (file, ", stored in global");
+	  if (escape_mask & ESCAPE_TO_ASM)
+	    fprintf (file, ", goes through ASM");
+	  if (escape_mask & ESCAPE_TO_CALL)
+	    fprintf (file, ", passed to call");
+	  if (escape_mask & ESCAPE_BAD_CAST)
+	    fprintf (file, ", bad cast");
+	  if (escape_mask & ESCAPE_TO_RETURN)
+	    fprintf (file, ", returned from func");
+	  if (escape_mask & ESCAPE_TO_PURE_CONST)
+	    fprintf (file, ", passed to pure/const");
+	  if (escape_mask & ESCAPE_IS_GLOBAL)
+	    fprintf (file, ", is global var");
+	  if (escape_mask & ESCAPE_IS_PARM)
+	    fprintf (file, ", is incoming pointer");
+	  if (escape_mask & ESCAPE_UNKNOWN)
+	    fprintf (file, ", unknown escape");
+	  fprintf (file, " )");
+	}
+    }
 
   if (default_def (var))
     {

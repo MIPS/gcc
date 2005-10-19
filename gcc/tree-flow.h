@@ -92,6 +92,9 @@ struct ptr_info_def GTY(())
      pointer will be represented by this memory tag, instead of the type
      tag computed by TBAA.  */
   tree name_mem_tag;
+
+  /* Mask of reasons this pointer's value escapes the function  */
+  unsigned int escape_mask;
 };
 
 
@@ -777,9 +780,10 @@ enum escape_type
     ESCAPE_TO_CALL = 1 << 3,
     ESCAPE_BAD_CAST = 1 << 4, 
     ESCAPE_TO_RETURN = 1 << 5,
-    ESCAPE_TRANSITIVE = 1 << 6,
+    ESCAPE_TO_PURE_CONST = 1 << 6,
     ESCAPE_IS_GLOBAL = 1 << 7,
-    ESCAPE_UNKNOWN = 1 << 8
+    ESCAPE_IS_PARM = 1 << 8,
+    ESCAPE_UNKNOWN = 1 << 9
   };
 
 /* In tree-flow-inline.h  */

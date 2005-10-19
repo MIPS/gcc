@@ -1,3 +1,25 @@
+2005-10-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/24287
+	* tree-dfa.c (dump_variable): Print reasons for call clobbering.
+	* tree-flow.h (struct ptr_info_def): Add escape mask to pointer.
+	(ESCAPE_TRANSITIVE): Removed.
+	(ESCAPE_TO_PURE_CONST): New.
+	(ESCAPE_IS_PARM): New.
+	(ESCAPE_UNKNOWN): New.
+	* tree-ssa-alias.c (set_initial_properties): Incoming pointers are
+	value escaping.
+	Pointers that point to anything are not.
+	Use pointer escape mask.
+	(is_escape_site): Use ESCAPE_TO_PURE_CONST.
+	* tree-ssa-operands.c (add_call_clobber_ops): Clean up a bit.
+	Things that *only* escape to pure/const functions are only read by
+	pure/const functions, and are not clobbered by the non-pure/const
+	functions. 
+	(add_call_read_ops): Cleanup.
+	* tree-ssa-structalias.c (update_alias_info): Use pi->escape_mask,
+	not v_ann.
+
 2005-10-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-structalias.c (process_constraint): Remove code to

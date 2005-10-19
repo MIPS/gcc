@@ -327,8 +327,18 @@ set_initial_properties (struct alias_info *ai)
       if (is_global_var (var) 
 	  && (!var_can_have_subvars (var)
 	      || get_subvars_for_var (var) == NULL))
-	if (!unmodifiable_var_p (var))
-	  mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
+	{
+	  if (!unmodifiable_var_p (var))
+	    mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
+	}
+      else if (TREE_CODE (var) == PARM_DECL
+	       && default_def (var)
+	       && POINTER_TYPE_P (TREE_TYPE (var)))
+	{
+	  tree def = default_def (var);
+	  get_ptr_info (def)->value_escapes_p = 1;
+	  get_ptr_info (def)->escape_mask |= ESCAPE_IS_PARM;	  
+	}
     }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
@@ -336,16 +346,16 @@ set_initial_properties (struct alias_info *ai)
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
-
-      if (pi->value_escapes_p || pi->pt_anything)
+      
+      if (pi->value_escapes_p)
 	{
-	  /* If PTR escapes or may point to anything, then its associated
-	     memory tags and pointed-to variables are call-clobbered.  */
+	  /* If PTR escapes then its associated memory tags and
+	     pointed-to variables are call-clobbered.  */
 	  if (pi->name_mem_tag)
-	    mark_call_clobbered (pi->name_mem_tag, v_ann->escape_mask);
+	    mark_call_clobbered (pi->name_mem_tag, pi->escape_mask);
 
 	  if (v_ann->type_mem_tag)
-	    mark_call_clobbered (v_ann->type_mem_tag, v_ann->escape_mask);
+	    mark_call_clobbered (v_ann->type_mem_tag, pi->escape_mask);
 
 	  if (pi->pt_vars)
 	    {
@@ -353,7 +363,7 @@ set_initial_properties (struct alias_info *ai)
 	      unsigned int j;	      
 	      EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 		if (!unmodifiable_var_p (referenced_var (j)))
-		  mark_call_clobbered (referenced_var (j), v_ann->escape_mask);
+		  mark_call_clobbered (referenced_var (j), pi->escape_mask);
 	    }
 	}
       /* If the name tag is call clobbered, so is the type tag
@@ -361,7 +371,7 @@ set_initial_properties (struct alias_info *ai)
       if (pi->name_mem_tag
 	  && v_ann->type_mem_tag
 	  && is_call_clobbered (pi->name_mem_tag))
-	mark_call_clobbered (v_ann->type_mem_tag, v_ann->escape_mask);
+	mark_call_clobbered (v_ann->type_mem_tag, pi->escape_mask);
 
       if ((pi->pt_global_mem || pi->pt_anything) && pi->name_mem_tag)
 	mark_tag_global (pi->name_mem_tag);
@@ -1890,7 +1900,10 @@ is_escape_site (tree stmt, struct alias_info *ai)
       ai->num_calls_found++;
 
       if (!TREE_SIDE_EFFECTS (call))
-	ai->num_pure_const_calls_found++;
+	{
+	  ai->num_pure_const_calls_found++;
+	  return ESCAPE_TO_PURE_CONST;
+	}
 
       return ESCAPE_TO_CALL;
     }

@@ -1860,7 +1860,6 @@ add_call_clobber_ops (tree stmt, tree callee)
   struct cgraph_node *ournode = cgraph_node (current_function_decl);
   bool okay_for_call_skip = callee_okay_for_noescape (ournode, callee);
   
-  
   /* Functions that are not const, pure or never return may clobber
      call-clobbered variables.  */
   if (s_ann)
@@ -1888,28 +1887,45 @@ add_call_clobber_ops (tree stmt, tree callee)
   /* Add a V_MAY_DEF operand for every call clobbered variable.  */
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
-      tree var = referenced_var (u);
+      tree var = referenced_var_lookup (u);
+      unsigned int escape_mask = var_ann (var)->escape_mask;
       bool not_read
 	= not_read_b ? bitmap_bit_p (not_read_b, u) : false;
       bool not_written
 	= not_written_b ? bitmap_bit_p (not_written_b, u) : false;
-      bool before = okay_for_call_skip;
       
       gcc_assert (!unmodifiable_var_p (var));
       
       clobber_stats.clobbered_vars++;
 
+
       /* See if this variable is really clobbered by this function.  */
-      if (okay_for_call_skip)
+
+      /* Trivial case: Things escaping only to pure/const are not
+	 clobbered by non-pure-const, and only read by pure/const. */
+      if ((escape_mask & ~(ESCAPE_TO_PURE_CONST)) == 0)
 	{
-	  okay_for_call_skip &= (var_ann (var)->escape_mask & ~(ESCAPE_TO_CALL)) == 0;	  
-	  if (okay_for_call_skip)
+	  tree call = get_call_expr_in (stmt);
+	  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
+	    {
+	      add_stmt_operand (&var, s_ann, opf_none);
+	      clobber_stats.unescapable_clobbers_avoided++;
+	      continue;
+	    }
+	  else
 	    {
 	      clobber_stats.unescapable_clobbers_avoided++;
 	      continue;
 	    }
 	}
-      okay_for_call_skip = before;
+      
+      /* Otherwise, see if we know it doesn't escape to *this*
+	 function.  */
+      if (okay_for_call_skip && (escape_mask & ~(ESCAPE_TO_CALL | ESCAPE_TO_PURE_CONST)) == 0)
+	{
+	  clobber_stats.unescapable_clobbers_avoided++;
+	  continue;
+	}
       
       if (not_written)
 	{
@@ -1954,9 +1970,9 @@ add_call_read_ops (tree stmt, tree callee)
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
+      var_ann_t va = var_ann (var);
       bool not_read = not_read_b ? bitmap_bit_p (not_read_b, u) : false;
-      bool before = okay_for_call_skip;
-      
+
       clobber_stats.readonly_clobbers++;
       
       if (not_read)
@@ -1965,18 +1981,13 @@ add_call_read_ops (tree stmt, tree callee)
 	  continue;
 	}
       
-      if (okay_for_call_skip)
+      if (okay_for_call_skip && (va->escape_mask & ~(ESCAPE_TO_CALL | ESCAPE_TO_PURE_CONST)) == 0)
 	{
-	  okay_for_call_skip &= (var_ann (var)->escape_mask & ~(ESCAPE_TO_CALL)) == 0;
-	  if (okay_for_call_skip)
-	    {
-	      clobber_stats.unescapable_clobbers_avoided++;
-	      continue;
-	    }
+	  clobber_stats.unescapable_clobbers_avoided++;
+	  continue;
 	}
       
       add_stmt_operand (&var, s_ann, opf_none | opf_non_specific);
-      okay_for_call_skip = before;      
     }
 }
 
