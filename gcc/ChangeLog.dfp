@@ -1,3 +1,17 @@
+2005-10-20  Ben Elliston  <bje@au.ibm.com>
+
+	Not to be merged (probably):
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Use a GP
+	register for SDmode.
+	(rs6000_emit_move): Likewise.
+	(function_arg_advance): Exclude SDmode.
+	(function_arg): Likewise.
+	(rs6000_gimplify_va_arg): Handle DDmode, TDmode.
+	(rs6000_function_value): Return SDmode values in GPRs.
+	(rs6000_libcall_value): Likewise.
+	* config/rs6000/rs6000.md (*movsd_fprs): Remove pattern.
+	(*movsd_gpr): Reinstate pattern.
+
 2005-10-18  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.md (*pushsd2): New pattern.
