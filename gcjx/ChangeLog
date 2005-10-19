@@ -1,5 +1,10 @@
 2005-10-18  Tom Tromey  <tromey@redhat.com>
 
+	* model/method.cc (model_method): Set body,
+	is_instance_initializer.
+
+2005-10-18  Tom Tromey  <tromey@redhat.com>
+
 	* model/classinst.hh (model_class_instance::type_map_match_p):
 	Removed.
 	* model/method.cc (apply_type_map): Updated.

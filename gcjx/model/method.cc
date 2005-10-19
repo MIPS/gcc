@@ -63,10 +63,12 @@ model_method::model_method (model_method *other,
 
   set_return_type (wrap (other->return_type->type (), enclosing, type_map));
   // FIXME: what do we do with the body?
+  body = NULL;
 
   varargs = other->varargs;
   used = false;
   overrides = other->overrides;
+  is_instance_initializer = other->is_instance_initializer;
 }
 
 ref_method
