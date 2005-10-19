@@ -39,7 +39,7 @@ void foo()
   #pragma omp for schedule ( static, 1 + 1 ) nowait
   for (i = 0; i < 10; ++i) ;
 
-  #pragma omp for schedule ( static, 1.0 )	// { dg-error "expected integer expression" }
+  #pragma omp for schedule ( static, 1.0 )	// { dg-error "integral" }
   for (i = 0; i < 10; ++i) ;
 
   #pragma omp for schedule (dynamic)

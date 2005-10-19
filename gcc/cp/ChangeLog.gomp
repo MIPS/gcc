@@ -1,3 +1,24 @@
+2005-10-19  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.h (OMP_ATOMIC_DEPENDENT_P, OMP_ATOMIC_CODE): New.
+	(finish_omp_clauses, finish_omp_for, finish_omp_atomic): New.
+	* parser.c (cp_parser_omp_clause_copyin): Remove.
+	(cp_parser_omp_all_clauses): Use cp_parser_omp_var_list instead.
+	Call finish_omp_clauses.
+	(cp_parser_omp_clause_if): Don't do error checking here.
+	(cp_parser_omp_clause_num_threads): Likewise.
+	(cp_parser_omp_clause_schedule): Likewise.
+	(cp_parser_omp_atomic): Use finish_omp_atomic.
+	(cp_parser_omp_for_loop): Don't discard DECL_EXPR.  Don't decompose
+	assignment statment here.  Use finish_omp_for.
+	* pt.c (tsubst_omp_clauses): New.
+	(tsubst_expr): Handle OMP_PARALLEL, OMP_FOR, OMP_SECTIONS,
+	OMP_SINGLE, OMP_SECTION, OMP_CRITICAL, OMP_ATOMIC.
+	* semantics.c (finish_omp_clauses): New.
+	(begin_omp_parallel, finish_omp_parallel): Know Less about the
+	internals of the stmt_list stack.
+	(finish_omp_for, finish_omp_atomic): New.
+
 2005-10-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (cxx_omp_predetermined_sharing): New function.

@@ -17624,30 +17624,6 @@ cp_parser_omp_var_list (cp_parser *parser, enum tree_code kind, tree list)
 }
 
 /* OpenMP 2.5:
-   copyin ( variable-list ) */
-
-static tree
-cp_parser_omp_clause_copyin (cp_parser *parser, tree list)
-{
-  tree nlist, t;
-  bool saw_error = false;
-
-  nlist = cp_parser_omp_var_list (parser, OMP_CLAUSE_COPYIN, list);
-
-  for (t = nlist; t != list; t = OMP_CLAUSE_CHAIN (t))
-    {
-      tree decl = OMP_CLAUSE_DECL (t);
-      if (!DECL_THREAD_LOCAL_P (decl))
-	{
-	  error ("%qE used in %<copyin%> is not %<threadprivate%>", decl);
-	  saw_error = true;
-	}
-    }
-
-  return saw_error ? list : nlist;
-}
-
-/* OpenMP 2.5:
    default ( shared | none ) */
 
 static tree
@@ -17723,8 +17699,6 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list)
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
-  if (t == error_mark_node)
-    return list;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_IF, "if");
 
@@ -17768,13 +17742,6 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list)
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
-  if (t == error_mark_node)
-    return list;
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      error ("expected integer expression");
-      return list;
-    }
 
   check_no_duplicate_clause (list, OMP_CLAUSE_NUM_THREADS, "num_threads");
 
@@ -17925,10 +17892,8 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
       else if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_RUNTIME)
 	error ("schedule %<runtime%> does not take "
 	       "a %<chunk_size%> parameter");
-      else if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
-	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
       else
-	cp_parser_error (parser, "expected integer expression");
+	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
 	goto resync_fail;
@@ -17967,7 +17932,8 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
       switch (c_kind)
 	{
 	case PRAGMA_OMP_CLAUSE_COPYIN:
-	  clauses = cp_parser_omp_clause_copyin (parser, clauses);
+	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_COPYIN,
+					    clauses);
 	  c_name = "copyin";
 	  break;
 	case PRAGMA_OMP_CLAUSE_COPYPRIVATE:
@@ -18033,8 +17999,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
     }
  saw_error:
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-
-  return clauses;
+  return finish_omp_clauses (clauses);
 }
 
 /* OpenMP 2.5:
@@ -18135,7 +18100,7 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
 	goto saw_error;
       break;
     }
-  c_finish_omp_atomic (code, lhs, rhs);
+  finish_omp_atomic (code, lhs, rhs);
   cp_parser_consume_semicolon_at_end_of_statement (parser);
   return;
 
@@ -18246,7 +18211,6 @@ cp_parser_omp_for_loop (cp_parser *parser)
 	  cp_parser_require (parser, CPP_EQ, "`='");
 	  if (cp_parser_parse_definitely (parser))
 	    {
-	      tree stmt_list = push_stmt_list ();
 	      tree pushed_scope;
 
 	      decl = start_decl (declarator, &type_specifiers,
@@ -18261,16 +18225,6 @@ cp_parser_omp_for_loop (cp_parser *parser)
 
 	      if (pushed_scope)
 		pop_scope (pushed_scope);
-
-	      /* Discard the DECL_EXPR that cp_finish_decl added.  If the
-		 variable is integral as its supposed to be, it isn't
-		 needed.  We'll be checking that later.  */
-	      pop_stmt_list (stmt_list);
-
-	      /* Build the initialization of decl by hand.  This seems to
-		 be the easiest way to re-capture the expression after the
-		 fact.  */
-	      init = build_modify_expr (decl, NOP_EXPR, init);
 	    }
 	}
 
@@ -18280,17 +18234,8 @@ cp_parser_omp_for_loop (cp_parser *parser)
 	{
 	  cp_parser_abort_tentative_parse (parser);
 	  init = cp_parser_expression (parser, false);
-
-	  if (TREE_CODE (init) == MODIFY_EXPR)
-	    {
-	      decl = TREE_OPERAND (init, 0);
-	      if (!DECL_P (decl))
-		decl = NULL;
-	    }
 	}
     }
-  if (decl == NULL)
-    error ("expected iteration declaration or initialization");
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
   cond = NULL;
@@ -18316,9 +18261,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
 
   parser->in_iteration_statement_p = in_iteration_statement_p;
 
-  if (decl)
-    return c_finish_omp_for (loc, decl, init, cond, incr, body);
-  return NULL;
+  return finish_omp_for (loc, decl, init, cond, incr, body);
 }
 
 /* OpenMP 2.5:
