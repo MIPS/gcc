@@ -69,7 +69,7 @@ contains
     d(:) = -1
     m = .true.
     n = 24
-!$omp parallel num_threads (4) shared (k, d) private (l) &
+!$omp parallel num_threads (4) shared (i, k, d) private (l) &
 !$omp&reduction (.and. : m)
     if (omp_get_thread_num () .eq. 0) then
       k = omp_get_num_threads ()

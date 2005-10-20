@@ -121,7 +121,7 @@
 
 * Initilize initial condition and RHS
 
-!$omp parallel do private(xx,yy,i,j)
+!$omp parallel do private(xx,yy)
       do j = 1,m
          do i = 1,n
             xx = -1.0 + dx * dble(i-1)        ! -1 < x < 1
@@ -185,7 +185,8 @@
 
 * Copy new solution into old
 !$omp parallel
-!$omp do
+
+!$omp do 
          do j=1,m
             do i=1,n
                uold(i,j) = u(i,j) 
@@ -242,7 +243,7 @@
       dy = 2.0 / (m-1)
       error = 0.0 
 
-!$omp parallel do private(xx,yy,temp) reduction(+:error) private(i,j)
+!$omp parallel do private(xx,yy,temp) reduction(+:error)
       do j = 1,m
          do i = 1,n
             xx = -1.0d0 + dx * dble(i-1)

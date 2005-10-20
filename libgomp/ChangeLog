@@ -1,3 +1,10 @@
+2005-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/jacobi.f: Don't make i and j
+	explicitly private.
+	* testsuite/libgomp.fortran/omp_parse1.f90 (test_do): Make i
+	explicitly shared.
+
 2005-10-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/libgomp.fortran/jacobi.f: New test.
