@@ -2736,11 +2736,7 @@ cw_asm_unary_expr:
 		  /* Handle things like: inc dword ptr [eax]  */
 		  if (strcasecmp (IDENTIFIER_POINTER ($2), "ptr") != 0)
 		    error ("expected %<ptr%>");
-		  if (! (TREE_TYPE ($3.value) == void_type_node
-			 && TREE_CODE ($3.value) == BRACKET_EXPR))
-		    error ("%<ptr%> expression misplaced");
-		  TREE_TYPE ($3.value) = $1.value;
-		  $$.value = $3.value;
+		  $$.value = cw_ptr_conv ($1.value, $3.value);
 		  $$.original_code = ERROR_MARK;
 		}
 	| '*' cw_asm_unary_expr   %prec UNARY

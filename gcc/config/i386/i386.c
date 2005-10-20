@@ -18335,6 +18335,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	{
 	case VAR_DECL:
 	case PARM_DECL:
+	case INDIRECT_REF:
 	  if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
 	    e->mod[argnum-1] = 'l';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == HImode)
@@ -18362,6 +18363,14 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 		e->mod[argnum-1] = 'l';
 	      else if (strcasecmp (s, "qword") == 0)
 		e->mod[argnum-1] = 'q';
+	      else if (strcasecmp (s, "real4") == 0)
+		e->mod[argnum-1] = 's';
+	      else if (strcasecmp (s, "real8") == 0)
+		e->mod[argnum-1] = 'l';
+	      else if (strcasecmp (s, "real10") == 0)
+		e->mod[argnum-1] = 't';
+	      else if (strcasecmp (s, "tbyte") == 0)
+		e->mod[argnum-1] = 't';
 	    }
 	  break;
 	case LABEL_DECL:

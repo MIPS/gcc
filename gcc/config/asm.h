@@ -74,4 +74,5 @@ extern tree cw_build_bracket (tree, tree);
 extern bool cw_is_prefix (tree);
 extern void cw_skip_to_eol (void);
 extern void cw_force_constraint (const char *c, cw_md_extra_info *e);
+extern tree cw_ptr_conv (tree type, tree exp);
 #endif
