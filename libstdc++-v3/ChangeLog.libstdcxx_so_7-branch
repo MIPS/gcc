@@ -1,5 +1,9 @@
 2005-10-19  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/ext/sso_string.h (_M_swap): Rewrite.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
 	PR libstdc++/23897
 	* include/bits/basic_string.h: Add move constructor and move
 	assignment operator; provide specialization of __is_moveable
