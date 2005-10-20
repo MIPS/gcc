@@ -3541,36 +3541,58 @@ finish_omp_threadprivate (tree vars)
     }
 }
 
+/* Build a structured block.  Mostly we just want to wrap the thing
+   in a MUST_NOT_THROW_EXPR, which will enforce the constraint in
+   OpenMP 2.5 section 1.2.2 that throw may not violate the entry/exit
+   criteria of the structured block.  That is, an exception thrown
+   within the block must be caught within the block.  */
+
+tree
+begin_omp_structured_block (void)
+{
+  return push_stmt_list ();
+}
+
+tree
+finish_omp_structured_block (tree block)
+{
+  return build1 (MUST_NOT_THROW_EXPR, void_type_node, pop_stmt_list (block));
+}
+
 /* Like c_begin_compound_stmt, except force the retension of the BLOCK.  */
 
 tree
 begin_omp_parallel (void)
 {
-  tree outer, inner;
-  outer = push_stmt_list ();
-  keep_next_level (true);
-  inner = begin_compound_stmt (0);
+  tree l1, l2, l3;
 
-  /* In order to pass two values to finish_omp_parallel without extra
+  keep_next_level (true);
+  l1 = push_stmt_list ();
+  l2 = begin_compound_stmt (0);
+  l3 = begin_omp_structured_block ();
+
+  /* In order to pass three values to finish_omp_parallel without extra
      complication in the interface here, wrap them in a cons node.  */
-  return tree_cons (outer, inner, NULL);
+  return tree_cons (l1, l2, l3);
 }
 
 tree
 finish_omp_parallel (tree clauses, tree cons)
 {
-  tree stmt, outer, inner;
+  tree stmt, l1, l2, l3;
 
-  outer = TREE_PURPOSE (cons);
-  inner = TREE_VALUE (cons);
+  l1 = TREE_PURPOSE (cons);
+  l2 = TREE_VALUE (cons);
+  l3 = TREE_CHAIN (cons);
   
-  finish_compound_stmt (inner);
-  outer = pop_stmt_list (outer);
+  add_stmt (finish_omp_structured_block (l3));
+  finish_compound_stmt (l2);
+  l1 = pop_stmt_list (l1);
 
   stmt = make_node (OMP_PARALLEL);
   TREE_TYPE (stmt) = void_type_node;
   OMP_PARALLEL_CLAUSES (stmt) = clauses;
-  OMP_PARALLEL_BODY (stmt) = outer;
+  OMP_PARALLEL_BODY (stmt) = l1;
 
   return add_stmt (stmt);
 }

@@ -18013,9 +18013,9 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 static tree
 cp_parser_omp_structured_block (cp_parser *parser)
 {
-  tree stmt = push_stmt_list ();
+  tree stmt = begin_omp_structured_block ();
   cp_parser_statement (parser, NULL_TREE, false);
-  return pop_stmt_list (stmt);
+  return finish_omp_structured_block (stmt);
 }
 
 /* OpenMP 2.5:
@@ -18255,6 +18255,8 @@ cp_parser_omp_for_loop (cp_parser *parser)
   in_iteration_statement_p = parser->in_iteration_statement_p;
   parser->in_iteration_statement_p = true;
 
+  /* Note that the grammar doesn't call for a structured block here,
+     though the loop as a whole is a structured block.  */
   body = push_stmt_list ();
   cp_parser_statement (parser, NULL_TREE, false);
   body = pop_stmt_list (body);
@@ -18281,15 +18283,19 @@ cp_parser_omp_for_loop (cp_parser *parser)
 static tree
 cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree block, clauses, ret;
+  tree block, clauses, sb, ret;
 
   clauses = cp_parser_omp_all_clauses (parser, OMP_FOR_CLAUSE_MASK,
 				       "#pragma omp for", pragma_tok);
 
   block = begin_compound_stmt (0);
+  sb = begin_omp_structured_block ();
+
   ret = cp_parser_omp_for_loop (parser);
   if (ret)
     OMP_FOR_CLAUSES (ret) = clauses;
+
+  add_stmt (finish_omp_structured_block (sb));
   finish_compound_stmt (block);
 
   return ret;
@@ -18342,7 +18348,7 @@ cp_parser_omp_sections_scope (cp_parser *parser)
 
   if (cp_lexer_peek_token (parser->lexer)->pragma_kind != PRAGMA_OMP_SECTION)
     {
-      substmt = push_stmt_list ();
+      substmt = begin_omp_structured_block ();
 
       while (1)
 	{
@@ -18357,7 +18363,7 @@ cp_parser_omp_sections_scope (cp_parser *parser)
 	    break;
 	}
 
-      substmt = pop_stmt_list (substmt);
+      substmt = finish_omp_structured_block (substmt);
       substmt = build1 (OMP_SECTION, void_type_node, substmt);
       add_stmt (substmt);
     }

@@ -4236,6 +4236,8 @@ extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
 extern tree finish_omp_clauses			(tree);
 extern void finish_omp_threadprivate		(tree);
+extern tree begin_omp_structured_block		(void);
+extern tree finish_omp_structured_block		(tree);
 extern tree begin_omp_parallel			(void);
 extern tree finish_omp_parallel			(tree, tree);
 extern tree finish_omp_for			(location_t, tree, tree,
