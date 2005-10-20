@@ -1,3 +1,8 @@
+2005-10-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* df.c (df_lr_local_compute): Fix thinko regarding pseudos and call
+	defs.
+
 2005-10-19  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df.c (df_bitmap_ior_edge, df_lr_confluence_0

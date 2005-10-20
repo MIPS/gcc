@@ -2514,11 +2514,12 @@ df_bb_lr_local_compute (struct df *df, basic_block bb)
 	      struct ref *def = link->ref;
 	      unsigned int dregno = DF_REF_REGNO (def);
 	      
-	      if (!(SIBLING_CALL_P (insn)
-		    && bitmap_bit_p (DF_BB_INFO (df, EXIT_BLOCK_PTR)->lr_use, dregno)
-		    && !refers_to_regno_p (dregno, dregno+1,
-					   current_function_return_rtx,
-					   (rtx *)0)))
+	      if (dregno >= FIRST_PSEUDO_REGISTER
+		  || !(SIBLING_CALL_P (insn)
+		       && bitmap_bit_p (DF_BB_INFO (df, EXIT_BLOCK_PTR)->lr_use, dregno)
+		       && !refers_to_regno_p (dregno, dregno+1,
+					      current_function_return_rtx,
+					      (rtx *)0)))
 		{
 		  /* Add def to set of defs in this BB.  */
 		  bitmap_set_bit (bb_info->lr_def, dregno);
