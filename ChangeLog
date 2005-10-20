@@ -1,3 +1,34 @@
+2005-10-17  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* configure.in (bfin-*-*): Use test, not brackets, in if statement.
+	* configure: Regenerate.
+
+2005-10-15  Jie Zhang  <jie.zhang@analog.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.in (arm-*-linux-gnueabi): Add to noconfigdirs
+	target-libffi, target-qthreads, target-libjava, and
+	targetlibobjc.
+	* configure: Regenerate.
+
+2005-10-06  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.def (flags_to_pass): Add OBJDUMP_FOR_TARGET.
+	* Makefile.tpl (BASE_TARGET_EXPORTS): Add OBJDUMP.
+	(OBJDUMP_FOR_TARGET, CONFIGURED_OBJDUMP_FOR_TARGET)
+	(USUAL_OBJDUMP_FOR_TARGET): New.
+	(EXTRA_TARGET_FLAGS): Add OBJDUMP.
+	* configure.in: Check for $OBJDUMP_FOR_TARGET.
+	* configure, Makefile: Regenerated.
+
+2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (all) [gcc-no-bootstrap]: Make prebootstrap packages
+	before other host packages.
+
 2005-10-05  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* MAINTAINERS: Add self as sh libraries/configury maintainer.

@@ -1385,6 +1385,8 @@ override_options (void)
 	error ("-mstack-size implies use of -mstack-guard");
       else if (s390_stack_guard >= s390_stack_size)
 	error ("stack size must be greater than the stack guard value");
+      else if (s390_stack_size > 1 << 16)
+	error ("stack size must not be greater than 64k");
     }
   else if (s390_stack_guard)
     error ("-mstack-guard implies use of -mstack-size"); 
@@ -3813,6 +3815,101 @@ s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
   return false;
 }
 
+/* Expand code for the insv template. Return true if successful, false else.  */
+
+bool 
+s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
+{
+  int bitsize = INTVAL (op1);
+  int bitpos = INTVAL (op2);
+
+  /* We need byte alignement.  */
+  if (bitsize % BITS_PER_UNIT)
+    return false;
+
+  if (bitpos == 0
+      && memory_operand (dest, VOIDmode)
+      && (register_operand (src, word_mode)
+	  || const_int_operand (src, VOIDmode)))
+    {
+      /* Emit standard pattern if possible.  */
+      enum machine_mode mode = smallest_mode_for_size (bitsize, MODE_INT);
+      if (GET_MODE_BITSIZE (mode) == bitsize)
+	emit_move_insn (adjust_address (dest, mode, 0), gen_lowpart (mode, src));
+
+      /* (set (ze (mem)) (const_int)).  */
+      else if (const_int_operand (src, VOIDmode))
+	{
+	  int size = bitsize / BITS_PER_UNIT;
+	  rtx src_mem = adjust_address (force_const_mem (word_mode, src), BLKmode,
+					GET_MODE_SIZE (word_mode) - size);
+
+	  dest = adjust_address (dest, BLKmode, 0);
+	  set_mem_size (dest, GEN_INT (size));
+	  s390_expand_movmem (dest, src_mem, GEN_INT (size));
+	}
+	  
+      /* (set (ze (mem)) (reg)).  */
+      else if (register_operand (src, word_mode))
+	{
+	  if (bitsize <= GET_MODE_BITSIZE (SImode))
+	    emit_move_insn (gen_rtx_ZERO_EXTRACT (word_mode, dest, op1,
+						  const0_rtx), src);
+	  else
+	    {
+	      /* Emit st,stcmh sequence.  */
+	      int stcmh_width = bitsize - GET_MODE_BITSIZE (SImode);
+	      int size = stcmh_width / BITS_PER_UNIT;
+
+	      emit_move_insn (adjust_address (dest, SImode, size), 
+			      gen_lowpart (SImode, src));
+	      set_mem_size (dest, GEN_INT (size));
+	      emit_move_insn (gen_rtx_ZERO_EXTRACT (word_mode, dest, GEN_INT
+						    (stcmh_width), const0_rtx),
+			      gen_rtx_LSHIFTRT (word_mode, src, GEN_INT
+						(GET_MODE_BITSIZE (SImode))));
+	    }
+	}
+      else
+	return false;
+
+      return true;
+    }
+
+  /* (set (ze (reg)) (const_int)).  */
+  if (TARGET_ZARCH
+      && register_operand (dest, word_mode) 
+      && (bitpos % 16) == 0
+      && (bitsize % 16) == 0
+      && const_int_operand (src, VOIDmode))
+    {
+      HOST_WIDE_INT val = INTVAL (src);
+      int regpos = bitpos + bitsize;
+
+      while (regpos > bitpos)
+	{
+	  enum machine_mode putmode;
+	  int putsize;
+
+	  if (TARGET_EXTIMM && (regpos % 32 == 0) && (regpos >= bitpos + 32))
+	    putmode = SImode;
+	  else
+	    putmode = HImode;
+
+	  putsize = GET_MODE_BITSIZE (putmode);
+	  regpos -= putsize;
+	  emit_move_insn (gen_rtx_ZERO_EXTRACT (word_mode, dest, 
+						GEN_INT (putsize),
+						GEN_INT (regpos)), 
+			  gen_int_mode (val, putmode));
+	  val >>= putsize;
+	}
+      gcc_assert (regpos == bitpos);
+      return true;
+    }
+
+  return false;
+}
 
 /* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
@@ -4065,10 +4162,13 @@ print_operand_address (FILE *file, rtx addr)
     'Y': print shift count operand.
 
     'b': print integer X as if it's an unsigned byte.
-    'x': print integer X as if it's an unsigned word.
-    'h': print integer X as if it's a signed word.
+    'x': print integer X as if it's an unsigned halfword.
+    'h': print integer X as if it's a signed halfword.
     'i': print the first nonzero HImode part of X.
-    'j': print the first HImode part unequal to 0xffff of X.  */
+    'j': print the first HImode part unequal to -1 of X.
+    'k': print the first nonzero SImode part of X.
+    'm': print the first SImode part unequal to -1 of X.
+    'o': print integer X as if it's an unsigned 32bit word.  */
 
 void
 print_operand (FILE *file, rtx x, int code)
@@ -6238,11 +6338,46 @@ s390_update_frame_layout (void)
     regs_ever_live[REGNO (cfun->machine->base_reg)] = 1;
 }
 
+/* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
+
+bool
+s390_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
+{
+   /* Once we've decided upon a register to use as base register, it must
+      no longer be used for any other purpose.  */
+  if (cfun->machine->base_reg)
+    if (REGNO (cfun->machine->base_reg) == old_reg
+	|| REGNO (cfun->machine->base_reg) == new_reg)
+      return false;
+
+  return true;
+}
+
 /* Return true if register FROM can be eliminated via register TO.  */
 
 bool
 s390_can_eliminate (int from, int to)
 {
+  /* On zSeries machines, we have not marked the base register as fixed.
+     Instead, we have an elimination rule BASE_REGNUM -> BASE_REGNUM.
+     If a function requires the base register, we say here that this
+     elimination cannot be performed.  This will cause reload to free
+     up the base register (as if it were fixed).  On the other hand,
+     if the current function does *not* require the base register, we
+     say here the elimination succeeds, which in turn allows reload
+     to allocate the base register for any other purpose.  */
+  if (from == BASE_REGNUM && to == BASE_REGNUM)
+    {
+      if (TARGET_CPU_ZARCH)
+	{
+	  s390_init_frame_layout ();
+	  return cfun->machine->base_reg == NULL_RTX;
+	}
+
+      return false;
+    }
+
+  /* Everything else must point into the stack frame.  */
   gcc_assert (to == STACK_POINTER_REGNUM
 	      || to == HARD_FRAME_POINTER_REGNUM);
 
@@ -6291,6 +6426,10 @@ s390_initial_elimination_offset (int from, int to)
       gcc_assert (index >= 0);
       offset = cfun_frame_layout.frame_size + cfun_frame_layout.gprs_offset;
       offset += index * UNITS_PER_WORD;
+      break;
+
+    case BASE_REGNUM:
+      offset = 0;
       break;
 
     default:
@@ -8258,6 +8397,8 @@ s390_conditional_register_usage (void)
     }
   if (TARGET_CPU_ZARCH)
     {
+      fixed_regs[BASE_REGNUM] = 0;
+      call_used_regs[BASE_REGNUM] = 0;
       fixed_regs[RETURN_REGNUM] = 0;
       call_used_regs[RETURN_REGNUM] = 0;
     }

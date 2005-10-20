@@ -923,7 +923,7 @@ objective-c++ objective-c++-header objective-c++-cpp-output
 assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input  ratfor
-f95
+f95  f95-cpp-input
 java
 treelang
 @end smallexample
@@ -5738,6 +5738,11 @@ of two blocks before crossjumping will be performed on them.  This
 value is ignored in the case where all instructions in the block being
 crossjumped from are matched.  The default value is 5.
 
+@item max-grow-copy-bb-insns
+The maximum code size expansion factor when copying basic blocks
+instead of jumping.  The expansion is relative to a jump instruction.
+The default value is 8.
+
 @item max-goto-duplication-insns
 The maximum number of instructions to duplicate to a block that jumps
 to a computed goto.  To avoid @math{O(N^2)} behavior in a number of
@@ -7155,7 +7160,7 @@ architectures:
 @item -mabi=@var{name}
 @opindex mabi
 Generate code for the specified ABI@.  Permissible values are: @samp{apcs-gnu},
-@samp{atpcs}, @samp{aapcs} and @samp{iwmmxt}.
+@samp{atpcs}, @samp{aapcs}, @samp{aapcs-linux} and @samp{iwmmxt}.
 
 @item -mapcs-frame
 @opindex mapcs-frame
@@ -9509,8 +9514,8 @@ specified separated by a comma.
 Specify bit size of immediate TLS offsets.  Valid values are 14, 22, and
 64.
 
-@item -mtune-arch=@var{cpu-type}
-@opindex mtune-arch
+@item -mtune=@var{cpu-type}
+@opindex mtune
 Tune the instruction scheduling for a particular CPU, Valid values are
 itanium, itanium1, merced, itanium2, and mckinley.
 
@@ -11654,9 +11659,10 @@ back end emits additional instructions in the function prologue which trigger a 
 if the stack size is @var{stack-guard} bytes above the @var{stack-size}
 (remember that the stack on s390 grows downward).  These options are intended to
 be used to help debugging stack overflow problems.  The additionally emitted code
-cause only little overhead and hence can also be used in production like systems
+causes only little overhead and hence can also be used in production like systems
 without greater performance degradation.  The given values have to be exact
-powers of 2 and @var{stack-size} has to be greater than @var{stack-guard}.
+powers of 2 and @var{stack-size} has to be greater than @var{stack-guard} without
+exceeding 64k.
 In order to be efficient the extra code makes the assumption that the stack starts
 at an address aligned to the value given by @var{stack-size}.
 @end table

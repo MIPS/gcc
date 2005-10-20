@@ -452,6 +452,18 @@ optimize_mode_switching (FILE *file)
 	  HARD_REG_SET live_now;
 
 	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (rtl_df, bb));
+
+	  /* Pretend the mode is clobbered across abnormal edges.  */
+	  {
+	    edge_iterator ei;
+	    edge e;
+	    FOR_EACH_EDGE (e, ei, bb->preds)
+	      if (e->flags & EDGE_COMPLEX)
+		break;
+	    if (e)
+	      RESET_BIT (transp[bb->index], j);
+	  }
+
 	  for (insn = BB_HEAD (bb);
 	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
