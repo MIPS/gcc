@@ -1,3 +1,7 @@
+2005-10-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-widen-mult-sum.c: New.
+
 2005-10-19  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-cast-1.c: Added signed case. Unsigned case not

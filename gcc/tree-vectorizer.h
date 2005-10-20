@@ -171,6 +171,13 @@ enum stmt_vec_info_type {
   target_reduc_pattern_vec_info_type
 };
 
+/* Define */
+enum vect_relevant {
+  vect_unused_in_loop = 0,
+  vect_used_by_reduction,
+  vect_used_in_loop 
+};
+
 typedef struct data_reference *dr_p;
 DEF_VEC_P(dr_p);
 DEF_VEC_ALLOC_P(dr_p,heap);
@@ -188,7 +195,7 @@ typedef struct _stmt_vec_info {
   /* Not all stmts in the loop need to be vectorized. e.g, the incrementation
      of the loop induction variable and computation of array indexes. relevant
      indicates whether the stmt needs to be vectorized.  */
-  bool relevant;
+  enum vect_relevant relevant;
 
   /* Indicates whether this stmts is part of a computation whose result is
      used outside the loop.  */
@@ -233,7 +240,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_TYPE(S)                (S)->type
 #define STMT_VINFO_STMT(S)                (S)->stmt
 #define STMT_VINFO_LOOP_VINFO(S)          (S)->loop_vinfo
-#define STMT_VINFO_RELEVANT_P(S)          (S)->relevant
+#define STMT_VINFO_RELEVANT(S)            (S)->relevant
 #define STMT_VINFO_LIVE_P(S)              (S)->live
 #define STMT_VINFO_VECTYPE(S)             (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
@@ -242,6 +249,8 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_RELATED_STMT(S)        (S)->related_stmt
 #define STMT_VINFO_SAME_ALIGN_REFS(S)     (S)->same_align_refs
 #define STMT_VINFO_DEF_TYPE(S)            (S)->def_type
+
+#define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
 
 static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);

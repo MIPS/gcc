@@ -56,8 +56,8 @@ static void vect_pattern_recog (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
-static void vect_mark_relevant (VEC(tree,heap) **, tree, bool, bool);
-static bool vect_stmt_relevant_p (tree, loop_vec_info, bool *, bool *);
+static void vect_mark_relevant (VEC(tree,heap) **, tree, enum vect_relevant, bool);
+static bool vect_stmt_relevant_p (tree, loop_vec_info, enum vect_relevant *, bool *);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_analyze_data_ref_dependence
   (struct data_dependence_relation *, loop_vec_info);
@@ -1448,14 +1448,14 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 static void
 vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
-		    bool relevant_p, bool live_p)
+		    enum vect_relevant relevant, bool live_p)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  bool save_relevant_p = STMT_VINFO_RELEVANT_P (stmt_info);
+  enum vect_relevant save_relevant = STMT_VINFO_RELEVANT (stmt_info);
   bool save_live_p = STMT_VINFO_LIVE_P (stmt_info);
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "mark relevant %d, live %d.",relevant_p, live_p);
+    fprintf (vect_dump, "mark relevant %d, live %d.",relevant, live_p);
 
   if (STMT_VINFO_IN_PATTERN_P (stmt_info) 
       && STMT_VINFO_RELATED_STMT (stmt_info)
@@ -1470,19 +1470,20 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
         fprintf (vect_dump, "last stmt in pattern. don't mark relevant/live.");
       stmt = STMT_VINFO_RELATED_STMT (stmt_info);
       stmt_info = vinfo_for_stmt (stmt);
-      save_relevant_p = STMT_VINFO_RELEVANT_P (stmt_info);
+      save_relevant = STMT_VINFO_RELEVANT (stmt_info);
       save_live_p = STMT_VINFO_LIVE_P (stmt_info);
     }
 
   STMT_VINFO_LIVE_P (stmt_info) |= live_p;
-  STMT_VINFO_RELEVANT_P (stmt_info) |= relevant_p;
+  if (relevant > STMT_VINFO_RELEVANT (stmt_info)) 
+    STMT_VINFO_RELEVANT (stmt_info) = relevant;
 
   if (TREE_CODE (stmt) == PHI_NODE)
     /* Don't put phi-nodes in the worklist. Phis that are marked relevant
        or live will fail vectorization later on.  */
     return;
 
-  if (STMT_VINFO_RELEVANT_P (stmt_info) == save_relevant_p
+  if (STMT_VINFO_RELEVANT (stmt_info) == save_relevant
       && STMT_VINFO_LIVE_P (stmt_info) == save_live_p)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -1508,7 +1509,7 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
 
 static bool
 vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
-		      bool *relevant_p, bool *live_p)
+		      enum vect_relevant *relevant, bool *live_p)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   ssa_op_iter op_iter;
@@ -1516,15 +1517,12 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
   use_operand_p use_p;
   def_operand_p def_p;
 
-  *relevant_p = false;
-  *live_p = false;
-
-  *relevant_p = false;
+  *relevant = vect_unused_in_loop;
   *live_p = false;
 
   /* cond stmt other than loop exit cond.  */
   if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
-    *relevant_p = true;
+    *relevant = vect_used_in_loop;
 
   /* changing memory.  */
   if (TREE_CODE (stmt) != PHI_NODE)
@@ -1532,7 +1530,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
       {
 	if (vect_print_dump_info (REPORT_DETAILS))
 	  fprintf (vect_dump, "vec_stmt_relevant_p: stmt has vdefs.");
-	*relevant_p = true;
+	*relevant = vect_used_in_loop;
       }
 
   /* uses outside the loop.  */
@@ -1556,7 +1554,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
 	}
     }
 
-  return (*live_p || *relevant_p);
+  return (*live_p || *relevant);
 }
 
 
@@ -1591,7 +1589,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   stmt_vec_info stmt_vinfo;
   basic_block bb;
   tree phi;
-  bool relevant_p, live_p;
+  bool live_p;
+  enum vect_relevant relevant;
   tree def, def_stmt;
   enum vect_def_type dt;
 
@@ -1611,8 +1610,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
           print_generic_expr (vect_dump, phi, TDF_SLIM);
         }
 
-      if (vect_stmt_relevant_p (phi, loop_vinfo, &relevant_p, &live_p))
-	vect_mark_relevant (&worklist, phi, relevant_p, live_p);
+      if (vect_stmt_relevant_p (phi, loop_vinfo, &relevant, &live_p))
+	vect_mark_relevant (&worklist, phi, relevant, live_p);
     }
 
   for (i = 0; i < nbbs; i++)
@@ -1628,8 +1627,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	    } 
 
-	  if (vect_stmt_relevant_p (stmt, loop_vinfo, &relevant_p, &live_p))
-            vect_mark_relevant (&worklist, stmt, relevant_p, live_p);
+	  if (vect_stmt_relevant_p (stmt, loop_vinfo, &relevant, &live_p))
+            vect_mark_relevant (&worklist, stmt, relevant, live_p);
 	}
     }
 
@@ -1657,13 +1656,13 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
       ann = stmt_ann (stmt);
       stmt_vinfo = vinfo_for_stmt (stmt);
       
-      relevant_p = STMT_VINFO_RELEVANT_P (stmt_vinfo);
+      relevant = STMT_VINFO_RELEVANT (stmt_vinfo);
       live_p = STMT_VINFO_LIVE_P (stmt_vinfo);
 
       /* Generally, the liveness and relevance properties of STMT are
          propagated to the DEF_STMTs of its USEs:
              STMT_VINFO_LIVE_P (DEF_STMT_info) <-- live_p
-             STMT_VINFO_RELEVANT_P (DEF_STMT_info) <-- relevant_p
+             STMT_VINFO_RELEVANT (DEF_STMT_info) <-- relevant
 
          Exceptions:
 
@@ -1686,7 +1685,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
              the def_stmt of these uses we want to set liveness/relevance
              as follows:
                STMT_VINFO_LIVE_P (DEF_STMT_info) <-- false
-               STMT_VINFO_RELEVANT_P (DEF_STMT_info) <-- true
+               STMT_VINFO_RELEVANT (DEF_STMT_info) <-- true
              because even though STMT is classified as live (since it defines a
              value that is used across loop iterations) and irrelevant (since it
              is not used inside the loop), it will be vectorized, and therefore
@@ -1696,8 +1695,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
       /* case 2.2:  */
       if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def)
         {
-          gcc_assert (!relevant_p && live_p);
-          relevant_p = true;
+          gcc_assert (relevant == vect_unused_in_loop && live_p);
+          relevant = vect_used_by_reduction;
           live_p = false;
         }
 
@@ -1737,7 +1736,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	      && TREE_CODE (def_stmt) == PHI_NODE)
 	    continue;
 	  
-	  vect_mark_relevant (&worklist, def_stmt, relevant_p, live_p);
+	  vect_mark_relevant (&worklist, def_stmt, relevant, live_p);
 	}
     }				/* while worklist */
 

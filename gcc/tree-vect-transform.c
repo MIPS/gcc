@@ -2194,7 +2194,6 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   tree expr;
   tree sym;
   ssa_op_iter iter;
-  tree tmp_stmt;
   tree vectype_in;
 
   /* Is STMT a vectorizable type-promotion operation?  */
@@ -2255,18 +2254,8 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
         }
     }
 
-  orig_stmt_in_pattern = STMT_VINFO_RELATED_STMT (stmt_info);
-  if (orig_stmt_in_pattern
-      && STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (orig_stmt_in_pattern)))
-    tmp_stmt = orig_stmt_in_pattern;
-  else
-    {
-      orig_stmt_in_pattern = NULL_TREE;
-      tmp_stmt = stmt;
-    }
-
   /* Supportable by target?  */
-  if (!supportable_widening_operation (code, tmp_stmt, vectype_in,
+  if (!supportable_widening_operation (code, stmt, vectype_in,
 				       &decl1, &decl2, &code1, &code2))
     return false;
 
@@ -2421,7 +2410,9 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
       prev_stmt_info = vinfo_for_stmt (new_stmt);
     }
 
-  if (orig_stmt_in_pattern)
+  orig_stmt_in_pattern = STMT_VINFO_RELATED_STMT (stmt_info);
+  if (orig_stmt_in_pattern
+      && STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (orig_stmt_in_pattern)))
     {
       /* STMT is a new stmt that was inserted by the vectorizer to replace a
          computation idiom. ORIG_STMT_IN_PATTERN is a stmt in the original

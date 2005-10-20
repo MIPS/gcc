@@ -1357,8 +1357,8 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP_VINFO (res) = loop_vinfo;
-  STMT_VINFO_RELEVANT_P (res) = 0;
-  STMT_VINFO_LIVE_P (res) = 0;
+  STMT_VINFO_RELEVANT (res) = 0;
+  STMT_VINFO_LIVE_P (res) = false;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
@@ -1761,18 +1761,13 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
                                 enum tree_code *code1, enum tree_code *code2)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   bool ordered_p;
   enum machine_mode vec_mode;
   enum insn_code icode1, icode2;
   optab optab1, optab2;
-  imm_use_iterator imm_iter;
-  use_operand_p use_p;
   tree expr = TREE_OPERAND (stmt, 1);
   tree type = TREE_TYPE (expr);
   tree wide_vectype = get_vectype_for_scalar_type (type);
-  tree scalar_dest = TREE_OPERAND (stmt, 0);
 
   /* The result of a vectorized widening operation usually requires two vectors 
      (because the widened results do not fit int one vector). The generated 
@@ -1790,38 +1785,10 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8]. 
    */
 
-   /* FORNOW: just check if all the immediate uses are directly used in a 
-      reduction operation.
-      TODO: enhance the analysis to uses beyond the immediate ones.  */
-
-   ordered_p = false;
-   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, scalar_dest)
-    {
-      tree use_stmt = USE_STMT (use_p);
-      stmt_vec_info stmt_vinfo = vinfo_for_stmt (use_stmt);
-
-      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (use_stmt)))
-        {
-          if (vect_print_dump_info (REPORT_DETAILS))
-            fprintf (vect_dump, "widening-operation: order is important.");
-          ordered_p = true;
-          break;
-        }
-
-      if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-	{
-	  use_stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
-	  stmt_vinfo = vinfo_for_stmt (use_stmt);
-	}
-
-      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
-        {
-          if (vect_print_dump_info (REPORT_DETAILS))
-            fprintf (vect_dump, "widening-operation: order is important.");
-          ordered_p = true;
-          break;
-        }
-    }
+   if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_by_reduction)
+     ordered_p = false;
+   else
+     ordered_p = true;
 
   if (!ordered_p
       && code == WIDEN_MULT_EXPR

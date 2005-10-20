@@ -1,3 +1,26 @@
+2005-10-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_mark_relevant): Third argument "bool 
+	relevant_p" changed to "enum vect_relevant relevant".  Record the
+	max of STMT_VINFO_RELEVANT and 'relevant' instead of their or.
+	(vect_stmt_relevant_p): Third argument "bool relevant_p" changed to 
+	"enum vect_relevant relevant".  Record the value "vect_used_in_loop"
+	instead of "true".
+	(vect_mark_stmts_to_be_vectorized): Variable "bool relevant_p" changed 
+	to "enum vect_relevant relevant".  For reduction case, set relevant to
+	"vect_used_by_reduction" instead of "true".  
+	* tree-vect-transofrm.c (vectorizable_type_promotion): Pass 'stmt' to
+	supportable_widening_operation, instead of 'orig_stmt_in_pattern'.
+	* tree-vectorizer.c (new_stmt_vec_info): STMT_VINFO_RELEVANT_P replaced
+	with STMT_VINFO_RELEVANT. Initialize STMT_VINFO_LIVE_P to false instead
+	of 0. 
+	(supportable_widening_operation): Check STMT_VINFO_RELEVANT instead of
+	checking immediate uses.
+	* tree-vectorizer.h (vect_relevant): New enum type. 
+	(_stmt_vec_info): Field relevant changed from bool to enum vect_relevant.
+	(STMT_VINFO_RELEVANT): New macro to access the field 'relevant'.
+	(STMT_VINFO_RELEVANT_P): Changed to check the value of field 'relevant'.
+
 2005-10-19  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* expr.c (expand_expr_real_1): Add implementation for cases 
