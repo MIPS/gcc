@@ -1,3 +1,9 @@
+2005-10-20  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_final_prescan_insn): Use
+	extract_constrain_insn_cached instead of recog.
+	(thumb2_final_prescan_insn): Ditto.
+
 2005-10-18  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config/arm/arm.c (arm_init_libfuncs): Use __aeabi_idiv and

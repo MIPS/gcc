@@ -12235,9 +12235,8 @@ thumb2_final_prescan_insn (rtx insn)
     }
   /* Restore recog_data (getting the attributes of other insns can
      destroy this array, but final.c assumes that it remains intact
-     across this call; since the insn has been recognized already we
-     call recog direct).  */
-  recog (PATTERN (first_insn), first_insn, NULL);
+     across this call).  */
+  extract_constrain_insn_cached (first_insn);
 }
 
 void
@@ -12543,7 +12542,7 @@ arm_final_prescan_insn (rtx insn)
 	      if (!this_insn)
 	        {
 		  /* Oh, dear! we ran off the end.. give up.  */
-		  recog (PATTERN (insn), insn, NULL);
+		  extract_constrain_insn_cached (insn);
 		  arm_ccfsm_state = 0;
 		  arm_target_insn = NULL;
 		  return;
@@ -12579,9 +12578,8 @@ arm_final_prescan_insn (rtx insn)
       
       /* Restore recog_data (getting the attributes of other insns can
 	 destroy this array, but final.c assumes that it remains intact
-	 across this call; since the insn has been recognized already we
-	 call recog direct).  */
-      recog (PATTERN (insn), insn, NULL);
+	 across this call.  */
+      extract_constrain_insn_cached (insn);
     }
 }
 
