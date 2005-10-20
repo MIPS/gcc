@@ -274,8 +274,7 @@ static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, bool);
 static tree simplify_rhs_and_lookup_avail_expr (tree, int);
-static tree simplify_cond_and_lookup_avail_expr (tree, stmt_ann_t, int);
-static tree find_equivalent_equality_comparison (tree);
+static tree simplify_cond_and_lookup_avail_expr (tree);
 static void record_range (tree, basic_block);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static void record_equivalences_from_phis (basic_block);
@@ -292,21 +291,6 @@ static edge single_incoming_edge_ignoring_loop_edges (basic_block);
 static void restore_nonzero_vars_to_original_value (void);
 static inline bool unsafe_associative_fp_binop (tree);
 
-
-/* Local version of fold that doesn't introduce cruft.  */
-
-static tree
-local_fold (tree t)
-{
-  t = fold (t);
-
-  /* Strip away useless type conversions.  Both the NON_LVALUE_EXPR that
-     may have been added by fold, and "useless" type conversions that might
-     now be apparent due to propagation.  */
-  STRIP_USELESS_TYPE_CONVERSION (t);
-
-  return t;
-}
 
 /* Allocate an EDGE_INFO for edge E and attach it to E.
    Return the new EDGE_INFO structure.  */
@@ -829,16 +813,19 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1) = op1;
 	    }
 
-	  /* If the conditional folds to an invariant, then we are done,
-	     otherwise look it up in the hash tables.  */
-	  cached_lhs = local_fold (COND_EXPR_COND (dummy_cond));
+	  /* We absolutely do not care about any type conversions
+	     we only care about a zero/nonzero value.  */
+	  cached_lhs = fold (COND_EXPR_COND (dummy_cond));
+	  while (TREE_CODE (cached_lhs) == NOP_EXPR
+		 || TREE_CODE (cached_lhs) == CONVERT_EXPR
+		 || TREE_CODE (cached_lhs) == NON_LVALUE_EXPR)
+	    cached_lhs = TREE_OPERAND (cached_lhs, 0);
+	    
 	  if (! is_gimple_min_invariant (cached_lhs))
 	    {
 	      cached_lhs = lookup_avail_expr (dummy_cond, false);
 	      if (!cached_lhs || ! is_gimple_min_invariant (cached_lhs))
-		cached_lhs = simplify_cond_and_lookup_avail_expr (dummy_cond,
-								  NULL,
-								  false);
+		cached_lhs = simplify_cond_and_lookup_avail_expr (dummy_cond);
 	    }
 	}
       /* We can have conditionals which just test the state of a
@@ -1805,18 +1792,22 @@ simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
 		  if (rhs_def_code != rhs_code)
 		    {
 		      if (rhs_def_code == MINUS_EXPR)
-		        t = build (MINUS_EXPR, type, outer_const, def_stmt_op1);
+		        t = fold_build2 (MINUS_EXPR, type,
+					 outer_const, def_stmt_op1);
 		      else
-		        t = build (MINUS_EXPR, type, def_stmt_op1, outer_const);
+		        t = fold_build2 (MINUS_EXPR, type,
+					 def_stmt_op1, outer_const);
 		      rhs_code = PLUS_EXPR;
 		    }
 		  else if (rhs_def_code == MINUS_EXPR)
-		    t = build (PLUS_EXPR, type, def_stmt_op1, outer_const);
+		    t = fold_build2 (PLUS_EXPR, type,
+				     def_stmt_op1, outer_const);
 		  else
-		    t = build (rhs_def_code, type, def_stmt_op1, outer_const);
-		  t = local_fold (t);
-		  t = build (rhs_code, type, def_stmt_op0, t);
-		  t = local_fold (t);
+		    t = fold_build2 (rhs_def_code, type,
+				     def_stmt_op1, outer_const);
+		  STRIP_USELESS_TYPE_CONVERSION (t);
+		  t = fold_build2 (rhs_code, type, def_stmt_op0, t);
+		  STRIP_USELESS_TYPE_CONVERSION (t);
 
 		  /* If the result is a suitable looking gimple expression,
 		     then use it instead of the original for STMT.  */
@@ -1836,99 +1827,13 @@ simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
   return result;
 }
 
-/* COND is a condition of the form:
-
-     x == const or x != const
-
-   Look back to x's defining statement and see if x is defined as
-
-     x = (type) y;
-
-   If const is unchanged if we convert it to type, then we can build
-   the equivalent expression:
-
-
-      y == const or y != const
-
-   Which may allow further optimizations.
-
-   Return the equivalent comparison or NULL if no such equivalent comparison
-   was found.  */
-
-static tree
-find_equivalent_equality_comparison (tree cond)
-{
-  tree op0 = TREE_OPERAND (cond, 0);
-  tree op1 = TREE_OPERAND (cond, 1);
-  tree def_stmt = SSA_NAME_DEF_STMT (op0);
-
-  /* OP0 might have been a parameter, so first make sure it
-     was defined by a MODIFY_EXPR.  */
-  if (def_stmt && TREE_CODE (def_stmt) == MODIFY_EXPR)
-    {
-      tree def_rhs = TREE_OPERAND (def_stmt, 1);
-
-
-      /* If either operand to the comparison is a pointer to
-	 a function, then we can not apply this optimization
-	 as some targets require function pointers to be
-	 canonicalized and in this case this optimization would
-	 eliminate a necessary canonicalization.  */
-      if ((POINTER_TYPE_P (TREE_TYPE (op0))
-	   && TREE_CODE (TREE_TYPE (TREE_TYPE (op0))) == FUNCTION_TYPE)
-	  || (POINTER_TYPE_P (TREE_TYPE (op1))
-	      && TREE_CODE (TREE_TYPE (TREE_TYPE (op1))) == FUNCTION_TYPE))
-	return NULL;
-	      
-      /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
-      if ((TREE_CODE (def_rhs) == NOP_EXPR
-	   || TREE_CODE (def_rhs) == CONVERT_EXPR)
-	  && TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME)
-	{
-	  tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
-	  tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
-	  tree new;
-
-	  if (TYPE_PRECISION (def_rhs_inner_type)
-	      > TYPE_PRECISION (TREE_TYPE (def_rhs)))
-	    return NULL;
-
-	  /* If the inner type of the conversion is a pointer to
-	     a function, then we can not apply this optimization
-	     as some targets require function pointers to be
-	     canonicalized.  This optimization would result in
-	     canonicalization of the pointer when it was not originally
-	     needed/intended.  */
-	  if (POINTER_TYPE_P (def_rhs_inner_type)
-	      && TREE_CODE (TREE_TYPE (def_rhs_inner_type)) == FUNCTION_TYPE)
-	    return NULL;
-
-	  /* What we want to prove is that if we convert OP1 to
-	     the type of the object inside the NOP_EXPR that the
-	     result is still equivalent to SRC. 
-
-	     If that is true, the build and return new equivalent
-	     condition which uses the source of the typecast and the
-	     new constant (which has only changed its type).  */
-	  new = build1 (TREE_CODE (def_rhs), def_rhs_inner_type, op1);
-	  new = local_fold (new);
-	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
-	    return build (TREE_CODE (cond), TREE_TYPE (cond),
-			  def_rhs_inner, new);
-	}
-    }
-  return NULL;
-}
-
 /* STMT is a COND_EXPR for which we could not trivially determine its
    result.  This routine attempts to find equivalent forms of the
    condition which we may be able to optimize better.  It also 
    uses simple value range propagation to optimize conditionals.  */
 
 static tree
-simplify_cond_and_lookup_avail_expr (tree stmt,
-				     stmt_ann_t ann,
-				     int insert)
+simplify_cond_and_lookup_avail_expr (tree stmt)
 {
   tree cond = COND_EXPR_COND (stmt);
 
@@ -1946,37 +1851,6 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	  struct vrp_element *element;
 	  struct vrp_hash_elt vrp_hash_elt, *vrp_hash_elt_p;
 	  void **slot;
-
-	  /* First see if we have test of an SSA_NAME against a constant
-	     where the SSA_NAME is defined by an earlier typecast which
-	     is irrelevant when performing tests against the given
-	     constant.  */
-	  if (TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
-	    {
-	      tree new_cond = find_equivalent_equality_comparison (cond);
-
-	      if (new_cond)
-		{
-		  /* Update the statement to use the new equivalent
-		     condition.  */
-		  COND_EXPR_COND (stmt) = new_cond;
-
-		  /* If this is not a real stmt, ann will be NULL and we
-		     avoid processing the operands.  */
-		  if (ann)
-		    mark_stmt_modified (stmt);
-
-		  /* Lookup the condition and return its known value if it
-		     exists.  */
-		  new_cond = lookup_avail_expr (stmt, insert);
-		  if (new_cond)
-		    return new_cond;
-
-		  /* The operands have changed, so update op0 and op1.  */
-		  op0 = TREE_OPERAND (cond, 0);
-		  op1 = TREE_OPERAND (cond, 1);
-		}
-	    }
 
 	  /* Consult the value range records for this variable (if they exist)
 	     to see if we can eliminate or simplify this conditional. 
@@ -2460,7 +2334,7 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
      expression in the hash table, simplify the condition and
      try again.  */
   else if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
-    cached_lhs = simplify_cond_and_lookup_avail_expr (stmt, ann, insert);
+    cached_lhs = simplify_cond_and_lookup_avail_expr (stmt);
   /* Similarly for a SWITCH_EXPR.  */
 
   opt_stats.num_exprs_considered++;

@@ -1,3 +1,21 @@
+2005-10-20  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (find_equivalent_equality_comparison): Moved
+	from here into tree-ssa-forwprop.c.
+	(simplify_cond_and_lookup_avail_expr): Similarly for code which
+	walks the use-def chains to simplify comparisons.
+	* tree-ssa-forwprop.c (find_equivalent_equality_comparison): Moved
+	here from tree-ssa-dom.c.
+	(simplify_cond): Code extracted from DOM.
+	(forward_propagate_into_cond): Call simplify_cond.
+
+	* tree-ssa-dom.c (local_fold): Kill.
+	(thread_across_edge): Remove all type conversions after folding
+	a condition.
+	(simplify_rhs_and_lookup_avail_expr): Use fold_build2 followed
+	by explicitly stripping useless type conversions rather than
+	build + local_fold.  
+
 2005-10-19  Jeff Law  <law@redhat.com>
 
         * tree-ssa-ccp.c (fold_stmt_r): DATA argument is now a pointer to
