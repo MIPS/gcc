@@ -1,12 +1,12 @@
 /* Header file for the ARM EABI unwinder
    Copyright (C) 2003, 2004  Free Software Foundation, Inc.
    Contributed by Paul Brook
-
+   
    This file is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
    Free Software Foundation; either version 2, or (at your option) any
    later version.
-
+   
    In addition to the permissions in the GNU General Public License, the
    Free Software Foundation gives you unlimited permission to link the
    compiled version of this file into combinations with other programs,
@@ -15,12 +15,12 @@
    do apply in other respects; for example, they cover modification of
    the file, and distribution when not linked into a combine
    executable.)
-
+   
    This file is distributed in the hope that it will be useful, but
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
-
+   
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
@@ -53,6 +53,7 @@ extern "C" {
     {
       _URC_OK = 0,       /* operation completed successfully */
       _URC_FOREIGN_EXCEPTION_CAUGHT = 1,
+      _URC_END_OF_STACK = 5,
       _URC_HANDLER_FOUND = 6,
       _URC_INSTALL_CONTEXT = 7,
       _URC_CONTINUE_UNWIND = 8,
@@ -64,10 +65,22 @@ extern "C" {
     {
       _US_VIRTUAL_UNWIND_FRAME = 0,
       _US_UNWIND_FRAME_STARTING = 1,
-      _US_UNWIND_FRAME_RESUME = 2
+      _US_UNWIND_FRAME_RESUME = 2,
+      _US_ACTION_MASK = 3,
+      _US_FORCE_UNWIND = 8,
+      _US_END_OF_STACK = 16
     }
   _Unwind_State;
   
+  /* Provided only for for compatibility with existing code.  */
+  typedef int _Unwind_Action;
+#define _UA_SEARCH_PHASE	1
+#define _UA_CLEANUP_PHASE	2
+#define _UA_HANDLER_FRAME	4
+#define _UA_FORCE_UNWIND	8
+#define _UA_END_OF_STACK	16
+#define _URC_NO_REASON 	_URC_OK
+
   typedef struct _Unwind_Control_Block _Unwind_Control_Block;
   typedef struct _Unwind_Context _Unwind_Context;
   typedef _uw _Unwind_EHT_Header;
@@ -82,10 +95,10 @@ extern "C" {
       /* Unwinder cache, private fields for the unwinder's use */
       struct
 	{
-	  _uw reserved1;	/* init reserved1 to 0, then don't touch */
-	  _uw reserved2;
-	  _uw reserved3;
-	  _uw reserved4;
+	  _uw reserved1;  /* Forced unwind stop fn, 0 if not forced */
+	  _uw reserved2;  /* Personality routine address */
+	  _uw reserved3;  /* Saved callsite address */
+	  _uw reserved4;  /* Forced unwind stop arg */
 	  _uw reserved5;
 	}
       unwinder_cache;
@@ -114,11 +127,6 @@ extern "C" {
       long long int :0;	/* Force alignment to 8-byte boundary */
     };
   
-  /* Interface functions: */
-  _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block *ucbp);
-  void __attribute__((noreturn)) _Unwind_Resume(_Unwind_Control_Block *ucbp);
-  void _Unwind_Complete(_Unwind_Control_Block *ucbp);
-
   /* Virtual Register Set*/
         
   typedef enum
@@ -199,6 +207,17 @@ extern "C" {
       abort ();
     }
 
+  /* Interface functions: */
+  _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block *ucbp);
+  void __attribute__((noreturn)) _Unwind_Resume(_Unwind_Control_Block *ucbp);
+  _Unwind_Reason_Code _Unwind_Resume_or_Rethrow (_Unwind_Control_Block *ucbp);
+  
+  typedef _Unwind_Reason_Code (*_Unwind_Stop_Fn)
+       (int, _Unwind_Action, _Unwind_Exception_Class,
+	_Unwind_Control_Block *, struct _Unwind_Context *, void *);
+  _Unwind_Reason_Code _Unwind_ForcedUnwind (_Unwind_Control_Block *,
+					    _Unwind_Stop_Fn, void *);
+  void _Unwind_Complete(_Unwind_Control_Block *ucbp);
   void _Unwind_DeleteException (_Unwind_Exception *);
 
   _Unwind_Reason_Code __gnu_unwind_frame (_Unwind_Control_Block *,
@@ -220,7 +239,7 @@ extern "C" {
       tmp += ptr;
       tmp = *(_Unwind_Word *) tmp;
 #elif defined(__symbian__)
-      /* Absoute pointer.  Nothing more to do.  */
+      /* Absolute pointer.  Nothing more to do.  */
 #else
       /* Pc-relative pointer.  */
       tmp += ptr;
@@ -253,16 +272,6 @@ extern "C" {
      landing pad uses the same instruction set as the callsite.  */
 #define _Unwind_SetIP(context, val) \
   _Unwind_SetGR (context, 15, val | (_Unwind_GetGR (context, 15) & 1))
-
-  /* Provided only for for compatibility with existing code.  */
-  typedef int _Unwind_Action;
-#define _UA_SEARCH_PHASE	1
-#define _UA_CLEANUP_PHASE	2
-#define _UA_HANDLER_FRAME	4
-#define _UA_FORCE_UNWIND	8
-#define _UA_END_OF_STACK	16
-
-#define _URC_NO_REASON _URC_OK
 
 #ifdef __cplusplus
 }   /* extern "C" */
