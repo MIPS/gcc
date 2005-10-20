@@ -1,5 +1,12 @@
 2005-10-20  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/arm.c (arm_default_cpu): New.
+	(arm_override_options): Set arm_default_cpu.
+	(arm_file_start): Output EABI attribute directives.
+	* config/arm/elf.h: Remove definition of SUPPORTS_INIT_PRIORITY.
+
+2005-10-20  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/arm.c (arm_final_prescan_insn): Use
 	extract_constrain_insn_cached instead of recog.
 	(thumb2_final_prescan_insn): Ditto.
