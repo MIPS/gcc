@@ -1,3 +1,7 @@
+2005-10-20  Devang Patel  <dpatel@apple.com>
+
+	* gcc.apple/execute/picbase-1.x: New.
+
 2005-10-19  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4301047
