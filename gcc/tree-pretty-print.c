@@ -1662,11 +1662,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel ");
       dump_omp_clauses (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags);
+    dump_omp_body:
       newline_and_indent (buffer, spc + 2);
       pp_character (buffer, '{');
       newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_PARALLEL_BODY (node), spc + 4, flags,
-			 false);
+      dump_generic_node (buffer, OMP_BODY (node), spc + 4, flags, false);
       newline_and_indent (buffer, spc + 2);
       pp_character (buffer, '}');
       is_expr = false;
@@ -1683,39 +1683,24 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "; ");
       dump_generic_node (buffer, OMP_FOR_INCR (node), spc, flags, false);
       pp_string (buffer, ")");
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_FOR_BODY (node), spc + 4, flags, false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
-      is_expr = false;
-      break;
+      goto dump_omp_body;
 
     case OMP_SECTIONS:
       pp_string (buffer, "#pragma omp sections ");
       dump_omp_clauses (buffer, OMP_SECTIONS_CLAUSES (node), spc, flags);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_SECTIONS_BODY (node), spc + 4, flags,
-			 false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
-      is_expr = false;
-      break;
+      goto dump_omp_body;
 
     case OMP_SECTION:
       pp_string (buffer, "#pragma omp section");
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_SECTION_BODY (node), spc + 4, flags,
-			 false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
-      is_expr = false;
-      break;
+      goto dump_omp_body;
+ 
+    case OMP_MASTER:
+      pp_string (buffer, "#pragma omp master");
+      goto dump_omp_body;
+
+    case OMP_ORDERED:
+      pp_string (buffer, "#pragma omp ordered");
+      goto dump_omp_body;
 
     case OMP_CRITICAL:
       pp_string (buffer, "#pragma omp critical");
@@ -1727,15 +1712,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 			     flags, false);
 	  pp_character (buffer, ')');
 	}
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_CRITICAL_BODY (node), spc + 4, flags,
-			 false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
-      is_expr = false;
-      break;
+      goto dump_omp_body;
 
     case OMP_ATOMIC:
       pp_string (buffer, "#pragma omp atomic");
@@ -1750,15 +1727,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case OMP_SINGLE:
       pp_string (buffer, "#pragma omp single");
       dump_omp_clauses (buffer, OMP_SINGLE_CLAUSES (node), spc, flags);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_SINGLE_BODY (node), spc + 4, flags,
-			 false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
-      is_expr = false;
-      break;
+      goto dump_omp_body;
 
     case REDUC_MAX_EXPR:
       pp_string (buffer, " REDUC_MAX_EXPR < ");
