@@ -1,3 +1,8 @@
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_master): Use OMP_MASTER.
+	(gfc_trans_omp_ordered): Use OMP_ORDERED.
+
 2005-10-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (gfc_resolve_do_iterator, gfc_resolve_blocks,

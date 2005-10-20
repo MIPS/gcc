@@ -18300,11 +18300,11 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
      structured-block
 */
 
-static void
+static tree
 cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  c_finish_omp_master (cp_parser_omp_structured_block (parser));
+  return c_finish_omp_master (cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -18312,11 +18312,11 @@ cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
      structured-block
 */
 
-static void
+static tree
 cp_parser_omp_ordered (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  c_finish_omp_ordered (cp_parser_omp_structured_block (parser));
+  return c_finish_omp_ordered (cp_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -18562,17 +18562,17 @@ cp_parser_omp_construct (cp_parser *parser, cp_token *pragma_tok)
       cp_parser_omp_atomic (parser, pragma_tok);
       return;
     case PRAGMA_OMP_CRITICAL:
-      cp_parser_omp_critical (parser, pragma_tok);
-      return;
+      stmt = cp_parser_omp_critical (parser, pragma_tok);
+      break;
     case PRAGMA_OMP_FOR:
       stmt = cp_parser_omp_for (parser, pragma_tok);
       break;
     case PRAGMA_OMP_MASTER:
-      cp_parser_omp_master (parser, pragma_tok);
-      return;
+      stmt = cp_parser_omp_master (parser, pragma_tok);
+      break;
     case PRAGMA_OMP_ORDERED:
-      cp_parser_omp_ordered (parser, pragma_tok);
-      return;
+      stmt = cp_parser_omp_ordered (parser, pragma_tok);
+      break;
     case PRAGMA_OMP_PARALLEL:
       stmt = cp_parser_omp_parallel (parser, pragma_tok);
       break;

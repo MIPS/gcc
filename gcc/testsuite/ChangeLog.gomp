@@ -1,3 +1,15 @@
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/gomp/critical-1.C: Search the omplower dump.
+	* g++.dg/gomp/master-3.C, g++.dg/gomp/ordered-1.C: Likewise.
+	* gcc.dg/gomp/critical-1.c, gcc.dg/gomp/master-3.c: Likewise.
+	* gcc.dg/gomp/ordered-1.c: Likewise.
+
+	* gcc.dg/gomp/block-1.c: Add ok goto tests.
+	* gcc.dg/gomp/block-2.c, gcc.dg/gomp/block-3.c: New.
+	* gcc.dg/gomp/block-4.c, gcc.dg/gomp/block-5.c: New.
+	* gcc.dg/gomp/block-6.c, gcc.dg/gomp/critical-3.c: New.
+
 2005-10-19  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/gomp/tpl-atomic-2.C: XFAIL one test.

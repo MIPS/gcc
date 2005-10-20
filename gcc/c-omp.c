@@ -36,22 +36,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 /* Complete a #pragma omp master construct.  STMT is the structured-block
-   that follows the pragma.  In this case all we need to do is wrap the
-   block in a conditional that verifies that this is the master thread for
-   the parallel team.  */
+   that follows the pragma.  */
 
-void
+tree
 c_finish_omp_master (tree stmt)
 {
-  tree x;
-
-  x = built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM];
-  x = build_function_call_expr (x, NULL);
-  x = build2 (EQ_EXPR, boolean_type_node, x, integer_zero_node);
-  x = build3 (COND_EXPR, void_type_node, x, stmt, NULL);
-  add_stmt (x);
+  return add_stmt (build1 (OMP_MASTER, void_type_node, stmt));
 }
-
 
 /* Complete a #pragma omp critical construct.  STMT is the structured-block
    that follows the pragma, NAME is the identifier in the pragma, or null
@@ -67,24 +58,13 @@ c_finish_omp_critical (tree body, tree name)
   return add_stmt (stmt);
 }
 
-
 /* Complete a #pragma omp ordered construct.  STMT is the structured-block
    that follows the pragma.  */
 
-void
+tree
 c_finish_omp_ordered (tree stmt)
 {
-  tree x;
-
-  x = built_in_decls[BUILT_IN_GOMP_ORDERED_START];
-  x = build_function_call_expr (x, NULL);
-  add_stmt (x);
-
-  add_stmt (stmt);
-
-  x = built_in_decls[BUILT_IN_GOMP_ORDERED_END];
-  x = build_function_call_expr (x, NULL);
-  add_stmt (x);
+  return add_stmt (build1 (OMP_ORDERED, void_type_node, stmt));
 }
 
 

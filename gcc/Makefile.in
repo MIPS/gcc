@@ -1958,11 +1958,10 @@ gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    except.h $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) tree-pass.h \
    $(HASHTAB_H) toplev.h
-omp-low.o : omp-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
-   $(DIAGNOSTIC_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) $(VARRAY_H) langhooks.h \
-   $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
-   except.h $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) tree-pass.h \
-   $(HASHTAB_H) toplev.h $(SPLAY_TREE_H) vec.h
+omp-low.o : omp-low.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+   $(RTL_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) langhooks.h $(DIAGNOSTIC_H) \
+   $(TREE_FLOW_H) $(TIMEVAR_H) $(FLAGS_H) $(EXPR_H) toplev.h tree-pass.h \
+   $(GGC_H)
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    $(TM_H) coretypes.h
@@ -2766,7 +2765,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-chrec.h $(srcdir)/tree-vect-generic.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
-  $(srcdir)/ipa-reference.c $(srcdir)/c-pragma.h \
+  $(srcdir)/ipa-reference.c $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
   $(srcdir)/targhooks.c $(out_file) \
   @all_gtfiles@
 
@@ -2788,7 +2787,7 @@ gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
-gt-stringpool.h gt-targhooks.h : s-gtype ; @true
+gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp
  echo "\"$(gtyp)\", " >> tmp-gtyp.h

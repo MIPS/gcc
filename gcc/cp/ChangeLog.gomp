@@ -1,3 +1,9 @@
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
+	* parser.c (cp_parser_omp_master): Return the statement.
+	(cp_parser_omp_ordered): Likewise.
+	(cp_parser_omp_construct): Set the locus for them.
+
 2005-10-19  Richard Henderson  <rth@redhat.com>
 
 	* semantics.c (finish_omp_atomic): Revert to uses_template_parms.

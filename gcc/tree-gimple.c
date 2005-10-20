@@ -223,6 +223,9 @@ is_gimple_stmt (tree t)
     case OMP_SECTIONS:
     case OMP_SECTION:
     case OMP_SINGLE:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
       /* These are always void.  */
       return true;
 

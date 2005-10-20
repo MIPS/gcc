@@ -1,3 +1,34 @@
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (omp-low.o): Update dependencies.
+	(GTFILES): Add omp-low.c.
+	(s-gtype): Add gt-omp-low.h.
+	* c-common.h (c_finish_omp_master, c_finish_omp_ordered): Update.
+	* c-omp.c (c_finish_omp_master): Use OMP_MASTER, return the stmt.
+	(c_finish_omp_ordered): Similarly with OMP_ORDERED.
+	* c-parser.c (c_parser_omp_critical): Return the stmt.
+	(c_parser_omp_master, c_parser_omp_ordered): Likewise.
+	(c_parser_omp_construct): Set the locus on them.
+	* gimplify.c (gimplify_omp_sections): Remove.
+	(gimplify_omp_workshare): Rename from gimplify_omp_single;
+	handle any clause+body workshare construct.
+	(critical_name_mutexes, gimplify_omp_critical): Move to omp-low.c.
+	(gimplify_expr): Use gimplify_omp_workshare.  Handle OMP_MASTER
+	and OMP_ORDERED.
+	* omp-low.c: Don't include except.h; do include ggc.h.
+	(scan_omp_1): Handle OMP SECTION, MASTER, ORDERED, CRITICAL.
+	(expand_omp_sections): Lookup the context for the OMP_SECTION.
+	(expand_omp_master, expand_omp_ordered): New.
+	(critical_name_mutexes, expand_omp_critical): Move from gimplify.c.
+	(expand_omp_1): Call them.  Handle RETURN_EXPR.
+	(expand_omp): Set want_return_expr.
+	* tree-gimple.c (is_gimple_stmt): True for OMP_MASTER, 
+	OMP_ORDERED, OMP_CRITICAL.
+	* tree-gimple.h (struct walk_stmt_info): Add want_return_expr.
+	* tree-nested.c (walk_stmts): Honor it.
+	* tree.def (OMP_MASTER, OMP_ORDERED): New.
+	* tree.h (OMP_MASTER_BODY, OMP_ORDERED_BODY): New.
+
 2005-10-19  Richard Henderson  <rth@redhat.com>
 
 	* omp-low.c (struct omp_context): Add depth.

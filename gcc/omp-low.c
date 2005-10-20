@@ -34,12 +34,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "timevar.h"
-#include "except.h"
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
 #include "toplev.h"
 #include "tree-pass.h"
+#include "ggc.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two 
@@ -876,6 +876,14 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
 	scan_omp_single (tp, ctx);
       else
 	scan_omp_nested (tp, ctx);
+      break;
+
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      ctx = new_omp_context (*tp, ctx);
+      scan_omp (&OMP_BODY (*tp), ctx);
       break;
 
     case BIND_EXPR:
@@ -2310,6 +2318,8 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
   tsi = tsi_start (OMP_SECTIONS_BODY (sec_stmt));
   for (i = 0; i < len; i++, tsi_next (&tsi))
     {
+      omp_context *sctx;
+
       t = create_artificial_label ();
       u = build_int_cst (unsigned_type_node, i + 1);
       u = build3 (CASE_LABEL_EXPR, void_type_node, u, NULL, t);
@@ -2318,7 +2328,9 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
       gimplify_and_add (t, &stmt_list);
   
       t = tsi_stmt (tsi);
-      expand_omp (&OMP_SECTION_BODY (t), ctx);
+      sctx = maybe_lookup_ctx (t);
+      gcc_assert (sctx);
+      expand_omp (&OMP_SECTION_BODY (t), sctx);
       append_to_statement_list (OMP_SECTION_BODY (t), &stmt_list);
 
       if (i == len - 1)
@@ -2500,6 +2512,149 @@ expand_omp_single (tree *stmt_p, omp_context *ctx)
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
 }
 
+/* Expand code for an OpenMP master directive.  */
+
+static void
+expand_omp_master (tree *stmt_p, omp_context *ctx)
+{
+  tree bind, block, stmt = *stmt_p, lab = NULL, x;
+
+  push_gimplify_context ();
+
+  block = make_node (BLOCK);
+  bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
+  *stmt_p = bind;
+
+  x = built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM];
+  x = build_function_call_expr (x, NULL);
+  x = build2 (EQ_EXPR, boolean_type_node, x, integer_zero_node);
+  x = build3 (COND_EXPR, void_type_node, x, NULL, build_and_jump (&lab));
+  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+
+  expand_omp (&OMP_MASTER_BODY (stmt), ctx);
+  append_to_statement_list (OMP_MASTER_BODY (stmt), &BIND_EXPR_BODY (bind));
+
+  x = build1 (LABEL_EXPR, void_type_node, lab);
+  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+
+  pop_gimplify_context (bind);
+  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
+  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+}
+
+/* Expand code for an OpenMP ordered directive.  */
+
+static void
+expand_omp_ordered (tree *stmt_p, omp_context *ctx)
+{
+  tree bind, block, stmt = *stmt_p, x;
+
+  push_gimplify_context ();
+
+  block = make_node (BLOCK);
+  bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
+  *stmt_p = bind;
+
+  x = built_in_decls[BUILT_IN_GOMP_ORDERED_START];
+  x = build_function_call_expr (x, NULL);
+  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+
+  expand_omp (&OMP_ORDERED_BODY (stmt), ctx);
+  append_to_statement_list (OMP_ORDERED_BODY (stmt), &BIND_EXPR_BODY (bind));
+
+  x = built_in_decls[BUILT_IN_GOMP_ORDERED_END];
+  x = build_function_call_expr (x, NULL);
+  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+
+  pop_gimplify_context (bind);
+  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
+  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+}
+
+/* Expand code for an OpenMP critical directive.  */
+
+/* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
+   substitution of a couple of function calls.  But in the NAMED case,
+   requires that languages coordinate a symbol name.  It is therefore
+   best put here in common code.  */
+
+static GTY((param1_is (tree), param2_is (tree)))
+  splay_tree critical_name_mutexes;
+
+static void
+expand_omp_critical (tree *stmt_p, omp_context *ctx)
+{
+  tree bind, block, stmt = *stmt_p;
+  tree lock, unlock, name;
+
+  name = OMP_CRITICAL_NAME (stmt);
+  if (name)
+    {
+      tree decl, args;
+      splay_tree_node n;
+
+      if (!critical_name_mutexes)
+	critical_name_mutexes
+	  = splay_tree_new (splay_tree_compare_pointers, 0, 0);
+
+      n = splay_tree_lookup (critical_name_mutexes, (splay_tree_key) name);
+      if (n == NULL)
+	{
+	  char *new_str;
+
+	  decl = create_tmp_var_raw (ptr_type_node, NULL);
+
+	  new_str = ACONCAT ((".gomp_critical_user_",
+			      IDENTIFIER_POINTER (name), NULL));
+	  DECL_NAME (decl) = get_identifier (new_str);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_COMMON (decl) = 1;
+	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
+	  cgraph_varpool_finalize_decl (decl);
+
+	  splay_tree_insert (critical_name_mutexes, (splay_tree_key) name,
+			     (splay_tree_value) decl);
+	}
+      else
+	decl = (tree) n->value;
+
+      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
+      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_START];
+      lock = build_function_call_expr (lock, args);
+
+      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
+      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_END];
+      unlock = build_function_call_expr (unlock, args);
+    }
+  else
+    {
+      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_START];
+      lock = build_function_call_expr (lock, NULL);
+
+      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_END];
+      unlock = build_function_call_expr (unlock, NULL);
+    }
+
+  push_gimplify_context ();
+
+  block = make_node (BLOCK);
+  bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
+  *stmt_p = bind;
+
+  gimplify_and_add (lock, &BIND_EXPR_BODY (bind));
+
+  expand_omp (&OMP_CRITICAL_BODY (stmt), ctx);
+  append_to_statement_list (OMP_CRITICAL_BODY (stmt), &BIND_EXPR_BODY (bind));
+
+  gimplify_and_add (unlock, &BIND_EXPR_BODY (bind));
+
+  pop_gimplify_context (bind);
+  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
+  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+}
+
 /* Pass *TP back through the gimplifier within the context determined by WI.
    This handles replacement of DECL_VALUE_EXPR, as well as adjusting the 
    flags on ADDR_EXPR.  */
@@ -2554,6 +2709,24 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
       ctx = maybe_lookup_ctx (t);
       gcc_assert (ctx);
       expand_omp_single (tp, ctx);
+      break;
+
+    case OMP_MASTER:
+      ctx = maybe_lookup_ctx (t);
+      gcc_assert (ctx);
+      expand_omp_master (tp, ctx);
+      break;
+
+    case OMP_ORDERED:
+      ctx = maybe_lookup_ctx (t);
+      gcc_assert (ctx);
+      expand_omp_ordered (tp, ctx);
+      break;
+
+    case OMP_CRITICAL:
+      ctx = maybe_lookup_ctx (t);
+      gcc_assert (ctx);
+      expand_omp_critical (tp, ctx);
       break;
 
     case VAR_DECL:
@@ -2631,6 +2804,14 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
       }
       break;
 
+    case RETURN_EXPR:
+      if (ctx)
+	{
+	  error ("invalid exit from OpenMP structured block");
+	  *tp = build_empty_stmt ();
+	}
+      break;
+
     default:
       if (!TYPE_P (t) && !DECL_P (t))
 	*walk_subtrees = 1;
@@ -2649,6 +2830,7 @@ expand_omp (tree *stmt_p, omp_context *ctx)
   wi.callback = expand_omp_1;
   wi.info = ctx;
   wi.val_only = true;
+  wi.want_return_expr = true;
   wi.want_locations = true;
 
   walk_stmts (&wi, stmt_p);
@@ -2696,3 +2878,5 @@ struct tree_opt_pass pass_lower_omp =
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
+
+#include "gt-omp-low.h"

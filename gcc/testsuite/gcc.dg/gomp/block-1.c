@@ -11,4 +11,12 @@ void foo()
     {
       bad2: ;
     }
+
+  #pragma omp parallel
+    {
+      int i;
+      goto ok1;
+      for (i = 0; i < 10; ++i)
+	{ ok1: break; }
+    }
 }

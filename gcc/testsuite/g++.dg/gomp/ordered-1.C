@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-fopenmp -fdump-tree-gimple" } */
+/* { dg-options "-fopenmp -fdump-tree-omplower" } */
 
 extern void bar(int);
 
@@ -15,6 +15,6 @@ void foo (void)
   }
 }
 
-/* { dg-final { scan-tree-dump-times "GOMP_ordered_start" 2 "gimple" } } */
-/* { dg-final { scan-tree-dump-times "GOMP_ordered_end" 2 "gimple" } } */
-/* { dg-final { cleanup-tree-dump "gimple" } } */
+/* { dg-final { scan-tree-dump-times "GOMP_ordered_start" 2 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "GOMP_ordered_end" 2 "omplower" } } */
+/* { dg-final { cleanup-tree-dump "omplower" } } */

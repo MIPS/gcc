@@ -4606,114 +4606,19 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;
 }
 
-/* Gimplify the gross structure of an OMP_SECTIONS statement.  */
+/* Gimplify the gross structure of other OpenMP worksharing constructs.
+   In particular, OMP_SECTIONS and OMP_SINGLE.  */
 
 static enum gimplify_status
-gimplify_omp_sections (tree *expr_p, tree *pre_p)
-{
-  tree sec_stmt = *expr_p;
-
-  gimplify_deconstruct_omp_clauses (&OMP_SECTIONS_CLAUSES (sec_stmt),
-				    pre_p, false);
-
-  gimplify_to_stmt_list (&OMP_SECTIONS_BODY (sec_stmt));
-  
-  gimplify_reconstruct_omp_clauses (&OMP_SECTIONS_CLAUSES (sec_stmt));
-
-  return GS_ALL_DONE;
-}
-
-/* Gimplify the gross structure of an OMP_SINGLE statement.  */
-
-static enum gimplify_status
-gimplify_omp_single (tree *expr_p, tree *pre_p)
+gimplify_omp_workshare (tree *expr_p, tree *pre_p)
 {
   tree stmt = *expr_p;
 
-  gimplify_deconstruct_omp_clauses (&OMP_SINGLE_CLAUSES (stmt), pre_p, false);
-
-  gimplify_to_stmt_list (&OMP_SINGLE_BODY (stmt));
-  
-  gimplify_reconstruct_omp_clauses (&OMP_SINGLE_CLAUSES (stmt));
+  gimplify_deconstruct_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false);
+  gimplify_to_stmt_list (&OMP_BODY (stmt));
+  gimplify_reconstruct_omp_clauses (&OMP_CLAUSES (stmt));
 
   return GS_ALL_DONE;
-}
-
-/* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
-   substitution of a couple of function calls.  But in the NAMED case,
-   requires that languages coordinate a symbol name.  It is therefore
-   best put here in common code.  */
-
-static GTY ((param_is (struct tree_map))) htab_t critical_name_mutexes;
-
-static enum gimplify_status
-gimplify_omp_critical (tree *expr_p, tree *pre_p, tree *post_p)
-{
-  tree expr = *expr_p;
-  tree lock, unlock, name;
-
-  name = OMP_CRITICAL_NAME (expr);
-  if (name)
-    {
-      char *new_str;
-      tree decl, args;
-      void **slot;
-      struct tree_map dummy, *ent;
-
-      new_str = ACONCAT ((".gomp_critical_user_",
-			  IDENTIFIER_POINTER (name), NULL));
-      name = get_identifier (new_str);
-
-      if (!critical_name_mutexes)
-	critical_name_mutexes
-	  = htab_create_ggc (17, tree_map_hash, tree_map_eq, NULL);
-
-      dummy.from = name;
-      dummy.hash = IDENTIFIER_HASH_VALUE (name);
-      slot = htab_find_slot_with_hash (critical_name_mutexes, &dummy,
-				       dummy.hash, INSERT);
-      ent = *slot;
-      if (ent == NULL)
-	{
-	  decl = create_tmp_var_raw (ptr_type_node, NULL);
-	  DECL_NAME (decl) = name;
-	  TREE_PUBLIC (decl) = 1;
-	  TREE_STATIC (decl) = 1;
-	  DECL_COMMON (decl) = 1;
-	  DECL_ARTIFICIAL (decl) = 1;
-	  DECL_IGNORED_P (decl) = 1;
-	  cgraph_varpool_finalize_decl (decl);
-
-	  *slot = ent = ggc_alloc (sizeof (struct tree_map));
-	  ent->hash = IDENTIFIER_HASH_VALUE (name);
-	  ent->from = name;
-	  ent->to = decl;
-	}
-      else
-	decl = ent->to;
-
-      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
-      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_START];
-      lock = build_function_call_expr (lock, args);
-
-      args = tree_cons (NULL, build_fold_addr_expr (decl), NULL);
-      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_NAME_END];
-      unlock = build_function_call_expr (unlock, args);
-    }
-  else
-    {
-      lock = built_in_decls[BUILT_IN_GOMP_CRITICAL_START];
-      lock = build_function_call_expr (lock, NULL);
-
-      unlock = built_in_decls[BUILT_IN_GOMP_CRITICAL_END];
-      unlock = build_function_call_expr (unlock, NULL);
-    }
-
-  gimplify_and_add (lock, pre_p);
-  gimplify_and_add (unlock, post_p);
-  *expr_p = OMP_CRITICAL_BODY (expr);
-
-  return GS_OK;
 }
 
 /* A subroutine of gimplify_omp_atomic.  The front end is supposed to have
@@ -5451,20 +5356,15 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case OMP_SECTIONS:
-	  ret = gimplify_omp_sections (expr_p, pre_p);
+	case OMP_SINGLE:
+	  ret = gimplify_omp_workshare (expr_p, pre_p);
 	  break;
 
 	case OMP_SECTION:
-	  gimplify_to_stmt_list (&OMP_SECTION_BODY (*expr_p));
-	  ret = GS_ALL_DONE;
-	  break;
-
-	case OMP_SINGLE:
-	  ret = gimplify_omp_single (expr_p, pre_p);
-	  break;
-
+	case OMP_MASTER:
+	case OMP_ORDERED:
 	case OMP_CRITICAL:
-	  ret = gimplify_omp_critical (expr_p, pre_p, post_p);
+	  gimplify_to_stmt_list (&OMP_BODY (*expr_p));
 	  break;
 
 	case OMP_ATOMIC:

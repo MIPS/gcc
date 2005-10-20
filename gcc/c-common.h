@@ -933,9 +933,9 @@ extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
-extern void c_finish_omp_master (tree);
+extern tree c_finish_omp_master (tree);
 extern tree c_finish_omp_critical (tree, tree);
-extern void c_finish_omp_ordered (tree);
+extern tree c_finish_omp_ordered (tree);
 extern void c_finish_omp_barrier (void);
 extern void c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);

@@ -545,6 +545,8 @@ void
 walk_stmts (struct walk_stmt_info *wi, tree *tp)
 {
   tree t = *tp;
+  int walk_subtrees;
+
   if (!t)
     return;
 
@@ -584,7 +586,7 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
     case BIND_EXPR:
       if (wi->want_bind_expr)
 	{
-	  int walk_subtrees = 1;
+	  walk_subtrees = 1;
 	  wi->callback (tp, &walk_subtrees, wi);
 	  if (!walk_subtrees)
 	    break;
@@ -593,6 +595,13 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
       break;
 
     case RETURN_EXPR:
+      if (wi->want_return_expr)
+	{
+	  walk_subtrees = 1;
+	  wi->callback (tp, &walk_subtrees, wi);
+	  if (!walk_subtrees)
+	    break;
+	}
       walk_stmts (wi, &TREE_OPERAND (t, 0));
       break;
 

@@ -640,27 +640,16 @@ gfc_trans_omp_flush (void)
 static tree
 gfc_trans_omp_master (gfc_code *code)
 {
-  tree decl = built_in_decls [BUILT_IN_OMP_GET_THREAD_NUM], x, stmt;
-  x = gfc_build_function_call (decl, NULL);
-  stmt = gfc_trans_code (code->block->next);
+  tree stmt = gfc_trans_code (code->block->next);
   if (IS_EMPTY_STMT (stmt))
     return stmt;
-  x = build2 (EQ_EXPR, boolean_type_node, x, integer_zero_node);
-  x = build3_v (COND_EXPR, x, stmt, build_empty_stmt ());
-  return x;
+  return build1_v (OMP_MASTER, stmt);
 }
 
 static tree
 gfc_trans_omp_ordered (gfc_code *code)
 {
-  stmtblock_t block;
-  tree decl = built_in_decls [BUILT_IN_GOMP_ORDERED_START];
-  gfc_init_block (&block);
-  gfc_add_expr_to_block (&block, gfc_build_function_call (decl, NULL));
-  gfc_add_expr_to_block (&block, gfc_trans_code (code->block->next));
-  decl = built_in_decls [BUILT_IN_GOMP_ORDERED_END];
-  gfc_add_expr_to_block (&block, gfc_build_function_call (decl, NULL));
-  return gfc_finish_block (&block);
+  return build1_v (OMP_ORDERED, gfc_trans_code (code->block->next));
 }
 
 static tree

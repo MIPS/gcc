@@ -7220,7 +7220,7 @@ c_parser_omp_barrier (c_parser *parser)
      structured-block
 */
 
-static void
+static tree
 c_parser_omp_critical (c_parser *parser)
 {
   tree stmt, name = NULL;
@@ -7242,9 +7242,7 @@ c_parser_omp_critical (c_parser *parser)
   c_parser_skip_to_pragma_eol (parser);
 
   stmt = c_parser_omp_structured_block (parser);
-
-  /* ??? Line number not correct: the calls on either side of stmt.  */
-  c_finish_omp_critical (stmt, name);
+  return c_finish_omp_critical (stmt, name);
 }
 
 /* OpenMP 2.5:
@@ -7390,11 +7388,11 @@ c_parser_omp_for (c_parser *parser)
      structured-block
 */
 
-static void
+static tree
 c_parser_omp_master (c_parser *parser)
 {
   c_parser_skip_to_pragma_eol (parser);
-  c_finish_omp_master (c_parser_omp_structured_block (parser));
+  return c_finish_omp_master (c_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -7402,11 +7400,11 @@ c_parser_omp_master (c_parser *parser)
      structured-block
 */
 
-static void
+static tree
 c_parser_omp_ordered (c_parser *parser)
 {
   c_parser_skip_to_pragma_eol (parser);
-  c_finish_omp_ordered (c_parser_omp_structured_block (parser));
+  return c_finish_omp_ordered (c_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 2.5:
@@ -7651,17 +7649,17 @@ c_parser_omp_construct (c_parser *parser)
       c_parser_omp_atomic (parser);
       return;
     case PRAGMA_OMP_CRITICAL:
-      c_parser_omp_critical (parser);
-      return;
+      stmt = c_parser_omp_critical (parser);
+      break;
     case PRAGMA_OMP_FOR:
       stmt = c_parser_omp_for (parser);
       break;
     case PRAGMA_OMP_MASTER:
-      c_parser_omp_master (parser);
-      return;
+      stmt = c_parser_omp_master (parser);
+      break;
     case PRAGMA_OMP_ORDERED:
-      c_parser_omp_ordered (parser);
-      return;
+      stmt = c_parser_omp_ordered (parser);
+      break;
     case PRAGMA_OMP_PARALLEL:
       stmt = c_parser_omp_parallel (parser);
       break;

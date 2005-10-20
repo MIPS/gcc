@@ -187,6 +187,9 @@ struct walk_stmt_info
   /* True if we're interested in seeing BIND_EXPRs.  */
   bool want_bind_expr;
 
+  /* True if we're interested in seeing RETURN_EXPRs.  */
+  bool want_return_expr;
+
   /* True if we're interested in location information.  */
   bool want_locations;
 };
