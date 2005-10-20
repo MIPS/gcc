@@ -510,8 +510,9 @@ int objc_public_flag;
 /* Use to generate method labels.  */
 static int method_slot = 0;
 
-/* APPLE LOCAL radar 4291785 */
+/* APPLE LOCAL begin radar 4291785 */
 static int objc_collecting_ivars = 0;
+/* APPLE LOCAL end radar 4291785 */
 
 #define BUFSIZE		1024
 
