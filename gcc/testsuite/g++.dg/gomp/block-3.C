@@ -16,9 +16,9 @@ void foo()
   #pragma omp sections
     {
     #pragma omp section
-      { bad1: ; }
+      { bad1: ; }		// { dg-error "jump to label" }
     #pragma omp section
-      goto bad1;		// { dg-error "jump|enters OpenMP" }
+      goto bad1;		// { dg-error "from here|enters OpenMP" }
     }
 
   #pragma omp sections

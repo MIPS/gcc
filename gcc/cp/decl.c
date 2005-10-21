@@ -477,6 +477,12 @@ poplevel_named_label_1 (void **slot, void *data)
 
   if (ent->binding_level == bl)
     {
+      tree decl;
+
+      for (decl = ent->names_in_scope; decl; decl = TREE_CHAIN (decl))
+	if (decl_jump_unsafe (decl))
+	  ent->bad_decls = tree_cons (NULL, decl, ent->bad_decls);
+
       ent->binding_level = obl;
       ent->names_in_scope = obl->names;
       switch (bl->kind)
@@ -2208,14 +2214,20 @@ declare_local_label (tree id)
 static int
 decl_jump_unsafe (tree decl)
 {
+  tree type;
+
   if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl))
     return 0;
 
-  if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))
+  type = TREE_TYPE (decl);
+  if (type == error_mark_node)
+    return 0;
+
+  if (TYPE_NEEDS_CONSTRUCTING (type)
       || DECL_NONTRIVIALLY_INITIALIZED_P (decl))
     return 2;
 
-  if (pod_type_p (TREE_TYPE (decl)))
+  if (pod_type_p (type))
     return 0;
 
   /* The POD stuff is just pedantry; why should it matter if the class
@@ -2331,7 +2343,12 @@ check_goto (tree decl)
 
   /* We can't know where a computed goto is jumping.
      So we assume that it's OK.  */
-  if (! DECL_P (decl))
+  if (TREE_CODE (decl) != LABEL_DECL)
+    return;
+
+  /* We didn't record any information about this label when we created it,
+     and there's not much point since it's trivial to analyze as a return.  */
+  if (decl == cdtor_label)
     return;
 
   dummy.label_decl = decl;
@@ -2363,7 +2380,8 @@ check_goto (tree decl)
   if (ent->in_try_scope || ent->in_catch_scope
       || ent->in_omp_scope || ent->bad_decls)
     {
-      identify_goto (decl, NULL);
+      pedwarn ("jump to label %q+D", decl);
+      pedwarn ("  from here");
       identified = true;
     }
 
@@ -2402,7 +2420,8 @@ check_goto (tree decl)
 	    {
 	      if (!identified)
 		{
-		  identify_goto (decl, NULL);
+		  pedwarn ("jump to label %q+D", decl);
+		  pedwarn ("  from here");
 		  identified = true;
 		}
 	      error ("  exits OpenMP structured block");

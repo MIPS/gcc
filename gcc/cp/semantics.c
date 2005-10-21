@@ -746,6 +746,9 @@ finish_return_stmt (tree expr)
   bool no_warning;
 
   expr = check_return_expr (expr, &no_warning);
+
+  if (flag_openmp && !check_omp_return ())
+    return error_mark_node;
   if (!processing_template_decl)
     {
       if (DECL_DESTRUCTOR_P (current_function_decl)
@@ -759,8 +762,6 @@ finish_return_stmt (tree expr)
 	  return finish_goto_stmt (cdtor_label);
 	}
     }
-  if (flag_openmp && !check_omp_return ())
-    return error_mark_node;
 
   r = build_stmt (RETURN_EXPR, expr);
   TREE_NO_WARNING (r) |= no_warning;
