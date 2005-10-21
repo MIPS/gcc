@@ -49,6 +49,13 @@ model_method::model_method (model_method *other,
 {
   set_name (other->name);
 
+  // Set our descriptor to be the same as the descriptor of the
+  // instance from which we were created.  FIXME: this is kind of a
+  // hack, we should perhaps instead just directly track our parent
+  // and let users get that information directly.  In this case it
+  // would be preferable to make a new model_method_instance subclass.
+  descriptor = other->get_descriptor ();
+
   // The method itself might be generic.
   // FIXME can the type bounds be type variables from the class?
   set_type_parameters (other->type_parameters);
