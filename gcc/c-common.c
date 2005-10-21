@@ -6324,7 +6324,7 @@ cw_op_comp (const void *a, const void *b)
 {
   const struct cw_op_constraint *x = a;
   const struct cw_op_constraint *y = b;
-  int c = strcmp (x->opcode, y->opcode);
+  int c = strcasecmp (x->opcode, y->opcode);
   if (c)
     return c;
   if (x->argnum < y->argnum)

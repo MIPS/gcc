@@ -2671,12 +2671,12 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 #define CW_IS_PREFIX(ID)				\
   do {							\
     const char *myname = IDENTIFIER_POINTER (ID);	\
-    if (strcmp (myname, "lock") == 0			\
-	|| strcmp (myname, "rep") == 0			\
-	|| strcmp (myname, "repe") == 0			\
-	|| strcmp (myname, "repz") == 0			\
-        || strcmp (myname, "repne") == 0		\
-	|| strcmp (myname, "repnz") == 0)		\
+    if (strcasecmp (myname, "lock") == 0		\
+	|| strcasecmp (myname, "rep") == 0		\
+	|| strcasecmp (myname, "repe") == 0		\
+	|| strcasecmp (myname, "repz") == 0		\
+        || strcasecmp (myname, "repne") == 0		\
+	|| strcasecmp (myname, "repnz") == 0)		\
       return true;					\
   } while (0)
 

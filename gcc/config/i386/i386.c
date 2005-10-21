@@ -18220,9 +18220,9 @@ cw_x86_needs_swapping (const char *opcode)
     return false;
 
   /* These don't need swapping.  */
-  if (strcmp (opcode, "bound") == 0)
+  if (strcasecmp (opcode, "bound") == 0)
     return false;
-  if (strcmp (opcode, "invlpga") == 0)
+  if (strcasecmp (opcode, "invlpga") == 0)
     return false;
 
   return true;
@@ -18277,7 +18277,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
       /* Handle st(3) */
       if (TREE_CODE (arg) == COMPOUND_EXPR
 	  && TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE
-	  && strcmp (IDENTIFIER_POINTER (TREE_OPERAND (arg, 0)), "%st") == 0
+	  && strcasecmp (IDENTIFIER_POINTER (TREE_OPERAND (arg, 0)), "%st") == 0
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
 	{
 	  int v = tree_low_cst (TREE_OPERAND (arg, 1), 0);
@@ -18400,15 +18400,15 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
   args = x86_swap_operands (opcode, iargs);
 
   /* movsx isn't part of the AT&T syntax, they spell it movs.  */
-  if (strcmp (opcode, "movsx") == 0)
+  if (strcasecmp (opcode, "movsx") == 0)
     opcode = "movs";
 
   /* movzx isn't part of the AT&T syntax, they spell it movz.  */
-  if (strcmp (opcode, "movzx") == 0)
+  if (strcasecmp (opcode, "movzx") == 0)
     opcode = "movz";
 
-  if (strncmp (opcode, "f", 1) == 0 &&
-      (!(strcmp (opcode, "fldcw") == 0)))
+  if (strncasecmp (opcode, "f", 1) == 0 &&
+      (!(strcasecmp (opcode, "fldcw") == 0)))
     {
       if (e->mod[0] == 'w')
 	e->mod[0] = 's';
@@ -18416,16 +18416,16 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	e->mod[1] = 's';
     }
 
-  if (strcmp (opcode, "out") == 0)
+  if (strcasecmp (opcode, "out") == 0)
     e->mod[0] = 0;
-  else if (strcmp (opcode, "rcr") == 0
-	   || strcmp (opcode, "rcl") == 0
-	   || strcmp (opcode, "rol") == 0
-	   || strcmp (opcode, "ror") == 0
-	   || strcmp (opcode, "sal") == 0
-	   || strcmp (opcode, "sar") == 0
-	   || strcmp (opcode, "shl") == 0
-	   || strcmp (opcode, "shr") == 0)
+  else if (strcasecmp (opcode, "rcr") == 0
+	   || strcasecmp (opcode, "rcl") == 0
+	   || strcasecmp (opcode, "rol") == 0
+	   || strcasecmp (opcode, "ror") == 0
+	   || strcasecmp (opcode, "sal") == 0
+	   || strcasecmp (opcode, "sar") == 0
+	   || strcasecmp (opcode, "shl") == 0
+	   || strcasecmp (opcode, "shr") == 0)
     e->mod[1] = 0;
 
   if ((argnum == 1 && e->mod[0])
