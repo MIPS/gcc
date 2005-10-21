@@ -18512,19 +18512,18 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
-	if (op1 == 0)
+	if (op3 && cw_is_offset (op3))
 	  {
-	    if (op3 && cw_is_offset (op3))
-	      {
-		op1 = op3;
-		op3 = NULL_TREE;
-	      }
-	    else if (cw_is_offset (op2))
-	      {
-		op1 = op2;
-		op2 = op3;
-		op3 = NULL_TREE;
-	      }
+	    tree tmp = op1;
+	    op1 = op3;
+	    op3 = tmp;
+	  }
+	else if (cw_is_offset (op2))
+	  {
+	    tree tmp = op1;
+	    op1 = op2;
+	    op2 = op3;
+	    op3 = tmp;
 	  }
 	if (op2 && TREE_CODE (op2) == MULT_EXPR)
 	  {
