@@ -1,3 +1,13 @@
+2005-10-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4307420
+	* cfgloopmanip.c (create_loop_notes):  Handle fallthru to EXIT_BLOCK.
+
+2005-10-19  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4307392
+	* cfgloopmanip.c (create_loop_notes):  Handle jump tables.
+
 2005-10-17  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4203984
