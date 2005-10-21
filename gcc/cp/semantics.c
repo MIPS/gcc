@@ -759,8 +759,8 @@ finish_return_stmt (tree expr)
 	  return finish_goto_stmt (cdtor_label);
 	}
     }
-  if (flag_openmp)
-    check_omp_return ();
+  if (flag_openmp && !check_omp_return ())
+    return error_mark_node;
 
   r = build_stmt (RETURN_EXPR, expr);
   TREE_NO_WARNING (r) |= no_warning;

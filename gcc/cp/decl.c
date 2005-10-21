@@ -2413,9 +2413,9 @@ check_goto (tree decl)
 }
 
 /* Check that a return is ok wrt OpenMP structured blocks.
-   Called by finish_return_stmt.  */
+   Called by finish_return_stmt.  Returns true if all is well.  */
 
-void
+bool
 check_omp_return (void)
 {
   struct cp_binding_level *b;
@@ -2423,8 +2423,9 @@ check_omp_return (void)
     if (b->kind == sk_omp)
       {
 	error ("invalid exit from OpenMP structured block");
-	return;
+	return false;
       }
+  return true;
 }
 
 /* Define a label, specifying the location in the source file.
