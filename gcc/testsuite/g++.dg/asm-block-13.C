@@ -815,9 +815,9 @@ asm void bar() { fool:
 	sbb	fooi, eax
 	sbb	eax, 1
 	sbb	fooi, 1
-	sbb	ah, fool
-	sbb	ax, fool
-	sbb	eax, fool
+	sbb	ah, fooc
+	sbb	ax, foos
+	sbb	eax, fooi
 	seta	ah
 	seta	fool
 	setae	ah

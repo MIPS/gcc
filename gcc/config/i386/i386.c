@@ -18421,8 +18421,11 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
   else if (strcmp (opcode, "rcr") == 0
 	   || strcmp (opcode, "rcl") == 0
 	   || strcmp (opcode, "rol") == 0
-	   || strcmp (opcode, "sbb") == 0
-	   || strcmp (opcode, "ror") == 0)
+	   || strcmp (opcode, "ror") == 0
+	   || strcmp (opcode, "sal") == 0
+	   || strcmp (opcode, "sar") == 0
+	   || strcmp (opcode, "shl") == 0
+	   || strcmp (opcode, "shr") == 0)
     e->mod[1] = 0;
 
   if ((argnum == 1 && e->mod[0])
