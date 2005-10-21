@@ -1,3 +1,8 @@
+2005-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_critical): Use splay_tree_new_ggc instead of
+	splay_tree_new to create critical_name_mutexes.
+
 2005-10-20  Richard Henderson  <rth@redhat.com>
 
 	* c-decl.c (c_gimple_diagnostics_recursively): Rename from

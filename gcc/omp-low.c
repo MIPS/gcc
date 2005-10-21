@@ -2582,7 +2582,7 @@ expand_omp_critical (tree *stmt_p, omp_context *ctx)
 
       if (!critical_name_mutexes)
 	critical_name_mutexes
-	  = splay_tree_new (splay_tree_compare_pointers, 0, 0);
+	  = splay_tree_new_ggc (splay_tree_compare_pointers);
 
       n = splay_tree_lookup (critical_name_mutexes, (splay_tree_key) name);
       if (n == NULL)
