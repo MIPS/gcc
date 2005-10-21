@@ -18355,13 +18355,12 @@ cp_parser_omp_for_loop (cp_parser *parser)
 static tree
 cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree block, clauses, sb, ret;
+  tree clauses, sb, ret;
   unsigned int save;
 
   clauses = cp_parser_omp_all_clauses (parser, OMP_FOR_CLAUSE_MASK,
 				       "#pragma omp for", pragma_tok);
 
-  block = begin_compound_stmt (0);
   sb = begin_omp_structured_block ();
   save = cp_parser_begin_omp_structured_block (parser);
 
@@ -18371,7 +18370,6 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
 
   cp_parser_end_omp_structured_block (parser, save);
   add_stmt (finish_omp_structured_block (sb));
-  finish_compound_stmt (block);
 
   return ret;
 }
@@ -18498,16 +18496,14 @@ cp_parser_omp_sections_scope (cp_parser *parser)
 static tree
 cp_parser_omp_sections (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree block, clauses, ret;
+  tree clauses, ret;
 
   clauses = cp_parser_omp_all_clauses (parser, OMP_SECTIONS_CLAUSE_MASK,
 				       "#pragma omp sections", pragma_tok);
 
-  block = begin_compound_stmt (0);
   ret = cp_parser_omp_sections_scope (parser);
   if (ret)
     OMP_SECTIONS_CLAUSES (ret) = clauses;
-  finish_compound_stmt (block);
 
   return ret;
 }

@@ -11,13 +11,13 @@ void foo()
   bad1:
   #pragma omp for
   for (i = 0; i < 10; ++i)
-    goto bad1;			// { dg-error "invalid exit" }
+    goto bad1;			// { dg-error "jump|exits OpenMP" }
 
-  goto bad2;			// { dg-error "invalid entry" }
+  goto bad2;			// { dg-error "from here" }
   #pragma omp for
   for (i = 0; i < 10; ++i)
     {
-      bad2: ;
+      bad2: ;			// { dg-error "jump|enters OpenMP" }
     }
 
   #pragma omp for

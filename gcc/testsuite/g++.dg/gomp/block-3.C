@@ -18,19 +18,19 @@ void foo()
     #pragma omp section
       { bad1: ; }
     #pragma omp section
-      goto bad1;		// { dg-error "invalid exit" }
+      goto bad1;		// { dg-error "jump|enters OpenMP" }
     }
 
   #pragma omp sections
     {
-      goto bad2;		// { dg-error "invalid exit" }
+      goto bad2;		// { dg-error "from here" }
     }
-  bad2:;
+  bad2:;			// { dg-error "jump|exits OpenMP" }
 
-  goto bad3;			// { dg-error "invalid entry" }
+  goto bad3;			// { dg-error "from here" }
   #pragma omp sections
     {
-      bad3: ;
+      bad3: ;			// { dg-error "jump|enters OpenMP" }
     }
 
   #pragma omp sections

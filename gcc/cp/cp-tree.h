@@ -740,8 +740,7 @@ struct language_function GTY(())
   /* True if this function can throw an exception.  */
   BOOL_BITFIELD can_throw : 1;
 
-  struct named_label_use_list *x_named_label_uses;
-  struct named_label_list *x_named_labels;
+  htab_t GTY((param_is(struct named_label_entry))) x_named_labels;
   struct cp_binding_level *bindings;
   VEC(tree,gc) *x_local_names;
 };
@@ -3808,6 +3807,7 @@ extern tree push_using_decl			(tree, tree);
 extern tree declare_local_label			(tree);
 extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
+extern void check_omp_return			(void);
 extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree check_for_out_of_scope_variable	(tree);

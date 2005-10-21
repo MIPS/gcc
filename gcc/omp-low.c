@@ -40,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "tree-pass.h"
 #include "ggc.h"
+#include "except.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two 
@@ -635,6 +636,8 @@ create_omp_child_function (omp_context *ctx)
   type = build_function_type_list (void_type_node, ptype, NULL_TREE);
 
   decl = build_decl (FUNCTION_DECL, name, type);
+  decl = lang_hooks.decls.pushdecl (decl);
+
   ctx->cb.dst_fn = decl;
 
   TREE_STATIC (decl) = 1;
@@ -674,13 +677,17 @@ static void
 scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
 {
   omp_context *ctx;
+  tree name;
 
   ctx = new_omp_context (*stmt_p, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
   ctx->is_parallel = true;
   ctx->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
-  ctx->record_type = make_node (RECORD_TYPE);
-  TYPE_NAME (ctx->record_type) = create_tmp_var_name (".omp_data_s");
+  ctx->record_type = lang_hooks.types.make_type (RECORD_TYPE);
+  name = create_tmp_var_name (".omp_data_s");
+  name = build_decl (TYPE_DECL, name, ctx->record_type);
+  TYPE_NAME (ctx->record_type) = name;
+
   create_omp_child_function (ctx);
 
   scan_sharing_clauses (OMP_PARALLEL_CLAUSES (*stmt_p), ctx);
@@ -739,11 +746,14 @@ scan_omp_single (tree *stmt_p, omp_context *outer_ctx)
 {
   tree stmt = *stmt_p;
   omp_context *ctx;
+  tree name;
 
   ctx = new_omp_context (stmt, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
-  ctx->record_type = make_node (RECORD_TYPE);
-  TYPE_NAME (ctx->record_type) = create_tmp_var_name (".omp_copy_s");
+  ctx->record_type = lang_hooks.types.make_type (RECORD_TYPE);
+  name = create_tmp_var_name (".omp_copy_s");
+  name = build_decl (TYPE_DECL, name, ctx->record_type);
+  TYPE_NAME (ctx->record_type) = name;
 
   scan_sharing_clauses (OMP_SINGLE_CLAUSES (stmt), ctx);
   scan_omp (&OMP_SINGLE_BODY (stmt), ctx);
@@ -1606,6 +1616,36 @@ build_parallel_call (tree clauses, tree *stmt_list, omp_context *ctx)
   gimplify_and_add (t, stmt_list);
 }
 
+/* If exceptions are enabled, wrap *STMT_P in a MUST_NOT_THROW catch
+   handler.  This prevents programs from violating the structured
+   block semantics with throws.  */
+
+static void
+maybe_catch_exception (tree *stmt_p)
+{
+  tree f, t;
+
+  if (!flag_exceptions)
+    return;
+
+  if (lang_protect_cleanup_actions)
+    t = lang_protect_cleanup_actions ();
+  else
+    {
+      t = built_in_decls[BUILT_IN_TRAP];
+      t = build_function_call_expr (t, NULL);
+    }
+  f = build2 (EH_FILTER_EXPR, void_type_node, NULL, NULL);
+  EH_FILTER_MUST_NOT_THROW (f) = 1;
+  gimplify_and_add (t, &EH_FILTER_FAILURE (f));
+  
+  t = build2 (TRY_CATCH_EXPR, void_type_node, *stmt_p, NULL);
+  append_to_statement_list (f, &TREE_OPERAND (t, 1));
+
+  *stmt_p = NULL;
+  append_to_statement_list (t, stmt_p);
+}
+
 /* Expand an OpenMP parallel directive.  */
 
 static void
@@ -1629,6 +1669,7 @@ expand_omp_parallel (tree *stmt_p, omp_context *ctx)
   expand_rec_input_clauses (clauses, &BIND_EXPR_BODY (bind), ctx);
   append_to_statement_list (body, &BIND_EXPR_BODY (bind));
   expand_reduction_clauses (clauses, &BIND_EXPR_BODY (bind), ctx);
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
 
   pop_gimplify_context (bind);
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
@@ -2227,6 +2268,7 @@ expand_omp_for (tree *stmt_p, omp_context *ctx)
   stmt_list = expand_omp_for_1 (stmt_p, ctx);
   block = make_node (BLOCK);
   bind = build3 (BIND_EXPR, void_type_node, NULL, stmt_list, block);
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   *stmt_p = bind;
 
   pop_gimplify_context (bind);
@@ -2360,6 +2402,7 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
 
   block = make_node (BLOCK);
   bind = build3 (BIND_EXPR, void_type_node, NULL, stmt_list, block);
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   *stmt_p = bind;
 
   pop_gimplify_context (bind);
@@ -2494,6 +2537,7 @@ expand_omp_single (tree *stmt_p, omp_context *ctx)
   else
     expand_omp_single_simple (single_stmt, &BIND_EXPR_BODY (bind));
 
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
@@ -2524,6 +2568,7 @@ expand_omp_master (tree *stmt_p, omp_context *ctx)
   x = build1 (LABEL_EXPR, void_type_node, lab);
   gimplify_and_add (x, &BIND_EXPR_BODY (bind));
 
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
@@ -2553,6 +2598,7 @@ expand_omp_ordered (tree *stmt_p, omp_context *ctx)
   x = build_function_call_expr (x, NULL);
   gimplify_and_add (x, &BIND_EXPR_BODY (bind));
 
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
@@ -2633,6 +2679,7 @@ expand_omp_critical (tree *stmt_p, omp_context *ctx)
   gimplify_and_add (lock, &BIND_EXPR_BODY (bind));
 
   expand_omp (&OMP_CRITICAL_BODY (stmt), ctx);
+  maybe_catch_exception (&OMP_CRITICAL_BODY (stmt));
   append_to_statement_list (OMP_CRITICAL_BODY (stmt), &BIND_EXPR_BODY (bind));
 
   gimplify_and_add (unlock, &BIND_EXPR_BODY (bind));

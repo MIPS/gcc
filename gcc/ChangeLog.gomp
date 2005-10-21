@@ -1,3 +1,14 @@
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
+	* omp-low.c: Include except.h.
+	(create_omp_child_function): Call pushdecl on the new function.
+	(scan_omp_parallel): Make the TYPE_NAME a TYPE_DECL.
+	(scan_omp_single): Likewise.
+	(maybe_catch_exception): New.
+	(expand_omp_parallel, expand_omp_for, expand_omp_sections,
+	expand_omp_single, expand_omp_master, expand_omp_ordered,
+	expand_omp_critical): Call it.
+
 2005-10-21  Diego Novillo  <dnovillo@redhat.com>
 
 	PR 24455

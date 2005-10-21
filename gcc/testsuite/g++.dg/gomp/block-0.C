@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-fopenmp -fdump-tree-gimple" }
+// { dg-options "-fopenmp -fdump-tree-omplower" }
 
 void bar();
 void foo()
@@ -29,4 +29,4 @@ void foo()
     }
 }
 
-// { dg-final { scan-tree-dump-times "terminate" 10 "gimple" } }
+// { dg-final { scan-tree-dump-times "terminate" 8 "omplower" } }

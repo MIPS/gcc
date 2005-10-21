@@ -1,3 +1,41 @@
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.h (struct language_function): Remove x_named_label_uses.
+	Change x_named_labels to a hashtable.
+	(check_omp_return): Declare.
+	* decl.c (struct named_label_use_entry): Rename from 
+	named_label_use_list.  Remove label_decl.
+	(struct named_label_entry): Rename from named_label_list.  Remove
+	old_value and next.  Change in_try_scope and in_catch_scope to bool.
+	Add in_omp_scope.
+	(pop_labels_1): New.
+	(pop_labels): Use it.
+	(pop_local_label, poplevel_named_label_1): New.
+	(poplevel): Use them.
+	(named_label_entry_hash, named_label_entry_eq): New.
+	(make_label_decl): Create named_labels.  Move label creation
+	bits from lookup_label.
+	(declare_local_label): Tidy.
+	(identify_goto): Split out from ...
+	(check_previous_goto_1): Add exited_omp argument.  Handle omp scopes.
+	(use_label): Merge into...
+	(check_goto): ... here.  Handle omp scopes.
+	(check_omp_return): New.
+	(check_previous_gotos): Merge into...
+	(define_label): ... here.
+	(save_function_data): Remove x_named_label_uses reference.
+	(finish_function): Likewise.
+	* name-lookup.h (sk_omp): New.
+	* name-lookup.c (begin_scope): Handle it.
+	* parser.c (cp_parser_omp_for): Don't create extra compound stmt.
+	(cp_parser_omp_sections): Likewise.
+	* semantics.c (finish_return_stmt): Call check_omp_return.
+	(begin_omp_structured_block): Use sk_omp.
+	(finish_omp_structured_block): Use do_poplevel.  Don't build a
+	MUST_NOT_THROW expression here.
+	(begin_omp_parallel, finish_omp_parallel): Don't create extra
+	compound statements.
+
 2005-10-21  Diego Novillo  <dnovillo@redhat.com>
 
 	PR 24455
