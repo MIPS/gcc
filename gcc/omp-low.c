@@ -780,7 +780,7 @@ static void
 scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
 {
   omp_context *ctx;
-  bool saw_var_sized = false;
+  tree var_sized_list = NULL;
   tree c, decl, stmt = *stmt_p;
 
   ctx = new_omp_context (stmt, outer_ctx);
@@ -793,8 +793,8 @@ scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
 	case OMP_CLAUSE_PRIVATE:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
-	    saw_var_sized = true;
-	  install_var_private (decl, ctx);
+	    var_sized_list = tree_cons (NULL, decl, var_sized_list);
+	  OMP_CLAUSE_DECL (c) = install_var_private (decl, ctx);
 	  break;
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
@@ -822,16 +822,8 @@ scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
   /* Instantiate the VALUE_EXPR for variable sized variables.  We have
      to do this as a separate pass, since we need the pointer and size
      decls installed first.  */
-  if (saw_var_sized)
-    for (c = OMP_CLAUSES (stmt); c ; c = OMP_CLAUSE_CHAIN (c))
-      {
-	if (TREE_CODE (c) != OMP_CLAUSE_PRIVATE)
-	  continue;
-
-	decl = OMP_CLAUSE_DECL (c);
-	if (is_variable_sized (decl))
-	  fixup_variable_sized (decl, ctx);
-      }
+  for (c = var_sized_list; c ; c = TREE_CHAIN (c))
+    fixup_variable_sized (TREE_VALUE (c), ctx);
 
   scan_omp (&OMP_BODY (stmt), ctx);
 

@@ -1,3 +1,9 @@
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
+	* omp-low.c (scan_omp_nested) <OMP_CLAUSE_PRIVATE>: Replace
+	OMP_CLAUSE_DECL with the new private decl.  Use a tree list
+	for fixing up the variable sized decls.
+
 2005-10-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (loc_descriptor_from_tree_1): Don't set unsignedp
