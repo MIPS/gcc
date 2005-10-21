@@ -18532,6 +18532,33 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    op3 = op2;
 	    op2 = t;
 	  }
+	if (op1 == NULL_TREE)
+	  {
+	    if (TREE_CODE (op2) == PLUS_EXPR
+		&& cw_is_offset (TREE_OPERAND (op2, 0)))
+	      {
+		op1 = TREE_OPERAND (op2, 0);
+		op2 = TREE_OPERAND (op2, 1);
+	      }
+	    else if (TREE_CODE (op2) == PLUS_EXPR
+		     && cw_is_offset (TREE_OPERAND (op2, 1)))
+	      {
+		op1 = TREE_OPERAND (op2, 1);
+		op2 = TREE_OPERAND (op2, 0);
+	      }
+	    else if (TREE_CODE (op3) == PLUS_EXPR
+		&& cw_is_offset (TREE_OPERAND (op3, 0)))
+	      {
+		op1 = TREE_OPERAND (op3, 0);
+		op3 = TREE_OPERAND (op3, 1);
+	      }
+	    else if (TREE_CODE (op3) == PLUS_EXPR
+		     && cw_is_offset (TREE_OPERAND (op3, 1)))
+	      {
+		op1 = TREE_OPERAND (op3, 1);
+		op3 = TREE_OPERAND (op3, 0);
+	      }
+	  }
 
 	/* Crack out the scaling, if any.  */
 	if (ASSEMBLER_DIALECT == ASM_ATT
