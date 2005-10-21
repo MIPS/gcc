@@ -8961,7 +8961,6 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 {
   dw_loc_descr_ref ret, ret1;
   int have_address = 0;
-  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (loc));
   enum dwarf_location_atom op;
 
   /* ??? Most of the time we do not take proper care for sign/zero
@@ -9105,6 +9104,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	HOST_WIDE_INT bitsize, bitpos, bytepos;
 	enum machine_mode mode;
 	int volatilep;
+	int unsignedp = TYPE_UNSIGNED (TREE_TYPE (loc));
 
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
 				   &unsignedp, &volatilep, false);
@@ -9203,7 +9203,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       goto do_binop;
 
     case RSHIFT_EXPR:
-      op = (unsignedp ? DW_OP_shr : DW_OP_shra);
+      op = (TYPE_UNSIGNED (TREE_TYPE (loc)) ? DW_OP_shr : DW_OP_shra);
       goto do_binop;
 
     case PLUS_EXPR:

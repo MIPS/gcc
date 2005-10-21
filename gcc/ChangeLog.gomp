@@ -1,3 +1,8 @@
+2005-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (loc_descriptor_from_tree_1): Don't set unsignedp
+	before the switch, but just in the 2 places that need it.
+
 2005-10-21  Richard Henderson  <rth@redhat.com>
 
 	* omp-low.c: Include except.h.
