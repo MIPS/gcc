@@ -3162,7 +3162,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
       if (dim + 1 < as->rank)
         stride = GFC_TYPE_ARRAY_STRIDE (type, dim + 1);
       else
-        stride = NULL_TREE;
+	stride = GFC_TYPE_ARRAY_SIZE (type);
 
       if (ubound != NULL_TREE && !(stride && INTEGER_CST_P (stride)))
         {
@@ -3559,6 +3559,22 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
               gfc_add_modify_expr (&block, stride, tmp);
             }
         }
+      else
+	{
+	  stride = GFC_TYPE_ARRAY_SIZE (type);
+
+	  if (stride && !INTEGER_CST_P (stride))
+	    {
+	      /* Calculate size = stride * (ubound + 1 - lbound).  */
+	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+				 gfc_index_one_node, lbound);
+	      tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+				 ubound, tmp);
+	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
+				 GFC_TYPE_ARRAY_STRIDE (type, n), tmp);
+	      gfc_add_modify_expr (&block, stride, tmp);
+	    }
+	}
     }
 
   /* Set the offset.  */

@@ -569,6 +569,30 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       else
 	gfc_add_decl_to_function (GFC_TYPE_ARRAY_OFFSET (type));
     }
+
+  if (GFC_TYPE_ARRAY_SIZE (type) == NULL_TREE
+      && sym->as->type != AS_ASSUMED_SIZE)
+    GFC_TYPE_ARRAY_SIZE (type) = create_index_var ("size", nest);
+
+  if (POINTER_TYPE_P (type))
+    {
+      gcc_assert (GFC_ARRAY_TYPE_P (TREE_TYPE (type)));
+      gcc_assert (TYPE_LANG_SPECIFIC (type)
+		  == TYPE_LANG_SPECIFIC (TREE_TYPE (type)));
+      type = TREE_TYPE (type);
+    }
+
+  if (! COMPLETE_TYPE_P (type) && GFC_TYPE_ARRAY_SIZE (type))
+    {
+      tree size, range;
+
+      size = build2 (MINUS_EXPR, gfc_array_index_type,
+		     GFC_TYPE_ARRAY_SIZE (type), gfc_index_one_node);
+      range = build_range_type (gfc_array_index_type, gfc_index_zero_node,
+				size);
+      TYPE_DOMAIN (type) = range;
+      layout_type (type);
+    }
 }
 
 
@@ -717,7 +741,8 @@ gfc_create_string_length (gfc_symbol * sym)
 			   gfc_charlen_type_node);
       DECL_ARTIFICIAL (length) = 1;
       TREE_USED (length) = 1;
-      gfc_defer_symbol_init (sym);
+      if (sym->ns->proc_name->tlink != NULL)
+	gfc_defer_symbol_init (sym);
       sym->ts.cl->backend_decl = length;
     }
 
@@ -763,13 +788,14 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       if (sym->ts.type == BT_CHARACTER)
 	{
 	  if (sym->ts.cl->backend_decl == NULL_TREE)
+	    length = gfc_create_string_length (sym);
+	  else
+	    length = sym->ts.cl->backend_decl;
+	  if (TREE_CODE (length) == VAR_DECL
+	      && DECL_CONTEXT (length) == NULL_TREE)
 	    {
-	      length = gfc_create_string_length (sym);
-	      if (TREE_CODE (length) != INTEGER_CST)
-		{
-		  gfc_finish_var_decl (length, sym);
-		  gfc_defer_symbol_init (sym);
-		}
+	      gfc_finish_var_decl (length, sym);
+	      gfc_defer_symbol_init (sym);
 	    }
 	}
 
@@ -1153,9 +1179,8 @@ create_function_arglist (gfc_symbol * sym)
 {
   tree fndecl;
   gfc_formal_arglist *f;
-  tree typelist;
-  tree arglist;
-  tree length;
+  tree typelist, hidden_typelist;
+  tree arglist, hidden_arglist;
   tree type;
   tree parm;
 
@@ -1164,6 +1189,7 @@ create_function_arglist (gfc_symbol * sym)
   /* Build formal argument list. Make sure that their TREE_CONTEXT is
      the new FUNCTION_DECL node.  */
   arglist = NULL_TREE;
+  hidden_arglist = NULL_TREE;
   typelist = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
 
   if (sym->attr.entry_master)
@@ -1196,6 +1222,7 @@ create_function_arglist (gfc_symbol * sym)
 
       if (sym->ts.type == BT_CHARACTER)
 	{
+	  tree length;
 	  gfc_allocate_lang_decl (parm);
 
 	  /* Length of character result.  */
@@ -1221,92 +1248,109 @@ create_function_arglist (gfc_symbol * sym)
 	}
     }
 
+  hidden_typelist = typelist;
   for (f = sym->formal; f; f = f->next)
-    {
-      if (f->sym != NULL)	/* ignore alternate returns.  */
-	{
-	  length = NULL_TREE;
+    if (f->sym != NULL)	/* Ignore alternate returns.  */
+      hidden_typelist = TREE_CHAIN (hidden_typelist);
 
-	  type = TREE_VALUE (typelist);
-
-	  /* Build a the argument declaration.  */
-	  parm = build_decl (PARM_DECL,
-			     gfc_sym_identifier (f->sym), type);
-
-	  /* Fill in arg stuff.  */
-	  DECL_CONTEXT (parm) = fndecl;
-	  DECL_ARG_TYPE (parm) = type;
-	  /* All implementation args are read-only.  */
-	  TREE_READONLY (parm) = 1;
-
-	  gfc_finish_decl (parm, NULL_TREE);
-
-	  f->sym->backend_decl = parm;
-
-	  arglist = chainon (arglist, parm);
-	  typelist = TREE_CHAIN (typelist);
-	}
-    }
-
-  /* Add the hidden string length parameters.  */
-  parm = arglist;
   for (f = sym->formal; f; f = f->next)
     {
       char name[GFC_MAX_SYMBOL_LEN + 2];
+
       /* Ignore alternate returns.  */
       if (f->sym == NULL)
 	continue;
 
-      if (f->sym->ts.type != BT_CHARACTER)
-	continue;
-
-      parm = f->sym->backend_decl;
       type = TREE_VALUE (typelist);
-      gcc_assert (type == gfc_charlen_type_node);
 
-      strcpy (&name[1], f->sym->name);
-      name[0] = '_';
-      length = build_decl (PARM_DECL, get_identifier (name), type);
-
-      arglist = chainon (arglist, length);
-      DECL_CONTEXT (length) = fndecl;
-      DECL_ARTIFICIAL (length) = 1;
-      DECL_ARG_TYPE (length) = type;
-      TREE_READONLY (length) = 1;
-      gfc_finish_decl (length, NULL_TREE);
-
-      /* TODO: Check string lengths when -fbounds-check.  */
-
-      /* Use the passed value for assumed length variables.  */
-      if (!f->sym->ts.cl->length)
+      if (f->sym->ts.type == BT_CHARACTER)
 	{
-	  TREE_USED (length) = 1;
-	  if (!f->sym->ts.cl->backend_decl)
-	    f->sym->ts.cl->backend_decl = length;
-	  else
+	  tree len_type = TREE_VALUE (hidden_typelist);
+	  tree length = NULL_TREE;
+	  gcc_assert (len_type == gfc_charlen_type_node);
+
+	  strcpy (&name[1], f->sym->name);
+	  name[0] = '_';
+	  length = build_decl (PARM_DECL, get_identifier (name), len_type);
+
+	  hidden_arglist = chainon (hidden_arglist, length);
+	  DECL_CONTEXT (length) = fndecl;
+	  DECL_ARTIFICIAL (length) = 1;
+	  DECL_ARG_TYPE (length) = len_type;
+	  TREE_READONLY (length) = 1;
+	  gfc_finish_decl (length, NULL_TREE);
+
+	  /* TODO: Check string lengths when -fbounds-check.  */
+
+	  /* Use the passed value for assumed length variables.  */
+	  if (!f->sym->ts.cl->length)
 	    {
-	      /* there is already another variable using this
-		 gfc_charlen node, build a new one for this variable
-		 and chain it into the list of gfc_charlens.
-		 This happens for e.g. in the case
-		 CHARACTER(*)::c1,c2
-		 since CHARACTER declarations on the same line share
-		 the same gfc_charlen node.  */
-	      gfc_charlen *cl;
+	      TREE_USED (length) = 1;
+	      if (!f->sym->ts.cl->backend_decl)
+		f->sym->ts.cl->backend_decl = length;
+	      else
+		{
+		  /* there is already another variable using this
+		     gfc_charlen node, build a new one for this variable
+		     and chain it into the list of gfc_charlens.
+		     This happens for e.g. in the case
+		     CHARACTER(*)::c1,c2
+		     since CHARACTER declarations on the same line share
+		     the same gfc_charlen node.  */
+		  gfc_charlen *cl;
 	      
-	      cl = gfc_get_charlen ();
-	      cl->backend_decl = length;
-	      cl->next = f->sym->ts.cl->next;
-	      f->sym->ts.cl->next = cl;
-	      f->sym->ts.cl = cl;
+		  cl = gfc_get_charlen ();
+		  cl->backend_decl = length;
+		  cl->next = f->sym->ts.cl->next;
+		  f->sym->ts.cl->next = cl;
+		  f->sym->ts.cl = cl;
+		}
+	    }
+
+	  hidden_typelist = TREE_CHAIN (hidden_typelist);
+
+	  if (f->sym->ts.cl->backend_decl == NULL
+	      || f->sym->ts.cl->backend_decl == length)
+	    {
+	      if (f->sym->ts.cl->backend_decl == NULL)
+		gfc_create_string_length (f->sym);
+
+	      /* Make sure PARM_DECL type doesn't point to incomplete type.  */
+	      type = gfc_sym_type (f->sym);
 	    }
 	}
 
-      parm = TREE_CHAIN (parm);
+      /* For non-constant length array arguments, make sure they use
+	 a different type node from TYPE_ARG_TYPES type.  */
+      if (f->sym->attr.dimension
+	  && type == TREE_VALUE (typelist)
+	  && TREE_CODE (type) == POINTER_TYPE
+	  && GFC_ARRAY_TYPE_P (type)
+	  && f->sym->as->type != AS_ASSUMED_SIZE
+	  && ! COMPLETE_TYPE_P (TREE_TYPE (type)))
+	type = gfc_sym_type (f->sym);
+
+      /* Build a the argument declaration.  */
+      parm = build_decl (PARM_DECL, gfc_sym_identifier (f->sym), type);
+
+      /* Fill in arg stuff.  */
+      DECL_CONTEXT (parm) = fndecl;
+      DECL_ARG_TYPE (parm) = TREE_VALUE (typelist);
+      /* All implementation args are read-only.  */
+      TREE_READONLY (parm) = 1;
+
+      gfc_finish_decl (parm, NULL_TREE);
+
+      f->sym->backend_decl = parm;
+
+      arglist = chainon (arglist, parm);
       typelist = TREE_CHAIN (typelist);
     }
 
-  gcc_assert (TREE_VALUE (typelist) == void_type_node);
+  /* Add the hidden string length parameters.  */
+  arglist = chainon (arglist, hidden_arglist);
+
+  gcc_assert (TREE_VALUE (hidden_typelist) == void_type_node);
   DECL_ARGUMENTS (fndecl) = arglist;
 }
 
@@ -2342,6 +2386,19 @@ generate_local_decl (gfc_symbol * sym)
       else if (warn_unused_variable
 	       && !(sym->attr.in_common || sym->attr.use_assoc))
 	warning (0, "unused variable %qs", sym->name); 
+      /* For variable length CHARACTER parameters, the PARM_DECL already
+	 references the length variable, so force gfc_get_symbol_decl
+	 even when not referenced.  If optimize > 0, it will be optimized
+	 away anyway.  But do this only after emitting -Wunused-parameter
+	 warning if requested.  */
+      if (sym->attr.dummy && ! sym->attr.referenced
+	  && sym->ts.type == BT_CHARACTER
+	  && sym->ts.cl->backend_decl != NULL
+	  && TREE_CODE (sym->ts.cl->backend_decl) == VAR_DECL)
+	{
+	  sym->attr.referenced = 1;
+	  gfc_get_symbol_decl (sym);
+	}
     }
 }
 

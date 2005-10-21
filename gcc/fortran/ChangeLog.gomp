@@ -1,3 +1,28 @@
+2005-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-decl.c (gfc_build_qualified_array): For non-assumed-size
+	arrays without constant size, create also an index var for
+	GFC_TYPE_ARRAY_SIZE (type).  If the type is incomplete, complete
+	it as 0..size-1.
+	(gfc_create_string_length): Don't call gfc_defer_symbol_init
+	if just creating DECL_ARGUMENTS.
+	(gfc_get_symbol_decl): Call gfc_finish_var_decl and
+	gfc_defer_symbol_init even if ts.cl->backend_decl is already
+	set to a VAR_DECL that doesn't have DECL_CONTEXT yet.
+	(create_function_arglist): Rework, so that hidden length
+	arguments for CHARACTER parameters are created together with
+	the parameters.  Resolve ts.cl->backend_decl for CHARACTER
+	parameters.  If the argument is a non-constant length array
+	or CHARACTER, ensure PARM_DECL has different type than
+	its DECL_ARG_TYPE.
+	(generate_local_decl): Call gfc_get_symbol_decl even
+	for non-referenced non-constant length CHARACTER parameters
+	after optionally issuing warnings.
+	* trans-array.c (gfc_trans_array_bounds): Set last stride
+	to GFC_TYPE_ARRAY_SIZE (type) to initialize it as well.
+	(gfc_trans_dummy_array_bias): Initialize GFC_TYPE_ARRAY_SIZE (type)
+	variable as well.
+
 2005-10-20  Richard Henderson  <rth@redhat.com>
 
 	* trans-decl.c (gfc_gimplify_function): Invoke
