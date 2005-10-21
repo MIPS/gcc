@@ -1,3 +1,21 @@
+2005-10-20  Devang Patel  <dpatel@apple.com>
+
+	Radar 4307634
+	* dbxout.c (struct typeinf): New member, q_type_number.
+	(struct qualified_typeinf): New.
+	(q_typevec, q_typevec_len, q_type_number); New.
+	(dbxout_reusable_type, dbxout_note_q_type, 
+	dbxout_next_q_type_number): New.
+	(dbxout_init): Initialize q_typevec.
+	(dbxout_type_index): Check reusable type.
+	(dbxout_partial_type): Remove dbxout_next_type_number call.
+	Use dbxout_note_q_type().
+	(dbxout_complete_type): Remove dbxout_next_type_number call.
+	(dbxout_pointer_type): Same.
+	(dbxout_file_type): Same.
+	(dbxout_function_type): Same.
+	(dbxout_reference_type): Same.
+
 2005-10-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4307420
