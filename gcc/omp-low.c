@@ -93,7 +93,6 @@ typedef struct omp_context
 } omp_context;
 
 static splay_tree all_contexts;
-static splay_tree all_labels;
 static int parallel_nesting_level;
 
 static void scan_omp (tree *, omp_context *);
@@ -900,17 +899,6 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
       }
       break;
 
-    case LABEL_EXPR:
-      if (ctx)
-	{
-	  splay_tree_insert (all_labels, (splay_tree_key) LABEL_EXPR_LABEL (t),
-			     (splay_tree_value) ctx);
-	  LABEL_EXPR_LABEL (t) = remap_decl (LABEL_EXPR_LABEL (t), &ctx->cb);
-	}
-      splay_tree_insert (all_labels, (splay_tree_key) LABEL_EXPR_LABEL (t),
-			 (splay_tree_value) ctx);
-      break;
-
     case VAR_DECL:
     case PARM_DECL:
     case LABEL_DECL:
@@ -938,7 +926,6 @@ scan_omp (tree *stmt_p, omp_context *ctx)
   memset (&wi, 0, sizeof (wi));
   wi.callback = scan_omp_1;
   wi.info = ctx;
-  wi.val_only = true;
   wi.want_bind_expr = (ctx != NULL);
   wi.want_locations = true;
 
@@ -2758,60 +2745,6 @@ expand_omp_1 (tree *tp, int *walk_subtrees, void *data)
 	}
       break;
 
-    case GOTO_EXPR:
-      {
-	splay_tree_node n;
-	omp_context *lctx;
-        bool exit_p = true;
-
-	t = TREE_OPERAND (t, 0);
-	if (TREE_CODE (t) != LABEL_DECL)
-	  break;
-
-	n = splay_tree_lookup (all_labels, (splay_tree_key) t);
-
-	/* The lookup may fail when the label is outside a surrounding
-	   parallel.  In that case the label_expr label would not be 
-	   remapped, but the goto_expr label would, expecting that the
-	   label ought to be found later.  In this case it is sufficient
-	   to say that the label has no context.  */
-	lctx = NULL;
-	if (n)
-	  {
-	    lctx = (omp_context *) n->value;
-	    if (ctx == lctx)
-	      break;
-	  }
-
-        /* Try to avoid confusing the user by producing and error message
-	   with correct "exit" or "enter" verbage.  We prefer "exit"
-	   unless we can show that LCTX is nested within CTX.  */
-	if (ctx == NULL)
-	  exit_p = false;
-	else if (lctx && lctx->depth > ctx->depth)
-	  {
-	    while (lctx && lctx != ctx)
-	      lctx = lctx->outer;
-	    if (lctx)
-	      exit_p = false;
-	  }
-	if (exit_p)
-	  error ("invalid exit from OpenMP structured block");
-	else
-	  error ("invalid entry to OpenMP structured block");
-
-	*tp = build_empty_stmt ();
-      }
-      break;
-
-    case RETURN_EXPR:
-      if (ctx)
-	{
-	  error ("invalid exit from OpenMP structured block");
-	  *tp = build_empty_stmt ();
-	}
-      break;
-
     default:
       if (!TYPE_P (t) && !DECL_P (t))
 	*walk_subtrees = 1;
@@ -2830,7 +2763,6 @@ expand_omp (tree *stmt_p, omp_context *ctx)
   wi.callback = expand_omp_1;
   wi.info = ctx;
   wi.val_only = true;
-  wi.want_return_expr = true;
   wi.want_locations = true;
 
   walk_stmts (&wi, stmt_p);
@@ -2843,7 +2775,6 @@ execute_lower_omp (void)
 {
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
 				 delete_omp_context);
-  all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
   scan_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
   gcc_assert (parallel_nesting_level == 0);
@@ -2851,9 +2782,8 @@ execute_lower_omp (void)
   if (all_contexts->root)
     expand_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
 
-  splay_tree_delete (all_labels);
   splay_tree_delete (all_contexts);
-  all_contexts = all_labels = NULL;
+  all_contexts = NULL;
 }
 
 static bool
@@ -2878,5 +2808,184 @@ struct tree_opt_pass pass_lower_omp =
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
+
+
+/* The following is a utility to diagnose OpenMP structured block violations.
+   It's part of the "omplower" pass, as that's invoked too late.  It should
+   be invoked by the respective front ends after gimplification.  */
+
+static splay_tree all_labels;
+
+/* Check for mismatched contexts and generate an error if needed.  Return
+   true if an error is detected.  */
+
+static bool
+diagnose_sb_0 (tree *stmt_p, tree branch_ctx, tree label_ctx)
+{
+  bool exit_p = true;
+
+  if ((label_ctx ? TREE_VALUE (label_ctx) : NULL) == branch_ctx)
+    return false;
+
+  /* Try to avoid confusing the user by producing and error message
+     with correct "exit" or "enter" verbage.  We prefer "exit"
+     unless we can show that LABEL_CTX is nested within BRANCH_CTX.  */
+  if (branch_ctx == NULL)
+    exit_p = false;
+  else
+    {
+      while (label_ctx)
+	{
+	  if (TREE_VALUE (label_ctx) == branch_ctx)
+	    {
+	      exit_p = false;
+	      break;
+	    }
+	  label_ctx = TREE_CHAIN (label_ctx);
+	}
+    }
+
+  if (exit_p)
+    error ("invalid exit from OpenMP structured block");
+  else
+    error ("invalid entry to OpenMP structured block");
+
+  *stmt_p = build_empty_stmt ();
+  return true;
+}
+
+/* Pass 1: Create a minimal tree of OpenMP structured blocks, and record
+   where in the tree each label is found.  */
+
+static tree
+diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = data;
+  tree context = (tree) wi->info;
+  tree inner_context;
+  tree t = *tp;
+
+  *walk_subtrees = 0;
+  switch (TREE_CODE (t))
+    {
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+      walk_tree (&OMP_CLAUSES (t), diagnose_sb_1, wi, NULL);
+      /* FALLTHRU */
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      /* The minimal context here is just a tree of statements.  */
+      inner_context = tree_cons (NULL, t, context);
+      wi->info = inner_context;
+      walk_stmts (wi, &OMP_BODY (t));
+      wi->info = context;
+      break;
+
+    case LABEL_EXPR:
+      splay_tree_insert (all_labels, (splay_tree_key) LABEL_EXPR_LABEL (t),
+			 (splay_tree_value) context);
+      break;
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+/* Pass 2: Check each branch and see if its context differs from that of
+   the destination label's context.  */
+
+static tree
+diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = data;
+  tree context = (tree) wi->info;
+  splay_tree_node n;
+  tree t = *tp;
+
+  *walk_subtrees = 0;
+  switch (TREE_CODE (t))
+    {
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+      walk_tree (&OMP_CLAUSES (t), diagnose_sb_2, wi, NULL);
+      /* FALLTHRU */
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      wi->info = t;
+      walk_stmts (wi, &OMP_BODY (t));
+      wi->info = context;
+      break;
+
+    case GOTO_EXPR:
+      {
+	tree lab = GOTO_DESTINATION (t);
+	if (TREE_CODE (lab) != LABEL_DECL)
+	  break;
+
+	n = splay_tree_lookup (all_labels, (splay_tree_key) lab);
+	diagnose_sb_0 (tp, context, n ? (tree) n->value : NULL_TREE);
+      }
+      break;
+
+    case SWITCH_EXPR:
+      {
+	tree vec = SWITCH_LABELS (t);
+	int i, len = TREE_VEC_LENGTH (vec);
+	for (i = 0; i < len; ++i)
+	  {
+	    tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+	    n = splay_tree_lookup (all_labels, (splay_tree_key) lab);
+	    if (diagnose_sb_0 (tp, context, (tree) n->value))
+	      break;
+	  }
+      }
+      break;
+
+    case RETURN_EXPR:
+      diagnose_sb_0 (tp, context, NULL_TREE);
+      break;
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+void
+diagnose_omp_structured_block_errors (tree fndecl)
+{
+  tree save_current = current_function_decl;
+  struct walk_stmt_info wi;
+
+  current_function_decl = fndecl;
+
+  all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
+
+  memset (&wi, 0, sizeof (wi));
+  wi.callback = diagnose_sb_1;
+  walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+
+  memset (&wi, 0, sizeof (wi));
+  wi.callback = diagnose_sb_2;
+  wi.want_locations = true;
+  wi.want_return_expr = true;
+  walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+
+  splay_tree_delete (all_labels);
+  all_labels = NULL;
+
+  current_function_decl = save_current;
+}
 
 #include "gt-omp-low.h"

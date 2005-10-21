@@ -131,6 +131,7 @@ extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
 
 /* In omp-low.c.  */
 extern tree find_omp_clause (tree, enum tree_code);
+extern void diagnose_omp_structured_block_errors (tree);
 
 /* In tree-nested.c.  */
 extern void lower_nested_functions (tree);

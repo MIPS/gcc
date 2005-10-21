@@ -6451,21 +6451,25 @@ store_parm_decls (void)
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
-/* Handle attribute((warn_unused_result)) on FNDECL and all its nested
-   functions.  */
+/* Emit diagnostics that require gimple input for detection.  Operate on
+   FNDECL and all its nested functions.  */
 
 static void
-c_warn_unused_result_recursively (tree fndecl)
+c_gimple_diagnostics_recursively (tree fndecl)
 {
   struct cgraph_node *cgn;
 
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
   c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
 
+  /* Notice when OpenMP structured block constraints are violated.  */
+  if (flag_openmp)
+    diagnose_omp_structured_block_errors (fndecl);
+
   /* Finalize all nested functions now.  */
   cgn = cgraph_node (fndecl);
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
-    c_warn_unused_result_recursively (cgn->decl);
+    c_gimple_diagnostics_recursively (cgn->decl);
 }
 
 /* Finish up a function declaration and compile that function
@@ -6593,7 +6597,7 @@ finish_function (void)
       if (!decl_function_context (fndecl))
         {
           c_genericize (fndecl);
-          c_warn_unused_result_recursively (fndecl);
+          c_gimple_diagnostics_recursively (fndecl);
 
 	  /* ??? Objc emits functions after finalizing the compilation unit.
 	     This should be cleaned up later and this conditional removed.  */

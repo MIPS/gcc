@@ -1,5 +1,10 @@
 2005-10-20  Richard Henderson  <rth@redhat.com>
 
+	* trans-decl.c (gfc_gimplify_function): Invoke
+	diagnose_omp_structured_block_errors.
+
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
 	* trans-openmp.c (gfc_trans_omp_master): Use OMP_MASTER.
 	(gfc_trans_omp_ordered): Use OMP_ORDERED.
 
