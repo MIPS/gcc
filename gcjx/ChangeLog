@@ -1,5 +1,14 @@
 2005-10-21  Tom Tromey  <tromey@redhat.com>
 
+	* unify.cc (resolve_constraints): Add '==' mappings to resulting
+	type map.
+	(compute_ec): Set 'ec' the first time through.
+	(compute_inv): Put non-generic types into the map.
+	* model/arraytype.cc (apply_type_map): New method.
+	* model/arraytype.hh (model_array_type::apply_type_map): Declare.
+
+2005-10-21  Tom Tromey  <tromey@redhat.com>
+
 	* model/invoke.hh (model_invocation_base::method_conversion_p):
 	Declare.
 	(model_generic_invocation::method_conversion_p): Likewise.

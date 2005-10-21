@@ -109,12 +109,14 @@ class unifier
 	 ++i)
       {
 	std::set<model_class *> inter, newset;
-	compute_supertype_sets (*i, st, inter);
+	compute_supertype_sets (*i, st, first ? ec : inter);
 	if (! first)
-	  std::set_intersection (ec.begin (), ec.end (),
-				 inter.begin (), inter.end (),
-				 std::inserter (newset, newset.begin ()));
-	ec = newset;
+	  {
+	    std::set_intersection (ec.begin (), ec.end (),
+				   inter.begin (), inter.end (),
+				   std::inserter (newset, newset.begin ()));
+	    ec = newset;
+	  }
 	first = false;
       }
   }
@@ -158,18 +160,23 @@ class unifier
 	 i != mec.end ();
 	 ++i)
       {
-	if ((*i)->get_type_parameters ().empty ())
-	  continue;
-
 	std::set<model_class_instance *> one_inv;
-	for (std::set<model_class *>::const_iterator j = st.begin ();
-	     j != st.end ();
-	     ++j)
+
+	// Note that if the type is not generic, then it will simply
+	// map to an empty set.  This is ok -- see the definition of
+	// the Candidate() function in the JLS.  This situation is
+	// recognized in compute_lub.
+	if (! (*i)->get_type_parameters ().empty ())
 	  {
-	    model_class_instance *ci
-	      = dynamic_cast<model_class_instance *> (*j);
-	    if (ci != NULL && ci->get_parent () == *i)
-	      one_inv.insert (ci);
+	    for (std::set<model_class *>::const_iterator j = st.begin ();
+		 j != st.end ();
+		 ++j)
+	      {
+		model_class_instance *ci
+		  = dynamic_cast<model_class_instance *> (*j);
+		if (ci != NULL && ci->get_parent () == *i)
+		  one_inv.insert (ci);
+	      }
 	  }
 
 	invocation_map[*i] = one_inv;
@@ -505,16 +512,20 @@ class unifier
 	 i != formal_type_params.end ();
 	 ++i)
       {
-	if (mapping.find (*i) == mapping.end ())
+	std::map<model_class *, model_class *>::const_iterator mp
+	  = mapping.find (*i);
+	if (mp != mapping.end ())
 	  {
 	    // FIXME: should we check the other constraints too?
-	    continue;
+	    result.add (*i, (*mp).second);
 	  }
-
-	std::set<model_class *> constraints;
-	update_constraint_set (LESS_THAN, *i, constraints);
-	update_constraint_set (GREATER_THAN, *i, constraints);
-	result.add (*i, compute_lub (constraints));
+	else
+	  {
+	    std::set<model_class *> constraints;
+	    update_constraint_set (LESS_THAN, *i, constraints);
+	    update_constraint_set (GREATER_THAN, *i, constraints);
+	    result.add (*i, compute_lub (constraints));
+	  }
       }
   }
 

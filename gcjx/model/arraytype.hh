@@ -57,6 +57,8 @@ public:
     abort ();
   }
 
+  model_class *apply_type_map (model_element *, const model_type_map &);
+
   void visit (visitor *);
 };
 

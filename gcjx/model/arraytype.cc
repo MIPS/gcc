@@ -74,6 +74,16 @@ model_array_type::erasure ()
   return element->erasure ()->array ();
 }
 
+model_class *
+model_array_type::apply_type_map (model_element *request,
+				  const model_type_map &type_map)
+{
+  if (! element->reference_p ())
+    return this;
+  model_class *eltc = assert_cast<model_class *> (element);
+  return eltc->apply_type_map (request, type_map)->array ();
+}
+
 void
 model_array_type::visit (visitor *v)
 {
