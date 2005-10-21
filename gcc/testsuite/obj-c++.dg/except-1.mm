@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline 2005-10-20 4308031 */
 /* { dg-do run { target "*-*-darwin*" } } */
 /* { dg-options "-framework Foundation" } */
 
