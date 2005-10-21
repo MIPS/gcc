@@ -1546,6 +1546,18 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    |= DECL_NONTRIVIALLY_INITIALIZED_P (olddecl);
 	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (newdecl)
 	    |= DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (olddecl);
+
+	  /* Merge the threadprivate attribute from OLDDECL into NEWDECL.  */
+	  if (DECL_LANG_SPECIFIC (olddecl)
+	      && CP_DECL_THREADPRIVATE_P (olddecl))
+	    {
+	      /* Allocate a LANG_SPECIFIC structure for NEWDECL, if needed.  */
+	      if (!DECL_LANG_SPECIFIC (newdecl))
+		retrofit_lang_decl (newdecl);
+
+	      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+	      CP_DECL_THREADPRIVATE_P (newdecl) = 1;
+	    }
 	}
 
       /* Do this after calling `merge_types' so that default

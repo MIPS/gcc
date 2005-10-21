@@ -1,3 +1,13 @@
+2005-10-21  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24455
+	* cp/cp-tree.h (struct lang_decl_flags): Add field
+	threadprivate_p.
+	(CP_DECL_IS_THREADPRIVATE): Define.
+	* cp/semantics.c (finish_omp_threadprivate): Set.
+	Do not error out if CP_DECL_IS_THREADPRIVATE is set already.
+	* cp/decl.c (duplicate_decls): Merge CP_DECL_THREADPRIVATE_P.
+
 2005-10-20  Richard Henderson  <rth@redhat.com>
 
 	* cp-gimplify.c (cp_gimplify_omp_for): New.

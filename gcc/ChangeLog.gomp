@@ -1,3 +1,14 @@
+2005-10-21  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24455
+	* c-tree.h (C_DECL_THREADPRIVATE_P): Define.
+	* c-parser.c (c_parser_omp_threadprivate): Set.
+	Do not error out if C_DECL_THREADPRIVATE_P is set already.
+	* c-decl.c (diagnose_mismatched_decls): Do not check for
+	mismatched thread-local attributes when OLDDECL is marked
+	threadprivate and NEWDECL has no thread-local attributes.
+	(merge_decls): Merge C_DECL_THREADPRIVATE_P.
+
 2005-10-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_critical): Use splay_tree_new_ggc instead of

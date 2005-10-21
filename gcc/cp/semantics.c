@@ -3534,10 +3534,21 @@ finish_omp_threadprivate (tree vars)
     {
       tree v = TREE_PURPOSE (t);
 
-      if (TREE_USED (v))
+      /* If V had already been marked threadprivate, it doesn't matter
+	 whether it had been used prior to this point.  */
+      if (TREE_USED (v)
+	  && (DECL_LANG_SPECIFIC (v) == NULL
+	      || !CP_DECL_THREADPRIVATE_P (v)))
 	error ("%qE declared %<threadprivate%> after first use", v);
       else
-	DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	{
+	  /* Allocate a LANG_SPECIFIC structure for V, if needed.  */
+	  if (DECL_LANG_SPECIFIC (v) == NULL)
+	    retrofit_lang_decl (v);
+
+	  DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	  CP_DECL_THREADPRIVATE_P (v) = 1;
+	}
     }
 }
 

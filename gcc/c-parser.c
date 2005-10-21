@@ -7698,10 +7698,15 @@ c_parser_omp_threadprivate (c_parser *parser)
     {
       tree v = TREE_PURPOSE (t);
 
-      if (TREE_USED (v))
+      /* If V had already been marked threadprivate, it doesn't matter
+	 whether it had been used prior to this point.  */
+      if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
 	error ("%qE declared %<threadprivate%> after first use", v);
       else
-	DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	{
+	  DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	  C_DECL_THREADPRIVATE_P (v) = 1;
+	}
     }
 
   c_parser_skip_to_pragma_eol (parser);

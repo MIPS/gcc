@@ -1519,7 +1519,8 @@ struct lang_decl_flags GTY(())
   unsigned this_thunk_p : 1;
   unsigned repo_available_p : 1;
   unsigned hidden_friend_p : 1;
-  unsigned dummy : 2;
+  unsigned threadprivate_p : 1;
+  /* One unused bit.  */
 
   union lang_decl_u {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -2345,6 +2346,11 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    The function is invisible except via argument dependent lookup.  */
 #define DECL_HIDDEN_FRIEND_P(NODE) \
   (DECL_LANG_SPECIFIC (DECL_COMMON_CHECK (NODE))->decl_flags.hidden_friend_p)
+
+/* Nonzero if DECL has been declared threadprivate by
+   #pragma omp threadprivate.  */
+#define CP_DECL_THREADPRIVATE_P(DECL) \
+  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
 
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)

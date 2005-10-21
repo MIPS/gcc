@@ -129,6 +129,10 @@ struct lang_type GTY(())
 #define C_DECL_UNDEFINABLE_VM(EXP)	\
   DECL_LANG_FLAG_5 (LABEL_DECL_CHECK (EXP))
 
+/* Record whether a variable has been declared threadprivate by
+   #pragma omp threadprivate.  */
+#define C_DECL_THREADPRIVATE_P(DECL) DECL_LANG_FLAG_3 (VAR_DECL_CHECK (DECL))
+
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
    (but this is presently difficult because some of them need FILE*).  */
