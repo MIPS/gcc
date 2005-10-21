@@ -176,6 +176,7 @@ struct typeinfo GTY(())
   enum typestatus status;
   int file_number;
   int type_number;
+  int q_type_number;
 };
 
 /* Vector recording information about C data types.
@@ -194,6 +195,21 @@ static GTY(()) int typevec_len;
    The number, once assigned, is in the TYPE_SYMTAB_ADDRESS field.  */
 
 static GTY(()) int next_type_number;
+
+struct  qualified_typeinfo GTY(())
+{
+  int pointer_type;
+  int function_type;
+  int file_type;
+  int reference_type;
+  int const_type;
+  int volatile_type;
+};
+
+static GTY ((length ("q_typevec_len"))) struct qualified_typeinfo *q_typevec;
+static GTY(()) int q_typevec_len;
+static GTY(()) int next_q_type_number;
+static int dbxout_next_q_type_number (void);
 
 /* The C front end may call dbxout_symbol before dbxout_init runs.
    We save all such decls in this list and output them when we get
@@ -348,6 +364,8 @@ static void dbxout_complex_type (tree);
 static void dbxout_file_type (tree);
 static void dbxout_function_type (tree);
 static void dbxout_reference_type (tree);
+static int dbxout_reusable_type (tree);
+static void dbxout_note_q_type (tree);
 static void dbxout_next_type_number (tree);
 #ifdef DBX_NO_XREFS
 static bool dbxout_cross_ref_type_p (tree);
@@ -1064,6 +1082,8 @@ dbxout_init (const char *input_file_name)
   typevec_len = 100;
   typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
 
+  q_typevec_len = 100;
+  q_typevec = ggc_calloc (q_typevec_len, sizeof q_typevec[0]);
   /* APPLE LOCAL begin ss2 */
   /* Open dbx_out_file */
   if (flag_save_repository
@@ -1501,15 +1521,125 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
   /* APPLE LOCAL end ss2 */
 }
 
+/* If TYPE is a qualified type then note this info in
+   q_typevec.  */
+static void
+dbxout_note_q_type (tree type)
+{
+  tree ttype = TREE_TYPE (type);
+  int t_number = TYPE_SYMTAB_ADDRESS (type);
+  int tt_number = TYPE_SYMTAB_ADDRESS (ttype);
+  int q_number = typevec[t_number].q_type_number;
+
+  /* consts and volatiles are not yet handled.  */
+  if (TYPE_QUALS (type))
+    return;
+
+  if (q_number == 0)
+    q_number = dbxout_next_q_type_number ();
+
+  switch (TREE_CODE (type))
+    {
+    case FUNCTION_TYPE:
+      if (q_typevec[q_number].function_type == 0)
+	{
+	  q_typevec[q_number].function_type = t_number;
+	  typevec[tt_number].q_type_number = q_number;
+	}
+      break;
+    case FILE_TYPE:
+      if (q_typevec[q_number].file_type == 0)
+	{
+	  q_typevec[q_number].file_type = t_number;
+	  typevec[tt_number].q_type_number = q_number;
+	}
+      break;
+    case POINTER_TYPE:
+      if (q_typevec[q_number].pointer_type == 0)
+	{
+	  q_typevec[q_number].pointer_type = t_number;
+	  typevec[tt_number].q_type_number = q_number;
+	}
+      break;
+    case REFERENCE_TYPE:
+      if (q_typevec[q_number].reference_type == 0)
+	{
+	  q_typevec[q_number].reference_type = t_number;
+	  typevec[tt_number].q_type_number = q_number;
+	}
+      break;
+    default:
+      gcc_unreachable ();
+      break;
+    }
+}
+
+/* Returned q_typevec index number for TYPE if it is
+   reusuable.
+   If TYPE is a FUNCTION_TYPE of VOID_TYPE and if we
+   have already seen another  FUNCTION_TYPE OTHER_TYPE whose 
+   type is also VOID_TYPE  then we can reuse OTHER_TYPE's type 
+   number for TYPE.  */
+static int 
+dbxout_reusable_type (tree type)
+{
+  tree t;
+  int q_no = 0;
+  /* consts and volatiles are not yet handled.  */
+  if (TYPE_QUALS (type))
+    return 0;
+
+  t = TREE_TYPE (type);
+  if (t && TYPE_SYMTAB_ADDRESS (t) == 0)
+    return 0;
+
+  switch (TREE_CODE (type))
+    {
+    case FUNCTION_TYPE:
+      q_no = typevec[TYPE_SYMTAB_ADDRESS (t)].q_type_number;
+      if (q_no && q_typevec[q_no].function_type)
+	return q_typevec[q_no].function_type;
+      break;
+    case FILE_TYPE:
+      q_no = typevec[TYPE_SYMTAB_ADDRESS (t)].q_type_number;
+      if (q_no && q_typevec[q_no].file_type)
+	return q_typevec[q_no].file_type;
+      break;
+    case POINTER_TYPE:
+      q_no = typevec[TYPE_SYMTAB_ADDRESS (t)].q_type_number;
+      if (q_no && q_typevec[q_no].pointer_type)
+	return q_typevec[q_no].pointer_type;
+      break;
+    case REFERENCE_TYPE:
+      q_no = typevec[TYPE_SYMTAB_ADDRESS (t)].q_type_number;
+      if (q_no && q_typevec[q_no].reference_type)
+	return q_typevec[q_no].reference_type;
+      break;
+    default:
+      break;
+    }
+  return 0;
+}
+
 /* Output the index of a type.  */
 
 static void
 dbxout_type_index (tree type)
 {
+  struct typeinfo *t = NULL;
+
+  if (TYPE_SYMTAB_ADDRESS (type) == 0)
+  {
+    int r = dbxout_reusable_type (type);
+    if (r)
+	TYPE_SYMTAB_ADDRESS (type) = r;
+    dbxout_next_type_number (type);
+  }
 #ifndef DBX_USE_BINCL
   stabstr_D (TYPE_SYMTAB_ADDRESS (type));
 #else
-  struct typeinfo *t = &typevec[TYPE_SYMTAB_ADDRESS (type)];
+
+  t = &typevec[TYPE_SYMTAB_ADDRESS (type)];
   stabstr_C ('(');
   stabstr_D (t->file_number);
   stabstr_C (',');
@@ -1853,7 +1983,6 @@ static bool
 dbxout_partial_type (tree type, tree main_variant)
 {
   bool result = false;
-  dbxout_next_type_number (type);
   dbxout_type_index (type);
 
 #ifdef DBX_TYPE_DEFINED
@@ -1996,13 +2125,17 @@ dbxout_partial_type (tree type, tree main_variant)
       dbxout_complex_type (type);
       break;
 
-    case POINTER_TYPE:
-    case FILE_TYPE:
-    case FUNCTION_TYPE:
-    case REFERENCE_TYPE:
     case VECTOR_TYPE:
     case ARRAY_TYPE:
     case OFFSET_TYPE:
+      dbxout_queue_type (type);
+      break;
+
+    case POINTER_TYPE:
+    case FILE_TYPE:
+    case REFERENCE_TYPE:
+    case FUNCTION_TYPE:
+      dbxout_note_q_type (type);
       dbxout_queue_type (type);
       break;
 
@@ -2042,7 +2175,6 @@ dbxout_complete_type (tree type, tree main_variant)
   tree tem; 
   bool vector_type = false;
   
-  dbxout_next_type_number (type);
   dbxout_type_index (type);
 
 #ifdef DBX_TYPE_DEFINED
@@ -2097,10 +2229,10 @@ dbxout_complete_type (tree type, tree main_variant)
       stabstr_C ('k');
       ttype = build_type_variant (type, 0, TYPE_VOLATILE (type)); /* ??? */
 
-      dbxout_next_type_number (ttype);
+      dbxout_next_type_number (ttype);      
       dbxout_type_index (ttype);
-
       dbxout_queue_type (ttype);
+
       typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
       return;
     }
@@ -2114,9 +2246,8 @@ dbxout_complete_type (tree type, tree main_variant)
       stabstr_C ('B');
       ttype = build_type_variant (type, 0, TYPE_READONLY (type)); /* ??? */
 
-      dbxout_next_type_number (ttype);
+      dbxout_next_type_number (ttype);      
       dbxout_type_index (ttype);
-
       dbxout_queue_type (ttype);
       typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
       return;
@@ -2131,7 +2262,6 @@ dbxout_complete_type (tree type, tree main_variant)
       tree orig_type = DECL_ORIGINAL_TYPE (TYPE_NAME (type));
       stabstr_C ('=');
 
-      dbxout_next_type_number (orig_type);
       dbxout_type_index (orig_type);
 
       dbxout_queue_type (orig_type);
@@ -2328,7 +2458,6 @@ dbxout_complete_type (tree type, tree main_variant)
 	  stabstr_C ('=');
 	  typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
 
-	  dbxout_next_type_number (orig_type);
 	  dbxout_type_index (orig_type);
 	  dbxout_queue_type (orig_type);
 	  return;
@@ -2450,7 +2579,6 @@ dbxout_complete_type (tree type, tree main_variant)
 	  dbxout_range_type (tem);
 	}
 
-      dbxout_next_type_number (TREE_TYPE (type));
       dbxout_type_index (TREE_TYPE (type));
 	
       dbxout_queue_type (TREE_TYPE (type));
@@ -2542,7 +2670,6 @@ dbxout_pointer_type (tree type)
   stabstr_C ('*');
   ttype = TREE_TYPE (type);
   
-  dbxout_next_type_number (ttype);
   dbxout_type_index (ttype);
 
   dbxout_queue_type (ttype);
@@ -2756,7 +2883,6 @@ dbxout_file_type (tree type)
   stabstr_C ('d');
   ttype = TREE_TYPE (type);
   
-  dbxout_next_type_number (ttype);
   dbxout_type_index (ttype);
   
   dbxout_queue_type (ttype);
@@ -2776,12 +2902,11 @@ dbxout_function_type (tree type)
   stabstr_C ('f');
   ttype = TREE_TYPE (type);
   
-  dbxout_next_type_number (ttype);
   dbxout_type_index (ttype);
   
   dbxout_queue_type (ttype);
   typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
-  
+
   return;
 }
 
@@ -2803,7 +2928,6 @@ dbxout_reference_type (tree type)
   
   ttype = TREE_TYPE (type);
   
-  dbxout_next_type_number (ttype);
   dbxout_type_index (ttype);
   
   dbxout_queue_type (ttype);
@@ -2838,6 +2962,25 @@ dbxout_next_type_number (tree type)
 	= current_file->next_type_number++;
 #endif
 }
+
+/*  Return next qualified type num ber.  */
+
+static int
+dbxout_next_q_type_number (void)
+{
+
+  next_q_type_number++;
+
+  if (next_q_type_number == q_typevec_len)
+    {
+      q_typevec
+	= ggc_realloc (q_typevec, (q_typevec_len * 2 * sizeof q_typevec[0]));
+      memset (q_typevec + q_typevec_len, 0, q_typevec_len * sizeof q_typevec[0]);
+      q_typevec_len *= 2;
+    }
+  return next_q_type_number;
+}
+
 /* APPLE LOCAL end dbxout_type rewrite.  */
 
 /* Return nonzero if the given type represents an integer whose bounds
