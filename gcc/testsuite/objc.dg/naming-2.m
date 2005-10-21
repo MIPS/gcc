@@ -11,4 +11,6 @@ float Foo;  /* { dg-error "parse error|syntax error|expected|redeclaration" } */
 double Bar;
 @interface Bar
 @end  /* { dg-error "redeclared as different kind of symbol" } */
+/* APPLE LOCAL begin radar 4281748 */
 /* { dg-error "previous declaration of" "" { target *-*-* } 11 } */
+/* APPLE LOCAL end radar 4281748 */
