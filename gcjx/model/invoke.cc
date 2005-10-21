@@ -28,6 +28,14 @@ model_invocation_base::potentially_applicable_p (model_method *meth,
   return meth->potentially_applicable_p (actual_types);
 }
 
+model_method *
+model_invocation_base::method_conversion_p (model_method *meth,
+					    const std::list<model_type *> &actual_types,
+					    method_phase phase)
+{
+  return meth->method_conversion_p (actual_types, phase);
+}
+
 void
 model_invocation_base::try_method_conversion
   (const std::set<model_method *> &accessible,
@@ -60,8 +68,8 @@ model_invocation_base::try_method_conversion
 	{
 	  if (potentially_applicable_p (*i, actual_types))
 	    {
-	      model_method *newmeth
-		= (*i)->method_conversion_p (actual_types, phase);
+	      model_method *newmeth = method_conversion_p (*i, actual_types,
+							   phase);
 	      if (newmeth)
 		applicable.insert (newmeth);
 	    }
@@ -633,6 +641,35 @@ model_generic_invocation<T>::potentially_applicable_p (model_method *meth,
 						       const std::list<model_type *> &actual_types)
 {
   return meth->potentially_applicable_p (actual_types, actual_type_params);
+}
+
+template<typename T>
+model_method *
+model_generic_invocation<T>::method_conversion_p (model_method *meth,
+						  const std::list<model_type *> &actual_types,
+						  method_phase phase)
+{
+  return meth->method_conversion_p (resolved_params, actual_types, phase);
+}
+
+template<typename T>
+void
+model_generic_invocation<T>::resolve (resolution_scope *scope)
+{
+  // Resolve our parameters.
+  for (std::list<ref_forwarding_type>::const_iterator i
+	 = actual_type_params.begin ();
+       i != actual_type_params.end ();
+       ++i)
+    {
+      (*i)->resolve (scope);
+      if (! (*i)->type ()->reference_p ())
+	throw (*i)->error ("type argument must be reference type");
+      resolved_params.push_back (assert_cast<model_class *> ((*i)->type ()));
+    }
+
+  // Let the superclass finish.
+  T::resolve (scope);
 }
 
 

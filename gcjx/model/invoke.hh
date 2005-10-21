@@ -60,6 +60,9 @@ protected:
 
   virtual bool potentially_applicable_p (model_method *,
 					 const std::list<model_type *> &);
+  virtual model_method *method_conversion_p (model_method *,
+					     const std::list<model_type *> &,
+					     method_phase);
 
   // This returns the class or interface we must search to find the
   // method named NAME, as well as the qualifying class or interface.
@@ -277,13 +280,21 @@ class model_generic_invocation : public T
   /// The actual type parameters.
   std::list<ref_forwarding_type> actual_type_params;
 
+  /// We keep a second list for convenience.
+  std::list<model_class *> resolved_params;
+
   bool potentially_applicable_p (model_method *,
 				 const std::list<model_type *> &);
 
+  model_method *method_conversion_p (model_method *,
+				     const std::list<model_type *> &,
+				     method_phase);
 public:
 
   model_generic_invocation (const location &,
 			    const std::list<ref_forwarding_type> &);
+
+  void resolve (resolution_scope *);
 
   void visit (visitor *);
 };

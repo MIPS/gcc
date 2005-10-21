@@ -1,3 +1,14 @@
+2005-10-21  Tom Tromey  <tromey@redhat.com>
+
+	* model/invoke.hh (model_invocation_base::method_conversion_p):
+	Declare.
+	(model_generic_invocation::method_conversion_p): Likewise.
+	(model_generic_invocation::resolved_params): New field.
+	(model_generic_invocation::resolve): Declare.
+	* model/invoke.cc (method_conversion_p): New methods.
+	(try_method_conversion): Use it.
+	(model_generic_invocation): New method.
+
 2005-10-19  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* dump.cc (pretty_printer::print_method): Do not descend into
