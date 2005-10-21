@@ -1371,7 +1371,7 @@ create_loop_notes (void)
 	    in_body[loop->num] = -1;
 	  if (bb != loop->header && bb != loop->latch && in_body[loop->num] != 1)
 	    {
-	      rtx last_insn;
+	      rtx last_insn, table;
 	      basic_block next_bb = bb->next_bb;
 	      basic_block prev_bb = bb->prev_bb;
 	      basic_block restart_bb = prev_bb;
@@ -1389,7 +1389,16 @@ create_loop_notes (void)
 		 however, that is not used anywhere.  */
 	      if (e && (e->flags & EDGE_FALLTHRU) && next_bb->loop_father != loop)
 		{
-		  basic_block new_bb = force_nonfallthru (e);
+		  basic_block new_bb;
+		  /* force_nonfallthru doesn't work if the destination is EXIT_BLOCK.
+		     Create a new block in between for force_nonfallthru to jump to.  */
+		  if (e->dest == EXIT_BLOCK_PTR)
+		    {
+		      new_bb = split_edge (e);
+		      new_bb->loop_father = EXIT_BLOCK_PTR->loop_father;
+		      new_bb->loop_depth = 0;
+		    }
+		  new_bb = force_nonfallthru (e);
 		  if (new_bb)
 		    {
 		      new_bb->loop_father = loop;
@@ -1413,11 +1422,15 @@ create_loop_notes (void)
 		      restart_bb = new_bb;
 		    }
 		}
-	      /* Move insns in block within insn list, with following BARRIER if any. */
+	      /* Move insns in block within insn list, with following jump 
+		 table and BARRIER if any. */
 	      last_insn = BB_END (bb);
+	      if (tablejump_p (last_insn, NULL, &table))
+		last_insn = table;
 	      if (BARRIER_P (NEXT_INSN (last_insn)))
 		last_insn = NEXT_INSN (last_insn);
-	      reorder_insns_nobb(BB_HEAD (bb), last_insn, PREV_INSN (BB_HEAD (shadow[loop->num]->next_bb)));
+	      reorder_insns_nobb(BB_HEAD (bb), last_insn, 
+				 PREV_INSN (BB_HEAD (shadow[loop->num]->next_bb)));
 	      /* Move block within block list.  */
 	      unlink_block (bb);
 	      link_block (bb, shadow[loop->num]);

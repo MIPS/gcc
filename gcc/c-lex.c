@@ -505,6 +505,15 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       
     case CPP_NAME:
       *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
+      /* APPLE LOCAL begin CW asm blocks */
+      if (cw_asm_state >= cw_asm_decls
+	  && strcasecmp (IDENTIFIER_POINTER (HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node))), "offset") == 0)
+	{
+	  type = CPP_AND;
+	  *value = NULL_TREE;
+	  break;
+	}
+      /* APPLE LOCAL end CW asm blocks */
       break;
 
     case CPP_NUMBER:

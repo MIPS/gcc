@@ -1740,7 +1740,8 @@ build_array_ref (tree array, tree index)
   /* APPLE LOCAL begin CW asm blocks */
   if (inside_cw_asm_block)
     {
-      if (TREE_CODE (array) == BRACKET_EXPR)
+      if (TREE_CODE (array) == BRACKET_EXPR
+	  || TREE_CODE (index) == IDENTIFIER_NODE)
 	return cw_build_bracket (array, index);
     }
   /* APPLE LOCAL end CW asm blocks */

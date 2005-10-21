@@ -1,3 +1,7 @@
+2005-10-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* obj-c++.dg/except-1.mm: New.
+
 2005-06-17  Geoffrey Keating  <geoffk@apple.com>
 
 	PR c++/17413

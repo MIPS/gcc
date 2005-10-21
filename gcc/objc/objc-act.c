@@ -1821,6 +1821,12 @@ synth_module_prologue (void)
 
   /* Declare type of selector-objects that represent an operation name.  */
 
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+  /* TREE_NOTHROW is cleared for the message-sending functions,
+     because the function that gets called can throw in Obj-C++, or
+     could itself call something that can throw even in Obj-C.  */
+
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
   if (flag_next_runtime)
     /* `struct objc_selector *' */
     objc_selector_type
@@ -1882,6 +1888,16 @@ synth_module_prologue (void)
 						 type, 0, NOT_BUILT_IN,
 						 NULL, NULL_TREE);
 
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+      /* These can throw, because the function that gets called can throw
+	 in Obj-C++, or could itself call something that can throw even
+	 in Obj-C.  */
+      TREE_NOTHROW (umsg_decl) = 0;
+      TREE_NOTHROW (umsg_nonnil_decl) = 0;
+      TREE_NOTHROW (umsg_stret_decl) = 0;
+      TREE_NOTHROW (umsg_nonnil_stret_decl) = 0;
+
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
       /* APPLE LOCAL begin mainline */
       /* id objc_msgSend_Fast (id, SEL, ...)
 	   __attribute__ ((hard_coded_address (OFFS_MSGSEND_FAST))); */
@@ -1889,6 +1905,9 @@ synth_module_prologue (void)
       umsg_fast_decl = builtin_function (TAG_MSGSEND_FAST,
 					 type, 0, NOT_BUILT_IN,
 					 NULL, NULL_TREE);
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+      TREE_NOTHROW (umsg_fast_decl) = 0;
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
       DECL_ATTRIBUTES (umsg_fast_decl) 
 	= tree_cons (get_identifier ("hard_coded_address"), 
 		     build_int_cst (NULL_TREE, OFFS_MSGSEND_FAST),
@@ -1905,6 +1924,9 @@ synth_module_prologue (void)
       umsg_fpret_decl = builtin_function (TAG_MSGSEND_FPRET,
 					  type, 0, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+      TREE_NOTHROW (umsg_fpret_decl) = 0;
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
 #endif
       /* APPLE LOCAL end radar 4280641 */
 #endif
@@ -1923,6 +1945,10 @@ synth_module_prologue (void)
       umsg_super_stret_decl = builtin_function (TAG_MSGSENDSUPER_STRET,
 						type, 0, NOT_BUILT_IN, 0,
 						NULL_TREE);
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+      TREE_NOTHROW (umsg_super_decl) = 0;
+      TREE_NOTHROW (umsg_super_stret_decl) = 0;
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
     }
   else
     {
@@ -1945,7 +1971,10 @@ synth_module_prologue (void)
       umsg_decl = builtin_function (TAG_MSGSEND,
 				    type, 0, NOT_BUILT_IN,
 				    NULL, NULL_TREE);
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+      TREE_NOTHROW (umsg_decl) = 0;
 
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
       /* IMP objc_msg_lookup_super (struct objc_super *, SEL); */
       type
         = build_function_type (IMP_type,
@@ -1955,7 +1984,10 @@ synth_module_prologue (void)
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
 					  type, 0, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
+/* APPLE LOCAL begin mainline 2005-10-20 4308031 */
+      TREE_NOTHROW (umsg_super_decl) = 0;
 
+/* APPLE LOCAL end mainline 2005-10-20 4308031 */
       /* The following GNU runtime entry point is called to initialize
 	 each module:
 

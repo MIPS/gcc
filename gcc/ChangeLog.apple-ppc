@@ -25,18 +25,6 @@
 	* config/darwin.h (STARTFILE_SPEC): Use %(darwin_crt2) to possibly
 	link in crt2.o.
 	
-2005-10-17  Dale Johannesen  <dalej@apple.com>
-
-	Radar 4203984
-	* ifcvt.c (find_if_case_1):  Adjust cost test for ppc.
-	(find_if_case_2):  Ditto.
-	* regrename.c (regrename_optimize):  Change to do more
-	renaming.
-	* opts.c (set_flags_from_O):  Reenable regrename at -O3.
-	* cfgloopmanip.c (create_loop_notes):  Add code to move
-	code logically inside a loop but physically outside,
-	to a place physically inside.
-
 2005-10-12  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4291785
@@ -67,6 +55,28 @@
 	Radar 4122763
 	* libgcc2.c [LIBCC_KEXT] (panic): Declare properly.
 	[LIBCC_KEXT] (abort): Don't abort with no string.
+
+2005-10-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4307420
+	* cfgloopmanip.c (create_loop_notes):  Handle fallthru to EXIT_BLOCK.
+
+2005-10-19  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4307392
+	* cfgloopmanip.c (create_loop_notes):  Handle jump tables.
+
+2005-10-17  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4203984
+	* ifcvt.c (find_if_case_1):  Adjust cost test for ppc.
+	(find_if_case_2):  Ditto.
+	* regrename.c (regrename_optimize):  Change to do more
+	renaming.
+	* opts.c (set_flags_from_O):  Reenable regrename at -O3.
+	* cfgloopmanip.c (create_loop_notes):  Add code to move
+	code logically inside a loop but physically outside,
+	to a place physically inside.
 
 2005-10-14  Eric Christopher  <echristo@apple.com>
 

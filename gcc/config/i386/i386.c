@@ -18220,9 +18220,9 @@ cw_x86_needs_swapping (const char *opcode)
     return false;
 
   /* These don't need swapping.  */
-  if (strcmp (opcode, "bound") == 0)
+  if (strcasecmp (opcode, "bound") == 0)
     return false;
-  if (strcmp (opcode, "invlpga") == 0)
+  if (strcasecmp (opcode, "invlpga") == 0)
     return false;
 
   return true;
@@ -18277,7 +18277,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
       /* Handle st(3) */
       if (TREE_CODE (arg) == COMPOUND_EXPR
 	  && TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE
-	  && strcmp (IDENTIFIER_POINTER (TREE_OPERAND (arg, 0)), "%st") == 0
+	  && strcasecmp (IDENTIFIER_POINTER (TREE_OPERAND (arg, 0)), "%st") == 0
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
 	{
 	  int v = tree_low_cst (TREE_OPERAND (arg, 1), 0);
@@ -18335,6 +18335,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	{
 	case VAR_DECL:
 	case PARM_DECL:
+	case INDIRECT_REF:
 	  if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
 	    e->mod[argnum-1] = 'l';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == HImode)
@@ -18362,6 +18363,14 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 		e->mod[argnum-1] = 'l';
 	      else if (strcasecmp (s, "qword") == 0)
 		e->mod[argnum-1] = 'q';
+	      else if (strcasecmp (s, "real4") == 0)
+		e->mod[argnum-1] = 's';
+	      else if (strcasecmp (s, "real8") == 0)
+		e->mod[argnum-1] = 'l';
+	      else if (strcasecmp (s, "real10") == 0)
+		e->mod[argnum-1] = 't';
+	      else if (strcasecmp (s, "tbyte") == 0)
+		e->mod[argnum-1] = 't';
 	    }
 	  break;
 	case LABEL_DECL:
@@ -18391,15 +18400,15 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
   args = x86_swap_operands (opcode, iargs);
 
   /* movsx isn't part of the AT&T syntax, they spell it movs.  */
-  if (strcmp (opcode, "movsx") == 0)
+  if (strcasecmp (opcode, "movsx") == 0)
     opcode = "movs";
 
   /* movzx isn't part of the AT&T syntax, they spell it movz.  */
-  if (strcmp (opcode, "movzx") == 0)
+  if (strcasecmp (opcode, "movzx") == 0)
     opcode = "movz";
 
-  if (strncmp (opcode, "f", 1) == 0 &&
-      (!(strcmp (opcode, "fldcw") == 0)))
+  if (strncasecmp (opcode, "f", 1) == 0 &&
+      (!(strcasecmp (opcode, "fldcw") == 0)))
     {
       if (e->mod[0] == 'w')
 	e->mod[0] = 's';
@@ -18407,13 +18416,16 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	e->mod[1] = 's';
     }
 
-  if (strcmp (opcode, "out") == 0)
+  if (strcasecmp (opcode, "out") == 0)
     e->mod[0] = 0;
-  else if (strcmp (opcode, "rcr") == 0
-	   || strcmp (opcode, "rcl") == 0
-	   || strcmp (opcode, "rol") == 0
-	   || strcmp (opcode, "sbb") == 0
-	   || strcmp (opcode, "ror") == 0)
+  else if (strcasecmp (opcode, "rcr") == 0
+	   || strcasecmp (opcode, "rcl") == 0
+	   || strcasecmp (opcode, "rol") == 0
+	   || strcasecmp (opcode, "ror") == 0
+	   || strcasecmp (opcode, "sal") == 0
+	   || strcasecmp (opcode, "sar") == 0
+	   || strcasecmp (opcode, "shl") == 0
+	   || strcasecmp (opcode, "shr") == 0)
     e->mod[1] = 0;
 
   if ((argnum == 1 && e->mod[0])
@@ -18500,19 +18512,18 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
-	if (op1 == 0)
+	if (op3 && cw_is_offset (op3))
 	  {
-	    if (op3 && cw_is_offset (op3))
-	      {
-		op1 = op3;
-		op3 = NULL_TREE;
-	      }
-	    else if (cw_is_offset (op2))
-	      {
-		op1 = op2;
-		op2 = op3;
-		op3 = NULL_TREE;
-	      }
+	    tree tmp = op1;
+	    op1 = op3;
+	    op3 = tmp;
+	  }
+	else if (cw_is_offset (op2))
+	  {
+	    tree tmp = op1;
+	    op1 = op2;
+	    op2 = op3;
+	    op3 = tmp;
 	  }
 	if (op2 && TREE_CODE (op2) == MULT_EXPR)
 	  {
@@ -18520,6 +18531,33 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    t = op3;
 	    op3 = op2;
 	    op2 = t;
+	  }
+	if (op1 == NULL_TREE)
+	  {
+	    if (op2 && TREE_CODE (op2) == PLUS_EXPR
+		&& cw_is_offset (TREE_OPERAND (op2, 0)))
+	      {
+		op1 = TREE_OPERAND (op2, 0);
+		op2 = TREE_OPERAND (op2, 1);
+	      }
+	    else if (op2 && TREE_CODE (op2) == PLUS_EXPR
+		     && cw_is_offset (TREE_OPERAND (op2, 1)))
+	      {
+		op1 = TREE_OPERAND (op2, 1);
+		op2 = TREE_OPERAND (op2, 0);
+	      }
+	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
+		&& cw_is_offset (TREE_OPERAND (op3, 0)))
+	      {
+		op1 = TREE_OPERAND (op3, 0);
+		op3 = TREE_OPERAND (op3, 1);
+	      }
+	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
+		     && cw_is_offset (TREE_OPERAND (op3, 1)))
+	      {
+		op1 = TREE_OPERAND (op3, 1);
+		op3 = TREE_OPERAND (op3, 0);
+	      }
 	  }
 
 	/* Crack out the scaling, if any.  */
@@ -18589,6 +18627,13 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	else
 	  strcat (buf, ")");
       }
+      break;
+
+    case ADDR_EXPR:
+      e->as_offset = true;
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			    must_be_reg, must_not_be_reg, e);
+      e->as_offset = false;
       break;
 
     case MULT_EXPR:

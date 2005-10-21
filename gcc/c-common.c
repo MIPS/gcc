@@ -6198,6 +6198,75 @@ vector_constructor_from_expr (tree expr, tree vector_type)
 /* APPLE LOCAL end AltiVec */
 
 /* APPLE LOCAL begin CW asm blocks */
+/* Get the mode associated with the type, else VOIDmode if none.  */
+
+static enum machine_mode
+cw_get_mode (tree type)
+{
+  const char *s = IDENTIFIER_POINTER (type);
+  if (strcasecmp (s, "byte") == 0)
+    return QImode;
+  if (strcasecmp (s, "word") == 0)
+    return HImode;
+  if (strcasecmp (s, "dword") == 0)
+    return SImode;
+  if (strcasecmp (s, "qword") == 0)
+    return DImode;
+  if (strcasecmp (s, "oword") == 0)
+    return TImode;
+  if (strcasecmp (s, "real4") == 0)
+    return SFmode;
+  if (strcasecmp (s, "real8") == 0)
+    return DFmode;
+#if defined (TARGET_386)
+  if (strcasecmp (s, "real10") == 0)
+    return XFmode;
+  if (strcasecmp (s, "tbyte") == 0)
+    return XFmode;
+#endif
+
+  return VOIDmode;
+}
+    
+/* Build up a ``type ptr exp'' expression.  */
+
+tree
+cw_ptr_conv (tree type, tree exp)
+{
+  tree rhstype, ntype = NULL_TREE;
+  enum machine_mode to_mode;
+
+  if (TREE_TYPE (exp) == void_type_node
+      && TREE_CODE (exp) == BRACKET_EXPR)
+    {
+      TREE_TYPE (exp) = type;
+      return exp;
+    }
+
+  rhstype = TREE_TYPE (exp);
+
+  to_mode = cw_get_mode (type);
+
+  /* Allow trivial conversions.  */
+  if (to_mode != VOIDmode)
+    {
+      if (to_mode == TYPE_MODE (rhstype))
+	  return exp;
+      ntype = c_common_type_for_mode (to_mode, 0);
+    }
+
+  if (ntype == NULL_TREE)
+    {
+      error ("unknown C type for %<ptr%> type");
+      return exp;
+    }
+
+  exp = build1 (INDIRECT_REF, ntype,
+		fold_convert (build_pointer_type (ntype),
+			      build_unary_op (ADDR_EXPR, exp, 1)));
+  return exp;
+}
+
 tree
 cw_build_bracket (tree v1, tree v2)
 {
@@ -6255,7 +6324,7 @@ cw_op_comp (const void *a, const void *b)
 {
   const struct cw_op_constraint *x = a;
   const struct cw_op_constraint *y = b;
-  int c = strcmp (x->opcode, y->opcode);
+  int c = strcasecmp (x->opcode, y->opcode);
   if (c)
     return c;
   if (x->argnum < y->argnum)
@@ -6761,6 +6830,9 @@ cw_asm_expr_val (tree arg)
 #ifndef CW_IMMED_PREFIX
 #define CW_IMMED_PREFIX(E, BUF)
 #endif
+#ifndef CW_OFFSET_PREFIX
+#define CW_OFFSET_PREFIX(E, BUF)
+#endif
 #ifndef CW_HIDE_REG
 #define CW_HIDE_REG(R) false
 #endif
@@ -6769,6 +6841,9 @@ cw_asm_expr_val (tree arg)
 #endif
 #ifndef CW_SEE_NO_IMMEDIATE
 #define CW_SEE_NO_IMMEDIATE(E)
+#endif
+#ifndef CW_FUNCTION_MODIFIER
+#define CW_FUNCTION_MODIFIER ""
 #endif
 
 /* Force the last operand to have constraint C.  */
@@ -6853,6 +6928,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	  const char *real_name;
 	  tree id;
 
+	  CW_OFFSET_PREFIX (e, buf);
 	  mark_referenced (DECL_ASSEMBLER_NAME (arg));
 	  real_name = targetm.strip_name_encoding (name);
 	  id = maybe_get_identifier (real_name);
@@ -6887,7 +6963,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case FUNCTION_DECL:
-      cw_asm_get_register_var (arg, "z", buf, argnum, must_be_reg, e);
+      cw_asm_get_register_var (arg, CW_FUNCTION_MODIFIER, buf, argnum, must_be_reg, e);
       break;
 
     case COMPOUND_EXPR:
@@ -6963,11 +7039,21 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 			    must_be_reg, must_not_be_reg, e);
       break;
 
+    case INDIRECT_REF:
+      arg = TREE_OPERAND (arg, 0);
+      STRIP_NOPS (arg);
+      if (TREE_CODE (arg) != ADDR_EXPR)
+	goto bad;
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			    must_be_reg, must_not_be_reg, e);
+      break;
+
     default:
       if (TARGET_CW_PRINT_OP (buf, arg, argnum, uses,
 			      must_be_reg, must_not_be_reg, e))
 	break;
 
+    bad:
       /* Something is wrong, most likely a user error.  */
       error ("block assembly operand not recognized");
       break;
@@ -7171,10 +7257,12 @@ cw_do_id (tree id)
     if (strcasecmp (s, "byte") == 0
 	|| strcasecmp (s, "word") == 0
 	|| strcasecmp (s, "dword") == 0
-	|| strcasecmp (s, "fword") == 0
 	|| strcasecmp (s, "qword") == 0
-	|| strcasecmp (s, "tbyte") == 0
-	|| strcasecmp (s, "oword") == 0)
+	|| strcasecmp (s, "oword") == 0
+	|| strcasecmp (s, "real4") == 0
+	|| strcasecmp (s, "real8") == 0
+	|| strcasecmp (s, "real10") == 0
+	|| strcasecmp (s, "tbyte") == 0)
       return id;
   }
 #endif

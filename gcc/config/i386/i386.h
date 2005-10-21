@@ -2607,7 +2607,8 @@ struct machine_function GTY(())
 #undef TARGET_CW_EXTRA_INFO
 #define TARGET_CW_EXTRA_INFO			\
   char mod[3];					\
-  bool as_immediate;
+  bool as_immediate;				\
+  bool as_offset;
 
 #define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
@@ -2670,12 +2671,12 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 #define CW_IS_PREFIX(ID)				\
   do {							\
     const char *myname = IDENTIFIER_POINTER (ID);	\
-    if (strcmp (myname, "lock") == 0			\
-	|| strcmp (myname, "rep") == 0			\
-	|| strcmp (myname, "repe") == 0			\
-	|| strcmp (myname, "repz") == 0			\
-        || strcmp (myname, "repne") == 0		\
-	|| strcmp (myname, "repnz") == 0)		\
+    if (strcasecmp (myname, "lock") == 0		\
+	|| strcasecmp (myname, "rep") == 0		\
+	|| strcasecmp (myname, "repe") == 0		\
+	|| strcasecmp (myname, "repz") == 0		\
+        || strcasecmp (myname, "repne") == 0		\
+	|| strcasecmp (myname, "repnz") == 0)		\
       return true;					\
   } while (0)
 
@@ -2683,7 +2684,13 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 
 #define CW_IMMED_PREFIX(E, BUF)			\
   do {						\
-    if (! E->as_immediate)				\
+    if (! E->as_immediate)			\
+      sprintf (BUF + strlen (BUF), "$");	\
+  } while (0)
+
+#define CW_OFFSET_PREFIX(E, BUF)		\
+  do {						\
+    if (E->as_offset)				\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
@@ -3277,12 +3284,12 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "rsqrtps", 2, "xm"},	\
   { "rsqrtss", 1, "=x"},	\
   { "rsqrtss", 2, "xm"},	\
-  { "sal", 1, "+q"},		\
-  { "sal", 2, "i"},		\
-  { "sar", 1, "+q"},		\
-  { "sar", 2, "i"},		\
-  { "sbb", 1, "+" rm8 "," rm16 "," rm32 "," r8r16r32},	\
-  { "sbb", 2, ri8 "," ri16 "," ri32 ",m"},		\
+  { "sal", 1, "+" rm8rm16rm32},	\
+  { "sal", 2, "ic"},		\
+  { "sar", 1, "+" rm8rm16rm32},	\
+  { "sar", 2, "ic"},		\
+  { "sbb", 1, "+" rm8 "," rm16 "," rm32 "," r8 "," r16 "," r32},\
+  { "sbb", 2, ri8 "," ri16 "," ri32 "," m8 "," m16 "," m32},\
   { "scas", 1, U("m")},		\
   { "seta", 1, "=qm"},		\
   { "setae", 1, "=qm"},		\
@@ -3315,16 +3322,16 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "sets", 1, "=qm"},		\
   { "setz", 1, "=qm"},		\
   { "sgdt", 1, "=m"},		\
-  { "shl", 1, "+q"},		\
-  { "shl", 2, "i"},		\
-  { "shld", 1, "+rm"},		\
-  { "shld", 2, "r"},		\
-  { "shld", 3, "i"},		\
-  { "shr", 1, "+q"},		\
-  { "shr", 2, "i"},		\
-  { "shrd", 1, "+rm"},		\
-  { "shrd", 2, "r"},		\
-  { "shrd", 3, "i"},		\
+  { "shl", 1, "+" rm8rm16rm32},	\
+  { "shl", 2, "ic"},		\
+  { "shld", 1, "+" rm16 "," rm16},\
+  { "shld", 2, r16 "," r32},	\
+  { "shld", 3, "ic"},		\
+  { "shr", 1, "+" rm8rm16rm32},	\
+  { "shr", 2, "ic"},		\
+  { "shrd", 1, "+" rm16 "," rm32},\
+  { "shrd", 2, r16 "," r32},	\
+  { "shrd", 3, "ic"},		\
   { "shufpd", 1, "+x"},		\
   { "shufpd", 2, "xm"},		\
   { "shufpd", 3, "i"},		\
