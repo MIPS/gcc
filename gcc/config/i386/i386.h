@@ -2607,7 +2607,8 @@ struct machine_function GTY(())
 #undef TARGET_CW_EXTRA_INFO
 #define TARGET_CW_EXTRA_INFO			\
   char mod[3];					\
-  bool as_immediate;
+  bool as_immediate;				\
+  bool as_offset;
 
 #define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
@@ -2683,7 +2684,13 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 
 #define CW_IMMED_PREFIX(E, BUF)			\
   do {						\
-    if (! E->as_immediate)				\
+    if (! E->as_immediate)			\
+      sprintf (BUF + strlen (BUF), "$");	\
+  } while (0)
+
+#define CW_OFFSET_PREFIX(E, BUF)		\
+  do {						\
+    if (E->as_offset)				\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 

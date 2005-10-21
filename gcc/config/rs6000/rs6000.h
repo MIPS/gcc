@@ -3599,4 +3599,7 @@ enum rs6000_builtins
   { "stmw", 2, "m" },	\
   { "stw", 2, "m" },	\
   { "stwu", 2, "m" },
+
+#define CW_FUNCTION_MODIFIER "z"
+
 /* APPLE LOCAL end CW asm blocks */

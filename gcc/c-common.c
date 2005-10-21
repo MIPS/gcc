@@ -6830,6 +6830,9 @@ cw_asm_expr_val (tree arg)
 #ifndef CW_IMMED_PREFIX
 #define CW_IMMED_PREFIX(E, BUF)
 #endif
+#ifndef CW_OFFSET_PREFIX
+#define CW_OFFSET_PREFIX(E, BUF)
+#endif
 #ifndef CW_HIDE_REG
 #define CW_HIDE_REG(R) false
 #endif
@@ -6838,6 +6841,9 @@ cw_asm_expr_val (tree arg)
 #endif
 #ifndef CW_SEE_NO_IMMEDIATE
 #define CW_SEE_NO_IMMEDIATE(E)
+#endif
+#ifndef CW_FUNCTION_MODIFIER
+#define CW_FUNCTION_MODIFIER ""
 #endif
 
 /* Force the last operand to have constraint C.  */
@@ -6922,6 +6928,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 	  const char *real_name;
 	  tree id;
 
+	  CW_OFFSET_PREFIX (e, buf);
 	  mark_referenced (DECL_ASSEMBLER_NAME (arg));
 	  real_name = targetm.strip_name_encoding (name);
 	  id = maybe_get_identifier (real_name);
@@ -6956,7 +6963,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case FUNCTION_DECL:
-      cw_asm_get_register_var (arg, "z", buf, argnum, must_be_reg, e);
+      cw_asm_get_register_var (arg, CW_FUNCTION_MODIFIER, buf, argnum, must_be_reg, e);
       break;
 
     case COMPOUND_EXPR:

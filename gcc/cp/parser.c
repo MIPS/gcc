@@ -5328,6 +5328,13 @@ cp_parser_unary_operator (cp_token* token)
     case CPP_COMPL:
       return BIT_NOT_EXPR;
 
+      /* APPLE LOCAL begin CW asm blocks */
+    case CPP_NAME:
+      if (cw_asm_state >= cw_asm_decls
+	  && strcasecmp (IDENTIFIER_POINTER (token->value), "offset") == 0)
+	return ADDR_EXPR;
+      /* APPLE LOCAL end CW asm blocks */
+
     default:
       return ERROR_MARK;
     }
@@ -17474,7 +17481,8 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 
 	    if (inside_cw_asm_block)
 	      {
-		if (TREE_CODE (postfix_expression) == BRACKET_EXPR)
+		if (TREE_CODE (postfix_expression) == BRACKET_EXPR
+		    || TREE_CODE (index) == IDENTIFIER_NODE)
 		  {
 		    postfix_expression = cw_build_bracket (postfix_expression, index);
 		    break;

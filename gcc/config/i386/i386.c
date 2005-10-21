@@ -18600,6 +18600,13 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
       }
       break;
 
+    case ADDR_EXPR:
+      e->as_offset = true;
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			    must_be_reg, must_not_be_reg, e);
+      e->as_offset = false;
+      break;
+
     case MULT_EXPR:
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
