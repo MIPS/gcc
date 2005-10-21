@@ -53,6 +53,7 @@ struct diagnostic_context;
       REFERENCE_REF_P (in INDIRECT_EXPR)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
       OMP_ATOMIC_DEPENDENT_P (in OMP_ATOMIC)
+      OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -2948,6 +2949,10 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* Used to store the operation code when OMP_ATOMIC_DEPENDENT_P is set.  */
 #define OMP_ATOMIC_CODE(NODE) \
   (OMP_ATOMIC_CHECK (NODE)->exp.complexity)
+
+/* Used while gimplifying continue statements bound to OMP_FOR nodes.  */
+#define OMP_FOR_GIMPLIFYING_P(NODE) \
+  (TREE_LANG_FLAG_0 (OMP_FOR_CHECK (NODE)))
 
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */

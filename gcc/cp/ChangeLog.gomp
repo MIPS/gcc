@@ -1,5 +1,25 @@
 2005-10-20  Richard Henderson  <rth@redhat.com>
 
+	* cp-gimplify.c (cp_gimplify_omp_for): New.
+	(cp_gimplify_expr): Call it.
+	* cp-tree.h (OMP_FOR_GIMPLIFYING_P): New.
+	* parser.c (struct cp_parser): Rename in_iteration_statement_p
+	to in_iteration_statement and change to unsigned char.  Similarly
+	with in_switch_statement.  Update all users.
+	(IN_OMP_BLOCK, IN_OMP_FOR): New.
+	(cp_parser_labeled_statement): Diagnose case labels binding closer
+	to an openmp block nested than the switch.
+	(cp_parser_jump_statement): Diagnose break and continue labels
+	binding closer to an openmp block than an iteration or switch.
+	(cp_parser_omp_for_loop): Mark in_iteration_statement for an omp for.
+	(cp_parser_begin_omp_structured_block): New.
+	(cp_parser_end_omp_structured_block): New.
+	(cp_parser_omp_structured_block): Use them.
+	(cp_parser_omp_for, cp_parser_omp_sections_scope): Likewise.
+	(cp_parser_omp_parallel): Likewise.
+
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
 	* semantics.c (begin_omp_structured_block): New.
 	(finish_omp_structured_block): New.
 	(begin_omp_parallel, finish_omp_parallel): Use them.

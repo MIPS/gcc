@@ -1,4 +1,9 @@
-2005-11-20  Jakub Jelinek  <jakub@redhat.com>
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libgomp.c++/loop-6.C: New.
+	* testsuite/libgomp.dg/loop-3.c: New.
+
+2005-10-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/jacobi.f: Don't make i and j
 	explicitly private.

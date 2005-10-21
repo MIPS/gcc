@@ -1,5 +1,16 @@
 2005-10-20  Richard Henderson  <rth@redhat.com>
 
+	* g++.dg/gomp/block-0.C: Rename from block-1.C.
+	* g++.dg/gomp/block-1.C, g++.dg/gomp/block-2.C: Copy from C tests.
+	* g++.dg/gomp/block-3.C, g++.dg/gomp/block-4.C: Likewise.
+	* g++.dg/gomp/block-5.C, g++.dg/gomp/block-6.C: Likewise.
+	* g++.dg/gomp/block-7.C, gcc.dg/gomp/block-7.c: New.
+	* g++.dg/gomp/for-1.C: Update expected errors.
+	* gcc.dg/gomp/for-1.c, gcc.dg/gomp/for-11.c: Likewise.
+	* gcc.dg/gomp/block-2.c: Likewise.
+
+2005-10-20  Richard Henderson  <rth@redhat.com>
+
 	* g++.dg/gomp/critical-1.C: Search the omplower dump.
 	* g++.dg/gomp/master-3.C, g++.dg/gomp/ordered-1.C: Likewise.
 	* gcc.dg/gomp/critical-1.c, gcc.dg/gomp/master-3.c: Likewise.

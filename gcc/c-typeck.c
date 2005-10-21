@@ -7260,13 +7260,24 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
       if (!skip)
 	*label_p = label = create_artificial_label ();
     }
-  else if (TREE_CODE (label) != LABEL_DECL)
+  else if (TREE_CODE (label) == LABEL_DECL)
+    ;
+  else switch (TREE_INT_CST_LOW (label))
     {
+    case 0:
       if (is_break)
 	error ("break statement not within loop or switch");
       else
         error ("continue statement not within a loop");
       return NULL_TREE;
+
+    case 1:
+      gcc_assert (is_break);
+      error ("break statement used with OpenMP for loop");
+      return NULL_TREE;
+
+    default:
+      gcc_unreachable ();
     }
 
   if (skip)

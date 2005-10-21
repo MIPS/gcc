@@ -1,32 +1,22 @@
 // { dg-do compile }
-// { dg-options "-fopenmp -fdump-tree-gimple" }
 
-void bar();
 void foo()
 {
-  #pragma omp critical
-    bar ();
-  #pragma omp master
-    bar ();
-  #pragma omp single
-    bar ();
-  #pragma omp for
-  for (int i = 0; i < 10; ++i)
-    bar ();
-  #pragma omp sections
-    { bar(); }
+  bad1:
   #pragma omp parallel
-    bar ();
-  #pragma omp parallel for
-  for (int i = 0; i < 10; ++i)
-    bar ();
-  #pragma omp parallel sections
+    goto bad1;			// { dg-error "invalid exit" }
+
+  goto bad2;			// { dg-error "invalid entry" }
+  #pragma omp parallel
     {
-      bar ();
-      bar ();
-    #pragma omp section
-      bar ();
+      bad2: ;
+    }
+
+  #pragma omp parallel
+    {
+      int i;
+      goto ok1;
+      for (i = 0; i < 10; ++i)
+	{ ok1: break; }
     }
 }
-
-// { dg-final { scan-tree-dump-times "terminate" 10 "gimple" } }

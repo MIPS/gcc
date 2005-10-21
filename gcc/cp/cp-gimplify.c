@@ -339,6 +339,36 @@ gimplify_switch_stmt (tree *stmt_p)
   *stmt_p = finish_bc_block (bc_break, break_block, *stmt_p);
 }
 
+/* Hook into the middle of gimplifying an OMP_FOR node.  This is required
+   in order to properly gimplify CONTINUE statements.  Here we merely
+   manage the continue stack; the rest of the job is performed by the
+   regular gimplifier.  */ 
+
+static enum gimplify_status
+cp_gimplify_omp_for (tree *expr_p)
+{
+  tree for_stmt = *expr_p;
+  tree cont_block;
+
+  /* Protect ourselves from recursion.  */
+  if (OMP_FOR_GIMPLIFYING_P (for_stmt))
+    return GS_UNHANDLED;
+  OMP_FOR_GIMPLIFYING_P (for_stmt) = 1;
+
+  /* Note that while technically the continue label is enabled too soon
+     here, we should have already diagnosed invalid continues nested within
+     statement expressions within the INIT, COND, or INCR expressions.  */
+  cont_block = begin_bc_block (bc_continue);
+
+  gimplify_stmt (expr_p);
+
+  OMP_FOR_BODY (for_stmt)
+    = finish_bc_block (bc_continue, cont_block, OMP_FOR_BODY (for_stmt));
+  OMP_FOR_GIMPLIFYING_P (for_stmt) = 0;
+
+  return GS_ALL_DONE;
+}
+
 /*  Gimplify an EXPR_STMT node.  */
 
 static void
@@ -540,6 +570,10 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
     case SWITCH_STMT:
       gimplify_switch_stmt (expr_p);
       ret = GS_ALL_DONE;
+      break;
+
+    case OMP_FOR:
+      ret = cp_gimplify_omp_for (expr_p);
       break;
 
     case CONTINUE_STMT:

@@ -35,7 +35,7 @@ void foo (int j, int k)
   for (i = 0; ; i--)	// { dg-error "missing controlling predicate" }
     {
       if (i >= 10)
-	break;
+	break;		// { dg-error "break" }
       baz (i);
     }
 

@@ -7329,12 +7329,16 @@ c_parser_omp_for_loop (c_parser *parser)
 
  parse_body:
   save_break = c_break_label;
-  c_break_label = NULL_TREE;
+  c_break_label = size_one_node;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
+  body = push_stmt_list ();
 
-  body = c_parser_c99_block_statement (parser);
+  add_stmt (c_parser_c99_block_statement (parser));
+  if (c_cont_label)
+    add_stmt (build1 (LABEL_EXPR, void_type_node, c_cont_label));
 
+  body = pop_stmt_list (body);
   c_break_label = save_break;
   c_cont_label = save_cont;
 
