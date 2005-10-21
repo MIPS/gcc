@@ -1,5 +1,27 @@
 2005-10-21  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.hh
+	(bytecode_generator::visit_generic_invocation): New method.
+	* dump.cc (dumper::visit_generic_invocation): New method.
+	* fold.cc (fold_visitor::visit_generic_invocation): New method.
+	* defassign.cc
+	(definite_assignment_visitor::visit_generic_invocation): New
+	method.
+	* visitor.hh (visitor::visit_generic_invocation): Declare.
+	* name.cc (classify_expression_name): Added 'type_args' argument.
+	* name.hh (classify_expression_name): Added argument.
+	* source/parse.cc (primary): Handle invocation with explicit type
+	parameters.
+	* model/invoke.cc: Added instantiation.
+	(visit): New method.
+	* model/invoke.hh (model_generic_method_invocation): New typedef.
+	* model/memberref.cc (resolve): Updated.
+	* model/memberref.hh (model_memberref_forward::type_parameters):
+	New field.
+	(model_memberref_forward::set_type_parameters): New method.
+
+2005-10-21  Tom Tromey  <tromey@redhat.com>
+
 	* model/method.cc (model_method): Set 'descriptor'.
 
 2005-10-21  Tom Tromey  <tromey@redhat.com>

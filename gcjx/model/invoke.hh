@@ -301,6 +301,8 @@ public:
 
 /// These classes are used to represent explicitly-parameterized
 /// invocations of generic methods.
+typedef class model_generic_invocation<model_method_invocation>
+  model_generic_method_invocation;
 typedef class model_generic_invocation<model_type_qualified_invocation>
   model_generic_type_qualified_invocation;
 typedef class model_generic_invocation<model_super_invocation>

@@ -1864,6 +1864,16 @@ public:
   }
 
   void
+  visit_generic_invocation (model_method_invocation *mi,
+			    model_method *meth,
+			    const ref_expression &qual,
+                            const std::list<ref_expression> &args,
+                            const std::list<ref_forwarding_type> &)
+  {
+    visit_method_invocation (mi, meth, qual, args);
+  }
+
+  void
   visit_generic_invocation (model_type_qualified_invocation *tqi,
                             const model_method *meth,
                             const std::list<ref_expression> &args,

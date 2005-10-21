@@ -532,6 +532,13 @@ public:
   virtual void visit_javadoc (model_javadoc *, bool) = 0;
 
   virtual void
+  visit_generic_invocation (model_method_invocation *,
+			    model_method *,
+			    const ref_expression &,
+                            const std::list<ref_expression> &,
+                            const std::list<ref_forwarding_type> &) = 0;
+
+  virtual void
   visit_generic_invocation (model_type_qualified_invocation *,
                             const model_method *,
                             const std::list<ref_expression> &, bool,

@@ -1,3 +1,8 @@
+2005-10-21  Tom Tromey  <tromey@redhat.com>
+
+	* tree.hh (tree_generator::visit_generic_invocation): New
+	overload.
+
 2005-10-16  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* treegen.cc (tree_code_generator::generate): Skip native methods

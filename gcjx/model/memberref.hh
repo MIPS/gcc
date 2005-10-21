@@ -61,6 +61,9 @@ class model_memberref_forward : public model_memberref_base
   // Arguments to a method.
   std::list<ref_expression> arguments;
 
+  // Explicit type parameters.  This list is empty if there are none.
+  std::list<ref_forwarding_type> type_parameters;
+
   // True if left-hand-side of assignment.
   bool is_lhs;
   // True if compound assignment.
@@ -102,6 +105,11 @@ public:
   {
     arguments = args;
     is_call = true;
+  }
+
+  void set_type_parameters (const std::list<ref_forwarding_type> &params)
+  {
+    type_parameters = params;
   }
 
   void resolve (resolution_scope *);

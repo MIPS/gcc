@@ -676,11 +676,20 @@ model_generic_invocation<T>::resolve (resolution_scope *scope)
 
 // Instantiations.
 
+template class model_generic_invocation<model_method_invocation>;
 template class model_generic_invocation<model_type_qualified_invocation>;
 template class model_generic_invocation<model_super_invocation>;
 template class model_generic_invocation<model_this_invocation>;
 template class model_generic_invocation<model_new>;
 template class model_generic_invocation<model_new_primary>;
+
+template<>
+void
+model_generic_invocation<model_method_invocation>::visit (visitor *v)
+{
+  v->visit_generic_invocation (this, method, expression, arguments,
+                               actual_type_params);
+}
 
 template<>
 void

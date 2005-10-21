@@ -1,6 +1,6 @@
 // Meaning of a name.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -406,7 +406,8 @@ ref_invocation_base
 classify_expression_name (resolution_scope *scope,
 			  model_element *request,
 			  const std::list<std::string> &name,
-			  const std::list<ref_expression> &args)
+			  const std::list<ref_expression> &args,
+			  const std::list<ref_forwarding_type> &type_args)
 {
   assert (name.begin () != name.end ());
 
@@ -414,7 +415,9 @@ classify_expression_name (resolution_scope *scope,
   if (simple_name_p (name))
     {
       location w = request->get_location ();
-      result = new model_method_invocation (w);
+      result = (type_args.empty ()
+		? new model_method_invocation (w)
+		: new model_generic_method_invocation (w, type_args));
       // result->set_qualifying_class (scope->get_current_class ());
     }
   else
@@ -432,15 +435,21 @@ classify_expression_name (resolution_scope *scope,
 	  % join (dropname, '.');
       if (klass)
 	{
+	  location where = request->get_location ();
 	  model_type_qualified_invocation *tqi
-	    = new model_type_qualified_invocation (request->get_location ());
-	  tqi->set_class (new model_forwarding_resolved (LOCATION_UNKNOWN,
-							 klass));
+	    = (type_args.empty ()
+	       ? new model_type_qualified_invocation (where)
+	       : new model_generic_type_qualified_invocation (where,
+							      type_args));
+	  tqi->set_class (new model_forwarding_resolved (where, klass));
 	  result = tqi;
 	}
       else
 	{
-	  result = new model_method_invocation (request->get_location ());
+	  result = (type_args.empty ()
+		    ? new model_method_invocation (request->get_location ())
+		    : new model_generic_method_invocation (request->get_location (),
+							   type_args));
 	  result->set_expression (expr);
 	}
     }

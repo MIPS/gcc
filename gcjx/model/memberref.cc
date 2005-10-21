@@ -27,7 +27,8 @@ model_memberref_forward::resolve (resolution_scope *scope)
   if (is_call)
     {
       assert (! is_lhs);
-      real = classify_expression_name (scope, this, ids, arguments);
+      real = classify_expression_name (scope, this, ids, arguments,
+				       type_parameters);
       if (ids.size () == 1)
 	{
 	  model_invocation_base *iv
@@ -37,6 +38,7 @@ model_memberref_forward::resolve (resolution_scope *scope)
     }
   else
     {
+      assert (type_parameters.empty ());
       real = classify_expression_name (scope, this, ids);
       if (dynamic_cast<model_field_ref *> (real.get ()) != NULL)
 	{

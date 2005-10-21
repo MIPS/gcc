@@ -33,6 +33,10 @@ there's a bug with implicit qualifiers for field references.
 qualification in general needs some inspection.
 eg, for 'Foo.super.field', 'Foo.super' should probably be a qualifying
 expression, not part of the field reference itself.
+likewise, 'x.y.z' should turn into an expression where 'x.y'
+is the qualifier and 'z' is the field reference
+this would be better, I think for things like
+'x.y.<type,params> z()'
 
 we initialize fields that were added by variable capture
 even when the constructor calls this().  this is wrong
@@ -287,9 +291,6 @@ X gcjh has options to add text to the header in different places;
 ================================================================
 
 Tree generation
-
-compiling Class with -g -O2 fails
-cgraph complains about the native methods
 
 we have '.zero 2' at the end of a utf8const ... why?
 old gcj has '.zero 1'

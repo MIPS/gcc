@@ -646,20 +646,32 @@ parse::primary ()
 
     if (! result)
       {
-	// FIXME: we must handle 'Type . <params> name ()'
-	// and 'primary . <params> name ()' here.
-	// This is tricky as it doesn't fit in well with our parsing
-	// approach or the current model.
-
-	// What's left are variable or field references.  We use a
-	// single kind of object to represent both of these, with
-	// resolution later.  We do this because a qualified-identifier
-	// could have an arbitrary number of field references in it.
+	// What's left are variable or field references, or method
+	// invocations.  We use a single kind of object to represent
+	// all of these, with resolution later.  We do this because a
+	// qualified-identifier could have an arbitrary number of
+	// field references in it.
 	mark.backtrack ();
+
 	std::list<std::string> qual (qualified_identifier ());
+	std::list<ref_forwarding_type> type_params;
+	if (peek () == TOKEN_DOT && peek1 () == TOKEN_LESS_THAN)
+	  {
+	    assume (TOKEN_DOT);
+	    // Generic invocation with explicit type parameters.
+	    type_params = actual_type_parameters ();
+	    // This is a goofy hack: fetch the method name and push it
+	    // on the identifier list.  FIXME: really we ought to make
+	    // the model a little closer to the source here.
+	    qual.push_back (identifier ());
+	  }
+
 	ref_memberref_forward fwd (new model_memberref_forward (t, qual));
-	if (peek () == TOKEN_OPEN_PAREN)
-	  fwd->set_arguments (arguments ());
+	if (! type_params.empty () || peek () == TOKEN_OPEN_PAREN)
+	  {
+	    fwd->set_arguments (arguments ());
+	    fwd->set_type_parameters (type_params);
+	  }
 	result = fwd;
       }
   }
@@ -694,11 +706,15 @@ parse::primary ()
 	      }
 	    else
 	      {
-		std::string name = identifier ();
-		if (peek () == TOKEN_OPEN_PAREN)
+		if (peek () == TOKEN_LESS_THAN)
 		  {
+		    // Generic invocation with explicit type
+		    // parameters.
+		    std::list<ref_forwarding_type> type_params
+		      = actual_type_parameters ();
+		    std::string name = identifier ();
 		    ref_method_invocation inv
-		      = new model_method_invocation (t);
+		      = new model_generic_method_invocation (t, type_params);
 		    inv->set_method (name);
 		    inv->set_expression (result);
 		    inv->set_arguments (arguments ());
@@ -706,11 +722,24 @@ parse::primary ()
 		  }
 		else
 		  {
-		    // Field reference.
-		    ref_field_ref fref (new model_field_ref (t));
-		    fref->set_field (name);
-		    fref->set_expression (result);
-		    result = fref;
+		    std::string name = identifier ();
+		    if (peek () == TOKEN_OPEN_PAREN)
+		      {
+			ref_method_invocation inv
+			  = new model_method_invocation (t);
+			inv->set_method (name);
+			inv->set_expression (result);
+			inv->set_arguments (arguments ());
+			result = inv;
+		      }
+		    else
+		      {
+			// Field reference.
+			ref_field_ref fref (new model_field_ref (t));
+			fref->set_field (name);
+			fref->set_expression (result);
+			result = fref;
+		      }
 		  }
 	      }
 	  }

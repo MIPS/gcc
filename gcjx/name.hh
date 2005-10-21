@@ -1,6 +1,6 @@
 // Meaning of a name.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -69,7 +69,8 @@ ref_expression classify_expression_name (resolution_scope *,
 ref_invocation_base classify_expression_name (resolution_scope *,
 					      model_element *,
 					      const std::list<std::string> &,
-					      const std::list<ref_expression> &);
+					      const std::list<ref_expression> &,
+					      const std::list<ref_forwarding_type> &);
 
 /// Look up a primitive type by its one-character descriptor.  Returns
 /// NULL if it doesn't represent the descriptor of a primitive type.
