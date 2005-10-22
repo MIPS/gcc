@@ -274,9 +274,8 @@
 ;; bits of the PC are always read as zero, so ensure the instructions is
 ;; word aligned.
 (define_insn "pic_load_dot_plus_four"
-  [(set (match_operand:SI 0 "register_operand" "+r")
-	(unspec:SI [(plus:SI (match_dup 0)
-			     (const (plus:SI (pc) (const_int 4))))]
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(const (plus:SI (pc) (const_int 4)))]
 		   UNSPEC_PIC_BASE))
    (use (label_ref (match_operand 1 "" "")))]
   "TARGET_THUMB2"

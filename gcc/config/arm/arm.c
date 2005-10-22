@@ -3372,7 +3372,8 @@ arm_load_pic_register (unsigned int scratch)
   if (TARGET_ARM)
     {
       emit_insn (gen_pic_load_addr_arm (pic_offset_table_rtx, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_eight (pic_offset_table_rtx, l1));
+      emit_insn (gen_pic_add_dot_plus_eight (pic_offset_table_rtx,
+					     pic_offset_table_rtx, l1));
     }
   else if (TARGET_THUMB2)
     {
@@ -3396,7 +3397,8 @@ arm_load_pic_register (unsigned int scratch)
 	}
       else
 	emit_insn (gen_pic_load_addr_thumb1 (pic_offset_table_rtx, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_four (pic_offset_table_rtx, l1));
+      emit_insn (gen_pic_add_dot_plus_four (pic_offset_table_rtx,
+					    pic_offset_table_rtx, l1));
     }
 
   /* Need to emit this whether or not we obey regdecls,
@@ -3999,9 +4001,17 @@ legitimize_tls_address (rtx x, unsigned int model, rtx reg)
       reg = load_tls_operand (sum, reg);
 
       if (TARGET_ARM)
-	insn = emit_insn (gen_pic_add_dot_plus_eight (reg, label));
+	insn = emit_insn (gen_pic_add_dot_plus_eight (reg, reg, label));
+      else if (TARGET_THUMB2)
+	{
+	  /* Thumb-2 only allows very limited access to the PC.  Calculate the
+	     address in a temporary reggister.  */
+	  tmp = gen_reg_rtx (SImode);
+	  insn = emit_insn (gen_pic_load_dot_plus_four (tmp, label));
+	  emit_insn (gen_addsi3(reg, reg, tmp));
+	}
       else
-	insn = emit_insn (gen_pic_add_dot_plus_four (reg, label));
+	insn = emit_insn (gen_pic_add_dot_plus_four (reg, reg, label));
 
       emit_label_before (dummy_label, insn);
 

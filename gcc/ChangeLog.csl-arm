@@ -1,3 +1,15 @@
+2005-10-22 Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_load_pic_register): Pass extra reg to
+	gen_pic_add_dot_plus_*. Handle Thumb-2.
+	* config/arm/arm.md (pic_add_dot_plus_four): Use match_operand instead
+	of match_dup.
+	(pic_add_dot_plus_eight): Ditto.
+	Remove constraints from peephole2.  Use match_dup in output template.
+	* config/arm/thumb2.md (pic_load_dot_plus_four): Use match_operand
+	instead of match_dup.
+	* testsuite/gcc.dg/tls/opt-10.c: New test.
+
 2005-10-20  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_elf_asm_constructor): Remove ATTRIBUTE_UNUSED
