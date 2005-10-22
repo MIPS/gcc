@@ -1,5 +1,11 @@
 2005-10-21  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (gimplify_case_label_expr): Don't crash if the
+	case_labels vector is in an outer context.
+	* omp-low.c (diagnose_sb_1): Fix paste-o.
+
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
 	* tree.def (OMP_FOR): Increase size.
 	* tree.h (OMP_FOR_PRE_BODY): New.
 	* gimplify.c (gimplify_omp_for): Use OMP_FOR_PRE_BODY for pre-queue

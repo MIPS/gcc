@@ -1290,9 +1290,8 @@ typedef struct cp_parser GTY(())
 #define IN_OMP_FOR 3
   unsigned char in_iteration_statement;
 
-  /* If we are presently parsing the body of a switch statement.
-     Takes 3 values: false, true, IN_OMP_BLOCK.  */
-  unsigned char in_switch_statement;
+  /* TRUE if we are presently parsing the body of a switch statement.  */
+  bool in_switch_statement_p;
 
   /* TRUE if we are parsing a type-id in an expression context.  In
      such a situation, both "type (expr)" and "type (type)" are valid
@@ -2496,7 +2495,7 @@ cp_parser_new (void)
   parser->in_iteration_statement = false;
 
   /* We are not in a switch statement.  */
-  parser->in_switch_statement = false;
+  parser->in_switch_statement_p = false;
 
   /* We are not parsing a type-id inside an expression.  */
   parser->in_type_id_in_expr_p = false;
@@ -6217,20 +6216,10 @@ cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,
 	else
 	  expr_hi = NULL_TREE;
 
-	switch (parser->in_switch_statement)
-	  {
-	  case false:
-	    error ("case label %qE not within a switch statement", expr);
-	    break;
-	  case true:
-	    statement = finish_case_label (expr, expr_hi);
-	    break;
-	  case IN_OMP_BLOCK:
-	    error ("invalid entry to OpenMP structured block");
-	    break;
-	  default:
-	    gcc_unreachable ();
-	  }
+	if (parser->in_switch_statement_p)
+	  statement = finish_case_label (expr, expr_hi);
+	else
+	  error ("case label %qE not within a switch statement", expr);
       }
       break;
 
@@ -6238,20 +6227,10 @@ cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,
       /* Consume the `default' token.  */
       cp_lexer_consume_token (parser->lexer);
 
-      switch (parser->in_switch_statement)
-	{
-	case false:
-	  error ("case label not within a switch statement");
-	  break;
-	case true:
-	  statement = finish_case_label (NULL_TREE, NULL_TREE);
-	  break;
-	case IN_OMP_BLOCK:
-	  error ("invalid entry to OpenMP structured block");
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
+      if (parser->in_switch_statement_p)
+	statement = finish_case_label (NULL_TREE, NULL_TREE);
+      else
+	error ("case label not within a switch statement");
       break;
 
     default:
@@ -6432,16 +6411,16 @@ cp_parser_selection_statement (cp_parser* parser)
 	  }
 	else
 	  {
-	    unsigned char in_switch_statement;
+	    bool in_switch_statement_p;
 
 	    /* Add the condition.  */
 	    finish_switch_cond (condition, statement);
 
 	    /* Parse the body of the switch-statement.  */
-	    in_switch_statement = parser->in_switch_statement;
-	    parser->in_switch_statement = true;
+	    in_switch_statement_p = parser->in_switch_statement_p;
+	    parser->in_switch_statement_p = true;
 	    cp_parser_implicitly_scoped_statement (parser);
-	    parser->in_switch_statement = in_switch_statement;
+	    parser->in_switch_statement_p = in_switch_statement_p;
 
 	    /* Now we're all done with the switch-statement.  */
 	    finish_switch_stmt (statement);
@@ -6740,7 +6719,7 @@ cp_parser_jump_statement (cp_parser* parser)
   switch (keyword)
     {
     case RID_BREAK:
-      switch (parser->in_iteration_statement | parser->in_switch_statement)
+      switch (parser->in_iteration_statement | parser->in_switch_statement_p)
 	{
 	case false:
 	  error ("break statement not within loop or switch");
@@ -18052,10 +18031,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 static unsigned
 cp_parser_begin_omp_structured_block (cp_parser *parser)
 {
-  unsigned save;
-
-  /* Pack the old values into one return value.  */
-  save = (parser->in_iteration_statement << 8) | parser->in_switch_statement;
+  unsigned save = parser->in_iteration_statement;
 
   /* Only move the values to IN_OMP_BLOCK if they weren't false.
      This preserves the "not within loop or switch" style error messages
@@ -18067,8 +18043,6 @@ cp_parser_begin_omp_structured_block (cp_parser *parser)
   */
   if (parser->in_iteration_statement)
     parser->in_iteration_statement = IN_OMP_BLOCK;
-  if (parser->in_switch_statement)
-    parser->in_switch_statement = IN_OMP_BLOCK;
 
   return save;
 }
@@ -18076,8 +18050,7 @@ cp_parser_begin_omp_structured_block (cp_parser *parser)
 static void
 cp_parser_end_omp_structured_block (cp_parser *parser, unsigned save)
 {
-  parser->in_iteration_statement = save >> 8;
-  parser->in_switch_statement = save & 0xff;
+  parser->in_iteration_statement = save;
 }
 
 static tree

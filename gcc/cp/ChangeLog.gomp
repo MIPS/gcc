@@ -1,5 +1,15 @@
 2005-10-21  Richard Henderson  <rth@redhat.com>
 
+	* decl.c (check_previous_goto_1): Return false if error.
+	(check_switch_goto): Likewise.
+	(finish_case_label): Don't emit the case label on error.
+	* parser.c (struct cp_parser): Revert in_switch_statement_p changes.
+	(cp_parser_labeled_statement, cp_parser_selection_statement): Likewise.
+	(cp_parser_begin_omp_structured_block): Don't save...
+	(cp_parser_end_omp_structured_block): or restore in_switch_statement_p.
+
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
 	* semantics.c (finish_omp_threadprivate): Set decl_flags.u2sel
 	when necessary.
 

@@ -1371,9 +1371,16 @@ static enum gimplify_status
 gimplify_case_label_expr (tree *expr_p)
 {
   tree expr = *expr_p;
+  struct gimplify_ctx *ctxp;
 
-  gcc_assert (gimplify_ctxp->case_labels);
-  VEC_safe_push (tree, heap, gimplify_ctxp->case_labels, expr);
+  /* Invalid OpenMP programs can play Duff's Device type games with
+     #pragma omp parallel.  At least in the C front end, we don't
+     detect such invalid branches until after gimplification.  */
+  for (ctxp = gimplify_ctxp; ; ctxp = ctxp->prev_context)
+    if (ctxp->case_labels)
+      break;
+
+  VEC_safe_push (tree, heap, ctxp->case_labels, expr);
   *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (expr));
   return GS_ALL_DONE;
 }

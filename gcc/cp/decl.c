@@ -2251,9 +2251,10 @@ identify_goto (tree decl, const location_t *locus)
 /* Check that a single previously seen jump to a newly defined label
    is OK.  DECL is the LABEL_DECL or 0; LEVEL is the binding_level for
    the jump context; NAMES are the names in scope in LEVEL at the jump
-   context; FILE and LINE are the source position of the jump or 0.  */
+   context; LOCUS is the source position of the jump or 0.  Returns 
+   true if all is well.  */
 
-static void
+static bool
 check_previous_goto_1 (tree decl, struct cp_binding_level* level, tree names,
 		       bool exited_omp, const location_t *locus)
 {
@@ -2315,6 +2316,8 @@ check_previous_goto_1 (tree decl, struct cp_binding_level* level, tree names,
 	  saw_omp = true;
 	}
     }
+
+  return !identified;
 }
 
 static void
@@ -2325,10 +2328,10 @@ check_previous_goto (tree decl, struct named_label_use_entry *use)
 			 &use->o_goto_locus);
 }
 
-static void
+static bool
 check_switch_goto (struct cp_binding_level* level)
 {
-  check_previous_goto_1 (NULL_TREE, level, level->names, false, NULL);
+  return check_previous_goto_1 (NULL_TREE, level, level->names, false, NULL);
 }
 
 /* Check that a new jump to a label DECL is OK.  Called by
@@ -2577,10 +2580,11 @@ finish_case_label (tree low_value, tree high_value)
   if (cond && TREE_CODE (cond) == TREE_LIST)
     cond = TREE_VALUE (cond);
 
+  if (!check_switch_goto (switch_stack->level))
+    return error_mark_node;
+
   r = c_add_case_label (switch_stack->cases, cond, TREE_TYPE (cond),
 			low_value, high_value);
-
-  check_switch_goto (switch_stack->level);
 
   /* After labels, make any new cleanups in the function go into their
      own new (temporary) binding contour.  */

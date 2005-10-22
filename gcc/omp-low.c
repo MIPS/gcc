@@ -2930,7 +2930,8 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
 
     case OMP_FOR:
       walk_tree (&OMP_FOR_CLAUSES (t), diagnose_sb_1, wi, NULL);
-      wi->info = t;
+      inner_context = tree_cons (NULL, t, context);
+      wi->info = inner_context;
       walk_tree (&OMP_FOR_INIT (t), diagnose_sb_1, wi, NULL);
       walk_tree (&OMP_FOR_COND (t), diagnose_sb_1, wi, NULL);
       walk_tree (&OMP_FOR_INCR (t), diagnose_sb_1, wi, NULL);
