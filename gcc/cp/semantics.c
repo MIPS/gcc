@@ -3547,7 +3547,14 @@ finish_omp_threadprivate (tree vars)
 	{
 	  /* Allocate a LANG_SPECIFIC structure for V, if needed.  */
 	  if (DECL_LANG_SPECIFIC (v) == NULL)
-	    retrofit_lang_decl (v);
+	    {
+	      retrofit_lang_decl (v);
+
+	      /* Make sure that DECL_DISCRIMINATOR_P continues to be true
+		 after the allocation of the lang_decl structure.  */
+	      if (DECL_DISCRIMINATOR_P (v))
+		DECL_LANG_SPECIFIC (v)->decl_flags.u2sel = 1;
+	    }
 
 	  DECL_TLS_MODEL (v) = decl_default_tls_model (v);
 	  CP_DECL_THREADPRIVATE_P (v) = 1;

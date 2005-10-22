@@ -1,5 +1,10 @@
 2005-10-21  Richard Henderson  <rth@redhat.com>
 
+	* semantics.c (finish_omp_threadprivate): Set decl_flags.u2sel
+	when necessary.
+
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
 	* decl.c (poplevel_named_label_1): Restore creation of the
 	bad_decls list.
 	(decl_jump_unsafe): Check for error_mark_node types.
