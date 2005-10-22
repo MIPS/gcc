@@ -1,5 +1,18 @@
 2005-10-21  Richard Henderson  <rth@redhat.com>
 
+	* tree.def (OMP_FOR): Increase size.
+	* tree.h (OMP_FOR_PRE_BODY): New.
+	* gimplify.c (gimplify_omp_for): Use OMP_FOR_PRE_BODY for pre-queue
+	for the INIT, COND, or INCR expressions.
+	* omp-low.c (scan_omp_for): Scan OMP_FOR_PRE_BODY.
+	(scan_omp_nested): Likewise.
+	(expand_omp_for_1): Expand OMP_FOR_PRE_BODY.
+	(diagnose_sb_1, diagnose_sb_2): Scan all OMP_FOR fields.
+	* tree-pretty-print.c (dump_generic_node) <OMP_FOR>: Handle
+	printing OMP_FOR_PRE_BODY.
+
+2005-10-21  Richard Henderson  <rth@redhat.com>
+
 	* omp-low.c (scan_omp_nested) <OMP_CLAUSE_PRIVATE>: Replace
 	OMP_CLAUSE_DECL with the new private decl.  Use a tree list
 	for fixing up the variable sized decls.

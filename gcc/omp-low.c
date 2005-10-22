@@ -720,6 +720,7 @@ scan_omp_for (tree *stmt_p, omp_context *outer_ctx)
       install_var_private (iter, pctx);
     }
 
+  scan_omp (&OMP_FOR_PRE_BODY (stmt), ctx);
   scan_omp (&OMP_FOR_INIT (stmt), ctx);
   scan_omp (&OMP_FOR_COND (stmt), ctx);
   scan_omp (&OMP_FOR_INCR (stmt), ctx);
@@ -829,6 +830,7 @@ scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
 
   if (TREE_CODE (stmt) == OMP_FOR)
     {
+      scan_omp (&OMP_FOR_PRE_BODY (stmt), ctx);
       scan_omp (&OMP_FOR_INIT (stmt), ctx);
       scan_omp (&OMP_FOR_COND (stmt), ctx);
       scan_omp (&OMP_FOR_INCR (stmt), ctx);
@@ -2215,6 +2217,9 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
 
   expand_rec_input_clauses (OMP_FOR_CLAUSES (fd.for_stmt), &fd.pre, ctx);
 
+  expand_omp (&OMP_FOR_PRE_BODY (fd.for_stmt), ctx);
+  append_to_statement_list (OMP_FOR_PRE_BODY (fd.for_stmt), &fd.pre);
+
   if (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC && !have_ordered)
     {
       if (fd.chunk_size == NULL)
@@ -2908,7 +2913,6 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case OMP_PARALLEL:
-    case OMP_FOR:
     case OMP_SECTIONS:
     case OMP_SINGLE:
       walk_tree (&OMP_CLAUSES (t), diagnose_sb_1, wi, NULL);
@@ -2921,6 +2925,17 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
       inner_context = tree_cons (NULL, t, context);
       wi->info = inner_context;
       walk_stmts (wi, &OMP_BODY (t));
+      wi->info = context;
+      break;
+
+    case OMP_FOR:
+      walk_tree (&OMP_FOR_CLAUSES (t), diagnose_sb_1, wi, NULL);
+      wi->info = t;
+      walk_tree (&OMP_FOR_INIT (t), diagnose_sb_1, wi, NULL);
+      walk_tree (&OMP_FOR_COND (t), diagnose_sb_1, wi, NULL);
+      walk_tree (&OMP_FOR_INCR (t), diagnose_sb_1, wi, NULL);
+      walk_stmts (wi, &OMP_FOR_PRE_BODY (t));
+      walk_stmts (wi, &OMP_FOR_BODY (t));
       wi->info = context;
       break;
 
@@ -2951,7 +2966,6 @@ diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case OMP_PARALLEL:
-    case OMP_FOR:
     case OMP_SECTIONS:
     case OMP_SINGLE:
       walk_tree (&OMP_CLAUSES (t), diagnose_sb_2, wi, NULL);
@@ -2962,6 +2976,17 @@ diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
     case OMP_CRITICAL:
       wi->info = t;
       walk_stmts (wi, &OMP_BODY (t));
+      wi->info = context;
+      break;
+
+    case OMP_FOR:
+      walk_tree (&OMP_FOR_CLAUSES (t), diagnose_sb_2, wi, NULL);
+      wi->info = t;
+      walk_tree (&OMP_FOR_INIT (t), diagnose_sb_2, wi, NULL);
+      walk_tree (&OMP_FOR_COND (t), diagnose_sb_2, wi, NULL);
+      walk_tree (&OMP_FOR_INCR (t), diagnose_sb_2, wi, NULL);
+      walk_stmts (wi, &OMP_FOR_PRE_BODY (t));
+      walk_stmts (wi, &OMP_FOR_BODY (t));
       wi->info = context;
       break;
 

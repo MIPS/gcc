@@ -4547,14 +4547,14 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   else
     omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
-  ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
-			is_gimple_val, fb_rvalue);
+  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+			NULL, is_gimple_val, fb_rvalue);
 
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
   gcc_assert (TREE_OPERAND (t, 0) == decl);
-  ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
-			is_gimple_val, fb_rvalue);
+  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+			NULL, is_gimple_val, fb_rvalue);
 
   t = OMP_FOR_INCR (for_stmt);
   switch (TREE_CODE (t))
@@ -4591,8 +4591,9 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	default:
 	  gcc_unreachable ();
 	}
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), pre_p, NULL,
-			    is_gimple_val, fb_rvalue);
+      ret |= gimplify_expr (&TREE_OPERAND (t, 1),
+			    &OMP_FOR_PRE_BODY (for_stmt),
+			    NULL, is_gimple_val, fb_rvalue);
       break;
 
     default:
@@ -4600,7 +4601,6 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
     }
 
   gimplify_to_stmt_list (&OMP_FOR_BODY (for_stmt));
-
   gimplify_reconstruct_omp_clauses (&OMP_FOR_CLAUSES (for_stmt));
 
   return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;

@@ -963,13 +963,17 @@ DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 2)
                              	VAR { <, >, <=, >= } N2.
    Operand 4: OMP_FOR_INCR: Loop index increment of the form
 			     	VAR { +=, -= } INCR.
+   Operand 5: OMP_FOR_PRE_BODY: Filled by the gimplifier with things
+	from INIT, COND, and INCR that are technically part of the
+	OMP_FOR structured block, but are evaluated before the loop
+	body begins.
 
    VAR must be a signed integer variable, which is implicitly thread
    private.  N1, N2 and INCR are required to be loop invariant integer
    expressions that are evaluated without any synchronization.
    The evaluation order, frequency of evaluation and side-effects are
    unspecified by the standard.  */
-DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 5)
+DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 6)
 
 /* OpenMP - #pragma omp sections [clause1 ... clauseN]
    Operand 0: OMP_SECTIONS_BODY: Sections body.

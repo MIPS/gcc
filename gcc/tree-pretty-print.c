@@ -1675,6 +1675,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case OMP_FOR:
       pp_string (buffer, "#pragma omp for ");
       dump_omp_clauses (buffer, OMP_FOR_CLAUSES (node), spc, flags);
+      if (OMP_FOR_PRE_BODY (node))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  spc += 4;
+	  newline_and_indent (buffer, spc);
+	  dump_generic_node (buffer, OMP_FOR_PRE_BODY (node),
+			     spc, flags, false);
+	}
       newline_and_indent (buffer, spc);
       pp_string (buffer, "for (");
       dump_generic_node (buffer, OMP_FOR_INIT (node), spc, flags, false);
@@ -1683,7 +1692,20 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "; ");
       dump_generic_node (buffer, OMP_FOR_INCR (node), spc, flags, false);
       pp_string (buffer, ")");
-      goto dump_omp_body;
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '{');
+      newline_and_indent (buffer, spc + 4);
+      dump_generic_node (buffer, OMP_FOR_BODY (node), spc + 4, flags, false);
+      newline_and_indent (buffer, spc + 2);
+      pp_character (buffer, '}');
+      if (OMP_FOR_PRE_BODY (node))
+	{
+	  spc -= 4;
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '}');
+	}
+      is_expr = false;
+      break;
 
     case OMP_SECTIONS:
       pp_string (buffer, "#pragma omp sections ");
