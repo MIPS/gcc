@@ -234,13 +234,7 @@ regrename_optimize (void)
 
 	  all_chains = this->next_chain;
 
-	  /* APPLE LOCAL begin 4203984 */
-#ifdef TARGET_POWERPC
-	  best_new_reg = -1;
-#else
 	  best_new_reg = reg;
-#endif
-	  /* APPLE LOCAL end 4203984 */
 
 #if 0 /* This just disables optimization opportunities.  */
 	  /* Only rename once we've seen the reg more than once.  */
@@ -322,11 +316,8 @@ regrename_optimize (void)
 		  break;
 	      if (! tmp)
 		{
-		  /* APPLE LOCAL begin 4203984 */
-		  if (best_new_reg == -1
-		      || tick[best_new_reg] > tick[new_reg])
+		  if (tick[best_new_reg] > tick[new_reg])
 		    best_new_reg = new_reg;
-		  /* APPLE LOCAL end 4203984 */
 		}
 	    }
 
@@ -338,12 +329,9 @@ regrename_optimize (void)
 		fprintf (dump_file, " crosses a call");
 	    }
 
-	  /* APPLE LOCAL begin 4203984 */
-	  if (best_new_reg == -1 || best_new_reg == reg)
+	  if (best_new_reg == reg)
 	    {
-	      if (best_new_reg == reg)
-		tick[reg] = ++this_tick;
-	  /* APPLE LOCAL end 4203984 */
+	      tick[reg] = ++this_tick;
 	      if (dump_file)
 		fprintf (dump_file, "; no available better choice\n");
 	      continue;
