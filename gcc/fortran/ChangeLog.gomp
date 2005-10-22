@@ -1,3 +1,8 @@
+2005-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_do): Use make_node and explicit
+	initialization to build OMP_FOR instead of build.
+
 2005-10-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-decl.c (gfc_build_qualified_array): For non-assumed-size

@@ -622,9 +622,14 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
     }
 
   /* End of loop body.  */
-  stmt = gfc_finish_block (&body);
+  stmt = make_node (OMP_FOR);
 
-  stmt = build (OMP_FOR, void_type_node, stmt, omp_clauses, init, cond, incr);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_FOR_BODY (stmt) = gfc_finish_block (&body);
+  OMP_FOR_CLAUSES (stmt) = omp_clauses;
+  OMP_FOR_INIT (stmt) = init;
+  OMP_FOR_COND (stmt) = cond;
+  OMP_FOR_INCR (stmt) = incr;
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);
