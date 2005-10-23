@@ -1380,7 +1380,8 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       op = TREE_OPERAND (operation, i);
       is_simple_use = vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt);
       gcc_assert (is_simple_use);
-      gcc_assert (dt == vect_loop_def);
+      gcc_assert (dt == vect_loop_def || dt == vect_invariant_def ||
+		  dt == vect_constant_def);
     }
 
   op = TREE_OPERAND (operation, i);

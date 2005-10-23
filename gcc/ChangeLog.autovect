@@ -1,5 +1,19 @@
 2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree-vect-analyze.c (vect_pattern_recog_funcs): Move 
+	vect_recog_sad_pattern to later in the initialization so it could use
+	previously detected widen-sum.
+	(vect_recog_sad_pattern): Push last_stmt instead of stmt. Check for
+	optab of SAD_EXPR (accidentally was MULT_HI_EXPR). 
+	(vect_recog_mult_hi_pattern): Don't push the widen-mult pattern-stmt
+	into the stmt-list.
+	(vect_recog_dot_prod_pattern): Rely on previously detected widen-mult
+	and widen-sum.
+	* tree-vect-transform.c (vectorizable_reduction): Allow other kinds
+	of def-types for the uses of the reduction.
+
+2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* expr.c (expand_expr_real_1): Implement MULT_HI_EXPR case.
 	* genopinit.c (sad_optab): Initialize new optab.
 	* optabs.c (optab_for_tree_code): Add case for SAD_EXPR.

@@ -1,5 +1,10 @@
 2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* gcc.dg/vect/vect-mult-hi-and-dot.c: New.
+	* gcc.dg/vect/vect-sad-s8.c: New.
+
+2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* gcc.dg/vect/vect-mult-hi.c: New.
 
 2005-10-20  Dorit Nuzman  <dorit@il.ibm.com>

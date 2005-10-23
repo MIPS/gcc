@@ -73,8 +73,8 @@ _recog_func_ptr vect_pattern_recog_funcs[NUM_PATTERNS] = {
         vect_recog_unsigned_subsat_pattern,
 	vect_recog_widen_mult_pattern,
 	vect_recog_mult_hi_pattern,
-	vect_recog_dot_prod_pattern,
 	vect_recog_widen_sum_pattern,
+	vect_recog_dot_prod_pattern,
 	vect_recog_sad_pattern};
 
 /* Function vect_determine_vectorization_factor
@@ -1890,7 +1890,7 @@ tree vect_recog_sad_pattern (tree last_stmt,
     }
 
   sum_oprnd = oprnd1;
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
+  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
 
 
   /* Summation of absolute?  */
@@ -1938,7 +1938,7 @@ tree vect_recog_sad_pattern (tree last_stmt,
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "vect_recog_sad_pattern: check target support.");
   vectype = get_vectype_for_scalar_type (half_type);
-  optab = optab_for_tree_code (MULT_HI_EXPR, vectype);
+  optab = optab_for_tree_code (SAD_EXPR, vectype);
   vec_mode = TYPE_MODE (vectype);
   if (!optab)
     {
@@ -2090,15 +2090,13 @@ vect_recog_mult_hi_pattern (tree last_stmt,
     return NULL;
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != MULT_EXPR)
-   return NULL;
+    return NULL;
   if (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     return NULL;
   stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
    return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
 
   /* Check target support  */
   if (vect_print_dump_info (REPORT_DETAILS))
@@ -2188,16 +2186,12 @@ vect_recog_dot_prod_pattern (tree last_stmt,
   tree oprnd00, oprnd01;
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
   tree type, half_type;
-  tree def_stmt;
   tree pattern_expr;
   enum machine_mode vec_mode;
   enum insn_code icode;
   optab optab;
   tree vectype;
   tree prod_type;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
-    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -2232,85 +2226,65 @@ vect_recog_dot_prod_pattern (tree last_stmt,
   if (TREE_CODE (expr) != PLUS_EXPR)
     return NULL;
 
-  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
-    return NULL;
-  oprnd0 = TREE_OPERAND (expr, 0);
-  oprnd1 = TREE_OPERAND (expr, 1);
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
-      || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
-    return NULL;
- 
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    {
+      /* Has been detected as widening-summation?  */
+
+      stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+      expr = TREE_OPERAND (stmt, 1);
+      type = TREE_TYPE (expr);
+      if (TREE_CODE (expr) != WIDEN_SUM_EXPR)
+        return NULL;
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      half_type = TREE_TYPE (oprnd0);
+    }
+  else
+    {
+      /* Regular (non-widening) summation?  */
+
+      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
+        return NULL;
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
+          || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
+        return NULL;
+      stmt = last_stmt;
+      half_type = type;
+    }
+
   VARRAY_PUSH_TREE (*stmt_list, last_stmt);
  
   /* So far so good.
      Assumption: oprnd1 is the reduction variable (defined by a loop-header
      phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
-     Left to check that oprnd0 is defined by a (widen_)mult_expr, possibly
-     followed by a cast  */
-
-  if (widened_name_p (oprnd0, last_stmt, &prod_type, &def_stmt))
-    {
-      VARRAY_PUSH_TREE (*stmt_list, def_stmt);
-      expr = TREE_OPERAND (def_stmt, 1);
-      oprnd0 = TREE_OPERAND (expr, 0);
-    }
-  else
-    prod_type = type;
+     Left to check that oprnd0 is defined by a (widen_)mult_expr  */
+  prod_type = type;
 
   stmt = SSA_NAME_DEF_STMT (oprnd0);
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
   gcc_assert (stmt_vinfo);
-  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-    return NULL;
   gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-
   expr = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (expr) != WIDEN_MULT_EXPR
-      && TREE_CODE (expr) != MULT_EXPR)
-   return NULL;
+  if (TREE_CODE (expr) != MULT_EXPR)
+    return NULL;
+  if (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    return NULL;
+  stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
+    return NULL;
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  gcc_assert (stmt_vinfo);
+  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
 
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-
-  if (TREE_CODE (expr) == WIDEN_MULT_EXPR)
-    {
-      oprnd00 = TREE_OPERAND (expr, 0);
-      oprnd01 = TREE_OPERAND (expr, 1);
-    }
-  else /* MULT_EXPR */
-    {
-      tree oprnd0 = TREE_OPERAND (expr, 0);
-      tree oprnd1 = TREE_OPERAND (expr, 1);
-      tree half_type0, half_type1;
-      tree def_stmt0, def_stmt1;
-
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) 
-	  != TYPE_MAIN_VARIANT (prod_type)
-	  || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) 
-             != TYPE_MAIN_VARIANT (prod_type))
-	return NULL;
-
-      /* Check argument 0 */
-      if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt0))
-	return NULL;
-
-      /* Check argument 1 */
-      if (!widened_name_p (oprnd1, stmt, &half_type1, &def_stmt1))
-	return NULL;
-
-      if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
-        return NULL;
-
-      if (TYPE_PRECISION (prod_type) != (TYPE_PRECISION (half_type0) * 2))
-	return NULL;
-
-      VARRAY_PUSH_TREE (*stmt_list, def_stmt0);
-      VARRAY_PUSH_TREE (*stmt_list, def_stmt1);
-
-      oprnd00 = TREE_OPERAND (TREE_OPERAND (def_stmt0, 1), 0);
-      oprnd01 = TREE_OPERAND (TREE_OPERAND (def_stmt1, 1), 0);
-    }
+  oprnd00 = TREE_OPERAND (expr, 0);
+  oprnd01 = TREE_OPERAND (expr, 1);
 
   /* Check target support  */
   half_type = TREE_TYPE (oprnd00);
