@@ -11995,7 +11995,7 @@ arm_elf_asm_constructor (rtx symbol, int priority)
   /* Put these in the .init_array section, using a special relocation.  */
   if (priority != DEFAULT_INIT_PRIORITY)
     {
-      char buf[16];
+      char buf[18];
       sprintf (buf, ".init_array.%.5u", priority);
       named_section_flags (buf, SECTION_WRITE);
     }
