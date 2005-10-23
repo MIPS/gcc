@@ -3103,9 +3103,18 @@ public:
 			    model_method *meth,
 			    const ref_expression &qual,
                             const std::list<ref_expression> &args,
-                            const std::list<ref_forwarding_type> &)
+                            const std::list<ref_forwarding_type> &params)
   {
-    visit_method_invocation (mi, meth, qual, args);
+    begin_element (mi, "generic_invocation<method>");
+    if (meth != NULL)
+      out << " " << meth->get_name ();
+    else
+      out << " NULL";
+    if (qual)
+      descend (qual.get ());
+    descend (args);
+    descend (params);
+    end_element ();
   }
 
   void
@@ -3187,7 +3196,7 @@ public:
                             const std::list<ref_forwarding_type> &type_params,
                             const std::list<ref_forwarding_type> &params)
   {
-    begin_element (np, "generic_invocation<new>");
+    begin_element (np, "generic_invocation<new_primary>");
     out << " " << simple_name;
     descend (type_params);
     if (klass)
