@@ -69,13 +69,13 @@ static void vect_update_misalignment_for_peel
 static bool widened_name_p (tree, tree, tree *, tree *);
 
 /* Pattern recognition functions  */
-tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
 _recog_func_ptr vect_pattern_recog_funcs[NUM_PATTERNS] = {
         vect_recog_unsigned_subsat_pattern,
 	vect_recog_widen_mult_pattern,
 	vect_recog_mult_hi_pattern,
 	vect_recog_dot_prod_pattern,
-	vect_recog_widen_sum_pattern};
+	vect_recog_widen_sum_pattern,
+	vect_recog_sad_pattern};
 
 /* Function vect_determine_vectorization_factor
 
@@ -1808,15 +1808,329 @@ widened_name_p (tree name, tree use_stmt, tree *half_type, tree *def_stmt)
 }
 
 
-/* Function vect_recog_mult_hi_pattern  */
+/* Function vect_recog_sad_pattern.
+
+   Try to find the sum-of-absolute-differences pattern:
+
+    type x, y, absdiff;
+    TYPE sad;
+
+    absdiff = ABS (x - y);
+    sad += absdiff;
+
+   where 'TYPE' may be bigger than 'type'.
+
+   Input:
+   LAST_STMT: A stmt from which the pattern search begins. 
+
+   Output:
+   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+   are part of the pattern. 
+
+   PATTERN_TYPE: The vector type to be used for the returned new stmt.
+
+   Return value: A new stmt that will be used to replace the sequence of
+   stmts in STMT_LIST. In this case it will be:
+   sad = SAD_EXPR <x, y, sad>
+*/
+
+tree vect_recog_sad_pattern (tree last_stmt,
+                             tree *pattern_vectype,
+                             varray_type *stmt_list)
+{
+  tree stmt, expr;
+  tree oprnd0, oprnd1;
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
+  tree type, half_type;
+  tree pattern_expr;
+  enum machine_mode vec_mode;
+  enum insn_code icode;
+  optab optab;
+  tree vectype;
+  tree sum_oprnd;
+
+  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (last_stmt, 1);
+  type = TREE_TYPE (expr);
+
+  /* Starting from LAST_STMT, follow the defs of its uses in search
+     of the above pattern.  */
+
+  if (TREE_CODE (expr) != PLUS_EXPR)
+    return NULL;
+
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    {
+      /* Has been detected as widening-summation?  */
+
+      stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+      expr = TREE_OPERAND (stmt, 1);
+      type = TREE_TYPE (expr);
+      if (TREE_CODE (expr) != WIDEN_SUM_EXPR)
+	return NULL;
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      half_type = TREE_TYPE (oprnd0);
+    }
+  else
+    {
+      /* Regular (non-widening) summation?  */
+
+      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
+        return NULL;
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
+          || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
+        return NULL;
+      stmt = last_stmt;
+      half_type = type;
+    }
+
+  sum_oprnd = oprnd1;
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+
+
+  /* Summation of absolute?  */
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  gcc_assert (stmt_vinfo);
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    return NULL;
+  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != ABS_EXPR)
+   return NULL;
+
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+
+
+  /* Absolute difference?  */
+
+  oprnd0 = TREE_OPERAND (expr, 0);
+  if (TREE_CODE (oprnd0) != SSA_NAME)
+    return NULL;
+  stmt = SSA_NAME_DEF_STMT (oprnd0);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  gcc_assert (stmt_vinfo);
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    return NULL;
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return NULL;
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != MINUS_EXPR)
+   return NULL;
+
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+
+
+  /* Check target support  */
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "vect_recog_sad_pattern: check target support.");
+  vectype = get_vectype_for_scalar_type (half_type);
+  optab = optab_for_tree_code (MULT_HI_EXPR, vectype);
+  vec_mode = TYPE_MODE (vectype);
+  if (!optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "vect_recog_sad_pattern: no optab");
+      return NULL;
+    }
+  if ((icode = optab->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+       || insn_data[icode].operand[0].mode !=
+          TYPE_MODE (get_vectype_for_scalar_type (type)))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "vect_recog_sad_pattern: mode not supported.");
+      return NULL;
+    }
+
+  /* Pattern detected. Create a stmt to be used to replace the pattern: */
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1);
+  pattern_expr = build3 (SAD_EXPR, type, oprnd0, oprnd1, sum_oprnd);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vect_recog_sad_pattern: detected: ");
+      print_generic_expr (vect_dump, pattern_expr, TDF_SLIM);
+    }
+  *pattern_vectype = vectype;
+  return pattern_expr;
+}
+
+
+/* Function vect_recog_mult_hi_pattern
+
+   Try to find the pattern of a multiplication that computes the high part
+   of the product:
+
+    type x, y;
+    TYPE prod, hi_part; 
+    type hi_part';
+
+    prod = x w* y; (a widening-multiplication pattern. see below).
+    hi_part = prod >> size 
+    hi_part' = (type) hi_part;
+  
+   where 'size' is the size of 'type', 
+   and 'TYPE' is double the size of 'type'.
+
+   Input:
+   LAST_STMT: A stmt from which the pattern search begins. 
+
+   Output:
+   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+   are part of the pattern. 
+
+   PATTERN_TYPE: The vector type to be used for the returned new stmt.
+
+   Return value: A new stmt that will be used to replace the sequence of
+   stmts in STMT_LIST. In this case it will be:
+   hi_part = MULT_HI_EXPR <x, y>
+*/
 
 tree
-vect_recog_mult_hi_pattern (tree last_stmt ATTRIBUTE_UNUSED,
-                            tree *pattern_vectype ATTRIBUTE_UNUSED,
-                            varray_type *stmt_list ATTRIBUTE_UNUSED)
+vect_recog_mult_hi_pattern (tree last_stmt,
+                            tree *pattern_vectype,
+                            varray_type *stmt_list)
 {
-  /* TODO */
-  return NULL;
+  tree stmt, expr;
+  tree oprnd0, oprnd1;
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
+  tree type, half_type;
+  tree pattern_expr;
+  enum machine_mode vec_mode;
+  enum insn_code icode;
+  optab optab;
+  tree vectype;
+
+  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
+    return NULL;
+
+  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (last_stmt, 1);
+  half_type = TREE_TYPE (expr);
+
+  /* Starting from LAST_STMT, follow the defs of its uses in search
+     of the above pattern.  */
+
+  if (TREE_CODE (expr) != NOP_EXPR && TREE_CODE (expr) != CONVERT_EXPR)
+    return NULL;
+
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return NULL;
+
+  oprnd0 = TREE_OPERAND (expr, 0);
+
+  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
+
+
+  /* Check that oprnd0 is defined by a shift-right stmt.  */
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  gcc_assert (stmt_vinfo);
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    return NULL;
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return NULL;
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL;
+
+  expr = TREE_OPERAND (stmt, 1);
+  type = TREE_TYPE (expr);
+
+  if (TREE_CODE (expr) != RSHIFT_EXPR)
+    return NULL;
+  
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return NULL;
+
+  if (TYPE_PRECISION (type) != (TYPE_PRECISION (half_type) * 2))
+        return NULL;
+
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1); 
+
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+  
+
+  /* Check that oprnd0 is defined by a widening-mult, and that oprnd1
+     is a constant which value is the size of half_type.  */
+
+  if (!host_integerp (oprnd1, 1))
+    return NULL;
+
+  if (tree_int_cst_compare (oprnd1, TYPE_SIZE (half_type)) != 0)
+    return NULL;
+
+  if (TREE_CODE (oprnd0) != SSA_NAME)
+    return NULL;
+
+  stmt = SSA_NAME_DEF_STMT (oprnd0);
+  gcc_assert (stmt);
+  stmt_vinfo = vinfo_for_stmt (stmt);
+  gcc_assert (stmt_vinfo);
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return NULL;
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return NULL;
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != MULT_EXPR)
+   return NULL;
+  if (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    return NULL;
+  stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+  expr = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
+   return NULL;
+
+  VARRAY_PUSH_TREE (*stmt_list, stmt);
+
+  /* Check target support  */
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "vect_recog_mult_hi_pattern: check target support.");
+  vectype = get_vectype_for_scalar_type (half_type);
+  optab = optab_for_tree_code (MULT_HI_EXPR, vectype);
+  vec_mode = TYPE_MODE (vectype); 
+  if (!optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "vect_recog_mult_hi_pattern: no optab");
+      return NULL;
+    }
+  if ((icode = optab->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "vect_recog_mult_hi_pattern: mode not supported.");
+      return NULL;
+    }
+
+  /* Pattern detected. Create a stmt to be used to replace the pattern: */
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1); 
+  pattern_expr = build2 (MULT_HI_EXPR, half_type, oprnd0, oprnd1);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "vect_recog_mult_hi_pattern: detected: ");
+      print_generic_expr (vect_dump, pattern_expr, TDF_SLIM);
+    }
+  *pattern_vectype = vectype;
+  return pattern_expr;
+
 }
 
 
@@ -2020,7 +2334,7 @@ vect_recog_dot_prod_pattern (tree last_stmt,
     }
 
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
-  pattern_expr = build (DOT_PROD_EXPR, type, oprnd00, oprnd01, oprnd1);
+  pattern_expr = build3 (DOT_PROD_EXPR, type, oprnd00, oprnd01, oprnd1);
   if (vect_print_dump_info (REPORT_DETAILS))
     {
       fprintf (vect_dump, "vect_recog_dot_prod_pattern: detected: ");
@@ -2138,7 +2452,7 @@ vect_recog_widen_mult_pattern (tree last_stmt,
   VARRAY_PUSH_TREE (*stmt_list, def_stmt1);
   
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
-  pattern_expr = build (WIDEN_MULT_EXPR, type, oprnd0, oprnd1);
+  pattern_expr = build2 (WIDEN_MULT_EXPR, type, oprnd0, oprnd1);
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
@@ -2285,7 +2599,7 @@ vect_recog_widen_sum_pattern (tree last_stmt,
   VARRAY_PUSH_TREE (*stmt_list, stmt);
   
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
-  pattern_expr = build (WIDEN_SUM_EXPR, type, oprnd0, oprnd1);
+  pattern_expr = build2 (WIDEN_SUM_EXPR, type, oprnd0, oprnd1);
   if (vect_print_dump_info (REPORT_DETAILS))
     {
       fprintf (vect_dump, "vect_recog_widen_sum_pattern: detected: ");
@@ -2464,7 +2778,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *pattern_vectype,
     return NULL;
 
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
-  pattern_expr = build (SAT_MINUS_EXPR, type, a, b);
+  pattern_expr = build2 (SAT_MINUS_EXPR, type, a, b);
   if (vect_print_dump_info (REPORT_DETAILS))
     {
       fprintf (vect_dump, "vect_recog_unsigned_subsat_pattern: detetced: ");
@@ -2531,7 +2845,7 @@ vect_pattern_recog_1 (tree (* pattern_recog_func) (tree, tree *, varray_type *),
   var = create_tmp_var (pattern_type, "patt"); 
   add_referenced_tmp_var (var);
   var_name = make_ssa_name (var, NULL_TREE);
-  pattern_expr = build (MODIFY_EXPR, void_type_node, var_name, pattern_expr);
+  pattern_expr = build2 (MODIFY_EXPR, void_type_node, var_name, pattern_expr);
   SSA_NAME_DEF_STMT (var_name) = pattern_expr;
   bsi_insert_before (&si, pattern_expr, BSI_SAME_STMT);
   ann = stmt_ann (pattern_expr);

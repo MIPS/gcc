@@ -8456,10 +8456,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
     case MULT_HI_EXPR:
       {
-	/* Not being generated yet. */
-	abort ();
+	goto binop;
       }
 
+    case SAD_EXPR:
     case DOT_PROD_EXPR:
       {
 	tree oprnd0 = TREE_OPERAND (exp, 0); 

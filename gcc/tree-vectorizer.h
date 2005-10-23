@@ -369,10 +369,11 @@ tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
 tree vect_recog_widen_sum_pattern (tree, tree *, varray_type *);
 tree vect_recog_widen_mult_pattern (tree, tree *, varray_type *);
 tree vect_recog_mult_hi_pattern (tree, tree *, varray_type *);
+tree vect_recog_sad_pattern (tree, tree *, varray_type *);
 tree vect_recog_dot_prod_pattern (tree, tree *, varray_type *);
 
 typedef tree (* _recog_func_ptr) (tree, tree *, varray_type *);
-#define NUM_PATTERNS 5
+#define NUM_PATTERNS 6
 extern _recog_func_ptr vect_pattern_recog_funcs[];
 
 /** In tree-vect-transform.c  **/

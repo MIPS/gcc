@@ -2522,3 +2522,22 @@
   emit_insn (gen_altivec_vpkuwum (operands[0], operands[1], operands[2]));
   DONE;
 }")
+
+;; Can't map smulv8hi3_highpart to altivec_vmhaddshs because it
+;; computes sat16((op0*op1)>>15 + 0)
+;; rather than truncate((op0*op1)>>16)
+;(define_expand "smulv8hi3_highpart"
+;  [(set (match_operand:V8HI 0 "register_operand" "=v")
+;        (unspec:V8HI [(match_operand:V8HI 1 "register_operand" "v")
+;                      (match_operand:V8HI 2 "register_operand" "v")]
+;                     UNSPEC_VMHADDSHS))
+;   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
+;  "TARGET_ALTIVEC"
+;  "
+;{ 
+;  rtx vzero = gen_reg_rtx (V8HImode);
+;
+;  emit_insn (gen_altivec_vspltish (vzero, const0_rtx));
+;  emit_insn (gen_altivec_vmhaddshs (operands[0], operands[1], operands[2], vzero));
+;  DONE;
+;}")

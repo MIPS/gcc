@@ -1536,6 +1536,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case SAD_EXPR:
+      pp_string (buffer, " SAD_PROD_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     case DOT_PROD_EXPR:
       pp_string (buffer, " DOT_PROD_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -1850,6 +1860,7 @@ op_prio (tree op)
     case VEC_WIDEN_MULT_LO_EXPR:
     case WIDEN_MULT_EXPR:
     case MULT_HI_EXPR:
+    case SAD_EXPR:
     case DOT_PROD_EXPR:
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:

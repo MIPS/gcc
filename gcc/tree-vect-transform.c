@@ -662,6 +662,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
   {
   case PLUS_EXPR:
   case WIDEN_SUM_EXPR:
+  case SAD_EXPR:
   case DOT_PROD_EXPR:
     if (INTEGRAL_TYPE_P (type))
       def = build_int_cst (type, 0);

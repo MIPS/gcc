@@ -306,6 +306,9 @@ optab_for_tree_code (enum tree_code code, tree type)
     case MULT_HI_EXPR:
       return TYPE_UNSIGNED (type) ? umul_highpart_optab : smul_highpart_optab;
 
+    case SAD_EXPR:
+      return sad_optab;
+
     case DOT_PROD_EXPR:
       return TYPE_UNSIGNED (type) ? udot_prod_optab : sdot_prod_optab;
 
@@ -5270,6 +5273,7 @@ init_optabs (void)
   usum_widen_optab = init_optab (UNKNOWN);
   sdot_prod_optab = init_optab (UNKNOWN);
   udot_prod_optab = init_optab (UNKNOWN);
+  sad_optab = init_optab (UNKNOWN);
 
   reduc_smax_optab = init_optab (UNKNOWN);
   reduc_umax_optab = init_optab (UNKNOWN);

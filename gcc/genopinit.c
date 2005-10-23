@@ -208,6 +208,7 @@ static const char * const optabs[] =
   "usum_widen_optab->handlers[$A].insn_code = CODE_FOR_$(widen_usum$I$a3$)",
   "udot_prod_optab->handlers[$A].insn_code = CODE_FOR_$(udot_prod$I$a$)",
   "sdot_prod_optab->handlers[$A].insn_code = CODE_FOR_$(sdot_prod$I$a$)",
+  "sad_optab->handlers[$A].insn_code = CODE_FOR_$(sad$I$a$)",
   "reduc_smax_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smax_$a$)",
   "reduc_umax_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umax_$a$)",
   "reduc_smin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smin_$a$)",

@@ -247,6 +247,9 @@ enum optab_index
   OTI_sdot_prod,
   OTI_udot_prod,
 
+  /* Sum-of-Absolute-Differences.  */
+  OTI_sad,
+
   /* Set specified field of vector operand.  */
   OTI_vec_set,
   /* Extract specified field of vector operand.  */
@@ -396,6 +399,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
 #define sdot_prod_optab (optab_table[OTI_sdot_prod])
 #define udot_prod_optab (optab_table[OTI_udot_prod])
+#define sad_optab (optab_table[OTI_sad])
 
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])

@@ -1454,6 +1454,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	return;
       }
 
+    case SAD_EXPR:
     case DOT_PROD_EXPR:
       {
         get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);

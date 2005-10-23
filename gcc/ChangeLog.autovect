@@ -1,3 +1,25 @@
+2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* expr.c (expand_expr_real_1): Implement MULT_HI_EXPR case.
+	* genopinit.c (sad_optab): Initialize new optab.
+	* optabs.c (optab_for_tree_code): Add case for SAD_EXPR.
+	(sad_optab): Initialize new optab.
+	* optabs.h (OTI_sad): New optan index.
+	(sad_optan): New optab.
+	* tree-inline.c (estimate_num_insns_1): Add case for SAD_EXPR.
+	* tree-pretty-print.c (dump_generic_node): Add case for SAD_EXPR.
+	(op_prio): Add case for SAD_EXPR.
+	* tree-vect-analyze.c (vect_recog_sad_pattern): New function.
+	(vect_recog_mult_hi_pattern): Implement.	
+	(vect_recog_dot_prod_pattern, vect_recog_widen_mult_pattern):
+	(vect_recog_widen_sum_pattern, vect_recog_unsigned_subsat_pattern):
+	(vect_pattern_recog_1): Replace build with appropriate buildN.
+	* tree-vect-transform.c (get_initial_def_for_reduction): Add case for
+	SAD_EXPR.
+	* tree-vectorizer.h (NUM_PATTERNS): Set to 6.
+	(vect_recog_sad_pattern): New function declaration.
+	* tree.def (SAD_EXPR): New tree-code.
+
 2005-10-20  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_mark_relevant): Third argument "bool 
