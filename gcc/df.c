@@ -346,7 +346,7 @@ static void df_ru_local_compute (struct df *, bitmap);
 static void df_bb_lr_local_compute (struct df *, basic_block);
 static void df_lr_confluence_0 (struct df *, void *, basic_block);
 static void df_lr_confluence_n (struct df *, void *, void*, edge e);
-static void df_lr_local_compute (struct df *, bitmap);
+static void df_lr_local_compute (struct df *, bitmap, bool);
 static void df_bb_ur_local_compute (struct df *, basic_block);
 static void df_ur_local_compute (struct df *, bitmap);
 static void df_ur_confluence_n (struct df *, void *, void*, edge e);
@@ -520,8 +520,7 @@ df_bitmaps_alloc (struct df *df, bitmap blocks, int flags)
   df->n_defs = df->def_id;
   df->n_uses = df->use_id;
 
-  if (!blocks)
-    blocks = df->all_blocks;
+  gcc_assert (blocks);
 
   FOR_EACH_BB_IN_BITMAP (blocks, 0, bb,
     {
@@ -704,8 +703,6 @@ df_alloc (struct df *df, int n_regs)
 
   df->bbs = xcalloc (df->n_bbs, sizeof (struct df_bb_info));
 
-  if (!df->all_blocks)
-    df->all_blocks = BITMAP_ALLOC (NULL);
 }
 
 
@@ -743,7 +740,6 @@ df_free (struct df *df)
 
   BITMAP_FREE (df->bbs_modified);
   BITMAP_FREE (df->insns_modified);
-  BITMAP_FREE (df->all_blocks);
   BITMAP_FREE (df->hardware_regs_used);
 
   free_alloc_pool (df->ref_pool);
@@ -1038,15 +1034,20 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
 
       for (i = regno; i < endregno; i++)
 	{
-	  if (ref_type == DF_REF_REG_DEF)
+	  /* Calls are handled at call site because regs_ever_live doesn't include 
+	     clobbered regs, only used ones.  */
+	  if (ref_type == DF_REF_REG_DEF && ! CALL_P (insn))
 	    regs_ever_live[i] = 1;
-	  else if (ref_type == DF_REF_REG_USE)
+	  else if ((ref_type == DF_REF_REG_USE 
+		   || ref_type == DF_REF_REG_MEM_STORE
+		   || ref_type == DF_REF_REG_MEM_LOAD)
+		   && ((ref_flags & DF_REF_ARTIFICIAL) == 0) )
 	    {
 	      /* Set regs_ever live on uses of non-eliminable frame
 		 pointers and arg pointers.  */
 	      if (! (TEST_HARD_REG_BIT (elim_reg_set, regno)
 		     && (regno == FRAME_POINTER_REGNUM || regno == ARG_POINTER_REGNUM)))
-		  regs_ever_live[i] = 1;
+		regs_ever_live[i] = 1;
 	    }
 
 	  df_ref_record_1 (df, regno_reg_rtx[i], loc, insn, ref_type, ref_flags);
@@ -1540,6 +1541,22 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
 	      if (GET_CODE (XEXP (note, 0)) == USE)
 		df_uses_record (df, &XEXP (XEXP (note, 0), 0), DF_REF_REG_USE,
 				bb, insn, 0);
+              else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
+		{
+		  if (REG_P (XEXP (XEXP (note, 0), 0)))
+		    {
+		      rtx reg = XEXP (XEXP (note, 0), 0);
+		      int regno_last;
+		      int regno_first;
+		      int i;
+		
+		      regno_last = regno_first = REGNO (reg);
+		      if (regno_first < FIRST_PSEUDO_REGISTER)
+			regno_last += hard_regno_nregs[regno_first][GET_MODE (reg)] - 1;
+		      for (i = regno_first; i <= regno_last; i++)
+			regs_ever_live[i] = 1;
+		    }
+		}
 	    }
 
 	  /* The stack ptr is used (honorarily) by a CALL insn.  */
@@ -1600,11 +1617,7 @@ df_bb_refs_record (struct df *df, basic_block bb)
 {
   rtx insn;
   rtx x;
-#if 0
-  unsigned int i;
-  bitmap_iterator bi;
-#endif  
-  
+
   /* Scan the block an insn at a time from beginning to end.  */
   FOR_BB_INSNS (bb, insn)
     {
@@ -2436,29 +2449,6 @@ df_exit_lr_local_compute (struct df *df)
   diddle_return_value (mark_reg, (void*)bb_info->lr_use);
 }
 
-#if 0
-/* Determine if the stack pointer is constant over the life of the function.
-   Only useful before prologues have been emitted.  */
-
-static void
-notice_stack_pointer_modification (rtx x, 
-				   rtx pat ATTRIBUTE_UNUSED,
-				   void *data ATTRIBUTE_UNUSED)
-{
-  if (x == stack_pointer_rtx
-      /* The stack pointer is only modified indirectly as the result
-	 of a push until later in flow.  See the comments in rtl.texi
-	 regarding Embedded Side-Effects on Addresses.  */
-      || (MEM_P (x)
-	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_AUTOINC
-	  && XEXP (XEXP (x, 0), 0) == stack_pointer_rtx))
-
-    {
-      current_function_sp_is_unchanging = 0;
-    }
-}
-#endif
-
 /* Compute local live register info for basic block BB.  */
 static void
 df_bb_lr_local_compute (struct df *df, basic_block bb)
@@ -2474,19 +2464,6 @@ df_bb_lr_local_compute (struct df *df, basic_block bb)
       if (! INSN_P (insn))
 	continue;	
 
-#if 0
-      /* FIXME: When we finally get rid of flow.c, the call to
-	 life_analysis needs to pass a flag that enables this code.
-	 Until then, the code in flow sets this up. This code may also
-	 have a problem in that it sets the this after needed use in
-	 the exit block.  */
-      if ((!reload_completed) && current_function_sp_is_unchanging)
-	/* Check if insn modifies the stack pointer.  */
-	note_stores (PATTERN (insn),
-		     notice_stack_pointer_modification,
-		     NULL);
-#endif
-
       for (link = df->insns[uid].defs; link; link = link->next)
 	{
 	  struct ref *def = link->ref;
@@ -2494,19 +2471,19 @@ df_bb_lr_local_compute (struct df *df, basic_block bb)
 	  
 	  if (!CALL_P (insn))
 	    {
-	      /* Add def to set of defs in this BB.  */
-	      bitmap_set_bit (bb_info->lr_def, dregno);
 	      if (dregno < FIRST_PSEUDO_REGISTER)
 		{
 		  unsigned int i;
 		  for (i = dregno; 
-		   i <= dregno + hard_regno_nregs[dregno][GET_MODE (DF_REF_REG (def))] - 1;
+		       i <= dregno + hard_regno_nregs[dregno][GET_MODE (DF_REF_REG (def))] - 1;
 		       ++i)
 		    {
 		      if (DF_INSN_CONTAINS_ASM (df, insn))
 			regs_asm_clobbered[i] = 1;
 		    }
 		}
+	      /* Add def to set of defs in this BB.  */
+	      bitmap_set_bit (bb_info->lr_def, dregno);
 	      bitmap_clear_bit (bb_info->lr_use, dregno);
 	    }
 	  else
@@ -2557,17 +2534,14 @@ df_bb_lr_local_compute (struct df *df, basic_block bb)
 /* Compute local live register info for each basic block within BLOCKS.  */
 
 static void
-df_lr_local_compute (struct df *df, bitmap blocks)
+df_lr_local_compute (struct df *df, bitmap blocks, bool everything)
 {
   basic_block bb;
 
   /* Assume that the stack pointer is unchanging if alloca hasn't
      been used.  */
-  if (blocks == df->all_blocks)
+  if (everything)
     {
-#if 0
-      current_function_sp_is_unchanging = !current_function_calls_alloca;
-#endif
 #if 0
       memset (regs_ever_live, 0, sizeof (regs_ever_live));
 #endif
@@ -3098,25 +3072,6 @@ df_luids_set (struct df *df, bitmap blocks)
   return total;
 }
 
-
-/* Compute all of the blocks in the function.  */
-static bitmap 
-df_compute_all_blocks (struct df *df)
-{
-  basic_block bb;
-  bitmap blocks;
-  if (df->all_blocks)
-    bitmap_clear (df->all_blocks);
-  else
-    df->all_blocks = BITMAP_ALLOC (NULL);
-
-  blocks = df->all_blocks;
-
-  FOR_ALL_BB (bb)
-    bitmap_set_bit (blocks, bb->index);
-  return blocks;
-}
-
 /* Analyze dataflow info for the basic blocks specified by the bitmap
    BLOCKS, or for the whole CFG if BLOCKS is zero.  */
 
@@ -3128,22 +3083,24 @@ df_analyze (struct df *df, bitmap blocks, int flags)
   struct dataflow dflow;
   int * postorder = xmalloc (sizeof (int) * last_basic_block);
   bitmap scanning;
-  bitmap iterating;
+  bitmap iterating = BITMAP_ALLOC (NULL);
   int n_blocks;
+  bool everything;
+  int i;
 
   /* We could deal with additional basic blocks being created by
      rescanning everything again.  */
 
   if (!blocks)
-  {
-    if (df->n_bbs)
-      {
-	/* Recompute everything from scratch.  */
-	df_free (df);
-      }
-    /* Allocate and initialize data structures.  */
-    df_alloc (df, max_reg_num ());
-  }
+    {
+      if (df->n_bbs)
+	{
+	  /* Recompute everything from scratch.  */
+	  df_free (df);
+	}
+      /* Allocate and initialize data structures.  */
+      df_alloc (df, max_reg_num ());
+    }
 
   gcc_assert (df->n_bbs);
   df_bb_table_realloc (df, last_basic_block);
@@ -3166,13 +3123,27 @@ df_analyze (struct df *df, bitmap blocks, int flags)
   if (flags & DF_UR)
     aflags |= DF_LR;
 
-  iterating = df_compute_all_blocks (df);
+  n_blocks = post_order_compute (postorder, true);
+  for (i=0; i<n_blocks; i++)
+    bitmap_set_bit (iterating, postorder[i]);
+
   if (blocks)
+    {
       scanning = blocks;
+      everything = false;
+    }
   else
     {
       blocks = iterating;
       scanning = iterating;
+      everything = true;
+
+      /* We can only do dataflow analysis over reachable blocks, so if
+	 we find that some are not reachable, we need to get rid of
+	 them because the rest of the compiler is not tolerant of
+	 having some blocks with no info.  */
+      if (n_blocks != n_basic_blocks)
+	delete_unreachable_blocks ();
     }
 
   df->flags = flags;
@@ -3206,8 +3177,6 @@ df_analyze (struct df *df, bitmap blocks, int flags)
       df_reg_use_chain_create (df, blocks, false);
     }
 
-  n_blocks = post_order_compute (postorder, true);
-
   /* Compute the sets of gens and kills for the defs of each bb.  */
   dflow.in = xmalloc (sizeof (bitmap) * last_basic_block);
   dflow.out = xmalloc (sizeof (bitmap) * last_basic_block);
@@ -3225,7 +3194,7 @@ df_analyze (struct df *df, bitmap blocks, int flags)
   if (aflags & DF_UD_CHAIN)
     {
       /* Create use-def chains.  */
-      df_ud_chain_create (df, df->all_blocks);
+      df_ud_chain_create (df, iterating);
 
       if (! (flags & DF_RD))
 	dflags |= DF_RD;
@@ -3242,7 +3211,7 @@ df_analyze (struct df *df, bitmap blocks, int flags)
   if (aflags & DF_DU_CHAIN)
     {
       /* Create def-use chains.  */
-      df_du_chain_create (df, df->all_blocks);
+      df_du_chain_create (df, iterating);
 
       if (! (flags & DF_RU))
 	dflags |= DF_RU;
@@ -3254,7 +3223,7 @@ df_analyze (struct df *df, bitmap blocks, int flags)
 
   if (aflags & DF_LR)
     {
-      df_lr_local_compute (df, scanning);
+      df_lr_local_compute (df, scanning, everything);
       df_lr_set_dflow (&dflow, df, iterating, 
 		       iterating, postorder, n_blocks, false);
       iterative_dataflow (&dflow);
@@ -3262,7 +3231,7 @@ df_analyze (struct df *df, bitmap blocks, int flags)
 
   if (aflags & DF_REG_INFO)
     {
-      df_reg_info_compute (df, df->all_blocks);
+      df_reg_info_compute (df, iterating);
     }
 
   if (aflags & DF_UR)
@@ -3275,7 +3244,7 @@ df_analyze (struct df *df, bitmap blocks, int flags)
 
   if (aflags & DF_REG_INFO)
     {
-      df_reg_info_compute (df, df->all_blocks);
+      df_reg_info_compute (df, iterating);
     }
 
   free (dflow.in);
@@ -3284,6 +3253,7 @@ df_analyze (struct df *df, bitmap blocks, int flags)
   free (dflow.kill);
   free (postorder);
 
+  BITMAP_FREE (iterating);
   bitmap_zero (df->bbs_modified);
   bitmap_zero (df->insns_modified);
 /*   df_dump (df, stderr); */
@@ -3620,7 +3590,7 @@ df_analyze_subcfg (struct df *df, bitmap blocks, int flags)
   if (flags & DF_LR)
     {
       /* Compute the sets of defs and uses of live variables.  */
-      df_lr_local_compute (df, blocks);
+      df_lr_local_compute (df, blocks, false);
       df_lr_set_dflow (&dflow, df, blocks, blocks, postorder, n_blocks, false);
       iterative_dataflow (&dflow);
     }
@@ -3779,7 +3749,7 @@ df_analyze_simple_change_some_blocks (struct df *df,
   if (flags & DF_LR)
     {
       /* Compute the sets of defs and uses of live variables.  */
-      df_lr_local_compute (df, blocks);
+      df_lr_local_compute (df, blocks, false);
       df_lr_set_dflow (&dflow, df, blocks_in_fringe, blocks, 
 		       blocks_in_postorder, n_blocks, true);
       iterative_dataflow (&dflow);
@@ -4065,13 +4035,11 @@ df_rtx_reg_replace (rtx *px, void *data)
    BLOCKS of basic blocks with NEWREG.  Also update the regs within
    REG_NOTES.  */
 void
-df_refs_reg_replace (struct df *df, bitmap blocks, struct df_link *chain, rtx oldreg, rtx newreg)
+df_refs_reg_replace (struct df *df, bitmap blocks, 
+		     struct df_link *chain, rtx oldreg, rtx newreg)
 {
   struct df_link *link;
   replace_args args;
-
-  if (! blocks)
-    blocks = df_compute_all_blocks (df);
 
   args.match = oldreg;
   args.replacement = newreg;
@@ -4085,7 +4053,8 @@ df_refs_reg_replace (struct df *df, bitmap blocks, struct df_link *chain, rtx ol
       if (! INSN_P (insn))
 	continue;
 
-      gcc_assert (bitmap_bit_p (blocks, DF_REF_BBNO (ref)));
+      if (blocks)
+	gcc_assert (bitmap_bit_p (blocks, DF_REF_BBNO (ref)));
       
       df_ref_reg_replace (df, ref, oldreg, newreg);
 
@@ -5262,8 +5231,6 @@ hybrid_search_forward (basic_block bb, struct dataflow *dataflow)
   RESET_BIT (dataflow->pending, i);
 
   /*  Calculate <conf_op> of predecessor_outs.  */
-
-
   if (EDGE_COUNT (bb->preds) > 0)
     FOR_EACH_EDGE (e, ei, bb->preds)
       {
@@ -5327,7 +5294,7 @@ hybrid_search_backward (basic_block bb, struct dataflow *dataflow)
 	  continue;							
 	
 	(*dataflow->problem->confun_n)(dataflow->df, 
-				       dataflow->out[i],      			        
+				       dataflow->out[i],
 				       dataflow->in[e->dest->index],
 				       e);
       }								
@@ -5335,34 +5302,34 @@ hybrid_search_backward (basic_block bb, struct dataflow *dataflow)
     (*dataflow->problem->confun_0)(dataflow->df, dataflow->out[i], bb);
 
   (*dataflow->problem->transfun)(i, &result_changed,
-				 dataflow->in[i], dataflow->out[i],		
-				 dataflow->gen[i], dataflow->kill[i],	
-				 dataflow->data);				
+				 dataflow->in[i], dataflow->out[i],
+				 dataflow->gen[i], dataflow->kill[i],
+				 dataflow->data);
   
   if (!result_changed || dataflow->single_pass)
-    return;							
+    return;
   
-  FOR_EACH_EDGE (e, ei, bb->preds)					
+  FOR_EACH_EDGE (e, ei, bb->preds)
     {								
-      if (e->src->index == i)					
-	continue;							
-      
-      if (!TEST_BIT (dataflow->considered, e->src->index))			
-	continue;							
-      
-      SET_BIT (dataflow->pending, e->src->index);				
-    }								
-  
-  FOR_EACH_EDGE (e, ei, bb->preds)					
-    {								
-      if (e->src->index == i)					
-	continue;							
-      
-      if (!TEST_BIT (dataflow->considered, e->src->index))			
+      if (e->src->index == i)
 	continue;
       
-      if (!TEST_BIT (dataflow->visited, e->src->index))			
-	hybrid_search_backward (e->src, dataflow); 
+      if (!TEST_BIT (dataflow->considered, e->src->index))
+	continue;
+
+      SET_BIT (dataflow->pending, e->src->index);
+    }								
+  
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->src->index == i)
+	continue;
+
+      if (!TEST_BIT (dataflow->considered, e->src->index))
+	continue;
+      
+      if (!TEST_BIT (dataflow->visited, e->src->index))
+	hybrid_search_backward (e->src, dataflow);
     }
 }
 

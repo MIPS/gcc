@@ -185,7 +185,6 @@ struct df
   unsigned int use_id_save;	/* Saved next use ID.  */
   bitmap insns_modified;	/* Insns that (may) have changed.  */
   bitmap bbs_modified;		/* Blocks that (may) have changed.  */
-  bitmap all_blocks;		/* All blocks in CFG.  */
   bitmap hardware_regs_used;    /* The set of hardware registers used.  */
 #ifdef STACK_REGS
   bitmap stack_regs;		/* Registers that may be allocated to a STACK_REGS.  */
@@ -198,8 +197,6 @@ struct df
   alloc_pool ref_pool;
   alloc_pool link_pool;
 };
-
-
 
 struct df_map
 {

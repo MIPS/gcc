@@ -340,7 +340,15 @@ global_alloc (FILE *file)
   max_regno = max_reg_num ();
   compact_blocks ();
   df_analyze (rtl_df, 0, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_USES);
+  if (dump_file)
+    df_dump (rtl_df, dump_file);
   max_allocno = 0;
+
+#if 0
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    fprintf (stderr, "regs_ever_live[%d]=%d before ra\n", i,
+	     regs_ever_live[i]);
+#endif
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */

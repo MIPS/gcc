@@ -289,6 +289,8 @@ static int verify_wide_reg_1 (rtx *, void *);
 static void verify_wide_reg (int, basic_block);
 static void verify_local_live_at_start (regset, basic_block);
 #endif
+static void notice_stack_pointer_modification_1 (rtx, rtx, void *);
+static void notice_stack_pointer_modification (void);
 static void propagate_block_delete_insn (rtx);
 static rtx propagate_block_delete_libcall (rtx, rtx);
 static int insn_dead_p (struct propagate_block_info *, rtx, int, rtx);
@@ -396,6 +398,12 @@ life_analysis (FILE *file, int flags)
   /* Always remove no-op moves.  Do this before other processing so
      that we don't have to keep re-scanning them.  */
   delete_noop_moves ();
+
+  /* Some targets can emit simpler epilogues if they know that sp was
+     not ever modified during the function.  After reload, of course,
+     we've already emitted the epilogue so there's no sense searching.  */
+  if (! reload_completed)
+    notice_stack_pointer_modification ();
 
   /* Some targets can emit simpler epilogues if they know that sp was
      not ever modified during the function.  After reload, of course,
@@ -835,6 +843,50 @@ delete_dead_jumptables (void)
 	    }
 	}
     }
+}
+
+/* Determine if the stack pointer is constant over the life of the function.
+   Only useful before prologues have been emitted.  */
+
+static void
+notice_stack_pointer_modification_1 (rtx x, rtx pat ATTRIBUTE_UNUSED,
+				     void *data ATTRIBUTE_UNUSED)
+{
+  if (x == stack_pointer_rtx
+      /* The stack pointer is only modified indirectly as the result
+	 of a push until later in flow.  See the comments in rtl.texi
+	 regarding Embedded Side-Effects on Addresses.  */
+      || (MEM_P (x)
+	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_AUTOINC
+	  && XEXP (XEXP (x, 0), 0) == stack_pointer_rtx))
+    current_function_sp_is_unchanging = 0;
+}
+
+static void
+notice_stack_pointer_modification (void)
+{
+  basic_block bb;
+  rtx insn;
+
+  /* Assume that the stack pointer is unchanging if alloca hasn't
+     been used.  */
+  current_function_sp_is_unchanging = !current_function_calls_alloca;
+  if (! current_function_sp_is_unchanging)
+    return;
+
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      {
+	if (INSN_P (insn))
+	  {
+	    /* Check if insn modifies the stack pointer.  */
+	    note_stores (PATTERN (insn),
+			 notice_stack_pointer_modification_1,
+			 NULL);
+	    if (! current_function_sp_is_unchanging)
+	      return;
+	  }
+      }
 }
 
 
@@ -4013,6 +4065,9 @@ struct tree_opt_pass pass_life =
 static void
 rest_of_handle_flow2 (void)
 {
+#if 0
+  int i;
+#endif
   /* If optimizing, then go ahead and split insns now.  */
 #ifndef STACK_REGS
   if (optimize > 0)
@@ -4024,7 +4079,11 @@ rest_of_handle_flow2 (void)
 
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE);
-
+#if 0
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    fprintf (stderr, "regs_ever_live[%d]=%d before prologue\n", i,
+	     regs_ever_live[i]);
+#endif
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
      it and the rest of the code and also allows delayed branch
@@ -4032,6 +4091,11 @@ rest_of_handle_flow2 (void)
   thread_prologue_and_epilogue_insns (get_insns ());
   epilogue_completed = 1;
   flow2_completed = 1;
+#if 0
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    fprintf (stderr, "regs_ever_live[%d]=%d after prologue\n", i,
+	     regs_ever_live[i]);
+#endif
 }
 
 struct tree_opt_pass pass_flow2 =
