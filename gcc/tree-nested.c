@@ -966,21 +966,16 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_FOR:
-      convert_nonlocal_omp_clauses (&OMP_FOR_CLAUSES (t), wi);
-      walk_body (convert_nonlocal_reference, info, &OMP_FOR_BODY (t));
-      break;
-
     case OMP_SECTIONS:
-      convert_nonlocal_omp_clauses (&OMP_SECTIONS_CLAUSES (t), wi);
-      walk_body (convert_nonlocal_reference, info, &OMP_SECTIONS_BODY (t));
-      break;
-    case OMP_SECTION:
-      walk_body (convert_nonlocal_reference, info, &OMP_SECTION_BODY (t));
+    case OMP_SINGLE:
+      convert_nonlocal_omp_clauses (&OMP_CLAUSES (t), wi);
+      walk_body (convert_nonlocal_reference, info, &OMP_BODY (t));
       break;
 
-    case OMP_SINGLE:
-      convert_nonlocal_omp_clauses (&OMP_SINGLE_CLAUSES (t), wi);
-      walk_body (convert_nonlocal_reference, info, &OMP_SINGLE_BODY (t));
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+      walk_body (convert_nonlocal_reference, info, &OMP_BODY (t));
       break;
 
     default:
@@ -1201,21 +1196,16 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_FOR:
-      convert_local_omp_clauses (&OMP_FOR_CLAUSES (t), wi);
-      walk_body (convert_local_reference, info, &OMP_FOR_BODY (t));
-      break;
-
     case OMP_SECTIONS:
-      convert_local_omp_clauses (&OMP_SECTIONS_CLAUSES (t), wi);
-      walk_body (convert_local_reference, info, &OMP_SECTIONS_BODY (t));
-      break;
-    case OMP_SECTION:
-      walk_body (convert_local_reference, info, &OMP_SECTION_BODY (t));
+    case OMP_SINGLE:
+      convert_local_omp_clauses (&OMP_CLAUSES (t), wi);
+      walk_body (convert_local_reference, info, &OMP_BODY (t));
       break;
 
-    case OMP_SINGLE:
-      convert_local_omp_clauses (&OMP_SINGLE_CLAUSES (t), wi);
-      walk_body (convert_local_reference, info, &OMP_SINGLE_BODY (t));
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+      walk_body (convert_local_reference, info, &OMP_BODY (t));
       break;
 
     default:

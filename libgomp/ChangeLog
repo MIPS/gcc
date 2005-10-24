@@ -1,5 +1,8 @@
 2005-10-24  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c++/24502
+	* testsuite/libgomp.c++/loop-7.C: New test.
+
 	* testsuite/libgomp.dg/nestedfn-2.c: New test.
 
 	* testsuite/libgomp.dg/nestedfn-1.c: New test.

@@ -1,3 +1,9 @@
+2005-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24502
+	* semantics.c (finish_omp_for): Handle MODOP_EXPR in addition to
+	MODIFY_EXPR.
+
 2005-10-23  Richard Henderson  <rth@redhat.com>
 
 	* cp-gimplify.c (struct cp_gimplify_ctx): Remove.
