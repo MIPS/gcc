@@ -1,3 +1,14 @@
+2005-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/24493
+	* scanner.c (skip_free_comments): Set at_bol at the beginning of the
+	loop, not before it.
+	(skip_fixed_comments): Handle ! comments in the middle of line here
+	as well.
+	(gfc_skip_comments): Use skip_fixed_comments for FIXED_FORM even if
+	not at BOL.
+	(gfc_next_char_literal): Fix expected canonicalized *$omp string.
+
 2005-10-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_do): Use make_node and explicit

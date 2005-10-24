@@ -322,18 +322,17 @@ skip_free_comments (void)
 {
   locus start;
   char c;
-  int at_bol = gfc_at_bol ();
+  int at_bol;
 
   for (;;)
     {
+      at_bol = gfc_at_bol ();
       start = gfc_current_locus;
       if (gfc_at_eof ())
 	break;
 
       do
-	{
-	  c = next_char ();
-	}
+	c = next_char ();
       while (gfc_is_whitespace (c));
 
       if (c == '\n')
@@ -408,6 +407,28 @@ skip_fixed_comments (void)
   locus start;
   int col;
   char c;
+
+  if (! gfc_at_bol ())
+    {
+      start = gfc_current_locus;
+      if (! gfc_at_eof ())
+	{
+	  do
+	    c = next_char ();
+	  while (gfc_is_whitespace (c));
+
+	  if (c == '\n')
+	    gfc_advance_line ();
+	  else if (c == '!')
+	    skip_comment_line ();
+	}
+
+      if (! gfc_at_bol ())
+	{
+	  gfc_current_locus = start;
+	  return;
+	}
+    }
 
   for (;;)
     {
@@ -527,14 +548,12 @@ skip_fixed_comments (void)
 }
 
 
-/* Skips the current line if it is a comment.  Assumes that we are at
-   the start of the current line.  */
+/* Skips the current line if it is a comment.  */
 
 void
 gfc_skip_comments (void)
 {
-
-  if (!gfc_at_bol () || gfc_current_form == FORM_FREE)
+  if (gfc_current_form == FORM_FREE)
     skip_free_comments ();
   else
     skip_fixed_comments ();
@@ -700,7 +719,7 @@ restart:
 	for (i = 0; i < 5; i++)
 	  {
 	    c = next_char ();
-	    if (TOLOWER (c) != "!$omp"[i])
+	    if (TOLOWER (c) != "*$omp"[i])
 	      goto not_continuation;
 	  }
 
