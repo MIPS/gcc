@@ -1,3 +1,10 @@
+2005-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-nested.c (convert_nonlocal_reference): Handle OMP_MASTER and
+	OMP_ORDERED.  Merge several OMP_* cases together by using OMP_CLAUSES
+	and OMP_BODY macros.
+	(convert_local_reference): Likewise.
+
 2005-10-24  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge (gomp-merge-20051023).

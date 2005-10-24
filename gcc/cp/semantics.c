@@ -3670,13 +3670,29 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 {
   if (decl == NULL)
     {
-      if (init == NULL || TREE_CODE (init) != MODIFY_EXPR)
+      if (init != NULL)
+	switch (TREE_CODE (init))
+	  {
+	  case MODIFY_EXPR:
+	    decl = TREE_OPERAND (init, 0);
+	    init = TREE_OPERAND (init, 1);
+	    break;
+	  case MODOP_EXPR:
+	    if (TREE_CODE (TREE_OPERAND (init, 1)) == NOP_EXPR)
+	      {
+		decl = TREE_OPERAND (init, 0);
+		init = TREE_OPERAND (init, 2);
+	      }
+	    break;
+	  default:
+	    break;
+	  }
+
+      if (decl == NULL)
 	{
 	  error ("expected iteration declaration or initialization");
 	  return NULL;
 	}
-      decl = TREE_OPERAND (init, 0);
-      init = TREE_OPERAND (init, 1);
     }
 
   if (type_dependent_expression_p (decl)
