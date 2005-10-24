@@ -69,17 +69,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "df.h"
 
-/* Define when we want to do count REG_DEAD notes before and after scheduling
-   for sanity checking.  We can't do that when conditional execution is used,
-   as REG_DEAD exist only for unconditional deaths.  */
-
-#if !defined (HAVE_conditional_execution) && defined (ENABLE_CHECKING)
-#define CHECK_DEAD_NOTES 1
-#else
-#define CHECK_DEAD_NOTES 0
-#endif
-
-
 #ifdef INSN_SCHEDULING
 /* Some accessor macros for h_i_d members only used within this file.  */
 #define INSN_REF_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].ref_count)
@@ -88,8 +77,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* nr_inter/spec counts interblock/speculative motion for the function.  */
 static int nr_inter, nr_spec;
-
-static bool is_second_pass;
 
 static int is_cfg_nonregular (void);
 static bool sched_is_disabled_for_current_region_p (void);
@@ -1182,17 +1169,8 @@ check_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
-
-		  if (is_second_pass)
-		    {
-		      if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, b), regno + j))
-			return 0;
-		    }
-		  else
-		    {
-		      if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, b), regno + j))
-			return 0;
-		    }
+		  if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, b), regno + j))
+		    return 0;
 		}
 	    }
 	}
@@ -1202,17 +1180,8 @@ check_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
-
-	      if (is_second_pass)
-		{
-		  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, b), regno))
-		    return 0;
-		}
-	      else
-		{
-		  if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, b), regno))
-		    return 0;
-		}
+	      if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, b), regno))
+		return 0;
 	    }
 	}
     }
@@ -1267,17 +1236,8 @@ update_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
-
-		  if (is_second_pass)
-		    {
-		      SET_REGNO_REG_SET (DF_UPWARD_LIVE_IN (rtl_df, b), regno + j);
-		      SET_REGNO_REG_SET (DF_UPWARD_LIVE_OUT (rtl_df, b), regno + j);
-		    }
-		  else
-		    {
-		      SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, b), regno + j);
-		      SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, b), regno + j);
-		    }
+		  SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, b), regno + j);
+		  SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, b), regno + j);
 		}
 	    }
 	}
@@ -1286,17 +1246,8 @@ update_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
-
-	      if (is_second_pass)
-		{
-		  SET_REGNO_REG_SET (DF_UPWARD_LIVE_IN (rtl_df, b), regno);
-		  SET_REGNO_REG_SET (DF_UPWARD_LIVE_OUT (rtl_df, b), regno);
-		}
-	      else
-		{
-		  SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, b), regno);
-		  SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, b), regno);
-		}
+	      SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, b), regno);
+	      SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, b), regno);
 	    }
 	}
     }
@@ -2478,18 +2429,11 @@ schedule_region (int rgn)
     }
 }
 
-/* Indexed by region, holds the number of death notes found in that region.
-   Used for consistency checks.  */
-static int *deaths_in_region;
-
 /* Initialize data structures for region scheduling.  */
 
 static void
 init_regions (void)
 {
-  sbitmap blocks;
-  int rgn;
-
   nr_regions = 0;
   rgn_table = xmalloc ((n_basic_blocks) * sizeof (region));
   rgn_bb_table = xmalloc ((n_basic_blocks) * sizeof (int));
@@ -2520,34 +2464,7 @@ init_regions (void)
       free_dominance_info (CDI_DOMINATORS);
     }
 
-
-  if (CHECK_DEAD_NOTES)
-    {
-#if 0
-      basic_block bb;
-      fprintf (stderr, "before:\n");
-      df_dump (rtl_df, stderr);
-      FOR_EACH_BB (bb)
-	dump_bb (bb, stderr, 0);
-#endif
-      blocks = sbitmap_alloc (last_basic_block);
-      deaths_in_region = xmalloc (sizeof (int) * nr_regions);
-      /* Remove all death notes from the subroutine.  */
-
-      for (rgn = 0; rgn < nr_regions; rgn++)
-	{
-	  int b;
-
-	  sbitmap_zero (blocks);
-	  for (b = RGN_NR_BLOCKS (rgn) - 1; b >= 0; --b)
-	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn) + b]);
-
-	  deaths_in_region[rgn] = count_or_remove_death_notes (blocks, 1);
-	}
-      sbitmap_free (blocks);
-    }
-  else
-    count_or_remove_death_notes (NULL, 1);
+  count_or_remove_death_notes (NULL, 1);
 }
 
 /* The one entry point in this file.  DUMP_FILE is the dump file for
@@ -2617,11 +2534,6 @@ schedule_insns (FILE *dump_file)
 
   /* Don't update reg info after reload, since that affects
      regs_ever_live, which should not change after reload.  */
-#if 0
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL,
-		    (reload_completed 
-		     ? PROP_DEATH_NOTES
-		     : PROP_DEATH_NOTES | PROP_REG_INFO));
   update_life_info (blocks, UPDATE_LIFE_LOCAL,
 		    (reload_completed ? PROP_DEATH_NOTES
 		     : PROP_DEATH_NOTES | PROP_REG_INFO));
@@ -2629,34 +2541,6 @@ schedule_insns (FILE *dump_file)
     {
       update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL,
 			PROP_DEATH_NOTES | PROP_REG_INFO);
-    }
-#endif
-
-  if (CHECK_DEAD_NOTES)
-    {
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL,
-		    (reload_completed 
-		     ? PROP_DEATH_NOTES | PROP_NO_UNINITIALIZED_LL
-		     : PROP_DEATH_NOTES | PROP_REG_INFO));
-
-#if 0
-      fprintf (stderr, "after:\n");
-      df_dump (rtl_df, stderr);
-#endif
-      /* Verify the counts of basic block notes in single the basic block
-         regions.  */
-      for (rgn = 0; rgn < nr_regions; rgn++)
-	if (RGN_NR_BLOCKS (rgn) == 1)
-	  {
-	    sbitmap_zero (blocks);
-	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-#if 0
-	    dump_bb (BASIC_BLOCK (rgn_bb_table[RGN_BLOCKS (rgn)]), stderr, 0);
-#endif
-	    gcc_assert (deaths_in_region[rgn]
-			== count_or_remove_death_notes (blocks, 0));
-	  }
-      free (deaths_in_region);
     }
 
   /* Reposition the prologue and epilogue notes in case we moved the
@@ -2709,7 +2593,6 @@ static void
 rest_of_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  is_second_pass = false;
   /* Do control and data sched analysis,
      and write some of the results to dump file.  */
 
@@ -2735,15 +2618,16 @@ rest_of_handle_sched2 (void)
   /* Do control and data sched analysis again,
      and write some more of the results to dump file.  */
 
-  split_all_insns (0);
+  split_all_insns (1);
 
+#if 0
   /* FIXME The current version of scheduling is not compatible with
      the inclusing of the uninitialized variable information.  So we
      rebuild the information without this.  */ 
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		    PROP_DEATH_NOTES | PROP_LOG_LINKS | PROP_NO_UNINITIALIZED_LL);
+		    PROP_LOG_LINKS | PROP_NO_UNINITIALIZED_LL);
+#endif
 
-  is_second_pass = true;
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
     {
       schedule_ebbs (dump_file);
