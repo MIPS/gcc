@@ -276,6 +276,12 @@ implementation of the logic in the model.
 
 ================================================================
 
+generics
+
+handle k.getClass() specially, see 15.8.2
+
+================================================================
+
 header generation
 
 X must handle Miranda methods properly

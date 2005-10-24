@@ -75,11 +75,6 @@ public:
     return parent;
   }
 
-  /// Return true if the argument can be converted to this type via
-  /// capture conversion.  This differs from can_capture_p in that
-  /// this method iterates over the parameters.
-  bool capture_conversion_p (model_class_instance *);
-
   void visit (visitor *);
 };
 

@@ -1,6 +1,6 @@
 // Conversion and promotion rules.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -251,11 +251,7 @@ widening_reference_conversion (model_type *to, model_type *from)
 	    }
 	  else
 	    {
-	      model_class_instance *toki
-		= assert_cast<model_class_instance *> (tok);
-	      model_class_instance *iteri
-		= assert_cast<model_class_instance *> (iter);
-	      result = toki->capture_conversion_p (iteri);
+	      // FIXME: this is wrong.
 	    }
 	  // If we ended up here, we're done.
 	  break;

@@ -87,11 +87,6 @@ public:
 
   bool assignable_from_p (model_type *);
 
-  bool can_capture_p (model_class *other)
-  {
-    return assignable_from_p (other);
-  }
-
   std::string get_pretty_name () const
   {
     return name;

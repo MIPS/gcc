@@ -1,3 +1,16 @@
+2005-10-24  Tom Tromey  <tromey@redhat.com>
+
+	* model/typemap.cc (capture_conversion_p): Removed.
+	* model/class.hh (model_class::can_capture_p): Removed.
+	* model/wildcard.hh (model_wildcard::can_capture_p): Removed.
+	* model/typemap.hh (model_type_map::capture_conversion_p):
+	Removed.
+	* model/classinst.cc (capture_conversion_p): Removed.
+	* model/classinst.hh (model_class_instance::capture_conversion_p):
+	Removed.
+	* conversions.cc (widening_reference_conversion): Don't call
+	capture_conversion_p.
+
 2005-10-22  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* dump.cc (pretty_printer::visit_generic_invocation): Flesh out

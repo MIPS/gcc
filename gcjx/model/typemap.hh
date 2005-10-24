@@ -1,6 +1,6 @@
 // Map type variables to types or other type variables.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -56,8 +56,6 @@ public:
 
   /// Return true if this type map is equivalent to another type map.
   bool operator== (const model_type_map &) const;
-
-  bool capture_conversion_p (const model_type_map &);
 
   bool empty_p () const
   {

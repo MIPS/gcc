@@ -683,14 +683,6 @@ public:
   /// Handles pushing parents as needed.
   void push_on_scope (resolution_scope *);
 
-  /// Return true if this class is compatible with the argument
-  /// according to capture conversion.  This is used to check a single
-  /// parameter for capture conversion.
-  virtual bool can_capture_p (model_class *other)
-  {
-    return this == other;
-  }
-
   static_result is_static_scope () const
   {
     return static_context_p () ? STATIC_CONTEXT : NOT_STATIC_CONTEXT;

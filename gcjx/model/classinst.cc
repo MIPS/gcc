@@ -102,12 +102,6 @@ model_class_instance::apply_type_map (model_element *request,
   return any_changed ? parent->create_instance (request, new_params) : this;
 }
 
-bool
-model_class_instance::capture_conversion_p (model_class_instance *other)
-{
-  return type_map.capture_conversion_p (other->type_map);
-}
-
 std::string
 model_class_instance::get_signature_map_fragment ()
 {
