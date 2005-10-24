@@ -37,30 +37,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
 
-static struct cp_gimplify_ctx
-{
-  /* Stack of labels which are targets for "break" or "continue",
-     linked through TREE_CHAIN.  */
-  tree current_label[2];
-} *ctxp;
-
-static void
-push_context (void)
-{
-  gcc_assert (!ctxp);
-  ctxp = ((struct cp_gimplify_ctx *)
-	  xcalloc (1, sizeof (struct cp_gimplify_ctx)));
-}
-
-static void
-pop_context (void)
-{
-  gcc_assert (ctxp
-	      && !ctxp->current_label[0]
-	      && !ctxp->current_label[1]);
-  free (ctxp);
-  ctxp = NULL;
-}
+/* Stack of labels which are targets for "break" or "continue",
+   linked through TREE_CHAIN.  */
+static tree bc_label[2];
 
 /* Begin a scope which can be exited by a break or continue statement.  BC
    indicates which.
@@ -71,8 +50,8 @@ static tree
 begin_bc_block (enum bc_t bc)
 {
   tree label = create_artificial_label ();
-  TREE_CHAIN (label) = ctxp->current_label[bc];
-  ctxp->current_label[bc] = label;
+  TREE_CHAIN (label) = bc_label[bc];
+  bc_label[bc] = label;
   return label;
 }
 
@@ -86,7 +65,7 @@ begin_bc_block (enum bc_t bc)
 static tree
 finish_bc_block (enum bc_t bc, tree label, tree body)
 {
-  gcc_assert (label == ctxp->current_label[bc]);
+  gcc_assert (label == bc_label[bc]);
 
   if (TREE_USED (label))
     {
@@ -99,7 +78,7 @@ finish_bc_block (enum bc_t bc, tree label, tree body)
       body = sl;
     }
 
-  ctxp->current_label[bc] = TREE_CHAIN (label);
+  bc_label[bc] = TREE_CHAIN (label);
   TREE_CHAIN (label) = NULL_TREE;
   return body;
 }
@@ -110,7 +89,7 @@ finish_bc_block (enum bc_t bc, tree label, tree body)
 static tree
 build_bc_goto (enum bc_t bc)
 {
-  tree label = ctxp->current_label[bc];
+  tree label = bc_label[bc];
 
   if (label == NULL_TREE)
     {
@@ -716,7 +695,8 @@ cp_genericize (tree fndecl)
   pointer_set_destroy (p_set);
 
   /* Do everything else.  */
-  push_context ();
   c_genericize (fndecl);
-  pop_context ();
+
+  gcc_assert (bc_label[bc_break] == NULL);
+  gcc_assert (bc_label[bc_continue] == NULL);
 }

@@ -3523,6 +3523,15 @@ finish_omp_clauses (tree clauses)
 	{
 	  int save_errorcount = errorcount;
 
+	  /* For the copy constructor and assignment op, we need
+	     an object of the appropriate type.  Pretend with an
+	     otherwise bogus INDIRECT_REF.  */
+	  if (type != TREE_TYPE (t))
+	    {
+	      t = build_int_cst (build_pointer_type (type), 0);
+	      t = build1 (INDIRECT_REF, type, t);
+	    }
+
 	  if (need_default_ctor && TYPE_NEEDS_CONSTRUCTING (type))
 	    {
 	      build_special_member_call (NULL_TREE, complete_ctor_identifier,
