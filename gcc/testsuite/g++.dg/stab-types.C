@@ -1,4 +1,4 @@
-/* APPLE LOCAL  file */
+/* APPLE LOCAL file */
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
 
 /* { dg-do compile } */
@@ -14,4 +14,3 @@ int main()
 }
 
 /* { dg-final { scan-assembler-not ".stabs.*:t\\(1,4\\)=f\\(0,36\\)" } } */
-

@@ -18525,6 +18525,12 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    op2 = op3;
 	    op3 = tmp;
 	  }
+	if (op3 == NULL_TREE
+	    && op2 && TREE_CODE (op2) == PLUS_EXPR)
+	  {
+	    op3 = TREE_OPERAND (op2, 0);
+	    op2 = TREE_OPERAND (op2, 1);
+	  }
 	if (op2 && TREE_CODE (op2) == MULT_EXPR)
 	  {
 	    tree t;

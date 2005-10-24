@@ -5989,6 +5989,18 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p)
 	  lhs = cw_asm_build_register_offset (lhs, TREE_OPERAND (rhs, 1));
 	  return lhs;
 	}
+      if (inside_cw_asm_block)
+	{
+	  if (TREE_CODE (rhs) ==  IDENTIFIER_NODE
+	      || TREE_CODE (lhs) ==  IDENTIFIER_NODE
+	      || TREE_TYPE (rhs) == NULL_TREE
+	      || TREE_TYPE (lhs) == NULL_TREE)
+	    {
+	      lhs = build2 (tree_type, NULL_TREE, lhs, rhs);
+	      continue;
+	    }
+	}
+
       /* APPLE LOCAL end CW asm blocks */
       overloaded_p = false;
       lhs = build_x_binary_op (tree_type, lhs, rhs, &overloaded_p);
