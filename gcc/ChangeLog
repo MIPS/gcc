@@ -1,3 +1,8 @@
+2005-10-24  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (output_move_double): Disable stmib and stmda on
+	Thumb-2.
+
 2005-10-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/unwind-arm.h: Reorder interface function declarations.

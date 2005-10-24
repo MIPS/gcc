@@ -9457,10 +9457,14 @@ output_move_double (rtx *operands)
 		  return "";
 
 		case -4:
+		  if (TARGET_THUMB2)
+		    break;
 		  output_asm_insn ("stm%(da%)\t%m0, %M1", operands);
 		  return "";
 
 		case 4:
+		  if (TARGET_THUMB2)
+		    break;
 		  output_asm_insn ("stm%(ib%)\t%m0, %M1", operands);
 		  return "";
 		}
