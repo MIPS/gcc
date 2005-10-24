@@ -56,9 +56,9 @@ enum gimplify_omp_var_data
   GOVD_SHARED = 2,
   GOVD_PRIVATE = 4,
   GOVD_FIRSTPRIVATE = 8,
-  GOVD_SPECIALPRIVATE = 16,
-  GOVD_LOCAL = 32,
-  GOVD_GLOBAL = 64
+  GOVD_LASTPRIVATE = 16,
+  GOVD_REDUCTION = 32,
+  GOVD_LOCAL = 64
 };
 
 struct gimplify_omp_ctx
@@ -4207,6 +4207,12 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
   unsigned int nflags;
   tree t;
 
+  /* Never elide decls whose type has TREE_ADDRESSABLE set.  This means
+     there are constructors involved somewhere.  */
+  if (TREE_ADDRESSABLE (TREE_TYPE (decl))
+      || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
+    flags |= GOVD_SEEN;
+
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
   if (n != NULL)
     {
@@ -4217,7 +4223,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 FIRSTPRIVATE and LASTPRIVATE.  */
       nflags = n->value | flags;
       gcc_assert ((nflags & ~GOVD_SEEN)
-		  == (GOVD_FIRSTPRIVATE | GOVD_SPECIALPRIVATE));
+		  == (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE));
       n->value = nflags;
       return;
     }
@@ -4341,10 +4347,8 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
  do_outer:
   /* If the variable is private in the current context, then we don't
-     need to propagate anything to an outer context.  Note that FIRSTPRIVATE
-     isn't listed here because we want to propagate the SEEN bit back to
-     the outer context.  */
-  if (flags & (GOVD_PRIVATE | GOVD_SPECIALPRIVATE))
+     need to propagate anything to an outer context.  */
+  if (flags & GOVD_PRIVATE)
     return;
   if (ctx->outer_context)
     omp_notice_variable (ctx->outer_context, decl, in_code);
@@ -4420,8 +4424,16 @@ gimplify_deconstruct_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel)
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:
+	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause),
+			    GOVD_LASTPRIVATE | GOVD_SEEN);
+	  if (outer_ctx)
+	    omp_notice_variable (outer_ctx, OMP_CLAUSE_DECL (clause), true);
+	  remove = true;
+	  break;
+
 	case OMP_CLAUSE_REDUCTION:
-	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause), GOVD_SPECIALPRIVATE);
+	  omp_add_variable (ctx, OMP_CLAUSE_DECL (clause),
+			    GOVD_REDUCTION | GOVD_SEEN);
 	  if (outer_ctx)
 	    omp_notice_variable (outer_ctx, OMP_CLAUSE_DECL (clause), true);
 	  break;
@@ -4484,7 +4496,18 @@ gimplify_reconstruct_omp_clauses_1 (splay_tree_node n, void *data)
   else if (flags & GOVD_PRIVATE)
     code = OMP_CLAUSE_PRIVATE;
   else if (flags & GOVD_FIRSTPRIVATE)
-    code = OMP_CLAUSE_FIRSTPRIVATE;
+    {
+      if (flags & GOVD_LASTPRIVATE)
+	{
+	  clause = build1 (OMP_CLAUSE_LASTPRIVATE, void_type_node, decl);
+	  OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (clause) = 1;
+	  OMP_CLAUSE_CHAIN (clause) = *list_p;
+	  *list_p = clause;
+	}
+      code = OMP_CLAUSE_FIRSTPRIVATE;
+    }
+  else if (flags & GOVD_LASTPRIVATE)
+    code = OMP_CLAUSE_LASTPRIVATE;
   else
     return 0;
 

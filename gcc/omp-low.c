@@ -263,6 +263,8 @@ build_outer_var_ref (tree var, omp_context *ctx)
     {
       x = TREE_OPERAND (DECL_VALUE_EXPR (var), 0);
       x = build_outer_var_ref (x, ctx);
+      if (is_parallel_ctx (ctx))
+	x = fold_convert (remap_type (TREE_TYPE (x), &ctx->cb), x);
       x = build_fold_indirect_ref (x);
     }
   else if (is_parallel_ctx (ctx))
@@ -544,19 +546,20 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      install_var_shared (decl, by_ref, ctx);
 	      break;
 	    }
-	  else
-	    /* We don't need to copy const scalar vars back.  */
-	    TREE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
+	  /* We don't need to copy const scalar vars back.  */
+	  TREE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
+	  goto do_private;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  /* Let the corresponding firstprivate clause create the variable.  */
+	  if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
+	    break;
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
 	  decl = OMP_CLAUSE_DECL (c);
-	  /* Variables can be both firstprivate and lastprivate.
-	     Don't create duplicate fields or private variables.  */
-	  if (maybe_lookup_decl (decl, ctx))
-	    break;
+	do_private:
 	  if (is_variable_sized (decl))
 	    saw_var_sized = true;
 	  else if (is_parallel_ctx (ctx))
@@ -608,10 +611,12 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  {
 	  case OMP_CLAUSE_PRIVATE:
 	  case OMP_CLAUSE_FIRSTPRIVATE:
-	  case OMP_CLAUSE_LASTPRIVATE:
 	  case OMP_CLAUSE_REDUCTION:
 	  case OMP_CLAUSE_SHARED:
 	    break;
+	  case OMP_CLAUSE_LASTPRIVATE:
+	    if (!OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
+	      break;
 	  default:
 	    continue;
 	  }
@@ -1019,33 +1024,6 @@ build_reduction_init (tree clause, tree type)
     }
 }
 
-/* Generate code to copy SRC to DST.  In the case of variable sized types,
-   if we were to just build a MODIFY_EXPR the gimplifier would choose one
-   of the operands at random from which to draw the type size.  We can't
-   have that, since only one of them will be local.  */
-
-static tree
-build_modify_expr (tree dst, tree src, bool dst_local)
-{
-  tree t, args;
-
-  if (is_variable_sized (dst_local ? dst : src))
-    {
-      t = TYPE_SIZE_UNIT (TREE_TYPE (dst_local ? dst : src));
-      args = tree_cons (NULL_TREE, t, NULL_TREE);
-      t = build_fold_addr_expr (src);
-      args = tree_cons (NULL_TREE, t, args);
-      t = build_fold_addr_expr (dst);
-      args = tree_cons (NULL_TREE, t, args);
-      t = implicit_built_in_decls[BUILT_IN_MEMCPY];
-      t = build_function_call_expr (t, args);
-    }
-  else
-    t = build2 (MODIFY_EXPR, void_type_node, dst, src);
-
-  return t;
-}
-
 /* Initialize all entries of array VAR to value X.  */
 
 static void
@@ -1101,22 +1079,31 @@ array_reduction_init (tree var, tree x, tree *stmt_list)
 
 /* Generate code to implement the input clauses, FIRSTPRIVATE and COPYIN,
    from the receiver (aka child) side and initializers for REFERENCE_TYPE
-   private variables.  */
+   private variables.  Initialization statements go in ILIST, while calls
+   to destructors go in DLIST.  */
 
 static void
-expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
+expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
+			  omp_context *ctx)
 {
-  tree c;
+  tree_stmt_iterator diter;
+  tree c, dtor, copyin_seq, x;
   int pass;
 
+  /* Resolve private references for Fortran.  Note that C++ disallows
+     private references, so there's no need to worry about CTORs.  */
   for (c = ctx->block_vars; c; c = TREE_CHAIN (c))
     if (DECL_INITIAL (c))
       {
 	tree init = DECL_INITIAL (c);
 	DECL_INITIAL (c) = NULL;
 	init = build (MODIFY_EXPR, void_type_node, c, init);
-	gimplify_and_add (init, stmt_list);
+	gimplify_and_add (init, ilist);
       }
+
+  *dlist = alloc_stmt_list ();
+  diter = tsi_start (*dlist);
+  copyin_seq = NULL;
 
   /* Do all the fixed sized types in the first pass, and the variable sized
      types in the second pass.  This makes sure that the scalar arguments to
@@ -1127,14 +1114,14 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
 	{
 	  enum tree_code c_kind = TREE_CODE (c);
-	  tree var, new_var, x;
+	  tree var, new_var;
 	  bool by_ref;
 
 	  switch (c_kind)
 	    {
 	    case OMP_CLAUSE_PRIVATE:
-	    case OMP_CLAUSE_LASTPRIVATE:
 	    case OMP_CLAUSE_FIRSTPRIVATE:
+	    case OMP_CLAUSE_LASTPRIVATE:
 	    case OMP_CLAUSE_COPYIN:
 	    case OMP_CLAUSE_REDUCTION:
 	      break;
@@ -1164,7 +1151,7 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	      t = build_function_call_expr (t, args);
 	      t = fold_convert (TREE_TYPE (ptr), t);
 	      t = build2 (MODIFY_EXPR, void_type_node, ptr, t);
-	      gimplify_and_add (t, stmt_list);
+	      gimplify_and_add (t, ilist);
 	    }
 	  else if (pass != 0)
 	    continue;
@@ -1173,31 +1160,69 @@ expand_rec_input_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 
 	  switch (TREE_CODE (c))
 	    {
+	    case OMP_CLAUSE_LASTPRIVATE:
+	      if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
+		break;
+	      /* FALLTHRU */
+
+	    case OMP_CLAUSE_PRIVATE:
+	      x = lang_hooks.decls.omp_clause_default_ctor (new_var);
+	      if (x)
+		gimplify_and_add (x, ilist);
+	      /* FALLTHRU */
+
+	    do_dtor:
+	      x = lang_hooks.decls.omp_clause_dtor (new_var);
+	      if (x)
+		{
+		  dtor = x;
+		  gimplify_stmt (&dtor);
+		  tsi_link_before (&diter, dtor, TSI_SAME_STMT);
+		}
+	      break;
+
 	    case OMP_CLAUSE_FIRSTPRIVATE:
 	      x = build_outer_var_ref (var, ctx);
+	      x = lang_hooks.decls.omp_clause_copy_ctor (new_var, x);
+	      gimplify_and_add (x, ilist);
+	      goto do_dtor;
 	      break;
 
 	    case OMP_CLAUSE_COPYIN:
 	      by_ref = use_pointer_for_field (var, false);
 	      x = build_receiver_ref (var, by_ref, ctx);
+	      x = lang_hooks.decls.omp_clause_assign_op (new_var, x);
+	      append_to_statement_list (x, &copyin_seq);
 	      break;
 
 	    case OMP_CLAUSE_REDUCTION:
 	      x = build_reduction_init (c, TREE_TYPE (new_var));
 	      if (TREE_CODE (TREE_TYPE (new_var)) == ARRAY_TYPE)
+		array_reduction_init (new_var, x, ilist);
+	      else
 		{
-		  array_reduction_init (new_var, x, stmt_list);
-		  continue;
+		  x = build2 (MODIFY_EXPR, void_type_node, new_var, x);
+		  gimplify_and_add (x, ilist);
 		}
 	      break;
 
 	    default:
-	      continue;
+	      gcc_unreachable ();
 	    }
-
-	  x = build_modify_expr (new_var, x, true);
-	  gimplify_and_add (x, stmt_list);
 	}
+    }
+
+  /* The copyin sequence is not to be executed by the main thread, since
+     that would result in self-copies.  Perhaps not visible to scalars,
+     but it certainly is to C++ operator=.  */
+  if (copyin_seq)
+    {
+      x = built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM];
+      x = build_function_call_expr (x, NULL);
+      x = build2 (NE_EXPR, boolean_type_node, x,
+		  build_int_cst (TREE_TYPE (x), 0));
+      x = build3 (COND_EXPR, void_type_node, x, copyin_seq, NULL);
+      gimplify_and_add (x, ilist);
     }
 }
 
@@ -1244,7 +1269,7 @@ expand_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
       new_var = lookup_decl (var, ctx);
 
       x = build_outer_var_ref (var, ctx);
-      x = build_modify_expr (x, new_var, false);
+      x = lang_hooks.decls.omp_clause_assign_op (x, new_var);
       append_to_statement_list (x, &sub_list);
     }
 
@@ -1435,7 +1460,7 @@ expand_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
 	  ref = build_fold_indirect_ref (ref);
 	  var = build_fold_indirect_ref (var);
 	}
-      x = build2 (MODIFY_EXPR, void_type_node, var, ref);
+      x = lang_hooks.decls.omp_clause_assign_op (var, ref);
       gimplify_and_add (x, rlist);
     }
 }
@@ -1478,7 +1503,11 @@ expand_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  if (by_ref || is_reference (val))
-	    do_in = true;
+	    {
+	      if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
+		continue;
+	      do_in = true;
+	    }
 	  else
 	    do_out = true;
 	  break;
@@ -1660,9 +1689,10 @@ expand_omp_parallel (tree *stmt_p, omp_context *ctx)
   body = BIND_EXPR_BODY (bind);
   BIND_EXPR_BODY (bind) = alloc_stmt_list ();
 
-  expand_rec_input_clauses (clauses, &BIND_EXPR_BODY (bind), ctx);
+  expand_rec_input_clauses (clauses, &BIND_EXPR_BODY (bind), &olist, ctx);
   append_to_statement_list (body, &BIND_EXPR_BODY (bind));
   expand_reduction_clauses (clauses, &BIND_EXPR_BODY (bind), ctx);
+  append_to_statement_list (olist, &BIND_EXPR_BODY (bind));
   maybe_catch_exception (&BIND_EXPR_BODY (bind));
 
   pop_gimplify_context (bind);
@@ -2140,7 +2170,7 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
   struct expand_omp_for_data fd;
   bool have_nowait, have_ordered;
   enum omp_clause_schedule_kind sched_kind;
-  tree t;
+  tree t, dlist;
 
   fd.for_stmt = *stmt_p;
   fd.pre = NULL;
@@ -2215,7 +2245,8 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
 	break;
       }
 
-  expand_rec_input_clauses (OMP_FOR_CLAUSES (fd.for_stmt), &fd.pre, ctx);
+  expand_rec_input_clauses (OMP_FOR_CLAUSES (fd.for_stmt),
+			    &fd.pre, &dlist, ctx);
 
   expand_omp (&OMP_FOR_PRE_BODY (fd.for_stmt), ctx);
   append_to_statement_list (OMP_FOR_PRE_BODY (fd.for_stmt), &fd.pre);
@@ -2244,6 +2275,7 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
     }
 
   expand_reduction_clauses (OMP_FOR_CLAUSES (fd.for_stmt), &fd.pre, ctx);
+  append_to_statement_list (dlist, &fd.pre);
 
   if (!have_nowait)
     build_omp_barrier (&fd.pre);
@@ -2305,6 +2337,7 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
 {
   tree sec_stmt, label_vec, bind, block, stmt_list, l0, l1, l2, t, u, v;
   tree_stmt_iterator tsi;
+  tree dlist;
   unsigned i, len;
 
   sec_stmt = *stmt_p;
@@ -2312,7 +2345,8 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
 
   push_gimplify_context ();
 
-  expand_rec_input_clauses (OMP_SECTIONS_CLAUSES (sec_stmt), &stmt_list, ctx);
+  expand_rec_input_clauses (OMP_SECTIONS_CLAUSES (sec_stmt),
+			    &stmt_list, &dlist, ctx);
 
   tsi = tsi_start (OMP_SECTIONS_BODY (sec_stmt));
   for (len = 0; !tsi_end_p (tsi); len++, tsi_next (&tsi))
@@ -2392,6 +2426,7 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
   gimplify_and_add (t, &stmt_list);
 
   expand_reduction_clauses (OMP_SECTIONS_CLAUSES (sec_stmt), &stmt_list, ctx);
+  append_to_statement_list (dlist, &stmt_list);
 
   /* Unless there's a nowait clause, add a barrier afterward.  */
   if (!find_omp_clause (OMP_SECTIONS_CLAUSES (sec_stmt), OMP_CLAUSE_NOWAIT))
@@ -2470,9 +2505,6 @@ expand_omp_single_copy (tree single_stmt, tree *pre_p, omp_context *ctx)
   l1 = create_artificial_label ();
   l2 = create_artificial_label ();
 
-  /* Handle firstprivate clauses.  */
-  expand_rec_input_clauses (OMP_SINGLE_CLAUSES (single_stmt), pre_p, ctx);
-
   t = built_in_decls[BUILT_IN_GOMP_SINGLE_COPY_START];
   t = build_function_call_expr (t, NULL);
   t = fold_convert (ptr_type, t);
@@ -2519,7 +2551,7 @@ expand_omp_single_copy (tree single_stmt, tree *pre_p, omp_context *ctx)
 static void
 expand_omp_single (tree *stmt_p, omp_context *ctx)
 {
-  tree bind, block, single_stmt = *stmt_p;
+  tree bind, block, single_stmt = *stmt_p, dlist;
 
   push_gimplify_context ();
 
@@ -2529,10 +2561,15 @@ expand_omp_single (tree *stmt_p, omp_context *ctx)
   bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
   *stmt_p = bind;
 
+  expand_rec_input_clauses (OMP_SINGLE_CLAUSES (single_stmt),
+			    &BIND_EXPR_BODY (bind), &dlist, ctx);
+
   if (ctx->record_type)
     expand_omp_single_copy (single_stmt, &BIND_EXPR_BODY (bind), ctx);
   else
     expand_omp_single_simple (single_stmt, &BIND_EXPR_BODY (bind));
+
+  append_to_statement_list (dlist, &BIND_EXPR_BODY (bind));
 
   maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);

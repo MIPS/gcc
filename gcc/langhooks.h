@@ -200,6 +200,20 @@ struct lang_hooks_for_decls
   /* Return sharing kind if OpenMP sharing attribute of DECL is
      predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
   enum omp_clause_default_kind (*omp_predetermined_sharing) (tree);
+
+  /* Build and return code for a default constructor for DECL.  Return
+     NULL if nothing to be done.  */
+  tree (*omp_clause_default_ctor) (tree decl);
+
+  /* Build and return code for a copy constructor from SRC to DST.  */
+  tree (*omp_clause_copy_ctor) (tree dst, tree src);
+
+  /* Similarly, except use an assignment operator instead.  */
+  tree (*omp_clause_assign_op) (tree dst, tree src);
+
+  /* Build and return code destructing DECL.  Return NULL if nothing
+     to be done.  */
+  tree (*omp_clause_dtor) (tree decl);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */

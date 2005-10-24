@@ -89,6 +89,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
 extern enum omp_clause_default_kind lhd_omp_predetermined_sharing (tree);
+extern tree lhd_omp_assignment (tree, tree);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -242,6 +243,10 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
 #define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE hook_bool_tree_false
 #define LANG_HOOKS_OMP_PREDETERMINED_SHARING lhd_omp_predetermined_sharing
+#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR hook_tree_tree_null
+#define LANG_HOOKS_OMP_CLAUSE_COPY_CTOR lhd_omp_assignment
+#define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP lhd_omp_assignment
+#define LANG_HOOKS_OMP_CLAUSE_DTOR hook_tree_tree_null
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -254,7 +259,11 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
   LANG_HOOKS_COMDAT_GROUP, \
   LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE, \
-  LANG_HOOKS_OMP_PREDETERMINED_SHARING \
+  LANG_HOOKS_OMP_PREDETERMINED_SHARING, \
+  LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR, \
+  LANG_HOOKS_OMP_CLAUSE_COPY_CTOR, \
+  LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, \
+  LANG_HOOKS_OMP_CLAUSE_DTOR \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */

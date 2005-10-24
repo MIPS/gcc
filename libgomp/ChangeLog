@@ -1,3 +1,11 @@
+2005-10-23  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libgomp.c++/ctor-1.C: New.
+	* testsuite/libgomp.c++/ctor-2.C: New.
+	* testsuite/libgomp.c++/ctor-3.C: New.
+	* testsuite/libgomp.c++/ctor-4.C: New.
+	* testsuite/libgomp.c++/ctor-5.C: New.
+
 2005-10-21  Diego Novillo  <dnovillo@redhat.com>
 
 	PR 24455

@@ -341,6 +341,8 @@ struct tree_common GTY(())
           ..._TYPE
        SAVE_EXPR_RESOLVED_P in
 	  SAVE_EXPR
+       OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE in
+	  OMP_CLAUSE_LASTPRIVATE
 
    private_flag:
 
@@ -1426,6 +1428,11 @@ struct tree_constructor GTY(())
 #define OMP_CLAUSE_DECL(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
 				  OMP_CLAUSE_COPYPRIVATE), 0)
+
+/* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
+   decl is present in the chain.  */
+#define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
+  TREE_PUBLIC (OMP_CLAUSE_LASTPRIVATE_CHECK (NODE))
 
 #define OMP_CLAUSE_IF_EXPR(NODE) \
   TREE_OPERAND (OMP_CLAUSE_IF_CHECK (NODE), 0)

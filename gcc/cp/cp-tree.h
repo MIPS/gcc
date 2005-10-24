@@ -4255,6 +4255,9 @@ extern tree finish_omp_for			(location_t, tree, tree,
 						 tree, tree, tree);
 extern void finish_omp_atomic			(enum tree_code, tree, tree);
 extern enum omp_clause_default_kind cxx_omp_predetermined_sharing (tree);
+extern tree cxx_omp_clause_default_ctor		(tree);
+extern tree cxx_omp_clause_copy_ctor		(tree, tree);
+extern tree cxx_omp_clause_assign_op		(tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
