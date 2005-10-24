@@ -47,6 +47,10 @@ Boston, MA 02110-1301, USA.  */
 #include "io.h"
 #include "unix.h"
 
+#ifndef SSIZE_MAX
+#define SSIZE_MAX SHRT_MAX
+#endif
+
 #ifndef PATH_MAX
 #define PATH_MAX 1024
 #endif

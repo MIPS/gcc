@@ -1,3 +1,80 @@
+2005-10-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18022
+	* trans-expr.c (gfc_trans_arrayfunc_assign): Return NULL
+	if there is a component ref during an array ref to force
+	use of temporary in assignment.
+
+	PR fortran/24311
+	PR fortran/24384
+	* fortran/iresolve.c (check_charlen_present): New function to
+	add a charlen to the typespec, in the case of constant
+	expressions.
+	(gfc_resolve_merge, gfc_resolve_spread): Call.the above.
+	(gfc_resolve_spread): Make calls to library functions that
+	handle the case of the spread intrinsic with a scalar source.
+
+2005-10-22  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24426
+	* decl.c (variable_decl): Don't assign default initializers to
+	pointers.
+
+2005-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* interface.c (compare_actual_formal): Issue error when attempting
+	to pass an assumed-size array as assumed-shape array argument.
+
+2005-10-20  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/21625
+	* resolve.c (expr_to_initialize): New function.
+	(resolve_allocate_expr): Take current statement as new 
+	argument. Add default initializers to variables of
+	derived types, if they need it.
+	(resolve_code): Provide current statement as argument to
+	resolve_allocate_expr().
+
+2005-10-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24440
+	* resolve.c (resolve_symbol): Correct error in check for
+	assumed size array with default initializer by testing
+	for arrayspec before dereferencing it.
+
+2005-10-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23446
+	* gfortran.h: Primitive for gfc_is_formal_arg.
+	* resolve.c(gfc_is_formal_arg): New function to signal across
+	several function calls that formal argument lists are being
+	processed.
+	(resolve_formal_arglist): Set/reset the flag for gfc_is_formal_arg.
+	*expr.c(check_restricted): Add check, via gfc_is_formal_arg, if
+	symbol is part of an formal argument declaration.
+
+	PR fortran/21459
+	* decl.c (add_init_expr_to_sym): Make a new character
+	length for each variable, when the expression is NULL
+	and link to cl_list.
+
+	PR fortran/20866
+	* match.c (recursive_stmt_fcn): New function that tests if
+	a statement function resurses through itself or other other
+	statement functions.
+	(gfc_match_st_function): Call recursive_stmt_fcn to check
+	if this is recursive and to raise error if so.
+
+	PR fortran/20849
+	PR fortran/20853
+	* resolve.c (resolve_symbol): Errors for assumed size arrays
+	with default initializer and for external objects with an
+	initializer.
+
+	PR fortran/20837
+	* decl.c (match_attr_spec): Prevent PUBLIC from being used
+	outside a module.
+
 2005-10-16  Erik Edelmann  <erik.edelmann@iki.fi>
 
 	PR 22273

@@ -1,7 +1,267 @@
+2005-10-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/24460
+	* bb-reorder.c (fix_crossing_unconditional_branches): Do not
+	set the basic block for barriers.
+
+2005-10-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* var-tracking.c (vt_initialize): Initialize post.
+
+2005-10-21  Devang Patel  <dpatel@apple.com>
+
+	PR/24220
+	* c-common.c (vector_types_convertible_p): Check vector element type.
+	
+2005-10-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (prepare_move_operands): Handle the address
+	constant which is a tls symbolic address plus a constant.
+
+2005-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR driver/24473
+	* gcc.c (main): Use the correct counter for erroring out
+	about mulitple files.
+
+2005-10-21  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/24465
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Always
+	use r2 for 64-bit tls .got access.
+
+2005-10-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* dojump.c (do_jump): Handle side-effecting TRUTH_AND_EXPR and
+	TRUTH_OR_EXPR.
+
+2005-10-20  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/24225
+	* tree-cfg.c (tree_find_edge_insert_loc): Handle naked RETURN_EXPR.
+
+2005-10-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/24295
+	* cgraphunit.c (cgraph_varpool_remove_unreferenced_decls): Mark
+	alias targets.
+	* varasm.c (find_decl_and_mark_needed): After cgraph global info
+	is ready, stop marking functions, but still mark variables.
+
+2005-10-20  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/24439
+	* fold-const.c (invert_truthvalue): Handle COND_EXPR with
+	void type operands.
+
+2005-10-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/23585
+	* rtlanal.c (rtx_addr_can_trap_p_1): New predicate extracted from...
+	(rtx_addr_can_trap_p): ... here.  Invoke rtx_addr_can_trap_p_1.
+	(may_trap_p_1): New predicate extracted from...
+	(may_trap_p): ... here.  Invoke may_trap_p_1.
+	(may_trap_or_fault_p): New predicate.
+	* rtl.h (may_trap_or_fault_p): Declare it.
+	* reorg.c (steal_delay_list_from_target): Use may_trap_or_fault_p
+	instead of may_trap_p.
+	(steal_delay_list_from_fallthrough): Likewise.
+	(fill_simple_delay_slots): Likewise.
+	(fill_slots_from_thread): Likewise.
+	* function.c (pad_to_arg_alignment): Rework comment about
+	SPARC_STACK_BOUNDARY_HACK.
+	* config/sparc/sparc.h: Likewise.
+
+2005-10-19  Adrian Straetling  <straetling@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_insv): New.
+	* config/s390/s390-protos.h (s390_expand_insv): Declare.
+	* config/s390/s390.md ("UNSPEC_SETHIGH"): Rename to "UNSPEC_ICM".
+	("icm_hi"): Remove mode attribute.
+	("*sethigh<mode><mode>"): Rewrite to "sethighpart<mode>".
+	Adjust all uses.
+	("*extracthi", "*extractqi"): Remove.
+	(extv<mode>", "*extzv<mode>"): New.
+	("insv", "*insv<mode>_mem_reg", "*insvdi_mem_reghigh",
+	"*insv<mode>_reg_imm", "*insv<mode>_reg_extimm"): New.
+
+2005-10-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* cfgexpand.c (discover_nonconstant_array_refs_r,
+	discover_nonconstant_array_refs): Move here from tree-outof-ssa.c
+	(tree_expand_cfg): Call discover_nonconstant_array_refs.
+	* tree-outof-ssa.c (rewrite_out_of_ssa): Remove call to
+	discover_nonconstant_array_refs.
+
+2005-10-19  Steven Bosscher  <stevenb@suse.de>
+
+	PR c/23228
+	* c-decl.c (pop_scope): Don't warn about an unused variable
+	if it is marked with TREE_NO_WARNING.
+	(duplicate_decls): Set TREE_NO_WARNING if olddecl and newdecl
+	somenow mismatch and olddecl is to be replaced.
+
+2005-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/23199
+	* cfgrtl.c (safe_insert_insn_on_edge): Use can_copy_p to detect
+	whether registers live on the edge can be saved/restored.
+
+2005-10-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (fixup_mova): Skip notes.
+
+2005-10-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/s390/s390-protos.h (s390_hard_regno_rename_ok): Add prototype.
+	* config/s390/s390.c (s390_hard_regno_rename_ok): New function.
+	(s390_can_eliminate): Handle BASE_REGNUM elimination.
+	(s390_initial_elimination_offset): Likewise.
+	(s390_conditional_register_usage): BASE_REGNUM is no longer a fixed
+	register on TARGET_ZARCH targets.
+	* config/s390/s390.h (HARD_REGNO_RENAME_OK): Define
+	(INITIAL_FRAME_POINTER_OFFSET): Remove.
+	(REG_ALLOC_ORDER): Move BASE_REGNUM lower.
+	(ELIMINABLE_REGS): Add BASE_REGNUM elimination rule.
+
+2005-10-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md: Comment describing output modifiers updated.
+	* config/s390/s390.c (print_operand): Likewise.
+
+2005-10-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (override_options): Added check for -mstack-size
+	64k limitation.
+	* doc/invoke.texi: Mention that limit in the documenation.
+
+2005-10-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR #19672
+	* dojump.c (do_jump): Handle TRUTH_AND_EXPR and TRUTH_OR_EXPR here.
+
+2005-10-18  Daniel Berlin <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/24231
+
+	* tree-ssa-pre.c (try_look_through_load): Skip abnormal phi names
+	(compute_avail): Ditto.
+
+2005-10-18  Richard Henderson  <rth@redhat.com>
+
+	PR target/24428
+	* config/i386/i386.c (legitimate_constant_p): Check
+	SYMBOL_REF_TLS_MODEL directly.  Don't fallthru to SYMBOL_REF
+	if LABEL_REF.
+	(legitimate_pic_operand_p): Test SYMBOL_REF_TLS_MODEL directly.
+	(legitimate_pic_address_disp_p): Reorg CONST checking to make
+	sure SYMBOL_REF_TLS_MODEL is tested.  Test SYMBOL_REF_TLS_MODEL
+	directly.
+	(print_operand_address): Likewise.
+	* config/i386/predicates.md (x86_64_immediate_operand): Test
+	SYMBOL_REF_TLS_MODEL properly inside CONST.
+	(x86_64_zext_immediate_operand): Likewise.
+	(global_dynamic_symbolic_operand, local_dynamic_symbolic_operand,
+	initial_exec_symbolic_operand, local_exec_symbolic_operand): Remove.
+	* config/i386/i386-protos.h: Remove predicates.md entries.
+
+2005-10-18  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/winnt-cxx.c (i386_pe_adjust_class_at_definition):
+	Check that elements of TYPE_METHODS are FUNCTION_DECLs.
+
+2005-10-17  Alexey Starovoytov  <alexey.starovoytov@sun.com>
+            Ian Lance Taylor <ian@airs.com>
+
+	PR middle-end/23522
+	* fold-const.c (fold_widened_comparison): Do not allow range based
+	constant folding when right operand cannot be unwidened.
+
 2005-10-17  Richard Henderson  <rth@redhat.com>
 
 	* builtins.c (expand_builtin_synchronize): Build a new-style asm
 	with a memory clobber.
+
+2005-10-17  James E Wilson  <wilson@specifix.com>
+
+	PR rtl-optimization/17356
+	* cfgrtl.c (purge_dead_edges): Check for EDGE_ABNORMAL_CALL before
+	checking for EDGE_EH.
+
+2005-10-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (function_arg_slotno): In 64-bit mode, align
+	the slot on an even boundary for any type with 16-byte alignment.
+
+2005-10-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/23424
+	* md.texi (Modifiers) <%>: Clarify that % doesn't work
+	after register allocation.
+
+2005-10-17  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_pushm_popm): Don't mark epilogue insns
+	as frame related.
+
+2005-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/22551
+	* c-common.c (c_add_case_label): Revert my 2005-10-14 clearing of
+	overflow flags.
+
+2005-10-17  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (OPTIMIZATION_OPTIONS): Set flag_schedule_insns
+	to 2 if it's already non-zero.
+	(OVERRIDE_OPTIONS): Clear flag_schedule_insns if flag_exceptions
+	is set and warn about it if flag_schedule_insns is 1.
+
+2005-10-17  Paul Woegerer  <paul.woegerer@nsc.com>
+
+	* config/crx/crx.md: Compare-and-branch instructions need to
+	invalidate CC.
+
+2005-10-17  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/24315
+	* config/i386/i386.md (*pushdi2_rex64 splitter)
+	(*movdi_1_rex64 splitter, *ashldi3_1 splitter)
+	(*ashrdi3_1 splitter, *lshrdi3_1 splitter): Delay splitting after
+	flow2 pass only when (optimize > 0 && flag_peephole2).
+
+2005-10-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR driver/22544
+	* gcc.c (have_c): New static variable.
+	(have_o): Likewise.
+	(process_command): Remove declation of have_c.
+	Set have_o to 1 when handling -o.
+	(main): Add a fatel error if there are multiple
+	files specified and -o and -c/-S is passed witout
+	-combine or multiple languages.
+
+2005-10-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/22444
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing):
+	Assert that we don't hit something with subvars.
+	(setup_pointers_and_addressables): Don't add things with subvars,
+	because we'll already process the subvars for aliasing purposes.
+
+2005-10-16  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/23424
+	* config/cris/cris.md ("*mov_side<mode>", "*mov_sidesisf")
+	("*mov_side<mode>_mem", "*mov_sidesisf_mem", "*clear_side<mode>")
+	("*ext_sideqihi", "*ext_side<mode>si", "*op_side<mode>")
+	("*op_swap_side<mode>", "*extopqihi_side", "*extop<mode>si_side")
+	("*extopqihi_swap_side", "*extop<mode>si_swap_side"): Have separate,
+	swapped, alternatives for the R constraint.
+
+	PR middle-end/24341
+	* builtins.c (get_builtin_sync_mode): Make unlimited
+	mode_for_size request.
 
 2005-10-15  Richard Henderson  <rth@redhat.com>
 

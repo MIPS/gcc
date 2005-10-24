@@ -54,6 +54,7 @@ struct diagnostic_context;
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
       OMP_ATOMIC_DEPENDENT_P (in OMP_ATOMIC)
       OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
+      BASELINK_QUALIFIED_P (in BASELINK)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -343,6 +344,9 @@ struct tree_overload GTY(())
    requested.  */
 #define BASELINK_OPTYPE(NODE) \
   (TREE_CHAIN (BASELINK_CHECK (NODE)))
+/* Non-zero if this baselink was from a qualified lookup.  */
+#define BASELINK_QUALIFIED_P(NODE) \
+  TREE_LANG_FLAG_0 (BASELINK_CHECK (NODE))
 
 struct tree_baselink GTY(())
 {
@@ -3725,7 +3729,7 @@ extern tree build_vfn_ref			(tree, tree);
 extern tree get_vtable_decl			(tree, int);
 extern void resort_type_method_vec		(void *, void *,
 						 gt_pointer_operator, void *);
-extern void add_method				(tree, tree, tree);
+extern bool add_method				(tree, tree, tree);
 extern int currently_open_class			(tree);
 extern tree currently_open_derived_class	(tree);
 extern tree finish_struct			(tree, tree);

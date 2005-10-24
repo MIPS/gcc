@@ -2547,9 +2547,10 @@ pop_switch (void)
     switch_location = EXPR_LOCATION (cs->switch_stmt);
   else
     switch_location = input_location;
-  c_do_switch_warnings (cs->cases, switch_location,
-			SWITCH_STMT_TYPE (cs->switch_stmt),
-			SWITCH_STMT_COND (cs->switch_stmt));
+  if (!processing_template_decl)
+    c_do_switch_warnings (cs->cases, switch_location,
+			  SWITCH_STMT_TYPE (cs->switch_stmt),
+			  SWITCH_STMT_COND (cs->switch_stmt));
 
   splay_tree_delete (cs->cases);
   switch_stack = switch_stack->next;
@@ -7702,7 +7703,7 @@ grokdeclarator (const cp_declarator *declarator,
 	}
 
       if (ctype == current_class_type)
-	pedwarn ("extra qualification %<%T::%> on member %qs ignored",
+	pedwarn ("extra qualification %<%T::%> on member %qs",
 		 ctype, name);
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
@@ -8153,15 +8154,25 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    /* Check that the name used for a destructor makes sense.  */
-	    if (sfk == sfk_destructor
-		&& !same_type_p (TREE_OPERAND
-				 (id_declarator->u.id.unqualified_name, 0),
-				 ctype))
+	    if (sfk == sfk_destructor)
 	      {
-		error ("declaration of %qD as member of %qT",
-		       id_declarator->u.id.unqualified_name,
-		       ctype);
-		return error_mark_node;
+		if (!ctype)
+		  {
+		    gcc_assert (friendp);
+		    error ("expected qualified name in friend declaration "
+			   "for destructor %qD",
+			   id_declarator->u.id.unqualified_name);
+		    return error_mark_node;
+		  }
+
+		if (!same_type_p (TREE_OPERAND
+				  (id_declarator->u.id.unqualified_name, 0),
+				  ctype))
+		  {
+		    error ("declaration of %qD as member of %qT",
+			   id_declarator->u.id.unqualified_name, ctype);
+		    return error_mark_node;
+		  }
 	      }
 
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
@@ -8585,13 +8596,6 @@ check_default_argument (tree decl, tree arg)
        deal with it after the class is complete.  */
     return arg;
 
-  if (processing_template_decl || uses_template_parms (arg))
-    /* We don't do anything checking until instantiation-time.  Note
-       that there may be uninstantiated arguments even for an
-       instantiated function, since default arguments are not
-       instantiated until they are needed.  */
-    return arg;
-
   if (TYPE_P (decl))
     {
       decl_type = decl;
@@ -8733,10 +8737,10 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 		       decl, ptr ? "pointer" : "reference", t);
 	    }
 
-	  if (!any_error && init)
-	    init = check_default_argument (decl, init);
-	  else
+	  if (any_error)
 	    init = NULL_TREE;
+	  else if (init && !processing_template_decl)
+	    init = check_default_argument (decl, init);
 	}
 
       TREE_CHAIN (decl) = decls;

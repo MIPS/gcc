@@ -1,6 +1,97 @@
+2005-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24260
+	* parser.c (cp_parser_init_declarator): Pass attributes to
+	grokfield. 
+
+2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* search.c (accessible_p): Check access in the outermost set of
+	template parameters.
+
+2005-10-20  Richard Guenther  <rguenther@suse.de>
+
+	* decl.c (grokdeclarator): Fix ambiguous pedwarn message.
+
+2005-10-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22293
+	* decl.c (grokdeclarator): Reject unqualified destructors in
+	friend declarations.
+
+2005-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23293
+	* pt.c (convert_template_argument): Use canonical type variants in
+	template specializations.
+
+2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21383
+	* name-lookup.c (arg_assoc): Template args can be null in a
+	template-id-expr.
+
+	PR c++/22604
+	* class.c (update_vtable_entry_for_fn): Don't process invalid
+	covariant overriders.
+
+	PR c++/23118
+	* cp-tree.h (add_method): Add return value.
+	* class.c (add_method): Return success indicator.
+	* semantics.c (finish_member_declaration): Don't add an invalid
+	method to the method list.
+
+2005-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21908
+	* call.c (build_new_method_call): Do not show VTT parameters to
+	the user.
+
+2005-10-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23440
+	* parser.c (cp_parser_statement): If the parser reached CPP_EOF,
+	only complain about missing statement.
+
+2005-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24386
+	* cp-tree.h (BASELINK_QUALIFIED_P): New.
+	* pt.c (tsubst_copy_and_build): <CALL_EXPR case>: Use it.
+	* typeck.c (finish_class_member_access_expr): Set it.
+
+	PR c++/21353
+	* decl.c (check_default_argument): Don't check
+	processing_template_decl or uses_template_parms here.
+	(grokparms): Only call check_default_argument when not processing
+	a template decl.
+	* parser.c (cp_parser_late_parsing_default_arg): Call
+	check_default_argument when not processing a template decl.
+
 2005-10-16  Mark Mitchell  <mark@codesourcery.com>
 
-	PR c++/22137
+	PR c++/24389
+	* decl2.c (mark_used): Use uses_template_parms instead of
+	dependent_type_p.
+	* init.c (constant_value_1): Handle uninstantiated templates
+	specially.
+	* pt.c (instantiate_decl): Add sanity check.
+
+2005-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22173
+	* typeck.c (check_template_keyword): Fix thinko.
+		
+2005-10-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/23959
+	* decl.c (pop_switch): Only call c_do_switch_warnings
+	when not processing templates.
+
+2005-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22173
 	* cp-tree.h (QUALIFIED_NAME_IS_TEMPLATE): New macro.
 	(check_template_keyword): New function.
 	(finish_id_expression): Change prototoype.
@@ -42,7 +133,7 @@
 	* typeck.c (check_template_keyword): New function.
 	(finish_class_member_access_expr): Add template_p argument.  Check
 	for invalid uses of the template keyword.
-	
+
 2005-10-15  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/21347

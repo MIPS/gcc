@@ -50,6 +50,16 @@ static code_stack *cs_base = NULL;
 
 static int forall_flag;
 
+/* Nonzero if we are processing a formal arglist. The corresponding function
+   resets the flag each time that it is read.  */
+static int formal_arg_flag = 0;
+
+int
+gfc_is_formal_arg (void)
+{
+  return formal_arg_flag;
+}
+
 /* Resolve types of formal argument lists.  These have to be done early so that
    the formal argument lists of module procedures can be copied to the
    containing module before the individual procedures are resolved
@@ -77,6 +87,8 @@ resolve_formal_arglist (gfc_symbol * proc)
       || sym->attr.pointer || sym->attr.allocatable
       || (sym->as && sym->as->rank > 0))
     proc->attr.always_explicit = 1;
+
+  formal_arg_flag = 1;
 
   for (f = proc->formal; f; f = f->next)
     {
@@ -224,6 +236,7 @@ resolve_formal_arglist (gfc_symbol * proc)
             }
         }
     }
+  formal_arg_flag = 0;
 }
 
 
@@ -2596,17 +2609,49 @@ resolve_deallocate_expr (gfc_expr * e)
 }
 
 
+/* Given the expression node e for an allocatable/pointer of derived type to be
+   allocated, get the expression node to be initialized afterwards (needed for
+   derived types with default initializers).  */
+
+static gfc_expr *
+expr_to_initialize (gfc_expr * e)
+{
+  gfc_expr *result;
+  gfc_ref *ref;
+  int i;
+
+  result = gfc_copy_expr (e);
+
+  /* Change the last array reference from AR_ELEMENT to AR_FULL.  */
+  for (ref = result->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY && ref->next == NULL)
+      {
+        ref->u.ar.type = AR_FULL;
+
+        for (i = 0; i < ref->u.ar.dimen; i++)
+          ref->u.ar.start[i] = ref->u.ar.end[i] = ref->u.ar.stride[i] = NULL;
+
+        result->rank = ref->u.ar.dimen; 
+        break;
+      }
+
+  return result;
+}
+
+
 /* Resolve the expression in an ALLOCATE statement, doing the additional
    checks to see whether the expression is OK or not.  The expression must
    have a trailing array reference that gives the size of the array.  */
 
 static try
-resolve_allocate_expr (gfc_expr * e)
+resolve_allocate_expr (gfc_expr * e, gfc_code * code)
 {
   int i, pointer, allocatable, dimension;
   symbol_attribute attr;
   gfc_ref *ref, *ref2;
   gfc_array_ref *ar;
+  gfc_code *init_st;
+  gfc_expr *init_e;
 
   if (gfc_resolve_expr (e) == FAILURE)
     return FAILURE;
@@ -2659,6 +2704,19 @@ resolve_allocate_expr (gfc_expr * e)
       gfc_error ("Expression in ALLOCATE statement at %L must be "
 		 "ALLOCATABLE or a POINTER", &e->where);
       return FAILURE;
+    }
+
+  /* Add default initializer for those derived types that need them.  */
+  if (e->ts.type == BT_DERIVED && (init_e = gfc_default_initializer (&e->ts)))
+    {
+        init_st = gfc_get_code ();
+        init_st->loc = code->loc;
+        init_st->op = EXEC_ASSIGN;
+        init_st->expr = expr_to_initialize (e);
+        init_st->expr2 = init_e;
+
+        init_st->next = code->next;
+        code->next = init_st;
     }
 
   if (pointer && dimension == 0)
@@ -4041,7 +4099,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 		       "of type INTEGER", &code->expr->where);
 
 	  for (a = code->ext.alloc_list; a; a = a->next)
-	    resolve_allocate_expr (a->expr);
+	    resolve_allocate_expr (a->expr, code);
 
 	  break;
 
@@ -4350,6 +4408,27 @@ resolve_symbol (gfc_symbol * sym)
 	}
     }
 
+  /* An assumed-size array with INTENT(OUT) shall not be of a type for which
+     default initialization is defined (5.1.2.4.4).  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->attr.dummy
+	&& sym->attr.intent == INTENT_OUT
+	&& sym->as
+	&& sym->as->type == AS_ASSUMED_SIZE)
+    {
+      for (c = sym->ts.derived->components; c; c = c->next)
+	{
+	  if (c->initializer)
+	    {
+	      gfc_error ("The INTENT(OUT) dummy argument '%s' at %L is "
+			 "ASSUMED SIZE and so cannot have a default initializer",
+			 sym->name, &sym->declared_at);
+	      return;
+	    }
+	}
+    }
+
+
   /* Ensure that derived type formal arguments of a public procedure
      are not of a private type.  */
   if (sym->attr.flavor == FL_PROCEDURE
@@ -4476,6 +4555,15 @@ resolve_symbol (gfc_symbol * sym)
       break;
 
     default:
+
+      /* An external symbol falls through to here if it is not referenced.  */
+      if (sym->attr.external && sym->value)
+	{
+	  gfc_error ("External object at %L may not have an initializer",
+		     &sym->declared_at);
+	  return;
+	}
+
       break;
     }
 

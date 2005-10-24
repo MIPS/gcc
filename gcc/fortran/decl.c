@@ -746,6 +746,13 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	  /* Update symbol character length according initializer.  */
 	  if (sym->ts.cl->length == NULL)
 	    {
+	      /* If there are multiple CHARACTER variables declared on
+		 the same line, we don't want them to share the same
+	        length.  */
+	      sym->ts.cl = gfc_get_charlen ();
+	      sym->ts.cl->next = gfc_current_ns->cl_list;
+	      gfc_current_ns->cl_list = sym->ts.cl;
+
 	      if (init->expr_type == EXPR_CONSTANT)
 		sym->ts.cl->length =
 			gfc_int_expr (init->value.character.length);
@@ -1087,7 +1094,7 @@ variable_decl (int elem)
     t = add_init_expr_to_sym (name, &initializer, &var_locus);
   else
     {
-      if (current_ts.type == BT_DERIVED && !initializer)
+      if (current_ts.type == BT_DERIVED && !current_attr.pointer && !initializer)
 	initializer = gfc_default_initializer (&current_ts);
       t = build_struct (name, cl, &initializer, &as);
     }
@@ -1863,6 +1870,20 @@ match_attr_spec (void)
 
 	  gfc_error ("Attribute at %L is not allowed in a TYPE definition",
 		     &seen_at[d]);
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
+
+      if ((d == DECL_PRIVATE || d == DECL_PUBLIC)
+	     && gfc_current_state () != COMP_MODULE)
+	{
+	  if (d == DECL_PRIVATE)
+	    attr = "PRIVATE";
+	  else
+	    attr = "PUBLIC";
+
+	  gfc_error ("%s attribute at %L is not allowed outside of a MODULE",
+		     attr, &seen_at[d]);
 	  m = MATCH_ERROR;
 	  goto cleanup;
 	}

@@ -1,6 +1,192 @@
+2005-10-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18022
+	gfortran.dg/assign_func_dtcomp_1.f90: New test.
+
+	PR fortran/24311
+	gfortran.dg/merge_char_const.f90: New test.
+
+	PR fortran/24384
+	gfortran.dg/spread_scalar_source.f90: New test.
+
+2005-10-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* g++.old-deja/g++.jason/thunk2.C: Guard test with { target fpic }.
+
+	* gcc.dg/tree-ssa/20040204-1.c: Adjust XFAIL for CRIS and MMIX.
+	* gcc.dg/tree-ssa/loop-1.c: Adjust "call foo"-scanning for CRIS.
+
+	* gcc.dg/weak/typeof-2.c: Adjust for CRIS keeping baz3 in a register.
+
+2005-10-22  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24426
+	* gfortran.dg/der_pointer_4.f90: New.
+
+2005-10-22  David Ayers  <d.ayers@inode.at>
+
+	* obj-c++.dg/except-1.mm: Simplify.
+
+2005-10-21  David Ayers  <d.ayers@inode.at>
+
+	* obj-c++.dg/except-1.mm: Generalize for both Objective-C runtimes.
+
+2005-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/assumed_dummy_2.f90: New test.
+
+2005-10-21  James E Wilson  <wilson@specifix.com>
+
+	PR preprocessor/15220
+	* gcc.misc-tests/mg-2.c, gcc.misc-tests/mg-2.exp: New.
+
+2005-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20051021-1.c: New test.
+
+2005-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24260
+	* g++.dg/ext/tmplattr1.C: New test.
+
+2005-10-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24440
+	* gfortran.dg/assumed_size_dt_dummy.f90: Add test for scalar case.
+
+2005-10-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* obj-c++.dg/except-1.mm: New.
+
+	* obj-c++.dg/stubify-2.mm: Update the name of the RTL dump file.
+
+2005-10-21  Alan Modra  <amodra@bigpond.net.au>
+
+	* g++.dg/warn/Wconversion1.C: Use -fsigned-char.
+
+2005-10-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/24295
+	* g++.old-deja/g++.abi/vtable2.C: Do not introduce external
+	declarations with the same names as thunks' alias targets, use
+	aliases instead.
+	* gcc.dg/attr-alias-3.c: New test.
+	* gcc.dg/weak/weak-14.c, gcc.dg/weak/weak-14a.c: New test.
+
+2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* g++.dg/parse/access8.C: New test.
+
+2005-10-20  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/24439
+	* g++.dg/tree-ssa/pr24439.C: New testcase.
+
+2005-10-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/delay-slot-1.C: New test.
+
+2005-10-20  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/21625
+	* gfortran.fg/der_init_1.f90: New.
+
+2005-10-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20050824-1.c (f): Clobber %r13 and %r14 only on s390x.
+
+2005-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21908
+	* g++.dg/parse/error28.C: New test.
+
+2005-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/profile-generate-2.c: New test.
+
+2005-10-18  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/23589
+	* g++.dg/ext/dllimport11.C: New.
+
+2005-10-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22293
+	* g++.dg/other/friend3.C: New test.
+
+2005-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23293
+	* g++.dg/template/error19.C: New test.
+
+2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21383
+	* g++.dg/overload/koenig2.C: New.
+
+	PR c++/23118
+	* g++.dg/overload/error2.C: New.
+
+	PR c++/22604
+	* g++.dg/inherit/covariant14.C: New.
+
+2005-10-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23440
+	* g++.dg/parse/for1.C: New test.
+
+2005-10-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23446
+	* gfortran.dg/host_dummy_index_1.f90: New test.
+
+	PR fortran/21459
+	* gfortran.dg/automatic_char_len_2.f90: New test.
+
+	PR fortran/20866
+	* gfortran.dg/recursive_statement_functions.f90: New test.
+
+	PR fortran/20853
+	* gfortran.dg/assumed_size_dt_dummy.f90: New test.
+
+	PR fortran/20849
+	* gfortran.dg/external_initializer.f90: New test.
+
+	PR fortran/20837
+	* non_module_public.f90: New test.
+
+2005-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24386
+	* g++.dg/template/overload7.C: New.
+
+	PR c++/22551
+	* g++.dg/other/switch2.C: Remove expected warnings.
+
+	PR c++/21353
+	* g++.dg/template/defarg6.C: New.
+
+2005-10-17  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/24315
+	* gcc.target/i386/pr24315.c: New test.
+
 2005-10-16  Mark Mitchell  <mark@codesourcery.com>
 
-	PR c++/22137
+	PR c++/24389
+	* g++.dg/template/static21.C: New test.
+	* g++.dg/template/static21-a.cc: Likewise.
+
+2005-10-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/23959
+	* g++.dg/warn/Wswitch-default-1.C: New test.
+	* g++.dg/warn/Wswitch-default-2.C: New test.
+
+2005-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22173
 	* g++.dg/parse/template18.C: New test.
 	* g++.dg/template/nontype15.C: Likewise.
 

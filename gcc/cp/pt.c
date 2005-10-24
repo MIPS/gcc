@@ -3930,6 +3930,13 @@ convert_template_argument (tree parm,
 	}
       else
 	val = arg;
+      /* We only form one instance of each template specialization.
+	 Therefore, if we use a non-canonical variant (i.e., a
+	 typedef), any future messages referring to the type will use 
+	 the typedef, which is confusing if those future uses do not
+	 themselves also use the typedef.  */
+      if (TYPE_P (val))
+	val = canonical_type_variant (val);
     }
   else
     {
@@ -8828,9 +8835,17 @@ tsubst_copy_and_build (tree t,
 	  }
 	else
 	  {
-	    qualified_p = (TREE_CODE (function) == COMPONENT_REF
-			   && (TREE_CODE (TREE_OPERAND (function, 1))
-			       == SCOPE_REF));
+	    if (TREE_CODE (function) == COMPONENT_REF)
+	      {
+		tree op = TREE_OPERAND (function, 1);
+
+		qualified_p = (TREE_CODE (op) == SCOPE_REF
+			       || (BASELINK_P (op)
+				   && BASELINK_QUALIFIED_P (op)));
+	      }
+	    else
+	      qualified_p = false;
+	    
 	    function = tsubst_copy_and_build (function, args, complain,
 					      in_decl,
 					      !qualified_p);
@@ -11610,6 +11625,10 @@ instantiate_decl (tree d, int defer_ok,
   td = template_for_substitution (d);
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
+  /* We should never be trying to instantiate a member of a class
+     template or partial specialization.  */ 
+  gcc_assert (d != code_pattern);
+ 
   if ((DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
       || DECL_TEMPLATE_SPECIALIZATION (td))
     /* In the case of a friend template whose definition is provided

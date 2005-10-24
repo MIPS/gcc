@@ -6131,6 +6131,11 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	goto restart;
       return;
     }
+  else if (token->type == CPP_EOF)
+    {
+      cp_parser_error (parser, "expected statement");
+      return;
+    }
 
   /* Everything else must be a declaration-statement or an
      expression-statement.  Try for the declaration-statement
@@ -10999,7 +11004,7 @@ cp_parser_init_declarator (cp_parser* parser,
 	}
       decl = grokfield (declarator, decl_specifiers,
 			initializer, /*asmspec=*/NULL_TREE,
-			/*attributes=*/NULL_TREE);
+			prefix_attributes);
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
     }
@@ -15729,6 +15734,9 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       /* Parse the assignment-expression.  */
       parsed_arg = cp_parser_assignment_expression (parser, /*cast_p=*/false);
 
+      if (!processing_template_decl)
+	parsed_arg = check_default_argument (TREE_VALUE (parm), parsed_arg);
+      
       TREE_PURPOSE (parm) = parsed_arg;
 
       /* Update any instantiations we've already created.  */

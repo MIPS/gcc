@@ -972,7 +972,7 @@ vector_types_convertible_p (tree t1, tree t2)
   return targetm.vector_opaque_p (t1)
 	 || targetm.vector_opaque_p (t2)
          || (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
-	     && (TREE_CODE (t1) != REAL_TYPE || 
+	     && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE || 
 		 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
 	     && INTEGRAL_TYPE_P (TREE_TYPE (t1))
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
@@ -3527,10 +3527,6 @@ c_add_case_label (splay_tree cases, tree cond, tree orig_type,
       low_value = convert_and_check (type, low_value);
       if (low_value == error_mark_node)
 	goto error_out;
-      /* Do not propagate any overflow information past this point.
-	 It is safe to just clear the flags, as any constants with
-	 them set will not be shared.  */
-      TREE_CONSTANT_OVERFLOW (low_value) = TREE_OVERFLOW (low_value) = 0;
     }
   if (high_value)
     {
@@ -3538,7 +3534,6 @@ c_add_case_label (splay_tree cases, tree cond, tree orig_type,
       high_value = convert_and_check (type, high_value);
       if (high_value == error_mark_node)
 	goto error_out;
-      TREE_CONSTANT_OVERFLOW (high_value) = TREE_OVERFLOW (high_value) = 0;
     }
 
   if (low_value && high_value)
