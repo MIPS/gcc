@@ -1,3 +1,8 @@
+2005-10-24  Matthew Sachs  <msachs@apple.com>
+
+	Radar 4292858
+	* GNUmakefile: Take HOSTS and TARGETS from RC_ARCHS if it's set.
+
 2005-10-17  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4278941
