@@ -1,3 +1,9 @@
+2005-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.dg/nestedfn-1.c: New test.
+	* testsuite/libgomp.fortran/reduction6.f90: New test.
+	* testsuite/libgomp.fortran/nestedfn1.f90: New test.
+
 2005-10-23  Richard Henderson  <rth@redhat.com>
 
 	* testsuite/libgomp.c++/ctor-1.C: New.
