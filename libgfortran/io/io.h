@@ -85,6 +85,26 @@ stream;
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
+/* The array_loop_spec contains the variables for the loops over index ranges
+   that are encountered.  Since the variables can be negative, ssize_t
+   is used.  */
+
+typedef struct array_loop_spec
+{
+  /* Index counter for this dimension.  */
+  ssize_t idx;
+
+  /* Start for the index counter.  */
+  ssize_t start;
+
+  /* End for the index counter.  */
+  ssize_t end;
+
+  /* Step for the index counter.  */
+  ssize_t step;
+}
+array_loop_spec;
+
 /* Representation of a namelist object in libgfortran
 
    Namelist Records
@@ -100,29 +120,8 @@ stream;
 
    These requirements are met by the following data structures.
 
-   nml_loop_spec contains the variables for the loops over index ranges
-   that are encountered.  Since the variables can be negative, ssize_t
-   is used.  */
-
-typedef struct nml_loop_spec
-{
-
-  /* Index counter for this dimension.  */
-  ssize_t idx;
-
-  /* Start for the index counter.  */
-  ssize_t start;
-
-  /* End for the index counter.  */
-  ssize_t end;
-
-  /* Step for the index counter.  */
-  ssize_t step;
-}
-nml_loop_spec;
-
-/* namelist_info type contains all the scalar information about the
-   object and arrays of descriptor_dimension and nml_loop_spec types for
+   namelist_info type contains all the scalar information about the
+   object and arrays of descriptor_dimension and array_loop_spec types for
    arrays.  */
 
 typedef struct namelist_type
@@ -153,7 +152,7 @@ typedef struct namelist_type
   index_type string_length;
 
   descriptor_dimension * dim;
-  nml_loop_spec * ls;
+  array_loop_spec * ls;
   struct namelist_type * next;
 }
 namelist_info;
@@ -442,10 +441,10 @@ unit_flags;
 typedef struct gfc_unit
 {
   int unit_number;
-
   stream *s;
-
-  struct gfc_unit *left, *right;	/* Treap links.  */
+  
+  /* Treap links.  */
+  struct gfc_unit *left, *right;
   int priority;
 
   int read_bad, current_record;
@@ -455,12 +454,12 @@ typedef struct gfc_unit
 
   unit_mode mode;
   unit_flags flags;
-  gfc_offset recl, last_record, maxrec, bytes_left;
 
   /* recl           -- Record length of the file.
      last_record    -- Last record number read or written
      maxrec         -- Maximum record number in a direct access file
      bytes_left     -- Bytes left in current record.  */
+  gfc_offset recl, last_record, maxrec, bytes_left;
 
   __gthread_mutex_t lock;
   /* Number of threads waiting to acquire this unit's lock.
@@ -473,6 +472,10 @@ typedef struct gfc_unit
   /* Flag set by close_unit if the unit as been closed.
      Must be manipulated under unit's lock.  */
   int closed;
+
+  /* For traversing arrays */
+  array_loop_spec *ls;
+  int rank;
 
   int file_len;
   char *file;
@@ -565,7 +568,7 @@ internal_proto(output_stream);
 extern stream *error_stream (void);
 internal_proto(error_stream);
 
-extern int compare_file_filename (stream *, const char *, int);
+extern int compare_file_filename (gfc_unit *, const char *, int);
 internal_proto(compare_file_filename);
 
 extern gfc_unit *find_file (const char *file, gfc_charlen_type file_len);
@@ -659,9 +662,6 @@ internal_proto(is_internal_unit);
 extern int is_array_io (st_parameter_dt *);
 internal_proto(is_array_io);
 
-extern gfc_offset get_array_unit_len (st_parameter_dt *, gfc_array_char *);
-internal_proto(get_array_unit_len);
-
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
@@ -711,6 +711,12 @@ internal_proto(read_block);
 
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);
+
+extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *);
+internal_proto(next_array_record);
+
+extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *);
+internal_proto(init_loop_spec);
 
 extern void next_record (st_parameter_dt *, int);
 internal_proto(next_record);

@@ -1,13 +1,86 @@
+2005-10-24  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        PR libgfortran/24224
+        * gfortran.dg/arrayio_1.f90: Update attribution.
+        * gfortran.dg/arrayio_2.f90: Update attribution.
+        * gfortran.dg/arrayio_3.f90: Update attribution.
+        * gfortran.dg/arrayio_4.f90: Update test conditions.
+        * gfortran.dg/arrayio_5.f90: Update attribution.
+        * gfortran.dg/arrayio_6.f90: New test.
+        * gfortran.dg/arrayio_7.f90: New test.
+
+2005-10-24  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-9.c: Prevent matching "leave".
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/namelist_char_only.f90: Add missing newline at end.
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24416
+	* gfortran.dg/namelist_char_only.f90: New test.
+
+2005-10-24  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/17031
+	PR fortran/22282
+	* gfortran.dg/cray_pointers_1.f90: New test.
+	* gfortran.dg/cray_pointers_2.f90: New test.
+	* gfortran.dg/cray_pointers_3.f90: New test.
+	* gfortran.dg/loc_1.f90: New test.
+	* gfortran.dg/loc_2.f90: New test.
+
+2005-10-24  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/pr24225.c: New test.
+
+2005-10-24  Asher Langton  <langton2@llnl.gov>
+
+	* gfortran.dg/dup_save_1.f90: New test.
+	* gfortran.dg/dup_save_2.f90: New test.
+
+2005-10-24  Paul Brook  <paul@codesourcery.com>
+
+	PR 24107
+	* gcc.dg/20050922-1.c: Provide definition of uint32_t without using
+	stdint.h.
+
+2005-10-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libgfortran/24489
+	* gfortran.dg/pr24489.f90: New test.
+
+2005-10-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/23635
+	* gfortran.dg/ichar_1.f90: Add tests for derived types.
+
+2005-10-23  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18911
+	* g++.dg/init/array16.C: Skip for mmix-*-*.
+
+2005-10-23  Asher Langton  <langton2@llnl.gov>
+
+	* gfortran.dg/byte_1.f90: New test.
+	* gfortran.dg/byte_2.f90: New test.
+
+2005-10-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/attr-alias-3.c: XFAIL on AIX.
+
 2005-10-23  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/18022
-	gfortran.dg/assign_func_dtcomp_1.f90: New test.
+	* gfortran.dg/assign_func_dtcomp_1.f90: New test.
 
 	PR fortran/24311
-	gfortran.dg/merge_char_const.f90: New test.
+	* gfortran.dg/merge_char_const.f90: New test.
 
 	PR fortran/24384
-	gfortran.dg/spread_scalar_source.f90: New test.
+	* gfortran.dg/spread_scalar_source.f90: New test.
 
 2005-10-22  Hans-Peter Nilsson  <hp@axis.com>
 

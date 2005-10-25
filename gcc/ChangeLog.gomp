@@ -1,3 +1,7 @@
+2005-10-25  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge (gomp-merge-20051025).
+	
 2005-10-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-nested.c (convert_nonlocal_reference): Handle OMP_MASTER and

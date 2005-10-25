@@ -1261,10 +1261,13 @@ init_error_stream (unix_stream *error)
  * filename. */
 
 int
-compare_file_filename (stream * s, const char *name, int len)
+compare_file_filename (gfc_unit *u, const char *name, int len)
 {
   char path[PATH_MAX + 1];
-  struct stat st1, st2;
+  struct stat st1;
+#ifdef HAVE_WORKING_STAT
+  struct stat st2;
+#endif
 
   if (unpack_filename (path, name, len))
     return 0;			/* Can't be the same */
@@ -1275,33 +1278,50 @@ compare_file_filename (stream * s, const char *name, int len)
   if (stat (path, &st1) < 0)
     return 0;
 
-  fstat (((unix_stream *) s)->fd, &st2);
-
+#ifdef HAVE_WORKING_STAT
+  fstat (((unix_stream *) (u->s))->fd, &st2);
   return (st1.st_dev == st2.st_dev) && (st1.st_ino == st2.st_ino);
+#else
+  if (len != u->file_len)
+    return 0;
+  return (memcmp(path, u->file, len) == 0);
+#endif
 }
 
+
+#ifdef HAVE_WORKING_STAT
+# define FIND_FILE0_DECL struct stat *st
+# define FIND_FILE0_ARGS st
+#else
+# define FIND_FILE0_DECL const char *file, gfc_charlen_type file_len
+# define FIND_FILE0_ARGS file, file_len
+#endif
 
 /* find_file0()-- Recursive work function for find_file() */
 
 static gfc_unit *
-find_file0 (gfc_unit * u, struct stat *st1)
+find_file0 (gfc_unit *u, FIND_FILE0_DECL)
 {
-  struct stat st2;
   gfc_unit *v;
 
   if (u == NULL)
     return NULL;
 
+#ifdef HAVE_WORKING_STAT
   if (u->s != NULL
-      && fstat (((unix_stream *) u->s)->fd, &st2) >= 0
-      && st1->st_dev == st2.st_dev && st1->st_ino == st2.st_ino)
+      && fstat (((unix_stream *) u->s)->fd, &st[1]) >= 0 &&
+      st[0].st_dev == st[1].st_dev && st[0].st_ino == st[1].st_ino)
     return u;
+#else
+  if (compare_string (u->file_len, u->file, file_len, file) == 0)
+    return u;
+#endif
 
-  v = find_file0 (u->left, st1);
+  v = find_file0 (u->left, FIND_FILE0_ARGS);
   if (v != NULL)
     return v;
 
-  v = find_file0 (u->right, st1);
+  v = find_file0 (u->right, FIND_FILE0_ARGS);
   if (v != NULL)
     return v;
 
@@ -1316,18 +1336,18 @@ gfc_unit *
 find_file (const char *file, gfc_charlen_type file_len)
 {
   char path[PATH_MAX + 1];
-  struct stat statbuf;
+  struct stat st[2];
   gfc_unit *u;
 
   if (unpack_filename (path, file, file_len))
     return NULL;
 
-  if (stat (path, &statbuf) < 0)
+  if (stat (path, &st) < 0)
     return NULL;
 
   __gthread_mutex_lock (&unit_lock);
 retry:
-  u = find_file0 (unit_root, &statbuf);
+  u = find_file0 (unit_root, FIND_FILE0_ARGS);
   if (u != NULL)
     {
       /* Fast path.  */

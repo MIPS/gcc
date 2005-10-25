@@ -1455,7 +1455,7 @@ calls:
       static namelist_info * find_nml_node (st_parameter_dt *dtp,
 					    char * var_name)
       static int nml_parse_qualifier(descriptor_dimension * ad,
-				     nml_loop_spec * ls, int rank, char *)
+				     array_loop_spec * ls, int rank, char *)
       static void nml_touch_nodes (namelist_info * nl)
       static int nml_read_obj (namelist_info *nl, index_type offset,
 			       namelist_info **prev_nl, char *,
@@ -1467,8 +1467,8 @@ calls:
    singlets, doublets, triplets or ':' with the standard meanings.  */
 
 static try
-nml_parse_qualifier(st_parameter_dt *dtp, descriptor_dimension *ad,
-		    nml_loop_spec *ls, int rank, char *parse_err_msg)
+nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
+		     array_loop_spec *ls, int rank, char *parse_err_msg)
 {
   int dim;
   int indx;
@@ -2202,7 +2202,7 @@ get_name:
   if (c == '(' && nl->type == GFC_DTYPE_CHARACTER)
     {
       descriptor_dimension chd[1] = { {1, clow, nl->string_length} };
-      nml_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
+      array_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
 
       if (nml_parse_qualifier (dtp, chd, ind, 1, parse_err_msg) == FAILURE)
 	{
@@ -2361,6 +2361,7 @@ find_nml_name:
    }
 
   dtp->u.p.eof_jump = NULL;
+  free_saved (dtp);
   return;
 
   /* All namelist error calls return from here */
@@ -2368,6 +2369,7 @@ find_nml_name:
 nml_err_ret:
 
   dtp->u.p.eof_jump = NULL;
+  free_saved (dtp);
   generate_error (&dtp->common, ERROR_READ_VALUE, nml_err_msg);
   return;
 }

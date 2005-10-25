@@ -228,10 +228,6 @@ read_block (st_parameter_dt *dtp, int *length)
   char *source;
   int nread;
 
-  if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
-      dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
-    return read_sf (dtp, length);	/* Special case.  */
-
   if (dtp->u.p.current_unit->bytes_left < *length)
     {
       if (dtp->u.p.current_unit->flags.pad == PAD_NO)
@@ -243,6 +239,10 @@ read_block (st_parameter_dt *dtp, int *length)
 
       *length = dtp->u.p.current_unit->bytes_left;
     }
+
+  if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
+      dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
+    return read_sf (dtp, length);	/* Special case.  */
 
   dtp->u.p.current_unit->bytes_left -= *length;
 
@@ -276,15 +276,6 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
   void *data;
   size_t nread;
 
-  if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
-      dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
-    {
-      length = (int *) nbytes;
-      data = read_sf (dtp, length);	/* Special case.  */
-      memcpy (buf, data, (size_t) *length);
-      return;
-    }
-
   if (dtp->u.p.current_unit->bytes_left < *nbytes)
     {
       if (dtp->u.p.current_unit->flags.pad == PAD_NO)
@@ -295,6 +286,15 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	}
 
       *nbytes = dtp->u.p.current_unit->bytes_left;
+    }
+
+  if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
+      dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
+    {
+      length = (int *) nbytes;
+      data = read_sf (dtp, length);	/* Special case.  */
+      memcpy (buf, data, (size_t) *length);
+      return;
     }
 
   dtp->u.p.current_unit->bytes_left -= *nbytes;
@@ -1454,6 +1454,60 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
     formatted_transfer (dtp, 0, NULL, 0, 1);
 }
 
+/* Initialize an array_loop_spec given the array descriptor.  The function
+   returns the index of the last element of the array.  */
+   
+gfc_offset
+init_loop_spec (gfc_array_char *desc, array_loop_spec *ls)
+{
+  int rank = GFC_DESCRIPTOR_RANK(desc);
+  int i;
+  gfc_offset index; 
+
+  index = 1;
+  for (i=0; i<rank; i++)
+    {
+      ls[i].idx = 1;
+      ls[i].start = desc->dim[i].lbound;
+      ls[i].end = desc->dim[i].ubound;
+      ls[i].step = desc->dim[i].stride;
+      
+      index += (desc->dim[i].ubound - desc->dim[i].lbound)
+                      * desc->dim[i].stride;
+    }
+  return index;
+}
+
+/* Determine the index to the next record in an internal unit array by
+   by incrementing through the array_loop_spec.  TODO:  Implement handling
+   negative strides. */
+   
+gfc_offset
+next_array_record (st_parameter_dt *dtp, array_loop_spec *ls)
+{
+  int i, carry;
+  gfc_offset index;
+  
+  carry = 1;
+  index = 0;
+  
+  for (i = 0; i < dtp->u.p.current_unit->rank; i++)
+    {
+      if (carry)
+        {
+          ls[i].idx++;
+          if (ls[i].idx > ls[i].end)
+            {
+              ls[i].idx = ls[i].start;
+              carry = 1;
+            }
+          else
+            carry = 0;
+        }
+      index = index + (ls[i].idx - 1) * ls[i].step;
+    }
+  return index;
+}
 
 /* Space to the next record for read mode.  If the file is not
    seekable, we read MAX_READ chunks until we get to the right
@@ -1464,8 +1518,8 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 static void
 next_record_r (st_parameter_dt *dtp)
 {
-  int rlength, length, bytes_left;
-  gfc_offset new;
+  gfc_offset new, record;
+  int bytes_left, rlength, length;
   char *p;
 
   switch (current_mode (dtp))
@@ -1520,10 +1574,27 @@ next_record_r (st_parameter_dt *dtp)
 
       if (is_internal_unit (dtp))
 	{
-	  bytes_left = (int) dtp->u.p.current_unit->bytes_left;
-	  p = salloc_r (dtp->u.p.current_unit->s, &bytes_left);
-	  if (p != NULL)
-	    dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+	  if (is_array_io (dtp))
+	    {
+	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
+
+	      /* Now seek to this record.  */
+	      record = record * dtp->u.p.current_unit->recl;
+	      if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+		{
+		  generate_error (&dtp->common, ERROR_OS, NULL);
+		  break;
+		}
+	      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+	    }
+	  else  
+	    {
+	      bytes_left = (int) dtp->u.p.current_unit->bytes_left;
+	      p = salloc_r (dtp->u.p.current_unit->s, &bytes_left);
+	      if (p != NULL)
+		dtp->u.p.current_unit->bytes_left
+		  = dtp->u.p.current_unit->recl;
+	    } 
 	  break;
 	}
       else do
@@ -1557,8 +1628,8 @@ next_record_r (st_parameter_dt *dtp)
 static void
 next_record_w (st_parameter_dt *dtp)
 {
-  gfc_offset c, m;
-  int length, bytes_left;
+  gfc_offset c, m, record;
+  int bytes_left, length;
   char *p;
 
   /* Zero counters for X- and T-editing.  */
@@ -1637,7 +1708,19 @@ next_record_w (st_parameter_dt *dtp)
 		  generate_error (&dtp->common, ERROR_END, NULL);
 		  return;
 		}
-	      memset (p, ' ', bytes_left);
+	      memset(p, ' ', bytes_left);
+
+	      /* Now that the current record has been padded out,
+		 determine where the next record in the array is. */
+
+	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
+
+	      /* Now seek to this record */
+	      record = record * dtp->u.p.current_unit->recl;
+
+	      if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+		goto io_error;
+
 	      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
 	    }
 	  else
@@ -1645,7 +1728,7 @@ next_record_w (st_parameter_dt *dtp)
 	      length = 1;
 	      p = salloc_w (dtp->u.p.current_unit->s, &length);
 	      if (p == NULL)
-	        goto io_error;
+		goto io_error;
 	    }
  	}
       else
@@ -1676,7 +1759,6 @@ next_record_w (st_parameter_dt *dtp)
       break;
     }
 }
-
 
 /* Position to the next record, which means moving to the end of the
    current record.  This can happen under several different
@@ -1716,7 +1798,7 @@ next_record (st_parameter_dt *dtp, int done)
 
 /* Finalize the current data transfer.  For a nonadvancing transfer,
    this means advancing to the next record.  For internal units close the
-   steam associated with the unit.  */
+   stream associated with the unit.  */
 
 static void
 finalize_transfer (st_parameter_dt *dtp)
@@ -1773,7 +1855,11 @@ finalize_transfer (st_parameter_dt *dtp)
   sfree (dtp->u.p.current_unit->s);
 
   if (is_internal_unit (dtp))
-    sclose (dtp->u.p.current_unit->s);
+    {
+      if (is_array_io (dtp) && dtp->u.p.current_unit->ls != NULL)
+	free_mem (dtp->u.p.current_unit->ls);
+      sclose (dtp->u.p.current_unit->s);
+    }
 }
 
 
@@ -1980,8 +2066,8 @@ st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
     {
       nml->dim = (descriptor_dimension*)
 		   get_mem (nml->var_rank * sizeof (descriptor_dimension));
-      nml->ls = (nml_loop_spec*)
-		  get_mem (nml->var_rank * sizeof (nml_loop_spec));
+      nml->ls = (array_loop_spec*)
+		  get_mem (nml->var_rank * sizeof (array_loop_spec));
     }
   else
     {

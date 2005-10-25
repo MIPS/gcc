@@ -441,7 +441,7 @@ already_open (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
   /* If the file is connected to something else, close it and open a
      new unit.  */
 
-  if (!compare_file_filename (u->s, opp->file, opp->file_len))
+  if (!compare_file_filename (u, opp->file, opp->file_len))
     {
 #if !HAVE_UNLINK_OPEN_FILE
       char *path = NULL;

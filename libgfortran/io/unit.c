@@ -358,31 +358,6 @@ find_or_create_unit (int n)
   return find_unit_1 (n, 1);
 }
 
-/* get_array_unit_len()-- return the number of records in the array. */
-
-gfc_offset
-get_array_unit_len (st_parameter_dt *dtp, gfc_array_char *desc)
-{
-  gfc_offset record_count;
-  int i, rank, stride;
-  rank = GFC_DESCRIPTOR_RANK(desc);
-  record_count = stride = 1;
-  for (i=0;i<rank;++i)
-    {
-      /* Check that array is contiguous */
-      
-      if (desc->dim[i].stride != stride)
-	{
-	  generate_error (&dtp->common, ERROR_ARRAY_STRIDE, NULL);
-	  return 0;
-	}
-      stride *= desc->dim[i].ubound;
-      record_count *= desc->dim[i].ubound;
-    }
-  return record_count;
-}
-
- 
 /* get_unit()-- Returns the unit structure associated with the integer
  * unit or the internal file. */
 
@@ -394,8 +369,14 @@ get_unit (st_parameter_dt *dtp, int do_create)
       __gthread_mutex_lock (&internal_unit.lock);
       internal_unit.recl = dtp->internal_unit_len;
       if (is_array_io (dtp))
-	dtp->internal_unit_len *=
-	  get_array_unit_len (dtp, dtp->internal_unit_desc);
+	{
+	  internal_unit.rank = GFC_DESCRIPTOR_RANK (dtp->internal_unit_desc);
+	  internal_unit.ls = (array_loop_spec *)
+	    get_mem (internal_unit.rank * sizeof (array_loop_spec));
+	  dtp->internal_unit_len *=
+	    init_loop_spec (dtp->internal_unit_desc, internal_unit.ls);
+	}
+
       internal_unit.s =
 	open_internal (dtp->internal_unit, dtp->internal_unit_len);
       internal_unit.bytes_left = internal_unit.recl;
