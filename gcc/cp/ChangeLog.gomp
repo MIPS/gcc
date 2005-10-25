@@ -1,3 +1,11 @@
+2005-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24513
+	* parser.c (cp_parser_cache_group): Don't stop if next token
+	is CPP_PRAGMA_EOL and end is CPP_PRAGMA_EOL as well.  If current
+	token is CPP_PRAGMA, consume everything until CPP_PRAGMA_EOL
+	inclusive.
+
 2005-10-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/24502

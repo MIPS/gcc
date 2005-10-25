@@ -16229,7 +16229,8 @@ cp_parser_cache_group (cp_parser *parser,
 	return;
       /* If we've reached the end of the file, stop.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_EOF)
-	  || cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA_EOL))
+	  || (end != CPP_PRAGMA_EOL
+	      && cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA_EOL)))
 	return;
       /* Consume the next token.  */
       token = cp_lexer_consume_token (parser->lexer);
@@ -16242,6 +16243,8 @@ cp_parser_cache_group (cp_parser *parser,
 	}
       else if (token->type == CPP_OPEN_PAREN)
 	cp_parser_cache_group (parser, CPP_CLOSE_PAREN, depth + 1);
+      else if (token->type == CPP_PRAGMA)
+	cp_parser_cache_group (parser, CPP_PRAGMA_EOL, depth + 1);
       else if (token->type == end)
 	return;
     }
