@@ -2473,10 +2473,7 @@ init_regions (void)
 void
 schedule_insns (FILE *dump_file)
 {
-  sbitmap large_region_blocks, blocks;
   int rgn;
-  int any_large_regions;
-  basic_block bb;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -2510,38 +2507,11 @@ schedule_insns (FILE *dump_file)
   allocate_reg_life_data ();
   compute_bb_for_insn ();
 
-  any_large_regions = 0;
-  large_region_blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (large_region_blocks);
-  FOR_EACH_BB (bb)
-    SET_BIT (large_region_blocks, bb->index);
-
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (blocks);
-
-  /* Update life information.  For regions consisting of multiple blocks
-     we've possibly done interblock scheduling that affects global liveness.
-     For regions consisting of single blocks we need to do only local
-     liveness.  */
-  for (rgn = 0; rgn < nr_regions; rgn++)
-    if (RGN_NR_BLOCKS (rgn) > 1)
-      any_large_regions = 1;
-    else
-      {
-	SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-	RESET_BIT (large_region_blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-      }
-
   /* Don't update reg info after reload, since that affects
      regs_ever_live, which should not change after reload.  */
-  update_life_info (blocks, UPDATE_LIFE_LOCAL,
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL,
 		    (reload_completed ? PROP_DEATH_NOTES
 		     : PROP_DEATH_NOTES | PROP_REG_INFO));
-  if (any_large_regions)
-    {
-      update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL,
-			PROP_DEATH_NOTES | PROP_REG_INFO);
-    }
 
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
@@ -2572,9 +2542,6 @@ schedule_insns (FILE *dump_file)
   free (containing_rgn);
 
   sched_finish ();
-
-  sbitmap_free (blocks);
-  sbitmap_free (large_region_blocks);
 }
 #endif
 
@@ -2619,14 +2586,6 @@ rest_of_handle_sched2 (void)
      and write some more of the results to dump file.  */
 
   split_all_insns (1);
-
-#if 0
-  /* FIXME The current version of scheduling is not compatible with
-     the inclusing of the uninitialized variable information.  So we
-     rebuild the information without this.  */ 
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		    PROP_LOG_LINKS | PROP_NO_UNINITIALIZED_LL);
-#endif
 
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
     {

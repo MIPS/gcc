@@ -1843,7 +1843,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	    {
 	      fprintf (outf, ";; Start of basic block %d, registers live:",
 		       bb->index);
-	      if (rtl_df)
+	      if (rtl_df && !bitmap_empty_p (DF_LIVE_IN (rtl_df, bb)))
 		dump_regset (DF_LIVE_IN (rtl_df, bb), outf);
 	      putc ('\n', outf);
 	    }
@@ -1861,7 +1861,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	    {
 	      fprintf (outf, ";; End of basic block %d, registers live:\n",
 		       bb->index);
-	      if (rtl_df)
+	      if (rtl_df && !bitmap_empty_p (DF_LIVE_OUT (rtl_df, bb)))
 		dump_regset (DF_LIVE_OUT (rtl_df, bb), outf);
 	      putc ('\n', outf);
 	    }

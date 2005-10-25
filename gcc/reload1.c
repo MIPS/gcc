@@ -1082,7 +1082,7 @@ reload (rtx first, int global)
     FOR_EACH_BB (bb)
       {
 	CLEAR_REGNO_REG_SET (DF_LIVE_IN (rtl_df, bb), HARD_FRAME_POINTER_REGNUM);
-	CLEAR_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb), HARD_FRAME_POINTER_REGNUM);
+	//	CLEAR_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb), HARD_FRAME_POINTER_REGNUM);
       }
 	
   /* Come here (with failure set nonzero) if we can't get enough spill

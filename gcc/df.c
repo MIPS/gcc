@@ -2671,6 +2671,8 @@ static void
 mark_reg_change (rtx reg, rtx setter, void *data)
 {
   int regno;
+  int endregno;
+  int i;
   struct df_bb_info *bb_info = (struct df_bb_info*) data;
 
   if (GET_CODE (reg) == SUBREG)
@@ -2678,16 +2680,33 @@ mark_reg_change (rtx reg, rtx setter, void *data)
 
   if (!REG_P (reg))
     return;
-
-  regno = REGNO (reg);
-  bitmap_set_bit (bb_info->ur_kill, regno);
   
-  if (GET_CODE (setter) != CLOBBER)
-    bitmap_set_bit (bb_info->ur_gen, regno);
+  
+  endregno = regno = REGNO (reg);
+  if (regno < FIRST_PSEUDO_REGISTER)
+    {
+      endregno +=hard_regno_nregs[regno][GET_MODE (reg)];
+      
+      for (i = regno; i < endregno; i++)
+	{
+	  bitmap_set_bit (bb_info->ur_kill, i);
+	  
+	  if (GET_CODE (setter) != CLOBBER)
+	    bitmap_set_bit (bb_info->ur_gen, i);
+	  else
+	    bitmap_clear_bit (bb_info->ur_gen, i);
+	}
+    }
   else
-    bitmap_clear_bit (bb_info->ur_gen, regno);
+    {
+      bitmap_set_bit (bb_info->ur_kill, regno);
+      
+      if (GET_CODE (setter) != CLOBBER)
+	bitmap_set_bit (bb_info->ur_gen, regno);
+      else
+	bitmap_clear_bit (bb_info->ur_gen, regno);
+    }
 }
-
 /* Classes of registers which could be early clobbered in the current
    insn.  */
 
@@ -3271,7 +3290,10 @@ df_init (void)
   int i;
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
-  memset (regs_ever_live, 0, sizeof (regs_ever_live));
+  /* After reload, some ports add certain bits to regs_ever_live so
+     this cannot be reset.  */
+  if (!reload_completed)
+    memset (regs_ever_live, 0, sizeof (regs_ever_live));
   if (!initialized)
     {
       bitmap_obstack_initialize (&persistent_obstack);

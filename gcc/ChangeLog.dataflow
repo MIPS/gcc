@@ -1,3 +1,15 @@
+2005-10-25  Daniel Berlin  <dberlin@dberlin.org>
+            Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cfgrtl.c (print_rtl_with_bb): Fixed problem with debugging
+	output of bitmaps.
+	* df.c (mark_reg_change): Fixed problem computing sizes of hard regs.
+	* reload1.c (reload): Fixed over agressive updating of bitmaps.
+	* sched-rgn.c (schedule_insns): Cleaned away some useless verification 
+	code.
+	(rest_of_handle_sched2): Removed debugging.
+
+
 2005-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* sched-rgn.c (check_live_1, update_live_1, rest_of_handle_sched): 
