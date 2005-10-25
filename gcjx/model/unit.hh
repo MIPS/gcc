@@ -140,21 +140,28 @@ class model_unit_source : public model_unit
   // Imports.
   std::list<ref_import> imports;
 
+  // Map simple names to imports.  Imports are resolved lazily;
+  // resolving them eagerly can result in circularity errors where
+  // none are needed.  Note that duplicate checking of simple names is
+  // not done until relatively late.
+  std::multimap<std::string, model_import *> simple_name_map;
+
+  // We set this when resolving an import, so that we don't recurse.
+  bool resolving;
+
   typedef std::map<std::string, std::pair<model_import *, model_class *> >
     name_map_type;
 
-  // Map simple names to types.  This is constructed during
-  // resolution.
-  name_map_type name_map;
-
-  // A helper function when resolving.
+  // Helper function for resolving.
   void check_dups (const std::string &, model_import *,
 		   model_class *, name_map_type &);
+  void resolve (resolution_scope *, model_import *);
 
 public:
 
   model_unit_source (const location &w)
-    : model_unit (w)
+    : model_unit (w),
+      resolving (false)
   {
   }
 

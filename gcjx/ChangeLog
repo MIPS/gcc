@@ -1,3 +1,17 @@
+2005-10-25  Tom Tromey  <tromey@redhat.com>
+
+	* model/unit.hh (model_unit_source::simple_name_map): New field.
+	(model_unit_source::name_map): Removed.
+	(model_unit_source::resolving): New field.
+	(model_unit_source): Initialize it.
+	(model_unit_source::resolve): Declare.
+	* model/import.cc (check_referenced): Removed old comment.
+	* model/unit.cc (check_imports): Removed old comment.
+	(resolve): Initialize simple_name_map.  Don't resolve imports.
+	(check_imports): Resolve all imports here.
+	(look_up_name): Lazily resolve imports.
+	(resolve): New overload.
+
 2005-10-24  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.

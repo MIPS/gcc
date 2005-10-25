@@ -58,53 +58,27 @@ model_unit_source::resolve (resolution_scope *scope)
 {
   if (resolved)
     return;
-  resolution_scope::push_iscope self_holder (scope, this);
 
-  // Note that we compute the name map here, then later assign it to
-  // the corresponding field.  This is done in case we have a
-  // situation like this, from Jacks:
-  //    import java.util.Vector;
-  //    import Vector.Mosquito;
-  // In this case, the simple name of the first import is the package
-  // name of the second import -- but the first import should not be
-  // in scope when resolving the second import.
-  name_map_type local_name_map;
-
-  // First resolve the imports.
+  // Initialize the simple name map.  We will resolve elements from
+  // this map on demand.
   for (std::list<ref_import>::const_iterator i = imports.begin ();
        i != imports.end ();
        ++i)
     {
-      (*i)->resolve (scope);
-      // This will be NULL if the import doesn't resolve to a single
-      // class.
-      model_class *k = (*i)->get_class_declaration ();
-      if (k != NULL && accessible_p (k, package))
-	check_dups (k->get_name (), (*i).get (), k, local_name_map);
+      if ((*i)->single_import_p ())
+	simple_name_map.insert (std::make_pair ((*i)->get_simple_name (),
+						(*i).get ()));
     }
 
-  // Now check for duplicates among the types.
-  model_class *pub = NULL;
-  for (std::list<ref_class>::const_iterator i = types.begin ();
-       i != types.end ();
-       ++i)
-    {
-      std::string sname = (*i)->get_name ();
-      check_dups (sname, NULL, (*i).get (), local_name_map);
-      if (((*i)->get_modifiers () & ACC_PUBLIC) != 0)
-	{
-	  if (pub)
-	    std::cerr << (*i)->error ("%1 cannot be public in a compilation "
-	                              "unit already containing "
-				      "public class %2")
-	      % (*i)->get_pretty_name () % pub->get_pretty_name ();
-	  else
-	    pub = (*i).get ();
-	}
-    }
-
-  name_map = local_name_map;
   resolved = true;
+}
+
+void
+model_unit_source::resolve (resolution_scope *scope, model_import *imp)
+{
+  resolving = true;
+  imp->resolve (scope);
+  resolving = false;
 }
 
 void
@@ -115,18 +89,35 @@ model_unit_source::look_up_name (const std::string &name,
 {
   // Check single-type-import declarations, static single-type-import
   // declarations that resolve to a member type, and types defined in
-  // this compilation unit.  Note that if we haven't been resolved,
-  // this won't find anything.
-  name_map_type::const_iterator it = name_map.find (name);
-  if (it != name_map.end ())
+  // this compilation unit.  However, we only want to do if we've been
+  // resolved.  If RESOLVING is set then we are resolving an import
+  // statement; in this case we don't want to use this code as it
+  // would lead to infinite recursion, and anyway other imports should
+  // not be in scope.
+  if (resolved && ! resolving)
     {
-      assert (resolved);
-      if (accessible_p ((*it).second.second, context))
+      // We lazily resolve the imports, and for that we need a scope.
+      // The scope doesn't need to know anything other than its
+      // compilation unit.
+      resolution_scope scope;
+      push_on_scope (&scope);
+
+      for (std::multimap<std::string, model_import *>::const_iterator i
+	     = simple_name_map.begin ();
+	   i != simple_name_map.end ();
+	   ++i)
 	{
-	  if ((*it).second.first)
-	    (*it).second.first->set_used ();
-	  result.insert ((*it).second.second);
-	  return;
+	  if (name != (*i).first)
+	    continue;
+	  model_import *imp = (*i).second;
+	  resolve (&scope, imp);
+	  model_class *klass = imp->get_class_declaration ();
+	  if (accessible_p (klass, context))
+	    {
+	      imp->set_used ();
+	      result.insert (klass);
+	      return;
+	    }
 	}
     }
 
@@ -142,8 +133,14 @@ model_unit_source::look_up_name (const std::string &name,
 
   // If we haven't been resolved yet, we won't find anything by
   // asking the imports, since they won't have been hooked up.
-  if (! resolved)
+  if (! resolved || resolving)
     return;
+
+  // We lazily resolve the imports, and for that we need a scope.  The
+  // scope doesn't need to know anything other than its compilation
+  // unit.
+  resolution_scope scope;
+  push_on_scope (&scope);
 
   // Finally look at on-demand imports.
   model_import *result_import = NULL;
@@ -151,6 +148,7 @@ model_unit_source::look_up_name (const std::string &name,
        i != imports.end ();
        ++i)
     {
+      resolve (&scope, (*i).get ());
       if (! (*i)->single_import_p ())
 	{
 	  // FIXME: imports should probably cache negative results.
@@ -228,13 +226,51 @@ model_unit_source::look_up_name (const std::string &name,
 void
 model_unit_source::check_imports ()
 {
+  resolution_scope scope;
+  push_on_scope (&scope);
+
+  name_map_type local_name_map;
+
+  // Resolve the imports.
+  for (std::list<ref_import>::const_iterator i = imports.begin ();
+       i != imports.end ();
+       ++i)
+    {
+      resolve (&scope, (*i).get ());
+      // This will be NULL if the import doesn't resolve to a single
+      // class.
+      model_class *k = (*i)->get_class_declaration ();
+      if (k != NULL && accessible_p (k, package))
+	check_dups (k->get_name (), (*i).get (), k, local_name_map);
+    }
+
+  // Check for duplicates among the types.
+  model_class *pub = NULL;
+  for (std::list<ref_class>::const_iterator i = types.begin ();
+       i != types.end ();
+       ++i)
+    {
+      std::string sname = (*i)->get_name ();
+      check_dups (sname, NULL, (*i).get (), local_name_map);
+      if (((*i)->get_modifiers () & ACC_PUBLIC) != 0)
+	{
+	  if (pub)
+	    std::cerr << (*i)->error ("%1 cannot be public in a compilation "
+	                              "unit already containing "
+				      "public class %2")
+	      % (*i)->get_pretty_name () % pub->get_pretty_name ();
+	  else
+	    pub = (*i).get ();
+	}
+    }
+
+  // Check to see if each import is used.
   if (! global->get_compiler ()->warn_unused_import ())
     return;
 
   for (std::list<ref_import>::const_iterator i = imports.begin ();
        i != imports.end ();
        ++i)
-    // FIXME: should pass warning flag here, it could be an error...
     (*i)->check_referenced ();
 }
 

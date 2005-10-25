@@ -34,7 +34,6 @@ void
 model_import::check_referenced ()
 {
   if (! used && global->get_compiler ()->warn_unused_import ())
-    // FIXME: the text of the import...?
     std::cerr << warn (global->get_compiler ()->warn_unused_import (),
 		       "unused %<import%> statement");
 }
