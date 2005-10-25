@@ -60,12 +60,12 @@ model/fieldref.hh model/forenhanced.hh model/for.hh model/fwdtype.hh \
 model/iannotatable.hh model/icatcher.hh model/icontext.hh \
 model/identifier.hh model/ideprecatable.hh model/if.hh model/ilabel.hh \
 model/imember.hh model/imodifiable.hh model/import.hh model/iname.hh \
-model/init.hh model/instanceof.hh model/invoke.hh model/iscope.hh \
-model/javadoc.hh model/label.hh model/literal.hh model/loop.hh \
-model/memberref.hh model/method.hh model/modifier.hh model/newarray.hh \
-model/new.hh model/null.hh model/package.hh model/parameters.hh	\
-model/primitive.hh model/return.hh model/stmt.hh model/switch.hh \
-model/synchronized.hh model/this.hh model/throw.hh \
+model/init.hh model/instanceof.hh model/intersect.hh model/invoke.hh \
+model/iscope.hh model/javadoc.hh model/label.hh model/literal.hh \
+model/loop.hh model/memberref.hh model/method.hh model/modifier.hh \
+model/newarray.hh model/new.hh model/null.hh model/package.hh \
+model/parameters.hh model/primitive.hh model/return.hh model/stmt.hh \
+model/switch.hh model/synchronized.hh model/this.hh model/throw.hh \
 model/throwsclause.hh model/try.hh model/type.hh model/typemap.hh \
 model/typevar.hh model/unary.hh model/unit.hh model/value.hh \
 model/variable.hh model/varref.hh model/varstmt.hh model/void.hh \
@@ -81,26 +81,27 @@ dot_sources = access.cc classcache.cc compiler.cc conversions.cc \
 defassign.cc directory.cc dump.cc factory.cc fold.cc init.cc \
 location.cc name.cc owner.cc scope.cc unify.cc util.cc warnings.cc
 
-model_sources = model/annotation.cc model/annomember.cc model/annotype.cc \
-model/annovalue.cc model/arrayinit.cc model/arrayref.cc \
-model/arraytype.cc model/assert.cc model/assign.cc model/binary.cc \
-model/block.cc model/blockscope.cc model/break.cc model/bytecode.cc \
-model/cast.cc model/catch.cc model/class.cc model/classinst.cc \
-model/classref.cc model/cond.cc model/constructor.cc model/continue.cc \
-model/declstmt.cc model/do.cc model/empty.cc model/enum.cc \
-model/enumconst.cc model/expr.cc model/exprstmt.cc model/field.cc \
-model/fieldinit.cc model/fieldref.cc model/for.cc model/forenhanced.cc \
-model/fwdtype.cc model/iannotatable.cc model/identifier.cc model/if.cc \
-model/import.cc model/imodifiable.cc model/init.cc model/instanceof.cc \
-model/invoke.cc model/javadoc.cc model/label.cc model/literal.cc \
-model/memberref.cc model/method.cc model/modifier.cc model/newarray.cc \
-model/new.cc model/null.cc model/package.cc model/parameters.cc \
-model/primitive.cc model/return.cc model/stmt.cc model/switch.cc \
-model/synchronized.cc model/this.cc model/throw.cc model/throwsclause.cc \
-model/try.cc model/type.cc model/typemap.cc model/typevar.cc \
-model/unary.cc model/unit.cc model/value.cc model/variable.cc \
-model/varref.cc model/varstmt.cc model/void.cc model/while.cc \
-model/wildcard.cc
+model_sources = model/annotation.cc model/annomember.cc	\
+model/annotype.cc model/annovalue.cc model/arrayinit.cc	\
+model/arrayref.cc model/arraytype.cc model/assert.cc model/assign.cc \
+model/binary.cc model/block.cc model/blockscope.cc model/break.cc \
+model/bytecode.cc model/cast.cc model/catch.cc model/class.cc \
+model/classinst.cc model/classref.cc model/cond.cc \
+model/constructor.cc model/continue.cc model/declstmt.cc model/do.cc \
+model/empty.cc model/enum.cc model/enumconst.cc model/expr.cc \
+model/exprstmt.cc model/field.cc model/fieldinit.cc model/fieldref.cc \
+model/for.cc model/forenhanced.cc model/fwdtype.cc \
+model/iannotatable.cc model/identifier.cc model/if.cc model/import.cc \
+model/imodifiable.cc model/init.cc model/instanceof.cc \
+model/intersect.cc model/invoke.cc model/javadoc.cc model/label.cc \
+model/literal.cc model/memberref.cc model/method.cc model/modifier.cc \
+model/newarray.cc model/new.cc model/null.cc model/package.cc \
+model/parameters.cc model/primitive.cc model/return.cc model/stmt.cc \
+model/switch.cc model/synchronized.cc model/this.cc model/throw.cc \
+model/throwsclause.cc model/try.cc model/type.cc model/typemap.cc \
+model/typevar.cc model/unary.cc model/unit.cc model/value.cc \
+model/variable.cc model/varref.cc model/varstmt.cc model/void.cc \
+model/while.cc model/wildcard.cc
 
 bytecode_sources = bytecode/attribute.cc bytecode/block.cc \
 bytecode/bytegen.cc bytecode/classreader.cc bytecode/classwriter.cc \

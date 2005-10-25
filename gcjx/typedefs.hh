@@ -290,6 +290,7 @@ typedef owner<model_class> ref_class;
 
 #include "model/typevar.hh"
 #include "model/classinst.hh"
+#include "model/intersect.hh"
 
 #include "model/annotype.hh"
 typedef owner<model_annotation_type> ref_annotation_type;

@@ -185,8 +185,10 @@ class unifier
 
   model_class *compute_glb (model_class *left, model_class *right)
   {
-    // FIXME
-    return left;
+    std::list<model_class *> classes;
+    classes.push_back (left);
+    classes.push_back (right);
+    return new model_intersection_type (where, classes);
   }
 
   // Compute the least containing type argument for a pair of classes.
