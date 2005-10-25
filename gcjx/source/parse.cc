@@ -1372,8 +1372,12 @@ parse::type_name (int &lt_depth)
 ref_forwarding_type
 parse::counted_type (int &lt_depth)
 {
+  int saved_depth = lt_depth;
   ref_forwarding_type result (type_name (lt_depth));
-  return brackets_opt (result);
+  // Don't look for [] if we just closed more than one <>.
+  if (saved_depth == lt_depth)
+    result = brackets_opt (result);
+  return result;
 }
 
 // type:

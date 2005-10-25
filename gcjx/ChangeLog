@@ -1,5 +1,10 @@
 2005-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* source/parse.cc (counted_type): Don't look for [] if multiple
+	<> were closed at once.
+
+2005-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* model/classinst.hh (model_class_instance::resolve_hook):
 	Removed.
 	* model/classinst.cc (resolve_member_hook): Create member classes
