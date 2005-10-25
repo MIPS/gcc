@@ -1,3 +1,8 @@
+2005-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/fpu.c (_GNU_SOURCE): Don't define here.
+	* io/unix.c (find_file): Pass &st[0] to stat instead of &st.
+
 2005-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am (AM_CPPFLAGS): Add gcc directories as -I paths,

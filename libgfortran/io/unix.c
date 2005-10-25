@@ -1342,7 +1342,7 @@ find_file (const char *file, gfc_charlen_type file_len)
   if (unpack_filename (path, file, file_len))
     return NULL;
 
-  if (stat (path, &st) < 0)
+  if (stat (path, &st[0]) < 0)
     return NULL;
 
   __gthread_mutex_lock (&unit_lock);
