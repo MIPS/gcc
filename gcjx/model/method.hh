@@ -88,7 +88,7 @@ protected:
   model_instance_cache<model_method> instance_cache;
 
   void massage_modifiers (const ref_modifier_list &);
-  bool return_type_substitutable_p (model_type *, model_type *) const;
+  bool return_type_substitutable_p (model_type *, model_type *, bool) const;
   model_method *do_method_conversion_p (const std::list<model_type *> &,
 					method_phase);
   model_method *do_method_conversion_p (const model_type_map &,
@@ -155,9 +155,10 @@ public:
   /// declared or inherited.
   bool hides_or_overrides_p (model_method *, model_class *);
 
-  /// Return true if this method has the same argument types as the
-  /// other method.
-  bool same_arguments_p (model_method *) const;
+  /// Return true if this method's signature is a subsignature of
+  /// other method's signature.  The second argument, if not NULL, is
+  /// set to true if the signatures are identical.
+  bool same_arguments_p (model_method *, bool * = NULL) const;
 
   void set_name (const std::string &n)
   {

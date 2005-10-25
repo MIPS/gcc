@@ -1,5 +1,14 @@
 2005-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* model/method.hh (model_method::same_arguments_p): Added
+	argument.
+	* model/method.cc (same_arguments_p): Use const_cast.  Added
+	argument.
+	(return_type_substitutable_p): Added 'exact' argument.
+	(hides_or_overrides_p): Updated.
+
+2005-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* model/unit.hh (model_unit_source::simple_name_map): New field.
 	(model_unit_source::name_map): Removed.
 	(model_unit_source::resolving): New field.

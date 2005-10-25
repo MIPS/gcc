@@ -369,7 +369,7 @@ model_method::method_conversion (std::list<ref_expression> &args)
 }
 
 bool
-model_method::same_arguments_p (model_method *other) const
+model_method::same_arguments_p (model_method *other, bool *exact_p) const
 {
   // Map our type variables to OTHER's.
   model_type_map type_map;
@@ -380,6 +380,9 @@ model_method::same_arguments_p (model_method *other) const
   if (maybe_same)
     maybe_same = type_parameters.create_type_map (type_map,
 						  other->type_parameters);
+
+  if (exact_p)
+    *exact_p = true;
 
   std::list<ref_variable_decl>::const_iterator this_it
     = parameters.begin ();
@@ -402,13 +405,16 @@ model_method::same_arguments_p (model_method *other) const
 	  model_class *this_class = assert_cast<model_class *> (this_type);
 	  model_class *other_class = assert_cast<model_class *> (other_type);
 
-	  // FIXME: using the wrong kinds of cast here.
-	  this_class = this_class->apply_type_map ((model_element *) this,
-						   type_map);
-	  other_class = other_class->apply_type_map ((model_element *) this,
-						     type_map);
+	  this_type
+	    = this_class->apply_type_map (const_cast<model_method *> (this),
+					  type_map);
+	  other_type
+	    = other_class->apply_type_map (const_cast<model_method *> (this),
+					   type_map);
 	}
 
+      if (this_type != other_type && exact_p)
+	*exact_p = false;
       if (this_type->erasure () != other_type->erasure ())
 	return false;
       ++this_it;
@@ -424,21 +430,34 @@ model_method::same_arguments_p (model_method *other) const
 
 bool
 model_method::return_type_substitutable_p (model_type *base,
-					   model_type *derived) const
+					   model_type *derived,
+					   bool exact) const
 {
   if (base == primitive_void_type || base->primitive_p ())
     return base == derived;
-  // FIXME: if methods have same signature, see if base==derived
-  // or if we can use unchecked conversion.  Otherwise fall back to
-  // what we have now.
-  return widening_reference_conversion (base, derived);
-  // return base->erasure ()->assignable_from_p (derived->erasure ());
+
+  // If the signatures exactly match, see if derived's type is a
+  // subtype of base's type, or if derived's type can converted to a
+  // subtype of base's by unchecked conversion.
+  if (exact)
+    {
+      if (base->assignable_from_p (derived))
+	return true;
+      // Unchecked conversion here means that the erasure of derived
+      // is a subtype of base.
+      // FIXME: must emit unchecked warning.
+      return base->assignable_from_p (derived->erasure ());
+    }
+
+  // Otherwise, derived must be a subtype of the erasure of base.
+  return base->erasure ()->assignable_from_p (derived);
 }
 
 bool
 model_method::hides_or_overrides_p (model_method *other, model_class *asker)
 {
-  if (! same_arguments_p (other))
+  bool exact;
+  if (! same_arguments_p (other, &exact))
     return false;
 
   if (static_p () && ! other->static_p ())
@@ -451,7 +470,7 @@ model_method::hides_or_overrides_p (model_method *other, model_class *asker)
   if (global->get_compiler ()->feature_generics ())
     {
       if (! return_type_substitutable_p (other->return_type->type (),
-					 return_type->type ()))
+					 return_type->type (), exact))
 	throw error ("method's return type is not convertible"
 		     " from the return type of %1")
 	  % other;
