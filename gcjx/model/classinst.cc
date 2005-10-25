@@ -22,7 +22,7 @@
 #include "typedefs.hh"
 
 void
-model_class_instance::resolve_hook (resolution_scope *scope)
+model_class_instance::resolve_member_hook (resolution_scope *scope)
 {
   parent->resolve_members ();
 
@@ -38,11 +38,7 @@ model_class_instance::resolve_hook (resolution_scope *scope)
 	mem = mem->apply_type_map (this, type_map);
       member_classes[(*i).first] = mem;
     }
-}
 
-void
-model_class_instance::resolve_member_hook (resolution_scope *scope)
-{
   // Create fields.
   for (std::list<ref_field>::const_iterator i = parent->fields.begin ();
        i != parent->fields.end ();

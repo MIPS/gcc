@@ -1,5 +1,13 @@
 2005-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* model/classinst.hh (model_class_instance::resolve_hook):
+	Removed.
+	* model/classinst.cc (resolve_member_hook): Create member classes
+	here.
+	(resolve_hook): Removed.
+
+2005-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* model/method.hh (model_method::same_arguments_p): Added
 	argument.
 	* model/method.cc (same_arguments_p): Use const_cast.  Added

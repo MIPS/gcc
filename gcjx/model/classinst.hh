@@ -34,7 +34,6 @@ class model_class_instance : public model_class
 
 protected:
 
-  void resolve_hook (resolution_scope *);
   void resolve_member_hook (resolution_scope *);
   std::string get_signature_map_fragment ();
 
