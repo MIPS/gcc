@@ -1284,11 +1284,16 @@ typedef struct cp_parser GTY(())
   /* TRUE if we are presently parsing a template-argument-list.  */
   bool in_template_argument_list_p;
 
-  /* If we are presently parsing the body of an iteration-statement.
-     Takes 4 values: false, true, IN_OMP_BLOCK and IN_OMP_FOR.  */
-#define IN_OMP_BLOCK 2
-#define IN_OMP_FOR 3
-  unsigned char in_iteration_statement;
+  /* Set to IN_ITERATION_STMT if parsing an iteration-statement,
+     to IN_OMP_BLOCK if parsing OpenMP structured block and
+     IN_OMP_FOR if parsing OpenMP loop.  If parsing a switch statement,
+     this is bitwise ORed with IN_SWITCH_STMT, unless parsing an
+     iteration-statement, OpenMP block or loop within that switch.  */
+#define IN_SWITCH_STMT		1
+#define IN_ITERATION_STMT	2
+#define IN_OMP_BLOCK		4
+#define IN_OMP_FOR		8
+  unsigned char in_statement;
 
   /* TRUE if we are presently parsing the body of a switch statement.  */
   bool in_switch_statement_p;
@@ -2492,7 +2497,7 @@ cp_parser_new (void)
   parser->in_template_argument_list_p = false;
 
   /* We are not in an iteration statement.  */
-  parser->in_iteration_statement = false;
+  parser->in_statement = 0;
 
   /* We are not in a switch statement.  */
   parser->in_switch_statement_p = false;
@@ -6417,15 +6422,19 @@ cp_parser_selection_statement (cp_parser* parser)
 	else
 	  {
 	    bool in_switch_statement_p;
+	    unsigned char in_statement;
 
 	    /* Add the condition.  */
 	    finish_switch_cond (condition, statement);
 
 	    /* Parse the body of the switch-statement.  */
 	    in_switch_statement_p = parser->in_switch_statement_p;
+	    in_statement = parser->in_statement;
 	    parser->in_switch_statement_p = true;
+	    parser->in_statement |= IN_SWITCH_STMT;
 	    cp_parser_implicitly_scoped_statement (parser);
 	    parser->in_switch_statement_p = in_switch_statement_p;
+	    parser->in_statement = in_statement;
 
 	    /* Now we're all done with the switch-statement.  */
 	    finish_switch_stmt (statement);
@@ -6551,7 +6560,7 @@ cp_parser_iteration_statement (cp_parser* parser)
   cp_token *token;
   enum rid keyword;
   tree statement;
-  unsigned char in_iteration_statement;
+  unsigned char in_statement;
 
   /* Peek at the next token.  */
   token = cp_parser_require (parser, CPP_KEYWORD, "iteration-statement");
@@ -6560,7 +6569,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 
   /* Remember whether or not we are already within an iteration
      statement.  */
-  in_iteration_statement = parser->in_iteration_statement;
+  in_statement = parser->in_statement;
 
   /* See what kind of keyword it is.  */
   keyword = token->keyword;
@@ -6580,9 +6589,9 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	/* Parse the dependent statement.  */
-	parser->in_iteration_statement = true;
+	parser->in_statement = IN_ITERATION_STMT;
 	cp_parser_already_scoped_statement (parser);
-	parser->in_iteration_statement = in_iteration_statement;
+	parser->in_statement = in_statement;
 	/* We're done with the while-statement.  */
 	finish_while_stmt (statement);
       }
@@ -6595,9 +6604,9 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Begin the do-statement.  */
 	statement = begin_do_stmt ();
 	/* Parse the body of the do-statement.  */
-	parser->in_iteration_statement = true;
+	parser->in_statement = IN_ITERATION_STMT;
 	cp_parser_implicitly_scoped_statement (parser);
-	parser->in_iteration_statement = in_iteration_statement;
+	parser->in_statement = in_statement;
 	finish_do_body (statement);
 	/* Look for the `while' keyword.  */
 	cp_parser_require_keyword (parser, RID_WHILE, "`while'");
@@ -6642,9 +6651,9 @@ cp_parser_iteration_statement (cp_parser* parser)
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
 	/* Parse the body of the for-statement.  */
-	parser->in_iteration_statement = true;
+	parser->in_statement = IN_ITERATION_STMT;
 	cp_parser_already_scoped_statement (parser);
-	parser->in_iteration_statement = in_iteration_statement;
+	parser->in_statement = in_statement;
 
 	/* We're done with the for-statement.  */
 	finish_for_stmt (statement);
@@ -6724,12 +6733,14 @@ cp_parser_jump_statement (cp_parser* parser)
   switch (keyword)
     {
     case RID_BREAK:
-      switch (parser->in_iteration_statement | parser->in_switch_statement_p)
+      switch (parser->in_statement)
 	{
-	case false:
+	case 0:
 	  error ("break statement not within loop or switch");
 	  break;
-	case true:
+	default:
+	  gcc_assert ((parser->in_statement & IN_SWITCH_STMT)
+		      || parser->in_statement == IN_ITERATION_STMT);
 	  statement = finish_break_stmt ();
 	  break;
 	case IN_OMP_BLOCK:
@@ -6738,19 +6749,17 @@ cp_parser_jump_statement (cp_parser* parser)
 	case IN_OMP_FOR:
 	  error ("break statement used with OpenMP for loop");
 	  break;
-	default:
-	  gcc_unreachable ();
 	}
       cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
       break;
 
     case RID_CONTINUE:
-      switch (parser->in_iteration_statement)
+      switch (parser->in_statement & ~IN_SWITCH_STMT)
 	{
-	case false:
+	case 0:
 	  error ("continue statement not within a loop");
 	  break;
-	case true:
+	case IN_ITERATION_STMT:
 	case IN_OMP_FOR:
 	  statement = finish_continue_stmt ();
 	  break;
@@ -18042,7 +18051,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 static unsigned
 cp_parser_begin_omp_structured_block (cp_parser *parser)
 {
-  unsigned save = parser->in_iteration_statement;
+  unsigned save = parser->in_statement;
 
   /* Only move the values to IN_OMP_BLOCK if they weren't false.
      This preserves the "not within loop or switch" style error messages
@@ -18052,8 +18061,8 @@ cp_parser_begin_omp_structured_block (cp_parser *parser)
 	  break;
 	}
   */
-  if (parser->in_iteration_statement)
-    parser->in_iteration_statement = IN_OMP_BLOCK;
+  if (parser->in_statement)
+    parser->in_statement = IN_OMP_BLOCK;
 
   return save;
 }
@@ -18061,7 +18070,7 @@ cp_parser_begin_omp_structured_block (cp_parser *parser)
 static void
 cp_parser_end_omp_structured_block (cp_parser *parser, unsigned save)
 {
-  parser->in_iteration_statement = save;
+  parser->in_statement = save;
 }
 
 static tree
@@ -18311,7 +18320,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
 
   /* Note that we saved the original contents of this flag when we entered
      the structured block, and so we don't need to re-save it here.  */
-  parser->in_iteration_statement = IN_OMP_FOR;
+  parser->in_statement = IN_OMP_FOR;
 
   /* Note that the grammar doesn't call for a structured block here,
      though the loop as a whole is a structured block.  */

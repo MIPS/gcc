@@ -1,5 +1,9 @@
 2005-10-25  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c++/24516
+	* gcc.dg/gomp/block-11.c: New test.
+	* g++.dg/gomp/block-11.C: New test.
+
 	PR c++/24513
 	* g++.dg/gomp/method-1.C: New test.
 

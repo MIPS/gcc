@@ -1,5 +1,22 @@
 2005-10-25  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c++/24516
+	* parser.c (struct cp_parser): Rename in_iteration_statement
+	field to in_statement.
+	(IN_SWITCH_STMT, IN_ITERATION_STMT): Define.
+	(IN_OMP_BLOCK, IN_OMP_FOR): Change values.
+	(cp_parser_new, cp_parser_begin_omp_structured_block,
+	cp_parser_end_omp_structured_block, cp_parser_omp_for_loop): Adjust
+	for in_iteration_statement renaming.
+	(cp_parser_selection_statement): Save parser->in_iteration, or it
+	temporarily with IN_SWITCH_STMT for the
+	cp_parser_implicitly_scoped_statement call.
+	(cp_parser_iteration_statement): Adjust for in_iteration_statement
+	renaming.  Use IN_ITERATION_STMT rather than true.
+	(cp_parser_jump_statement): Adjust for in_iteration_statement
+	renaming and new values.  Don't error on break in a switch statement
+	within OMP_FOR or OpenMP structured block.
+
 	PR c++/24513
 	* parser.c (cp_parser_cache_group): Don't stop if next token
 	is CPP_PRAGMA_EOL and end is CPP_PRAGMA_EOL as well.  If current
