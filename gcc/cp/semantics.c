@@ -3699,10 +3699,24 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 
   if (type_dependent_expression_p (decl)
       || type_dependent_expression_p (init)
-      || type_dependent_expression_p (cond)
-      || type_dependent_expression_p (incr))
+      || (cond && type_dependent_expression_p (cond))
+      || (incr && type_dependent_expression_p (incr)))
     {
-      tree stmt = make_node (OMP_FOR);
+      tree stmt;
+
+      if (cond == NULL)
+	{
+	  error ("%Hmissing controlling predicate", &locus);
+	  return NULL;
+	}
+
+      if (incr == NULL)
+	{
+	  error ("%Hmissing increment expression", &locus);
+	  return NULL;
+	}
+
+      stmt = make_node (OMP_FOR);
 
       /* This is really just a place-holder.  We'll be decomposing this
 	 again and going through the build_modify_expr path below when

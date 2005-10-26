@@ -1,5 +1,9 @@
 2005-10-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* semantics.c (finish_omp_for): Don't segfault if COND or INCR
+	is NULL.  If not calling c_finish_omp_for right away and one of
+	COND and INCR is NULL, issue error and don't expand anything.
+
 	PR c++/24512
 	* cp-tree.h (finish_omp_for): Add PRE_BODY argument.
 	* semantics.c (finish_omp_for): Likewise.  Set OMP_FOR_PRE_BODY
