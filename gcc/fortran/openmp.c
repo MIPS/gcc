@@ -438,8 +438,9 @@ gfc_match_omp_threadprivate (void)
 	  if (sym->attr.in_common)
 	    gfc_error_now ("Threadprivate variable at %C is an element of"
 			   " a COMMON block");
-	  else
-	    gfc_add_threadprivate (&sym->attr, sym->name, &sym->declared_at);
+	  else if (gfc_add_threadprivate (&sym->attr, sym->name,
+		   &sym->declared_at) == FAILURE)
+	    goto cleanup;
 	  goto next_item;
 	case MATCH_NO:
 	  break;
@@ -461,7 +462,9 @@ gfc_match_omp_threadprivate (void)
 	}
       st->n.common->threadprivate = 1;
       for (sym = st->n.common->head; sym; sym = sym->common_next)
-	gfc_add_threadprivate (&sym->attr, sym->name, &sym->declared_at);
+	if (gfc_add_threadprivate (&sym->attr, sym->name,
+				   &sym->declared_at) == FAILURE)
+	  goto cleanup;
 
     next_item:
       if (gfc_match_char (')') == MATCH_YES)
@@ -668,7 +671,7 @@ resolve_omp_clauses (gfc_code *code)
     if (list != OMP_LIST_FIRSTPRIVATE && list != OMP_LIST_LASTPRIVATE)
       for (n = omp_clauses->lists[list]; n; n = n->next)
 	if (n->sym->mark)
-	  gfc_error ("Symbol %s present on multiple clauses at %L",
+	  gfc_error ("Symbol '%s' present on multiple clauses at %L",
 		     n->sym->name, &code->loc);
 	else
 	  n->sym->mark = 1;
@@ -678,14 +681,14 @@ resolve_omp_clauses (gfc_code *code)
     for (n = omp_clauses->lists[list]; n; n = n->next)
       if (n->sym->mark)
 	{
-	  gfc_error ("Symbol %s present on multiple clauses at %L",
+	  gfc_error ("Symbol '%s' present on multiple clauses at %L",
 		     n->sym->name, &code->loc);
 	  n->sym->mark = 0;
 	}
 
   for (n = omp_clauses->lists[OMP_LIST_FIRSTPRIVATE]; n; n = n->next)
     if (n->sym->mark)
-      gfc_error ("Symbol %s present on multiple clauses at %L",
+      gfc_error ("Symbol '%s' present on multiple clauses at %L",
 		 n->sym->name, &code->loc);
     else
       n->sym->mark = 1;
@@ -695,7 +698,7 @@ resolve_omp_clauses (gfc_code *code)
 
   for (n = omp_clauses->lists[OMP_LIST_LASTPRIVATE]; n; n = n->next)
     if (n->sym->mark)
-      gfc_error ("Symbol %s present on multiple clauses at %L",
+      gfc_error ("Symbol '%s' present on multiple clauses at %L",
 		 n->sym->name, &code->loc);
     else
       n->sym->mark = 1;
@@ -718,10 +721,10 @@ resolve_omp_clauses (gfc_code *code)
 	    for (; n != NULL; n = n->next)
 	      {
 		if (!n->sym->attr.threadprivate)
-		  gfc_error ("Non-THREADPRIVATE object %s in COPYIN clause"
+		  gfc_error ("Non-THREADPRIVATE object '%s' in COPYIN clause"
 			     " at %L", n->sym->name, &code->loc);
 		if (n->sym->attr.allocatable)
-		  gfc_error ("COPYIN clause object %s is ALLOCATABLE at %L",
+		  gfc_error ("COPYIN clause object '%s' is ALLOCATABLE at %L",
 			     n->sym->name, &code->loc);
 	      }
 	    break;
@@ -729,41 +732,52 @@ resolve_omp_clauses (gfc_code *code)
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
-		  gfc_error ("Assumed size array %s in COPYPRIVATE clause"
+		  gfc_error ("Assumed size array '%s' in COPYPRIVATE clause"
 			     " at %L", n->sym->name, &code->loc);
 		if (n->sym->attr.allocatable)
-		  gfc_error ("COPYPRIVATE clause object %s is ALLOCATABLE"
+		  gfc_error ("COPYPRIVATE clause object '%s' is ALLOCATABLE"
 			     " at %L", n->sym->name, &code->loc);
 	      }
 	    break;
 	  case OMP_LIST_SHARED:
 	    for (; n != NULL; n = n->next)
-	      if (n->sym->attr.threadprivate)
-		gfc_error ("THREADPRIVATE object %s in SHARED clause at %L",
-			   n->sym->name, &code->loc);
+	      {
+		if (n->sym->attr.threadprivate)
+		  gfc_error ("THREADPRIVATE object '%s' in SHARED clause at",
+			     " %L", n->sym->name, &code->loc);
+		if (n->sym->attr.cray_pointee)
+		  gfc_error ("Cray pointee '%s' in SHARED clause at %L",
+			    n->sym->name, &code->loc);
+	      }
 	    break;
 	  default:
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->attr.threadprivate)
-		  gfc_error ("THREADPRIVATE object %s in %s clause at %L",
+		  gfc_error ("THREADPRIVATE object '%s' in %s clause at %L",
 			     n->sym->name, name, &code->loc);
+		if (n->sym->attr.cray_pointee)
+		  gfc_error ("Cray pointee '%s' in %s clause at %L",
+			    n->sym->name, name, &code->loc);
 		if (list != OMP_LIST_PRIVATE)
 		  {
 		    if (n->sym->attr.pointer)
-		      gfc_error ("POINTER object %s in %s clause at %L",
+		      gfc_error ("POINTER object '%s' in %s clause at %L",
 				 n->sym->name, name, &code->loc);
 		    if (n->sym->attr.allocatable)
-		      gfc_error ("%s clause object %s is ALLOCATABLE at %L",
+		      gfc_error ("%s clause object '%s' is ALLOCATABLE at %L",
 				 name, n->sym->name, &code->loc);
+		    if (n->sym->attr.cray_pointer)
+		      gfc_error ("Cray pointer '%s' in %s clause at %L",
+				 n->sym->name, name, &code->loc);
 		  }
 		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
-		  gfc_error ("Assumed size array %s in %s clause at %L",
+		  gfc_error ("Assumed size array '%s' in %s clause at %L",
 			     n->sym->name, name, &code->loc);
 		if (n->sym->attr.in_namelist
 		    && (list < OMP_LIST_REDUCTION_FIRST
 			|| list > OMP_LIST_REDUCTION_LAST))
-		  gfc_error ("Variable %s in %s clause is used in"
+		  gfc_error ("Variable '%s' in %s clause is used in"
 			     " NAMELIST statement at %L",
 			     n->sym->name, name, &code->loc);
 		switch (list)
@@ -772,7 +786,7 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_MULT:
 		  case OMP_LIST_SUB:
 		    if (!gfc_numeric_ts (&n->sym->ts))
-		      gfc_error ("%c REDUCTION variable %s is %s at %L",
+		      gfc_error ("%c REDUCTION variable '%s' is %s at %L",
 				 list == OMP_LIST_PLUS ? '+'
 				 : list == OMP_LIST_MULT ? '*' : '-',
 				 n->sym->name, gfc_typename (&n->sym->ts),
@@ -783,7 +797,7 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_EQV:
 		  case OMP_LIST_NEQV:
 		    if (n->sym->ts.type != BT_LOGICAL)
-		      gfc_error ("%s REDUCTION variable %s must be LOGICAL"
+		      gfc_error ("%s REDUCTION variable '%s' must be LOGICAL"
 				 " at %L",
 				 list == OMP_LIST_AND ? ".AND."
 				 : list == OMP_LIST_OR ? ".OR."
@@ -794,7 +808,7 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_MIN:
 		    if (n->sym->ts.type != BT_INTEGER
 			&& n->sym->ts.type != BT_REAL)
-		      gfc_error ("%s REDUCTION variable %s must be"
+		      gfc_error ("%s REDUCTION variable '%s' must be"
 				 " INTEGER or REAL at %L",
 				 list == OMP_LIST_MAX ? "MAX" : "MIN",
 				 n->sym->name, &code->loc);
@@ -803,7 +817,7 @@ resolve_omp_clauses (gfc_code *code)
 		  case OMP_LIST_IOR:
 		  case OMP_LIST_IEOR:
 		    if (n->sym->ts.type != BT_INTEGER)
-		      gfc_error ("%s REDUCTION variable %s must be INTEGER"
+		      gfc_error ("%s REDUCTION variable '%s' must be INTEGER"
 				 " at %L",
 				 list == OMP_LIST_IAND ? "IAND"
 				 : list == OMP_LIST_MULT ? "IOR" : "IEOR",
@@ -1090,7 +1104,7 @@ resolve_omp_atomic (gfc_code *code)
 	    var_arg = arg;
 	  else if (expr_references_sym (arg->expr, var, NULL))
 	    gfc_error ("!$OMP ATOMIC intrinsic arguments except one must not"
-		       " reference %s at %L", var->name, &arg->expr->where);
+		       " reference '%s' at %L", var->name, &arg->expr->where);
 	  if (arg->expr->rank != 0)
 	    gfc_error ("!$OMP ATOMIC intrinsic arguments must be scalar"
 		       " at %L", &arg->expr->where);
@@ -1099,7 +1113,7 @@ resolve_omp_atomic (gfc_code *code)
       if (var_arg == NULL)
 	{
 	  gfc_error ("First or last !$OMP ATOMIC intrinsic argument must"
-		     " be %s at %L", var->name, &expr2->where);
+		     " be '%s' at %L", var->name, &expr2->where);
 	  return;
 	}
 

@@ -373,6 +373,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (cray_pointee, entry);
   conf (cray_pointee, in_common);
   conf (cray_pointee, in_equivalence);
+  conf (cray_pointee, threadprivate);
 
   a1 = gfc_code2string (flavors, attr->flavor);
 

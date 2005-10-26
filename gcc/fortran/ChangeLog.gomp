@@ -1,3 +1,23 @@
+2005-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* symbol.c (check_conflict): Add conflict between cray_pointee and
+	threadprivate.
+	* openmp.c (gfc_match_omp_threadprivate): Fail if
+	gfc_add_threadprivate returned FAILURE.
+	(resolve_omp_clauses): Diagnose Cray pointees in SHARED,
+	{,FIRST,LAST}PRIVATE and REDUCTION clauses and Cray pointers in
+	{FIRST,LAST}PRIVATE and REDUCTION clauses.
+
+	* resolve.c (omp_workshare_flag): New variable.
+	(resolve_function): Diagnose use of non-ELEMENTAL user defined
+	function in WORKSHARE construct.
+	(resolve_code): Cleanup forall_save use.  Make sure omp_workshare_flag
+	is set to correct value in different contexts.
+
+	* openmp.c (resolve_omp_clauses): Replace %s with '%s' when printing
+	variable name.
+	(resolve_omp_atomic): Likewise.
+
 2005-10-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/24493

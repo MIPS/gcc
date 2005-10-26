@@ -32,7 +32,7 @@ subroutine test_atomic
 !$omp atomic
     c = min (c, 2.1, c) ! { dg-error "intrinsic arguments except one" }
 !$omp atomic
-    a = max (b, e(1)) ! { dg-error "intrinsic argument must be a" }
+    a = max (b, e(1)) ! { dg-error "intrinsic argument must be 'a'" }
 !$omp atomic
     d = 12 ! { dg-error "assignment must have an operator" }
 end subroutine test_atomic

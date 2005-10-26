@@ -1,4 +1,4 @@
-! { dg-do run }
+! { dg-do compile }
 
       SUBROUTINE SUB1(X)
         DIMENSION X(10)
