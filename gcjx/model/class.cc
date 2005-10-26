@@ -475,7 +475,12 @@ model_class::get_fully_qualified_name ()
 	      + get_assigned_name ());
   else
     {
-      result = compilation_unit->get_package ()->get_fully_qualified_name ();
+      // Ordinarily there is always a compilation unit.  However, this
+      // is not the case for wildcard types.  Doing this simplifies
+      // the model_array_type constructor (which precomputes the array
+      // descriptor), and doesn't matter in practice.
+      if (compilation_unit)
+	result = compilation_unit->get_package ()->get_fully_qualified_name ();
       if (! result.empty ())
 	result += ".";
       result += name;

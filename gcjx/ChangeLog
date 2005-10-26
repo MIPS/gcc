@@ -1,5 +1,10 @@
 2005-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* model/class.cc (get_fully_qualified_name): Only dereference
+	compilation unit if it exists.
+
+2005-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* source/parse.cc (counted_type): Don't look for [] if multiple
 	<> were closed at once.
 
