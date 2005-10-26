@@ -36,4 +36,8 @@ unify (const std::list<model_type *> &actual,
        model_class *assignment_type,
        model_type_map &result);
 
+/// Compute the LUB of two classes.
+model_class *compute_lub (model_element *request, model_class *,
+			  model_class *);
+
 #endif // GCJX_UNIFY_HH

@@ -306,14 +306,6 @@ class unifier
     return result;
   }
 
-  model_class *compute_lub (model_class *one, model_class *two)
-  {
-    std::set<model_class *> constraints;
-    constraints.insert (one);
-    constraints.insert (two);
-    return compute_lub (constraints);
-  }
-
   model_class *conforming_array_type (model_class *actual)
   {
     if (actual->array_p ())
@@ -553,6 +545,11 @@ class unifier
 
 public:
 
+  unifier (const location &w)
+    : where (w)
+  {
+  }
+
   void unify (const std::list<model_type *> &actual, model_method *method,
 	      model_type_map &result)
   {
@@ -596,6 +593,14 @@ public:
 
     resolve_constraints (result);
   }
+
+  model_class *compute_lub (model_class *one, model_class *two)
+  {
+    std::set<model_class *> constraints;
+    constraints.insert (one);
+    constraints.insert (two);
+    return compute_lub (constraints);
+  }
 };
 
 void
@@ -604,6 +609,14 @@ unify (const std::list<model_type *> &actual,
        model_class *assignment_type,
        model_type_map &result)
 {
-  unifier u;
+  // FIXME: correct location.
+  unifier u (method->get_location ());
   u.unify (actual, method, result);
+}
+
+model_class *
+compute_lub (model_element *request, model_class *one, model_class *two)
+{
+  unifier u (request->get_location ());
+  return u.compute_lub (one, two);
 }

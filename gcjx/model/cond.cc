@@ -1,6 +1,6 @@
 // Conditional expression.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -20,6 +20,7 @@
 // 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "typedefs.hh"
+#include "unify.hh"
 
 void
 model_conditional::resolve (resolution_scope *scope)
@@ -121,11 +122,21 @@ model_conditional::resolve (resolution_scope *scope)
   else
     {
       // Reference types.
-      // FIXME: we don't have capture conversion yet.
       // Also, this will fail if a primitive type makes it here...
-      model_type *merge = assignment_conversion (true_type, false_type);
-      if (merge == NULL)
-	merge = assignment_conversion (false_type, true_type);
+      model_type *merge;
+      if (global->get_compiler ()->feature_generics ())
+	{
+	  // FIXME: we don't have capture conversion yet, but should
+	  // run it on the result here.
+	  merge = compute_lub (this, assert_cast<model_class *> (true_type),
+			       assert_cast<model_class *> (false_type));
+	}
+      else
+	{
+	  merge = assignment_conversion (true_type, false_type);
+	  if (merge == NULL)
+	    merge = assignment_conversion (false_type, true_type);
+	}
       if (merge == NULL)
 	// fixme bad message
 	throw error ("operands of condition have types %1 and %2, "

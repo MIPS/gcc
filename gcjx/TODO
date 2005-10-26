@@ -645,6 +645,13 @@ likewise for "{"
 
 Bytecode generation
 
+for the 'cond.java' test I have, I get this in InnerClasses:
+Attribute "InnerClasses", length:26
+  inner: 13=cond$fnord (11="fnord"), access flags: 0x8 static, outer class: 2=cond
+  inner: 17=cond$fnord (11="fnord"), access flags: 0x8 static, outer class: 2=cond
+  inner: 16=cond$fnord (11="fnord"), access flags: 0x8 static, outer class: 2=cond
+... this shouldn't be possible
+
 we could recognize adjacent catch clauses with empty bodies and point
 them all to the same bytecode block
 

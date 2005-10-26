@@ -1,5 +1,14 @@
 2005-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* model/cond.cc (resolve): Use compute_lub.
+	* unify.hh (compute_lub): Declare.
+	* unify.cc (unifier::compute_lub): Now public.
+	(unifier::unifier): New constructor.
+	(unify): Updated.
+	(compute_lub): New method.
+
+2005-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* model/class.cc (get_fully_qualified_name): Only dereference
 	compilation unit if it exists.
 
