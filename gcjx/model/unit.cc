@@ -96,12 +96,6 @@ model_unit_source::look_up_name (const std::string &name,
   // not be in scope.
   if (resolved && ! resolving)
     {
-      // We lazily resolve the imports, and for that we need a scope.
-      // The scope doesn't need to know anything other than its
-      // compilation unit.
-      resolution_scope scope;
-      push_on_scope (&scope);
-
       for (std::multimap<std::string, model_import *>::const_iterator i
 	     = simple_name_map.begin ();
 	   i != simple_name_map.end ();
@@ -110,7 +104,7 @@ model_unit_source::look_up_name (const std::string &name,
 	  if (name != (*i).first)
 	    continue;
 	  model_import *imp = (*i).second;
-	  resolve (&scope, imp);
+	  resolve (&local_scope, imp);
 	  model_class *klass = imp->get_class_declaration ();
 	  if (accessible_p (klass, context))
 	    {
@@ -136,19 +130,13 @@ model_unit_source::look_up_name (const std::string &name,
   if (! resolved || resolving)
     return;
 
-  // We lazily resolve the imports, and for that we need a scope.  The
-  // scope doesn't need to know anything other than its compilation
-  // unit.
-  resolution_scope scope;
-  push_on_scope (&scope);
-
   // Finally look at on-demand imports.
   model_import *result_import = NULL;
   for (std::list<ref_import>::const_iterator i = imports.begin ();
        i != imports.end ();
        ++i)
     {
-      resolve (&scope, (*i).get ());
+      resolve (&local_scope, (*i).get ());
       if (! (*i)->single_import_p ())
 	{
 	  // FIXME: imports should probably cache negative results.
@@ -193,6 +181,7 @@ model_unit_source::look_up_name (const std::string &name,
 	  if ((*i)->single_import_p () == (pass == 1))
 	    continue;
 
+	  (*i)->resolve (&local_scope);
 	  (*i)->find_field (name, context, result);
 	  if (! result.empty ());
 	  return;
@@ -216,6 +205,7 @@ model_unit_source::look_up_name (const std::string &name,
 	  if ((*i)->single_import_p () == (pass == 1))
 	    continue;
 
+	  (*i)->resolve (&local_scope);
 	  (*i)->find_method (name, context, accessible);
 	  if (! accessible.empty ())
 	    return;
@@ -226,9 +216,6 @@ model_unit_source::look_up_name (const std::string &name,
 void
 model_unit_source::check_imports ()
 {
-  resolution_scope scope;
-  push_on_scope (&scope);
-
   name_map_type local_name_map;
 
   // Resolve the imports.
@@ -236,7 +223,7 @@ model_unit_source::check_imports ()
        i != imports.end ();
        ++i)
     {
-      resolve (&scope, (*i).get ());
+      resolve (&local_scope, (*i).get ());
       // This will be NULL if the import doesn't resolve to a single
       // class.
       model_class *k = (*i)->get_class_declaration ();

@@ -1,3 +1,11 @@
+2005-10-26  Tom Tromey  <tromey@redhat.com>
+
+	* model/unit.cc (look_up_name): Use local_scope.
+	(look_up_name): Resolve imports.
+	(check_imports): Use local_scope.
+	* model/unit.hh (model_unit_source::local_scope): New field.
+	(model_unit_source): Call push_on_scope.
+
 2005-10-25  Tom Tromey  <tromey@redhat.com>
 
 	* model/cond.cc (resolve): Use compute_lub.

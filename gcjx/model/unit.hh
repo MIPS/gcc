@@ -137,6 +137,11 @@ public:
 /// This represents a single .java source file.
 class model_unit_source : public model_unit
 {
+  // We lazily resolve the imports, and for that we need a scope.  The
+  // scope doesn't need to know anything other than its compilation
+  // unit.
+  resolution_scope local_scope;
+
   // Imports.
   std::list<ref_import> imports;
 
@@ -163,6 +168,7 @@ public:
     : model_unit (w),
       resolving (false)
   {
+    push_on_scope (&local_scope);
   }
 
   void add (const ref_class &typ)
