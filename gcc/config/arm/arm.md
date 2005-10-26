@@ -4463,7 +4463,7 @@
   "TARGET_THUMB1"
   "*
   (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (operands[1]));
+			     CODE_LABEL_NUMBER (operands[2]));
   return \"add\\t%0, %|pc\";
   "
   [(set_attr "length" "2")]
