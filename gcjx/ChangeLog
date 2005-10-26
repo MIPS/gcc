@@ -1,5 +1,10 @@
 2005-10-26  Tom Tromey  <tromey@redhat.com>
 
+	* compiler.cc (do_analyze_unit): Catch exceptions from
+	check_imports.
+
+2005-10-26  Tom Tromey  <tromey@redhat.com>
+
 	* model/unit.cc (look_up_name): Use local_scope.
 	(look_up_name): Resolve imports.
 	(check_imports): Use local_scope.

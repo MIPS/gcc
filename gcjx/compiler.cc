@@ -651,7 +651,16 @@ compiler::do_analyze_unit (model_unit *unit)
 	}
     }
 
-  unit->check_imports ();
+  try
+    {
+      unit->check_imports ();
+    }
+  catch (exception_base &exc)
+    {
+      exc.set_lexer (unit->get_lexer ());
+      std::cerr << exc;
+      ok = false;
+    }
 
   // Dump the AST to stdout now if it was requested.
   if (dump_tree ())
