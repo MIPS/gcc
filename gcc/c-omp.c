@@ -144,13 +144,14 @@ c_finish_omp_flush (void)
 
 
 /* Validate and emit code for the OpenMP directive #pragma omp for.
-   INIT, COND, INCR and BODY are the four basic elements of the loop
-   (initialization expression, controlling predicate, increment
-   expression and body of the loop).  DECL is the iteration variable.  */
+   INIT, COND, INCR, BODY and PRE_BODY are the five basic elements
+   of the loop (initialization expression, controlling predicate, increment
+   expression, body of the loop and statements to go before the loop).
+   DECL is the iteration variable.  */
 
 tree
 c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
-		  tree incr, tree body)
+		  tree incr, tree body, tree pre_body)
 {
   location_t elocus = locus;
   bool fail = false;
@@ -276,6 +277,7 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       OMP_FOR_COND (t) = cond;
       OMP_FOR_INCR (t) = incr;
       OMP_FOR_BODY (t) = body;
+      OMP_FOR_PRE_BODY (t) = pre_body;
 
       SET_EXPR_LOCATION (t, locus);
       return add_stmt (t);

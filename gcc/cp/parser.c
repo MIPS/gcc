@@ -18238,7 +18238,7 @@ cp_parser_omp_flush (cp_parser *parser, cp_token *pragma_tok)
 static tree
 cp_parser_omp_for_loop (cp_parser *parser)
 {
-  tree init, cond, incr, body, decl;
+  tree init, cond, incr, body, decl, pre_body;
   location_t loc;
 
   if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
@@ -18251,6 +18251,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
     return NULL;
 
   init = decl = NULL;
+  pre_body = push_stmt_list ();
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
     {
       cp_decl_specifier_seq type_specifiers;
@@ -18303,6 +18304,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
 	}
     }
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  pre_body = pop_stmt_list (pre_body);
 
   cond = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
@@ -18328,7 +18330,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
   cp_parser_statement (parser, NULL_TREE, false);
   body = pop_stmt_list (body);
 
-  return finish_omp_for (loc, decl, init, cond, incr, body);
+  return finish_omp_for (loc, decl, init, cond, incr, body, pre_body);
 }
 
 /* OpenMP 2.5:

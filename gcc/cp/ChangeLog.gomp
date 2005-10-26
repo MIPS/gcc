@@ -1,3 +1,16 @@
+2005-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24512
+	* cp-tree.h (finish_omp_for): Add PRE_BODY argument.
+	* semantics.c (finish_omp_for): Likewise.  Set OMP_FOR_PRE_BODY
+	to PRE_BODY if deferring, add it into the current statement list
+	if not processing template decl or pass it to c_finish_omp_for.
+	* parser.c (cp_parser_omp_for_loop): Expand optional DECL_EXPRs
+	into PRE_BODY statement list.  Pass it to finish_omp_for.
+	* pt.c (tsubst_expr) <case OMP_FOR>: tsubst_expr also OMP_FOR_PRE_BODY
+	into PRE_BODY stmt list, pass it to finish_omp_for.  Put all the
+	statements into sk_omp scope.
+
 2005-10-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/24516

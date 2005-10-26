@@ -8456,7 +8456,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case OMP_FOR:
       {
-	tree clauses, decl, init, cond, incr;
+	tree clauses, decl, init, cond, incr, body, pre_body;
 
 	clauses = tsubst_omp_clauses (OMP_FOR_CLAUSES (t),
 				      args, complain, in_decl);
@@ -8467,13 +8467,22 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	cond = tsubst_expr (OMP_FOR_COND (t), args, complain, in_decl);
 	incr = tsubst_expr (OMP_FOR_INCR (t), args, complain, in_decl);
 
-	stmt = push_stmt_list ();
-	tsubst_expr (OMP_FOR_BODY (t), args, complain, in_decl);
-	stmt = pop_stmt_list (stmt);
+	stmt = begin_omp_structured_block ();
 
-	t = finish_omp_for (EXPR_LOCATION (t), decl, init, cond, incr, stmt);
+	pre_body = push_stmt_list ();
+	tsubst_expr (OMP_FOR_PRE_BODY (t), args, complain, in_decl);
+	pre_body = pop_stmt_list (pre_body);
+
+	body = push_stmt_list ();
+	tsubst_expr (OMP_FOR_BODY (t), args, complain, in_decl);
+	body = pop_stmt_list (body);
+
+	t = finish_omp_for (EXPR_LOCATION (t), decl, init, cond, incr, body,
+			    pre_body);
 	if (t)
 	  OMP_FOR_CLAUSES (t) = clauses;
+
+	add_stmt (finish_omp_structured_block (stmt));
       }
       break;
 

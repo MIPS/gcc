@@ -3662,11 +3662,13 @@ finish_omp_parallel (tree clauses, tree body)
 /* Build and validate an OMP_FOR statement.  CLAUSES, BODY, COND, INCR
    are directly for their associated operands in the statement.  DECL
    and INIT are a combo; if DECL is NULL then INIT ought to be a
-   MODIFY_EXPR, and the DECL should be extracted.  */
+   MODIFY_EXPR, and the DECL should be extracted.  PRE_BODY are
+   optional statements that need to go before the loop into its
+   sk_omp scope.  */
 
 tree
 finish_omp_for (location_t locus, tree decl, tree init, tree cond,
-		tree incr, tree body)
+		tree incr, tree body, tree pre_body)
 {
   if (decl == NULL)
     {
@@ -3712,6 +3714,7 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       OMP_FOR_COND (stmt) = cond;
       OMP_FOR_INCR (stmt) = incr;
       OMP_FOR_BODY (stmt) = body;
+      OMP_FOR_PRE_BODY (stmt) = pre_body;
 
       SET_EXPR_LOCATION (stmt, locus);
       return add_stmt (stmt);
@@ -3723,8 +3726,15 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       return NULL;
     }
 
+  if (pre_body == NULL || IS_EMPTY_STMT (pre_body))
+    pre_body = NULL;
+  else if (! processing_template_decl)
+    {
+      add_stmt (pre_body);
+      pre_body = NULL;
+    }
   init = build_modify_expr (decl, NOP_EXPR, init);
-  return c_finish_omp_for (locus, decl, init, cond, incr, body);
+  return c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
 }
 
 void
