@@ -7704,7 +7704,15 @@ c_parser_omp_threadprivate (c_parser *parser)
 	error ("%qE declared %<threadprivate%> after first use", v);
       else
 	{
-	  DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	  if (! DECL_THREAD_LOCAL_P (v))
+	    {
+	      DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	      /* If rtl has been already set for this var, call
+		 make_decl_rtl once again, so that encode_section_info
+		 has a chance to look at the new decl flags.  */
+	      if (DECL_RTL_SET_P (v))
+		make_decl_rtl (v);
+	    }
 	  C_DECL_THREADPRIVATE_P (v) = 1;
 	}
     }

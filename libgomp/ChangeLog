@@ -1,3 +1,8 @@
+2005-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.dg/copyin-1.c: New test.
+	* testsuite/libgomp.c++/copyin-1.C: New test.
+
 2005-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/crayptr1.f90: New test.
