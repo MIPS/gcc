@@ -1,5 +1,11 @@
 2005-10-26  Tom Tromey  <tromey@redhat.com>
 
+	* compiler.cc (compiler): Default to 1.4 language.
+	* model/classref.cc (resolve): Use correct type for generic
+	class.
+
+2005-10-26  Tom Tromey  <tromey@redhat.com>
+
 	* unify.cc (unifier::compute_lcta): Handle case of two unbound
 	wildcards.
 	(unifier::unify): Handle case where 'actual' is a raw type.

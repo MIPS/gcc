@@ -1,6 +1,6 @@
 // Class references.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -43,7 +43,20 @@ model_class_ref::resolve (resolution_scope *scope)
       scope->get_current_class ()->add_class_members ();
     }
 
-  set_type (global->get_compiler ()->java_lang_Class ());
+  model_class *dest = global->get_compiler ()->java_lang_Class ();
+  if (global->get_compiler ()->feature_generics ())
+    {
+      model_type *boxed = boxing_conversion (klass->type ());
+      model_class *boxed_class = assert_cast<model_class *> (boxed);
+
+      std::list<model_class *> args;
+      args.push_back (boxed_class);
+      // FIXME: if Class is not parameterized, issue an error about
+      // the class library.
+      dest = dest->create_instance (this, args);
+    }
+
+  set_type (dest);
 }
 
 void
