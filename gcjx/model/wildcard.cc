@@ -39,6 +39,27 @@ model_wildcard::assignable_from_p (model_type *other)
   return k->assignable_from_p (bound->type ());
 }
 
+bool
+model_wildcard::contains_p (model_class *other)
+{
+  if (! bound)
+    // FIXME?  This is done on the theory that no bound == Object.
+    return true;
+  model_class *k = assert_cast<model_class *> (bound->type ());
+  if (other == k)
+    return true;
+  if (! other->wildcard_p ())
+    return false;
+  model_wildcard *w = assert_cast<model_wildcard *> (other);
+  // FIXME: maybe a bound is ok?
+  if (w->super_p () != is_super || ! w->get_bound ())
+    return false;
+  model_class *other_bound = w->get_bound ();
+  if (is_super)
+    return other_bound->assignable_from_p (k);
+  return k->assignable_from_p (other_bound);
+}
+
 void
 model_wildcard::resolve_hook (resolution_scope *scope)
 {

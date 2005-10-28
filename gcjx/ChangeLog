@@ -1,5 +1,19 @@
 2005-10-27  Tom Tromey  <tromey@redhat.com>
 
+	* model/wildcard.cc (contains_p): New method.
+	* model/wildcard.hh (model_wildcard::contains_p): Declare.
+	* conversions.hh (capture_conversion): Declare.
+	* conversions.cc (capture_conversion): New function.
+	(widen_instantiation): Likewise.
+	(widening_reference_conversion): Use widen_instantiation.
+	* model/class.hh (model_class::create_instance): Changed return
+	type.
+	(model_class::contains_p): Declare.
+	* model/class.cc (create_instance): Updated.
+	(contains_p): New method.
+
+2005-10-27  Tom Tromey  <tromey@redhat.com>
+
 	* model/parameters.cc (create_type_map): Added assert.
 	* model/classref.cc (resolve): Correctly use boxing_conversion.
 

@@ -522,6 +522,10 @@ public:
 
   bool assignable_from_p (model_type *other);
 
+  /// This returns true if this type contains (in the type argument
+  /// sense) the type OTHER.
+  virtual bool contains_p (model_class *other);
+
   std::string to_string (const jvalue &) const
   {
     abort ();
@@ -610,8 +614,8 @@ public:
   /// argument types.  This should only be called on a model_class,
   /// not on an instance of a subclass; to apply a type map
   /// composition, use apply_type_map.
-  model_class *create_instance (model_element *,
-				const std::list<model_class *> &);
+  model_class_instance *create_instance (model_element *,
+					 const std::list<model_class *> &);
 
   /// Ensure that this class lexically encloses class INNER.
   void ensure_enclosing (model_class *inner);

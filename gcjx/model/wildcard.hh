@@ -87,6 +87,8 @@ public:
 
   bool assignable_from_p (model_type *);
 
+  bool contains_p (model_class *);
+
   std::string get_pretty_name () const
   {
     return name;

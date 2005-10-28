@@ -523,6 +523,13 @@ model_class::assignable_from_p (model_type *other)
   return widening_reference_conversion (this, other);
 }
 
+bool
+model_class::contains_p (model_class *other)
+{
+  // Ordinary types must be identical.
+  return this == other;
+}
+
 model_package *
 model_class::get_package () const
 {
@@ -2067,15 +2074,14 @@ model_class::apply_type_map (model_element *, const model_type_map &)
   return this;
 }
 
-model_class *
+model_class_instance *
 model_class::create_instance (model_element *request,
 			      const std::list<model_class *> &params)
 {
   model_type_map type_map;
   type_parameters.create_type_map (type_map, request, params);
 
-  if (type_parameters.empty () || type_map.empty_p ())
-    return this;
+  assert (! type_parameters.empty () && ! type_map.empty_p ());
 
   // See if this instance has been cached.
   model_class_instance *cache = instance_cache.find_instance (type_map);

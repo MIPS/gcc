@@ -177,6 +177,48 @@ widening_primitive_conversion (model_type *to, model_type *from)
   return to;
 }
 
+// This is a helper for widening_reference_conversion that understands
+// how to compare two instantiations.
+static bool
+widen_instantiation (model_class *to, model_class *from)
+{
+  assert (to->erasure () == from->erasure ());
+
+  if (! to->parameterized_p ())
+    {
+      // An assignment to the raw type is ok.
+      return true;
+    }
+  if (! from->parameterized_p ())
+    {
+      // An assignment from the raw type is not ok.
+      // FIXME: actually it is, when doing unchecked conversion.
+      // Should we do this here?
+      return false;
+    }
+
+  // Now we check 'contains' of each type argument.  FIXME: we should
+  // perform capture conversion or equivalent on 'from'.
+  model_class_instance *from_i = assert_cast<model_class_instance *> (from);
+  model_class_instance *to_i = assert_cast<model_class_instance *> (to);
+  std::list<model_class *> from_args, to_args;
+  from_i->get_type_map (from_args);
+  to_i->get_type_map (to_args);
+
+  std::list<model_class *>::const_iterator from_it = from_args.begin ();
+  std::list<model_class *>::const_iterator to_it = to_args.begin ();
+  while (from_it != from_args.end ())
+    {
+      if (! (*to_it)->contains_p (*from_it))
+	return false;
+
+      ++from_it;
+      ++to_it;
+    }
+  assert (to_it == to_args.end ());
+  return true;
+}
+
 bool
 widening_reference_conversion (model_type *to, model_type *from)
 {
@@ -230,30 +272,8 @@ widening_reference_conversion (model_type *to, model_type *from)
       if (tok->erasure () == iter->erasure ())
 	{
 	  // At this point we have an assignment between two possible
-	  // parameterizations with the same base.  Now check capture
-	  // conversion.
-
-	  // FIXME: this is probably wrong... check the spec.
-	  if (tok->type_variable_p ())
-	    result = true;
-	  else if (! tok->parameterized_p ())
-	    {
-	      // This is an assignment to the raw type.
-	      result = true;
-	    }
-	  else if (! iter->parameterized_p ())
-	    {
-	      // This is either two identical types or assignment of
-	      // the raw type to a wildcard type.
-	      // FIXME: do capture conversion here.
-	      // FIXME: result = tok == iter. ... ?
-	      result = true;
-	    }
-	  else
-	    {
-	      // FIXME: this is wrong.
-	    }
-	  // If we ended up here, we're done.
+	  // parameterizations with the same base.
+	  result = widen_instantiation (tok, iter);
 	  break;
 	}
 
@@ -402,6 +422,73 @@ method_invocation_conversion (model_type *formal, ref_expression &actual)
 						     PHASE_3);
   assert (result);
   maybe_cast_wrap (result, actual);
+}
+
+model_class_instance *
+capture_conversion (model_element *request, model_class_instance *inst)
+{
+  const model_parameters &params = inst->get_type_parameters ();
+
+  std::list<model_class *> args, newargs;
+  inst->get_type_map (args);
+
+  std::list<ref_type_variable>::const_iterator formal_it = params.begin ();
+
+  bool any_changed = false;
+  for (std::list<model_class *>::const_iterator i = args.begin ();
+       i != args.end ();
+       ++i, ++formal_it)
+    {
+      if (! (*i)->wildcard_p ())
+	continue;
+      model_wildcard *w = assert_cast<model_wildcard *> (*i);
+      model_class *bound = w->get_bound ();
+      model_class *new_bound = NULL; // FIXME: actual bound
+
+      // Get the actual bound from the type variable.
+      std::list<model_class *> actual_bound;
+      {
+	if ((*formal_it)->get_superclass ())
+	  actual_bound.push_back ((*formal_it)->get_superclass ());
+	std::list<ref_forwarding_type> &ifaces
+	  = (*formal_it)->get_interfaces ();
+	for (std::list<ref_forwarding_type>::const_iterator j
+	       = ifaces.begin ();
+	     j != ifaces.end ();
+	     ++j)
+	  actual_bound.push_back (assert_cast<model_class *> ((*j)->type ()));
+      }
+
+      // FIXME: memory leak?
+      model_type_variable *newvar
+	= new model_type_variable (request->get_location ());
+
+      if (w->super_p ())
+	{
+	  assert (bound);
+	  // FIXME
+// 	  newvar->set_lower_bound (bound);
+	}
+      else if (bound)
+	{
+	  actual_bound.push_back (bound);
+	  // FIXME: memory leak?
+	  new_bound = new model_intersection_type (request->get_location (),
+						   actual_bound);
+	}
+      // FIXME
+      //      newvar->set_bound (new_bound);
+      newargs.push_back (newvar);
+
+      any_changed = true;
+    }
+
+  assert (formal_it == params.end ());
+
+  if (! any_changed)
+    return inst;
+
+  return inst->get_parent ()->create_instance (request, newargs);
 }
 
 model_class *

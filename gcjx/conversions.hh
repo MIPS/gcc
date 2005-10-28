@@ -1,6 +1,6 @@
 // Conversions as specified by JLS.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -62,6 +62,11 @@ model_type *method_invocation_conversion (model_type *formal,
 /// FIXME: document why...
 void method_invocation_conversion (model_type *formal,
 				   ref_expression &actual);
+
+/// This implements capture conversion as defined in the JLS.
+/// Essentially it replaces wildcards in a parameterization with new
+/// type variables.
+model_class_instance *capture_conversion (model_class_instance *);
 
 /// Return the wrapper type for a given primitive type.  This also
 /// works for `void'.  Only primitive types and void can be passed as
