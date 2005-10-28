@@ -1,5 +1,9 @@
 2005-10-28  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (expand_rec_input_clauses): If any COPYIN copying is done
+	by reference, emit GOMP_barrier () call at the end of the COPYIN
+	sequence.
+
 	* c-parser.c (c_parser_omp_threadprivate): If DECL_RTL_SET_P,
 	call make_decl_rtl again so that encode_section_info can update
 	SYMBOL_REF's flags.

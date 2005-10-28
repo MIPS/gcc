@@ -945,6 +945,18 @@ scan_omp (tree *stmt_p, omp_context *ctx)
 
 /* Re-gimplification and code generation routines.  */
 
+/* Build a call to GOMP_barrier.  */
+
+static void
+build_omp_barrier (tree *stmt_list)
+{
+  tree t;
+
+  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  t = build_function_call_expr (t, NULL);
+  gimplify_and_add (t, stmt_list);
+}
+
 /* If a context was created for STMT when it was scanned, return it.  */
 
 static omp_context *
@@ -1088,6 +1100,7 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 {
   tree_stmt_iterator diter;
   tree c, dtor, copyin_seq, x;
+  bool copyin_by_ref = false;
   int pass;
 
   /* Resolve private references for Fortran.  Note that C++ disallows
@@ -1193,6 +1206,7 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      x = build_receiver_ref (var, by_ref, ctx);
 	      x = lang_hooks.decls.omp_clause_assign_op (new_var, x);
 	      append_to_statement_list (x, &copyin_seq);
+	      copyin_by_ref |= by_ref;
 	      break;
 
 	    case OMP_CLAUSE_REDUCTION:
@@ -1224,6 +1238,12 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
       x = build3 (COND_EXPR, void_type_node, x, copyin_seq, NULL);
       gimplify_and_add (x, ilist);
     }
+
+  /* If any copyin variable is passed by reference, we must ensure the
+     master thread doesn't modify it before it is copied over in all
+     threads.  */
+  if (copyin_by_ref)
+    build_omp_barrier (ilist);
 }
 
 /* Generate code to implement the LASTPRIVATE clauses.  This is used for
@@ -1724,18 +1744,6 @@ expand_omp_parallel (tree *stmt_p, omp_context *ctx)
 
   pop_gimplify_context (bind);
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
-}
-
-/* Build a call to GOMP_barrier.  */
-
-static void
-build_omp_barrier (tree *stmt_list)
-{
-  tree t;
-
-  t = built_in_decls[BUILT_IN_GOMP_BARRIER];
-  t = build_function_call_expr (t, NULL);
-  gimplify_and_add (t, stmt_list);
 }
 
 /* A structure to communicate between the various subroutines of 
