@@ -1,3 +1,19 @@
+2005-10-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4318818
+	* varasm.c (output_constructor):  Do not check
+	DECL_BIT_FIELD when reversing initializer list for
+	types with reversed_flag set.
+
+2005-10-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4319602
+	* cfgloopmanip.c (create_loop_notes):  Add code to move
+	code logically inside a loop but physically outside,
+	to a place physically inside.
+	* ifcvt.c (find_if_case_1):  Adjust cost test for ppc.
+	(find_if_case_2):  Ditto.
+
 2005-10-21  Dale Johannesen  <dalej@apple.com>
 
 	* opts.c (set_flags_from_O):  Revert 10-17 change.

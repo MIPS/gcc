@@ -3999,7 +3999,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 	       head;
 	       prev = head, head = TREE_CHAIN (head))
 	    {
-	      if (TREE_PURPOSE (head) && DECL_BIT_FIELD (TREE_PURPOSE (head)))
+	      if (TREE_PURPOSE (head))
 		{
 		  HOST_WIDE_INT pos = int_bit_position (TREE_PURPOSE (head));
 		  /* Find next field that isn't a bitfield, or is after "head"
