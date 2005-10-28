@@ -1,3 +1,11 @@
+2005-10-25  Evan Cheng  <evan.cheng@apple.com>
+
+	Radar 4209085
+	* config/i386/i386.md (fix_trunc<mode>_i387_fisttp peephole2): Emit
+	fisttp for double signed integer conversion if source operand is in
+	ST(0).
+	* gcc/testsuite/gcc.apple/4209085.c: New.
+
 2005-10-25  Eric Christopher  <echristo@apple.com>
 
 	Import from mainline:
