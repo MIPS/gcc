@@ -1,6 +1,6 @@
 // Parameters for a generic method or class.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -83,6 +83,7 @@ model_parameters::create_type_map (model_type_map &result,
 
   while (type_iter != type_list.end () && var_iter != type_parameters.end ())
     {
+      assert (*type_iter != NULL);
       (*var_iter)->validate (request, *type_iter);
       result.add ((*var_iter).get (), *type_iter);
       ++type_iter;

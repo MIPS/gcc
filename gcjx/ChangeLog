@@ -1,3 +1,8 @@
+2005-10-27  Tom Tromey  <tromey@redhat.com>
+
+	* model/parameters.cc (create_type_map): Added assert.
+	* model/classref.cc (resolve): Correctly use boxing_conversion.
+
 2005-10-26  Tom Tromey  <tromey@redhat.com>
 
 	* compiler.cc (compiler): Default to 1.4 language.
