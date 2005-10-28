@@ -1,5 +1,12 @@
 2005-10-26  Tom Tromey  <tromey@redhat.com>
 
+	* unify.cc (unifier::compute_lcta): Handle case of two unbound
+	wildcards.
+	(unifier::unify): Handle case where 'actual' is a raw type.
+	(unifier::compute_super_types): Resolve classes of 'klass'.
+
+2005-10-26  Tom Tromey  <tromey@redhat.com>
+
 	* model/import.cc (resolve): Error if name is not canonical.
 	* model/class.cc (get_canonical_name): New method.
 	* model/class.hh (model_class::get_canonical_name): Declare.

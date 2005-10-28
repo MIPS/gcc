@@ -85,6 +85,7 @@ class unifier
   {
     while (klass != NULL)
       {
+	klass->resolve_classes ();
 	st.insert (klass);
 	est.insert (assert_cast<model_class *> (klass->erasure ()));
 	std::list<ref_forwarding_type> ifaces (klass->get_interfaces ());
@@ -215,6 +216,12 @@ class unifier
 	    else
 	      result = new model_wildcard (where);
 	  }
+	// FIXME: not sure if next 2 cases are correct.
+	else if (lbound == NULL)
+	  result = rightw;
+	else if (rbound == NULL)
+	  result = leftw;
+	// END FIXME
 	else
 	  result = new model_wildcard (where, compute_lub (lbound, rbound));
       }
@@ -362,7 +369,8 @@ class unifier
 	return;
       }
 
-    if (! formal->parameterized_p ())
+    // Note that ACTUAL could be a raw type here.
+    if (! formal->parameterized_p () || ! actual->parameterized_p ())
       {
 	// No constraint implied.
 	return;
