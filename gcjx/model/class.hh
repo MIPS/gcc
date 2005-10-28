@@ -324,10 +324,16 @@ public:
   std::string get_output_name () const;
 
   /// Returns this class' name in the form "java.lang.Object".
+  /// Member classes are separated using '$'.
   std::string get_fully_qualified_name ();
 
-  /// Returns this class' name in the form "java/lang/Object".
+  /// Like get_fully_qualified_name(), but returns this class' name in
+  /// the form "java/lang/Object".
   std::string get_fully_qualified_name_with_slashes ();
+
+  /// Like get_fully_qualified_name(), but member classes are
+  /// separated using '.'.
+  std::string get_canonical_name ();
 
   void implicit_modifier (modifier_t);
 

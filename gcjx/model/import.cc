@@ -50,6 +50,10 @@ model_import_single::resolve (resolution_scope *scope)
   if (! resolved_type)
     throw error ("%1 does not name a class or interface type") % name;
 
+  if (resolved_type->get_canonical_name () != join (name, '.'))
+    throw error ("%1 is not the canonical name of class %2")
+      % join (name, '.') % resolved_type;
+
   if (scope->warn_java_lang_import ()
       && java_lang_p (resolved_type->get_package ()))
     std::cerr << warn (global->get_compiler ()->warn_java_lang_import (),
@@ -76,6 +80,14 @@ model_import_on_demand::resolve (resolution_scope *scope)
 {
   if (! resolved_type)
     resolved_type = classify_package_or_type_name (scope, this, name);
+
+  if (! resolved_type->package_p ())
+    {
+      model_class *k = assert_cast<model_class *> (resolved_type);
+      if (k->get_canonical_name () != join (name, '.'))
+	throw error ("%1 is not the canonical name of class %2")
+	  % join (name, '.') % k;
+    }
 
   if (! implicit
       && scope->warn_java_lang_import ()
@@ -135,6 +147,10 @@ model_static_import_base::resolve (resolution_scope *scope)
   if (! resolved_type)
     throw error ("%1 does not name a class or interface type")
       % join (name, '.');
+
+  if (resolved_type->get_canonical_name () != join (name, '.'))
+    throw error ("%1 is not the canonical name of class %2")
+      % join (name, '.') % resolved_type;
 }
 
 model_class *

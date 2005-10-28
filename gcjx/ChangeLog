@@ -1,5 +1,11 @@
 2005-10-26  Tom Tromey  <tromey@redhat.com>
 
+	* model/import.cc (resolve): Error if name is not canonical.
+	* model/class.cc (get_canonical_name): New method.
+	* model/class.hh (model_class::get_canonical_name): Declare.
+
+2005-10-26  Tom Tromey  <tromey@redhat.com>
+
 	* compiler.cc (do_analyze_unit): Catch exceptions from
 	check_imports.
 

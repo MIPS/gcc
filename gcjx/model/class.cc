@@ -496,6 +496,24 @@ model_class::get_fully_qualified_name_with_slashes ()
   return name;
 }
 
+std::string
+model_class::get_canonical_name ()
+{
+  std::string result;
+  if (declaring_class)
+    result = (declaring_class->get_canonical_name ()
+	      + "."
+	      + get_assigned_name ());
+  else
+    {
+      result = compilation_unit->get_package ()->get_fully_qualified_name ();
+      if (! result.empty ())
+	result += ".";
+      result += name;
+    }
+  return result;
+}
+
 bool
 model_class::assignable_from_p (model_type *other)
 {
