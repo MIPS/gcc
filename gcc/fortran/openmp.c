@@ -743,7 +743,7 @@ resolve_omp_clauses (gfc_code *code)
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->sym->attr.threadprivate)
-		  gfc_error ("THREADPRIVATE object '%s' in SHARED clause at",
+		  gfc_error ("THREADPRIVATE object '%s' in SHARED clause at"
 			     " %L", n->sym->name, &code->loc);
 		if (n->sym->attr.cray_pointee)
 		  gfc_error ("Cray pointee '%s' in SHARED clause at %L",
