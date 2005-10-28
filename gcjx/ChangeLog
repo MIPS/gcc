@@ -1,3 +1,13 @@
+2005-10-28  Tom Tromey  <tromey@redhat.com>
+
+	* model/classinst.cc (apply_type_map): Updated for new
+	model_parameters iterator methods.
+	(get_signature_map_fragment): Likewise.
+	(get_pretty_name): New method.
+	* model/classinst.hh (model_class_instance::get_pretty_name):
+	Declare.
+	* model/class.hh (model_class::get_pretty_name): Now virtual.
+
 2005-10-27  Tom Tromey  <tromey@redhat.com>
 
 	* model/wildcard.cc (contains_p): New method.

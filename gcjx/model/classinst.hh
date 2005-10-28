@@ -74,6 +74,8 @@ public:
     return parent;
   }
 
+  std::string get_pretty_name () const;
+
   void visit (visitor *);
 };
 

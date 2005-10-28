@@ -567,7 +567,7 @@ public:
 		     IContext *request,
 		     model_class *qualifier);
 
-  std::string get_pretty_name () const;
+  virtual std::string get_pretty_name () const;
 
   /// Add the class members needed for 'assert' support.  This will
   /// add a new '$assertionsDisabled' field, and will also add the

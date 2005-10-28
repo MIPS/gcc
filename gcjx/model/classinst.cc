@@ -82,8 +82,8 @@ model_class_instance::apply_type_map (model_element *request,
   bool any_changed = false;
   std::list<model_class *> new_params;
   for (std::list<ref_type_variable>::const_iterator i
-	 = type_parameters.type_parameters.begin ();
-       i != type_parameters.type_parameters.end ();
+	 = type_parameters.begin ();
+       i != type_parameters.end ();
        ++i)
     {
       model_class *mapping = type_map.find ((*i).get ());
@@ -104,10 +104,9 @@ model_class_instance::get_signature_map_fragment ()
   assert (! type_map.empty_p ());
   std::string result = "<";
 
-  std::list<ref_type_variable> &params
-    = parent->type_parameters.type_parameters;
-  for (std::list<ref_type_variable>::const_iterator i = params.begin ();
-       i != params.end ();
+  for (std::list<ref_type_variable>::const_iterator i
+	 = type_parameters.begin ();
+       i != type_parameters.end ();
        ++i)
     {
       model_type_variable *var = (*i).get ();
@@ -117,6 +116,38 @@ model_class_instance::get_signature_map_fragment ()
     }
 
   result += ">";
+  return result;
+}
+
+std::string
+model_class_instance::get_pretty_name () const
+{
+  // FIXME: should share some code with superclass.
+  std::string result;
+  if (declaring_class)
+    result = declaring_class->get_pretty_name () + "$" + get_assigned_name ();
+  else
+    {
+      std::string cu
+	= compilation_unit->get_package ()->get_fully_qualified_name ();
+      result = (cu.empty ()) ? name : cu + "." + name;
+    }
+
+  result += "<";
+  bool first = true;
+  for (std::list<ref_type_variable>::const_iterator i
+	 = type_parameters.begin ();
+       i != type_parameters.end ();
+       ++i)
+    {
+      model_class *arg = type_map.find ((*i).get ());
+      if (! first)
+	result += ", ";
+      first = false;
+      result += arg->get_pretty_name ();
+    }
+  result += ">";
+
   return result;
 }
 
