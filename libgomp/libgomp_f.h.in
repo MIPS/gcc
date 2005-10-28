@@ -59,4 +59,16 @@ typedef union { omp_nest_lock_t *lock; uint64_t u; } *omp_nest_lock_arg_t;
 # define omp_nest_lock_arg(arg) ((arg)->lock)
 # endif
 
+static inline void
+omp_check_defines (void)
+{
+  char test[(OMP_LOCK_SIZE != sizeof (omp_lock_t)
+	     || OMP_LOCK_ALIGN != __alignof (omp_lock_t)
+	     || OMP_NEST_LOCK_SIZE != sizeof (omp_nest_lock_t)
+	     || OMP_NEST_LOCK_ALIGN != __alignof (omp_nest_lock_t)
+	     || OMP_LOCK_KIND != sizeof (*(omp_lock_arg_t) 0)
+	     || OMP_NEST_LOCK_KIND != sizeof (*(omp_nest_lock_arg_t) 0))
+	    ? -1 : 1] __attribute__ ((__unused__));
+}
+
 #endif /* LIBGOMP_F_H */

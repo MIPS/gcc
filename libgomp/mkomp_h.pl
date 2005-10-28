@@ -36,6 +36,9 @@ $OUTFILE = $ARGV[2];
 
 $HEADER = "#include \"omp-lock.h\"\n";
 
+# configure might put libtool specific options into $COMPILE.
+$COMPILE =~ s/ -Wc,/ /g;
+
 # Close stderr in order to discard compiler errors.  Which we expect apleanty.
 close STDERR;
 

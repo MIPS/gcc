@@ -1,5 +1,10 @@
 2005-10-28  Jakub Jelinek  <jakub@redhat.com>
 
+	* mkomp_h.pl: Remove all -Wc, option prefixes in $COMPILE.
+	* libgomp_f.h.in (omp_check_defines): New function.
+	* env.c: Include libgomp_f.h.
+	(initialize_env): Call omp_check_defines.
+
 	* testsuite/libgomp.dg/copyin-2.c: New test.
 	* testsuite/libgomp.c++/copyin-2.C: New test.
 	* testsuite/libgomp.fortran/threadprivate3.f90: New test.

@@ -29,6 +29,7 @@
    for them to be initialized from environment variables at startup.  */
 
 #include "libgomp.h"
+#include "libgomp_f.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -146,6 +147,9 @@ parse_boolean (const char *name, bool *value)
 static void __attribute__((constructor))
 initialize_env (void)
 {
+  /* Do a compile time check that mkomp_h.pl did good job.  */
+  omp_check_defines ();
+
   parse_schedule ();
   parse_boolean ("OMP_DYNAMIC", &gomp_dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_nest_var);
