@@ -1,3 +1,20 @@
+2005-10-28  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4164563
+	* config/darwin.c (darwin_macho_att_stub,
+	darwin_macho_att_stub_switch): New.
+	* config/darwin.h (-matt-stubs): New
+	flag. (machopic_picsymbol_stub3_section): New __IMPORT
+	section. (MACHOPIC_NL_SYMBOL_PTR_SECTION):
+	New. (machopic_nl_symbol_ptr_section): Move non-lazy pointers to
+	__IMPORT section.
+	* config/i386/darwin.h (-matt-stubs): New
+	flag. (SUBTARGET_OVERRIDE_OPTIONS): Handle -matt-stubs.
+	* config/i386/i386.c (macho_output_stub): Generate AT&T style
+	(self-modifying) stubs.
+	* config/i386/i386.h (MACHOPIC_NL_SYMBOL_PTR_SECTION): Override
+	machopic_nl_symbol_ptr_section with new __IMPORT section.
+
 2005-10-25  Evan Cheng  <evan.cheng@apple.com>
 
 	Radar 4209085
