@@ -223,6 +223,18 @@ extern int flag_cw_asm_blocks;
 	  error ("invalid option %qs", base);			\
 	darwin_fix_and_continue = (base[0] != 'n');		\
       }								\
+    /* APPLE LOCAL begin AT&T-style stub 4164563 */		\
+    /* Handle -matt-stubs.  */					\
+    if (darwin_macho_att_stub_switch)				\
+      {								\
+	const char *base = darwin_macho_att_stub_switch;	\
+	while (base[-1] != 'm') base--;				\
+								\
+	if (*darwin_macho_att_stub_switch != '\0')		\
+	  error ("invalid option %qs", base);			\
+	darwin_macho_att_stub = (base[0] != 'n');		\
+      }								\
+    /* APPLE LOCAL end AT&T-style stub 4164563 */		\
     /* APPLE LOCAL begin CW asm blocks */			\
     if (flag_cw_asm_blocks)					\
       flag_ms_asms = 1;						\

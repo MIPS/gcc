@@ -100,6 +100,14 @@ const char *darwin_one_byte_bool = 0;
 int darwin_reverse_bitfields = 0;
 /* APPLE LOCAL end pragma reverse_bitfields */
 
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
+/* This is an i386-only option, but the i386 target_flags bitset is full.
+   This should resolve itself in 4.1; these decls, and their flags,
+   should move to i386/i386.c.  */
+int darwin_macho_att_stub = 1;	/* Defaults on.  */
+const char *darwin_macho_att_stub_switch;
+/* APPLE LOCAL end AT&T-style stub 4164563 */
+
 int
 name_needs_quotes (const char *name)
 {

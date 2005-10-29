@@ -16236,8 +16236,12 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   sprintf (lazy_ptr_name, "L%d$lz", label);
 
   /* APPLE LOCAL begin deep branch prediction pic-base */
-  /* Choose one of three possible sections for this stub.  */
-  if (MACHOPIC_PURE)
+  /* APPLE LOCAL begin AT&T-style stub 4164563 */
+  /* Choose one of four possible sections for this stub.  */
+  if (MACHOPIC_ATT_STUB)
+    machopic_picsymbol_stub3_section ();	/* 5 byte PIC stub.  */
+  else if (MACHOPIC_PURE)
+  /* APPLE LOCAL end AT&T-style stub 4164563 */
     {
       if (TARGET_DEEP_BRANCH_PREDICTION)
 	machopic_picsymbol_stub2_section ();	/* 25 byte PIC stub.  */
@@ -16253,7 +16257,13 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 
   /* APPLE LOCAL begin use %ecx in stubs 4146993 */
   /* APPLE LOCAL begin deep branch prediction pic-base */
-  if (MACHOPIC_PURE)
+  /* APPLE LOCAL begin AT&T-style stub 4164563 */
+  if (MACHOPIC_ATT_STUB)
+    {
+      fprintf (file, "\thlt ; hlt ; hlt ; hlt ; hlt\n");
+    }
+  else if (MACHOPIC_PURE)
+  /* APPLE LOCAL end AT&T-style stub 4164563 */
     {
       /* PIC stub.  */
       if (TARGET_DEEP_BRANCH_PREDICTION)
@@ -16273,6 +16283,13 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
     }
   else	/* 16-byte -mdynamic-no-pic stub.  */
     fprintf (file, "\tjmp\t*%s\n", lazy_ptr_name);
+
+  /* APPLE LOCAL begin AT&T-style stub 4164563 */
+  /* The AT&T-style ("self-modifying") stub is not lazily bound, thus
+     it needs no stub-binding-helper.  */
+  if (MACHOPIC_ATT_STUB)
+    return;
+  /* APPLE LOCAL end AT&T-style stub 4164563 */
 
   /* The "stub_binding_helper" is a fragment that gets executed only
      once, the first time this stub is invoked (then it becomes "dead

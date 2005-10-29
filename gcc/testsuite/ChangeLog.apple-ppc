@@ -1,3 +1,8 @@
+2005-10-28  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4164563
+	gcc.apple/i386-att-stub-1.c:  New.
+
 2005-10-21  Devang Patel  <dpatel@apple.com>
  
        * g++.dg/stab-types.C: New.

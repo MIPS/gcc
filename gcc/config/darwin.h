@@ -192,6 +192,12 @@ extern const char *darwin_fix_and_continue_switch;
 /* APPLE LOCAL mainline 2005-09-01 3449986 */
 extern const char *darwin_macosx_version_min;
 
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
+extern int darwin_macho_att_stub;
+extern const char *darwin_macho_att_stub_switch;
+#define MACHOPIC_ATT_STUB (darwin_macho_att_stub)
+/* APPLE LOCAL end AT&T-style stub 4164563 */
+
 #undef SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS \
   {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
@@ -203,8 +209,14 @@ extern const char *darwin_macosx_version_min;
    0 },									\
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */			\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-/* APPLE LOCAL begin constant cfstrings */				\
    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
+  /* APPLE LOCAL begin AT&T-style stub 4164563 */			\
+  {"att-stubs", &darwin_macho_att_stub_switch,				\
+   N_("Generate AT&T-style stubs for Mach-O"), 0},			\
+  {"no-att-stubs", &darwin_macho_att_stub_switch,			\
+   N_("Generate traditional Mach-O stubs"), 0},				\
+  /* APPLE LOCAL end AT&T-style stub 4164563 */				\
+ /* APPLE LOCAL begin constant cfstrings */				\
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
    {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
@@ -826,8 +838,16 @@ FUNCTION (void)								\
   in_machopic_picsymbol_stub1,						\
   /* APPLE LOCAL dynamic-no-pic */					\
   in_machopic_picsymbol_stub2,						\
+  /* APPLE LOCAL AT&T-style stub 4164563 */				\
+  in_machopic_picsymbol_stub3,						\
   in_darwin_exception, in_darwin_eh_frame,				\
   num_sections
+
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
+#ifndef MACHOPIC_NL_SYMBOL_PTR_SECTION
+#define MACHOPIC_NL_SYMBOL_PTR_SECTION ".non_lazy_symbol_pointer"
+#endif
+/* APPLE LOCAL end AT&T-style stub 4164563 */				\
 
 #undef	EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
@@ -964,9 +984,11 @@ SECTION_FUNCTION (machopic_lazy_symbol_ptr3_section,	\
 		in_machopic_lazy_symbol_ptr3,		\
 		".section __DATA, __la_sym_ptr3,lazy_symbol_pointers", 0)      	\
 /* APPLE LOCAL end dynamic-no-pic */					\
+/* APPLE LOCAL begin AT&T-style stub 4164563 */				\
 SECTION_FUNCTION (machopic_nl_symbol_ptr_section,			\
 		in_machopic_nl_symbol_ptr,				\
-		".non_lazy_symbol_pointer", 0)				\
+		MACHOPIC_NL_SYMBOL_PTR_SECTION, 0)	\
+/* APPLE LOCAL end AT&T-style stub 4164563 */				\
 SECTION_FUNCTION (machopic_symbol_stub_section,				\
 		in_machopic_symbol_stub,				\
 		".symbol_stub", 0)					\
@@ -986,6 +1008,11 @@ SECTION_FUNCTION (machopic_picsymbol_stub2_section,	\
 		in_machopic_picsymbol_stub2,		\
 		".section __TEXT,__picsymbolstub2,symbol_stubs,pure_instructions,25", 0)      		\
 /* APPLE LOCAL end dynamic-no-pic */			\
+/* APPLE LOCAL begin AT&T-style stub 4164563 */				\
+SECTION_FUNCTION (machopic_picsymbol_stub3_section,	\
+		in_machopic_picsymbol_stub3,		\
+		".section __IMPORT,__jump_table,symbol_stubs,self_modifying_code+pure_instructions,5", 0) \
+/* APPLE LOCAL end AT&T-style stub 4164563 */				\
 SECTION_FUNCTION (darwin_exception_section,				\
 		in_darwin_exception,					\
 		".section __DATA,__gcc_except_tab", 0)			\
