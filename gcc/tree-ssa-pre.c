@@ -1077,6 +1077,12 @@ valid_in_set (value_set_t set, tree expr)
       gcc_assert (TREE_CODE (expr) == SSA_NAME);
       return true;
 
+      /* APPLE LOCAL begin mainline 4300156 */
+    case tcc_declaration:
+      /* VAR_DECL and PARM_DECL are never anticipatable.  */
+      return false;
+      /* APPLE LOCAL end mainline 4300156 */
+
     default:
       /* No other cases should be encountered.  */
       gcc_unreachable (); 

@@ -1,20 +1,3 @@
-2005-10-28  Stuart Hastings  <stuart@apple.com>
-
-	Radar 4164563
-	* config/darwin.c (darwin_macho_att_stub,
-	darwin_macho_att_stub_switch): New.
-	* config/darwin.h (-matt-stubs): New
-	flag. (machopic_picsymbol_stub3_section): New __IMPORT
-	section. (MACHOPIC_NL_SYMBOL_PTR_SECTION):
-	New. (machopic_nl_symbol_ptr_section): Move non-lazy pointers to
-	__IMPORT section.
-	* config/i386/darwin.h (-matt-stubs): New
-	flag. (SUBTARGET_OVERRIDE_OPTIONS): Handle -matt-stubs.
-	* config/i386/i386.c (macho_output_stub): Generate AT&T style
-	(self-modifying) stubs.
-	* config/i386/i386.h (MACHOPIC_NL_SYMBOL_PTR_SECTION): Override
-	machopic_nl_symbol_ptr_section with new __IMPORT section.
-
 2005-10-25  Evan Cheng  <evan.cheng@apple.com>
 
 	Radar 4209085
@@ -94,6 +77,39 @@
 	Radar 4122763
 	* libgcc2.c [LIBCC_KEXT] (panic): Declare properly.
 	[LIBCC_KEXT] (abort): Don't abort with no string.
+
+2005-10-28  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4164563
+	* config/darwin.c (darwin_macho_att_stub,
+	darwin_macho_att_stub_switch): New.
+	* config/darwin.h (-matt-stubs): New
+	flag. (machopic_picsymbol_stub3_section): New __IMPORT
+	section. (MACHOPIC_NL_SYMBOL_PTR_SECTION):
+	New. (machopic_nl_symbol_ptr_section): Move non-lazy pointers to
+	__IMPORT section.
+	* config/i386/darwin.h (-matt-stubs): New
+	flag. (SUBTARGET_OVERRIDE_OPTIONS): Handle -matt-stubs.
+	* config/i386/i386.c (macho_output_stub): Generate AT&T style
+	(self-modifying) stubs.
+	* config/i386/i386.h (MACHOPIC_NL_SYMBOL_PTR_SECTION): Override
+	machopic_nl_symbol_ptr_section with new __IMPORT section.
+
+2005-10-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4318818
+	* varasm.c (output_constructor):  Do not check
+	DECL_BIT_FIELD when reversing initializer list for
+	types with reversed_flag set.
+
+2005-10-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4319602
+	* cfgloopmanip.c (create_loop_notes):  Add code to move
+	code logically inside a loop but physically outside,
+	to a place physically inside.
+	* ifcvt.c (find_if_case_1):  Adjust cost test for ppc.
+	(find_if_case_2):  Ditto.
 
 2005-10-21  Dale Johannesen  <dalej@apple.com>
 

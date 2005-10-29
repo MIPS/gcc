@@ -1,8 +1,3 @@
-2005-10-28  Stuart Hastings  <stuart@apple.com>
-
-	Radar 4164563
-	gcc.apple/i386-att-stub-1.c:  New.
-
 2005-10-20  Devang Patel  <dpatel@apple.com>
 
 	* gcc.apple/execute/picbase-1.x: New.
@@ -68,6 +63,11 @@
 	Radar 4281748
 	* objc.dg/naming-2.m: Update
 	* objc.dg/naming-3.m: New
+
+2005-10-28  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4164563
+	gcc.apple/i386-att-stub-1.c:  New.
 
 2005-10-21  Devang Patel  <dpatel@apple.com>
  
