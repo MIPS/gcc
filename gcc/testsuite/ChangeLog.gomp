@@ -1,3 +1,7 @@
+2005-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/block-0.C: Add missing cleanup-tree-dump.
+
 2005-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/for-16.C: New test.

@@ -30,3 +30,4 @@ void foo()
 }
 
 // { dg-final { scan-tree-dump-times "terminate" 8 "omplower" } }
+// { dg-final { cleanup-tree-dump "omplower" } }
