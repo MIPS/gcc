@@ -52,3 +52,5 @@ omp_lib.mod: omp_lib.f90
 	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
 fortran.lo: libgomp_f.h
 fortran.o: libgomp_f.h
+env.lo: libgomp_f.h
+env.o: libgomp_f.h

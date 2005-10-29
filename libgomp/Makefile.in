@@ -823,6 +823,8 @@ omp_lib.mod: omp_lib.f90
 	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
 fortran.lo: libgomp_f.h
 fortran.o: libgomp_f.h
+env.lo: libgomp_f.h
+env.o: libgomp_f.h
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
