@@ -1,3 +1,9 @@
+2005-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (tmp_ompfn_id_num): New variable.
+	(create_omp_child_function_name): New function.
+	(create_omp_child_function): Use it.
+
 2005-10-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_rec_input_clauses): If any COPYIN copying is done

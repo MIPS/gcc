@@ -627,6 +627,29 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       }
 }
 
+/* Create a new name for omp child function.  Returns an identifier.  */
+
+static GTY(()) unsigned int tmp_ompfn_id_num;
+
+static tree
+create_omp_child_function_name (void)
+{
+  tree name = DECL_ASSEMBLER_NAME (current_function_decl);
+  size_t len = IDENTIFIER_LENGTH (name);
+  char *tmp_name, *prefix;
+
+  prefix = alloca (len + sizeof ("_omp_fn"));
+  memcpy (prefix, IDENTIFIER_POINTER (name), len);
+  strcpy (prefix + len, "_omp_fn");
+#ifndef NO_DOT_IN_LABEL
+  prefix[len] = '.';
+#elif !defined NO_DOLLAR_IN_LABEL
+  prefix[len] = '$';
+#endif
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, tmp_ompfn_id_num++);
+  return get_identifier (tmp_name);
+}
+
 /* Build a decl for the omp child function.  It'll not contain a body
    yet, just the bare decl.  */
 
@@ -637,7 +660,7 @@ create_omp_child_function (omp_context *ctx)
 
   ptype = build_pointer_type (ctx->record_type);
 
-  name = create_tmp_var_name ("__omp_fn");
+  name = create_omp_child_function_name ();
   type = build_function_type_list (void_type_node, ptype, NULL_TREE);
 
   decl = build_decl (FUNCTION_DECL, name, type);
