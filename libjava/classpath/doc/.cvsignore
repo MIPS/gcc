@@ -1,0 +1,12 @@
+Makefile
+*.info
+*.aux
+*.cp
+*.dvi
+*.fn
+*.ky
+*.log
+*.pg
+*.toc
+*.tp
+*.vr
