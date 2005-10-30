@@ -29,6 +29,7 @@
 
 #include "libgomp.h"
 #include "libgomp_f.h"
+#include <stdlib.h>
 
 void
 omp_init_lock_ (omp_lock_arg_t lock)
