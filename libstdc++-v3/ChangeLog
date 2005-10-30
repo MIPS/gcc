@@ -1,3 +1,45 @@
+2005-10-29  Carey Evans  <carey.evans@gmail.com>
+
+	PR libstdc++/22087
+	* config/os/djgpp/ctype_inline.h: Fix.
+	* config/os/djgpp/ctype_noninline.h: Likewise.
+
+2005-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24559
+	* include/c_std/std_cwchar.h (wcspbrk): Adjust signature.
+	* testsuite/21_strings/c_strings/wchar_t/24559.cc: New.
+
+2005-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 39.
+	* docs/html/ext/howto.html: Adjust.
+
+2005-10-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24450
+	* config/locale/generic/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Avoid leaking
+	memory if new throws inside _M_initialize_timepunct.
+	* config/locale/gnu/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Likewise.
+	* config/locale/gnu/message_members.h (messages<>::
+	messages(__c_locale, const char*, size_t)): Rearrange to
+	avoid memory leaks.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (_M_swap): Rewrite.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string_base.h (_S_terminal): Remove.
+	(_M_set_length): Adjust.
+	(_S_max_size): Change to anonymous enum.
+	(_M_max_size()): Add, returns the latter.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/ext/vstring.h (max_size): Adjust.
+
 2005-10-17  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	PR libstdc++/24244

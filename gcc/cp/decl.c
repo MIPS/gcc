@@ -3640,13 +3640,11 @@ start_decl (const cp_declarator *declarator,
 
   deprecated_state = DEPRECATED_NORMAL;
 
-  if (decl == NULL_TREE || TREE_CODE (decl) == VOID_TYPE)
+  if (decl == NULL_TREE || TREE_CODE (decl) == VOID_TYPE
+      || decl == error_mark_node)
     return error_mark_node;
 
   type = TREE_TYPE (decl);
-
-  if (type == error_mark_node)
-    return error_mark_node;
 
   context = DECL_CONTEXT (decl);
 
@@ -5718,8 +5716,12 @@ grokfndecl (tree ctype,
       if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			integer_type_node))
 	{
+	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  tree newtype;
 	  error ("%<::main%> must return %<int%>");
-	  TREE_TYPE (TREE_TYPE (decl)) = integer_type_node;
+	  newtype =  build_function_type (integer_type_node,
+			  		  oldtypeargs);
+	  TREE_TYPE (decl) = newtype;
 	}
       inlinep = 0;
       publicp = 1;
@@ -7570,7 +7572,7 @@ grokdeclarator (const cp_declarator *declarator,
 	}
 
       if (ctype == current_class_type)
-	pedwarn ("extra qualification %<%T::%> on member %qs ignored",
+	pedwarn ("extra qualification %<%T::%> on member %qs",
 		 ctype, name);
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
@@ -8021,15 +8023,25 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    /* Check that the name used for a destructor makes sense.  */
-	    if (sfk == sfk_destructor
-		&& !same_type_p (TREE_OPERAND
-				 (id_declarator->u.id.unqualified_name, 0),
-				 ctype))
+	    if (sfk == sfk_destructor)
 	      {
-		error ("declaration of %qD as member of %qT",
-		       id_declarator->u.id.unqualified_name,
-		       ctype);
-		return error_mark_node;
+		if (!ctype)
+		  {
+		    gcc_assert (friendp);
+		    error ("expected qualified name in friend declaration "
+			   "for destructor %qD",
+			   id_declarator->u.id.unqualified_name);
+		    return error_mark_node;
+		  }
+
+		if (!same_type_p (TREE_OPERAND
+				  (id_declarator->u.id.unqualified_name, 0),
+				  ctype))
+		  {
+		    error ("declaration of %qD as member of %qT",
+			   id_declarator->u.id.unqualified_name, ctype);
+		    return error_mark_node;
+		  }
 	      }
 
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */

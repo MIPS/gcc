@@ -2739,6 +2739,36 @@ gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr)
   se->expr = tmp;
 }
 
+
+/* The loc intrinsic returns the address of its argument as
+   gfc_index_integer_kind integer.  */
+
+static void
+gfc_conv_intrinsic_loc(gfc_se * se, gfc_expr * expr)
+{
+  tree temp_var;
+  gfc_expr *arg_expr;
+  gfc_ss *ss;
+
+  gcc_assert (!se->ss);
+
+  arg_expr = expr->value.function.actual->expr;
+  ss = gfc_walk_expr (arg_expr);
+  if (ss == gfc_ss_terminator)
+    gfc_conv_expr_reference (se, arg_expr);
+  else
+    gfc_conv_array_parameter (se, arg_expr, ss, 1); 
+  se->expr= convert (gfc_unsigned_type (long_integer_type_node), 
+		     se->expr);
+   
+  /* Create a temporary variable for loc return value.  Without this, 
+     we get an error an ICE in gcc/expr.c(expand_expr_addr_expr_1).  */
+  temp_var = gfc_create_var (gfc_unsigned_type (long_integer_type_node), 
+			     NULL);
+  gfc_add_modify_expr (&se->pre, temp_var, se->expr);
+  se->expr = temp_var;
+}
+
 /* Generate code for an intrinsic function.  Some map directly to library
    calls, others get special handling.  In some cases the name of the function
    used depends on the type specifiers.  */
@@ -3047,6 +3077,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_bound (se, expr, 1);
       break;
 
+    case GFC_ISYM_LOC:
+      gfc_conv_intrinsic_loc (se, expr);
+      break;
+
     case GFC_ISYM_CHDIR:
     case GFC_ISYM_DOT_PRODUCT:
     case GFC_ISYM_ETIME:
@@ -3066,6 +3100,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_RAND:
     case GFC_ISYM_RENAME:
     case GFC_ISYM_SECOND:
+    case GFC_ISYM_SIGNAL:
     case GFC_ISYM_STAT:
     case GFC_ISYM_SYMLNK:
     case GFC_ISYM_SYSTEM:

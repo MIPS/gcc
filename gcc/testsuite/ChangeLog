@@ -1,3 +1,261 @@
+2005-10-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/nested-func-4.c: Require profiling -pg.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23229
+	* g++.dg/warn/main-2.C: New test.
+
+2005-10-28  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24545
+	* gfortran.dg/interface_2.f90: new test.
+
+2005-10-28  Josh Conner  <jconner@apple.com>
+
+	PR c++/22153
+	* g++.dg/template/crash38.C: New test.
+	* g++.dg/parse/explicit1.C: Change expected errors.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23426
+	* g++.dg/other/large-size-array.C: New test.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24362
+	* g++.dg/opt/complex4.C: New test.
+
+2005-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/nested-func-4.c: New test.
+
+2005-10-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24158
+	gfortran.dg/derived_recursion.f90: New test.
+	gfortran.dg/implicit_actual.f90: New test.
+
+2005-10-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/24295, PR testsuite/24477
+	* g++.old-deja/g++.abi/vtable2.C: Require alias for now.  Will be
+	removed when weakref hits the tree.
+
+2005-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/cray_pointers_4.f90: New test.
+
+	* gfortran.dg/cray_pointers_5.f90: New test.
+
+2005-10-25  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/22290
+	* gfortran.dg/assign_5.f90: New test.
+	* gfortran.dg/assign_6.f: New test.
+
+2005-10-25  Uros Bizjak  <uros@kss-loka.si>
+
+	* g++.dg/other/i386-1.C: Include i386-cpuid.h.  Pass if
+	CPU has no SSE support.
+
+2005-10-24  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        PR libgfortran/24224
+        * gfortran.dg/arrayio_1.f90: Update attribution.
+        * gfortran.dg/arrayio_2.f90: Update attribution.
+        * gfortran.dg/arrayio_3.f90: Update attribution.
+        * gfortran.dg/arrayio_4.f90: Update test conditions.
+        * gfortran.dg/arrayio_5.f90: Update attribution.
+        * gfortran.dg/arrayio_6.f90: New test.
+        * gfortran.dg/arrayio_7.f90: New test.
+
+2005-10-24  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-9.c: Prevent matching "leave".
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/namelist_char_only.f90: Add missing newline at end.
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24416
+	* gfortran.dg/namelist_char_only.f90: New test.
+
+2005-10-24  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/17031
+	PR fortran/22282
+	* gfortran.dg/cray_pointers_1.f90: New test.
+	* gfortran.dg/cray_pointers_2.f90: New test.
+	* gfortran.dg/cray_pointers_3.f90: New test.
+	* gfortran.dg/loc_1.f90: New test.
+	* gfortran.dg/loc_2.f90: New test.
+
+2005-10-24  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/pr24225.c: New test.
+
+2005-10-24  Asher Langton  <langton2@llnl.gov>
+
+	* gfortran.dg/dup_save_1.f90: New test.
+	* gfortran.dg/dup_save_2.f90: New test.
+
+2005-10-24  Paul Brook  <paul@codesourcery.com>
+
+	PR 24107
+	* gcc.dg/20050922-1.c: Provide definition of uint32_t without using
+	stdint.h.
+
+2005-10-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libgfortran/24489
+	* gfortran.dg/pr24489.f90: New test.
+
+2005-10-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/23635
+	* gfortran.dg/ichar_1.f90: Add tests for derived types.
+
+2005-10-23  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18911
+	* g++.dg/init/array16.C: Skip for mmix-*-*.
+
+2005-10-23  Asher Langton  <langton2@llnl.gov>
+
+	* gfortran.dg/byte_1.f90: New test.
+	* gfortran.dg/byte_2.f90: New test.
+
+2005-10-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/attr-alias-3.c: XFAIL on AIX.
+
+2005-10-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18022
+	* gfortran.dg/assign_func_dtcomp_1.f90: New test.
+
+	PR fortran/24311
+	* gfortran.dg/merge_char_const.f90: New test.
+
+	PR fortran/24384
+	* gfortran.dg/spread_scalar_source.f90: New test.
+
+2005-10-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* g++.old-deja/g++.jason/thunk2.C: Guard test with { target fpic }.
+
+	* gcc.dg/tree-ssa/20040204-1.c: Adjust XFAIL for CRIS and MMIX.
+	* gcc.dg/tree-ssa/loop-1.c: Adjust "call foo"-scanning for CRIS.
+
+	* gcc.dg/weak/typeof-2.c: Adjust for CRIS keeping baz3 in a register.
+
+2005-10-22  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24426
+	* gfortran.dg/der_pointer_4.f90: New.
+
+2005-10-22  David Ayers  <d.ayers@inode.at>
+
+	* obj-c++.dg/except-1.mm: Simplify.
+
+2005-10-21  David Ayers  <d.ayers@inode.at>
+
+	* obj-c++.dg/except-1.mm: Generalize for both Objective-C runtimes.
+
+2005-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/assumed_dummy_2.f90: New test.
+
+2005-10-21  James E Wilson  <wilson@specifix.com>
+
+	PR preprocessor/15220
+	* gcc.misc-tests/mg-2.c, gcc.misc-tests/mg-2.exp: New.
+
+2005-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20051021-1.c: New test.
+
+2005-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24260
+	* g++.dg/ext/tmplattr1.C: New test.
+
+2005-10-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24440
+	* gfortran.dg/assumed_size_dt_dummy.f90: Add test for scalar case.
+
+2005-10-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* obj-c++.dg/except-1.mm: New.
+
+	* obj-c++.dg/stubify-2.mm: Update the name of the RTL dump file.
+
+2005-10-21  Alan Modra  <amodra@bigpond.net.au>
+
+	* g++.dg/warn/Wconversion1.C: Use -fsigned-char.
+
+2005-10-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/24295
+	* g++.old-deja/g++.abi/vtable2.C: Do not introduce external
+	declarations with the same names as thunks' alias targets, use
+	aliases instead.
+	* gcc.dg/attr-alias-3.c: New test.
+	* gcc.dg/weak/weak-14.c, gcc.dg/weak/weak-14a.c: New test.
+
+2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* g++.dg/parse/access8.C: New test.
+
+2005-10-20  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/24439
+	* g++.dg/tree-ssa/pr24439.C: New testcase.
+
+2005-10-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/delay-slot-1.C: New test.
+
+2005-10-20  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/21625
+	* gfortran.fg/der_init_1.f90: New.
+
+2005-10-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20050824-1.c (f): Clobber %r13 and %r14 only on s390x.
+
+2005-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21908
+	* g++.dg/parse/error28.C: New test.
+
+2005-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/profile-generate-2.c: New test.
+
+2005-10-18  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/23589
+	* g++.dg/ext/dllimport11.C: New.
+
+2005-10-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22293
+	* g++.dg/other/friend3.C: New test.
+
+2005-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23293
+	* g++.dg/template/error19.C: New test.
+
 2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/21383

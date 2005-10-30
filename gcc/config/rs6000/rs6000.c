@@ -2978,8 +2978,13 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
     {
       rtx r3, got, tga, tmp1, tmp2, eqv;
 
+      /* We currently use relocations like @got@tlsgd for tls, which
+	 means the linker will handle allocation of tls entries, placing
+	 them in the .got section.  So use a pointer to the .got section,
+	 not one to secondary TOC sections used by 64-bit -mminimal-toc,
+	 or to secondary GOT sections used by 32-bit -fPIC.  */
       if (TARGET_64BIT)
-	got = gen_rtx_REG (Pmode, TOC_REGISTER);
+	got = gen_rtx_REG (Pmode, 2);
       else
 	{
 	  if (flag_pic == 1)

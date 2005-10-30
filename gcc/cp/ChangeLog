@@ -1,3 +1,58 @@
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* decl.c (grokfndecl): Remove the setting
+	of the return type of the function type
+	of main after erroring about must returning
+	int.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23229
+	* decl.c (grokfndecl): Create a new function type
+	after erroring out about main not returning int.
+
+2005-10-28  Josh Conner  <jconner@apple.com>
+
+	PR c++/22153
+	* parser.c (cp_parser_member_declaration): Detect and handle
+	a template specialization.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23426
+	* decl.c (start_decl): Check that the decl is an
+	error_mark_node before getting the type.
+	Remove the check for the decl's type being an
+	error_mark_node.  
+
+2005-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24260
+	* parser.c (cp_parser_init_declarator): Pass attributes to
+	grokfield. 
+
+2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* search.c (accessible_p): Check access in the outermost set of
+	template parameters.
+
+2005-10-20  Richard Guenther  <rguenther@suse.de>
+
+	* decl.c (grokdeclarator): Fix ambiguous pedwarn message.
+
+2005-10-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22293
+	* decl.c (grokdeclarator): Reject unqualified destructors in
+	friend declarations.
+
+2005-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23293
+	* pt.c (convert_template_argument): Use canonical type variants in
+	template specializations.
+
 2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/21383

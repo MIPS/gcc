@@ -351,6 +351,44 @@ gfc_can_put_var_on_stack (tree size)
 }
 
 
+/* gfc_finish_cray_pointee sets DECL_VALUE_EXPR for a Cray pointee to
+   an expression involving its corresponding pointer.  There are
+   2 cases; one for variable size arrays, and one for everything else,
+   because variable-sized arrays require one fewer level of
+   indirection.  */
+
+static void
+gfc_finish_cray_pointee (tree decl, gfc_symbol *sym)
+{
+  tree ptr_decl = gfc_get_symbol_decl (sym->cp_pointer);
+  tree value;
+
+  /* Parameters need to be dereferenced.  */
+  if (sym->cp_pointer->attr.dummy) 
+    ptr_decl = gfc_build_indirect_ref (ptr_decl);
+
+  /* Check to see if we're dealing with a variable-sized array.  */
+  if (sym->attr.dimension
+      && TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE) 
+    {  
+      /* These decls will be derefenced later, so we don't dereference
+	 them here.  */
+      value = convert (TREE_TYPE (decl), ptr_decl);
+    }
+  else
+    {
+      ptr_decl = convert (build_pointer_type (TREE_TYPE (decl)),
+			  ptr_decl);
+      value = gfc_build_indirect_ref (ptr_decl);
+    }
+
+  SET_DECL_VALUE_EXPR (decl, value);
+  DECL_HAS_VALUE_EXPR_P (decl) = 1;
+  /* This is a fake variable just for debugging purposes.  */
+  TREE_ASM_WRITTEN (decl) = 1;
+}
+
+
 /* Finish processing of a declaration and install its initial value.  */
 
 static void
@@ -416,6 +454,11 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
      This is the equivalent of the TARGET variables.
      We also need to set this if the variable is passed by reference in a
      CALL statement.  */
+
+  /* Set DECL_VALUE_EXPR for Cray Pointees.  */
+  if (sym->attr.cray_pointee)
+    gfc_finish_cray_pointee (decl, sym);
+
   if (sym->attr.target)
     TREE_ADDRESSABLE (decl) = 1;
   /* If it wasn't used we wouldn't be getting it.  */
@@ -431,6 +474,9 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       else
 	gfc_add_decl_to_parent_function (decl);
     }
+
+  if (sym->attr.cray_pointee)
+    return;
 
   /* If a variable is USE associated, it's always external.  */
   if (sym->attr.use_assoc)
@@ -718,6 +764,39 @@ gfc_create_string_length (gfc_symbol * sym)
   return sym->ts.cl->backend_decl;
 }
 
+/* If a variable is assigned a label, we add another two auxiliary
+   variables.  */
+
+static void
+gfc_add_assign_aux_vars (gfc_symbol * sym)
+{
+  tree addr;
+  tree length;
+  tree decl;
+
+  gcc_assert (sym->backend_decl);
+
+  decl = sym->backend_decl;
+  gfc_allocate_lang_decl (decl);
+  GFC_DECL_ASSIGN (decl) = 1;
+  length = build_decl (VAR_DECL, create_tmp_var_name (sym->name),
+		       gfc_charlen_type_node);
+  addr = build_decl (VAR_DECL, create_tmp_var_name (sym->name),
+		     pvoid_type_node);
+  gfc_finish_var_decl (length, sym);
+  gfc_finish_var_decl (addr, sym);
+  /*  STRING_LENGTH is also used as flag. Less than -1 means that
+      ASSIGN_ADDR can not be used. Equal -1 means that ASSIGN_ADDR is the
+      target label's address. Otherwise, value is the length of a format string
+      and ASSIGN_ADDR is its address.  */
+  if (TREE_STATIC (length))
+    DECL_INITIAL (length) = build_int_cst (NULL_TREE, -2);
+  else
+    gfc_defer_symbol_init (sym);
+
+  GFC_DECL_STRING_LEN (decl) = length;
+  GFC_DECL_ASSIGN_ADDR (decl) = addr;
+}
 
 /* Return the decl for a gfc_symbol, create it if it doesn't already
    exist.  */
@@ -775,6 +854,10 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	}
 
       TREE_USED (sym->backend_decl) = 1;
+      if (sym->attr.assign && GFC_DECL_ASSIGN (sym->backend_decl) == 0)
+	{
+	  gfc_add_assign_aux_vars (sym);
+	}
       return sym->backend_decl;
     }
 
@@ -821,22 +904,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 
   gfc_finish_var_decl (decl, sym);
 
-  if (sym->attr.assign)
-    {
-      gfc_allocate_lang_decl (decl);
-      GFC_DECL_ASSIGN (decl) = 1;
-      length = gfc_create_var (gfc_charlen_type_node, sym->name);
-      GFC_DECL_STRING_LEN (decl) = length;
-      GFC_DECL_ASSIGN_ADDR (decl) = gfc_create_var (pvoid_type_node, sym->name);
-      /* TODO: Need to check we don't change TREE_STATIC (decl) later.  */
-      TREE_STATIC (length) = TREE_STATIC (decl);
-      /*  STRING_LENGTH is also used as flag. Less than -1 means that
-          ASSIGN_ADDR can not be used. Equal -1 means that ASSIGN_ADDR is the
-          target label's address. Other value is the length of format string
-          and ASSIGN_ADDR is the address of format string.  */
-      DECL_INITIAL (length) = build_int_cst (NULL_TREE, -2);
-    }
-
   if (sym->ts.type == BT_CHARACTER)
     {
       /* Character variables need special handling.  */
@@ -860,6 +927,11 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	}
     }
   sym->backend_decl = decl;
+
+  if (sym->attr.assign)
+    {
+      gfc_add_assign_aux_vars (sym);
+    }
 
   if (TREE_STATIC (decl) && !sym->attr.use_assoc)
     {
@@ -2100,12 +2172,32 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   return gfc_finish_block (&body);
 }
 
+/* Set the initial value of ASSIGN statement auxiliary variable explicitly.  */
+
+static tree
+gfc_trans_assign_aux_var (gfc_symbol * sym, tree fnbody)
+{
+  stmtblock_t body;
+
+  gcc_assert (sym->backend_decl);
+  gfc_start_block (&body);
+
+  /* Set the initial value to length. See the comments in
+     function gfc_add_assign_aux_vars in this file.  */
+  gfc_add_modify_expr (&body, GFC_DECL_STRING_LEN (sym->backend_decl),
+		       build_int_cst (NULL_TREE, -2));
+
+  gfc_add_expr_to_block (&body, fnbody);
+  return gfc_finish_block (&body);
+}
+
 
 /* Generate function entry and exit code, and add it to the function body.
    This includes:
     Allocation and initialization of array variables.
     Allocation of character string variables.
-    Initialization and possibly repacking of dummy arrays.  */
+    Initialization and possibly repacking of dummy arrays.
+    Initialization of ASSIGN statement auxiliary variable.  */
 
 static tree
 gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
@@ -2204,6 +2296,13 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	    fnbody = gfc_trans_dummy_character (sym->ts.cl, fnbody);
 	  else
 	    fnbody = gfc_trans_auto_character_variable (sym, fnbody);
+	  gfc_set_backend_locus (&loc);
+	}
+      else if (sym->attr.assign)
+	{
+	  gfc_get_backend_locus (&loc);
+	  gfc_set_backend_locus (&sym->declared_at);
+	  fnbody = gfc_trans_assign_aux_var (sym, fnbody);
 	  gfc_set_backend_locus (&loc);
 	}
       else
@@ -2671,5 +2770,6 @@ gfc_generate_block_data (gfc_namespace * ns)
   pushdecl (decl);
   rest_of_decl_compilation (decl, 1, 0);
 }
+
 
 #include "gt-fortran-trans-decl.h"

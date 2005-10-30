@@ -1369,11 +1369,6 @@ assemble_start_function (tree decl, const char *fnname)
   /* Standard thing is just output label for the function.  */
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
-
-  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  Don't do this if the current
-     function is a thunk, because we don't have a CFG in that case.  */
-  if (!current_function_is_thunk)
-    insert_section_boundary_note ();
 }
 
 /* Output assembler code associated with defining the size of the
@@ -1383,6 +1378,9 @@ void
 assemble_end_function (tree decl, const char *fnname)
 {
 #ifdef ASM_DECLARE_FUNCTION_SIZE
+  /* We could have switched section in the middle of the function.  */
+  if (flag_reorder_blocks_and_partition)
+    function_section (decl);
   ASM_DECLARE_FUNCTION_SIZE (asm_out_file, fnname, decl);
 #endif
   if (! CONSTANT_POOL_BEFORE_FUNCTION)
@@ -4560,27 +4558,28 @@ find_decl_and_mark_needed (tree decl, tree target)
   struct cgraph_node *fnode = NULL;
   struct cgraph_varpool_node *vnode = NULL;
 
-  /* C++ thunk emitting code produces aliases late in the game.
-     Avoid confusing cgraph code in that case.  */
-  if (!cgraph_global_info_ready)
+  if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  fnode = cgraph_node_for_asm (target);
-	  if (fnode == NULL)
-	    vnode = cgraph_varpool_node_for_asm (target);
-	}
-      else
-	{
-	  vnode = cgraph_varpool_node_for_asm (target);
-	  if (vnode == NULL)
-	    fnode = cgraph_node_for_asm (target);
-	}
+      fnode = cgraph_node_for_asm (target);
+      if (fnode == NULL)
+	vnode = cgraph_varpool_node_for_asm (target);
+    }
+  else
+    {
+      vnode = cgraph_varpool_node_for_asm (target);
+      if (vnode == NULL)
+	fnode = cgraph_node_for_asm (target);
     }
 
   if (fnode)
     {
-      cgraph_mark_needed_node (fnode);
+      /* We can't mark function nodes as used after cgraph global info
+	 is finished.  This wouldn't generally be necessary, but C++
+	 virtual table thunks are introduced late in the game and
+	 might seem like they need marking, although in fact they
+	 don't.  */
+      if (! cgraph_global_info_ready)
+	cgraph_mark_needed_node (fnode);
       return fnode->decl;
     }
   else if (vnode)

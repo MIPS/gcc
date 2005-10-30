@@ -77,6 +77,7 @@ try gfc_check_kill (gfc_expr *, gfc_expr *);
 try gfc_check_kind (gfc_expr *);
 try gfc_check_lbound (gfc_expr *, gfc_expr *);
 try gfc_check_link (gfc_expr *, gfc_expr *);
+try gfc_check_loc (gfc_expr *);
 try gfc_check_logical (gfc_expr *, gfc_expr *);
 try gfc_check_min_max (gfc_actual_arglist *);
 try gfc_check_min_max_integer (gfc_actual_arglist *);
@@ -108,6 +109,7 @@ try gfc_check_set_exponent (gfc_expr *, gfc_expr *);
 try gfc_check_shape (gfc_expr *);
 try gfc_check_size (gfc_expr *, gfc_expr *);
 try gfc_check_sign (gfc_expr *, gfc_expr *);
+try gfc_check_signal (gfc_expr *, gfc_expr *);
 try gfc_check_spread (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_srand (gfc_expr *);
 try gfc_check_stat (gfc_expr *, gfc_expr *);
@@ -125,6 +127,7 @@ try gfc_check_x (gfc_expr *);
 
 
 /* Intrinsic subroutines.  */
+try gfc_check_alarm_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_chdir_sub (gfc_expr *, gfc_expr *);
 try gfc_check_cpu_time (gfc_expr *);
 try gfc_check_system_clock (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -146,6 +149,7 @@ try gfc_check_perror (gfc_expr *);
 try gfc_check_rename_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_link_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_symlnk_sub (gfc_expr *, gfc_expr *, gfc_expr *);
+try gfc_check_signal_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_sleep_sub (gfc_expr *);
 try gfc_check_stat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_system_sub (gfc_expr *, gfc_expr *);
@@ -327,6 +331,7 @@ void gfc_resolve_lbound (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_len (gfc_expr *, gfc_expr *);
 void gfc_resolve_len_trim (gfc_expr *, gfc_expr *);
 void gfc_resolve_link (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_loc (gfc_expr *, gfc_expr *);
 void gfc_resolve_log (gfc_expr *, gfc_expr *);
 void gfc_resolve_log10 (gfc_expr *, gfc_expr *);
 void gfc_resolve_logical (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -358,6 +363,7 @@ void gfc_resolve_second_sub (gfc_code *);
 void gfc_resolve_set_exponent (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_shape (gfc_expr *, gfc_expr *);
 void gfc_resolve_sign (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_signal (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_sin (gfc_expr *, gfc_expr *);
 void gfc_resolve_sinh (gfc_expr *, gfc_expr *);
 void gfc_resolve_spacing (gfc_expr *, gfc_expr *);
@@ -383,6 +389,7 @@ void gfc_resolve_verify (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 
 
 /* Intrinsic subroutine resolution.  */
+void gfc_resolve_alarm_sub (gfc_code *);
 void gfc_resolve_chdir_sub (gfc_code *);
 void gfc_resolve_cpu_time (gfc_code *);
 void gfc_resolve_exit (gfc_code *);
@@ -403,6 +410,7 @@ void gfc_resolve_random_number (gfc_code *);
 void gfc_resolve_rename_sub (gfc_code *);
 void gfc_resolve_link_sub (gfc_code *);
 void gfc_resolve_symlnk_sub (gfc_code *);
+void gfc_resolve_signal_sub (gfc_code *);
 void gfc_resolve_sleep_sub (gfc_code *);
 void gfc_resolve_stat_sub (gfc_code *);
 void gfc_resolve_system_clock (gfc_code *);
