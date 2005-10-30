@@ -1317,7 +1317,10 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
       if (STACK_REG_P (*src)
 	  && find_regno_note (insn, REG_DEAD, REGNO (*src)))
 	{
-	  emit_pop_insn (insn, regstack, *src, EMIT_AFTER);
+	  /* USEs are ignored for liveness information so USEs of dead
+	     register might happen.  */
+          if (TEST_HARD_REG_BIT (regstack->reg_set, REGNO (*src)))
+	    emit_pop_insn (insn, regstack, *src, EMIT_AFTER);
 	  return control_flow_insn_deleted;
 	}
       /* ??? Uninitialized USE should not happen.  */
@@ -2305,6 +2308,7 @@ change_stack (rtx insn, stack old, stack new, enum emit_where where)
 {
   int reg;
   int update_end = 0;
+  int i;
 
   /* Stack adjustments for the first insn in a block update the
      current_block's stack_in instead of inserting insns directly.
@@ -2328,6 +2332,17 @@ change_stack (rtx insn, stack old, stack new, enum emit_where where)
 	update_end = 1;
       insn = NEXT_INSN (insn);
     }
+
+  /* Initialize partially dead variables.  */
+  for (i = FIRST_STACK_REG; i < LAST_STACK_REG + 1; i++)
+    if (TEST_HARD_REG_BIT (new->reg_set, i)
+	&& !TEST_HARD_REG_BIT (old->reg_set, i))
+      {
+	old->reg[++old->top] = i;
+        SET_HARD_REG_BIT (old->reg_set, i);
+	emit_insn_before (gen_rtx_SET (VOIDmode,
+				       FP_MODE_REG (i, SFmode), not_a_num), insn);
+      }
 
   /* Pop any registers that are not needed in the new block.  */
 
@@ -2617,6 +2632,12 @@ propagate_stack (edge e)
   for (reg = 0; reg <= src_stack->top; ++reg)
     if (TEST_HARD_REG_BIT (dest_stack->reg_set, src_stack->reg[reg]))
       dest_stack->reg[++dest_stack->top] = src_stack->reg[reg];
+
+  /* Push in any partially dead values.  */
+  for (reg = FIRST_STACK_REG; reg < LAST_STACK_REG + 1; reg++)
+    if (TEST_HARD_REG_BIT (dest_stack->reg_set, reg)
+        && !TEST_HARD_REG_BIT (src_stack->reg_set, reg))
+      dest_stack->reg[++dest_stack->top] = reg;
 }
 
 
@@ -2908,9 +2929,20 @@ convert_regs_1 (FILE *file, basic_block block)
 
   /* Something failed if the stack lives don't match.  If we had malformed
      asms, we zapped the instruction itself, but that didn't produce the
-     same pattern of register kills as before.  */
-  GO_IF_HARD_REG_EQUAL (regstack.reg_set, bi->out_reg_set, win);
-  gcc_assert (any_malformed_asm);
+     same pattern of register kills as before.  
+     
+     Disable this checking for blocks leading to EXIT block - for undefined
+     return values blocks containing return statement are not declaring return
+     register as live while we have to initialize it (as otherwise the caller's
+     register stack would end up missordered).
+     Alternatively we might update bi->out_reg_set in reg_to_stack for return
+     registers to save this sanity check. */
+  if (!single_succ_p (block)
+      || single_succ_edge (block)->dest != EXIT_BLOCK_PTR)
+    {
+      GO_IF_HARD_REG_EQUAL (regstack.reg_set, bi->out_reg_set, win);
+      gcc_assert (any_malformed_asm);
+    }
  win:
   bi->stack_out = regstack;
   bi->done = true;
@@ -3086,9 +3118,9 @@ reg_to_stack (FILE *file)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (rtl_df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LIVE_OUT (rtl_df, bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }

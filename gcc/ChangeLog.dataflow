@@ -1,3 +1,12 @@
+2005-10-31  Jan Hubicka  <jh@suse.cz>
+
+	* reg-stack.c (subst_stack_regs_pat): Expect USEs to be ignored for
+	liveness.
+	(change_stack): Initialize partially dead registers.
+	(convert_regs_1): Handle dead return values.
+	(reg_to_stack): Switch to partial liveness. 
+	(propagate_stack): Push in partially live stuff.
+
 2005-10-25  Daniel Berlin  <dberlin@dberlin.org>
             Kenneth Zadeck <zadeck@naturalbridge.com>
 
