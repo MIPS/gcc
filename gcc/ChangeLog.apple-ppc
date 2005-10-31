@@ -1,3 +1,9 @@
+2005-10-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4310696
+	* dbxout.c (stabstr_I): Truncate anonymous aggregate names
+	in C++ and Objective-c++.
+
 2005-10-25  Evan Cheng  <evan.cheng@apple.com>
 
 	Radar 4209085

@@ -720,10 +720,20 @@ dbxout_begin_complex_stabs_noforcetext (void)
 #define stabstr_S(str) obstack_grow (&stabstr_ob, str, strlen(str))
 
 /* Add the text of ID, an IDENTIFIER_NODE, to the string being built.  */
-#define stabstr_I(id) obstack_grow (&stabstr_ob, \
-                                    IDENTIFIER_POINTER (id), \
-                                    IDENTIFIER_LENGTH (id))
+/* APPLE LOCAL begin 4310696 */
+static void
+stabstr_I (tree id)
+{
 
+  if ((strcmp (lang_hooks.name, "GNU C++") == 0
+       || strcmp (lang_hooks.name, "GNU Objective-C++") == 0)
+      && IDENTIFIER_LENGTH (id) > 2
+      && strncmp ("$_", IDENTIFIER_POINTER (id), 2) == 0)
+    obstack_grow (&stabstr_ob, "$_", 2);
+  else  
+      obstack_grow (&stabstr_ob, IDENTIFIER_POINTER (id), IDENTIFIER_LENGTH (id));
+}
+/* APPLE LOCAL end 4310696 */
 /* Add NUM, a signed decimal number, to the string being built.  */
 static void
 stabstr_D (HOST_WIDE_INT num)

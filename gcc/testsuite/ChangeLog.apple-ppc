@@ -1,3 +1,8 @@
+2005-10-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4310696
+	* g++.dg/stab-anon-struct-1.C: New.
+
 2005-10-20  Devang Patel  <dpatel@apple.com>
 
 	* gcc.apple/execute/picbase-1.x: New.
