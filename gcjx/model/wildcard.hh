@@ -89,10 +89,7 @@ public:
 
   bool contains_p (model_class *);
 
-  std::string get_pretty_name () const
-  {
-    return name;
-  }
+  std::string get_pretty_name () const;
 
   std::string get_signature ();
 

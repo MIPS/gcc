@@ -1,3 +1,9 @@
+2005-10-31  Tom Tromey  <tromey@redhat.com>
+
+	* model/wildcard.cc (get_pretty_name): New method.
+	* model/wildcard.hh (model_wildcard::get_pretty_name): No longer
+	inline.
+
 2005-10-28  Tom Tromey  <tromey@redhat.com>
 
 	* model/classinst.cc (apply_type_map): Updated for new

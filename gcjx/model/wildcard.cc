@@ -110,6 +110,16 @@ model_wildcard::get_signature ()
   return result;
 }
 
+std::string
+model_wildcard::get_pretty_name () const
+{
+  std::string result = "?";
+  if (bound)
+    result += ((is_super ? " super " : " extends ")
+	       + bound->type ()->get_pretty_name ());
+  return result;
+}
+
 void
 model_wildcard::visit (visitor *v)
 {
