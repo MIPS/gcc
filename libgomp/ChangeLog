@@ -1,3 +1,8 @@
+2005-10-31  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libgomp.fortran/character2.f90: Fix race condition
+	setting 's' in different threads.
+
 2005-10-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (attribute_hidden, ialias): Define.

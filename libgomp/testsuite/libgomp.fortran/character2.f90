@@ -43,11 +43,11 @@ contains
       q = 'E'
       r = 'F'
       t = '456'
+      s = m
     end if
-    s = m
 !$omp barrier
     l = l .or. u .ne. '987654321'
-    if (any (s .ne. m)) l = .true.
+    if (any (s .ne. 1)) l = .true.
     if (m .eq. 0) then
       l = l .or. p .ne. 'A' .or. q .ne. 'B' .or. r .ne. 'C'
       l = l .or. t .ne. '123'
