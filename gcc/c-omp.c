@@ -196,6 +196,35 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
   else
     {
       bool cond_ok = false;
+      tree op0 = TREE_OPERAND (cond, 0);
+      tree op1 = TREE_OPERAND (cond, 1);
+
+      /* 2.5.1.  The comparison in the condition is computed in the type
+	 of DECL, otherwise the behavior is undefined.
+
+	 For example:
+	   long n; int i;
+	   i < n;
+
+	according to ISO will be evaluated as:
+	   (long)i < n;
+
+	We want to force:
+	   i < (int)n;  */
+      if (TREE_CODE (op0) == NOP_EXPR
+	  && decl == TREE_OPERAND (op0, 0))
+	{
+	  TREE_OPERAND (cond, 0) = TREE_OPERAND (op0, 0);
+	  TREE_OPERAND (cond, 1) = build1 (NOP_EXPR, TREE_TYPE (decl),
+					   TREE_OPERAND (cond, 1));
+	}
+      else if (TREE_CODE (op1) == NOP_EXPR
+	       && decl == TREE_OPERAND (op1, 0))
+	{
+	  TREE_OPERAND (cond, 1) = TREE_OPERAND (op1, 0);
+	  TREE_OPERAND (cond, 0) = build1 (NOP_EXPR, TREE_TYPE (decl),
+					   TREE_OPERAND (cond, 0));
+	}
 
       if (EXPR_HAS_LOCATION (cond))
 	elocus = EXPR_LOCATION (cond);
