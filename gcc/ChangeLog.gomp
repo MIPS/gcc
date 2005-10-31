@@ -1,5 +1,38 @@
 2005-10-31  Richard Henderson  <rth@redhat.com>
 
+	* omp-low.c (build_receiver_ref): Lookup receiver field again.
+	(build_outer_var_ref): Don't remap types here.
+	(install_var_field): Assert no duplicate fields.
+	(install_var_local): Rename from install_var_new; do
+	omp_copy_decl_1 here.
+	(install_var_private, install_var_shared): Remove.
+	(fixup_remapped_decl): Rename from fixup_variable_sized.  Remap
+	types of all decls seen.
+	(is_private_var): Remove.
+	(fixup_child_record_type): New.
+	(scan_sharing_clauses): Always run second pass for
+	fixup_remapped_decl; use install_var_local.
+	(create_omp_child_function): Make the passed-as argument type
+	be void*.
+	(scan_omp_parallel): Call fixup_child_record_type.
+	(scan_omp_for): Don't privatize iterator variable here.
+	(expand_rec_input_clauses): Handle variable sized reference vars.
+	Set DECL_VALUE_EXPR for shared variables.
+	(expand_omp_parallel): Expand body after expand_rec_input_clauses.
+	(expand_omp_single): Likewise.
+	* tree-nested.c (struct nesting_info): Add field_map,
+	suppress_expansion, debug_var_chain.
+	(create_nesting_tree): Initialize them.
+	(lookup_field_for_decl): Use field_map.
+	(get_nonlocal_debug_decl, get_local_debug_decl): New.
+	(convert_nonlocal_reference, convert_local_reference): Use them.
+	Honor suppress_expansion; set it for OMP statements.
+	(convert_nonlocal_omp_clauses): Fill in suppress_expansion.
+	(convert_local_omp_clauses): Similarly.
+	(finalize_nesting_tree_1): Add debug_var_chain to toplevel block.
+
+2005-10-31  Richard Henderson  <rth@redhat.com>
+
 	* tree-pretty-print.c (print_declaration): Dump DECL_VALUE_EXPR.
 	* print-tree.c (print_node): Likewise.
 
