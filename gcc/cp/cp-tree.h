@@ -2963,6 +2963,13 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define OMP_FOR_GIMPLIFYING_P(NODE) \
   (TREE_LANG_FLAG_0 (OMP_FOR_CHECK (NODE)))
 
+/* A language-specific token attached to the OpenMP data clauses to 
+   hold code (or code fragments) related to ctors, dtors, and op=.
+   See semantics.c for details.  */
+#define CP_OMP_CLAUSE_INFO(NODE) \
+  TREE_BLOCK (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
+				OMP_CLAUSE_COPYPRIVATE))
+
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */
 #define TRY_STMTS(NODE)		TREE_OPERAND (TRY_BLOCK_CHECK (NODE), 0)
@@ -4259,9 +4266,10 @@ extern tree finish_omp_for			(location_t, tree, tree,
 						 tree, tree, tree, tree);
 extern void finish_omp_atomic			(enum tree_code, tree, tree);
 extern enum omp_clause_default_kind cxx_omp_predetermined_sharing (tree);
-extern tree cxx_omp_clause_default_ctor		(tree);
-extern tree cxx_omp_clause_copy_ctor		(tree, tree);
-extern tree cxx_omp_clause_assign_op		(tree, tree);
+extern tree cxx_omp_clause_default_ctor		(tree, tree);
+extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
+extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
+extern tree cxx_omp_clause_dtor			(tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,

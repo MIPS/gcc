@@ -3372,7 +3372,7 @@ finish_omp_clauses (tree clauses)
       bool need_copy_ctor = false;
       bool need_copy_assignment = false;
       bool need_implicitly_determined = false;
-      tree type;
+      tree type, inner_type;
 
       switch (c_kind)
 	{
@@ -3514,41 +3514,74 @@ finish_omp_clauses (tree clauses)
 	}
 
       /* We're interested in the base element, not arrays.  */
-      type = TREE_TYPE (t);
-      while (TREE_CODE (type) == ARRAY_TYPE)
-	type = TREE_TYPE (type);
+      inner_type = type = TREE_TYPE (t);
+      while (TREE_CODE (inner_type) == ARRAY_TYPE)
+	inner_type = TREE_TYPE (inner_type);
 
-      /* Check for special function availablity by building a call to one
-	 and discarding the results.  C.f. check_constructor_callable.  */
-      if (CLASS_TYPE_P (type))
+      /* Check for special function availablity by building a call to one.
+	 Save the results, because later we won't be in the right context
+	 for making these queries.  */
+      if (CLASS_TYPE_P (inner_type)
+	  && (need_default_ctor || need_copy_ctor || need_copy_assignment))
 	{
 	  int save_errorcount = errorcount;
+	  tree info;
 
-	  /* For the copy constructor and assignment op, we need
-	     an object of the appropriate type.  Pretend with an
-	     otherwise bogus INDIRECT_REF.  */
-	  if (type != TREE_TYPE (t))
+	  /* Always allocate 3 elements for simplicity.  These are the
+	     function decls for the ctor, dtor, and assignment op.
+	     This layout is known to the three lang hooks,
+	     cxx_omp_clause_default_init, cxx_omp_clause_copy_init,
+	     and cxx_omp_clause_assign_op.  */
+	  info = make_tree_vec (3);
+	  CP_OMP_CLAUSE_INFO (c) = info;
+
+	  if (need_default_ctor
+	      || (need_copy_ctor
+		  && !TYPE_HAS_TRIVIAL_INIT_REF (inner_type)))
 	    {
-	      t = build_int_cst (build_pointer_type (type), 0);
-	      t = build1 (INDIRECT_REF, type, t);
+	      if (need_default_ctor)
+		t = NULL;
+	      else
+		{
+		  t = build_int_cst (build_pointer_type (inner_type), 0);
+		  t = build1 (INDIRECT_REF, inner_type, t);
+		  t = build_tree_list (NULL, t);
+		}
+	      t = build_special_member_call (NULL_TREE,
+					     complete_ctor_identifier,
+					     t, inner_type, LOOKUP_NORMAL);
+	      t = get_callee_fndecl (t);
+	      TREE_VEC_ELT (info, 0) = t;
 	    }
 
-	  if (need_default_ctor && TYPE_NEEDS_CONSTRUCTING (type))
+	  if ((need_default_ctor || need_copy_ctor)
+	      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (inner_type))
 	    {
-	      build_special_member_call (NULL_TREE, complete_ctor_identifier,
-					 NULL_TREE, type, LOOKUP_NORMAL);
+	      t = build_int_cst (build_pointer_type (inner_type), 0);
+	      t = build1 (INDIRECT_REF, inner_type, t);
+	      t = build_special_member_call (t, complete_dtor_identifier,
+					     NULL, inner_type, LOOKUP_NORMAL);
+	      t = get_callee_fndecl (t);
+	      TREE_VEC_ELT (info, 1) = t;
 	    }
-	  if (need_copy_ctor && TYPE_NEEDS_CONSTRUCTING (type))
+
+	  if (need_copy_assignment
+	      && !TYPE_HAS_TRIVIAL_ASSIGN_REF (inner_type))
 	    {
-	      build_special_member_call (NULL_TREE, complete_ctor_identifier,
-					 build_tree_list (NULL, t),
-					 type, LOOKUP_NORMAL);
-	    }
-	  if (need_copy_assignment)
-	    {
-	      build_special_member_call (t, ansi_assopname (NOP_EXPR),
-					 build_tree_list (NULL, t),
-					 type, LOOKUP_NORMAL);
+	      t = build_int_cst (build_pointer_type (inner_type), 0);
+	      t = build1 (INDIRECT_REF, inner_type, t);
+	      t = build_special_member_call (t, ansi_assopname (NOP_EXPR),
+					     build_tree_list (NULL, t),
+					     inner_type, LOOKUP_NORMAL);
+
+	      /* We'll have called convert_from_reference on the call, which
+		 may well have added an indirect_ref.  It's unneeded here, 
+		 and in the way, so kill it.  */
+	      if (TREE_CODE (t) == INDIRECT_REF)
+		t = TREE_OPERAND (t, 0);
+
+	      t = get_callee_fndecl (t);
+	      TREE_VEC_ELT (info, 2) = t;
 	    }
 
 	  if (errorcount != save_errorcount)
@@ -3556,26 +3589,7 @@ finish_omp_clauses (tree clauses)
 	}
 
       if (remove)
-	{
-	  *pc = OMP_CLAUSE_CHAIN (c);
-
-	  /* If we don't remove the corresponding firstprivate clause, we
-	     can wind up with spurrious errors later, since this changes
-	     the set of constructors we request.  */
-	  if (c_kind == OMP_CLAUSE_LASTPRIVATE
-	      && bitmap_bit_p (&firstprivate_head,
-			       DECL_UID (OMP_CLAUSE_DECL (c))))
-	    {
-	      tree *p;
-	      for (p = &clauses; *p ; p = &OMP_CLAUSE_CHAIN (*p))
-		if (TREE_CODE (*p) == OMP_CLAUSE_FIRSTPRIVATE
-		    && OMP_CLAUSE_DECL (*p) == OMP_CLAUSE_DECL (c))
-		  {
-		    *p = OMP_CLAUSE_CHAIN (*p);
-		    break;
-		  }
-	    }
-	}
+	*pc = OMP_CLAUSE_CHAIN (c);
       else
 	pc = &OMP_CLAUSE_CHAIN (c);
     }
@@ -3803,54 +3817,6 @@ cxx_omp_predetermined_sharing (tree decl)
 
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }
-
-/* Build and return code to initialize DECL with its default constructor.
-   Return NULL if there's nothing to do.  */
-
-tree
-cxx_omp_clause_default_ctor (tree decl)
-{
-  tree type = TREE_TYPE (decl);
-
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      tree etype = type;
-      while (TREE_CODE (etype) == ARRAY_TYPE)
-	etype = TREE_TYPE (etype);
-
-      if (TYPE_NEEDS_CONSTRUCTING (etype))
-	return build_vec_init (decl, NULL, NULL, true, 0);
-      else
-	return NULL;
-    }
-  else if (TYPE_NEEDS_CONSTRUCTING (type))
-    return build_aggr_init (decl, NULL, 0);
-  else
-    return NULL;
-}
-
-/* Build and return code for a copy constructor from SRC to DST.  */
-
-tree
-cxx_omp_clause_copy_ctor (tree dst, tree src)
-{
-  if (TREE_CODE (TREE_TYPE (dst)) == ARRAY_TYPE)
-    return build_vec_init (dst, NULL, src, false, 1);
-  else
-    return build_modify_expr (dst, INIT_EXPR, src);
-}
-
-/* Similarly, except use an assignment operator instead.  */
-
-tree
-cxx_omp_clause_assign_op (tree dst, tree src)
-{
-  if (TREE_CODE (TREE_TYPE (dst)) == ARRAY_TYPE)
-    return build_vec_init (dst, NULL, src, false, 2);
-  else
-    return build_modify_expr (dst, NOP_EXPR, src);
-}
-
 
 void
 init_cp_semantics (void)

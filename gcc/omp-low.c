@@ -1202,13 +1202,13 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      /* FALLTHRU */
 
 	    case OMP_CLAUSE_PRIVATE:
-	      x = lang_hooks.decls.omp_clause_default_ctor (new_var);
+	      x = lang_hooks.decls.omp_clause_default_ctor (c, new_var);
 	      if (x)
 		gimplify_and_add (x, ilist);
 	      /* FALLTHRU */
 
 	    do_dtor:
-	      x = lang_hooks.decls.omp_clause_dtor (new_var);
+	      x = lang_hooks.decls.omp_clause_dtor (c, new_var);
 	      if (x)
 		{
 		  dtor = x;
@@ -1219,7 +1219,7 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 
 	    case OMP_CLAUSE_FIRSTPRIVATE:
 	      x = build_outer_var_ref (var, ctx);
-	      x = lang_hooks.decls.omp_clause_copy_ctor (new_var, x);
+	      x = lang_hooks.decls.omp_clause_copy_ctor (c, new_var, x);
 	      gimplify_and_add (x, ilist);
 	      goto do_dtor;
 	      break;
@@ -1227,7 +1227,7 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	    case OMP_CLAUSE_COPYIN:
 	      by_ref = use_pointer_for_field (var, false);
 	      x = build_receiver_ref (var, by_ref, ctx);
-	      x = lang_hooks.decls.omp_clause_assign_op (new_var, x);
+	      x = lang_hooks.decls.omp_clause_assign_op (c, new_var, x);
 	      append_to_statement_list (x, &copyin_seq);
 	      copyin_by_ref |= by_ref;
 	      break;
@@ -1312,7 +1312,7 @@ expand_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
       new_var = lookup_decl (var, ctx);
 
       x = build_outer_var_ref (var, ctx);
-      x = lang_hooks.decls.omp_clause_assign_op (x, new_var);
+      x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
       append_to_statement_list (x, &sub_list);
     }
 
@@ -1503,7 +1503,7 @@ expand_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
 	  ref = build_fold_indirect_ref (ref);
 	  var = build_fold_indirect_ref (var);
 	}
-      x = lang_hooks.decls.omp_clause_assign_op (var, ref);
+      x = lang_hooks.decls.omp_clause_assign_op (c, var, ref);
       gimplify_and_add (x, rlist);
     }
 }

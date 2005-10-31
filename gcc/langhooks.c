@@ -563,7 +563,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 /* Generate code to copy SRC to DST.  */
 
 tree
-lhd_omp_assignment (tree dst, tree src)
+lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
   return build2 (MODIFY_EXPR, void_type_node, dst, src);
 }

@@ -1,3 +1,19 @@
+2005-10-31  Richard Henderson  <rth@redhat.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_OMP_CLAUSE_DTOR):
+	Use cxx_omp_clause_dtor.
+	* cp-tree.h (CP_OMP_CLAUSE_INFO): New.
+	(cxx_omp_clause_dtor): New.
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): New.
+	(cxx_omp_clause_default_ctor): Use it.
+	(cxx_omp_clause_copy_ctor, cxx_omp_clause_assign_op): Likewise.
+	(cxx_omp_clause_dtor): New.
+	* semantics.c (finish_omp_clauses): Rewrite cdtor checking to
+	fill in CP_OMP_CLAUSE_INFO.  Don't specialcase LASTPRIVATE for
+	removal.
+	(cxx_omp_clause_default_ctor, cxx_omp_clause_copy_ctor,
+	cxx_omp_clause_assign_op): Move to cp-gimplify.c.
+
 2005-10-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_threadprivate): If DECL_RTL_SET_P,

@@ -700,3 +700,152 @@ cp_genericize (tree fndecl)
   gcc_assert (bc_label[bc_break] == NULL);
   gcc_assert (bc_label[bc_continue] == NULL);
 }
+
+/* Build code to apply FN to each member of ARG1 and ARG2.  FN may be
+   NULL if there is in fact nothing to do.  ARG2 may be null if FN
+   actually only takes one argument.  */
+
+static tree
+cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
+{
+  if (fn == NULL)
+    return NULL;
+
+  if (TREE_CODE (TREE_TYPE (arg1)) == ARRAY_TYPE)
+    {
+      tree inner_type = TREE_TYPE (arg1);
+      tree start1, end1, p1;
+      tree start2 = NULL, p2 = NULL;
+      tree ret = NULL, lab, t;
+
+      start1 = arg1;
+      start2 = arg2;
+      do
+	{
+	  inner_type = TREE_TYPE (inner_type);
+	  start1 = build4 (ARRAY_REF, inner_type, start1,
+			   size_zero_node, NULL, NULL);
+	  if (arg2)
+	    start2 = build4 (ARRAY_REF, inner_type, start2,
+			     size_zero_node, NULL, NULL);
+	}
+      while (TREE_CODE (inner_type) == ARRAY_TYPE);
+      start1 = build_fold_addr_expr (start1);
+      if (arg2)
+	start2 = build_fold_addr_expr (start2);
+
+      end1 = TYPE_SIZE_UNIT (TREE_TYPE (arg1));
+      end1 = fold_convert (TREE_TYPE (start1), end1);
+      end1 = build2 (PLUS_EXPR, TREE_TYPE (start1), start1, end1);
+
+      p1 = create_tmp_var (TREE_TYPE (start1), NULL);
+      t = build2 (MODIFY_EXPR, void_type_node, p1, start1);
+      append_to_statement_list (t, &ret);
+
+      if (arg2)
+	{
+	  p2 = create_tmp_var (TREE_TYPE (start2), NULL);
+	  t = build2 (MODIFY_EXPR, void_type_node, p2, start2);
+	  append_to_statement_list (t, &ret);
+	}
+
+      lab = create_artificial_label ();
+      t = build1 (LABEL_EXPR, void_type_node, lab);
+      append_to_statement_list (t, &ret);
+
+      t = NULL;
+      if (arg2)
+	t = tree_cons (NULL, p2, t);
+      t = tree_cons (NULL, p1, t);
+      t = build_call (fn, t);
+      append_to_statement_list (t, &ret);
+
+      t = fold_convert (TREE_TYPE (p1), TYPE_SIZE_UNIT (inner_type));
+      t = build2 (PLUS_EXPR, TREE_TYPE (p1), p1, t);
+      t = build2 (MODIFY_EXPR, void_type_node, p1, t);
+      append_to_statement_list (t, &ret);
+
+      if (arg2)
+	{
+	  t = fold_convert (TREE_TYPE (p2), TYPE_SIZE_UNIT (inner_type));
+	  t = build2 (PLUS_EXPR, TREE_TYPE (p2), p2, t);
+	  t = build2 (MODIFY_EXPR, void_type_node, p2, t);
+	  append_to_statement_list (t, &ret);
+	}
+
+      t = build2 (NE_EXPR, boolean_type_node, p1, end1);
+      t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&lab), NULL);
+      append_to_statement_list (t, &ret);
+
+      return ret;
+    }
+  else
+    {
+      tree t = NULL;
+      if (arg2)
+	t = tree_cons (NULL, build_fold_addr_expr (arg2), t);
+      t = tree_cons (NULL, build_fold_addr_expr (arg1), t);
+      return build_call (fn, t);
+    }
+}
+
+/* Return code to initialize DECL with its default constructor, or
+   NULL if there's nothing to do.  */
+
+tree
+cxx_omp_clause_default_ctor (tree clause, tree decl)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), decl, NULL);
+
+  return ret;
+}
+
+/* Return code to initialize DST with a copy constructor from SRC.  */
+
+tree
+cxx_omp_clause_copy_ctor (tree clause, tree dst, tree src)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), dst, src);
+  if (ret == NULL)
+    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+
+  return ret;
+}
+
+/* Similarly, except use an assignment operator instead.  */
+
+tree
+cxx_omp_clause_assign_op (tree clause, tree dst, tree src)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 2), dst, src);
+  if (ret == NULL)
+    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+
+  return ret;
+}
+
+/* Return code to destroy DECL.  */
+
+tree
+cxx_omp_clause_dtor (tree clause, tree decl)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 1), decl, NULL);
+
+  return ret;
+}

@@ -257,7 +257,7 @@ hook_tree_tree_tree_bool_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSE
 }
 
 tree
-hook_tree_tree_null (tree t ATTRIBUTE_UNUSED)
+hook_tree_tree_tree_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

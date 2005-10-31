@@ -1,3 +1,27 @@
+2005-10-31  Richard Henderson  <rth@redhat.com>
+
+	* langhooks.h (omp_clause_default_ctor): Add clause argument.
+	(omp_clause_copy_ctor, omp_clause_assign_op): Likewise.
+	(omp_clause_dtor): Likewise.
+	* langhooks-def.h: Update to match.
+	* langhooks.c (lhd_omp_assignment): Likewise.
+	* hooks.c (hook_tree_tree_null): Remove.
+	(hook_tree_tree_tree_null): New.
+	* hooks.h: Update to match.
+	* omp-low.c (expand_rec_input_clauses): Add new lang_hook arguments.
+	(expand_lastprivate_clauses, expand_copyprivate_clauses): Likewise.
+	* gimplify.c (GOVD_EXPLICIT, GOVD_DATA_SHARE_CLASS): New.
+	(omp_add_variable): Gracefully handle errors.
+	(omp_notice_variable): Likewise.
+	(gimplify_scan_omp_clauses): Rename from
+	gimplify_deconstruct_omp_clauses; don't remove nodes; use
+	GOVD_EXPLICIT.
+	(gimplify_adjust_omp_clauses_1): Rename from
+	gimplify_reconstruct_omp_clauses_1; don't do anything for
+	EXPLICIT or LOCAL variables; remove LASTPRIVATE special case.
+	(gimplify_adjust_omp_clauses): Rename from
+	gimplify_reconstruct_omp_clauses; prefer updates to creation.
+
 2005-10-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (tmp_ompfn_id_num): New variable.
