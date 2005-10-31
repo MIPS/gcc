@@ -1993,7 +1993,6 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
   tree op0;
   tree vec_oprnd0=NULL, vec_oprnd1=NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum tree_code code;
   tree new_temp;
@@ -2002,7 +2001,7 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
   tree new_stmt;
   stmt_vec_info prev_stmt_info;
   stmt_vec_info def_stmt_info;
-  int nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
+  int nunits_in;
   int nunits_out;
   tree vectype_out;
   int ncopies;
@@ -2071,6 +2070,8 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
   vec_mode = TYPE_MODE (vectype_in);
   if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     return false;
+
+  STMT_VINFO_VECTYPE (stmt_info) = vectype_in;
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -2174,7 +2175,6 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   tree op0, op1 = NULL;
   tree vec_oprnd0=NULL, vec_oprnd1=NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum tree_code code, code1 = CODE_FOR_nothing, code2 = CODE_FOR_nothing;
   tree decl1 = NULL_TREE, decl2 = NULL_TREE;
@@ -2186,7 +2186,7 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   tree new_stmt;
   stmt_vec_info prev_stmt_info;
   stmt_vec_info def_stmt_info;
-  int nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
+  int nunits_in;
   int nunits_out;
   tree vectype_out;
   int ncopies;
@@ -2260,6 +2260,8 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   if (!supportable_widening_operation (code, stmt, vectype_in,
 				       &decl1, &decl2, &code1, &code2))
     return false;
+
+  STMT_VINFO_VECTYPE (stmt_info) = vectype_in;
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -4141,5 +4143,5 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   update_ssa (TODO_update_ssa);
 
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
-    fprintf (vect_dump, "LOOP VECTORIZED.");
+    fprintf (vect_dump, "LOOP VECTORIZED.\n");
 }

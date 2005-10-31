@@ -77,6 +77,7 @@ _recog_func_ptr vect_pattern_recog_funcs[NUM_PATTERNS] = {
 	vect_recog_dot_prod_pattern,
 	vect_recog_sad_pattern};
 
+
 /* Function vect_determine_vectorization_factor
 
    Determine the vectorization factor (VF). VF is the number of data elements
@@ -1848,6 +1849,7 @@ tree vect_recog_sad_pattern (tree last_stmt,
   optab optab;
   tree vectype;
   tree sum_oprnd;
+  tree def_stmt;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -1872,12 +1874,11 @@ tree vect_recog_sad_pattern (tree last_stmt,
 	return NULL;
       oprnd0 = TREE_OPERAND (expr, 0);
       oprnd1 = TREE_OPERAND (expr, 1);
+      VARRAY_PUSH_TREE (*stmt_list, last_stmt);
       half_type = TREE_TYPE (oprnd0);
     }
   else
     {
-      /* Regular (non-widening) summation?  */
-
       if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
         return NULL;
       oprnd0 = TREE_OPERAND (expr, 0);
@@ -1885,13 +1886,20 @@ tree vect_recog_sad_pattern (tree last_stmt,
       if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
           || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
         return NULL;
-      stmt = last_stmt;
-      half_type = type;
+      VARRAY_PUSH_TREE (*stmt_list, last_stmt);
+
+      if (widened_name_p (oprnd0, last_stmt, &half_type, &def_stmt))
+	{
+	  stmt = def_stmt;
+	  VARRAY_PUSH_TREE (*stmt_list, stmt);
+	  expr = TREE_OPERAND (stmt, 1);
+	  oprnd0 = TREE_OPERAND (expr, 0);
+	}
+      else
+	half_type = type;
     }
 
   sum_oprnd = oprnd1;
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
-
 
   /* Summation of absolute?  */
 
@@ -1903,7 +1911,6 @@ tree vect_recog_sad_pattern (tree last_stmt,
     return NULL;
   gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != ABS_EXPR)
    return NULL;
@@ -2042,7 +2049,8 @@ vect_recog_mult_hi_pattern (tree last_stmt,
   stmt = SSA_NAME_DEF_STMT (oprnd0);
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
-  gcc_assert (stmt_vinfo);
+  if (!stmt_vinfo)
+    return NULL;
   if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     return NULL;
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
@@ -2091,12 +2099,37 @@ vect_recog_mult_hi_pattern (tree last_stmt,
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != MULT_EXPR)
     return NULL;
-  if (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-    return NULL;
-  stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
-  expr = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
-   return NULL;
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    {
+      stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+      expr = TREE_OPERAND (stmt, 1);
+      if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
+        return NULL;
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1); 
+    }
+  else
+    {
+      tree half_type0, half_type1;
+      tree def_stmt;
+
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
+          || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
+        return NULL;
+      VARRAY_PUSH_TREE (*stmt_list, stmt);
+      if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt))
+        return NULL;
+      oprnd0 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+      if (!widened_name_p (oprnd1, last_stmt, &half_type1, &def_stmt))
+        return NULL;
+      oprnd1 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+      if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
+        return NULL;
+      if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type))
+        return NULL;
+    }
 
   /* Check target support  */
   if (vect_print_dump_info (REPORT_DETAILS))
@@ -2118,8 +2151,6 @@ vect_recog_mult_hi_pattern (tree last_stmt,
     }
 
   /* Pattern detected. Create a stmt to be used to replace the pattern: */
-  oprnd0 = TREE_OPERAND (expr, 0);
-  oprnd1 = TREE_OPERAND (expr, 1); 
   pattern_expr = build2 (MULT_HI_EXPR, half_type, oprnd0, oprnd1);
   if (vect_print_dump_info (REPORT_DETAILS))
     {
@@ -2242,7 +2273,7 @@ vect_recog_dot_prod_pattern (tree last_stmt,
     }
   else
     {
-      /* Regular (non-widening) summation?  */
+      tree def_stmt;
 
       if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
         return NULL;
@@ -2252,7 +2283,17 @@ vect_recog_dot_prod_pattern (tree last_stmt,
           || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
         return NULL;
       stmt = last_stmt;
-      half_type = type;
+      VARRAY_PUSH_TREE (*stmt_list, stmt);
+
+      if (widened_name_p (oprnd0, stmt, &half_type, &def_stmt))
+        {
+          stmt = def_stmt;
+          VARRAY_PUSH_TREE (*stmt_list, stmt);
+          expr = TREE_OPERAND (stmt, 1);
+          oprnd0 = TREE_OPERAND (expr, 0);
+        }
+      else
+        half_type = type;
     }
 
   VARRAY_PUSH_TREE (*stmt_list, last_stmt);
@@ -2272,19 +2313,39 @@ vect_recog_dot_prod_pattern (tree last_stmt,
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != MULT_EXPR)
     return NULL;
-  if (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-    return NULL;
-  stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  expr = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
-    return NULL;
-  stmt_vinfo = vinfo_for_stmt (stmt);
-  gcc_assert (stmt_vinfo);
-  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
+  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
+    {
+      stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
+      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+      expr = TREE_OPERAND (stmt, 1);
+      if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
+        return NULL;
+      stmt_vinfo = vinfo_for_stmt (stmt);
+      gcc_assert (stmt_vinfo);
+      gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
+      oprnd00 = TREE_OPERAND (expr, 0);
+      oprnd01 = TREE_OPERAND (expr, 1);
+    }
+  else
+    {
+      tree half_type0, half_type1;
+      tree def_stmt;
 
-  oprnd00 = TREE_OPERAND (expr, 0);
-  oprnd01 = TREE_OPERAND (expr, 1);
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
+          || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
+        return NULL;
+      VARRAY_PUSH_TREE (*stmt_list, stmt);
+      if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt))
+        return NULL;
+      oprnd00 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+      if (!widened_name_p (oprnd1, stmt, &half_type1, &def_stmt))
+        return NULL;
+      oprnd01 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+      if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
+        return NULL;
+    }
 
   /* Check target support  */
   half_type = TREE_TYPE (oprnd00);
@@ -2398,7 +2459,8 @@ vect_recog_widen_mult_pattern (tree last_stmt,
 
   oprnd0 = TREE_OPERAND (expr, 0);
   oprnd1 = TREE_OPERAND (expr, 1);
-  if (TREE_TYPE (oprnd0) != type || TREE_TYPE (oprnd1) != type)
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type) 
+      || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
     return NULL;
 
   VARRAY_PUSH_TREE (*stmt_list, last_stmt);
@@ -2419,7 +2481,8 @@ vect_recog_widen_mult_pattern (tree last_stmt,
   /* Check target support  */
   vectype = get_vectype_for_scalar_type (half_type0);
   if (!supportable_widening_operation (WIDEN_MULT_EXPR, last_stmt, vectype,
-                                       &dummy, &dummy, &dummy_code, &dummy_code))
+                                       &dummy, &dummy, &dummy_code, 
+				       &dummy_code))
     return NULL;
 
   VARRAY_PUSH_TREE (*stmt_list, def_stmt0);
@@ -2704,7 +2767,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *pattern_vectype,
   else
     return NULL;
 	
-  if (TREE_TYPE (a) != type)
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (a)) != TYPE_MAIN_VARIANT (type))
     return NULL;
 
   VARRAY_PUSH_TREE (*stmt_list, last_stmt);
@@ -2744,7 +2807,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *pattern_vectype,
 
   /* Check that the pattern is supported in vector form  */
   vectype = get_vectype_for_scalar_type (type);
-  optab = optab_for_tree_code (code, vectype);
+  optab = optab_for_tree_code (SAT_MINUS_EXPR, vectype);
   vec_mode = TYPE_MODE (vectype);
 
   if (!optab

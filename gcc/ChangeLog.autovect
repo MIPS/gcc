@@ -1,3 +1,19 @@
+2005-10-27  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_recog_sad_pattern): Detect also on targets
+	that don't directly support widening-summation.
+	(vect_recog_mult_hi_pattern): Detect also on targets that don't
+	directly support widening-multiplication.
+	(vect_recog_dot_prod_pattern): Detect also on targets that don't
+	directly support widening-summation and/or widening-multiplication.
+	(vect_recog_widen_mult_pattern): Don't directly compare types.
+	(vect_recog_unsigned_subsat_pattern): Don't directly compare types.
+	Use correct tree-code in call to optab_for_tree_code.
+	* tree-vect-transform.c (vect_transform_loop): Add new-line to printf 
+	string.
+	(vectorizable_promotion, vectorizable_demotion): Set vectype according
+	to the operand type.
+
 2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_pattern_recog_funcs): Move 
