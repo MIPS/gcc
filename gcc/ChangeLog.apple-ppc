@@ -1,4 +1,30 @@
 2005-10-31  Devang Patel  <dpatel@apple.com>
+	
+	Radar 4053179
+	Backport from Mainline.
+	2005-04-14  Richard Henderson  <rth@redhat.com>
+        * config/i386/i386.c (ix86_prepare_sse_fp_compare_args): Split ...
+        (ix86_expand_sse_fp_minmax): ... from ...
+        (ix86_expand_fp_movcc): ... here.
+        (ix86_expand_sse_movcc): Rewrite from ix86_split_sse_movcc.
+        * config/i386/i386-protos.h: Update.
+        * config/i386/i386.md (UNSPEC_IEEE_MIN, UNSPEC_IEEE_MAX): New.
+        (sse_setccsf, sse_setccdf): Allow before reload.
+        (movsfcc_1_sse_min, movsfcc_1_sse_max, movsfcc_1_sse): Remove.
+        (movdfcc_1_sse_min, movdfcc_1_sse_max, movdfcc_1_sse): Remove.
+        (ieee_sminsf3, ieee_smaxsf3, ieee_smindf3, ieee_smaxdf3): New.
+        * config/i386/sse.md (andsf3, nandsf3, iorsf3, xorsf3): New.
+        (anddf3, nanddf3, iordf3, xordf3): New.
+        * config/i386/i386.c (ix86_expand_sse_cmp): Split out from ...
+        (ix86_expand_sse_movcc): ... here.  Take cmp as a pre-computed
+        register.
+        (ix86_expand_fp_movcc): Update to match.
+        (ix86_expand_fp_vcond, ix86_expand_int_vcond): New.
+        * config/i386/i386-protos.h: Update.
+        * config/i386/sse.md (vcondv4sf, vcondv2df): New.
+        (vcond<SSEMODE124>, vcondu<SSEMODE12>): New.
+
+2005-10-31  Devang Patel  <dpatel@apple.com>
 
 	Radar 4310696
 	* dbxout.c (stabstr_I): Truncate anonymous aggregate names
