@@ -38,31 +38,6 @@
    (set_attr "length" "6,10")]
 )
 
-;; Thumb-2 does not have the rsc instruction.
-(define_insn "*subdi_zesidi_di"
-  [(set (match_operand:DI            0 "s_register_operand" "=&r")
-	(minus:DI (zero_extend:DI
-		   (match_operand:SI 2 "s_register_operand" "r"))
-		  (match_operand:DI  1 "s_register_operand" "r")))
-   (clobber (reg:CC CC_REGNUM))]
-  "TARGET_THUMB2"
-  "rsbs\\t%Q0, %Q1, %2\;mov\\t%R0, #0\;sbc\\t%R0, %R0, %R1"
-  [(set_attr "conds" "clob")
-   (set_attr "length" "12")]
-)
-
-(define_insn "*subdi_sesidi_di"
-  [(set (match_operand:DI            0 "s_register_operand" "=&r")
-	(minus:DI (sign_extend:DI
-		   (match_operand:SI 2 "s_register_operand"  "r"))
-		  (match_operand:DI  1 "s_register_operand"  "0")))
-   (clobber (reg:CC CC_REGNUM))]
-  "TARGET_THUMB2"
-  "rsbs\\t%Q0, %Q1, %2\;asr\\t%R0, %2, #31\;sbc\\t%R0, %R0, %R1"
-  [(set_attr "conds" "clob")
-   (set_attr "length" "12")]
-)
-
 (define_insn "*thumb2_decscc"
   [(set (match_operand:SI            0 "s_register_operand" "=r,r")
         (minus:SI (match_operand:SI  1 "s_register_operand" "0,?r")

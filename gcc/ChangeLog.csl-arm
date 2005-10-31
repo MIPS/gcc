@@ -1,3 +1,8 @@
+2005-10-31  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/thumb2.md (subdi_zesidi_di, subdi_sesidi_di): Remove
+	broken/inefficient patterns.
+
 2005-10-26  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.md (pic_add_dot_plus_four): Use correct operand.
