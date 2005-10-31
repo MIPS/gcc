@@ -18534,6 +18534,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
       p_kind = PRAGMA_OMP_PARALLEL_FOR;
       p_name = "#pragma omp parallel for";
       mask |= OMP_FOR_CLAUSE_MASK;
+      mask &= ~(1u << PRAGMA_OMP_CLAUSE_NOWAIT);
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
@@ -18545,6 +18546,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
 	  p_kind = PRAGMA_OMP_PARALLEL_SECTIONS;
 	  p_name = "#pragma omp parallel sections";
 	  mask |= OMP_SECTIONS_CLAUSE_MASK;
+	  mask &= ~(1u << PRAGMA_OMP_CLAUSE_NOWAIT);
 	}
     }
 

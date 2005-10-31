@@ -1,7 +1,15 @@
+2005-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-omp.c (c_split_parallel_clauses): Ignore OMP_CLAUSE_NOWAIT.
+	* c-parser.c (c_parser_omp_parallel): Do not allow 'nowait' in
+	combined parallel+workshare directives.
+	omp-builtins.def: Add comments warning about ordering of some
+	builtins.
+
 2005-10-31  Aldy Hernandez  <aldyh@redhat.com>
 
-        PR gomp/24505
-        * c-omp.c (c_finish_omp_for): Canonicalize condition.
+	PR gomp/24505
+	* c-omp.c (c_finish_omp_for): Canonicalize condition.
 
 2005-10-31  Richard Henderson  <rth@redhat.com>
 

@@ -352,6 +352,10 @@ c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
 	  *ws_clauses = clauses;
 	  break;
 
+	case OMP_CLAUSE_NOWAIT:
+	  /* Ignore.  It is invalid in combined parallel contstructs.  */
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}

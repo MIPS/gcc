@@ -1,3 +1,8 @@
+2005-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_omp_parallel): Do not allow 'nowait' in
+	combined parallel+workshare directives.
+
 2005-10-31  Richard Henderson  <rth@redhat.com>
 
 	* cp-objcp-common.h (LANG_HOOKS_OMP_CLAUSE_DTOR):

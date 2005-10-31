@@ -1,8 +1,15 @@
+2005-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/sections-3.c: New test.
+	* gcc.dg/gomp/parallel-4.c: New test.
+	* g++.dg/gomp/parallel-5.C: New test.
+	* g++.dg/gomp/sections-3.C: New test.
+
 2005-10-31  Aldy Hernandez  <aldyh@redhat.com>
 
-        PR gomp/24505
-        * gcc.dg/gomp/for-15.c: New test.
-        * g++.dg/gomp/for-17.C: New test.
+	PR gomp/24505
+	* gcc.dg/gomp/for-15.c: New test.
+	* g++.dg/gomp/for-17.C: New test.
 
 2005-10-29  Jakub Jelinek  <jakub@redhat.com>
 

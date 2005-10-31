@@ -7556,6 +7556,7 @@ c_parser_omp_parallel (c_parser *parser)
       p_kind = PRAGMA_OMP_PARALLEL_FOR;
       p_name = "#pragma omp parallel for";
       mask |= OMP_FOR_CLAUSE_MASK;
+      mask &= ~(1u << PRAGMA_OMP_CLAUSE_NOWAIT);
     }
   else if (c_parser_next_token_is (parser, CPP_NAME))
     {
@@ -7566,6 +7567,7 @@ c_parser_omp_parallel (c_parser *parser)
 	  p_kind = PRAGMA_OMP_PARALLEL_SECTIONS;
 	  p_name = "#pragma omp parallel sections";
 	  mask |= OMP_SECTIONS_CLAUSE_MASK;
+	  mask &= ~(1u << PRAGMA_OMP_CLAUSE_NOWAIT);
 	}
     }
 
@@ -7581,23 +7583,19 @@ c_parser_omp_parallel (c_parser *parser)
 
     case PRAGMA_OMP_PARALLEL_FOR:
       block = c_begin_omp_parallel ();
-
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
       stmt = c_parser_omp_for_loop (parser);
       if (stmt)
 	OMP_FOR_CLAUSES (stmt) = ws_clause;
-
       stmt = c_finish_omp_parallel (par_clause, block);
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
       block = c_begin_omp_parallel ();
-
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
       stmt = c_parser_omp_sections_scope (parser);
       if (stmt)
 	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
-
       stmt = c_finish_omp_parallel (par_clause, block);
       break;
 
