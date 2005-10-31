@@ -1861,6 +1861,13 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
 	}
     }
 
+  if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
+    {
+      pp_string (buffer, " [value-expr: ");
+      dump_generic_node (buffer, DECL_VALUE_EXPR (t), spc, flags, false);
+      pp_character (buffer, ']');
+    }
+
   pp_character (buffer, ';');
 }
 

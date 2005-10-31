@@ -1,3 +1,8 @@
+2005-10-31  Richard Henderson  <rth@redhat.com>
+
+	* tree-pretty-print.c (print_declaration): Dump DECL_VALUE_EXPR.
+	* print-tree.c (print_node): Likewise.
+
 2005-10-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-omp.c (c_split_parallel_clauses): Ignore OMP_CLAUSE_NOWAIT.
