@@ -1,3 +1,7 @@
+2005-10-31  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* BASE-VER: Add branch name to base version.
+
 2005-10-27  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_recog_sad_pattern): Detect also on targets
