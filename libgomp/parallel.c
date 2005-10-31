@@ -119,3 +119,8 @@ int omp_in_parallel (void)
 
   return false;
 }
+
+ialias (omp_get_num_threads)
+ialias (omp_get_max_threads)
+ialias (omp_get_thread_num)
+ialias (omp_in_parallel)

@@ -91,3 +91,14 @@ extern void omp_unset_nest_lock (omp_nest_lock_t *)
 
 extern int omp_test_nest_lock (omp_nest_lock_t *)
 	__attribute__((alias ("omp_test_lock")));
+
+ialias (omp_init_lock)
+ialias (omp_init_nest_lock)
+ialias (omp_destroy_lock)
+ialias (omp_destroy_nest_lock)
+ialias (omp_set_lock)
+ialias (omp_set_nest_lock)
+ialias (omp_unset_lock)
+ialias (omp_unset_nest_lock)
+ialias (omp_test_lock)
+ialias (omp_test_nest_lock)

@@ -31,6 +31,34 @@
 #include "libgomp_f.h"
 #include <stdlib.h>
 
+#ifdef HAVE_ATTRIBUTE_ALIAS
+/* Use internal aliases if possible.  */
+# define ialias_redirect(fn) \
+  extern __typeof (fn) fn __asm__ ("gomp_ialias_" #fn) attribute_hidden;
+ialias_redirect (omp_init_lock)
+ialias_redirect (omp_init_nest_lock)
+ialias_redirect (omp_destroy_lock)
+ialias_redirect (omp_destroy_nest_lock)
+ialias_redirect (omp_set_lock)
+ialias_redirect (omp_set_nest_lock)
+ialias_redirect (omp_unset_lock)
+ialias_redirect (omp_unset_nest_lock)
+ialias_redirect (omp_test_lock)
+ialias_redirect (omp_test_nest_lock)
+ialias_redirect (omp_set_dynamic)
+ialias_redirect (omp_set_nested)
+ialias_redirect (omp_set_num_threads)
+ialias_redirect (omp_get_dynamic)
+ialias_redirect (omp_get_nested)
+ialias_redirect (omp_in_parallel)
+ialias_redirect (omp_get_max_threads)
+ialias_redirect (omp_get_num_procs)
+ialias_redirect (omp_get_num_threads)
+ialias_redirect (omp_get_thread_num)
+ialias_redirect (omp_get_wtick)
+ialias_redirect (omp_get_wtime)
+#endif        
+
 void
 omp_init_lock_ (omp_lock_arg_t lock)
 {

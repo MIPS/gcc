@@ -94,3 +94,5 @@ omp_get_num_procs (void)
   return gomp_nthreads_var;
 #endif
 }
+
+ialias (omp_get_num_procs)

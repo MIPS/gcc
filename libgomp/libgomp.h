@@ -311,4 +311,18 @@ extern void gomp_work_share_end_nowait (void);
 #define _LIBGOMP_OMP_LOCK_DEFINED 1
 #include "omp.h.in"
 
+#ifdef HAVE_ATTRIBUTE_VISIBILITY
+# define attribute_hidden __attribute__ ((visibility ("hidden")))
+#else
+# define attribute_hidden
+#endif
+
+#ifdef HAVE_ATTRIBUTE_ALIAS
+# define ialias(fn) \
+  extern __typeof (fn) gomp_ialias_##fn \
+    __attribute__ ((alias (#fn))) attribute_hidden;
+#else
+# define ialias(fn)
+#endif
+
 #endif /* LIBGOMP_H */

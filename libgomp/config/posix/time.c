@@ -78,3 +78,6 @@ omp_get_wtick (void)
   return 1.0 / sysconf(_SC_CLK_TCK);
 #endif
 }
+
+ialias (omp_get_wtime)
+ialias (omp_get_wtick)

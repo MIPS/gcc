@@ -189,3 +189,9 @@ omp_get_nested (void)
 {
   return gomp_nest_var;
 }
+
+ialias (omp_set_dynamic)
+ialias (omp_set_nested)
+ialias (omp_set_num_threads)
+ialias (omp_get_dynamic)
+ialias (omp_get_nested)

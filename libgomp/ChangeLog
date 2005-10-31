@@ -1,3 +1,30 @@
+2005-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (attribute_hidden, ialias): Define.
+	* config/posix/proc.c (omp_get_num_procs): Add ialias.
+	* config/posix/time.c (omp_get_wtime, omp_get_wtick): Likewise.
+	* config/posix/lock.c (omp_init_lock, omp_init_nest_lock,
+	omp_destroy_lock, omp_destroy_nest_lock, omp_set_lock,
+	omp_set_nest_lock, omp_unset_lock, omp_unset_nest_lock,
+	omp_test_lock, omp_test_nest_lock): Likewise.
+	* config/linux/lock.c (omp_init_lock, omp_init_nest_lock,
+	omp_destroy_lock, omp_destroy_nest_lock, omp_set_lock,
+	omp_set_nest_lock, omp_unset_lock, omp_unset_nest_lock,
+	omp_test_lock, omp_test_nest_lock): Likewise.
+	* env.c (omp_set_dynamic, omp_set_nested, omp_set_num_threads,
+	omp_get_dynamic, omp_get_nested): Likewise.
+	* parallel.c (omp_get_num_threads, omp_get_max_threads,
+	omp_get_thread_num, omp_in_parallel): Likewise.
+	* fortran.c (ialias_redirect): Define.
+	(omp_init_lock, omp_init_nest_lock, omp_destroy_lock,
+	omp_destroy_nest_lock, omp_set_lock, omp_set_nest_lock,
+	omp_unset_lock, omp_unset_nest_lock, omp_test_lock,
+	omp_test_nest_lock, omp_set_dynamic, omp_set_nested,
+	omp_set_num_threads, omp_get_dynamic, omp_get_nested,
+	omp_in_parallel, omp_get_max_threads, omp_get_num_procs,
+	omp_get_num_threads, omp_get_thread_num, omp_get_wtick,
+	omp_get_wtime): Add ialias_redirect.
+
 2005-10-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* fortran.c: Include stdlib.h.
