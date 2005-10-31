@@ -2,11 +2,16 @@
 /* Ensure that typeof()-typed variables inside the @try { } block that
    "inherit" their EH-volatileness from other variables in the stack frame
    do not trigger "discards qualifiers from target pointer type" warnings.  */
+
 /* { dg-options "-fobjc-exceptions -fnext-runtime" } */
 /* { dg-do compile } */
+
 typedef volatile int IOSharedLockData;
+
 @interface TestMyTests
 - (void) testSpoon;
+@end
+
 extern void some_func (int *);
 
 @implementation TestMyTests
@@ -43,4 +48,6 @@ extern void some_func (int *);
     }
   } while(0);
       
+}
+@end
 /* APPLE LOCAL end radar 4204796 */
