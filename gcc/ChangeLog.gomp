@@ -1,5 +1,12 @@
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-omp.c (c_split_parallel_clauses): Do not handle
+	OMP_CLAUSE_NOWAIT.
+	* c-parser.c (c_parser_omp_all_clauses): When emitting an
+	error message, remove the invalid clause from the list.
+
+2005-11-01  Diego Novillo  <dnovillo@redhat.com>
+
 	* omp-low.c (determine_parallel_type): Fix thinko in handling
 	of statically scheduled loops.
 

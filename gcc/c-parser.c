@@ -7092,7 +7092,12 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 	}
 
       if (((mask >> c_kind) & 1) == 0 && !parser->error)
-	error ("%qs is not valid for %qs", c_name, where);
+	{
+	  /* Remove the invalid clause from the list to avoid
+	     confusing the rest of the compiler.  */
+	  clauses = TREE_CHAIN (clauses);
+	  error ("%qs is not valid for %qs", c_name, where);
+	}
     }
  saw_error:
   c_parser_skip_to_pragma_eol (parser);

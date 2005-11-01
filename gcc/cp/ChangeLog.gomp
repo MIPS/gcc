@@ -1,3 +1,8 @@
+2005-11-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_omp_all_clauses): When emitting an
+	error message, remove the invalid clause from the list.
+
 2005-10-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* parser.c (cp_parser_omp_parallel): Do not allow 'nowait' in
