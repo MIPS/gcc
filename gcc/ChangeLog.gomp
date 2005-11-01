@@ -1,3 +1,27 @@
+2005-11-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* omp-low.c (enum omp_parallel_type): Declare.
+	(struct omp_context): Remove field 'is_parallel'.
+	Update users.
+	Add fields 'parallel_type', 'parallel_start_ix' and
+	'parallel_start_additional_args'.
+	(is_in_combined_parallel_ctx): New.
+	(determine_parallel_type): New.
+	(scan_omp_parallel): Call it.
+	Initialize new fields in struct omp_context.
+	(extract_omp_for_data): Extract from ...
+	(expand_omp_for_1): ... here.
+	Call extract_omp_for_data.
+	(scan_omp_for): If scanning a combined parallel loop, extract
+	bounds, step and chunk size.
+	Call extract_omp_for_data.
+	(scan_omp): Use ctx->parallel_start_ix to retrieve the
+	appropriate parallel start call.
+	(build_parallel_call): Document.
+	(expand_omp_for_generic): Re-arrange to support combined
+	parallel loops.
+	(expand_omp_sections): Likewise.
+
 2005-10-31  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge (gomp-merge-20051031).

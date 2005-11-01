@@ -59,10 +59,30 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    optimal, but lexically nested parallels effectively only happens in
    test suites.  */
 
+/* Type of parallel constructs.  Used to decide what runtime function
+   to use for launching children threads.  */
+
+enum omp_parallel_type {
+    IS_NOT_PARALLEL = 0,
+
+    /* Regular omp parallel  */
+    IS_PARALLEL,
+
+    /* Combined parallel + workshare (parallel loop and parallel
+       sections).  */
+    IS_COMBINED_PARALLEL
+};
+
+
+/* Context structure.  Used to store information about each parallel
+   directive in the code.  */
 
 typedef struct omp_context
 {
-  /* This field must be at the beginning, as we do "inheritance".  */
+  /* This field must be at the beginning, as we do "inheritance": Some
+     callback functions for tree-inline.c (e.g., omp_copy_decl)
+     receive a copy_body_data pointer that is up-casted to an
+     omp_context pointer.  */
   copy_body_data cb;
 
   /* The tree of contexts corresponding to the encountered constructs.  */
@@ -89,9 +109,37 @@ typedef struct omp_context
      reserved for the main body of the function.  */
   int depth;
 
-  bool is_parallel;
+  /* Type of parallel construct.  Used to distinguish regular parallel
+     regions from combined parallel+workshare directives (parallel,
+     parallel loop and parallel sections).  */
+  enum omp_parallel_type parallel_type;
+
+  /* True if this parallel directive is nested within another.  */
   bool is_nested;
+
+  /* For combined parallel constructs, the built-in index for the
+     library call used to launch the children threads.  */
+  int parallel_start_ix;
+
+  /* If the combined parallel directive needs additional arguments for
+     the call to GOMP_parallel_start_foo, they are added here.  */
+  tree parallel_start_additional_args;
 } omp_context;
+
+
+/* A structure describing the main elements of a parallel loop.
+   Mostly used to communicate between the various subroutines of 
+   expand_omp_for_1.  */
+
+struct expand_omp_for_data
+{
+  tree v, n1, n2, step, chunk_size, for_stmt;
+  enum tree_code cond_code;
+  tree pre;
+  omp_context *ctx;
+  bool have_nowait, have_ordered;
+  enum omp_clause_schedule_kind sched_kind;
+};
 
 static splay_tree all_contexts;
 static int parallel_nesting_level;
@@ -117,7 +165,15 @@ find_omp_clause (tree clauses, enum tree_code kind)
 static inline bool
 is_parallel_ctx (omp_context *ctx)
 {
-  return ctx->is_parallel;
+  return ctx->parallel_type != IS_NOT_PARALLEL;
+}
+
+/* Return true if CTX is inside a combined omp parallel + workshare.  */
+
+static inline bool
+is_in_combined_parallel_ctx (omp_context *ctx)
+{
+  return ctx->outer && ctx->outer->parallel_type == IS_COMBINED_PARALLEL;
 }
 
 /* Return true if EXPR is variable sized.  */
@@ -706,6 +762,56 @@ create_omp_child_function (omp_context *ctx)
   cfun = ctx->cb.src_cfun;
 }
 
+/* Given an OMP_PARALLEL statement, determine whether it is a combined
+   parallel+worksharing directive.  This is simply done by examining
+   the body of the directive.  If the body contains a single OMP_FOR
+   or a single OMP_SECTIONS then this is a combined directive.
+   Otherwise, it is a regular parallel directive.  */
+
+static enum omp_parallel_type
+determine_parallel_type (tree stmt)
+{
+  tree_stmt_iterator i;
+  int n;
+  enum omp_parallel_type par_type;
+  tree body = BIND_EXPR_BODY (OMP_PARALLEL_BODY (stmt));
+
+  par_type = IS_PARALLEL;
+  for (n = 0, i = tsi_start (body); !tsi_end_p (i) && n < 2; tsi_next (&i), n++)
+    {
+      tree t = tsi_stmt (i);
+      if (TREE_CODE (t) == OMP_FOR)
+	{
+	  /* If this is a combined parallel loop, we need to determine
+	     whether or not to use the combined library calls.  There
+	     are two cases where we do not apply the transformation:
+	     static loops and any kind of ordered loop.  In the first
+	     case, we already open code the loop so there is no need
+	     to do anything else.  In the latter case, the combined
+	     parallel loop call would still need extra synchronization
+	     to implement ordered semantics, so there would not be any
+	     gain in using the combined call.  */
+	  tree clauses = OMP_FOR_CLAUSES (t);
+	  tree c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
+	  if (c && OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
+	    par_type = IS_PARALLEL;
+	  else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
+	    par_type = IS_PARALLEL;
+	  else
+	    par_type = IS_COMBINED_PARALLEL;
+	}
+      else if (TREE_CODE (t) == OMP_SECTIONS)
+	par_type = IS_COMBINED_PARALLEL;
+    }
+
+  /* If we found more than one statement inside the parallel body,
+     then we have to expand as a regular parallel directive.  */
+  if (n > 1)
+    return IS_PARALLEL;
+  return par_type;
+}
+
+
 /* Scan an OpenMP parallel directive.  */
 
 static void
@@ -716,9 +822,11 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
 
   ctx = new_omp_context (*stmt_p, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
-  ctx->is_parallel = true;
+  ctx->parallel_type = determine_parallel_type (*stmt_p);
   ctx->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
   ctx->record_type = lang_hooks.types.make_type (RECORD_TYPE);
+  ctx->parallel_start_ix = BUILT_IN_GOMP_PARALLEL_START;
+  ctx->parallel_start_additional_args = NULL_TREE;
   name = create_tmp_var_name (".omp_data_s");
   name = build_decl (TYPE_DECL, name, ctx->record_type);
   TYPE_NAME (ctx->record_type) = name;
@@ -736,6 +844,102 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
     }
 }
 
+
+/* Extract the header elements of parallel loop FOR_STMT and store
+   them into *FD.  */
+
+static void
+extract_omp_for_data (tree for_stmt, omp_context *ctx, 
+		      struct expand_omp_for_data *fd)
+{
+  tree t;
+
+  fd->for_stmt = for_stmt;
+  fd->pre = NULL;
+  fd->ctx = ctx;
+
+  t = OMP_FOR_INIT (for_stmt);
+  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
+  fd->v = TREE_OPERAND (t, 0);
+  gcc_assert (DECL_P (fd->v));
+  gcc_assert (TREE_CODE (TREE_TYPE (fd->v)) == INTEGER_TYPE);
+  fd->n1 = TREE_OPERAND (t, 1);
+
+  t = OMP_FOR_COND (for_stmt);
+  fd->cond_code = TREE_CODE (t);
+  gcc_assert (TREE_OPERAND (t, 0) == fd->v);
+  fd->n2 = TREE_OPERAND (t, 1);
+  switch (fd->cond_code)
+    {
+    case LT_EXPR:
+    case GT_EXPR:
+      break;
+    case LE_EXPR:
+      fd->n2 = fold_build2 (PLUS_EXPR, TREE_TYPE (fd->n2), fd->n2,
+			   build_int_cst (TREE_TYPE (fd->n2), 1));
+      fd->cond_code = LT_EXPR;
+      break;
+    case GE_EXPR:
+      fd->n2 = fold_build2 (MINUS_EXPR, TREE_TYPE (fd->n2), fd->n2,
+			   build_int_cst (TREE_TYPE (fd->n2), 1));
+      fd->cond_code = GT_EXPR;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  t = OMP_FOR_INCR (fd->for_stmt);
+  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
+  gcc_assert (TREE_OPERAND (t, 0) == fd->v);
+  t = TREE_OPERAND (t, 1);
+  gcc_assert (TREE_OPERAND (t, 0) == fd->v);
+  switch (TREE_CODE (t))
+    {
+    case PLUS_EXPR:
+      fd->step = TREE_OPERAND (t, 1);
+      break;
+    case MINUS_EXPR:
+      fd->step = TREE_OPERAND (t, 1);
+      fd->step = fold_build1 (NEGATE_EXPR, TREE_TYPE (fd->step), fd->step);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  fd->have_nowait = fd->have_ordered = false;
+  fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
+  fd->chunk_size = NULL_TREE;
+
+  for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = OMP_CLAUSE_CHAIN (t))
+    switch (TREE_CODE (t))
+      {
+      case OMP_CLAUSE_NOWAIT:
+	fd->have_nowait = true;
+	break;
+      case OMP_CLAUSE_ORDERED:
+	fd->have_ordered = true;
+	break;
+      case OMP_CLAUSE_SCHEDULE:
+	fd->sched_kind = OMP_CLAUSE_SCHEDULE_KIND (t);
+	fd->chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (t);
+	break;
+      default:
+	break;
+      }
+
+  if (fd->sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
+    gcc_assert (fd->chunk_size == NULL);
+  else if (fd->chunk_size == NULL)
+    {
+      /* We only need to compute a default chunk size for ordered
+	 static loops and dynamic loops.  */
+      if (fd->sched_kind != OMP_CLAUSE_SCHEDULE_STATIC || fd->have_ordered)
+	fd->chunk_size = (fd->sched_kind == OMP_CLAUSE_SCHEDULE_STATIC)
+			 ? integer_zero_node : integer_one_node;
+    }
+}
+
+
 /* Scan an OpenMP loop directive.  */
 
 static void
@@ -747,6 +951,36 @@ scan_omp_for (tree *stmt_p, omp_context *outer_ctx)
   ctx = new_omp_context (stmt, outer_ctx);
   scan_sharing_clauses (OMP_FOR_CLAUSES (stmt), ctx);
 
+  /* If this is a combined parallel loop directive, we need to extract
+     the bounds, step and chunk size for the loop so that we can build
+     the call to GOMP_parallel_loop_foo_start.  Do this before
+     scanning the loop header to avoid getting the mapped variables
+     from the child context.  */
+  if (is_in_combined_parallel_ctx (ctx))
+    {
+      struct expand_omp_for_data fd;
+      tree t, additional_args;
+
+      extract_omp_for_data (stmt, ctx, &fd);
+
+      additional_args = NULL_TREE;
+      if (fd.chunk_size)
+	{
+	  t = fold_convert (long_integer_type_node, fd.chunk_size);
+	  additional_args = tree_cons (NULL, t, additional_args);
+	}
+      t = fold_convert (long_integer_type_node, fd.step);
+      additional_args = tree_cons (NULL, t, additional_args);
+      t = fold_convert (long_integer_type_node, fd.n2);
+      additional_args = tree_cons (NULL, t, additional_args);
+      t = fold_convert (long_integer_type_node, fd.n1);
+      additional_args = tree_cons (NULL, t, additional_args);
+      outer_ctx->parallel_start_additional_args = additional_args;
+    }
+
+  /* FIXME.  When expanding into a combined parallel loop, we may not
+     need to map some of the variables in the loop header (in
+     particular, FD.N1 and FD.N2 for dynamic loops).  */
   scan_omp (&OMP_FOR_PRE_BODY (stmt), ctx);
   scan_omp (&OMP_FOR_INIT (stmt), ctx);
   scan_omp (&OMP_FOR_COND (stmt), ctx);
@@ -799,7 +1033,7 @@ scan_omp_single (tree *stmt_p, omp_context *outer_ctx)
    outermost parallel.
 
    The minimal amount of work is processing private clauses, and simply
-   scanning the reset.  Private clauses are the only ones that don't
+   scanning the rest.  Private clauses are the only ones that don't
    also imply a reference in the outer parallel.  We must set up a
    translation lest the default behaviour in omp_copy_decl substitute
    error_mark_node.  */
@@ -864,7 +1098,8 @@ scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
     }
 }
 
-/* Lower OpenMP directives in CURRENT_FUNCTION_DECL.  */
+
+/* Callback for walk_stmts used to scan for OpenMP directives at TP.  */
 
 static tree
 scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
@@ -947,6 +1182,11 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
 
   return NULL_TREE;
 }
+
+
+/* Scan all the statements starting at STMT_P.  CTX contains context
+   information about the OpenMP directives and clauses found during
+   the scan.  */
 
 static void
 scan_omp (tree *stmt_p, omp_context *ctx)
@@ -1701,7 +1941,9 @@ build_parallel_call (tree clauses, tree *stmt_list, omp_context *ctx)
   args = tree_cons (NULL, t, args);
   t = build_fold_addr_expr (ctx->cb.dst_fn);
   args = tree_cons (NULL, t, args);
-  t = built_in_decls[BUILT_IN_GOMP_PARALLEL_START];
+  if (ctx->parallel_start_additional_args)
+    args = chainon (args, ctx->parallel_start_additional_args);
+  t = built_in_decls[ctx->parallel_start_ix];
   t = build_function_call_expr (t, args);
   gimplify_and_add (t, stmt_list);
 
@@ -1749,7 +1991,21 @@ maybe_catch_exception (tree *stmt_p)
   append_to_statement_list (t, stmt_p);
 }
 
-/* Expand an OpenMP parallel directive.  */
+
+/* Expand the OpenMP parallel directive pointed to by STMT_P.  CTX
+   holds context information for *STMT_P.  Expansion proceeds in
+   two main phases:
+
+   (1) The body of the parallel is expanded in-situ.
+       All the input and reduction clauses are expanded (from the
+       child's perspective).  The body of the parallel is then
+       inserted as the body of CTX->CB.DST_FUN (the function spawned
+       to execute each child thread).
+
+   (2) Back in the original function, the original body of the
+       directive is replaced with the expansion of clauses (from the
+       parent's perspective), and the thread library call to launch
+       all the children threads.  */
 
 static void
 expand_omp_parallel (tree *stmt_p, omp_context *ctx)
@@ -1761,6 +2017,8 @@ expand_omp_parallel (tree *stmt_p, omp_context *ctx)
 
   push_gimplify_context ();
 
+  /* First phase.  Expand the body of the children threads, emit
+     receiving code for data copying clauses.  */
   clauses = OMP_PARALLEL_CLAUSES (*stmt_p);
   bind = OMP_PARALLEL_BODY (*stmt_p);
   block = BIND_EXPR_BLOCK (bind);
@@ -1793,7 +2051,10 @@ expand_omp_parallel (tree *stmt_p, omp_context *ctx)
 
   push_gimplify_context ();
 
-  /* Build the sender decl now that we're in the correct context.  */
+  /* Second phase.  Build the sender decl now that we're in the
+     correct context.  Replace the original body of the directive with
+     sending code for data copying clauses and the parallel call to
+     launch children threads.  */
   if (ctx->record_type)
     ctx->sender_decl = create_tmp_var (ctx->record_type, ".omp_data_o");
 
@@ -1806,17 +2067,6 @@ expand_omp_parallel (tree *stmt_p, omp_context *ctx)
   pop_gimplify_context (bind);
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
 }
-
-/* A structure to communicate between the various subroutines of 
-   expand_omp_for_1.  */
-
-struct expand_omp_for_data
-{
-  tree v, n1, n2, step, chunk_size, for_stmt;
-  enum tree_code cond_code;
-  tree pre;
-  omp_context *ctx;
-};
 
 /* A subroutine of expand_omp_for_1.  Generate code to emit the
    for for a lastprivate clause.  Given a loop control predicate
@@ -1854,7 +2104,7 @@ expand_omp_for_lastprivate (struct expand_omp_for_data *fd)
    where COND is "<" or ">", we generate pseudocode
 
 	more = GOMP_loop_foo_start (N1, N2, STEP, CHUNK, &istart0, &iend0);
-	if (more) goto L0; else goto L3;
+	if (more) goto L0; else goto L2;
     L0:
 	V = istart0;
 	iend = iend0;
@@ -1865,7 +2115,22 @@ expand_omp_for_lastprivate (struct expand_omp_for_data *fd)
 	more = GOMP_loop_foo_next (&istart0, &iend0);
 	if (more) goto L0;
 	lastprivate;
-    L3:
+    L2:
+
+    If this is a combined omp parallel loop, we can skip the call
+    to GOMP_loop_foo_start and generate
+
+    L0:
+	if (!GOMP_loop_foo_next (&istart0, &iend0)) goto L2;
+	V = istart0;
+	iend = iend0;
+    L1:
+	BODY;
+	V += STEP;
+	if (V cond iend) goto L1;
+	goto L0;
+    L2:
+	lastprivate;
 */
 
 static void
@@ -1873,42 +2138,60 @@ expand_omp_for_generic (struct expand_omp_for_data *fd,
 			enum built_in_function start_fn,
 			enum built_in_function next_fn)
 {
-  tree l0, l1, l3;
+  tree l0, l1, l2;
   tree type, istart0, iend0, iend;
   tree t, args;
+  bool in_combined_parallel = is_in_combined_parallel_ctx (fd->ctx);
 
   type = TREE_TYPE (fd->v);
 
   istart0 = create_tmp_var (long_integer_type_node, ".istart0");
-  iend0 = create_tmp_var (long_integer_type_node, ".istart0");
+  iend0 = create_tmp_var (long_integer_type_node, ".iend0");
 
   l0 = create_artificial_label ();
   l1 = create_artificial_label ();
-  l3 = create_artificial_label ();
+  l2 = create_artificial_label ();
   iend = create_tmp_var (type, NULL);
 
-  t = build_fold_addr_expr (iend0);
-  args = tree_cons (NULL, t, NULL);
-  t = build_fold_addr_expr (istart0);
-  args = tree_cons (NULL, t, args);
-  if (fd->chunk_size)
+  /* If this is a combined parallel loop, skip the call to
+     GOMP_loop_foo_start and call GOMP_loop_foo_next directly.  */
+  if (in_combined_parallel)
     {
-      t = fold_convert (long_integer_type_node, fd->chunk_size);
+      t = build1 (LABEL_EXPR, void_type_node, l0);
+      gimplify_and_add (t, &fd->pre);
+      t = build_fold_addr_expr (iend0);
+      args = tree_cons (NULL, t, NULL);
+      t = build_fold_addr_expr (istart0);
       args = tree_cons (NULL, t, args);
+      t = build_function_call_expr (built_in_decls[next_fn], args);
+      t = build1 (TRUTH_NOT_EXPR, TREE_TYPE (t), t);
+      t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l2), NULL);
+      gimplify_and_add (t, &fd->pre);
     }
-  t = fold_convert (long_integer_type_node, fd->step);
-  args = tree_cons (NULL, t, args);
-  t = fold_convert (long_integer_type_node, fd->n2);
-  args = tree_cons (NULL, t, args);
-  t = fold_convert (long_integer_type_node, fd->n1);
-  args = tree_cons (NULL, t, args);
-  t = build_function_call_expr (built_in_decls[start_fn], args);
-  t = build3 (COND_EXPR, void_type_node, t,
-	      build_and_jump (&l0), build_and_jump (&l3));
-  gimplify_and_add (t, &fd->pre);
-
-  t = build1 (LABEL_EXPR, void_type_node, l0);
-  gimplify_and_add (t, &fd->pre);
+  else
+    {
+      t = build_fold_addr_expr (iend0);
+      args = tree_cons (NULL, t, NULL);
+      t = build_fold_addr_expr (istart0);
+      args = tree_cons (NULL, t, args);
+      if (fd->chunk_size)
+	{
+	  t = fold_convert (long_integer_type_node, fd->chunk_size);
+	  args = tree_cons (NULL, t, args);
+	}
+      t = fold_convert (long_integer_type_node, fd->step);
+      args = tree_cons (NULL, t, args);
+      t = fold_convert (long_integer_type_node, fd->n2);
+      args = tree_cons (NULL, t, args);
+      t = fold_convert (long_integer_type_node, fd->n1);
+      args = tree_cons (NULL, t, args);
+      t = build_function_call_expr (built_in_decls[start_fn], args);
+      t = build3 (COND_EXPR, void_type_node, t,
+		  build_and_jump (&l0), build_and_jump (&l2));
+      gimplify_and_add (t, &fd->pre);
+      t = build1 (LABEL_EXPR, void_type_node, l0);
+      gimplify_and_add (t, &fd->pre);
+    }
 
   t = fold_convert (type, istart0);
   t = build2 (MODIFY_EXPR, void_type_node, fd->v, t);
@@ -1931,19 +2214,30 @@ expand_omp_for_generic (struct expand_omp_for_data *fd,
   t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l1), NULL);
   gimplify_and_add (t, &fd->pre);
 
-  t = build_fold_addr_expr (iend0);
-  args = tree_cons (NULL, t, NULL);
-  t = build_fold_addr_expr (istart0);
-  args = tree_cons (NULL, t, args);
-  t = build_function_call_expr (built_in_decls[next_fn], args);
-  t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l0), NULL);
-  gimplify_and_add (t, &fd->pre);
+  /* If emitting a combined parallel loop, we only need to emit a jump
+     back to L0 to call GOMP_loop_foo_next again.  */
+  if (in_combined_parallel)
+    {
+      t = build_and_jump (&l0);
+      gimplify_and_add (t, &fd->pre);
+    }
+  else
+    {
+      t = build_fold_addr_expr (iend0);
+      args = tree_cons (NULL, t, NULL);
+      t = build_fold_addr_expr (istart0);
+      args = tree_cons (NULL, t, args);
+      t = build_function_call_expr (built_in_decls[next_fn], args);
+      t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&l0), NULL);
+      gimplify_and_add (t, &fd->pre);
+    }
 
   expand_omp_for_lastprivate (fd);
   
-  t = build1 (LABEL_EXPR, void_type_node, l3);
+  t = build1 (LABEL_EXPR, void_type_node, l2);
   gimplify_and_add (t, &fd->pre);
 }
+
 
 /* A subroutine of expand_omp_for_1.  Generate code for a parallel
    loop with static schedule and no specified chunk size.  Given parameters:
@@ -2237,82 +2531,9 @@ static tree
 expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
 {
   struct expand_omp_for_data fd;
-  bool have_nowait, have_ordered;
-  enum omp_clause_schedule_kind sched_kind;
-  tree t, dlist;
+  tree dlist;
 
-  fd.for_stmt = *stmt_p;
-  fd.pre = NULL;
-  fd.ctx = ctx;
-
-  t = OMP_FOR_INIT (fd.for_stmt);
-  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
-  fd.v = TREE_OPERAND (t, 0);
-  gcc_assert (DECL_P (fd.v));
-  gcc_assert (TREE_CODE (TREE_TYPE (fd.v)) == INTEGER_TYPE);
-  fd.n1 = TREE_OPERAND (t, 1);
-
-  t = OMP_FOR_COND (fd.for_stmt);
-  fd.cond_code = TREE_CODE (t);
-  gcc_assert (TREE_OPERAND (t, 0) == fd.v);
-  fd.n2 = TREE_OPERAND (t, 1);
-  switch (fd.cond_code)
-    {
-    case LT_EXPR:
-    case GT_EXPR:
-      break;
-    case LE_EXPR:
-      fd.n2 = fold_build2 (PLUS_EXPR, TREE_TYPE (fd.n2), fd.n2,
-			   build_int_cst (TREE_TYPE (fd.n2), 1));
-      fd.cond_code = LT_EXPR;
-      break;
-    case GE_EXPR:
-      fd.n2 = fold_build2 (MINUS_EXPR, TREE_TYPE (fd.n2), fd.n2,
-			   build_int_cst (TREE_TYPE (fd.n2), 1));
-      fd.cond_code = GT_EXPR;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  t = OMP_FOR_INCR (fd.for_stmt);
-  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
-  gcc_assert (TREE_OPERAND (t, 0) == fd.v);
-  t = TREE_OPERAND (t, 1);
-  gcc_assert (TREE_OPERAND (t, 0) == fd.v);
-  switch (TREE_CODE (t))
-    {
-    case PLUS_EXPR:
-      fd.step = TREE_OPERAND (t, 1);
-      break;
-    case MINUS_EXPR:
-      fd.step = TREE_OPERAND (t, 1);
-      fd.step = fold_build1 (NEGATE_EXPR, TREE_TYPE (fd.step), fd.step);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  have_nowait = have_ordered = false;
-  sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
-  fd.chunk_size = NULL_TREE;
-
-  for (t = OMP_FOR_CLAUSES (fd.for_stmt); t ; t = OMP_CLAUSE_CHAIN (t))
-    switch (TREE_CODE (t))
-      {
-      case OMP_CLAUSE_NOWAIT:
-	have_nowait = true;
-	break;
-      case OMP_CLAUSE_ORDERED:
-	have_ordered = true;
-	break;
-      case OMP_CLAUSE_SCHEDULE:
-	sched_kind = OMP_CLAUSE_SCHEDULE_KIND (t);
-	fd.chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (t);
-	break;
-      default:
-	break;
-      }
+  extract_omp_for_data (*stmt_p, ctx, &fd);
 
   expand_rec_input_clauses (OMP_FOR_CLAUSES (fd.for_stmt),
 			    &fd.pre, &dlist, ctx);
@@ -2320,7 +2541,7 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
   expand_omp (&OMP_FOR_PRE_BODY (fd.for_stmt), ctx);
   append_to_statement_list (OMP_FOR_PRE_BODY (fd.for_stmt), &fd.pre);
 
-  if (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC && !have_ordered)
+  if (fd.sched_kind == OMP_CLAUSE_SCHEDULE_STATIC && !fd.have_ordered)
     {
       if (fd.chunk_size == NULL)
 	expand_omp_for_static_nochunk (&fd);
@@ -2331,22 +2552,24 @@ expand_omp_for_1 (tree *stmt_p, omp_context *ctx)
     {
       int fn_index;
 
-      if (sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
-	gcc_assert (fd.chunk_size == NULL);
-      else if (fd.chunk_size == NULL)
-	fd.chunk_size = (sched_kind == OMP_CLAUSE_SCHEDULE_STATIC)
-			? integer_zero_node : integer_one_node;
-
-      fn_index = sched_kind + have_ordered * 4;
+      fn_index = fd.sched_kind + fd.have_ordered * 4;
 
       expand_omp_for_generic (&fd, BUILT_IN_GOMP_LOOP_STATIC_START + fn_index,
-			     BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index);
+			      BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index);
     }
 
   expand_reduction_clauses (OMP_FOR_CLAUSES (fd.for_stmt), &fd.pre, ctx);
   append_to_statement_list (dlist, &fd.pre);
 
-  if (!have_nowait)
+  /* If this parallel loop was part of a combined parallel loop
+     directive, inform the parent parallel what flavour of
+     GOMP_parallel_loop_XXX_start to use.  */
+  if (is_in_combined_parallel_ctx (ctx))
+    {
+      int start_ix = BUILT_IN_GOMP_PARALLEL_LOOP_STATIC_START + fd.sched_kind;
+      ctx->outer->parallel_start_ix = start_ix;
+    }
+  else if (!fd.have_nowait)
     build_omp_barrier (&fd.pre);
 
   return fd.pre;
@@ -2399,7 +2622,10 @@ expand_omp_for (tree *stmt_p, omp_context *ctx)
 	goto L0;
     L2:
 	reduction;
-*/
+
+    If this is a combined parallel sections skip the call to
+    GOMP_sections_start and emit the call to GOMP_sections_next right
+    before the switch().  */
 
 static void
 expand_omp_sections (tree *stmt_p, omp_context *ctx)
@@ -2408,6 +2634,7 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
   tree_stmt_iterator tsi;
   tree dlist;
   unsigned i, len;
+  bool in_combined_parallel = is_in_combined_parallel_ctx (ctx);
 
   sec_stmt = *stmt_p;
   stmt_list = NULL;
@@ -2429,13 +2656,34 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
 
   t = build_int_cst (unsigned_type_node, len);
   t = tree_cons (NULL, t, NULL);
-  u = built_in_decls[BUILT_IN_GOMP_SECTIONS_START];
-  t = build_function_call_expr (u, t);
-  t = build2 (MODIFY_EXPR, void_type_node, v, t);
-  gimplify_and_add (t, &stmt_list);
+
+  if (in_combined_parallel)
+    {
+      /* Nothing to do.  Just inform our parent of the additional
+	 arguments to invoke GOMP_parallel_sections_start.  */
+      ctx->outer->parallel_start_ix = BUILT_IN_GOMP_PARALLEL_SECTIONS_START;
+      ctx->outer->parallel_start_additional_args = t;
+    }
+  else
+    {
+      u = built_in_decls[BUILT_IN_GOMP_SECTIONS_START];
+      t = build_function_call_expr (u, t);
+      t = build2 (MODIFY_EXPR, void_type_node, v, t);
+      gimplify_and_add (t, &stmt_list);
+    }
 
   t = build1 (LABEL_EXPR, void_type_node, l0);
   gimplify_and_add (t, &stmt_list);
+
+  if (in_combined_parallel)
+    {
+      /* Combined parallel sections need the call to GOMP_sections_next
+	 before the switch().  */
+      t = built_in_decls[BUILT_IN_GOMP_SECTIONS_NEXT];
+      t = build_function_call_expr (t, NULL);
+      t = build2 (MODIFY_EXPR, void_type_node, v, t);
+      gimplify_and_add (t, &stmt_list);
+    }
 
   t = build3 (SWITCH_EXPR, void_type_node, v, NULL, label_vec);
   gimplify_and_add (t, &stmt_list);
@@ -2483,10 +2731,13 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
   t = build1 (LABEL_EXPR, void_type_node, l1);
   gimplify_and_add (t, &stmt_list);
 
-  t = built_in_decls[BUILT_IN_GOMP_SECTIONS_NEXT];
-  t = build_function_call_expr (t, NULL);
-  t = build2 (MODIFY_EXPR, void_type_node, v, t);
-  gimplify_and_add (t, &stmt_list);
+  if (!in_combined_parallel)
+    {
+      t = built_in_decls[BUILT_IN_GOMP_SECTIONS_NEXT];
+      t = build_function_call_expr (t, NULL);
+      t = build2 (MODIFY_EXPR, void_type_node, v, t);
+      gimplify_and_add (t, &stmt_list);
+    }
 
   t = build1 (GOTO_EXPR, void_type_node, l0);
   gimplify_and_add (t, &stmt_list);
@@ -2510,6 +2761,7 @@ expand_omp_sections (tree *stmt_p, omp_context *ctx)
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
   BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
 }
+
 
 /* A subroutine of expand_omp_single.  Expand the simple form of
    an OMP_SINGLE, without a copyprivate clause:
