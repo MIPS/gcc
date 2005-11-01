@@ -1,21 +1,73 @@
+2005-10-31  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        PR libgfortran/24584
+        * io/list_read.c (free_saved): Set saved_used to zero.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (flush_if_preconnected): New function.
+	* io/io.h: Add prototype for flush_if_preconnected.
+	* io/transfer.c (data_transfer_init): Use flush_if_preconnected
+	to workaround buggy mixed C-Fortran code.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Add intrinsics/malloc.c file.
+	* Makefile.in: Regenerate.
+	* intrinsics/malloc.c: New file, with implementations for free
+	and malloc library functions.
+
+2005-10-29  Mike Stump  <mrs@apple.com>
+
+	* Makefile.am (kinds.h): Remove target, if command fails.
+	(selected_int_kind.inc): Likewise.
+	(selected_real_kind.inc): Likewise.
+	* Makefile.in: Regenerate.
+
+2005-10-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	
+
+	* Makefile.am (intrinsics): Add signal.c.
+	* Makefile.in: Regenerate.
+	* configure.ac: Checks for signal and alarm.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* intrinsics/signal.c: New file for SIGNAL and ALARM intrinsics.
+
+2005-10-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* acinclude.m4 (LIBGFOR_CHECK_FPSETMASK): New check.
+	* configure.ac: Check for floatingpoint.h, fptrap.h and float.h
+	headers. Use LIBGFOR_CHECK_FPSETMASK. Check for fp_trap and
+	fp_enable functions.
+	* configure.host: Add case for systems with fpsetmask and systems
+	with fp_trap/fp_enable.
+	* config/fpu-sysv.h: New file, FPU code using fpsetmask.
+	* config/fpu-aix.h: New file, FPU code for AIX using fp_trap and
+	fp_enable.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
 2005-10-24  Jerry DeLisle  <jvdelisle@verizon.net>
 
-        PR libgfortran/24224
-        * libgfortran.h: Remove array stride error code.
-        * runtime/error.c: Remove array stride error.
-        * io/io.h: Change name of 'nml_loop_spec' to 'array_loop_spec' to be
-        generic.  Add pointer to array_loop_spec and rank to gfc_unit
-        structure.
-        * io/list_read.c: Revise nml_loop_spec references to array_loop_spec.
-        * io/transfer.c (init_loop_spec): New function to initialize
-        an array_loop_spec.
-        (next_array_record): New function to return the index to the next array
-        record by incrementing through the array_loop_spec. 
-        (next_record_r): Use new function.
-        (next_record_w): Use new function.
-        (finalize_transfer): Free memory allocated for array_loop_spec.
-        * io/unit.c (get_array_unit_len): Delete this function. Use new
-        function init_loop_spec to initialize the array_loop_spec.  
+	PR libgfortran/24224
+	* libgfortran.h: Remove array stride error code.
+	* runtime/error.c: Remove array stride error.
+	* io/io.h: Change name of 'nml_loop_spec' to 'array_loop_spec' to be
+	generic.  Add pointer to array_loop_spec and rank to gfc_unit
+	structure.
+	* io/list_read.c: Revise nml_loop_spec references to array_loop_spec.
+	* io/transfer.c (init_loop_spec): New function to initialize
+	an array_loop_spec.
+	(next_array_record): New function to return the index to the next array
+	record by incrementing through the array_loop_spec.
+	(next_record_r): Use new function.
+	(next_record_w): Use new function.
+	(finalize_transfer): Free memory allocated for array_loop_spec.
+	* io/unit.c (get_array_unit_len): Delete this function. Use new
+	function init_loop_spec to initialize the array_loop_spec.
 
 2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
 
@@ -126,7 +178,7 @@
 
 	PR libgfortran/24313
 	*  c99_functions.c (csqrtf, csqrt): Fix choice of branch cut.  Note
-	csqrt{f} were imported from glibc, and this bug is still present 
+	csqrt{f} were imported from glibc, and this bug is still present
 	there. glibc PR is 1146.
 
 2005-10-07  Janne Blomqvist <jblomqvi@cc.hut.fi>
@@ -165,7 +217,7 @@
         * io/unix.c (mem_alloc_w_at): Remove call to generate_error end-of-file.
         * io/write.c (write_float): Add checks for NULL pointer returns from
         write_block calls. (write_integer): Same.
-        
+
 2005-10-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* runtime/memory.c (allocate_size): Malloc 1 byte if size == 0.

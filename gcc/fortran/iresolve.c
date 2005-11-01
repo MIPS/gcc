@@ -912,6 +912,24 @@ gfc_resolve_logical (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 
 
 void
+gfc_resolve_malloc (gfc_expr * f, gfc_expr * size)
+{
+  if (size->ts.kind < gfc_index_integer_kind)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_index_integer_kind;
+      gfc_convert_type_warn (size, &ts, 2, 0);
+    }
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_index_integer_kind;
+  f->value.function.name = gfc_get_string (PREFIX("malloc"));
+}
+
+
+void
 gfc_resolve_matmul (gfc_expr * f, gfc_expr * a, gfc_expr * b)
 {
   gfc_expr temp;
@@ -1392,6 +1410,27 @@ gfc_resolve_sign (gfc_expr * f, gfc_expr * a, gfc_expr * b ATTRIBUTE_UNUSED)
 
 
 void
+gfc_resolve_signal (gfc_expr * f, gfc_expr *number, gfc_expr *handler)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_c_int_kind;
+
+  /* handler can be either BT_INTEGER or BT_PROCEDURE  */
+  if (handler->ts.type == BT_INTEGER)
+    {
+      if (handler->ts.kind != gfc_c_int_kind)
+	gfc_convert_type (handler, &f->ts, 2);
+      f->value.function.name = gfc_get_string (PREFIX("signal_func_int"));
+    }
+  else
+    f->value.function.name = gfc_get_string (PREFIX("signal_func"));
+
+  if (number->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (number, &f->ts, 2);
+}
+
+
+void
 gfc_resolve_sin (gfc_expr * f, gfc_expr * x)
 {
   f->ts = x->ts;
@@ -1701,6 +1740,37 @@ gfc_resolve_verify (gfc_expr * f, gfc_expr * string,
 /* Intrinsic subroutine resolution.  */
 
 void
+gfc_resolve_alarm_sub (gfc_code * c)
+{
+  const char *name;
+  gfc_expr *seconds, *handler, *status;
+  gfc_typespec ts;
+
+  seconds = c->ext.actual->expr;
+  handler = c->ext.actual->next->expr;
+  status = c->ext.actual->next->next->expr;
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_c_int_kind;
+
+  /* handler can be either BT_INTEGER or BT_PROCEDURE  */
+  if (handler->ts.type == BT_INTEGER)
+    {
+      if (handler->ts.kind != gfc_c_int_kind)
+	gfc_convert_type (handler, &ts, 2);
+      name = gfc_get_string (PREFIX("alarm_sub_int"));
+    }
+  else
+    name = gfc_get_string (PREFIX("alarm_sub"));
+
+  if (seconds->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (seconds, &ts, 2);
+  if (status != NULL && status->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (status, &ts, 2);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+void
 gfc_resolve_cpu_time (gfc_code * c ATTRIBUTE_UNUSED)
 {
   const char *name;
@@ -1926,6 +1996,37 @@ gfc_resolve_get_environment_variable (gfc_code * code)
   code->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
+void
+gfc_resolve_signal_sub (gfc_code * c)
+{
+  const char *name;
+  gfc_expr *number, *handler, *status;
+  gfc_typespec ts;
+
+  number = c->ext.actual->expr;
+  handler = c->ext.actual->next->expr;
+  status = c->ext.actual->next->next->expr;
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_c_int_kind;
+
+  /* handler can be either BT_INTEGER or BT_PROCEDURE  */
+  if (handler->ts.type == BT_INTEGER)
+    {
+      if (handler->ts.kind != gfc_c_int_kind)
+	gfc_convert_type (handler, &ts, 2);
+      name = gfc_get_string (PREFIX("signal_sub_int"));
+    }
+  else
+    name = gfc_get_string (PREFIX("signal_sub"));
+
+  if (number->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (number, &ts, 2);
+  if (status != NULL && status->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (status, &ts, 2);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
 /* Resolve the SYSTEM intrinsic subroutine.  */
 
 void
@@ -1993,6 +2094,22 @@ gfc_resolve_flush (gfc_code * c)
 
   name = gfc_get_string (PREFIX("flush_i%d"), ts.kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_free (gfc_code * c)
+{
+  gfc_typespec ts;
+  gfc_expr *n;
+
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_index_integer_kind;
+  n = c->ext.actual->expr;
+  if (n->ts.kind != ts.kind)
+    gfc_convert_type (n, &ts, 2);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX("free"));
 }
 
 

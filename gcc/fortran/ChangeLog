@@ -1,3 +1,134 @@
+2005-10-31  Andreas Schwab  <schwab@suse.de>
+
+	* Make-lang.in (GFORTRAN_TARGET_INSTALL_NAME): Define.
+	(GFORTRAN_CROSS_NAME): Remove.
+	(fortran.install-common): Correctly install a cross compiler.
+	(fortran.uninstall): Use GFORTRAN_TARGET_INSTALL_NAME instead of
+	GFORTRAN_CROSS_NAME.
+
+2005-10-30  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* gfortran.texi: Update contributors.
+
+2005-10-30  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/18883
+	* trans-decl.c (gfc_finish_var_decl): Add decl to the
+	current function, rather than the parent.  Make
+	assertion accept fake result variables.
+	* trans-expr.c (gfc_conv_variable): If the character
+	length of an ENTRY isn't set, get the length from
+	the master function instead.
+
+2005-10-30  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.texi:  Remove reservations about I/O usability.  Document
+	that array intrinsics mostly work.
+
+2005-10-30  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.texi: Move license stuff to back.  Add information
+	on ENUM and ENUMERATOR.
+	* invoke.texi: Document -fshort-enums.
+
+2005-10-30  Gaurav Gautam  <gauravga@noida.hcltech.com>
+	    Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* arith.c (gfc_enum_initializer): New function.
+	(gfc_check_integer_range): Made extern.
+	* decl.c (enumerator_history): New typedef.
+	(last_initializer, enum_history, max_enum): New variables.
+	(create_enum_history, gfc_free_enum_history): New functions.
+	(add_init_expr_to_sym): Call create_enum_history if parsing ENUM.
+	(variable_decl): Modified to parse enumerator definition.
+	(match_attr_spec): Add PARAMETER attribute to ENUMERATORs.
+	(gfc_match_data_decl): Issues error, if match_type_spec do not
+	return desired return values.
+	(set_enum_kind, gfc_match_enum, gfc_match_enumerator_def): New
+	functions.
+	(gfc_match_end): Deal with END ENUM.
+	* gfortran.h (gfc_statement): ST_ENUM, ST_ENUMERATOR, ST_END_ENUM
+	added.
+	(symbol_attribute): Bit field for enumerator added.
+	(gfc_options): Add fshort_enums.
+	(gfc_enum_initializer, gfc_check_integer_range): Add prototypes.
+	* options.c: Include target.h
+	(gfc_init_options): Initialize fshort_enums.
+	(gfc_handle_option): Deal with fshort_enums.
+	* parse.c (decode_statement): Match ENUM and ENUMERATOR statement.
+	(gfc_ascii_statement): Deal with the enumerator statements.
+	(parse_enum): New function to parse enum construct.
+	(parse_spec): Added case ST_ENUM.
+	* parse.h (gfc_compile_state): COMP_ENUM added.
+	(gfc_match_enum, gfc_match_enumerator_def, gfc_free_enum_history):
+	Prototype added.
+	* symbol.c (gfc_copy_attr): Copy enumeration attribute.
+	* lang.opt (fshort-enums): Option added.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* check.c (gfc_check_malloc, gfc_check_free): New functions.
+	* gfortran.h (gfc_generic_isym_id): Add GFC_ISYM_MALLOC.
+	* intrinsic.c (add_functions): Add symbols for MALLOC function.
+	(add_subroutines): Add symbol for FREE subroutine.
+	* intrinsic.h: Prototypes for gfc_check_malloc, gfc_check_free,
+	gfc_resolve_malloc and gfc_resolve_free.
+	* intrinsic.texi: Add doc for FREE and MALLOC intrinsics.
+	* iresolve.c (gfc_resolve_malloc, gfc_resolve_free): New
+	functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Add case for
+	GFC_ISYM_MALLOC.
+
+2005-10-30  Steven Bosscher  <stevenb@suse.de>
+
+	* gfortran.texi: Update contributors.
+
+2005-10-29  Steven Bosscher  <stevenb@suse.de>
+
+	* interface.c: Fix previous checkin (an incomplete patch
+	was commited for me).
+
+2005-10-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* intrinsic.texi: Remove empty @cindex line.
+
+2005-10-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* check.c (gfc_check_alarm_sub, gfc_check_signal,
+	gfc_check_signal_sub): New functions.
+	* gfortran.h (gfc_generic_isym_id): Add GFC_ISYM_SIGNAL.
+	* intrinsic.c (add_functions): Add signal intrinsic.
+	(add_subroutines): Add signal and alarm intrinsics.
+	* intrinsic.texi: Document the new intrinsics.
+	* iresolve.c (gfc_resolve_signal, gfc_resolve_alarm_sub,
+	gfc_resolve_signal_sub): New functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Add case
+	for GFC_ISYM_SIGNAL.
+	* intrinsic.h: Add prototypes for gfc_check_alarm_sub,
+	gfc_check_signal, gfc_check_signal_sub, gfc_resolve_signal,
+	gfc_resolve_alarm_sub, gfc_resolve_signal_sub.
+
+2005-10-28  Steven Bosscher  <stevenb@suse.de>
+
+	PR fortran/24545
+	* interface.c (gfc_match_end_interface): Fix typo in 
+	INTERFACE_USER_OP case.
+
+2005-10-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/15586
+	* resolve.c (resolve_symbol): Remove the use of whynot, so that
+	error messages are not built from pieces.
+
+2005-10-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24158
+	* decl.c (gfc_match_data_decl): Correct broken bit of code
+	that prevents undefined derived types from being used as
+	components of another derived type.
+	* resolve.c (resolve_symbol): Add backstop error when derived
+	type variables arrive here with a type that has no components.
+
 2005-10-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans.h (gfc_conv_cray_pointee): Remove.

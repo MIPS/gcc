@@ -1,3 +1,7 @@
+2005-10-31  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge (gomp-merge-20051031).
+
 2005-10-31  Richard Henderson  <rth@redhat.com>
 
 	* omp-low.c (build_receiver_ref): Lookup receiver field again.

@@ -1394,6 +1394,9 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       && dtp->u.p.current_unit->last_record == 0 && !is_preconnected(dtp->u.p.current_unit->s))
 	struncate(dtp->u.p.current_unit->s);
 
+  /* Bugware for badly written mixed C-Fortran I/O.  */
+  flush_if_preconnected(dtp->u.p.current_unit->s);
+
   dtp->u.p.current_unit->mode = dtp->u.p.mode;
 
   /* Set the initial value of flags.  */

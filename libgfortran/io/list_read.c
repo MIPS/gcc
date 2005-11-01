@@ -113,6 +113,7 @@ free_saved (st_parameter_dt *dtp)
     free_mem (dtp->u.p.saved_string);
 
   dtp->u.p.saved_string = NULL;
+  dtp->u.p.saved_used = 0;
 }
 
 

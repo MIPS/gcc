@@ -1,3 +1,101 @@
+2005-10-31  Jan Hubicka  <jh@suse.cz>
+
+	PR target/20928
+	* gcc.c-torture/compile/pr20928.c: New test.
+
+2005-10-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23492
+	* gcc.c-torture/compile/zero-strct-5.c: New test.
+
+2005-10-31  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        PR libgfortran/24584
+        * gfortran.dg/pr24584.f90: New test.
+
+2005-10-28  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/18883
+	* gfortran.dg/char_result_9.f90: New.
+	* gfortran.dg/char_result_10.f90: New.
+
+2005-10-30  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/tree-ssa/pr24172.C: New testcase.
+
+2005-10-30  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/enum_10.f90, gfortran.dg/enum_10.c: New test.
+
+2005-10-30  Gaurav Gautam  <gauravga@noida.hcltech.com>
+
+	* gfortran.dg/enum_1.f90, gfortran.dg/enum_2.f90,
+	gfortran.dg/enum_3.f90, gfortran.dg/enum_4.f90,
+	gfortran.dg/enum_5.f90, gfortran.dg/enum_6.f90,
+	gfortran.dg/enum_7.f90, gfortran.dg/enum_8.f90,
+	gfortran.dg/enum_9.f90,
+	gfortran.fortran-torture/compile/enum_1.f90,
+	gfortran.fortran-torture/execute/enum_1.f90,
+	gfortran.fortran-torture/execute/enum_2.f90,
+	gfortran.fortran-torture/execute/enum_3.f90,
+	gfortran.fortran-torture/execute/enum_4.f90: New tests.
+
+2005-10-30  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18482
+	* gcc.dg/compat/struct-layout-1_generate.c (switchfiles, main):
+	For mmix-*-*, pass with dg-options an additional -mno-base-addresses.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* gfortran.dg/mixed_io_1.f90: New test.
+	* gfortran.dg/mixed_io_1.c: New file.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/malloc_free_1.f90: New test.
+
+2005-10-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/nested-func-4.c: Require profiling -pg.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23229
+	* g++.dg/warn/main-2.C: New test.
+
+2005-10-28  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24545
+	* gfortran.dg/interface_2.f90: new test.
+
+2005-10-28  Josh Conner  <jconner@apple.com>
+
+	PR c++/22153
+	* g++.dg/template/crash38.C: New test.
+	* g++.dg/parse/explicit1.C: Change expected errors.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23426
+	* g++.dg/other/large-size-array.C: New test.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24362
+	* g++.dg/opt/complex4.C: New test.
+
+2005-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/nested-func-4.c: New test.
+
+2005-10-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24158
+	gfortran.dg/derived_recursion.f90: New test.
+	gfortran.dg/implicit_actual.f90: New test.
+
 2005-10-25  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR middle-end/24295, PR testsuite/24477

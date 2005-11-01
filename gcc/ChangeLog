@@ -1,3 +1,98 @@
+2005-10-31  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/24093
+	* cgraph.c (cgraph_clone_edge, cgraph_clone_node): Watch negative
+
+	PR target/20928
+	* i386.c (legitimize_pic_address): Deal with large immediates.
+
+	PR profile/20815
+	* coverage.c (coverage_checksum_string): Fix code to stip random seeds
+	from symbol names while computing checkup.
+
+	PR profile/24487
+	* predict.c (predict_loops): Do not estimate more than
+	MAX_PRED_LOOP_ITERATIONS in PRED_LOOP_ITERATIONS heuristic.
+	* predict.def (MAX_PRED_LOOP_ITERATIONS): Define.
+
+2005-10-31  Andrew MacLeod  <amacleod@redhat.com>
+	
+	PR tree-optimization/19097
+	* tree-ssa-operands.c (correct_use_link): Don't look for modified stmts.
+
+2005-10-31  J"orn Rennecke <joern.rennecke@st.com>
+
+	* optabs.c (expand_unop): Take TRULY_NOOP_TRUNCATION into account.
+
+2005-10-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23492
+	* tree-inline.c (setup_one_parameter): If the init_stmt
+	is NULL, don't insert the statement.
+
+2005-10-30  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/24172
+	* tree-inline.c (copy_body_r): Unshare the substituted value first.
+
+2005-10-30  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.c (mmix_intval): Correct handling of DFmode
+	constants for hosts with long != 32 bits.
+
+2005-10-28  Andreas Krebbel <krebbel1@de.ibm.com>
+
+	PR middle-end/24093
+	* ipa-inline.c (craph_decide_recursive_inlining): Fix return value.
+
+2005-10-28  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/ms1/ms1.h (TARGET_MS1_64_001): New.
+        (TARGET_MS1_16_002): New.
+        (TARGET_MS1_16_003): New.
+
+        * config/ms1/ms1.md ("decrement_and_branch_until_zero"): Rewrite.
+        ("*decrement_and_branch_until_zero_no_clobber"): New.
+        Add corresponding splitter for decrement_and_branch_until_zero
+        instruction.
+        Key all decrement_and_branch_until_zero patterns off of
+        TARGET_MS1_16_003.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24362
+	* tree-complex.c (extract_component): Treat RESULT_DECL
+	like the rest of the decls.
+
+2005-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.c (ia64_output_function_profiler): Emit an
+	indirect call to _mcount if the function needs a static chain.
+
+2005-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Caroline Tice  <ctice@apple.com>
+
+	PR rtl-optimization/24460
+	* dwarf2out.c (have_switched_text_sections): New boolean variable.
+	(dwarf2out_switch_text_section): Set it to true instead of
+	incrementing separate_line_info_table_in_use.
+	(output_loc_list): Additionally test have_switched_text_sections.
+	(output_ranges): Likewise.
+	(dwarf2out_finish): Likewise.
+	* varasm.c (assemble_start_function): Do not call
+	insert_section_boundary_note.
+	(assemble_end_function): If flag_reorder_blocks_and_partition,
+	switch to the function's section before emitting the .size directive.
+	* bb-reorder.c (insert_section_boundary_note): Staticify.
+	(rest_of_handle_reorder_blocks): Call insert_section_boundary_note.
+	* output.h (insert_section_boundary_note): Delete.
+
+2005-10-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/23103
+	* c-format.c (check_format_types): Use lang_hooks.types_compatible_p
+	instead of pointer equality when comparing types.
+
 2005-10-24  James E. Wilson  <wilson@specifix.com>
 
 	* sched-deps.c (flush_pending_lists): Pass 1 not 0 in first two

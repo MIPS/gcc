@@ -1362,6 +1362,18 @@ gfc_check_min_max_double (gfc_actual_arglist * arg)
 
 /* End of min/max family.  */
 
+try
+gfc_check_malloc (gfc_expr * size)
+{
+  if (type_check (size, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (size, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
 
 try
 gfc_check_matmul (gfc_expr * matrix_a, gfc_expr * matrix_b)
@@ -2430,6 +2442,40 @@ gfc_check_irand (gfc_expr * x)
   return SUCCESS;
 }
 
+
+try
+gfc_check_alarm_sub (gfc_expr * seconds, gfc_expr * handler, gfc_expr * status)
+{
+  if (scalar_check (seconds, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (seconds, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (handler->ts.type != BT_INTEGER && handler->ts.type != BT_PROCEDURE)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or PROCEDURE",
+	gfc_current_intrinsic_arg[1], gfc_current_intrinsic, &handler->where);
+      return FAILURE;
+    }
+
+  if (handler->ts.type == BT_INTEGER && scalar_check (handler, 1) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
 try
 gfc_check_rand (gfc_expr * x)
 {
@@ -2587,6 +2633,19 @@ gfc_check_flush (gfc_expr * unit)
 
 
 try
+gfc_check_free (gfc_expr * i)
+{
+  if (type_check (i, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (i, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_hostnm (gfc_expr * name)
 {
   if (type_check (name, 0, BT_CHARACTER) == FAILURE)
@@ -2715,6 +2774,63 @@ gfc_check_unlink_sub (gfc_expr * name, gfc_expr * status)
     return FAILURE;
 
   if (type_check (status, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_signal (gfc_expr * number, gfc_expr * handler)
+{
+  if (scalar_check (number, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (number, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (handler->ts.type != BT_INTEGER && handler->ts.type != BT_PROCEDURE)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or PROCEDURE",
+	gfc_current_intrinsic_arg[1], gfc_current_intrinsic, &handler->where);
+      return FAILURE;
+    }
+
+  if (handler->ts.type == BT_INTEGER && scalar_check (handler, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_signal_sub (gfc_expr * number, gfc_expr * handler, gfc_expr * status)
+{
+  if (scalar_check (number, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (number, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (handler->ts.type != BT_INTEGER && handler->ts.type != BT_PROCEDURE)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or PROCEDURE",
+	gfc_current_intrinsic_arg[1], gfc_current_intrinsic, &handler->where);
+      return FAILURE;
+    }
+
+  if (handler->ts.type == BT_INTEGER && scalar_check (handler, 1) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
