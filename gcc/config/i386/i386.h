@@ -140,8 +140,7 @@ extern int target_flags;
 #define TARGET_SSEREGPARM (target_flags & MASK_SSEREGPARM)
 /* APPLE LOCAL end regparmandstackparm; delete at 4.1 merge (when i386.opt file appears) */
 
-/* APPLE LOCAL dynamic-no-pic */
-/* Unused:			0x02000000	*/
+/* Unused:			0x03e0000	*/
 
 /* APPLE LOCAL AT&T-style stub 4164563 */
 #define MACHOPIC_NL_SYMBOL_PTR_SECTION ".section __IMPORT,__pointers,non_lazy_symbol_pointers"
