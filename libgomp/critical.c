@@ -28,6 +28,7 @@
 /* This file handles the CRITICAL construct.  */
 
 #include "libgomp.h"
+#include <stdlib.h>
 
 
 static gomp_mutex_t default_lock;

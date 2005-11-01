@@ -141,13 +141,14 @@ AC_CHECK_HEADER([pthread.h],[],
   [AC_MSG_ERROR([Pthreads are required to build libgomp])])
 
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
+XPCFLAGS=""
 CFLAGS="$CFLAGS -pthread"
 AC_LINK_IFELSE(
  [AC_LANG_PROGRAM(
   [#include <pthread.h>
    void *g(void *d) { return NULL; }],
   [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
- [XCFLAGS="$XCFLAGS -Wc,-pthread"],
+ [XPCFLAGS=" -Wc,-pthread"],
  [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
   AC_LINK_IFELSE(
    [AC_LANG_PROGRAM(
@@ -185,6 +186,8 @@ CFLAGS="$save_CFLAGS $XCFLAGS"
 # Check for __sync_val_compare_and_swap, but only after the target has
 # had a chance to set XCFLAGS.
 LIBGOMP_CHECK_SYNC_BUILTINS
+
+XCFLAGS="$XCFLAGS$XPCFLAGS"
 
 AC_SUBST(config_path)
 AC_SUBST(XCFLAGS)
