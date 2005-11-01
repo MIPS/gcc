@@ -955,7 +955,6 @@ scan_omp_for (tree *stmt_p, omp_context *outer_ctx)
   tree stmt = *stmt_p;
 
   ctx = new_omp_context (stmt, outer_ctx);
-  scan_sharing_clauses (OMP_FOR_CLAUSES (stmt), ctx);
 
   /* If this is a combined parallel loop directive, we need to extract
      the bounds, step and chunk size for the loop so that we can build
@@ -983,6 +982,8 @@ scan_omp_for (tree *stmt_p, omp_context *outer_ctx)
       additional_args = tree_cons (NULL, t, additional_args);
       outer_ctx->parallel_start_additional_args = additional_args;
     }
+
+  scan_sharing_clauses (OMP_FOR_CLAUSES (stmt), ctx);
 
   /* FIXME.  When expanding into a combined parallel loop, we may not
      need to map some of the variables in the loop header (in

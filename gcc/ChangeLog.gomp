@@ -1,3 +1,9 @@
+2005-11-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* omp-low.c (scan_omp_for): Call scan_sharing_clauses after
+	building list of additional arguments to pass to combined
+	parallel loop call.
+
 2005-11-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): Copy
