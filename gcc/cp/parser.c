@@ -18041,7 +18041,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 	{
 	  /* Remove the invalid clause from the list to avoid
 	     confusing the rest of the compiler.  */
-	  clauses = TREE_CHAIN (clauses);
+	  clauses = OMP_CLAUSE_CHAIN (clauses);
 	  error ("%qs is not valid for %qs", c_name, where);
 	}
     }

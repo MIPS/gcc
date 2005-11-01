@@ -774,44 +774,39 @@ create_omp_child_function (omp_context *ctx)
 static enum omp_parallel_type
 determine_parallel_type (tree stmt)
 {
-  tree_stmt_iterator i;
-  int n;
   enum omp_parallel_type par_type;
   tree body = BIND_EXPR_BODY (OMP_PARALLEL_BODY (stmt));
+  tree t;
 
   par_type = IS_PARALLEL;
-  for (n = 0, i = tsi_start (body); !tsi_end_p (i) && n < 2; tsi_next (&i), n++)
+
+  t = expr_only (body);
+  if (t && TREE_CODE (t) == OMP_FOR)
     {
-      tree t = tsi_stmt (i);
-      if (TREE_CODE (t) == OMP_FOR)
-	{
-	  /* If this is a combined parallel loop, we need to determine
-	     whether or not to use the combined library calls.  There
-	     are two cases where we do not apply the transformation:
-	     static loops and any kind of ordered loop.  In the first
-	     case, we already open code the loop so there is no need
-	     to do anything else.  In the latter case, the combined
-	     parallel loop call would still need extra synchronization
-	     to implement ordered semantics, so there would not be any
-	     gain in using the combined call.  */
-	  tree clauses = OMP_FOR_CLAUSES (t);
-	  tree c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
-	  if (c == NULL_TREE
-	      || OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
-	    par_type = IS_PARALLEL;
-	  else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
-	    par_type = IS_PARALLEL;
-	  else
-	    par_type = IS_COMBINED_PARALLEL;
-	}
-      else if (TREE_CODE (t) == OMP_SECTIONS)
+      /* If this is a combined parallel loop, we need to determine
+	 whether or not to use the combined library calls.  There
+	 are two cases where we do not apply the transformation:
+	 static loops and any kind of ordered loop.  In the first
+	 case, we already open code the loop so there is no need
+	 to do anything else.  In the latter case, the combined
+	 parallel loop call would still need extra synchronization
+	 to implement ordered semantics, so there would not be any
+	 gain in using the combined call.  */
+      tree clauses = OMP_FOR_CLAUSES (t);
+      tree c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
+      if (c == NULL_TREE
+	  || OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
+	par_type = IS_PARALLEL;
+      else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
+	par_type = IS_PARALLEL;
+      else
 	par_type = IS_COMBINED_PARALLEL;
     }
+  else if (t && TREE_CODE (t) == OMP_SECTIONS)
+    par_type = IS_COMBINED_PARALLEL;
+  else
+    par_type = IS_PARALLEL;
 
-  /* If we found more than one statement inside the parallel body,
-     then we have to expand as a regular parallel directive.  */
-  if (n > 1)
-    return IS_PARALLEL;
   return par_type;
 }
 

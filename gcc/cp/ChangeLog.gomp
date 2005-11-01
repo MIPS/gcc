@@ -1,5 +1,10 @@
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
+	* parser.c (cp_parser_omp_all_clauses): Use
+	OMP_CLAUSE_CHAIN instead of TREE_CHAIN.
+
+2005-11-01  Diego Novillo  <dnovillo@redhat.com>
+
 	* parser.c (cp_parser_omp_all_clauses): When emitting an
 	error message, remove the invalid clause from the list.
 
