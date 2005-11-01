@@ -1,0 +1,5 @@
+2005-11-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/rs6000/rs6000.c (rs6000_rtx_costs): Do not add extra
+	costs for MULT inside PLUS or MINUS.
+
