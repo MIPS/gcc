@@ -1,5 +1,10 @@
 2005-10-31  Tom Tromey  <tromey@redhat.com>
 
+	* model/import.hh (model_import::get_simple_name): Now virtual.
+	(model_static_import_single::get_simple_name): New method.
+
+2005-10-31  Tom Tromey  <tromey@redhat.com>
+
 	* model/wildcard.cc (apply_type_map): New method.
 	* model/wildcard.hh (model_wildcard::apply_type_map): Declare.
 	* model/method.cc (return_type_substitutable_p): Correctly apply

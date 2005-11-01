@@ -64,7 +64,7 @@ public:
 
   virtual bool single_import_p () const = 0;
 
-  std::string get_simple_name () const
+  virtual std::string get_simple_name () const
   {
     assert (single_import_p ());
     return ::get_simple_name (name);
@@ -199,6 +199,11 @@ public:
     : model_static_import_base (w, drop_last_element (n))
   {
     member_name = ::get_simple_name (n);
+  }
+
+  std::string get_simple_name () const
+  {
+    return member_name;
   }
 
   void resolve (resolution_scope *);
