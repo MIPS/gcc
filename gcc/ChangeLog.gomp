@@ -1,5 +1,8 @@
 2005-11-01  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): Copy
+	MEM_VOLATILE_P flag from MEM to MEMSI.
+
 	* tree.h (OMP_CLAUSE_PRIVATE_DEBUG): Define.
 	* langhooks.h (struct lang_hooks_for_decls): Add
 	omp_disregard_value_expr and omp_private_debug_clause
