@@ -1,3 +1,13 @@
+2005-11-01  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat_skip_list): Make global, rename.
+	* lib/c-compat.exp: New file.
+	* gcc.dg/compat/compat.exp: Use it.
+	(compat-use-alt-compiler, compat-use-tst-compiler): Move to new file.
+	Make some variables global, prepend "compat_" to their names.
+	* gcc.dg/compat/scalar-by-value-dfp_main.c: Use dg-require-compat-dfp.
+	* gcc.dg/compat/scalar-return-dfp_main.c: Ditto.
+
 2005-10-20  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Simplify.
