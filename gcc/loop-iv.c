@@ -94,6 +94,13 @@ static struct df *df;
 
 static htab_t bivs;
 
+/* Return the dataflow object for the current loop.  */
+struct df *
+iv_current_loop_df (void)
+{
+  return df;
+}
+
 static bool iv_analyze_op (rtx, rtx, struct rtx_iv *);
 
 /* Dumps information about IV to FILE.  */
@@ -255,7 +262,12 @@ iv_analysis_loop_init (struct loop *loop)
 	}
     }
 
-  df_analyze_subcfg (df, blocks, DF_UD_CHAIN | DF_EQUIV_NOTES);
+  df_analyze_subcfg (df, blocks, DF_UD_CHAIN
+				 | DF_RD_CHAIN
+				 | DF_RU_CHAIN
+				 | DF_HARD_REGS
+				 | DF_EQUIV_NOTES);
+
   BITMAP_FREE (blocks);
   free (body);
 }

@@ -1,3 +1,14 @@
+2005-11-01  Steven Bosscher  <stevenb@suse.de>
+
+	* loop-unroll.c: Don't include varray.h.  Include df.h.
+	(referenced_in_one_insn_in_loop_p): Rewrite to use a df object.
+	(analyze_insn_to_expand_var): Take a df object as an argument.
+	(analyze_insns_in_loop): When expanding accumulators, compute
+	a df object for the loop.  Pass it to analyze_insn_to_expand_var.
+	* loop-iv.c (iv_current_loop_df): New function.
+	(iv_analysis_loop_init): Add more explicit flags.
+	* cfgloop.h (iv_current_loop_df): Add prototype.
+
 2005-10-24  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* lambda-code.c (lambda_transform_legal_p): Use DDR_NUM_DIST_VECTS

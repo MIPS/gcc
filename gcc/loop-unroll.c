@@ -26,6 +26,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
+#include "df.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
 #include "params.h"
@@ -33,7 +34,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"    
-#include "varray.h"                        
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -143,8 +143,8 @@ static struct opt_info *analyze_insns_in_loop (struct loop *);
 static void opt_info_start_duplication (struct opt_info *);
 static void apply_opt_in_copies (struct opt_info *, unsigned, bool, bool);
 static void free_opt_info (struct opt_info *);
-static struct var_to_expand *analyze_insn_to_expand_var (struct loop*, rtx);
-static bool referenced_in_one_insn_in_loop_p (struct loop *, rtx);
+static struct var_to_expand *analyze_insn_to_expand_var (rtx, struct df *);
+static bool referenced_in_one_insn_in_loop_p (rtx, struct df *);
 static struct iv_to_split *analyze_iv_to_split_insn (rtx);
 static struct iv_to_split *analyze_prefetch_to_remove (rtx);
 static void expand_var_during_unrolling (struct var_to_expand *, rtx);
@@ -1518,28 +1518,40 @@ ve_info_eq (const void *ivts1, const void *ivts2)
   return i1->insn == i2->insn;
 }
 
-/* Returns true if REG is referenced in one insn in LOOP.  */
+/* Returns true if REG is referenced in one insn in a loop.
+   We only have to look at the dataflow object DF created
+   for the loop to figure this out.  */
 
-bool
-referenced_in_one_insn_in_loop_p (struct loop *loop, rtx reg)
+static bool
+referenced_in_one_insn_in_loop_p (rtx reg, struct df *df)
 {
-  basic_block *body, bb;
-  unsigned i;
-  int count_ref = 0;
-  rtx insn;
+  struct df_link *link;
+  struct reg_info *reg_info;
+  rtx insn = NULL;
   
-  body = get_loop_body (loop); 
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      bb = body[i];
+  reg_info = df->regs;
       
-      FOR_BB_INSNS (bb, insn)
+  /* Is there more than one insn defining REG?  */
+  for (link = reg_info[REGNO (reg)].defs; link; link = link->next)
       {
-        if (rtx_referenced_p (reg, insn))
-          count_ref++;
+      struct ref *ref = link->ref;
+      if (!insn)
+	insn = DF_REF_INSN (ref);
+      else if (insn != DF_REF_INSN (ref))
+	return false;
       }
+
+  /* Is there more than one insn that uses REG?  */
+  for (link = reg_info[REGNO (reg)].uses; link; link = link->next)
+      {
+      struct ref *ref = link->ref;
+      if (!insn)
+	insn = DF_REF_INSN (ref);
+      else if (insn != DF_REF_INSN (ref))
+	return false;
     }
-  return (count_ref  == 1);
+
+  return true;
 }
 
 /* Determine whether INSN contains an accumulator
@@ -1560,13 +1572,16 @@ referenced_in_one_insn_in_loop_p (struct loop *loop, rtx reg)
    sum2 += a[i];
    ....
 
+   DF is the dataflow object for the current loop.  It is used to check if
+   the reg holding sum is elligible for expansion.
+
    Return NULL if INSN contains no opportunity for expansion of accumulator.  
    Otherwise, allocate a VAR_TO_EXPAND structure, fill it with the relevant 
    information and return a pointer to it.
 */
 
 static struct var_to_expand *
-analyze_insn_to_expand_var (struct loop *loop, rtx insn)
+analyze_insn_to_expand_var (rtx insn, struct df *df)
 {
   rtx set, dest, src, op1;
   struct var_to_expand *ves;
@@ -1609,7 +1624,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
   if (!rtx_equal_p (dest, op1))
     return NULL;      
   
-  if (!referenced_in_one_insn_in_loop_p (loop, dest))
+  if (!referenced_in_one_insn_in_loop_p (dest, df))
     return NULL;
   
   if (rtx_referenced_p (dest, XEXP (src, 1)))
@@ -1757,10 +1772,12 @@ analyze_insns_in_loop (struct loop *loop)
   PTR *slot2;
   edge *edges = get_loop_exit_edges (loop, &num_edges);
   bool can_apply = false;
+  struct df *df;
   
   iv_analysis_loop_init (loop);
 
   body = get_loop_body (loop);
+  df = iv_current_loop_df ();
 
   if (flag_split_ivs_in_unroller)
     opt_info->insns_to_split = htab_create (5 * loop->num_nodes,
@@ -1784,10 +1801,13 @@ analyze_insns_in_loop (struct loop *loop)
       can_apply = true;
     }
   
-  if (flag_variable_expansion_in_unroller
-      && can_apply)
+  if (can_apply && flag_variable_expansion_in_unroller)
+    {
     opt_info->insns_with_var_to_expand = htab_create (5 * loop->num_nodes,
-						      ve_info_hash, ve_info_eq, free);
+							ve_info_hash,
+							ve_info_eq,
+							free);
+    }
   
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -1822,7 +1842,7 @@ analyze_insns_in_loop (struct loop *loop)
           }
 
         if (opt_info->insns_with_var_to_expand)
-          ves = analyze_insn_to_expand_var (loop, insn);
+          ves = analyze_insn_to_expand_var (insn, df);
         
         if (ves)
           {
