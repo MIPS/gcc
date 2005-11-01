@@ -3,6 +3,7 @@
 /* { dg-options "-O2 -finline-functions" } */
 /* { dg-options "-march=i486" { target i?86-*-* } } */
 /* { dg-options "-march=i486" { target { x86_64-*-* && ilp32 } } } */
+/* { dg-options "-mcpu=v9" { target sparc*-*-* } } */
 
 /* Test inlining __sync_bool_compare_and_swap.  */
 

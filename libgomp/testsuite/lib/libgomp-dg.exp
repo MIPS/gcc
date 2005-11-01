@@ -104,6 +104,9 @@ proc libgomp_init { args } {
     if [istarget i?86-*-*] {
 	lappend ALWAYS_CFLAGS "additional_flags=-march=i486"
     }
+    if [istarget sparc*-*-*] {
+	lappend ALWAYS_CFLAGS "additional_flags=-mcpu=v9"
+    }
 
     if [info exists TOOL_OPTIONS] {
 	lappend ALWAYS_CFLAGS "additional_flags=$TOOL_OPTIONS"

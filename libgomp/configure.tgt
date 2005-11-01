@@ -56,6 +56,26 @@ if test $enable_linux_futex = yes; then
 	    ;;
 	esac
 	;;
+
+    # Note that sparcv7 and sparcv8 is not included here.  We need cas.
+    sparcv9-*-linux* | sparc64-*-linux*)
+	echo "int i;" > conftestx.c
+	if ${CC} ${CFLAGS} -c -o conftestx.o conftestx.c > /dev/null 2>&1; then
+	  config_path="linux/sparc linux posix"
+	  case "`/usr/bin/file conftestx.o`" in
+	    *32-bit*)
+	      case " ${CC} ${CFLAGS}" in
+		*" -mcpu=ultrasparc"*)
+		  ;;
+		*)
+		  XCFLAGS="${XCFLAGS} -mcpu=v9"
+		  ;;
+	      esac
+	      ;;
+	  esac
+	fi
+	rm -f conftestx.c conftestx.o
+	;;
   esac
 fi
 
