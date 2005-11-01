@@ -7385,4 +7385,30 @@ walk_tree_without_duplicates (tree *tp, walk_tree_fn func, void *data)
   return result;
 }
 
+
+/* Return true if STMT is an empty statement or contains nothing but
+   empty statements.  */
+
+bool
+empty_body_p (tree stmt)
+{
+  tree_stmt_iterator i;
+  tree body;
+
+  if (IS_EMPTY_STMT (stmt))
+    return true;
+  else if (TREE_CODE (stmt) == BIND_EXPR)
+    body = BIND_EXPR_BODY (stmt);
+  else if (TREE_CODE (stmt) == STATEMENT_LIST)
+    body = stmt;
+  else
+    return false;
+
+  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
+    if (!empty_body_p (tsi_stmt (i)))
+      return false;
+
+  return true;
+}
+
 #include "gt-tree.h"

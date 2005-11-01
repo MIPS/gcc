@@ -821,6 +821,13 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
   omp_context *ctx;
   tree name;
 
+  /* Ignore parallel directives with empty bodies.  */
+  if (empty_body_p (OMP_PARALLEL_BODY (*stmt_p)))
+    {
+      *stmt_p = build_empty_stmt ();
+      return;
+    }
+
   ctx = new_omp_context (*stmt_p, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
   ctx->parallel_type = determine_parallel_type (*stmt_p);
