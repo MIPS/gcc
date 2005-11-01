@@ -1,3 +1,29 @@
+2005-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_PRIVATE_DEBUG): Define.
+	* langhooks.h (struct lang_hooks_for_decls): Add
+	omp_disregard_value_expr and omp_private_debug_clause
+	hooks.
+	* hooks.c (hook_bool_tree_bool_false): New function.
+	* hooks.h (hook_bool_tree_bool_false): New prototype.
+	* langhooks-def.h (LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR,
+	LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE): Define.
+	(LANG_HOOKS_DECLS): Add them.
+	* gimplify.c (omp_notice_variable): Change return type to bool.
+	Return true if DECL_VALUE_EXPR on the decl should be ignored.
+	(gimplify_var_or_parm_decl): If omp_notice_variable returned
+	true, disregard DECL_VALUE_EXPR on the decl if any.
+	(gimplify_adjust_omp_clauses_1): If omp_private_debug_clause
+	hook returns true, put the DECL into OMP_CLAUSE_PRIVATE
+	clause with OMP_CLAUSE_PRIVATE_DEBUG flag set.
+	(gimplify_adjust_omp_clauses): Likewise.
+	* omp-low.c (fixup_remapped_decl): Add PRIVATE_DEBUG argument.
+	If PRIVATE_DEBUG, copy/remap DECL_VALUE_EXPR even if it is not
+	variable-length.
+	(scan_sharing_clauses, scan_omp_nested): Adjust caller.
+	(expand_rec_input_clauses): Ignore OMP_CLAUSE_PRIVATE
+	with OMP_CLAUSE_PRIVATE_DEBUG flag set.
+
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree.c (empty_body_p): New.

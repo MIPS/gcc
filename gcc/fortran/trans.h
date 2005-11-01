@@ -442,6 +442,9 @@ tree builtin_function (const char *, tree, int, enum built_in_class,
 
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (tree);
+enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
+bool gfc_omp_disregard_value_expr (tree, bool);
+bool gfc_omp_private_debug_clause (tree, bool);
 
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;
@@ -549,6 +552,8 @@ struct lang_decl		GTY(())
 #define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
 #define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
 #define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
+#define GFC_DECL_COMMON_OR_EQUIV(node) DECL_LANG_FLAG_3(node)
+#define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)

@@ -284,7 +284,7 @@ delete_omp_context (struct gimplify_omp_ctx *c)
 }
 
 static void omp_add_variable (struct gimplify_omp_ctx *, tree, unsigned int);
-static void omp_notice_variable (struct gimplify_omp_ctx *, tree, bool);
+static bool omp_notice_variable (struct gimplify_omp_ctx *, tree, bool);
 
 /* A subroutine of append_to_statement_list{,_force}.  T is not NULL.  */
 
@@ -1591,8 +1591,8 @@ gimplify_var_or_parm_decl (tree *expr_p)
     }
 
   /* When within an OpenMP context, notice uses of variables.  */
-  if (gimplify_omp_ctxp)
-    omp_notice_variable (gimplify_omp_ctxp, decl, true);
+  if (gimplify_omp_ctxp && omp_notice_variable (gimplify_omp_ctxp, decl, true))
+    return GS_ALL_DONE;
 
   /* If the decl is an alias for another expression, substitute it now.  */
   if (DECL_HAS_VALUE_EXPR_P (decl))
@@ -4280,29 +4280,32 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 
 /* Record the fact that DECL was used within the OpenMP context CTX.
    IN_CODE is true when real code uses DECL, and false when we should
-   merely emit default(none) errors.  */
+   merely emit default(none) errors.  Return true if DECL is going to
+   be remapped and thus DECL shouldn't be gimplified into its
+   DECL_VALUE_EXPR (if any).  */
 
-static void
+static bool
 omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 {
   splay_tree_node n;
   unsigned flags = in_code ? GOVD_SEEN : 0;
+  bool ret = false, shared;
 
   if (decl == error_mark_node || TREE_TYPE (decl) == error_mark_node)
-    return;
+    return false;
 
   /* Threadprivate variables are predetermined.  */
   if (is_global_var (decl))
     {
       if (DECL_THREAD_LOCAL_P (decl))
-	return;
+	return false;
 
       if (DECL_HAS_VALUE_EXPR_P (decl))
 	{
 	  tree value = get_base_address (DECL_VALUE_EXPR (decl));
 
 	  if (value && DECL_P (value) && DECL_THREAD_LOCAL_P (value))
-	    return;
+	    return false;
 	}
     }
 
@@ -4345,12 +4348,18 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	}
 
       omp_add_variable (ctx, decl, flags);
+
+      shared = (flags & GOVD_SHARED) != 0;
+      ret = lang_hooks.decls.omp_disregard_value_expr (decl, shared);
       goto do_outer;
     }
 
+  shared = ((flags | n->value) & GOVD_SHARED) != 0;
+  ret = lang_hooks.decls.omp_disregard_value_expr (decl, shared);
+
   /* If nothing changed, there's nothing left to do.  */
   if ((n->value & flags) == flags)
-    return;
+    return ret;
   flags |= n->value;
   n->value = flags;
 
@@ -4358,9 +4367,11 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   /* If the variable is private in the current context, then we don't
      need to propagate anything to an outer context.  */
   if (flags & GOVD_PRIVATE)
-    return;
-  if (ctx->outer_context)
-    omp_notice_variable (ctx->outer_context, decl, in_code);
+    return ret;
+  if (ctx->outer_context
+      && omp_notice_variable (ctx->outer_context, decl, in_code))
+    return true;
+  return ret;
 }
 
 /* Verify that DECL is private within CTX.  If there's specific information
@@ -4497,12 +4508,18 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   unsigned flags = n->value;
   enum tree_code code;
   tree clause;
+  bool private_debug;
 
   if (flags & (GOVD_EXPLICIT | GOVD_LOCAL))
     return 0;
   if ((flags & GOVD_SEEN) == 0)
     return 0;
-  if (flags & GOVD_SHARED)
+  private_debug
+    = lang_hooks.decls.omp_private_debug_clause (decl,
+						 !!(flags & GOVD_SHARED));
+  if (private_debug)
+    code = OMP_CLAUSE_PRIVATE;
+  else if (flags & GOVD_SHARED)
     {
       if (is_global_var (decl))
 	return 0;
@@ -4517,6 +4534,8 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 
   clause = build1 (code, void_type_node, decl);
   OMP_CLAUSE_CHAIN (clause) = *list_p;
+  if (private_debug)
+    OMP_CLAUSE_PRIVATE_DEBUG (clause) = 1;
   *list_p = clause;
 
   return 0;
@@ -4541,6 +4560,15 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	  decl = OMP_CLAUSE_DECL (c);
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
 	  remove = !(n->value & GOVD_SEEN);
+	  if (! remove)
+	    {
+	      bool shared = TREE_CODE (c) == OMP_CLAUSE_SHARED;
+	      if (lang_hooks.decls.omp_private_debug_clause (decl, shared))
+		{
+		  TREE_SET_CODE (c, OMP_CLAUSE_PRIVATE);
+		  OMP_CLAUSE_PRIVATE_DEBUG (c) = 1;
+		}
+	    }
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:

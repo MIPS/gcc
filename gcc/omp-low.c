@@ -391,7 +391,7 @@ install_var_local (tree var, omp_context *ctx)
    copying the DECL_VALUE_EXPR, and fixing up the type.  */
 
 static void
-fixup_remapped_decl (tree decl, omp_context *ctx)
+fixup_remapped_decl (tree decl, omp_context *ctx, bool private_debug)
 {
   tree new_decl, size;
 
@@ -399,16 +399,17 @@ fixup_remapped_decl (tree decl, omp_context *ctx)
 
   TREE_TYPE (new_decl) = remap_type (TREE_TYPE (decl), &ctx->cb);
 
+  if ((!TREE_CONSTANT (DECL_SIZE (new_decl)) || private_debug)
+      && DECL_HAS_VALUE_EXPR_P (decl))
+    {
+      tree ve = DECL_VALUE_EXPR (decl);
+      walk_tree (&ve, copy_body_r, &ctx->cb, NULL);
+      SET_DECL_VALUE_EXPR (new_decl, ve);
+      DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
+    }
+
   if (!TREE_CONSTANT (DECL_SIZE (new_decl)))
     {
-      if (DECL_HAS_VALUE_EXPR_P (decl))
-	{
-	  tree ve = DECL_VALUE_EXPR (decl);
-	  walk_tree (&ve, copy_body_r, &ctx->cb, NULL);
-	  SET_DECL_VALUE_EXPR (new_decl, ve);
-	  DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
-	}
-
       size = remap_decl (DECL_SIZE (decl), &ctx->cb);
       if (size == error_mark_node)
 	size = TYPE_SIZE (TREE_TYPE (new_decl));
@@ -668,12 +669,14 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);
-	  fixup_remapped_decl (decl, ctx);
+	  fixup_remapped_decl (decl, ctx,
+			       TREE_CODE (c) == OMP_CLAUSE_PRIVATE
+			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
 	  break;
 
 	case OMP_CLAUSE_SHARED:
 	  decl = OMP_CLAUSE_DECL (c);
-	  fixup_remapped_decl (decl, ctx);
+	  fixup_remapped_decl (decl, ctx, false);
 	  break;
 
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -1063,7 +1066,7 @@ scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
 	case OMP_CLAUSE_PRIVATE:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
-	    var_sized_list = tree_cons (NULL, decl, var_sized_list);
+	    var_sized_list = tree_cons (NULL, c, var_sized_list);
 	  OMP_CLAUSE_DECL (c) = install_var_local (decl, ctx);
 	  break;
 
@@ -1093,7 +1096,8 @@ scan_omp_nested (tree *stmt_p, omp_context *outer_ctx)
      to do this as a separate pass, since we need the pointer and size
      decls installed first.  */
   for (c = var_sized_list; c ; c = TREE_CHAIN (c))
-    fixup_remapped_decl (TREE_VALUE (c), ctx);
+    fixup_remapped_decl (OMP_CLAUSE_DECL (TREE_VALUE (c)), ctx,
+			 OMP_CLAUSE_PRIVATE_DEBUG (TREE_VALUE (c)));
 
   scan_omp (&OMP_BODY (stmt), ctx);
 
@@ -1391,8 +1395,11 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 
 	  switch (c_kind)
 	    {
-	    case OMP_CLAUSE_SHARED:
 	    case OMP_CLAUSE_PRIVATE:
+	      if (OMP_CLAUSE_PRIVATE_DEBUG (c))
+		continue;
+	      break;
+	    case OMP_CLAUSE_SHARED:
 	    case OMP_CLAUSE_FIRSTPRIVATE:
 	    case OMP_CLAUSE_LASTPRIVATE:
 	    case OMP_CLAUSE_COPYIN:

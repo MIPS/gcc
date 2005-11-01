@@ -54,6 +54,82 @@ gfc_omp_privatize_by_reference (tree decl)
   return !DECL_ARTIFICIAL (decl) && TREE_CODE (type) == POINTER_TYPE;
 }
 
+/* True if OpenMP sharing attribute of DECL is predetermined.  */
+
+enum omp_clause_default_kind
+gfc_omp_predetermined_sharing (tree decl)
+{
+  /* Cray pointees shouldn't be listed in any clauses and should be
+     gimplified to dereference of the corresponding Cray pointer.
+     Make them all private, so that they are emitted in the debug
+     information.  */
+  if (GFC_DECL_CRAY_POINTEE (decl))
+    return OMP_CLAUSE_DEFAULT_PRIVATE;
+
+  /* COMMON and EQUIVALENCE decls are shared.  They
+     are only referenced through DECL_VALUE_EXPR of the variables
+     contained in them.  If those are privatized, they will not be
+     gimplified to the COMMON or EQUIVALENCE decls.  */
+  if (GFC_DECL_COMMON_OR_EQUIV (decl) && ! DECL_HAS_VALUE_EXPR_P (decl))
+    return OMP_CLAUSE_DEFAULT_SHARED;
+
+  return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+}
+
+/* Return true if DECL's DECL_VALUE_EXPR (if any) should be
+   disregarded in OpenMP construct, because it is going to be
+   remapped during OpenMP lowering.  SHARED is true if DECL
+   is going to be shared, false if it is going to be privatized.  */
+
+bool
+gfc_omp_disregard_value_expr (tree decl, bool shared)
+{
+  if (GFC_DECL_COMMON_OR_EQUIV (decl)
+      && DECL_HAS_VALUE_EXPR_P (decl))
+    {
+      tree value = DECL_VALUE_EXPR (decl);
+
+      if (TREE_CODE (value) == COMPONENT_REF
+	  && TREE_CODE (TREE_OPERAND (value, 0)) == VAR_DECL
+	  && GFC_DECL_COMMON_OR_EQUIV (TREE_OPERAND (value, 0)))
+	{
+	  /* If variable in COMMON or EQUIVALENCE is privatized, return
+	     true, as just that variable is supposed to be privatized,
+	     not the whole COMMON or whole EQUIVALENCE.
+	     For shared variables in COMMON or EQUIVALENCE, let them be
+	     gimplified to DECL_VALUE_EXPR, so that for multiple shared vars
+	     from the same COMMON or EQUIVALENCE just one sharing of the
+	     whole COMMON or EQUIVALENCE is enough.  */
+	  return ! shared;
+	}
+    }
+  return false;
+}
+
+/* Return true if DECL that is shared iff SHARED is true should
+   be put into OMP_CLAUSE_PRIVATE with OMP_CLAUSE_PRIVATE_DEBUG
+   flag set.  */
+
+bool
+gfc_omp_private_debug_clause (tree decl, bool shared)
+{
+  if (GFC_DECL_CRAY_POINTEE (decl))
+    return true;
+
+  if (GFC_DECL_COMMON_OR_EQUIV (decl)
+      && DECL_HAS_VALUE_EXPR_P (decl))
+    {
+      tree value = DECL_VALUE_EXPR (decl);
+
+      if (TREE_CODE (value) == COMPONENT_REF
+	  && TREE_CODE (TREE_OPERAND (value, 0)) == VAR_DECL
+	  && GFC_DECL_COMMON_OR_EQUIV (TREE_OPERAND (value, 0)))
+	return shared;
+    }
+
+  return false;
+}
+
 
 static inline tree
 gfc_trans_add_clause (tree node, tree tail)

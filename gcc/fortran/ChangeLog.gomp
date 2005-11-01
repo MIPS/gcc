@@ -1,3 +1,20 @@
+2005-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (gfc_omp_predetermined_sharing,
+	gfc_omp_disregard_value_expr, gfc_omp_private_debug_clause): New
+	prototypes.
+	(GFC_DECL_COMMON_OR_EQUIV, GFC_DECL_CRAY_POINTEE): Define.
+	* trans-openmp.c (gfc_omp_predetermined_sharing,
+	gfc_omp_disregard_value_expr, gfc_omp_private_debug_clause): New
+	functions.
+	* trans-common.c (build_equiv_decl, build_common_decl,
+	create_common): Set GFC_DECL_COMMON_OR_EQUIV flag on the decls.
+	* trans-decl.c (gfc_finish_cray_pointee): Set GFC_DECL_CRAY_POINTEE
+	on the decl.
+	* f95-lang.c (LANG_HOOKS_OMP_PREDETERMINED_SHARING,
+	LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR,
+	LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE): Define.
+
 2005-10-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (resolve_omp_clauses): Remove extraneous comma.

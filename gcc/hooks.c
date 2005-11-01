@@ -186,6 +186,12 @@ hook_bool_tree_tree_false (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
 }
 
 bool
+hook_bool_tree_bool_false (tree a ATTRIBUTE_UNUSED, bool b ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
 hook_bool_rtx_false (rtx a ATTRIBUTE_UNUSED)
 {
   return false;

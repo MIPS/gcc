@@ -41,6 +41,7 @@ extern bool hook_bool_rtx_int_int_intp_false (rtx, int, int, int *);
 extern bool hook_bool_constcharptr_size_t_false (const char *, size_t);
 extern bool hook_bool_size_t_constcharptr_int_true (size_t, const char *, int);
 extern bool hook_bool_tree_tree_false (tree, tree);
+extern bool hook_bool_tree_bool_false (tree, bool);
 
 extern void hook_void_void (void);
 extern void hook_void_constcharptr (const char *);

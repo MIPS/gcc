@@ -343,6 +343,8 @@ struct tree_common GTY(())
 	  SAVE_EXPR
        OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE in
 	  OMP_CLAUSE_LASTPRIVATE
+       OMP_CLAUSE_PRIVATE_DEBUG in
+	  OMP_CLAUSE_PRIVATE
 
    private_flag:
 
@@ -1428,6 +1430,12 @@ struct tree_constructor GTY(())
 #define OMP_CLAUSE_DECL(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
 				  OMP_CLAUSE_COPYPRIVATE), 0)
+
+/* True on a PRIVATE clause if its decl is kept around for debugging
+   information only and its DECL_VALUE_EXPR is supposed to point
+   to what it has been remapped to.  */
+#define OMP_CLAUSE_PRIVATE_DEBUG(NODE) \
+  TREE_PUBLIC (OMP_CLAUSE_PRIVATE_CHECK (NODE))
 
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */

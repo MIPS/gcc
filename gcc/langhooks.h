@@ -201,6 +201,16 @@ struct lang_hooks_for_decls
      predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
   enum omp_clause_default_kind (*omp_predetermined_sharing) (tree);
 
+  /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
+     disregarded in OpenMP construct, because it is going to be
+     remapped during OpenMP lowering.  SHARED is true if DECL
+     is going to be shared, false if it is going to be privatized.  */
+  bool (*omp_disregard_value_expr) (tree, bool);
+
+  /* Return true if DECL that is shared iff SHARED is true should
+     be put into OMP_CLAUSE_PRIVATE_DEBUG.  */
+  bool (*omp_private_debug_clause) (tree, bool);
+
   /* Build and return code for a default constructor for DECL in
      response to CLAUSE.  Return NULL if nothing to be done.  */
   tree (*omp_clause_default_ctor) (tree clause, tree decl);
