@@ -1,3 +1,13 @@
+2005-11-01  Daniel Berlin  <dberlin@dberlin.org>
+            Kenneth Zadeck <zadeck@naturalbridge.com>
+	* flow.c (update_life_info): Added debugging.
+	(init_propagate_block_info): Fixed typo.
+	* df.c (df_refs_unlink, df_ref_record_1, df_ref_record,
+	read_modify_subreg_p, df_def_record_1, df_insn_refs_record):
+	Fixed control of when regs_ever_live is modified.
+	* combine.c: Documentation rot.
+	* reload1.c: Used wrong type of comment.
+
 2005-10-31  Jan Hubicka  <jh@suse.cz>
 
 	* reg-stack.c (subst_stack_regs_pat): Expect USEs to be ignored for

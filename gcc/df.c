@@ -321,9 +321,9 @@ static void df_refs_unlink (struct df *, bitmap);
 static void df_ref_record_1 (struct df *, rtx, rtx *, rtx, enum df_ref_type,
 			     enum df_ref_flags);
 static void df_ref_record (struct df *, rtx, rtx *, rtx, enum df_ref_type,
-			   enum df_ref_flags);
+			   enum df_ref_flags, bool record_live);
 static void df_def_record_1 (struct df *, rtx, basic_block, rtx,
-			     enum df_ref_flags);
+			     enum df_ref_flags, bool record_live);
 static void df_defs_record (struct df *, rtx, basic_block, rtx);
 static void df_uses_record (struct df *, rtx *, enum df_ref_type,
 			    basic_block, rtx, enum df_ref_flags);
@@ -990,7 +990,7 @@ df_ref_record_1 (struct df *df, rtx reg, rtx *loc, rtx insn,
    at address LOC within INSN of BB.  */
 static void
 df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
-	       enum df_ref_type ref_type, enum df_ref_flags ref_flags)
+	       enum df_ref_type ref_type, enum df_ref_flags ref_flags, bool record_live)
 {
   unsigned int regno;
 
@@ -1036,7 +1036,7 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
 	{
 	  /* Calls are handled at call site because regs_ever_live doesn't include 
 	     clobbered regs, only used ones.  */
-	  if (ref_type == DF_REF_REG_DEF && ! CALL_P (insn))
+	  if (ref_type == DF_REF_REG_DEF && record_live)
 	    regs_ever_live[i] = 1;
 	  else if ((ref_type == DF_REF_REG_USE 
 		   || ref_type == DF_REF_REG_MEM_STORE
@@ -1079,7 +1079,7 @@ read_modify_subreg_p (rtx x)
 /* Process all the registers defined in the rtx, X.  */
 static void
 df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn, 
-		 enum df_ref_flags flags)
+		 enum df_ref_flags flags, bool record_live)
 {
   rtx *loc;
   rtx dst;
@@ -1103,7 +1103,7 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn,
 	  rtx temp = XVECEXP (dst, 0, i);
 	  if (GET_CODE (temp) == EXPR_LIST || GET_CODE (temp) == CLOBBER
 	      || GET_CODE (temp) == SET)
-	    df_def_record_1 (df, temp, bb, insn, flags);
+	    df_def_record_1 (df, temp, bb, insn, flags, record_live);
 	}
       return;
     }
@@ -1130,7 +1130,7 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn,
 
   if (REG_P (dst)
       || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
-    df_ref_record (df, dst, loc, insn, DF_REF_REG_DEF, flags);
+    df_ref_record (df, dst, loc, insn, DF_REF_REG_DEF, flags, record_live);
 }
 
 
@@ -1143,7 +1143,7 @@ df_defs_record (struct df *df, rtx x, basic_block bb, rtx insn)
   if (code == SET || code == CLOBBER)
     {
       /* Mark the single def within the pattern.  */
-      df_def_record_1 (df, x, bb, insn, 0);
+      df_def_record_1 (df, x, bb, insn, 0, true);
     }
   else if (code == COND_EXEC)
     {
@@ -1214,7 +1214,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
       /* ... Fall through ...  */
 
     case REG:
-      df_ref_record (df, x, loc, insn, ref_type, flags);
+      df_ref_record (df, x, loc, insn, ref_type, flags, true);
       return;
 
     case SET:
@@ -1310,7 +1310,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
     case PRE_MODIFY:
     case POST_MODIFY:
       /* Catch the def of the register being modified.  */
-      df_ref_record (df, XEXP (x, 0), &XEXP (x, 0), insn, DF_REF_REG_DEF, DF_REF_READ_WRITE);
+      df_ref_record (df, XEXP (x, 0), &XEXP (x, 0), insn, DF_REF_REG_DEF, DF_REF_READ_WRITE, true);
 
       /* ... Fall through to handle uses ...  */
 
@@ -1581,7 +1581,7 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
 	      EXECUTE_IF_SET_IN_BITMAP (invalidated_by_call, 0, ui, bi)
 		{
 		  x = df_reg_def_gen (ui);
-		  df_def_record_1 (df, x, bb, insn, 0);
+		  df_def_record_1 (df, x, bb, insn, 0, false);
 		}
 	    }
 	}

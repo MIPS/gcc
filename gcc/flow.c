@@ -118,6 +118,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 	- pre/post modify transformation
 */
 
+#if 0
+#include <execinfo.h>
+#include <stdio.h>
+#endif
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -588,6 +592,15 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   timevar_push ((extent == UPDATE_LIFE_LOCAL || blocks)
 		? TV_LIFE_UPDATE : TV_LIFE);
 
+#if 0
+  if ((prop_flags & PROP_DEATH_NOTES))
+    {
+      void *array[10];
+      int size = backtrace (array, 10);
+      fprintf (stderr, "\n\n rebuilding death notes for %s\n", get_name (current_function_decl));
+      backtrace_symbols_fd (array, size, fileno(stderr));
+    }
+#endif
   /* Changes to the CFG are only allowed when
      doing a global update for the entire CFG.  */
   gcc_assert (!(prop_flags & PROP_ALLOW_CFG_CHANGES)
@@ -1492,9 +1505,9 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		  bool true_in;
 
 		  if (flags & PROP_NO_UNINITIALIZED_LL)
-		    REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb_true), i);
+		    true_in = REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb_true), i);
 		  else
-		    REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb_true), i);
+		    true_in = REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb_true), i);
 		  if (true_in)
 		    cond = cond_false;
 		  else
