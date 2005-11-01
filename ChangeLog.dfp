@@ -1,3 +1,7 @@
+2005-11-01  Janis Johnson  <janis187@us.ibm.com>
+
+	* contrib/gcc_update: Support SVN.
+
 2005-10-13  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with dfp-mergepoint-20051013.
