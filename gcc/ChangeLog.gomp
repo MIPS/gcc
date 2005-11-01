@@ -1,5 +1,9 @@
 2005-11-01  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): If
+	the requested byte or half-word hasn't been changed, but the surrounding
+	bytes changed, try again.
+
 	* config/sparc/sync.md: New file.
 	* config/sparc/sparc.md (UNSPECV_MEMBAR, UNSPECV_CAS, UNSPECV_SWAP,
 	UNSPECV_LDSTUB): New constants.

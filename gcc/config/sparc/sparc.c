@@ -8719,8 +8719,11 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
   rtx off = gen_reg_rtx (SImode);
   rtx oldv = gen_reg_rtx (SImode);
   rtx newv = gen_reg_rtx (SImode);
+  rtx oldvalue = gen_reg_rtx (SImode);
+  rtx newvalue = gen_reg_rtx (SImode);
   rtx res = gen_reg_rtx (SImode);
-  rtx memsi, val, mask;
+  rtx resv = gen_reg_rtx (SImode);
+  rtx memsi, val, mask, end_label, loop_label, cc;
 
   emit_insn (gen_rtx_SET (VOIDmode, addr,
 			  gen_rtx_AND (Pmode, addr1, GEN_INT (-4))));
@@ -8768,13 +8771,34 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
   emit_insn (gen_rtx_SET (VOIDmode, newv,
 			  gen_rtx_AND (SImode, newv, mask)));
 
-  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+  end_label = gen_label_rtx ();
+  loop_label = gen_label_rtx ();
+  emit_label (loop_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldvalue,
 			  gen_rtx_IOR (SImode, oldv, val)));
 
-  emit_insn (gen_rtx_SET (VOIDmode, newv,
+  emit_insn (gen_rtx_SET (VOIDmode, newvalue,
 			  gen_rtx_IOR (SImode, newv, val)));
 
-  emit_insn (gen_sync_compare_and_swapsi (res, memsi, oldv, newv));
+  emit_insn (gen_sync_compare_and_swapsi (res, memsi, oldvalue, newvalue));
+
+  emit_cmp_and_jump_insns (res, oldvalue, EQ, NULL, SImode, 0, end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, resv,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       res)));
+
+  cc = gen_compare_reg (NE, resv, val);
+
+  emit_insn (gen_rtx_SET (VOIDmode, val, resv));
+
+  sparc_compare_op0 = resv;
+  sparc_compare_op1 = val;
+  sparc_compare_emitted = cc;
+  emit_jump_insn (gen_bne (loop_label));
+
+  emit_label (end_label);
 
   emit_insn (gen_rtx_SET (VOIDmode, res,
 			  gen_rtx_AND (SImode, res, mask)));
