@@ -209,6 +209,7 @@ extern const char *darwin_macho_att_stub_switch;
    0 },									\
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */			\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
+  /* APPLE LOCAL added comma to this line for subsequent A-L additions */ \
    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
   /* APPLE LOCAL begin AT&T-style stub 4164563 */			\
   {"att-stubs", &darwin_macho_att_stub_switch,				\

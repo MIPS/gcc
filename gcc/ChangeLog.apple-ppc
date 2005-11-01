@@ -1,5 +1,9 @@
 2005-11-01  Stuart Hastings  <stuart@apple.com>
 
+	* gcc/config/darwin.h (fix-and-continue): Added APPLE LOCAL for comma.
+
+2005-11-01  Stuart Hastings  <stuart@apple.com>
+
 	* gcc/config/i386/i386.h (Unused): Fix gratuitous APPLE LOCAL change.
 
 2005-10-28  Stuart Hastings  <stuart@apple.com>
