@@ -1,5 +1,9 @@
 2005-11-01  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/linux/sparc/futex.h: New file.
+	* configure.tgt: Use it.
+	* testsuite/lib/libgomp-dg.exp: Use -mcpu=v9 for sparc testing.
+
 	* critical.c: Include stdlib.h.
 	* acinclude.m4 (LIBGOMP_CHECK_SYNC_BUILTINS): Avoid warnings about
 	ignoring return value.

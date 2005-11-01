@@ -1,3 +1,13 @@
+2005-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sync.md: New file.
+	* config/sparc/sparc.md (UNSPECV_MEMBAR, UNSPECV_CAS, UNSPECV_SWAP,
+	UNSPECV_LDSTUB): New constants.
+	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): New function.
+	* config/sparc/predicates.md (memory_reg_operand): New predicate.
+	* config/sparc/sparc-protos.h (sparc_expand_compare_and_swap_12): New
+	prototype.
+
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-omp.c (c_split_parallel_clauses): Do not handle
