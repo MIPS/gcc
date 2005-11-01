@@ -793,7 +793,8 @@ determine_parallel_type (tree stmt)
 	     gain in using the combined call.  */
 	  tree clauses = OMP_FOR_CLAUSES (t);
 	  tree c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
-	  if (c && OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
+	  if (c == NULL_TREE
+	      || OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
 	    par_type = IS_PARALLEL;
 	  else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
 	    par_type = IS_PARALLEL;

@@ -1,5 +1,10 @@
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
+	* omp-low.c (determine_parallel_type): Fix thinko in handling
+	of statically scheduled loops.
+
+2005-11-01  Diego Novillo  <dnovillo@redhat.com>
+
 	* omp-low.c (enum omp_parallel_type): Declare.
 	(struct omp_context): Remove field 'is_parallel'.
 	Update users.
