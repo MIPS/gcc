@@ -65,8 +65,10 @@ void method_invocation_conversion (model_type *formal,
 
 /// This implements capture conversion as defined in the JLS.
 /// Essentially it replaces wildcards in a parameterization with new
-/// type variables.
-model_class_instance *capture_conversion (model_class_instance *);
+/// type variables.  The first argument is a request argument; it is
+/// used for its location only.
+model_class_instance *capture_conversion (model_element *,
+					  model_class_instance *);
 
 /// Return the wrapper type for a given primitive type.  This also
 /// works for `void'.  Only primitive types and void can be passed as

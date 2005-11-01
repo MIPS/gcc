@@ -83,6 +83,8 @@ public:
     return bool (bound);
   }
 
+  model_class *apply_type_map (model_element *, const model_type_map &);
+
   model_type *erasure ();
 
   bool assignable_from_p (model_type *);

@@ -1,3 +1,8 @@
+right now we exit after the first semantic analysis error
+this is unfriendly to say the least
+we should fix up and continue on somehow
+at the very least starting on the next class should work ok
+
 eclipse has generic test cases somewhere
 find them
 

@@ -1,5 +1,14 @@
 2005-10-31  Tom Tromey  <tromey@redhat.com>
 
+	* model/wildcard.cc (apply_type_map): New method.
+	* model/wildcard.hh (model_wildcard::apply_type_map): Declare.
+	* model/method.cc (return_type_substitutable_p): Correctly apply
+	unchecked conversion.
+	* conversions.cc (widen_instantiation): Use capture_conversion.
+	* conversions.hh (capture_conversion): Fixed.
+
+2005-10-31  Tom Tromey  <tromey@redhat.com>
+
 	* model/wildcard.cc (get_pretty_name): New method.
 	* model/wildcard.hh (model_wildcard::get_pretty_name): No longer
 	inline.

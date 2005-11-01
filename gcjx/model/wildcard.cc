@@ -86,6 +86,23 @@ model_wildcard::resolve_hook (resolution_scope *scope)
     }
 }
 
+model_class *
+model_wildcard::apply_type_map (model_element *request,
+				const model_type_map &typemap)
+{
+  if (! bound)
+    return this;
+  model_class *bound_class = assert_cast<model_class *> (bound->type ());
+  model_class *applied = bound_class->apply_type_map (request, typemap);
+  if (bound_class == applied)
+    return this;
+  // FIXME: ownership.
+  // FIXME: location from request?  Or from 'this'?
+  model_wildcard *result = new model_wildcard (request->get_location (),
+					       applied, is_super);
+  return result;
+}
+
 model_type *
 model_wildcard::erasure ()
 {

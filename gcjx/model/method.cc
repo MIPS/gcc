@@ -443,10 +443,11 @@ model_method::return_type_substitutable_p (model_type *base,
     {
       if (base->assignable_from_p (derived))
 	return true;
-      // Unchecked conversion here means that the erasure of derived
-      // is a subtype of base.
+      // Maybe the return type of DERIVED can be converted to the
+      // return type of BASE by unchecked conversion.  For this to
+      // happen, DERIVED must be a raw type and we must look at the
+      // erasure of BASE.
       // FIXME: must emit unchecked warning.
-      return base->assignable_from_p (derived->erasure ());
     }
 
   // Otherwise, derived must be a subtype of the erasure of base.
