@@ -1735,7 +1735,8 @@ fix_crossing_unconditional_branches (void)
 	      for (cur_insn = indirect_jump_sequence; cur_insn;
 		   cur_insn = NEXT_INSN (cur_insn))
 		{
-		  BLOCK_FOR_INSN (cur_insn) = cur_bb;
+		  if (!BARRIER_P (cur_insn))
+		    BLOCK_FOR_INSN (cur_insn) = cur_bb;
 		  if (JUMP_P (cur_insn))
 		    jump_insn = cur_insn;
 		}
@@ -1940,7 +1941,7 @@ reorder_basic_blocks (void)
    encountering this note will make the compiler switch between the
    hot and cold text sections.  */
 
-void
+static void
 insert_section_boundary_note (void)
 {
   basic_block bb;
@@ -2226,6 +2227,9 @@ rest_of_handle_reorder_blocks (void)
   rtl_df = df_init ();
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 		    PROP_DEATH_NOTES);
+
+  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
+  insert_section_boundary_note ();
 }
 
 struct tree_opt_pass pass_reorder_blocks =

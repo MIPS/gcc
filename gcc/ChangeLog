@@ -1,3 +1,264 @@
+2005-11-01  Richard Henderson  <rth@redhat.com>
+
+	PR 21518
+	* loop.c (scan_loop): Do not propagate computations to a hard
+	register destination with SMALL_REGISTER_CLASSES.
+
+2005-11-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Do not add extra
+	costs for MULT inside PLUS or MINUS.
+
+2005-11-01  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.h (TRAMPOLINE_TEMPLATE): Add a byte of padding.
+	(TRAMPOLINE_SIZE): Round up to 60.
+	* config/xtensa/lib2funcs.S (TRAMPOLINE_SIZE): Likewise.
+
+2005-10-31  James E. Wilson  <wilson@specifix.com>
+
+	PR debug/24444
+	* dwarf2out.c (convert_cfa_to_loc_list): Put inside DWARF2_UNWIND_INFO
+	ifdef.  Put ifdefs around call in gen_subprogram_die.
+	(compute_frame_pointer_to_cfa_displacement): Likewise.
+	(gen_subprogram_die): Restore old code for when DWARF2_UNWIND_INFO is
+	not defined.
+	
+	PR rtl-optimization/17356
+	*  cfgrtl.c (purge_dead_edges): Undo last change.  In EDGE_EH code,
+	add check for CALL_INSN if EDGE_ABRNOMAL_CALL true.
+
+2005-10-31  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/24093
+	* cgraph.c (cgraph_clone_edge, cgraph_clone_node): Watch negative
+
+	PR target/20928
+	* i386.c (legitimize_pic_address): Deal with large immediates.
+
+	PR profile/20815
+	* coverage.c (coverage_checksum_string): Fix code to stip random seeds
+	from symbol names while computing checkup.
+
+	PR profile/24487
+	* predict.c (predict_loops): Do not estimate more than
+	MAX_PRED_LOOP_ITERATIONS in PRED_LOOP_ITERATIONS heuristic.
+	* predict.def (MAX_PRED_LOOP_ITERATIONS): Define.
+
+2005-10-31  Andrew MacLeod  <amacleod@redhat.com>
+	
+	PR tree-optimization/19097
+	* tree-ssa-operands.c (correct_use_link): Don't look for modified stmts.
+
+2005-10-31  J"orn Rennecke <joern.rennecke@st.com>
+
+	* optabs.c (expand_unop): Take TRULY_NOOP_TRUNCATION into account.
+
+2005-10-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23492
+	* tree-inline.c (setup_one_parameter): If the init_stmt
+	is NULL, don't insert the statement.
+
+2005-10-30  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/24172
+	* tree-inline.c (copy_body_r): Unshare the substituted value first.
+
+2005-10-30  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.c (mmix_intval): Correct handling of DFmode
+	constants for hosts with long != 32 bits.
+
+2005-10-28  Andreas Krebbel <krebbel1@de.ibm.com>
+
+	PR middle-end/24093
+	* ipa-inline.c (craph_decide_recursive_inlining): Fix return value.
+
+2005-10-28  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/ms1/ms1.h (TARGET_MS1_64_001): New.
+        (TARGET_MS1_16_002): New.
+        (TARGET_MS1_16_003): New.
+
+        * config/ms1/ms1.md ("decrement_and_branch_until_zero"): Rewrite.
+        ("*decrement_and_branch_until_zero_no_clobber"): New.
+        Add corresponding splitter for decrement_and_branch_until_zero
+        instruction.
+        Key all decrement_and_branch_until_zero patterns off of
+        TARGET_MS1_16_003.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24362
+	* tree-complex.c (extract_component): Treat RESULT_DECL
+	like the rest of the decls.
+
+2005-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.c (ia64_output_function_profiler): Emit an
+	indirect call to _mcount if the function needs a static chain.
+
+2005-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Caroline Tice  <ctice@apple.com>
+
+	PR rtl-optimization/24460
+	* dwarf2out.c (have_switched_text_sections): New boolean variable.
+	(dwarf2out_switch_text_section): Set it to true instead of
+	incrementing separate_line_info_table_in_use.
+	(output_loc_list): Additionally test have_switched_text_sections.
+	(output_ranges): Likewise.
+	(dwarf2out_finish): Likewise.
+	* varasm.c (assemble_start_function): Do not call
+	insert_section_boundary_note.
+	(assemble_end_function): If flag_reorder_blocks_and_partition,
+	switch to the function's section before emitting the .size directive.
+	* bb-reorder.c (insert_section_boundary_note): Staticify.
+	(rest_of_handle_reorder_blocks): Call insert_section_boundary_note.
+	* output.h (insert_section_boundary_note): Delete.
+
+2005-10-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/23103
+	* c-format.c (check_format_types): Use lang_hooks.types_compatible_p
+	instead of pointer equality when comparing types.
+
+2005-10-24  James E. Wilson  <wilson@specifix.com>
+
+	* sched-deps.c (flush_pending_lists): Pass 1 not 0 in first two
+	add_dependence_list_and_free calls.
+
+2005-10-24  Steven Bosscher  <stevenb@suse.de>
+
+	* contrib.texi: Add the names of the LLNL folks who donated
+	Cray pointer support for gfortran.
+
+2005-10-24  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/24225
+	* profile.c (branch_prob): Look from end to start through a
+	basic block when looking for a locus.
+
+2005-10-24  Richard Henderson  <rth@redhat.com>
+
+	* pa.c (store_reg_modify): Set RTX_FRAME_RELATED_P on each set in
+	parallel.
+	(hppa_expand_prologue): Likewise.
+
+2005-10-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa-linux.h (NO_PROFILE_COUNTERS): Delete define.
+	(NO_DEFERRED_PROFILE_COUNTERS): Define.
+	* pa.h (NO_PROFILE_COUNTERS): Define.
+	* pa.c (NO_DEFERRED_PROFILE_COUNTERS): Define if not defined.
+	(funcdef_nos): New vector to hold label numbers of deferred profile
+	counters.
+	(output_deferred_profile_counters): New function.
+	(hppa_profile_hook): Push label number onto funcdef_nos.
+	(pa_hpux_file_end): Call output_deferred_profile_counters if
+	NO_DEFERRED_PROFILE_COUNTERS is false.
+
+	* pa-protos.h (get_deferred_plabel): New prototype.
+	* pa.c (get_plabel): Rename to get_deferred_plabel.  Return plabel.
+	Make global.
+	(output_call): Adjust calls.
+
+2005-10-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Explain
+	peculiarity of GOT/TOC section usage.
+
+2005-10-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/24435
+	 * c-common.c (constant_string_class_name): Add documentation.
+
+2005-10-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/23832
+	* recog.c (peephole2_optimize): Increment peep2_current_count
+	only when the slot is empty.
+
+2005-10-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/23957
+	* except.c (output_function_exception_table): Call
+	assemble_external_libcall if we need a personality function.
+
+2005-10-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/24460
+	* bb-reorder.c (fix_crossing_unconditional_branches): Do not
+	set the basic block for barriers.
+
+2005-10-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* var-tracking.c (vt_initialize): Initialize post.
+
+2005-10-21  Devang Patel  <dpatel@apple.com>
+
+	PR/24220
+	* c-common.c (vector_types_convertible_p): Check vector element type.
+	
+2005-10-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (prepare_move_operands): Handle the address
+	constant which is a tls symbolic address plus a constant.
+
+2005-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR driver/24473
+	* gcc.c (main): Use the correct counter for erroring out
+	about mulitple files.
+
+2005-10-21  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/24465
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Always
+	use r2 for 64-bit tls .got access.
+
+2005-10-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* dojump.c (do_jump): Handle side-effecting TRUTH_AND_EXPR and
+	TRUTH_OR_EXPR.
+
+2005-10-20  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/24307
+	* tree-cfg.c (tree_find_edge_insert_loc): Handle naked RETURN_EXPR.
+
+2005-10-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/24295
+	* cgraphunit.c (cgraph_varpool_remove_unreferenced_decls): Mark
+	alias targets.
+	* varasm.c (find_decl_and_mark_needed): After cgraph global info
+	is ready, stop marking functions, but still mark variables.
+
+2005-10-20  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/24439
+	* fold-const.c (invert_truthvalue): Handle COND_EXPR with
+	void type operands.
+
+2005-10-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/23585
+	* rtlanal.c (rtx_addr_can_trap_p_1): New predicate extracted from...
+	(rtx_addr_can_trap_p): ... here.  Invoke rtx_addr_can_trap_p_1.
+	(may_trap_p_1): New predicate extracted from...
+	(may_trap_p): ... here.  Invoke may_trap_p_1.
+	(may_trap_or_fault_p): New predicate.
+	* rtl.h (may_trap_or_fault_p): Declare it.
+	* reorg.c (steal_delay_list_from_target): Use may_trap_or_fault_p
+	instead of may_trap_p.
+	(steal_delay_list_from_fallthrough): Likewise.
+	(fill_simple_delay_slots): Likewise.
+	(fill_slots_from_thread): Likewise.
+	* function.c (pad_to_arg_alignment): Rework comment about
+	SPARC_STACK_BOUNDARY_HACK.
+	* config/sparc/sparc.h: Likewise.
+
 2005-10-19  Adrian Straetling  <straetling@de.ibm.com>
 
 	* config/s390/s390.c (s390_expand_insv): New.
@@ -6161,7 +6422,7 @@
 	* gcc.c (main): Compare language[0] with '*' when iterating over
 	the infiles.
 
-2005-07-13  Adrian Strae½tling  <straetling@de.ibm.com>
+2005-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
 
 	* config/s390/s390.c: (s390_cc_modes_compatible): Move before
 	"s390_emit_compare".  Add handling of CCZ1mode.
@@ -6174,7 +6435,7 @@
 	Use CCZ1mode instead of CCZmode.
 	* config/s390/s390-modes.def: Add CCZ1mode.  Comment new mode.
 
-2006-07-13  Adrian Strae½tling  <straetling@de.ibm.com>
+2006-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
 
 	* config/s390/s390.md: ("cmpstrsi", "*cmpstr<mode>"): New
 	pattern.

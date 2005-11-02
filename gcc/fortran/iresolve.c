@@ -59,6 +59,21 @@ gfc_get_string (const char *format, ...)
   return IDENTIFIER_POINTER (ident);
 }
 
+/* MERGE and SPREAD need to have source charlen's present for passing
+   to the result expression.  */
+static void
+check_charlen_present (gfc_expr *source)
+{
+  if (source->expr_type == EXPR_CONSTANT && source->ts.cl == NULL)
+    {
+      source->ts.cl = gfc_get_charlen ();
+      source->ts.cl->next = gfc_current_ns->cl_list;
+      gfc_current_ns->cl_list = source->ts.cl;
+      source->ts.cl->length = gfc_int_expr (source->value.character.length);
+      source->rank = 0;
+    }
+}
+
 /********************** Resolution functions **********************/
 
 
@@ -856,6 +871,15 @@ gfc_resolve_link (gfc_expr * f, gfc_expr * p1 ATTRIBUTE_UNUSED,
 
 
 void
+gfc_resolve_loc (gfc_expr *f, gfc_expr *x)
+{
+  f->ts.type= BT_INTEGER;
+  f->ts.kind = gfc_index_integer_kind;
+  f->value.function.name = gfc_get_string ("__loc_%d", x->ts.kind);
+}
+
+
+void
 gfc_resolve_log (gfc_expr * f, gfc_expr * x)
 {
   f->ts = x->ts;
@@ -884,6 +908,24 @@ gfc_resolve_logical (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
   f->value.function.name =
     gfc_get_string ("__logical_%d_%c%d", f->ts.kind,
 		    gfc_type_letter (a->ts.type), a->ts.kind);
+}
+
+
+void
+gfc_resolve_malloc (gfc_expr * f, gfc_expr * size)
+{
+  if (size->ts.kind < gfc_index_integer_kind)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_index_integer_kind;
+      gfc_convert_type_warn (size, &ts, 2, 0);
+    }
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_index_integer_kind;
+  f->value.function.name = gfc_get_string (PREFIX("malloc"));
 }
 
 
@@ -996,6 +1038,9 @@ gfc_resolve_merge (gfc_expr * f, gfc_expr * tsource,
 		   gfc_expr * fsource ATTRIBUTE_UNUSED,
 		   gfc_expr * mask ATTRIBUTE_UNUSED)
 {
+  if (tsource->ts.type == BT_CHARACTER)
+    check_charlen_present (tsource);
+
   f->ts = tsource->ts;
   f->value.function.name =
     gfc_get_string ("__merge_%c%d", gfc_type_letter (tsource->ts.type),
@@ -1322,6 +1367,15 @@ gfc_resolve_scan (gfc_expr * f, gfc_expr * string,
 
 
 void
+gfc_resolve_secnds (gfc_expr * t1, gfc_expr * t0)
+{
+  t1->ts = t0->ts;
+  t1->value.function.name =
+    gfc_get_string (PREFIX("secnds"));
+}
+
+
+void
 gfc_resolve_set_exponent (gfc_expr * f, gfc_expr * x, gfc_expr * i)
 {
   f->ts = x->ts;
@@ -1365,6 +1419,27 @@ gfc_resolve_sign (gfc_expr * f, gfc_expr * a, gfc_expr * b ATTRIBUTE_UNUSED)
 
 
 void
+gfc_resolve_signal (gfc_expr * f, gfc_expr *number, gfc_expr *handler)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_c_int_kind;
+
+  /* handler can be either BT_INTEGER or BT_PROCEDURE  */
+  if (handler->ts.type == BT_INTEGER)
+    {
+      if (handler->ts.kind != gfc_c_int_kind)
+	gfc_convert_type (handler, &f->ts, 2);
+      f->value.function.name = gfc_get_string (PREFIX("signal_func_int"));
+    }
+  else
+    f->value.function.name = gfc_get_string (PREFIX("signal_func"));
+
+  if (number->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (number, &f->ts, 2);
+}
+
+
+void
 gfc_resolve_sin (gfc_expr * f, gfc_expr * x)
 {
   f->ts = x->ts;
@@ -1395,11 +1470,19 @@ gfc_resolve_spread (gfc_expr * f, gfc_expr * source,
 		    gfc_expr * dim,
 		    gfc_expr * ncopies)
 {
+  if (source->ts.type == BT_CHARACTER)
+    check_charlen_present (source);
+
   f->ts = source->ts;
   f->rank = source->rank + 1;
-  f->value.function.name = (source->ts.type == BT_CHARACTER
-			    ? PREFIX("spread_char")
-			    : PREFIX("spread"));
+  if (source->rank == 0)
+    f->value.function.name = (source->ts.type == BT_CHARACTER
+			      ? PREFIX("spread_char_scalar")
+			      : PREFIX("spread_scalar"));
+  else
+    f->value.function.name = (source->ts.type == BT_CHARACTER
+			      ? PREFIX("spread_char")
+			      : PREFIX("spread"));
 
   gfc_resolve_dim_arg (dim);
   gfc_resolve_index (ncopies, 1);
@@ -1666,6 +1749,37 @@ gfc_resolve_verify (gfc_expr * f, gfc_expr * string,
 /* Intrinsic subroutine resolution.  */
 
 void
+gfc_resolve_alarm_sub (gfc_code * c)
+{
+  const char *name;
+  gfc_expr *seconds, *handler, *status;
+  gfc_typespec ts;
+
+  seconds = c->ext.actual->expr;
+  handler = c->ext.actual->next->expr;
+  status = c->ext.actual->next->next->expr;
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_c_int_kind;
+
+  /* handler can be either BT_INTEGER or BT_PROCEDURE  */
+  if (handler->ts.type == BT_INTEGER)
+    {
+      if (handler->ts.kind != gfc_c_int_kind)
+	gfc_convert_type (handler, &ts, 2);
+      name = gfc_get_string (PREFIX("alarm_sub_int"));
+    }
+  else
+    name = gfc_get_string (PREFIX("alarm_sub"));
+
+  if (seconds->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (seconds, &ts, 2);
+  if (status != NULL && status->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (status, &ts, 2);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+void
 gfc_resolve_cpu_time (gfc_code * c ATTRIBUTE_UNUSED)
 {
   const char *name;
@@ -1891,6 +2005,37 @@ gfc_resolve_get_environment_variable (gfc_code * code)
   code->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
+void
+gfc_resolve_signal_sub (gfc_code * c)
+{
+  const char *name;
+  gfc_expr *number, *handler, *status;
+  gfc_typespec ts;
+
+  number = c->ext.actual->expr;
+  handler = c->ext.actual->next->expr;
+  status = c->ext.actual->next->next->expr;
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_c_int_kind;
+
+  /* handler can be either BT_INTEGER or BT_PROCEDURE  */
+  if (handler->ts.type == BT_INTEGER)
+    {
+      if (handler->ts.kind != gfc_c_int_kind)
+	gfc_convert_type (handler, &ts, 2);
+      name = gfc_get_string (PREFIX("signal_sub_int"));
+    }
+  else
+    name = gfc_get_string (PREFIX("signal_sub"));
+
+  if (number->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (number, &ts, 2);
+  if (status != NULL && status->ts.kind != gfc_c_int_kind)
+    gfc_convert_type (status, &ts, 2);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
 /* Resolve the SYSTEM intrinsic subroutine.  */
 
 void
@@ -1958,6 +2103,22 @@ gfc_resolve_flush (gfc_code * c)
 
   name = gfc_get_string (PREFIX("flush_i%d"), ts.kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_free (gfc_code * c)
+{
+  gfc_typespec ts;
+  gfc_expr *n;
+
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_index_integer_kind;
+  n = c->ext.actual->expr;
+  if (n->ts.kind != ts.kind)
+    gfc_convert_type (n, &ts, 2);
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX("free"));
 }
 
 

@@ -2013,7 +2013,7 @@ resolve_array_ref (gfc_array_ref * ar)
 	  }
     }
 
-  if (compare_spec_to_ref (ar) == FAILURE)
+  if (!ar->as->cray_pointee && compare_spec_to_ref (ar) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -4181,8 +4181,7 @@ resolve_symbol (gfc_symbol * sym)
   /* Zero if we are checking a formal namespace.  */
   static int formal_ns_flag = 1;
   int formal_ns_save, check_constant, mp_flag;
-  int i;
-  const char *whynot;
+  int i, flag;
   gfc_namelist *nl;
   gfc_symtree * symtree;
   gfc_symtree * this_symtree;
@@ -4239,8 +4238,10 @@ resolve_symbol (gfc_symbol * sym)
 
       if (sym->attr.flavor == FL_PROCEDURE && sym->attr.function)
 	{
+	  /* The specific case of an external procedure should emit an error
+	     in the case that there is no implicit type.  */
 	  if (!mp_flag)
-	    gfc_set_default_type (sym, 0, NULL);
+	    gfc_set_default_type (sym, sym->attr.external, NULL);
 	  else
 	    {
               /* Result may be in another namespace.  */
@@ -4339,6 +4340,24 @@ resolve_symbol (gfc_symbol * sym)
         }
     }
 
+  /* If a derived type symbol has reached this point, without its
+     type being declared, we have an error.  Notice that most
+     conditions that produce undefined derived types have already
+     been dealt with.  However, the likes of:
+     implicit type(t) (t) ..... call foo (t) will get us here if
+     the type is not declared in the scope of the implicit
+     statement. Change the type to BT_UNKNOWN, both because it is so
+     and to prevent an ICE.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->ts.derived->components == NULL)
+    {
+      gfc_error ("The derived type '%s' at %L is of type '%s', "
+		 "which has not been defined.", sym->name,
+		  &sym->declared_at, sym->ts.derived->name);
+      sym->ts.type = BT_UNKNOWN;
+      return;
+    }
+
   /* Ensure that derived type components of a public derived type
      are not of a private type.  */
   if (sym->attr.flavor == FL_DERIVED
@@ -4413,18 +4432,18 @@ resolve_symbol (gfc_symbol * sym)
 	  if (sym->attr.allocatable)
 	    {
 	      if (sym->attr.dimension)
-		gfc_error ("Allocatable array at %L must have a deferred shape",
-			   &sym->declared_at);
+		gfc_error ("Allocatable array '%s' at %L must have "
+			   "a deferred shape", sym->name, &sym->declared_at);
 	      else
-		gfc_error ("Object at %L may not be ALLOCATABLE",
-			   &sym->declared_at);
+		gfc_error ("Scalar object '%s' at %L may not be ALLOCATABLE",
+			   sym->name, &sym->declared_at);
 	      return;
 	    }
 
 	  if (sym->attr.pointer && sym->attr.dimension)
 	    {
-	      gfc_error ("Pointer to array at %L must have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array pointer '%s' at %L must have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 
@@ -4434,8 +4453,8 @@ resolve_symbol (gfc_symbol * sym)
 	  if (!mp_flag && !sym->attr.allocatable
 	      && !sym->attr.pointer && !sym->attr.dummy)
 	    {
-	      gfc_error ("Array at %L cannot have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array '%s' at %L cannot have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 	}
@@ -4445,17 +4464,10 @@ resolve_symbol (gfc_symbol * sym)
     {
     case FL_VARIABLE:
       /* Can the sybol have an initializer?  */
-      whynot = NULL;
-      if (sym->attr.allocatable)
-	whynot = _("Allocatable");
-      else if (sym->attr.external)
-	whynot = _("External");
-      else if (sym->attr.dummy)
-	whynot = _("Dummy");
-      else if (sym->attr.intrinsic)
-	whynot = _("Intrinsic");
-      else if (sym->attr.result)
-	whynot = _("Function Result");
+      flag = 0;
+      if (sym->attr.allocatable || sym->attr.external || sym->attr.dummy
+	  || sym->attr.intrinsic || sym->attr.result)
+	flag = 1;
       else if (sym->attr.dimension && !sym->attr.pointer)
 	{
 	  /* Don't allow initialization of automatic arrays.  */
@@ -4466,22 +4478,38 @@ resolve_symbol (gfc_symbol * sym)
 		  || sym->as->upper[i] == NULL
 		  || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
 		{
-		  whynot = _("Automatic array");
+		  flag = 1;
 		  break;
 		}
 	    }
 	}
 
       /* Reject illegal initializers.  */
-      if (sym->value && whynot)
+      if (sym->value && flag)
 	{
-	  gfc_error ("%s '%s' at %L cannot have an initializer",
-		     whynot, sym->name, &sym->declared_at);
+	  if (sym->attr.allocatable)
+	    gfc_error ("Allocatable '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.external)
+	    gfc_error ("External '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.dummy)
+	    gfc_error ("Dummy '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.intrinsic)
+	    gfc_error ("Intrinsic '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.result)
+	    gfc_error ("Function result '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else
+	    gfc_error ("Automatic array '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
 	  return;
 	}
 
       /* Assign default initializer.  */
-      if (sym->ts.type == BT_DERIVED && !(sym->value || whynot)
+      if (sym->ts.type == BT_DERIVED && !(sym->value || flag)
           && !sym->attr.pointer)
 	sym->value = gfc_default_initializer (&sym->ts);
       break;
@@ -4510,8 +4538,8 @@ resolve_symbol (gfc_symbol * sym)
       /* An external symbol falls through to here if it is not referenced.  */
       if (sym->attr.external && sym->value)
 	{
-	  gfc_error ("External object at %L may not have an initializer",
-		     &sym->declared_at);
+	  gfc_error ("External object '%s' at %L may not have an initializer",
+		     sym->name, &sym->declared_at);
 	  return;
 	}
 
@@ -5176,7 +5204,7 @@ resolve_equivalence (gfc_equiv *eq)
 		     sym->name, &e->where, sym->ns->proc_name->name);
           break;
         }
-
+ 
       /* Shall not be a named constant.  */      
       if (e->expr_type == EXPR_CONSTANT)
         {

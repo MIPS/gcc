@@ -134,6 +134,7 @@ free_saved (void)
     free_mem (saved_string);
 
   saved_string = NULL;
+  saved_used = 0;
 }
 
 
@@ -1469,7 +1470,7 @@ calls:
       static void nml_untouch_nodes (void)
       static namelist_info * find_nml_node (char * var_name)
       static int nml_parse_qualifier(descriptor_dimension * ad,
-				     nml_loop_spec * ls, int rank)
+				     array_loop_spec * ls, int rank)
       static void nml_touch_nodes (namelist_info * nl)
       static int nml_read_obj (namelist_info * nl, index_type offset)
 calls:
@@ -1500,7 +1501,7 @@ static index_type chigh;
 
 static try
 nml_parse_qualifier(descriptor_dimension * ad,
-		    nml_loop_spec * ls, int rank)
+		    array_loop_spec * ls, int rank)
 {
   int dim;
   int indx;
@@ -2222,7 +2223,7 @@ get_name:
   if (c == '(' && nl->type == GFC_DTYPE_CHARACTER)
     {
       descriptor_dimension chd[1] = { {1, clow, nl->string_length} };
-      nml_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
+      array_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
 
       if (nml_parse_qualifier (chd, ind, 1) == FAILURE)
 	{
@@ -2364,13 +2365,14 @@ find_nml_name:
         }
 
    }
-
+  free_saved ();
   return;
 
   /* All namelist error calls return from here */
 
 nml_err_ret:
 
+  free_saved ();
   generate_error (ERROR_READ_VALUE , nml_err_msg);
   return;
 }

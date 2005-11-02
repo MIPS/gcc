@@ -3778,6 +3778,9 @@ static GTY(()) unsigned line_info_table_allocated;
 /* Number of elements in line_info_table currently in use.  */
 static GTY(()) unsigned line_info_table_in_use;
 
+/* True if the compilation unit contains more than one .text section.  */
+static GTY(()) bool have_switched_text_section = false;
+
 /* A pointer to the base of a table that contains line information
    for each source code line outside of .text in the compilation unit.  */
 static GTY ((length ("separate_line_info_table_allocated")))
@@ -6850,7 +6853,7 @@ dwarf2out_switch_text_section (void)
   fde->dw_fde_hot_section_end_label = cfun->hot_section_end_label;
   fde->dw_fde_unlikely_section_label = cfun->cold_section_label;
   fde->dw_fde_unlikely_section_end_label = cfun->cold_section_end_label;
-  separate_line_info_table_in_use++;
+  have_switched_text_section = true;
 }
 
 /* Output the location list given to us.  */
@@ -6866,7 +6869,7 @@ output_loc_list (dw_loc_list_ref list_head)
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
       unsigned long size;
-      if (separate_line_info_table_in_use == 0)
+      if (!separate_line_info_table_in_use && !have_switched_text_section)
 	{
 	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
 				"Location list begin address (%s)",
@@ -7375,7 +7378,7 @@ output_ranges (void)
 	  /* If all code is in the text section, then the compilation
 	     unit base address defaults to DW_AT_low_pc, which is the
 	     base of the text section.  */
-	  if (separate_line_info_table_in_use == 0)
+	  if (!separate_line_info_table_in_use && !have_switched_text_section)
 	    {
 	      dw2_asm_output_delta (DWARF2_ADDR_SIZE, blabel,
 				    text_section_label,
@@ -10287,6 +10290,7 @@ tree_add_const_value_attribute (dw_die_ref var_die, tree decl)
     add_const_value_attribute (var_die, rtl);
 }
 
+#ifdef DWARF2_UNWIND_INFO
 /* Convert the CFI instructions for the current function into a location
    list.  This is used for DW_AT_frame_base when we targeting a dwarf2
    consumer that does not support the dwarf3 DW_OP_call_frame_cfa.  */
@@ -10378,6 +10382,7 @@ compute_frame_pointer_to_cfa_displacement (void)
 
   frame_pointer_cfa_offset = -offset;
 }
+#endif
 
 /* Generate a DW_AT_name attribute given some string value to be included as
    the value of the attribute.  */
@@ -11603,6 +11608,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       add_AT_fde_ref (subr_die, DW_AT_MIPS_fde, current_funcdef_fde);
 #endif
 
+#ifdef DWARF2_UNWIND_INFO
       /* We define the "frame base" as the function's CFA.  This is more
 	 convenient for several reasons: (1) It's stable across the prologue
 	 and epilogue, which makes it better than just a frame pointer,
@@ -11629,6 +11635,17 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 debugger about.  We'll need to adjust all frame_base references
 	 by this displacement.  */
       compute_frame_pointer_to_cfa_displacement ();
+#else
+      /* For targets which support DWARF2, but not DWARF2 call-frame info,
+	 we just use the stack pointer or frame pointer.  */
+      /* ??? Should investigate getting better info via callbacks, or else
+	 by interpreting the IA-64 unwind info.  */
+      {
+	rtx fp_reg
+	  = frame_pointer_needed ? hard_frame_pointer_rtx : stack_pointer_rtx;
+	add_AT_loc (subr_die, DW_AT_frame_base, reg_loc_descriptor (fp_reg));
+      }
+#endif
 
       if (cfun->static_chain_decl)
 	add_AT_location_description (subr_die, DW_AT_static_link,
@@ -14096,7 +14113,7 @@ dwarf2out_finish (const char *filename)
 
   /* We can only use the low/high_pc attributes if all of the code was
      in .text.  */
-  if (separate_line_info_table_in_use == 0)
+  if (!separate_line_info_table_in_use && !have_switched_text_section)
     {
       add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, text_section_label);
       add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);

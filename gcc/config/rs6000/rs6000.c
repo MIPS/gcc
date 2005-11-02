@@ -2978,8 +2978,13 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
     {
       rtx r3, got, tga, tmp1, tmp2, eqv;
 
+      /* We currently use relocations like @got@tlsgd for tls, which
+	 means the linker will handle allocation of tls entries, placing
+	 them in the .got section.  So use a pointer to the .got section,
+	 not one to secondary TOC sections used by 64-bit -mminimal-toc,
+	 or to secondary GOT sections used by 32-bit -fPIC.  */
       if (TARGET_64BIT)
-	got = gen_rtx_REG (Pmode, TOC_REGISTER);
+	got = gen_rtx_REG (Pmode, 2);
       else
 	{
 	  if (flag_pic == 1)
@@ -18299,12 +18304,6 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  else
 	    *total = rs6000_cost->fp;
 	}
-      else if (GET_CODE (XEXP (x, 0)) == MULT)
-	{
-	  /* The rs6000 doesn't have shift-and-add instructions.  */
-	  rs6000_rtx_costs (XEXP (x, 0), MULT, PLUS, total);
-	  *total += COSTS_N_INSNS (1);
-	}
       else
 	*total = COSTS_N_INSNS (1);
       return false;
@@ -18330,12 +18329,6 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    *total = 0;
 	  else
 	    *total = rs6000_cost->fp;
-	}
-      else if (GET_CODE (XEXP (x, 0)) == MULT)
-	{
-	  /* The rs6000 doesn't have shift-and-sub instructions.  */
-	  rs6000_rtx_costs (XEXP (x, 0), MULT, MINUS, total);
-	  *total += COSTS_N_INSNS (1);
 	}
       else
 	*total = COSTS_N_INSNS (1);

@@ -41,6 +41,7 @@ and editing.  All contributions and corrections are strongly encouraged.
 * @code{ADJUSTR}:       ADJUSTR,   Right adjust a string
 * @code{AIMAG}:         AIMAG,     Imaginary part of complex number
 * @code{AINT}:          AINT,      Truncate to a whole number
+* @code{ALARM}:         ALARM,     Set an alarm clock
 * @code{ALL}:           ALL,       Determine if all values are true
 * @code{ALLOCATED}:     ALLOCATED, Status of allocatable entity
 * @code{ANINT}:         ANINT,     Nearest whole number
@@ -87,12 +88,17 @@ and editing.  All contributions and corrections are strongly encouraged.
 * @code{EXPONENT}:      EXPONENT,  Exponent function
 * @code{FLOOR}:         FLOOR,     Integer floor function
 * @code{FNUM}:          FNUM,      File number function
+* @code{FREE}:          FREE,      Memory de-allocation subroutine
+* @code{LOC}:           LOC,       Returns the address of a variable
 * @code{LOG}:           LOG,       Logarithm function
 * @code{LOG10}:         LOG10,     Base 10 logarithm function 
+* @code{MALLOC}:        MALLOC,    Dynamic memory allocation function
 * @code{REAL}:          REAL,      Convert to real type 
-* @code{SQRT}:          SQRT,      Square-root function
+* @code{SECNDS}:        SECNDS,    Time function
+* @code{SIGNAL}:        SIGNAL,    Signal handling subroutine (or function)
 * @code{SIN}:           SIN,       Sine function
 * @code{SINH}:          SINH,      Hyperbolic sine function
+* @code{SQRT}:          SQRT,      Square-root function
 * @code{TAN}:           TAN,       Tangent function
 * @code{TANH}:          TANH,      Hyperbolic tangent function
 @end menu
@@ -507,6 +513,56 @@ end program test_aint
 @item Name           @tab Argument         @tab Return type      @tab Option
 @item @code{DINT(X)} @tab @code{REAL(8) X} @tab @code{REAL(8)}   @tab f95, gnu
 @end multitable
+@end table
+
+
+
+@node ALARM
+@section @code{ALARM} --- Execute a routine after a given delay
+@findex @code{ALARM} intrinsic
+
+@table @asis
+@item @emph{Description}:
+@code{ALARM(SECONDS [, STATUS])} causes external subroutine @var{HANDLER}
+to be executed after a delay of @var{SECONDS} by using @code{alarm(1)} to
+set up a signal and @code{signal(2)} to catch it. If @var{STATUS} is
+supplied, it will be returned with the number of seconds remaining until
+any previously scheduled alarm was due to be delivered, or zero if there
+was no previously scheduled alarm.
+
+@item @emph{Option}:
+gnu
+
+@item @emph{Class}:
+subroutine
+
+@item @emph{Syntax}:
+@code{CALL ALARM(SECONDS, HANDLER)} 
+@code{CALL ALARM(SECONDS, HANDLER, STATUS)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .80
+@item @var{SECONDS} @tab The type of the argument shall be a scalar
+@code{INTEGER}. It is @code{INTENT(IN)}.
+@item @var{HANDLER} @tab Signal handler (@code{INTEGER FUNCTION} or
+@code{SUBROUTINE}) or dummy/global @code{INTEGER} scalar.
+@code{INTEGER}. It is @code{INTENT(IN)}.
+@item @var{STATUS}  @tab (Optional) @var{STATUS} shall be a scalar
+@code{INTEGER} variable. It is @code{INTENT(OUT)}.
+@end multitable
+
+@item @emph{Example}:
+@smallexample
+program test_alarm
+  external handler_print
+  integer i
+  call alarm (3, handler_print, i)
+  print *, i
+  call sleep(10)
+end program test_alarm
+@end smallexample
+This will cause the external routine @var{handler_print} to be called
+after 3 seconds.
 @end table
 
 
@@ -1704,7 +1760,7 @@ subroutine
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .80
-@item @var{X} @tab The type shall be @code{REAL} with intent out.
+@item @var{X} @tab The type shall be @code{REAL} with @code{INTENT(OUT)}.
 @end multitable
 
 @item @emph{Return value}:
@@ -2644,6 +2700,41 @@ end program test_exponent
 @end table
 
 
+@node FREE
+@section @code{FREE} --- Frees memory
+@findex @code{FREE} intrinsic
+@cindex FREE
+
+@table @asis
+@item @emph{Description}:
+Frees memory previously allocated by @code{MALLOC()}. The @code{FREE}
+intrinsic is an extension intended to be used with Cray pointers, and is
+provided in @command{gfortran} to allow user to compile legacy code. For
+new code using Fortran 95 pointers, the memory de-allocation intrinsic is
+@code{DEALLOCATE}.
+
+@item @emph{Option}:
+gnu
+
+@item @emph{Class}:
+subroutine
+
+@item @emph{Syntax}:
+@code{FREE(PTR)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .80
+@item @var{PTR} @tab The type shall be @code{INTEGER}. It represents the
+location of the memory that should be de-allocated.
+@end multitable
+
+@item @emph{Return value}:
+None
+
+@item @emph{Example}:
+See @code{MALLOC} for an example.
+@end table
+
 
 @node FLOOR
 @section @code{FLOOR} --- Integer floor function
@@ -2724,7 +2815,43 @@ end program test_fnum
 @end smallexample
 @end table
 
+@node LOC
+@section @code{LOC} --- Returns the address of a variable
+@findex @code{LOC} intrinsic
+@cindex loc
 
+@table @asis
+@item @emph{Description}:
+@code{LOC(X)} returns the address of @var{X} as an integer.
+
+@item @emph{Option}:
+gnu
+
+@item @emph{Class}:
+inquiry function
+
+@item @emph{Syntax}:
+@code{I = LOC(X)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .80
+@item @var{X} @tab Variable of any type.
+@end multitable
+
+@item @emph{Return value}:
+The return value is of type @code{INTEGER(n)}, where @code{n} is the
+size (in bytes) of a memory address on the target machine.
+
+@item @emph{Example}:
+@smallexample
+program test_loc
+  integer :: i
+  real :: r
+  i = loc(r)
+  print *, i
+end program test_loc
+@end smallexample
+@end table
 
 @node LOG
 @section @code{LOG} --- Logarithm function
@@ -2829,6 +2956,68 @@ end program test_log10
 @end table
 
 
+@node MALLOC
+@section @code{MALLOC} --- Allocate dynamic memory
+@findex @code{MALLOC} intrinsic
+@cindex MALLOC
+
+@table @asis
+@item @emph{Description}:
+@code{MALLOC(SIZE)} allocates @var{SIZE} bytes of dynamic memory and
+returns the address of the allocated memory. The @code{MALLOC} intrinsic
+is an extension intended to be used with Cray pointers, and is provided
+in @command{gfortran} to allow user to compile legacy code. For new code
+using Fortran 95 pointers, the memory allocation intrinsic is
+@code{ALLOCATE}.
+
+@item @emph{Option}:
+gnu
+
+@item @emph{Class}:
+non-elemental function
+
+@item @emph{Syntax}:
+@code{PTR = MALLOC(SIZE)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .80
+@item @var{SIZE} @tab The type shall be @code{INTEGER(*)}.
+@end multitable
+
+@item @emph{Return value}:
+The return value is of type @code{INTEGER(K)}, with @var{K} such that
+variables of type @code{INTEGER(K)} have the same size as
+C pointers (@code{sizeof(void *)}).
+
+@item @emph{Example}:
+The following example demonstrates the use of @code{MALLOC} and
+@code{FREE} with Cray pointers. This example is intended to run on
+32-bit systems, where the default integer kind is suitable to store
+pointers; on 64-bit systems, ptr_x would need to be declared as
+@code{integer(kind=8)}.
+
+@smallexample
+program test_malloc
+  integer i
+  integer ptr_x
+  real*8 x(*), z
+  pointer(ptr_x,x)
+
+  ptr_x = malloc(20*8)
+  do i = 1, 20
+    x(i) = sqrt(1.0d0 / i)
+  end do
+  z = 0
+  do i = 1, 20
+    z = z + x(i)
+    print *, z
+  end do
+  call free(ptr_x)
+end program test_malloc
+@end smallexample
+@end table
+
+
 @node REAL
 @section @code{REAL} --- Convert to real type 
 @findex @code{REAL} intrinsic
@@ -2886,6 +3075,113 @@ program test_real
   end program test_real
 @end smallexample
 @end table
+
+
+
+@node SIGNAL
+@section @code{SIGNAL} --- Signal handling subroutine (or function)
+@findex @code{SIGNAL} intrinsic
+@cindex SIGNAL subroutine 
+
+@table @asis
+@item @emph{Description}:
+@code{SIGNAL(NUMBER, HANDLER [, STATUS])} causes external subroutine
+@var{HANDLER} to be executed with a single integer argument when signal
+@var{NUMBER} occurs.  If @var{HANDLER} is an integer, it can be used to
+turn off handling of signal @var{NUMBER} or revert to its default
+action.  See @code{signal(2)}.
+
+If @code{SIGNAL} is called as a subroutine and the @var{STATUS} argument
+is supplied, it is set to the value returned by @code{signal(2)}.
+
+@item @emph{Option}:
+gnu
+
+@item @emph{Class}:
+subroutine, non-elemental function
+
+@item @emph{Syntax}:
+@multitable @columnfractions .30 .80
+@item @code{CALL ALARM(NUMBER, HANDLER)}
+@item @code{CALL ALARM(NUMBER, HANDLER, STATUS)}
+@item @code{STATUS = ALARM(NUMBER, HANDLER)}
+@end multitable
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .80
+@item @var{NUMBER} @tab shall be a scalar integer, with @code{INTENT(IN)}
+@item @var{HANDLER}@tab Signal handler (@code{INTEGER FUNCTION} or
+@code{SUBROUTINE}) or dummy/global @code{INTEGER} scalar.
+@code{INTEGER}. It is @code{INTENT(IN)}.
+@item @var{STATUS} @tab (Optional) @var{STATUS} shall be a scalar
+integer. It has @code{INTENT(OUT)}.
+@end multitable
+
+@item @emph{Return value}:
+The @code{SIGNAL} functions returns the value returned by @code{signal(2)}.
+
+@item @emph{Example}:
+@smallexample
+program test_signal
+  intrinsic signal
+  external handler_print
+
+  call signal (12, handler_print)
+  call signal (10, 1)
+
+  call sleep (30)
+end program test_signal
+@end smallexample
+@end table
+
+
+
+
+@node SECNDS
+@section @code{SECNDS} --- Time subroutine
+@findex @code{SECNDS} intrinsic
+@cindex SECNDS
+
+@table @asis
+@item @emph{Description}:
+@code{SECNDS(X)} gets the time in seconds from the real-time system clock.
+@var{X} is a reference time, also in seconds. If this is zero, the time in
+seconds from midnight is returned. This function is non-standard and its
+use is discouraged.
+
+@item @emph{Option}:
+gnu
+
+@item @emph{Class}:
+function
+
+@item @emph{Syntax}:
+@code{T = SECNDS (X)}
+
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .80
+@item Name        @tab Type
+@item @var{T}     @tab REAL(4)
+@item @var{X}     @tab REAL(4)
+@end multitable
+
+@item @emph{Return value}:
+None
+
+@item @emph{Example}:
+@smallexample
+program test_secnds
+    real(4) :: t1, t2
+    print *, secnds (0.0)   ! seconds since midnight
+    t1 = secnds (0.0)       ! reference time
+    do i = 1, 10000000      ! do something
+    end do
+    t2 = secnds (t1)        ! elapsed time
+    print *, "Something took ", t2, " seconds."
+end program test_secnds
+@end smallexample
+@end table
+
 
 
 @node SIN
