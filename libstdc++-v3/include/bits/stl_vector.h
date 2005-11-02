@@ -451,7 +451,7 @@ namespace _GLIBCXX_STD
       resize(size_type __new_size, value_type __x = value_type())
       {
 	if (__new_size < size())
-	  erase(begin() + __new_size, end());
+	  _M_erase_at_end(begin() + __new_size);
 	else
 	  insert(end(), __new_size - size(), __x);
       }
@@ -800,7 +800,7 @@ namespace _GLIBCXX_STD
        */
       void
       clear()
-      { erase(begin(), end()); }
+      { _M_erase_at_end(begin()); }
 
     protected:
       /**
@@ -989,6 +989,19 @@ namespace _GLIBCXX_STD
       template<typename _Value>
 	void
 	_M_insert_aux(iterator __position, const _Value&);
+
+
+      // Internal erase functions follow.
+
+      // Called by erase(q1,q2), clear(), resize(), _M_fill_assign,
+      // _M_assign_aux.
+      void
+      _M_erase_at_end(iterator __pos)
+      {
+	std::_Destroy(__pos.base(), this->_M_impl._M_finish,
+		      _M_get_Tp_allocator());
+	this->_M_impl._M_finish = __pos.base();
+      }
     };
 
 

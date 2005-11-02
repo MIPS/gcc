@@ -121,9 +121,9 @@ namespace _GLIBCXX_STD
     vector<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
     {
-      iterator __i(std::__move(__last, end(), __first));
-      std::_Destroy(__i, end(), _M_get_Tp_allocator());
-      this->_M_impl._M_finish = this->_M_impl._M_finish - (__last - __first);
+      if (__last != end())
+	std::__move(__last, end(), __first);
+      _M_erase_at_end(__first + (end() - __last));
       return __first;
     }
 
@@ -184,7 +184,7 @@ namespace _GLIBCXX_STD
 	  this->_M_impl._M_finish += __n - size();
 	}
       else
-        erase(fill_n(begin(), __n, __val), end());
+        _M_erase_at_end(std::fill_n(begin(), __n, __val));
     }
 
   template<typename _Tp, typename _Alloc>
@@ -198,7 +198,7 @@ namespace _GLIBCXX_STD
 	for (; __first != __last && __cur != end(); ++__cur, ++__first)
 	  *__cur = *__first;
 	if (__first == __last)
-	  erase(__cur, end());
+	  _M_erase_at_end(__cur);
 	else
 	  insert(end(), __first, __last);
       }
@@ -227,9 +227,8 @@ namespace _GLIBCXX_STD
 	else if (size() >= __len)
 	  {
 	    iterator __new_finish(std::copy(__first, __last,
-				       this->_M_impl._M_start));
-	    std::_Destroy(__new_finish, end(), _M_get_Tp_allocator());
-	    this->_M_impl._M_finish = __new_finish.base();
+					    this->_M_impl._M_start));
+	    _M_erase_at_end(__new_finish);
 	  }
 	else
 	  {
