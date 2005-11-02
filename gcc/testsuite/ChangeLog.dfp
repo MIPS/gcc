@@ -1,3 +1,11 @@
+2005-11-02  Janis Johnson  <janis187@us.ibm.com>
+	    Yao Qi  <qiyao@cn.ibm.com>
+
+	* gcc.dg/compat/struct-layout-1.exp: Use c-compat.exp.
+	(compat_setup_dfp): New.
+	* gcc.dg/compat/struct-layout-1.h: Conditional DFP support.
+	* gcc.dg/compat/struct-layout-1_generate.c: Ditto.
+
 2005-11-01  Janis Johnson  <janis187@us.ibm.com>
 
 	* lib/compat.exp (compat_skip_list): Make global, rename.
