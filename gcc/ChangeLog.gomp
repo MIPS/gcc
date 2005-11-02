@@ -1,3 +1,8 @@
+2005-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_threadprivate): Error if V is automatic
+	variable or has incomplete type.
+
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* omp-low.c (scan_omp_for): Call scan_sharing_clauses after

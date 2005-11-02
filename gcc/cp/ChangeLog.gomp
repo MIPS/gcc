@@ -1,3 +1,8 @@
+2005-11-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_threadprivate): Error if V is automatic
+	variable or has incomplete type.
+
 2005-11-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* parser.c (cp_parser_omp_all_clauses): Use

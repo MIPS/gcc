@@ -7705,6 +7705,10 @@ c_parser_omp_threadprivate (c_parser *parser)
 	 whether it had been used prior to this point.  */
       if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
 	error ("%qE declared %<threadprivate%> after first use", v);
+      else if (! TREE_STATIC (v) && ! DECL_EXTERNAL (v))
+	error ("automatic variable %qE cannot be %<threadprivate%>", v);
+      else if (! COMPLETE_TYPE_P (TREE_TYPE (v)))
+	error ("%<threadprivate%> %qE has incomplete type", v);
       else
 	{
 	  if (! DECL_THREAD_LOCAL_P (v))
