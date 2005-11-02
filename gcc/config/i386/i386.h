@@ -142,8 +142,9 @@ extern int target_flags;
 
 /* Unused:			0x03e0000	*/
 
-/* APPLE LOCAL AT&T-style stub 4164563 */
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
 #define MACHOPIC_NL_SYMBOL_PTR_SECTION ".section __IMPORT,__pointers,non_lazy_symbol_pointers"
+/* APPLE LOCAL end AT&T-style stub 4164563 */
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
