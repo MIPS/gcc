@@ -6438,6 +6438,12 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
       c_parser_omp_threadprivate (parser);
       return false;
 
+    case PRAGMA_OMP_SECTION:
+      error ("%<#pragma omp section%> may only be used in "
+	     "%<#pragma omp sections%> construct");
+      c_parser_skip_until_found (parser, CPP_PRAGMA_EOL, NULL);
+      return false;
+
     case PRAGMA_GCC_PCH_PREPROCESS:
       c_parser_error (parser, "%<#pragma GCC pch_preprocess%> must be first");
       c_parser_skip_until_found (parser, CPP_PRAGMA_EOL, NULL);

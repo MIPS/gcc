@@ -1,5 +1,9 @@
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c++/24613
+	* c-parser.c (c_parser_pragma): Diagnose PRAGMA_OMP_SECTION outside
+	of PRAGMA_OMP_SECTIONS construct.
+
 	* c-parser.c (c_parser_omp_threadprivate): Error if V is automatic
 	variable or has incomplete type.
 

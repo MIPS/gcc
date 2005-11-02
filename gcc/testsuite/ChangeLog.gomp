@@ -1,5 +1,9 @@
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c++/24613
+	* gcc.dg/gomp/sections-4.c: New test.
+	* g++.dg/gomp/sections-4.C: New test.
+
 	* gcc.dg/gomp/tls-2.c: New test.
 	* g++.dg/gomp/tls-2.C: New test.
 

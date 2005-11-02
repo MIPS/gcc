@@ -18787,6 +18787,11 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
       cp_parser_omp_construct (parser, pragma_tok);
       return true;
 
+    case PRAGMA_OMP_SECTION:
+      error ("%<#pragma omp section%> may only be used in "
+	     "%<#pragma omp sections%> construct");
+      break;
+
     default:
       gcc_assert (id >= PRAGMA_FIRST_EXTERNAL);
       c_invoke_pragma_handler (id);
