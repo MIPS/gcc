@@ -264,6 +264,8 @@ protected:
   {
   }
 
+  virtual void ensure_classes_inherited (resolution_scope *);
+
   // Helper method used when creating a parameterized instance.
   void set_this_0 (const ref_field &t0)
   {

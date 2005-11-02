@@ -1148,6 +1148,38 @@ model_class::check_uninherited_abstract_methods ()
 }
 
 void
+model_class::ensure_classes_inherited (resolution_scope *scope)
+{
+  resolution_scope::push_iscope self_holder (scope, this);
+
+  // Insert our local classes into our map, then resolve the class
+  // envelope of each one.
+  for (std::map<std::string, ref_class>::const_iterator i
+	 = member_classes.begin ();
+       i != member_classes.end ();
+       ++i)
+    {
+      all_member_classes.insert (std::make_pair ((*i).first,
+						 (*i).second.get ()));
+    }
+
+  // Note we also handle inheritance before resolving.  This allows
+  // name lookup when resolving member types to work properly.
+  std::list<model_class *> all_super_types;
+  compute_super_types (all_super_types);
+  for (std::list<model_class *>::const_iterator class_it
+	 = all_super_types.begin ();
+       class_it != all_super_types.end ();
+       ++class_it)
+    {
+      (*class_it)->resolve_classes ();
+      inherit_types (*class_it);
+    }
+
+  ::resolve_classes (scope, member_classes);
+}
+
+void
 model_class::do_resolve_classes (resolution_scope *scope)
 {
   // First make sure the compilation unit has been resolved.
@@ -1273,33 +1305,7 @@ model_class::do_resolve_classes (resolution_scope *scope)
     std::cerr << error ("subclasses of %<java.lang.Throwable%> "
 			"cannot be generic");
 
-  resolution_scope::push_iscope self_holder (scope, this);
-
-  // Insert our local classes into our map, then resolve the class
-  // envelope of each one.  FIXME: this is bogus, but it is needed
-  // since our scoping approach is somewhat broken.  See the IScope
-  // idea in TODO.
-  // Double FIXME: we have IScope.. now what?
-  for (std::map<std::string, ref_class>::const_iterator i
-	 = member_classes.begin ();
-       i != member_classes.end ();
-       ++i)
-    {
-      all_member_classes.insert (std::make_pair ((*i).first,
-						 (*i).second.get ()));
-    }
-
-  // Note we also handle inheritance before resolving.  This allows
-  // name lookup when resolving member types to work properly.
-  std::list<model_class *> all_super_types;
-  compute_super_types (all_super_types);
-  for (std::list<model_class *>::const_iterator class_it
-	 = all_super_types.begin ();
-       class_it != all_super_types.end ();
-       ++class_it)
-    inherit_types (*class_it);
-
-  ::resolve_classes (scope, member_classes);
+  ensure_classes_inherited (scope);
 }
 
 void

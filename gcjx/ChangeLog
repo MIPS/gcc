@@ -1,3 +1,14 @@
+2005-11-02  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.hh (model_class::ensure_classes_inherited):
+	Declare.
+	* model/classinst.hh (model_class_instance::ensure_classes_inherited):
+	Declare.
+	* model/classinst.cc (ensure_classes_inherited): New method.
+	(resolve_member_hook): Don't create member classes.
+	* model/class.cc (ensure_classes_inherited): New method
+	(do_resolve_classes): Use it.
+
 2005-10-31  Tom Tromey  <tromey@redhat.com>
 
 	* model/import.hh (model_import::get_simple_name): Now virtual.

@@ -36,6 +36,7 @@ protected:
 
   void resolve_member_hook (resolution_scope *);
   std::string get_signature_map_fragment ();
+  void ensure_classes_inherited (resolution_scope *);
 
 public:
 

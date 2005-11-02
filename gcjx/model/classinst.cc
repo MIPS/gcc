@@ -22,11 +22,11 @@
 #include "typedefs.hh"
 
 void
-model_class_instance::resolve_member_hook (resolution_scope *scope)
+model_class_instance::ensure_classes_inherited (resolution_scope *scope)
 {
-  parent->resolve_members ();
+  parent->resolve_classes ();
 
-  // Create member classes.
+  // Create our variants of member classes.
   for (std::map<std::string, ref_class>::const_iterator i
 	 = parent->member_classes.begin ();
        i != parent->member_classes.end ();
@@ -38,6 +38,23 @@ model_class_instance::resolve_member_hook (resolution_scope *scope)
 	mem = mem->apply_type_map (this, type_map);
       member_classes[(*i).first] = mem;
     }
+
+  for (std::multimap<std::string, model_class *>::const_iterator i
+	 = parent->all_member_classes.begin ();
+       i != parent->all_member_classes.end ();
+       ++i)
+    {
+      model_class *mem = (*i).second;
+      if (! mem->static_p ())
+	mem = mem->apply_type_map (this, type_map);
+      all_member_classes.insert (std::make_pair ((*i).first, mem));
+    }
+}
+
+void
+model_class_instance::resolve_member_hook (resolution_scope *scope)
+{
+  parent->resolve_members ();
 
   // Create fields.
   for (std::list<ref_field>::const_iterator i = parent->fields.begin ();
