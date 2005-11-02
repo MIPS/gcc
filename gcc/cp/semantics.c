@@ -3219,7 +3219,7 @@ finalize_nrv (tree *tp, tree var, tree result)
   htab_delete (data.visited);
 }
 
-/* For all elements of *PCLAUSES, validate them vs OpenMP constraints.
+/* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
 tree
@@ -3366,7 +3366,6 @@ finish_omp_clauses (tree clauses)
     {
       enum tree_code c_kind = TREE_CODE (c);
       bool remove = false;
-      bool need_non_const_or_mutable = false;
       bool need_complete_non_reference = false;
       bool need_default_ctor = false;
       bool need_copy_ctor = false;
@@ -3382,28 +3381,24 @@ finish_omp_clauses (tree clauses)
 	  break;
 	case OMP_CLAUSE_PRIVATE:
 	  name = "private";
-	  need_non_const_or_mutable = true;
 	  need_complete_non_reference = true;
 	  need_default_ctor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  name = "firstprivate";
-	  need_non_const_or_mutable = true;
 	  need_complete_non_reference = true;
 	  need_copy_ctor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_LASTPRIVATE:
 	  name = "lastprivate";
-	  need_non_const_or_mutable = true;
 	  need_complete_non_reference = true;
 	  need_copy_assignment = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
 	  name = "reduction";
-	  need_non_const_or_mutable = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -3459,7 +3454,7 @@ finish_omp_clauses (tree clauses)
 	  break;
 
 	case OMP_CLAUSE_COPYIN:
-	  if (!DECL_THREAD_LOCAL_P (t))
+	  if (TREE_CODE (t) != VAR_DECL || !DECL_THREAD_LOCAL_P (t))
 	    {
 	      error ("%qE must be %<threadprivate%> for %<copyin%>", t);
 	      remove = true;
@@ -3470,11 +3465,6 @@ finish_omp_clauses (tree clauses)
 	  break;
 	}
 
-      if (need_non_const_or_mutable && TREE_READONLY (t))
-	{
-	  error ("%qE is read-only for %qs", t, name);
-	  remove = true;
-	}
       if (need_complete_non_reference)
 	{
 	  t = require_complete_type (t);

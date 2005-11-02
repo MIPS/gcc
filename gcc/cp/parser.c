@@ -17971,6 +17971,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
     {
       pragma_omp_clause c_kind = cp_parser_omp_clause_name (parser);
       const char *c_name;
+      tree prev = clauses;
 
       switch (c_kind)
 	{
@@ -18039,9 +18040,9 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 
       if (((mask >> c_kind) & 1) == 0)
 	{
-	  /* Remove the invalid clause from the list to avoid
+	  /* Remove the invalid clause(s) from the list to avoid
 	     confusing the rest of the compiler.  */
-	  clauses = OMP_CLAUSE_CHAIN (clauses);
+	  clauses = prev;
 	  error ("%qs is not valid for %qs", c_name, where);
 	}
     }

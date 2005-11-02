@@ -1,5 +1,13 @@
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-typeck.c (c_finish_omp_clauses): New function.
+	* c-tree.h (c_finish_omp_clauses): New prototype.
+	* c-parser.c (c_parser_omp_clause_copyin): Don't diagnose
+	non-threadprivate var here.
+	(c_parser_omp_all_clauses): If some clause type is not
+	allowed, don't remove just one of the clauses, but all clauses
+	added in that loop round.  Call c_finish_omp_clauses.
+
 	PR c++/24613
 	* c-parser.c (c_parser_pragma): Diagnose PRAGMA_OMP_SECTION outside
 	of PRAGMA_OMP_SECTIONS construct.

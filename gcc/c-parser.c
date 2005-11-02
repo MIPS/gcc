@@ -6670,22 +6670,7 @@ c_parser_omp_var_list_parens (c_parser *parser, enum tree_code kind, tree list)
 static tree
 c_parser_omp_clause_copyin (c_parser *parser, tree list)
 {
-  tree nlist, t;
-  bool saw_error = false;
-
-  nlist = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_COPYIN, list);
-
-  for (t = nlist; t != list; t = OMP_CLAUSE_CHAIN (t))
-    {
-      tree decl = OMP_CLAUSE_DECL (t);
-      if (!DECL_THREAD_LOCAL_P (decl))
-	{
-	  error ("%qE used in %<copyin%> is not %<threadprivate%>", decl);
-	  saw_error = true;
-	}
-    }
-
-  return saw_error ? list : nlist;
+  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_COPYIN, list);
 }
 
 /* OpenMP 2.5:
@@ -7037,6 +7022,7 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
     {
       const pragma_omp_clause c_kind = c_parser_omp_clause_name (parser);
       const char *c_name;
+      tree prev = clauses;
 
       switch (c_kind)
 	{
@@ -7099,16 +7085,17 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 
       if (((mask >> c_kind) & 1) == 0 && !parser->error)
 	{
-	  /* Remove the invalid clause from the list to avoid
+	  /* Remove the invalid clause(s) from the list to avoid
 	     confusing the rest of the compiler.  */
-	  clauses = OMP_CLAUSE_CHAIN (clauses);
+	  clauses = prev;
 	  error ("%qs is not valid for %qs", c_name, where);
 	}
     }
+
  saw_error:
   c_parser_skip_to_pragma_eol (parser);
 
-  return clauses;
+  return c_finish_omp_clauses (clauses);
 }
 
 /* OpenMP 2.5:

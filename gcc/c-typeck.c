@@ -8423,3 +8423,219 @@ c_finish_omp_parallel (tree clauses, tree block)
 
   return add_stmt (stmt);
 }
+
+/* For all elements of CLAUSES, validate them vs OpenMP constraints.
+   Remove any elements from the list that are invalid.  */
+
+tree
+c_finish_omp_clauses (tree clauses)
+{
+  bitmap_head generic_head, firstprivate_head, lastprivate_head;
+  tree c, t, *pc = &clauses;
+  const char *name;
+
+  bitmap_obstack_initialize (NULL);
+  bitmap_initialize (&generic_head, &bitmap_default_obstack);
+  bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
+  bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
+
+  for (pc = &clauses, c = clauses; c ; c = *pc)
+    {
+      bool remove = false;
+      bool need_complete = false;
+      bool need_implicitly_determined = false;
+
+      switch (TREE_CODE (c))
+	{
+	case OMP_CLAUSE_SHARED:
+	  name = "shared";
+	  need_implicitly_determined = true;
+	  goto check_dup_generic;
+
+	case OMP_CLAUSE_PRIVATE:
+	  name = "private";
+	  need_complete = true;
+	  need_implicitly_determined = true;
+	  goto check_dup_generic;
+
+	case OMP_CLAUSE_REDUCTION:
+	  name = "reduction";
+	  need_implicitly_determined = true;
+	  t = OMP_CLAUSE_DECL (c);
+	  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
+	      || POINTER_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%qE has invalid type for %<reduction%>", t);
+	      remove = true;
+	    }
+	  else if (FLOAT_TYPE_P (TREE_TYPE (t)))
+	    {
+	      enum tree_code r_code = OMP_CLAUSE_REDUCTION_CODE (c);
+	      const char *r_name = NULL;
+
+	      switch (r_code)
+		{
+		case PLUS_EXPR:
+		case MULT_EXPR:
+		case MINUS_EXPR:
+		  break;
+		case BIT_AND_EXPR:
+		  r_name = "&";
+		  break;
+		case BIT_XOR_EXPR:
+		  r_name = "^";
+		  break;
+		case BIT_IOR_EXPR:
+		  r_name = "|";
+		  break;
+		case TRUTH_ANDIF_EXPR:
+		  r_name = "&&";
+		  break;
+		case TRUTH_ORIF_EXPR:
+		  r_name = "||";
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      if (r_name)
+		{
+		  error ("%qE has invalid type for %<reduction(%s)%>",
+			 t, r_name);
+		  remove = true;
+		}
+	    }
+	  goto check_dup_generic;
+
+	case OMP_CLAUSE_COPYPRIVATE:
+	  name = "copyprivate";
+	  goto check_dup_generic;
+
+	case OMP_CLAUSE_COPYIN:
+	  name = "copyin";
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (t) != VAR_DECL || !DECL_THREAD_LOCAL_P (t))
+	    {
+	      error ("%qE must be %<threadprivate%> for %<copyin%>", t);
+	      remove = true;
+	    }
+	  goto check_dup_generic;
+
+	check_dup_generic:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	    {
+	      error ("%qE is not a variable in clause %qs", t, name);
+	      remove = true;
+	    }
+	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
+		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
+	    {
+	      error ("%qE appears more than once in data clauses", t);
+	      remove = true;
+	    }
+	  else
+	    bitmap_set_bit (&generic_head, DECL_UID (t));
+	  break;
+
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	  name = "firstprivate";
+	  t = OMP_CLAUSE_DECL (c);
+	  need_complete = true;
+	  need_implicitly_determined = true;
+	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	    {
+	      error ("%qE is not a variable in clause %<firstprivate%>", t);
+	      remove = true;
+	    }
+	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	    {
+	      error ("%qE appears more than once in data clauses", t);
+	      remove = true;
+	    }
+	  else
+	    bitmap_set_bit (&firstprivate_head, DECL_UID (t));
+	  break;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  name = "lastprivate";
+	  t = OMP_CLAUSE_DECL (c);
+	  need_complete = true;
+	  need_implicitly_determined = true;
+	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	    {
+	      error ("%qE is not a variable in clause %<lastprivate%>", t);
+	      remove = true;
+	    }
+	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
+	    {
+	      error ("%qE appears more than once in data clauses", t);
+	      remove = true;
+	    }
+	  else
+	    bitmap_set_bit (&lastprivate_head, DECL_UID (t));
+	  break;
+
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      if (!remove)
+	{
+	  t = OMP_CLAUSE_DECL (c);
+
+	  if (need_complete)
+	    {
+	      t = require_complete_type (t);
+	      if (t == error_mark_node)
+		remove = true;
+	    }
+
+	  if (need_implicitly_determined)
+	    {
+	      const char *share_name = NULL;
+
+	      if (TREE_CODE (t) == VAR_DECL && DECL_THREAD_LOCAL_P (t))
+		share_name = "threadprivate";
+	      else switch (c_omp_predetermined_sharing (t))
+		{
+		case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
+		  break;
+		case OMP_CLAUSE_DEFAULT_SHARED:
+		  share_name = "shared";
+		  break;
+		case OMP_CLAUSE_DEFAULT_PRIVATE:
+		  share_name = "private";
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      if (share_name)
+		{
+		  error ("%qE is predetermined %qs for %qs",
+			 t, share_name, name);
+		  remove = true;
+		}
+	    }
+	}
+
+      if (remove)
+	*pc = OMP_CLAUSE_CHAIN (c);
+      else
+	pc = &OMP_CLAUSE_CHAIN (c);
+    }
+
+  bitmap_obstack_release (NULL);
+  return clauses;
+}

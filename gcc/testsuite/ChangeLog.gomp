@@ -1,5 +1,8 @@
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.dg/gomp/clause-1.c: New test.
+	* g++.dg/gomp/clause-3.C: New test.
+
 	PR c++/24613
 	* gcc.dg/gomp/sections-4.c: New test.
 	* g++.dg/gomp/sections-4.C: New test.

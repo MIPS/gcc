@@ -1,10 +1,16 @@
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* parser.c (cp_parser_omp_all_clauses): If some clause type is not
+	allowed, don't remove just one of the clauses, but all clauses
+	added in that loop round.
+	* semantics.c (finish_omp_clauses): Fix function comment.
+	Don't handle non-const or mutable specially, as const and not mutable
+	is predetermined shared and that leads to double error.
+	Don't ICE if copyin var is PARM_DECL.
+
 	PR c++/24613
 	* parser.c (cp_parser_pragma): Diagnose PRAGMA_OMP_SECTION outside
 	of PRAGMA_OMP_SECTIONS construct.
-
-2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_threadprivate): Error if V is automatic
 	variable or has incomplete type.
