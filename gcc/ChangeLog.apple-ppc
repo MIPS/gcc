@@ -1,3 +1,9 @@
+2005-11-01  Evan Cheng  <evan.cheng@apple.com>
+
+	Radar 4317709
+	* stor-layout.c (place_field) A bitfield field cannot straddle
+	multiple units.
+
 2005-11-01  Stuart Hastings  <stuart@apple.com>
 
 	* gcc/config/darwin.h (fix-and-continue): Added APPLE LOCAL for comma.

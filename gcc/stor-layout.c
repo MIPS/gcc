@@ -1179,22 +1179,37 @@ place_field (record_layout_info rli, tree field)
   /* APPLE LOCAL begin reverse_bitfields */
   if (targetm.reverse_bitfields_p (rli->t) && DECL_BIT_FIELD_TYPE (field))
     {
+      tree bitpos;
+      tree fsize = DECL_SIZE (field);
+      tree tsize = TYPE_SIZE (TREE_TYPE (field));
       /* APPLE LOCAL begin bitfield reversal 4228294 */
       TREE_FIELDS_REVERSED (rli->t) = 1;
       /* APPLE LOCAL end bitfield reversal 4228294 */
       /* If we've gone into the next word, move "offset" forward and
 	 adjust "bitpos" to compensate.  */
-      while ( !INT_CST_LT_UNSIGNED (rli->bitpos, TYPE_SIZE (TREE_TYPE (field))))
+      while (! INT_CST_LT_UNSIGNED (rli->bitpos, tsize))
 	{
 	  rli->offset = size_binop (PLUS_EXPR, rli->offset, 
 				    TYPE_SIZE_UNIT (TREE_TYPE (field)));
 	  rli->bitpos = size_binop (MINUS_EXPR, rli->bitpos,
-				    TYPE_SIZE (TREE_TYPE (field)));
+				    tsize);
 	}
+      /* APPLE LOCAL begin bitfield reversal 4317709 */
+      /* Watch a field does not straddle word (for example) boundries. */
+      bitpos = size_binop (PLUS_EXPR, rli->bitpos, fsize);
+      if (tree_int_cst_compare (bitpos, tsize) == 1)
+        {
+          do {
+            rli->offset = size_binop (PLUS_EXPR, rli->offset, 
+                                      TYPE_SIZE_UNIT (TREE_TYPE (field)));
+            bitpos = size_binop (MINUS_EXPR, bitpos, tsize);
+          } while (tree_int_cst_compare (bitpos, tsize) == 1);
+          rli->bitpos = bitsize_zero_node;
+        }
       DECL_FIELD_BIT_OFFSET (field) = size_binop (MINUS_EXPR, 
-	    size_binop (MINUS_EXPR, 
-			TYPE_SIZE (TREE_TYPE (field)), DECL_SIZE (field)),
+	    size_binop (MINUS_EXPR, tsize, fsize),
 	    rli->bitpos);
+      /* APPLE LOCAL end bitfield reversal 4317709 */
     }
   else
     DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
