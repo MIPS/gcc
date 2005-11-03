@@ -72,6 +72,8 @@ void objc_detect_field_duplicates (tree);
 #define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
 #define CLASS_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define CLASS_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
+/* APPLE LOCAL ObjC new abi */
+#define CLASS_TYPE(CLASS) ((CLASS)->type.main_variant)
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
@@ -188,6 +190,10 @@ struct imp_entry GTY(())
   tree imp_template;
   tree class_decl;		/* _OBJC_CLASS_<my_name>; */
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
+  /* APPLE LOCAL begin ObjC new abi */
+  tree class_newabi_decl;		/* _OBJC_NEWABI_CLASS_<my_name>; */
+  tree meta_newabi_decl;		/* _OBJC_NEWABI_METACLASS_<my_name>; */
+  /* APPLE LOCAL end ObjC new abi */
   /* APPLE LOCAL mainline */
   BOOL_BITFIELD has_cxx_cdtors : 1;
 };
@@ -317,6 +323,20 @@ enum objc_tree_index
     OCTI_ASSIGN_STRONGCAST_DECL,
     /* APPLE LOCAL end mainline */
 
+    /* APPLE LOCAL begin ObjC new abi */
+    OCTI_NEWABI_CLS_TEMPL,
+    OCTI_NEWABI_CLS_RO_TEMPL,
+    OCTI_IMP_TYPE,
+    OCTI_NEWABI_CLS_DECL,
+    OCTI_NEWABI_MCLS_DECL,
+    OCTI_NEWABI_CACHE_DECL,
+    OCTI_NEWABI_VTABLE_DECL,
+    OCTI_NEWABI_PROTO_TEMPL,
+    OCTI_CLASSLIST_REF_CHAIN,
+    OCTI_MESSAGE_REF_TEMPL,
+    OCTI_NEWABI_UMSG_FIXUP_DECL,
+    /* APPLE LOCAL end ObjC new abi */
+
     OCTI_MAX
 };
 
@@ -347,7 +367,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 				objc_global_trees[OCTI_GET_MCLASS_DECL]
 
 #define objc_super_type		objc_global_trees[OCTI_SUPER_TYPE]
-#define objc_selector_type		objc_global_trees[OCTI_SEL_TYPE]
+#define objc_selector_type	objc_global_trees[OCTI_SEL_TYPE]
 #define objc_object_type	objc_global_trees[OCTI_ID_TYPE]
 #define objc_class_type		objc_global_trees[OCTI_CLS_TYPE]
 #define objc_instance_type	objc_global_trees[OCTI_NST_TYPE]
@@ -491,5 +511,19 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 /* APPLE LOCAL 4149909 */
 #define internal_const_str_type	objc_global_trees[OCTI_INTERNAL_CNST_STR_TYPE]
 #define UOBJC_SUPER_decl	objc_global_trees[OCTI_SUPER_DECL]
+
+/* APPLE LOCAL being ObjC new abi */
+#define objc_newabi_class_template     objc_global_trees[OCTI_NEWABI_CLS_TEMPL]
+#define objc_newabi_class_ro_template  objc_global_trees[OCTI_NEWABI_CLS_RO_TEMPL]
+#define objc_newabi_protocol_template  objc_global_trees[OCTI_NEWABI_PROTO_TEMPL]
+#define objc_imp_type		       objc_global_trees[OCTI_IMP_TYPE]
+#define UOBJC_NEWABI_CLASS_decl        objc_global_trees[OCTI_NEWABI_CLS_DECL]
+#define UOBJC_NEWABI_METACLASS_decl    objc_global_trees[OCTI_NEWABI_MCLS_DECL]
+#define UOBJC_NEWABI_CACHE_decl	       objc_global_trees[OCTI_NEWABI_CACHE_DECL]
+#define UOBJC_NEWABI_VTABLE_decl       objc_global_trees[OCTI_NEWABI_VTABLE_DECL]
+#define classlist_ref_chain	       objc_global_trees[OCTI_CLASSLIST_REF_CHAIN]	/* classes referenced.  */
+#define objc_newabi_message_ref_template objc_global_trees[OCTI_MESSAGE_REF_TEMPL]
+#define umsg_fixup_decl		       objc_global_trees[OCTI_NEWABI_UMSG_FIXUP_DECL]   /* objc_msgSend_fixup_rtp */
+/* APPLE LOCAL end ObjC new abi */
 
 #endif /* GCC_OBJC_ACT_H */

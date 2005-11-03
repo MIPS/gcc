@@ -208,6 +208,23 @@ static void objc_xref_basetypes (tree, tree);
 static bool objc_lookup_protocol (tree, tree, tree, bool);
 static bool objc_compare_protocols (tree, tree, tree, tree, bool);
 
+/* APPLE LOCAL begin ObjC new abi */
+static void build_newabi_class_template (void);
+static void generate_newabi_shared_structures (int);
+static tree build_class_ro_t_initializer (tree, tree, tree,
+					   unsigned int, unsigned int, unsigned int,
+					   unsigned char*, tree, tree, tree);
+static const char *newabi_append_ro (const char *);
+static tree build_class_t_initializer (tree, tree, tree, tree, tree);
+static tree create_extern_decl (tree, const char *);
+static tree create_global_decl (tree, const char *);
+static void build_newabi_protocol_template (void);
+static tree build_classlist_reference_decl (void);
+static tree build_classlist_reference (tree);
+static void build_classlist_translation_table (void);
+static void build_message_ref_template (void);
+/* APPLE LOCAL end ObjC new abi */
+
 /* APPLE LOCAL end mainline */
 static tree build_ivar_template (void);
 static tree build_method_template (void);
@@ -227,7 +244,8 @@ static void generate_ivar_lists (void);
 static void generate_dispatch_tables (void);
 /* APPLE LOCAL mainline */
 static void generate_shared_structures (int);
-static tree generate_protocol_list (tree);
+/* APPLE LOCAL ObjC new abi */
+static tree generate_protocol_list (tree, bool);
 static void build_protocol_reference (tree);
 /* APPLE LOCAL mainline */
 static tree objc_build_volatilized_type (tree);
@@ -421,6 +439,13 @@ static void generate_objc_image_info (void);
 #define STRING_OBJECT_GLOBAL_FORMAT	"_%sClassReference"
 
 #define PROTOCOL_OBJECT_CLASS_NAME	"Protocol"
+
+/* APPLE LOCAL begin ObjC new abi */
+#define UTAG_NEWABI_CLASS			"_class_t"
+#define UTAG_NEWABI_CLASS_RO			"_class_ro_t"
+#define UTAG_NEWABI_PROTOCOL_LIST		"protocol_list_t"
+#define UTAG_NEWABI_PROTOCOL			"protocol_t"
+/* APPLE LOCAL end ObjC new abi */
 
 static const char *TAG_GETCLASS;
 static const char *TAG_GETMETACLASS;
@@ -906,7 +931,7 @@ objc_start_method_definition (tree decl)
   /* APPLE LOCAL begin radar 4290840 */
   if (decl != NULL_TREE  && METHOD_SEL_NAME (decl) == error_mark_node)
     return;
-  /* APPLE LOCAL begin radar 4290840 */
+  /* APPLE LOCAL end radar 4290840 */
 
   objc_add_method (objc_implementation_context,
 		   decl,
@@ -1727,6 +1752,33 @@ start_var_decl (tree type, const char *name)
   return var;
 }
 
+/* APPLE LOCAL begin ObjC new abi */
+/* Create a globally visible definition for variable NAME of a given TYPE. The
+   finish_var_decl() routine will need to be called on it afterwards.  */
+
+static tree
+create_global_decl (tree type, const char *name)
+{
+  tree var = start_var_decl (type, name);
+  TREE_PUBLIC (var) = 1;
+  return var;
+}
+
+/* Create an extern declaration for variable NAME of a given TYPE. The
+   finish_var_decl() routine will need to be called on it afterwards.  */
+
+static tree
+create_extern_decl (tree type, const char *name)
+{
+  tree var = start_var_decl (type, name); 
+  DECL_EXTERNAL (var) = 1;
+  TREE_PUBLIC (var) = 1;
+  pushdecl (var);
+  rest_of_decl_compilation (var, 0, 0);
+  return var;
+}
+/* APPLE LOCAL end ObjC new abi */
+
 /* Finish off the variable declaration created by start_var_decl().  */
 
 static void
@@ -1859,6 +1911,16 @@ synth_module_prologue (void)
 				  get_identifier (UTAG_IVAR_LIST)));
   /* APPLE LOCAL end mainline */
 
+  /* APPLE LOCAL begin ObjC new abi */
+  /* typedef id (*IMP)(id, SEL, ...); */
+  objc_imp_type
+    = build_pointer_type
+	  (build_function_type (objc_object_type,      
+				tree_cons (NULL_TREE, objc_object_type,      
+					   tree_cons (NULL_TREE, objc_selector_type,      
+						      NULL_TREE))));      
+  /* APPLE LOCAL end ObjC new abi */
+
   if (flag_next_runtime)
     {
       /* NB: In order to call one of the ..._stret (struct-returning)
@@ -1954,17 +2016,13 @@ synth_module_prologue (void)
     {
       /* GNU runtime messenger entry points.  */
 
-      /* typedef id (*IMP)(id, SEL, ...); */
-      tree IMP_type
-	= build_pointer_type
-	  (build_function_type (objc_object_type,      
-				tree_cons (NULL_TREE, objc_object_type,      
-					   tree_cons (NULL_TREE, objc_selector_type,      
-						      NULL_TREE))));      
-
+      /* APPLE LOCAL begin ObjC new abi */
+      /* code removed */
+      /* APPLE LOCAL end ObjC new abi */
       /* IMP objc_msg_lookup (id, SEL); */
       type
-        = build_function_type (IMP_type,
+      /* APPLE LOCAL ObjC new abi */
+        = build_function_type (objc_imp_type,
 			       tree_cons (NULL_TREE, objc_object_type,
 					  tree_cons (NULL_TREE, objc_selector_type,
 						     OBJC_VOID_AT_END)));
@@ -1977,7 +2035,8 @@ synth_module_prologue (void)
 /* APPLE LOCAL end mainline 2005-10-20 4308031 */
       /* IMP objc_msg_lookup_super (struct objc_super *, SEL); */
       type
-        = build_function_type (IMP_type,
+      /* APPLE LOCAL ObjC new abi */
+        = build_function_type (objc_imp_type,
 			       tree_cons (NULL_TREE, objc_super_type,
 					  tree_cons (NULL_TREE, objc_selector_type,
 						     OBJC_VOID_AT_END)));
@@ -2017,8 +2076,24 @@ synth_module_prologue (void)
   objc_get_meta_class_decl
     = builtin_function (TAG_GETMETACLASS, type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  /* APPLE LOCAL begin ObjC new abi */
+  if (flag_objc_abi == 2)
+    {
+      build_message_ref_template ();
+      build_newabi_class_template ();
+      UOBJC_NEWABI_CACHE_decl = create_extern_decl (ptr_type_node, "_objc_empty_cache");
+
+      UOBJC_NEWABI_VTABLE_decl = create_extern_decl (build_pointer_type (objc_imp_type),
+						    "_objc_empty_vtable");
+    }
+  /* APPLE LOCAL end ObjC new abi */
+
   build_class_template ();
   build_super_template ();
+  /* APPLE LOCAL begin ObjC new abi */
+  if (flag_objc_abi == 2)
+    build_newabi_protocol_template ();
+  /* APPLE LOCAL end ObjC new abi */
   build_protocol_template ();
   build_category_template ();
   build_objc_exception_stuff ();
@@ -2814,6 +2889,59 @@ generate_strings (void)
     }
 }
 
+/* APPLE LOCAL begin ObjC new abi */
+static GTY(()) int classlist_reference_idx;
+
+/* Create a declaration for classlist references. */
+
+static tree
+build_classlist_reference_decl (void)
+{
+  tree decl;
+  char buf[256];
+
+  sprintf (buf, "_OBJC_CLASSLIST_REFERENCES_%d", classlist_reference_idx++);
+  decl = start_var_decl (build_pointer_type (objc_newabi_class_template), buf);
+
+  return decl;
+}
+
+static tree
+build_classlist_reference (tree ident)
+{
+  tree *chain = &classlist_ref_chain;
+  tree expr;
+
+  while (*chain)
+    {
+      if (TREE_VALUE (*chain) == ident)
+        return TREE_PURPOSE (*chain);
+      chain = &TREE_CHAIN (*chain);
+    }
+
+  expr = build_classlist_reference_decl ();
+
+  *chain = tree_cons (expr, ident, NULL_TREE);
+
+  return expr;
+}
+
+/* Build decl = initializer; for each externally visible class reference. */
+
+static void
+build_classlist_translation_table (void)
+{
+  tree chain;
+
+  for (chain = classlist_ref_chain; chain; chain = TREE_CHAIN (chain))
+    {
+      tree expr = TREE_VALUE (chain);
+      tree decl = TREE_PURPOSE (chain);
+      finish_var_decl (decl, expr);
+    }
+}
+/* APPLE LOCAL end ObjC new abi */
+
 static GTY(()) int selector_reference_idx;
 
 static tree
@@ -3584,7 +3712,7 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
   /* APPLE LOCAL begin ObjC GC */
   /* At this point, we are committed to using one of the write-barriers,
      unless the user is attempting to perform pointer arithmetic.  */
-  /* APPLE LOCAL begin radar 4291099 */
+  /* APPLE LOCAL radar 4291099 */
   if (modifycode != NOP_EXPR && modifycode != INIT_EXPR)
   /* APPLE LOCAL end ObjC GC */
     {
@@ -3598,7 +3726,7 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
       return NULL_TREE;
       /* APPLE LOCAL end ObjC GC */
     }
-  /* APPLE LOCAL begin radar 4291099 */
+  /* APPLE LOCAL radar 4291099 */
   gcc_assert (modifycode != INIT_EXPR || c_dialect_cxx ());
 
   /* APPLE LOCAL ObjC GC */
@@ -4590,8 +4718,55 @@ build_private_template (tree class)
       if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
 	TREE_USED (TYPE_STUB_DECL (record)) = 1;
       /* APPLE LOCAL end mainline */
+      /* APPLE LOCAL begin ObjC new abi */
+      if (flag_objc_abi == 2)
+        CLASS_TYPE (class) = record;
+      /* APPLE LOCAL end ObjC new abi */
     }
 }
+
+/* APPLE LOCAL begin ObjC new abi */
+/* struct protocol_t {
+     const char * const protocol_name;
+     const struct protocol_list_t * const protocol_list;
+     const struct method_list_t * const instance_methods;
+     const struct method_list_t * const class_methods;
+   }
+*/
+static void
+build_newabi_protocol_template (void)
+{
+  tree field_decl, field_decl_chain;
+
+  objc_newabi_protocol_template = start_struct (RECORD_TYPE,
+                                         get_identifier (UTAG_NEWABI_PROTOCOL));
+
+  /* char *protocol_name; */ 
+  field_decl = create_field_decl (string_type_node, "protocol_name");
+  field_decl_chain = field_decl;
+
+  /* const struct protocol_list_t * const protocol_list; */
+  field_decl = create_field_decl (build_pointer_type
+                                   (objc_newabi_protocol_template),
+                                  "protocol_list");
+  chainon (field_decl_chain, field_decl);
+
+  /* const struct method_list_t * const instance_methods; */
+  field_decl = create_field_decl (objc_method_proto_list_ptr,
+				  "instance_methods");
+  chainon (field_decl_chain, field_decl);
+
+  /* const struct method_list_t * const class_methods; */
+  field_decl = create_field_decl (objc_method_proto_list_ptr,
+                                  "class_methods");
+  chainon (field_decl_chain, field_decl);
+
+  finish_struct (objc_newabi_protocol_template, field_decl_chain, NULL_TREE);
+
+
+}
+/* APPLE LOCAL end ObjC new abi */
+
 
 /* Begin code generation for protocols...  */
 
@@ -5137,7 +5312,8 @@ generate_protocols (void)
       generate_method_descriptors (p);
 
       if (PROTOCOL_LIST (p))
-	refs_decl = generate_protocol_list (p);
+	/* APPLE LOCAL ObjC new abi */
+	refs_decl = generate_protocol_list (p, false);
       else
 	refs_decl = 0;
 
@@ -5274,6 +5450,129 @@ build_selector_template (void)
 
   finish_struct (objc_selector_template, field_decl_chain, NULL_TREE);
 }
+
+/* APPLE LOCAL begin ObjC new abi */
+
+/* Build following types which represent each class implemenation. */
+
+/* 
+struct class_t {
+    struct class_t *isa;
+    __strong struct class_ro_t *ro;
+    __strong void *cache;
+    __strong IMP *vtable;
+};
+
+struct class_ro_t {
+    uint32_t const flags;
+    uint32_t const instanceStart;
+    uint32_t const instanceSize;
+#ifdef __LP64__
+    uint32_t const reserved;
+#endif
+    const uint8_t * const ivarLayout;
+    struct class_t * const superclass;
+
+    const char *const name;
+    const struct method_list_t * const baseMethods;
+    const struct objc_protocol_list *const baseProtocols;
+    const struct ivar_list_t *const ivars;
+};
+
+*/
+
+static void
+build_newabi_class_template (void)
+{
+  tree field_decl, field_decl_chain;
+
+  objc_newabi_class_ro_template
+    = start_struct (RECORD_TYPE, get_identifier (UTAG_NEWABI_CLASS_RO));
+
+  objc_newabi_class_template
+    = start_struct (RECORD_TYPE, get_identifier (UTAG_NEWABI_CLASS));
+
+  /* struct class_t *isa; */
+  field_decl = create_field_decl (build_pointer_type (objc_newabi_class_template),
+				  "isa");
+  field_decl_chain = field_decl;
+
+  /* __strong struct class_ro_t *ro; */
+  /* TODO: __strong is missing. */
+  field_decl = create_field_decl (build_pointer_type (objc_newabi_class_ro_template),
+				  "ro");
+  chainon (field_decl_chain, field_decl);
+
+  /* __strong void *cache; */
+  /* TODO: __strong is missing. */
+  field_decl = create_field_decl (build_pointer_type (void_type_node),
+				  "cache");
+  chainon (field_decl_chain, field_decl);
+  
+  /* __strong IMP *vtable; */
+  /* TODO: __strong is missing. */
+  field_decl = create_field_decl (build_pointer_type (objc_imp_type),
+				  "vtable");
+  chainon (field_decl_chain, field_decl);
+
+  finish_struct (objc_newabi_class_template, field_decl_chain, NULL_TREE);
+
+  /* struct class_ro_t {...} */
+  
+  /* uint32_t const flags; */
+  field_decl = create_field_decl (integer_type_node, "flags");
+  field_decl_chain = field_decl;
+
+  /* uint32_t const instanceStart */
+  field_decl = create_field_decl (integer_type_node, "instanceStart");
+  chainon (field_decl_chain, field_decl);
+
+  /* uint32_t const instanceSize */
+  field_decl = create_field_decl (integer_type_node, "instanceSize");
+  chainon (field_decl_chain, field_decl);
+  
+  if (TARGET_64BIT)
+    {
+      /* uint32_t const reserved */
+      field_decl = create_field_decl (integer_type_node, "reserved");
+      chainon (field_decl_chain, field_decl);
+    }
+
+  /* const uint8_t * const ivarLayout */
+  field_decl = create_field_decl (build_pointer_type (unsigned_char_type_node), 
+				  "ivarLayout");
+  chainon (field_decl_chain, field_decl);
+
+  /* struct class_t * const superclass */
+  field_decl = create_field_decl (build_pointer_type (objc_newabi_class_template),
+				  "superclass");
+  chainon (field_decl_chain, field_decl);
+
+  /* const char *const name; */
+  field_decl = create_field_decl (string_type_node, "name");
+  chainon (field_decl_chain, field_decl);
+  
+  /* const struct method_list_t * const baseMethods */
+  field_decl = create_field_decl (objc_method_list_ptr,
+				  "baseMethods");
+  chainon (field_decl_chain, field_decl);
+
+  /* const struct objc_protocol_list *const baseProtocols */
+  field_decl = create_field_decl (build_pointer_type 
+				  (xref_tag (RECORD_TYPE, 
+					     get_identifier
+					     (UTAG_NEWABI_PROTOCOL_LIST))),
+				  "baseProtocols");
+  chainon (field_decl_chain, field_decl);
+
+  /* const struct ivar_list_t *const ivars */
+  field_decl = create_field_decl (objc_ivar_list_ptr,
+				  "ivars");  
+  chainon (field_decl_chain, field_decl);
+
+   finish_struct (objc_newabi_class_ro_template, field_decl_chain, NULL_TREE);
+}
+/* APPLE LOCAL end ObjC new abi */
 
 /* struct _objc_class {
      struct _objc_class *isa;
@@ -5422,6 +5721,19 @@ synth_forward_declarations (void)
   UOBJC_METACLASS_decl = build_metadata_decl ("_OBJC_METACLASS",
 						  objc_class_template);
 
+  /* APPLE LOCAL begin ObjC new abi */
+  if (flag_objc_abi == 2)
+    {
+      /* static struct class_t _OBJC_CLASS_$_<my_name>; */
+      UOBJC_NEWABI_CLASS_decl = build_metadata_decl ("OBJC_CLASS_$",
+					             objc_newabi_class_template);
+
+      /* static struct class_t _OBJC_METACLASS_$_<my_name>; */
+      UOBJC_NEWABI_METACLASS_decl = build_metadata_decl ("OBJC_METACLASS_$",
+					             objc_newabi_class_template);
+    }
+  /* APPLE LOCAL end ObjC new abi */
+
   /* Pre-build the following entities - for speed/convenience.  */
 
   an_id = get_identifier ("super_class");
@@ -5493,6 +5805,35 @@ check_ivars (tree inter, tree imp)
       impdecls = TREE_CHAIN (impdecls);
     }
 }
+
+/* APPLE LOCAL begin ObjC new abi */
+/* Set 'objc_newabi_message_ref_template' to the data type node for 'struct _message_ref_t'.
+   This needs to be done just once per compilation.  */
+
+/* struct message_ref_t {
+     SEL name;
+     IMP messenger;
+   };
+*/
+
+static void
+build_message_ref_template (void)
+{
+  tree field_decl, field_decl_chain;
+  objc_newabi_message_ref_template = start_struct (RECORD_TYPE, 
+						   get_identifier ("_message_ref_t"));
+
+  /* SEL name; */
+  field_decl = create_field_decl (objc_selector_type, "name");
+  field_decl_chain = field_decl;
+
+  /* IMP messenger; */
+  field_decl = create_field_decl (objc_imp_type, "messenger");
+  chainon (field_decl_chain, field_decl); 
+
+  finish_struct (objc_newabi_message_ref_template, field_decl_chain, NULL_TREE);
+}
+/* APPLE LOCAL end ObjC new abi */
 
 /* Set 'objc_super_template' to the data type node for 'struct _objc_super'.
    This needs to be done just once per compilation.  */
@@ -5923,7 +6264,8 @@ generate_dispatch_tables (void)
 }
 
 static tree
-generate_protocol_list (tree i_or_p)
+/* APPLE LOCAL ObjC new abi */
+generate_protocol_list (tree i_or_p, bool newabi)
 {
   tree initlist;
   tree refs_decl, lproto, e, plist;
@@ -5963,12 +6305,17 @@ generate_protocol_list (tree i_or_p)
 
   /* static struct objc_protocol *refs[n]; */
 
+  /* APPLE LOCAL begin ObjC new abi */
   if (TREE_CODE (i_or_p) == PROTOCOL_INTERFACE_TYPE)
-    ref_name = synth_id_with_class_suffix ("_OBJC_PROTOCOL_REFS", i_or_p);
+    ref_name = synth_id_with_class_suffix (newabi ? "_OBJC_PROTOCOL_REFS_T" 
+						  : "_OBJC_PROTOCOL_REFS", i_or_p);
   else if (TREE_CODE (i_or_p) == CLASS_INTERFACE_TYPE)
-    ref_name = synth_id_with_class_suffix ("_OBJC_CLASS_PROTOCOLS", i_or_p);
+    ref_name = synth_id_with_class_suffix (newabi ? "_OBJC_CLASS_PROTOCOLS_T" 
+					   	  : "_OBJC_CLASS_PROTOCOLS", i_or_p);
   else if (TREE_CODE (i_or_p) == CATEGORY_INTERFACE_TYPE)
-    ref_name = synth_id_with_class_suffix ("_OBJC_CATEGORY_PROTOCOLS", i_or_p);
+    ref_name = synth_id_with_class_suffix (newabi ? "_OBJC_CATEGORY_PROTOCOLS_T"
+						  : "_OBJC_CATEGORY_PROTOCOLS", i_or_p);
+  /* APPLE LOCAL end ObjC new abi */
   else
     abort ();
 
@@ -6175,7 +6522,8 @@ generate_category (tree cat)
   if (category && CLASS_PROTOCOL_LIST (category))
     {
       generate_protocol_references (CLASS_PROTOCOL_LIST (category));
-      protocol_decl = generate_protocol_list (category);
+      /* APPLE LOCAL ObjC new abi */
+      protocol_decl = generate_protocol_list (category, false);
     }
   else
     protocol_decl = 0;
@@ -6192,6 +6540,295 @@ generate_category (tree cat)
 
   finish_var_decl (decl, initlist);
 }
+
+/* APPLE LOCAL begin ObjC new abi */
+
+/* Build the name for object of type struct class_ro_t */
+
+static const char *
+newabi_append_ro (const char *name)
+{
+  char *dollar;
+  char *p;
+  static char string[BUFSIZE];
+  dollar = strchr (name, '$');
+  gcc_assert (dollar);
+  p = string;
+  *p = '_'; p++;
+  strncpy (p, name, (int)(dollar - name));
+  p += (int)(dollar - name);
+  sprintf (p, "RO_%s", dollar);
+  return string;
+}
+ 
+/* Routine to build initializer list to initialize objects of type struct class_t; */
+
+static tree
+build_class_t_initializer (tree type, tree isa, tree ro, tree cache, tree vtable)
+{
+  tree initlist = NULL_TREE;
+
+  /* isa */
+  initlist = tree_cons (NULL_TREE, isa, initlist);
+
+  /* ro */
+  initlist = tree_cons (NULL_TREE, ro, initlist);
+
+  /* cache */
+  if (cache)
+    initlist = tree_cons (NULL_TREE, cache, initlist);
+  else
+    initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+
+  /* vtable */
+  if (vtable)
+    initlist = tree_cons (NULL_TREE, vtable, initlist);
+  else
+    initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+
+  return objc_build_constructor (type, nreverse (initlist));
+}
+
+static tree
+build_class_ro_t_initializer (tree type, tree superclass, tree name, 
+			       unsigned int flags, unsigned int instanceStart, unsigned int instanceSize,
+			       unsigned char *ivarLayout ATTRIBUTE_UNUSED, 
+			       tree baseMethods, tree baseProtocols, tree ivars)
+{
+  tree initlist = NULL_TREE, expr;
+
+  /* flags */
+  initlist = tree_cons (NULL_TREE, 
+		 	build_int_cst (integer_type_node, flags), 
+			initlist);  
+
+  /* instanceStart */
+  initlist = tree_cons (NULL_TREE, 
+		 	build_int_cst (integer_type_node, instanceStart), 
+			initlist);  
+
+  /* instanceSize */
+  initlist = tree_cons (NULL_TREE, 
+		 	build_int_cst (integer_type_node, instanceSize), 
+			initlist);  
+
+  /* reserved */
+  if (TARGET_64BIT)
+    initlist = tree_cons (NULL_TREE, 
+		 	  build_int_cst (integer_type_node, 0), 
+			  initlist);  
+
+  /* TODO: Set ivarLayout coorectly when we can compute it */
+  /* ivarLayout */
+  initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+
+  /* superclass */
+  initlist = tree_cons (NULL_TREE, superclass, initlist);
+
+  /* name */
+  initlist = tree_cons (NULL_TREE, default_conversion (name), initlist);
+
+  /* baseMethods */
+  if (!baseMethods)
+    initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+  else
+    {
+      expr = convert (objc_method_list_ptr,
+                      build_unary_op (ADDR_EXPR, baseMethods, 0));
+      initlist = tree_cons (NULL_TREE, expr, initlist);
+    }
+
+  /* baseProtocols */
+  if (!baseProtocols)
+    initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+  else
+    {
+      expr = convert (build_pointer_type
+                      (build_pointer_type
+                       (objc_protocol_template)),
+                      build_unary_op (ADDR_EXPR, baseProtocols, 0));
+      initlist = tree_cons (NULL_TREE, expr, initlist);
+    }
+
+  /* ivars */
+  if (!ivars)
+    initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+  else
+    {
+      expr = convert (objc_ivar_list_ptr,
+                      build_unary_op (ADDR_EXPR, ivars, 0));
+      initlist = tree_cons (NULL_TREE, expr, initlist);
+    }
+
+  return objc_build_constructor (type, nreverse (initlist));
+}
+
+/* Routine to build object of struct class_ro_t { ... }; */
+
+static void
+generate_newabi_shared_structures (int cls_flags)
+{
+  tree sc_spec, decl_specs, decl;
+  tree name_expr, root_expr = NULL_TREE;
+  tree my_super_id = NULL_TREE;
+  tree cast_type, initlist, protocol_decl;
+  unsigned int instanceStart, instanceSize;
+  unsigned char *ivarLayout = 0;
+  tree metaclass_decl, class_decl;
+  tree field;
+  tree class_superclass_expr, metaclass_superclass_expr;
+  unsigned int flags = 0x1; /* Start with CLS_META */
+
+  class_decl = create_global_decl (objc_newabi_class_template,
+                                   IDENTIFIER_POINTER
+                                   (DECL_NAME (UOBJC_NEWABI_CLASS_decl)));
+
+  metaclass_decl = create_global_decl (objc_newabi_class_template,
+			               IDENTIFIER_POINTER
+			               (DECL_NAME (UOBJC_NEWABI_METACLASS_decl)));
+
+  cast_type = build_pointer_type (objc_newabi_class_template);
+
+  /* Generation of data for meta class */
+  my_super_id = CLASS_SUPER_NAME (implementation_template);
+  if (my_super_id)
+    {
+      /* compute reference to root's name. For meta class, "isa" is reference 
+	 to root class name. */
+      tree root_decl, sav;
+      tree my_root_id = my_super_id;
+      tree my_root_int;
+      tree interface;
+      do
+        {
+          my_root_int = lookup_interface (my_root_id);
+
+          if (my_root_int && CLASS_SUPER_NAME (my_root_int))
+            my_root_id = CLASS_SUPER_NAME (my_root_int);
+          else
+            break;
+        }
+      while (1);
+      sav = objc_implementation_context;
+      objc_implementation_context = my_root_int;
+      root_decl = build_metadata_decl ("OBJC_METACLASS_$", cast_type);
+      root_expr = build_unary_op (ADDR_EXPR, root_decl, 0);
+
+      /* Install class `isa' and `super' pointers at runtime.  */
+      interface = lookup_interface (my_super_id);
+      gcc_assert (interface);
+      objc_implementation_context = interface;
+      /* Note! I had to remove '_' prefix to 'OBJC' to make this an extern symbol. Darwin's
+         back-end, recognizes '_OBJC_' prefix and prepends an 'L' in front of this. Darwin
+         assembler treats names starting with 'L_' as local symbols. */
+      class_superclass_expr = build_metadata_decl ("OBJC_CLASS_$", cast_type);
+      class_superclass_expr = build_unary_op (ADDR_EXPR, class_superclass_expr, 0);
+      metaclass_superclass_expr = build_metadata_decl ("OBJC_METACLASS_$", cast_type);
+      metaclass_superclass_expr = build_unary_op (ADDR_EXPR, metaclass_superclass_expr, 0);
+      objc_implementation_context = sav;
+    }
+  else
+    {
+      /* root class.  */
+      root_expr = build_unary_op (ADDR_EXPR, metaclass_decl, 0);
+      metaclass_superclass_expr = build_unary_op (ADDR_EXPR, class_decl, 0);
+      class_superclass_expr = build_int_cst (NULL_TREE, 0);
+      flags |= 0x2; /* CLS_ROOT: it is also a root meta class */
+    }
+
+
+  if (CLASS_PROTOCOL_LIST (implementation_template))
+    {
+      generate_protocol_references
+        (CLASS_PROTOCOL_LIST (implementation_template));
+      protocol_decl = generate_protocol_list (implementation_template, true);
+    }
+  else
+    protocol_decl = 0;
+
+  /* static struct class_ro_t  _OBJC_METACLASS_Foo = { ... }; */
+
+  instanceStart = 16;
+  /* TODO: Add total size of class variables when implemented. */
+  instanceSize = 16; 
+
+  name_expr = add_objc_string (CLASS_NAME (implementation_template),
+                               class_names);
+
+  sc_spec = build_tree_list (NULL_TREE, ridpointers[(int) RID_STATIC]);
+  decl_specs = tree_cons (NULL_TREE, objc_newabi_class_ro_template, sc_spec);
+
+  decl = start_var_decl (objc_newabi_class_ro_template,
+                         newabi_append_ro (IDENTIFIER_POINTER
+                                    (DECL_NAME (UOBJC_NEWABI_METACLASS_decl))));
+
+  /* TODO: ivarLayout need be built. */
+  initlist = build_class_ro_t_initializer
+	       (TREE_TYPE (decl),
+		metaclass_superclass_expr, name_expr,
+		(flags | cls_flags), instanceStart, instanceSize, 
+		ivarLayout, UOBJC_CLASS_METHODS_decl, protocol_decl,
+		UOBJC_CLASS_VARIABLES_decl);
+
+  finish_var_decl (decl, initlist);
+
+  /* static struct class_t _OBJC_METACLASS_Foo = { ... }; */
+  initlist = build_class_t_initializer (TREE_TYPE (metaclass_decl),
+					root_expr,
+					build_unary_op (ADDR_EXPR, decl, 0),
+					build_unary_op (ADDR_EXPR, UOBJC_NEWABI_CACHE_decl, 0), 
+					build_unary_op (ADDR_EXPR, UOBJC_NEWABI_VTABLE_decl, 0));
+  finish_var_decl (metaclass_decl, initlist);
+
+  /* Generation of data for the class */
+
+  flags = 0x0;		/* CLS */
+  if (!my_super_id)
+    flags |= 0x2;	/* CLS_ROOT: this is a root class */
+
+  /* Compute instanceStart */
+  gcc_assert (CLASS_TYPE (implementation_template));
+  field = TYPE_FIELDS (CLASS_TYPE (implementation_template));
+  if (my_super_id && field && TREE_CHAIN (field))
+    field = TREE_CHAIN (field);
+  instanceStart = 0;
+  if (field)
+    instanceStart = int_byte_position (field);
+
+  /* Compute instanceSize */
+  while (field && TREE_CHAIN (field)
+         && TREE_CODE (TREE_CHAIN (field)) == FIELD_DECL)
+    field = TREE_CHAIN (field);
+  
+  if (field && TREE_CODE (field) == FIELD_DECL)
+    instanceSize = int_byte_position (field) * BITS_PER_UNIT + tree_low_cst (DECL_SIZE (field), 0);
+  else
+    instanceSize = 0;
+  instanceSize /= BITS_PER_UNIT;
+
+  decl = start_var_decl (objc_newabi_class_ro_template,
+                         newabi_append_ro (IDENTIFIER_POINTER
+                         (DECL_NAME (UOBJC_NEWABI_CLASS_decl))));  
+
+  initlist = build_class_ro_t_initializer (TREE_TYPE (decl),
+					   class_superclass_expr, name_expr,
+					   (flags | cls_flags), instanceStart, instanceSize,
+					   ivarLayout, UOBJC_CLASS_METHODS_decl, protocol_decl,
+					   UOBJC_INSTANCE_VARIABLES_decl);
+  finish_var_decl (decl, initlist);
+
+  /* static struct class_t _OBJC_ACLASS_Foo = { ... }; */
+  initlist = build_class_t_initializer (TREE_TYPE (class_decl),
+					build_unary_op (ADDR_EXPR, metaclass_decl, 0),
+                                        build_unary_op (ADDR_EXPR, decl, 0),
+                                        build_unary_op (ADDR_EXPR, UOBJC_NEWABI_CACHE_decl, 0), 
+                                        build_unary_op (ADDR_EXPR, UOBJC_NEWABI_VTABLE_decl, 0)); 
+
+  finish_var_decl (class_decl, initlist);
+
+  build_classlist_reference (convert (cast_type, build_unary_op (ADDR_EXPR, class_decl, 0)));
+}
+/* APPLE LOCAL end ObjC new abi */
 
 /* static struct objc_class _OBJC_METACLASS_Foo={ ... };
    static struct objc_class _OBJC_CLASS_Foo={ ... };  */
@@ -6249,7 +6886,8 @@ generate_shared_structures (int cls_flags)
     {
       generate_protocol_references
 	(CLASS_PROTOCOL_LIST (implementation_template));
-      protocol_decl = generate_protocol_list (implementation_template);
+      /* APPLE LOCAL ObjC new abi */
+      protocol_decl = generate_protocol_list (implementation_template, false);
     }
   else
     protocol_decl = 0;
@@ -8170,6 +8808,13 @@ continue_class (tree class)
       synth_forward_declarations ();
       imp_entry->class_decl = UOBJC_CLASS_decl;
       imp_entry->meta_decl = UOBJC_METACLASS_decl;
+      /* APPLE LOCAL begin ObjC new abi */
+      if (flag_objc_abi == 2)
+	{
+      	  imp_entry->class_newabi_decl = UOBJC_NEWABI_CLASS_decl;
+      	  imp_entry->meta_newabi_decl = UOBJC_NEWABI_METACLASS_decl;
+	}
+      /* APPLE LOCAL end ObjC new abi */
       /* APPLE LOCAL mainline */
       imp_entry->has_cxx_cdtors = 0;
 
@@ -9791,6 +10436,14 @@ finish_objc (void)
       UOBJC_CLASS_decl = impent->class_decl;
       UOBJC_METACLASS_decl = impent->meta_decl;
 
+      /* APPLE LOCAL begin ObjC new abi */
+      if (flag_objc_abi == 2)
+	{
+      	  UOBJC_NEWABI_CLASS_decl = impent->class_newabi_decl;
+      	  UOBJC_NEWABI_METACLASS_decl = impent->meta_newabi_decl;
+	}
+      /* APPLE LOCAL end ObjC new abi */
+
       /* Dump the @interface of each class as we compile it, if the
 	 -gen-decls option is in use.  TODO: Dump the classes in the
          order they were found, rather than in reverse order as we
@@ -9805,6 +10458,14 @@ finish_objc (void)
 	  /* all of the following reference the string pool...  */
 	  generate_ivar_lists ();
 	  generate_dispatch_tables ();
+
+	  /* APPLE LOCAL begin ObjC new abi */
+	  if (flag_objc_abi == 2)
+	    generate_newabi_shared_structures (impent->has_cxx_cdtors
+                                      ? CLS_HAS_CXX_STRUCTORS
+                                      : 0);
+	  /* APPLE LOCAL end ObjC new abi */
+
 	  /* APPLE LOCAL begin mainline */
 	  generate_shared_structures (impent->has_cxx_cdtors
 				      ? CLS_HAS_CXX_STRUCTORS
@@ -9822,6 +10483,11 @@ finish_objc (void)
      finish up the array decl even if no selectors were used.  */
   if (! flag_next_runtime || sel_ref_chain)
     build_selector_translation_table ();
+
+  /* APPLE LOCAL begin ObjC new abi */
+  if (classlist_ref_chain)
+    build_classlist_translation_table ();
+  /* APPLE LOCAL end ObjC new abi */
 
   if (protocol_chain)
     generate_protocols ();

@@ -840,6 +840,9 @@ FUNCTION (void)								\
   /* APPLE LOCAL AT&T-style stub 4164563 */				\
   in_machopic_picsymbol_stub3,						\
   in_darwin_exception, in_darwin_eh_frame,				\
+  /* APPLE LOCAL begin ObjC new abi  */					\
+  in_objc_classlist_section,						\
+  /* APPLE LOCAL end ObjC new abi  */					\
   num_sections
 
 /* APPLE LOCAL begin AT&T-style stub 4164563 */
@@ -1019,6 +1022,14 @@ SECTION_FUNCTION (darwin_eh_frame_section,				\
 		in_darwin_eh_frame,					\
 		".section " EH_FRAME_SECTION_NAME ",__eh_frame"		\
 		  EH_FRAME_SECTION_ATTR, 0)				\
+/* APPLE LOCAL begin ObjC new abi */					\
+SECTION_FUNCTION (objc_classlist_section,				\
+		  in_objc_classlist_section,				\
+		  ".section __OBJC, __classlist, regular, no_dead_strip", 1) 		\
+SECTION_FUNCTION (objc_data_section,					\
+		  in_data,						\
+		  ".data", 1) 						\
+/* APPLE LOCAL end ObjC new abi */					\
 \
 static void					\
 objc_section_init (void)			\
@@ -1050,6 +1061,10 @@ objc_section_init (void)			\
       objc_instance_vars_section ();		\
       objc_module_info_section ();		\
       objc_symbols_section ();			\
+      /* APPLE LOCAL begin ObjC new abi */	\
+      objc_classlist_section ();		\
+      objc_data_section ();			\
+      /* APPLE LOCAL end ObjC new abi */	\
     }						\
 }
 

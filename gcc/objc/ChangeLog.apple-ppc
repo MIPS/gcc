@@ -1,3 +1,38 @@
+2005-11-01  Fariborz Jahanian <fjahanian@apple.com>
+
+	objc new meta-data definitions - part 1
+
+	* objc/objc-act.c (create_global_decl): New
+	(create_extern_decl): New
+	(build_classlist_reference_decl): New
+	(build_classlist_translation_table): New
+	(build_newabi_protocol_template): New
+	(build_newabi_class_template): New
+	(newabi_append_ro): New
+	(build_class_t_initializer): New
+	(generate_newabi_shared_structures): New
+	(synth_module_prologue): Declare IMP type objc_imp_type
+        and use it as needed.
+	Declare new globals and call build_newabi_protocol_template(...) when
+	-fobjc-newabi is specified.
+	(build_private_template): Save type of an Interface in CLASS_TYPE field.
+	(generate_protocol_list): New argument added.
+	(synth_forward_declarations): With -fabj-newabi build new class and metaclass 
+	"class_t" types.
+	(continue_class): Save class and metaclass declarations.
+	(finish_objc): Restore global class and metaclass declarations.
+	With -fobjc-newabi call generate_newabi_shared_structures(...).
+	Also build classlist translation table if needed.
+	* objc/objc-act.h (imp_entry): class_newabi_decl and meta_newabi_decl fields 
+	added.	
+	(enum objc_tree_index): New enumerators added.
+	Several global variables declared.
+	* config/darwin-protos.h (objc_classlist_section, objc_data_section): New declarations.
+	* config/darwin.c (machopic_select_section): Added conditional calls to
+	objc_classlist_section() and objc_data_section().
+	* config/darwin.h: (objc_classlist_section, objc_data_section): New functions.
+	(objc_section_init): New sections to initialize.
+	
 2005-10-10  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4301047
