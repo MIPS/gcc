@@ -1,3 +1,11 @@
+2005-11-03  Paolo Bonzini  <bonzini@gnu.org>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	* df.c (df_free): Fix call to df_bitmaps_free.
+	(df_bb_regno_last_def_find): Make it return what it is supposed
+	to return.
+	(df_local_ref_killed_between_p): New.
+
 2005-11-01  Daniel Berlin  <dberlin@dberlin.org>
             Kenneth Zadeck <zadeck@naturalbridge.com>
 	* flow.c (update_life_info): Added debugging.

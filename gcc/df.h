@@ -351,8 +351,10 @@ extern int df_bb_regs_lives_compare (struct df *, basic_block, rtx, rtx);
 
 extern bool df_local_def_available_p (struct df *, struct ref *, rtx);
 
-extern rtx df_bb_single_def_use_insn_find (struct df *, basic_block, rtx,
-					   rtx);
+extern bool df_local_ref_killed_between_p (struct df *, struct ref *, rtx, rtx);
+
+extern rtx df_bb_single_def_use_insn_find (struct df *, basic_block, rtx, rtx);
+
 extern struct ref *df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
 
 extern struct ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigned int);
