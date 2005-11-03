@@ -1,3 +1,8 @@
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.target/powerpc: New directory.
+	* gcc/testsuite/gcc.target/powerpc/powerpc.exp: New file.
+
 2005-11-01  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/config/rs6000/rs6000.c (rs6000_rtx_costs): Do not add extra
