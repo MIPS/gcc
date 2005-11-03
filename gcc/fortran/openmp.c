@@ -1141,6 +1141,15 @@ struct omp_context
   struct pointer_set_t *private_iterators;
   struct omp_context *previous;
 } *omp_current_ctx;
+gfc_code *omp_current_do_code;
+
+void
+gfc_resolve_omp_do_blocks (gfc_code *code, gfc_namespace *ns)
+{
+  if (code->block->next && code->block->next->op == EXEC_DO)
+    omp_current_do_code = code->block->next;
+  gfc_resolve_blocks (code->block, ns);
+}
 
 void
 gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
@@ -1160,7 +1169,10 @@ gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
     for (n = omp_clauses->lists[list]; n; n = n->next)
       pointer_set_insert (ctx.sharing_clauses, n->sym);
 
-  gfc_resolve_blocks (code->block, ns);
+  if (code->op == EXEC_OMP_PARALLEL_DO)
+    gfc_resolve_omp_do_blocks (code, ns);
+  else
+    gfc_resolve_blocks (code->block, ns);
 
   omp_current_ctx = ctx.previous;
   pointer_set_destroy (ctx.sharing_clauses);
@@ -1171,11 +1183,17 @@ gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
    construct, where they are predetermined private.  */
 
 void
-gfc_resolve_do_iterator (gfc_symbol *sym)
+gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
 {
   struct omp_context *ctx;
 
   if (sym->attr.threadprivate)
+    return;
+
+  /* !$omp do and !$omp parallel do iteration variable is predetermined
+     private just in the !$omp do resp. !$omp parallel do construct,
+     with no implications for the outer parallel constructs.  */
+  if (code == omp_current_do_code)
     return;
 
   for (ctx = omp_current_ctx; ctx; ctx = ctx->previous)

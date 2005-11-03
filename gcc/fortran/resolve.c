@@ -3963,6 +3963,9 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	      omp_workshare_flag = 0;
 	      gfc_resolve_omp_parallel_blocks (code, ns);
 	      break;
+	    case EXEC_OMP_DO:
+	      gfc_resolve_omp_do_blocks (code, ns);
+	      break;
 	    case EXEC_OMP_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
 	      omp_workshare_flag = 1;
@@ -4105,7 +4108,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	    {
 	      gfc_iterator *iter = code->ext.iterator;
 	      if (gfc_resolve_iterator (iter, true) != FAILURE)
-		gfc_resolve_do_iterator (iter->var->symtree->n.sym);
+		gfc_resolve_do_iterator (code, iter->var->symtree->n.sym);
 	    }
 	  break;
 

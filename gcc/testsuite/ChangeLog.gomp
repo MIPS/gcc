@@ -1,5 +1,11 @@
 2005-11-03  Jakub Jelinek  <jakub@redhat.com>
 
+	* gfortran.dg/gomp/sharing-2.f90: Add dg-error for var
+	not predetermined in outer parallel, because it is just
+	a !$omp do loop iterator, not normal sequential loop iterator.
+	Add a case for !$omp parallel do iterator not propagating
+	predetermination to outer parallels.
+
 	* g++.dg/gomp/tls-3.C: New test.
 
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>

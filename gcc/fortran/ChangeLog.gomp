@@ -1,3 +1,16 @@
+2005-11-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (omp_current_do_code): New var.
+	(gfc_resolve_omp_do_blocks): New function.
+	(gfc_resolve_omp_parallel_blocks): Call it.
+	(gfc_resolve_do_iterator): Add CODE argument.  Don't propagate
+	predetermination if argument is !$omp do or !$omp parallel do
+	iteration variable.
+	* resolve.c (resolve_code): Call gfc_resolve_omp_do_blocks
+	for EXEC_OMP_DO.  Adjust gfc_resolve_do_iterator caller.
+	* fortran.h (gfc_resolve_omp_do_blocks): New prototype.
+	(gfc_resolve_do_iterator): Add CODE argument.
+
 2005-11-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans.h (gfc_omp_predetermined_sharing,
