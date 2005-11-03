@@ -176,6 +176,7 @@ struct typeinfo GTY(())
   enum typestatus status;
   int file_number;
   int type_number;
+  /* APPLE LOCAL dbxout_type rewrite.  */
   int q_type_number;
 };
 
@@ -196,6 +197,7 @@ static GTY(()) int typevec_len;
 
 static GTY(()) int next_type_number;
 
+/* APPLE LOCAL begin dbxout_type rewrite.  */
 struct  qualified_typeinfo GTY(())
 {
   int pointer_type;
@@ -210,7 +212,7 @@ static GTY ((length ("q_typevec_len"))) struct qualified_typeinfo *q_typevec;
 static GTY(()) int q_typevec_len;
 static GTY(()) int next_q_type_number;
 static int dbxout_next_q_type_number (void);
-
+/* APPLE LOCAL end dbxout_type rewrite.  */
 /* The C front end may call dbxout_symbol before dbxout_init runs.
    We save all such decls in this list and output them when we get
    to dbxout_init.  */
@@ -1092,8 +1094,10 @@ dbxout_init (const char *input_file_name)
   typevec_len = 100;
   typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
 
+  /* APPLE LOCAL begin dbxout_type rewrite.  */
   q_typevec_len = 100;
   q_typevec = ggc_calloc (q_typevec_len, sizeof q_typevec[0]);
+  /* APPLE LOCAL end dbxout_type rewrite.  */
   /* APPLE LOCAL begin ss2 */
   /* Open dbx_out_file */
   if (flag_save_repository
@@ -1531,6 +1535,7 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
   /* APPLE LOCAL end ss2 */
 }
 
+/* APPLE LOCAL begin dbxout_type rewrite.  */
 /* If TYPE is a qualified type then note this info in
    q_typevec.  */
 static void
@@ -1630,12 +1635,13 @@ dbxout_reusable_type (tree type)
     }
   return 0;
 }
-
+/* APPLE LOCAL end dbxout_type rewrite.  */
 /* Output the index of a type.  */
 
 static void
 dbxout_type_index (tree type)
 {
+  /* APPLE LOCAL begin dbxout_type rewrite.  */
   struct typeinfo *t = NULL;
 
   if (TYPE_SYMTAB_ADDRESS (type) == 0)
@@ -1650,6 +1656,7 @@ dbxout_type_index (tree type)
 #else
 
   t = &typevec[TYPE_SYMTAB_ADDRESS (type)];
+  /* APPLE LOCAL end dbxout_type rewrite.  */
   stabstr_C ('(');
   stabstr_D (t->file_number);
   stabstr_C (',');
