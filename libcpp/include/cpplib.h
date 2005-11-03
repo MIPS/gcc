@@ -345,6 +345,9 @@ struct cpp_options
   /* Zero means dollar signs are punctuation.  */
   unsigned char dollars_in_ident;
 
+  /* Nonzero means UCNs are accepted in identifiers.  */
+  unsigned char extended_identifiers;
+
   /* True if we should warn about dollars in identifiers or numbers
      for this translation unit.  */
   unsigned char warn_dollars;
@@ -456,7 +459,7 @@ struct cpp_callbacks
 
   void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, unsigned int, const unsigned char *,
-		   const char *, int);
+		   const char *, int, const cpp_token **);
   void (*define) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*undef) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*ident) (cpp_reader *, unsigned int, const cpp_string *);

@@ -935,8 +935,9 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 		     them there.  */
 		  struct cp_binding_level *b = current_binding_level->level_chain;
 
-		  /* Skip the ctor/dtor cleanup level.  */
-		  b = b->level_chain;
+		  if (FUNCTION_NEEDS_BODY_BLOCK (current_function_decl))
+		    /* Skip the ctor/dtor cleanup level.  */
+		    b = b->level_chain;
 
 		  /* ARM $8.3 */
 		  if (b->kind == sk_function_parms)
@@ -4593,9 +4594,10 @@ arg_assoc (struct arg_lookup *k, tree n)
 	return true;
 
       /* Now the arguments.  */
-      for (ix = TREE_VEC_LENGTH (args); ix--;)
-	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
-	  return true;
+      if (args)
+	for (ix = TREE_VEC_LENGTH (args); ix--;)
+	  if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
+	    return true;
     }
   else if (TREE_CODE (n) == OVERLOAD)
     {
@@ -4687,6 +4689,11 @@ maybe_process_template_type_declaration (tree type, int is_friend,
 	 template <class A*> struct S;
 
        is a forward-declaration of `A'.  */
+    ;
+  else if (b->kind == sk_namespace
+	   && current_binding_level->kind != sk_namespace)
+    /* If this new type is being injected into a containing scope,
+       then it's not a template type.  */
     ;
   else
     {

@@ -2227,9 +2227,9 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	      shifted = force_reg (mode, shifted);
 
 	      temp = expand_shift (left ? LSHIFT_EXPR : RSHIFT_EXPR,
-				   mode, shifted, new_amount, subtarget, 1);
+				   mode, shifted, new_amount, 0, 1);
 	      temp1 = expand_shift (left ? RSHIFT_EXPR : LSHIFT_EXPR,
-				    mode, shifted, other_amount, 0, 1);
+				    mode, shifted, other_amount, subtarget, 1);
 	      return expand_binop (mode, ior_optab, temp, temp1, target,
 				   unsignedp, methods);
 	    }
@@ -2237,19 +2237,6 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	  temp = expand_binop (mode,
 			       left ? rotl_optab : rotr_optab,
 			       shifted, op1, target, unsignedp, methods);
-
-	  /* If we don't have the rotate, but we are rotating by a constant
-	     that is in range, try a rotate in the opposite direction.  */
-
-	  if (temp == 0 && GET_CODE (op1) == CONST_INT
-	      && INTVAL (op1) > 0
-	      && (unsigned int) INTVAL (op1) < GET_MODE_BITSIZE (mode))
-	    temp = expand_binop (mode,
-				 left ? rotr_optab : rotl_optab,
-				 shifted,
-				 GEN_INT (GET_MODE_BITSIZE (mode)
-					  - INTVAL (op1)),
-				 target, unsignedp, methods);
 	}
       else if (unsignedp)
 	temp = expand_binop (mode,
@@ -2286,10 +2273,18 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
   return temp;
 }
 
-enum alg_code { alg_unknown, alg_zero, alg_m, alg_shift,
-		  alg_add_t_m2, alg_sub_t_m2,
-		  alg_add_factor, alg_sub_factor,
-		  alg_add_t2_m, alg_sub_t2_m };
+enum alg_code {
+  alg_unknown,
+  alg_zero,
+  alg_m, alg_shift,
+  alg_add_t_m2,
+  alg_sub_t_m2,
+  alg_add_factor,
+  alg_sub_factor,
+  alg_add_t2_m,
+  alg_sub_t2_m,
+  alg_impossible
+};
 
 /* This structure holds the "cost" of a multiply sequence.  The
    "cost" field holds the total rtx_cost of every operator in the
@@ -2363,6 +2358,11 @@ struct alg_hash_entry {
 
   /* The best multiplication algorithm for t.  */
   enum alg_code alg;
+
+  /* The cost of multiplication if ALG_CODE is not alg_impossible.
+     Otherwise, the cost within which multiplication by T is
+     impossible.  */
+  struct mult_cost cost;
 };
 
 /* The number of cache/hash entries.  */
@@ -2465,29 +2465,57 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
       && alg_hash[hash_index].mode == mode
       && alg_hash[hash_index].alg != alg_unknown)
     {
-      cache_hit = true;
       cache_alg = alg_hash[hash_index].alg;
-      switch (cache_alg)
+
+      if (cache_alg == alg_impossible)
 	{
-	case alg_shift:
-	  goto do_alg_shift;
+	  /* The cache tells us that it's impossible to synthesize
+	     multiplication by T within alg_hash[hash_index].cost.  */
+	  if (!CHEAPER_MULT_COST (&alg_hash[hash_index].cost, cost_limit))
+	    /* COST_LIMIT is at least as restrictive as the one
+	       recorded in the hash table, in which case we have no
+	       hope of synthesizing a multiplication.  Just
+	       return.  */
+	    return;
 
-	case alg_add_t_m2:
-	case alg_sub_t_m2:
-	  goto do_alg_addsub_t_m2;
+	  /* If we get here, COST_LIMIT is less restrictive than the
+	     one recorded in the hash table, so we may be able to
+	     synthesize a multiplication.  Proceed as if we didn't
+	     have the cache entry.  */
+	}
+      else
+	{
+	  if (CHEAPER_MULT_COST (cost_limit, &alg_hash[hash_index].cost))
+	    /* The cached algorithm shows that this multiplication
+	       requires more cost than COST_LIMIT.  Just return.  This
+	       way, we don't clobber this cache entry with
+	       alg_impossible but retain useful information.  */
+	    return;
 
-	case alg_add_factor:
-	case alg_sub_factor:
-	  goto do_alg_addsub_factor;
+	  cache_hit = true;
 
-	case alg_add_t2_m:
-	  goto do_alg_add_t2_m;
+	  switch (cache_alg)
+	    {
+	    case alg_shift:
+	      goto do_alg_shift;
 
-	case alg_sub_t2_m:
-	  goto do_alg_sub_t2_m;
+	    case alg_add_t_m2:
+	    case alg_sub_t_m2:
+	      goto do_alg_addsub_t_m2;
 
-	default:
-	  gcc_unreachable ();
+	    case alg_add_factor:
+	    case alg_sub_factor:
+	      goto do_alg_addsub_factor;
+
+	    case alg_add_t2_m:
+	      goto do_alg_add_t2_m;
+
+	    case alg_sub_t2_m:
+	      goto do_alg_sub_t2_m;
+
+	    default:
+	      gcc_unreachable ();
+	    }
 	}
     }
 
@@ -2740,7 +2768,18 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
  done:
   /* If best_cost has not decreased, we have not found any algorithm.  */
   if (!CHEAPER_MULT_COST (&best_cost, cost_limit))
-    return;
+    {
+      /* We failed to find an algorithm.  Record alg_impossible for
+	 this case (that is, <T, MODE, COST_LIMIT>) so that next time
+	 we are asked to find an algorithm for T within the same or
+	 lower COST_LIMIT, we can immediately return to the
+	 caller.  */
+      alg_hash[hash_index].t = t;
+      alg_hash[hash_index].mode = mode;
+      alg_hash[hash_index].alg = alg_impossible;
+      alg_hash[hash_index].cost = *cost_limit;
+      return;
+    }
 
   /* Cache the result.  */
   if (!cache_hit)
@@ -2748,6 +2787,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
       alg_hash[hash_index].t = t;
       alg_hash[hash_index].mode = mode;
       alg_hash[hash_index].alg = best_alg->op[best_alg->ops];
+      alg_hash[hash_index].cost.cost = best_cost.cost;
+      alg_hash[hash_index].cost.latency = best_cost.latency;
     }
 
   /* If we are getting a too long sequence for `struct algorithm'
@@ -3022,6 +3063,7 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
       && (unsignedp || !flag_trapv))
     {
       HOST_WIDE_INT coeff = 0;
+      rtx fake_reg = gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 1);
 
       /* synth_mult does an `unsigned int' multiply.  As long as the mode is
 	 less than or equal in size to `unsigned int' this doesn't matter.
@@ -3039,8 +3081,10 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	      && GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT)
 	    {
 	      /* Its safe to use -INTVAL (op1) even for INT_MIN, as the
-		 result is interpreted as an unsigned coefficient.  */
-	      max_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET)
+		 result is interpreted as an unsigned coefficient.
+		 Exclude cost of op0 from max_cost to match the cost
+		 calculation of the synth_mult.  */
+	      max_cost = rtx_cost (gen_rtx_MULT (mode, fake_reg, op1), SET)
 			 - neg_cost[mode];
 	      if (max_cost > 0
 		  && choose_mult_variant (mode, -INTVAL (op1), &algorithm,
@@ -3083,7 +3127,9 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 				 build_int_cst (NULL_TREE, floor_log2 (coeff)),
 				 target, unsignedp);
 
-	  max_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET);
+	  /* Exclude cost of op0 from max_cost to match the cost
+	     calculation of the synth_mult.  */
+	  max_cost = rtx_cost (gen_rtx_MULT (mode, fake_reg, op1), SET);
 	  if (choose_mult_variant (mode, coeff, &algorithm, &variant,
 				   max_cost))
 	    return expand_mult_const (mode, op0, coeff, target,

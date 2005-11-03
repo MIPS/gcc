@@ -325,16 +325,14 @@ build_base_path (enum tree_code code,
 
       if (fixed_type_p < 0 && in_base_initializer)
 	{
-	  /* In a base member initializer, we cannot rely on
-	     the vtable being set up. We have to use the vtt_parm.  */
-	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
+	  /* In a base member initializer, we cannot rely on the
+	     vtable being set up.  We have to indirect via the
+	     vtt_parm.  */
 	  tree t;
 
-	  t = TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived)));
+	  t = TREE_TYPE (TYPE_VFIELD (current_class_type));
 	  t = build_pointer_type (t);
 	  v_offset = convert (t, current_vtt_parm);
-	  v_offset = build2 (PLUS_EXPR, t, v_offset,
-			     BINFO_VPTR_INDEX (derived));
 	  v_offset = build_indirect_ref (v_offset, NULL);
 	}
       else
@@ -881,9 +879,10 @@ modify_vtable_entry (tree t,
 
 
 /* Add method METHOD to class TYPE.  If USING_DECL is non-null, it is
-   the USING_DECL naming METHOD.  */
+   the USING_DECL naming METHOD.  Returns true if the method could be
+   added to the method vec.  */
 
-void
+bool
 add_method (tree type, tree method, tree using_decl)
 {
   unsigned slot;
@@ -896,7 +895,7 @@ add_method (tree type, tree method, tree using_decl)
   tree current_fns;
 
   if (method == error_mark_node)
-    return;
+    return false;
 
   complete_p = COMPLETE_TYPE_P (type);
   conv_p = DECL_CONV_FN_P (method);
@@ -1029,7 +1028,7 @@ add_method (tree type, tree method, tree using_decl)
 		{
 		  if (DECL_CONTEXT (fn) == type)
 		    /* Defer to the local function.  */
-		    return;
+		    return false;
 		  if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
 		    error ("repeated using declaration %q+D", using_decl);
 		  else
@@ -1046,7 +1045,7 @@ add_method (tree type, tree method, tree using_decl)
 		 declarations because that will confuse things if the
 		 methods have inline definitions.  In particular, we
 		 will crash while processing the definitions.  */
-	      return;
+	      return false;
 	    }
 	}
     }
@@ -1071,6 +1070,7 @@ add_method (tree type, tree method, tree using_decl)
   else
     /* Replace the current slot.  */
     VEC_replace (tree, method_vec, slot, overload);
+  return true;
 }
 
 /* Subroutines of finish_struct.  */
@@ -1539,7 +1539,10 @@ maybe_warn_about_overly_private_class (tree t)
       return;
     }
 
-  if (TYPE_HAS_CONSTRUCTOR (t))
+  if (TYPE_HAS_CONSTRUCTOR (t)
+      /* Implicitly generated constructors are always public.  */
+      && (!CLASSTYPE_LAZY_DEFAULT_CTOR (t)
+	  || !CLASSTYPE_LAZY_COPY_CTOR (t)))
     {
       int nonprivate_ctor = 0;
 
@@ -1906,11 +1909,7 @@ find_final_overrider (tree derived, tree binfo, tree fn)
 
   /* If there was no winner, issue an error message.  */
   if (!ffod.candidates || TREE_CHAIN (ffod.candidates))
-    {
-      error ("no unique final overrider for %qD in %qT", fn,
-	     BINFO_TYPE (derived));
-      return error_mark_node;
-    }
+    return error_mark_node;
 
   return ffod.candidates;
 }
@@ -1970,7 +1969,10 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
   /* Find the final overrider.  */
   overrider = find_final_overrider (TYPE_BINFO (t), b, target_fn);
   if (overrider == error_mark_node)
-    return;
+    {
+      error ("no unique final overrider for %qD in %qT", target_fn, t);
+      return;
+    }
   overrider_target = overrider_fn = TREE_PURPOSE (overrider);
 
   /* Check for adjusting covariant return types.  */
@@ -1980,7 +1982,9 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
   if (POINTER_TYPE_P (over_return)
       && TREE_CODE (over_return) == TREE_CODE (base_return)
       && CLASS_TYPE_P (TREE_TYPE (over_return))
-      && CLASS_TYPE_P (TREE_TYPE (base_return)))
+      && CLASS_TYPE_P (TREE_TYPE (base_return))
+      /* If the overrider is invalid, don't even try.  */
+      && !DECL_INVALID_OVERRIDER_P (overrider_target))
     {
       /* If FN is a covariant thunk, we must figure out the adjustment
 	 to the final base FN was converting to. As OVERRIDER_TARGET might
@@ -3102,6 +3106,9 @@ walk_subobject_offsets (tree type,
   if (max_offset && INT_CST_LT (max_offset, offset))
     return 0;
 
+  if (type == error_mark_node)
+    return 0;
+  
   if (!TYPE_P (type))
     {
       if (abi_version_at_least (2))
@@ -5025,6 +5032,11 @@ finish_struct_1 (tree t)
 
   if (warn_overloaded_virtual)
     warn_hidden (t);
+
+  /* Class layout, assignment of virtual table slots, etc., is now
+     complete.  Give the back end a chance to tweak the visibility of
+     the class or perform any other required target modifications.  */
+  targetm.cxx.adjust_class_at_definition (t);
 
   maybe_suppress_debug_info (t);
 

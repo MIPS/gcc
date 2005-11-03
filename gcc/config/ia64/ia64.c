@@ -1766,6 +1766,113 @@ ia64_expand_vecint_minmax (enum rtx_code code, enum machine_mode mode,
   return true;
 }
 
+/* Emit an integral vector widening sum operations.  */
+
+void
+ia64_expand_widen_sum (rtx operands[3], bool unsignedp)
+{
+  rtx l, h, x, s;
+  enum machine_mode wmode, mode;
+  rtx (*unpack_l) (rtx, rtx, rtx);
+  rtx (*unpack_h) (rtx, rtx, rtx);
+  rtx (*plus) (rtx, rtx, rtx);
+
+  wmode = GET_MODE (operands[0]);
+  mode = GET_MODE (operands[1]);
+
+  switch (mode)
+    {
+    case V8QImode:
+      unpack_l = gen_unpack1_l;
+      unpack_h = gen_unpack1_h;
+      plus = gen_addv4hi3;
+      break;
+    case V4HImode:
+      unpack_l = gen_unpack2_l;
+      unpack_h = gen_unpack2_h;
+      plus = gen_addv2si3;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Fill in x with the sign extension of each element in op1.  */
+  if (unsignedp)
+    x = CONST0_RTX (mode);
+  else
+    {
+      bool neg;
+
+      x = gen_reg_rtx (mode);
+
+      neg = ia64_expand_vecint_compare (LT, mode, x, operands[1],
+					CONST0_RTX (mode));
+      gcc_assert (!neg);
+    }
+
+  l = gen_reg_rtx (wmode);
+  h = gen_reg_rtx (wmode);
+  s = gen_reg_rtx (wmode);
+
+  emit_insn (unpack_l (gen_lowpart (mode, l), operands[1], x));
+  emit_insn (unpack_h (gen_lowpart (mode, h), operands[1], x));
+  emit_insn (plus (s, l, operands[2]));
+  emit_insn (plus (operands[0], h, s));
+}
+
+/* Emit a signed or unsigned V8QI dot product operation.  */
+
+void
+ia64_expand_dot_prod_v8qi (rtx operands[4], bool unsignedp)
+{
+  rtx l1, l2, h1, h2, x1, x2, p1, p2, p3, p4, s1, s2, s3;
+
+  /* Fill in x1 and x2 with the sign extension of each element.  */
+  if (unsignedp)
+    x1 = x2 = CONST0_RTX (V8QImode);
+  else
+    {
+      bool neg;
+
+      x1 = gen_reg_rtx (V8QImode);
+      x2 = gen_reg_rtx (V8QImode);
+
+      neg = ia64_expand_vecint_compare (LT, V8QImode, x1, operands[1],
+					CONST0_RTX (V8QImode));
+      gcc_assert (!neg);
+      neg = ia64_expand_vecint_compare (LT, V8QImode, x2, operands[2],
+					CONST0_RTX (V8QImode));
+      gcc_assert (!neg);
+    }
+
+  l1 = gen_reg_rtx (V4HImode);
+  l2 = gen_reg_rtx (V4HImode);
+  h1 = gen_reg_rtx (V4HImode);
+  h2 = gen_reg_rtx (V4HImode);
+
+  emit_insn (gen_unpack1_l (gen_lowpart (V8QImode, l1), operands[1], x1));
+  emit_insn (gen_unpack1_l (gen_lowpart (V8QImode, l2), operands[2], x2));
+  emit_insn (gen_unpack1_h (gen_lowpart (V8QImode, h1), operands[1], x1));
+  emit_insn (gen_unpack1_h (gen_lowpart (V8QImode, h2), operands[2], x2));
+
+  p1 = gen_reg_rtx (V2SImode);
+  p2 = gen_reg_rtx (V2SImode);
+  p3 = gen_reg_rtx (V2SImode);
+  p4 = gen_reg_rtx (V2SImode);
+  emit_insn (gen_pmpy2_r (p1, l1, l2));
+  emit_insn (gen_pmpy2_l (p2, l1, l2));
+  emit_insn (gen_pmpy2_r (p3, h1, h2));
+  emit_insn (gen_pmpy2_l (p4, h1, h2));
+
+  s1 = gen_reg_rtx (V2SImode);
+  s2 = gen_reg_rtx (V2SImode);
+  s3 = gen_reg_rtx (V2SImode);
+  emit_insn (gen_addv2si3 (s1, p1, p2));
+  emit_insn (gen_addv2si3 (s2, p3, p4));
+  emit_insn (gen_addv2si3 (s3, s1, operands[3]));
+  emit_insn (gen_addv2si3 (operands[0], s2, s3));
+}
+
 /* Emit the appropriate sequence for a call.  */
 
 void
@@ -8695,9 +8802,27 @@ ia64_vector_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* Implement the FUNCTION_PROFILER macro.  */
+
 void
 ia64_output_function_profiler (FILE *file, int labelno)
 {
+  bool indirect_call;
+
+  /* If the function needs a static chain and the static chain
+     register is r15, we use an indirect call so as to bypass
+     the PLT stub in case the executable is dynamically linked,
+     because the stub clobbers r15 as per 5.3.6 of the psABI.
+     We don't need to do that in non canonical PIC mode.  */
+
+  if (cfun->static_chain_decl && !TARGET_NO_PIC && !TARGET_AUTO_PIC)
+    {
+      gcc_assert (STATIC_CHAIN_REGNUM == 15);
+      indirect_call = true;
+    }
+  else
+    indirect_call = false;
+
   if (TARGET_GNU_AS)
     fputs ("\t.prologue 4, r40\n", file);
   else
@@ -8705,7 +8830,7 @@ ia64_output_function_profiler (FILE *file, int labelno)
   fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", file);
 
   if (NO_PROFILE_COUNTERS)
-    fputs ("\tmov out3 = r0\n\t;;\n", file);
+    fputs ("\tmov out3 = r0\n", file);
   else
     {
       char buf[20];
@@ -8717,16 +8842,30 @@ ia64_output_function_profiler (FILE *file, int labelno)
 	fputs ("\taddl out3 = @ltoff(", file);
       assemble_name (file, buf);
       if (TARGET_AUTO_PIC)
-	fputs (")\n\t;;\n", file);
+	fputs (")\n", file);
       else
-	fputs ("), r1\n\t;;\n", file);
+	fputs ("), r1\n", file);
     }
+
+  if (indirect_call)
+    fputs ("\taddl r14 = @ltoff(@fptr(_mcount)), r1\n", file);
+  fputs ("\t;;\n", file);
 
   fputs ("\t.save rp, r42\n", file);
   fputs ("\tmov out2 = b0\n", file);
+  if (indirect_call)
+    fputs ("\tld8 r14 = [r14]\n\t;;\n", file);
   fputs ("\t.body\n", file);
   fputs ("\tmov out1 = r1\n", file);
-  fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
+  if (indirect_call)
+    {
+      fputs ("\tld8 r16 = [r14], 8\n\t;;\n", file);
+      fputs ("\tmov b6 = r16\n", file);
+      fputs ("\tld8 r1 = [r14]\n", file);
+      fputs ("\tbr.call.sptk.many b0 = b6\n\t;;\n", file);
+    }
+  else
+    fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
 }
 
 static GTY(()) rtx mcount_func_rtx;

@@ -40,17 +40,6 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
 
-/* This structure maintain a sorted list of operands which is created by
-   parse_ssa_operand.  */
-struct opbuild_list_d GTY (())
-{
-  varray_type vars;     /* The VAR_DECLS tree.  */
-  varray_type uid;      /* The sort value for virtual symbols.  */
-  varray_type next;     /* The next index in the sorted list.  */
-  int first;            /* First element in list.  */
-  unsigned num;		/* Number of elements.  */
-};
-
 struct ssa GTY(()) {
   /* Array of all variables referenced in the function.  */
   htab_t GTY((param_is (struct int_tree_map))) x_referenced_vars;
@@ -88,19 +77,19 @@ struct ssa GTY(()) {
   tree x_free_ssanames;
 
   /* Array for building all the def operands.  */
-  struct opbuild_list_d x_build_defs;
+  VEC(tree,heap) * GTY((skip)) x_build_defs;
 
   /* Array for building all the use operands.  */
-  struct opbuild_list_d x_build_uses;
+  VEC(tree,heap) * GTY((skip)) x_build_uses;
 
   /* Array for building all the v_may_def operands.  */
-  struct opbuild_list_d x_build_v_may_defs;
+  VEC(tree,heap) * GTY((skip)) x_build_v_may_defs;
 
   /* Array for building all the vuse operands.  */
-  struct opbuild_list_d x_build_vuses;
+  VEC(tree,heap) * GTY((skip)) x_build_vuses;
 
   /* Array for building all the v_must_def operands.  */
-  struct opbuild_list_d x_build_v_must_defs;
+  VEC(tree,heap) * GTY((skip)) x_build_v_must_defs;
 
   struct ssa_operand_memory_d *x_operand_memory;
   unsigned x_operand_memory_index;
@@ -690,6 +679,7 @@ extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
+static inline bool ref_contains_indirect_ref (tree);
 extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
 					    unsigned HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
@@ -745,6 +735,7 @@ extern void debug_dominator_optimization_stats (void);
 int loop_depth_of_name (tree);
 
 /* In tree-ssa-copy.c  */
+extern void merge_alias_info (tree, tree);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
@@ -808,6 +799,7 @@ bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *,
 			    bool *);
 tree convert_step (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
+void free_numbers_of_iterations_estimates_loop (struct loop *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
 void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);

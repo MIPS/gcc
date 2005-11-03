@@ -564,7 +564,23 @@ compare_values (tree val1, tree val2)
 
 /* Return 1 if VAL is inside value range VR (VR->MIN <= VAL <= VR->MAX),
           0 if VAL is not inside VR,
-	 -2 if we cannot tell either way.  */
+	 -2 if we cannot tell either way.
+
+   FIXME, the current semantics of this functions are a bit quirky
+	  when taken in the context of VRP.  In here we do not care
+	  about VR's type.  If VR is the anti-range ~[3, 5] the call
+	  value_inside_range (4, VR) will return 1.
+
+	  This is counter-intuitive in a strict sense, but the callers
+	  currently expect this.  They are calling the function
+	  merely to determine whether VR->MIN <= VAL <= VR->MAX.  The
+	  callers are applying the VR_RANGE/VR_ANTI_RANGE semantics
+	  themselves.
+
+	  This also applies to value_ranges_intersect_p and
+	  range_includes_zero_p.  The semantics of VR_RANGE and
+	  VR_ANTI_RANGE should be encoded here, but that also means
+	  adapting the users of these functions to the new semantics.  */
 
 static inline int
 value_inside_range (tree val, value_range_t *vr)
@@ -596,7 +612,11 @@ value_ranges_intersect_p (value_range_t *vr0, value_range_t *vr1)
 }
 
 
-/* Return true if VR includes the value zero, false otherwise.  */
+/* Return true if VR includes the value zero, false otherwise.  FIXME,
+   currently this will return false for an anti-range like ~[-4, 3].
+   This will be wrong when the semantics of value_inside_range are
+   modified (currently the users of this function expect these
+   semantics).  */
 
 static inline bool
 range_includes_zero_p (value_range_t *vr)
@@ -774,17 +794,32 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	 LIMIT's range was ~[0, 0], the assertion 'VAR != LIMIT' does
 	 not imply that VAR's range is [0, 0].  So, in the case of
 	 anti-ranges, we just assert the inequality using LIMIT and
-	 not its anti-range.  */
-      if (limit_vr == NULL
-	  || limit_vr->type == VR_ANTI_RANGE)
-	{
-	  min = limit;
-	  max = limit;
-	}
-      else
+	 not its anti-range.
+
+	 If LIMIT_VR is a range, we can only use it to build a new
+	 anti-range if LIMIT_VR is a single-valued range.  For
+	 instance, if LIMIT_VR is [0, 1], the predicate
+	 VAR != [0, 1] does not mean that VAR's range is ~[0, 1].
+	 Rather, it means that for value 0 VAR should be ~[0, 0]
+	 and for value 1, VAR should be ~[1, 1].  We cannot
+	 represent these ranges.
+
+	 The only situation in which we can build a valid
+	 anti-range is when LIMIT_VR is a single-valued range
+	 (i.e., LIMIT_VR->MIN == LIMIT_VR->MAX).  In that case, 
+	 build the anti-range ~[LIMIT_VR->MIN, LIMIT_VR->MAX].  */
+      if (limit_vr
+	  && limit_vr->type == VR_RANGE
+	  && compare_values (limit_vr->min, limit_vr->max) == 0)
 	{
 	  min = limit_vr->min;
 	  max = limit_vr->max;
+	}
+      else
+	{
+	  /* In any other case, we cannot use LIMIT's range to build a
+	     valid anti-range.  */
+	  min = max = limit;
 	}
 
       /* If MIN and MAX cover the whole range for their type, then
@@ -845,29 +880,93 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
   else
     gcc_unreachable ();
 
-  /* If VAR already had a known range and the two ranges have a
-     non-empty intersection, we can refine the resulting range.
-     Since the assert expression creates an equivalency and at the
-     same time it asserts a predicate, we can take the intersection of
-     the two ranges to get better precision.  */
+  /* If VAR already had a known range, it may happen that the new
+     range we have computed and VAR's range are not compatible.  For
+     instance,
+
+	if (p_5 == NULL)
+	  p_6 = ASSERT_EXPR <p_5, p_5 == NULL>;
+	  x_7 = p_6->fld;
+	  p_8 = ASSERT_EXPR <p_6, p_6 != NULL>;
+
+     While the above comes from a faulty program, it will cause an ICE
+     later because p_8 and p_6 will have incompatible ranges and at
+     the same time will be considered equivalent.  A similar situation
+     would arise from
+
+     	if (i_5 > 10)
+	  i_6 = ASSERT_EXPR <i_5, i_5 > 10>;
+	  if (i_5 < 5)
+	    i_7 = ASSERT_EXPR <i_6, i_6 < 5>;
+
+     Again i_6 and i_7 will have incompatible ranges.  It would be
+     pointless to try and do anything with i_7's range because
+     anything dominated by 'if (i_5 < 5)' will be optimized away.
+     Note, due to the wa in which simulation proceeds, the statement
+     i_7 = ASSERT_EXPR <...> we would never be visited because the
+     conditiona 'if (i_5 < 5)' always evaluates to false.  However,
+     this extra check does not hurt and may protect against future
+     changes to VRP that may get into a situation similar to the
+     NULL pointer dereference example.
+
+     Note that these compatibility tests are only needed when dealing
+     with ranges or a mix of range and anti-range.  If VAR_VR and VR_P
+     are both anti-ranges, they will always be compatible, because two
+     anti-ranges will always have a non-empty intersection.  */
+
   var_vr = get_value_range (var);
-  if (var_vr->type == VR_RANGE
-      && vr_p->type == VR_RANGE
-      && value_ranges_intersect_p (var_vr, vr_p))
+
+  /* We may need to make adjustments when VR_P and VAR_VR are numeric
+     ranges or anti-ranges.  */
+  if (vr_p->type == VR_VARYING
+      || vr_p->type == VR_UNDEFINED
+      || var_vr->type == VR_VARYING
+      || var_vr->type == VR_UNDEFINED
+      || symbolic_range_p (vr_p)
+      || symbolic_range_p (var_vr))
+    return;
+
+  if (var_vr->type == VR_RANGE && vr_p->type == VR_RANGE)
     {
-      /* Use the larger of the two minimums.  */
-      if (compare_values (vr_p->min, var_vr->min) == -1)
-	min = var_vr->min;
-      else
-	min = vr_p->min;
+      /* If the two ranges have a non-empty intersection, we can
+	 refine the resulting range.  Since the assert expression
+	 creates an equivalency and at the same time it asserts a
+	 predicate, we can take the intersection of the two ranges to
+	 get better precision.  */
+      if (value_ranges_intersect_p (var_vr, vr_p))
+	{
+	  /* Use the larger of the two minimums.  */
+	  if (compare_values (vr_p->min, var_vr->min) == -1)
+	    min = var_vr->min;
+	  else
+	    min = vr_p->min;
 
-      /* Use the smaller of the two maximums.  */
-      if (compare_values (vr_p->max, var_vr->max) == 1)
-	max = var_vr->max;
-      else
-	max = vr_p->max;
+	  /* Use the smaller of the two maximums.  */
+	  if (compare_values (vr_p->max, var_vr->max) == 1)
+	    max = var_vr->max;
+	  else
+	    max = vr_p->max;
 
-      set_value_range (vr_p, vr_p->type, min, max, vr_p->equiv);
+	  set_value_range (vr_p, vr_p->type, min, max, vr_p->equiv);
+	}
+      else
+	{
+	  /* The two ranges do not intersect, set the new range to
+	     VARYING, because we will not be able to do anything
+	     meaningful with it.  */
+	  set_value_range_to_varying (vr_p);
+	}
+    }
+  else if ((var_vr->type == VR_RANGE && vr_p->type == VR_ANTI_RANGE)
+           || (var_vr->type == VR_ANTI_RANGE && vr_p->type == VR_RANGE))
+    {
+      /* A range and an anti-range will cancel each other only if
+	 their ends are the same.  For instance, in the example above,
+	 p_8's range ~[0, 0] and p_6's range [0, 0] are incompatible,
+	 so VR_P should be set to VR_VARYING.  */
+      if (compare_values (var_vr->min, vr_p->min) == 0
+	  && compare_values (var_vr->max, vr_p->max) == 0)
+	set_value_range_to_varying (vr_p);
     }
 }
 
@@ -2784,6 +2883,8 @@ remove_range_assertions (void)
 	else
 	  bsi_next (&si);
       }
+
+  sbitmap_free (blocks_visited);
 }
 
 
@@ -3396,8 +3497,11 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 	  && !symbolic_range_p (vr1)
 	  && !value_ranges_intersect_p (vr0, vr1))
 	{
+	  /* Copy most of VR1 into VR0.  Don't copy VR1's equivalence
+	     set.  We need to compute the intersection of the two
+	     equivalence sets.  */
 	  if (vr1->type == VR_ANTI_RANGE)
-	    copy_value_range (vr0, vr1);
+	    set_value_range (vr0, vr1->type, vr1->min, vr1->max, vr0->equiv);
 
 	  /* The resulting set of equivalences is the intersection of
 	     the two sets.  */
@@ -3417,12 +3521,23 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 no_meet:
   /* The two range VR0 and VR1 do not meet.  Before giving up and
      setting the result to VARYING, see if we can at least derive a
-     useful anti-range.  */
+     useful anti-range.  FIXME, all this nonsense about distinguishing
+     anti-ranges from ranges is necessary because of the odd
+     semantics of range_includes_zero_p and friends.  */
   if (!symbolic_range_p (vr0)
-      && !range_includes_zero_p (vr0)
+      && ((vr0->type == VR_RANGE && !range_includes_zero_p (vr0))
+	  || (vr0->type == VR_ANTI_RANGE && range_includes_zero_p (vr0)))
       && !symbolic_range_p (vr1)
-      && !range_includes_zero_p (vr1))
-    set_value_range_to_nonnull (vr0, TREE_TYPE (vr0->min));
+      && ((vr1->type == VR_RANGE && !range_includes_zero_p (vr1))
+	  || (vr1->type == VR_ANTI_RANGE && range_includes_zero_p (vr1))))
+    {
+      set_value_range_to_nonnull (vr0, TREE_TYPE (vr0->min));
+
+      /* Since this meet operation did not result from the meeting of
+	 two equivalent names, VR0 cannot have any equivalences.  */
+      if (vr0->equiv)
+	bitmap_clear (vr0->equiv);
+    }
   else
     set_value_range_to_varying (vr0);
 }
@@ -3497,7 +3612,7 @@ vrp_visit_phi_node (tree phi)
   /* To prevent infinite iterations in the algorithm, derive ranges
      when the new value is slightly bigger or smaller than the
      previous one.  */
-  if (lhs_vr->type == VR_RANGE)
+  if (lhs_vr->type == VR_RANGE && vr_result.type == VR_RANGE)
     {
       if (!POINTER_TYPE_P (TREE_TYPE (lhs)))
 	{

@@ -700,7 +700,7 @@
   [(set_attr "type" "sseadd")
    (set_attr "mode" "V4SF")])
 
-(define_expand "reduc_plus_v4sf"
+(define_expand "reduc_splus_v4sf"
   [(match_operand:V4SF 0 "register_operand" "")
    (match_operand:V4SF 1 "register_operand" "")]
   "TARGET_SSE"
@@ -1689,6 +1689,15 @@
   "hsubpd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "V2DF")])
+
+(define_expand "reduc_splus_v2df"
+  [(match_operand:V2DF 0 "register_operand" "")
+   (match_operand:V2DF 1 "register_operand" "")]
+  "TARGET_SSE3"
+{
+  emit_insn (gen_sse3_haddv2df3 (operands[0], operands[1], operands[1]));
+  DONE;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -2988,13 +2997,13 @@
 })
 
 (define_expand "vcondu<mode>"
-  [(set (match_operand:SSEMODE12 0 "register_operand" "")
-        (if_then_else:SSEMODE12
+  [(set (match_operand:SSEMODE124 0 "register_operand" "")
+        (if_then_else:SSEMODE124
           (match_operator 3 ""
-            [(match_operand:SSEMODE12 4 "nonimmediate_operand" "")
-             (match_operand:SSEMODE12 5 "nonimmediate_operand" "")])
-          (match_operand:SSEMODE12 1 "general_operand" "")
-          (match_operand:SSEMODE12 2 "general_operand" "")))]
+            [(match_operand:SSEMODE124 4 "nonimmediate_operand" "")
+             (match_operand:SSEMODE124 5 "nonimmediate_operand" "")])
+          (match_operand:SSEMODE124 1 "general_operand" "")
+          (match_operand:SSEMODE124 2 "general_operand" "")))]
   "TARGET_SSE2"
 {
   if (ix86_expand_int_vcond (operands))

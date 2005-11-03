@@ -187,6 +187,36 @@ tree *ridpointers = NULL;
 static void
 gfc_expand_function (tree fndecl)
 {
+  tree t;
+
+  if (DECL_INITIAL (fndecl)
+      && BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl)))
+    {
+      /* Local static equivalenced variables are never seen by
+	 check_global_declarations, so we need to output debug
+	 info by hand.  */
+
+      t = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl));
+      for (t = BLOCK_VARS (t); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t)
+	    && TREE_STATIC (t))
+	  {
+	    tree expr = DECL_VALUE_EXPR (t);
+
+	    if (TREE_CODE (expr) == COMPONENT_REF
+		&& TREE_CODE (TREE_OPERAND (expr, 0)) == VAR_DECL
+		&& TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
+		   == UNION_TYPE
+		&& cgraph_varpool_node (TREE_OPERAND (expr, 0))->needed
+		&& errorcount == 0 && sorrycount == 0)
+	      {
+		timevar_push (TV_SYMOUT);
+		(*debug_hooks->global_decl) (t);
+		timevar_pop (TV_SYMOUT);
+	      }
+	  }
+    }
+
   tree_rest_of_compilation (fndecl);
 }
 
@@ -568,6 +598,7 @@ gfc_init_decl_processing (void)
   build_common_tree_nodes (false, false);
   set_sizetype (long_unsigned_type_node);
   build_common_tree_nodes_2 (0);
+  void_list_node = build_tree_list (NULL_TREE, void_type_node);
 
   /* Set up F95 type nodes.  */
   gfc_init_kinds ();
@@ -718,6 +749,8 @@ gfc_define_builtin (const char * name,
 
 
 #define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
+    gfc_define_builtin ("__builtin_" name "l", tbase##longdouble[argtype], \
+                       BUILT_IN_ ## code ## L, name "l", true); \
     gfc_define_builtin ("__builtin_" name, tbase##double[argtype], \
 			BUILT_IN_ ## code, name, true); \
     gfc_define_builtin ("__builtin_" name "f", tbase##float[argtype], \
@@ -726,11 +759,9 @@ gfc_define_builtin (const char * name,
 #define DEFINE_MATH_BUILTIN(code, name, argtype) \
     DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
 
-/* The middle-end is missing builtins for some complex math functions, so
-   we don't use them yet.  */
 #define DEFINE_MATH_BUILTIN_C(code, name, argtype) \
-    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
-/*    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)*/
+    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_) \
+    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)
 
 
 /* Create function types for builtin functions.  */
@@ -760,17 +791,22 @@ gfc_init_builtin_functions (void)
 {
   tree mfunc_float[3];
   tree mfunc_double[3];
+  tree mfunc_longdouble[3];
   tree mfunc_cfloat[3];
   tree mfunc_cdouble[3];
+  tree mfunc_clongdouble[3];
   tree func_cfloat_float;
   tree func_cdouble_double;
+  tree func_clongdouble_longdouble;
   tree ftype;
   tree tmp;
 
   build_builtin_fntypes (mfunc_float, float_type_node);
   build_builtin_fntypes (mfunc_double, double_type_node);
+  build_builtin_fntypes (mfunc_longdouble, long_double_type_node);
   build_builtin_fntypes (mfunc_cfloat, complex_float_type_node);
   build_builtin_fntypes (mfunc_cdouble, complex_double_type_node);
+  build_builtin_fntypes (mfunc_clongdouble, complex_long_double_type_node);
 
   tmp = tree_cons (NULL_TREE, complex_float_type_node, void_list_node);
   func_cfloat_float = build_function_type (float_type_node, tmp);
@@ -778,30 +814,45 @@ gfc_init_builtin_functions (void)
   tmp = tree_cons (NULL_TREE, complex_double_type_node, void_list_node);
   func_cdouble_double = build_function_type (double_type_node, tmp);
 
+  tmp = tree_cons (NULL_TREE, complex_long_double_type_node, void_list_node);
+  func_clongdouble_longdouble =
+    build_function_type (long_double_type_node, tmp);
+
 #include "mathbuiltins.def"
 
   /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
+  gfc_define_builtin ("__builtin_roundl", mfunc_longdouble[0], 
+		      BUILT_IN_ROUNDL, "roundl", true);
   gfc_define_builtin ("__builtin_round", mfunc_double[0], 
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
+
+  gfc_define_builtin ("__builtin_truncl", mfunc_longdouble[0],
+		      BUILT_IN_TRUNCL, "truncl", true);
   gfc_define_builtin ("__builtin_trunc", mfunc_double[0],
                       BUILT_IN_TRUNC, "trunc", true);
   gfc_define_builtin ("__builtin_truncf", mfunc_float[0],
                       BUILT_IN_TRUNCF, "truncf", true);
 
+  gfc_define_builtin ("__builtin_cabsl", func_clongdouble_longdouble, 
+		      BUILT_IN_CABSL, "cabsl", true);
   gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
 		      BUILT_IN_CABSF, "cabsf", true);
  
+  gfc_define_builtin ("__builtin_copysignl", mfunc_longdouble[1], 
+		      BUILT_IN_COPYSIGNL, "copysignl", true);
   gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
 		      BUILT_IN_COPYSIGN, "copysign", true);
   gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
 		      BUILT_IN_COPYSIGNF, "copysignf", true);
 
   /* These are used to implement the ** operator.  */
+  gfc_define_builtin ("__builtin_powl", mfunc_longdouble[1], 
+		      BUILT_IN_POWL, "powl", true);
   gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
 		      BUILT_IN_POW, "pow", true);
   gfc_define_builtin ("__builtin_powf", mfunc_float[1], 

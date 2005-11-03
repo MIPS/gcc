@@ -3778,6 +3778,9 @@ static GTY(()) unsigned line_info_table_allocated;
 /* Number of elements in line_info_table currently in use.  */
 static GTY(()) unsigned line_info_table_in_use;
 
+/* True if the compilation unit contains more than one .text section.  */
+static GTY(()) bool have_switched_text_section = false;
+
 /* A pointer to the base of a table that contains line information
    for each source code line outside of .text in the compilation unit.  */
 static GTY ((length ("separate_line_info_table_allocated")))
@@ -6850,7 +6853,7 @@ dwarf2out_switch_text_section (void)
   fde->dw_fde_hot_section_end_label = cfun->hot_section_end_label;
   fde->dw_fde_unlikely_section_label = cfun->cold_section_label;
   fde->dw_fde_unlikely_section_end_label = cfun->cold_section_end_label;
-  separate_line_info_table_in_use++;
+  have_switched_text_section = true;
 }
 
 /* Output the location list given to us.  */
@@ -6866,7 +6869,7 @@ output_loc_list (dw_loc_list_ref list_head)
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
       unsigned long size;
-      if (separate_line_info_table_in_use == 0)
+      if (!separate_line_info_table_in_use && !have_switched_text_section)
 	{
 	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
 				"Location list begin address (%s)",
@@ -7375,7 +7378,7 @@ output_ranges (void)
 	  /* If all code is in the text section, then the compilation
 	     unit base address defaults to DW_AT_low_pc, which is the
 	     base of the text section.  */
-	  if (separate_line_info_table_in_use == 0)
+	  if (!separate_line_info_table_in_use && !have_switched_text_section)
 	    {
 	      dw2_asm_output_delta (DWARF2_ADDR_SIZE, blabel,
 				    text_section_label,
@@ -13373,7 +13376,7 @@ lookup_filename (const char *file_name)
      prune_unused_types_walk_attribs.  */
 
   if (DWARF2_ASM_LINE_DEBUG_INFO && ! flag_eliminate_unused_debug_types)
-    maybe_emit_file (i);
+    return maybe_emit_file (i);
 
   return i;
 }
@@ -13591,13 +13594,15 @@ dwarf2out_start_source_file (unsigned int lineno, const char *filename)
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
+      int fileno;
+
       named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
       dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
       dw2_asm_output_data_uleb128 (lineno, "Included from line number %d",
 				   lineno);
-      maybe_emit_file (lookup_filename (filename));
-      dw2_asm_output_data_uleb128 (lookup_filename (filename),
-				   "Filename we just started");
+
+      fileno = maybe_emit_file (lookup_filename (filename));
+      dw2_asm_output_data_uleb128 (fileno, "Filename we just started");
     }
 }
 
@@ -14094,7 +14099,7 @@ dwarf2out_finish (const char *filename)
 
   /* We can only use the low/high_pc attributes if all of the code was
      in .text.  */
-  if (separate_line_info_table_in_use == 0)
+  if (!separate_line_info_table_in_use && !have_switched_text_section)
     {
       add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, text_section_label);
       add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);

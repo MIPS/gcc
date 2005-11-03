@@ -3025,9 +3025,18 @@ invert_truthvalue (tree arg)
       return TREE_OPERAND (arg, 0);
 
     case COND_EXPR:
-      return build3 (COND_EXPR, type, TREE_OPERAND (arg, 0),
-		     invert_truthvalue (TREE_OPERAND (arg, 1)),
-		     invert_truthvalue (TREE_OPERAND (arg, 2)));
+      {
+	tree arg1 = TREE_OPERAND (arg, 1);
+	tree arg2 = TREE_OPERAND (arg, 2);
+	/* A COND_EXPR may have a throw as one operand, which
+	   then has void type.  Just leave void operands
+	   as they are.  */
+	return build3 (COND_EXPR, type, TREE_OPERAND (arg, 0),
+		       VOID_TYPE_P (TREE_TYPE (arg1))
+		       ? arg1 : invert_truthvalue (arg1),
+		       VOID_TYPE_P (TREE_TYPE (arg2))
+		       ? arg2 : invert_truthvalue (arg2));
+      }
 
     case COMPOUND_EXPR:
       return build2 (COMPOUND_EXPR, type, TREE_OPERAND (arg, 0),
@@ -6250,8 +6259,6 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
     return NULL_TREE;
 
   arg1_unw = get_unwidened (arg1, shorter_type);
-  if (!arg1_unw)
-    return NULL_TREE;
 
   /* If possible, express the comparison in the shorter mode.  */
   if ((code == EQ_EXPR || code == NE_EXPR
@@ -6264,7 +6271,9 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
     return fold_build2 (code, type, arg0_unw,
 		       fold_convert (shorter_type, arg1_unw));
 
-  if (TREE_CODE (arg1_unw) != INTEGER_CST)
+  if (TREE_CODE (arg1_unw) != INTEGER_CST
+      || TREE_CODE (shorter_type) != INTEGER_TYPE
+      || !int_fits_type_p (arg1_unw, shorter_type))
     return NULL_TREE;
 
   /* If we are comparing with the integer that does not fit into the range
@@ -7113,26 +7122,18 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       return fold_convert (type, tem);
     }
 
-  if (TREE_CODE_CLASS (code) == tcc_comparison
-	   && TREE_CODE (arg0) == COMPOUND_EXPR)
-    return build2 (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
-		   fold_build2 (code, type, TREE_OPERAND (arg0, 1), arg1));
-  else if (TREE_CODE_CLASS (code) == tcc_comparison
-	   && TREE_CODE (arg1) == COMPOUND_EXPR)
-    return build2 (COMPOUND_EXPR, type, TREE_OPERAND (arg1, 0),
-		   fold_build2 (code, type, arg0, TREE_OPERAND (arg1, 1)));
-  else if (TREE_CODE_CLASS (code) == tcc_binary
-	   || TREE_CODE_CLASS (code) == tcc_comparison)
+  if (TREE_CODE_CLASS (code) == tcc_binary
+      || TREE_CODE_CLASS (code) == tcc_comparison)
     {
       if (TREE_CODE (arg0) == COMPOUND_EXPR)
 	return build2 (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
-		       fold_build2 (code, type, TREE_OPERAND (arg0, 1),
-				    arg1));
+		       fold_build2 (code, type,
+				    TREE_OPERAND (arg0, 1), op1));
       if (TREE_CODE (arg1) == COMPOUND_EXPR
 	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 0)))
 	return build2 (COMPOUND_EXPR, type, TREE_OPERAND (arg1, 0),
 		       fold_build2 (code, type,
-				    arg0, TREE_OPERAND (arg1, 1)));
+				    op0, TREE_OPERAND (arg1, 1)));
 
       if (TREE_CODE (arg0) == COND_EXPR || COMPARISON_CLASS_P (arg0))
 	{
@@ -9285,7 +9286,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  return omit_one_operand (type, integer_one_node, arg0);
 
 		case GT_EXPR:
-		  return fold_build2 (NE_EXPR, type, arg0, arg1);
+		  return fold_build2 (NE_EXPR, type, op0, op1);
 
 		default:
 		  break;

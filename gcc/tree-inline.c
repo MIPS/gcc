@@ -295,7 +295,7 @@ remap_decl (tree decl, inline_data *id)
 	 again we can reuse this copy.  */
       insert_decl_map (id, decl, t);
 
-      if (in_ssa_p
+      if (cfun && in_ssa_p
 	  && (TREE_CODE (t) == VAR_DECL
 	      || TREE_CODE (t) == RESULT_DECL || TREE_CODE (t) == PARM_DECL))
 	{
@@ -320,25 +320,9 @@ remap_decl (tree decl, inline_data *id)
 }
 
 static tree
-remap_type (tree type, inline_data *id)
+remap_type_1 (tree type, inline_data *id)
 {
-  splay_tree_node node;
   tree new, t;
-
-  if (type == NULL)
-    return type;
-
-  /* See if we have remapped this type.  */
-  node = splay_tree_lookup (id->decl_map, (splay_tree_key) type);
-  if (node)
-    return (tree) node->value;
-
-  /* The type only needs remapping if it's variably modified.  */
-  if (! variably_modified_type_p (type, id->callee))
-    {
-      insert_decl_map (id, type, type);
-      return type;
-    }
 
   /* We do need a copy.  build and register it now.  If this is a pointer or
      reference type, remap the designated type and make a new pointer or
@@ -416,7 +400,18 @@ remap_type (tree type, inline_data *id)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      walk_tree (&TYPE_FIELDS (new), copy_body_r, id, NULL);
+      {
+	tree f, nf = NULL;
+
+	for (f = TYPE_FIELDS (new); f ; f = TREE_CHAIN (f))
+	  {
+	    t = remap_decl (f, id);
+	    DECL_CONTEXT (t) = new;
+	    TREE_CHAIN (t) = nf;
+	    nf = t;
+	  }
+	TYPE_FIELDS (new) = nreverse (nf);
+      }
       break;
 
     case OFFSET_TYPE:
@@ -429,6 +424,29 @@ remap_type (tree type, inline_data *id)
   walk_tree (&TYPE_SIZE_UNIT (new), copy_body_r, id, NULL);
 
   return new;
+}
+
+static tree
+remap_type (tree type, inline_data *id)
+{
+  splay_tree_node node;
+
+  if (type == NULL)
+    return type;
+
+  /* See if we have remapped this type.  */
+  node = splay_tree_lookup (id->decl_map, (splay_tree_key) type);
+  if (node)
+    return (tree) node->value;
+
+  /* The type only needs remapping if it's variably modified.  */
+  if (! variably_modified_type_p (type, id->callee))
+    {
+      insert_decl_map (id, type, type);
+      return type;
+    }
+
+  return remap_type_1 (type, id);
 }
 
 static tree
@@ -690,6 +708,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
 	  if (n)
 	    {
+	      tree new;
 	      /* If we happen to get an ADDR_EXPR in n->value, strip
 	         it manually here as we'll eventually get ADDR_EXPRs
 		 which lie about their types pointed to.  In this case
@@ -697,13 +716,14 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		 but we absolutely rely on that.  As fold_indirect_ref
 	         does other useful transformations, try that first, though.  */
 	      tree type = TREE_TYPE (TREE_TYPE ((tree)n->value));
-	      *tp = fold_indirect_ref_1 (type, (tree)n->value);
+	      new = unshare_expr ((tree)n->value);
+	      *tp = fold_indirect_ref_1 (type, new);
 	      if (! *tp)
 	        {
-		  if (TREE_CODE ((tree)n->value) == ADDR_EXPR)
-		    *tp = TREE_OPERAND ((tree)n->value, 0);
+		  if (TREE_CODE (new) == ADDR_EXPR)
+		    *tp = TREE_OPERAND (new, 0);
 	          else
-	            *tp = build1 (INDIRECT_REF, type, (tree)n->value);
+	            *tp = build1 (INDIRECT_REF, type, new);
 		}
 	      *walk_subtrees = 0;
 	      return NULL;
@@ -1375,7 +1395,11 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	     }
 	  pop_gimplify_context (NULL);
 	}
-      bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
+
+      /* If VAR represents a zero-sized variable, it's possible that the
+	 assignment statment may result in no gimple statements.  */
+      if (init_stmt)
+        bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
       if (in_ssa_p)
 	for (;!bsi_end_p (bsi); bsi_next (&bsi))
 	  mark_new_vars_to_rename (bsi_stmt (bsi));
@@ -1512,10 +1536,21 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
       /* If the callee cannot possibly modify MODIFY_DEST, then we can
 	 reuse it as the result of the call directly.  Don't do this if
 	 it would promote MODIFY_DEST to addressable.  */
-      else if (!TREE_STATIC (modify_dest)
-	       && !TREE_ADDRESSABLE (modify_dest)
-	       && !TREE_ADDRESSABLE (result))
-	use_it = true;
+      else if (TREE_ADDRESSABLE (result))
+	use_it = false;
+      else
+	{
+	  tree base_m = get_base_address (modify_dest);
+
+	  /* If the base isn't a decl, then it's a pointer, and we don't
+	     know where that's going to go.  */
+	  if (!DECL_P (base_m))
+	    use_it = false;
+	  else if (is_global_var (base_m))
+	    use_it = false;
+	  else if (!TREE_ADDRESSABLE (base_m))
+	    use_it = true;
+	}
 
       if (use_it)
 	{
@@ -3187,4 +3222,24 @@ static inline bool
 inlining_p (inline_data * id)
 {
   return (!id->cloning_p && !id->versioning_p);
+}
+
+/* Duplicate a type, fields and all.  */
+
+tree
+build_duplicate_type (tree type)
+{
+  inline_data id;
+
+  memset (&id, 0, sizeof (id));
+  id.callee = current_function_decl;
+  id.caller = current_function_decl;
+  id.callee_cfun = cfun;
+  id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
+  type = remap_type_1 (type, &id);
+
+  splay_tree_delete (id.decl_map);
+
+  return type;
 }

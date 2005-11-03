@@ -4751,7 +4751,7 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   return ret;
 }
 
-static void
+void
 expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
@@ -5388,6 +5388,22 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
 }
 
 
+/* Reconstitute a mode for a __sync intrinsic operation.  Since the type of
+   the pointer in these functions is void*, the tree optimizers may remove
+   casts.  The mode computed in expand_builtin isn't reliable either, due
+   to __sync_bool_compare_and_swap.
+
+   FCODE_DIFF should be fcode - base, where base is the FOO_1 code for the
+   group of builtins.  This gives us log2 of the mode size.  */
+
+static inline enum machine_mode
+get_builtin_sync_mode (int fcode_diff)
+{
+  /* The size is not negotiable, so ask not to get BLKmode in return
+     if the target indicates that a smaller size would be better.  */
+  return mode_for_size (BITS_PER_UNIT << fcode_diff, MODE_INT, 0);
+}
+
 /* Expand the __sync_xxx_and_fetch and __sync_fetch_and_xxx intrinsics.
    ARGLIST is the operands list to the function.  CODE is the rtx code 
    that corresponds to the arithmetic or logical operation from the name;
@@ -5397,15 +5413,14 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
    the result of the operation at all.  */
 
 static rtx
-expand_builtin_sync_operation (tree arglist, enum rtx_code code, bool after,
+expand_builtin_sync_operation (enum machine_mode mode, tree arglist,
+			       enum rtx_code code, bool after,
 			       rtx target, bool ignore)
 {
-  enum machine_mode mode;
   rtx addr, val, mem;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
@@ -5428,14 +5443,13 @@ expand_builtin_sync_operation (tree arglist, enum rtx_code code, bool after,
    results; this is NOT optional if IS_BOOL is true.  */
 
 static rtx
-expand_builtin_compare_and_swap (tree arglist, bool is_bool, rtx target)
+expand_builtin_compare_and_swap (enum machine_mode mode, tree arglist,
+				 bool is_bool, rtx target)
 {
-  enum machine_mode mode;
   rtx addr, old_val, new_val, mem;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
 
   arglist = TREE_CHAIN (arglist);
   old_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
@@ -5462,14 +5476,13 @@ expand_builtin_compare_and_swap (tree arglist, bool is_bool, rtx target)
    place for us to store the results.  */
 
 static rtx
-expand_builtin_lock_test_and_set (tree arglist, rtx target)
+expand_builtin_lock_test_and_set (enum machine_mode mode, tree arglist,
+				  rtx target)
 {
-  enum machine_mode mode;
   rtx addr, val, mem;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
@@ -5488,7 +5501,7 @@ expand_builtin_lock_test_and_set (tree arglist, rtx target)
 static void
 expand_builtin_synchronize (void)
 {
-  rtx body;
+  tree x;
 
 #ifdef HAVE_memory_barrier
   if (HAVE_memory_barrier)
@@ -5498,27 +5511,26 @@ expand_builtin_synchronize (void)
     }
 #endif
 
-  /* If no explicit memory barrier instruction is available, create an empty
-     asm stmt that will prevent compiler movement across the barrier.  */
-  body = gen_rtx_ASM_INPUT (VOIDmode, "");
-  MEM_VOLATILE_P (body) = 1;
-  emit_insn (body);
+  /* If no explicit memory barrier instruction is available, create an
+     empty asm stmt with a memory clobber.  */
+  x = build4 (ASM_EXPR, void_type_node, build_string (0, ""), NULL, NULL,
+	      tree_cons (NULL, build_string (6, "memory"), NULL));
+  ASM_VOLATILE_P (x) = 1;
+  expand_asm_expr (x);
 }
 
 /* Expand the __sync_lock_release intrinsic.  ARGLIST is the operands list
    to the function.  */
 
 static void
-expand_builtin_lock_release (tree arglist)
+expand_builtin_lock_release (enum machine_mode mode, tree arglist)
 {
-  enum machine_mode mode;
   enum insn_code icode;
-  rtx addr, val, mem, insn;
+  rtx addr, mem, insn;
+  rtx val = const0_rtx;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
-  val = const0_rtx;
 
   /* Note that we explicitly do not want any alias information for this
      memory, so that we kill all other live memories.  Otherwise we don't
@@ -6207,7 +6219,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_ADD_2:
     case BUILT_IN_FETCH_AND_ADD_4:
     case BUILT_IN_FETCH_AND_ADD_8:
-      target = expand_builtin_sync_operation (arglist, PLUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_ADD_1);
+      target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6217,7 +6230,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_SUB_2:
     case BUILT_IN_FETCH_AND_SUB_4:
     case BUILT_IN_FETCH_AND_SUB_8:
-      target = expand_builtin_sync_operation (arglist, MINUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_SUB_1);
+      target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6227,7 +6241,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_OR_2:
     case BUILT_IN_FETCH_AND_OR_4:
     case BUILT_IN_FETCH_AND_OR_8:
-      target = expand_builtin_sync_operation (arglist, IOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_OR_1);
+      target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6237,7 +6252,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_AND_2:
     case BUILT_IN_FETCH_AND_AND_4:
     case BUILT_IN_FETCH_AND_AND_8:
-      target = expand_builtin_sync_operation (arglist, AND,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_AND_1);
+      target = expand_builtin_sync_operation (mode, arglist, AND,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6247,7 +6263,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_XOR_2:
     case BUILT_IN_FETCH_AND_XOR_4:
     case BUILT_IN_FETCH_AND_XOR_8:
-      target = expand_builtin_sync_operation (arglist, XOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_XOR_1);
+      target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6257,7 +6274,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_NAND_2:
     case BUILT_IN_FETCH_AND_NAND_4:
     case BUILT_IN_FETCH_AND_NAND_8:
-      target = expand_builtin_sync_operation (arglist, NOT,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_NAND_1);
+      target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6267,7 +6285,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ADD_AND_FETCH_2:
     case BUILT_IN_ADD_AND_FETCH_4:
     case BUILT_IN_ADD_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, PLUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_ADD_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6277,7 +6296,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SUB_AND_FETCH_2:
     case BUILT_IN_SUB_AND_FETCH_4:
     case BUILT_IN_SUB_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, MINUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_SUB_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6287,7 +6307,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_OR_AND_FETCH_2:
     case BUILT_IN_OR_AND_FETCH_4:
     case BUILT_IN_OR_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, IOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_OR_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6297,7 +6318,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_AND_AND_FETCH_2:
     case BUILT_IN_AND_AND_FETCH_4:
     case BUILT_IN_AND_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, AND,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_AND_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, AND,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6307,7 +6329,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_XOR_AND_FETCH_2:
     case BUILT_IN_XOR_AND_FETCH_4:
     case BUILT_IN_XOR_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, XOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_XOR_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6317,7 +6340,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_NAND_AND_FETCH_2:
     case BUILT_IN_NAND_AND_FETCH_4:
     case BUILT_IN_NAND_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, NOT,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_NAND_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6331,7 +6355,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	mode = TYPE_MODE (boolean_type_node);
       if (!target || !register_operand (target, mode))
 	target = gen_reg_rtx (mode);
-      target = expand_builtin_compare_and_swap (arglist, true, target);
+
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_BOOL_COMPARE_AND_SWAP_1);
+      target = expand_builtin_compare_and_swap (mode, arglist, true, target);
       if (target)
 	return target;
       break;
@@ -6340,7 +6366,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_4:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_8:
-      target = expand_builtin_compare_and_swap (arglist, false, target);
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_VAL_COMPARE_AND_SWAP_1);
+      target = expand_builtin_compare_and_swap (mode, arglist, false, target);
       if (target)
 	return target;
       break;
@@ -6349,7 +6376,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_TEST_AND_SET_2:
     case BUILT_IN_LOCK_TEST_AND_SET_4:
     case BUILT_IN_LOCK_TEST_AND_SET_8:
-      target = expand_builtin_lock_test_and_set (arglist, target);
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_TEST_AND_SET_1);
+      target = expand_builtin_lock_test_and_set (mode, arglist, target);
       if (target)
 	return target;
       break;
@@ -6358,7 +6386,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_RELEASE_2:
     case BUILT_IN_LOCK_RELEASE_4:
     case BUILT_IN_LOCK_RELEASE_8:
-      expand_builtin_lock_release (arglist);
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_RELEASE_1);
+      expand_builtin_lock_release (mode, arglist);
       return const0_rtx;
 
     case BUILT_IN_SYNCHRONIZE:
@@ -8063,7 +8092,9 @@ fold_builtin_memcmp (tree arglist)
   if (host_integerp (len, 1) && tree_low_cst (len, 1) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree ind1 = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8115,7 +8146,9 @@ fold_builtin_strcmp (tree arglist)
   if (p2 && *p2 == '\0')
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       return fold_convert (integer_type_node,
 			   build1 (INDIRECT_REF, cst_uchar_node,
 				   fold_convert (cst_uchar_ptr_node,
@@ -8126,7 +8159,9 @@ fold_builtin_strcmp (tree arglist)
   if (p1 && *p1 == '\0')
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree temp = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8184,7 +8219,9 @@ fold_builtin_strncmp (tree arglist)
       && tree_int_cst_sgn (len) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       return fold_convert (integer_type_node,
 			   build1 (INDIRECT_REF, cst_uchar_node,
 				   fold_convert (cst_uchar_ptr_node,
@@ -8198,7 +8235,9 @@ fold_builtin_strncmp (tree arglist)
       && tree_int_cst_sgn (len) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree temp = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8211,7 +8250,9 @@ fold_builtin_strncmp (tree arglist)
   if (host_integerp (len, 1) && tree_low_cst (len, 1) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree ind1 = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,

@@ -78,6 +78,9 @@ export_proto(transfer_character);
 extern void transfer_complex (void *, int);
 export_proto(transfer_complex);
 
+extern void transfer_array (gfc_array_char *, gfc_charlen_type);
+export_proto(transfer_array);
+
 gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
 static int eor_condition = 0;
@@ -94,14 +97,14 @@ static char *line_buffer = NULL;
 
 static unit_advance advance_status;
 
-static st_option advance_opt[] = {
+static const st_option advance_opt[] = {
   {"yes", ADVANCE_YES},
   {"no", ADVANCE_NO},
   {NULL, 0}
 };
 
 
-static void (*transfer) (bt, void *, int);
+static void (*transfer) (bt, void *, int, size_t);
 
 
 typedef enum
@@ -245,10 +248,6 @@ read_block (int *length)
   char *source;
   int nread;
 
-  if (current_unit->flags.form == FORM_FORMATTED &&
-      current_unit->flags.access == ACCESS_SEQUENTIAL)
-    return read_sf (length);	/* Special case.  */
-
   if (current_unit->bytes_left < *length)
     {
       if (current_unit->flags.pad == PAD_NO)
@@ -259,6 +258,10 @@ read_block (int *length)
 
       *length = current_unit->bytes_left;
     }
+
+  if (current_unit->flags.form == FORM_FORMATTED &&
+      current_unit->flags.access == ACCESS_SEQUENTIAL)
+    return read_sf (length);	/* Special case.  */
 
   current_unit->bytes_left -= *length;
 
@@ -283,6 +286,60 @@ read_block (int *length)
 }
 
 
+/* Reads a block directly into application data space.  */
+
+static void
+read_block_direct (void * buf, size_t * nbytes)
+{
+  int *length;
+  void *data;
+  size_t nread;
+
+  if (current_unit->bytes_left < *nbytes)
+    {
+      if (current_unit->flags.pad == PAD_NO)
+	{
+	  generate_error (ERROR_EOR, NULL); /* Not enough data left.  */
+	  return;
+	}
+
+      *nbytes = current_unit->bytes_left;
+    }
+
+  if (current_unit->flags.form == FORM_FORMATTED &&
+      current_unit->flags.access == ACCESS_SEQUENTIAL)
+    {
+      length = (int*) nbytes;
+      data = read_sf (length);	/* Special case.  */
+      memcpy (buf, data, (size_t) *length);
+      return;
+    }
+
+  current_unit->bytes_left -= *nbytes;
+
+  nread = *nbytes;
+  if (sread (current_unit->s, buf, &nread) != 0)
+    {
+      generate_error (ERROR_OS, NULL);
+      return;
+    }
+
+  if (ioparm.size != NULL)
+    *ioparm.size += (GFC_INTEGER_4) nread;
+
+  if (nread != *nbytes)
+    {				/* Short read, e.g. if we hit EOF.  */
+      if (current_unit->flags.pad == PAD_YES)
+	{
+	  memset (((char *) buf) + nread, ' ', *nbytes - nread);
+	  *nbytes = nread;
+	}
+      else
+	generate_error (ERROR_EOR, NULL);
+    }
+}
+
+
 /* Function for writing a block of bytes to the current file at the
    current position, advancing the file pointer. We are given a length
    and return a pointer to a buffer that the caller must (completely)
@@ -301,6 +358,12 @@ write_block (int length)
 
   current_unit->bytes_left -= (gfc_offset)length;
   dest = salloc_w (current_unit->s, &length);
+  
+  if (dest == NULL)
+    {
+      generate_error (ERROR_END, NULL);
+      return NULL;
+    }
 
   if (ioparm.size != NULL)
     *ioparm.size += length;
@@ -309,45 +372,58 @@ write_block (int length)
 }
 
 
+/* Writes a block directly without necessarily allocating space in a
+   buffer.  */
+
+static void
+write_block_direct (void * buf, size_t * nbytes)
+{
+  if (current_unit->bytes_left < *nbytes)
+    generate_error (ERROR_EOR, NULL);
+
+  current_unit->bytes_left -= (gfc_offset) *nbytes;
+
+  if (swrite (current_unit->s, buf, nbytes) != 0)
+    generate_error (ERROR_OS, NULL);
+
+  if (ioparm.size != NULL)
+    *ioparm.size += (GFC_INTEGER_4) *nbytes;
+}
+
+
 /* Master function for unformatted reads.  */
 
 static void
-unformatted_read (bt type, void *dest, int length)
+unformatted_read (bt type, void *dest, int length, size_t nelems)
 {
-  void *source;
-  int w;
+  size_t len;
+
+  len = length * nelems;
 
   /* Transfer functions get passed the kind of the entity, so we have
      to fix this for COMPLEX data which are twice the size of their
      kind.  */
   if (type == BT_COMPLEX)
-    length *= 2;
+    len *= 2;
 
-  w = length;
-  source = read_block (&w);
-
-  if (source != NULL)
-    {
-      memcpy (dest, source, w);
-      if (length != w)
-	memset (((char *) dest) + w, ' ', length - w);
-    }
+  read_block_direct (dest, &len);
 }
+
 
 /* Master function for unformatted writes.  */
 
 static void
-unformatted_write (bt type, void *source, int length)
+unformatted_write (bt type, void *source, int length, size_t nelems)
 {
-  void *dest;
+  size_t len;
+
+  len = length * nelems;
 
   /* Correction for kind vs. length as in unformatted_read.  */
   if (type == BT_COMPLEX)
-    length *= 2;
+    len *= 2;
 
-  dest = write_block (length);
-  if (dest != NULL)
-    memcpy (dest, source, length);
+  write_block_direct (source, &len);
 }
 
 
@@ -442,7 +518,7 @@ require_type (bt expected, bt actual, fnode * f)
    of the next element, then comes back here to process it.  */
 
 static void
-formatted_transfer (bt type, void *p, int len)
+formatted_transfer_scalar (bt type, void *p, int len)
 {
   int pos, bytes_used;
   fnode *f;
@@ -837,6 +913,29 @@ formatted_transfer (bt type, void *p, int len)
   unget_format (f);
 }
 
+static void
+formatted_transfer (bt type, void *p, int len, size_t nelems)
+{
+  size_t elem;
+  int  size;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  if (type == BT_COMPLEX)
+    size = 2 * len;
+  else
+    size = len;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      g.item_count++;
+      formatted_transfer_scalar (type, tmp + size*elem, len);
+    }
+}
+
+
 
 /* Data transfer entry points.  The type of the data entity is
    implicit in the subroutine call.  This prevents us from having to
@@ -845,50 +944,153 @@ formatted_transfer (bt type, void *p, int len)
 void
 transfer_integer (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_INTEGER, p, kind);
+  transfer (BT_INTEGER, p, kind, 1);
 }
 
 
 void
 transfer_real (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_REAL, p, kind);
+  transfer (BT_REAL, p, kind, 1);
 }
 
 
 void
 transfer_logical (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_LOGICAL, p, kind);
+  transfer (BT_LOGICAL, p, kind, 1);
 }
 
 
 void
 transfer_character (void *p, int len)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_CHARACTER, p, len);
+  transfer (BT_CHARACTER, p, len, 1);
 }
 
 
 void
 transfer_complex (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_COMPLEX, p, kind);
+  transfer (BT_COMPLEX, p, kind, 1);
+}
+
+
+void
+transfer_array (gfc_array_char *desc, gfc_charlen_type charlen)
+{
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
+  index_type stride0, rank, size, type, n, kind;
+  size_t tsize;
+  char *data;
+  bt iotype;
+
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
+
+  type = GFC_DESCRIPTOR_TYPE (desc);
+  size = GFC_DESCRIPTOR_SIZE (desc);
+  kind = size;
+
+  /* FIXME: What a kludge: Array descriptors and the IO library use
+     different enums for types.  */
+  switch (type)
+    {
+    case GFC_DTYPE_UNKNOWN:
+      iotype = BT_NULL;  /* Is this correct?  */
+      break;
+    case GFC_DTYPE_INTEGER:
+      iotype = BT_INTEGER;
+      break;
+    case GFC_DTYPE_LOGICAL:
+      iotype = BT_LOGICAL;
+      break;
+    case GFC_DTYPE_REAL:
+      iotype = BT_REAL;
+      break;
+    case GFC_DTYPE_COMPLEX:
+      iotype = BT_COMPLEX;
+      kind /= 2;
+      break;
+    case GFC_DTYPE_CHARACTER:
+      iotype = BT_CHARACTER;
+      /* FIXME: Currently dtype contains the charlen, which is
+	 clobbered if charlen > 2**24. That's why we use a separate
+	 argument for the charlen. However, if we want to support
+	 non-8-bit charsets we need to fix dtype to contain
+	 sizeof(chartype) and fix the code below.  */
+      size = charlen;
+      kind = charlen;
+      break;
+    case GFC_DTYPE_DERIVED:
+      internal_error ("Derived type I/O should have been handled via the frontend.");
+      break;
+    default:
+      internal_error ("transfer_array(): Bad type");
+    }
+
+  if (desc->dim[0].stride == 0)
+    desc->dim[0].stride = 1;
+
+  rank = GFC_DESCRIPTOR_RANK (desc);
+  for (n = 0; n < rank; n++)
+    {
+      count[n] = 0;
+      stride[n] = desc->dim[n].stride;
+      extent[n] = desc->dim[n].ubound + 1 - desc->dim[n].lbound;
+
+      /* If the extent of even one dimension is zero, then the entire
+	 array section contains zero elements, so we return.  */
+      if (extent[n] == 0)
+	return;
+    }
+
+  stride0 = stride[0];
+
+  /* If the innermost dimension has stride 1, we can do the transfer
+     in contiguous chunks.  */
+  if (stride0 == 1)
+    tsize = extent[0];
+  else
+    tsize = 1;
+
+  data = GFC_DESCRIPTOR_DATA (desc);
+
+  while (data)
+    {
+      transfer (iotype, data, kind, tsize);
+      data += stride0 * size * tsize;
+      count[0] += tsize;
+      n = 0;
+      while (count[n] == extent[n])
+	{
+	  count[n] = 0;
+	  data -= stride[n] * extent[n] * size;
+	  n++;
+	  if (n == rank)
+	    {
+	      data = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      data += stride[n] * size;
+	    }
+	}
+    }
 }
 
 
@@ -1177,6 +1379,9 @@ data_transfer_init (int read_flag)
       && current_unit->last_record == 0 && !is_preconnected(current_unit->s))
 	struncate(current_unit->s);
 
+  /* Bugware for badly written mixed C-Fortran I/O.  */
+  flush_if_preconnected(current_unit->s);
+
   current_unit->mode = g.mode;
 
   /* Set the initial value of flags.  */
@@ -1245,9 +1450,63 @@ data_transfer_init (int read_flag)
   /* Start the data transfer if we are doing a formatted transfer.  */
   if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
       && ioparm.namelist_name == NULL && ionml == NULL)
-    formatted_transfer (0, NULL, 0);
+    formatted_transfer (0, NULL, 0, 1);
 }
 
+/* Initialize an array_loop_spec given the array descriptor.  The function
+   returns the index of the last element of the array.  */
+   
+gfc_offset
+init_loop_spec (gfc_array_char *desc, array_loop_spec *ls)
+{
+  int rank = GFC_DESCRIPTOR_RANK(desc);
+  int i;
+  gfc_offset index; 
+
+  index = 1;
+  for (i=0; i<rank; i++)
+    {
+      ls[i].idx = 1;
+      ls[i].start = desc->dim[i].lbound;
+      ls[i].end = desc->dim[i].ubound;
+      ls[i].step = desc->dim[i].stride;
+      
+      index += (desc->dim[i].ubound - desc->dim[i].lbound)
+                      * desc->dim[i].stride;
+    }
+  return index;
+}
+
+/* Determine the index to the next record in an internal unit array by
+   by incrementing through the array_loop_spec.  TODO:  Implement handling
+   negative strides. */
+   
+gfc_offset
+next_array_record ( array_loop_spec * ls )
+{
+  int i, carry;
+  gfc_offset index;
+  
+  carry = 1;
+  index = 0;
+  
+  for (i = 0; i < current_unit->rank; i++)
+    {
+      if (carry)
+        {
+          ls[i].idx++;
+          if (ls[i].idx > ls[i].end)
+            {
+              ls[i].idx = ls[i].start;
+              carry = 1;
+            }
+          else
+            carry = 0;
+        }
+      index = index + (ls[i].idx - 1) * ls[i].step;
+    }
+  return index;
+}
 
 /* Space to the next record for read mode.  If the file is not
    seekable, we read MAX_READ chunks until we get to the right
@@ -1258,8 +1517,8 @@ data_transfer_init (int read_flag)
 static void
 next_record_r (void)
 {
-  int rlength, length, bytes_left;
-  gfc_offset new;
+  gfc_offset new, record;
+  int bytes_left, rlength, length;
   char *p;
 
   switch (current_mode ())
@@ -1314,11 +1573,27 @@ next_record_r (void)
 
       if (is_internal_unit())
 	{
-	  bytes_left = (int) current_unit->bytes_left;
-	  p = salloc_r (current_unit->s, &bytes_left);
-	  if (p != NULL)
+	  if (is_array_io())
+	  {
+            record =  next_array_record (current_unit->ls);   
+                 
+            /* Now seek to this record.  */
+            record = record * current_unit->recl;
+            if (sseek (current_unit->s, record) == FAILURE)
+              {
+                generate_error (ERROR_OS, NULL);
+                break;
+              }
 	    current_unit->bytes_left = current_unit->recl;
-	  break;
+          }
+        else  
+          {
+	    bytes_left = (int) current_unit->bytes_left;
+	    p = salloc_r (current_unit->s, &bytes_left);
+	    if (p != NULL)
+	      current_unit->bytes_left = current_unit->recl;
+	  } 
+	break;
 	}
       else do
 	{
@@ -1351,8 +1626,8 @@ next_record_r (void)
 static void
 next_record_w (void)
 {
-  gfc_offset c, m;
-  int length, bytes_left;
+  gfc_offset c, m, record;
+  int bytes_left, length;
   char *p;
 
   /* Zero counters for X- and T-editing.  */
@@ -1425,16 +1700,32 @@ next_record_w (void)
 	    {
 	      bytes_left = (int) current_unit->bytes_left;
 	      p = salloc_w (current_unit->s, &bytes_left);
-	      if (p != NULL)
+	      if (p == NULL)
 		{
-		  memset(p, ' ', bytes_left);
-	          current_unit->bytes_left = current_unit->recl;
+		  generate_error (ERROR_END, NULL);
+		  return;
 		}
+              memset(p, ' ', bytes_left);
+              
+              /* Now that the current record has been padded out,
+                 determine where the next record in the array is. */
+                 
+              record =  next_array_record (current_unit->ls);   
+               
+              /* Now seek to this record */
+              record = record * current_unit->recl;
+              
+              if (sseek (current_unit->s, record) == FAILURE)
+                goto io_error;
+                
+              current_unit->bytes_left = current_unit->recl;
 	    }
 	  else
 	    {
 	      length = 1;
 	      p = salloc_w (current_unit->s, &length);
+	      if (p==NULL)
+	        goto io_error;
 	    }
  	}
       else
@@ -1465,7 +1756,6 @@ next_record_w (void)
       break;
     }
 }
-
 
 /* Position to the next record, which means moving to the end of the
    current record.  This can happen under several different
@@ -1505,7 +1795,7 @@ next_record (int done)
 
 /* Finalize the current data transfer.  For a nonadvancing transfer,
    this means advancing to the next record.  For internal units close the
-   steam associated with the unit.  */
+   stream associated with the unit.  */
 
 static void
 finalize_transfer (void)
@@ -1560,7 +1850,11 @@ finalize_transfer (void)
   sfree (current_unit->s);
 
   if (is_internal_unit ())
-    sclose (current_unit->s);
+    {
+      if (is_array_io() && current_unit->ls != NULL)
+        free_mem (current_unit->ls);
+      sclose (current_unit->s);
+    }
 }
 
 
@@ -1568,15 +1862,15 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type , void *dest __attribute__ ((unused)),
-		   int len)
+iolength_transfer (bt type, void *dest __attribute__ ((unused)),
+		   int len, size_t nelems)
 {
   if (ioparm.iolength != NULL)
     {
       if (type == BT_COMPLEX)
-	*ioparm.iolength += 2*len;
+	*ioparm.iolength += 2 * len * nelems;
       else
-	*ioparm.iolength += len;
+	*ioparm.iolength += len * nelems;
     }
 }
 
@@ -1751,8 +2045,8 @@ st_set_nml_var (void * var_addr, char * var_name, GFC_INTEGER_4 len,
     {
       nml->dim = (descriptor_dimension*)
 		   get_mem (nml->var_rank * sizeof (descriptor_dimension));
-      nml->ls = (nml_loop_spec*)
-		  get_mem (nml->var_rank * sizeof (nml_loop_spec));
+      nml->ls = (array_loop_spec*)
+		  get_mem (nml->var_rank * sizeof (array_loop_spec));
     }
   else
     {

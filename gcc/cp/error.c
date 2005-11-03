@@ -259,7 +259,7 @@ dump_type (tree t, int flags)
   switch (TREE_CODE (t))
     {
     case UNKNOWN_TYPE:
-      pp_identifier (cxx_pp, "<unknown type>");
+      pp_identifier (cxx_pp, "<unresolved overloaded function type>");
       break;
 
     case TREE_LIST:
@@ -437,9 +437,7 @@ dump_aggr_type (tree t, int flags)
       typdef = !DECL_ARTIFICIAL (name);
       tmplate = !typdef && TREE_CODE (t) != ENUMERAL_TYPE
 		&& TYPE_LANG_SPECIFIC (t) && CLASSTYPE_TEMPLATE_INFO (t)
-		&& (CLASSTYPE_TEMPLATE_SPECIALIZATION (t)
-		    || TREE_CODE (CLASSTYPE_TI_TEMPLATE (t)) != TEMPLATE_DECL
-		    || DECL_TEMPLATE_SPECIALIZATION (CLASSTYPE_TI_TEMPLATE (t))
+		&& (TREE_CODE (CLASSTYPE_TI_TEMPLATE (t)) != TEMPLATE_DECL
 		    || PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)));
       dump_scope (CP_DECL_CONTEXT (name), flags | TFF_SCOPE);
       if (tmplate)
@@ -1182,9 +1180,7 @@ dump_function_name (tree t, int flags)
 
   if (DECL_TEMPLATE_INFO (t)
       && !DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (t)
-      && (DECL_TEMPLATE_SPECIALIZATION (t)
-	  || TREE_CODE (DECL_TI_TEMPLATE (t)) != TEMPLATE_DECL
-	  || DECL_TEMPLATE_SPECIALIZATION (DECL_TI_TEMPLATE (t))
+      && (TREE_CODE (DECL_TI_TEMPLATE (t)) != TEMPLATE_DECL
 	  || PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t))))
     dump_template_parms (DECL_TEMPLATE_INFO (t), !DECL_USE_TEMPLATE (t), flags);
 }
@@ -1299,6 +1295,7 @@ dump_expr (tree t, int flags)
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
+    case LABEL_DECL:
     case OVERLOAD:
     case IDENTIFIER_NODE:
       dump_decl (t, (flags & ~TFF_DECL_SPECIFIERS) | TFF_NO_FUNCTION_ARGUMENTS);
@@ -1541,6 +1538,8 @@ dump_expr (tree t, int flags)
 	  || (TREE_TYPE (t)
 	      && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE))
 	dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
+      else if (TREE_CODE (TREE_OPERAND (t, 0)) == LABEL_DECL)
+	dump_unary_op ("&&", t, flags);
       else
 	dump_unary_op ("&", t, flags);
       break;

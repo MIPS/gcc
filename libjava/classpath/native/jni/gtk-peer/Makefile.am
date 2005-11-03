@@ -1,4 +1,5 @@
-pkglib_LTLIBRARIES = libgtkpeer.la
+## GCJ LOCAL: don't install this library
+noinst_LTLIBRARIES = libgtkpeer.la
 
 # Gtk/Cairo JNI sources.
 if GTK_CAIRO
@@ -39,6 +40,7 @@ libgtkpeer_la_SOURCES = $(gtk_cairo_c_source_files) \
 			gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c \
 			gnu_java_awt_peer_gtk_GtkScrollbarPeer.c \
 			gnu_java_awt_peer_gtk_GtkScrollPanePeer.c \
+			gnu_java_awt_peer_gtk_GtkSelection.c \
 			gnu_java_awt_peer_gtk_GtkTextAreaPeer.c \
 			gnu_java_awt_peer_gtk_GtkTextFieldPeer.c \
 			gnu_java_awt_peer_gtk_GtkToolkit.c \
@@ -47,6 +49,7 @@ libgtkpeer_la_SOURCES = $(gtk_cairo_c_source_files) \
 			gdkfont.h \
 			gthread-jni.h \
 			gtkcairopeer.h \
+			gtk_jawt.c \
 			gtkpeer.h
 
 libgtkpeer_la_LIBADD = $(top_builddir)/native/jni/classpath/native_state.lo \

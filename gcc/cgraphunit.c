@@ -322,6 +322,8 @@ cgraph_varpool_remove_unreferenced_decls (void)
 
       node = next;
     }
+  /* Make sure we mark alias targets as used targets.  */
+  finish_aliases_1 ();
   cgraph_varpool_analyze_pending_decls ();
 }
 
@@ -663,8 +665,18 @@ verify_cgraph_node (struct cgraph_node *node)
 	       cgraph_node_name (e->caller), cgraph_node_name (e->callee));
 	error_found = true;
       }
+  if (node->count < 0)
+    {
+      error ("Execution count is negative");
+      error_found = true;
+    }
   for (e = node->callers; e; e = e->next_caller)
     {
+      if (e->count < 0)
+	{
+	  error ("caller edge count is negative");
+	  error_found = true;
+	}
       if (!e->inline_failed)
 	{
 	  if (node->global.inlined_to
@@ -1539,7 +1551,7 @@ save_inline_function_body (struct cgraph_node *node)
       /* Recursively clone all bodies.  */
       for (e = first_clone->callees; e; e = e->next_callee)
 	if (!e->inline_failed)
-	  cgraph_clone_inlined_nodes (e, true);
+	  cgraph_clone_inlined_nodes (e, true, false);
     }
   else
     first_clone = node->next_clone;

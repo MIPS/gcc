@@ -504,6 +504,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_dominator);
 
+  /* The only copy propagation opportunities left after DOM
+     should be due to degenerate PHI nodes.  So rather than
+     run the full copy propagator, just discover and copy
+     propagate away the degenerate PHI nodes.  */
+  NEXT_PASS (pass_phi_only_copy_prop);
+
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
@@ -518,7 +524,13 @@ init_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
-  NEXT_PASS (pass_copy_prop);
+
+  /* The only copy propagation opportunities left after DOM
+     should be due to degenerate PHI nodes.  So rather than
+     run the full copy propagator, just discover and copy
+     propagate away the degenerate PHI nodes.  */
+  NEXT_PASS (pass_phi_only_copy_prop);
+
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_may_alias);
@@ -539,7 +551,13 @@ init_optimization_passes (void)
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_tree_loop);
   NEXT_PASS (pass_dominator);
-  NEXT_PASS (pass_copy_prop);
+
+  /* The only copy propagation opportunities left after DOM
+     should be due to degenerate PHI nodes.  So rather than
+     run the full copy propagator, just discover and copy
+     propagate away the degenerate PHI nodes.  */
+  NEXT_PASS (pass_phi_only_copy_prop);
+
   NEXT_PASS (pass_cd_dce);
 
   /* FIXME: If DCE is not run before checking for uninitialized uses,
@@ -580,10 +598,14 @@ init_optimization_passes (void)
   /* NEXT_PASS (pass_may_alias) cannot be done again because the
      vectorizer creates alias relations that are not supported by
      pass_may_alias.  */
-  NEXT_PASS (pass_lower_vector_ssa);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_tree_loop_done);
+  *p = NULL;
+
+  p = &pass_vectorize.sub;
+  NEXT_PASS (pass_lower_vector_ssa);
+  NEXT_PASS (pass_dce_loop);
   *p = NULL;
 
   p = &pass_loop2.sub;
@@ -666,11 +688,9 @@ init_optimization_passes (void)
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
+  register_dump_files (all_ipa_passes, true, PROP_gimple_leh | PROP_cfg);
   register_dump_files (all_lowering_passes, false, PROP_gimple_any);
-  register_dump_files (all_passes, false, PROP_gimple_leh
-					  | PROP_cfg);
-  register_dump_files (all_ipa_passes, true, PROP_gimple_leh
-					     | PROP_cfg);
+  register_dump_files (all_passes, false, PROP_gimple_leh | PROP_cfg);
 }
 
 static unsigned int last_verified;

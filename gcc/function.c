@@ -2013,9 +2013,8 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
   /* If the parm is to be passed as a transparent union, use the type of
      the first field for the tests below.  We have already verified that
      the modes are the same.  */
-  if (DECL_TRANSPARENT_UNION (parm)
-      || (TREE_CODE (passed_type) == UNION_TYPE
-	  && TYPE_TRANSPARENT_UNION (passed_type)))
+  if (TREE_CODE (passed_type) == UNION_TYPE
+      && TYPE_TRANSPARENT_UNION (passed_type))
     passed_type = TREE_TYPE (TYPE_FIELDS (passed_type));
 
   /* See if this arg was passed by invisible reference.  */
@@ -3371,10 +3370,9 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
   HOST_WIDE_INT sp_offset = STACK_POINTER_OFFSET;
 
 #ifdef SPARC_STACK_BOUNDARY_HACK
-  /* The sparc port has a bug.  It sometimes claims a STACK_BOUNDARY
-     higher than the real alignment of %sp.  However, when it does this,
-     the alignment of %sp+STACK_POINTER_OFFSET will be STACK_BOUNDARY.
-     This is a temporary hack while the sparc port is fixed.  */
+  /* ??? The SPARC port may claim a STACK_BOUNDARY higher than
+     the real alignment of %sp.  However, when it does this, the
+     alignment of %sp+STACK_POINTER_OFFSET is STACK_BOUNDARY.  */
   if (SPARC_STACK_BOUNDARY_HACK)
     sp_offset = 0;
 #endif
@@ -4403,6 +4401,10 @@ expand_function_end (void)
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
 
+  /* If this is an implementation of throw, do what's necessary to
+     communicate between __builtin_eh_return and the epilogue.  */
+  expand_eh_return ();
+
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */
@@ -4464,6 +4466,24 @@ expand_function_end (void)
 				 TREE_TYPE (decl_result),
 				 int_size_in_bytes (TREE_TYPE (decl_result)));
 	    }
+	  /* In the case of complex integer modes smaller than a word, we'll
+	     need to generate some non-trivial bitfield insertions.  Do that
+	     on a pseudo and not the hard register.  */
+	  else if (GET_CODE (decl_rtl) == CONCAT
+		   && GET_MODE_CLASS (GET_MODE (decl_rtl)) == MODE_COMPLEX_INT
+		   && GET_MODE_BITSIZE (GET_MODE (decl_rtl)) <= BITS_PER_WORD)
+	    {
+	      int old_generating_concat_p;
+	      rtx tmp;
+
+	      old_generating_concat_p = generating_concat_p;
+	      generating_concat_p = 0;
+	      tmp = gen_reg_rtx (GET_MODE (decl_rtl));
+	      generating_concat_p = old_generating_concat_p;
+
+	      emit_move_insn (tmp, decl_rtl);
+	      emit_move_insn (real_decl_rtl, tmp);
+	    }
 	  else
 	    emit_move_insn (real_decl_rtl, decl_rtl);
 	}
@@ -4504,10 +4524,6 @@ expand_function_end (void)
 	 of the result.  */
       current_function_return_rtx = outgoing;
     }
-
-  /* If this is an implementation of throw, do what's necessary to
-     communicate between __builtin_eh_return and the epilogue.  */
-  expand_eh_return ();
 
   /* Emit the actual code to clobber return register.  */
   {

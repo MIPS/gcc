@@ -221,12 +221,18 @@ convert_to_real (tree type, tree expr)
 
       if (fn)
 	{
-	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
-									1)));
-	  tree arglist = build_tree_list (NULL_TREE,
-					  fold (convert_to_real (type, arg0)));
+	  tree arg
+	    = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
 
-	  return build_function_call_expr (fn, arglist);
+	  /* Make sure (type)arg0 is an extension, otherwise we could end up
+	     changing (float)floor(double d) into floorf((float)d), which is
+	     incorrect because (float)d uses round-to-nearest and can round
+	     up to the next integer.  */
+	  if (TYPE_PRECISION (type) >= TYPE_PRECISION (TREE_TYPE (arg)))
+	    return
+	      build_function_call_expr (fn,
+					build_tree_list (NULL_TREE,
+					  fold (convert_to_real (type, arg))));
 	}
     }
 
@@ -620,30 +626,18 @@ convert_to_integer (tree type, tree expr)
 	  /* This is not correct for ABS_EXPR,
 	     since we must test the sign before truncation.  */
 	  {
-	    tree typex = type;
+	    tree typex;
 
-	    /* Can't do arithmetic in enumeral types
-	       so use an integer type that will hold the values.  */
-	    if (TREE_CODE (typex) == ENUMERAL_TYPE)
-	      typex = lang_hooks.types.type_for_size
-		(TYPE_PRECISION (typex), TYPE_UNSIGNED (typex));
-
-	    /* But now perhaps TYPEX is as wide as INPREC.
-	       In that case, do nothing special here.
-	       (Otherwise would recurse infinitely in convert.  */
-	    if (TYPE_PRECISION (typex) != inprec)
-	      {
-		/* Don't do unsigned arithmetic where signed was wanted,
-		   or vice versa.  */
-		if (TYPE_UNSIGNED (TREE_TYPE (expr)))
-		  typex = lang_hooks.types.unsigned_type (typex);
-		else
-		  typex = lang_hooks.types.signed_type (typex);
-		return convert (type,
-				fold_build1 (ex_form, typex,
-					     convert (typex,
-						      TREE_OPERAND (expr, 0))));
-	      }
+	    /* Don't do unsigned arithmetic where signed was wanted,
+	       or vice versa.  */
+	    if (TYPE_UNSIGNED (TREE_TYPE (expr)))
+	      typex = lang_hooks.types.unsigned_type (type);
+	    else
+	      typex = lang_hooks.types.signed_type (type);
+	    return convert (type,
+			    fold_build1 (ex_form, typex,
+					 convert (typex,
+						  TREE_OPERAND (expr, 0))));
 	  }
 
 	case NOP_EXPR:

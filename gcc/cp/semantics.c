@@ -1165,18 +1165,17 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 {
   tree r;
   tree t;
+  int ninputs = list_length (input_operands);
+  int noutputs = list_length (output_operands);
 
   if (!processing_template_decl)
     {
-      int ninputs, noutputs;
       const char *constraint;
       const char **oconstraints;
       bool allows_mem, allows_reg, is_inout;
       tree operand;
       int i;
 
-      ninputs = list_length (input_operands);
-      noutputs = list_length (output_operands);
       oconstraints = (const char **) alloca (noutputs * sizeof (char *));
 
       string = resolve_asm_operand_names (string, output_operands,
@@ -1196,6 +1195,19 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 
 	  if (!lvalue_or_else (operand, lv_asm))
 	    operand = error_mark_node;
+
+          if (operand != error_mark_node
+	      && (TREE_READONLY (operand)
+		  || CP_TYPE_CONST_P (TREE_TYPE (operand))
+	          /* Functions are not modifiable, even though they are
+	             lvalues.  */
+	          || TREE_CODE (TREE_TYPE (operand)) == FUNCTION_TYPE
+	          || TREE_CODE (TREE_TYPE (operand)) == METHOD_TYPE
+	          /* If it's an aggregate and any field is const, then it is
+	             effectively const.  */
+	          || (CLASS_TYPE_P (TREE_TYPE (operand))
+	              && C_TYPE_FIELDS_READONLY (TREE_TYPE (operand)))))
+	    readonly_error (operand, "assignment (via 'asm' output)", 0);
 
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
 	  oconstraints[i] = constraint;
@@ -1254,7 +1266,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
   r = build_stmt (ASM_EXPR, string,
 		  output_operands, input_operands,
 		  clobbers);
-  ASM_VOLATILE_P (r) = volatile_p;
+  ASM_VOLATILE_P (r) = volatile_p || noutputs == 0;
   r = maybe_cleanup_point_expr_void (r);
   return add_stmt (r);
 }
@@ -1395,8 +1407,10 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
 	 for now.  */
       if (processing_template_decl)
-	return build_min (SCOPE_REF, TREE_TYPE (decl),
-			  qualifying_scope, DECL_NAME (decl));
+	return build_qualified_name (TREE_TYPE (decl),
+				     qualifying_scope,
+				     DECL_NAME (decl),
+				     /*template_p=*/false);
 
       perform_or_defer_access_check (TYPE_BINFO (access_type), decl);
 
@@ -1482,14 +1496,23 @@ check_accessibility_of_qualified_id (tree decl,
    class named to the left of the "::" operator.  DONE is true if this
    expression is a complete postfix-expression; it is false if this
    expression is followed by '->', '[', '(', etc.  ADDRESS_P is true
-   iff this expression is the operand of '&'.  */
+   iff this expression is the operand of '&'.  TEMPLATE_P is true iff
+   the qualified-id was of the form "A::template B".  TEMPLATE_ARG_P
+   is true iff this qualified name appears as a template argument.  */
 
 tree
-finish_qualified_id_expr (tree qualifying_class, tree expr, bool done,
-			  bool address_p)
+finish_qualified_id_expr (tree qualifying_class, 
+			  tree expr, 
+			  bool done,
+			  bool address_p, 
+			  bool template_p,
+			  bool template_arg_p)
 {
   if (error_operand_p (expr))
     return error_mark_node;
+
+  if (template_p)
+    check_template_keyword (expr);
 
   /* If EXPR occurs as the operand of '&', use special handling that
      permits a pointer-to-member.  */
@@ -1502,7 +1525,13 @@ finish_qualified_id_expr (tree qualifying_class, tree expr, bool done,
       return expr;
     }
 
-  if (TREE_CODE (expr) == FIELD_DECL)
+  /* Within the scope of a class, turn references to non-static
+     members into expression of the form "this->...".  */
+  if (template_arg_p)
+    /* But, within a template argument, we do not want make the
+       transformation, as there is no "this" pointer.  */
+    ;
+  else if (TREE_CODE (expr) == FIELD_DECL)
     expr = finish_non_static_data_member (expr, current_class_ref,
 					  qualifying_class);
   else if (BASELINK_P (expr) && !processing_template_decl)
@@ -2203,13 +2232,14 @@ finish_member_declaration (tree decl)
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
-      add_method (current_class_type, decl, NULL_TREE);
+      if (add_method (current_class_type, decl, NULL_TREE))
+	{
+	  TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
+	  TYPE_METHODS (current_class_type) = decl;
 
-      TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
-      TYPE_METHODS (current_class_type) = decl;
-
-      maybe_add_class_template_decl_list (current_class_type, decl,
-					  /*friend_p=*/0);
+	  maybe_add_class_template_decl_list (current_class_type, decl,
+					      /*friend_p=*/0);
+	}
     }
   /* Enter the DECL into the scope of the class.  */
   else if ((TREE_CODE (decl) == USING_DECL && !DECL_DEPENDENT_P (decl))
@@ -2371,6 +2401,13 @@ qualified_name_lookup_error (tree scope, tree name, tree decl)
    constant-expression, but a non-constant expression is also
    permissible.
 
+   DONE is true if this expression is a complete postfix-expression;
+   it is false if this expression is followed by '->', '[', '(', etc.
+   ADDRESS_P is true iff this expression is the operand of '&'.
+   TEMPLATE_P is true iff the qualified-id was of the form
+   "A::template B".  TEMPLATE_ARG_P is true iff this qualified name
+   appears as a template argument.
+
    If an error occurs, and it is the kind of error that might cause
    the parser to abort a tentative parse, *ERROR_MSG is filled in.  It
    is the caller's responsibility to issue the message.  *ERROR_MSG
@@ -2389,10 +2426,13 @@ finish_id_expression (tree id_expression,
 		      tree decl,
 		      tree scope,
 		      cp_id_kind *idk,
-		      tree *qualifying_class,
 		      bool integral_constant_expression_p,
 		      bool allow_non_integral_constant_expression_p,
 		      bool *non_integral_constant_expression_p,
+		      bool template_p,
+		      bool done,
+		      bool address_p,
+		      bool template_arg_p,
 		      const char **error_msg)
 {
   /* Initialize the output parameters.  */
@@ -2447,6 +2487,21 @@ finish_id_expression (tree id_expression,
 	 was entirely defined.  */
       if (!scope && decl != error_mark_node)
 	maybe_note_name_used_in_class (id_expression, decl);
+
+      /* Disallow uses of local variables from containing functions.  */
+      if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+	{
+	  tree context = decl_function_context (decl);
+	  if (context != NULL_TREE && context != current_function_decl
+	      && ! TREE_STATIC (decl))
+	    {
+	      error (TREE_CODE (decl) == VAR_DECL
+		     ? "use of %<auto%> variable from containing function"
+		     : "use of parameter from containing function");
+	      error ("  %q+#D declared here", decl);
+	      return error_mark_node;
+	    }
+	}
     }
 
   /* If we didn't find anything, or what we found was a type,
@@ -2583,20 +2638,32 @@ finish_id_expression (tree id_expression,
 	     dependent.  */
 	  if (scope)
 	    {
-	      if (TYPE_P (scope))
-		*qualifying_class = scope;
 	      /* Since this name was dependent, the expression isn't
 		 constant -- yet.  No error is issued because it might
 		 be constant when things are instantiated.  */
 	      if (integral_constant_expression_p)
 		*non_integral_constant_expression_p = true;
-	      if (TYPE_P (scope) && dependent_type_p (scope))
-		return build_nt (SCOPE_REF, scope, id_expression);
-	      else if (TYPE_P (scope) && DECL_P (decl))
-		return convert_from_reference
-		  (build2 (SCOPE_REF, TREE_TYPE (decl), scope, id_expression));
-	      else
-		return convert_from_reference (decl);
+	      if (TYPE_P (scope))
+		{
+		  if (address_p && done)
+		    decl = finish_qualified_id_expr (scope, decl,
+						     done, address_p,
+						     template_p,
+						     template_arg_p);
+		  else if (dependent_type_p (scope))
+		    decl = build_qualified_name (/*type=*/NULL_TREE,
+						 scope,
+						 id_expression,
+						 template_p);
+		  else if (DECL_P (decl))
+		    decl = build_qualified_name (TREE_TYPE (decl),
+						 scope,
+						 id_expression,
+						 template_p);
+		}
+	      if (TREE_TYPE (decl))
+		decl = convert_from_reference (decl);
+	      return decl;
 	    }
 	  /* A TEMPLATE_ID already contains all the information we
 	     need.  */
@@ -2676,14 +2743,20 @@ finish_id_expression (tree id_expression,
 	    mark_used (decl);
 
 	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
-	    *qualifying_class = scope;
+	    decl = finish_qualified_id_expr (scope,
+					     decl,
+					     done,
+					     address_p,
+					     template_p,
+					     template_arg_p);
 	  else
 	    {
 	      tree r = convert_from_reference (decl);
 
-	      if (processing_template_decl
-		  && TYPE_P (scope))
-		r = build2 (SCOPE_REF, TREE_TYPE (r), scope, decl);
+	      if (processing_template_decl && TYPE_P (scope))
+		r = build_qualified_name (TREE_TYPE (r),
+					  scope, decl,
+					  template_p);
 	      decl = r;
 	    }
 	}
@@ -2707,34 +2780,19 @@ finish_id_expression (tree id_expression,
 	  if (!really_overloaded_fn (decl))
 	    mark_used (first_fn);
 
-	  if (TREE_CODE (first_fn) == FUNCTION_DECL
+	  if (!template_arg_p
+	      && TREE_CODE (first_fn) == FUNCTION_DECL
 	      && DECL_FUNCTION_MEMBER_P (first_fn)
 	      && !shared_member_p (decl))
 	    {
 	      /* A set of member functions.  */
 	      decl = maybe_dummy_object (DECL_CONTEXT (first_fn), 0);
-	      return finish_class_member_access_expr (decl, id_expression);
+	      return finish_class_member_access_expr (decl, id_expression,
+						      /*template_p=*/false);
 	    }
 	}
       else
 	{
-	  if (TREE_CODE (decl) == VAR_DECL
-	      || TREE_CODE (decl) == PARM_DECL
-	      || TREE_CODE (decl) == RESULT_DECL)
-	    {
-	      tree context = decl_function_context (decl);
-
-	      if (context != NULL_TREE && context != current_function_decl
-		  && ! TREE_STATIC (decl))
-		{
-		  error (TREE_CODE (decl) == VAR_DECL
-			 ? "use of %<auto%> variable from containing function"
-			 : "use of parameter from containing function");
-		  error ("  %q+#D declared here", decl);
-		  return error_mark_node;
-		}
-	    }
-
 	  if (DECL_P (decl) && DECL_NONLOCAL (decl)
 	      && DECL_CLASS_SCOPE_P (decl)
 	      && DECL_CONTEXT (decl) != current_class_type)

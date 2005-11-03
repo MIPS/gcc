@@ -319,6 +319,9 @@ make_class (void)
 {
   tree type;
   type = make_node (RECORD_TYPE);
+  /* Unfortunately we must create the binfo here, so that class
+     loading works.  */
+  TYPE_BINFO (type) = make_tree_binfo (0);
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
 
   return type;
@@ -468,7 +471,8 @@ set_super_info (int access_flags, tree this_class,
   if (super_class)
     total_supers++;
 
-  TYPE_BINFO (this_class) = make_tree_binfo (total_supers);
+  if (total_supers)
+    TYPE_BINFO (this_class) = make_tree_binfo (total_supers);
   TYPE_VFIELD (this_class) = TYPE_VFIELD (object_type_node);
   if (super_class)
     {
@@ -549,9 +553,11 @@ inherits_from_p (tree type1, tree type2)
     {
       if (type1 == type2)
 	return 1;
+
       if (! CLASS_LOADED_P (type1))
 	load_class (type1, 1);
-      type1 = CLASSTYPE_SUPER (type1);
+
+      type1 = maybe_layout_super_class (CLASSTYPE_SUPER (type1), type1);
     }
   return 0;
 }
@@ -2058,7 +2064,9 @@ push_super_field (tree this_class, tree super_class)
 static tree
 maybe_layout_super_class (tree super_class, tree this_class)
 {
-  if (TREE_CODE (super_class) == RECORD_TYPE)
+  if (!super_class)
+    return NULL_TREE;
+  else if (TREE_CODE (super_class) == RECORD_TYPE)
     {
       if (!CLASS_LOADED_P (super_class) && CLASS_FROM_SOURCE_P (super_class))
 	safe_layout_class (super_class);
@@ -2380,8 +2388,8 @@ layout_class_method (tree this_class, tree super_class,
 	  /* We generate vtable entries for final methods because they
 	     may one day be changed to non-final.  */
 	  set_method_index (method_decl, dtable_count);
-	  dtable_count = fold (build2 (PLUS_EXPR, integer_type_node,
-				       dtable_count, integer_one_node));
+	  dtable_count = fold_build2 (PLUS_EXPR, integer_type_node,
+				      dtable_count, integer_one_node);
 	}
     }
 
