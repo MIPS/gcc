@@ -673,7 +673,7 @@
 (define_predicate "nonimmediate_or_0_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_operand 0 "const0_operand")))
-/* APPLE LOCAL begin radar 4283414 mainline candidate */
+/* APPLE LOCAL end radar 4283414 mainline candidate */
 
 ;; Return true if OP is a register or a zero.
 (define_predicate "reg_or_0_operand"
