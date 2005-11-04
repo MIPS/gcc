@@ -18664,6 +18664,10 @@ cw_is_offset (tree v)
     return true;
   if (TREE_CODE (v) == ADDR_EXPR)
     return true;
+  if (TREE_CODE (v) == VAR_DECL
+      && TREE_STATIC (v)
+      && MEM_P (DECL_RTL (v)))
+    return true;
   return false;
 }
 
