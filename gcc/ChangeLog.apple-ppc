@@ -1,3 +1,35 @@
+2005-11-03  Evan Cheng  <evan.cheng@apple.com>
+
+	* config/i386/i386-protos.h (standard_sse_constant_opcode) Declare
+	* config/i386/i386.c (standard_sse_constant_p) Check for vector
+	constant -1.
+	(standard_sse_constant_opcode) New function to return the opcode
+        associated with standard_sse_constant_p.
+        (ix86_expand_vector_move) Use standard_sse_constant_p.
+        * config/i386/predicates.md (vector_move_operand) Use
+	standard_sse_constant_p.
+	(nonimmediate_or_0_operand) Return true if operand is a nonimmediate
+	or a constant zero.
+        * config/i386/sse.md (*mov<mode>_internal) Use
+	standard_sse_constant_opcode.
+        (*movv4sf_internal) Use standard_sse_constant_opcode.
+        (*movv2df_internal) Use standard_sse_constant_opcode.
+	(sse_movlhps) Replace vector_move_operand with 
+	nonimmediate_or_0_operand.
+	(*sse_concatv2sf) Replace vector_move_operand with 
+	nonimmediate_or_0_operand.
+        (*vec_setv4sf_0) Replace vector_move_operand with 
+	nonimmediate_or_0_operand.
+        (sse2_loadlpd) Replace vector_move_operand with 
+	nonimmediate_or_0_operand.
+        (*vec_concatv2df) Replace vector_move_operand with 
+	nonimmediate_or_0_operand.
+	(sse2_loadld) Replace vector_move_operand with
+	nonimmediate_or_0_operand.
+        (*vec_concatv2di) Replace vector_move_operand with 
+	nonimmediate_or_0_operand.
+	* gcc/testsuite/gcc.apple/4283414.c: New.
+
 2005-11-01  Fariborz Jahanian <fjahanian@apple.com>
 
         objc new meta-data definitions - part 1
