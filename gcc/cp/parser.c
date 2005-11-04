@@ -5258,6 +5258,15 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	  non_constant_p = "`&'";
 	  /* Fall through.  */
 	case BIT_NOT_EXPR:
+	  /* APPLE LOCAL begin CW asm blocks */
+	  if (inside_cw_asm_block
+	      && unary_operator == ADDR_EXPR
+	      && TREE_CODE (cast_expression) == LABEL_DECL)
+	    {
+	      expression = finish_label_address_expr (DECL_NAME (cast_expression));
+	      break;
+	    }
+	  /* APPLE LOCAL end CW asm blocks */
 	  expression = build_x_unary_op (unary_operator, cast_expression);
 	  break;
 

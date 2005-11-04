@@ -6880,6 +6880,8 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case LABEL_DECL:
       TREE_USED (arg) = 1;
+      if (e->as_offset)
+	CW_IMMED_PREFIX (e, buf);
       arg = build1 (ADDR_EXPR, ptr_type_node, arg);
       /* There was no other spelling I could find that would work.
 	 :-( Hope this stays working.  */

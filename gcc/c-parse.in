@@ -2764,7 +2764,11 @@ cw_asm_unary_expr:
 		    }
 		  else
 		    {
-		      $$.value = build_unary_op ($1, $2.value, 0);
+		      if (TREE_CODE ($2.value) == LABEL_DECL
+			  && $1 == ADDR_EXPR)
+			$$.value = finish_label_address_expr (DECL_NAME ($2.value));
+		      else
+			$$.value = build_unary_op ($1, $2.value, 0);
 		      overflow_warning ($$.value);
 		    }
 		  $$.original_code = ERROR_MARK;

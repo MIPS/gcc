@@ -18662,6 +18662,8 @@ cw_is_offset (tree v)
 {
   if (TREE_CODE (v) == INTEGER_CST)
     return true;
+  if (TREE_CODE (v) == ADDR_EXPR)
+    return true;
   return false;
 }
 
