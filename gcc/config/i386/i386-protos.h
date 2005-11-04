@@ -42,7 +42,7 @@ extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
 extern rtx standard_80387_constant_rtx (int);
 extern int standard_sse_constant_p (rtx);
-/* APPLE LOCAL radar 4283414 mainline candidate */
+/* APPLE LOCAL mainline candidate 4283414 */
 extern const char *standard_sse_constant_opcode (rtx insn, rtx x);
 extern int symbolic_reference_mentioned_p (rtx);
 extern bool extended_reg_mentioned_p (rtx);

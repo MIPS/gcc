@@ -64,7 +64,7 @@
   switch (which_alternative)
     {
     case 0:
-      /* APPLE LOCAL radar mainline candidate 4283414 */
+      /* APPLE LOCAL mainline candidate 4283414 */
       return standard_sse_constant_opcode (insn, operands[1]);
     case 1:
     case 2:
@@ -114,7 +114,7 @@
   switch (which_alternative)
     {
     case 0:
-      /* APPLE LOCAL radar mainline candidate 4283414 */
+      /* APPLE LOCAL mainline candidate 4283414 */
       return standard_sse_constant_opcode (insn, operands[1]);
     case 1:
     case 2:
@@ -157,7 +157,7 @@
   switch (which_alternative)
     {
     case 0:
-      /* APPLE LOCAL radar mainline candidate 4283414 */
+      /* APPLE LOCAL mainline candidate 4283414 */
       return standard_sse_constant_opcode (insn, operands[1]);
     case 1:
     case 2:
@@ -1030,7 +1030,7 @@
 	(vec_select:V4SF
 	  (vec_concat:V8SF
 	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0,0")
-            /* APPLE LOCAL radar mainline candidate 4283414 */
+            /* APPLE LOCAL mainline candidate 4283414 */
 	    (match_operand:V4SF 2 "nonimmediate_or_0_operand" " C,x,m,x"))
 	  (parallel [(const_int 0)
 		     (const_int 1)
@@ -1227,7 +1227,7 @@
   [(set (match_operand:V2SF 0 "register_operand"     "=x,x,*y,*y")
 	(vec_concat:V2SF
 	  (match_operand:SF 1 "nonimmediate_operand" " 0,m, 0, m")
-          /* APPLE LOCAL radar mainline candidate 4283414 */
+          /* APPLE LOCAL mainline candidate 4283414 */
 	  (match_operand:SF 2 "nonimmediate_or_0_operand"  " x,C,*y, C")))]
   "TARGET_SSE"
   "@
@@ -1264,7 +1264,7 @@
 	(vec_merge:V4SF
 	  (vec_duplicate:V4SF
 	    (match_operand:SF 2 "general_operand"     " x,m,*r,x*rfF"))
-          /* APPLE LOCAL radar mainline candidate 4283414 */
+          /* APPLE LOCAL mainline candidate 4283414 */
 	  (match_operand:V4SF 1 "nonimmediate_or_0_operand" " 0,C,C ,0")
 	  (const_int 1)))]
   "TARGET_SSE"
@@ -2228,7 +2228,7 @@
 	(vec_concat:V2DF
 	  (match_operand:DF 2 "nonimmediate_operand"    " m,m,x,0,0,x*fr")
 	  (vec_select:DF
-            /* APPLE LOCAL radar mainline candidate 4283414 */
+            /* APPLE LOCAL mainline candidate 4283414 */
 	    (match_operand:V2DF 1 "nonimmediate_or_0_operand" " C,0,0,x,o,0")
 	    (parallel [(const_int 1)]))))]
   "TARGET_SSE2 && !(MEM_P (operands[1]) && MEM_P (operands[2]))"
@@ -2302,7 +2302,7 @@
   [(set (match_operand:V2DF 0 "register_operand"     "=Y,Y,Y,x,x")
 	(vec_concat:V2DF
 	  (match_operand:DF 1 "nonimmediate_operand" " 0,0,m,0,0")
-          /* APPLE LOCAL radar mainline candidate 4283414 */
+          /* APPLE LOCAL mainline candidate 4283414 */
 	  (match_operand:DF 2 "nonimmediate_or_0_operand"  " Y,m,C,x,m")))]
   "TARGET_SSE"
   "@
@@ -3125,7 +3125,7 @@
 	(vec_merge:V4SI
 	  (vec_duplicate:V4SI
 	    (match_operand:SI 2 "nonimmediate_operand" "mr,m,x"))
-          /* APPLE LOCAL radar mainline candidate 4283414 */
+          /* APPLE LOCAL mainline candidate 4283414 */
 	  (match_operand:V4SI 1 "nonimmediate_or_0_operand"  " C,C,0")
 	  (const_int 1)))]
   "TARGET_SSE"
@@ -3250,7 +3250,7 @@
   [(set (match_operand:V2DI 0 "register_operand"     "=Y,?Y,Y,x,x,x")
 	(vec_concat:V2DI
 	  (match_operand:DI 1 "nonimmediate_operand" " m,*y,0,0,0,m")
-          /* APPLE LOCAL radar mainline candidate 4283414 */
+          /* APPLE LOCAL mainline candidate 4283414 */
 	  (match_operand:DI 2 "nonimmediate_or_0_operand"  " C, C,Y,x,m,0")))]
   "TARGET_SSE"
   "@

@@ -640,7 +640,7 @@
   return 1;
 })
 
-/* APPLE LOCAL begin radar 4283414 mainline candidate */
+/* APPLE LOCAL begin mainline candidate 4283414 */
 /* Return true if operand is a vector constant that is all ones. */
 (define_predicate "vector_all_ones_operand"
   (match_code "const_vector")
@@ -673,7 +673,7 @@
 (define_predicate "nonimmediate_or_0_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_operand 0 "const0_operand")))
-/* APPLE LOCAL end radar 4283414 mainline candidate */
+/* APPLE LOCAL end mainline candidate 4283414 */
 
 ;; Return true if OP is a register or a zero.
 (define_predicate "reg_or_0_operand"

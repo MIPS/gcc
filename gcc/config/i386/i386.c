@@ -4106,7 +4106,7 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
-/* APPLE LOCAL begin radar 4283414 mainline candidate */
+/* APPLE LOCAL begin mainline candidate 4283414 */
 /* Return 1 if X is FP constant we can load to SSE register w/o using memory.
  */
 int
@@ -4142,7 +4142,7 @@ standard_sse_constant_opcode (rtx insn, rtx x)
     }
   gcc_unreachable ();
 }
-/* APPLE LOCAL end radar 4283414 mainline candidate */
+/* APPLE LOCAL end mainline candidate 4283414 */
 
 /* Returns 1 if OP contains a symbol reference */
 
@@ -8189,7 +8189,7 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (op0, mode)
       && CONSTANT_P (op1)
-      /* APPLE LOCAL radar 4283414 mainline candidate */
+      /* APPLE LOCAL mainline candidate 4283414 */
       && standard_sse_constant_p (op1) <= 0)
     op1 = validize_mem (force_const_mem (mode, op1));
 
