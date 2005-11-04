@@ -3392,6 +3392,8 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "xorpd", 2, "xm"},		\
   { "xorps", 1, "+x"},		\
   { "xorps", 2, "xm"},
+
+#define CW_FUNCTION_MODIFIER "P"
 /* APPLE LOCAL end CW asm blocks */
 
 /*
