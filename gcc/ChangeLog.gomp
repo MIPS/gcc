@@ -1,3 +1,8 @@
+2005-11-05  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (omp_add_variable): Force the use of the size of a
+	privatize-by-reference variable.
+
 2005-11-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_clauses): New function.

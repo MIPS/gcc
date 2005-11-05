@@ -4256,7 +4256,6 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 
       /* Add all of the variable and type parameters (which should have
 	 been gimplified to a formal temporary) as FIRSTPRIVATE.  */
-      nflags = flags & GOVD_SHARED ? 0 : GOVD_SEEN;
       omp_firstprivatize_variable (ctx, DECL_SIZE_UNIT (decl));
       omp_firstprivatize_variable (ctx, DECL_SIZE (decl));
       omp_firstprivatize_type_sizes (ctx, TREE_TYPE (decl));
@@ -4273,6 +4272,20 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 case, since we won't be allocating local storage then.  */
       else
 	omp_notice_variable (ctx, TYPE_SIZE_UNIT (TREE_TYPE (decl)), true);
+    }
+  else if (lang_hooks.decls.omp_privatize_by_reference (decl))
+    {
+      gcc_assert ((flags & GOVD_LOCAL) == 0);
+      omp_firstprivatize_type_sizes (ctx, TREE_TYPE (decl));
+
+      /* Similar to the direct variable sized case above, we'll need the
+	 size of references being privatized.  */
+      if ((flags & GOVD_SHARED) == 0)
+	{
+	  t = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (decl)));
+	  if (!TREE_CONSTANT (t))
+	    omp_notice_variable (ctx, t, true);
+	}
     }
 
   splay_tree_insert (ctx->variables, (splay_tree_key)decl, flags);
