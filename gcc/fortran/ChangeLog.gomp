@@ -1,3 +1,17 @@
+2005-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Return
+	true if a pointer has GFC_DECL_SAVED_DESCRIPTOR set.
+	(gfc_trans_omp_array_reduction, gfc_trans_omp_reduction_list): New
+	functions.
+	(gfc_trans_omp_clauses): Add WHERE argument.  Call
+	gfc_trans_omp_reduction_list rather than gfc_trans_omp_variable_list
+	for reductions.
+	(gfc_trans_omp_do, gfc_trans_omp_parallel, gfc_trans_omp_parallel_do,
+	gfc_trans_omp_parallel_sections, gfc_trans_omp_parallel_workshare,
+	gfc_trans_omp_sections, gfc_trans_omp_single): Adjust
+	gfc_trans_omp_clauses callers.
+
 2005-11-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (omp_current_do_code): New var.

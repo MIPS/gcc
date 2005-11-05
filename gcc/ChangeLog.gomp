@@ -1,3 +1,25 @@
+2005-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_REDUCTION_INIT, OMP_CLAUSE_REDUCTION_MERGE,
+	OMP_CLAUSE_REDUCTION_PLACEHOLDER): Define.
+	* tree.def (OMP_CLAUSE_REDUCTION): Add 3 extra operands, update
+	comment.
+	* gimplify.c (gimplify_scan_omp_clauses): Call omp_add_variable
+	on OMP_CLAUSE_REDUCTION_PLACEHOLDER, gimplify
+	OMP_CLAUSE_REDUCTION_{INIT,MERGE} to notice all used variables.
+	* tree-gimple.h (omp_reduction_init): New prototype.
+	* omp-low.c (scan_sharing_clauses): Call scan_omp at the end on
+	OMP_CLAUSE_REDUCTION_{INIT,MERGE}.
+	(build_reduction_init): Renamed to...
+	(omp_reduction_init): ... this.  No longer static.  Don't handle
+	ARRAY_TYPE here.
+	(array_reduction_init, array_reduction_op): Removed.
+	(expand_rec_input_clauses): Don't call array_reduction_init,
+	instead gimplify OMP_CLAUSE_REDUCTION_INIT if non-NULL, in
+	the second pass.
+	(expand_reduction_clauses): Don't call array_reduction_op,
+	instead gimplify OMP_CLAUSE_REDUCTION_MERGE if non-NULL.
+
 2005-11-05  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (omp_add_variable): Force the use of the size of a

@@ -4463,6 +4463,20 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel)
 	      break;
 	    }
 	  omp_add_variable (ctx, decl, flags);
+	  if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	    {
+	      omp_add_variable (ctx, OMP_CLAUSE_REDUCTION_PLACEHOLDER (c),
+				GOVD_LOCAL);
+	      gimplify_omp_ctxp = ctx;
+	      push_gimplify_context ();
+	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_INIT (c));
+	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_INIT (c));
+	      push_gimplify_context ();
+	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_MERGE (c));
+	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
+	      gimplify_omp_ctxp = outer_ctx;
+	    }
 	  if (notice_outer)
 	    goto do_notice;
 	  break;

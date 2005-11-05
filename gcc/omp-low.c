@@ -569,6 +569,7 @@ static void
 scan_sharing_clauses (tree clauses, omp_context *ctx)
 {
   tree c, decl;
+  bool scan_array_reductions = false;
 
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
@@ -672,6 +673,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  fixup_remapped_decl (decl, ctx,
 			       TREE_CODE (c) == OMP_CLAUSE_PRIVATE
 			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
+	  if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	    scan_array_reductions = true;
 	  break;
 
 	case OMP_CLAUSE_SHARED:
@@ -693,6 +697,15 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  gcc_unreachable ();
 	}
     }
+
+  if (scan_array_reductions)
+    for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+      if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+	  && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	{
+	  scan_omp (&OMP_CLAUSE_REDUCTION_INIT (c), ctx);
+	  scan_omp (&OMP_CLAUSE_REDUCTION_MERGE (c), ctx);
+	}
 }
 
 /* Create a new name for omp child function.  Returns an identifier.  */
@@ -1239,12 +1252,9 @@ maybe_lookup_ctx (tree stmt)
 
 /* Construct the initialization value for reduction CLAUSE.  */
 
-static tree
-build_reduction_init (tree clause, tree type)
+tree
+omp_reduction_init (tree clause, tree type)
 {
-  while (TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
   switch (OMP_CLAUSE_REDUCTION_CODE (clause))
     {
     case PLUS_EXPR:
@@ -1304,59 +1314,6 @@ build_reduction_init (tree clause, tree type)
     default:
       gcc_unreachable ();
     }
-}
-
-/* Initialize all entries of array VAR to value X.  */
-
-static void
-array_reduction_init (tree var, tree x, tree *stmt_list)
-{
-  tree ptr_type, array = var, ptr;
-  tree test_label = NULL, loop_label, end_label = NULL;
-  tree stmt, end, cond;
-
-  while (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
-    {
-      tree type_domain = TYPE_DOMAIN (TREE_TYPE (array));
-      tree min_val = size_zero_node;
-      if (type_domain && TYPE_MIN_VALUE (type_domain))
-	min_val = TYPE_MIN_VALUE (type_domain);
-      array = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (array)),
-		      array, min_val, NULL_TREE, NULL_TREE);
-    }
-  array = build_fold_addr_expr (array);
-  ptr_type = TREE_TYPE (array);
-  ptr = create_tmp_var (ptr_type, NULL);
-
-  stmt = build2 (MODIFY_EXPR, void_type_node, ptr, array);
-  gimplify_and_add (stmt, stmt_list);
-
-  append_to_statement_list (build_and_jump (&test_label), stmt_list);
-
-  loop_label = create_artificial_label ();
-  stmt = build1 (LABEL_EXPR, void_type_node, loop_label);
-  append_to_statement_list (stmt, stmt_list);
-
-  stmt = build2 (MODIFY_EXPR, void_type_node,
-		 build_fold_indirect_ref (ptr), x);
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build2 (POSTINCREMENT_EXPR, ptr_type, ptr,
-		 fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (x))));
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build1 (LABEL_EXPR, void_type_node, test_label);
-  append_to_statement_list (stmt, stmt_list);
-
-  end = build2 (PLUS_EXPR, ptr_type, array,
-		fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (var))));
-  cond = build2 (GT_EXPR, boolean_type_node, end, ptr);
-  stmt = build3 (COND_EXPR, void_type_node, cond,
-		 build_and_jump (&loop_label), build_and_jump (&end_label));
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build1 (LABEL_EXPR, void_type_node, end_label);
-  append_to_statement_list (stmt, stmt_list);
 }
 
 /* Generate code to implement the input clauses, FIRSTPRIVATE and COPYIN,
@@ -1469,6 +1426,12 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 
 	      new_var = build_fold_indirect_ref (new_var);
 	    }
+	  else if (c_kind == OMP_CLAUSE_REDUCTION
+		   && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	    {
+	      if (pass == 0)
+		continue;
+	    }
 	  else if (pass != 0)
 	    continue;
 
@@ -1521,11 +1484,15 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      break;
 
 	    case OMP_CLAUSE_REDUCTION:
-	      x = build_reduction_init (c, TREE_TYPE (new_var));
-	      if (TREE_CODE (TREE_TYPE (new_var)) == ARRAY_TYPE)
-		array_reduction_init (new_var, x, ilist);
+	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+		{
+		  gimplify_and_add (OMP_CLAUSE_REDUCTION_INIT (c), ilist);
+		  OMP_CLAUSE_REDUCTION_INIT (c) = NULL;
+		}
 	      else
 		{
+		  x = omp_reduction_init (c, TREE_TYPE (new_var));
+		  gcc_assert (TREE_CODE (TREE_TYPE (new_var)) != ARRAY_TYPE);
 		  x = build2 (MODIFY_EXPR, void_type_node, new_var, x);
 		  gimplify_and_add (x, ilist);
 		}
@@ -1611,78 +1578,6 @@ expand_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
   gimplify_and_add (x, stmt_list);
 }
 
-/* Perform DST[x] = DST[x] OP SRC[x] on all entries of the arrays.  */
-
-static void
-array_reduction_op (enum tree_code op, tree dst, tree src, tree *stmt_list)
-{
-  tree ptr_type, dst_array = dst, src_array = src, dstp, srcp;
-  tree test_label = NULL, loop_label, end_label = NULL;
-  tree stmt, end, cond, x, size;
-
-  while (TREE_CODE (TREE_TYPE (src_array)) == ARRAY_TYPE)
-    {
-      tree type_domain = TYPE_DOMAIN (TREE_TYPE (src_array));
-      tree min_val = size_zero_node;
-      if (type_domain && TYPE_MIN_VALUE (type_domain))
-	min_val = TYPE_MIN_VALUE (type_domain);
-      src_array = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (src_array)),
-			  src_array, min_val, NULL_TREE, NULL_TREE);
-    }
-  while (TREE_CODE (TREE_TYPE (dst_array)) == ARRAY_TYPE)
-    {
-      tree type_domain = TYPE_DOMAIN (TREE_TYPE (dst_array));
-      tree min_val = size_zero_node;
-      if (type_domain && TYPE_MIN_VALUE (type_domain))
-	min_val = TYPE_MIN_VALUE (type_domain);
-      dst_array = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (dst_array)),
-			  dst_array, min_val, NULL_TREE, NULL_TREE);
-    }
-  src_array = build_fold_addr_expr (src_array);
-  dst_array = build_fold_addr_expr (dst_array);
-  ptr_type = TREE_TYPE (src_array);
-  srcp = create_tmp_var (ptr_type, NULL);
-  dstp = create_tmp_var (ptr_type, NULL);
-
-  stmt = build2 (MODIFY_EXPR, void_type_node, srcp, src_array);
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build2 (MODIFY_EXPR, void_type_node, dstp, dst_array);
-  gimplify_and_add (stmt, stmt_list);
-
-  append_to_statement_list (build_and_jump (&test_label), stmt_list);
-
-  loop_label = create_artificial_label ();
-  stmt = build1 (LABEL_EXPR, void_type_node, loop_label);
-  append_to_statement_list (stmt, stmt_list);
-
-  x = build2 (op, TREE_TYPE (ptr_type), build_fold_indirect_ref (dstp),
-	      build_fold_indirect_ref (srcp));
-  stmt = build2 (MODIFY_EXPR, void_type_node,
-		 build_fold_indirect_ref (dstp), x);
-  gimplify_and_add (stmt, stmt_list);
-
-  size = fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (ptr_type)));
-  stmt = build2 (POSTINCREMENT_EXPR, ptr_type, srcp, size);
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build2 (POSTINCREMENT_EXPR, ptr_type, dstp, size);
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build1 (LABEL_EXPR, void_type_node, test_label);
-  append_to_statement_list (stmt, stmt_list);
-
-  end = build2 (PLUS_EXPR, ptr_type, src_array,
-		fold_convert (ptr_type, TYPE_SIZE_UNIT (TREE_TYPE (src))));
-  cond = build2 (GT_EXPR, boolean_type_node, end, srcp);
-  stmt = build3 (COND_EXPR, void_type_node, cond,
-		 build_and_jump (&loop_label), build_and_jump (&end_label));
-  gimplify_and_add (stmt, stmt_list);
-
-  stmt = build1 (LABEL_EXPR, void_type_node, end_label);
-  append_to_statement_list (stmt, stmt_list);
-}
-
 /* Generate code to implement the REDUCTION clauses.  */
 
 static void
@@ -1696,12 +1591,9 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
   for (c = clauses; c && count < 2; c = OMP_CLAUSE_CHAIN (c))
     if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
-	tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
-	if (is_reference (OMP_CLAUSE_DECL (c)))
-	  type = TREE_TYPE (type);
-	/* Never use OMP_ATOMIC for array reductions.  */
-	if (TREE_CODE (type) == ARRAY_TYPE)
+	if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	  {
+	    /* Never use OMP_ATOMIC for array reductions.  */
 	    count = -1;
 	    break;
 	  }
@@ -1737,9 +1629,18 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	  return;
 	}
 
-      if (TREE_CODE (TREE_TYPE (new_var)) == ARRAY_TYPE)
-	array_reduction_op (OMP_CLAUSE_REDUCTION_CODE (c),
-			    ref, new_var, &sub_list);
+      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	{
+	  tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+
+	  if (is_reference (var))
+	    ref = build_fold_addr_expr (ref);
+	  SET_DECL_VALUE_EXPR (placeholder, ref);
+	  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
+	  gimplify_and_add (OMP_CLAUSE_REDUCTION_MERGE (c), &sub_list);
+	  OMP_CLAUSE_REDUCTION_MERGE (c) = NULL;
+	  OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL;
+	}
       else
 	{
 	  x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
