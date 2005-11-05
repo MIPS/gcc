@@ -1,5 +1,8 @@
 2005-11-06  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (expand_lastprivate_clauses): If var is passed by
+	reference, dereference new_var.
+
 	* tree.h (OMP_CLAUSE_REDUCTION_INIT, OMP_CLAUSE_REDUCTION_MERGE,
 	OMP_CLAUSE_REDUCTION_PLACEHOLDER): Define.
 	* tree.def (OMP_CLAUSE_REDUCTION): Add 3 extra operands, update

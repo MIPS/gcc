@@ -1567,6 +1567,8 @@ expand_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
       new_var = lookup_decl (var, ctx);
 
       x = build_outer_var_ref (var, ctx);
+      if (is_reference (var))
+	new_var = build_fold_indirect_ref (new_var);
       x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
       append_to_statement_list (x, &sub_list);
     }
