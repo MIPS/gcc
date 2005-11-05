@@ -1,5 +1,12 @@
 2005-11-06  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_DEBUG_PRIVATE.
+	(omp_add_variable): For shared VLAs set also GOVD_DEBUG_PRIVATE bit
+	and preserve GOVD_EXPLICIT bit.
+	(gimplify_adjust_omp_clauses_1): If GOVD_DEBUG_PRIVATE bit is set, also
+	create OMP_CLAUSE_PRIVATE with OMP_CLAUSE_PRIVATE_DEBUG flag.
+	(gimplify_adjust_omp_clauses): Likewise.
+
 	* omp-low.c (expand_lastprivate_clauses): If var is passed by
 	reference, dereference new_var.
 

@@ -60,6 +60,7 @@ enum gimplify_omp_var_data
   GOVD_LASTPRIVATE = 32,
   GOVD_REDUCTION = 64,
   GOVD_LOCAL = 128,
+  GOVD_DEBUG_PRIVATE = 256,
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LOCAL)
 };
@@ -4264,7 +4265,8 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 of PRIVATE.  The sharing would take place via the pointer variable
 	 which we remapped above.  */
       if (flags & GOVD_SHARED)
-	flags = GOVD_PRIVATE | (flags & GOVD_SEEN);
+	flags = GOVD_PRIVATE | GOVD_DEBUG_PRIVATE
+		| (flags & (GOVD_SEEN | GOVD_EXPLICIT));
 
       /* We're going to make use of the TYPE_SIZE_UNIT at least in the 
 	 alloca statement we generate for the variable, so make sure it
@@ -4541,9 +4543,15 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     return 0;
   if ((flags & GOVD_SEEN) == 0)
     return 0;
-  private_debug
-    = lang_hooks.decls.omp_private_debug_clause (decl,
-						 !!(flags & GOVD_SHARED));
+  if (flags & GOVD_DEBUG_PRIVATE)
+    {
+      gcc_assert ((flags & GOVD_DATA_SHARE_CLASS) == GOVD_PRIVATE);
+      private_debug = true;
+    }
+  else
+    private_debug
+      = lang_hooks.decls.omp_private_debug_clause (decl,
+						   !!(flags & GOVD_SHARED));
   if (private_debug)
     code = OMP_CLAUSE_PRIVATE;
   else if (flags & GOVD_SHARED)
@@ -4590,8 +4598,12 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	  if (! remove)
 	    {
 	      bool shared = TREE_CODE (c) == OMP_CLAUSE_SHARED;
-	      if (lang_hooks.decls.omp_private_debug_clause (decl, shared))
+	      if ((n->value & GOVD_DEBUG_PRIVATE)
+		  || lang_hooks.decls.omp_private_debug_clause (decl, shared))
 		{
+		  gcc_assert ((n->value & GOVD_DEBUG_PRIVATE) == 0
+			      || ((n->value & GOVD_DATA_SHARE_CLASS)
+				  == GOVD_PRIVATE));
 		  TREE_SET_CODE (c, OMP_CLAUSE_PRIVATE);
 		  OMP_CLAUSE_PRIVATE_DEBUG (c) = 1;
 		}
