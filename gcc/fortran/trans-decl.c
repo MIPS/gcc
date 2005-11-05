@@ -2185,7 +2185,7 @@ gfc_build_builtin_function_decls (void)
 /* Evaluate the length of dummy character variables.  */
 
 static tree
-gfc_trans_dummy_character (gfc_charlen * cl, tree fnbody)
+gfc_trans_dummy_character (gfc_symbol *sym, gfc_charlen *cl, tree fnbody)
 {
   stmtblock_t body;
 
@@ -2195,7 +2195,9 @@ gfc_trans_dummy_character (gfc_charlen * cl, tree fnbody)
 
   /* Evaluate the string length expression.  */
   gfc_trans_init_string_length (cl, &body);
-  
+
+  gfc_trans_vla_type_sizes (sym, &body);
+
   gfc_add_expr_to_block (&body, fnbody);
   return gfc_finish_block (&body);
 }
@@ -2217,6 +2219,8 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 
   /* Evaluate the string length expression.  */
   gfc_trans_init_string_length (sym->ts.cl, &body);
+
+  gfc_trans_vla_type_sizes (sym, &body);
 
   decl = sym->backend_decl;
 
@@ -2248,6 +2252,93 @@ gfc_trans_assign_aux_var (gfc_symbol * sym, tree fnbody)
   return gfc_finish_block (&body);
 }
 
+static void
+gfc_trans_vla_one_sizepos (tree *tp, stmtblock_t *body)
+{
+  tree t = *tp, var, val;
+
+  if (t == NULL || t == error_mark_node)
+    return;
+  if (TREE_CONSTANT (t) || DECL_P (t))
+    return;
+
+  if (TREE_CODE (t) == SAVE_EXPR)
+    {
+      if (SAVE_EXPR_RESOLVED_P (t))
+	{
+	  *tp = TREE_OPERAND (t, 0);
+	  return;
+	}
+      val = TREE_OPERAND (t, 0);
+    }
+  else
+    val = t;
+
+  var = gfc_create_var_np (TREE_TYPE (t), NULL);
+  gfc_add_decl_to_function (var);
+  gfc_add_modify_expr (body, var, val);
+  if (TREE_CODE (t) == SAVE_EXPR)
+    TREE_OPERAND (t, 0) = var;
+  *tp = var;
+}
+
+static void
+gfc_trans_vla_type_sizes_1 (tree type, stmtblock_t *body)
+{
+  tree t;
+
+  if (type == NULL || type == error_mark_node)
+    return;
+
+  type = TYPE_MAIN_VARIANT (type);
+
+  if (TREE_CODE (type) == INTEGER_TYPE)
+    {
+      gfc_trans_vla_one_sizepos (&TYPE_MIN_VALUE (type), body);
+      gfc_trans_vla_one_sizepos (&TYPE_MAX_VALUE (type), body);
+
+      for (t = TYPE_NEXT_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  TYPE_MIN_VALUE (t) = TYPE_MIN_VALUE (type);
+	  TYPE_MAX_VALUE (t) = TYPE_MAX_VALUE (type);
+	}
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      gfc_trans_vla_type_sizes_1 (TREE_TYPE (type), body);
+      gfc_trans_vla_type_sizes_1 (TYPE_DOMAIN (type), body);
+      gfc_trans_vla_one_sizepos (&TYPE_SIZE (type), body);
+      gfc_trans_vla_one_sizepos (&TYPE_SIZE_UNIT (type), body);
+
+      for (t = TYPE_NEXT_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  TYPE_SIZE (t) = TYPE_SIZE (type);
+	  TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (type);
+	}
+    }
+}
+
+/* Make sure all type sizes and array domains are either constant,
+   or variable or parameter decls.  This is a simplified variant
+   of gimplify_type_sizes, but we can't use it here, as none of the
+   variables in the expressions have been gimplified yet.
+   As type sizes and domains for various variable length arrays
+   contain VAR_DECLs that are only initialized at gfc_trans_deferred_vars
+   time, without this routine gimplify_type_sizes in the middle-end
+   could result in the type sizes being gimplified earlier than where
+   those variables are initialized.  */
+
+void
+gfc_trans_vla_type_sizes (gfc_symbol *sym, stmtblock_t *body)
+{
+  tree type = TREE_TYPE (sym->backend_decl);
+
+  while (POINTER_TYPE_P (type))
+    type = TREE_TYPE (type);
+
+  gfc_trans_vla_type_sizes_1 (type, body);
+}
+
 
 /* Generate function entry and exit code, and add it to the function body.
    This includes:
@@ -2261,6 +2352,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 {
   locus loc;
   gfc_symbol *sym;
+  gfc_formal_arglist *f;
+  stmtblock_t body;
 
   /* Deal with implicit return variables.  Explicit return variables will
      already have been added.  */
@@ -2287,7 +2380,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
       else if (proc_sym->ts.type == BT_CHARACTER)
 	{
 	  if (TREE_CODE (proc_sym->ts.cl->backend_decl) == VAR_DECL)
-	    fnbody = gfc_trans_dummy_character (proc_sym->ts.cl, fnbody);
+	    fnbody = gfc_trans_dummy_character (proc_sym, proc_sym->ts.cl,
+						fnbody);
 	}
       else
 	gcc_assert (gfc_option.flag_f2c
@@ -2350,7 +2444,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	  gfc_get_backend_locus (&loc);
 	  gfc_set_backend_locus (&sym->declared_at);
 	  if (sym->attr.dummy || sym->attr.result)
-	    fnbody = gfc_trans_dummy_character (sym->ts.cl, fnbody);
+	    fnbody = gfc_trans_dummy_character (sym, sym->ts.cl, fnbody);
 	  else
 	    fnbody = gfc_trans_auto_character_variable (sym, fnbody);
 	  gfc_set_backend_locus (&loc);
@@ -2366,7 +2460,18 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	gcc_unreachable ();
     }
 
-  return fnbody;
+  gfc_init_block (&body);
+
+  for (f = proc_sym->formal; f; f = f->next)
+    if (f->sym && f->sym->tlink == NULL && f->sym->ts.type == BT_CHARACTER)
+      {
+	gcc_assert (f->sym->ts.cl->backend_decl != NULL);
+	if (TREE_CODE (f->sym->ts.cl->backend_decl) == PARM_DECL)
+	  gfc_trans_vla_type_sizes (f->sym, &body);
+      }
+
+  gfc_add_expr_to_block (&body, fnbody);
+  return gfc_finish_block (&body);
 }
 
 

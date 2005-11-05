@@ -1,5 +1,18 @@
 2005-11-06  Jakub Jelinek  <jakub@redhat.com>
 
+	* trans-decl.c (gfc_trans_dummy_character): Add SYM argument.
+	Call gfc_trans_vla_type_sizes.
+	(gfc_trans_auto_character_variable): Call gfc_trans_vla_type_sizes.
+	(gfc_trans_vla_one_sizepos, gfc_trans_vla_type_sizes_1,
+	gfc_trans_vla_type_sizes): New functions.
+	(gfc_trans_deferred_vars): Adjust gfc_trans_dummy_character
+	callers.  Call gfc_trans_vla_type_sizes on assumed-length
+	character parameters.
+	* trans-array.c (gfc_trans_array_bounds,
+	gfc_trans_auto_array_allocation, gfc_trans_dummy_array_bias): Call
+	gfc_trans_vla_type_sizes.
+	* trans.h (gfc_trans_vla_type_sizes): New prototype.
+
 	* trans-openmp.c (gfc_omp_privatize_by_reference): Return
 	true if a pointer has GFC_DECL_SAVED_DESCRIPTOR set.
 	(gfc_trans_omp_array_reduction, gfc_trans_omp_reduction_list): New
