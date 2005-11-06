@@ -1445,6 +1445,14 @@ expand_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      x = build_receiver_ref (var, by_ref, ctx);
 	      SET_DECL_VALUE_EXPR (new_var, x);
 	      DECL_HAS_VALUE_EXPR_P (new_var) = 1;
+
+	      /* ??? If VAR is not passed by reference, and the variable
+		 hasn't been initialized yet, then we'll get a warning for
+		 the store into the omp_data_s structure.  Ideally, we'd be
+		 able to notice this and not store anything at all, but 
+		 we're generating code too early.  Suppress the warning.  */
+	      if (!by_ref)
+		TREE_NO_WARNING (var) = 1;
 	      break;
 
 	    case OMP_CLAUSE_LASTPRIVATE:

@@ -1,3 +1,9 @@
+2005-11-05  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/24612
+	* omp-low.c (expand_rec_input_clauses): Set TREE_NO_WARNING for
+	pass-by-value shared variables.
+
 2005-11-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_DEBUG_PRIVATE.
