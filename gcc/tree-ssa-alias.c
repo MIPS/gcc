@@ -373,10 +373,21 @@ set_initial_properties (struct alias_info *ai)
 	  && is_call_clobbered (pi->name_mem_tag))
 	mark_call_clobbered (v_ann->type_mem_tag, pi->escape_mask);
 
-      if ((pi->pt_global_mem || pi->pt_anything) && pi->name_mem_tag)
-	mark_tag_global (pi->name_mem_tag);
-      if ((pi->pt_global_mem || pi->pt_anything) && v_ann->type_mem_tag)
-	mark_tag_global (v_ann->type_mem_tag);
+      /* Name tags and type tags that we don't know where they point
+	 to, might point to global memory, and thus, are clobbered.  */
+      if ((pi->pt_global_mem || pi->pt_anything) 
+	  && pi->is_dereferenced && pi->name_mem_tag)
+	{
+	  mark_call_clobbered (pi->name_mem_tag, ESCAPE_IS_GLOBAL);
+	  mark_tag_global (pi->name_mem_tag);
+	}
+      
+      if ((pi->pt_global_mem || pi->pt_anything) 
+	  && pi->is_dereferenced && v_ann->type_mem_tag)
+	{
+	  mark_call_clobbered (v_ann->type_mem_tag, ESCAPE_IS_GLOBAL);
+	  mark_tag_global (v_ann->type_mem_tag);
+	}
     }
 }
 /* Compute which variables need to be marked call clobbered because
@@ -2752,6 +2763,7 @@ create_sft (tree var, tree field)
   TREE_PUBLIC  (subvar) = TREE_PUBLIC (var);
   TREE_STATIC (subvar) = TREE_STATIC (var);
   TREE_READONLY (subvar) = TREE_READONLY (var);
+  SFT_PARENT_VAR (subvar) = var;
 
   /* Add the new variable to REFERENCED_VARS.  */
   ann = get_var_ann (subvar);

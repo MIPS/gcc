@@ -2051,10 +2051,12 @@ struct tree_decl_minimal GTY(())
 struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
+  tree parent_var;
   unsigned int is_global:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
+#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->mtag.parent_var)
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
    decl node which this decl is an instance of, or else it is NULL indicating

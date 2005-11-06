@@ -1,3 +1,13 @@
+2005-11-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (tree_memory_tag): Add parent_var.
+	(SFT_PARENT_VAR): New macro.
+	* tree-ssa-alias.c (set_initial_properties): For now, mark global 
+	tags as clobbered.
+	(create_sft): Set SFT_PARENT_VAR.
+	* tree-ssa-operands.c (add_call_clobber_ops):  Lookup and use
+	parent vars.
+
 2005-10-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	Fix PR tree-optimization/24287

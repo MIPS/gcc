@@ -1889,11 +1889,20 @@ add_call_clobber_ops (tree stmt, tree callee)
     {
       tree var = referenced_var_lookup (u);
       unsigned int escape_mask = var_ann (var)->escape_mask;
-      bool not_read
-	= not_read_b ? bitmap_bit_p (not_read_b, u) : false;
-      bool not_written
-	= not_written_b ? bitmap_bit_p (not_written_b, u) : false;
+      tree real_var = var;
+      bool not_read;
+      bool not_written;
       
+      /* Not read and not written are computed on regular vars, not
+	 subvars, so look at the parent var if this is an SFT. */
+
+      if (TREE_CODE (var) == STRUCT_FIELD_TAG)
+	real_var = SFT_PARENT_VAR (var);
+
+      not_read = not_read_b ? bitmap_bit_p (not_read_b, 
+					    DECL_UID (real_var)) : false;
+      not_written = not_written_b ? bitmap_bit_p (not_written_b, 
+						  DECL_UID (real_var)) : false;
       gcc_assert (!unmodifiable_var_p (var));
       
       clobber_stats.clobbered_vars++;
