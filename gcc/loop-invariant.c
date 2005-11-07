@@ -1,28 +1,28 @@
-/* Rtl-level loop invariant motion.
+/* RTL-level loop invariant motion.
    Copyright (C) 2004, 2005 Free Software Foundation, Inc.
-   
+
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 2, or (at your option) any
 later version.
-   
+
 GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
-   
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
 /* This implements the loop invariant motion pass.  It is very simple
-   (no calls, libcalls, etc.).  This should be sufficient to cleanup things like
-   address arithmetics -- other more complicated invariants should be
+   (no calls, libcalls, etc.).  This should be sufficient to cleanup things
+   like address arithmetics -- other more complicated invariants should be
    eliminated on tree level either in tree-ssa-loop-im.c or in tree-ssa-pre.c.
-   
+
    We proceed loop by loop -- it is simpler than trying to handle things
    globally and should not lose much.  First we inspect all sets inside loop
    and create a dependency graph on insns (saying "to move this insn, you must
@@ -31,7 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    We then need to determine what to move.  We estimate the number of registers
    used and move as many invariants as possible while we still have enough free
    registers.  We prefer the expensive invariants.
-   
+
    Then we move the selected invariants out of the loop, creating a new
    temporaries for them if necessary.  */
 
@@ -45,6 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "expr.h"
+#include "recog.h"
 #include "output.h"
 #include "function.h"
 #include "flags.h"
@@ -338,7 +339,7 @@ invariant_expr_equal_p (rtx insn1, rtx e1, enum machine_mode mode1,
 
       if (!inv1 || !inv2)
 	return false;
-      
+
       gcc_assert (inv1->eqto != ~0u);
       gcc_assert (inv2->eqto != ~0u);
       return inv1->eqto == inv2->eqto;
@@ -426,7 +427,7 @@ find_or_insert_inv (htab_t eq, rtx expr, enum machine_mode mode,
   struct invariant_expr_entry *entry;
   struct invariant_expr_entry pentry;
   PTR *slot;
-  
+
   pentry.expr = expr;
   pentry.inv = inv;
   pentry.mode = mode;
@@ -560,7 +561,7 @@ find_exits (struct loop *loop, basic_block *body,
 	    }
 	  continue;
 	}
-     
+
       /* Use the data stored for the subloop to decide whether we may exit
 	 through it.  It is sufficient to do this for header of the loop,
 	 as other basic blocks inside it must be dominated by it.  */
@@ -588,12 +589,43 @@ find_exits (struct loop *loop, basic_block *body,
   LOOP_DATA (loop)->has_call = has_call;
 }
 
+/* Test instruction to see if a hard_reg <- reg move exists.  */
+static rtx test_insn;
+
 /* Check whether we may assign a value to X from a register.  */
 
 static bool
 may_assign_reg_p (rtx x)
 {
-  return can_copy_p (GET_MODE (x));
+  int insn_code;
+  int num_clobbers = 0;
+
+  /* If this is not a machine mode with a reg-reg move, we're finished.  */
+  if (!can_copy_p (GET_MODE (x)))
+    return false;
+
+  if (!HARD_REGISTER_P (x))
+    return true;
+
+  /* For hard registers, make sure that a reg-reg move for it exists by
+     actually trying to recognize such an instruction.  This is needed
+     for i386's std and cld instructions, for example.  */
+
+  /* Initialize our test instruction if we haven't already.  */
+  if (!test_insn)
+    {
+      rtx fake_reg = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
+      test_insn = make_insn_raw (gen_rtx_SET (VOIDmode, x, fake_reg));
+      NEXT_INSN (test_insn) = PREV_INSN (test_insn) = 0;
+    }
+
+  /* Build an assignment to X and see if it can be recognized.  */
+  SET_DEST (PATTERN (test_insn)) = x;
+  PUT_MODE (SET_SRC (PATTERN (test_insn)), GET_MODE (x));
+  insn_code = recog (PATTERN (test_insn), test_insn, &num_clobbers);
+  return (insn_code >= 0
+	  && (num_clobbers == 0
+	      || ! added_clobbers_hard_reg_p (insn_code)));
 }
 
 /* Finds definitions that may correspond to invariants in LOOP with body
@@ -686,7 +718,7 @@ check_dependencies (rtx insn, bitmap depends_on)
   basic_block bb = BLOCK_FOR_INSN (insn), def_bb;
   struct def *def_data;
   struct invariant *inv;
-  
+
   for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
     {
       use = uses->ref;
@@ -738,7 +770,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || find_reg_note (insn, REG_LIBCALL, NULL_RTX)
       || find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
     return;
-      
+
   set = single_set (insn);
   if (!set)
     return;
@@ -792,7 +824,7 @@ record_uses (rtx insn)
   struct df_link *uses;
   struct ref *use;
   struct invariant *inv;
-  
+
   for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
     {
       use = uses->ref;
@@ -1098,7 +1130,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	      move_invariant_reg (loop, i);
 	    }
 	}
-  
+
       /* Move the set out of the loop.  If the set is always executed (we could
 	 omit this condition if we know that the register is unused outside of the
 	 loop, but it does not seem worth finding out) and it has no uses that
@@ -1108,9 +1140,22 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       reg = gen_reg_rtx (GET_MODE (SET_DEST (set)));
       df_pattern_emit_after (df, gen_move_insn (SET_DEST (set), reg),
 			     BLOCK_FOR_INSN (inv->insn), inv->insn);
-      SET_DEST (set) = reg;
-      reorder_insns (inv->insn, inv->insn, BB_END (preheader));
-      df_insn_modify (df, preheader, inv->insn);
+
+      /* If the SET_DEST of the invariant insn is a reg, we can just move
+	 the insn out of the loop.  Otherwise, we have to use gen_move_insn
+	 to let emit_move_insn produce a valid instruction stream.  */
+      if (REG_P (SET_DEST (set)))
+	{
+	  SET_DEST (set) = reg;
+	  reorder_insns (inv->insn, inv->insn, BB_END (preheader));
+	  df_insn_modify (df, preheader, inv->insn);
+	}
+      else
+	{
+	  df_pattern_emit_after (df, gen_move_insn (reg, SET_SRC (set)),
+				 preheader, BB_END (preheader));
+	  df_insn_delete (df, BLOCK_FOR_INSN (inv->insn), inv->insn);
+	}
     }
   else
     {
@@ -1228,6 +1273,9 @@ move_loop_invariants (struct loops *loops)
 
   df = df_init ();
 
+  /* ??? Could GTY that insn, but I really don't think it's worth it.  */
+  test_insn = NULL;
+  
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;
   while (loop->inner)
@@ -1252,4 +1300,7 @@ move_loop_invariants (struct loops *loops)
       free_loop_data (loops->parray[i]);
 
   df_finish (df);
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 }

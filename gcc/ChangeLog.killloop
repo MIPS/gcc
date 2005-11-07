@@ -1,3 +1,11 @@
+2005-11-07  Steven Bosscher  <stevenb@suse.de>
+
+	* loop-invariant.c (may_assign_reg_p): Make absolutely sure that
+	a reg-reg move exists for hard registers on the left hand side.
+	(move_invariant_reg): Use gen_move_insn to move insns out of the
+	loop if the left hand side of the invariant insn is not a reg.
+	(move_loop_invariants): When checking, verify flow info.
+
 2005-11-01  Steven Bosscher  <stevenb@suse.de>
 
 	* loop-unroll.c: Don't include varray.h.  Include df.h.
