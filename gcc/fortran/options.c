@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-inline.h"
 
 #include "gfortran.h"
+#include "target.h"
 
 gfc_option_t gfc_option;
 
@@ -72,9 +73,12 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_repack_arrays = 0;
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
+  gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
 
   gfc_option.q_kind = gfc_default_double_kind;
+
+  gfc_option.fpe = 0;
 
   flag_argument_noalias = 2;
   flag_errno_math = 0;
@@ -86,6 +90,9 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
     | GFC_STD_F2003 | GFC_STD_LEGACY;
 
   gfc_option.warn_nonstd_intrinsics = 0;
+
+  /* -fshort-enums can be default on some targets.  */
+  gfc_option.fshort_enums = targetm.default_short_enums ();
 
   return CL_Fortran;
 }
@@ -223,6 +230,10 @@ gfc_post_options (const char **pfilename)
   if (gfc_option.flag_second_underscore == -1)
     gfc_option.flag_second_underscore = gfc_option.flag_f2c;
 
+  /* Implement -fno-automatic as -fmax-stack-var-size=0.  */
+  if (!gfc_option.flag_automatic)
+    gfc_option.flag_max_stack_var_size = 0;
+
   return false;
 }
 
@@ -274,6 +285,41 @@ gfc_handle_module_path_options (const char *arg)
   strcat (gfc_option.module_dir, "/");
 }
 
+static void
+gfc_handle_fpe_trap_option (const char *arg)
+{
+  int result, pos = 0, n;
+  static const char * const exception[] = { "invalid", "denormal", "zero",
+                                            "overflow", "underflow",
+					    "precision", NULL };
+  static const int opt_exception[] = { GFC_FPE_INVALID, GFC_FPE_DENORMAL,
+				       GFC_FPE_ZERO, GFC_FPE_OVERFLOW,
+				       GFC_FPE_UNDERFLOW, GFC_FPE_PRECISION,
+				       0 };
+ 
+  while (*arg)
+    {
+      while (*arg == ',')
+	arg++;
+      while (arg[pos] && arg[pos] != ',')
+	pos++;
+      result = 0;
+      for (n = 0; exception[n] != NULL; n++)
+	{
+	  if (exception[n] && strncmp (exception[n], arg, pos) == 0)
+	    {
+	      gfc_option.fpe |= opt_exception[n];
+	      arg += pos;
+	      pos = 0;
+	      result = 1;
+	      break;
+	    }
+	}
+      if (! result)
+	gfc_fatal_error ("Argument to -ffpe-trap is not valid: %s", arg);
+    }
+}
+
 /* Handle command-line options.  Returns 0 if unrecognized, 1 if
    recognized and handled.  */
 int
@@ -322,6 +368,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wunused_labels:
       gfc_option.warn_unused_labels = value;
+      break;
+      
+    case OPT_fcray_pointer:
+      gfc_option.flag_cray_pointer = value;
       break;
 
     case OPT_ff2c:
@@ -436,6 +486,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_handle_module_path_options (arg);
       break;
     
+    case OPT_ffpe_trap_:
+      gfc_handle_fpe_trap_option (arg);
+      break;
+
     case OPT_std_f95:
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95 | GFC_STD_F77;
       gfc_option.warn_std = GFC_STD_F95_OBS;
@@ -466,6 +520,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wnonstd_intrinsics:
       gfc_option.warn_nonstd_intrinsics = 1;
+      break;
+
+    case OPT_fshort_enums:
+      gfc_option.fshort_enums = 1;
       break;
     }
 

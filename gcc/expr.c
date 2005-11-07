@@ -2812,7 +2812,7 @@ emit_move_change_mode (enum machine_mode new_mode,
    emitted, or NULL if such a move could not be generated.  */
 
 static rtx
-emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
+emit_move_via_integer (enum machine_mode mode, rtx x, rtx y, bool force)
 {
   enum machine_mode imode;
   enum insn_code code;
@@ -2827,10 +2827,10 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
   if (code == CODE_FOR_nothing)
     return NULL_RTX;
 
-  x = emit_move_change_mode (imode, mode, x, false);
+  x = emit_move_change_mode (imode, mode, x, force);
   if (x == NULL_RTX)
     return NULL_RTX;
-  y = emit_move_change_mode (imode, mode, y, false);
+  y = emit_move_change_mode (imode, mode, y, force);
   if (y == NULL_RTX)
     return NULL_RTX;
   return emit_insn (GEN_FCN (code) (x, y));
@@ -2973,7 +2973,7 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 	  return get_last_insn ();
 	}
 
-      ret = emit_move_via_integer (mode, x, y);
+      ret = emit_move_via_integer (mode, x, y, true);
       if (ret)
 	return ret;
     }
@@ -3011,7 +3011,7 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
     }
 
   /* Otherwise, find the MODE_INT mode of the same width.  */
-  ret = emit_move_via_integer (mode, x, y);
+  ret = emit_move_via_integer (mode, x, y, false);
   gcc_assert (ret != NULL);
   return ret;
 }
@@ -3119,7 +3119,7 @@ emit_move_insn_1 (rtx x, rtx y)
      fits within a HOST_WIDE_INT.  */
   if (!CONSTANT_P (y) || GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
     {
-      rtx ret = emit_move_via_integer (mode, x, y);
+      rtx ret = emit_move_via_integer (mode, x, y, false);
       if (ret)
 	return ret;
     }
@@ -3924,10 +3924,18 @@ expand_assignment (tree to, tree from)
 
       if (offset != 0)
 	{
-	  rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
+	  rtx offset_rtx;
 
-	  gcc_assert (MEM_P (to_rtx));
+	  if (!MEM_P (to_rtx))
+	    {
+	      /* We can get constant negative offsets into arrays with broken
+		 user code.  Translate this to a trap instead of ICEing.  */
+	      gcc_assert (TREE_CODE (offset) == INTEGER_CST);
+	      expand_builtin_trap ();
+	      to_rtx = gen_rtx_MEM (BLKmode, const0_rtx);
+	    }
 
+	  offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
 #ifdef POINTERS_EXTEND_UNSIGNED
 	  if (GET_MODE (offset_rtx) != Pmode)
 	    offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
@@ -6966,7 +6974,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    int icode;
 	    rtx reg, insn;
 
-	    gcc_assert (modifier == EXPAND_NORMAL);
+	    gcc_assert (modifier == EXPAND_NORMAL
+			|| modifier == EXPAND_STACK_PARM);
 
 	    /* The vectorizer should have already checked the mode.  */
 	    icode = movmisalign_optab->handlers[mode].insn_code;

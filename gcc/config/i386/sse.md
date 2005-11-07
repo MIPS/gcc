@@ -589,6 +589,52 @@
   [(set_attr "type" "sse")
    (set_attr "mode" "SF")])
 
+;; These versions of the min/max patterns implement exactly the operations
+;;   min = (op1 < op2 ? op1 : op2)
+;;   max = (!(op1 < op2) ? op1 : op2)
+;; Their operands are not commutative, and thus they may be used in the
+;; presence of -0.0 and NaN.
+
+(define_insn "*ieee_sminv4sf3"
+  [(set (match_operand:V4SF 0 "register_operand" "=x")
+	(unspec:V4SF [(match_operand:V4SF 1 "register_operand" "0")
+		      (match_operand:V4SF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MIN))]
+  "TARGET_SSE"
+  "minps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*ieee_smaxv4sf3"
+  [(set (match_operand:V4SF 0 "register_operand" "=x")
+	(unspec:V4SF [(match_operand:V4SF 1 "register_operand" "0")
+		      (match_operand:V4SF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MAX))]
+  "TARGET_SSE"
+  "maxps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*ieee_sminv2df3"
+  [(set (match_operand:V2DF 0 "register_operand" "=x")
+	(unspec:V2DF [(match_operand:V2DF 1 "register_operand" "0")
+		      (match_operand:V2DF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MIN))]
+  "TARGET_SSE2"
+  "minpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V2DF")])
+
+(define_insn "*ieee_smaxv2df3"
+  [(set (match_operand:V2DF 0 "register_operand" "=x")
+	(unspec:V2DF [(match_operand:V2DF 1 "register_operand" "0")
+		      (match_operand:V2DF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MAX))]
+  "TARGET_SSE2"
+  "maxpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V2DF")])
+
 (define_insn "sse3_addsubv4sf3"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
 	(vec_merge:V4SF
@@ -654,7 +700,7 @@
   [(set_attr "type" "sseadd")
    (set_attr "mode" "V4SF")])
 
-(define_expand "reduc_plus_v4sf"
+(define_expand "reduc_splus_v4sf"
   [(match_operand:V4SF 0 "register_operand" "")
    (match_operand:V4SF 1 "register_operand" "")]
   "TARGET_SSE"
@@ -1643,6 +1689,15 @@
   "hsubpd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "V2DF")])
+
+(define_expand "reduc_splus_v2df"
+  [(match_operand:V2DF 0 "register_operand" "")
+   (match_operand:V2DF 1 "register_operand" "")]
+  "TARGET_SSE3"
+{
+  emit_insn (gen_sse3_haddv2df3 (operands[0], operands[1], operands[1]));
+  DONE;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -2942,13 +2997,13 @@
 })
 
 (define_expand "vcondu<mode>"
-  [(set (match_operand:SSEMODE12 0 "register_operand" "")
-        (if_then_else:SSEMODE12
+  [(set (match_operand:SSEMODE124 0 "register_operand" "")
+        (if_then_else:SSEMODE124
           (match_operator 3 ""
-            [(match_operand:SSEMODE12 4 "nonimmediate_operand" "")
-             (match_operand:SSEMODE12 5 "nonimmediate_operand" "")])
-          (match_operand:SSEMODE12 1 "general_operand" "")
-          (match_operand:SSEMODE12 2 "general_operand" "")))]
+            [(match_operand:SSEMODE124 4 "nonimmediate_operand" "")
+             (match_operand:SSEMODE124 5 "nonimmediate_operand" "")])
+          (match_operand:SSEMODE124 1 "general_operand" "")
+          (match_operand:SSEMODE124 2 "general_operand" "")))]
   "TARGET_SSE2"
 {
   if (ix86_expand_int_vcond (operands))

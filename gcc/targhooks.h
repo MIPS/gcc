@@ -71,3 +71,4 @@ extern rtx default_function_value (tree, tree, bool);
 extern enum machine_mode apply_result_mode_1reg (unsigned regno);
 extern enum machine_mode apply_result_mode_scanreg (unsigned regno);
 
+extern rtx default_internal_arg_pointer (void);

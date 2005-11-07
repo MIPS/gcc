@@ -827,27 +827,25 @@ static char *atom_string, atom_name[MAX_ATOM_SIZE];
 static void bad_module (const char *) ATTRIBUTE_NORETURN;
 
 static void
-bad_module (const char *message)
+bad_module (const char *msgid)
 {
-  const char *p;
+  fclose (module_fp);
 
   switch (iomode)
     {
     case IO_INPUT:
-      p = "Reading";
+      gfc_fatal_error ("Reading module %s at line %d column %d: %s",
+	  	       module_name, module_line, module_column, msgid);
       break;
     case IO_OUTPUT:
-      p = "Writing";
+      gfc_fatal_error ("Writing module %s at line %d column %d: %s",
+	  	       module_name, module_line, module_column, msgid);
       break;
     default:
-      p = "???";
+      gfc_fatal_error ("Module %s at line %d column %d: %s",
+	  	       module_name, module_line, module_column, msgid);
       break;
     }
-
-  fclose (module_fp);
-
-  gfc_fatal_error ("%s module %s at line %d column %d: %s", p,
-		   module_name, module_line, module_column, message);
 }
 
 
@@ -1154,19 +1152,19 @@ require_atom (atom_type type)
       switch (type)
 	{
 	case ATOM_NAME:
-	  p = "Expected name";
+	  p = _("Expected name");
 	  break;
 	case ATOM_LPAREN:
-	  p = "Expected left parenthesis";
+	  p = _("Expected left parenthesis");
 	  break;
 	case ATOM_RPAREN:
-	  p = "Expected right parenthesis";
+	  p = _("Expected right parenthesis");
 	  break;
 	case ATOM_INTEGER:
-	  p = "Expected integer";
+	  p = _("Expected integer");
 	  break;
 	case ATOM_STRING:
-	  p = "Expected string";
+	  p = _("Expected string");
 	  break;
 	default:
 	  gfc_internal_error ("require_atom(): bad atom type required");
@@ -1433,7 +1431,8 @@ typedef enum
   AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT,
   AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
-  AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT
+  AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
+  AB_CRAY_POINTEE
 }
 ab_attribute;
 
@@ -1460,6 +1459,8 @@ static const mstring attr_bits[] =
     minit ("RECURSIVE", AB_RECURSIVE),
     minit ("GENERIC", AB_GENERIC),
     minit ("ALWAYS_EXPLICIT", AB_ALWAYS_EXPLICIT),
+    minit ("CRAY_POINTER", AB_CRAY_POINTER),
+    minit ("CRAY_POINTEE", AB_CRAY_POINTEE),
     minit (NULL, -1)
 };
 
@@ -1544,6 +1545,10 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_RECURSIVE, attr_bits);
       if (attr->always_explicit)
         MIO_NAME(ab_attribute) (AB_ALWAYS_EXPLICIT, attr_bits);
+      if (attr->cray_pointer)
+	MIO_NAME(ab_attribute) (AB_CRAY_POINTER, attr_bits);
+      if (attr->cray_pointee)
+	MIO_NAME(ab_attribute) (AB_CRAY_POINTEE, attr_bits);
 
       mio_rparen ();
 
@@ -1624,6 +1629,12 @@ mio_symbol_attribute (symbol_attribute * attr)
             case AB_ALWAYS_EXPLICIT:
               attr->always_explicit = 1;
               break;
+	    case AB_CRAY_POINTER:
+	      attr->cray_pointer = 1;
+	      break;
+	    case AB_CRAY_POINTEE:
+	      attr->cray_pointee = 1;
+	      break;
 	    }
 	}
     }
@@ -1875,6 +1886,12 @@ mio_component_ref (gfc_component ** cp, gfc_symbol * sym)
     {
       mio_internal_string (name);
 
+      /* It can happen that a component reference can be read before the
+	 associated derived type symbol has been loaded. Return now and
+	 wait for a later iteration of load_needed.  */
+      if (sym == NULL)
+	return;
+
       if (sym->components != NULL && p->u.pointer == NULL)
 	{
 	  /* Symbol already loaded, so search by name.  */
@@ -2087,10 +2104,18 @@ mio_symtree_ref (gfc_symtree ** stp)
 {
   pointer_info *p;
   fixup_t *f;
+  gfc_symtree * ns_st = NULL;
 
   if (iomode == IO_OUTPUT)
     {
-      mio_symbol_ref (&(*stp)->n.sym);
+      /* If this is a symtree for a symbol that came from a contained module
+	 namespace, it has a unique name and we should look in the current
+	 namespace to see if the required, non-contained symbol is available
+	 yet. If so, the latter should be written.  */
+      if ((*stp)->n.sym && check_unique_name((*stp)->name))
+	ns_st = gfc_find_symtree (gfc_current_ns->sym_root, (*stp)->n.sym->name);
+
+      mio_symbol_ref (ns_st ? &ns_st->n.sym : &(*stp)->n.sym);
     }
   else
     {
@@ -2803,6 +2828,9 @@ mio_symbol (gfc_symbol * sym)
 
   mio_symbol_ref (&sym->result);
 
+  if (sym->attr.cray_pointee)
+    mio_symbol_ref (&sym->cp_pointer);
+
   /* Note that components are always saved, even if they are supposed
      to be private.  Component access is checked during searching.  */
 
@@ -3101,7 +3129,7 @@ read_module (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_op i;
-  int ambiguous, symbol, j, nuse;
+  int ambiguous, j, nuse, symbol;
   pointer_info *info;
   gfc_use_rename *u;
   gfc_symtree *st;
@@ -3144,7 +3172,17 @@ read_module (void)
          being loaded again.  */
 
       sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
-      if (sym == NULL)
+
+        /* See if the symbol has already been loaded by a previous module.
+	 If so, we reference the existing symbol and prevent it from
+	 being loaded again.  This should not happen if the symbol being
+	 read is an index for an assumed shape dummy array (ns != 1).  */
+
+      sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
+
+      if (sym == NULL
+	   || (sym->attr.flavor == FL_VARIABLE
+	       && info->u.rsym.ns !=1))
 	continue;
 
       info->u.rsym.state = USED;
@@ -3206,8 +3244,8 @@ read_module (void)
 	      if (sym == NULL)
 		{
 		  sym = info->u.rsym.sym =
-		      gfc_new_symbol (info->u.rsym.true_name
-				      , gfc_current_ns);
+		      gfc_new_symbol (info->u.rsym.true_name,
+				      gfc_current_ns);
 
 		  sym->module = gfc_get_string (info->u.rsym.module);
 		}
@@ -3486,11 +3524,6 @@ write_symbol1 (pointer_info * p)
 
   if (p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE)
     return 0;
-
-  /* FIXME: This shouldn't be necessary, but it works around
-     deficiencies in the module loader or/and symbol handling.  */
-  if (p->u.wsym.sym->module == NULL && p->u.wsym.sym->attr.dummy)
-    p->u.wsym.sym->module = gfc_get_string (module_name);
 
   p->u.wsym.state = WRITTEN;
   write_symbol (p->integer, p->u.wsym.sym);

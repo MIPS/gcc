@@ -241,7 +241,7 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
                                         DECL_FIELD_OFFSET (field),
                                         DECL_SIZE_UNIT (field)));
   /* If this field is assigned to a label, we create another two variables.
-     One will hold the address of taget label or format label. The other will
+     One will hold the address of target label or format label. The other will
      hold the length of format label string.  */
   if (h->sym->attr.assign)
     {
@@ -268,7 +268,7 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
 /* Get storage for local equivalence.  */
 
 static tree
-build_equiv_decl (tree union_type, bool is_init)
+build_equiv_decl (tree union_type, bool is_init, bool is_saved)
 {
   tree decl;
   char name[15];
@@ -286,7 +286,8 @@ build_equiv_decl (tree union_type, bool is_init)
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
 
-  if (!gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl)))
+  if (!gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl))
+      || is_saved)
     TREE_STATIC (decl) = 1;
 
   TREE_ADDRESSABLE (decl) = 1;
@@ -385,6 +386,7 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
   record_layout_info rli;
   tree decl;
   bool is_init = false;
+  bool is_saved = false;
 
   /* Declare the variables inside the common block.
      If the current common block contains any equivalence object, then
@@ -410,13 +412,17 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
       /* Has initial value.  */
       if (s->sym->value)
         is_init = true;
+
+      /* Has SAVE attribute.  */
+      if (s->sym->attr.save)
+        is_saved = true;
     }
   finish_record_layout (rli, true);
 
   if (com)
     decl = build_common_decl (com, union_type, is_init);
   else
-    decl = build_equiv_decl (union_type, is_init);
+    decl = build_equiv_decl (union_type, is_init, is_saved);
 
   if (is_init)
     {
@@ -465,8 +471,38 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
   /* Build component reference for each variable.  */
   for (s = head; s; s = next_s)
     {
-      s->sym->backend_decl = build3 (COMPONENT_REF, TREE_TYPE (s->field),
-				decl, s->field, NULL_TREE);
+      tree var_decl;
+
+      var_decl = build_decl (VAR_DECL, DECL_NAME (s->field),
+			     TREE_TYPE (s->field));
+      gfc_set_decl_location (var_decl, &s->sym->declared_at);
+      TREE_PUBLIC (var_decl) = TREE_PUBLIC (decl);
+      TREE_STATIC (var_decl) = TREE_STATIC (decl);
+      TREE_USED (var_decl) = TREE_USED (decl);
+      if (s->sym->attr.target)
+	TREE_ADDRESSABLE (var_decl) = 1;
+      /* This is a fake variable just for debugging purposes.  */
+      TREE_ASM_WRITTEN (var_decl) = 1;
+
+      if (com)
+	var_decl = pushdecl_top_level (var_decl);
+      else
+	gfc_add_decl_to_function (var_decl);
+
+      SET_DECL_VALUE_EXPR (var_decl,
+			   build3 (COMPONENT_REF, TREE_TYPE (s->field),
+				   decl, s->field, NULL_TREE));
+      DECL_HAS_VALUE_EXPR_P (var_decl) = 1;
+
+      if (s->sym->attr.assign)
+	{
+	  gfc_allocate_lang_decl (var_decl);
+	  GFC_DECL_ASSIGN (var_decl) = 1;
+	  GFC_DECL_STRING_LEN (var_decl) = GFC_DECL_STRING_LEN (s->field);
+	  GFC_DECL_ASSIGN_ADDR (var_decl) = GFC_DECL_ASSIGN_ADDR (s->field);
+	}
+
+      s->sym->backend_decl = var_decl;
 
       next_s = s->next;
       gfc_free (s);

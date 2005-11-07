@@ -403,7 +403,12 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   /* For character variables, also get the length.  */
   if (sym->ts.type == BT_CHARACTER)
     {
-      se->string_length = sym->ts.cl->backend_decl;
+      /* If the character length of an entry isn't set, get the length from
+         the master function instead.  */
+      if (sym->attr.entry && !sym->ts.cl->backend_decl)
+        se->string_length = sym->ns->proc_name->ts.cl->backend_decl;
+      else
+        se->string_length = sym->ts.cl->backend_decl;
       gcc_assert (se->string_length);
     }
 
@@ -691,6 +696,10 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	  ikind = 1;
 	  break;
 
+	case 16:
+	  ikind = 2;
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -712,6 +721,14 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	  kind = 1;
 	  break;
 
+	case 10:
+	  kind = 2;
+	  break;
+
+	case 16:
+	  kind = 3;
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -719,6 +736,8 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
       switch (expr->value.op.op1->ts.type)
 	{
 	case BT_INTEGER:
+	  if (kind == 3) /* Case 16 was not handled properly above.  */
+	    kind = 2;
 	  fndecl = gfor_fndecl_math_powi[kind][ikind].integer;
 	  break;
 
@@ -744,6 +763,10 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	case 8:
 	  fndecl = built_in_decls[BUILT_IN_POW];
 	  break;
+	case 10:
+	case 16:
+	  fndecl = built_in_decls[BUILT_IN_POWL];
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -757,6 +780,12 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	  break;
 	case 8:
 	  fndecl = gfor_fndecl_math_cpow;
+	  break;
+	case 10:
+	  fndecl = gfor_fndecl_math_cpowl10;
+	  break;
+	case 16:
+	  fndecl = gfor_fndecl_math_cpowl16;
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -2567,18 +2596,35 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 {
   gfc_se se;
   gfc_ss *ss;
+  gfc_ref * ref;
+  bool seen_array_ref;
 
   /* The caller has already checked rank>0 and expr_type == EXPR_FUNCTION.  */
   if (expr2->value.function.isym && !gfc_is_intrinsic_libcall (expr2))
     return NULL;
 
   /* Elemental functions don't need a temporary anyway.  */
-  if (expr2->symtree->n.sym->attr.elemental)
+  if (expr2->value.function.esym != NULL
+      && expr2->value.function.esym->attr.elemental)
     return NULL;
 
   /* Fail if EXPR1 can't be expressed as a descriptor.  */
   if (gfc_ref_needs_temporary_p (expr1->ref))
     return NULL;
+
+  /* Check that no LHS component references appear during an array
+     reference. This is needed because we do not have the means to
+     span any arbitrary stride with an array descriptor. This check
+     is not needed for the rhs because the function result has to be
+     a complete type.  */
+  seen_array_ref = false;
+  for (ref = expr1->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_ARRAY)
+	seen_array_ref= true;
+      else if (ref->type == REF_COMPONENT && seen_array_ref)
+	return NULL;
+    }
 
   /* Check for a dependency.  */
   if (gfc_check_fncall_dependency (expr1, expr2))
@@ -2673,7 +2719,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
       /* Calculate the bounds of the scalarization.  */
       gfc_conv_ss_startstride (&loop);
       /* Resolve any data dependencies in the statement.  */
-      gfc_conv_resolve_dependencies (&loop, lss_section, rss);
+      gfc_conv_resolve_dependencies (&loop, lss, rss);
       /* Setup the scalarizing loops.  */
       gfc_conv_loop_setup (&loop);
 

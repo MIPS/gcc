@@ -606,20 +606,19 @@ find_substitution (tree node)
 				       SUBID_CHAR_TRAITS))
 	{
 	  /* Got them.  Is this basic_istream?  */
-	  tree name = DECL_NAME (CLASSTYPE_TI_TEMPLATE (type));
-	  if (name == subst_identifiers[SUBID_BASIC_ISTREAM])
+	  if (is_std_substitution (decl, SUBID_BASIC_ISTREAM))
 	    {
 	      write_string ("Si");
 	      return 1;
 	    }
 	  /* Or basic_ostream?  */
-	  else if (name == subst_identifiers[SUBID_BASIC_OSTREAM])
+	  else if (is_std_substitution (decl, SUBID_BASIC_OSTREAM))
 	    {
 	      write_string ("So");
 	      return 1;
 	    }
 	  /* Or basic_iostream?  */
-	  else if (name == subst_identifiers[SUBID_BASIC_IOSTREAM])
+	  else if (is_std_substitution (decl, SUBID_BASIC_IOSTREAM))
 	    {
 	      write_string ("Sd");
 	      return 1;
@@ -2009,9 +2008,10 @@ write_expression (tree expr)
   if (code == PTRMEM_CST)
     {
       expr = build_nt (ADDR_EXPR,
-		       build_nt (SCOPE_REF,
-				 PTRMEM_CST_CLASS (expr),
-				 PTRMEM_CST_MEMBER (expr)));
+		       build_qualified_name (/*type=*/NULL_TREE,
+					     PTRMEM_CST_CLASS (expr),
+					     PTRMEM_CST_MEMBER (expr),
+					     /*template_p=*/false));
       code = TREE_CODE (expr);
     }
 
@@ -2187,7 +2187,7 @@ write_expression (tree expr)
 	  for (i = 0; i < TREE_CODE_LENGTH (code); ++i)
 	    {
 	      tree operand = TREE_OPERAND (expr, i);
-	      /* As a GNU expression, the middle operand of a
+	      /* As a GNU extension, the middle operand of a
 		 conditional may be omitted.  Since expression
 		 manglings are supposed to represent the input token
 		 stream, there's no good way to mangle such an

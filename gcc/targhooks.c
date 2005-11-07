@@ -476,4 +476,19 @@ apply_result_mode_scanreg (unsigned regno)
   return mode;
 }
 
+rtx
+default_internal_arg_pointer (void)
+{
+  /* If the reg that the virtual arg pointer will be translated into is
+     not a fixed reg or is the stack pointer, make a copy of the virtual
+     arg pointer, and address parms via the copy.  The frame pointer is
+     considered fixed even though it is not marked as such.  */
+  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
+       || ! (fixed_regs[ARG_POINTER_REGNUM]
+	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
+    return copy_to_reg (virtual_incoming_args_rtx);
+  else
+    return virtual_incoming_args_rtx;
+}
+
 #include "gt-targhooks.h"

@@ -49,6 +49,10 @@ extern void init_insn_lengths (void);
    get its actual length.  Otherwise, get its maximum length.  */
 extern int get_attr_length (rtx);
 
+/* Obtain the current length of an insn.  If branch shortening has been done,
+   get its actual length.  Otherwise, get its minimum length.  */
+extern int get_attr_min_length (rtx);
+
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
 extern void shorten_branches (rtx);
@@ -583,10 +587,6 @@ extern void file_end_indicate_exec_stack (void);
 extern bool default_valid_pointer_mode (enum machine_mode);
 
 extern int default_address_cost (rtx);
-
-/* When performing hot/cold basic block partitioning, insert note in
-   instruction stream indicating boundary between hot and cold sections.  */
-extern void insert_section_boundary_note (void);
 
 /* dbxout helper functions */
 #if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO

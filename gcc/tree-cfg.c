@@ -1987,6 +1987,12 @@ remove_bb (basic_block bb)
 	{
 	  loop->latch = NULL;
 	  loop->header = NULL;
+
+	  /* Also clean up the information associated with the loop.  Updating
+	     it would waste time. More importantly, it may refer to ssa
+	     names that were defined in other removed basic block -- these
+	     ssa names are now removed and invalid.  */
+	  free_numbers_of_iterations_estimates_loop (loop);
 	}
     }
 
@@ -2931,7 +2937,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
       if (TREE_CODE (tmp) == RETURN_EXPR)
         {
 	  tree op = TREE_OPERAND (tmp, 0);
-	  if (!is_gimple_val (op))
+	  if (op && !is_gimple_val (op))
 	    {
 	      gcc_assert (TREE_CODE (op) == MODIFY_EXPR);
 	      bsi_insert_before (bsi, op, BSI_NEW_STMT);

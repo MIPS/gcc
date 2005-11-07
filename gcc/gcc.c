@@ -380,7 +380,7 @@ or with constant text in a single argument.
 	chosen in a way that is hard to predict even when previously
 	chosen file names are known.  For example, `%g.s ... %g.o ... %g.s'
 	might turn into `ccUVUUAU.s ccXYAXZ12.o ccUVUUAU.s'.  SUFFIX matches
-	the regexp "[.A-Za-z]*%O"; "%O" is treated exactly as if it
+	the regexp "[.0-9A-Za-z]*%O"; "%O" is treated exactly as if it
 	had been pre-processed.  Previously, %g was simply substituted
 	with a file name chosen once per compilation, without regard
 	to any appended suffix (which was therefore treated just like
@@ -1851,6 +1851,12 @@ static int argbuf_index;
 
 static int have_o_argbuf_index = 0;
 
+/* Were the options -c or -S passed.  */
+static int have_c = 0;
+
+/* Was the option -o passed.  */
+static int have_o = 0;
+
 /* This is the list of suffixes and codes (%g/%u/%U/%j) and the associated
    temp file.  If the HOST_BIT_BUCKET is used for %j, no entry is made for
    it here.  */
@@ -3148,7 +3154,6 @@ process_command (int argc, const char **argv)
   char *temp1;
   const char *spec_lang = 0;
   int last_language_n_infiles;
-  int have_c = 0;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
@@ -3700,6 +3705,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      goto normal_switch;
 
 	    case 'o':
+	      have_o = 1;
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 	      if (! have_c)
 		{
@@ -4705,7 +4711,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		arg_going = 1;
 
 		/* consume suffix */
-		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		while (*p == '.' || ISALNUM ((unsigned char) *p))
 		  p++;
 		if (p[0] == '%' && p[1] == 'O')
 		  p += 2;
@@ -4717,7 +4723,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    if (use_pipes)
 	      {
 		/* consume suffix */
-		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		while (*p == '.' || ISALNUM ((unsigned char) *p))
 		  p++;
 		if (p[0] == '%' && p[1] == 'O')
 		  p += 2;
@@ -4735,14 +4741,14 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		const char *suffix = p;
 		char *saved_suffix = NULL;
 
-		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		while (*p == '.' || ISALNUM ((unsigned char) *p))
 		  p++;
 		suffix_length = p - suffix;
 		if (p[0] == '%' && p[1] == 'O')
 		  {
 		    p += 2;
 		    /* We don't support extra suffix characters after %O.  */
-		    if (*p == '.' || ISALPHA ((unsigned char) *p))
+		    if (*p == '.' || ISALNUM ((unsigned char) *p))
 		      fatal ("spec '%s' has invalid '%%0%c'", spec, *p);
 		    if (suffix_length == 0)
 		      suffix = TARGET_OBJECT_SUFFIX;
@@ -6425,7 +6431,7 @@ main (int argc, const char **argv)
   if (combine_flag)
     combine_inputs = true;
   else
-    combine_inputs = false;
+    combine_inputs = false;  
 
   for (i = 0; (int) i < n_infiles; i++)
     {
@@ -6456,6 +6462,9 @@ main (int argc, const char **argv)
       infiles[i].compiled = false;
       infiles[i].preprocessed = false;
     }
+    
+  if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
+   fatal ("cannot specify -o with -c or -S with multiple files");
 
   if (combine_flag && save_temps_flag)
     {

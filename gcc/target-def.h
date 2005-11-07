@@ -147,6 +147,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_INVALID_WITHIN_DOLOOP default_invalid_within_doloop
 #endif
 
+#ifndef TARGET_VALID_DLLIMPORT_ATTRIBUTE_P
+#define TARGET_VALID_DLLIMPORT_ATTRIBUTE_P hook_bool_tree_true
+#endif
+
 #ifndef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS false
 #endif
@@ -444,6 +448,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #define TARGET_FUNCTION_VALUE default_function_value
 #define TARGET_APPLY_RESULT_MODE apply_result_mode_1reg
+#define TARGET_INTERNAL_ARG_POINTER default_internal_arg_pointer
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -463,7 +468,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_ARG_PARTIAL_BYTES,					\
    TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN,			\
    TARGET_FUNCTION_VALUE,					\
-   TARGET_APPLY_RESULT_MODE					\
+   TARGET_APPLY_RESULT_MODE,					\
+   TARGET_INTERNAL_ARG_POINTER					\
    }
 
 #ifndef TARGET_UNWIND_TABLES_DEFAULT
@@ -520,6 +526,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
+#ifndef TARGET_CXX_ADJUST_CLASS_AT_DEFINITION
+#define TARGET_CXX_ADJUST_CLASS_AT_DEFINITION hook_void_tree
+#endif
+
 #define TARGET_CXX				\
   {						\
     TARGET_CXX_GUARD_TYPE,			\
@@ -532,6 +542,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
     TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
     TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
     TARGET_CXX_USE_AEABI_ATEXIT,		\
+    TARGET_CXX_ADJUST_CLASS_AT_DEFINITION	\
   }
 
 /* The whole shebang.  */
@@ -598,6 +609,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_STACK_PROTECT_GUARD,			\
   TARGET_STACK_PROTECT_FAIL,			\
   TARGET_INVALID_WITHIN_DOLOOP,			\
+  TARGET_VALID_DLLIMPORT_ATTRIBUTE_P,		\
   TARGET_CALLS,					\
   TARGET_INVALID_CONVERSION,			\
   TARGET_INVALID_UNARY_OP,			\

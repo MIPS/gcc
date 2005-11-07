@@ -803,6 +803,7 @@ pop_scope (void)
 	case VAR_DECL:
 	  /* Warnings for unused variables.  */
 	  if (!TREE_USED (p)
+	      && !TREE_NO_WARNING (p)
 	      && !DECL_IN_SYSTEM_HEADER (p)
 	      && DECL_NAME (p)
 	      && !DECL_ARTIFICIAL (p)
@@ -1876,7 +1877,11 @@ duplicate_decls (tree newdecl, tree olddecl)
   tree newtype = NULL, oldtype = NULL;
 
   if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
-    return false;
+    {
+      /* Avoid `unused variable' and other warnings warnings for OLDDECL.  */
+      TREE_NO_WARNING (olddecl) = 1;
+      return false;
+    }
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
   return true;
@@ -3426,8 +3431,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      && !TREE_STATIC (decl))
 	    warning (0, "ignoring asm-specifier for non-static local "
 		     "variable %q+D", decl);
-	  else if (C_DECL_REGISTER (decl))
-	    change_decl_assembler_name (decl, get_identifier (asmspec));
 	  else
 	    set_user_assembler_name (decl, asmspec);
 	}
@@ -4250,16 +4253,19 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else
 	      type = build_array_type (type, itype);
 
-	    if (size_varies)
-	      C_TYPE_VARIABLE_SIZE (type) = 1;
-
-	    /* The GCC extension for zero-length arrays differs from
-	       ISO flexible array members in that sizeof yields
-	       zero.  */
-	    if (size && integer_zerop (size))
+	    if (type != error_mark_node)
 	      {
-		TYPE_SIZE (type) = bitsize_zero_node;
-		TYPE_SIZE_UNIT (type) = size_zero_node;
+		if (size_varies)
+		C_TYPE_VARIABLE_SIZE (type) = 1;
+
+		/* The GCC extension for zero-length arrays differs from
+		   ISO flexible array members in that sizeof yields
+		   zero.  */
+		if (size && integer_zerop (size))
+		  {
+		    TYPE_SIZE (type) = bitsize_zero_node;
+		    TYPE_SIZE_UNIT (type) = size_zero_node;
+		  }
 	      }
 
 	    if (decl_context != PARM
@@ -7548,6 +7554,7 @@ static void
 c_write_global_declarations_1 (tree globals)
 {
   tree decl;
+  bool reconsider;
 
   /* Process the decls in the order they were written.  */
   for (decl = globals; decl; decl = TREE_CHAIN (decl))
@@ -7566,9 +7573,18 @@ c_write_global_declarations_1 (tree globals)
 	}
 
       wrapup_global_declaration_1 (decl);
-      wrapup_global_declaration_2 (decl);
-      check_global_declaration_1 (decl);
     }
+
+  do
+    {
+      reconsider = false;
+      for (decl = globals; decl; decl = TREE_CHAIN (decl))
+	reconsider |= wrapup_global_declaration_2 (decl);
+    }
+  while (reconsider);
+
+  for (decl = globals; decl; decl = TREE_CHAIN (decl))
+    check_global_declaration_1 (decl);
 }
 
 /* A subroutine of c_write_global_declarations Emit debug information for each

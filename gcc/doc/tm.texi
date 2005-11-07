@@ -1033,18 +1033,6 @@ macro must evaluate to a value equal to or larger than
 @code{STACK_BOUNDARY}.
 @end defmac
 
-@defmac FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-A C expression that evaluates true if @code{PREFERRED_STACK_BOUNDARY} is
-not guaranteed by the runtime and we should emit code to align the stack
-at the beginning of @code{main}.
-
-@cindex @code{PUSH_ROUNDING}, interaction with @code{PREFERRED_STACK_BOUNDARY}
-If @code{PUSH_ROUNDING} is not defined, the stack will always be aligned
-to the specified boundary.  If @code{PUSH_ROUNDING} is defined and specifies
-a less strict alignment than @code{PREFERRED_STACK_BOUNDARY}, the stack may
-be momentarily unaligned while pushing arguments.
-@end defmac
-
 @defmac FUNCTION_BOUNDARY
 Alignment required for a function entry point, in bits.
 @end defmac
@@ -8500,6 +8488,12 @@ to perform initial processing of the @samp{dllimport} and
 @file{i386/i386.c}, for example.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_VALID_DLLIMPORT_ATTRIBUTE_P (tree @var{decl})
+@var{decl} is a variable or function with @code{__attribute__((dllimport))}
+specified. Use this hook if the target needs to add extra validation
+checks to @code{handle_dll_attribute}.
+@end deftypefn
+
 @defmac TARGET_DECLSPEC
 Define this macro to a nonzero value if you want to treat
 @code{__declspec(X)} as equivalent to @code{__attribute((X))}.  By
@@ -8677,6 +8671,12 @@ unit will not be COMDAT.
 This hook returns true if @code{__aeabi_atexit} (as defined by the ARM EABI)
 should be used to register static destructors when @option{-fuse-cxa-atexit}
 is in effect.  The default is to return false to use @code{__cxa_atexit}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_CXX_ADJUST_CLASS_AT_DEFINITION (tree @var{type})
+@var{type} is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that has just been
+defined.  Use this hook to make adjustments to the class (eg, tweak
+visibility or perform any other required target modifications).
 @end deftypefn
 
 @node Misc

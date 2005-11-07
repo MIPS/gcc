@@ -2761,6 +2761,15 @@ aff_combination_add_elt (struct affine_tree_combination *comb, tree elt,
 	comb->n--;
 	comb->coefs[i] = comb->coefs[comb->n];
 	comb->elts[i] = comb->elts[comb->n];
+
+	if (comb->rest)
+	  {
+	    gcc_assert (comb->n == MAX_AFF_ELTS - 1);
+	    comb->coefs[comb->n] = 1;
+	    comb->elts[comb->n] = comb->rest;
+	    comb->rest = NULL_TREE;
+	    comb->n++;
+	  }
 	return;
       }
   if (comb->n < MAX_AFF_ELTS)
@@ -2793,7 +2802,7 @@ aff_combination_add (struct affine_tree_combination *comb1,
   unsigned i;
 
   comb1->offset = (comb1->offset + comb2->offset) & comb1->mask;
-  for (i = 0; i < comb2-> n; i++)
+  for (i = 0; i < comb2->n; i++)
     aff_combination_add_elt (comb1, comb2->elts[i], comb2->coefs[i]);
   if (comb2->rest)
     aff_combination_add_elt (comb1, comb2->rest, 1);
@@ -5331,22 +5340,58 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
      introduce a new computation (that might also need casting the
      variable to unsigned and back).  */
   if (cand->pos == IP_ORIGINAL
-      && TREE_CODE (use->stmt) == MODIFY_EXPR
-      && TREE_OPERAND (use->stmt, 0) == cand->var_after)
+      && cand->incremented_at == use->stmt)
     {
+      tree step, ctype, utype;
+      enum tree_code incr_code = PLUS_EXPR;
+
+      gcc_assert (TREE_CODE (use->stmt) == MODIFY_EXPR);
+      gcc_assert (TREE_OPERAND (use->stmt, 0) == cand->var_after);
+
+      step = cand->iv->step;
+      ctype = TREE_TYPE (step);
+      utype = TREE_TYPE (cand->var_after);
+      if (TREE_CODE (step) == NEGATE_EXPR)
+	{
+	  incr_code = MINUS_EXPR;
+	  step = TREE_OPERAND (step, 0);
+	}
+
+      /* Check whether we may leave the computation unchanged.
+	 This is the case only if it does not rely on other
+	 computations in the loop -- otherwise, the computation
+	 we rely upon may be removed in remove_unused_ivs,
+	 thus leading to ICE.  */
       op = TREE_OPERAND (use->stmt, 1);
+      if (TREE_CODE (op) == PLUS_EXPR
+	  || TREE_CODE (op) == MINUS_EXPR)
+	{
+	  if (TREE_OPERAND (op, 0) == cand->var_before)
+	    op = TREE_OPERAND (op, 1);
+	  else if (TREE_CODE (op) == PLUS_EXPR
+		   && TREE_OPERAND (op, 1) == cand->var_before)
+	    op = TREE_OPERAND (op, 0);
+	  else
+	    op = NULL_TREE;
+	}
+      else
+	op = NULL_TREE;
 
-      /* Be a bit careful.  In case variable is expressed in some
-	 complicated way, rewrite it so that we may get rid of this
-	 complicated expression.  */
-      if ((TREE_CODE (op) == PLUS_EXPR
-	   || TREE_CODE (op) == MINUS_EXPR)
-	  && TREE_OPERAND (op, 0) == cand->var_before
-	  && TREE_CODE (TREE_OPERAND (op, 1)) == INTEGER_CST)
+      if (op
+	  && (TREE_CODE (op) == INTEGER_CST
+	      || operand_equal_p (op, step, 0)))
 	return;
-    }
 
-  comp = get_computation (data->current_loop, use, cand);
+      /* Otherwise, add the necessary computations to express
+	 the iv.  */
+      op = fold_convert (ctype, cand->var_before);
+      comp = fold_convert (utype,
+			   build2 (incr_code, ctype, op,
+				   unshare_expr (step)));
+    }
+  else
+    comp = get_computation (data->current_loop, use, cand);
+
   switch (TREE_CODE (use->stmt))
     {
     case PHI_NODE:

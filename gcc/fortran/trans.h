@@ -455,6 +455,7 @@ extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
 extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
+extern GTY(()) tree gfor_fndecl_set_fpe;
 extern GTY(()) tree gfor_fndecl_set_std;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
@@ -471,13 +472,18 @@ typedef struct gfc_powdecl_list GTY(())
 }
 gfc_powdecl_list;
 
-extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[3][2];
+extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[4][3];
 extern GTY(()) tree gfor_fndecl_math_cpowf;
 extern GTY(()) tree gfor_fndecl_math_cpow;
+extern GTY(()) tree gfor_fndecl_math_cpowl10;
+extern GTY(()) tree gfor_fndecl_math_cpowl16;
 extern GTY(()) tree gfor_fndecl_math_ishftc4;
 extern GTY(()) tree gfor_fndecl_math_ishftc8;
+extern GTY(()) tree gfor_fndecl_math_ishftc16;
 extern GTY(()) tree gfor_fndecl_math_exponent4;
 extern GTY(()) tree gfor_fndecl_math_exponent8;
+extern GTY(()) tree gfor_fndecl_math_exponent10;
+extern GTY(()) tree gfor_fndecl_math_exponent16;
 
 /* String functions.  */
 extern GTY(()) tree gfor_fndecl_copy_string;

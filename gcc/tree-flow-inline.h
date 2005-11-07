@@ -727,7 +727,7 @@ bsi_start (basic_block bb)
   return bsi;
 }
 
-/* Return a block statement iterator that points to the last label in
+/* Return a block statement iterator that points to the first non-label
    block BB.  */
 
 static inline block_stmt_iterator
@@ -749,13 +749,6 @@ bsi_after_labels (basic_block bb)
   bsi.tsi = tsi_start (bb->stmt_list);
   if (tsi_end_p (bsi.tsi))
     return bsi;
-
-  /* Ensure that there are some labels.  The rationale is that we want
-     to insert after the bsi that is returned, and these insertions should
-     be placed at the start of the basic block.  This would not work if the
-     first statement was not label; rather fail here than enable the user
-     proceed in wrong way.  */
-  gcc_assert (TREE_CODE (tsi_stmt (bsi.tsi)) == LABEL_EXPR);
 
   next = bsi.tsi;
   tsi_next (&next);
@@ -1412,6 +1405,21 @@ unmodifiable_var_p (tree var)
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
+}
+
+/* Return true if REF, an ARRAY_REF, has an INDIRECT_REF somewhere in
+   it.  */
+
+static inline bool
+ref_contains_indirect_ref (tree ref)
+{
+  while (handled_component_p (ref))
+    {
+      if (TREE_CODE (ref) == INDIRECT_REF)
+	return true;
+      ref = TREE_OPERAND (ref, 0);
+    }
+  return false;
 }
 
 /* Return true if REF, a COMPONENT_REF, has an ARRAY_REF somewhere in it.  */

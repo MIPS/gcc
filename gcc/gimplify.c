@@ -298,6 +298,48 @@ create_artificial_label (void)
   return lab;
 }
 
+/* Subroutine for find_single_pointer_decl.  */
+
+static tree
+find_single_pointer_decl_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			    void *data)
+{
+  tree *pdecl = (tree *) data;
+
+  if (DECL_P (*tp) && POINTER_TYPE_P (TREE_TYPE (*tp)))
+    {
+      if (*pdecl)
+	{
+	  /* We already found a pointer decl; return anything other
+	     than NULL_TREE to unwind from walk_tree signalling that
+	     we have a duplicate.  */
+	  return *tp;
+	}
+      *pdecl = *tp;
+    }
+
+  return NULL_TREE;
+}
+
+/* Find the single DECL of pointer type in the tree T and return it.
+   If there are zero or more than one such DECLs, return NULL.  */
+
+static tree
+find_single_pointer_decl (tree t)
+{
+  tree decl = NULL_TREE;
+
+  if (walk_tree (&t, find_single_pointer_decl_1, &decl, NULL))
+    {
+      /* find_single_pointer_decl_1 returns a non-zero value, causing
+	 walk_tree to return a non-zero value, to indicate that it
+	 found more than one pointer DECL.  */
+      return NULL_TREE;
+    }
+
+  return decl;
+}
+
 /* Create a new temporary name with PREFIX.  Returns an identifier.  */
 
 static GTY(()) unsigned int tmp_var_id_num;
@@ -404,7 +446,7 @@ get_name (tree t)
 static inline tree
 create_tmp_from_val (tree val)
 {
-  return create_tmp_var (TREE_TYPE (val), get_name (val));
+  return create_tmp_var (TYPE_MAIN_VARIANT (TREE_TYPE (val)), get_name (val));
 }
 
 /* Create a temporary to hold the value of VAL.  If IS_FORMAL, try to reuse
@@ -469,6 +511,24 @@ internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
   gimplify_expr (&val, pre_p, post_p, is_gimple_formal_tmp_rhs, fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
+
+  if (is_formal)
+    {
+      tree u = find_single_pointer_decl (val);
+
+      if (u && TREE_CODE (u) == VAR_DECL && DECL_BASED_ON_RESTRICT_P (u))
+	u = DECL_GET_RESTRICT_BASE (u);
+      if (u && TYPE_RESTRICT (TREE_TYPE (u)))
+	{
+	  if (DECL_BASED_ON_RESTRICT_P (t))
+	    gcc_assert (u == DECL_GET_RESTRICT_BASE (t));
+	  else
+	    {
+	      DECL_BASED_ON_RESTRICT_P (t) = 1;
+	      SET_DECL_RESTRICT_BASE (t, u);
+	    }
+	}
+    }
 
   if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
@@ -1408,6 +1468,40 @@ gimplify_conversion (tree *expr_p)
   return GS_OK;
 }
 
+/* Gimplify a VAR_DECL or PARM_DECL.  Returns GS_OK if we expanded a 
+   DECL_VALUE_EXPR, and it's worth re-examining things.  */
+
+static enum gimplify_status
+gimplify_var_or_parm_decl (tree *expr_p)
+{
+  tree decl = *expr_p;
+
+  /* ??? If this is a local variable, and it has not been seen in any
+     outer BIND_EXPR, then it's probably the result of a duplicate
+     declaration, for which we've already issued an error.  It would
+     be really nice if the front end wouldn't leak these at all.
+     Currently the only known culprit is C++ destructors, as seen
+     in g++.old-deja/g++.jason/binding.C.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      && !DECL_SEEN_IN_BIND_EXPR_P (decl)
+      && !TREE_STATIC (decl) && !DECL_EXTERNAL (decl)
+      && decl_function_context (decl) == current_function_decl)
+    {
+      gcc_assert (errorcount || sorrycount);
+      return GS_ERROR;
+    }
+
+  /* If the decl is an alias for another expression, substitute it now.  */
+  if (DECL_HAS_VALUE_EXPR_P (decl))
+    {
+      *expr_p = unshare_expr (DECL_VALUE_EXPR (decl));
+      return GS_OK;
+    }
+
+  return GS_ALL_DONE;
+}
+
+
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
    node pointed to by EXPR_P.
 
@@ -1446,11 +1540,21 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
   /* We can handle anything that get_inner_reference can deal with.  */
   for (p = expr_p; ; p = &TREE_OPERAND (*p, 0))
     {
+    restart:
       /* Fold INDIRECT_REFs now to turn them into ARRAY_REFs.  */
       if (TREE_CODE (*p) == INDIRECT_REF)
 	*p = fold_indirect_ref (*p);
-      if (!handled_component_p (*p))
+
+      if (handled_component_p (*p))
+	;
+      /* Expand DECL_VALUE_EXPR now.  In some cases that may expose
+	 additional COMPONENT_REFs.  */
+      else if ((TREE_CODE (*p) == VAR_DECL || TREE_CODE (*p) == PARM_DECL)
+	       && gimplify_var_or_parm_decl (p) == GS_OK)
+	goto restart;
+      else
 	break;
+	       
       VEC_safe_push (tree, heap, stack, *p);
     }
 
@@ -1532,8 +1636,11 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	}
     }
 
-  /* Step 2 is to gimplify the base expression.  */
-  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval, fallback);
+  /* Step 2 is to gimplify the base expression.  Make sure lvalue is set
+     so as to match the min_lval predicate.  Failure to do so may result
+     in the creation of large aggregate temporaries.  */
+  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
+			fallback | fb_lvalue);
   ret = MIN (ret, tret);
 
   /* And finally, the indices and operands to BIT_FIELD_REF.  During this
@@ -2576,7 +2683,12 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	 so we don't have to figure out what's missing ourselves.  */
       gcc_assert (purpose);
 
-      if (zero_sized_field_decl (purpose))
+      /* Skip zero-sized fields, unless value has side-effects.  This can
+	 happen with calls to functions returning a zero-sized type, which
+	 we shouldn't discard.  As a number of downstream passes don't
+	 expect sets of zero-sized fields, we rely on the gimplification of
+	 the MODIFY_EXPR we make below to drop the assignment statement.  */
+      if (! TREE_SIDE_EFFECTS (value) && zero_sized_field_decl (purpose))
 	continue;
 
       /* If we have a RANGE_EXPR, we have to build a loop to assign the
@@ -2945,9 +3057,10 @@ fold_indirect_ref_rhs (tree t)
     {
       tree type_domain;
       tree min_val = size_zero_node;
+      tree osub = sub;
       sub = fold_indirect_ref_rhs (sub);
       if (! sub)
-	sub = build1 (INDIRECT_REF, TREE_TYPE (subtype), sub);
+	sub = build1 (INDIRECT_REF, TREE_TYPE (subtype), osub);
       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
       if (type_domain && TYPE_MIN_VALUE (type_domain))
         min_val = TYPE_MIN_VALUE (type_domain);
@@ -4199,18 +4312,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	    {
 	      unsigned HOST_WIDE_INT ix;
 	      constructor_elt *ce;
+	      tree temp = NULL_TREE;
 	      for (ix = 0;
 		   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (*expr_p),
 				ix, ce);
 		   ix++)
 		if (TREE_SIDE_EFFECTS (ce->value))
-		  gimplify_expr (&ce->value, pre_p, post_p,
-				 gimple_test_f, fallback);
+		  append_to_statement_list (ce->value, &temp);
 
-	      *expr_p = NULL_TREE;
+	      *expr_p = temp;
+	      ret = GS_OK;
 	    }
-
-	  ret = GS_ALL_DONE;
+	  /* C99 code may assign to an array in a constructed
+	     structure or union, and this has undefined behavior only
+	     on execution, so create a temporary if an lvalue is
+	     required.  */
+	  else if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
+	  else
+	    ret = GS_ALL_DONE;
 	  break;
 
 	  /* The following are special cases that are not handled by the
@@ -4305,36 +4428,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case VAR_DECL:
-	  /* ??? If this is a local variable, and it has not been seen in any
-	     outer BIND_EXPR, then it's probably the result of a duplicate
-	     declaration, for which we've already issued an error.  It would
-	     be really nice if the front end wouldn't leak these at all.
-	     Currently the only known culprit is C++ destructors, as seen
-	     in g++.old-deja/g++.jason/binding.C.  */
-	  tmp = *expr_p;
-	  if (!TREE_STATIC (tmp) && !DECL_EXTERNAL (tmp)
-	      && decl_function_context (tmp) == current_function_decl
-	      && !DECL_SEEN_IN_BIND_EXPR_P (tmp))
-	    {
-	      gcc_assert (errorcount || sorrycount);
-	      ret = GS_ERROR;
-	      break;
-	    }
-	  /* FALLTHRU */
-
 	case PARM_DECL:
-	  tmp = *expr_p;
-
-	  /* If this is a local variable sized decl, it must be accessed
-	     indirectly.  Perform that substitution.  */
-	  if (DECL_HAS_VALUE_EXPR_P (tmp))
-	    {
-	      *expr_p = unshare_expr (DECL_VALUE_EXPR (tmp));
-	      ret = GS_OK;
-	      break;
-	    }
-
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_var_or_parm_decl (expr_p);
 	  break;
 
 	case SSA_NAME:

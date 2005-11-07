@@ -923,10 +923,16 @@ make_decl_rtl (tree decl)
     }
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-
-  if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+  
+  if (name[0] != '*' && TREE_CODE (decl) != FUNCTION_DECL
+      && DECL_REGISTER (decl))
     {
-      reg_number = decode_reg_name (name);
+      error ("register name not specified for %q+D", decl);	
+    }
+  else if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
+    {
+      const char *asmspec = name+1;
+      reg_number = decode_reg_name (asmspec);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
 	error ("register name not specified for %q+D", decl);
@@ -1363,11 +1369,6 @@ assemble_start_function (tree decl, const char *fnname)
   /* Standard thing is just output label for the function.  */
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
-
-  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  Don't do this if the current
-     function is a thunk, because we don't have a CFG in that case.  */
-  if (!current_function_is_thunk)
-    insert_section_boundary_note ();
 }
 
 /* Output assembler code associated with defining the size of the
@@ -1377,6 +1378,9 @@ void
 assemble_end_function (tree decl, const char *fnname)
 {
 #ifdef ASM_DECLARE_FUNCTION_SIZE
+  /* We could have switched section in the middle of the function.  */
+  if (flag_reorder_blocks_and_partition)
+    function_section (decl);
   ASM_DECLARE_FUNCTION_SIZE (asm_out_file, fnname, decl);
 #endif
   if (! CONSTANT_POOL_BEFORE_FUNCTION)
@@ -3637,7 +3641,7 @@ initializer_constant_valid_p (tree value, tree endtype)
       if (value
 	  && TREE_CODE (value) == FUNCTION_DECL
 	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
-	      || DECL_NON_ADDR_CONST_P (value)))
+	      || DECL_DLLIMPORT_P (value)))
 	return NULL_TREE;
       return value;
 
@@ -3880,8 +3884,12 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       HOST_WIDE_INT type_size = int_size_in_bytes (TREE_TYPE (exp));
       HOST_WIDE_INT op_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (exp, 0)));
 
-      /* Make sure eliminating the conversion is really a no-op.  */
-      if (type_size != op_size)
+      /* Make sure eliminating the conversion is really a no-op, except with
+	 VIEW_CONVERT_EXPRs to allow for wild Ada unchecked conversions and
+	 union types to allow for Ada unchecked unions.  */
+      if (type_size > op_size
+	  && TREE_CODE (exp) != VIEW_CONVERT_EXPR
+	  && TREE_CODE (TREE_TYPE (exp)) != UNION_TYPE)
 	internal_error ("no-op convert from %wd to %wd bytes in initializer",
 			op_size, type_size);
 
@@ -4550,27 +4558,28 @@ find_decl_and_mark_needed (tree decl, tree target)
   struct cgraph_node *fnode = NULL;
   struct cgraph_varpool_node *vnode = NULL;
 
-  /* C++ thunk emitting code produces aliases late in the game.
-     Avoid confusing cgraph code in that case.  */
-  if (!cgraph_global_info_ready)
+  if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  fnode = cgraph_node_for_asm (target);
-	  if (fnode == NULL)
-	    vnode = cgraph_varpool_node_for_asm (target);
-	}
-      else
-	{
-	  vnode = cgraph_varpool_node_for_asm (target);
-	  if (vnode == NULL)
-	    fnode = cgraph_node_for_asm (target);
-	}
+      fnode = cgraph_node_for_asm (target);
+      if (fnode == NULL)
+	vnode = cgraph_varpool_node_for_asm (target);
+    }
+  else
+    {
+      vnode = cgraph_varpool_node_for_asm (target);
+      if (vnode == NULL)
+	fnode = cgraph_node_for_asm (target);
     }
 
   if (fnode)
     {
-      cgraph_mark_needed_node (fnode);
+      /* We can't mark function nodes as used after cgraph global info
+	 is finished.  This wouldn't generally be necessary, but C++
+	 virtual table thunks are introduced late in the game and
+	 might seem like they need marking, although in fact they
+	 don't.  */
+      if (! cgraph_global_info_ready)
+	cgraph_mark_needed_node (fnode);
       return fnode->decl;
     }
   else if (vnode)
