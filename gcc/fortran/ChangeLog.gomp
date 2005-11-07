@@ -1,5 +1,26 @@
 2005-11-07  Jakub Jelinek  <jakub@redhat.com>
 
+	* trans-decl.c (saved_function_decls, saved_parent_function_decls):
+	Remove unnecessary initialization.
+	(create_function_arglist): Make sure __result has complete type.
+	(gfc_get_fake_result_decl): Change current_fake_result_decl into
+	a tree chain.  For entry master, create a separate variable
+	for each result name.  For BT_CHARACTER results, call
+	gfc_finish_var_decl on length even if it has been already created,
+	but not pushdecl'ed.
+	(gfc_trans_vla_type_sizes): For function/entry result, adjust
+	result value type, not the FUNCTION_TYPE.
+	(gfc_generate_function_code): Adjust for current_fake_result_decl
+	changes.
+	(gfc_trans_deferred_vars): Likewise.  Call gfc_trans_vla_type_sizes
+	even on result if it is assumed-length character.
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Make
+	DECL_ARTIFICIAL vars predetermined shared except GFC_DECL_RESULT.
+	(gfc_omp_disregard_value_expr): Handle GFC_DECL_RESULT.
+	(gfc_trans_omp_variable): New function.
+	(gfc_trans_omp_variable_list, gfc_trans_omp_reduction_list): Use it.
+	* trans.h (GFC_DECL_RESULT): Define.
+
 	* trans-openmp.c (gfc_omp_firstprivatize_type_sizes): New function.
 	* f95-lang.c (LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES): Define.
 	* trans.h (gfc_omp_firstprivatize_type_sizes): New prototype.

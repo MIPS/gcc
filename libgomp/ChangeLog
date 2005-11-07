@@ -1,3 +1,8 @@
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/retval1.f90: New test.
+	* testsuite/libgomp.fortran/vla7.f90: New test.
+
 2005-11-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/vla2.f90: New test.

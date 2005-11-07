@@ -1,5 +1,12 @@
 2005-11-07  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (omp_notice_variable): Call omp_predetermined_sharing
+	langhook even for DECL_ARTIFICIAL.
+	* langhooks.c (lhd_omp_predetermined_sharing): Return
+	OMP_CLAUSE_DEFAULT_SHARED for DECL_ARTIFICIAL decls.
+
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
 	* langhooks.h (struct lang_hooks_for_types): Add
 	omp_firstprivatize_type_sizes hook.
 	* langhooks.c (lhd_omp_firstprivatize_type_sizes): New function.

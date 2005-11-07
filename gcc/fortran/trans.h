@@ -558,6 +558,7 @@ struct lang_decl		GTY(())
 #define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
 #define GFC_DECL_COMMON_OR_EQUIV(node) DECL_LANG_FLAG_3(node)
 #define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
+#define GFC_DECL_RESULT(node) DECL_LANG_FLAG_5(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)

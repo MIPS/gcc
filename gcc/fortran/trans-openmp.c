@@ -71,6 +71,9 @@ gfc_omp_privatize_by_reference (tree decl)
 enum omp_clause_default_kind
 gfc_omp_predetermined_sharing (tree decl)
 {
+  if (DECL_ARTIFICIAL (decl) && ! GFC_DECL_RESULT (decl))
+    return OMP_CLAUSE_DEFAULT_SHARED;
+
   /* Cray pointees shouldn't be listed in any clauses and should be
      gimplified to dereference of the corresponding Cray pointer.
      Make them all private, so that they are emitted in the debug
@@ -83,6 +86,9 @@ gfc_omp_predetermined_sharing (tree decl)
      contained in them.  If those are privatized, they will not be
      gimplified to the COMMON or EQUIVALENCE decls.  */
   if (GFC_DECL_COMMON_OR_EQUIV (decl) && ! DECL_HAS_VALUE_EXPR_P (decl))
+    return OMP_CLAUSE_DEFAULT_SHARED;
+
+  if (GFC_DECL_RESULT (decl) && ! DECL_HAS_VALUE_EXPR_P (decl))
     return OMP_CLAUSE_DEFAULT_SHARED;
 
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
@@ -115,6 +121,10 @@ gfc_omp_disregard_value_expr (tree decl, bool shared)
 	  return ! shared;
 	}
     }
+
+  if (GFC_DECL_RESULT (decl) && DECL_HAS_VALUE_EXPR_P (decl))
+    return ! shared;
+
   return false;
 }
 
@@ -173,13 +183,48 @@ gfc_trans_add_clause (tree node, tree tail)
 }
 
 static tree
+gfc_trans_omp_variable (gfc_symbol *sym)
+{
+  tree t = gfc_get_symbol_decl (sym);
+
+  /* Special case for assigning the return value of a function.
+     Self recursive functions must have an explicit return value.  */
+  if (t == current_function_decl && sym->attr.function
+      && (sym->result == sym))
+    t = gfc_get_fake_result_decl (sym);
+
+  /* Similarly for alternate entry points.  */
+  else if (sym->attr.function && sym->attr.entry
+	   && (sym->result == sym)
+	   && sym->ns->proc_name->backend_decl == current_function_decl)
+    {
+      gfc_entry_list *el = NULL;
+
+      for (el = sym->ns->entries; el; el = el->next)
+	if (sym == el->sym)
+	  {
+	    t = gfc_get_fake_result_decl (sym);
+	    break;
+	  }
+    }
+
+  else if (sym->attr.result
+	   && sym->ns->proc_name->backend_decl == current_function_decl
+	   && sym->ns->proc_name->attr.entry_master
+	   && !gfc_return_by_reference (sym->ns->proc_name))
+    t = gfc_get_fake_result_decl (sym);
+
+  return t;
+}
+
+static tree
 gfc_trans_omp_variable_list (enum tree_code code, gfc_namelist *namelist,
 			     tree list)
 {
   for (; namelist != NULL; namelist = namelist->next)
     if (namelist->sym->attr.referenced)
       {
-	tree t = gfc_get_symbol_decl (namelist->sym);
+	tree t = gfc_trans_omp_variable (namelist->sym);
 	if (t != error_mark_node)
 	  {
 	    tree node = make_node (code);
@@ -368,7 +413,7 @@ gfc_trans_omp_reduction_list (enum tree_code code, gfc_namelist *namelist,
   for (; namelist != NULL; namelist = namelist->next)
     if (namelist->sym->attr.referenced)
       {
-	tree t = gfc_get_symbol_decl (namelist->sym);
+	tree t = gfc_trans_omp_variable (namelist->sym);
 	if (t != error_mark_node)
 	  {
 	    tree node = make_node (code);

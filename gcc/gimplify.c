@@ -4337,14 +4337,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	 remapped firstprivate instead of shared.  To some extent this is
 	 addressed in omp_firstprivatize_type_sizes, but not effectively.  */
       default_kind = ctx->default_kind;
-      if (DECL_ARTIFICIAL (decl))
-	default_kind = OMP_CLAUSE_DEFAULT_SHARED;
-      else
-	{
-	  kind = lang_hooks.decls.omp_predetermined_sharing (decl);
-	  if (kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
-	    default_kind = kind;
-	}
+      kind = lang_hooks.decls.omp_predetermined_sharing (decl);
+      if (kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
+	default_kind = kind;
 
       switch (default_kind)
 	{

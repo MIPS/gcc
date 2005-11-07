@@ -557,6 +557,8 @@ lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
 enum omp_clause_default_kind
 lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 {
+  if (DECL_ARTIFICIAL (decl))
+    return OMP_CLAUSE_DEFAULT_SHARED;
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }
 
