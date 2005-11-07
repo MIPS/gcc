@@ -199,9 +199,11 @@ widen_instantiation (model_class *to, model_class *from)
     }
 
   // Now we check 'contains' of each type argument.
-  model_class_instance *from_i
-    = capture_conversion (from /* FIXME */,
-			  assert_cast<model_class_instance *> (from));
+  model_class_instance *from_i = assert_cast<model_class_instance *> (from);
+  // The spec says to do capture conversion on 'from_i' here, but then
+  // it does not define the 'contains' operation on type variables.
+  // This causes us to reject valid assignments.  Instead we just keep
+  // the un-captured parameterization, which does the right thing.
   model_class_instance *to_i = assert_cast<model_class_instance *> (to);
   std::list<model_class *> from_args, to_args;
   from_i->get_type_map (from_args);

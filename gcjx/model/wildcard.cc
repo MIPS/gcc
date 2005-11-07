@@ -51,10 +51,11 @@ model_wildcard::contains_p (model_class *other)
   if (! other->wildcard_p ())
     return false;
   model_wildcard *w = assert_cast<model_wildcard *> (other);
-  // FIXME: maybe a bound is ok?
-  if (w->super_p () != is_super || ! w->get_bound ())
+  if (w->super_p () != is_super)
     return false;
   model_class *other_bound = w->get_bound ();
+  if (other_bound == NULL)
+    other_bound = global->get_compiler ()->java_lang_Object ();
   if (is_super)
     return other_bound->assignable_from_p (k);
   return k->assignable_from_p (other_bound);

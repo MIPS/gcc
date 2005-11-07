@@ -89,6 +89,14 @@ classify_package_or_type_name (resolution_scope *scope,
 }
 
 static model_class *
+maybe_get_erasure (model_class *klass)
+{
+  if (! klass->type_variable_p () && ! klass->wildcard_p ())
+    klass = assert_cast<model_class *> (klass->erasure ());
+  return klass;
+}
+
+static model_class *
 check_deprecated (model_class *klass, model_element *request)
 {
   assert (klass);
@@ -119,7 +127,12 @@ classify_type_name (resolution_scope *scope,
 // 	(*i)->error ("could resolve to %1") % (*i);
     }
   else if (memtypes.size () == 1)
-    return check_deprecated (*(memtypes.begin ()), request);
+    {
+      model_class *result = check_deprecated (*(memtypes.begin ()), request);
+      // We only ever want to return the raw type.  Parameterization
+      // is handled elsewhere.
+      return maybe_get_erasure (result);
+    }
 
   throw type_not_found_error (request->get_location (),
 			      "type named %1 is undefined")
@@ -186,7 +199,7 @@ classify_type_name (resolution_scope *scope,
 	% qualname;
     }
 
-  return check_deprecated (result, request);
+  return maybe_get_erasure (check_deprecated (result, request));
 }
 
 model_field *

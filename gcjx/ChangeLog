@@ -1,5 +1,19 @@
 2005-11-07  Tom Tromey  <tromey@redhat.com>
 
+	* access.cc (unwrap_raw_class): New function.
+	(accessible_p): Use it.
+	(trampoline_required_p): Likewise.
+	* model/fwdtype.cc (maybe_get_erasure): Removed.
+	(resolve): Don't take erasure.
+	* name.cc (maybe_get_erasure): New function.
+	(classify_type_name): Use it.
+	* conversions.cc (widen_instantiation): Don't do capture
+	conversion.
+	* model/wildcard.cc (contains_p): Handle case where other
+	wildcard does not have a bound.
+
+2005-11-07  Tom Tromey  <tromey@redhat.com>
+
 	* model/parameters.hh (model_instance_cache::erasure): New field.
 	(model_instance_cache::find_erased_instance): New method.
 	(model_instance_cache::add_erased_instance): Likewise.

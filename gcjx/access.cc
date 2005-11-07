@@ -1,6 +1,6 @@
 // Access control.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -21,6 +21,21 @@
 
 #include "typedefs.hh"
 
+static model_class *
+unwrap_raw_class (model_class *k)
+{
+  model_raw_class *raw = dynamic_cast<model_raw_class *> (k);
+  if (raw)
+    k = raw->get_parent ();
+  else
+    {
+      model_class_instance *classi = dynamic_cast<model_class_instance *> (k);
+      if (classi)
+	k = classi->get_parent ();
+    }
+  return k;
+}
+
 bool
 accessible_p (model_type *t, IContext *request)
 {
@@ -30,7 +45,7 @@ accessible_p (model_type *t, IContext *request)
 
   if (t->primitive_p ())
     return true;
-  model_class *klass = assert_cast<model_class *> (t);
+  model_class *klass = unwrap_raw_class (assert_cast<model_class *> (t));
 
   if (! klass->member_p ())
     {
@@ -59,7 +74,8 @@ accessible_p (model_type *t, IContext *request)
       // the declarer.  Note the initial cast will return NULL when
       // REQUEST is a package.
       model_class *declarer = klass->get_declaring_class ();
-      for (model_class *prot = dynamic_cast<model_class *> (request);
+      for (model_class *prot
+	     = unwrap_raw_class (dynamic_cast<model_class *> (request));
 	   prot;
 	   prot = prot->get_lexically_enclosing_class ())
 	{
@@ -73,9 +89,11 @@ accessible_p (model_type *t, IContext *request)
       // Access is permitted only within the body of the top-level
       // class enclosing the declaration.
       klass = klass->get_top_level_class ();
-      while (request != NULL && request != klass)
-	request = request->get_lexically_enclosing_class ();
-      return request == klass;
+      model_class *req_class
+	= unwrap_raw_class (dynamic_cast<model_class *> (request));
+      while (req_class != NULL && req_class != klass)
+	req_class = req_class->get_lexically_enclosing_class ();
+      return req_class == klass;
     }
 
   // Default access, but also one case of protected access.
@@ -111,8 +129,8 @@ accessible_p (IMember *target, IContext *request, model_class *qualifier,
     }
 
   if (dynamic_cast<model_class *> (request) != NULL)
-    request = assert_cast<model_class *> (assert_cast<model_class *> (request)->erasure ());
-  declarer = assert_cast<model_class *> (declarer->erasure ());
+    request = unwrap_raw_class (assert_cast<model_class *> (request));
+  declarer = unwrap_raw_class (declarer);
 
   // Make sure we can access the declaring class.
   if (! accessible_p (declarer, request))
@@ -179,6 +197,7 @@ trampoline_required_p (const IMember *target, model_class *request,
 		       model_class **result)
 {
   assert (result);
+  request = unwrap_raw_class (request);
 
   // Access to the same class is fine.
   model_class *tclass = target->get_declaring_class ();
