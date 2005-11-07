@@ -447,6 +447,8 @@ bool gfc_omp_privatize_by_reference (tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
 bool gfc_omp_private_debug_clause (tree, bool);
+struct gimplify_omp_ctx;
+void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;

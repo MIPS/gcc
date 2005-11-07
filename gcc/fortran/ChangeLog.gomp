@@ -1,3 +1,9 @@
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_omp_firstprivatize_type_sizes): New function.
+	* f95-lang.c (LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES): Define.
+	* trans.h (gfc_omp_firstprivatize_type_sizes): New prototype.
+
 2005-11-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-decl.c (gfc_trans_dummy_character): Add SYM argument.

@@ -142,6 +142,28 @@ gfc_omp_private_debug_clause (tree decl, bool shared)
   return false;
 }
 
+/* Register language specific type size variables as potentially OpenMP
+   firstprivate variables.  */
+
+void
+gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *ctx, tree type)
+{
+  if (GFC_ARRAY_TYPE_P (type) || GFC_DESCRIPTOR_TYPE_P (type))
+    {
+      int r;
+
+      gcc_assert (TYPE_LANG_SPECIFIC (type) != NULL);
+      for (r = 0; r < GFC_TYPE_ARRAY_RANK (type); r++)
+	{
+	  omp_firstprivatize_variable (ctx, GFC_TYPE_ARRAY_LBOUND (type, r));
+	  omp_firstprivatize_variable (ctx, GFC_TYPE_ARRAY_UBOUND (type, r));
+	  omp_firstprivatize_variable (ctx, GFC_TYPE_ARRAY_STRIDE (type, r));
+	}
+      omp_firstprivatize_variable (ctx, GFC_TYPE_ARRAY_SIZE (type));
+      omp_firstprivatize_variable (ctx, GFC_TYPE_ARRAY_OFFSET (type));
+    }
+}
+
 
 static inline tree
 gfc_trans_add_clause (tree node, tree tail)

@@ -120,6 +120,7 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_OMP_PREDETERMINED_SHARING
 #undef LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR
 #undef LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE
+#undef LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -142,6 +143,8 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_OMP_PREDETERMINED_SHARING	gfc_omp_predetermined_sharing
 #define LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR	gfc_omp_disregard_value_expr
 #define LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE	gfc_omp_private_debug_clause
+#define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
+  gfc_omp_firstprivatize_type_sizes
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

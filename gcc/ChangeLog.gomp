@@ -1,3 +1,17 @@
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* langhooks.h (struct lang_hooks_for_types): Add
+	omp_firstprivatize_type_sizes hook.
+	* langhooks.c (lhd_omp_firstprivatize_type_sizes): New function.
+	* langhooks-def.h (lhd_omp_firstprivatize_type_sizes): New prototype.
+	(LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add
+	LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES.
+	* gimplify.c (omp_firstprivatize_variable): No longer static.
+	(omp_firstprivatize_type_sizes): Call omp_firstprivatize_type_sizes
+	langhook.
+	* tree-gimple.h (omp_firstprivatize_variable): New prototype.
+
 2005-11-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* invoke.texi: Document -fopenmp.

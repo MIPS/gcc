@@ -128,6 +128,8 @@ extern tree alloc_stmt_list (void);
 extern void free_stmt_list (tree);
 extern tree force_labels_r (tree *, int *, void *);
 extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
+struct gimplify_omp_ctx;
+extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 
 /* In omp-low.c.  */
 extern tree find_omp_clause (tree, enum tree_code);

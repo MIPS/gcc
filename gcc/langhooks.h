@@ -25,6 +25,8 @@ Boston, MA 02110-1301, USA.  */
 
 struct diagnostic_context;
 
+struct gimplify_omp_ctx;
+
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
 
@@ -141,6 +143,10 @@ struct lang_hooks_for_types
   /* Called from assign_temp to return the maximum size, if there is one,
      for a type.  */
   tree (*max_size) (tree);
+
+  /* Register language specific type size variables as potentially OpenMP
+     firstprivate variables.  */
+  void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
 
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each

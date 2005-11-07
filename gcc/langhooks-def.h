@@ -90,6 +90,9 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
 extern enum omp_clause_default_kind lhd_omp_predetermined_sharing (tree);
 extern tree lhd_omp_assignment (tree, tree, tree);
+struct gimplify_omp_ctx;
+extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
+					       tree);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -215,6 +218,8 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
 #define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_tree
+#define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
+  lhd_omp_firstprivatize_type_sizes
 #define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
@@ -228,6 +233,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
   LANG_HOOKS_TYPE_MAX_SIZE, \
+  LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES, \
   LANG_HOOKS_HASH_TYPES \
 }
 

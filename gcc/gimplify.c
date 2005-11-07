@@ -4121,7 +4121,7 @@ gimplify_to_stmt_list (tree *stmt_p)
    to CTX.  If entries already exist, force them to be some flavor of private.
    If there is no enclosing parallel, do nothing.  */
 
-static void
+void
 omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 {
   splay_tree_node n;
@@ -4200,6 +4200,7 @@ omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *ctx, tree type)
 
   omp_firstprivatize_variable (ctx, TYPE_SIZE (type));
   omp_firstprivatize_variable (ctx, TYPE_SIZE_UNIT (type));
+  lang_hooks.types.omp_firstprivatize_type_sizes (ctx, type);
 }
 
 /* Add an entry for DECL in the OpenMP context CTX with FLAGS.  */

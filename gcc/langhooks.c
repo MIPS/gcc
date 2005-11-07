@@ -567,3 +567,12 @@ lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
   return build2 (MODIFY_EXPR, void_type_node, dst, src);
 }
+
+/* Register language specific type size variables as potentially OpenMP
+   firstprivate variables.  */
+
+void
+lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
+				   tree t ATTRIBUTE_UNUSED)
+{
+}
