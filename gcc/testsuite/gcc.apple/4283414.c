@@ -1,7 +1,7 @@
 /* APPLE LOCAL file 4283414 */
 /* Generate -1 with pcmpeq for SSE2 (x86) */
 /* { dg-do compile { target i?86-*-darwin* } } */
-/* { dg-options "-msse2" } */
+/* { dg-options "-O2 -msse2" } */
 
 typedef long long __v2di __attribute__ ((__vector_size__ (16)));
 typedef int __v4si __attribute__ ((__vector_size__ (16)));
