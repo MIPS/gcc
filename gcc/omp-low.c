@@ -832,8 +832,11 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
   omp_context *ctx;
   tree name;
 
-  /* Ignore parallel directives with empty bodies.  */
-  if (empty_body_p (OMP_PARALLEL_BODY (*stmt_p)))
+  /* Ignore parallel directives with empty bodies, unless there
+     are copyin clauses.  */
+  if (optimize > 0
+      && empty_body_p (OMP_PARALLEL_BODY (*stmt_p))
+      && find_omp_clause (OMP_CLAUSES (*stmt_p), OMP_CLAUSE_COPYIN) == NULL)
     {
       *stmt_p = build_empty_stmt ();
       return;

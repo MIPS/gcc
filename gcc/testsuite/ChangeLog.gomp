@@ -1,3 +1,7 @@
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/empty.c: Add -O to dg-options.
+
 2005-11-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/sharing-2.f90: Add dg-error for var

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-fopenmp -fdump-tree-omplower" } */
+/* { dg-options "-O -fopenmp -fdump-tree-omplower" } */
 
 main()
 {
