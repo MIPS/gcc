@@ -188,6 +188,23 @@ model_field::apply_type_map (const model_type_map &type_map,
   return new model_field (get_location (), name, nt, request);
 }
 
+model_variable_decl *
+model_field::erasure ()
+{
+  model_type *self_type = type ();
+  if (self_type->primitive_p ())
+    return this;
+
+  model_class *param = assert_cast<model_class *> (self_type->erasure ());
+  // If our type didn't change, don't bother creating a new field.
+  if (param == self_type)
+    return this;
+  ref_forwarding_type nt
+    = new model_forwarding_resolved (get_location (), param);
+  return new model_field (get_location (), name, nt,
+			  assert_cast<model_class *> (declaring_class->erasure ()));
+}
+
 void
 model_field::require_resolution ()
 {

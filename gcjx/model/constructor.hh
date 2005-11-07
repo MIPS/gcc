@@ -50,6 +50,9 @@ protected:
   model_constructor (model_constructor *, const model_type_map &,
 		     model_class *);
 
+  // This constructor is used only when creating the erasure.
+  model_constructor (model_constructor *, model_class *);
+
 public:
 
   model_constructor (const location &w, model_class *decl)
@@ -85,6 +88,8 @@ public:
 
   // FIXME: could use covariant return here.
   model_method *apply_type_map (const model_type_map &, model_class *);
+
+  model_method *erasure (model_class *);
 
   /// Prepend some statements to the constructor body.
   void prepend_statements (resolution_scope *, std::list<ref_stmt> &,

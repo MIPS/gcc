@@ -64,18 +64,18 @@ model/init.hh model/instanceof.hh model/intersect.hh model/invoke.hh \
 model/iscope.hh model/javadoc.hh model/label.hh model/literal.hh \
 model/loop.hh model/memberref.hh model/method.hh model/modifier.hh \
 model/newarray.hh model/new.hh model/null.hh model/package.hh \
-model/parameters.hh model/primitive.hh model/return.hh model/stmt.hh \
-model/switch.hh model/synchronized.hh model/this.hh model/throw.hh \
-model/throwsclause.hh model/try.hh model/type.hh model/typemap.hh \
-model/typevar.hh model/unary.hh model/unit.hh model/value.hh \
-model/variable.hh model/varref.hh model/varstmt.hh model/void.hh \
-model/while.hh model/wildcard.hh name.hh owner.hh reader/classbytes.hh \
-reader/classinst.hh reader/reader.hh reader/fdreader.hh	\
-reader/zereader.hh reader/mmapbuffer.hh reader/readbuffer.hh \
-reader/zebuffer.hh reader/source.hh resolve.hh scope.hh source/lex.hh \
-source/machine.hh source/parse.hh source/token.hh source/tstream.hh \
-source/ucs2.hh typedefs.hh unify.hh util.hh visitor.hh warnings.hh \
-watch.hh
+model/parameters.hh model/primitive.hh model/raw.hh model/return.hh \
+model/stmt.hh model/switch.hh model/synchronized.hh model/this.hh \
+model/throw.hh model/throwsclause.hh model/try.hh model/type.hh	\
+model/typemap.hh model/typevar.hh model/unary.hh model/unit.hh \
+model/value.hh model/variable.hh model/varref.hh model/varstmt.hh \
+model/void.hh model/while.hh model/wildcard.hh name.hh owner.hh	\
+reader/classbytes.hh reader/classinst.hh reader/reader.hh \
+reader/fdreader.hh reader/zereader.hh reader/mmapbuffer.hh \
+reader/readbuffer.hh reader/zebuffer.hh reader/source.hh resolve.hh \
+scope.hh source/lex.hh source/machine.hh source/parse.hh \
+source/token.hh source/tstream.hh source/ucs2.hh typedefs.hh unify.hh \
+util.hh visitor.hh warnings.hh watch.hh
 
 dot_sources = access.cc classcache.cc compiler.cc conversions.cc \
 defassign.cc directory.cc dump.cc factory.cc fold.cc init.cc \
@@ -96,12 +96,12 @@ model/imodifiable.cc model/init.cc model/instanceof.cc \
 model/intersect.cc model/invoke.cc model/javadoc.cc model/label.cc \
 model/literal.cc model/memberref.cc model/method.cc model/modifier.cc \
 model/newarray.cc model/new.cc model/null.cc model/package.cc \
-model/parameters.cc model/primitive.cc model/return.cc model/stmt.cc \
-model/switch.cc model/synchronized.cc model/this.cc model/throw.cc \
-model/throwsclause.cc model/try.cc model/type.cc model/typemap.cc \
-model/typevar.cc model/unary.cc model/unit.cc model/value.cc \
-model/variable.cc model/varref.cc model/varstmt.cc model/void.cc \
-model/while.cc model/wildcard.cc
+model/parameters.cc model/primitive.cc model/raw.cc model/return.cc \
+model/stmt.cc model/switch.cc model/synchronized.cc model/this.cc \
+model/throw.cc model/throwsclause.cc model/try.cc model/type.cc	\
+model/typemap.cc model/typevar.cc model/unary.cc model/unit.cc \
+model/value.cc model/variable.cc model/varref.cc model/varstmt.cc \
+model/void.cc model/while.cc model/wildcard.cc
 
 bytecode_sources = bytecode/attribute.cc bytecode/block.cc \
 bytecode/bytegen.cc bytecode/classreader.cc bytecode/classwriter.cc \

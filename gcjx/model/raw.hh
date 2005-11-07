@@ -1,6 +1,6 @@
-// A parameterized class instance.
+// Raw types.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -19,65 +19,47 @@
 // not, write to the Free Software Foundation, Inc.,
 // 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-#ifndef GCJX_MODEL_CLASSINST_HH
-#define GCJX_MODEL_CLASSINST_HH
+#ifndef GCJX_MODEL_RAW_HH
+#define GCJX_MODEL_RAW_HH
 
-/// This represents an instance of a parameterized class.  Each
-/// instance is characterized by its type map and its parent class.
-class model_class_instance : public model_class
+/// This represents a raw class.  Note that a raw class is only
+/// meaningful when the parent class is parameterized, and this is
+/// enforced via assertions.
+class model_raw_class : public model_class
 {
   /// The parent class.
   model_class *parent;
 
-  /// The type map.
-  model_type_map type_map;
-
 protected:
 
   void resolve_member_hook (resolution_scope *);
-  std::string get_signature_map_fragment ();
   void ensure_classes_inherited (resolution_scope *);
 
 public:
 
-  model_class_instance (const location &w, model_class *p,
-			const model_type_map &tm)
-    : model_class (w),
-      parent (p),
-      type_map (tm)
-  {
-  }
-
-  bool parameterized_p () const
-  {
-    return true;
-  }
+  model_raw_class (const location &, model_class *);
 
   model_class *get_parent () const
   {
     return parent;
   }
 
-  const model_type_map &get_type_map () const
+  model_class *apply_type_map (model_element *, const model_type &)
   {
-    return type_map;
+    // Applying a type map to the raw type does nothing, hence we
+    // simply return 'this'.
+    return this;
   }
 
-  // Retrieve the type map in "argument form" -- in the same order as
-  // the parameters given when instantiating this class.
-  void get_type_map (std::list<model_class *> &result);
-
-  model_class *apply_type_map (model_element *, const model_type_map &);
-
-  // FIXME: could have covariant return here..
   model_type *erasure ()
   {
-    return parent->erasure ();
+    return this;
   }
 
   std::string get_pretty_name () const;
 
-  void visit (visitor *);
+  // FIXME
+  // void visit (visitor *);
 };
 
-#endif // GCJX_MODEL_CLASSINST_HH
+#endif // GCJX_MODEL_RAW_HH

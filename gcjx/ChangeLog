@@ -1,3 +1,37 @@
+2005-11-07  Tom Tromey  <tromey@redhat.com>
+
+	* model/parameters.hh (model_instance_cache::erasure): New field.
+	(model_instance_cache::find_erased_instance): New method.
+	(model_instance_cache::add_erased_instance): Likewise.
+	* model/fwdtype.cc (resolve): Find parent of raw class.
+	(resolve): Find erasure of plain class.
+	(maybe_get_erasure): New function.
+	* model/constructor.cc (erasure): New method.
+	(model_constructor): New constructor.
+	(apply_type_map): Cache result.
+	* model/constructor.hh (model_constructor::erasure): Declare.
+	(model_constructor): Declare.
+	* model/method.cc (erasure): New method.
+	(model_method): New constructor.
+	* model/method.hh (model_method::erasure): Declare.
+	(model_method): Declare.
+	* model/field.cc (erasure): New method.
+	* model/field.hh (model_field::erasure): Declare.
+	* model/variable.cc (erasure): New method.
+	* model/variable.hh (model_variable_decl::erasure): Declare.
+	* model/classinst.hh (model_class_instance::erasure): Updated.
+	* model/classinst.cc (ensure_classes_inherited): Removed argument
+	name.
+	* model/class.cc (erasure): New method.
+	* model/class.hh (model_class::erasure): Declare.
+	(model_class::raw_class): New field.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (headers): Added raw.hh.
+	(model_sources): Added raw.cc.
+	* typedefs.hh: Include raw.hh.
+	* model/raw.cc: New file.
+	* model/raw.hh: New file.
+
 2005-11-02  Tom Tromey  <tromey@redhat.com>
 
 	* model/class.hh (model_class::ensure_classes_inherited):

@@ -59,6 +59,27 @@ model_variable_decl::constant_p ()
 }
 
 model_variable_decl *
+model_variable_decl::erasure ()
+{
+  model_type *self_type = type ();
+  if (self_type->primitive_p ())
+    return this;
+
+  model_class *new_type = assert_cast<model_class *> (self_type->erasure ());
+  // If our type didn't change, don't bother creating a new variable.
+  if (self_type == new_type)
+    return this;
+  ref_forwarding_type fw = new model_forwarding_resolved (get_location (),
+							  new_type);
+  model_variable_decl *result
+    = new model_variable_decl (get_location (), name, fw,
+			       assert_cast<model_class *> (declaring_class->erasure ()));
+  if (final)
+    result->set_final ();
+  return result;
+}
+
+model_variable_decl *
 model_variable_decl::apply_type_map (const model_type_map &type_map,
 				     model_class *enclosing)
 {

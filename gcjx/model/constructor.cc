@@ -37,6 +37,24 @@ model_constructor::model_constructor (model_constructor *other,
     }
 }
 
+model_constructor::model_constructor (model_constructor *other,
+				      model_class *enclosing)
+  : model_method (other, enclosing)
+{
+  if (other->this0)
+    {
+      model_type *era = 
+	other->this0->get_declared_type ()->type ()->erasure ();
+      ref_forwarding_type rtt
+	= new model_forwarding_resolved (get_location (), era);
+      this0 = new model_variable_decl (get_location (),
+				       // FIXME: construct new name
+				       "arg$this$0",
+				       rtt,
+				       declaring_class);
+    }
+}
+
 model_constructor::model_constructor (model_constructor *other)
   : model_method (other->get_location (), other->get_declaring_class ()),
     other_this (NULL)
@@ -187,7 +205,25 @@ model_method *
 model_constructor::apply_type_map (const model_type_map &type_map,
 				   model_class *enclosing)
 {
-  return new model_constructor (this, type_map, enclosing);
+  model_method *result = instance_cache.find_instance (type_map);
+  if (result == NULL)
+    {
+      result = new model_constructor (this, type_map, enclosing);
+      instance_cache.add_instance (type_map, result);
+    }
+  return result;
+}
+
+model_method *
+model_constructor::erasure (model_class *enclosing)
+{
+  model_method *result = instance_cache.find_erased_instance ();
+  if (result == NULL)
+    {
+      result = new model_constructor (this, enclosing);
+      instance_cache.add_erased_instance (result);
+    }
+  return result;
 }
 
 void

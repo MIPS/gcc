@@ -103,6 +103,10 @@ protected:
   // This constructor is used only when applying a type map.
   model_method (model_method *, const model_type_map &, model_class *);
 
+  // This constructor is used only when creating the erasure of a
+  // method.
+  model_method (model_method *, model_class *);
+
 public:
 
   model_method (const location &w, model_class *decl)
@@ -360,6 +364,8 @@ public:
   void clean_up ();
 
   virtual model_method *apply_type_map (const model_type_map &, model_class *);
+
+  virtual model_method *erasure (model_class *);
 
   static_result is_static_scope () const
   {

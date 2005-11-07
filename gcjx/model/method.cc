@@ -59,6 +59,7 @@ model_method::model_method (model_method *other,
   // The method itself might be generic.
   // FIXME can the type bounds be type variables from the class?
   set_type_parameters (other->type_parameters);
+
   for (std::list<ref_variable_decl>::const_iterator i
 	 = other->parameters.begin ();
        i != other->parameters.end ();
@@ -69,6 +70,46 @@ model_method::model_method (model_method *other,
   throw_decls = model_throws_clause (other->throw_decls, enclosing, type_map);
 
   set_return_type (wrap (other->return_type->type (), enclosing, type_map));
+  // FIXME: what do we do with the body?
+  body = NULL;
+
+  varargs = other->varargs;
+  used = false;
+  overrides = other->overrides;
+  is_instance_initializer = other->is_instance_initializer;
+}
+
+model_method::model_method (model_method *other,
+			    model_class *enclosing)
+  : model_element (other),
+    IDeprecatable (other),
+    IAnnotatable (other),
+    IModifiable (other),
+    IMember (enclosing),
+    method_end (other->method_end)
+{
+  set_name (other->name);
+
+  // Set our descriptor to be the same as the descriptor of the
+  // instance from which we were created.  FIXME: this is kind of a
+  // hack, we should perhaps instead just directly track our parent
+  // and let users get that information directly.  In this case it
+  // would be preferable to make a new model_method_instance subclass.
+  descriptor = other->get_descriptor ();
+
+  for (std::list<ref_variable_decl>::const_iterator i
+	 = other->parameters.begin ();
+       i != other->parameters.end ();
+       ++i)
+    parameters.push_back ((*i)->erasure ());
+
+  // Take the erasure of the 'throws' clause.
+  throw_decls = model_throws_clause (other->throw_decls);
+
+  ref_forwarding_type rt
+    = new model_forwarding_resolved (get_location (),
+				     other->return_type->type ()->erasure ());
+  set_return_type (rt);
   // FIXME: what do we do with the body?
   body = NULL;
 
@@ -835,6 +876,18 @@ model_method::apply_type_map (const model_type_map &type_map,
 
   model_method *result = new model_method (this, type_map, enclosing);
   instance_cache.add_instance (type_map, result);
+  return result;
+}
+
+model_method *
+model_method::erasure (model_class *enclosing)
+{
+  model_method *result = instance_cache.find_erased_instance ();
+  if (result == NULL)
+    {
+      result = new model_method (this, enclosing);
+      instance_cache.add_erased_instance (result);
+    }
   return result;
 }
 

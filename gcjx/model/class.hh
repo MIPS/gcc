@@ -63,8 +63,7 @@ private:
 ///
 /// A model_class is also used as the type of a class.  In particular,
 /// for ordinary classes, the model_class is both the declaration and
-/// the type.  For generic classes, the model_class is the declaration
-/// and the raw type.  Parameterizations of the class -- including the
+/// the type.  Parameterizations of the class -- including the
 /// parameterization where each type variable "maps to itself" -- are
 /// represented by model_class_instance.
 class model_class : public model_type, public Iname, public IContext,
@@ -98,6 +97,10 @@ protected:
 
   // Type parameters.
   model_parameters type_parameters;
+
+  // If this is a generic class, the corresponding raw class.
+  // Otherwise, NULL.
+  owner<model_class> raw_class;
 
   // All directly implemented interfaces.
   std::list<ref_forwarding_type> interfaces;
@@ -279,6 +282,7 @@ protected:
 
   // FIXME: this is ugly.
   friend class model_class_instance;
+  friend class model_raw_class;
 
 public:
 
@@ -719,6 +723,8 @@ public:
   {
     return source_order_methods;
   }
+
+  model_type *erasure ();
 
   void visit (visitor *);
 };

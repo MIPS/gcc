@@ -153,6 +153,8 @@ public:
   virtual model_variable_decl *apply_type_map (const model_type_map &,
 					       model_class *);
 
+  virtual model_variable_decl *erasure ();
+
   std::string get_signature ();
 
   void set_used ()

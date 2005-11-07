@@ -142,6 +142,8 @@ public:
   /// not.
   void check_referenced (resolution_scope *);
 
+  model_variable_decl *erasure ();
+
   model_variable_decl *apply_type_map (const model_type_map &, model_class *);
 
   void visit (visitor *);

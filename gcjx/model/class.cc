@@ -2501,6 +2501,61 @@ model_class::push_on_scope_for_class (resolution_scope *scope)
   scope->push_scope (this);
 }
 
+model_type *
+model_class::erasure ()
+{
+  if (type_parameters.empty ())
+    return this;
+  if (! raw_class)
+    {
+      resolve_classes ();
+      raw_class = new model_raw_class (get_location (), this);
+
+      // We share a lot of this with create_instance.
+      // FIXME.
+
+      raw_class->set_name (name);
+      // FIXME?
+      raw_class->set_declaring_class (declaring_class);
+      raw_class->set_compilation_unit (compilation_unit);
+
+      // FIXME: set annotations
+      raw_class->set_deprecated (deprecated);
+      raw_class->set_modifiers (modifiers);
+
+      // We might be an interface.
+      if (superclass)
+	{
+	  model_class *sck
+	    = assert_cast<model_class *> (superclass->type ()->erasure ());
+	  raw_class->set_superclass
+	    (new model_forwarding_resolved (get_location (), sck));
+	}
+
+      std::list<ref_forwarding_type> ifaces;
+      for (std::list<ref_forwarding_type>::const_iterator i = interfaces.begin ();
+	   i != interfaces.end ();
+	   ++i)
+	{
+	  model_class *itype
+	    = assert_cast<model_class *> ((*i)->type ()->erasure ());
+	  ifaces.push_back (new model_forwarding_resolved (get_location (),
+							   itype));
+	}
+      raw_class->set_implements (ifaces);
+
+      if (interface)
+	raw_class->set_interface ();
+
+      // FIXME: the type of this will be wrong -- but does it matter?
+      // There are also other fields we're omitting here.
+      if (this_0)
+	raw_class->set_this_0 (this_0);
+    }
+
+  return raw_class.get ();
+}
+
 void
 model_class::visit (visitor *v)
 {

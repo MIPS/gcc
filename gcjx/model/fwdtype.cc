@@ -21,6 +21,14 @@
 
 #include "typedefs.hh"
 
+static model_class *
+maybe_get_erasure (model_class *klass)
+{
+  if (! klass->type_variable_p () && ! klass->wildcard_p ())
+    klass = assert_cast<model_class *> (klass->erasure ());
+  return klass;
+}
+
 owner<model_forwarding_type>
 model_forwarding_type::array ()
 {
@@ -74,6 +82,9 @@ model_forwarding_simple::resolve (resolution_scope *scope)
 
   // FIXME null return
   resolved_type = classify_type_name (scope, this, name);
+  model_class *k = dynamic_cast<model_class *> (resolved_type);
+  if (k)
+    resolved_type = maybe_get_erasure (k);
 }
 
 void
@@ -159,7 +170,8 @@ model_forwarding_inner::resolve (resolution_scope *scope)
   model_type *r = classify_type_name (scope, this, name, context);
   if (! r->reference_p ())
     throw error ("reference type expected");
-  resolved_type = r;
+  model_class *k = assert_cast<model_class *> (r);
+  resolved_type = maybe_get_erasure (k);
 }
 
 void
@@ -198,6 +210,11 @@ model_forwarding_parameterized::resolve (resolution_scope *scope)
     }
 
   model_class *k = assert_cast<model_class *> (r);
+
+  model_raw_class *rc = dynamic_cast<model_raw_class *> (k);
+  if (rc)
+    k = rc->get_parent ();
+
   resolved_type = k->create_instance (this, rp);
 }
 

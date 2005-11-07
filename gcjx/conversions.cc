@@ -191,10 +191,11 @@ widen_instantiation (model_class *to, model_class *from)
     }
   if (! from->parameterized_p ())
     {
-      // An assignment from the raw type is not ok.
-      // FIXME: actually it is, when doing unchecked conversion.
-      // Should we do this here?
-      return false;
+      // An assignment from the raw type is ok when doing unchecked
+      // conversion.  FIXME: Should we do this here?
+      // FIXME: must emit a warning, which means we need a request
+      // element here.
+      return true;
     }
 
   // Now we check 'contains' of each type argument.

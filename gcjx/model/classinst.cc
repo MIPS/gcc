@@ -22,7 +22,7 @@
 #include "typedefs.hh"
 
 void
-model_class_instance::ensure_classes_inherited (resolution_scope *scope)
+model_class_instance::ensure_classes_inherited (resolution_scope *)
 {
   parent->resolve_classes ();
 

@@ -100,15 +100,32 @@ class model_instance_cache
   // List of all the known instances.
   data_type instances;
 
+  // The instance created by erasure.
+  owner<T> erasure;
+
 public:
 
   /// Look up an instantiation.  If the element is found in the cache,
   /// returns it.  Otherwise, returns NULL.
   T *find_instance (const model_type_map &type_map);
 
+  /// Look up the erased variant.  Returns NULL if not found.
+  T *find_erased_instance ()
+  {
+    return erasure.get ();
+  }
+
   /// Add an element to the cache.
   void add_instance (const model_type_map &type_map,
 		     const owner<T> &instance);
+
+  /// Add the erased instance.
+  void add_erased_instance (T *what)
+  {
+    assert (! erasure);
+    assert (what);
+    erasure = what;
+  }
 };
 
 #endif // GCJX_MODEL_PARAMETERS_HH
