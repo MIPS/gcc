@@ -1,3 +1,7 @@
+2005-11-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* invoke.texi: Document -fopenmp.
+
 2005-11-05  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/24612
