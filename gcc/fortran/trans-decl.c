@@ -87,6 +87,9 @@ tree gfor_fndecl_select_string;
 tree gfor_fndecl_runtime_error;
 tree gfor_fndecl_set_fpe;
 tree gfor_fndecl_set_std;
+tree gfor_fndecl_ctime;
+tree gfor_fndecl_fdate;
+tree gfor_fndecl_ttynam;
 tree gfor_fndecl_in_pack;
 tree gfor_fndecl_in_unpack;
 tree gfor_fndecl_associated;
@@ -371,7 +374,7 @@ gfc_finish_cray_pointee (tree decl, gfc_symbol *sym)
   if (sym->attr.dimension
       && TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE) 
     {  
-      /* These decls will be derefenced later, so we don't dereference
+      /* These decls will be dereferenced later, so we don't dereference
 	 them here.  */
       value = convert (TREE_TYPE (decl), ptr_decl);
     }
@@ -469,7 +472,8 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
      function scope.  */
   if (current_function_decl != NULL_TREE)
     {
-      if (sym->ns->proc_name->backend_decl == current_function_decl)
+      if (sym->ns->proc_name->backend_decl == current_function_decl
+          || sym->result == sym)
 	gfc_add_decl_to_function (decl);
       else
 	gfc_add_decl_to_parent_function (decl);
@@ -487,7 +491,7 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   else if (sym->module && !sym->attr.result && !sym->attr.dummy)
     {
       /* TODO: Don't set sym->module for result or dummy variables.  */
-      gcc_assert (current_function_decl == NULL_TREE);
+      gcc_assert (current_function_decl == NULL_TREE || sym->result == sym);
       /* This is the declaration of a module variable.  */
       TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
@@ -1779,6 +1783,7 @@ gfc_build_intrinsic_function_decls (void)
   tree gfc_complex8_type_node = gfc_get_complex_type (8);
   tree gfc_complex10_type_node = gfc_get_complex_type (10);
   tree gfc_complex16_type_node = gfc_get_complex_type (16);
+  tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   /* String functions.  */
   gfor_fndecl_copy_string =
@@ -1847,6 +1852,29 @@ gfc_build_intrinsic_function_decls (void)
                                      gfc_charlen_type_node,
                                      pchar_type_node,
                                      gfc_int4_type_node);
+
+  gfor_fndecl_ttynam =
+    gfc_build_library_function_decl (get_identifier (PREFIX("ttynam")),
+                                     void_type_node,
+                                     3,
+                                     pchar_type_node,
+                                     gfc_charlen_type_node,
+                                     gfc_c_int_type_node);
+
+  gfor_fndecl_fdate =
+    gfc_build_library_function_decl (get_identifier (PREFIX("fdate")),
+                                     void_type_node,
+                                     2,
+                                     pchar_type_node,
+                                     gfc_charlen_type_node);
+
+  gfor_fndecl_ctime =
+    gfc_build_library_function_decl (get_identifier (PREFIX("ctime")),
+                                     void_type_node,
+                                     3,
+                                     pchar_type_node,
+                                     gfc_charlen_type_node,
+                                     gfc_int8_type_node);
 
   gfor_fndecl_adjustl =
     gfc_build_library_function_decl (get_identifier (PREFIX("adjustl")),

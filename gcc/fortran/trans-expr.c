@@ -403,7 +403,12 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
   /* For character variables, also get the length.  */
   if (sym->ts.type == BT_CHARACTER)
     {
-      se->string_length = sym->ts.cl->backend_decl;
+      /* If the character length of an entry isn't set, get the length from
+         the master function instead.  */
+      if (sym->attr.entry && !sym->ts.cl->backend_decl)
+        se->string_length = sym->ns->proc_name->ts.cl->backend_decl;
+      else
+        se->string_length = sym->ts.cl->backend_decl;
       gcc_assert (se->string_length);
     }
 
@@ -2714,7 +2719,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
       /* Calculate the bounds of the scalarization.  */
       gfc_conv_ss_startstride (&loop);
       /* Resolve any data dependencies in the statement.  */
-      gfc_conv_resolve_dependencies (&loop, lss_section, rss);
+      gfc_conv_resolve_dependencies (&loop, lss, rss);
       /* Setup the scalarizing loops.  */
       gfc_conv_loop_setup (&loop);
 

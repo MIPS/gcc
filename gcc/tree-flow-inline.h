@@ -1046,7 +1046,7 @@ op_iter_next_tree (ssa_op_iter *ptr)
 
 
 /* This functions clears the iterator PTR, and marks it done.  This is normally
-   used to prevent warnings in the compile about might be uninitailzied
+   used to prevent warnings in the compile about might be uninitialized
    components.  */
 
 static inline void
@@ -1421,32 +1421,34 @@ unmodifiable_var_p (tree var)
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
-/* Return true if REF, an ARRAY_REF, has an INDIRECT_REF somewhere in
-   it.  */
+/* Return true if REF, an ARRAY_REF, has an INDIRECT_REF somewhere in it.  */
 
 static inline bool
-ref_contains_indirect_ref (tree ref)
+array_ref_contains_indirect_ref (tree ref)
 {
-  while (handled_component_p (ref))
-    {
-      if (TREE_CODE (ref) == INDIRECT_REF)
-	return true;
-      ref = TREE_OPERAND (ref, 0);
-    }
-  return false;
+  gcc_assert (TREE_CODE (ref) == ARRAY_REF);
+
+  do {
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
+  return TREE_CODE (ref) == INDIRECT_REF;
 }
 
-/* Return true if REF, a COMPONENT_REF, has an ARRAY_REF somewhere in it.  */
+/* Return true if REF, a handled component reference, has an ARRAY_REF
+   somewhere in it.  */
 
 static inline bool
 ref_contains_array_ref (tree ref)
 {
-  while (handled_component_p (ref))
-    {
-      if (TREE_CODE (ref) == ARRAY_REF)
-	return true;
-      ref = TREE_OPERAND (ref, 0);
-    }
+  gcc_assert (handled_component_p (ref));
+
+  do {
+    if (TREE_CODE (ref) == ARRAY_REF)
+      return true;
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
   return false;
 }
 

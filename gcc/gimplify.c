@@ -4312,18 +4312,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	    {
 	      unsigned HOST_WIDE_INT ix;
 	      constructor_elt *ce;
+	      tree temp = NULL_TREE;
 	      for (ix = 0;
 		   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (*expr_p),
 				ix, ce);
 		   ix++)
 		if (TREE_SIDE_EFFECTS (ce->value))
-		  gimplify_expr (&ce->value, pre_p, post_p,
-				 gimple_test_f, fallback);
+		  append_to_statement_list (ce->value, &temp);
 
-	      *expr_p = NULL_TREE;
+	      *expr_p = temp;
+	      ret = GS_OK;
 	    }
-
-	  ret = GS_ALL_DONE;
+	  /* C99 code may assign to an array in a constructed
+	     structure or union, and this has undefined behavior only
+	     on execution, so create a temporary if an lvalue is
+	     required.  */
+	  else if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
+	  else
+	    ret = GS_ALL_DONE;
 	  break;
 
 	  /* The following are special cases that are not handled by the
