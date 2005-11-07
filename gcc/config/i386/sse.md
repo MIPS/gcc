@@ -110,11 +110,11 @@
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "=x,x,m")
 	(match_operand:V4SF 1 "vector_move_operand" "C,xm,x"))]
   "TARGET_SSE"
+/* APPLE LOCAL begin mainline candidate 4283414 */
 {
   switch (which_alternative)
     {
     case 0:
-      /* APPLE LOCAL mainline candidate 4283414 */
       return standard_sse_constant_opcode (insn, operands[1]);
     case 1:
     case 2:
@@ -123,6 +123,7 @@
       abort();
     }
 }
+/* APPLE LOCAL end mainline candidate 4283414 */
   [(set_attr "type" "sselog1,ssemov,ssemov")
    (set_attr "mode" "V4SF")])
 

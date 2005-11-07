@@ -8188,9 +8188,10 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
      to handle some of them more efficiently.  */
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (op0, mode)
+      /* APPLE LOCAL begin mainline candidate 4283414 */
       && CONSTANT_P (op1)
-      /* APPLE LOCAL mainline candidate 4283414 */
       && standard_sse_constant_p (op1) <= 0)
+      /* APPLE LOCAL end mainline candidate 4283414 */
     op1 = validize_mem (force_const_mem (mode, op1));
 
   /* Make operand1 a register if it isn't already.  */
