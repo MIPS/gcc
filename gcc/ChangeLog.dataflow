@@ -1,3 +1,48 @@
+2005-11-08  Daniel Berlin  <dberlin@dberlin.org>
+            Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* bitmap.c (bitmap_element_free, bitmap_element_link, bitmap_and,
+	bitmap_and_compl, bitmap_ior, bitmap_ior_into, bitmap_xor, 
+	bitmap_xor_into): Fixed latent performance issue where current
+	was being properly kept up to date.
+	(bitmap_clear_range, bitmap_compl_and_into): New functions to support 
+	dataflow analysis.
+	* df.c (df_rd_confluence_n, df_alloc_reach_bitmaps, df_free_reach_bitmaps, 
+	df_clear_reach_bitmaps, df_ru_confluence_n, df_lr_confluence_0, 
+	df_lr_confluence_n, df_init, df_dump): Changed the way EH_USES is processed.
+       	(df_bitmaps_alloc, df_bitmaps_free,
+	df_bb_reg_def_chain_create, df_bb_reg_def_chain_create,
+	df_reg_use_chain_create, df_rd_transfer_function,
+	df_alloc_reach_bitmaps, df_ref_bitmap, df_bb_rd_local_compute,
+	df_rd_local_compute, df_bb_ru_local_compute, df_analyze, 
+	df_analyze_subcfg, df_analyze_simple_change_some_blocks): Fixed
+	performance problems by grouping all defs and uses
+	for the same pseudo into contigious ranges.
+	(df_bb_du_chain_create, df_bb_ud_chain_create): Combined in
+	new function df_bb_chain_create.
+	(df_chain_create, df_alloc_reach_bitmaps, df_free_reach_bitmaps, 
+	df_clear_reach_bitmaps, df_ref_bitmap): New function.
+	(df_rd_init, df_rd_confluence_n, df_rd_transfer_function,
+	df_rd_set_dflow, df_ru_transfer_function, df_ru_confluence_n, 
+	df_ru_transfer_function, df_ru_set_dflow, df_lr_transfer_function, 
+	df_lr_set_dflow, df_lr_confluence_n, df_ur_transfer_function, 
+	df_ur_set_dflow, df_ur_init, df_ur_transfer_function, df_ur_set_dflow
+	df_ur_confluence_n, hybrid_search_forward, hybrid_search_backward
+	iterative_dataflow): Changed interface for dataflow callback
+	functions to hide where the source of bitmaps.
+       	(df_rd_set_bitmaps, df_ru_set_bitmaps, df_lr_set_bitmaps, 
+	df_ur_set_bitmaps, df_bitmap_ior_edge):	Removed as part of
+	changing dataflow callback interface.
+	(df_free, df_ref_create, df_ref_record_1,
+	df_record_exit_block_uses, df_refs_record, df_exit_lr_local_compute,
+	df_insn_move_before, df_local_ref_killed_between_p, 
+	df_bb_regno_last_def_find, df_chain_dump, df_dump): 
+	Added chains that go to artifical uses in exit block.
+	(df_exit_bb_reg_use_chain_create, df_exit_bb_chain_create):
+	New functions to support artifical uses in exit block.
+	(df_insn_refs_record): Added new DF_REF_CLOBBER ref type to
+	avoid creation of artifical chains for clobbers at call sites.
+
 2005-11-03  Paolo Bonzini  <bonzini@gnu.org>
 	    Steven Bosscher  <stevenb@suse.de>
 

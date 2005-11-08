@@ -85,8 +85,16 @@ enum df_ref_flags
     DF_REF_ARTIFICIAL = 4,
 
     /* This flag is set if the use is inside a REG_EQUAL note.  */
-    DF_REF_IN_NOTE = 8
-    
+    DF_REF_IN_NOTE = 8,
+
+    /* This flag is set if this ref is really a clobber, and not a def.  */
+    DF_REF_CLOBBER = 16,
+
+    /* This is set if the def or use is hidden inside a block.  Uses
+       and defs are hidden by a def for the same register earlier in
+       the block.  These are hidden from the visible references by the
+       global analysis for performance reasons.  */
+    DF_HIDDEN = 32
   };
 
 
@@ -97,10 +105,11 @@ struct ref
 {
   rtx reg;			/* The register referenced.  */
   unsigned int regno;           /* The register number referenced.  */
-  rtx insn;			/* Insn containing ref.  */
+  basic_block bb;               /* Basic block number of the instruction. */
+  rtx insn;			/* Insn containing ref.  NB: THIS MAY BE NULL.  */
   rtx *loc;			/* The location of the reg.  */
   struct df_link *chain;	/* Head of def-use or use-def chain.  */
-  unsigned int id;		/* Ref index.  */
+  unsigned int id;		/* Location in table.  */
   enum df_ref_type type;	/* Type of ref.  */
   enum df_ref_flags flags;	/* Various flags.  */
   void *data;			/* The data assigned to it by user.  */
@@ -135,11 +144,13 @@ struct df_bb_info
 {
   /* Reaching def bitmaps have def_id elements.  */
   bitmap rd_kill;
+  bitmap rd_sparse_kill;
   bitmap rd_gen;
   bitmap rd_in;
   bitmap rd_out;
   /* Reaching use bitmaps have use_id elements.  */
   bitmap ru_kill;
+  bitmap ru_sparse_kill;
   bitmap ru_gen;
   bitmap ru_in;
   bitmap ru_out;
@@ -161,6 +172,17 @@ struct df_bb_info
   struct df_link *artificial_uses;
 };
 
+struct df_reach
+{
+  int *begin;                   /* First def_index for this pseudo.  */
+  int *count;                   /* Number of defs for this pseudo.  */
+  bitmap *regs;                 /* Bitmap of defs for each pseudo.  */
+  bitmap invalidated_by_call;   /* The set of defs to regs invalidate by call for ru.  */
+#ifdef EH_USES
+  bitmap eh_uses;               /* The set of exception regs made live across a call.  */
+#endif
+};
+
 struct df
 {
   int flags;			/* Indicates what's recorded.  */
@@ -168,7 +190,8 @@ struct df
   struct df_bb_info *bbs;	/* Basic block table.  */
   struct ref **defs;		/* Def table, indexed by def_id.  */
   struct ref **uses;		/* Use table, indexed by use_id.  */
-  struct ref **reg_def_last;	/* Indexed by regno.  */
+  struct df_reach * rd_reach;   /* Def info.  */
+  struct df_reach * ru_reach;   /* Use info.  */
   struct reg_info *regs;	/* Regs table, index by regno.  */
   unsigned int reg_size;	/* Size of regs table.  */
   struct insn_info *insns;	/* Insn table, indexed by insn UID.  */
@@ -186,6 +209,8 @@ struct df
   bitmap insns_modified;	/* Insns that (may) have changed.  */
   bitmap bbs_modified;		/* Blocks that (may) have changed.  */
   bitmap hardware_regs_used;    /* The set of hardware registers used.  */
+  bitmap exit_block_uses;       /* The set of hardware registers used in exit block.  */
+
 #ifdef STACK_REGS
   bitmap stack_regs;		/* Registers that may be allocated to a STACK_REGS.  */
 #endif
@@ -206,6 +231,7 @@ struct df_map
 
 
 #define DF_BB_INFO(DF, BB) (&DF->bbs[(BB)->index])
+#define DF_BB_INFO_INDEX(DF, BB) (&DF->bbs[(BB)])
 
 /* Most transformations that wish to use live register analysis will
    use these macros.  The DF_UPWARD_LIVE* macros are only half of the
@@ -235,8 +261,8 @@ struct df_map
 			        ? &SUBREG_REG ((REF)->reg) : ((REF)->loc))
 #define DF_REF_REG(REF) ((REF)->reg)
 #define DF_REF_LOC(REF) ((REF)->loc)
-#define DF_REF_BB(REF) (BLOCK_FOR_INSN ((REF)->insn))
-#define DF_REF_BBNO(REF) (BLOCK_FOR_INSN ((REF)->insn)->index)
+#define DF_REF_BB(REF) ((REF)->bb)
+#define DF_REF_BBNO(REF) (DF_REF_BB (REF)->index)
 #define DF_REF_INSN(REF) ((REF)->insn)
 #define DF_REF_INSN_UID(REF) (INSN_UID ((REF)->insn))
 #define DF_REF_TYPE(REF) ((REF)->type)
@@ -314,7 +340,7 @@ extern int df_reg_replace (struct df *, bitmap, rtx, rtx);
 
 extern int df_ref_reg_replace (struct df *, struct ref *, rtx, rtx);
 
-extern struct ref *df_ref_create (struct df *, rtx, rtx *, rtx,  
+extern struct ref *df_ref_create (struct df *, rtx, rtx *, rtx,  basic_block, 
                                   enum df_ref_type, enum df_ref_flags);
 
 extern int df_ref_remove (struct df *, struct ref *);
@@ -351,10 +377,8 @@ extern int df_bb_regs_lives_compare (struct df *, basic_block, rtx, rtx);
 
 extern bool df_local_def_available_p (struct df *, struct ref *, rtx);
 
-extern bool df_local_ref_killed_between_p (struct df *, struct ref *, rtx, rtx);
-
-extern rtx df_bb_single_def_use_insn_find (struct df *, basic_block, rtx, rtx);
-
+extern rtx df_bb_single_def_use_insn_find (struct df *, basic_block, rtx,
+					   rtx);
 extern struct ref *df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
 
 extern struct ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigned int);
@@ -399,11 +423,10 @@ enum df_flow_dir
 
 struct dataflow;
 
-typedef void (*confluence_function_0) (struct df *, void *, basic_block);
-typedef void (*confluence_function_n) (struct df *, void *, void *, edge);
-typedef void (*setbits_function) (struct dataflow *, basic_block);
-typedef void (*transfer_function) (int, int *, void *, void *,
-				   void *, void *, void *);
+typedef void (*init_function) (struct dataflow *, int);
+typedef void (*confluence_function_0) (struct dataflow *, basic_block);
+typedef void (*confluence_function_n) (struct dataflow *, edge);
+typedef bool (*transfer_function) (struct dataflow *, int);
 typedef void (*finalizer_function) (struct df*, bitmap);
 
 
@@ -411,8 +434,8 @@ typedef void (*finalizer_function) (struct df*, bitmap);
 
 struct df_problem {
   enum df_flow_dir dir;			/* Dataflow direction.  */
-  setbits_function setbitsfun;          /* Function to copy bitvec 
-                                           pointers to dflow. */
+
+  init_function init;                   /* The bitvector init function.  */
   confluence_function_0 confun_0;       /* The function to provide
 					   information when there are
 					   no edges.  */
@@ -450,8 +473,6 @@ struct dataflow
   sbitmap visited, pending, considered; /* Communication between
                                            iterative_dataflow and
                                            hybrid_search. */
-  bitmap init;                          /* Bitmap to or with gen set
-					   to initialize problem.  */
 };
 
 extern void iterative_dataflow (struct dataflow *);
