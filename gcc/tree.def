@@ -1045,14 +1045,14 @@ DEFTREECODE (OMP_CLAUSE_IF, "if", tcc_expression, 1)
 /* OpenMP clause: num_threads (integer-expression).  */
 DEFTREECODE (OMP_CLAUSE_NUM_THREADS, "num_threads", tcc_expression, 1)
 
+/* OpenMP clause: schedule.  */
+DEFTREECODE (OMP_CLAUSE_SCHEDULE, "schedule", tcc_expression, 1)
+
 /* OpenMP clause: nowait.  */
 DEFTREECODE (OMP_CLAUSE_NOWAIT, "nowait", tcc_expression, 0)
 
 /* OpenMP clause: ordered.  */
 DEFTREECODE (OMP_CLAUSE_ORDERED, "ordered", tcc_expression, 0)
-
-/* OpenMP clause: schedule.  */
-DEFTREECODE (OMP_CLAUSE_SCHEDULE, "schedule", tcc_expression, 1)
 
 /* OpenMP clause: default.  */
 DEFTREECODE (OMP_CLAUSE_DEFAULT, "default", tcc_expression, 0)
