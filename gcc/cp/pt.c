@@ -8501,6 +8501,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case OMP_SECTION:
     case OMP_CRITICAL:
+    case OMP_MASTER:
+    case OMP_ORDERED:
       stmt = push_stmt_list ();
       tsubst_expr (OMP_BODY (t), args, complain, in_decl);
       stmt = pop_stmt_list (stmt);

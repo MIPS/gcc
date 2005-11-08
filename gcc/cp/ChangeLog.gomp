@@ -1,3 +1,8 @@
+2005-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24734
+	* pt.c (tsubst_expr): Handle OMP_MASTER and OMP_ORDERED.
+
 2005-11-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_threadprivate): Error on class-scope
