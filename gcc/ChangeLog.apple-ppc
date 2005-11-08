@@ -1,3 +1,10 @@
+2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4330422
+
+	* c-common.h (objc_non_volatilized_type): New declaration
+	* stub-objc.c (objc_non_volatilized_type): New stub.
+
 2005-11-03  Evan Cheng  <evan.cheng@apple.com>
 
 	* config/i386/i386-protos.h (standard_sse_constant_opcode) Declare

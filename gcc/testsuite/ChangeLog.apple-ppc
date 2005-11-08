@@ -1,3 +1,9 @@
+2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4330422
+
+	* obj-c++.dg/try-catch-15.mm: New
+
 2005-11-07  Dale Johannesen  <dalej@apple.com>
 
         gcc.dg/darwin64-abi.c:  Fix to test for 

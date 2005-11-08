@@ -63,6 +63,14 @@ objc_check_global_decl (tree ARG_UNUSED (decl))
 {
 }
 /* APPLE LOCAL end radar 4281748 */
+
+/* APPLE LOCAL begin radar 4330422 */
+tree
+objc_non_volatilized_type (tree type)
+{
+  return type;
+}
+/* APPLE LOCAL end radar 4330422 */
    
 int
 objc_is_reserved_word (tree ARG_UNUSED (ident))

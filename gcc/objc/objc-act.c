@@ -1614,6 +1614,18 @@ objc_check_global_decl (tree decl)
 }
 /* APPLE LOCAL end radar 4281748 */
 
+/* APPLE LOCAL begin radar 4330422 */
+/* Return a non-volatalized version of TYPE. */
+
+tree
+objc_non_volatilized_type (tree type)
+{
+  if (lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (type)))
+    type = build_qualified_type (type, (TYPE_QUALS (type) & ~TYPE_QUAL_VOLATILE));
+  return type;
+}
+/* APPLE LOCAL end radar 4330422 */
+
 /* Construct a PROTOCOLS-qualified variant of INTERFACE, where INTERFACE may
    either name an Objective-C class, or refer to the special 'id' or 'Class'
    types.  If INTERFACE is not a valid ObjC type, just return it unchanged.  */

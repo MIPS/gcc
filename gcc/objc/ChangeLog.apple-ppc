@@ -1,3 +1,9 @@
+2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4330422
+
+	* objc/objc-act.c (objc_non_volatilized_type): New
+
 2005-11-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	objc new messaging - part 1
