@@ -35,6 +35,7 @@ model_variable_decl::resolve (resolution_scope *scope)
   decltype->resolve (scope);  // fixme redundant for fields...
   if (initializer)
     {
+      initializer->use_assignment_conversion (decltype->type ());
       initializer->resolve (scope);
       if (! assignment_conversion (decltype->type (), initializer))
 	// FIXME error message!

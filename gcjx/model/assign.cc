@@ -1,6 +1,6 @@
 // Assignments.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -72,8 +72,14 @@ model_assignment::check_lhs (const char *name)
 }
 
 void
-model_assignment::handle_resolve (resolution_scope *scope)
+model_assignment::resolve (resolution_scope *scope)
 {
+  lhs->set_left_hand_side (false);
+  lhs->resolve (scope);
+
+  rhs->use_assignment_conversion (lhs->type ());
+  rhs->resolve (scope);
+
   check_lhs ("");
 
   model_type *result = assignment_conversion (lhs->type (), rhs);
@@ -98,15 +104,6 @@ model_assignment::handle_resolve (resolution_scope *scope)
       % lhs;
 
   // FIXME also warn for things like 'this.field = field'.
-}
-
-void
-model_assignment::resolve (resolution_scope *scope)
-{
-  lhs->set_left_hand_side (false);
-  lhs->resolve (scope);
-  rhs->resolve (scope);
-  handle_resolve (scope);
 }
 
 void

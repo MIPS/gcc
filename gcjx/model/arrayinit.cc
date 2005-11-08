@@ -1,6 +1,6 @@
 // Array initializers.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -30,6 +30,7 @@ model_array_initializer::resolve (resolution_scope *scope)
        i != initializers.end ();
        ++i)
     {
+      (*i)->use_assignment_conversion (ct);
       (*i)->resolve (scope);
       if (assignment_conversion (ct, *i) == NULL)
 	std::cerr << (*i)->error ("expression in array initializer of "

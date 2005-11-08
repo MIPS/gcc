@@ -1,6 +1,6 @@
 // Represent an assignment operator.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -35,10 +35,6 @@ protected:
 
   // A helper method to check that the LHS has a valid form.
   void check_lhs (const char *);
-
-  // This is just a helper method to let us reuse a little code both
-  // here and in the clinit subclass.
-  void handle_resolve (resolution_scope *);
 
 public:
 

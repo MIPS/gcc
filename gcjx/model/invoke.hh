@@ -50,6 +50,11 @@ protected:
   // True if this is an unqualified method invocation.
   bool unqualified;
 
+  /// If the invocation occurs in a context where assignment
+  /// conversion is used, this will be non-NULL and will be the type
+  /// to which the return result of the method is assigned.
+  model_type *assign_type;
+
   void try_method_conversion (const std::set<model_method *> &,
 			      const std::list<model_type *> &,
 			      std::set<model_method *> &);
@@ -90,7 +95,8 @@ protected:
     : model_expression (w),
       method (NULL),
       search (NULL),
-      unqualified (false)
+      unqualified (false),
+      assign_type (NULL)
   {
   }
 
@@ -123,6 +129,12 @@ public:
   }
 
   model_class *get_qualifying_class () const;
+
+  void use_assignment_conversion (model_type *t)
+  {
+    assert (assign_type == NULL);
+    assign_type = t;
+  }
 
   void resolve (resolution_scope *);
 };

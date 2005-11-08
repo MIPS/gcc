@@ -59,6 +59,7 @@ model_for_enhanced::resolve (resolution_scope *scope)
   resolution_scope::push_iscope var_holder (scope, &vscope);
 
   variable->resolve (scope);
+  // FIXME: perhaps we should call use_assignment_conversion here?
   expression->resolve (scope);
   fold (expression);
   if (expression->type ()->array_p ())

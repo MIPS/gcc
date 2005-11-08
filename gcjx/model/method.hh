@@ -286,6 +286,7 @@ public:
   /// are considered.  The returned method might differ from 'this' if
   /// a generic instance is created.
   model_method *method_conversion_p (const std::list<model_type *> &,
+				     model_type *assign_type,
 				     method_phase);
 
   /// Like the above, but handles method conversion in the case where

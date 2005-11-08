@@ -1,6 +1,6 @@
 // return statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -43,6 +43,8 @@ model_return::resolve (resolution_scope *scope)
 	}
       else
 	{
+	  if (method_type != primitive_void_type)
+	    expression->use_assignment_conversion (method_type);
 	  expression->resolve (scope);
 	  fold (expression);
 	  if (method_type == primitive_void_type)

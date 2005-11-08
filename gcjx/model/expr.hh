@@ -110,6 +110,15 @@ public:
     // Don't abort here -- at the point when this is called, we won't
     // have had a chance to emit an error message.
   }
+
+  /// This is called before resolution on an expression which will
+  /// undergo assignment conversion.  The argument is the type of the
+  /// left hand side of the assignment.  (This hook exists for type
+  /// inference of method calls to work correctly.)
+  virtual void use_assignment_conversion (model_type *)
+  {
+    // Do nothing by default.
+  }
 };
 
 const format &operator% (const format &, const model_expression *);

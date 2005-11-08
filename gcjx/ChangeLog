@@ -1,3 +1,24 @@
+2005-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* model/invoke.cc (method_conversion_p): Pass assign_type to
+	method.
+	* model/method.hh (model_method::method_conversion_p): Updated.
+	* model/method.cc (method_conversion_p): Added 'assign_type'
+	argument.
+	* model/invoke.hh (model_invocation_base::assign_type): New
+	field.
+	(model_invocation_base): Initialize it.
+	(model_invocation_base::use_assignment_conversion): New method.
+	* model/assign.cc (handle_resolve): Removed.
+	(resolve): Merged in code from handle_resolve.  Call
+	use_assignment_conversion.
+	* model/variable.cc (resolve): Call use_assignment_conversion.
+	* model/return.cc (resolve): Call use_assignment_conversion.
+	* model/assign.hh (model_assignment::handle_resolve): Removed.
+	* model/arrayinit.cc (resolve): Call use_assignment_conversion.
+	* model/expr.hh (model_expression::use_assignment_conversion):
+	Declare.
+
 2005-11-07  Tom Tromey  <tromey@redhat.com>
 
 	* conversions.cc (widen_instantiation): Directly use contains_p

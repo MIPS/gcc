@@ -302,14 +302,17 @@ model_method::do_method_conversion_p (const model_type_map &typeargs,
 
 model_method *
 model_method::method_conversion_p (const std::list<model_type *> &args,
+				   model_type *assign_type,
 				   method_phase phase)
 {
   if (! type_parameters.empty ())
     {
       model_type_map typeargs;
-      // FIXME: return result..?  error detection?
+      // FIXME: error detection?
       // FIXME: pass in argument for varargs handling.
-      unify (args, this, NULL /* FIXME */, typeargs);
+      // FIXME: this dynamic_cast is probably wrong, we should
+      // fix the type inferencer.
+      unify (args, this, dynamic_cast<model_class *> (assign_type), typeargs);
       return do_method_conversion_p (typeargs, args, phase);
     }
   return do_method_conversion_p (args, phase);

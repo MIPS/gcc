@@ -33,7 +33,7 @@ model_invocation_base::method_conversion_p (model_method *meth,
 					    const std::list<model_type *> &actual_types,
 					    method_phase phase)
 {
-  return meth->method_conversion_p (actual_types, phase);
+  return meth->method_conversion_p (actual_types, assign_type, phase);
 }
 
 void
