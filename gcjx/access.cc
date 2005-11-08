@@ -46,6 +46,9 @@ accessible_p (model_type *t, IContext *request)
   if (t->primitive_p ())
     return true;
   model_class *klass = unwrap_raw_class (assert_cast<model_class *> (t));
+  // FIXME: is this right?
+  if (klass->type_variable_p () || klass->wildcard_p ())
+    return true;
 
   if (! klass->member_p ())
     {

@@ -75,6 +75,8 @@ public:
     return parent->erasure ();
   }
 
+  bool contains_p (model_class *);
+
   std::string get_pretty_name () const;
 
   void visit (visitor *);

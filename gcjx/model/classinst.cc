@@ -168,6 +168,29 @@ model_class_instance::get_pretty_name () const
   return result;
 }
 
+bool
+model_class_instance::contains_p (model_class *oc)
+{
+  model_class_instance *other = dynamic_cast<model_class_instance *> (oc);
+  if (! other || parent != other->get_parent ())
+    return false;
+
+  std::list<ref_type_variable>::const_iterator self_it
+    = type_parameters.begin ();
+
+  while (self_it != type_parameters.end ())
+    {
+      model_class *self_class = type_map.find ((*self_it).get ());
+      // Note that both classes will have the same type variables.
+      model_class *other_class = other->type_map.find ((*self_it).get ());
+      if (! self_class->contains_p (other_class))
+	return false;
+
+      ++self_it;
+    }
+  return true;
+}
+
 void
 model_class_instance::visit (visitor *v)
 {

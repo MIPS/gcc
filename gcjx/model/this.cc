@@ -24,8 +24,8 @@
 void
 model_this::check_outer (model_class *current)
 {
-  model_type *self = outer->type ();
-  while (current && current != self)
+  model_type *self = outer->type ()->erasure ();
+  while (current && current->erasure () != self)
     current = current->get_lexically_enclosing_class ();
   if (current == NULL)
     throw error ("%<this%> does not refer to any enclosing class");
@@ -116,7 +116,9 @@ model_synthetic_this::visit (visitor *v)
 bool
 model_synthetic_this::check_match (model_class *self, model_class *target)
 {
-  return self->assignable_from_p (target);
+  model_class *sc = assert_cast<model_class *> (self->erasure ());
+  model_class *tc = assert_cast<model_class *> (target->erasure ());
+  return sc->assignable_from_p (tc);
 }
 
 

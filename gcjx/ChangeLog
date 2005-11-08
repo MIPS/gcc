@@ -1,5 +1,16 @@
 2005-11-07  Tom Tromey  <tromey@redhat.com>
 
+	* conversions.cc (widen_instantiation): Directly use contains_p
+	on class instance.
+	* model/classinst.cc (contains_p): New method.
+	* access.cc (accessible_p): Allow wildcards and type variables.
+	* model/classinst.hh (model_class_instance::contains_p): Declare.
+	* model/this.hh (model_this::check_match): Take erasures.
+	* model/this.cc (check_outer): Take erasures.
+	(check_match): Likewise.
+
+2005-11-07  Tom Tromey  <tromey@redhat.com>
+
 	* access.cc (unwrap_raw_class): New function.
 	(accessible_p): Use it.
 	(trampoline_required_p): Likewise.

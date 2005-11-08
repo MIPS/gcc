@@ -198,29 +198,13 @@ widen_instantiation (model_class *to, model_class *from)
       return true;
     }
 
-  // Now we check 'contains' of each type argument.
-  model_class_instance *from_i = assert_cast<model_class_instance *> (from);
-  // The spec says to do capture conversion on 'from_i' here, but then
-  // it does not define the 'contains' operation on type variables.
-  // This causes us to reject valid assignments.  Instead we just keep
-  // the un-captured parameterization, which does the right thing.
-  model_class_instance *to_i = assert_cast<model_class_instance *> (to);
-  std::list<model_class *> from_args, to_args;
-  from_i->get_type_map (from_args);
-  to_i->get_type_map (to_args);
-
-  std::list<model_class *>::const_iterator from_it = from_args.begin ();
-  std::list<model_class *>::const_iterator to_it = to_args.begin ();
-  while (from_it != from_args.end ())
-    {
-      if (! (*to_it)->contains_p (*from_it))
-	return false;
-
-      ++from_it;
-      ++to_it;
-    }
-  assert (to_it == to_args.end ());
-  return true;
+  // Now we check 'contains' of each type argument.  We can easily do
+  // this by delegating to the class itself.  Note that the spec says
+  // to do capture conversion on 'from' here, but then it does not
+  // define the 'contains' operation on type variables.  This causes
+  // us to reject valid assignments.  Instead we just keep the
+  // un-captured parameterization, which does the right thing.
+  return to->contains_p (from);
 }
 
 bool

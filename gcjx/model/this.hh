@@ -61,7 +61,7 @@ public:
   /// "this" access we allow a subclass as well.
   virtual bool check_match (model_class *one, model_class *two)
   {
-    return one == two;
+    return one->erasure () == two->erasure ();
   }
 
   /// This will create a new model_this object given a referring class
