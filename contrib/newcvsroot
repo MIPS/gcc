@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
+# APPLE LOCAL file mainline
 # Written by Roland McGrath <roland@gnu.org>
 
 # Replaces all CVS/Root and CVS/Repository files in a checked-out CVS

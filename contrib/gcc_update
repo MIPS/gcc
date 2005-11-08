@@ -1,4 +1,5 @@
 #! /bin/sh
+# APPLE LOCAL file mainline
 #
 # Update a local Subversion tree from the GCC repository, with an emphasis
 # on treating generated files correctly, so that autoconf, gperf et
