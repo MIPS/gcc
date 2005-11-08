@@ -743,7 +743,7 @@ df_alloc (struct df *df, int n_regs)
 static void
 df_free (struct df *df)
 {
-  df_bitmaps_free (df, DF_ALL);
+  df_bitmaps_free (df, df->flags);
 
   if (df->bbs)
     free (df->bbs);
@@ -4836,6 +4836,42 @@ df_local_def_available_p (struct df *df, struct ref *def, rtx insn)
   return 1;
 }
 
+/* Return true if the register from reference REF is killed
+   between FROM to (but not including) TO.  */
+bool
+df_local_ref_killed_between_p (struct df *df, struct ref *ref, rtx from, rtx to)
+{
+  struct df_link *link;
+  int from_luid = DF_INSN_LUID (df, from);
+  bool in_bb = false;
+  unsigned int regno = DF_REF_REGNO (ref);
+  basic_block bb = BLOCK_FOR_INSN (from);
+
+  gcc_assert (BLOCK_FOR_INSN (from) == BLOCK_FOR_INSN (to));
+
+  /* Go over all definitions of REF->REG, and see if there is at
+     least one between FROM and TO.  */
+  for (link = df->regs[regno].defs; link; link = link->next)
+    {
+      struct ref *this_def = link->ref;
+      if (DF_REF_BB (this_def) == bb)
+        {
+          int this_luid = DF_INSN_LUID (df, DF_REF_INSN (this_def));
+          /* Do nothing with defs coming before DEF.  */
+          if (this_luid >= from_luid)
+            return this_luid < DF_INSN_LUID (df, to);
+
+          in_bb = true;
+        }
+      else if (in_bb)
+        /* DEF was the last in its basic block.  */
+        return false;
+    }
+
+  /* DEF was the last in the function.  */
+  return false;
+}
+
 /* Insert DEF into DF.  USES is the def-use chain for DEF, which is needed
    to set up correctly both the def-use chain (obviously) *and* the use-def
    chain; it can be NULL if you do not need either.
@@ -4994,13 +5030,15 @@ df_bb_regno_last_def_find (struct df *df, basic_block bb, unsigned int regno)
   for (link = df->regs[regno].defs; link; link = link->next)
     {
       struct ref *def = link->ref;
-      /* The first time in the desired block.  */ 
+      /* Every def in the desired block.  */ 
       if (DF_REF_BB (def) == bb)
+	{
 	  in_bb = 1;
+	  last_def = def;
+	}
       /* The last def in the desired block.  */
       else if (in_bb)
-        return last_def;
-      last_def = def;
+        break;
     }
   return last_def;
 }

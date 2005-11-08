@@ -1,3 +1,7 @@
+2005-11-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	* df.c (df_local_ref_killed_between_p): Reinstate.
+
 2005-11-08  Daniel Berlin  <dberlin@dberlin.org>
             Kenneth Zadeck <zadeck@naturalbridge.com>
 
