@@ -334,7 +334,17 @@ enum objc_tree_index
     OCTI_NEWABI_PROTO_TEMPL,
     OCTI_CLASSLIST_REF_CHAIN,
     OCTI_MESSAGE_REF_TEMPL,
+    OCTI_SUPER_MESSAGE_REF_TEMPL,
+    CTI_MESSAGE_SELECTOR_TYPE,
+    CTI_SUPER_MESSAGE_SELECTOR_TYPE,
     OCTI_NEWABI_UMSG_FIXUP_DECL,
+    OCTI_NEWABI_UMSG_STRET_FIXUP_DECL,
+    OCTI_NEWABI_UMSG_ID_FIXUP_DECL,
+    OCTI_NEWABI_UMSG_ID_STRET_FIXUP_DECL,
+    OCTI_NEWABI_UMSG_SUPER2_FIXUP_DECL,
+    OCTI_NEWABI_UMSG_SUPER2_STRET_FIXUP_DECL,
+    OCTI_NEWABI_MESSAGE_REF_DCL,
+    OCTI_NEWABI_SUPER_MESSAGE_REF_DCL,
     /* APPLE LOCAL end ObjC new abi */
 
     OCTI_MAX
@@ -521,9 +531,31 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define UOBJC_NEWABI_METACLASS_decl    objc_global_trees[OCTI_NEWABI_MCLS_DECL]
 #define UOBJC_NEWABI_CACHE_decl	       objc_global_trees[OCTI_NEWABI_CACHE_DECL]
 #define UOBJC_NEWABI_VTABLE_decl       objc_global_trees[OCTI_NEWABI_VTABLE_DECL]
-#define classlist_ref_chain	       objc_global_trees[OCTI_CLASSLIST_REF_CHAIN]	/* classes referenced.  */
-#define objc_newabi_message_ref_template objc_global_trees[OCTI_MESSAGE_REF_TEMPL]
-#define umsg_fixup_decl		       objc_global_trees[OCTI_NEWABI_UMSG_FIXUP_DECL]   /* objc_msgSend_fixup_rtp */
+/* classes referenced.  */
+#define classlist_ref_chain	       objc_global_trees[OCTI_CLASSLIST_REF_CHAIN]
+/* struct message_ref_t */
+#define objc_newabi_message_ref_template objc_global_trees[OCTI_MESSAGE_REF_TEMPL]      
+/* struct super_message_ref_t */
+#define objc_newabi_super_message_ref_template objc_global_trees[OCTI_SUPER_MESSAGE_REF_TEMPL]      
+/* struct message_ref_t* */
+#define objc_newabi_selector_type      objc_global_trees[CTI_MESSAGE_SELECTOR_TYPE]	
+/* struct super_super_message_ref_t */
+#define objc_newabi_super_selector_type      objc_global_trees[CTI_SUPER_MESSAGE_SELECTOR_TYPE]	
+/* objc_msgSend_fixup_rtp */
+#define umsg_fixup_decl		       objc_global_trees[OCTI_NEWABI_UMSG_FIXUP_DECL]   
+/* objc_msgSend_stret_fixup_rtp */
+#define umsg_stret_fixup_decl	       objc_global_trees[OCTI_NEWABI_UMSG_STRET_FIXUP_DECL]   
+/* objc_msgSendId_fixup_rtp */
+#define umsg_id_fixup_decl	       objc_global_trees[OCTI_NEWABI_UMSG_ID_FIXUP_DECL]   
+/* objc_msgSendId_stret_fixup_rtp */
+#define umsg_id_stret_fixup_decl       objc_global_trees[OCTI_NEWABI_UMSG_ID_STRET_FIXUP_DECL]   
+/* objc_msgSendSuper2_fixup_rtp */
+#define umsg_id_super2_fixup_decl      objc_global_trees[OCTI_NEWABI_UMSG_SUPER2_FIXUP_DECL]
+/* objc_msgSendSuper2_stret_fixup_rtp */
+#define umsg_id_super2_stret_fixup_decl objc_global_trees[OCTI_NEWABI_UMSG_SUPER2_STRET_FIXUP_DECL]
+/* struct message_ref_t _msg */
+#define	message_ref_t_decl	       objc_global_trees[OCTI_NEWABI_MESSAGE_REF_DCL]  
+/* struct super_message_ref_t _super_msg */
+#define	super_message_ref_t_decl	       objc_global_trees[OCTI_NEWABI_SUPER_MESSAGE_REF_DCL]  
 /* APPLE LOCAL end ObjC new abi */
-
 #endif /* GCC_OBJC_ACT_H */

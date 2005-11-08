@@ -1,3 +1,21 @@
+2005-11-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	objc new messaging - part 1
+
+	* objc/objc-act.c (synth_module_prologue): Generate builtin function 
+	decls for all messaging calls.
+	(build_message_ref_template): Declare 'struct _message_ref_t' and
+	'struct _super_message_ref_t' types.
+	(generate_newabi_shared_structures): Fix reported bugs on 'instanceStart' 
+	and 'ivars' fields of the class meta data.
+	(get_arg_type_list): For new abi, select objc_newabi_super_selector_type or
+	objc_newabi_selector_type for selector type.
+	(objc_finish_message_expr): For new abi, generate new messaging run-time 
+	calls.
+	(build_objc_method_call): New.
+	* objc/objc-act.h: Assorment of new defines and new global declaration in
+	support of new messaging calls.
+
 2005-11-01  Fariborz Jahanian <fjahanian@apple.com>
 
 	objc new meta-data definitions - part 1
