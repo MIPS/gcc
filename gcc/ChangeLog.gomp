@@ -1,4 +1,10 @@
 2005-11-08  Richard Henderson  <rth@redhat.com>
+
+	PR 24703
+	* omp-low.c (determine_parallel_type): Disable combined parallel
+	when OMP_FOR_PRE_BODY is not empty.
+
+2005-11-08  Richard Henderson  <rth@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.c (walk_tree): Walk OMP_CLAUSE_CHAIN of OMP_CLAUSE_*

@@ -812,6 +812,11 @@ determine_parallel_type (tree stmt)
 	par_type = IS_PARALLEL;
       else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
 	par_type = IS_PARALLEL;
+      /* ??? The pre-body contains things needed to compute the bounds of
+	 the loop.  For now, simply disable combining.  We need to come up
+	 with a better way of solving the gimplification problem.  */
+      else if (OMP_FOR_PRE_BODY (t))
+	par_type = IS_PARALLEL;
       else
 	par_type = IS_COMBINED_PARALLEL;
     }
