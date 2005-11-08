@@ -1,4 +1,11 @@
 2005-11-08  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (walk_tree): Walk OMP_CLAUSE_CHAIN of OMP_CLAUSE_*
+	nodes.  Use switch for all nodes, handle most of IS_EXPR_CODE_CLASS
+	and TYPE_P nodes in its default clause.
+
+2005-11-08  Richard Henderson  <rth@redhat.com>
 
 	* tree.def (OMP_CLAUSE_SCHEDULE): Reorder next to the other
 	one operand clauses.
