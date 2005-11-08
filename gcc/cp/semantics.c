@@ -3793,6 +3793,22 @@ finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
     c_finish_omp_atomic (code, lhs, rhs);
 }
 
+void
+finish_omp_barrier (void)
+{
+  tree fn = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  tree stmt = finish_call_expr (fn, NULL, false, false);
+  finish_expr_stmt (stmt);
+}
+
+void
+finish_omp_flush (void)
+{
+  tree fn = built_in_decls[BUILT_IN_SYNCHRONIZE];
+  tree stmt = finish_call_expr (fn, NULL, false, false);
+  finish_expr_stmt (stmt);
+}
+
 /* True if OpenMP sharing attribute of DECL is predetermined.  */
 
 enum omp_clause_default_kind

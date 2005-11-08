@@ -18195,7 +18195,7 @@ static void
 cp_parser_omp_barrier (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  c_finish_omp_barrier ();
+  finish_omp_barrier ();
 }
 
 /* OpenMP 2.5:
@@ -18241,7 +18241,7 @@ cp_parser_omp_flush (cp_parser *parser, cp_token *pragma_tok)
     (void) cp_parser_omp_var_list (parser, 0, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
 
-  c_finish_omp_flush ();
+  finish_omp_flush ();
 }
 
 /* Parse the restricted form of the for statment allowed by OpenMP.  */

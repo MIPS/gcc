@@ -1,5 +1,11 @@
 2005-11-08  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c++/24735
+	* semantics.c (finish_omp_barrier, finish_omp_flush): New functions.
+	* parser.c (cp_parser_omp_barrier): Call finish_omp_barrier.
+	(cp_parser_omp_flush): Call finish_omp_flush.
+	* cp-tree.h (finish_omp_barrier, finish_omp_flush): New prototypes.
+
 	PR c++/24734
 	* pt.c (tsubst_expr): Handle OMP_MASTER and OMP_ORDERED.
 
