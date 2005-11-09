@@ -1,5 +1,5 @@
 /* Generic implementation of the PACK intrinsic
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 /* PACK is specified as follows:
 
    13.14.80 PACK (ARRAY, MASK, [VECTOR])
-   
+
    Description: Pack an array into an array of rank one under the
    control of a mask.
 
@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
       VECTOR  (optional) shall be of the same type and type parameters
               as ARRAY. VECTOR shall have at least as many elements as
               there are true elements in MASK. If MASK is a scalar
-              with the value true, VECTOR shall have at least as many 
+              with the value true, VECTOR shall have at least as many
               elements as there are in ARRAY.
 
    Result Characteristics: The result is an array of rank one with the
@@ -69,18 +69,15 @@ Boston, MA 02111-1307, USA.  */
    | 9 0 0 | may be "gathered" by the function PACK. The result of
    | 0 0 7 |
    PACK (M, MASK = M.NE.0) is [9,7] and the result of PACK (M, M.NE.0,
-   VECTOR = (/ 2,4,6,8,10,12 /)) is [9,7,6,8,10,12].  
+   VECTOR = (/ 2,4,6,8,10,12 /)) is [9,7,6,8,10,12].
 
 There are two variants of the PACK intrinsic: one, where MASK is
 array valued, and the other one where MASK is scalar.  */
 
-extern void pack (gfc_array_char *, const gfc_array_char *,
-		  const gfc_array_l4 *, const gfc_array_char *);
-export_proto(pack);
-
-void
-pack (gfc_array_char *ret, const gfc_array_char *array,
-      const gfc_array_l4 *mask, const gfc_array_char *vector)
+static void
+pack_internal (gfc_array_char *ret, const gfc_array_char *array,
+	       const gfc_array_l4 *mask, const gfc_array_char *vector,
+	       index_type size)
 {
   /* r.* indicates the return array.  */
   index_type rstride0;
@@ -98,10 +95,8 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type n;
   index_type dim;
-  index_type size;
   index_type nelem;
 
-  size = GFC_DESCRIPTOR_SIZE (array);
   dim = GFC_DESCRIPTOR_RANK (array);
   for (n = 0; n < dim; n++)
     {
@@ -125,7 +120,6 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
         runtime_error ("Funny sized logical array");
       for (n = 0; n < dim; n++)
         mstride[n] <<= 1;
-      mstride0 <<= 1;
       mptr = GFOR_POINTER_L8_TO_L4 (mptr);
     }
 
@@ -134,15 +128,15 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
       /* Allocate the memory for the result.  */
       int total;
 
-      if (vector != NULL) 
-	{ 
+      if (vector != NULL)
+	{
 	  /* The return array will have as many
-	     elements as there are in VECTOR.  */ 
-	  total = vector->dim[0].ubound + 1 - vector->dim[0].lbound; 
-	} 
-      else 
-	{ 
-	  /* We have to count the true elements in MASK.  */ 
+	     elements as there are in VECTOR.  */
+	  total = vector->dim[0].ubound + 1 - vector->dim[0].lbound;
+	}
+      else
+	{
+	  /* We have to count the true elements in MASK.  */
 
 	  /* TODO: We could speed up pack easily in the case of only
 	     few .TRUE. entries in MASK, by keeping track of where we
@@ -152,7 +146,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 	     only have to traverse the list, and copy those elements
 	     into the result array. In the case of datatypes which fit
 	     in one of the integer types we could also cache the
-	     value instead of a pointer to it. 
+	     value instead of a pointer to it.
 	     This approach might be bad from the point of view of
 	     cache behavior in the case where our cache is not big
 	     enough to hold all elements that have to be copied.  */
@@ -190,19 +184,19 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 		  else
 		    {
 		      count[n]++;
-		      mptr += mstride[n];
+		      m += mstride[n];
 		    }
 		}
 	    }
 	}
-      
+
       /* Setup the array descriptor.  */
       ret->dim[0].lbound = 0;
       ret->dim[0].ubound = total - 1;
       ret->dim[0].stride = 1;
 
       ret->data = internal_malloc_size (size * total);
-      ret->base = 0;
+      ret->offset = 0;
 
       if (total == 0)
 	/* In this case, nothing remains to be done.  */
@@ -278,13 +272,36 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
     }
 }
 
-extern void pack_s (gfc_array_char *ret, const gfc_array_char *array,
-		    const GFC_LOGICAL_4 *, const gfc_array_char *);
-export_proto(pack_s);
+extern void pack (gfc_array_char *, const gfc_array_char *,
+		  const gfc_array_l4 *, const gfc_array_char *);
+export_proto(pack);
 
 void
-pack_s (gfc_array_char *ret, const gfc_array_char *array,
-	const GFC_LOGICAL_4 *mask, const gfc_array_char *vector)
+pack (gfc_array_char *ret, const gfc_array_char *array,
+      const gfc_array_l4 *mask, const gfc_array_char *vector)
+{
+  pack_internal (ret, array, mask, vector, GFC_DESCRIPTOR_SIZE (array));
+}
+
+extern void pack_char (gfc_array_char *, GFC_INTEGER_4, const gfc_array_char *,
+		       const gfc_array_l4 *, const gfc_array_char *,
+		       GFC_INTEGER_4, GFC_INTEGER_4);
+export_proto(pack_char);
+
+void
+pack_char (gfc_array_char *ret,
+	   GFC_INTEGER_4 ret_length __attribute__((unused)),
+	   const gfc_array_char *array, const gfc_array_l4 *mask,
+	   const gfc_array_char *vector, GFC_INTEGER_4 array_length,
+	   GFC_INTEGER_4 vector_length __attribute__((unused)))
+{
+  pack_internal (ret, array, mask, vector, array_length);
+}
+
+static void
+pack_s_internal (gfc_array_char *ret, const gfc_array_char *array,
+		 const GFC_LOGICAL_4 *mask, const gfc_array_char *vector,
+		 index_type size)
 {
   /* r.* indicates the return array.  */
   index_type rstride0;
@@ -298,10 +315,8 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type n;
   index_type dim;
-  index_type size;
   index_type nelem;
 
-  size = GFC_DESCRIPTOR_SIZE (array);
   dim = GFC_DESCRIPTOR_RANK (array);
   for (n = 0; n < dim; n++)
     {
@@ -343,8 +358,8 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
 	      ret->dim[0].ubound = -1;
 	      ret->dim[0].stride = 1;
 	      ret->data = internal_malloc_size (0);
-	      ret->base = 0;
-	      
+	      ret->offset = 0;
+
 	      return;
 	    }
 	}
@@ -355,7 +370,7 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
       ret->dim[0].stride = 1;
 
       ret->data = internal_malloc_size (size * total);
-      ret->base = 0;
+      ret->offset = 0;
     }
 
   rstride0 = ret->dim[0].stride * size;
@@ -363,7 +378,7 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
     rstride0 = size;
   rptr = ret->data;
 
-  /* The remaining possibilities are now: 
+  /* The remaining possibilities are now:
        If MASK is .TRUE., we have to copy the source array into the
      result array. We then have to fill it up with elements from VECTOR.
        If MASK is .FALSE., we have to copy VECTOR into the result
@@ -404,7 +419,7 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
 	    }
 	}
     }
-  
+
   /* Add any remaining elements from VECTOR.  */
   if (vector)
     {
@@ -426,4 +441,31 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
             }
         }
     }
+}
+
+extern void pack_s (gfc_array_char *ret, const gfc_array_char *array,
+		    const GFC_LOGICAL_4 *, const gfc_array_char *);
+export_proto(pack_s);
+
+void
+pack_s (gfc_array_char *ret, const gfc_array_char *array,
+	const GFC_LOGICAL_4 *mask, const gfc_array_char *vector)
+{
+  pack_s_internal (ret, array, mask, vector, GFC_DESCRIPTOR_SIZE (array));
+}
+
+extern void pack_s_char (gfc_array_char *ret, GFC_INTEGER_4,
+			 const gfc_array_char *array, const GFC_LOGICAL_4 *,
+			 const gfc_array_char *, GFC_INTEGER_4,
+			 GFC_INTEGER_4);
+export_proto(pack_s_char);
+
+void
+pack_s_char (gfc_array_char *ret,
+	     GFC_INTEGER_4 ret_length __attribute__((unused)),
+	     const gfc_array_char *array, const GFC_LOGICAL_4 *mask,
+	     const gfc_array_char *vector, GFC_INTEGER_4 array_length,
+	     GFC_INTEGER_4 vector_length __attribute__((unused)))
+{
+  pack_s_internal (ret, array, mask, vector, array_length);
 }

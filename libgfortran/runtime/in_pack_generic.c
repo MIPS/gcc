@@ -1,5 +1,5 @@
 /* Generic helper function for repacking arrays.
-   Copyright 2003 Free Software Foundation, Inc.
+   Copyright 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -40,9 +40,9 @@ export_proto(internal_pack);
 void *
 internal_pack (gfc_array_char * source)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type stride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
   index_type stride0;
   index_type dim;
   index_type ssize;
@@ -52,6 +52,7 @@ internal_pack (gfc_array_char * source)
   int n;
   int packed;
   index_type size;
+  int type;
 
   if (source->dim[0].stride == 0)
     {
@@ -59,14 +60,36 @@ internal_pack (gfc_array_char * source)
       return source->data;
     }
 
+  type = GFC_DESCRIPTOR_TYPE (source);
   size = GFC_DESCRIPTOR_SIZE (source);
-  switch (size)
+  switch (type)
     {
-    case 4:
-      return internal_pack_4 ((gfc_array_i4 *)source);
+    case GFC_DTYPE_INTEGER:
+    case GFC_DTYPE_LOGICAL:
+    case GFC_DTYPE_REAL:
+      switch (size)
+	{
+	case 4:
+	  return internal_pack_4 ((gfc_array_i4 *)source);
+	  
+	case 8:
+	  return internal_pack_8 ((gfc_array_i8 *)source);
+	}
+      break;
 
-    case 8:
-      return internal_pack_8 ((gfc_array_i8 *)source);
+    case GFC_DTYPE_COMPLEX:
+      switch (size)
+	{
+	case 8:
+	  return internal_pack_c4 ((gfc_array_c4 *)source);
+	  
+	case 16:
+	  return internal_pack_c8 ((gfc_array_c8 *)source);
+	}
+      break;
+
+    default:
+      break;
     }
 
   dim = GFC_DESCRIPTOR_RANK (source);

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gcc@prep.ai.mit.edu
@@ -111,7 +111,7 @@ proc c-consistency-execute { src cpp_flag out_suffix} {
       close $fd
     }
 
-    set comp_output [gcc_target_compile "$cpp_flag $src -x none $wrap_file" "$executable" executable $options];
+    set comp_output [gcc_target_compile "$cpp_flag $src -x none $wrap_file" "$executable" executable $options]
     
     # Set a few common compiler messages.
     set fatal_signal "*cc: Internal compiler error: program*got fatal signal"
@@ -157,7 +157,7 @@ proc c-consistency-execute { src cpp_flag out_suffix} {
     # Check for compilation only.
     if [file exists $rootname.conly] {
       remote_file build delete $executable
-      return;
+      return
     }
 
     # See if this source file uses "long long" types, if it does, and
@@ -175,8 +175,8 @@ proc c-consistency-execute { src cpp_flag out_suffix} {
     
     set exec_output ""
     set result [consistency_load "$executable" "" ""]
-    set status [lindex $result 0];
-    set exec_output [lindex $result 1];
+    set status [lindex $result 0]
+    set exec_output [lindex $result 1]
 
     # Strip random whitespace junk from the output.  the
     # whitejunk is an artifact of the way we get output

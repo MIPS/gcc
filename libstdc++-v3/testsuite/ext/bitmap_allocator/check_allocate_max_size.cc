@@ -14,7 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 20.4.1.1 allocator members
@@ -22,10 +22,16 @@
 #include <ext/bitmap_allocator.h>
 #include <testsuite_allocator.h>
 
+typedef int value_type;
+
 int main()
 { 
-  typedef int value_type;
   typedef __gnu_cxx::bitmap_allocator<value_type> allocator_type;
   __gnu_test::check_allocate_max_size<allocator_type>();
   return 0;
 }
+
+#if !__GXX_WEAK
+// Explicitly instantiatiate for systems without weak symbols.
+template class __gnu_cxx::bitmap_allocator<value_type>;
+#endif

@@ -32,23 +32,6 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 LN_S=@LN_S@
 target_noncanonical=@target_noncanonical@
 
-# Support for migrating Make-tools.in into here
-# FIXME by doing so
-TGT_LIB = @TGT_LIB@
-INTERNAL_CFLAGS = @CROSS@ -DIN_GCC
-SYSLIBS = @GNAT_LIBEXC@
-GMEM_LIB = @GMEM_LIB@
-vms_host = @vms_host@
-EXTRA_GNATMAKE_OBJS = @EXTRA_GNATMAKE_OBJS@
-TOOLS_FLAGS_TO_PASS_TEMP = \
-	"TGT_LIB=$(TGT_LIB)" \
-	"INTERNAL_CFLAGS=$(INTERNAL_CFLAGS)" \
-	"SYSLIBS=$(SYSLIBS)" \
-	"GMEM_LIB=$(GMEM_LIB)" \
-	"vms_host=$(vms_host)" \
-	"EXTRA_GNATMAKE_OBJS=$(EXTRA_GNATMAKE_OBJS)"
-# end FIXME
-
 # Variables for the user (or the top level) to override.
 objext=.o
 TRACE=no
@@ -107,8 +90,7 @@ TOOLS_FLAGS_TO_PASS_1= \
 	"fsrcdir=$(fsrcdir)" \
 	"srcdir=$(fsrcdir)" \
 	"GNATBIND=../../gnatbind" \
-	"TOOLSCASE=native" \
-	$(TOOLS_FLAGS_TO_PASS_TEMP)
+	"TOOLSCASE=native"
 
 # Variables for regnattools
 TOOLS_FLAGS_TO_PASS_1re= \
@@ -124,8 +106,7 @@ TOOLS_FLAGS_TO_PASS_1re= \
 	"GNATLINK=../../gnatlink" \
 	"GNATBIND=../../gnatbind" \
 	"TOOLSCASE=cross" \
-	"INCLUDES=" \
-	$(TOOLS_FLAGS_TO_PASS_TEMP)
+	"INCLUDES="
 
 # Variables for gnattools2, native
 TOOLS_FLAGS_TO_PASS_NATIVE= \
@@ -140,8 +121,7 @@ TOOLS_FLAGS_TO_PASS_NATIVE= \
 	"GNATMAKE=../../gnatmake" \
 	"GNATLINK=../../gnatlink" \
 	"GNATBIND=../../gnatbind" \
-	"TOOLSCASE=native" \
-	$(TOOLS_FLAGS_TO_PASS_TEMP)
+	"TOOLSCASE=native"
 
 # Variables for gnattools, cross
 TOOLS_FLAGS_TO_PASS_CROSS= \
@@ -158,8 +138,7 @@ TOOLS_FLAGS_TO_PASS_CROSS= \
 	"GNATLINK=gnatlink" \
 	"GNATBIND=gnatbind" \
 	"TOOLSCASE=cross" \
-	"LIBGNAT=" \
-	$(TOOLS_FLAGS_TO_PASS_TEMP)
+	"LIBGNAT="
 
 # File lists
 # ----------
@@ -191,7 +170,7 @@ gnattools: @default_gnattools_target@
 $(GCC_DIR)/stamp-gnatlib:
 	@if [ ! -f $(GCC_DIR)/stamp-gnatlib ] ; \
         then \
-          echo Can't build gnattools while gnatlib is out of date or unbuilt ; \
+          echo "Cannot build gnattools while gnatlib is out of date or unbuilt" ; \
           false; \
         else \
           true; \
@@ -200,7 +179,7 @@ $(GCC_DIR)/stamp-gnatlib:
 
 # Build directory for the tools. Let's copy the target-dependent
 # sources using the same mechanism as for gnatlib. The other sources are
-# accessed using the vpath directive in ada/Make-tools.in
+# accessed using the vpath directive in ada/Makefile.in
 
 $(GCC_DIR)/stamp-tools:
 	-rm -rf $(GCC_DIR)/ada/tools
@@ -220,11 +199,11 @@ $(GCC_DIR)/stamp-tools:
 # (see target regnattools) 
 gnattools-native: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib
 	# gnattools1
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_1) \
 	  ../../gnatmake$(exeext) ../../gnatlink$(exeext) ../../gnatbl$(exeext)
 	# gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_NATIVE) \
 	  $(GNATTOOLS2_FILES)
 
@@ -233,11 +212,11 @@ gnattools-native: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib
 # the tools when the original bootstrap has already be done.
 regnattools: $(GCC_DIR)/stamp-gnatlib
 	# gnattools1-re
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_1re) \
 	  gnatmake-re gnatlink-re
 	# gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_NATIVE) \
 	  $(GNATTOOLS2_FILES)
 
@@ -246,17 +225,17 @@ regnattools: $(GCC_DIR)/stamp-gnatlib
 # files that are among the sources
 # FIXME: This should be done in configure.
 RTS_DIR:=$(strip $(subst \,/,$(shell gnatls -v | grep adalib )))
-gnattools-cross: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib
+gnattools-cross: $(GCC_DIR)/stamp-tools
 	# gnattools1-re
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) INCLUDES="" \
 	  gnatmake-re gnatlink-re
 	# gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) \
 	  $(GNATTOOLS2_FILES)
 	# gnattools4 (cross only)
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../../../gnattools/Make-tools \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) \
 	  top_buildir=../../.. \
            ../../vxaddr2line$(exeext)

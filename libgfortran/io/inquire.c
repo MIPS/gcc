@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Implement the non-IOLENGTH variant of the INQUIRY statement */
@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "io.h"
 
 
-static char undefined[] = "UNDEFINED";
+static const char undefined[] = "UNDEFINED";
 
 
 /* inquire_via_unit()-- Inquiry via unit number.  The unit might not exist. */
@@ -46,7 +46,12 @@ inquire_via_unit (gfc_unit * u)
   const char *p;
 
   if (ioparm.exist != NULL)
-    *ioparm.exist = (u != NULL);
+  {
+    if (ioparm.unit >= 0)
+      *ioparm.exist = 1;
+    else
+      *ioparm.exist = 0;
+  }
 
   if (ioparm.opened != NULL)
     *ioparm.opened = (u != NULL);
@@ -82,13 +87,16 @@ inquire_via_unit (gfc_unit * u)
 
   if (ioparm.sequential != NULL)
     {
-      /* disallow an open direct access file to be accessed
-         sequentially */
-      if (u->flags.access==ACCESS_DIRECT)
-        p = "NO";
-      else   
-        p = (u == NULL) ? inquire_sequential (NULL, 0) :
-        inquire_sequential (u->file, u->file_len);
+      if (u == NULL)
+	p = inquire_sequential (NULL, 0);
+      else
+	{
+          /* disallow an open direct access file to be accessed sequentially */
+          if (u->flags.access == ACCESS_DIRECT)
+            p = "NO";
+          else   
+            p = inquire_sequential (u->file, u->file_len);
+	}
 
       cf_strcpy (ioparm.sequential, ioparm.sequential_len, p);
     }

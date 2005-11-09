@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Supposedly the same as vanilla sparc svr4, except for the stuff below: */
 
@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf ((LABEL), "*.L%s%ld", (PREFIX), (long)(NUM))
+  sprintf ((LABEL), "*.L%s%lu", (PREFIX), (unsigned long)(NUM))
 
 /* The native TLS-enabled assembler requires the directive #tls_object
    to be put on objects in TLS sections (as of v7.1).  This is not
@@ -83,7 +83,7 @@ Boston, MA 02111-1307, USA.  */
     {								\
       HOST_WIDE_INT size;					\
 								\
-      if (DECL_THREAD_LOCAL (DECL))				\
+      if (DECL_THREAD_LOCAL_P (DECL))				\
 	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "tls_object");	\
       else							\
 	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");	\
@@ -148,7 +148,8 @@ Boston, MA 02111-1307, USA.  */
 /* Solaris allows 64 bit out and global registers in 32 bit mode.
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_V8PLUS + MASK_FPU + MASK_LONG_DOUBLE_128)
+#define TARGET_DEFAULT (MASK_V8PLUS + MASK_APP_REGS + MASK_FPU \
+			+ MASK_LONG_DOUBLE_128)
 
 /* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
    the bits from config/sol2.c.  */

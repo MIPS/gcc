@@ -1,5 +1,5 @@
 /* Implementation of the EOSHIFT intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,61 +34,72 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
-static const char zeros[16] =
-  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#if defined (HAVE_GFC_INTEGER_8)
 
-extern void eoshift1_8 (const gfc_array_char *,
-				     const gfc_array_char *,
-				     const gfc_array_i8 *, const char *,
-				     const GFC_INTEGER_8 *);
-export_proto(eoshift1_8);
-
-void
-eoshift1_8 (const gfc_array_char *ret,
-		       const gfc_array_char *array,
-		       const gfc_array_i8 *h, const char *pbound,
-		       const GFC_INTEGER_8 *pwhich)
+static void
+eoshift1 (gfc_array_char *ret, const gfc_array_char *array, const gfc_array_i8 *h,
+	  const char *pbound, const GFC_INTEGER_8 *pwhich, index_type size,
+	  char filler)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* h.* indicates the shift array.  */
-  index_type hstride[GFC_MAX_DIMENSIONS - 1];
+  index_type hstride[GFC_MAX_DIMENSIONS];
   index_type hstride0;
   const GFC_INTEGER_8 *hptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
-  index_type size;
   index_type len;
   index_type n;
   int which;
   GFC_INTEGER_8 sh;
   GFC_INTEGER_8 delta;
 
+  /* The compiler cannot figure out that these are set, initialize
+     them to avoid warnings.  */
+  len = 0;
+  soffset = 0;
+  roffset = 0;
+
   if (pwhich)
     which = *pwhich - 1;
   else
     which = 0;
 
-  if (!pbound)
-    pbound = zeros;
-
-  size = GFC_DESCRIPTOR_SIZE (ret);
-
   extent[0] = 1;
   count[0] = 0;
-  size = GFC_DESCRIPTOR_SIZE (array);
+
+  if (ret->data == NULL)
+    {
+      int i;
+
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
+      ret->offset = 0;
+      ret->dtype = array->dtype;
+      for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
+        {
+          ret->dim[i].lbound = 0;
+          ret->dim[i].ubound = array->dim[i].ubound - array->dim[i].lbound;
+
+          if (i == 0)
+            ret->dim[i].stride = 1;
+          else
+            ret->dim[i].stride = (ret->dim[i-1].ubound + 1) * ret->dim[i-1].stride;
+        }
+    }
+
   n = 0;
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -132,7 +143,14 @@ eoshift1_8 (const gfc_array_char *ret,
     {
       /* Do the shift for this dimension.  */
       sh = *hptr;
-      delta = (sh >= 0) ? sh: -sh;
+      if (( sh >= 0 ? sh : -sh ) > len)
+	{
+	  delta = len;
+	  sh = len;
+	}
+      else
+	delta = (sh >= 0) ? sh: -sh;
+
       if (sh > 0)
         {
           src = &sptr[delta * soffset];
@@ -153,11 +171,18 @@ eoshift1_8 (const gfc_array_char *ret,
         dest = rptr;
       n = delta;
 
-      while (n--)
-        {
-          memcpy (dest, pbound, size);
-          dest += roffset;
-        }
+      if (pbound)
+	while (n--)
+	  {
+	    memcpy (dest, pbound, size);
+	    dest += roffset;
+	  }
+      else
+	while (n--)
+	  {
+	    memset (dest, filler, size);
+	    dest += roffset;
+	  }
 
       /* Advance to the next section.  */
       rptr += rstride0;
@@ -192,3 +217,35 @@ eoshift1_8 (const gfc_array_char *ret,
         }
     }
 }
+
+void eoshift1_8 (gfc_array_char *, const gfc_array_char *,
+			    const gfc_array_i8 *, const char *, const GFC_INTEGER_8 *);
+export_proto(eoshift1_8);
+
+void
+eoshift1_8 (gfc_array_char *ret, const gfc_array_char *array,
+		       const gfc_array_i8 *h, const char *pbound,
+		       const GFC_INTEGER_8 *pwhich)
+{
+  eoshift1 (ret, array, h, pbound, pwhich, GFC_DESCRIPTOR_SIZE (array), 0);
+}
+
+void eoshift1_8_char (gfc_array_char *, GFC_INTEGER_4,
+				   const gfc_array_char *, const gfc_array_i8 *,
+				   const char *, const GFC_INTEGER_8 *,
+				   GFC_INTEGER_4, GFC_INTEGER_4);
+export_proto(eoshift1_8_char);
+
+void
+eoshift1_8_char (gfc_array_char *ret,
+			      GFC_INTEGER_4 ret_length __attribute__((unused)),
+			      const gfc_array_char *array, const gfc_array_i8 *h,
+			      const char *pbound, const GFC_INTEGER_8 *pwhich,
+			      GFC_INTEGER_4 array_length,
+			      GFC_INTEGER_4 bound_length
+				__attribute__((unused)))
+{
+  eoshift1 (ret, array, h, pbound, pwhich, array_length, ' ');
+}
+
+#endif

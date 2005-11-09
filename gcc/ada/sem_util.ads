@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -370,6 +370,11 @@ package Sem_Util is
    function Has_Declarations (N : Node_Id) return Boolean;
    --  Determines if the node can have declarations
 
+   function Has_Discriminant_Dependent_Constraint
+     (Comp : Entity_Id) return Boolean;
+   --  Returns True if and only if Comp has a constrained subtype
+   --  that depends on a discriminant.
+
    function Has_Infinities (E : Entity_Id) return Boolean;
    --  Determines if the range of the floating-point type E includes
    --  infinities. Returns False if E is not a floating-point type.
@@ -391,7 +396,7 @@ package Sem_Util is
    --  to check if '=' has to be expanded into a bunch component comparaisons.
 
    function In_Instance return Boolean;
-   --  Returns True if the current scope is within a generic instance.
+   --  Returns True if the current scope is within a generic instance
 
    function In_Instance_Body return Boolean;
    --  Returns True if current scope is within the body of an instance, where
@@ -436,7 +441,7 @@ package Sem_Util is
    --  synthesized attribute.
 
    function Is_Actual_Parameter (N : Node_Id) return Boolean;
-   --  Determines if N is an actual parameter in a subprogram call.
+   --  Determines if N is an actual parameter in a subprogram call
 
    function Is_Aliased_View (Obj : Node_Id) return Boolean;
    --  Determine if Obj is an aliased view, i.e. the name of an
@@ -450,6 +455,11 @@ package Sem_Util is
    function Is_Atomic_Object (N : Node_Id) return Boolean;
    --  Determines if the given node denotes an atomic object in the sense
    --  of the legality checks described in RM C.6(12).
+
+   function Is_Controlling_Limited_Procedure
+     (Proc_Nam : Entity_Id) return Boolean;
+   --  Ada 2005 (AI-345): Determine whether Proc_Nam is a primitive procedure
+   --  of a limited interface with a controlling first parameter.
 
    function Is_Dependent_Component_Of_Mutable_Object
      (Object : Node_Id) return Boolean;
@@ -534,6 +544,14 @@ package Sem_Util is
    --  one field has an initialization expression). Note that initialization
    --  resulting from the use of pragma Normalized_Scalars does not count.
 
+   function Is_Potentially_Persistent_Type (T : Entity_Id) return Boolean;
+   --  Determines if type T is a potentially persistent type. A potentially
+   --  persistent type is defined (recursively) as a scalar type, a non-tagged
+   --  record whose components are all of a potentially persistent type, or an
+   --  array with all static constraints whose component type is potentially
+   --  persistent. A private type is potentially persistent if the full type
+   --  is potentially persistent.
+
    function Is_RCI_Pkg_Spec_Or_Body (Cunit : Node_Id) return Boolean;
    --  Return True if a compilation unit is the specification or the
    --  body of a remote call interface package.
@@ -542,10 +560,13 @@ package Sem_Util is
    --  Return True if E is a remote access-to-class-wide-limited_private type
 
    function Is_Remote_Access_To_Subprogram_Type (E : Entity_Id) return Boolean;
-   --  Return True if E is a remote access to subprogram type.
+   --  Return True if E is a remote access to subprogram type
 
    function Is_Remote_Call (N : Node_Id) return Boolean;
    --  Return True if N denotes a potentially remote call
+
+   function Is_Renamed_Entry (Proc_Nam : Entity_Id) return Boolean;
+   --  Return True if Proc_Nam is a procedure renaming of an entry
 
    function Is_Selector_Name (N : Node_Id) return Boolean;
    --  Given an N_Identifier node N, determines if it is a Selector_Name.
@@ -642,7 +663,7 @@ package Sem_Util is
    --  the call order, so this does not correspond to simply taking the
    --  next entry of the Parameter_Associations list. The argument is an
    --  actual previously returned by a call to First_Actual or Next_Actual.
-   --  Note tha the result produced is always an expression, not a parameter
+   --  Note that the result produced is always an expression, not a parameter
    --  assciation node, even if named notation was used.
 
    procedure Normalize_Actuals
@@ -722,8 +743,7 @@ package Sem_Util is
 
    function Safe_To_Capture_Value
      (N    : Node_Id;
-      Ent  : Entity_Id)
-      return Boolean;
+      Ent  : Entity_Id) return Boolean;
    --  The caller is interested in capturing a value (either the current
    --  value, or an indication that the value is non-null) for the given
    --  entity Ent. This value can only be captured if sequential execution
@@ -783,15 +803,14 @@ package Sem_Util is
    --  Set the flag Is_Transient of the current scope
 
    procedure Set_Size_Info (T1, T2 : Entity_Id);
-   --  Copies the Esize field and Has_Biased_Representation flag from
-   --  (sub)type entity T2 to (sub)type entity T1. Also copies the
-   --  Is_Unsigned_Type flag in the fixed-point and discrete cases,
-   --  and also copies the alignment value from T2 to T1. It does NOT
-   --  copy the RM_Size field, which must be separately set if this
-   --  is required to be copied also.
+   --  Copies the Esize field and Has_Biased_Representation flag from sub(type)
+   --  entity T2 to (sub)type entity T1. Also copies the Is_Unsigned_Type flag
+   --  in the fixed-point and discrete cases, and also copies the alignment
+   --  value from T2 to T1. It does NOT copy the RM_Size field, which must be
+   --  separately set if this is required to be copied also.
 
    function Scope_Is_Transient  return Boolean;
-   --  True if the current scope is transient.
+   --  True if the current scope is transient
 
    function Static_Integer (N : Node_Id) return Uint;
    --  This function analyzes the given expression node and then resolves it
@@ -804,10 +823,10 @@ package Sem_Util is
    --  E1 and E2 refer to different objects
 
    function Subprogram_Access_Level (Subp : Entity_Id) return Uint;
-   --  Return the accessibility level of the view denoted by Subp.
+   --  Return the accessibility level of the view denoted by Subp
 
    procedure Trace_Scope (N : Node_Id; E : Entity_Id; Msg : String);
-   --  Print debugging information on entry to each unit being analyzed.
+   --  Print debugging information on entry to each unit being analyzed
 
    procedure Transfer_Entities (From : Entity_Id; To : Entity_Id);
    --  Move a list of entities from one scope to another, and recompute
@@ -817,14 +836,14 @@ package Sem_Util is
    --  Return the accessibility level of Typ
 
    function Unit_Declaration_Node (Unit_Id : Entity_Id) return Node_Id;
-   --  Unit_Id is the simple name of a program unit, this function returns
-   --  the corresponding xxx_Declaration node for the entity. Also applies
-   --  to the body entities for subprograms, tasks and protected units, in
-   --  which case it returns the subprogram, task or protected body node
-   --  for it. The unit may be a child unit with any number of ancestors.
+   --  Unit_Id is the simple name of a program unit, this function returns the
+   --  corresponding xxx_Declaration node for the entity. Also applies to the
+   --  body entities for subprograms, tasks and protected units, in which case
+   --  it returns the subprogram, task or protected body node for it. The unit
+   --  may be a child unit with any number of ancestors.
 
    function Universal_Interpretation (Opnd : Node_Id) return Entity_Id;
-   --  Yields universal_Integer or Universal_Real if this is a candidate.
+   --  Yields universal_Integer or Universal_Real if this is a candidate
 
    function Within_Init_Proc return Boolean;
    --  Determines if Current_Scope is within an init proc

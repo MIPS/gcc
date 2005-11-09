@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -89,9 +89,9 @@ package body Debug is
    --  dU   Enable garbage collection of unreachable entities
    --  dV   Enable viewing of all symbols in debugger
    --  dW   Disable warnings on calls for IN OUT parameters
-   --  dX   Enable Frontend ZCX even when it is not supported
+   --  dX
    --  dY   Enable configurable run-time mode
-   --  dZ
+   --  dZ   Generate listing showing the contents of the dispatch tables
 
    --  d.a
    --  d.b
@@ -456,13 +456,6 @@ package body Debug is
    --       and would normally generate a warning. However, to ease the
    --       task of transitioning incorrect legacy code, we provide this
    --       undocumented feature for suppressing these warnings.
-
-   --  dX   Enable frontend ZCX even when it is not supported. Equivalent to
-   --       -gnatZ but without verifying that System.Front_End_ZCX_Support
-   --       is set. This causes the front end to generate suitable tables
-   --       for ZCX handling even when the runtime cannot handle ZCX. This
-   --       is used for testing the front end for correct ZCX operation, and
-   --       in particular is useful for multi-target testing.
 
    --  dY   Enable configurable run-time mode, just as though the System file
    --       had Configurable_Run_Time_Mode set to True. This is useful in

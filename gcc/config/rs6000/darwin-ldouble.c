@@ -24,8 +24,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Implementations of floating-point long double basic arithmetic
    functions called by the IBM C compiler when generating code for
@@ -68,7 +68,7 @@ extern long double __gcc_qmul (double, double, double, double);
 extern long double __gcc_qdiv (double, double, double, double);
 
 #if defined __ELF__ && defined SHARED
-/* Provide definitions of the old symbol names to statisfy apps and
+/* Provide definitions of the old symbol names to satisfy apps and
    shared libs built against an older libgcc.  To access the _xlq
    symbols an explicit version reference is needed, so these won't
    satisfy an unadorned reference like _xlqadd.  If dot symbols are

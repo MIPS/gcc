@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -228,6 +228,75 @@ match_integer_constant (gfc_expr ** result, int signflag)
 }
 
 
+/* Match a Hollerith constant.  */
+
+static match
+match_hollerith_constant (gfc_expr ** result)
+{
+  locus old_loc;
+  gfc_expr * e = NULL;
+  const char * msg;
+  char * buffer;
+  int num;
+  int i;  
+
+  old_loc = gfc_current_locus;
+  gfc_gobble_whitespace ();
+
+  if (match_integer_constant (&e, 0) == MATCH_YES
+	&& gfc_match_char ('h') == MATCH_YES)
+    {
+      if (gfc_notify_std (GFC_STD_LEGACY,
+		"Extension: Hollerith constant at %C")
+		== FAILURE)
+	goto cleanup;
+
+      msg = gfc_extract_int (e, &num);
+      if (msg != NULL)
+	{
+	  gfc_error (msg);
+	  goto cleanup;
+	}
+      if (num == 0)
+	{
+	  gfc_error ("Invalid Hollerith constant: %L must contain at least one "
+			"character", &old_loc);
+	  goto cleanup;
+	}
+      if (e->ts.kind != gfc_default_integer_kind)
+	{
+	  gfc_error ("Invalid Hollerith constant: Interger kind at %L "
+		"should be default", &old_loc);
+	  goto cleanup;
+	}
+      else
+	{
+	  buffer = (char *) gfc_getmem (sizeof(char) * num + 1);
+	  for (i = 0; i < num; i++)
+	    {
+	      buffer[i] = gfc_next_char_literal (1);
+	    }
+	  gfc_free_expr (e);
+	  e = gfc_constant_result (BT_HOLLERITH,
+		gfc_default_character_kind, &gfc_current_locus);
+	  e->value.character.string = gfc_getmem (num+1);
+	  memcpy (e->value.character.string, buffer, num);
+	  e->value.character.length = num;
+	  *result = e;
+	  return MATCH_YES;
+	}
+    }
+
+  gfc_free_expr (e);
+  gfc_current_locus = old_loc;
+  return MATCH_NO;
+
+cleanup:
+  gfc_free_expr (e);
+  return MATCH_ERROR;
+}
+
+
 /* Match a binary, octal or hexadecimal constant that can be found in
    a DATA statement.  */
 
@@ -238,7 +307,6 @@ match_boz_constant (gfc_expr ** result)
   locus old_loc;
   char *buffer;
   gfc_expr *e;
-  const char *rname;
 
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
@@ -248,18 +316,15 @@ match_boz_constant (gfc_expr ** result)
     {
     case 'b':
       radix = 2;
-      rname = "binary";
       break;
     case 'o':
       radix = 8;
-      rname = "octal";
       break;
     case 'x':
       x_hex = 1;
       /* Fall through.  */
     case 'z':
       radix = 16;
-      rname = "hexadecimal";
       break;
     default:
       goto backup;
@@ -282,13 +347,39 @@ match_boz_constant (gfc_expr ** result)
   length = match_digits (0, radix, NULL);
   if (length == -1)
     {
-      gfc_error ("Empty set of digits in %s constants at %C", rname);
+      switch (radix)
+        {
+	case 2:
+          gfc_error ("Empty set of digits in binary constant at %C");
+	  break;
+	case 8:
+          gfc_error ("Empty set of digits in octal constant at %C");
+	  break;
+	case 16:
+          gfc_error ("Empty set of digits in hexadecimal constant at %C");
+	  break;
+        default:
+	  gcc_unreachable ();
+        }
       return MATCH_ERROR;
     }
 
   if (gfc_next_char () != delim)
     {
-      gfc_error ("Illegal character in %s constant at %C.", rname);
+      switch (radix)
+        {
+	case 2:
+	  gfc_error ("Illegal character in binary constant at %C");
+	  break;
+	case 8:
+	  gfc_error ("Illegal character in octal constant at %C");
+	  break;
+	case 16:
+	  gfc_error ("Illegal character in hexadecimal constant at %C");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
       return MATCH_ERROR;
     }
 
@@ -637,7 +728,7 @@ next_string_char (char delimiter)
   if (c == '\n')
     return -2;
 
-  if (c == '\\')
+  if (gfc_option.flag_backslash && c == '\\')
     {
       old_locus = gfc_current_locus;
 
@@ -691,7 +782,7 @@ next_string_char (char delimiter)
 
 /* Special case of gfc_match_name() that matches a parameter kind name
    before a string constant.  This takes case of the weird but legal
-   case of: weird case of:
+   case of:
 
      kind_____'string'
 
@@ -1048,7 +1139,10 @@ match_complex_constant (gfc_expr ** result)
 
   m = match_complex_part (&real);
   if (m == MATCH_NO)
-    goto cleanup;
+    {
+      gfc_free_error (&old_error);
+      goto cleanup;
+    }
 
   if (gfc_match_char (',') == MATCH_NO)
     {
@@ -1063,7 +1157,10 @@ match_complex_constant (gfc_expr ** result)
      sort. These sort of lists are matched prior to coming here.  */
 
   if (m == MATCH_ERROR)
-    goto cleanup;
+    {
+      gfc_free_error (&old_error);
+      goto cleanup;
+    }
   gfc_pop_error (&old_error);
 
   m = match_complex_part (&imag);
@@ -1074,7 +1171,17 @@ match_complex_constant (gfc_expr ** result)
 
   m = gfc_match_char (')');
   if (m == MATCH_NO)
+    {
+      /* Give the matcher for implied do-loops a chance to run.  This
+	 yields a much saner error message for (/ (i, 4=i, 6) /).  */
+      if (gfc_peek_char () == '=')
+	{
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
+      else
     goto syntax;
+    }
 
   if (m == MATCH_ERROR)
     goto cleanup;
@@ -1149,6 +1256,10 @@ gfc_match_literal_constant (gfc_expr ** result, int signflag)
   if (m != MATCH_NO)
     return m;
 
+  m = match_hollerith_constant (result);
+  if (m != MATCH_NO)
+    return m;
+
   m = match_integer_constant (result, signflag);
   if (m != MATCH_NO)
     return m;
@@ -1219,11 +1330,27 @@ match_actual_arg (gfc_expr ** result)
 
 	  /* If the symbol is a function with itself as the result and
 	     is being defined, then we have a variable.  */
-	  if (sym->result == sym
-	      && (gfc_current_ns->proc_name == sym
+	  if (sym->attr.function && sym->result == sym)
+	    {
+	      if (gfc_current_ns->proc_name == sym
 		  || (gfc_current_ns->parent != NULL
-		      && gfc_current_ns->parent->proc_name == sym)))
-	    break;
+		      && gfc_current_ns->parent->proc_name == sym))
+		break;
+
+	      if (sym->attr.entry
+		  && (sym->ns == gfc_current_ns
+		      || sym->ns == gfc_current_ns->parent))
+		{
+		  gfc_entry_list *el = NULL;
+
+		  for (el = sym->ns->entries; el; el = el->next)
+		    if (sym == el->sym)
+		      break;
+
+		  if (el)
+		    break;
+		}
+	    }
 	}
 
       e = gfc_get_expr ();	/* Leave it unknown for now */
@@ -1428,27 +1555,41 @@ match_varspec (gfc_expr * primary, int equiv_flag)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_ref *substring, *tail;
   gfc_component *component;
-  gfc_symbol *sym;
+  gfc_symbol *sym = primary->symtree->n.sym;
   match m;
 
   tail = NULL;
 
-  if (primary->symtree->n.sym->attr.dimension
-      || (equiv_flag
-	  && gfc_peek_char () == '('))
+  if ((equiv_flag && gfc_peek_char () == '(')
+      || sym->attr.dimension)
     {
-
+      /* In EQUIVALENCE, we don't know yet whether we are seeing
+	 an array, character variable or array of character
+	 variables.  We'll leave the decision till resolve
+	 time.  */
       tail = extend_ref (primary, tail);
       tail->type = REF_ARRAY;
 
-      m = gfc_match_array_ref (&tail->u.ar, primary->symtree->n.sym->as,
-                               equiv_flag);
+      m = gfc_match_array_ref (&tail->u.ar, equiv_flag ? NULL : sym->as,
+			       equiv_flag);
       if (m != MATCH_YES)
 	return m;
+
+      if (equiv_flag && gfc_peek_char () == '(')
+	{
+	  tail = extend_ref (primary, tail);
+	  tail->type = REF_ARRAY;
+
+	  m = gfc_match_array_ref (&tail->u.ar, NULL, equiv_flag);
+	  if (m != MATCH_YES)
+	    return m;
+	}
     }
 
-  sym = primary->symtree->n.sym;
   primary->ts = sym->ts;
+
+  if (equiv_flag)
+    return MATCH_YES;
 
   if (sym->ts.type != BT_DERIVED || gfc_match_char ('%') != MATCH_YES)
     goto check_substring;
@@ -1505,6 +1646,9 @@ check_substring:
 
 	  if (primary->expr_type == EXPR_CONSTANT)
 	    primary->expr_type = EXPR_SUBSTRING;
+
+	  if (substring)
+	    primary->ts.cl = NULL;
 
 	  break;
 
@@ -1760,11 +1904,24 @@ gfc_match_rvalue (gfc_expr ** result)
 
   gfc_set_sym_referenced (sym);
 
-  if (sym->attr.function && sym->result == sym
-      && (gfc_current_ns->proc_name == sym
+  if (sym->attr.function && sym->result == sym)
+    {
+      if (gfc_current_ns->proc_name == sym
 	  || (gfc_current_ns->parent != NULL
-	      && gfc_current_ns->parent->proc_name == sym)))
-    goto variable;
+	      && gfc_current_ns->parent->proc_name == sym))
+	goto variable;
+
+      if (sym->attr.entry
+	  && (sym->ns == gfc_current_ns
+	      || sym->ns == gfc_current_ns->parent))
+	{
+	  gfc_entry_list *el = NULL;
+	  
+	  for (el = sym->ns->entries; el; el = el->next)
+	    if (sym == el->sym)
+	      goto variable;
+	}
+    }
 
   if (sym->attr.function || sym->attr.external || sym->attr.intrinsic)
     goto function0;
@@ -1789,8 +1946,11 @@ gfc_match_rvalue (gfc_expr ** result)
       break;
 
     case FL_PARAMETER:
-      if (sym->value
-	  && sym->value->expr_type != EXPR_ARRAY)
+      /* A statement of the form "REAL, parameter :: a(0:10) = 1" will
+	 end up here.  Unfortunately, sym->value->expr_type is set to 
+	 EXPR_CONSTANT, and so the if () branch would be followed without
+	 the !sym->as check.  */
+      if (sym->value && sym->value->expr_type != EXPR_ARRAY && !sym->as)
 	e = gfc_copy_expr (sym->value);
       else
 	{
@@ -1979,6 +2139,8 @@ gfc_match_rvalue (gfc_expr ** result)
 		}
 
 	      e->ts = sym->ts;
+	      if (e->ref)
+		e->ts.cl = NULL;
 	      m = MATCH_YES;
 	      break;
 	    }
@@ -2049,10 +2211,15 @@ gfc_match_rvalue (gfc_expr ** result)
    starts as a symbol, can be a structure component or an array
    reference.  It can be a function if the function doesn't have a
    separate RESULT variable.  If the symbol has not been previously
-   seen, we assume it is a variable.  */
+   seen, we assume it is a variable.
 
-match
-gfc_match_variable (gfc_expr ** result, int equiv_flag)
+   This function is called by two interface functions:
+   gfc_match_variable, which has host_flag = 1, and
+   gfc_match_equiv_variable, with host_flag = 0, to restrict the
+   match of the symbol to the local scope.  */
+
+static match
+match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
 {
   gfc_symbol *sym;
   gfc_symtree *st;
@@ -2060,7 +2227,7 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   locus where;
   match m;
 
-  m = gfc_match_sym_tree (&st, 1);
+  m = gfc_match_sym_tree (&st, host_flag);
   if (m != MATCH_YES)
     return m;
   where = gfc_current_locus;
@@ -2134,3 +2301,16 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   *result = expr;
   return MATCH_YES;
 }
+
+match
+gfc_match_variable (gfc_expr ** result, int equiv_flag)
+{
+  return match_variable (result, equiv_flag, 1);
+}
+
+match
+gfc_match_equiv_variable (gfc_expr ** result)
+{
+  return match_variable (result, 1, 0);
+}
+

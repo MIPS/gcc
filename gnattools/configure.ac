@@ -1,4 +1,4 @@
-# Configure script for gnattools.
+# Configure script for libada.
 #   Copyright 2003, 2004 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -65,54 +65,11 @@ else
 fi
 AC_SUBST([default_gnattools_target])
 
-# vms_host determination (sigh), because VMS has quirks
-vms_host=no
-case "${host}" in
-  alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
-  | alpha*-hp-vms* | alpha*-hp-openvms* | alpha*-hp-vms* \
-  | ia64*-dec-vms* | ia64*-dec-openvms* | ia64*-dec-vms* \
-  | ia64*-hp-vms* | ia64*-hp-openvms* | ia64*-hp-vms*)
-    vms_host=yes
-esac
-AC_SUBST(vms_host)
-
-# GNAT_LIBEXC.
-# When building Ada code on Alpha, we need exc_resume which is usually in
-# -lexc.  So test for it.
-save_LIBS="$LIBS"
-LIBS=
-AC_SEARCH_LIBS(exc_resume, exc)
-GNAT_LIBEXC="$LIBS"
-LIBS="$save_LIBS"
-AC_SUBST(GNAT_LIBEXC)
-
-# Thing ported from GCC's configure.ac
-AC_SUBST(CROSS)
-CROSS=
-if test x$host != x$target ; then
-  CROSS="-DCROSS_COMPILE"
-fi
-
-# THREAD_KIND (sigh).  Expect to be passed down from above.
-# This *must* be synchronized with the version chosen in libada.
-# FIXME NCN.
-case "${THREAD_KIND}" in
-  "")
-    THREAD_KIND=native
-    ;;
-esac
-
 # Target-specific stuff (defaults)
 TOOLS_TARGET_PAIRS=
 AC_SUBST(TOOLS_TARGET_PAIRS)
 EXTRA_GNATTOOLS=
 AC_SUBST(EXTRA_GNATTOOLS)
-EXTRA_GNATMAKE_OBJS=
-AC_SUBST(EXTRA_GNATMAKE_OBJS)
-TGT_LIB=
-AC_SUBST(TGT_LIB)
-GMEM_LIB=
-AC_SUBST(GMEM_LIB)
 
 # Per-target case statement
 # -------------------------
@@ -130,63 +87,45 @@ case "${target}" in
     ;;
   sparc-sun-solaris*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
-    GMEM_LIB="gmemlib"
     ;;
-  *86-*-solaris2*) # Unlike sparc-solaris
+  *86-*-solaris2*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
-    GMEM_LIB="gmemlib"
     ;;
   *86-*-linux* \
   | powerpc*-*-linux*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb \
     indepsw.adb<indepsw-linux.adb"
-    GMEM_LIB="gmemlib"
     ;;
-  *ia64-*-linux* | alpha*-*-linux*)
+  *ia64-*-linux* \
+  | alpha*-*-linux )
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb \
     indepsw.adb<indepsw-linux.adb"
     ;;
-  s390*-*-linux*)
+  *x86_64-*-linux* \
+  | s390*-*-linux*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
-    ;;
-  *x86_64-*-linux*)
-    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
-    GMEM_LIB="gmemlib"
     ;;
   *86-*-freebsd*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-linux.adb"
-    GMEM_LIB="gmemlib"
     ;;
   mips-sgi-irix*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-irix.adb"
-    TGT_LIB="-lexc"
     ;;
   hppa*-hp-hpux10*) # Unlike hpux11
     ;;
   hppa*-hp-hpux11*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-hpux.adb"
-    case "${THREAD_KIND}" in
-      dce | DCE) 
-        # No TGT_LIB
-        ;;
-      *)
-        TGT_LIB="/usr/lib/libcl.a"
-        ;;
-    esac
-    GMEM_LIB="gmemlib"
     ;;
   *-ibm-aix*)
     TOOLS_TARGET_PAIRS="\
     mlib-tgt.adb<mlib-tgt-aix.adb \
     indepsw.adb<indepsw-aix.adb"
-    GMEM_LIB="gmemlib"
     ;;
   alpha*-dec-osf*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-tru64.adb"
-    GMEM_LIB="gmemlib"
     ;;
   alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   | alpha*-hp-vms* | alpha*-hp-openvms* | alpha*-hp-vms*)
@@ -209,12 +148,9 @@ case "${target}" in
     mlib-tgt.adb<mlib-tgt-mingw.adb \
     indepsw.adb<indepsw-mingw.adb"
     EXTRA_GNATTOOLS='../../gnatdll$(exeext)'
-    EXTRA_GNATMAKE_OBJS="mdll.o mdll-utl.o mdll-fil.o"
-    GMEM_LIB="gmemlib"
     ;;
   powerpc-*-darwin*)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-darwin.adb"
-    GMEM_LIB="gmemlib"
     ;;
   *-*-lynxos)
     TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-lynxos.adb"
@@ -222,6 +158,6 @@ case "${target}" in
 esac
 
 # Output: create a Makefile.
-AC_CONFIG_FILES([Makefile Make-tools])
+AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT

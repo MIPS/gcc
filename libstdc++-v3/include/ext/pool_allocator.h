@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -80,7 +80,7 @@ namespace __gnu_cxx
 
       enum { _S_align = 8 };
       enum { _S_max_bytes = 128 };
-      enum { _S_free_list_size = _S_max_bytes / _S_align };
+      enum { _S_free_list_size = (size_t)_S_max_bytes / (size_t)_S_align };
       
       union _Obj
       {

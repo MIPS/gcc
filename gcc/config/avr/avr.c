@@ -17,8 +17,8 @@
    
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -109,12 +109,6 @@ static int epilogue_size;
 
 /* Size of all jump tables in the current function, in words.  */
 static int jump_tables_size;
-
-/* Initial stack value specified by the `-minit-stack=' option */
-const char *avr_init_stack = "__stack";
-
-/* Default MCU name */
-const char *avr_mcu_name = "avr2";
 
 /* Preprocessor macros to define depending on MCU type.  */
 const char *avr_base_arch_macro;
@@ -227,6 +221,12 @@ int avr_case_values_threshold = 30000;
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.long\t"
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.long\t"
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER avr_assemble_integer
 #undef TARGET_ASM_FILE_START
@@ -275,7 +275,7 @@ avr_override_options (void)
 
   if (!t->name)
     {
-      fprintf (stderr, "unknown MCU `%s' specified\nKnown MCU names:\n",
+      fprintf (stderr, "unknown MCU '%s' specified\nKnown MCU names:\n",
 	       avr_mcu_name);
       for (t = avr_mcu_types; t->name; t++)
 	fprintf (stderr,"   %s\n", t->name);
@@ -357,8 +357,7 @@ avr_naked_function_p (tree func)
 {
   tree a;
 
-  if (TREE_CODE (func) != FUNCTION_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
   
   a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
@@ -529,7 +528,7 @@ out_adj_frame_ptr (FILE *file, int adj)
       if (TARGET_TINY_STACK)
 	{
 	  if (adj < -63 || adj > 63)
-	    warning ("large frame pointer change (%d) with -mtiny-stack", adj);
+	    warning (0, "large frame pointer change (%d) with -mtiny-stack", adj);
 
 	  /* The high byte (r29) doesn't change - prefer "subi" (1 cycle)
 	     over "sbiw" (2 cycles, same size).  */
@@ -681,14 +680,12 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
     }
   else if (minimize && (frame_pointer_needed || live_seq > 6)) 
     {
-      const char *cfun_name = current_function_name ();
       fprintf (file, ("\t"
 		      AS1 (ldi, r26) ",lo8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
 		      AS1 (ldi, r27) ",hi8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB), size, size);
 
-      fprintf (file, (AS2 (ldi, r30, pm_lo8(.L_%s_body)) CR_TAB
-		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB),
-	       cfun_name, cfun_name);
+      fputs ((AS2 (ldi,r30,pm_lo8(1f)) CR_TAB
+	      AS2 (ldi,r31,pm_hi8(1f)) CR_TAB), file);
       
       prologue_size += 4;
       
@@ -704,7 +701,7 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 		   (18 - live_seq) * 2);
 	  ++prologue_size;
 	}
-      fprintf (file, ".L_%s_body:\n", cfun_name);
+      fputs ("1:\n", file);
     }
   else
     {
@@ -959,7 +956,7 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
     }
   if (TARGET_ALL_DEBUG)
     {
-      fprintf (stderr, "   ret = %c\n", r);
+      fprintf (stderr, "   ret = %c\n", r + '0');
     }
   return r == NO_REGS ? 0 : (int)r;
 }
@@ -1009,7 +1006,7 @@ ptrreg_to_str (int regno)
     case REG_Y: return "Y";
     case REG_Z: return "Z";
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return NULL;
 }
@@ -1041,7 +1038,7 @@ cond_string (enum rtx_code code)
     case LTU:
       return "lo";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1120,6 +1117,16 @@ print_operand (FILE *file, rtx x, int code)
 
 	  print_operand (file, XEXP (addr, 1), 0);
 	}
+      else if (code == 'p' || code == 'r')
+        {
+          if (GET_CODE (addr) != POST_INC && GET_CODE (addr) != PRE_DEC)
+            fatal_insn ("bad address, not post_inc or pre_dec:", addr);
+          
+          if (code == 'p')
+            print_operand_address (file, XEXP (addr, 0));  /* X, Y, Z */
+          else
+            print_operand (file, XEXP (addr, 0), 0);  /* r26, r28, r30 */
+        }
       else if (GET_CODE (addr) == PLUS)
 	{
 	  print_operand_address (file, XEXP (addr,0));
@@ -1835,6 +1842,9 @@ out_movhi_r_mr (rtx insn, rtx op[], int *l)
   rtx base = XEXP (src, 0);
   int reg_dest = true_regnum (dest);
   int reg_base = true_regnum (base);
+  /* "volatile" forces reading low byte first, even if less efficient,
+     for correct operation with 16-bit I/O registers.  */
+  int mem_volatile_p = MEM_VOLATILE_P (src);
   int tmp;
 
   if (!l)
@@ -1927,6 +1937,25 @@ out_movhi_r_mr (rtx insn, rtx op[], int *l)
     {
       if (reg_overlap_mentioned_p (dest, XEXP (base, 0)))
 	fatal_insn ("incorrect insn:", insn);
+
+      if (mem_volatile_p)
+        {
+          if (REGNO (XEXP (base, 0)) == REG_X)
+            {
+              *l = 4;
+              return (AS2 (sbiw,r26,2)  CR_TAB
+                      AS2 (ld,%A0,X+)   CR_TAB
+                      AS2 (ld,%B0,X)    CR_TAB
+                      AS2 (sbiw,r26,1));
+            }
+          else
+            {
+              *l = 3;
+              return (AS2 (sbiw,%r1,2)   CR_TAB
+                      AS2 (ld,%A0,%p1)  CR_TAB
+                      AS2 (ldd,%B0,%p1+1));
+            }
+        }
 
       *l = 2;
       return (AS2 (ld,%B0,%1) CR_TAB
@@ -2508,7 +2537,11 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
   rtx base = XEXP (dest, 0);
   int reg_base = true_regnum (base);
   int reg_src = true_regnum (src);
+  /* "volatile" forces writing high byte first, even if less efficient,
+     for correct operation with 16-bit I/O registers.  */
+  int mem_volatile_p = MEM_VOLATILE_P (dest);
   int tmp;
+
   if (!l)
     l = &tmp;
   if (CONSTANT_ADDRESS_P (base))
@@ -2528,33 +2561,33 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
         {
           if (reg_src == REG_X)
             {
-	      /* "st X+,r26" is undefined */
-              if (reg_unused_after (insn, src))
+              /* "st X+,r26" and "st -X,r26" are undefined.  */
+              if (!mem_volatile_p && reg_unused_after (insn, src))
 		return *l=4, (AS2 (mov,__tmp_reg__,r27) CR_TAB
 			      AS2 (st,X,r26)            CR_TAB
 			      AS2 (adiw,r26,1)          CR_TAB
 			      AS2 (st,X,__tmp_reg__));
               else
 		return *l=5, (AS2 (mov,__tmp_reg__,r27) CR_TAB
-			      AS2 (st,X,r26)            CR_TAB
 			      AS2 (adiw,r26,1)          CR_TAB
 			      AS2 (st,X,__tmp_reg__)    CR_TAB
-			      AS2 (sbiw,r26,1));
+                              AS2 (sbiw,r26,1)          CR_TAB
+                              AS2 (st,X,r26));
             }
           else
             {
-              if (reg_unused_after (insn, base))
+              if (!mem_volatile_p && reg_unused_after (insn, base))
                 return *l=2, (AS2 (st,X+,%A1) CR_TAB
                               AS2 (st,X,%B1));
               else
-                return *l=3, (AS2 (st  ,X+,%A1) CR_TAB
-                              AS2 (st  ,X,%B1) CR_TAB
-                              AS2 (sbiw,r26,1));
+                return *l=3, (AS2 (adiw,r26,1) CR_TAB
+                              AS2 (st,X,%B1)   CR_TAB
+                              AS2 (st,-X,%A1));
             }
         }
       else
-        return  *l=2, (AS2 (st ,%0,%A1)    CR_TAB
-                       AS2 (std,%0+1,%B1));
+        return  *l=2, (AS2 (std,%0+1,%B1) CR_TAB
+                       AS2 (st,%0,%A1));
     }
   else if (GET_CODE (base) == PLUS)
     {
@@ -2567,14 +2600,14 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (dest)))
 	    return *l = 4, (AS2 (adiw,r28,%o0-62) CR_TAB
-			    AS2 (std,Y+62,%A1)    CR_TAB
 			    AS2 (std,Y+63,%B1)    CR_TAB
+			    AS2 (std,Y+62,%A1)    CR_TAB
 			    AS2 (sbiw,r28,%o0-62));
 
 	  return *l = 6, (AS2 (subi,r28,lo8(-%o0)) CR_TAB
 			  AS2 (sbci,r29,hi8(-%o0)) CR_TAB
-			  AS2 (st,Y,%A1)           CR_TAB
 			  AS2 (std,Y+1,%B1)        CR_TAB
+			  AS2 (st,Y,%A1)           CR_TAB
 			  AS2 (subi,r28,lo8(%o0))  CR_TAB
 			  AS2 (sbci,r29,hi8(%o0)));
 	}
@@ -2582,31 +2615,53 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 	{
 	  /* (X + d) = R */
 	  if (reg_src == REG_X)
-	    {
+            {
 	      *l = 7;
 	      return (AS2 (mov,__tmp_reg__,r26)  CR_TAB
 		      AS2 (mov,__zero_reg__,r27) CR_TAB
-		      AS2 (adiw,r26,%o0)         CR_TAB
-		      AS2 (st,X+,__tmp_reg__)    CR_TAB
+                      AS2 (adiw,r26,%o0+1)       CR_TAB
 		      AS2 (st,X,__zero_reg__)    CR_TAB
+		      AS2 (st,-X,__tmp_reg__)    CR_TAB
 		      AS1 (clr,__zero_reg__)     CR_TAB
-		      AS2 (sbiw,r26,%o0+1));
+                      AS2 (sbiw,r26,%o0));
 	    }
 	  *l = 4;
-	  return (AS2 (adiw,r26,%o0) CR_TAB
-		  AS2 (st,X+,%A1)    CR_TAB
-		  AS2 (st,X,%B1)     CR_TAB
-		  AS2 (sbiw,r26,%o0+1));
+          return (AS2 (adiw,r26,%o0+1) CR_TAB
+                  AS2 (st,X,%B1)       CR_TAB
+                  AS2 (st,-X,%A1)      CR_TAB
+                  AS2 (sbiw,r26,%o0));
 	}
-      return *l=2, (AS2 (std,%A0,%A1)    CR_TAB
-		    AS2 (std,%B0,%B1));
+      return *l=2, (AS2 (std,%B0,%B1)    CR_TAB
+                    AS2 (std,%A0,%A1));
     }
   else if (GET_CODE (base) == PRE_DEC) /* (--R) */
     return *l=2, (AS2 (st,%0,%B1) CR_TAB
 		  AS2 (st,%0,%A1));
   else if (GET_CODE (base) == POST_INC) /* (R++) */
-    return *l=2, (AS2 (st,%0,%A1)  CR_TAB
-		  AS2 (st,%0,%B1));
+    {
+      if (mem_volatile_p)
+        {
+          if (REGNO (XEXP (base, 0)) == REG_X)
+            {
+              *l = 4;
+              return (AS2 (adiw,r26,1)  CR_TAB
+                      AS2 (st,X,%B1)    CR_TAB
+                      AS2 (st,-X,%A1)   CR_TAB
+                      AS2 (adiw,r26,2));
+            }
+          else
+            {
+              *l = 3;
+              return (AS2 (std,%p0+1,%B1) CR_TAB
+                      AS2 (st,%p0,%A1)    CR_TAB
+                      AS2 (adiw,%r0,2));
+            }
+        }
+
+      *l = 2;
+      return (AS2 (st,%0,%A1)  CR_TAB
+            AS2 (st,%0,%B1));
+    }
   fatal_insn ("unknown move insn:",insn);
   return "";
 }
@@ -4591,14 +4646,15 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	{
 	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
 	    {
-	      warning ("only initialized variables can be placed into "
+	      warning (0, "only initialized variables can be placed into "
 		       "program memory area");
 	      *no_add_attrs = true;
 	    }
 	}
       else
 	{
-	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+	  warning (OPT_Wattributes, "%qs attribute ignored",
+		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
     }
@@ -4617,7 +4673,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -4634,7 +4690,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning ("`%s' appears to be a misspelled interrupt handler",
+              warning (0, "%qs appears to be a misspelled interrupt handler",
                        func_name);
             }
         }
@@ -4642,7 +4698,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning ("`%s' appears to be a misspelled signal handler",
+              warning (0, "%qs appears to be a misspelled signal handler",
                        func_name);
             }
         }
@@ -4711,7 +4767,7 @@ avr_section_type_flags (tree decl, const char *name, int reloc)
 	  && DECL_INITIAL (decl) == NULL_TREE)
 	flags |= SECTION_BSS;  /* @nobits */
       else
-	warning ("only uninitialized variables can be placed in the "
+	warning (0, "only uninitialized variables can be placed in the "
 		 ".noinit section");
     }
 
@@ -5455,7 +5511,7 @@ avr_normalize_condition (RTX_CODE condition)
     case LEU:
       return LTU;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -5791,6 +5847,7 @@ avr_output_bld (rtx operands[], int bit_nr)
 void
 avr_output_addr_vec_elt (FILE *stream, int value)
 {
+  progmem_section ();
   if (AVR_MEGA)
     fprintf (stream, "\t.word pm(.L%d)\n", value);
   else

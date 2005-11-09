@@ -44,9 +44,6 @@ details.  */
 
 using namespace gcj;
 
-// When true, print debugging information about class loading.
-bool gcj::verbose_class_flag;
-
 typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 
 template<typename T>
@@ -90,8 +87,11 @@ _Jv_Linker::resolve_field (_Jv_Field *field, java::lang::ClassLoader *loader)
 {
   if (! field->isResolved ())
     {
-      _Jv_Utf8Const *sig = (_Jv_Utf8Const*)field->type;
-      field->type = _Jv_FindClassFromSignature (sig->chars(), loader);
+      _Jv_Utf8Const *sig = (_Jv_Utf8Const *) field->type;
+      jclass type = _Jv_FindClassFromSignature (sig->chars(), loader);
+      if (type == NULL)
+	throw new java::lang::NoClassDefFoundError(field->name->toString());
+      field->type = type;
       field->flags &= ~_Jv_FIELD_UNRESOLVED_FLAG;
     }
 }
@@ -100,6 +100,7 @@ _Jv_Linker::resolve_field (_Jv_Field *field, java::lang::ClassLoader *loader)
 // superclasses and interfaces.
 _Jv_Field *
 _Jv_Linker::find_field_helper (jclass search, _Jv_Utf8Const *name,
+			       _Jv_Utf8Const *type_name,
 			       jclass *declarer)
 {
   while (search)
@@ -108,7 +109,21 @@ _Jv_Linker::find_field_helper (jclass search, _Jv_Utf8Const *name,
       for (int i = 0; i < search->field_count; ++i)
 	{
 	  _Jv_Field *field = &search->fields[i];
-	  if (_Jv_equalUtf8Consts (field->name, name))
+	  if (! _Jv_equalUtf8Consts (field->name, name))
+	    continue;
+
+	  if (! field->isResolved ())
+	    resolve_field (field, search->loader);
+
+	  // Note that we compare type names and not types.  This is
+	  // bizarre, but we do it because we want to find a field
+	  // (and terminate the search) if it has the correct
+	  // descriptor -- but then later reject it if the class
+	  // loader check results in different classes.  We can't just
+	  // pass in the descriptor and check that way, because when
+	  // the field is already resolved there is no easy way to
+	  // find its descriptor again.
+	  if (_Jv_equalUtf8Consts (type_name, field->type->name))
 	    {
 	      *declarer = search;
 	      return field;
@@ -119,7 +134,7 @@ _Jv_Linker::find_field_helper (jclass search, _Jv_Utf8Const *name,
       for (int i = 0; i < search->interface_count; ++i)
 	{
 	  _Jv_Field *result = find_field_helper (search->interfaces[i], name,
-						 declarer);
+						 type_name, declarer);
 	  if (result)
 	    return result;
 	}
@@ -147,31 +162,26 @@ _Jv_Linker::has_field_p (jclass search, _Jv_Utf8Const *field_name)
 // KLASS is the class that is requesting the field.
 // OWNER is the class in which the field should be found.
 // FIELD_TYPE_NAME is the type descriptor for the field.
+// Fill FOUND_CLASS with the address of the class in which the field
+// is actually declared.
 // This function does the class loader type checks, and
 // also access checks.  Returns the field, or throws an
 // exception on error.
 _Jv_Field *
 _Jv_Linker::find_field (jclass klass, jclass owner,
+			jclass *found_class,
 			_Jv_Utf8Const *field_name,
 			_Jv_Utf8Const *field_type_name)
 {
-  jclass field_type = 0;
+  // FIXME: this allocates a _Jv_Utf8Const each time.  We should make
+  // it cheaper.
+  jclass field_type = _Jv_FindClassFromSignature (field_type_name->chars(),
+						  klass->loader);
+  if (field_type == NULL)
+    throw new java::lang::NoClassDefFoundError(field_name->toString());
 
-  if (owner->loader != klass->loader)
-    {
-      // FIXME: The implementation of this function
-      // (_Jv_FindClassFromSignature) will generate an instance of
-      // _Jv_Utf8Const for each call if the field type is a class name
-      // (Lxx.yy.Z;).  This may be too expensive to do for each and
-      // every fieldref being resolved.  For now, we fix the problem
-      // by only doing it when we have a loader different from the
-      // class declaring the field.
-      field_type = _Jv_FindClassFromSignature (field_type_name->chars(),
-					       klass->loader);
-    }
-
-  jclass found_class = 0;
-  _Jv_Field *the_field = find_field_helper (owner, field_name, &found_class);
+  _Jv_Field *the_field = find_field_helper (owner, field_name,
+					    field_type->name, found_class);
 
   if (the_field == 0)
     {
@@ -184,14 +194,13 @@ _Jv_Linker::find_field (jclass klass, jclass owner,
       throw new java::lang::NoSuchFieldError (sb->toString());
     }
 
-  if (_Jv_CheckAccess (klass, found_class, the_field->flags))
+  if (_Jv_CheckAccess (klass, *found_class, the_field->flags))
     {
-      // Resolve the field using the class' own loader if necessary.
-
-      if (!the_field->isResolved ())
-	resolve_field (the_field, found_class->loader);
-
-      if (field_type != 0 && the_field->type != field_type)
+      // Note that the field returned by find_field_helper is always
+      // resolved.  There's no point checking class loaders here,
+      // since we already did the work to look up all the types.
+      // FIXME: being lazy here would be nice.
+      if (the_field->type != field_type)
 	throw new java::lang::LinkageError
 	  (JvNewStringLatin1 
 	   ("field type mismatch with different loaders"));
@@ -202,7 +211,7 @@ _Jv_Linker::find_field (jclass klass, jclass owner,
 	= new java::lang::StringBuffer ();
       sb->append(klass->getName());
       sb->append(JvNewStringLatin1(": "));
-      sb->append(found_class->getName());
+      sb->append((*found_class)->getName());
       sb->append(JvNewStringLatin1("."));
       sb->append(_Jv_NewStringUtf8Const (field_name));
       throw new java::lang::IllegalAccessError(sb->toString());
@@ -290,9 +299,13 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	_Jv_Utf8Const *field_name = pool->data[name_index].utf8;
 	_Jv_Utf8Const *field_type_name = pool->data[type_index].utf8;
 
-	_Jv_Field *the_field = find_field (klass, owner, field_name,
+	jclass found_class = 0;
+	_Jv_Field *the_field = find_field (klass, owner, 
+					   &found_class,
+					   field_name,
 					   field_type_name);
-
+	if (owner != found_class)
+	  _Jv_InitClass (found_class);
 	pool->data[index].field = the_field;
 	pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
       }
@@ -701,8 +714,8 @@ _Jv_ThrowNoSuchMethodError ()
 }
 
 // This is put in empty vtable slots.
-static void
-_Jv_abstractMethodError (void)
+void
+_Jv_ThrowAbstractMethodError ()
 {
   throw new java::lang::AbstractMethodError();
 }
@@ -754,7 +767,7 @@ _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
 	      (_Jv_GetMethodString (klass, meth));
 
  	  if ((meth->accflags & Modifier::ABSTRACT) != 0)
-	    itable[pos] = (void *) &_Jv_abstractMethodError;
+	    itable[pos] = (void *) &_Jv_ThrowAbstractMethodError;
 	  else
 	    itable[pos] = meth->ncode;
 	}
@@ -957,7 +970,8 @@ _Jv_Linker::link_symbol_table (jclass klass)
       // Try fields.
       {
 	wait_for_state(target_class, JV_STATE_PREPARED);
-	_Jv_Field *the_field = find_field (klass, target_class,
+	jclass found_class;
+	_Jv_Field *the_field = find_field (klass, target_class, &found_class,
 					   sym.name, sym.signature);
 	if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	  throw new java::lang::IncompatibleClassChangeError;
@@ -1037,7 +1051,8 @@ _Jv_Linker::link_symbol_table (jclass klass)
       // Try fields.
       {
 	wait_for_state(target_class, JV_STATE_PREPARED);
-	_Jv_Field *the_field = find_field (klass, target_class,
+	jclass found_class;
+	_Jv_Field *the_field = find_field (klass, target_class, &found_class,
 					   sym.name, sym.signature);
 	if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	  klass->atable->addresses[index] = the_field->u.addr;
@@ -1213,7 +1228,8 @@ _Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable)
       if ((meth->accflags & Modifier::ABSTRACT))
 	// FIXME: it might be nice to have a libffi trampoline here,
 	// so we could pass in the method name and other information.
-	vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
+	vtable->set_method(meth->index,
+			   (void *) &_Jv_ThrowAbstractMethodError);
       else
 	vtable->set_method(meth->index, meth->ncode);
     }
@@ -1390,9 +1406,7 @@ _Jv_Linker::ensure_class_linked (jclass klass)
       // a reference to a class we can't access.  This can validly
       // occur in an obscure case involving the InnerClasses
       // attribute.
-#ifdef INTERPRETER
       if (! _Jv_IsInterpretedClass (klass))
-#endif
 	{
 	  // Resolve class constants first, since other constant pool
 	  // entries may rely on these.
@@ -1534,11 +1548,12 @@ _Jv_Linker::add_miranda_methods (jclass base, jclass iface_class)
 void
 _Jv_Linker::ensure_method_table_complete (jclass klass)
 {
-  if (klass->vtable != NULL || klass->isInterface())
+  if (klass->vtable != NULL)
     return;
 
   // We need our superclass to have its own Miranda methods installed.
-  wait_for_state (klass->getSuperclass (), JV_STATE_LOADED);
+  if (! klass->isInterface())
+    wait_for_state (klass->getSuperclass (), JV_STATE_LOADED);
 
   // A class might have so-called "Miranda methods".  This is a method
   // that is declared in an interface and not re-declared in an
@@ -1606,7 +1621,7 @@ _Jv_Linker::verify_type_assertions (jclass klass)
 	  if (cl1 == NULL || cl2 == NULL)
 	    continue;
 
-          if (! _Jv_IsAssignableFromSlow (cl2, cl1))
+          if (! _Jv_IsAssignableFromSlow (cl1, cl2))
 	    {
 	      jstring s = JvNewStringUTF ("Incompatible types: In class ");
 	      s = s->concat (klass->getName());
@@ -1645,15 +1660,10 @@ _Jv_Linker::print_class_loaded (jclass klass)
   if (codesource == NULL)
     codesource = "<no code source>";
 
-  // We use a somewhat bogus test for the ABI here.
   char *abi;
-#ifdef INTERPRETER
   if (_Jv_IsInterpretedClass (klass))
-#else
-  if (false)
-#endif
     abi = "bytecode";
-  else if (klass->state == JV_STATE_PRELOADING)
+  else if (_Jv_IsBinaryCompatibilityABI (klass))
     abi = "BC-compiled";
   else
     abi = "pre-compiled";
@@ -1688,10 +1698,7 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
   if (gcj::verbose_class_flag
       && (klass->state == JV_STATE_COMPILED
 	  || klass->state == JV_STATE_PRELOADING)
-#ifdef INTERPRETER
-      && ! _Jv_IsInterpretedClass (klass)
-#endif
-      )
+      && ! _Jv_IsInterpretedClass (klass))
     print_class_loaded (klass);
 
   try
@@ -1719,7 +1726,8 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
 
       if (state >= JV_STATE_LINKED && klass->state < JV_STATE_LINKED)
 	{
-	  verify_class (klass);
+	  if (gcj::verifyClasses)
+	    verify_class (klass);
 
 	  ensure_class_linked (klass);
 	  link_exception_table (klass);

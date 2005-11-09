@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -158,6 +158,13 @@ package body Exp_Aggr is
    -- Local Subprograms for Array Aggregate Expansion --
    -----------------------------------------------------
 
+   function Aggr_Size_OK (Typ : Entity_Id) return Boolean;
+   --  Very large static aggregates present problems to the back-end, and
+   --  are transformed into assignments and loops. This function verifies
+   --  that the total number of components of an aggregate is acceptable
+   --  for transformation into a purely positional static form. It is called
+   --  prior to calling Flatten.
+
    procedure Convert_Array_Aggr_In_Allocator
      (Decl   : Node_Id;
       Aggr   : Node_Id;
@@ -268,6 +275,152 @@ package body Exp_Aggr is
    --  If a slice assignment has an aggregate with a single others_choice,
    --  the assignment can be done in place even if bounds are not static,
    --  by converting it into a loop over the discrete range of the slice.
+
+   ------------------
+   -- Aggr_Size_OK --
+   ------------------
+
+   function Aggr_Size_OK (Typ : Entity_Id) return Boolean is
+      Lo   : Node_Id;
+      Hi   : Node_Id;
+      Indx : Node_Id;
+      Siz  : Int;
+      Lov  : Uint;
+      Hiv  : Uint;
+
+      --  The following constant determines the maximum size of an
+      --  aggregate produced by converting named to positional
+      --  notation (e.g. from others clauses). This avoids running
+      --  away with attempts to convert huge aggregates, which hit
+      --  memory limits in the backend.
+
+      --  The normal limit is 5000, but we increase this limit to
+      --  2**24 (about 16 million) if Restrictions (No_Elaboration_Code)
+      --  or Restrictions (No_Implicit_Loops) is specified, since in
+      --  either case, we are at risk of declaring the program illegal
+      --  because of this limit.
+
+      Max_Aggr_Size : constant Nat :=
+                        5000 + (2 ** 24 - 5000) *
+                          Boolean'Pos
+                            (Restriction_Active (No_Elaboration_Code)
+                               or else
+                             Restriction_Active (No_Implicit_Loops));
+
+      function Component_Count (T : Entity_Id) return Int;
+      --  The limit is applied to the total number of components that the
+      --  aggregate will have, which is the number of static expressions
+      --  that will appear in the flattened array. This requires a recursive
+      --  computation of the the number of scalar components of the structure.
+
+      ---------------------
+      -- Component_Count --
+      ---------------------
+
+      function Component_Count (T : Entity_Id) return Int is
+         Res  : Int := 0;
+         Comp : Entity_Id;
+
+      begin
+         if Is_Scalar_Type (T) then
+            return 1;
+
+         elsif Is_Record_Type (T) then
+            Comp := First_Component (T);
+            while Present (Comp) loop
+               Res := Res + Component_Count (Etype (Comp));
+               Next_Component (Comp);
+            end loop;
+
+            return Res;
+
+         elsif Is_Array_Type (T) then
+            declare
+               Lo : constant Node_Id :=
+                      Type_Low_Bound (Etype (First_Index (T)));
+               Hi : constant Node_Id :=
+                      Type_High_Bound (Etype (First_Index (T)));
+
+               Siz  : constant Int := Component_Count (Component_Type (T));
+
+            begin
+               if not Compile_Time_Known_Value (Lo)
+                 or else not Compile_Time_Known_Value (Hi)
+               then
+                  return 0;
+               else
+                  return
+                    Siz * UI_To_Int (Expr_Value (Hi) - Expr_Value (Lo) + 1);
+               end if;
+            end;
+
+         else
+            --  Can only be a null for an access type
+
+            return 1;
+         end if;
+      end Component_Count;
+
+   --  Start of processing for Aggr_Size_OK
+
+   begin
+      Siz  := Component_Count (Component_Type (Typ));
+      Indx := First_Index (Typ);
+
+      while Present (Indx) loop
+         Lo  := Type_Low_Bound (Etype (Indx));
+         Hi  := Type_High_Bound (Etype (Indx));
+
+         --  Bounds need to be known at compile time
+
+         if not Compile_Time_Known_Value (Lo)
+           or else not Compile_Time_Known_Value (Hi)
+         then
+            return False;
+         end if;
+
+         Lov := Expr_Value (Lo);
+         Hiv := Expr_Value (Hi);
+
+         --  A flat array is always safe
+
+         if Hiv < Lov then
+            return True;
+         end if;
+
+         declare
+            Rng : constant Uint := Hiv - Lov + 1;
+
+         begin
+            --  Check if size is too large
+
+            if not UI_Is_In_Int_Range (Rng) then
+               return False;
+            end if;
+
+            Siz := Siz * UI_To_Int (Rng);
+         end;
+
+         if Siz <= 0
+           or else Siz > Max_Aggr_Size
+         then
+            return False;
+         end if;
+
+         --  Bounds must be in integer range, for later array construction
+
+         if not UI_Is_In_Int_Range (Lov)
+             or else
+            not UI_Is_In_Int_Range (Hiv)
+         then
+            return False;
+         end if;
+
+         Next_Index (Indx);
+      end loop;
+
+      return True;
+   end Aggr_Size_OK;
 
    ---------------------------------
    -- Backend_Processing_Possible --
@@ -910,12 +1063,14 @@ package body Exp_Aggr is
                      Make_Selected_Component (Loc,
                        Prefix =>  New_Copy_Tree (Indexed_Comp),
                        Selector_Name =>
-                         New_Reference_To (Tag_Component (Comp_Type), Loc)),
+                         New_Reference_To
+                           (First_Tag_Component (Comp_Type), Loc)),
 
                    Expression =>
                      Unchecked_Convert_To (RTE (RE_Tag),
-                       New_Reference_To (
-                         Access_Disp_Table (Comp_Type), Loc)));
+                       New_Reference_To
+                         (Node (First_Elmt (Access_Disp_Table (Comp_Type))),
+                          Loc)));
 
                Append_To (L, A);
             end if;
@@ -1711,8 +1866,9 @@ package body Exp_Aggr is
               Make_Procedure_Call_Statement (Loc,
                 Name =>
                   New_Reference_To
-                         (Find_Prim_Op (RTE (RE_Limited_Record_Controller),
-                    Name_Initialize), Loc),
+                    (Find_Prim_Op
+                       (RTE (RE_Limited_Record_Controller), Name_Initialize),
+                     Loc),
                 Parameter_Associations => New_List (New_Copy_Tree (Ref))));
 
          else
@@ -1727,8 +1883,10 @@ package body Exp_Aggr is
             Append_To (L,
               Make_Procedure_Call_Statement (Loc,
                 Name =>
-                  New_Reference_To (Find_Prim_Op (RTE (RE_Record_Controller),
-                    Name_Initialize), Loc),
+                  New_Reference_To
+                    (Find_Prim_Op
+                       (RTE (RE_Record_Controller), Name_Initialize),
+                     Loc),
                 Parameter_Associations => New_List (New_Copy_Tree (Ref))));
 
          end if;
@@ -1869,13 +2027,16 @@ package body Exp_Aggr is
                       Name =>
                         Make_Selected_Component (Loc,
                           Prefix => New_Copy_Tree (Target),
-                          Selector_Name => New_Reference_To (
-                            Tag_Component (Base_Type (Typ)), Loc)),
+                          Selector_Name =>
+                            New_Reference_To
+                              (First_Tag_Component (Base_Type (Typ)), Loc)),
 
                       Expression =>
                         Unchecked_Convert_To (RTE (RE_Tag),
-                          New_Reference_To (
-                            Access_Disp_Table (Base_Type (Typ)), Loc)));
+                          New_Reference_To
+                            (Node (First_Elmt
+                               (Access_Disp_Table (Base_Type (Typ)))),
+                             Loc)));
 
                   Set_Assignment_OK (Name (Instr));
                   Append_To (L, Instr);
@@ -2090,12 +2251,14 @@ package body Exp_Aggr is
                         Make_Selected_Component (Loc,
                           Prefix =>  New_Copy_Tree (Comp_Expr),
                           Selector_Name =>
-                            New_Reference_To (Tag_Component (Comp_Type), Loc)),
+                            New_Reference_To
+                              (First_Tag_Component (Comp_Type), Loc)),
 
                       Expression =>
                         Unchecked_Convert_To (RTE (RE_Tag),
-                          New_Reference_To (
-                            Access_Disp_Table (Comp_Type), Loc)));
+                          New_Reference_To
+                            (Node (First_Elmt (Access_Disp_Table (Comp_Type))),
+                             Loc)));
 
                   Append_To (L, Instr);
                end if;
@@ -2172,11 +2335,14 @@ package body Exp_Aggr is
                Make_Selected_Component (Loc,
                   Prefix => New_Copy_Tree (Target),
                  Selector_Name =>
-                   New_Reference_To (Tag_Component (Base_Type (Typ)), Loc)),
+                   New_Reference_To
+                     (First_Tag_Component (Base_Type (Typ)), Loc)),
 
              Expression =>
                Unchecked_Convert_To (RTE (RE_Tag),
-                 New_Reference_To (Access_Disp_Table (Base_Type (Typ)), Loc)));
+                 New_Reference_To
+                   (Node (First_Elmt (Access_Disp_Table (Base_Type (Typ)))),
+                    Loc)));
 
          Append_To (L, Instr);
       end if;
@@ -2186,9 +2352,10 @@ package body Exp_Aggr is
 
       if Present (Obj)
         and then Finalize_Storage_Only (Typ)
-        and then (Is_Library_Level_Entity (Obj)
-        or else Entity (Constant_Value (RTE (RE_Garbage_Collected)))
-                  = Standard_True)
+        and then
+          (Is_Library_Level_Entity (Obj)
+             or else Entity (Constant_Value (RTE (RE_Garbage_Collected))) =
+                                                              Standard_True)
       then
          Attach := Make_Integer_Literal (Loc, 0);
 
@@ -2232,8 +2399,9 @@ package body Exp_Aggr is
             Set_Assignment_OK (Ref);
             Append_To (L,
               Make_Procedure_Call_Statement (Loc,
-                Name => New_Reference_To (
-                  Find_Prim_Op (Init_Typ, Name_Initialize), Loc),
+                Name =>
+                  New_Reference_To
+                    (Find_Prim_Op (Init_Typ, Name_Initialize), Loc),
                 Parameter_Associations => New_List (New_Copy_Tree (Ref))));
          end if;
 
@@ -2665,7 +2833,9 @@ package body Exp_Aggr is
         (N   : Node_Id;
          Ix  : Node_Id;
          Ixb : Node_Id) return Boolean;
-      --  Convert the aggregate into a purely positional form if possible
+      --  Convert the aggregate into a purely positional form if possible.
+      --  On entry the bounds of all dimensions are known to be static,
+      --  and the total number of components is safe enough to expand.
 
       function Is_Flat (N : Node_Id; Dims : Int) return Boolean;
       --  Return True iff the array N is flat (which is not rivial
@@ -2687,39 +2857,12 @@ package body Exp_Aggr is
          Lov : Uint;
          Hiv : Uint;
 
-         --  The following constant determines the maximum size of an
-         --  aggregate produced by converting named to positional
-         --  notation (e.g. from others clauses). This avoids running
-         --  away with attempts to convert huge aggregates.
-
-         --  The normal limit is 5000, but we increase this limit to
-         --  2**24 (about 16 million) if Restrictions (No_Elaboration_Code)
-         --  or Restrictions (No_Implicit_Loops) is specified, since in
-         --  either case, we are at risk of declaring the program illegal
-         --  because of this limit.
-
-         Max_Aggr_Size : constant Nat :=
-                           5000 + (2 ** 24 - 5000) *
-                             Boolean'Pos
-                               (Restriction_Active (No_Elaboration_Code)
-                                  or else
-                                Restriction_Active (No_Implicit_Loops));
-
       begin
          if Nkind (Original_Node (N)) = N_String_Literal then
             return True;
          end if;
 
-         --  Bounds need to be known at compile time
-
-         if not Compile_Time_Known_Value (Lo)
-           or else not Compile_Time_Known_Value (Hi)
-         then
-            return False;
-         end if;
-
-         --  Get bounds and check reasonable size (positive, not too large)
-         --  Also only handle bounds starting at the base type low bound
+         --  Only handle bounds starting at the base type low bound
          --  for now since the compiler isn't able to handle different low
          --  bounds yet. Case such as new String'(3..5 => ' ') will get
          --  the wrong bounds, though it seems that the aggregate should
@@ -2729,18 +2872,8 @@ package body Exp_Aggr is
          Hiv := Expr_Value (Hi);
 
          if Hiv < Lov
-           or else (Hiv - Lov > Max_Aggr_Size)
            or else not Compile_Time_Known_Value (Blo)
            or else (Lov /= Expr_Value (Blo))
-         then
-            return False;
-         end if;
-
-         --  Bounds must be in integer range (for array Vals below)
-
-         if not UI_Is_In_Int_Range (Lov)
-             or else
-            not UI_Is_In_Int_Range (Hiv)
          then
             return False;
          end if;
@@ -2972,7 +3105,10 @@ package body Exp_Aggr is
          return;
       end if;
 
-      if Flatten (N, First_Index (Typ), First_Index (Base_Type (Typ))) then
+      if Aggr_Size_OK (Typ)
+        and then
+          Flatten (N, First_Index (Typ), First_Index (Base_Type (Typ)))
+      then
          Analyze_And_Resolve (N, Typ);
       end if;
    end Convert_To_Positional;
@@ -4282,7 +4418,9 @@ package body Exp_Aggr is
               Parent_Expr => A);
          else
             Expand_Record_Aggregate (N,
-              Orig_Tag    => New_Occurrence_Of (Access_Disp_Table (Typ), Loc),
+              Orig_Tag    =>
+                New_Occurrence_Of
+                  (Node (First_Elmt (Access_Disp_Table (Typ))), Loc),
               Parent_Expr => A);
          end if;
       end if;
@@ -4649,7 +4787,9 @@ package body Exp_Aggr is
             elsif Java_VM then
                Tag_Value := Empty;
             else
-               Tag_Value := New_Occurrence_Of (Access_Disp_Table (Typ), Loc);
+               Tag_Value :=
+                 New_Occurrence_Of
+                   (Node (First_Elmt (Access_Disp_Table (Typ))), Loc);
             end if;
 
             --  For a derived type, an aggregate for the parent is formed with
@@ -4712,7 +4852,8 @@ package body Exp_Aggr is
             elsif not Java_VM then
                declare
                   Tag_Name  : constant Node_Id :=
-                                New_Occurrence_Of (Tag_Component (Typ), Loc);
+                                New_Occurrence_Of
+                                  (First_Tag_Component (Typ), Loc);
                   Typ_Tag   : constant Entity_Id := RTE (RE_Tag);
                   Conv_Node : constant Node_Id :=
                                 Unchecked_Convert_To (Typ_Tag, Tag_Value);

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -377,8 +377,7 @@ package body Sem_Eval is
 
    function Compile_Time_Compare
      (L, R : Node_Id;
-      Rec  : Boolean := False)
-      return Compare_Result
+      Rec  : Boolean := False) return Compare_Result
    is
       Ltyp : constant Entity_Id := Etype (L);
       Rtyp : constant Entity_Id := Etype (R);
@@ -794,6 +793,34 @@ package body Sem_Eval is
          end;
       end if;
    end Compile_Time_Compare;
+
+   -------------------------------
+   -- Compile_Time_Known_Bounds --
+   -------------------------------
+
+   function Compile_Time_Known_Bounds (T : Entity_Id) return Boolean is
+      Indx : Node_Id;
+      Typ  : Entity_Id;
+
+   begin
+      if not Is_Array_Type (T) then
+         return False;
+      end if;
+
+      Indx := First_Index (T);
+      while Present (Indx) loop
+         Typ := Underlying_Type (Etype (Indx));
+         if not Compile_Time_Known_Value (Type_Low_Bound (Typ)) then
+            return False;
+         elsif not Compile_Time_Known_Value (Type_High_Bound (Typ)) then
+            return False;
+         else
+            Next_Index (Indx);
+         end if;
+      end loop;
+
+      return True;
+   end Compile_Time_Known_Bounds;
 
    ------------------------------
    -- Compile_Time_Known_Value --
@@ -2172,6 +2199,26 @@ package body Sem_Eval is
                return;
             end if;
          end;
+
+      --  Another special case: comparisons against null for pointers that
+      --  are known to be non-null. This is useful when migrating from Ada95
+      --  code when non-null restrictions are added to type declarations and
+      --  parameter specifications.
+
+      elsif Is_Access_Type (Typ)
+        and then Comes_From_Source (N)
+        and then
+          ((Is_Entity_Name (Left)
+             and then Is_Known_Non_Null (Entity (Left))
+             and then Nkind (Right) = N_Null)
+          or else
+            (Is_Entity_Name (Right)
+              and then Is_Known_Non_Null (Entity (Right))
+              and then Nkind (Left) = N_Null))
+      then
+         Fold_Uint (N, Test (Nkind (N) = N_Op_Ne), False);
+         Warn_On_Known_Condition (N);
+         return;
       end if;
 
       --  Can only fold if type is scalar (don't fold string ops)
@@ -3116,8 +3163,7 @@ package body Sem_Eval is
    function In_Subrange_Of
      (T1        : Entity_Id;
       T2        : Entity_Id;
-      Fixed_Int : Boolean := False)
-      return      Boolean
+      Fixed_Int : Boolean := False) return Boolean
    is
       L1 : Node_Id;
       H1 : Node_Id;
@@ -3219,8 +3265,7 @@ package body Sem_Eval is
      (N         : Node_Id;
       Typ       : Entity_Id;
       Fixed_Int : Boolean := False;
-      Int_Real  : Boolean := False)
-      return      Boolean
+      Int_Real  : Boolean := False) return Boolean
    is
       Val  : Uint;
       Valr : Ureal;
@@ -3400,8 +3445,7 @@ package body Sem_Eval is
      (N         : Node_Id;
       Typ       : Entity_Id;
       Fixed_Int : Boolean := False;
-      Int_Real  : Boolean := False)
-      return      Boolean
+      Int_Real  : Boolean := False) return Boolean
    is
       Val  : Uint;
       Valr : Ureal;
@@ -3691,9 +3735,8 @@ package body Sem_Eval is
    ------------------------------------
 
    function Subtypes_Statically_Compatible
-     (T1   : Entity_Id;
-      T2   : Entity_Id)
-      return Boolean
+     (T1 : Entity_Id;
+      T2 : Entity_Id) return Boolean
    is
    begin
       if Is_Scalar_Type (T1) then
@@ -3883,8 +3926,34 @@ package body Sem_Eval is
       --  Type with discriminants
 
       elsif Has_Discriminants (T1) or else Has_Discriminants (T2) then
+
+         --  Because of view exchanges in multiple instantiations, conformance
+         --  checking might try to match a partial view of a type with no
+         --  discriminants with a full view that has defaulted discriminants.
+         --  In such a case, use the discriminant constraint of the full view,
+         --  which must exist because we know that the two subtypes have the
+         --  same base type.
+
          if Has_Discriminants (T1) /= Has_Discriminants (T2) then
-            return False;
+            if In_Instance then
+               if Is_Private_Type (T2)
+                 and then Present (Full_View (T2))
+                 and then Has_Discriminants (Full_View (T2))
+               then
+                  return Subtypes_Statically_Match (T1, Full_View (T2));
+
+               elsif Is_Private_Type (T1)
+                 and then Present (Full_View (T1))
+                 and then Has_Discriminants (Full_View (T1))
+               then
+                  return Subtypes_Statically_Match (Full_View (T1), T2);
+
+               else
+                  return False;
+               end if;
+            else
+               return False;
+            end if;
          end if;
 
          declare

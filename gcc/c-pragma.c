@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,10 +34,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "output.h"
 #include "tm_p.h"
+#include "vec.h"
 #include "target.h"
 
-#define GCC_BAD(msgid) do { warning (msgid); return; } while (0)
-#define GCC_BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
+#define GCC_BAD(gmsgid) \
+  do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
+#define GCC_BAD2(gmsgid, arg) \
+  do { warning (OPT_Wpragmas, gmsgid, arg); return; } while (0)
 
 typedef struct align_stack GTY(())
 {
@@ -108,7 +111,7 @@ pop_alignment (tree id)
 	    break;
 	  }
       if (entry == NULL)
-	warning ("\
+	warning (OPT_Wpragmas, "\
 #pragma pack(pop, %s) encountered without matching #pragma pack(push, %s)"
 		 , IDENTIFIER_POINTER (id), IDENTIFIER_POINTER (id));
     }
@@ -201,7 +204,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     GCC_BAD ("malformed %<#pragma pack%> - ignored");
 
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of %<#pragma pack%>");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma pack%>");
 
   if (flag_pack_struct)
     GCC_BAD ("#pragma pack has no effect with -fpack-struct - ignored");
@@ -257,8 +260,8 @@ apply_pragma_weak (tree decl, tree value)
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
       && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning ("%Japplying #pragma weak %qD after first use results "
-             "in unspecified behavior", decl, decl);
+    warning (OPT_Wpragmas, "applying #pragma weak %q+D after first use "
+             "results in unspecified behavior", decl);
 
   declare_weak (decl);
 }
@@ -340,7 +343,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       t = c_lex (&x);
     }
   if (t != CPP_EOF)
-    warning ("junk at end of #pragma weak");
+    warning (OPT_Wpragmas, "junk at end of #pragma weak");
 
   decl = identifier_global_value (name);
   if (decl && DECL_P (decl))
@@ -413,12 +416,13 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
     GCC_BAD ("malformed #pragma redefine_extname, ignored");
   t = c_lex (&x);
   if (t != CPP_EOF)
-    warning ("junk at end of #pragma redefine_extname");
+    warning (OPT_Wpragmas, "junk at end of #pragma redefine_extname");
 
   if (!flag_mudflap && !targetm.handle_pragma_redefine_extname)
     {
       if (warn_unknown_pragmas > in_system_header)
-	warning ("#pragma redefine_extname not supported on this target");
+	warning (OPT_Wunknown_pragmas,
+		 "#pragma redefine_extname not supported on this target");
       return;
     }
 
@@ -435,8 +439,8 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
 	  name = targetm.strip_name_encoding (name);
 
 	  if (strcmp (name, IDENTIFIER_POINTER (newname)))
-	    warning ("#pragma redefine_extname ignored due to conflict with "
-		     "previous rename");
+	    warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
+		     "conflict with previous rename");
 	}
       else
 	change_decl_assembler_name (decl, newname);
@@ -458,8 +462,8 @@ add_to_renaming_pragma_list (tree oldname, tree newname)
   if (previous)
     {
       if (TREE_VALUE (previous) != newname)
-	warning ("#pragma redefine_extname ignored due to conflict with "
-		 "previous #pragma redefine_extname");
+	warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
+		 "conflict with previous #pragma redefine_extname");
       return;
     }
   
@@ -480,13 +484,14 @@ handle_pragma_extern_prefix (cpp_reader * ARG_UNUSED (dummy))
     GCC_BAD ("malformed #pragma extern_prefix, ignored");
   t = c_lex (&x);
   if (t != CPP_EOF)
-    warning ("junk at end of #pragma extern_prefix");
+    warning (OPT_Wpragmas, "junk at end of #pragma extern_prefix");
 
   if (targetm.handle_pragma_extern_prefix)
     /* Note that the length includes the null terminator.  */
     pragma_extern_prefix = (TREE_STRING_LENGTH (prefix) > 1 ? prefix : NULL);
   else if (warn_unknown_pragmas > in_system_header)
-    warning ("#pragma extern_prefix not supported on this target");
+    warning (OPT_Wunknown_pragmas,
+	     "#pragma extern_prefix not supported on this target");
 }
 
 /* Hook from the front ends to apply the results of one of the preceding
@@ -512,7 +517,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
       oldname = targetm.strip_name_encoding (oldname);
 
       if (asmname && strcmp (TREE_STRING_POINTER (asmname), oldname))
-	  warning ("asm declaration ignored due to "
+	  warning (OPT_Wpragmas, "asm declaration ignored due to "
 		   "conflict with previous rename");
 
       /* Take any pending redefine_extname off the list.  */
@@ -521,7 +526,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 	  {
 	    /* Only warn if there is a conflict.  */
 	    if (strcmp (IDENTIFIER_POINTER (TREE_VALUE (t)), oldname))
-	      warning ("#pragma redefine_extname ignored due to "
+	      warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
 		       "conflict with previous rename");
 
 	    *p = TREE_CHAIN (t);
@@ -543,7 +548,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 	  {
 	    if (strcmp (TREE_STRING_POINTER (asmname),
 			IDENTIFIER_POINTER (newname)) != 0)
-	      warning ("#pragma redefine_extname ignored due to "
+	      warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
 		       "conflict with __asm__ declaration");
 	    return asmname;
 	  }
@@ -583,15 +588,20 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 #ifdef HANDLE_PRAGMA_VISIBILITY
 static void handle_pragma_visibility (cpp_reader *);
 
+typedef enum symbol_visibility visibility;
+DEF_VEC_I (visibility);
+DEF_VEC_ALLOC_I (visibility, heap);
+
 /* Sets the default visibility for symbols to something other than that
    specified on the command line.  */
 static void
 handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
-{ /* Form is #pragma GCC visibility push(hidden)|pop */
-  static int visstack [16], visidx;
+{
+  /* Form is #pragma GCC visibility push(hidden)|pop */
   tree x;
   enum cpp_ttype token;
   enum { bad, push, pop } action = bad;
+  static VEC (visibility, heap) *visstack;
  
   token = c_lex (&x);
   if (token == CPP_NAME)
@@ -608,14 +618,15 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
     {
       if (pop == action)
         {
-          if (!visidx)
+          if (!VEC_length (visibility, visstack))
             {
-              GCC_BAD ("No matching push for %<#pragma GCC visibility pop%>");
+              GCC_BAD ("no matching push for %<#pragma GCC visibility pop%>");
             }
           else
             {
-              default_visibility = visstack[--visidx];
-              visibility_options.inpragma = (visidx>0);
+	      default_visibility = VEC_pop (visibility, visstack);
+	      visibility_options.inpragma
+		= VEC_length (visibility, visstack) != 0;
             }
         }
       else
@@ -627,14 +638,11 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
             {
               GCC_BAD ("malformed #pragma GCC visibility push");
             }
-          else if (visidx >= 16)
-            {
-              GCC_BAD ("No more than sixteen #pragma GCC visibility pushes allowed at once");
-            }
           else
             {
               const char *str = IDENTIFIER_POINTER (x);
-              visstack[visidx++] = default_visibility;
+	      VEC_safe_push (visibility, heap, visstack,
+			     default_visibility);
               if (!strcmp (str, "default"))
                 default_visibility = VISIBILITY_DEFAULT;
               else if (!strcmp (str, "internal"))
@@ -654,7 +662,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
         }
     }
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of %<#pragma GCC visibility%>");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma GCC visibility%>");
 }
 
 #endif

@@ -1,5 +1,5 @@
-/* Generic implementation of the RESHAPE intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+/* Generic implementation of the UNPACK intrinsic
+   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,17 +34,15 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
-extern void unpack1 (const gfc_array_char *, const gfc_array_char *,
-		     const gfc_array_l4 *, const gfc_array_char *);
-iexport_proto(unpack1);
-
-void
-unpack1 (const gfc_array_char *ret, const gfc_array_char *vector,
-	 const gfc_array_l4 *mask, const gfc_array_char *field)
+static void
+unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
+		 const gfc_array_l4 *mask, const gfc_array_char *field,
+		 index_type size, index_type fsize)
 {
   /* r.* indicates the return array.  */
   index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
+  index_type rs;
   char *rptr;
   /* v.* indicates the vector array.  */
   index_type vstride0;
@@ -62,23 +60,42 @@ unpack1 (const gfc_array_char *ret, const gfc_array_char *vector,
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type n;
   index_type dim;
-  index_type size;
-  index_type fsize;
 
-  size = GFC_DESCRIPTOR_SIZE (ret);
-  /* A field element size of 0 actually means this is a scalar.  */
-  fsize = GFC_DESCRIPTOR_SIZE (field);
-  dim = GFC_DESCRIPTOR_RANK (ret);
-  for (n = 0; n < dim; n++)
+  if (ret->data == NULL)
     {
-      count[n] = 0;
-      extent[n] = ret->dim[n].ubound + 1 - ret->dim[n].lbound;
-      rstride[n] = ret->dim[n].stride * size;
-      fstride[n] = field->dim[n].stride * fsize;
-      mstride[n] = mask->dim[n].stride;
+      /* The front end has signalled that we need to populate the
+	 return array descriptor.  */
+      dim = GFC_DESCRIPTOR_RANK (mask);
+      rs = 1;
+      for (n = 0; n < dim; n++)
+	{
+	  count[n] = 0;
+	  ret->dim[n].stride = rs;
+	  ret->dim[n].lbound = 0;
+	  ret->dim[n].ubound = mask->dim[n].ubound - mask->dim[n].lbound;
+	  extent[n] = ret->dim[n].ubound + 1;
+	  rstride[n] = ret->dim[n].stride * size;
+	  fstride[n] = field->dim[n].stride * fsize;
+	  mstride[n] = mask->dim[n].stride;
+	  rs *= extent[n];
+	}
+      ret->offset = 0;
+      ret->data = internal_malloc_size (rs * size);
     }
-  if (rstride[0] == 0)
-    rstride[0] = size;
+  else
+    {
+      dim = GFC_DESCRIPTOR_RANK (ret);
+      for (n = 0; n < dim; n++)
+	{
+	  count[n] = 0;
+	  extent[n] = ret->dim[n].ubound + 1 - ret->dim[n].lbound;
+	  rstride[n] = ret->dim[n].stride * size;
+	  fstride[n] = field->dim[n].stride * fsize;
+	  mstride[n] = mask->dim[n].stride;
+	}
+      if (rstride[0] == 0)
+	rstride[0] = size;
+    }
   if (fstride[0] == 0)
     fstride[0] = fsize;
   if (mstride[0] == 0)
@@ -152,19 +169,66 @@ unpack1 (const gfc_array_char *ret, const gfc_array_char *vector,
         }
     }
 }
-iexport(unpack1);
 
-extern void unpack0 (const gfc_array_char *, const gfc_array_char *,
+extern void unpack1 (gfc_array_char *, const gfc_array_char *,
+		     const gfc_array_l4 *, const gfc_array_char *);
+export_proto(unpack1);
+
+void
+unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
+	 const gfc_array_l4 *mask, const gfc_array_char *field)
+{
+  unpack_internal (ret, vector, mask, field,
+		   GFC_DESCRIPTOR_SIZE (vector),
+		   GFC_DESCRIPTOR_SIZE (field));
+}
+
+extern void unpack1_char (gfc_array_char *, GFC_INTEGER_4,
+			  const gfc_array_char *, const gfc_array_l4 *,
+			  const gfc_array_char *, GFC_INTEGER_4,
+			  GFC_INTEGER_4);
+export_proto(unpack1_char);
+
+void
+unpack1_char (gfc_array_char *ret,
+	      GFC_INTEGER_4 ret_length __attribute__((unused)),
+	      const gfc_array_char *vector, const gfc_array_l4 *mask,
+	      const gfc_array_char *field, GFC_INTEGER_4 vector_length,
+	      GFC_INTEGER_4 field_length)
+{
+  unpack_internal (ret, vector, mask, field, vector_length, field_length);
+}
+
+extern void unpack0 (gfc_array_char *, const gfc_array_char *,
 		     const gfc_array_l4 *, char *);
 export_proto(unpack0);
 
 void
-unpack0 (const gfc_array_char *ret, const gfc_array_char *vector,
+unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 	 const gfc_array_l4 *mask, char *field)
 {
   gfc_array_char tmp;
 
   tmp.dtype = 0;
   tmp.data = field;
-  unpack1 (ret, vector, mask, &tmp);
+  unpack_internal (ret, vector, mask, &tmp, GFC_DESCRIPTOR_SIZE (vector), 0);
+}
+
+extern void unpack0_char (gfc_array_char *, GFC_INTEGER_4,
+			  const gfc_array_char *, const gfc_array_l4 *,
+			  char *, GFC_INTEGER_4, GFC_INTEGER_4);
+export_proto(unpack0_char);
+
+void
+unpack0_char (gfc_array_char *ret,
+	      GFC_INTEGER_4 ret_length __attribute__((unused)),
+	      const gfc_array_char *vector, const gfc_array_l4 *mask,
+	      char *field, GFC_INTEGER_4 vector_length,
+	      GFC_INTEGER_4 field_length __attribute__((unused)))
+{
+  gfc_array_char tmp;
+
+  tmp.dtype = 0;
+  tmp.data = field;
+  unpack_internal (ret, vector, mask, &tmp, vector_length, 0);
 }

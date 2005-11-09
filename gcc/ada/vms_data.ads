@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1800,6 +1800,8 @@ package VMS_Data is
                                                "-gnatyb "                  &
                                             "COMMENTS "                    &
                                                "-gnatyc "                  &
+                                            "DOS_LINE_ENDINGS "            &
+                                               "-gnatyd "                  &
                                             "END "                         &
                                                "-gnatye "                  &
                                             "VTABS "                       &
@@ -1822,8 +1824,6 @@ package VMS_Data is
                                                "-gnatyn "                  &
                                             "ORDERED_SUBPROGRAMS "         &
                                                "-gnatyo "                  &
-                                            "NONE "                        &
-                                               "!-gnatg,!-gnaty* "         &
                                             "PRAGMA "                      &
                                                "-gnatyp "                  &
                                             "REFERENCES "                  &
@@ -1832,6 +1832,8 @@ package VMS_Data is
                                                "-gnatys "                  &
                                             "TOKEN "                       &
                                                "-gnatyt "                  &
+                                            "UNNECESSARY_BLANK_LINES "     &
+                                               "-gnatyu "                  &
                                             "XTRA_PARENS "                 &
                                                "-gnatyx ";
    --        /NOSTYLE_CHECKS (D)
@@ -1914,6 +1916,11 @@ package VMS_Data is
    --                               ---------------------------
    --                               -- This is a box comment --
    --                               ---------------------------
+   --
+   --      DOS_LINE_ENDINGS     Check that no DOS line terminators are present
+   --                           All lines must be terminated by a single
+   --                           ASCII.LF character. In particular the DOS line
+   --                           terminator sequence CR / LF is not allowed).
    --
    --      END                  Check end/exit labels.
    --                           Optional labels on end statements ending
@@ -2044,8 +2051,6 @@ package VMS_Data is
    --                           in the ordering (e.g. Junk2 comes before
    --                           Junk10).
    --
-   --      NONE                 The default behavior.  Same as /NOSTYLE_CHECKS.
-   --
    --      PRAGMA               Check pragma casing.
    --                           Pragma names must be written in mixed case,
    --                           that is, the initial letter and any letter
@@ -2058,15 +2063,6 @@ package VMS_Data is
    --                           No specific casing style is imposed on
    --                           identifiers. The only requirement is for
    --                           consistency of references with declarations.
-   --
-   --      RM_COLUMN_LAYOUT     Enforce the layout conventions suggested by
-   --                           the examples and syntax rules of the Ada
-   --                           Language Reference Manual. For example, an
-   --                           "else" must line up with an "if" and code in
-   --                           the "then" and "else" parts must be indented.
-   --                           The compiler considers violations of the
-   --                           layout rules a syntax error if you specify
-   --                           this keyword.
    --
    --      SPECS                Check separate specs.
    --                           Separate declarations ("specs") are required
@@ -2138,9 +2134,20 @@ package VMS_Data is
    --                           or as meeting a requirement for no following
    --                           space.
    --
+   --      UNNECESSARY_BLANK_LINES
+   --                           Check for unnecessary blank lines.
+   --                           A blank line is considered unnecessary if it
+   --                           appears at the end of the file, or if more
+   --                           than one blank line occurs in sequence.
+   --
    --      VTABS                No form feeds or vertical tabs.
    --                           Form feeds or vertical tab characters are not
    --                           permitted in the source text.
+   --
+   --      XTRA_PARENS          Check for the use of an unnecessary extra
+   --                           level of parentheses (C - style) around
+   --                           conditions in if statements, while statements
+   --                           and exit statements.
 
    S_GCC_StyleX  : aliased constant S := "/NOSTYLE_CHECKS "                &
                                             "!-gnatg,!-gnaty*";
@@ -2357,6 +2364,10 @@ package VMS_Data is
                                                "-gnatwA "                  &
                                             "ALL_GCC "                     &
                                                "-Wall "                    &
+                                            "BAD_FIXED_VALUES "            &
+                                               "-gnatwb "                  &
+                                            "NO_BAD_FIXED_VALUES "         &
+                                               "-gnatwB "                  &
                                             "CONDITIONALS "                &
                                                "-gnatwc "                  &
                                             "NOCONDITIONALS "              &
@@ -2433,6 +2444,10 @@ package VMS_Data is
                                                "-gnatwx "                  &
                                             "NOIMPORT_EXPORT_PRAGMAS "     &
                                                "-gnatwX "                  &
+                                            "ADA_2005_COMPATIBILITY "      &
+                                               "-gnatwy "                  &
+                                            "NOADA_2005_COMPATIBILITY "    &
+                                               "-gnatwY "                  &
                                             "UNCHECKED_CONVERSIONS "       &
                                                "-gnatwz "                  &
                                             "NOUNCHECKED_CONVERSIONS "     &
@@ -3192,40 +3207,6 @@ package VMS_Data is
    Krunch_Switches : aliased constant Switches  :=
      (1 .. 1 => S_Krunch_Count  'Access);
 
-   -------------------------------
-   -- Switches for GNAT LIBRARY --
-   -------------------------------
-
-   S_Lbr_Config    : aliased constant S := "/CONFIG=@"                     &
-                                            "--config=@";
-   --        /CONFIG=file
-   --
-   --   File containing configuration pragmas.
-
-   S_Lbr_Create    : aliased constant S := "/CREATE=%"                     &
-                                            "--create=%";
-   --        /CREATE=directory
-   --
-   --   Directory to create and build alternate library in.
-
-   S_Lbr_Delete    : aliased constant S := "/DELETE=%"                     &
-                                            "--delete=%";
-   --        /DELETE=directory
-   --
-   --   Directory containing alternate library to be deleted.
-
-   S_Lbr_Set       : aliased constant S := "/SET=%"                        &
-                                            "--set=%";
-   --        /SET=directory
-   --
-   --   Directory containing alternate library to be made the current library.
-
-   Lbr_Switches : aliased constant Switches  :=
-     (S_Lbr_Config 'Access,
-      S_Lbr_Create 'Access,
-      S_Lbr_Delete 'Access,
-      S_Lbr_Set    'Access);
-
    ----------------------------
    -- Switches for GNAT LINK --
    ----------------------------
@@ -3644,7 +3625,7 @@ package VMS_Data is
    --
    --   Implies /Unique.
    --   When used without project files, it is equivalent to /UNIQUE.
-   --   When used with a project file wit no main (neither on the command
+   --   When used with a project file with no main (neither on the command
    --   line nor in the attribute Main) check every source of every project,
    --   recompile all sources that are not up to date and rebuild libraries
    --   if necessary.
@@ -4068,6 +4049,14 @@ package VMS_Data is
    -- Switches for GNAT METRIC --
    ------------------------------
 
+   S_Metric_All_Prjs : aliased constant S := "/ALL_PROJECTS "              &
+                                               "-U";
+   --        /NOALL_PROJECTS (D)
+   --        /ALL_PROJECTS
+   --   When GNAT METRIC is used with a Project File and no source is
+   --   specified, the underlying tool gnatmetric is called for all the
+   --   sources of all the Project Files in the project tree.
+
    S_Metric_Debug    : aliased constant S := "/DEBUG_OUTPUT "               &
                                              "-dv";
    --      /DEBUG_OUTPUT
@@ -4288,7 +4277,8 @@ package VMS_Data is
    --   Place the XML output into the specified file
 
    Metric_Switches : aliased constant Switches :=
-     (S_Metric_Debug    'Access,
+     (S_Metric_All_Prjs 'Access,
+      S_Metric_Debug    'Access,
       S_Metric_Direct   'Access,
       S_Metric_Element  'Access,
       S_Metric_Ext      'Access,
@@ -4523,6 +4513,14 @@ package VMS_Data is
    --   Specifying one of the ON options without first specifying the OFF
    --   option has no effect, because by default all alignments are set to ON.
 
+   S_Pretty_All_Prjs : aliased constant S := "/ALL_PROJECTS "             &
+                                              "-U";
+   --        /NOALL_PROJECTS (D)
+   --        /ALL_PROJECTS
+   --   When GNAT PRETTY is used with a Project File and no source is
+   --   specified, the underlying tool gnatpp is called for all the
+   --   sources of all the Project Files in the project tree.
+
    S_Pretty_Attrib : aliased constant S := "/ATTRIBUTE_CASING="            &
                                            "MIXED_CASE "                   &
                                                "-aM "                      &
@@ -4663,6 +4661,31 @@ package VMS_Data is
    --   The default value is one less then the (normal) indentation level,
    --   unless the indentation is set to 1: in that case the default value for
    --   continuation line indentation is also 1.
+
+   S_Pretty_Compact_Is : aliased constant S := "/NO_SEPARATE_IS "          &
+                                                 "--no-separate-is";
+   --        /NO_SEPARATE_IS
+   --
+   --   Do not place the IS keyword on a separate line in a subprogram body in
+   --   case if the specification occupies more then one line.
+
+   S_Pretty_Eol       : aliased constant S := "/END_OF_LINE="              &
+                                                "DOS "                     &
+                                                   "--eol=dos "            &
+                                                "UNIX "                    &
+                                                   "--eol=unix "           &
+                                                "CRLF "                    &
+                                                   "--eol=crlf "           &
+                                                "LF "                      &
+                                                   "--eol=lf";
+   --        /END_OF_LINE=[option]
+   --
+   --   Specifies the form of the line terminators in the produced source.
+   --   By default, the form of the line terminator depends on the platforms.
+   --   On Unix and VMS, it is a Line Feed (LF) chararcter. On Windows (DOS),
+   --   It is a Carriage Return (CR) followed by a Line Feed.
+   --   The Options DOS and CRLF are equivalent. The options UNIX and LF are
+   --   also equivalent.
 
    S_Pretty_Ext       : aliased constant S := "/EXTERNAL_REFERENCE=" & '"' &
                                             "-X" & '"';
@@ -4920,14 +4943,17 @@ package VMS_Data is
 
    Pretty_Switches : aliased constant Switches :=
      (S_Pretty_Align     'Access,
+      S_Pretty_All_Prjs  'Access,
       S_Pretty_Attrib    'Access,
       S_Pretty_Comments  'Access,
+      S_Pretty_Compact_Is'Access,
       S_Pretty_Config    'Access,
       S_Pretty_Constr    'Access,
       S_Pretty_Comind    'Access,
-      S_Pretty_Ext       'Access,
       S_Pretty_Current   'Access,
       S_Pretty_Dico      'Access,
+      S_Pretty_Eol       'Access,
+      S_Pretty_Ext       'Access,
       S_Pretty_Files     'Access,
       S_Pretty_Forced    'Access,
       S_Pretty_Formfeed  'Access,

@@ -2,11 +2,12 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---              ADA.CONTAINERS.INDEFINITE_DOUBLY_LINKED_LISTS               --
+--                      A D A . C O N T A I N E R S .                       --
+--        I N D E F I N I T E _ D O U B L Y _ L I N K E D _ L I S T S       --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2004 Free Software Foundation, Inc.            --
+--          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -20,8 +21,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -37,14 +38,13 @@ with Ada.Finalization;
 with Ada.Streams;
 
 generic
-
    type Element_Type (<>) is private;
 
    with function "=" (Left, Right : Element_Type)
       return Boolean is <>;
 
 package Ada.Containers.Indefinite_Doubly_Linked_Lists is
-   pragma Preelaborate (Indefinite_Doubly_Linked_Lists);
+   pragma Preelaborate;
 
    type List is tagged private;
 
@@ -118,16 +118,16 @@ package Ada.Containers.Indefinite_Doubly_Linked_Lists is
       Count     : Count_Type := 1);
 
    generic
-      with function "<" (Left, Right : Element_Type)
-         return Boolean is <>;
-   procedure Generic_Sort (Container : in out List);
+      with function "<" (Left, Right : Element_Type) return Boolean is <>;
+   package Generic_Sorting is
 
-   generic
-      with function "<" (Left, Right : Element_Type)
-         return Boolean is <>;
-   procedure Generic_Merge
-     (Target : in out List;
-      Source : in out List);
+      function Is_Sorted (Container : List) return Boolean;
+
+      procedure Sort (Container : in out List);
+
+      procedure Merge (Target, Source : in out List);
+
+   end Generic_Sorting;
 
    procedure Reverse_List (Container : in out List);
 
@@ -149,7 +149,7 @@ package Ada.Containers.Indefinite_Doubly_Linked_Lists is
      (Target   : in out List;
       Before   : Cursor;
       Source   : in out List;
-      Position : Cursor);
+      Position : in out Cursor);
 
    function First (Container : List) return Cursor;
 
@@ -198,13 +198,11 @@ private
    type Element_Access is access Element_Type;
 
    type Node_Type is
-      record
+      limited record
          Element : Element_Access;
          Next    : Node_Access;
          Prev    : Node_Access;
       end record;
-
-   function "=" (L, R : Node_Type) return Boolean is abstract;
 
    use Ada.Finalization;
 
@@ -213,6 +211,8 @@ private
         First  : Node_Access;
         Last   : Node_Access;
         Length : Count_Type := 0;
+        Busy   : Natural := 0;
+        Lock   : Natural := 0;
      end record;
 
    procedure Adjust (Container : in out List);
@@ -233,7 +233,7 @@ private
 
    for List'Write use Write;
 
-   Empty_List : constant List := List'(Controlled with null, null, 0);
+   Empty_List : constant List := List'(Controlled with null, null, 0, 0, 0);
 
    type List_Access is access constant List;
    for List_Access'Storage_Size use 0;
@@ -247,5 +247,3 @@ private
    No_Element : constant Cursor := Cursor'(null, null);
 
 end Ada.Containers.Indefinite_Doubly_Linked_Lists;
-
-

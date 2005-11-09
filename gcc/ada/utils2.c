@@ -16,8 +16,8 @@
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
  * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, *
- * MA 02111-1307, USA.                                                      *
+ * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
+ * Boston, MA 02110-1301, USA.                                              *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -176,7 +176,7 @@ known_alignment (tree exp)
     case PLUS_EXPR:
     case MINUS_EXPR:
       /* If two address are added, the alignment of the result is the
-	 minimum of the two aligments.  */
+	 minimum of the two alignments.  */
       lhs = known_alignment (TREE_OPERAND (exp, 0));
       rhs = known_alignment (TREE_OPERAND (exp, 1));
       this_alignment = MIN (lhs, rhs);
@@ -263,13 +263,15 @@ contains_save_expr_p (tree exp)
       return contains_save_expr_p (TREE_OPERAND (exp, 0));
 
     case CONSTRUCTOR:
-      return (CONSTRUCTOR_ELTS (exp)
-	      && contains_save_expr_p (CONSTRUCTOR_ELTS (exp)));
+      {
+	tree value;
+	unsigned HOST_WIDE_INT ix;
 
-    case TREE_LIST:
-      return (contains_save_expr_p (TREE_VALUE (exp))
-	      || (TREE_CHAIN (exp)
-		  && contains_save_expr_p (TREE_CHAIN (exp))));
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), ix, value)
+	  if (contains_save_expr_p (value))
+	    return true;
+	return false;
+      }
 
     default:
       return false;
@@ -504,7 +506,7 @@ nonbinary_modular_operation (enum tree_code op_code, tree type, tree lhs,
     rhs = fold (build2 (MINUS_EXPR, type, modulus, rhs)), op_code = MINUS_EXPR;
 
   /* For the logical operations, we only need PRECISION bits.  For
-     addition and subraction, we need one more and for multiplication we
+     addition and subtraction, we need one more and for multiplication we
      need twice as many.  But we never want to make a size smaller than
      our size. */
   if (op_code == PLUS_EXPR || op_code == MINUS_EXPR)
@@ -679,9 +681,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 		 || (TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		     == ARRAY_TYPE))
 	     && (0 == (best_type
-		       == find_common_type (right_type,
-					    TREE_TYPE (TREE_OPERAND
-						       (right_operand, 0))))
+		       = find_common_type (right_type,
+					   TREE_TYPE (TREE_OPERAND
+					   (right_operand, 0))))
 		 || right_type != best_type))
 	{
 	  right_operand = TREE_OPERAND (right_operand, 0);
@@ -884,8 +886,9 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	 just compare the data pointer.  */
       else if (TYPE_FAT_POINTER_P (left_base_type)
 	       && TREE_CODE (right_operand) == CONSTRUCTOR
-	       && integer_zerop (TREE_VALUE
-				 (CONSTRUCTOR_ELTS (right_operand))))
+	       && integer_zerop (VEC_index (constructor_elt,
+					    CONSTRUCTOR_ELTS (right_operand),
+					    0)->value))
 	{
 	  right_operand = build_component_ref (left_operand, NULL_TREE,
 					       TYPE_FIELDS (left_base_type),
@@ -1138,9 +1141,11 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	     a pointer to our type.  */
 	  if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
 	    {
+	      result = VEC_index (constructor_elt,
+				  CONSTRUCTOR_ELTS (operand),
+				  0)->value;
 	      result
-		= build_unary_op (ADDR_EXPR, NULL_TREE,
-				  TREE_VALUE (CONSTRUCTOR_ELTS (operand)));
+		= build_unary_op (ADDR_EXPR, NULL_TREE, result);
 	      result = convert (build_pointer_type (TREE_TYPE (operand)),
 				result);
 	      break;
@@ -1373,8 +1378,50 @@ build_cond_expr (tree result_type, tree condition_operand,
 
   return result;
 }
-
 
+/* Similar, but for RETURN_EXPR.  If RESULT_DECL is non-zero, build
+   a RETURN_EXPR around the assignment of RET_VAL to RESULT_DECL.
+   If RESULT_DECL is zero, build a bare RETURN_EXPR.  */
+
+tree
+build_return_expr (tree result_decl, tree ret_val)
+{
+  tree result_expr;
+
+  if (result_decl)
+    {
+      /* The gimplifier explicitly enforces the following invariant:
+
+           RETURN_EXPR
+               |
+           MODIFY_EXPR
+           /        \
+          /          \
+      RESULT_DECL    ...
+
+      As a consequence, type-homogeneity dictates that we use the type
+      of the RESULT_DECL as the operation type.  */
+
+      tree operation_type = TREE_TYPE (result_decl);
+
+      /* Convert the right operand to the operation type.  Note that
+         it's the same transformation as in the MODIFY_EXPR case of
+         build_binary_op with the additional guarantee that the type
+         cannot involve a placeholder, since otherwise the function
+         would use the "target pointer" return mechanism.  */
+       
+      if (operation_type != TREE_TYPE (ret_val))
+	ret_val = convert (operation_type, ret_val);
+
+      result_expr
+	= build2 (MODIFY_EXPR, operation_type, result_decl, ret_val);
+    }
+  else
+    result_expr = NULL_TREE;
+
+  return build1 (RETURN_EXPR, void_type_node, result_expr);
+}
+
 /* Build a CALL_EXPR to call FUNDECL with one argument, ARG.  Return
    the CALL_EXPR.  */
 
@@ -1430,7 +1477,8 @@ tree
 build_call_raise (int msg)
 {
   tree fndecl = gnat_raise_decls[msg];
-  const char *str = Debug_Flag_NN ? "" : ref_filename;
+  const char *str
+    = (Debug_Flag_NN || Exception_Locations_Suppressed) ? "" : ref_filename;
   int len = strlen (str) + 1;
   tree filename = build_string (len, str);
 
@@ -1500,7 +1548,7 @@ gnat_build_constructor (tree type, tree list)
 	}
     }
 
-  result = build_constructor (type, list);
+  result = build_constructor_from_list (type, list);
   TREE_CONSTANT (result) = TREE_INVARIANT (result)
     = TREE_STATIC (result) = allconstant;
   TREE_SIDE_EFFECTS (result) = side_effects;
@@ -1751,11 +1799,15 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
    initial value is INIT, if INIT is nonzero.  Convert the expression to
    RESULT_TYPE, which must be some type of pointer.  Return the tree.
    GNAT_PROC and GNAT_POOL optionally give the procedure to call and
-   the storage pool to use.  */
+   the storage pool to use.  GNAT_NODE is used to provide an error
+   location for restriction violations messages.  If IGNORE_INIT_TYPE is
+   true, ignore the type of INIT for the purpose of determining the size;
+   this will cause the maximum size to be allocated if TYPE is of
+   self-referential size.  */
 
 tree
 build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
-                 Entity_Id gnat_pool, Node_Id gnat_node)
+                 Entity_Id gnat_pool, Node_Id gnat_node, bool ignore_init_type)
 {
   tree size = TYPE_SIZE_UNIT (type);
   tree result;
@@ -1839,7 +1891,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 
   /* If we have an initializing expression, see if its size is simpler
      than the size from the type.  */
-  if (init && TYPE_SIZE_UNIT (TREE_TYPE (init))
+  if (!ignore_init_type && init && TYPE_SIZE_UNIT (TREE_TYPE (init))
       && (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (init))) == INTEGER_CST
 	  || CONTAINS_PLACEHOLDER_P (size)))
     size = TYPE_SIZE_UNIT (TREE_TYPE (init));
@@ -1850,7 +1902,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
      the maximum size.  */
   if (CONTAINS_PLACEHOLDER_P (size))
     {
-      if (init)
+      if (!ignore_init_type && init)
 	size = substitute_placeholder_in_expr (size, init);
       else
 	size = max_size (size, true);

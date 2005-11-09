@@ -1,6 +1,6 @@
 // Bitmap Allocator. -*- C++ -*-
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -401,8 +401,8 @@ namespace __gnu_cxx
 
     enum 
       { 
-	bits_per_byte = 8, 
-	bits_per_block = sizeof(size_t) * bits_per_byte 
+	bits_per_byte = 8,
+	bits_per_block = sizeof(size_t) * size_t(bits_per_byte) 
       };
 
     template<typename _ForwardIterator, typename _Tp, typename _Compare>
@@ -459,7 +459,7 @@ namespace __gnu_cxx
     template<typename _AddrPair>
       inline size_t
       __num_bitmaps(_AddrPair __ap)
-      { return __num_blocks(__ap) / bits_per_block; }
+      { return __num_blocks(__ap) / size_t(bits_per_block); }
 
     // _Tp should be a pointer type.
     template<typename _Tp>
@@ -570,7 +570,7 @@ namespace __gnu_cxx
 
 	_Counter_type
 	_M_offset() const throw()
-	{ return _M_data_offset * bits_per_block; }
+	{ return _M_data_offset * size_t(bits_per_block); }
       };
 
 
@@ -620,7 +620,7 @@ namespace __gnu_cxx
 	  _M_last_bmap_in_block = _M_curr_bmap
 	    - ((_M_vbp[_M_curr_index].second 
 		- _M_vbp[_M_curr_index].first + 1) 
-	       / bits_per_block - 1);
+	       / size_t(bits_per_block) - 1);
 	}
     
 	// Dangerous Function! Use with extreme care. Pass to this
@@ -660,7 +660,7 @@ namespace __gnu_cxx
 	_Index_type
 	_M_offset() const throw()
 	{
-	  return bits_per_block
+	  return size_t(bits_per_block)
 	    * ((reinterpret_cast<size_t*>(this->_M_base()) 
 		- _M_curr_bmap) - 1);
 	}
@@ -717,10 +717,21 @@ namespace __gnu_cxx
       { return *__pui < __cui; }
     };
 
-#if defined __GTHREADS 
-    static _Mutex _S_bfl_mutex;
+#if defined __GTHREADS
+    _Mutex*
+    _M_get_mutex()
+    {
+      static _Mutex _S_mutex;
+      return &_S_mutex;
+    }
 #endif
-    static vector_type _S_free_list;
+
+    vector_type&
+    _M_get_free_list()
+    {
+      static vector_type _S_free_list;
+      return _S_free_list;
+    }
 
     /** @brief  Performs validation of memory based on their size.
      *
@@ -735,12 +746,13 @@ namespace __gnu_cxx
     void
     _M_validate(size_t* __addr) throw()
     {
+      vector_type& __free_list = _M_get_free_list();
       const vector_type::size_type __max_size = 64;
-      if (_S_free_list.size() >= __max_size)
+      if (__free_list.size() >= __max_size)
 	{
 	  // Ok, the threshold value has been reached.  We determine
 	  // which block to remove from the list of free blocks.
-	  if (*__addr >= *_S_free_list.back())
+	  if (*__addr >= *__free_list.back())
 	    {
 	      // Ok, the new block is greater than or equal to the
 	      // last block in the list of free blocks. We just free
@@ -752,18 +764,18 @@ namespace __gnu_cxx
 	    {
 	      // Deallocate the last block in the list of free lists,
 	      // and insert the new one in it's correct position.
-	      ::operator delete(static_cast<void*>(_S_free_list.back()));
-	      _S_free_list.pop_back();
+	      ::operator delete(static_cast<void*>(__free_list.back()));
+	      __free_list.pop_back();
 	    }
 	}
 	  
       // Just add the block to the list of free lists unconditionally.
       iterator __temp = __gnu_cxx::balloc::__lower_bound
-	(_S_free_list.begin(), _S_free_list.end(), 
+	(__free_list.begin(), __free_list.end(), 
 	 *__addr, _LT_pointer_compare());
 
       // We may insert the new free list before _temp;
-      _S_free_list.insert(__temp, __addr);
+      __free_list.insert(__temp, __addr);
     }
 
     /** @brief  Decides whether the wastage of memory is acceptable for
@@ -801,7 +813,7 @@ namespace __gnu_cxx
     _M_insert(size_t* __addr) throw()
     {
 #if defined __GTHREADS
-      _Auto_Lock __bfl_lock(&_S_bfl_mutex);
+      _Auto_Lock __bfl_lock(_M_get_mutex());
 #endif
       // Call _M_validate to decide what should be done with
       // this particular free list.
@@ -926,7 +938,8 @@ namespace __gnu_cxx
 	_S_check_for_free_blocks();
 #endif
 
-	const size_t __num_bitmaps = _S_block_size / balloc::bits_per_block;
+	const size_t __num_bitmaps = (_S_block_size
+				      / size_t(balloc::bits_per_block));
 	const size_t __size_to_allocate = sizeof(size_t) 
 	  + _S_block_size * sizeof(_Alloc_block) 
 	  + __num_bitmaps * sizeof(size_t);
@@ -1124,11 +1137,12 @@ namespace __gnu_cxx
 	  }
 
 	// Get the position of the iterator that has been found.
-	const size_t __rotate = __displacement % balloc::bits_per_block;
+	const size_t __rotate = (__displacement
+				 % size_t(balloc::bits_per_block));
 	size_t* __bitmapC = 
 	  reinterpret_cast<size_t*>
 	  (_S_mem_blocks[__diff].first) - 1;
-	__bitmapC -= (__displacement / balloc::bits_per_block);
+	__bitmapC -= (__displacement / size_t(balloc::bits_per_block));
       
 	balloc::__bit_free(__bitmapC, __rotate);
 	size_t* __puse_count = reinterpret_cast<size_t*>
@@ -1255,7 +1269,7 @@ namespace __gnu_cxx
 
   template<typename _Tp>
     size_t bitmap_allocator<_Tp>::_S_block_size = 
-    2 * balloc::bits_per_block;
+    2 * size_t(balloc::bits_per_block);
 
   template<typename _Tp>
     typename __gnu_cxx::bitmap_allocator<_Tp>::_BPVector::size_type 

@@ -17,8 +17,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -680,7 +680,7 @@ public class SimpleDateFormat extends DateFormat
 		buffer.setDefaultAttribute (DateFormat.Field.YEAR);
 		if (cf.getSize() == 2)
 		  {
-		    temp = String.valueOf (calendar.get (Calendar.YEAR));
+		    temp = "00"+String.valueOf (calendar.get (Calendar.YEAR));
 		    buffer.append (temp.substring (temp.length() - 2));
 		  }
 		else
@@ -916,6 +916,8 @@ public class SimpleDateFormat extends DateFormat
 	    boolean is_numeric = true;
 	    int offset = 0;
 	    boolean maybe2DigitYear = false;
+	    boolean oneBasedHour = false;
+	    boolean oneBasedHourOfDay = false;
 	    Integer simpleOffset;
 	    String[] set1 = null;
 	    String[] set2 = null;
@@ -964,12 +966,14 @@ public class SimpleDateFormat extends DateFormat
 		break;
 	      case 'h':
 		calendar_field = Calendar.HOUR;
+		oneBasedHour = true;
 		break;
 	      case 'H':
 		calendar_field = Calendar.HOUR_OF_DAY;
 		break;
 	      case 'k':
 		calendar_field = Calendar.HOUR_OF_DAY;
+		oneBasedHourOfDay = true;
 		break;
 	      case 'm':
 		calendar_field = Calendar.MINUTE;
@@ -1107,6 +1111,14 @@ public class SimpleDateFormat extends DateFormat
 		    value += defaultCentury;
 		  }
 	      }
+	    
+	    // Calendar uses 0-based hours. 
+	    // I.e. 00:00 AM is midnight, not 12 AM or 24:00
+	    if (oneBasedHour && value == 12)
+	      value = 0;
+
+	    if (oneBasedHourOfDay && value == 24)
+	      value = 0;
 	    
 	    // Assign the value and move on.
 	    calendar.set(calendar_field, value);

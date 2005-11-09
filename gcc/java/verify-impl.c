@@ -26,29 +26,9 @@ details.  */
    verification. */
 #define INVALID_STATE ((state *) -1)
 
-#ifdef VERIFY_DEBUG
-static void
-debug_print (const char *fmt, ...)
-{
-  va_list ap;
-  va_start (ap, fmt);
-  vfprintf (stderr, fmt, ap);
-  va_end (ap);
-}
-#else
-static void
+static void ATTRIBUTE_PRINTF_1
 debug_print (const char *fmt ATTRIBUTE_UNUSED, ...)
 {
-}    
-#endif /* VERIFY_DEBUG */
-
-#if 0
-static void debug_print (const char *fmt, ...)
-  __attribute__ ((format (printf, 1, 2)));
-
-static void
-debug_print (const char *fmt, ...)
-{
 #ifdef VERIFY_DEBUG
   va_list ap;
   va_start (ap, fmt);
@@ -56,7 +36,6 @@ debug_print (const char *fmt, ...)
   va_end (ap);
 #endif /* VERIFY_DEBUG */
 }
-#endif
 
 /* This started as a fairly ordinary verifier, and for the most part
    it remains so.  It works in the obvious way, by modeling the effect
@@ -224,22 +203,6 @@ static GTY(()) verifier_context *vfr;
 bool type_initialized (type *t);
 int ref_count_dimensions (ref_intersection *ref);
 
-#if 0
-  /* Create a new Utf-8 constant and return it.  We do this to avoid
-     having our Utf-8 constants prematurely collected.  */
-  static vfy_string
-  make_utf8_const (const char *s, int len)
-  {
-    vfy_string val = vfy_make_string (s, len);
-    vfy_string_list *lu = vfy_alloc (sizeof (vfy_string_list));
-    lu->val = val;
-    lu->next = vfr->utf8_list;
-    vfr->utf8_list = lu;
-
-    return val;
-  }
-#endif
-
 static void
 verify_fail_pc (const char *s, int pc)
 {
@@ -249,7 +212,7 @@ verify_fail_pc (const char *s, int pc)
 static void
 verify_fail (const char *s)
 {
-  verify_fail_pc (s, -1);
+  verify_fail_pc (s, vfr->PC);
 }
 
 /* This enum holds a list of tags for all the different types we
@@ -554,17 +517,6 @@ struct type
 #define EITHER -3
 };
 
-#if 0
-/* Basic constructor.  */
-static void
-init_type (type *t)
-{
-  t->key = unsuitable_type;
-  t->klass = NULL;
-  t->pc = UNINIT;
-}
-#endif
-
 /* Make a new instance given the type tag.  We assume a generic
    `reference_type' means Object.  */
 static void
@@ -625,26 +577,6 @@ make_type_from_string (vfy_string n)
   init_type_from_string (&t, n);
   return t;
 }
-
-#if 0
-    /* Make a new instance given the name of a class.  */
-    type (vfy_string n)
-    {
-      key = reference_type;
-      klass = new ref_intersection (n, verifier);
-      pc = UNINIT;
-    }
-
-    /* Copy constructor.  */
-    static type copy_type (type *t)
-    {
-      type copy;
-      copy.key = t->key;
-      copy.klass = t->klass;
-      copy.pc = t->pc;
-      return copy;
-    }
-#endif
 
 /* Promote a numeric type.  */
 static void
@@ -874,16 +806,6 @@ type_initialized (type *t)
   return t->key == reference_type || t->key == null_type;
 }
 
-#if 0
-static bool
-type_isresolved (type *t)
-{
-  return (t->key == reference_type
-	  || t->key == null_type
-	  || t->key == uninitialized_reference_type);
-}
-#endif
-
 static void
 type_verify_dimensions (type *t, int ndims)
 {
@@ -1018,16 +940,6 @@ struct state
    acquired from the verification list.  */
 #define NO_NEXT -1
 
-#if 0
-static void
-init_state (state *s)
-{
-  s->stack = NULL;
-  s->locals = NULL;
-  s->next = INVALID_STATE;  
-}
-#endif
-
 static void
 init_state_with_stack (state *s, int max_stack, int max_locals)
 {
@@ -1084,7 +996,6 @@ make_state (int max_stack, int max_locals)
   return s;
 }
 
-#if 0
 static void
 free_state (state *s)
 {
@@ -1093,29 +1004,6 @@ free_state (state *s)
   if (s->locals != NULL)
     vfy_free (s->locals);
 }
-#endif
-
-#if 0
-    void *operator new[] (size_t bytes)
-    {
-      return vfy_alloc (bytes);
-    }
-
-    void operator delete[] (void *mem)
-    {
-      vfy_free (mem);
-    }
-
-    void *operator new (size_t bytes)
-    {
-      return vfy_alloc (bytes);
-    }
-
-    void operator delete (void *mem)
-    {
-      vfy_free (mem);
-    }
-#endif
 
 /* Modify this state to reflect entry to an exception handler.  */
 static void
@@ -1128,20 +1016,6 @@ state_set_exception (state *s, type *t, int max_stack)
   for (i = s->stacktop; i < max_stack; ++i)
     init_type_from_tag (&s->stack[i], unsuitable_type);
 }
-
-static int
-state_get_pc (state *s)
-{
-  return s->pc;
-}
-
-#if 0
-static void
-set_pc (state *s, int npc)
-{
-  s->pc = npc;
-}
-#endif
 
 /* Merge STATE_OLD into this state.  Destructively modifies this
    state.  Returns true if the new state was in fact changed.
@@ -2072,7 +1946,7 @@ check_pool_index (int index)
 static type
 check_class_constant (int index)
 {
-  type t;
+  type t = { 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -2089,7 +1963,7 @@ check_class_constant (int index)
 static type
 check_constant (int index)
 {
-  type t;
+  type t = { 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -2109,7 +1983,7 @@ check_constant (int index)
 static type
 check_wide_constant (int index)
 {
-  type t;
+  type t = { 0, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -2368,7 +2242,7 @@ verify_instructions_0 (void)
 	  if (new_state == NULL)
 	    break;
 
-	  vfr->PC = state_get_pc (new_state);
+	  vfr->PC = new_state->pc;
 	  debug_print ("== State pop from pending list\n");
 	  /* Set up the current state.  */
 	  copy_state (vfr->current_state, new_state, 
@@ -2377,10 +2251,12 @@ verify_instructions_0 (void)
       else
 	{
 	  /* We only have to do this checking in the situation where
-	     control flow falls through from the previous
-	     instruction.  Otherwise merging is done at the time we
-	     push the branch.  */
-	  if (vfr->states[vfr->PC] != NULL)
+	     control flow falls through from the previous instruction.
+	     Otherwise merging is done at the time we push the branch.
+	     Note that we'll catch the off-the-end problem just
+	     below.  */
+	  if (vfr->PC < vfr->current_method->code_length
+	      && vfr->states[vfr->PC] != NULL)
 	    {
 	      /* We've already visited this instruction.  So merge
 	         the states together.  It is simplest, but not most
@@ -3259,32 +3135,6 @@ verify_instructions_0 (void)
 	  handle_jsr_insn (get_int ());
 	  break;
 
-#if 0
-	/* These are unused here, but we call them out explicitly
-	   so that -Wswitch-enum doesn't complain.  */
-	case op_putfield_1:
-	case op_putfield_2:
-	case op_putfield_4:
-	case op_putfield_8:
-	case op_putfield_a:
-	case op_putstatic_1:
-	case op_putstatic_2:
-	case op_putstatic_4:
-	case op_putstatic_8:
-	case op_putstatic_a:
-	case op_getfield_1:
-	case op_getfield_2s:
-	case op_getfield_2u:
-	case op_getfield_4:
-	case op_getfield_8:
-	case op_getfield_a:
-	case op_getstatic_1:
-	case op_getstatic_2s:
-	case op_getstatic_2u:
-	case op_getstatic_4:
-	case op_getstatic_8:
-	case op_getstatic_a:
-#endif
 	default:
 	  /* Unrecognized opcode.  */
 	  verify_fail_pc ("unrecognized instruction in verify_instructions_0",
@@ -3375,17 +3225,6 @@ verify_instructions (void)
     }
 }
 
-#if 0
-_Jv_BytecodeVerifier (_Jv_InterpMethod *m)
-{
-  /* We just print the text as utf-8.  This is just for debugging
-     anyway.  */
-  debug_print ("--------------------------------\n");
-  debug_print ("-- Verifying method `%s'\n", m->self->name->chars());
-
-}
-#endif
-
 static void
 make_verifier_context (vfy_method *m)
 {
@@ -3436,6 +3275,7 @@ free_verifier_context (void)
 	  while (iter != NULL)
 	    {
 	      state_list *next = iter->next;
+	      free_state (iter->val);
 	      vfy_free (iter->val);
 	      vfy_free (iter);
 	      iter = next;

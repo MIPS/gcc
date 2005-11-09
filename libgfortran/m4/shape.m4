@@ -25,14 +25,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"'
 include(iparm.m4)dnl
+
+`#if defined (HAVE_'rtype_name`)'
 
 extern void shape_`'rtype_kind (rtype * ret, const rtype * array);
 export_proto(shape_`'rtype_kind);
@@ -53,3 +55,5 @@ shape_`'rtype_kind (rtype * ret, const rtype * array)
         array->dim[n].ubound + 1 - array->dim[n].lbound;
     }
 }
+
+#endif

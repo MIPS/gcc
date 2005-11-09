@@ -1,4 +1,4 @@
-#   Copyright (C) 2003 Free Software Foundation, Inc.
+#   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +28,22 @@ load_gcc_lib wrapper.exp
 # Define libffi callbacks for dg.exp.
 
 proc libffi-dg-test-1 { target_compile prog do_what extra_tool_flags } {
+
+    # To get all \n in dg-output test strings to match printf output
+    # in a system that outputs it as \015\012 (i.e. not just \012), we
+    # need to change all \n into \r?\n.  As there is no dejagnu flag
+    # or hook to do that, we simply change the text being tested.
+    # Unfortunately, we have to know that the variable is called
+    # dg-output-text and lives in the caller of libffi-dg-test, which
+    # is two calls up.  Overriding proc dg-output would be longer and
+    # would necessarily have the same assumption.
+    upvar 2 dg-output-text output_match
+
+    if { [llength $output_match] > 1 } {
+	regsub -all "\n" [lindex $output_match 1] "\r?\n" x
+	set output_match [lreplace $output_match 1 1 $x]
+    }
+
     # Set up the compiler flags, based on what we're going to do.
 
     set options [list]
@@ -171,8 +187,13 @@ proc libffi_target_compile { source dest type options } {
     lappend options "additional_flags=-I${libffi_include} -I${srcdir}/../include  -I${libffi_include}/.."
     lappend options "additional_flags=${libffi_link_flags}"
 
-    if { [string match "powerpc-*-darwin*" $target_triplet] } {
-	lappend options "libs= -lgcc_s"
+    # If you're building the compiler with --prefix set to a place
+    # where it's not yet installed, then the linker won't be able to
+    # find the libgcc used by libffi.dylib.  We could pass the
+    # -dylib_file option, but that's complicated, and it's much easier
+    # to just make the linker find libgcc using -L options.
+    if { [string match "*-*-darwin*" $target_triplet] } {
+	lappend options "libs= -shared-libgcc"
     }
 
     lappend options "libs= -lffi"

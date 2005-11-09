@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,11 +26,13 @@
 
 with Atree;    use Atree;
 with Einfo;    use Einfo;
+with Elists;   use Elists;
 with Errout;   use Errout;
 with Exp_Ch4;  use Exp_Ch4;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Code; use Exp_Code;
+with Exp_Disp; use Exp_Disp;
 with Exp_Fixd; use Exp_Fixd;
 with Exp_Util; use Exp_Util;
 with Itypes;   use Itypes;
@@ -60,6 +62,13 @@ package body Exp_Intr is
 
    procedure Expand_Is_Negative (N : Node_Id);
    --  Expand a call to the intrinsic Is_Negative function
+
+   procedure Expand_Dispatching_Constructor_Call (N : Node_Id);
+   --  Expand a call to an instantiation of Generic_Dispatching_Constructor
+   --  into a dispatching call to the actual subprogram associated with the
+   --  Constructor formal subprogram, passing it the Parameters actual of
+   --  the call to the instantiation and dispatching based on call's Tag
+   --  parameter.
 
    procedure Expand_Exception_Call (N : Node_Id; Ent : RE_Id);
    --  Expand a call to Exception_Information/Message/Name. The first
@@ -95,6 +104,77 @@ package body Exp_Intr is
    --    Name_Line             - expand integer line number
    --    Name_Source_Location  - expand string of form file:line
    --    Name_Enclosing_Entity - expand string  with name of enclosing entity
+
+   -----------------------------------------
+   -- Expand_Dispatching_Constructor_Call --
+   -----------------------------------------
+
+   --  Transform a call to an instantiation of Generic_Dispatching_Constructor
+   --  of the form:
+
+   --     GDC_Instance (The_Tag, Parameters'Access)
+
+   --  to a class-wide conversion of a dispatching call to the actual
+   --  associated with the formal subprogram Construct, designating
+   --  The_Tag as the controlling tag of the call:
+
+   --     T'Class (Construct'Actual (Params)) -- Controlling tag is The_Tag
+
+   --  which will eventually be expanded to the following:
+
+   --     T'Class (The_Tag.all (Construct'Actual'Index).all (Params))
+
+   --  A class-wide membership test is also generated, preceding the call,
+   --  to ensure that the controlling tag denotes a type in T'Class.
+
+   procedure Expand_Dispatching_Constructor_Call (N : Node_Id) is
+      Loc        : constant Source_Ptr := Sloc (N);
+      Tag_Arg    : constant Node_Id    := First_Actual (N);
+      Param_Arg  : constant Node_Id    := Next_Actual (Tag_Arg);
+      Subp_Decl  : constant Node_Id    := Parent (Parent (Entity (Name (N))));
+      Inst_Pkg   : constant Node_Id    := Parent (Subp_Decl);
+      Act_Rename : constant Node_Id    :=
+                     Next (Next (First (Visible_Declarations (Inst_Pkg))));
+      Act_Constr : constant Entity_Id  := Entity (Name (Act_Rename));
+      Result_Typ : constant Entity_Id  := Class_Wide_Type (Etype (Act_Constr));
+      Cnstr_Call : Node_Id;
+
+   begin
+      --  Create the call to the actual Constructor function
+
+      Cnstr_Call :=
+        Make_Function_Call (Loc,
+          Name                   => New_Occurrence_Of (Act_Constr, Loc),
+          Parameter_Associations => New_List (Relocate_Node (Param_Arg)));
+
+      --  Establish its controlling tag from the tag passed to the instance
+
+      Set_Controlling_Argument (Cnstr_Call, Relocate_Node (Tag_Arg));
+
+      --  Rewrite and analyze the call to the instance as a class-wide
+      --  conversion of the call to the actual constructor.
+
+      Rewrite (N, Convert_To (Result_Typ, Cnstr_Call));
+      Analyze_And_Resolve (N, Etype (Act_Constr));
+
+      --  Generate a class-wide membership test to ensure that the call's tag
+      --  argument denotes a type within the class.
+
+      Insert_Action (N,
+        Make_Implicit_If_Statement (N,
+          Condition =>
+            Make_Op_Not (Loc,
+              Make_DT_Access_Action (Result_Typ,
+                 Action => CW_Membership,
+                 Args   => New_List (
+                   Duplicate_Subexpr (Tag_Arg),
+                   New_Reference_To (
+                     Node (First_Elmt (Access_Disp_Table (
+                                         Root_Type (Result_Typ)))), Loc)))),
+          Then_Statements =>
+            New_List (Make_Raise_Statement (Loc,
+                        New_Occurrence_Of (RTE (RE_Tag_Error), Loc)))));
+   end Expand_Dispatching_Constructor_Call;
 
    ---------------------------
    -- Expand_Exception_Call --
@@ -235,6 +315,9 @@ package body Exp_Intr is
 
       elsif Nam = Name_Exception_Name then
          Expand_Exception_Call (N, RE_Exception_Name_Simple);
+
+      elsif Nam = Name_Generic_Dispatching_Constructor then
+         Expand_Dispatching_Constructor_Call (N);
 
       elsif Nam = Name_Import_Address
               or else
@@ -407,6 +490,61 @@ package body Exp_Intr is
       Loc : constant Source_Ptr := Sloc (N);
       Ent : Entity_Id;
 
+      procedure Write_Entity_Name (E : Entity_Id);
+      --  Recursive procedure to construct string for qualified name of
+      --  enclosing program unit. The qualification stops at an enclosing
+      --  scope has no source name (block or loop). If entity is a subprogram
+      --  instance, skip enclosing wrapper package.
+
+      -----------------------
+      -- Write_Entity_Name --
+      -----------------------
+
+      procedure Write_Entity_Name (E : Entity_Id) is
+         SDef : Source_Ptr;
+         TDef : constant Source_Buffer_Ptr :=
+                  Source_Text (Get_Source_File_Index (Sloc (E)));
+
+      begin
+         --  Nothing to do if at outer level
+
+         if Scope (E) = Standard_Standard then
+            null;
+
+         --  If scope comes from source, write its name
+
+         elsif Comes_From_Source (Scope (E)) then
+            Write_Entity_Name (Scope (E));
+            Add_Char_To_Name_Buffer ('.');
+
+         --  If in wrapper package skip past it
+
+         elsif Is_Wrapper_Package (Scope (E)) then
+            Write_Entity_Name (Scope (Scope (E)));
+            Add_Char_To_Name_Buffer ('.');
+
+         --  Otherwise nothing to output (happens in unnamed block statements)
+
+         else
+            null;
+         end if;
+
+         --  Loop to output the name
+
+         --  is this right wrt wide char encodings ??? (no!)
+
+         SDef := Sloc (E);
+         while TDef (SDef) in '0' .. '9'
+           or else TDef (SDef) >= 'A'
+           or else TDef (SDef) = ASCII.ESC
+         loop
+            Add_Char_To_Name_Buffer (TDef (SDef));
+            SDef := SDef + 1;
+         end loop;
+      end Write_Entity_Name;
+
+   --  Start of processing for Expand_Source_Info
+
    begin
       --  Integer cases
 
@@ -432,7 +570,7 @@ package body Exp_Intr is
 
                Ent := Current_Scope;
 
-               --  Skip enclosing blocks to reach enclosing unit.
+               --  Skip enclosing blocks to reach enclosing unit
 
                while Present (Ent) loop
                   exit when Ekind (Ent) /= E_Block
@@ -442,22 +580,8 @@ package body Exp_Intr is
 
                --  Ent now points to the relevant defining entity
 
-               declare
-                  SDef : Source_Ptr := Sloc (Ent);
-                  TDef : Source_Buffer_Ptr;
-
-               begin
-                  TDef := Source_Text (Get_Source_File_Index (SDef));
-                  Name_Len := 0;
-
-                  while TDef (SDef) in '0' .. '9'
-                    or else TDef (SDef) >= 'A'
-                    or else TDef (SDef) = ASCII.ESC
-                  loop
-                     Add_Char_To_Name_Buffer (TDef (SDef));
-                     SDef := SDef + 1;
-                  end loop;
-               end;
+               Name_Len := 0;
+               Write_Entity_Name (Ent);
 
             when others =>
                raise Program_Error;
@@ -479,6 +603,7 @@ package body Exp_Intr is
       Func : constant Entity_Id  := Entity (Name (N));
       Conv : Node_Id;
       Ftyp : Entity_Id;
+      Ttyp : Entity_Id;
 
    begin
       --  Rewrite as unchecked conversion node. Note that we must convert
@@ -500,12 +625,33 @@ package body Exp_Intr is
          Analyze_And_Resolve (Conv);
       end if;
 
+      --  The instantiation of Unchecked_Conversion creates a wrapper package,
+      --  and the target type is declared as a subtype of the actual. Recover
+      --  the actual, which is the subtype indic. in the subtype declaration
+      --  for the target type. This is semantically correct, and avoids
+      --  anomalies with access subtypes. For entities, leave type as is.
+
       --  We do the analysis here, because we do not want the compiler
       --  to try to optimize or otherwise reorganize the unchecked
       --  conversion node.
 
-      Rewrite (N, Unchecked_Convert_To (Etype (E), Conv));
-      Set_Etype (N, Etype (E));
+      Ttyp := Etype (E);
+
+      if Is_Entity_Name (Conv) then
+         null;
+
+      elsif Nkind (Parent (Ttyp)) = N_Subtype_Declaration then
+         Ttyp := Entity (Subtype_Indication (Parent (Etype (E))));
+
+      elsif Is_Itype (Ttyp) then
+         Ttyp :=
+           Entity (Subtype_Indication (Associated_Node_For_Itype (Ttyp)));
+      else
+         raise Program_Error;
+      end if;
+
+      Rewrite (N, Unchecked_Convert_To (Ttyp, Conv));
+      Set_Etype (N, Ttyp);
       Set_Analyzed (N);
 
       if Nkind (N) = N_Unchecked_Type_Conversion then
@@ -559,12 +705,21 @@ package body Exp_Intr is
 
          --  If the type is tagged, then we must force dispatching on the
          --  finalization call because the designated type may not be the
-         --  actual type of the object
+         --  actual type of the object.
 
          if Is_Tagged_Type (Desig_T)
            and then not Is_Class_Wide_Type (Desig_T)
          then
             Deref := Unchecked_Convert_To (Class_Wide_Type (Desig_T), Deref);
+
+         elsif not Is_Tagged_Type (Desig_T) then
+
+            --  Set type of result, to force a conversion when needed (see
+            --  exp_ch7, Convert_View), given that Deep_Finalize may be
+            --  inherited from the parent type, and we need the type of the
+            --  expression to see whether the conversion is in fact needed.
+
+            Set_Etype (Deref, Desig_T);
          end if;
 
          Free_Cod :=
@@ -630,7 +785,7 @@ package body Exp_Intr is
                  and then Is_Entity_Name (Nam2)
                  and then Entity (Prefix (Nam1)) = Entity (Nam2)
                then
-                  Error_Msg_N ("Abort may take time to complete?", N);
+                  Error_Msg_N ("abort may take time to complete?", N);
                   Error_Msg_N ("\deallocation might have no effect?", N);
                   Error_Msg_N ("\safer to wait for termination.?", N);
                end if;

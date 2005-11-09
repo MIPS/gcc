@@ -1,5 +1,5 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* My strategy here is as follows:
 
@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "diagnostic.h"
+#include "flags.h"
 
 static char *extract_string (char **);
 static const char *get_base_filename (const char *);
@@ -109,13 +110,13 @@ get_base_filename (const char *filename)
 
   if (p && ! compiling)
     {
-      warning ("-frepo must be used with -c");
+      warning (0, "-frepo must be used with -c");
       flag_use_repository = 0;
       return NULL;
     }
 
   return lbasename (filename);
-}        
+}
 
 static void
 open_repo_file (const char *filename)
@@ -239,7 +240,16 @@ finish_repo (void)
   fprintf (repo_file, "D %s\n", dir);
   args = getenv ("COLLECT_GCC_OPTIONS");
   if (args)
-    fprintf (repo_file, "A %s\n", args);
+    {
+      fprintf (repo_file, "A %s", args);
+      /* If -frandom-seed is not among the ARGS, then add the value
+	 that we chose.  That will ensure that the names of types from
+	 anonymous namespaces will get the same mangling when this
+	 file is recompiled.  */
+      if (!strstr (args, "'-frandom-seed="))
+	fprintf (repo_file, " '-frandom-seed=%s'", flag_random_seed);
+      fprintf (repo_file, "\n");
+    }
 
   for (t = pending_repo; t; t = TREE_CHAIN (t))
     {
@@ -285,7 +295,8 @@ repo_emit_p (tree decl)
       else if (DECL_TINFO_P (decl))
 	type = TREE_TYPE (DECL_NAME (decl));
       if (!DECL_TEMPLATE_INSTANTIATION (decl)
-	  && !CLASSTYPE_TEMPLATE_INSTANTIATION (type))
+	  && (!TYPE_LANG_SPECIFIC (type)
+	      || !CLASSTYPE_TEMPLATE_INSTANTIATION (type)))
 	return 2;
     }
   else if (!DECL_TEMPLATE_INSTANTIATION (decl))
@@ -332,7 +343,7 @@ repo_export_class_p (tree class_type)
     return false;
   /* If the virtual table has been assigned to this translation unit,
      export the class.  */
-  return (IDENTIFIER_REPO_CHOSEN 
+  return (IDENTIFIER_REPO_CHOSEN
 	  (DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (class_type))));
 }
 

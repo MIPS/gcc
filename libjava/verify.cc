@@ -31,6 +31,7 @@ details.  */
 #include <java/lang/Throwable.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/StringBuffer.h>
+#include <java/lang/NoClassDefFoundError.h>
 
 #ifdef VERIFY_DEBUG
 #include <stdio.h>
@@ -368,7 +369,11 @@ private:
 	= verifier->current_class->getClassLoaderInternal();
       // We might see either kind of name.  Sigh.
       if (data.name->first() == 'L' && data.name->limit()[-1] == ';')
-	data.klass = _Jv_FindClassFromSignature (data.name->chars(), loader);
+	{
+	  data.klass = _Jv_FindClassFromSignature (data.name->chars(), loader);
+	  if (data.klass == NULL)
+	    throw new java::lang::NoClassDefFoundError(data.name->toString());
+	}
       else
 	data.klass = Class::forName (_Jv_NewStringUtf8Const (data.name),
 				     false, loader);
@@ -1945,13 +1950,16 @@ private:
   {
     check_pool_index (index);
     _Jv_Constants *pool = &current_class->constants;
-    if (pool->tags[index] == JV_CONSTANT_ResolvedString
-	|| pool->tags[index] == JV_CONSTANT_String)
+    int tag = pool->tags[index];
+    if (tag == JV_CONSTANT_ResolvedString || tag == JV_CONSTANT_String)
       return type (&java::lang::String::class$, this);
-    else if (pool->tags[index] == JV_CONSTANT_Integer)
+    else if (tag == JV_CONSTANT_Integer)
       return type (int_type);
-    else if (pool->tags[index] == JV_CONSTANT_Float)
+    else if (tag == JV_CONSTANT_Float)
       return type (float_type);
+    else if (current_method->is_15
+	     && (tag == JV_CONSTANT_ResolvedClass || tag == JV_CONSTANT_Class))
+      return type (&java::lang::Class::class$, this);
     verify_fail ("String, int, or float constant expected", start_PC);
   }
 
@@ -2193,8 +2201,9 @@ private:
 	    // We only have to do this checking in the situation where
 	    // control flow falls through from the previous
 	    // instruction.  Otherwise merging is done at the time we
-	    // push the branch.
-	    if (states[PC] != NULL)
+	    // push the branch.  Note that we'll catch the
+	    // off-the-end problem just below.
+	    if (PC < current_method->code_length && states[PC] != NULL)
 	      {
 		// We've already visited this instruction.  So merge
 		// the states together.  It is simplest, but not most
@@ -2920,8 +2929,8 @@ private:
 	  case op_new:
 	    {
 	      type t = check_class_constant (get_ushort ());
-	      if (t.isarray () || t.isinterface (this) || t.isabstract (this))
-		verify_fail ("type is array, interface, or abstract");
+	      if (t.isarray ())
+		verify_fail ("type is array");
 	      t.set_uninitialized (start_PC, this);
 	      push_type (t);
 	    }

@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Since target arithmetic must be done on the host, there has to
    be some way of evaluating arithmetic expressions as the host
@@ -138,28 +138,26 @@ gfc_arith_error (arith code)
   switch (code)
     {
     case ARITH_OK:
-      p = "Arithmetic OK";
+      p = _("Arithmetic OK at %L");
       break;
     case ARITH_OVERFLOW:
-      p = "Arithmetic overflow";
+      p = _("Arithmetic overflow at %L");
       break;
     case ARITH_UNDERFLOW:
-      p = "Arithmetic underflow";
+      p = _("Arithmetic underflow at %L");
       break;
     case ARITH_NAN:
-      p = "Arithmetic NaN";
+      p = _("Arithmetic NaN at %L");
       break;
     case ARITH_DIV0:
-      p = "Division by zero";
-      break;
-    case ARITH_0TO0:
-      p = "Indeterminate form 0 ** 0";
+      p = _("Division by zero at %L");
       break;
     case ARITH_INCOMMENSURATE:
-      p = "Array operands are incommensurate";
+      p = _("Array operands are incommensurate at %L");
       break;
     case ARITH_ASYMMETRIC:
-      p = "Integer outside symmetric range implied by Standard Fortran";
+      p =
+	_("Integer outside symmetric range implied by Standard Fortran at %L");
       break;
     default:
       gfc_internal_error ("gfc_arith_error(): Bad error code");
@@ -262,6 +260,14 @@ gfc_arith_init_1 (void)
       mpfr_init (real_info->tiny);
       mpfr_set (real_info->tiny, b, GFC_RND_MODE);
 
+      /* subnormal (x) = b**(emin - digit) */
+      mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
+      mpfr_pow_si (b, b, real_info->min_exponent - real_info->digits,
+		   GFC_RND_MODE);
+
+      mpfr_init (real_info->subnormal);
+      mpfr_set (real_info->subnormal, b, GFC_RND_MODE);
+
       /* epsilon(x) = b**(1-p) */
       mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
       mpfr_pow_si (b, b, 1 - real_info->digits, GFC_RND_MODE);
@@ -333,7 +339,7 @@ gfc_arith_done_1 (void)
    the range of the kind.  Returns ARITH_OK, ARITH_ASYMMETRIC or
    ARITH_OVERFLOW.  */
 
-static arith
+arith
 gfc_check_integer_range (mpz_t p, int kind)
 {
   arith result;
@@ -376,9 +382,42 @@ gfc_check_real_range (mpfr_t p, int kind)
   if (mpfr_sgn (q) == 0)
     retval = ARITH_OK;
   else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
-      retval = ARITH_OVERFLOW;
-  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+    retval = ARITH_OVERFLOW;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
     retval = ARITH_UNDERFLOW;
+  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+    {
+      /* MPFR operates on a numbers with a given precision and enormous
+	exponential range.  To represent subnormal numbers the exponent is
+	allowed to become smaller than emin, but always retains the full
+	precision.  This function resets unused bits to 0 to alleviate
+	rounding problems.  Note, a future version of MPFR will have a
+ 	mpfr_subnormalize() function, which handles this truncation in a
+	more efficient and robust way.  */
+
+      int j, k;
+      char *bin, *s;
+      mp_exp_t e;
+
+      bin = mpfr_get_str (NULL, &e, gfc_real_kinds[i].radix, 0, q, GMP_RNDN);
+      k = gfc_real_kinds[i].digits - (gfc_real_kinds[i].min_exponent - e);
+      for (j = k; j < gfc_real_kinds[i].digits; j++)
+	bin[j] = '0';
+      /* Need space for '0.', bin, 'E', and e */
+      s = (char *) gfc_getmem (strlen(bin)+10);
+      sprintf (s, "0.%sE%d", bin, (int) e);
+      mpfr_set_str (q, s, gfc_real_kinds[i].radix, GMP_RNDN);
+
+      if (mpfr_sgn (p) < 0)
+	mpfr_neg (p, q, GMP_RNDN);
+      else
+	mpfr_set (p, q, GMP_RNDN);
+
+      gfc_free (s);
+      gfc_free (bin);
+
+      retval = ARITH_OK;
+    }
   else
     retval = ARITH_OK;
 
@@ -555,21 +594,27 @@ gfc_range_check (gfc_expr * e)
 static arith
 check_result (arith rc, gfc_expr * x, gfc_expr * r, gfc_expr ** rp)
 {
-  if (rc != ARITH_OK)
-    gfc_free_expr (r);
-  else
+  arith val = rc;
+
+  if (val == ARITH_UNDERFLOW)
     {
-      if (rc == ARITH_UNDERFLOW && gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &x->where);
-
-      if (rc == ARITH_ASYMMETRIC)
-	gfc_warning ("%s at %L", gfc_arith_error (rc), &x->where);
-
-      rc = ARITH_OK;
-      *rp = r;
+      if (gfc_option.warn_underflow)
+	gfc_warning (gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
     }
 
-  return rc;
+  if (val == ARITH_ASYMMETRIC)
+    {
+      gfc_warning (gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
+    }
+
+  if (val != ARITH_OK)
+    gfc_free_expr (r);
+  else
+    *rp = r;
+
+  return val;
 }
 
 
@@ -918,33 +963,23 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   result = gfc_constant_result (op1->ts.type, op1->ts.kind, &op1->where);
 
   if (power == 0)
-    {				/* Handle something to the zeroth power */
+    {
+      /* Handle something to the zeroth power.  Since we're dealing
+	 with integral exponents, there is no ambiguity in the
+	 limiting procedure used to determine the value of 0**0.  */
       switch (op1->ts.type)
 	{
 	case BT_INTEGER:
-	  if (mpz_sgn (op1->value.integer) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpz_set_ui (result->value.integer, 1);
+	  mpz_set_ui (result->value.integer, 1);
 	  break;
 
 	case BT_REAL:
-	  if (mpfr_sgn (op1->value.real) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
 	  break;
 
 	case BT_COMPLEX:
-	  if (mpfr_sgn (op1->value.complex.r) == 0
-	      && mpfr_sgn (op1->value.complex.i) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    {
-	      mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
-	      mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
-	    }
-
+	  mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
 	  break;
 
 	default:
@@ -1548,17 +1583,19 @@ eval_intrinsic (gfc_intrinsic_op operator,
   if (operator == INTRINSIC_POWER && op2->ts.type != BT_INTEGER)
     goto runtime;
 
-  if (op1->expr_type != EXPR_CONSTANT
-      && (op1->expr_type != EXPR_ARRAY
-	  || !gfc_is_constant_expr (op1)
-	  || !gfc_expanded_ac (op1)))
+  if (op1->from_H
+      || (op1->expr_type != EXPR_CONSTANT
+	  && (op1->expr_type != EXPR_ARRAY
+	    || !gfc_is_constant_expr (op1)
+	    || !gfc_expanded_ac (op1))))
     goto runtime;
 
   if (op2 != NULL
-      && op2->expr_type != EXPR_CONSTANT
-      && (op2->expr_type != EXPR_ARRAY
-	  || !gfc_is_constant_expr (op2)
-	  || !gfc_expanded_ac (op2)))
+      && (op2->from_H
+	|| (op2->expr_type != EXPR_CONSTANT
+	  && (op2->expr_type != EXPR_ARRAY
+	    || !gfc_is_constant_expr (op2)
+	    || !gfc_expanded_ac (op2)))))
     goto runtime;
 
   if (unary)
@@ -1568,7 +1605,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
   if (rc != ARITH_OK)
     {				/* Something went wrong */
-      gfc_error ("%s at %L", gfc_arith_error (rc), &op1->where);
+      gfc_error (gfc_arith_error (rc), &op1->where);
       return NULL;
     }
 
@@ -1871,8 +1908,40 @@ gfc_convert_complex (gfc_expr * real, gfc_expr * imag, int kind)
 static void
 arith_error (arith rc, gfc_typespec * from, gfc_typespec * to, locus * where)
 {
-  gfc_error ("%s converting %s to %s at %L", gfc_arith_error (rc),
-	     gfc_typename (from), gfc_typename (to), where);
+  switch (rc)
+    {
+    case ARITH_OK:
+      gfc_error ("Arithmetic OK converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_OVERFLOW:
+      gfc_error ("Arithmetic overflow converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_UNDERFLOW:
+      gfc_error ("Arithmetic underflow converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_NAN:
+      gfc_error ("Arithmetic NaN converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_DIV0:
+      gfc_error ("Division by zero converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_INCOMMENSURATE:
+      gfc_error ("Array operands are incommensurate converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_ASYMMETRIC:
+      gfc_error ("Integer outside symmetric range implied by Standard Fortran"
+	 	 " converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    default:
+      gfc_internal_error ("gfc_arith_error(): Bad error code");
+    }
 
   /* TODO: Do something about the error, ie, throw exception, return
      NaN, etc.  */
@@ -1895,7 +1964,7 @@ gfc_int2int (gfc_expr * src, int kind)
     {
       if (rc == ARITH_ASYMMETRIC)
         {
-          gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+          gfc_warning (gfc_arith_error (rc), &src->where);
         }
       else
         {
@@ -1997,7 +2066,7 @@ gfc_real2real (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2029,7 +2098,7 @@ gfc_real2complex (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.complex.r, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2084,7 +2153,7 @@ gfc_complex2real (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   if (rc != ARITH_OK)
@@ -2116,7 +2185,7 @@ gfc_complex2complex (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.complex.r, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2131,7 +2200,7 @@ gfc_complex2complex (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2154,6 +2223,229 @@ gfc_log2log (gfc_expr * src, int kind)
 
   result = gfc_constant_result (BT_LOGICAL, kind, &src->where);
   result->value.logical = src->value.logical;
+
+  return result;
+}
+
+/* Convert logical to integer.  */
+
+gfc_expr *
+gfc_log2int (gfc_expr *src, int kind)
+{
+  gfc_expr *result;
+  result = gfc_constant_result (BT_INTEGER, kind, &src->where);
+  mpz_set_si (result->value.integer, src->value.logical);
+  return result;
+}
+
+/* Convert integer to logical.  */
+
+gfc_expr *
+gfc_int2log (gfc_expr *src, int kind)
+{
+  gfc_expr *result;
+  result = gfc_constant_result (BT_LOGICAL, kind, &src->where);
+  result->value.logical = (mpz_cmp_si (src->value.integer, 0) != 0);
+  return result;
+}
+
+/* Convert Hollerith to integer. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2int (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_INTEGER;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Convert Hollerith to real. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2real (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_REAL;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Convert Hollerith to complex. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2complex (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_COMPLEX;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  kind = kind * 2;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Convert Hollerith to character. */
+
+gfc_expr *
+gfc_hollerith2character (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+
+  result = gfc_copy_expr (src);
+  result->ts.type = BT_CHARACTER;
+  result->ts.kind = kind;
+  result->from_H = 1;
+
+  return result;
+}
+
+/* Convert Hollerith to logical. The constant will be padded or truncated.  */
+
+gfc_expr *
+gfc_hollerith2logical (gfc_expr * src, int kind)
+{
+  gfc_expr *result;
+  int len;
+
+  len = src->value.character.length;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_LOGICAL;
+  result->ts.kind = kind;
+  result->where = src->where;
+  result->from_H = 1;
+
+  if (len > kind)
+    {
+      gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
+		&src->where, gfc_typename(&result->ts));
+    }
+  result->value.character.string = gfc_getmem (kind + 1);
+  memcpy (result->value.character.string, src->value.character.string,
+	MIN (kind, len));
+
+  if (len < kind)
+    memset (&result->value.character.string[len], ' ', kind - len);
+
+  result->value.character.string[kind] = '\0'; /* For debugger */
+  result->value.character.length = kind;
+
+  return result;
+}
+
+/* Returns an initializer whose value is one higher than the value of the
+   LAST_INITIALIZER argument.  If that is argument is NULL, the
+   initializers value will be set to zero.  The initializer's kind
+   will be set to gfc_c_int_kind.
+
+   If -fshort-enums is given, the appropriate kind will be selected
+   later after all enumerators have been parsed.  A warning is issued
+   here if an initializer exceeds gfc_c_int_kind.  */
+
+gfc_expr *
+gfc_enum_initializer (gfc_expr *last_initializer, locus where)
+{
+  gfc_expr *result;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_INTEGER;
+  result->ts.kind = gfc_c_int_kind;
+  result->where = where;
+
+  mpz_init (result->value.integer);
+
+  if (last_initializer != NULL)
+    {
+      mpz_add_ui (result->value.integer, last_initializer->value.integer, 1);
+      result->where = last_initializer->where;
+
+      if (gfc_check_integer_range (result->value.integer,
+             gfc_c_int_kind) != ARITH_OK)
+        {
+          gfc_error ("Enumerator exceeds the C integer type at %C");
+          return NULL;
+        }
+    }
+  else
+    {
+      /* Control comes here, if it's the very first enumerator and no
+         initializer has been given.  It will be initialized to ZERO (0). */
+      mpz_set_si (result->value.integer, 0);
+    }
 
   return result;
 }

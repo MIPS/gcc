@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
---           Copyright (C) 1996-2004 Ada Core Technologies, Inc.            --
+--                     Copyright (C) 1996-2005, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -17,8 +17,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -68,7 +68,7 @@
 --       extensions that provide full (type 0) computational capabilities.
 
 package GNAT.Regpat is
-pragma Preelaborate (Regpat);
+   pragma Preelaborate;
 
    --  The grammar is the following:
 
@@ -219,7 +219,7 @@ pragma Preelaborate (Regpat);
    --  Several versions of the Match subprogram are provided, with different
    --  parameters and return results.
 
-   --  See the description under each of these subprograms.
+   --  See the description under each of these subprograms
 
    --  Here is a short example showing how to get the substring matched by
    --  the first parenthesis pair.
@@ -524,7 +524,6 @@ pragma Preelaborate (Regpat);
    --    Expression_Error is raised if the given expression is not a legal
    --    regular expression.
 
-
    procedure Match
      (Expression : String;
       Data       : String;
@@ -577,7 +576,7 @@ pragma Preelaborate (Regpat);
       Data       : String;
       Data_First : Integer  := -1;
       Data_Last  : Positive := Positive'Last) return Boolean;
-   --  Return True if Data matches using the given pattern matcher.
+   --  Return True if Data matches using the given pattern matcher
 
    pragma Inline (Match);
    --  All except the last one below
@@ -591,7 +590,7 @@ pragma Preelaborate (Regpat);
    --  Match Data using the given pattern matcher and store result in Matches.
    --  The expression matches if Matches (0) /= No_Match.
    --
-   --  At most Matches'Length parenthesis are returned.
+   --  At most Matches'Length parenthesis are returned
 
    -----------
    -- Debug --
@@ -616,26 +615,24 @@ private
 
    Program_First : constant := 1;
 
-   --  The "internal use only" fields in regexp are present to pass
-   --  info from compile to execute that permits the execute phase
-   --  to run lots faster on simple cases.  They are:
+   --  The "internal use only" fields in regexp are present to pass info from
+   --  compile to execute that permits the execute phase to run lots faster on
+   --  simple cases. They are:
 
    --     First              character that must begin a match or ASCII.Nul
    --     Anchored           true iff match must start at beginning of line
    --     Must_Have          pointer to string that match must include or null
    --     Must_Have_Length   length of Must_Have string
 
-   --  First and Anchored permit very fast decisions on suitable
-   --  starting points for a match, cutting down the work a lot.
-   --  Must_Have permits fast rejection of lines that cannot possibly
-   --  match.
+   --  First and Anchored permit very fast decisions on suitable starting
+   --  points for a match, cutting down the work a lot. Must_Have permits fast
+   --  rejection of lines that cannot possibly match.
 
-   --  The Must_Have tests are costly enough that Optimize
-   --  supplies a Must_Have only if the r.e. contains something potentially
-   --  expensive (at present, the only such thing detected is * or +
-   --  at the start of the r.e., which can involve a lot of backup).
-   --  The length is supplied because the test in Execute needs it
-   --  and Optimize is computing it anyway.
+   --  The Must_Have tests are costly enough that Optimize supplies a Must_Have
+   --  only if the r.e. contains something potentially expensive (at present,
+   --  the only such thing detected is * or at the start of the r.e., which can
+   --  involve a lot of backup). The length is supplied because the test in
+   --  Execute needs it and Optimize is computing it anyway.
 
    --  The initialization is meant to fail-safe in case the user of this
    --  package tries to use an uninitialized matcher. This takes advantage

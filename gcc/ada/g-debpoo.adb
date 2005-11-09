@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -46,8 +46,6 @@ with GNAT.Traceback; use GNAT.Traceback;
 with Ada.Unchecked_Conversion;
 
 package body GNAT.Debug_Pools is
-   use System;
-   use System.Storage_Elements;
 
    Default_Alignment : constant Storage_Offset := Standard'Maximum_Alignment;
    --  Alignment used for the memory chunks returned by Allocate. Using this
@@ -1123,6 +1121,8 @@ package body GNAT.Debug_Pools is
                       Code_Address_For_Deallocate_End);
             Put ("   Memory already deallocated at ");
             Put_Line (0, To_Traceback (Header.Dealloc_Traceback).Traceback);
+            Put ("   Memory was allocated at ");
+            Put_Line (0, Header.Alloc_Traceback.Traceback);
          end if;
 
       else
@@ -1257,6 +1257,8 @@ package body GNAT.Debug_Pools is
                   Code_Address_For_Dereference_End);
                Put ("  First deallocation at ");
                Put_Line (0, To_Traceback (Header.Dealloc_Traceback).Traceback);
+               Put ("  Initial allocation at ");
+               Put_Line (0, Header.Alloc_Traceback.Traceback);
             end if;
          end if;
       end if;
@@ -1285,7 +1287,6 @@ package body GNAT.Debug_Pools is
       Display_Slots : Boolean := False;
       Display_Leaks : Boolean := False)
    is
-      use System.Storage_Elements;
 
       package Backtrace_Htable_Cumulate is new GNAT.HTable.Static_HTable
         (Header_Num => Header,

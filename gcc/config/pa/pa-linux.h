@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* A C expression whose value is RTL representing the location of the
@@ -92,7 +92,7 @@ Boston, MA 02111-1307, USA.  */
       %{static:-static}}"
 
 /* glibc's profiling functions don't need gcc to allocate counters.  */
-#define NO_PROFILE_COUNTERS 1
+#define NO_DEFERRED_PROFILE_COUNTERS 1
 
 /* Define the strings used for the special svr4 .type and .size directives.
    These strings generally do not vary from one system running svr4 to

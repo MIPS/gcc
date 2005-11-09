@@ -1,5 +1,5 @@
 /* Generic implementation of the EOSHIFT intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,48 +34,49 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
-static const char zeros[16] =
-  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
 /* TODO: make this work for large shifts when
    sizeof(int) < sizeof (index_type).  */
 
 static void
 eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
-	  int shift, const gfc_array_char *bound, int which)
+	  int shift, const gfc_array_char *bound, int which,
+	  index_type size, char filler)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* b.* indicates the bound array.  */
-  index_type bstride[GFC_MAX_DIMENSIONS - 1];
+  index_type bstride[GFC_MAX_DIMENSIONS];
   index_type bstride0;
   const char *bptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
-  index_type size;
   index_type len;
   index_type n;
 
-  size = GFC_DESCRIPTOR_SIZE (ret);
+  /* The compiler cannot figure out that these are set, initialize
+     them to avoid warnings.  */
+  len = 0;
+  soffset = 0;
+  roffset = 0;
 
   if (ret->data == NULL)
     {
       int i;
 
       ret->data = internal_malloc_size (size * size0 ((array_t *)array));
-      ret->base = 0;
+      ret->offset = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
@@ -93,7 +94,6 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
 
   extent[0] = 1;
   count[0] = 0;
-  size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -133,15 +133,24 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
   bstride0 = bstride[0];
   rptr = ret->data;
   sptr = array->data;
+
+  if ((shift >= 0 ? shift : -shift ) > len)
+    {
+      shift = len;
+      len = 0;
+    }
+  else
+    {
+      if (shift > 0)
+	len = len - shift;
+      else
+	len = len + shift;
+    }
+  
   if (bound)
     bptr = bound->data;
   else
-    bptr = zeros;
-
-  if (shift > 0)
-    len = len - shift;
-  else
-    len = len + shift;
+    bptr = NULL;
 
   while (rptr)
     {
@@ -172,11 +181,18 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
           n = -shift;
         }
 
-      while (n--)
-        {
-          memcpy (dest, bptr, size);
-          dest += roffset;
-        }
+      if (bptr)
+	while (n--)
+	  {
+	    memcpy (dest, bptr, size);
+	    dest += roffset;
+	  }
+      else
+	while (n--)
+	  {
+	    memset (dest, filler, size);
+	    dest += roffset;
+	  }
 
       /* Advance to the next section.  */
       rptr += rstride0;
@@ -213,58 +229,44 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
 }
 
 
-extern void eoshift2_1 (gfc_array_char *, const gfc_array_char *,
-			const GFC_INTEGER_1 *, const gfc_array_char *,
-			const GFC_INTEGER_1 *);
-export_proto(eoshift2_1);
+#define DEFINE_EOSHIFT(N)						      \
+  extern void eoshift2_##N (gfc_array_char *, const gfc_array_char *,	      \
+			    const GFC_INTEGER_##N *, const gfc_array_char *,  \
+			    const GFC_INTEGER_##N *);			      \
+  export_proto(eoshift2_##N);						      \
+									      \
+  void									      \
+  eoshift2_##N (gfc_array_char *ret, const gfc_array_char *array,	      \
+		const GFC_INTEGER_##N *pshift, const gfc_array_char *pbound,  \
+		const GFC_INTEGER_##N *pdim)				      \
+  {									      \
+    eoshift2 (ret, array, *pshift, pbound, pdim ? *pdim : 1,		      \
+	      GFC_DESCRIPTOR_SIZE (array), 0);				      \
+  }									      \
+									      \
+  extern void eoshift2_##N##_char (gfc_array_char *, GFC_INTEGER_4,	      \
+				   const gfc_array_char *,		      \
+				   const GFC_INTEGER_##N *,		      \
+				   const gfc_array_char *,		      \
+				   const GFC_INTEGER_##N *,		      \
+				   GFC_INTEGER_4, GFC_INTEGER_4);	      \
+  export_proto(eoshift2_##N##_char);					      \
+									      \
+  void									      \
+  eoshift2_##N##_char (gfc_array_char *ret,				      \
+		       GFC_INTEGER_4 ret_length __attribute__((unused)),      \
+		       const gfc_array_char *array,			      \
+		       const GFC_INTEGER_##N *pshift,			      \
+		       const gfc_array_char *pbound,			      \
+		       const GFC_INTEGER_##N *pdim,			      \
+		       GFC_INTEGER_4 array_length,			      \
+		       GFC_INTEGER_4 bound_length __attribute__((unused)))    \
+  {									      \
+    eoshift2 (ret, array, *pshift, pbound, pdim ? *pdim : 1,		      \
+	      array_length, ' ');					      \
+  }
 
-void
-eoshift2_1 (gfc_array_char *ret, const gfc_array_char *array,
-	    const GFC_INTEGER_1 *pshift, const gfc_array_char *bound,
-	    const GFC_INTEGER_1 *pdim)
-{
-  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
-}
-
-
-extern void eoshift2_2 (gfc_array_char *, const gfc_array_char *,
-			const GFC_INTEGER_2 *, const gfc_array_char *,
-			const GFC_INTEGER_2 *);
-export_proto(eoshift2_2);
-
-void
-eoshift2_2 (gfc_array_char *ret, const gfc_array_char *array,
-	    const GFC_INTEGER_2 *pshift, const gfc_array_char *bound,
-	    const GFC_INTEGER_2 *pdim)
-{
-  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
-}
-
-
-extern void eoshift2_4 (gfc_array_char *, const gfc_array_char *,
-			const GFC_INTEGER_4 *, const gfc_array_char *,
-			const GFC_INTEGER_4 *);
-export_proto(eoshift2_4);
-
-void
-eoshift2_4 (gfc_array_char *ret, const gfc_array_char *array,
-	    const GFC_INTEGER_4 *pshift, const gfc_array_char *bound,
-	    const GFC_INTEGER_4 *pdim)
-{
-  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
-}
-
-
-extern void eoshift2_8 (gfc_array_char *, const gfc_array_char *,
-			const GFC_INTEGER_8 *, const gfc_array_char *,
-			const GFC_INTEGER_8 *);
-export_proto(eoshift2_8);
-
-void
-eoshift2_8 (gfc_array_char *ret, const gfc_array_char *array,
-	    const GFC_INTEGER_8 *pshift, const gfc_array_char *bound,
-	    const GFC_INTEGER_8 *pdim)
-{
-  eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
-}
-
+DEFINE_EOSHIFT (1);
+DEFINE_EOSHIFT (2);
+DEFINE_EOSHIFT (4);
+DEFINE_EOSHIFT (8);

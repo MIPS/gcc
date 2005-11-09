@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1998-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -28,7 +28,6 @@
 --  information.
 
 with Einfo; use Einfo;
-with Types; use Types;
 
 package Lib.Xref is
 
@@ -54,7 +53,7 @@ package Lib.Xref is
 
    --  The lines following the header look like
 
-   --     line type col level entity renameref typeref ref  ref  ref
+   --  line type col level entity renameref instref typeref overref ref  ref
 
    --        line is the line number of the referenced entity. The name of
    --        the entity starts in column col. Columns are numbered from one,
@@ -93,6 +92,17 @@ package Lib.Xref is
    --        reference is a complex expressions, then renameref is omitted.
    --        Here line/col give line/column as defined above.
 
+   --        instref is only present for package and subprogram instances.
+   --        The information in instref is the location of the point of
+   --        declaration of the generic parent unit. This part has the form:
+
+   --            [file|line]
+
+   --        without column information, on the reasonable assumption that
+   --        there is only one unit per line (the same assumption is made
+   --        in references to entities that are declared within instances,
+   --        see below).
+
    --        typeref is the reference for a related type. This part is
    --        optional. It is present for the following cases:
 
@@ -119,6 +129,17 @@ package Lib.Xref is
    --          referenced file. For the standard entity form, the name between
    --          the brackets is the normal name of the entity in lower case.
 
+   --        overref is present for overriding operations (procedures and
+   --        functions), and provides information on the operation that it
+   --        overrides. This information has the format:
+
+   --        '<' file | line 'o' col '>'
+
+   --           file is the dependency number of the file containing the
+   --           declaration of the overridden operation. It and the following
+   --           vertical bar are omitted if the file is the same as that of
+   --           the overriding operation.
+
    --     There may be zero or more ref entries on each line
 
    --        file | line type col [...]
@@ -130,7 +151,7 @@ package Lib.Xref is
 
    --           line is the line number of the reference
 
-   --           col is the column number of the reference, as defined above.
+   --           col is the column number of the reference, as defined above
 
    --           type is one of
    --              b = body entity
@@ -296,7 +317,7 @@ package Lib.Xref is
    --              the END line of the body has an explict reference to
    --              the name of the procedure at line 12, column 13.
 
-   --              the body ends at line 12, column 15, just past this label.
+   --              the body ends at line 12, column 15, just past this label
 
    --        16I9*My_Type<2|4I9> 18r8
 
@@ -350,7 +371,9 @@ package Lib.Xref is
    --  For private types, the character + appears in the table. In this
    --  case the kind of the underlying type is used, if available, to
    --  determine the character to use in the xref listing. The listing
-   --  will still include a '+' for a generic private type, for example.
+   --  will still include a '+' for a generic private type, for example,
+   --  but will retain the '*' for an object or formal parameter of such
+   --  a type.
 
    --  For subprograms, the characters 'U' and 'V' appear in the table,
    --  indicating procedures and functions. If the operation is abstract,
@@ -597,6 +620,6 @@ package Lib.Xref is
    --  Output references to the current ali file
 
    procedure Initialize;
-   --  Initialize internal tables.
+   --  Initialize internal tables
 
 end Lib.Xref;

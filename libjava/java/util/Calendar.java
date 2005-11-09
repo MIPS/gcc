@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -706,6 +706,8 @@ public abstract class Calendar implements Serializable, Cloneable
 	isSet[WEEK_OF_YEAR] = false;
 	break;
       case WEEK_OF_MONTH: // pattern 2
+	if (! isSet[DAY_OF_WEEK])
+	  fields[DAY_OF_WEEK] = getFirstDayOfWeek();
 	isSet[YEAR] = true;
 	isSet[MONTH] = true;
 	isSet[DAY_OF_WEEK] = true;
@@ -715,6 +717,8 @@ public abstract class Calendar implements Serializable, Cloneable
 	isSet[WEEK_OF_YEAR] = false;
 	break;
       case DAY_OF_WEEK_IN_MONTH: // pattern 3
+	if (! isSet[DAY_OF_WEEK])
+	  fields[DAY_OF_WEEK] = getFirstDayOfWeek();
 	isSet[YEAR] = true;
 	isSet[MONTH] = true;
 	isSet[DAY_OF_WEEK] = true;
@@ -733,6 +737,8 @@ public abstract class Calendar implements Serializable, Cloneable
 	isSet[DAY_OF_WEEK_IN_MONTH] = false;
 	break;
       case WEEK_OF_YEAR: // pattern 5
+	if (! isSet[DAY_OF_WEEK])
+	  fields[DAY_OF_WEEK] = getFirstDayOfWeek();
 	isSet[YEAR] = true;
 	isSet[DAY_OF_WEEK] = true;
 	isSet[MONTH] = false;

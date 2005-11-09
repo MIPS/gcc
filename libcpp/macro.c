@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -139,7 +139,7 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 
 	name = map->to_file;
 	len = strlen (name);
-	buf = _cpp_unaligned_alloc (pfile, len * 4 + 3);
+	buf = _cpp_unaligned_alloc (pfile, len * 2 + 3);
 	result = buf;
 	*buf = '"';
 	buf = cpp_quote_string (buf + 1, (const unsigned char *) name, len);
@@ -273,7 +273,7 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
 
   buf = _cpp_builtin_macro_text (pfile, node);
   len = ustrlen (buf);
-  nbuf = alloca (len + 1);
+  nbuf = (char *) alloca (len + 1);
   memcpy (nbuf, buf, len);
   nbuf[len]='\n';
 
@@ -292,9 +292,8 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
 }
 
 /* Copies SRC, of length LEN, to DEST, adding backslashes before all
-   backslashes and double quotes.  Non-printable characters are
-   converted to octal.  DEST must be of sufficient size.  Returns
-   a pointer to the end of the string.  */
+   backslashes and double quotes. DEST must be of sufficient size.
+   Returns a pointer to the end of the string.  */
 uchar *
 cpp_quote_string (uchar *dest, const uchar *src, unsigned int len)
 {
@@ -308,15 +307,7 @@ cpp_quote_string (uchar *dest, const uchar *src, unsigned int len)
 	  *dest++ = c;
 	}
       else
-	{
-	  if (ISPRINT (c))
-	    *dest++ = c;
-	  else
-	    {
-	      sprintf ((char *) dest, "\\%03o", c);
-	      dest += 4;
-	    }
-	}
+	  *dest++ = c;
     }
 
   return dest;
@@ -380,12 +371,12 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 	{
 	  _cpp_buff *buff = _cpp_get_buff (pfile, len);
 	  unsigned char *buf = BUFF_FRONT (buff);
-	  len = cpp_spell_token (pfile, token, buf) - buf;
+	  len = cpp_spell_token (pfile, token, buf, true) - buf;
 	  dest = cpp_quote_string (dest, buf, len);
 	  _cpp_release_buff (pfile, buff);
 	}
       else
-	dest = cpp_spell_token (pfile, token, dest);
+	dest = cpp_spell_token (pfile, token, dest, true);
 
       if (token->type == CPP_OTHER && token->val.str.text[0] == '\\')
 	backslash_count++;
@@ -421,8 +412,8 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
 
   lhs = *plhs;
   len = cpp_token_len (lhs) + cpp_token_len (rhs) + 1;
-  buf = alloca (len);
-  end = cpp_spell_token (pfile, lhs, buf);
+  buf = (unsigned char *) alloca (len);
+  end = cpp_spell_token (pfile, lhs, buf, false);
 
   /* Avoid comment headers, since they are still processed in stage 3.
      It is simpler to insert a space here, rather than modifying the
@@ -430,7 +421,7 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
      false doesn't work, since we want to clear the PASTE_LEFT flag.  */
   if (lhs->type == CPP_DIV && rhs->type != CPP_EQ)
     *end++ = ' ';
-  end = cpp_spell_token (pfile, rhs, end);
+  end = cpp_spell_token (pfile, rhs, end, false);
   *end = '\n';
 
   cpp_push_buffer (pfile, buf, end - buf, /* from_stage3 */ true);
@@ -886,7 +877,7 @@ replace_args (cpp_reader *pfile, cpp_hashnode *node, cpp_macro *macro, macro_arg
 	{
 	  cpp_token *token = _cpp_temp_token (pfile);
 	  token->type = (*paste_flag)->type;
-	  token->val.str = (*paste_flag)->val.str;
+	  token->val = (*paste_flag)->val;
 	  if (src->flags & PASTE_LEFT)
 	    token->flags = (*paste_flag)->flags | PASTE_LEFT;
 	  else
@@ -1001,7 +992,7 @@ expand_arg (cpp_reader *pfile, macro_arg *arg)
 
   /* Loop, reading in the arguments.  */
   capacity = 256;
-  arg->expanded = xmalloc (capacity * sizeof (cpp_token *));
+  arg->expanded = XNEWVEC (const cpp_token *, capacity);
 
   push_ptoken_context (pfile, NULL, NULL, arg->first, arg->count + 1);
   for (;;)
@@ -1011,8 +1002,8 @@ expand_arg (cpp_reader *pfile, macro_arg *arg)
       if (arg->expanded_count + 1 >= capacity)
 	{
 	  capacity *= 2;
-	  arg->expanded = xrealloc (arg->expanded,
-				    capacity * sizeof (cpp_token *));
+	  arg->expanded = XRESIZEVEC (const cpp_token *, arg->expanded,
+                                      capacity);
 	}
 
       token = cpp_get_token (pfile);
@@ -1120,7 +1111,7 @@ cpp_get_token (cpp_reader *pfile)
 	  cpp_token *t = _cpp_temp_token (pfile);
 	  t->type = result->type;
 	  t->flags = result->flags | NO_EXPAND;
-	  t->val.str = result->val.str;
+	  t->val = result->val;
 	  result = t;
 	}
 
@@ -1272,7 +1263,8 @@ _cpp_save_parameter (cpp_reader *pfile, cpp_macro *macro, cpp_hashnode *node)
   len = macro->paramc * sizeof (union _cpp_hashnode_value);
   if (len > pfile->macro_buffer_len)
     {
-      pfile->macro_buffer = xrealloc (pfile->macro_buffer, len);
+      pfile->macro_buffer = XRESIZEVEC (unsigned char, pfile->macro_buffer,
+                                        len);
       pfile->macro_buffer_len = len;
     }
   ((union _cpp_hashnode_value *) pfile->macro_buffer)[macro->paramc - 1]
@@ -1419,8 +1411,9 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       /* Success.  Commit or allocate the parameter array.  */
       if (pfile->hash_table->alloc_subobject)
 	{
-	  cpp_hashnode **params = pfile->hash_table->alloc_subobject
-	    (sizeof (cpp_hashnode *) * macro->paramc);
+	  cpp_hashnode **params =
+            (cpp_hashnode **) pfile->hash_table->alloc_subobject
+            (sizeof (cpp_hashnode *) * macro->paramc);
 	  memcpy (params, macro->params,
 		  sizeof (cpp_hashnode *) * macro->paramc);
 	  macro->params = params;
@@ -1430,8 +1423,39 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
       macro->fun_like = 1;
     }
   else if (ctoken->type != CPP_EOF && !(ctoken->flags & PREV_WHITE))
-    cpp_error (pfile, CPP_DL_PEDWARN,
-	       "ISO C requires whitespace after the macro name");
+    {
+      /* While ISO C99 requires whitespace before replacement text
+	 in a macro definition, ISO C90 with TC1 allows there characters
+	 from the basic source character set.  */
+      if (CPP_OPTION (pfile, c99))
+	cpp_error (pfile, CPP_DL_PEDWARN,
+		   "ISO C99 requires whitespace after the macro name");
+      else
+	{
+	  int warntype = CPP_DL_WARNING;
+	  switch (ctoken->type)
+	    {
+	    case CPP_ATSIGN:
+	    case CPP_AT_NAME:
+	    case CPP_OBJC_STRING:
+	      /* '@' is not in basic character set.  */
+	      warntype = CPP_DL_PEDWARN;
+	      break;
+	    case CPP_OTHER:
+	      /* Basic character set sans letters, digits and _.  */
+	      if (strchr ("!\"#%&'()*+,-./:;<=>?[\\]^{|}~",
+			  ctoken->val.str.text[0]) == NULL)
+		warntype = CPP_DL_PEDWARN;
+	      break;
+	    default:
+	      /* All other tokens start with a character from basic
+		 character set.  */
+	      break;
+	    }
+	  cpp_error (pfile, warntype,
+		     "missing whitespace after the macro name");
+	}
+    }
 
   if (macro->fun_like)
     token = lex_expansion_token (pfile, macro);
@@ -1501,8 +1525,9 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
   /* Commit or allocate the memory.  */
   if (pfile->hash_table->alloc_subobject)
     {
-      cpp_token *tokns = pfile->hash_table->alloc_subobject (sizeof (cpp_token)
-							     * macro->count);
+      cpp_token *tokns =
+        (cpp_token *) pfile->hash_table->alloc_subobject (sizeof (cpp_token)
+                                                          * macro->count);
       memcpy (tokns, macro->exp.tokens, sizeof (cpp_token) * macro->count);
       macro->exp.tokens = tokns;
     }
@@ -1521,7 +1546,8 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
   bool ok;
 
   if (pfile->hash_table->alloc_subobject)
-    macro = pfile->hash_table->alloc_subobject (sizeof (cpp_macro));
+    macro = (cpp_macro *) pfile->hash_table->alloc_subobject
+      (sizeof (cpp_macro));
   else
     macro = (cpp_macro *) _cpp_aligned_alloc (pfile, sizeof (cpp_macro));
   macro->line = pfile->directive_line;
@@ -1691,7 +1717,8 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 
   if (len > pfile->macro_buffer_len)
     {
-      pfile->macro_buffer = xrealloc (pfile->macro_buffer, len);
+      pfile->macro_buffer = XRESIZEVEC (unsigned char,
+                                        pfile->macro_buffer, len);
       pfile->macro_buffer_len = len;
     }
 
@@ -1751,7 +1778,7 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	      buffer += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	    }
 	  else
-	    buffer = cpp_spell_token (pfile, token, buffer);
+	    buffer = cpp_spell_token (pfile, token, buffer, false);
 
 	  if (token->flags & PASTE_LEFT)
 	    {

@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,6 +36,8 @@
 #include "flags.h"
 #include "toplev.h"
 #include "obstack.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 struct du_chain
 {
@@ -142,7 +144,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, b->global_live_at_start);
+  REG_SET_TO_HARD_REG_SET (live, b->il.rtl->global_live_at_start);
   insn = BB_HEAD (b);
   while (t)
     {
@@ -1225,6 +1227,12 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
   if (frame_pointer_needed && dr == HARD_FRAME_POINTER_REGNUM)
     return;
 
+  /* Do not propagate copies to fixed or global registers, patterns
+     can be relying to see particular fixed register or users can
+     expect the chosen global register in asm.  */
+  if (fixed_regs[dr] || global_regs[dr])
+    return;
+
   /* If SRC and DEST overlap, don't record anything.  */
   dn = hard_regno_nregs[dr][GET_MODE (dest)];
   sn = hard_regno_nregs[sr][GET_MODE (dest)];
@@ -1766,11 +1774,11 @@ copyprop_hardreg_forward (void)
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (EDGE_COUNT (bb->preds) == 1
+      if (single_pred_p (bb)
 	  && TEST_BIT (visited,
-		       EDGE_PRED (bb, 0)->src->index - (INVALID_BLOCK + 1))
-	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
-	all_vd[bb->index] = all_vd[EDGE_PRED (bb, 0)->src->index];
+		       single_pred (bb)->index - (INVALID_BLOCK + 1))
+	  && ! (single_pred_edge (bb)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
+	all_vd[bb->index] = all_vd[single_pred (bb)->index];
       else
 	init_value_data (all_vd + bb->index);
 
@@ -1901,3 +1909,38 @@ validate_value_data (struct value_data *vd)
 		      vd->e[i].next_regno);
 }
 #endif
+
+static bool
+gate_handle_regrename (void)
+{
+  return (optimize > 0 && (flag_rename_registers || flag_cprop_registers));
+}
+
+
+/* Run the regrename and cprop passes.  */
+static void
+rest_of_handle_regrename (void)
+{
+  if (flag_rename_registers)
+    regrename_optimize ();
+  if (flag_cprop_registers)
+    copyprop_hardreg_forward ();
+}
+
+struct tree_opt_pass pass_regrename =
+{
+  "rnreg",                              /* name */
+  gate_handle_regrename,                /* gate */
+  rest_of_handle_regrename,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RENAME_REGISTERS,                  /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'n'                                   /* letter */
+};
+

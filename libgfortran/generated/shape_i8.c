@@ -25,13 +25,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"
+
+#if defined (HAVE_GFC_INTEGER_8)
 
 extern void shape_8 (gfc_array_i8 * ret, const gfc_array_i8 * array);
 export_proto(shape_8);
@@ -52,3 +54,5 @@ shape_8 (gfc_array_i8 * ret, const gfc_array_i8 * array)
         array->dim[n].ubound + 1 - array->dim[n].lbound;
     }
 }
+
+#endif

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -37,7 +37,6 @@ with Opt;      use Opt;
 with Osint;    use Osint;
 with Osint.M;  use Osint.M;
 with Prj;      use Prj;
-with Prj.Com;
 with Prj.Env;
 with Prj.Ext;
 with Prj.Pars;
@@ -91,6 +90,8 @@ package body Clean is
    Usage_Displayed     : Boolean := False;
 
    Project_File_Name : String_Access := null;
+
+   Project_Tree : constant Prj.Project_Tree_Ref := new Prj.Project_Tree_Data;
 
    Main_Project : Prj.Project_Id := Prj.No_Project;
 
@@ -328,7 +329,8 @@ package body Clean is
 
    procedure Clean_Archive (Project : Project_Id) is
       Current_Dir : constant Dir_Name_Str := Get_Current_Dir;
-      Data        : constant Project_Data := Projects.Table (Project);
+      Data        : constant Project_Data :=
+                      Project_Tree.Projects.Table (Project);
 
       Archive_Name : constant String :=
                        "lib" & Get_Name_String (Data.Name) & '.' & Archive_Ext;
@@ -560,8 +562,9 @@ package body Clean is
       --  Name of the executable file
 
       Current_Dir : constant Dir_Name_Str := Get_Current_Dir;
-      Data        : constant Project_Data := Projects.Table (Project);
-      U_Data      : Prj.Com.Unit_Data;
+      Data        : constant Project_Data :=
+                      Project_Tree.Projects.Table (Project);
+      U_Data      : Unit_Data;
       File_Name1  : Name_Id;
       Index1      : Int;
       File_Name2  : Name_Id;
@@ -572,8 +575,6 @@ package body Clean is
       Source      : Other_Source;
 
       Global_Archive : Boolean := False;
-
-      use Prj.Com;
 
    begin
       --  Check that we don't specify executable on the command line for
@@ -612,8 +613,10 @@ package body Clean is
             --  sources or inherited sources of the project.
 
             if Data.Languages (Ada_Language_Index) then
-               for Unit in 1 .. Prj.Com.Units.Last loop
-                  U_Data := Prj.Com.Units.Table (Unit);
+               for Unit in Unit_Table.First ..
+                           Unit_Table.Last (Project_Tree.Units)
+               loop
+                  U_Data := Project_Tree.Units.Table (Unit);
                   File_Name1 := No_Name;
                   File_Name2 := No_Name;
 
@@ -749,8 +752,12 @@ package body Clean is
             if Project = Main_Project and then not Data.Library then
                Global_Archive := False;
 
-               for Proj in 1 .. Projects.Last loop
-                  if Projects.Table (Proj).Other_Sources_Present then
+               for Proj in Project_Table.First ..
+                           Project_Table.Last (Project_Tree.Projects)
+               loop
+                  if Project_Tree.Projects.Table
+                       (Proj).Other_Sources_Present
+                  then
                      Global_Archive := True;
                      exit;
                   end if;
@@ -769,7 +776,8 @@ package body Clean is
                Source_Id := Data.First_Other_Source;
 
                while Source_Id /= No_Other_Source loop
-                  Source := Other_Sources.Table (Source_Id);
+                  Source :=
+                    Project_Tree.Other_Sources.Table (Source_Id);
 
                   if Is_Regular_File
                        (Get_Name_String (Source.Object_Name))
@@ -839,7 +847,7 @@ package body Clean is
             --  has not been processed already.
 
             while Imported /= Empty_Project_List loop
-               Element := Project_Lists.Table (Imported);
+               Element := Project_Tree.Project_Lists.Table (Imported);
                Imported := Element.Next;
                Process := True;
 
@@ -876,7 +884,8 @@ package body Clean is
       if Project = Main_Project and then Data.Exec_Directory /= No_Name then
          declare
             Exec_Dir : constant String :=
-              Get_Name_String (Data.Exec_Directory);
+                         Get_Name_String (Data.Exec_Directory);
+
          begin
             Change_Dir (Exec_Dir);
 
@@ -887,12 +896,26 @@ package body Clean is
                   Executable :=
                     Executable_Of
                       (Main_Project,
+                       Project_Tree,
                        Main_Source_File,
                        Current_File_Index);
 
-                  if Is_Regular_File (Get_Name_String (Executable)) then
-                     Delete (Exec_Dir, Get_Name_String (Executable));
-                  end if;
+                  declare
+                     Exec_File_Name : constant String :=
+                                        Get_Name_String (Executable);
+
+                  begin
+                     if Is_Absolute_Path (Name => Exec_File_Name) then
+                        if Is_Regular_File (Exec_File_Name) then
+                           Delete ("", Exec_File_Name);
+                        end if;
+
+                     else
+                        if Is_Regular_File (Exec_File_Name) then
+                           Delete (Exec_Dir, Exec_File_Name);
+                        end if;
+                     end if;
+                  end;
                end if;
 
                if Data.Object_Directory /= No_Name then
@@ -1099,13 +1122,14 @@ package body Clean is
          --  Set the project parsing verbosity to whatever was specified
          --  by a possible -vP switch.
 
-         Prj.Pars.Set_Verbosity (To => Prj.Com.Current_Verbosity);
+         Prj.Pars.Set_Verbosity (To => Current_Verbosity);
 
          --  Parse the project file. If there is an error, Main_Project
          --  will still be No_Project.
 
          Prj.Pars.Parse
            (Project           => Main_Project,
+            In_Tree           => Project_Tree,
             Project_File_Name => Project_File_Name.all,
             Packages_To_Check => Packages_To_Check_By_Gnatmake);
 
@@ -1121,12 +1145,10 @@ package body Clean is
             New_Line;
          end if;
 
-         --  We add the source directories and the object directories
-         --  to the search paths.
+         --  Add source directories and object directories to the search paths
 
-         Add_Source_Directories (Main_Project);
-         Add_Object_Directories (Main_Project);
-
+         Add_Source_Directories (Main_Project, Project_Tree);
+         Add_Object_Directories (Main_Project, Project_Tree);
       end if;
 
       Osint.Add_Default_Search_Dirs;
@@ -1137,11 +1159,12 @@ package body Clean is
 
       if Main_Project /= No_Project and then Osint.Number_Of_Files = 0 then
          declare
-            Value : String_List_Id := Projects.Table (Main_Project).Mains;
+            Value : String_List_Id :=
+                      Project_Tree.Projects.Table (Main_Project).Mains;
             Main  : String_Element;
          begin
             while Value /= Prj.Nil_String loop
-               Main := String_Elements.Table (Value);
+               Main := Project_Tree.String_Elements.Table (Value);
                Osint.Add_File
                  (File_Name => Get_Name_String (Main.Value),
                   Index     => Main.Index);
@@ -1211,24 +1234,24 @@ package body Clean is
          return True;
       end if;
 
-      Data := Projects.Table (Of_Project);
+      Data := Project_Tree.Projects.Table (Of_Project);
 
       while Data.Extends /= No_Project loop
          if Data.Extends = Prj then
             return True;
          end if;
 
-         Data := Projects.Table (Data.Extends);
+         Data := Project_Tree.Projects.Table (Data.Extends);
       end loop;
 
-      Data := Projects.Table (Prj);
+      Data := Project_Tree.Projects.Table (Prj);
 
       while Data.Extends /= No_Project loop
          if Data.Extends = Of_Project then
             return True;
          end if;
 
-         Data := Projects.Table (Data.Extends);
+         Data := Project_Tree.Projects.Table (Data.Extends);
       end loop;
 
       return False;
@@ -1258,7 +1281,7 @@ package body Clean is
          Csets.Initialize;
          Namet.Initialize;
          Snames.Initialize;
-         Prj.Initialize;
+         Prj.Initialize (Project_Tree);
       end if;
 
       --  Reset global variables
@@ -1480,13 +1503,13 @@ package body Clean is
                            Verbose_Mode := True;
 
                         elsif Arg = "-vP0" then
-                           Prj.Com.Current_Verbosity := Prj.Default;
+                           Current_Verbosity := Prj.Default;
 
                         elsif Arg = "-vP1" then
-                           Prj.Com.Current_Verbosity := Prj.Medium;
+                           Current_Verbosity := Prj.Medium;
 
                         elsif Arg = "-vP2" then
-                           Prj.Com.Current_Verbosity := Prj.High;
+                           Current_Verbosity := Prj.High;
 
                         else
                            Bad_Argument;

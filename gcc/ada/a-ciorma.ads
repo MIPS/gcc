@@ -2,11 +2,12 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                  ADA.CONTAINERS.INDEFINITE_ORDERED_MAPS                  --
+--                      A D A . C O N T A I N E R S .                       --
+--             I N D E F I N I T E _ O R D E R E D _ M A P S                --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2004 Free Software Foundation, Inc.            --
+--          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -20,8 +21,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -38,7 +39,6 @@ with Ada.Finalization;
 with Ada.Streams;
 
 generic
-
    type Key_Type (<>) is private;
 
    type Element_Type (<>) is private;
@@ -48,7 +48,7 @@ generic
    with function "=" (Left, Right : Element_Type) return Boolean is <>;
 
 package Ada.Containers.Indefinite_Ordered_Maps is
-pragma Preelaborate (Indefinite_Ordered_Maps);
+   pragma Preelaborate;
 
    type Map is tagged private;
 
@@ -110,10 +110,6 @@ pragma Preelaborate (Indefinite_Ordered_Maps);
      (Container : in out Map;
       Key       : Key_Type);
 
-   procedure Exclude
-     (Container : in out Map;
-      Key       : Key_Type);
-
    procedure Delete
      (Container : in out Map;
       Position  : in out Cursor);
@@ -121,6 +117,10 @@ pragma Preelaborate (Indefinite_Ordered_Maps);
    procedure Delete_First (Container : in out Map);
 
    procedure Delete_Last (Container : in out Map);
+
+   procedure Exclude
+     (Container : in out Map;
+      Key       : Key_Type);
 
    function Contains
      (Container : Map;
@@ -156,9 +156,9 @@ pragma Preelaborate (Indefinite_Ordered_Maps);
 
    function Next (Position : Cursor) return Cursor;
 
-   function Previous (Position : Cursor) return Cursor;
-
    procedure Next (Position : in out Cursor);
+
+   function Previous (Position : Cursor) return Cursor;
 
    procedure Previous (Position : in out Cursor);
 
@@ -189,21 +189,35 @@ private
    type Node_Type;
    type Node_Access is access Node_Type;
 
-   package Tree_Types is
-     new Red_Black_Trees.Generic_Tree_Types (Node_Access);
+   type Key_Access is access Key_Type;
+   type Element_Access is access Element_Type;
 
-   use Tree_Types;
-   use Ada.Finalization;
+   type Node_Type is limited record
+      Parent  : Node_Access;
+      Left    : Node_Access;
+      Right   : Node_Access;
+      Color   : Red_Black_Trees.Color_Type := Red_Black_Trees.Red;
+      Key     : Key_Access;
+      Element : Element_Access;
+   end record;
 
-   type Map is new Controlled with record
-      Tree : Tree_Type := (Length => 0, others => null);
+   package Tree_Types is new Red_Black_Trees.Generic_Tree_Types
+     (Node_Type,
+      Node_Access);
+
+   type Map is new Ada.Finalization.Controlled with record
+      Tree : Tree_Types.Tree_Type;
    end record;
 
    procedure Adjust (Container : in out Map);
 
    procedure Finalize (Container : in out Map) renames Clear;
 
-   type Map_Access is access constant Map;
+   use Red_Black_Trees;
+   use Tree_Types;
+   use Ada.Finalization;
+
+   type Map_Access is access Map;
    for Map_Access'Storage_Size use 0;
 
    type Cursor is record
@@ -228,7 +242,11 @@ private
    for Map'Read use Read;
 
    Empty_Map : constant Map :=
-     (Controlled with Tree => (Length => 0, others => null));
+                 (Controlled with Tree => (First  => null,
+                                           Last   => null,
+                                           Root   => null,
+                                           Length => 0,
+                                           Busy   => 0,
+                                           Lock   => 0));
 
 end Ada.Containers.Indefinite_Ordered_Maps;
-

@@ -16,8 +16,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 (define_constants
   [(SPE_ACC_REGNO	111)
@@ -29,6 +29,7 @@
    (TSTDFGT_GPR		1009)
    (CMPDFLT_GPR		1010)
    (TSTDFLT_GPR		1011)
+   (E500_CR_IOR_COMPARE 1012)
    ])
 
 (define_insn "*negsf2_gpr"
@@ -2246,7 +2247,7 @@
      case 2:
        return \"evstdd%X0 %1,%y0\";
      default:
-       abort ();
+       gcc_unreachable ();
      }
  }"
   [(set_attr "type" "*,vecload,vecstore")
@@ -2326,7 +2327,7 @@
     case 1: return \"evldd%X1 %0,%y1\";
     case 2: return \"evor %0,%1,%1\";
     case 3: return output_vec_const_move (operands);
-    default: abort ();
+    default: gcc_unreachable ();
     }
 }"
   [(set_attr "type" "vecload,vecstore,*,*")
@@ -2615,14 +2616,14 @@
 ;; FP comparison stuff.
 
 ;; Flip the GT bit.
-(define_insn "e500_flip_eq_bit"
+(define_insn "e500_flip_gt_bit"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
 	(unspec:CCFP
 	 [(match_operand:CCFP 1 "cc_reg_operand" "y")] 999))]
   "!TARGET_FPRS && TARGET_HARD_FLOAT"
   "*
 {
-  return output_e500_flip_eq_bit (operands[0], operands[1]);
+  return output_e500_flip_gt_bit (operands[0], operands[1]);
 }"
   [(set_attr "type" "cr_logical")])
 
@@ -2751,3 +2752,13 @@
   "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
   "efdtstlt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
+
+;; Like cceq_ior_compare, but compare the GT bits.
+(define_insn "e500_cr_ior_compare"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP [(match_operand 1 "cc_reg_operand" "y")
+		      (match_operand 2 "cc_reg_operand" "y")]
+		     E500_CR_IOR_COMPARE))]
+  "TARGET_E500"
+  "cror 4*%0+gt,4*%1+gt,4*%2+gt"
+  [(set_attr "type" "cr_logical")])

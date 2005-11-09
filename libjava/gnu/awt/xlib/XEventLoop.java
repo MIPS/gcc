@@ -21,12 +21,13 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.util.Vector;
 
-public class XEventLoop
+public class XEventLoop implements Runnable
 {
   Display display;
   EventQueue queue;
   XAnyEvent anyEvent;
-
+  private Thread eventLoopThread;
+  
   LightweightRedirector lightweightRedirector = new LightweightRedirector();
     
   public XEventLoop(Display display, EventQueue queue)
@@ -35,22 +36,31 @@ public class XEventLoop
     this.queue = queue;
     
     anyEvent = new XAnyEvent(display);
+    eventLoopThread = new Thread(this, "AWT thread for XEventLoop");
+    eventLoopThread.start();
   }
 
-  void interrupt()
+  public void run ()
   {
-    anyEvent.interrupt();
+    // FIXME: do we need an interrupt mechanism for window shutdown?
+    while (true)
+      postNextEvent (true);
   }
-
-  void postNextEvent(boolean block)
+  
+  /** If there's an event available, post it.
+   * @return true if an event was posted
+   */
+  boolean postNextEvent(boolean block)
   {
     AWTEvent evt = getNextEvent(block);
     if (evt != null)
       queue.postEvent(evt);
+    return evt != null;
   }
     
-  /** get next event. Will block until events become available. */
- 
+  /** Get the next event.
+   * @param block If true, block until an event becomes available
+   */
   public AWTEvent getNextEvent(boolean block)
   {
     // ASSERT:
@@ -60,9 +70,9 @@ public class XEventLoop
     AWTEvent event = null;
     if (loadNextEvent(block))
       {
-        event = createEvent();        
+        event = createEvent(); 
         event = lightweightRedirector.redirect(event);
-      }    
+      }
     return event;
   }
 
@@ -169,7 +179,7 @@ public class XEventLoop
         return null;
         
       default:
-        String msg = "Do no know how to handle event (" + anyEvent + ")";
+        String msg = "Do not know how to handle event (" + anyEvent + ")";
         throw new RuntimeException (msg);
     }
   }

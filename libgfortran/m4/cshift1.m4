@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -35,37 +35,32 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-void cshift1_`'atype_kind (const gfc_array_char * ret,
-			   const gfc_array_char * array,
-			   const atype * h, const atype_name * pwhich);
-export_proto(cshift1_`'atype_kind);
+`#if defined (HAVE_'atype_name`)'
 
-void
-cshift1_`'atype_kind (const gfc_array_char * ret,
-		      const gfc_array_char * array,
-		      const atype * h, const atype_name * pwhich)
+static void
+cshift1 (gfc_array_char * ret, const gfc_array_char * array,
+	 const atype * h, const atype_name * pwhich, index_type size)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type roffset;
   char *rptr;
   char *dest;
   /* s.* indicates the source array.  */
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
   const char *src;
   /* h.* indicates the shift array.  */
-  index_type hstride[GFC_MAX_DIMENSIONS - 1];
+  index_type hstride[GFC_MAX_DIMENSIONS];
   index_type hstride0;
   const atype_name *hptr;
 
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
-  index_type size;
   index_type len;
   index_type n;
   int which;
@@ -79,11 +74,27 @@ cshift1_`'atype_kind (const gfc_array_char * ret,
   if (which < 0 || (which + 1) > GFC_DESCRIPTOR_RANK (array))
     runtime_error ("Argument 'DIM' is out of range in call to 'CSHIFT'");
 
-  size = GFC_DESCRIPTOR_SIZE (ret);
+  if (ret->data == NULL)
+    {
+      int i;
+
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
+      ret->offset = 0;
+      ret->dtype = array->dtype;
+      for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
+        {
+          ret->dim[i].lbound = 0;
+          ret->dim[i].ubound = array->dim[i].ubound - array->dim[i].lbound;
+
+          if (i == 0)
+            ret->dim[i].stride = 1;
+          else
+            ret->dim[i].stride = (ret->dim[i-1].ubound + 1) * ret->dim[i-1].stride;
+        }
+    }
 
   extent[0] = 1;
   count[0] = 0;
-  size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
 
   /* Initialized for avoiding compiler warnings.  */
@@ -183,3 +194,33 @@ cshift1_`'atype_kind (const gfc_array_char * ret,
         }
     }
 }
+
+void cshift1_`'atype_kind (gfc_array_char *, const gfc_array_char *,
+			   const atype *, const atype_name *);
+export_proto(cshift1_`'atype_kind);
+
+void
+cshift1_`'atype_kind (gfc_array_char * ret,
+		      const gfc_array_char * array,
+		      const atype * h, const atype_name * pwhich)
+{
+  cshift1 (ret, array, h, pwhich, GFC_DESCRIPTOR_SIZE (array));
+}
+
+void cshift1_`'atype_kind`'_char (gfc_array_char * ret, GFC_INTEGER_4,
+				  const gfc_array_char * array,
+				  const atype * h, const atype_name * pwhich,
+				  GFC_INTEGER_4);
+export_proto(cshift1_`'atype_kind`'_char);
+
+void
+cshift1_`'atype_kind`'_char (gfc_array_char * ret,
+			     GFC_INTEGER_4 ret_length __attribute__((unused)),
+			     const gfc_array_char * array,
+			     const atype * h, const atype_name * pwhich,
+			     GFC_INTEGER_4 array_length)
+{
+  cshift1 (ret, array, h, pwhich, array_length);
+}
+
+#endif

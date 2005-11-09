@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_REGS_H
 #define GCC_REGS_H
@@ -61,6 +61,7 @@ typedef struct reg_info_def
   int deaths;			/* # of times (REG n) dies */
   int live_length;		/* # of instructions (REG n) is live */
   int calls_crossed;		/* # of calls (REG n) is live across */
+  int throw_calls_crossed;	/* # of calls that may throw (REG n) is live across */
   int basic_block;		/* # of basic blocks (REG n) is used in */
 } reg_info;
 
@@ -124,6 +125,12 @@ extern varray_type reg_n_info;
 /* Indexed by N, gives number of CALL_INSNS across which (REG n) is live.  */
 
 #define REG_N_CALLS_CROSSED(N) (VARRAY_REG (reg_n_info, N)->calls_crossed)
+
+/* Indexed by N, gives number of CALL_INSNS that may throw, across which
+   (REG n) is live.  */
+
+#define REG_N_THROWING_CALLS_CROSSED(N) \
+  (VARRAY_REG (reg_n_info, N)->throw_calls_crossed)
 
 /* Total number of instructions at which (REG n) is live.
    The larger this is, the less priority (REG n) gets for

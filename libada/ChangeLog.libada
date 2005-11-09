@@ -1,6 +1,0 @@
-2004-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
-
-	* Makefile.in: Set THREAD_KIND from configure.
-	* configure.ac: Set THREAD_KIND from configure.
-	* configure: Regenerate.
-

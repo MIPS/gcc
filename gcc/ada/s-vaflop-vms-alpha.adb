@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2000 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2005 Free Software Foundation, Inc.          --
 --                       (Version for Alpha OpenVMS)                        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
@@ -17,8 +17,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -617,5 +617,44 @@ package body System.Vax_Float_Operations is
       Asm ("stg %1,%0", G'Asm_Output ("=m", R1), T'Asm_Input ("f", R));
       return R1;
    end Sub_G;
+
+   -------------
+   -- Valid_D --
+   -------------
+
+   --  For now, convert to IEEE and do Valid test on result. This is not quite
+   --  accurate, but is good enough in practice.
+
+   function Valid_D (Arg : D) return Boolean is
+      Val : T := G_To_T (D_To_G (Arg));
+   begin
+      return Val'Valid;
+   end Valid_D;
+
+   -------------
+   -- Valid_F --
+   -------------
+
+   --  For now, convert to IEEE and do Valid test on result. This is not quite
+   --  accurate, but is good enough in practice.
+
+   function Valid_F (Arg : F) return Boolean is
+      Val : S := F_To_S (Arg);
+   begin
+      return Val'Valid;
+   end Valid_F;
+
+   -------------
+   -- Valid_G --
+   -------------
+
+   --  For now, convert to IEEE and do Valid test on result. This is not quite
+   --  accurate, but is good enough in practice.
+
+   function Valid_G (Arg : G) return Boolean is
+      Val : T := G_To_T (Arg);
+   begin
+      return Val'Valid;
+   end Valid_G;
 
 end System.Vax_Float_Operations;

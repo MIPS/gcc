@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -106,7 +106,8 @@ namespace _GLIBCXX_STD
     { *_M_p ^= _M_mask; }
   };
 
-  struct _Bit_iterator_base : public iterator<random_access_iterator_tag, bool>
+  struct _Bit_iterator_base
+  : public std::iterator<std::random_access_iterator_tag, bool>
   {
     _Bit_type * _M_p;
     unsigned int _M_offset;
@@ -117,7 +118,7 @@ namespace _GLIBCXX_STD
     void
     _M_bump_up()
     {
-      if (_M_offset++ == _S_word_bit - 1)
+      if (_M_offset++ == int(_S_word_bit) - 1)
 	{
 	  _M_offset = 0;
 	  ++_M_p;
@@ -129,7 +130,7 @@ namespace _GLIBCXX_STD
     {
       if (_M_offset-- == 0)
 	{
-	  _M_offset = _S_word_bit - 1;
+	  _M_offset = int(_S_word_bit) - 1;
 	  --_M_p;
 	}
     }
@@ -138,11 +139,11 @@ namespace _GLIBCXX_STD
     _M_incr(ptrdiff_t __i)
     {
       difference_type __n = __i + _M_offset;
-      _M_p += __n / _S_word_bit;
-      __n = __n % _S_word_bit;
+      _M_p += __n / int(_S_word_bit);
+      __n = __n % int(_S_word_bit);
       if (__n < 0)
 	{
-	  _M_offset = static_cast<unsigned int>(__n + _S_word_bit);
+	  _M_offset = static_cast<unsigned int>(__n + int(_S_word_bit));
 	  --_M_p;
 	}
       else
@@ -180,7 +181,8 @@ namespace _GLIBCXX_STD
   inline ptrdiff_t
   operator-(const _Bit_iterator_base& __x, const _Bit_iterator_base& __y)
   {
-    return _S_word_bit * (__x._M_p - __y._M_p) + __x._M_offset - __y._M_offset;
+    return (int(_S_word_bit) * (__x._M_p - __y._M_p)
+	    + __x._M_offset - __y._M_offset);
   }
 
   struct _Bit_iterator : public _Bit_iterator_base
@@ -257,7 +259,7 @@ namespace _GLIBCXX_STD
     }
 
     reference
-    operator[](difference_type __i)
+    operator[](difference_type __i) const
     { return *(*this + __i); }
   };
 
@@ -343,7 +345,7 @@ namespace _GLIBCXX_STD
     }
 
     const_reference
-    operator[](difference_type __i)
+    operator[](difference_type __i) const
     { return *(*this + __i); }
   };
 
@@ -384,7 +386,8 @@ namespace _GLIBCXX_STD
 
       _Bit_type*
       _M_allocate(size_t __n)
-      { return _M_impl.allocate((__n + _S_word_bit - 1) / _S_word_bit); }
+      { return _M_impl.allocate((__n + int(_S_word_bit) - 1)
+				/ int(_S_word_bit)); }
 
       void
       _M_deallocate()
@@ -452,8 +455,8 @@ template<typename _Alloc>
     {
       _Bit_type* __q = this->_M_allocate(__n);
       this->_M_impl._M_end_of_storage = (__q
-					 + ((__n + _S_word_bit - 1)
-					    / _S_word_bit));
+					 + ((__n + int(_S_word_bit) - 1)
+					    / int(_S_word_bit)));
       this->_M_impl._M_start = iterator(__q, 0);
       this->_M_impl._M_finish = this->_M_impl._M_start + difference_type(__n);
     }
@@ -477,8 +480,9 @@ template<typename _Alloc>
 	  *__i++ = __x;
 	  this->_M_impl._M_finish = std::copy(__position, end(), __i);
 	  this->_M_deallocate();
-	  this->_M_impl._M_end_of_storage = (__q + ((__len + _S_word_bit - 1)
-						    / _S_word_bit));
+	  this->_M_impl._M_end_of_storage = (__q + ((__len
+						     + int(_S_word_bit) - 1)
+						    / int(_S_word_bit)));
 	  this->_M_impl._M_start = iterator(__q, 0);
 	}
     }
@@ -486,7 +490,7 @@ template<typename _Alloc>
     template<class _InputIterator>
       void
       _M_initialize_range(_InputIterator __first, _InputIterator __last,
-			  input_iterator_tag)
+			  std::input_iterator_tag)
       {
 	this->_M_impl._M_start = iterator();
 	this->_M_impl._M_finish = iterator();
@@ -498,7 +502,7 @@ template<typename _Alloc>
     template<class _ForwardIterator>
       void
       _M_initialize_range(_ForwardIterator __first, _ForwardIterator __last,
-			  forward_iterator_tag)
+			  std::forward_iterator_tag)
       {
 	const size_type __n = std::distance(__first, __last);
 	_M_initialize(__n);
@@ -508,7 +512,7 @@ template<typename _Alloc>
     template<class _InputIterator>
       void
       _M_insert_range(iterator __pos, _InputIterator __first, 
-		      _InputIterator __last, input_iterator_tag)
+		      _InputIterator __last, std::input_iterator_tag)
       {
 	for (; __first != __last; ++__first)
 	  {
@@ -520,7 +524,7 @@ template<typename _Alloc>
     template<class _ForwardIterator>
       void
       _M_insert_range(iterator __position, _ForwardIterator __first, 
-		      _ForwardIterator __last, forward_iterator_tag)
+		      _ForwardIterator __last, std::forward_iterator_tag)
       {
 	if (__first != __last)
 	  {
@@ -543,8 +547,9 @@ template<typename _Alloc>
 		this->_M_impl._M_finish = std::copy(__position, end(), __i);
 		this->_M_deallocate();
 		this->_M_impl._M_end_of_storage = (__q
-						   + ((__len + _S_word_bit - 1)
-						      / _S_word_bit));
+						   + ((__len
+						       + int(_S_word_bit) - 1)
+						      / int(_S_word_bit)));
 		this->_M_impl._M_start = iterator(__q, 0);
 	      }
 	  }
@@ -742,7 +747,7 @@ template<typename _Alloc>
     template<class _InputIterator>
       void
       _M_assign_aux(_InputIterator __first, _InputIterator __last,
-		    input_iterator_tag)
+		    std::input_iterator_tag)
       {
 	iterator __cur = begin();
 	for (; __first != __last && __cur != end(); ++__cur, ++__first)
@@ -756,7 +761,7 @@ template<typename _Alloc>
     template<class _ForwardIterator>
       void
       _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
-		    forward_iterator_tag)
+		    std::forward_iterator_tag)
       {
 	const size_type __len = std::distance(__first, __last);
 	if (__len < size())
@@ -782,8 +787,8 @@ template<typename _Alloc>
 					      iterator(__q, 0));
 	  this->_M_deallocate();
 	  this->_M_impl._M_start = iterator(__q, 0);
-	  this->_M_impl._M_end_of_storage = (__q + (__n + _S_word_bit - 1)
-					     / _S_word_bit);
+	  this->_M_impl._M_end_of_storage = (__q + (__n + int(_S_word_bit) - 1)
+					     / int(_S_word_bit));
 	}
     }
 
@@ -802,6 +807,14 @@ template<typename _Alloc>
     const_reference
     back() const
     { return *(end() - 1); }
+
+    // _GLIBCXX_RESOLVE_LIB_DEFECTS
+    // DR 464. Suggestion for new member functions in standard containers.
+    // N.B. DR 464 says nothing about vector<bool> but we need something
+    // here due to the way we are implementing DR 464 in the debug-mode
+    // vector class.
+    void
+    data() { }
 
     void
     push_back(bool __x)
@@ -888,8 +901,9 @@ template<typename _Alloc>
 	  this->_M_impl._M_finish = std::copy(__position, end(),
 					      __i + difference_type(__n));
 	  this->_M_deallocate();
-	  this->_M_impl._M_end_of_storage = (__q + ((__len + _S_word_bit - 1)
-						    / _S_word_bit));
+	  this->_M_impl._M_end_of_storage = (__q + ((__len
+						     + int(_S_word_bit) - 1)
+						    / int(_S_word_bit)));
 	  this->_M_impl._M_start = iterator(__q, 0);
 	}
     }

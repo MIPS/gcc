@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -39,6 +39,8 @@ with Widechar; use Widechar;
 
 with System.CRC32;
 with System.WCh_Con; use System.WCh_Con;
+
+with GNAT.UTF_32; use GNAT.UTF_32;
 
 package body Scng is
 
@@ -95,7 +97,8 @@ package body Scng is
    procedure Accumulate_Checksum (C : Char_Code) is
    begin
       if C > 16#FFFF# then
-         Accumulate_Checksum (Character'Val (C / 2 ** 16));
+         Accumulate_Checksum (Character'Val (C / 2 ** 24));
+         Accumulate_Checksum (Character'Val ((C / 2 ** 16) mod 256));
          Accumulate_Checksum (Character'Val ((C / 256) mod 256));
       else
          Accumulate_Checksum (Character'Val (C / 256));
@@ -254,6 +257,7 @@ package body Scng is
       First_Non_Blank_Location  := Scan_Ptr;
 
       Initialize_Checksum;
+      Wide_Char_Byte_Count := 0;
 
       --  Do not call Scan, otherwise the License stuff does not work in Scn
 
@@ -337,11 +341,20 @@ package body Scng is
       -----------------------
 
       procedure Check_End_Of_Line is
-         Len : constant Int := Int (Scan_Ptr) - Int (Current_Line_Start);
+         Len : constant Int :=
+                 Int (Scan_Ptr) -
+                 Int (Current_Line_Start) -
+                 Wide_Char_Byte_Count;
 
       begin
-         if Style_Check and Style_Check_Max_Line_Length then
+         if Style_Check then
             Style.Check_Line_Terminator (Len);
+         end if;
+
+         --  Deal with checking maximum line length
+
+         if Style_Check and Style_Check_Max_Line_Length then
+            Style.Check_Line_Max_Length (Len);
 
          --  If style checking is inactive, check maximum line length against
          --  standard value. Note that we take this from Opt.Max_Line_Length
@@ -353,6 +366,10 @@ package body Scng is
          elsif Len > Opt.Max_Line_Length then
             Error_Long_Line;
          end if;
+
+         --  Reset wide character byte count for next line
+
+         Wide_Char_Byte_Count := 0;
       end Check_End_Of_Line;
 
       -----------------------
@@ -1102,8 +1119,12 @@ package body Scng is
 
                   Accumulate_Checksum (Code);
 
+                  --  In Ada 95 mode we allow any wide characters in a string
+                  --  but in Ada 2005, the set of characters allowed has been
+                  --  restricted to graphic characters.
+
                   if Ada_Version >= Ada_05
-                    and then Is_UTF_32_Non_Graphic (Code)
+                    and then Is_UTF_32_Non_Graphic (UTF_32 (Code))
                   then
                      Error_Msg
                        ("(Ada 2005) non-graphic character not permitted " &
@@ -1228,6 +1249,7 @@ package body Scng is
          when EOF =>
             if Scan_Ptr = Source_Last (Current_Source_File) then
                Check_End_Of_Line;
+               if Style_Check then Style.Check_EOF; end if;
                Token := Tok_EOF;
                return;
             else
@@ -1515,7 +1537,7 @@ package body Scng is
 
                         --  If UTF_32 terminator, terminate comment scan
 
-                        elsif Is_UTF_32_Line_Terminator (Code) then
+                        elsif Is_UTF_32_Line_Terminator (UTF_32 (Code)) then
                            Scan_Ptr := Wptr;
                            exit;
                         end if;
@@ -1636,10 +1658,14 @@ package body Scng is
 
                   if Err then
                      Error_Illegal_Wide_Character;
-                     Code := Character'Pos (' ');
+                        Code := Character'Pos (' ');
+
+                  --  In Ada 95 mode we allow any wide character in a character
+                  --  literal, but in Ada 2005, the set of characters allowed
+                  --  is restricted to graphic characters.
 
                   elsif Ada_Version >= Ada_05
-                    and then Is_UTF_32_Non_Graphic (Code)
+                    and then Is_UTF_32_Non_Graphic (UTF_32 (Code))
                   then
                      Error_Msg
                        ("(Ada 2005) non-graphic character not permitted " &
@@ -1899,7 +1925,7 @@ package body Scng is
 
          --  Invalid control characters
 
-         when NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS  | SO  |
+         when NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS  | ASCII.SO |
               SI  | DLE | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB | CAN |
               EM  | FS  | GS  | RS  | US  | DEL
          =>
@@ -1942,6 +1968,7 @@ package body Scng is
 
          declare
             Code : Char_Code;
+            Cat  : Category;
             Err  : Boolean;
 
          begin
@@ -1953,10 +1980,13 @@ package body Scng is
             if Err then
                Error_Illegal_Wide_Character;
                goto Scan_Next_Character;
+            end if;
+
+            Cat := Get_Category (UTF_32 (Code));
 
             --  If OK letter, reset scan ptr and go scan identifier
 
-            elsif Is_UTF_32_Letter (Code) then
+            if Is_UTF_32_Letter (Cat) then
                Scan_Ptr := Wptr;
                Name_Len := 0;
                Underline_Found := False;
@@ -1965,18 +1995,18 @@ package body Scng is
             --  If OK wide space, ignore and keep scanning (we do not include
             --  any ignored spaces in checksum)
 
-            elsif Is_UTF_32_Space (Code) then
+            elsif Is_UTF_32_Space (Cat) then
                goto Scan_Next_Character;
 
             --  If OK wide line terminator, terminate current line
 
-            elsif Is_UTF_32_Line_Terminator (Code) then
+            elsif Is_UTF_32_Line_Terminator (UTF_32 (Code)) then
                Scan_Ptr := Wptr;
                goto Scan_Line_Terminator;
 
             --  Punctuation is an error (at start of identifier)
 
-            elsif Is_UTF_32_Punctuation (Code) then
+            elsif Is_UTF_32_Punctuation (Cat) then
                Error_Msg
                  ("identifier cannot start with punctuation", Wptr);
                Scan_Ptr := Wptr;
@@ -1986,7 +2016,7 @@ package body Scng is
 
             --  Mark character is an error (at start of identifer)
 
-            elsif Is_UTF_32_Mark (Code) then
+            elsif Is_UTF_32_Mark (Cat) then
                Error_Msg
                  ("identifier cannot start with mark character", Wptr);
                Scan_Ptr := Wptr;
@@ -1996,7 +2026,7 @@ package body Scng is
 
             --  Other format character is an error (at start of identifer)
 
-            elsif Is_UTF_32_Other (Code) then
+            elsif Is_UTF_32_Other (Cat) then
                Error_Msg
                  ("identifier cannot start with other format character", Wptr);
                Scan_Ptr := Wptr;
@@ -2008,7 +2038,7 @@ package body Scng is
             --  identifier or bad literal. Not worth doing too much to try to
             --  distinguish these cases, but we will do a little bit.
 
-            elsif Is_UTF_32_Digit (Code) then
+            elsif Is_UTF_32_Digit (Cat) then
                Error_Msg
                  ("identifier cannot start with digit character", Wptr);
                Scan_Ptr := Wptr;
@@ -2155,9 +2185,10 @@ package body Scng is
                --  encoding into the name table entry for the identifier.
 
                declare
-                  Code   : Char_Code;
-                  Err    : Boolean;
-                  Chr    : Character;
+                  Code : Char_Code;
+                  Err  : Boolean;
+                  Chr  : Character;
+                  Cat  : Category;
 
                begin
                   Wptr := Scan_Ptr;
@@ -2198,19 +2229,22 @@ package body Scng is
                        ("wide character not allowed in identifier", Wptr);
                      end if;
 
+                     Cat := Get_Category (UTF_32 (Code));
+
                      --  If OK letter, store it folding to upper case. Note
                      --  that we include the folded letter in the checksum.
 
-                     if Is_UTF_32_Letter (Code) then
-                        Code := UTF_32_To_Upper_Case (Code);
+                     if Is_UTF_32_Letter (Cat) then
+                        Code :=
+                          Char_Code (UTF_32_To_Upper_Case (UTF_32 (Code)));
                         Accumulate_Checksum (Code);
                         Store_Encoded_Character (Code);
                         Underline_Found := False;
 
                      --  If OK extended digit or mark, then store it
 
-                     elsif Is_UTF_32_Digit (Code)
-                       or else Is_UTF_32_Mark (Code)
+                     elsif Is_UTF_32_Digit (Cat)
+                       or else Is_UTF_32_Mark (Cat)
                      then
                         Accumulate_Checksum (Code);
                         Store_Encoded_Character (Code);
@@ -2219,7 +2253,7 @@ package body Scng is
                      --  Wide punctuation is also stored, but counts as an
                      --  underline character for error checking purposes.
 
-                     elsif Is_UTF_32_Punctuation (Code) then
+                     elsif Is_UTF_32_Punctuation (Cat) then
                         Accumulate_Checksum (Code);
 
                         if Underline_Found then
@@ -2241,12 +2275,16 @@ package body Scng is
                      --  stored. It seems reasonable to exclude it from the
                      --  checksum.
 
-                     elsif Is_UTF_32_Other (Code) then
+                     --  Note that it is correct (see AI-395) to simply strip
+                     --  other format characters, before testing for double
+                     --  underlines, or for reserved words).
+
+                     elsif Is_UTF_32_Other (Cat) then
                         null;
 
                      --  Wide character in category Separator,Space terminates
 
-                     elsif Is_UTF_32_Space (Code) then
+                     elsif Is_UTF_32_Space (Cat) then
                         goto Scan_Identifier_Complete;
 
                      --  Any other wide character is not acceptable
@@ -2300,14 +2338,18 @@ package body Scng is
             --  Ada 2005 (AI-284): Do not apply the style check in case of
             --  "pragma Interface"
 
+            --  Ada 2005 (AI-340): Do not apply the style check in case of
+            --  MOD attribute.
+
             if Style_Check
               and then Source (Token_Ptr) <= 'Z'
               and then (Prev_Token /= Tok_Apostrophe
                           or else
-                            (Token /= Tok_Access
-                               and then Token /= Tok_Delta
-                               and then Token /= Tok_Digits
-                               and then Token /= Tok_Range))
+                            (Token /= Tok_Access and then
+                             Token /= Tok_Delta  and then
+                             Token /= Tok_Digits and then
+                             Token /= Tok_Mod    and then
+                             Token /= Tok_Range))
               and then (Token /= Tok_Interface
                           or else
                             (Token = Tok_Interface

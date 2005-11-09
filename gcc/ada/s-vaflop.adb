@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -41,7 +41,7 @@ with System.IO; use System.IO;
 
 package body System.Vax_Float_Operations is
    pragma Warnings (Off);
-   --  Warnings about infinite recursion when the -gnatdm switch is used.
+   --  Warnings about infinite recursion when the -gnatdm switch is used
 
    -----------
    -- Abs_F --
@@ -417,5 +417,44 @@ package body System.Vax_Float_Operations is
    begin
       return G (X);
    end T_To_G;
+
+   -------------
+   -- Valid_D --
+   -------------
+
+   --  For now, convert to IEEE and do Valid test on result. This is not quite
+   --  accurate, but is good enough in practice.
+
+   function Valid_D (Arg : D) return Boolean is
+      Val : T := G_To_T (D_To_G (Arg));
+   begin
+      return Val'Valid;
+   end Valid_D;
+
+   -------------
+   -- Valid_F --
+   -------------
+
+   --  For now, convert to IEEE and do Valid test on result. This is not quite
+   --  accurate, but is good enough in practice.
+
+   function Valid_F (Arg : F) return Boolean is
+      Val : S := F_To_S (Arg);
+   begin
+      return Val'Valid;
+   end Valid_F;
+
+   -------------
+   -- Valid_G --
+   -------------
+
+   --  For now, convert to IEEE and do Valid test on result. This is not quite
+   --  accurate, but is good enough in practice.
+
+   function Valid_G (Arg : G) return Boolean is
+      Val : T := G_To_T (Arg);
+   begin
+      return Val'Valid;
+   end Valid_G;
 
 end System.Vax_Float_Operations;

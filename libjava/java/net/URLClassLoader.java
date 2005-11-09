@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -63,7 +63,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import gnu.gcj.runtime.SharedLibHelper;
-
+import gnu.gcj.Core;
+import gnu.java.net.protocol.core.CoreInputStream;
 
 /**
  * A secure class loader that can load classes and resources from
@@ -609,9 +610,16 @@ public class URLClassLoader extends SecureClassLoader
     /** get resource with the name "name" in the file url */
     Resource getResource(String name)
     {
-      File file = new File(dir, name);
-      if (file.exists() && ! file.isDirectory())
-        return new FileResource(this, name, file);
+      try 
+ 	{
+ 	  File file = new File(dir, name).getCanonicalFile();
+ 	  if (file.exists() && !file.isDirectory())
+ 	    return new FileResource(this, file.getPath(), file);
+ 	}
+      catch (IOException e)
+ 	{
+ 	  // Fall through...
+ 	}
       return null;
     }
   }
@@ -628,11 +636,36 @@ public class URLClassLoader extends SecureClassLoader
 
     InputStream getInputStream() throws IOException
     {
+      // Delegate to the URL content handler mechanism to retrieve an
+      // HTML representation of the directory listing if a directory
+      if (file.isDirectory())
+        {
+          URL url = getURL();
+          return url.openStream();
+        }
+      // Otherwise simply return a FileInputStream
       return new FileInputStream(file);
     }
 
     public int getLength()
     {
+      // Delegate to the URL content handler mechanism to retrieve the
+      // length of the HTML representation of the directory listing if
+      // a directory, or -1 if an exception occurs opening the directory.
+      if (file.isDirectory())
+        {
+          URL url = getURL();
+          try
+            {
+              URLConnection connection = url.openConnection();
+              return connection.getContentLength();
+            }
+          catch (IOException e)
+            {
+              return -1;
+            }
+        }
+      // Otherwise simply return the file length
       return (int) file.length();
     }
 
@@ -642,6 +675,66 @@ public class URLClassLoader extends SecureClassLoader
         {
           return new URL(loader.baseURL, name,
                          loader.classloader.getURLStreamHandler("file"));
+        }
+      catch (MalformedURLException e)
+        {
+          InternalError ie = new InternalError();
+          ie.initCause(e);
+          throw ie;
+        }
+    }
+  }
+
+  /**
+   * A <code>CoreURLLoader</code> is a type of <code>URLLoader</code>
+   * only loading from core url.
+   */
+  static final class CoreURLLoader extends URLLoader
+  {
+    private String dir;
+
+    CoreURLLoader(URLClassLoader classloader, URL url)
+    {
+      super(classloader, url);
+      dir = baseURL.getFile();
+    }
+
+    /** get resource with the name "name" in the core url */
+    Resource getResource(String name)
+    {
+      Core core = Core.find (dir + name);
+      if (core != null)
+        return new CoreResource(this, name, core);
+      return null;
+    }
+  }
+
+  static final class CoreResource extends Resource
+  {
+    final Core core;
+
+    CoreResource(CoreURLLoader loader, String name, Core core)
+    {
+      super(loader, name);
+      this.core = core;
+    }
+
+    InputStream getInputStream() throws IOException
+    {
+      return new CoreInputStream(core);
+    }
+
+    public int getLength()
+    {
+      return core.length;
+    }
+
+    public URL getURL()
+    {
+      try
+        {
+          return new URL(loader.baseURL, name,
+                         loader.classloader.getURLStreamHandler("core"));
         }
       catch (MalformedURLException e)
         {
@@ -794,10 +887,13 @@ public class URLClassLoader extends SecureClassLoader
 
   private void addURLImpl(URL newUrl)
   {
-    synchronized (urlloaders)
+    synchronized (this)
       {
         if (newUrl == null)
           return; // Silently ignore...
+
+	// Reset the toString() value.
+	thisString = null;
 
         // Check global cache to see if there're already url loader
         // for this url.
@@ -814,6 +910,8 @@ public class URLClassLoader extends SecureClassLoader
               loader = new JarURLLoader(this, newUrl);
             else if ("file".equals(protocol))
               loader = new FileURLLoader(this, newUrl);
+	    else if ("core".equals(protocol))
+	      loader = new CoreURLLoader(this, newUrl);
             else
               loader = new RemoteURLLoader(this, newUrl);
 
@@ -850,9 +948,24 @@ public class URLClassLoader extends SecureClassLoader
   }
 
   /**
+   * Look in both Attributes for a given value.  The first Attributes
+   * object, if not null, has precedence.
+   */
+  private String getAttributeValue(Attributes.Name name, Attributes first,
+				   Attributes second)
+  {
+    String result = null;
+    if (first != null)
+      result = first.getValue(name);
+    if (result == null)
+      result = second.getValue(name);
+    return result;
+  }
+
+  /**
    * Defines a Package based on the given name and the supplied manifest
-   * information. The manifest indicates the tile, version and
-   * vendor information of the specification and implementation and wheter the
+   * information. The manifest indicates the title, version and
+   * vendor information of the specification and implementation and whether the
    * package is sealed. If the Manifest indicates that the package is sealed
    * then the Package will be sealed with respect to the supplied URL.
    *
@@ -867,13 +980,36 @@ public class URLClassLoader extends SecureClassLoader
   protected Package definePackage(String name, Manifest manifest, URL url)
     throws IllegalArgumentException
   {
+    // Compute the name of the package as it may appear in the
+    // Manifest.
+    StringBuffer xform = new StringBuffer(name);
+    for (int i = xform.length () - 1; i >= 0; --i)
+      if (xform.charAt(i) == '.')
+	xform.setCharAt(i, '/');
+    xform.append('/');
+    String xformName = xform.toString();
+
+    Attributes entryAttr = manifest.getAttributes(xformName);
     Attributes attr = manifest.getMainAttributes();
-    String specTitle = attr.getValue(Attributes.Name.SPECIFICATION_TITLE);
-    String specVersion = attr.getValue(Attributes.Name.SPECIFICATION_VERSION);
-    String specVendor = attr.getValue(Attributes.Name.SPECIFICATION_VENDOR);
-    String implTitle = attr.getValue(Attributes.Name.IMPLEMENTATION_TITLE);
-    String implVersion = attr.getValue(Attributes.Name.IMPLEMENTATION_VERSION);
-    String implVendor = attr.getValue(Attributes.Name.IMPLEMENTATION_VENDOR);
+
+    String specTitle
+      = getAttributeValue(Attributes.Name.SPECIFICATION_TITLE,
+			  entryAttr, attr);
+    String specVersion
+      = getAttributeValue(Attributes.Name.SPECIFICATION_VERSION,
+			  entryAttr, attr);
+    String specVendor
+      = getAttributeValue(Attributes.Name.SPECIFICATION_VENDOR,
+			  entryAttr, attr);
+    String implTitle
+      = getAttributeValue(Attributes.Name.IMPLEMENTATION_TITLE,
+			  entryAttr, attr);
+    String implVersion
+      = getAttributeValue(Attributes.Name.IMPLEMENTATION_VERSION,
+			  entryAttr, attr);
+    String implVendor
+      = getAttributeValue(Attributes.Name.IMPLEMENTATION_VENDOR,
+			  entryAttr, attr);
 
     // Look if the Manifest indicates that this package is sealed
     // XXX - most likely not completely correct!
@@ -885,8 +1021,10 @@ public class URLClassLoader extends SecureClassLoader
       // make sure that the URL is null so the package is not sealed
       url = null;
 
-    return definePackage(name, specTitle, specVersion, specVendor, implTitle,
-                         implVersion, implVendor, url);
+    return definePackage(name,
+			 specTitle, specVendor, specVersion,
+			 implTitle, implVendor, implVersion,
+			 url);
   }
 
   /**
@@ -1020,25 +1158,28 @@ public class URLClassLoader extends SecureClassLoader
    */
   public String toString()
   {
-    if (thisString == null)
+    synchronized (this)
       {
-	StringBuffer sb = new StringBuffer();
-	sb.append(this.getClass().getName());
-	sb.append("{urls=[" );
-	URL[] thisURLs = getURLs();
-	for (int i = 0; i < thisURLs.length; i++)
+	if (thisString == null)
 	  {
-	    sb.append(thisURLs[i]);
-	    if (i < thisURLs.length - 1)
-	      sb.append(',');
+	    StringBuffer sb = new StringBuffer();
+	    sb.append(this.getClass().getName());
+	    sb.append("{urls=[" );
+	    URL[] thisURLs = getURLs();
+	    for (int i = 0; i < thisURLs.length; i++)
+	      {
+		sb.append(thisURLs[i]);
+		if (i < thisURLs.length - 1)
+		  sb.append(',');
+	      }
+	    sb.append(']');
+	    sb.append(", parent=");
+	    sb.append(getParent());
+	    sb.append('}');
+	    thisString = sb.toString();
 	  }
-	sb.append(']');
-	sb.append(", parent=");
-	sb.append(getParent());
-	sb.append('}');
-	thisString = sb.toString();
+	return thisString;
       }
-    return thisString;
   }
 
   /**

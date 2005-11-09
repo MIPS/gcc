@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GFC_ARITH_H
 #define GFC_ARITH_H
@@ -80,6 +80,13 @@ gfc_expr *gfc_complex2int (gfc_expr *, int);
 gfc_expr *gfc_complex2real (gfc_expr *, int);
 gfc_expr *gfc_complex2complex (gfc_expr *, int);
 gfc_expr *gfc_log2log (gfc_expr *, int);
+gfc_expr *gfc_log2int (gfc_expr *, int);
+gfc_expr *gfc_int2log (gfc_expr *, int);
+gfc_expr *gfc_hollerith2int (gfc_expr *, int);
+gfc_expr *gfc_hollerith2real (gfc_expr *, int);
+gfc_expr *gfc_hollerith2complex (gfc_expr *, int);
+gfc_expr *gfc_hollerith2character (gfc_expr *, int);
+gfc_expr *gfc_hollerith2logical (gfc_expr *, int);
 
 #endif /* GFC_ARITH_H  */
 

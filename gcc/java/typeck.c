@@ -1,5 +1,5 @@
 /* Handle types for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -83,24 +83,24 @@ convert_ieee_real_to_integer (tree type, tree expr)
   tree result;
   expr = save_expr (expr);
 
-  result = fold (build3 (COND_EXPR, type,
-			 fold (build2 (NE_EXPR, boolean_type_node, expr, expr)),
+  result = fold_build3 (COND_EXPR, type,
+			fold_build2 (NE_EXPR, boolean_type_node, expr, expr),
 			 convert (type, integer_zero_node),
-			 convert_to_integer (type, expr)));
+			 convert_to_integer (type, expr));
   
-  result = fold (build3 (COND_EXPR, type, 
-			 fold (build2 (LE_EXPR, boolean_type_node, expr, 
-				       convert (TREE_TYPE (expr), 
-						TYPE_MIN_VALUE (type)))),
-			 TYPE_MIN_VALUE (type),
-			 result));
+  result = fold_build3 (COND_EXPR, type, 
+			fold_build2 (LE_EXPR, boolean_type_node, expr, 
+				     convert (TREE_TYPE (expr), 
+					      TYPE_MIN_VALUE (type))),
+			TYPE_MIN_VALUE (type),
+			result);
   
-  result = fold (build3 (COND_EXPR, type,
-			 fold (build2 (GE_EXPR, boolean_type_node, expr, 
-				       convert (TREE_TYPE (expr), 
-						TYPE_MAX_VALUE (type)))),
-			 TYPE_MAX_VALUE (type),
-			 result));
+  result = fold_build3 (COND_EXPR, type,
+			fold_build2 (GE_EXPR, boolean_type_node, expr, 
+				     convert (TREE_TYPE (expr), 
+					      TYPE_MAX_VALUE (type))),
+			TYPE_MAX_VALUE (type),
+			result);
 
   return result;
 }  
@@ -119,9 +119,6 @@ convert (tree type, tree expr)
   if (!expr)
    return error_mark_node;
 
-  if (do_not_fold)
-    return build1 (NOP_EXPR, type, expr);
-
   if (type == TREE_TYPE (expr)
       || TREE_CODE (expr) == ERROR_MARK)
     return expr;
@@ -138,14 +135,15 @@ convert (tree type, tree expr)
 	       && ! flag_emit_class_files))
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
 	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	return fold (convert_ieee_real_to_integer (type, expr));
+	return convert_ieee_real_to_integer (type, expr);
       else
 	{
 	  /* fold very helpfully sets the overflow status if a type
 	     overflows in a narrowing integer conversion, but Java
 	     doesn't care.  */
 	  tree tmp = fold (convert_to_integer (type, expr));
-	  TREE_OVERFLOW (tmp) = 0;
+	  if (TREE_CODE (tmp) == INTEGER_CST)
+	    TREE_OVERFLOW (tmp) = 0;
 	  return tmp;
 	}
     }	  
@@ -331,7 +329,7 @@ java_array_type_length (tree array_type)
   return -1;
 }
 
-/* An array of unknown length will be ultimately given an length of
+/* An array of unknown length will be ultimately given a length of
    -2, so that we can still have `length' producing a negative value
    even if found. This was part of an optimization aiming at removing
    `length' from static arrays. We could restore it, FIXME.  */
@@ -844,6 +842,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
 	   tree signature, tree (*signature_builder) (tree))
 {
   tree method;
+  tree orig_class = searched_class;
     
   if (searched_class == NULL_TREE)
     return NULL_TREE;
@@ -870,7 +869,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
   
   /* If that doesn't work, look in our interfaces.  */
   if (flags & SEARCH_INTERFACE)
-    method = find_method_in_interfaces (searched_class, flags, method_name, 
+    method = find_method_in_interfaces (orig_class, flags, method_name, 
 					signature, signature_builder);
   
   return method;

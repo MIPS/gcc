@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -496,6 +496,10 @@ namespace std
       {
 	if (!_M_filebuf.open(__s, __mode | ios_base::in))
 	  this->setstate(ios_base::failbit);
+	else
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 409. Closing an fstream should clear error state
+	  this->clear();
       }
 
       /**
@@ -623,6 +627,10 @@ namespace std
       {
 	if (!_M_filebuf.open(__s, __mode | ios_base::out))
 	  this->setstate(ios_base::failbit);
+	else
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 409. Closing an fstream should clear error state
+	  this->clear();
       }
 
       /**
@@ -749,6 +757,10 @@ namespace std
       {
 	if (!_M_filebuf.open(__s, __mode))
 	  this->setstate(ios_base::failbit);
+	else
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 409. Closing an fstream should clear error state
+	  this->clear();
       }
 
       /**

@@ -17,8 +17,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-#02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+#02110-1301, USA.
 
 AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libobjc)
@@ -118,8 +118,6 @@ case $srcdir in
 esac
 AC_SUBST(glibcpp_srcdir)
 
-TL_AC_GCC_VERSION([$srcdir/..])
-
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
 case ${version_specific_libs} in
@@ -128,7 +126,7 @@ case ${version_specific_libs} in
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
     toolexecdir='$(libdir)/gcc/$(target_noncanonical)'
-    toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexeclibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     ;;
   no)
     if test -n "$with_cross_host" &&
@@ -179,6 +177,15 @@ m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-darwin*)
+    # Darwin needs -single_module when linking libobjc
+    extra_ldflags_libobjc=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libobjc)
 
 AC_SUBST(CFLAGS)
 

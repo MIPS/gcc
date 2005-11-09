@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -432,6 +432,8 @@ public abstract class URLConnection
    * <code>UnknownServiceException</code> so subclasses are encouraged
    * to override this method.</p>
    *
+   * @return the content
+   *
    * @exception IOException If an error with the connection occurs.
    * @exception UnknownServiceException If the protocol does not support the
    * content type at all.
@@ -458,6 +460,8 @@ public abstract class URLConnection
    * Retrieves the content of this URLConnection
    *
    * @param classes The allowed classes for the content
+   *
+   * @return the content
    *
    * @exception IOException If an error occurs
    * @exception UnknownServiceException If the protocol does not support the
@@ -979,17 +983,22 @@ public abstract class URLConnection
     if (contentType == null || contentType.equals(""))
       return null;
 
-    ContentHandler handler;
+    ContentHandler handler = null;
 
     // See if a handler has been cached for this content type.
     // For efficiency, if a content type has been searched for but not
     // found, it will be in the hash table but as the contentType String
     // instead of a ContentHandler.
-    if ((handler = (ContentHandler) handlers.get(contentType)) != null)
-      if (handler instanceof ContentHandler)
-	return handler;
-      else
-	return null;
+    {
+      Object cachedHandler;
+      if ((cachedHandler = handlers.get(contentType)) != null)
+	{
+	  if (cachedHandler instanceof ContentHandler)
+	    return (ContentHandler)cachedHandler;
+	  else
+	    return null;
+	}
+    }
 
     // If a non-default factory has been set, use it.
     if (factory != null)

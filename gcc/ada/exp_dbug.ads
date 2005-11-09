@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -89,7 +89,7 @@ package Exp_Dbug is
    --    x
    --    y.z
 
-   --  The separating dots are translated into double underscores.
+   --  The separating dots are translated into double underscores
 
       -----------------------------
       -- Handling of Overloading --
@@ -385,6 +385,28 @@ package Exp_Dbug is
       --    lock_update1sE
       --    lock_udpate2sB
 
+      --  If the protected type implements at least one interface, the
+      --  following additional operations are created:
+
+      --    lock_get
+
+      --    lock_set
+
+      --  These operations are used to ensure overriding of interface level
+      --  subprograms and proper dispatching on interface class-wide objects.
+      --  The bodies of these operations contain calls to their respective
+      --  protected versions:
+
+      --    function lock_get return Integer is
+      --    begin
+      --       return lock_getP;
+      --    end lock_get;
+
+      --    procedure lock_set (X : Integer) is
+      --    begin
+      --       lock_setP (X);
+      --    end lock_set;
+
    ----------------------------------------------------
    -- Conversion between Entities and External Names --
    ----------------------------------------------------
@@ -432,8 +454,9 @@ package Exp_Dbug is
    --        or is defined within an overloaded subprogram.
    --    - the string "___" followed by Suffix
    --
-   --  If this procedure is called in the ASIS mode, it does nothing. See the
-   --  comments in the body for more details.
+   --  Note that a call to this procedure has no effect if we are not
+   --  generating code, since the necessary information for computing the
+   --  proper encoded name is not available in this case.
 
    --------------------------------------------
    -- Subprograms for Handling Qualification --
@@ -685,9 +708,9 @@ package Exp_Dbug is
       --  follows. In this description, let P represent the current
       --  bit position in the record.
 
-      --    1. Initialize P to 0.
+      --    1. Initialize P to 0
 
-      --    2. For each field in the record,
+      --    2. For each field in the record:
 
       --       2a. If an alignment is given (see below), then round P
       --       up, if needed, to the next multiple of that alignment.
@@ -696,7 +719,7 @@ package Exp_Dbug is
       --       amount (that is, treat it as an offset from the end of the
       --       preceding record).
 
-      --       2c. Assign P as the actual position of the field.
+      --       2c. Assign P as the actual position of the field
 
       --       2d. Compute the length, L, of the represented field (see below)
       --       and compute P'=P+L. Unless the field represents a variant part
@@ -923,11 +946,13 @@ package Exp_Dbug is
    -------------------------------------------------
 
    procedure Get_Encoded_Name (E : Entity_Id);
-   --  If the entity is a typename, store the external name of
-   --  the entity as in Get_External_Name, followed by three underscores
-   --  plus the type encoding in Name_Buffer with the length in Name_Len,
-   --  and an ASCII.NUL character stored following the name.
-   --  Otherwise set Name_Buffer and Name_Len to hold the entity name.
+   --  If the entity is a typename, store the external name of the entity as in
+   --  Get_External_Name, followed by three underscores plus the type encoding
+   --  in Name_Buffer with the length in Name_Len, and an ASCII.NUL character
+   --  stored following the name. Otherwise set Name_Buffer and Name_Len to
+   --  hold the entity name. Note that a call to this procedure has no effect
+   --  if we are not generating code, since the necessary information for
+   --  computing the proper encoded name is not available in this case.
 
    --------------
    -- Renaming --
@@ -960,7 +985,7 @@ package Exp_Dbug is
    --  name of the parent unit, to disambiguate child units with the same
    --  simple name and (of necessity) different parents.
 
-   --  Note: subprogram renamings are not encoded at the present time.
+   --  Note: subprogram renamings are not encoded at the present time
 
    --  The type is an enumeration type with a single enumeration literal
    --  that is an identifier which describes the renamed variable.

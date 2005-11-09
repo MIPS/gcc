@@ -1,5 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   Namelist transfer functions contributed by Paul Thomas
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -24,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* transfer.c -- Top level handling of data transfer statements.  */
@@ -77,22 +78,33 @@ export_proto(transfer_character);
 extern void transfer_complex (void *, int);
 export_proto(transfer_complex);
 
+extern void transfer_array (gfc_array_char *, int, gfc_charlen_type);
+export_proto(transfer_array);
+
 gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
+static int eor_condition = 0;
 
-char scratch[SCRATCH_SIZE] = { };
+/* Maximum righthand column written to.  */
+static int max_pos;
+/* Number of skips + spaces to be done for T and X-editing.  */
+static int skips;
+/* Number of spaces to be done for T and X-editing.  */
+static int pending_spaces;
+
+char scratch[SCRATCH_SIZE];
 static char *line_buffer = NULL;
 
 static unit_advance advance_status;
 
-static st_option advance_opt[] = {
+static const st_option advance_opt[] = {
   {"yes", ADVANCE_YES},
   {"no", ADVANCE_NO},
-  {NULL}
+  {NULL, 0}
 };
 
 
-static void (*transfer) (bt, void *, int);
+static void (*transfer) (bt, void *, int, size_t, size_t);
 
 
 typedef enum
@@ -150,20 +162,25 @@ read_sf (int *length)
   else
     p = base = data;
 
-  memset(base,'\0',*length);
+  /* If we have seen an eor previously, return a length of 0.  The
+     caller is responsible for correctly padding the input field.  */
+  if (sf_seen_eor)
+    {
+      *length = 0;
+      return base;
+    }
 
-  current_unit->bytes_left = options.default_recl;
   readlen = 1;
   n = 0;
 
   do
     {
       if (is_internal_unit())
-        {
-	  /* readlen may be modified inside salloc_r if 
+	{
+	  /* readlen may be modified inside salloc_r if
 	     is_internal_unit() is true.  */
-          readlen = 1;
-        }
+	  readlen = 1;
+	}
 
       q = salloc_r (current_unit->s, &readlen);
       if (q == NULL)
@@ -177,15 +194,18 @@ read_sf (int *length)
 	  return NULL;
 	}
 
-      if (readlen < 1 || *q == '\n')
+      if (readlen < 1 || *q == '\n' || *q == '\r')
 	{
-	  /* ??? What is this for?  */
-          if (current_unit->unit_number == options.stdin_unit)
-            {
-              if (n <= 0)
-                continue;
-            }
 	  /* Unexpected end of line.  */
+
+	  /* If we see an EOR during non-advancing I/O, we need to skip
+	     the rest of the I/O statement.  Set the corresponding flag.  */
+	  if (advance_status == ADVANCE_NO || g.seen_dollar)
+	    eor_condition = 1;
+
+	  /* Without padding, terminate the I/O statement without assigning
+	     the value.  With padding, the value still needs to be assigned,
+	     so we can just continue with a short read.  */
 	  if (current_unit->flags.pad == PAD_NO)
 	    {
 	      generate_error (ERROR_EOR, NULL);
@@ -194,7 +214,7 @@ read_sf (int *length)
 
 	  current_unit->bytes_left = 0;
 	  *length = n;
-          sf_seen_eor = 1;
+	  sf_seen_eor = 1;
 	  break;
 	}
 
@@ -203,6 +223,10 @@ read_sf (int *length)
       sf_seen_eor = 0;
     }
   while (n < *length);
+  current_unit->bytes_left -= *length;
+
+  if (ioparm.size != NULL)
+    *ioparm.size += *length;
 
   return base;
 }
@@ -212,7 +236,7 @@ read_sf (int *length)
    file, advancing the current position.  We return a pointer to a
    buffer containing the bytes.  We return NULL on end of record or
    end of file.
-  
+
    If the read is short, then it is because the current record does not
    have enough data to satisfy the read request and the file was
    opened with PAD=YES.  The caller must assume tailing spaces for
@@ -224,10 +248,6 @@ read_block (int *length)
   char *source;
   int nread;
 
-  if (current_unit->flags.form == FORM_FORMATTED &&
-      current_unit->flags.access == ACCESS_SEQUENTIAL)
-    return read_sf (length);	/* Special case.  */
-
   if (current_unit->bytes_left < *length)
     {
       if (current_unit->flags.pad == PAD_NO)
@@ -238,6 +258,10 @@ read_block (int *length)
 
       *length = current_unit->bytes_left;
     }
+
+  if (current_unit->flags.form == FORM_FORMATTED &&
+      current_unit->flags.access == ACCESS_SEQUENTIAL)
+    return read_sf (length);	/* Special case.  */
 
   current_unit->bytes_left -= *length;
 
@@ -262,6 +286,60 @@ read_block (int *length)
 }
 
 
+/* Reads a block directly into application data space.  */
+
+static void
+read_block_direct (void * buf, size_t * nbytes)
+{
+  int *length;
+  void *data;
+  size_t nread;
+
+  if (current_unit->bytes_left < *nbytes)
+    {
+      if (current_unit->flags.pad == PAD_NO)
+	{
+	  generate_error (ERROR_EOR, NULL); /* Not enough data left.  */
+	  return;
+	}
+
+      *nbytes = current_unit->bytes_left;
+    }
+
+  if (current_unit->flags.form == FORM_FORMATTED &&
+      current_unit->flags.access == ACCESS_SEQUENTIAL)
+    {
+      length = (int*) nbytes;
+      data = read_sf (length);	/* Special case.  */
+      memcpy (buf, data, (size_t) *length);
+      return;
+    }
+
+  current_unit->bytes_left -= *nbytes;
+
+  nread = *nbytes;
+  if (sread (current_unit->s, buf, &nread) != 0)
+    {
+      generate_error (ERROR_OS, NULL);
+      return;
+    }
+
+  if (ioparm.size != NULL)
+    *ioparm.size += (GFC_INTEGER_4) nread;
+
+  if (nread != *nbytes)
+    {				/* Short read, e.g. if we hit EOF.  */
+      if (current_unit->flags.pad == PAD_YES)
+	{
+	  memset (((char *) buf) + nread, ' ', *nbytes - nread);
+	  *nbytes = nread;
+	}
+      else
+	generate_error (ERROR_EOR, NULL);
+    }
+}
+
+
 /* Function for writing a block of bytes to the current file at the
    current position, advancing the file pointer. We are given a length
    and return a pointer to a buffer that the caller must (completely)
@@ -271,15 +349,21 @@ void *
 write_block (int length)
 {
   char *dest;
-
-  if (!is_internal_unit() && current_unit->bytes_left < length)
+  
+  if (current_unit->bytes_left < length)
     {
       generate_error (ERROR_EOR, NULL);
       return NULL;
     }
 
-  current_unit->bytes_left -= length;
+  current_unit->bytes_left -= (gfc_offset)length;
   dest = salloc_w (current_unit->s, &length);
+  
+  if (dest == NULL)
+    {
+      generate_error (ERROR_END, NULL);
+      return NULL;
+    }
 
   if (ioparm.size != NULL)
     *ioparm.size += length;
@@ -288,45 +372,48 @@ write_block (int length)
 }
 
 
+/* Writes a block directly without necessarily allocating space in a
+   buffer.  */
+
+static void
+write_block_direct (void * buf, size_t * nbytes)
+{
+  if (current_unit->bytes_left < *nbytes)
+    generate_error (ERROR_EOR, NULL);
+
+  current_unit->bytes_left -= (gfc_offset) *nbytes;
+
+  if (swrite (current_unit->s, buf, nbytes) != 0)
+    generate_error (ERROR_OS, NULL);
+
+  if (ioparm.size != NULL)
+    *ioparm.size += (GFC_INTEGER_4) *nbytes;
+}
+
+
 /* Master function for unformatted reads.  */
 
 static void
-unformatted_read (bt type, void *dest, int length)
+unformatted_read (bt type __attribute__((unused)), void *dest,
+                 int kind __attribute__((unused)),
+                 size_t size, size_t nelems)
 {
-  void *source;
-  int w;
+  size *= nelems;
 
-  /* Transfer functions get passed the kind of the entity, so we have
-     to fix this for COMPLEX data which are twice the size of their
-     kind.  */
-  if (type == BT_COMPLEX)
-    length *= 2;
-
-  w = length;
-  source = read_block (&w);
-
-  if (source != NULL)
-    {
-      memcpy (dest, source, w);
-      if (length != w)
-	memset (((char *) dest) + w, ' ', length - w);
-    }
+  read_block_direct (dest, &size);
 }
+
 
 /* Master function for unformatted writes.  */
 
 static void
-unformatted_write (bt type, void *source, int length)
+unformatted_write (bt type __attribute__((unused)), void *source,
+                  int kind __attribute__((unused)),
+                  size_t size, size_t nelems)
 {
-  void *dest;
+  size *= nelems;
 
-  /* Correction for kind vs. length as in unformatted_read.  */
-  if (type == BT_COMPLEX)
-    length *= 2;
-
-  dest = write_block (length);
-  if (dest != NULL)
-    memcpy (dest, source, length);
+  write_block_direct (source, &size);
 }
 
 
@@ -421,28 +508,37 @@ require_type (bt expected, bt actual, fnode * f)
    of the next element, then comes back here to process it.  */
 
 static void
-formatted_transfer (bt type, void *p, int len)
+formatted_transfer_scalar (bt type, void *p, int len, size_t size)
 {
-  int pos ,m ;
+  int pos, bytes_used;
   fnode *f;
-  int i, n;
+  format_token t;
+  int n;
   int consume_data_flag;
 
   /* Change a complex data item into a pair of reals.  */
 
   n = (p == NULL) ? 0 : ((type != BT_COMPLEX) ? 1 : 2);
   if (type == BT_COMPLEX)
-    type = BT_REAL;
+    {
+      type = BT_REAL;
+      size /= 2;
+    }
+
+  /* If there's an EOR condition, we simulate finalizing the transfer
+     by doing nothing.  */
+  if (eor_condition)
+    return;
 
   for (;;)
     {
       /* If reversion has occurred and there is another real data item,
-         then we have to move to the next record.  */
+	 then we have to move to the next record.  */
       if (g.reversion_flag && n > 0)
-        {
-          g.reversion_flag = 0;
-          next_record (0);
-        }
+	{
+	  g.reversion_flag = 0;
+	  next_record (0);
+	}
 
       consume_data_flag = 1 ;
       if (ioparm.library_return != LIBRARY_OK)
@@ -450,9 +546,34 @@ formatted_transfer (bt type, void *p, int len)
 
       f = next_format ();
       if (f == NULL)
-	return;		/* No data descriptors left (already raised).  */
+	return;	      /* No data descriptors left (already raised).  */
 
-      switch (f->format)
+      /* Now discharge T, TR and X movements to the right.  This is delayed
+	 until a data producing format to suppress trailing spaces.  */
+      t = f->format;
+      if (g.mode == WRITING && skips != 0
+	&& ((n>0 && (  t == FMT_I  || t == FMT_B  || t == FMT_O
+		    || t == FMT_Z  || t == FMT_F  || t == FMT_E
+		    || t == FMT_EN || t == FMT_ES || t == FMT_G
+		    || t == FMT_L  || t == FMT_A  || t == FMT_D))
+	    || t == FMT_STRING))
+	{
+	  if (skips > 0)
+	    {
+	      write_x (skips, pending_spaces);
+	      max_pos = (int)(current_unit->recl - current_unit->bytes_left);
+	    }
+	  if (skips < 0)
+	    {
+	      move_pos_offset (current_unit->s, skips);
+	      current_unit->bytes_left -= (gfc_offset)skips;
+	    }
+	  skips = pending_spaces = 0;
+	}
+
+      bytes_used = (int)(current_unit->recl - current_unit->bytes_left);
+
+      switch (t)
 	{
 	case FMT_I:
 	  if (n == 0)
@@ -505,8 +626,6 @@ formatted_transfer (bt type, void *p, int len)
 	case FMT_A:
 	  if (n == 0)
 	    goto need_data;
-	  if (require_type (BT_CHARACTER, type, f))
-	    return;
 
 	  if (g.mode == READING)
 	    read_a (f, p, len);
@@ -634,7 +753,7 @@ formatted_transfer (bt type, void *p, int len)
 	  break;
 
 	case FMT_STRING:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  if (g.mode == READING)
 	    {
 	      format_error (f, "Constant string in input format");
@@ -643,95 +762,99 @@ formatted_transfer (bt type, void *p, int len)
 	  write_constant_string (f);
 	  break;
 
-	  /* Format codes that don't transfer data.  */
+	/* Format codes that don't transfer data.  */
 	case FMT_X:
 	case FMT_TR:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
+
+	  pos = bytes_used + f->u.n + skips;
+	  skips = f->u.n + skips;
+	  pending_spaces = pos - max_pos;
+
+	  /* Writes occur just before the switch on f->format, above, so that
+	     trailing blanks are suppressed.  */
 	  if (g.mode == READING)
-	    read_x (f);
-	  else
-	    write_x (f);
+	    read_x (f->u.n);
 
 	  break;
 
-        case FMT_TL:
-        case FMT_T:
-           if (f->format==FMT_TL)
-             {
-                pos = f->u.n ;
-                pos= current_unit->recl - current_unit->bytes_left - pos;
-             }
-           else // FMT==T
-             {
-                consume_data_flag = 0 ;
-                pos = f->u.n - 1; 
-             }
+	case FMT_TL:
+	case FMT_T:
+	  if (f->format == FMT_TL)
+	    pos = bytes_used - f->u.n;
+	  else /* FMT_T */
+	    {
+	      consume_data_flag = 0;
+	      pos = f->u.n - 1;
+	    }
 
-           if (pos < 0 || pos >= current_unit->recl )
-           {
-             generate_error (ERROR_EOR, "T Or TL edit position error");
-             break ;
-            }
-            m = pos - (current_unit->recl - current_unit->bytes_left);
+	  /* Standard 10.6.1.1: excessive left tabbing is reset to the
+	     left tab limit.  We do not check if the position has gone
+	     beyond the end of record because a subsequent tab could
+	     bring us back again.  */
+	  pos = pos < 0 ? 0 : pos;
 
-            if (m == 0)
-               break;
+	  skips = skips + pos - bytes_used;
+	  pending_spaces =  pending_spaces + pos - max_pos;
 
-            if (m > 0)
-             {
-               f->u.n = m;
-               if (g.mode == READING)
-                 read_x (f);
-               else
-                 write_x (f);
-             }
-            if (m < 0)
-             {
-               move_pos_offset (current_unit->s,m);
-             }
+	  if (skips == 0)
+	    break;
+
+	  /* Writes occur just before the switch on f->format, above, so that
+	     trailing blanks are suppressed.  */
+	  if (g.mode == READING)
+	    {
+	      if (skips > 0)
+		read_x (skips);
+	      if (skips < 0)
+		{
+		  move_pos_offset (current_unit->s, skips);
+		  current_unit->bytes_left -= (gfc_offset)skips;
+		  skips = pending_spaces = 0;
+		}
+	    }
 
 	  break;
 
 	case FMT_S:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.sign_status = SIGN_S;
 	  break;
 
 	case FMT_SS:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.sign_status = SIGN_SS;
 	  break;
 
 	case FMT_SP:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.sign_status = SIGN_SP;
 	  break;
 
 	case FMT_BN:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.blank_status = BLANK_NULL;
 	  break;
 
 	case FMT_BZ:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.blank_status = BLANK_ZERO;
 	  break;
 
 	case FMT_P:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.scale_factor = f->u.k;
 	  break;
 
 	case FMT_DOLLAR:
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  g.seen_dollar = 1;
 	  break;
 
 	case FMT_SLASH:
-          consume_data_flag = 0 ;
-	  for (i = 0; i < f->repeat; i++)
-	    next_record (0);
-
+	  consume_data_flag = 0 ;
+	  skips = pending_spaces = 0;
+	  next_record (0);
 	  break;
 
 	case FMT_COLON:
@@ -739,7 +862,7 @@ formatted_transfer (bt type, void *p, int len)
 	     particular preventing another / descriptor from being
 	     processed) unless there is another data item to be
 	     transferred.  */
-          consume_data_flag = 0 ;
+	  consume_data_flag = 0 ;
 	  if (n == 0)
 	    return;
 	  break;
@@ -763,8 +886,15 @@ formatted_transfer (bt type, void *p, int len)
       if ((consume_data_flag > 0) && (n > 0))
       {
 	n--;
-        p = ((char *) p) + len;
+	p = ((char *) p) + size;
       }
+
+      if (g.mode == READING)
+	skips = 0;
+
+      pos = (int)(current_unit->recl - current_unit->bytes_left);
+      max_pos = (max_pos > pos) ? max_pos : pos;
+
     }
 
   return;
@@ -776,6 +906,23 @@ formatted_transfer (bt type, void *p, int len)
   unget_format (f);
 }
 
+static void
+formatted_transfer (bt type, void *p, int kind, size_t size, size_t nelems)
+{
+  size_t elem;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      g.item_count++;
+      formatted_transfer_scalar (type, tmp + size*elem, kind, size);
+    }
+}
+
+
 
 /* Data transfer entry points.  The type of the data entity is
    implicit in the subroutine call.  This prevents us from having to
@@ -784,50 +931,158 @@ formatted_transfer (bt type, void *p, int len)
 void
 transfer_integer (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_INTEGER, p, kind);
+  transfer (BT_INTEGER, p, kind, kind, 1);
 }
 
 
 void
 transfer_real (void *p, int kind)
 {
-  g.item_count++;
+  size_t size;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_REAL, p, kind);
+  size = size_from_real_kind (kind);
+  transfer (BT_REAL, p, kind, size, 1);
 }
 
 
 void
 transfer_logical (void *p, int kind)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_LOGICAL, p, kind);
+  transfer (BT_LOGICAL, p, kind, kind, 1);
 }
 
 
 void
 transfer_character (void *p, int len)
 {
-  g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_CHARACTER, p, len);
+  /* Currently we support only 1 byte chars, and the library is a bit
+     confused of character kind vs. length, so we kludge it by setting
+     kind = length.  */
+  transfer (BT_CHARACTER, p, len, len, 1);
 }
 
 
 void
 transfer_complex (void *p, int kind)
 {
-  g.item_count++;
+  size_t size;
   if (ioparm.library_return != LIBRARY_OK)
     return;
-  transfer (BT_COMPLEX, p, kind);
+  size = size_from_complex_kind (kind);
+  transfer (BT_COMPLEX, p, kind, size, 1);
+}
+
+
+void
+transfer_array (gfc_array_char *desc, int kind, gfc_charlen_type charlen)
+{
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type stride[GFC_MAX_DIMENSIONS];
+  index_type stride0, rank, size, type, n;
+  size_t tsize;
+  char *data;
+  bt iotype;
+
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
+
+  type = GFC_DESCRIPTOR_TYPE (desc);
+  size = GFC_DESCRIPTOR_SIZE (desc);
+
+  /* FIXME: What a kludge: Array descriptors and the IO library use
+     different enums for types.  */
+  switch (type)
+    {
+    case GFC_DTYPE_UNKNOWN:
+      iotype = BT_NULL;  /* Is this correct?  */
+      break;
+    case GFC_DTYPE_INTEGER:
+      iotype = BT_INTEGER;
+      break;
+    case GFC_DTYPE_LOGICAL:
+      iotype = BT_LOGICAL;
+      break;
+    case GFC_DTYPE_REAL:
+      iotype = BT_REAL;
+      break;
+    case GFC_DTYPE_COMPLEX:
+      iotype = BT_COMPLEX;
+      break;
+    case GFC_DTYPE_CHARACTER:
+      iotype = BT_CHARACTER;
+      /* FIXME: Currently dtype contains the charlen, which is
+	 clobbered if charlen > 2**24. That's why we use a separate
+	 argument for the charlen. However, if we want to support
+	 non-8-bit charsets we need to fix dtype to contain
+	 sizeof(chartype) and fix the code below.  */
+      size = charlen;
+      kind = charlen;
+      break;
+    case GFC_DTYPE_DERIVED:
+      internal_error ("Derived type I/O should have been handled via the frontend.");
+      break;
+    default:
+      internal_error ("transfer_array(): Bad type");
+    }
+
+  if (desc->dim[0].stride == 0)
+    desc->dim[0].stride = 1;
+
+  rank = GFC_DESCRIPTOR_RANK (desc);
+  for (n = 0; n < rank; n++)
+    {
+      count[n] = 0;
+      stride[n] = desc->dim[n].stride;
+      extent[n] = desc->dim[n].ubound + 1 - desc->dim[n].lbound;
+
+      /* If the extent of even one dimension is zero, then the entire
+	 array section contains zero elements, so we return.  */
+      if (extent[n] == 0)
+	return;
+    }
+
+  stride0 = stride[0];
+
+  /* If the innermost dimension has stride 1, we can do the transfer
+     in contiguous chunks.  */
+  if (stride0 == 1)
+    tsize = extent[0];
+  else
+    tsize = 1;
+
+  data = GFC_DESCRIPTOR_DATA (desc);
+
+  while (data)
+    {
+      transfer (iotype, data, kind, size, tsize);
+      data += stride0 * size * tsize;
+      count[0] += tsize;
+      n = 0;
+      while (count[n] == extent[n])
+	{
+	  count[n] = 0;
+	  data -= stride[n] * extent[n] * size;
+	  n++;
+	  if (n == rank)
+	    {
+	      data = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      count[n]++;
+	      data += stride[n] * size;
+	    }
+	}
+    }
 }
 
 
@@ -935,6 +1190,12 @@ data_transfer_init (int read_flag)
   current_unit = get_unit (read_flag);
   if (current_unit == NULL)
   {  /* Open the unit with some default flags.  */
+     if (ioparm.unit < 0)
+     {
+       generate_error (ERROR_BAD_OPTION, "Bad unit number in OPEN statement");
+       library_end ();
+       return;
+     }
      memset (&u_flags, '\0', sizeof (u_flags));
      u_flags.access = ACCESS_SEQUENTIAL;
      u_flags.action = ACTION_READWRITE;
@@ -953,13 +1214,6 @@ data_transfer_init (int read_flag)
 
   if (current_unit == NULL)
     return;
-
-  if (is_internal_unit())
-    {
-      current_unit->recl = file_length(current_unit->s);
-      if (g.mode==WRITING)
-        empty_internal_buffer (current_unit->s);
-    }
 
   /* Check the action.  */
 
@@ -988,14 +1242,14 @@ data_transfer_init (int read_flag)
 
   if (ioparm.namelist_name != NULL && ionml != NULL)
      {
-        if(ioparm.format != NULL)
-           generate_error (ERROR_OPTION_CONFLICT,
-                    "A format cannot be specified with a namelist");
+	if(ioparm.format != NULL)
+	   generate_error (ERROR_OPTION_CONFLICT,
+		    "A format cannot be specified with a namelist");
      }
   else if (current_unit->flags.form == FORM_FORMATTED &&
-           ioparm.format == NULL && !ioparm.list_format)
+	   ioparm.format == NULL && !ioparm.list_format)
     generate_error (ERROR_OPTION_CONFLICT,
-                    "Missing format for FORMATTED data transfer");
+		    "Missing format for FORMATTED data transfer");
 
 
   if (is_internal_unit () && current_unit->flags.form == FORM_UNFORMATTED)
@@ -1089,13 +1343,36 @@ data_transfer_init (int read_flag)
       /* Check to see if we might be reading what we wrote before  */
 
       if (g.mode == READING && current_unit->mode  == WRITING)
-         flush(current_unit->s);
+	 flush(current_unit->s);
+
+      /* Check whether the record exists to be read.  Only
+	 a partial record needs to exist.  */
+
+      if (g.mode == READING && (ioparm.rec -1)
+	  * current_unit->recl >= file_length (current_unit->s))
+	{
+	  generate_error (ERROR_BAD_OPTION, "Non-existing record number");
+	  return;
+	}
 
       /* Position the file.  */
       if (sseek (current_unit->s,
-               (ioparm.rec - 1) * current_unit->recl) == FAILURE)
-	generate_error (ERROR_OS, NULL);
+	       (ioparm.rec - 1) * current_unit->recl) == FAILURE)
+	{
+	  generate_error (ERROR_OS, NULL);
+	  return;
+	}
     }
+
+  /* Overwriting an existing sequential file ?
+     it is always safe to truncate the file on the first write */
+  if (g.mode == WRITING
+      && current_unit->flags.access == ACCESS_SEQUENTIAL
+      && current_unit->last_record == 0 && !is_preconnected(current_unit->s))
+	struncate(current_unit->s);
+
+  /* Bugware for badly written mixed C-Fortran I/O.  */
+  flush_if_preconnected(current_unit->s);
 
   current_unit->mode = g.mode;
 
@@ -1108,6 +1385,7 @@ data_transfer_init (int read_flag)
   g.first_item = 1;
   g.item_count = 0;
   sf_seen_eor = 0;
+  eor_condition = 0;
 
   pre_position ();
 
@@ -1120,10 +1398,10 @@ data_transfer_init (int read_flag)
       else
 	{
 	  if (ioparm.list_format)
-            {
-               transfer = list_formatted_read;
-               init_at_eol();
-            }
+	    {
+	       transfer = list_formatted_read;
+	       init_at_eol();
+	    }
 	  else
 	    transfer = formatted_transfer;
 	}
@@ -1154,16 +1432,73 @@ data_transfer_init (int read_flag)
     }
   else
     {
-      if (advance_status == ADVANCE_YES)
+      if (advance_status == ADVANCE_YES && !g.seen_dollar)
 	current_unit->read_bad = 1;
     }
+
+  /* Reset counters for T and X-editing.  */
+  max_pos = skips = pending_spaces = 0;
 
   /* Start the data transfer if we are doing a formatted transfer.  */
   if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
       && ioparm.namelist_name == NULL && ionml == NULL)
-    formatted_transfer (0, NULL, 0);
+    formatted_transfer (0, NULL, 0, 0, 1);
 }
 
+/* Initialize an array_loop_spec given the array descriptor.  The function
+   returns the index of the last element of the array.  */
+   
+gfc_offset
+init_loop_spec (gfc_array_char *desc, array_loop_spec *ls)
+{
+  int rank = GFC_DESCRIPTOR_RANK(desc);
+  int i;
+  gfc_offset index; 
+
+  index = 1;
+  for (i=0; i<rank; i++)
+    {
+      ls[i].idx = 1;
+      ls[i].start = desc->dim[i].lbound;
+      ls[i].end = desc->dim[i].ubound;
+      ls[i].step = desc->dim[i].stride;
+      
+      index += (desc->dim[i].ubound - desc->dim[i].lbound)
+                      * desc->dim[i].stride;
+    }
+  return index;
+}
+
+/* Determine the index to the next record in an internal unit array by
+   by incrementing through the array_loop_spec.  TODO:  Implement handling
+   negative strides. */
+   
+gfc_offset
+next_array_record ( array_loop_spec * ls )
+{
+  int i, carry;
+  gfc_offset index;
+  
+  carry = 1;
+  index = 0;
+  
+  for (i = 0; i < current_unit->rank; i++)
+    {
+      if (carry)
+        {
+          ls[i].idx++;
+          if (ls[i].idx > ls[i].end)
+            {
+              ls[i].idx = ls[i].start;
+              carry = 1;
+            }
+          else
+            carry = 0;
+        }
+      index = index + (ls[i].idx - 1) * ls[i].step;
+    }
+  return index;
+}
 
 /* Space to the next record for read mode.  If the file is not
    seekable, we read MAX_READ chunks until we get to the right
@@ -1172,10 +1507,10 @@ data_transfer_init (int read_flag)
 #define MAX_READ 4096
 
 static void
-next_record_r (int done)
+next_record_r (void)
 {
-  int rlength, length;
-  gfc_offset new;
+  gfc_offset new, record;
+  int bytes_left, rlength, length;
   char *p;
 
   switch (current_mode ())
@@ -1194,7 +1529,7 @@ next_record_r (int done)
 	{
 	  new = file_position (current_unit->s) + current_unit->bytes_left;
 
-	  /* Direct access files do not generate END conditions, 
+	  /* Direct access files do not generate END conditions,
 	     only I/O errors.  */
 	  if (sseek (current_unit->s, new) == FAILURE)
 	    generate_error (ERROR_OS, NULL);
@@ -1222,31 +1557,52 @@ next_record_r (int done)
     case FORMATTED_SEQUENTIAL:
       length = 1;
       /* sf_read has already terminated input because of an '\n'  */
-      if (sf_seen_eor) 
-         break;
+      if (sf_seen_eor)
+	{
+	  sf_seen_eor=0;
+	  break;
+	}
 
-      do
-        {
-          p = salloc_r (current_unit->s, &length);
+      if (is_internal_unit())
+	{
+	  if (is_array_io())
+	  {
+            record =  next_array_record (current_unit->ls);   
+                 
+            /* Now seek to this record.  */
+            record = record * current_unit->recl;
+            if (sseek (current_unit->s, record) == FAILURE)
+              {
+                generate_error (ERROR_OS, NULL);
+                break;
+              }
+	    current_unit->bytes_left = current_unit->recl;
+          }
+        else  
+          {
+	    bytes_left = (int) current_unit->bytes_left;
+	    p = salloc_r (current_unit->s, &bytes_left);
+	    if (p != NULL)
+	      current_unit->bytes_left = current_unit->recl;
+	  } 
+	break;
+	}
+      else do
+	{
+	  p = salloc_r (current_unit->s, &length);
 
-          /* In case of internal file, there may not be any '\n'.  */
-          if (is_internal_unit() && p == NULL)
-            {
-               break;
-            }
+	  if (p == NULL)
+	    {
+	      generate_error (ERROR_OS, NULL);
+	      break;
+	    }
 
-          if (p == NULL)
-            {
-              generate_error (ERROR_OS, NULL);
-              break;
-            }
-
-          if (length == 0)
-            {
-              current_unit->endfile = AT_ENDFILE;
-              break;
-            }
-        }
+	  if (length == 0)
+	    {
+	      current_unit->endfile = AT_ENDFILE;
+	      break;
+	    }
+	}
       while (*p != '\n');
 
       break;
@@ -1260,11 +1616,14 @@ next_record_r (int done)
 /* Position to the next record in write mode.  */
 
 static void
-next_record_w (int done)
+next_record_w (void)
 {
-  gfc_offset c, m;
-  int length;
+  gfc_offset c, m, record;
+  int bytes_left, length;
   char *p;
+
+  /* Zero counters for X- and T-editing.  */
+  max_pos = skips = pending_spaces = 0;
 
   switch (current_mode ())
     {
@@ -1285,7 +1644,7 @@ next_record_w (int done)
 
     case UNFORMATTED_DIRECT:
       if (sfree (current_unit->s) == FAILURE)
-        goto io_error;
+	goto io_error;
       break;
 
     case UNFORMATTED_SEQUENTIAL:
@@ -1323,19 +1682,64 @@ next_record_w (int done)
       break;
 
     case FORMATTED_SEQUENTIAL:
-      length = 1;
-      p = salloc_w (current_unit->s, &length);
 
-      if (!is_internal_unit())
-        {
-          if (p)
-            *p = '\n'; /* No CR for internal writes.  */
-          else
-            goto io_error;
-        }
-
-      if (sfree (current_unit->s) == FAILURE)
- 	goto io_error;
+      if (current_unit->bytes_left == 0)
+	break;
+	
+      if (is_internal_unit())
+	{
+	  if (is_array_io())
+	    {
+	      bytes_left = (int) current_unit->bytes_left;
+	      p = salloc_w (current_unit->s, &bytes_left);
+	      if (p == NULL)
+		{
+		  generate_error (ERROR_END, NULL);
+		  return;
+		}
+              memset(p, ' ', bytes_left);
+              
+              /* Now that the current record has been padded out,
+                 determine where the next record in the array is. */
+                 
+              record =  next_array_record (current_unit->ls);   
+               
+              /* Now seek to this record */
+              record = record * current_unit->recl;
+              
+              if (sseek (current_unit->s, record) == FAILURE)
+                goto io_error;
+                
+              current_unit->bytes_left = current_unit->recl;
+	    }
+	  else
+	    {
+	      length = 1;
+	      p = salloc_w (current_unit->s, &length);
+	      if (p==NULL)
+	        goto io_error;
+	    }
+ 	}
+      else
+	{
+#ifdef HAVE_CRLF
+	  length = 2;
+#else
+	  length = 1;
+#endif
+	  p = salloc_w (current_unit->s, &length);
+	  if (p)
+	    {  /* No new line for internal writes.  */
+#ifdef HAVE_CRLF
+	      p[0] = '\r';
+	      p[1] = '\n';
+#else
+	      *p = '\n';
+#endif
+	    }
+	  else
+	    goto io_error;
+	}
 
       break;
 
@@ -1344,7 +1748,6 @@ next_record_w (int done)
       break;
     }
 }
-
 
 /* Position to the next record, which means moving to the end of the
    current record.  This can happen under several different
@@ -1359,9 +1762,9 @@ next_record (int done)
   current_unit->read_bad = 0;
 
   if (g.mode == READING)
-    next_record_r (done);
+    next_record_r ();
   else
-    next_record_w (done);
+    next_record_w ();
 
   /* keep position up to date for INQUIRE */
   current_unit->flags.position = POSITION_ASIS;
@@ -1384,20 +1787,27 @@ next_record (int done)
 
 /* Finalize the current data transfer.  For a nonadvancing transfer,
    this means advancing to the next record.  For internal units close the
-   steam associated with the unit.  */
+   stream associated with the unit.  */
 
 static void
 finalize_transfer (void)
 {
+
+  if (eor_condition)
+    {
+      generate_error (ERROR_EOR, NULL);
+      return;
+    }
+
   if (ioparm.library_return != LIBRARY_OK)
     return;
 
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)
-         namelist_read();
+	 namelist_read();
        else
-         namelist_write();
+	 namelist_write();
     }
 
   transfer = NULL;
@@ -1416,11 +1826,12 @@ finalize_transfer (void)
     {
       free_fnodes ();
 
-      if (advance_status == ADVANCE_NO)
+      if (advance_status == ADVANCE_NO || g.seen_dollar)
 	{
 	  /* Most systems buffer lines, so force the partial record
 	     to be written out.  */
 	  flush (current_unit->s);
+	  g.seen_dollar = 0;
 	  return;
 	}
 
@@ -1431,7 +1842,11 @@ finalize_transfer (void)
   sfree (current_unit->s);
 
   if (is_internal_unit ())
-    sclose (current_unit->s);
+    {
+      if (is_array_io() && current_unit->ls != NULL)
+        free_mem (current_unit->ls);
+      sclose (current_unit->s);
+    }
 }
 
 
@@ -1439,10 +1854,13 @@ finalize_transfer (void)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (bt type, void *dest, int len)
+iolength_transfer (bt type __attribute__((unused)), 
+		   void *dest __attribute__ ((unused)),
+		   int kind __attribute__((unused)), 
+		   size_t size, size_t nelems)
 {
   if (ioparm.iolength != NULL)
-    *ioparm.iolength += len;
+    *ioparm.iolength += (GFC_INTEGER_4) size * nelems;
 }
 
 
@@ -1497,6 +1915,7 @@ export_proto(st_read);
 void
 st_read (void)
 {
+
   library_start ();
 
   data_transfer_init (1);
@@ -1513,11 +1932,11 @@ st_read (void)
 	break;
 
       case AT_ENDFILE:
-        if (!is_internal_unit())
-          {
-            generate_error (ERROR_END, NULL);
-            current_unit->endfile = AFTER_ENDFILE;
-          }
+	if (!is_internal_unit())
+	  {
+	    generate_error (ERROR_END, NULL);
+	    current_unit->endfile = AFTER_ENDFILE;
+	  }
 	break;
 
       case AFTER_ENDFILE:
@@ -1542,6 +1961,7 @@ export_proto(st_write);
 void
 st_write (void)
 {
+
   library_start ();
   data_transfer_init (0);
 }
@@ -1568,11 +1988,11 @@ st_write_done (void)
 
       case NO_ENDFILE:
 	if (current_unit->current_record > current_unit->last_record)
-          {
-            /* Get rid of whatever is after this record.  */
-            if (struncate (current_unit->s) == FAILURE)
-              generate_error (ERROR_OS, NULL);
-          }
+	  {
+	    /* Get rid of whatever is after this record.  */
+	    if (struncate (current_unit->s) == FAILURE)
+	      generate_error (ERROR_OS, NULL);
+	  }
 
 	current_unit->endfile = AT_ENDFILE;
 	break;
@@ -1581,94 +2001,77 @@ st_write_done (void)
   library_end ();
 }
 
+/* Receives the scalar information for namelist objects and stores it
+   in a linked list of namelist_info types.  */
 
-static void
-st_set_nml_var (void * var_addr, char * var_name, int var_name_len,
-                int kind, bt type, int string_length)
+extern void st_set_nml_var (void * ,char * ,
+			    GFC_INTEGER_4 ,gfc_charlen_type ,GFC_INTEGER_4);
+export_proto(st_set_nml_var);
+
+
+void
+st_set_nml_var (void * var_addr, char * var_name, GFC_INTEGER_4 len,
+		gfc_charlen_type string_length, GFC_INTEGER_4 dtype)
 {
-  namelist_info *t1 = NULL, *t2 = NULL;
-  namelist_info *nml = (namelist_info *) get_mem (sizeof (namelist_info));
+  namelist_info *t1 = NULL;
+  namelist_info *nml;
+
+  nml = (namelist_info*) get_mem (sizeof (namelist_info));
+
   nml->mem_pos = var_addr;
-  if (var_name)
+
+  nml->var_name = (char*) get_mem (strlen (var_name) + 1);
+  strcpy (nml->var_name, var_name);
+
+  nml->len = (int) len;
+  nml->string_length = (index_type) string_length;
+
+  nml->var_rank = (int) (dtype & GFC_DTYPE_RANK_MASK);
+  nml->size = (index_type) (dtype >> GFC_DTYPE_SIZE_SHIFT);
+  nml->type = (bt) ((dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT);
+
+  if (nml->var_rank > 0)
     {
-      assert (var_name_len > 0);
-      nml->var_name = (char*) get_mem (var_name_len+1);
-      strncpy (nml->var_name, var_name, var_name_len);
-      nml->var_name[var_name_len] = 0;
+      nml->dim = (descriptor_dimension*)
+		   get_mem (nml->var_rank * sizeof (descriptor_dimension));
+      nml->ls = (array_loop_spec*)
+		  get_mem (nml->var_rank * sizeof (array_loop_spec));
     }
   else
     {
-      assert (var_name_len == 0);
-      nml->var_name = NULL;
+      nml->dim = NULL;
+      nml->ls = NULL;
     }
-
-  nml->len = kind;
-  nml->type = type;
-  nml->string_length = string_length;
 
   nml->next = NULL;
 
   if (ionml == NULL)
-     ionml = nml;
+    ionml = nml;
   else
     {
-      t1 = ionml;
-      while (t1 != NULL)
-       {
-         t2 = t1;
-         t1 = t1->next;
-       }
-       t2->next = nml;
+      for (t1 = ionml; t1->next; t1 = t1->next);
+      t1->next = nml;
     }
+  return;
 }
 
-extern void st_set_nml_var_int (void *, char *, int, int);
-export_proto(st_set_nml_var_int);
-
-extern void st_set_nml_var_float (void *, char *, int, int);
-export_proto(st_set_nml_var_float);
-
-extern void st_set_nml_var_char (void *, char *, int, int, gfc_charlen_type);
-export_proto(st_set_nml_var_char);
-
-extern void st_set_nml_var_complex (void *, char *, int, int);
-export_proto(st_set_nml_var_complex);
-
-extern void st_set_nml_var_log (void *, char *, int, int);
-export_proto(st_set_nml_var_log);
+/* Store the dimensional information for the namelist object.  */
+extern void st_set_nml_var_dim (GFC_INTEGER_4, GFC_INTEGER_4,
+				GFC_INTEGER_4 ,GFC_INTEGER_4);
+export_proto(st_set_nml_var_dim);
 
 void
-st_set_nml_var_int (void * var_addr, char * var_name, int var_name_len,
-		    int kind)
+st_set_nml_var_dim (GFC_INTEGER_4 n_dim, GFC_INTEGER_4 stride,
+		    GFC_INTEGER_4 lbound, GFC_INTEGER_4 ubound)
 {
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_INTEGER, 0);
-}
+  namelist_info * nml;
+  int n;
 
-void
-st_set_nml_var_float (void * var_addr, char * var_name, int var_name_len,
-		      int kind)
-{
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_REAL, 0);
-}
+  n = (int)n_dim;
 
-void
-st_set_nml_var_char (void * var_addr, char * var_name, int var_name_len,
-		     int kind, gfc_charlen_type string_length)
-{
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_CHARACTER,
-		  string_length);
-}
+  for (nml = ionml; nml->next; nml = nml->next);
 
-void
-st_set_nml_var_complex (void * var_addr, char * var_name, int var_name_len,
-			int kind)
-{
-  st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_COMPLEX, 0);
-}
-
-void
-st_set_nml_var_log (void * var_addr, char * var_name, int var_name_len,
-		    int kind)
-{
-   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_LOGICAL, 0);
+  nml->dim[n].stride = (ssize_t)stride;
+  nml->dim[n].lbound = (ssize_t)lbound;
+  nml->dim[n].ubound = (ssize_t)ubound;
 }

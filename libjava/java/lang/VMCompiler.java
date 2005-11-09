@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -79,6 +79,24 @@ final class VMCompiler
 
   private static Vector precompiledMapFiles;
 
+  // We create a single MD5 engine and then clone it whenever we want
+  // a new one.  This is simpler than trying to find a new one each
+  // time, and it avoids potential deadlocks due to class loader
+  // oddities.
+  private static final MessageDigest md5Digest;
+
+  static
+  {
+    try
+      {
+	md5Digest = MessageDigest.getInstance("MD5");
+      }
+    catch (NoSuchAlgorithmException _)
+      {
+	md5Digest = null;
+      }
+  }
+
   static
   {
     gcjJitCompiler = System.getProperty("gnu.gcj.jit.compiler");
@@ -122,6 +140,10 @@ final class VMCompiler
 		}
 	      catch (java.io.IOException _)
 		{
+		}
+	      catch (java.nio.BufferUnderflowException _)
+		{
+		  // Invalid map file.
 		}
 	    }
 	}
@@ -175,11 +197,18 @@ final class VMCompiler
 
     try
       {
-	MessageDigest md = MessageDigest.getInstance("MD5");
+	MessageDigest md = (MessageDigest) md5Digest.clone();
 	digest = md.digest(data);
       }
-    catch (NoSuchAlgorithmException _)
+    catch (CloneNotSupportedException _)
       {
+	// Can't happen.
+	return null;
+      }
+    catch (NullPointerException _)
+      {
+	// If md5Digest==null -- but really this should never happen
+	// either, since the MD5 digest is in libgcj.
 	return null;
       }
 
