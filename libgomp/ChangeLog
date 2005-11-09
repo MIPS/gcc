@@ -1,5 +1,8 @@
 2005-11-09  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/linux/s390/futex.h: New file.
+	* configure.tgt: Use it.
+
 	* testsuite/libgomp.fortran/omp_parse4.f90: Move n initialization
 	before the parallel.
 
