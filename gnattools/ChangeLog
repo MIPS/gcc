@@ -1,3 +1,7 @@
+2005-11-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Invoke gcc/ada/Make-tools, not gcc/ada/Makefile.
+
 2005-03-09  Arnaud Charlet  <charlet@adacore.com>
 
 	* Makefile.in: Fix incorrect use of ' in shell command

@@ -36,7 +36,7 @@ stagestuff="gnatbind\$(exeext) gnat1\$(exeext)"
 
 gtfiles="\$(srcdir)/ada/ada-tree.h \$(srcdir)/ada/gigi.h \$(srcdir)/ada/decl.c \$(srcdir)/ada/trans.c \$(srcdir)/ada/utils.c"
 
-outputs=ada/Makefile
+outputs="ada/Makefile ada/Make-tools"
 
 target_libs="target-libada"
 lang_dirs="gnattools"
