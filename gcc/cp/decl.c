@@ -2087,7 +2087,10 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       return NULL;
     }
   else if (TREE_CODE (newdecl) == VAR_DECL
-	   && DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl))
+	   && DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl)
+	   && (! DECL_LANG_SPECIFIC (olddecl)
+	       || ! CP_DECL_THREADPRIVATE_P (olddecl)
+	       || DECL_THREAD_LOCAL_P (newdecl)))
     {
       /* Only variables can be thread-local, and all declarations must
 	 agree on this property.  */

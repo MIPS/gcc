@@ -1,3 +1,8 @@
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (redeclaration_error_message): Don't error about
+	DECL_THREAD_LOCAL_P mismatches if CP_DECL_THREADPRIVATE_P (olddecl).
+
 2005-11-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/24735
