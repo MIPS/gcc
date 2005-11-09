@@ -10,7 +10,7 @@ int main()
 {
   i = 0;
 
-#pragma omp parallel default(none) num_threads(10)
+#pragma omp parallel default(none) num_threads(10) copyin(i)
     {
       i++;
 #pragma omp barrier

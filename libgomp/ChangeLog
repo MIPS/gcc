@@ -1,3 +1,8 @@
+2005-11-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/libgomp.c++/pr24455.C: Add copyin clause for
+	threadprivate variable 'i'.
+
 2005-11-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/linux/s390/futex.h: New file.
