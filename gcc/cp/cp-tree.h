@@ -50,6 +50,7 @@ struct diagnostic_context;
       BIND_EXPR_TRY_BLOCK (in BIND_EXPR)
       TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
       REFERENCE_REF_P (in INDIRECT_EXPR)
+      BASELINK_QUALIFIED_P (in BASELINK)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -67,6 +68,7 @@ struct diagnostic_context;
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
       BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
+      DECL_NON_TRIVIALLY_INITIALIZED_P (in VAR_DECL)
    4: TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
           or FIELD_DECL).
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
@@ -325,6 +327,9 @@ struct tree_overload GTY(())
    requested.  */
 #define BASELINK_OPTYPE(NODE) \
   (TREE_CHAIN (BASELINK_CHECK (NODE)))
+/* Non-zero if this baselink was from a qualified lookup.  */
+#define BASELINK_QUALIFIED_P(NODE) \
+  TREE_LANG_FLAG_0 (BASELINK_CHECK (NODE))
 
 struct tree_baselink GTY(())
 {
@@ -1808,10 +1813,16 @@ struct lang_decl GTY(())
    should be allocated.  */
 #define DECL_IN_AGGR_P(NODE) (DECL_LANG_FLAG_3 (NODE))
 
-/* Nonzero for a VAR_DECL means that the variable's initialization has
-   been processed.  */
+/* Nonzero for a VAR_DECL means that the variable's initialization (if
+   any) has been processed.  (In general, DECL_INITIALIZED_P is
+   !DECL_EXTERN, but static data members may be initialized even if
+   not defined.)  */
 #define DECL_INITIALIZED_P(NODE) \
    (TREE_LANG_FLAG_1 (VAR_DECL_CHECK (NODE)))
+
+/* Nonzero for a VAR_DECL iff an explicit initializer was provided.  */
+#define DECL_NONTRIVIALLY_INITIALIZED_P(NODE)	\
+   (TREE_LANG_FLAG_3 (VAR_DECL_CHECK (NODE)))
 
 /* Nonzero for a VAR_DECL that was initialized with a
    constant-expression.  */
@@ -3710,7 +3721,7 @@ extern tree build_vfn_ref			(tree, tree);
 extern tree get_vtable_decl                     (tree, int);
 extern void resort_type_method_vec
   (void *, void *, gt_pointer_operator, void *);
-extern void add_method				(tree, tree, tree);
+extern bool add_method				(tree, tree, tree);
 extern int currently_open_class			(tree);
 extern tree currently_open_derived_class	(tree);
 extern tree finish_struct			(tree, tree);
@@ -4409,6 +4420,9 @@ extern void cp_genericize			(tree);
 #else
 #define ATTRIBUTE_GCC_CXXDIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
+extern void cp_cpp_error			(cpp_reader *, int,
+						 const char *, va_list *)
+     ATTRIBUTE_GCC_CXXDIAG(3,0);
 
 extern void cp_error_at		(const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1, 2);
 extern void cp_warning_at	(const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1, 2);

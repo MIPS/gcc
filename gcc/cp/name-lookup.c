@@ -4416,9 +4416,10 @@ arg_assoc (struct arg_lookup *k, tree n)
 	return true;
 
       /* Now the arguments.  */
-      for (ix = TREE_VEC_LENGTH (args); ix--;)
-	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
-	  return true;
+      if (args)
+	for (ix = TREE_VEC_LENGTH (args); ix--;)
+	  if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
+	    return true;
     }
   else if (TREE_CODE (n) == OVERLOAD)
     {
@@ -4520,6 +4521,11 @@ maybe_process_template_type_declaration (tree type, int is_friend,
 
        is a forward-declaration of `A'.  */
     ;
+  else if (b->kind == sk_namespace
+	   && current_binding_level->kind != sk_namespace)
+    /* If this new type is being injected into a containing scope,
+       then it's not a template type.  */
+    ;
   else
     {
       gcc_assert (IS_AGGR_TYPE (type) || TREE_CODE (type) == ENUMERAL_TYPE);
@@ -4582,10 +4588,9 @@ pushtag (tree name, tree type, tag_scope scope)
 	 /* Neither are the scopes used to hold template parameters
 	    for an explicit specialization.  For an ordinary template
 	    declaration, these scopes are not scopes from the point of
-	    view of the language -- but we need a place to stash
-	    things that will go in the containing namespace when the
-	    template is instantiated.  */
-	 || (b->kind == sk_template_parms && b->explicit_spec_p)
+	    view of the language.  */
+	 || (b->kind == sk_template_parms
+	     && (b->explicit_spec_p || scope == ts_global))
 	 || (b->kind == sk_class
 	     && (scope != ts_current
 		 /* We may be defining a new type in the initializer
@@ -4658,7 +4663,7 @@ pushtag (tree name, tree type, tag_scope scope)
 	      else
 		pushdecl_class_level (decl);
 	    }
-	  else
+	  else if (b->kind != sk_template_parms)
 	    decl = pushdecl_with_scope (decl, b);
 
 	  /* FIXME what if it gets a name from typedef?  */

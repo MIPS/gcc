@@ -248,7 +248,8 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
     *public = "PUBLIC", *optional = "OPTIONAL", *entry = "ENTRY",
     *function = "FUNCTION", *subroutine = "SUBROUTINE",
-    *dimension = "DIMENSION";
+    *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
+    *use_assoc = "USE ASSOCIATED", *data = "DATA";
 
   const char *a1, *a2;
 
@@ -267,6 +268,8 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     {
       a1 = NULL;
 
+      if (attr->in_namelist)
+	a1 = in_namelist;
       if (attr->allocatable)
 	a1 = allocatable;
       if (attr->external)
@@ -307,7 +310,19 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (in_common, dummy);
   conf (in_common, allocatable);
   conf (in_common, result);
+  conf (in_common, save);
+  conf (result, save);
+
   conf (dummy, result);
+
+  conf (in_equivalence, use_assoc);
+  conf (in_equivalence, dummy);
+  conf (in_equivalence, target);
+  conf (in_equivalence, pointer);
+  conf (in_equivalence, function);
+  conf (in_equivalence, result);
+  conf (in_equivalence, entry);
+  conf (in_equivalence, allocatable);
 
   conf (in_namelist, pointer);
   conf (in_namelist, allocatable);
@@ -315,6 +330,12 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (entry, result);
 
   conf (function, subroutine);
+
+  conf (data, dummy);
+  conf (data, function);
+  conf (data, result);
+  conf (data, allocatable);
+  conf (data, use_assoc);
 
   a1 = gfc_code2string (flavors, attr->flavor);
 
@@ -703,6 +724,21 @@ gfc_add_in_common (symbol_attribute * attr, const char *name, locus * where)
 
   /* Duplicate attribute already checked for.  */
   attr->in_common = 1;
+  if (check_conflict (attr, name, where) == FAILURE)
+    return FAILURE;
+
+  if (attr->flavor == FL_VARIABLE)
+    return SUCCESS;
+
+  return gfc_add_flavor (attr, FL_VARIABLE, name, where);
+}
+
+try
+gfc_add_in_equivalence (symbol_attribute * attr, const char *name, locus * where)
+{
+
+  /* Duplicate attribute already checked for.  */
+  attr->in_equivalence = 1;
   if (check_conflict (attr, name, where) == FAILURE)
     return FAILURE;
 

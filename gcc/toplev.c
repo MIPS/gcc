@@ -859,7 +859,7 @@ check_global_declaration_1 (tree decl)
       && ! TREE_USED (decl)
       /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	 to handle multiple external decls in different scopes.  */
-      && ! TREE_USED (DECL_NAME (decl))
+      && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
       && ! DECL_EXTERNAL (decl)
       && ! TREE_PUBLIC (decl)
       /* A volatile variable might be used in some non-obvious way.  */
@@ -1671,6 +1671,10 @@ general_init (const char *argv0)
 static void
 process_options (void)
 {
+  /* Just in case lang_hooks.post_options ends up calling a debug_hook.
+     This can happen with incorrect pre-processed input. */
+  debug_hooks = &do_nothing_debug_hooks;
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1838,7 +1842,6 @@ process_options (void)
     default_debug_hooks = &vmsdbg_debug_hooks;
 #endif
 
-  debug_hooks = &do_nothing_debug_hooks;
   if (write_symbols == NO_DEBUG)
     ;
 #if defined(DBX_DEBUGGING_INFO)

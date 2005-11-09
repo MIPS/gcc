@@ -1,3 +1,38 @@
+2005-11-08  Terry Laurenzo  <tlaurenzo@gmail.com>
+
+	PR java/20993
+	* gjavah.c (HANDLE_CODE_ATTRIBUTE): Only define for ELF Object
+	formats.
+	* gjavah.c (decompile_method): Add ATTRIBUTE_UNUSED
+
+2005-10-24  Wil Mahan  <wmahan@gmail.com>
+
+	PR java/23617
+	* zextract.c (read_zip_archive): Fix out of memory error when
+	reading jar files with zip-style comments.
+
+2005-10-14  Nathan Sidwell  <nathan@codesourcery.com>
+	    Wil Mahan <wmahan@gmail.com>
+
+	PR java/23620
+	* class.c (make_class): Create empty binfo here.
+	(set_super_info): Only create binfo if we have superclasses.
+
+2005-10-12  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* lang.c (flag_new_verifier): Set on by default.
+	(java_post_options): Don't need to set flag_new_verifier.
+
+2005-10-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21540, PR java/13788:
+	* parse.y (java_complete_lhs) <CASE_EXPR>: Use
+	fold_constant_for_init.
+	(patch_binop): Added 'folding' argument.  Updated all callers.
+	(patch_unaryop) <NOP_EXPR>: New case.
+	(fold_constant_for_init) <NOP_EXPR>: Likewise.
+	(fold_constant_for_init) <COND_EXPR>: Fix sense of test.
+
 2005-10-05  Ranjit Mathew  <rmathew@hotmail.com>
 
 	PR java/20338

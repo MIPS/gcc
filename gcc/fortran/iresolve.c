@@ -96,9 +96,17 @@ gfc_resolve_aimag (gfc_expr * f, gfc_expr * x)
 void
 gfc_resolve_aint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 {
+  gfc_typespec ts;
+  
   f->ts.type = a->ts.type;
   f->ts.kind = (kind == NULL) ? a->ts.kind : mpz_get_si (kind->value.integer);
 
+  if (a->ts.kind != f->ts.kind)
+    {
+      ts.type = f->ts.type;
+      ts.kind = f->ts.kind;
+      gfc_convert_type (a, &ts, 2);
+    }
   /* The resolved name is only used for specific intrinsics where
      the return kind is the same as the arg kind.  */
   f->value.function.name =
@@ -134,8 +142,17 @@ gfc_resolve_all (gfc_expr * f, gfc_expr * mask, gfc_expr * dim)
 void
 gfc_resolve_anint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 {
+  gfc_typespec ts;
+  
   f->ts.type = a->ts.type;
   f->ts.kind = (kind == NULL) ? a->ts.kind : mpz_get_si (kind->value.integer);
+
+  if (a->ts.kind != f->ts.kind)
+    {
+      ts.type = f->ts.type;
+      ts.kind = f->ts.kind;
+      gfc_convert_type (a, &ts, 2);
+    }
 
   /* The resolved name is only used for specific intrinsics where
      the return kind is the same as the arg kind.  */
@@ -385,6 +402,28 @@ gfc_resolve_cshift (gfc_expr * f, gfc_expr * array,
 
 
 void
+gfc_resolve_ctime (gfc_expr * f, gfc_expr * time)
+{
+  gfc_typespec ts;
+  
+  f->ts.type = BT_CHARACTER;
+  f->ts.kind = gfc_default_character_kind;
+
+  /* ctime TIME argument is a INTEGER(KIND=8), says the doc */
+  if (time->ts.kind != 8)
+    {
+      ts.type = BT_INTEGER;
+      ts.kind = 8;
+      ts.derived = NULL;
+      ts.cl = NULL;
+      gfc_convert_type (time, &ts, 2);
+    }
+
+  f->value.function.name = gfc_get_string (PREFIX("ctime"));
+}
+
+
+void
 gfc_resolve_dble (gfc_expr * f, gfc_expr * a)
 {
   f->ts.type = BT_REAL;
@@ -500,6 +539,15 @@ gfc_resolve_exponent (gfc_expr * f, gfc_expr * x)
   f->ts.kind = gfc_default_integer_kind;
 
   f->value.function.name = gfc_get_string ("__exponent_%d", x->ts.kind);
+}
+
+
+void
+gfc_resolve_fdate (gfc_expr * f)
+{
+  f->ts.type = BT_CHARACTER;
+  f->ts.kind = gfc_default_character_kind;
+  f->value.function.name = gfc_get_string (PREFIX("fdate"));
 }
 
 
@@ -1264,6 +1312,15 @@ gfc_resolve_scan (gfc_expr * f, gfc_expr * string,
 
 
 void
+gfc_resolve_secnds (gfc_expr * t1, gfc_expr * t0)
+{
+  t1->ts = t0->ts;
+  t1->value.function.name =
+    gfc_get_string (PREFIX("secnds"));
+}
+
+
+void
 gfc_resolve_set_exponent (gfc_expr * f, gfc_expr * x, gfc_expr * i)
 {
   f->ts = x->ts;
@@ -1573,6 +1630,28 @@ gfc_resolve_unlink (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED)
   f->ts.kind = 4;
   f->value.function.name = gfc_get_string (PREFIX("unlink"));
 }
+
+
+void
+gfc_resolve_ttynam (gfc_expr * f, gfc_expr * unit)
+{
+  gfc_typespec ts;
+  
+  f->ts.type = BT_CHARACTER;
+  f->ts.kind = gfc_default_character_kind;
+
+  if (unit->ts.kind != gfc_c_int_kind)
+    {
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_c_int_kind;
+      ts.derived = NULL;
+      ts.cl = NULL;
+      gfc_convert_type (unit, &ts, 2);
+    }
+
+  f->value.function.name = gfc_get_string (PREFIX("ttynam"));
+}
+
 
 void
 gfc_resolve_unpack (gfc_expr * f, gfc_expr * vector, gfc_expr * mask,
@@ -1893,6 +1972,32 @@ gfc_resolve_flush (gfc_code * c)
 
   name = gfc_get_string (PREFIX("flush_i%d"), ts.kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_ctime_sub (gfc_code * c)
+{
+  gfc_typespec ts;
+  
+  /* ctime TIME argument is a INTEGER(KIND=8), says the doc */
+  if (c->ext.actual->expr->ts.kind != 8)
+    {
+      ts.type = BT_INTEGER;
+      ts.kind = 8;
+      ts.derived = NULL;
+      ts.cl = NULL;
+      gfc_convert_type (c->ext.actual->expr, &ts, 2);
+    }
+
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX("ctime_sub"));
+}
+
+
+void
+gfc_resolve_fdate_sub (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("fdate_sub"));
 }
 
 

@@ -664,6 +664,19 @@ gfc_check_cshift (gfc_expr * array, gfc_expr * shift, gfc_expr * dim)
 
 
 try
+gfc_check_ctime (gfc_expr * time)
+{
+  if (scalar_check (time, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (time, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_dcmplx (gfc_expr * x, gfc_expr * y)
 {
   if (numeric_check (x, 0) == FAILURE)
@@ -929,16 +942,7 @@ gfc_check_ichar_iachar (gfc_expr * c)
   if (type_check (c, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
-  /* Check that the argument is length one.  Non-constant lengths
-     can't be checked here, so assume thay are ok.  */
-  if (c->ts.cl && c->ts.cl->length)
-    {
-      /* If we already have a length for this expression then use it.  */
-      if (c->ts.cl->length->expr_type != EXPR_CONSTANT)
-	return SUCCESS;
-      i = mpz_get_si (c->ts.cl->length->value.integer);
-    }
-  else if (c->expr_type == EXPR_VARIABLE || c->expr_type == EXPR_SUBSTRING)
+  if (c->expr_type == EXPR_VARIABLE || c->expr_type == EXPR_SUBSTRING)
     {
       gfc_expr *start;
       gfc_expr *end;
@@ -952,18 +956,32 @@ gfc_check_ichar_iachar (gfc_expr * c)
       gcc_assert (ref == NULL || ref->type == REF_SUBSTRING);
 
       if (!ref)
-	return SUCCESS;
+	{
+          /* Check that the argument is length one.  Non-constant lengths
+	     can't be checked here, so assume thay are ok.  */
+	  if (c->ts.cl && c->ts.cl->length)
+	    {
+	      /* If we already have a length for this expression then use it.  */
+	      if (c->ts.cl->length->expr_type != EXPR_CONSTANT)
+		return SUCCESS;
+	      i = mpz_get_si (c->ts.cl->length->value.integer);
+	    }
+	  else 
+	    return SUCCESS;
+	}
+      else
+	{
+	  start = ref->u.ss.start;
+	  end = ref->u.ss.end;
 
-      start = ref->u.ss.start;
-      end = ref->u.ss.end;
+	  gcc_assert (start);
+	  if (end == NULL || end->expr_type != EXPR_CONSTANT
+	      || start->expr_type != EXPR_CONSTANT)
+	    return SUCCESS;
 
-      gcc_assert (start);
-      if (end == NULL || end->expr_type != EXPR_CONSTANT
-	  || start->expr_type != EXPR_CONSTANT)
-	return SUCCESS;
-
-      i = mpz_get_si (end->value.integer) + 1
-	  - mpz_get_si (start->value.integer);
+	  i = mpz_get_si (end->value.integer) + 1
+	      - mpz_get_si (start->value.integer);
+	}
     }
   else
     return SUCCESS;
@@ -1781,6 +1799,23 @@ gfc_check_scan (gfc_expr * x, gfc_expr * y, gfc_expr * z)
 
 
 try
+gfc_check_secnds (gfc_expr * r)
+{
+
+  if (type_check (r, 0, BT_REAL) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check (r, 0, 4) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (r, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_selected_int_kind (gfc_expr * r)
 {
 
@@ -2111,6 +2146,19 @@ gfc_check_trim (gfc_expr * x)
 }
 
 
+try
+gfc_check_ttynam (gfc_expr * unit)
+{
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
 /* Common check function for the half a dozen intrinsics that have a
    single real argument.  */
 
@@ -2422,6 +2470,21 @@ gfc_check_srand (gfc_expr * x)
 }
 
 try
+gfc_check_ctime_sub (gfc_expr * time, gfc_expr * result)
+{
+  if (scalar_check (time, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (time, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (result, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+try
 gfc_check_etime (gfc_expr * x)
 {
   if (array_check (x, 0) == FAILURE)
@@ -2467,6 +2530,16 @@ gfc_check_etime_sub (gfc_expr * values, gfc_expr * time)
     return FAILURE;
 
   if (kind_value_check(time, 1, 4) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fdate_sub (gfc_expr * date)
+{
+  if (type_check (date, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

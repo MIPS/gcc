@@ -1368,7 +1368,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		{
 		  /* Check the data pointer hasn't been modified.  This would
 		     happen in a function returning a pointer.  */
-		  tmp = gfc_conv_descriptor_data (info->descriptor);
+		  tmp = gfc_conv_descriptor_data_get (info->descriptor);
 		  tmp = build2 (NE_EXPR, boolean_type_node, tmp, info->data);
 		  gfc_trans_runtime_check (tmp, gfc_strconst_fault, &se->pre);
 		}
@@ -1731,12 +1731,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
 	{
 	  /* Array pointer.  */
 	  if (expr->expr_type == EXPR_NULL)
-	    {
-	      dest = gfc_conv_descriptor_data (dest);
-	      tmp = fold_convert (TREE_TYPE (se.expr),
-				  null_pointer_node);
-	      gfc_add_modify_expr (&block, dest, tmp);
-	    }
+	    gfc_conv_descriptor_data_set (&block, dest, null_pointer_node);
 	  else
 	    {
 	      rss = gfc_walk_expr (expr);
@@ -2092,11 +2087,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
       gfc_conv_expr_descriptor (&lse, expr1, lss);
       /* Implement Nullify.  */
       if (expr2->expr_type == EXPR_NULL)
-        {
-          lse.expr = gfc_conv_descriptor_data (lse.expr);
-          rse.expr = fold_convert (TREE_TYPE (lse.expr), null_pointer_node);
-          gfc_add_modify_expr (&block, lse.expr, rse.expr);
-        }
+	gfc_conv_descriptor_data_set (&block, lse.expr, null_pointer_node);
       else
         {
           lse.direct_byref = 1;
@@ -2185,14 +2176,29 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 {
   gfc_se se;
   gfc_ss *ss;
+  gfc_ref * ref;
+  bool seen_array_ref;
 
   /* The caller has already checked rank>0 and expr_type == EXPR_FUNCTION.  */
   if (expr2->value.function.isym && !gfc_is_intrinsic_libcall (expr2))
     return NULL;
 
   /* Elemental functions don't need a temporary anyway.  */
-  if (expr2->symtree->n.sym->attr.elemental)
+  if (expr2->value.function.esym != NULL 
+      && expr2->value.function.esym->attr.elemental)
     return NULL;
+
+  /* Check that no component references appear during an array
+     reference.  This is needed because we do not have the means to
+     span any arbitrary stride with an array descriptor.  */
+  seen_array_ref = false;
+  for (ref = expr1->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_ARRAY)
+	seen_array_ref= true;
+      else if (ref->type == REF_COMPONENT && seen_array_ref)
+	return NULL;
+    }
 
   /* Check for a dependency.  */
   if (gfc_check_fncall_dependency (expr1, expr2))
@@ -2287,7 +2293,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
       /* Calculate the bounds of the scalarization.  */
       gfc_conv_ss_startstride (&loop);
       /* Resolve any data dependencies in the statement.  */
-      gfc_conv_resolve_dependencies (&loop, lss_section, rss);
+      gfc_conv_resolve_dependencies (&loop, lss, rss);
       /* Setup the scalarizing loops.  */
       gfc_conv_loop_setup (&loop);
 

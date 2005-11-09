@@ -1368,7 +1368,7 @@ decay_conversion (tree exp)
       return error_mark_node;
     }
 
-  exp = integral_constant_value (exp);
+  exp = decl_constant_value (exp);
   
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Leave such NOP_EXPRs, since RHS is being used in non-lvalue context.  */
@@ -1912,11 +1912,8 @@ finish_class_member_access_expr (tree object, tree name)
     }
 
   if (BASELINK_P (name))
-    {
-      /* A member function that has already been looked up.  */
-      gcc_assert (TREE_CODE (BASELINK_FUNCTIONS (name)) == TEMPLATE_ID_EXPR);
-      member = name;
-    }
+    /* A member function that has already been looked up.  */
+    member = name;
   else
     {
       bool is_template_id = false;
@@ -2009,8 +2006,18 @@ finish_class_member_access_expr (tree object, tree name)
   expr = build_class_member_access_expr (object, member, access_path,
 					 /*preserve_reference=*/false);
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (COMPONENT_REF, expr,
-			      orig_object, orig_name, NULL_TREE);
+    {
+      if (BASELINK_P (member))
+	{
+	  if (TREE_CODE (orig_name) == SCOPE_REF)
+	    BASELINK_QUALIFIED_P (member) = 1;
+	  orig_name = member;
+	}
+      return build_min_non_dep (COMPONENT_REF, expr,
+				orig_object, orig_name,
+				NULL_TREE);
+    }
+  
   return expr;
 }
 
@@ -6273,6 +6280,11 @@ check_return_expr (tree retval, bool *no_warning)
       /* The type the function is declared to return.  */
       tree functype = TREE_TYPE (TREE_TYPE (current_function_decl));
 
+      /* The functype's return type will have been set to void, if it
+	 was an incomplete type.  Just treat this as 'return;' */
+      if (VOID_TYPE_P (functype))
+	return error_mark_node;
+      
       /* First convert the value to the function's return type, then
 	 to the type of return value's location to handle the
          case that functype is smaller than the valtype.  */

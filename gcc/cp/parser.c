@@ -294,6 +294,11 @@ cp_lexer_new_main (void)
      string constant concatenation.  */
   c_lex_return_raw_strings = false;
 
+  /* Subsequent preprocessor diagnostics should use compiler
+     diagnostic functions to get the compiler source location.  */
+  cpp_get_options (parse_in)->client_diagnostic = true;
+  cpp_get_callbacks (parse_in)->error = cp_cpp_error;
+
   gcc_assert (lexer->next_token->type != CPP_PURGED);
   return lexer;
 }
@@ -3882,53 +3887,12 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 
     case RID_TYPENAME:
       {
-	bool template_p = false;
-	tree id;
-	tree type;
-	tree scope;
-
-	/* Consume the `typename' token.  */
-	cp_lexer_consume_token (parser->lexer);
-	/* Look for the optional `::' operator.  */
-	cp_parser_global_scope_opt (parser,
-				    /*current_scope_valid_p=*/false);
-	/* Look for the nested-name-specifier.  In case of error here,
-	   consume the trailing id to avoid subsequent error messages
-	   for usual cases.  */
-	scope = cp_parser_nested_name_specifier (parser,
-						 /*typename_keyword_p=*/true,
-						 /*check_dependency_p=*/true,
-						 /*type_p=*/true,
-						 /*is_declaration=*/true);
-
-	/* Look for the optional `template' keyword.  */
-	template_p = cp_parser_optional_template_keyword (parser);
-	/* We don't know whether we're looking at a template-id or an
-	   identifier.  */
-	cp_parser_parse_tentatively (parser);
-	/* Try a template-id.  */
-	id = cp_parser_template_id (parser, template_p,
-				    /*check_dependency_p=*/true,
-				    /*is_declaration=*/true);
-	/* If that didn't work, try an identifier.  */
-	if (!cp_parser_parse_definitely (parser))
-	  id = cp_parser_identifier (parser);
-
-	/* Don't process id if nested name specifier is invalid.  */
-	if (!scope || scope == error_mark_node)
-	  return error_mark_node;
-	/* If we look up a template-id in a non-dependent qualifying
-	   scope, there's no need to create a dependent type.  */
-	else if (TREE_CODE (id) == TYPE_DECL
-	    && !dependent_type_p (parser->scope))
-	  type = TREE_TYPE (id);
-	/* Create a TYPENAME_TYPE to represent the type to which the
-	   functional cast is being performed.  */
-	else
-	  type = make_typename_type (parser->scope, id,
-				     typename_type,
-				     /*complain=*/1);
-
+  	tree type;
+	/* The syntax permitted here is the same permitted for an
+	   elaborated-type-specifier.  */
+	type = cp_parser_elaborated_type_specifier (parser,
+						    /*is_friend=*/false,
+						    /*is_declaration=*/false);
 	postfix_expression = cp_parser_functional_cast (parser, type);
       }
       break;
@@ -4350,7 +4314,13 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	 underlying type here.  */
       scope = non_reference (scope);
       /* The type of the POSTFIX_EXPRESSION must be complete.  */
-      scope = complete_type_or_else (scope, NULL_TREE);
+      if (scope == unknown_type_node)
+	{
+	  error ("%qE does not have class type", postfix_expression);
+	  scope = NULL_TREE;
+	}
+      else
+	scope = complete_type_or_else (scope, NULL_TREE);
       /* Let the name lookup machinery know that we are processing a
 	 class member access expression.  */
       parser->context->object_type = scope;
@@ -6014,6 +5984,11 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr)
   else if (token->type == CPP_PRAGMA)
     {
       cp_lexer_handle_pragma (parser->lexer);
+      return;
+    }
+  else if (token->type == CPP_EOF)
+    {
+      cp_parser_error (parser, "expected statement");
       return;
     }
 
@@ -8822,9 +8797,18 @@ cp_parser_template_argument_list (cp_parser* parser)
   tree *arg_ary = fixed_args;
   tree vec;
   bool saved_in_template_argument_list_p;
+  bool saved_ice_p;
+  bool saved_non_ice_p;
 
   saved_in_template_argument_list_p = parser->in_template_argument_list_p;
   parser->in_template_argument_list_p = true;
+  /* Even if the template-id appears in an integral
+     constant-expression, the contents of the argument list do 
+     not.  */ 
+  saved_ice_p = parser->integral_constant_expression_p;
+  parser->integral_constant_expression_p = false;
+  saved_non_ice_p = parser->non_integral_constant_expression_p;
+  parser->non_integral_constant_expression_p = false;
   do
     {
       tree argument;
@@ -8858,6 +8842,8 @@ cp_parser_template_argument_list (cp_parser* parser)
 
   if (arg_ary != fixed_args)
     free (arg_ary);
+  parser->non_integral_constant_expression_p = saved_non_ice_p;
+  parser->integral_constant_expression_p = saved_ice_p;
   parser->in_template_argument_list_p = saved_in_template_argument_list_p;
   return vec;
 }
@@ -9943,6 +9929,8 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	     declaration context.  */
 
 	  tag_scope ts;
+	  bool template_p;
+
 	  if (is_friend)
 	    /* Friends have special name lookup rules.  */
 	    ts = ts_within_enclosing_non_class;
@@ -9958,8 +9946,11 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
  	  if (attributes)
 	    warning ("type attributes are honored only at type definition");
 
-	  type = xref_tag (tag_type, identifier, ts,
-			   parser->num_template_parameter_lists);
+	  template_p = 
+	    (parser->num_template_parameter_lists
+	     && (cp_parser_next_token_starts_class_definition_p (parser)
+		 || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)));
+	  type = xref_tag (tag_type, identifier, ts, template_p);
 	}
     }
   if (tag_type != enum_type)
@@ -10816,7 +10807,7 @@ cp_parser_init_declarator (cp_parser* parser,
 	}
       decl = grokfield (declarator, decl_specifiers,
 			initializer, /*asmspec=*/NULL_TREE,
-			/*attributes=*/NULL_TREE);
+			prefix_attributes);
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
     }
@@ -13114,8 +13105,13 @@ cp_parser_member_declaration (cp_parser* parser)
   /* Check for a template-declaration.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
     {
-      /* Parse the template-declaration.  */
-      cp_parser_template_declaration (parser, /*member_p=*/true);
+      /* An explicit specialization here is an error condition, and we
+	 expect the specialization handler to detect and report this.  */
+      if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_LESS
+	  && cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_GREATER)
+	cp_parser_explicit_specialization (parser);
+      else
+	cp_parser_template_declaration (parser, /*member_p=*/true);
 
       return;
     }
@@ -15205,8 +15201,10 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
   cast = build_functional_cast (type, expression_list);
   /* [expr.const]/1: In an integral constant expression "only type
      conversions to integral or enumeration type can be used".  */
-  if (cast != error_mark_node && !type_dependent_expression_p (type)
-      && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (type)))
+  if (TREE_CODE (type) == TYPE_DECL)
+    type = TREE_TYPE (type);
+  if (cast != error_mark_node && !dependent_type_p (type)
+      && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (cp_parser_non_integral_constant_expression
 	  (parser, "a call to a constructor"))
@@ -15343,11 +15341,8 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
 		 "a template argument list");
 	}
     }
-  else if (!cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
-    error ("missing %<>%> to terminate the template argument list");
   else
-    /* It's what we want, a '>'; consume it.  */
-    cp_lexer_consume_token (parser->lexer);
+    cp_parser_skip_until_found (parser, CPP_GREATER, "`>'");
   /* The `>' token might be a greater-than operator again now.  */
   parser->greater_than_is_operator_p
     = saved_greater_than_is_operator_p;
@@ -15506,6 +15501,9 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       /* Parse the assignment-expression.  */
       parsed_arg = cp_parser_assignment_expression (parser, /*cast_p=*/false);
 
+      if (!processing_template_decl)
+	parsed_arg = check_default_argument (TREE_VALUE (parm), parsed_arg);
+      
       TREE_PURPOSE (parm) = parsed_arg;
 
       /* Update any instantiations we've already created.  */

@@ -179,24 +179,19 @@ var_element (gfc_data_variable * new)
 
   sym = new->expr->symtree->n.sym;
 
-  if(sym->value != NULL)
+  if (!sym->attr.function && gfc_current_ns->parent && gfc_current_ns->parent == sym->ns)
     {
-      gfc_error ("Variable '%s' at %C already has an initialization",
-		 sym->name);
+      gfc_error ("Host associated variable '%s' may not be in the DATA "
+		 "statement at %C.", sym->name);
       return MATCH_ERROR;
     }
 
-#if 0 // TODO: Find out where to move this message
-  if (sym->attr.in_common)
-    /* See if sym is in the blank common block.  */
-    for (t = &sym->ns->blank_common; t; t = t->common_next)
-      if (sym == t->head)
-	{
-	  gfc_error ("DATA statement at %C may not initialize variable "
-		     "'%s' from blank COMMON", sym->name);
-	  return MATCH_ERROR;
-	}
-#endif
+  if (gfc_current_state () != COMP_BLOCK_DATA
+	&& sym->attr.in_common
+	&& gfc_notify_std (GFC_STD_GNU, "Extension: initialization of "
+			   "common block variable '%s' in DATA statement at %C",
+			   sym->name) == FAILURE)
+    return MATCH_ERROR;
 
   if (gfc_add_data (&sym->attr, sym->name, &new->expr->where) == FAILURE)
     return MATCH_ERROR;
@@ -746,6 +741,13 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	  /* Update symbol character length according initializer.  */
 	  if (sym->ts.cl->length == NULL)
 	    {
+	      /* If there are multiple CHARACTER variables declared on
+		 the same line, we don't want them to share the same
+	        length.  */
+	      sym->ts.cl = gfc_get_charlen ();
+	      sym->ts.cl->next = gfc_current_ns->cl_list;
+	      gfc_current_ns->cl_list = sym->ts.cl;
+
 	      if (init->expr_type == EXPR_CONSTANT)
 		sym->ts.cl->length =
 			gfc_int_expr (init->value.character.length);
@@ -900,7 +902,7 @@ gfc_match_null (gfc_expr ** result)
    symbol table or the current interface.  */
 
 static match
-variable_decl (void)
+variable_decl (int elem)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_expr *initializer, *char_len;
@@ -944,8 +946,20 @@ variable_decl (void)
 	  cl->length = char_len;
 	  break;
 
+	/* Non-constant lengths need to be copied after the first
+	   element.  */
 	case MATCH_NO:
-	  cl = current_ts.cl;
+	  if (elem > 1 && current_ts.cl->length
+		&& current_ts.cl->length->expr_type != EXPR_CONSTANT)
+	    {
+	      cl = gfc_get_charlen ();
+	      cl->next = gfc_current_ns->cl_list;
+	      gfc_current_ns->cl_list = cl;
+	      cl->length = gfc_copy_expr (current_ts.cl->length);
+	    }
+	  else
+	    cl = current_ts.cl;
+
 	  break;
 
 	case MATCH_ERROR:
@@ -1075,7 +1089,7 @@ variable_decl (void)
     t = add_init_expr_to_sym (name, &initializer, &var_locus);
   else
     {
-      if (current_ts.type == BT_DERIVED && !initializer)
+      if (current_ts.type == BT_DERIVED && !current_attr.pointer && !initializer)
 	initializer = gfc_default_initializer (&current_ts);
       t = build_struct (name, cl, &initializer, &as);
     }
@@ -1855,6 +1869,20 @@ match_attr_spec (void)
 	  goto cleanup;
 	}
 
+      if ((d == DECL_PRIVATE || d == DECL_PUBLIC)
+	     && gfc_current_state () != COMP_MODULE)
+	{
+	  if (d == DECL_PRIVATE)
+	    attr = "PRIVATE";
+	  else
+	    attr = "PUBLIC";
+
+	  gfc_error ("%s attribute at %L is not allowed outside of a MODULE",
+		     attr, &seen_at[d]);
+	  m = MATCH_ERROR;
+	  goto cleanup;
+	}
+
       switch (d)
 	{
 	case DECL_ALLOCATABLE:
@@ -1944,6 +1972,7 @@ gfc_match_data_decl (void)
 {
   gfc_symbol *sym;
   match m;
+  int elem;
 
   m = match_type_spec (&current_ts, 0);
   if (m != MATCH_YES)
@@ -1975,17 +2004,21 @@ gfc_match_data_decl (void)
       if (current_attr.pointer && gfc_current_state () == COMP_DERIVED)
 	goto ok;
 
-      if (gfc_find_symbol (current_ts.derived->name,
-			   current_ts.derived->ns->parent, 1, &sym) == 0)
+      gfc_find_symbol (current_ts.derived->name,
+			 current_ts.derived->ns->parent, 1, &sym);
+
+      /* Any symbol that we find had better be a type definition
+         which has its components defined.  */
+      if (sym != NULL && sym->attr.flavor == FL_DERIVED
+	    && current_ts.derived->components != NULL)
 	goto ok;
 
-      /* Hope that an ambiguous symbol is itself masked by a type definition.  */
-      if (sym != NULL && sym->attr.flavor == FL_DERIVED)
-	goto ok;
-
-      gfc_error ("Derived type at %C has not been previously defined");
-      m = MATCH_ERROR;
-      goto cleanup;
+      /* Now we have an error, which we signal, and then fix up
+	 because the knock-on is plain and simple confusing.  */
+      gfc_error_now ("Derived type at %C has not been previously defined "
+		 "and so cannot appear in a derived type definition.");
+      current_attr.pointer = 1;
+      goto ok;
     }
 
 ok:
@@ -1995,10 +2028,12 @@ ok:
   if (m == MATCH_NO && current_ts.type == BT_CHARACTER && old_char_selector)
     gfc_match_char (',');
 
-  /* Give the types/attributes to symbols that follow.  */
+  /* Give the types/attributes to symbols that follow. Give the element
+     a number so that repeat character length expressions can be copied.  */
+  elem = 1;
   for (;;)
     {
-      m = variable_decl ();
+      m = variable_decl (elem++);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)

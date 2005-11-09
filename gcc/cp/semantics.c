@@ -2181,13 +2181,14 @@ finish_member_declaration (tree decl)
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
-      add_method (current_class_type, decl, NULL_TREE);
+      if (add_method (current_class_type, decl, NULL_TREE))
+	{
+	  TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
+	  TYPE_METHODS (current_class_type) = decl;
 
-      TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
-      TYPE_METHODS (current_class_type) = decl;
-
-      maybe_add_class_template_decl_list (current_class_type, decl, 
-					  /*friend_p=*/0);
+	  maybe_add_class_template_decl_list (current_class_type, decl, 
+					      /*friend_p=*/0);
+	}
     }
   /* Enter the DECL into the scope of the class.  */
   else if ((TREE_CODE (decl) == USING_DECL && TREE_TYPE (decl))
@@ -2439,6 +2440,21 @@ finish_id_expression (tree id_expression,
 	 was entirely defined.  */
       if (!scope && decl != error_mark_node)
 	maybe_note_name_used_in_class (id_expression, decl);
+
+      /* Disallow uses of local variables from containing functions.  */
+      if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+	{
+	  tree context = decl_function_context (decl);
+	  if (context != NULL_TREE && context != current_function_decl
+	      && ! TREE_STATIC (decl))
+	    {
+	      error (TREE_CODE (decl) == VAR_DECL
+		     ? "use of %<auto%> variable from containing function"
+		     : "use of parameter from containing function");
+	      cp_error_at ("  %q#D declared here", decl);
+	      return error_mark_node;
+	    }
+	}
     }
 
   /* If we didn't find anything, or what we found was a type,
@@ -2710,23 +2726,6 @@ finish_id_expression (tree id_expression,
 	}
       else
 	{
-	  if (TREE_CODE (decl) == VAR_DECL
-	      || TREE_CODE (decl) == PARM_DECL
-	      || TREE_CODE (decl) == RESULT_DECL)
-	    {
-	      tree context = decl_function_context (decl);
-	      
-	      if (context != NULL_TREE && context != current_function_decl
-		  && ! TREE_STATIC (decl))
-		{
-		  error (TREE_CODE (decl) == VAR_DECL
-			 ? "use of %<auto%> variable from containing function"
-			 : "use of parameter from containing function");
-		  cp_error_at ("  %q#D declared here", decl);
-		  return error_mark_node;
-		}
-	    }
-	  
 	  if (DECL_P (decl) && DECL_NONLOCAL (decl)
 	      && DECL_CLASS_SCOPE_P (decl)
 	      && DECL_CONTEXT (decl) != current_class_type)

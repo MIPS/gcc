@@ -1,3 +1,71 @@
+2005-11-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/18174
+	* include/bits/stl_queue.h (priority_queue): Tweak a bit the
+	comment describing the container.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23953
+	* include/bits/locale_facets.tcc (__numpunct_cache<>::_M_cache,
+	__moneypunct_cache<>::_M_cache): Check that grouping()[0] > 0.
+	(__verify_grouping): Do the last check only if __grouping[__min] > 0.
+	(__add_grouping<>): End recursion if *__gbeg <= 0.
+	* testsuite/22_locale/num_get/get/char/23953.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/char/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/23953.cc: Likewise.
+
+2005-11-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24595
+	* include/tr1/boost_shared_ptr.h (shared_ptr<>::get_deleter):
+	Move out of shared_ptr.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/misc/24595.cc:
+	New.
+
+2005-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24559
+	* include/c_std/std_cwchar.h (wcspbrk): Adjust signature.
+	* testsuite/21_strings/c_strings/wchar_t/24559.cc: New.
+	
+2005-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24450
+	* config/locale/generic/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Avoid leaking
+	memory if new throws inside _M_initialize_timepunct.
+	* config/locale/gnu/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Likewise.
+	* config/locale/gnu/message_members.h (messages<>::
+	messages(__c_locale, const char*, size_t)): Rearrange to
+	avoid memory leaks.
+
+2005-10-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	PR libstdc++/24244
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::_Sp_counted_base()):
+	When __GTHREAD_MUTEX_INIT is defined, initialize the mutex.
+
+2005-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Add missing #pragma GCC system_header.
+
+2005-10-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:7:0.
+	* configure: Regenerate.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.7.
+	* config/linker-map.gnu: Export locale::_Impl::_M_install_cache.
+
+2005-10-10  Ian Lance Taylor  <ian@airs.com>
+
+	PR libstdc++/13583
+	* include/bits/locale_classes.h (locale::_Impl::_M_install_cache):
+	Move out of line.
+	* src/locale.cc: Define here, add mutex.
+
 2005-10-04  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/tr1/hashtable

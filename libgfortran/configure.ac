@@ -111,9 +111,9 @@ m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
-# Add -Wall if we are using GCC.
+# Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  AM_FCFLAGS="-Wall"
+  AM_FCFLAGS="-Wall -fno-repack-arrays -fno-underscoring"
   ## We like to use C99 routines when available.  This makes sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
   AM_CFLAGS="-std=gnu99 -Wall"
@@ -137,11 +137,9 @@ AC_SUBST(enable_static)
 #AC_MSG_NOTICE([====== Finished libtool configuration]) ; sleep 10
 
 # We need gfortran to compile parts of the library
-# We can't use AC_PROG_FC because it expects a fully working gfortran.
 #AC_PROG_FC(gfortran)
 FC="$GFORTRAN"
 AC_PROG_FC(gfortran)
-FCFLAGS="$FCFLAGS -Wall -fno-repack-arrays -fno-underscoring"
 
 # extra LD Flags which are required for targets
 case "${host}" in
@@ -173,7 +171,7 @@ AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 # Check for library functions.
 AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
-AC_CHECK_FUNCS(sleep time ttyname)
+AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime)
 
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])

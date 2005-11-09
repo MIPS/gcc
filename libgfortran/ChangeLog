@@ -1,3 +1,56 @@
+2005-11-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/ctime.c: New file.
+	* configure.ac: Add check for ctime.
+	* Makefile.am: Add ctime.c
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+
+2005-11-05  Richard Guenther  <rguenther@suse.de>
+
+	* configure.ac: Use AM_FCFLAGS for extra flags, not FCFLAGS.
+	* configure: Regenerate.
+
+2005-11-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/tty.c (ttynam): New function.
+
+2005-11-04  Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/24636
+	* runtime/stop.c (stop_numeric): Use stop_code = -1.
+
+2005-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22298
+	* runtime/main.c (stupid_function_name_for_static_linking): New
+	function.
+	* runtime/error.c (internal_error): Call
+	stupid_function_name_for_static_linking.
+	* libgfortran.h: Add prototype for
+	stupid_function_name_for_static_linking.
+
+2005-11-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/14994
+	* libgfortran/intrinsics/date_and_time.c: Add interface to
+	the functions date_and_time for the intrinsic function secnds.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (flush_if_preconnected): New function.
+	* io/io.h: Add prototype for flush_if_preconnected.
+	* io/transfer.c (data_transfer_init): Use flush_if_preconnected
+	to workaround buggy mixed C-Fortran code.
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24416
+	* libgfortran/io/list_read.c (namelist_read): Exit with call to
+	free_saved () so that character strings do not accumulate.
+
 2005-09-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* runtime/string.c (find_option): Change 3rd argument to

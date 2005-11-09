@@ -1,3 +1,527 @@
+2005-11-09  Uros Bizjak  <uros@kss-loka.si>
+
+	PR c/24101
+	* gcc.dg/pr24101-1.i, gcc.dg/pr24101-2.i: New tests.
+	* gcc.dg/dg.exp: Run main loop also for *.i files.
+
+2005-11-08  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/19340
+	* gcc.dg/pr19340.c: New test.
+
+2005-11-08  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/24315
+	* gcc.target/i386/pr24315.c: New test.
+
+2005-11-07  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24683
+	* gcc.dg/pr24683.c: New test.
+
+2005-11-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c/24599
+        * gcc.dg/overflow-2.c: New testcase.
+
+2005-11-07  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/uninit-4.c: XFAIL on 64-bit s390*-*-*.
+
+2005-11-07  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* g++.dg/abi/empty6.C (B): Align to twice pointer size.
+
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23567
+	* gcc.c-torture/execute/20051104-1.c: New test.
+
+2005-11-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24534
+	gfortran.dg/private_type_2.f90: Modified to check that case with
+	PRIVATE declaration within derived type is accepted.
+
+	PR fortran/20838
+	gfortran.dg/pointer_assign_1.f90: New test.
+
+	PR fortran/20840
+	* gfortran.dg/arrayio_0.f90: New test.
+
+	PR fortran/17737
+	gfortran.dg/data_initialized.f90: New test.
+	gfortran.dg/data_constraints_1.f90: New test.
+	gfortran.dg/data_constraints_2.f90: New test.
+
+2005-11-05  Ian Lance Taylor  <ian@airs.com>
+
+	PR target/22432
+	* gcc.target/i386/pr22432.c: New test.
+
+2005-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22298
+	* gcc/testsuite/lib/target-supports.exp
+	(check_effective_target_static_libgfortran): New
+	static_libgfortran effective target.
+	* gcc/testsuite/gfortran.dg/static_linking_1.f: New test.
+	* gcc/testsuite/gfortran.dg/static_linking_1.c: New file.
+
+2005-11-03  Josh Conner  <jconner@apple.com>
+
+	PR c++/19989
+	g++.dg/ext/array2.C: New test.
+	g++.dg/template/dependent-name3.C: New test.
+	g++.dg/template/dependent-name4.C: New test.
+	g++.dg/template/sfinae2.C: New test.
+
+2005-11-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/17964
+	* g++.dg/cpp/string-1.C: New test.
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR preprocessor/22042
+	* gcc.dg/cpp/strify4.c: New test.
+
+2005-11-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21627
+	* g++.dg/warn/inline2.C: New test.
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23155 
+	* g++.dg/ext/c99struct1.C: New test.
+	* gcc.dg/union-cast-1.c: New test.
+	* gcc.dg/union-cast-2.c: New test.
+	* gcc.dg/union-cast-3.c: New test.
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/24582
+	* g++.dg/init/switch1.C: New test.
+
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/24329
+	* gcc.dg/format/unnamed-1.c: New test.
+
+2005-11-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/delay-slot-1.c: New test.
+
+2005-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22434
+	* g++.dg/expr/cond8.C: New test.
+
+2005-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24560
+	* g++.dg/parse/dot1.C: New test.
+
+2005-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19253
+	* g++.dg/parse/typename8.C: Compile with -w -fpermissive.
+	* g++.dg/parse/typename9.C: New test.
+	* g++/dg/parse/typename10.C: Likewise.
+
+2005-11-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/18157
+	* gfortran.fortran-torture/compile/defined_type_1.f90: New test.
+	* gfortran.fortran-torture/compile/defined_type_2.f90: New test.
+	* gfortran.fortran-torture/compile/defined_type_3.f90: New test.
+
+2005-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24569
+	* g++.dg/debug/static1.C: New test.
+
+2005-11-02  Josh Conner  <jconner@apple.com>
+
+	* g++.dg/crash38.C: moved into proper directory...
+	* g++.dg/template/crash42.C: ...here
+
+2005-11-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/21565
+	gfortran.dg/namelist_blockdata.f90: New test.
+
+	PR fortran/18737
+	gfortran.dg/external_implicit_none.f90: New test.
+
+	PR fortran/14994
+	* gfortran.dg/secnds.f: New test.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* lib/gfortran.exp (gfortran_target_compile): Call
+	dg-additional-files-options.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* gfortran.dg/mixed_io_1.f90: New test.
+	* gfortran.dg/mixed_io_1.c: New file.
+
+2005-10-28  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24545
+	* gfortran.dg/interface_2.f90: new test.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23229
+	* g++.dg/warn/main-2.C: New test.
+
+2005-10-28  Josh Conner  <jconner@apple.com>
+
+	PR c++/22153
+	* g++.dg/template/crash38.C: New test.
+	* g++.dg/parse/explicit1.C: Change expected errors.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23426
+	* g++.dg/other/large-size-array.C: New test.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24362
+	* g++.dg/opt/complex4.C: New test.
+
+2005-10-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24158
+	gfortran.dg/derived_recursion.f90: New test.
+	gfortran.dg/implicit_actual.f90: New test.
+
+2005-10-25  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/22290
+	* gfortran.dg/assign_5.f90: New test.
+	* gfortran.dg/assign_6.f: New test.
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24416
+	gfortran.dg/namelist_char_only.f90: New test.
+
+2005-10-24  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/21625
+	* gfortran.dg/derived_init_1.f90: New.
+
+2005-10-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/23635
+	* gfortran.dg/ichar_1.f90: Add tests for derived types.
+
+2005-10-23  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/23843
+	* gfortran.dg/der_io_2.f90: New test.
+
+2005-10-23  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	* gfortran.dg/generic_4.f90: New test.
+
+2005-10-23  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/19929
+	* gfortran.dg/der_ptr_component_1.f90: New test.
+
+2005-10-23  Erik Edelmann  <erik.edelmann@iki.fi>
+	
+	PR fortran/15975
+	* gfortran.dg/der_pointer_2.f90: New test.
+
+
+2005-10-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18022
+	gfortran.dg/assign_func_dtcomp_1.f90: New test.
+
+2005-10-22  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24426
+	* gfortran.dg/der_pointer_4.f90: New.
+
+2005-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20051021-1.c: New test.
+
+2005-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24260
+	* g++.dg/ext/tmplattr1.C: New test.
+
+2005-10-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24440
+	* gfortran.dg/assumed_size_dt_dummy.f90: Add test for scalar case.
+
+2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* g++.dg/parse/access8.C: New test.
+
+2005-10-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20050922-1.c: Skip on Solaris 2.5.1 to 9.
+	* g++.dg/opt/delay-slot-1.C: New test.
+
+2005-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21908
+	* g++.dg/parse/error28.C: New test.
+
+2005-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/profile-generate-2.c: New test.
+
+2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/22147
+	Backport 2005-09-27  Mark Mitchell  <mark@codesourcery.com>
+	* g++.dg/template/friend37.C: New test.
+	* g++.dg/parse/crash28.C: Adjust error markers.
+
+2005-10-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/22293
+	* g++.dg/other/friend3.C: New test.
+
+2005-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23293
+	* g++.dg/template/error19.C: New test.
+
+2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21383
+	* g++.dg/overload/koenig2.C: New.
+
+	PR c++/23118
+	* g++.dg/overload/error2.C: New.
+
+	PR c++/22604
+	* g++.dg/inherit/covariant14.C: New.
+
+2005-10-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23446
+	* gfortran.dg/host_dummy_index_1.f90: New test.
+
+	PR fortran/21459
+	* gfortran.dg/automatic_char_len_2.f90: New test.
+
+	PR fortran/20866
+	* gfortran.dg/recursive_statement_functions.f90: New test.
+
+	PR fortran/20853
+	* gfortran.dg/assumed_size_dt_dummy.f90: New test.
+
+	PR fortran/20849
+	* gfortran.dg/external_initializer.f90: New test.
+
+	PR fortran/20837
+	* non_module_public.f90: New test.
+	
+2005-10-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23440
+	* g++.dg/parse/for1.C: New test.
+
+2005-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24386
+	* g++.dg/template/overload7.C: New.
+
+	PR c++/22551
+	* g++.dg/other/switch2.C: Remove expected warnings.
+
+	PR c++/21353
+	* g++.dg/template/defarg6.C: New.
+
+2005-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24389
+	* g++.dg/template/static21.C: New test.
+	* g++.dg/template/static21-a.cc: Likewise.
+
+2005-10-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/23959
+	* g++.dg/warn/Wswitch-default-1.C: New test.
+	* g++.dg/warn/Wswitch-default-2.C: New test.
+
+2005-10-16  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/22273
+	* gfortran.dg/spec_expr_2.f90: New.
+
+2005-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21347
+	* g++.dg/warn/Wctor-dtor.C: New test.
+
+2005-10-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/22603
+	* g++.dg/parse/template18.C: New.
+
+	PR c++/22551
+	* g++.dg/other/switch2.C: New.
+
+	PR c++/23984
+	* g++.dg/init/ctor7.C: New.
+
+2005-10-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18082
+	* gfortran.dg/automatic_char_len_1.f90: New test.
+
+	PR fortran/20847
+	* gfortran.dg/save_common.f90: New test.
+
+	PR fortran/20856
+	* gfortran.dg/save_result.f90: New test.
+
+	PR fortran/24092
+	* gfortran.dg/derived_pointer_recursion.f90: New test.
+
+2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20721
+	* g++.dg/init/goto2.C: New test.
+
+2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22464
+	* g++.dg/template/crash/41.C: New test.
+
+	PR c++/22180
+	* g++.dg/template/crash40.C: New test.
+
+	PR c++/23694
+	* g++.dg/parse/friend5.C: New test.
+	
+	PR c++/23307
+	* g++.dg/template/crash38.C: New test.
+	
+	PR c++/22352
+	* g++.dg/template/friend38.C: New test.
+	
+	PR c++/22405
+	* g++.dg/template/crash39.C: New test.
+	
+2005-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21592
+	* g++.dg/template/dependent-expr1.C: Add new expected error.
+	* g++.dg/template/dependent-expr2.C: Adjust error text.
+	* g++.dg/template/overload6.C: New.
+
+	PR c++/23797
+	* g++.dg/other/typename8.C: New.
+
+	PR c++/21117
+	* g++.dg/other/return1.C: New.
+
+2005-10-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/24052
+	* g++.dg/ext/label5.C: New.
+
+2005-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19964
+	* g++.dg/parse/crash31.C: New.
+
+2005-10-12  Paul Thomas  <pault@gcc.gnu.org>
+	
+	PR fortran/16404
+	PR fortran/20835
+	PR fortran/20890
+	PR fortran/20899
+	PR fortran/20900
+	PR fortran/20901
+	PR fortran/20902
+	PR fortran/24207
+	gfortran.dg/equiv_constraint_1.f90: New test.
+	gfortran.dg/equiv_constraint_2.f90: New test.
+	gfortran.dg/equiv_constraint_3.f90: New test.
+	gfortran.dg/equiv_constraint_4.f90: New test.
+	gfortran.dg/equiv_constraint_5.f90: New test.
+	gfortran.dg/equiv_constraint_6.f90: New test.
+	gfortran.dg/equiv_constraint_7.f90: New test.
+	gfortran.dg/equiv_constraint_8.f90: New test.
+	gfortran.dg/private_type_1.f90: New test.
+	gfortran.dg/private_type_2.f90: New test.
+	gfortran.dg/private_type_3.f90: New test.
+	gfortran.dg/g77/980628-2.f, 980628-3.f, 980628-9.f,
+	980628-10.f: Assert std=gnu to permit mixing of
+	types in equivalence statements.
+
+2005-10-06  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20786
+	gfortran.dg/aint_anint_1.f90: New test.
+
+2005-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21089
+	* g++.dg/init/float1.C: New test.
+
+2005-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24277
+	* g++.dg/init/member1.C: Tweak error markers.
+
+2005-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21369
+	* g++.dg/parse/ret-type3.C: New test.
+
+2005-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/mmx2.C: New test.
+
+2005-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24277
+	* g++.dg/template/static20.C: New test.
+
+2005-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24302
+	* g++.dg/warn/Wunused-12.C: New test.
+
+2005-10-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-frame-1.c: New test.
+
+2005-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23437
+	* g++.dg/template/arg4.C: New test.
+
+2005-10-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24275
+	* g++.dg/template/static19.C: New test.
+
+2005-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24139
+	* g++.dg/template/spec27.C: New test. 
+
 2005-10-06  Uros Bizjak  <uros@kss-loka.si>
 
 	PR target/22576

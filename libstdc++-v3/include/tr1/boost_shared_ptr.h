@@ -101,7 +101,14 @@ public:
 
   _Sp_counted_base()
   : _M_use_count(1), _M_weak_count(1)
-  { }
+  {
+    // For the case of __GTHREAD_MUTEX_INIT we haven't initialised
+    // the mutex yet, so do it now.
+#if defined(__GTHREADS) && defined(__GTHREAD_MUTEX_INIT)
+    __gthread_mutex_t __tmp = __GTHREAD_MUTEX_INIT;
+    _M_mutex = __tmp;
+#endif
+  }
 
   virtual
   ~_Sp_counted_base() // nothrow
@@ -667,27 +674,20 @@ template <typename _Tp>
       _M_refcount.swap(__other._M_refcount);
     }
 
+    void*
+    _M_get_deleter(const std::type_info& __ti) const
+    { return _M_refcount.get_deleter(__ti); }
+
   private:
     template <typename _Tp1>
       bool
       _M_less(const shared_ptr<_Tp1>& __rhs) const
       { return _M_refcount < __rhs._M_refcount; }
 
-    void*
-    _M_get_deleter(const std::type_info& __ti) const
-    { return _M_refcount.get_deleter(__ti); }
-
     template <typename _Tp1> friend class shared_ptr;
     template <typename _Tp1> friend class weak_ptr;
 
     // friends injected into enclosing namespace and found by ADL:
-
-    // get_deleter (experimental)
-    template <typename _Del>
-      friend inline _Del*
-      get_deleter(const shared_ptr& __p)
-      { return static_cast<_Del*>(__p._M_get_deleter(typeid(_Del))); }
-
     template <typename _Tp1>
       friend inline bool
       operator==(const shared_ptr& __a, const shared_ptr<_Tp1>& __b)
@@ -745,14 +745,20 @@ template <typename _Tp, typename _Tp1>
     return shared_ptr<_Tp>(__r, __dynamic_cast_tag());
   }
 
-// operator<<
+// 2.2.3.7 shared_ptr I/O
 template <typename _Ch, typename _Tr, typename _Tp>
-  std::basic_ostream<_Ch,_Tr>&
-  operator<<(std::basic_ostream<_Ch,_Tr>& __os, const shared_ptr<_Tp>& __p)
+  std::basic_ostream<_Ch, _Tr>&
+  operator<<(std::basic_ostream<_Ch, _Tr>& __os, const shared_ptr<_Tp>& __p)
   {
     __os << __p.get();
     return __os;
   }
+
+// 2.2.3.10 shared_ptr get_deleter (experimental)
+template <typename _Del, typename _Tp>
+  inline _Del*
+  get_deleter(const shared_ptr<_Tp>& __p)
+  { return static_cast<_Del*>(__p._M_get_deleter(typeid(_Del))); }
 
 
 template <typename _Tp>
