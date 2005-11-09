@@ -1,3 +1,586 @@
+2005-11-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/24644
+	* dwarf2-out.c (add_name_and_src_coords_attributes): Don't add
+	a linkage name for a variable if it a register variable.
+	* c-decl.c (grokdeclarator): Global register variables
+	should be set as PUBLIC.
+
+2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24624
+	* config/s390/s390.c (struct s390_frame_layout): New fields 
+	first_save_gpr_slot and last_save_gpr_slot.
+	(cfun_grps_save_area_size, s390_frame_info, s390_emit_prologue,  
+	s390_emit_epilogue, s390_initial_elimination_offset): Replaced 
+	first_save_gpr and last_save_gpr with the _slot variants.
+	(s390_register_info): Calculate first_save_gpr_slot and 
+	last_save_gpr_slot using regs_ever_live.
+
+2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24623
+	* config/s390/s390.c (s390_regs_ever_clobbered): Only save live eh regs
+	for a function containing a landing pad.
+
+2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24034
+	* flow.c (mark_set_1): Handle CLOBBERs like SETs if the register
+	is live afterwards.
+
+2005-11-08  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/t-bfin-elf (MULTILIB_OPTIONS, MULTILIB_DEFAULTS,
+	MULTILIB_DIRNAMES, MULTILIB_EXCEPTIONS): New.
+
+2005-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Add ms2 support
+	* config/ms1/ms1.md (UNSPEC_BLOCKAGE, UNSPEC_EI, UNSPEC_DI): New
+	constants.
+	(call,load,store): New insn types.
+	(mem_access, branch_access): Adjust reservation conditions.
+	(define_delay): Adjust condition.
+	(decrement_and_branch_until_zero): Allow for ms2.  Set branch
+	type.
+	(*decrement_and_rbanch_until_zero_no_clobber): Allow for ms2.
+	(*movqi_internal,*movsi_internal,*movsf_internal): Use load,store
+	insn type.
+	(call_internal, call_value_internal, return_internal,
+	return_interrupt_internal, eh_return_internal, indirect_jump,
+	tablejump): Set call insn type.
+	(blockage, ei, di): Use appropriate unspec const.
+	* config/ms1/ms1.c (ms1_flag_delayed_branch): New.
+	(ms1_get_attr_type): Adjust to give load & store types.
+	(ms1_final_prescan_insn): Adjust for new insn types.  Don't look
+	backwards past a barrier.
+	(ms1_override_options): Accept ms2 arch.  Copy and reset delayed
+	branch scheduling.
+	(struct branch_info, struct label_info): New.
+	(ms1_labels): New.
+	(ms1_add_branches, ms1_check_delay_slot, ms1_reorg_hazard): New.
+	(ms1_machine_reorg): New.
+	(TARGET_MACHINE_DEPENDENT_REORG): Override.
+	* config/ms1/crtn.asm: Add nop for ms2 JAL hazard.
+	* config/ms1/ms1.h (processor_type): Add PROCESSOR_MS2.
+	(ASM_SPEC, LIB_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Add ms2.
+	(TARGET_MS2): New.
+
+2005-11-09  Per Bothner  <per@bothner.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+	
+	PR c/24101
+	* toplev.c (process_options): Initialize debug_hooks early
+	in case lang_hooks.post_options ends up calling a debug_hook.
+
+2005-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Don't assume
+	DBX_REGISTER_NUMBER being contiguous.
+
+2005-11-08  James A. Morrison  <phython@gcc.gnu.org>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	PR 23046
+	* tree-vrp.c (register_edge_assert_for): Do not register
+	always-false predicates.
+
+2005-11-08  Devang Patel <dpatel@apple.com>
+
+	PR tree-optimization/23115
+	* tree-if-conv.c (find_phi_replacement_condition): Check domninated_by
+	relation.
+
+2005-11-08  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/t-fprules (MULTILIB_MATCHES_FLOAT): Include
+	-mcpu=440.
+
+2005-11-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/23382
+
+	* tree-ssa-alias.c (compute_may_aliases): Call
+	delete_old_heap_vars.
+	* tree-dfa.c (referenced_var_remove): New function.
+	* tree-ssa.c (delete_tree_ssa): Call delete_old_heap_vars.
+	* tree-flow.h (referenced_var_remove): Add prototype.
+	(delete_old_heap_vars): Ditto.
+	* tree-ssa-structalias.c (heapvars): New variable.
+	(oldheapvars): Ditto.
+	(get_constraint_for): Put heap vars on heapvars list.
+	(delete_old_heap_vars): New function.
+	
+2005-11-08  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (CALL_FROM_THUNK_P): Add CALL_EXPR_CHECK.
+
+2005-11-08  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/19340
+	* reg-stack.c (reg_to_stack): Update register liveness also
+	for flag_sched2_use_traces.
+
+2005-11-08  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/23704
+	* config/rs6000/rs6000.c (rs6000_handle_option <OPT_m64>): Don't
+	override prior explicit -mno-powerpc-gfxopt.
+
+2005-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expmed.c (extract_bit_field): Do not use insv/extv/extzv patterns
+	if the bitsize is zero.
+	* doc/md.texi (Standard Pattern Names): Document it.
+
+	* config/ia64/ia64.c (ia64_pass_by_reference): Delete.
+	(TARGET_PASS_BY_REFERENCE): Likewise.
+
+2005-11-07  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24683
+	* config/i386/i386.c (legitimize_pic_address): If constant operand
+	to PLUS is too large, put it in a register.
+
+2005-11-07  Jie Zhang  <jie.zhang@analog.com>
+
+	* configure.ac: Enable checking assembler dwarf2 support for bfin
+	target.
+	* configure: Regenerate.
+
+2005-11-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/24230
+
+	* config/rs6000/rs6000.c (easy_vector_splat_const, easy_vector_same,
+	gen_easy_vector_constant_add_self): Delete.
+	(vspltis_constant, easy_altivec_constant, gen_easy_altivec_constant):
+	New.
+	(output_vec_const_move): Use gen_easy_altivec_constant.
+	(rs6000_expand_vector_init): Do not emit a set of a VEC_DUPLICATE.
+	* config/rs6000/predicates.md (easy_vector_constant): Reorganize tests.
+	(easy_vector_constant_add_self): Rewritten.
+	* config/rs6000/rs6000-protos.h (easy_vector_splat_const,
+	easy_vector_same, gen_easy_vector_constant_add_self): Remove prototype.
+	(easy_altivec_constant, gen_easy_altivec_constant): Add prototype.
+	* config/rs6000/altivec.md (easy_vector_constant_add_self splitters):
+	Macroize and adjust for the other changes.
+
+2005-11-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c/24599
+
+        * c-typeck.c (build_c_cast): Try using a shared constant, and see
+        if TREE_OVERFLOW or TREE_CONSTANT_OVERFLOW really changed.
+
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23567
+	* ifcvt.c (noce_mem_write_may_trap_or_fault_p): New function.
+	(noce_process_if_block): Don't do any optimizations except
+	if (cond) x = x; if !set_b and write into orig_x may trap
+	or fault.  Remove the MEM_READONLY_P check.
+
+2005-11-06  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24670
+	* tree-vrp.c (fix_equivalence_set): New.
+	(extract_range_from_assert): Call it.
+
+2005-11-05  Ian Lance Taylor  <ian@airs.com>
+
+	PR target/22432
+	* combine.c (apply_distributive_law): Don't distribute across a
+	vector mode subreg.
+
+2005-11-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* c-typeck.c, config/i386/netware.h, config/m32c/cond.md,
+	config/ms1/ms1.h, config/rs6000/predicates.md,
+	config/s390/s390.c, params.def, postreload-gcse.c,
+	tree-flow-inline.h, tree-ssa-operands.c, tree-vectorizer.c,
+	tree-vrp.c, tree.c: Fix comment typos.
+	* doc/invoke.texi: Fix typos.
+
+2005-11-05  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* lambda-code.c (lambda_transform_legal_p): Use DDR_NUM_DIST_VECTS
+	for testing whether the data_dependence_relation contains distance
+	vectors.  Iterate over all distance vectors of the ddr.
+	* lambda.h: Define a vec of lambda_vector pointers.
+	* tree-data-ref.c (dump_data_dependence_relation,
+	dump_data_dependence_direction): Iterate over all distance and
+	direction vectors of the ddr.
+	(initialize_data_dependence_relation): Initialize DDR_DIR_VECTS and
+	DDR_DIST_VECTS.
+	(build_classic_dist_vector, build_classic_dir_vector): Push a set
+	of distance/direction vectors instead of a single one.
+	* tree-data-ref.h (dir_vects, dist_vects): Replace dir/dist 
+	lambda_vectors with a vec of lambda_vectors.
+	(DDR_DIR_VECT, DDR_DIST_VECT): Redefined as operations on vec.
+	(DDR_DIR_VECTS, DDR_DIST_VECTS, DDR_NUM_DIR_VECTS,
+	DDR_NUM_DIST_VECTS): New.
+	* tree-loop-linear.c (gather_interchange_stats): Test for the
+	existence of distance vectors only after having checked that there
+	is a dependence.  Iterate over all distance vectors of the ddr.
+	(linear_transform_loops): Use dump_data_dependence_relation.
+	* tree-vect-analyze.c (vect_analyze_data_ref_dependence): Test for
+	distance vectors using DDR_NUM_DIST_VECTS.  Iterate over all the
+	distance vectors of the ddr.
+
+2005-11-05  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (n_dregs_to_save, n_pregs_to_save,
+	expand_prologue_reg_save, expand_epilogue_reg_restore): New argument
+	IS_INTHANDLER; all callers changed.
+	(n_regs_saved_by_prologue): Take interrupt handler attributes into
+	account.
+	(do_link, do_unlink): New argument ALL; all callers changed.
+	(expand_interrupt_handler_prologue, expand_interrupt_handler_epilogue):
+	If function isn't leaf, save and restore all registers.
+	(bfin_function_ok_for_sibcall): Only true if not an interrupt or
+	exception handler.
+
+2005-11-05  Jan Hubicka  <jh@suse.cz>
+
+	PR rtl-optimization/23490
+	* doc/invoke.texi (max-predicted-iterations, max-cse-insns,
+	max-flow-memory-location): Document.
+	* flow.c: Include params.h
+	(MAX_MEM_SET_LIST_LEN): Kill.
+	(add_to_mem_set_list): Use new param.
+	* cse.c (cse_basic_block): Replace 1000 by new param.
+	* params.def (PARAM_MAX_PREDICTED_ITERATIONS, PARAM_MAX_CSE_INSNS,
+	PARAM_MAX_FLOW_MEMORY_LOCATIONS): New.
+	* predict.c (predict_loops): Use new param.
+	* predict.def (MAX_PRED_LOOP_ITERATIONS): Remove.
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function, 
+	cgraph_decide_inlining, cgraph_decide_inlining_incrementally):
+	Do not hold memory returned by cgraph_node_name across other call.
+
+2005-11-04  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/23424
+	* config/cris/predicates.md ("cris_bdap_sign_extend_operand"):
+	Disable.
+
+2005-11-04  Jeff Law  <law@redhat.com>
+
+	PR/21883
+	* doc/invoke.texi: Document max-jump-thread-duplication-stmts PARAM.
+	* tree-ssa-dom.c: Include params.h.
+	(thread_across_edge): If there are too many statements in the
+	target block, then do not thread through it.
+	* Makefile.in (tree-ssa-dom.o): Depend on $(PARAMS_H).
+	* params.def (PARAM_MAX_JUMP_THREAD_DUPLICATION_STMTS): New PARAM.
+
+2005-11-03  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24627
+	* tree-ssa-dce.c (pass_dce, pass_dce_loop, pass_cd_dce): Use
+	TODO_update_ssa instead of TODO_update_ssa_no_phi.
+
+2005-11-04  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	PR/18595
+	* tree-scalar-evolution.c (instantiate_parameters_1,
+	instantiate_parameters, resolve_mixers): Compute the size of an
+	expression to be instantiated and give up the instantiation if the
+	size exceeds PARAM_SCEV_MAX_EXPR_SIZE.
+
+2005-11-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (ref_contains_indirect_ref): Rename to
+	array_ref_contains_indirect_ref.
+	* tree-flow-inline.h (ref_contains_indirect_ref): Likewise.
+	(array_ref_contains_indirect_ref): Make comment match the code
+	and vice-versa.
+	(ref_contains_array_ref): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases): Remove call to
+	ref_contains_indirect_ref.
+	* tree-ssa-loop-niter.c (infer_loop_bounds_from_undefined):
+	Rename calls to ref_contains_indirect_ref.
+
+2005-11-04 Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_load_pic_register): Pass extra reg to
+	gen_pic_add_dot_plus_four and gen_pic_add_dot_plus_eight.
+	(arm_call_tls_get_addr, legitimize_tls_address): Likewise.
+	* config/arm/arm.md: Use match_operand in peephole input templates
+	and match_dup in peephole output templates.
+
+2005-11-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.c (arm_init_libfuncs): Use __aeabi_idiv and
+	__aeabi_uidiv.
+
+2005-11-04  Mark Mitchell  <mark@codesourcery.com>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* longlong.h (add_ssaaaa): Clobber condition code register
+	in ARM version.
+	(sub_ddmmss): Likewise.
+	(umul_ppmm): Likewise.
+
+2005-11-04  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Paul Brook  <paul@codesourcery.com>
+	    Phil Blundell  <pb@reciva.com>
+
+	* configure.ac: Add test for ARM TLS support.
+	* configure: Regenerated.
+	* config/arm/arm-protos.h (legitimize_tls_address)
+	(arm_tls_referenced_p, tls_mentioned_p)
+	(arm_output_addr_const_extra): New prototypes.
+	(thumb_legitimize_pic_address): Delete.
+	* config/arm/arm.c: Include "gt-arm.h".
+	(enum tls_reloc): New.
+	(arm_cannot_copy_insn_p, arm_tls_symbol_p, load_tls_operand)
+	(pcrel_constant_p, get_tls_get_addr, arm_load_tp)
+	(arm_call_tls_get_addr, legitimize_tls_address)
+	(arm_tls_referenced_p, arm_tls_operand_p_1, tls_mentioned_p)
+	(arm_init_tls_builtins, arm_emit_tls_decoration)
+	(arm_output_addr_const_extra): New functions.
+	(TARGET_CANNOT_COPY_INSN_P, TARGET_CANNOT_FORCE_CONST_MEM)
+	(TARGET_HAVE_TLS): Define.
+	(target_thread_pointer): New.
+	(arm_override_options): Handle -mtp=.
+	(legitimize_pic_address): Ignore UNSPECs.
+	(arm_legitimate_address_p, thumb_legitimate_address_p): Handle PC
+	relative symbols.
+	(arm_legitimize_address, thumb_legitimize_address): Handle TLS.
+	(tls_get_addr_libfunc): New variable.
+	(symbol_mentioned_p, label_mentioned_p): Ignore UNSPEC_TLS.
+	(arm_init_builtins): Call arm_init_tls_builtins.
+	(arm_expand_builtin): Handle ARM_BUILTIN_THREAD_POINTER.
+	(arm_encode_section_info): Call default_encode_section_info.
+	* config/arm/arm.h (TARGET_HARD_TP, TARGET_SOFT_TP): Define.
+	(enum arm_tp_type): New.
+	(target_thread_pointer): Add declaration.
+	(LEGITIMATE_CONSTANT_P): Handle TLS.
+	(LEGITIMATE_PIC_OPERAND_P): Handle TLS.
+	(OUTPUT_ADDR_CONST_EXTRA): Call arm_output_addr_const_extra.
+	(enum arm_builtins): Add ARM_BUILTIN_THREAD_POINTER.
+	* config/arm/arm.md: Add UNSPEC_TLS.
+	(movsi): Handle TLS.
+	(pic_add_dot_plus_four, pic_add_dot_plus_eight): Allow for
+	non-PIC.
+	(tls_load_dot_plus_eight): New insn and a peephole to create it.
+	(load_tp_hard, load_tp_soft): New insns.
+	* arm.opt: Add -mtp=.
+	* doc/invoke.texi (ARM Options): Document -mtp.
+
+2005-11-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/lib1funcs.asm: Don't include "libunwind.S".
+	* config/arm/libunwind.S: Include "lib1funcs.asm".
+	* config/arm/t-bpabi (LIB1ASMFUNCS): Remove _unwind.
+	(LIB2ADDEH): Add libunwind.S.
+	(LIB2ADDEHDEP): Add lib1funcs.asm.
+	* mklibgcc.in: Handle asm files in libgcc_eh.a.
+
+2005-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/18452
+	* gcc/c.opt: Add a -lang-fortran option.
+	* gcc/c-opts.c: Add a lang_fortran flag.
+	(c_common_init_options): Handling the -lang-fortran option.
+	(c_common_handle_option): Add a case for Fortran options in
+	preprocessing. Remove cases for -ffixed-form and
+	-ffixed-line-length. Add a case for -lang-fortran.
+
+2005-11-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c: Include params.h
+	(optimization_options): Set max-grow-copy-bb-insns default to 16.
+	(bdesc_2arg): Delete vpkuhss and vpkuwss.
+	* config/rs6000/altivec.md (UNSPEC_VPKUHSS): Delete.
+	(UNSPEC_VPKUWSS): Delete.
+	(altivec_vpkuhss): Delete.
+	(altivec_vpkuwss): Delete.
+	* config/rs6000/rs6000.md (plus_eqsi): Remove optimize_size from
+	final condition.
+	(neg_eq0<mode>): Remove final condition.
+	(neg_eq<mode>): Remove condition and split-condition.
+
+2005-11-04  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (output_toc): Make "offset" HOST_WIDE_INT.
+	Use associated print macros.
+
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/17964
+	* diagnostic.c (diagnostic_set_info_translated): New function.
+	(diagnostic_set_info): Use it.  Add comment.
+	* diagnostic.h (diagnostic_set_info_translated): Declare.
+
+2005-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2asm.c (dw2_force_const_mem): Add new parameter 'public'.
+	On USE_LINKONCE_INDIRECT platforms, build a DECL_ONE_ONLY indirect
+	reference only if 'public' is true.
+	(dw2_output_indirect_constant_1): On USE_LINKONCE_INDIRECT platforms,
+	emit the .hidden directive only if the indirect reference is public.
+	(dw2_asm_output_encoded_addr_rtx): Add new parameter 'public'.
+	Pass it to dw2_force_const_mem.
+	* dwarf2asm.h (dw2_asm_output_encoded_addr_rtx): New param 'public'.
+	* dwarf2out.c (output_cfi): Adjust calls to above function.
+	(output_call_frame_info): Likewise.
+	* except.c (output_ttype): Pass TREE_PUBLIC of the type_info object
+	as 'public' argument to dw2_asm_output_encoded_addr_rtx.
+
+2005-11-03  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/24483
+	* tree-ssa-loop-ivopts.c (aff_combination_add_elt): Move rest
+	field to elts if possible.
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23155
+	* gimplifier.c (gimplify_expr): Create a temporary for lvalue
+	CONSTRUCTOR.
+
+2005-11-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/24351
+
+	* tree-ssa-structalias.c (struct variable_info): Add
+	collapsed_into.
+	(get_varinfo_fc): New function to follow collapsing.
+	(new_var_info): Set collapsed_to to NULL.
+	(dump_constraint): Follow collapsing.
+	(build_constraint_graph): Handle collapsing.
+	(do_simple_structure_copy): Return false if something bad
+	happened.
+	(collapse_rest_of_var): New function.
+	(do_structure_copy): Collapse if do_simple_structure_copy returns
+	false.
+	
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24589
+	* gimplify.c (gimplify_expr) <case CONSTRUCTOR>: Add the
+	expressions to a statement list instead of gimplifying them.
+
+2005-11-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/23585
+	* rtlanal.c (rtx_addr_can_trap_p_1) <PLUS>: Return 0 for an address
+	that can't trap plus a constant integer, if the mode has zero size.
+
+2005-11-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/24620
+	* config/s390/s390.md ("*insv<mode>_reg_imm"): Accept any CONST_INT
+	as operand 2.
+	("*insv<mode>_reg_extimm"): Likewise.
+
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/24329
+	* c-pretty-print.c (pp_c_type_specifier): Do not recurse if
+	c_common_type_for_mode returns an unnamed type.
+
+2005-11-02  Richard Henderson  <rth@redhat.com>
+
+	PR target/9350
+	PR target/24374
+	* dwarf2out.c (dwarf2out_reg_save_reg): New.
+	(dwarf2out_frame_debug_expr): Return after dwarf_handle_frame_unspec.
+	* function.c (assign_parms): Use calls.internal_arg_pointer.
+	(expand_main_function): Remove FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
+	code.
+	* target-def.h (TARGET_INTERNAL_ARG_POINTER): New.
+	(TARGET_CALLS): Add it.
+	* target.h (struct gcc_target): Add calls.internal_arg_pointer.
+	* targhooks.c (default_internal_arg_pointer): New.
+	* targhooks.h (default_internal_arg_pointer): Declare.
+	* tree.h (dwarf2out_reg_save_reg): Declare.
+	* doc/tm.texi (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN): Remove.
+	* config/i386/i386.c (dbx_register_map): Add return column.
+	(dbx64_register_map, svr4_dbx_register_map): Likewise.
+	(TARGET_INTERNAL_ARG_POINTER, ix86_internal_arg_pointer): New.
+	(TARGET_DWARF_HANDLE_FRAME_UNSPEC, ix86_dwarf_handle_frame_unspec): New.
+	(ix86_function_ok_for_sibcall): Disable if force_align_arg_pointer.
+	(ix86_save_reg): Save force_align_arg_pointer.
+	(ix86_emit_save_regs): Make regno unsigned.
+	(ix86_emit_save_regs_using_mov): Likewise.
+	(ix86_expand_prologue): Handle force_align_arg_pointer.
+	(ix86_expand_epilogue): Likewise.
+	* config/i386/i386.h: (dbx_register_map): Update.
+	(dbx64_register_map, svr4_dbx_register_map): Update.
+	(struct machine_function): Add force_align_arg_pointer.
+	* config/i386/i386.md (UNSPEC_REG_SAVE, UNSPEC_DEF_CFA): New.
+	(UNSPEC_TP, UNSPEC_TLS_GD, UNSPEC_TLS_LD_BASE): Renumber.
+	(TARGET_PUSH_MEMORY peepholes): Disable if RTX_FRAME_RELATED_P.
+
+2005-11-02  Jan Hubicka  <jh@suse.cz>
+
+	PR target/23303
+	* i386.md: Add peep2 for simplyfing array accesses.
+
+2005-11-02  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/24615
+	* config/s390/s390-protos.h (s390_decompose_shift_count): Declare.
+	* config/s390/s390.c (s390_decompose_shift_count): New function.
+	(s390_extra_constraint_str) ['Y']: Use s390_decompose_shift_count.
+	(print_shift_count_operand): Use s390_decompose_shift_count.
+	* config/s390/predicates.md ("setmem_operand", "shift_count_operand"):
+	Use s390_decompose_shift_count.  Do not accept any non-base hard regs.
+
+2005-11-02  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/24600
+	* loop.c (loop_givs_rescan): Use force_operand to expand
+	complex GIVs.
+
+2005-11-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR 22429
+	* fold-const.c (build_range_check): Use unsigned when signed
+	overflow is undefined also.  If etype is subtype, make sure that
+	the subtraction is in the supertype.
+
+2005-11-02  Richard Henderson  <rth@redhat.com>
+
+	PR target/24178
+	* config/alpha/alpha.c (get_aligned_mem): Honor alignment given
+	by MEM_ALIGN.
+
+2005-11-01  Richard Henderson  <rth@redhat.com>
+
+	PR 21518
+	* loop.c (scan_loop): Do not propagate computations to a hard
+	register destination with SMALL_REGISTER_CLASSES.
+
+2005-11-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Do not add extra
+	costs for MULT inside PLUS or MINUS.
+
+2005-11-01  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.h (TRAMPOLINE_TEMPLATE): Add a byte of padding.
+	(TRAMPOLINE_SIZE): Round up to 60.
+	* config/xtensa/lib2funcs.S (TRAMPOLINE_SIZE): Likewise.
+
+2005-10-31  James E. Wilson  <wilson@specifix.com>
+
+	PR debug/24444
+	* dwarf2out.c (convert_cfa_to_loc_list): Put inside DWARF2_UNWIND_INFO
+	ifdef.  Put ifdefs around call in gen_subprogram_die.
+	(compute_frame_pointer_to_cfa_displacement): Likewise.
+	(gen_subprogram_die): Restore old code for when DWARF2_UNWIND_INFO is
+	not defined.
+	
+	PR rtl-optimization/17356
+	*  cfgrtl.c (purge_dead_edges): Undo last change.  In EDGE_EH code,
+	add check for CALL_INSN if EDGE_ABRNOMAL_CALL true.
+
 2005-10-31  Jan Hubicka  <jh@suse.cz>
 
 	PR middle-end/24093
@@ -6392,7 +6975,7 @@
 	* gcc.c (main): Compare language[0] with '*' when iterating over
 	the infiles.
 
-2005-07-13  Adrian Strae½tling  <straetling@de.ibm.com>
+2005-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
 
 	* config/s390/s390.c: (s390_cc_modes_compatible): Move before
 	"s390_emit_compare".  Add handling of CCZ1mode.
@@ -6405,7 +6988,7 @@
 	Use CCZ1mode instead of CCZmode.
 	* config/s390/s390-modes.def: Add CCZ1mode.  Comment new mode.
 
-2006-07-13  Adrian Strae½tling  <straetling@de.ibm.com>
+2006-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
 
 	* config/s390/s390.md: ("cmpstrsi", "*cmpstr<mode>"): New
 	pattern.

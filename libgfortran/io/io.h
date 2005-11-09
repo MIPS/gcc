@@ -360,7 +360,8 @@ typedef struct st_parameter_dt
     {
       struct
 	{
-	  void (*transfer) (struct st_parameter_dt *, bt, void *, int, size_t);
+	  void (*transfer) (struct st_parameter_dt *, bt, void *, int,
+			    size_t, size_t);
 	  struct gfc_unit *current_unit;
 	  int item_count; /* Item number in a formatted data transfer.  */
 	  unit_mode mode;
@@ -755,7 +756,8 @@ internal_proto(read_decimal);
 
 /* list_read.c */
 
-extern void list_formatted_read (st_parameter_dt *, bt, void *, int, size_t);
+extern void list_formatted_read (st_parameter_dt *, bt, void *, int, size_t,
+				 size_t);
 internal_proto(list_formatted_read);
 
 extern void finish_list_read (st_parameter_dt *);
@@ -805,12 +807,20 @@ internal_proto(write_x);
 extern void write_z (st_parameter_dt *, const fnode *, const char *, int);
 internal_proto(write_z);
 
-extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t);
+extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t,
+				  size_t);
 internal_proto(list_formatted_write);
 
 /* error.c */
 extern try notify_std (int, const char *);
 internal_proto(notify_std);
+
+/* size_from_kind.c */
+extern size_t size_from_real_kind (int);
+internal_proto(size_from_real_kind);
+
+extern size_t size_from_complex_kind (int);
+internal_proto(size_from_complex_kind);
 
 /* lock.c */
 extern void free_ionml (st_parameter_dt *);

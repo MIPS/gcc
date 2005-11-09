@@ -1179,6 +1179,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 	    }
 	  else
 	    {
+	      tree clone;
 	      /* This situation should occur only if the first
 		 specialization is an implicit instantiation, the
 		 second is an explicit specialization, and the
@@ -1204,6 +1205,23 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 		 there were no definition, and vice versa.  */
 	      DECL_INITIAL (fn) = NULL_TREE;
 	      duplicate_decls (spec, fn, is_friend);
+	      /* The call to duplicate_decls will have applied
+		 [temp.expl.spec]: 
+
+  	           An explicit specialization of a function template
+		   is inline only if it is explicitly declared to be,
+		   and independently of whether its function tempalte
+		   is.
+
+		to the primary function; now copy the inline bits to
+		the various clones.  */   
+	      FOR_EACH_CLONE (clone, fn)
+		{
+		  DECL_DECLARED_INLINE_P (clone)
+		    = DECL_DECLARED_INLINE_P (fn);
+		  DECL_INLINE (clone)
+		    = DECL_INLINE (fn);
+		}
 	      check_specialization_namespace (fn);
 
 	      return fn;
@@ -7065,25 +7083,24 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	max = tsubst_template_arg (omax, args, complain, in_decl);
 	max = fold_decl_constant_value (max);
 
-	if (integer_zerop (omax))
-	  {
-	    /* Still allow an explicit array of size zero.  */
-	    if (pedantic)
-	      pedwarn ("creating array with size zero");
-	  }
-	else if (integer_zerop (max)
-		 || (TREE_CODE (max) == INTEGER_CST
-		     && INT_CST_LT (max, integer_zero_node)))
-	  {
-	    /* [temp.deduct]
+	/* [temp.deduct]
 
-	       Type deduction may fail for any of the following
-	       reasons:
+	   Type deduction may fail for any of the following
+	   reasons:
 
-		 Attempting to create an array with a size that is
-		 zero or negative.  */
+	     Attempting to create an array with a size that is
+	     zero or negative.  */
+	if (integer_zerop (max) && !(complain & tf_error))
+	  /* We must fail if performing argument deduction (as
+	     indicated by the state of complain), so that
+	     another substitution can be found.  */
+	  return error_mark_node;
+
+	else if (TREE_CODE (max) == INTEGER_CST
+		 && INT_CST_LT (max, integer_zero_node))
+	  {
 	    if (complain & tf_error)
-	      error ("creating array with size zero (%qE)", max);
+	      error ("creating array with negative size (%qE)", max);
 
 	    return error_mark_node;
 	  }
@@ -11749,10 +11766,9 @@ instantiate_decl (tree d, int defer_ok,
 	  init = tsubst_expr (DECL_INITIAL (code_pattern), 
 			      args,
 			      tf_error | tf_warning, NULL_TREE);
-	  DECL_INITIAL (d) = NULL_TREE;
-	  finish_static_data_member_decl (d, init, 
-					  /*asmspec_tree=*/NULL_TREE,
-					  LOOKUP_ONLYCONVERTING);
+	  DECL_INITIAL (d) = init;
+	  cp_finish_decl (d, init, /*asmspec_tree=*/NULL_TREE,
+			  LOOKUP_ONLYCONVERTING);
 	  pop_nested_class ();
 	  pop_nested_namespace (ns);
 	}
@@ -11916,10 +11932,15 @@ instantiate_pending_templates (int retries)
      to avoid infinite loop.  */
   if (pending_templates && retries >= max_tinst_depth)
     {
+      tree decl = TREE_VALUE (pending_templates);
+
       error ("template instantiation depth exceeds maximum of %d"
-	    " instantiating %q+D, possibly from virtual table generation"
-	    " (use -ftemplate-depth-NN to increase the maximum)",
-	    max_tinst_depth, TREE_VALUE (pending_templates));
+	     " instantiating %q+D, possibly from virtual table generation"
+	     " (use -ftemplate-depth-NN to increase the maximum)",
+	     max_tinst_depth, decl);
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	/* Pretend that we defined it.  */
+	DECL_INITIAL (decl) = error_mark_node;
       return;
     }
 

@@ -940,7 +940,7 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
    what it is right away.  */
 
 static void
-read_complex (st_parameter_dt *dtp, int length)
+read_complex (st_parameter_dt *dtp, int kind, size_t size)
 {
   char message[100];
   char c;
@@ -964,7 +964,7 @@ read_complex (st_parameter_dt *dtp, int length)
     }
 
   eat_spaces (dtp);
-  if (parse_real (dtp, dtp->u.p.value, length))
+  if (parse_real (dtp, dtp->u.p.value, kind))
     return;
 
 eol_1:
@@ -986,7 +986,7 @@ eol_2:
   else
     unget_char (dtp, c);
 
-  if (parse_real (dtp, dtp->u.p.value + length, length))
+  if (parse_real (dtp, dtp->u.p.value + size / 2, kind))
     return;
 
   eat_spaces (dtp);
@@ -1271,7 +1271,8 @@ check_type (st_parameter_dt *dtp, bt type, int len)
    greater than one, we copy the data item multiple times.  */
 
 static void
-list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
+list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
+			    size_t size)
 {
   char c;
   int m;
@@ -1312,8 +1313,8 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
 
       if (dtp->u.p.repeat_count > 0)
 	{
-	  if (check_type (dtp, type, len))
-	    goto cleanup;
+	  if (check_type (dtp, type, kind))
+	    return;
 	  goto set_value;
 	}
 
@@ -1334,26 +1335,26 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
   switch (type)
     {
     case BT_INTEGER:
-      read_integer (dtp, len);
+      read_integer (dtp, kind);
       break;
     case BT_LOGICAL:
-      read_logical (dtp, len);
+      read_logical (dtp, kind);
       break;
     case BT_CHARACTER:
-      read_character (dtp, len);
+      read_character (dtp, kind);
       break;
     case BT_REAL:
-      read_real (dtp, len);
+      read_real (dtp, kind);
       break;
     case BT_COMPLEX:
-      read_complex (dtp, len);
+      read_complex (dtp, kind, size);
       break;
     default:
       internal_error (&dtp->common, "Bad type for list read");
     }
 
   if (dtp->u.p.saved_type != BT_CHARACTER && dtp->u.p.saved_type != BT_NULL)
-    dtp->u.p.saved_length = len;
+    dtp->u.p.saved_length = size;
 
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     goto cleanup;
@@ -1362,27 +1363,25 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
   switch (dtp->u.p.saved_type)
     {
     case BT_COMPLEX:
-      len = 2 * len;
-      /* Fall through.  */
-
     case BT_INTEGER:
     case BT_REAL:
     case BT_LOGICAL:
-      memcpy (p, dtp->u.p.value, len);
+      memcpy (p, dtp->u.p.value, size);
       break;
 
     case BT_CHARACTER:
       if (dtp->u.p.saved_string)
        {
-	  m = (len < dtp->u.p.saved_used) ? len : dtp->u.p.saved_used;
+	  m = ((int) size < dtp->u.p.saved_used)
+	      ? (int) size : dtp->u.p.saved_used;
 	  memcpy (p, dtp->u.p.saved_string, m);
        }
       else
 	/* Just delimiters encountered, nothing to copy but SPACE.  */
         m = 0;
 
-      if (m < len)
-	memset (((char *) p) + m, ' ', len - m);
+      if (m < (int) size)
+	memset (((char *) p) + m, ' ', size - m);
       break;
 
     case BT_NULL:
@@ -1398,25 +1397,19 @@ cleanup:
 
 
 void
-list_formatted_read  (st_parameter_dt *dtp, bt type, void *p, int len,
-		      size_t nelems)
+list_formatted_read (st_parameter_dt *dtp, bt type, void *p, int kind,
+		     size_t size, size_t nelems)
 {
   size_t elem;
-  int size;
   char *tmp;
 
   tmp = (char *) p;
-
-  if (type == BT_COMPLEX)
-    size = 2 * len;
-  else
-    size = len;
 
   /* Big loop over all the elements.  */
   for (elem = 0; elem < nelems; elem++)
     {
       dtp->u.p.item_count++;
-      list_formatted_read_scalar (dtp, type, tmp + size*elem, len);
+      list_formatted_read_scalar (dtp, type, tmp + size*elem, kind, size);
     }
 }
 
@@ -1834,12 +1827,15 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 
     case GFC_DTYPE_INTEGER:
     case GFC_DTYPE_LOGICAL:
-    case GFC_DTYPE_REAL:
       dlen = len;
       break;
 
+    case GFC_DTYPE_REAL:
+      dlen = size_from_real_kind (len);
+      break;
+
     case GFC_DTYPE_COMPLEX:
-      dlen = 2* len;
+      dlen = size_from_complex_kind (len);
       break;
 
     case GFC_DTYPE_CHARACTER:
@@ -1899,7 +1895,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
               break;
 
 	  case GFC_DTYPE_COMPLEX:
-	      read_complex (dtp, len);
+              read_complex (dtp, len, dlen);
               break;
 
 	  case GFC_DTYPE_DERIVED:

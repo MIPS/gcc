@@ -436,6 +436,9 @@ struct cpp_options
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
+
+  /* True means error callback should be used for diagnostics.  */
+  bool client_diagnostic;
 };
 
 /* Callback for header lookup for HEADER, which is the name of a
@@ -468,6 +471,11 @@ struct cpp_callbacks
   int (*valid_pch) (cpp_reader *, const char *, int);
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
   missing_header_cb missing_header;
+
+  /* Called to emit a diagnostic if client_diagnostic option is true.
+     This callback receives the translated message.  */
+  void (*error) (cpp_reader *, int, const char *, va_list *)
+       ATTRIBUTE_PRINTF(3,0);
 };
 
 /* Chain of directories to look for include files in.  */

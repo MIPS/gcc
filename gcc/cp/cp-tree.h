@@ -4480,5 +4480,8 @@ extern void cp_genericize			(tree);
 #else
 #define ATTRIBUTE_GCC_CXXDIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
+extern void cp_cpp_error			(cpp_reader *, int,
+						 const char *, va_list *)
+     ATTRIBUTE_GCC_CXXDIAG(3,0);
 
 #endif /* ! GCC_CP_TREE_H */

@@ -3612,7 +3612,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
      any damage.  */
   if (is_attribute_p ("dllimport", name))
     {
-      /* Honor any target-specific overides. */ 
+      /* Honor any target-specific overrides. */ 
       if (!targetm.valid_dllimport_attribute_p (node))
 	*no_add_attrs = true;
 
@@ -4434,7 +4434,7 @@ tree_int_cst_msb (tree t)
 
 /* Return an indication of the sign of the integer constant T.
    The return value is -1 if T < 0, 0 if T == 0, and 1 if T > 0.
-   Note that -1 will never be returned it T's type is unsigned.  */
+   Note that -1 will never be returned if T's type is unsigned.  */
 
 int
 tree_int_cst_sgn (tree t)

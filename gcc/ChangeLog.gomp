@@ -1,3 +1,7 @@
+2005-11-09  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge as of 2005-11-09.
+
 2005-11-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-pretty-print.c (dump_omp_clauses): Add pp_space call if

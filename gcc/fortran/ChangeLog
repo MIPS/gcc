@@ -1,3 +1,164 @@
+2005-11-09  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/22607
+	* trans-decl.c(build_function_decl): Don't set
+	DECL_IS_PURE (fndecl) = 1 for return-by-reference
+	functions.
+
+2005-11-08  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c: Fix comment typo, add a few blank lines.
+
+2005-11-07  Steven G. Kargl  <kargls@comcast.net>
+
+	* error.c: Use flag_fatal_error.
+	* invoke.texi:  Remove -Werror from list of options.
+
+2005-11-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24534
+	* resolve.c (resolve_symbol): Exclude case of PRIVATE declared
+	within derived type from error associated with PRIVATE type
+	components within derived type.
+
+	PR fortran/20838
+	PR fortran/20840
+	* gfortran.h: Add prototype for gfc_has_vector_index.
+	* io.c (gfc_resolve_dt): Error if internal unit has a vector index.
+	* expr.c (gfc_has_vector_index): New function to check if any of
+	the array references of an expression have vector inidices.
+	(gfc_check_pointer_assign): Error if internal unit has a vector index.
+
+	PR fortran/17737
+	* data.c (gfc_assign_data_value): Remove gcc_assert that caused the ICE
+	and replace by a standard dependent warning/error if overwriting an
+	existing initialization.
+	* decl.c (gfc_data_variable): Remove old error for already initialized
+	variable and the unused error check for common block variables.  Add
+	error for hots associated variable and standard dependent error for
+	common block variables, outside of blockdata.
+	* symbol.c (check_conflict): Add constraints for DATA statement.
+
+2005-11-06  Janne Blomqvist <jb@gcc.gnu.org>
+
+	PR fortran/24174
+	PR fortran/24305
+	* fortran/trans-io.c (gfc_build_io_library_fndecls): Add kind
+	argument to transfer_array.
+	(transfer_array_desc): Add kind argument.
+
+2005-11-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsic.c (add_functions): Add ctime and fdate intrinsics.
+	(add_subroutines): Likewise.
+	* intrinsic.h: Prototypes for gfc_check_ctime,
+	gfc_check_ctime_sub, gfc_check_fdate_sub, gfc_resolve_ctime,
+	gfc_resolve_fdate, gfc_resolve_ctime_sub, gfc_resolve_fdate_sub.
+	* gfortran.h: Add GFC_ISYM_CTIME and GFC_ISYM_FDATE.
+	* iresolve.c (gfc_resolve_ctime, gfc_resolve_fdate,
+	gfc_resolve_ctime_sub, gfc_resolve_fdate_sub): New functions.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Add
+	gfor_fndecl_fdate and gfor_fndecl_ctime.
+	* check.c (gfc_check_ctime, gfc_check_ctime_sub,
+	gfc_check_fdate_sub): New functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ctime,
+	gfc_conv_intrinsic_fdate): New functions.
+	(gfc_conv_intrinsic_function): Add cases for GFC_ISYM_CTIME
+	and GFC_ISYM_FDATE.
+	* intrinsic.texi: Documentation for the new CTIME and FDATE
+	intrinsics.
+	* trans.h: Declarations for gfor_fndecl_ctime and gfor_fndecl_fdate.
+
+2005-11-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c, trans-decl.c: Fix comment typos.
+	* gfortran.texi: Fix a typo.
+
+2005-11-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsic.c (add_functions): Add function version of TTYNAM.
+	* intrinsic.h: Add prototypes for gfc_check_ttynam and
+	gfc_resolve_ttynam.
+	* gfortran.h: Add case for GFC_ISYM_TTYNAM.
+	* iresolve.c (gfc_resolve_ttynam): New function.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Add a tree
+	for function call to library ttynam.
+	* check.c (gfc_check_ttynam): New function.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ttynam): New function.
+	(): Call gfc_conv_intrinsic_ttynam.
+	* trans.h: Add prototype for gfor_fndecl_ttynam.
+
+2005-11-04  Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/24636
+	* match.c (gfc_match_stopcode):  Set stop_code = -1.
+
+2005-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/18452
+	* lang-specs.h: Pass -lang-fortran to the preprocessor.
+
+2005-11-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/18157
+	* trans-array.c (gfc_conv_resolve_dependencies): Use the correct
+	type for the temporary array.
+	* trans-expr.c (gfc_trans_assignment): Pass lss
+	instead of lss_section
+	to gfc_conv_resolve_dependencies to get the
+	correct type.
+
+2005-11-02  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* decl.c (gfc_match_entry): Function entries don't need an argument
+	list if there's no RESULT clause.
+
+2005-11-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24008
+	* decl.c (gfc_match_entry): Function entries need an argument list.
+
+2005-11-01  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR 24245
+	* trans.c (gfc_generate_code): Move code to create a main
+	program symbol from here ...
+	* parse.c (main_program_symbol): ... to this new
+	function, setting the locus from gfc_current_locus
+	instead of ns->code->loc.
+	(gfc_parse_file):  Call main_program_symbol for main programs.
+
+2005-11-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24404
+	* resolve.c (resolve_symbol): Output symbol names in more error
+	messages, clarify error message.
+
+2005-11-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c (show_symtree): Revert change unintentionally
+	committed in r106246.
+
+2005-11-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/21565
+	* symbol.c (check_conflict): An object cannot be in a namelist and in
+	block data.
+
+	PR fortran/18737
+	* resolve.c (resolve_symbol): Set the error flag to
+	gfc_set_default_type, in the case of an external symbol, so that
+	an error message is emitted if IMPLICIT NONE is set.
+
+	PR fortran/14994
+	* gfortran.h (gfc_generic_isym_id): Add GFC_ISYM_SECNDS to enum.
+	* check.c (gfc_check_secnds): New function.
+	* intrinsic.c (add_functions): Add call to secnds.
+	* iresolve.c (gfc_resolve_secnds): New function.
+	* trans-intrinsic (gfc_conv_intrinsic_function): Add call to
+	secnds via case GFC_ISYM_SECNDS.
+	* intrinsic.texi: Add documentation for secnds.
+
 2005-10-31  Andreas Schwab  <schwab@suse.de>
 
 	* Make-lang.in (GFORTRAN_TARGET_INSTALL_NAME): Define.

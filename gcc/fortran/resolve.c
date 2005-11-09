@@ -4323,8 +4323,10 @@ resolve_symbol (gfc_symbol * sym)
 
       if (sym->attr.flavor == FL_PROCEDURE && sym->attr.function)
 	{
+	  /* The specific case of an external procedure should emit an error
+	     in the case that there is no implicit type.  */
 	  if (!mp_flag)
-	    gfc_set_default_type (sym, 0, NULL);
+	    gfc_set_default_type (sym, sym->attr.external, NULL);
 	  else
 	    {
               /* Result may be in another namespace.  */
@@ -4441,9 +4443,11 @@ resolve_symbol (gfc_symbol * sym)
       return;
     }
 
-  /* Ensure that derived type components of a public derived type
-     are not of a private type.  */
+  /* If a component of a derived type is of a type declared to be private,
+     either the derived type definition must contain the PRIVATE statement,
+     or the derived type must be private.  (4.4.1 just after R427) */
   if (sym->attr.flavor == FL_DERIVED
+	&& sym->component_access != ACCESS_PRIVATE
 	&& gfc_check_access(sym->attr.access, sym->ns->default_access))
     {
       for (c = sym->components; c; c = c->next)
@@ -4515,18 +4519,18 @@ resolve_symbol (gfc_symbol * sym)
 	  if (sym->attr.allocatable)
 	    {
 	      if (sym->attr.dimension)
-		gfc_error ("Allocatable array at %L must have a deferred shape",
-			   &sym->declared_at);
+		gfc_error ("Allocatable array '%s' at %L must have "
+			   "a deferred shape", sym->name, &sym->declared_at);
 	      else
-		gfc_error ("Object at %L may not be ALLOCATABLE",
-			   &sym->declared_at);
+		gfc_error ("Scalar object '%s' at %L may not be ALLOCATABLE",
+			   sym->name, &sym->declared_at);
 	      return;
 	    }
 
 	  if (sym->attr.pointer && sym->attr.dimension)
 	    {
-	      gfc_error ("Pointer to array at %L must have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array pointer '%s' at %L must have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 
@@ -4536,8 +4540,8 @@ resolve_symbol (gfc_symbol * sym)
 	  if (!mp_flag && !sym->attr.allocatable
 	      && !sym->attr.pointer && !sym->attr.dummy)
 	    {
-	      gfc_error ("Array at %L cannot have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array '%s' at %L cannot have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 	}
@@ -4621,8 +4625,8 @@ resolve_symbol (gfc_symbol * sym)
       /* An external symbol falls through to here if it is not referenced.  */
       if (sym->attr.external && sym->value)
 	{
-	  gfc_error ("External object at %L may not have an initializer",
-		     &sym->declared_at);
+	  gfc_error ("External object '%s' at %L may not have an initializer",
+		     sym->name, &sym->declared_at);
 	  return;
 	}
 

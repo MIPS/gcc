@@ -215,6 +215,7 @@ gfc_build_io_library_fndecls (void)
 {
   tree types[IOPARM_type_num], pad_idx, gfc_int4_type_node;
   tree parm_type, dt_parm_type;
+  tree gfc_c_int_type_node;
   HOST_WIDE_INT pad_size;
   enum ioparam_type ptype;
 
@@ -226,6 +227,7 @@ gfc_build_io_library_fndecls (void)
   pad_size += 32 * TREE_INT_CST_LOW (TYPE_SIZE_UNIT (integer_type_node));
   pad_idx = build_index_type (build_int_cst (NULL_TREE, pad_size));
   types[IOPARM_type_pad] = build_array_type (char_type_node, pad_idx);
+  gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   for (ptype = IOPARM_ptype_common; ptype < IOPARM_ptype_num; ptype++)
     gfc_build_st_parameter (ptype, types);
@@ -266,8 +268,9 @@ gfc_build_io_library_fndecls (void)
   iocall[IOCALL_X_ARRAY] =
     gfc_build_library_function_decl (get_identifier
 				     (PREFIX("transfer_array")),
-				     void_type_node, 3, dt_parm_type,
-				     pvoid_type_node, gfc_charlen_type_node);
+				     void_type_node, 4, dt_parm_type,
+				     pvoid_type_node, gfc_c_int_type_node,
+				     gfc_charlen_type_node);
 
   /* Library entry points */
 
@@ -1737,16 +1740,19 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
 static void
 transfer_array_desc (gfc_se * se, gfc_typespec * ts, tree addr_expr)
 {
-  tree args, tmp, charlen_arg;
+  tree args, tmp, charlen_arg, kind_arg;
 
   if (ts->type == BT_CHARACTER)
     charlen_arg = se->string_length;
   else
     charlen_arg = build_int_cstu (NULL_TREE, 0);
 
+  kind_arg = build_int_cst (NULL_TREE, ts->kind);
+
   tmp = gfc_build_addr_expr (NULL_TREE, dt_parm);
   args = gfc_chainon_list (NULL_TREE, tmp);
   args = gfc_chainon_list (args, addr_expr);
+  args = gfc_chainon_list (args, kind_arg);
   args = gfc_chainon_list (args, charlen_arg);
   tmp = gfc_build_function_call (iocall[IOCALL_X_ARRAY], args);
   gfc_add_expr_to_block (&se->pre, tmp);

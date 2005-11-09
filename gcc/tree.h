@@ -1038,7 +1038,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
    thunked-to function.  */
-#define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
+#define CALL_FROM_THUNK_P(NODE) (CALL_EXPR_CHECK (NODE)->common.protected_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -4225,6 +4225,10 @@ extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 /* Entry point for saving the return address in a register.  */
 
 extern void dwarf2out_return_reg (const char *, unsigned);
+
+/* Entry point for saving the first register into the second.  */
+
+extern void dwarf2out_reg_save_reg (const char *, rtx, rtx);
 
 /* In tree-inline.c  */
 

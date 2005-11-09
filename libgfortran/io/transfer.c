@@ -78,7 +78,7 @@ export_proto(transfer_character);
 extern void transfer_complex (st_parameter_dt *, void *, int);
 export_proto(transfer_complex);
 
-extern void transfer_array (st_parameter_dt *, gfc_array_char *,
+extern void transfer_array (st_parameter_dt *, gfc_array_char *, int,
 			    gfc_charlen_type);
 export_proto(transfer_array);
 
@@ -376,38 +376,26 @@ write_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 /* Master function for unformatted reads.  */
 
 static void
-unformatted_read (st_parameter_dt *dtp, bt type, void *dest,
-		  int length, size_t nelems)
+unformatted_read (st_parameter_dt *dtp, bt type __attribute__((unused)),
+		  void *dest, int kind __attribute__((unused)),
+		  size_t size, size_t nelems)
 {
-  size_t len;
+  size *= nelems;
 
-  len = length * nelems;
-
-  /* Transfer functions get passed the kind of the entity, so we have
-     to fix this for COMPLEX data which are twice the size of their
-     kind.  */
-  if (type == BT_COMPLEX)
-    len *= 2;
-
-  read_block_direct (dtp, dest, &len);
+  read_block_direct (dtp, dest, &size);
 }
 
 
 /* Master function for unformatted writes.  */
 
 static void
-unformatted_write (st_parameter_dt *dtp, bt type, void *source, int length,
-		   size_t nelems)
+unformatted_write (st_parameter_dt *dtp, bt type __attribute__((unused)),
+		   void *source, int kind __attribute__((unused)),
+		   size_t size, size_t nelems)
 {
-  size_t len;
+  size *= nelems;
 
-  len = length * nelems;
-
-  /* Correction for kind vs. length as in unformatted_read.  */
-  if (type == BT_COMPLEX)
-    len *= 2;
-
-  write_block_direct (dtp, source, &len);
+  write_block_direct (dtp, source, &size);
 }
 
 
@@ -502,7 +490,8 @@ require_type (st_parameter_dt *dtp, bt expected, bt actual, const fnode *f)
    of the next element, then comes back here to process it.  */
 
 static void
-formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
+formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
+			   size_t size)
 {
   char scratch[SCRATCH_SIZE];
   int pos, bytes_used;
@@ -515,7 +504,10 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
 
   n = (p == NULL) ? 0 : ((type != BT_COMPLEX) ? 1 : 2);
   if (type == BT_COMPLEX)
-    type = BT_REAL;
+    {
+      type = BT_REAL;
+      size /= 2;
+    }
 
   /* If there's an EOR condition, we simulate finalizing the transfer
      by doing nothing.  */
@@ -883,7 +875,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
       if ((consume_data_flag > 0) && (n > 0))
       {
 	n--;
-	p = ((char *) p) + len;
+	p = ((char *) p) + size;
       }
 
       if (dtp->u.p.mode == READING)
@@ -904,25 +896,19 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
 }
 
 static void
-formatted_transfer (st_parameter_dt *dtp, bt type, void *p, int len,
-		    size_t nelems)
+formatted_transfer (st_parameter_dt *dtp, bt type, void *p, int kind,
+		    size_t size, size_t nelems)
 {
   size_t elem;
-  int  size;
   char *tmp;
 
   tmp = (char *) p;
-
-  if (type == BT_COMPLEX)
-    size = 2 * len;
-  else
-    size = len;
 
   /* Big loop over all the elements.  */
   for (elem = 0; elem < nelems; elem++)
     {
       dtp->u.p.item_count++;
-      formatted_transfer_scalar (dtp, type, tmp + size*elem, len);
+      formatted_transfer_scalar (dtp, type, tmp + size*elem, kind, size);
     }
 }
 
@@ -937,16 +923,18 @@ transfer_integer (st_parameter_dt *dtp, void *p, int kind)
 {
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
-  dtp->u.p.transfer (dtp, BT_INTEGER, p, kind, 1);
+  dtp->u.p.transfer (dtp, BT_INTEGER, p, kind, kind, 1);
 }
 
 
 void
 transfer_real (st_parameter_dt *dtp, void *p, int kind)
 {
+  size_t size;
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
-  dtp->u.p.transfer (dtp, BT_REAL, p, kind, 1);
+  size = size_from_real_kind (kind);
+  dtp->u.p.transfer (dtp, BT_REAL, p, kind, size, 1);
 }
 
 
@@ -955,7 +943,7 @@ transfer_logical (st_parameter_dt *dtp, void *p, int kind)
 {
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
-  dtp->u.p.transfer (dtp, BT_LOGICAL, p, kind, 1);
+  dtp->u.p.transfer (dtp, BT_LOGICAL, p, kind, kind, 1);
 }
 
 
@@ -964,27 +952,32 @@ transfer_character (st_parameter_dt *dtp, void *p, int len)
 {
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
-  dtp->u.p.transfer (dtp, BT_CHARACTER, p, len, 1);
+  /* Currently we support only 1 byte chars, and the library is a bit
+     confused of character kind vs. length, so we kludge it by setting
+     kind = length.  */
+  dtp->u.p.transfer (dtp, BT_CHARACTER, p, len, len, 1);
 }
 
 
 void
 transfer_complex (st_parameter_dt *dtp, void *p, int kind)
 {
+  size_t size;
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
-  dtp->u.p.transfer (dtp, BT_COMPLEX, p, kind, 1);
+  size = size_from_complex_kind (kind);
+  dtp->u.p.transfer (dtp, BT_COMPLEX, p, kind, size, 1);
 }
 
 
 void
-transfer_array (st_parameter_dt *dtp, gfc_array_char *desc,
+transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
 		gfc_charlen_type charlen)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type stride[GFC_MAX_DIMENSIONS];
-  index_type stride0, rank, size, type, n, kind;
+  index_type stride0, rank, size, type, n;
   size_t tsize;
   char *data;
   bt iotype;
@@ -994,7 +987,6 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc,
 
   type = GFC_DESCRIPTOR_TYPE (desc);
   size = GFC_DESCRIPTOR_SIZE (desc);
-  kind = size;
 
   /* FIXME: What a kludge: Array descriptors and the IO library use
      different enums for types.  */
@@ -1014,7 +1006,6 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc,
       break;
     case GFC_DTYPE_COMPLEX:
       iotype = BT_COMPLEX;
-      kind /= 2;
       break;
     case GFC_DTYPE_CHARACTER:
       iotype = BT_CHARACTER;
@@ -1063,7 +1054,7 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc,
 
   while (data)
     {
-      dtp->u.p.transfer (dtp, iotype, data, kind, tsize);
+      dtp->u.p.transfer (dtp, iotype, data, kind, size, tsize);
       data += stride0 * size * tsize;
       count[0] += tsize;
       n = 0;
@@ -1454,7 +1445,7 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED
       && ((cf & (IOPARM_DT_LIST_FORMAT | IOPARM_DT_HAS_NAMELIST_NAME)) == 0)
       && dtp->u.p.ionml == NULL)
-    formatted_transfer (dtp, 0, NULL, 0, 1);
+    formatted_transfer (dtp, 0, NULL, 0, 0, 1);
 }
 
 /* Initialize an array_loop_spec given the array descriptor.  The function
@@ -1870,17 +1861,13 @@ finalize_transfer (st_parameter_dt *dtp)
    data transfer, it just updates the length counter.  */
 
 static void
-iolength_transfer (st_parameter_dt *dtp, bt type,
+iolength_transfer (st_parameter_dt *dtp, bt type __attribute__((unused)), 
 		   void *dest __attribute__ ((unused)),
-		   int len, size_t nelems)
+		   int kind __attribute__((unused)), 
+		   size_t size, size_t nelems)
 {
   if ((dtp->common.flags & IOPARM_DT_HAS_IOLENGTH) != 0)
-    {
-      if (type == BT_COMPLEX)
-	*dtp->iolength += 2 * len * nelems;
-      else
-	*dtp->iolength += len * nelems;
-    }
+    *dtp->iolength += (GFC_INTEGER_4) size * nelems;
 }
 
 

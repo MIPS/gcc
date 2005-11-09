@@ -1392,15 +1392,15 @@ write_real (st_parameter_dt *dtp, const char *source, int length)
 
 
 static void
-write_complex (st_parameter_dt *dtp, const char *source, int len)
+write_complex (st_parameter_dt *dtp, const char *source, int kind, size_t size)
 {
   if (write_char (dtp, '('))
     return;
-  write_real (dtp, source, len);
+  write_real (dtp, source, kind);
 
   if (write_char (dtp, ','))
     return;
-  write_real (dtp, source + len, len);
+  write_real (dtp, source + size / 2, kind);
 
   write_char (dtp, ')');
 }
@@ -1426,7 +1426,8 @@ write_separator (st_parameter_dt *dtp)
    with strings.  */
 
 static void
-list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
+list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
+			     size_t size)
 {
   if (dtp->u.p.current_unit == NULL)
     return;
@@ -1446,19 +1447,19 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
   switch (type)
     {
     case BT_INTEGER:
-      write_integer (dtp, p, len);
+      write_integer (dtp, p, kind);
       break;
     case BT_LOGICAL:
-      write_logical (dtp, p, len);
+      write_logical (dtp, p, kind);
       break;
     case BT_CHARACTER:
-      write_character (dtp, p, len);
+      write_character (dtp, p, kind);
       break;
     case BT_REAL:
-      write_real (dtp, p, len);
+      write_real (dtp, p, kind);
       break;
     case BT_COMPLEX:
-      write_complex (dtp, p, len);
+      write_complex (dtp, p, kind, size);
       break;
     default:
       internal_error (&dtp->common, "list_formatted_write(): Bad type");
@@ -1469,25 +1470,19 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int len)
 
 
 void
-list_formatted_write (st_parameter_dt *dtp, bt type, void *p, int len,
-		      size_t nelems)
+list_formatted_write (st_parameter_dt *dtp, bt type, void *p, int kind,
+		      size_t size, size_t nelems)
 {
   size_t elem;
-  int size;
   char *tmp;
 
   tmp = (char *) p;
-
-  if (type == BT_COMPLEX)
-    size = 2 * len;
-  else
-    size = len;
 
   /* Big loop over all the elements.  */
   for (elem = 0; elem < nelems; elem++)
     {
       dtp->u.p.item_count++;
-      list_formatted_write_scalar (dtp, type, tmp + size*elem, len);
+      list_formatted_write_scalar (dtp, type, tmp + size*elem, kind, size);
     }
 }
 
@@ -1565,11 +1560,26 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   num = 1;
 
   len = obj->len;
-  obj_size = len;
-  if (obj->type == GFC_DTYPE_COMPLEX)
-    obj_size = 2*len;
-  if (obj->type == GFC_DTYPE_CHARACTER)
-    obj_size = obj->string_length;
+
+  switch (obj->type)
+    {
+
+    case GFC_DTYPE_REAL:
+      obj_size = size_from_real_kind (len);
+      break;
+
+    case GFC_DTYPE_COMPLEX:
+      obj_size = size_from_complex_kind (len);
+      break;
+
+    case GFC_DTYPE_CHARACTER:
+      obj_size = obj->string_length;
+      break;
+
+    default:
+      obj_size = len;      
+    }
+
   if (obj->var_rank)
     obj_size = obj->size;
 
@@ -1646,7 +1656,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	    case GFC_DTYPE_COMPLEX:
 	      dtp->u.p.no_leading_blank = 0;
 	      num++;
-	      write_complex (dtp, p, len);
+              write_complex (dtp, p, len, obj_size);
               break;
 
 	    case GFC_DTYPE_DERIVED:

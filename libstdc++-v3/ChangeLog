@@ -1,3 +1,78 @@
+2005-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h: Trivial formatting fixes.
+
+2005-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_debug_mode): Use
+	exe as the executable extension.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Change gnu defaults to
+	new.
+	(GLIBCXX_ENABLE_PCH): Adjust message order.
+	* configure: Regenerate.
+	
+	* scripts/testsuite_flags.in (query): Correct print_usagex typo.
+
+	* include/bits/functexcept.h: Remove argument names.
+
+	* src/mt_allocator.cc: Adjust comment.
+	
+2005-11-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/18174
+	* include/bits/stl_queue.h (priority_queue): Tweak a bit the
+	comment describing the container.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.host: Add | rs6000 to the cpu_defines_dir switch,
+	consistently with the try_cpu one.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22203
+	* include/bits/c++config: Include cpu_defines.h.
+	* include/Makefile.am: Add cpu_defines.h to host_headers.
+	* configure.host: Add cpu_defines_dir.
+	* configure.ac: Use it.
+	* config/cpu/powerpc/cpu_defines.h: New.
+	* config/cpu/generic/cpu_defines.h: Likewise.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.	
+	* testsuite/Makefile.in: Likewise.
+
+2005-11-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_swap):
+	Change the various traits_type::copy call to always copy the
+	entire local buffer; return early and don't do a full swap on
+	the lengths for two common cases; change two _S_copy to plain
+	traits_type::copy.
+
+2005-11-02  Thomas Kho  <tkho@ucla.edu>
+
+	PR libstdc++/23425
+	* include/bits/stl_vector.h (vector<>::clear): Open code
+	in terms of _Destroy.
+
+2005-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/vector.tcc (vector<>::_M_fill_assign): Qualify fill_n.
+
+2005-11-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24595
+	* include/tr1/boost_shared_ptr.h (shared_ptr<>::get_deleter):
+	Move out of shared_ptr.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/misc/24595.cc:
+	New.
+
 2005-10-30  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/20213
@@ -65,8 +140,9 @@
 2005-10-17  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	PR libstdc++/24244
-	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::_Sp_counted_base()):
-	When __GTHREAD_MUTEX_INIT is defined, initialize the mutex.
+	* include/tr1/boost_shared_ptr.h
+	(_Sp_counted_base::_Sp_counted_base()): When __GTHREAD_MUTEX_INIT
+	is defined, initialize the mutex.
 
 2005-10-15  Paolo Carlini  <pcarlini@suse.de>
 

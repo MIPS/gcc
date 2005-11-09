@@ -1,3 +1,104 @@
+2005-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19450
+	* decl.c (redeclaration_error_message): Issue diagnostics about
+	olddecl and newdecl disagreement on __thread property.
+	(grokdeclarator): Set DECL_TLS_MODEL on class static variables.
+
+2005-11-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* method.c (use_thunk): Use build_cplus_new instead of 
+	force_target_expr.
+
+2005-11-06  Jason Merrill  <jason@redhat.com>
+	    James A. Morrison <phython@gcc.gnu.org>
+
+	PR c++/17256
+	* decl2.c (cp_finish_file): Fix conditions for undefined warning.
+	Set TREE_NO_WARNING instead of TREE_PUBLIC.
+	* pt.c (instantiate_pending_templates): Set DECL_INITIAL to avoid
+	a warning on a function we didn't instantiate because of excessive
+	recursion.
+
+2005-11-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (record_subobject_offsets): Don't record offsets past
+	biggest empty class for non-empty base classes.
+	(layout_class_type): Use TYPE_SIZE_UNIT, not TYPE_SIZE, when
+	keeping track of the size of emptyclasses.
+
+	PR c++/21308
+	* class.c (sizeof_biggest_empty_class): New variable.
+	(record_subobject_offsets): Don't record offsets past biggest
+	empty class for data members.  Replace vbases_p parameter with
+	is_data_member parameter.
+	(build_base_field): Adjust call.
+	(layout_class_type): Likewise.  Maintain
+	sizeof_biggest_empty_class.
+	
+2005-11-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl2.c, init.c, typeck.c: Fix comment typos.
+
+2005-11-04  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/22487
+	* init.c (build_vec_init): Build comparison of matching
+	types.
+
+2005-11-03  Josh Conner  <jconner@apple.com>
+
+	PR c++/19989
+	pt.c (tsubst): Accept zero-length array if tf_error is set
+	in complain flags.  Change error message for negative-
+	length array.
+
+2005-11-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-tree.h (cp_cpp_error), error.c (cp_cpp_error): Take va_list*
+	parameter.
+
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/17964
+	* error.c (cp_cpp_error): New function.
+	* cp-tree.h (cp_cpp_error): Declare.
+	* parser.c (cp_lexer_new_main): Set CPP option client_diagnostic
+	and error callback after lexing.
+
+2005-11-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21627
+	* pt.c (register_specialization): Update inline flags on clones.y
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/24582
+	* decl.c (declare_local_label): Return 0 for variables
+	with error_mark_node as their types.
+
+2005-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22434
+	* call.c (build_conditional_expr): Do bad conversions, if there's
+	no other choice.
+
+	PR c++/24560
+	* parser.c (cp_parser_postfix_dot_deref_expression): Improve error
+	message for use of overloaded functions on LHS of "." operator.
+
+	PR c++/19253
+	* parser.c (cp_parser_postfix_expression): Use
+	cp_parser_elaborated_type_specifier to handle typename-types in
+	functional casts.
+	(cp_parser_enclosed_argument_list): Skip ahead to the end of the
+	template argument list if the closing ">" is not found.
+
+	PR c++/24569
+	* pt.c (instantiate_decl): Use cp_finish_decl, not
+	finish_static_data_member_decl. 
+
 2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* decl.c (grokfndecl): Remove the setting

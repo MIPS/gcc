@@ -61,6 +61,7 @@ code_indent (int level, gfc_st_label * label)
 
 /* Simple indentation at the current level.  This one
    is used to show symbols.  */
+
 static inline void
 show_indent (void)
 {
@@ -70,6 +71,7 @@ show_indent (void)
 
 
 /* Show type-specific information.  */
+
 static void
 gfc_show_typespec (gfc_typespec * ts)
 {
@@ -688,6 +690,7 @@ gfc_show_symbol (gfc_symbol * sym)
 
 /* Show a user-defined operator.  Just prints an operator
    and the name of the associated subroutine, really.  */
+
 static void
 show_uop (gfc_user_op * uop)
 {
@@ -748,6 +751,7 @@ show_common (gfc_symtree * st)
   gfc_status_char ('\n');
 }    
 
+
 /* Worker function to display the symbol tree.  */
 
 static void
@@ -758,9 +762,7 @@ show_symtree (gfc_symtree * st)
   gfc_status ("symtree: %s  Ambig %d", st->name, st->ambiguous);
 
   if (st->n.sym->ns != gfc_current_ns)
-    /* Do nothing
-       gfc_status (" from namespace %s", st->n.sym->ns->proc_name->name); */
-    ;
+    gfc_status (" from namespace %s", st->n.sym->ns->proc_name->name);
   else
     gfc_show_symbol (st->n.sym);
 }
@@ -1656,7 +1658,7 @@ gfc_show_code_node (int level, gfc_code * c)
 }
 
 
-/* Show and equivalence chain.  */
+/* Show an equivalence chain.  */
 
 static void
 gfc_show_equiv (gfc_equiv *eq)

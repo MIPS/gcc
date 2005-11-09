@@ -2086,6 +2086,18 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 
       return NULL;
     }
+  else if (TREE_CODE (newdecl) == VAR_DECL
+	   && DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl))
+    {
+      /* Only variables can be thread-local, and all declarations must
+	 agree on this property.  */
+      if (DECL_THREAD_LOCAL_P (newdecl))
+	return "thread-local declaration of %q#D follows "
+	       "non-thread-local declaration";
+      else
+	return "non-thread-local declaration of %q#D follows "
+	       "thread-local declaration";
+    }
   else if (toplevel_bindings_p () || DECL_NAMESPACE_SCOPE_P (newdecl))
     {
       /* Objects declared at top level:  */
@@ -2214,20 +2226,15 @@ declare_local_label (tree id)
 static int
 decl_jump_unsafe (tree decl)
 {
-  tree type;
-
-  if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl))
+  if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl)
+      || TREE_TYPE (decl) == error_mark_node)
     return 0;
 
-  type = TREE_TYPE (decl);
-  if (type == error_mark_node)
-    return 0;
-
-  if (TYPE_NEEDS_CONSTRUCTING (type)
+  if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))
       || DECL_NONTRIVIALLY_INITIALIZED_P (decl))
     return 2;
 
-  if (pod_type_p (type))
+  if (pod_type_p (TREE_TYPE (decl)))
     return 0;
 
   /* The POD stuff is just pedantry; why should it matter if the class
@@ -8348,6 +8355,17 @@ grokdeclarator (const cp_declarator *declarator,
 		   is considered undefined until an out-of-class
 		   definition is provided.  */
 		DECL_EXTERNAL (decl) = 1;
+
+		if (thread_p)
+		  {
+		    if (targetm.have_tls)
+		      DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+		    else
+		      /* A mere warning is sure to result in improper
+			 semantics at runtime.  Don't bother to allow this to
+			 compile.  */
+		      error ("thread-local storage not supported for this target");
+		  }
 	      }
 	    else
 	      {

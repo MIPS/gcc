@@ -38,7 +38,7 @@ void
 stop_numeric (GFC_INTEGER_4 code)
 {
   if (code == -1)
-    st_printf ("STOP\n");
+    code = 0;
   else
     st_printf ("STOP %d\n", (int)code);
 
