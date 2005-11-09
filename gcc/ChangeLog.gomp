@@ -1,3 +1,10 @@
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-pretty-print.c (dump_omp_clauses): Add pp_space call if
+	clause is not NULL.
+	(dump_generic_node) <case OMP_PARALLEL, OMP_FOR, OMP_SECTIONS>: Don't
+	print space after directive name.
+
 2005-11-08  Richard Henderson  <rth@redhat.com>
 
 	PR 24703

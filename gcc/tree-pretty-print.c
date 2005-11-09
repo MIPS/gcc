@@ -252,6 +252,7 @@ dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
   if (clause == NULL)
     return;
 
+  pp_space (buffer);
   while (1)
     {
       switch (TREE_CODE (clause))
@@ -1660,7 +1661,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case OMP_PARALLEL:
-      pp_string (buffer, "#pragma omp parallel ");
+      pp_string (buffer, "#pragma omp parallel");
       dump_omp_clauses (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags);
     dump_omp_body:
       newline_and_indent (buffer, spc + 2);
@@ -1673,7 +1674,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case OMP_FOR:
-      pp_string (buffer, "#pragma omp for ");
+      pp_string (buffer, "#pragma omp for");
       dump_omp_clauses (buffer, OMP_FOR_CLAUSES (node), spc, flags);
       if (OMP_FOR_PRE_BODY (node))
 	{
@@ -1708,7 +1709,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case OMP_SECTIONS:
-      pp_string (buffer, "#pragma omp sections ");
+      pp_string (buffer, "#pragma omp sections");
       dump_omp_clauses (buffer, OMP_SECTIONS_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
