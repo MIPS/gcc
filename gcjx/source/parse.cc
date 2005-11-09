@@ -2950,6 +2950,7 @@ parse::enum_body (ref_enum result)
       while (true)
 	{
 	  ref_enum_constant c (new model_enum_constant (peek ()));
+	  c->set_compilation_unit (unit);
 	  c->set_name (identifier ());
 	  if (peek () == TOKEN_OPEN_PAREN)
 	    c->set_arguments (arguments ());

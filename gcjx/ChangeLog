@@ -1,5 +1,10 @@
 2005-11-09  Tom Tromey  <tromey@redhat.com>
 
+	* source/parse.cc (enum_body): Set compilation unit on enum
+	constant.
+
+2005-11-09  Tom Tromey  <tromey@redhat.com>
+
 	* model/memberref.cc (resolve): Call use_assignment_conversion.
 	* model/memberref.hh
 	(model_memberref_forward::use_assignment_conversion): New method.
