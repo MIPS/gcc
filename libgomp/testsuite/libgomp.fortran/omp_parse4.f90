@@ -19,6 +19,7 @@ contains
     g(7:8) = 5
     g(9:10) = 10
     forall (i = 1:16, j = 1:16) a (i, j) = i * 16 + j
+    forall (j = 1:16) n (j) = j
 !$omp parallel num_threads (4) private (j, k)
 !$omp barrier
 !$omp workshare
@@ -33,7 +34,6 @@ contains
       f = 300 + f
     end where
     where (f .gt. 210) g = 0
-    forall (j = 1:16) n (j) = j
 !$omp end workshare nowait
 !$omp workshare
     forall (j = 1:16, k = 1:16) b (k, j) = a (j, k)

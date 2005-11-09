@@ -1,3 +1,8 @@
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/omp_parse4.f90: Move n initialization
+	before the parallel.
+
 2005-11-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/24734
