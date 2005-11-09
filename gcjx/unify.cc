@@ -48,7 +48,15 @@ class unifier
   std::list<ref_element> gcpro;
 
   // Location we should use when creating things.
+  // FIXME: a request element would be better.
   location where;
+
+  // The declared return type of the method.
+  model_type *declared_return_type;
+
+  // If not NULL, the type to which assignment conversion of the
+  // result will occur.
+  model_class *assign_conv_type;
 
   typedef enum
     {
@@ -380,6 +388,8 @@ class unifier
     model_class_instance *actualci
       = assert_cast<model_class_instance *> (actual);
 
+    // FIXME: for '>' case we need special handling if ACTUAL's parent
+    // is not the same as FORMAL's parent.
     // FIXME: check that ACTUAL "inherits from FORMAL's erasure".
     // For '<' case only.
 
@@ -400,7 +410,21 @@ class unifier
 	  {
 	    if (constraint == GREATER_THAN)
 	      {
-		// FIXME.
+		if (inner_a->wildcard_p ())
+		  {
+		    model_class *bound = inner_a_w->get_bound ();
+		    if (inner_a_w->super_p ())
+		      unify (LESS_THAN, bound, inner_f);
+		    else
+		      {
+			// FIXME: is replacing the bound here ok?
+			if (! bound)
+			  bound = global->get_compiler ()->java_lang_Object ();
+			unify (GREATER_THAN, bound, inner_f);
+		      }
+		  }
+		else
+		  unify (EQUAL, inner_a, inner_f);
 	      }
 	    else
 	      unify (EQUAL, inner_a, inner_f);
@@ -479,19 +503,6 @@ class unifier
       }
   }
 
-  bool mapping_complete_p ()
-  {
-    for (std::set<model_type_variable *>::const_iterator i
-	   = formal_type_params.begin ();
-	 i != formal_type_params.end ();
-	 ++i)
-      {
-	if (mapping.find (*i) == mapping.end ())
-	  return false;
-      }
-    return true;
-  }
-
   void update_constraint_set (constraint_type type,
 			      model_type_variable *var,
 			      std::set<model_class *> &result)
@@ -506,9 +517,9 @@ class unifier
       }
   }
 
-  void resolve_constraints (model_type_map &result)
+  bool consider_lubs (model_type_map &result)
   {
-    consider_equality ();
+    bool unfound = false;
     for (std::set<model_type_variable *>::const_iterator i
 	   = formal_type_params.begin ();
 	 i != formal_type_params.end ();
@@ -526,9 +537,78 @@ class unifier
 	    std::set<model_class *> constraints;
 	    update_constraint_set (LESS_THAN, *i, constraints);
 	    update_constraint_set (GREATER_THAN, *i, constraints);
-	    result.add (*i, compute_lub (constraints));
+	    model_class *lub = compute_lub (constraints);
+	    if (lub == NULL)
+	      unfound = true;
+	    else
+	      result.add (*i, lub);
 	  }
       }
+    return unfound;
+  }
+
+  bool consider_return_type (model_type_map &result)
+  {
+    // Make a new type make to transform the declared return type.
+    model_type_map temp;
+    for (std::set<model_type_variable *>::const_iterator i
+	   = formal_type_params.begin ();
+	 i != formal_type_params.end ();
+	 ++i)
+      {
+	model_class *k = result.find (*i);
+	if (! k)
+	  k = *i;
+	temp.add (*i, k);
+      }
+
+    // Transform the return type.
+    // FIXME: the request element here is bogus.
+    model_class *r_class = assert_cast<model_class *> (declared_return_type);
+    model_class *r_prime = r_class->apply_type_map (declared_return_type,
+						    temp);
+
+    // Set up for the next round of type inference.
+    constraints[0].clear ();
+    constraints[1].clear ();
+    constraints[2].clear ();
+    mapping.clear ();
+
+    unify (GREATER_THAN, assign_conv_type, r_prime);
+    // FIXME: add constraints based on the bounds.  See the JLS.
+
+    consider_equality ();
+    return consider_lubs (result);
+  }
+
+  void infer_as_object (model_type_map &result)
+  {
+    model_class *obj = global->get_compiler ()->java_lang_Object ();
+    for (std::set<model_type_variable *>::const_iterator i
+	   = formal_type_params.begin ();
+	 i != formal_type_params.end ();
+	 ++i)
+      {
+	if (! result.find (*i))
+	  result.add (*i, obj);
+      }
+  }
+
+  void resolve_constraints (model_type_map &result)
+  {
+    // Look at '==' constraints.
+    consider_equality ();
+    // Look at '<<' and '>>' constraints.
+    bool any_missing = consider_lubs (result);
+    // If we are still haven't inferred all the types, do the special
+    // assignment conversion processing.
+    if (any_missing && assign_conv_type
+	&& declared_return_type->reference_p ())
+      any_missing = consider_return_type (result);
+    // If we are still haven't inferred all the types, infer them as
+    // Object.
+    if (any_missing)
+      infer_as_object (result);
   }
 
   void get_formal_argument_types (model_method *method,
@@ -553,9 +633,22 @@ class unifier
 
 public:
 
-  unifier (const location &w)
-    : where (w)
+  unifier (const location &w, model_type *drt, model_type *act)
+    : where (w),
+      declared_return_type (drt)
   {
+    // Weird logic here: if the assignment conversion type is set but
+    // is not a reference type, we just skip this part of type
+    // inference.  This is because there is no action for a constraint
+    // of the form "S >> T" where S is primitive.  On the other hand,
+    // if it is not set at all, and the declared return type is a
+    // reference type, then we use Object, per the JLS.
+    if (act)
+      assign_conv_type = dynamic_cast<model_class *> (act);
+    else if (declared_return_type && declared_return_type->reference_p ())
+      assign_conv_type = global->get_compiler ()->java_lang_Object ();
+    else
+      assign_conv_type = NULL;
   }
 
   void unify (const std::list<model_type *> &actual, model_method *method,
@@ -614,17 +707,19 @@ public:
 void
 unify (const std::list<model_type *> &actual,
        model_method *method,
-       model_class *assignment_type,
+       model_type *declared_return_type,
+       model_type *assignment_type,
        model_type_map &result)
 {
   // FIXME: correct location.
-  unifier u (method->get_location ());
+  unifier u (method->get_location (), declared_return_type, assignment_type);
   u.unify (actual, method, result);
 }
 
 model_class *
 compute_lub (model_element *request, model_class *one, model_class *two)
 {
-  unifier u (request->get_location ());
+  // We know that the return types won't be used in this case.
+  unifier u (request->get_location (), NULL, NULL);
   return u.compute_lub (one, two);
 }

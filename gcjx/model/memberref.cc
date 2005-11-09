@@ -49,6 +49,8 @@ model_memberref_forward::resolve (resolution_scope *scope)
 	real->set_left_hand_side (is_compound);
     }
   assert (real);
+  if (assign_conv_type)
+    real->use_assignment_conversion (assign_conv_type);
   real->resolve (scope);
   set_type (real->type ());
 }

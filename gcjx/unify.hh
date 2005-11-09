@@ -25,6 +25,7 @@
 /// Perform type inference according to the algorithm in the JLS.
 /// @param actual the actual argument types
 /// @param method the method being invoked
+/// @param declared_return_type the declared return type of the method
 /// @param assignment_type if not null, the type to which the result
 /// of this method is converted by assignment conversion.  If no
 /// assignment conversion is performed, should be NULL.
@@ -33,7 +34,8 @@
 void
 unify (const std::list<model_type *> &actual,
        model_method *method,
-       model_class *assignment_type,
+       model_type *declared_return_type,
+       model_type *assignment_type,
        model_type_map &result);
 
 /// Compute the LUB of two classes.

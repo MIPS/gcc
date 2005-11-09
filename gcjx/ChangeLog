@@ -1,3 +1,27 @@
+2005-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* model/memberref.cc (resolve): Call use_assignment_conversion.
+	* model/memberref.hh
+	(model_memberref_forward::use_assignment_conversion): New method.
+	(model_memberref_forward::assign_conv_type): New field.
+	(model_memberref_forward): Initialize it.
+	* unify.hh (unify): Added declared_return_type argument.  Changed
+	type of assignment_type argument.
+	* model/method.cc (method_conversion_p): Pass declared return
+	type to unify.
+	* unify.cc (unifier::consider_lubs): New method.  Don't update
+	map if computed LUB is NULL.
+	(unifier::declared_return_type): New field.
+	(unifier::assign_conv_type): Likewise.
+	(unifier): Added new arguments.
+	(unify): Updated.
+	(unifier::infer_as_object): New method.
+	(unifier::consider_return_type): New method.
+	(unifier::resolve_constraints): Use consider_lubs,
+	consider_return_type, infer_as_object.
+	(unifier::mapping_complete_p): Removed.
+	(unifier::unify): Added more code for the '>>' case.
+
 2005-11-08  Tom Tromey  <tromey@redhat.com>
 
 	* model/invoke.cc (method_conversion_p): Pass assign_type to

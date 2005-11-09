@@ -79,11 +79,6 @@ conflicting `throws'?
 change method to accept a list of parameters,
 not variables
 
-must really implement capture conversion
-there are similar little hacks in other places
-widening conversion is now officially a mess
-have to do a real pass to solidify this stuff
-
 we can get rid of model_field_base and ambiguous field handling
 
 rewrite jcf-dump

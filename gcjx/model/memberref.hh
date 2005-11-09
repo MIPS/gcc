@@ -69,6 +69,10 @@ class model_memberref_forward : public model_memberref_base
   // True if compound assignment.
   bool is_compound;
 
+  // The type to which assignment conversion will be performed.  If
+  // NULL, this member won't be subject to assignment conversion.
+  model_type *assign_conv_type;
+
   bool compute_constant_p ()
   {
     return real->constant_p ();
@@ -81,7 +85,8 @@ protected:
     : model_memberref_base (w),
       is_call (false),
       is_lhs (false),
-      is_compound (false)
+      is_compound (false),
+      assign_conv_type (NULL)
   {
   }
 
@@ -92,7 +97,8 @@ public:
       ids (l),
       is_call (false),
       is_lhs (false),
-      is_compound (false)
+      is_compound (false),
+      assign_conv_type (NULL)
   {
   }
 
@@ -139,6 +145,12 @@ public:
   {
     is_lhs = true;
     is_compound = compound;
+  }
+
+  void use_assignment_conversion (model_type *t)
+  {
+    assert (! real);
+    assign_conv_type = t;
   }
 };
 
