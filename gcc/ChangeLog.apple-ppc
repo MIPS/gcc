@@ -1,3 +1,12 @@
+2005-11-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4321079
+	* cfgloopmanip.c:  Include option.h.
+	(straighten_blocks):  New.
+	(create_loop_notes): Call it.  Look for and straighten
+	a specific 2-block loop pattern.
+	* Makefile.in (cfgloopmanip.o):  Add options.h dependency.
+
 2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4330422
