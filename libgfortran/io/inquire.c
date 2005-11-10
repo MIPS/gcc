@@ -295,7 +295,7 @@ inquire_via_filename (st_parameter_inquire *iqp)
   const char *p;
   GFC_INTEGER_4 cf = iqp->common.flags;
 
-  if ((cf & IOPARM_INQUIRE_HAS_PAD) != 0)
+  if ((cf & IOPARM_INQUIRE_HAS_EXIST) != 0)
     *iqp->exist = file_exists (iqp->file, iqp->file_len);
 
   if ((cf & IOPARM_INQUIRE_HAS_OPENED) != 0)

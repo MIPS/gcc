@@ -1,3 +1,9 @@
+2005-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/24774
+	* io/inquire.c (inquire_via_filename): Fix a typo in has_exist flag
+	name.
+
 2005-10-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* runtime/fpu.c (_GNU_SOURCE): Don't define here.
