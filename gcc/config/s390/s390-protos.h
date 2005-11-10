@@ -30,6 +30,7 @@ extern void s390_emit_epilogue (bool);
 extern void s390_function_profiler (FILE *, int);
 extern void s390_conditional_register_usage (void);
 extern void s390_set_has_landing_pad_p (bool);
+extern bool s390_hard_regno_rename_ok (unsigned int, unsigned int);
 
 #ifdef RTX_CODE
 extern int s390_extra_constraint_str (rtx, int, const char *);
@@ -73,6 +74,7 @@ extern void s390_expand_movmem (rtx, rtx, rtx);
 extern void s390_expand_setmem (rtx, rtx, rtx);
 extern void s390_expand_cmpmem (rtx, rtx, rtx, rtx);
 extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
+extern bool s390_expand_insv (rtx, rtx, rtx, rtx);
 extern rtx s390_return_addr_rtx (int, rtx);
 extern rtx s390_back_chain_rtx (void);
 extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
@@ -95,6 +97,7 @@ extern rtx s390_load_got (void);
 extern rtx s390_get_thread_pointer (void);
 extern void s390_emit_tpf_eh_return (rtx);
 extern bool s390_legitimate_address_without_index_p (rtx);
+extern bool s390_decompose_shift_count (rtx, rtx *, HOST_WIDE_INT *, int);
 extern int s390_branch_condition_mask (rtx);
 
 #endif /* RTX_CODE */

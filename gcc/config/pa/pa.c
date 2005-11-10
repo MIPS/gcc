@@ -127,7 +127,6 @@ static bool pa_scalar_mode_supported_p (enum machine_mode);
 static bool pa_commutative_p (rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
-static struct deferred_plabel *get_plabel (rtx) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_level (void) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_space (int) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_file (int) ATTRIBUTE_UNUSED;
@@ -138,6 +137,7 @@ static void pa_linux_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_gas_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_hpas_file_start (void) ATTRIBUTE_UNUSED;
 static void output_deferred_plabels (void);
+static void output_deferred_profile_counters (void) ATTRIBUTE_UNUSED;
 #ifdef ASM_OUTPUT_EXTERNAL_REAL
 static void pa_hpux_file_end (void);
 #endif
@@ -3326,25 +3326,9 @@ store_reg_modify (int base, int reg, HOST_WIDE_INT mod)
       RTX_FRAME_RELATED_P (insn) = 1;
 
       /* RTX_FRAME_RELATED_P must be set on each frame related set
-	 in a parallel with more than one element.  Don't set
-	 RTX_FRAME_RELATED_P in the first set if reg is temporary
-	 register 1. The effect of this operation is recorded in
-	 the initial copy.  */
-      if (reg != 1)
-	{
-	  RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 0)) = 1;
-	  RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
-	}
-      else
-	{
-	  /* The first element of a PARALLEL is always processed if it is
-	     a SET.  Thus, we need an expression list for this case.  */
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, basereg,
-			     gen_rtx_PLUS (word_mode, basereg, delta)),
-                REG_NOTES (insn));
-	}
+	 in a parallel with more than one element.  */
+      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 0)) = 1;
+      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
     }
 }
 
@@ -3578,17 +3562,7 @@ hppa_expand_prologue (void)
 	     frames.  */
 	  insn = emit_move_insn (tmpreg, frame_pointer_rtx);
 	  if (DO_FRAME_NOTES)
-	    {
-	      /* We need to record the frame pointer save here since the
-	         new frame pointer is set in the following insn.  */
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	      REG_NOTES (insn)
-		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (word_mode, stack_pointer_rtx),
-			         frame_pointer_rtx),
-		    REG_NOTES (insn));
-	    }
+	    RTX_FRAME_RELATED_P (insn) = 1;
 
 	  insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
 	  if (DO_FRAME_NOTES)
@@ -4142,6 +4116,40 @@ hppa_pic_save_rtx (void)
   return get_hard_reg_initial_val (word_mode, PIC_OFFSET_TABLE_REGNUM);
 }
 
+#ifndef NO_DEFERRED_PROFILE_COUNTERS
+#define NO_DEFERRED_PROFILE_COUNTERS 0
+#endif
+
+/* Define heap vector type for funcdef numbers.  */
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
+
+/* Vector of funcdef numbers.  */
+static VEC(int,heap) *funcdef_nos;
+
+/* Output deferred profile counters.  */
+static void
+output_deferred_profile_counters (void)
+{
+  unsigned int i;
+  int align, n;
+
+  if (VEC_empty (int, funcdef_nos))
+   return;
+
+  data_section ();
+  align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
+  ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
+
+  for (i = 0; VEC_iterate (int, funcdef_nos, i, n); i++)
+    {
+      targetm.asm_out.internal_label (asm_out_file, "LP", n);
+      assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
+    }
+
+  VEC_free (int, heap, funcdef_nos);
+}
+
 void
 hppa_profile_hook (int label_no)
 {
@@ -4176,11 +4184,12 @@ hppa_profile_hook (int label_no)
   emit_insn (gen_load_offset_label_address (gen_rtx_REG (SImode, 25), 
 					    reg, begin_label_rtx, label_rtx));
 
-#ifndef NO_PROFILE_COUNTERS
+#if !NO_DEFERRED_PROFILE_COUNTERS
   {
     rtx count_label_rtx, addr, r24;
     char count_label_name[16];
 
+    VEC_safe_push (int, heap, funcdef_nos, label_no);
     ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
     count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
 
@@ -5224,8 +5233,11 @@ pa_hpux64_hpas_file_start (void)
 }
 #undef aputs
 
-static struct deferred_plabel *
-get_plabel (rtx symbol)
+/* Search the deferred plabel list for SYMBOL and return its internal
+   label.  If an entry for SYMBOL is not found, a new entry is created.  */
+
+rtx
+get_deferred_plabel (rtx symbol)
 {
   const char *fname = XSTR (symbol, 0);
   size_t i;
@@ -5263,7 +5275,7 @@ get_plabel (rtx symbol)
 	mark_referenced (id);
     }
 
-  return &deferred_plabels[i];
+  return deferred_plabels[i].internal_label;
 }
 
 static void
@@ -7103,9 +7115,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 	  /* ??? As far as I can tell, the HP linker doesn't support the
 	     long pc-relative sequence described in the 64-bit runtime
 	     architecture.  So, we use a slightly longer indirect call.  */
-	  struct deferred_plabel *p = get_plabel (call_dest);
-
-	  xoperands[0] = p->internal_label;
+	  xoperands[0] = get_deferred_plabel (call_dest);
 	  xoperands[1] = gen_label_rtx ();
 
 	  /* If this isn't a sibcall, we put the load of %r27 into the
@@ -7232,9 +7242,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 		     essentially an inline implementation of $$dyncall.
 		     We don't actually try to call $$dyncall as this is
 		     as difficult as calling the function itself.  */
-		  struct deferred_plabel *p = get_plabel (call_dest);
-
-		  xoperands[0] = p->internal_label;
+		  xoperands[0] = get_deferred_plabel (call_dest);
 		  xoperands[1] = gen_label_rtx ();
 
 		  /* Since the call is indirect, FP arguments in registers
@@ -9159,6 +9167,9 @@ pa_hpux_file_end (void)
 {
   unsigned int i;
   extern_symbol *p;
+
+  if (!NO_DEFERRED_PROFILE_COUNTERS)
+    output_deferred_profile_counters ();
 
   output_deferred_plabels ();
 

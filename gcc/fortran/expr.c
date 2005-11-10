@@ -311,6 +311,23 @@ copy_ref (gfc_ref * src)
 }
 
 
+/* Detect whether an expression has any vector index array
+   references.  */
+
+int
+gfc_has_vector_index (gfc_expr *e)
+{
+  gfc_ref * ref;
+  int i;
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY)
+      for (i = 0; i < ref->u.ar.dimen; i++)
+	if (ref->u.ar.dimen_type[i] == DIMEN_VECTOR)
+	  return 1;
+  return 0;
+}
+
+
 /* Copy a shape array.  */
 
 mpz_t *
@@ -1841,6 +1858,16 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
        return FAILURE;
      }
 
+   if (sym->attr.cray_pointee
+       && lvalue->ref != NULL
+       && lvalue->ref->u.ar.type != AR_ELEMENT
+       && lvalue->ref->u.ar.as->cp_was_assumed)
+     {
+       gfc_error ("Vector assignment to assumed-size Cray Pointee at %L"
+		  " is illegal.", &lvalue->where);
+       return FAILURE;
+     }
+
   /* This is possibly a typo: x = f() instead of x => f()  */
   if (gfc_option.warn_surprising 
       && rvalue->expr_type == EXPR_FUNCTION
@@ -1949,6 +1976,13 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
     {
       gfc_error ("Unequal ranks %d and %d in pointer assignment at %L", 
 		 lvalue->rank, rvalue->rank, &rvalue->where);
+      return FAILURE;
+    }
+
+  if (gfc_has_vector_index (rvalue))
+    {
+      gfc_error ("Pointer assignment with vector subscript "
+		 "on rhs at %L", &rvalue->where);
       return FAILURE;
     }
 

@@ -21,6 +21,9 @@
 /* libm includes acosl */
 #undef HAVE_ACOSL
 
+/* Define to 1 if you have the `alarm' function. */
+#undef HAVE_ALARM
+
 /* libm includes asin */
 #undef HAVE_ASIN
 
@@ -249,6 +252,9 @@
 /* libm includes ctanl */
 #undef HAVE_CTANL
 
+/* Define to 1 if you have the `ctime' function. */
+#undef HAVE_CTIME
+
 /* libm includes erf */
 #undef HAVE_ERF
 
@@ -294,6 +300,12 @@
 /* libm includes finite */
 #undef HAVE_FINITE
 
+/* Define to 1 if you have the <floatingpoint.h> header file. */
+#undef HAVE_FLOATINGPOINT_H
+
+/* Define to 1 if you have the <float.h> header file. */
+#undef HAVE_FLOAT_H
+
 /* libm includes floor */
 #undef HAVE_FLOOR
 
@@ -302,6 +314,18 @@
 
 /* libm includes floorl */
 #undef HAVE_FLOORL
+
+/* Define if you have fpsetmask. */
+#undef HAVE_FPSETMASK
+
+/* Define to 1 if you have the <fptrap.h> header file. */
+#undef HAVE_FPTRAP_H
+
+/* fp_enable is present */
+#undef HAVE_FP_ENABLE
+
+/* fp_trap is present */
+#undef HAVE_FP_TRAP
 
 /* libm includes frexp */
 #undef HAVE_FREXP
@@ -456,6 +480,9 @@
 /* libm includes scalbnl */
 #undef HAVE_SCALBNL
 
+/* Define to 1 if you have the `signal' function. */
+#undef HAVE_SIGNAL
+
 /* Define to 1 if you have the <signal.h> header file. */
 #undef HAVE_SIGNAL_H
 
@@ -599,6 +626,9 @@
 
 /* Define if target can unlink open files. */
 #undef HAVE_UNLINK_OPEN_FILE
+
+/* Define if target has a reliable stat. */
+#undef HAVE_WORKING_STAT
 
 /* libm includes y0 */
 #undef HAVE_Y0

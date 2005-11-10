@@ -1431,7 +1431,8 @@ typedef enum
   AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT,
   AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
-  AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT
+  AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
+  AB_CRAY_POINTEE
 }
 ab_attribute;
 
@@ -1458,6 +1459,8 @@ static const mstring attr_bits[] =
     minit ("RECURSIVE", AB_RECURSIVE),
     minit ("GENERIC", AB_GENERIC),
     minit ("ALWAYS_EXPLICIT", AB_ALWAYS_EXPLICIT),
+    minit ("CRAY_POINTER", AB_CRAY_POINTER),
+    minit ("CRAY_POINTEE", AB_CRAY_POINTEE),
     minit (NULL, -1)
 };
 
@@ -1542,6 +1545,10 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_RECURSIVE, attr_bits);
       if (attr->always_explicit)
         MIO_NAME(ab_attribute) (AB_ALWAYS_EXPLICIT, attr_bits);
+      if (attr->cray_pointer)
+	MIO_NAME(ab_attribute) (AB_CRAY_POINTER, attr_bits);
+      if (attr->cray_pointee)
+	MIO_NAME(ab_attribute) (AB_CRAY_POINTEE, attr_bits);
 
       mio_rparen ();
 
@@ -1622,6 +1629,12 @@ mio_symbol_attribute (symbol_attribute * attr)
             case AB_ALWAYS_EXPLICIT:
               attr->always_explicit = 1;
               break;
+	    case AB_CRAY_POINTER:
+	      attr->cray_pointer = 1;
+	      break;
+	    case AB_CRAY_POINTEE:
+	      attr->cray_pointee = 1;
+	      break;
 	    }
 	}
     }
@@ -2100,9 +2113,17 @@ mio_symtree_ref (gfc_symtree ** stp)
 	 namespace to see if the required, non-contained symbol is available
 	 yet. If so, the latter should be written.  */
       if ((*stp)->n.sym && check_unique_name((*stp)->name))
-	ns_st = gfc_find_symtree (gfc_current_ns->sym_root, (*stp)->n.sym->name);
+	ns_st = gfc_find_symtree (gfc_current_ns->sym_root,
+				    (*stp)->n.sym->name);
 
-      mio_symbol_ref (ns_st ? &ns_st->n.sym : &(*stp)->n.sym);
+      /* On the other hand, if the existing symbol is the module name or the
+	 new symbol is a dummy argument, do not do the promotion.  */
+      if (ns_st && ns_st->n.sym
+	    && ns_st->n.sym->attr.flavor != FL_MODULE
+	    && !(*stp)->n.sym->attr.dummy)
+	mio_symbol_ref (&ns_st->n.sym);
+      else
+	mio_symbol_ref (&(*stp)->n.sym);
     }
   else
     {
@@ -2814,6 +2835,9 @@ mio_symbol (gfc_symbol * sym)
   mio_array_spec (&sym->as);
 
   mio_symbol_ref (&sym->result);
+
+  if (sym->attr.cray_pointee)
+    mio_symbol_ref (&sym->cp_pointer);
 
   /* Note that components are always saved, even if they are supposed
      to be private.  Component access is checked during searching.  */

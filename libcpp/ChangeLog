@@ -1,3 +1,48 @@
+2005-11-09  Per Bothner  <per@bothner.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+	
+	PR c/24101
+	* init.c (read_original_filename): Temporarily set
+	state.in_directive before calling _cpp_lex_direct for
+	CPP_HASH tokens.
+
+2005-11-03  James E Wilson  <wilson@specifix.com>
+
+	PR preprocessor/24202
+	* files.c (_cpp_pop_file_buffer): Set buffer_valid to false.
+
+2005-11-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* include/cpplib.h (struct cpp_callbacks): Make error take
+	va_list* parameter.
+	* errors.c (cpp_error): Update call to callback.
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR preprocessor/22042
+	* macro.c (_cpp_builtin_macro_text): Lower the needed max
+	buffer size.
+	(cpp_quote_string): Don't octalify non printable
+	charactors.
+
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/17964
+	* include/cpplib.h (struct cpp_options): Add client_diagnostic.
+	(struct cpp_callbacks): Add error.
+	* errors.c (cpp_error): If client_diagnostic, use error callback.
+	* charset.c (convert_escape): Don't use %03o in diagnostic.
+
+2005-10-21  James E Wilson  <wilson@specifix.com>
+
+	PR preprocessor/15220
+	* files.c (_cpp_find_file): New parameter angle_brackets.  Fix all
+	callers.  Pass to open_file_failed.
+	(open_file_failed): New parameter angle_brackets.  Fix all callers.
+	Use in print_dep assignment.
+	* init.c (cpp_read_main_file): Pass additional arg to _cpp_find_file.
+	* internal.h (_cpp_find_file): Add new parm to declaration.
+	
 2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* configure.ac: Require 64-bit int for arm*-*-*eabi*.

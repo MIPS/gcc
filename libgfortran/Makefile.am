@@ -27,6 +27,7 @@ io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
+io/size_from_kind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -44,6 +45,7 @@ intrinsics/c99_functions.c \
 intrinsics/chdir.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/ctime.c \
 intrinsics/date_and_time.c \
 intrinsics/env.c \
 intrinsics/erf.c \
@@ -63,9 +65,11 @@ intrinsics/kill.c \
 intrinsics/ierrno.c \
 intrinsics/ishftc.c \
 intrinsics/link.c \
+intrinsics/malloc.c \
 intrinsics/mvbits.c \
 intrinsics/pack_generic.c \
 intrinsics/perror.c \
+intrinsics/signal.c \
 intrinsics/size.c \
 intrinsics/sleep.c \
 intrinsics/spread_generic.c \
@@ -577,7 +581,7 @@ I_M4_DEPS0=$(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1=$(I_M4_DEPS) m4/ifunction.m4
 
 kinds.h: $(srcdir)/mk-kinds-h.sh
-	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@ || rm $@
 
 kinds.inc: kinds.h
 	grep '^#' < kinds.h > $@
@@ -586,10 +590,10 @@ c99_protos.inc: $(srcdir)/c99_protos.h
 	grep '^#' < $(srcdir)/c99_protos.h > $@
 
 selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
-	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@ || rm $@
 
 selected_real_kind.inc: $(srcdir)/mk-srk-inc.sh
-	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@ || rm $@
 
 fpu-target.h: $(srcdir)/$(FPU_HOST_HEADER)
 	cp $(srcdir)/$(FPU_HOST_HEADER) $@

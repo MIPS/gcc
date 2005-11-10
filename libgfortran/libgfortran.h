@@ -392,7 +392,6 @@ typedef enum
   ERROR_BAD_US,
   ERROR_READ_VALUE,
   ERROR_READ_OVERFLOW,
-  ERROR_ARRAY_STRIDE,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -434,6 +433,9 @@ iexport_data_proto(filename);
 
 
 /* main.c */
+
+extern void stupid_function_name_for_static_linking (void);
+internal_proto(stupid_function_name_for_static_linking);
 
 extern void library_start (void);
 internal_proto(library_start);
@@ -557,7 +559,7 @@ internal_proto(reshape_packed);
 
 /* Repacking functions.  */
 
-/* ??? These eight aren't currently used by the compiler, though we
+/* ??? These aren't currently used by the compiler, though we
    certainly could do so.  */
 GFC_INTEGER_4 *internal_pack_4 (gfc_array_i4 *);
 internal_proto(internal_pack_4);
@@ -565,11 +567,21 @@ internal_proto(internal_pack_4);
 GFC_INTEGER_8 *internal_pack_8 (gfc_array_i8 *);
 internal_proto(internal_pack_8);
 
+#if defined HAVE_GFC_INTEGER_16
+GFC_INTEGER_16 *internal_pack_16 (gfc_array_i16 *);
+internal_proto(internal_pack_16);
+#endif
+
 GFC_COMPLEX_4 *internal_pack_c4 (gfc_array_c4 *);
 internal_proto(internal_pack_c4);
 
 GFC_COMPLEX_8 *internal_pack_c8 (gfc_array_c8 *);
 internal_proto(internal_pack_c8);
+
+#if defined HAVE_GFC_COMPLEX_10
+GFC_COMPLEX_10 *internal_pack_c10 (gfc_array_c10 *);
+internal_proto(internal_pack_c10);
+#endif
 
 extern void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 internal_proto(internal_unpack_4);
@@ -577,11 +589,21 @@ internal_proto(internal_unpack_4);
 extern void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 internal_proto(internal_unpack_8);
 
+#if defined HAVE_GFC_INTEGER_16
+extern void internal_unpack_16 (gfc_array_i16 *, const GFC_INTEGER_16 *);
+internal_proto(internal_unpack_16);
+#endif
+
 extern void internal_unpack_c4 (gfc_array_c4 *, const GFC_COMPLEX_4 *);
 internal_proto(internal_unpack_c4);
 
 extern void internal_unpack_c8 (gfc_array_c8 *, const GFC_COMPLEX_8 *);
 internal_proto(internal_unpack_c8);
+
+#if defined HAVE_GFC_COMPLEX_10
+extern void internal_unpack_c10 (gfc_array_c10 *, const GFC_COMPLEX_10 *);
+internal_proto(internal_unpack_c10);
+#endif
 
 /* string_intrinsics.c */
 

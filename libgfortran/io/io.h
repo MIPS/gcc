@@ -78,6 +78,26 @@ stream;
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
+/* The array_loop_spec contains the variables for the loops over index ranges
+   that are encountered.  Since the variables can be negative, ssize_t
+   is used.  */
+
+typedef struct array_loop_spec
+{
+  /* Index counter for this dimension.  */
+  ssize_t idx;
+
+  /* Start for the index counter.  */
+  ssize_t start;
+
+  /* End for the index counter.  */
+  ssize_t end;
+
+  /* Step for the index counter.  */
+  ssize_t step;
+}
+array_loop_spec;
+
 /* Representation of a namelist object in libgfortran
 
    Namelist Records
@@ -93,29 +113,8 @@ stream;
 
    These requirements are met by the following data structures.
 
-   nml_loop_spec contains the variables for the loops over index ranges
-   that are encountered.  Since the variables can be negative, ssize_t
-   is used.  */
-
-typedef struct nml_loop_spec
-{
-
-  /* Index counter for this dimension.  */
-  ssize_t idx;
-
-  /* Start for the index counter.  */
-  ssize_t start;
-
-  /* End for the index counter.  */
-  ssize_t end;
-
-  /* Step for the index counter.  */
-  ssize_t step;
-}
-nml_loop_spec;
-
-/* namelist_info type contains all the scalar information about the
-   object and arrays of descriptor_dimension and nml_loop_spec types for
+   namelist_info type contains all the scalar information about the
+   object and arrays of descriptor_dimension and array_loop_spec types for
    arrays.  */
 
 typedef struct namelist_type
@@ -146,7 +145,7 @@ typedef struct namelist_type
   index_type string_length;
 
   descriptor_dimension * dim;
-  nml_loop_spec * ls;
+  array_loop_spec * ls;
   struct namelist_type * next;
 }
 namelist_info;
@@ -306,10 +305,10 @@ unit_flags;
 typedef struct gfc_unit
 {
   int unit_number;
-
   stream *s;
-
-  struct gfc_unit *left, *right;	/* Treap links.  */
+  
+  /* Treap links.  */
+  struct gfc_unit *left, *right;
   int priority;
 
   int read_bad, current_record;
@@ -319,15 +318,20 @@ typedef struct gfc_unit
 
   unit_mode  mode;
   unit_flags flags;
-  gfc_offset recl, last_record, maxrec, bytes_left;
-
+  
   /* recl           -- Record length of the file.
      last_record    -- Last record number read or written
      maxrec         -- Maximum record number in a direct access file
      bytes_left     -- Bytes left in current record.  */
+  gfc_offset recl, last_record, maxrec, bytes_left;
 
+  /* For traversing arrays */
+  array_loop_spec *ls;
+  int rank;
+  
+  /* Filename is allocated at the end of the structure.  */  
   int file_len;
-  char file[1];	      /* Filename is allocated at the end of the structure.  */
+  char file[1];
 }
 gfc_unit;
 
@@ -450,7 +454,7 @@ internal_proto(output_stream);
 extern stream *error_stream (void);
 internal_proto(error_stream);
 
-extern int compare_file_filename (stream *, const char *, int);
+extern int compare_file_filename (gfc_unit *, const char *, int);
 internal_proto(compare_file_filename);
 
 extern gfc_unit *find_file (void);
@@ -501,6 +505,9 @@ internal_proto(is_seekable);
 extern int is_preconnected (stream *);
 internal_proto(is_preconnected);
 
+extern void flush_if_preconnected (stream *);
+internal_proto(flush_if_preconnected);
+
 extern void empty_internal_buffer(stream *);
 internal_proto(empty_internal_buffer);
 
@@ -532,9 +539,6 @@ internal_proto(is_internal_unit);
 
 extern int is_array_io (void);
 internal_proto(is_array_io);
-
-extern gfc_offset get_array_unit_len (gfc_array_char *);
-internal_proto(get_array_unit_len);
 
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
@@ -583,6 +587,12 @@ internal_proto(read_block);
 extern void *write_block (int);
 internal_proto(write_block);
 
+extern gfc_offset next_array_record (array_loop_spec *);
+internal_proto(next_array_record);
+
+extern gfc_offset init_loop_spec (gfc_array_char *desc, array_loop_spec *ls);
+internal_proto(init_loop_spec);
+
 extern void next_record (int);
 internal_proto(next_record);
 
@@ -617,7 +627,7 @@ internal_proto(read_decimal);
 
 /* list_read.c */
 
-extern void list_formatted_read (bt, void *, int, size_t);
+extern void list_formatted_read (bt, void *, int, size_t, size_t);
 internal_proto(list_formatted_read);
 
 extern void finish_list_read (void);
@@ -670,11 +680,18 @@ internal_proto(write_x);
 extern void write_z (fnode *, const char *, int);
 internal_proto(write_z);
 
-extern void list_formatted_write (bt, void *, int, size_t);
+extern void list_formatted_write (bt, void *, int, size_t, size_t);
 internal_proto(list_formatted_write);
 
 /* error.c */
 extern try notify_std (int, const char *);
 internal_proto(notify_std);
+
+/* size_from_kind.c */
+extern size_t size_from_real_kind (int);
+internal_proto(size_from_real_kind);
+
+extern size_t size_from_complex_kind (int);
+internal_proto(size_from_complex_kind);
 
 #endif
