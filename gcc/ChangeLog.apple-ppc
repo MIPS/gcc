@@ -1,6 +1,29 @@
 2005-11-10  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4321079
+	* local-alloc.c (block_alloc):  Disable local RA for vectors.
+	* global.c (pseudo_preferences):  New.
+	(TEST_PSEUDO_PREF):  New.
+	(SET_PSEUDO_PREF):  New.
+	(CLEAR_PSEUDO_PREF):  New.
+	(global_alloc):  Allocate, free pseudo_preferences.  Mark pseudo-
+	preferenced regs as nonconflicting when each is assigned to just once.
+	(expand_preferences):  Apply transitive property to pseudo_preferences.
+	(find_reg):  Propagate pseudo_preferences when a pseudo is assigned a
+	register.
+	(mirror_conflicts):  Make pseudo_preferences symmetrical, like conflicts.
+	(set_preference):  Look under SUBREG for vector-vector copies.  Treat
+	these as creating a preference.
+	(find_tied_stack_pseudo):  New.
+	(dump_conflicts):  Dump pseudo_preferences and copy preferences.
+	* reload1.c (from_global):  New.
+	(reload):  Save it.
+	(alter_reg):  Use it.  Ask GRA for a stack slot already used by a
+	pseudo-preferenced register, before creating a new one.
+
+2005-11-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4321079
 	* cfgloopmanip.c:  Include option.h.
 	(straighten_blocks):  New.
 	(create_loop_notes): Call it.  Look for and straighten

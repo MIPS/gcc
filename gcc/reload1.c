@@ -620,6 +620,11 @@ int something_needs_operands_changed;
 /* Nonzero means we couldn't get enough spill regs.  */
 static int failure;
 
+/* APPLE LOCAL begin 4321079 */
+/* Make parameter of 'reload' visible to other functions.  */
+static int from_global;
+/* APPLE LOCAL end 4321079 */
+
 /* Main entry point for the reload pass.
 
    FIRST is the first insn of the function being compiled.
@@ -640,6 +645,9 @@ reload (rtx first, int global)
   rtx insn;
   struct elim_table *ep;
   basic_block bb;
+
+  /* APPLE LOCAL 4321079 */
+  from_global = global;
 
   /* Make sure even insns with volatile mem refs are recognizable.  */
   init_recog ();
@@ -1949,9 +1957,21 @@ alter_reg (int i, int from_reg)
 	 inherent space, and no less total space, then the previous slot.  */
       if (from_reg == -1)
 	{
-	  /* No known place to spill from => no slot to reuse.  */
-	  x = assign_stack_local (GET_MODE (regno_reg_rtx[i]), total_size,
-				  inherent_size == total_size ? 0 : -1);
+	  /* APPLE LOCAL begin 4321079 */
+	  extern rtx find_tied_stack_pseudo (int);
+	  /* Ask global reg allocator for a stack slot already assigned
+	     to a pseudo tied to this one.  */
+	  if (from_global)
+	    x = find_tied_stack_pseudo (i);
+	  else
+	    x = NULL;
+
+	  if (!x)
+	    /* No known place to spill from => no slot to reuse.  */
+	    x = assign_stack_local (GET_MODE (regno_reg_rtx[i]), total_size,
+				    inherent_size == total_size ? 0 : -1);
+	  /* APPLE LOCAL end 4321079 */
+
 	  if (BYTES_BIG_ENDIAN)
 	    /* Cancel the  big-endian correction done in assign_stack_local.
 	       Get the address of the beginning of the slot.
