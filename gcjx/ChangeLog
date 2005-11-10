@@ -1,3 +1,11 @@
+2005-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.cc (check_init_list): Updated comment.
+	(add_static_initializer): Don't emit error.
+	(create_clinit_method): Check errors.
+	(create_finit_method): Check errors.
+	(add_instance_initializer): Don't emit error.
+
 2005-11-09  Tom Tromey  <tromey@redhat.com>
 
 	* source/parse.cc (enum_body): Set compilation unit on enum

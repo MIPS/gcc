@@ -239,6 +239,9 @@ model_class::check_init_list (const std::list<ref_stmt> &statements)
       else
 	{
 	  // We could optimize away empty statements and blocks here.
+	  // However, if that is done we must take care not to omit
+	  // the error message if there is an empty static initializer
+	  // in an inner class.
 	  return true;
 	}
     }
@@ -308,24 +311,13 @@ model_class::add (const owner<model_class> &k)
 void
 model_class::add_static_initializer (const ref_block &b)
 {
-  if (interface)
-    std::cerr << b->error ("static initializer invalid in interface %1")
-      % this;
-  else if (inner_p ())
-    std::cerr << b->error ("static initializer invalid in inner class %1")
-      % this;
-  else
-    static_inits.push_back (b);
+  static_inits.push_back (b);
 }
 
 void
 model_class::add_instance_initializer (const ref_block &b)
 {
-  if (interface)
-    std::cerr << b->error ("instance initializer invalid in interface %1")
-      % this;
-  else
-    instance_inits.push_back (b);
+  instance_inits.push_back (b);
 }
 
 std::string
@@ -1545,6 +1537,30 @@ model_class::create_clinit_method ()
   if (static_inits.empty () || ! check_init_list (static_inits))
     return false;
 
+  if (interface || inner_p ())
+    {
+      for (std::list<ref_stmt>::const_iterator i = static_inits.begin ();
+	   i != static_inits.end ();
+	   ++i)
+	{
+	  if (dynamic_cast<model_field_initializer *> ((*i).get ()))
+	    {
+	      // Ok.
+	    }
+	  else if (interface)
+	    std::cerr << (*i)->error ("static initializer invalid "
+				      "in interface %1")
+	      % this;
+	  else
+	    {
+	      assert (inner_p ());
+	      std::cerr << (*i)->error ("static initializer invalid "
+					"in inner class %1")
+		% this;
+	    }
+	}
+    }
+
   location loc = get_location ();
   ref_method clinit = new model_method (loc, this);
   clinit->set_name ("<clinit>");
@@ -1566,6 +1582,19 @@ model_class::create_finit_method ()
 
   if (instance_inits.empty () || ! check_init_list (instance_inits))
     return;
+
+  if (interface)
+    {
+      for (std::list<ref_stmt>::const_iterator i = instance_inits.begin ();
+	   i != instance_inits.end ();
+	   ++i)
+	{
+	  if (! dynamic_cast<model_field_initializer *> ((*i).get ()))
+	    std::cerr << (*i)->error ("instance initializer "
+				      "invalid in interface %1")
+	      % this;
+	}
+    }
 
   location loc = get_location ();
   finit_ = new model_method (loc, this);
