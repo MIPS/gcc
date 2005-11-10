@@ -1,4 +1,4 @@
-/* APPLE LOCAL begin radar 4330422 */
+/* APPLE LOCAL file radar 4330422 */
 /* Test if addition of 'volatile' to object causes bogus error in presence of try-catch. */
 /* { dg-options "-fobjc-exceptions" } */
 /* { dg-do compile } */
@@ -33,4 +33,3 @@ public:
     cppObj.constMethod();
 }
 @end
-/* APPLE LOCAL begin radar 4330422 */
