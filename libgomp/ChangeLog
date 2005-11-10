@@ -1,5 +1,9 @@
 2005-11-10  Diego Novillo  <dnovillo@redhat.com>
 
+	* testsuite/libgomp.c/c.exp: Rename from dg.exp.
+
+2005-11-10  Diego Novillo  <dnovillo@redhat.com>
+
 	* testsuite/libgomp.c: Rename from libgomp.dg.
 
 2005-11-09  Diego Novillo  <dnovillo@redhat.com>
