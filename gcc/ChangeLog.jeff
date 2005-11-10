@@ -1,3 +1,10 @@
+2005-11-10  Jeff Law  <law@redhat.com>
+
+	PR middle-end/23181
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Do not
+	perform reassociation if the parent statement will not die as
+	a result of the optimization.
+
 2005-10-20  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (find_equivalent_equality_comparison): Moved
