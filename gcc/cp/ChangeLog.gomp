@@ -1,3 +1,8 @@
+2005-11-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_omp_threadprivate): Emit diagnostic if
+	target does not support TLS.
+
 2005-11-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* decl.c (redeclaration_error_message): Don't error about

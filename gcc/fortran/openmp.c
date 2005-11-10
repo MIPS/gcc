@@ -27,6 +27,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "match.h"
 #include "parse.h"
 #include "pointer-set.h"
+#include "target.h"
+#include "toplev.h"
 
 /* Match an end of OpenMP directive.  End of OpenMP directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -428,6 +430,12 @@ gfc_match_omp_threadprivate (void)
   m = gfc_match (" (");
   if (m != MATCH_YES)
     return m;
+
+  if (!targetm.have_tls)
+    {
+      sorry ("threadprivate variables not supported in this target");
+      goto cleanup;
+    }
 
   for (;;)
     {

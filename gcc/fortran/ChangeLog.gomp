@@ -1,3 +1,11 @@
+2005-11-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* openmp.c: Include target.h and toplev.h
+	(gfc_match_omp_threadprivate): Emit diagnostic if target does
+	not support TLS.
+	* Make-lang.in (fortran/openmp.o): Add dependencies on
+	target.h and toplev.h.
+
 2005-11-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-decl.c (saved_function_decls, saved_parent_function_decls):

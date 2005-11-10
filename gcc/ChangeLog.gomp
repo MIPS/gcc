@@ -1,3 +1,10 @@
+2005-11-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (c-parser.o): Add dependency on $(TARGET_H)
+	* c-parser.c: Include target.h.
+	(c_parser_omp_threadprivate): Emit diagnostic if target does
+	not support TLS.
+
 2005-11-09  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge as of 2005-11-09.
