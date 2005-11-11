@@ -18589,7 +18589,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	  break;
 	case IDENTIFIER_NODE:
 	  if (IDENTIFIER_LENGTH (arg) > 2
-	      &&IDENTIFIER_POINTER (arg)[0] == '%')
+	      && IDENTIFIER_POINTER (arg)[0] == '%')
 	    {
 	      if (IDENTIFIER_POINTER (arg)[1] == 'e')
 		e->mod[argnum-1] = 'l';
