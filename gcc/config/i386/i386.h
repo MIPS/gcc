@@ -3384,7 +3384,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "xadd", 1, "+" rm8 "," rm16 "," rm32},\
   { "xadd", 2, r8 "," r16 "," r32},\
   { "xchg", 1, "+rm,r"},	\
-  { "xchg", 2, "&r,m"},		\
+  { "xchg", 2, "+r,m"},		\
   { "xlat", 1, U("m")},		\
   { "xor", 1, "+rm,r"},		\
   { "xor", 2, "ri,m"},		\

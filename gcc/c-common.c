@@ -6604,6 +6604,99 @@ cw_is_prefix (tree ARG_UNUSED (id))
   return false;
 }
 
+/* Find the number of constraints in any constraints string that has a
+   ",", as it must have the correct number of constraints, otherwise
+   return 0.  The ones with no "," have been generated, and only every
+   have one constraint.  */
+
+static int
+cw_num_constraints (tree inputs, tree outputs)
+{
+  int num = 0;
+  while (inputs)
+    {
+      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (inputs)));
+      while (*++constraints)
+	if (constraints[0] == ',')
+	  ++num;
+      if (num)
+	return num+1;
+      inputs = TREE_CHAIN (inputs);
+    }
+  while (outputs)
+    {
+      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (outputs)));
+      while (*++constraints)
+	if (constraints[0] == ',')
+	  ++num;
+      outputs = TREE_CHAIN (outputs);
+      if (num)
+	return num+1;
+    }
+  return num;
+}
+
+/* Add alternatives to all constraints that don't have any
+   alternatives so that all constraints have the same number of
+   constraints.  Thia ia necessary, as sometimes we force certain
+   operands to have a given contraint, but when we do that no
+   alternatives are ever given.  */
+
+static void
+cw_set_constraints (int num, tree inputs, tree outputs)
+{
+  if (num < 2)
+    return;
+
+  while (inputs)
+    {
+      int i;
+      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (inputs)));
+	
+      if (strchr (constraints, ',') == 0)
+	{
+	  char *buf = alloca (strlen (constraints) * num + num);
+	  char *p = buf;
+	  while (*constraints == '+' || *constraints == '&' || *constraints == '=')
+	    {
+	      *p++ = *constraints++;
+	    }
+	  for (i = 0; i < num; ++i)
+	    {
+	      p = stpcpy (p, constraints);
+	      *p++ = ',';
+	    }
+	  p[-1] = 0;
+	  TREE_VALUE (TREE_PURPOSE (inputs)) = build_string (strlen (buf), buf);
+	}
+      inputs = TREE_CHAIN (inputs);
+    }
+
+  while (outputs)
+    {
+      int i;
+      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (outputs)));
+	
+      if (strchr (constraints, ',') == 0)
+	{
+	  char *buf = alloca (strlen (constraints) * num + num);
+	  char *p = buf;
+	  while (*constraints == '+' || *constraints == '&' || *constraints == '=')
+	    {
+	      *p++ = *constraints++;
+	    }
+	  for (i = 0; i < num; ++i)
+	    {
+	      p = stpcpy (p, constraints);
+	      *p++ = ',';
+	    }
+	  p[-1] = 0;
+	  TREE_VALUE (TREE_PURPOSE (outputs)) = build_string (strlen (buf), buf);
+	}
+      outputs = TREE_CHAIN (outputs);
+    }
+}
+
 /* Build an asm statement from CW-syntax bits.  */
 tree
 cw_asm_stmt (tree expr, tree args, int lineno)
@@ -6773,6 +6866,9 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   for (tail = inputs; tail; tail = TREE_CHAIN (tail))
     TREE_VALUE (tail) = cw_asm_default_function_conversion (TREE_VALUE (tail));
 
+  /* Readjust all the constraints so that the number of alternatives match.  */
+  cw_set_constraints (cw_num_constraints (inputs, outputs), inputs, outputs);
+
   /* Treat as volatile always.  */
   stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses);
   ASM_VOLATILE_P (stmt) = 1;
@@ -6854,6 +6950,32 @@ cw_force_constraint (const char *c, cw_md_extra_info *e)
   e->dat[e->num].constraint = c;
 }
 
+#if defined(TARGET_386)
+static tree
+cw_type_for (tree arg)
+{
+  tree type = NULL_TREE;
+  
+  if (IDENTIFIER_LENGTH (arg) > 2
+      && IDENTIFIER_POINTER (arg)[0] == '%')
+    {
+      enum machine_mode mode = VOIDmode;
+      if (IDENTIFIER_POINTER (arg)[1] == 'e')
+	mode = SImode;
+      else if (/* IDENTIFIER_POINTER (arg)[2] == 'h'
+		  || */ IDENTIFIER_POINTER (arg)[2] == 'l')
+	mode = QImode;
+      else if (IDENTIFIER_POINTER (arg)[2] == 'x')
+	mode = HImode;
+
+      if (mode != VOIDmode)
+	type = c_common_type_for_mode (mode, 1);
+    }
+
+  return type;
+}
+#endif
+
 /* Print an operand according to its tree type.  MUST_BE_REG is true,
    iff we know the operand must be a register.  MUST_NOT_BE_REG is true,
    iff we know the operand must not be a register.  */
@@ -6890,6 +7012,35 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case IDENTIFIER_NODE:
+#if defined(TARGET_386)
+      {
+        int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
+	if (regno >= 0)
+	  {
+	    tree decl = NULL_TREE;
+
+	    /* decl = cw_regs[arg]; */
+	    if (decl == 0)
+	      {
+		tree type = cw_type_for (arg);
+		if (type)
+		  {
+		    decl = /* cw_regs[arg] = */ build_decl (VAR_DECL, arg, type);
+		    DECL_REGISTER (decl) = 1;
+		    C_DECL_REGISTER (decl) = 1;
+		    DECL_HARD_REGISTER (decl) = 1;
+		    change_decl_assembler_name (decl, arg);
+		  }
+	      }
+	    
+	    if (decl)
+	      {
+		cw_asm_get_register_var (decl, "", buf, argnum, must_be_reg, e);
+		break;
+	      }
+	  }
+      }
+#endif
       if (IDENTIFIER_LENGTH (arg) > 0 && IDENTIFIER_POINTER (arg)[0] == '%')
 	strcat (buf, "%");
       strcat (buf, IDENTIFIER_POINTER (arg));

@@ -1,3 +1,14 @@
+2005-11-10  Mike Stump  <mrs@apple.com>
+
+	Radar 4300193
+	* c-common.c (cw_num_constraints): Add.
+	(cw_set_constraints): Add.
+	(cw_asm_stmt): Call cw_set_constraints to update contraints.
+	(cw_type_for): Add.
+	(print_cw_asm_operand): Transform registers into VAR_DECLs for x86.
+
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): xchg's 2nd arg is an update.
+
 2005-11-10  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4321079
