@@ -1,3 +1,9 @@
+2005-11-11  Evan Cheng  <evan.cheng@apple.com>
+
+	Radar 4299173
+	* loop-invariant.c (find_invariant_insn): Find more loop
+	invariant insns.
+
 2005-11-10  Mike Stump  <mrs@apple.com>
 
 	Radar 4300193
