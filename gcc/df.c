@@ -2219,8 +2219,8 @@ df_exit_bb_chain_create (struct df *df, int flags)
 static void
 df_chain_create (struct df *df, int flags, bitmap blocks)
 {
-#ifdef ENABLE_CHECKING
   basic_block bb;
+#ifdef ENABLE_CHECKING
   rtx insn;
 
   /* Clear out the existing chains.  This was in the original code.

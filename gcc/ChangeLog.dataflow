@@ -1,3 +1,8 @@
+2005-11-11  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* df.c (df_chain_create): Move declaration of bb outside define
+	for ENABLE_CHECKING.
+
 2005-11-08  Paolo Bonzini  <bonzini@gnu.org>
 
 	* df.c (df_local_ref_killed_between_p): Reinstate.
