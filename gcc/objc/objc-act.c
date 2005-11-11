@@ -223,7 +223,11 @@ static tree build_classlist_reference_decl (void);
 static tree build_classlist_reference (tree);
 static void build_classlist_translation_table (void);
 static void build_message_ref_template (void);
-static tree build_newabi_build_objc_method_call (int, tree, tree, tree, tree, tree);
+static tree build_newabi_build_objc_method_call (int, tree, tree, tree, tree, bool);
+static tree build_selector_messenger_reference (tree, tree);
+static void build_message_ref_translation_table (void);
+static tree objc_copy_to_temp_side_effect_params (tree, tree);
+static tree objc_create_temporary_var (tree);
 /* APPLE LOCAL end ObjC new abi */
 
 /* APPLE LOCAL end mainline */
@@ -3204,6 +3208,98 @@ build_selector_reference (tree ident)
 			     build_int_cst (NULL_TREE, index)));
 }
 
+/* APPLE LOCAL begin ObjC new abi */
+/* Build the list of (objc_msgSend_fixup_xxx, selector name) Used later on to
+   initialize the table of 'struct message_ref_t' elements. */
+
+static tree
+build_selector_messenger_reference (tree sel_name, tree message_func_decl)
+{
+  tree *chain = &message_ref_chain;
+  tree sel_expr, mess_expr;
+
+  while (*chain)
+    {
+      if (TREE_VALUE (*chain) == message_func_decl)
+	{
+	  if (TREE_CHAIN (*chain) && TREE_VALUE (TREE_CHAIN (*chain)) == sel_name)
+	    return TREE_PURPOSE (*chain);
+	}
+      chain = &TREE_CHAIN (*chain);
+    }
+
+  mess_expr = build_selector_reference_decl ();
+  *chain = tree_cons (mess_expr, message_func_decl, NULL_TREE);
+
+  chain = &TREE_CHAIN (*chain);
+
+  sel_expr = build_selector_reference_decl ();
+  *chain = tree_cons (sel_expr, sel_name, NULL_TREE);
+
+  return mess_expr;
+}
+
+/* Build the struct message_ref_t msg = 
+	       {objc_msgSend_fixup_xxx, @selector(func)} 
+   table. 
+*/
+
+static 
+void build_message_ref_translation_table (void)
+{
+  tree chain;
+  tree decl = NULL_TREE;
+  
+  for (chain = message_ref_chain; chain; chain = TREE_CHAIN (chain))
+    {
+      tree expr;
+
+      /* First 'IMP messenger' field */
+      expr = build_unary_op (ADDR_EXPR, TREE_VALUE (chain), 0);
+      expr = convert (objc_selector_type, expr);
+      decl = TREE_PURPOSE (chain);
+      finish_var_decl (decl, expr);
+
+      /* Next the 'SEL name' field */
+      gcc_assert (TREE_CHAIN (chain));
+      chain = TREE_CHAIN (chain);
+      expr = build_selector (TREE_VALUE (chain));
+      decl = TREE_PURPOSE (chain);
+      finish_var_decl (decl, expr);
+    }
+}
+
+/* Assign all arguments in VALUES which have side-effect to a temporary and
+   replaced that argument in VALUES list with the temporary. TYPELIST is the
+   list of argument types. */
+
+tree
+objc_copy_to_temp_side_effect_params (tree typelist, tree values)
+{
+  tree valtail, typetail;
+  /* skip over receiver and the &_msf_ref types */
+  gcc_assert (TREE_CHAIN (typelist) && TREE_CHAIN (TREE_CHAIN (typelist)));
+  typetail = TREE_CHAIN (TREE_CHAIN (typelist));
+
+  for (valtail = values;
+       valtail; 
+       valtail = TREE_CHAIN (valtail), typetail = TREE_CHAIN (typetail))
+    {
+      tree value = TREE_VALUE (valtail);
+      tree type = typetail ? TREE_VALUE (typetail) : NULL_TREE;
+      if (type == NULL_TREE)
+	break; 
+      if (!TREE_SIDE_EFFECTS (value))
+	continue;
+      /* To prevent reevaluation */
+      value = save_expr (value);
+      add_stmt (value);
+      TREE_VALUE (valtail) = value;
+    }
+  return values;
+}
+/* APPLE LOCAL end ObjC new abi */
+
 static GTY(()) int class_reference_idx;
 
 static tree
@@ -5876,15 +5972,15 @@ check_ivars (tree inter, tree imp)
    for 'struct _super_message_ref_t'. */ 
 
 /* struct _message_ref_t {
-     SEL name;
      IMP messenger;
+     SEL name;
    };
    where IMP is: id (*) (id, _message_ref_t*, ...)
 */
 
 /* struct _super_message_ref_t {
-     SEL name;
      SUPER_IMP messenger;
+     SEL name;
    };
    where SUPER_IMP is: id (*) ( super_t*, _super_message_ref_t*, ...)
 */
@@ -5892,27 +5988,26 @@ check_ivars (tree inter, tree imp)
 static void
 build_message_ref_template (void)
 {
-  tree imp_type, ptr_message_ref_t;
+  tree ptr_message_ref_t;
   tree field_decl, field_decl_chain;
   /* struct _message_ref_t {...} */
   objc_newabi_message_ref_template = start_struct (RECORD_TYPE, 
 						   get_identifier ("_message_ref_t"));
 
-  /* SEL name; */
-  field_decl = create_field_decl (objc_selector_type, "name");
-  field_decl_chain = field_decl;
-
   /* IMP messenger; */
   ptr_message_ref_t = build_pointer_type (xref_tag (
 					  RECORD_TYPE, get_identifier ("_message_ref_t")));
-
-  imp_type
+  objc_newabi_imp_type
     = build_pointer_type
           (build_function_type (objc_object_type,
                                 tree_cons (NULL_TREE, objc_object_type,
                                            tree_cons (NULL_TREE, ptr_message_ref_t,
                                                       NULL_TREE))));
-  field_decl = create_field_decl (imp_type, "messenger");
+  field_decl = create_field_decl (objc_newabi_imp_type, "messenger");
+  field_decl_chain = field_decl;
+
+  /* SEL name; */
+  field_decl = create_field_decl (objc_selector_type, "name");
   chainon (field_decl_chain, field_decl); 
 
   finish_struct (objc_newabi_message_ref_template, field_decl_chain, NULL_TREE);
@@ -5922,21 +6017,21 @@ build_message_ref_template (void)
   objc_newabi_super_message_ref_template = start_struct (RECORD_TYPE, 
 						         get_identifier ("_super_message_ref_t"));
 
-  /* SEL name; */
-  field_decl = create_field_decl (objc_selector_type, "name");
-  field_decl_chain = field_decl;
-
   /* SUPER_IMP messenger; */
   ptr_message_ref_t = build_pointer_type (xref_tag (
 					  RECORD_TYPE, get_identifier ("_super_message_ref_t")));
 
-  imp_type
+  objc_newabi_super_imp_type
     = build_pointer_type
           (build_function_type (objc_object_type,
                                 tree_cons (NULL_TREE, objc_super_type,
                                            tree_cons (NULL_TREE, ptr_message_ref_t,
                                                       NULL_TREE))));
-  field_decl = create_field_decl (imp_type, "messenger");
+  field_decl = create_field_decl (objc_newabi_super_imp_type, "messenger");
+  field_decl_chain = field_decl;
+
+  /* SEL name; */
+  field_decl = create_field_decl (objc_selector_type, "name");
   chainon (field_decl_chain, field_decl); 
 
   finish_struct (objc_newabi_super_message_ref_template, field_decl_chain, NULL_TREE);
@@ -7714,55 +7809,26 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
   /* Build the parameters list for looking up the method.
      These are the object itself and the selector.  */
 
-  if (flag_typed_selectors)
-    selector = build_typed_selector_reference (sel_name, method_prototype);
-  else
-    selector = build_selector_reference (sel_name);
-
+  /* APPLE LOCAL ObjC new abi */
+  /* Code moved down */
   /* APPLE LOCAL begin ObjC new abi */
   if (flag_objc_abi == 3)
     {
-      tree work_tree, work_tree_list;
-      tree body;
       tree ret_type;
       tree message_func_decl;
-      tree curr_message_ref_t_decl;
+      bool check_for_nil = true;
 
-      /* message sent to 'super' */
-      /* build private_extern struct _super_message_ref_t __super_msg if not done so already */
-      if (super && !super_message_ref_t_decl)
-    	{
-	  super_message_ref_t_decl = create_global_decl (
-				     objc_newabi_super_message_ref_template, "_super_msg");
-	  TREE_USED (super_message_ref_t_decl) = 1;
-	  DECL_VISIBILITY (super_message_ref_t_decl) = VISIBILITY_HIDDEN;
-	  lang_hooks.decls.pushdecl (super_message_ref_t_decl);
-	  finish_decl (super_message_ref_t_decl, NULL_TREE, NULL_TREE);
-	}
-      /* Oridinary message or message sent to receivers whose static type is id */
-      /* build private_extern struct message_ref_t _msg if not done so already */
-      else if (!super && !message_ref_t_decl)
-	  {
-	    message_ref_t_decl = create_global_decl (
-			     	 objc_newabi_message_ref_template, "_msg");
-	    TREE_USED (message_ref_t_decl) = 1;
-	    DECL_VISIBILITY (message_ref_t_decl) = VISIBILITY_HIDDEN;
-	    lang_hooks.decls.pushdecl (message_ref_t_decl);
-	    finish_decl (message_ref_t_decl, NULL_TREE, NULL_TREE);
-	  }
-      curr_message_ref_t_decl = super ? super_message_ref_t_decl : message_ref_t_decl;
-      body = c_begin_compound_stmt (false);
-      /* _msg.name = selector; */
-      work_tree = objc_build_component_ref (
-	        	curr_message_ref_t_decl, 
-			get_identifier ("name"));
-      work_tree = build_modify_expr (work_tree, NOP_EXPR, selector);
-      work_tree_list = work_tree;
-
-      /* _msg.messenger = &objc_msgSend_fixup_rtp; */
       ret_type = (method_prototype ? 
 	      	    TREE_VALUE (TREE_TYPE (method_prototype)) : 
 		    objc_object_type);
+
+      /* Do we need to check for nil receivers ? */
+      /* For now, message sent to classes need no nil check. In future, class
+	 declaration marked as weak_import must be nil checked. */
+      if (super 
+	  || (TREE_CODE (receiver) == VAR_DECL 
+	      && TREE_TYPE (receiver) == objc_class_type))
+	check_for_nil = false;
 
       if (!targetm.calls.struct_value_rtx (0, 0)
           && (TREE_CODE (ret_type) == RECORD_TYPE 
@@ -7786,26 +7852,33 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 			  	: umsg_fixup_decl;
 	}
 
-      work_tree = objc_build_component_ref (
-		  curr_message_ref_t_decl, 
-		  get_identifier ("messenger"));
-      work_tree = build_modify_expr (work_tree, NOP_EXPR, message_func_decl);
-      work_tree_list = build_compound_expr (work_tree_list, work_tree);
-      add_stmt (work_tree_list);
-      add_stmt (c_end_compound_stmt (body, false));
-	  
+      selector =  build_selector_messenger_reference (sel_name,  
+						      message_func_decl);
+
       /* selector = &_msg; */
-      selector = build_unary_op (ADDR_EXPR, curr_message_ref_t_decl, 0);
+      selector = build_unary_op (ADDR_EXPR, selector, 0);
+ 
+      selector = build_c_cast (super 
+			       ? objc_newabi_super_selector_type 
+			       : objc_newabi_selector_type, selector);
 
       /* (*_msg.messenger) (receiver, &_msg, ...); */
       retval = build_newabi_build_objc_method_call (super, method_prototype,
-						    receiver, selector, method_params,
-						    curr_message_ref_t_decl);
+						    receiver, selector, 
+						    method_params,
+						    check_for_nil);
     }
   else
-    retval = build_objc_method_call (super, method_prototype,
-				     receiver,
-				     selector, method_params);
+    {
+      if (flag_typed_selectors)
+        selector = build_typed_selector_reference (sel_name, method_prototype);
+      else
+        selector = build_selector_reference (sel_name);
+
+        retval = build_objc_method_call (super, method_prototype,
+				         receiver,
+				         selector, method_params);
+    }
   /* APPLE LOCAL end ObjC new abi */
 
   current_objc_message_selector = 0;
@@ -7916,23 +7989,31 @@ static tree
 build_newabi_build_objc_method_call (int super_flag, tree method_prototype,
                         	     tree lookup_object, tree selector,
                         	     tree method_params,
-				     tree msg_ref_decl)
+				     bool check_for_nil)
 {
+  tree ret_val;
   tree sender, rcv_p, t;
   tree ret_type
     = (method_prototype
        ? TREE_VALUE (TREE_TYPE (method_prototype))
        : objc_object_type);
+  tree method_param_types = get_arg_type_list (method_prototype, 
+					       METHOD_REF, super_flag);
   tree sender_cast
     = build_pointer_type
       (build_function_type
        (ret_type,
-        get_arg_type_list
-        (method_prototype, METHOD_REF, super_flag)));
+	method_param_types));
 
+  if (check_for_nil)
+    method_params = objc_copy_to_temp_side_effect_params (method_param_types, 
+							  method_params);
 
-  sender = objc_build_component_ref (msg_ref_decl, 
-				     get_identifier ("messenger"));
+  /* Get &message_ref_t.messenger */
+  sender = build_c_cast (super_flag
+		   	 ? objc_newabi_super_imp_type
+		   	 : objc_newabi_imp_type, selector);
+
   sender = build_indirect_ref (sender, "unary *");
 
   rcv_p = (super_flag ? objc_super_type : objc_object_type);
@@ -7945,8 +8026,28 @@ build_newabi_build_objc_method_call (int super_flag, tree method_prototype,
   method_params = tree_cons (NULL_TREE, lookup_object,
                              tree_cons (NULL_TREE, selector,
                                         method_params));
-  t = build (OBJ_TYPE_REF, sender_cast, lookup_object, selector, size_zero_node);
-  return build_function_call (t, method_params);
+  t = build (OBJ_TYPE_REF, sender_cast, sender, lookup_object, size_zero_node);
+  ret_val =  build_function_call (t, method_params);
+  if (check_for_nil)
+    {
+      /* receiver != nil ? ret_val : 0 */
+      tree ftree;
+      tree ifexp;
+
+      if (TREE_CODE (ret_type) == RECORD_TYPE
+	  || TREE_CODE (ret_type) == UNION_TYPE)
+	ftree = build_constructor (ret_type, NULL_TREE);
+      else
+	ftree = fold_convert (ret_type, integer_zero_node);
+
+      ifexp = build_binary_op (NE_EXPR, 
+			       lookup_object, 
+			       fold_convert (rcv_p, integer_zero_node), 1);
+
+      ret_val = build_conditional_expr (ifexp, ret_val, ftree);
+ 
+    }
+  return ret_val;
 }
 /* APPLE LOCAL end ObjC new abi */
 
@@ -10730,6 +10831,8 @@ finish_objc (void)
     build_selector_translation_table ();
 
   /* APPLE LOCAL begin ObjC new abi */
+  if (message_ref_chain)
+    build_message_ref_translation_table ();
   if (classlist_ref_chain)
     build_classlist_translation_table ();
   /* APPLE LOCAL end ObjC new abi */

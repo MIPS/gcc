@@ -1,3 +1,22 @@
+2005-11-11  Fariborz Jahanian <fjahanian@apple.com>
+
+	objc new messaging - part 2
+
+	* objc/objc-act.c (build_selector_messenger_reference): New
+	(build_message_ref_translation_table): New
+	(objc_copy_to_temp_side_effect_params): New
+	(objc_create_temporary_var): New
+	(build_message_ref_template): Reorder fields in message_ref_t
+	struct for better code gen.
+	(objc_finish_message_expr): Initialization of message_ref_t table
+	is now done at link-time. Also, check conditions for object comparison
+	with 'nil'. 
+	(build_newabi_build_objc_method_call): Check for object being 'nil' before
+	making the call to message handlers.
+	(finish_objc): Generate 'struct message_ref_t' translation table.
+
+	* objc/objc-act.h: Assortment of new macro and global variable declarations.
+
 2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4330422
