@@ -46,6 +46,13 @@ class model_method : public model_element, public IDeprecatable,
 {
 protected:
 
+  enum resolution_state_value
+  {
+    NONE,
+    CLASSES,
+    RESOLVED
+  };
+
   // Name.
   std::string name;
 
@@ -79,6 +86,11 @@ protected:
 
   // True if this is an instance initializer method, aka 'finit$'.
   bool is_instance_initializer;
+
+  // The resolution state.  We might be resolved multiple times, as
+  // static methods are copied between different instantiations of a
+  // class.
+  resolution_state_value state;
 
   // We keep track of the end of the method as well as the beginning;
   // this is used by GCC for debugging information.
@@ -116,6 +128,7 @@ public:
       used (false),
       overrides (false),
       is_instance_initializer (false),
+      state (NONE),
       // By default we set the end location to the start location.
       method_end (w)
   {

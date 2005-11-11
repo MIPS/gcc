@@ -42,6 +42,9 @@ protected:
   void finish_search_class (resolution_scope *, model_class **,
 			    model_class **);
 
+  // Called to perform the instantiation check of the target class.
+  virtual void check_instantiation (model_class *);
+
 public:
 
   model_new (const location &w)
@@ -121,8 +124,32 @@ public:
   void visit (visitor *);
 };
 
+/// This is just like 'new', but it is only used when creating an
+/// Enum's static initializer, and it bypasses the instantiation
+/// check.  These cannot be created by user code, only by the
+/// internal enum handling.
+class model_new_enum : public model_new
+{
+protected:
+
+  void check_instantiation (model_class *)
+  {
+    // Nothing.
+  }
+
+public:
+
+  model_new_enum (const location &w, model_type *t)
+    : model_new (w, t)
+  {
+  }
+};
+
 /// These typedefs are used to represent 'new' expressions with
 /// explicit actual type parameters for their generic constructors.
+/// Note that we do not need a generic variant of model_new_enum, as
+/// these constructor calls are generated internally and never specify
+/// type arguments.
 typedef class model_generic_invocation<model_new> model_generic_new;
 typedef class model_generic_invocation<model_new_primary> model_generic_new_primary;
 

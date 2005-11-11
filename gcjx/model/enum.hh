@@ -34,9 +34,15 @@ protected:
   // All the enum constants that have been added.
   std::list<ref_enum_constant> constants;
 
-  void resolve_hook (resolution_scope *);
+  // Add enum-specific arguments to the constructor.  See the Enum
+  // constructor; these are passed up to it by the super() call in the
+  // constructor.
+  void add_enum_arguments (model_constructor *);
 
+  void resolve_classes_hook (resolution_scope *);
+  void resolve_member_hook (resolution_scope *);
   void massage_modifiers (const ref_modifier_list &mods);
+  ref_method add_implicit_constructor ();
 
 public:
 

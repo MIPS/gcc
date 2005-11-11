@@ -45,6 +45,7 @@ model_method::model_method (model_method *other,
     IAnnotatable (other),
     IModifiable (other),
     IMember (enclosing),
+    state (other->state),
     method_end (other->method_end)
 {
   set_name (other->name);
@@ -86,6 +87,7 @@ model_method::model_method (model_method *other,
     IAnnotatable (other),
     IModifiable (other),
     IMember (enclosing),
+    state (other->state),
     method_end (other->method_end)
 {
   set_name (other->name);
@@ -663,6 +665,10 @@ model_method::note_throw_type (model_type *exc_type)
 void
 model_method::resolve (resolution_scope *scope)
 {
+  if (state == RESOLVED)
+    return;
+  state = RESOLVED;
+
   resolve_annotations (scope);
 
   resolution_scope::push_warnings warn_holder (scope, this);
@@ -745,6 +751,10 @@ model_method::check_definite_assignment ()
 void
 model_method::resolve_classes (resolution_scope *scope)
 {
+  if (state >= CLASSES)
+    return;
+  state = CLASSES;
+
   // Resolve annotations here since they seem like part of the
   // envelope.
   resolve_annotation_classes (scope);

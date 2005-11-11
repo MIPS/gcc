@@ -64,8 +64,9 @@ model_enum::massage_modifiers (const ref_modifier_list &mods)
 	}
     }
 
-  if (! has_body)
-    implicit_modifier (ACC_FINAL);
+  // FIXME
+//   if (! has_body)
+//     implicit_modifier (ACC_FINAL);
 
   mods->access_check (this, "class declared %1 also declared %2");
 }
@@ -90,10 +91,25 @@ model_enum::add_enum (const ref_enum_constant &new_constant)
 				     this);
   field->set_modifiers (ACC_PUBLIC | ACC_STATIC | ACC_FINAL);
 
-  ref_new init = new model_new (new_constant->get_location (),
-				new_constant.get ());
-  init->set_anonymous (new_constant);
-  init->set_arguments (new_constant->get_arguments ());
+  ref_expression name
+    = new model_string_literal (new_constant->get_location (),
+				new_constant->get_name ());
+  ref_expression ord
+    = new model_int_literal (new_constant->get_location (),
+			     jint (new_constant->get_ordinal ()));
+
+  model_class *what = (new_constant->has_body_p () ?
+		       (model_class *) new_constant.get ()
+		       : (model_class *) this);
+  ref_new init = new model_new_enum (new_constant->get_location (), what);
+  if (new_constant->has_body_p ())
+    init->set_anonymous (new_constant);
+
+  std::list<ref_expression> init_args = new_constant->get_arguments ();
+  init_args.push_front (ord);
+  init_args.push_front (name);
+  init->set_arguments (init_args);
+
   field->set_initializer (init);
 
   add (field);
@@ -107,7 +123,7 @@ model_enum::check_instantiation (model_element *request)
 }
 
 void
-model_enum::resolve_hook (resolution_scope *scope)
+model_enum::resolve_classes_hook (resolution_scope *scope)
 {
   if (declaring_class && declaring_class->inner_p ())
     std::cerr << error ("enum invalid in inner class %1")
@@ -128,6 +144,55 @@ model_enum::resolve_hook (resolution_scope *scope)
   // fixme an "immutable List", so we need our own subclass...
   values->set_modifiers (ACC_STATIC);
   add (values);
+}
+
+void
+model_enum::add_enum_arguments (model_constructor *cons)
+{
+  location where = get_location ();
+  // FIXME: name of synthetic variable should not clash.
+  ref_variable_decl name
+    = new model_parameter_decl (where, "$name",
+				new model_forwarding_resolved (where,
+							       global->get_compiler ()->java_lang_String ()),
+				this);
+  // FIXME: name of synthetic variable should not clash.
+  ref_variable_decl ordinal
+    = new model_parameter_decl (where, "$ordinal",
+				new model_forwarding_resolved (where,
+							       primitive_int_type),
+				this);
+
+  cons->add_parameter (ordinal);
+  cons->add_parameter (name);
+}
+
+ref_method
+model_enum::add_implicit_constructor ()
+{
+  ref_method result = model_class::add_implicit_constructor ();
+
+  // For an enum, the implicit constructor is always private.
+  modifier_t mods = result->get_modifiers ();
+  mods &= ~ACC_ACCESS;
+  mods |= ACC_PRIVATE;
+  result->set_modifiers (mods);
+
+  add_enum_arguments (assert_cast<model_constructor *> (result.get ()));
+  return result;
+}
+
+void
+model_enum::resolve_member_hook (resolution_scope *scope)
+{
+  // Add the special arguments to each constructor in the class.
+  for (std::list<ref_method>::const_iterator i = methods.begin ();
+       i != methods.end ();
+       ++i)
+    {
+      if ((*i)->constructor_p ())
+	add_enum_arguments (assert_cast<model_constructor *> ((*i).get ()));
+    }
 }
 
 void

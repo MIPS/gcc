@@ -99,11 +99,17 @@ model_new::determine_enclosing_instance (resolution_scope *scope,
 }
 
 void
+model_new::check_instantiation (model_class *target)
+{
+  target->check_instantiation (this);
+}
+
+void
 model_new::finish_search_class (resolution_scope *scope,
 				model_class **result,
 				model_class **qualifier)
 {
-  (*result)->check_instantiation (this);
+  check_instantiation (*result);
 
   if ((*result)->anonymous_p ())
     {

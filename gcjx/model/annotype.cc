@@ -49,7 +49,7 @@ model_annotation_type::add_annotation_member (const ref_annotation_member &mem)
 }
 
 void
-model_annotation_type::resolve_hook (resolution_scope *scope)
+model_annotation_type::resolve_classes_hook (resolution_scope *scope)
 {
   model_class *annot
     = global->get_compiler ()->java_lang_annotation_Annotation ();

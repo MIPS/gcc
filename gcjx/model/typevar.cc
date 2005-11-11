@@ -22,7 +22,7 @@
 #include "typedefs.hh"
 
 void
-model_type_variable::resolve_hook (resolution_scope *scope)
+model_type_variable::resolve_classes_hook (resolution_scope *scope)
 {
   ref_forwarding_type bounds_class;
   std::list<ref_forwarding_type> ifaces;

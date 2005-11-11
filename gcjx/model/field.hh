@@ -38,8 +38,15 @@ public:
 class model_field : public model_field_base, public model_variable_decl,
 		    public IDeprecatable, public IModifiable
 {
+  enum resolution_state_value
+  {
+    NONE,
+    CLASSES,
+    RESOLVED
+  };
+
   // Indicates our current resolution state.
-  int state;
+  resolution_state_value state;
 
   void massage_modifiers (const ref_modifier_list &)
   {

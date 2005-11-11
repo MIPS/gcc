@@ -34,7 +34,7 @@ class model_wildcard : public model_class
   // The type bound.  If there is no bound, this is NULL.
   ref_forwarding_type bound;
 
-  void resolve_hook (resolution_scope *);
+  void resolve_classes_hook (resolution_scope *);
 
 public:
 

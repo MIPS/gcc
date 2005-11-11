@@ -31,7 +31,7 @@ class model_type_variable : public model_class
   // The bounds before resolution.
   std::list<ref_forwarding_type> bounds;
 
-  void resolve_hook (resolution_scope *);
+  void resolve_classes_hook (resolution_scope *);
 
   void compute_descriptor ()
   {

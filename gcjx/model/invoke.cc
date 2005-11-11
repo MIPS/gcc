@@ -543,17 +543,44 @@ model_super_invocation::determine_search_class (resolution_scope *scope,
 void
 model_super_invocation::resolve (resolution_scope *scope)
 {
+  model_class *current = scope->get_current_class ();
+
+  // Special case for a 'super' in an enum.
+  if (current->enum_p ())
+    {
+      // An explicit 'super' in an enum class is invalid.
+      if (! synthetic)
+	throw error ("explicit %<super%> invocation is invalid "
+		     "in %<enum%> class");
+
+      // A 'super' call in an enum will alway be implicit and thus
+      // will always have no arguments.  We add two arguments, namely
+      // the special arguments added to the enum's constructor, which
+      // are passed to the Enum constructor.
+      assert (arguments.empty ());
+      model_constructor *cons
+	= assert_cast<model_constructor *> (scope->get_current_method ());
+
+      std::list<ref_variable_decl> params = cons->get_parameters ();
+      assert (params.size () >= 2);
+      std::list<ref_variable_decl>::const_iterator p_it = params.begin ();
+
+      ref_simple_variable_ref ref;
+
+      ref = new model_simple_variable_ref (get_location (), (*p_it).get ());
+      arguments.push_back (ref);
+
+      ++p_it;
+      ref = new model_simple_variable_ref (get_location (), (*p_it).get ());
+      arguments.push_back (ref);
+    }
+
   {
     // The 'super' call is a static context.
     model_static_context_scope static_holder (true);
     resolution_scope::push_iscope holder (scope, &static_holder);
     model_invocation_base::resolve (scope);
   }
-
-  // An explicit 'super' in an enum class is invalid.
-  model_class *current = scope->get_current_class ();
-  if (! synthetic && current->enum_p ())
-    throw error ("explicit %<super%> invocation is invalid in %<enum%> class");
 
   // An explicit 'super' is invalid in Object.
   if (current == global->get_compiler ()->java_lang_Object ())

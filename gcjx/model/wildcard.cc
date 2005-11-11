@@ -62,7 +62,7 @@ model_wildcard::contains_p (model_class *other)
 }
 
 void
-model_wildcard::resolve_hook (resolution_scope *scope)
+model_wildcard::resolve_classes_hook (resolution_scope *scope)
 {
   if (bound)
     {

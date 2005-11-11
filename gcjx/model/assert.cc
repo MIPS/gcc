@@ -1,6 +1,6 @@
 // Assert statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -47,9 +47,6 @@ model_assert::resolve (resolution_scope *scope)
 
       fold (result);
     }
-
-  // Make sure the required members are added to the class.
-  scope->get_current_class ()->add_assert_members ();
 }
 
 void

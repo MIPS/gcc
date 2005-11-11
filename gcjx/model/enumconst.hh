@@ -42,14 +42,7 @@ class model_enum_constant : public model_class
 
 public:
 
-  model_enum_constant (const location &w)
-    : model_class (w),
-      ordinal (-1),
-      body (false)
-  {
-    // These classes are effectively anonymous.
-    set_anonymous ();
-  }
+  model_enum_constant (const location &);
 
   void set_arguments (const std::list<ref_expression> &args)
   {

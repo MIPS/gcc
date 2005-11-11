@@ -1559,6 +1559,14 @@ parse::assert_statement ()
     }
 
   require (TOKEN_SEMI);
+
+  // This is a somewhat ugly hack.  We need to add some synthetic
+  // members to the class if an 'assert' is seen.  However, if we wait
+  // until resolution, then there is not really a good time to do it.
+  // So, it is simplest to note the presence of an assert during
+  // parsing.
+  enclosing_class ()->add_assert_members ();
+
   return result;
 }
 

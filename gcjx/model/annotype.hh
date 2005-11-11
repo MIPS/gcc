@@ -38,7 +38,7 @@ class model_annotation_type : public model_class
   watch<annotation_retention> policy;
 
 
-  void resolve_hook (resolution_scope *);
+  void resolve_classes_hook (resolution_scope *);
 
   annotation_kind get_annotation_kind () const
   {

@@ -210,7 +210,7 @@ protected:
   std::string get_assigned_name () const;
 
   // Add an implicit constructor if one wasn't found.
-  ref_method add_implicit_constructor ();
+  virtual ref_method add_implicit_constructor ();
   // Add 'finit$' if it is required.
   void create_finit_method ();
   // Add '<clinit>' if it is required.  Return true if it was created.
@@ -257,8 +257,8 @@ protected:
   bool check_init_list (const std::list<ref_stmt> &);
 
   // An ad hoc method for subclasses to override.  Called during
-  // resolution.
-  virtual void resolve_hook (resolution_scope *)
+  // class ("envelope") resolution.
+  virtual void resolve_classes_hook (resolution_scope *)
   {
   }
 

@@ -1,3 +1,56 @@
+2005-11-11  Tom Tromey  <tromey@redhat.com>
+
+	* model/method.cc (model_method): Initialize new field.
+	(resolve): Use 'state'.
+	(resolve_classes): Likewise.
+	* model/method.hh (model_method::resolution_state_value): New
+	enum.
+	(model_method::state): New field.
+	(model_method): Initialize new field.
+	* model/field.cc (model_field): Updated.
+	(type): Likewise.
+	(resolve_classes): Likewise.
+	(resolve): Likewise.
+	(require_resolution): Likewise.
+	* model/field.hh (model_field::resolution_state_value): New enum.
+	(model_field::state): Changed type.
+	* model/assert.cc (resolve): Don't call add_assert_members.
+	* source/parse.cc (assert_statement): Call add_assert_members.
+	* model/constructor.cc (add_parameter): Removed assert.
+	(resolve): Use 'state' field.
+	* model/invoke.cc (resolve): Added special case for 'enum'.
+	* model/wildcard.hh (model_wildcard::resolve_classes_hook):
+	Renamed.
+	* model/wildcard.cc (resolve_classes_hook): Renamed.
+	* model/typevar.hh (model_type_variable::resolve_classes_hook):
+	Renamed.
+	* model/typevar.cc (resolve_classes_hook): Renamed.
+	* model/enum.hh (model_enum::resolve_classes_hook): Renamed.
+	(model_enum::add_implicit_constructor): Declare.
+	(model_enum::resolve_member_hook): Declare.
+	* model/class.cc (do_resolve_classes): Updated.
+	(add_assert_members): Set location from class.  Don't add to
+	static initializer.
+	(create_clinit_method): Add assertions to static initializer.
+	(resolve): Don't give an error about synthetic static fields.
+	* model/annotype.hh (model_annotation_type::resolve_classes_hook):
+	Renamed.
+	* model/annotype.cc (resolve_classes_hook): Renamed.
+	* model/class.hh (model_class::resolve_classes_hook): Renamed
+	from resolve_hook.
+	(model_class::add_implicit_constructor): Now virtual.
+	* model/new.cc (check_instantiation): New method.
+	(finish_search_class): Use it.
+	* model/new.hh (model_new::check_instantiation): Declare.
+	(class model_new_enum): New class.
+	* model/enum.cc (add_enum): Pass name and ordinal to
+	constructor.  Create a model_new_enum.
+	(resolve_classes_hook): Renamed.
+	(resolve_member_hook): New method.
+	(add_enum_arguments): New method.
+	* model/enumconst.cc (model_enum_constant): New constructor.
+	* model/enumconst.hh (model_enum_constant): No longer inline.
+
 2005-11-10  Tom Tromey  <tromey@redhat.com>
 
 	* model/class.cc (check_init_list): Updated comment.

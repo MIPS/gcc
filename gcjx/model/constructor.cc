@@ -102,6 +102,9 @@ model_constructor::resolve_classes (resolution_scope *scope)
 void
 model_constructor::resolve (resolution_scope *scope)
 {
+  if (state == RESOLVED)
+    return;
+
   model_method::resolve (scope);
 
   if (this0 && other_this == NULL)
@@ -168,7 +171,6 @@ model_constructor::prepend_statements (resolution_scope *scope,
 void
 model_constructor::add_parameter (const ref_variable_decl &param)
 {
-  assert (constructor_p ());
   parameters.push_front (param);
   // Must reset this in case it was used before.
   descriptor = "";

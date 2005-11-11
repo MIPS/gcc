@@ -28,7 +28,7 @@ model_field::model_field (const ref_variable_decl &vardecl)
 			 vardecl->get_declared_type (),
 			 vardecl->get_declaring_class ()),
     IModifiable (),
-    state (0)
+    state (NONE)
 {
   set_initializer (vardecl->get_initializer ());
 }
@@ -38,7 +38,7 @@ model_field::model_field (const location &w, const std::string &n,
 			  model_class *decl)
   : model_variable_decl (w, n, t, decl),
     IModifiable (),
-    state (0)
+    state (NONE)
 {
 }
 
@@ -62,7 +62,7 @@ model_field::inlineable_p ()
 model_type *
 model_field::type () const
 {
-  if (state < 1
+  if (state < CLASSES
       && ! declaring_class->local_p ()
       && declaring_class->get_compilation_unit ())
     {
@@ -79,9 +79,9 @@ model_field::type () const
 void
 model_field::resolve_classes (resolution_scope *scope)
 {
-  if (state < 1)
+  if (state < CLASSES)
     {
-      state = 1;
+      state = CLASSES;
       resolution_scope::push_warnings warn_holder (scope, this);
       model_variable_decl::resolve_classes (scope);
     }
@@ -90,20 +90,20 @@ model_field::resolve_classes (resolution_scope *scope)
 void
 model_field::check_serialization_fields ()
 {
-  warning_state state
+  warning_state wstate
     = global->get_compiler ()->warn_bad_serialization_field ();
-  assert (state);
+  assert (wstate);
 
   if (name == "serialPersistentFields")
     {
       model_type *io
 	= global->get_compiler ()->java_io_ObjectStreamField ()->array ();
       if (type () != io)
-	std::cerr << warn (state, "field %1 should be of type %2")
+	std::cerr << warn (wstate, "field %1 should be of type %2")
 	  % this % io;
       if ((modifiers & (ACC_PRIVATE | ACC_STATIC | ACC_FINAL))
 	  != (ACC_PRIVATE | ACC_STATIC | ACC_FINAL))
-	std::cerr << warn (state,
+	std::cerr << warn (wstate,
 			   "field %1 should be %<private static final%>")
 	  % this;
     }
@@ -111,19 +111,19 @@ model_field::check_serialization_fields ()
   if (name == "serialVersionUID")
     {
       if (type () != primitive_long_type)
-	std::cerr << warn (state, "field %1 should be of type %<long%>")
+	std::cerr << warn (wstate, "field %1 should be of type %<long%>")
 	  % this;
       if (! declaring_class->interface_p ()
 	  && ((modifiers & (ACC_PRIVATE | ACC_STATIC | ACC_FINAL))
 	      != (ACC_PRIVATE | ACC_STATIC | ACC_FINAL)))
-	std::cerr << warn (state,
+	std::cerr << warn (wstate,
 			   "field %1 should be %<private static final%>")
 	  % this;
     }
 
   if ((name == "serialPersistentFields" || name == "serialVersionUID")
       && ! global->get_compiler ()->java_io_Serializable ()->assignable_from_p (declaring_class))
-    std::cerr << warn (state, "field %1 declared in class which "
+    std::cerr << warn (wstate, "field %1 declared in class which "
 		       "is not serializable")
       % this;
 }
@@ -131,9 +131,9 @@ model_field::check_serialization_fields ()
 void
 model_field::resolve (resolution_scope *scope)
 {
-  if (state < 2)
+  if (state < RESOLVED)
     {
-      state = 2;
+      state = RESOLVED;
       resolution_scope::push_warnings warn_holder (scope, this);
       model_variable_decl::resolve (scope);
 
@@ -208,7 +208,7 @@ model_field::erasure ()
 void
 model_field::require_resolution ()
 {
-  if (state < 2)
+  if (state < RESOLVED)
     {
       resolution_scope scope;
       declaring_class->push_on_scope (&scope);

@@ -21,6 +21,15 @@
 
 #include "typedefs.hh"
 
+model_enum_constant::model_enum_constant (const location &w)
+  : model_class (w),
+    ordinal (-1),
+    body (false)
+{
+  // These classes are effectively anonymous.
+  set_anonymous ();
+}
+
 void
 model_enum_constant::visit (visitor *v)
 {

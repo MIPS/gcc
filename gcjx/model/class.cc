@@ -796,16 +796,16 @@ model_class::add_assert_members ()
 {
   if (! dollar_assertionsDisabled)
     {
-      // This can only be called for the first time when resolving a
-      // method body of a method declared in this class.
-      assert (resolution_state == POST_MEMBERS);
+      // This can only be called for the first time during parsing.
+      assert (resolution_state == NONE);
 
+      location where = get_location ();
       std::string name = generate_synthetic_field_name ("$assertionsDisabled");
 
       // Create a new '$assertionsDisabled' field.
       ref_field result
-        = new model_field (LOCATION_UNKNOWN, name,
-                           new model_forwarding_resolved (LOCATION_UNKNOWN,
+        = new model_field (where, name,
+                           new model_forwarding_resolved (where,
                                                           primitive_boolean_type),
                            this);
       result->set_modifiers (ACC_PRIVATE | ACC_STATIC | ACC_FINAL);
@@ -816,28 +816,21 @@ model_class::add_assert_members ()
       // this differently.
       // Call '<this class>.desiredAssertionStatus()'.
       ref_method_invocation call
-        = new model_method_invocation (LOCATION_UNKNOWN);
-      call->set_expression (new model_class_ref (LOCATION_UNKNOWN, this));
+        = new model_method_invocation (where);
+      call->set_expression (new model_class_ref (where, this));
       call->set_method ("desiredAssertionStatus");
       // Now invert the value.
-      ref_unary expr = new model_logical_not (LOCATION_UNKNOWN);
+      ref_unary expr = new model_logical_not (where);
       expr->set_expression (call);
 
       result->set_initializer (expr);
 
       // Put in various places it might be needed.
       // FIXME: clean up these internal adds.
-      ambiguous_field_map[name] = result.get ();
       field_map.insert (std::make_pair (name, result.get ()));
       fields.push_back (result);
-      // Set up static initializer.
-      add (static_inits, result);
-      
-      dollar_assertionsDisabled = result;
 
-      // Now make sure the field is resolved.  This works by side
-      // effect.  FIXME: just have a real method on model_field.
-      result->constant_p ();
+      dollar_assertionsDisabled = result;
     }
   return dollar_assertionsDisabled.get ();
 }
@@ -1178,7 +1171,7 @@ model_class::do_resolve_classes (resolution_scope *scope)
   if (compilation_unit)
     compilation_unit->resolve (scope);
 
-  resolve_hook (scope);
+  resolve_classes_hook (scope);
 
   resolve_annotation_classes (scope);
 
@@ -1534,6 +1527,10 @@ model_class::resolve_members ()
 bool
 model_class::create_clinit_method ()
 {
+  // Handle assertion-related things after other initializations.
+  if (dollar_assertionsDisabled)
+    add (static_inits, dollar_assertionsDisabled);
+
   if (static_inits.empty () || ! check_init_list (static_inits))
     return false;
 
@@ -1865,7 +1862,10 @@ model_class::resolve (resolution_scope *scope)
 	  f->resolve (scope);
 	}
 
-      if (inner_p () && f->static_p () && ! f->constant_p ())
+      // Note that we skip synthetic fields, for instance the fields
+      // added for assertions.
+      if (inner_p () && f->static_p () && ! f->constant_p ()
+	  && ! f->synthetic_p ())
 	std::cerr << f->error ("%<static%> field of inner class must "
 			       "be a compile-time constant");
     }
