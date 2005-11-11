@@ -1725,7 +1725,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      I2 and not in I3, a REG_DEAD note must be made.  */
   rtx i3dest_killed = 0;
   /* SET_DEST and SET_SRC of I2 and I1.  */
-  rtx i2dest, i2src, i1dest = 0, i1src = 0;
+  rtx i2dest, i2src, i2src_orig, i1dest = 0, i1src = 0;
   /* PATTERN (I2), or a copy of it in certain cases.  */
   rtx i2pat;
   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
@@ -2085,6 +2085,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      But only do this if -fexpensive-optimizations since it slows things down
      and doesn't usually win.  */
 
+  i2src_orig = copy_rtx (i2src);
   if (flag_expensive_optimizations)
     {
       /* Pass pc_rtx so no substitutions are done, just simplifications.  */
@@ -2110,7 +2111,10 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      match such a pattern and so will generate an extra insn.   Here we test
      for this case, where both the comparison and the operation result are
      needed, and make the PARALLEL by just replacing I2DEST in I3SRC with
-     I2SRC.  Later we will make the PARALLEL that contains I2.  */
+     I2SRC_ORIG.  Later we will make the PARALLEL that contains I2.  We
+     need to use I2SRC_ORIG in place of I2SRC because the unmodified I2PAT
+     is used in this PARALLEL, and I2SRC may have been simplified (e.g.,
+     by expanding sign_extends).  */
 
   if (i1 == 0 && added_sets_2 && GET_CODE (PATTERN (i3)) == SET
       && GET_CODE (SET_SRC (PATTERN (i3))) == COMPARE
@@ -2123,7 +2127,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 #endif
 
       newpat = PATTERN (i3);
-      SUBST (XEXP (SET_SRC (newpat), 0), i2src);
+      SUBST (XEXP (SET_SRC (newpat), 0), i2src_orig);
 
       i2_is_used = 1;
 
@@ -2137,7 +2141,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	  && (cc_use = find_single_use (SET_DEST (newpat), i3,
 					&undobuf.other_insn))
 	  && ((compare_mode = SELECT_CC_MODE (GET_CODE (*cc_use),
-					      i2src, const0_rtx))
+					      i2src_orig, const0_rtx))
 	      != GET_MODE (SET_DEST (newpat))))
 	{
 	  if (can_change_dest_mode(SET_DEST (newpat), added_sets_2,
@@ -2152,7 +2156,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      SUBST (SET_DEST (newpat), new_dest);
 	      SUBST (XEXP (*cc_use, 0), new_dest);
 	      SUBST (SET_SRC (newpat),
-		     gen_rtx_COMPARE (compare_mode, i2src, const0_rtx));
+		     gen_rtx_COMPARE (compare_mode, i2src_orig, const0_rtx));
 	    }
 	  else
 	    undobuf.other_insn = 0;
@@ -2169,7 +2173,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	 to avoid self-referential rtl.  */
 
       subst_low_cuid = INSN_CUID (i2);
-      newpat = subst (PATTERN (i3), i2dest, i2src, 0,
+      newpat = subst (PATTERN (i3), i2dest, i2src_orig, 0,
 		      ! i1_feeds_i3 && i1dest_in_i1src);
       substed_i2 = 1;
 
@@ -6885,6 +6889,16 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	new = make_compound_operation (XEXP (x, i), next_code);
 	SUBST (XEXP (x, i), new);
       }
+
+  /* If this is a commutative operation, the changes to the operands
+     may have made it noncanonical.  */
+  if (COMMUTATIVE_ARITH_P (x)
+      && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+    {
+      tem = XEXP (x, 0);
+      SUBST (XEXP (x, 0), XEXP (x, 1));
+      SUBST (XEXP (x, 1), tem);
+    }
 
   return x;
 }
