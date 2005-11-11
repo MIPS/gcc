@@ -1799,6 +1799,7 @@ mark_reg_live_nc (int regno, enum machine_mode mode)
 
 /* Try to set a preference for an allocno to a hard register.
    We are passed DEST and SRC which are the operands of a SET.  It is known
+APPLE LOCAL 4321079 mainline
    that DEST is a register.  If SRC or the first operand of SRC is a register,
    try to set a preference.  If one of the two is a hard register and the other
    is a pseudo-register, mark the preference.

@@ -646,8 +646,9 @@ reload (rtx first, int global)
   struct elim_table *ep;
   basic_block bb;
 
-  /* APPLE LOCAL 4321079 */
+  /* APPLE LOCAL begin 4321079 */
   from_global = global;
+  /* APPLE LOCAL end 4321079 */
 
   /* Make sure even insns with volatile mem refs are recognizable.  */
   init_recog ();
