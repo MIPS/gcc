@@ -1,3 +1,8 @@
+2005-11-1  Steven Bosscher  <stevenb@suse.de>
+
+	* loop-invariant.c (may_assign_reg_p): Update to match with the
+	patch already commited to mainline.
+
 2005-11-07  Steven Bosscher  <stevenb@suse.de>
 
 	* loop-invariant.c (may_assign_reg_p): Make absolutely sure that

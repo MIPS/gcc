@@ -589,43 +589,15 @@ find_exits (struct loop *loop, basic_block *body,
   LOOP_DATA (loop)->has_call = has_call;
 }
 
-/* Test instruction to see if a hard_reg <- reg move exists.  */
-static rtx test_insn;
-
 /* Check whether we may assign a value to X from a register.  */
 
 static bool
 may_assign_reg_p (rtx x)
 {
-  int insn_code;
-  int num_clobbers = 0;
-
-  /* If this is not a machine mode with a reg-reg move, we're finished.  */
-  if (!can_copy_p (GET_MODE (x)))
-    return false;
-
-  if (!HARD_REGISTER_P (x))
-    return true;
-
-  /* For hard registers, make sure that a reg-reg move for it exists by
-     actually trying to recognize such an instruction.  This is needed
-     for i386's std and cld instructions, for example.  */
-
-  /* Initialize our test instruction if we haven't already.  */
-  if (!test_insn)
-    {
-      rtx fake_reg = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
-      test_insn = make_insn_raw (gen_rtx_SET (VOIDmode, x, fake_reg));
-      NEXT_INSN (test_insn) = PREV_INSN (test_insn) = 0;
-    }
-
-  /* Build an assignment to X and see if it can be recognized.  */
-  SET_DEST (PATTERN (test_insn)) = x;
-  PUT_MODE (SET_SRC (PATTERN (test_insn)), GET_MODE (x));
-  insn_code = recog (PATTERN (test_insn), test_insn, &num_clobbers);
-  return (insn_code >= 0
-	  && (num_clobbers == 0
-	      || ! added_clobbers_hard_reg_p (insn_code)));
+  return (can_copy_p (GET_MODE (x))
+	  && (!REG_P (x)
+	      || !HARD_REGISTER_P (x)
+	      || REGNO_REG_CLASS (REGNO (x)) != NO_REGS));
 }
 
 /* Finds definitions that may correspond to invariants in LOOP with body
@@ -1273,9 +1245,6 @@ move_loop_invariants (struct loops *loops)
 
   df = df_init ();
 
-  /* ??? Could GTY that insn, but I really don't think it's worth it.  */
-  test_insn = NULL;
-  
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;
   while (loop->inner)
