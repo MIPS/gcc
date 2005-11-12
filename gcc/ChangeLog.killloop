@@ -1,4 +1,9 @@
-2005-11-1  Steven Bosscher  <stevenb@suse.de>
+2005-11-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* optabs.c (expand_unop): Make the mode of the REG_EQUAL
+	node be outmode.
+
+2005-11-11  Steven Bosscher  <stevenb@suse.de>
 
 	* loop-invariant.c (may_assign_reg_p): Update to match with the
 	patch already commited to mainline.
