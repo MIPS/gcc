@@ -6644,9 +6644,9 @@ cw_num_constraints (tree inputs, tree outputs)
 
 /* Add alternatives to all constraints that don't have any
    alternatives so that all constraints have the same number of
-   constraints.  Thia ia necessary, as sometimes we force certain
+   alternatives.  This is necessary, as sometimes we force certain
    operands to have a given contraint, but when we do that no
-   alternatives are ever given.  */
+   alternatives are ever given. "=r,m" "r" becomes "=r,m" "r,r".  */
 
 static void
 cw_set_constraints_1 (int num, tree io)
@@ -6679,9 +6679,9 @@ cw_set_constraints_1 (int num, tree io)
 
 /* Add alternatives to all constraints that don't have any
    alternatives so that all constraints have the same number of
-   constraints.  Thia ia necessary, as sometimes we force certain
+   alternatives.  This is necessary, as sometimes we force certain
    operands to have a given contraint, but when we do that no
-   alternatives are ever given.  */
+   alternatives are ever given. "=r,m" "r" becomes "=r,m" "r,r".  */
 
 static void
 cw_set_constraints (int num, tree inputs, tree outputs)
@@ -6944,6 +6944,9 @@ cw_force_constraint (const char *c, cw_md_extra_info *e)
 }
 
 #if defined(TARGET_386)
+/* Map a register name to a high level tree type for a VAR_DECL of
+   that type, whose RTL will refer to the given register.  */
+
 static tree
 cw_type_for (tree arg)
 {
@@ -7007,6 +7010,10 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
     case IDENTIFIER_NODE:
 #if defined(TARGET_386)
       {
+	/* We raise the code from a named register into a VAR_DECL of
+	   an appropriate type that refers to the register so that
+	   reload doesn't run out of registers.  */
+
         int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
 	if (regno >= 0)
 	  {
