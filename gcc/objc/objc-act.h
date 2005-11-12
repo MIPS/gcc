@@ -129,6 +129,10 @@ void objc_detect_field_duplicates (tree);
 	while (0)
 /* APPLE LOCAL end mainline */
 
+/* APPLE LOCAL begin mainline */
+/* code removed */
+/* APPLE LOCAL end mainline */
+
 #define TYPED_OBJECT(TYPE)					\
 	(TREE_CODE (TYPE) == RECORD_TYPE			\
 	 && TYPE_HAS_OBJC_INFO (TYPE)				\
@@ -378,6 +382,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 				objc_global_trees[OCTI_GET_MCLASS_DECL]
 
 #define objc_super_type		objc_global_trees[OCTI_SUPER_TYPE]
+/* APPLE LOCAL ObjC new abi */
 #define objc_selector_type	objc_global_trees[OCTI_SEL_TYPE]
 #define objc_object_type	objc_global_trees[OCTI_ID_TYPE]
 #define objc_class_type		objc_global_trees[OCTI_CLS_TYPE]
@@ -523,7 +528,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define internal_const_str_type	objc_global_trees[OCTI_INTERNAL_CNST_STR_TYPE]
 #define UOBJC_SUPER_decl	objc_global_trees[OCTI_SUPER_DECL]
 
-/* APPLE LOCAL being ObjC new abi */
+/* APPLE LOCAL begin ObjC new abi */
 #define objc_newabi_class_template     objc_global_trees[OCTI_NEWABI_CLS_TEMPL]
 #define objc_newabi_class_ro_template  objc_global_trees[OCTI_NEWABI_CLS_RO_TEMPL]
 #define objc_newabi_protocol_template  objc_global_trees[OCTI_NEWABI_PROTO_TEMPL]
