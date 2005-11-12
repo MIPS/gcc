@@ -6606,34 +6606,75 @@ cw_is_prefix (tree ARG_UNUSED (id))
 
 /* Find the number of constraints in any constraints string that has a
    ",", as it must have the correct number of constraints, otherwise
-   return 0.  The ones with no "," have been generated, and only every
+   return 0.  The ones with no "," have been generated, and only ever
+   have one constraint.  */
+
+static int
+cw_num_constraints_1 (tree io)
+{
+  int num = 0;
+  while (io)
+    {
+      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (io)));
+      while (*++constraints)
+	if (constraints[0] == ',')
+	  ++num;
+      if (num)
+	return num+1;
+      io = TREE_CHAIN (io);
+    }
+  return num;
+}
+
+/* Find the number of constraints in any constraints string that has a
+   ",", as it must have the correct number of constraints, otherwise
+   return 0.  The ones with no "," have been generated, and only ever
    have one constraint.  */
 
 static int
 cw_num_constraints (tree inputs, tree outputs)
 {
-  int num = 0;
-  while (inputs)
-    {
-      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (inputs)));
-      while (*++constraints)
-	if (constraints[0] == ',')
-	  ++num;
-      if (num)
-	return num+1;
-      inputs = TREE_CHAIN (inputs);
-    }
-  while (outputs)
-    {
-      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (outputs)));
-      while (*++constraints)
-	if (constraints[0] == ',')
-	  ++num;
-      outputs = TREE_CHAIN (outputs);
-      if (num)
-	return num+1;
-    }
+  int num;
+  num = cw_num_constraints_1 (inputs);
+  if (num)
+    return num;
+  num = cw_num_constraints_1 (outputs);
   return num;
+}
+
+/* Add alternatives to all constraints that don't have any
+   alternatives so that all constraints have the same number of
+   constraints.  Thia ia necessary, as sometimes we force certain
+   operands to have a given contraint, but when we do that no
+   alternatives are ever given.  */
+
+static void
+cw_set_constraints_1 (int num, tree io)
+{
+  if (num < 2)
+    return;
+
+  while (io)
+    {
+      int i;
+      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (io)));
+	
+      if (strchr (constraints, ',') == 0)
+	{
+	  char *buf = alloca (strlen (constraints) * num + num);
+	  char *p = buf;
+	  while (*constraints == '+' || *constraints == '&' || *constraints == '=')
+	    *p++ = *constraints++;
+	  for (i = 0; i < num; ++i)
+	    {
+	      p = stpcpy (p, constraints);
+	      *p++ = ',';
+	    }
+	  p[-1] = 0;
+	  TREE_VALUE (TREE_PURPOSE (io)) = build_string (strlen (buf), buf);
+	}
+      io = TREE_CHAIN (io);
+    }
 }
 
 /* Add alternatives to all constraints that don't have any
@@ -6645,56 +6686,8 @@ cw_num_constraints (tree inputs, tree outputs)
 static void
 cw_set_constraints (int num, tree inputs, tree outputs)
 {
-  if (num < 2)
-    return;
-
-  while (inputs)
-    {
-      int i;
-      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (inputs)));
-	
-      if (strchr (constraints, ',') == 0)
-	{
-	  char *buf = alloca (strlen (constraints) * num + num);
-	  char *p = buf;
-	  while (*constraints == '+' || *constraints == '&' || *constraints == '=')
-	    {
-	      *p++ = *constraints++;
-	    }
-	  for (i = 0; i < num; ++i)
-	    {
-	      p = stpcpy (p, constraints);
-	      *p++ = ',';
-	    }
-	  p[-1] = 0;
-	  TREE_VALUE (TREE_PURPOSE (inputs)) = build_string (strlen (buf), buf);
-	}
-      inputs = TREE_CHAIN (inputs);
-    }
-
-  while (outputs)
-    {
-      int i;
-      const char *constraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (outputs)));
-	
-      if (strchr (constraints, ',') == 0)
-	{
-	  char *buf = alloca (strlen (constraints) * num + num);
-	  char *p = buf;
-	  while (*constraints == '+' || *constraints == '&' || *constraints == '=')
-	    {
-	      *p++ = *constraints++;
-	    }
-	  for (i = 0; i < num; ++i)
-	    {
-	      p = stpcpy (p, constraints);
-	      *p++ = ',';
-	    }
-	  p[-1] = 0;
-	  TREE_VALUE (TREE_PURPOSE (outputs)) = build_string (strlen (buf), buf);
-	}
-      outputs = TREE_CHAIN (outputs);
-    }
+  cw_set_constraints_1 (num, inputs);
+  cw_set_constraints_1 (num, outputs);
 }
 
 /* Build an asm statement from CW-syntax bits.  */
