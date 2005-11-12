@@ -1943,10 +1943,8 @@ set_preference (rtx dest, rtx src)
       src_regno += offset;
       SET_PSEUDO_PREF (reg_allocno[dest_regno], reg_allocno[src_regno]);
     }
-  /* APPLE LOCAL end 4321079 */
 }
 
-/* APPLE LOCAL begin 4321079 */
 /* Callback for reload.  We are going to assign pseudo R a stack slot;
    see if a reg tied to it already has one that we can reuse. */
 rtx find_tied_stack_pseudo (int);
