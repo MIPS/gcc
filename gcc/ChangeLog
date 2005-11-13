@@ -1,3 +1,434 @@
+2005-11-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (get_address_cost): Prevent splitting
+	addressing modes during calculation of costs.
+
+2005-11-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* function.c (assign_stack_local_1): Restrict sanity check
+	on frame size overflow to 32-bit and above platforms.
+
+2005-11-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (LEGITIMIZE_RELOAD_ADDRESS): Define.
+	* config/cris/cris.c: Include reload.h.
+	(cris_initial_elimination_offset): New function.
+	* config/cris/cris-protos.h: (cris_initial_elimination_offset):
+	Prototype.
+
+2005-11-12  Richard Guenther  <rguenther@suse.de>
+
+	* gcse.c (find_rtx_in_ldst): Handle NULL pre_ldst_table.
+
+2005-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (expand_expr_real_1): <MAX_EXPR, MIN_EXPR>: Canonicalize
+	to compare against 0 when possible.
+
+2005-11-12  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (REGISTER_NAMES, SHORT_REGISTER_NAMES,
+	HIGH_REGISTER_NAMES, FIXED_REGISTERS, CALL_USED_REGISTERS,
+	REG_ALLOC_ORDER, enum reg_class): Rearrange I/B/L registers.
+	* config/bfin/bfin.md: Redefine REG_ constants for I/B/L registers
+	in the new order.
+
+2005-11-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* recog.c (constrain_operands) <case 'g'>: For a match, require
+	that a non-register matches general_operand when strict >= 0.
+
+2005-11-11  Steven Bosscher  <stevenb@suse.de>
+
+	* loop-invariant.c (move_loop_invariants): Fix a thinko in the
+	previous checkin.
+
+2005-11-11  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* tree-ssa-dse.c (struct address_walk_data, memory_ssa_name_same)
+	(memory_address_same): New.
+	(dse_optimize_stmt): Call memory_address_same.
+
+2005-11-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/24750
+	* reload.c (find_reloads_address_1) <case TRUNCATE, SIGN_EXTEND,
+	ZERO_EXTEND>: New cases.
+
+2005-11-11  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* longlong.h (__clz_tab): Always provide.
+
+2005-11-11  Steven Bosscher  <stevenb@suse.de>
+
+	PR 24265
+	* loop-invariant.c (may_assign_reg_p): Make sure a hard register
+	can be assigned to.
+	(find_invariant_insn): Do the cheapest check, may_assign_reg_p,
+	before check_maybe_invariant.
+	(move_invariant_reg): Use gen_move_insn instead of replacing
+	SET_DEST with the temporary for the invariant.
+	(move_loop_invariants): If checking is enabled, do internal
+	consistency checks after completing the pass.
+
+2005-11-11  David Edelsohn  <edelsohn@gnu.org>
+
+	PR 24644
+	* common.opt (Wvolatile-register-var): New.
+	* varasm.c (make_decl_rtl): Only emit warning when option
+	specified.  Clarify warning message.
+	* doc/invoke.texi (Wvolatile-register-var): Document new option.
+
+	* doc/md.texi (copysign): Document standard named pattern.
+
+2005-11-11  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.c (bfin_expand_strmov): Correctly move the trailing
+	bytes when align is 2.
+	* config/bfin/bfin.md (rep_movsi, rep_movhi): Make LSETUP be followed
+	by the first instruction of the loop.
+
+2005-11-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24686
+	* gimplify.c (gimplify_cleanup_point_expr): Also save and restore 
+	the cleanup list.
+
+2005-11-11  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/22509
+	* local-alloc.c (memref_used_between_p): Check whether a function call
+	could not reference the memref.
+
+2005-11-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* postreload.c (reload_cse_simplify_operands): Fix bug in sorting
+	algorithm so as to choose the best, not the worst, alternative.
+	Reset accumulated register class before processing next alternative.
+
+2005-11-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/24445
+	* calls.c (expand_call): Copy a return value to a plain register
+	if needed.
+
+2005-11-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/24778
+	* varasm.c (assemble_name): Recompute name only for transparent
+	aliases.
+
+2005-11-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	* tree-ssa-structalias.c (heapvar_lookup): Fix typo: stmt to from.
+
+2005-11-04  Jeff Law  <law@redhat.com>
+
+	PR middle-end/23181
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Do not
+	perform reassociation if the parent statement will not die as
+	a result of the optimization.
+
+2005-11-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (compute_may_aliases): Remove call to 
+	delete_old_heap_vars.
+	* tree-dfa.c (referenced_var_remove): Remove function.
+	* tree-ssa.c (init_tree_ssa): Call init_alias_heapvars.
+	(delete_tree_ssa): Remove call to delete_old_heapvars.
+	Add call to delete_alias_heapvars.
+	* tree-flow.h (referenced_var_remove): Remove prototype
+	(init_alias_heapvars): New prototype.
+	(delete_alias_heapvars): Ditto.
+	* Makefile.in (tree-ssa-structalias.o): Add
+	gt-tree-ssa-structalias.o
+	(GTFILES): Add tree-ssa-structalias.h and
+	tree-ssa-structalias.c.
+	(s-gtype): Add gt-tree-ssa-structalias.h.
+	* tree-ssa-structalias.c (heapvars): Remove.
+	(oldheapvars): Remove.
+	(heapvar_for_stmt): New variable.
+	(heapvar_lookup): New function.
+	(heapvar_insert): Ditto.
+	(get_constraint_for): See if we have an old heapvar
+	to reuse.
+	(init_alias_heapvars): New function.
+	(delete_alias_heapvars): Ditto.
+	Add include of gt-tree-ssa-structalias.h.
+
+2005-11-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/22127
+	* calls.c (special_function_p): Set ECF_RETURNS_TWICE for getcontext.
+
+2005-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (int_fits_type_p): Only look at the base type
+	if it has the same precision as the original type.
+
+2005-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/4372
+	* varasm.c (assemble_alias): Use %q+D in the error
+	message instead of %J and %qD.
+
+2005-11-10  Richard Guenther  <rguenther@suse.de>
+
+	* gcse.c (free_ldst_entry): Only free hashtable if
+	it exists.
+
+2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* function.c (assign_stack_local_1): Issue an error message if
+	the frame size overflows in the signed target arithmetics.
+
+2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (build_qualified_type): Chain the new type to the original
+	type's TYPE_NEXT_PTR_TO or TYPE_NEXT_REF_TO linked lists if it is
+	a POINTER_TYPE or a REFERENCE_TYPE respectively.
+	(build_pointer_type_for_mode): Only return unqualified types.
+	(build_reference_type_for_mode): Likewise.
+
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (gnucompare): Do comparison of all files using one of
+	the chosen methods and only afterwards decide if just warning should
+	be issued or comparison failure raised.
+
+2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ifcvt.c (noce_get_alt_condition): Use prev_nonnote_insn.
+	(noce_try_abs): Negate if the comparison is reversed.
+	Look only one instruction backwards for a REG_EQUAL note.
+
+2005-11-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/4372
+	* gthr-dce.h, gthr-posix.h, gthr-posix95.h, gthr-solaris.h,
+	gthr-tpf.h: Define __gthrw.  For all identifiers that might
+	be weak, introduce weakrefs or non-weak aliases with __gthrw,
+	and prefix all uses with __ghtrw.
+
+2005-11-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/4372
+	* tree.h (IDENTIFIER_TRANSPARENT_ALIAS): New.
+	(TREE_DEPRECATED): Adjust comment.  Check for a DECL.
+	* c-common.c (handle_weakref_attribute): New.
+	(c_common_attribute_table): Add weakref.
+	* configure.ac (HAVE_GAS_WEAKREF): Check for weakref support
+	in the assembler.
+	* configure, config.in: Rebuilt.
+	* defaults.h (ASM_OUTPUT_WEAKREF): Define if HAVE_GAS_WEAKREF.
+	* doc/extend.texi: Document weakref attribute.
+	* varasm.c (ultimate_transparent_alias_target): New
+	(assemble_name): Use it.
+	(weak_finish_1): Split out of...
+	(weak_finish): ... and deal with weakrefs in...
+	(weakref_targets): ... new list.
+	(globalize_decl): Clean up weakref_targets.
+	(do_assemble_alias): Handle weakrefs.
+	(finish_aliases_1): Do not reject weakrefs to external symbols.
+	(assemble_alias): Handle weakrefs.
+
+2005-11-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/24716
+	* tree-scalar-evolution.c (analyze_evolution_in_loop): Use
+	t_bool to track results from follow_ssa_edge.
+
+2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* final.c (force_source_line): New global variable.
+	(final_scan_insn): Set it to true instead of clearing last_filename.
+	(notice_source_line): Return true if force_source_line is true,
+	unless source info is absent.
+
+2005-11-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/24644
+	* dwarf2-out.c (add_name_and_src_coords_attributes): Don't add
+	a linkage name for a variable if it a register variable.
+	* c-decl.c (grokdeclarator): Global register variables
+	should be set as PUBLIC.
+
+2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24624
+	* config/s390/s390.c (struct s390_frame_layout): New fields 
+	first_save_gpr_slot and last_save_gpr_slot.
+	(cfun_grps_save_area_size, s390_frame_info, s390_emit_prologue,  
+	s390_emit_epilogue, s390_initial_elimination_offset): Replaced 
+	first_save_gpr and last_save_gpr with the _slot variants.
+	(s390_register_info): Calculate first_save_gpr_slot and 
+	last_save_gpr_slot using regs_ever_live.
+
+2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24623
+	* config/s390/s390.c (s390_regs_ever_clobbered): Only save live eh regs
+	for a function containing a landing pad.
+
+2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24034
+	* flow.c (mark_set_1): Handle CLOBBERs like SETs if the register
+	is live afterwards.
+
+2005-11-08  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/t-bfin-elf (MULTILIB_OPTIONS, MULTILIB_DEFAULTS,
+	MULTILIB_DIRNAMES, MULTILIB_EXCEPTIONS): New.
+
+2005-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Add ms2 support
+	* config/ms1/ms1.md (UNSPEC_BLOCKAGE, UNSPEC_EI, UNSPEC_DI): New
+	constants.
+	(call,load,store): New insn types.
+	(mem_access, branch_access): Adjust reservation conditions.
+	(define_delay): Adjust condition.
+	(decrement_and_branch_until_zero): Allow for ms2.  Set branch
+	type.
+	(*decrement_and_rbanch_until_zero_no_clobber): Allow for ms2.
+	(*movqi_internal,*movsi_internal,*movsf_internal): Use load,store
+	insn type.
+	(call_internal, call_value_internal, return_internal,
+	return_interrupt_internal, eh_return_internal, indirect_jump,
+	tablejump): Set call insn type.
+	(blockage, ei, di): Use appropriate unspec const.
+	* config/ms1/ms1.c (ms1_flag_delayed_branch): New.
+	(ms1_get_attr_type): Adjust to give load & store types.
+	(ms1_final_prescan_insn): Adjust for new insn types.  Don't look
+	backwards past a barrier.
+	(ms1_override_options): Accept ms2 arch.  Copy and reset delayed
+	branch scheduling.
+	(struct branch_info, struct label_info): New.
+	(ms1_labels): New.
+	(ms1_add_branches, ms1_check_delay_slot, ms1_reorg_hazard): New.
+	(ms1_machine_reorg): New.
+	(TARGET_MACHINE_DEPENDENT_REORG): Override.
+	* config/ms1/crtn.asm: Add nop for ms2 JAL hazard.
+	* config/ms1/ms1.h (processor_type): Add PROCESSOR_MS2.
+	(ASM_SPEC, LIB_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Add ms2.
+	(TARGET_MS2): New.
+
+2005-11-09  Per Bothner  <per@bothner.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+	
+	PR c/24101
+	* toplev.c (process_options): Initialize debug_hooks early
+	in case lang_hooks.post_options ends up calling a debug_hook.
+
+2005-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Don't assume
+	DBX_REGISTER_NUMBER being contiguous.
+
+2005-11-08  James A. Morrison  <phython@gcc.gnu.org>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	PR 23046
+	* tree-vrp.c (register_edge_assert_for): Do not register
+	always-false predicates.
+
+2005-11-08  Devang Patel <dpatel@apple.com>
+
+	PR tree-optimization/23115
+	* tree-if-conv.c (find_phi_replacement_condition): Check domninated_by
+	relation.
+
+2005-11-08  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/t-fprules (MULTILIB_MATCHES_FLOAT): Include
+	-mcpu=440.
+
+2005-11-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/23382
+
+	* tree-ssa-alias.c (compute_may_aliases): Call
+	delete_old_heap_vars.
+	* tree-dfa.c (referenced_var_remove): New function.
+	* tree-ssa.c (delete_tree_ssa): Call delete_old_heap_vars.
+	* tree-flow.h (referenced_var_remove): Add prototype.
+	(delete_old_heap_vars): Ditto.
+	* tree-ssa-structalias.c (heapvars): New variable.
+	(oldheapvars): Ditto.
+	(get_constraint_for): Put heap vars on heapvars list.
+	(delete_old_heap_vars): New function.
+	
+2005-11-08  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (CALL_FROM_THUNK_P): Add CALL_EXPR_CHECK.
+
+2005-11-08  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/19340
+	* reg-stack.c (reg_to_stack): Update register liveness also
+	for flag_sched2_use_traces.
+
+2005-11-08  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/23704
+	* config/rs6000/rs6000.c (rs6000_handle_option <OPT_m64>): Don't
+	override prior explicit -mno-powerpc-gfxopt.
+
+2005-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expmed.c (extract_bit_field): Do not use insv/extv/extzv patterns
+	if the bitsize is zero.
+	* doc/md.texi (Standard Pattern Names): Document it.
+
+	* config/ia64/ia64.c (ia64_pass_by_reference): Delete.
+	(TARGET_PASS_BY_REFERENCE): Likewise.
+
+2005-11-07  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24683
+	* config/i386/i386.c (legitimize_pic_address): If constant operand
+	to PLUS is too large, put it in a register.
+
+2005-11-07  Jie Zhang  <jie.zhang@analog.com>
+
+	* configure.ac: Enable checking assembler dwarf2 support for bfin
+	target.
+	* configure: Regenerate.
+
+2005-11-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/24230
+
+	* config/rs6000/rs6000.c (easy_vector_splat_const, easy_vector_same,
+	gen_easy_vector_constant_add_self): Delete.
+	(vspltis_constant, easy_altivec_constant, gen_easy_altivec_constant):
+	New.
+	(output_vec_const_move): Use gen_easy_altivec_constant.
+	(rs6000_expand_vector_init): Do not emit a set of a VEC_DUPLICATE.
+	* config/rs6000/predicates.md (easy_vector_constant): Reorganize tests.
+	(easy_vector_constant_add_self): Rewritten.
+	* config/rs6000/rs6000-protos.h (easy_vector_splat_const,
+	easy_vector_same, gen_easy_vector_constant_add_self): Remove prototype.
+	(easy_altivec_constant, gen_easy_altivec_constant): Add prototype.
+	* config/rs6000/altivec.md (easy_vector_constant_add_self splitters):
+	Macroize and adjust for the other changes.
+
+2005-11-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c/24599
+
+        * c-typeck.c (build_c_cast): Try using a shared constant, and see
+        if TREE_OVERFLOW or TREE_CONSTANT_OVERFLOW really changed.
+
+2005-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/23567
+	* ifcvt.c (noce_mem_write_may_trap_or_fault_p): New function.
+	(noce_process_if_block): Don't do any optimizations except
+	if (cond) x = x; if !set_b and write into orig_x may trap
+	or fault.  Remove the MEM_READONLY_P check.
+
 2005-11-06  Diego Novillo  <dnovillo@redhat.com>
 
 	PR 24670

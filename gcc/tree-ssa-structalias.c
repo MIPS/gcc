@@ -160,7 +160,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
   TODO: We could handle unions, but to be honest, it's probably not
   worth the pain or slowdown.  */
 
-
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+  htab_t heapvar_for_stmt;
 static bool use_field_sensitive = true;
 static int in_ipa_mode = 0;
 static bitmap_obstack predbitmap_obstack;
@@ -312,6 +313,38 @@ static unsigned int readonly_id;
 static varinfo_t var_integer;
 static tree integer_tree;
 static unsigned int integer_id;
+
+
+/* Lookup a heap var for FROM, and return it if we find one.  */
+
+static tree 
+heapvar_lookup (tree from)
+{
+  struct tree_map *h, in;
+  in.from = from;
+
+  h = htab_find_with_hash (heapvar_for_stmt, &in, htab_hash_pointer (from));
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert a mapping FROM->TO in the heap var for statement
+   hashtable.  */
+
+static void
+heapvar_insert (tree from, tree to)
+{
+  struct tree_map *h;
+  void **loc;
+
+  h = ggc_alloc (sizeof (struct tree_map));
+  h->hash = htab_hash_pointer (from);
+  h->from = from;
+  h->to = to;
+  loc = htab_find_slot_with_hash (heapvar_for_stmt, h, h->hash, INSERT);
+  *(struct tree_map **) loc = h;
+}  
 
 /* Return a new variable info structure consisting for a variable
    named NAME, and using constraint graph node NODE.  */
@@ -2499,12 +2532,16 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results, bool *anyoffset)
 	    if (call_expr_flags (t) & (ECF_MALLOC | ECF_MAY_BE_ALLOCA))
 	      {
 		varinfo_t vi;
-		tree heapvar;
+		tree heapvar = heapvar_lookup (t);
 		
-		heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
-		DECL_EXTERNAL (heapvar) = 1;
-		if (referenced_vars)
-		  add_referenced_tmp_var (heapvar);
+		if (heapvar == NULL)
+		  {		    
+		    heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
+		    DECL_EXTERNAL (heapvar) = 1;
+		    add_referenced_tmp_var (heapvar);
+		    heapvar_insert (t, heapvar);
+		  }
+
 		temp.var = create_variable_info_for (heapvar,
 						     alias_get_name (heapvar));
 		
@@ -4506,3 +4543,19 @@ struct tree_opt_pass pass_ipa_pta =
   0,                                    /* todo_flags_finish */
   0					/* letter */
 };
+
+/* Initialize the heapvar for statement mapping.  */
+void 
+init_alias_heapvars (void)
+{
+  heapvar_for_stmt = htab_create_ggc (11, tree_map_hash, tree_map_eq, NULL);
+}
+
+void
+delete_alias_heapvars (void)
+{
+  htab_delete (heapvar_for_stmt);  
+}
+
+  
+#include "gt-tree-ssa-structalias.h"

@@ -1,3 +1,48 @@
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/15976
+	* resolve.c (resolve_symbol): Disallow automatic arrays in module scope.
+
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24655
+	PR fortran/24755
+	* match.c (recursive_stmt_fcn): Add checks that symtree exists
+	for the expression to weed out inline intrinsic functions and
+	parameters.
+
+	PR fortran/24409
+	* module.c (mio_symtree_ref): Correct the patch of 0923 so that
+	a symbol is not substituted for by a the symbol for the module
+	itself and to prevent the promotion of a formal argument.
+
+2005-11-10  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24643
+	* primary.c (match_varspec): Check for implicitly typed CHARACTER
+	variables before matching substrings.
+
+2005-11-09  Steven G. Kargl  <kargls@comcast.net>
+
+	* trans-intrinsic.c: Typo in comment.
+
+2005-11-09  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/22607
+	* trans-decl.c(build_function_decl): Don't set
+	DECL_IS_PURE (fndecl) = 1 for return-by-reference
+	functions.
+
+2005-11-08  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c: Fix comment typo, add a few blank lines.
+
+2005-11-07  Steven G. Kargl  <kargls@comcast.net>
+
+	* error.c: Use flag_fatal_error.
+	* invoke.texi:  Remove -Werror from list of options.
+
 2005-11-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/24534

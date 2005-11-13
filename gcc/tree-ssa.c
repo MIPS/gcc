@@ -803,6 +803,7 @@ init_tree_ssa (void)
 				     int_tree_map_eq, NULL);
   call_clobbered_vars = BITMAP_ALLOC (NULL);
   addressable_vars = BITMAP_ALLOC (NULL);
+  init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
@@ -867,6 +868,7 @@ delete_tree_ssa (void)
   addressable_vars = NULL;
   modified_noreturn_calls = NULL;
   aliases_computed_p = false;
+  delete_alias_heapvars ();
   gcc_assert (!need_ssa_update_p ());
 }
 

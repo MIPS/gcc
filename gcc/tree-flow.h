@@ -906,6 +906,9 @@ int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
 				 HOST_WIDE_INT, bool *);
 void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
+void init_alias_heapvars (void);
+void delete_alias_heapvars (void);
+
 #include "tree-flow-inline.h"
 
 #endif /* _TREE_FLOW_H  */

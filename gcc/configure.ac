@@ -1947,6 +1947,11 @@ gcc_GAS_CHECK_FEATURE([.weak], gcc_cv_as_weak,
  [	.weak foobar],,
 [AC_DEFINE(HAVE_GAS_WEAK, 1, [Define if your assembler supports .weak.])])
 
+gcc_GAS_CHECK_FEATURE([.weakref], gcc_cv_as_weakref,
+ [2,17,0],,
+ [	.weakref foobar, barfnot],,
+[AC_DEFINE(HAVE_GAS_WEAKREF, 1, [Define if your assembler supports .weakref.])])
+
 gcc_GAS_CHECK_FEATURE([.nsubspa comdat], gcc_cv_as_nsubspa_comdat,
  [2,15,91],,
  [	.SPACE $TEXT$
@@ -2814,7 +2819,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-*)
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)

@@ -527,7 +527,9 @@ special_function_p (tree fndecl, int flags)
       else if ((tname[0] == 'q' && tname[1] == 's'
 		&& ! strcmp (tname, "qsetjmp"))
 	       || (tname[0] == 'v' && tname[1] == 'f'
-		   && ! strcmp (tname, "vfork")))
+		   && ! strcmp (tname, "vfork"))
+	       || (tname[0] == 'g' && tname[1] == 'e'
+		   && !strcmp (tname, "getcontext")))
 	flags |= ECF_RETURNS_TWICE;
 
       else if (tname[0] == 'l' && tname[1] == 'o'
@@ -2855,6 +2857,14 @@ expand_call (tree exp, rtx target, int ignore)
 	       && GET_MODE (target) == TYPE_MODE (TREE_TYPE (exp))
 	       && GET_MODE (target) == GET_MODE (valreg))
 	{
+	  /* We have to copy a return value in a CLASS_LIKELY_SPILLED hard
+	     reg to a plain register.  */
+	  if (REG_P (valreg)
+	      && HARD_REGISTER_P (valreg)
+	      && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (valreg)))
+	      && !(REG_P (target) && !HARD_REGISTER_P (target)))
+	    valreg = copy_to_reg (valreg);
+
 	  /* TARGET and VALREG cannot be equal at this point because the
 	     latter would not have REG_FUNCTION_VALUE_P true, while the
 	     former would if it were referring to the same register.

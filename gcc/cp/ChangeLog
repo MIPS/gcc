@@ -1,4 +1,43 @@
+2005-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24780
+	* typeck.c (complete_type): Set TYPE_NEEDS_CONSTRUCTING
+	and TYPE_HAS_NONTRIVIAL_DESTRUCTOR flags for all variants
+	of array type.
+
+	PR c++/24761
+	* pt.c (tsubst_copy_asm_operands): New function.
+	(tsubst_expr) <case ASM_EXPR>: Use it.
+
+2005-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19450
+	* decl.c (redeclaration_error_message): Issue diagnostics about
+	olddecl and newdecl disagreement on __thread property.
+	(grokdeclarator): Set DECL_TLS_MODEL on class static variables.
+
+2005-11-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* method.c (use_thunk): Use build_cplus_new instead of 
+	force_target_expr.
+
+2005-11-06  Jason Merrill  <jason@redhat.com>
+	    James A. Morrison <phython@gcc.gnu.org>
+
+	PR c++/17256
+	* decl2.c (cp_finish_file): Fix conditions for undefined warning.
+	Set TREE_NO_WARNING instead of TREE_PUBLIC.
+	* pt.c (instantiate_pending_templates): Set DECL_INITIAL to avoid
+	a warning on a function we didn't instantiate because of excessive
+	recursion.
+
 2005-11-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (record_subobject_offsets): Don't record offsets past
+	biggest empty class for non-empty base classes.
+	(layout_class_type): Use TYPE_SIZE_UNIT, not TYPE_SIZE, when
+	keeping track of the size of emptyclasses.
 
 	PR c++/21308
 	* class.c (sizeof_biggest_empty_class): New variable.
