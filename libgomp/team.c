@@ -326,14 +326,16 @@ initialize_team (void)
   struct gomp_thread *thr;
 
 #ifndef HAVE_TLS
-  pthread_key_create (&gomp_tls_key, free);
+  static struct gomp_thread initial_thread_tls_data;
+
+  pthread_key_create (&gomp_tls_key, NULL);
+  pthread_setspecific (gomp_tls_key, &initial_thread_tls_data);
 #endif
 
 #ifdef HAVE_TLS
   thr = &gomp_tls_data;
 #else
-  thr = gomp_malloc_cleared (sizeof (*thr));
-  pthread_setspecific (gomp_tls_key, thr);
+  thr = &initial_thread_tls_data;
 #endif
   gomp_sem_init (&thr->release, 0);
 

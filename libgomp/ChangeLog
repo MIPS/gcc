@@ -1,3 +1,11 @@
+2005-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/24797
+	* team.c (initialize_team): Pass NULL rather than free as
+	pthread_key_create destructor.  Initialize thread specific data
+	pointer in initial thread to a static local variable rather than
+	malloced memory.
+
 2005-11-11  Uros Bizjak  <uros@kss-loka.si>
 
 	* testsuite/lib/libgomp-dg.exp: Locate libgcc.a and append
