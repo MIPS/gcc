@@ -1,3 +1,20 @@
+2005-11-13  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24703
+	* omp-low.c (determine_parallel_type): Make extern.
+	Do not return IS_PARALLEL if OMP_FOR_PRE_BODY is set.
+	(enum omp_parallel_type): Move ...
+	* tree-gimple.h (enum omp_parallel): ... here.
+	(determine_parallel_type): Declare.
+	* gimplify.c (struct gimplify_ctx): Add fields combined_pre_p
+	and combined_ctxp.
+	(gimplify_expr_in_ctx): New.
+	(gimplify_omp_for): Call it if gimplify_ctxp->combined_pre_p
+	is set.
+	(gimplify_omp_parallel): Set gimplify_ctxp->combined_pre_p
+	and gimplify_ctxp->combined_ctxp if this is a combined
+	parallel+workshare directive.
+
 2005-11-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (c-parser.o): Add dependency on $(TARGET_H)

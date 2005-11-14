@@ -107,6 +107,21 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
+/* Type of parallel constructs.  Used to decide what runtime function
+   to use for launching children threads and the gimplification
+   strategy.  */
+
+enum omp_parallel_type {
+    IS_NOT_PARALLEL = 0,
+
+    /* Regular omp parallel  */
+    IS_PARALLEL,
+
+    /* Combined parallel + workshare (parallel loop and parallel
+       sections).  */
+    IS_COMBINED_PARALLEL
+};
+
 extern enum gimplify_status gimplify_expr (tree *, tree *, tree *,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, tree *);
@@ -135,6 +150,7 @@ extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern tree find_omp_clause (tree, enum tree_code);
 extern void diagnose_omp_structured_block_errors (tree);
 extern tree omp_reduction_init (tree, tree);
+enum omp_parallel_type determine_parallel_type (tree stmt);
 
 /* In tree-nested.c.  */
 extern void lower_nested_functions (tree);

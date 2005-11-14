@@ -59,21 +59,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    optimal, but lexically nested parallels effectively only happens in
    test suites.  */
 
-/* Type of parallel constructs.  Used to decide what runtime function
-   to use for launching children threads.  */
-
-enum omp_parallel_type {
-    IS_NOT_PARALLEL = 0,
-
-    /* Regular omp parallel  */
-    IS_PARALLEL,
-
-    /* Combined parallel + workshare (parallel loop and parallel
-       sections).  */
-    IS_COMBINED_PARALLEL
-};
-
-
 /* Context structure.  Used to store information about each parallel
    directive in the code.  */
 
@@ -784,7 +769,7 @@ create_omp_child_function (omp_context *ctx)
    or a single OMP_SECTIONS then this is a combined directive.
    Otherwise, it is a regular parallel directive.  */
 
-static enum omp_parallel_type
+enum omp_parallel_type
 determine_parallel_type (tree stmt)
 {
   enum omp_parallel_type par_type;
@@ -811,11 +796,6 @@ determine_parallel_type (tree stmt)
 	  || OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
 	par_type = IS_PARALLEL;
       else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
-	par_type = IS_PARALLEL;
-      /* ??? The pre-body contains things needed to compute the bounds of
-	 the loop.  For now, simply disable combining.  We need to come up
-	 with a better way of solving the gimplification problem.  */
-      else if (OMP_FOR_PRE_BODY (t))
 	par_type = IS_PARALLEL;
       else
 	par_type = IS_COMBINED_PARALLEL;
