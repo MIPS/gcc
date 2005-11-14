@@ -3730,6 +3730,20 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
+
+      /* If it's a pointer type, the new variant points to the same type.  */
+      if (TREE_CODE (type) == POINTER_TYPE)
+	{
+	  TYPE_NEXT_PTR_TO (t) = TYPE_NEXT_PTR_TO (type);
+	  TYPE_NEXT_PTR_TO (type) = t;
+	}
+
+      /* Same for a reference type.  */
+      else if (TREE_CODE (type) == REFERENCE_TYPE)
+	{
+	  TYPE_NEXT_REF_TO (t) = TYPE_NEXT_REF_TO (type);
+	  TYPE_NEXT_REF_TO (type) = t;
+	}
     }
 
   return t;
@@ -4845,10 +4859,12 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
     return TYPE_POINTER_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for pointers to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_POINTER_TO (to_type); t; t = TYPE_NEXT_PTR_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (POINTER_TYPE);
@@ -4894,10 +4910,12 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
     return TYPE_REFERENCE_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for references to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (REFERENCE_TYPE);
@@ -5568,8 +5586,11 @@ int_fits_type_p (tree c, tree type)
     return 0;
 
   /* If we haven't been able to decide at this point, there nothing more we
-     can check ourselves here. Look at the base type if we have one.  */
-  if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+     can check ourselves here.  Look at the base type if we have one and it
+     has the same precision.  */
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TREE_TYPE (type) != 0
+      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (type)))
     return int_fits_type_p (c, TREE_TYPE (type));
 
   /* Or to force_fit_type, if nothing else.  */

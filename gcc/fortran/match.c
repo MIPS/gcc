@@ -2744,6 +2744,9 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 	    return true;
 	}
 
+      if (e->symtree == NULL)
+	return false;
+
       /* Check the name before testing for nested recursion!  */
       if (sym->name == e->symtree->n.sym->name)
 	return true;
@@ -2757,7 +2760,7 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
       break;
 
     case EXPR_VARIABLE:
-      if (sym->name == e->symtree->n.sym->name)
+      if (e->symtree && sym->name == e->symtree->n.sym->name)
 	return true;
       break;
 

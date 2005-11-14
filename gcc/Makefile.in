@@ -1748,7 +1748,8 @@ stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    toplev.h
 tree-ssa-structalias.o: tree-ssa-structalias.c tree-ssa-structalias.h \
    $(SYSTEM_H) $(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) \
-   $(TM_H) coretypes.h cgraph.h tree-pass.h $(TIMEVAR_H)
+   $(TM_H) coretypes.h cgraph.h tree-pass.h $(TIMEVAR_H) \
+   gt-tree-ssa-structalias.h
 tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) output.h $(DIAGNOSTIC_H) \
    toplev.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
@@ -2765,7 +2766,9 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-chrec.h $(srcdir)/tree-vect-generic.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
-  $(srcdir)/ipa-reference.c $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
+  $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
+  $(srcdir)/tree-ssa-structalias.c \
+  $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
   $(srcdir)/targhooks.c $(out_file) \
   @all_gtfiles@
 
@@ -2787,6 +2790,7 @@ gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
+gt-tree-ssa-structalias.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp
@@ -4250,30 +4254,30 @@ fastcompare fastcompare3 fastcompare4 fastcompare-lean fastcompare3-lean fastcom
 	for dir in . $(SUBDIRS) libgcc; do \
 	  if [ "`echo $$dir/*$(objext)`" != "$$dir/*$(objext)" ] ; then \
 	    for file in $$dir/*$(objext); do \
-	      case $$file in \
-		./cc*-checksum$(objext) | libgcc/* ) \
-		    tail +16c ./$$file > tmp-foo1 \
-		    && tail +16c stage$$stage/$$file > tmp-foo2 \
-		    && ( cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
-			 || echo warning: $$file differs || true ) \
+	      case "$@" in \
+		slowcompare* ) \
+		  tail +16c ./$$file > tmp-foo1; \
+		  tail +16c stage$$stage/$$file > tmp-foo2; \
+		  cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1; \
+		  cmpret=$$?; \
 		  ;; \
-		*)  case "$@" in \
-		  slowcompare* ) \
-		    tail +16c ./$$file > tmp-foo1; \
-		    tail +16c stage$$stage/$$file > tmp-foo2 \
-		      && (cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
-			  || echo $$file differs >> .bad_compare) || true; \
-		    ;; \
-		  fastcompare* ) \
-		    cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
-		    test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-		    ;; \
-		  gnucompare* ) \
-		    cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
-		    test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-		    ;; \
-	        esac ; \
+		fastcompare* ) \
+		  cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
+		  cmpret=$$?; \
+		  ;; \
+		gnucompare* ) \
+		  cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
+		  cmpret=$$?; \
+		  ;; \
 	      esac ; \
+	      if test $$cmpret -eq 1; then \
+		case $$file in \
+		  ./cc*-checksum$(objext) | libgcc/* ) \
+		    echo warning: $$file differs;; \
+		  *) \
+		    echo $$file differs >> .bad_compare;; \
+		esac ; \
+	      fi; \
 	    done; \
 	  else true; fi; \
 	done

@@ -1,3 +1,158 @@
+2005-11-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/nested-calls-1.c: New test.
+
+2005-11-13  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/complex_intrinsic_1.f90: New test.
+	* gfortran.dg/complex_intrinsic_2.f90: New test.
+	* gfortran.dg/fgetc_1.f90: New test.
+	* gfortran.dg/fgetc_2.f90: New test.
+	* gfortran.dg/fgetc_3.f90: New test.
+	* gfortran.dg/ftell_1.f90: New test.
+	* gfortran.dg/ftell_2.f90: New test.
+	* gfortran.dg/gnu_logical_1.F: New test.
+	* gfortran.dg/gnu_logical_2.f90: New test.
+
+2005-11-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24820
+	* testsuite/gcc.dg/pr24820.c: New test.
+
+2005-11-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-2.c: Fix outcome.
+	* gcc.dg/tree-ssa/loop-3.c: Change type of loop control
+	variable.
+
+2005-11-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	testsuite/24614
+	* gcc.dg/nested-func-4.c: Add dg-options for hppa*-*-hpux*.
+
+2005-11-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.target/cris/cris.exp: New file.
+	* gcc.target/cris/rld-legit1.c: New test.
+	* gcc.target/cris/rld-legit2.c: New test.
+
+2005-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24780
+	* g++.dg/opt/pr24780.C: New test.
+
+	PR c++/24761
+	* g++.dg/template/asm1.C: New test.
+
+2005-11-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/24787
+	* gfortran.dg/scan_1.f90: New test.
+
+2005-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.target/i386/minmax-1.c: New.
+	* gcc.target/i386/minmax-2.c: New.
+
+2005-11-12  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.dg/pr24445.c: Fix for 64-bit targets.
+
+2005-11-11  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.c-torture/execute/20051110-1.c,
+	gcc.c-torture/execute/20051110-2.c: New tests.
+
+2005-11-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/24750
+	* gcc.dg/torture/pr24750-1.c, gcc.target/cris/torture/pr24750-2.c:
+        New tests.
+
+2005-11-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* lib/target-libpath.exp (get_shlib_extension): New proc.
+	* lib/g++.exp (g++_link_flags): Add flags in case of shared only build.
+	* lib/gfortran.exp (gfortran_link_flags): Likewise.
+	* lib/objc.exp (objc_target_compile): Likewise.
+	* lib/obj-c++.exp (obj-c++_link_flags): Likewise. Fix multilib libgcc
+	detection.
+
+2005-11-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* gfortran.dg/static_linking_1.f: Fix static_libgfortran processing.
+
+	* lib/target-supports.exp (check_effective_target_static_libgfortran):
+	Add -static to additional_flags and pass it to target_compile.
+
+2005-11-11  Jerry DeLisle <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/24719
+	gfortran.dg/read_noadvance.f90: New test.
+	
+	PR libgfortran/24699
+	gfortran.dg/fmt_t_2.f90: New test.
+	
+	PR libgfortran/24785
+	gfortran.dg/read_x_eor.f90: New test.
+	
+	PR libgfortran/24584
+	gfortran.dg/namelist_empty.f90: Rename test.
+
+	PR libgfortran/24489
+	gfortran/read_eor.f90: Rename test.
+
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15976
+	* gfortran.dg/automatic_module_variable.f90: New test.
+
+2005-11-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/24445
+	* gcc.dg/pr24445.c: New test.
+
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24655
+	PR fortran/24755
+	* gfortran.dg/recursive_statement_functions.f90: Add statement 
+	functions using inline intrinsic functions and parameters to test
+	that they no longer seg-fault.
+
+	PR fortran/24409
+	gfortran.dg/nested_modules_4.f90: New test.
+	gfortran.dg/nested_modules_5.f90: New test.
+
+2005-11-10  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24643
+	* gfortran.dg/implicit_6.f90, gfortran.dg/implicit_7.f90: New.
+
+2005-11-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/attr-weakref-1.c: Add exit (0) to avoid spurious
+	failures.
+
+2005-11-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-getcontext-1.c: New test.
+
+2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/ifcvt-fabs-1.c: New test.
+
+2005-11-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/4372
+	* gcc.dg/attr-weakref-1.c, gcc.dg/attr-weakref-1a.c: New test.
+	* g++.old-deja/g++.abi/vtable2.C: Use weakref instead of alias.
+
+2005-11-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/24716
+	* gcc.c-torture/execute/pr24716.c: New testcase.
+
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* gcc.dg/pr24624.c: Disable for non S/390 targets.

@@ -151,9 +151,12 @@ public:
     if (__gnu_cxx::__exchange_and_add(&_M_use_count, -1) == 1)
       {
 	dispose();
-	__glibcxx_mutex_lock(_M_mutex);
-	__glibcxx_mutex_unlock(_M_mutex);
-	weak_release();
+#ifdef __GTHREADS	
+	_GLIBCXX_READ_MEM_BARRIER;
+	_GLIBCXX_WRITE_MEM_BARRIER;
+#endif
+	if (__gnu_cxx::__exchange_and_add(&_M_weak_count, -1) == 1)
+	  destroy();
       }
   }
 
@@ -168,8 +171,10 @@ public:
   {
     if (__gnu_cxx::__exchange_and_add(&_M_weak_count, -1) == 1)
       {
-	__glibcxx_mutex_lock(_M_mutex);
-	__glibcxx_mutex_unlock(_M_mutex);
+#ifdef __GTHREADS
+	_GLIBCXX_READ_MEM_BARRIER;
+	_GLIBCXX_WRITE_MEM_BARRIER;
+#endif
 	destroy();
       }
   }
@@ -323,12 +328,11 @@ public:
   { return _M_pi ? _M_pi->get_deleter(__ti) : 0; }
 };
 
-
 class weak_count
 {
 private:
 
-  _Sp_counted_base * _M_pi;
+  _Sp_counted_base* _M_pi;
 
   friend class shared_count;
 
@@ -415,7 +419,11 @@ shared_count::shared_count(const weak_count& __r)
     __throw_bad_weak_ptr();
 }
 
+
 // fwd decls
+template<typename _Tp>
+  class shared_ptr;
+
 template<typename _Tp>
   class weak_ptr;
 
@@ -461,6 +469,11 @@ inline void
 __enable_shared_from_this(const shared_count&, ...)
 { }
 
+
+// get_deleter must be declared before friend declaration by shared_ptr.
+template<typename _Del, typename _Tp>
+  _Del* get_deleter(const shared_ptr<_Tp>&);
+
 /**
  *  @class shared_ptr <tr1/memory>
  *
@@ -468,7 +481,6 @@ __enable_shared_from_this(const shared_count&, ...)
  *  The object pointed to is deleted when the last shared_ptr pointing to it
  *  is destroyed or reset.
  */
-
 template<typename _Tp>
   class shared_ptr
   {
@@ -667,18 +679,21 @@ template<typename _Tp>
       _M_refcount.swap(__other._M_refcount);
     }
 
+  private:
     void*
     _M_get_deleter(const std::type_info& __ti) const
     { return _M_refcount.get_deleter(__ti); }
 
-  private:
     template<typename _Tp1>
       bool
       _M_less(const shared_ptr<_Tp1>& __rhs) const
       { return _M_refcount < __rhs._M_refcount; }
 
-    template <typename _Tp1> friend class shared_ptr;
-    template <typename _Tp1> friend class weak_ptr;
+    template<typename _Tp1> friend class shared_ptr;
+    template<typename _Tp1> friend class weak_ptr;
+
+    template<typename _Del, typename _Tp1>
+      friend _Del* get_deleter(const shared_ptr<_Tp1>&);
 
     // friends injected into enclosing namespace and found by ADL:
     template<typename _Tp1>
@@ -700,8 +715,13 @@ template<typename _Tp>
     shared_count _M_refcount;    // reference counter
   };  // shared_ptr
 
-// 2.2.3.9 shared_ptr casts
+// 2.2.3.8 shared_ptr specialized algorithms.
+template<typename _Tp>
+  inline void
+  swap(shared_ptr<_Tp>& __a, shared_ptr<_Tp>& __b)
+  { __a.swap(__b); }
 
+// 2.2.3.9 shared_ptr casts
 /** @warning The seemingly equivalent
  *           <code>shared_ptr<T>(static_cast<T*>(r.get()))</code>
  *           will eventually result in undefined behaviour,
@@ -847,7 +867,6 @@ template<typename _Tp>
 #endif
     } // XXX MT
 
-
     long
     use_count() const // never throws
     { return _M_refcount.use_count(); }
@@ -897,6 +916,12 @@ template<typename _Tp>
     weak_count _M_refcount;      // reference counter
 
   };  // weak_ptr
+
+// 2.2.4.7 weak_ptr specialized algorithms.
+template<typename _Tp>
+  void
+  swap(weak_ptr<_Tp>& __a, weak_ptr<_Tp>& __b)
+  { __a.swap(__b); }
 
 
 template<typename _Tp>
@@ -953,29 +978,6 @@ template<typename _Tp>
   };
 
 } // namespace tr1
-
-/**
- *  @brief   std::swap() specialisation for shared_ptr.
- *  @relates shared_ptr.
- */
-template<typename _Tp>
-  inline void
-  swap(tr1::shared_ptr<_Tp>& __a, tr1::shared_ptr<_Tp>& __b)
-  {
-    __a.swap(__b);
-  }
-
-/**
- *  @brief   std::swap() specialisation for weak_ptr.
- *  @relates weak_ptr.
- */
-template<typename _Tp>
-  void
-  swap(tr1::weak_ptr<_Tp>& __a, tr1::weak_ptr<_Tp>& __b)
-  {
-    __a.swap(__b);
-  }
-
 } // namespace std
 
 #endif

@@ -158,7 +158,7 @@ read_sf (st_parameter_dt *dtp, int *length)
       if (is_internal_unit (dtp))
 	{
 	  /* readlen may be modified inside salloc_r if
-	     is_internal_unit() is true.  */
+	     is_internal_unit (dtp) is true.  */
 	  readlen = 1;
 	}
 
@@ -192,7 +192,6 @@ read_sf (st_parameter_dt *dtp, int *length)
 	      return NULL;
 	    }
 
-	  dtp->u.p.current_unit->bytes_left = 0;
 	  *length = n;
 	  dtp->u.p.sf_seen_eor = 1;
 	  break;
@@ -535,6 +534,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 
       /* Now discharge T, TR and X movements to the right.  This is delayed
 	 until a data producing format to suppress trailing spaces.  */
+	 
       t = f->format;
       if (dtp->u.p.mode == WRITING && dtp->u.p.skips != 0
 	&& ((n>0 && (  t == FMT_I  || t == FMT_B  || t == FMT_O
@@ -758,8 +758,16 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	  dtp->u.p.skips = f->u.n + dtp->u.p.skips;
 	  dtp->u.p.pending_spaces = pos - dtp->u.p.max_pos;
 
-	  /* Writes occur just before the switch on f->format, above, so that
-	     trailing blanks are suppressed.  */
+	  /* Writes occur just before the switch on f->format, above, so
+	     that trailing blanks are suppressed, unless we are doing a
+	     non-advancing write in which case we want to output the blanks
+	     now.  */
+	  if (dtp->u.p.mode == WRITING
+	      && dtp->u.p.advance_status == ADVANCE_NO)
+	    {
+	      write_x (dtp, dtp->u.p.skips, dtp->u.p.pending_spaces);
+	      dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
+	    }
 	  if (dtp->u.p.mode == READING)
 	    read_x (dtp, f->u.n);
 
@@ -792,8 +800,14 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	     trailing blanks are suppressed.  */
 	  if (dtp->u.p.mode == READING)
 	    {
-	      if (dtp->u.p.skips > 0)
-		read_x (dtp, dtp->u.p.skips);
+	      /* Adjust everything for end-of-record condition */
+	      if (dtp->u.p.sf_seen_eor && !is_internal_unit (dtp))
+		{
+		  dtp->u.p.current_unit->bytes_left--;
+		  bytes_used = pos;
+		  dtp->u.p.sf_seen_eor = 0;
+		  dtp->u.p.skips--;
+		}
 	      if (dtp->u.p.skips < 0)
 		{
 		  move_pos_offset (dtp->u.p.current_unit->s, dtp->u.p.skips);
@@ -801,6 +815,8 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 		    -= (gfc_offset) dtp->u.p.skips;
 		  dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
 		}
+	      else
+		read_x (dtp, dtp->u.p.skips);
 	    }
 
 	  break;
@@ -1946,11 +1962,13 @@ st_read (st_parameter_dt *dtp)
 	  {
 	    generate_error (&dtp->common, ERROR_END, NULL);
 	    dtp->u.p.current_unit->endfile = AFTER_ENDFILE;
+	    dtp->u.p.current_unit->current_record = 0;
 	  }
 	break;
 
       case AFTER_ENDFILE:
 	generate_error (&dtp->common, ERROR_ENDFILE, NULL);
+	dtp->u.p.current_unit->current_record = 0;
 	break;
       }
 }
