@@ -1,3 +1,57 @@
+2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/net/natVMNetworkInterfaceWin32.cc: Include
+	java/net/VMNetworkInterface.h.
+
+2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
+	    David Daney  <ddaney@avtrex.com>
+
+	* gnu/java/net/natPlainSocketImplWin32.cc: Updated copyright.
+	(read): Handle count == 0 case.
+
+2005-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail (non-jls-zip-2): Now
+	passes.
+
+2005-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24587:
+	* gnu/classpath/SystemProperties.java: Set gnu.classpath.version.
+
+2005-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23763.  From aeby@graeff.com.
+	* java/lang/natPosixProcess.cc (nativeSpawn): Unblock SIGCHLD
+	before exec.
+
+2005-11-08  Mark Wielaard  <mark@klomp.org>
+
+	* scripts/makemake.tcl: Set package gnu/javax/sound/midi to bc.
+
+2005-11-07  David Daney  <ddaney@avtrex.com>
+
+	* mauve-libgcj: Disable javax.rmi.* and
+	java.io.InputStreamReader.getEncoding.
+
+2005-11-04  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/14358, libgcj/24552:
+	* gnu/gcj/convert/IOConverter.java: Regenerate aliases.  Add
+	aliases for 'euc_jp' and 'eucjp'.
+	* scripts/encodings.pl: Recognize 'none', not 'NONE'.  Include
+	canonical names in output.
+	(%map): Added UnicodeLittle and UnicodeBig.
+
+2005-11-04  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* include/sh-signal.h (MAKE_THROW_FRAME): Remove trailing whitespace.
+
+2005-11-02  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_find_lib): Add dylib to the shared
+	library extensions.
+
 2005-10-12  Andrew Haley  <aph@redhat.com>
 
 	PR java/24251

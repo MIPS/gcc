@@ -27,6 +27,7 @@ io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
+io/size_from_kind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -44,6 +45,7 @@ intrinsics/c99_functions.c \
 intrinsics/chdir.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/ctime.c \
 intrinsics/date_and_time.c \
 intrinsics/env.c \
 intrinsics/erf.c \
@@ -51,8 +53,10 @@ intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
 intrinsics/exit.c \
+intrinsics/fget.c \
 intrinsics/flush.c \
 intrinsics/fnum.c \
+intrinsics/ftell.c \
 intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \

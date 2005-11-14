@@ -59,6 +59,10 @@ typedef struct cp_token GTY (())
   BOOL_BITFIELD in_system_header : 1;
   /* True if this token is from a context where it is implicitly extern "C" */
   BOOL_BITFIELD implicit_extern_c : 1;
+  /* True for a CPP_NAME token that is not a keyword (i.e., for which
+     KEYWORD is RID_MAX) iff this name was looked up and found to be
+     ambiguous.  An error has already been reported.  */
+  BOOL_BITFIELD ambiguous_p : 1;
   /* The value associated with this token, if any.  */
   tree value;
   /* The location at which this token was found.  */
@@ -72,7 +76,7 @@ DEF_VEC_ALLOC_P (cp_token_position,heap);
 
 static const cp_token eof_token =
 {
-  CPP_EOF, RID_MAX, 0, 0, 0, NULL_TREE,
+  CPP_EOF, RID_MAX, 0, 0, 0, false, NULL_TREE,
 #if USE_MAPPED_LOCATION
   0
 #else
@@ -297,6 +301,11 @@ cp_lexer_new_main (void)
      string constant concatenation.  */
   c_lex_return_raw_strings = false;
 
+  /* Subsequent preprocessor diagnostics should use compiler
+     diagnostic functions to get the compiler source location.  */
+  cpp_get_options (parse_in)->client_diagnostic = true;
+  cpp_get_callbacks (parse_in)->error = cp_cpp_error;
+
   gcc_assert (lexer->next_token->type != CPP_PURGED);
   return lexer;
 }
@@ -396,18 +405,22 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
   token->implicit_extern_c = is_extern_c > 0;
 
   /* Check to see if this token is a keyword.  */
-  if (token->type == CPP_NAME
-      && C_IS_RESERVED_WORD (token->value))
+  if (token->type == CPP_NAME)
     {
-      /* Mark this token as a keyword.  */
-      token->type = CPP_KEYWORD;
-      /* Record which keyword.  */
-      token->keyword = C_RID_CODE (token->value);
-      /* Update the value.  Some keywords are mapped to particular
-	 entities, rather than simply having the value of the
-	 corresponding IDENTIFIER_NODE.  For example, `__const' is
-	 mapped to `const'.  */
-      token->value = ridpointers[token->keyword];
+      if (C_IS_RESERVED_WORD (token->value))
+	{
+	  /* Mark this token as a keyword.  */
+	  token->type = CPP_KEYWORD;
+	  /* Record which keyword.  */
+	  token->keyword = C_RID_CODE (token->value);
+	  /* Update the value.  Some keywords are mapped to particular
+	     entities, rather than simply having the value of the
+	     corresponding IDENTIFIER_NODE.  For example, `__const' is
+	     mapped to `const'.  */
+	  token->value = ridpointers[token->keyword];
+	}
+      else
+	token->ambiguous_p = false;
     }
   /* Handle Objective-C++ keywords.  */
   else if (token->type == CPP_AT_NAME)
@@ -1694,7 +1707,7 @@ static tree cp_parser_objc_statement
 /* Utility Routines */
 
 static tree cp_parser_lookup_name
-  (cp_parser *, tree, enum tag_types, bool, bool, bool, bool *);
+  (cp_parser *, tree, enum tag_types, bool, bool, bool, tree *);
 static tree cp_parser_lookup_name_simple
   (cp_parser *, tree);
 static tree cp_parser_maybe_treat_template_as_class
@@ -2047,7 +2060,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree scope, tree id)
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     error ("invalid use of template-name %qE without an argument list",
       decl);
-  else if (!parser->scope || parser->scope == error_mark_node)
+  else if (!parser->scope)
     {
       /* Issue an error message.  */
       error ("%qE does not name a type", id);
@@ -2094,7 +2107,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree scope, tree id)
     }
   /* Here we diagnose qualified-ids where the scope is actually correct,
      but the identifier does not resolve to a valid type name.  */
-  else
+  else if (parser->scope != error_mark_node)
     {
       if (TREE_CODE (parser->scope) == NAMESPACE_DECL)
 	error ("%qE in namespace %qE does not name a type",
@@ -2989,17 +3002,17 @@ cp_parser_primary_expression (cp_parser *parser,
 	/* Look up the name.  */
 	else
 	  {
-	    bool ambiguous_p;
+	    tree ambiguous_decls;
 
 	    decl = cp_parser_lookup_name (parser, id_expression,
 					  none_type,
 					  template_p,
 					  /*is_namespace=*/false,
 					  /*check_dependency=*/true,
-					  &ambiguous_p);
+					  &ambiguous_decls);
 	    /* If the lookup was ambiguous, an error will already have
 	       been issued.  */
-	    if (ambiguous_p)
+	    if (ambiguous_decls)
 	      return error_mark_node;
 
 	    /* In Objective-C++, an instance variable (ivar) may be preferred
@@ -3605,16 +3618,32 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	      token = cp_lexer_consume_token (parser->lexer);
 	      if (!error_p)
 		{
-		  tree decl;
+		  if (!token->ambiguous_p)
+		    {
+		      tree decl;
+		      tree ambiguous_decls;
 
-		  decl = cp_parser_lookup_name_simple (parser, token->value);
-		  if (TREE_CODE (decl) == TEMPLATE_DECL)
-		    error ("%qD used without template parameters", decl);
-		  else
-		    cp_parser_name_lookup_error
-		      (parser, token->value, decl,
-		       "is not a class or namespace");
-		  parser->scope = NULL_TREE;
+		      decl = cp_parser_lookup_name (parser, token->value,
+						    none_type,
+						    /*is_template=*/false,
+						    /*is_namespace=*/false,
+						    /*check_dependency=*/true,
+						    &ambiguous_decls);
+		      if (TREE_CODE (decl) == TEMPLATE_DECL)
+			error ("%qD used without template parameters", decl);
+		      else if (ambiguous_decls)
+			{
+			  error ("reference to %qD is ambiguous", 
+				 token->value);
+			  print_candidates (ambiguous_decls);
+			  decl = error_mark_node;
+			}
+		      else
+			cp_parser_name_lookup_error
+			  (parser, token->value, decl,
+			   "is not a class or namespace");
+		    }
+		  parser->scope = error_mark_node;
 		  error_p = true;
 		  /* Treat this as a successful nested-name-specifier
 		     due to:
@@ -3961,55 +3990,12 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 
     case RID_TYPENAME:
       {
-	bool template_p = false;
-	tree id;
 	tree type;
-	tree scope;
-
-	/* Consume the `typename' token.  */
-	cp_lexer_consume_token (parser->lexer);
-
-	/* Look for the optional `::' operator.  */
-	cp_parser_global_scope_opt (parser,
-				    /*current_scope_valid_p=*/false);
-	/* Look for the nested-name-specifier.  In case of error here,
-	   consume the trailing id to avoid subsequent error messages
-	   for usual cases.  */
-	scope = cp_parser_nested_name_specifier (parser,
-						 /*typename_keyword_p=*/true,
-						 /*check_dependency_p=*/true,
-						 /*type_p=*/true,
-						 /*is_declaration=*/true);
-
-	/* Look for the optional `template' keyword.  */
-	template_p = cp_parser_optional_template_keyword (parser);
-	/* We don't know whether we're looking at a template-id or an
-	   identifier.  */
-	cp_parser_parse_tentatively (parser);
-	/* Try a template-id.  */
-	id = cp_parser_template_id (parser, template_p,
-				    /*check_dependency_p=*/true,
-				    /*is_declaration=*/true);
-	/* If that didn't work, try an identifier.  */
-	if (!cp_parser_parse_definitely (parser))
-	  id = cp_parser_identifier (parser);
-
-	/* Don't process id if nested name specifier is invalid.  */
-	if (!scope || scope == error_mark_node)
-	  return error_mark_node;
-	/* If we look up a template-id in a non-dependent qualifying
-	   scope, there's no need to create a dependent type.  */
-	if (TREE_CODE (id) == TYPE_DECL
-	    && (!TYPE_P (scope)
-	        || !dependent_type_p (parser->scope)))
-	  type = TREE_TYPE (id);
-	/* Create a TYPENAME_TYPE to represent the type to which the
-	   functional cast is being performed.  */
-	else
-	  type = make_typename_type (parser->scope, id,
-				     typename_type,
-				     /*complain=*/1);
-
+	/* The syntax permitted here is the same permitted for an
+	   elaborated-type-specifier.  */
+	type = cp_parser_elaborated_type_specifier (parser,
+						    /*is_friend=*/false,
+						    /*is_declaration=*/false);
 	postfix_expression = cp_parser_functional_cast (parser, type);
       }
       break;
@@ -4406,7 +4392,13 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	 underlying type here.  */
       scope = non_reference (scope);
       /* The type of the POSTFIX_EXPRESSION must be complete.  */
-      scope = complete_type_or_else (scope, NULL_TREE);
+      if (scope == unknown_type_node)
+	{
+	  error ("%qE does not have class type", postfix_expression);
+	  scope = NULL_TREE;
+	}
+      else
+	scope = complete_type_or_else (scope, NULL_TREE);
       /* Let the name lookup machinery know that we are processing a
 	 class member access expression.  */
       parser->context->object_type = scope;
@@ -8489,7 +8481,7 @@ cp_parser_type_parameter (cp_parser* parser)
 					 /*is_template=*/is_template,
 					 /*is_namespace=*/false,
 					 /*check_dependency=*/true,
-					 /*ambiguous_p=*/NULL);
+					 /*ambiguous_decls=*/NULL);
 	    /* See if the default argument is valid.  */
 	    default_argument
 	      = check_template_template_default_arg (default_argument);
@@ -8845,7 +8837,7 @@ cp_parser_template_name (cp_parser* parser,
 				/*is_template=*/false,
 				/*is_namespace=*/false,
 				check_dependency_p,
-				/*ambiguous_p=*/NULL);
+				/*ambiguous_decls=*/NULL);
   decl = maybe_get_template_decl_from_type_decl (decl);
 
   /* If DECL is a template, then the name was a template-name.  */
@@ -9046,7 +9038,7 @@ cp_parser_template_argument (cp_parser* parser)
 					  /*is_template=*/template_p,
 					  /*is_namespace=*/false,
 					  /*check_dependency=*/true,
-					  /*ambiguous_p=*/NULL);
+					  /*ambiguous_decls=*/NULL);
       if (TREE_CODE (argument) != TEMPLATE_DECL
 	  && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
 	cp_parser_error (parser, "expected template-name");
@@ -9969,7 +9961,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 					/*is_template=*/false,
 					/*is_namespace=*/false,
 					/*check_dependency=*/true,
-					/*ambiguous_p=*/NULL);
+					/*ambiguous_decls=*/NULL);
 
 	  /* If we are parsing friend declaration, DECL may be a
 	     TEMPLATE_DECL tree node here.  However, we need to check
@@ -10265,7 +10257,7 @@ cp_parser_namespace_name (cp_parser* parser)
 					  /*is_template=*/false,
 					  /*is_namespace=*/true,
 					  /*check_dependency=*/true,
-					  /*ambiguous_p=*/NULL);
+					  /*ambiguous_decls=*/NULL);
   /* If it's not a namespace, issue an error.  */
   if (namespace_decl == error_mark_node
       || TREE_CODE (namespace_decl) != NAMESPACE_DECL)
@@ -12501,9 +12493,13 @@ cp_parser_class_name (cp_parser *parser,
   if (token->type == CPP_NAME
       && !cp_parser_nth_token_starts_template_argument_list_p (parser, 2))
     {
+      cp_token *identifier_token;
       tree identifier;
+      bool ambiguous_p;
 
       /* Look for the identifier.  */
+      identifier_token = cp_lexer_peek_token (parser->lexer);
+      ambiguous_p = identifier_token->ambiguous_p;
       identifier = cp_parser_identifier (parser);
       /* If the next token isn't an identifier, we are certainly not
 	 looking at a class-name.  */
@@ -12515,6 +12511,15 @@ cp_parser_class_name (cp_parser *parser,
 	decl = identifier;
       else
 	{
+	  tree ambiguous_decls;
+	  /* If we already know that this lookup is ambiguous, then
+	     we've already issued an error message; there's no reason
+	     to check again.  */
+	  if (ambiguous_p)
+	    {
+	      cp_parser_simulate_error (parser);
+	      return error_mark_node;
+	    }
 	  /* If the next token is a `::', then the name must be a type
 	     name.
 
@@ -12531,7 +12536,18 @@ cp_parser_class_name (cp_parser *parser,
 					/*is_template=*/false,
 					/*is_namespace=*/false,
 					check_dependency_p,
-					/*ambiguous_p=*/NULL);
+					&ambiguous_decls);
+	  if (ambiguous_decls)
+	    {
+	      error ("reference to %qD is ambiguous", identifier);
+	      print_candidates (ambiguous_decls);
+	      if (cp_parser_parsing_tentatively (parser))
+		{
+		  identifier_token->ambiguous_p = true;
+		  cp_parser_simulate_error (parser);
+		}
+	      return error_mark_node;
+	    }
 	}
     }
   else
@@ -14470,8 +14486,9 @@ cp_parser_label_declaration (cp_parser* parser)
    If CHECK_DEPENDENCY is TRUE, names are not looked up in dependent
    types.
 
-   If AMBIGUOUS_P is non-NULL, it is set to true if name-lookup
-   results in an ambiguity, and false otherwise.  */
+   If AMBIGUOUS_DECLS is non-NULL, *AMBIGUOUS_DECLS is set to a
+   TREE_LIST of candiates if name-lookup results in an ambiguity, and
+   NULL_TREE otherwise.  */ 
 
 static tree
 cp_parser_lookup_name (cp_parser *parser, tree name,
@@ -14479,7 +14496,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 		       bool is_template, 
 		       bool is_namespace,
 		       bool check_dependency,
-		       bool *ambiguous_p)
+		       tree *ambiguous_decls)
 {
   int flags = 0;
   tree decl;
@@ -14489,8 +14506,8 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
     flags |= LOOKUP_COMPLAIN;
 
   /* Assume that the lookup will be unambiguous.  */
-  if (ambiguous_p)
-    *ambiguous_p = false;
+  if (ambiguous_decls)
+    *ambiguous_decls = NULL_TREE;
 
   /* Now that we have looked up the name, the OBJECT_TYPE (if any) is
      no longer valid.  Note that if we are parsing tentatively, and
@@ -14647,8 +14664,8 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
   if (TREE_CODE (decl) == TREE_LIST)
     {
-      if (ambiguous_p)
-	*ambiguous_p = true;
+      if (ambiguous_decls)
+	*ambiguous_decls = decl;
       /* The error message we have to print is too complicated for
 	 cp_parser_error, so we incorporate its actions directly.  */
       if (!cp_parser_simulate_error (parser))
@@ -14690,7 +14707,7 @@ cp_parser_lookup_name_simple (cp_parser* parser, tree name)
 				/*is_template=*/false,
 				/*is_namespace=*/false,
 				/*check_dependency=*/true,
-				/*ambiguous_p=*/NULL);
+				/*ambiguous_decls=*/NULL);
 }
 
 /* If DECL is a TEMPLATE_DECL that can be treated like a TYPE_DECL in
@@ -15498,11 +15515,8 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
 		 "a template argument list");
 	}
     }
-  else if (!cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
-    error ("missing %<>%> to terminate the template argument list");
   else
-    /* It's what we want, a '>'; consume it.  */
-    cp_lexer_consume_token (parser->lexer);
+    cp_parser_skip_until_found (parser, CPP_GREATER, "`>'");
   /* The `>' token might be a greater-than operator again now.  */
   parser->greater_than_is_operator_p
     = saved_greater_than_is_operator_p;

@@ -245,7 +245,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
 -Wunused-value  -Wunused-variable  -Wvariadic-macros @gol
--Wwrite-strings}
+-Wvolatile-register-var  -Wwrite-strings}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -412,7 +412,8 @@ Objective-C and Objective-C++ Dialects}.
 -mpoke-function-name @gol
 -mthumb  -marm @gol
 -mtpcs-frame  -mtpcs-leaf-frame @gol
--mcaller-super-interworking  -mcallee-super-interworking}
+-mcaller-super-interworking  -mcallee-super-interworking @gol
+-mtp=@var{name}}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu}  -msize  -minit-stack=@var{n}  -mno-interrupts @gol
@@ -3369,6 +3370,13 @@ Warn if variadic macros are used in pedantic ISO C90 mode, or the GNU
 alternate syntax when in pedantic ISO C99 mode.  This is default.
 To inhibit the warning messages, use @option{-Wno-variadic-macros}.
 
+@item -Wvolatile-register-var
+@opindex Wvolatile-register-var
+@opindex Wno-volatile-register-var
+Warn if a register variable is declared volatile.  The volatile
+modifier does not inhibit all optimizations that may eliminate reads
+and/or writes to register variables.
+
 @item -Wdisabled-optimization
 @opindex Wdisabled-optimization
 Warn if a requested optimization pass is disabled.  This warning does
@@ -5934,6 +5942,13 @@ given basic block needs to have to be considered hot.
 Select fraction of the maximal frequency of executions of basic block in
 function given basic block needs to have to be considered hot
 
+@item max-predicted-iterations
+The maximum number of loop iterations we predict statically.  This is useful
+in cases where function contain single loop with known bound and other loop
+with unknown.  We predict the known number of iterations correctly, while
+the unknown number of iterations average to roughly 10.  This means that the
+loop without bounds would appear artificially cold relative to the other one.
+
 @item tracer-dynamic-coverage
 @itemx tracer-dynamic-coverage-feedback
 
@@ -5970,6 +5985,9 @@ order to make tracer effective.
 @item max-cse-path-length
 
 Maximum number of basic blocks on path that cse considers.  The default is 10.
+
+@item max-cse-insns
+The maximum instructions CSE process before flushing. The default is 1000.
 
 @item global-var-threshold
 
@@ -6032,6 +6050,10 @@ The maximum number of memory locations cselib should take into acount.
 Increasing values mean more aggressive optimization, making the compile time
 increase with probably slightly better performance.  The default value is 500.
 
+@item max-flow-memory-location
+Similar as @option{max-cselib-memory-location} but for dataflow liveness.
+The default value is 100.
+
 @item reorder-blocks-duplicate
 @itemx reorder-blocks-duplicate-feedback
 
@@ -6084,6 +6106,9 @@ ratio is 3.
 The minimum size of buffers (i.e. arrays) that will receive stack smashing
 protection when @option{-fstack-protection} is used.
 
+@item max-jump-thread-duplication-stmts
+Maximum number of statements allowed in a block that needs to be
+duplicated when threading jumps.
 @end table
 @end table
 
@@ -7455,6 +7480,15 @@ Allows calls via function pointers (including virtual functions) to
 execute correctly regardless of whether the target code has been
 compiled for interworking or not.  There is a small overhead in the cost
 of executing a function pointer if this option is enabled.
+
+@item -mtp=@var{name}
+@opindex mtp
+Specify the access model for the thread local storage pointer.  The valid
+models are @option{soft}, which generates calls to @code{__aeabi_read_tp},
+@option{cp15}, which fetches the thread pointer from @code{cp15} directly
+(supported in the arm6k architecture), and @option{auto}, which uses the
+best available method for the selected processor.  The default setting is
+@option{auto}.
 
 @end table
 

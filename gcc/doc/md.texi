@@ -3306,6 +3306,16 @@ corresponds to the C data type @code{double} and the @code{rintf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
+@cindex @code{copysign@var{m}3} instruction pattern
+@item @samp{copysign@var{m}3}
+Store a value with the magnitude of operand 1 and the sign of operand
+2 into operand 0.
+
+The @code{copysign} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{copysignf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
 @cindex @code{ffs@var{m}2} instruction pattern
 @item @samp{ffs@var{m}2}
 Store into operand 0 one plus the index of the least significant 1-bit
@@ -3551,7 +3561,7 @@ Operand 1 may have mode @code{byte_mode} or @code{word_mode}; often
 be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 2 and 3.
+for operands 2 and 3 and the constant is never zero for operand 2.
 
 The bit-field value is sign-extended to a full word integer
 before it is stored in operand 0.
@@ -3569,7 +3579,7 @@ operand 2 the starting bit.  Operand 0 may have mode @code{byte_mode} or
 Operands 1 and 2 must be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 1 and 2.
+for operands 1 and 2 and the constant is never zero for operand 1.
 
 @cindex @code{mov@var{mode}cc} instruction pattern
 @item @samp{mov@var{mode}cc}

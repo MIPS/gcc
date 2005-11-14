@@ -1271,6 +1271,30 @@ clobbers_queued_reg_save (rtx insn)
   return false;
 }
 
+/* Entry point for saving the first register into the second.  */
+
+void
+dwarf2out_reg_save_reg (const char *label, rtx reg, rtx sreg)
+{
+  size_t i;
+  unsigned int regno, sregno;
+
+  for (i = 0; i < num_regs_saved_in_regs; i++)
+    if (REGNO (regs_saved_in_regs[i].orig_reg) == REGNO (reg))
+      break;
+  if (i == num_regs_saved_in_regs)
+    {
+      gcc_assert (i != ARRAY_SIZE (regs_saved_in_regs));
+      num_regs_saved_in_regs++;
+    }
+  regs_saved_in_regs[i].orig_reg = reg;
+  regs_saved_in_regs[i].saved_in_reg = sreg;
+
+  regno = DWARF_FRAME_REGNUM (REGNO (reg));
+  sregno = DWARF_FRAME_REGNUM (REGNO (sreg));
+  reg_save (label, regno, sregno, 0);
+}
+
 /* What register, if any, is currently saved in REG?  */
 
 static rtx
@@ -1659,7 +1683,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	case UNSPEC_VOLATILE:
 	  gcc_assert (targetm.dwarf_handle_frame_unspec);
 	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
-	  break;
+	  return;
 
 	default:
 	  gcc_unreachable ();
@@ -1981,7 +2005,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	    dw2_asm_output_encoded_addr_rtx (
 		ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0),
 		gen_rtx_SYMBOL_REF (Pmode, cfi->dw_cfi_oprnd1.dw_cfi_addr),
-		NULL);
+		false, NULL);
 	  else
 	    dw2_asm_output_addr (DWARF2_ADDR_SIZE,
 				 cfi->dw_cfi_oprnd1.dw_cfi_addr, NULL);
@@ -2237,7 +2261,8 @@ output_call_frame_info (int for_eh)
 	  dw2_asm_output_data (1, per_encoding, "Personality (%s)",
 			       eh_data_format_name (per_encoding));
 	  dw2_asm_output_encoded_addr_rtx (per_encoding,
-					   eh_personality_libfunc, NULL);
+					   eh_personality_libfunc,
+					   true, NULL);
 	}
 
       if (any_lsda_needed)
@@ -2289,6 +2314,7 @@ output_call_frame_info (int for_eh)
 	  SYMBOL_REF_FLAGS (sym_ref) |= SYMBOL_FLAG_LOCAL;
 	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 					   sym_ref,
+					   false,
 					   "FDE initial location");
 	  if (fde->dw_fde_switched_sections)
 	    {
@@ -2298,13 +2324,13 @@ output_call_frame_info (int for_eh)
 				      fde->dw_fde_hot_section_label);
 	      SYMBOL_REF_FLAGS (sym_ref2) |= SYMBOL_FLAG_LOCAL;
 	      SYMBOL_REF_FLAGS (sym_ref3) |= SYMBOL_FLAG_LOCAL;
-	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3,
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3, false,
 					       "FDE initial location");
 	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				    fde->dw_fde_hot_section_end_label,
 				    fde->dw_fde_hot_section_label,
 				    "FDE address range");
-	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2,
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2, false,
 					       "FDE initial location");
 	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				    fde->dw_fde_unlikely_section_end_label,
@@ -2369,7 +2395,7 @@ output_call_frame_info (int for_eh)
 					       fde->funcdef_number);
 		  dw2_asm_output_encoded_addr_rtx (
 			lsda_encoding, gen_rtx_SYMBOL_REF (Pmode, l1),
-			"Language Specific Data Area");
+			false, "Language Specific Data Area");
 		}
 	      else
 		{
@@ -8510,7 +8536,11 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
   unsigned reg;
   dw_loc_descr_ref loc_result = NULL;
 
-  reg = dbx_reg_number (rtl);
+  reg = REGNO (rtl);
+#ifdef LEAF_REG_REMAP
+  reg = LEAF_REG_REMAP (reg);
+#endif
+  gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
 
   /* Simple, contiguous registers.  */
@@ -8523,7 +8553,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 	{
 	  dw_loc_descr_ref t;
 
-	  t = one_reg_loc_descriptor (reg);
+	  t = one_reg_loc_descriptor (DBX_REGISTER_NUMBER (reg));
 	  add_loc_descr (&loc_result, t);
 	  add_loc_descr_op_piece (&loc_result, size);
 	  ++reg;
@@ -10779,7 +10809,8 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
       if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
 	  && TREE_PUBLIC (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
-	  && !DECL_ABSTRACT (decl))
+	  && !DECL_ABSTRACT (decl)
+	  && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl)))
 	add_AT_string (die, DW_AT_MIPS_linkage_name,
 		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
     }
@@ -11447,6 +11478,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       gcc_assert (!old_die);
     }
 
+  /* Now that the C++ front end lazily declares artificial member fns, we
+     might need to retrofit the declaration into its class.  */
+  if (!declaration && !origin && !old_die
+      && DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl))
+      && !class_or_namespace_scope_p (context_die)
+      && debug_info_level > DINFO_LEVEL_TERSE)
+    old_die = force_decl_die (decl);
+
   if (origin != NULL)
     {
       gcc_assert (!declaration || local_scope_p (context_die));
@@ -11548,7 +11587,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	     Note that force_decl_die() forces function declaration die. It is
 	     later reused to represent definition.  */
-	    equate_decl_number_to_die (decl, subr_die);
+	  equate_decl_number_to_die (decl, subr_die);
 	}
     }
   else if (DECL_ABSTRACT (decl))
@@ -12759,6 +12798,10 @@ force_decl_die (tree decl)
       else
 	context_die = comp_unit_die;
 
+      decl_die = lookup_decl_die (decl);
+      if (decl_die)
+	return decl_die;
+
       switch (TREE_CODE (decl))
 	{
 	case FUNCTION_DECL:
@@ -12809,13 +12852,18 @@ force_type_die (tree type)
     {
       dw_die_ref context_die;
       if (TYPE_CONTEXT (type))
-	if (TYPE_P (TYPE_CONTEXT (type)))
-	  context_die = force_type_die (TYPE_CONTEXT (type));
-	else
-	  context_die = force_decl_die (TYPE_CONTEXT (type));
+	{
+	  if (TYPE_P (TYPE_CONTEXT (type)))
+	    context_die = force_type_die (TYPE_CONTEXT (type));
+	  else
+	    context_die = force_decl_die (TYPE_CONTEXT (type));
+	}
       else
 	context_die = comp_unit_die;
 
+      type_die = lookup_type_die (type);
+      if (type_die)
+	return type_die;
       gen_type_die (type, context_die);
       type_die = lookup_type_die (type);
       gcc_assert (type_die);

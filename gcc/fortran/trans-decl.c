@@ -87,6 +87,9 @@ tree gfor_fndecl_select_string;
 tree gfor_fndecl_runtime_error;
 tree gfor_fndecl_set_fpe;
 tree gfor_fndecl_set_std;
+tree gfor_fndecl_ctime;
+tree gfor_fndecl_fdate;
+tree gfor_fndecl_ttynam;
 tree gfor_fndecl_in_pack;
 tree gfor_fndecl_in_unpack;
 tree gfor_fndecl_associated;
@@ -371,7 +374,7 @@ gfc_finish_cray_pointee (tree decl, gfc_symbol *sym)
   if (sym->attr.dimension
       && TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE) 
     {  
-      /* These decls will be derefenced later, so we don't dereference
+      /* These decls will be dereferenced later, so we don't dereference
 	 them here.  */
       value = convert (TREE_TYPE (decl), ptr_decl);
     }
@@ -1200,7 +1203,7 @@ build_function_decl (gfc_symbol * sym)
       /* TODO: check if a pure SUBROUTINE has no INTENT(OUT) arguments
 	 including a alternate return. In that case it can also be
 	 marked as PURE. See also in gfc_get_extern_function_decl().  */
-      if (attr.function)
+      if (attr.function && !gfc_return_by_reference (sym))
 	DECL_IS_PURE (fndecl) = 1;
       TREE_SIDE_EFFECTS (fndecl) = 0;
     }
@@ -1780,6 +1783,7 @@ gfc_build_intrinsic_function_decls (void)
   tree gfc_complex8_type_node = gfc_get_complex_type (8);
   tree gfc_complex10_type_node = gfc_get_complex_type (10);
   tree gfc_complex16_type_node = gfc_get_complex_type (16);
+  tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   /* String functions.  */
   gfor_fndecl_copy_string =
@@ -1848,6 +1852,29 @@ gfc_build_intrinsic_function_decls (void)
                                      gfc_charlen_type_node,
                                      pchar_type_node,
                                      gfc_int4_type_node);
+
+  gfor_fndecl_ttynam =
+    gfc_build_library_function_decl (get_identifier (PREFIX("ttynam")),
+                                     void_type_node,
+                                     3,
+                                     pchar_type_node,
+                                     gfc_charlen_type_node,
+                                     gfc_c_int_type_node);
+
+  gfor_fndecl_fdate =
+    gfc_build_library_function_decl (get_identifier (PREFIX("fdate")),
+                                     void_type_node,
+                                     2,
+                                     pchar_type_node,
+                                     gfc_charlen_type_node);
+
+  gfor_fndecl_ctime =
+    gfc_build_library_function_decl (get_identifier (PREFIX("ctime")),
+                                     void_type_node,
+                                     3,
+                                     pchar_type_node,
+                                     gfc_charlen_type_node,
+                                     gfc_int8_type_node);
 
   gfor_fndecl_adjustl =
     gfc_build_library_function_decl (get_identifier (PREFIX("adjustl")),

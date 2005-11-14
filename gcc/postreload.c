@@ -576,6 +576,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		      op_alt_regno[i][j] = regno;
 		    }
 		  j++;
+		  class = (int) NO_REGS;
 		  break;
 		}
 	      p += CONSTRAINT_LEN (c, p);
@@ -608,7 +609,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	  int this_nregs = alternative_nregs[alternative_order[j]];
 
 	  if (this_reject < best_reject
-	      || (this_reject == best_reject && this_nregs < best_nregs))
+	      || (this_reject == best_reject && this_nregs > best_nregs))
 	    {
 	      best = j;
 	      best_reject = this_reject;

@@ -146,6 +146,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "splay-tree.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "params.h"
 
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
@@ -282,10 +283,6 @@ static int ndead;
    reseting pbi->insn_num to 0.  */
 
 static int *reg_deaths;
-
-/* Maximum length of pbi->mem_set_list before we start dropping
-   new elements on the floor.  */
-#define MAX_MEM_SET_LIST_LEN	100
 
 /* Forward declarations */
 #if 0
@@ -658,7 +655,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 
 	  /* We repeat regardless of what cleanup_cfg says.  If there were
 	     instructions deleted above, that might have been only a
-	     partial improvement (see MAX_MEM_SET_LIST_LEN usage).
+	     partial improvement (see PARAM_MAX_FLOW_MEMORY_LOCATIONS  usage).
 	     Further improvement may be possible.  */
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	}
@@ -1976,7 +1973,7 @@ add_to_mem_set_list (struct propagate_block_info *pbi, rtx mem)
 	}
     }
 
-  if (pbi->mem_set_list_len < MAX_MEM_SET_LIST_LEN)
+  if (pbi->mem_set_list_len < PARAM_VALUE (PARAM_MAX_FLOW_MEMORY_LOCATIONS))
     {
 #ifdef AUTO_INC_DEC
       /* Store a copy of mem, otherwise the address may be
@@ -2274,7 +2271,7 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 	      else
 		SET_REGNO_REG_SET (pbi->local_set, i);
 	    }
-	  if (code != CLOBBER)
+	  if (code != CLOBBER || needed_regno)
 	    SET_REGNO_REG_SET (pbi->new_set, i);
 
 	  some_was_live |= needed_regno;

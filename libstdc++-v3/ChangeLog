@@ -1,3 +1,150 @@
+2005-11-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/boost_shared_ptr.h (get_deleter):
+	Declare before shared_ptr.
+	(shared_ptr<>): Declare get_deleter as friend.
+	(shared_ptr<>:_M_get_deleter): Private.
+
+2005-11-13  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR libstdc++/24818
+	* include/tr1/ref_wrap_iterate.h
+	(reference_wrapper::operator()()): Don't dereferene the result of
+	get() before calling it; it's already a reference.
+	* testsuite/tr1/3_function_objects/reference_wrapper/invoke.cc:
+	Test nullary calls to reference_wrappers.
+
+2005-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24808
+	* include/tr1/type_traits (__is_abstract_helper): Rename to __in_array
+	(with complemented logic).
+	(is_function): Use it, don't use __conv_helper.
+	(is_abstract): Adjust.
+	(__conv_helper): Rename to __is_convertible_simple.
+	(is_convertible): Adjust.
+	* testsuite/testsuite_tr1.h (class IncompleteClass): Add.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/is_object/
+	24808.cc: New.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/is_enum/
+	24808.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/is_function/
+	24808.cc: Likewise.
+
+2005-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24799
+	* include/tr1/functional (hash): Inherit from std::unary_function.
+	* testsuite/tr1/6_containers/unordered/hash/24799.cc: New.
+
+	PR libstdc++/24805
+	* include/tr1/boost_shared_ptr.h (swap(shared_ptr<>&, shared_ptr<>&),
+	swap(weak_ptr<>&, weak_ptr<>&)): Move inside namespace tr1.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	24805.cc: New.
+
+	PR libstdc++/24809
+	* include/tr1/type_traits (__is_polymorhpic_helper): Adjust destructor.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_polymorphic/
+	24809.cc: New.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: Adjust, remove xfail.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: Likewise.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release,
+	weak_release): Protect barriers with __GTHREADS.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+	    Peter Dimov  <pdimov@mmltd.net>
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release):
+	Optimize by manually inlining weak_release.
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release,
+	weak_release): Use explicit memory barriers.
+
+2005-11-09  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+            Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/22203
+	* numeric_limits.cc: Split into...
+	* numeric_limits/specialization.cc: ..this.
+	* numeric_limits/is_iec559.cc: Same.
+	* numeric_limits/sign.cc: Same.
+	* numeric_limits/quiet_NaN.cc: Same.
+	* numeric_limits/digits10.cc: Same.
+	* numeric_limits/denorm_min.cc: Same.
+	* numeric_limits/min_max.cc: Same.
+	* numeric_limits/epsilon.cc: Same.
+	* numeric_limits/infinity.cc: Same.
+	* numeric_limits/traps.cc: New.
+
+2005-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h: Trivial formatting fixes.
+
+2005-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_debug_mode): Use
+	exe as the executable extension.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Change gnu defaults to
+	new.
+	(GLIBCXX_ENABLE_PCH): Adjust message order.
+	* configure: Regenerate.
+	
+	* scripts/testsuite_flags.in (query): Correct print_usagex typo.
+
+	* include/bits/functexcept.h: Remove argument names.
+
+	* src/mt_allocator.cc: Adjust comment.
+	
+2005-11-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/18174
+	* include/bits/stl_queue.h (priority_queue): Tweak a bit the
+	comment describing the container.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.host: Add | rs6000 to the cpu_defines_dir switch,
+	consistently with the try_cpu one.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22203
+	* include/bits/c++config: Include cpu_defines.h.
+	* include/Makefile.am: Add cpu_defines.h to host_headers.
+	* configure.host: Add cpu_defines_dir.
+	* configure.ac: Use it.
+	* config/cpu/powerpc/cpu_defines.h: New.
+	* config/cpu/generic/cpu_defines.h: Likewise.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.	
+	* testsuite/Makefile.in: Likewise.
+
+2005-11-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_swap):
+	Change the various traits_type::copy call to always copy the
+	entire local buffer; return early and don't do a full swap on
+	the lengths for two common cases; change two _S_copy to plain
+	traits_type::copy.
+
 2005-11-02  Thomas Kho  <tkho@ucla.edu>
 
 	PR libstdc++/23425
@@ -83,8 +230,9 @@
 2005-10-17  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	PR libstdc++/24244
-	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::_Sp_counted_base()):
-	When __GTHREAD_MUTEX_INIT is defined, initialize the mutex.
+	* include/tr1/boost_shared_ptr.h
+	(_Sp_counted_base::_Sp_counted_base()): When __GTHREAD_MUTEX_INIT
+	is defined, initialize the mutex.
 
 2005-10-15  Paolo Carlini  <pcarlini@suse.de>
 

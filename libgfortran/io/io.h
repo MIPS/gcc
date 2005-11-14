@@ -520,6 +520,9 @@ internal_proto(stream_isatty);
 extern char * stream_ttyname (stream *);
 internal_proto(stream_ttyname);
 
+extern gfc_offset stream_offset (stream *s);
+internal_proto(stream_offset);
+
 extern int unit_to_fd (int);
 internal_proto(unit_to_fd);
 
@@ -627,7 +630,7 @@ internal_proto(read_decimal);
 
 /* list_read.c */
 
-extern void list_formatted_read (bt, void *, int, size_t);
+extern void list_formatted_read (bt, void *, int, size_t, size_t);
 internal_proto(list_formatted_read);
 
 extern void finish_list_read (void);
@@ -680,11 +683,18 @@ internal_proto(write_x);
 extern void write_z (fnode *, const char *, int);
 internal_proto(write_z);
 
-extern void list_formatted_write (bt, void *, int, size_t);
+extern void list_formatted_write (bt, void *, int, size_t, size_t);
 internal_proto(list_formatted_write);
 
 /* error.c */
 extern try notify_std (int, const char *);
 internal_proto(notify_std);
+
+/* size_from_kind.c */
+extern size_t size_from_real_kind (int);
+internal_proto(size_from_real_kind);
+
+extern size_t size_from_complex_kind (int);
+internal_proto(size_from_complex_kind);
 
 #endif

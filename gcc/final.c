@@ -142,6 +142,9 @@ static int high_function_linenum;
 /* Filename of last NOTE.  */
 static const char *last_filename;
 
+/* Whether to force emission of a line note before the next insn.  */
+static bool force_source_line = false;
+  
 extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
@@ -1740,7 +1743,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_BB)) == SEEN_BB)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_BB;
@@ -1764,7 +1767,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_NOTE;
@@ -1782,7 +1785,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_NOTE;
@@ -2502,8 +2505,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
   return NEXT_INSN (insn);
 }
 
-/* Output debugging info to the assembler file FILE
-   based on the NOTE-insn INSN, assumed to be a line number.  */
+/* Return whether a source line note needs to be emitted before INSN.  */
 
 static bool
 notice_source_line (rtx insn)
@@ -2511,8 +2513,12 @@ notice_source_line (rtx insn)
   const char *filename = insn_file (insn);
   int linenum = insn_line (insn);
 
-  if (filename && (filename != last_filename || last_linenum != linenum))
+  if (filename
+      && (force_source_line
+	  || filename != last_filename
+	  || last_linenum != linenum))
     {
+      force_source_line = false;
       last_filename = filename;
       last_linenum = linenum;
       high_block_linenum = MAX (last_linenum, high_block_linenum);
