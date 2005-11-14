@@ -1,3 +1,31 @@
+2005-11-14  Paolo Carlini  <pcarlini@suse.de>
+
+	Implement Option 3 of DR 431 for string - both available bases -
+	and add testsuite support.
+	* include/bits/cpp_type_traits.h (struct __is_empty): Add.
+	* testsuite/testsuite_allocator.h (class uneq_allocator): A simple
+	non-empty testing allocator which can be endowed of a "personality"
+	at construction time.
+	* include/bits/basic_string.h (basic_string<>::swap): Delegate to
+	this->_M_swap.
+	* include/bits/basic_string.tcc (basic_string<>::swap): Remove.
+	* include/ext/rc_string.h (struct _Alloc_hider): Add allocator
+	swapping facility, specialized to nothing for empty allocators.
+	(__rc_string<>::_M_swap): Use it.
+	(__rc_string<>::_M_is_leaked, _M_set_sharable): Change to private.
+	* include/ext/sso_string.h (struct _Alloc_hider): Likewise.
+	(__sso_string<>::_M_swap): Use it.
+	(__sso_string<>::_M_is_leaked, _M_set_sharable): Remove, unused.	
+	* testsuite/21_strings/basic_string/swap/char/2.cc: New.
+	* testsuite/21_strings/basic_string/swap/char/3.cc: Likewise.
+	* testsuite/21_strings/basic_string/swap/wchar_t/2.cc: Likewise.
+	* testsuite/21_strings/basic_string/swap/wchar_t/3.cc: Likewise.
+	* testsuite/21_strings/basic_string/swap/char/1.cc: Tweak.
+	* testsuite/21_strings/basic_string/swap/wchar_t/1.cc: Likewise.
+
+	* include/ext/rc_string.h (__rc_string<>::_M_data(_CharT*): Return void.
+	* include/ext/sso_string.h (__sso_string<>::_M_data(_CharT*): Likewise.
+
 2005-11-03  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h (__sso_string<>::_M_swap):

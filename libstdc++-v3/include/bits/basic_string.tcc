@@ -220,29 +220,6 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     basic_string<_CharT, _Traits, _Alloc>::
-    swap(basic_string& __s)
-    {
-      if (this->_M_is_leaked())
-	this->_M_set_sharable();
-      if (__s._M_is_leaked())
-	__s._M_set_sharable();
-      if (this->get_allocator() == __s.get_allocator())
-	this->_M_swap(__s);
-      // The code below can usually be optimized away.
-      else
-	{
-	  const basic_string __tmp1(_M_ibegin(), _M_iend(),
-				    __s.get_allocator());
-	  const basic_string __tmp2(__s._M_ibegin(), __s._M_iend(),
-				    this->get_allocator());
-	  *this = __tmp2;
-	  __s = __tmp1;
-	}
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    void
-    basic_string<_CharT, _Traits, _Alloc>::
     resize(size_type __n, _CharT __c)
     {
       const size_type __size = this->size();

@@ -169,16 +169,40 @@ namespace __gnu_cxx
 			     / sizeof(_CharT)) - 1) / 4 };
 
       // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
-      struct _Alloc_hider : _Alloc
-      {
-	_Alloc_hider(_CharT* __dat, const _Alloc& __a)
-	: _Alloc(__a), _M_p(__dat) { }
+      template<typename _Alloc1, bool = std::__is_empty<_Alloc1>::__value>
+        struct _Alloc_hider
+	: public _Alloc1
+	{
+	  _Alloc_hider(_CharT* __ptr, const _Alloc1& __a)
+	  : _Alloc1(__a), _M_p(__ptr) { }
+	  
+	  void _M_alloc_swap(_Alloc_hider&) { }
 
-	_CharT* _M_p; // The actual data.
-      };
+	  _CharT* _M_p; // The actual data.
+	};
+
+      template<typename _Alloc1>
+        struct _Alloc_hider<_Alloc1, false>
+	: public _Alloc1
+	{
+	  _Alloc_hider(_CharT* __ptr, const _Alloc1& __a)
+	  : _Alloc1(__a), _M_p(__ptr) { }
+
+	  void
+	  _M_alloc_swap(_Alloc_hider& __ah)
+	  {
+	    // Precondition: swappable allocators.
+	    _Alloc1& __this = static_cast<_Alloc1&>(*this);
+	    _Alloc1& __that = static_cast<_Alloc1&>(__ah);
+	    if (__this != __that)
+	      swap(__this, __that);
+	  }
+
+	  _CharT*  _M_p; // The actual data.
+	};
 
       // Data Member (private):
-      mutable _Alloc_hider	_M_dataplus;
+      mutable _Alloc_hider<_Alloc>	_M_dataplus;
 
       static _Rep_empty&
       _S_empty_rep()
@@ -187,9 +211,9 @@ namespace __gnu_cxx
 	return _Empty_rep;
       }
 
-      _CharT*
+      void
       _M_data(_CharT* __p)
-      { return (_M_dataplus._M_p = __p); }
+      { _M_dataplus._M_p = __p; }
 
       _Rep*
       _M_rep() const
@@ -208,6 +232,14 @@ namespace __gnu_cxx
 	if (__exchange_and_add(&_M_rep()->_M_refcount, -1) <= 0)
 	  _M_rep()->_M_destroy(__a);
       }  // XXX MT
+
+      bool
+      _M_is_leaked() const
+      { return _M_rep()->_M_refcount < 0; }
+
+      void
+      _M_set_sharable()
+      { _M_rep()->_M_refcount = 0; }
 
       void
       _M_leak_hard();
@@ -275,21 +307,9 @@ namespace __gnu_cxx
       _M_is_shared() const
       { return _M_rep()->_M_refcount > 0; }
 
-      bool
-      _M_is_leaked() const
-      { return _M_rep()->_M_refcount < 0; }
-
-      void
-      _M_set_sharable()
-      { _M_rep()->_M_refcount = 0; }
-
       void
       _M_set_leaked()
       { _M_rep()->_M_refcount = -1; }
-
-      void
-      _M_set_length(size_type __n)
-      { _M_rep()->_M_set_length(__n); }
 
       void
       _M_leak()    // for use in begin() & non-const op[]
@@ -297,6 +317,10 @@ namespace __gnu_cxx
 	if (!_M_is_leaked())
 	  _M_leak_hard();
       }
+
+      void
+      _M_set_length(size_type __n)
+      { _M_rep()->_M_set_length(__n); }
 
       __rc_string()
       : _M_dataplus(_S_empty_rep()._M_refcopy(), _Alloc()) { }
@@ -319,12 +343,7 @@ namespace __gnu_cxx
       { return _M_dataplus; }
 
       void
-      _M_swap(__rc_string& __rcs)
-      {
-	_CharT* __tmp = _M_data();
-	_M_data(__rcs._M_data());
-	__rcs._M_data(__tmp);
-      }
+      _M_swap(__rc_string& __rcs);
 
       void
       _M_assign(const __rc_string& __rcs);
@@ -568,6 +587,24 @@ namespace __gnu_cxx
       __r->_M_set_length(__n);
       return __r->_M_refdata();
     }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    void
+    __rc_string<_CharT, _Traits, _Alloc>::
+    _M_swap(__rc_string& __rcs)
+    {
+      if (_M_is_leaked())
+	_M_set_sharable();
+      if (__rcs._M_is_leaked())
+	__rcs._M_set_sharable();
+      
+      _CharT* __tmp = _M_data();
+      _M_data(__rcs._M_data());
+      __rcs._M_data(__tmp);
+      
+      // NB: Implement Option 3 of DR 431 (see N1599).
+      _M_dataplus._M_alloc_swap(__rcs._M_dataplus);
+    } 
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void

@@ -67,16 +67,40 @@ namespace __gnu_cxx
 			     / sizeof(_CharT)) - 1) / 4 };
 
       // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
-      struct _Alloc_hider : _Alloc
-      {
-	_Alloc_hider(const _Alloc& __a, _CharT* __ptr)
-	: _Alloc(__a), _M_p(__ptr) { }
+      template<typename _Alloc1, bool = std::__is_empty<_Alloc1>::__value>
+        struct _Alloc_hider
+	: public _Alloc1
+	{
+	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
+	  : _Alloc1(__a), _M_p(__ptr) { }
+	  
+	  void _M_alloc_swap(_Alloc_hider&) { }
 
-	_CharT* _M_p; // The actual data.
-      };
+	  _CharT* _M_p; // The actual data.
+	};
 
+      template<typename _Alloc1>
+        struct _Alloc_hider<_Alloc1, false>
+	: public _Alloc1
+	{
+	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
+	  : _Alloc1(__a), _M_p(__ptr) { }
+
+	  void
+	  _M_alloc_swap(_Alloc_hider& __ah)
+	  {
+	    // Precondition: swappable allocators.
+	    _Alloc1& __this = static_cast<_Alloc1&>(*this);
+	    _Alloc1& __that = static_cast<_Alloc1&>(__ah);
+	    if (__this != __that)
+	      swap(__this, __that);
+	  }
+
+	  _CharT*  _M_p; // The actual data.
+	};
+      
       // Data Members (private):
-      _Alloc_hider	        _M_dataplus;
+      _Alloc_hider<_Alloc>      _M_dataplus;
       size_type                 _M_string_length;
 
       enum { _S_local_capacity = 15 };
@@ -87,9 +111,9 @@ namespace __gnu_cxx
 	size_type               _M_allocated_capacity;
       };
 
-      _CharT*
+      void
       _M_data(_CharT* __p)
-      { return (_M_dataplus._M_p = __p); }
+      { _M_dataplus._M_p = __p; }
 
       void
       _M_length(size_type __length)
@@ -181,27 +205,18 @@ namespace __gnu_cxx
       _M_is_shared() const
       { return false; }
 
-      bool
-      _M_is_leaked() const
-      { return false; }
-
-      void
-      _M_set_sharable() { }
-
       void
       _M_set_leaked() { }
+
+      void
+      _M_leak() { }
 
       void
       _M_set_length(size_type __n)
       {
 	_M_length(__n);
-	// grrr. (per 21.3.4)
-	// You cannot leave those LWG people alone for a second.
 	traits_type::assign(_M_data()[__n], _CharT());
       }
-
-      void
-      _M_leak() { }
 
       __sso_string()
       : _M_dataplus(_Alloc(), _M_local_data)
@@ -248,6 +263,9 @@ namespace __gnu_cxx
     __sso_string<_CharT, _Traits, _Alloc>::
     _M_swap(__sso_string& __rcs)
     {
+      // NB: Implement Option 3 of DR 431 (see N1599).
+      _M_dataplus._M_alloc_swap(__rcs._M_dataplus);
+      
       if (_M_is_local())
 	if (__rcs._M_is_local())
 	  {
@@ -306,7 +324,7 @@ namespace __gnu_cxx
 	    }
 	  __rcs._M_capacity(__tmp_capacity);
 	}
-
+      
       const size_type __tmp_length = _M_length();
       _M_length(__rcs._M_length());
       __rcs._M_length(__tmp_length);
@@ -325,9 +343,6 @@ namespace __gnu_cxx
       // The below implements an exponential growth policy, necessary to
       // meet amortized linear time requirements of the library: see
       // http://gcc.gnu.org/ml/libstdc++/2001-07/msg00085.html.
-      // It's active for allocations requiring an amount of memory above
-      // system pagesize. This is consistent with the requirements of the
-      // standard: http://gcc.gnu.org/ml/libstdc++/2001-07/msg00130.html
       if (__capacity > __old_capacity && __capacity < 2 * __old_capacity)
 	__capacity = 2 * __old_capacity;
 

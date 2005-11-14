@@ -1257,7 +1257,8 @@ namespace std
        *  time.
       */
       void
-      swap(basic_string& __s);
+      swap(basic_string& __s)
+      { this->_M_swap(__s); }
 
       // String operations:
       /**

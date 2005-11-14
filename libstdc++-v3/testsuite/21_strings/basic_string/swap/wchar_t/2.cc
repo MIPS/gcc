@@ -1,4 +1,4 @@
-// 2005-02-10  Paolo Carlini  <pcarlini@suse.de>
+// 2005-11-13  Paolo Carlini  <pcarlini@suse.de>
 
 // Copyright (C) 2005 Free Software Foundation, Inc.
 //
@@ -22,15 +22,17 @@
 
 #include <string>
 #include <testsuite_hooks.h>
+#include <testsuite_allocator.h>
 
-// A few basic tests...
+// ... some more using uneq_allocator as a non-empty allocator.
 void
 test01()
 {
   bool test __attribute__((unused)) = true;
   using namespace std;
 
-  typedef wstring my_wstring;
+  typedef __gnu_test::uneq_allocator<wchar_t> my_alloc;
+  typedef basic_string<wchar_t, char_traits<wchar_t>, my_alloc > my_wstring;
 
   const wchar_t* title00 = L"";
   const wchar_t* title01 = L"Rivers of sand";
@@ -40,9 +42,11 @@ test01()
 
   my_wstring::size_type size01, size02;
 
-  my_wstring str01(title00);
+  my_alloc alloc01(1);
+
+  my_wstring str01(title00, alloc01);
   size01 = str01.size();
-  my_wstring str02(title00);
+  my_wstring str02(title00, alloc01);
   size02 = str02.size();
   
   str01.swap(str02);
@@ -51,9 +55,9 @@ test01()
   VERIFY( str02.size() == size01 );
   VERIFY( str02 == title00 );
 
-  my_wstring str03(title00);
+  my_wstring str03(title00, alloc01);
   size01 = str03.size();
-  my_wstring str04(title02);
+  my_wstring str04(title02, alloc01);
   size02 = str04.size();
   
   str03.swap(str04);
@@ -62,9 +66,9 @@ test01()
   VERIFY( str04.size() == size01 );
   VERIFY( str04 == title00 );
   
-  my_wstring str05(title01);
+  my_wstring str05(title01, alloc01);
   size01 = str05.size();
-  my_wstring str06(title02);
+  my_wstring str06(title02, alloc01);
   size02 = str06.size();
   
   str05.swap(str06);
@@ -73,9 +77,9 @@ test01()
   VERIFY( str06.size() == size01 );
   VERIFY( str06 == title01 );
 
-  my_wstring str07(title01);
+  my_wstring str07(title01, alloc01);
   size01 = str07.size();
-  my_wstring str08(title03);
+  my_wstring str08(title03, alloc01);
   size02 = str08.size();
 
   str07.swap(str08);
@@ -84,9 +88,9 @@ test01()
   VERIFY( str08.size() == size01 );
   VERIFY( str08 == title01 );
 
-  my_wstring str09(title03);
+  my_wstring str09(title03, alloc01);
   size01 = str09.size();
-  my_wstring str10(title04);
+  my_wstring str10(title04, alloc01);
   size02 = str10.size();
 
   str09.swap(str10);
@@ -95,9 +99,9 @@ test01()
   VERIFY( str10.size() == size01 );
   VERIFY( str10 == title03 );
 
-  my_wstring str11(title04);
+  my_wstring str11(title04, alloc01);
   size01 = str11.size();
-  my_wstring str12(title01);
+  my_wstring str12(title01, alloc01);
   size02 = str12.size();
 
   str11.swap(str12);
@@ -106,9 +110,9 @@ test01()
   VERIFY( str12.size() == size01 );
   VERIFY( str12 == title04 );
 
-  my_wstring str13(title03);
+  my_wstring str13(title03, alloc01);
   size01 = str13.size();
-  my_wstring str14(title03);
+  my_wstring str14(title03, alloc01);
   size02 = str14.size();
 
   str13.swap(str14);
