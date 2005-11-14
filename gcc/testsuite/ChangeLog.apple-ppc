@@ -1,3 +1,15 @@
+2005-11-14  Devang Patel  <dpatel@apple.com>
+
+	Radar 4053179
+	* gcc.dg/tree-ssa-vect/pr16105.c: Remove.
+	* gcc.dg/tree-ssa-vect/ifc-01.c: Remove.
+	* gcc.dg/tree-ssa-vect/ifc-02.c: Remove.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-31.c: Remove.
+	* gcc.dg/tree-ssa-vect/tree-vect.h: Remove.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-35.c: Remove.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect.exp: Remove.
+	* gcc.dg/tree-ssa-vect : Remove.
+
 2005-11-09  Mike Stump  <mrs@apple.com>
 
 	Radar 4300193
