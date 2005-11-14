@@ -20,7 +20,7 @@
 #
 # Contributed by Ben Elliston <bje@au.ibm.com>.
 
-set TORTURE_OPTIONS [list {} -O1 -O2 -O3]
+set TORTURE_OPTIONS [list {} -O1 -O2 -O3 -msoft-float]
 
 # On x86 and x86-64 systems, -Os makes the stack alignment too small,
 # leading to segmentation faults when executing SSE instructions.

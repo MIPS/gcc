@@ -1,3 +1,7 @@
+2005-11-14  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Add -msoft-float.
+
 2005-11-02  Janis Johnson  <janis187@us.ibm.com>
 	    Yao Qi  <qiyao@cn.ibm.com>
 
