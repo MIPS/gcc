@@ -1,3 +1,47 @@
+2005-11-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* Makefile.in: Re-generated.
+	* gnu/awt/xlib/XGraphicsDevice.java: New file.
+	* gnu/awt/xlib/XToolkit.java
+	(getLocalGraphicsEnvironment): Implemented. 
+	* gnu/awt/xlib/XGraphicsEnvironment.java: New file.
+	* sources.am: Re-generated.
+
+2005-15-09  David Daney <ddaney@avtrex.com>
+
+	PR libgcj/15430
+	* gnu/java/net/natPlainSocketImplPosix.cc (throw_on_sock_closed): New
+	function.
+	(accept): Call it.
+	(close): Call shutdown before closing.
+	(read()): Call read_helper with proper parameters.
+	(read(buffer, int, int)): Likewise.
+	(read_helper):  Pass pointer to the PlainSocketImpl, remove native_fd
+	and timeout parameters.  Make prototype to match. Use 
+	pointer to PlainSocketImpl to access members. Call throw_on_sock_closed
+	in two places.
+
+2005-11-15  Andrew Haley  <aph@redhat.com>
+
+	* Merge from Classpath head:
+
+   2005-09-16  Andrew Haley  <aph@redhat.com>
+   
+           * java/io/ObjectStreamClass.java (findAccessibleMethod): Allow
+           protected readResolve().  Rewrite accessibility check.
+   
+   2005-07-07  Jeroen Frijters  <jeroen@frijters.net>
+   
+           * java/io/ObjectStreamClass.java
+           (findAccessibleMethod): Added code to make method accessible.
+   
+   2005-07-03  Daniel Bonniot  <bonniot@users.sf.net>
+   
+           * java/io/ObjectStreamClass.java (inSamePackage): New private method.
+           (findAccessibleMethod): Likewise.
+           (cacheMethods): Lookup readResolve and writeReplace using the new
+           findAccessibleMethod().
+   
 2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
 
 	* java/net/natVMNetworkInterfaceWin32.cc: Include

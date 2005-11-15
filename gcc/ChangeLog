@@ -1,3 +1,34 @@
+2005-11-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* c.opt (ffixed-line-length-none): New.
+
+2005-11-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* mklibgcc.in: Change contents of eh_dummy.c.
+
+2005-11-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* loop.c (scan_loop): Do not insert temporaries for hard registers.
+
+2005-11-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (div0) [L_dvmd_lnx]: Call raise instead
+	of making syscalls.
+	* config/arm/linux-eabi.h (CLEAR_INSN_CACHE): Define.  Set r7 also.
+
+2005-11-15  Jan Hubicka  <jh@suse.cz>
+
+	* invoke.texi (large-unit-insns): Document.
+	* ipa-inline.c (cgraph_decide_inlining): Use large-unit-insns param.
+	* params.def (large-unit-insns): New param.
+
+2005-11-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/24869
+	* config/cris/cris.md ("*mov_sidesisf_mem"): Do not match
+	special register for operand 3.  Reindent constraints to align
+	them vertically.
+
 2005-11-14  David Edelsohn  <edelsohn@gnu.org>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Add -mmfcrf,
