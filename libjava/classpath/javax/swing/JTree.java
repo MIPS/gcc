@@ -1480,7 +1480,7 @@ public class JTree extends JComponent implements Scrollable, Accessible
     updateUI();
     setRootVisible(true);
     setModel(model);
-    setSelectionModel(EmptySelectionModel.sharedInstance());
+    setSelectionModel(new EmptySelectionModel());
   }
 
   /**
@@ -2065,7 +2065,8 @@ public class JTree extends JComponent implements Scrollable, Accessible
       }
     Rectangle rect = getPathBounds(path);
     scrollRectToVisible(rect);
-    setSelectionPath(temp);
+    revalidate();
+    repaint();
   }
 
   public void scrollRowToVisible(int row)
@@ -2363,8 +2364,8 @@ public class JTree extends JComponent implements Scrollable, Accessible
 
   public void expandPath(TreePath path)
   {
-    // Don't expand if last path component is a leaf node.
-    if ((path == null) || (treeModel.isLeaf(path.getLastPathComponent())))
+    // Don't expand if path is null
+    if (path == null)
       return;
 
     try
@@ -2588,7 +2589,7 @@ public class JTree extends JComponent implements Scrollable, Accessible
 
     if (!isExpanded(parent) && parent != null)
       doExpandParents(parent, false);
-
+    
     nodeStates.put(path, state ? EXPANDED : COLLAPSED);
   }
 
@@ -2596,7 +2597,6 @@ public class JTree extends JComponent implements Scrollable, Accessible
   {
     if (path == null)
       return;
-    TreePath parent = path.getParentPath();
 
     doExpandParents(path, state);
   }
@@ -2650,7 +2650,7 @@ public class JTree extends JComponent implements Scrollable, Accessible
   {
     if (path == null)
       return;
-
+    
     expandPath(path.getParentPath());
   }
 

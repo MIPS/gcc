@@ -738,7 +738,16 @@ public class Container extends Component
    */
   public float getAlignmentX()
   {
-    return super.getAlignmentX();
+    LayoutManager layout = getLayout();
+    float alignmentX = 0.0F;
+    if (layout != null && layout instanceof LayoutManager2)
+      {
+        LayoutManager2 lm2 = (LayoutManager2) layout;
+        alignmentX = lm2.getLayoutAlignmentX(this);
+      }
+    else
+      alignmentX = super.getAlignmentX();
+    return alignmentX;
   }
 
   /**
@@ -750,7 +759,16 @@ public class Container extends Component
    */
   public float getAlignmentY()
   {
-    return super.getAlignmentY();
+    LayoutManager layout = getLayout();
+    float alignmentY = 0.0F;
+    if (layout != null && layout instanceof LayoutManager2)
+      {
+        LayoutManager2 lm2 = (LayoutManager2) layout;
+        alignmentY = lm2.getLayoutAlignmentY(this);
+      }
+    else
+      alignmentY = super.getAlignmentY();
+    return alignmentY;
   }
 
   /**
@@ -2148,7 +2166,10 @@ class LightweightDispatcher implements Serializable
         // Don't dispatch CLICKED events whose target is not the same as the
         // target for the original PRESSED event.
         if (candidate != pressedComponent)
-          mouseEventTarget = null;
+          {
+            mouseEventTarget = null;
+            pressCount = 0;
+          }
         else if (pressCount == 0)
           pressedComponent = null;
       }
@@ -2186,7 +2207,7 @@ class LightweightDispatcher implements Serializable
                   pressedComponent = null;
                 break;
               }
-
+            
             MouseEvent newEvt =
               AWTUtilities.convertMouseEvent(nativeContainer, me,
                                              mouseEventTarget);

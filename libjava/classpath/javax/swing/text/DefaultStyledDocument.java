@@ -41,9 +41,14 @@ package javax.swing.text;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.Serializable;
+import java.util.Enumeration;
 import java.util.Vector;
 
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
+import javax.swing.undo.AbstractUndoableEdit;
+import javax.swing.undo.UndoableEdit;
 
 /**
  * The default implementation of {@link StyledDocument}.
@@ -60,6 +65,87 @@ import javax.swing.event.DocumentEvent;
 public class DefaultStyledDocument extends AbstractDocument
   implements StyledDocument
 {
+  /**
+   * An {@link UndoableEdit} that can undo attribute changes to an element.
+   *
+   * @author Roman Kennke (kennke@aicas.com)
+   */
+  public static class AttributeUndoableEdit
+    extends AbstractUndoableEdit
+  {
+    /**
+     * A copy of the old attributes.
+     */
+    protected AttributeSet copy;
+
+    /**
+     * The new attributes.
+     */
+    protected AttributeSet newAttributes;
+
+    /**
+     * If the new attributes replaced the old attributes or if they only were
+     * added to them.
+     */
+    protected boolean isReplacing;
+
+    /**
+     * The element that has changed.
+     */
+    protected Element element;
+
+    /**
+     * Creates a new <code>AttributeUndoableEdit</code>.
+     *
+     * @param el the element that changes attributes
+     * @param newAtts the new attributes
+     * @param replacing if the new attributes replace the old or only append to
+     *        them
+     */
+    public AttributeUndoableEdit(Element el, AttributeSet newAtts,
+                                 boolean replacing)
+    {
+      element = el;
+      newAttributes = newAtts;
+      isReplacing = replacing;
+      copy = el.getAttributes().copyAttributes();
+    }
+
+    /**
+     * Undos the attribute change. The <code>copy</code> field is set as
+     * attributes on <code>element</code>.
+     */
+    public void undo()
+    {
+      super.undo();
+      AttributeSet atts = element.getAttributes();
+      if (atts instanceof MutableAttributeSet)
+        {
+          MutableAttributeSet mutable = (MutableAttributeSet) atts;
+          mutable.removeAttributes(atts);
+          mutable.addAttributes(copy);
+        }
+    }
+
+    /**
+     * Redos an attribute change. This adds <code>newAttributes</code> to the
+     * <code>element</code>'s attribute set, possibly clearing all attributes
+     * if <code>isReplacing</code> is true.
+     */
+    public void redo()
+    {
+      super.undo();
+      AttributeSet atts = element.getAttributes();
+      if (atts instanceof MutableAttributeSet)
+        {
+          MutableAttributeSet mutable = (MutableAttributeSet) atts;
+          if (isReplacing)
+            mutable.removeAttributes(atts);
+          mutable.addAttributes(newAttributes);
+        }
+    }
+  }
+
   /**
    * Carries specification information for new {@link Element}s that should
    * be created in {@link ElementBuffer}. This allows the parsing process
@@ -423,37 +509,37 @@ public class DefaultStyledDocument extends AbstractDocument
     void split(Element el, int offset)
     {
       if (el instanceof AbstractElement)
-	{
-	  AbstractElement ael = (AbstractElement) el;
-	  int startOffset = ael.getStartOffset();
-	  int endOffset = ael.getEndOffset();
-	  int len = endOffset - startOffset;
-	  if (startOffset != offset && endOffset != offset)
-	    {
-	      Element paragraph = ael.getParentElement();
-	      if (paragraph instanceof BranchElement)
-		{
-		  BranchElement par = (BranchElement) paragraph;
-		  Element child1 = createLeafElement(par, ael, startOffset,
-						     offset);
-		  Element child2 = createLeafElement(par, ael, offset,
-						     endOffset);
-		  int index = par.getElementIndex(startOffset);
-          Element[] add = new Element[]{ child1, child2 };
-		  par.replace(index, 1, add);
-          documentEvent.addEdit(new ElementEdit(par, index,
-                                                new Element[]{ el },
-                                                add));
-		}
+        {
+          AbstractElement ael = (AbstractElement) el;
+          int startOffset = ael.getStartOffset();
+          int endOffset = ael.getEndOffset();
+          int len = endOffset - startOffset;
+          if (startOffset != offset && endOffset != offset)
+            {
+              Element paragraph = ael.getParentElement();
+              if (paragraph instanceof BranchElement)
+                {
+                  BranchElement par = (BranchElement) paragraph;
+                  Element child1 = createLeafElement(par, ael, startOffset,
+                                                     offset);
+                  Element child2 = createLeafElement(par, ael, offset,
+                                                     endOffset);
+                  int index = par.getElementIndex(startOffset);
+                  Element[] add = new Element[]{ child1, child2 };
+                  par.replace(index, 1, add);
+                  documentEvent.addEdit(new ElementEdit(par, index,
+                                                        new Element[]{ el },
+                                                        add));
+                }
               else
                 throw new AssertionError("paragraph elements are expected to "
                                          + "be instances of "
 			  + "javax.swing.text.AbstractDocument.BranchElement");
-	    }
-	}
+            }
+        }
       else
-	throw new AssertionError("content elements are expected to be "
-				 + "instances of "
+        throw new AssertionError("content elements are expected to be "
+                                 + "instances of "
 			+ "javax.swing.text.AbstractDocument.AbstractElement");
     }
 
@@ -686,6 +772,34 @@ public class DefaultStyledDocument extends AbstractDocument
         }
       offset += len;
     }
+    
+    /**
+     * Creates a copy of the element <code>clonee</code> that has the parent
+     * <code>parent</code>.
+     * @param parent the parent of the newly created Element
+     * @param clonee the Element to clone
+     * @return the cloned Element
+     */
+    public Element clone (Element parent, Element clonee)
+    {
+      // If the Element we want to clone is a leaf, then simply copy it
+      if (clonee.isLeaf())
+        return createLeafElement(parent, clonee.getAttributes(),
+                                 clonee.getStartOffset(), clonee.getEndOffset());
+      
+      // Otherwise create a new BranchElement with the desired parent and 
+      // the clonee's attributes
+      BranchElement result = (BranchElement) createBranchElement(parent, clonee.getAttributes());
+      
+      // And clone all the of clonee's children
+      Element[] children = new Element[clonee.getElementCount()];
+      for (int i = 0; i < children.length; i++)
+        children[i] = clone(result, clonee.getElement(i));
+      
+      // Make the cloned children the children of the BranchElement
+      result.replace(0, 0, children);
+      return result;
+    }
   }
 
   /**
@@ -714,6 +828,29 @@ public class DefaultStyledDocument extends AbstractDocument
     }
   }
 
+  /**
+   * Receives notification when any of the document's style changes and calls
+   * {@link DefaultStyledDocument#styleChanged(Style)}.
+   *
+   * @author Roman Kennke (kennke@aicas.com)
+   */
+  private class StyleChangeListener
+    implements ChangeListener
+  {
+
+    /**
+     * Receives notification when any of the document's style changes and calls
+     * {@link DefaultStyledDocument#styleChanged(Style)}.
+     *
+     * @param event the change event
+     */
+    public void stateChanged(ChangeEvent event)
+    {
+      Style style = (Style) event.getSource();
+      styleChanged(style);
+    }
+  }
+
   /** The serialization UID (compatible with JDK1.5). */
   private static final long serialVersionUID = 940485415728614849L;
 
@@ -727,6 +864,11 @@ public class DefaultStyledDocument extends AbstractDocument
    * <code>Element</code> hierarchy.
    */
   protected DefaultStyledDocument.ElementBuffer buffer;
+
+  /**
+   * Listens for changes on this document's styles and notifies styleChanged().
+   */
+  private StyleChangeListener styleChangeListener;
 
   /**
    * Creates a new <code>DefaultStyledDocument</code>.
@@ -781,7 +923,14 @@ public class DefaultStyledDocument extends AbstractDocument
   public Style addStyle(String nm, Style parent)
   {
     StyleContext context = (StyleContext) getAttributeContext();
-    return context.addStyle(nm, parent);
+    Style newStyle = context.addStyle(nm, parent);
+
+    // Register change listener.
+    if (styleChangeListener == null)
+      styleChangeListener = new StyleChangeListener();
+    newStyle.addChangeListener(styleChangeListener);
+
+    return newStyle;
   }
 
   /**
@@ -825,10 +974,10 @@ public class DefaultStyledDocument extends AbstractDocument
   {
     Element element = getDefaultRootElement();
 
-    while (! element.isLeaf())
+    while (!element.isLeaf())
       {
-	int index = element.getElementIndex(position);
-	element = element.getElement(index);
+        int index = element.getElementIndex(position);
+        element = element.getElement(index);
       }
     
     return element;
@@ -976,34 +1125,34 @@ public class DefaultStyledDocument extends AbstractDocument
     int paragraphCount =  root.getElementCount();
     for (int pindex = 0; pindex < paragraphCount; pindex++)
       {
-	Element paragraph = root.getElement(pindex);
-	// Skip paragraphs that lie outside the interval.
-	if ((paragraph.getStartOffset() > offset + length)
-	    || (paragraph.getEndOffset() < offset))
-	  continue;
+        Element paragraph = root.getElement(pindex);
+        // Skip paragraphs that lie outside the interval.
+        if ((paragraph.getStartOffset() > offset + length)
+            || (paragraph.getEndOffset() < offset))
+          continue;
 
-	// Visit content elements within this paragraph
-	int contentCount = paragraph.getElementCount();
-	for (int cindex = 0; cindex < contentCount; cindex++)
-	  {
-	    Element content = paragraph.getElement(cindex);
-	    // Skip content that lies outside the interval.
-	    if ((content.getStartOffset() > offset + length)
-		|| (content.getEndOffset() < offset))
-	      continue;
+        // Visit content elements within this paragraph
+        int contentCount = paragraph.getElementCount();
+        for (int cindex = 0; cindex < contentCount; cindex++)
+          {
+            Element content = paragraph.getElement(cindex);
+            // Skip content that lies outside the interval.
+            if ((content.getStartOffset() > offset + length)
+                || (content.getEndOffset() < offset))
+              continue;
 
-	    if (content instanceof AbstractElement)
-	      {
-		AbstractElement el = (AbstractElement) content;
-		if (replace)
-		  el.removeAttributes(el);
-		el.addAttributes(attributes);
-	      }
-	    else
-	      throw new AssertionError("content elements are expected to be"
-				       + "instances of "
+            if (content instanceof AbstractElement)
+              {
+                AbstractElement el = (AbstractElement) content;
+                if (replace)
+                  el.removeAttributes(el);
+                el.addAttributes(attributes);
+              }
+            else
+              throw new AssertionError("content elements are expected to be"
+                                       + "instances of "
 		       + "javax.swing.text.AbstractDocument.AbstractElement");
-	  }
+          }
       }
 
     fireChangedUpdate(ev);
@@ -1074,8 +1223,8 @@ public class DefaultStyledDocument extends AbstractDocument
     catch (BadLocationException ex)
       {
         AssertionError ae = new AssertionError("Unexpected bad location");
-	ae.initCause(ex);
-	throw ae;
+        ae.initCause(ex);
+        throw ae;
       }
 
     int len = 0;
@@ -1144,5 +1293,93 @@ public class DefaultStyledDocument extends AbstractDocument
       (ElementSpec[]) specs.toArray(new ElementSpec[specs.size()]);
 
     buffer.insert(offset, length, elSpecs, ev);
-  }  
+  }
+
+  /**
+   * Returns an enumeration of all style names.
+   *
+   * @return an enumeration of all style names
+   */
+  public Enumeration getStyleNames()
+  {
+    StyleContext context = (StyleContext) getAttributeContext();
+    return context.getStyleNames();
+  }
+
+  /**
+   * Called when any of this document's styles changes.
+   *
+   * @param style the style that changed
+   */
+  protected void styleChanged(Style style)
+  {
+    // Nothing to do here. This is intended to be overridden by subclasses.
+  }
+
+  /**
+   * Inserts a bulk of structured content at once.
+   *
+   * @param offset the offset at which the content should be inserted
+   * @param data the actual content spec to be inserted
+   */
+  protected void insert(int offset, ElementSpec[] data)
+    throws BadLocationException
+  {
+    writeLock();
+    // First we insert the content.
+    int index = offset;
+    for (int i = 0; i < data.length; i++)
+      {
+        ElementSpec spec = data[i];
+        if (spec.getArray() != null && spec.getLength() > 0)
+          {
+            String insertString = new String(spec.getArray(), spec.getOffset(),
+                                             spec.getLength());
+            content.insertString(index, insertString);
+          }
+        index += spec.getLength();
+      }
+    // Update the view structure.
+    DefaultDocumentEvent ev = new DefaultDocumentEvent(offset, index - offset,
+                                               DocumentEvent.EventType.INSERT);
+    for (int i = 0; i < data.length; i++)
+      {
+        ElementSpec spec = data[i];
+        AttributeSet atts = spec.getAttributes();
+        if (atts != null)
+          insertUpdate(ev, atts);
+      }
+
+    // Finally we must update the document structure and fire the insert update
+    // event.
+    buffer.insert(offset, index - offset, data, ev);
+    fireInsertUpdate(ev);
+    writeUnlock();
+  }
+
+  /**
+   * Initializes the <code>DefaultStyledDocument</code> with the specified
+   * data.
+   *
+   * @param data the specification of the content with which the document is
+   *        initialized
+   */
+  protected void create(ElementSpec[] data)
+  {
+    try
+      {
+        // Clear content.
+        content.remove(0, content.length());
+        // Clear buffer and root element.
+        buffer = new ElementBuffer(createDefaultRoot());
+        // Insert the data.
+        insert(0, data);
+      }
+    catch (BadLocationException ex)
+      {
+        AssertionError err = new AssertionError("Unexpected bad location");
+        err.initCause(ex);
+        throw err;
+      }
+  }
 }

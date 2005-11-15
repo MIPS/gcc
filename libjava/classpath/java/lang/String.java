@@ -1873,4 +1873,43 @@ public final class String implements Serializable, Comparable, CharSequence
 
     return value;
   }
+  
+  /**
+   * Returns true iff this String contains the sequence of Characters
+   * described in s.
+   * @param s the CharSequence
+   * @return true iff this String contains s
+   */
+  public boolean contains (CharSequence s)
+  {
+    return this.indexOf(s.toString()) != -1;
+  }
+  
+  /**
+   * Returns a string that is this string with all instances of the sequence
+   * represented by <code>target</code> replaced by the sequence in 
+   * <code>replacement</code>.
+   * @param target the sequence to be replaced
+   * @param replacement the sequence used as the replacement
+   * @return the string constructed as above
+   */
+  public String replace (CharSequence target, CharSequence replacement)
+  {
+    String targetString = target.toString();
+    String replaceString = replacement.toString();
+    int targetLength = target.length();
+    int replaceLength = replacement.length();
+    
+    int startPos = this.indexOf(targetString);
+    StringBuilder result = new StringBuilder(this);    
+    while (startPos != -1)
+      {
+        // Replace the target with the replacement
+        result.replace(startPos, startPos + targetLength, replaceString);
+
+        // Search for a new occurrence of the target
+        startPos = result.indexOf(targetString, startPos + replaceLength);
+      }
+    return result.toString();
+  }
 }

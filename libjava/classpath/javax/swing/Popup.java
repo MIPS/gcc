@@ -39,6 +39,7 @@ exception statement from your version. */
 package javax.swing;
 
 import java.awt.Component;
+import java.awt.FlowLayout;
 import java.awt.Point;
 
 
@@ -224,7 +225,12 @@ public class Popup
      * The panel that holds the content.
      */
     private JPanel panel;
-
+    
+    /**
+     * The layered pane of the owner.
+     */
+    private JLayeredPane layeredPane;
+    
     /**
      * Constructs a new <code>LightweightPopup</code> given its owner,
      * contents and the screen position where the popup
@@ -252,6 +258,10 @@ public class Popup
       this.contents = contents;
       this.x = x;
       this.y = y;
+      
+      JRootPane rootPane = SwingUtilities.getRootPane(owner);
+      JLayeredPane layeredPane = rootPane.getLayeredPane();
+      this.layeredPane = layeredPane;
     }
 
     /**
@@ -260,16 +270,15 @@ public class Popup
      */
     public void show()
     {
-      JRootPane rootPane = SwingUtilities.getRootPane(owner);
-      JLayeredPane layeredPane = rootPane.getLayeredPane();
       // We insert a JPanel between the layered pane and the contents so we
       // can fiddle with the setLocation() method without disturbing a
       // JPopupMenu (which overrides setLocation in an unusual manner).
       if (panel == null)
         {
           panel = new JPanel();
-          panel.setLayout(null);
+          panel.setLayout(new FlowLayout(0, 0, 0));
         }
+      
       panel.add(contents);
       panel.setSize(contents.getSize());
       Point layeredPaneLoc = layeredPane.getLocationOnScreen();
@@ -282,8 +291,6 @@ public class Popup
      */
     public void hide()
     {
-      JRootPane rootPane = SwingUtilities.getRootPane(owner);
-      JLayeredPane layeredPane = rootPane.getLayeredPane();
       layeredPane.remove(panel);
     }
   }

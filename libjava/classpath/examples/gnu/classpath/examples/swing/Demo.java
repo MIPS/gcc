@@ -29,6 +29,7 @@ import javax.swing.*;
 import javax.swing.tree.*;
 import javax.swing.border.*;
 
+import javax.swing.plaf.metal.DefaultMetalTheme;
 import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.plaf.metal.OceanTheme;
 
@@ -72,10 +73,15 @@ public class Demo
 						   JOptionPane.OK_OPTION,
 						   JOptionPane.QUESTION_MESSAGE,
 						   null, lafs, DEFAULT);
+        if (laf == 0)
+          {
+            MetalLookAndFeel.setCurrentTheme(new DefaultMetalTheme());
+            UIManager.setLookAndFeel(new MetalLookAndFeel());
+          }
 	    if (laf == 1)
 	      {
-		MetalLookAndFeel.setCurrentTheme(new OceanTheme());
-	      UIManager.setLookAndFeel(new MetalLookAndFeel());
+	        MetalLookAndFeel.setCurrentTheme(new OceanTheme());
+	        UIManager.setLookAndFeel(new MetalLookAndFeel());
 	      }
 	    else if (laf == 2)
 	      UIManager.setLookAndFeel(new GNULookAndFeel());
@@ -171,8 +177,12 @@ public class Demo
 		    examples);
 
     new PopUpAction("Slider",
-		    mkSliders(),
+		    (new SliderDemo("Slider Demo")).createContent(),
 		    examples);
+
+    new PopUpAction("ProgressBar",
+                    ProgressBarDemo.createContent(),
+                    examples);
 
     new PopUpAction("List",
 		    mkListPanel(new String[] { "hello",
@@ -208,8 +218,12 @@ public class Demo
 		    examples);
 
     new PopUpAction("TextField",
-		    mkTextField("Hello, World!"),
+		    (new TextFieldDemo("TextField Demo")).createContent(),
 		    examples);
+
+    new PopUpAction("FileChooser",
+                    (new FileChooserDemo("FileChooser Demo")).createContent(),
+                    examples);
 
     new PopUpAction("ColorChooser",
 		    mkColorChooser(),
@@ -688,26 +702,6 @@ public class Demo
     return tabs;
   }
 
-  static JComponent mkSliders()
-  {
-    JSlider slider = new JSlider();
-    slider.setPaintTrack(true);
-    slider.setPaintTicks(true);
-    slider.setMajorTickSpacing(30);
-    slider.setMinorTickSpacing(5);
-    slider.setPaintLabels(true);
-    slider.setInverted(false);
-    JProgressBar progress = new JProgressBar();
-    BoundedRangeModel model = new DefaultBoundedRangeModel(10, 1, 0, 100);
-    progress.setModel(model);
-    slider.setModel(model);
-    JPanel panel = new JPanel();
-    panel.setLayout(new GridLayout(1, 2));
-    panel.add(slider);
-    panel.add(progress);
-    return panel;
-  }
-
   public Demo()
   {
     frame = new JFrame("Swing Activity Board");
@@ -1018,28 +1012,34 @@ public class Demo
   
   private JPanel mkButtonBar()
   {    
-    JPanel panel = new JPanel ();
-    panel.setLayout(new FlowLayout());
+    JPanel panel = new JPanel (new GridLayout(2, 1));
+    JPanel panelA = new JPanel(new FlowLayout());
+    JPanel panelB = new JPanel(new FlowLayout());
 
     new PopUpAction("Buttons",
 		    (new ButtonDemo("Button Demo")).createContent(),
-		    panel);
+		    panelA);
     
     new PopUpAction("Toggles",
 		    mkToggle("cool and refreshing"),
-		    panel);
+		    panelA);
 
     new PopUpAction("Checkbox",
 		    mkCheckbox("ice cold"),
-		    panel);
+		    panelA);
 
     new PopUpAction("Radio",
 		    mkRadio("delicious"),
-		    panel);
+		    panelA);
 
     new PopUpAction("Slider",
 		    (new SliderDemo("Slider Demo")).createContent(),
-		    panel);
+		    panelA);
+
+    new PopUpAction("ProgressBar",
+            ProgressBarDemo.createContent(),
+             panelA);
+
 
     new PopUpAction("List",
 		    mkListPanel(new String[] { "hello",
@@ -1050,56 +1050,60 @@ public class Demo
                                                "that",
                                                "wraps",
                                                "over"}),
-		    panel);
+		    panelA);
 
     new PopUpAction("Scrollbar",
 		    (new ScrollBarDemo("ScrollBar Demo")).createContent(),
-		    panel);
+		    panelA);
 
     new PopUpAction("Viewport",
 		    mkViewportBox(mkBigButton("View Me!")),
-		    panel);
+		    panelA);
 
     new PopUpAction("ScrollPane",
 		    mkScrollPane(mkBigButton("Scroll Me!")),
-		    panel);
+		    panelA);
 
     new PopUpAction("TabPane",
 		    mkTabs(new String[] {"happy",
 					 "sad",
 					 "indifferent"}),
-		    panel);
+		    panelB);
 
     new PopUpAction("Spinner",
 		    mkSpinner(),
-		    panel);
+		    panelB);
 
     new PopUpAction("TextField",
-		    mkTextField("Hello, World!"),
-		    panel);
+		    (new TextFieldDemo("TextField Demo")).createContent(),
+		    panelB);
+
+    new PopUpAction("FileChooser",
+                    (new FileChooserDemo("FileChooser Demo")).createContent(),
+                    panelB);
 
     new PopUpAction("ColorChooser",
 		    mkColorChooser(),
-		    panel);
+		    panelB);
 
     new PopUpAction("ComboBox",
 		    (new ComboBoxDemo("ComboBox Demo")).createContent(),
-		    panel);
+		    panelB);
 
     new PopUpAction("Editor",
                     mkEditorPane(),
-                    panel);
+                    panelB);
     
     new PopUpAction("Tree",
                     mkTree(),
-                    panel);
+                    panelB);
     
     new PopUpAction("Table",
                     mkTable(),
-                    panel);
+                    panelB);
     
     JButton exitDisposer = mkDisposerButton(frame);
-    panel.add(exitDisposer);
+    panelB.add(exitDisposer);
     exitDisposer.addActionListener(new ActionListener()
       {
 	public void actionPerformed(ActionEvent e)
@@ -1107,11 +1111,8 @@ public class Demo
 	  System.exit(1);
 	}
       });
+    panel.add(panelA);
+    panel.add(panelB);
     return panel;
-  }
-
-  public static JTextField mkTextField(String sometext)
-  {
-    return new JTextField(sometext, 40);
   }
 }

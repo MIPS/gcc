@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.19],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.20-pre],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -118,7 +118,7 @@ AM_CONDITIONAL(CREATE_ALSA_LIBRARIES, test "x${COMPILE_ALSA}" = xyes)
 dnl -----------------------------------------------------------
 dnl DSSI code (enabled by default)
 dnl -----------------------------------------------------------
-AC_ARG_ENABLE([alsa],
+AC_ARG_ENABLE([dssi],
               [AS_HELP_STRING(--disable-dssi,compile DSSI providers (enable by --enable-dssi) [default=yes])],
               [case "${enableval}" in
                 yes) COMPILE_DSSI=yes ;;
@@ -353,7 +353,6 @@ if test "x${COMPILE_JNI}" = xyes; then
     fi
 
     PKG_CHECK_MODULES(PANGOFT2, pangoft2)
-    PKG_CHECK_MODULES(FREETYPE2, freetype2)
   
     AC_SUBST(GTK_CFLAGS)
     AC_SUBST(GTK_LIBS)
@@ -361,8 +360,6 @@ if test "x${COMPILE_JNI}" = xyes; then
     AC_SUBST(CAIRO_CFLAGS)
     AC_SUBST(PANGOFT2_LIBS)
     AC_SUBST(PANGOFT2_CFLAGS)
-    AC_SUBST(FREETYPE2_LIBS)
-    AC_SUBST(FREETYPE2_CFLAGS)
   fi
 
   dnl Check for AWT related Qt4

@@ -337,9 +337,10 @@ public class JTabbedPane extends JComponent implements Serializable,
      */
     public void setComponent(Component c)
     {
-      remove(component);
-      this.component = c;
-      add(c);
+      int i = indexOfComponent(component);
+      insertTab(title, icon, c, tip, i);
+      component = c;
+      removeTabAt(i);
     }
 
     /**
@@ -620,7 +621,7 @@ public class JTabbedPane extends JComponent implements Serializable,
       throw new IllegalArgumentException("tabLayoutPolicy is not valid.");
     this.tabPlacement = tabPlacement;
     layoutPolicy = tabLayoutPolicy;
-
+    
     changeEvent = new ChangeEvent(this);
     changeListener = createChangeListener();
 
@@ -968,6 +969,7 @@ public class JTabbedPane extends JComponent implements Serializable,
       super.add(component);
     else
       insertTab(component.getName(), null, component, null, tabs.size());
+    
     return component;
   }
 
@@ -1051,45 +1053,37 @@ public class JTabbedPane extends JComponent implements Serializable,
   }
 
   /**
-   * The tab and it's associated component are removed. After the component
-   * has been removed from the JTabbedPane, it's set visible to ensure that
-   * it can be seen.
+   * Removes the tab at index. After the component associated with 
+   * index is removed, its visibility is reset to true to ensure it 
+   * will be visible if added to other containers.
    *
    * @param index The index of the tab to remove.
    */
   public void removeTabAt(int index)
   {
     checkIndex(index, 0, tabs.size());
-    Component c = getComponentAt(index);
-    super.remove(index);
-    c.show();
     tabs.remove(index);
+    getComponentAt(index).show();
   }
 
   /**
-   * This method removes the component from the JTabbedPane. After the
-   * component has been removed from the JTabbedPane, it's  set visible to
-   * ensure that it can be seen.
+   * Removes the specified Component from the JTabbedPane.
    *
    * @param component The Component to remove.
    */
   public void remove(Component component)
   {
-    // This simply removes the component.
-    int index = indexOfComponent(component);
     super.remove(component);
-    component.show();
-    setComponentAt(index, null);
   }
 
   /**
-   * This method removes the tab and component from the JTabbedPane. It simply
-   * calls removeTabAt(int index).
+   * Removes the tab and component which corresponds to the specified index.
    *
    * @param index The index of the tab to remove.
    */
   public void remove(int index)
   {
+    remove(getComponentAt(index));
     removeTabAt(index);
   }
 
