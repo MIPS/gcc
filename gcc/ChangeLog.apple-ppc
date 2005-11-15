@@ -1,5 +1,6 @@
 2005-11-15  Mike Stump  <mrs@apple.com>
 
+	Radar 4344359
 	* c-common.c (cw_extra_clobbers): Add.
 	(struct cw_op_clobber): Add.
 	(CW_MAX_CLOBBERS): Add.
