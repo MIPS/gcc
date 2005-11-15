@@ -1,3 +1,13 @@
+2005-11-15  Mike Stump  <mrs@apple.com>
+
+	* c-common.c (cw_extra_clobbers): Add.
+	(struct cw_op_clobber): Add.
+	(CW_MAX_CLOBBERS): Add.
+	(TARGET_CW_EXTRA_CLOBBERS): Add.
+	(cw_op_clobber_comp): Add.
+	(cw_asm_stmt): Add call to cw_extra_clobbers.
+	* config/i386/i386.h (TARGET_CW_EXTRA_CLOBBERS): Add.
+
 2005-11-15  Dale Johannesen  <dalej@apple.com>
 
         * config/darwin-c.c (darwin_pragma_call_on_load):

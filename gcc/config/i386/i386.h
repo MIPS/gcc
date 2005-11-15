@@ -3393,6 +3393,9 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "xorps", 1, "+x"},		\
   { "xorps", 2, "xm"},
 
+#define TARGET_CW_EXTRA_CLOBBERS \
+  { "rdtsc", { "edx", "eax"} }
+
 #define CW_FUNCTION_MODIFIER "P"
 /* APPLE LOCAL end CW asm blocks */
 

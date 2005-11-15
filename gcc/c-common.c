@@ -6690,6 +6690,71 @@ cw_set_constraints (int num, tree inputs, tree outputs)
   cw_set_constraints_1 (num, outputs);
 }
 
+#define CW_MAX_CLOBBERS 3
+
+/* The clobber table for CW style assembly.  */
+
+struct cw_op_clobber
+{
+    const char *opcode;
+    const char *clobbers[CW_MAX_CLOBBERS];
+};
+
+/* Comparison function for bsearch to find an opcode/argument number
+   in the opcode clobber table.  */
+
+static int
+cw_op_clobber_comp (const void *a, const void *b)
+{
+  const struct cw_op_clobber *x = a;
+  const struct cw_op_clobber *y = b;
+  return strcasecmp (x->opcode, y->opcode);
+}
+
+#ifndef TARGET_CW_EXTRA_CLOBBERS
+#define TARGET_CW_EXTRA_CLOBBERS { "zzzzz", { 0 } }
+#endif
+
+/* Add any extra clobbers to the clobbers list, if they are not
+   already listed in the outputs for the instruction.  For example,
+   rdtsc on 386 alters edx and eax, but those don't appear as operands
+   to the instruction, so, we'd list edx and eax as clobbers for
+   rdtsc.  */
+
+static void
+cw_extra_clobbers (const char *opcode, tree *clobbersp)
+{
+  struct cw_op_clobber db[] = { TARGET_CW_EXTRA_CLOBBERS };
+  struct cw_op_clobber key;
+  struct cw_op_clobber *r;
+  const char **clobbers;
+  int num;
+
+#ifdef ENABLE_CHECKING
+  /* Ensure that the table is sorted. */
+  static int once;
+  if (once == 0)
+    {
+      size_t i;
+      once = 1;
+      for (i=0; i < sizeof (db) / sizeof(db[0]) - 1; ++i)
+	gcc_assert (cw_op_clobber_comp (&db[i+1], &db[i]) >= 0);
+    }
+#endif
+
+  key.opcode = opcode;
+
+  r = bsearch (&key, db, sizeof (db) / sizeof (db[0]), sizeof (db[0]), cw_op_clobber_comp);
+  if (r == 0)
+    return;
+
+  for (clobbers = r->clobbers, num = 0; num < CW_MAX_CLOBBERS && *clobbers; ++clobbers, ++num)
+    {
+      tree reg = build_string (strlen (*clobbers), *clobbers);
+      *clobbersp = tree_cons (NULL_TREE, reg, *clobbersp);
+    }
+}
+
 /* Build an asm statement from CW-syntax bits.  */
 tree
 cw_asm_stmt (tree expr, tree args, int lineno)
@@ -6861,6 +6926,8 @@ cw_asm_stmt (tree expr, tree args, int lineno)
 
   /* Readjust all the constraints so that the number of alternatives match.  */
   cw_set_constraints (cw_num_constraints (inputs, outputs), inputs, outputs);
+
+  cw_extra_clobbers (opcodename, &clobbers);
 
   /* Treat as volatile always.  */
   stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses);
