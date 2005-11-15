@@ -1468,6 +1468,40 @@ gimplify_conversion (tree *expr_p)
   return GS_OK;
 }
 
+/* Gimplify a VAR_DECL or PARM_DECL.  Returns GS_OK if we expanded a 
+   DECL_VALUE_EXPR, and it's worth re-examining things.  */
+
+static enum gimplify_status
+gimplify_var_or_parm_decl (tree *expr_p)
+{
+  tree decl = *expr_p;
+
+  /* ??? If this is a local variable, and it has not been seen in any
+     outer BIND_EXPR, then it's probably the result of a duplicate
+     declaration, for which we've already issued an error.  It would
+     be really nice if the front end wouldn't leak these at all.
+     Currently the only known culprit is C++ destructors, as seen
+     in g++.old-deja/g++.jason/binding.C.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      && !DECL_SEEN_IN_BIND_EXPR_P (decl)
+      && !TREE_STATIC (decl) && !DECL_EXTERNAL (decl)
+      && decl_function_context (decl) == current_function_decl)
+    {
+      gcc_assert (errorcount || sorrycount);
+      return GS_ERROR;
+    }
+
+  /* If the decl is an alias for another expression, substitute it now.  */
+  if (DECL_HAS_VALUE_EXPR_P (decl))
+    {
+      *expr_p = unshare_expr (DECL_VALUE_EXPR (decl));
+      return GS_OK;
+    }
+
+  return GS_ALL_DONE;
+}
+
+
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
    node pointed to by EXPR_P.
 
@@ -1506,11 +1540,21 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
   /* We can handle anything that get_inner_reference can deal with.  */
   for (p = expr_p; ; p = &TREE_OPERAND (*p, 0))
     {
+    restart:
       /* Fold INDIRECT_REFs now to turn them into ARRAY_REFs.  */
       if (TREE_CODE (*p) == INDIRECT_REF)
 	*p = fold_indirect_ref (*p);
-      if (!handled_component_p (*p))
+
+      if (handled_component_p (*p))
+	;
+      /* Expand DECL_VALUE_EXPR now.  In some cases that may expose
+	 additional COMPONENT_REFs.  */
+      else if ((TREE_CODE (*p) == VAR_DECL || TREE_CODE (*p) == PARM_DECL)
+	       && gimplify_var_or_parm_decl (p) == GS_OK)
+	goto restart;
+      else
 	break;
+	       
       VEC_safe_push (tree, heap, stack, *p);
     }
 
@@ -1592,8 +1636,11 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	}
     }
 
-  /* Step 2 is to gimplify the base expression.  */
-  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval, fallback);
+  /* Step 2 is to gimplify the base expression.  Make sure lvalue is set
+     so as to match the min_lval predicate.  Failure to do so may result
+     in the creation of large aggregate temporaries.  */
+  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
+			fallback | fb_lvalue);
   ret = MIN (ret, tret);
 
   /* And finally, the indices and operands to BIT_FIELD_REF.  During this
@@ -3763,14 +3810,18 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   tree temp = voidify_wrapper_expr (*expr_p, NULL);
 
   /* We only care about the number of conditions between the innermost
-     CLEANUP_POINT_EXPR and the cleanup.  So save and reset the count.  */
+     CLEANUP_POINT_EXPR and the cleanup.  So save and reset the count and
+     any cleanups collected outside the CLEANUP_POINT_EXPR.  */
   int old_conds = gimplify_ctxp->conditions;
+  tree old_cleanups = gimplify_ctxp->conditional_cleanups;
   gimplify_ctxp->conditions = 0;
+  gimplify_ctxp->conditional_cleanups = NULL_TREE;
 
   body = TREE_OPERAND (*expr_p, 0);
   gimplify_to_stmt_list (&body);
 
   gimplify_ctxp->conditions = old_conds;
+  gimplify_ctxp->conditional_cleanups = old_cleanups;
 
   for (iter = tsi_start (body); !tsi_end_p (iter); )
     {
@@ -4265,18 +4316,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	    {
 	      unsigned HOST_WIDE_INT ix;
 	      constructor_elt *ce;
+	      tree temp = NULL_TREE;
 	      for (ix = 0;
 		   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (*expr_p),
 				ix, ce);
 		   ix++)
 		if (TREE_SIDE_EFFECTS (ce->value))
-		  gimplify_expr (&ce->value, pre_p, post_p,
-				 gimple_test_f, fallback);
+		  append_to_statement_list (ce->value, &temp);
 
-	      *expr_p = NULL_TREE;
+	      *expr_p = temp;
+	      ret = GS_OK;
 	    }
-
-	  ret = GS_ALL_DONE;
+	  /* C99 code may assign to an array in a constructed
+	     structure or union, and this has undefined behavior only
+	     on execution, so create a temporary if an lvalue is
+	     required.  */
+	  else if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
+	  else
+	    ret = GS_ALL_DONE;
 	  break;
 
 	  /* The following are special cases that are not handled by the
@@ -4371,36 +4432,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case VAR_DECL:
-	  /* ??? If this is a local variable, and it has not been seen in any
-	     outer BIND_EXPR, then it's probably the result of a duplicate
-	     declaration, for which we've already issued an error.  It would
-	     be really nice if the front end wouldn't leak these at all.
-	     Currently the only known culprit is C++ destructors, as seen
-	     in g++.old-deja/g++.jason/binding.C.  */
-	  tmp = *expr_p;
-	  if (!TREE_STATIC (tmp) && !DECL_EXTERNAL (tmp)
-	      && decl_function_context (tmp) == current_function_decl
-	      && !DECL_SEEN_IN_BIND_EXPR_P (tmp))
-	    {
-	      gcc_assert (errorcount || sorrycount);
-	      ret = GS_ERROR;
-	      break;
-	    }
-	  /* FALLTHRU */
-
 	case PARM_DECL:
-	  tmp = *expr_p;
-
-	  /* If this is a local variable sized decl, it must be accessed
-	     indirectly.  Perform that substitution.  */
-	  if (DECL_HAS_VALUE_EXPR_P (tmp))
-	    {
-	      *expr_p = unshare_expr (DECL_VALUE_EXPR (tmp));
-	      ret = GS_OK;
-	      break;
-	    }
-
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_var_or_parm_decl (expr_p);
 	  break;
 
 	case SSA_NAME:

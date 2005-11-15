@@ -27,6 +27,7 @@ io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
+io/size_from_kind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -44,6 +45,7 @@ intrinsics/c99_functions.c \
 intrinsics/chdir.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/ctime.c \
 intrinsics/date_and_time.c \
 intrinsics/env.c \
 intrinsics/erf.c \
@@ -51,8 +53,10 @@ intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
 intrinsics/exit.c \
+intrinsics/fget.c \
 intrinsics/flush.c \
 intrinsics/fnum.c \
+intrinsics/ftell.c \
 intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \
@@ -63,9 +67,11 @@ intrinsics/kill.c \
 intrinsics/ierrno.c \
 intrinsics/ishftc.c \
 intrinsics/link.c \
+intrinsics/malloc.c \
 intrinsics/mvbits.c \
 intrinsics/pack_generic.c \
 intrinsics/perror.c \
+intrinsics/signal.c \
 intrinsics/size.c \
 intrinsics/sleep.c \
 intrinsics/spread_generic.c \
@@ -427,7 +433,7 @@ m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
 gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
     $(i_product_c) $(i_sum_c) $(i_dotprod_c) $(i_dotprodl_c) $(i_dotprodc_c) \
-    $(i_matmul_c) $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
+    $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) \
@@ -567,17 +573,23 @@ $(gfor_built_specific2_src) \
 intrinsics/dprod_r8.f90 \
 intrinsics/f2c_specifics.F90
 
+EXTRA_LTLIBRARIES = libmatmul.la
+libmatmul_la_SOURCES = $(i_matmul_c)
+libmatmul_la_CFLAGS = -ftree-vectorize $(AM_CFLAGS)
+
 BUILT_SOURCES=$(gfor_built_src) $(gfor_built_specific_src) \
-    $(gfor_built_specific2_src)
+    $(gfor_built_specific2_src) $(libmatmul_la_SOURCES)
 libgfortran_la_SOURCES = $(gfor_src) $(gfor_built_src) $(gfor_io_src) \
     $(gfor_helper_src) $(gfor_io_headers) $(gfor_specific_src)
+
+libgfortran_la_LIBADD =  libmatmul.la
 
 I_M4_DEPS=m4/iparm.m4
 I_M4_DEPS0=$(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1=$(I_M4_DEPS) m4/ifunction.m4
 
 kinds.h: $(srcdir)/mk-kinds-h.sh
-	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@ || rm $@
 
 kinds.inc: kinds.h
 	grep '^#' < kinds.h > $@
@@ -586,10 +598,10 @@ c99_protos.inc: $(srcdir)/c99_protos.h
 	grep '^#' < $(srcdir)/c99_protos.h > $@
 
 selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
-	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@ || rm $@
 
 selected_real_kind.inc: $(srcdir)/mk-srk-inc.sh
-	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@ || rm $@
 
 fpu-target.h: $(srcdir)/$(FPU_HOST_HEADER)
 	cp $(srcdir)/$(FPU_HOST_HEADER) $@

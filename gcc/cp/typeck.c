@@ -107,12 +107,18 @@ complete_type (tree type)
   else if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
     {
       tree t = complete_type (TREE_TYPE (type));
+      unsigned int needs_constructing, has_nontrivial_dtor;
       if (COMPLETE_TYPE_P (t) && !dependent_type_p (type))
 	layout_type (type);
-      TYPE_NEEDS_CONSTRUCTING (type)
+      needs_constructing
 	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (t));
-      TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+      has_nontrivial_dtor
 	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (t));
+      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  TYPE_NEEDS_CONSTRUCTING (t) = needs_constructing;
+	  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = has_nontrivial_dtor;
+	}
     }
   else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INSTANTIATION (type))
     instantiate_class_template (TYPE_MAIN_VARIANT (type));
@@ -1841,16 +1847,70 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
   return expr;
 }
 
+/* An expression of the form "A::template B" has been resolved to
+   DECL.  Issue a diagnostic if B is not a template or template
+   specialization.  */
+
+void
+check_template_keyword (tree decl)
+{
+  /* The standard says:
+
+      [temp.names]
+
+      If a name prefixed by the keyword template is not a member
+      template, the program is ill-formed.
+
+     DR 228 removed the restriction that the template be a member
+     template.  
+     
+     DR 96, if accepted would add the further restriction that explicit
+     template arguments must be provided if the template keyword is
+     used, but, as of 2005-10-16, that DR is still in "drafting".  If
+     this DR is accepted, then the semantic checks here can be
+     simplified, as the entity named must in fact be a template
+     specialization, rather than, as at present, a set of overloaded
+     functions containing at least one template function.  */
+  if (TREE_CODE (decl) != TEMPLATE_DECL
+      && TREE_CODE (decl) != TEMPLATE_ID_EXPR)
+    {
+      if (!is_overloaded_fn (decl))
+	pedwarn ("%qD is not a template", decl);
+      else
+	{
+	  tree fns;
+	  fns = decl;
+	  if (BASELINK_P (fns))
+	    fns = BASELINK_FUNCTIONS (fns);
+	  while (fns)
+	    {
+	      tree fn = OVL_CURRENT (fns);
+	      if (TREE_CODE (fn) == TEMPLATE_DECL
+		  || TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+		break;
+	      if (TREE_CODE (fn) == FUNCTION_DECL
+		  && DECL_USE_TEMPLATE (fn)
+		  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (fn)))
+		break;
+	      fns = OVL_NEXT (fns);
+	    }
+	  if (!fns)
+	    pedwarn ("%qD is not a template", decl);
+	}
+    }
+}
+
 /* This function is called by the parser to process a class member
    access expression of the form OBJECT.NAME.  NAME is a node used by
    the parser to represent a name; it is not yet a DECL.  It may,
    however, be a BASELINK where the BASELINK_FUNCTIONS is a
    TEMPLATE_ID_EXPR.  Templates must be looked up by the parser, and
    there is no reason to do the lookup twice, so the parser keeps the
-   BASELINK.  */
+   BASELINK.  TEMPLATE_P is true iff NAME was explicitly declared to
+   be a template via the use of the "A::template B" syntax.  */
 
 tree
-finish_class_member_access_expr (tree object, tree name)
+finish_class_member_access_expr (tree object, tree name, bool template_p)
 {
   tree expr;
   tree object_type;
@@ -1995,13 +2055,24 @@ finish_class_member_access_expr (tree object, tree name)
   if (TREE_DEPRECATED (member))
     warn_deprecated_use (member);
 
+  if (template_p)
+    check_template_keyword (member);
+
   expr = build_class_member_access_expr (object, member, access_path,
 					 /*preserve_reference=*/false);
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (COMPONENT_REF, expr,
-			      orig_object,
-			      BASELINK_P (member) ? member : orig_name,
-			      NULL_TREE);
+    {
+      if (BASELINK_P (member))
+	{
+	  if (TREE_CODE (orig_name) == SCOPE_REF)
+	    BASELINK_QUALIFIED_P (member) = 1;
+	  orig_name = member;
+	}
+      return build_min_non_dep (COMPONENT_REF, expr,
+				orig_object, orig_name,
+				NULL_TREE);
+    }
+  
   return expr;
 }
 

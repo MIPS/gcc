@@ -1,3 +1,7 @@
+2005-11-15  Ben Elliston  <bje@au.ibm.com>
+
+	* Merge with mainline.
+
 2005-11-01  Janis Johnson  <janis187@us.ibm.com>
 
 	* contrib/gcc_update: Support SVN.

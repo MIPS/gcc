@@ -353,6 +353,13 @@ internal_error (const char *message)
   recursion_check ();
   show_locus ();
   st_printf ("Internal Error: %s\n", message);
+
+  /* This function call is here to get the main.o object file included
+     when linking statically. This works because error.o is supposed to
+     be always linked in (and the function call is in internal_error
+     because hopefully it doesn't happen too often).  */
+  stupid_function_name_for_static_linking();
+
   sys_exit (3);
 }
 
@@ -425,10 +432,6 @@ translate_error (int code)
 
     case ERROR_READ_OVERFLOW:
       p = "Numeric overflow on read";
-      break;
-
-    case ERROR_ARRAY_STRIDE:
-      p = "Array unit stride must be 1";
       break;
 
     default:

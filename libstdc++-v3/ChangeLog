@@ -1,3 +1,271 @@
+2005-11-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Don't check for
+	shared libgcc for darwin exports.
+	* configure: Regenerate.
+
+2005-11-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/boost_shared_ptr.h (get_deleter):
+	Declare before shared_ptr.
+	(shared_ptr<>): Declare get_deleter as friend.
+	(shared_ptr<>:_M_get_deleter): Private.
+
+2005-11-13  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR libstdc++/24818
+	* include/tr1/ref_wrap_iterate.h
+	(reference_wrapper::operator()()): Don't dereferene the result of
+	get() before calling it; it's already a reference.
+	* testsuite/tr1/3_function_objects/reference_wrapper/invoke.cc:
+	Test nullary calls to reference_wrappers.
+
+2005-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24808
+	* include/tr1/type_traits (__is_abstract_helper): Rename to __in_array
+	(with complemented logic).
+	(is_function): Use it, don't use __conv_helper.
+	(is_abstract): Adjust.
+	(__conv_helper): Rename to __is_convertible_simple.
+	(is_convertible): Adjust.
+	* testsuite/testsuite_tr1.h (class IncompleteClass): Add.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/is_object/
+	24808.cc: New.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/is_enum/
+	24808.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/is_function/
+	24808.cc: Likewise.
+
+2005-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24799
+	* include/tr1/functional (hash): Inherit from std::unary_function.
+	* testsuite/tr1/6_containers/unordered/hash/24799.cc: New.
+
+	PR libstdc++/24805
+	* include/tr1/boost_shared_ptr.h (swap(shared_ptr<>&, shared_ptr<>&),
+	swap(weak_ptr<>&, weak_ptr<>&)): Move inside namespace tr1.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	24805.cc: New.
+
+	PR libstdc++/24809
+	* include/tr1/type_traits (__is_polymorhpic_helper): Adjust destructor.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_polymorphic/
+	24809.cc: New.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: Adjust, remove xfail.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: Likewise.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release,
+	weak_release): Protect barriers with __GTHREADS.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+	    Peter Dimov  <pdimov@mmltd.net>
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release):
+	Optimize by manually inlining weak_release.
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release,
+	weak_release): Use explicit memory barriers.
+
+2005-11-09  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+            Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/22203
+	* numeric_limits.cc: Split into...
+	* numeric_limits/specialization.cc: ..this.
+	* numeric_limits/is_iec559.cc: Same.
+	* numeric_limits/sign.cc: Same.
+	* numeric_limits/quiet_NaN.cc: Same.
+	* numeric_limits/digits10.cc: Same.
+	* numeric_limits/denorm_min.cc: Same.
+	* numeric_limits/min_max.cc: Same.
+	* numeric_limits/epsilon.cc: Same.
+	* numeric_limits/infinity.cc: Same.
+	* numeric_limits/traps.cc: New.
+
+2005-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h: Trivial formatting fixes.
+
+2005-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_debug_mode): Use
+	exe as the executable extension.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Change gnu defaults to
+	new.
+	(GLIBCXX_ENABLE_PCH): Adjust message order.
+	* configure: Regenerate.
+	
+	* scripts/testsuite_flags.in (query): Correct print_usagex typo.
+
+	* include/bits/functexcept.h: Remove argument names.
+
+	* src/mt_allocator.cc: Adjust comment.
+	
+2005-11-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/18174
+	* include/bits/stl_queue.h (priority_queue): Tweak a bit the
+	comment describing the container.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.host: Add | rs6000 to the cpu_defines_dir switch,
+	consistently with the try_cpu one.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22203
+	* include/bits/c++config: Include cpu_defines.h.
+	* include/Makefile.am: Add cpu_defines.h to host_headers.
+	* configure.host: Add cpu_defines_dir.
+	* configure.ac: Use it.
+	* config/cpu/powerpc/cpu_defines.h: New.
+	* config/cpu/generic/cpu_defines.h: Likewise.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.	
+	* testsuite/Makefile.in: Likewise.
+
+2005-11-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_swap):
+	Change the various traits_type::copy call to always copy the
+	entire local buffer; return early and don't do a full swap on
+	the lengths for two common cases; change two _S_copy to plain
+	traits_type::copy.
+
+2005-11-02  Thomas Kho  <tkho@ucla.edu>
+
+	PR libstdc++/23425
+	* include/bits/stl_vector.h (vector<>::clear): Open code
+	in terms of _Destroy.
+
+2005-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/vector.tcc (vector<>::_M_fill_assign): Qualify fill_n.
+
+2005-11-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24595
+	* include/tr1/boost_shared_ptr.h (shared_ptr<>::get_deleter):
+	Move out of shared_ptr.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/misc/24595.cc:
+	New.
+
+2005-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20213
+	* include/c_std/std_csignal.h: Adjust comment as per 17.4.1.2/4.
+	* include/c_std/std_cstdlib.h: Likewise.
+	* include/c_std/std_cstdio.h: Likewise.
+	* include/c_std/std_cstdarg.h: Likewise.
+	* include/c_std/std_cctype.h: Likewise.
+	* include/c_std/std_cerrno.h: Likewise.
+	* include/c_std/std_cmath.h: Likewise.
+	* include/c_std/std_ciso646.h: Likewise.
+	* include/c_std/std_ctime.h: Likewise.
+	* include/c_std/std_clocale.h: Likewise.
+	* include/c_std/std_climits.h: Likewise.
+	* include/c_std/std_cassert.h: Likewise.
+	* include/c_std/std_csetjmp.h: Likewise.
+	* include/c_std/std_cwchar.h: Likewise.
+	* include/c_std/std_cfloat.h: Likewise.
+	* include/c_std/std_cstring.h: Likewise.
+	* include/c_std/std_cstddef.h: Likewise.
+	* include/c_std/std_cwctype.h: Likewise.
+
+2005-10-29  Carey Evans  <carey.evans@gmail.com>
+
+	PR libstdc++/22087
+	* config/os/djgpp/ctype_inline.h: Fix.
+	* config/os/djgpp/ctype_noninline.h: Likewise.
+
+2005-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24559
+	* include/c_std/std_cwchar.h (wcspbrk): Adjust signature.
+	* testsuite/21_strings/c_strings/wchar_t/24559.cc: New.
+
+2005-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 39.
+	* docs/html/ext/howto.html: Adjust.
+
+2005-10-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24450
+	* config/locale/generic/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Avoid leaking
+	memory if new throws inside _M_initialize_timepunct.
+	* config/locale/gnu/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Likewise.
+	* config/locale/gnu/message_members.h (messages<>::
+	messages(__c_locale, const char*, size_t)): Rearrange to
+	avoid memory leaks.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (_M_swap): Rewrite.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string_base.h (_S_terminal): Remove.
+	(_M_set_length): Adjust.
+	(_S_max_size): Change to anonymous enum.
+	(_M_max_size()): Add, returns the latter.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/ext/vstring.h (max_size): Adjust.
+
+2005-10-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	PR libstdc++/24244
+	* include/tr1/boost_shared_ptr.h
+	(_Sp_counted_base::_Sp_counted_base()): When __GTHREAD_MUTEX_INIT
+	is defined, initialize the mutex.
+
+2005-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Add missing #pragma GCC system_header.
+
+2005-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable (hashtable::m_erase): Rename to erase_node.
+	(hashtable::erase(iterator), erase(const_iterator)): Adjust.
+
+2005-10-13  Richard Earnshaw  <richard.earnsahw@arm.com>
+
+	PR libstdc++/23926
+	* acinclude.m4 (port_specific_symbol_files): More symbol versioning
+	fixes.
+	* configure: Regenerate.
+
+2005-10-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Require
+	native testing before setting v3-sharedlib to 1.
+
+2005-10-12  Joe Buck  <Joe.Buck@synopsys.com>
+
+	* docs/html/27_io/howto.html: Use reference to ifstream when
+	including iosfwd.
+
 2005-10-11  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR libstdc++/23926

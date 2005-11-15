@@ -46,6 +46,10 @@ Boston, MA 02110-1301, USA.  */
 #include "libgfortran.h"
 #include "io.h"
 
+#ifndef SSIZE_MAX
+#define SSIZE_MAX SHRT_MAX
+#endif
+
 #ifndef PATH_MAX
 #define PATH_MAX 1024
 #endif
@@ -222,6 +226,23 @@ is_preconnected (stream * s)
     return 1;
   else
     return 0;
+}
+
+/* If the stream corresponds to a preconnected unit, we flush the
+   corresponding C stream.  This is bugware for mixed C-Fortran codes
+   where the C code doesn't flush I/O before returning.  */
+void
+flush_if_preconnected (stream * s)
+{
+  int fd;
+
+  fd = ((unix_stream *) s)->fd;
+  if (fd == STDIN_FILENO)
+    fflush (stdin);
+  else if (fd == STDOUT_FILENO)
+    fflush (stdout);
+  else if (fd == STDERR_FILENO)
+    fflush (stderr);
 }
 
 
@@ -440,7 +461,6 @@ static char *
 fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 {
   gfc_offset m;
-  int n;
 
   if (where == -1)
     where = s->logical_offset;
@@ -462,13 +482,32 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
   if (s->physical_offset != m && lseek (s->fd, m, SEEK_SET) < 0)
     return NULL;
 
-  n = read (s->fd, s->buffer + s->active, s->len - s->active);
-  if (n < 0)
-    return NULL;
+  /* do_read() hangs on read from terminals for *BSD-systems.  Only
+     use read() in that case.  */
 
-  s->physical_offset = where + n;
+  if (s->special_file)
+    {
+      ssize_t n;
 
-  s->active += n;
+      n = read (s->fd, s->buffer + s->active, s->len - s->active);
+      if (n < 0)
+	return NULL;
+
+      s->physical_offset = where + n;
+      s->active += n;
+    }
+  else
+    {
+      size_t n;
+
+      n = s->len - s->active;
+      if (do_read (s, s->buffer + s->active, &n) != 0)
+	return NULL;
+
+      s->physical_offset = where + n;
+      s->active += n;
+    }
+
   if (s->active < *len)
     *len = s->active;		/* Bytes actually available */
 
@@ -1265,10 +1304,13 @@ init_error_stream (void)
  * filename. */
 
 int
-compare_file_filename (stream * s, const char *name, int len)
+compare_file_filename (gfc_unit *u, const char *name, int len)
 {
   char path[PATH_MAX + 1];
-  struct stat st1, st2;
+  struct stat st1;
+#ifdef HAVE_WORKING_STAT
+  struct stat st2;
+#endif
 
   if (unpack_filename (path, name, len))
     return 0;			/* Can't be the same */
@@ -1279,9 +1321,14 @@ compare_file_filename (stream * s, const char *name, int len)
   if (stat (path, &st1) < 0)
     return 0;
 
-  fstat (((unix_stream *) s)->fd, &st2);
-
+#ifdef HAVE_WORKING_STAT
+  fstat (((unix_stream *) (u->s))->fd, &st2);
   return (st1.st_dev == st2.st_dev) && (st1.st_ino == st2.st_ino);
+#else
+  if (len != u->file_len)
+    return 0;
+  return (memcmp(path, u->file, len) == 0);
+#endif
 }
 
 
@@ -1290,15 +1337,22 @@ compare_file_filename (stream * s, const char *name, int len)
 static gfc_unit *
 find_file0 (gfc_unit * u, struct stat *st1)
 {
+#ifdef HAVE_WORKING_STAT
   struct stat st2;
+#endif
   gfc_unit *v;
 
   if (u == NULL)
     return NULL;
 
+#ifdef HAVE_WORKING_STAT
   if (fstat (((unix_stream *) u->s)->fd, &st2) >= 0 &&
       st1->st_dev == st2.st_dev && st1->st_ino == st2.st_ino)
     return u;
+#else
+  if (compare_string(u->file_len, u->file, ioparm.file_len, ioparm.file) == 0)
+    return u;
+#endif
 
   v = find_file0 (u->left, st1);
   if (v != NULL)
@@ -1584,6 +1638,12 @@ stream_ttyname (stream *s)
 #else
   return NULL;
 #endif
+}
+
+gfc_offset
+stream_offset (stream *s)
+{
+  return (((unix_stream *) s)->logical_offset);
 }
 
 

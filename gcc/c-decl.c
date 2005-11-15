@@ -803,6 +803,7 @@ pop_scope (void)
 	case VAR_DECL:
 	  /* Warnings for unused variables.  */
 	  if (!TREE_USED (p)
+	      && !TREE_NO_WARNING (p)
 	      && !DECL_IN_SYSTEM_HEADER (p)
 	      && DECL_NAME (p)
 	      && !DECL_ARTIFICIAL (p)
@@ -1876,7 +1877,11 @@ duplicate_decls (tree newdecl, tree olddecl)
   tree newtype = NULL, oldtype = NULL;
 
   if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
-    return false;
+    {
+      /* Avoid `unused variable' and other warnings warnings for OLDDECL.  */
+      TREE_NO_WARNING (olddecl) = 1;
+      return false;
+    }
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
   return true;
@@ -4689,11 +4694,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	/* At file scope, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers
 	   makes this declaration a definition (perhaps tentative).  Also,
-	   the absence of both `static' and `register' makes it public.  */
+	   the absence of `static' makes it public.  */
 	if (current_scope == file_scope)
 	  {
-	    TREE_PUBLIC (decl) = !(storage_class == csc_static
-				   || storage_class == csc_register);
+	    TREE_PUBLIC (decl) = storage_class != csc_static;
 	    TREE_STATIC (decl) = !extern_ref;
 	  }
 	/* Not at file scope, only `static' makes a static definition.  */

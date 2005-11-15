@@ -1456,9 +1456,7 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
 	gnu_retval = build_unary_op (INDIRECT_REF, NULL_TREE, gnu_retval);
 
       add_stmt_with_node
-	(build1 (RETURN_EXPR, void_type_node,
-		 build2 (MODIFY_EXPR, TREE_TYPE (gnu_retval),
-			 DECL_RESULT (current_function_decl), gnu_retval)),
+	(build_return_expr (DECL_RESULT (current_function_decl), gnu_retval),
 	 gnat_node);
       gnat_poplevel ();
       gnu_result = end_stmt_group ();
@@ -1685,10 +1683,13 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 		}
 
 	      /* Set up to move the copy back to the original.  */
-	      gnu_temp = build2 (MODIFY_EXPR, TREE_TYPE (gnu_copy),
-				 gnu_copy, gnu_actual);
+	      gnu_temp = build_binary_op (MODIFY_EXPR, NULL_TREE,
+					  gnu_copy, gnu_actual);
 	      annotate_with_node (gnu_temp, gnat_actual);
 	      append_to_statement_list (gnu_temp, &gnu_after_list);
+
+	      /* Account for next statement just below.  */
+	      gnu_name = gnu_actual;
 	    }
 	}
 
@@ -3425,8 +3426,8 @@ gnat_to_gnu (Node_Id gnat_node)
 
       /* If the type has a size that overflows, convert this into raise of
 	 Storage_Error: execution shouldn't have gotten here anyway.  */
-      if (TREE_CODE (TYPE_SIZE (TREE_TYPE (gnu_lhs))) == INTEGER_CST
-	   && TREE_OVERFLOW (TYPE_SIZE (TREE_TYPE (gnu_lhs))))
+      if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (gnu_lhs))) == INTEGER_CST
+	  && TREE_OVERFLOW (TYPE_SIZE_UNIT (TREE_TYPE (gnu_lhs))))
 	gnu_result = build_call_raise (SE_Object_Too_Large);
       else if (Nkind (Expression (gnat_node)) == N_Function_Call
 	       && !Do_Range_Check (Expression (gnat_node)))
@@ -3519,8 +3520,6 @@ gnat_to_gnu (Node_Id gnat_node)
 	tree gnu_ret_val = NULL_TREE;
 	/* The place to put the return value.  */
 	tree gnu_lhs;
-	/* Avoid passing error_mark_node to RETURN_EXPR.  */
-	gnu_result = NULL_TREE;
 
 	/* If we are dealing with a "return;" from an Ada procedure with
 	   parameters passed by copy in copy out, we need to return a record
@@ -3626,18 +3625,20 @@ gnat_to_gnu (Node_Id gnat_node)
 		  }
 	      }
 	  }
-
-	if (gnu_ret_val)
-	  gnu_result = build2 (MODIFY_EXPR, TREE_TYPE (gnu_ret_val),
-			       gnu_lhs, gnu_ret_val);
+	else
+	  /* If the Ada subprogram is a regular procedure, just return.  */
+	  gnu_lhs = NULL_TREE;
 
 	if (TYPE_RETURNS_BY_TARGET_PTR_P (gnu_subprog_type))
 	  {
+	    if (gnu_ret_val)
+	      gnu_result = build_binary_op (MODIFY_EXPR, NULL_TREE,
+					    gnu_lhs, gnu_ret_val);
 	    add_stmt_with_node (gnu_result, gnat_node);
-	    gnu_result = NULL_TREE;
+	    gnu_lhs = NULL_TREE;
 	  }
 
-	gnu_result = build1 (RETURN_EXPR, void_type_node, gnu_result);
+	gnu_result = build_return_expr (gnu_lhs, gnu_ret_val);
       }
       break;
 

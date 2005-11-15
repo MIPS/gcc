@@ -1,3 +1,11 @@
+2005-11-13  Andreas Jaeger  <aj@suse.de>
+
+	* check.tpl: Handle CVS additionally.
+
+2005-11-05  Andreas Jaeger  <aj@suse.de>
+
+	* check.tpl: Adopt for move to subversion.
+
 2005-09-15  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR c++/23139
@@ -41,7 +49,7 @@
 
 	PR target/21683
 	* fixincl.c: Don't include <sys/wait.h> if SEPARATE_FIX_PROC.
-	
+
 2005-05-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
             Joseph S. Myers  <joseph@codesourcery.com>
 
@@ -90,7 +98,7 @@
 	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
 	_unlocked function.
 	(fwrite_unlocked): Fix prototype.
-	
+
 	* configure, config.h.in: Regenerate.
 
 2005-03-21  Zack Weinberg  <zack@codesourcery.com>

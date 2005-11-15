@@ -1344,7 +1344,8 @@ build_offset_ref (tree type, tree name, bool address_p)
     return name;
 
   if (dependent_type_p (type) || type_dependent_expression_p (name))
-    return build_min_nt (SCOPE_REF, type, name);
+    return build_qualified_name (NULL_TREE, type, name, 
+				 /*template_p=*/false);
 
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
     {
@@ -1575,16 +1576,27 @@ constant_value_1 (tree decl, bool integral_p)
 		&& CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl)))))
     {
       tree init;
-      /* If DECL is a static data member in a template class, we must
-	 instantiate it here.  The initializer for the static data
-	 member is not processed until needed; we need it now.  */ 
-      mark_used (decl);
-      init = DECL_INITIAL (decl);
-      /* If we are currently processing a template, the
-	 initializer for a static data member may not be dependent,
-	 but it is not folded until instantiation time.  */
-      if (init)
-	init = fold_non_dependent_expr (init);
+      /* Static data members in template classes may have
+	 non-dependent initializers.  References to such non-static
+	 data members are no value-dependent, so we must retrieve the
+	 initializer here.  The DECL_INITIAL will have the right type,
+	 but will not have been folded because that would prevent us
+	 from performing all appropriate semantic checks at
+	 instantiation time.  */
+      if (DECL_CLASS_SCOPE_P (decl)
+	  && CLASSTYPE_TEMPLATE_INFO (DECL_CONTEXT (decl))
+	  && uses_template_parms (CLASSTYPE_TI_ARGS 
+				  (DECL_CONTEXT (decl))))
+	init = fold_non_dependent_expr (DECL_INITIAL (decl));
+      else
+	{
+	  /* If DECL is a static data member in a template
+	     specialization, we must instantiate it here.  The
+	     initializer for the static data member is not processed
+	     until needed; we need it now.  */
+	  mark_used (decl);
+	  init = DECL_INITIAL (decl);
+	}
       if (!(init || init == error_mark_node)
 	  || !TREE_TYPE (init)
 	  || (integral_p
@@ -1592,7 +1604,7 @@ constant_value_1 (tree decl, bool integral_p)
 	      : (!TREE_CONSTANT (init)
 		 /* Do not return an aggregate constant (of which
 		    string literals are a special case), as we do not
-		    want to make inadvertant copies of such entities,
+		    want to make inadvertent copies of such entities,
 		    and we must be sure that their addresses are the
 		    same everywhere.  */
 		 || TREE_CODE (init) == CONSTRUCTOR
@@ -2601,8 +2613,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       for_stmt = begin_for_stmt ();
       finish_for_init_stmt (for_stmt);
-      finish_for_cond (build2 (NE_EXPR, boolean_type_node,
-			       iterator, integer_minus_one_node),
+      finish_for_cond (build2 (NE_EXPR, boolean_type_node, iterator,
+			       build_int_cst (TREE_TYPE (iterator), -1)),
 		       for_stmt);
       finish_for_expr (build_unary_op (PREDECREMENT_EXPR, iterator, 0),
 		       for_stmt);

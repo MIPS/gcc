@@ -304,6 +304,86 @@ proc check_profiling_available { test_what } {
     return $profiling_available_saved
 }
 
+# Return 1 if target has packed layout of structure members by
+# default, 0 otherwise.  Note that this is slightly different than
+# whether the target has "natural alignment": both attributes may be
+# false.
+
+proc check_effective_target_default_packed { } {
+    global et_default_packed_saved
+    global et_default_packed_target_name
+
+    if { ![info exists et_default_packed_target_name] } {
+	set et_default_packed_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_default_packed_target_name } {
+	verbose "check_effective_target_default_packed: `$et_default_packed_target_name'" 2
+	set et_default_packed_target_name $current_target
+	if [info exists et_default_packed_saved] {
+	    verbose "check_effective_target_default_packed: removing cached result" 2
+	    unset et_default_packed_saved
+	}
+    }
+
+    if [info exists et_default_packed_saved] {
+	verbose "check_effective_target_default_packed: using cached result" 2
+    } else {
+	verbose "check_effective_target_default_packed: compiling source" 2
+
+	set et_default_packed_saved \
+	    [string match "" [get_compiler_messages default_packed assembly {
+	    struct x { char a; long b; } c;
+	    int s[sizeof (c) == sizeof (char) + sizeof (long) ? 1 : -1];
+	} ]]
+
+    }
+    verbose "check_effective_target_default_packed: returning $et_default_packed_saved" 2
+    return $et_default_packed_saved
+}
+
+# Return 1 if target has PCC_BITFIELD_TYPE_MATTERS defined.  See
+# documentation, where the test also comes from.
+
+proc check_effective_target_pcc_bitfield_type_matters { } {
+    global et_pcc_bitfield_type_matters_saved
+    global et_pcc_bitfield_type_matters_target_name
+
+    if { ![info exists et_pcc_bitfield_type_matters_target_name] } {
+	set et_pcc_bitfield_type_matters_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_pcc_bitfield_type_matters_target_name } {
+	verbose "check_effective_target_pcc_bitfield_type_matters: `$et_pcc_bitfield_type_matters_target_name'" 2
+	set et_pcc_bitfield_type_matters_target_name $current_target
+	if [info exists et_pcc_bitfield_type_matters_saved] {
+	    verbose "check_effective_target_pcc_bitfield_type_matters: removing cached result" 2
+	    unset et_pcc_bitfield_type_matters_saved
+	}
+    }
+
+    if [info exists et_pcc_bitfield_type_matters_saved] {
+	verbose "check_effective_target_pcc_bitfield_type_matters: using cached result" 2
+    } else {
+	verbose "check_effective_target_pcc_bitfield_type_matters: compiling source" 2
+
+	# PCC_BITFIELD_TYPE_MATTERS isn't just about unnamed or empty
+	# bitfields, but let's stick to the example code from the docs.
+	set et_pcc_bitfield_type_matters_saved \
+	    [string match "" [get_compiler_messages pcc_bitfield_type_matters assembly {
+	    struct foo1 { char x; char :0; char y; };
+	    struct foo2 { char x; int :0; char y; };
+	    int s[sizeof (struct foo1) != sizeof (struct foo2) ? 1 : -1];
+	} ]]
+    }
+    verbose "check_effective_target_pcc_bitfield_type_matters: returning $et_pcc_bitfield_type_matters_saved" 2
+    return $et_pcc_bitfield_type_matters_saved
+}
+
 # Return 1 if -fpic and -fPIC are supported, as in no warnings or errors
 # emitted, 0 otherwise.  Whether a shared library can actually be built is
 # out of scope for this test.
@@ -520,6 +600,60 @@ proc check_effective_target_fortran_large_int { } {
     }
 
     return $et_fortran_large_int_saved
+}
+
+# Return 1 if we can statically link libgfortran, 0 otherwise.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_static_libgfortran { } {
+    global et_static_libgfortran
+    global et_static_libgfortran_target_name
+    global tool
+
+    if { ![info exists et_static_libgfortran_target_name] } {
+       set et_static_libgfortran_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_static_libgfortran_target_name } {
+       verbose "check_effective_target_static_libgfortran: `$et_static_libgfortran_target_name' `$current_target'" 2
+       set et_static_libgfortran_target_name $current_target
+       if [info exists et_static_libgfortran_saved] {
+           verbose "check_effective_target_static_libgfortran: removing cached result" 2
+           unset et_static_libgfortran_saved
+       }
+    }
+
+    if [info exists et_static_libgfortran_saved] {
+       verbose "check_effective_target_static_libgfortran returning saved $et_static_libgfortran_saved" 2
+    } else {
+       set et_static_libgfortran_saved 0
+
+       # Set up, compile, and execute a test program using static linking.
+       # Include the current process ID in the file names to prevent
+       # conflicts with invocations for multiple testsuites.
+       set opts "additional_flags=-static"
+       set src static[pid].f
+       set exe static[pid].x
+
+       set f [open $src "w"]
+       puts $f "      print *, 'test'"
+       puts $f "      end"
+       close $f
+
+       verbose "check_effective_target_static_libgfortran compiling testfile $src" 2
+       set lines [${tool}_target_compile $src $exe executable "$opts"]
+       file delete $src
+
+       if [string match "" $lines] then {
+           # No error message, compilation succeeded.
+           set et_static_libgfortran_saved 1
+       }
+    }
+
+    return $et_static_libgfortran_saved
 }
 
 # Return 1 if the target supports executing AltiVec instructions, 0

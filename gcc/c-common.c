@@ -344,7 +344,7 @@ int flag_gen_declaration;
 
 int print_struct_values;
 
-/* ???.  Undocumented.  */
+/* Tells the compiler what is the constant string class for Objc.  */
 
 const char *constant_string_class_name;
 
@@ -524,6 +524,7 @@ static tree handle_section_attribute (tree *, tree, tree, int, bool *);
 static tree handle_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_alias_attribute (tree *, tree, tree, int, bool *);
+static tree handle_weakref_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_visibility_attribute (tree *, tree, tree, int,
 					 bool *);
 static tree handle_tls_model_attribute (tree *, tree, tree, int,
@@ -603,6 +604,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_weak_attribute },
   { "alias",                  1, 1, true,  false, false,
 			      handle_alias_attribute },
+  { "weakref",                0, 1, true,  false, false,
+			      handle_weakref_attribute },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute },
   { "malloc",                 0, 0, true,  false, false,
@@ -976,7 +979,7 @@ vector_types_convertible_p (tree t1, tree t2)
   return targetm.vector_opaque_p (t1)
 	 || targetm.vector_opaque_p (t2)
          || (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
-	     && (TREE_CODE (t1) != REAL_TYPE || 
+	     && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE || 
 		 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
 	     && INTEGRAL_TYPE_P (TREE_TYPE (t1))
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
@@ -3618,25 +3621,27 @@ c_add_case_label (splay_tree cases, tree cond, tree orig_type,
     {
       low_value = check_case_value (low_value);
       low_value = convert_and_check (type, low_value);
+      if (low_value == error_mark_node)
+	goto error_out;
     }
   if (high_value)
     {
       high_value = check_case_value (high_value);
       high_value = convert_and_check (type, high_value);
+      if (high_value == error_mark_node)
+	goto error_out;
     }
 
-  /* If an error has occurred, bail out now.  */
-  if (low_value == error_mark_node || high_value == error_mark_node)
-    goto error_out;
-
-  /* If the LOW_VALUE and HIGH_VALUE are the same, then this isn't
-     really a case range, even though it was written that way.  Remove
-     the HIGH_VALUE to simplify later processing.  */
-  if (tree_int_cst_equal (low_value, high_value))
-    high_value = NULL_TREE;
-  if (low_value && high_value
-      && !tree_int_cst_lt (low_value, high_value))
-    warning (0, "empty range specified");
+  if (low_value && high_value)
+    {
+      /* If the LOW_VALUE and HIGH_VALUE are the same, then this isn't
+         really a case range, even though it was written that way.
+         Remove the HIGH_VALUE to simplify later processing.  */
+      if (tree_int_cst_equal (low_value, high_value))
+	high_value = NULL_TREE;
+      else if (!tree_int_cst_lt (low_value, high_value))
+	warning (0, "empty range specified");
+    }
 
   /* See if the case is in range of the type of the original testing
      expression.  If both low_value and high_value are out of range,
@@ -4771,7 +4776,10 @@ handle_alias_attribute (tree *node, tree name, tree args,
 	DECL_INITIAL (decl) = error_mark_node;
       else
 	{
-	  DECL_EXTERNAL (decl) = 0;
+	  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
+	    DECL_EXTERNAL (decl) = 1;
+	  else
+	    DECL_EXTERNAL (decl) = 0;
 	  TREE_STATIC (decl) = 1;
 	}
     }
@@ -4780,6 +4788,40 @@ handle_alias_attribute (tree *node, tree name, tree args,
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
+
+  return NULL_TREE;
+}
+
+/* Handle a "weakref" attribute; arguments as in struct
+   attribute_spec.handler.  */
+
+static tree
+handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			  int flags, bool *no_add_attrs)
+{
+  tree attr = NULL_TREE;
+
+  /* The idea here is that `weakref("name")' mutates into `weakref,
+     alias("name")', and weakref without arguments, in turn,
+     implicitly adds weak. */
+
+  if (args)
+    {
+      attr = tree_cons (get_identifier ("alias"), args, attr);
+      attr = tree_cons (get_identifier ("weakref"), NULL_TREE, attr);
+
+      *no_add_attrs = true;
+    }
+  else
+    {
+      if (lookup_attribute ("alias", DECL_ATTRIBUTES (*node)))
+	error ("%Jweakref attribute must appear before alias attribute",
+	       *node);
+
+      attr = tree_cons (get_identifier ("weak"), NULL_TREE, attr);
+    }
+
+  decl_attributes (node, attr, flags);
 
   return NULL_TREE;
 }

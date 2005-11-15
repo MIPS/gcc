@@ -1,3 +1,48 @@
+2005-11-14  Robert Dewar  <dewar@adacore.com>
+
+	PR ada/18434
+	* osint-m.adb: Add pragma Elaborate_All for Osint
+
+2005-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/23995
+	* trans.c (call_to_gnu): Restore statement lost in translation.
+
+2005-11-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* init.c: Use the Linux-specific section for the IA-64/Linux target.
+	(__gnat_adjust_context_for_raise): Add conditional code so that the
+	IA-64 is also supported.
+
+2005-11-03  James E Wilson  <wilson@specifix.com>
+
+	PR ada/23427
+	* trans.c (gnat_to_gnu): Use TYPE_SIZE_UNIT not TYPE_SIZE in
+	TREE_OVERFLOW check.
+
+2005-09-21  Olivier Hainque  <hainque@adacore.com>
+
+	PR ada/22418
+	* decl.c (maybe_pad_type): Use proper bitsizetype for XVZ objects,
+	as we create them to store a size in bits.
+
+2005-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/21937
+	PR ada/22328
+	PR ada/22381
+	PR ada/22383
+	PR ada/22419
+	PR ada/22420
+	* utils2.c (build_return_expr): New helper function.
+	* gigi.h (build_return_expr): Declare it.
+	* trans.c (Subprogram_Body_to_gnu): Use build_return_expr instead
+	of manually building the RETURN_EXPR tree.
+	(call_to_gnu): Pass MODIFY_EXPR through build_binary_op.
+	(gnat_to_gnu) <N_Return_Statement>: Pass MODIFY_EXPR through
+	build_binary_op for the "target pointer" case.  Use build_return_expr
+	instead of manually building the RETURN_EXPR tree.
+
 2005-09-16  Laurent GUERBY  <laurent@guerby.net>
 
 	PR ada/23788

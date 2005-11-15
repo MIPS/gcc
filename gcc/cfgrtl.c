@@ -1456,15 +1456,8 @@ safe_insert_insn_on_edge (rtx insn, edge e)
   regset killed;
   rtx save_regs = NULL_RTX;
   unsigned regno;
-  int noccmode;
   enum machine_mode mode;
   reg_set_iterator rsi;
-
-#ifdef AVOID_CCMODE_COPIES
-  noccmode = true;
-#else
-  noccmode = false;
-#endif
 
   killed = ALLOC_REG_SET (&reg_obstack);
 
@@ -1491,7 +1484,8 @@ safe_insert_insn_on_edge (rtx insn, edge e)
       if (mode == VOIDmode)
 	return false;
 
-      if (noccmode && mode == CCmode)
+      /* Avoid copying in CCmode if we can't.  */
+      if (!can_copy_p (mode))
 	return false;
 	
       save_regs = alloc_EXPR_LIST (0,
@@ -2300,9 +2294,15 @@ purge_dead_edges (basic_block bb)
   /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
+      /* There are three types of edges we need to handle correctly here: EH
+	 edges, abnormal call EH edges, and abnormal call non-EH edges.  The
+	 latter can appear when nonlocal gotos are used.  */
       if (e->flags & EDGE_EH)
 	{
-	  if (can_throw_internal (BB_END (bb)))
+	  if (can_throw_internal (BB_END (bb))
+	      /* If this is a call edge, verify that this is a call insn.  */
+	      && (! (e->flags & EDGE_ABNORMAL_CALL)
+		  || CALL_P (BB_END (bb))))
 	    {
 	      ei_next (&ei);
 	      continue;

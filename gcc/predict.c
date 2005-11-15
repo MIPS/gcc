@@ -624,6 +624,9 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	      niter = desc.niter + 1;
 	      if (niter == 0)        /* We might overflow here.  */
 		niter = desc.niter;
+	      if (niter
+		  > (unsigned int) PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS))
+		niter = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
 
 	      prob = (REG_BR_PROB_BASE
 		      - (REG_BR_PROB_BASE + niter /2) / niter);
@@ -651,16 +654,17 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	      if (TREE_CODE (niter) == INTEGER_CST)
 		{
 		  int probability;
+		  int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
 		  if (host_integerp (niter, 1)
 		      && tree_int_cst_lt (niter,
-				          build_int_cstu (NULL_TREE,
-						       REG_BR_PROB_BASE - 1)))
+				          build_int_cstu (NULL_TREE, max - 1)))
 		    {
 		      HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
-		      probability = (REG_BR_PROB_BASE + nitercst / 2) / nitercst;
+		      probability = ((REG_BR_PROB_BASE + nitercst / 2)
+				     / nitercst);
 		    }
 		  else
-		    probability = 1;
+		    probability = ((REG_BR_PROB_BASE + max / 2) / max);
 
 		  predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
 		}

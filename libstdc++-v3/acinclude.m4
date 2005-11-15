@@ -1280,7 +1280,7 @@ AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
   if test $enable_libstdcxx_allocator_flag = auto; then
     case ${target_os} in
       linux* | gnu* | kfreebsd*-gnu | knetbsd*-gnu)
-        enable_libstdcxx_allocator_flag=mt
+        enable_libstdcxx_allocator_flag=new
         ;;
       *)
         enable_libstdcxx_allocator_flag=new
@@ -1558,10 +1558,7 @@ dnl Substs:
 dnl  glibcxx_PCHFLAGS
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_PCH], [
-  AC_MSG_CHECKING([for enabled PCH])
   GLIBCXX_ENABLE(libstdcxx-pch,$1,,[build pre-compiled libstdc++ headers])
-  AC_MSG_RESULT([$enable_libstdcxx_pch])
-
   if test $enable_libstdcxx_pch = yes; then
     AC_CACHE_CHECK([for compiler with PCH support],
       [glibcxx_cv_prog_CXX_pch],
@@ -1586,6 +1583,9 @@ AC_DEFUN([GLIBCXX_ENABLE_PCH], [
       ])
     enable_libstdcxx_pch=$glibcxx_cv_prog_CXX_pch
   fi
+
+  AC_MSG_CHECKING([for enabled PCH])
+  AC_MSG_RESULT([$enable_libstdcxx_pch])
 
   GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
   if test $enable_libstdcxx_pch = yes; then
@@ -1711,8 +1711,9 @@ if test x$enable_symvers = xyes ; then
   fi
 fi
 
-# Check to see if libgcc_s exists, indicating that shared libgcc is possible.
-if test $enable_symvers != no; then
+# Check to see if 'gnu' can win.
+if test $enable_symvers = gnu; then
+  # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
   AC_MSG_CHECKING([for shared libgcc])
   ac_save_CFLAGS="$CFLAGS"
   CFLAGS=' -lgcc_s'
@@ -1736,25 +1737,18 @@ changequote([,])dnl
     fi
   fi
   AC_MSG_RESULT($glibcxx_shared_libgcc)
-fi
 
-# If no shared libgcc, can't win.
-if test $glibcxx_shared_libgcc != yes &&
-   test $enable_symvers != no ; then
-    AC_MSG_WARN([=== You have requested some kind of symbol versioning, but])
-    AC_MSG_WARN([=== you are not building a shared libgcc_s.])
-    AC_MSG_WARN([=== Symbol versioning will be disabled.])
-    enable_symvers=no
-  enable_symvers=no
-fi
-
-# Check to see if 'gnu' can win.
-if test $enable_symvers = gnu; then
   # For GNU ld, we need at least this version.  The format is described in
   # GLIBCXX_CHECK_LINKER_FEATURES above.
   glibcxx_min_gnu_ld_version=21400
 
-  if test $with_gnu_ld != yes ; then
+  # If no shared libgcc, can't win.
+  if test $glibcxx_shared_libgcc != yes; then
+      AC_MSG_WARN([=== You have requested GNU symbol versioning, but])
+      AC_MSG_WARN([=== you are not building a shared libgcc_s.])
+      AC_MSG_WARN([=== Symbol versioning will be disabled.])
+      enable_symvers=no
+  elif test $with_gnu_ld != yes ; then
     # just fail for now
     AC_MSG_WARN([=== You have requested GNU symbol versioning, but])
     AC_MSG_WARN([=== you are not using the GNU linker.])
@@ -1813,9 +1807,9 @@ AC_MSG_RESULT([$glibcxx_ptrdiff_t_is_i])
 
 AC_SUBST(SYMVER_MAP)
 AC_SUBST(port_specific_symbol_files)
-GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers == gnu)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers = gnu)
 GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_DARWIN_EXPORT, dnl
-  test $enable_symvers == darwin-export)
+  test $enable_symvers = darwin-export)
 AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
 ])
 

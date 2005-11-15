@@ -351,10 +351,13 @@ match_boz_constant (gfc_expr ** result)
         {
 	case 2:
           gfc_error ("Empty set of digits in binary constant at %C");
+	  break;
 	case 8:
           gfc_error ("Empty set of digits in octal constant at %C");
+	  break;
 	case 16:
           gfc_error ("Empty set of digits in hexadecimal constant at %C");
+	  break;
         default:
 	  gcc_unreachable ();
         }
@@ -367,10 +370,13 @@ match_boz_constant (gfc_expr ** result)
         {
 	case 2:
 	  gfc_error ("Illegal character in binary constant at %C");
+	  break;
 	case 8:
 	  gfc_error ("Illegal character in octal constant at %C");
+	  break;
 	case 16:
 	  gfc_error ("Illegal character in hexadecimal constant at %C");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -1628,6 +1634,15 @@ match_varspec (gfc_expr * primary, int equiv_flag)
     }
 
 check_substring:
+  if (primary->ts.type == BT_UNKNOWN)
+    {
+      if (gfc_get_default_type (sym, sym->ns)->type == BT_CHARACTER)
+       {
+         gfc_set_default_type (sym, 0, sym->ns);
+         primary->ts = sym->ts;
+       }
+    }
+
   if (primary->ts.type == BT_CHARACTER)
     {
       switch (match_substring (primary->ts.cl, equiv_flag, &substring))

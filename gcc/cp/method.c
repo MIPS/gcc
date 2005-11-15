@@ -502,7 +502,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 		t = build3 (COND_EXPR, TREE_TYPE (t), cond, t,
 			    cp_convert (TREE_TYPE (t), integer_zero_node));
 	    }
-	  t = force_target_expr (TREE_TYPE (t), t);
+	  if (IS_AGGR_TYPE (TREE_TYPE (t)))
+	    t = build_cplus_new (TREE_TYPE (t), t);
 	  finish_return_stmt (t);
 	}
 
@@ -888,7 +889,9 @@ locate_ctor (tree type, void *client ATTRIBUTE_UNUSED)
       tree fn = OVL_CURRENT (fns);
       tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
 
-      if (sufficient_parms_p (TREE_CHAIN (parms)))
+      parms = skip_artificial_parms_for (fn, parms);
+
+      if (sufficient_parms_p (parms))
 	return fn;
     }
   return NULL_TREE;

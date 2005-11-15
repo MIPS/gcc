@@ -233,7 +233,12 @@ struct s390_frame_layout GTY (())
   HOST_WIDE_INT f4_offset;
   HOST_WIDE_INT f8_offset;
   HOST_WIDE_INT backchain_offset;
-  
+
+  /* Number of first and last gpr where slots in the register
+     save area are reserved for.  */
+  int first_save_gpr_slot;
+  int last_save_gpr_slot;
+
   /* Number of first and last gpr to be saved, restored.  */
   int first_save_gpr;
   int first_restore_gpr;
@@ -283,8 +288,8 @@ struct machine_function GTY(())
 
 #define cfun_frame_layout (cfun->machine->frame_layout)
 #define cfun_save_high_fprs_p (!!cfun_frame_layout.high_fprs)
-#define cfun_gprs_save_area_size ((cfun_frame_layout.last_save_gpr -           \
-  cfun_frame_layout.first_save_gpr + 1) * UNITS_PER_WORD)
+#define cfun_gprs_save_area_size ((cfun_frame_layout.last_save_gpr_slot -           \
+  cfun_frame_layout.first_save_gpr_slot + 1) * UNITS_PER_WORD)
 #define cfun_set_fpr_bit(BITNUM) (cfun->machine->frame_layout.fpr_bitmap |=    \
   (1 << (BITNUM)))
 #define cfun_fpr_bit_p(BITNUM) (!!(cfun->machine->frame_layout.fpr_bitmap &    \
@@ -1385,6 +1390,8 @@ override_options (void)
 	error ("-mstack-size implies use of -mstack-guard");
       else if (s390_stack_guard >= s390_stack_size)
 	error ("stack size must be greater than the stack guard value");
+      else if (s390_stack_size > 1 << 16)
+	error ("stack size must not be greater than 64k");
     }
   else if (s390_stack_guard)
     error ("-mstack-guard implies use of -mstack-size"); 
@@ -1719,6 +1726,58 @@ s390_decompose_address (rtx addr, struct s390_address *out)
   return true;
 }
 
+/* Decompose a RTL expression OP for a shift count into its components,
+   and return the base register in BASE and the offset in OFFSET.
+
+   If BITS is non-zero, the expression is used in a context where only
+   that number to low-order bits is significant.  We then allow OP to
+   contain and outer AND that does not affect significant bits.  If BITS
+   is zero, we allow OP to contain any outer AND with a constant.
+
+   Return true if OP is a valid shift count, false if not.  */
+
+bool
+s390_decompose_shift_count (rtx op, rtx *base, HOST_WIDE_INT *offset, int bits)
+{
+  HOST_WIDE_INT off = 0;
+
+  /* Drop outer ANDs.  */
+  if (GET_CODE (op) == AND && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    {
+      HOST_WIDE_INT mask = ((HOST_WIDE_INT)1 << bits) - 1;
+      if ((INTVAL (XEXP (op, 1)) & mask) != mask)
+	return false;
+
+      op = XEXP (op, 0);
+    }
+
+  /* We can have an integer constant, an address register,
+     or a sum of the two.  */
+  if (GET_CODE (op) == CONST_INT)
+    {
+      off = INTVAL (op);
+      op = NULL_RTX;
+    }
+  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    {
+      off = INTVAL (XEXP (op, 1));
+      op = XEXP (op, 0);
+    }
+  while (op && GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (op && GET_CODE (op) != REG)
+    return false;
+
+  if (offset)
+    *offset = off;
+  if (base)
+    *base = op;
+
+   return true;
+}
+
+
 /* Return true if CODE is a valid address without index.  */
 
 bool
@@ -1849,7 +1908,11 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
       break;
 
     case 'Y':
-      return shift_count_operand (op, VOIDmode);
+      /* Simply check for the basic form of a shift count.  Reload will
+	 take care of making sure we have a proper base register.  */
+      if (!s390_decompose_shift_count (op, NULL, NULL, 0))
+	return 0;
+      break;
 
     default:
       return 0;
@@ -3813,6 +3876,101 @@ s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
   return false;
 }
 
+/* Expand code for the insv template. Return true if successful, false else.  */
+
+bool 
+s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
+{
+  int bitsize = INTVAL (op1);
+  int bitpos = INTVAL (op2);
+
+  /* We need byte alignment.  */
+  if (bitsize % BITS_PER_UNIT)
+    return false;
+
+  if (bitpos == 0
+      && memory_operand (dest, VOIDmode)
+      && (register_operand (src, word_mode)
+	  || const_int_operand (src, VOIDmode)))
+    {
+      /* Emit standard pattern if possible.  */
+      enum machine_mode mode = smallest_mode_for_size (bitsize, MODE_INT);
+      if (GET_MODE_BITSIZE (mode) == bitsize)
+	emit_move_insn (adjust_address (dest, mode, 0), gen_lowpart (mode, src));
+
+      /* (set (ze (mem)) (const_int)).  */
+      else if (const_int_operand (src, VOIDmode))
+	{
+	  int size = bitsize / BITS_PER_UNIT;
+	  rtx src_mem = adjust_address (force_const_mem (word_mode, src), BLKmode,
+					GET_MODE_SIZE (word_mode) - size);
+
+	  dest = adjust_address (dest, BLKmode, 0);
+	  set_mem_size (dest, GEN_INT (size));
+	  s390_expand_movmem (dest, src_mem, GEN_INT (size));
+	}
+	  
+      /* (set (ze (mem)) (reg)).  */
+      else if (register_operand (src, word_mode))
+	{
+	  if (bitsize <= GET_MODE_BITSIZE (SImode))
+	    emit_move_insn (gen_rtx_ZERO_EXTRACT (word_mode, dest, op1,
+						  const0_rtx), src);
+	  else
+	    {
+	      /* Emit st,stcmh sequence.  */
+	      int stcmh_width = bitsize - GET_MODE_BITSIZE (SImode);
+	      int size = stcmh_width / BITS_PER_UNIT;
+
+	      emit_move_insn (adjust_address (dest, SImode, size), 
+			      gen_lowpart (SImode, src));
+	      set_mem_size (dest, GEN_INT (size));
+	      emit_move_insn (gen_rtx_ZERO_EXTRACT (word_mode, dest, GEN_INT
+						    (stcmh_width), const0_rtx),
+			      gen_rtx_LSHIFTRT (word_mode, src, GEN_INT
+						(GET_MODE_BITSIZE (SImode))));
+	    }
+	}
+      else
+	return false;
+
+      return true;
+    }
+
+  /* (set (ze (reg)) (const_int)).  */
+  if (TARGET_ZARCH
+      && register_operand (dest, word_mode) 
+      && (bitpos % 16) == 0
+      && (bitsize % 16) == 0
+      && const_int_operand (src, VOIDmode))
+    {
+      HOST_WIDE_INT val = INTVAL (src);
+      int regpos = bitpos + bitsize;
+
+      while (regpos > bitpos)
+	{
+	  enum machine_mode putmode;
+	  int putsize;
+
+	  if (TARGET_EXTIMM && (regpos % 32 == 0) && (regpos >= bitpos + 32))
+	    putmode = SImode;
+	  else
+	    putmode = HImode;
+
+	  putsize = GET_MODE_BITSIZE (putmode);
+	  regpos -= putsize;
+	  emit_move_insn (gen_rtx_ZERO_EXTRACT (word_mode, dest, 
+						GEN_INT (putsize),
+						GEN_INT (regpos)), 
+			  gen_int_mode (val, putmode));
+	  val >>= putsize;
+	}
+      gcc_assert (regpos == bitpos);
+      return true;
+    }
+
+  return false;
+}
 
 /* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
@@ -3881,46 +4039,25 @@ s390_delegitimize_address (rtx orig_x)
 static void
 print_shift_count_operand (FILE *file, rtx op)
 {
-  HOST_WIDE_INT offset = 0;
+  HOST_WIDE_INT offset;
+  rtx base;
 
-  /* Shift count operands are always truncated to the 6 least significant bits and
-     the setmem padding byte to the least 8 significant bits.  Hence we can drop
-     pointless ANDs.  */
-  if (GET_CODE (op) == AND && GET_CODE (XEXP (op, 1)) == CONST_INT)
-    {
-      if ((INTVAL (XEXP (op, 1)) & 63) != 63)
-	gcc_unreachable ();
-
-      op = XEXP (op, 0);
-    }
-
-  /* We can have an integer constant, an address register,
-     or a sum of the two.  */
-  if (GET_CODE (op) == CONST_INT)
-    {
-      offset = INTVAL (op);
-      op = NULL_RTX;
-    }
-  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
-    {
-      offset = INTVAL (XEXP (op, 1));
-      op = XEXP (op, 0);
-    }
-  while (op && GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
+  /* Extract base register and offset.  */
+  if (!s390_decompose_shift_count (op, &base, &offset, 0))
+    gcc_unreachable ();
 
   /* Sanity check.  */
-  if (op)
+  if (base)
     {
-      gcc_assert (GET_CODE (op) == REG);
-      gcc_assert (REGNO (op) < FIRST_PSEUDO_REGISTER);
-      gcc_assert (REGNO_REG_CLASS (REGNO (op)) == ADDR_REGS);
+      gcc_assert (GET_CODE (base) == REG);
+      gcc_assert (REGNO (base) < FIRST_PSEUDO_REGISTER);
+      gcc_assert (REGNO_REG_CLASS (REGNO (base)) == ADDR_REGS);
     }
 
   /* Offsets are constricted to twelve bits.  */
   fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset & ((1 << 12) - 1));
-  if (op)
-    fprintf (file, "(%s)", reg_names[REGNO (op)]);
+  if (base)
+    fprintf (file, "(%s)", reg_names[REGNO (base)]);
 }
 
 /* See 'get_some_local_dynamic_name'.  */
@@ -4065,10 +4202,13 @@ print_operand_address (FILE *file, rtx addr)
     'Y': print shift count operand.
 
     'b': print integer X as if it's an unsigned byte.
-    'x': print integer X as if it's an unsigned word.
-    'h': print integer X as if it's a signed word.
+    'x': print integer X as if it's an unsigned halfword.
+    'h': print integer X as if it's a signed halfword.
     'i': print the first nonzero HImode part of X.
-    'j': print the first HImode part unequal to 0xffff of X.  */
+    'j': print the first HImode part unequal to -1 of X.
+    'k': print the first nonzero SImode part of X.
+    'm': print the first SImode part unequal to -1 of X.
+    'o': print integer X as if it's an unsigned 32bit word.  */
 
 void
 print_operand (FILE *file, rtx x, int code)
@@ -5874,7 +6014,10 @@ s390_regs_ever_clobbered (int *regs_ever_clobbered)
      deal with this automatically.  */
   if (current_function_calls_eh_return || cfun->machine->has_landing_pad_p)
     for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM ; i++)
-      regs_ever_clobbered[EH_RETURN_DATA_REGNO (i)] = 1;
+      if (current_function_calls_eh_return 
+	  || (cfun->machine->has_landing_pad_p 
+	      && regs_ever_live [EH_RETURN_DATA_REGNO (i)]))
+	regs_ever_clobbered[EH_RETURN_DATA_REGNO (i)] = 1;
 
   /* For nonlocal gotos all call-saved registers have to be saved.
      This flag is also set for the unwinding code in libgcc.
@@ -5997,15 +6140,17 @@ s390_register_info (int clobbered_regs[])
 	|| current_function_stdarg);
 
   for (i = 6; i < 16; i++)
-    if (clobbered_regs[i])
+    if (regs_ever_live[i] || clobbered_regs[i])
       break;
   for (j = 15; j > i; j--)
-    if (clobbered_regs[j])
+    if (regs_ever_live[j] || clobbered_regs[j])
       break;
 
   if (i == 16)
     {
       /* Nothing to save/restore.  */
+      cfun_frame_layout.first_save_gpr_slot = -1;
+      cfun_frame_layout.last_save_gpr_slot = -1;
       cfun_frame_layout.first_save_gpr = -1;
       cfun_frame_layout.first_restore_gpr = -1;
       cfun_frame_layout.last_save_gpr = -1;
@@ -6013,11 +6158,36 @@ s390_register_info (int clobbered_regs[])
     }
   else
     {
-      /* Save / Restore from gpr i to j.  */
-      cfun_frame_layout.first_save_gpr = i;
-      cfun_frame_layout.first_restore_gpr = i;
-      cfun_frame_layout.last_save_gpr = j;
-      cfun_frame_layout.last_restore_gpr = j;
+      /* Save slots for gprs from i to j.  */
+      cfun_frame_layout.first_save_gpr_slot = i;
+      cfun_frame_layout.last_save_gpr_slot = j;
+
+      for (i = cfun_frame_layout.first_save_gpr_slot; 
+	   i < cfun_frame_layout.last_save_gpr_slot + 1; 
+	   i++)
+	if (clobbered_regs[i])
+	  break;
+
+      for (j = cfun_frame_layout.last_save_gpr_slot; j > i; j--)
+	if (clobbered_regs[j])
+	  break;
+      
+      if (i == cfun_frame_layout.last_save_gpr_slot + 1)
+	{
+	  /* Nothing to save/restore.  */
+	  cfun_frame_layout.first_save_gpr = -1;
+	  cfun_frame_layout.first_restore_gpr = -1;
+	  cfun_frame_layout.last_save_gpr = -1;
+	  cfun_frame_layout.last_restore_gpr = -1;
+	}
+      else
+	{
+	  /* Save / Restore from gpr i to j.  */
+	  cfun_frame_layout.first_save_gpr = i;
+	  cfun_frame_layout.first_restore_gpr = i;
+	  cfun_frame_layout.last_save_gpr = j;
+	  cfun_frame_layout.last_restore_gpr = j;
+	}
     }
 
   if (current_function_stdarg)
@@ -6033,11 +6203,17 @@ s390_register_info (int clobbered_regs[])
 
 	  if (cfun_frame_layout.first_save_gpr == -1
 	      || cfun_frame_layout.first_save_gpr > 2 + min_gpr)
-	    cfun_frame_layout.first_save_gpr = 2 + min_gpr;
+	    {
+	      cfun_frame_layout.first_save_gpr = 2 + min_gpr;
+	      cfun_frame_layout.first_save_gpr_slot = 2 + min_gpr;
+	    }
 
 	  if (cfun_frame_layout.last_save_gpr == -1
 	      || cfun_frame_layout.last_save_gpr < 2 + max_gpr - 1)
-	    cfun_frame_layout.last_save_gpr = 2 + max_gpr - 1;
+	    {
+	      cfun_frame_layout.last_save_gpr = 2 + max_gpr - 1;
+	      cfun_frame_layout.last_save_gpr_slot = 2 + max_gpr - 1;
+	    }
 	}
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
@@ -6082,7 +6258,7 @@ s390_frame_info (void)
       cfun_frame_layout.f0_offset = 16 * UNITS_PER_WORD;
       cfun_frame_layout.f4_offset = cfun_frame_layout.f0_offset + 2 * 8;
       cfun_frame_layout.f8_offset = -cfun_frame_layout.high_fprs * 8;
-      cfun_frame_layout.gprs_offset = (cfun_frame_layout.first_save_gpr
+      cfun_frame_layout.gprs_offset = (cfun_frame_layout.first_save_gpr_slot
 				       * UNITS_PER_WORD);
     }
   else if (TARGET_BACKCHAIN) /* kernel stack layout */
@@ -6091,7 +6267,7 @@ s390_frame_info (void)
 					    - UNITS_PER_WORD);
       cfun_frame_layout.gprs_offset 
 	= (cfun_frame_layout.backchain_offset 
-	   - (STACK_POINTER_REGNUM - cfun_frame_layout.first_save_gpr + 1)
+	   - (STACK_POINTER_REGNUM - cfun_frame_layout.first_save_gpr_slot + 1)
 	   * UNITS_PER_WORD);
 	  
       if (TARGET_64BIT)
@@ -6238,11 +6414,46 @@ s390_update_frame_layout (void)
     regs_ever_live[REGNO (cfun->machine->base_reg)] = 1;
 }
 
+/* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
+
+bool
+s390_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
+{
+   /* Once we've decided upon a register to use as base register, it must
+      no longer be used for any other purpose.  */
+  if (cfun->machine->base_reg)
+    if (REGNO (cfun->machine->base_reg) == old_reg
+	|| REGNO (cfun->machine->base_reg) == new_reg)
+      return false;
+
+  return true;
+}
+
 /* Return true if register FROM can be eliminated via register TO.  */
 
 bool
 s390_can_eliminate (int from, int to)
 {
+  /* On zSeries machines, we have not marked the base register as fixed.
+     Instead, we have an elimination rule BASE_REGNUM -> BASE_REGNUM.
+     If a function requires the base register, we say here that this
+     elimination cannot be performed.  This will cause reload to free
+     up the base register (as if it were fixed).  On the other hand,
+     if the current function does *not* require the base register, we
+     say here the elimination succeeds, which in turn allows reload
+     to allocate the base register for any other purpose.  */
+  if (from == BASE_REGNUM && to == BASE_REGNUM)
+    {
+      if (TARGET_CPU_ZARCH)
+	{
+	  s390_init_frame_layout ();
+	  return cfun->machine->base_reg == NULL_RTX;
+	}
+
+      return false;
+    }
+
+  /* Everything else must point into the stack frame.  */
   gcc_assert (to == STACK_POINTER_REGNUM
 	      || to == HARD_FRAME_POINTER_REGNUM);
 
@@ -6287,10 +6498,14 @@ s390_initial_elimination_offset (int from, int to)
 
     case RETURN_ADDRESS_POINTER_REGNUM:
       s390_init_frame_layout ();
-      index = RETURN_REGNUM - cfun_frame_layout.first_save_gpr;
+      index = RETURN_REGNUM - cfun_frame_layout.first_save_gpr_slot;
       gcc_assert (index >= 0);
       offset = cfun_frame_layout.frame_size + cfun_frame_layout.gprs_offset;
       offset += index * UNITS_PER_WORD;
+      break;
+
+    case BASE_REGNUM:
+      offset = 0;
       break;
 
     default:
@@ -6528,7 +6743,9 @@ s390_emit_prologue (void)
   if (cfun_frame_layout.first_save_gpr != -1)
     {
       insn = save_gprs (stack_pointer_rtx, 
-			cfun_frame_layout.gprs_offset,
+			cfun_frame_layout.gprs_offset + 
+			UNITS_PER_WORD * (cfun_frame_layout.first_save_gpr 
+					  - cfun_frame_layout.first_save_gpr_slot),
 			cfun_frame_layout.first_save_gpr, 
 			cfun_frame_layout.last_save_gpr);
       emit_insn (insn);
@@ -6882,7 +7099,7 @@ s390_emit_epilogue (bool sibcall)
 	    {
 	      addr = plus_constant (frame_pointer,
 				    offset + cfun_frame_layout.gprs_offset 
-				    + (i - cfun_frame_layout.first_save_gpr)
+				    + (i - cfun_frame_layout.first_save_gpr_slot)
 				    * UNITS_PER_WORD);
 	      addr = gen_rtx_MEM (Pmode, addr);
 	      set_mem_alias_set (addr, get_frame_alias_set ());
@@ -6907,7 +7124,7 @@ s390_emit_epilogue (bool sibcall)
 	      addr = plus_constant (frame_pointer,
 				    offset + cfun_frame_layout.gprs_offset
 				    + (RETURN_REGNUM 
-				       - cfun_frame_layout.first_save_gpr)
+				       - cfun_frame_layout.first_save_gpr_slot)
 				    * UNITS_PER_WORD);
 	      addr = gen_rtx_MEM (Pmode, addr);
 	      set_mem_alias_set (addr, get_frame_alias_set ());
@@ -6918,7 +7135,7 @@ s390_emit_epilogue (bool sibcall)
       insn = restore_gprs (frame_pointer,
 			   offset + cfun_frame_layout.gprs_offset
 			   + (cfun_frame_layout.first_restore_gpr 
-			      - cfun_frame_layout.first_save_gpr)
+			      - cfun_frame_layout.first_save_gpr_slot)
 			   * UNITS_PER_WORD,
 			   cfun_frame_layout.first_restore_gpr,
 			   cfun_frame_layout.last_restore_gpr);
@@ -8258,6 +8475,8 @@ s390_conditional_register_usage (void)
     }
   if (TARGET_CPU_ZARCH)
     {
+      fixed_regs[BASE_REGNUM] = 0;
+      call_used_regs[BASE_REGNUM] = 0;
       fixed_regs[RETURN_REGNUM] = 0;
       call_used_regs[RETURN_REGNUM] = 0;
     }

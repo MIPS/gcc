@@ -4751,7 +4751,7 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   return ret;
 }
 
-static void
+void
 expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
@@ -5399,7 +5399,9 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
 static inline enum machine_mode
 get_builtin_sync_mode (int fcode_diff)
 {
-  return mode_for_size (BITS_PER_UNIT << fcode_diff, MODE_INT, 1);
+  /* The size is not negotiable, so ask not to get BLKmode in return
+     if the target indicates that a smaller size would be better.  */
+  return mode_for_size (BITS_PER_UNIT << fcode_diff, MODE_INT, 0);
 }
 
 /* Expand the __sync_xxx_and_fetch and __sync_fetch_and_xxx intrinsics.
@@ -5499,7 +5501,7 @@ expand_builtin_lock_test_and_set (enum machine_mode mode, tree arglist,
 static void
 expand_builtin_synchronize (void)
 {
-  rtx body;
+  tree x;
 
 #ifdef HAVE_memory_barrier
   if (HAVE_memory_barrier)
@@ -5509,11 +5511,12 @@ expand_builtin_synchronize (void)
     }
 #endif
 
-  /* If no explicit memory barrier instruction is available, create an empty
-     asm stmt that will prevent compiler movement across the barrier.  */
-  body = gen_rtx_ASM_INPUT (VOIDmode, "");
-  MEM_VOLATILE_P (body) = 1;
-  emit_insn (body);
+  /* If no explicit memory barrier instruction is available, create an
+     empty asm stmt with a memory clobber.  */
+  x = build4 (ASM_EXPR, void_type_node, build_string (0, ""), NULL, NULL,
+	      tree_cons (NULL, build_string (6, "memory"), NULL));
+  ASM_VOLATILE_P (x) = 1;
+  expand_asm_expr (x);
 }
 
 /* Expand the __sync_lock_release intrinsic.  ARGLIST is the operands list
@@ -6701,6 +6704,7 @@ integer_valued_real_p (tree t)
 	real_trunc (&cint, TYPE_MODE (TREE_TYPE (t)), &c);
 	return real_identical (&c, &cint);
       }
+      break;
 
     case NOP_EXPR:
       {

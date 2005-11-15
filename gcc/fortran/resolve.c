@@ -50,6 +50,16 @@ static code_stack *cs_base = NULL;
 
 static int forall_flag;
 
+/* Nonzero if we are processing a formal arglist. The corresponding function
+   resets the flag each time that it is read.  */
+static int formal_arg_flag = 0;
+
+int
+gfc_is_formal_arg (void)
+{
+  return formal_arg_flag;
+}
+
 /* Resolve types of formal argument lists.  These have to be done early so that
    the formal argument lists of module procedures can be copied to the
    containing module before the individual procedures are resolved
@@ -77,6 +87,8 @@ resolve_formal_arglist (gfc_symbol * proc)
       || sym->attr.pointer || sym->attr.allocatable
       || (sym->as && sym->as->rank > 0))
     proc->attr.always_explicit = 1;
+
+  formal_arg_flag = 1;
 
   for (f = proc->formal; f; f = f->next)
     {
@@ -224,6 +236,7 @@ resolve_formal_arglist (gfc_symbol * proc)
             }
         }
     }
+  formal_arg_flag = 0;
 }
 
 
@@ -2000,7 +2013,7 @@ resolve_array_ref (gfc_array_ref * ar)
 	  }
     }
 
-  if (compare_spec_to_ref (ar) == FAILURE)
+  if (!ar->as->cray_pointee && compare_spec_to_ref (ar) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2596,17 +2609,49 @@ resolve_deallocate_expr (gfc_expr * e)
 }
 
 
+/* Given the expression node e for an allocatable/pointer of derived type to be
+   allocated, get the expression node to be initialized afterwards (needed for
+   derived types with default initializers).  */
+
+static gfc_expr *
+expr_to_initialize (gfc_expr * e)
+{
+  gfc_expr *result;
+  gfc_ref *ref;
+  int i;
+
+  result = gfc_copy_expr (e);
+
+  /* Change the last array reference from AR_ELEMENT to AR_FULL.  */
+  for (ref = result->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY && ref->next == NULL)
+      {
+        ref->u.ar.type = AR_FULL;
+
+        for (i = 0; i < ref->u.ar.dimen; i++)
+          ref->u.ar.start[i] = ref->u.ar.end[i] = ref->u.ar.stride[i] = NULL;
+
+        result->rank = ref->u.ar.dimen; 
+        break;
+      }
+
+  return result;
+}
+
+
 /* Resolve the expression in an ALLOCATE statement, doing the additional
    checks to see whether the expression is OK or not.  The expression must
    have a trailing array reference that gives the size of the array.  */
 
 static try
-resolve_allocate_expr (gfc_expr * e)
+resolve_allocate_expr (gfc_expr * e, gfc_code * code)
 {
   int i, pointer, allocatable, dimension;
   symbol_attribute attr;
   gfc_ref *ref, *ref2;
   gfc_array_ref *ar;
+  gfc_code *init_st;
+  gfc_expr *init_e;
 
   if (gfc_resolve_expr (e) == FAILURE)
     return FAILURE;
@@ -2659,6 +2704,19 @@ resolve_allocate_expr (gfc_expr * e)
       gfc_error ("Expression in ALLOCATE statement at %L must be "
 		 "ALLOCATABLE or a POINTER", &e->where);
       return FAILURE;
+    }
+
+  /* Add default initializer for those derived types that need them.  */
+  if (e->ts.type == BT_DERIVED && (init_e = gfc_default_initializer (&e->ts)))
+    {
+        init_st = gfc_get_code ();
+        init_st->loc = code->loc;
+        init_st->op = EXEC_ASSIGN;
+        init_st->expr = expr_to_initialize (e);
+        init_st->expr2 = init_e;
+
+        init_st->next = code->next;
+        code->next = init_st;
     }
 
   if (pointer && dimension == 0)
@@ -4009,7 +4067,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 		       "of type INTEGER", &code->expr->where);
 
 	  for (a = code->ext.alloc_list; a; a = a->next)
-	    resolve_allocate_expr (a->expr);
+	    resolve_allocate_expr (a->expr, code);
 
 	  break;
 
@@ -4123,8 +4181,7 @@ resolve_symbol (gfc_symbol * sym)
   /* Zero if we are checking a formal namespace.  */
   static int formal_ns_flag = 1;
   int formal_ns_save, check_constant, mp_flag;
-  int i;
-  const char *whynot;
+  int i, flag;
   gfc_namelist *nl;
   gfc_symtree * symtree;
   gfc_symtree * this_symtree;
@@ -4181,8 +4238,10 @@ resolve_symbol (gfc_symbol * sym)
 
       if (sym->attr.flavor == FL_PROCEDURE && sym->attr.function)
 	{
+	  /* The specific case of an external procedure should emit an error
+	     in the case that there is no implicit type.  */
 	  if (!mp_flag)
-	    gfc_set_default_type (sym, 0, NULL);
+	    gfc_set_default_type (sym, sym->attr.external, NULL);
 	  else
 	    {
               /* Result may be in another namespace.  */
@@ -4221,6 +4280,22 @@ resolve_symbol (gfc_symbol * sym)
       gfc_error ("Parameter array '%s' at %L cannot be automatic "
 		 "or assumed shape", sym->name, &sym->declared_at);
 	  return;
+    }
+
+  /* A module array's shape needs to be constant.  */
+
+  if (sym->ns->proc_name
+      && sym->attr.flavor == FL_VARIABLE
+      && sym->ns->proc_name->attr.flavor == FL_MODULE
+      && !sym->attr.use_assoc
+      && !sym->attr.allocatable
+      && !sym->attr.pointer
+      && sym->as != NULL
+      && !gfc_is_compile_time_shape (sym->as))
+    {
+      gfc_error ("Module array '%s' at %L cannot be automatic "
+         "or assumed shape", sym->name, &sym->declared_at);
+      return;
     }
 
   /* Make sure that character string variables with assumed length are
@@ -4281,9 +4356,29 @@ resolve_symbol (gfc_symbol * sym)
         }
     }
 
-  /* Ensure that derived type components of a public derived type
-     are not of a private type.  */
+  /* If a derived type symbol has reached this point, without its
+     type being declared, we have an error.  Notice that most
+     conditions that produce undefined derived types have already
+     been dealt with.  However, the likes of:
+     implicit type(t) (t) ..... call foo (t) will get us here if
+     the type is not declared in the scope of the implicit
+     statement. Change the type to BT_UNKNOWN, both because it is so
+     and to prevent an ICE.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->ts.derived->components == NULL)
+    {
+      gfc_error ("The derived type '%s' at %L is of type '%s', "
+		 "which has not been defined.", sym->name,
+		  &sym->declared_at, sym->ts.derived->name);
+      sym->ts.type = BT_UNKNOWN;
+      return;
+    }
+
+  /* If a component of a derived type is of a type declared to be private,
+     either the derived type definition must contain the PRIVATE statement,
+     or the derived type must be private.  (4.4.1 just after R427) */
   if (sym->attr.flavor == FL_DERIVED
+	&& sym->component_access != ACCESS_PRIVATE
 	&& gfc_check_access(sym->attr.access, sym->ns->default_access))
     {
       for (c = sym->components; c; c = c->next)
@@ -4300,6 +4395,27 @@ resolve_symbol (gfc_symbol * sym)
 	    }
 	}
     }
+
+  /* An assumed-size array with INTENT(OUT) shall not be of a type for which
+     default initialization is defined (5.1.2.4.4).  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->attr.dummy
+	&& sym->attr.intent == INTENT_OUT
+	&& sym->as
+	&& sym->as->type == AS_ASSUMED_SIZE)
+    {
+      for (c = sym->ts.derived->components; c; c = c->next)
+	{
+	  if (c->initializer)
+	    {
+	      gfc_error ("The INTENT(OUT) dummy argument '%s' at %L is "
+			 "ASSUMED SIZE and so cannot have a default initializer",
+			 sym->name, &sym->declared_at);
+	      return;
+	    }
+	}
+    }
+
 
   /* Ensure that derived type formal arguments of a public procedure
      are not of a private type.  */
@@ -4334,18 +4450,18 @@ resolve_symbol (gfc_symbol * sym)
 	  if (sym->attr.allocatable)
 	    {
 	      if (sym->attr.dimension)
-		gfc_error ("Allocatable array at %L must have a deferred shape",
-			   &sym->declared_at);
+		gfc_error ("Allocatable array '%s' at %L must have "
+			   "a deferred shape", sym->name, &sym->declared_at);
 	      else
-		gfc_error ("Object at %L may not be ALLOCATABLE",
-			   &sym->declared_at);
+		gfc_error ("Scalar object '%s' at %L may not be ALLOCATABLE",
+			   sym->name, &sym->declared_at);
 	      return;
 	    }
 
 	  if (sym->attr.pointer && sym->attr.dimension)
 	    {
-	      gfc_error ("Pointer to array at %L must have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array pointer '%s' at %L must have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 
@@ -4355,8 +4471,8 @@ resolve_symbol (gfc_symbol * sym)
 	  if (!mp_flag && !sym->attr.allocatable
 	      && !sym->attr.pointer && !sym->attr.dummy)
 	    {
-	      gfc_error ("Array at %L cannot have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array '%s' at %L cannot have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 	}
@@ -4365,18 +4481,11 @@ resolve_symbol (gfc_symbol * sym)
   switch (sym->attr.flavor)
     {
     case FL_VARIABLE:
-      /* Can the sybol have an initializer?  */
-      whynot = NULL;
-      if (sym->attr.allocatable)
-	whynot = _("Allocatable");
-      else if (sym->attr.external)
-	whynot = _("External");
-      else if (sym->attr.dummy)
-	whynot = _("Dummy");
-      else if (sym->attr.intrinsic)
-	whynot = _("Intrinsic");
-      else if (sym->attr.result)
-	whynot = _("Function Result");
+      /* Can the symbol have an initializer?  */
+      flag = 0;
+      if (sym->attr.allocatable || sym->attr.external || sym->attr.dummy
+	  || sym->attr.intrinsic || sym->attr.result)
+	flag = 1;
       else if (sym->attr.dimension && !sym->attr.pointer)
 	{
 	  /* Don't allow initialization of automatic arrays.  */
@@ -4387,22 +4496,38 @@ resolve_symbol (gfc_symbol * sym)
 		  || sym->as->upper[i] == NULL
 		  || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
 		{
-		  whynot = _("Automatic array");
+		  flag = 1;
 		  break;
 		}
 	    }
 	}
 
       /* Reject illegal initializers.  */
-      if (sym->value && whynot)
+      if (sym->value && flag)
 	{
-	  gfc_error ("%s '%s' at %L cannot have an initializer",
-		     whynot, sym->name, &sym->declared_at);
+	  if (sym->attr.allocatable)
+	    gfc_error ("Allocatable '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.external)
+	    gfc_error ("External '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.dummy)
+	    gfc_error ("Dummy '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.intrinsic)
+	    gfc_error ("Intrinsic '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else if (sym->attr.result)
+	    gfc_error ("Function result '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
+	  else
+	    gfc_error ("Automatic array '%s' at %L cannot have an initializer",
+		       sym->name, &sym->declared_at);
 	  return;
 	}
 
       /* Assign default initializer.  */
-      if (sym->ts.type == BT_DERIVED && !(sym->value || whynot)
+      if (sym->ts.type == BT_DERIVED && !(sym->value || flag)
           && !sym->attr.pointer)
 	sym->value = gfc_default_initializer (&sym->ts);
       break;
@@ -4427,6 +4552,15 @@ resolve_symbol (gfc_symbol * sym)
       break;
 
     default:
+
+      /* An external symbol falls through to here if it is not referenced.  */
+      if (sym->attr.external && sym->value)
+	{
+	  gfc_error ("External object '%s' at %L may not have an initializer",
+		     sym->name, &sym->declared_at);
+	  return;
+	}
+
       break;
     }
 
@@ -5088,7 +5222,7 @@ resolve_equivalence (gfc_equiv *eq)
 		     sym->name, &e->where, sym->ns->proc_name->name);
           break;
         }
-
+ 
       /* Shall not be a named constant.  */      
       if (e->expr_type == EXPR_CONSTANT)
         {

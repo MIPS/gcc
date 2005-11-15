@@ -3929,10 +3929,18 @@ expand_assignment (tree to, tree from)
 
       if (offset != 0)
 	{
-	  rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
+	  rtx offset_rtx;
 
-	  gcc_assert (MEM_P (to_rtx));
+	  if (!MEM_P (to_rtx))
+	    {
+	      /* We can get constant negative offsets into arrays with broken
+		 user code.  Translate this to a trap instead of ICEing.  */
+	      gcc_assert (TREE_CODE (offset) == INTEGER_CST);
+	      expand_builtin_trap ();
+	      to_rtx = gen_rtx_MEM (BLKmode, const0_rtx);
+	    }
 
+	  offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
 #ifdef POINTERS_EXTEND_UNSIGNED
 	  if (GET_MODE (offset_rtx) != Pmode)
 	    offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
@@ -8017,69 +8025,92 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (! CONSTANT_P (op1))
 	op1 = force_reg (mode, op1);
 
+      {
+	enum rtx_code comparison_code;
+	rtx cmpop1 = op1;
+
+	if (code == MAX_EXPR)
+	  comparison_code = unsignedp ? GEU : GE;
+	else
+	  comparison_code = unsignedp ? LEU : LE;
+
+	/* Canonicalize to comparsions against 0.  */
+	if (op1 == const1_rtx)
+	  {
+	    /* Converting (a >= 1 ? a : 1) into (a > 0 ? a : 1)
+	       or (a != 0 ? a : 1) for unsigned.
+	       For MIN we are safe converting (a <= 1 ? a : 1)
+	       into (a <= 0 ? a : 1)  */
+	    cmpop1 = const0_rtx;
+	    if (code == MAX_EXPR)
+	      comparison_code = unsignedp ? NE : GT;
+	  }
+	if (op1 == constm1_rtx && !unsignedp)
+	  {
+	    /* Converting (a >= -1 ? a : -1) into (a >= 0 ? a : -1)
+	       and (a <= -1 ? a : -1) into (a < 0 ? a : -1) */
+	    cmpop1 = const0_rtx;
+	    if (code == MIN_EXPR)
+	      comparison_code = LT;
+	  }
 #ifdef HAVE_conditional_move
-      /* Use a conditional move if possible.  */
-      if (can_conditionally_move_p (mode))
-	{
-	  enum rtx_code comparison_code;
-	  rtx insn;
+	/* Use a conditional move if possible.  */
+	if (can_conditionally_move_p (mode))
+	  {
+	    rtx insn;
 
-	  if (code == MAX_EXPR)
-	    comparison_code = unsignedp ? GEU : GE;
-	  else
-	    comparison_code = unsignedp ? LEU : LE;
+	    /* ??? Same problem as in expmed.c: emit_conditional_move
+	       forces a stack adjustment via compare_from_rtx, and we
+	       lose the stack adjustment if the sequence we are about
+	       to create is discarded.  */
+	    do_pending_stack_adjust ();
 
-	  /* ??? Same problem as in expmed.c: emit_conditional_move
-	     forces a stack adjustment via compare_from_rtx, and we
-	     lose the stack adjustment if the sequence we are about
-	     to create is discarded.  */
-	  do_pending_stack_adjust ();
+	    start_sequence ();
 
-	  start_sequence ();
+	    /* Try to emit the conditional move.  */
+	    insn = emit_conditional_move (target, comparison_code,
+					  op0, cmpop1, mode,
+					  op0, op1, mode,
+					  unsignedp);
 
-	  /* Try to emit the conditional move.  */
-	  insn = emit_conditional_move (target, comparison_code,
-					op0, op1, mode,
-					op0, op1, mode,
-					unsignedp);
+	    /* If we could do the conditional move, emit the sequence,
+	       and return.  */
+	    if (insn)
+	      {
+		rtx seq = get_insns ();
+		end_sequence ();
+		emit_insn (seq);
+		return target;
+	      }
 
-	  /* If we could do the conditional move, emit the sequence,
-	     and return.  */
-	  if (insn)
-	    {
-	      rtx seq = get_insns ();
-	      end_sequence ();
-	      emit_insn (seq);
-	      return target;
-	    }
-
-	  /* Otherwise discard the sequence and fall back to code with
-	     branches.  */
-	  end_sequence ();
-	}
+	    /* Otherwise discard the sequence and fall back to code with
+	       branches.  */
+	    end_sequence ();
+	  }
 #endif
-      if (target != op0)
-	emit_move_insn (target, op0);
+	if (target != op0)
+	  emit_move_insn (target, op0);
 
-      temp = gen_label_rtx ();
+	temp = gen_label_rtx ();
 
-      /* If this mode is an integer too wide to compare properly,
-	 compare word by word.  Rely on cse to optimize constant cases.  */
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && ! can_compare_p (GE, mode, ccp_jump))
-	{
-	  if (code == MAX_EXPR)
-	    do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
-					  NULL_RTX, temp);
-	  else
-	    do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
-					  NULL_RTX, temp);
-	}
-      else
-	{
-	  do_compare_rtx_and_jump (target, op1, code == MAX_EXPR ? GE : LE,
-				   unsignedp, mode, NULL_RTX, NULL_RTX, temp);
-	}
+	/* If this mode is an integer too wide to compare properly,
+	   compare word by word.  Rely on cse to optimize constant cases.  */
+	if (GET_MODE_CLASS (mode) == MODE_INT
+	    && ! can_compare_p (GE, mode, ccp_jump))
+	  {
+	    if (code == MAX_EXPR)
+	      do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
+					    NULL_RTX, temp);
+	    else
+	      do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
+					    NULL_RTX, temp);
+	  }
+	else
+	  {
+	    do_compare_rtx_and_jump (target, cmpop1, comparison_code,
+				     unsignedp, mode, NULL_RTX, NULL_RTX, temp);
+	  }
+      }
       emit_move_insn (target, op1);
       emit_label (temp);
       return target;

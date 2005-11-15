@@ -133,7 +133,7 @@ proc libstdc++_init { testfile } {
     set v3-sharedlib 0
     set sharedlibdir [lookfor_file $blddir src/.libs/libstdc++.so]
     if {$sharedlibdir != ""} {
-	if { [string match "*-*-linux*" $target_triplet] } {
+	if { [string match "*-*-linux*" $target_triplet] && [isnative] } {
 	    set v3-sharedlib 1
 	    verbose -log "shared library support detected"
 	} 
@@ -611,7 +611,7 @@ proc check_v3_target_debug_mode { } {
 	# on correct ordering of static object destructors. This is
 	# indicative of the presence and use of __cxa_atexit.
 	set src debug_mode[pid].cc
-	set exe debug_mode[pid].x
+	set exe debug_mode[pid].exe
 
 	set f [open $src "w"]
 	puts $f "#include <string>"

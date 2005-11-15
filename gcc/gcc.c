@@ -1851,6 +1851,12 @@ static int argbuf_index;
 
 static int have_o_argbuf_index = 0;
 
+/* Were the options -c or -S passed.  */
+static int have_c = 0;
+
+/* Was the option -o passed.  */
+static int have_o = 0;
+
 /* This is the list of suffixes and codes (%g/%u/%U/%j) and the associated
    temp file.  If the HOST_BIT_BUCKET is used for %j, no entry is made for
    it here.  */
@@ -3148,7 +3154,6 @@ process_command (int argc, const char **argv)
   char *temp1;
   const char *spec_lang = 0;
   int last_language_n_infiles;
-  int have_c = 0;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
@@ -3700,6 +3705,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      goto normal_switch;
 
 	    case 'o':
+	      have_o = 1;
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 	      if (! have_c)
 		{
@@ -6425,7 +6431,7 @@ main (int argc, const char **argv)
   if (combine_flag)
     combine_inputs = true;
   else
-    combine_inputs = false;
+    combine_inputs = false;  
 
   for (i = 0; (int) i < n_infiles; i++)
     {
@@ -6456,6 +6462,9 @@ main (int argc, const char **argv)
       infiles[i].compiled = false;
       infiles[i].preprocessed = false;
     }
+    
+  if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
+   fatal ("cannot specify -o with -c or -S with multiple files");
 
   if (combine_flag && save_temps_flag)
     {
@@ -7690,13 +7699,13 @@ version_compare_spec_function (int argc, const char **argv)
   bool result;
 
   if (argc < 3)
-    abort ();
+    fatal ("too few arguments to %%:version-compare");
   if (argv[0][0] == '\0')
     abort ();
   if ((argv[0][1] == '<' || argv[0][1] == '>') && argv[0][0] != '!')
     nargs = 2;
   if (argc != nargs + 3)
-    abort ();
+    fatal ("too many arguments to %%:version-compare");
 
   switch_len = strlen (argv[nargs + 1]);
   for (i = 0; i < n_switches; i++)
@@ -7737,7 +7746,7 @@ version_compare_spec_function (int argc, const char **argv)
       break;
 
     default:
-      abort ();
+      fatal ("unknown operator %qs in %%:version-compare", argv[0]);
     }
   if (! result)
     return NULL;
