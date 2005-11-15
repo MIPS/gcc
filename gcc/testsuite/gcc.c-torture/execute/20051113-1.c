@@ -1,4 +1,4 @@
-/* APPLE LOCAL 4338167 mainline */
+/* APPLE LOCAL file 4338167 mainline */
 extern void *malloc(__SIZE_TYPE__);
 extern void *memset(void *, int, __SIZE_TYPE__);
 typedef struct
