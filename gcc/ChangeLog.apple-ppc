@@ -1,5 +1,11 @@
 2005-11-15  Dale Johannesen  <dalej@apple.com>
 
+        * config/darwin-c.c (darwin_pragma_call_on_load):
+        Give an error for 64-bit targets.
+        (darwin_pragma_call_on_unload):  Ditto.
+
+2005-11-15  Dale Johannesen  <dalej@apple.com>
+
 	* cfghooks.c (split_block):  Copy loop_father.
 	* cfgloopmanip.c (create_loops_notes):  Create preheaders.
 

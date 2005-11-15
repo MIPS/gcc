@@ -1,3 +1,7 @@
+2005-11-15  Dale Johannesen  <dalej@apple.com>
+
+        * gcc.apple/pragma.c:  New.
+
 2005-11-14  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.c-torture/execute/20051113-1.c:  New.

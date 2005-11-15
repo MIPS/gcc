@@ -897,14 +897,24 @@ static void directive_with_named_function (const char *pragma_name,
 void
 darwin_pragma_call_on_load (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  warning("Pragma CALL_ON_LOAD is deprecated; use constructor attribute instead");
-  directive_with_named_function ("CALL_ON_LOAD", mod_init_section);
+  if (TARGET_64BIT)
+    error ("Pragma CALL_ON_LOAD unsupported for 64-bit target; use constructor attribute instead");
+  else
+    {
+      warning ("Pragma CALL_ON_LOAD is deprecated; use constructor attribute instead");
+      directive_with_named_function ("CALL_ON_LOAD", mod_init_section);
+    }
 }
 void
 darwin_pragma_call_on_unload (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
-  warning("Pragma CALL_ON_UNLOAD is deprecated; use destructor attribute instead");
-  directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
+  if (TARGET_64BIT)
+    error ("Pragma CALL_ON_UNLOAD unsupported for 64-bit target; use destructor attribute instead");
+  else
+    {
+      warning("Pragma CALL_ON_UNLOAD is deprecated; use destructor attribute instead");
+      directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
+    }
 }
 /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 /* APPLE LOCAL begin mainline 2005-09-01 3449986 */
