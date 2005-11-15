@@ -62,7 +62,7 @@ public abstract class CompositeView
   /**
    * The allocation of this <code>View</code> minus its insets. This is
    * initialized in {@link #getInsideAllocation} and reused and modified in
-   * {@link childAllocation}.
+   * {@link #childAllocation(int, Rectangle)}.
    */
   Rectangle insideAllocation;
 
@@ -314,6 +314,7 @@ public abstract class CompositeView
    */
   public int getNextVisualPositionFrom(int pos, Position.Bias b, Shape a,
                                        int direction, Position.Bias[] biasRet)
+    throws BadLocationException
   {
     int retVal = -1;
     switch (direction)
@@ -433,10 +434,16 @@ public abstract class CompositeView
    */
   protected int getViewIndexAtPosition(int pos)
   {
-    // We have one child view allocated for each child element in
-    // loadChildren(), so this should work.
-    Element el = getElement();
-    int index = el.getElementIndex(pos);
+    int index = -1;
+    for (int i = 0; i < children.length; i++)
+      {
+        if (children[i].getStartOffset() <= pos
+            && children[i].getEndOffset() > pos)
+          {
+            index = i;
+            break;
+          }
+      }
     return index;
   }
 
@@ -473,8 +480,8 @@ public abstract class CompositeView
             insideAllocation = inside;
           }
       }
-    inside.x = alloc.x - insets.left;
-    inside.y = alloc.y - insets.top;
+    inside.x = alloc.x + insets.left;
+    inside.y = alloc.y + insets.top;
     inside.width = alloc.width - insets.left - insets.right;
     inside.height = alloc.height - insets.top - insets.bottom;
     return inside;
@@ -594,6 +601,7 @@ public abstract class CompositeView
   protected int getNextNorthSouthVisualPositionFrom(int pos, Position.Bias b,
                                                     Shape a, int direction,
                                                     Position.Bias[] biasRet)
+    throws BadLocationException
   {
     // FIXME: Implement this correctly.
     return pos;
@@ -627,6 +635,7 @@ public abstract class CompositeView
   protected int getNextEastWestVisualPositionFrom(int pos, Position.Bias b,
                                                   Shape a, int direction,
                                                   Position.Bias[] biasRet)
+    throws BadLocationException
   {
     // FIXME: Implement this correctly.
     return pos;

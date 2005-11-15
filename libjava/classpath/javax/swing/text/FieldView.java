@@ -118,7 +118,7 @@ public class FieldView extends PlainView
     FontMetrics fm = getFontMetrics();
 
     if (axis == Y_AXIS)
-      return fm.getHeight();
+      return super.getPreferredSpan(axis);
 
     String text;
     Element elem = getElement();
@@ -134,7 +134,7 @@ public class FieldView extends PlainView
 	text = "";
       }
     
-    return fm.stringWidth(text);
+    return fm.stringWidth(text) + 30;
   }
 
   public int getResizeWeight(int axis)
@@ -159,18 +159,21 @@ public class FieldView extends PlainView
   {
     Shape newAlloc = adjustAllocation(shape);
     super.insertUpdate(ev, newAlloc, vf);
+    getContainer().repaint();
   }
 
   public void removeUpdate(DocumentEvent ev, Shape shape, ViewFactory vf)
   {
     Shape newAlloc = adjustAllocation(shape);
     super.removeUpdate(ev, newAlloc, vf);
+    getContainer().repaint();
   }
 
   public void changedUpdate(DocumentEvent ev, Shape shape, ViewFactory vf)
   {
     Shape newAlloc = adjustAllocation(shape);
     super.removeUpdate(ev, newAlloc, vf);
+    getContainer().repaint();
   }
 
   public int viewToModel(float fx, float fy, Shape a, Position.Bias[] bias)

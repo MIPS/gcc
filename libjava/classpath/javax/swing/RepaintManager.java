@@ -1,5 +1,5 @@
 /* RepaintManager.java --
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,12 +43,11 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.image.VolatileImage;
-import java.util.Enumeration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Vector;
 
 /**
  * <p>The repaint manager holds a set of dirty regions, invalid components,
@@ -80,23 +79,27 @@ public class RepaintManager
    * swing paint thread, which revalidates all invalid components and
    * repaints any damage in the swing scene.</p>
    */
-
   protected class RepaintWorker
     implements Runnable
   {
+
     boolean live;
+
     public RepaintWorker()
     {
       live = false;
     }
+
     public synchronized void setLive(boolean b) 
     {
       live = b;
     }
+
     public synchronized boolean isLive()
     {
       return live;
     }
+
     public void run()
     {
       RepaintManager rm = RepaintManager.globalManager;
@@ -104,9 +107,65 @@ public class RepaintManager
       rm.validateInvalidComponents();
       rm.paintDirtyRegions();
     }
+
   }
 
-  
+  /**
+   * Compares two components using their depths in the component hierarchy.
+   * A component with a lesser depth (higher level components) are sorted
+   * before components with a deeper depth (low level components). This is used
+   * to order paint requests, so that the higher level components are painted
+   * before the low level components get painted.
+   *
+   * @author Roman Kennke (kennke@aicas.com)
+   */
+  private class ComponentComparator implements Comparator
+  {
+
+    /**
+     * Compares two components.
+     *
+     * @param o1 the first component
+     * @param o2 the second component
+     *
+     * @return a negative integer, if <code>o1</code> is higher in the
+     *         hierarchy than <code>o2</code>, zero, if both are at the same
+     *         level and a positive integer, if <code>o1</code> is deeper in
+     *         the hierarchy than <code>o2</code> 
+     */
+    public int compare(Object o1, Object o2)
+    {
+      if (o1 instanceof JComponent && o2 instanceof JComponent)
+        {
+          JComponent c1 = (JComponent) o1;
+          JComponent c2 = (JComponent) o2;
+          return getDepth(c1) - getDepth(c2);
+        }
+      else
+        throw new ClassCastException("This comparator can only be used with "
+                                     + "JComponents");
+    }
+
+    /**
+     * Computes the depth for a given JComponent.
+     *
+     * @param c the component to compute the depth for
+     *
+     * @return the depth of the component
+     */
+    private int getDepth(JComponent c)
+    {
+      Component comp = c;
+      int depth = 0;
+      while (comp != null)
+        {
+          comp = comp.getParent();
+          depth++;
+        }
+      return depth;
+    }
+  }
+
   /** 
    * A table storing the dirty regions of components.  The keys of this
    * table are components, the values are rectangles. Each component maps
@@ -119,7 +178,20 @@ public class RepaintManager
    * @see #markCompletelyClean
    * @see #markCompletelyDirty
    */
-  Hashtable dirtyComponents;
+  HashMap dirtyComponents;
+
+  HashMap workDirtyComponents;
+
+  /**
+   * Stores the order in which the components get repainted.
+   */
+  ArrayList repaintOrder;
+  ArrayList workRepaintOrder;
+
+  /**
+   * The comparator used for ordered inserting into the repaintOrder list. 
+   */
+  Comparator comparator;
 
   /**
    * A single, shared instance of the helper class. Any methods which mark
@@ -142,14 +214,15 @@ public class RepaintManager
    * @see #removeInvalidComponent
    * @see #validateInvalidComponents
    */
-  Vector invalidComponents;
+  ArrayList invalidComponents;
+  ArrayList workInvalidComponents;
 
   /** 
    * Whether or not double buffering is enabled on this repaint
    * manager. This is merely a hint to clients; the RepaintManager will
    * always return an offscreen buffer when one is requested.
    * 
-   * @see #getDoubleBufferingEnabled
+   * @see #isDoubleBufferingEnabled
    * @see #setDoubleBufferingEnabled
    */
   boolean doubleBufferingEnabled;
@@ -180,7 +253,7 @@ public class RepaintManager
    * components in all windows.  This is package-private to avoid an accessor
    * method.
    *
-   * @see #currentManager
+   * @see #currentManager(JComponent)
    * @see #setCurrentManager
    */
   static RepaintManager globalManager;
@@ -190,8 +263,12 @@ public class RepaintManager
    */
   public RepaintManager()
   {
-    dirtyComponents = new Hashtable();
-    invalidComponents = new Vector();
+    dirtyComponents = new HashMap();
+    workDirtyComponents = new HashMap();
+    repaintOrder = new ArrayList();
+    workRepaintOrder = new ArrayList();
+    invalidComponents = new ArrayList();
+    workInvalidComponents = new ArrayList();
     repaintWorker = new RepaintWorker();
     doubleBufferMaximumSize = new Dimension(2000,2000);
     doubleBufferingEnabled = true;
@@ -287,7 +364,7 @@ public class RepaintManager
    */
   public synchronized void removeInvalidComponent(JComponent component)
   {
-    invalidComponents.removeElement(component);
+    invalidComponents.remove(component);
   }
 
   /**
@@ -311,12 +388,13 @@ public class RepaintManager
   public synchronized void addDirtyRegion(JComponent component, int x, int y,
                                           int w, int h)
   {
-    if (w == 0 || h == 0)
+    if (w == 0 || h == 0 || !component.isShowing())
       return;
-
     Rectangle r = new Rectangle(x, y, w, h);
     if (dirtyComponents.containsKey(component))
       r = r.union((Rectangle)dirtyComponents.get(component));
+    else
+      insertInRepaintOrder(component);
     dirtyComponents.put(component, r);
     if (! repaintWorker.isLive())
       {
@@ -324,7 +402,23 @@ public class RepaintManager
         SwingUtilities.invokeLater(repaintWorker);
       }
   }
-  
+
+  /**
+   * Inserts a component into the repaintOrder list in an ordered fashion,
+   * using a binary search.
+   *
+   * @param c the component to be inserted
+   */
+  private void insertInRepaintOrder(JComponent c)
+  {
+    if (comparator == null)
+      comparator = new ComponentComparator();
+    int insertIndex = Collections.binarySearch(repaintOrder, c, comparator);
+    if (insertIndex < 0)
+      insertIndex = -(insertIndex + 1);
+    repaintOrder.add(insertIndex, c);
+  }
+
   /**
    * Get the dirty region associated with a component, or <code>null</code>
    * if the component has no dirty region.
@@ -341,7 +435,10 @@ public class RepaintManager
    */
   public Rectangle getDirtyRegion(JComponent component)
   {
-    return (Rectangle) dirtyComponents.get(component);
+    Rectangle dirty = (Rectangle) dirtyComponents.get(component);
+    if (dirty == null)
+      dirty = new Rectangle();
+    return dirty;
   }
   
   /**
@@ -359,6 +456,7 @@ public class RepaintManager
   {
     Rectangle r = component.getBounds();
     addDirtyRegion(component, r.x, r.y, r.width, r.height);
+    component.isCompletelyDirty = true;
   }
 
   /**
@@ -374,7 +472,11 @@ public class RepaintManager
    */
   public void markCompletelyClean(JComponent component)
   {
-    dirtyComponents.remove(component);
+    synchronized (this)
+      {
+        dirtyComponents.remove(component);
+      }
+    component.isCompletelyDirty = false;
   }
 
   /**
@@ -393,13 +495,9 @@ public class RepaintManager
    */
   public boolean isCompletelyDirty(JComponent component)
   {
-    Rectangle dirty = (Rectangle) dirtyComponents.get(component);
-    if (dirty == null)
+    if (! dirtyComponents.containsKey(component))
       return false;
-    Rectangle r = component.getBounds();
-    if (r == null)
-      return true;
-    return dirty.contains(r);
+    return component.isCompletelyDirty;
   }
 
   /**
@@ -408,58 +506,56 @@ public class RepaintManager
    */
   public void validateInvalidComponents()
   {
-    for (Enumeration e = invalidComponents.elements(); e.hasMoreElements(); )
+    // In order to keep the blocking of application threads minimal, we switch
+    // the invalidComponents field with the workInvalidComponents field and
+    // work with the workInvalidComponents field.
+    synchronized(this)
+    {
+      ArrayList swap = invalidComponents;
+      invalidComponents = workInvalidComponents;
+      workInvalidComponents = swap;
+    }
+    for (Iterator i = workInvalidComponents.iterator(); i.hasNext(); )
       {
-        JComponent comp = (JComponent) e.nextElement();
+        JComponent comp = (JComponent) i.next();
         if (! (comp.isVisible() && comp.isShowing()))
           continue;
         comp.validate();
       }
-    invalidComponents.clear();
+    workInvalidComponents.clear();
   }
 
   /**
    * Repaint all regions of all components which have been marked dirty in
    * the {@link #dirtyComponents} table.
    */
-  public void paintDirtyRegions()
+  public synchronized void paintDirtyRegions()
   {
-    // step 1: pull out roots and calculate spanning damage
-
-    HashMap roots = new HashMap();
-    for (Enumeration e = dirtyComponents.keys(); e.hasMoreElements(); )
+    // In order to keep the blocking of application threads minimal, we switch
+    // the dirtyComponents field with the workdirtyComponents field and the
+    // repaintOrder field with the workRepaintOrder field and work with the
+    // work* fields.
+    synchronized(this)
+    {
+      ArrayList swap = workRepaintOrder;
+      workRepaintOrder = repaintOrder;
+      repaintOrder = swap;
+      HashMap swap2 = workDirtyComponents;
+      workDirtyComponents = dirtyComponents;
+      dirtyComponents = swap2;
+    }
+    for (Iterator i = workRepaintOrder.iterator(); i.hasNext();)
       {
-        JComponent comp = (JComponent) e.nextElement();
-        if (! (comp.isVisible() && comp.isShowing()))
+        JComponent comp = (JComponent) i.next();
+        // If a component is marked completely clean in the meantime, then skip
+        // it.
+        Rectangle damaged = (Rectangle) workDirtyComponents.get(comp);
+        if (damaged == null || damaged.isEmpty())
           continue;
-        Rectangle damaged = getDirtyRegion(comp);
-        if (damaged.width == 0 || damaged.height == 0)
-          continue;
-        JRootPane root = comp.getRootPane();
-        // If the component has no root, no repainting will occur.
-        if (root == null)
-          continue;
-        Rectangle rootDamage = SwingUtilities.convertRectangle(comp, damaged, root);
-        if (! roots.containsKey(root))
-          {
-            roots.put(root, rootDamage);
-          }
-        else
-          {
-            roots.put(root, ((Rectangle)roots.get(root)).union(rootDamage));
-          }
+        comp.paintImmediately(damaged);
       }
-    dirtyComponents.clear();
-
-    // step 2: paint those roots
-    Iterator i = roots.entrySet().iterator();
-    while(i.hasNext())
-      {
-        Map.Entry ent = (Map.Entry) i.next();
-        JRootPane root = (JRootPane) ent.getKey();
-        Rectangle rect = (Rectangle) ent.getValue();
-        root.paintImmediately(rect);                	
-      }
+    workRepaintOrder.clear();
+    workDirtyComponents.clear();
   }
 
   /**

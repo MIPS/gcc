@@ -42,6 +42,7 @@ import java.awt.Container;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.Shape;
+import java.util.Iterator;
 import java.util.Vector;
 
 import javax.swing.event.DocumentEvent;
@@ -71,6 +72,7 @@ public abstract class FlowView extends BoxView
      */
     public FlowStrategy()
     {
+      // Nothing to do here.
     }
 
     /**
@@ -137,7 +139,7 @@ public abstract class FlowView extends BoxView
      * Performs the layout for the whole view. By default this rebuilds
      * all the physical views from the logical views of the managed FlowView.
      *
-     * This is called by {@link FlowLayout#layout} to update the layout of
+     * This is called by {@link FlowView#layout} to update the layout of
      * the view.
      *
      * @param fv the flow view for which we perform the layout
@@ -183,11 +185,17 @@ public abstract class FlowView extends BoxView
         {
           View child = createView(fv, offset, spanLeft, rowIndex);
           if (child == null)
-            break;
+            {
+              offset = -1;
+              break;
+            }
 
           int span = (int) child.getPreferredSpan(flowAxis);
           if (span > spanLeft)
-            break;
+            {
+              offset = -1;
+              break;
+            }
 
           row.append(child);
           spanLeft -= span;
@@ -204,7 +212,7 @@ public abstract class FlowView extends BoxView
      * not fit in the available span and also cannot be broken down).
      *
      * @param fv the flow view
-     * @param startOffset the start offset for the view to be created
+     * @param offset the start offset for the view to be created
      * @param spanLeft the available span
      * @param rowIndex the index of the row
      *
@@ -218,13 +226,15 @@ public abstract class FlowView extends BoxView
       View logicalView = getLogicalView(fv);
 
       int viewIndex = logicalView.getViewIndex(offset, Position.Bias.Forward);
+      if (viewIndex == -1)
+        return null;
+
       View child = logicalView.getView(viewIndex);
       int flowAxis = fv.getFlowAxis();
       int span = (int) child.getPreferredSpan(flowAxis);
 
       if (span <= spanLeft)
         return child;
-
       else if (child.getBreakWeight(flowAxis, offset, spanLeft)
                > BadBreakWeight)
         // FIXME: What to do with the pos parameter here?
@@ -326,7 +336,19 @@ public abstract class FlowView extends BoxView
      */
     public int getViewIndex(int pos, Position.Bias b)
     {
-      return getElement().getElementIndex(pos);
+      int index = -1;
+      int i = 0;
+      for (Iterator it = children.iterator(); it.hasNext(); i++)
+        {
+          View child = (View) it.next();
+          if (child.getStartOffset() >= pos
+              && child.getEndOffset() < pos)
+            {
+              index = i;
+              break;
+            }
+        }
+      return index;
     }
 
     /**
@@ -478,7 +500,7 @@ public abstract class FlowView extends BoxView
    * The real children are created at layout time and each represent one
    * row.
    *
-   * This method is called by {@link #setParent} in order to initialize
+   * This method is called by {@link View#setParent} in order to initialize
    * the view.
    *
    * @param vf the view factory to use for creating the child views
@@ -502,7 +524,7 @@ public abstract class FlowView extends BoxView
 
   /**
    * Performs the layout of this view. If the span along the flow axis changed,
-   * this first calls {@link FlowStrategy.layout} in order to rebuild the
+   * this first calls {@link FlowStrategy#layout} in order to rebuild the
    * rows of this view. Then the superclass's behaviour is called to arrange
    * the rows within the box.
    *

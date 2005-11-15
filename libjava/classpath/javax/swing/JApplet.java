@@ -47,6 +47,7 @@ import java.awt.Graphics;
 import java.awt.LayoutManager;
 import java.awt.event.KeyEvent;
 
+import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 
 /**
@@ -55,8 +56,28 @@ import javax.accessibility.AccessibleContext;
  * @author original author unknown
  */
 public class JApplet extends Applet
-  implements RootPaneContainer
+  implements RootPaneContainer, Accessible
 {
+  /**
+   * Provides accessibility support for <code>JApplet</code>.
+   */
+  protected class AccessibleJApplet extends Applet.AccessibleApplet
+  {
+    /**
+     * Creates a new instance of <code>AccessibleJApplet</code>.
+     */
+    public AccessibleJApplet()
+    {
+      super();
+      // Nothing to do here.
+    }
+  }
+
+  /**
+   * The accessible context for this <code>JApplet</code>.
+   */
+  protected AccessibleContext accessibleContext;
+
   private static final long serialVersionUID = 7269359214497372587L;
   
   protected JRootPane rootPane;
@@ -168,7 +189,9 @@ public class JApplet extends Applet
 
   public AccessibleContext getAccessibleContext()
   {
-    return null;
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJApplet();
+    return accessibleContext;
   }
 
   public JMenuBar getJMenuBar()

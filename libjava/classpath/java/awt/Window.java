@@ -101,6 +101,8 @@ public class Window extends Container implements Accessible
 
   protected class AccessibleAWTWindow extends AccessibleAWTContainer
   {
+    private static final long serialVersionUID = 4215068635060671780L;
+
     public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.WINDOW;
@@ -278,14 +280,14 @@ public class Window extends Container implements Accessible
    */
   public void show()
   {
+    synchronized (getTreeLock())
+    {
     if (parent != null && !parent.isDisplayable())
       parent.addNotify();
     if (peer == null)
       addNotify();
 
     // Show visible owned windows.
-    synchronized (getTreeLock())
-      {
 	Iterator e = ownedWindows.iterator();
 	while(e.hasNext())
 	  {
@@ -302,14 +304,13 @@ public class Window extends Container implements Accessible
 	      // synchronous access to ownedWindows there.
 	      e.remove();
 	  }
-      }
     validate();
     super.show();
     toFront();
 
     KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
     manager.setGlobalFocusedWindow (this);
-
+    
     if (!shown)
       {
         FocusTraversalPolicy policy = getFocusTraversalPolicy ();
@@ -323,6 +324,7 @@ public class Window extends Container implements Accessible
 
         shown = true;
       }
+    }
   }
 
   public void hide()
@@ -344,13 +346,6 @@ public class Window extends Container implements Accessible
 	  }
       }
     super.hide();
-  }
-
-  public boolean isDisplayable()
-  {
-    if (super.isDisplayable())
-      return true;
-    return peer != null;
   }
 
   /**
@@ -938,8 +933,8 @@ public class Window extends Container implements Accessible
    *
    * @since 1.4
    */
-  public void createBufferStrategy(int numBuffers,
-				   BufferCapabilities caps)
+  public void createBufferStrategy(int numBuffers, BufferCapabilities caps)
+    throws AWTException
   {
     if (numBuffers < 1)
       throw new IllegalArgumentException("Window.createBufferStrategy: number"
@@ -951,15 +946,7 @@ public class Window extends Container implements Accessible
 
     // a flipping strategy was requested
     if (caps.isPageFlipping())
-      {
-	try
-	  {
-	    bufferStrategy = new WindowFlipBufferStrategy(numBuffers);
-	  }
-	catch (AWTException e)
-	  {
-	  }
-      }
+      bufferStrategy = new WindowFlipBufferStrategy(numBuffers);
     else
       bufferStrategy = new WindowBltBufferStrategy(numBuffers, true);
   }

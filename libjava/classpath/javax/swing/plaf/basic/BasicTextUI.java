@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
+import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -54,6 +55,7 @@ import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
+import javax.swing.LookAndFeel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
@@ -73,7 +75,6 @@ import javax.swing.text.Element;
 import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.Keymap;
-import javax.swing.text.PlainView;
 import javax.swing.text.Position;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
@@ -92,11 +93,11 @@ public abstract class BasicTextUI extends TextUI
   /**
    * A {@link DefaultCaret} that implements {@link UIResource}.
    */
-  public static class BasicCaret extends DefaultCaret
-    implements UIResource
+  public static class BasicCaret extends DefaultCaret implements UIResource
   {
     public BasicCaret()
     {
+      // Nothing to do here.
     }
   }
 
@@ -108,6 +109,7 @@ public abstract class BasicTextUI extends TextUI
   {
     public BasicHighlighter()
     {
+      // Nothing to do here.
     }
   }
 
@@ -241,7 +243,7 @@ public abstract class BasicTextUI extends TextUI
     public void paint(Graphics g, Shape s)
     {
       if (view != null)
-	view.paint(g, s);
+        view.paint(g, s);
     }
 
 
@@ -252,10 +254,10 @@ public abstract class BasicTextUI extends TextUI
      *
      * This is delegated to the real root view.
      *
-     * @param pos the position of the character in the model
+     * @param position the position of the character in the model
      * @param a the area that is occupied by the view
-     * @param bias either {@link Position.Bias.Forward} or
-     *        {@link Position.Bias.Backward} depending on the preferred
+     * @param bias either {@link Position.Bias#Forward} or
+     *        {@link Position.Bias#Backward} depending on the preferred
      *        direction bias. If <code>null</code> this defaults to
      *        <code>Position.Bias.Forward</code>
      *
@@ -332,7 +334,7 @@ public abstract class BasicTextUI extends TextUI
   /**
    * Receives notifications when properties of the text component change.
    */
-  class UpdateHandler implements PropertyChangeListener
+  class PropertyChangeHandler implements PropertyChangeListener
   {
     /**
      * Notifies when a property of the text component changes.
@@ -342,10 +344,12 @@ public abstract class BasicTextUI extends TextUI
     public void propertyChange(PropertyChangeEvent event)
     {
       if (event.getPropertyName().equals("document"))
-	{
+        {
           // Document changed.
-	  modelChanged();
-	}
+	      modelChanged();
+        }
+
+      BasicTextUI.this.propertyChange(event);
     }
   }
 
@@ -364,11 +368,10 @@ public abstract class BasicTextUI extends TextUI
      */
     public void changedUpdate(DocumentEvent ev)
     {
-      Dimension size = textComponent.getSize();
-      rootView.changedUpdate(ev, new Rectangle(0, 0, size.width, size.height),
+      rootView.changedUpdate(ev, getVisibleEditorRect(),
                              rootView.getViewFactory());
     }
-    
+
     /**
      * Notification about a document insert event.
      *
@@ -376,12 +379,8 @@ public abstract class BasicTextUI extends TextUI
      */
     public void insertUpdate(DocumentEvent ev)
     {
-      Dimension size = textComponent.getSize();
-      rootView.insertUpdate(ev, new Rectangle(0, 0, size.width, size.height),
+      rootView.insertUpdate(ev, getVisibleEditorRect(),
                             rootView.getViewFactory());
-      int caretPos = textComponent.getCaretPosition();
-      if (caretPos >= ev.getOffset())
-        textComponent.setCaretPosition(caretPos + ev.getLength());
     }
 
     /**
@@ -391,12 +390,8 @@ public abstract class BasicTextUI extends TextUI
      */
     public void removeUpdate(DocumentEvent ev)
     {
-      Dimension size = textComponent.getSize();
-      rootView.removeUpdate(ev, new Rectangle(0, 0, size.width, size.height),
+      rootView.removeUpdate(ev, getVisibleEditorRect(),
                             rootView.getViewFactory());
-      int caretPos = textComponent.getCaretPosition();
-      if (caretPos >= ev.getOffset())
-        textComponent.setCaretPosition(ev.getOffset());
     }
   }
 
@@ -419,16 +414,29 @@ public abstract class BasicTextUI extends TextUI
   /**
    * Receives notification when the model changes.
    */
-  UpdateHandler updateHandler = new UpdateHandler();
+  PropertyChangeHandler updateHandler = new PropertyChangeHandler();
 
   /** The DocumentEvent handler. */
   DocumentHandler documentHandler = new DocumentHandler();
+
+  /**
+   * The standard background color. This is the color which is used to paint
+   * text in enabled text components.
+   */
+  Color background;
+
+  /**
+   * The inactive background color. This is the color which is used to paint
+   * text in disabled text components.
+   */
+  Color inactiveBackground;
 
   /**
    * Creates a new <code>BasicTextUI</code> instance.
    */
   public BasicTextUI()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -506,14 +514,18 @@ public abstract class BasicTextUI extends TextUI
       textComponent.setHighlighter(createHighlighter());
 
     String prefix = getPropertyPrefix();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    textComponent.setBackground(defaults.getColor(prefix + ".background"));
-    textComponent.setForeground(defaults.getColor(prefix + ".foreground"));
-    textComponent.setMargin(defaults.getInsets(prefix + ".margin"));
-    textComponent.setBorder(defaults.getBorder(prefix + ".border"));
-    textComponent.setFont(defaults.getFont(prefix + ".font"));
+    LookAndFeel.installColorsAndFont(textComponent, prefix + ".background",
+                                     prefix + ".foreground", prefix + ".font");
+    LookAndFeel.installBorder(textComponent, prefix + ".border");
+    textComponent.setMargin(UIManager.getInsets(prefix + ".margin"));
 
-    caret.setBlinkRate(defaults.getInt(prefix + ".caretBlinkRate"));
+    caret.setBlinkRate(UIManager.getInt(prefix + ".caretBlinkRate"));
+
+    // Fetch the colors for enabled/disabled text components.
+    inactiveBackground = UIManager.getColor(prefix + ".inactiveBackground");
+    textComponent.setDisabledTextColor
+                         (UIManager.getColor(prefix + ".inactiveForeground"));
+    textComponent.setSelectedTextColor(UIManager.getColor(prefix + ".selectionForeground"));
   }
 
   /**
@@ -797,8 +809,10 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void paintBackground(Graphics g)
   {
-    g.setColor(textComponent.getBackground());
-    g.fillRect(0, 0, textComponent.getWidth(), textComponent.getHeight());
+    // This method does nothing. All the background filling is done by the
+    // ComponentUI update method. However, the method is called by paint
+    // to provide a way for subclasses to draw something different (e.g.
+    // background images etc) on the background.
   }
 
   /**
@@ -885,10 +899,10 @@ public abstract class BasicTextUI extends TextUI
   /**
    * Maps a position in the document into the coordinate space of the View.
    * The output rectangle usually reflects the font height but has a width
-   * of zero. A bias of {@link Position.Bias.Forward} is used in this method.
+   * of zero. A bias of {@link Position.Bias#Forward} is used in this method.
    *
+   * @param t the text component
    * @param pos the position of the character in the model
-   * @param a the area that is occupied by the view
    *
    * @return a rectangle that gives the location of the document position
    *         inside the view coordinate space
@@ -908,10 +922,10 @@ public abstract class BasicTextUI extends TextUI
    * The output rectangle usually reflects the font height but has a width
    * of zero.
    *
+   * @param t the text component
    * @param pos the position of the character in the model
-   * @param a the area that is occupied by the view
-   * @param bias either {@link Position.Bias.Forward} or
-   *        {@link Position.Bias.Backward} depending on the preferred
+   * @param bias either {@link Position.Bias#Forward} or
+   *        {@link Position.Bias#Backward} depending on the preferred
    *        direction bias. If <code>null</code> this defaults to
    *        <code>Position.Bias.Forward</code>
    *
@@ -957,7 +971,7 @@ public abstract class BasicTextUI extends TextUI
    */
   public int viewToModel(JTextComponent t, Point pt, Position.Bias[] biasReturn)
   {
-    return 0; // FIXME: Implement me.
+    return rootView.viewToModel(pt.x, pt.y, getVisibleEditorRect(), biasReturn);
   }
 
   /**
@@ -1003,7 +1017,7 @@ public abstract class BasicTextUI extends TextUI
     int height = textComponent.getHeight();
 
     if (width <= 0 || height <= 0)
-      return null;
+      return new Rectangle(0, 0, 0, 0);
 	
     Insets insets = textComponent.getInsets();
     return new Rectangle(insets.left, insets.top,
@@ -1020,6 +1034,8 @@ public abstract class BasicTextUI extends TextUI
   {
     rootView.setView(view);
     view.setParent(rootView);
+    textComponent.revalidate();
+    textComponent.repaint();
   }
 
   /**
@@ -1042,5 +1058,18 @@ public abstract class BasicTextUI extends TextUI
       return;
     View view = factory.create(elem);
     setView(view);
+  }
+
+  /**
+   * Receives notification whenever one of the text component's bound
+   * properties changes. This default implementation does nothing.
+   * It is a hook that enables subclasses to react to property changes
+   * on the text component.
+   *
+   * @param ev the property change event
+   */
+  protected void propertyChange(PropertyChangeEvent ev)
+  {
+    // The default implementation does nothing.
   }
 }

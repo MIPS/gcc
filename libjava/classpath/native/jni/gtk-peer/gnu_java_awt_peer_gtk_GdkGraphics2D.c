@@ -58,9 +58,12 @@ void
 cp_gtk_graphics2d_init_jni (void)
 {
   jclass gdkgraphics2d;
+  JNIEnv *env = cp_gtk_gdk_env();
 
-  gdkgraphics2d = (*cp_gtk_gdk_env())->FindClass (cp_gtk_gdk_env(),
-                                           "gnu/java/awt/peer/gtk/GdkGraphics2D");
+  gdkgraphics2d = (*env)->FindClass (env,
+				     "gnu/java/awt/peer/gtk/GdkGraphics2D");
+  if ((*env)->ExceptionOccurred(env))
+    return;
 
   initComponentGraphics2DUnlockedID = (*cp_gtk_gdk_env())->GetMethodID (cp_gtk_gdk_env(), gdkgraphics2d,
                                                          "initComponentGraphics2DUnlocked",
@@ -931,9 +934,9 @@ Java_gnu_java_awt_peer_gtk_GdkGraphics2D_setTexturePixelsUnlocked
 							CAIRO_FORMAT_ARGB32, 
 							w, h, stride * 4);
   g_assert (gr->pattern_surface != NULL);
-  cairo_pattern_set_extend (gr->pattern, 1);
   gr->pattern = cairo_pattern_create_for_surface (gr->pattern_surface);
   g_assert (gr->pattern != NULL);
+  cairo_pattern_set_extend (gr->pattern, CAIRO_EXTEND_REPEAT);
   cairo_set_source (gr->cr, gr->pattern);
 }
 

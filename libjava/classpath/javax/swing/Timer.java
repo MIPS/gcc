@@ -65,34 +65,51 @@ public class Timer
      */
     public void run()
     {
-      running = true;
       try
         {
-          sleep(initialDelay);
-
-          queueEvent();
-
-          while (running)
+          synchronized (queueLock)
             {
               try
                 {
-                  sleep(delay);
+                  queueLock.wait(initialDelay);
                 }
               catch (InterruptedException e)
                 {
-                  return;
+                  // Ignored
                 }
+
+              if (!running)
+                return;
+
               queueEvent();
 
-              if (logTimers)
-                System.out.println("javax.swing.Timer -> clocktick");
+              if (repeats)
+                while (running)
+                  {
+                    try
+                      {
+                        queueLock.wait(delay);
+                      }
+                    catch (InterruptedException e)
+                      {
+                         // Ignored
+                      }
 
-              if ( ! repeats)
-                break;
+                    if (!running)
+                      break;
+
+                    queueEvent();
+
+                    if (logTimers)
+                      System.out.println("javax.swing.Timer -> clocktick");
+
+                    if (!repeats)
+                      break;
+                  }
+              running = false;
             }
-          running = false;
-        }
-      catch (Exception e)
+	}
+      finally
         {
           // The timer is no longer running.
           running = false;
@@ -398,10 +415,13 @@ public class Timer
    */
   public void start()
   {
-    if (isRunning())
-      return;
-    waker = new Waker();
-    waker.start();
+    synchronized (queueLock)
+      {
+	if (waker != null)
+	  return;
+	waker = new Waker();
+	waker.start();
+      }
   }
 
   /**
@@ -409,12 +429,13 @@ public class Timer
    */
   public void stop()
   {
-    running = false;
-    if (waker != null)
-      waker.interrupt();
     synchronized (queueLock)
       {
+	running = false;
         queue = 0;
+	if (waker != null)
+	  queueLock.notifyAll();
+	waker = null;
       }
   }
 

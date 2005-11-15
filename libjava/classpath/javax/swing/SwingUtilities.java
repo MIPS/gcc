@@ -840,7 +840,7 @@ public class SwingUtilities
         iconR.width = icon.getIconWidth();
         iconR.height = icon.getIconHeight();
       }
-    if (text == null)
+    if (text == null || text.equals(""))
       {
         textIconGap = 0;
 	textR.width = 0;
@@ -890,7 +890,7 @@ public class SwingUtilities
         iconR.y = 0;
         textR.y = (horizontalTextPosition == CENTER
                    ? iconR.height + textIconGap 
-                   : iconR.height - textR.height);
+                   : Math.max(iconR.height - textR.height, 0));
         break;
       case CENTER:
         int centerLine = Math.max(textR.height, iconR.height) / 2;
@@ -1116,7 +1116,7 @@ public class SwingUtilities
    * <pre>
    *  [{@link javax.swing.JComponent#getActionMap()}] 
    *          --&gt; [{@link javax.swing.ActionMap}] 
-   *     parent --&gt; [{@link javax.swing.text.KeymapActionMap}] 
+   *     parent --&gt; [{@link javax.swing.text.JTextComponent.KeymapActionMap}] 
    *       parent --&gt; [{@link javax.swing.plaf.ActionMapUIResource}]
    * </pre>
    *
@@ -1159,7 +1159,7 @@ public class SwingUtilities
    * <pre>
    *  [{@link javax.swing.JComponent#getInputMap()}] 
    *          --&gt; [{@link javax.swing.InputMap}] 
-   *     parent --&gt; [{@link javax.swing.text.KeymapWrapper}] 
+   *     parent --&gt; [{@link javax.swing.text.JTextComponent.KeymapWrapper}] 
    *       parent --&gt; [{@link javax.swing.plaf.InputMapUIResource}]
    * </pre>
    *

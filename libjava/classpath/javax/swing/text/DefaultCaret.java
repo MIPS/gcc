@@ -45,10 +45,15 @@ import java.awt.event.FocusListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.util.EventListener;
 
+import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.EventListenerList;
 
 /**
@@ -61,10 +66,127 @@ public class DefaultCaret extends Rectangle
   implements Caret, FocusListener, MouseListener, MouseMotionListener
 {
   /**
-   * The serial version UID for DefaultCaret.
+   * Listens for changes in the text component's document and updates the
+   * caret accordingly.
+   * 
+   * @author Roman Kennke (kennke@aicas.com)
    */
-  private static final long serialVersionUID = 228155774675466193L;
+  private class DocumentHandler implements DocumentListener
+  {
+    /**
+     * Receives notification that some text attributes have changed. No action
+     * is taken here.
+     *
+     * @param event the document event
+     */
+    public void changedUpdate(DocumentEvent event)
+    {
+      // Nothing to do here.
+    }
 
+    /**
+     * Receives notification that some text has been inserted from the text
+     * component. The caret is moved forward accordingly.
+     *
+     * @param event the document event
+     */
+    public void insertUpdate(DocumentEvent event)
+    {
+      if (policy == ALWAYS_UPDATE || 
+          (SwingUtilities.isEventDispatchThread() && 
+           policy == UPDATE_WHEN_ON_EDT))
+        {        
+          int dot = getDot();
+          setDot(dot + event.getLength());
+        }
+    }
+
+    /**
+     * Receives notification that some text has been removed into the text
+     * component. The caret is moved backwards accordingly.
+     *
+     * @param event the document event
+     */
+    public void removeUpdate(DocumentEvent event)
+    {
+      if (policy == ALWAYS_UPDATE || 
+          (SwingUtilities.isEventDispatchThread() && 
+           policy == UPDATE_WHEN_ON_EDT))
+        {
+          int dot = getDot();
+          setDot(dot - event.getLength());
+        }
+      else if (policy == NEVER_UPDATE)
+        {
+          int docLength = event.getDocument().getLength();
+          if (getDot() > docLength)
+            setDot(docLength);
+        }
+    }
+  }
+
+  /**
+   * Listens for property changes on the text document. This is used to add and
+   * remove our document listener, if the document of the text component has
+   * changed.
+   *
+   * @author Roman Kennke (kennke@aicas.com)
+   */
+  private class PropertyChangeHandler implements PropertyChangeListener
+  {
+
+    /**
+     * Receives notification when a property has changed on the text component.
+     * This adds/removes our document listener from the text component's
+     * document when the document changes.
+     *
+     * @param e the property change event
+     */
+    public void propertyChange(PropertyChangeEvent e)
+    {
+      if (e.getPropertyName().equals("document"))
+        {
+          Document oldDoc = (Document) e.getOldValue();
+          oldDoc.removeDocumentListener(documentListener);
+          Document newDoc = (Document) e.getNewValue();
+          newDoc.addDocumentListener(documentListener);
+        }
+    }
+    
+  }
+
+  /** The serialization UID (compatible with JDK1.5). */
+  private static final long serialVersionUID = 4325555698756477346L;
+  
+  /**
+   * Indicates the Caret position should always be updated after Document
+   * changes even if the updates are not performed on the Event Dispatching
+   * thread.
+   * 
+   * @since 1.5
+   */
+  public static final int ALWAYS_UPDATE = 2;
+
+  /**
+   * Indicates the Caret position should not be changed unless the Document
+   * length becomes less than the Caret position, in which case the Caret
+   * is moved to the end of the Document.
+   * 
+   * @since 1.5
+   */
+  public static final int NEVER_UPDATE = 1;
+  
+  /** 
+   * Indicates the Caret position should be updated only if Document changes
+   * are made on the Event Dispatcher thread.
+   *  
+   * @since 1.5
+   */
+  public static final int UPDATE_WHEN_ON_EDT = 0;
+  
+  /** Keeps track of the current update policy **/
+  int policy = UPDATE_WHEN_ON_EDT;
+    
   /**
    * The <code>ChangeEvent</code> that is fired by {@link #fireStateChanged()}.
    */
@@ -74,6 +196,16 @@ public class DefaultCaret extends Rectangle
    * Stores all registered event listeners.
    */
   protected EventListenerList listenerList = new EventListenerList();
+
+  /**
+   * Our document listener.
+   */
+  DocumentListener documentListener;
+
+  /**
+   * Our property listener.
+   */
+  PropertyChangeListener propertyChangeListener;
 
   /**
    * The text component in which this caret is installed.
@@ -115,6 +247,43 @@ public class DefaultCaret extends Rectangle
    */
   private Object highlightEntry;
 
+  /**
+   * Sets the Caret update policy.
+   *    
+   * @param policy the new policy.  Valid values are:
+   * ALWAYS_UPDATE: always update the Caret position, even when Document
+   * updates don't occur on the Event Dispatcher thread.
+   * NEVER_UPDATE: don't update the Caret position unless the Document
+   * length becomes less than the Caret position (then update the
+   * Caret to the end of the Document).
+   * UPDATE_WHEN_ON_EDT: update the Caret position when the 
+   * Document updates occur on the Event Dispatcher thread.  This is the 
+   * default.
+   * 
+   * @since 1.5
+   * @throws IllegalArgumentException if policy is not one of the above.
+   */
+  public void setUpdatePolicy (int policy)
+  {
+    if (policy != ALWAYS_UPDATE && policy != NEVER_UPDATE
+        && policy != UPDATE_WHEN_ON_EDT)
+      throw new 
+        IllegalArgumentException
+        ("policy must be ALWAYS_UPDATE, NEVER__UPDATE, or UPDATE_WHEN_ON_EDT");
+    this.policy = policy;
+  }
+  
+  /**
+   * Gets the caret update policy.
+   * 
+   * @return the caret update policy.
+   * @since 1.5
+   */
+  public int getUpdatePolicy ()
+  {
+    return policy;
+  }
+  
   /**
    * Moves the caret position when the mouse is dragged over the text
    * component, modifying the selection accordingly.
@@ -175,6 +344,7 @@ public class DefaultCaret extends Rectangle
    */
   public void mouseExited(MouseEvent event)
   {
+    // TODO: What to do here, if anything?
   }
 
   /**
@@ -188,6 +358,9 @@ public class DefaultCaret extends Rectangle
   public void mousePressed(MouseEvent event)
   {
     // FIXME: Implement this properly.
+    if (!(event.getButton() == MouseEvent.BUTTON1))
+      return;
+    setDot(textComponent.viewToModel(event.getPoint()));
   }
 
   /**
@@ -208,6 +381,7 @@ public class DefaultCaret extends Rectangle
    */
   public void focusGained(FocusEvent event)
   {
+    // TODO: Implement this properly.
   }
 
   /**
@@ -217,6 +391,7 @@ public class DefaultCaret extends Rectangle
    */
   public void focusLost(FocusEvent event)
   {
+    // TODO: Implement this properly.
   }
 
   /**
@@ -253,6 +428,10 @@ public class DefaultCaret extends Rectangle
     textComponent.removeFocusListener(this);
     textComponent.removeMouseListener(this);
     textComponent.removeMouseMotionListener(this);
+    textComponent.getDocument().removeDocumentListener(documentListener);
+    documentListener = null;
+    textComponent.removePropertyChangeListener(propertyChangeListener);
+    propertyChangeListener = null;
     textComponent = null;
   }
 
@@ -269,6 +448,10 @@ public class DefaultCaret extends Rectangle
     textComponent.addFocusListener(this);
     textComponent.addMouseListener(this);
     textComponent.addMouseMotionListener(this);
+    propertyChangeListener = new PropertyChangeHandler();
+    textComponent.addPropertyChangeListener(propertyChangeListener);
+    documentListener = new DocumentHandler();
+    textComponent.getDocument().addDocumentListener(documentListener);
     repaint();
   }
 
@@ -376,10 +559,7 @@ public class DefaultCaret extends Rectangle
    */
   protected final void repaint()
   {
-    // FIXME: Is this good? This possibly causes alot of the component
-    // hierarchy to be repainted on every caret blink.
-    if (textComponent != null)
-      textComponent.repaint();
+    textComponent.repaint(this);
   }
 
   /**
@@ -574,8 +754,11 @@ public class DefaultCaret extends Rectangle
    */  
   public void setVisible(boolean v)
   {
-    visible = v;
-    repaint();
+    if (v != visible)
+      {
+        visible = v;
+        repaint();
+      }
   }
 
   /**

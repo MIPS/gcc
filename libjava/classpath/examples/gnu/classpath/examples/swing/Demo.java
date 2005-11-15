@@ -24,20 +24,15 @@ package gnu.classpath.examples.swing;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.font.*;
-import java.awt.geom.*;
-import java.awt.image.*;
 
 import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.plaf.*;
-import javax.swing.plaf.basic.*;
-import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.tree.*;
 import javax.swing.border.*;
 
+import javax.swing.plaf.metal.MetalLookAndFeel;
+import javax.swing.plaf.metal.OceanTheme;
+
 import java.net.URL;
-import java.util.*;
 
 public class Demo
 {
@@ -51,26 +46,39 @@ public class Demo
         if (System.getProperty("swing.defaultlaf") == null)
           {
             StringBuffer text = new StringBuffer();
-            text.append("\tYou may change the Look and Feel of this\n");
-            text.append("\tDemo by setting the system property\n");
-            text.append("\t-Dswing.defaultlaf=<LAFClassName>\n\n");
-            text.append("\tPossible values for <LAFClassName> are:\n");
-            text.append("\t  * javax.swing.plaf.metal.MetalLookAndFeel\n");
-            text.append("\t\tthe default Java L&F\n");
-            text.append("\t  * gnu.classpath.examples.swing.GNULookAndFeel\n");
-            text.append("\tthe GNU Look and Feel\n");
-            text.append("\t(derived from javax.swing.plaf.basic.BasicLookAndFeel\n\n");
-            text.append("\tthe default is gnu.classpath.examples.swing.GNULookAndFeel\n");
-            JEditorPane textPane = new JEditorPane();
-            // temporary hack, preferred size should be computed by the
-            // component
-            textPane.setPreferredSize(new Dimension(400, 300));
-            textPane.setText(text.toString());
-            JOptionPane.showMessageDialog(null, textPane,
-                                          "Look and Feel notice",
-                                          JOptionPane.INFORMATION_MESSAGE);
-            
-            UIManager.setLookAndFeel(new GNULookAndFeel());
+            text.append("You may change the Look and Feel of this\n");
+            text.append("Demo by setting the system property\n");
+            text.append("-Dswing.defaultlaf=<LAFClassName>\n");
+	    text.append("\n");
+            text.append("Possible values for <LAFClassName> are:\n");
+	    text.append("\n");
+            text.append("* javax.swing.plaf.metal.MetalLookAndFeel\n");
+            text.append("  the default GNU Classpath L&F\n");
+	    text.append("\n");
+            text.append("* gnu.classpath.examples.swing.GNULookAndFeel\n");
+            text.append("  the GNU Look and Feel\n");
+            text.append("  (derived from javax.swing.plaf.basic.BasicLookAndFeel)\n");
+	    text.append("\n");
+            text.append("MetalLookAndFeel supports different Themes.\n");
+	    text.append("DefaultMetalTheme (the default) and OceanTheme (in development)\n");
+
+	    final String DEFAULT = "MetalLookAndFeel (default)";
+	    final String OCEAN = "MetalLookAndFeel (Ocean)";
+	    final String GNU = "GNULookAndFeel";
+	    final String[] lafs = new String[] { DEFAULT, OCEAN, GNU };
+
+	    int laf = JOptionPane.showOptionDialog(null, text /* textPane */,
+						   "Look and Feel choice",
+						   JOptionPane.OK_OPTION,
+						   JOptionPane.QUESTION_MESSAGE,
+						   null, lafs, DEFAULT);
+	    if (laf == 1)
+	      {
+		MetalLookAndFeel.setCurrentTheme(new OceanTheme());
+	      UIManager.setLookAndFeel(new MetalLookAndFeel());
+	      }
+	    else if (laf == 2)
+	      UIManager.setLookAndFeel(new GNULookAndFeel());
           }
       }
     catch (UnsupportedLookAndFeelException e)
@@ -147,10 +155,7 @@ public class Demo
 
     JMenu examples = new JMenu("Examples");
     new PopUpAction("Buttons",
-		    mkPanel(new JComponent[]
-			{mkBigButton("mango"), 
-			 mkBigButton("guava"),
-			 mkBigButton("lemon")}),
+		    (new ButtonDemo("Button Demo")).createContent(),
 		    examples);
     
     new PopUpAction("Toggles",
@@ -181,7 +186,7 @@ public class Demo
 		    examples);
 
     new PopUpAction("Scrollbar",
-		    mkScrollBar(),
+		    (new ScrollBarDemo("ScrollBarDemo")).createContent(),
 		    examples);
 
     new PopUpAction("Viewport",
@@ -189,8 +194,8 @@ public class Demo
 		    examples);
 
     new PopUpAction("ScrollPane",
-		    mkScrollPane(mkBigButton("Scroll Me!")),
-		    examples);
+                    mkScrollPane(mkBigButton("Scroll Me!")),
+                    examples);
 
     new PopUpAction("TabPane",
 		    mkTabs(new String[] {"happy",
@@ -211,11 +216,7 @@ public class Demo
 		    examples);
 
     new PopUpAction("ComboBox",
-		    mkComboBox(new String[] {"Stop",
-					     "Software",
-					     "Hoarders",
-					     "Support",
-					     "GNU!"}),
+		    (new ComboBoxDemo("ComboBox Demo")).createContent(),
 		    examples);
 
     new PopUpAction("Editor",
@@ -317,6 +318,7 @@ public class Demo
     else
       b = new JButton(title, icon);
     
+    b.setToolTipText(title);
     if (hAlign != -1) b.setHorizontalAlignment(hAlign);
     if (vAlign != -1) b.setVerticalAlignment(vAlign);
     if (hPos != -1) b.setHorizontalTextPosition(hPos);
@@ -640,6 +642,14 @@ public class Demo
     panel.add(but, BorderLayout.NORTH);
     but.doClick();
     but.doClick();
+    JInternalFrame palette = new JInternalFrame("Palette", true, true, true, 
+        true);
+    palette.putClientProperty("JInternalFrame.isPalette", Boolean.TRUE);
+    desk.add(palette, JDesktopPane.PALETTE_LAYER);
+    JLabel label = new JLabel("This is a floating palette!");
+    palette.getContentPane().add(label);
+    palette.pack();
+    palette.setVisible(true);
     return panel;
   }
 
@@ -735,11 +745,17 @@ public class Demo
     return c;
   }
 
-  public static JRadioButton mkRadio(String label)
+  public static JPanel mkRadio(String label)
   {
+    JPanel p = new JPanel();
     JRadioButton c = new JRadioButton(label);
-    c.setFont(new Font("Luxi", Font.PLAIN, 14));
-    return c;
+    JRadioButton d = new JRadioButton("not " + label);
+    ButtonGroup bg = new ButtonGroup();
+    bg.add(c);
+    bg.add(d);
+    p.add(c);
+    p.add(d);
+    return p;
   }
 
   public static JList mkList(Object[] elts)
@@ -1006,10 +1022,7 @@ public class Demo
     panel.setLayout(new FlowLayout());
 
     new PopUpAction("Buttons",
-		    mkPanel(new JComponent[]
-			{mkBigButton("mango"), 
-			 mkBigButton("guava"),
-			 mkBigButton("lemon")}),
+		    (new ButtonDemo("Button Demo")).createContent(),
 		    panel);
     
     new PopUpAction("Toggles",
@@ -1025,7 +1038,7 @@ public class Demo
 		    panel);
 
     new PopUpAction("Slider",
-		    mkSliders(),
+		    (new SliderDemo("Slider Demo")).createContent(),
 		    panel);
 
     new PopUpAction("List",
@@ -1040,7 +1053,7 @@ public class Demo
 		    panel);
 
     new PopUpAction("Scrollbar",
-		    mkScrollBar(),
+		    (new ScrollBarDemo("ScrollBar Demo")).createContent(),
 		    panel);
 
     new PopUpAction("Viewport",
@@ -1070,11 +1083,7 @@ public class Demo
 		    panel);
 
     new PopUpAction("ComboBox",
-		    mkComboBox(new String[] {"Stop",
-					     "Software",
-					     "Hoarders",
-					     "Support",
-					     "GNU!"}),
+		    (new ComboBoxDemo("ComboBox Demo")).createContent(),
 		    panel);
 
     new PopUpAction("Editor",
