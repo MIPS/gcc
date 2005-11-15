@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-require-effective-target tls }
 
 module threadprivate2
   integer, dimension(:,:), allocatable :: foo

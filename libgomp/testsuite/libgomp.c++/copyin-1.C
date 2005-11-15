@@ -1,4 +1,5 @@
-/* { dg-do run } */
+// { dg-do run }
+// { dg-require-effective-target tls }
 
 #include <omp.h>
 

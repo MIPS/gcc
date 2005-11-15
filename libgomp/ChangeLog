@@ -1,3 +1,20 @@
+2005-11-15  Uros Bizjak  <uros@kss-loka.si>
+
+	* testsuite/libgomp.c/pr24455-1.c, testsuite/libgomp.c/pr24455.c,
+	testsuite/libgomp.c/copyin-1.c, testsuite/libgomp.c/copyin-2.c,
+	testsuite/libgomp.c/copyin-3.c,
+	testsuite/libgomp.c++/copyin-1.C, testsuite/libgomp.c++/copyin-2.C,
+	testsuite/libgomp.c++/ctor-5.C, testsuite/libgomp.c++/ctor-8.C,
+	testsuite/libgomp.c++/ctor-9.C, testsuite/libgomp.c++/pr24455-1.C,
+	testsuite/libgomp.c++/pr24455.C,
+	testsuite/libgomp.fortran/threadprivate1.f90,
+	testsuite/libgomp.fortran/threadprivate2.f90,
+	testsuite/libgomp.fortran/threadprivate3.f90,
+	testsuite/libgomp.fortran/appendix-a/a.22.7.f9,
+	testsuite/libgomp.fortran/appendix-a/a.22.8.f9,
+	testsuite/libgomp.fortran/omp_parse3.f90: Require
+	effective-target TLS.
+
 2005-11-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* HEADER: Remove.

@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-require-effective-target tls }
 
 module threadprivate3
   integer, dimension(:,:), pointer :: foo => NULL()

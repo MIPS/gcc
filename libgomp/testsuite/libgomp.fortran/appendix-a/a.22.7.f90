@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-require-effective-target tls }
 
       PROGRAM A22_7_GOOD
         INTEGER, ALLOCATABLE, SAVE :: A(:)

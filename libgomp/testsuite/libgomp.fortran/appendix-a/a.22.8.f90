@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-require-effective-target tls }
        MODULE A22_MODULE8
          REAL, POINTER :: WORK(:)
          SAVE WORK

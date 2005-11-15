@@ -1,5 +1,6 @@
-/* { dg-do run } */
-/* { dg-additional-sources pr24455-1.C } */
+// { dg-do run }
+// { dg-additional-sources pr24455-1.C }
+// { dg-require-effective-target tls }
 
 extern "C" void abort (void);
 

@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-require-effective-target tls }
 
 module threadprivate1
   double precision :: d
