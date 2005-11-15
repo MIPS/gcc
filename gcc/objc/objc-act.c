@@ -228,6 +228,7 @@ static tree build_selector_messenger_reference (tree, tree);
 static void build_message_ref_translation_table (void);
 static tree objc_copy_to_temp_side_effect_params (tree, tree);
 static tree objc_create_temporary_var (tree);
+static tree build_message_reference_decl (void);
 /* APPLE LOCAL end ObjC new abi */
 
 /* APPLE LOCAL end mainline */
@@ -3209,6 +3210,20 @@ build_selector_reference (tree ident)
 }
 
 /* APPLE LOCAL begin ObjC new abi */
+/* Declare a variable of type 'struct message_ref_t'. */
+
+static tree
+build_message_reference_decl (void)
+{
+  tree decl;
+  char buf[256];
+
+  sprintf (buf, "_OBJC_SELECTOR_REFERENCES_%d", selector_reference_idx++);
+  decl = start_var_decl (objc_newabi_message_ref_template, buf);
+
+  return decl;
+}
+
 /* Build the list of (objc_msgSend_fixup_xxx, selector name) Used later on to
    initialize the table of 'struct message_ref_t' elements. */
 
@@ -3216,7 +3231,7 @@ static tree
 build_selector_messenger_reference (tree sel_name, tree message_func_decl)
 {
   tree *chain = &message_ref_chain;
-  tree sel_expr, mess_expr;
+  tree mess_expr;
 
   while (*chain)
     {
@@ -3228,13 +3243,12 @@ build_selector_messenger_reference (tree sel_name, tree message_func_decl)
       chain = &TREE_CHAIN (*chain);
     }
 
-  mess_expr = build_selector_reference_decl ();
+  mess_expr = build_message_reference_decl ();
   *chain = tree_cons (mess_expr, message_func_decl, NULL_TREE);
 
   chain = &TREE_CHAIN (*chain);
 
-  sel_expr = build_selector_reference_decl ();
-  *chain = tree_cons (sel_expr, sel_name, NULL_TREE);
+  *chain = tree_cons (NULL_TREE, sel_name, NULL_TREE);
 
   return mess_expr;
 }
@@ -3249,23 +3263,32 @@ void build_message_ref_translation_table (void)
 {
   tree chain;
   tree decl = NULL_TREE;
-  
   for (chain = message_ref_chain; chain; chain = TREE_CHAIN (chain))
     {
       tree expr;
+      tree fields;
+      tree initializer = NULL_TREE;
+      tree constructor;
+      tree struct_type;
+
+      decl = TREE_PURPOSE (chain);
+      struct_type = TREE_TYPE (decl);
+      fields = TYPE_FIELDS (struct_type);
 
       /* First 'IMP messenger' field */
       expr = build_unary_op (ADDR_EXPR, TREE_VALUE (chain), 0);
       expr = convert (objc_selector_type, expr);
-      decl = TREE_PURPOSE (chain);
-      finish_var_decl (decl, expr);
-
+      initializer = build_tree_list (fields, expr);
+    
       /* Next the 'SEL name' field */
+      fields = TREE_CHAIN (fields);
       gcc_assert (TREE_CHAIN (chain));
       chain = TREE_CHAIN (chain);
       expr = build_selector (TREE_VALUE (chain));
-      decl = TREE_PURPOSE (chain);
-      finish_var_decl (decl, expr);
+      initializer = tree_cons (fields, expr, initializer);
+      constructor = objc_build_constructor (struct_type, nreverse (initializer));
+      TREE_INVARIANT (constructor) = true;
+      finish_var_decl (decl, constructor); 
     }
 }
 
@@ -3278,7 +3301,7 @@ objc_copy_to_temp_side_effect_params (tree typelist, tree values)
 {
   tree valtail, typetail;
   /* skip over receiver and the &_msf_ref types */
-  gcc_assert (TREE_CHAIN (typelist) && TREE_CHAIN (TREE_CHAIN (typelist)));
+  gcc_assert (TREE_CHAIN (typelist));
   typetail = TREE_CHAIN (TREE_CHAIN (typelist));
 
   for (valtail = values;

@@ -1,3 +1,15 @@
+2005-11-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	objc new messaging - part 3
+
+	* objc/objc-act.c (build_message_reference_decl): New
+	(build_selector_messenger_reference): Declare the variable
+	with type "struct message_ref_t" for later initialization.
+	(build_message_ref_translation_table): Initialize the 
+	variable of type "struct message_ref_t" with the {message_name,
+	selector}.
+	(objc_copy_to_temp_side_effect_params): Fix gcc_assert(...).
+
 2005-11-11  Fariborz Jahanian <fjahanian@apple.com>
 
 	objc new messaging - part 2
