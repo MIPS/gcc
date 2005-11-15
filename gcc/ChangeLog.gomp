@@ -1,3 +1,10 @@
+2005-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (check_omp_for_incr_expr): New function.
+	(c_finish_omp_for): Use it to check and canonicalize INCR.
+	Error if lhs of INCR MODIFY_EXPR isn't DECL or if RHS is DECL.
+	Only look at COND operands after checking its TREE_CODE.
+
 2005-11-14  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge as of 2005-11-13.

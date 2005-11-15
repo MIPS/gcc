@@ -143,6 +143,48 @@ c_finish_omp_flush (void)
 }
 
 
+/* Check and canonicalize #pragma omp for increment expression.
+   Helper function for c_finish_omp_for.  */
+
+static tree
+check_omp_for_incr_expr (tree exp, tree decl)
+{
+  tree t;
+
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (exp))
+      || TYPE_PRECISION (TREE_TYPE (exp)) < TYPE_PRECISION (TREE_TYPE (decl)))
+    return error_mark_node;
+
+  if (exp == decl)
+    return build_int_cst (TREE_TYPE (exp), 0);
+
+  switch (TREE_CODE (exp))
+    {
+    case NOP_EXPR:
+      t = check_omp_for_incr_expr (TREE_OPERAND (exp, 0), decl);
+      if (t != error_mark_node)
+        return fold_convert (TREE_TYPE (exp), t);
+      break;
+    case MINUS_EXPR:
+      t = check_omp_for_incr_expr (TREE_OPERAND (exp, 0), decl);
+      if (t != error_mark_node)
+        return fold_build2 (MINUS_EXPR, TREE_TYPE (exp), t, TREE_OPERAND (exp, 1));
+      break;
+    case PLUS_EXPR:
+      t = check_omp_for_incr_expr (TREE_OPERAND (exp, 0), decl);
+      if (t != error_mark_node)
+        return fold_build2 (PLUS_EXPR, TREE_TYPE (exp), t, TREE_OPERAND (exp, 1));
+      t = check_omp_for_incr_expr (TREE_OPERAND (exp, 1), decl);
+      if (t != error_mark_node)
+        return fold_build2 (PLUS_EXPR, TREE_TYPE (exp), TREE_OPERAND (exp, 0), t);
+      break;
+    default:
+      break;
+    }
+
+  return error_mark_node;
+}
+
 /* Validate and emit code for the OpenMP directive #pragma omp for.
    INIT, COND, INCR, BODY and PRE_BODY are the five basic elements
    of the loop (initialization expression, controlling predicate, increment
@@ -196,35 +238,6 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
   else
     {
       bool cond_ok = false;
-      tree op0 = TREE_OPERAND (cond, 0);
-      tree op1 = TREE_OPERAND (cond, 1);
-
-      /* 2.5.1.  The comparison in the condition is computed in the type
-	 of DECL, otherwise the behavior is undefined.
-
-	 For example:
-	   long n; int i;
-	   i < n;
-
-	according to ISO will be evaluated as:
-	   (long)i < n;
-
-	We want to force:
-	   i < (int)n;  */
-      if (TREE_CODE (op0) == NOP_EXPR
-	  && decl == TREE_OPERAND (op0, 0))
-	{
-	  TREE_OPERAND (cond, 0) = TREE_OPERAND (op0, 0);
-	  TREE_OPERAND (cond, 1) = build1 (NOP_EXPR, TREE_TYPE (decl),
-					   TREE_OPERAND (cond, 1));
-	}
-      else if (TREE_CODE (op1) == NOP_EXPR
-	       && decl == TREE_OPERAND (op1, 0))
-	{
-	  TREE_OPERAND (cond, 1) = TREE_OPERAND (op1, 0);
-	  TREE_OPERAND (cond, 0) = build1 (NOP_EXPR, TREE_TYPE (decl),
-					   TREE_OPERAND (cond, 0));
-	}
 
       if (EXPR_HAS_LOCATION (cond))
 	elocus = EXPR_LOCATION (cond);
@@ -234,6 +247,36 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	  || TREE_CODE (cond) == GT_EXPR
 	  || TREE_CODE (cond) == GE_EXPR)
 	{
+	  tree op0 = TREE_OPERAND (cond, 0);
+	  tree op1 = TREE_OPERAND (cond, 1);
+
+	  /* 2.5.1.  The comparison in the condition is computed in the type
+	     of DECL, otherwise the behavior is undefined.
+
+	     For example:
+	     long n; int i;
+	     i < n;
+
+	     according to ISO will be evaluated as:
+	     (long)i < n;
+
+	     We want to force:
+	     i < (int)n;  */
+	  if (TREE_CODE (op0) == NOP_EXPR
+	      && decl == TREE_OPERAND (op0, 0))
+	    {
+	      TREE_OPERAND (cond, 0) = TREE_OPERAND (op0, 0);
+	      TREE_OPERAND (cond, 1) = fold_build1 (NOP_EXPR, TREE_TYPE (decl),
+						    TREE_OPERAND (cond, 1));
+	    }
+	  else if (TREE_CODE (op1) == NOP_EXPR
+		   && decl == TREE_OPERAND (op1, 0))
+	    {
+	      TREE_OPERAND (cond, 1) = TREE_OPERAND (op1, 0);
+	      TREE_OPERAND (cond, 0) = fold_build1 (NOP_EXPR, TREE_TYPE (decl),
+						    TREE_OPERAND (cond, 0));
+	    }
+
 	  if (decl == TREE_OPERAND (cond, 0))
 	    cond_ok = true;
 	  else if (decl == TREE_OPERAND (cond, 1))
@@ -276,6 +319,10 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	  break;
 
 	case MODIFY_EXPR:
+	  if (TREE_OPERAND (incr, 0) != decl)
+	    break;
+	  if (TREE_OPERAND (incr, 1) == decl)
+	    break;
 	  if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
 	      && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
 		  || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
@@ -283,6 +330,16 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	  else if (TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
 		   && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl)
 	    incr_ok = true;
+	  else
+	    {
+	      tree t = check_omp_for_incr_expr (TREE_OPERAND (incr, 1), decl);
+	      if (t != error_mark_node)
+		{
+		  incr_ok = true;
+		  t = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, t);
+		  incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
+		}
+	    }
 	  break;
 
 	default:
