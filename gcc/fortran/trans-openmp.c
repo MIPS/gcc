@@ -837,7 +837,8 @@ gfc_trans_omp_critical (gfc_code *code)
 }
 
 static tree
-gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
+gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
+		  gfc_omp_clauses *clauses)
 {
   gfc_se se;
   tree dovar, stmt, from, to, step, type, init, cond, incr;
@@ -850,9 +851,13 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
   code = code->block->next;
   gcc_assert (code->op == EXEC_DO);
 
-  gfc_start_block (&block);
+  if (pblock == NULL)
+    {
+      gfc_start_block (&block);
+      pblock = &block;
+    }
 
-  omp_clauses = gfc_trans_omp_clauses (&block, clauses, code->loc);
+  omp_clauses = gfc_trans_omp_clauses (pblock, clauses, code->loc);
   if (clauses)
     {
       gfc_namelist *n;
@@ -870,25 +875,25 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
   /* Evaluate all the expressions in the iterator.  */
   gfc_init_se (&se, NULL);
   gfc_conv_expr_lhs (&se, code->ext.iterator->var);
-  gfc_add_block_to_block (&block, &se.pre);
+  gfc_add_block_to_block (pblock, &se.pre);
   dovar = se.expr;
   type = TREE_TYPE (dovar);
   gcc_assert (TREE_CODE (type) == INTEGER_TYPE);
 
   gfc_init_se (&se, NULL);
   gfc_conv_expr_val (&se, code->ext.iterator->start);
-  gfc_add_block_to_block (&block, &se.pre);
-  from = gfc_evaluate_now (se.expr, &block);
+  gfc_add_block_to_block (pblock, &se.pre);
+  from = gfc_evaluate_now (se.expr, pblock);
 
   gfc_init_se (&se, NULL);
   gfc_conv_expr_val (&se, code->ext.iterator->end);
-  gfc_add_block_to_block (&block, &se.pre);
-  to = gfc_evaluate_now (se.expr, &block);
+  gfc_add_block_to_block (pblock, &se.pre);
+  to = gfc_evaluate_now (se.expr, pblock);
 
   gfc_init_se (&se, NULL);
   gfc_conv_expr_val (&se, code->ext.iterator->step);
-  gfc_add_block_to_block (&block, &se.pre);
-  step = gfc_evaluate_now (se.expr, &block);
+  gfc_add_block_to_block (pblock, &se.pre);
+  step = gfc_evaluate_now (se.expr, pblock);
 
   /* Special case simple loops.  */
   if (integer_onep (step))
@@ -904,6 +909,11 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
 		     dovar, to);
       incr = fold_build2 (PLUS_EXPR, type, dovar, step);
       incr = fold_build2 (MODIFY_EXPR, type, dovar, incr);
+      if (pblock != &block)
+	{
+	  pushlevel (0);
+	  gfc_start_block (&block);
+	}
       gfc_start_block (&body);
     }
   else
@@ -918,13 +928,18 @@ gfc_trans_omp_do (gfc_code *code, gfc_omp_clauses *clauses)
       tmp = fold_build2 (MINUS_EXPR, type, step, from);
       tmp = fold_build2 (PLUS_EXPR, type, to, tmp);
       tmp = fold_build2 (TRUNC_DIV_EXPR, type, tmp, step);
-      tmp = gfc_evaluate_now (tmp, &block);
+      tmp = gfc_evaluate_now (tmp, pblock);
       count = gfc_create_var (type, "count");
       init = build2_v (MODIFY_EXPR, count, build_int_cst (type, 0));
       cond = build2 (LT_EXPR, boolean_type_node, count, tmp);
       incr = fold_build2 (PLUS_EXPR, type, count, build_int_cst (type, 1));
       incr = fold_build2 (MODIFY_EXPR, type, count, incr);
 
+      if (pblock != &block)
+	{
+	  pushlevel (0);
+	  gfc_start_block (&block);
+	}
       gfc_start_block (&body);
 
       /* Initialize DOVAR.  */
@@ -1022,7 +1037,7 @@ gfc_trans_omp_parallel (gfc_code *code)
 static tree
 gfc_trans_omp_parallel_do (gfc_code *code)
 {
-  stmtblock_t block;
+  stmtblock_t block, *pblock = NULL;
   gfc_omp_clauses parallel_clauses, do_clauses;
   tree stmt, omp_clauses = NULL_TREE;
 
@@ -1043,8 +1058,11 @@ gfc_trans_omp_parallel_do (gfc_code *code)
 					   code->loc);
     }
   do_clauses.nowait = true;
-  pushlevel (0);
-  stmt = gfc_trans_omp_do (code, &do_clauses);
+  if (!do_clauses.ordered && do_clauses.sched_kind != OMP_SCHED_STATIC)
+    pblock = &block;
+  else
+    pushlevel (0);
+  stmt = gfc_trans_omp_do (code, pblock, &do_clauses);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
@@ -1162,7 +1180,7 @@ gfc_trans_omp_directive (gfc_code *code)
     case EXEC_OMP_CRITICAL:
       return gfc_trans_omp_critical (code);
     case EXEC_OMP_DO:
-      return gfc_trans_omp_do (code, code->ext.omp_clauses);
+      return gfc_trans_omp_do (code, NULL, code->ext.omp_clauses);
     case EXEC_OMP_FLUSH:
       return gfc_trans_omp_flush ();
     case EXEC_OMP_MASTER:

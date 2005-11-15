@@ -1,3 +1,12 @@
+2005-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_do): Add PBLOCK argument.  If PBLOCK
+	is non-NULL, evaluate INIT/COND/INCR and chunk size expressions in
+	that statement block.
+	(gfc_trans_omp_parallel_do): Pass non-NULL PBLOCK to gfc_trans_omp_do
+	for non-ordered non-static combined loops.
+	(gfc_trans_omp_directive): Pass NULL PBLOCK to gfc_trans_omp_do.
+
 2005-11-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* openmp.c: Include target.h and toplev.h
