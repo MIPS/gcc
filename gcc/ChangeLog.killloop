@@ -1,3 +1,9 @@
+2005-11-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/24762
+	* except.c (dw2_build_landing_pads): Always emit clobbers for
+	eh registers.
+
 2005-11-13  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* optabs.c (expand_unop): Make the mode of the REG_EQUAL

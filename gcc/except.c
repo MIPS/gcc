@@ -1527,17 +1527,18 @@ dw2_build_landing_pads (void)
 
       /* If the eh_return data registers are call-saved, then we
 	 won't have considered them clobbered from the call that
-	 threw.  Kill them now.  */
+	 threw.  But we need to clobber all hard registers, since
+	 df.c assumes that call clobbers are not definitions
+	 (normally it is invalid to use call-clobbered register
+	 after the call).  */
       for (j = 0; ; ++j)
 	{
 	  unsigned r = EH_RETURN_DATA_REGNO (j);
 	  if (r == INVALID_REGNUM)
 	    break;
-	  if (! call_used_regs[r])
-	    {
-	      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
-	      clobbers_hard_regs = true;
-	    }
+	      
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
+	  clobbers_hard_regs = true;
 	}
 
       if (clobbers_hard_regs)
