@@ -4137,15 +4137,20 @@ gimplify_to_stmt_list (tree *stmt_p)
 static enum gimplify_status
 gimplify_expr_in_ctx (tree *expr_p, tree *pre_p, tree *post_p, 
 		      bool (* gimple_test_f) (tree), fallback_t fallback,
-		      struct gimplify_ctx *ctx_p)
+		      struct gimplify_ctx *ctx_p,
+		      struct gimplify_omp_ctx *omp_ctx_p)
 {
   enum gimplify_status ret;
   struct gimplify_ctx *prev_ctxp;
+  struct gimplify_omp_ctx *prev_omp_ctxp;
   
   prev_ctxp = gimplify_ctxp;
   gimplify_ctxp = ctx_p;
+  prev_omp_ctxp = gimplify_omp_ctxp;
+  gimplify_omp_ctxp = omp_ctx_p;
   ret = gimplify_expr (expr_p, pre_p, post_p, gimple_test_f, fallback);
   gimplify_ctxp = prev_ctxp;
+  gimplify_omp_ctxp = prev_omp_ctxp;
 
   return ret;
 }
@@ -4525,9 +4530,22 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel)
 	    omp_notice_variable (outer_ctx, decl, true);
 	  break;
 
+	case OMP_CLAUSE_SCHEDULE:
+	  if (gimplify_ctxp->combined_pre_p)
+	    {
+	      gcc_assert (gimplify_omp_ctxp == outer_ctx);
+	      gs = gimplify_expr_in_ctx (&OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c),
+					 gimplify_ctxp->combined_pre_p, NULL,
+					 is_gimple_val, fb_rvalue,
+					 gimplify_ctxp->combined_ctxp,
+					 outer_ctx->outer_context);
+	      if (gs == GS_ERROR)
+		remove = true;
+	      break;
+	    }
+	  /* FALLTHRU */
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
-	case OMP_CLAUSE_SCHEDULE:
 	  gs = gimplify_expr (&TREE_OPERAND (c, 0), pre_p, NULL,
 			      is_gimple_val, fb_rvalue);
 	  if (gs == GS_ERROR)
@@ -4714,8 +4732,12 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
   tree for_stmt, decl, t;
   enum gimplify_status ret = 0;
+  struct gimplify_omp_ctx *outer_combined_omp_ctxp = NULL;
 
   for_stmt = *expr_p;
+
+  if (gimplify_ctxp->combined_pre_p)
+    outer_combined_omp_ctxp = gimplify_omp_ctxp->outer_context;
 
   gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, false);
 
@@ -4738,7 +4760,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
     ret |= gimplify_expr_in_ctx (&TREE_OPERAND (t, 1),
 				 gimplify_ctxp->combined_pre_p, NULL,
 				 is_gimple_val, fb_rvalue,
-				 gimplify_ctxp->combined_ctxp);
+				 gimplify_ctxp->combined_ctxp,
+				 outer_combined_omp_ctxp);
   else
     ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
 			  NULL, is_gimple_val, fb_rvalue);
@@ -4753,7 +4776,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
     ret |= gimplify_expr_in_ctx (&TREE_OPERAND (t, 1),
 				 gimplify_ctxp->combined_pre_p, NULL,
 				 is_gimple_val, fb_rvalue,
-				 gimplify_ctxp->combined_ctxp);
+				 gimplify_ctxp->combined_ctxp,
+				 outer_combined_omp_ctxp);
   else
     ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
 			  NULL, is_gimple_val, fb_rvalue);
@@ -4800,10 +4824,11 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	ret |= gimplify_expr_in_ctx (&TREE_OPERAND (t, 1),
 				     gimplify_ctxp->combined_pre_p, NULL,
 				     is_gimple_val, fb_rvalue,
-				     gimplify_ctxp->combined_ctxp);
+				     gimplify_ctxp->combined_ctxp,
+				     outer_combined_omp_ctxp);
       else
 	ret |= gimplify_expr (&TREE_OPERAND (t, 1),
-	                      &OMP_FOR_PRE_BODY (for_stmt), NULL,
+			      &OMP_FOR_PRE_BODY (for_stmt), NULL,
 			      is_gimple_val, fb_rvalue);
       break;
 

@@ -1,5 +1,8 @@
 2005-11-15  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.dg/gomp/for-18.c: New test.
+	* gcc.dg/gomp/for-19.c: New test.
+
 	* gcc.dg/gomp/for-17.c: New test.
 	* g++.dg/gomp/for-18.C: New test.
 

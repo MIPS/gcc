@@ -1,5 +1,12 @@
 2005-11-15  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (gimplify_expr_in_ctx): Add OMP_CTX_P argument.
+	Temporarily switch to OMP_CTX_P omp context.
+	(gimplify_scan_omp_clauses) <case OMP_CLAUSE_SCHEDULE>: In combined
+	parallel loop, gimplify schedule chunk expression in outer context.
+	(gimplify_omp_for): For combined parallel loop, gimplify INIT, COND
+	and INCR expressions in parent omp context.
+
 	* c-omp.c (check_omp_for_incr_expr): New function.
 	(c_finish_omp_for): Use it to check and canonicalize INCR.
 	Error if lhs of INCR MODIFY_EXPR isn't DECL or if RHS is DECL.
