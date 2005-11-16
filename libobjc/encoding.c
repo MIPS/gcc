@@ -28,10 +28,32 @@ Boston, MA 02110-1301, USA.  */
    the executable file might be covered by the GNU General Public License.  */
 
 
+#include "config.h"
+
+#ifdef HAVE_ABI_H
 #include "abi.h"
+#endif
+
 #include "objc/objc-api.h"
 #include "objc/encoding.h"
 #include <stdlib.h>
+#include <limits.h>
+
+#undef  MAX
+#define MAX(X, Y)                    \
+          ({ typeof (X) __x = (X), __y = (Y); \
+                (__x > __y ? __x : __y); })
+
+#undef  MIN
+#define MIN(X, Y)                    \
+          ({ typeof (X) __x = (X), __y = (Y); \
+                (__x < __y ? __x : __y); })
+
+#undef  ROUND
+#define ROUND(V, A) \
+          ({ typeof (V) __v = (V); typeof (A) __a = (A); \
+                __a * ((__v+__a - 1)/__a); })
+
 
 /*
   return the size of an object specified by type
@@ -138,8 +160,8 @@ objc_sizeof_type (const char *type)
 	;
       size = atoi (type + 1);
 
-      startByte = position / BITS_PER_UNIT;
-      endByte = (position + size) / BITS_PER_UNIT;
+      startByte = position / CHAR_BIT;
+      endByte = (position + size) / CHAR_BIT;
       return endByte - startByte;
     }
 
@@ -700,9 +722,7 @@ objc_layout_structure (const char *type,
   layout->type = type;
   layout->prev_type = NULL;
   layout->record_size = 0;
-  layout->record_align = BITS_PER_UNIT;
-
-  layout->record_align = MAX (layout->record_align, STRUCTURE_SIZE_BOUNDARY);
+  layout->record_align = CHAR_BIT * sizeof (struct{char a;});
 }
 
 
@@ -724,7 +744,7 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
       type = objc_skip_type_qualifiers (layout->prev_type);
 
       if (*type != _C_BFLD)
-        layout->record_size += objc_sizeof_type (type) * BITS_PER_UNIT;
+        layout->record_size += objc_sizeof_type (type) * CHAR_BIT;
       else {
         /* Get the bitfield's type */
         for (bfld_type = type + 1;
@@ -732,8 +752,8 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
              bfld_type++)
           /* do nothing */;
 
-        bfld_type_size = objc_sizeof_type (bfld_type) * BITS_PER_UNIT;
-        bfld_type_align = objc_alignof_type (bfld_type) * BITS_PER_UNIT;
+        bfld_type_size = objc_sizeof_type (bfld_type) * CHAR_BIT;
+        bfld_type_align = objc_alignof_type (bfld_type) * CHAR_BIT;
         bfld_field_size = atoi (objc_skip_typespec (bfld_type));
         layout->record_size += bfld_field_size;
       }
@@ -752,7 +772,7 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
   type = objc_skip_type_qualifiers (layout->type);
 
   if (*type != _C_BFLD)
-    desired_align = objc_alignof_type (type) * BITS_PER_UNIT;
+    desired_align = objc_alignof_type (type) * CHAR_BIT;
   else
     {
       desired_align = 1;
@@ -762,8 +782,8 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
            bfld_type++)
         /* do nothing */;
 
-      bfld_type_size = objc_sizeof_type (bfld_type) * BITS_PER_UNIT;
-      bfld_type_align = objc_alignof_type (bfld_type) * BITS_PER_UNIT;
+      bfld_type_size = objc_sizeof_type (bfld_type) * CHAR_BIT;
+      bfld_type_align = objc_alignof_type (bfld_type) * CHAR_BIT;
       bfld_field_size = atoi (objc_skip_typespec (bfld_type));
     }
 
@@ -789,25 +809,16 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
       if (bfld_field_size)
         layout->record_align = MAX (layout->record_align, desired_align);
       else
-        desired_align = objc_alignof_type (bfld_type) * BITS_PER_UNIT;
+        desired_align = objc_alignof_type (bfld_type) * CHAR_BIT;
 
-      /* A named bit field of declared type `int'
-         forces the entire structure to have `int' alignment.
-         Q1: How is encoded this thing and how to check for it?
-         Q2: How to determine maximum_field_alignment at runtime? */
+      /* A named bit field of declared type `int' forces the entire structure
+	 to have `int' alignment.  An unnamed bit field only forces the next
+	 field to have its alignment, but it is not incorrect to do the same
+	 as for named bitfields (we only pick a bigger alignment than
+	 requested).
 
-/*	  if (DECL_NAME (field) != 0) */
-      {
-        int type_align = bfld_type_align;
-#if 0
-        if (maximum_field_alignment != 0)
-          type_align = MIN (type_align, maximum_field_alignment);
-        else if (DECL_PACKED (field))
-          type_align = MIN (type_align, BITS_PER_UNIT);
-#endif
-
-        layout->record_align = MAX (layout->record_align, type_align);
-      }
+	 FIXME: This is not  true for __attribute__ ((packed)). */
+      layout->record_align = MAX (layout->record_align, bfld_type_align);
     }
   else
     layout->record_align = MAX (layout->record_align, desired_align);
@@ -865,9 +876,9 @@ void objc_layout_finish_structure (struct objc_struct_layout *layout,
       layout->type = NULL;
     }
   if (size)
-    *size = layout->record_size / BITS_PER_UNIT;
+    *size = layout->record_size / CHAR_BIT;
   if (align)
-    *align = layout->record_align / BITS_PER_UNIT;
+    *align = layout->record_align / CHAR_BIT;
 }
 
 
@@ -877,9 +888,9 @@ void objc_layout_structure_get_info (struct objc_struct_layout *layout,
                                      const char **type)
 {
   if (offset)
-    *offset = layout->record_size / BITS_PER_UNIT;
+    *offset = layout->record_size / CHAR_BIT;
   if (align)
-    *align = layout->record_align / BITS_PER_UNIT;
+    *align = layout->record_align / CHAR_BIT;
   if (type)
     *type = layout->prev_type;
 }

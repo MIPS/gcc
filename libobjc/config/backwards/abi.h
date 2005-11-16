@@ -34,24 +34,8 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 
-#undef  MAX
-#define MAX(X, Y)                    \
-	  ({ typeof (X) __x = (X), __y = (Y); \
-	        (__x > __y ? __x : __y); })
-
-#undef  MIN
-#define MIN(X, Y)                    \
-	  ({ typeof (X) __x = (X), __y = (Y); \
-	        (__x < __y ? __x : __y); })
-
-#undef  ROUND
-#define ROUND(V, A) \
-	  ({ typeof (V) __v = (V); typeof (A) __a = (A); \
-	        __a * ((__v+__a - 1)/__a); })
-
-
 /* Various hacks for objc_layout_record. These are used by the target
- *    macros. */
+   macros. */
 
 #define TREE_CODE(TYPE) *(TYPE)
 #define TREE_TYPE(TREE) (TREE)
@@ -74,19 +58,18 @@ Boston, MA 02110-1301, USA.  */
 
 #define get_inner_array_type(TYPE)      ((TYPE) + 1)
 
-/* Some ports (eg ARM) allow the structure size boundary to be
- *    selected at compile-time.  We override the normal definition with
- *       one that has a constant value for this compilation.  */
-#ifndef BITS_PER_UNIT
-#define BITS_PER_UNIT 8
-#endif
-#undef  STRUCTURE_SIZE_BOUNDARY
-#define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (struct{char a;}))
+/* Some ports (eg ARM) allow the structure size boundary to be selected
+   at compile-time.  We usually use CHAR_BIT, but we have to override
+   the normal definition with one that has a constant value for this
+   compilation, in case another target macro we use needs BITS_PER_UNIT.
+   */
+#undef BITS_PER_UNIT
+#define BITS_PER_UNIT __CHAR_BIT__
 
 /* Some ROUND_TYPE_ALIGN macros use TARGET_foo, and consequently
- *    target_flags.  Define a dummy entry here to so we don't die.
- *       We have to rename it because target_flags may already have been
- *          declared extern.  */
+   target_flags.  Define a dummy entry here to so we don't die.
+   We have to rename it because target_flags may already have been
+   declared extern.  */
 #define target_flags not_target_flags
 static int __attribute__ ((__unused__)) not_target_flags = 0;
 
@@ -96,26 +79,14 @@ static int __attribute__ ((__unused__)) not_target_flags = 0;
 #define ALTIVEC_VECTOR_MODE(MODE) (0)
 
 
-/*  FIXME: while this file has no business including tm.h, this
- *      definitely has no business defining this macro but it
- *          is only way around without really rewritting this file,
- *              should look after the branch of 3.4 to fix this.  */
+/* FIXME: while this file has no business including tm.h, this
+   definitely has no business defining this macro but it is only
+   temporary until we convert the rs6000 port to use its own abi.h
+   file instead of the generic one.  */
 #define rs6000_special_round_type_align(STRUCT, COMPUTED, SPECIFIED)    \
 	  ((TYPE_FIELDS (STRUCT) != 0                                           \
 	        && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)                      \
 	      ? MAX (MAX (COMPUTED, SPECIFIED), 64)                                \
 	      : MAX (COMPUTED, SPECIFIED))
 
-
-/* This is how we hack STRUCT_VALUE to be 1 or 0.   */
-#define gen_rtx(args...) 1
-#define gen_rtx_MEM(args...) 1
-#define gen_rtx_REG(args...) 1
-#define rtx int
-
-#if ! defined (STRUCT_VALUE) || STRUCT_VALUE == 0
-#define INVISIBLE_STRUCT_RETURN 1
-#else
-#define INVISIBLE_STRUCT_RETURN 0
-#endif
 

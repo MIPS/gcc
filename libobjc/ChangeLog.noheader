@@ -1,0 +1,41 @@
+2005-11-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* sendmsg.c: Don't include GCC headers.
+	(__objc_block_forward): Assume INVISIBLE_STRUCT_RETURN.
+	(__objc_get_forward_imp): Assume OBJC_MAX_STRUCT_BY_VALUE undefined.
+	* configure.ac: If not necessary, don't use config/backwards/abi.h
+	and don't define HAVE_ABI_H.
+	* encoding.c: Include limits.h, define MAX/MIN/ROUND here.  Use
+	CHAR_BIT instead of BITS_PER_UNIT.
+	[!HAVE_ABI_H]: Do not include abi.h
+	(objc_layout_structure): Inline default definition of
+	STRUCTURE_SIZE_BOUNDARY.
+	(objc_layout_structure_next_member): Remove commented code.
+	* config/backwards/abi.h: Fix comment formatting.
+	(gen_rtx_MEM, gen_rtx_REG, rtx, INVISIBLE_STRUCT_RETURN,
+	STRUCTURE_SIZE_BOUNDARY, MAX, MIN, ROUND): Remove.
+	(BITS_PER_UNIT): Redefine as __CHAR_BIT__.
+
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2005-11-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* configure.ac (target_config_directory): New variable and 
+	substitute it.
+	* configure: Regenerate.
+	* Makefile.in (target_config_directory): Define.
+	(ALL_CFLAGS): Use target_config_directory.
+	* config/backwards/abi.h: New file.
+	* encoding: Don't include tm.h, tconfig.h, and coretypes.h
+	Include abi.h.
+	(MAX, MIN, ROUND, TREE_CODE, TREE_TYPE, RECORD_TYPE, UNION_TYPE,
+	QUAL_UNION_TYPE, ARRAY_TYPE, REAL_TYPE, VECTOR_TYPE, TYPE_FIELDS,
+	DECL_MODE, TYPE_MODE, DFmode, get_inner_array_type, BITS_PER_UNIT,
+	STRUCTURE_SIZE_BOUNDARY, ALTIVEC_VECTOR_MODE,
+	rs6000_special_round_type_align, target_flags): Don't define
+	(not_target_flags): Don't declare.
+	* sendmsg.c: Don't include tm.h.
+	Include abi.h.
+	(gen_rtx, gen_rtx_MEM, gen_rtx_REG, rtx): Don't define.
+	(INVISIBLE_STRUCT_RETURN): Don't define.

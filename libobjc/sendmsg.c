@@ -26,11 +26,10 @@ Boston, MA 02110-1301, USA.  */
    covered by the GNU General Public License.  */
 
 /* FIXME: This should be using libffi instead of __builtin_apply
-   and friends.  */
+   and friends.  This is important because we currently assume
+   that all structs are returned either by value, or by reference,
+   independent of the size.  */
 
-#include "tconfig.h"
-#include "coretypes.h"
-#include "abi.h"
 #include "objc/runtime.h"
 #include "objc/sarray.h"
 #include "objc/encoding.h"
@@ -61,12 +60,7 @@ static void __objc_init_install_dtable (id, SEL);
 static double __objc_double_forward (id, SEL, ...);
 static id __objc_word_forward (id, SEL, ...);
 typedef struct { id many[8]; } __big;
-#if INVISIBLE_STRUCT_RETURN 
-static __big 
-#else
-static id
-#endif
-__objc_block_forward (id, SEL, ...);
+static __big __objc_block_forward (id, SEL, ...);
 static Method_t search_for_method_in_hierarchy (Class class, SEL sel);
 Method_t search_for_method_in_list (MethodList_t list, SEL op);
 id nil_method (id, SEL);
@@ -90,11 +84,7 @@ __objc_get_forward_imp (SEL sel)
     {
       const char *t = sel->sel_types;
 
-      if (t && (*t == '[' || *t == '(' || *t == '{')
-#ifdef OBJC_MAX_STRUCT_BY_VALUE
-          && objc_sizeof_type (t) > OBJC_MAX_STRUCT_BY_VALUE
-#endif
-          )
+      if (t && (*t == '[' || *t == '(' || *t == '{'))
         return (IMP)__objc_block_forward;
       else if (t && (*t == 'f' || *t == 'd'))
         return (IMP)__objc_double_forward;
@@ -570,12 +560,7 @@ __objc_double_forward (id rcv, SEL op, ...)
   __builtin_return (res);
 }
 
-#if INVISIBLE_STRUCT_RETURN
-static __big
-#else
-static id
-#endif
-__objc_block_forward (id rcv, SEL op, ...)
+static __big __objc_block_forward (id rcv, SEL op, ...)
 {
   void *args, *res;
 
@@ -584,11 +569,7 @@ __objc_block_forward (id rcv, SEL op, ...)
   if (res)
     __builtin_return (res);
   else
-#if INVISIBLE_STRUCT_RETURN
     return (__big) {{0, 0, 0, 0, 0, 0, 0, 0}};
-#else
-    return nil;
-#endif
 }
 
 

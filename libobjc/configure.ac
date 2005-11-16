@@ -84,15 +84,26 @@ AC_SUBST(OBJC_BOEHM_GC)
 # target header
 # ----------
 
-target_config_directory="config/backwards"
+case "${host}" in
+   avr*-*-* | \
+   c4x*-*-* | tic4x-*-* | \
+   m32r*-*-* | \
+   mn10300-*-* | am33_2.0-*-* | \
+   pdp11-*-* | \
+   s390-*-* | s390x-*-*)
+     ;;
 
-#case "${host}" in
 #  x86_64-*-linux-*) 
 #    target_config_directory="config/x86_64"
 #    ;;
-#esac
+   *)
+     target_config_directory="config/backwards"
+esac
 
-
+if test x"$target_config_directory" != x; then
+  AC_DEFINE(HAVE_ABI_H, 1,
+	    [Define if we need non-default ABI definitions for this target.])
+fi
 
 AC_SUBST(target_config_directory)
 

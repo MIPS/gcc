@@ -1480,15 +1480,29 @@ fi;
 # target header
 # ----------
 
-target_config_directory="config/backwards"
+case "${host}" in
+   avr*-*-* | \
+   c4x*-*-* | tic4x-*-* | \
+   m32r*-*-* | \
+   mn10300-*-* | am33_2.0-*-* | \
+   pdp11-*-* | \
+   s390-*-* | s390x-*-*)
+     ;;
 
-#case "${host}" in
 #  x86_64-*-linux-*)
 #    target_config_directory="config/x86_64"
 #    ;;
-#esac
+   *)
+     target_config_directory="config/backwards"
+esac
 
+if test x"$target_config_directory" != x; then
 
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_ABI_H 1
+_ACEOF
+
+fi
 
 
 
@@ -3777,7 +3791,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 3780 "configure"' > conftest.$ac_ext
+  echo '#line 3794 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5199,7 +5213,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 5202 "configure"
+#line 5216 "configure"
 @interface Frob
 @end
 @implementation Frob
