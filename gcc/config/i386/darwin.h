@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_EXTRA_SPECS					\
   /* APPLE LOCAL begin mainline 2005-04-11 */			\
   { "darwin_arch", "i386" },					\
-  /* APPLE LOCAL 4271575 */					\
+  /* APPLE LOCAL mainline 2005-11-15 4271575 */			\
   { "darwin_crt2", "" },					\
   { "darwin_subarch", "i386" },
   /* APPLE LOCAL end mainline 2005-04-11 */

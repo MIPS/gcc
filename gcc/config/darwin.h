@@ -457,7 +457,7 @@ do {					\
 /* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */
-/* APPLE LOCAL begin 4276161 */
+/* APPLE LOCAL begin mainline 2005-11-15 4276161 */
 /* Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
    libraries to link against, and by not linking against libgcc_s on
    earlier-than-10.3.9.
@@ -467,11 +467,14 @@ do {					\
    be in a new format, or the fallback routine might be changed; if
    you want to explicitly link against the static version of those
    routines, because you know you don't need to unwind through system
-   libraries, you need to explicitly say -static-libgcc.  */
+   libraries, you need to explicitly say -static-libgcc.
+   
+   If it is linked against, it has to be before -lgcc, because it may
+   need symbols from -lgcc.  */
 #undef REAL_LIBGCC_SPEC
 #define REAL_LIBGCC_SPEC						   \
 /* APPLE LOCAL libgcc_static.a  */					   \
-   "%{static:-lgcc_static; static-libgcc: -lgcc -lgcc_eh;		   \
+   "%{static:-lgcc_static; static-libgcc: -lgcc_eh -lgcc;		   \
       shared-libgcc|fexceptions:					   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
@@ -480,9 +483,9 @@ do {					\
        %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
        -lgcc}"
 
-/* APPLE LOCAL end 4276161 */
+/* APPLE LOCAL end mainline 2005-11-15 4276161 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
-/* APPLE LOCAL begin 4271575 */
+/* APPLE LOCAL begin mainline 2005-11-15 4271575 */
 
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC  \
@@ -495,7 +498,7 @@ do {					\
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
                                   %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}"
-/* APPLE LOCAL end 4271575 */
+/* APPLE LOCAL end mainline 2005-11-15 4271575 */
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
