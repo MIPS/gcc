@@ -1,3 +1,7 @@
+2005-11-11  Mike Stump  <mrs@apple.com>
+
+	* g++.old-deja/g++.mike/unused.C: Add.
+
 2005-10-20  Geoffrey Keating  <geoffk@apple.com>
 
 	* obj-c++.dg/except-1.mm: New.

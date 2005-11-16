@@ -485,6 +485,8 @@ extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
+/* APPLE LOCAL mainline lookup_name 4125055 */
+extern tree lookup_name_two (tree, int);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);

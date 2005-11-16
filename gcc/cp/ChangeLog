@@ -1,3 +1,8 @@
+2005-11-15  Mike Stump  <mrs@apple.com>
+
+	* name-lookup.c (lookup_name_two): Add.
+	* name-lookup.h: Likewise.
+
 2005-07-28  Mike Stump  <mrs@apple.com>
 
 	* pt.c (check_explicit_specialization): Add visibility logic.

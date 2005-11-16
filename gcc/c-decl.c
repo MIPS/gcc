@@ -2707,6 +2707,17 @@ lookup_name (tree name)
   return 0;
 }
 
+/* APPLE LOCAL begin mainline lookup_name 4125055 */
+/* Similar to `lookup_name' for the benefit of common code and the C++
+   front end.  */
+
+tree
+lookup_name_two (tree name, int ARG_UNUSED (prefer_type))
+{
+  return lookup_name (name);
+}
+/* APPLE LOCAL end mainline lookup_name 4125055 */
+
 /* Similar to `lookup_name' but look only at the indicated scope.  */
 
 static tree
