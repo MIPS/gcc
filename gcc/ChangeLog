@@ -1,3 +1,112 @@
+2005-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/alpha/alpha.c (alpha_init_builtins): Use type_for_mode
+	langhook to get a DImode integer type.
+
+2005-11-16  Richard Henderson  <rth@redhat.com>
+	    J"orn Rennecke <joern.rennecke@st.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-opt/24160
+	PR target/24621
+	* reload1.c (reg_equiv_invariant): New.
+	(reload): Allocate, initialize, and free it.
+	(calculate_needs_all_insns): Check it when skipping equivalence
+	setting insns.
+	(alter_reg): Likewise.
+	(eliminate_regs_1): Rename from eliminate_regs.  Add new
+	may_use_invariant argument; only use reg_equiv_invariant when true.
+	(eliminate_regs): New.
+	(eliminate_regs_in_insn): Use eliminate_regs_1; track when we're in
+	a context for which may_use_invariant may be true.
+
+2005-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (const_binop): Don't constant fold the operation
+	if the result has overflowed and flag_trapping_math.
+	* simplify-rtx.c (simplify_const_binary_operation): Likewise.
+
+2005-11-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/unwind-arm.c (abort): Add prototype here.
+	(UCB_FORCED_STOP_ARG): Correct typo in macro argument.
+	(struct phase1_vrs): Add prev_sp.
+	(unwind_phase2_forced): Save the original core registers instead of
+	modifying entry_vrs.  Take a new flag argument for resuming unwinding
+	and set action flags accordingly.  Always set _US_END_OF_STACK when
+	get_eit_entry fails.  Unwind before calling the stop function.
+	(_Unwind_GetCFA): New function.
+	(__gnu_Unwind_ForcedUnwind): Update call to unwind_phase2_forced.
+	(__gnu_Unwind_Resume_or_Rethrow): Likewise.
+	(__gnu_Unwind_Resume): Do not unwind here for forced unwinding;
+	just call unwind_phase2_forced.
+	(_Unwind_GetDataRelBase, _Unwind_GetTextRelBase): Move to here.
+	* config/arm/unwind-arm.h (abort): Remove prototype.
+	(_Unwind_GetDataRelBase, _Unwind_GetTextRelBase): Change to
+	prototypes.
+	(_Unwind_GetCFA): New prototype.
+	* config/arm/pr-support.c (abort): Add prototype here.
+	* unwind-c.c (PERSONALITY_FUNCTION) [__ARM_EABI_UNWINDER__]: Handle
+	forced unwinding.
+	* config/arm/arm.c (arm_expand_prologue, thumb_expand_prologue): Do
+	not schedule the prologue with non-call exceptions and EABI.
+
+2005-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/arm/unwind-arm.h: Reorder interface function declarations.
+	(_URC_END_OF_STACK): New enumeration value.
+	(_US_UNWIND_ACTION_MASK, _US_FORCE_UNWIND, _US_END_OF_STACK): Likewise.
+	(struct _Unwind_Control_Block): Document reserved field use.
+	(_Unwind_Stop_Fn): New typedef.
+	(_Unwind_ForcedUnwind): Declare.
+	(_Unwind_Resume_or_Rethrow): Declare.
+	* gcc/config/arm/libunwind.S (UNWIND_WRAPER): Add nargs
+	argument.  Adjust.
+	(_Unwind_Resume_or_Rethrow, _Unwind_ForcedUnwind): New.
+	* config/arm/unwind-arm.c (UCB_FORCED_STOP_FN)
+	(UCB_FORCED_STOP_ARG): New.
+	(search_EIT_table): Update boundary condition checks.
+	(get_eit_entry): Return _URC_END_OF_STACK when cannot unwind.
+	(unwind_phase2): Replace for with do..while.
+	(unwind_phase2_forced): New.
+	(__gnu_Unwind_RaiseException): Replace for with do..while.
+	(__gnu_Unwind_ForcedUnwind): New.
+	(__gnu_Unwind_Resume): Set FORCE_UNWIND flag, if forced unwinding.
+	Use appropriate phase2 unwinder.
+	(__gnu_Unwind_Resume_or_Rethrow): New.
+	(__gnu_unwind_pr_common): Cope with forced unwinding.
+
+2005-11-16  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/24772
+	* config/rs6000/predicates.md (vrsave_operation): SET_SRC is a VEC.
+
+	* config/rs6000/rs6000.md (btruncsf2, ceilsf2, floorsf2,
+	roundsf2): Remove "s" from mnemonic.
+
+2005-11-16  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/crti.s (__init, __fini): Use appropriate prologue if
+	__PIC__ is defined.
+	* config/bfin/crtn.s: Change epilogues to match.
+	* config/bfin/t-bfin-elf (EXTRA_MULTILIB_PARTS): Define.
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): If flag_pic, define
+	__PIC__ and __pic__.
+
+2005-11-16  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR 24357
+	* doc/invoke.texi: Distinguish between free and fixed form instead of
+	Fortran and Fortran 90/95.  Remove ratfor from the list of supported
+	languages.
+	* gcc.c (default_compilers): Remove double entries, add entries for
+	suffixes '.F90' and '.F95'.
+
+2005-11-16  Eric Botcazou <ebotcazou@adacore.com>
+
+	* config/alpha/alpha.c (alpha_expand_prologue): Fix off-by-one bug
+	in the stack probing loop.
+
 2005-11-15  David Edelsohn  <edelsohn@gnu.org>
 
 	* configure.ac: Use .machine power5 not power5x.
