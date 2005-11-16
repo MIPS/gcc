@@ -1,5 +1,29 @@
 2005-11-15  David Edelsohn  <edelsohn@gnu.org>
 
+	* configure.ac: Use .machine power5 not power5x.
+	* configure: Regenerate.
+
+2005-11-15  Mike Stump  <mrs@apple.com>
+
+	* c-decl.c (lookup_name_two): Add.
+	* c-tree.h (lookup_name_two): Likewise.
+	* c-common.c (handle_cleanup_attribute): Use lookup_name_two instead.
+	* config/darwin-c.c (darwin_pragma_unused): Likewise.
+
+2005-11-16  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/23392
+	* regrename.c (enum scan_actions) Add mark_access.
+	(scan_actions_name): Ditto.
+	(scan_rtx_reg): Handle mark_access.
+	(scan_rtx_address): Do nothing for mark_access.
+	(build_def_use): Mark source registers in REG_FRAME_RELATED_EXPR
+	and regs in REG_INC notes before closing chains for dead regs.
+	Mark destination regs in REG_FRAME_RELATED_EXPR notes after
+	opening chains for new writes.
+
+2005-11-15  David Edelsohn  <edelsohn@gnu.org>
+
 	* c.opt (ffixed-line-length-none): New.
 
 2005-11-15  Steve Ellcey  <sje@cup.hp.com>
