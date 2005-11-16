@@ -27,86 +27,11 @@ Boston, MA 02110-1301, USA.  */
    This exception does not however invalidate any other reasons why
    the executable file might be covered by the GNU General Public License.  */
 
-/* FIXME: This file has no business including tm.h.  */
 
-#include "tconfig.h"
-#include "coretypes.h"
-#include "tm.h"
+#include "abi.h"
 #include "objc/objc-api.h"
 #include "objc/encoding.h"
 #include <stdlib.h>
-
-#undef  MAX
-#define MAX(X, Y)                    \
-  ({ typeof (X) __x = (X), __y = (Y); \
-     (__x > __y ? __x : __y); })
-
-#undef  MIN
-#define MIN(X, Y)                    \
-  ({ typeof (X) __x = (X), __y = (Y); \
-     (__x < __y ? __x : __y); })
-
-#undef  ROUND
-#define ROUND(V, A) \
-  ({ typeof (V) __v = (V); typeof (A) __a = (A); \
-     __a * ((__v+__a - 1)/__a); })
-
-
-/* Various hacks for objc_layout_record. These are used by the target
-   macros. */
-
-#define TREE_CODE(TYPE) *(TYPE)
-#define TREE_TYPE(TREE) (TREE)
-
-#define RECORD_TYPE     _C_STRUCT_B
-#define UNION_TYPE      _C_UNION_B
-#define QUAL_UNION_TYPE _C_UNION_B
-#define ARRAY_TYPE      _C_ARY_B
-
-#define REAL_TYPE       _C_DBL
-
-#define VECTOR_TYPE	_C_VECTOR
-
-#define TYPE_FIELDS(TYPE)     objc_skip_typespec (TYPE)
-
-#define DECL_MODE(TYPE) *(TYPE)
-#define TYPE_MODE(TYPE) *(TYPE)
-
-#define DFmode          _C_DBL
-
-#define get_inner_array_type(TYPE)      ((TYPE) + 1)
-
-/* Some ports (eg ARM) allow the structure size boundary to be
-   selected at compile-time.  We override the normal definition with
-   one that has a constant value for this compilation.  */
-#ifndef BITS_PER_UNIT
-#define BITS_PER_UNIT 8
-#endif
-#undef  STRUCTURE_SIZE_BOUNDARY
-#define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (struct{char a;}))
-
-/* Some ROUND_TYPE_ALIGN macros use TARGET_foo, and consequently
-   target_flags.  Define a dummy entry here to so we don't die.
-   We have to rename it because target_flags may already have been
-   declared extern.  */
-#define target_flags not_target_flags
-static int __attribute__ ((__unused__)) not_target_flags = 0;
-
-/* Some ROUND_TYPE_ALIGN use ALTIVEC_VECTOR_MODE (rs6000 darwin).
-   Define a dummy ALTIVEC_VECTOR_MODE so it will not die.  */
-#undef ALTIVEC_VECTOR_MODE
-#define ALTIVEC_VECTOR_MODE(MODE) (0)
-
-
-/*  FIXME: while this file has no business including tm.h, this
-    definitely has no business defining this macro but it
-    is only way around without really rewritting this file,
-    should look after the branch of 3.4 to fix this.  */
-#define rs6000_special_round_type_align(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TYPE_FIELDS (STRUCT) != 0						\
-    && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)			\
-   ? MAX (MAX (COMPUTED, SPECIFIED), 64)				\
-   : MAX (COMPUTED, SPECIFIED))
 
 /*
   return the size of an object specified by type

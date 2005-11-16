@@ -25,29 +25,16 @@ Boston, MA 02110-1301, USA.  */
    however invalidate any other reasons why the executable file might be
    covered by the GNU General Public License.  */
 
-/* FIXME: This file has no business including tm.h.  */
 /* FIXME: This should be using libffi instead of __builtin_apply
    and friends.  */
 
 #include "tconfig.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "abi.h"
 #include "objc/runtime.h"
 #include "objc/sarray.h"
 #include "objc/encoding.h"
 #include "runtime-info.h"
-
-/* This is how we hack STRUCT_VALUE to be 1 or 0.   */
-#define gen_rtx(args...) 1
-#define gen_rtx_MEM(args...) 1
-#define gen_rtx_REG(args...) 1
-#define rtx int
-
-#if ! defined (STRUCT_VALUE) || STRUCT_VALUE == 0
-#define INVISIBLE_STRUCT_RETURN 1
-#else
-#define INVISIBLE_STRUCT_RETURN 0
-#endif
 
 /* The uninstalled dispatch table */
 struct sarray *__objc_uninstalled_dtable = 0;   /* !T:MUTEX */

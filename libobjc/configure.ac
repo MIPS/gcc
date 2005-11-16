@@ -79,6 +79,24 @@ esac],
 [OBJC_BOEHM_GC=''])
 AC_SUBST(OBJC_BOEHM_GC)
 
+
+# ----------
+# target header
+# ----------
+
+target_config_directory="config/backwards"
+
+#case "${host}" in
+#  x86_64-*-linux-*) 
+#    target_config_directory="config/x86_64"
+#    ;;
+#esac
+
+
+
+AC_SUBST(target_config_directory)
+
+
 # -----------
 # Directories
 # -----------
