@@ -1,5 +1,12 @@
 2005-11-15  Dale Johannesen  <dalej@apple.com>
 
+	* expmed.c (store_bit_field):  Add offset unconditionally for
+	memory targets.
+	(extract_bit_field):  Don't force extzv or extv operand into
+	a register if field is too big.
+
+2005-11-15  Dale Johannesen  <dalej@apple.com>
+
 	* cfghooks.c (split_block):  Copy loop_father.
 	* cfgloopmanip.c (create_loops_notes):  Create preheaders.
 
