@@ -138,8 +138,7 @@ b internal_error
 
 # Make gdb complain about symbol reading errors.  This is so that gcc
 # developers can see and fix bugs in gcc debug output.
-# LOCAL-bje: don't merge this change.
-# set complaints 20
+set complaints 20
 
 # Don't let abort actually run, as it will make
 # stdio stop working and therefore the `pr' command above as well.

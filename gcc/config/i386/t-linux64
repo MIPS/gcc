@@ -5,7 +5,7 @@ SHLIB_MAPFILES = $(srcdir)/libgcc-std.ver \
 		 $(srcdir)/config/i386/libgcc-x86_64-glibc.ver
 
 MULTILIB_OPTIONS = m64/m32
-MULTILIB_DIRNAMES = 64 32
+MULTILIB_DIRNAMES = 64 32 
 MULTILIB_OSDIRNAMES = ../lib64 ../lib
 
 LIBGCC = stmp-multilib

@@ -988,6 +988,7 @@ OBJS-common = \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
  tree-ssa-structalias.o tree-object-size.o
 
+
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
   cgraph.o cgraphunit.o tree-nomudflap.o ipa.o ipa-inline.o                \
@@ -1105,6 +1106,7 @@ endif
 ifneq ($(xmake_file),)
 include $(xmake_file)
 endif
+
 #
 
 # -----------------------------

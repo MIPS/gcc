@@ -2,7 +2,7 @@
 # Copyright © 2000, 2005 Free Software Foundation, Inc.
 # Dennis Björklund <db@zigo.dhs.org>, 2000, 2001, 2002.
 # Göran Uddeborg <goeran@uddeborg.se>, 2005.
-# $Revision: 1.6 $
+# $Revision: 1.2 $
 #
 msgid ""
 msgstr ""
