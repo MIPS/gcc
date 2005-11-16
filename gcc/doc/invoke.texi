@@ -9301,8 +9301,8 @@ functional units well resulting in instable performance.
 
 @item -masm=@var{dialect}
 @opindex masm=@var{dialect}
-Output asm instructions using selected @var{dialect}.  Supported
 @c APPLE LOCAL begin mainline 4298982
+Output asm instructions using selected @var{dialect}.  Supported
 choices are @samp{intel} or @samp{att} (the default one).  Darwin does
 not support @samp{intel}.
 @c APPLE LOCAL end mainline 4298982
