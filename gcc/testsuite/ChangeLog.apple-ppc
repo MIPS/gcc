@@ -1,3 +1,9 @@
+2005-11-16  Devang Patel  <dpatel@apple.com>
+
+        Radar 4345760
+        * g++.dg/ss/ss.exp: Fix link test.
+        * gcc.dg/ss/ss.exp: Fix link test.
+
 2005-11-15  Dale Johannesen  <dalej@apple.com>
 
         * gcc.apple/pragma.c:  New.
