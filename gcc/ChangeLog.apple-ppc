@@ -1,3 +1,8 @@
+2005-11-15  Dale Johannesen  <dalej@apple.com>
+
+	* cfghooks.c (split_block):  Copy loop_father.
+	* cfgloopmanip.c (create_loops_notes):  Create preheaders.
+
 2005-11-10  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4321079

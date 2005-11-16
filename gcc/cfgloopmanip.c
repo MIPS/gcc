@@ -1386,6 +1386,11 @@ create_loop_notes (void)
   /* APPLE LOCAL end 4321079 */
 
   flow_loops_find (&loops, LOOP_TREE);
+  /* APPLE LOCAL begin 4203984 mainline candidate */
+  /* RTL optimizer rejects loops with multiple entry points, so make
+     sure all loops have preheaders. */
+  create_preheaders (&loops, 0);
+  /* APPLE LOCAL end 4203984 mainline candidate */
   free_dominance_info (CDI_DOMINATORS);
   if (loops.num > 1)
     {
