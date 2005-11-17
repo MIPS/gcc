@@ -85,14 +85,6 @@ AC_SUBST(OBJC_BOEHM_GC)
 # ----------
 
 case "${host}" in
-   avr*-*-* | \
-   c4x*-*-* | tic4x-*-* | \
-   m32r*-*-* | \
-   mn10300-*-* | am33_2.0-*-* | \
-   pdp11-*-* | \
-   s390-*-* | s390x-*-*)
-     ;;
-
 #  x86_64-*-linux-*) 
 #    target_config_directory="config/x86_64"
 #    ;;
