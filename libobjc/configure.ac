@@ -85,9 +85,10 @@ AC_SUBST(OBJC_BOEHM_GC)
 # ----------
 
 case "${host}" in
-#  x86_64-*-linux-*) 
-#    target_config_directory="config/x86_64"
-#    ;;
+  x86_64-*-linux-*) 
+  i?86-*-linux-*) 
+    target_config_directory="config/i386/linux"
+    ;;
    *)
      target_config_directory="config/backwards"
 esac
