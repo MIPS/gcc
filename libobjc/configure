@@ -1481,10 +1481,19 @@ fi;
 # ----------
 
 case "${host}" in
-  x86_64-*-linux*| i?86-*-linux*)
-    target_config_directory="config/i386/linux"
+  # These i?86 target defines alignment as the natural alignment
+  i?86-*-darwin* \
+   | i?86-*-pe | i?86-*-cygwin* | i?86-*-mingw32* \
+   | i?86-*-uwin* | i?86-*-interix3* )
+     target_config_directory="config/i386/align"
     ;;
-   *)
+
+  # All of the rest defines a different ABI
+  x86_64-*-* | i?86-*-* )
+    target_config_directory="config/i386/nonalign"
+    ;;
+
+  *)
      target_config_directory="config/backwards"
 esac
 
@@ -3783,7 +3792,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 3786 "configure"' > conftest.$ac_ext
+  echo '#line 3795 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5205,7 +5214,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 5208 "configure"
+#line 5217 "configure"
 @interface Frob
 @end
 @implementation Frob

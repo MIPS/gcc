@@ -85,10 +85,19 @@ AC_SUBST(OBJC_BOEHM_GC)
 # ----------
 
 case "${host}" in
-  x86_64-*-linux*| i?86-*-linux*)
-    target_config_directory="config/i386/linux"
+  # These i?86 target defines alignment as the natural alignment
+  i?86-*-darwin* \
+   | i?86-*-pe | i?86-*-cygwin* | i?86-*-mingw32* \
+   | i?86-*-uwin* | i?86-*-interix3* )
+     target_config_directory="config/i386/nonalign"
     ;;
-   *)
+
+  # All of the rest defines a different ABI
+  x86_64-*-* | i?86-*-* )
+    target_config_directory="config/i386/align"
+    ;;
+
+  *)
      target_config_directory="config/backwards"
 esac
 

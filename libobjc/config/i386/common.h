@@ -1,4 +1,4 @@
-/* i?86-linux-gnu and x86_64-linux-gnu config for abi file.
+/* i?86 and x86_64 config for abi file.
    Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000, 2002, 2004
    Free Software Foundation, Inc.
 
@@ -29,15 +29,4 @@ Boston, MA 02110-1301, USA.  */
    and give entire struct the alignment of an int.  */
 /* Required on the 386 since it doesn't have bit-field insns.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-#if !defined(__LP64__)
-
-/* FIXME we should be able to encode vector types too but we
-   currently don't.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  MIN (32, COMPUTED)
-
-
-#endif
-
 

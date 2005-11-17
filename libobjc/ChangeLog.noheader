@@ -1,5 +1,18 @@
 2005-11-17  Andrew Pinski  <pinskia@physics.uc.edu>
 
+	* configure.ac (i?86-*-darwin*, i?86-*-pe, i?86-*-cygwin*,
+	i?86-*-mingw32*, i?86-*-uwin*, i?86-*-interix3*): Add cases.
+	(i?86-*-linux-*, x86_64-*-linux-*): Remove.     
+	(i?86-*-*, x86_64-*-*): Add default case for this host as
+	it defaults to aligning doubles to 32bits.
+	* configure: Regenerate.
+	* config/i386/linux/abi.h: Remove.
+	* config/i386/nonalign/abi.h: New file.
+	* config/i386/align/abi.h: New file.
+	* config/i386/common.h: New file.
+
+2005-11-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
 	* configure.ac: Fix up the selector for x86_64 and i?86
 	so that it actually runs.
 	* configure: Regenerate.
