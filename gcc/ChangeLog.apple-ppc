@@ -1,3 +1,10 @@
+2005-11-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4343764
+	* objc/lang-specs.h: Process asm specs while creating symbol repository.
+	* objcp/lang-specs.h: Process asm specs while creating symbol repository.
+	* cp/lang-specs.h: Process asm specs while creating symbol repository.
+
 2005-11-17  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4321079
