@@ -1,4 +1,5 @@
 2005-11-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
 	* configure.ac: Add case for i?86-*-linux-* and x86_64-*-linux-* for
 	config/i386/linux as the target_config_directory.
 	* config/i386/linux/abi.h: New file.
