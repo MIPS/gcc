@@ -1,3 +1,13 @@
+2005-11-17  Chao-ying Fu  <fu@mips.com>
+	    Dorit Nuzman  <dorit@il.ibm.com>
+
+	* config/mips/mips-ps-3d.md (vcondv2sf, sminv2sf3, smaxv2sf3): New
+	patterns.
+	* config/mips/mips-protos.h: Declare mips_expand_fp_vcond and
+	mips_expand_fp_vector_minmax.
+	* config/mips/mips.c (mips_expand_fp_vcond,
+	mips_expand_fp_vector_minmax): New functions.
+
 2005-10-31  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* BASE-VER: Add branch name to base version.

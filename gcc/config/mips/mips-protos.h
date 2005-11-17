@@ -224,4 +224,7 @@ extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, rtx, rtx);
 
+extern bool mips_expand_fp_vcond (rtx[]);
+extern void mips_expand_fp_vector_minmax (bool, rtx[]);
+
 #endif /* ! GCC_MIPS_PROTOS_H */

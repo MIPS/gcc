@@ -475,3 +475,39 @@
   "recip2.<fmt>\t%0,%1,%2"
   [(set_attr "type" "frdiv2")
    (set_attr "mode" "<UNITMODE>")])
+
+(define_expand "vcondv2sf"
+  [(set (match_operand:V2SF 0 "register_operand" "")
+	(if_then_else:V2SF
+	  (match_operator 3 ""
+	    [(match_operand:V2SF 4 "register_operand" "")
+	     (match_operand:V2SF 5 "register_operand" "")])
+	  (match_operand:V2SF 1 "register_operand" "")
+	  (match_operand:V2SF 2 "register_operand" "")))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+{
+  if (mips_expand_fp_vcond (operands))
+    DONE;
+  else
+    FAIL;
+})
+
+(define_expand "sminv2sf3"
+  [(set (match_operand:V2SF 0 "register_operand" "")
+	(smin:V2SF (match_operand:V2SF 1 "register_operand" "")
+		   (match_operand:V2SF 2 "register_operand" "")))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+{
+  mips_expand_fp_vector_minmax (false, operands);
+  DONE;
+})
+
+(define_expand "smaxv2sf3"
+  [(set (match_operand:V2SF 0 "register_operand" "")
+	(smax:V2SF (match_operand:V2SF 1 "register_operand" "")
+		   (match_operand:V2SF 2 "register_operand" "")))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+{
+  mips_expand_fp_vector_minmax (true, operands);
+  DONE;
+})

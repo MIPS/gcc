@@ -10745,6 +10745,118 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
 
   return target;
 }
+
+/* Expand floating-point vector conditional move pattern.  */
+
+bool
+mips_expand_fp_vcond (rtx operands[])
+{
+  rtx cmp_result, op1, op2, op4, op5;
+  enum rtx_code code = GET_CODE (operands[3]);
+  bool swap_cmp = false;
+  bool swap_movtf = false;
+  int cond;
+
+  if (code == NE || code == LTGT || code == ORDERED)
+    {
+      code = reverse_condition_maybe_unordered (code);
+      swap_movtf = true;
+    }
+
+  /* Map code to cond */
+  switch (code)
+    {
+    case UNORDERED:
+      cond = MIPS_FP_COND_un;
+      break;
+    case UNEQ:
+      cond = MIPS_FP_COND_ueq;
+      break;
+    case UNLT:
+      cond = MIPS_FP_COND_ult;
+      break;
+    case UNLE:
+      cond = MIPS_FP_COND_ule;
+      break;
+    case EQ:
+      cond = MIPS_FP_COND_eq;
+      break;
+    case LT:
+      cond = MIPS_FP_COND_lt;
+      break;
+    case LE:
+      cond = MIPS_FP_COND_le;
+      break;
+    case GE:
+      swap_cmp = true;
+      cond = MIPS_FP_COND_le;
+      break;
+    case GT:
+      swap_cmp = true;
+      cond = MIPS_FP_COND_lt;
+      break;
+    case UNGE:
+      swap_cmp = true;
+      cond = MIPS_FP_COND_ule;
+      break;
+    case UNGT:
+      swap_cmp = true;
+      cond = MIPS_FP_COND_ult;
+      break;
+    default:
+      return false;
+    }
+
+  cmp_result = gen_reg_rtx (CCV2mode);
+  if (swap_cmp == false)
+    {
+      op4 = operands[4];
+      op5 = operands[5];
+    }
+  else
+    {
+      op4 = operands[5];
+      op5 = operands[4];
+    }
+  if (swap_movtf == false)
+    {
+      op1 = operands[1];
+      op2 = operands[2];
+    }
+  else
+    {
+      op1 = operands[2];
+      op2 = operands[1];
+    }
+  emit_insn (gen_mips_c_cond_ps (cmp_result, op4, op5, GEN_INT (cond)));
+  emit_insn (gen_mips_cond_move_tf_ps (operands[0], op1, op2, cmp_result));
+  return true;
+}
+
+/* Expand floating-point vector smin/smax patterns.
+   is_max is false for the smin pattern, and true for the smax pattern.  */
+
+void
+mips_expand_fp_vector_minmax (bool is_max, rtx operands[])
+{
+  rtx op1, op2;
+  int cond = MIPS_FP_COND_le;
+  rtx cmp_result = gen_reg_rtx (CCV2mode);
+  if (is_max == false)
+    {
+      op1 = operands[1];
+      op2 = operands[2];
+    }
+  else
+    {
+      op1 = operands[2];
+      op2 = operands[1];
+    }
+  emit_insn (gen_mips_c_cond_ps (cmp_result, op1, op2, GEN_INT (cond)));
+  emit_insn (gen_mips_cond_move_tf_ps (operands[0], operands[1], operands[2],
+                                     cmp_result));
+  return true;
+}
 
 /* Set SYMBOL_REF_FLAGS for the SYMBOL_REF inside RTL, which belongs to DECL.
    FIRST is true if this is the first time handling this decl.  */
