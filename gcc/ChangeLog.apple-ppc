@@ -1,3 +1,9 @@
+2005-11-17  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4321079
+	* global.c (remove_invalidated_death_notes):  New.
+	* reload1.c (reload):  Call it.
+
 2005-11-15  Mike Stump  <mrs@apple.com>
 
 	Radar 4344359
