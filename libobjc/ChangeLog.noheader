@@ -1,5 +1,15 @@
 2005-11-17  Andrew Pinski  <pinskia@physics.uc.edu>
 
+	* configure.ac: Fix up the selector for x86_64 and i?86
+	so that it actually runs.
+	* configure: Regenerate.
+	* config/i386/linux/abi.h (PCC_BITFIELD_TYPE_MATTERS): Define
+	always.
+	(ADJUST_FIELD_ALIGN): Define for 32bits with a FIXME for
+	vector types.
+
+2005-11-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
 	* configure.ac: Add case for i?86-*-linux-* and x86_64-*-linux-* for
 	config/i386/linux as the target_config_directory.
 	* config/i386/linux/abi.h: New file.

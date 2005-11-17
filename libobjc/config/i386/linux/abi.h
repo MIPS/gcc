@@ -25,15 +25,18 @@ Boston, MA 02110-1301, USA.  */
    This exception does not however invalidate any other reasons why
    the executable file might be covered by the GNU General Public License.  */
 
-#ifndef __LP64__
-/* For now */
-#include "config/backwards/abi.h"
-#else
-
 /* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
 /* Required on the 386 since it doesn't have bit-field insns.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
+
+#if !defined(__LP64__)
+
+/* FIXME we should be able to encode vector types too but we
+   currently don't.  */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+  MIN (32, COMPUTED)
+
 
 #endif
 

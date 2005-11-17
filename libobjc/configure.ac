@@ -85,8 +85,7 @@ AC_SUBST(OBJC_BOEHM_GC)
 # ----------
 
 case "${host}" in
-  x86_64-*-linux-*) 
-  i?86-*-linux-*) 
+  x86_64-*-linux*| i?86-*-linux*)
     target_config_directory="config/i386/linux"
     ;;
    *)
