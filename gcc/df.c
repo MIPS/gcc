@@ -309,6 +309,7 @@ static void df_bb_table_realloc (struct df *, unsigned int);
 static void df_bitmaps_alloc (struct df *, bitmap, int);
 static void df_bitmaps_free (struct df *, int);
 static struct df_reach * df_alloc_reach_bitmaps (struct df *);
+static void df_realloc_reach_bitmaps (struct df *, struct df_reach *);
 static void df_free_reach_bitmaps (struct df *, struct df_reach *);
 static void df_clear_reach_bitmaps (struct df *, struct df_reach *);
 
@@ -1894,6 +1895,28 @@ df_bb_reg_def_chain_create (struct df *df, basic_block bb)
 }
 
 
+static int
+df_renumber_refs (int dregno, int offset, struct df_link *l,
+		  struct ref **refs, struct df_reach *reach,
+	          struct ref **df_old_refs)
+{
+  int count = 0;
+  for (; l != NULL; l = l->next, count++) 
+    {
+      unsigned int old_id = DF_REF_ID (l->ref);
+      DF_REF_ID (l->ref) = offset + count;
+      refs[DF_REF_ID (l->ref)] = df_old_refs[old_id];
+    }
+
+  if (reach)
+    {
+      reach->begin[dregno] = offset;
+      reach->count[dregno] = count;
+    }
+
+  return offset + count;
+}
+
 /* Create reg-def chains for each basic block within BLOCKS.  These
    are a list of definitions for each register.  If REDO is true, add
    all defs, otherwise just add the new defs.  */
@@ -1927,32 +1950,17 @@ df_reg_def_chain_create (struct df *df, bitmap blocks, bool redo, bool renumber)
      variable are contigious.  */
   if (renumber)
     {
-      int m = max_reg_num ();
-      int dregno;
-      int offset = 0;
-      struct ref **dfdefstemp = xmalloc (df->def_size * sizeof (*df->defs));
-      
-      dfdefstemp = memcpy (&dfdefstemp[0], &df->defs[0], df->def_size * sizeof (*df->defs));
-      
-      df->rd_reach->begin = xrealloc (df->rd_reach->begin, m * sizeof (int));
-      df->rd_reach->count = xrealloc (df->rd_reach->count, m * sizeof (int));
+      unsigned dregno, offset;
+      struct ref **df_old_defs = xmalloc (df->use_size * sizeof (*df->defs));
+      memcpy (df_old_defs, df->defs, df->use_size * sizeof (*df->defs));
+    
+      if (df->rd_reach)
+	df_realloc_reach_bitmaps (df, df->rd_reach);
 
-      for (dregno=0; dregno<m; dregno++)
-	{
-	  int count = 0;
-	  struct df_link *l = df->regs[dregno].defs;
-	  df->rd_reach->begin[dregno] = offset;
-	  while (l) 
-	    {
-	      unsigned int oldid = DF_REF_ID (l->ref);
-	      DF_REF_ID (l->ref) = offset++;
-	      df->defs[DF_REF_ID (l->ref)] = dfdefstemp [oldid];
-	      l = l->next;
-	      count++;
-	    }
-	  df->rd_reach->count[dregno] = count;
-	}
-      free (dfdefstemp);
+      for (dregno = 0, offset = 0; dregno < df->n_regs; dregno++)
+	offset = df_renumber_refs (dregno, offset, df->regs[dregno].defs,
+				   df->defs, df->rd_reach, df_old_defs);
+      free (df_old_defs);
     }
 
   df->def_id_save = old_def_id_save;
@@ -2066,32 +2074,17 @@ df_reg_use_chain_create (struct df *df, bitmap blocks, bool redo, bool renumber)
      variable are contigious.  */
   if (renumber)
     {
-      int m = max_reg_num ();
-      int dregno;
-      int offset = 0;
-      struct ref **dfusestemp = xmalloc (df->use_size * sizeof (*df->uses));
-      
-      dfusestemp = memcpy (&dfusestemp[0], &df->uses[0], df->use_size * sizeof (*df->uses));
+      unsigned dregno, offset;
+      struct ref **df_old_uses = xmalloc (df->use_size * sizeof (*df->uses));
+      memcpy (df_old_uses, df->uses, df->use_size * sizeof (*df->uses));
     
-      df->ru_reach->begin = xrealloc (df->ru_reach->begin, m * sizeof (int));
-      df->ru_reach->count = xrealloc (df->ru_reach->count, m * sizeof (int));
+      if (df->ru_reach)
+	df_realloc_reach_bitmaps (df, df->ru_reach);
 
-      for (dregno=0; dregno<m; dregno++)
-	{
-	  int count = 0;
-	  struct df_link *l = df->regs[dregno].uses;
-	  df->ru_reach->begin[dregno] = offset;
-	  while (l) 
-	    {
-	      unsigned int oldid = DF_REF_ID (l->ref);
-	      DF_REF_ID (l->ref) = offset++;
-	      df->uses[DF_REF_ID (l->ref)] = dfusestemp[oldid];
-	      l = l->next;
-	      count++;
-	    }
-	  df->ru_reach->count[dregno] = count;
-	}
-      free (dfusestemp);
+      for (dregno = 0, offset = 0; dregno < df->n_regs; dregno++)
+	offset = df_renumber_refs (dregno, offset, df->regs[dregno].uses,
+				   df->uses, df->ru_reach, df_old_uses);
+      free (df_old_uses);
     }
   
   df->use_id_save = old_use_id_save;
@@ -2371,7 +2364,25 @@ df_alloc_reach_bitmaps (struct df *df)
 #ifdef EH_USES
   reach->eh_uses = BITMAP_ALLOC (NULL); 
 #endif
+  reach->size = df->n_regs;
   return reach;
+}
+
+/* Reallocate the reachability bitmaps in case the number of registers has changed.  */
+
+static void
+df_realloc_reach_bitmaps (struct df *df, struct df_reach *reach)
+{
+  int delta = df->n_regs - reach->size;
+  gcc_assert (df->n_regs == (unsigned) max_reg_num ());
+
+  reach->begin = xrealloc (reach->begin, df->n_regs * sizeof (int));
+  reach->count = xrealloc (reach->count, df->n_regs * sizeof (int));
+  reach->regs = XRESIZEVEC (bitmap, reach->regs, df->n_regs);
+  if (delta > 0)
+    memset (&reach->regs[reach->size], 0, delta * sizeof (bitmap));
+
+  reach->size = df->n_regs;
 }
 
 /* Free an array allocated by df_alloc_reach_bitmaps.  */

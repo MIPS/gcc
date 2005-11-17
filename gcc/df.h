@@ -181,6 +181,7 @@ struct df_reach
 #ifdef EH_USES
   bitmap eh_uses;               /* The set of exception regs made live across a call.  */
 #endif
+  int size;			/* The size of the arrays allocated.  */
 };
 
 struct df

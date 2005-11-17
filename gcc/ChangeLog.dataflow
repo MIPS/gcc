@@ -1,3 +1,10 @@
+2005-11-17  Paolo Bonzini  <bonzini@gnu.org>
+
+        * df.h (struct df_reach): Add size field.
+        * df.c (df_realloc_reach_bitmaps, df_renumber_refs): New.
+        (df_reg_use_chain_create, df_reg_def_chain_create): Use them.
+        Fix GNU coding standards compliancy.
+
 2005-11-11  Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	* df.c (df_chain_create): Move declaration of bb outside define
