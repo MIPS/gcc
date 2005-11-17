@@ -118,7 +118,7 @@ namespace __gnu_cxx
 	    size_type	    _M_length;
 	    size_type	    _M_capacity;
 	    _Atomic_word    _M_refcount;
-	  };
+	  }                 _M_info;
 	  
 	  // Only for alignment purposes.
 	  _CharT            _M_align;
@@ -133,15 +133,15 @@ namespace __gnu_cxx
 	_CharT*
 	_M_refcopy() throw()
 	{
-	  __atomic_add(&_M_refcount, 1);
+	  __atomic_add(&_M_info._M_refcount, 1);
 	  return _M_refdata();
 	}  // XXX MT
 
 	void
 	_M_set_length(size_type __n)
 	{ 
-	  _M_refcount = 0;  // One reference.
-	  _M_length = __n;
+	  _M_info._M_refcount = 0;  // One reference.
+	  _M_info._M_length = __n;
 	  // grrr. (per 21.3.4)
 	  // You cannot leave those LWG people alone for a second.
 	  traits_type::assign(_M_refdata()[__n], _CharT());
@@ -201,17 +201,17 @@ namespace __gnu_cxx
       void
       _M_dispose(const _Alloc& __a)
       {
-	if (__exchange_and_add(&_M_rep()->_M_refcount, -1) <= 0)
+	if (__exchange_and_add(&_M_rep()->_M_info._M_refcount, -1) <= 0)
 	  _M_rep()->_M_destroy(__a);
       }  // XXX MT
 
       bool
       _M_is_leaked() const
-      { return _M_rep()->_M_refcount < 0; }
+      { return _M_rep()->_M_info._M_refcount < 0; }
 
       void
       _M_set_sharable()
-      { _M_rep()->_M_refcount = 0; }
+      { _M_rep()->_M_info._M_refcount = 0; }
 
       void
       _M_leak_hard();
@@ -269,19 +269,19 @@ namespace __gnu_cxx
 
       size_type
       _M_length() const
-      { return _M_rep()->_M_length; }
+      { return _M_rep()->_M_info._M_length; }
 
       size_type
       _M_capacity() const
-      { return _M_rep()->_M_capacity; }
+      { return _M_rep()->_M_info._M_capacity; }
 
       bool
       _M_is_shared() const
-      { return _M_rep()->_M_refcount > 0; }
+      { return _M_rep()->_M_info._M_refcount > 0; }
 
       void
       _M_set_leaked()
-      { _M_rep()->_M_refcount = -1; }
+      { _M_rep()->_M_info._M_refcount = -1; }
 
       void
       _M_leak()    // for use in begin() & non-const op[]
@@ -400,7 +400,7 @@ namespace __gnu_cxx
       // does not throw.
       _Rep* __place = _Rep_alloc_type(__alloc).allocate(__size / sizeof(_Rep));
       _Rep* __p = new (__place) _Rep;
-      __p->_M_capacity = __capacity;
+      __p->_M_info._M_capacity = __capacity;
       return __p;
     }
 
@@ -409,7 +409,7 @@ namespace __gnu_cxx
     __rc_string<_CharT, _Traits, _Alloc>::_Rep::
     _M_destroy(const _Alloc& __a) throw ()
     {
-      const size_type __size = ((_M_capacity + 1) * sizeof(_CharT)
+      const size_type __size = ((_M_info._M_capacity + 1) * sizeof(_CharT)
 				+ 2 * sizeof(_Rep) - 1);
       _Rep_alloc_type(__a).deallocate(this, __size / sizeof(_Rep));
     }
@@ -420,13 +420,14 @@ namespace __gnu_cxx
     _M_clone(const _Alloc& __alloc, size_type __res)
     {
       // Requested capacity of the clone.
-      const size_type __requested_cap = _M_length + __res;
-      _Rep* __r = _Rep::_S_create(__requested_cap, _M_capacity, __alloc);
+      const size_type __requested_cap = _M_info._M_length + __res;
+      _Rep* __r = _Rep::_S_create(__requested_cap, _M_info._M_capacity,
+				  __alloc);
 
-      if (_M_length)
-	_S_copy(__r->_M_refdata(), _M_refdata(), _M_length);
+      if (_M_info._M_length)
+	_S_copy(__r->_M_refdata(), _M_refdata(), _M_info._M_length);
 
-      __r->_M_set_length(_M_length);
+      __r->_M_set_length(_M_info._M_length);
       return __r->_M_refdata();
     }
 
@@ -491,7 +492,7 @@ namespace __gnu_cxx
 	  {
 	    while (__beg != __end)
 	      {
-		if (__len == __r->_M_capacity)
+		if (__len == __r->_M_info._M_capacity)
 		  {
 		    // Allocate more space.
 		    _Rep* __another = _Rep::_S_create(__len + 1, __len, __a);

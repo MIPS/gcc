@@ -1,5 +1,10 @@
 2005-11-17  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/ext/rc_string.h (__rc_string<>::_Rep): Avoid the anonymous
+	struct extension, adjust everywhere.
+
+2005-11-17  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/ext/sso_string.h (_Alloc_hider): Move ...
 	* include/ext/string_util.h (__string_utility::_Alloc_hider): ... here.
 	* include/ext/rc_string.h (_Alloc_hider): Likewise, adjust users.
