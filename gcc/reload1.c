@@ -830,6 +830,14 @@ reload (rtx first, int global)
   for (i = LAST_VIRTUAL_REGISTER + 1; i < max_regno; i++)
     alter_reg (i, -1);
 
+  /* APPLE LOCAL begin 4321079 */
+  if (from_global)
+    {
+      extern void remove_invalidated_death_notes (rtx);
+      remove_invalidated_death_notes (first);
+    }
+  /* APPLE LOCAL end 4321079 */
+
   /* If we have some registers we think can be eliminated, scan all insns to
      see if there is an insn that sets one of these registers to something
      other than itself plus a constant.  If so, the register cannot be

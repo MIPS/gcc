@@ -1967,6 +1967,56 @@ find_tied_stack_pseudo (int r)
     });
   return 0;
 }
+
+/* Callback for reload.  We just altered all the rtx pseudo nodes to contain
+   the hard regs assigned by global allocation.  In the case where the same
+   hard reg was assigned to two pseudos tied by pseudo_preferences but with
+   overlapping live ranges, REG_DEAD notes referring to the common hard reg
+   may now be invalid.  Remove them.  (The algorithm is overly conservative,
+   removing all notes for registers tied by pseudo_preferences without
+   checking that there actually is a live range overlap.)  */
+
+void remove_invalidated_death_notes (rtx);
+void remove_invalidated_death_notes (rtx first)
+{
+  rtx insn;
+  int regno, orig_regno, i, j;
+  rtx r, *pnote, *next_pnote;
+  for (insn = first; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	for (pnote = &REG_NOTES (insn); *pnote; pnote = next_pnote)
+	  {
+	    next_pnote = &XEXP (*pnote, 1);
+
+	    if (REG_NOTE_KIND (*pnote) == REG_DEAD)
+	      {
+		r = XEXP (*pnote, 0);
+		if (!REG_P (r))
+		  continue;
+		regno = REGNO (r);
+		orig_regno = ORIGINAL_REGNO (r);
+		if (orig_regno < FIRST_PSEUDO_REGISTER || regno >= FIRST_PSEUDO_REGISTER)
+		  continue;
+		if (regno == orig_regno)
+		  continue;
+		i = reg_allocno[orig_regno];
+		EXECUTE_IF_SET_IN_ALLOCNO_SET(pseudo_preferences + i * allocno_row_words, j,
+		  {
+		    if (i != j
+			&& !CONFLICTP(i, j)
+			&& reg_renumber[allocno[j].reg] == regno)
+		      {
+			*pnote = *next_pnote;
+			next_pnote = pnote;
+			goto next_note;
+		      }
+		  });
+	      }
+	    next_note:;
+	  }
+       }
+}
 /* APPLE LOCAL end 4321079 */
 
 /* Indicate that hard register number FROM was eliminated and replaced with
