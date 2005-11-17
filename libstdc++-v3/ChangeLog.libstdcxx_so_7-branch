@@ -1,3 +1,25 @@
+2005-11-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (_Alloc_hider): Move ...
+	* include/ext/string_util.h (__string_utility::_Alloc_hider): ... here.
+	* include/ext/rc_string.h (_Alloc_hider): Likewise, adjust users.
+
+	* include/ext/string_util.h (__is_null_pointer): Move inside
+	struct __string_utility as static _S_is_null_pointer.
+	* include/ext/sso_string.h
+	(__sso_string<>::_M_construct(std::forward_iterator_tag): Adjust.
+	* include/ext/rc_string.h
+	(__rc_string<>::_S_construct(std::forward_iterator_tag): Likewise.
+
+	* include/ext/rc_string.h (__rc_string<>::_Rep): Use anonymous union
+	together with _CharT to fix alignment issues, rebind to _Rep and
+	rename _Raw_alloc to _Rep_alloc_type.
+	(__rc_string<>::_Rep::_S_create, _M_destroy): Adjust consistently.
+
+	* include/ext/rc_string.h (__rc_string<>::_S_empty_rep()): Just use
+	a static member.
+	(__rc_string<>::__rc_string(), _S_construct): Adjust.
+
 2005-11-15  Paolo Carlini  <pcarlini@suse.de>
 
 	Merged to mainline at revision 106944.

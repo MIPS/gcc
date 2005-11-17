@@ -91,8 +91,8 @@ namespace __gnu_cxx
       typedef typename _Traits::char_type		    value_type;
       typedef _Alloc					    allocator_type;
 
-      typedef typename __string_utility<_CharT, _Traits, _Alloc>::
-        _CharT_alloc_type                                   _CharT_alloc_type;
+      typedef __string_utility<_CharT, _Traits, _Alloc>     _Util_Base;
+      typedef typename _Util_Base::_CharT_alloc_type        _CharT_alloc_type;
       typedef typename _CharT_alloc_type::size_type	    size_type;
 
     private:
@@ -106,16 +106,25 @@ namespace __gnu_cxx
       //      -1: leaked, one reference, no ref-copies allowed, non-const.
       //       0: one reference, non-const.
       //     n>0: n + 1 references, operations require a lock, const.
-      //   4. All fields==0 is an empty string, given the extra storage
+      //   4. All fields == 0 is an empty string, given the extra storage
       //      beyond-the-end for a null terminator; thus, the shared
       //      empty string representation needs no constructor.
       struct _Rep
       {
-	size_type		_M_length;
-	size_type		_M_capacity;
-	_Atomic_word		_M_refcount;
+	union
+	{
+	  struct
+	  {
+	    size_type	    _M_length;
+	    size_type	    _M_capacity;
+	    _Atomic_word    _M_refcount;
+	  };
+	  
+	  // Only for alignment purposes.
+	  _CharT            _M_align;
+	};
 
-	typedef typename _Alloc::template rebind<size_type>::other _Raw_alloc;
+	typedef typename _Alloc::template rebind<_Rep>::other _Rep_alloc_type;
 
  	_CharT*
 	_M_refdata() throw()
@@ -149,10 +158,13 @@ namespace __gnu_cxx
 	_M_clone(const _Alloc&, size_type __res = 0);
       };
 
-      struct _Rep_empty : _Rep
+      struct _Rep_empty
+      : public _Rep
       {
-	_CharT                  _M_terminal;
+	_CharT              _M_terminal;
       };
+
+      static _Rep_empty     _S_empty_rep;
 
       // The maximum number of individual char_type elements of an
       // individual string is determined by _S_max_size. This is the
@@ -168,48 +180,8 @@ namespace __gnu_cxx
       enum { _S_max_size = (((static_cast<size_type>(-1) - sizeof(_Rep))
 			     / sizeof(_CharT)) - 1) / 4 };
 
-      // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
-      template<typename _Alloc1, bool = std::__is_empty<_Alloc1>::__value>
-        struct _Alloc_hider
-	: public _Alloc1
-	{
-	  _Alloc_hider(_CharT* __ptr, const _Alloc1& __a)
-	  : _Alloc1(__a), _M_p(__ptr) { }
-	  
-	  void _M_alloc_swap(_Alloc_hider&) { }
-
-	  _CharT* _M_p; // The actual data.
-	};
-
-      template<typename _Alloc1>
-        struct _Alloc_hider<_Alloc1, false>
-	: public _Alloc1
-	{
-	  _Alloc_hider(_CharT* __ptr, const _Alloc1& __a)
-	  : _Alloc1(__a), _M_p(__ptr) { }
-
-	  void
-	  _M_alloc_swap(_Alloc_hider& __ah)
-	  {
-	    // Precondition: swappable allocators.
-	    _Alloc1& __this = static_cast<_Alloc1&>(*this);
-	    _Alloc1& __that = static_cast<_Alloc1&>(__ah);
-	    if (__this != __that)
-	      swap(__this, __that);
-	  }
-
-	  _CharT*  _M_p; // The actual data.
-	};
-
       // Data Member (private):
-      mutable _Alloc_hider<_Alloc>	_M_dataplus;
-
-      static _Rep_empty&
-      _S_empty_rep()
-      {
-	static _Rep_empty _Empty_rep;
-	return _Empty_rep;
-      }
+      mutable typename _Util_Base::template _Alloc_hider<_Alloc>  _M_dataplus;
 
       void
       _M_data(_CharT* __p)
@@ -245,7 +217,7 @@ namespace __gnu_cxx
       _M_leak_hard();
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
-      // requires special behaviour if _InIter is an integral type
+      // requires special behaviour if _InIterator is an integral type
       template<class _InIterator>
         static _CharT*
         _S_construct_aux(_InIterator __beg, _InIterator __end,
@@ -323,7 +295,7 @@ namespace __gnu_cxx
       { _M_rep()->_M_set_length(__n); }
 
       __rc_string()
-      : _M_dataplus(_S_empty_rep()._M_refcopy(), _Alloc()) { }
+      : _M_dataplus(_Alloc(), _S_empty_rep._M_refcopy()) { }
 
       __rc_string(const _Alloc& __a);
 
@@ -354,6 +326,10 @@ namespace __gnu_cxx
       void
       _M_mutate(size_type __pos, size_type __len1, size_type __len2);
     };
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    typename __rc_string<_CharT, _Traits, _Alloc>::_Rep_empty
+    __rc_string<_CharT, _Traits, _Alloc>::_S_empty_rep;
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     typename __rc_string<_CharT, _Traits, _Alloc>::_Rep*
@@ -403,11 +379,11 @@ namespace __gnu_cxx
 
       // NB: Need an array of char_type[__capacity], plus a terminating
       // null char_type() element, plus enough for the _Rep data structure,
-      // plus sizeof(size_type) - 1 to upper round to a size multiple
-      // of sizeof(size_type).
+      // plus sizeof(_Rep) - 1 to upper round to a size multiple of
+      // sizeof(_Rep).
       // Whew. Seemingly so needy, yet so elemental.
-      size_type __size = ((__capacity + 1) * sizeof(_CharT) + sizeof(_Rep)
-			  + sizeof(size_type) - 1);
+      size_type __size = ((__capacity + 1) * sizeof(_CharT) 
+			  + 2 * sizeof(_Rep) - 1);
 
       const size_type __adj_size = __size + __malloc_header_size;
       if (__adj_size > __pagesize && __capacity > __old_capacity)
@@ -417,15 +393,13 @@ namespace __gnu_cxx
 	  // Never allocate a string bigger than _S_max_size.
 	  if (__capacity > size_type(_S_max_size))
 	    __capacity = size_type(_S_max_size);
-	  __size = ((__capacity + 1) * sizeof(_CharT) + sizeof(_Rep)
-		    + sizeof(size_type) - 1);
+	  __size = (__capacity + 1) * sizeof(_CharT) + 2 * sizeof(_Rep) - 1;
 	}
 
       // NB: Might throw, but no worries about a leak, mate: _Rep()
       // does not throw.
-      void* __place = _Raw_alloc(__alloc).allocate(__size
-						   / sizeof(size_type));
-      _Rep *__p = new (__place) _Rep;
+      _Rep* __place = _Rep_alloc_type(__alloc).allocate(__size / sizeof(_Rep));
+      _Rep* __p = new (__place) _Rep;
       __p->_M_capacity = __capacity;
       return __p;
     }
@@ -436,9 +410,8 @@ namespace __gnu_cxx
     _M_destroy(const _Alloc& __a) throw ()
     {
       const size_type __size = ((_M_capacity + 1) * sizeof(_CharT)
-				+ sizeof(_Rep) + sizeof(size_type) - 1);
-      _Raw_alloc(__a).deallocate(reinterpret_cast<size_type*>(this),
-				 __size / sizeof(size_type));
+				+ 2 * sizeof(_Rep) - 1);
+      _Rep_alloc_type(__a).deallocate(this, __size / sizeof(_Rep));
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -460,27 +433,25 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     __rc_string<_CharT, _Traits, _Alloc>::
     __rc_string(const _Alloc& __a)
-    : _M_dataplus(_S_construct(size_type(), _CharT(), __a), __a) { }
+    : _M_dataplus(__a, _S_construct(size_type(), _CharT(), __a)) { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __rc_string<_CharT, _Traits, _Alloc>::
     __rc_string(const __rc_string& __rcs)
-    : _M_dataplus(__rcs._M_grab(_Alloc(__rcs._M_get_allocator()),
-				__rcs._M_get_allocator()),
-		  __rcs._M_get_allocator()) { }
+    : _M_dataplus(__rcs._M_get_allocator(),
+		  __rcs._M_grab(_Alloc(__rcs._M_get_allocator()),
+				__rcs._M_get_allocator())) { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __rc_string<_CharT, _Traits, _Alloc>::
     __rc_string(size_type __n, _CharT __c, const _Alloc& __a)
-    : _M_dataplus(_S_construct(__n, __c, __a), __a)
-    { }
+    : _M_dataplus(__a, _S_construct(__n, __c, __a)) { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     template<typename _InputIterator>
     __rc_string<_CharT, _Traits, _Alloc>::
     __rc_string(_InputIterator __beg, _InputIterator __end, const _Alloc& __a)
-    : _M_dataplus(_S_construct(__beg, __end, __a), __a)
-    { }
+    : _M_dataplus(__a, _S_construct(__beg, __end, __a)) { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
@@ -504,7 +475,7 @@ namespace __gnu_cxx
 		   std::input_iterator_tag)
       {
 	if (__beg == __end && __a == _Alloc())
-	  return _S_empty_rep()._M_refcopy();
+	  return _S_empty_rep._M_refcopy();
 
 	// Avoid reallocation for common case.
 	_CharT __buf[128];
@@ -549,10 +520,10 @@ namespace __gnu_cxx
 		   std::forward_iterator_tag)
       {
 	if (__beg == __end && __a == _Alloc())
-	  return _S_empty_rep()._M_refcopy();
+	  return _S_empty_rep._M_refcopy();
 
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
+	if (__builtin_expect(_S_is_null_pointer(__beg) && __beg != __end, 0))
 	  std::__throw_logic_error(__N("__rc_string::"
 				       "_S_construct NULL not valid"));
 
@@ -577,7 +548,7 @@ namespace __gnu_cxx
     _S_construct(size_type __n, _CharT __c, const _Alloc& __a)
     {
       if (__n == 0 && __a == _Alloc())
-	return _S_empty_rep()._M_refcopy();
+	return _S_empty_rep._M_refcopy();
 
       // Check for out_of_range and length_error exceptions.
       _Rep* __r = _Rep::_S_create(__n, size_type(0), __a);

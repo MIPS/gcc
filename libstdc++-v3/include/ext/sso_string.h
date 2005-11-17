@@ -47,8 +47,8 @@ namespace __gnu_cxx
       typedef typename _Traits::char_type		    value_type;
       typedef _Alloc					    allocator_type;
 
-      typedef typename __string_utility<_CharT, _Traits, _Alloc>::
-        _CharT_alloc_type                                   _CharT_alloc_type;
+      typedef __string_utility<_CharT, _Traits, _Alloc>     _Util_Base;
+      typedef typename _Util_Base::_CharT_alloc_type        _CharT_alloc_type;
       typedef typename _CharT_alloc_type::size_type	    size_type;
       
     private:
@@ -66,42 +66,9 @@ namespace __gnu_cxx
       enum { _S_max_size = ((static_cast<size_type>(-1)
 			     / sizeof(_CharT)) - 1) / 4 };
 
-      // Use empty-base optimization: http://www.cantrip.org/emptyopt.html
-      template<typename _Alloc1, bool = std::__is_empty<_Alloc1>::__value>
-        struct _Alloc_hider
-	: public _Alloc1
-	{
-	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
-	  : _Alloc1(__a), _M_p(__ptr) { }
-	  
-	  void _M_alloc_swap(_Alloc_hider&) { }
-
-	  _CharT* _M_p; // The actual data.
-	};
-
-      template<typename _Alloc1>
-        struct _Alloc_hider<_Alloc1, false>
-	: public _Alloc1
-	{
-	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
-	  : _Alloc1(__a), _M_p(__ptr) { }
-
-	  void
-	  _M_alloc_swap(_Alloc_hider& __ah)
-	  {
-	    // Precondition: swappable allocators.
-	    _Alloc1& __this = static_cast<_Alloc1&>(*this);
-	    _Alloc1& __that = static_cast<_Alloc1&>(__ah);
-	    if (__this != __that)
-	      swap(__this, __that);
-	  }
-
-	  _CharT*  _M_p; // The actual data.
-	};
-      
       // Data Members (private):
-      _Alloc_hider<_Alloc>      _M_dataplus;
-      size_type                 _M_string_length;
+      typename _Util_Base::template _Alloc_hider<_Alloc>    _M_dataplus;
+      size_type                                             _M_string_length;
 
       enum { _S_local_capacity = 15 };
       
@@ -142,7 +109,7 @@ namespace __gnu_cxx
       _M_destroy(size_type) throw();
 
       // _M_construct_aux is used to implement the 21.3.1 para 15 which
-      // requires special behaviour if _InIter is an integral type
+      // requires special behaviour if _InIterator is an integral type
       template<class _InIterator>
         void
         _M_construct_aux(_InIterator __beg, _InIterator __end, __false_type)
@@ -387,7 +354,6 @@ namespace __gnu_cxx
       _M_construct(_InIterator __beg, _InIterator __end,
 		   std::input_iterator_tag)
       {
-	// Avoid reallocation for common case.
 	size_type __len = 0;
 	size_type __capacity = size_type(_S_local_capacity);
 
@@ -432,7 +398,7 @@ namespace __gnu_cxx
 		   std::forward_iterator_tag)
       {
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
+	if (__builtin_expect(_S_is_null_pointer(__beg) && __beg != __end, 0))
 	  std::__throw_logic_error(__N("__sso_string::"
 				       "_M_construct NULL not valid"));
 
