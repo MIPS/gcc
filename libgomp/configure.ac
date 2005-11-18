@@ -203,7 +203,18 @@ else
   multilib_arg=
 fi
 
+# Set up the set of libraries that we need to link against for libgomp.
+# Note that the GOMP_DRIVER_SPEC in gcc.c will force -pthread for -fopenmp,
+# which will force linkage against -lpthread (or equivalent for the system).
+# That's not 100% ideal, but about the best we can do easily.
+if test $enable_shared = yes; then
+  link_gomp="-lgomp %{static: $LIBS}"
+else
+  link_gomp="-lgomp $LIBS"
+fi
+AC_SUBST(link_gomp)
+
 AM_CONDITIONAL([USE_FORTRAN], [test "$ac_cv_fc_compiler_gnu" = yes])
 
-AC_CONFIG_FILES(Makefile testsuite/Makefile)
+AC_CONFIG_FILES(Makefile testsuite/Makefile libgomp.spec)
 AC_OUTPUT

@@ -697,7 +697,7 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
+    %{static:} %{L*} %(mfwrap) %(link_gomp) %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -736,6 +736,7 @@ static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
 static const char *mfwrap_spec = MFWRAP_SPEC;
 static const char *mflib_spec = MFLIB_SPEC;
+static const char *link_gomp_spec = "";
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
@@ -834,7 +835,13 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #define DRIVER_SELF_SPECS ""
 #endif
 
-static const char *const driver_self_specs[] = { DRIVER_SELF_SPECS };
+/* Adding -fopenmp should imply pthreads.  This is particularly important
+   for targets that use different start files and suchlike.  */
+#define GOMP_SELF_SPECS "%{fopenmp: -pthread}"
+
+static const char *const driver_self_specs[] = {
+  DRIVER_SELF_SPECS, GOMP_SELF_SPECS
+};
 
 #ifndef OPTION_DEFAULT_SPECS
 #define OPTION_DEFAULT_SPECS { "", "" }
@@ -1534,6 +1541,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("lib",			&lib_spec),
   INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
   INIT_STATIC_SPEC ("mflib",			&mflib_spec),
+  INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
@@ -5474,10 +5482,10 @@ input_suffix_matches (const char *atom, const char *end_atom)
 	  && input_suffix[end_atom - atom] == '\0');
 }
 
-/* Inline subroutine of handle_braces.  Returns true if a switch
+/* Subroutine of handle_braces.  Returns true if a switch
    matching the atom bracketed by ATOM and END_ATOM appeared on the
    command line.  */
-static inline bool
+static bool
 switch_matches (const char *atom, const char *end_atom, int starred)
 {
   int i;
@@ -6631,6 +6639,20 @@ main (int argc, const char **argv)
 	 for collect.  */
       putenv_from_prefixes (&exec_prefixes, "COMPILER_PATH");
       putenv_from_prefixes (&startfile_prefixes, LIBRARY_PATH_ENV);
+
+      /* If -fopenmp is in effect, load the spec file that contains
+	 the set of libraries we may need.  */
+      {
+	const char *str = "fopenmp";
+	char *file;
+
+	if (switch_matches (str, str+strlen(str), 0))
+	  {
+	    str = "libgomp.spec";
+	    file = find_a_file (&startfile_prefixes, str, R_OK, 0);
+	    read_specs (file ? file : str, FALSE);
+	  }
+      }
 
       value = do_spec (link_command_spec);
       if (value < 0)

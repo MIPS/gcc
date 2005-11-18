@@ -1,3 +1,14 @@
+2005-11-17  Richard Henderson  <rth@redhat.com>
+
+	PR 24845
+	* gcc.c (link_gomp_spec): New.
+	(static_specs): Include it.
+	(LINK_COMMAND_SPEC): Add link_gomp.
+	(GOMP_SELF_SPECS): New.
+	(driver_self_specs): Include it.
+	(switch_matches): Don't mark inline.
+	(main): Load libgomp.spec.
+
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_reduction_clauses): Use PLUS_EXPR operation

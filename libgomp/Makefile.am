@@ -18,6 +18,7 @@ AM_CFLAGS = $(XCFLAGS)
 AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 
 toolexeclib_LTLIBRARIES = libgomp.la
+nodist_toolexeclib_HEADERS = libgomp.spec
 
 if LIBGOMP_BUILD_VERSIONED_SHLIB
 libgomp_version_script = -Wl,--version-script,$(top_srcdir)/libgomp.map
@@ -35,6 +36,7 @@ nodist_include_HEADERS = omp.h omp_lib.h omp_lib.f90 libgomp_f.h
 if USE_FORTRAN
 nodist_include_HEADERS += omp_lib.mod omp_lib_kinds.mod
 endif
+
 omp.h: omp.h.in mkomp_h.pl
 	$(PERL) -w $(srcdir)/mkomp_h.pl "$(COMPILE)" $(srcdir)/omp.h.in omp.h
 omp_lib.h: omp_lib.h.in mkomp_h.pl

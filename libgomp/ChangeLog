@@ -1,3 +1,13 @@
+2005-11-17  Richard Henderson  <rth@redhat.com>
+
+	PR 24845
+	* Makefile.am (nodist_toolexeclib_HEADERS): New.
+	* configure.ac (link_gomp): New.  Substitute it.
+	(AC_CONFIG_FILES): Add libgomp.spec.
+	* libgomp.spec.in: New file.
+	* Makefile.in, testsuite/Makefile.in, configure: Rebuild.
+	* testsuite/lib/libgomp-dg.exp: Add -B${blddir}/ to flags.
+
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/reduction1.f90: Adjust for
