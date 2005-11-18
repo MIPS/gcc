@@ -65,14 +65,14 @@
     if (ca(2) .ne. cmplx (6.5, 3) .or. ca(2) .ne. ca(3)) call abort
   end if
 
-  i = -1
-  ia = -2
-  r = -3
-  ra = -4
-  d = -5.5
-  da = -6.5
-  c = cmplx (-7.5, -1.5)
-  ca = cmplx (-8.5, 3.0)
+  i = 1
+  ia = 2
+  r = 3
+  ra = 4
+  d = 5.5
+  da = 6.5
+  c = cmplx (7.5, 1.5)
+  ca = cmplx (8.5, -3.0)
   v = .false.
   cnt = -1
 
@@ -115,12 +115,12 @@
 !$omp end parallel
   if (v) call abort
   if (cnt .eq. 3) then
-    if (i .ne. -8 .or. any (ia .ne. (/-3, -3, -1, -6, -6, -8/))) call abort
-    if (r .ne. -8 .or. any (ra .ne. (/-9.5, -8.0, -1.5, -1.5/))) call abort
-    if (d .ne. -12.5 .or. any (da .ne. (/-8.0, -16.5, -16.5, -14.0, -5.5/))) call abort
-    if (c .ne. cmplx (-11.5, 5)) call abort
-    if (ca(1) .ne. cmplx (-12, -2)) call abort
-    if (ca(2) .ne. cmplx (-6.5, -3) .or. ca(2) .ne. ca(3)) call abort
+    if (i .ne. 8 .or. any (ia .ne. (/3, 3, 1, 6, 6, 8/))) call abort
+    if (r .ne. 8 .or. any (ra .ne. (/9.5, 8.0, 1.5, 1.5/))) call abort
+    if (d .ne. 12.5 .or. any (da .ne. (/8.0, 16.5, 16.5, 14.0, 5.5/))) call abort
+    if (c .ne. cmplx (11.5, -5)) call abort
+    if (ca(1) .ne. cmplx (12, 2)) call abort
+    if (ca(2) .ne. cmplx (6.5, 3) .or. ca(2) .ne. ca(3)) call abort
   end if
 
   i = 1

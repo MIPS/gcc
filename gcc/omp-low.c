@@ -1604,6 +1604,7 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     {
       tree var, ref, new_var;
+      enum tree_code code;
 
       if (TREE_CODE (c) != OMP_CLAUSE_REDUCTION)
 	continue;
@@ -1613,6 +1614,11 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       if (is_reference (var))
 	new_var = build_fold_indirect_ref (new_var);
       ref = build_outer_var_ref (var, ctx);
+      code = OMP_CLAUSE_REDUCTION_CODE (c);
+      /* reduction(-:var) sums up the partial results, so it acts identically
+         to reduction(+:var).  */
+      if (code == MINUS_EXPR)
+        code = PLUS_EXPR;
 
       if (count == 1)
 	{
@@ -1620,8 +1626,7 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 
 	  addr = save_expr (addr);
 	  ref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (addr)), addr);
-	  x = fold_build2 (OMP_CLAUSE_REDUCTION_CODE (c), TREE_TYPE (ref),
-			   ref, new_var);
+	  x = fold_build2 (code, TREE_TYPE (ref), ref, new_var);
 	  x = build2 (OMP_ATOMIC, void_type_node, addr, x);
 	  gimplify_and_add (x, stmt_list);
 	  return;
@@ -1641,8 +1646,7 @@ expand_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	}
       else
 	{
-	  x = build2 (OMP_CLAUSE_REDUCTION_CODE (c),
-		      TREE_TYPE (ref), ref, new_var);
+	  x = build2 (code, TREE_TYPE (ref), ref, new_var);
 	  ref = build_outer_var_ref (var, ctx);
 	  x = build2 (MODIFY_EXPR, void_type_node, ref, x);
 	  append_to_statement_list (x, &sub_list);

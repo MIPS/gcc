@@ -1,3 +1,9 @@
+2005-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/reduction1.f90: Adjust for
+	reduction(-:var) behaving the same as reduction(+:var).
+	* testsuite/libgomp.c/reduction-4.c: New test.
+
 2005-11-15  Uros Bizjak  <uros@kss-loka.si>
 
 	* testsuite/libgomp.c/pr24455-1.c, testsuite/libgomp.c/pr24455.c,

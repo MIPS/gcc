@@ -1,3 +1,8 @@
+2005-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_array_reduction): Use gfc_add
+	for MINUS_EXPR OMP_CLAUSE_REDUCTION_CODE.
+
 2005-11-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_do): Add PBLOCK argument.  If PBLOCK

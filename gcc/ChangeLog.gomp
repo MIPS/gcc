@@ -1,3 +1,8 @@
+2005-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_reduction_clauses): Use PLUS_EXPR operation
+	for MINUS_EXPR OMP_CLAUSE_REDUCTION_CODE.
+
 2005-11-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_expr_in_ctx): Add OMP_CTX_P argument.

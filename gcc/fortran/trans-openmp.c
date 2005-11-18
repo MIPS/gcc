@@ -312,10 +312,8 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   switch (OMP_CLAUSE_REDUCTION_CODE (c))
     {
     case PLUS_EXPR:
-      e4 = gfc_add (e3, e1);
-      break;
     case MINUS_EXPR:
-      e4 = gfc_subtract (e3, e1);
+      e4 = gfc_add (e3, e1);
       break;
     case MULT_EXPR:
       e4 = gfc_multiply (e3, e1);
