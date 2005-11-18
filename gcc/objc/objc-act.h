@@ -48,7 +48,7 @@ void objc_detect_field_duplicates (tree);
 /* Objective-C structures */
 
 /* APPLE LOCAL radar 4291785 */
-#define CLASS_LANG_SLOT_ELTS		6
+#define CLASS_LANG_SLOT_ELTS		7
 #define PROTOCOL_LANG_SLOT_ELTS		2
 #define OBJC_INFO_SLOT_ELTS		2
 
@@ -72,8 +72,10 @@ void objc_detect_field_duplicates (tree);
 #define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
 #define CLASS_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define CLASS_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
-/* APPLE LOCAL ObjC new abi */
+/* APPLE LOCAL begin ObjC new abi */
 #define CLASS_TYPE(CLASS) ((CLASS)->type.main_variant)
+#define PROTOCOL_V2_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 6)
+/* APPLE LOCAL end ObjC new abi */
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
@@ -195,8 +197,8 @@ struct imp_entry GTY(())
   tree class_decl;		/* _OBJC_CLASS_<my_name>; */
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
   /* APPLE LOCAL begin ObjC new abi */
-  tree class_newabi_decl;		/* _OBJC_NEWABI_CLASS_<my_name>; */
-  tree meta_newabi_decl;		/* _OBJC_NEWABI_METACLASS_<my_name>; */
+  tree class_v2_decl;		/* _OBJC_V2_CLASS_<my_name>; */
+  tree meta_v2_decl;		/* _OBJC_V2_METACLASS_<my_name>; */
   /* APPLE LOCAL end ObjC new abi */
   /* APPLE LOCAL mainline */
   BOOL_BITFIELD has_cxx_cdtors : 1;
@@ -328,28 +330,35 @@ enum objc_tree_index
     /* APPLE LOCAL end mainline */
 
     /* APPLE LOCAL begin ObjC new abi */
-    OCTI_NEWABI_CLS_TEMPL,
-    OCTI_NEWABI_CLS_RO_TEMPL,
+    OCTI_V2_CLS_TEMPL,
+    OCTI_V2_CLS_RO_TEMPL,
     OCTI_IMP_TYPE,
-    OCTI_NEWABI_CLS_DECL,
-    OCTI_NEWABI_MCLS_DECL,
-    OCTI_NEWABI_CACHE_DECL,
-    OCTI_NEWABI_VTABLE_DECL,
-    OCTI_NEWABI_PROTO_TEMPL,
+    OCTI_V2_CLS_DECL,
+    OCTI_V2_MCLS_DECL,
+    OCTI_V2_CACHE_DECL,
+    OCTI_V2_VTABLE_DECL,
+    OCTI_V2_PROTO_TEMPL,
     OCTI_CLASSLIST_REF_CHAIN,
     OCTI_MESSAGE_REF_TEMPL,
     OCTI_SUPER_MESSAGE_REF_TEMPL,
     CTI_MESSAGE_SELECTOR_TYPE,
     CTI_SUPER_MESSAGE_SELECTOR_TYPE,
-    OCTI_NEWABI_UMSG_FIXUP_DECL,
-    OCTI_NEWABI_UMSG_STRET_FIXUP_DECL,
-    OCTI_NEWABI_UMSG_ID_FIXUP_DECL,
-    OCTI_NEWABI_UMSG_ID_STRET_FIXUP_DECL,
-    OCTI_NEWABI_UMSG_SUPER2_FIXUP_DECL,
-    OCTI_NEWABI_UMSG_SUPER2_STRET_FIXUP_DECL,
-    OCTI_NEWABI_IMP_TYPE,
-    OCTI_NEWABI_SUPER_IMP_TYPE,
-    OCTI_NEWABI_MESSAGE_REF_CHAIN,
+    OCTI_V2_UMSG_FIXUP_DECL,
+    OCTI_V2_UMSG_STRET_FIXUP_DECL,
+    OCTI_V2_UMSG_ID_FIXUP_DECL,
+    OCTI_V2_UMSG_ID_STRET_FIXUP_DECL,
+    OCTI_V2_UMSG_SUPER2_FIXUP_DECL,
+    OCTI_V2_UMSG_SUPER2_STRET_FIXUP_DECL,
+    OCTI_V2_IMP_TYPE,
+    OCTI_V2_SUPER_IMP_TYPE,
+    OCTI_V2_MESSAGE_REF_CHAIN,
+    OCTI_V2_NST_VAR_DECL,
+    OCTI_V2_CLS_VAR_DECL,
+    OCTI_V2_IVAR_TEMPL,
+    OCTI_V2_IVAR_LIST_TEMPL,
+    OCTI_V2_INST_METH_DECL,
+    OCTI_V2_CLS_METH_DECL,
+    OCTI_V2_IVAR_OFFSET_REF_CHAIN,
     /* APPLE LOCAL end ObjC new abi */
 
     OCTI_MAX
@@ -529,38 +538,45 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define UOBJC_SUPER_decl	objc_global_trees[OCTI_SUPER_DECL]
 
 /* APPLE LOCAL begin ObjC new abi */
-#define objc_newabi_class_template     objc_global_trees[OCTI_NEWABI_CLS_TEMPL]
-#define objc_newabi_class_ro_template  objc_global_trees[OCTI_NEWABI_CLS_RO_TEMPL]
-#define objc_newabi_protocol_template  objc_global_trees[OCTI_NEWABI_PROTO_TEMPL]
+#define objc_v2_class_template     objc_global_trees[OCTI_V2_CLS_TEMPL]
+#define objc_v2_class_ro_template  objc_global_trees[OCTI_V2_CLS_RO_TEMPL]
+#define objc_v2_protocol_template  objc_global_trees[OCTI_V2_PROTO_TEMPL]
 #define objc_imp_type		       objc_global_trees[OCTI_IMP_TYPE]
-#define UOBJC_NEWABI_CLASS_decl        objc_global_trees[OCTI_NEWABI_CLS_DECL]
-#define UOBJC_NEWABI_METACLASS_decl    objc_global_trees[OCTI_NEWABI_MCLS_DECL]
-#define UOBJC_NEWABI_CACHE_decl	       objc_global_trees[OCTI_NEWABI_CACHE_DECL]
-#define UOBJC_NEWABI_VTABLE_decl       objc_global_trees[OCTI_NEWABI_VTABLE_DECL]
+#define UOBJC_V2_CLASS_decl        objc_global_trees[OCTI_V2_CLS_DECL]
+#define UOBJC_V2_METACLASS_decl    objc_global_trees[OCTI_V2_MCLS_DECL]
+#define UOBJC_V2_CACHE_decl	       objc_global_trees[OCTI_V2_CACHE_DECL]
+#define UOBJC_V2_VTABLE_decl       objc_global_trees[OCTI_V2_VTABLE_DECL]
+#define UOBJC_V2_INSTANCE_VARIABLES_decl  objc_global_trees[OCTI_V2_NST_VAR_DECL]
+#define UOBJC_V2_CLASS_VARIABLES_decl	objc_global_trees[OCTI_V2_CLS_VAR_DECL]
+#define UOBJC_V2_INSTANCE_METHODS_decl	objc_global_trees[OCTI_V2_INST_METH_DECL]
+#define UOBJC_V2_CLASS_METHODS_decl		objc_global_trees[OCTI_V2_CLS_METH_DECL]
+#define objc_v2_ivar_template	objc_global_trees[OCTI_V2_IVAR_TEMPL]
 /* classes referenced.  */
 #define classlist_ref_chain	       objc_global_trees[OCTI_CLASSLIST_REF_CHAIN]
 /* struct message_ref_t */
-#define objc_newabi_message_ref_template objc_global_trees[OCTI_MESSAGE_REF_TEMPL]      
+#define objc_v2_message_ref_template objc_global_trees[OCTI_MESSAGE_REF_TEMPL]      
 /* struct super_message_ref_t */
-#define objc_newabi_super_message_ref_template objc_global_trees[OCTI_SUPER_MESSAGE_REF_TEMPL]      
+#define objc_v2_super_message_ref_template objc_global_trees[OCTI_SUPER_MESSAGE_REF_TEMPL]      
 /* struct message_ref_t* */
-#define objc_newabi_selector_type      objc_global_trees[CTI_MESSAGE_SELECTOR_TYPE]	
+#define objc_v2_selector_type      objc_global_trees[CTI_MESSAGE_SELECTOR_TYPE]	
 /* struct super_super_message_ref_t */
-#define objc_newabi_super_selector_type      objc_global_trees[CTI_SUPER_MESSAGE_SELECTOR_TYPE]	
+#define objc_v2_super_selector_type      objc_global_trees[CTI_SUPER_MESSAGE_SELECTOR_TYPE]	
 /* objc_msgSend_fixup_rtp */
-#define umsg_fixup_decl		       objc_global_trees[OCTI_NEWABI_UMSG_FIXUP_DECL]   
+#define umsg_fixup_decl		       objc_global_trees[OCTI_V2_UMSG_FIXUP_DECL]   
 /* objc_msgSend_stret_fixup_rtp */
-#define umsg_stret_fixup_decl	       objc_global_trees[OCTI_NEWABI_UMSG_STRET_FIXUP_DECL]   
+#define umsg_stret_fixup_decl	       objc_global_trees[OCTI_V2_UMSG_STRET_FIXUP_DECL]   
 /* objc_msgSendId_fixup_rtp */
-#define umsg_id_fixup_decl	       objc_global_trees[OCTI_NEWABI_UMSG_ID_FIXUP_DECL]   
+#define umsg_id_fixup_decl	       objc_global_trees[OCTI_V2_UMSG_ID_FIXUP_DECL]   
 /* objc_msgSendId_stret_fixup_rtp */
-#define umsg_id_stret_fixup_decl       objc_global_trees[OCTI_NEWABI_UMSG_ID_STRET_FIXUP_DECL]   
+#define umsg_id_stret_fixup_decl       objc_global_trees[OCTI_V2_UMSG_ID_STRET_FIXUP_DECL]   
 /* objc_msgSendSuper2_fixup_rtp */
-#define umsg_id_super2_fixup_decl      objc_global_trees[OCTI_NEWABI_UMSG_SUPER2_FIXUP_DECL]
+#define umsg_id_super2_fixup_decl      objc_global_trees[OCTI_V2_UMSG_SUPER2_FIXUP_DECL]
 /* objc_msgSendSuper2_stret_fixup_rtp */
-#define umsg_id_super2_stret_fixup_decl objc_global_trees[OCTI_NEWABI_UMSG_SUPER2_STRET_FIXUP_DECL]
-#define objc_newabi_imp_type 		objc_global_trees[OCTI_NEWABI_IMP_TYPE]
-#define objc_newabi_super_imp_type 	objc_global_trees[OCTI_NEWABI_SUPER_IMP_TYPE]
-#define message_ref_chain		objc_global_trees[OCTI_NEWABI_MESSAGE_REF_CHAIN]
+#define umsg_id_super2_stret_fixup_decl objc_global_trees[OCTI_V2_UMSG_SUPER2_STRET_FIXUP_DECL]
+#define objc_v2_imp_type 		objc_global_trees[OCTI_V2_IMP_TYPE]
+#define objc_v2_super_imp_type 	objc_global_trees[OCTI_V2_SUPER_IMP_TYPE]
+#define message_ref_chain		objc_global_trees[OCTI_V2_MESSAGE_REF_CHAIN]
+#define objc_v2_ivar_list_ptr	objc_global_trees[OCTI_V2_IVAR_LIST_TEMPL]
+#define ivar_offset_ref_chain		objc_global_trees[OCTI_V2_IVAR_OFFSET_REF_CHAIN]
 /* APPLE LOCAL end ObjC new abi */
 #endif /* GCC_OBJC_ACT_H */

@@ -1,3 +1,42 @@
+2005-11-18  Fariborz Jahanian <fjahanian@apple.com>
+
+	objc new meta-data definitions - part 2
+
+	* objc/objc-act.c (build_v2_ivar_t_template): New
+	(build_v2_ivar_list_t_template): New
+	(generate_v2_ivar_lists): New
+	(build_v2_ivar_list_initializer): New
+	(generate_v2_ivars_list): New
+	(generate_v2_dispatch_tables): New
+	(ivar_offset_ref): New
+	(generate_v2_ivar_offset_ref_lists): New
+	(generate_v2_protocol_list): New
+	(build_v2_protocol_reference): New
+	(generate_v2_protocol_references): New
+	(generate_v2_protocols): New
+	(build_v2_descriptor_table_initializer): New
+	(generate_v2_method_descriptors): New
+	(synth_module_prologue): Declare type 'struct ivar_list_t*'
+        (build_message_reference_decl): Use a new indexing for building
+     	message_ref names.
+	(generate_descriptor_table): Added the 'newabi' arg to initilize the
+	'entsize' field for 'method_list_t' meta data.	
+	(build_protocol_initializer): Added the 'newabi' arg so as not
+	to initialize the non-existing 'isa' field for 'struct protocol_t'
+	meta data in the new abi.
+	(build_method_list_template): For new abi add 'entsize' field to
+	'struct method_list_t'.
+	(generate_dispatch_table): Added the 'newabi' argument so for new
+	abi we set the 'entsize' field of 'struct method_list_t'.	
+	(generate_protocol_list): Removed the 'newabi' argument and its use.
+	New abi now has its own generate_v2_protocol_list routine.
+	(generate_v2_shared_structures): Call generate_v2_protocol_references
+	and generate_v2_protocol_list. 
+	(finish_objc): Generate new ivar-list, method-list, protocol-list
+	meta data.
+
+	* objc/objc-act.h: Assortment of new macro and global variable declarations.
+
 2005-11-14  Fariborz Jahanian <fjahanian@apple.com>
 
 	objc new messaging - part 3
