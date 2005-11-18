@@ -1,5 +1,8 @@
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* openmp.c (gfc_match_omp_clauses): Fix check for non-INTRINSIC
+	procedure symbol in REDUCTION.
+
 	* trans-openmp.c (gfc_trans_omp_array_reduction): Use gfc_add
 	for MINUS_EXPR OMP_CLAUSE_REDUCTION_CODE.
 

@@ -268,9 +268,29 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	      gfc_find_symbol (buffer, NULL, 1, &sym);
 	      if (sym != NULL)
 		{
-		  if (!sym->attr.intrinsic)
-		    gfc_error_now ("%s is not INTRINSIC procedure name at %C",
-				   buffer);
+		  if (sym->attr.intrinsic)
+		    n = sym->name;
+		  else if ((sym->attr.flavor != FL_UNKNOWN
+			    && sym->attr.flavor != FL_PROCEDURE)
+			   || sym->attr.external
+			   || sym->attr.generic
+			   || sym->attr.entry
+			   || sym->attr.result
+			   || sym->attr.dummy
+			   || sym->attr.subroutine
+			   || sym->attr.pointer
+			   || sym->attr.target
+			   || sym->attr.cray_pointer
+			   || sym->attr.cray_pointee
+			   || (sym->attr.proc != PROC_UNKNOWN
+			       && sym->attr.proc != PROC_INTRINSIC)
+			   || sym->attr.if_source != IFSRC_UNKNOWN
+			   || sym == sym->ns->proc_name)
+		    {
+		      gfc_error_now ("%s is not INTRINSIC procedure name "
+				     "at %C", buffer);
+		      sym = NULL;
+		    }
 		  else
 		    n = sym->name;
 		}
@@ -284,6 +304,18 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 		reduction = OMP_LIST_IOR;
 	      else if (strcmp (n, "ieor") == 0)
 		reduction = OMP_LIST_IEOR;
+	      if (reduction != OMP_LIST_NUM
+		  && sym != NULL
+		  && ! sym->attr.intrinsic
+		  && ! sym->attr.use_assoc
+		  && ((sym->attr.flavor == FL_UNKNOWN
+		       && gfc_add_flavor (&sym->attr, FL_PROCEDURE,
+					  sym->name, NULL) == FAILURE)
+		      || gfc_add_intrinsic (&sym->attr, NULL) == FAILURE))
+		{
+		  gfc_free_omp_clauses (c);
+		  return MATCH_ERROR;
+		}
 	    }
 	  if (reduction != OMP_LIST_NUM
 	      && gfc_match_omp_variable_list (" :", &c->lists[reduction],
