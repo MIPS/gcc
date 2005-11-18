@@ -1,5 +1,9 @@
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* Makefile.am: Move libgomp_f.h from nodist_include_HEADERS
+	to nodist_noinst_HEADERS.
+	* Makefile.in: Rebuilt.
+
 	* config/posix/omp-lock.h (omp_nest_lock_t): Change into struct,
 	add integer count field.
 	* config/posix/lock.c (omp_destroy_nest_lock): Adjust for
