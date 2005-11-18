@@ -1,3 +1,10 @@
+2005-11-18  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c (include_spec_function): New.
+	(static_spec_functions): Add it.
+	(main): Move load of libgomp.spec ...
+	(LINK_COMMAND_SPEC): ... here.
+
 2005-11-17  Richard Henderson  <rth@redhat.com>
 
 	PR 24845

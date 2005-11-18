@@ -351,6 +351,7 @@ static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
 static const char *replace_outfile_spec_function (int, const char **);
 static const char *version_compare_spec_function (int, const char **);
+static const char *include_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -697,7 +698,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(mfwrap) %(link_gomp) %(link_libgcc) %o %(mflib)\
+    %{static:} %{L*} %(mfwrap) %{fopenmp:%:include(libgomp.spec)%(link_gomp)}\
+    %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -1589,6 +1591,7 @@ static const struct spec_function static_spec_functions[] =
   { "if-exists-else",		if_exists_else_spec_function },
   { "replace-outfile",		replace_outfile_spec_function },
   { "version-compare",		version_compare_spec_function },
+  { "include",			include_spec_function },
   { 0, 0 }
 };
 
@@ -6640,20 +6643,6 @@ main (int argc, const char **argv)
       putenv_from_prefixes (&exec_prefixes, "COMPILER_PATH");
       putenv_from_prefixes (&startfile_prefixes, LIBRARY_PATH_ENV);
 
-      /* If -fopenmp is in effect, load the spec file that contains
-	 the set of libraries we may need.  */
-      {
-	const char *str = "fopenmp";
-	char *file;
-
-	if (switch_matches (str, str+strlen(str), 0))
-	  {
-	    str = "libgomp.spec";
-	    file = find_a_file (&startfile_prefixes, str, R_OK, 0);
-	    read_specs (file ? file : str, FALSE);
-	  }
-      }
-
       value = do_spec (link_command_spec);
       if (value < 0)
 	error_count = 1;
@@ -7774,4 +7763,23 @@ version_compare_spec_function (int argc, const char **argv)
     return NULL;
 
   return argv[nargs + 2];
+}
+
+/* %:include builtin spec function.  This differs from %include in that it
+   can be nested inside a spec, and thus be conditionalized.  It takes 
+   one argument, the filename, and looks for it in the startfile path.  
+   The result is always NULL, i.e. an empty expansion.  */
+
+static const char *
+include_spec_function (int argc, const char **argv)
+{
+  char *file;
+
+  if (argc != 1)
+    abort ();
+
+  file = find_a_file (&startfile_prefixes, argv[0], R_OK, 0);
+  read_specs (file ? file : argv[0], FALSE);
+
+  return NULL;
 }
