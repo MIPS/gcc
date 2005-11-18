@@ -76,21 +76,38 @@ omp_init_nest_lock (omp_nest_lock_t *lock)
 
   pthread_mutexattr_init (&attr);
   pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);
-  pthread_mutex_init (lock, &attr);
+  pthread_mutex_init (&lock->lock, &attr);
+  lock->count = 0;
   pthread_mutexattr_destroy (&attr);
 }
 
-extern void omp_destroy_nest_lock (omp_nest_lock_t *)
-	__attribute__((alias ("omp_destroy_lock")));
+void
+omp_destroy_nest_lock (omp_nest_lock_t *lock)
+{
+  pthread_mutex_destroy (&lock->lock);
+}
 
-extern void omp_set_nest_lock (omp_nest_lock_t *)
-	__attribute__((alias ("omp_set_lock")));
+void
+omp_set_nest_lock (omp_nest_lock_t *lock)
+{
+  pthread_mutex_lock (&lock->lock);
+  lock->count++;
+}
 
-extern void omp_unset_nest_lock (omp_nest_lock_t *)
-	__attribute__((alias ("omp_unset_lock")));
+void
+omp_unset_nest_lock (omp_nest_lock_t *lock)
+{
+  lock->count--;
+  pthread_mutex_unlock (&lock->lock);
+}
 
-extern int omp_test_nest_lock (omp_nest_lock_t *)
-	__attribute__((alias ("omp_test_lock")));
+int
+omp_test_nest_lock (omp_nest_lock_t *lock)
+{
+  if (pthread_mutex_trylock (&lock->lock) == 0)
+    return ++lock->count;
+  return 0;
+}
 
 ialias (omp_init_lock)
 ialias (omp_init_nest_lock)

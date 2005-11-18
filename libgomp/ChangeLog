@@ -1,3 +1,23 @@
+2005-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/posix/omp-lock.h (omp_nest_lock_t): Change into struct,
+	add integer count field.
+	* config/posix/lock.c (omp_destroy_nest_lock): Adjust for
+	omp_nest_lock_t type change.
+	(omp_init_nest_lock): Likewise.  Initialize count to 0.
+	(omp_set_nest_lock): Adjust for omp_nest_lock_t type change.
+	Increment count.
+	(omp_unset_nest_lock): Adjust for omp_nest_lock_t type change.
+	Decrement count.
+	(omp_test_nest_lock): Adjust for omp_nest_lock_t type change.
+	Increment count if successful and return the new nesting level.
+	* config/linux/lock.c (omp_test_nest_lock): Return new nesting level.
+	* omp_lib.f90.in (omp_test_lock): Fix LOCK argument type.
+	* testsuite/libgomp.c/lib-1.c: New test.
+	* testsuite/libgomp.fortran/lib1.f90: New test.
+	* testsuite/libgomp.fortran/lib2.f: New test.
+	* testsuite/libgomp.fortran/lib3.f: New test.
+
 2005-11-17  Richard Henderson  <rth@redhat.com>
 
 	PR 24845

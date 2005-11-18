@@ -8,4 +8,4 @@
 #include <pthread.h>
 
 typedef pthread_mutex_t omp_lock_t;
-typedef pthread_mutex_t omp_nest_lock_t;
+typedef struct { pthread_mutex_t lock; int count; } omp_nest_lock_t;

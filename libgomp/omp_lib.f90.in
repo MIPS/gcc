@@ -144,7 +144,7 @@
           function omp_test_lock (lock)
             use omp_lib_kinds
             logical (omp_logical_kind) :: omp_test_lock
-            integer (omp_nest_lock_kind), intent (inout) :: lock
+            integer (omp_lock_kind), intent (inout) :: lock
           end function omp_test_lock
         end interface
 

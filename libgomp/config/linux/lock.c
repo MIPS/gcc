@@ -165,10 +165,7 @@ omp_test_nest_lock (omp_nest_lock_t *lock)
       return 1;
     }
   if (otid == tid)
-    {
-      lock->count++;
-      return 1;
-    }
+    return ++lock->count;
 
   return 0;
 }
