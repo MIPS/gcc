@@ -1,3 +1,97 @@
+2005-11-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/24348
+	* config.gcc (hppa*-*-hpux*): Add pa/t-slibgcc-elf-ver to tmake config
+	when not using sjlj exceptions.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Add -lpthread in static links.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
+	* config/pa/som.h (ASM_PREFERRED_EH_DATA_FORMAT): Delete define.
+	* config/pa/linux-unwind.h (pa32_fallback_frame_state): Use
+	DWARF_ALT_FRAME_RETURN_COLUMN instead of column 0 as return column.
+	* config/pa/pa-hpux.h (MD_UNWIND_SUPPORT): New define.
+	* config/pa/pa-linux.h (INCOMING_RETURN_ADDR_RTX,
+	DWARF_FRAME_RETURN_COLUMN, ASM_PREFERRED_EH_DATA_FORMAT,
+	ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX): Delete defines.
+	* config/pa/pa.h (ARG_POINTER_CFA_OFFSET): Delete.
+	(FRAME_POINTER_CFA_OFFSET, INCOMING_RETURN_ADDR_RTX,
+	DWARF_FRAME_RETURN_COLUMN, DWARF_ALT_FRAME_RETURN_COLUMN,
+	ASM_PREFERRED_EH_DATA_FORMAT, ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX): New
+	defines.
+	* config/pa/hpux-unwind.h: New file.
+
+2005-11-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/rs6000/rs6000.h (ASM_OUTPUT_WEAKREF): Define.
+	* defaults.h (ASM_OUTPUT_WEAKREF): Add decl argument.
+	* varasm.c (do_assemble_alias): Adjust call.
+	(weak_finish): Don't use ASM_WEAKEN_LABEL if ASM_WEAKEN_DECL
+	is defined.
+	* doc/tm.texi (ASM_OUTPUT_WEAKREF): Document it.
+
+2005-11-17  James E Wilson  <wilson@specifix.com>
+
+	* tree.def (FUNCTION_DECL): Correct typo in comment.
+
+2005-11-17  Richard Henderson  <rth@redhat.com>
+
+	* dwarf2out.c (dw_cfi_oprnd_struct): Reduce dw_cfi_reg_num to int.
+	(lookup_cfa_1): Apply data alignment to DW_CFA_def_cfa_offset_sf
+	and DW_CFA_def_cfa_sf.
+	(def_cfa_1): Use DW_CFA_def_cfa_offset_sf with negative values.
+	(dbx_reg_number): Don't assert particular registers here.
+	(based_loc_descr): ... do it here instead.  Fold in ...
+	(eliminate_reg_to_offset): ... this function.
+	(compute_frame_pointer_to_cfa_displacement): Fold in the effects
+	of eliminate_reg_to_offset; use FRAME_POINTER_CFA_OFFSET.
+	* unwind-dw2.c (execute_cfa_program): Apply data align factor
+	to DW_CFA_def_cfa_offset_sf and DW_CFA_def_cfa_sf.
+	* function.c (instantiate_new_reg): Use FRAME_POINTER_CFA_OFFSET.
+	(instantiate_virtual_regs): Likewise.
+	* var-tracking.c (adjust_stack_reference): Likewise.
+	* doc/tm.texi (FRAME_POINTER_CFA_OFFSET): New.
+
+2005-11-17  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/elf.h (STARTFILE_SPEC): Add "crtlibid%O%s"
+	* config/bfin/uclinux.h (STARFILE_SPEC): Likewise.
+	* config/bfin/t-bfin-elf (EXTRA_PARTS, EXTRA_MULTILIB_PARTS): Add
+	crtlibid.o.
+	($(T)crtlibid.o): New rule.
+
+2005-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24851
+	* fold-const.c (extract_array_ref): Return byte offset
+	in all cases.
+	(fold_binary): Fold &x[a] CMP &x[b] to
+	a*sizeof(*x) CMP b*sizeof(*x) to get correct overflow
+	behavior.
+
+2005-11-16  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/23497
+	* tree-ssa.c (warn_uninitialized_var): Skip real and imaginary
+	parts of an SSA_NAME.
+
+2005-11-16  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	PR target/24861
+	* arm.md (split for movsf with immediate): Restrict split to insns
+	that set a general register.
+
+2005-11-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/ia64/unwind-ia64.c (uw_advance_context): New.  Call
+	uw_update_context.
+	* unwind-dw2.c (uw_advance_context): Likewise.
+	* unwind-sjlj.c (uw_advance_context): Likewise.  Also call
+	_Unwind_SjLj_Unregister.
+	* unwind.inc (_Unwind_ForcedUnwind_Phase2): Call uw_advance_context.
+
+2005-11-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* unwind-sjlj.c (_Unwind_GetCFA): Handle the builtin_setjmp case.
+
 2005-11-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* config/alpha/alpha.c (alpha_init_builtins): Use type_for_mode

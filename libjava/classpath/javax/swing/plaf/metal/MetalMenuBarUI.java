@@ -1,5 +1,5 @@
-/* Handler.java -- "file" protocol handler for java.net
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+/* MetalMenuBarUI.java -- MenuBar UI for the Metal L&F
+   Copyright (C) 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,57 +35,54 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-package gnu.java.net.protocol.file;
 
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLStreamHandler;
+package javax.swing.plaf.metal;
+
+import java.awt.Graphics;
+
+import javax.swing.JComponent;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+import javax.swing.plaf.ComponentUI;
+import javax.swing.plaf.basic.BasicMenuBarUI;
 
 /**
- * This is the protocol handler for the "file" protocol.
- * It implements the abstract openConnection() method from
- * URLStreamHandler by returning a new FileURLConnection object (from
- * this package).  All other methods are inherited
+ * A UI implementation for MenuBar in the Metal Look &amp; Feel.
+ * 
+ * @author Roman Kennke (kennke@aicas.com)
  *
- * @author Aaron M. Renn (arenn@urbanophile.com)
- * @author Warren Levy (warrenl@cygnus.com)
+ * @since 1.5
  */
-public class Handler extends URLStreamHandler
+public class MetalMenuBarUI extends BasicMenuBarUI
 {
   /**
-   * A do nothing constructor
+   * Creates and returns a new instance of this UI for the specified component.
+   *
+   * @param c the component to create a UI for
+   *
+   * @return the UI for the component
    */
-  public Handler()
+  public static ComponentUI createUI(JComponent c)
   {
+    return new MetalMenuBarUI();
   }
+
 
   /**
-   * This method returs a new FileURLConnection for the specified URL
-   *
-   * @param url The URL to return a connection for
-   *
-   * @return The URLConnection
-   *
-   * @exception IOException If an error occurs
+   * If the property <code>MenuBar.gradient</code> is set, then a gradient
+   * is painted as background, otherwise the normal superclass behaviour is
+   * called.
    */
-  protected URLConnection openConnection(URL url) throws IOException
+  public void update(Graphics g, JComponent c)
   {
-    // If a hostname is set, then we need to switch protocols to ftp
-    // in order to transfer this from the remote host.
-    String host = url.getHost();
-    if ((host != null) && (! host.equals("")))
+    if (c.isOpaque() && UIManager.get("MenuBar.gradient") != null)
       {
-	// Reset the protocol (and implicitly the handler) for this URL.
-	// Then have the URL attempt the connection again, as it will
-	// get the changed handler the next time around.
-	// If the ftp protocol handler is not installed, an 
-	// exception will be thrown from the new openConnection() call.
-	setURL (url, "ftp", url.getHost(), url.getPort(), url.getFile(),
-	        url.getRef());
-	return url.openConnection();
+        MetalUtils.paintGradient(g, 0, 0, c.getWidth(), c.getHeight(),
+                                 SwingConstants.VERTICAL, "MenuBar.gradient");
+        paint(g, c);
       }
-
-    return new Connection(url);
+    else
+      super.update(g, c);
   }
-} // class Handler
+
+}

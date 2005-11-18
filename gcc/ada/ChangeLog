@@ -1,3 +1,16 @@
+2005-11-17  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	PR ada/22333
+	* trans.c (gnat_gimplify_expr, case ADDR_EXPR): Always make
+	a temporary if taking the address of something that is neither
+	reference, declaration, or constant, since the gimplifier
+	can't handle that case.
+
+2005-11-17  Laurent GUERBY  <laurent@guerby.net>
+
+	PR ada/24857
+	* s-auxdec-empty.ads, s-auxdec-empty.adb: New files.
+	
 2005-11-16  Richard Guenther  <rguenther@suse.de>
 
 	* Makefile.in: Add EH_MECHANISM=-gcc to s390(x) linux.

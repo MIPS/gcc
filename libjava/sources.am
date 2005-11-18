@@ -975,10 +975,10 @@ gnu/java/net.list: $(gnu_java_net_source_files)
 
 
 gnu_java_net_protocol_file_source_files = \
-gnu/java/net/protocol/file/Connection.java \
-gnu/java/net/protocol/file/Handler.java
+classpath/gnu/java/net/protocol/file/Connection.java \
+classpath/gnu/java/net/protocol/file/Handler.java
 
-gnu_java_net_protocol_file_header_files = $(patsubst %.java,%.h,$(gnu_java_net_protocol_file_source_files))
+gnu_java_net_protocol_file_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_net_protocol_file_source_files)))
 
 gnu/java/net/protocol/file.list: $(gnu_java_net_protocol_file_source_files)
 	@$(mkinstalldirs) $(dir $@)
@@ -3009,7 +3009,7 @@ classpath/java/net/NoRouteToHostException.java \
 classpath/java/net/PasswordAuthentication.java \
 classpath/java/net/PortUnreachableException.java \
 classpath/java/net/ProtocolException.java \
-java/net/ServerSocket.java \
+classpath/java/net/ServerSocket.java \
 classpath/java/net/Socket.java \
 classpath/java/net/SocketAddress.java \
 classpath/java/net/SocketException.java \
@@ -3629,7 +3629,7 @@ classpath/java/text/NumberFormat.java \
 classpath/java/text/ParseException.java \
 classpath/java/text/ParsePosition.java \
 classpath/java/text/RuleBasedCollator.java \
-java/text/SimpleDateFormat.java \
+classpath/java/text/SimpleDateFormat.java \
 classpath/java/text/StringCharacterIterator.java
 
 java_text_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_text_source_files)))
@@ -3832,9 +3832,9 @@ java/util/zip/GZIPOutputStream.java \
 java/util/zip/Inflater.java \
 java/util/zip/InflaterInputStream.java \
 classpath/java/util/zip/ZipConstants.java \
-java/util/zip/ZipEntry.java \
+classpath/java/util/zip/ZipEntry.java \
 classpath/java/util/zip/ZipException.java \
-java/util/zip/ZipFile.java \
+classpath/java/util/zip/ZipFile.java \
 classpath/java/util/zip/ZipInputStream.java \
 classpath/java/util/zip/ZipOutputStream.java
 
@@ -5133,6 +5133,7 @@ classpath/javax/swing/plaf/metal/MetalInternalFrameTitlePane.java \
 classpath/javax/swing/plaf/metal/MetalInternalFrameUI.java \
 classpath/javax/swing/plaf/metal/MetalLabelUI.java \
 classpath/javax/swing/plaf/metal/MetalLookAndFeel.java \
+classpath/javax/swing/plaf/metal/MetalMenuBarUI.java \
 classpath/javax/swing/plaf/metal/MetalPopupMenuSeparatorUI.java \
 classpath/javax/swing/plaf/metal/MetalProgressBarUI.java \
 classpath/javax/swing/plaf/metal/MetalRadioButtonUI.java \
