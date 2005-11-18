@@ -126,6 +126,15 @@
 3966342: gcc.dg/20020919-1.c  (test for errors, line 231)
 #4054717: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
 #4054717: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O0
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O1
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O2
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -fomit-frame-pointer
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -g
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -Os
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -fast
 #
 # the following failures are for -mcpu=G5
 #4085878: gcc.apple/altivec-5.c  (test for warnings, line 30)
@@ -154,7 +163,7 @@
 3966342: gcc.dg/pr17133.c (test for excess errors)
 3966342: gcc.dg/lvalue-cast-1.c (test for excess errors)
 3939205: gcc.apple/altivec-faltivec-1.c (test for excess errors)
-#3939205: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
+3939205: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
 3939205: gcc.apple/altivec-faltivec-2.c (test for excess errors)
 3939205: gcc.apple/altivec-maltivec-1.c (test for excess errors)
 3939205: gcc.dg/framework-1.c (test for excess errors)
@@ -249,6 +258,9 @@
 4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -g
 4239312: gcc.c-torture/execute/loop-2b.c compilation,  -Os
 4157563: gcc.dg/stabs-4232445.c (test for excess errors)
+4331438: gcc.apple/asm-test-nofralloc.c execution test
+4331439: gcc.apple/longcall-1.c (test for excess errors)
+4331447: gcc.apple/fix-and-continue-1.c (test for excess errors)
 #
 # the following failures are for x86 only
 3846097: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
