@@ -1,7 +1,4 @@
-! { dg-do run { target *-*-linux* *-*-solaris* } }
-! This test currently only runs on systems where using ftruncate on
-!   /dev/null fails (errno set to EINVAL). See PR 21593 for details.
-!
+! { dg-do run }
 ! pr19478 read from /dev/null
 ! Thomas.Koenig@online.de
       character*20 foo

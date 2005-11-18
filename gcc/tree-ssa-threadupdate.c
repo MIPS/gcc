@@ -199,7 +199,7 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
 {
   /* We can use the generic block duplication code and simply remove
      the stuff we do not need.  */
-  rd->dup_block = duplicate_block (bb, NULL);
+  rd->dup_block = duplicate_block (bb, NULL, NULL);
 
   /* Zero out the profile, since the block is unreachable for now.  */
   rd->dup_block->frequency = 0;
@@ -609,6 +609,9 @@ redirect_edges (void **slot, void *data)
 	    fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		     e->src->index, e->dest->index, rd->dup_block->index);
 
+	  rd->dup_block->count += e->count;
+	  rd->dup_block->frequency += EDGE_FREQUENCY (e);
+	  EDGE_SUCC (rd->dup_block, 0)->count += e->count;
 	  /* Redirect the incoming edge to the appropriate duplicate
 	     block.  */
 	  e2 = redirect_edge_and_branch (e, rd->dup_block);
@@ -721,6 +724,8 @@ thread_block (basic_block bb)
       else
 	{
 	  edge e2 = e->aux;
+	  update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
+					   e->count, e->aux);
 
 	  /* If we thread to a loop exit edge, then we will need to 
 	     rediscover the loop exit edges.  While it may seem that

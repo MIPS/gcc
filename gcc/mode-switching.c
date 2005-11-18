@@ -456,6 +456,18 @@ optimize_mode_switching (FILE *file)
 
 	  REG_SET_TO_HARD_REG_SET (live_now,
 				   bb->il.rtl->global_live_at_start);
+
+	  /* Pretend the mode is clobbered across abnormal edges.  */
+	  {
+	    edge_iterator ei;
+	    edge e;
+	    FOR_EACH_EDGE (e, ei, bb->preds)
+	      if (e->flags & EDGE_COMPLEX)
+		break;
+	    if (e)
+	      RESET_BIT (transp[bb->index], j);
+	  }
+
 	  for (insn = BB_HEAD (bb);
 	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
@@ -736,7 +748,7 @@ rest_of_handle_mode_switching (void)
 
 struct tree_opt_pass pass_mode_switching =
 {
-  NULL,                                 /* name */
+  "mode-sw",                            /* name */
   gate_mode_switching,                  /* gate */
   rest_of_handle_mode_switching,        /* execute */
   NULL,                                 /* sub */
@@ -747,6 +759,6 @@ struct tree_opt_pass pass_mode_switching =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

@@ -1,4 +1,730 @@
-2005-07-06  Colin Walters  <walters@verbum.org>
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java: Removed, fully merged now.
+	* java/util/zip/ZipFile.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  Tom Tromey  <tromey@redhat.com>
+
+	classpath/23890:
+	* java/util/Calendar.java (equals): Include other calendar
+	attributes.
+	(hashCode): Updated.
+	* java/util/GregorianCalendar.java (hashCode): New method.
+	(equals): Use super.equals().
+
+2005-11-15  Sven de Marothy  <sven@physto.se>
+
+	* java/util/Calendar (setTimeInMillis): Recompute time fields.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/SimpleTimeZone.java: Removed, fully merged now.
+	* java/util/Date.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/util/Calendar.java: fixed minor problems in API docs,
+	* java/util/Date.java: likewise,
+	* java/util/ResourceBundle.java: likewise,
+	* java/util/SimpleTimeZone.java: likewise,
+
+2005-11-15  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java
+	(parseContent): Removed bogus println and fixed bug #24422.
+		
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/ObjectStreamClass.java: Removed, fully merged now.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  Wolfgang Baer  <WBaer@gmx.de>
+
+	* java/io/ObjectInputStream.java
+	(processResolution): Pass Error, RuntimeException and
+	ObjectStreamException through to the caller.
+	(readObject): Documentation update.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.19 + gcj-import-20051115.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+	* scripts/makemake.tcl: Use glob -nocomplain.
+
+2005-11-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* Makefile.in: Re-generated.
+	* gnu/awt/xlib/XGraphicsDevice.java: New file.
+	* gnu/awt/xlib/XToolkit.java
+	(getLocalGraphicsEnvironment): Implemented. 
+	* gnu/awt/xlib/XGraphicsEnvironment.java: New file.
+	* sources.am: Re-generated.
+
+2005-15-09  David Daney <ddaney@avtrex.com>
+
+	PR libgcj/15430
+	* gnu/java/net/natPlainSocketImplPosix.cc (throw_on_sock_closed): New
+	function.
+	(accept): Call it.
+	(close): Call shutdown before closing.
+	(read()): Call read_helper with proper parameters.
+	(read(buffer, int, int)): Likewise.
+	(read_helper):  Pass pointer to the PlainSocketImpl, remove native_fd
+	and timeout parameters.  Make prototype to match. Use 
+	pointer to PlainSocketImpl to access members. Call throw_on_sock_closed
+	in two places.
+
+2005-11-15  Andrew Haley  <aph@redhat.com>
+
+	* Merge from Classpath head:
+
+   2005-09-16  Andrew Haley  <aph@redhat.com>
+   
+           * java/io/ObjectStreamClass.java (findAccessibleMethod): Allow
+           protected readResolve().  Rewrite accessibility check.
+   
+   2005-07-07  Jeroen Frijters  <jeroen@frijters.net>
+   
+           * java/io/ObjectStreamClass.java
+           (findAccessibleMethod): Added code to make method accessible.
+   
+   2005-07-03  Daniel Bonniot  <bonniot@users.sf.net>
+   
+           * java/io/ObjectStreamClass.java (inSamePackage): New private method.
+           (findAccessibleMethod): Likewise.
+           (cacheMethods): Lookup readResolve and writeReplace using the new
+           findAccessibleMethod().
+   
+2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/net/natVMNetworkInterfaceWin32.cc: Include
+	java/net/VMNetworkInterface.h.
+
+2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
+	    David Daney  <ddaney@avtrex.com>
+
+	* gnu/java/net/natPlainSocketImplWin32.cc: Updated copyright.
+	(read): Handle count == 0 case.
+
+2005-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail (non-jls-zip-2): Now
+	passes.
+
+2005-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24587:
+	* gnu/classpath/SystemProperties.java: Set gnu.classpath.version.
+
+2005-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23763.  From aeby@graeff.com.
+	* java/lang/natPosixProcess.cc (nativeSpawn): Unblock SIGCHLD
+	before exec.
+
+2005-11-08  Mark Wielaard  <mark@klomp.org>
+
+	* scripts/makemake.tcl: Set package gnu/javax/sound/midi to bc.
+
+2005-11-07  David Daney  <ddaney@avtrex.com>
+
+	* mauve-libgcj: Disable javax.rmi.* and
+	java.io.InputStreamReader.getEncoding.
+
+2005-11-04  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/14358, libgcj/24552:
+	* gnu/gcj/convert/IOConverter.java: Regenerate aliases.  Add
+	aliases for 'euc_jp' and 'eucjp'.
+	* scripts/encodings.pl: Recognize 'none', not 'NONE'.  Include
+	canonical names in output.
+	(%map): Added UnicodeLittle and UnicodeBig.
+
+2005-11-04  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* include/sh-signal.h (MAKE_THROW_FRAME): Remove trailing whitespace.
+
+2005-11-02  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_find_lib): Add dylib to the shared
+	library extensions.
+
+2005-10-12  Andrew Haley  <aph@redhat.com>
+
+	PR java/24251
+	* link.cc (ensure_method_table_complete): Install Miranda methods
+	for interfaces too.
+
+2005-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.lang/ExtraClassLoader.out: New file.
+	* testsuite/libjava.lang/TestProxy.java (MyInvocationHandler):
+	Now static.
+
+2005-10-05  Richard Henderson  <rth@redhat.com>
+
+	PR target/23602
+	* configure.host (i?86-*): Set -fomit-frame-pointer in libgcj_flags,
+	but not BACKTRACESPEC.
+	(x86_64-*): Similarly.  Don't set -ffloat-store in 64-bit mode.
+
+2005-10-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* testsuite/lib/jni.exp (gcj_jni_test_one): For
+	darwin, use -shared-libgcc not -lgcc_s, and explain why.
+	(gcj_jni_invocation_test_one): Likewise.
+
+2005-09-30  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24051:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (toolexeclib_LTLIBRARIES): Add Qt library if
+	requested.
+	(lib_gnu_java_awt_peer_qt_la_SOURCES): New variable.
+	(lib_gnu_java_awt_peer_qt_la_LIBADD): Likewise.
+	(lib_gnu_java_awt_peer_qt_la_DEPENDENCIES): Likewise.
+	(lib_gnu_java_awt_peer_qt_la_LDFLAGS): Likewise.
+	(lib_gnu_java_awt_peer_qt_la_LINK): Likewise.
+	* configure: Rebuilt.
+	* configure.ac: Pass --enable-qt-peers when qt is requested.
+
+2005-09-29  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac: Fix typo.
+	* configure: Regenerate.
+
+2005-09-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* sysdep/powerpc/locks.h: Use 64-bit versions of primitives when
+	__LP64__ is defined rather than __powerpc64__.
+	(compare_and_swap): 'ret' is an obj_addr_t not just an int.
+	(compare_and_swap_release): Likewise.
+
+2005-09-28  David Daney  <ddaney@avtrex.com>
+
+	* HACKING: Update instructions for classpath import.
+
+2005-09-27  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23367:
+	* include/jvm.h (_Jv_FreeMethodCache): Declare.
+	* java/lang/natClass.cc (MCACHE_SIZE): Conditional on HAVE_TLS.
+	(struct _Jv_mcache): Likewise.
+	(method_cache): Likewise.
+	(_Jv_FindMethodInCache): Do nothing unless TLS is available.
+	(_Jv_AddMethodToCache): Likewise.
+	(_Jv_FreeMethodCache): New function.
+	* java/lang/natThread.cc (finish_): Call _Jv_FreeMethodCache.
+	* aclocal.m4, configure, include/config.h.in: Rebuilt.
+	* configure.ac: Invoke GCC_CHECK_TLS.
+
+2005-09-27  Tom Tromey  <tromey@redhat.com>
+
+	* configure, Makefile.in: Rebuilt.
+	* sources.am: Rebuilt.
+	* scripts/makemake.tcl (emit_bc_rule): Special-case qt.
+	* configure.ac (TOOLKIT): Handle Qt peers properly.
+
+2005-09-23  Tom Tromey  <tromey@redhat.com>
+
+	Imported Classpath 0.18.
+	* sources.am, Makefile.in: Updated.
+	* Makefile.am (nat_source_files): Removed natProxy.cc.
+	* java/lang/reflect/natProxy.cc: Removed.
+	* gnu/classpath/jdwp/VMFrame.java,
+	gnu/classpath/jdwp/VMIdManager.java,
+	gnu/classpath/jdwp/VMVirtualMachine.java,
+	java/lang/reflect/VMProxy.java: New files.
+
+2005-09-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* scripts/makemake.tcl (verbose): Add gnu/java/awt/peer/qt to BC
+	list.
+
+2005-09-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/net/DefaultContentHandlerFactory.java (getContent):
+	Remove ClasspathToolkit references.
+
+2005-09-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/awt/xlib/XCanvasPeer.java: Add new peer methods.
+	* gnu/awt/xlib/XFramePeer.java: Likewise.
+	* gnu/awt/xlib/XGraphicsConfiguration.java: Likewise.
+
+2005-09-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (libgcjawt_la_SOURCES): Remove jawt.c.  Add
+	classpath/native/jawt/jawt.c.
+	* Makefile.in: Regenerate.
+	* jawt.c: Remove file.
+	* include/Makefile.am (tool_include__HEADERS): Remove jawt.h and
+	jawt_md.h.  Add ../classpath/include/jawt.h and
+	../classpath/include/jawt_md.h.
+	* include/Makefile.in: Regenerate.
+	* include/jawt.h: Regenerate.
+	* include/jawt_md.h: Regenerate.
+
+2005-09-21  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/gcj/runtime/BootClassLoader.java (BootClassLoader): Pass
+	`null' parent ClassLoader to parent constructor.
+	* gnu/gcj/runtime/HelperClassLoader.java (HelperClassLoader): New
+	constructor.
+
+2005-09-21  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* testsuite/libjava.jacks/jacks.xfail: Updated for PR java/23891.
+
+2005-09-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_invocation_test_one):
+	Use libjava_find_lib to find the proper libgcj.
+
+2005-09-16  Anthony Green  <green@redhat.com>
+
+	PR libgcj/20198
+	* java/net/URLClassLoader.java (FileURLLoader.getResource): File
+	resources should all have canonicalized names.
+
+2005-09-15  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/16032:
+	* interpret.cc (AVAL1U): Resolve pool entry when not direct
+	threaded.
+	(AVAL2U): Likewise.
+	(compile): Handle 'ldc class' specially.
+	(_Jv_InterpMethod::run): Added special 'ldc class' instruction.
+	* verify.cc (check_constant): Handle 'ldc class' for 1.5 classes.
+	* defineclass.cc (handleCodeAttribute): Set new field.
+	(MAJOR_1_1, MINOR_1_1, MAJOR_1_2, MINOR_1_2, MAJOR_1_3, MINOR_1_3,
+	MAJOR_1_4, MINOR_1_4, MAJOR_1_5, MINOR_1_5): New defines.
+	(parse): Check version numbers.
+	(_Jv_ClassReader::is_15): New field.
+	(_Jv_ClassReader): Initialize it.
+	* include/java-interp.h (_Jv_InterpMethod::is_15): New field.
+
+2005-09-15  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/23288:
+	* java/net/URLClassLoader.java (definePackage): Correctly order
+	arguments to definePackage.  Look up per-entry Attributes.
+	(getAttributeValue): New method.
+
+2005-09-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23762
+	* shlibpath.m4: New file.
+	* configure.ac: If libltdl is being used call AC_LTDL_SHLIBPATH
+	macro.
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties)
+	[USE_LTDL]: If it was not defined with -D set java.library.path to
+	the value of LTDL_SHLIBPATH_VAR.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	* java/net/URLClassLoader.java (addURLImpl): Synchronize on the
+	loader.
+	(toString): Likewise.
+
+2005-09-08  Andrew Haley  <aph@redhat.com>
+
+	PR java/22084
+	* include/i386-signal.h (HANDLE_DIVIDE_OVERFLOW): Bump IP by 1 if
+	R/M field in instruction is 100.
+
+2005-09-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23761
+	* include/java-props.h (_Jv_Module_Load_Path): Declare variable.
+	* java/lang/natRuntime.cc (init): Call lt_dlsetsearchpath after
+	lt_dlinit.
+	* gnu/classpath/natSystemProperties.cc (_Jv_Module_Load_Path):
+	Define variable.
+	(_Jv_SetDLLSearchPath): Do not call lt_dlsetsearchpath.  Set
+	_Jv_Module_Load_Path.
+
+2005-09-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23739:
+	* testsuite/libjava.jni/pr23739.c: New file.
+	* testsuite/libjava.jni/pr23739.java: New file.
+	* testsuite/libjava.jni/pr23739.out: New file.
+	* jni.cc (_Jv_JNI_IsAssignableFrom): Reversed arguments.
+	* java/lang/reflect/natMethod.cc (invoke): Updated.
+	* java/lang/natClass.cc (isAssignableFrom): Updated.
+	(isInstance): Likewise.
+	(_Jv_IsAssignableFrom): Reversed arguments.
+	(_Jv_IsInstanceOf): Updated.
+	(_Jv_CheckCast): Likewise.
+	(_Jv_CheckArrayStore): Likewise.
+	(_Jv_IsAssignableFromSlow): Reversed arguments.
+	(_Jv_InterfaceAssignableFrom): Likewise.
+	* link.cc (verify_type_assertions): Updated.
+	* prims.cc (_Jv_CheckAccess): Updated.
+
+2005-09-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Testsuite changes for PR java/23431.
+	* testsuite/libjava.jacks/jacks.xfail: Remove 8.1.1.1-12 and
+	8.4.6.2-hiding-5.
+	* testsuite/libjava.compile/PR23431_1.java: New testcase.
+	* testsuite/libjava.compile/PR23431_2.java: Likewise.
+	* testsuite/libjava.compile/PR23431_1.xfail: New file.
+	* testsuite/libjava.compile/PR23431_2.xfail: Likewise.
+
+2005-08-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/23549
+	* gij.cc (main): Don't expect arguments to -enableassertions, -ea,
+	-disableassertions and -da.
+
+2005-08-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* configure.ac: Replace "*-*-darwin[0-7].*" with
+	"*-*-darwin[[0-7]].*"
+	* configure: Regenerate.
+
+2005-08-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac (extra_ldflags_libjava): Enable -single_module only for
+	darwin < 8.
+	* configure: Regenerate.
+
+2005-08-23  Roman Kennke  <roman@kennke.org>
+
+	* java/lang/Character.java
+	(toChars(int)): New JDK1.5 method.
+	(toChars(int, char[], int)): New JDK1.5 method.
+	(charCount): New JDK1.5 method.
+	(isSupplementaryCodePoint): New JDK1.5 method.
+	(isValidCodePoint): New JDK1.5 method.
+
+2005-08-23  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, Makefile.in: Rebuilt.
+	* Makefile.am (property_files): Added META-INF files.
+	(propertyo_files): Changed definition.
+	($(propertyo_files)): Updated patterns.
+
+2005-08-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/22622:
+	* configure: Rebuilt.
+	* configure.ac: Correctly create Configuration.java (for
+	temporary use).
+
+2005-08-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): Also include "..".
+	* acinclude.m4: Delete.  Extract CHECK_FOR_BROKEN_MINGW_LD to ...
+	* mingwld.m4: ... this new file.
+	* aclocal.m4, Makefile.in, gcj/Makefile.in: Regenerate. 
+	* include/Makefile.in, testsuite/Makfile.in: Regenerate.
+
+2005-08-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgcj/23507
+	* stacktrace.cc (_Jv_StackTrace::UnwindTraceFn): Fix typo in newLength
+	assignment.  Cast operands of compare to function pointer type.
+
+2005-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* HACKING: Updated for hacking classpath in libgcj.
+
+2005-08-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgcj/21692
+	* sysdep/pa/descriptor.h: New file.
+	* configure.host: Use sysdep/pa/descriptor.h on hppa*-*.
+
+2005-08-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.am (extra_ldflags_libjava): New variable to
+	substitute in.
+	(LIBLINK): Add extra_ldflags_libjava to it.
+	* configure.ac (extra_ldflags_libjava): Set for *-darwin* to
+	"-Wl,-single_module".
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-08-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_IsBinaryCompatibilityABI): Declare as
+	friend.
+	* include/jvm.h (_Jv_IsBinaryCompatibilityABI): New function.
+	* testsuite/libjava.lang/bclink.java: New file.
+	* testsuite/libjava.lang/bclink.out: New file.
+	* link.cc (print_class_loaded): Changed ABI test to look at
+	various _syms fields.
+
+2005-08-17  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.jacks/jacks.xfail: Remove 15.21-assoc-7,
+	15.21-assoc-8, 15.21-equal-3, 15.28-string-11.
+
+2005-08-16  Ranjit Mathew  <rmathew@hotmail.com>
+
+	More testsuite adjustments for PR java/19870.
+	* testsuite/libjava.lang/PR19870_2.java: New testcase.
+	* testsuite/libjava.lang/PR19870_2.out: Expected output for the
+	new testcase.
+	* testsuite/libjava.jacks/jacks.xfail: Remove
+	8.5.2-non-static-member-usage-2 and add 15.12.3-explicit-constructor-9.
+
+2005-08-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/xml/xpath/XPathParser.y: Removed.
+
+2005-08-12  Morgan Deters  <mdeters@morgandeters.com>
+
+	PR libgcj/23353:
+	* java/lang/natObject.cc (clone): Clear sync_info.
+
+2005-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/net/protocol/ftp/package.html,
+	gnu/javax/swing/text/html/package.html,
+	gnu/javax/swing/text/html/parser/package.html,
+	gnu/javax/swing/text/html/parser/models/package.html,
+	gnu/javax/swing/text/html/parser/support/package.html,
+	gnu/javax/swing/text/html/parser/support/low/package.html,
+	gnu/xml/aelfred2/package.html, gnu/xml/dom/package.html,
+	gnu/xml/pipeline/package.html, gnu/xml/transform/package.html,
+	gnu/xml/util/package.html, java/awt/geom/doc-files/Area-1.png,
+	java/awt/geom/doc-files/CubicCurve2D-1.png,
+	java/awt/geom/doc-files/CubicCurve2D-2.png,
+	java/awt/geom/doc-files/CubicCurve2D-3.png,
+	java/awt/geom/doc-files/CubicCurve2D-4.png,
+	java/awt/geom/doc-files/CubicCurve2D-5.png,
+	java/awt/geom/doc-files/Ellipse-1.png,
+	java/awt/geom/doc-files/FlatteningPathIterator-1.html,
+	java/awt/geom/doc-files/GeneralPath-1.png,
+	java/awt/geom/doc-files/QuadCurve2D-1.png,
+	java/awt/geom/doc-files/QuadCurve2D-2.png,
+	java/awt/geom/doc-files/QuadCurve2D-3.png,
+	java/awt/geom/doc-files/QuadCurve2D-4.png,
+	java/awt/geom/doc-files/QuadCurve2D-5.png,
+	javax/imageio/package.html, javax/imageio/event/package.html,
+	javax/imageio/metadata/package.html,
+	javax/imageio/spi/package.html, javax/imageio/stream/package.html,
+	javax/swing/border/doc-files/BevelBorder-1.png,
+	javax/swing/border/doc-files/BevelBorder-2.png,
+	javax/swing/border/doc-files/BevelBorder-3.png,
+	javax/swing/border/doc-files/EmptyBorder-1.png,
+	javax/swing/border/doc-files/EtchedBorder-1.png,
+	javax/swing/border/doc-files/EtchedBorder-2.png,
+	javax/swing/border/doc-files/LineBorder-1.png,
+	javax/swing/border/doc-files/MatteBorder-1.png,
+	javax/swing/border/doc-files/MatteBorder-2.png,
+	javax/swing/border/doc-files/MatteBorder-3.png,
+	javax/swing/border/doc-files/MatteBorder-4.png,
+	javax/swing/border/doc-files/MatteBorder-5.png,
+	javax/swing/border/doc-files/MatteBorder-6.png,
+	javax/swing/border/doc-files/SoftBevelBorder-1.png,
+	javax/swing/border/doc-files/SoftBevelBorder-2.png,
+	javax/swing/border/doc-files/SoftBevelBorder-3.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders-2.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.ButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.FieldBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.MarginBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.MenuBarBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.RadioButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneBorder-2.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.SplitPaneDividerBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicBorders.ToggleButtonBorder-1.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-1.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-2.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-3.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-4.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-5.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-6.png,
+	javax/swing/plaf/basic/doc-files/BasicGraphicsUtils-7.png,
+	javax/swing/plaf/doc-files/ComponentUI-1.dia,
+	javax/swing/plaf/doc-files/ComponentUI-1.png,
+	javax/swing/plaf/doc-files/TreeUI-1.png,
+	javax/xml/datatype/package.html, javax/xml/namespace/package.html,
+	javax/xml/parsers/package.html, javax/xml/transform/package.html,
+	javax/xml/transform/dom/package.html,
+	javax/xml/transform/sax/package.html,
+	javax/xml/transform/stream/package.html,
+	javax/xml/validation/package.html, javax/xml/xpath/package.html:
+	Removed.
+
+2005-07-22  Tom Tromey  <tromey@redhat.com>
+
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am (tool_include__HEADERS): Include
+	classpath's jni.h.
+
+2005-07-20  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* Makefile.am (all_xlib_lo_files): Removed.
+	(all_libgcj_lo_files): Likewise.
+	(lib_gnu_awt_xlib_la_LIBADD): List correct .lo files.
+	(xlib_java_source_files): Removed.
+	(xlib_nat_headers): Updated.
+	* configure: Rebuilt.
+	* configure.ac: Create standard.omit.
+	* standard.omit.in: New file.
+	* standard.omit: Removed.
+	* scripts/makemake.tcl (gnu/gcj/xlib, gnu/awt/xlib): Now
+	'package'.
+	(emit_package_rule): Special case xlib peers.
+	(emit_source_var): Likewise.
+	Read standard.omit.in.
+	* gnu/awt/xlib/XToolkit.java (createEmbeddedWindow): New method.
+
+2005-07-18  Tom Tromey  <tromey@redhat.com>
+
+	* HACKING: Updated.
+
+2005-07-19  Matthias Klose  <doko@debian.org>
+
+	* classpath/java/awt/im/InputContext.java (clinit): Initialize
+	  line, im.
+
+2005-07-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgj/21058:
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (emit_bc_rule): Create a temporary list
+	file.
+	(emit_source_var): Don't emit patsubst with './'.
+
+2005-07-18  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am ($(libgij_la_OBJECTS)): Depend on headers.stamp.
+
+2005-07-17  Andreas Jaeger  <aj@suse.de>
+
+	* defineclass.cc (handleClassBegin): Remove unused variable.
+
+2005-07-16  Andreas Schwab  <schwab@suse.de>
+
+	* scripts/makemake.tcl (emit_package_rule): Emit command to create
+	target directory.
+	* Makefile.am (%.lo): Don't create it here.
+	* sources.am, Makefile.in: Regenerated.
+
+2005-07-15  Tom Tromey  <tromey@redhat.com>
+
+	Major merge with Classpath.
+	Removed many duplicate files.
+	* HACKING: Updated.x
+	* classpath: Imported new directory.
+	* standard.omit: New file.
+	* Makefile.in, aclocal.m4, configure: Rebuilt.
+	* sources.am: New file.
+	* configure.ac: Run Classpath configure script.  Moved code around
+	to support.  Disable xlib AWT peers (temporarily).
+	* Makefile.am (SUBDIRS): Added 'classpath'
+	(JAVAC): Removed.
+	(AM_CPPFLAGS): Added more -I options.
+	(BOOTCLASSPATH): Simplified.
+	Completely redid how sources are built.
+	Include sources.am.
+	* include/Makefile.am (tool_include__HEADERS): Removed jni.h.
+	* include/jni.h: Removed (in Classpath).
+	* scripts/classes.pl: Updated to look at built classes.
+	* scripts/makemake.tcl: New file.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Added
+	-I options.
+	(gcj_jni_invocation_compile_c_to_binary): Likewise.
+
+2005-07-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/xlib/XCanvasPeer.java (attributes): New field.
+	(eventMask): New field.
+	(XCanvasPeer(Component)): Use attributes field.
+	(setBackground): Implemented.
+	(setEventMask): Process mask only if changed.
+	* gnu/awt/xlib/XEventLoop.java (class): Iplement Runnable.
+	(eventLoopThread): New field.
+	(XEventLoop(Display,EventQueue)): Start eventLoopThread.
+	(interrupt): Removed.
+	(run): New method.
+	* gnu/awt/xlib/XEventQueue.java (getNextEvent): Process Container
+	and Component events.
+	* gnu/awt/xlib/XFramePeer.java (processingConfigureNotify): New
+	field.
+	(configureNotify): Set and clear processingConfigureNotify.
+	(setBounds): Process only if processingConfigureNotify is false.
+	(toBack): Implemented.
+	(toFront): Implemented.
+	* gnu/awt/xlib/XGraphics.java (setColor): Ignore null color.
+	* gnu/awt/xlib/XGraphicsConfiguration.java (getPixel): Ignore null
+	color.
+	* gnu/awt/xlib/XToolkit.java (nativeQueueEmpty): Always return true.
+	(wakeNativeQueue): Do nothing.
+	(iterateNativeQueue): Do queue.wait if blocking.
+	* gnu/gcj/xlib/Font.java (loadFont): New method.
+	(loadFontImpl): Renamed native method, was loadFont. 
+	* gnu/gcj/xlib/Window.java (toFront): New method.
+	(toBack): New method.
+	* gnu/gcj/xlib/natFont.cc (loadFontImpl): Renamed method, was 
+	loadFont.
+	* gnu/gcj/xlib/natWindow.cc (toBack): New method.
+	(toFront): New method. 
+	* gnu/gcj/xlib/natXAnyEvent.cc (loadNext): Removed timeout.
+
+2005-07-14  Andrew Haley  <aph@redhat.com>
+
+        * gnu/java/net/protocol/file/Connection.java (unquote): New
+        method.
+        (connect): Unquote filename.
+        gnu/java/net/protocol/jar/Connection.java (getInputStream):
+        Likewise.  
+        (getJarFile): Likewise.
+
+        * java/net/URLConnection.java (getContentHandler): Guard cast with
+        instaceof.
+
+        * java/net/URL.java (URL): If the file part of a spec is absolute,
+        ignore the file part of its context.
+
+2005-07-14  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/VirtualMachineCommandSet.java:
+	Implemented VirtualMachine Command Set.
+
+2005-07-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getProtectionDomain): Merged javadoc from
+	Classpath.
+
+2005-07-12  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/FieldCommandSet.java:
+	Implemented the Field CommandSet.
+	* gnu/classpath/jdwp/processor/InterfaceTypeCommandSet.java:
+	Implemented the InterfaceType CommandSet.
+
+2005-07-12  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/PacketProcessor.java (run): Send
+	shutdown to jdwp instead of connection.
+
+2005-07-12  Aaron Luchko  <aluchko@redhat.com>
+
+	* gnu/classpath/jdwp/processor/ObjectReferenceCommandSet.java:
+	New file.
+
+2005-07-08  Colin Walters  <walters@verbum.org>
 
 	* verify.cc (class _Jv_BytecodeVerifier) <op_new>: Don't
 	check for abstract classes or interfaces here; JVM spec
@@ -8,9 +734,9 @@
 
 2005-07-08  Andrew Haley  <aph@redhat.com>
 
-        * posix-threads.cc (_Jv_ThreadSetPriority): Use SCHED_OTHER
-        (regular, non-realtime scheduling), not SCHED_RR (realtime,
-        round-robin).
+	* posix-threads.cc (_Jv_ThreadSetPriority): Use SCHED_OTHER
+	(regular, non-realtime scheduling), not SCHED_RR (realtime,
+	round-robin).
 
 2005-07-07  Aaron Luchko  <aluchko@redhat.com>
 

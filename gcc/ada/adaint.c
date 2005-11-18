@@ -89,6 +89,8 @@
 #if OLD_MINGW
 #include <sys/wait.h>
 #endif
+#elif defined (__vxworks) && defined (__RTP__)
+#include <wait.h>
 #else
 #include <sys/wait.h>
 #endif
@@ -193,6 +195,13 @@ struct vstring
 #define DIR_SEPARATOR '/'
 #endif
 
+/* Check for cross-compilation */
+#ifdef CROSS_COMPILE
+int __gnat_is_cross_compiler = 1;
+#else
+int __gnat_is_cross_compiler = 0;
+#endif
+
 char __gnat_dir_separator = DIR_SEPARATOR;
 
 char __gnat_path_separator = PATH_SEPARATOR;
@@ -263,7 +272,11 @@ const int __gnat_vmsp = 0;
 #include <sys/param.h>
 #endif
 
+#ifdef MAXPATHLEN
 #define GNAT_MAX_PATH_LEN MAXPATHLEN
+#else
+#define GNAT_MAX_PATH_LEN 256
+#endif
 
 #endif
 
@@ -1328,6 +1341,9 @@ __gnat_set_env_value (char *name, char *value)
       LIB$SIGNAL (status);
   }
 
+#elif defined (__vxworks) && defined (__RTP__)
+  setenv (name, value, 1);
+
 #else
   int size = strlen (name) + strlen (value) + 2;
   char *expression;
@@ -1634,11 +1650,12 @@ __gnat_portable_spawn (char *args[])
 int
 __gnat_dup (int oldfd)
 {
-#if defined (__vxworks)
-   /* Not supported on VxWorks.  */
-   return -1;
+#if defined (__vxworks) && !defined (__RTP__)
+  /* Not supported on VxWorks 5.x, but supported on VxWorks 6.0 when using
+     RTPs. */
+  return -1;
 #else
-   return dup (oldfd);
+  return dup (oldfd);
 #endif
 }
 
@@ -1648,8 +1665,9 @@ __gnat_dup (int oldfd)
 int
 __gnat_dup2 (int oldfd, int newfd)
 {
-#if defined (__vxworks)
-  /* Not supported on VxWorks.  */
+#if defined (__vxworks) && !defined (__RTP__)
+  /* Not supported on VxWorks 5.x, but supported on VxWorks 6.0 when using
+     RTPs.  */
   return -1;
 #else
   return dup2 (oldfd, newfd);
@@ -2524,8 +2542,10 @@ _flush_cache()
 #endif
 
 #if defined (CROSS_COMPILE)  \
-  || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
+  || (! ((defined (sparc) || defined (i386)) && defined (sun) \
+      && defined (__SVR4)) \
       && ! (defined (linux) && (defined (i386) || defined (__x86_64__))) \
+      && ! (defined (linux) && defined (__ia64__)) \
       && ! defined (__FreeBSD__) \
       && ! defined (__hpux__) \
       && ! defined (__APPLE__) \
@@ -2534,9 +2554,9 @@ _flush_cache()
       && ! defined (__MINGW32__) \
       && ! (defined (__mips) && defined (__sgi)))
 
-/* Dummy function to satisfy g-trasym.o.  Currently Solaris sparc, HP/UX,
-   GNU/Linux x86{_64}, Tru64 & Windows provide a non-dummy version of this
-   procedure in libaddr2line.a.  */
+/* Dummy function to satisfy g-trasym.o. See the preprocessor conditional
+   just above for a list of native platforms that provide a non-dummy
+   version of this procedure in libaddr2line.a.  */
 
 void
 convert_addresses (void *addrs ATTRIBUTE_UNUSED,
@@ -2615,27 +2635,6 @@ __gnat_copy_attribs (char *from, char *to, int mode)
     }
 
   return 0;
-#endif
-}
-
-/* This function is installed in libgcc.a.  */
-extern void __gnat_install_locks (void (*) (void), void (*) (void));
-
-/* This function offers a hook for libgnarl to set the
-   locking subprograms for libgcc_eh.
-   This is only needed on OpenVMS, since other platforms use standard
-   --enable-threads=posix option, or similar.  */
-
-void
-__gnatlib_install_locks (void (*lock) (void) ATTRIBUTE_UNUSED,
-                         void (*unlock) (void) ATTRIBUTE_UNUSED)
-{
-#if defined (IN_RTS) && defined (VMS)
-  __gnat_install_locks (lock, unlock);
-  /* There is a bootstrap path issue if adaint is build with this
-     symbol unresolved for the stage1 compiler. Since the compiler
-     does not use tasking, we simply make __gnatlib_install_locks
-     a no-op in this case. */
 #endif
 }
 

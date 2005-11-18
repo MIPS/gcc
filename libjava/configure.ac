@@ -142,7 +142,208 @@ AC_SUBST(LIBGCJ_CXXFLAGS)
 AC_SUBST(LIBGCJ_JAVAFLAGS)
 AC_SUBST(LIBGCJ_LD_SYMBOLIC)
 
+# Only use libltdl for non-newlib builds.
+if test "x${with_newlib}" = "x" || test "x${with_newlib}" = "xno"; then
+   AC_LTDL_SHLIBPATH
+fi
+
 AC_CONFIG_HEADERS([include/config.h gcj/libgcj-config.h])
+
+# See if the user has requested runtime debugging.
+LIBGCJDEBUG="disable"
+AC_SUBST(LIBGCJDEBUG)
+AC_ARG_ENABLE(libgcj-debug,
+  AS_HELP_STRING([--enable-libgcj-debug],
+                 [enable runtime debugging code]),
+  [if test "$enable_libgcj_debug" = yes; then
+    AC_DEFINE(DEBUG, 1, [Define this if you want runtime debugging enabled.])
+    LIBGCJDEBUG="enable"
+  fi])
+
+# Determine which AWT peer libraries to build
+AC_ARG_ENABLE(java-awt,
+  AS_HELP_STRING([--enable-java-awt],
+                 [list of AWT peer implementations to be built]))
+
+peerlibs="`echo ${enable_java_awt} | tr ',' ' '`"
+use_xlib_awt=""
+use_gtk_awt=""
+use_qt_awt=""
+# The default toolkit to use is the first one specified.
+TOOLKIT=
+AC_SUBST(TOOLKIT)
+
+for peer in $peerlibs ; do
+  case $peer in
+    xlib)
+      if test "$no_x" = yes; then
+        echo "*** xlib peers requested but no X library available" 1>&2
+        exit 1
+      else
+        use_xlib_awt="yes"
+	if test -z "$TOOLKIT"; then
+	   TOOLKIT=gnu.awt.xlib.XToolkit
+	fi
+      fi
+      ;;
+    gtk)
+      if test "$no_x" = yes; then
+	 echo "*** gtk peers requested but no X library available" 1>&2
+	 exit 1
+      else
+	 use_gtk_awt=yes
+	 if test -z "$TOOLKIT"; then
+	    TOOLKIT=gnu.java.awt.peer.gtk.GtkToolkit
+	 fi
+      fi
+      ;;
+    qt)
+      if test "$no_x" = yes; then
+         # Perhaps we should admit the possibility of embedded Qt.
+	 echo "*** Qt peers requested but no X library available" 1>&2
+	 exit 1
+      else
+	 use_qt_awt=yes
+	 if test -z "$TOOLKIT"; then
+	    TOOLKIT=gnu.java.awt.peer.qt.QtToolkit
+	 fi
+      fi
+      ;;
+    no)
+      use_xlib_awt=
+      use_gtk_awt=
+      use_qt_awt=
+      break
+      ;;
+    *)
+      echo "*** unrecognised argument \"${peer}\" for --enable-java-awt" 1>&2
+      exit 1
+  esac
+done
+
+AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
+AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
+AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
+
+# Create standard.omit based on decisions we just made.
+cp $srcdir/standard.omit.in standard.omit
+if test "$use_xlib_awt" != yes; then
+   echo gnu/awt/xlib >> standard.omit
+   echo gnu/gcj/xlib >> standard.omit
+fi
+if test "$use_gtk_awt" != yes; then
+   echo gnu/java/awt/peer/gtk >> standard.omit
+fi
+if test "$use_qt_awt" != yes; then
+   echo gnu/java/awt/peer/qt >> standard.omit
+fi
+
+if test -z "${with_multisubdir}"; then
+   builddotdot=.
+else
+   builddotdot=`echo ${with_multisubdir} | sed -e 's:[[^/]][[^/]]*:..:g'`
+fi
+
+NATIVE=yes
+
+# Which gcj do we use?
+which_gcj=default
+built_gcc_dir="`cd ${builddotdot}/../../${host_subdir}/gcc && ${PWDCMD-pwd}`"
+if test -n "${with_cross_host}"; then
+  # We are being configured with a cross compiler. We can't
+  # use ac_exeext, because that is for the target platform.
+  NATIVE=no
+  cross_host_exeext=
+  case "${with_cross_host}" in
+     *mingw* | *cygwin*)
+         cross_host_exeext=.exe
+     ;;
+  esac
+  if test -x "${built_gcc_dir}/gcj${cross_host_exeext}"; then
+     if test x"$build_noncanonical" = x"$with_cross_host"; then
+        # Ordinary cross (host!=target and host=build)
+        which_gcj=built
+     else
+        # Canadian cross (host!=target and host!=build)
+        which_gcj=cross
+     fi
+  else
+     which_gcj=cross
+  fi
+else
+  # We are being configured with a native or crossed-native compiler
+  if test -x "${built_gcc_dir}/gcj${ac_exeext}"; then
+     if test x"$build" = x"$host"; then
+        # True native build (host=target and host=build)
+        which_gcj=built
+     else
+        # Crossed-native build (host=target and host!=build)
+        which_gcj=cross
+     fi
+  else
+     which_gcj=path
+  fi
+fi
+case "${which_gcj}" in
+   built)
+      GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
+      GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
+   ;;
+   cross)
+      if test "x${with_newlib}" = "xyes"; then
+         # FIXME (comment): Why is this needed?
+         GCC_UNWIND_INCLUDE=
+         GCJ="${target_noncanonical}-gcj"
+      else
+         GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
+      fi
+      ZIP='$(target_noncanonical)-fastjar'
+      GCJH='$(target_noncanonical)-gcjh'
+   ;;
+   path)
+      GCJ="gcj -B`${PWDCMD-pwd}`/"
+      ## In this case, gcj is found outside the build tree.  However, zip is
+      ## found in the build tree.
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
+      GCJH=gcjh
+   ;;
+esac
+
+AC_SUBST(GCJH)
+AC_SUBST(ZIP)
+
+# Create it, so that compile/link tests don't fail
+test -f libgcj.spec || touch libgcj.spec
+
+
+
+# Set up to configure Classpath.
+# FIXME: no supported way to pass args in autoconf.
+ac_configure_args="$ac_configure_args --disable-load-library"
+ac_configure_args="$ac_configure_args --${LIBGCJDEBUG}-debug"
+ac_configure_args="$ac_configure_args --enable-default-toolkit=$TOOLKIT"
+dir1=`cd $srcdir && pwd`
+dir2=`pwd`
+ac_configure_args="$ac_configure_args --with-vm-classes=$dir1:$dir2"
+ac_configure_args="$ac_configure_args --disable-core-jni"
+dnl FIXME?
+ac_configure_args="$ac_configure_args --disable-examples"
+ac_configure_args="$ac_configure_args --with-glibj=build"
+if test "$use_gtk_awt" != yes; then
+  ac_configure_args="$ac_configure_args --disable-gtk-peer"
+fi
+if test "$use_qt_awt" != yes; then
+  ac_configure_args="$ac_configure_args --disable-qt-peer"
+else
+  # We need this as qt is disabled by default in classpath.
+  ac_configure_args="$ac_configure_args --enable-qt-peer"
+fi
+dnl --with-gcj=$GCJ
+dnl --with-javah=$GCJH
+dnl gjdoc?
+dnl gtk-cairo -- just export here...
+dnl --enable-regen-headers?
 
 # Only use libltdl for non-newlib builds.
 if test "x${with_newlib}" = "x" || test "x${with_newlib}" = "xno"; then
@@ -162,7 +363,8 @@ AC_SUBST(DIRLTDL)
 AC_PROG_LIBTOOL
 AM_PROG_GCJ
 AM_PROG_CC_C_O
-AC_CONFIG_SUBDIRS(libltdl)
+
+AC_CONFIG_SUBDIRS(classpath libltdl)
 
 # The -no-testsuite modules omit the test subdir.
 AM_CONDITIONAL(TESTSUBDIR, test -d $srcdir/testsuite)
@@ -233,18 +435,6 @@ if test "${slow_pthread_self}" = "yes"; then
   AC_DEFINE(SLOW_PTHREAD_SELF, 1,
     [Define if if the synchronization code should try to avoid pthread_self calls by caching thread IDs in a hashtable.])
 fi
-
-
-# See if the user has requested runtime debugging.
-LIBGCJDEBUG="false"
-AC_SUBST(LIBGCJDEBUG)
-AC_ARG_ENABLE(libgcj-debug,
-  AS_HELP_STRING([--enable-libgcj-debug],
-                 [enable runtime debugging code]),
-  [if test "$enable_libgcj_debug" = yes; then
-    AC_DEFINE(DEBUG, 1, [Define this if you want runtime debugging enabled.])
-    LIBGCJDEBUG="true"
-  fi])
 
 # Check for gc debugging.  This option is handled both here and in the GC.
 AC_ARG_ENABLE(gc-debug,
@@ -488,57 +678,6 @@ AC_SUBST(ZLIBTESTSPEC)
 
 AC_PATH_XTRA
 
-# Determine which AWT peer libraries to build
-AC_ARG_ENABLE(java-awt,
-  AS_HELP_STRING([--enable-java-awt],
-                 [list of AWT peer implementations to be built]))
-
-peerlibs="`echo ${enable_java_awt} | tr ',' ' '`"
-use_xlib_awt=""
-use_gtk_awt=""
-# The default toolkit to use is the first one specified.
-TOOLKIT=
-AC_SUBST(TOOLKIT)
-
-for peer in $peerlibs ; do
-  case $peer in
-    xlib)
-      if test "$no_x" = yes; then
-        echo "*** xlib peers requested but no X library available" 1>&2
-        exit 1
-      else
-        use_xlib_awt="yes"
-	if test -z "$TOOLKIT"; then
-	   TOOLKIT=gnu.awt.xlib.XToolkit
-	fi
-      fi
-      ;;
-    gtk)
-      if test "$no_x" = yes; then
-	 echo "*** xlib peers requested but no X library available" 1>&2
-	 exit 1
-      else
-	 use_gtk_awt=yes
-	 if test -z "$TOOLKIT"; then
-	    TOOLKIT=gnu.java.awt.peer.gtk.GtkToolkit
-	 fi
-	 test -d jniinclude || mkdir jniinclude
-      fi
-      ;;
-    no)
-      use_xlib_awt=
-      use_gtk_awt=
-      break
-      ;;
-    *)
-      echo "*** unrecognised argument \"${peer}\" for --enable-java-awt" 1>&2
-      exit 1
-  esac
-done
-
-AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
-AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
-
 # determine whether to enable the cairo GTK Graphics2D backend
 AC_ARG_ENABLE(gtk-cairo,
   AS_HELP_STRING([--enable-gtk-cairo],
@@ -556,6 +695,17 @@ AC_SUBST(PANGOFT2_CFLAGS)
 
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
+
+# extra LD Flags which are required for targets
+case "${host}" in
+*-*-darwin[[0-7]].*)
+    # For now we have to disable it on darwin[8-9] because it slows down
+    # the linking phase. A possible bug in ld?
+    # on Darwin -single_module speeds up loading of the dynamic libraries.
+    extra_ldflags_libjava=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libjava)
 
 # Allow the GC to be disabled.  Can be useful when debugging.
 AC_MSG_CHECKING([for garbage collector to use])
@@ -1014,84 +1164,6 @@ else
 fi
 AM_CONDITIONAL(SUPPLY_BACKTRACE, test "$supply_backtrace" = yes)
 
-if test -z "${with_multisubdir}"; then
-   builddotdot=.
-else
-   builddotdot=`echo ${with_multisubdir} | sed -e 's:[[^/]][[^/]]*:..:g'`
-fi
-
-NATIVE=yes
-
-# Which gcj do we use?
-which_gcj=default
-built_gcc_dir="`cd ${builddotdot}/../../${host_subdir}/gcc && ${PWDCMD-pwd}`"
-if test -n "${with_cross_host}"; then
-  # We are being configured with a cross compiler. We can't
-  # use ac_exeext, because that is for the target platform.
-  NATIVE=no
-  cross_host_exeext=
-  case "${with_cross_host}" in
-     *mingw* | *cygwin*)
-         cross_host_exeext=.exe
-     ;;
-  esac
-  if test -x "${built_gcc_dir}/gcj${cross_host_exeext}"; then
-     if test x"$build_noncanonical" = x"$with_cross_host"; then
-        # Ordinary cross (host!=target and host=build)
-        which_gcj=built
-     else
-        # Canadian cross (host!=target and host!=build)
-        which_gcj=cross
-     fi
-  else
-     which_gcj=cross
-  fi
-else
-  # We are being configured with a native or crossed-native compiler
-  if test -x "${built_gcc_dir}/gcj${ac_exeext}"; then
-     if test x"$build" = x"$host"; then
-        # True native build (host=target and host=build)
-        which_gcj=built
-     else
-        # Crossed-native build (host=target and host!=build)
-        which_gcj=cross
-     fi
-  else
-     which_gcj=path
-  fi
-fi
-case "${which_gcj}" in
-   built)
-      GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
-      GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
-      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
-   ;;
-   cross)
-      if test "x${with_newlib}" = "xyes"; then
-         # FIXME (comment): Why is this needed?
-         GCC_UNWIND_INCLUDE=
-         GCJ="${target_noncanonical}-gcj"
-      else
-         GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
-      fi
-      ZIP='$(target_noncanonical)-fastjar'
-      GCJH='$(target_noncanonical)-gcjh'
-   ;;
-   path)
-      GCJ="gcj -B`${PWDCMD-pwd}`/"
-      ## In this case, gcj is found outside the build tree.  However, zip is
-      ## found in the build tree.
-      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
-      GCJH=gcjh
-   ;;
-esac
-
-AC_SUBST(GCJH)
-AC_SUBST(ZIP)
-
-# Create it, so that compile/link tests don't fail
-test -f libgcj.spec || touch libgcj.spec
-
 # Use a semicolon as CLASSPATH separator for MinGW, otherwise a colon.
 case $build in
     *-mingw32) CLASSPATH_SEPARATOR=';' ;;
@@ -1109,19 +1181,29 @@ CPPFLAGS="$CPPFLAGS -I`${PWDCMD-pwd}` -I`cd $srcdir && ${PWDCMD-pwd}`"
 if test ! -f gnu/classpath/Configuration.java; then
   test -d gnu || mkdir gnu
   test -d gnu/classpath || mkdir gnu/classpath
-  sed -e 's,@LIBGCJDEBUG@,$LIBGCJDEBUG,' \
-      -e 's,@TOOLKIT@,$TOOLKIT,' \
-	< $srcdir/gnu/classpath/Configuration.java.in \
+  # Note that it is not crucial that all the values here be correct.
+  sed -e "s,@prefix@,$prefix," \
+      -e "s,@VERSION@,$VERSION," \
+      -e "s,@LIBDEBUG@,false," \
+      -e "s,@INIT_LOAD_LIBRARY@,false," \
+      -e "s,@@,$LIBGCJDEBUG," \
+      -e "s,@default_toolkit@,$TOOLKIT," \
+      -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
+      -e "s,@GTK_CAIRO_ENABLED@,false," \
+	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,
   # but we add /dev/null to the input list so that grep will print the
   # filename of Configuration.java in case it finds any matches.
-  if grep @ gnu/classpath/Configuration.java /dev/null; then
+  if grep '@.*@' gnu/classpath/Configuration.java /dev/null; then
     AC_MSG_ERROR([configure.ac is missing the substitutions above])
   fi
 fi
 
 LT_AC_PROG_GCJ
+
+# Now remove it.
+rm -f gnu/classpath/Configuration.java
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
@@ -1360,6 +1442,8 @@ else
   multilib_arg=
 fi
 
+# See if we support thread-local storage.
+GCC_CHECK_TLS
 
 
 here=`${PWDCMD-pwd}`
@@ -1373,13 +1457,9 @@ Makefile
 libgcj.pc
 libgcj.spec
 libgcj-test.spec
-gnu/classpath/Configuration.java
 gcj/Makefile
 include/Makefile
 testsuite/Makefile
-external/Makefile
-external/sax/Makefile
-external/w3c_dom/Makefile
 ])
 
 AC_CONFIG_COMMANDS([default],

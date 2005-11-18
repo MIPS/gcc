@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,7 +37,7 @@
 --  is in accordance with the implementation permission in RM (A.3.3(27)).
 
 package Ada.Characters.Wide_Wide_Latin_1 is
-pragma Pure (Wide_Wide_Latin_1);
+   pragma Pure;
 
    ------------------------
    -- Control Characters --

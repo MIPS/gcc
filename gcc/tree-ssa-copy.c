@@ -165,7 +165,7 @@ may_propagate_copy_into_asm (tree dest)
    propagating NEW into ORIG, consolidate aliasing information so that
    they both share the same memory tags.  */
 
-static void
+void
 merge_alias_info (tree orig, tree new)
 {
   tree new_sym = SSA_NAME_VAR (new);
@@ -267,7 +267,7 @@ replace_exp_1 (use_operand_p op_p, tree val,
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
-   into the operand pointed by OP_P.
+   into the operand pointed to by OP_P.
 
    Use this version for const/copy propagation as it will perform additional
    checks to ensure validity of the const/copy propagation.  */
@@ -280,7 +280,7 @@ propagate_value (use_operand_p op_p, tree val)
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
-   into the tree pointed by OP_P.
+   into the tree pointed to by OP_P.
 
    Use this version for const/copy propagation when SSA operands are not
    available.  It will perform the additional checks to ensure validity of
@@ -838,10 +838,12 @@ copy_prop_visit_phi_node (tree phi)
 }
 
 
-/* Initialize structures used for copy propagation.  */
+/* Initialize structures used for copy propagation.   PHIS_ONLY is true
+   if we should only consider PHI nodes as generating copy propagation
+   opportunities.  */
 
 static void
-init_copy_prop (void)
+init_copy_prop (bool phis_only)
 {
   basic_block bb;
 
@@ -866,7 +868,7 @@ init_copy_prop (void)
 	     lists of the propagator.  */
 	  if (stmt_ends_bb_p (stmt))
 	    DONT_SIMULATE_AGAIN (stmt) = false;
-	  else if (stmt_may_generate_copy (stmt))
+	  else if (!phis_only && stmt_may_generate_copy (stmt))
 	    DONT_SIMULATE_AGAIN (stmt) = false;
 	  else
 	    {
@@ -917,10 +919,15 @@ fini_copy_prop (void)
 }
 
 
-/* Main entry point to the copy propagator.  The algorithm propagates
-   the value COPY-OF using ssa_propagate.  For every variable X_i,
-   COPY-OF(X_i) indicates which variable is X_i created from.  The
-   following example shows how the algorithm proceeds at a high level:
+/* Main entry point to the copy propagator.
+
+   PHIS_ONLY is true if we should only consider PHI nodes as generating
+   copy propagation opportunities. 
+
+   The algorithm propagates the value COPY-OF using ssa_propagate.  For
+   every variable X_i, COPY-OF(X_i) indicates which variable is X_i created
+   from.  The following example shows how the algorithm proceeds at a
+   high level:
 
 	    1	a_24 = x_1
 	    2	a_2 = PHI <a_24, x_1>
@@ -1020,10 +1027,10 @@ fini_copy_prop (void)
    x_53 and x_54 are both copies of x_898.  */
 
 static void
-execute_copy_prop (bool store_copy_prop)
+execute_copy_prop (bool store_copy_prop, bool phis_only)
 {
   do_store_copy_prop = store_copy_prop;
-  init_copy_prop ();
+  init_copy_prop (phis_only);
   ssa_propagate (copy_prop_visit_stmt, copy_prop_visit_phi_node);
   fini_copy_prop ();
 }
@@ -1038,7 +1045,7 @@ gate_copy_prop (void)
 static void
 do_copy_prop (void)
 {
-  execute_copy_prop (false);
+  execute_copy_prop (false, false);
 }
 
 struct tree_opt_pass pass_copy_prop =
@@ -1046,6 +1053,34 @@ struct tree_opt_pass pass_copy_prop =
   "copyprop",				/* name */
   gate_copy_prop,			/* gate */
   do_copy_prop,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_COPY_PROP,			/* tv_id */
+  PROP_ssa | PROP_alias | PROP_cfg,	/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_cleanup_cfg
+    | TODO_dump_func
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_update_ssa,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+
+static void
+do_phi_only_copy_prop (void)
+{
+  execute_copy_prop (false, true);
+}
+
+struct tree_opt_pass pass_phi_only_copy_prop =
+{
+  "phionlycopyprop",			/* name */
+  gate_copy_prop,			/* gate */
+  do_phi_only_copy_prop,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1077,7 +1112,7 @@ static void
 store_copy_prop (void)
 {
   /* If STORE-COPY-PROP is not enabled, we just run regular COPY-PROP.  */
-  execute_copy_prop (flag_tree_store_copy_prop != 0);
+  execute_copy_prop (flag_tree_store_copy_prop != 0, false);
 }
 
 struct tree_opt_pass pass_store_copy_prop =

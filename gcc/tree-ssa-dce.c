@@ -64,6 +64,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "cfgloop.h"
+#include "tree-scalar-evolution.h"
 
 static struct stmt_stats
 {
@@ -707,7 +709,7 @@ remove_dead_phis (basic_block bb)
     }
 }
 
-/* Remove dead statement pointed by iterator I.  Receives the basic block BB
+/* Remove dead statement pointed to by iterator I.  Receives the basic block BB
    containing I so that we don't have to look it up.  */
 
 static void
@@ -942,6 +944,14 @@ tree_ssa_dce (void)
 }
 
 static void
+tree_ssa_dce_loop (void)
+{
+  perform_tree_ssa_dce (/*aggressive=*/false);
+  free_numbers_of_iterations_estimates (current_loops);
+  scev_reset ();
+}
+
+static void
 tree_ssa_cd_dce (void)
 {
   perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
@@ -967,9 +977,29 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func 
-    | TODO_update_ssa_no_phi 
+    | TODO_update_ssa
     | TODO_cleanup_cfg
     | TODO_ggc_collect
+    | TODO_verify_ssa,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+struct tree_opt_pass pass_dce_loop =
+{
+  "dceloop",				/* name */
+  gate_dce,				/* gate */
+  tree_ssa_dce_loop,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_DCE,				/* tv_id */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func 
+    | TODO_update_ssa
+    | TODO_cleanup_cfg
     | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };
@@ -988,11 +1018,10 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func
-    | TODO_update_ssa_no_phi
+    | TODO_update_ssa
     | TODO_cleanup_cfg
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_flow,			/* todo_flags_finish */
   0					/* letter */
 };
-

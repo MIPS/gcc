@@ -81,6 +81,7 @@ static GTY(()) tree ioparm_name;
 static GTY(()) tree ioparm_name_len;
 static GTY(()) tree ioparm_internal_unit;
 static GTY(()) tree ioparm_internal_unit_len;
+static GTY(()) tree ioparm_internal_unit_desc;
 static GTY(()) tree ioparm_sequential;
 static GTY(()) tree ioparm_sequential_len;
 static GTY(()) tree ioparm_direct;
@@ -98,6 +99,8 @@ static GTY(()) tree ioparm_readwrite_len;
 static GTY(()) tree ioparm_namelist_name;
 static GTY(()) tree ioparm_namelist_name_len;
 static GTY(()) tree ioparm_namelist_read_mode;
+static GTY(()) tree ioparm_iomsg;
+static GTY(()) tree ioparm_iomsg_len;
 
 /* The global I/O variables */
 
@@ -117,6 +120,7 @@ static GTY(()) tree iocall_x_logical;
 static GTY(()) tree iocall_x_character;
 static GTY(()) tree iocall_x_real;
 static GTY(()) tree iocall_x_complex;
+static GTY(()) tree iocall_x_array;
 static GTY(()) tree iocall_open;
 static GTY(()) tree iocall_close;
 static GTY(()) tree iocall_inquire;
@@ -125,6 +129,7 @@ static GTY(()) tree iocall_iolength_done;
 static GTY(()) tree iocall_rewind;
 static GTY(()) tree iocall_backspace;
 static GTY(()) tree iocall_endfile;
+static GTY(()) tree iocall_flush;
 static GTY(()) tree iocall_set_nml_val;
 static GTY(()) tree iocall_set_nml_val_dim;
 
@@ -154,10 +159,12 @@ gfc_build_io_library_fndecls (void)
 {
   tree gfc_int4_type_node;
   tree gfc_pint4_type_node;
+  tree gfc_c_int_type_node;
   tree ioparm_type;
 
   gfc_int4_type_node = gfc_get_int_type (4);
   gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
+  gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   /* Build the st_parameter structure.  Information associated with I/O
      calls are transferred here.  This must match the one defined in the
@@ -201,6 +208,7 @@ gfc_build_io_library_fndecls (void)
   ADD_STRING (advance);
   ADD_STRING (name);
   ADD_STRING (internal_unit);
+  ADD_FIELD (internal_unit_desc, pchar_type_node);
   ADD_STRING (sequential);
 
   ADD_STRING (direct);
@@ -212,6 +220,7 @@ gfc_build_io_library_fndecls (void)
 
   ADD_STRING (namelist_name);
   ADD_FIELD (namelist_read_mode, gfc_int4_type_node);
+  ADD_STRING (iomsg);
 
   gfc_finish_type (ioparm_type);
 
@@ -261,6 +270,13 @@ gfc_build_io_library_fndecls (void)
 				     void_type_node, 2, pvoid_type_node,
 				     gfc_int4_type_node);
 
+  iocall_x_array =
+    gfc_build_library_function_decl (get_identifier
+				     (PREFIX("transfer_array")),
+				     void_type_node, 3, pvoid_type_node,
+				     gfc_c_int_type_node,
+				     gfc_charlen_type_node);
+
   /* Library entry points */
 
   iocall_read =
@@ -297,6 +313,11 @@ gfc_build_io_library_fndecls (void)
   iocall_endfile =
     gfc_build_library_function_decl (get_identifier (PREFIX("st_endfile")),
 				     gfc_int4_type_node, 0);
+
+  iocall_flush =
+    gfc_build_library_function_decl (get_identifier (PREFIX("st_flush")),
+				     gfc_int4_type_node, 0);
+
   /* Library helpers */
 
   iocall_read_done =
@@ -327,7 +348,7 @@ gfc_build_io_library_fndecls (void)
 }
 
 
-/* Generate code to store an non-string I/O parameter into the
+/* Generate code to store a non-string I/O parameter into the
    ioparm structure.  This is a pass by value.  */
 
 static void
@@ -345,7 +366,7 @@ set_parameter_value (stmtblock_t * block, tree var, gfc_expr * e)
 }
 
 
-/* Generate code to store an non-string I/O parameter into the
+/* Generate code to store a non-string I/O parameter into the
    ioparm structure.  This is pass by reference.  */
 
 static void
@@ -427,6 +448,7 @@ gfc_convert_array_to_string (gfc_se * se, gfc_expr * e)
   se->string_length = fold_convert (gfc_charlen_type_node, size);
 }
 
+
 /* Generate code to store a string and its length into the
    ioparm structure.  */
 
@@ -480,6 +502,60 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   gfc_add_block_to_block (postblock, &se.post);
 }
 
+
+/* Generate code to store the character (array) and the character length
+   for an internal unit.  */
+
+static void
+set_internal_unit (stmtblock_t * block, tree iunit, tree iunit_len,
+		   tree iunit_desc, gfc_expr * e)
+{
+  gfc_se se;
+  tree io;
+  tree len;
+  tree desc;
+  tree tmp;
+
+  gfc_init_se (&se, NULL);
+
+  io = build3 (COMPONENT_REF, TREE_TYPE (iunit), ioparm_var, iunit, NULL_TREE);
+  len = build3 (COMPONENT_REF, TREE_TYPE (iunit_len), ioparm_var, iunit_len,
+		NULL_TREE);
+  desc = build3 (COMPONENT_REF, TREE_TYPE (iunit_desc), ioparm_var, iunit_desc,
+		 NULL_TREE);
+
+  gcc_assert (e->ts.type == BT_CHARACTER);
+
+  /* Character scalars.  */
+  if (e->rank == 0)
+    {
+      gfc_conv_expr (&se, e);
+      gfc_conv_string_parameter (&se);
+      tmp = se.expr;
+      se.expr = fold_convert (pchar_type_node, integer_zero_node);
+    }
+
+  /* Character array.  */
+  else if (e->symtree && (e->symtree->n.sym->as->rank > 0))
+    {
+      se.ss = gfc_walk_expr (e);
+
+      /* Return the data pointer and rank from the descriptor.  */
+      gfc_conv_expr_descriptor (&se, e, se.ss);
+      tmp = gfc_conv_descriptor_data_get (se.expr);
+      se.expr = gfc_build_addr_expr (pchar_type_node, se.expr);
+    }
+  else
+    gcc_unreachable ();
+
+  /* The cast is needed for character substrings and the descriptor
+     data.  */
+  gfc_add_modify_expr (&se.pre, io, fold_convert (TREE_TYPE (io), tmp));
+  gfc_add_modify_expr (&se.pre, len, se.string_length);
+  gfc_add_modify_expr (&se.pre, desc, se.expr);
+
+  gfc_add_block_to_block (block, &se.pre);
+}
 
 /* Set a member of the ioparm structure to one.  */
 static void
@@ -636,6 +712,10 @@ gfc_trans_open (gfc_code * code)
   if (p->pad)
     set_string (&block, &post_block, ioparm_pad, ioparm_pad_len, p->pad);
 
+  if (p->iomsg)
+    set_string (&block, &post_block, ioparm_iomsg, ioparm_iomsg_len,
+		p->iomsg);
+
   if (p->iostat)
     set_parameter_ref (&block, ioparm_iostat, p->iostat);
 
@@ -675,6 +755,10 @@ gfc_trans_close (gfc_code * code)
     set_string (&block, &post_block, ioparm_status,
 		ioparm_status_len, p->status);
 
+  if (p->iomsg)
+    set_string (&block, &post_block, ioparm_iomsg, ioparm_iomsg_len,
+		p->iomsg);
+
   if (p->iostat)
     set_parameter_ref (&block, ioparm_iostat, p->iostat);
 
@@ -697,18 +781,23 @@ gfc_trans_close (gfc_code * code)
 static tree
 build_filepos (tree function, gfc_code * code)
 {
-  stmtblock_t block;
+  stmtblock_t block, post_block;
   gfc_filepos *p;
   tree tmp;
 
   p = code->ext.filepos;
 
   gfc_init_block (&block);
+  gfc_init_block (&post_block);
 
   set_error_locus (&block, &code->loc);
 
   if (p->unit)
     set_parameter_value (&block, ioparm_unit, p->unit);
+
+  if (p->iomsg)
+    set_string (&block, &post_block, ioparm_iomsg, ioparm_iomsg_len,
+		p->iomsg);
 
   if (p->iostat)
     set_parameter_ref (&block, ioparm_iostat, p->iostat);
@@ -718,6 +807,8 @@ build_filepos (tree function, gfc_code * code)
 
   tmp = gfc_build_function_call (function, NULL);
   gfc_add_expr_to_block (&block, tmp);
+
+  gfc_add_block_to_block (&block, &post_block);
 
   io_result (&block, p->err, NULL, NULL);
 
@@ -755,6 +846,16 @@ gfc_trans_rewind (gfc_code * code)
 }
 
 
+/* Translate a FLUSH statement.  */
+
+tree
+gfc_trans_flush (gfc_code * code)
+{
+
+  return build_filepos (iocall_flush, code);
+}
+
+
 /* Translate the non-IOLENGTH form of an INQUIRE statement.  */
 
 tree
@@ -770,11 +871,19 @@ gfc_trans_inquire (gfc_code * code)
   set_error_locus (&block, &code->loc);
   p = code->ext.inquire;
 
+  /* Sanity check.  */
+  if (p->unit && p->file)
+    gfc_error ("INQUIRE statement at %L cannot contain both FILE and UNIT specifiers.", &code->loc);
+
   if (p->unit)
     set_parameter_value (&block, ioparm_unit, p->unit);
 
   if (p->file)
     set_string (&block, &post_block, ioparm_file, ioparm_file_len, p->file);
+
+  if (p->iomsg)
+    set_string (&block, &post_block, ioparm_iomsg, ioparm_iomsg_len,
+		p->iomsg);
 
   if (p->iostat)
     set_parameter_ref (&block, ioparm_iostat, p->iostat);
@@ -1132,8 +1241,11 @@ build_dt (tree * function, gfc_code * code)
     {
       if (dt->io_unit->ts.type == BT_CHARACTER)
 	{
-	  set_string (&block, &post_block, ioparm_internal_unit,
-		      ioparm_internal_unit_len, dt->io_unit);
+	  set_internal_unit (&block,
+			     ioparm_internal_unit,
+			     ioparm_internal_unit_len,
+			     ioparm_internal_unit_desc,
+			     dt->io_unit);
 	}
       else
 	set_parameter_value (&block, ioparm_unit, dt->io_unit);
@@ -1158,6 +1270,10 @@ build_dt (tree * function, gfc_code * code)
         set_string (&block, &post_block, ioparm_format,
 		    ioparm_format_len, dt->format_label->format);
     }
+
+  if (dt->iomsg)
+    set_string (&block, &post_block, ioparm_iomsg, ioparm_iomsg_len,
+		dt->iomsg);
 
   if (dt->iostat)
     set_parameter_ref (&block, ioparm_iostat, dt->iostat);
@@ -1478,6 +1594,30 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
 }
 
 
+/* Generate a call to pass an array descriptor to the IO library. The
+   array should be of one of the intrinsic types.  */
+
+static void
+transfer_array_desc (gfc_se * se, gfc_typespec * ts, tree addr_expr)
+{
+  tree args, tmp, charlen_arg, kind_arg;
+
+  if (ts->type == BT_CHARACTER)
+    charlen_arg = se->string_length;
+  else
+    charlen_arg = build_int_cstu (NULL_TREE, 0);
+
+  kind_arg = build_int_cst (NULL_TREE, ts->kind);
+
+  args = gfc_chainon_list (NULL_TREE, addr_expr);
+  args = gfc_chainon_list (args, kind_arg);
+  args = gfc_chainon_list (args, charlen_arg);
+  tmp = gfc_build_function_call (iocall_x_array, args);
+  gfc_add_expr_to_block (&se->pre, tmp);
+  gfc_add_block_to_block (&se->pre, &se->post);
+}
+
+
 /* gfc_trans_transfer()-- Translate a TRANSFER code node */
 
 tree
@@ -1491,6 +1631,7 @@ gfc_trans_transfer (gfc_code * code)
   tree tmp;
 
   gfc_start_block (&block);
+  gfc_init_block (&body);
 
   expr = code->expr;
   ss = gfc_walk_expr (expr);
@@ -1498,8 +1639,11 @@ gfc_trans_transfer (gfc_code * code)
   gfc_init_se (&se, NULL);
 
   if (ss == gfc_ss_terminator)
-    gfc_init_block (&body);
-  else
+    {
+      gfc_conv_expr_reference (&se, expr);
+      transfer_expr (&se, &expr->ts, se.expr);
+    }
+  else if (expr->ts.type == BT_DERIVED)
     {
       /* Initialize the scalarizer.  */
       gfc_init_loopinfo (&loop);
@@ -1515,11 +1659,17 @@ gfc_trans_transfer (gfc_code * code)
 
       gfc_copy_loopinfo_to_se (&se, &loop);
       se.ss = ss;
+
+      gfc_conv_expr_reference (&se, expr);
+      transfer_expr (&se, &expr->ts, se.expr);
     }
-
-  gfc_conv_expr_reference (&se, expr);
-
-  transfer_expr (&se, &expr->ts, se.expr);
+  else
+    {
+      /* Pass the array descriptor to the library.  */
+      gfc_conv_expr_descriptor (&se, expr, ss);
+      tmp = gfc_build_addr_expr (NULL, se.expr);
+      transfer_array_desc (&se, &expr->ts, tmp);
+    }
 
   gfc_add_block_to_block (&body, &se.pre);
   gfc_add_block_to_block (&body, &se.post);

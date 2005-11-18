@@ -62,6 +62,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "target-def.h"
 #include "ggc.h"
+#include "hard-reg-set.h"
 
 
 void
@@ -415,6 +416,43 @@ bool
 hook_bool_rtx_commutative_p (rtx x, int outer_code ATTRIBUTE_UNUSED)
 {
   return COMMUTATIVE_P (x);
+}
+
+rtx
+default_function_value (tree ret_type ATTRIBUTE_UNUSED,
+			tree fn_decl_or_type,
+			bool outgoing ATTRIBUTE_UNUSED)
+{
+  /* The old interface doesn't handle receiving the function type.  */
+  if (fn_decl_or_type
+      && !DECL_P (fn_decl_or_type))
+    fn_decl_or_type = NULL;
+
+#ifdef FUNCTION_OUTGOING_VALUE
+  if (outgoing)
+    return FUNCTION_OUTGOING_VALUE (ret_type, fn_decl_or_type);
+#endif
+
+#ifdef FUNCTION_VALUE
+  return FUNCTION_VALUE (ret_type, fn_decl_or_type);
+#else
+  return NULL_RTX;
+#endif
+}
+
+rtx
+default_internal_arg_pointer (void)
+{
+  /* If the reg that the virtual arg pointer will be translated into is
+     not a fixed reg or is the stack pointer, make a copy of the virtual
+     arg pointer, and address parms via the copy.  The frame pointer is
+     considered fixed even though it is not marked as such.  */
+  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
+       || ! (fixed_regs[ARG_POINTER_REGNUM]
+	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
+    return copy_to_reg (virtual_incoming_args_rtx);
+  else
+    return virtual_incoming_args_rtx;
 }
 
 #include "gt-targhooks.h"

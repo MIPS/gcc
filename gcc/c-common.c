@@ -340,7 +340,7 @@ int flag_gen_declaration;
 
 int print_struct_values;
 
-/* ???.  Undocumented.  */
+/* Tells the compiler what is the constant string class for Objc.  */
 
 const char *constant_string_class_name;
 
@@ -505,6 +505,7 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
@@ -519,6 +520,7 @@ static tree handle_section_attribute (tree *, tree, tree, int, bool *);
 static tree handle_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_alias_attribute (tree *, tree, tree, int, bool *);
+static tree handle_weakref_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_visibility_attribute (tree *, tree, tree, int,
 					 bool *);
 static tree handle_tls_model_attribute (tree *, tree, tree, int,
@@ -571,6 +573,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  { "flatten",                0, 0, true,  false, false,
+                              handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
@@ -596,6 +600,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_weak_attribute },
   { "alias",                  1, 1, true,  false, false,
 			      handle_alias_attribute },
+  { "weakref",                0, 1, true,  false, false,
+			      handle_weakref_attribute },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute },
   { "malloc",                 0, 0, true,  false, false,
@@ -692,7 +698,7 @@ finish_fname_decls (void)
       if (TREE_CODE (*bodyp) == BIND_EXPR)
 	bodyp = &BIND_EXPR_BODY (*bodyp);
 
-      append_to_statement_list (*bodyp, &stmts);
+      append_to_statement_list_force (*bodyp, &stmts);
       *bodyp = stmts;
     }
 
@@ -969,6 +975,8 @@ vector_types_convertible_p (tree t1, tree t2)
   return targetm.vector_opaque_p (t1)
 	 || targetm.vector_opaque_p (t2)
          || (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
+	     && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE || 
+		 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
 	     && INTEGRAL_TYPE_P (TREE_TYPE (t1))
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
 }
@@ -2491,12 +2499,12 @@ c_common_truthvalue_conversion (tree expr)
   return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
 }
 
-static tree builtin_function_2 (const char *builtin_name, const char *name,
-				tree builtin_type, tree type,
-				enum built_in_function function_code,
-				enum built_in_class cl, int library_name_p,
-				bool nonansi_p,
-				tree attrs);
+static void def_builtin_1  (enum built_in_function fncode,
+			    const char *name,
+			    enum built_in_class fnclass,
+			    tree fntype, tree libtype,
+			    bool both_p, bool fallback_p, bool nonansi_p,
+			    tree fnattrs, bool implicit_p);
 
 /* Make a variant type in the proper way for C/C++, propagating qualifiers
    down to the element type of an array.  */
@@ -2948,7 +2956,7 @@ c_common_nodes_and_builtins (void)
 
   typedef enum builtin_type builtin_type;
 
-  tree builtin_types[(int) BT_LAST];
+  tree builtin_types[(int) BT_LAST + 1];
   int wchar_type_size;
   tree array_domain_type;
   tree va_list_ref_type_node;
@@ -3308,42 +3316,18 @@ c_common_nodes_and_builtins (void)
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
 #undef DEF_POINTER_TYPE
+  builtin_types[(int) BT_LAST] = NULL_TREE;
 
   c_init_attributes ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
 		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
   if (NAME && COND)							\
-    {									\
-      tree decl;							\
-									\
-      gcc_assert ((!BOTH_P && !FALLBACK_P)				\
-		  || !strncmp (NAME, "__builtin_",			\
-			       strlen ("__builtin_")));			\
-									\
-      if (!BOTH_P)							\
-	decl = lang_hooks.builtin_function (NAME, builtin_types[TYPE],	\
-				 ENUM,					\
-				 CLASS,					\
-				 (FALLBACK_P				\
-				  ? (NAME + strlen ("__builtin_"))	\
-				  : NULL),				\
-				 built_in_attributes[(int) ATTRS]);	\
-      else								\
-	decl = builtin_function_2 (NAME,				\
-				   NAME + strlen ("__builtin_"),	\
-				   builtin_types[TYPE],			\
-				   builtin_types[LIBTYPE],		\
-				   ENUM,				\
-				   CLASS,				\
-				   FALLBACK_P,				\
-				   NONANSI_P,				\
-				   built_in_attributes[(int) ATTRS]);	\
-									\
-      built_in_decls[(int) ENUM] = decl;				\
-      if (IMPLICIT)							\
-	implicit_built_in_decls[(int) ENUM] = decl;			\
-    }
+    def_builtin_1 (ENUM, NAME, CLASS,                                   \
+                   builtin_types[(int) TYPE],                           \
+                   builtin_types[(int) LIBTYPE],                        \
+                   BOTH_P, FALLBACK_P, NONANSI_P,                       \
+                   built_in_attributes[(int) ATTRS], IMPLICIT);
 #include "builtins.def"
 #undef DEF_BUILTIN
 
@@ -3433,42 +3417,39 @@ builtin_function_disabled_p (const char *name)
 }
 
 
-/* Possibly define a builtin function with one or two names.  BUILTIN_NAME
-   is an __builtin_-prefixed name; NAME is the ordinary name; one or both
-   of these may be NULL (though both being NULL is useless).
-   BUILTIN_TYPE is the type of the __builtin_-prefixed function;
-   TYPE is the type of the function with the ordinary name.  These
-   may differ if the ordinary name is declared with a looser type to avoid
-   conflicts with headers.  FUNCTION_CODE and CL are as for
-   builtin_function.  If LIBRARY_NAME_P is nonzero, NAME is passed as
-   the LIBRARY_NAME parameter to builtin_function when declaring BUILTIN_NAME.
-   If NONANSI_P is true, the name NAME is treated as a non-ANSI name;
-   ATTRS is the tree list representing the builtin's function attributes.
-   Returns the declaration of BUILTIN_NAME, if any, otherwise
-   the declaration of NAME.  Does not declare NAME if flag_no_builtin,
-   or if NONANSI_P and flag_no_nonansi_builtin.  */
+/* Worker for DEF_BUILTIN.
+   Possibly define a builtin function with one or two names.
+   Does not declare a non-__builtin_ function if flag_no_builtin, or if
+   nonansi_p and flag_no_nonansi_builtin.  */
 
-static tree
-builtin_function_2 (const char *builtin_name, const char *name,
-		    tree builtin_type, tree type,
-		    enum built_in_function function_code,
-		    enum built_in_class cl, int library_name_p,
-		    bool nonansi_p, tree attrs)
+static void
+def_builtin_1 (enum built_in_function fncode,
+	       const char *name,
+	       enum built_in_class fnclass,
+	       tree fntype, tree libtype,
+	       bool both_p, bool fallback_p, bool nonansi_p,
+	       tree fnattrs, bool implicit_p)
 {
-  tree bdecl = NULL_TREE;
-  tree decl = NULL_TREE;
+  tree decl;
+  const char *libname;
 
-  if (builtin_name != 0)
-    bdecl = lang_hooks.builtin_function (builtin_name, builtin_type,
-					 function_code, cl,
-					 library_name_p ? name : NULL, attrs);
+  gcc_assert ((!both_p && !fallback_p)
+	      || !strncmp (name, "__builtin_",
+			   strlen ("__builtin_")));
 
-  if (name != 0 && !flag_no_builtin && !builtin_function_disabled_p (name)
+  libname = name + strlen ("__builtin_");
+  decl = lang_hooks.builtin_function (name, fntype, fncode, fnclass,
+				      (fallback_p ? libname : NULL),
+				      fnattrs);
+  if (both_p
+      && !flag_no_builtin && !builtin_function_disabled_p (libname)
       && !(nonansi_p && flag_no_nonansi_builtin))
-    decl = lang_hooks.builtin_function (name, type, function_code, cl,
-					NULL, attrs);
+    lang_hooks.builtin_function (libname, libtype, fncode, fnclass,
+				 NULL, fnattrs);
 
-  return (bdecl != 0 ? bdecl : decl);
+  built_in_decls[(int) fncode] = decl;
+  if (implicit_p)
+    implicit_built_in_decls[(int) fncode] = decl;
 }
 
 /* Nonzero if the type T promotes to int.  This is (nearly) the
@@ -3610,25 +3591,27 @@ c_add_case_label (splay_tree cases, tree cond, tree orig_type,
     {
       low_value = check_case_value (low_value);
       low_value = convert_and_check (type, low_value);
+      if (low_value == error_mark_node)
+	goto error_out;
     }
   if (high_value)
     {
       high_value = check_case_value (high_value);
       high_value = convert_and_check (type, high_value);
+      if (high_value == error_mark_node)
+	goto error_out;
     }
 
-  /* If an error has occurred, bail out now.  */
-  if (low_value == error_mark_node || high_value == error_mark_node)
-    goto error_out;
-
-  /* If the LOW_VALUE and HIGH_VALUE are the same, then this isn't
-     really a case range, even though it was written that way.  Remove
-     the HIGH_VALUE to simplify later processing.  */
-  if (tree_int_cst_equal (low_value, high_value))
-    high_value = NULL_TREE;
-  if (low_value && high_value
-      && !tree_int_cst_lt (low_value, high_value))
-    warning (0, "empty range specified");
+  if (low_value && high_value)
+    {
+      /* If the LOW_VALUE and HIGH_VALUE are the same, then this isn't
+         really a case range, even though it was written that way.
+         Remove the HIGH_VALUE to simplify later processing.  */
+      if (tree_int_cst_equal (low_value, high_value))
+	high_value = NULL_TREE;
+      else if (!tree_int_cst_lt (low_value, high_value))
+	warning (0, "empty range specified");
+    }
 
   /* See if the case is in range of the type of the original testing
      expression.  If both low_value and high_value are out of range,
@@ -3829,7 +3812,32 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 	{
 	  splay_tree_node node
 	    = splay_tree_lookup (cases, (splay_tree_key) TREE_VALUE (chain));
-
+	  if (!node)
+	    {
+	      tree low_value = TREE_VALUE (chain);
+	      splay_tree_node low_bound;
+	      splay_tree_node high_bound;
+	      /* Even though there wasn't an exact match, there might be a
+		 case range which includes the enumator's value.  */
+	      low_bound = splay_tree_predecessor (cases,
+						  (splay_tree_key) low_value);
+	      high_bound = splay_tree_successor (cases,
+						 (splay_tree_key) low_value);
+	      
+	      /* It is smaller than the LOW_VALUE, so there is no need to check
+	         unless the LOW_BOUND is in fact itself a case range.  */
+	      if (low_bound
+		  && CASE_HIGH ((tree) low_bound->value)
+		  && tree_int_cst_compare (CASE_HIGH ((tree) low_bound->value),
+					    low_value) >= 0)
+		node = low_bound;
+	      /* The low end of that range is bigger than the current value. */
+	      else if (high_bound
+		       && (tree_int_cst_compare ((tree) high_bound->key,
+						 low_value)
+			   <= 0))
+		node = high_bound;
+	    }
 	  if (node)
 	    {
 	      /* Mark the CASE_LOW part of the case entry as seen, so
@@ -4151,6 +4159,28 @@ handle_always_inline_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "flatten" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_flatten_attribute (tree *node, tree name,
+                          tree args ATTRIBUTE_UNUSED,
+                          int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -4284,39 +4314,43 @@ handle_transparent_union_attribute (tree *node, tree name,
 				    tree ARG_UNUSED (args), int flags,
 				    bool *no_add_attrs)
 {
-  tree decl = NULL_TREE;
-  tree *type = NULL;
-  int is_type = 0;
+  tree type = NULL;
+
+  *no_add_attrs = true;
 
   if (DECL_P (*node))
     {
-      decl = *node;
-      type = &TREE_TYPE (decl);
-      is_type = TREE_CODE (*node) == TYPE_DECL;
+      if (TREE_CODE (*node) != TYPE_DECL)
+	goto ignored;
+      node = &TREE_TYPE (*node);
+      type = *node;
     }
   else if (TYPE_P (*node))
-    type = node, is_type = 1;
-
-  if (is_type
-      && TREE_CODE (*type) == UNION_TYPE
-      && (decl == 0
-	  || (TYPE_FIELDS (*type) != 0
-	      && TYPE_MODE (*type) == DECL_MODE (TYPE_FIELDS (*type)))))
-    {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	*type = build_variant_type_copy (*type);
-      TYPE_TRANSPARENT_UNION (*type) = 1;
-    }
-  else if (decl != 0 && TREE_CODE (decl) == PARM_DECL
-	   && TREE_CODE (*type) == UNION_TYPE
-	   && TYPE_MODE (*type) == DECL_MODE (TYPE_FIELDS (*type)))
-    DECL_TRANSPARENT_UNION (decl) = 1;
+    type = *node;
   else
+    goto ignored;
+
+  if (TREE_CODE (type) == UNION_TYPE)
     {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
+      /* When IN_PLACE is set, leave the check for FIELDS and MODE to
+	 the code in finish_struct.  */
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	{
+	  if (TYPE_FIELDS (type) == NULL_TREE
+	      || TYPE_MODE (type) != DECL_MODE (TYPE_FIELDS (type)))
+	    goto ignored;
+
+	  /* A type variant isn't good enough, since we don't a cast
+	     to such a type removed as a no-op.  */
+	  *node = type = build_duplicate_type (type);
+	}
+
+      TYPE_TRANSPARENT_UNION (type) = 1;
+      return NULL_TREE;
     }
 
+ ignored:
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
   return NULL_TREE;
 }
 
@@ -4497,21 +4531,24 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	      return NULL_TREE;
 	    }
 
-	  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	    type = build_variant_type_copy (type);
-
-	  /* We cannot use layout_type here, because that will attempt
-	     to re-layout all variants, corrupting our original.  */
-	  TYPE_PRECISION (type) = TYPE_PRECISION (typefm);
-	  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (typefm);
-	  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
-	  TYPE_SIZE (type) = TYPE_SIZE (typefm);
-	  TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
-	  TYPE_MODE (type) = TYPE_MODE (typefm);
-	  if (!TYPE_USER_ALIGN (type))
-	    TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
-
-	  typefm = type;
+	  if (flags & ATTR_FLAG_TYPE_IN_PLACE)
+	    {
+	      TYPE_PRECISION (type) = TYPE_PRECISION (typefm);
+	      typefm = type;
+	    }
+	  else
+	    {
+	      /* We cannot build a type variant, as there's code that assumes
+		 that TYPE_MAIN_VARIANT has the same mode.  This includes the
+		 debug generators.  Instead, create a subrange type.  This
+		 results in all of the enumeral values being emitted only once
+		 in the original, and the subtype gets them by reference.  */
+	      if (TYPE_UNSIGNED (type))
+		typefm = make_unsigned_type (TYPE_PRECISION (typefm));
+	      else
+		typefm = make_signed_type (TYPE_PRECISION (typefm));
+	      TREE_TYPE (typefm) = type;
+	    }
 	}
       else if (VECTOR_MODE_P (mode)
 	       ? TREE_CODE (type) != TREE_CODE (TREE_TYPE (typefm))
@@ -4708,7 +4745,10 @@ handle_alias_attribute (tree *node, tree name, tree args,
 	DECL_INITIAL (decl) = error_mark_node;
       else
 	{
-	  DECL_EXTERNAL (decl) = 0;
+	  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
+	    DECL_EXTERNAL (decl) = 1;
+	  else
+	    DECL_EXTERNAL (decl) = 0;
 	  TREE_STATIC (decl) = 1;
 	}
     }
@@ -4717,6 +4757,40 @@ handle_alias_attribute (tree *node, tree name, tree args,
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
+
+  return NULL_TREE;
+}
+
+/* Handle a "weakref" attribute; arguments as in struct
+   attribute_spec.handler.  */
+
+static tree
+handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			  int flags, bool *no_add_attrs)
+{
+  tree attr = NULL_TREE;
+
+  /* The idea here is that `weakref("name")' mutates into `weakref,
+     alias("name")', and weakref without arguments, in turn,
+     implicitly adds weak. */
+
+  if (args)
+    {
+      attr = tree_cons (get_identifier ("alias"), args, attr);
+      attr = tree_cons (get_identifier ("weakref"), NULL_TREE, attr);
+
+      *no_add_attrs = true;
+    }
+  else
+    {
+      if (lookup_attribute ("alias", DECL_ATTRIBUTES (*node)))
+	error ("%Jweakref attribute must appear before alias attribute",
+	       *node);
+
+      attr = tree_cons (get_identifier ("weak"), NULL_TREE, attr);
+    }
+
+  decl_attributes (node, attr, flags);
 
   return NULL_TREE;
 }
@@ -5234,7 +5308,8 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
       }
       
       if (typelist || !params)
-	warning (0, "not enough variable arguments to fit a sentinel");
+	warning (OPT_Wformat,
+		 "not enough variable arguments to fit a sentinel");
       else
         {
 	  tree sentinel, end;
@@ -5256,7 +5331,8 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
 	    }
 	  if (pos > 0)
 	    {
-	      warning (0, "not enough variable arguments to fit a sentinel");
+	      warning (OPT_Wformat,
+		       "not enough variable arguments to fit a sentinel");
 	      return;
 	    }
 
@@ -5277,7 +5353,7 @@ check_function_sentinel (tree attrs, tree params, tree typelist)
 		 We warn with -Wstrict-null-sentinel, though.  */
               && (warn_strict_null_sentinel
 		  || null_node != TREE_VALUE (sentinel)))
-	    warning (0, "missing sentinel in function call");
+	    warning (OPT_Wformat, "missing sentinel in function call");
 	}
     }
 }
@@ -5319,8 +5395,8 @@ check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
     return;
 
   if (integer_zerop (param))
-    warning (0, "null argument where non-null required (argument %lu)",
-	     (unsigned long) param_num);
+    warning (OPT_Wnonnull, "null argument where non-null required "
+	     "(argument %lu)", (unsigned long) param_num);
 }
 
 /* Helper for nonnull attribute handling; fetch the operand number
@@ -5388,7 +5464,7 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-  cleanup_decl = lookup_name (cleanup_id);
+  cleanup_decl = lookup_name_two (cleanup_id, 0);
   if (!cleanup_decl || TREE_CODE (cleanup_decl) != FUNCTION_DECL)
     {
       error ("cleanup argument not a function");
@@ -5480,11 +5556,11 @@ check_function_arguments (tree attrs, tree params, tree typelist)
 
   /* Check for errors in format strings.  */
 
-  if (warn_format)
-    {
+  if (warn_format || warn_missing_format_attribute)
       check_function_format (attrs, params);
-      check_function_sentinel (attrs, params, typelist);
-    }
+
+  if (warn_format)
+    check_function_sentinel (attrs, params, typelist);
 }
 
 /* Generic argument checking recursion routine.  PARAM is the argument to
@@ -5913,9 +5989,9 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)
 	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
+	  VEC(constructor_elt,gc) *v = CONSTRUCTOR_ELTS (initial_value);
 
-	  if (elts == NULL)
+	  if (VEC_empty (constructor_elt, v))
 	    {
 	      if (pedantic)
 		failure = 3;
@@ -5924,15 +6000,21 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	  else
 	    {
 	      tree curindex;
+	      unsigned HOST_WIDE_INT cnt;
+	      constructor_elt *ce;
 
-	      if (TREE_PURPOSE (elts))
-		maxindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+	      if (VEC_index (constructor_elt, v, 0)->index)
+		maxindex = fold_convert (sizetype,
+					 VEC_index (constructor_elt,
+						    v, 0)->index);
 	      curindex = maxindex;
 
-	      for (elts = TREE_CHAIN (elts); elts; elts = TREE_CHAIN (elts))
+	      for (cnt = 1;
+		   VEC_iterate (constructor_elt, v, cnt, ce);
+		   cnt++)
 		{
-		  if (TREE_PURPOSE (elts))
-		    curindex = fold_convert (sizetype, TREE_PURPOSE (elts));
+		  if (ce->index)
+		    curindex = fold_convert (sizetype, ce->index);
 		  else
 		    curindex = size_binop (PLUS_EXPR, curindex, size_one_node);
 
@@ -6088,6 +6170,7 @@ static tree
 sync_resolve_return (tree params, tree result)
 {
   tree ptype = TREE_TYPE (TREE_TYPE (TREE_VALUE (params)));
+  ptype = TYPE_MAIN_VARIANT (ptype);
   return convert (ptype, result);
 }
 
@@ -6173,6 +6256,32 @@ same_scalar_type_ignoring_signedness (tree t1, tree t2)
      TYPE_MAIN_VARIANT.  */
   return lang_hooks.types.signed_type (t1)
     == lang_hooks.types.signed_type (t2);
+}
+
+/* Check for missing format attributes on function pointers.  LTYPE is
+   the new type or left-hand side type.  RTYPE is the old type or
+   right-hand side type.  Returns TRUE if LTYPE is missing the desired
+   attribute.  */
+
+bool
+check_missing_format_attribute (tree ltype, tree rtype)
+{
+  tree const ttr = TREE_TYPE (rtype), ttl = TREE_TYPE (ltype);
+  tree ra;
+
+  for (ra = TYPE_ATTRIBUTES (ttr); ra; ra = TREE_CHAIN (ra))
+    if (is_attribute_p ("format", TREE_PURPOSE (ra)))
+      break;
+  if (ra)
+    {
+      tree la;
+      for (la = TYPE_ATTRIBUTES (ttl); la; la = TREE_CHAIN (la))
+	if (is_attribute_p ("format", TREE_PURPOSE (la)))
+	  break;
+      return !la;
+    }
+  else
+    return false;
 }
 
 #include "gt-c-common.h"

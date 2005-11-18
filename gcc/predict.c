@@ -624,6 +624,9 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	      niter = desc.niter + 1;
 	      if (niter == 0)        /* We might overflow here.  */
 		niter = desc.niter;
+	      if (niter
+		  > (unsigned int) PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS))
+		niter = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
 
 	      prob = (REG_BR_PROB_BASE
 		      - (REG_BR_PROB_BASE + niter /2) / niter);
@@ -643,7 +646,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	    {
 	      tree niter = NULL;
 
-	      if (number_of_iterations_exit (loop, exits[j], &niter_desc))
+	      if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
 		niter = niter_desc.niter;
 	      if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
 	        niter = loop_niter_by_eval (loop, exits[j]);
@@ -651,16 +654,17 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	      if (TREE_CODE (niter) == INTEGER_CST)
 		{
 		  int probability;
+		  int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
 		  if (host_integerp (niter, 1)
 		      && tree_int_cst_lt (niter,
-				          build_int_cstu (NULL_TREE,
-						       REG_BR_PROB_BASE - 1)))
+				          build_int_cstu (NULL_TREE, max - 1)))
 		    {
 		      HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
-		      probability = (REG_BR_PROB_BASE + nitercst / 2) / nitercst;
+		      probability = ((REG_BR_PROB_BASE + nitercst / 2)
+				     / nitercst);
 		    }
 		  else
-		    probability = 1;
+		    probability = ((REG_BR_PROB_BASE + max / 2) / max);
 
 		  predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
 		}
@@ -1206,7 +1210,7 @@ return_prediction (tree val, enum prediction *prediction)
 static void
 apply_return_prediction (int *heads)
 {
-  tree return_stmt;
+  tree return_stmt = NULL;
   tree return_val;
   edge e;
   tree phi;
@@ -1557,11 +1561,11 @@ typedef struct block_info_def
 /* Similar information for edges.  */
 typedef struct edge_info_def
 {
-  /* In case edge is an loopback edge, the probability edge will be reached
+  /* In case edge is a loopback edge, the probability edge will be reached
      in case header is.  Estimated number of iterations of the loop can be
      then computed as 1 / (1 - back_edge_prob).  */
   sreal back_edge_prob;
-  /* True if the edge is an loopback edge in the natural loop.  */
+  /* True if the edge is a loopback edge in the natural loop.  */
   unsigned int back_edge:1;
 } *edge_info;
 

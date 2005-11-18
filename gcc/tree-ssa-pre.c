@@ -2136,6 +2136,77 @@ can_value_number_call (tree stmt)
   return false;
 }
 
+/* Given a statement STMT and its right hand side which is a load, try
+   to look for the expression stored in the location for the load, and
+   return true if a useful equivalence was recorded for LHS.  */
+
+static bool
+try_look_through_load (tree lhs, tree mem_ref, tree stmt, basic_block block)
+{
+  tree store_stmt = NULL;
+  tree rhs;
+  ssa_op_iter i;
+  tree vuse;
+
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, i, SSA_OP_VIRTUAL_USES)
+    {
+      tree def_stmt;
+
+      gcc_assert (TREE_CODE (vuse) == SSA_NAME);
+      def_stmt = SSA_NAME_DEF_STMT (vuse);
+
+      /* If there is no useful statement for this VUSE, we'll not find a
+	 useful expression to return either.  Likewise, if there is a
+	 statement but it is not a simple assignment or it has virtual
+	 uses, we can stop right here.  Note that this means we do
+	 not look through PHI nodes, which is intentional.  */
+      if (!def_stmt
+	  || TREE_CODE (def_stmt) != MODIFY_EXPR
+	  || !ZERO_SSA_OPERANDS (def_stmt, SSA_OP_VIRTUAL_USES))
+	return false;
+
+      /* If this is not the same statement as one we have looked at for
+	 another VUSE of STMT already, we have two statements producing
+	 something that reaches our STMT.  */
+      if (store_stmt && store_stmt != def_stmt)
+	return false;
+      else
+	{
+	  /* Is this a store to the exact same location as the one we are
+	     loading from in STMT?  */
+	  if (!operand_equal_p (TREE_OPERAND (def_stmt, 0), mem_ref, 0))
+	    return false;
+
+	  /* Otherwise remember this statement and see if all other VUSEs
+	     come from the same statement.  */
+	  store_stmt = def_stmt;
+	}
+    }
+
+  /* Alright then, we have visited all VUSEs of STMT and we've determined
+     that all of them come from the same statement STORE_STMT.  See if there
+     is a useful expression we can deduce from STORE_STMT.  */
+  rhs = TREE_OPERAND (store_stmt, 1);
+  if ((TREE_CODE (rhs) == SSA_NAME
+       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
+      || is_gimple_min_invariant (rhs)
+      || TREE_CODE (rhs) == ADDR_EXPR
+      || TREE_INVARIANT (rhs))
+    {
+      
+      /* Yay!  Compute a value number for the RHS of the statement and
+ 	 add its value to the AVAIL_OUT set for the block.  Add the LHS
+	 to TMP_GEN.  */
+      add_to_sets (lhs, rhs, store_stmt, TMP_GEN (block), AVAIL_OUT (block));
+      if (TREE_CODE (rhs) == SSA_NAME
+	  && !is_undefined_value (rhs))
+	value_insert_into_set (EXP_GEN (block), rhs);
+      return true;
+    }
+
+  return false;
+}
+
 /* Compute the AVAIL set for all basic blocks.
 
    This function performs value numbering of the statements in each basic
@@ -2226,6 +2297,12 @@ compute_avail (void)
 	      tree lhs = TREE_OPERAND (stmt, 0);
 	      tree rhs = TREE_OPERAND (stmt, 1);
 
+	      /* Try to look through loads.  */
+	      if (TREE_CODE (lhs) == SSA_NAME
+		  && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_USES)
+		  && try_look_through_load (lhs, rhs, stmt, block))
+		continue;
+
 	      STRIP_USELESS_TYPE_CONVERSION (rhs);
 	      if (UNARY_CLASS_P (rhs)
 		  || BINARY_CLASS_P (rhs)
@@ -2247,7 +2324,8 @@ compute_avail (void)
 		      continue;
 		    }
 		}
-	      else if (TREE_CODE (rhs) == SSA_NAME
+	      else if ((TREE_CODE (rhs) == SSA_NAME
+			&& !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
 		       || is_gimple_min_invariant (rhs)
 		       || TREE_CODE (rhs) == ADDR_EXPR
 		       || TREE_INVARIANT (rhs)
@@ -2334,8 +2412,17 @@ eliminate (void)
 		      fprintf (dump_file, " in ");
 		      print_generic_stmt (dump_file, stmt, 0);
 		    }
+		  
 		  if (TREE_CODE (sprime) == SSA_NAME) 
 		    NECESSARY (SSA_NAME_DEF_STMT (sprime)) = 1;
+		  /* We need to make sure the new and old types actually match,
+		     which may require adding a simple cast, which fold_convert
+		     will do for us.  */
+		  if (TREE_CODE (*rhs_p) != SSA_NAME
+		      && !tree_ssa_useless_type_conversion_1 (TREE_TYPE (*rhs_p),
+							      TREE_TYPE (sprime)))
+		    sprime = fold_convert (TREE_TYPE (*rhs_p), sprime);
+		  
 		  pre_stats.eliminations++;
 		  propagate_tree_value (rhs_p, sprime);
 		  update_stmt (stmt);
@@ -2711,5 +2798,138 @@ struct tree_opt_pass pass_fre =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Return true if T is a copy statement between two ssa names.  */
+
+static bool
+is_copy_stmt (tree t)
+{  
+  if (!t || TREE_CODE (t) != MODIFY_EXPR)
+    return false;
+  if (TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME 
+      && TREE_CODE (TREE_OPERAND (t, 1)) == SSA_NAME)
+    return true;
+  return false;
+}
+
+/* Starting from START, walk copy statements till we hit a statement with a
+   VUSE or a non-copy statement.  */
+
+static tree 
+follow_copies_till_vuse (tree start)
+{
+  if (is_copy_stmt (start) && ZERO_SSA_OPERANDS (start, SSA_OP_VIRTUAL_USES))
+    {
+      tree rhs, defstmt;
+
+      rhs = TREE_OPERAND (start, 1);
+      defstmt = SSA_NAME_DEF_STMT (rhs);
+      return follow_copies_till_vuse (defstmt);
+    }
+  return start;
+}
+
+/* Gate and execute functions for eliminate useless stores.	
+   The goal here is to recognize the pattern *x = ... *x, and eliminate the
+   store because the value hasn't changed.  Store copy/const prop won't
+   do this because making *more* loads (IE propagating *x) is not a win, so it
+   ignores them.  
+   This pass is currently geared completely towards static variable store
+   elimination.  */
+
+static void
+do_eustores (void)
+{
+  basic_block bb;
+  /* For each basic block
+       For each statement (STMT) in the block
+         if STMT is a stores of the pattern *x = y
+           follow the chain of definitions for y, until we hit a non-copy
+	   statement or a statement with a vuse. 
+	     if the statement we arrive at is a vuse of the operand we killed,
+	     accessed through the same memory operation, then we have a
+	     useless store (because it is *x = ... = *x).  */
+	  
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+
+      for (bsi = bsi_start (bb);
+	   !bsi_end_p (bsi);)
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  tree startat;
+	  tree kill;	  
+	  tree found;
+	  	  
+	  if (NUM_SSA_OPERANDS (stmt, SSA_OP_VMUSTDEF) != 1
+	      || TREE_CODE (stmt) != MODIFY_EXPR
+	      || TREE_CODE (TREE_OPERAND (stmt, 1)) != SSA_NAME)
+	    {
+	      bsi_next (&bsi);
+	      continue;
+	    }
+
+	  kill = MUSTDEF_KILL (MUSTDEF_OPS (stmt)); 
+	  startat = TREE_OPERAND (stmt, 1);
+	  startat = SSA_NAME_DEF_STMT (startat);
+	  found = follow_copies_till_vuse (startat);
+
+	  if (found && TREE_CODE (found) == MODIFY_EXPR)
+	    {	   
+
+	      /* We want exactly one virtual use, and it should match up with
+		 the use being killed.  */
+
+	      if (NUM_SSA_OPERANDS (found, SSA_OP_VUSE) != 1
+		  || VUSE_OP (VUSE_OPS (found)) != kill
+		  || !DECL_P (TREE_OPERAND (stmt, 0))
+		  || !operand_equal_p (TREE_OPERAND (found, 1), 
+				       TREE_OPERAND (stmt, 0), 0))
+		{
+		  bsi_next (&bsi);
+		  continue;
+		}
+
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "Eliminating useless store ");
+		  print_generic_stmt (dump_file, stmt, 0);
+		}
+	      mark_sym_for_renaming (TREE_OPERAND (stmt, 0));
+	      bsi_remove (&bsi);
+	    }
+	  else
+	    {
+	      bsi_next (&bsi);
+	      continue;
+	    }
+	}
+    }
+}
+
+static bool
+gate_eustores(void)
+{
+  return flag_unit_at_a_time != 0;
+}
+
+struct tree_opt_pass pass_eliminate_useless_stores =
+{
+  "eustores",				/* name */
+  gate_eustores,				/* gate */
+  do_eustores,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,				/* tv_id */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_update_ssa | TODO_dump_func 
+  | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
 };

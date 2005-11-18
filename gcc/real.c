@@ -1789,6 +1789,10 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
 		|= (unsigned long) d << (pos % HOST_BITS_PER_LONG);
 	      pos -= 4;
 	    }
+	  else if (d)
+	    /* Ensure correct rounding by setting last bit if there is
+	       a subsequent nonzero digit.  */
+	    r->sig[0] |= 1;
 	  exp += 4;
 	  str++;
 	}
@@ -1811,6 +1815,10 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
 		    |= (unsigned long) d << (pos % HOST_BITS_PER_LONG);
 		  pos -= 4;
 		}
+	      else if (d)
+		/* Ensure correct rounding by setting last bit if there is
+		   a subsequent nonzero digit.  */
+		r->sig[0] |= 1;
 	      str++;
 	    }
 	}
@@ -2391,7 +2399,19 @@ real_value_truncate (enum machine_mode mode, REAL_VALUE_TYPE a)
 bool
 exact_real_truncate (enum machine_mode mode, const REAL_VALUE_TYPE *a)
 {
+  const struct real_format *fmt;
   REAL_VALUE_TYPE t;
+  int emin2m1;
+
+  fmt = REAL_MODE_FORMAT (mode);
+  gcc_assert (fmt);
+
+  /* Don't allow conversion to denormals.  */
+  emin2m1 = (fmt->emin - 1) * fmt->log2_b;
+  if (REAL_EXP (a) <= emin2m1)
+    return false;
+
+  /* After conversion to the new mode, the value must be identical.  */
   real_convert (&t, mode, a);
   return real_identical (&t, a);
 }

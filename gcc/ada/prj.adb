@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2001-2005 Free Software Foundation, Inc.       --
+--          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,12 +32,10 @@ with Osint;    use Osint;
 with Prj.Attr;
 with Prj.Env;
 with Prj.Err;  use Prj.Err;
-with Scans;    use Scans;
 with Snames;   use Snames;
 with Uintp;    use Uintp;
 
 with GNAT.Case_Util; use GNAT.Case_Util;
-with GNAT.OS_Lib;    use GNAT.OS_Lib;
 
 package body Prj is
 
@@ -104,6 +102,8 @@ package body Prj is
       Display_Library_Dir            => No_Name,
       Library_Src_Dir                => No_Name,
       Display_Library_Src_Dir        => No_Name,
+      Library_ALI_Dir                => No_Name,
+      Display_Library_ALI_Dir        => No_Name,
       Library_Name                   => No_Name,
       Library_Kind                   => Static,
       Lib_Internal_Name              => No_Name,
@@ -123,6 +123,7 @@ package body Prj is
       Known_Order_Of_Source_Dirs     => True,
       Object_Directory               => No_Name,
       Display_Object_Dir             => No_Name,
+      Library_TS                     => Empty_Time_Stamp,
       Exec_Directory                 => No_Name,
       Display_Exec_Dir               => No_Name,
       Extends                        => No_Project,
@@ -134,6 +135,7 @@ package body Prj is
       Default_Linker_Path            => No_Name,
       Decl                           => No_Declarations,
       Imported_Projects              => Empty_Project_List,
+      All_Imported_Projects          => Empty_Project_List,
       Ada_Include_Path               => null,
       Ada_Objects_Path               => null,
       Include_Path_File              => No_Name,
@@ -487,7 +489,7 @@ package body Prj is
          end if;
       end loop;
 
-      --  If none can be found, create a new one.
+      --  If none can be found, create a new one
 
       if not Found then
          Element :=
@@ -528,7 +530,7 @@ package body Prj is
          end if;
       end loop;
 
-      --  If none can be found, create a new one.
+      --  If none can be found, create a new one
 
       if not Found then
          Element :=

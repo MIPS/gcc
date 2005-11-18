@@ -314,13 +314,13 @@ dump_variable (FILE *file, tree var)
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
 
-  if (ann->type_mem_tag)
+  if (ann && ann->type_mem_tag)
     {
       fprintf (file, ", type memory tag: ");
       print_generic_expr (file, ann->type_mem_tag, dump_flags);
     }
 
-  if (ann->is_alias_tag)
+  if (ann && ann->is_alias_tag)
     fprintf (file, ", is an alias tag");
 
   if (TREE_ADDRESSABLE (var))
@@ -335,13 +335,13 @@ dump_variable (FILE *file, tree var)
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
 
-  if (ann->default_def)
+  if (default_def (var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, dump_flags);
+      print_generic_expr (file, default_def (var), dump_flags);
     }
 
-  if (ann->may_aliases)
+  if (may_aliases (var))
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
@@ -463,7 +463,7 @@ debug_dfa_stats (void)
 }
 
 
-/* Collect DFA statistics and store them in the structure pointed by
+/* Collect DFA statistics and store them in the structure pointed to by
    DFA_STATS_P.  */
 
 static void
@@ -566,6 +566,20 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
+   variable or NULL if it is not there.  */
+
+tree 
+referenced_var_lookup_if_exists (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = htab_find_with_hash (referenced_vars, &in, uid);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */
 
 tree 
@@ -637,9 +651,9 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	     optimizers.  */
           && !DECL_EXTERNAL (var)
 	  /* It's not necessary to walk the initial value of non-constant
-	     public variables because it cannot be propagated by the
+	     variables because it cannot be propagated by the
 	     optimizers.  */
-	  && (!TREE_PUBLIC (var) || !TREE_CONSTANT (var)))
+	  && (TREE_CONSTANT (var) || TREE_READONLY (var)))
       	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
     }
 }
@@ -693,6 +707,9 @@ mark_new_vars_to_rename (tree stmt)
   bool found_exposed_symbol = false;
   int v_may_defs_before, v_may_defs_after;
   int v_must_defs_before, v_must_defs_after;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
 
   vars_in_vops_to_rename = BITMAP_ALLOC (NULL);
 

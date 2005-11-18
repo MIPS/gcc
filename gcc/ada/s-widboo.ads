@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 1992-2005 Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,7 +34,7 @@
 --  This package contains the routine used for Boolean'Width
 
 package System.Wid_Bool is
-pragma Pure (Wid_Bool);
+   pragma Pure;
 
    function Width_Boolean (Lo, Hi : Boolean) return Natural;
    --  Compute Width attribute for non-static type derived from Boolean.

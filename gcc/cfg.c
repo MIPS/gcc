@@ -850,7 +850,12 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
 
   bb->count -= count;
   if (bb->count < 0)
-    bb->count = 0;
+    {
+      if (dump_file)
+	fprintf (dump_file, "bb %i count became negative after threading",
+		 bb->index);
+      bb->count = 0;
+    }
 
   /* Compute the probability of TAKEN_EDGE being reached via threaded edge.
      Watch for overflows.  */
@@ -888,16 +893,25 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
     }
   else if (prob != REG_BR_PROB_BASE)
     {
-      int scale = 65536 * REG_BR_PROB_BASE / prob;
+      int scale = RDIV (65536 * REG_BR_PROB_BASE, prob);
 
       FOR_EACH_EDGE (c, ei, bb->succs)
-	c->probability = (c->probability * scale) / 65536;
+	{
+	  c->probability = RDIV (c->probability * scale, 65536);
+	  if (c->probability > REG_BR_PROB_BASE)
+	    c->probability = REG_BR_PROB_BASE;
+	}
     }
 
   gcc_assert (bb == taken_edge->src);
   taken_edge->count -= count;
   if (taken_edge->count < 0)
-    taken_edge->count = 0;
+    {
+      if (dump_file)
+	fprintf (dump_file, "edge %i->%i count became negative after threading",
+		 taken_edge->src->index, taken_edge->dest->index);
+      taken_edge->count = 0;
+    }
 }
 
 /* Multiply all frequencies of basic blocks in array BBS of length NBBS
@@ -907,15 +921,26 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
 {
   int i;
   edge e;
+  if (num < 0)
+    num = 0;
+  if (num > den)
+    return;
+  /* Assume that the users are producing the fraction from frequencies
+     that never grow far enough to risk arithmetic overflow.  */
+  gcc_assert (num < 65536);
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;
-      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	e->count = (e->count * num) /den;
+	e->count = RDIV (e->count * num, den);
     }
 }
+
+/* numbers smaller than this value are safe to multiply without getting
+   64bit overflow.  */
+#define MAX_SAFE_MULTIPLIER (1 << (sizeof (HOST_WIDEST_INT) * 4 - 1))
 
 /* Multiply all frequencies of basic blocks in array BBS of length NBBS
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
@@ -926,15 +951,37 @@ scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
 {
   int i;
   edge e;
+  gcov_type fraction = RDIV (num * 65536, den);
 
-  for (i = 0; i < nbbs; i++)
-    {
-      edge_iterator ei;
-      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = RDIV (bbs[i]->count * num, den);
-      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	e->count = (e->count * num) /den;
-    }
+  gcc_assert (fraction >= 0);
+
+  if (num < MAX_SAFE_MULTIPLIER)
+    for (i = 0; i < nbbs; i++)
+      {
+	edge_iterator ei;
+	bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+	if (bbs[i]->count <= MAX_SAFE_MULTIPLIER)
+	  bbs[i]->count = RDIV (bbs[i]->count * num, den);
+	else
+	  bbs[i]->count = RDIV (bbs[i]->count * fraction, 65536);
+	FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	  if (bbs[i]->count <= MAX_SAFE_MULTIPLIER)
+	    e->count = RDIV (e->count * num, den);
+	  else
+	    e->count = RDIV (e->count * fraction, 65536);
+      }
+   else
+    for (i = 0; i < nbbs; i++)
+      {
+	edge_iterator ei;
+	if (sizeof (gcov_type) > sizeof (int))
+	  bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+	else
+	  bbs[i]->frequency = RDIV (bbs[i]->frequency * fraction, 65536);
+	bbs[i]->count = RDIV (bbs[i]->count * fraction, 65536);
+	FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	  e->count = RDIV (e->count * fraction, 65536);
+      }
 }
 
 /* Data structures used to maintain mapping between basic blocks and

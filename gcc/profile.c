@@ -651,14 +651,13 @@ compute_value_histograms (histogram_values values)
   gcov_type *histogram_counts[GCOV_N_VALUE_COUNTERS];
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
-  histogram_value hist;
  
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     n_histogram_counters[t] = 0;
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
-      hist = VEC_index (histogram_value, values, i);
+      histogram_value hist = VEC_index (histogram_value, values, i);
       n_histogram_counters[(int) hist->type] += hist->n_counters;
     }
 
@@ -683,37 +682,21 @@ compute_value_histograms (histogram_values values)
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
-      rtx hist_list = NULL_RTX;
+      histogram_value hist = VEC_index (histogram_value, values, i);
+      tree stmt = hist->hvalue.stmt;
+      stmt_ann_t ann = get_stmt_ann (stmt);
 
-      hist = VEC_index (histogram_value, values, i);
       t = (int) hist->type;
 
       aact_count = act_count[t];
       act_count[t] += hist->n_counters;
 
-      if (!ir_type ())
-	{
-	  for (j = hist->n_counters; j > 0; j--)
-	    hist_list = alloc_EXPR_LIST (0, GEN_INT (aact_count[j - 1]), 
-					hist_list);
-	  hist_list = alloc_EXPR_LIST (0, 
-			copy_rtx (hist->hvalue.rtl.value), hist_list);
-	  hist_list = alloc_EXPR_LIST (0, GEN_INT (hist->type), hist_list);
-	  REG_NOTES (hist->hvalue.rtl.insn) =
-	      alloc_EXPR_LIST (REG_VALUE_PROFILE, hist_list,
-			       REG_NOTES (hist->hvalue.rtl.insn));
-	}
-      else
-	{
-	  tree stmt = hist->hvalue.tree.stmt;
-	  stmt_ann_t ann = get_stmt_ann (stmt);
-	  hist->hvalue.tree.next = ann->histograms;
-	  ann->histograms = hist;
-	  hist->hvalue.tree.counters = 
-		xmalloc (sizeof (gcov_type) * hist->n_counters);
-	  for (j = 0; j < hist->n_counters; j++)
-	    hist->hvalue.tree.counters[j] = aact_count[j];
-  	}
+      hist->hvalue.next = ann->histograms;
+      ann->histograms = hist;
+      hist->hvalue.counters = 
+	    xmalloc (sizeof (gcov_type) * hist->n_counters);
+      for (j = 0; j < hist->n_counters; j++)
+	hist->hvalue.counters[j] = aact_count[j];
     }
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
@@ -823,6 +806,40 @@ branch_prob (void)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
+	  block_stmt_iterator bsi;
+	  tree last = NULL;
+
+	  /* It may happen that there are compiler generated statements
+	     without a locus at all.  Go through the basic block from the
+	     last to the first statement looking for a locus.  */
+	  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	    {
+	      last = bsi_stmt (bsi);
+	      if (EXPR_LOCUS (last))
+		break;
+	    }
+
+	  /* Edge with goto locus might get wrong coverage info unless
+	     it is the only edge out of BB.   
+	     Don't do that when the locuses match, so 
+	     if (blah) goto something;
+	     is not computed twice.  */
+	  if (last && EXPR_LOCUS (last)
+	      && e->goto_locus
+	      && !single_succ_p (bb)
+#ifdef USE_MAPPED_LOCATION
+	      && (LOCATION_FILE (e->goto_locus)
+	          != LOCATION_FILE (EXPR_LOCATION  (last))
+		  || (LOCATION_LINE (e->goto_locus)
+		      != LOCATION_LINE (EXPR_LOCATION  (last)))))
+#else
+	      && (e->goto_locus->file != EXPR_LOCUS (last)->file
+		  || (e->goto_locus->line != EXPR_LOCUS (last)->line)))
+#endif
+	    {
+	      basic_block new = split_edge (e);
+	      single_succ_edge (new)->goto_locus = e->goto_locus;
+	    }
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->dest != EXIT_BLOCK_PTR)
 	    need_exit_edge = 1;
@@ -1324,54 +1341,12 @@ tree_register_profile_hooks (void)
   profile_hooks = &tree_profile_hooks;
 }
 
-/* Set up hooks to enable RTL-based profiling.  */
-
-void
-rtl_register_profile_hooks (void)
-{
-  gcc_assert (!ir_type ());
-  profile_hooks = &rtl_profile_hooks;
-}
 
-static bool
-gate_handle_profiling (void)
-{
-  return optimize > 0
-         || (!flag_tree_based_profiling
-	     && (profile_arc_flag || flag_test_coverage
-		 || flag_branch_probabilities));
-}
-
-struct tree_opt_pass pass_profiling =
-{
-  NULL,                                 /* name */
-  gate_handle_profiling,                /* gate */   
-  NULL,				        /* execute */       
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
-};
-
-
 /* Do branch profiling and static profile estimation passes.  */
 static void
 rest_of_handle_branch_prob (void)
 {
   struct loops loops;
-
-  rtl_register_profile_hooks ();
-  rtl_register_value_prof_hooks ();
-
-  if ((profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
-      && !flag_tree_based_profiling)
-    branch_prob ();
 
   /* Discover and record the loop depth at the head of each basic
      block.  The loop infrastructure does the real job for us.  */
@@ -1381,7 +1356,8 @@ rest_of_handle_branch_prob (void)
     flow_loops_dump (&loops, dump_file, NULL, 0);
 
   /* Estimate using heuristics if no profiling info is available.  */
-  if (flag_guess_branch_prob && profile_status == PROFILE_ABSENT)
+  if (flag_guess_branch_prob
+      && profile_status == PROFILE_ABSENT)
     estimate_probability (&loops);
 
   flow_loops_free (&loops);

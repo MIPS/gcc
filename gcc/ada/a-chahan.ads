@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -36,9 +36,9 @@
 ------------------------------------------------------------------------------
 
 package Ada.Characters.Handling is
-pragma Preelaborate (Handling);
-pragma Pure_05 (Handling);
---  In accordance with Ada 2005 AI-362
+   pragma Preelaborate;
+   pragma Pure_05;
+   --  In accordance with Ada 2005 AI-362
 
    ----------------------------------------
    -- Character Classification Functions --

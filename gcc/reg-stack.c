@@ -172,6 +172,7 @@
 #include "ggc.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "target.h"
 
 /* We use this array to cache info about insns, because otherwise we
    spend too much time in stack_regs_mentioned_p.
@@ -227,7 +228,7 @@ enum emit_where
 static basic_block current_block;
 
 /* In the current_block, whether we're processing the first register
-   stack or call instruction, i.e. the the regstack is currently the
+   stack or call instruction, i.e. the regstack is currently the
    same as BLOCK_INFO(current_block)->stack_in.  */
 static bool starting_stack_p;
 
@@ -667,14 +668,8 @@ stack_result (tree decl)
 
   result = DECL_RTL_IF_SET (DECL_RESULT (decl));
   if (result != 0)
-    {
-#ifdef FUNCTION_OUTGOING_VALUE
-      result
-	= FUNCTION_OUTGOING_VALUE (TREE_TYPE (DECL_RESULT (decl)), decl);
-#else
-      result = FUNCTION_VALUE (TREE_TYPE (DECL_RESULT (decl)), decl);
-#endif
-    }
+    result = targetm.calls.function_value (TREE_TYPE (DECL_RESULT (decl)),
+					   decl, true);
 
   return result != 0 && STACK_REG_P (result) ? result : 0;
 }
@@ -2775,7 +2770,7 @@ better_edge (edge e1, edge e2)
   if (EDGE_CRITICAL_P (e1) != EDGE_CRITICAL_P (e2))
     return EDGE_CRITICAL_P (e1) ? e1 : e2;
 
-  /* Avoid non-deterministic behaviour.  */
+  /* Avoid non-deterministic behavior.  */
   return (e1->src->index < e2->src->index) ? e1 : e2;
 }
 
@@ -3051,7 +3046,7 @@ reg_to_stack (FILE *file)
      Also need to rebuild life when superblock scheduling is done
      as it don't update liveness yet.  */
   if (!optimize
-      || (flag_sched2_use_superblocks
+      || ((flag_sched2_use_superblocks || flag_sched2_use_traces)
 	  && flag_schedule_insns_after_reload))
     {
       count_or_remove_death_notes (NULL, 1);

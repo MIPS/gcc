@@ -55,7 +55,7 @@
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 31")))
 
 ;; Return 1 if op is a signed 8-bit constant integer.
-;; Integer multiplcation complete more quickly
+;; Integer multiplication complete more quickly
 (define_predicate "s8bit_cint_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -128 && INTVAL (op) <= 127")))
@@ -235,6 +235,10 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
 
     case SFmode:
+      /* The constant 0.f is easy.  */
+      if (op == CONST0_RTX (SFmode))
+	return 1;
+
       /* Force constants to memory before reload to utilize
 	 compress_float_constant.
 	 Avoid this when flag_unsafe_math_optimizations is enabled
@@ -267,59 +271,55 @@
 (define_predicate "easy_vector_constant"
   (match_code "const_vector")
 {
-  int cst, cst2;
-
-  if (!TARGET_ALTIVEC && !TARGET_SPE)
-    return 0;
-
-  if (zero_constant (op, mode)
-      && ((TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
-	  || (TARGET_SPE && SPE_VECTOR_MODE (mode))))
-    return 1;
-
-  if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
-    return 0;
-
-  if (TARGET_SPE && mode == V1DImode)
-    return 0;
-
-  cst  = INTVAL (CONST_VECTOR_ELT (op, 0));
-  cst2 = INTVAL (CONST_VECTOR_ELT (op, 1));
-
-  /* Limit SPE vectors to 15 bits signed.  These we can generate with:
-       li r0, CONSTANT1
-       evmergelo r0, r0, r0
-       li r0, CONSTANT2
-
-     I don't know how efficient it would be to allow bigger constants,
-     considering we'll have an extra 'ori' for every 'li'.  I doubt 5
-     instructions is better than a 64-bit memory load, but I don't
-     have the e500 timing specs.  */
-  if (TARGET_SPE && mode == V2SImode
-      && cst  >= -0x7fff && cst <= 0x7fff
-      && cst2 >= -0x7fff && cst2 <= 0x7fff)
-    return 1;
-
-  if (TARGET_ALTIVEC
-      && easy_vector_same (op, mode))
+  if (ALTIVEC_VECTOR_MODE (mode))
     {
-      cst = easy_vector_splat_const (cst, mode);
-      if (EASY_VECTOR_15_ADD_SELF (cst)
-	  || EASY_VECTOR_15 (cst))
-	return 1;
+      if (zero_constant (op, mode))
+        return true;
+      if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
+        return false;
+
+      return easy_altivec_constant (op, mode);
     }
-  return 0;
+
+  if (SPE_VECTOR_MODE (mode))
+    {
+      int cst, cst2;
+      if (zero_constant (op, mode))
+	return true;
+      if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
+        return false;
+
+      /* Limit SPE vectors to 15 bits signed.  These we can generate with:
+	   li r0, CONSTANT1
+	   evmergelo r0, r0, r0
+	   li r0, CONSTANT2
+
+	 I don't know how efficient it would be to allow bigger constants,
+	 considering we'll have an extra 'ori' for every 'li'.  I doubt 5
+	 instructions is better than a 64-bit memory load, but I don't
+	 have the e500 timing specs.  */
+      if (mode == V2SImode)
+	{
+	  cst  = INTVAL (CONST_VECTOR_ELT (op, 0));
+	  cst2 = INTVAL (CONST_VECTOR_ELT (op, 1));
+	  return cst  >= -0x7fff && cst <= 0x7fff
+	         && cst2 >= -0x7fff && cst2 <= 0x7fff;
+	}
+    }
+
+  return false;
 })
 
 ;; Same as easy_vector_constant but only for EASY_VECTOR_15_ADD_SELF.
 (define_predicate "easy_vector_constant_add_self"
   (and (match_code "const_vector")
        (and (match_test "TARGET_ALTIVEC")
-	    (and (match_test "easy_vector_same (op, mode)")
-		 (match_test "EASY_VECTOR_15_ADD_SELF
-		 		(easy_vector_splat_const
-				  (INTVAL (CONST_VECTOR_ELT (op, 0)),
-				   mode))")))))
+	    (match_test "easy_altivec_constant (op, mode)")))
+{
+  rtx last = CONST_VECTOR_ELT (op, GET_MODE_NUNITS (mode) - 1);
+  HOST_WIDE_INT val = (char) (INTVAL (last) & 255);
+  return EASY_VECTOR_15_ADD_SELF (val);
+})
 
 ;; Return 1 if operand is constant zero (scalars and vectors).
 (define_predicate "zero_constant"
@@ -355,11 +355,22 @@
 
 ;; Return 1 if the operand is an indexed or indirect memory operand.
 (define_predicate "indexed_or_indirect_operand"
-  (and (match_operand 0 "memory_operand")
-       (match_test "REG_P (XEXP (op, 0))
-		    || (GET_CODE (XEXP (op, 0)) == PLUS
-			&& REG_P (XEXP (XEXP (op, 0), 0)) 
-			&& REG_P (XEXP (XEXP (op, 0), 1)))")))
+  (match_operand 0 "memory_operand")
+{
+  rtx tmp = XEXP (op, 0);
+
+  if (TARGET_ALTIVEC
+      && ALTIVEC_VECTOR_MODE (mode)
+      && GET_CODE (tmp) == AND
+      && GET_CODE (XEXP (tmp, 1)) == CONST_INT
+      && INTVAL (XEXP (tmp, 1)) == -16)
+    tmp = XEXP (tmp, 0);
+
+    return REG_P (tmp)
+		  || (GET_CODE (tmp) == PLUS
+		      && REG_P (XEXP (tmp, 0)) 
+		      && REG_P (XEXP (tmp, 1)));
+})
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
@@ -368,6 +379,14 @@
 		    || ! REG_P (XEXP (XEXP (op, 0), 0)) 
 		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
 		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
+
+;; Return 1 if the operand is an indexed or indirect address.
+(define_predicate "indexed_or_indirect_address"
+  (and (match_operand 0 "address_operand")
+       (match_test "REG_P (op)
+		    || (GET_CODE (op) == PLUS
+			&& REG_P (XEXP (op, 0)) 
+			&& REG_P (XEXP (op, 1)))")))
 
 ;; Used for the destination of the fix_truncdfsi2 expander.
 ;; If stfiwx will be used, the result goes to memory; otherwise,
@@ -433,14 +452,10 @@
        (and (not (match_operand 0 "logical_operand"))
 	    (match_operand 0 "reg_or_logical_cint_operand"))))
 
-;; For SImode, return 1 if op is a constant that can be encoded in a
-;; 32-bit mask (no more than two 1->0 or 0->1 transitions).  Reject
-;; all ones and all zeros, since these should have been optimized away
-;; and confuse the making of MB and ME.
-;; For DImode, return 1 if the operand is a constant that is a
-;; PowerPC64 mask (no more than one 1->0 or 0->1 transitions).  Reject
-;; all zeros, since zero should have been optimized away and confuses
-;; the making of MB and ME.
+;; Return 1 if op is a constant that can be encoded in a 32-bit mask,
+;; suitable for use with rlwinm (no more than two 1->0 or 0->1
+;; transitions).  Reject all ones and all zeros, since these should have
+;; been optimized away and confuse the making of MB and ME.
 (define_predicate "mask_operand"
   (match_code "const_int")
 {
@@ -448,34 +463,38 @@
 
   c = INTVAL (op);
 
-  /* Fail in 64-bit mode if the mask wraps around because the upper
-     32-bits of the mask will all be 1s, contrary to GCC's internal view.  */
-  if (mode == SImode && TARGET_POWERPC64 && (c & 0x80000001) == 0x80000001)
-    return 0;
+  if (TARGET_POWERPC64)
+    {
+      /* Fail if the mask is not 32-bit.  */
+      if (mode == DImode && (c & ~(unsigned HOST_WIDE_INT) 0xffffffff) != 0)
+	return 0;
 
-  /* Reject all zeros or all ones in 32-bit mode.  */
-  if (c == 0 || (mode == SImode && c == -1))
-    return 0;
+      /* Fail if the mask wraps around because the upper 32-bits of the
+	 mask will all be 1s, contrary to GCC's internal view.  */
+      if ((c & 0x80000001) == 0x80000001)
+	return 0;
+    }
 
   /* We don't change the number of transitions by inverting,
      so make sure we start with the LS bit zero.  */
   if (c & 1)
     c = ~c;
 
+  /* Reject all zeros or all ones.  */
+  if (c == 0)
+    return 0;
+
   /* Find the first transition.  */
   lsb = c & -c;
 
-  if (mode == SImode)
-    {
-      /* Invert to look for a second transition.  */
-      c = ~c;
+  /* Invert to look for a second transition.  */
+  c = ~c;
 
-      /* Erase first transition.  */
-      c &= -lsb;
+  /* Erase first transition.  */
+  c &= -lsb;
 
-      /* Find the second transition (if any).  */
-      lsb = c & -c;
-    }
+  /* Find the second transition (if any).  */
+  lsb = c & -c;
 
   /* Match if all the bits above are 1's (or c is zero).  */
   return c == -lsb;
@@ -503,20 +522,81 @@
   return c == -lsb;
 })
 
-;; Like mask_operand, but allow up to three transitions.  This
+;; Return 1 if the operand is a constant that is a PowerPC64 mask
+;; suitable for use with rldicl or rldicr (no more than one 1->0 or 0->1
+;; transition).  Reject all zeros, since zero should have been
+;; optimized away and confuses the making of MB and ME.
+(define_predicate "mask64_operand"
+  (match_code "const_int")
+{
+  HOST_WIDE_INT c, lsb;
+
+  c = INTVAL (op);
+
+  /* Reject all zeros.  */
+  if (c == 0)
+    return 0;
+
+  /* We don't change the number of transitions by inverting,
+     so make sure we start with the LS bit zero.  */
+  if (c & 1)
+    c = ~c;
+
+  /* Find the first transition.  */
+  lsb = c & -c;
+
+  /* Match if all the bits above are 1's (or c is zero).  */
+  return c == -lsb;
+})
+
+;; Like mask64_operand, but allow up to three transitions.  This
 ;; predicate is used by insn patterns that generate two rldicl or
 ;; rldicr machine insns.
 (define_predicate "mask64_2_operand"
   (match_code "const_int")
 {
-  return mask64_1or2_operand (op, mode, false);
+  HOST_WIDE_INT c, lsb;
+
+  c = INTVAL (op);
+
+  /* Disallow all zeros.  */
+  if (c == 0)
+    return 0;
+
+  /* We don't change the number of transitions by inverting,
+     so make sure we start with the LS bit zero.  */
+  if (c & 1)
+    c = ~c;
+
+  /* Find the first transition.  */
+  lsb = c & -c;
+
+  /* Invert to look for a second transition.  */
+  c = ~c;
+
+  /* Erase first transition.  */
+  c &= -lsb;
+
+  /* Find the second transition.  */
+  lsb = c & -c;
+
+  /* Invert to look for a third transition.  */
+  c = ~c;
+
+  /* Erase second transition.  */
+  c &= -lsb;
+
+  /* Find the third transition (if any).  */
+  lsb = c & -c;
+
+  /* Match if all the bits above are 1's (or c is zero).  */
+  return c == -lsb;
 })
 
 ;; Like and_operand, but also match constants that can be implemented
 ;; with two rldicl or rldicr insns.
 (define_predicate "and64_2_operand"
-  (ior (and (match_code "const_int")
-	    (match_test "mask64_1or2_operand (op, mode, true)"))
+  (ior (match_operand 0 "mask64_2_operand")
        (if_then_else (match_test "fixed_regs[CR0_REGNO]")
 	 (match_operand 0 "gpc_reg_operand")
 	 (match_operand 0 "logical_operand"))))
@@ -525,9 +605,11 @@
 ;; constant that can be used as the operand of a logical AND.
 (define_predicate "and_operand"
   (ior (match_operand 0 "mask_operand")
-       (if_then_else (match_test "fixed_regs[CR0_REGNO]")
-	 (match_operand 0 "gpc_reg_operand")
-	 (match_operand 0 "logical_operand"))))
+       (ior (and (match_test "TARGET_POWERPC64 && mode == DImode")
+		 (match_operand 0 "mask64_operand"))
+            (if_then_else (match_test "fixed_regs[CR0_REGNO]")
+	      (match_operand 0 "gpc_reg_operand")
+	      (match_operand 0 "logical_operand")))))
 
 ;; Return 1 if the operand is either a logical operand or a short cint operand.
 (define_predicate "scc_eq_operand"
@@ -690,6 +772,10 @@
 ;; Return true if operand is OR-form of boolean operator.
 (define_predicate "boolean_or_operator"
   (match_code "ior,xor"))
+
+;; Return true if operand is an equality operator.
+(define_special_predicate "equality_operator"
+  (match_code "eq,ne"))
 
 ;; Return true if operand is MIN or MAX operator.
 (define_predicate "min_max_operator"
@@ -952,10 +1038,9 @@
     return 0;
 
   dest_regno = REGNO (SET_DEST (XVECEXP (op, 0, 0)));
-  src_regno  = REGNO (SET_SRC (XVECEXP (op, 0, 0)));
+  src_regno  = REGNO (XVECEXP (SET_SRC (XVECEXP (op, 0, 0)), 0, 1));
 
-  if (dest_regno != VRSAVE_REGNO
-      && src_regno != VRSAVE_REGNO)
+  if (dest_regno != VRSAVE_REGNO || src_regno != VRSAVE_REGNO)
     return 0;
 
   for (i = 1; i < count; i++)

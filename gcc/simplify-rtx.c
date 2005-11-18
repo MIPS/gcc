@@ -209,6 +209,14 @@ avoid_constant_pool_reference (rtx x)
 
   return x;
 }
+
+/* Return true if X is a MEM referencing the constant pool.  */
+
+bool
+constant_pool_reference_p (rtx x)
+{
+  return avoid_constant_pool_reference (x) != x;
+}
 
 /* Make a unary operation by first seeing if it folds and otherwise making
    the specified operation.  */
@@ -1653,7 +1661,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  && ((INTVAL (trueop1) & GET_MODE_MASK (mode))
 	      == GET_MODE_MASK (mode)))
 	return simplify_gen_unary (NOT, mode, op0, mode);
-      if (trueop0 == trueop1
+      if (rtx_equal_p (trueop0, trueop1)
 	  && ! side_effects_p (op0)
 	  && GET_MODE_CLASS (mode) != MODE_CC)
 	 return CONST0_RTX (mode);
@@ -1688,7 +1696,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	  && (nonzero_bits (trueop0, mode) & ~INTVAL (trueop1)) == 0)
 	return op0;
-      if (trueop0 == trueop1 && ! side_effects_p (op0)
+      if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0)
 	  && GET_MODE_CLASS (mode) != MODE_CC)
 	return op0;
       /* A & (~A) -> 0 */
@@ -2234,6 +2242,17 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 				     &f0, &f1);
 	  real_convert (&result, mode, &value);
 
+	  /* Don't constant fold this floating point operation if
+	     the result has overflowed and flag_trapping_math.  */
+
+	  if (flag_trapping_math
+	      && MODE_HAS_INFINITIES (mode)
+	      && REAL_VALUE_ISINF (result)
+	      && !REAL_VALUE_ISINF (f0)
+	      && !REAL_VALUE_ISINF (f1))
+	    /* Overflow plus exception.  */
+	    return 0;
+
 	  /* Don't constant fold this floating point operation if the
 	     result may dependent upon the run-time rounding mode and
 	     flag_rounding_math is set, or if GCC's software emulation
@@ -2574,7 +2593,8 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 struct simplify_plus_minus_op_data
 {
   rtx op;
-  int neg;
+  short neg;
+  short ix;
 };
 
 static int
@@ -2582,9 +2602,13 @@ simplify_plus_minus_op_data_cmp (const void *p1, const void *p2)
 {
   const struct simplify_plus_minus_op_data *d1 = p1;
   const struct simplify_plus_minus_op_data *d2 = p2;
+  int result;
 
-  return (commutative_operand_precedence (d2->op)
-	  - commutative_operand_precedence (d1->op));
+  result = (commutative_operand_precedence (d2->op)
+	    - commutative_operand_precedence (d1->op));
+  if (result)
+    return result;
+  return d1->ix - d2->ix;
 }
 
 static rtx
@@ -2759,7 +2783,12 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
   /* Pack all the operands to the lower-numbered entries.  */
   for (i = 0, j = 0; j < n_ops; j++)
     if (ops[j].op)
-      ops[i++] = ops[j];
+      {
+	ops[i] = ops[j];
+	/* Stabilize sort.  */
+	ops[i].ix = i;
+	i++;
+      }
   n_ops = i;
 
   /* Sort the operations based on swap_commutative_operands_p.  */
@@ -3014,7 +3043,17 @@ simplify_const_relational_operation (enum rtx_code code,
 
   /* If op0 is a compare, extract the comparison arguments from it.  */
   if (GET_CODE (op0) == COMPARE && op1 == const0_rtx)
-    op1 = XEXP (op0, 1), op0 = XEXP (op0, 0);
+    {
+      op1 = XEXP (op0, 1);
+      op0 = XEXP (op0, 0);
+
+      if (GET_MODE (op0) != VOIDmode)
+	mode = GET_MODE (op0);
+      else if (GET_MODE (op1) != VOIDmode)
+	mode = GET_MODE (op1);
+      else
+	return 0;
+    }
 
   /* We can't simplify MODE_CC values since we don't know what the
      actual comparison is.  */
@@ -3236,7 +3275,9 @@ simplify_const_relational_operation (enum rtx_code code,
 
 	case LT:
 	  /* Optimize abs(x) < 0.0.  */
-	  if (trueop1 == CONST0_RTX (mode) && !HONOR_SNANS (mode))
+	  if (trueop1 == CONST0_RTX (mode)
+	      && !HONOR_SNANS (mode)
+	      && !(flag_wrapv && INTEGRAL_MODE_P (mode)))
 	    {
 	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
 						       : trueop0;
@@ -3247,7 +3288,9 @@ simplify_const_relational_operation (enum rtx_code code,
 
 	case GE:
 	  /* Optimize abs(x) >= 0.0.  */
-	  if (trueop1 == CONST0_RTX (mode) && !HONOR_NANS (mode))
+	  if (trueop1 == CONST0_RTX (mode)
+	      && !HONOR_NANS (mode)
+	      && !(flag_wrapv && INTEGRAL_MODE_P (mode)))
 	    {
 	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
 						       : trueop0;
@@ -3591,7 +3634,7 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 		}
 	      /* It shouldn't matter what's done here, so fill it with
 		 zero.  */
-	      for (; i < max_bitsize; i += value_bit)
+	      for (; i < elem_bitsize; i += value_bit)
 		*vp++ = 0;
 	    }
 	  else
@@ -3711,8 +3754,10 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 	       know why.  */
 	    if (elem_bitsize <= HOST_BITS_PER_WIDE_INT)
 	      elems[elem] = gen_int_mode (lo, outer_submode);
-	    else
+	    else if (elem_bitsize <= 2 * HOST_BITS_PER_WIDE_INT)
 	      elems[elem] = immed_double_const (lo, hi, outer_submode);
+	    else
+	      return NULL_RTX;
 	  }
 	  break;
       

@@ -28,7 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    will expand to an array constructor without iterators.
    Constructors larger than this will remain in the iterator form.  */
 
-#define GFC_MAX_AC_EXPAND 100
+#define GFC_MAX_AC_EXPAND 65535
 
 
 /**************** Array reference matching subroutines *****************/
@@ -169,8 +169,8 @@ gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)
 	}
     }
 
-  gfc_error ("Array reference at %C cannot have more than "
-	     stringize (GFC_MAX_DIMENSIONS) " dimensions");
+  gfc_error ("Array reference at %C cannot have more than %d dimensions",
+	     GFC_MAX_DIMENSIONS);
 
 error:
   return MATCH_ERROR;
@@ -419,8 +419,8 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 
       if (as->rank >= GFC_MAX_DIMENSIONS)
 	{
-	  gfc_error ("Array specification at %C has more than "
-		     stringize (GFC_MAX_DIMENSIONS) " dimensions");
+	  gfc_error ("Array specification at %C has more than %d dimensions",
+		     GFC_MAX_DIMENSIONS);
 	  goto cleanup;
 	}
 
@@ -1529,7 +1529,14 @@ resolve_character_array_constructor (gfc_expr * expr)
 
   max_length = -1;
 
-  if (expr->ts.cl == NULL || expr->ts.cl->length == NULL)
+  if (expr->ts.cl == NULL)
+    {
+      expr->ts.cl = gfc_get_charlen ();
+      expr->ts.cl->next = gfc_current_ns->cl_list;
+      gfc_current_ns->cl_list = expr->ts.cl;
+    }
+
+  if (expr->ts.cl->length == NULL)
     {
       /* Find the maximum length of the elements. Do nothing for variable array
 	 constructor.  */
@@ -1542,8 +1549,6 @@ resolve_character_array_constructor (gfc_expr * expr)
       if (max_length != -1)
 	{
 	  /* Update the character length of the array constructor.  */
-	  if (expr->ts.cl == NULL)
-	    expr->ts.cl = gfc_get_charlen ();
 	  expr->ts.cl->length = gfc_int_expr (max_length);
 	  /* Update the element constructors.  */
 	  for (p = expr->value.constructor; p; p = p->next)

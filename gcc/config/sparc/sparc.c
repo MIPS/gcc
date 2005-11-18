@@ -3826,10 +3826,11 @@ gen_save_register_window (rtx increment)
 static rtx
 gen_stack_pointer_inc (rtx increment)
 {
-  if (TARGET_ARCH64)
-    return gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx, increment);
-  else
-    return gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, increment);
+  return gen_rtx_SET (VOIDmode,
+		      stack_pointer_rtx,
+		      gen_rtx_PLUS (Pmode,
+				    stack_pointer_rtx,
+				    increment));
 }
 
 /* Generate a decrement for the stack pointer.  */
@@ -3837,10 +3838,11 @@ gen_stack_pointer_inc (rtx increment)
 static rtx
 gen_stack_pointer_dec (rtx decrement)
 {
-  if (TARGET_ARCH64)
-    return gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx, decrement);
-  else
-    return gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx, decrement);
+  return gen_rtx_SET (VOIDmode,
+		      stack_pointer_rtx,
+		      gen_rtx_MINUS (Pmode,
+				     stack_pointer_rtx,
+				     decrement));
 }
 
 /* Expand the function prologue.  The prologue is responsible for reserving
@@ -3918,7 +3920,7 @@ sparc_expand_prologue (void)
 	  insn = emit_insn (gen_stack_pointer_inc (reg));
 	  REG_NOTES (insn) =
 	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       PATTERN (gen_stack_pointer_inc (GEN_INT (-actual_fsize))),
+			       gen_stack_pointer_inc (GEN_INT (-actual_fsize)),
 			       REG_NOTES (insn));
 	}
 
@@ -4441,7 +4443,7 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 
   /* For SPARC64, objects requiring 16-byte alignment get it.  */
   if (TARGET_ARCH64
-      && GET_MODE_ALIGNMENT (mode) >= 2 * BITS_PER_WORD
+      && (type ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode)) >= 128
       && (slotno & 1) != 0)
     slotno++, *ppadding = 1;
 
@@ -4500,13 +4502,6 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 	return -1;
 
       gcc_assert (mode == BLKmode);
-
-      /* For SPARC64, objects requiring 16-byte alignment get it.  */
-      if (TARGET_ARCH64
-	  && type
-	  && TYPE_ALIGN (type) >= 2 * BITS_PER_WORD
-	  && (slotno & 1) != 0)
-	slotno++, *ppadding = 1;
 
       if (TARGET_ARCH32 || !type || (TREE_CODE (type) == UNION_TYPE))
 	{

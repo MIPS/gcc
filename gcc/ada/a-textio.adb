@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -896,7 +896,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if Spacing not in Positive_Count then
+      if not Spacing'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1334,7 +1334,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Positive_Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1461,7 +1461,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Positive_Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1506,7 +1506,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1539,7 +1539,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if To not in Count then
+      if not To'Valid then
          raise Constraint_Error;
       end if;
 
@@ -1567,7 +1567,7 @@ package body Ada.Text_IO is
       --  explicit test is that we don't want junk values around, even if
       --  checks are off in the caller.
 
-      if Spacing not in Positive_Count then
+      if not Spacing'Valid then
          raise Constraint_Error;
       end if;
 

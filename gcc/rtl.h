@@ -25,6 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "statistics.h"
 #include "machmode.h"
 #include "input.h"
+#include "real.h"
 
 #undef FFS  /* Some systems predefine this symbol; don't let it interfere.  */
 #undef FLOAT /* Likewise.  */
@@ -249,6 +250,7 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
   union u {
     rtunion fld[1];
     HOST_WIDE_INT hwint[1];
+    struct real_value rv;
   } GTY ((special ("rtx_def"), desc ("GET_CODE (&%0)"))) u;
 };
 
@@ -454,6 +456,20 @@ struct rtvec_def GTY(()) {
 			       __FUNCTION__);				\
      &_rtx->u.hwint[N]; }))
 
+#define XCMWINT(RTX, N, C, M) __extension__				\
+(*({ rtx const _rtx = (RTX);						\
+     if (GET_CODE (_rtx) != (C) || GET_MODE (_rtx) != (M))		\
+       rtl_check_failed_code_mode (_rtx, (C), (M), false, __FILE__,	\
+				   __LINE__, __FUNCTION__);		\
+     &_rtx->u.hwint[N]; }))
+
+#define XCNMPRV(RTX, C, M) __extension__				\
+({ rtx const _rtx = (RTX);						\
+   if (GET_CODE (_rtx) != (C) || GET_MODE (_rtx) == (M))		\
+     rtl_check_failed_code_mode (_rtx, (C), (M), true, __FILE__,	\
+				 __LINE__, __FUNCTION__);		\
+   &_rtx->u.rv; })
+
 extern void rtl_check_failed_bounds (rtx, int, const char *, int,
 				     const char *)
     ATTRIBUTE_NORETURN;
@@ -469,6 +485,9 @@ extern void rtl_check_failed_code1 (rtx, enum rtx_code, const char *,
 extern void rtl_check_failed_code2 (rtx, enum rtx_code, enum rtx_code,
 				    const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void rtl_check_failed_code_mode (rtx, enum rtx_code, enum machine_mode,
+					bool, const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void rtvec_check_failed_bounds (rtvec, int, const char *, int,
 				       const char *)
     ATTRIBUTE_NORETURN;
@@ -482,6 +501,9 @@ extern void rtvec_check_failed_bounds (rtvec, int, const char *, int,
 #define RTVEC_ELT(RTVEC, I)	    ((RTVEC)->elem[I])
 #define XWINT(RTX, N)		    ((RTX)->u.hwint[N])
 #define XCWINT(RTX, N, C)	    ((RTX)->u.hwint[N])
+#define XCMWINT(RTX, N, C, M)	    ((RTX)->u.hwint[N])
+#define XCNMWINT(RTX, N, C, M)	    ((RTX)->u.hwint[N])
+#define XCNMPRV(RTX, C, M)	    (&(RTX)->u.rv)
 
 #endif
 
@@ -916,9 +938,10 @@ enum label_kind
      low-order word and ..._HIGH the high-order.
    For a float, there is a REAL_VALUE_TYPE structure, and
      CONST_DOUBLE_REAL_VALUE(r) is a pointer to it.  */
-#define CONST_DOUBLE_LOW(r) XCWINT (r, 0, CONST_DOUBLE)
-#define CONST_DOUBLE_HIGH(r) XCWINT (r, 1, CONST_DOUBLE)
-#define CONST_DOUBLE_REAL_VALUE(r) ((struct real_value *)&CONST_DOUBLE_LOW(r))
+#define CONST_DOUBLE_LOW(r) XCMWINT (r, 0, CONST_DOUBLE, VOIDmode)
+#define CONST_DOUBLE_HIGH(r) XCMWINT (r, 1, CONST_DOUBLE, VOIDmode)
+#define CONST_DOUBLE_REAL_VALUE(r) \
+  ((const struct real_value *) XCNMPRV (r, CONST_DOUBLE, VOIDmode))
 
 /* For a CONST_VECTOR, return element #n.  */
 #define CONST_VECTOR_ELT(RTX, N) XCVECEXP (RTX, 0, N, CONST_VECTOR)
@@ -1020,7 +1043,7 @@ do {									\
 		   ASM_INPUT)->volatil)
 
 /* 1 if RTX is a mem that refers to an aggregate, either to the
-   aggregate itself of to a field of the aggregate.  If zero, RTX may
+   aggregate itself or to a field of the aggregate.  If zero, RTX may
    or may not be such a reference.  */
 #define MEM_IN_STRUCT_P(RTX)						\
   (RTL_FLAG_CHECK1("MEM_IN_STRUCT_P", (RTX), MEM)->in_struct)
@@ -1519,6 +1542,7 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
+extern bool constant_pool_reference_p (rtx x);
 extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
@@ -1587,6 +1611,7 @@ extern int side_effects_p (rtx);
 extern int volatile_refs_p (rtx);
 extern int volatile_insn_p (rtx);
 extern int may_trap_p (rtx);
+extern int may_trap_or_fault_p (rtx);
 extern int inequality_comparisons_p (rtx);
 extern rtx replace_rtx (rtx, rtx, rtx);
 extern rtx replace_regs (rtx, rtx *, unsigned int, int);
@@ -1941,6 +1966,8 @@ extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
+extern rtx gen_frame_mem (enum machine_mode, rtx);
+extern rtx gen_tmp_stack_mem (enum machine_mode, rtx);
 extern bool validate_subreg (enum machine_mode, enum machine_mode,
 			     rtx, unsigned int);
 

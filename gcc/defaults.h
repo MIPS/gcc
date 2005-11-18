@@ -61,17 +61,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
   } while (0)
 #endif
 
-/* This is how to output an element of a case-vector that is absolute.
-   Some targets don't use this, but we have to define it anyway.  */
-
-#ifndef ASM_OUTPUT_ADDR_VEC_ELT
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
-     (*targetm.asm_out.internal_label) (FILE, "L", (VALUE));			\
-     fputc ('\n', FILE);						\
-   } while (0)
-#endif
-
 /* Choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
@@ -173,6 +162,27 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
       if (VALUE)					\
         ASM_OUTPUT_DEF (STREAM, NAME, VALUE);		\
     }							\
+  while (0)
+#endif
+#endif
+
+/* This is how we tell the assembler that a symbol is a weak alias to
+   another symbol that doesn't require the other symbol to be defined.
+   Uses of the former will turn into weak uses of the latter, i.e.,
+   uses that, in case the latter is undefined, will not cause errors,
+   and will add it to the symbol table as weak undefined.  However, if
+   the latter is referenced directly, a strong reference prevails.  */
+#ifndef ASM_OUTPUT_WEAKREF
+#if defined HAVE_GAS_WEAKREF
+#define ASM_OUTPUT_WEAKREF(FILE, NAME, VALUE)				\
+  do									\
+    {									\
+      fprintf ((FILE), "\t.weakref\t");					\
+      assemble_name ((FILE), (NAME));					\
+      fprintf ((FILE), ",");						\
+      assemble_name ((FILE), (VALUE));					\
+      fprintf ((FILE), "\n");						\
+    }									\
   while (0)
 #endif
 #endif
@@ -844,6 +854,17 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 
 #ifndef FRAME_GROWS_DOWNWARD
 #define FRAME_GROWS_DOWNWARD 0
+#endif
+
+/* On most machines, the CFA coincides with the first incoming parm.  */
+#ifndef ARG_POINTER_CFA_OFFSET
+#define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
+#endif
+
+/* The offset from the incoming value of %sp to the top of the stack frame
+   for the current function.  */
+#ifndef INCOMING_FRAME_SP_OFFSET
+#define INCOMING_FRAME_SP_OFFSET 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

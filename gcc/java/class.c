@@ -319,6 +319,9 @@ make_class (void)
 {
   tree type;
   type = make_node (RECORD_TYPE);
+  /* Unfortunately we must create the binfo here, so that class
+     loading works.  */
+  TYPE_BINFO (type) = make_tree_binfo (0);
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
 
   return type;
@@ -468,7 +471,8 @@ set_super_info (int access_flags, tree this_class,
   if (super_class)
     total_supers++;
 
-  TYPE_BINFO (this_class) = make_tree_binfo (total_supers);
+  if (total_supers)
+    TYPE_BINFO (this_class) = make_tree_binfo (total_supers);
   TYPE_VFIELD (this_class) = TYPE_VFIELD (object_type_node);
   if (super_class)
     {
@@ -549,9 +553,11 @@ inherits_from_p (tree type1, tree type2)
     {
       if (type1 == type2)
 	return 1;
+
       if (! CLASS_LOADED_P (type1))
 	load_class (type1, 1);
-      type1 = CLASSTYPE_SUPER (type1);
+
+      type1 = maybe_layout_super_class (CLASSTYPE_SUPER (type1), type1);
     }
   return 0;
 }
@@ -1011,6 +1017,11 @@ build_class_ref (tree type)
 		abort ();
 
 	      prim_class = lookup_class (get_identifier (prim_class_name));
+	      /* We wrap the class in a NOP_EXPR, because it is a
+	         type.  We can't hold it in the COMPONENT_REF itself,
+	         as that type must remain NULL.  */
+	      prim_class = build1 (NOP_EXPR, prim_class, NULL_TREE);
+	      
 	      return build3 (COMPONENT_REF, NULL_TREE,
 			     prim_class, TYPE_identifier_node, NULL_TREE);
 	    }
@@ -1278,7 +1289,7 @@ make_field_value (tree fdecl)
 
   PUSH_FIELD_VALUE
     (finit, "info",
-     build_constructor (field_info_union_node,
+     build_constructor_from_list (field_info_union_node,
 	    build_tree_list
 	    ((FIELD_STATIC (fdecl)
 	      ? TREE_CHAIN (TYPE_FIELDS (field_info_union_node))
@@ -1359,7 +1370,7 @@ make_method_value (tree mdecl)
 	    table = tree_cons (NULL_TREE, utf8, table);
 	  }
 	type = build_prim_array_type (ptr_type_node, length);
-	table = build_constructor (type, table);
+	table = build_constructor_from_list (type, table);
 	/* Compute something unique enough.  */
 	sprintf (buf, "_methods%d", method_name_count++);
 	array = build_decl (VAR_DECL, get_identifier (buf), type);
@@ -1480,8 +1491,9 @@ get_dispatch_table (tree type, tree this_class_addr)
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     arraysize *= TARGET_VTABLE_USES_DESCRIPTORS;
   arraysize += 2;
-  return build_constructor (build_prim_array_type (nativecode_ptr_type_node,
-						   arraysize), list);
+  return build_constructor_from_list
+	  (build_prim_array_type (nativecode_ptr_type_node,
+				  arraysize), list);
 }
 
 
@@ -1608,8 +1620,8 @@ make_class_data (tree type)
       field_array_type = build_prim_array_type (field_type_node, field_count);
       fields_decl = build_decl (VAR_DECL, mangled_classname ("_FL_", type),
 				field_array_type);
-      DECL_INITIAL (fields_decl) = build_constructor (field_array_type,
-						      static_fields);
+      DECL_INITIAL (fields_decl) = build_constructor_from_list
+				    (field_array_type, static_fields);
       TREE_STATIC (fields_decl) = 1;
       DECL_ARTIFICIAL (fields_decl) = 1;
       DECL_IGNORED_P (fields_decl) = 1;
@@ -1639,8 +1651,8 @@ make_class_data (tree type)
   method_array_type = build_prim_array_type (method_type_node, method_count);
   methods_decl = build_decl (VAR_DECL, mangled_classname ("_MT_", type),
 			     method_array_type);
-  DECL_INITIAL (methods_decl) = build_constructor (method_array_type,
-						   nreverse (methods));
+  DECL_INITIAL (methods_decl) = build_constructor_from_list
+				 (method_array_type, nreverse (methods));
   TREE_STATIC (methods_decl) = 1;
   DECL_ARTIFICIAL (methods_decl) = 1;
   DECL_IGNORED_P (methods_decl) = 1;
@@ -1715,7 +1727,8 @@ make_class_data (tree type)
 	    }
 	  init = tree_cons (NULL_TREE, index, init); 
 	}
-      DECL_INITIAL (idecl) = build_constructor (interface_array_type, init);
+      DECL_INITIAL (idecl) = build_constructor_from_list (interface_array_type,
+							  init);
       TREE_STATIC (idecl) = 1;
       DECL_ARTIFICIAL (idecl) = 1;
       DECL_IGNORED_P (idecl) = 1;
@@ -1853,13 +1866,9 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "loader", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "interface_count",
 		    build_int_cst (NULL_TREE, interface_len));
-  PUSH_FIELD_VALUE 
-    (cons, "state",
-     convert (byte_type_node,
-	      build_int_cst (NULL_TREE,
-			     flag_indirect_dispatch
-			     ? JV_STATE_PRELOADING
-			     : JV_STATE_COMPILED)));
+  PUSH_FIELD_VALUE (cons, "state",
+		    convert (byte_type_node,
+			     build_int_cst (NULL_TREE, JV_STATE_PRELOADING)));
 
   PUSH_FIELD_VALUE (cons, "thread", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "depth", integer_zero_node);
@@ -2055,7 +2064,9 @@ push_super_field (tree this_class, tree super_class)
 static tree
 maybe_layout_super_class (tree super_class, tree this_class)
 {
-  if (TREE_CODE (super_class) == RECORD_TYPE)
+  if (!super_class)
+    return NULL_TREE;
+  else if (TREE_CODE (super_class) == RECORD_TYPE)
     {
       if (!CLASS_LOADED_P (super_class) && CLASS_FROM_SOURCE_P (super_class))
 	safe_layout_class (super_class);
@@ -2086,8 +2097,9 @@ maybe_layout_super_class (tree super_class, tree this_class)
 					  DECL_SOURCE_LINE (this_decl), 0);
 #endif
 	    }
-	  super_class = do_resolve_class (NULL_TREE, this_class,
-					  super_class, NULL_TREE, this_wrap);
+	  super_class
+	    = do_resolve_class (DECL_CONTEXT (TYPE_NAME (this_class)),
+				this_class, super_class, NULL_TREE, this_wrap);
 	  if (!super_class)
 	    return NULL_TREE;	/* FIXME, NULL_TREE not checked by caller. */
 	  super_class = TREE_TYPE (super_class);
@@ -2376,8 +2388,8 @@ layout_class_method (tree this_class, tree super_class,
 	  /* We generate vtable entries for final methods because they
 	     may one day be changed to non-final.  */
 	  set_method_index (method_decl, dtable_count);
-	  dtable_count = fold (build2 (PLUS_EXPR, integer_type_node,
-				       dtable_count, integer_one_node));
+	  dtable_count = fold_build2 (PLUS_EXPR, integer_type_node,
+				      dtable_count, integer_one_node);
 	}
     }
 
@@ -2528,7 +2540,7 @@ emit_symbol_table (tree name, tree the_table, tree decl_list,
 
   /* Put the list in the right order and make it a constructor. */
   list = nreverse (list);
-  table = build_constructor (symbols_array_type, list);  
+  table = build_constructor_from_list (symbols_array_type, list);  
 
   /* Make it the initial value for otable_syms and emit the decl. */
   DECL_INITIAL (the_syms_decl) = table;
@@ -2589,7 +2601,7 @@ emit_catch_table (tree this_class)
   table = 
     build_decl (VAR_DECL, DECL_NAME (TYPE_CTABLE_DECL (this_class)), array_type);
   DECL_INITIAL (table) = 
-    build_constructor (array_type, TYPE_CATCH_CLASSES (this_class));
+    build_constructor_from_list (array_type, TYPE_CATCH_CLASSES (this_class));
   TREE_STATIC (table) = 1;
   TREE_READONLY (table) = 1;  
   DECL_IGNORED_P (table) = 1;
@@ -2669,7 +2681,7 @@ emit_assertion_table (tree class)
   
   /* Put the list in the right order and make it a constructor. */
   list = nreverse (list);
-  ctor = build_constructor (assertion_table_type, list);
+  ctor = build_constructor_from_list (assertion_table_type, list);
 
   table_decl = build_decl (VAR_DECL, mangled_classname ("_type_assert_", class),
 			   assertion_table_type);

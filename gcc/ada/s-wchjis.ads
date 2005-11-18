@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 1992-2005 Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,7 +35,7 @@
 --  JIS codes and the two external forms we support (EUC and Shift-JIS)
 
 package System.WCh_JIS is
-pragma Pure (WCh_JIS);
+   pragma Pure;
 
    function EUC_To_JIS (EUC1, EUC2 : Character) return Wide_Character;
    --  Given the two bytes of a EUC representation, return the

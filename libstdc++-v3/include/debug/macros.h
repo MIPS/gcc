@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -40,16 +40,6 @@
  * the user error and where the error is reported.
  *
  */
-namespace __gnu_debug
-{ void __fancy_abort(const char*, int, const char*, const char*); }
-#define _GLIBCXX_DEBUG_ABORT(_Condition)                                \
-  do {                                                                  \
-    if (! (_Condition))                                                 \
-      ::__gnu_debug::__fancy_abort(__FILE__, __LINE__,                  \
-				   __PRETTY_FUNCTION__,                 \
-				   #_Condition);                        \
-  } while (false)
-
 #define _GLIBCXX_DEBUG_VERIFY(_Condition,_ErrorMessage)		        \
   do {									\
     if (! (_Condition))							\

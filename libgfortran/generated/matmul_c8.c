@@ -25,14 +25,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include "libgfortran.h"
+
+#if defined (HAVE_GFC_COMPLEX_8)
 
 /* This is a C version of the following fortran pseudo-code. The key
    point is the loop order -- we access all arrays column-first, which
@@ -46,15 +48,17 @@ Boston, MA 02111-1307, USA.  */
          C(I,J) = C(I,J)+A(I,K)*B(K,J)
 */
 
-extern void matmul_c8 (gfc_array_c8 * retarray, gfc_array_c8 * a, gfc_array_c8 * b);
+extern void matmul_c8 (gfc_array_c8 * const restrict retarray, 
+	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b);
 export_proto(matmul_c8);
 
 void
-matmul_c8 (gfc_array_c8 * retarray, gfc_array_c8 * a, gfc_array_c8 * b)
+matmul_c8 (gfc_array_c8 * const restrict retarray, 
+	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b)
 {
-  GFC_COMPLEX_8 *abase;
-  GFC_COMPLEX_8 *bbase;
-  GFC_COMPLEX_8 *dest;
+  const GFC_COMPLEX_8 * restrict abase;
+  const GFC_COMPLEX_8 * restrict bbase;
+  GFC_COMPLEX_8 * restrict dest;
 
   index_type rxstride, rystride, axstride, aystride, bxstride, bystride;
   index_type x, y, n, count, xcount, ycount;
@@ -103,12 +107,10 @@ matmul_c8 (gfc_array_c8 * retarray, gfc_array_c8 * a, gfc_array_c8 * b)
       retarray->offset = 0;
     }
 
-  abase = a->data;
-  bbase = b->data;
-  dest = retarray->data;
-
   if (retarray->dim[0].stride == 0)
     retarray->dim[0].stride = 1;
+
+  /* This prevents constifying the input arguments.  */
   if (a->dim[0].stride == 0)
     a->dim[0].stride = 1;
   if (b->dim[0].stride == 0)
@@ -173,9 +175,9 @@ matmul_c8 (gfc_array_c8 * retarray, gfc_array_c8 * a, gfc_array_c8 * b)
 
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {
-      GFC_COMPLEX_8 *bbase_y;
-      GFC_COMPLEX_8 *dest_y;
-      GFC_COMPLEX_8 *abase_n;
+      const GFC_COMPLEX_8 * restrict bbase_y;
+      GFC_COMPLEX_8 * restrict dest_y;
+      const GFC_COMPLEX_8 * restrict abase_n;
       GFC_COMPLEX_8 bbase_yn;
 
       if (rystride == ycount)
@@ -215,3 +217,5 @@ matmul_c8 (gfc_array_c8 * retarray, gfc_array_c8 * a, gfc_array_c8 * b)
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
     }
 }
+
+#endif

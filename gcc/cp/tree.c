@@ -158,8 +158,12 @@ lvalue_p_1 (tree ref,
     case TARGET_EXPR:
       return treat_class_rvalues_as_lvalues ? clk_class : clk_none;
 
-    case CALL_EXPR:
     case VA_ARG_EXPR:
+      return (treat_class_rvalues_as_lvalues
+	      && CLASS_TYPE_P (TREE_TYPE (ref))
+	      ? clk_class : clk_none);
+
+    case CALL_EXPR:
       /* Any class-valued call would be wrapped in a TARGET_EXPR.  */
       return clk_none;
 
@@ -363,6 +367,26 @@ tree
 get_target_expr (tree init)
 {
   return build_target_expr_with_type (init, TREE_TYPE (init));
+}
+
+/* EXPR is being used in an rvalue context.  Return a version of EXPR
+   that is marked as an rvalue.  */
+
+tree
+rvalue (tree expr)
+{
+  tree type;
+  if (real_lvalue_p (expr))
+    {
+      type = TREE_TYPE (expr);
+      /* [basic.lval]
+	 
+         Non-class rvalues always have cv-unqualified types.  */
+      if (!CLASS_TYPE_P (type))
+	type = TYPE_MAIN_VARIANT (type);
+      expr = build1 (NON_LVALUE_EXPR, type, expr);
+    }
+  return expr;
 }
 
 
@@ -779,6 +803,23 @@ debug_binfo (tree elem)
       ++n;
       virtuals = TREE_CHAIN (virtuals);
     }
+}
+
+/* Build a representation for the qualified name SCOPE::NAME.  TYPE is
+   the type of the result expression, if known, or NULL_TREE if the
+   resulting expression is type-dependent.  If TEMPLATE_P is true,
+   NAME is known to be a template because the user explicitly used the
+   "template" keyword after the "::".   
+
+   All SCOPE_REFs should be built by use of this function.  */
+
+tree
+build_qualified_name (tree type, tree scope, tree name, bool template_p)
+{
+  tree t;
+  t = build2 (SCOPE_REF, type, scope, name);
+  QUALIFIED_NAME_IS_TEMPLATE (t) = template_p;
+  return t;
 }
 
 int
@@ -2123,6 +2164,11 @@ decl_linkage (tree decl)
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
+  
+  /* Linkage of a CONST_DECL depends on the linkage of the enumeration 
+     type.  */
+  if (TREE_CODE (decl) == CONST_DECL)
+    return decl_linkage (TYPE_NAME (TREE_TYPE (decl)));
 
   /* Some things that are not TREE_PUBLIC have external linkage, too.
      For example, on targets that don't have weak symbols, we make all
@@ -2236,7 +2282,7 @@ stabilize_init (tree init, tree *initp)
       if (TREE_CODE (t) == COMPOUND_EXPR)
 	t = expr_last (t);
       if (TREE_CODE (t) == CONSTRUCTOR
-	  && CONSTRUCTOR_ELTS (t) == NULL_TREE)
+	  && EMPTY_CONSTRUCTOR_P (t))
 	{
 	  /* Default-initialization.  */
 	  *initp = NULL_TREE;

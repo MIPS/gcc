@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -73,7 +73,7 @@ namespace __gnu_cxx
       typedef std::reverse_iterator<const_iterator>	const_reverse_iterator;
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
-      // Data Members (public):
+      // Data Member (public):
       // NB: This is an unsigned type, and thus represents the maximum
       // size that the allocator can hold.
       ///  Value returned by various member functions when they fail.
@@ -346,7 +346,7 @@ namespace __gnu_cxx
       /// Returns the size() of the largest possible %string.
       size_type
       max_size() const
-      { return __vstring_base::_S_max_size; }
+      { return this->_M_max_size(); }
 
       /**
        *  @brief  Resizes the %string to the specified number of characters.

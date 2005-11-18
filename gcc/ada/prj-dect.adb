@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2001-2005 Free Software Foundation, Inc          --
+--          Copyright (C) 2001-2005, Free Software Foundation, Inc          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,9 +30,7 @@ with Opt;         use Opt;
 with Prj.Err;     use Prj.Err;
 with Prj.Strt;    use Prj.Strt;
 with Prj.Tree;    use Prj.Tree;
-with Scans;       use Scans;
 with Snames;
-with Types;       use Types;
 with Prj.Attr;    use Prj.Attr;
 with Prj.Attr.PM; use Prj.Attr.PM;
 with Uintp;       use Uintp;
@@ -51,7 +49,7 @@ package body Prj.Dect is
       Current_Project   : Project_Node_Id;
       Current_Package   : Project_Node_Id;
       Packages_To_Check : String_List_Access);
-   --  Parse an attribute declaration.
+   --  Parse an attribute declaration
 
    procedure Parse_Case_Construction
      (In_Tree           : Project_Node_Tree_Ref;
@@ -212,13 +210,8 @@ package body Prj.Dect is
                end if;
 
                Error_Msg_Name_1 := Token_Name;
-
-               if Warning then
-                  Error_Msg ("?undefined attribute {", Token_Ptr);
-
-               else
-                  Error_Msg ("undefined attribute {", Token_Ptr);
-               end if;
+               Error_Msg_Warn := Warning;
+               Error_Msg ("<undefined attribute {", Token_Ptr);
             end if;
 
          --  Set, if appropriate the index case insensitivity flag

@@ -86,12 +86,13 @@ gfc_build_string_const (int length, const char *s)
   return str;
 }
 
-/* Build a Fortran character constant from a zero-terminated string.  */
-
+/* Build a Fortran character constant from a zero-terminated string.
+   Since this is mainly used for error messages, the string will get
+   translated.  */
 tree
-gfc_build_cstring_const (const char *s)
+gfc_build_cstring_const (const char *msgid)
 {
-  return gfc_build_string_const (strlen (s) + 1, s);
+  return gfc_build_string_const (strlen (msgid) + 1, _(msgid));
 }
 
 /* Return a string constant with the given length.  Used for static
@@ -163,7 +164,7 @@ gfc_init_constants (void)
     gfc_build_cstring_const ("Incorrect function return value");
 
   gfc_strconst_current_filename =
-    gfc_build_cstring_const (gfc_option.source);
+    gfc_build_cstring_const (gfc_source_file);
 }
 
 /* Converts a GMP integer into a backend tree node.  */

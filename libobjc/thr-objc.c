@@ -14,8 +14,8 @@ details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with files compiled with
    GCC to produce an executable, this does not cause the resulting executable
@@ -24,6 +24,10 @@ Boston, MA 02111-1307, USA.  */
    covered by the GNU General Public License.  */
 
 #define _LIBOBJC
+/* The line below is needed for declarations of functions such as
+   pthread_mutexattr_settype, without which gthr-posix.h may fail to
+   compile within libobjc.  */
+#define _XOPEN_SOURCE 500
 #include "config.h"
 #include "tconfig.h"
 #include "coretypes.h"

@@ -33,12 +33,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 int gfc_suppress_error = 0;
 
-static int terminal_width, buffer_flag, errors,
-  use_warning_buffer, warnings;
+static int terminal_width, buffer_flag, errors, warnings;
 
-static char *error_ptr, *warning_ptr;
-
-static gfc_error_buf error_buffer, warning_buffer;
+static gfc_error_buf error_buffer, warning_buffer, *cur_error_buffer;
 
 
 /* Per-file error initialization.  */
@@ -70,18 +67,16 @@ error_char (char c)
 {
   if (buffer_flag)
     {
-      if (use_warning_buffer)
+      if (cur_error_buffer->index >= cur_error_buffer->allocated)
 	{
-	  *warning_ptr++ = c;
-	  if (warning_ptr - warning_buffer.message >= MAX_ERROR_MESSAGE)
-	    gfc_internal_error ("error_char(): Warning buffer overflow");
+	  cur_error_buffer->allocated =
+	    cur_error_buffer->allocated
+	    ? cur_error_buffer->allocated * 2 : 1000;
+	  cur_error_buffer->message
+	    = xrealloc (cur_error_buffer->message,
+			cur_error_buffer->allocated);
 	}
-      else
-	{
-	  *error_ptr++ = c;
-	  if (error_ptr - error_buffer.message >= MAX_ERROR_MESSAGE)
-	    gfc_internal_error ("error_char(): Error buffer overflow");
-	}
+      cur_error_buffer->message[cur_error_buffer->index++] = c;
     }
   else
     {
@@ -89,11 +84,16 @@ error_char (char c)
 	{
 	  /* We build up complete lines before handing things
 	     over to the library in order to speed up error printing.  */
-	  static char line[MAX_ERROR_MESSAGE + 1];
-	  static int index = 0;
+	  static char *line;
+	  static size_t allocated = 0, index = 0;
 
+	  if (index + 1 >= allocated)
+	    {
+	      allocated = allocated ? allocated * 2 : 1000;
+	      line = xrealloc (line, allocated);
+	    }
 	  line[index++] = c;
-	  if (c == '\n' || index == MAX_ERROR_MESSAGE)
+	  if (c == '\n')
 	    {
 	      line[index] = '\0';
 	      fputs (line, stderr);
@@ -449,12 +449,12 @@ error_print (const char *type, const char *format0, va_list argp)
 /* Wrapper for error_print().  */
 
 static void
-error_printf (const char *format, ...)
+error_printf (const char *nocmsgid, ...)
 {
   va_list argp;
 
-  va_start (argp, format);
-  error_print ("", format, argp);
+  va_start (argp, nocmsgid);
+  error_print ("", _(nocmsgid), argp);
   va_end (argp);
 }
 
@@ -462,7 +462,7 @@ error_printf (const char *format, ...)
 /* Issue a warning.  */
 
 void
-gfc_warning (const char *format, ...)
+gfc_warning (const char *nocmsgid, ...)
 {
   va_list argp;
 
@@ -470,13 +470,13 @@ gfc_warning (const char *format, ...)
     return;
 
   warning_buffer.flag = 1;
-  warning_ptr = warning_buffer.message;
-  use_warning_buffer = 1;
+  warning_buffer.index = 0;
+  cur_error_buffer = &warning_buffer;
 
-  va_start (argp, format);
+  va_start (argp, nocmsgid);
   if (buffer_flag == 0)
     warnings++;
-  error_print ("Warning:", format, argp);
+  error_print (_("Warning:"), _(nocmsgid), argp);
   va_end (argp);
 
   error_char ('\0');
@@ -489,7 +489,7 @@ gfc_warning (const char *format, ...)
    an error is generated.  */
 
 try
-gfc_notify_std (int std, const char *format, ...)
+gfc_notify_std (int std, const char *nocmsgid, ...)
 {
   va_list argp;
   bool warning;
@@ -503,18 +503,9 @@ gfc_notify_std (int std, const char *format, ...)
   if (gfc_suppress_error)
     return warning ? SUCCESS : FAILURE;
   
-  if (warning)
-    {
-      warning_buffer.flag = 1;
-      warning_ptr = warning_buffer.message;
-      use_warning_buffer = 1;
-    }
-  else
-    {
-      error_buffer.flag = 1;
-      error_ptr = error_buffer.message;
-      use_warning_buffer = 0;
-    }
+  cur_error_buffer = warning ? &warning_buffer : &error_buffer;
+  cur_error_buffer->flag = 1;
+  cur_error_buffer->index = 0;
 
   if (buffer_flag == 0)
     {
@@ -523,11 +514,11 @@ gfc_notify_std (int std, const char *format, ...)
       else
 	errors++;
     }
-  va_start (argp, format);
+  va_start (argp, nocmsgid);
   if (warning)
-    error_print ("Warning:", format, argp);
+    error_print (_("Warning:"), _(nocmsgid), argp);
   else
-    error_print ("Error:", format, argp);
+    error_print (_("Error:"), _(nocmsgid), argp);
   va_end (argp);
 
   error_char ('\0');
@@ -538,7 +529,7 @@ gfc_notify_std (int std, const char *format, ...)
 /* Immediate warning (i.e. do not buffer the warning).  */
 
 void
-gfc_warning_now (const char *format, ...)
+gfc_warning_now (const char *nocmsgid, ...)
 {
   va_list argp;
   int i;
@@ -550,8 +541,8 @@ gfc_warning_now (const char *format, ...)
   buffer_flag = 0;
   warnings++;
 
-  va_start (argp, format);
-  error_print ("Warning:", format, argp);
+  va_start (argp, nocmsgid);
+  error_print (_("Warning:"), _(nocmsgid), argp);
   va_end (argp);
 
   error_char ('\0');
@@ -577,7 +568,8 @@ gfc_warning_check (void)
   if (warning_buffer.flag)
     {
       warnings++;
-      fputs (warning_buffer.message, stderr);
+      if (warning_buffer.message != NULL)
+	fputs (warning_buffer.message, stderr);
       warning_buffer.flag = 0;
     }
 }
@@ -586,7 +578,7 @@ gfc_warning_check (void)
 /* Issue an error.  */
 
 void
-gfc_error (const char *format, ...)
+gfc_error (const char *nocmsgid, ...)
 {
   va_list argp;
 
@@ -594,13 +586,13 @@ gfc_error (const char *format, ...)
     return;
 
   error_buffer.flag = 1;
-  error_ptr = error_buffer.message;
-  use_warning_buffer = 0;
+  error_buffer.index = 0;
+  cur_error_buffer = &error_buffer;
 
-  va_start (argp, format);
+  va_start (argp, nocmsgid);
   if (buffer_flag == 0)
     errors++;
-  error_print ("Error:", format, argp);
+  error_print (_("Error:"), _(nocmsgid), argp);
   va_end (argp);
 
   error_char ('\0');
@@ -610,38 +602,42 @@ gfc_error (const char *format, ...)
 /* Immediate error.  */
 
 void
-gfc_error_now (const char *format, ...)
+gfc_error_now (const char *nocmsgid, ...)
 {
   va_list argp;
   int i;
 
   error_buffer.flag = 1;
-  error_ptr = error_buffer.message;
+  error_buffer.index = 0;
+  cur_error_buffer = &error_buffer;
 
   i = buffer_flag;
   buffer_flag = 0;
   errors++;
 
-  va_start (argp, format);
-  error_print ("Error:", format, argp);
+  va_start (argp, nocmsgid);
+  error_print (_("Error:"), _(nocmsgid), argp);
   va_end (argp);
 
   error_char ('\0');
   buffer_flag = i;
+
+  if (flag_fatal_errors)
+    exit (1);
 }
 
 
 /* Fatal error, never returns.  */
 
 void
-gfc_fatal_error (const char *format, ...)
+gfc_fatal_error (const char *nocmsgid, ...)
 {
   va_list argp;
 
   buffer_flag = 0;
 
-  va_start (argp, format);
-  error_print ("Fatal Error:", format, argp);
+  va_start (argp, nocmsgid);
+  error_print (_("Fatal Error:"), _(nocmsgid), argp);
   va_end (argp);
 
   exit (3);
@@ -691,8 +687,12 @@ gfc_error_check (void)
   if (error_buffer.flag)
     {
       errors++;
-      fputs (error_buffer.message, stderr);
+      if (error_buffer.message != NULL)
+	fputs (error_buffer.message, stderr);
       error_buffer.flag = 0;
+
+      if (flag_fatal_errors)
+	exit (1);
     }
 
   return rc;
@@ -706,7 +706,7 @@ gfc_push_error (gfc_error_buf * err)
 {
   err->flag = error_buffer.flag;
   if (error_buffer.flag)
-    strcpy (err->message, error_buffer.message);
+    err->message = xstrdup (error_buffer.message);
 
   error_buffer.flag = 0;
 }
@@ -719,20 +719,35 @@ gfc_pop_error (gfc_error_buf * err)
 {
   error_buffer.flag = err->flag;
   if (error_buffer.flag)
-    strcpy (error_buffer.message, err->message);
+    {
+      size_t len = strlen (err->message) + 1;
+      gcc_assert (len <= error_buffer.allocated);
+      memcpy (error_buffer.message, err->message, len);
+      gfc_free (err->message);
+    }
+}
+
+
+/* Free a pushed error state, but keep the current error state.  */
+
+void
+gfc_free_error (gfc_error_buf * err)
+{
+  if (err->flag)
+    gfc_free (err->message);
 }
 
 
 /* Debug wrapper for printf.  */
 
 void
-gfc_status (const char *format, ...)
+gfc_status (const char *cmsgid, ...)
 {
   va_list argp;
 
-  va_start (argp, format);
+  va_start (argp, cmsgid);
 
-  vprintf (format, argp);
+  vprintf (_(cmsgid), argp);
 
   va_end (argp);
 }

@@ -117,9 +117,10 @@ by type.  Explanations are in the following sections.
 @gccoptlist{
 -ffree-form  -fno-fixed-form @gol
 -fdollar-ok  -fimplicit-none  -fmax-identifier-length @gol
--std=@var{std}
+-std=@var{std} -fd-lines-as-code -fd-lines-as-comments @gol
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
--fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 }
+-fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 @gol
+-fcray-pointer }
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
@@ -127,13 +128,12 @@ by type.  Explanations are in the following sections.
 -fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wall  -Waliasing  -Wconversion @gol
 -Wimplicit-interface  -Wnonstd-intrinsics  -Wsurprising  -Wunderflow @gol
--Wunused-labels -Wline-truncation @gol
--Werror  -W}
+-Wunused-labels -Wline-truncation -W}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{
--fdump-parse-tree}
+-fdump-parse-tree -ffpe-trap=@var{list}}
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
@@ -143,9 +143,9 @@ by type.  Explanations are in the following sections.
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
 @gccoptlist{
--ff2c -fno-underscoring  -fsecond-underscore @gol
+-fno-automatic -ff2c -fno-underscoring  -fsecond-underscore @gol
 -fbounds-check  -fmax-stack-var-size=@var{n} @gol
--fpackderived  -frepack-arrays}
+-fpackderived  -frepack-arrays  -fshort-enums}
 @end table
 
 @menu
@@ -179,9 +179,21 @@ that the compiler accepts:
 @cindex Fortran 90, features
 @item -ffree-form
 @item -ffixed-form
-Specify the layout used by the the source file. The free form layout
+Specify the layout used by the source file.  The free form layout
 was introduced in Fortran 90.  Fixed form was traditionally used in
 older Fortran programs.
+
+@cindex option, -fd-lines-as-code
+@cindex -fd-lines-as-code, option
+@cindex option, -fd-lines-as-comments
+@cindex -fd-lines-as-comments, option
+@item -fd-lines-as-code
+@item -fd-lines-as-comment
+Enables special treating for lines with @samp{d} or @samp{D} in fixed
+form sources.  If the @option{-fd-lines-as-code} option is given
+they are treated as if the first column contained a blank.  If the
+@option{-fd-lines-as-comments} option is given, they are treated as
+comment lines.
 
 @cindex option, -fdefault-double-8
 @cindex -fdefault-double-8, option
@@ -252,6 +264,11 @@ Specify the maximum allowed identifier length. Typical values are
 Specify that no implicit typing is allowed, unless overridden by explicit
 @samp{IMPLICIT} statements.  This is the equivalent of adding
 @samp{implicit none} to the start of every procedure.
+
+@cindex -fcray-pointer option
+@cindex options, -fcray-pointer
+@item -fcray-pointer
+Enables the Cray pointer extension, which provides a C-like pointer.
 
 @cindex -std=@var{std} option
 @cindex option, -std=@var{std}
@@ -452,6 +469,22 @@ Output the internal parse tree before starting code generation.  Only
 really useful for debugging gfortran itself.
 @end table
 
+@table @gcctabopt
+@cindex -ffpe-trap=@var{list} option
+@cindex option, -ffpe-trap=@var{list}
+@item -ffpe-trap=@var{list}
+Specify a list of IEEE exceptions when a Floating Point Exception
+(FPE) should be raised.  On most systems, this will result in a SIGFPE
+signal being sent and the program being interrupted, producing a core
+file useful for debugging.  @var{list} is a (possibly empty) comma-separated
+list of the following IEEE exceptions: @samp{invalid} (invalid floating
+point operation, such as @code{sqrt(-1.0)}), @samp{zero} (division by
+zero), @samp{overflow} (overflow in a floating point operation),
+@samp{underflow} (underflow in a floating point operation),
+@samp{precision} (loss of precision during operation) and @samp{denormal}
+(operation produced a denormal denormal value).
+@end table
+
 @xref{Debugging Options,,Options for Debugging Your Program or GCC,
 gcc,Using the GNU Compiler Collection (GCC)}, for more information on
 debugging options.
@@ -525,8 +558,17 @@ one of the forms is listed---the one which is not the default.  You
 can figure out the other form by either removing @option{no-} or adding
 it.
 
-
 @table @gcctabopt
+@cindex @option{-fno-automatic} option
+@cindex options, @option{-fno-automatic}
+@item -fno-automatic
+@cindex SAVE statement
+@cindex statements, SAVE
+Treat each program unit as if the @code{SAVE} statement was specified for
+every local variable and array referenced in it. Does not affect common
+blocks. (Some Fortran compilers provide this option under the name
+@option{-static}.)
+
 @cindex @option{-ff2c} option
 @cindex options, @option{-ff2c}
 @item -ff2c
@@ -709,6 +751,13 @@ a contiguous block at runtime.
 This should result in faster accesses to the array.  However it can introduce
 significant overhead to the function call, especially  when the passed data
 is discontiguous.
+
+@cindex -fshort-enums
+@item -fshort-enums
+This option is provided for interoperability with C code that was
+compiled with the @command{-fshort-enums} option.  It will make
+@command{gfortran} choose the smallest @code{INTEGER} kind a given
+enumerator set will fit in, and give all its enumerators this kind.
 @end table
 
 @xref{Code Gen Options,,Options for Code Generation Conventions,

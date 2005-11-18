@@ -176,8 +176,6 @@ static rtx gen_fr_restore_x (rtx, rtx, rtx);
 static enum machine_mode hfa_element_mode (tree, bool);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
-static bool ia64_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				    tree, bool);
 static int ia64_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
 static bool ia64_function_ok_for_sibcall (tree, tree);
@@ -349,8 +347,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ia64_function_ok_for_sibcall
-#undef TARGET_PASS_BY_REFERENCE
-#define TARGET_PASS_BY_REFERENCE ia64_pass_by_reference
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES ia64_arg_partial_bytes
 
@@ -688,6 +684,37 @@ ia64_move_ok (rtx dst, rtx src)
     return src == const0_rtx;
   else
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
+}
+
+/* Return 1 if the operands are ok for a floating point load pair.  */
+
+int
+ia64_load_pair_ok (rtx dst, rtx src)
+{
+  if (GET_CODE (dst) != REG || !FP_REGNO_P (REGNO (dst)))
+    return 0;
+  if (GET_CODE (src) != MEM || MEM_VOLATILE_P (src))
+    return 0;
+  switch (GET_CODE (XEXP (src, 0)))
+    {
+    case REG:
+    case POST_INC:
+      break;
+    case POST_DEC:
+      return 0;
+    case POST_MODIFY:
+      {
+	rtx adjust = XEXP (XEXP (XEXP (src, 0), 1), 1);
+
+	if (GET_CODE (adjust) != CONST_INT
+	    || INTVAL (adjust) != GET_MODE_SIZE (GET_MODE (src)))
+	  return 0;
+      }
+      break;
+    default:
+      abort ();
+    }
+  return 1;
 }
 
 int
@@ -1733,6 +1760,113 @@ ia64_expand_vecint_minmax (enum rtx_code code, enum machine_mode mode,
 
   ia64_expand_vecint_cmov (xops);
   return true;
+}
+
+/* Emit an integral vector widening sum operations.  */
+
+void
+ia64_expand_widen_sum (rtx operands[3], bool unsignedp)
+{
+  rtx l, h, x, s;
+  enum machine_mode wmode, mode;
+  rtx (*unpack_l) (rtx, rtx, rtx);
+  rtx (*unpack_h) (rtx, rtx, rtx);
+  rtx (*plus) (rtx, rtx, rtx);
+
+  wmode = GET_MODE (operands[0]);
+  mode = GET_MODE (operands[1]);
+
+  switch (mode)
+    {
+    case V8QImode:
+      unpack_l = gen_unpack1_l;
+      unpack_h = gen_unpack1_h;
+      plus = gen_addv4hi3;
+      break;
+    case V4HImode:
+      unpack_l = gen_unpack2_l;
+      unpack_h = gen_unpack2_h;
+      plus = gen_addv2si3;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Fill in x with the sign extension of each element in op1.  */
+  if (unsignedp)
+    x = CONST0_RTX (mode);
+  else
+    {
+      bool neg;
+
+      x = gen_reg_rtx (mode);
+
+      neg = ia64_expand_vecint_compare (LT, mode, x, operands[1],
+					CONST0_RTX (mode));
+      gcc_assert (!neg);
+    }
+
+  l = gen_reg_rtx (wmode);
+  h = gen_reg_rtx (wmode);
+  s = gen_reg_rtx (wmode);
+
+  emit_insn (unpack_l (gen_lowpart (mode, l), operands[1], x));
+  emit_insn (unpack_h (gen_lowpart (mode, h), operands[1], x));
+  emit_insn (plus (s, l, operands[2]));
+  emit_insn (plus (operands[0], h, s));
+}
+
+/* Emit a signed or unsigned V8QI dot product operation.  */
+
+void
+ia64_expand_dot_prod_v8qi (rtx operands[4], bool unsignedp)
+{
+  rtx l1, l2, h1, h2, x1, x2, p1, p2, p3, p4, s1, s2, s3;
+
+  /* Fill in x1 and x2 with the sign extension of each element.  */
+  if (unsignedp)
+    x1 = x2 = CONST0_RTX (V8QImode);
+  else
+    {
+      bool neg;
+
+      x1 = gen_reg_rtx (V8QImode);
+      x2 = gen_reg_rtx (V8QImode);
+
+      neg = ia64_expand_vecint_compare (LT, V8QImode, x1, operands[1],
+					CONST0_RTX (V8QImode));
+      gcc_assert (!neg);
+      neg = ia64_expand_vecint_compare (LT, V8QImode, x2, operands[2],
+					CONST0_RTX (V8QImode));
+      gcc_assert (!neg);
+    }
+
+  l1 = gen_reg_rtx (V4HImode);
+  l2 = gen_reg_rtx (V4HImode);
+  h1 = gen_reg_rtx (V4HImode);
+  h2 = gen_reg_rtx (V4HImode);
+
+  emit_insn (gen_unpack1_l (gen_lowpart (V8QImode, l1), operands[1], x1));
+  emit_insn (gen_unpack1_l (gen_lowpart (V8QImode, l2), operands[2], x2));
+  emit_insn (gen_unpack1_h (gen_lowpart (V8QImode, h1), operands[1], x1));
+  emit_insn (gen_unpack1_h (gen_lowpart (V8QImode, h2), operands[2], x2));
+
+  p1 = gen_reg_rtx (V2SImode);
+  p2 = gen_reg_rtx (V2SImode);
+  p3 = gen_reg_rtx (V2SImode);
+  p4 = gen_reg_rtx (V2SImode);
+  emit_insn (gen_pmpy2_r (p1, l1, l2));
+  emit_insn (gen_pmpy2_l (p2, l1, l2));
+  emit_insn (gen_pmpy2_r (p3, h1, h2));
+  emit_insn (gen_pmpy2_l (p4, h1, h2));
+
+  s1 = gen_reg_rtx (V2SImode);
+  s2 = gen_reg_rtx (V2SImode);
+  s3 = gen_reg_rtx (V2SImode);
+  emit_insn (gen_addv2si3 (s1, p1, p2));
+  emit_insn (gen_addv2si3 (s2, p3, p4));
+  emit_insn (gen_addv2si3 (s3, s1, operands[3]));
+  emit_insn (gen_addv2si3 (operands[0], s2, s3));
 }
 
 /* Emit the appropriate sequence for a call.  */
@@ -4083,17 +4217,6 @@ ia64_function_arg_boundary (enum machine_mode mode, tree type)
     return PARM_BOUNDARY;
 }
 
-/* Variable sized types are passed by reference.  */
-/* ??? At present this is a GCC extension to the IA-64 ABI.  */
-
-static bool
-ia64_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type, bool named ATTRIBUTE_UNUSED)
-{
-  return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
-}
-
 /* True if it is OK to do sibling call optimization for the specified
    call expression EXP.  DECL will be the called function, or NULL if
    this is an indirect call.  */
@@ -4267,8 +4390,11 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 static void
 ia64_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
-  gcc_assert (size == 8);
-  fputs ("\tdata8.ua\t@dtprel(", file);
+  gcc_assert (size == 4 || size == 8);
+  if (size == 4)
+    fputs ("\tdata4.ua\t@dtprel(", file);
+  else
+    fputs ("\tdata8.ua\t@dtprel(", file);
   output_addr_const (file, x);
   fputs (")", file);
 }
@@ -4302,6 +4428,7 @@ ia64_print_operand_address (FILE * stream ATTRIBUTE_UNUSED,
 	for Intel assembler.
    U	Print an 8-bit sign extended number (K) as a 64-bit unsigned number
 	for Intel assembler.
+   X	A pair of floating point registers.
    r	Print register name, or constant 0 as r0.  HP compatibility for
 	Linux kernel.
    v    Print vector constant value as an 8-byte integer value.  */
@@ -4449,6 +4576,13 @@ ia64_print_operand (FILE * file, rtx x, int code)
 	  return;
 	}
       break;
+
+    case 'X':
+      {
+	unsigned int regno = REGNO (x);
+	fprintf (file, "%s, %s", reg_names [regno], reg_names [regno + 1]);
+      }
+      return;
 
     case 'r':
       /* If this operand is the constant zero, write it as register zero.
@@ -4679,6 +4813,7 @@ ia64_register_move_cost (enum machine_mode mode, enum reg_class from,
 
     case GR_REGS:
     case FR_REGS:
+    case FP_REGS:
     case GR_AND_FR_REGS:
     case GR_AND_BR_REGS:
     case ALL_REGS:
@@ -4700,6 +4835,7 @@ ia64_preferred_reload_class (rtx x, enum reg_class class)
   switch (class)
     {
     case FR_REGS:
+    case FP_REGS:
       /* Don't allow volatile mem reloads into floating point registers.
 	 This is defined to force reload to choose the r/m case instead
 	 of the f/f case when reloading (set (reg fX) (mem/v)).  */
@@ -4765,6 +4901,7 @@ ia64_secondary_reload_class (enum reg_class class,
       break;
 
     case FR_REGS:
+    case FP_REGS:
       /* Need to go through general registers to get to other class regs.  */
       if (regno >= 0 && ! (FR_REGNO_P (regno) || GENERAL_REGNO_P (regno)))
 	return GR_REGS;
@@ -6110,16 +6247,19 @@ ia64_dependencies_evaluation_hook (rtx head, rtx tail)
       {
 	for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
 	  {
+	    enum attr_itanium_class c;
+
 	    if (REG_NOTE_KIND (link) != REG_DEP_TRUE)
 	      continue;
 	    next = XEXP (link, 0);
-	    if ((ia64_safe_itanium_class (next) == ITANIUM_CLASS_ST
-		 || ia64_safe_itanium_class (next) == ITANIUM_CLASS_STF)
+	    c = ia64_safe_itanium_class (next);
+	    if ((c == ITANIUM_CLASS_ST
+		 || c == ITANIUM_CLASS_STF)
 		&& ia64_st_address_bypass_p (insn, next))
 	      break;
-	    else if ((ia64_safe_itanium_class (next) == ITANIUM_CLASS_LD
-		      || ia64_safe_itanium_class (next)
-		      == ITANIUM_CLASS_FLD)
+	    else if ((c == ITANIUM_CLASS_LD
+		      || c == ITANIUM_CLASS_FLD
+		      || c == ITANIUM_CLASS_FLDP)
 		     && ia64_ld_address_bypass_p (insn, next))
 	      break;
 	  }
@@ -7391,7 +7531,7 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 
 
 
-/* If the following function returns TRUE, we will use the the DFA
+/* If the following function returns TRUE, we will use the DFA
    insn scheduler.  */
 
 static int
@@ -8647,9 +8787,27 @@ ia64_vector_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* Implement the FUNCTION_PROFILER macro.  */
+
 void
 ia64_output_function_profiler (FILE *file, int labelno)
 {
+  bool indirect_call;
+
+  /* If the function needs a static chain and the static chain
+     register is r15, we use an indirect call so as to bypass
+     the PLT stub in case the executable is dynamically linked,
+     because the stub clobbers r15 as per 5.3.6 of the psABI.
+     We don't need to do that in non canonical PIC mode.  */
+
+  if (cfun->static_chain_decl && !TARGET_NO_PIC && !TARGET_AUTO_PIC)
+    {
+      gcc_assert (STATIC_CHAIN_REGNUM == 15);
+      indirect_call = true;
+    }
+  else
+    indirect_call = false;
+
   if (TARGET_GNU_AS)
     fputs ("\t.prologue 4, r40\n", file);
   else
@@ -8657,7 +8815,7 @@ ia64_output_function_profiler (FILE *file, int labelno)
   fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", file);
 
   if (NO_PROFILE_COUNTERS)
-    fputs ("\tmov out3 = r0\n\t;;\n", file);
+    fputs ("\tmov out3 = r0\n", file);
   else
     {
       char buf[20];
@@ -8669,16 +8827,30 @@ ia64_output_function_profiler (FILE *file, int labelno)
 	fputs ("\taddl out3 = @ltoff(", file);
       assemble_name (file, buf);
       if (TARGET_AUTO_PIC)
-	fputs (")\n\t;;\n", file);
+	fputs (")\n", file);
       else
-	fputs ("), r1\n\t;;\n", file);
+	fputs ("), r1\n", file);
     }
+
+  if (indirect_call)
+    fputs ("\taddl r14 = @ltoff(@fptr(_mcount)), r1\n", file);
+  fputs ("\t;;\n", file);
 
   fputs ("\t.save rp, r42\n", file);
   fputs ("\tmov out2 = b0\n", file);
+  if (indirect_call)
+    fputs ("\tld8 r14 = [r14]\n\t;;\n", file);
   fputs ("\t.body\n", file);
   fputs ("\tmov out1 = r1\n", file);
-  fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
+  if (indirect_call)
+    {
+      fputs ("\tld8 r16 = [r14], 8\n\t;;\n", file);
+      fputs ("\tmov b6 = r16\n", file);
+      fputs ("\tld8 r1 = [r14]\n", file);
+      fputs ("\tbr.call.sptk.many b0 = b6\n\t;;\n", file);
+    }
+  else
+    fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
 }
 
 static GTY(()) rtx mcount_func_rtx;

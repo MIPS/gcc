@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2000-2005 Ada Core Technologies, Inc.            --
+--                     Copyright (C) 2000-2005, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -69,6 +69,9 @@ package body GNAT.Expect is
    procedure Free is new Unchecked_Deallocation
      (Pattern_Matcher, Pattern_Matcher_Access);
 
+   procedure Free is new Unchecked_Deallocation
+     (Filter_List_Elem, Filter_List);
+
    procedure Call_Filters
      (Pid       : Process_Descriptor'Class;
       Str       : String;
@@ -86,8 +89,9 @@ package body GNAT.Expect is
    procedure Dup2 (Old_Fd, New_Fd : File_Descriptor);
    pragma Import (C, Dup2);
 
-   procedure Kill (Pid : Process_Id; Sig_Num : Integer);
+   procedure Kill (Pid : Process_Id; Sig_Num : Integer; Close : Integer);
    pragma Import (C, Kill, "__gnat_kill");
+   --  if Close is set to 1 all OS resources used by the Pid must be freed
 
    function Create_Pipe (Pipe : access Pipe_Type) return Integer;
    pragma Import (C, Create_Pipe, "__gnat_pipe");
@@ -204,6 +208,9 @@ package body GNAT.Expect is
      (Descriptor : in out Process_Descriptor;
       Status     : out Integer)
    is
+      Current_Filter : Filter_List;
+      Next_Filter    : Filter_List;
+
    begin
       Close (Descriptor.Input_Fd);
 
@@ -214,11 +221,21 @@ package body GNAT.Expect is
       Close (Descriptor.Output_Fd);
 
       --  ??? Should have timeouts for different signals
-      Kill (Descriptor.Pid, 9);
+
+      Kill (Descriptor.Pid, 9, 0);
 
       GNAT.OS_Lib.Free (Descriptor.Buffer);
       Descriptor.Buffer_Size := 0;
 
+      Current_Filter := Descriptor.Filters;
+
+      while Current_Filter /= null loop
+         Next_Filter := Current_Filter.Next;
+         Free (Current_Filter);
+         Current_Filter := Next_Filter;
+      end loop;
+
+      Descriptor.Filters := null;
       Status := Waitpid (Descriptor.Pid);
    end Close;
 
@@ -323,10 +340,11 @@ package body GNAT.Expect is
             return;
          end if;
 
-         --  Calculate the timeout for the next turn.
+         --  Calculate the timeout for the next turn
+
          --  Note that Timeout is, from the caller's perspective, the maximum
          --  time until a match, not the maximum time until some output is
-         --  read, and thus can not be reused as is for Expect_Internal.
+         --  read, and thus cannot be reused as is for Expect_Internal.
 
          if Timeout /= -1 then
             Timeout_Tmp := Integer (Try_Until - Clock) * 1000;
@@ -1001,6 +1019,10 @@ package body GNAT.Expect is
       if Buffer_Size /= 0 then
          Descriptor.Buffer := new String (1 .. Positive (Buffer_Size));
       end if;
+
+      --  Initialize the filters
+
+      Descriptor.Filters := null;
    end Non_Blocking_Spawn;
 
    -------------------------
@@ -1128,7 +1150,7 @@ package body GNAT.Expect is
       Signal     : Integer)
    is
    begin
-      Kill (Descriptor.Pid, Signal);
+      Kill (Descriptor.Pid, Signal, 1);
       --  ??? Need to check process status here
    end Send_Signal;
 

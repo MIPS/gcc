@@ -331,6 +331,10 @@ Wpointer-to-int-cast
 C ObjC Var(warn_pointer_to_int_cast) Init(1)
 Warn when a pointer is cast to an integer of a different size
 
+Wpragmas
+C ObjC C++ ObjC++ Var(warn_pragmas) Init(1)
+Warn about misuses of pragmas
+
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
@@ -491,6 +495,10 @@ fexec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fexec-charset=<cset>	Convert all strings and character constants to character set <cset>
 
+fextended-identifiers
+C ObjC C++ ObjC++
+Permit universal character names (\\u and \\U) in identifiers
+
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -finput-charset=<cset>	Specify the default character set for source files
@@ -500,6 +508,9 @@ fexternal-templates
 C++ ObjC++
 
 ffixed-form
+C ObjC
+
+ffixed-line-length-none
 C ObjC
 
 ffixed-line-length-
@@ -549,6 +560,10 @@ Emit implicit instantiations of inline templates
 fimplicit-templates
 C++ ObjC++
 Emit implicit instantiations of templates
+
+ffriend-injection
+C++ Var(flag_friend_injection)
+Inject friend functions into enclosing namespace
 
 flabels-ok
 C++ ObjC++
@@ -767,6 +782,9 @@ C ObjC C++ ObjC++ Joined Separate
 -iwithprefixbefore <dir>	Add <dir> to the end of the main include path
 
 lang-asm
+C Undocumented
+
+lang-fortran
 C Undocumented
 
 lang-objc

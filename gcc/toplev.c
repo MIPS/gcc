@@ -145,7 +145,7 @@ location_t unknown_location = { NULL, 0 };
 
 /* Used to enable -fvar-tracking, -fweb and -frename-registers according
    to optimize and default_debug_hooks in process_options ().  */
-#define AUTODETECT_FLAG_VAR_TRACKING 2
+#define AUTODETECT_VALUE 2
 
 /* Current position in real source file.  */
 
@@ -334,9 +334,9 @@ rtx stack_limit_rtx;
 int flag_renumber_insns = 1;
 
 /* Nonzero if we should track variables.  When
-   flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
+   flag_var_tracking == AUTODETECT_VALUE it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
-int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+int flag_var_tracking = AUTODETECT_VALUE;
 
 /* True if the user has tagged the function with the 'section'
    attribute.  */
@@ -685,184 +685,196 @@ output_file_directive (FILE *asm_file, const char *input_name)
 #endif
 }
 
+/* A subroutine of wrapup_global_declarations.  We've come to the end of
+   the compilation unit.  All deferred variables should be undeferred,
+   and all incomplete decls should be finalized.  */
+
+void
+wrapup_global_declaration_1 (tree decl)
+{
+  /* We're not deferring this any longer.  Assignment is conditional to
+     avoid needlessly dirtying PCH pages.  */
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
+      && DECL_DEFER_OUTPUT (decl) != 0)
+    DECL_DEFER_OUTPUT (decl) = 0;
+
+  if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+    lang_hooks.finish_incomplete_decl (decl);
+}
+
+/* A subroutine of wrapup_global_declarations.  Decide whether or not DECL
+   needs to be output.  Return true if it is output.  */
+
+bool
+wrapup_global_declaration_2 (tree decl)
+{
+  if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl))
+    return false;
+
+  /* Don't write out static consts, unless we still need them.
+
+     We also keep static consts if not optimizing (for debugging),
+     unless the user specified -fno-keep-static-consts.
+     ??? They might be better written into the debug information.
+     This is possible when using DWARF.
+
+     A language processor that wants static constants to be always
+     written out (even if it is not used) is responsible for
+     calling rest_of_decl_compilation itself.  E.g. the C front-end
+     calls rest_of_decl_compilation from finish_decl.
+     One motivation for this is that is conventional in some
+     environments to write things like:
+     static const char rcsid[] = "... version string ...";
+     intending to force the string to be in the executable.
+
+     A language processor that would prefer to have unneeded
+     static constants "optimized away" would just defer writing
+     them out until here.  E.g. C++ does this, because static
+     constants are often defined in header files.
+
+     ??? A tempting alternative (for both C and C++) would be
+     to force a constant to be written if and only if it is
+     defined in a main file, as opposed to an include file.  */
+
+  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    {
+      struct cgraph_varpool_node *node;
+      bool needed = true;
+      node = cgraph_varpool_node (decl);
+
+      if (node->finalized)
+	needed = false;
+      else if (node->alias)
+	needed = false;
+      else if (!cgraph_global_info_ready
+	       && (TREE_USED (decl)
+		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
+	/* needed */;
+      else if (node->needed)
+	/* needed */;
+      else if (DECL_COMDAT (decl))
+	needed = false;
+      else if (TREE_READONLY (decl) && !TREE_PUBLIC (decl)
+	       && (optimize || !flag_keep_static_consts
+		   || DECL_ARTIFICIAL (decl)))
+	needed = false;
+
+      if (needed)
+	{
+	  rest_of_decl_compilation (decl, 1, 1);
+	  return true;
+	}
+    }
+
+  return false;
+}
+
 /* Do any final processing required for the declarations in VEC, of
    which there are LEN.  We write out inline functions and variables
    that have been deferred until this point, but which are required.
    Returns nonzero if anything was put out.  */
 
-int
+bool
 wrapup_global_declarations (tree *vec, int len)
 {
-  tree decl;
+  bool reconsider, output_something = false;
   int i;
-  int reconsider;
-  int output_something = 0;
 
   for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
-
-      /* We're not deferring this any longer.  Assignment is
-	 conditional to avoid needlessly dirtying PCH pages.  */
-      if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
-	  && DECL_DEFER_OUTPUT (decl) != 0)
-	DECL_DEFER_OUTPUT (decl) = 0;
-
-      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
-	lang_hooks.finish_incomplete_decl (decl);
-    }
+    wrapup_global_declaration_1 (vec[i]);
 
   /* Now emit any global variables or functions that we have been
      putting off.  We need to loop in case one of the things emitted
      here references another one which comes earlier in the list.  */
   do
     {
-      reconsider = 0;
+      reconsider = false;
       for (i = 0; i < len; i++)
-	{
-	  decl = vec[i];
-
-	  if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl))
-	    continue;
-
-	  /* Don't write out static consts, unless we still need them.
-
-	     We also keep static consts if not optimizing (for debugging),
-	     unless the user specified -fno-keep-static-consts.
-	     ??? They might be better written into the debug information.
-	     This is possible when using DWARF.
-
-	     A language processor that wants static constants to be always
-	     written out (even if it is not used) is responsible for
-	     calling rest_of_decl_compilation itself.  E.g. the C front-end
-	     calls rest_of_decl_compilation from finish_decl.
-	     One motivation for this is that is conventional in some
-	     environments to write things like:
-	     static const char rcsid[] = "... version string ...";
-	     intending to force the string to be in the executable.
-
-	     A language processor that would prefer to have unneeded
-	     static constants "optimized away" would just defer writing
-	     them out until here.  E.g. C++ does this, because static
-	     constants are often defined in header files.
-
-	     ??? A tempting alternative (for both C and C++) would be
-	     to force a constant to be written if and only if it is
-	     defined in a main file, as opposed to an include file.  */
-
-	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-	    {
-	      struct cgraph_varpool_node *node;
-	      bool needed = 1;
-	      node = cgraph_varpool_node (decl);
-
-	      if (node->finalized)
-		needed = 0;
-	      else if (node->alias)
-		needed = 0;
-	      else if (!cgraph_global_info_ready
-		       && (TREE_USED (decl)
-			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
-		/* needed */;
-	      else if (node->needed)
-		/* needed */;
-	      else if (DECL_COMDAT (decl))
-		needed = 0;
-	      else if (TREE_READONLY (decl) && !TREE_PUBLIC (decl)
-		       && (optimize || !flag_keep_static_consts
-			   || DECL_ARTIFICIAL (decl)))
-		needed = 0;
-
-	      if (needed)
-		{
-		  reconsider = 1;
-		  rest_of_decl_compilation (decl, 1, 1);
-		}
-	    }
-	}
-
+	reconsider |= wrapup_global_declaration_2 (vec[i]);
       if (reconsider)
-	output_something = 1;
+	output_something = true;
     }
   while (reconsider);
 
   return output_something;
 }
 
+/* A subroutine of check_global_declarations.  Issue appropriate warnings
+   for the global declaration DECL.  */
+
+void
+check_global_declaration_1 (tree decl)
+{
+  /* Warn about any function declared static but not defined.  We don't
+     warn about variables, because many programs have static variables
+     that exist only to get some text into the object file.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_INITIAL (decl) == 0
+      && DECL_EXTERNAL (decl)
+      && ! DECL_ARTIFICIAL (decl)
+      && ! TREE_NO_WARNING (decl)
+      && ! TREE_PUBLIC (decl)
+      && (warn_unused_function
+	  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
+    {
+      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	pedwarn ("%q+F used but never defined", decl);
+      else
+	warning (0, "%q+F declared %<static%> but never defined", decl);
+      /* This symbol is effectively an "extern" declaration now.  */
+      TREE_PUBLIC (decl) = 1;
+      assemble_external (decl);
+    }
+
+  /* Warn about static fns or vars defined but not used.  */
+  if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
+       /* We don't warn about "static const" variables because the
+	  "rcs_id" idiom uses that construction.  */
+       || (warn_unused_variable
+	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
+      && ! DECL_IN_SYSTEM_HEADER (decl)
+      && ! TREE_USED (decl)
+      /* The TREE_USED bit for file-scope decls is kept in the identifier,
+	 to handle multiple external decls in different scopes.  */
+      && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
+      && ! DECL_EXTERNAL (decl)
+      && ! TREE_PUBLIC (decl)
+      /* A volatile variable might be used in some non-obvious way.  */
+      && ! TREE_THIS_VOLATILE (decl)
+      /* Global register variables must be declared to reserve them.  */
+      && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+      /* Otherwise, ask the language.  */
+      && lang_hooks.decls.warn_unused_global (decl))
+    warning (0, "%q+D defined but not used", decl);
+}
+
 /* Issue appropriate warnings for the global declarations in VEC (of
-   which there are LEN).  Output debugging information for them.  */
+   which there are LEN).  */
 
 void
 check_global_declarations (tree *vec, int len)
 {
-  tree decl;
   int i;
 
   for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
+    check_global_declaration_1 (vec[i]);
+}
 
-      /* Do not emit debug information about variables that are in
-	 static storage, but not defined.  */
-      if (TREE_CODE (decl) == VAR_DECL
-	  && TREE_STATIC (decl)
-	  && !TREE_ASM_WRITTEN (decl))
-	DECL_IGNORED_P (decl) = 1;
- 
-      /* Warn about any function
-	 declared static but not defined.
-	 We don't warn about variables,
-	 because many programs have static variables
-	 that exist only to get some text into the object file.  */
-      if (TREE_CODE (decl) == FUNCTION_DECL
-	  && DECL_INITIAL (decl) == 0
-	  && DECL_EXTERNAL (decl)
-	  && ! DECL_ARTIFICIAL (decl)
-	  && ! TREE_NO_WARNING (decl)
-	  && ! TREE_PUBLIC (decl)
-	  && (warn_unused_function
-	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
-	{
-	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	    pedwarn ("%q+F used but never defined", decl);
-	  else
-	    warning (0, "%q+F declared %<static%> but never defined",
-		     decl);
-	  /* This symbol is effectively an "extern" declaration now.  */
-	  TREE_PUBLIC (decl) = 1;
-	  assemble_external (decl);
-	}
+/* Emit debugging information for all global declarations in VEC.  */
 
-      /* Warn about static fns or vars defined but not used.  */
-      if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-	   /* We don't warn about "static const" variables because the
-	      "rcs_id" idiom uses that construction.  */
-	   || (warn_unused_variable
-	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-	  && ! DECL_IN_SYSTEM_HEADER (decl)
-	  && ! TREE_USED (decl)
-	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
-	     to handle multiple external decls in different scopes.  */
-	  && ! TREE_USED (DECL_NAME (decl))
-	  && ! DECL_EXTERNAL (decl)
-	  && ! TREE_PUBLIC (decl)
-	  /* A volatile variable might be used in some non-obvious way.  */
-	  && ! TREE_THIS_VOLATILE (decl)
-	  /* Global register variables must be declared to reserve them.  */
-	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-	  /* Otherwise, ask the language.  */
-	  && lang_hooks.decls.warn_unused_global (decl))
-	warning (0, "%q+D defined but not used", decl);
+void
+emit_debug_global_declarations (tree *vec, int len)
+{
+  int i;
 
-      /* Avoid confusing the debug information machinery when there are
-	 errors.  */
-      if (errorcount == 0 && sorrycount == 0)
-	{
-	  timevar_push (TV_SYMOUT);
-	  (*debug_hooks->global_decl) (decl);
-	  timevar_pop (TV_SYMOUT);
-	}
-    }
+  /* Avoid confusing the debug information machinery when there are errors.  */
+  if (errorcount != 0 || sorrycount != 0)
+    return;
+
+  timevar_push (TV_SYMOUT);
+  for (i = 0; i < len; i++)
+    debug_hooks->global_decl (vec[i]);
+  timevar_pop (TV_SYMOUT);
 }
 
 /* Warn about a use of an identifier which was marked deprecated.  */
@@ -875,7 +887,8 @@ warn_deprecated_use (tree node)
   if (DECL_P (node))
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
-      warning (0, "%qs is deprecated (declared at %s:%d)",
+      warning (OPT_Wdeprecated_declarations,
+	       "%qs is deprecated (declared at %s:%d)",
 	       IDENTIFIER_POINTER (DECL_NAME (node)),
 	       xloc.file, xloc.line);
     }
@@ -898,18 +911,20 @@ warn_deprecated_use (tree node)
 	  expanded_location xloc
 	    = expand_location (DECL_SOURCE_LOCATION (decl));
 	  if (what)
-	    warning (0, "%qs is deprecated (declared at %s:%d)", what,
-		       xloc.file, xloc.line);
+	    warning (OPT_Wdeprecated_declarations,
+		     "%qs is deprecated (declared at %s:%d)", what,
+		     xloc.file, xloc.line);
 	  else
-	    warning (0, "type is deprecated (declared at %s:%d)",
+	    warning (OPT_Wdeprecated_declarations,
+		     "type is deprecated (declared at %s:%d)",
 		     xloc.file, xloc.line);
 	}
       else
 	{
 	  if (what)
-	    warning (0, "%qs is deprecated", what);
+	    warning (OPT_Wdeprecated_declarations, "%qs is deprecated", what);
 	  else
-	    warning (0, "type is deprecated");
+	    warning (OPT_Wdeprecated_declarations, "type is deprecated");
 	}
     }
 }
@@ -1478,6 +1493,10 @@ general_init (const char *argv0)
 static void
 process_options (void)
 {
+  /* Just in case lang_hooks.post_options ends up calling a debug_hook.
+     This can happen with incorrect pre-processed input. */
+  debug_hooks = &do_nothing_debug_hooks;
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1530,9 +1549,15 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  /* The loop unrolling code assumes that cse will be run after loop.  */
-  if (flag_unroll_loops || flag_peel_loops)
-    flag_rerun_cse_after_loop = 1;
+  /* The loop unrolling code assumes that cse will be run after loop.
+     web and rename-registers also help when run after loop unrolling.  */
+
+  if (flag_rerun_cse_after_loop == AUTODETECT_VALUE)
+    flag_rerun_cse_after_loop = flag_unroll_loops || flag_peel_loops;
+  if (flag_web == AUTODETECT_VALUE)
+    flag_web = flag_unroll_loops || flag_peel_loops;
+  if (flag_rename_registers == AUTODETECT_VALUE)
+    flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
   /* If explicitly asked to run new loop optimizer, switch off the old
      one.  */
@@ -1559,17 +1584,6 @@ process_options (void)
 
   if (flag_value_profile_transformations)
     flag_profile_values = 1;
-
-  /* Speculative prefetching implies the value profiling.  We also switch off
-     the prefetching in the loop optimizer, so that we do not emit double
-     prefetches.  TODO -- we should teach these two to cooperate; the loop
-     based prefetching may sometimes do a better job, especially in connection
-     with reuse analysis.  */
-  if (flag_speculative_prefetching)
-    {
-      flag_profile_values = 1;
-      flag_prefetch_loop_arrays = 0;
-    }
 
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING
@@ -1642,7 +1656,6 @@ process_options (void)
     default_debug_hooks = &vmsdbg_debug_hooks;
 #endif
 
-  debug_hooks = &do_nothing_debug_hooks;
   if (write_symbols == NO_DEBUG)
     ;
 #if defined(DBX_DEBUGGING_INFO)
@@ -1687,11 +1700,11 @@ process_options (void)
       flag_var_tracking = 0;
     }
 
-  if (flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING)
+  if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = default_debug_hooks->var_location
 	    		    != do_nothing_debug_hooks.var_location;
 
-  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+  if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
 
   /* If auxiliary info generation is desired, open the output file.
@@ -1730,23 +1743,11 @@ process_options (void)
       warning (0, "-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
-  if (flag_speculative_prefetching)
-    {
-      if (flag_speculative_prefetching_set)
-	warning (0, "-fspeculative-prefetching not supported for this target");
-      flag_speculative_prefetching = 0;
-    }
 #else
   if (flag_prefetch_loop_arrays && !HAVE_prefetch)
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
-    }
-  if (flag_speculative_prefetching && !HAVE_prefetch)
-    {
-      if (flag_speculative_prefetching_set)
-	warning (0, "-fspeculative-prefetching not supported for this target (try -march switches)");
-      flag_speculative_prefetching = 0;
     }
 #endif
 
@@ -1780,6 +1781,18 @@ process_options (void)
     }
   if (!flag_stack_protect)
     warn_stack_protect = 0;
+
+  /* ??? Unwind info is not correct around the CFG unless either a frame
+     pointer is present or A_O_A is set.  Fixing this requires rewriting
+     unwind info generation to be aware of the CFG and propagating states
+     around edges.  */
+  if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
+      && flag_omit_frame_pointer)
+    {
+      warning (0, "unwind tables currently requires a frame pointer "
+	       "for correctness");
+      flag_omit_frame_pointer = 0;
+    }
 }
 
 /* Initialize the compiler back end.  */

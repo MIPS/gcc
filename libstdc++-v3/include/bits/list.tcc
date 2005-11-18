@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -86,7 +86,7 @@ namespace _GLIBCXX_STD
     {
       _Node* __tmp = _M_create_node(__x);
       __tmp->hook(__position._M_node);
-      return __tmp;
+      return iterator(__tmp);
     }
 
   template<typename _Tp, typename _Alloc>
@@ -94,7 +94,7 @@ namespace _GLIBCXX_STD
     list<_Tp, _Alloc>::
     erase(iterator __position)
     {
-      iterator __ret = __position._M_node->_M_next;
+      iterator __ret = iterator(__position._M_node->_M_next);
       _M_erase(__position);
       return __ret;
     }

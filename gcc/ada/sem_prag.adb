@@ -64,6 +64,7 @@ with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Sem_VFpt; use Sem_VFpt;
+with Sem_Warn; use Sem_Warn;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinfo.CN; use Sinfo.CN;
@@ -236,8 +237,9 @@ package body Sem_Prag is
 
       Pragma_Exit : exception;
       --  This exception is used to exit pragma processing completely. It
-      --  is used when an error is detected, and in other situations where
-      --  it is known that no further processing is required.
+      --  is used when an error is detected, and no further processing is
+      --  required. It is also used if an earlier error has left the tree
+      --  in a state where the pragma should not be processed.
 
       Arg_Count : Nat;
       --  Number of pragma argument associations
@@ -1331,15 +1333,12 @@ package body Sem_Prag is
 
                   Analyze (Expression (Arg1));
 
-                  if        Unit_Kind = N_Generic_Subprogram_Declaration
+                  if Unit_Kind = N_Generic_Subprogram_Declaration
                     or else Unit_Kind = N_Subprogram_Declaration
                   then
                      Unit_Name := Defining_Entity (Unit_Node);
 
-                  elsif     Unit_Kind = N_Function_Instantiation
-                    or else Unit_Kind = N_Package_Instantiation
-                    or else Unit_Kind = N_Procedure_Instantiation
-                  then
+                  elsif Unit_Kind in N_Generic_Instantiation then
                      Unit_Name := Defining_Entity (Unit_Node);
 
                   else
@@ -2141,7 +2140,7 @@ package body Sem_Prag is
            and then Ekind (E) /= E_Variable
            and then not
              (Is_Access_Type (E)
-              and then Ekind (Designated_Type (E)) = E_Subprogram_Type)
+                and then Ekind (Designated_Type (E)) = E_Subprogram_Type)
          then
             Error_Pragma_Arg
               ("second argument of pragma% must be subprogram (type)",
@@ -3784,9 +3783,21 @@ package body Sem_Prag is
             --  suppress check for any check id value.
 
             if C = All_Checks then
+
+               --  For All_Checks, we set all specific checks with the
+               --  exception of Elaboration_Check, which is handled specially
+               --  because of not wanting All_Checks to have the effect of
+               --  deactivating static elaboration order processing.
+
                for J in Scope_Suppress'Range loop
-                  Scope_Suppress (J) := Suppress_Case;
+                  if J /= Elaboration_Check then
+                     Scope_Suppress (J) := Suppress_Case;
+                  end if;
                end loop;
+
+            --  If not All_Checks, just set appropriate entry. Note that we
+            --  will set Elaboration_Check if this is explicitly specified.
+
             else
                Scope_Suppress (C) := Suppress_Case;
             end if;
@@ -4259,7 +4270,7 @@ package body Sem_Prag is
          if Warn_On_Unrecognized_Pragma then
             Error_Pragma ("unrecognized pragma%!?");
          else
-            raise Pragma_Exit;
+            return;
          end if;
       else
          Prag_Id := Get_Pragma_Id (Chars (N));
@@ -5571,11 +5582,23 @@ package body Sem_Prag is
 
             Rewrite (N, Make_Implicit_If_Statement (N,
               Condition => New_Occurrence_Of (Boolean_Literals (
-                Assertions_Enabled and Expander_Active), Loc),
+                Debug_Pragmas_Enabled and Expander_Active), Loc),
               Then_Statements => New_List (
                 Relocate_Node (Debug_Statement (N)))));
             Analyze (N);
          end Debug;
+
+         ------------------
+         -- Debug_Policy --
+         ------------------
+
+         --  pragma Debug_Policy (Check | Ignore)
+
+         when Pragma_Debug_Policy =>
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+            Check_Arg_Is_One_Of (Arg1, Name_Check, Name_Ignore);
+            Debug_Pragmas_Enabled := Chars (Expression (Arg1)) = Name_Check;
 
          ---------------------
          -- Detect_Blocking --
@@ -5873,7 +5896,7 @@ package body Sem_Prag is
                Error_Pragma ("pragma% must refer to a spec, not a body");
             else
                Set_Body_Required (Cunit_Node, True);
-               Set_Has_Pragma_Elaborate_Body     (Cunit_Ent);
+               Set_Has_Pragma_Elaborate_Body (Cunit_Ent);
 
                --  If we are in dynamic elaboration mode, then we suppress
                --  elaboration warnings for the unit, since it is definitely
@@ -5979,7 +6002,7 @@ package body Sem_Prag is
                 Present (Source_Location)
             then
                Error_Pragma
-                 ("parameter profile and source location can not " &
+                 ("parameter profile and source location cannot " &
                   "be used together in pragma%");
             end if;
 
@@ -6519,7 +6542,9 @@ package body Sem_Prag is
          -- Float_Representation --
          --------------------------
 
-         --  pragma Float_Representation (VAX_Float | IEEE_Float);
+         --  pragma Float_Representation (FLOAT_REP[, float_type_LOCAL_NAME]);
+
+         --  FLOAT_REP ::= VAX_Float | IEEE_Float
 
          when Pragma_Float_Representation => Float_Representation : declare
             Argx : Node_Id;
@@ -6552,9 +6577,7 @@ package body Sem_Prag is
             --  One argument case
 
             if Arg_Count = 1 then
-
                if Chars (Expression (Arg1)) = Name_VAX_Float then
-
                   if Opt.Float_Format = 'I' then
                      Error_Pragma ("'I'E'E'E format previously specified");
                   end if;
@@ -6590,7 +6613,6 @@ package body Sem_Prag is
                --  Two arguments, VAX_Float case
 
                if Chars (Expression (Arg1)) = Name_VAX_Float then
-
                   case Digs is
                      when  6 => Set_F_Float (Ent);
                      when  9 => Set_D_Float (Ent);
@@ -8091,6 +8113,8 @@ package body Sem_Prag is
          -- No_Strict_Aliasing --
          ------------------------
 
+         --  pragma No_Strict_Aliasing [([Entity =>] type_LOCAL_NAME)];
+
          when Pragma_No_Strict_Aliasing => No_Strict_Alias : declare
             E_Id : Entity_Id;
 
@@ -8128,6 +8152,28 @@ package body Sem_Prag is
             S      : String_Id;
             Active : Boolean := True;
 
+            procedure Check_Obsolete_Subprogram;
+            --  Checks if Subp is a subprogram declaration node, and if so
+            --  replaces Subp by the defining entity of the subprogram. If not,
+            --  issues an error message
+
+            ------------------------------
+            -- Check_Obsolete_Subprogram--
+            ------------------------------
+
+            procedure Check_Obsolete_Subprogram is
+            begin
+               if Nkind (Subp) /= N_Subprogram_Declaration then
+                  Error_Pragma
+                    ("pragma% misplaced, must immediately " &
+                     "follow subprogram/package declaration");
+               else
+                  Subp := Defining_Entity (Subp);
+               end if;
+            end Check_Obsolete_Subprogram;
+
+         --  Start of processing for pragma Obsolescent
+
          begin
             GNAT_Pragma;
             Check_At_Most_N_Arguments (2);
@@ -8140,6 +8186,7 @@ package body Sem_Prag is
 
             if Present (Prev (N)) then
                Subp := Prev (N);
+               Check_Obsolete_Subprogram;
 
             --  Second possibility, stand alone subprogram declaration with the
             --  pragma immediately following the declaration.
@@ -8148,24 +8195,21 @@ package body Sem_Prag is
               and then Nkind (Parent (N)) = N_Compilation_Unit_Aux
             then
                Subp := Unit (Parent (Parent (N)));
+               Check_Obsolete_Subprogram;
 
-            --  Any other possibility is a misplacement
+            --  Only other possibility is library unit placement for package
 
             else
-               Subp := Empty;
-            end if;
+               Subp := Find_Lib_Unit_Name;
 
-            --  Check correct placement
-
-            if Nkind (Subp) /= N_Subprogram_Declaration then
-               Error_Pragma
-                 ("pragma% misplaced, must immediately " &
-                  "follow subprogram spec");
+               if Ekind (Subp) /= E_Package
+                 and then Ekind (Subp) /= E_Generic_Package
+               then
+                  Check_Obsolete_Subprogram;
+               end if;
             end if;
 
             --  If OK placement, acquire arguments
-
-            Subp := Defining_Entity (Subp);
 
             if Arg_Count >= 1 then
 
@@ -8324,15 +8368,12 @@ package body Sem_Prag is
             if Has_Pragma_Pack (Typ) then
                Error_Pragma ("duplicate pragma%, only one allowed");
 
-            --  Array type. We set the Has_Pragma_Pack flag, and Is_Packed,
-            --  but not Has_Non_Standard_Rep, because we don't actually know
-            --  till freeze time if the array can have packed representation.
-            --  That's because in the general case we do not know enough about
-            --  the component type until it in turn is frozen, which certainly
-            --  happens before the array type is frozen, but not necessarily
-            --  till that point (i.e. right now it may be unfrozen).
+            --  Array type
 
             elsif Is_Array_Type (Typ) then
+
+               --  Pack not allowed for aliased or atomic components
+
                if Has_Aliased_Components (Base_Type (Typ)) then
                   Error_Pragma
                     ("pragma% ignored, cannot pack aliased components?");
@@ -8341,15 +8382,36 @@ package body Sem_Prag is
                  or else Is_Atomic (Component_Type (Typ))
                then
                   Error_Pragma
-                    ("?pragma% ignored, cannot pack atomic components");
-
-               elsif not Rep_Item_Too_Late (Typ, N) then
-                  Set_Is_Packed            (Base_Type (Typ));
-                  Set_Has_Pragma_Pack      (Base_Type (Typ));
-                  Set_Has_Non_Standard_Rep (Base_Type (Typ));
+                       ("?pragma% ignored, cannot pack atomic components");
                end if;
 
-            --  Record type. For record types, the pack is always effective
+               --  If we had an explicit component size given, then we do not
+               --  let Pack override this given size. We also give a warning
+               --  that Pack is being ignored unless we can tell for sure that
+               --  the Pack would not have had any effect anyway.
+
+               if Has_Component_Size_Clause (Typ) then
+                  if Known_Static_RM_Size (Component_Type (Typ))
+                    and then
+                      RM_Size (Component_Type (Typ)) = Component_Size (Typ)
+                  then
+                     null;
+                  else
+                     Error_Pragma
+                       ("?pragma% ignored, explicit component size given");
+                  end if;
+
+               --  If no prior array component size given, Pack is effective
+
+               else
+                  if not Rep_Item_Too_Late (Typ, N) then
+                     Set_Is_Packed            (Base_Type (Typ));
+                     Set_Has_Pragma_Pack      (Base_Type (Typ));
+                     Set_Has_Non_Standard_Rep (Base_Type (Typ));
+                  end if;
+               end if;
+
+            --  For record types, the pack is always effective
 
             else pragma Assert (Is_Record_Type (Typ));
                if not Rep_Item_Too_Late (Typ, N) then
@@ -9876,8 +9938,7 @@ package body Sem_Prag is
                  ("pragma% requires separate spec and must come before body");
 
             elsif Rep_Item_Too_Early (E, N)
-                 or else
-               Rep_Item_Too_Late (E, N)
+              or else Rep_Item_Too_Late (E, N)
             then
                raise Pragma_Exit;
 
@@ -10315,16 +10376,58 @@ package body Sem_Prag is
          --------------
 
          --  pragma Warnings (On | Off, [LOCAL_NAME])
+         --  pragma Warnings (static_string_EXPRESSION);
 
          when Pragma_Warnings => Warnings : begin
             GNAT_Pragma;
             Check_At_Least_N_Arguments (1);
-            Check_At_Most_N_Arguments (2);
             Check_No_Identifiers;
 
-            --  One argument case was processed by parser in Par.Prag
+            --  One argument case
 
-            if Arg_Count /= 1 then
+            if Arg_Count = 1 then
+               declare
+                  Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
+
+               begin
+                  --  On/Off one argument case was processed by parser
+
+                  if Nkind (Argx) = N_Identifier
+                    and then
+                      (Chars (Argx) = Name_On
+                         or else
+                       Chars (Argx) = Name_Off)
+                  then
+                     null;
+
+                  else
+                     Check_Arg_Is_Static_Expression (Arg1, Standard_String);
+
+                     declare
+                        Lit : constant Node_Id   := Expr_Value_S (Argx);
+                        Str : constant String_Id := Strval (Lit);
+                        C   : Char_Code;
+
+                     begin
+                        for J in 1 .. String_Length (Str) loop
+                           C := Get_String_Char (Str, J);
+
+                           if In_Character_Range (C)
+                             and then Set_Warning_Switch (Get_Character (C))
+                           then
+                              null;
+                           else
+                              Error_Pragma_Arg
+                                ("invalid warning switch character", Arg1);
+                           end if;
+                        end loop;
+                     end;
+                  end if;
+               end;
+
+            --  Two argument case
+
+            elsif Arg_Count /= 1 then
                Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
                Check_Arg_Count (2);
 
@@ -10341,7 +10444,7 @@ package body Sem_Prag is
                   --  is a conversion. Retrieve the real entity name.
 
                   if (In_Instance_Body
-                       or else In_Inlined_Body)
+                      or else In_Inlined_Body)
                     and then Nkind (E_Id) = N_Unchecked_Type_Conversion
                   then
                      E_Id := Expression (E_Id);
@@ -10359,8 +10462,8 @@ package body Sem_Prag is
                      return;
                   else
                      loop
-                        Set_Warnings_Off (E,
-                          (Chars (Expression (Arg1)) = Name_Off));
+                        Set_Warnings_Off
+                          (E, (Chars (Expression (Arg1)) = Name_Off));
 
                         if Is_Enumeration_Type (E) then
                            declare
@@ -10379,6 +10482,10 @@ package body Sem_Prag is
                      end loop;
                   end if;
                end;
+
+               --  More than two arguments
+            else
+               Check_At_Most_N_Arguments (2);
             end if;
          end Warnings;
 
@@ -10563,6 +10670,7 @@ package body Sem_Prag is
       Pragma_Convention                   =>  0,
       Pragma_Convention_Identifier        =>  0,
       Pragma_Debug                        => -1,
+      Pragma_Debug_Policy                 =>  0,
       Pragma_Detect_Blocking              => -1,
       Pragma_Discard_Names                =>  0,
       Pragma_Elaborate                    => -1,

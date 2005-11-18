@@ -223,20 +223,35 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
     
   if (n_unroll)
     {
+      sbitmap wont_exit;
+      edge *edges_to_remove = xmalloc (sizeof (edge *) * n_unroll);
+      unsigned int n_to_remove = 0;
+
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
       update_stmt (cond);
       initialize_original_copy_tables ();
 
+      wont_exit = sbitmap_alloc (n_unroll + 1);
+      sbitmap_ones (wont_exit);
+      RESET_BIT (wont_exit, 0);
+
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					       loops, n_unroll, NULL,
-					       NULL, NULL, NULL, 0))
+					       loops, n_unroll, wont_exit,
+					       exit, edges_to_remove,
+					       &n_to_remove,
+					       DLTHE_FLAG_UPDATE_FREQ
+					       | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
 	  COND_EXPR_COND (cond) = old_cond;
 	  update_stmt (cond);
           free_original_copy_tables ();
+	  free (wont_exit);
+	  free (edges_to_remove);
 	  return false;
 	}
+      free (wont_exit);
+      free (edges_to_remove);
       free_original_copy_tables ();
     }
   
@@ -252,7 +267,7 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
 }
 
 /* Adds a canonical induction variable to LOOP if suitable.  LOOPS is the loops
-   tree.  CREATE_IV is true if we may create a new iv.  UL determines what
+   tree.  CREATE_IV is true if we may create a new iv.  UL determines 
    which loops we are allowed to completely unroll.  If TRY_EVAL is true, we try
    to determine the number of iterations of a loop by direct evaluation. 
    Returns true if cfg is changed.  */
@@ -350,7 +365,7 @@ tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
   unsigned i;
   struct loop *loop;
   bool changed = false;
-  enum unroll_level ul = may_increase_size ? UL_ALL : UL_NO_GROWTH;
+  enum unroll_level ul;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -359,6 +374,10 @@ tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
       if (!loop)
 	continue;
 
+      if (may_increase_size && maybe_hot_bb_p (loop->header))
+	ul = UL_ALL;
+      else
+	ul = UL_NO_GROWTH;
       changed |= canonicalize_loop_induction_variables (loops, loop,
 							false, ul,
 							!flag_tree_loop_ivcanon);
@@ -370,4 +389,191 @@ tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
 
   if (changed)
     cleanup_tree_cfg_loop ();
+}
+
+/* Checks whether LOOP is empty.  */
+
+static bool
+empty_loop_p (struct loop *loop)
+{
+  edge exit;
+  struct tree_niter_desc niter;
+  tree phi, def;
+  basic_block *body;
+  block_stmt_iterator bsi;
+  unsigned i;
+  tree stmt;
+
+  /* If the loop has multiple exits, it is too hard for us to handle.
+     Similarly, if the exit is not dominating, we cannot determine
+     whether the loop is not infinite.  */
+  exit = single_dom_exit (loop);
+  if (!exit)
+    return false;
+
+  /* The loop must be finite.  */
+  if (!number_of_iterations_exit (loop, exit, &niter, false))
+    return false;
+
+  /* Values of all loop exit phi nodes must be invariants.  */
+  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
+    {
+      if (!is_gimple_reg (PHI_RESULT (phi)))
+	continue;
+
+      def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+
+      if (!expr_invariant_in_loop_p (loop, def))
+	return false;
+    }
+
+  /* And there should be no memory modifying or from other reasons
+     unremovable statements.  */
+  body = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      /* Irreducible region might be infinite.  */
+      if (body[i]->flags & BB_IRREDUCIBLE_LOOP)
+	{
+	  free (body);
+	  return false;
+	}
+	
+      for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  stmt = bsi_stmt (bsi);
+	  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS)
+	      || stmt_ann (stmt)->has_volatile_ops)
+	    {
+	      free (body);
+	      return false;
+	    }
+
+	  /* Also, asm statements and calls may have side effects and we
+	     cannot change the number of times they are executed.  */
+	  switch (TREE_CODE (stmt))
+	    {
+	    case RETURN_EXPR:
+	    case MODIFY_EXPR:
+	      stmt = get_call_expr_in (stmt);
+	      if (!stmt)
+		break;
+
+	    case CALL_EXPR:
+	      if (TREE_SIDE_EFFECTS (stmt))
+		{
+		  free (body);
+		  return false;
+		}
+	      break;
+
+	    case ASM_EXPR:
+	      /* We cannot remove volatile assembler.  */
+	      if (ASM_VOLATILE_P (stmt))
+		{
+		  free (body);
+		  return false;
+		}
+	      break;
+
+	    default:
+	      break;
+	    }
+	}
+      }
+  free (body);
+
+  return true;
+}
+
+/* Remove LOOP by making it exit in the first iteration.  */
+
+static void
+remove_empty_loop (struct loop *loop)
+{
+  edge exit = single_dom_exit (loop), non_exit;
+  tree cond_stmt = last_stmt (exit->src);
+  tree do_exit;
+  basic_block *body;
+  unsigned n_before, freq_in, freq_h;
+  gcov_type exit_count = exit->count;
+
+  non_exit = EDGE_SUCC (exit->src, 0);
+  if (non_exit == exit)
+    non_exit = EDGE_SUCC (exit->src, 1);
+
+  if (exit->flags & EDGE_TRUE_VALUE)
+    do_exit = boolean_true_node;
+  else
+    do_exit = boolean_false_node;
+
+  COND_EXPR_COND (cond_stmt) = do_exit;
+  update_stmt (cond_stmt);
+
+  /* Let us set the probabilities of the edges coming from the exit block.  */
+  exit->probability = REG_BR_PROB_BASE;
+  non_exit->probability = 0;
+  non_exit->count = 0;
+
+  /* Update frequencies and counts.  Everything before
+     the exit needs to be scaled FREQ_IN/FREQ_H times,
+     where FREQ_IN is the frequency of the entry edge
+     and FREQ_H is the frequency of the loop header.
+     Everything after the exit has zero frequency.  */
+  freq_h = loop->header->frequency;
+  freq_in = EDGE_FREQUENCY (loop_preheader_edge (loop));
+  if (freq_h != 0)
+    {
+      body = get_loop_body_in_dom_order (loop);
+      for (n_before = 1; n_before <= loop->num_nodes; n_before++)
+	if (body[n_before - 1] == exit->src)
+	  break;
+      scale_bbs_frequencies_int (body, n_before, freq_in, freq_h);
+      scale_bbs_frequencies_int (body + n_before, loop->num_nodes - n_before,
+				 0, 1);
+      free (body);
+    }
+
+  /* Number of executions of exit is not changed, thus we need to restore
+     the original value.  */
+  exit->count = exit_count;
+}
+
+/* Removes LOOP if it is empty.  Returns true if LOOP is removed.  CHANGED
+   is set to true if LOOP or any of its subloops is removed.  */
+
+static bool
+try_remove_empty_loop (struct loop *loop, bool *changed)
+{
+  bool nonempty_subloop = false;
+  struct loop *sub;
+
+  /* First, all subloops must be removed.  */
+  for (sub = loop->inner; sub; sub = sub->next)
+    nonempty_subloop |= !try_remove_empty_loop (sub, changed);
+
+  if (nonempty_subloop || !empty_loop_p (loop))
+    return false;
+
+  remove_empty_loop (loop);
+  *changed = true;
+  return true;
+}
+
+/* Remove the empty LOOPS.  */
+
+void
+remove_empty_loops (struct loops *loops)
+{
+  bool changed = false;
+  struct loop *loop;
+
+  for (loop = loops->tree_root->inner; loop; loop = loop->next)
+    try_remove_empty_loop (loop, &changed);
+
+  if (changed)
+    {
+      scev_reset ();
+      cleanup_tree_cfg_loop ();
+    }
 }

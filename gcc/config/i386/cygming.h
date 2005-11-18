@@ -186,14 +186,17 @@ do {									\
    section and we need to set DECL_SECTION_NAME so we do that here.
    Note that we can be called twice on the same decl.  */
 
-#undef TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
+#undef SUBTARGET_ENCODE_SECTION_INFO
+#define SUBTARGET_ENCODE_SECTION_INFO  i386_pe_encode_section_info
 #undef  TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  i386_pe_strip_name_encoding_full
 
 /* Output a reference to a label.  */
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF  i386_pe_output_labelref
+
+#undef  COMMON_ASM_OP
+#define COMMON_ASM_OP	"\t.comm\t"
 
 /* Output a common block.  */
 #undef ASM_OUTPUT_COMMON
@@ -406,6 +409,9 @@ extern int i386_pe_dllimport_name_p (const char *);
 /*  mcount() does not need a counter variable.  */
 #undef NO_PROFILE_COUNTERS
 #define NO_PROFILE_COUNTERS 1
+
+#define TARGET_VALID_DLLIMPORT_ATTRIBUTE_P i386_pe_valid_dllimport_attribute_p
+#define TARGET_CXX_ADJUST_CLASS_AT_DEFINITION i386_pe_adjust_class_at_definition
 
 #undef TREE
 

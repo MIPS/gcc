@@ -76,16 +76,18 @@
    (REG_FP 15)
 
    (REG_I0 16)
-   (REG_B0 17)
-   (REG_L0 18)
-   (REG_I1 19)
-   (REG_B1 20)
-   (REG_L1 21)
-   (REG_I2 22)
-   (REG_B2 23)
-   (REG_L2 24)
-   (REG_I3 25)
-   (REG_B3 26)
+   (REG_I1 17)
+   (REG_I2 18)
+   (REG_I3 19)
+
+   (REG_B0 20)
+   (REG_B1 21)
+   (REG_B2 22)
+   (REG_B3 23)
+
+   (REG_L0 24)
+   (REG_L1 25)
+   (REG_L2 26)
    (REG_L3 27)
 
    (REG_M0 28)
@@ -125,7 +127,7 @@
    (UNSPEC_VOLATILE_SSYNC 2)])
 
 (define_attr "type"
-  "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,compare,dummy"
+  "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,sync,compare,dummy"
   (const_string "misc"))
 
 ;; Scheduling definitions
@@ -135,7 +137,7 @@
 (define_cpu_unit "core" "bfin")
 
 (define_insn_reservation "alu" 1
-  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,compare")
+  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,sync,compare")
   "core")
 
 (define_insn_reservation "imul" 3
@@ -1304,80 +1306,140 @@
 ;;  Call instructions..
 
 (define_expand "call"
-  [(call (match_operand:SI 0 "" "")
-	 (match_operand 1 "" ""))]
+  [(parallel [(call (match_operand:SI 0 "" "")
+		    (match_operand 1 "" ""))
+	      (use (match_operand 2 "" ""))])]
   ""
-  "bfin_expand_call (NULL_RTX, operands[0], operands[1], 0); DONE;")
+{
+  bfin_expand_call (NULL_RTX, operands[0], operands[1], operands[2], 0);
+  DONE;
+})
 
 (define_expand "sibcall"
   [(parallel [(call (match_operand:SI 0 "" "")
 		    (match_operand 1 "" ""))
+	      (use (match_operand 2 "" ""))
 	      (return)])]
   ""
-  "bfin_expand_call (NULL_RTX, operands[0], operands[1], 1); DONE;")
+{
+  bfin_expand_call (NULL_RTX, operands[0], operands[1], operands[2], 1);
+  DONE;
+})
 
 (define_expand "call_value"
-  [(set (match_operand 0 "register_operand" "")
-         (call (match_operand:SI 1 "" "")
-	       (match_operand 2 "" "")))]
+  [(parallel [(set (match_operand 0 "register_operand" "")
+		   (call (match_operand:SI 1 "" "")
+			 (match_operand 2 "" "")))
+	      (use (match_operand 3 "" ""))])]
   ""
-  "bfin_expand_call (operands[0], operands[1], operands[2], 0); DONE;")
+{
+  bfin_expand_call (operands[0], operands[1], operands[2], operands[3], 0);
+  DONE;
+})
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "register_operand" "")
 		   (call (match_operand:SI 1 "" "")
 			 (match_operand 2 "" "")))
+	      (use (match_operand 3 "" ""))
 	      (return)])]
   ""
-  "bfin_expand_call (operands[0], operands[1], operands[2], 1); DONE;")
+{
+  bfin_expand_call (operands[0], operands[1], operands[2], operands[3], 1);
+  DONE;
+})
+
+(define_insn "*call_symbol"
+  [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" "Q"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand 2 "" ""))]
+  "! SIBLING_CALL_P (insn)
+   && !flag_pic
+   && GET_CODE (operands[0]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
+  "call %G0;"
+  [(set_attr "type" "call")
+   (set_attr "length" "4")])
+
+(define_insn "*sibcall_symbol"
+  [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" "Q"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand 2 "" ""))
+   (return)]
+  "SIBLING_CALL_P (insn)
+   && !flag_pic
+   && GET_CODE (operands[0]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
+  "jump.l %G0;"
+  [(set_attr "type" "br")
+   (set_attr "length" "4")])
+
+(define_insn "*call_value_symbol"
+  [(set (match_operand 0 "register_operand" "=d")
+        (call (mem:SI (match_operand:SI 1 "symbol_ref_operand" "Q"))
+	      (match_operand 2 "general_operand" "g")))
+   (use (match_operand 3 "" ""))]
+  "! SIBLING_CALL_P (insn)
+   && !flag_pic
+   && GET_CODE (operands[1]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
+  "call %G1;"
+  [(set_attr "type" "call")
+   (set_attr "length" "4")])
+
+(define_insn "*sibcall_value_symbol"
+  [(set (match_operand 0 "register_operand" "=d")
+         (call (mem:SI (match_operand:SI 1 "symbol_ref_operand" "Q"))
+	       (match_operand 2 "general_operand" "g")))
+   (use (match_operand 3 "" ""))
+   (return)]
+  "SIBLING_CALL_P (insn)
+   && !flag_pic
+   && GET_CODE (operands[1]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
+  "jump.l %G1;"
+  [(set_attr "type" "br")
+   (set_attr "length" "4")])
 
 (define_insn "*call_insn"
-  [(call (mem:SI (match_operand:SI 0 "call_insn_operand" "a,Q"))
-	 (match_operand 1 "general_operand" "g,g"))]
-  "! SIBLING_CALL_P (insn)
-   && (GET_CODE (operands[0]) == SYMBOL_REF || GET_CODE (operands[0]) == REG)"
-  "@
-  call (%0);
-  call %G0;"
+  [(call (mem:SI (match_operand:SI 0 "register_no_elim_operand" "a"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand 2 "" ""))]
+  "! SIBLING_CALL_P (insn)"
+  "call (%0);"
   [(set_attr "type" "call")
-   (set_attr "length" "2,4")])
+   (set_attr "length" "2")])
 
 (define_insn "*sibcall_insn"
-  [(call (mem:SI (match_operand:SI 0 "call_insn_operand" "z,Q"))
-	 (match_operand 1 "general_operand" "g,g"))
+  [(call (mem:SI (match_operand:SI 0 "register_no_elim_operand" "z"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand 2 "" ""))
    (return)]
-  "SIBLING_CALL_P (insn)
-   && (GET_CODE (operands[0]) == SYMBOL_REF || GET_CODE (operands[0]) == REG)"
-  "@
-  jump (%0);
-  jump.l %G0;"
+  "SIBLING_CALL_P (insn)"
+  "jump (%0);"
   [(set_attr "type" "br")
-   (set_attr "length" "2,4")])
+   (set_attr "length" "2")])
 
 (define_insn "*call_value_insn"
-  [(set (match_operand 0 "register_operand" "=d,d")
-        (call (mem:SI (match_operand:SI 1 "call_insn_operand" "a,Q"))
-	      (match_operand 2 "general_operand" "g,g")))]
-  "! SIBLING_CALL_P (insn)
-   && (GET_CODE (operands[0]) == SYMBOL_REF || GET_CODE (operands[0]) == REG)"
-  "@
-  call (%1);
-  call %G1;"
+  [(set (match_operand 0 "register_operand" "=d")
+        (call (mem:SI (match_operand:SI 1 "register_no_elim_operand" "a"))
+	      (match_operand 2 "general_operand" "g")))
+   (use (match_operand 3 "" ""))]
+  "! SIBLING_CALL_P (insn)"
+  "call (%1);"
   [(set_attr "type" "call")
-   (set_attr "length" "2,4")])
+   (set_attr "length" "2")])
 
 (define_insn "*sibcall_value_insn"
-  [(set (match_operand 0 "register_operand" "=d,d")
-         (call (mem:SI (match_operand:SI 1 "call_insn_operand" "z,Q"))
-	       (match_operand 2 "general_operand" "g,g")))
+  [(set (match_operand 0 "register_operand" "=d")
+         (call (mem:SI (match_operand:SI 1 "register_no_elim_operand" "z"))
+	       (match_operand 2 "general_operand" "g")))
+   (use (match_operand 3 "" ""))
    (return)]
-  "SIBLING_CALL_P (insn)
-   && (GET_CODE (operands[0]) == SYMBOL_REF || GET_CODE (operands[0]) == REG)"
-  "@
-  jump (%1);
-  jump.l %G1;"
+  "SIBLING_CALL_P (insn)"
+  "jump (%1);"
   [(set_attr "type" "br")
-   (set_attr "length" "2,4")])
+   (set_attr "length" "2")])
 
 ;; Block move patterns
 
@@ -1398,7 +1460,7 @@
    (use (match_dup 2))
    (clobber (match_scratch:HI 5 "=&d"))]
   ""
-  "lsetup (1f, 1f) LC1 = %2; %5 = [%4++]; 1: MNOP || [%3++] = %5 || %5 = [%4++]; [%3++] = %5;"
+  "%5 = [%4++]; lsetup (1f, 1f) LC1 = %2; 1: MNOP || [%3++] = %5 || %5 = [%4++]; [%3++] = %5;"
   [(set_attr "type" "misc")
    (set_attr "length" "16")])
 
@@ -1417,7 +1479,7 @@
    (use (match_dup 2))
    (clobber (match_scratch:HI 5 "=&d"))]
   ""
-  "lsetup (1f, 1f) LC1 = %2; %h5 = W[%4++]; 1: MNOP || W [%3++] = %5 || %h5 = W [%4++]; W [%3++] = %5;"
+  "%h5 = W[%4++]; lsetup (1f, 1f) LC1 = %2; 1: MNOP || W [%3++] = %5 || %h5 = W [%4++]; W [%3++] = %5;"
   [(set_attr "type" "misc")
    (set_attr "length" "16")])
 
@@ -1451,7 +1513,7 @@
 
 (define_expand "cmpsi"
  [(set (cc0) (compare (match_operand:SI 0 "register_operand" "")
-                      (match_operand:SI 1 "nonmemory_operand" "")))]
+                      (match_operand:SI 1 "reg_or_const_int_operand" "")))]
  ""
 {
   bfin_compare_op0 = operands[0];
@@ -1462,7 +1524,7 @@
 (define_insn "compare_eq"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (eq:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
   "cc =%1==%2;"
   [(set_attr "type" "compare")])
@@ -1470,7 +1532,7 @@
 (define_insn "compare_ne"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (ne:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   "0"
   "cc =%1!=%2;"
   [(set_attr "type" "compare")])
@@ -1478,7 +1540,7 @@
 (define_insn "compare_lt"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (lt:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
   "cc =%1<%2;"
   [(set_attr "type" "compare")])
@@ -1486,7 +1548,7 @@
 (define_insn "compare_le"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (le:BI (match_operand:SI 1 "register_operand" "d,a")
-               (match_operand:SI 2 "nonmemory_operand" "dKs3,aKs3")))]
+               (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
   "cc =%1<=%2;"
   [(set_attr "type" "compare")])
@@ -1494,7 +1556,7 @@
 (define_insn "compare_leu"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (leu:BI (match_operand:SI 1 "register_operand" "d,a")
-                (match_operand:SI 2 "nonmemory_operand" "dKu3,aKu3")))]
+                (match_operand:SI 2 "reg_or_const_int_operand" "dKu3,aKu3")))]
   ""
   "cc =%1<=%2 (iu);"
   [(set_attr "type" "compare")])
@@ -1502,7 +1564,7 @@
 (define_insn "compare_ltu"
   [(set (match_operand:BI 0 "cc_operand" "=C,C")
         (ltu:BI (match_operand:SI 1 "register_operand" "d,a")
-                (match_operand:SI 2 "nonmemory_operand" "dKu3,aKu3")))]
+                (match_operand:SI 2 "reg_or_const_int_operand" "dKu3,aKu3")))]
   ""
   "cc =%1<%2 (iu);"
   [(set_attr "type" "compare")])
@@ -1931,13 +1993,20 @@
   [(unspec_volatile [(const_int 0)] UNSPEC_VOLATILE_CSYNC)]
   ""
   "csync;"
-  [(set_attr "type" "misc")])
+  [(set_attr "type" "sync")])
 
 (define_insn "ssync"
   [(unspec_volatile [(const_int 0)] UNSPEC_VOLATILE_SSYNC)]
   ""
   "ssync;"
-  [(set_attr "type" "misc")])
+  [(set_attr "type" "sync")])
+
+(define_insn "trapifcc"
+  [(trap_if (reg:BI REG_CC) (const_int 3))]
+  ""
+  "if !cc jump 4 (bp); excpt 3;"
+  [(set_attr "type" "misc")
+   (set_attr "length" "4")])
 
 ;;; Vector instructions
 

@@ -26,8 +26,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -544,8 +544,14 @@ WRAPPER2(struct tm*, gmtime, const time_t *timep)
 /* The following indicate if the result of the corresponding function
  * should be explicitly un/registered by the wrapper
 */
+
+#ifdef __FreeBSD__
+#define MF_REGISTER_fopen		__MF_TYPE_STATIC
+#else
 #undef  MF_REGISTER_fopen
+#endif
 #define MF_RESULT_SIZE_fopen		(sizeof (FILE))
+
 #undef  MF_REGISTER_opendir
 #define MF_RESULT_SIZE_opendir		0	/* (sizeof (DIR)) */
 #undef  MF_REGISTER_readdir
@@ -1394,7 +1400,8 @@ WRAPPER2(int, getsockopt, int s, int level, int optname, void *optval,
 WRAPPER2(int, accept, int s, struct  sockaddr *addr, socklen_t *addrlen)
 {
   TRACE ("%s\n", __PRETTY_FUNCTION__);
-  MF_VALIDATE_EXTENT (addr, (size_t)*addrlen, __MF_CHECK_WRITE, "accept addr");
+  if (addr != NULL)
+    MF_VALIDATE_EXTENT (addr, (size_t)*addrlen, __MF_CHECK_WRITE, "accept addr");
   return accept (s, addr, addrlen);
 }
 

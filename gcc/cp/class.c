@@ -103,6 +103,9 @@ typedef int (*subobject_offset_fn) (tree, tree, splay_tree);
 static int current_class_stack_size;
 static class_stack_node_t current_class_stack;
 
+/* The size of the largest empty class seen in this translation unit.  */
+static GTY (()) tree sizeof_biggest_empty_class;
+
 /* An array of all local classes present in this translation unit, in
    declaration order.  */
 VEC(tree,gc) *local_classes;
@@ -192,7 +195,7 @@ static int record_subobject_offset (tree, tree, splay_tree);
 static int check_subobject_offset (tree, tree, splay_tree);
 static int walk_subobject_offsets (tree, subobject_offset_fn,
 				   tree, splay_tree, tree, int);
-static void record_subobject_offsets (tree, tree, splay_tree, int);
+static void record_subobject_offsets (tree, tree, splay_tree, bool);
 static int layout_conflict_p (tree, tree, splay_tree, int);
 static int splay_tree_compare_integer_csts (splay_tree_key k1,
 					    splay_tree_key k2);
@@ -325,16 +328,14 @@ build_base_path (enum tree_code code,
 
       if (fixed_type_p < 0 && in_base_initializer)
 	{
-	  /* In a base member initializer, we cannot rely on
-	     the vtable being set up. We have to use the vtt_parm.  */
-	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
+	  /* In a base member initializer, we cannot rely on the
+	     vtable being set up.  We have to indirect via the
+	     vtt_parm.  */
 	  tree t;
 
-	  t = TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived)));
+	  t = TREE_TYPE (TYPE_VFIELD (current_class_type));
 	  t = build_pointer_type (t);
 	  v_offset = convert (t, current_vtt_parm);
-	  v_offset = build2 (PLUS_EXPR, t, v_offset,
-			     BINFO_VPTR_INDEX (derived));
 	  v_offset = build_indirect_ref (v_offset, NULL);
 	}
       else
@@ -365,7 +366,8 @@ build_base_path (enum tree_code code,
 			 build2 (EQ_EXPR, boolean_type_node,
 				 current_in_charge_parm, integer_zero_node),
 			 v_offset,
-			 BINFO_OFFSET (binfo));
+			 convert_to_integer (ptrdiff_type_node,
+					     BINFO_OFFSET (binfo)));
       else
 	offset = v_offset;
     }
@@ -880,9 +882,10 @@ modify_vtable_entry (tree t,
 
 
 /* Add method METHOD to class TYPE.  If USING_DECL is non-null, it is
-   the USING_DECL naming METHOD.  */
+   the USING_DECL naming METHOD.  Returns true if the method could be
+   added to the method vec.  */
 
-void
+bool
 add_method (tree type, tree method, tree using_decl)
 {
   unsigned slot;
@@ -895,7 +898,7 @@ add_method (tree type, tree method, tree using_decl)
   tree current_fns;
 
   if (method == error_mark_node)
-    return;
+    return false;
 
   complete_p = COMPLETE_TYPE_P (type);
   conv_p = DECL_CONV_FN_P (method);
@@ -1028,7 +1031,7 @@ add_method (tree type, tree method, tree using_decl)
 		{
 		  if (DECL_CONTEXT (fn) == type)
 		    /* Defer to the local function.  */
-		    return;
+		    return false;
 		  if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
 		    error ("repeated using declaration %q+D", using_decl);
 		  else
@@ -1045,7 +1048,7 @@ add_method (tree type, tree method, tree using_decl)
 		 declarations because that will confuse things if the
 		 methods have inline definitions.  In particular, we
 		 will crash while processing the definitions.  */
-	      return;
+	      return false;
 	    }
 	}
     }
@@ -1070,6 +1073,7 @@ add_method (tree type, tree method, tree using_decl)
   else
     /* Replace the current slot.  */
     VEC_replace (tree, method_vec, slot, overload);
+  return true;
 }
 
 /* Subroutines of finish_struct.  */
@@ -1538,7 +1542,10 @@ maybe_warn_about_overly_private_class (tree t)
       return;
     }
 
-  if (TYPE_HAS_CONSTRUCTOR (t))
+  if (TYPE_HAS_CONSTRUCTOR (t)
+      /* Implicitly generated constructors are always public.  */
+      && (!CLASSTYPE_LAZY_DEFAULT_CTOR (t)
+	  || !CLASSTYPE_LAZY_COPY_CTOR (t)))
     {
       int nonprivate_ctor = 0;
 
@@ -1905,11 +1912,7 @@ find_final_overrider (tree derived, tree binfo, tree fn)
 
   /* If there was no winner, issue an error message.  */
   if (!ffod.candidates || TREE_CHAIN (ffod.candidates))
-    {
-      error ("no unique final overrider for %qD in %qT", fn,
-	     BINFO_TYPE (derived));
-      return error_mark_node;
-    }
+    return error_mark_node;
 
   return ffod.candidates;
 }
@@ -1969,7 +1972,10 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
   /* Find the final overrider.  */
   overrider = find_final_overrider (TYPE_BINFO (t), b, target_fn);
   if (overrider == error_mark_node)
-    return;
+    {
+      error ("no unique final overrider for %qD in %qT", target_fn, t);
+      return;
+    }
   overrider_target = overrider_fn = TREE_PURPOSE (overrider);
 
   /* Check for adjusting covariant return types.  */
@@ -1979,7 +1985,9 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
   if (POINTER_TYPE_P (over_return)
       && TREE_CODE (over_return) == TREE_CODE (base_return)
       && CLASS_TYPE_P (TREE_TYPE (over_return))
-      && CLASS_TYPE_P (TREE_TYPE (base_return)))
+      && CLASS_TYPE_P (TREE_TYPE (base_return))
+      /* If the overrider is invalid, don't even try.  */
+      && !DECL_INVALID_OVERRIDER_P (overrider_target))
     {
       /* If FN is a covariant thunk, we must figure out the adjustment
 	 to the final base FN was converting to. As OVERRIDER_TARGET might
@@ -3101,6 +3109,9 @@ walk_subobject_offsets (tree type,
   if (max_offset && INT_CST_LT (max_offset, offset))
     return 0;
 
+  if (type == error_mark_node)
+    return 0;
+  
   if (!TYPE_P (type))
     {
       if (abi_version_at_least (2))
@@ -3275,18 +3286,38 @@ walk_subobject_offsets (tree type,
   return 0;
 }
 
-/* Record all of the empty subobjects of TYPE (located at OFFSET) in
-   OFFSETS.  If VBASES_P is nonzero, virtual bases of TYPE are
-   examined.  */
+/* Record all of the empty subobjects of TYPE (either a type or a
+   binfo).  If IS_DATA_MEMBER is true, then a non-static data member
+   is being placed at OFFSET; otherwise, it is a base class that is
+   being placed at OFFSET.  */
 
 static void
 record_subobject_offsets (tree type,
 			  tree offset,
 			  splay_tree offsets,
-			  int vbases_p)
+			  bool is_data_member)
 {
+  tree max_offset;
+  /* If recording subobjects for a non-static data member or a
+     non-empty base class , we do not need to record offsets beyond
+     the size of the biggest empty class.  Additional data members
+     will go at the end of the class.  Additional base classes will go
+     either at offset zero (if empty, in which case they cannot
+     overlap with offsets past the size of the biggest empty class) or
+     at the end of the class.
+
+     However, if we are placing an empty base class, then we must record
+     all offsets, as either the empty class is at offset zero (where
+     other empty classes might later be placed) or at the end of the
+     class (where other objects might then be placed, so other empty
+     subobjects might later overlap).  */
+  if (is_data_member 
+      || !is_empty_class (BINFO_TYPE (type)))
+    max_offset = sizeof_biggest_empty_class;
+  else
+    max_offset = NULL_TREE;
   walk_subobject_offsets (type, record_subobject_offset, offset,
-			  offsets, /*max_offset=*/NULL_TREE, vbases_p);
+			  offsets, max_offset, is_data_member);
 }
 
 /* Returns nonzero if any of the empty subobjects of TYPE (located at
@@ -3545,7 +3576,7 @@ build_base_field (record_layout_info rli, tree binfo,
 	{
 	  if (atend)
 	    CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
-	  /* The check above (used in G++ 3.2) is insufficient  because
+	  /* The check above (used in G++ 3.2) is insufficient because
 	     an empty class placed at offset zero might itself have an
 	     empty base at a nonzero offset.  */
 	  else if (walk_subobject_offsets (basetype,
@@ -3579,7 +3610,7 @@ build_base_field (record_layout_info rli, tree binfo,
   record_subobject_offsets (binfo,
 			    BINFO_OFFSET (binfo),
 			    offsets,
-			    /*vbases_p=*/0);
+			    /*is_data_member=*/false);
 
   return next_field;
 }
@@ -4641,7 +4672,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	record_subobject_offsets (TREE_TYPE (field),
 				  byte_position(field),
 				  empty_base_offsets,
-				  /*vbases_p=*/1);
+				  /*is_data_member=*/true);
 
       /* If a bit-field does not immediately follow another bit-field,
 	 and yet it starts in the middle of a byte, we have failed to
@@ -4819,6 +4850,11 @@ layout_class_type (tree t, tree *virtuals_p)
 
   /* Clean up.  */
   splay_tree_delete (empty_base_offsets);
+
+  if (CLASSTYPE_EMPTY_P (t)
+      && tree_int_cst_lt (sizeof_biggest_empty_class, 
+			  TYPE_SIZE_UNIT (t)))
+    sizeof_biggest_empty_class = TYPE_SIZE_UNIT (t);
 }
 
 /* Determine the "key method" for the class type indicated by TYPE,
@@ -5024,6 +5060,11 @@ finish_struct_1 (tree t)
 
   if (warn_overloaded_virtual)
     warn_hidden (t);
+
+  /* Class layout, assignment of virtual table slots, etc., is now
+     complete.  Give the back end a chance to tweak the visibility of
+     the class or perform any other required target modifications.  */
+  targetm.cxx.adjust_class_at_definition (t);
 
   maybe_suppress_debug_info (t);
 
@@ -5295,6 +5336,7 @@ init_class_processing (void)
   current_class_stack
     = xmalloc (current_class_stack_size * sizeof (struct class_stack_node));
   local_classes = VEC_alloc (tree, gc, 8);
+  sizeof_biggest_empty_class = size_zero_node;
 
   ridpointers[(int) RID_PUBLIC] = access_public_node;
   ridpointers[(int) RID_PRIVATE] = access_private_node;
@@ -5544,7 +5586,7 @@ pop_lang_context (void)
 
 /* Given an OVERLOAD and a TARGET_TYPE, return the function that
    matches the TARGET_TYPE.  If there is no satisfactory match, return
-   error_mark_node, and issue a error & warning messages under control
+   error_mark_node, and issue an error & warning messages under control
    of FLAGS.  Permit pointers to member function if FLAGS permits.  If
    TEMPLATE_ONLY, the name of the overloaded function was a
    template-id, and EXPLICIT_TARGS are the explicitly provided
@@ -5644,7 +5686,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	       one, or vice versa.  */
 	    continue;
 
-	  /* Ignore anticipated decls of undeclared builtins.  */
+	  /* Ignore functions which haven't been explicitly
+	     declared.  */
 	  if (DECL_ANTICIPATED (fn))
 	    continue;
 
@@ -5655,7 +5698,7 @@ resolve_address_of_overloaded_function (tree target_type,
 	  else if (!is_reference)
 	    fntype = build_pointer_type (fntype);
 
-	  if (can_convert_arg (target_type, fntype, fn))
+	  if (can_convert_arg (target_type, fntype, fn, LOOKUP_NORMAL))
 	    matches = tree_cons (fn, NULL_TREE, matches);
 	}
     }
@@ -5703,7 +5746,7 @@ resolve_address_of_overloaded_function (tree target_type,
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
 	  if (fn_type_unification (fn, explicit_targs, targs,
 				   target_arg_types, target_ret_type,
-				   DEDUCE_EXACT))
+				   DEDUCE_EXACT, LOOKUP_NORMAL))
 	    /* Argument deduction failed.  */
 	    continue;
 
@@ -5720,7 +5763,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	      build_ptrmemfunc_type (build_pointer_type (instantiation_type));
 	  else if (!is_reference)
 	    instantiation_type = build_pointer_type (instantiation_type);
-	  if (can_convert_arg (target_type, instantiation_type, instantiation))
+	  if (can_convert_arg (target_type, instantiation_type, instantiation, 
+			       LOOKUP_NORMAL))
 	    matches = tree_cons (instantiation, fn, matches);
 	}
 
@@ -6437,8 +6481,8 @@ dump_class_hierarchy (tree t)
 static void
 dump_array (FILE * stream, tree decl)
 {
-  tree inits;
-  int ix;
+  tree value;
+  unsigned HOST_WIDE_INT ix;
   HOST_WIDE_INT elt;
   tree size = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (decl)));
 
@@ -6450,10 +6494,10 @@ dump_array (FILE * stream, tree decl)
 			   TFF_PLAIN_IDENTIFIER));
   fprintf (stream, "\n");
 
-  for (ix = 0, inits = CONSTRUCTOR_ELTS (DECL_INITIAL (decl));
-       inits; ix++, inits = TREE_CHAIN (inits))
+  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (DECL_INITIAL (decl)),
+			      ix, value)
     fprintf (stream, "%-4ld  %s\n", (long)(ix * elt),
-	     expr_as_string (TREE_VALUE (inits), TFF_PLAIN_IDENTIFIER));
+	     expr_as_string (value, TFF_PLAIN_IDENTIFIER));
 }
 
 static void

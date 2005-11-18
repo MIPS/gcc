@@ -206,8 +206,8 @@ Bud Davis for work on the G77 and gfortran compilers.
 Mo DeJong for GCJ and libgcj bug fixes.
 
 @item
-DJ Delorie for the DJGPP port, build and libiberty maintenance, and
-various bug fixes.
+DJ Delorie for the DJGPP port, build and libiberty maintenance,
+various bug fixes, and the M32C port.
 
 @item
 Arnaud Desitter for helping to debug gfortran.
@@ -467,6 +467,10 @@ Benjamin Kosnik for his G++ work and for leading the libstdc++-v3 effort.
 @item
 Charles LaBrec contributed the support for the Integrated Solutions
 68020 system.
+
+@item
+Asher Langton and Mike Kumbera for contributing Cray pointer support
+to gfortran, and for other gfortran improvements.
 
 @item
 Jeff Law for his direction via the steering committee, coordinating the
@@ -960,6 +964,9 @@ Bob Wilson from Tensilica, Inc.@: for the Xtensa port.
 Jim Wilson for his direction via the steering committee, tackling hard
 problems in various places that nobody else wanted to work on, strength
 reduction and other loop optimizations.
+
+@item
+Paul Woegerer and Tal Agmon for the CRX port.
 
 @item
 Carlo Wood for various fixes.

@@ -25,26 +25,30 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"
 
+#if defined (HAVE_GFC_LOGICAL_4)
+
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
 
-extern void matmul_l4 (gfc_array_l4 *, gfc_array_l4 *, gfc_array_l4 *);
+extern void matmul_l4 (gfc_array_l4 * const restrict, 
+	gfc_array_l4 * const restrict, gfc_array_l4 * const restrict);
 export_proto(matmul_l4);
 
 void
-matmul_l4 (gfc_array_l4 * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
+matmul_l4 (gfc_array_l4 * const restrict retarray, 
+	gfc_array_l4 * const restrict a, gfc_array_l4 * const restrict b)
 {
-  GFC_INTEGER_4 *abase;
-  GFC_INTEGER_4 *bbase;
-  GFC_LOGICAL_4 *dest;
+  const GFC_INTEGER_4 * restrict abase;
+  const GFC_INTEGER_4 * restrict bbase;
+  GFC_LOGICAL_4 * restrict dest;
   index_type rxstride;
   index_type rystride;
   index_type xcount;
@@ -54,8 +58,8 @@ matmul_l4 (gfc_array_l4 * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
   index_type x;
   index_type y;
 
-  GFC_INTEGER_4 *pa;
-  GFC_INTEGER_4 *pb;
+  const GFC_INTEGER_4 * restrict pa;
+  const GFC_INTEGER_4 * restrict pb;
   index_type astride;
   index_type bstride;
   index_type count;
@@ -190,3 +194,5 @@ matmul_l4 (gfc_array_l4 * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
       dest += rystride - (rxstride * xcount);
     }
 }
+
+#endif

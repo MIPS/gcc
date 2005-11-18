@@ -257,6 +257,7 @@ package body Scng is
       First_Non_Blank_Location  := Scan_Ptr;
 
       Initialize_Checksum;
+      Wide_Char_Byte_Count := 0;
 
       --  Do not call Scan, otherwise the License stuff does not work in Scn
 
@@ -340,7 +341,10 @@ package body Scng is
       -----------------------
 
       procedure Check_End_Of_Line is
-         Len : constant Int := Int (Scan_Ptr) - Int (Current_Line_Start);
+         Len : constant Int :=
+                 Int (Scan_Ptr) -
+                 Int (Current_Line_Start) -
+                 Wide_Char_Byte_Count;
 
       begin
          if Style_Check then
@@ -362,6 +366,10 @@ package body Scng is
          elsif Len > Opt.Max_Line_Length then
             Error_Long_Line;
          end if;
+
+         --  Reset wide character byte count for next line
+
+         Wide_Char_Byte_Count := 0;
       end Check_End_Of_Line;
 
       -----------------------
@@ -1457,6 +1465,17 @@ package body Scng is
             else -- Source (Scan_Ptr + 1) = '-' then
                if Style_Check then Style.Check_Comment; end if;
                Scan_Ptr := Scan_Ptr + 2;
+
+               --  If we are in preprocessor mode with Replace_In_Comments set,
+               --  then we return the "--" as a token on its own.
+
+               if Replace_In_Comments then
+                  Token := Tok_Comment;
+                  return;
+               end if;
+
+               --  Otherwise scan out the comment
+
                Start_Of_Comment := Scan_Ptr;
 
                --  Loop to scan comment (this loop runs more than once only if

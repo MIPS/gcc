@@ -187,7 +187,7 @@
 #undef	LINK_SPEC
 #define LINK_SPEC "\
 %{h*} %{v:-V} \
-%{b} %{Wl,*:%*} \
+%{b} \
 %{mfdpic:-melf32frvfd -z text} \
 %{static:-dn -Bstatic} \
 %{shared:-Bdynamic} \
@@ -1445,7 +1445,7 @@ typedef struct frv_stack {
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro to non-zero if the addresses of local variable slots
+/* Define this macro to nonzero if the addresses of local variable slots
    are at negative offsets from the frame pointer.  */
 #define FRAME_GROWS_DOWNWARD 1
 
@@ -1491,13 +1491,6 @@ typedef struct frv_stack {
    zero, but may be `NULL_RTX' if there is not way to determine the return
    address of other frames.  */
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR) frv_return_addr_rtx (COUNT, FRAMEADDR)
-
-/* This function contains machine specific function data.  */
-struct machine_function GTY(())
-{
-  /* True if we have created an rtx that relies on the stack frame.  */
-  int frame_needed;
-};
 
 #define RETURN_POINTER_REGNUM LR_REGNO
 
@@ -2985,7 +2978,15 @@ enum frv_builtins
   FRV_BUILTIN_IACCreadl,
   FRV_BUILTIN_IACCsetll,
   FRV_BUILTIN_IACCsetl,
-  FRV_BUILTIN_SCAN
+  FRV_BUILTIN_SCAN,
+  FRV_BUILTIN_READ8,
+  FRV_BUILTIN_READ16,
+  FRV_BUILTIN_READ32,
+  FRV_BUILTIN_READ64,
+  FRV_BUILTIN_WRITE8,
+  FRV_BUILTIN_WRITE16,
+  FRV_BUILTIN_WRITE32,
+  FRV_BUILTIN_WRITE64
 };
 #define FRV_BUILTIN_FIRST_NONMEDIA FRV_BUILTIN_SMUL
 

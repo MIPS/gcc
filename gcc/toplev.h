@@ -57,6 +57,7 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
 extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
 extern void warning0 (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+/* Pass one of the OPT_W* from options.h as the first parameter.  */
 extern void warning (int, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
@@ -91,8 +92,12 @@ extern void fnotice			(FILE *, const char *, ...)
      ATTRIBUTE_PRINTF_2;
 #endif
 
-extern int wrapup_global_declarations (tree *, int);
+extern void wrapup_global_declaration_1 (tree);
+extern bool wrapup_global_declaration_2 (tree);
+extern bool wrapup_global_declarations (tree *, int);
+extern void check_global_declaration_1 (tree);
 extern void check_global_declarations (tree *, int);
+extern void emit_debug_global_declarations (tree *, int);
 extern void write_global_declarations (void);
 
 /* A unique local time stamp, might be zero if none is available.  */
@@ -127,7 +132,6 @@ extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
-extern int flag_tree_based_profiling;
 
 /* Things to do with target switches.  */
 extern void print_version (FILE *, const char *);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2005 Free Software Foundation, Inc.            --
+--            Copyright (C) 2005, Free Software Foundation, Inc.            --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -36,7 +36,7 @@
 ------------------------------------------------------------------------------
 
 package Ada.Characters.Conversions is
-pragma Pure (Conversions);
+   pragma Pure;
 
    function Is_Character (Item : Wide_Character)      return Boolean;
    function Is_String    (Item : Wide_String)         return Boolean;

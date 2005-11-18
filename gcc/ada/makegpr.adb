@@ -129,7 +129,7 @@ package body Makegpr is
    --  ar commands.
 
    Archive_Indexer_Path : String_Access := null;
-   --  The path name of the archive indexer (ranlib), if it exists.
+   --  The path name of the archive indexer (ranlib), if it exists
 
    Copyright_Output : Boolean := False;
    Usage_Output     : Boolean := False;
@@ -356,7 +356,7 @@ package body Makegpr is
 
    procedure Add_Argument (Arg : String_Access; Display : Boolean);
    procedure Add_Argument (Arg : String; Display : Boolean);
-   --  Add an argument to Arguments. Reallocate if necessary.
+   --  Add an argument to Arguments. Reallocate if necessary
 
    procedure Add_Arguments (Args : Argument_List; Display : Boolean);
    --  Add a list of arguments to Arguments. Reallocate if necessary
@@ -1688,7 +1688,6 @@ package body Makegpr is
 
          declare
             Archive : Ada.Text_IO.File_Type;
-            use Ada.Text_IO;
          begin
             Create (Archive, Out_File, Archive_Name);
             Close (Archive);
@@ -2016,7 +2015,7 @@ package body Makegpr is
                      end if;
                   end;
 
-                  --  If the source path name ends the line, we are done.
+                  --  If the source path name ends the line, we are done
 
                   exit Line_Loop when Finish = Last;
 
@@ -2610,7 +2609,7 @@ package body Makegpr is
       --  Keep_Going is True, to inhibit the building of the archive.
 
       Need_To_Compile : Boolean;
-      --  Set to True when a source needs to be compiled/recompiled.
+      --  Set to True when a source needs to be compiled/recompiled
 
       Need_To_Rebuild_Archive : Boolean := Force_Compilations;
       --  True when the archive needs to be built/rebuilt unconditionally
@@ -2754,7 +2753,6 @@ package body Makegpr is
       Source_Id : Other_Source_Id := First_Source;
       Source    : Other_Source;
       Dep_File  : Ada.Text_IO.File_Type;
-      use Ada.Text_IO;
 
    begin
       --  Create the file in Append mode, to avoid automatic insertion of
@@ -2786,8 +2784,6 @@ package body Makegpr is
       Source_Id : Other_Source_Id;
       Source    : Other_Source;
       Dep_File  : Ada.Text_IO.File_Type;
-
-      use Ada.Text_IO;
 
    begin
       --  Create the file in Append mode, to avoid automatic insertion of
@@ -3221,7 +3217,10 @@ package body Makegpr is
             --  If -c was not specified, link the executables,
             --  if there are any.
 
-            if not Compile_Only and then not Data.Library then
+            if not Compile_Only
+              and then not Data.Library
+              and then Data.Object_Directory /= No_Name
+            then
                Build_Global_Archive;
                Link_Executables;
             end if;
@@ -3681,7 +3680,7 @@ package body Makegpr is
             --  project. Any main that is not a source of the other languages
             --  will be deemed to be an Ada main.
 
-            --  Find the mains of the other languages and the Ada mains.
+            --  Find the mains of the other languages and the Ada mains
 
             Mains.Reset;
             Ada_Mains.Set_Last (0);

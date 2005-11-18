@@ -358,6 +358,12 @@ typedef struct machine_function GTY(())
 #define FRAME_POINTER_REQUIRED \
   (current_function_calls_alloca)
 
+/* Don't allow hard registers to be renamed into r2 unless r2
+   is already live or already being saved (due to eh).  */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  ((NEW_REG) != 2 || regs_ever_live[2] || current_function_calls_eh_return)
+
 /* C statement to store the difference between the frame pointer
    and the stack pointer values immediately after the function prologue.
 
@@ -494,7 +500,7 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
 /* Believe it or not.  */
 #define ARGS_GROW_DOWNWARD
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -762,6 +768,11 @@ void hppa_profile_hook (int label_no);
 
 /* The profile counter if emitted must come before the prologue.  */
 #define PROFILE_BEFORE_PROLOGUE 1
+
+/* We never want final.c to emit profile counters.  When profile
+   counters are required, we have to defer emitting them to the end
+   of the current file.  */
+#define NO_PROFILE_COUNTERS 1
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in

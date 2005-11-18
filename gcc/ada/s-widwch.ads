@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,7 +34,7 @@
 --  This package contains the routines used for Wide_[Wide_]Character'Width
 
 package System.Wid_WChar is
-pragma Pure (Wid_WChar);
+   pragma Pure;
 
    function Width_Wide_Character
      (Lo, Hi : Wide_Character) return Natural;

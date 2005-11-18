@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -70,15 +70,6 @@ package body Sem_Ch5 is
    -----------------------
 
    procedure Analyze_Iteration_Scheme (N : Node_Id);
-
-   procedure Check_Possible_Current_Value_Condition (Cnode : Node_Id);
-   --  Cnode is N_If_Statement, N_Elsif_Part, or N_Iteration_Scheme
-   --  (the latter when a WHILE condition is present). This call checks
-   --  if Condition (Cnode) is of the form ([NOT] var op val), where var
-   --  is a simple object, val is known at compile time, and op is one
-   --  of the six relational operators. If this is the case, and the
-   --  Current_Value field of "var" is not set, then it is set to Cnode.
-   --  See Exp_Util.Set_Current_Value_Condition for further details.
 
    ------------------------
    -- Analyze_Assignment --
@@ -375,9 +366,7 @@ package body Sem_Ch5 is
 
       T2 := Etype (Rhs);
 
-      if Covers (T1, T2) then
-         null;
-      else
+      if not Covers (T1, T2) then
          Wrong_Type (Rhs, Etype (Lhs));
          return;
       end if;
@@ -448,17 +437,21 @@ package body Sem_Ch5 is
       --  Ada 2005 (AI-231)
 
       if Ada_Version >= Ada_05
-        and then Nkind (Rhs) = N_Null
-        and then Is_Access_Type (T1)
+        and then Can_Never_Be_Null (T1)
         and then not Assignment_OK (Lhs)
-        and then ((Is_Entity_Name (Lhs)
-                     and then Can_Never_Be_Null (Entity (Lhs)))
-                   or else Can_Never_Be_Null (Etype (Lhs)))
       then
-         Apply_Compile_Time_Constraint_Error
-           (N      => Lhs,
-            Msg    => "(Ada 2005) NULL not allowed in null-excluding objects?",
-            Reason => CE_Null_Not_Allowed);
+         if Nkind (Rhs) = N_Null then
+            Apply_Compile_Time_Constraint_Error
+              (N   => Rhs,
+               Msg => "(Ada 2005) NULL not allowed in null-excluding objects?",
+               Reason => CE_Null_Not_Allowed);
+            return;
+
+         elsif not Can_Never_Be_Null (T2) then
+            Rewrite (Rhs,
+              Convert_To (T1, Relocate_Node (Rhs)));
+            Analyze_And_Resolve (Rhs, T1);
+         end if;
       end if;
 
       if Is_Scalar_Type (T1) then
@@ -550,7 +543,7 @@ package body Sem_Ch5 is
 
       Ent := Entity (Lhs);
 
-      --  Capture value if save to do so
+      --  Capture value if safe to do so
 
       if Safe_To_Capture_Value (N, Ent) then
          Set_Current_Value (Ent, Rhs);
@@ -1274,7 +1267,7 @@ package body Sem_Ch5 is
       --  Start of processing for Process_Bounds
 
       begin
-         --  Determine expected type of range by analyzing separate copy.
+         --  Determine expected type of range by analyzing separate copy
 
          Set_Parent (R_Copy, Parent (R));
          Pre_Analyze_And_Resolve (R_Copy);
@@ -1524,13 +1517,15 @@ package body Sem_Ch5 is
                         --  of reversing the bounds incorrectly in the range.
 
                         elsif Reverse_Present (LP)
-                          and then Nkind (H) = N_Integer_Literal
+                          and then Nkind (Original_Node (H)) =
+                                                          N_Integer_Literal
                           and then (Intval (H) = Uint_0
                                       or else
                                     Intval (H) = Uint_1)
                           and then Lhi > Hhi
                         then
                            Error_Msg_N ("?loop range may be null", DS);
+                           Error_Msg_N ("\?bounds may be wrong way round", DS);
                         end if;
                      end;
                   end if;

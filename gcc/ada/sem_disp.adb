@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -114,6 +114,15 @@ package body Sem_Disp is
          if Present (Ctrl_Type) then
             if Ctrl_Type = Typ then
                Set_Is_Controlling_Formal (Formal);
+
+               --  Ada 2005 (AI-231):Anonymous access types used in controlling
+               --  parameters exclude null because it is necessary to read the
+               --  tag to dispatch, and null has no tag.
+
+               if Ekind (Etype (Formal)) = E_Anonymous_Access_Type then
+                  Set_Can_Never_Be_Null (Etype (Formal));
+                  Set_Is_Known_Non_Null (Etype (Formal));
+               end if;
 
                --  Check that the parameter's nominal subtype statically
                --  matches the first subtype.
@@ -541,10 +550,13 @@ package body Sem_Disp is
       if Ada_Version = Ada_05
         and then Present (Tagged_Type)
         and then Is_Concurrent_Type (Tagged_Type)
-        and then not Is_Empty_Elmt_List
-                       (Abstract_Interfaces
-                        (Corresponding_Record_Type (Tagged_Type)))
       then
+         --  Protect the frontend against previously detected errors
+
+         if not Present (Corresponding_Record_Type (Tagged_Type)) then
+            return;
+         end if;
+
          Tagged_Type := Corresponding_Record_Type (Tagged_Type);
       end if;
 
@@ -580,8 +592,8 @@ package body Sem_Disp is
       --  where it can be a dispatching op is when it overrides an operation
       --  before the freezing point of the type.
 
-      elsif ((not Is_Package (Scope (Subp)))
-              or else In_Package_Body (Scope (Subp)))
+      elsif ((not Is_Package_Or_Generic_Package (Scope (Subp)))
+               or else In_Package_Body (Scope (Subp)))
         and then not Has_Dispatching_Parent
       then
          if not Comes_From_Source (Subp)
@@ -784,14 +796,7 @@ package body Sem_Disp is
                   then
                      Old_Spec := Corresponding_Spec (Old_Bod);
                      Set_Has_Completion             (Old_Spec, False);
-
-                     if Exception_Mechanism = Front_End_ZCX_Exceptions then
-                        Set_Has_Subprogram_Descriptor (Old_Spec, False);
-                        Set_Handler_Records           (Old_Spec, No_List);
-                        Set_Is_Eliminated             (Old_Spec);
-                     end if;
                   end if;
-
                end if;
             end loop;
 
@@ -1212,10 +1217,12 @@ package body Sem_Disp is
          return;
       end if;
 
-      --  Ada 2005 (AI-251): Do not replace subprograms corresponding to
+      --  Ada 2005 (AI-251): Do not replace subprograms inherited from
       --  abstract interfaces. They will be used later to generate the
       --  corresponding thunks to initialize the Vtable (see subprogram
-      --  Freeze_Subprogram)
+      --  Freeze_Subprogram). The inherited operation itself must also
+      --  become hidden, to avoid spurious ambiguities;  name resolution
+      --  must pick up only the operation that implements it,
 
       if Is_Interface_Subprogram (Prev_Op) then
          Set_DT_Position              (Prev_Op, DT_Position (Alias (Prev_Op)));
@@ -1224,6 +1231,7 @@ package body Sem_Disp is
          Set_Abstract_Interface_Alias (Prev_Op, Alias (Prev_Op));
          Set_Alias                    (Prev_Op, New_Op);
          Set_Is_Internal              (Prev_Op);
+         Set_Is_Hidden                (Prev_Op);
 
          --  Override predefined primitive operations
 
@@ -1256,7 +1264,7 @@ package body Sem_Disp is
          Replace_Elmt (Op_Elmt, New_Op);
       end if;
 
-      if (not Is_Package (Current_Scope))
+      if (not Is_Package_Or_Generic_Package (Current_Scope))
         or else not In_Private_Part (Current_Scope)
       then
          --  Not a private primitive

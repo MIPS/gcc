@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-inline.h"
 
 #include "gfortran.h"
+#include "target.h"
 
 gfc_option_t gfc_option;
 
@@ -42,7 +43,7 @@ unsigned int
 gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 		  const char **argv ATTRIBUTE_UNUSED)
 {
-  gfc_option.source = NULL;
+  gfc_source_file = NULL;
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
   gfc_option.fixed_line_length = 72;
@@ -70,9 +71,14 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
+  gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
+  gfc_option.flag_cray_pointer = 0;
+  gfc_option.flag_d_lines = -1;
 
   gfc_option.q_kind = gfc_default_double_kind;
+
+  gfc_option.fpe = 0;
 
   flag_argument_noalias = 2;
   flag_errno_math = 0;
@@ -85,7 +91,78 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   gfc_option.warn_nonstd_intrinsics = 0;
 
-  return CL_F95;
+  /* -fshort-enums can be default on some targets.  */
+  gfc_option.fshort_enums = targetm.default_short_enums ();
+
+  return CL_Fortran;
+}
+
+
+/* Determine the source form from the filename extension.  We assume
+   case insensitivity.  */
+
+static gfc_source_form
+form_from_filename (const char *filename)
+{
+
+  static const struct
+  {
+    const char *extension;
+    gfc_source_form form;
+  }
+  exttype[] =
+  {
+    {
+    ".f90", FORM_FREE}
+    ,
+    {
+    ".f95", FORM_FREE}
+    ,
+    {
+    ".f", FORM_FIXED}
+    ,
+    {
+    ".for", FORM_FIXED}
+    ,
+    {
+    "", FORM_UNKNOWN}
+  };		/* sentinel value */
+
+  gfc_source_form f_form;
+  const char *fileext;
+  int i;
+
+  /* Find end of file name.  Note, filename is either a NULL pointer or
+     a NUL terminated string.  */
+  i = 0;
+  while (filename[i] != '\0')
+    i++;
+
+  /* Find last period.  */
+  while (i >= 0 && (filename[i] != '.'))
+    i--;
+
+  /* Did we see a file extension?  */
+  if (i < 0)
+    return FORM_UNKNOWN; /* Nope  */
+
+  /* Get file extension and compare it to others.  */
+  fileext = &(filename[i]);
+
+  i = -1;
+  f_form = FORM_UNKNOWN;
+  do
+    {
+      i++;
+      if (strcasecmp (fileext, exttype[i].extension) == 0)
+	{
+	  f_form = exttype[i].form;
+	  break;
+	}
+    }
+  while (exttype[i].form != FORM_UNKNOWN);
+
+  return f_form;
 }
 
 
@@ -102,7 +179,35 @@ gfc_post_options (const char **pfilename)
       filename = "";
     }
 
-  gfc_option.source = filename;
+  gfc_source_file = filename;
+
+  /* Decide which form the file will be read in as.  */
+
+  if (gfc_option.source_form != FORM_UNKNOWN)
+    gfc_current_form = gfc_option.source_form;
+  else
+    {
+      gfc_current_form = form_from_filename (filename);
+
+      if (gfc_current_form == FORM_UNKNOWN)
+	{
+	  gfc_current_form = FORM_FREE;
+	  gfc_warning_now ("Reading file '%s' as free form.", 
+			   (filename[0] == '\0') ? "<stdin>" : filename); 
+	}
+    }
+
+  /* If the user specified -fd-lines-as-{code|comments} verify that we're
+     in fixed form.  */
+  if (gfc_current_form == FORM_FREE)
+    {
+      if (gfc_option.flag_d_lines == 0)
+	gfc_warning_now ("'-fd-lines-as-comments' has no effect "
+			 "in free form.");
+      else if (gfc_option.flag_d_lines == 1)
+	gfc_warning_now ("'-fd-lines-as-code' has no effect "
+			 "in free form.");
+    }
 
   flag_inline_trees = 1;
 
@@ -124,6 +229,10 @@ gfc_post_options (const char **pfilename)
      otherwise.  */
   if (gfc_option.flag_second_underscore == -1)
     gfc_option.flag_second_underscore = gfc_option.flag_f2c;
+
+  /* Implement -fno-automatic as -fmax-stack-var-size=0.  */
+  if (!gfc_option.flag_automatic)
+    gfc_option.flag_max_stack_var_size = 0;
 
   return false;
 }
@@ -176,6 +285,41 @@ gfc_handle_module_path_options (const char *arg)
   strcat (gfc_option.module_dir, "/");
 }
 
+static void
+gfc_handle_fpe_trap_option (const char *arg)
+{
+  int result, pos = 0, n;
+  static const char * const exception[] = { "invalid", "denormal", "zero",
+                                            "overflow", "underflow",
+					    "precision", NULL };
+  static const int opt_exception[] = { GFC_FPE_INVALID, GFC_FPE_DENORMAL,
+				       GFC_FPE_ZERO, GFC_FPE_OVERFLOW,
+				       GFC_FPE_UNDERFLOW, GFC_FPE_PRECISION,
+				       0 };
+ 
+  while (*arg)
+    {
+      while (*arg == ',')
+	arg++;
+      while (arg[pos] && arg[pos] != ',')
+	pos++;
+      result = 0;
+      for (n = 0; exception[n] != NULL; n++)
+	{
+	  if (exception[n] && strncmp (exception[n], arg, pos) == 0)
+	    {
+	      gfc_option.fpe |= opt_exception[n];
+	      arg += pos;
+	      pos = 0;
+	      result = 1;
+	      break;
+	    }
+	}
+      if (! result)
+	gfc_fatal_error ("Argument to -ffpe-trap is not valid: %s", arg);
+    }
+}
+
 /* Handle command-line options.  Returns 0 if unrecognized, 1 if
    recognized and handled.  */
 int
@@ -225,6 +369,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
     case OPT_Wunused_labels:
       gfc_option.warn_unused_labels = value;
       break;
+      
+    case OPT_fcray_pointer:
+      gfc_option.flag_cray_pointer = value;
+      break;
 
     case OPT_ff2c:
       gfc_option.flag_f2c = value;
@@ -234,8 +382,20 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_dollar_ok = value;
       break;
 
+    case OPT_fautomatic:
+      gfc_option.flag_automatic = value;
+      break;
+
     case OPT_fbackslash:
       gfc_option.flag_backslash = value;
+      break;
+
+    case OPT_fd_lines_as_code:
+      gfc_option.flag_d_lines = 1;
+      break;
+
+    case OPT_fd_lines_as_comments:
+      gfc_option.flag_d_lines = 0;
       break;
 
     case OPT_fdump_parse_tree:
@@ -326,6 +486,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_handle_module_path_options (arg);
       break;
     
+    case OPT_ffpe_trap_:
+      gfc_handle_fpe_trap_option (arg);
+      break;
+
     case OPT_std_f95:
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95 | GFC_STD_F77;
       gfc_option.warn_std = GFC_STD_F95_OBS;
@@ -356,6 +520,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wnonstd_intrinsics:
       gfc_option.warn_nonstd_intrinsics = 1;
+      break;
+
+    case OPT_fshort_enums:
+      gfc_option.fshort_enums = 1;
       break;
     }
 

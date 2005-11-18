@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,7 +27,6 @@
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
-with Elists;   use Elists;
 with Errout;   use Errout;
 with Exp_Aggr; use Exp_Aggr;
 with Exp_Ch4;  use Exp_Ch4;
@@ -79,13 +78,6 @@ package body Exp_Ch3 is
    --  Build initialization procedure for given array type. Nod is a node
    --  used for attachment of any actions required in its construction.
    --  It also supplies the source location used for the procedure.
-
-   procedure Build_Class_Wide_Master (T : Entity_Id);
-   --  for access to class-wide limited types we must build a task master
-   --  because some subsequent extension may add a task component. To avoid
-   --  bringing in the tasking run-time whenever an access-to-class-wide
-   --  limited type is used, we use the soft-link mechanism and add a level
-   --  of indirection to calls to routines that manipulate Master_Ids.
 
    function Build_Discriminant_Formals
      (Rec_Id : Entity_Id;
@@ -652,12 +644,23 @@ package body Exp_Ch3 is
       M_Id : Entity_Id;
       Decl : Node_Id;
       P    : Node_Id;
+      Par  : Node_Id;
 
    begin
       --  Nothing to do if there is no task hierarchy
 
       if Restriction_Active (No_Task_Hierarchy) then
          return;
+      end if;
+
+      --  Find declaration that created the access type: either a
+      --  type declaration, or an object declaration with an
+      --  access definition, in which case the type is anonymous.
+
+      if Is_Itype (T) then
+         P := Associated_Node_For_Itype (T);
+      else
+         P := Parent (T);
       end if;
 
       --  Nothing to do if we already built a master entity for this scope
@@ -678,24 +681,24 @@ package body Exp_Ch3 is
                Make_Explicit_Dereference (Loc,
                  New_Reference_To (RTE (RE_Current_Master), Loc)));
 
-         P := Parent (T);
          Insert_Before (P, Decl);
          Analyze (Decl);
          Set_Has_Master_Entity (Scope (T));
 
          --  Now mark the containing scope as a task master
 
-         while Nkind (P) /= N_Compilation_Unit loop
-            P := Parent (P);
+         Par := P;
+         while Nkind (Par) /= N_Compilation_Unit loop
+            Par := Parent (Par);
 
             --  If we fall off the top, we are at the outer level, and the
             --  environment task is our effective master, so nothing to mark.
 
-            if Nkind (P) = N_Task_Body
-              or else Nkind (P) = N_Block_Statement
-              or else Nkind (P) = N_Subprogram_Body
+            if Nkind (Par) = N_Task_Body
+              or else Nkind (Par) = N_Block_Statement
+              or else Nkind (Par) = N_Subprogram_Body
             then
-               Set_Is_Task_Master (P, True);
+               Set_Is_Task_Master (Par, True);
                exit;
             end if;
          end loop;
@@ -712,7 +715,7 @@ package body Exp_Ch3 is
           Defining_Identifier => M_Id,
           Subtype_Mark => New_Reference_To (Standard_Integer, Loc),
           Name => Make_Identifier (Loc, Name_uMaster));
-      Insert_Before (Parent (T), Decl);
+      Insert_Before (P, Decl);
       Analyze (Decl);
 
       Set_Master_Id (T, M_Id);
@@ -867,8 +870,8 @@ package body Exp_Ch3 is
          Parameter_List := Build_Discriminant_Formals (Rec_Id, False);
 
          Set_Parameter_Specifications (Spec_Node, Parameter_List);
-         Set_Subtype_Mark (Spec_Node,
-                           New_Reference_To (Standard_Boolean,  Loc));
+         Set_Result_Definition (Spec_Node,
+                                New_Reference_To (Standard_Boolean,  Loc));
          Set_Specification (Body_Node, Spec_Node);
          Set_Declarations (Body_Node, New_List);
 
@@ -1482,16 +1485,21 @@ package body Exp_Ch3 is
                 Attribute_Name => Name_Unrestricted_Access);
          end if;
 
-         --  Ada 2005 (AI-231): Generate conversion to the null-excluding
-         --  type to force the corresponding run-time check.
+         --  Ada 2005 (AI-231): Add the run-time check if required
 
          if Ada_Version >= Ada_05
-           and then Can_Never_Be_Null (Etype (Id))  -- Lhs
-           and then Present (Etype (Exp))
-           and then not Can_Never_Be_Null (Etype (Exp))
+           and then Can_Never_Be_Null (Etype (Id))            -- Lhs
          then
-            Rewrite (Exp, Convert_To (Etype (Id), Relocate_Node (Exp)));
-            Analyze_And_Resolve (Exp, Etype (Id));
+            if Nkind (Exp) = N_Null then
+               return New_List (
+                 Make_Raise_Constraint_Error (Sloc (Exp),
+                   Reason => CE_Null_Not_Allowed));
+
+            elsif Present (Etype (Exp))
+              and then not Can_Never_Be_Null (Etype (Exp))
+            then
+               Install_Null_Excluding_Check (Exp);
+            end if;
          end if;
 
          --  Take a copy of Exp to ensure that later copies of this
@@ -1754,10 +1762,18 @@ package body Exp_Ch3 is
                Aux_N : Node_Id;
 
             begin
-               if not Is_Interface (Typ)
-                 and then Etype (Typ) /= Typ
-               then
-                  Init_Secondary_Tags_Internal (Etype (Typ));
+               if not Is_Interface (Typ) then
+
+                  --  Climb to the ancestor (if any) handling private types
+
+                  if Present (Full_View (Etype (Typ))) then
+                     if Full_View (Etype (Typ)) /= Typ then
+                        Init_Secondary_Tags_Internal (Full_View (Etype (Typ)));
+                     end if;
+
+                  elsif Etype (Typ) /= Typ then
+                     Init_Secondary_Tags_Internal (Etype (Typ));
+                  end if;
                end if;
 
                if Present (Abstract_Interfaces (Typ))
@@ -1820,7 +1836,14 @@ package body Exp_Ch3 is
             --  interfaces.
 
             ADT := Next_Elmt (First_Elmt (Access_Disp_Table (Typ)));
-            Init_Secondary_Tags_Internal (Typ);
+
+            --  Handle private types
+
+            if Present (Full_View (Typ)) then
+               Init_Secondary_Tags_Internal (Full_View (Typ));
+            else
+               Init_Secondary_Tags_Internal (Typ);
+            end if;
          end Init_Secondary_Tags;
 
       --  Start of processing for Build_Init_Procedure
@@ -2474,6 +2497,13 @@ package body Exp_Ch3 is
             return False;
          end if;
 
+         --  If it is a type derived from a type with unknown discriminants,
+         --  we cannot build an initialization procedure for it.
+
+         if Has_Unknown_Discriminants (Rec_Id) then
+            return False;
+         end if;
+
          --  Otherwise we need to generate an initialization procedure if
          --  Is_CPP_Class is False and at least one of the following applies:
 
@@ -3017,7 +3047,7 @@ package body Exp_Ch3 is
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => F,
               Parameter_Specifications => Pspecs,
-              Subtype_Mark => New_Reference_To (Standard_Boolean, Loc)),
+              Result_Definition => New_Reference_To (Standard_Boolean, Loc)),
           Declarations               => New_List,
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
@@ -3698,19 +3728,6 @@ package body Exp_Ch3 is
 
             elsif Is_Access_Type (Typ) then
 
-               --  Ada 2005 (AI-231): Generate conversion to the null-excluding
-               --  type to force the corresponding run-time check
-
-               if Ada_Version >= Ada_05
-                 and then (Can_Never_Be_Null (Def_Id)
-                             or else Can_Never_Be_Null (Typ))
-               then
-                  Rewrite
-                    (Expr_Q,
-                     Convert_To (Etype (Def_Id), Relocate_Node (Expr_Q)));
-                  Analyze_And_Resolve (Expr_Q, Etype (Def_Id));
-               end if;
-
                --  For access types set the Is_Known_Non_Null flag if the
                --  initializing value is known to be non-null. We can also set
                --  Can_Never_Be_Null if this is a constant.
@@ -4362,7 +4379,7 @@ package body Exp_Ch3 is
                     Make_Defining_Identifier (Loc, Name_uF),
                   Parameter_Type => New_Reference_To (Standard_Boolean, Loc))),
 
-              Subtype_Mark => New_Reference_To (Standard_Integer, Loc)),
+              Result_Definition => New_Reference_To (Standard_Integer, Loc)),
 
             Declarations => Empty_List,
 
@@ -4392,10 +4409,10 @@ package body Exp_Ch3 is
    ------------------------
 
    procedure Freeze_Record_Type (N : Node_Id) is
-      Def_Id      : constant Node_Id := Entity (N);
       Comp        : Entity_Id;
-      Type_Decl   : constant Node_Id := Parent (Def_Id);
+      Def_Id      : constant Node_Id := Entity (N);
       Predef_List : List_Id;
+      Type_Decl   : constant Node_Id := Parent (Def_Id);
 
       Renamed_Eq  : Node_Id := Empty;
       --  Could use some comments ???
@@ -4534,6 +4551,7 @@ package body Exp_Ch3 is
             Make_Predefined_Primitive_Specs
               (Def_Id, Predef_List, Renamed_Eq);
             Insert_List_Before_And_Analyze (N, Predef_List);
+
             Set_Is_Frozen (Def_Id, True);
             Set_All_DT_Position (Def_Id);
 
@@ -4555,34 +4573,52 @@ package body Exp_Ch3 is
                   ADT : Elist_Id := Access_Disp_Table (Def_Id);
 
                   procedure Add_Secondary_Tables (Typ : Entity_Id);
-                  --  Comment required ???
+                  --  Internal subprogram, recursively climb to the ancestors
 
                   --------------------------
                   -- Add_Secondary_Tables --
                   --------------------------
 
                   procedure Add_Secondary_Tables (Typ : Entity_Id) is
-                     E      : Entity_Id;
-                     Result : List_Id;
+                     E            : Entity_Id;
+                     Iface        : Elmt_Id;
+                     Result       : List_Id;
+                     Suffix_Index : Int;
 
                   begin
-                     if Etype (Typ) /= Typ then
+                     --  Climb to the ancestor (if any) handling private types
+
+                     if Present (Full_View (Etype (Typ))) then
+                        if Full_View (Etype (Typ)) /= Typ then
+                           Add_Secondary_Tables (Full_View (Etype (Typ)));
+                        end if;
+
+                     elsif Etype (Typ) /= Typ then
                         Add_Secondary_Tables (Etype (Typ));
                      end if;
 
                      if Present (Abstract_Interfaces (Typ))
-                       and then not Is_Empty_Elmt_List
-                                      (Abstract_Interfaces (Typ))
+                       and then
+                         not Is_Empty_Elmt_List (Abstract_Interfaces (Typ))
                      then
+                        Iface := First_Elmt (Abstract_Interfaces (Typ));
+                        Suffix_Index := 0;
+
                         E := First_Entity (Typ);
                         while Present (E) loop
                            if Is_Tag (E) and then Chars (E) /= Name_uTag then
-                              Make_Abstract_Interface_DT
-                                (AI_Tag          => E,
+                              Make_Secondary_DT
+                                (Typ             => Def_Id,
+                                 Ancestor_Typ    => Typ,
+                                 Suffix_Index    => Suffix_Index,
+                                 Iface           => Node (Iface),
+                                 AI_Tag          => E,
                                  Acc_Disp_Tables => ADT,
                                  Result          => Result);
 
                               Append_Freeze_Actions (Def_Id, Result);
+                              Suffix_Index := Suffix_Index + 1;
+                              Next_Elmt (Iface);
                            end if;
 
                            Next_Entity (E);
@@ -4593,7 +4629,14 @@ package body Exp_Ch3 is
                --  Start of processing to build secondary dispatch tables
 
                begin
-                  Add_Secondary_Tables  (Def_Id);
+                  --  Handle private types
+
+                  if Present (Full_View (Def_Id)) then
+                     Add_Secondary_Tables  (Full_View (Def_Id));
+                  else
+                     Add_Secondary_Tables  (Def_Id);
+                  end if;
+
                   Set_Access_Disp_Table (Def_Id, ADT);
                   Append_Freeze_Actions (Def_Id, Make_DT (Def_Id));
                end;
@@ -4623,6 +4666,8 @@ package body Exp_Ch3 is
 
             Append_Freeze_Actions
               (Def_Id, Predefined_Primitive_Freeze (Def_Id));
+            Append_Freeze_Actions
+              (Def_Id, Init_Predefined_Interface_Primitives (Def_Id));
          end if;
 
       --  In the non-tagged case, an equality function is provided only for
@@ -4696,8 +4741,25 @@ package body Exp_Ch3 is
       if Is_Tagged_Type (Def_Id) then
          Predef_List := Predefined_Primitive_Bodies (Def_Id, Renamed_Eq);
          Append_Freeze_Actions (Def_Id, Predef_List);
-      end if;
 
+         --  Populate the two auxiliary tables used for dispatching
+         --  asynchronous, conditional and timed selects for tagged
+         --  types that implement a limited interface.
+
+         if Ada_Version >= Ada_05
+           and then not Is_Interface  (Def_Id)
+           and then not Is_Abstract   (Def_Id)
+           and then not Is_Controlled (Def_Id)
+           and then
+             Implements_Interface
+               (Typ          => Def_Id,
+                Kind         => Any_Limited_Interface,
+                Check_Parent => True)
+         then
+            Append_Freeze_Actions (Def_Id,
+              Make_Select_Specific_Data_Table (Def_Id));
+         end if;
+      end if;
    end Freeze_Record_Type;
 
    ------------------------------
@@ -5887,6 +5949,54 @@ package body Exp_Ch3 is
                Parameter_Type      => New_Reference_To (Tag_Typ, Loc)))));
       end if;
 
+      --  Generate the declarations for the following primitive operations:
+      --    disp_asynchronous_select
+      --    disp_conditional_select
+      --    disp_get_prim_op_kind
+      --    disp_get_task_id
+      --    disp_timed_select
+      --  for limited interfaces and tagged types that implement a limited
+      --  interface.
+
+      if Ada_Version >= Ada_05
+        and then
+            ((Is_Interface (Tag_Typ)
+                and then Is_Limited_Record (Tag_Typ))
+          or else
+             (not Is_Abstract (Tag_Typ)
+                and then not Is_Controlled (Tag_Typ)
+              and then
+                Implements_Interface
+                  (Typ          => Tag_Typ,
+                   Kind         => Any_Limited_Interface,
+                   Check_Parent => True)))
+      then
+         Append_To (Res,
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Make_Disp_Asynchronous_Select_Spec (Tag_Typ)));
+
+         Append_To (Res,
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Make_Disp_Conditional_Select_Spec (Tag_Typ)));
+
+         Append_To (Res,
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Make_Disp_Get_Prim_Op_Kind_Spec (Tag_Typ)));
+
+         Append_To (Res,
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Make_Disp_Get_Task_Id_Spec (Tag_Typ)));
+
+         Append_To (Res,
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Make_Disp_Timed_Select_Spec (Tag_Typ)));
+      end if;
+
       --  Specs for finalization actions that may be required in case a
       --  future extension contain a controlled element. We generate those
       --  only for root tagged types where they will get dummy bodies or
@@ -6059,7 +6169,7 @@ package body Exp_Ch3 is
            Make_Function_Specification (Loc,
              Defining_Unit_Name       => Id,
              Parameter_Specifications => Profile,
-             Subtype_Mark             =>
+             Result_Definition        =>
                New_Reference_To (Ret_Type, Loc));
       end if;
 
@@ -6242,28 +6352,58 @@ package body Exp_Ch3 is
          end if;
       end if;
 
+      --  Generate the bodies for the following primitive operations:
+
+      --    disp_asynchronous_select
+      --    disp_conditional_select
+      --    disp_get_prim_op_kind
+      --    disp_get_task_id
+      --    disp_timed_select
+
+      --  for limited interfaces and tagged types that implement a limited
+      --  interface. The interface versions will have null bodies.
+
+      if Ada_Version >= Ada_05
+        and then
+          ((Is_Interface (Tag_Typ) and then Is_Limited_Record (Tag_Typ))
+              or else
+                (not Is_Abstract (Tag_Typ)
+                   and then not Is_Controlled (Tag_Typ)
+                   and then
+                     Implements_Interface
+                       (Typ          => Tag_Typ,
+                        Kind         => Any_Limited_Interface,
+                        Check_Parent => True)))
+      then
+         Append_To (Res, Make_Disp_Asynchronous_Select_Body (Tag_Typ));
+         Append_To (Res, Make_Disp_Conditional_Select_Body  (Tag_Typ));
+         Append_To (Res, Make_Disp_Get_Prim_Op_Kind_Body    (Tag_Typ));
+         Append_To (Res, Make_Disp_Get_Task_Id_Body         (Tag_Typ));
+         Append_To (Res, Make_Disp_Timed_Select_Body        (Tag_Typ));
+      end if;
+
       if not Is_Limited_Type (Tag_Typ) then
 
          --  Body for equality
 
          if Eq_Needed then
+            Decl :=
+              Predef_Spec_Or_Body (Loc,
+                Tag_Typ => Tag_Typ,
+                Name    => Eq_Name,
+                Profile => New_List (
+                  Make_Parameter_Specification (Loc,
+                    Defining_Identifier =>
+                      Make_Defining_Identifier (Loc, Name_X),
+                    Parameter_Type      => New_Reference_To (Tag_Typ, Loc)),
 
-            Decl := Predef_Spec_Or_Body (Loc,
-              Tag_Typ => Tag_Typ,
-              Name    => Eq_Name,
-              Profile => New_List (
-                Make_Parameter_Specification (Loc,
-                  Defining_Identifier =>
-                    Make_Defining_Identifier (Loc, Name_X),
-                  Parameter_Type      => New_Reference_To (Tag_Typ, Loc)),
+                  Make_Parameter_Specification (Loc,
+                    Defining_Identifier =>
+                      Make_Defining_Identifier (Loc, Name_Y),
+                    Parameter_Type      => New_Reference_To (Tag_Typ, Loc))),
 
-                Make_Parameter_Specification (Loc,
-                  Defining_Identifier =>
-                    Make_Defining_Identifier (Loc, Name_Y),
-                  Parameter_Type      => New_Reference_To (Tag_Typ, Loc))),
-
-              Ret_Type => Standard_Boolean,
-              For_Body => True);
+                Ret_Type => Standard_Boolean,
+                For_Body => True);
 
             declare
                Def          : constant Node_Id := Parent (Tag_Typ);
@@ -6313,19 +6453,20 @@ package body Exp_Ch3 is
 
          --  Body for dispatching assignment
 
-         Decl := Predef_Spec_Or_Body (Loc,
-           Tag_Typ => Tag_Typ,
-           Name    => Name_uAssign,
-           Profile => New_List (
-             Make_Parameter_Specification (Loc,
-               Defining_Identifier => Make_Defining_Identifier (Loc, Name_X),
-               Out_Present         => True,
-               Parameter_Type      => New_Reference_To (Tag_Typ, Loc)),
+         Decl :=
+           Predef_Spec_Or_Body (Loc,
+             Tag_Typ => Tag_Typ,
+             Name    => Name_uAssign,
+             Profile => New_List (
+               Make_Parameter_Specification (Loc,
+                 Defining_Identifier => Make_Defining_Identifier (Loc, Name_X),
+                 Out_Present         => True,
+                 Parameter_Type      => New_Reference_To (Tag_Typ, Loc)),
 
-             Make_Parameter_Specification (Loc,
-               Defining_Identifier => Make_Defining_Identifier (Loc, Name_Y),
-               Parameter_Type      => New_Reference_To (Tag_Typ, Loc))),
-           For_Body => True);
+               Make_Parameter_Specification (Loc,
+                 Defining_Identifier => Make_Defining_Identifier (Loc, Name_Y),
+                 Parameter_Type      => New_Reference_To (Tag_Typ, Loc))),
+             For_Body => True);
 
          Set_Handled_Statement_Sequence (Decl,
            Make_Handled_Sequence_Of_Statements (Loc, New_List (
@@ -6451,6 +6592,7 @@ package body Exp_Ch3 is
       return
         not (Is_Limited_Type (Typ)
                and then not Has_Inheritable_Stream_Attribute)
+          and then not Has_Unknown_Discriminants (Typ)
           and then RTE_Available (RE_Tag)
           and then RTE_Available (RE_Root_Stream_Type)
           and then not Restriction_Active (No_Dispatch)

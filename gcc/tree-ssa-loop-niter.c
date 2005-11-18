@@ -29,6 +29,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "diagnostic.h"
+#include "intl.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "cfgloop.h"
@@ -39,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-data-ref.h"
 #include "params.h"
 #include "flags.h"
+#include "toplev.h"
 #include "tree-inline.h"
 
 #define SWAP(X, Y) do { void *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
@@ -115,10 +117,10 @@ inverse (tree x, tree mask)
       rslt = build_int_cst_type (type, 1);
       for (; ctr; ctr--)
 	{
-	  rslt = fold_binary_to_constant (MULT_EXPR, type, rslt, x);
-	  x = fold_binary_to_constant (MULT_EXPR, type, x, x);
+	  rslt = int_const_binop (MULT_EXPR, rslt, x, 0);
+	  x = int_const_binop (MULT_EXPR, x, x, 0);
 	}
-      rslt = fold_binary_to_constant (BIT_AND_EXPR, type, rslt, mask);
+      rslt = int_const_binop (BIT_AND_EXPR, rslt, mask, 0);
     }
 
   return rslt;
@@ -273,7 +275,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	step = fold_unary_to_constant (NEGATE_EXPR, type, step1);
       else
 	step = step0;
-      delta = build2 (MINUS_EXPR, type, base1, base0);
+      delta = fold_build2 (MINUS_EXPR, type, base1, base0);
       delta = fold_build2 (FLOOR_MOD_EXPR, type, delta, step);
       may_xform = boolean_false_node;
 
@@ -632,11 +634,15 @@ expand_simple_operations (tree expr)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, stmt;
-  enum tree_code code = TREE_CODE (expr);
+  enum tree_code code;
+
+  if (expr == NULL_TREE)
+    return expr;
 
   if (is_gimple_min_invariant (expr))
     return expr;
 
+  code = TREE_CODE (expr);
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       n = TREE_CODE_LENGTH (code);
@@ -776,13 +782,13 @@ tree_simplify_using_condition_1 (tree cond, tree expr)
 
   /* Check whether COND ==> EXPR.  */
   notcond = invert_truthvalue (cond);
-  e = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, notcond, te);
+  e = fold_binary (TRUTH_OR_EXPR, boolean_type_node, notcond, te);
   if (nonzero_p (e))
     return e;
 
   /* Check whether COND ==> not EXPR.  */
-  e = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond, te);
-  if (zero_p (e))
+  e = fold_binary (TRUTH_AND_EXPR, boolean_type_node, cond, te);
+  if (e && zero_p (e))
     return e;
 
   return expr;
@@ -906,11 +912,14 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
    EXIT (an exit edge of the LOOP) in NITER.  Returns true if some
    useful information could be derived (and fields of NITER has
    meaning described in comments at struct tree_niter_desc
-   declaration), false otherwise.  */
+   declaration), false otherwise.  If WARN is true and
+   -Wunsafe-loop-optimizations was given, warn if the optimizer is going to use
+   potentially unsafe assumptions.  */
 
 bool
 number_of_iterations_exit (struct loop *loop, edge exit,
-			   struct tree_niter_desc *niter)
+			   struct tree_niter_desc *niter,
+			   bool warn)
 {
   tree stmt, cond, type;
   tree op0, base0, step0;
@@ -990,7 +999,45 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 	  = simplify_using_initial_conditions (loop,
 					       niter->may_be_zero,
 					       &niter->additional_info);
-  return integer_onep (niter->assumptions);
+
+  if (integer_onep (niter->assumptions))
+    return true;
+
+  /* With -funsafe-loop-optimizations we assume that nothing bad can happen.
+     But if we can prove that there is overflow or some other source of weird
+     behavior, ignore the loop even with -funsafe-loop-optimizations.  */
+  if (integer_zerop (niter->assumptions))
+    return false;
+
+  if (flag_unsafe_loop_optimizations)
+    niter->assumptions = boolean_true_node;
+
+  if (warn)
+    {
+      const char *wording;
+      location_t loc = EXPR_LOCATION (stmt);
+  
+      /* We can provide a more specific warning if one of the operator is
+	 constant and the other advances by +1 or -1.  */
+      if (step1 ? !step0 && (integer_onep (step1) || integer_all_onesp (step1))
+	  	: step0 && (integer_onep (step0) || integer_all_onesp (step0)))
+        wording =
+          flag_unsafe_loop_optimizations
+          ? N_("assuming that the loop is not infinite")
+          : N_("cannot optimize possibly infinite loops");
+      else
+	wording = 
+	  flag_unsafe_loop_optimizations
+	  ? N_("assuming that the loop counter does not overflow")
+	  : N_("cannot optimize loop, the loop counter may overflow");
+
+      if (LOCATION_LINE (loc) > 0)
+	warning (OPT_Wunsafe_loop_optimizations, "%H%s", &loc, gettext (wording));
+      else
+	warning (OPT_Wunsafe_loop_optimizations, "%s", gettext (wording));
+    }
+
+  return flag_unsafe_loop_optimizations;
 }
 
 /* Try to determine the number of iterations of LOOP.  If we succeed,
@@ -1014,7 +1061,7 @@ find_loop_niter (struct loop *loop, edge *exit)
       if (!just_once_each_iteration_p (loop, ex->src))
 	continue;
 
-      if (!number_of_iterations_exit (loop, ex, &desc))
+      if (!number_of_iterations_exit (loop, ex, &desc, false))
 	continue;
 
       if (nonzero_p (desc.may_be_zero))
@@ -1253,8 +1300,8 @@ loop_niter_by_eval (struct loop *loop, edge exit)
       for (j = 0; j < 2; j++)
 	aval[j] = get_val_for (op[j], val[j]);
 
-      acnd = fold_build2 (cmp, boolean_type_node, aval[0], aval[1]);
-      if (zero_p (acnd))
+      acnd = fold_binary (cmp, boolean_type_node, aval[0], aval[1]);
+      if (acnd && zero_p (acnd))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
@@ -1338,6 +1385,133 @@ record_estimate (struct loop *loop, tree bound, tree additional, tree at_stmt)
   loop->bounds = elt;
 }
 
+/* Initialize LOOP->ESTIMATED_NB_ITERATIONS with the lowest safe
+   approximation of the number of iterations for LOOP.  */
+
+static void
+compute_estimated_nb_iterations (struct loop *loop)
+{
+  struct nb_iter_bound *bound;
+  
+  for (bound = loop->bounds; bound; bound = bound->next)
+    if (TREE_CODE (bound->bound) == INTEGER_CST
+	/* Update only when there is no previous estimation.  */
+	&& (chrec_contains_undetermined (loop->estimated_nb_iterations)
+	    /* Or when the current estimation is smaller.  */
+	    || tree_int_cst_lt (bound->bound, loop->estimated_nb_iterations)))
+      loop->estimated_nb_iterations = bound->bound;
+}
+
+/* The following analyzers are extracting informations on the bounds
+   of LOOP from the following undefined behaviors:
+
+   - data references should not access elements over the statically
+     allocated size,
+
+   - signed variables should not overflow when flag_wrapv is not set.
+*/
+
+static void
+infer_loop_bounds_from_undefined (struct loop *loop)
+{
+  unsigned i;
+  basic_block bb, *bbs;
+  block_stmt_iterator bsi;
+  
+  bbs = get_loop_body (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      bb = bbs[i];
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+        {
+	  tree stmt = bsi_stmt (bsi);
+
+	  switch (TREE_CODE (stmt))
+	    {
+	    case MODIFY_EXPR:
+	      {
+		tree op0 = TREE_OPERAND (stmt, 0);
+		tree op1 = TREE_OPERAND (stmt, 1);
+
+		/* For each array access, analyze its access function
+		   and record a bound on the loop iteration domain.  */
+		if (TREE_CODE (op1) == ARRAY_REF 
+		    && !array_ref_contains_indirect_ref (op1))
+		  estimate_iters_using_array (stmt, op1);
+
+		if (TREE_CODE (op0) == ARRAY_REF 
+		    && !array_ref_contains_indirect_ref (op0))
+		  estimate_iters_using_array (stmt, op0);
+
+		/* For each signed type variable in LOOP, analyze its
+		   scalar evolution and record a bound of the loop
+		   based on the type's ranges.  */
+		else if (!flag_wrapv && TREE_CODE (op0) == SSA_NAME)
+		  {
+		    tree init, step, diff, estimation;
+		    tree scev = instantiate_parameters 
+		      (loop, analyze_scalar_evolution (loop, op0));
+		    tree type = chrec_type (scev);
+		    tree utype;
+
+		    if (chrec_contains_undetermined (scev)
+			|| TYPE_UNSIGNED (type))
+		      break;
+
+		    init = initial_condition_in_loop_num (scev, loop->num);
+		    step = evolution_part_in_loop_num (scev, loop->num);
+
+		    if (init == NULL_TREE
+			|| step == NULL_TREE
+			|| TREE_CODE (init) != INTEGER_CST
+			|| TREE_CODE (step) != INTEGER_CST
+			|| TYPE_MIN_VALUE (type) == NULL_TREE
+			|| TYPE_MAX_VALUE (type) == NULL_TREE)
+		      break;
+
+		    utype = unsigned_type_for (type);
+		    if (tree_int_cst_lt (step, integer_zero_node))
+		      diff = fold_build2 (MINUS_EXPR, utype, init,
+					  TYPE_MIN_VALUE (type));
+		    else
+		      diff = fold_build2 (MINUS_EXPR, utype,
+					  TYPE_MAX_VALUE (type), init);
+
+		    estimation = fold_build2 (CEIL_DIV_EXPR, utype, diff,
+					      step);
+		    record_estimate (loop, estimation, boolean_true_node, stmt);
+		  }
+
+		break;
+	      }
+
+	    case CALL_EXPR:
+	      {
+		tree args;
+
+		for (args = TREE_OPERAND (stmt, 1); args;
+		     args = TREE_CHAIN (args))
+		  if (TREE_CODE (TREE_VALUE (args)) == ARRAY_REF
+		      && !array_ref_contains_indirect_ref (TREE_VALUE (args)))
+		    estimate_iters_using_array (stmt, TREE_VALUE (args));
+
+		break;
+	      }
+
+	    default:
+	      break;
+	    }
+	}
+
+      if (chrec_contains_undetermined (loop->estimated_nb_iterations))
+	compute_estimated_nb_iterations (loop);
+    }
+
+  free (bbs);
+}
+
 /* Records estimates on numbers of iterations of LOOP.  */
 
 static void
@@ -1360,7 +1534,7 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
   exits = get_loop_exit_edges (loop, &n_exits);
   for (i = 0; i < n_exits; i++)
     {
-      if (!number_of_iterations_exit (loop, exits[i], &niter_desc))
+      if (!number_of_iterations_exit (loop, exits[i], &niter_desc, false))
 	continue;
 
       niter = niter_desc.niter;
@@ -1376,14 +1550,8 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
     }
   free (exits);
   
-  /* Analyzes the bounds of arrays accessed in the loop.  */
   if (chrec_contains_undetermined (loop->estimated_nb_iterations))
-    {
-      varray_type datarefs;
-      VARRAY_GENERIC_PTR_INIT (datarefs, 3, "datarefs");
-      find_data_references_in_loop (loop, &datarefs);
-      free_data_refs (datarefs);
-    }
+    infer_loop_bounds_from_undefined (loop);
 }
 
 /* Records estimates on numbers of iterations of LOOPS.  */
@@ -1419,11 +1587,11 @@ compare_trees (tree a, tree b)
   a = fold_convert (type, a);
   b = fold_convert (type, b);
 
-  if (nonzero_p (fold_build2 (EQ_EXPR, boolean_type_node, a, b)))
+  if (nonzero_p (fold_binary (EQ_EXPR, boolean_type_node, a, b)))
     return 0;
-  if (nonzero_p (fold_build2 (LT_EXPR, boolean_type_node, a, b)))
+  if (nonzero_p (fold_binary (LT_EXPR, boolean_type_node, a, b)))
     return 1;
-  if (nonzero_p (fold_build2 (GT_EXPR, boolean_type_node, a, b)))
+  if (nonzero_p (fold_binary (GT_EXPR, boolean_type_node, a, b)))
     return -1;
 
   return 2;
@@ -1487,27 +1655,33 @@ proved_non_wrapping_p (tree at_stmt,
 {
   tree cond;
   tree bound = niter_bound->bound;
+  enum tree_code cmp;
 
   if (TYPE_PRECISION (new_type) > TYPE_PRECISION (TREE_TYPE (bound)))
     bound = fold_convert (unsigned_type_for (new_type), bound);
   else
     valid_niter = fold_convert (TREE_TYPE (bound), valid_niter);
 
+  /* Give up if BOUND was not folded to an INTEGER_CST, as in PR23434.  */
+  if (TREE_CODE (bound) != INTEGER_CST)
+    return false;
+
   /* After the statement niter_bound->at_stmt we know that anything is
      executed at most BOUND times.  */
   if (at_stmt && stmt_dominates_stmt_p (niter_bound->at_stmt, at_stmt))
-    cond = fold_build2 (GE_EXPR, boolean_type_node, valid_niter, bound);
-
+    cmp = GE_EXPR;
   /* Before the statement niter_bound->at_stmt we know that anything
      is executed at most BOUND + 1 times.  */
   else
-    cond = fold_build2 (GT_EXPR, boolean_type_node, valid_niter, bound);
+    cmp = GT_EXPR;
 
+  cond = fold_binary (cmp, boolean_type_node, valid_niter, bound);
   if (nonzero_p (cond))
     return true;
 
+  cond = build2 (cmp, boolean_type_node, valid_niter, bound);
   /* Try taking additional conditions into account.  */
-  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
+  cond = fold_binary (TRUTH_OR_EXPR, boolean_type_node,
 		      invert_truthvalue (niter_bound->additional),
 		      cond);
 
@@ -1600,6 +1774,43 @@ convert_step_widening (struct loop *loop, tree new_type, tree base, tree step,
   return NULL_TREE;
 }
 
+/* Returns true when VAR is used in pointer arithmetics.  DEPTH is
+   used for limiting the search.  */
+
+static bool
+used_in_pointer_arithmetic_p (tree var, int depth)
+{
+  use_operand_p use_p;
+  imm_use_iterator iter;
+
+  if (depth == 0
+      || TREE_CODE (var) != SSA_NAME
+      || !has_single_use (var))
+    return false;
+
+  FOR_EACH_IMM_USE_FAST (use_p, iter, var)
+    {
+      tree stmt = USE_STMT (use_p);
+
+      if (stmt && TREE_CODE (stmt) == MODIFY_EXPR)
+	{
+	  tree rhs = TREE_OPERAND (stmt, 1);
+
+	  if (TREE_CODE (rhs) == NOP_EXPR
+	      || TREE_CODE (rhs) == CONVERT_EXPR)
+	    {
+	      if (POINTER_TYPE_P (TREE_TYPE (rhs)))
+		return true;
+	      return false;
+	    }
+	  else
+	    return used_in_pointer_arithmetic_p (TREE_OPERAND (stmt, 0),
+						 depth - 1);
+	}
+    }
+  return false;
+}
+
 /* Return false only when the induction variable BASE + STEP * I is
    known to not overflow: i.e. when the number of iterations is small
    enough with respect to the step and initial condition in order to
@@ -1607,20 +1818,74 @@ convert_step_widening (struct loop *loop, tree new_type, tree base, tree step,
    iv is known to overflow or when the property is not computable.
 
    Initialize INIT_IS_MAX to true when the evolution goes from
-   INIT_IS_MAX to LOWER_BOUND_IN_TYPE, false in the contrary case, not
-   defined when the function returns true.  */
+   INIT_IS_MAX to LOWER_BOUND_IN_TYPE, false in the contrary case.
+   When this property cannot be determined, UNKNOWN_MAX is set to
+   true.  */
 
 bool
 scev_probably_wraps_p (tree type, tree base, tree step, 
 		       tree at_stmt, struct loop *loop,
-		       bool *init_is_max)
+		       bool *init_is_max, bool *unknown_max)
 {
   struct nb_iter_bound *bound;
   tree delta, step_abs;
   tree unsigned_type, valid_niter;
-  tree base_plus_step = fold_build2 (PLUS_EXPR, type, base, step);
+  tree base_plus_step, bpsps;
+  int cps, cpsps;
 
-  switch (compare_trees (base_plus_step, base))
+  /* FIXME: The following code will not be used anymore once
+     http://gcc.gnu.org/ml/gcc-patches/2005-06/msg02025.html is
+     committed.
+
+     If AT_STMT is a cast to unsigned that is later used for
+     referencing a memory location, it is followed by a pointer
+     conversion just after.  Because pointers do not wrap, the
+     sequences that reference the memory do not wrap either.  In the
+     following example, sequences corresponding to D_13 and to D_14
+     can be proved to not wrap because they are used for computing a
+     memory access:
+	 
+       D.1621_13 = (long unsigned intD.4) D.1620_12;
+       D.1622_14 = D.1621_13 * 8;
+       D.1623_15 = (doubleD.29 *) D.1622_14;
+  */
+  if (at_stmt && TREE_CODE (at_stmt) == MODIFY_EXPR)
+    {
+      tree op0 = TREE_OPERAND (at_stmt, 0);
+      tree op1 = TREE_OPERAND (at_stmt, 1);
+      tree type_op1 = TREE_TYPE (op1);
+
+      if ((TYPE_UNSIGNED (type_op1)
+	   && used_in_pointer_arithmetic_p (op0, 2))
+	  || POINTER_TYPE_P (type_op1))
+	{
+	  *unknown_max = true;
+	  return false;
+	}
+    }
+
+  if (chrec_contains_undetermined (base)
+      || chrec_contains_undetermined (step)
+      || TREE_CODE (base) == REAL_CST
+      || TREE_CODE (step) == REAL_CST)
+    {
+      *unknown_max = true;
+      return true;
+    }
+
+  *unknown_max = false;
+  base_plus_step = fold_build2 (PLUS_EXPR, type, base, step);
+  bpsps = fold_build2 (PLUS_EXPR, type, base_plus_step, step);
+  cps = compare_trees (base_plus_step, base);
+  cpsps = compare_trees (bpsps, base_plus_step);
+
+  /* Check that the sequence is not wrapping in the first step: it
+     should have the same monotonicity for the first two steps.  See
+     PR23410.  */
+  if (cps != cpsps)
+    return true;
+
+  switch (cps)
     {
     case -1:
       {
@@ -1646,25 +1911,31 @@ scev_probably_wraps_p (tree type, tree base, tree step,
 	 don't know as in the default case.  */
 
     default:
+      *unknown_max = true;
       return true;
     }
 
   /* If AT_STMT represents a cast operation, we may not be able to
      take advantage of the undefinedness of signed type evolutions.
+
+     implement-c.texi states: "For conversion to a type of width
+     N, the value is reduced modulo 2^N to be within range of the
+     type;"
+
      See PR 21959 for a test case.  Essentially, given a cast
      operation
-     		unsigned char i;
-		signed char i.0;
+     		unsigned char uc;
+		signed char sc;
 		...
-     		i.0_6 = (signed char) i_2;
-		if (i.0_6 < 0)
+     		sc = (signed char) uc;
+		if (sc < 0)
 		  ...
 
-     where i_2 and i.0_6 have the scev {0, +, 1}, we would consider
-     i_2 to wrap around, but not i.0_6, because it is of a signed
-     type.  This causes VRP to erroneously fold the predicate above
-     because it thinks that i.0_6 cannot be negative.  */
-  if (TREE_CODE (at_stmt) == MODIFY_EXPR)
+     where uc and sc have the scev {0, +, 1}, we would consider uc to
+     wrap around, but not sc, because it is of a signed type.  This
+     causes VRP to erroneously fold the predicate above because it
+     thinks that sc cannot be negative.  */
+  if (at_stmt && TREE_CODE (at_stmt) == MODIFY_EXPR)
     {
       tree rhs = TREE_OPERAND (at_stmt, 1);
       tree outer_t = TREE_TYPE (rhs);
@@ -1680,7 +1951,10 @@ scev_probably_wraps_p (tree type, tree base, tree step,
 	  if (TYPE_UNSIGNED (inner_t)
 	      && (TYPE_SIZE (inner_t) <= TYPE_SIZE (outer_t)
 		  || TYPE_PRECISION (inner_t) <= TYPE_PRECISION (outer_t)))
-	    return true;
+	    {
+	      *unknown_max = true;
+	      return true;
+	    }
 	}
     }
 
@@ -1701,17 +1975,25 @@ scev_probably_wraps_p (tree type, tree base, tree step,
 
   /* At this point we still don't have a proof that the iv does not
      overflow: give up.  */
+  *unknown_max = true;
   return true;
 }
 
 /* Return the conversion to NEW_TYPE of the STEP of an induction
-   variable BASE + STEP * I at AT_STMT.  */
+   variable BASE + STEP * I at AT_STMT.  When it fails, return
+   NULL_TREE.  */
 
 tree
 convert_step (struct loop *loop, tree new_type, tree base, tree step,
 	      tree at_stmt)
 {
-  tree base_type = TREE_TYPE (base);
+  tree base_type;
+
+  if (chrec_contains_undetermined (base)
+      || chrec_contains_undetermined (step))
+    return NULL_TREE;
+
+  base_type = TREE_TYPE (base);
 
   /* When not using wrapping arithmetic, signed types don't wrap.  */
   if (!flag_wrapv && !TYPE_UNSIGNED (base_type))
@@ -1725,11 +2007,13 @@ convert_step (struct loop *loop, tree new_type, tree base, tree step,
 
 /* Frees the information on upper bounds on numbers of iterations of LOOP.  */
 
-static void
+void
 free_numbers_of_iterations_estimates_loop (struct loop *loop)
 {
   struct nb_iter_bound *bound, *next;
-  
+
+  loop->nb_iterations = NULL;
+  loop->estimated_nb_iterations = NULL;
   for (bound = loop->bounds; bound; bound = next)
     {
       next = bound->next;

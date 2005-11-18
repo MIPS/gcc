@@ -1,3 +1,23 @@
+2005-09-23  Tom Tromey  <tromey@redhat.com>
+
+	* enable.m4: New file.
+	* tls.m4: New file.
+
+2005-08-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/acx.m4 (NCN_CHECK_TARGET_TOOL, NCN_STRICT_CHECK_TOOL,
+	NCN_STRICT_CHECK_TARGET_TOOL): Remove.
+	(NCN_STRICT_CHECK_TOOLS, NCN_STRICT_CHECK_TARGET_TOOLS): New,
+	based on the deleted macros.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* mt-gnu (CXXFLAGS): Include SYSROOT_CFLAGS_FOR_TARGET.
+
+2005-07-16  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address.
+
 2005-06-14  Tom Tromey  <tromey@redhat.com>
 
 	PR libgcj/19877:

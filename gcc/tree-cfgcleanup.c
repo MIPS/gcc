@@ -81,11 +81,11 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
       switch (TREE_CODE (expr))
 	{
 	case COND_EXPR:
-	  val = COND_EXPR_COND (expr);
+	  val = fold (COND_EXPR_COND (expr));
 	  break;
 
 	case SWITCH_EXPR:
-	  val = SWITCH_COND (expr);
+	  val = fold (SWITCH_COND (expr));
 	  if (TREE_CODE (val) != INTEGER_CST)
 	    return false;
 	  break;
@@ -489,46 +489,69 @@ cleanup_forwarder_blocks (void)
   return changed;
 }
 
-/* Remove unreachable blocks and other miscellaneous clean up work.  */
+/* Do one round of CFG cleanup.  */
 
-bool
-cleanup_tree_cfg (void)
+static bool
+cleanup_tree_cfg_1 (void)
 {
-  bool retval = false;
-
-  timevar_push (TV_TREE_CLEANUP_CFG);
+  bool retval;
 
   retval = cleanup_control_flow ();
   retval |= delete_unreachable_blocks ();
 
-  /* cleanup_forwarder_blocks can redirect edges out of SWITCH_EXPRs,
-     which can get expensive.  So we want to enable recording of edge
-     to CASE_LABEL_EXPR mappings around the call to
-     cleanup_forwarder_blocks.  */
-  start_recording_case_labels ();
-  retval |= cleanup_forwarder_blocks ();
-  end_recording_case_labels ();
+  /* Forwarder blocks can carry line number information which is
+     useful when debugging, so we only clean them up when
+     optimizing.  */
 
-#ifdef ENABLE_CHECKING
-  if (retval)
+  if (optimize > 0)
     {
-      gcc_assert (!cleanup_control_flow ());
-      gcc_assert (!delete_unreachable_blocks ());
-      gcc_assert (!cleanup_forwarder_blocks ());
+      /* cleanup_forwarder_blocks can redirect edges out of
+	 SWITCH_EXPRs, which can get expensive.  So we want to enable
+	 recording of edge to CASE_LABEL_EXPR mappings around the call
+	 to cleanup_forwarder_blocks.  */
+      start_recording_case_labels ();
+      retval |= cleanup_forwarder_blocks ();
+      end_recording_case_labels ();
     }
-#endif
 
-  /* Merging the blocks creates no new opportunities for the other
-     optimizations, so do it here.  */
+  /* Merging the blocks may create new opportunities for folding
+     conditional branches (due to the elimination of single-valued PHI
+     nodes).  */
   retval |= merge_seq_blocks ();
+
+  return retval;
+}
+
+
+/* Remove unreachable blocks and other miscellaneous clean up work.
+   Return true if the flowgraph was modified, false otherwise.  */
+
+bool
+cleanup_tree_cfg (void)
+{
+  bool retval, changed;
+
+  timevar_push (TV_TREE_CLEANUP_CFG);
+
+  /* Iterate until there are no more cleanups left to do.  If any
+     iteration changed the flowgraph, set CHANGED to true.  */
+  changed = false;
+  do
+    {
+      retval = cleanup_tree_cfg_1 ();
+      changed |= retval;
+    }
+  while (retval);
 
   compact_blocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+
   timevar_pop (TV_TREE_CLEANUP_CFG);
-  return retval;
+
+  return changed;
 }
 
 /* Cleanup cfg and repair loop structures.  */

@@ -75,30 +75,48 @@
        (and (match_test "mode == Pmode")
 	    (match_test "!legitimate_la_operand_p (op)"))))
 
+;; Return true if OP is a valid operand for setmem.
+
+(define_predicate "setmem_operand"
+  (match_code "reg, subreg, plus, const_int")
+{
+  HOST_WIDE_INT offset;
+  rtx base;
+
+  /* Extract base register and offset.  Use 8 significant bits.  */
+  if (!s390_decompose_shift_count (op, &base, &offset, 8))
+    return false;
+
+  /* Don't allow any non-base hard registers.  Doing so without
+     confusing reload and/or regrename would be tricky, and doesn't
+     buy us much anyway.  */
+  if (base && REGNO (base) < FIRST_PSEUDO_REGISTER && !ADDR_REG_P (base))
+    return false;
+
+  /* Unfortunately we have to reject constants that are invalid
+     for an address, or else reload will get confused.  */
+  if (!DISP_IN_RANGE (offset))
+    return false;
+
+  return true;
+})
+
 ;; Return true if OP is a valid shift count operand.
 
 (define_predicate "shift_count_operand"
-  (match_code "reg, subreg, plus, const_int")
+  (match_code "reg, subreg, plus, const_int, and")
 {
-  HOST_WIDE_INT offset = 0;
+  HOST_WIDE_INT offset;
+  rtx base;
 
-  /* We can have an integer constant, an address register,
-     or a sum of the two.  Note that reload already checks
-     that any register present is an address register, so
-     we just check for any register here.  */
-  if (GET_CODE (op) == CONST_INT)
-    {
-      offset = INTVAL (op);
-      op = NULL_RTX;
-    }
-  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
-    {
-      offset = INTVAL (XEXP (op, 1));
-      op = XEXP (op, 0);
-    }
-  while (op && GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (op && GET_CODE (op) != REG)
+  /* Extract base register and offset.  Use 6 significant bits.  */
+  if (!s390_decompose_shift_count (op, &base, &offset, 6))
+    return false;
+
+  /* Don't allow any non-base hard registers.  Doing so without
+     confusing reload and/or regrename would be tricky, and doesn't
+     buy us much anyway.  */
+  if (base && REGNO (base) < FIRST_PSEUDO_REGISTER && !ADDR_REG_P (base))
     return false;
 
   /* Unfortunately we have to reject constants that are invalid

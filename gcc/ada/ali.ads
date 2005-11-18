@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -473,6 +473,9 @@ package ALI is
       --  Indicates presence of EA parameter
 
       Elab_All_Desirable : Boolean;
+      --  Indicates presence of AD parameter
+
+      Elab_Desirable     : Boolean;
       --  Indicates presence of ED parameter
 
       SAL_Interface : Boolean := False;
@@ -590,7 +593,7 @@ package ALI is
 
    type No_Dep_Record is record
       ALI_File : ALI_Id;
-      --  ALI File containing tne entry
+      --  ALI File containing the entry
 
       No_Dep_Unit : Name_Id;
       --  Id for names table entry including entire name, including periods
@@ -782,6 +785,16 @@ package ALI is
       --  entity in package Standard, then this field is a Name_Id
       --  reference for the entity name.
 
+      Oref_File_Num : Sdep_Id;
+      --  This field is set to No_Sdep_Id is the entity doesn't override any
+      --  other entity, or to the dependency reference for the overriden
+      --  entity.
+
+      Oref_Line : Nat;
+      Oref_Col  : Nat;
+      --  These two fields are set to the line and column of the overriden
+      --  entity.
+
       First_Xref : Nat;
       --  Index into Xref table of first cross-reference
 
@@ -862,7 +875,7 @@ package ALI is
    --  switch description settings.
    --
    --    Ignore_ED is normally False. If set to True, it indicates that
-   --    all ED (elaboration desirable) indications in the ALI file are
+   --    all AD/ED (elaboration desirable) indications in the ALI file are
    --    to be ignored. This parameter is obsolete now that the -f switch
    --    is removed from gnatbind, and should be removed ???
    --

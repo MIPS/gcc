@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,6 +29,7 @@ with Alloc;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
+with Nlists;   use Nlists;
 with Errout;   use Errout;
 with Lib;      use Lib;
 with Opt;      use Opt;
@@ -160,7 +161,7 @@ package body Sem_Type is
    procedure New_Interps (N : Node_Id);
    --  Initialize collection of interpretations for the given node, which is
    --  either an overloaded entity, or an operation whose arguments have
-   --  multiple intepretations. Interpretations can be added to only one
+   --  multiple interpretations. Interpretations can be added to only one
    --  node at a time.
 
    function Specific_Type (T1, T2 : Entity_Id) return Entity_Id;
@@ -375,6 +376,17 @@ package body Sem_Type is
         and then not Is_Dispatching_Operation (E)
       then
          return;
+
+      --  An inherited interface operation that is implemented by some
+      --  derived type does not participate in overload resolution, only
+      --  the implementation operation does.
+
+      elsif Is_Hidden (E)
+        and then Is_Subprogram (E)
+        and then Present (Abstract_Interface_Alias (E))
+      then
+         Add_One_Interp (N, Abstract_Interface_Alias (E), T);
+         return;
       end if;
 
       --  If this is the first interpretation of N, N has type Any_Type.
@@ -422,7 +434,7 @@ package body Sem_Type is
 
          else
             --  Overloaded prefix in indexed or selected component,
-            --  or call whose name is an expresion or another call.
+            --  or call whose name is an expression or another call.
 
             Add_Entry (Etype (N), Etype (N));
          end if;
@@ -634,7 +646,7 @@ package body Sem_Type is
       --  actuals  belong to their class but are not compatible with other
       --  types of their class, and in particular with other generic actuals.
       --  They are however compatible with their own subtypes, and itypes
-      --  with the same base are compatible as well. Similary, constrained
+      --  with the same base are compatible as well. Similarly, constrained
       --  subtypes obtained from expressions of an unconstrained nominal type
       --  are compatible with the base type (may lead to spurious ambiguities
       --  in obscure cases ???)
@@ -694,9 +706,9 @@ package body Sem_Type is
         and then Is_Class_Wide_Type (T1)
         and then Is_Interface (Etype (T1))
         and then Is_Concurrent_Type (T2)
-        and then Interface_Present_In_Ancestor (
-                   Typ   => Corresponding_Record_Type (Base_Type (T2)),
-                   Iface => Etype (T1))
+        and then Interface_Present_In_Ancestor
+                   (Typ   => Base_Type (T2),
+                    Iface => Etype (T1))
       then
          return True;
 
@@ -901,7 +913,10 @@ package body Sem_Type is
                               and then
                                 Designated_Type (T1) = Designated_Type (T2))
                    or else (T1 = Any_Access
-                              and then Is_Access_Type (Underlying_Type (T2))))
+                              and then Is_Access_Type (Underlying_Type (T2)))
+                   or else (T2 = Any_Composite
+                              and then
+                                Is_Composite_Type (Underlying_Type (T1))))
       then
          return True;
 
@@ -967,6 +982,13 @@ package body Sem_Type is
       --  Determine whether one of the candidates is an operation inherited by
       --  a type that is derived from an actual in an instantiation.
 
+      function In_Generic_Actual (Exp : Node_Id) return Boolean;
+      --  Determine whether the expression is part of a generic actual. At
+      --  the time the actual is resolved the scope is already that of the
+      --  instance, but conceptually the resolution of the actual takes place
+      --  in the enclosing context, and no special disambiguation rules should
+      --  be applied.
+
       function Is_Actual_Subprogram (S : Entity_Id) return Boolean;
       --  Determine whether a subprogram is an actual in an enclosing instance.
       --  An overloading between such a subprogram and one declared outside the
@@ -996,6 +1018,34 @@ package body Sem_Type is
       --  DEC tests c460vsa, c460vsb. It also handles ai00136a, which pushes
       --  pathology in the other direction with calls whose multiple overloaded
       --  actuals make them truly unresolvable.
+
+      ------------------------
+      --  In_Generic_Actual --
+      ------------------------
+
+      function In_Generic_Actual (Exp : Node_Id) return Boolean is
+         Par : constant Node_Id := Parent (Exp);
+
+      begin
+         if No (Par) then
+            return False;
+
+         elsif Nkind (Par) in N_Declaration then
+            if Nkind (Par) = N_Object_Declaration
+              or else Nkind (Par) = N_Object_Renaming_Declaration
+            then
+               return Present (Corresponding_Generic_Association (Par));
+            else
+               return False;
+            end if;
+
+         elsif Nkind (Par) in N_Statement_Other_Than_Procedure_Call then
+            return False;
+
+         else
+            return In_Generic_Actual (Parent (Par));
+         end if;
+      end In_Generic_Actual;
 
       ---------------------------
       -- Inherited_From_Actual --
@@ -1360,7 +1410,9 @@ package body Sem_Type is
          --  case the resolution was to the explicit declaration in the
          --  generic, and remains so in the instance.
 
-         elsif In_Instance then
+         elsif In_Instance
+           and then not In_Generic_Actual (N)
+         then
             if Nkind (N) = N_Function_Call
               or else Nkind (N) = N_Procedure_Call_Statement
             then
@@ -1709,6 +1761,8 @@ package body Sem_Type is
 
               or else
                 (Is_Concurrent_Type (It.Typ)
+                  and then Present (Corresponding_Record_Type
+                                                             (Etype (It.Typ)))
                   and then Covers (Typ, Corresponding_Record_Type
                                                              (Etype (It.Typ))))
 
@@ -1772,62 +1826,128 @@ package body Sem_Type is
      (Typ   : Entity_Id;
       Iface : Entity_Id) return Boolean
    is
-      AI    : Entity_Id;
-      E     : Entity_Id;
-      Elmt  : Elmt_Id;
+      Target_Typ : Entity_Id;
 
-   begin
-      if Is_Access_Type (Typ) then
-         E := Etype (Directly_Designated_Type (Typ));
-      else
-         E := Typ;
-      end if;
+      function Iface_Present_In_Ancestor (Typ : Entity_Id) return Boolean;
+      --  Returns True if Typ or some ancestor of Typ implements Iface
 
-      if Is_Concurrent_Type (E) then
-         E := Corresponding_Record_Type (E);
-      end if;
+      function Iface_Present_In_Ancestor (Typ : Entity_Id) return Boolean is
+         E    : Entity_Id;
+         AI   : Entity_Id;
+         Elmt : Elmt_Id;
 
-      if Is_Class_Wide_Type (E) then
-         E := Etype (E);
-      end if;
-
-      if E = Iface then
-         return True;
-      end if;
-
-      loop
-         if Present (Abstract_Interfaces (E))
-           and then Abstract_Interfaces (E) /= Empty_List_Or_Node --  ????
-           and then not Is_Empty_Elmt_List (Abstract_Interfaces (E))
-         then
-            Elmt := First_Elmt (Abstract_Interfaces (E));
-
-            while Present (Elmt) loop
-               AI := Node (Elmt);
-
-               if AI = Iface or else Is_Ancestor (Iface, AI) then
-                  return True;
-               end if;
-
-               Next_Elmt (Elmt);
-            end loop;
-         end if;
-
-         exit when Etype (E) = E;
-
-         --  Check if the current type is a direct derivation of the
-         --  interface
-
-         if Etype (E) = Iface then
+      begin
+         if Typ = Iface then
             return True;
          end if;
 
-         --  Climb to the immediate ancestor
+         --  Handle private types
 
-         E := Etype (E);
-      end loop;
+         if Present (Full_View (Typ))
+           and then not Is_Concurrent_Type (Full_View (Typ))
+         then
+            E := Full_View (Typ);
+         else
+            E := Typ;
+         end if;
 
-      return False;
+         loop
+            if Present (Abstract_Interfaces (E))
+              and then Present (Abstract_Interfaces (E))
+              and then not Is_Empty_Elmt_List (Abstract_Interfaces (E))
+            then
+               Elmt := First_Elmt (Abstract_Interfaces (E));
+               while Present (Elmt) loop
+                  AI := Node (Elmt);
+
+                  if AI = Iface or else Is_Ancestor (Iface, AI) then
+                     return True;
+                  end if;
+
+                  Next_Elmt (Elmt);
+               end loop;
+            end if;
+
+            exit when Etype (E) = E
+
+               --  Handle private types
+
+               or else (Present (Full_View (Etype (E)))
+                         and then Full_View (Etype (E)) = E);
+
+            --  Check if the current type is a direct derivation of the
+            --  interface
+
+            if Etype (E) = Iface then
+               return True;
+            end if;
+
+            --  Climb to the immediate ancestor handling private types
+
+            if Present (Full_View (Etype (E))) then
+               E := Full_View (Etype (E));
+            else
+               E := Etype (E);
+            end if;
+         end loop;
+
+         return False;
+      end Iface_Present_In_Ancestor;
+
+   --  Start of processing for Interface_Present_In_Ancestor
+
+   begin
+      if Is_Access_Type (Typ) then
+         Target_Typ := Etype (Directly_Designated_Type (Typ));
+      else
+         Target_Typ := Typ;
+      end if;
+
+      --  In case of concurrent types we can't use the Corresponding Record_Typ
+      --  to look for the interface because it is built by the expander (and
+      --  hence it is not always available). For this reason we traverse the
+      --  list of interfaces (available in the parent of the concurrent type)
+
+      if Is_Concurrent_Type (Target_Typ) then
+         if Present (Interface_List (Parent (Target_Typ))) then
+            declare
+               AI : Node_Id;
+            begin
+               AI := First (Interface_List (Parent (Target_Typ)));
+               while Present (AI) loop
+                  if Etype (AI) = Iface then
+                     return True;
+
+                  elsif Present (Abstract_Interfaces (Etype (AI)))
+                     and then Iface_Present_In_Ancestor (Etype (AI))
+                  then
+                     return True;
+                  end if;
+
+                  Next (AI);
+               end loop;
+            end;
+         end if;
+
+         return False;
+      end if;
+
+      if Is_Class_Wide_Type (Target_Typ) then
+         Target_Typ := Etype (Target_Typ);
+      end if;
+
+      if Ekind (Target_Typ) = E_Incomplete_Type then
+         pragma Assert (Present (Non_Limited_View (Target_Typ)));
+         Target_Typ := Non_Limited_View (Target_Typ);
+
+         --  Protect the frontend against previously detected errors
+
+         if Ekind (Target_Typ) = E_Incomplete_Type then
+            return False;
+         end if;
+      end if;
+
+      return Iface_Present_In_Ancestor (Target_Typ);
    end Interface_Present_In_Ancestor;
 
    ---------------------
@@ -1907,9 +2027,7 @@ package body Sem_Type is
          elsif Is_Class_Wide_Type (Etype (R))
              and then Is_Interface (Etype (Class_Wide_Type (Etype (R))))
          then
-            Error_Msg_Name_1 := Chars (L);
-            Error_Msg_Name_2 := Chars (Etype (Class_Wide_Type (Etype (R))));
-            Error_Msg_NE ("(Ada 2005) % does not implement interface %",
+            Error_Msg_NE ("(Ada 2005) does not implement interface }",
                           L, Etype (Class_Wide_Type (Etype (R))));
 
          else

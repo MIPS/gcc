@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,7 +62,7 @@ package body Ada.Directories is
    procedure Free is new Ada.Unchecked_Deallocation (Search_Data, Search_Ptr);
 
    function File_Exists (Name : String) return Boolean;
-   --  Returns True if the named file exists.
+   --  Returns True if the named file exists
 
    procedure Fetch_Next_Entry (Search : Search_Type);
    --  Get the next entry in a directory, setting Entry_Fetched if successful
@@ -126,7 +126,7 @@ package body Ada.Directories is
       then
          raise Name_Error;
 
-         --  This is not an invalid case. Build the path name.
+         --  This is not an invalid case so build the path name
 
       else
          Last := Containing_Directory'Length;

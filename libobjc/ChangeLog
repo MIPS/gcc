@@ -1,3 +1,46 @@
+2005-11-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/4372
+	* thr-objc.c (_XOPEN_SOURCE): Define.
+
+2005-10-07  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR libobjc/23612
+	* objc/objc-api.h (struct objc_ivar): Move definition to
+	global scope.
+
+2005-09-04  Andrew Pinski  <pinskia@physics.uc.edu>
+            Rasmus Hahn  <rassahah@neofonie.de>
+
+	PR libobjc/23108
+	* archive.c (objc_write_type): Correct the element offset.
+	(objc_read_type): Likewise.
+
+2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* All files: Update FSF address.
+
+2005-08-13  Marcin Koziej  <creep@desk.pl>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libobjc/22492
+	* exception.c (PERSONALITY_FUNCTION): Fix the PC with finally.
+
+2005-08-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in (extra_ldflags_libobjc): New.
+	(libobjc$(libext).la): Add extra_ldflags_libobjc to the link line.
+	(libobjc_gc$(libext).la): Likewise.
+	* configure.ac (extra_ldflags_libgfortran): Set for *-darwin* to
+	"-Wl,-single_module".
+	* configure: Regenerate.
+	* linking.m (_objcInit): Remove.
+
+2005-07-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libobjc/22606
+	* Makefile.in (ALL_CFLAGS): Add -fexceptions.
+
 2005-06-08  David Ayers  <d.ayers@inode.at>
 
 	* objc/NXConstStr.h, objc/Object.h, objc/Protocol.h,

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,7 +42,7 @@
 with Ada.Strings.Wide_Wide_Maps;
 
 private package Ada.Strings.Wide_Wide_Search is
-pragma Preelaborate (Wide_Wide_Search);
+   pragma Preelaborate;
 
    function Index
      (Source  : Wide_Wide_String;

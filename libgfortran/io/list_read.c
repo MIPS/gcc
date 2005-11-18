@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -71,7 +71,7 @@ static int nml_read_error;
 /* Storage area for values except for strings.  Must be large enough
    to hold a complex value (two reals) of the largest kind.  */
 
-static char value[20];
+static char value[32];
 
 #define CASE_DIGITS   case '0': case '1': case '2': case '3': case '4': \
                       case '5': case '6': case '7': case '8': case '9'
@@ -134,6 +134,7 @@ free_saved (void)
     free_mem (saved_string);
 
   saved_string = NULL;
+  saved_used = 0;
 }
 
 
@@ -957,7 +958,7 @@ parse_real (void *buffer, int length)
    what it is right away.  */
 
 static void
-read_complex (int length)
+read_complex (int kind, size_t size)
 {
   char message[100];
   char c;
@@ -981,15 +982,29 @@ read_complex (int length)
     }
 
   eat_spaces ();
-  if (parse_real (value, length))
+  if (parse_real (value, kind))
     return;
 
+eol_1:
   eat_spaces ();
+  c = next_char ();
+  if (c == '\n' || c== '\r')
+    goto eol_1;
+  else
+    unget_char (c);
+
   if (next_char () != ',')
     goto bad_complex;
 
+eol_2:
   eat_spaces ();
-  if (parse_real (value + length, length))
+  c = next_char ();
+  if (c == '\n' || c== '\r')
+    goto eol_2;
+  else
+    unget_char (c);
+
+  if (parse_real (value + size / 2, kind))
     return;
 
   eat_spaces ();
@@ -1271,8 +1286,8 @@ check_type (bt type, int len)
    reading, usually in the value[] array.  If a repeat count is
    greater than one, we copy the data item multiple times.  */
 
-void
-list_formatted_read (bt type, void *p, int len)
+static void
+list_formatted_read_scalar (bt type, void *p, int kind, size_t size)
 {
   char c;
   int m;
@@ -1311,7 +1326,7 @@ list_formatted_read (bt type, void *p, int len)
 
       if (repeat_count > 0)
 	{
-	  if (check_type (type, len))
+	  if (check_type (type, kind))
 	    return;
 	  goto set_value;
 	}
@@ -1333,26 +1348,26 @@ list_formatted_read (bt type, void *p, int len)
   switch (type)
     {
     case BT_INTEGER:
-      read_integer (len);
+      read_integer (kind);
       break;
     case BT_LOGICAL:
-      read_logical (len);
+      read_logical (kind);
       break;
     case BT_CHARACTER:
-      read_character (len);
+      read_character (kind);
       break;
     case BT_REAL:
-      read_real (len);
+      read_real (kind);
       break;
     case BT_COMPLEX:
-      read_complex (len);
+      read_complex (kind, size);
       break;
     default:
       internal_error ("Bad type for list read");
     }
 
   if (saved_type != BT_CHARACTER && saved_type != BT_NULL)
-    saved_length = len;
+    saved_length = size;
 
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -1361,27 +1376,24 @@ list_formatted_read (bt type, void *p, int len)
   switch (saved_type)
     {
     case BT_COMPLEX:
-      len = 2 * len;
-      /* Fall through.  */
-
     case BT_INTEGER:
     case BT_REAL:
     case BT_LOGICAL:
-      memcpy (p, value, len);
+      memcpy (p, value, size);
       break;
 
     case BT_CHARACTER:
       if (saved_string)
        {
-          m = (len < saved_used) ? len : saved_used;
+          m = ((int) size < saved_used) ? (int) size : saved_used;
           memcpy (p, saved_string, m);
        }
       else
 	/* Just delimiters encountered, nothing to copy but SPACE.  */
         m = 0;
 
-      if (m < len)
-	memset (((char *) p) + m, ' ', len - m);
+      if (m < (int) size)
+	memset (((char *) p) + m, ' ', size - m);
       break;
 
     case BT_NULL:
@@ -1391,6 +1403,24 @@ list_formatted_read (bt type, void *p, int len)
   if (--repeat_count <= 0)
     free_saved ();
 }
+
+
+void
+list_formatted_read  (bt type, void *p, int kind, size_t size, size_t nelems)
+{
+  size_t elem;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      g.item_count++;
+      list_formatted_read_scalar (type, tmp + size*elem, kind, size);
+    }
+}
+
 
 void
 init_at_eol(void)
@@ -1431,7 +1461,7 @@ calls:
       static void nml_untouch_nodes (void)
       static namelist_info * find_nml_node (char * var_name)
       static int nml_parse_qualifier(descriptor_dimension * ad,
-				     nml_loop_spec * ls, int rank)
+				     array_loop_spec * ls, int rank)
       static void nml_touch_nodes (namelist_info * nl)
       static int nml_read_obj (namelist_info * nl, index_type offset)
 calls:
@@ -1462,7 +1492,7 @@ static index_type chigh;
 
 static try
 nml_parse_qualifier(descriptor_dimension * ad,
-		    nml_loop_spec * ls, int rank)
+		    array_loop_spec * ls, int rank)
 {
   int dim;
   int indx;
@@ -1823,12 +1853,15 @@ nml_read_obj (namelist_info * nl, index_type offset)
 
     case GFC_DTYPE_INTEGER:
     case GFC_DTYPE_LOGICAL:
-    case GFC_DTYPE_REAL:
       dlen = len;
       break;
 
+    case GFC_DTYPE_REAL:
+      dlen = size_from_real_kind (len);
+      break;
+
     case GFC_DTYPE_COMPLEX:
-      dlen = 2* len;
+      dlen = size_from_complex_kind (len);
       break;
 
     case GFC_DTYPE_CHARACTER:
@@ -1888,7 +1921,7 @@ nml_read_obj (namelist_info * nl, index_type offset)
               break;
 
 	  case GFC_DTYPE_COMPLEX:
-              read_complex (len);
+              read_complex (len, dlen);
               break;
 
 	  case GFC_DTYPE_DERIVED:
@@ -2184,7 +2217,7 @@ get_name:
   if (c == '(' && nl->type == GFC_DTYPE_CHARACTER)
     {
       descriptor_dimension chd[1] = { {1, clow, nl->string_length} };
-      nml_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
+      array_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
 
       if (nml_parse_qualifier (chd, ind, 1) == FAILURE)
 	{
@@ -2326,13 +2359,14 @@ find_nml_name:
         }
 
    }
-
+  free_saved ();
   return;
 
   /* All namelist error calls return from here */
 
 nml_err_ret:
 
+  free_saved ();
   generate_error (ERROR_READ_VALUE , nml_err_msg);
   return;
 }

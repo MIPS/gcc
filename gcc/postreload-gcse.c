@@ -225,7 +225,7 @@ alloc_mem (void)
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.  */
   uid_cuid = xcalloc (get_max_uid () + 1, sizeof (int));
-  i = 0;
+  i = 1;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
       {
@@ -745,6 +745,12 @@ hash_scan_set (rtx insn)
 	  can_copy_p (GET_MODE (dest))
 	  /* Is SET_SRC something we want to gcse?  */
 	  && general_operand (src, GET_MODE (src))
+#ifdef STACK_REGS
+	  /* Never consider insns touching the register stack.  It may
+	     create situations that reg-stack cannot handle (e.g. a stack
+	     register live across an abnormal edge).  */
+	  && (REGNO (dest) < FIRST_STACK_REG || REGNO (dest) > LAST_STACK_REG)
+#endif
 	  /* An expression is not available if its operands are
 	     subsequently modified, including this insn.  */
 	  && oprs_unchanged_p (src, insn, true))
@@ -759,6 +765,10 @@ hash_scan_set (rtx insn)
 	  can_copy_p (GET_MODE (src))
 	  /* Is SET_DEST something we want to gcse?  */
 	  && general_operand (dest, GET_MODE (dest))
+#ifdef STACK_REGS
+	  /* As above for STACK_REGS.  */
+	  && (REGNO (src) < FIRST_STACK_REG || REGNO (src) > LAST_STACK_REG)
+#endif
 	  && ! (flag_float_store && FLOAT_MODE_P (GET_MODE (dest)))
 	  /* Check if the memory expression is killed after insn.  */
 	  && ! load_killed_in_block_p (INSN_CUID (insn) + 1, dest, true)
@@ -1075,7 +1085,7 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 	  else /* Its a dead move no need to generate.  */
 	    continue;
 	  occr = (struct unoccr *) obstack_alloc (&unoccr_obstack,
-						  sizeof (struct occr));
+						  sizeof (struct unoccr));
 	  occr->insn = avail_insn;
 	  occr->pred = pred;
 	  occr->next = avail_occrs;
@@ -1085,7 +1095,7 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 	}
       else
 	{
-	  /* Adding a load on a critical edge will cuase a split.  */
+	  /* Adding a load on a critical edge will cause a split.  */
 	  if (EDGE_CRITICAL_P (pred))
 	    critical_edge_split = true;
 	  not_ok_count += pred->count;

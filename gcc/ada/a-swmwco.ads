@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -38,7 +38,7 @@
 with Ada.Characters.Wide_Latin_1;
 
 package Ada.Strings.Wide_Maps.Wide_Constants is
-pragma Preelaborate (Wide_Constants);
+   pragma Preelaborate;
 
    Control_Set           : constant Wide_Maps.Wide_Character_Set;
    Graphic_Set           : constant Wide_Maps.Wide_Character_Set;

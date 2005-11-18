@@ -56,7 +56,7 @@ end_htab_p (htab_iterator *hti)
   return false;
 }
 
-/* Advance the hashtable iterator pointed by HTI to the next element of the
+/* Advance the hashtable iterator pointed to by HTI to the next element of the
    hashtable.  */
 
 static inline void *
@@ -105,7 +105,19 @@ next_referenced_var (referenced_var_iterator *iter)
     return NULL;
   return itm->to;
 } 
- 
+
+/* Fill up VEC with the variables in the referenced vars hashtable.  */
+
+static inline void
+fill_referenced_var_vec (VEC (tree, heap) **vec)
+{
+  referenced_var_iterator rvi;
+  tree var;
+  *vec = NULL;
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    VEC_safe_push (tree, heap, *vec, var);
+}
+
 /* Return the variable annotation for T, which must be a _DECL node.
    Return NULL if the variable annotation doesn't already exist.  */
 static inline var_ann_t
@@ -309,7 +321,7 @@ link_imm_use (ssa_use_operand_t *linknode, tree def)
     }
 }
 
-/* Set the value of a use pointed by USE to VAL.  */
+/* Set the value of a use pointed to by USE to VAL.  */
 static inline void
 set_ssa_use_from_ptr (use_operand_p use, tree val)
 {
@@ -715,7 +727,7 @@ bsi_start (basic_block bb)
   return bsi;
 }
 
-/* Return a block statement iterator that points to the last label in
+/* Return a block statement iterator that points to the first non-label
    block BB.  */
 
 static inline block_stmt_iterator
@@ -737,13 +749,6 @@ bsi_after_labels (basic_block bb)
   bsi.tsi = tsi_start (bb->stmt_list);
   if (tsi_end_p (bsi.tsi))
     return bsi;
-
-  /* Ensure that there are some labels.  The rationale is that we want
-     to insert after the bsi that is returned, and these insertions should
-     be placed at the start of the basic block.  This would not work if the
-     first statement was not label; rather fail here than enable the user
-     proceed in wrong way.  */
-  gcc_assert (TREE_CODE (tsi_stmt (bsi.tsi)) == LABEL_EXPR);
 
   next = bsi.tsi;
   tsi_next (&next);
@@ -1031,7 +1036,7 @@ op_iter_next_tree (ssa_op_iter *ptr)
 
 
 /* This functions clears the iterator PTR, and marks it done.  This is normally
-   used to prevent warnings in the compile about might be uninitailzied
+   used to prevent warnings in the compile about might be uninitialized
    components.  */
 
 static inline void
@@ -1179,7 +1184,7 @@ op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline tree
 single_ssa_tree_operand (tree stmt, int flags)
 {
@@ -1197,7 +1202,7 @@ single_ssa_tree_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline use_operand_p
 single_ssa_use_operand (tree stmt, int flags)
 {
@@ -1216,7 +1221,7 @@ single_ssa_use_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline def_operand_p
 single_ssa_def_operand (tree stmt, int flags)
 {
@@ -1234,7 +1239,7 @@ single_ssa_def_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline bool
 zero_ssa_operands (tree stmt, int flags)
 {
@@ -1402,17 +1407,34 @@ unmodifiable_var_p (tree var)
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
-/* Return true if REF, a COMPONENT_REF, has an ARRAY_REF somewhere in it.  */
+/* Return true if REF, an ARRAY_REF, has an INDIRECT_REF somewhere in it.  */
+
+static inline bool
+array_ref_contains_indirect_ref (tree ref)
+{
+  gcc_assert (TREE_CODE (ref) == ARRAY_REF);
+
+  do {
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
+  return TREE_CODE (ref) == INDIRECT_REF;
+}
+
+/* Return true if REF, a handled component reference, has an ARRAY_REF
+   somewhere in it.  */
 
 static inline bool
 ref_contains_array_ref (tree ref)
 {
-  while (handled_component_p (ref))
-    {
-      if (TREE_CODE (ref) == ARRAY_REF)
-	return true;
-      ref = TREE_OPERAND (ref, 0);
-    }
+  gcc_assert (handled_component_p (ref));
+
+  do {
+    if (TREE_CODE (ref) == ARRAY_REF)
+      return true;
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
   return false;
 }
 
@@ -1506,7 +1528,7 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
     {
       return true;
     }
-  else if (offset < sv->offset && (offset + size > sv->offset))
+  else if (offset < sv->offset && (size > sv->offset - offset))
     {
       return true;
     }

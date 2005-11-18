@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* format.c-- parse a FORMAT string into a binary format suitable for
@@ -61,7 +61,7 @@ static fnode colon_node = { FMT_COLON, 0, NULL, NULL, {{ 0, 0, 0 }}, 0,
 
 /* Error messages */
 
-static char posint_required[] = "Positive width required in format",
+static const char posint_required[] = "Positive width required in format",
   period_required[] = "Period required in format",
   nonneg_required[] = "Nonnegative width required in format",
   unexpected_element[] = "Unexpected element in format",
@@ -580,6 +580,7 @@ parse_format_list (void)
     case FMT_DOLLAR:
       get_fnode (&head, &tail, FMT_DOLLAR);
       tail->repeat = 1;
+      notify_std (GFC_STD_GNU, "Extension: $ descriptor");
       goto between_desc;
 
     case FMT_T:

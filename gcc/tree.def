@@ -435,19 +435,19 @@ DEFTREECODE (FILTER_EXPR, "filter_expr", tcc_expression, 0)
 
 /* Constructor: return an aggregate value made from specified components.
    In C, this is used only for structure and array initializers.
-   The operand is a list of component values made out of a chain of
-   TREE_LIST nodes.
+   The operand is a sequence of component values made out of a VEC of
+   struct constructor_elt.
 
    For ARRAY_TYPE:
-   The TREE_PURPOSE of each node is the corresponding index.
-   If the TREE_PURPOSE is a RANGE_EXPR, it is a short-hand for many nodes,
-   one for each index in the range.  (If the corresponding TREE_VALUE
+   The field INDEX of each constructor_elt is the corresponding index.
+   If the index is a RANGE_EXPR, it is a short-hand for many nodes,
+   one for each index in the range.  (If the corresponding field VALUE
    has side-effects, they are evaluated once for each element.  Wrap the
    value in a SAVE_EXPR if you want to evaluate side effects only once.)
 
    For RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE:
-   The TREE_PURPOSE of each node is a FIELD_DECL.  */
-DEFTREECODE (CONSTRUCTOR, "constructor", tcc_expression, 1)
+   The field INDEX of each node is a FIELD_DECL.  */
+DEFTREECODE (CONSTRUCTOR, "constructor", tcc_exceptional, 0)
 
 /* The expression types are mostly straightforward, with the fourth argument
    of DEFTREECODE saying how many operands there are.
@@ -957,7 +957,7 @@ DEFTREECODE (REDUC_MAX_EXPR, "reduc_max_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_MIN_EXPR, "reduc_min_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
 
-/* Whole vector left/right shift in bytes.
+/* Whole vector left/right shift in bits.
    Operand 0 is a vector to be shifted.
    Operand 1 is an integer shift amount in bits.  */
 DEFTREECODE (VEC_LSHIFT_EXPR, "vec_lshift_expr", tcc_binary, 2)

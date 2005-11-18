@@ -30,6 +30,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    integers.  */
 typedef int *lambda_vector;
 
+DEF_VEC_P(lambda_vector);
+DEF_VEC_ALLOC_P(lambda_vector,heap);
+
 /* An integer matrix.  A matrix consists of m vectors of length n (IE
    all vectors are the same length).  */
 typedef lambda_vector *lambda_matrix;
@@ -376,5 +379,26 @@ print_lambda_vector (FILE * outfile, lambda_vector vector, int n)
     fprintf (outfile, "%3d ", vector[i]);
   fprintf (outfile, "\n");
 }
+
+/* Returns true when the vector V is lexicographically positive, in
+   other words, when the first nonzero element is positive.  */
+
+static inline bool
+lambda_vector_lexico_pos (lambda_vector v, 
+			  unsigned n)
+{
+  unsigned i;
+  for (i = 0; i < n; i++)
+    {
+      if (v[i] == 0)
+	continue;
+      if (v[i] < 0)
+	return false;
+      if (v[i] > 0)
+	return true;
+    }
+  return true;
+}
+
 #endif /* LAMBDA_H  */
 

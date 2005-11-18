@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -34,7 +34,7 @@
 ------------------------------------------------------------------------------
 
 package Ada.Containers.Red_Black_Trees is
-pragma Pure (Red_Black_Trees);
+   pragma Pure;
 
    type Color_Type is (Red, Black);
 

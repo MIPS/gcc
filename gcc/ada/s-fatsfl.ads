@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,13 +37,13 @@
 with System.Fat_Gen;
 
 package System.Fat_SFlt is
-pragma Pure (Fat_SFlt);
+   pragma Pure;
 
    --  Note the only entity from this package that is acccessed by Rtsfind
    --  is the name of the package instantiation. Entities within this package
    --  (i.e. the individual floating-point attribute routines) are accessed
    --  by name using selected notation.
 
-   package Fat_Short_Float is new System.Fat_Gen (Short_Float);
+   package Attr_Short_Float is new System.Fat_Gen (Short_Float);
 
 end System.Fat_SFlt;

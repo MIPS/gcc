@@ -52,8 +52,7 @@ struct JCF;
       COMPOUND_ASSIGN_P (in EXPR (binop_*))
       LOCAL_CLASS_P (in RECORD_TYPE)
       BLOCK_IS_IMPLICIT (in BLOCK)
-   2: RETURN_MAP_ADJUSTED (in TREE_VEC).
-      QUALIFIED_P (in IDENTIFIER_NODE)
+   2: QUALIFIED_P (in IDENTIFIER_NODE)
       PRIMARY_P (in EXPR_WITH_FILE_LOCATION)
       MODIFY_EXPR_FROM_INITIALIZATION_P (in MODIFY_EXPR)
       CLASS_METHOD_CHECKED_P (in RECORD_TYPE) 
@@ -98,15 +97,12 @@ struct JCF;
       CLASS_FINAL (in TYPE_DECL)
       DECL_FINAL (in any decl)
    4: METHOD_SYNCHRONIZED (in FUNCTION_DECL).
-      LABEL_IN_SUBR (in LABEL_DECL)
       CLASS_INTERFACE (in TYPE_DECL)
       FIELD_VOLATILE (int FIELD_DECL)
    5: METHOD_ABSTRACT (in FUNCTION_DECL).
-      LABEL_IS_SUBR_START (in LABEL_DECL)
       CLASS_ABSTRACT (in TYPE_DECL)
       FIELD_TRANSIENT (in FIELD_DECL)
-   6: LABEL_CHANGED (in LABEL_DECL)
-      CLASS_SUPER (in TYPE_DECL, ACC_SUPER flag)
+   6: CLASS_SUPER (in TYPE_DECL, ACC_SUPER flag)
       FIELD_LOCAL_ALIAS (in FIELD_DECL)
    7: DECL_CONSTRUCTOR_P (in FUNCTION_DECL).
       CLASS_STATIC (in TYPE_DECL)
@@ -218,9 +214,6 @@ extern int flag_indirect_dispatch;
 
 /* When zero, don't generate runtime array store checks. */
 extern int flag_store_check;
-
-/* When nonzero, use the new bytecode verifier.  */
-extern int flag_new_verifier;
 
 /* Encoding used for source files.  */
 extern const char *current_encoding;
@@ -852,51 +845,12 @@ union lang_tree_node
 /* In a LABEL_DECL, a TREE_VEC that saves the type_map at that point. */
 #define LABEL_TYPE_STATE(NODE) (LABEL_DECL_CHECK (NODE)->label_decl.java_field_1)
 
-/* In the label of a subroutine, a dummy label that records the
-   state following a merge of all the ret instructions in this subroutine. */
-#define LABEL_RETURN_LABEL(DECL) (LABEL_DECL_CHECK (DECL)->label_decl.java_field_2)
-
-/* In the label of a sub-routine, records the type state at return.
-   A local may be TYPE_UNUSED, which means that the local is not
-   used (stored to or loaded from) in this subroutine - at least for
-   code that we have verified so far. */
-#define LABEL_RETURN_TYPE_STATE(NODE) \
-  LABEL_TYPE_STATE (LABEL_RETURN_LABEL (NODE))
-
-/* In a TREE_VEC for a LABEL_RETURN_TYPE_STATE, notes that
-   TREE_VEC_LENGTH has been adjusted to the correct stack size. */
-#define RETURN_MAP_ADJUSTED(NODE) TREE_LANG_FLAG_2 (TREE_VEC_CHECK (NODE))
-
-/* In the label of a sub-routine, a chain of the return location labels. */
-#define LABEL_RETURN_LABELS(node) \
-  (LABEL_DECL_CHECK (LABEL_RETURN_LABEL (node))->label_decl.java_field_3)
-
-/* In a LABEL_DECL, the next pending label.
-   See pending_blocks in expr.c. */
-#define LABEL_PENDING_CHAIN(NODE) (LABEL_DECL_CHECK (NODE)->label_decl.java_field_3)
-
 /* In a LABEL_DECL, the corresponding bytecode program counter. */
 #define LABEL_PC(NODE) (LABEL_DECL_CHECK (NODE)->label_decl.java_field_4)
-
-/* Used during verification to mark the label has "changed". (See JVM Spec). */
-#define LABEL_CHANGED(NODE) DECL_LANG_FLAG_6 (LABEL_DECL_CHECK (NODE))
 
 /* In a LABEL_DECL, true if we have verified instructions starting here. */
 #define LABEL_VERIFIED(NODE) \
   (instruction_bits[LABEL_PC (NODE)] & BCODE_VERIFIED)
-
-/* True if this code is within a subroutine (target of a jsr). */
-#define LABEL_IN_SUBR(NODE) DECL_LANG_FLAG_4 (LABEL_DECL_CHECK (NODE))
-/* True if this code is the start of a subroutine (target of a jsr). */
-#define LABEL_IS_SUBR_START(NODE) DECL_LANG_FLAG_5 (LABEL_DECL_CHECK (NODE))
-
-/* In a LABEL_DECL, if LABEL_IN_SUBR(NODE), points to start of subroutine. */
-#define LABEL_SUBR_START(NODE) DECL_ABSTRACT_ORIGIN (LABEL_DECL_CHECK (NODE))
-
-/* In a LABEL_DECL that has LABEL_IS_SUBR_START, this points to the start
-   of surrounding subroutine in the case of a nested subroutine,
-   and NULL_TREE otherwise. */
-#define LABEL_SUBR_CONTEXT(NODE) DECL_CONTEXT (LABEL_RETURN_LABEL (NODE))
 
 /* The slot number for this local variable. */
 #define DECL_LOCAL_SLOT_NUMBER(NODE) \
@@ -1120,6 +1074,7 @@ struct lang_decl GTY(())
 
 #define TYPE_TO_RUNTIME_MAP(T)   (TYPE_LANG_SPECIFIC (T)->type_to_runtime_map)
 #define TYPE_ASSERTIONS(T)   	 (TYPE_LANG_SPECIFIC (T)->type_assertions)
+#define TYPE_PACKAGE(T)     	 (TYPE_LANG_SPECIFIC (T)->package)
 
 struct lang_type GTY(())
 {
@@ -1167,6 +1122,9 @@ struct lang_type GTY(())
   htab_t GTY ((param_is (struct type_assertion))) type_assertions;
 				/* Table of type assertions to be evaluated 
   				   by the runtime when this class is loaded. */
+
+  tree package;			/* IDENTIFIER_NODE for package this class is
+  				   a member of.  */
 
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
@@ -1328,7 +1286,6 @@ extern void init_class_processing (void);
 extern void add_type_assertion (tree, int, tree, tree);
 extern int can_widen_reference_to (tree, tree);
 extern int class_depth (tree);
-extern int verify_jvm_instructions (struct JCF *, const unsigned char *, long);
 extern int verify_jvm_instructions_new (struct JCF *, const unsigned char *,
 					long);
 extern void maybe_pushlevels (int);
@@ -1707,12 +1664,12 @@ extern tree *type_map;
 #define INNER_CLASS_DECL_P(NODE) (TYPE_NAME (TREE_TYPE (NODE)) == NODE	\
 				  && DECL_CONTEXT (NODE))
 
-/* True if NODE is an top level class TYPE_DECL node: NODE isn't
+/* True if NODE is a top level class TYPE_DECL node: NODE isn't
    an inner class or NODE is a static class.  */
 #define TOPLEVEL_CLASS_DECL_P(NODE) (!INNER_CLASS_DECL_P (NODE) 	\
 				     || CLASS_STATIC (NODE))
 
-/* True if the class decl NODE was declared in a inner scope and is
+/* True if the class decl NODE was declared in an inner scope and is
    not a toplevel class */
 #define PURE_INNER_CLASS_DECL_P(NODE) \
   (INNER_CLASS_DECL_P (NODE) && !CLASS_STATIC (NODE))
@@ -1725,7 +1682,7 @@ extern tree *type_map;
 #define TOPLEVEL_CLASS_TYPE_P(NODE) (!INNER_CLASS_TYPE_P (NODE) 	\
 				     || CLASS_STATIC (TYPE_NAME (NODE)))
 
-/* True if the class type NODE was declared in a inner scope and is
+/* True if the class type NODE was declared in an inner scope and is
    not a toplevel class */
 #define PURE_INNER_CLASS_TYPE_P(NODE) \
   (INNER_CLASS_TYPE_P (NODE) && !CLASS_STATIC (TYPE_NAME (NODE)))
@@ -1762,41 +1719,49 @@ extern tree *type_map;
 #define FINISH_RECORD(RTYPE) layout_type (RTYPE)
 
 /* Start building a RECORD_TYPE constructor with a given TYPE in CONS. */
-#define START_RECORD_CONSTRUCTOR(CONS, CTYPE)	\
-{ CONS = build_constructor ((CTYPE), NULL_TREE);	\
-  TREE_CHAIN (CONS) = TYPE_FIELDS (CTYPE); }
+#define START_RECORD_CONSTRUCTOR(CONS, CTYPE) \
+  do \
+    { \
+      CONS = build_constructor ((CTYPE), VEC_alloc (constructor_elt, gc, 0)); \
+      CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (CONS), TYPE_FIELDS (CTYPE), \
+			      NULL); \
+    } \
+  while (0)
 
 /* Append a field initializer to CONS for the dummy field for the inherited
    fields.  The dummy field has the given VALUE, and the same type as the
    super-class.   Must be specified before calls to PUSH_FIELD_VALUE. */
-#define PUSH_SUPER_VALUE(CONS, VALUE)			\
-{							\
-  tree _field = TREE_CHAIN (CONS);			\
-  if (DECL_NAME (_field) != NULL_TREE)			\
-    abort ();						\
-  CONSTRUCTOR_ELTS (CONS)				\
-    = tree_cons (_field, (VALUE), CONSTRUCTOR_ELTS (CONS)); \
-  TREE_CHAIN (CONS) = TREE_CHAIN (_field);		\
-}
+#define PUSH_SUPER_VALUE(CONS, VALUE) \
+  do \
+    { \
+      constructor_elt *_elt___ = VEC_last (constructor_elt, \
+					   CONSTRUCTOR_ELTS (CONS)); \
+      tree _next___ = TREE_CHAIN (_elt___->index); \
+      gcc_assert (!DECL_NAME (_elt___->index)); \
+      _elt___->value = VALUE; \
+      CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (CONS), _next___, NULL); \
+    } \
+  while (0)
 
 /* Append a field initializer to CONS for a field with the given VALUE.
    NAME is a char* string used for error checking;
    the initializer must be specified in order. */
 #define PUSH_FIELD_VALUE(CONS, NAME, VALUE) 				\
-do									\
-{									\
-  tree _field = TREE_CHAIN (CONS);					\
-  if (strcmp (IDENTIFIER_POINTER (DECL_NAME (_field)), NAME) != 0) 	\
-    abort ();								\
-  CONSTRUCTOR_ELTS (CONS)						\
-    = tree_cons (_field, (VALUE), CONSTRUCTOR_ELTS (CONS));		\
-  TREE_CHAIN (CONS) = TREE_CHAIN (_field); 				\
-}									\
-while (0)
+  do \
+    { \
+      constructor_elt *_elt___ = VEC_last (constructor_elt, \
+					   CONSTRUCTOR_ELTS (CONS)); \
+      tree _next___ = TREE_CHAIN (_elt___->index); \
+      gcc_assert (strcmp (IDENTIFIER_POINTER (DECL_NAME (_elt___->index)), \
+			  NAME) == 0); \
+      _elt___->value = VALUE; \
+      CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (CONS), _next___, NULL); \
+    } \
+  while (0)
 
 /* Finish creating a record CONSTRUCTOR CONS. */
 #define FINISH_RECORD_CONSTRUCTOR(CONS) \
-  CONSTRUCTOR_ELTS(CONS) = nreverse (CONSTRUCTOR_ELTS (CONS))
+  VEC_pop (constructor_elt, CONSTRUCTOR_ELTS (CONS))
 
 /* Macros on constructors invocations.  */
 #define CALL_CONSTRUCTOR_P(NODE)		\

@@ -26,7 +26,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "arith.h"
 #include "match.h"
 
-static char expression_syntax[] = "Syntax error in expression at %C";
+static char expression_syntax[] = N_("Syntax error in expression at %C");
 
 
 /* Match a user-defined operator name.  This is a normal name with a
@@ -852,6 +852,7 @@ gfc_match_expr (gfc_expr ** result)
 
   for (;;)
     {
+      uop = NULL;
       m = match_defined_operator (&uop);
       if (m == MATCH_NO)
 	break;

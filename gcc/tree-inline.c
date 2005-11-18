@@ -49,7 +49,7 @@ Boston, MA 02110-1301, USA.  */
 #include "except.h"
 #include "debug.h"
 #include "pointer-set.h"
-#include "integrate.h"
+#include "ipa-prop.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -127,12 +127,15 @@ typedef struct inline_data
   bool cloning_p;
   /* Similarly for saving function body.  */
   bool saving_p;
+  /* Versioning function is slightly different from inlining. */
+  bool versioning_p;
   /* Callgraph node of function we are inlining into.  */
   struct cgraph_node *node;
   /* Callgraph node of currently inlined function.  */
   struct cgraph_node *current_node;
   /* Current BLOCK.  */
   tree block;
+  varray_type ipa_info;
   /* Exception region the inlined call lie in.  */
   int eh_region;
   /* Take region number in the function being copied, add this value and
@@ -157,8 +160,8 @@ static void unsave_expr_1 (tree);
 static tree unsave_r (tree *, int *, void *);
 static void declare_inline_vars (tree, tree);
 static void remap_save_expr (tree *, void *, int *);
-
-static inline bool inlining_p (inline_data *id);
+static bool replace_ref_tree (inline_data *, tree *);
+static inline bool inlining_p (inline_data *);
 static void add_lexical_block (tree current_block, tree new_block);
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
@@ -198,8 +201,8 @@ remap_decl (tree decl, inline_data *id)
     {
       /* Make a copy of the variable or label.  */
       tree t;
-      t = copy_decl_for_inlining (decl, fn, id->caller);
-
+      t = copy_decl_for_dup (decl, fn, id->caller, id->versioning_p);
+     
       /* Remember it, so that if we encounter this local entity again
 	 we can reuse this copy.  Do this early because remap_type may
 	 need this decl for TYPE_STUB_DECL.  */
@@ -254,25 +257,9 @@ remap_decl (tree decl, inline_data *id)
 }
 
 static tree
-remap_type (tree type, inline_data *id)
+remap_type_1 (tree type, inline_data *id)
 {
-  splay_tree_node node;
   tree new, t;
-
-  if (type == NULL)
-    return type;
-
-  /* See if we have remapped this type.  */
-  node = splay_tree_lookup (id->decl_map, (splay_tree_key) type);
-  if (node)
-    return (tree) node->value;
-
-  /* The type only needs remapping if it's variably modified.  */
-  if (! variably_modified_type_p (type, id->callee))
-    {
-      insert_decl_map (id, type, type);
-      return type;
-    }
 
   /* We do need a copy.  build and register it now.  If this is a pointer or
      reference type, remap the designated type and make a new pointer or
@@ -350,7 +337,18 @@ remap_type (tree type, inline_data *id)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      walk_tree (&TYPE_FIELDS (new), copy_body_r, id, NULL);
+      {
+	tree f, nf = NULL;
+
+	for (f = TYPE_FIELDS (new); f ; f = TREE_CHAIN (f))
+	  {
+	    t = remap_decl (f, id);
+	    DECL_CONTEXT (t) = new;
+	    TREE_CHAIN (t) = nf;
+	    nf = t;
+	  }
+	TYPE_FIELDS (new) = nreverse (nf);
+      }
       break;
 
     case OFFSET_TYPE:
@@ -363,6 +361,29 @@ remap_type (tree type, inline_data *id)
   walk_tree (&TYPE_SIZE_UNIT (new), copy_body_r, id, NULL);
 
   return new;
+}
+
+static tree
+remap_type (tree type, inline_data *id)
+{
+  splay_tree_node node;
+
+  if (type == NULL)
+    return type;
+
+  /* See if we have remapped this type.  */
+  node = splay_tree_lookup (id->decl_map, (splay_tree_key) type);
+  if (node)
+    return (tree) node->value;
+
+  /* The type only needs remapping if it's variably modified.  */
+  if (! variably_modified_type_p (type, id->callee))
+    {
+      insert_decl_map (id, type, type);
+      return type;
+    }
+
+  return remap_type_1 (type, id);
 }
 
 static tree
@@ -421,6 +442,7 @@ remap_block (tree *block, inline_data *id)
   new_block = make_node (BLOCK);
   TREE_USED (new_block) = TREE_USED (old_block);
   BLOCK_ABSTRACT_ORIGIN (new_block) = old_block;
+  BLOCK_SOURCE_LOCATION (new_block) = BLOCK_SOURCE_LOCATION (old_block);
   *block = new_block;
 
   /* Remap its variables.  */
@@ -606,7 +628,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		}
 	    }
 	}
-      else if (TREE_CODE (*tp) == INDIRECT_REF)
+      else if (TREE_CODE (*tp) == INDIRECT_REF
+	       && !id->versioning_p)
 	{
 	  /* Get rid of *& from inline substitutions that can happen when a
 	     pointer argument is an ADDR_EXPR.  */
@@ -616,6 +639,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
 	  if (n)
 	    {
+	      tree new;
 	      /* If we happen to get an ADDR_EXPR in n->value, strip
 	         it manually here as we'll eventually get ADDR_EXPRs
 		 which lie about their types pointed to.  In this case
@@ -623,13 +647,14 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		 but we absolutely rely on that.  As fold_indirect_ref
 	         does other useful transformations, try that first, though.  */
 	      tree type = TREE_TYPE (TREE_TYPE ((tree)n->value));
-	      *tp = fold_indirect_ref_1 (type, (tree)n->value);
+	      new = unshare_expr ((tree)n->value);
+	      *tp = fold_indirect_ref_1 (type, new);
 	      if (! *tp)
 	        {
-		  if (TREE_CODE ((tree)n->value) == ADDR_EXPR)
-		    *tp = TREE_OPERAND ((tree)n->value, 0);
+		  if (TREE_CODE (new) == ADDR_EXPR)
+		    *tp = TREE_OPERAND (new, 0);
 	          else
-	            *tp = build1 (INDIRECT_REF, type, (tree)n->value);
+	            *tp = build1 (INDIRECT_REF, type, new);
 		}
 	      *walk_subtrees = 0;
 	      return NULL;
@@ -638,8 +663,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
       /* Here is the "usual case".  Copy this tree node, and then
 	 tweak some special cases.  */
-      copy_tree_r (tp, walk_subtrees, NULL);
-
+      copy_tree_r (tp, walk_subtrees, id->versioning_p ? data : NULL);
+       
       /* If EXPR has block defined, map it to newly constructed block.
          When inlining we want EXPRs without block appear in the block
 	 of function call.  */
@@ -748,10 +773,22 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 
 		  /* We're cloning or inlining this body; duplicate the
 		     associate callgraph nodes.  */
-		  edge = cgraph_edge (id->current_node, orig_stmt);
+		  if (!id->versioning_p)
+		    {
+		      edge = cgraph_edge (id->current_node, orig_stmt);
+		      if (edge)
+			cgraph_clone_edge (edge, id->node, stmt,
+					   REG_BR_PROB_BASE, 1, true);
+		    }
+		}
+	      if (id->versioning_p)
+		{
+		  /* Update the call_expr on the edges from the new version
+		     to its callees. */
+		  struct cgraph_edge *edge;
+		  edge = cgraph_edge (id->node, orig_stmt);
 		  if (edge)
-		    cgraph_clone_edge (edge, id->node, stmt,
-				       REG_BR_PROB_BASE, 1);
+		    edge->call_stmt = stmt;
 		}
 	    }
 	  /* If you think we can abort here, you are wrong.
@@ -920,7 +957,7 @@ copy_cfg_body (inline_data * id, gcov_type count, int frequency,
      and label_to_block_maps.  Otherwise, we're duplicating a function
      body for inlining; insert our new blocks and labels into the
      existing varrays.  */
-  saving_or_cloning = (id->saving_p || id->cloning_p);
+  saving_or_cloning = (id->saving_p || id->cloning_p || id->versioning_p);
   if (saving_or_cloning)
     {
       new_cfun =
@@ -1060,7 +1097,7 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
   /* Make an equivalent VAR_DECL.  Note that we must NOT remap the type
      here since the type of this decl must be visible to the calling
      function.  */
-  var = copy_decl_for_inlining (p, fn, id->caller);
+  var = copy_decl_for_dup (p, fn, id->caller, /*versioning=*/false);
 
   /* See if the frontend wants to pass this by invisible reference.  If
      so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
@@ -1122,7 +1159,11 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	  && (!is_gimple_cast (rhs)
 	      || !is_gimple_val (TREE_OPERAND (rhs, 0))))
 	gimplify_stmt (&init_stmt);
-      bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
+
+      /* If VAR represents a zero-sized variable, it's possible that the
+	 assignment statment may result in no gimple statements.  */
+      if (init_stmt)
+        bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
     }
 }
 
@@ -1243,10 +1284,21 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
       /* If the callee cannot possibly modify MODIFY_DEST, then we can
 	 reuse it as the result of the call directly.  Don't do this if
 	 it would promote MODIFY_DEST to addressable.  */
-      else if (!TREE_STATIC (modify_dest)
-	       && !TREE_ADDRESSABLE (modify_dest)
-	       && !TREE_ADDRESSABLE (result))
-	use_it = true;
+      else if (TREE_ADDRESSABLE (result))
+	use_it = false;
+      else
+	{
+	  tree base_m = get_base_address (modify_dest);
+
+	  /* If the base isn't a decl, then it's a pointer, and we don't
+	     know where that's going to go.  */
+	  if (!DECL_P (base_m))
+	    use_it = false;
+	  else if (is_global_var (base_m))
+	    use_it = false;
+	  else if (!TREE_ADDRESSABLE (base_m))
+	    use_it = true;
+	}
 
       if (use_it)
 	{
@@ -1258,7 +1310,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 
   gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) == INTEGER_CST);
 
-  var = copy_decl_for_inlining (result, callee, caller);
+  var = copy_decl_for_dup (result, callee, caller, /*versioning=*/false);
 
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
   DECL_STRUCT_FUNCTION (caller)->unexpanded_var_list
@@ -1528,7 +1580,7 @@ inlinable_function_p (tree fn)
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	sorry (inline_forbidden_reason, fn);
       else if (do_warning)
-	warning (0, inline_forbidden_reason, fn);
+	warning (OPT_Winline, inline_forbidden_reason, fn);
 
       inlinable = false;
     }
@@ -1966,7 +2018,9 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
      inlining.  */
   if (!cgraph_inline_p (cg_edge, &reason))
     {
-      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn))
+	  /* Avoid warnings during early inline pass. */
+	  && (!flag_unit_at_a_time || cgraph_global_info_ready))
 	{
 	  sorry ("inlining failed in call to %q+F: %s", fn, reason);
 	  sorry ("called from here");
@@ -2023,8 +2077,8 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
      statement expression is the return type of the function call.  */
   id->block = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (id->block) = fn;
+  BLOCK_SOURCE_LOCATION (id->block) = input_location;
   add_lexical_block (TREE_BLOCK (stmt), id->block);
-
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
@@ -2362,6 +2416,7 @@ tree
 copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   enum tree_code code = TREE_CODE (*tp);
+  inline_data *id = (inline_data *) data;
 
   /* We make copies of most nodes.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
@@ -2374,6 +2429,11 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       tree chain = TREE_CHAIN (*tp);
       tree new;
 
+      if (id && id->versioning_p && replace_ref_tree (id, tp))
+	{
+	  *walk_subtrees = 0;
+	  return NULL_TREE;
+	}
       /* Copy the node.  */
       new = copy_node (*tp);
 
@@ -2393,7 +2453,22 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       if (TREE_CODE (*tp) == BIND_EXPR)
 	BIND_EXPR_BLOCK (*tp) = NULL_TREE;
     }
+  else if (code == CONSTRUCTOR)
+    {
+      /* CONSTRUCTOR nodes need special handling because
+         we need to duplicate the vector of elements.  */
+      tree new;
 
+      new = copy_node (*tp);
+
+      /* Propagate mudflap marked-ness.  */
+      if (flag_mudflap && mf_marked_p (*tp))
+        mf_mark (new);
+
+      CONSTRUCTOR_ELTS (new) = VEC_copy (constructor_elt, gc,
+					 CONSTRUCTOR_ELTS (*tp));
+      *tp = new;
+    }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     *walk_subtrees = 0;
   else if (TREE_CODE_CLASS (code) == tcc_declaration)
@@ -2461,8 +2536,8 @@ mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
       /* Copy the decl and remember the copy.  */
       insert_decl_map (id, decl,
-		       copy_decl_for_inlining (decl, DECL_CONTEXT (decl),
-					       DECL_CONTEXT (decl)));
+		       copy_decl_for_dup (decl, DECL_CONTEXT (decl),
+					  DECL_CONTEXT (decl),  /*versioning=*/false));
     }
 
   return NULL_TREE;
@@ -2596,9 +2671,335 @@ declare_inline_vars (tree block, tree vars)
     BLOCK_VARS (block) = chainon (BLOCK_VARS (block), vars);
 }
 
-/* Returns true if we're inlining.  */
-static inline bool
-inlining_p (inline_data *id)
+
+/* Copy NODE (which must be a DECL).  The DECL originally was in the FROM_FN,
+   but now it will be in the TO_FN.  VERSIONING means that this function 
+   is used by the versioning utility (not inlining or cloning).  */
+
+tree
+copy_decl_for_dup (tree decl, tree from_fn, tree to_fn, bool versioning)
 {
-  return (!id->saving_p && !id->cloning_p);
+  tree copy;
+
+  gcc_assert (DECL_P (decl));
+  /* Copy the declaration.  */
+  if (!versioning
+      && (TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == RESULT_DECL))
+    {
+      tree type = TREE_TYPE (decl);
+
+      /* For a parameter or result, we must make an equivalent VAR_DECL,
+	 not a new PARM_DECL.  */
+      copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+      TREE_READONLY (copy) = TREE_READONLY (decl);
+      TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
+      DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (decl);
+    }
+  else
+    {
+      copy = copy_node (decl);
+      /* The COPY is not abstract; it will be generated in TO_FN.  */
+      DECL_ABSTRACT (copy) = 0;
+      lang_hooks.dup_lang_specific_decl (copy);
+
+      /* TREE_ADDRESSABLE isn't used to indicate that a label's
+	 address has been taken; it's for internal bookkeeping in
+	 expand_goto_internal.  */
+      if (TREE_CODE (copy) == LABEL_DECL)
+	{
+	  TREE_ADDRESSABLE (copy) = 0;
+	  LABEL_DECL_UID (copy) = -1;
+	}
+    }
+
+  /* Don't generate debug information for the copy if we wouldn't have
+     generated it for the copy either.  */
+  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (decl);
+  DECL_IGNORED_P (copy) = DECL_IGNORED_P (decl);
+
+  /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what
+     declaration inspired this copy.  */ 
+  DECL_ABSTRACT_ORIGIN (copy) = DECL_ORIGIN (decl);
+
+  /* The new variable/label has no RTL, yet.  */
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (copy), TS_DECL_WRTL)
+      && !TREE_STATIC (copy) && !DECL_EXTERNAL (copy))
+    SET_DECL_RTL (copy, NULL_RTX);
+  
+  /* These args would always appear unused, if not for this.  */
+  TREE_USED (copy) = 1;
+
+  /* Set the context for the new declaration.  */
+  if (!DECL_CONTEXT (decl))
+    /* Globals stay global.  */
+    ;
+  else if (DECL_CONTEXT (decl) != from_fn)
+    /* Things that weren't in the scope of the function we're inlining
+       from aren't in the scope we're inlining to, either.  */
+    ;
+  else if (TREE_STATIC (decl))
+    /* Function-scoped static variables should stay in the original
+       function.  */
+    ;
+  else
+    /* Ordinary automatic local variables are now in the scope of the
+       new function.  */
+    DECL_CONTEXT (copy) = to_fn;
+
+  return copy;
+}
+
+/* Return a copy of the function's argument tree.  */
+static tree
+copy_arguments_for_versioning (tree orig_parm, inline_data * id)
+{
+  tree *arg_copy, *parg;
+
+  arg_copy = &orig_parm;
+  for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
+    {
+      tree new = remap_decl (*parg, id);
+      lang_hooks.dup_lang_specific_decl (new);
+      TREE_CHAIN (new) = TREE_CHAIN (*parg);
+      *parg = new;
+    }
+  return orig_parm;
+}
+
+/* Return a copy of the function's static chain.  */
+static tree
+copy_static_chain (tree static_chain, inline_data * id)
+{
+  tree *chain_copy, *pvar;
+
+  chain_copy = &static_chain;
+  for (pvar = chain_copy; *pvar; pvar = &TREE_CHAIN (*pvar))
+    {
+      tree new = remap_decl (*pvar, id);
+      lang_hooks.dup_lang_specific_decl (new);
+      TREE_CHAIN (new) = TREE_CHAIN (*pvar);
+      *pvar = new;
+    }
+  return static_chain;
+}
+
+/* Return true if the function is allowed to be versioned.
+   This is a guard for the versioning functionality.  */
+bool
+tree_versionable_function_p (tree fndecl)
+{
+  if (fndecl == NULL_TREE)
+    return false;
+  /* ??? There are cases where a function is
+     uninlinable but can be versioned.  */
+  if (!tree_inlinable_function_p (fndecl))
+    return false;
+  
+  return true;
+}
+
+/* Create a copy of a function's tree.
+   OLD_DECL and NEW_DECL are FUNCTION_DECL tree nodes
+   of the original function and the new copied function
+   respectively.  In case we want to replace a DECL 
+   tree with another tree while duplicating the function's 
+   body, TREE_MAP represents the mapping between these 
+   trees.  */
+void
+tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map)
+{
+  struct cgraph_node *old_version_node;
+  struct cgraph_node *new_version_node;
+  inline_data id;
+  tree p, new_fndecl;
+  unsigned i;
+  struct ipa_replace_map *replace_info;
+  basic_block old_entry_block;
+  tree t_step;
+
+  gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL
+	      && TREE_CODE (new_decl) == FUNCTION_DECL);
+  DECL_POSSIBLY_INLINED (old_decl) = 1;
+
+  old_version_node = cgraph_node (old_decl);
+  new_version_node = cgraph_node (new_decl);
+
+  allocate_struct_function (new_decl);
+  /* Cfun points to the new allocated function struct at this point.  */
+  cfun->function_end_locus = DECL_SOURCE_LOCATION (new_decl);
+
+  DECL_ARTIFICIAL (new_decl) = 1;
+  DECL_ABSTRACT_ORIGIN (new_decl) = DECL_ORIGIN (old_decl);
+
+  /* Generate a new name for the new version. */
+  DECL_NAME (new_decl) =
+    create_tmp_var_name (NULL);
+  /* Create a new SYMBOL_REF rtx for the new name. */
+  if (DECL_RTL (old_decl) != NULL)
+    {
+      SET_DECL_RTL (new_decl, copy_rtx (DECL_RTL (old_decl)));
+      XEXP (DECL_RTL (new_decl), 0) =
+	gen_rtx_SYMBOL_REF (GET_MODE (XEXP (DECL_RTL (old_decl), 0)),
+			    IDENTIFIER_POINTER (DECL_NAME (new_decl)));
+    }
+
+  /* Prepare the data structures for the tree copy.  */
+  memset (&id, 0, sizeof (id));
+  
+  /* The new version. */
+  id.node = new_version_node;
+  
+  /* The old version. */
+  id.current_node = cgraph_node (old_decl);
+  
+  id.versioning_p = true;
+  id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  id.caller = new_decl;
+  id.callee = old_decl;
+  id.callee_cfun = DECL_STRUCT_FUNCTION (old_decl);
+  
+  current_function_decl = new_decl;
+  
+  /* Copy the function's static chain.  */
+  p = DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl;
+  if (p)
+    DECL_STRUCT_FUNCTION (new_decl)->static_chain_decl =
+      copy_static_chain (DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl,
+			 &id);
+  /* Copy the function's arguments.  */
+  if (DECL_ARGUMENTS (old_decl) != NULL_TREE)
+    DECL_ARGUMENTS (new_decl) =
+      copy_arguments_for_versioning (DECL_ARGUMENTS (old_decl), &id);
+  
+  /* If there's a tree_map, prepare for substitution.  */
+  if (tree_map)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (tree_map); i++)
+      {
+	replace_info = VARRAY_GENERIC_PTR (tree_map, i);
+	if (replace_info->replace_p && !replace_info->ref_p)
+	  insert_decl_map (&id, replace_info->old_tree,
+			   replace_info->new_tree);
+	else if (replace_info->replace_p && replace_info->ref_p)
+	  id.ipa_info = tree_map;
+      }
+  
+  DECL_INITIAL (new_decl) = remap_blocks (DECL_INITIAL (id.callee), &id);
+  
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (id.caller);
+  
+  if (DECL_STRUCT_FUNCTION (old_decl)->unexpanded_var_list != NULL_TREE)
+    /* Add local vars.  */
+    for (t_step = DECL_STRUCT_FUNCTION (old_decl)->unexpanded_var_list;
+	 t_step; t_step = TREE_CHAIN (t_step))
+      {
+	tree var = TREE_VALUE (t_step);
+	if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
+	  cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
+						 cfun->unexpanded_var_list);
+	else
+	  cfun->unexpanded_var_list =
+	    tree_cons (NULL_TREE, remap_decl (var, &id),
+		       cfun->unexpanded_var_list);
+      }
+  
+  /* Copy the Function's body.  */
+  old_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION
+    (DECL_STRUCT_FUNCTION (old_decl));
+  new_fndecl = copy_body (&id,
+			  old_entry_block->count,
+			  old_entry_block->frequency, NULL, NULL);
+  
+  DECL_SAVED_TREE (new_decl) = DECL_SAVED_TREE (new_fndecl);
+
+  DECL_STRUCT_FUNCTION (new_decl)->cfg =
+    DECL_STRUCT_FUNCTION (new_fndecl)->cfg;
+  DECL_STRUCT_FUNCTION (new_decl)->eh = DECL_STRUCT_FUNCTION (new_fndecl)->eh;
+  DECL_STRUCT_FUNCTION (new_decl)->ib_boundaries_block =
+    DECL_STRUCT_FUNCTION (new_fndecl)->ib_boundaries_block;
+  DECL_STRUCT_FUNCTION (new_decl)->last_label_uid =
+    DECL_STRUCT_FUNCTION (new_fndecl)->last_label_uid;
+
+  if (DECL_RESULT (old_decl) != NULL_TREE)
+    {
+      tree *res_decl = &DECL_RESULT (old_decl);
+      DECL_RESULT (new_decl) = remap_decl (*res_decl, &id);
+      lang_hooks.dup_lang_specific_decl (DECL_RESULT (new_decl));
+    }
+  
+  current_function_decl = NULL;
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (new_decl);
+
+  /* Clean up.  */
+  splay_tree_delete (id.decl_map);
+  fold_cond_expr_cond ();
+  return;
+}
+
+/*  Replace an INDIRECT_REF tree of a given DECL tree with a new 
+    given tree.
+    ID->ipa_info keeps the old tree and the new tree.  
+    TP points to the INDIRECT REF tree.  Return true if 
+    the trees were replaced.  */
+static bool
+replace_ref_tree (inline_data * id, tree * tp)
+{
+  bool replaced = false;
+  tree new;
+
+  if (id->ipa_info && VARRAY_ACTIVE_SIZE (id->ipa_info) > 0)
+    {
+      unsigned i;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (id->ipa_info); i++)
+	{
+	  struct ipa_replace_map *replace_info;
+	  replace_info = VARRAY_GENERIC_PTR (id->ipa_info, i);
+
+	  if (replace_info->replace_p && replace_info->ref_p)
+	    {
+	      tree old_tree = replace_info->old_tree;
+	      tree new_tree = replace_info->new_tree;
+
+	      if (TREE_CODE (*tp) == INDIRECT_REF
+		  && TREE_OPERAND (*tp, 0) == old_tree)
+		{
+		  new = copy_node (new_tree);
+		  *tp = new;
+		  replaced = true;
+		}
+	    }
+	}
+    }
+  return replaced;
+}
+
+/* Return true if we are inlining.  */
+static inline bool
+inlining_p (inline_data * id)
+{
+  return (!id->saving_p && !id->cloning_p && !id->versioning_p);
+}
+
+/* Duplicate a type, fields and all.  */
+
+tree
+build_duplicate_type (tree type)
+{
+  inline_data id;
+
+  memset (&id, 0, sizeof (id));
+  id.callee = current_function_decl;
+  id.caller = current_function_decl;
+  id.callee_cfun = cfun;
+  id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
+  type = remap_type_1 (type, &id);
+
+  splay_tree_delete (id.decl_map);
+
+  return type;
 }

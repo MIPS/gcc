@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -56,7 +56,6 @@ with Sem_Util; use Sem_Util;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
-with Snames;   use Snames;
 with Stand;
 with Stringt;  use Stringt;
 with Targparm; use Targparm;
@@ -493,8 +492,15 @@ package body Sem_Attr is
          --  accesses are allowed (references to the current type instance).
 
          if Is_Entity_Name (P) then
-            Scop := Current_Scope;
             Typ := Entity (P);
+
+            --  The reference may appear in an aggregate that has been expanded
+            --  into a loop. Locate scope of type definition, if any.
+
+            Scop := Current_Scope;
+            while Ekind (Scop) = E_Loop loop
+               Scop := Scope (Scop);
+            end loop;
 
             if Is_Type (Typ) then
 
@@ -517,6 +523,7 @@ package body Sem_Attr is
                      loop
                         Q := Parent (Q);
                      end loop;
+
                      if Present (Q) then
                         Set_Has_Per_Object_Constraint (
                           Defining_Identifier (Q), True);
@@ -586,11 +593,9 @@ package body Sem_Attr is
             declare
                Index : Interp_Index;
                It    : Interp;
-
             begin
                Set_Etype (N, Any_Type);
                Get_First_Interp (P, Index, It);
-
                while Present (It.Typ) loop
                   Acc_Type := Build_Access_Object_Type (It.Typ);
                   Add_One_Interp (N, Acc_Type, Acc_Type);
@@ -1374,13 +1379,27 @@ package body Sem_Attr is
       begin
          Analyze (P);
 
+         --  Ada 2005 (AI-345): Attribute 'Terminated can be applied to
+         --  task interface class-wide types.
+
          if Is_Task_Type (Etype (P))
            or else (Is_Access_Type (Etype (P))
-              and then Is_Task_Type (Designated_Type (Etype (P))))
+                      and then Is_Task_Type (Designated_Type (Etype (P))))
+           or else (Ada_Version >= Ada_05
+                      and then Ekind (Etype (P)) = E_Class_Wide_Type
+                      and then Is_Interface (Etype (P))
+                      and then Is_Task_Interface (Etype (P)))
          then
             Resolve (P);
+
          else
-            Error_Attr ("prefix of % attribute must be a task", P);
+            if Ada_Version >= Ada_05 then
+               Error_Attr ("prefix of % attribute must be a task or a task "
+                           & "interface class-wide object", P);
+
+            else
+               Error_Attr ("prefix of % attribute must be a task", P);
+            end if;
          end if;
       end Check_Task_Prefix;
 
@@ -2794,16 +2813,28 @@ package body Sem_Attr is
          if Etype (P) =  Standard_Exception_Type then
             Set_Etype (N, RTE (RE_Exception_Id));
 
+         --  Ada 2005 (AI-345): Attribute 'Identity may be applied to
+         --  task interface class-wide types.
+
          elsif Is_Task_Type (Etype (P))
            or else (Is_Access_Type (Etype (P))
-              and then Is_Task_Type (Designated_Type (Etype (P))))
+                      and then Is_Task_Type (Designated_Type (Etype (P))))
+           or else (Ada_Version >= Ada_05
+                      and then Ekind (Etype (P)) = E_Class_Wide_Type
+                      and then Is_Interface (Etype (P))
+                      and then Is_Task_Interface (Etype (P)))
          then
             Resolve (P);
             Set_Etype (N, RTE (RO_AT_Task_Id));
 
          else
-            Error_Attr ("prefix of % attribute must be a task or an "
-              & "exception", P);
+            if Ada_Version >= Ada_05 then
+               Error_Attr ("prefix of % attribute must be an exception, a "
+                         & "task or a task interface class-wide object", P);
+            else
+               Error_Attr ("prefix of % attribute must be a task or an "
+                         & "exception", P);
+            end if;
          end if;
 
       -----------
@@ -2962,6 +2993,15 @@ package body Sem_Attr is
          Check_Real_Type;
          Check_E0;
          Set_Etype (N, Universal_Integer);
+
+      ----------------------
+      -- Machine_Rounding --
+      ----------------------
+
+      when Attribute_Machine_Rounding =>
+         Check_Floating_Point_Type_1;
+         Set_Etype (N, P_Base_Type);
+         Resolve (E1, P_Base_Type);
 
       --------------------
       -- Machine_Rounds --
@@ -3500,7 +3540,8 @@ package body Sem_Attr is
             Check_Object_Reference (P);
 
          elsif Is_Entity_Name (P)
-           and then Is_Type (Entity (P))
+           and then (Is_Type (Entity (P))
+                       or else Ekind (Entity (P)) = E_Enumeration_Literal)
          then
             null;
 
@@ -4175,6 +4216,10 @@ package body Sem_Attr is
       --  used for First and Last of scalar types. Static is reset to False
       --  if the type or index type is not statically constrained.
 
+      function Statically_Denotes_Entity (N : Node_Id) return Boolean;
+      --  Verify that the prefix of a potentially static array attribute
+      --  satisfies the conditions of 4.9 (14).
+
       ---------------
       -- Aft_Value --
       ---------------
@@ -4532,6 +4577,25 @@ package body Sem_Attr is
          end if;
       end Set_Bounds;
 
+      -------------------------------
+      -- Statically_Denotes_Entity --
+      -------------------------------
+
+      function Statically_Denotes_Entity (N : Node_Id) return Boolean is
+         E : Entity_Id;
+
+      begin
+         if not Is_Entity_Name (N) then
+            return False;
+         else
+            E := Entity (N);
+         end if;
+
+         return
+           Nkind (Parent (E)) /= N_Object_Renaming_Declaration
+             or else Statically_Denotes_Entity (Renamed_Object (E));
+      end Statically_Denotes_Entity;
+
    --  Start of processing for Eval_Attribute
 
    begin
@@ -4790,12 +4854,15 @@ package body Sem_Attr is
       --  Array case. We enforce the constrained requirement of (RM 4.9(7-8))
       --  since we can't do anything with unconstrained arrays. In addition,
       --  only the First, Last and Length attributes are possibly static.
-      --  In addition Component_Size is possibly foldable, even though it
-      --  can never be static.
 
       --  Definite, Has_Access_Values, Has_Discriminants, Type_Class, and
       --  Unconstrained_Array are again exceptions, because they apply as
       --  well to unconstrained types.
+
+      --  In addition Component_Size is an exception since it is possibly
+      --  foldable, even though it is never static, and it does apply to
+      --  unconstrained arrays. Furthermore, it is essential to fold this
+      --  in the packed case, since otherwise the value will be incorrect.
 
       elsif Id = Attribute_Definite
               or else
@@ -4806,14 +4873,15 @@ package body Sem_Attr is
             Id = Attribute_Type_Class
               or else
             Id = Attribute_Unconstrained_Array
+              or else
+            Id = Attribute_Component_Size
       then
          Static := False;
 
       else
          if not Is_Constrained (P_Type)
-           or else (Id /= Attribute_Component_Size and then
-                    Id /= Attribute_First          and then
-                    Id /= Attribute_Last           and then
+           or else (Id /= Attribute_First and then
+                    Id /= Attribute_Last  and then
                     Id /= Attribute_Length)
          then
             Check_Expressions;
@@ -4829,7 +4897,8 @@ package body Sem_Attr is
          --  Again we compute the variable Static for easy reference later
          --  (note that no array attributes are static in Ada 83).
 
-         Static := Ada_Version >= Ada_95;
+         Static := Ada_Version >= Ada_95
+                     and then Statically_Denotes_Entity (P);
 
          declare
             N : Node_Id;
@@ -5452,6 +5521,20 @@ package body Sem_Attr is
          else
             Fold_Uint (N, Uint_2, True);
          end if;
+
+      ----------------------
+      -- Machine_Rounding --
+      ----------------------
+
+      --  Note: for the folding case, it is fine to treat Machine_Rounding
+      --  exactly the same way as Rounding, since this is one of the allowed
+      --  behaviors, and performance is not an issue here. It might be a bit
+      --  better to give the same result as it would give at run-time, even
+      --  though the non-determinism is certainly permitted.
+
+      when Attribute_Machine_Rounding =>
+         Fold_Ureal (N,
+           Eval_Fat.Rounding (P_Root_Type, Expr_Value_R (E1)), Static);
 
       --------------------
       -- Machine_Rounds --
@@ -6215,7 +6298,6 @@ package body Sem_Attr is
          end if;
 
          Rewrite (N, New_Occurrence_Of (RTE (Id), Loc));
-
       end Type_Class;
 
       -----------------------
@@ -7217,7 +7299,7 @@ package body Sem_Attr is
                Note_Possible_Modification (P);
             end if;
 
-            if Nkind (P) in  N_Subexpr
+            if Nkind (P) in N_Subexpr
               and then Is_Overloaded (P)
             then
                Get_First_Interp (P, Index, It);
@@ -7226,7 +7308,7 @@ package body Sem_Attr is
                if Present (It.Nam) then
                   Error_Msg_Name_1 := Aname;
                   Error_Msg_N
-                    ("prefix of % attribute cannot be overloaded", N);
+                    ("prefix of % attribute cannot be overloaded", P);
                   return;
                end if;
             end if;
@@ -7657,12 +7739,19 @@ package body Sem_Attr is
          return True;
       end if;
 
-      if Nam = TSS_Stream_Input then
-         return Ada_Version >= Ada_05
-           and then Stream_Attribute_Available (Etyp, TSS_Stream_Read);
-      elsif Nam = TSS_Stream_Output then
-         return Ada_Version >= Ada_05
-           and then Stream_Attribute_Available (Etyp, TSS_Stream_Write);
+      --  In Ada 2005, Input can invoke Read, and Output can invoke Write
+
+      if Nam = TSS_Stream_Input
+        and then Ada_Version >= Ada_05
+        and then Stream_Attribute_Available (Etyp, TSS_Stream_Read)
+      then
+         return True;
+
+      elsif Nam = TSS_Stream_Output
+        and then Ada_Version >= Ada_05
+        and then Stream_Attribute_Available (Etyp, TSS_Stream_Write)
+      then
+         return True;
       end if;
 
       --  Case of Read and Write: check for attribute definition clause that

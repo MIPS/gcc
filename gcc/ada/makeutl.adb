@@ -26,12 +26,10 @@
 
 with Namet;    use Namet;
 with Osint;    use Osint;
-with Prj;      use Prj;
 with Prj.Ext;
 with Prj.Util;
 with Snames;   use Snames;
 with Table;
-with Types;    use Types;
 
 with System.HTable;
 
@@ -59,7 +57,7 @@ package body Makeutl is
       Key        => Mark_Key,
       Hash       => Hash,
       Equal      => "=");
-   --  A hash table to keep tracks of the marked units.
+   --  A hash table to keep tracks of the marked units
 
    type Linker_Options_Data is record
       Project : Project_Id;

@@ -46,53 +46,6 @@ extern int symbolic_reference_mentioned_p (rtx);
 extern bool extended_reg_mentioned_p (rtx);
 extern bool x86_extended_QIreg_mentioned_p (rtx);
 extern bool x86_extended_reg_mentioned_p (rtx);
-
-extern int any_fp_register_operand (rtx, enum machine_mode);
-extern int register_and_not_any_fp_reg_operand (rtx, enum machine_mode);
-
-extern int fp_register_operand (rtx, enum machine_mode);
-extern int register_and_not_fp_reg_operand (rtx, enum machine_mode);
-
-extern int x86_64_general_operand (rtx, enum machine_mode);
-extern int x86_64_szext_general_operand (rtx, enum machine_mode);
-extern int x86_64_nonmemory_operand (rtx, enum machine_mode);
-extern int x86_64_szext_nonmemory_operand (rtx, enum machine_mode);
-extern int x86_64_immediate_operand (rtx, enum machine_mode);
-extern int x86_64_zext_immediate_operand (rtx, enum machine_mode);
-extern int symbolic_operand (rtx, enum machine_mode);
-extern int tls_symbolic_operand (rtx, enum machine_mode);
-extern int global_dynamic_symbolic_operand (rtx, enum machine_mode);
-extern int local_dynamic_symbolic_operand (rtx, enum machine_mode);
-extern int initial_exec_symbolic_operand (rtx, enum machine_mode);
-extern int local_exec_symbolic_operand (rtx, enum machine_mode);
-extern int pic_symbolic_operand (rtx, enum machine_mode);
-extern int call_insn_operand (rtx, enum machine_mode);
-extern int sibcall_insn_operand (rtx, enum machine_mode);
-extern int constant_call_address_operand (rtx, enum machine_mode);
-extern int const0_operand (rtx, enum machine_mode);
-extern int const1_operand (rtx, enum machine_mode);
-extern int const248_operand (rtx, enum machine_mode);
-extern int incdec_operand (rtx, enum machine_mode);
-extern int reg_no_sp_operand (rtx, enum machine_mode);
-extern int mmx_reg_operand (rtx, enum machine_mode);
-extern int general_no_elim_operand (rtx, enum machine_mode);
-extern int nonmemory_no_elim_operand (rtx, enum machine_mode);
-extern int q_regs_operand (rtx, enum machine_mode);
-extern int non_q_regs_operand (rtx, enum machine_mode);
-extern int sse_comparison_operator (rtx, enum machine_mode);
-extern int fcmov_comparison_operator (rtx, enum machine_mode);
-extern int cmp_fp_expander_operand (rtx, enum machine_mode);
-extern int ix86_comparison_operator (rtx, enum machine_mode);
-extern int ext_register_operand (rtx, enum machine_mode);
-extern int binary_fp_operator (rtx, enum machine_mode);
-extern int mult_operator (rtx, enum machine_mode);
-extern int div_operator (rtx, enum machine_mode);
-extern int arith_or_logical_operator (rtx, enum machine_mode);
-extern int promotable_binary_operator (rtx, enum machine_mode);
-extern int memory_displacement_operand (rtx, enum machine_mode);
-extern int cmpsi_operand (rtx, enum machine_mode);
-extern int long_memory_operand (rtx, enum machine_mode);
-extern int aligned_operand (rtx, enum machine_mode);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 
 extern int ix86_expand_movmem (rtx, rtx, rtx, rtx);
@@ -155,9 +108,9 @@ extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
 extern rtx ix86_zero_extend_to_Pmode (rtx);
 extern void ix86_split_long_move (rtx[]);
-extern void ix86_split_ashldi (rtx *, rtx);
-extern void ix86_split_ashrdi (rtx *, rtx);
-extern void ix86_split_lshrdi (rtx *, rtx);
+extern void ix86_split_ashl (rtx *, rtx, enum machine_mode);
+extern void ix86_split_ashr (rtx *, rtx, enum machine_mode);
+extern void ix86_split_lshr (rtx *, rtx, enum machine_mode);
 extern rtx ix86_find_base_term (rtx);
 extern int ix86_check_movabs (rtx, int);
 
@@ -206,7 +159,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
-extern rtx ix86_function_value (tree, tree);
+extern rtx ix86_function_value (tree, tree, bool);
 #endif
 
 #endif
@@ -244,6 +197,13 @@ extern void i386_pe_encode_section_info (tree, rtx, int);
 extern const char *i386_pe_strip_name_encoding (const char *);
 extern const char *i386_pe_strip_name_encoding_full (const char *);
 extern void i386_pe_output_labelref (FILE *, const char *);
+extern bool i386_pe_valid_dllimport_attribute_p (tree);
+
+/* In winnt-cxx.c and winnt-stubs.c  */
+extern void i386_pe_adjust_class_at_definition (tree);
+extern bool i386_pe_type_dllimport_p (tree);
+extern bool i386_pe_type_dllexport_p (tree);
+
 extern rtx maybe_get_pool_constant (rtx);
 
 extern char internal_label_prefix[16];
@@ -259,9 +219,14 @@ struct ix86_address
 
 extern int ix86_decompose_address (rtx, struct ix86_address *);
 extern int memory_address_length (rtx addr);
+extern void x86_output_aligned_bss (FILE *, tree, const char *,
+				    unsigned HOST_WIDE_INT, int);
+extern void x86_elf_aligned_common (FILE *, const char *,
+				    unsigned HOST_WIDE_INT, int);
 
 #ifdef RTX_CODE
 extern void ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *,
 				      enum rtx_code *, enum rtx_code *);
 extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 #endif
+extern int asm_preferred_eh_data_format (int, int);

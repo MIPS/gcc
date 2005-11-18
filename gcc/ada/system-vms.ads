@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                       (OpenVMS DEC Threads Version)                      --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -37,10 +37,10 @@
 ------------------------------------------------------------------------------
 
 package System is
-pragma Pure (System);
---  Note that we take advantage of the implementation permission to make this
---  unit Pure instead of Preelaborable; see RM 13.7.1(15). In Ada 2005, this is
---  Pure in any case (AI-362).
+   pragma Pure;
+   --  Note that we take advantage of the implementation permission to make
+   --  this unit Pure instead of Preelaborable; see RM 13.7.1(15). In Ada
+   --  2005, this is Pure in any case (AI-362).
 
    type Name is (SYSTEM_NAME_GNAT);
    System_Name : constant Name := SYSTEM_NAME_GNAT;
@@ -235,5 +235,10 @@ private
    --  Interface to VMS condition handling. Used by RTSfind and pragma
    --  {Import,Export}_Exception. Put here because this is the only
    --  VMS specific package that doesn't drag in tasking.
+
+   ADA_GNAT : constant Boolean := True;
+   pragma Export_Object (ADA_GNAT, "ADA$GNAT");
+   --  Uniquitous global symbol identifing a GNAT compiled image to VMS Debug.
+   --  Do not remove!
 
 end System;

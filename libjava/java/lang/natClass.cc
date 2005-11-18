@@ -623,7 +623,7 @@ java::lang::Class::isAssignableFrom (jclass klass)
   // Arguments may not have been initialized, given ".class" syntax.
   _Jv_InitClass (this);
   _Jv_InitClass (klass);
-  return _Jv_IsAssignableFrom (this, klass);
+  return _Jv_IsAssignableFrom (klass, this);
 }
 
 jboolean
@@ -632,7 +632,7 @@ java::lang::Class::isInstance (jobject obj)
   if (! obj)
     return false;
   _Jv_InitClass (this);
-  return _Jv_IsAssignableFrom (this, JV_CLASS (obj));
+  return _Jv_IsAssignableFrom (JV_CLASS (obj), this);
 }
 
 jobject
@@ -879,8 +879,10 @@ _Jv_LookupDeclaredMethod (jclass klass, _Jv_Utf8Const *name,
   return NULL;
 }
 
+#ifdef HAVE_TLS
+
 // NOTE: MCACHE_SIZE should be a power of 2 minus one.
-#define MCACHE_SIZE 1023
+#define MCACHE_SIZE 31
 
 struct _Jv_mcache
 {
@@ -888,37 +890,60 @@ struct _Jv_mcache
   _Jv_Method *method;
 };
 
-static _Jv_mcache method_cache[MCACHE_SIZE + 1];
+static __thread _Jv_mcache *method_cache;
+#endif // HAVE_TLS
 
 static void *
 _Jv_FindMethodInCache (jclass klass,
                        _Jv_Utf8Const *name,
                        _Jv_Utf8Const *signature)
 {
-  int index = name->hash16 () & MCACHE_SIZE;
-  _Jv_mcache *mc = method_cache + index;
-  _Jv_Method *m = mc->method;
+#ifdef HAVE_TLS
+  _Jv_mcache *cache = method_cache;
+  if (cache)
+    {
+      int index = name->hash16 () & MCACHE_SIZE;
+      _Jv_mcache *mc = &cache[index];
+      _Jv_Method *m = mc->method;
 
-  if (mc->klass == klass
-      && m != NULL             // thread safe check
-      && _Jv_equalUtf8Consts (m->name, name)
-      && _Jv_equalUtf8Consts (m->signature, signature))
-    return mc->method->ncode;
+      if (mc->klass == klass
+	  && _Jv_equalUtf8Consts (m->name, name)
+	  && _Jv_equalUtf8Consts (m->signature, signature))
+	return mc->method->ncode;
+    }
+#endif // HAVE_TLS
   return NULL;
 }
 
 static void
-_Jv_AddMethodToCache (jclass klass,
-                       _Jv_Method *method)
+_Jv_AddMethodToCache (jclass klass, _Jv_Method *method)
 {
-  _Jv_MonitorEnter (&java::lang::Class::class$); 
+#ifdef HAVE_TLS
+  if (method_cache == NULL)
+    method_cache = (_Jv_mcache *) _Jv_MallocUnchecked((MCACHE_SIZE + 1)
+						      * sizeof (_Jv_mcache));
+  // If the allocation failed, just keep going.
+  if (method_cache != NULL)
+    {
+      int index = method->name->hash16 () & MCACHE_SIZE;
+      method_cache[index].method = method;
+      method_cache[index].klass = klass;
+    }
+#endif // HAVE_TLS
+}
 
-  int index = method->name->hash16 () & MCACHE_SIZE;
-
-  method_cache[index].method = method;
-  method_cache[index].klass = klass;
-
-  _Jv_MonitorExit (&java::lang::Class::class$);
+// Free this thread's method cache.  We explicitly manage this memory
+// as the GC does not yet know how to scan TLS on all platforms.
+void
+_Jv_FreeMethodCache ()
+{
+#ifdef HAVE_TLS
+  if (method_cache != NULL)
+    {
+      _Jv_Free(method_cache);
+      method_cache = NULL;
+    }
+#endif // HAVE_TLS
 }
 
 void *
@@ -964,7 +989,7 @@ _Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, int method_idx)
 }
 
 jboolean
-_Jv_IsAssignableFrom (jclass target, jclass source)
+_Jv_IsAssignableFrom (jclass source, jclass target)
 {
   if (source == target)
     return true;
@@ -984,7 +1009,7 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
       // two interfaces for assignability.
       if (__builtin_expect 
           (source->idt == NULL || source->isInterface(), false))
-        return _Jv_InterfaceAssignableFrom (target, source);
+        return _Jv_InterfaceAssignableFrom (source, target);
 
       _Jv_IDispatchTable *cl_idt = source->idt;
       _Jv_IDispatchTable *if_idt = target->idt;
@@ -1033,19 +1058,19 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
 // superinterface of SOURCE. This is used when SOURCE is also an interface,
 // or a class with no interface dispatch table.
 jboolean
-_Jv_InterfaceAssignableFrom (jclass iface, jclass source)
+_Jv_InterfaceAssignableFrom (jclass source, jclass iface)
 {
   for (int i = 0; i < source->interface_count; i++)
     {
       jclass interface = source->interfaces[i];
       if (iface == interface
-          || _Jv_InterfaceAssignableFrom (iface, interface))
+          || _Jv_InterfaceAssignableFrom (interface, iface))
         return true;      
     }
     
   if (!source->isInterface()
       && source->superclass 
-      && _Jv_InterfaceAssignableFrom (iface, source->superclass))
+      && _Jv_InterfaceAssignableFrom (source->superclass, iface))
     return true;
         
   return false;
@@ -1056,14 +1081,14 @@ _Jv_IsInstanceOf(jobject obj, jclass cl)
 {
   if (__builtin_expect (!obj, false))
     return false;
-  return (_Jv_IsAssignableFrom (cl, JV_CLASS (obj)));
+  return _Jv_IsAssignableFrom (JV_CLASS (obj), cl);
 }
 
 void *
 _Jv_CheckCast (jclass c, jobject obj)
 {
   if (__builtin_expect 
-       (obj != NULL && ! _Jv_IsAssignableFrom(c, JV_CLASS (obj)), false))
+      (obj != NULL && ! _Jv_IsAssignableFrom(JV_CLASS (obj), c), false))
     throw new java::lang::ClassCastException
       ((new java::lang::StringBuffer
 	(obj->getClass()->getName()))->append
@@ -1084,7 +1109,7 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
 	return;
       jclass obj_class = JV_CLASS (obj);
       if (__builtin_expect 
-          (! _Jv_IsAssignableFrom (elt_class, obj_class), false))
+          (! _Jv_IsAssignableFrom (obj_class, elt_class), false))
 	throw new java::lang::ArrayStoreException
 		((new java::lang::StringBuffer
 		 (JvNewStringUTF("Cannot store ")))->append
@@ -1095,7 +1120,7 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
 }
 
 jboolean
-_Jv_IsAssignableFromSlow (jclass target, jclass source)
+_Jv_IsAssignableFromSlow (jclass source, jclass target)
 {
   // First, strip arrays.
   while (target->isArray ())
@@ -1129,7 +1154,7 @@ _Jv_IsAssignableFromSlow (jclass target, jclass source)
            {
              // We use a recursive call because we also need to
              // check superinterfaces.
-             if (_Jv_IsAssignableFromSlow (target, source->getInterface (i)))
+             if (_Jv_IsAssignableFromSlow (source->getInterface (i), target))
                return true;
            }
        }

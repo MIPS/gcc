@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -49,20 +49,35 @@ set_integer (void *dest, GFC_INTEGER_LARGEST value, int length)
     {
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      *((GFC_INTEGER_16 *) dest) = value;
+      {
+	GFC_INTEGER_16 tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
 #endif
     case 8:
-      *((GFC_INTEGER_8 *) dest) = value;
+      {
+	GFC_INTEGER_8 tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 4:
-      *((GFC_INTEGER_4 *) dest) = value;
+      {
+	GFC_INTEGER_4 tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 2:
-      *((GFC_INTEGER_2 *) dest) = value;
+      {
+	GFC_INTEGER_2 tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 1:
-      *((GFC_INTEGER_1 *) dest) = value;
+      {
+	GFC_INTEGER_1 tmp = value;
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     default:
       internal_error ("Bad integer kind");
@@ -124,24 +139,36 @@ convert_real (void *dest, const char *buffer, int length)
   switch (length)
     {
     case 4:
-      *((GFC_REAL_4 *) dest) =
+      {
+	GFC_REAL_4 tmp =
 #if defined(HAVE_STRTOF)
-	strtof (buffer, NULL);
+	  strtof (buffer, NULL);
 #else
-	(GFC_REAL_4) strtod (buffer, NULL);
+	  (GFC_REAL_4) strtod (buffer, NULL);
 #endif
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
     case 8:
-      *((GFC_REAL_8 *) dest) = strtod (buffer, NULL);
+      {
+	GFC_REAL_8 tmp = strtod (buffer, NULL);
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
 #if defined(HAVE_GFC_REAL_10) && defined (HAVE_STRTOLD)
     case 10:
-      *((GFC_REAL_10 *) dest) = strtold (buffer, NULL);
+      {
+	GFC_REAL_10 tmp = strtold (buffer, NULL);
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
 #endif
 #if defined(HAVE_GFC_REAL_16) && defined (HAVE_STRTOLD)
     case 16:
-      *((GFC_REAL_16 *) dest) = strtold (buffer, NULL);
+      {
+	GFC_REAL_16 tmp = strtold (buffer, NULL);
+	memcpy (dest, (void *) &tmp, length);
+      }
       break;
 #endif
     default:
@@ -594,7 +621,7 @@ read_f (fnode * f, char *dest, int length)
 	case '9':
 	case ' ':
 	  ndigits++;
-	  *p++;
+	  p++;
 	  w--;
 	  break;
 
@@ -691,24 +718,46 @@ read_f (fnode * f, char *dest, int length)
   p++;
   w--;
 
-  while (w > 0)
+  if (g.blank_status == BLANK_UNSPECIFIED) /* Normal processing of exponent */
     {
-      if (*p == ' ')
+      while (w > 0 && isdigit (*p))
         {
-          if (g.blank_status == BLANK_ZERO) *p = '0';
-          if (g.blank_status == BLANK_NULL)
-            {
-              p++;
-              w--;
-              continue;
-            }
+          exponent = 10 * exponent + *p - '0';
+          p++;
+          w--;
         }
-      if (!isdigit (*p))
-        goto bad_float;
         
-      exponent = 10 * exponent + *p - '0';
-      p++;
-      w--;
+      /* Only allow trailing blanks */
+
+      while (w > 0)
+        {
+          if (*p != ' ')
+  	  goto bad_float;
+          p++;
+          w--;
+        }
+    }    
+  else  /* BZ or BN status is enabled */
+    {
+      while (w > 0)
+        {
+          if (*p == ' ')
+            {
+              if (g.blank_status == BLANK_ZERO) *p = '0';
+              if (g.blank_status == BLANK_NULL)
+                {
+                  p++;
+                  w--;
+                  continue;
+                }
+            }
+          else if (!isdigit (*p))
+            goto bad_float;
+
+          exponent = 10 * exponent + *p - '0';
+          p++;
+          w--;
+        }
     }
 
   exponent = exponent * exponent_sign;
@@ -782,10 +831,12 @@ read_f (fnode * f, char *dest, int length)
  * and never look at it. */
 
 void
-read_x (fnode * f)
+read_x (int n)
 {
-  int n;
+  if ((current_unit->flags.pad == PAD_NO || is_internal_unit ())
+      && current_unit->bytes_left < n)
+    n = current_unit->bytes_left;
 
-  n = f->u.n;
-  read_block (&n);
+  if (n > 0)
+    read_block (&n);
 }

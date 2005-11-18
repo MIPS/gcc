@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -85,7 +85,7 @@ package body Exception_Traces is
 
    procedure Unhandled_Exception;
    pragma Export (C, Unhandled_Exception, "__gnat_unhandled_exception");
-   --  Hook for GDB to support "break exception unhandled".
+   --  Hook for GDB to support "break exception unhandled"
 
    --  For "break exception", GDB uses __gnat_raise_nodefer_with_msg, which
    --  is not in this section because it fullfills other purposes than a mere

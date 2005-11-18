@@ -17,8 +17,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-#02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+#02110-1301, USA.
 
 AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libobjc)
@@ -177,6 +177,15 @@ m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-darwin*)
+    # Darwin needs -single_module when linking libobjc
+    extra_ldflags_libobjc=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libobjc)
 
 AC_SUBST(CFLAGS)
 

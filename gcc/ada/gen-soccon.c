@@ -4,7 +4,7 @@
  *                                                                          *
  *                           G E N - S O C C O N                            *
  *                                                                          *
- *            Copyright (C) 2004-2005 Free Software Foundation, Inc.        *
+ *          Copyright (C) 2004-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -24,19 +24,26 @@
 
 /* This program generates g-soccon.ads */
 
+/* To build using DEC C:
+  CC/DEFINE="TARGET=""OpenVMS""" gen-soccon
+  LINK gen-soccon
+  RUN gen-soccon
+*/
+
+#ifndef TARGET
+# error Please define TARGET
+#endif
+
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "gsocket.h"
+#include <limits.h>
 
 #ifdef __MINGW32__
-#include <winsock2.h>
-#else
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <sys/ioctl.h>
-#include <netdb.h>
+#include <fcntl.h>
 #endif
+
+#include "gsocket.h"
 
 struct line {
   char *text;
@@ -53,8 +60,8 @@ struct line *first = NULL, *last = NULL;
 #define _NL TXT("")
 /* Empty line */
 
-#define itoad(n) f_itoa ("%d", n)
-#define itoax(n) f_itoa ("16#%08x#", n)
+#define itoad(n) f_itoa ("%d", (n))
+#define itoax(n) f_itoa ("16#%08x#", (n))
 
 #define CND(name,comment) add_line(#name, itoad (name), comment);
 /* Constant (decimal) */
@@ -65,6 +72,9 @@ struct line *first = NULL, *last = NULL;
 #define CN_(name,comment) add_line(#name, name, comment);
 /* Constant (generic) */
 
+#define STR(p) STR1(p)
+#define STR1(p) #p
+
 void output (void);
 /* Generate output spec */
 
@@ -72,6 +82,10 @@ char *f_itoa (char *, int);
 /* int to string */
 
 void add_line (char *, char*, char*);
+
+#ifdef __MINGW32__
+unsigned int _CRT_fmode = _O_BINARY;
+#endif
 
 int
 main (void) {
@@ -84,7 +98,7 @@ TXT("--               G N A T . S O C K E T S . C O N S T A N T S               
 TXT("--                                                                          --")
 TXT("--                                 S p e c                                  --")
 TXT("--                                                                          --")
-TXT("--          Copyright (C) 2000-2005 Free Software Foundation, Inc.          --")
+TXT("--          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --")
 TXT("--                                                                          --")
 TXT("-- GNAT is free software;  you can  redistribute it  and/or modify it under --")
 TXT("-- terms of the  GNU General Public License as published  by the Free Soft- --")
@@ -377,12 +391,12 @@ _NL
 #ifndef FIONBIO
 #define FIONBIO -1
 #endif
-CNX(FIONBIO, "Set/clear non-blocking io")
+CND(FIONBIO, "Set/clear non-blocking io")
 
 #ifndef FIONREAD
 #define FIONREAD -1
 #endif
-CNX(FIONREAD, "How many bytes to read")
+CND(FIONREAD, "How many bytes to read")
 _NL
 TXT("   --------------------")
 TXT("   -- Shutdown modes --")
@@ -549,6 +563,47 @@ CND(IP_ADD_MEMBERSHIP, "Join a multicast group")
 CND(IP_DROP_MEMBERSHIP, "Leave a multicast group")
 
 _NL
+TXT("   -------------------")
+TXT("   -- System limits --")
+TXT("   -------------------")
+_NL
+
+#ifndef IOV_MAX
+#define IOV_MAX INT_MAX
+#endif
+CND(IOV_MAX, "Maximum writev iovcnt")
+
+_NL
+TXT("   ----------------------")
+TXT("   -- Type definitions --")
+TXT("   ----------------------")
+_NL
+
+{
+  struct timeval tv;
+TXT("   --  Sizes (in bytes) of the components of struct timeval")
+_NL
+#define SIZEOF_tv_sec (sizeof tv.tv_sec)
+CND(SIZEOF_tv_sec, "tv_sec")
+#define SIZEOF_tv_usec (sizeof tv.tv_usec)
+CND(SIZEOF_tv_usec, "tv_usec")
+}
+
+#ifdef __vxworks
+_NL
+TXT("   --------------------------------")
+TXT("   -- VxWorks-specific constants --")
+TXT("   --------------------------------")
+_NL
+TXT("   --  These constants may be used only within the VxWorks version of")
+TXT("   --  GNAT.Sockets.Thin.")
+_NL
+
+CND(OK,    "VxWorks generic success")
+CND(ERROR, "VxWorks generic error")
+#endif
+
+_NL
 TXT("end GNAT.Sockets.Constants;")
 
   output ();
@@ -587,14 +642,18 @@ output (void) {
 
 char *
 f_itoa (char *fmt, int n) {
-  char buf[32];
+  char buf[32], *ret;
   sprintf (buf, fmt, n);
-  return strdup (buf);
+  ret = malloc (strlen (buf) + 1);
+  if (ret != NULL)
+    strcpy (ret, buf);
+  return ret;
 }
 
 void
 add_line (char *_text, char *_value, char *_comment) {
   struct line *l = (struct line *) malloc (sizeof (struct line));
+
   l->text = _text;
   l->value = _value;
   l->comment = _comment;

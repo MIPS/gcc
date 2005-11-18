@@ -557,6 +557,10 @@ gfc_trans_code (gfc_code * code)
 	  res = gfc_trans_select (code);
 	  break;
 
+	case EXEC_FLUSH:
+	  res = gfc_trans_flush (code);
+	  break;
+
 	case EXEC_FORALL:
 	  res = gfc_trans_forall (code);
 	  break;
@@ -646,32 +650,10 @@ gfc_trans_code (gfc_code * code)
 void
 gfc_generate_code (gfc_namespace * ns)
 {
-  gfc_symbol *main_program = NULL;
-  symbol_attribute attr;
-
   if (ns->is_block_data)
     {
       gfc_generate_block_data (ns);
       return;
-    }
-
-  /* Main program subroutine.  */
-  if (!ns->proc_name)
-    {
-      /* Lots of things get upset if a subroutine doesn't have a symbol, so we
-         make one now.  Hopefully we've set all the required fields.  */
-      gfc_get_symbol ("MAIN__", ns, &main_program);
-      gfc_clear_attr (&attr);
-      attr.flavor = FL_PROCEDURE;
-      attr.proc = PROC_UNKNOWN;
-      attr.subroutine = 1;
-      attr.access = ACCESS_PUBLIC;
-      main_program->attr = attr;
-      /* Set the location to the first line of code.  */
-      if (ns->code)
-	main_program->declared_at = ns->code->loc;
-      ns->proc_name = main_program;
-      gfc_commit_symbols ();
     }
 
   gfc_generate_function_code (ns);

@@ -192,10 +192,9 @@ java_truthvalue_conversion (tree expr)
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold
-	       (build3 (COND_EXPR, boolean_type_node, TREE_OPERAND (expr, 0),
-			java_truthvalue_conversion (TREE_OPERAND (expr, 1)),
-			java_truthvalue_conversion (TREE_OPERAND (expr, 2))));
+      return fold_build3 (COND_EXPR, boolean_type_node, TREE_OPERAND (expr, 0),
+			  java_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+			  java_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
     case NOP_EXPR:
       /* If this is widening the argument, we can ignore it.  */
@@ -205,8 +204,8 @@ java_truthvalue_conversion (tree expr)
       /* fall through to default */
 
     default:
-      return fold (build2 (NE_EXPR, boolean_type_node,
-			   expr, boolean_false_node));
+      return fold_build2 (NE_EXPR, boolean_type_node,
+			  expr, boolean_false_node);
     }
 }
 
@@ -350,29 +349,17 @@ pop_type_0 (tree type, char **messagep)
     return t;
   if (TREE_CODE (type) == POINTER_TYPE && TREE_CODE (t) == POINTER_TYPE)
     {
-      if (flag_new_verifier)
-	{
-	  /* Since the verifier has already run, we know that any
-	     types we see will be compatible.  In BC mode, this fact
-	     may be checked at runtime, but if that is so then we can
-	     assume its truth here as well.  So, we always succeed
-	     here, with the expected type.  */
-	  return type;
-	}
-      else
-	{
-	  if (type == ptr_type_node || type == object_ptr_type_node)
-	    return t;
-	  else if (t == ptr_type_node)  /* Special case for null reference. */
-	    return type;
-	  /* This is a kludge, but matches what Sun's verifier does.
-	     It can be tricked, but is safe as long as type errors
-	     (i.e. interface method calls) are caught at run-time. */
-	  else if (CLASS_INTERFACE (TYPE_NAME (TREE_TYPE (type))))
-	    return object_ptr_type_node;
-	  else if (can_widen_reference_to (t, type))
-	    return t;
-	}
+      /* If the expected type we've been passed is object or ptr
+	 (i.e. void*), the caller needs to know the real type.  */
+      if (type == ptr_type_node || type == object_ptr_type_node)
+        return t;
+
+      /* Since the verifier has already run, we know that any
+	 types we see will be compatible.  In BC mode, this fact
+	 may be checked at runtime, but if that is so then we can
+	 assume its truth here as well.  So, we always succeed
+	 here, with the expected type.  */
+      return type;
     }
 
   if (! flag_verify_invocations && flag_indirect_dispatch
@@ -741,7 +728,7 @@ build_java_jsr (int target_pc, int return_pc)
 {
   tree where =  lookup_label (target_pc);
   tree ret = lookup_label (return_pc);
-  tree ret_label = fold (build1 (ADDR_EXPR, return_address_type_node, ret));
+  tree ret_label = fold_build1 (ADDR_EXPR, return_address_type_node, ret);
   push_value (ret_label);
   flush_quick_stack ();
   java_add_stmt (build1 (GOTO_EXPR, void_type_node, where));
@@ -908,9 +895,9 @@ build_java_arrayaccess (tree array, tree type, tree index)
       tree test;
       tree len = convert (unsigned_int_type_node,
 			  build_java_array_length_access (array));
-      test = fold (build2 (GE_EXPR, boolean_type_node, 
-			   convert (unsigned_int_type_node, index),
-			   len));
+      test = fold_build2 (GE_EXPR, boolean_type_node, 
+			  convert (unsigned_int_type_node, index),
+			  len);
       if (! integer_zerop (test))
 	{
 	  throw = build2 (TRUTH_ANDIF_EXPR, int_type_node, test,
@@ -1022,33 +1009,14 @@ build_java_arraystore_check (tree array, tree object)
    return unchanged.  */
 
 static tree
-build_java_check_indexed_type (tree array_node, tree indexed_type)
+build_java_check_indexed_type (tree array_node ATTRIBUTE_UNUSED,
+			       tree indexed_type)
 {
-  tree elt_type;
-
   /* We used to check to see if ARRAY_NODE really had array type.
      However, with the new verifier, this is not necessary, as we know
      that the object will be an array of the appropriate type.  */
 
-  if (flag_new_verifier)
-    return indexed_type;
-
-  if (!is_array_type_p (TREE_TYPE (array_node)))
-    abort ();
-
-  elt_type = (TYPE_ARRAY_ELEMENT (TREE_TYPE (TREE_TYPE (array_node))));
-
-  if (indexed_type == ptr_type_node)
-    return promote_type (elt_type);
-
-  /* BYTE/BOOLEAN store and load are used for both type */
-  if (indexed_type == byte_type_node && elt_type == boolean_type_node)
-    return boolean_type_node;
-
-  if (indexed_type != elt_type )
-    abort ();
-  else
-    return indexed_type;
+  return indexed_type;
 }
 
 /* newarray triggers a call to _Jv_NewPrimArray. This function should be 
@@ -1155,23 +1123,18 @@ expand_java_arraystore (tree rhs_type_node)
   tree index = pop_value (int_type_node);
   tree array_type, array;
 
-  if (flag_new_verifier)
+  /* If we're processing an `aaload' we might as well just pick
+     `Object'.  */
+  if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
     {
-      /* If we're processing an `aaload' we might as well just pick
-	 `Object'.  */
-      if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
-	{
-	  array_type = build_java_array_type (object_ptr_type_node, -1);
-	  rhs_type_node = object_ptr_type_node;
-	}
-      else
-	array_type = build_java_array_type (rhs_type_node, -1);
+      array_type = build_java_array_type (object_ptr_type_node, -1);
+      rhs_type_node = object_ptr_type_node;
     }
   else
-    array_type = ptr_type_node;
+    array_type = build_java_array_type (rhs_type_node, -1);
+
   array = pop_value (array_type);
-  if (flag_new_verifier)
-    array = build1 (NOP_EXPR, promote_type (array_type), array);
+  array = build1 (NOP_EXPR, promote_type (array_type), array);
 
   rhs_type_node    = build_java_check_indexed_type (array, rhs_type_node);
 
@@ -1205,23 +1168,17 @@ expand_java_arrayload (tree lhs_type_node)
   tree array_type;
   tree array_node;
 
-  if (flag_new_verifier)
+  /* If we're processing an `aaload' we might as well just pick
+     `Object'.  */
+  if (TREE_CODE (lhs_type_node) == POINTER_TYPE)
     {
-      /* If we're processing an `aaload' we might as well just pick
-	 `Object'.  */
-      if (TREE_CODE (lhs_type_node) == POINTER_TYPE)
-	{
-	  array_type = build_java_array_type (object_ptr_type_node, -1);
-	  lhs_type_node = object_ptr_type_node;
-	}
-      else
-	array_type = build_java_array_type (lhs_type_node, -1);
+      array_type = build_java_array_type (object_ptr_type_node, -1);
+      lhs_type_node = object_ptr_type_node;
     }
   else
-    array_type = ptr_type_node;
+    array_type = build_java_array_type (lhs_type_node, -1);
   array_node = pop_value (array_type);
-  if (flag_new_verifier)
-    array_node = build1 (NOP_EXPR, promote_type (array_type), array_node);
+  array_node = build1 (NOP_EXPR, promote_type (array_type), array_node);
 
   index_node = save_expr (index_node);
   array_node = save_expr (array_node);
@@ -1232,7 +1189,7 @@ expand_java_arrayload (tree lhs_type_node)
 				      lhs_type_node,
 				      index_node);
   if (INTEGRAL_TYPE_P (lhs_type_node) && TYPE_PRECISION (lhs_type_node) <= 32)
-    load_node = fold (build1 (NOP_EXPR, int_type_node, load_node));
+    load_node = fold_build1 (NOP_EXPR, int_type_node, load_node);
   push_value (load_node);
 }
 
@@ -1321,7 +1278,7 @@ expand_load_internal (int index, tree type, int pc)
      value into it.  Then we push this new local on the stack.
      Hopefully this all gets optimized out.  */
   copy = build_decl (VAR_DECL, NULL_TREE, type);
-  if (INTEGRAL_TYPE_P (type)
+  if ((INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
       && TREE_TYPE (copy) != TREE_TYPE (var))
     var = convert (type, var);
   java_add_local_var (copy);
@@ -1493,7 +1450,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
   flush_quick_stack ();
   local_var = find_local_variable (local_var_index, int_type_node, pc);
   constant_value = build_int_cst (NULL_TREE, ival);
-  res = fold (build2 (PLUS_EXPR, int_type_node, local_var, constant_value));
+  res = fold_build2 (PLUS_EXPR, int_type_node, local_var, constant_value);
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
   update_aliases (local_var, local_var_index, pc);
 }
@@ -1564,36 +1521,36 @@ build_java_binop (enum tree_code op, tree type, tree arg1, tree arg2)
     case RSHIFT_EXPR:
       mask = build_int_cst (NULL_TREE,
 			    TYPE_PRECISION (TREE_TYPE (arg1)) - 1);
-      arg2 = fold (build2 (BIT_AND_EXPR, int_type_node, arg2, mask));
+      arg2 = fold_build2 (BIT_AND_EXPR, int_type_node, arg2, mask);
       break;
 
     case COMPARE_L_EXPR:  /* arg1 > arg2 ?  1 : arg1 == arg2 ? 0 : -1 */
     case COMPARE_G_EXPR:  /* arg1 < arg2 ? -1 : arg1 == arg2 ? 0 :  1 */
       arg1 = save_expr (arg1);  arg2 = save_expr (arg2);
       {
-	tree ifexp1 = fold (build2 (op == COMPARE_L_EXPR ? GT_EXPR : LT_EXPR,
-				    boolean_type_node, arg1, arg2));
-	tree ifexp2 = fold (build2 (EQ_EXPR, boolean_type_node, arg1, arg2));
-	tree second_compare = fold (build3 (COND_EXPR, int_type_node,
-					    ifexp2, integer_zero_node,
-					    op == COMPARE_L_EXPR
-					    ? integer_minus_one_node
-					    : integer_one_node));
-	return fold (build3 (COND_EXPR, int_type_node, ifexp1,
-			     op == COMPARE_L_EXPR ? integer_one_node
-			     : integer_minus_one_node,
-			     second_compare));
+	tree ifexp1 = fold_build2 (op == COMPARE_L_EXPR ? GT_EXPR : LT_EXPR,
+				   boolean_type_node, arg1, arg2);
+	tree ifexp2 = fold_build2 (EQ_EXPR, boolean_type_node, arg1, arg2);
+	tree second_compare = fold_build3 (COND_EXPR, int_type_node,
+					   ifexp2, integer_zero_node,
+					   op == COMPARE_L_EXPR
+					   ? integer_minus_one_node
+					   : integer_one_node);
+	return fold_build3 (COND_EXPR, int_type_node, ifexp1,
+			    op == COMPARE_L_EXPR ? integer_one_node
+			    : integer_minus_one_node,
+			    second_compare);
       }
     case COMPARE_EXPR:
       arg1 = save_expr (arg1);  arg2 = save_expr (arg2);
       {
-	tree ifexp1 = fold (build2 (LT_EXPR, boolean_type_node, arg1, arg2));
-	tree ifexp2 = fold (build2 (GT_EXPR, boolean_type_node, arg1, arg2));
-	tree second_compare = fold (build3 (COND_EXPR, int_type_node,
-					    ifexp2, integer_one_node,
-					    integer_zero_node));
-	return fold (build3 (COND_EXPR, int_type_node,
-			     ifexp1, integer_minus_one_node, second_compare));
+	tree ifexp1 = fold_build2 (LT_EXPR, boolean_type_node, arg1, arg2);
+	tree ifexp2 = fold_build2 (GT_EXPR, boolean_type_node, arg1, arg2);
+	tree second_compare = fold_build3 (COND_EXPR, int_type_node,
+					   ifexp2, integer_one_node,
+					   integer_zero_node);
+	return fold_build3 (COND_EXPR, int_type_node,
+			    ifexp1, integer_minus_one_node, second_compare);
       }      
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
@@ -1624,7 +1581,7 @@ build_java_binop (enum tree_code op, tree type, tree arg1, tree arg2)
       break;
     default:  ;
     }
-  return fold (build2 (op, type, arg1, arg2));
+  return fold_build2 (op, type, arg1, arg2);
 }
 
 static void
@@ -1734,14 +1691,8 @@ build_field_ref (tree self_value, tree self_class, tree name)
 
       tree base_type = promote_type (base_class);
       if (base_type != TREE_TYPE (self_value))
-	self_value = fold (build1 (NOP_EXPR, base_type, self_value));
-      if (! flag_syntax_only
-	  && (flag_indirect_dispatch
-	      /* DECL_FIELD_OFFSET == 0 if we have no reference for
-		 the field, perhaps because we couldn't find the class
-		 in which the field is defined.  
-		 FIXME: We should investigate this.  */
-	      || DECL_FIELD_OFFSET (field_decl) == 0))
+	self_value = fold_build1 (NOP_EXPR, base_type, self_value);
+      if (! flag_syntax_only && flag_indirect_dispatch)
 	{
 	  tree otable_index
 	    = build_int_cst (NULL_TREE, get_symbol_table_index 
@@ -1754,16 +1705,16 @@ build_field_ref (tree self_value, tree self_class, tree name)
 
 	  field_offset = fold (convert (sizetype, field_offset));
 	  address 
-	    = fold (build2 (PLUS_EXPR, 
-			    build_pointer_type (TREE_TYPE (field_decl)),
-			    self_value, field_offset));
-	  return fold (build1 (INDIRECT_REF, TREE_TYPE (field_decl), address));
+	    = fold_build2 (PLUS_EXPR, 
+			   build_pointer_type (TREE_TYPE (field_decl)),
+			   self_value, field_offset);
+	  return fold_build1 (INDIRECT_REF, TREE_TYPE (field_decl), address);
 	}
 
       self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
 					    self_value, check);
-      return fold (build3 (COMPONENT_REF, TREE_TYPE (field_decl),
-			   self_value, field_decl, NULL_TREE));
+      return fold_build3 (COMPONENT_REF, TREE_TYPE (field_decl),
+			  self_value, field_decl, NULL_TREE);
     }
 }
 
@@ -1829,7 +1780,7 @@ expand_compare (enum tree_code condition, tree value1, tree value2,
 		int target_pc)
 {
   tree target = lookup_label (target_pc);
-  tree cond = fold (build2 (condition, boolean_type_node, value1, value2));
+  tree cond = fold_build2 (condition, boolean_type_node, value1, value2);
   java_add_stmt 
     (build3 (COND_EXPR, void_type_node, java_truthvalue_conversion (cond),
 	     build1 (GOTO_EXPR, void_type_node, target), 
@@ -1916,12 +1867,11 @@ pop_arguments (tree arg_types)
       tree type = TREE_VALUE (arg_types);
       tree arg = pop_value (type);
 
-      /* With the new verifier we simply cast each argument to its
-	 proper type.  This is needed since we lose type information
-	 coming out of the verifier.  We also have to do this with the
-	 old verifier when we pop an integer type that must be
-	 promoted for the function call.  */
-      if (flag_new_verifier && TREE_CODE (type) == POINTER_TYPE)
+      /* We simply cast each argument to its proper type.  This is
+	 needed since we lose type information coming out of the
+	 verifier.  We also have to do this when we pop an integer
+	 type that must be promoted for the function call.  */
+      if (TREE_CODE (type) == POINTER_TYPE)
 	arg = build1 (NOP_EXPR, type, arg);
       else if (targetm.calls.promote_prototypes (type)
 	       && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
@@ -2110,8 +2060,8 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  method_index++;
 	}
       method_index *= int_size_in_bytes (method_type_node);
-      ref = fold (build2 (PLUS_EXPR, method_ptr_type_node,
-			  ref, build_int_cst (NULL_TREE, method_index)));
+      ref = fold_build2 (PLUS_EXPR, method_ptr_type_node,
+			 ref, build_int_cst (NULL_TREE, method_index));
       ref = build1 (INDIRECT_REF, method_type_node, ref);
       func = build3 (COMPONENT_REF, nativecode_ptr_type_node,
 		     ref, lookup_field (&method_type_node, ncode_ident),
@@ -2214,8 +2164,8 @@ build_invokevirtual (tree dtable, tree method)
 				   size_int (TARGET_VTABLE_USES_DESCRIPTORS));
     }
 
-  func = fold (build2 (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
-		       convert (nativecode_ptr_ptr_type_node, method_index)));
+  func = fold_build2 (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
+		      convert (nativecode_ptr_ptr_type_node, method_index));
 
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     func = build1 (NOP_EXPR, nativecode_ptr_type_node, func);
@@ -2943,16 +2893,8 @@ expand_byte_code (JCF *jcf, tree method)
 	}
     }  
 
-  if (flag_new_verifier)
-    {
-      if (! verify_jvm_instructions_new (jcf, byte_ops, length))
-        return;
-    }
-  else
-    {
-      if (! verify_jvm_instructions (jcf, byte_ops, length))
-	return;
-    }
+  if (! verify_jvm_instructions_new (jcf, byte_ops, length))
+    return;
 
   promote_arguments ();
 
@@ -3061,14 +3003,14 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   const char *opname; /* Temporary ??? */
   int oldpc = PC; /* PC at instruction start. */
 
-  /* If the instruction is at the beginning of a exception handler,
-     replace the top of the stack with the thrown object reference */
+  /* If the instruction is at the beginning of an exception handler,
+     replace the top of the stack with the thrown object reference.  */
   if (instruction_bits [PC] & BCODE_EXCEPTION_TARGET)
     {
-      /* Note that the new verifier will not emit a type map at all
-	 for dead exception handlers.  In this case we just ignore
-	 the situation.  */
-      if (! flag_new_verifier || (instruction_bits[PC] & BCODE_VERIFIED) != 0)
+      /* Note that the verifier will not emit a type map at all for
+	 dead exception handlers.  In this case we just ignore the
+	 situation.  */
+      if ((instruction_bits[PC] & BCODE_VERIFIED) != 0)
 	{
 	  tree type = pop_type (promote_type (throwable_type_node));
 	  push_value (build_exception_object_ref (type));
@@ -3239,8 +3181,8 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   }
 
 #define UNOP(OPERAND_TYPE, OPERAND_VALUE) \
-  push_value (fold (build1 (NEGATE_EXPR, OPERAND_TYPE##_type_node, \
-			    pop_value (OPERAND_TYPE##_type_node))));
+  push_value (fold_build1 (NEGATE_EXPR, OPERAND_TYPE##_type_node, \
+			   pop_value (OPERAND_TYPE##_type_node)));
 
 #define CONVERT2(FROM_TYPE, TO_TYPE)					 \
   {									 \
@@ -3383,7 +3325,7 @@ peek_opcode_at_pc (JCF *jcf, int code_offset, int pc)
 
    This function is used by `give_name_to_locals' so that a local's
    DECL features a DECL_LOCAL_START_PC such that the first related
-   store operation will use DECL as a destination, not a unrelated
+   store operation will use DECL as a destination, not an unrelated
    temporary created for the occasion.
 
    This function uses a global (instruction_bits) `note_instructions' should

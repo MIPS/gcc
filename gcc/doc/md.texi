@@ -1552,7 +1552,10 @@ instruction is defined:
 GCC can only handle one commutative pair in an asm; if you use more,
 the compiler may fail.  Note that you need not use the modifier if
 the two alternatives are strictly identical; this would only waste
-time in the reload pass.
+time in the reload pass.  The modifier is not operational after
+register allocation, so the result of @code{define_peephole2}
+and @code{define_split}s performed after reload cannot rely on
+@samp{%} to make the intended insn match.
 
 @cindex @samp{#} in constraint
 @item #
@@ -1672,7 +1675,6 @@ An item in the constant pool
 
 @item S
 A symbol in the text segment of the current file
-@end table
 
 @item Uv
 A memory reference suitable for VFP load/store insns (reg+constant offset)
@@ -1682,6 +1684,7 @@ A memory reference suitable for iWMMXt load/store instructions.
 
 @item Uq
 A memory reference suitable for the ARMv4 ldrsb instruction.
+@end table
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -1744,6 +1747,37 @@ Constant integer 1
 
 @item G
 A floating point constant 0.0
+@end table
+
+@item CRX Architecture---@file{crx.h}
+@table @code
+
+@item b
+Registers from r0 to r14 (registers without stack pointer)
+
+@item l
+Register r16 (64-bit accumulator lo register)
+
+@item h
+Register r17 (64-bit accumulator hi register)
+
+@item k
+Register pair r16-r17. (64-bit accumulator lo-hi pair)
+
+@item I
+Constant that fits in 3 bits
+
+@item J
+Constant that fits in 4 bits
+
+@item K
+Constant that fits in 5 bits
+
+@item L
+Constant that is one of -1, 4, -4, 7, 8, 12, 16, 20, 32, 48
+
+@item G
+Floating point constant that is legal for store immediate
 @end table
 
 @item PowerPC and IBM RS6000---@file{rs6000.h}
@@ -1822,6 +1856,35 @@ Constant suitable as a 32-bit mask operand
 
 @item U
 System V Release 4 small data area reference
+@end table
+
+@item MorphoRISC family---@file{ms1.h}
+@table @code
+@item I
+Constant for an arithmetic insn (16-bit signed integer).
+
+@item J
+The constant 0.
+
+@item K
+Constant for a logical insn (16-bit zero-extended integer).
+
+@item L
+A constant that can be loaded with @code{lui} (i.e.@: the bottom 16
+bits are zero).
+
+@item M
+A constant that takes two words to load (i.e.@: not matched by
+@code{I}, @code{K}, or @code{L}).
+
+@item N
+Negative 16-bit constants other than -65536.
+
+@item O
+A 15-bit signed integer constant.
+
+@item P
+A positive 16-bit constant.
 @end table
 
 @item Intel 386---@file{i386.h}
@@ -2165,75 +2228,134 @@ An integer constant with all bits set except exactly one.
 Any SYMBOL_REF.
 @end table
 
-@item IP2K---@file{ip2k.h}
-@table @code
-@item a
-@samp{DP} or @samp{IP} registers (general address)
+@item M32C---@file{m32c.c}
 
-@item f
-@samp{IP} register
+@item Rsp
+@itemx Rfb
+@itemx Rsb
+@samp{$sp}, @samp{$fb}, @samp{$sb}.
 
-@item j
-@samp{IPL} register
+@item Rcr
+Any control register, when they're 16 bits wide (nothing if control
+registers are 24 bits wide)
 
-@item k
-@samp{IPH} register
+@item Rcl
+Any control register, when they're 24 bits wide.
 
-@item b
-@samp{DP} register
+@item R0w
+@itemx R1w
+@itemx R2w
+@itemx R3w
+$r0, $r1, $r2, $r3.
 
-@item y
-@samp{DPH} register
+@item R02
+$r0 or $r2, or $r2r0 for 32 bit values.
 
-@item z
-@samp{DPL} register
+@item R13
+$r1 or $r3, or $r3r1 for 32 bit values.
 
-@item q
-@samp{SP} register
+@item Rdi
+A register that can hold a 64 bit value.
 
-@item c
-@samp{DP} or @samp{SP} registers (offsettable address)
+@item Rhl
+$r0 or $r1 (registers with addressable high/low bytes)
 
-@item d
-Non-pointer registers (not @samp{SP}, @samp{DP}, @samp{IP})
+@item R23
+$r2 or $r3
 
-@item u
-Non-SP registers (everything except @samp{SP})
+@item Raa
+Address registers
 
-@item R
-Indirect through @samp{IP}---Avoid this except for @code{QImode}, since we
-can't access extra bytes
+@item Raw
+Address registers when they're 16 bits wide.
 
-@item S
-Indirect through @samp{SP} or @samp{DP} with short displacement (0..127)
+@item Ral
+Address registers when they're 24 bits wide.
 
-@item T
-Data-section immediate value
+@item Rqi
+Registers that can hold QI values.
 
-@item I
-Integers from @minus{}255 to @minus{}1
+@item Rad
+Registers that can be used with displacements ($a0, $a1, $sb).
 
-@item J
-Integers from 0 to 7---valid bit number in a register
+@item Rsi
+Registers that can hold 32 bit values.
 
-@item K
-Integers from 0 to 127---valid displacement for addressing mode
+@item Rhi
+Registers that can hold 16 bit values.
 
-@item L
-Integers from 1 to 127
+@item Rhc
+Registers chat can hold 16 bit values, including all control
+registers.
 
-@item M
-Integer @minus{}1
+@item Rra
+$r0 through R1, plus $a0 and $a1.
 
-@item N
-Integer 1
+@item Rfl
+The flags register.
 
-@item O
-Zero
+@item Rmm
+The memory-based pseudo-registers $mem0 through $mem15.
 
-@item P
-Integers from 0 to 255
-@end table
+@item Rpi
+Registers that can hold pointers (16 bit registers for r8c, m16c; 24
+bit registers for m32cm, m32c).
+
+@item Rpa
+Matches multiple registers in a PARALLEL to form a larger register.
+Used to match function return values.
+
+@item Is3
+-8 @dots{} 7
+
+@item IS1
+-128 @dots{} 127
+
+@item IS2
+-32768 @dots{} 32767
+
+@item IU2
+0 @dots{} 65535
+
+@item In4
+-8 @dots{} -1 or 1 @dots{} 8
+
+@item In5
+-16 @dots{} -1 or 1 @dots{} 16
+
+@item In4
+-8 @dots{} -1 or 1 @dots{} 8
+
+@item IM2
+-65536 @dots{} -1
+
+@item Ilb
+An 8 bit value with exactly one bit set.
+
+@item Ilw
+A 16 bit value with exactly one bit set.
+
+@item Sd
+The common src/dest memory addressing modes.
+
+@item Sa
+Memory addressed using $a0 or $a1.
+
+@item Si
+Memory addressed with immediate addresses.
+
+@item Ss
+Memory addressed using the stack pointer ($sp).
+
+@item Sf
+Memory addressed using the frame base register ($fb).
+
+@item Ss
+Memory addressed using the small base register ($sb).
+
+@item S1
+$r1h
+
 
 @item MIPS---@file{mips.h}
 @table @code
@@ -2910,8 +3032,8 @@ specify field index and operand 0 place to store value into.
 Initialize the vector to given values.  Operand 0 is the vector to initialize
 and operand 1 is parallel containing values for individual fields.
 
-@cindex @code{push@var{m}} instruction pattern
-@item @samp{push@var{m}}
+@cindex @code{push@var{m}1} instruction pattern
+@item @samp{push@var{m}1}
 Output a push instruction.  Operand 0 is value to push.  Used only when
 @code{PUSH_ROUNDING} is defined.  For historical reason, this pattern may be
 missing and in such case an @code{mov} expander is used instead, with a
@@ -2948,6 +3070,43 @@ Similar, for other arithmetic operations.
 Signed minimum and maximum operations.  When used with floating point,
 if both operands are zeros, or if either operand is @code{NaN}, then
 it is unspecified which of the two operands is returned as the result.
+
+@cindex @code{reduc_smin_@var{m}} instruction pattern
+@cindex @code{reduc_smax_@var{m}} instruction pattern
+@item @samp{reduc_smin_@var{m}}, @samp{reduc_smax_@var{m}}
+Find the signed minimum/maximum of the elements of a vector. The vector is
+operand 1, and the scalar result is stored in the least significant bits of
+operand 0 (also a vector). The output and input vector should have the same
+modes.
+
+@cindex @code{reduc_umin_@var{m}} instruction pattern
+@cindex @code{reduc_umax_@var{m}} instruction pattern
+@item @samp{reduc_umin_@var{m}}, @samp{reduc_umax_@var{m}}
+Find the unsigned minimum/maximum of the elements of a vector. The vector is
+operand 1, and the scalar result is stored in the least significant bits of
+operand 0 (also a vector). The output and input vector should have the same
+modes.
+
+@cindex @code{reduc_splus_@var{m}} instruction pattern
+@item @samp{reduc_splus_@var{m}}
+Compute the sum of the signed elements of a vector. The vector is operand 1,
+and the scalar result is stored in the least significant bits of operand 0
+(also a vector). The output and input vector should have the same modes.
+
+@cindex @code{reduc_uplus_@var{m}} instruction pattern
+@item @samp{reduc_uplus_@var{m}}
+Compute the sum of the unsigned elements of a vector. The vector is operand 1,
+and the scalar result is stored in the least significant bits of operand 0
+(also a vector). The output and input vector should have the same modes.
+
+@cindex @code{vec_shl_@var{m}} instruction pattern
+@cindex @code{vec_shr_@var{m}} instruction pattern
+@item @samp{vec_shl_@var{m}}, @samp{vec_shr_@var{m}}
+Whole vector left/right shift in bits.
+Operand 1 is a vector to be shifted.
+Operand 2 is an integer shift amount in bits.
+Operand 0 is where the resulting shifted vector is stored.
+The output and input vectors should have the same modes.
 
 @cindex @code{mulhisi3} instruction pattern
 @item @samp{mulhisi3}
@@ -3147,6 +3306,16 @@ corresponds to the C data type @code{double} and the @code{rintf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
+@cindex @code{copysign@var{m}3} instruction pattern
+@item @samp{copysign@var{m}3}
+Store a value with the magnitude of operand 1 and the sign of operand
+2 into operand 0.
+
+The @code{copysign} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{copysignf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
 @cindex @code{ffs@var{m}2} instruction pattern
 @item @samp{ffs@var{m}2}
 Store into operand 0 one plus the index of the least significant 1-bit
@@ -3269,8 +3438,8 @@ operand.
 
 The use for multiple @code{setmem@var{m}} is as for @code{movmem@var{m}}.
 
-@cindex @code{cmpstr@var{m}} instruction pattern
-@item @samp{cmpstr@var{m}}
+@cindex @code{cmpstrn@var{m}} instruction pattern
+@item @samp{cmpstrn@var{m}}
 String compare instruction, with five operands.  Operand 0 is the output;
 it has mode @var{m}.  The remaining four operands are like the operands
 of @samp{movmem@var{m}}.  The two memory blocks specified are compared
@@ -3280,6 +3449,25 @@ at a time since either string may end in the first byte and reading past
 that may access an invalid page or segment and cause a fault.  The
 effect of the instruction is to store a value in operand 0 whose sign
 indicates the result of the comparison.
+
+@cindex @code{cmpstr@var{m}} instruction pattern
+@item @samp{cmpstr@var{m}}
+String compare instruction, without known maximum length.  Operand 0 is the
+output; it has mode @var{m}.  The second and third operand are the blocks of
+memory to be compared; both are @code{mem:BLK} with an address in mode
+@code{Pmode}.
+
+The fourth operand is the known shared alignment of the source and
+destination, in the form of a @code{const_int} rtx.  Thus, if the
+compiler knows that both source and destination are word-aligned,
+it may provide the value 4 for this operand.
+
+The two memory blocks specified are compared byte by byte in lexicographic
+order starting at the beginning of each string.  The instruction is not allowed
+to prefetch more than one byte at a time since either string may end in the
+first byte and reading past that may access an invalid page or segment and
+cause a fault.  The effect of the instruction is to store a value in operand 0
+whose sign indicates the result of the comparison.
 
 @cindex @code{cmpmem@var{m}} instruction pattern
 @item @samp{cmpmem@var{m}}
@@ -3373,7 +3561,7 @@ Operand 1 may have mode @code{byte_mode} or @code{word_mode}; often
 be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 2 and 3.
+for operands 2 and 3 and the constant is never zero for operand 2.
 
 The bit-field value is sign-extended to a full word integer
 before it is stored in operand 0.
@@ -3391,7 +3579,7 @@ operand 2 the starting bit.  Operand 0 may have mode @code{byte_mode} or
 Operands 1 and 2 must be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 1 and 2.
+for operands 1 and 2 and the constant is never zero for operand 1.
 
 @cindex @code{mov@var{mode}cc} instruction pattern
 @item @samp{mov@var{mode}cc}
@@ -4102,7 +4290,7 @@ will be emitted, followed by a store of the value to the memory operand.
 This pattern, if defined, moves a @code{Pmode} value from the memory
 in operand 1 to the memory in operand 0 without leaving the value in
 a register afterward.  This is to avoid leaking the value some place
-that an attacker might use to rewrite the stack guard slot after 
+that an attacker might use to rewrite the stack guard slot after
 having clobbered it.
 
 If this pattern is not defined, then a plain move pattern is generated.
@@ -4318,7 +4506,7 @@ Registers used to store the condition code value should have a mode that
 is in class @code{MODE_CC}.  Normally, it will be @code{CCmode}.  If
 additional modes are required (as for the add example mentioned above in
 the SPARC), define them in @file{@var{machine}-modes.def}
-(@pxref{Condition Code}).  Also define @code{SELECT_CC_MODE} to choose 
+(@pxref{Condition Code}).  Also define @code{SELECT_CC_MODE} to choose
 a mode given an operand of a compare.
 
 If it is known during RTL generation that a different mode will be

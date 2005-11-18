@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -45,7 +45,9 @@ generic
    with function "=" (Left, Right : Element_Type) return Boolean is <>;
 
 package Ada.Containers.Indefinite_Ordered_Sets is
-pragma Preelaborate (Indefinite_Ordered_Sets);
+   pragma Preelaborate;
+
+   function Equivalent_Elements (Left, Right : Element_Type) return Boolean;
 
    type Set is tagged private;
 
@@ -59,6 +61,8 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
 
    function Equivalent_Sets (Left, Right : Set) return Boolean;
 
+   function To_Set (New_Item : Element_Type) return Set;
+
    function Length (Container : Set) return Count_Type;
 
    function Is_Empty (Container : Set) return Boolean;
@@ -67,14 +71,14 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
 
    function Element (Position : Cursor) return Element_Type;
 
+   procedure Replace_Element
+     (Container : in out Set;
+      Position  : Cursor;
+      New_Item  : Element_Type);
+
    procedure Query_Element
      (Position : Cursor;
       Process  : not null access procedure (Element : Element_Type));
-
-   procedure Replace_Element
-     (Container : Set;   --  TODO: need ruling from ARG
-      Position  : Cursor;
-      By        : Element_Type);
 
    procedure Move (Target : in out Set; Source : in out Set);
 
@@ -96,6 +100,10 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
      (Container : in out Set;
       New_Item  : Element_Type);
 
+   procedure Exclude
+     (Container : in out Set;
+      Item      : Element_Type);
+
    procedure Delete
      (Container : in out Set;
       Item      : Element_Type);
@@ -107,10 +115,6 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
    procedure Delete_First (Container : in out Set);
 
    procedure Delete_Last (Container : in out Set);
-
-   procedure Exclude
-     (Container : in out Set;
-      Item      : Element_Type);
 
    procedure Union (Target : in out Set; Source : Set);
 
@@ -124,8 +128,7 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
 
    function "and" (Left, Right : Set) return Set renames Intersection;
 
-   procedure Difference (Target : in out Set;
-                         Source : Set);
+   procedure Difference (Target : in out Set; Source : Set);
 
    function Difference (Left, Right : Set) return Set;
 
@@ -140,14 +143,6 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
    function Overlap (Left, Right : Set) return Boolean;
 
    function Is_Subset (Subset : Set; Of_Set : Set) return Boolean;
-
-   function Contains (Container : Set; Item : Element_Type) return Boolean;
-
-   function Find (Container : Set; Item : Element_Type) return Cursor;
-
-   function Floor (Container : Set; Item : Element_Type) return Cursor;
-
-   function Ceiling (Container : Set; Item : Element_Type) return Cursor;
 
    function First (Container : Set) return Cursor;
 
@@ -164,6 +159,14 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
    function Previous (Position : Cursor) return Cursor;
 
    procedure Previous (Position : in out Cursor);
+
+   function Find (Container : Set; Item : Element_Type) return Cursor;
+
+   function Floor (Container : Set; Item : Element_Type) return Cursor;
+
+   function Ceiling (Container : Set; Item : Element_Type) return Cursor;
+
+   function Contains (Container : Set; Item : Element_Type) return Boolean;
 
    function Has_Element (Position : Cursor) return Boolean;
 
@@ -188,21 +191,28 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
       Process   : not null access procedure (Position : Cursor));
 
    generic
-      type Key_Type (<>) is limited private;
+      type Key_Type (<>) is private;
 
       with function Key (Element : Element_Type) return Key_Type;
 
-      with function "<" (Left : Key_Type; Right : Element_Type)
-          return Boolean is <>;
-
-      with function ">" (Left : Key_Type; Right : Element_Type)
-          return Boolean is <>;
+      with function "<" (Left, Right : Key_Type) return Boolean is <>;
 
    package Generic_Keys is
 
-      function Contains
-        (Container : Set;
-         Key       : Key_Type) return Boolean;
+      function Equivalent_Keys (Left, Right : Key_Type) return Boolean;
+
+      function Key (Position : Cursor) return Key_Type;
+
+      function Element (Container : Set; Key : Key_Type) return Element_Type;
+
+      procedure Replace
+        (Container : in out Set;
+         Key       : Key_Type;
+         New_Item  : Element_Type);
+
+      procedure Exclude (Container : in out Set; Key : Key_Type);
+
+      procedure Delete (Container : in out Set; Key : Key_Type);
 
       function Find
         (Container : Set;
@@ -216,28 +226,9 @@ pragma Preelaborate (Indefinite_Ordered_Sets);
         (Container : Set;
          Key       : Key_Type) return Cursor;
 
-      function Key (Position : Cursor) return Key_Type;
-
-      function Element
+      function Contains
         (Container : Set;
-         Key       : Key_Type) return Element_Type;
-
-      procedure Replace
-        (Container : in out Set;  --  TODO: need ruling from ARG
-         Key       : Key_Type;
-         New_Item  : Element_Type);
-
-      procedure Delete (Container : in out Set; Key : Key_Type);
-
-      procedure Exclude (Container : in out Set; Key : Key_Type);
-
-      function "<" (Left : Cursor; Right : Key_Type) return Boolean;
-
-      function ">" (Left : Cursor; Right : Key_Type) return Boolean;
-
-      function "<" (Left : Key_Type; Right : Cursor) return Boolean;
-
-      function ">" (Left : Key_Type; Right : Cursor) return Boolean;
+         Key       : Key_Type) return Boolean;
 
       procedure Update_Element_Preserving_Key
         (Container : in out Set;
@@ -277,6 +268,7 @@ private
    use Red_Black_Trees;
    use Tree_Types;
    use Ada.Finalization;
+   use Ada.Streams;
 
    type Set_Access is access all Set;
    for Set_Access'Storage_Size use 0;
@@ -286,9 +278,19 @@ private
       Node      : Node_Access;
    end record;
 
-   No_Element : constant Cursor := Cursor'(null, null);
+   procedure Write
+     (Stream : access Root_Stream_Type'Class;
+      Item   : Cursor);
 
-   use Ada.Streams;
+   for Cursor'Write use Write;
+
+   procedure Read
+     (Stream : access Root_Stream_Type'Class;
+      Item   : out Cursor);
+
+   for Cursor'Read use Read;
+
+   No_Element : constant Cursor := Cursor'(null, null);
 
    procedure Write
      (Stream    : access Root_Stream_Type'Class;

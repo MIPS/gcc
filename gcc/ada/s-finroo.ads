@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 1992-2004 Free Software Foundation, Inc.        --
+--            Copyright (C) 1992-2005 Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,7 +37,7 @@ with Ada.Streams;
 with Unchecked_Conversion;
 
 package System.Finalization_Root is
-pragma Preelaborate (Finalization_Root);
+   pragma Preelaborate;
 
    type Root_Controlled;
 
@@ -61,10 +61,13 @@ pragma Preelaborate (Finalization_Root);
    procedure Finalize   (Object : in out Root_Controlled);
    procedure Adjust     (Object : in out Root_Controlled);
 
-   procedure Write     (Stream : access Ada.Streams.Root_Stream_Type'Class;
-                        Item : in Root_Controlled);
-   procedure Read      (Stream : access Ada.Streams.Root_Stream_Type'Class;
-                        Item : out Root_Controlled);
+   procedure Write
+     (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
+      Item   : in Root_Controlled);
+
+   procedure Read
+     (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
+      Item   : out Root_Controlled);
 
    for Root_Controlled'Read use Read;
    for Root_Controlled'Write use Write;

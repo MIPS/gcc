@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                        (Machine Version for x86)                         --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,7 +42,7 @@
 --  routines directly.
 
 package Ada.Numerics.Aux is
-pragma Pure (Aux);
+   pragma Pure;
 
    type Double is new Long_Long_Float;
 

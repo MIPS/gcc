@@ -676,6 +676,134 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	  }
 }
 
+/* Coalesce potential copies via PHI arguments.  */
+
+static void
+coalesce_phi_operands (var_map map, coalesce_list_p cl)
+{
+  basic_block bb;
+  tree phi;
+
+  FOR_EACH_BB (bb)
+    {
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  tree res = PHI_RESULT (phi);
+	  int p = var_to_partition (map, res);
+	  int x;
+
+	  if (p == NO_PARTITION)
+	    continue;
+
+	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, x);
+	      int p2;
+
+	      if (TREE_CODE (arg) != SSA_NAME)
+		continue;
+	      if (SSA_NAME_VAR (res) != SSA_NAME_VAR (arg))
+		continue;
+	      p2 = var_to_partition (map, PHI_ARG_DEF (phi, x));
+	      if (p2 != NO_PARTITION)
+		{
+		  edge e = PHI_ARG_EDGE (phi, x);
+		  add_coalesce (cl, p, p2,
+				coalesce_cost (EDGE_FREQUENCY (e),
+					       maybe_hot_bb_p (bb),
+					       EDGE_CRITICAL_P (e)));
+		}
+	    }
+	}
+    }
+}
+
+/* Coalesce all the result decls together.  */
+
+static void
+coalesce_result_decls (var_map map, coalesce_list_p cl)
+{
+  unsigned int i, x;
+  tree var = NULL;
+
+  for (i = x = 0; x < num_var_partitions (map); x++)
+    {
+      tree p = partition_to_var (map, x);
+      if (TREE_CODE (SSA_NAME_VAR (p)) == RESULT_DECL)
+	{
+	  if (var == NULL_TREE)
+	    {
+	      var = p;
+	      i = x;
+	    }
+	  else
+	    add_coalesce (cl, i, x,
+			  coalesce_cost (EXIT_BLOCK_PTR->frequency,
+					 maybe_hot_bb_p (EXIT_BLOCK_PTR),
+					 false));
+	}
+    }
+}
+
+/* Coalesce matching constraints in asms.  */
+
+static void
+coalesce_asm_operands (var_map map, coalesce_list_p cl)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  unsigned long noutputs, i;
+	  tree *outputs, link;
+
+	  if (TREE_CODE (stmt) != ASM_EXPR)
+	    continue;
+
+	  noutputs = list_length (ASM_OUTPUTS (stmt));
+	  outputs = (tree *) alloca (noutputs * sizeof (tree));
+	  for (i = 0, link = ASM_OUTPUTS (stmt); link;
+	       ++i, link = TREE_CHAIN (link))
+	    outputs[i] = TREE_VALUE (link);
+
+	  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+	    {
+	      const char *constraint
+		= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+	      tree input = TREE_VALUE (link);
+	      char *end;
+	      unsigned long match;
+	      int p1, p2;
+
+	      if (TREE_CODE (input) != SSA_NAME && !DECL_P (input))
+		continue;
+
+	      match = strtoul (constraint, &end, 10);
+	      if (match >= noutputs || end == constraint)
+		continue;
+
+	      if (TREE_CODE (outputs[match]) != SSA_NAME
+		  && !DECL_P (outputs[match]))
+		continue;
+
+	      p1 = var_to_partition (map, outputs[match]);
+	      if (p1 == NO_PARTITION)
+		continue;
+	      p2 = var_to_partition (map, input);
+	      if (p2 == NO_PARTITION)
+		continue;
+
+	      add_coalesce (cl, p1, p2, coalesce_cost (REG_BR_PROB_BASE,
+						       maybe_hot_bb_p (bb),
+						       false));
+	    }
+	}
+    }
+}
 
 /* Reduce the number of live ranges in MAP.  Live range information is 
    returned if FLAGS indicates that we are combining temporaries, otherwise 
@@ -686,14 +814,11 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 static tree_live_info_p
 coalesce_ssa_name (var_map map, int flags)
 {
-  unsigned num, x, i;
+  unsigned num, x;
   sbitmap live;
-  tree var, phi;
   root_var_p rv;
   tree_live_info_p liveinfo;
-  var_ann_t ann;
   conflict_graph graph;
-  basic_block bb;
   coalesce_list_p cl = NULL;
   sbitmap_iterator sbi;
 
@@ -709,48 +834,9 @@ coalesce_ssa_name (var_map map, int flags)
 
   cl = create_coalesce_list (map);
 
-  /* Add all potential copies via PHI arguments to the list.  */
-  FOR_EACH_BB (bb)
-    {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  tree res = PHI_RESULT (phi);
-	  int p = var_to_partition (map, res);
-	  if (p == NO_PARTITION)
-	    continue;
-	  for (x = 0; x < (unsigned)PHI_NUM_ARGS (phi); x++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, x);
-	      int p2;
-
-	      if (TREE_CODE (arg) != SSA_NAME)
-		continue;
-	      if (SSA_NAME_VAR (res) != SSA_NAME_VAR (arg))
-		continue;
-	      p2 = var_to_partition (map, PHI_ARG_DEF (phi, x));
-	      if (p2 != NO_PARTITION)
-		add_coalesce (cl, p, p2, 1);
-	    }
-	}
-    }
-
-  /* Coalesce all the result decls together.  */
-  var = NULL_TREE;
-  i = 0;
-  for (x = 0; x < num_var_partitions (map); x++)
-    {
-      tree p = partition_to_var (map, x);
-      if (TREE_CODE (SSA_NAME_VAR(p)) == RESULT_DECL)
-	{
-	  if (var == NULL_TREE)
-	    {
-	      var = p;
-	      i = x;
-	    }
-	  else
-	    add_coalesce (cl, i, x, 1);
-	}
-    }
+  coalesce_phi_operands (map, cl);
+  coalesce_result_decls (map, cl);
+  coalesce_asm_operands (map, cl);
 
   /* Build a conflict graph.  */
   graph = build_tree_conflict_graph (liveinfo, rv, cl);
@@ -778,14 +864,14 @@ coalesce_ssa_name (var_map map, int flags)
   /* First, coalesce all live on entry variables to their root variable. 
      This will ensure the first use is coming from the correct location.  */
 
-  live = sbitmap_alloc (num_var_partitions (map));
+  num = num_var_partitions (map);
+  live = sbitmap_alloc (num);
   sbitmap_zero (live);
 
   /* Set 'live' vector to indicate live on entry partitions.  */
-  num = num_var_partitions (map);
   for (x = 0 ; x < num; x++)
     {
-      var = partition_to_var (map, x);
+      tree var = partition_to_var (map, x);
       if (default_def (SSA_NAME_VAR (var)) == var)
 	SET_BIT (live, x);
     }
@@ -800,8 +886,8 @@ coalesce_ssa_name (var_map map, int flags)
      partition.  */
   EXECUTE_IF_SET_IN_SBITMAP (live, 0, x, sbi)
     {
-      var = root_var (rv, root_var_find (rv, x));
-      ann = var_ann (var);
+      tree var = root_var (rv, root_var_find (rv, x));
+      var_ann_t ann = var_ann (var);
       /* If these aren't already coalesced...  */
       if (partition_to_var (map, x) != var)
 	{
@@ -1097,7 +1183,14 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 	      if (p2 == (unsigned)NO_PARTITION)
 		continue;
 	      if (p != p2)
-	        add_coalesce (cl, p, p2, 1);
+		{
+		  edge e = PHI_ARG_EDGE (phi, x);
+
+		  add_coalesce (cl, p, p2, 
+				coalesce_cost (EDGE_FREQUENCY (e),
+					       maybe_hot_bb_p (bb),
+					       EDGE_CRITICAL_P (e)));
+		}
 	    }
 	}
    }
@@ -1730,69 +1823,6 @@ dump_replaceable_exprs (FILE *f, tree *expr)
 	fprintf (f, "\n");
       }
   fprintf (f, "\n");
-}
-
-
-/* Helper function for discover_nonconstant_array_refs. 
-   Look for ARRAY_REF nodes with non-constant indexes and mark them
-   addressable.  */
-
-static tree
-discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
-				   void *data ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-
-  if (IS_TYPE_OR_DECL_P (t))
-    *walk_subtrees = 0;
-  else if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-    {
-      while (((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-	      && is_gimple_min_invariant (TREE_OPERAND (t, 1))
-	      && (!TREE_OPERAND (t, 2)
-		  || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
-	     || (TREE_CODE (t) == COMPONENT_REF
-		 && (!TREE_OPERAND (t,2)
-		     || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
-	     || TREE_CODE (t) == BIT_FIELD_REF
-	     || TREE_CODE (t) == REALPART_EXPR
-	     || TREE_CODE (t) == IMAGPART_EXPR
-	     || TREE_CODE (t) == VIEW_CONVERT_EXPR
-	     || TREE_CODE (t) == NOP_EXPR
-	     || TREE_CODE (t) == CONVERT_EXPR)
-	t = TREE_OPERAND (t, 0);
-
-      if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-	{
-	  t = get_base_address (t);
-	  if (t && DECL_P (t))
-	    TREE_ADDRESSABLE (t) = 1;
-	}
-
-      *walk_subtrees = 0;
-    }
-
-  return NULL_TREE;
-}
-
-
-/* RTL expansion is not able to compile array references with variable
-   offsets for arrays stored in single register.  Discover such
-   expressions and mark variables as addressable to avoid this
-   scenario.  */
-
-static void
-discover_nonconstant_array_refs (void)
-{
-  basic_block bb;
-  block_stmt_iterator bsi;
-
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
-		   NULL , NULL);
-    }
 }
 
 
@@ -2504,9 +2534,6 @@ rewrite_out_of_ssa (void)
 
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
-
-  /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
-  discover_nonconstant_array_refs ();
 
   in_ssa_p = false;
 }

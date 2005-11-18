@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -252,8 +252,25 @@ get_unit (int read_flag __attribute__ ((unused)))
 {
   if (ioparm.internal_unit != NULL)
     {
+      internal_unit.recl = ioparm.internal_unit_len;
+      if (is_array_io())
+      {
+        internal_unit.rank = GFC_DESCRIPTOR_RANK(ioparm.internal_unit_desc);
+        internal_unit.ls = (array_loop_spec*)
+          get_mem (internal_unit.rank * sizeof (array_loop_spec));
+        ioparm.internal_unit_len *=
+	  init_loop_spec (ioparm.internal_unit_desc, internal_unit.ls);
+      }
+        
       internal_unit.s =
 	open_internal (ioparm.internal_unit, ioparm.internal_unit_len);
+      internal_unit.bytes_left = internal_unit.recl;
+      internal_unit.last_record=0;
+      internal_unit.maxrec=0;
+      internal_unit.current_record=0;
+
+      if (g.mode==WRITING && !is_array_io())
+        empty_internal_buffer (internal_unit.s);
 
       /* Set flags for the internal unit */
 
@@ -271,8 +288,7 @@ get_unit (int read_flag __attribute__ ((unused)))
 }
 
 
-/* is_internal_unit()-- Determine if the current unit is internal or
- * not */
+/* is_internal_unit()-- Determine if the current unit is internal or not */
 
 int
 is_internal_unit (void)
@@ -280,6 +296,14 @@ is_internal_unit (void)
   return current_unit == &internal_unit;
 }
 
+
+/* is_array_io ()-- Determine if the I/O is to/from an array */
+
+int
+is_array_io (void)
+{
+  return (ioparm.internal_unit_desc != NULL);
+}
 
 
 /*************************/
@@ -304,7 +328,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -326,7 +350,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -348,7 +372,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_ZERO;
+      u->flags.blank = BLANK_UNSPECIFIED;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -39,7 +39,8 @@ with Ada.Strings.Wide_Maps;
 with Ada.Finalization;
 
 package Ada.Strings.Wide_Unbounded is
-pragma Preelaborate (Wide_Unbounded);
+   pragma Preelaborate;
+
    type Unbounded_Wide_String is private;
 
    Null_Unbounded_Wide_String : constant Unbounded_Wide_String;

@@ -380,7 +380,7 @@ or with constant text in a single argument.
 	chosen in a way that is hard to predict even when previously
 	chosen file names are known.  For example, `%g.s ... %g.o ... %g.s'
 	might turn into `ccUVUUAU.s ccXYAXZ12.o ccUVUUAU.s'.  SUFFIX matches
-	the regexp "[.A-Za-z]*%O"; "%O" is treated exactly as if it
+	the regexp "[.0-9A-Za-z]*%O"; "%O" is treated exactly as if it
 	had been pre-processed.  Previously, %g was simply substituted
 	with a file name chosen once per compilation, without regard
 	to any appended suffix (which was therefore treated just like
@@ -598,11 +598,11 @@ proper position among the other output files.  */
 #define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
  --wrap=mmap --wrap=munmap --wrap=alloca\
-} %{fmudflapth: --wrap=pthread_create --wrap=pthread_join --wrap=pthread_exit\
+} %{fmudflapth: --wrap=pthread_create\
 }} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}" 
+#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}"
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -674,7 +674,7 @@ proper position among the other output files.  */
 #ifdef TARGET_LIBC_PROVIDES_SSP
 #define LINK_SSP_SPEC "%{fstack-protector:}"
 #else
-#define LINK_SSP_SPEC "%{fstack-protector:-lssp_nonshared -lssp }"
+#define LINK_SSP_SPEC "%{fstack-protector|fstack-protector-all:-lssp_nonshared -lssp}"
 #endif
 #endif
 
@@ -699,7 +699,7 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
-    %{!nostdlib:%{!nodefaultlibs:%(link_ssp)%(link_gcc_c_sequence)}}\
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -920,17 +920,16 @@ static const struct compiler default_compilers[] =
   {".m",  "#Objective-C", 0, 0, 0}, {".mi",  "#Objective-C", 0, 0, 0},
   {".mm", "#Objective-C++", 0, 0, 0}, {".M", "#Objective-C++", 0, 0, 0},
   {".mii", "#Objective-C++", 0, 0, 0},
-  {".cc", "#C++", 0, 0, 0}, {".cxx", "#C++", 0, 0, 0}, 
-  {".cpp", "#C++", 0, 0, 0}, {".cp", "#C++", 0, 0, 0}, 
+  {".cc", "#C++", 0, 0, 0}, {".cxx", "#C++", 0, 0, 0},
+  {".cpp", "#C++", 0, 0, 0}, {".cp", "#C++", 0, 0, 0},
   {".c++", "#C++", 0, 0, 0}, {".C", "#C++", 0, 0, 0},
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
-  {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0}, 
-  {".F", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
-  {".FPP", "#Fortran", 0, 0, 0},
-  {".f90", "#Fortran 95", 0, 0, 0}, {".f95", "#Fortran 95", 0, 0, 0},
-  {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0}, 
+  {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0},
+  {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
   {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran", 0, 0, 0}, {".f95", "#Fortran", 0, 0, 0},
+  {".F90", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
   {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
   {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
@@ -1120,6 +1119,7 @@ static const struct option_map option_map[] =
    {"--static", "-static", 0},
    {"--std", "-std=", "aj"},
    {"--symbolic", "-symbolic", 0},
+   {"--sysroot", "--sysroot=", "aj"},
    {"--time", "-time", 0},
    {"--trace-includes", "-H", 0},
    {"--traditional", "-traditional", 0},
@@ -1440,7 +1440,7 @@ static const char *gcc_libexec_prefix;
 #ifndef STANDARD_STARTFILE_PREFIX_2
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/"
 #endif
- 
+
 #ifdef CROSS_COMPILE  /* Don't use these prefixes for a cross compiler.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -1849,6 +1849,12 @@ static int argbuf_index;
    (the value associated with the "-o" flag).  */
 
 static int have_o_argbuf_index = 0;
+
+/* Were the options -c or -S passed.  */
+static int have_c = 0;
+
+/* Was the option -o passed.  */
+static int have_o = 0;
 
 /* This is the list of suffixes and codes (%g/%u/%U/%j) and the associated
    temp file.  If the HOST_BIT_BUCKET is used for %j, no entry is made for
@@ -2936,6 +2942,13 @@ static struct switchstr *switches;
 
 static int n_switches;
 
+/* Language is one of three things:
+
+   1) The name of a real programming language.
+   2) NULL, indicating that no one has figured out
+   what it is yet.
+   3) '*', indicating that the file should be passed
+   to the linker.  */
 struct infile
 {
   const char *name;
@@ -3057,6 +3070,9 @@ display_help (void)
   fputs (_("  -time                    Time the execution of each subprocess\n"), stdout);
   fputs (_("  -specs=<file>            Override built-in specs with the contents of <file>\n"), stdout);
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
+  fputs (_("\
+  --sysroot=<directory>    Use <directory> as the root directory for headers\n\
+                           for headers and libraries\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
@@ -3137,7 +3153,6 @@ process_command (int argc, const char **argv)
   char *temp1;
   const char *spec_lang = 0;
   int last_language_n_infiles;
-  int have_c = 0;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
@@ -3164,9 +3179,12 @@ process_command (int argc, const char **argv)
     }
 
   /* If there is a -V or -b option (or both), process it now, before
-     trying to interpret the rest of the command line.  */
+     trying to interpret the rest of the command line. 
+     Use heuristic that all configuration names must have at least
+     one dash '-'. This allows us to pass options starting with -b.  */
   if (argc > 1 && argv[1][0] == '-'
-      && (argv[1][1] == 'V' || argv[1][1] == 'b'))
+      && (argv[1][1] == 'V' || 
+	 ((argv[1][1] == 'b') && (NULL != strchr(argv[1] + 2,'-')))))
     {
       const char *new_version = DEFAULT_TARGET_VERSION;
       const char *new_machine = DEFAULT_TARGET_MACHINE;
@@ -3176,7 +3194,8 @@ process_command (int argc, const char **argv)
       int baselen;
 
       while (argc > 1 && argv[1][0] == '-'
-	     && (argv[1][1] == 'V' || argv[1][1] == 'b'))
+	     && (argv[1][1] == 'V' ||
+		((argv[1][1] == 'b') && ( NULL != strchr(argv[1] + 2,'-')))))
 	{
 	  char opt = argv[1][1];
 	  const char *arg;
@@ -3228,7 +3247,7 @@ process_command (int argc, const char **argv)
     {
       gcc_exec_prefix = make_relative_prefix (argv[0], standard_bindir_prefix,
 					      standard_exec_prefix);
-      gcc_libexec_prefix = make_relative_prefix (argv[0], 
+      gcc_libexec_prefix = make_relative_prefix (argv[0],
 						 standard_bindir_prefix,
 						 standard_libexec_prefix);
       if (gcc_exec_prefix)
@@ -3597,6 +3616,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switch (c)
 	    {
 	    case 'b':
+	      if (NULL == strchr(argv[i] + 2, '-')) break;
 	    case 'V':
 	      fatal ("'-%c' must come at the start of the command line", c);
 	      break;
@@ -3684,6 +3704,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      goto normal_switch;
 
 	    case 'o':
+	      have_o = 1;
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 	      if (! have_c)
 		{
@@ -3919,6 +3940,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-fhelp"))
 	;
+      else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
+	{
+	  target_system_root = argv[i] + strlen ("--sysroot=");
+	  target_system_root_changed = 1;
+	}
       else if (argv[i][0] == '+' && argv[i][1] == 'e')
 	{
 	  /* Compensate for the +e options to the C++ front-end;
@@ -4684,7 +4710,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		arg_going = 1;
 
 		/* consume suffix */
-		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		while (*p == '.' || ISALNUM ((unsigned char) *p))
 		  p++;
 		if (p[0] == '%' && p[1] == 'O')
 		  p += 2;
@@ -4696,7 +4722,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    if (use_pipes)
 	      {
 		/* consume suffix */
-		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		while (*p == '.' || ISALNUM ((unsigned char) *p))
 		  p++;
 		if (p[0] == '%' && p[1] == 'O')
 		  p += 2;
@@ -4714,14 +4740,14 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		const char *suffix = p;
 		char *saved_suffix = NULL;
 
-		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		while (*p == '.' || ISALNUM ((unsigned char) *p))
 		  p++;
 		suffix_length = p - suffix;
 		if (p[0] == '%' && p[1] == 'O')
 		  {
 		    p += 2;
 		    /* We don't support extra suffix characters after %O.  */
-		    if (*p == '.' || ISALPHA ((unsigned char) *p))
+		    if (*p == '.' || ISALNUM ((unsigned char) *p))
 		      fatal ("spec '%s' has invalid '%%0%c'", spec, *p);
 		    if (suffix_length == 0)
 		      suffix = TARGET_OBJECT_SUFFIX;
@@ -4781,7 +4807,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			bool files_differ = strcmp (input_realname, temp_realname);
 			free (input_realname);
 			free (temp_realname);
-			if (files_differ) 	
+			if (files_differ)
 #endif
 			  {
 			    temp_filename = save_string (temp_filename,
@@ -5640,10 +5666,10 @@ handle_braces (const char *p)
   while (*p++ != '}');
 
   return p;
-  
+
  invalid:
   fatal ("braced spec '%s' is invalid at '%c'", orig, *p);
-  
+
 #undef SKIP_WHITE
 }
 
@@ -6404,18 +6430,18 @@ main (int argc, const char **argv)
   if (combine_flag)
     combine_inputs = true;
   else
-    combine_inputs = false;
+    combine_inputs = false;  
 
   for (i = 0; (int) i < n_infiles; i++)
     {
       const char *name = infiles[i].name;
-      struct compiler *compiler = lookup_compiler (name, 
-						   strlen (name), 
+      struct compiler *compiler = lookup_compiler (name,
+						   strlen (name),
 						   infiles[i].language);
-      
+
       if (compiler && !(compiler->combinable))
 	combine_inputs = false;
-      
+
       if (lang_n_infiles > 0 && compiler != input_file_compiler
 	  && infiles[i].language && infiles[i].language[0] != '*')
 	infiles[i].incompiler = compiler;
@@ -6435,7 +6461,10 @@ main (int argc, const char **argv)
       infiles[i].compiled = false;
       infiles[i].preprocessed = false;
     }
-  
+    
+  if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
+   fatal ("cannot specify -o with -c or -S with multiple files");
+
   if (combine_flag && save_temps_flag)
     {
       bool save_combine_inputs = combine_inputs;
@@ -6446,7 +6475,7 @@ main (int argc, const char **argv)
       for (i = 0; (int) i < n_infiles; i++)
 	{
 	  int this_file_error = 0;
-	  
+
 	  input_file_number = i;
 	  set_input (infiles[i].name);
 	  if (infiles[i].incompiler
@@ -6553,11 +6582,21 @@ main (int argc, const char **argv)
       clear_failure_queue ();
     }
 
-  /* Reset the output file name to the first input file name, for use
-     with %b in LINK_SPEC on a target that prefers not to emit a.out
-     by default.  */
+  /* Reset the input file name to the first compile/object file name, for use
+     with %b in LINK_SPEC. We use the first input file that we can find
+     a compiler to compile it instead of using infiles.language since for
+     languages other than C we use aliases that we then lookup later.  */
   if (n_infiles > 0)
-    set_input (infiles[0].name);
+    {
+      int i;
+
+      for (i = 0; i < n_infiles ; i++)
+	if (infiles[i].language && infiles[i].language[0] != '*')
+	  {
+	    set_input (infiles[i].name);
+	    break;
+	  }
+    }
 
   if (error_count == 0)
     {
@@ -7316,7 +7355,7 @@ print_multilib_info (void)
 	    invalid_select:
 	      fatal ("multilib select '%s' is invalid", multilib_select);
 	    }
-	  
+
 	  ++p;
 	}
 
@@ -7587,7 +7626,7 @@ replace_outfile_spec_function (int argc, const char **argv)
   /* Must have exactly two arguments.  */
   if (argc != 2)
     abort ();
-  
+
   for (i = 0; i < n_infiles; i++)
     {
       if (outfiles[i] && !strcmp (outfiles[i], argv[0]))
@@ -7596,7 +7635,7 @@ replace_outfile_spec_function (int argc, const char **argv)
   return NULL;
 }
 
-/* Given two version numbers, compares the two numbers.  
+/* Given two version numbers, compares the two numbers.
    A version number must match the regular expression
    ([1-9][0-9]*|0)(\.([1-9][0-9]*|0))*
 */
@@ -7605,7 +7644,7 @@ compare_version_strings (const char *v1, const char *v2)
 {
   int rresult;
   regex_t r;
-  
+
   if (regcomp (&r, "^([1-9][0-9]*|0)(\\.([1-9][0-9]*|0))*$",
 	       REG_EXTENDED | REG_NOSUB) != 0)
     abort ();
@@ -7634,7 +7673,7 @@ compare_version_strings (const char *v1, const char *v2)
    and nothing if it doesn't.
 
    The supported <comparison-op> values are:
-   
+
    >=  true if switch is a later (or same) version than arg1
    !>  opposite of >=
    <   true if switch is an earlier version than arg1
@@ -7659,13 +7698,13 @@ version_compare_spec_function (int argc, const char **argv)
   bool result;
 
   if (argc < 3)
-    abort ();
+    fatal ("too few arguments to %%:version-compare");
   if (argv[0][0] == '\0')
     abort ();
   if ((argv[0][1] == '<' || argv[0][1] == '>') && argv[0][0] != '!')
     nargs = 2;
   if (argc != nargs + 3)
-    abort ();
+    fatal ("too many arguments to %%:version-compare");
 
   switch_len = strlen (argv[nargs + 1]);
   for (i = 0; i < n_switches; i++)
@@ -7704,9 +7743,9 @@ version_compare_spec_function (int argc, const char **argv)
     case '<' << 8 | '>':
       result = comp1 < 0 || comp2 >= 0;
       break;
-      
+
     default:
-      abort ();
+      fatal ("unknown operator %qs in %%:version-compare", argv[0]);
     }
   if (! result)
     return NULL;

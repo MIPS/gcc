@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          ACopyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -38,9 +38,9 @@
 with Ada.Characters.Latin_1;
 
 package Ada.Strings.Maps.Constants is
-pragma Preelaborate (Constants);
-pragma Pure_05 (Constants);
---  In accordance with Ada 2005 AI-362
+   pragma Preelaborate;
+   pragma Pure_05;
+   --  In accordance with Ada 2005 AI-362
 
    Control_Set           : constant Character_Set;
    Graphic_Set           : constant Character_Set;

@@ -1,8 +1,886 @@
+2005-11-14  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        PR fortran/21468
+        * Makefile.am: Add -ftree-vectorize for compiling matmul.
+        * m4/matmul.m4: Add const and restrict to type declarations as
+        appropriate.
+        * m4/matmull.m4: Likewise.
+        * Makefile.in: Regenerated.
+        * generated/matmul_*.c: Likewise.
+	
+2005-11-13  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/fget.c: New file.
+	* intrinsics/ftell.c: New file.
+	* io/unix.c (stream_offset): New function.
+	* io/io.h: Add prototype for stream_offset.
+	* Makefile.am: Add intrinsics/fget.c and intrinsics/ftell.c.
+	* Makefile.in: Regenerate.
+
+2005-11-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/24787
+	*  intrinsics/string_intrinsics.c (string_scan): Off by one; Fix typos
+	in nearby comment.
+
+2005-11-10  Andreas Jaeger  <aj@suse.de>
+
+	* libgfortran.h: Add proper defines where needed.
+
+2005-11-10  Andreas Jaeger  <aj@suse.de>
+
+	* libgfortran.h: Add missing prototypes for internal_pack
+	functions.
+
+2005-11-06  Janne Blomqvist <jb@gcc.gnu.org>
+
+	PR fortran/24174
+	PR fortran/24305
+	* io/io.h: Add argument to prototypes, add prototypes for
+	size_from_*_kind functions.
+	* io/list_read.c (read_complex): Add size argument, use
+	it.
+	(list_formatted_read): Add size argument, cleanup.
+	(list_formatted_read_scalar): Add size argument.
+	(nml_read_obj): Fix for padding.
+	* io/transfer.c: Add argument to transfer function pointer.
+	(unformatted_read): Add size argument.
+	(unformatted_write): Likewise.
+	(formatted_transfer_scalar): Fix for padding with complex(10).
+	(formatted_transfer): Add size argument, cleanup.
+	(transfer_integer): Add size argument to transfer call.
+	(transfer_real): Likewise.
+	(transfer_logical): Likewise.
+	(transfer_character): Likewise.
+	(transfer_complex): Likewise.
+	(transfer_array): New kind argument, use it.
+	(data_transfer_init): Add size argument to formatted_transfer
+	call.
+	(iolength_transfer): Add size argument, cleanup.
+	* io/write.c (write_complex): Add size argument, fix for padding
+	with complex(10).
+	(list_formatted_write): Add size argument, cleanup.
+	(list_formatted_write_scalar): Add size argument, use it.
+	(nml_write_obj): Fix for size vs. kind issue.
+	* io/size_from_kind.c: New file.
+	* Makefile.am: Add io/size_from_kind.c.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2005-11-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/ctime.c: New file.
+	* configure.ac: Add check for ctime.
+	* Makefile.am: Add ctime.c
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+
+2005-11-05  Richard Guenther  <rguenther@suse.de>
+
+	* configure.ac: Use AM_FCFLAGS for extra flags, not FCFLAGS.
+	* configure: Regenerate.
+
+2005-11-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/tty.c (ttynam): New function.
+
+2005-11-04  Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/24636
+	* runtime/stop.c (stop_numeric): Use stop_code = -1.
+
+2005-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22298
+	* runtime/main.c (stupid_function_name_for_static_linking): New
+	function.
+	* runtime/error.c (internal_error): Call
+	stupid_function_name_for_static_linking.
+	* libgfortran.h: Add prototype for
+	stupid_function_name_for_static_linking.
+
+2005-11-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/14994
+	* libgfortran/intrinsics/date_and_time.c: Add interface to
+	the functions date_and_time for the intrinsic function secnds.
+
+2005-10-31  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libgfortran/24584
+	* io/list_read.c (free_saved): Set saved_used to zero.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (flush_if_preconnected): New function.
+	* io/io.h: Add prototype for flush_if_preconnected.
+	* io/transfer.c (data_transfer_init): Use flush_if_preconnected
+	to workaround buggy mixed C-Fortran code.
+
+2005-10-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Add intrinsics/malloc.c file.
+	* Makefile.in: Regenerate.
+	* intrinsics/malloc.c: New file, with implementations for free
+	and malloc library functions.
+
+2005-10-29  Mike Stump  <mrs@apple.com>
+
+	* Makefile.am (kinds.h): Remove target, if command fails.
+	(selected_int_kind.inc): Likewise.
+	(selected_real_kind.inc): Likewise.
+	* Makefile.in: Regenerate.
+
+2005-10-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+
+	* Makefile.am (intrinsics): Add signal.c.
+	* Makefile.in: Regenerate.
+	* configure.ac: Checks for signal and alarm.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* intrinsics/signal.c: New file for SIGNAL and ALARM intrinsics.
+
+2005-10-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* acinclude.m4 (LIBGFOR_CHECK_FPSETMASK): New check.
+	* configure.ac: Check for floatingpoint.h, fptrap.h and float.h
+	headers. Use LIBGFOR_CHECK_FPSETMASK. Check for fp_trap and
+	fp_enable functions.
+	* configure.host: Add case for systems with fpsetmask and systems
+	with fp_trap/fp_enable.
+	* config/fpu-sysv.h: New file, FPU code using fpsetmask.
+	* config/fpu-aix.h: New file, FPU code for AIX using fp_trap and
+	fp_enable.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2005-10-24  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libgfortran/24224
+	* libgfortran.h: Remove array stride error code.
+	* runtime/error.c: Remove array stride error.
+	* io/io.h: Change name of 'nml_loop_spec' to 'array_loop_spec' to be
+	generic.  Add pointer to array_loop_spec and rank to gfc_unit
+	structure.
+	* io/list_read.c: Revise nml_loop_spec references to array_loop_spec.
+	* io/transfer.c (init_loop_spec): New function to initialize
+	an array_loop_spec.
+	(next_array_record): New function to return the index to the next array
+	record by incrementing through the array_loop_spec.
+	(next_record_r): Use new function.
+	(next_record_w): Use new function.
+	(finalize_transfer): Free memory allocated for array_loop_spec.
+	* io/unit.c (get_array_unit_len): Delete this function. Use new
+	function init_loop_spec to initialize the array_loop_spec.
+
+2005-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24416
+	* libgfortran/io/list_read.c (namelist_read): Exit with call to
+	free_saved () so that character strings do not accumulate.
+
+2005-10-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libgfortran/24489
+	* io/transfer.c (read_block): Change the order of execution to not read
+	past end-of-record.
+	(read_block_direct): Same change.
+
+2005-10-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23272
+	* acinclude.m4 (LIBGFOR_CHECK_WORKING_STAT): New check.
+	* configure.ac: Use LIBGFOR_CHECK_WORKING_STAT.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* io/unix.c (compare_file_filename): Add fallback case for
+	systems without working stat.
+	* io/open.c (already_open): Correct call to
+	compare_file_filename.
+	* io/io.h: Correct proto for compare_file_filename.
+
+2005-10-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* runtime/fpu.c: Add _GNU_SOURCE definition.
+	* config/fpu-glibc.h: Remove __USE_GNU definition.
+
+2005-10-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24384
+	* intrinsics/spread_generic.c (spread_internal_scalar): New
+	function that handles the special case of spread with a scalar
+	source. This has new interface functions -
+	(spread_scalar, spread_char_scalar): New functions to interface
+	with the calls specified in gfc_resolve_spread.
+
+2005-10-21  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24383
+	* io/unix.c: Add fallback definition for SSIZE_MAX.
+
+2005-10-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* c99_protos.h: Define preprocessor HAVE_ macros with value 1
+	instead of empty value.
+	* intrinsics/c99_functions.c: Likewise.
+	* intrinsics/getXid.c: Define HAVE_GETPID with value 1 instead of
+	empty value.
+	* intrinsics/sleep.c: Define HAVE_SLEEP with value 1 instead of
+	empty value.
+
+2005-10-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24432
+	* c99_protos.h: Define HAVE_ macros for all provided functions.
+
+2005-10-14  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/fpu-387.h (set_fpu): Remove extra ":" in stmxcsr.
+	Change cw and cw_sse variables to unsigned.
+	(SSE): New definition.
+	(has_sse): Use it.
+
+2005-10-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/unix.c(fd_alloc_r_at):  Use read() instead of do_read()
+	only in case of special files (e.g. terminals).
+
+2005-10-13  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/fpu-387.h (set_fpu): Add "=m" for stmxcsr.
+
+2005-10-12  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Add fpu.c to the build process, and
+	target-dependent code as fpu-target.h.
+	* Makefile.in: Regenerate.
+	* configure.ac: Add call to configure.host to set
+	FPU_HOST_HEADER.
+	* configure: Regenerate.
+	* configure.host: New script to determine which host-dependent
+	code should go in.
+	* libgfortran.h: Add fpe option, remove previous fpu_ options.
+	Add bitmasks for different FPE traps. Add prototype for set_fpu.
+	* runtime/environ.c: Remove environment variables to control
+	fpu behaviour.
+	* runtime/fpu.c (set_fpe): New function for the front-end.
+	* runtime/main.c (init): Set FPU state.
+	* config: New directory to store host-dependent code.
+	* config/fpu-387.h: New file with code handling the i387 FPU.
+	* config/fpu-glibc.h: New file with code for glibc systems.
+	* config/fpu-generic.h: Fallback for the most generic host. Issue
+	warnings.
+
+2005-10-12  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	* io/unix.c(fd_alloc_r_at): Remove parts of patch of 2005/10/07 that
+	cause input from the terminal to hang.
+
+2005-10-11  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/24313
+	*  c99_functions.c (csqrtf, csqrt): Fix choice of branch cut.  Note
+	csqrt{f} were imported from glibc, and this bug is still present
+	there. glibc PR is 1146.
+
+2005-10-07  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	PR fortran/16339
+	PR fortran/23363
+	* io/io.h: Add read and write members to stream, define access
+	macros.
+	* io/transfer.c (read_block_direct): New function.
+	(write_block_direct): New function.
+	(unformatted_read): Change to use read_block_direct.
+	(unformatted_write): Change to use write_block_direct.
+	* io/unix.c: Remove mmap includes and defines.
+	(writen): Remove.
+	(readn): Remove.
+	(reset_stream): New function.
+	(do_read): New function.
+	(do_write): New function.
+	(fd_flush): Change to use do_write() instead of writen().
+	(fd_alloc_r_at): Change to use do_read().
+	(fd_seek): Change return type to try, as the prototype. Add check
+	to avoid syscall overhead if possible.
+	(fd_read): New function.
+	(fd_write): New function.
+	(fd_open): Set pointers for new functions.
+	(mem_read): New function.
+	(mem_write): New function.
+	(open_internal): Set pointers for new functions.
+	(is_seekable): Clean up comment.
+
+2005-10-07  Jerry DeLisle  <jvdelisle@verizon.net>
+
+        * io/transfer.c (write_block): Add test for end-of-file condition,
+        removed from mem_alloc_w_at. (next_record_w): Clean up checks for
+        NULL pointer returns from s_alloc_w.
+        * io/unix.c (mem_alloc_w_at): Remove call to generate_error end-of-file.
+        * io/write.c (write_float): Add checks for NULL pointer returns from
+        write_block calls. (write_integer): Same.
+
+2005-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (allocate_size): Malloc 1 byte if size == 0.
+
+2005-10-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19308
+	PR libfortran/22437
+	* Makefile.am: Add generated files for large real and integers
+	kinds. Add a rule to create the kinds.inc c99_protos.inc files.
+	Use kinds.inc to preprocess Fortran generated files.
+	* libgfortran.h: Add macro definitions for GFC_INTEGER_16_HUGE,
+	GFC_REAL_10_HUGE and GFC_REAL_16_HUGE. Add types gfc_array_i16,
+	gfc_array_r10, gfc_array_r16, gfc_array_c10, gfc_array_c16,
+	gfc_array_l16.
+	* mk-kinds-h.sh: Define macros HAVE_GFC_LOGICAL_* and
+	HAVE_GFC_COMPLEX_* when these types are available.
+	* intrinsics/ishftc.c (ishftc16): New function for GFC_INTEGER_16.
+	* m4/all.m4, m4/any.m4, m4/count.m4, m4/cshift1.m4, m4/dotprod.m4,
+	m4/dotprodc.m4, m4/dotprodl.m4, m4/eoshift1.m4, m4/eoshift3.m4,
+	m4/exponent.m4, m4/fraction.m4, m4/in_pack.m4, m4/in_unpack.m4,
+	m4/matmul.m4, m4/matmull.m4, m4/maxloc0.m4, m4/maxloc1.m4,
+	m4/maxval.m4, m4/minloc0.m4, m4/minloc1.m4, m4/minval.m4, m4/mtype.m4,
+	m4/nearest.m4, m4/pow.m4, m4/product.m4, m4/reshape.m4,
+	m4/set_exponent.m4, m4/shape.m4, m4/specific.m4, m4/specific2.m4,
+	m4/sum.m4, m4/transpose.m4: Protect generated functions with
+	appropriate "#if defined (HAVE_GFC_type_kind)" preprocessor directives.
+	* Makefile.in: Regenerate.
+	* all files in generated/: Regenerate.
+
+2005-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (malloc_t): Remove.
+	(GFC_MALLOC_MAGIC, HEADER_SIZE, DATA_POINTER, DATA_HEADER): Remove.
+	(mem_root, runtime_cleanup, malloc_with_header): Remove.
+	(internal_malloc_size): Use just get_mem if size != 0, return NULL
+	otherwise.
+	(internal_free): Just free if non-NULL.
+	(internal_realloc_size): Remove debugging stuff.
+	(allocate_size): Use malloc directly, remove debugging stuff.
+	(deallocate): Use free directly, fix error message wording.
+
+	* libgfortran.h (GFC_ITOA_BUF_SIZE, GFC_XTOA_BUF_SIZE,
+	GFC_OTOA_BUF_SIZE, GFC_BTOA_BUF_SIZE): Define.
+	(gfc_itoa, xtoa): Add 2 extra arguments.
+	* runtime/environ.c: Include stdio.h.
+	(check_buffered): Use sprintf.
+	* runtime/error.c: Include assert.h.
+	(gfc_itoa, xtoa): Add 2 extra arguments, avoid using static
+	buffers.
+	(st_printf, st_sprintf): Adjust callers.
+	* io/write.c (otoa, btoa): Add 2 extra arguments, avoid using
+	static buffers.
+	(write_int, write_decimal): Add 2 extra arguments to conv
+	function pointer, adjust caller.
+	(write_integer): Adjust gfc_itoa caller.
+
+	* io/unit.c (get_array_unit_len): Return 0 rather than NULL.
+
+	* io/read.c (read_f): Remove spurious pointer dereference.
+
+2005-09-30  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	PR 24112
+	* io/open.c (edit_modes): Check for correct flag.
+
+2005-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/string.c (find_option): Change 3rd argument to
+	const st_option *.
+	* libgfortran.h (find_option): Likewise.
+	* runtime/environ.c (rounding, precision, signal_choices): Constify.
+	(init_choice, show_choice): Change 2nd argument to const choice *.
+	* io/open.c (access_opt, action_opt, blank_opt, delim_opt, form_opt,
+	position_opt, status_opt, pad_opt): Constify.
+	* io/transfer.c (advance_opt): Likewise.
+	* io/inquire.c (undefined): Likewise.
+	* io/close.c (status_opt): Likewise.
+	* io/format.c (posint_required, period_required, nonneg_required,
+	unexpected_element, unexpected_end, bad_string, bad_hollerith,
+	reversion_error): Likewise.
+	* io/unix.c (yes, no, unknown): Change from const char *
+	into const char [].
+
+2005-09-27  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23552
+	* acinclude.m4 (LIBGFOR_CHECK_FOR_BROKEN_ISFINITE): New.
+	(LIBGFOR_CHECK_FOR_BROKEN_ISNAN): New.
+	(LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY): New.
+	* configure.ac (LIBGFOR_CHECK_FOR_BROKEN_ISFINITE): Add use.
+	(LIBGFOR_CHECK_FOR_BROKEN_ISNAN): Add use.
+	(LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY): Add use.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* libgfortan.h (isfinite): undef if broken, set if needed.
+	(isnan): undef if broken, set if needed.
+	(fpclassify): undef if broken, set if needed.
+	* io/write.c: Remove TODO comment about working isfinite.
+	* intrinsics/c99_functions.c (round): Use isfinite instead
+	of fpclassify.
+	* intrinsics/c99_functions.c (roundf): Ditto.
+
+2005-09-24  Janne Blomqvist <jblomqvi@cc.hut.fi>
+
+	* io.h: Changed prototypes of list_formatted_{read|write}.
+	* list_read.c (list_formatted_read): Renamed to
+	list_formatted_read_scalar and made static.
+	(list_formatted_read): New function.
+	* transfer.c: Prototype for transfer_array. Changed transfer
+	function pointer.
+	(unformatted_read): Add nelems argument, use it.
+	(unformatted_write): Likewise.
+	(formatted_transfer): Changed name to formatted_transfer_scalar.
+	(formatted_transfer): New function.
+	(transfer_integer): Add nelems argument to transfer call, move
+	updating item count to transfer functions.
+	(transfer_real): Likewise.
+	(transfer_logical): Likewise.
+	(transfer_character): Likewise.
+	(transfer_complex): Likewise.
+	(transfer_array): New function.
+	(data_transfer_init): Call formatted_transfer with new argument.
+	(iolength_transfer): New argument, use it.
+	* write.c (list_formatted_write): Renamed to
+	list_formatted_write_scalar, made static.
+	(list_formatted_write): New function.
+
+2005-09-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.ac: Add check for __clog.
+	* configure: Regenerate.
+
+2005-09-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* c99_protos.h: Add prototypes for C99 complex functions.
+	* libgfortran.h: Include complex.h before c99_protos.h.
+	* intrinsics/c99_functions.c: Define HAVE_ macros for the
+	fallback functions we provide.
+	(cabsf, cabs, cabsl, cargf, carg, cargl, cexpf, cexp, cexpl,
+	clogf, clog, clogl, clog10f, clog10, clog10l, cpowf, cpow, cpowl,
+	cqsrtf, csqrt, csqrtl, csinhf, csinh, csinhl, ccoshf, ccosh,
+	ccoshl, ctanhf, ctanh, ctanhl, csinf, csin, csinl, ccosf, ccos,
+	ccosl, ctanf, ctan, ctanl): New fallback functions.
+	* Makefile.am (gfor_math_trig_c, gfor_math_trig_obj,
+	gfor_specific_c, gfor_cmath_src, gfor_cmath_obj): Remove.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove checks for csin. Add checks for all C99
+	complex functions.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2005-09-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libfortran/23803
+	* intrinsics/getXid.c: Add getpid wrapper for MinGW.
+	* intrinsics/getlog.c: Add getlogin wrapper for MinGW.
+	* intrinsics/hostnm.c: Add gethostname wrapper for MinGW.
+
+2005-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23802
+	* intrinsics/sleep.c: Add correct sleep macro for MinGW.
+
+2005-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23380
+	* intrinsics/cpu_time.c (__cpu_time_1): Provide a MS Windows
+	version.
+
+2005-09-14  Jerry DeLisle  <jvdelisle@verizon.net
+
+	PR fortran/21875 Internal Unit Array I/O, NIST
+	* libgfortran.h: Add run time error code for array stride.
+	* runtime/error.c (translate_error): Add error message for
+	array stride.
+	* io/io.h: Add array descriptor pointer to IOPARM structure.
+	Add prtotypes for two new functions.
+	* io/transfer.c (data_transfer_init): Removed initialization and
+	moved to unit.c (get_unit)
+	* io/transfer.c (next_record_r): Include internal unit read
+	functionality.
+	* io/transfer.c (next_record_w): Include internal unit write
+	functionality, including padding of character array records.
+	* io/unit.c (get_array_unit_len): New function to return the number
+	of records in the character array 'file' from the array descriptor.
+	* io/unit.c (get_unit): Gathered initialization code from
+	init_data_transfer for internal units and added initialization of
+	character array unit.
+	* io/unit.c (is_array_io): New function to determine if internal unit
+	is an array.
+	* io/unix.c (mem_alloc_w_at): Add error checks for bad record length
+	and end of file.
+
+2005-09-13  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/19269
+	* intrinsics/cshift0.c (cshift0): Add an extra size argument.
+	(cshift0_1, cshift0_2, cshift0_4, cshift0_8): Replace explicit
+	implementations with...
+	(DEFINE_CSHIFT): ...this new macro.  Define character versions too.
+	* intrinsics/eoshift0.c (zeros): Delete.
+	(eoshift0): Add extra size and filler arguments.  Use memset if no
+	bound is provided.
+	(eoshift0_1, eoshift0_2, eoshift0_4, eoshift0_8): Replace explicit
+	implementations with...
+	(DEFINE_EOSHIFT): ...this new macro.  Define character versions too.
+	* intrinsics/eoshift2.c (zeros): Delete.
+	(eoshift2): Add extra size and filler arguments.  Use memset if no
+	bound is provided.
+	(eoshift2_1, eoshift2_2, eoshift2_4, eoshift2_8): Replace explicit
+	implementations with...
+	(DEFINE_EOSHIFT): ...this new macro.  Define character versions too.
+	* intrinsics/pack.c (pack_internal): New static function, reusing
+	the contents of pack and adding an extra size argument.  Change
+	"mptr" rather than "m" when calculating the array size.
+	(pack): Redefine as a forwarder to pack_internal.
+	(pack_s_internal): New static function, reusing the contents of
+	pack_s and adding an extra size argument.
+	(pack_s): Redefine as a forwarder to pack_s_internal.
+	(pack_char, pack_s_char): New functions.
+	* intrinsics/reshape.c (reshape_internal): New static function,
+	reusing the contents of reshape and adding an extra size argument.
+	(reshape): Redefine as a forwarder to reshape_internal.
+	(reshape_char): New function.
+	* intrinsics/spread.c (spread_internal): New static function,
+	reusing the contents of spread and adding an extra size argument.
+	(spread): Redefine as a forwarder to spread_internal.
+	(spread_char): New function.
+	* intrinsics/transpose.c (transpose_internal): New static function,
+	reusing the contents of transpose and adding an extra size argument.
+	(transpose): Redefine as a forwarder to transpose_internal.
+	(transpose_char): New function.
+	* intrinsics/unpack.c (unpack_internal): New static function, reusing
+	the contents of unpack1 and adding extra size and fsize arguments.
+	(unpack1): Redefine as a forwarder to unpack_internal.
+	(unpack0): Call unpack_internal instead of unpack1.
+	(unpack1_char, unpack0_char): New functions.
+	* m4/cshift1.m4 (cshift1): New static function, reusing the contents
+	of cshift1_<kind> and adding an extra size argument.
+	(cshift1_<kind>): Redefine as a forwarder to cshift1.
+	(cshift1_<kind>_char): New function.
+	* m4/eoshift1.m4 (zeros): Delete.
+	(eoshift1): New static function, reusing the contents of
+	eoshift1_<kind> and adding extra size and filler arguments.
+	Fix calculation of hstride.  Use memset if no bound is provided.
+	(eoshift1_<kind>): Redefine as a forwarder to eoshift1.
+	(eoshift1_<kind>_char): New function.
+	* m4/eoshift3.m4 (zeros): Delete.
+	(eoshift3): New static function, reusing the contents of
+	eoshift3_<kind> and adding extra size and filler arguments.
+	Use memset if no bound is provided.
+	(eoshift3_<kind>): Redefine as a forwarder to eoshift3.
+	(eoshift3_<kind>_char): New function.
+	* generated/cshift1_4.c, generated/cshift1_8.c,
+	* generated/eoshift1_4.c, generated/eoshift1_8.c,
+	* generated/eoshift3_4.c, generated/eoshift3_8.c: Regenerate.
+
+2005-09-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (is_preconnected): Add function to test if a stream
+	corresponds to a preconnected unit.
+	* io/io.h: Add prototype for is_preconnected.
+	* io/transfer.c (data_transfer_init): Do not truncate
+	preconnected units.
+
+2005-09-10  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* io/unix.c: Remove mmap code.
+
+2005-09-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23784
+	* io/close.c (st_close): Call library_end even in case of error.
+
+2005-09-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/io.h:  Add iomsg as last field of st_parameter.
+	* runtime/error.c (generate_error):  If iomsg is present, copy
+	the message there.
+
+2005-09-09  Richard Sandiford  <richard@codesourcery.com>
+
+	PR fortran/12840
+	* runtime/memory.c (internal_malloc_size): Return a null pointer
+	if the size is zero.
+	(internal_free): Do nothing if the pointer is null.
+	(internal_realloc_size, internal_realloc, internal_realloc64): New.
+
+2005-09-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23262
+	* acinclude.m4 (LIBGFOR_CHECK_CRLF): New check.
+	* configure.ac: Use new check.
+	* configure.in: Regenerate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* io/transfer.c (next_record_w): Add case for CRLF as line
+	terminator.
+	* io/unix.c (tempfile, regular_file): Open files with
+	O_BINARY on systems with CRLF.
+
+2005-09-07  Steve Ellcey  <sje@cup.hp.com>
+
+	PR libfortran/23419
+	* io/write.c (extract_int): Use memcpy to access buffer.
+	(extract_uint): Ditto.
+	(extract_real): Ditto.
+
+2005-09-05  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* io/list_read.c:  Adjust size of of value to 32 (to hold
+	kind=16 complex values).
+
+2005-09-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23321
+	* io/transfer.c(data_transfer_init):  Check for a too-large
+	record number.  Return if sseek failed.
+
+2005-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/read.c (read_x): Take int argument instead of fnode * and
+	digging the N from F->u.n.
+	* io/io.h (read_x): Adjust prototype.
+	* io/transfer.c (formatted_transfer): Adjust callers.  Don't clobber
+	f->u.n for FMT_T.
+
+2005-09-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c (stream_ttyname): Protect use of ttyname by
+	HAVE_TTYNAME macro.
+	* configure.ac: Add check for ttyname.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2005-09-02  Andreas Jaeger  <aj@suse.de>
+
+	* libgfortran.h: Add prototype for init_compile_options.
+
+	* io/io.h: Add prototype for notify_std.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* io/read.c (set_integer): Use memcpy to fill buffer.
+
+2005-08-31  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/23556
+	* io/read.c (convert_real): Use memcpy to fill buffer.
+
+2005-08-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23598
+	* io/lock.c(library_start):  If ioparm.iostat is present, clear
+	it unconditionally.
+
+2005-08-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* acinclude.m4 (LIBGFOR_CHECK_UNLINK_OPEN_FILE): Add check to see
+	if target can unlink open files.
+	* configure.ac: Use this new test.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* aclocal.ac: Regenerate.
+	* io/io.h: Add prototype for unpack_filename.
+	* io/close.c (st_close): Delete file after closing unit if
+	HAVE_UNLINK_OPEN_FILE is not defined.
+	* io/unix.c (unpack_filename): Unlink scratch file after opening
+	it only if HAVE_UNLINK_OPEN_FILE is defined.
+
+2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* All files: Update FSF address.
+
+2005-08-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23428
+	* io/transfer.c (iolength_transfer):  Remove __attribute__ ((unused))
+	from type.  Return correct length for inquire(iolength=)
+	for complex variables.
+
+2005-08-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/20006
+	* Makefile.am: Add file runtime/compile_options.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h: Create structure compile_options_t. Define the
+	compile_options variable and GFC_STD_ macros.
+	* runtime/compile_options.c: New file.
+	* runtime/error.c (notify_std): New function.
+	* runtime/main.c (init): Call init_compile_options during
+	initialization.
+	* io/format.c: Use the new notify_std function for the $
+	descriptor extension.
+
+2005-08-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	* Makefile.am: Add file intrinsics/tty.c to Makefile process.
+	* Makefile.in: Regenerate.
+	* io/io.h: Prototypes for new functions stream_isatty and
+	stream_ttyname.
+	* io/unix (stream_isatty, stream_ttyname): New functions to call
+	isatty() and ttyname() on a given unit.
+	* intrinsics/tty.c: New file to implement g77 intrinsics TTYNAM
+	and ISATTY.
+
+2005-08-08  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	PR libfortran/23154
+	* io/transfer.c (data_transfer_init): Initialize
+	current_unit->bytes_left for a read.
+
+2005-08-07  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	PR fortran/22390
+	* io/backspace.c: File removed, contents moved to ...
+	* io/endfile.c: Ditto.
+	* io/rewind.c: Ditto.
+	* io/file_pos.c: New file, ... here.
+	* Makefile.am: Add file_pos.c to list, remove obsolete files.
+	* Makefile.in: Regenerated.
+
+2005-08-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/io.h: Change DEFAULT_TEMPDIR to /tmp instead of /var/tmp.
+	* io/unix.c (tempfile): Look at the TEMP environment variable
+	to find the temporary files directory. Whitespace correction.
+
+2005-08-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/unix.c: Add O_RDWR to open() call.
+
+2005-08-04 Paul Thomas  <pault@gcc.gnu.org>
+
+	* transfer.c (data_transfer_init): Truncate file in
+	sequential WRITE when last_record == 0, rather than
+	current_record.  Cures problem on RH9.
+
+2005-08-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* libgfortran.h: When isfinite is not provided by the system,
+	define it as a macro, so that it can accept any floating point
+	type.
+
+2005-08-01  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/23178
+	* intrinsics/flush.c (flush_i8): Add function flush_i8. Update
+	copyright years.
+
+2005-07-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21787
+	* intrinsics/abort.c (abort): Close units before aborting.
+	Updated copyright years.
+
+2005-07-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/22436
+	* io/write.c (write_real): Add default formats for real(10) and
+	real(16).
+
+2005-07-30 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22570 and related issues.
+	* transfer.c (formatted_transfer): Make sure that there
+	really is data present before X- or T- editing. Move all
+	treatment of tabbing during writes to start of next data
+	producing format. Suppress incorrect zeroing of bytes_left
+	in slash formating. Insert int cast for assignment of a
+	difference of two gfc_offsets.
+
+2005-07-23  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* io/write.c (write_float): Revise output of IEEE exceptional
+	values to comply with F95 and F2003 standards.
+
+2005-07-22 Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/22570
+	* io/unit.c (init_units): Replace BLANK_ZERO with
+	BLANK_UNSPECIFIED.
+
+2005-07-22 Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR libfortran/21875  (FM111.f)
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO
+	or BLANK_NULL are active.
+	(read_decimal): Interpret ' ' character correctly for BZ or BN.
+	(read_radix): Interpret ' ' character correctly for BZ or BN.
+	(read_f): Interpret ' ' character correctly for BZ or BN.
+
+2005-07-22 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/22570
+	* read.c (read_x): Correct the condition for doing the
+	x-editing during formatted input.
+	* transfer.c (formatted_transfer): Cast offset difference
+	as int, clean-up arithmetic with new variable, bytes_used,
+	zero counters for FMT_SLASH,
+	(data_transfer_init) Zero X- and T-editing counters
+	unconditionally.
+	(next_record_w) Zero X- and T-editing counters.
+	unconditionally.
+
+2005-07-17  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* io/write.c (write_float): Fix field width checks for
+	printing 'Infinity' or 'Inf'.
+	(output_float): Fix typo in comment.
+
+2005-07-12 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/16435
+	* transfer.c (formatted_transfer): Correct the problems
+	with X- and T-editting that caused TLs followed by TRs
+	to overwrite data, which caused NIST FM908.FOR to fail
+	on many tests.
+	(data_transfer_init): Zero X- and T-editting counters at
+	the start of formatted IO.
+	* write.c (write_x): Write specified number of skips with
+	specified number of spaces at the end.
+
+2005-07-13 Paul Thomas  <pault@gcc.gnu.org>
+
+	* io/read.c (read_complex): Prevent X formatting during reads
+	from going beyond EOR to fix NIST fm908.FOR failure.
+	* io/list_read.c (read_complex): Allow complex data in list-
+	directed reads to have eols either side of the comma to
+	fix NIST FM906.FOR failure.
+
+2005-07-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21593
+	* io/unix.c:  Add member special_file to type unix_stream.
+	(fd_truncate):  Don't call ftruncate or chsize if
+	s refers to a special file.
+	(fd_to_stream):  initialize s->special_file.
+
+2005-07-11  David Edelsohn  <edelsohn@gnu.org>
+
+	PR libgfortran/22412
+	* io/write.c (otoa): Bias p by SCRATCH_SIZE, not
+	sizeof (SCRATCH_SIZE).
+	(btoa): Same.
 
 2005-07-09  Jerry DeLisle  <jvdelisle@verizon.net>
 
 	PR libfortran/21875  (FM111.f)
-	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or 
+	* io/read.c (next_char): Return a ' ' character when BLANK_ZERO or
 	BLANK_NULL are active.
 	(read_decimal): Interpret ' ' character correctly for BZ or BN.
 	(read_radix): Interpret ' ' character correctly for BZ or BN.
@@ -15,7 +893,7 @@
 	PR libfortran/22217
 	* io/write.c (extract_unit):  New function; extract
 	ints as unsigned signed int of the correct size.
-	* io/write.c (write_int):  Use it.
+	(write_int):  Use it.
 	* runtime/error.c:  Adjust copyright years.
 	Adjust size of buffer to maximum that can occur.
 
@@ -121,17 +999,17 @@
 
 2005-06-25  Thomas Koenig  <Thomas.Koenig@online.de>
 
-        PR libfortran/22144
-        * m4/cshift1.m4: Remove const from argument ret.
-        Populate return array descriptor if ret->data is NULL.
-        * m4/eoshift1.m4: Likewise.
-        * m4/eoshift3.m4: Likewise.
-        * generated/cshift1_4.c:  Regenerated.
-        * generated/cshift1_8.c:  Regenerated.
-        * generated/eoshift1_4.c:  Regenerated.
-        * generated/eoshift1_8.c:  Regenerated.
-        * generated/eoshift3_4.c:  Regenerated.
-        * generated/eoshift3_8.c:  Regenerated.
+	PR libfortran/22144
+	* m4/cshift1.m4: Remove const from argument ret.
+	Populate return array descriptor if ret->data is NULL.
+	* m4/eoshift1.m4: Likewise.
+	* m4/eoshift3.m4: Likewise.
+	* generated/cshift1_4.c:  Regenerated.
+	* generated/cshift1_8.c:  Regenerated.
+	* generated/eoshift1_4.c:  Regenerated.
+	* generated/eoshift1_8.c:  Regenerated.
+	* generated/eoshift3_4.c:  Regenerated.
+	* generated/eoshift3_8.c:  Regenerated.
 
 2005-06-24  Jerry DeLisle <jvdelisle@verizon.net>
 
@@ -884,7 +1762,7 @@
 	(finalize_transfer):  If there is an EOR condition, raise the error.
 
 2005-04-09  Bud Davis  <bdavis@gfortran.org>
-            Steven G. Kargl <kargls@comcast.net>
+	    Steven G. Kargl <kargls@comcast.net>
 
 	PR fortran/19872
 	* io/transfer.c (data_transfer_init): truncate an existing
@@ -999,7 +1877,7 @@
 	the scale factor, but it needs to be restored afterwards.
 
 2005-04-03  Dale Ranta  <dir@lanl.gov>
-            Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20068
 	PR libfortran/20125
@@ -1149,7 +2027,7 @@
 
 2005-02-19  Steven G. Kargl  <kargls@comcast.net>
 
-      *  intrinsic/date_and_time.c: Fix conformance problems.
+	*  intrinsic/date_and_time.c: Fix conformance problems.
 
 2005-02-01  Paul Thomas <paulthomas2@wanadoo.fr>
 
@@ -2288,7 +3166,7 @@
 	(random_r8): fix infinite loop.
 
 2004-06-12  Bud Davis  <bdavis9659@comcast.net>
-      Steve Kargl  <sgk@troutmask.apl.washington.edu>
+	    Steve Kargl  <sgk@troutmask.apl.washington.edu>
 
 	PR gfortran/15292
 	* intrinsics/c99_functions.c: New file.

@@ -2429,16 +2429,22 @@ constrain_operands (int strict)
 		break;
 
 		/* No need to check general_operand again;
-		   it was done in insn-recog.c.  */
+		   it was done in insn-recog.c.  Well, except that reload
+		   doesn't check the validity of its replacements, but
+		   that should only matter when there's a bug.  */
 	      case 'g':
 		/* Anything goes unless it is a REG and really has a hard reg
 		   but the hard reg is not in the class GENERAL_REGS.  */
-		if (strict < 0
-		    || GENERAL_REGS == ALL_REGS
-		    || !REG_P (op)
-		    || (reload_in_progress
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER)
-		    || reg_fits_class_p (op, GENERAL_REGS, offset, mode))
+		if (REG_P (op))
+		  {
+		    if (strict < 0
+			|| GENERAL_REGS == ALL_REGS
+			|| (reload_in_progress
+			    && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+			|| reg_fits_class_p (op, GENERAL_REGS, offset, mode))
+		      win = 1;
+		  }
+		else if (strict < 0 || general_operand (op, mode))
 		  win = 1;
 		break;
 
@@ -2853,6 +2859,8 @@ struct peep2_insn_data
 
 static struct peep2_insn_data peep2_insn_data[MAX_INSNS_PER_PEEP2 + 1];
 static int peep2_current;
+/* The number of instructions available to match a peep2.  */
+int peep2_current_count;
 
 /* A non-insn marker indicating the last insn of the block.
    The live_before regset for this element is correct, indicating
@@ -2866,14 +2874,12 @@ static int peep2_current;
 rtx
 peep2_next_insn (int n)
 {
-  gcc_assert (n < MAX_INSNS_PER_PEEP2 + 1);
+  gcc_assert (n <= peep2_current_count);
 
   n += peep2_current;
   if (n >= MAX_INSNS_PER_PEEP2 + 1)
     n -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[n].insn == PEEP2_EOB)
-    return NULL_RTX;
   return peep2_insn_data[n].insn;
 }
 
@@ -3062,6 +3068,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
 	peep2_insn_data[i].insn = NULL_RTX;
+      peep2_current_count = 0;
 
       /* Indicate that the last slot contains live_after data.  */
       peep2_insn_data[MAX_INSNS_PER_PEEP2].insn = PEEP2_EOB;
@@ -3090,6 +3097,9 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	      /* Record this insn.  */
 	      if (--peep2_current < 0)
 		peep2_current = MAX_INSNS_PER_PEEP2;
+	      if (peep2_current_count < MAX_INSNS_PER_PEEP2
+		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
+		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
 	      propagate_one_insn (pbi, insn);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
@@ -3234,6 +3244,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
 		    peep2_insn_data[i].insn = NULL_RTX;
 		  peep2_insn_data[peep2_current].insn = PEEP2_EOB;
+		  peep2_current_count = 0;
 #else
 		  /* Back up lifetime information past the end of the
 		     newly created sequence.  */
@@ -3249,6 +3260,9 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			{
 			  if (--i < 0)
 			    i = MAX_INSNS_PER_PEEP2;
+			  if (peep2_current_count < MAX_INSNS_PER_PEEP2
+			      && peep2_insn_data[i].insn == NULL_RTX)
+			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
 			  propagate_one_insn (pbi, x);
 			  COPY_REG_SET (peep2_insn_data[i].live_before, live);
@@ -3460,7 +3474,7 @@ rest_of_handle_split_all_insns (void)
 
 struct tree_opt_pass pass_split_all_insns =
 {
-  NULL,                                 /* name */
+  "split1",                             /* name */
   NULL,                                 /* gate */
   rest_of_handle_split_all_insns,       /* execute */
   NULL,                                 /* sub */
@@ -3471,7 +3485,7 @@ struct tree_opt_pass pass_split_all_insns =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -3489,7 +3503,7 @@ gate_do_final_split (void)
 
 struct tree_opt_pass pass_split_for_shorten_branches =
 {
-  NULL,                                 /* name */
+  "split3",                             /* name */
   gate_do_final_split,                  /* gate */
   split_all_insns_noflow,               /* execute */
   NULL,                                 /* sub */
@@ -3500,7 +3514,7 @@ struct tree_opt_pass pass_split_for_shorten_branches =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -3525,7 +3539,7 @@ gate_handle_split_before_regstack (void)
 
 struct tree_opt_pass pass_split_before_regstack =
 {
-  NULL,                                 /* name */
+  "split2",                             /* name */
   gate_handle_split_before_regstack,    /* gate */
   rest_of_handle_split_all_insns,       /* execute */
   NULL,                                 /* sub */
@@ -3536,6 +3550,6 @@ struct tree_opt_pass pass_split_before_regstack =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

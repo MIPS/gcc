@@ -40,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tm_p.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
@@ -291,7 +292,10 @@ find_exits (struct loop *loop, basic_block *body,
 static bool
 may_assign_reg_p (rtx x)
 {
-  return can_copy_p (GET_MODE (x));
+  return (can_copy_p (GET_MODE (x))
+	  && (!REG_P (x)
+	      || !HARD_REGISTER_P (x)
+	      || REGNO_REG_CLASS (REGNO (x)) != NO_REGS));
 }
 
 /* Finds definitions that may correspond to invariants in LOOP with body BODY.
@@ -436,8 +440,8 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
       || HARD_REGISTER_P (dest))
     simple = false;
 
-  if (!check_maybe_invariant (SET_SRC (set))
-      || !may_assign_reg_p (SET_DEST (set)))
+  if (!may_assign_reg_p (SET_DEST (set))
+      || !check_maybe_invariant (SET_SRC (set)))
     return;
 
   if (may_trap_p (PATTERN (insn)))
@@ -470,7 +474,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
   create_new_invariant (def, insn, depends_on, always_executed);
 }
 
-/* Record registers used in INSN that have an unique invariant definition.
+/* Record registers used in INSN that have a unique invariant definition.
    DF is the dataflow object.  */
 
 static void
@@ -793,9 +797,22 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
   reg = gen_reg_rtx (GET_MODE (SET_DEST (set)));
   df_pattern_emit_after (df, gen_move_insn (SET_DEST (set), reg),
 			 BLOCK_FOR_INSN (inv->insn), inv->insn);
-  SET_DEST (set) = reg;
-  reorder_insns (inv->insn, inv->insn, BB_END (preheader));
-  df_insn_modify (df, preheader, inv->insn);
+
+  /* If the SET_DEST of the invariant insn is a reg, we can just move
+     the insn out of the loop.  Otherwise, we have to use gen_move_insn
+     to let emit_move_insn produce a valid instruction stream.  */
+  if (REG_P (SET_DEST (set)))
+    {
+      SET_DEST (set) = reg;
+      reorder_insns (inv->insn, inv->insn, BB_END (preheader));
+      df_insn_modify (df, preheader, inv->insn);
+    }
+  else
+    {
+      df_pattern_emit_after (df, gen_move_insn (reg, SET_SRC (set)),
+			     preheader, BB_END (preheader));
+      df_insn_delete (df, BLOCK_FOR_INSN (inv->insn), inv->insn);
+    }
 
   /* Replace the uses we know to be dominated.  It saves work for copy
      propagation, and also it is necessary so that dependent invariants
@@ -926,4 +943,8 @@ move_loop_invariants (struct loops *loops)
       free_loop_data (loops->parray[i]);
 
   df_finish (df);
+
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 }

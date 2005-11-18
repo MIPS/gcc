@@ -87,8 +87,8 @@ static bitmap_head *forward_dependency_cache;
 #endif
 
 static int deps_may_trap_p (rtx);
-static void add_dependence_list (rtx, rtx, enum reg_note);
-static void add_dependence_list_and_free (rtx, rtx *, enum reg_note);
+static void add_dependence_list (rtx, rtx, int, enum reg_note);
+static void add_dependence_list_and_free (rtx, rtx *, int, enum reg_note);
 static void delete_all_dependences (rtx);
 static void fixup_sched_groups (rtx);
 
@@ -149,11 +149,7 @@ sched_get_condition (rtx insn)
     return 0;
 
   src = SET_SRC (pc_set (insn));
-#if 0
-  /* The previous code here was completely invalid and could never extract
-     the condition from a jump.  This code does the correct thing, but that
-     triggers latent bugs later in the scheduler on ports with conditional
-     execution.  So this is disabled for now.  */
+
   if (XEXP (src, 2) == pc_rtx)
     return XEXP (src, 0);
   else if (XEXP (src, 1) == pc_rtx)
@@ -166,11 +162,11 @@ sched_get_condition (rtx insn)
       return gen_rtx_fmt_ee (revcode, GET_MODE (cond), XEXP (cond, 0),
 			     XEXP (cond, 1));
     }
-#endif
 
   return 0;
 }
 
+
 /* Return nonzero if conditions COND1 and COND2 can never be both true.  */
 
 static int
@@ -184,6 +180,32 @@ conditions_mutex_p (rtx cond1, rtx cond2)
     return 1;
   return 0;
 }
+
+/* Return true if insn1 and insn2 can never depend on one another because
+   the conditions under which they are executed are mutually exclusive.  */
+bool
+sched_insns_conditions_mutex_p (rtx insn1, rtx insn2)
+{
+  rtx cond1, cond2;
+
+  /* flow.c doesn't handle conditional lifetimes entirely correctly;
+     calls mess up the conditional lifetimes.  */
+  if (!CALL_P (insn1) && !CALL_P (insn2))
+    {
+      cond1 = sched_get_condition (insn1);
+      cond2 = sched_get_condition (insn2);
+      if (cond1 && cond2
+	  && conditions_mutex_p (cond1, cond2)
+	  /* Make sure first instruction doesn't affect condition of second
+	     instruction if switched.  */
+	  && !modified_in_p (cond1, insn2)
+	  /* Make sure second instruction doesn't affect condition of first
+	     instruction if switched.  */
+	  && !modified_in_p (cond2, insn1))
+	return true;
+    }
+  return false;
+}
 
 /* Add ELEM wrapped in an INSN_LIST with reg note kind DEP_TYPE to the
    LOG_LINKS of INSN, if not already there.  DEP_TYPE indicates the
@@ -195,7 +217,6 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
 {
   rtx link;
   int present_p;
-  rtx cond1, cond2;
 
   /* Don't depend an insn on itself.  */
   if (insn == elem)
@@ -206,26 +227,6 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
      such dependency is useless and can be ignored.  */
   if (NOTE_P (elem))
     return 0;
-
-  /* flow.c doesn't handle conditional lifetimes entirely correctly;
-     calls mess up the conditional lifetimes.  */
-  /* ??? add_dependence is the wrong place to be eliding dependencies,
-     as that forgets that the condition expressions themselves may
-     be dependent.  */
-  if (!CALL_P (insn) && !CALL_P (elem))
-    {
-      cond1 = sched_get_condition (insn);
-      cond2 = sched_get_condition (elem);
-      if (cond1 && cond2
-	  && conditions_mutex_p (cond1, cond2)
-	  /* Make sure first instruction doesn't affect condition of second
-	     instruction if switched.  */
-	  && !modified_in_p (cond1, elem)
-	  /* Make sure second instruction doesn't affect condition of first
-	     instruction if switched.  */
-	  && !modified_in_p (cond2, insn))
-	return 0;
-    }
 
   present_p = 1;
 #ifdef INSN_SCHEDULING
@@ -345,22 +346,27 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
 /* A convenience wrapper to operate on an entire list.  */
 
 static void
-add_dependence_list (rtx insn, rtx list, enum reg_note dep_type)
+add_dependence_list (rtx insn, rtx list, int uncond, enum reg_note dep_type)
 {
   for (; list; list = XEXP (list, 1))
-    add_dependence (insn, XEXP (list, 0), dep_type);
+    {
+      if (uncond || ! sched_insns_conditions_mutex_p (insn, XEXP (list, 0)))
+	add_dependence (insn, XEXP (list, 0), dep_type);
+    }
 }
 
 /* Similar, but free *LISTP at the same time.  */
 
 static void
-add_dependence_list_and_free (rtx insn, rtx *listp, enum reg_note dep_type)
+add_dependence_list_and_free (rtx insn, rtx *listp, int uncond,
+			      enum reg_note dep_type)
 {
   rtx list, next;
   for (list = *listp, *listp = NULL; list ; list = next)
     {
       next = XEXP (list, 1);
-      add_dependence (insn, XEXP (list, 0), dep_type);
+      if (uncond || ! sched_insns_conditions_mutex_p (insn, XEXP (list, 0)))
+	add_dependence (insn, XEXP (list, 0), dep_type);
       free_INSN_LIST_node (list);
     }
 }
@@ -393,7 +399,7 @@ delete_all_dependences (rtx insn)
 static void
 fixup_sched_groups (rtx insn)
 {
-  rtx link;
+  rtx link, prev_nonnote;
 
   for (link = LOG_LINKS (insn); link ; link = XEXP (link, 1))
     {
@@ -405,14 +411,17 @@ fixup_sched_groups (rtx insn)
 	  if (XEXP (link, 0) == i)
 	    goto next_link;
 	} while (SCHED_GROUP_P (i));
-      add_dependence (i, XEXP (link, 0), REG_NOTE_KIND (link));
+      if (! sched_insns_conditions_mutex_p (i, XEXP (link, 0)))
+	add_dependence (i, XEXP (link, 0), REG_NOTE_KIND (link));
     next_link:;
     }
 
   delete_all_dependences (insn);
 
-  if (BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (prev_nonnote_insn (insn)))
-    add_dependence (insn, prev_nonnote_insn (insn), REG_DEP_ANTI);
+  prev_nonnote = prev_nonnote_insn (insn);
+  if (BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (prev_nonnote)
+      && ! sched_insns_conditions_mutex_p (insn, prev_nonnote))
+    add_dependence (insn, prev_nonnote, REG_DEP_ANTI);
 }
 
 /* Process an insn's memory dependencies.  There are four kinds of
@@ -460,17 +469,17 @@ flush_pending_lists (struct deps *deps, rtx insn, int for_read,
 {
   if (for_write)
     {
-      add_dependence_list_and_free (insn, &deps->pending_read_insns,
+      add_dependence_list_and_free (insn, &deps->pending_read_insns, 1,
 				    REG_DEP_ANTI);
       free_EXPR_LIST_list (&deps->pending_read_mems);
     }
 
-  add_dependence_list_and_free (insn, &deps->pending_write_insns,
+  add_dependence_list_and_free (insn, &deps->pending_write_insns, 1,
 				for_read ? REG_DEP_ANTI : REG_DEP_OUTPUT);
   free_EXPR_LIST_list (&deps->pending_write_mems);
   deps->pending_lists_length = 0;
 
-  add_dependence_list_and_free (insn, &deps->last_pending_memory_flush,
+  add_dependence_list_and_free (insn, &deps->last_pending_memory_flush, 1,
 				for_read ? REG_DEP_ANTI : REG_DEP_OUTPUT);
   deps->last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
   deps->pending_flush_length = 1;
@@ -587,7 +596,8 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	  /* Don't let it cross a call after scheduling if it doesn't
 	     already cross one.  */
 	  if (REG_N_CALLS_CROSSED (regno) == 0)
-	    add_dependence_list (insn, deps->last_function_call, REG_DEP_ANTI);
+	    add_dependence_list (insn, deps->last_function_call, 1,
+				 REG_DEP_ANTI);
 	}
     }
   else if (MEM_P (dest))
@@ -620,7 +630,8 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	  pending_mem = deps->pending_read_mems;
 	  while (pending)
 	    {
-	      if (anti_dependence (XEXP (pending_mem, 0), t))
+	      if (anti_dependence (XEXP (pending_mem, 0), t)
+		  && ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
 		add_dependence (insn, XEXP (pending, 0), REG_DEP_ANTI);
 
 	      pending = XEXP (pending, 1);
@@ -631,14 +642,15 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	  pending_mem = deps->pending_write_mems;
 	  while (pending)
 	    {
-	      if (output_dependence (XEXP (pending_mem, 0), t))
+	      if (output_dependence (XEXP (pending_mem, 0), t)
+		  && ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
 		add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
 
 	      pending = XEXP (pending, 1);
 	      pending_mem = XEXP (pending_mem, 1);
 	    }
 
-	  add_dependence_list (insn, deps->last_pending_memory_flush,
+	  add_dependence_list (insn, deps->last_pending_memory_flush, 1,
 			       REG_DEP_ANTI);
 
 	  add_insn_mem_dependence (deps, &deps->pending_write_insns,
@@ -759,7 +771,8 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	pending_mem = deps->pending_read_mems;
 	while (pending)
 	  {
-	    if (read_dependence (XEXP (pending_mem, 0), t))
+	    if (read_dependence (XEXP (pending_mem, 0), t)
+		&& ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
 	      add_dependence (insn, XEXP (pending, 0), REG_DEP_ANTI);
 
 	    pending = XEXP (pending, 1);
@@ -771,16 +784,16 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	while (pending)
 	  {
 	    if (true_dependence (XEXP (pending_mem, 0), VOIDmode,
-				 t, rtx_varies_p))
-	      add_dependence (insn, XEXP (pending, 0), 0);
+				 t, rtx_varies_p)
+		&& ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
+	      add_dependence (insn, XEXP (pending, 0), REG_DEP_TRUE);
 
 	    pending = XEXP (pending, 1);
 	    pending_mem = XEXP (pending_mem, 1);
 	  }
 
 	for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
-	  if (!JUMP_P (XEXP (u, 0))
-	      || deps_may_trap_p (x))
+	  if (! JUMP_P (XEXP (u, 0)) || deps_may_trap_p (x))
 	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 
 	/* Always add these dependencies to pending_reads, since
@@ -891,7 +904,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	 and others know that a value is dead.  Depend on the last call
 	 instruction so that reg-stack won't get confused.  */
       if (code == CLOBBER)
-	add_dependence_list (insn, deps->last_function_call, REG_DEP_OUTPUT);
+	add_dependence_list (insn, deps->last_function_call, 1, REG_DEP_OUTPUT);
     }
   else if (code == PARALLEL)
     {
@@ -948,8 +961,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  EXECUTE_IF_SET_IN_REG_SET (&tmp_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
-	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_ANTI);
 	      reg_last->uses_length++;
 	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
 	    }
@@ -966,7 +979,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  pending_mem = deps->pending_write_mems;
 	  while (pending)
 	    {
-	      add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
+	      if (! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
+		add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
 	      pending = XEXP (pending, 1);
 	      pending_mem = XEXP (pending_mem, 1);
 	    }
@@ -975,13 +989,14 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  pending_mem = deps->pending_read_mems;
 	  while (pending)
 	    {
-	      if (MEM_VOLATILE_P (XEXP (pending_mem, 0)))
+	      if (MEM_VOLATILE_P (XEXP (pending_mem, 0))
+		  && ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
 		add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
 	      pending = XEXP (pending, 1);
 	      pending_mem = XEXP (pending_mem, 1);
 	    }
 
-	  add_dependence_list (insn, deps->last_pending_memory_flush,
+	  add_dependence_list (insn, deps->last_pending_memory_flush, 1,
 			       REG_DEP_ANTI);
 	}
     }
@@ -1019,18 +1034,18 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
     {
       /* In the case of barrier the most added dependencies are not
          real, so we use anti-dependence here.  */
-      if (GET_CODE (PATTERN (insn)) == COND_EXEC)
+      if (sched_get_condition (insn))
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
 	      add_dependence_list
-		(insn, reg_last->sets,
-		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+		(insn, reg_last->sets, 0,
+		 reg_pending_barrier == TRUE_BARRIER ? REG_DEP_TRUE : REG_DEP_ANTI);
 	      add_dependence_list
-		(insn, reg_last->clobbers,
-		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+		(insn, reg_last->clobbers, 0,
+		 reg_pending_barrier == TRUE_BARRIER ? REG_DEP_TRUE : REG_DEP_ANTI);
 	    }
 	}
       else
@@ -1038,14 +1053,14 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list_and_free (insn, &reg_last->uses,
+	      add_dependence_list_and_free (insn, &reg_last->uses, 0,
 					    REG_DEP_ANTI);
 	      add_dependence_list_and_free
-		(insn, &reg_last->sets,
-		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+		(insn, &reg_last->sets, 0,
+		 reg_pending_barrier == TRUE_BARRIER ? REG_DEP_TRUE : REG_DEP_ANTI);
 	      add_dependence_list_and_free
-		(insn, &reg_last->clobbers,
-		 reg_pending_barrier == TRUE_BARRIER ? 0 : REG_DEP_ANTI);
+		(insn, &reg_last->clobbers, 0,
+		 reg_pending_barrier == TRUE_BARRIER ? REG_DEP_TRUE : REG_DEP_ANTI);
 	      reg_last->uses_length = 0;
 	      reg_last->clobbers_length = 0;
 	    }
@@ -1066,30 +1081,30 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
     {
       /* If the current insn is conditional, we can't free any
 	 of the lists.  */
-      if (GET_CODE (PATTERN (insn)) == COND_EXEC)
+      if (sched_get_condition (insn))
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, 0);
-	      add_dependence_list (insn, reg_last->clobbers, 0);
+	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_TRUE);
+	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_TRUE);
 	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
 	      reg_last->uses_length++;
 	    }
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
-	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_OUTPUT);
+	      add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
 	      reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
 	      reg_last->clobbers_length++;
 	    }
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
-	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_OUTPUT);
-	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_OUTPUT);
+	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_OUTPUT);
+	      add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
 	      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
 	      SET_REGNO_REG_SET (&deps->reg_conditional_sets, i);
 	    }
@@ -1099,8 +1114,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, 0);
-	      add_dependence_list (insn, reg_last->clobbers, 0);
+	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_TRUE);
+	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_TRUE);
 	      reg_last->uses_length++;
 	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
 	    }
@@ -1110,11 +1125,11 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	      if (reg_last->uses_length > MAX_PENDING_LIST_LENGTH
 		  || reg_last->clobbers_length > MAX_PENDING_LIST_LENGTH)
 		{
-		  add_dependence_list_and_free (insn, &reg_last->sets,
+		  add_dependence_list_and_free (insn, &reg_last->sets, 0,
 					        REG_DEP_OUTPUT);
-		  add_dependence_list_and_free (insn, &reg_last->uses,
+		  add_dependence_list_and_free (insn, &reg_last->uses, 0,
 						REG_DEP_ANTI);
-		  add_dependence_list_and_free (insn, &reg_last->clobbers,
+		  add_dependence_list_and_free (insn, &reg_last->clobbers, 0,
 						REG_DEP_OUTPUT);
 		  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
 		  reg_last->clobbers_length = 0;
@@ -1122,8 +1137,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 		}
 	      else
 		{
-		  add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
-		  add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
+		  add_dependence_list (insn, reg_last->sets, 0, REG_DEP_OUTPUT);
+		  add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
 		}
 	      reg_last->clobbers_length++;
 	      reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
@@ -1131,11 +1146,11 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list_and_free (insn, &reg_last->sets,
+	      add_dependence_list_and_free (insn, &reg_last->sets, 0,
 					    REG_DEP_OUTPUT);
-	      add_dependence_list_and_free (insn, &reg_last->clobbers,
+	      add_dependence_list_and_free (insn, &reg_last->clobbers, 0,
 					    REG_DEP_OUTPUT);
-	      add_dependence_list_and_free (insn, &reg_last->uses,
+	      add_dependence_list_and_free (insn, &reg_last->uses, 0,
 					    REG_DEP_ANTI);
 	      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
 	      reg_last->uses_length = 0;
@@ -1315,7 +1330,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 
 	  /* For each insn which shouldn't cross a call, add a dependence
 	     between that insn and this call insn.  */
-	  add_dependence_list_and_free (insn, &deps->sched_before_next_call,
+	  add_dependence_list_and_free (insn, &deps->sched_before_next_call, 1,
 					REG_DEP_ANTI);
 
 	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);

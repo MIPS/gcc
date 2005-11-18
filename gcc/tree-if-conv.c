@@ -110,7 +110,7 @@ static void tree_if_convert_cond_expr (struct loop *, tree, tree,
 static bool if_convertible_phi_p (struct loop *, basic_block, tree);
 static bool if_convertible_modify_expr_p (struct loop *, basic_block, tree);
 static bool if_convertible_stmt_p (struct loop *, basic_block, tree);
-static bool if_convertible_bb_p (struct loop *, basic_block, bool);
+static bool if_convertible_bb_p (struct loop *, basic_block, basic_block);
 static bool if_convertible_loop_p (struct loop *, bool);
 static void add_to_predicate_list (basic_block, tree);
 static tree add_to_dst_predicate_list (struct loop * loop, basic_block, tree, tree,
@@ -437,7 +437,7 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
    BB is inside loop LOOP.  */
 
 static bool
-if_convertible_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
+if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
 {
   edge e;
   edge_iterator ei;
@@ -445,7 +445,7 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "----------[%d]-------------\n", bb->index);
 
-  if (exit_bb_seen)
+  if (exit_bb)
     {
       if (bb != loop->latch)
 	{
@@ -459,6 +459,14 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
 	    fprintf (dump_file, "non empty basic block after exit bb\n");
 	  return false;
 	}
+      else if (bb == loop->latch 
+	       && bb != exit_bb
+	       && !dominated_by_p (CDI_DOMINATORS, bb, exit_bb))
+	  {
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      fprintf (dump_file, "latch is not dominated by exit_block\n");
+	    return false;
+	  }
     }
 
   /* Be less adventurous and handle only normal edges.  */
@@ -494,7 +502,7 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
   unsigned int i;
   edge e;
   edge_iterator ei;
-  bool exit_bb_seen = false;
+  basic_block exit_bb = NULL;
 
   /* Handle only inner most loop.  */
   if (!loop || loop->inner)
@@ -547,7 +555,7 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
     {
       bb = ifc_bbs[i];
 
-      if (!if_convertible_bb_p (loop, bb, exit_bb_seen))
+      if (!if_convertible_bb_p (loop, bb, exit_bb))
 	return false;
 
       /* Check statements.  */
@@ -562,7 +570,7 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
 	  return false;
 
       if (bb_with_exit_edge_p (loop, bb))
-	exit_bb_seen = true;
+	exit_bb = bb;
     }
 
   /* OK. Did not find any potential issues so go ahead in if-convert
@@ -671,7 +679,7 @@ find_phi_replacement_condition (struct loop *loop,
        S2: x = c ? b : a;
 
        S2 is preferred over S1. Make 'b' first_bb and use its condition.
-
+       
      2) Do not make loop header first_bb.
 
      3)
@@ -683,7 +691,10 @@ find_phi_replacement_condition (struct loop *loop,
        S3: x = (c == d) ? b : a;
 
        S3 is preferred over S1 and S2*, Make 'b' first_bb and use 
-       its condition.  */
+       its condition.  
+
+     4) If  pred B is dominated by pred A then use pred B's condition.
+        See PR23115.  */
 
   /* Select condition that is not TRUTH_NOT_EXPR.  */
   tmp_cond = first_bb->aux;
@@ -695,8 +706,10 @@ find_phi_replacement_condition (struct loop *loop,
       second_bb = tmp_bb;
     }
 
-  /* Check if FIRST_BB is loop header or not.  */
-  if (first_bb == loop->header) 
+  /* Check if FIRST_BB is loop header or not and make sure that
+     FIRST_BB does not dominate SECOND_BB.  */
+  if (first_bb == loop->header
+      || dominated_by_p (CDI_DOMINATORS, second_bb, first_bb))
     {
       tmp_cond = second_bb->aux;
       if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)

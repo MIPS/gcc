@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"'
 include(iparm.m4)dnl
+
+`#if defined (HAVE_'rtype_name`)'
 
 /* This is a C version of the following fortran pseudo-code. The key
    point is the loop order -- we access all arrays column-first, which
@@ -47,15 +49,17 @@ include(iparm.m4)dnl
          C(I,J) = C(I,J)+A(I,K)*B(K,J)
 */
 
-extern void matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b);
+extern void matmul_`'rtype_code (rtype * const restrict retarray, 
+	rtype * const restrict a, rtype * const restrict b);
 export_proto(matmul_`'rtype_code);
 
 void
-matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
+matmul_`'rtype_code (rtype * const restrict retarray, 
+	rtype * const restrict a, rtype * const restrict b)
 {
-  rtype_name *abase;
-  rtype_name *bbase;
-  rtype_name *dest;
+  const rtype_name * restrict abase;
+  const rtype_name * restrict bbase;
+  rtype_name * restrict dest;
 
   index_type rxstride, rystride, axstride, aystride, bxstride, bystride;
   index_type x, y, n, count, xcount, ycount;
@@ -104,12 +108,10 @@ matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
       retarray->offset = 0;
     }
 
-  abase = a->data;
-  bbase = b->data;
-  dest = retarray->data;
-
   if (retarray->dim[0].stride == 0)
     retarray->dim[0].stride = 1;
+
+  /* This prevents constifying the input arguments.  */
   if (a->dim[0].stride == 0)
     a->dim[0].stride = 1;
   if (b->dim[0].stride == 0)
@@ -175,9 +177,9 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {
-      rtype_name *bbase_y;
-      rtype_name *dest_y;
-      rtype_name *abase_n;
+      const rtype_name * restrict bbase_y;
+      rtype_name * restrict dest_y;
+      const rtype_name * restrict abase_n;
       rtype_name bbase_yn;
 
       if (rystride == ycount)
@@ -217,3 +219,5 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
     }
 }
+
+#endif

@@ -111,8 +111,13 @@ package body Lib.Xref is
       if Opt.Xref_Active
 
          --  Definition must come from source
+         --  We make an exception for subprogram child units that have no
+         --  spec. For these we generate a subprogram declaration for library
+         --  use, and the corresponding entity does not come from source.
+         --  Nevertheless, all references will be attached to it and we have
+         --  to treat is as coming from user code.
 
-         and then Comes_From_Source (E)
+         and then (Comes_From_Source (E) or else Is_Child_Unit (E))
 
          --  And must have a reasonable source location that is not
          --  within an instance (all entities in instances are ignored)
@@ -517,6 +522,14 @@ package body Lib.Xref is
                   Ent := Alias (Ent);
                end if;
             end loop;
+
+         --  The internally created defining entity for a child subprogram
+         --  that has no previous spec has valid references.
+
+         elsif Is_Overloadable (E)
+           and then Is_Child_Unit (E)
+         then
+            Ent := E;
 
          --  Record components of discriminated subtypes or derived types
          --  must be treated as references to the original component.
@@ -1172,6 +1185,10 @@ package body Lib.Xref is
                --  the given source ptr in [file|line[...]] form. No output
                --  if the given location is not a generic template reference.
 
+               procedure Output_Overridden_Op (Old_E : Entity_Id);
+               --  For a subprogram that is overriding, display information
+               --  about the inherited operation that it overrides.
+
                -------------------------------
                -- Output_Instantiation_Refs --
                -------------------------------
@@ -1211,6 +1228,35 @@ package body Lib.Xref is
                   Curru := Cu;
                   return;
                end Output_Instantiation_Refs;
+
+               --------------------------
+               -- Output_Overridden_Op --
+               --------------------------
+
+               procedure Output_Overridden_Op (Old_E : Entity_Id) is
+               begin
+                  if Present (Old_E)
+                    and then Sloc (Old_E) /= Standard_Location
+                  then
+                     declare
+                        Loc      : constant Source_Ptr := Sloc (Old_E);
+                        Par_Unit : constant Unit_Number_Type :=
+                                     Get_Source_Unit (Loc);
+                     begin
+                        Write_Info_Char ('<');
+
+                        if Par_Unit /= Curxu then
+                           Write_Info_Nat (Dependency_Num (Par_Unit));
+                           Write_Info_Char ('|');
+                        end if;
+
+                        Write_Info_Nat (Int (Get_Logical_Line_Number (Loc)));
+                        Write_Info_Char ('p');
+                        Write_Info_Nat (Int (Get_Column_Number (Loc)));
+                        Write_Info_Char ('>');
+                     end;
+                  end if;
+               end Output_Overridden_Op;
 
             --  Start of processing for Output_One_Ref
 
@@ -1659,6 +1705,15 @@ package body Lib.Xref is
                            Output_Instantiation_Refs (Sloc (Tref));
                            Write_Info_Char (Right);
                         end if;
+                     end if;
+
+                     --  If the entity is an overriding operation, write
+                     --  info on operation that was overridden.
+
+                     if Is_Subprogram (XE.Ent)
+                       and then Is_Overriding_Operation (XE.Ent)
+                     then
+                        Output_Overridden_Op (Overridden_Operation (XE.Ent));
                      end if;
 
                      --  End of processing for entity output

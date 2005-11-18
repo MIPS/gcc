@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,14 +31,14 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the routine used for WIdth attribute for all
+--  This package contains the routine used for Width attribute for all
 --  non-static unsigned integer (modular integer) subtypes. Note we only
 --  have one routine, since this seems a fairly marginal function.
 
 with System.Unsigned_Types;
 
 package System.Wid_LLU is
-pragma Pure (Wid_LLU);
+   pragma Pure;
 
    function Width_Long_Long_Unsigned
      (Lo, Hi : System.Unsigned_Types.Long_Long_Unsigned)

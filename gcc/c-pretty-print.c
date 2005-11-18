@@ -315,10 +315,42 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
     case INTEGER_TYPE:
     case REAL_TYPE:
       if (TYPE_NAME (t))
-        t = TYPE_NAME (t);
+	{
+	  t = TYPE_NAME (t);
+	  pp_c_type_specifier (pp, t);
+	}
       else
-        t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
-      pp_c_type_specifier (pp, t);
+	{
+	  int prec = TYPE_PRECISION (t);
+	  t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
+	  if (TYPE_NAME (t))
+	    {
+	      pp_c_type_specifier (pp, t);
+	      if (TYPE_PRECISION (t) != prec)
+		{
+		  pp_string (pp, ":");
+		  pp_decimal_int (pp, prec);
+		}
+	    }
+	  else
+	    {
+	      switch (code)
+		{
+		case INTEGER_TYPE:
+		  pp_string (pp, (TYPE_UNSIGNED (t)
+				  ? "<unnamed-unsigned:"
+				  : "<unnamed-signed:"));
+		  break;
+		case REAL_TYPE:
+		  pp_string (pp, "<unnamed-float:");
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      pp_decimal_int (pp, prec);
+	      pp_string (pp, ">");
+	    }
+	}
       break;
 
     case TYPE_DECL:
@@ -1126,14 +1158,14 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
       if (TREE_CODE (e) == VECTOR_CST)
         pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
       else if (TREE_CODE (e) == CONSTRUCTOR)
-        pp_c_expression_list (pp, CONSTRUCTOR_ELTS (e));
+        pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
       else
         break;
       return;
 
     case COMPLEX_TYPE:
       if (TREE_CODE (e) == CONSTRUCTOR)
-	pp_c_expression_list (pp, CONSTRUCTOR_ELTS (e));
+	pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
       else if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
 	{
 	  const bool cst = TREE_CODE (e) == COMPLEX_CST;
@@ -1354,6 +1386,22 @@ pp_c_expression_list (c_pretty_printer *pp, tree e)
     {
       pp_expression (pp, TREE_VALUE (e));
       if (TREE_CHAIN (e))
+	pp_separate_with (pp, ',');
+    }
+}
+
+/* Print out V, which contains the elements of a constructor.  */
+
+void
+pp_c_constructor_elts (c_pretty_printer *pp, VEC(constructor_elt,gc) *v)
+{
+  unsigned HOST_WIDE_INT ix;
+  tree value;
+
+  FOR_EACH_CONSTRUCTOR_VALUE (v, ix, value)
+    {
+      pp_expression (pp, value);
+      if (ix != VEC_length (constructor_elt, v) - 1)
 	pp_separate_with (pp, ',');
     }
 }

@@ -2,7 +2,9 @@
    version 0.12.
    (Implements POSIX draft P1003.2/D11.2, except for some of the
    internationalization features.)
-   Copyright (C) 1993-1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2005 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -1918,7 +1920,7 @@ static reg_errcode_t byte_compile_range (unsigned int range_start,
    ? (char) translate[(unsigned char) (d)] : (d))
 # else /* BYTE */
 #   define TRANSLATE(d) \
-  (translate ? (char) translate[(unsigned char) (d)] : (d))
+  (translate ? (char) translate[(unsigned char) (d)] : (char) (d))
 #  endif /* WCHAR */
 # endif
 
@@ -7814,7 +7816,7 @@ re_comp (const char *s)
   if (!s)
     {
       if (!re_comp_buf.buffer)
-	return gettext ("No previous regular expression");
+	return (char *) gettext ("No previous regular expression");
       return 0;
     }
 
@@ -7921,7 +7923,7 @@ regcomp (regex_t *preg, const char *pattern, int cflags)
 
   if (cflags & REG_ICASE)
     {
-      unsigned i;
+      int i;
 
       preg->translate
 	= (RE_TRANSLATE_TYPE) malloc (CHAR_SET_SIZE
@@ -7931,7 +7933,7 @@ regcomp (regex_t *preg, const char *pattern, int cflags)
 
       /* Map uppercase characters to corresponding lowercase ones.  */
       for (i = 0; i < CHAR_SET_SIZE; i++)
-        preg->translate[i] = ISUPPER (i) ? TOLOWER (i) : (int) i;
+        preg->translate[i] = ISUPPER (i) ? TOLOWER (i) : i;
     }
   else
     preg->translate = NULL;

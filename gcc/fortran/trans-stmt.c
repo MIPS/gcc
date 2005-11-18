@@ -91,6 +91,9 @@ gfc_conv_label_variable (gfc_se * se, gfc_expr * expr)
   /* Deals with variable in common block. Get the field declaration.  */
   if (TREE_CODE (se->expr) == COMPONENT_REF)
     se->expr = TREE_OPERAND (se->expr, 1);
+  /* Deals with dummy argument. Get the parameter declaration.  */
+  else if (TREE_CODE (se->expr) == INDIRECT_REF)
+    se->expr = TREE_OPERAND (se->expr, 0);
 }
 
 /* Translate a label assignment statement.  */
@@ -163,11 +166,11 @@ gfc_trans_goto (gfc_code * code)
   gfc_trans_runtime_check (tmp, assign_error, &se.pre);
 
   assigned_goto = GFC_DECL_ASSIGN_ADDR (se.expr);
-  target = build1 (GOTO_EXPR, void_type_node, assigned_goto);
 
   code = code->block;
   if (code == NULL)
     {
+      target = build1 (GOTO_EXPR, void_type_node, assigned_goto);
       gfc_add_expr_to_block (&se.pre, target);
       return gfc_finish_block (&se.pre);
     }
@@ -177,10 +180,12 @@ gfc_trans_goto (gfc_code * code)
 
   do
     {
-      tmp = gfc_get_label_decl (code->label);
-      tmp = gfc_build_addr_expr (pvoid_type_node, tmp);
+      target = gfc_get_label_decl (code->label);
+      tmp = gfc_build_addr_expr (pvoid_type_node, target);
       tmp = build2 (EQ_EXPR, boolean_type_node, tmp, assigned_goto);
-      tmp = build3_v (COND_EXPR, tmp, target, build_empty_stmt ());
+      tmp = build3_v (COND_EXPR, tmp,
+		      build1 (GOTO_EXPR, void_type_node, target),
+		      build_empty_stmt ());
       gfc_add_expr_to_block (&se.pre, tmp);
       code = code->block;
     }
@@ -459,6 +464,14 @@ gfc_trans_if (gfc_code * code)
       }
     else // cond > 0
       goto label3;
+
+   An optimized version can be generated in case of equal labels.
+   E.g., if label1 is equal to label2, we can translate it to
+
+    if (cond <= 0)
+      goto label1;
+    else
+      goto label3;
 */
 
 tree
@@ -480,18 +493,31 @@ gfc_trans_arithmetic_if (gfc_code * code)
   /* Build something to compare with.  */
   zero = gfc_build_const (TREE_TYPE (se.expr), integer_zero_node);
 
-  /* If (cond < 0) take branch1 else take branch2.
-     First build jumps to the COND .LT. 0 and the COND .EQ. 0 cases.  */
-  branch1 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label));
-  branch2 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label2));
+  if (code->label->value != code->label2->value)
+    {
+      /* If (cond < 0) take branch1 else take branch2.
+         First build jumps to the COND .LT. 0 and the COND .EQ. 0 cases.  */
+      branch1 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label));
+      branch2 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label2));
 
-  tmp = build2 (LT_EXPR, boolean_type_node, se.expr, zero);
-  branch1 = build3_v (COND_EXPR, tmp, branch1, branch2);
+      if (code->label->value != code->label3->value)
+        tmp = build2 (LT_EXPR, boolean_type_node, se.expr, zero);
+      else
+        tmp = build2 (NE_EXPR, boolean_type_node, se.expr, zero);
 
-  /* if (cond <= 0) take branch1 else take branch2.  */
-  branch2 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label3));
-  tmp = build2 (LE_EXPR, boolean_type_node, se.expr, zero);
-  branch1 = build3_v (COND_EXPR, tmp, branch1, branch2);
+      branch1 = build3_v (COND_EXPR, tmp, branch1, branch2);
+    }
+  else
+    branch1 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label));
+
+  if (code->label->value != code->label3->value
+      && code->label2->value != code->label3->value)
+    {
+      /* if (cond <= 0) take branch1 else take branch2.  */
+      branch2 = build1_v (GOTO_EXPR, gfc_get_label_decl (code->label3));
+      tmp = build2 (LE_EXPR, boolean_type_node, se.expr, zero);
+      branch1 = build3_v (COND_EXPR, tmp, branch1, branch2);
+    }
 
   /* Append the COND_EXPR to the evaluation of COND, and return.  */
   gfc_add_expr_to_block (&se.pre, branch1);
@@ -1220,14 +1246,14 @@ gfc_trans_character_select (gfc_code *code)
       tmp = gfc_build_addr_expr (pvoid_type_node, labels[i]);
       node = tree_cons (ss_target, tmp, node);
 
-      tmp = build1 (CONSTRUCTOR, select_struct, nreverse (node));
+      tmp = build_constructor_from_list (select_struct, nreverse (node));
       init = tree_cons (NULL_TREE, tmp, init);
     }
 
   type = build_array_type (select_struct, build_index_type
 			   (build_int_cst (NULL_TREE, n - 1)));
 
-  init = build1 (CONSTRUCTOR, type, nreverse(init));
+  init = build_constructor_from_list (type, nreverse(init));
   TREE_CONSTANT (init) = 1;
   TREE_INVARIANT (init) = 1;
   TREE_STATIC (init) = 1;
@@ -3254,7 +3280,7 @@ gfc_trans_deallocate (gfc_code * code)
       se.descriptor_only = 1;
       gfc_conv_expr (&se, expr);
 
-      if (expr->symtree->n.sym->attr.dimension)
+      if (expr->rank)
 	tmp = gfc_array_deallocate (se.expr, pstat);
       else
 	{

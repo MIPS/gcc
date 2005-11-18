@@ -105,7 +105,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-const.h"
 
 
-/* Holds a single variable in a equivalence set.  */
+/* Holds a single variable in an equivalence set.  */
 typedef struct segment_info
 {
   gfc_symbol *sym;
@@ -118,8 +118,6 @@ typedef struct segment_info
 
 static segment_info * current_segment;
 static gfc_namespace *gfc_common_ns = NULL;
-
-#define BLANK_COMMON_NAME "__BLNK__"
 
 /* Make a segment_info based on a symbol.  */
 
@@ -243,7 +241,7 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
                                         DECL_FIELD_OFFSET (field),
                                         DECL_SIZE_UNIT (field)));
   /* If this field is assigned to a label, we create another two variables.
-     One will hold the address of taget label or format label. The other will
+     One will hold the address of target label or format label. The other will
      hold the length of format label string.  */
   if (h->sym->attr.assign)
     {
@@ -270,7 +268,7 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
 /* Get storage for local equivalence.  */
 
 static tree
-build_equiv_decl (tree union_type, bool is_init)
+build_equiv_decl (tree union_type, bool is_init, bool is_saved)
 {
   tree decl;
   char name[15];
@@ -288,7 +286,8 @@ build_equiv_decl (tree union_type, bool is_init)
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
 
-  if (!gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl)))
+  if (!gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl))
+      || is_saved)
     TREE_STATIC (decl) = 1;
 
   TREE_ADDRESSABLE (decl) = 1;
@@ -387,6 +386,7 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
   record_layout_info rli;
   tree decl;
   bool is_init = false;
+  bool is_saved = false;
 
   /* Declare the variables inside the common block.
      If the current common block contains any equivalence object, then
@@ -412,20 +412,24 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
       /* Has initial value.  */
       if (s->sym->value)
         is_init = true;
+
+      /* Has SAVE attribute.  */
+      if (s->sym->attr.save)
+        is_saved = true;
     }
   finish_record_layout (rli, true);
 
   if (com)
     decl = build_common_decl (com, union_type, is_init);
   else
-    decl = build_equiv_decl (union_type, is_init);
+    decl = build_equiv_decl (union_type, is_init, is_saved);
 
   if (is_init)
     {
-      tree list, ctor, tmp;
+      tree ctor, tmp;
       HOST_WIDE_INT offset = 0;
+      VEC(constructor_elt,gc) *v = NULL;
 
-      list = NULL_TREE;
       for (s = head; s; s = s->next)
         {
           if (s->sym->value)
@@ -442,28 +446,63 @@ create_common (gfc_common_head *com, segment_info * head, bool saw_equiv)
 	      tmp = gfc_conv_initializer (s->sym->value, &s->sym->ts,
 		  TREE_TYPE (s->field), s->sym->attr.dimension,
 		  s->sym->attr.pointer || s->sym->attr.allocatable);
-	      list = tree_cons (s->field, tmp, list);
+
+	      CONSTRUCTOR_APPEND_ELT (v, s->field, tmp);
               offset = s->offset + s->length;
             }
         }
-      gcc_assert (list);
-      ctor = build1 (CONSTRUCTOR, union_type, nreverse(list));
+      gcc_assert (!VEC_empty (constructor_elt, v));
+      ctor = build_constructor (union_type, v);
       TREE_CONSTANT (ctor) = 1;
       TREE_INVARIANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;
       DECL_INITIAL (decl) = ctor;
 
 #ifdef ENABLE_CHECKING
-      for (tmp = CONSTRUCTOR_ELTS (ctor); tmp; tmp = TREE_CHAIN (tmp))
-	gcc_assert (TREE_CODE (TREE_PURPOSE (tmp)) == FIELD_DECL);
+      {
+	tree field, value;
+	unsigned HOST_WIDE_INT idx;
+	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, field, value)
+	  gcc_assert (TREE_CODE (field) == FIELD_DECL);
+      }
 #endif
     }
 
   /* Build component reference for each variable.  */
   for (s = head; s; s = next_s)
     {
-      s->sym->backend_decl = build3 (COMPONENT_REF, TREE_TYPE (s->field),
-				decl, s->field, NULL_TREE);
+      tree var_decl;
+
+      var_decl = build_decl (VAR_DECL, DECL_NAME (s->field),
+			     TREE_TYPE (s->field));
+      gfc_set_decl_location (var_decl, &s->sym->declared_at);
+      TREE_PUBLIC (var_decl) = TREE_PUBLIC (decl);
+      TREE_STATIC (var_decl) = TREE_STATIC (decl);
+      TREE_USED (var_decl) = TREE_USED (decl);
+      if (s->sym->attr.target)
+	TREE_ADDRESSABLE (var_decl) = 1;
+      /* This is a fake variable just for debugging purposes.  */
+      TREE_ASM_WRITTEN (var_decl) = 1;
+
+      if (com)
+	var_decl = pushdecl_top_level (var_decl);
+      else
+	gfc_add_decl_to_function (var_decl);
+
+      SET_DECL_VALUE_EXPR (var_decl,
+			   build3 (COMPONENT_REF, TREE_TYPE (s->field),
+				   decl, s->field, NULL_TREE));
+      DECL_HAS_VALUE_EXPR_P (var_decl) = 1;
+
+      if (s->sym->attr.assign)
+	{
+	  gfc_allocate_lang_decl (var_decl);
+	  GFC_DECL_ASSIGN (var_decl) = 1;
+	  GFC_DECL_STRING_LEN (var_decl) = GFC_DECL_STRING_LEN (s->field);
+	  GFC_DECL_ASSIGN_ADDR (var_decl) = GFC_DECL_ASSIGN_ADDR (s->field);
+	}
+
+      s->sym->backend_decl = var_decl;
 
       next_s = s->next;
       gfc_free (s);
@@ -660,46 +699,45 @@ add_condition (segment_info *f, gfc_equiv *eq1, gfc_equiv *eq2)
 
 
 /* Given a segment element, search through the equivalence lists for unused
-   conditions that involve the symbol.  Add these rules to the segment.  Only
-   checks for rules involving the first symbol in the equivalence set.  */
- 
+   conditions that involve the symbol.  Add these rules to the segment.  */
+
 static bool
 find_equivalence (segment_info *n)
 {
-  gfc_equiv *e1, *e2, *eq, *other;
+  gfc_equiv *e1, *e2, *eq;
   bool found;
- 
+
   found = FALSE;
+
   for (e1 = n->sym->ns->equiv; e1; e1 = e1->next)
     {
-      other = NULL;
-      for (e2 = e1->eq; e2; e2 = e2->eq)
-	{
-	  if (e2->used)
-	    continue;
+      eq = NULL;
 
-	  if (e1->expr->symtree->n.sym == n->sym)
-	    {
-	      eq = e1;
-	      other = e2;
-	    }
-	  else if (e2->expr->symtree->n.sym == n->sym)
+      /* Search the equivalence list, including the root (first) element
+         for the symbol that owns the segment.  */
+      for (e2 = e1; e2; e2 = e2->eq)
+	{
+	  if (!e2->used && e2->expr->symtree->n.sym == n->sym)
 	    {
 	      eq = e2;
-	      other = e1;
+	      break;
 	    }
-	  else
-	    eq = NULL;
-	  
-	  if (eq)
+	}
+
+      /* Go to the next root element.  */
+      if (eq == NULL)
+	continue;
+
+      eq->used = 1;
+
+      /* Now traverse the equivalence list matching the offsets.  */
+      for (e2 = e1; e2; e2 = e2->eq)
+	{
+	  if (!e2->used && e2 != eq)
 	    {
-	      add_condition (n, eq, other);
-	      eq->used = 1;
+	      add_condition (n, eq, e2);
+	      e2->used = 1;
 	      found = TRUE;
-	      /* If this symbol is the first in the chain we may find other
-		 matches. Otherwise we can skip to the next equivalence.  */
-	      if (eq == e2)
-		break;
 	    }
 	}
     }
@@ -808,12 +846,14 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
   /* Add symbols to the segment.  */
   for (sym = var_list; sym; sym = sym->common_next)
     {
-      if (sym->equiv_built)
-	{
-	  /* Symbol has already been added via an equivalence.  */
-	  current_segment = common_segment;
-	  s = find_segment_info (sym);
+      current_segment = common_segment;
+      s = find_segment_info (sym);
 
+      /* Symbol has already been added via an equivalence.  Multiple
+	 use associations of the same common block result in equiv_built
+	 being set but no information about the symbol in the segment.  */
+      if (s && sym->equiv_built)
+	{
 	  /* Ensure the current location is properly aligned.  */
 	  align = TYPE_ALIGN_UNIT (s->field);
 	  current_offset = (current_offset + align - 1) &~ (align - 1);
@@ -888,6 +928,7 @@ finish_equivalences (gfc_namespace *ns)
 {
   gfc_equiv *z, *y;
   gfc_symbol *sym;
+  gfc_common_head * c;
   HOST_WIDE_INT offset;
   unsigned HOST_WIDE_INT align;
   bool dummy;
@@ -911,8 +952,23 @@ finish_equivalences (gfc_namespace *ns)
 
 	apply_segment_offset (current_segment, offset);
 
-	/* Create the decl.  */
-        create_common (NULL, current_segment, true);
+	/* Create the decl. If this is a module equivalence, it has a unique
+	   name, pointed to by z->module. This is written to a gfc_common_header
+	   to push create_common into using build_common_decl, so that the
+	   equivalence appears as an external symbol. Otherwise, a local
+	   declaration is built using build_equiv_decl.*/
+	if (z->module)
+	  {
+	    c = gfc_get_common_head ();
+	    /* We've lost the real location, so use the location of the
+	     enclosing procedure.  */
+	    c->where = ns->proc_name->declared_at;
+	    strcpy (c->name, z->module);
+	  }
+	else
+	  c = NULL;
+
+        create_common (c, current_segment, true);
         break;
       }
 }

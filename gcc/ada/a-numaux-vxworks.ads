@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                       (C Library Version, VxWorks)                       --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -44,7 +44,7 @@
 --  long double (see file 4onumaux.ads).
 
 package Ada.Numerics.Aux is
-pragma Pure (Aux);
+   pragma Pure;
 
    --  This version omits the pragma linker_options ("-lm") since there is
    --  no libm.a library for VxWorks.

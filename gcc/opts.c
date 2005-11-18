@@ -94,8 +94,8 @@ static const char undocumented_msg[] = N_("This switch lacks documentation");
 static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
-bool flag_speculative_prefetching_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
+static bool flag_loop_optimize_set;
 
 /* Input file names.  */
 const char **in_fnames;
@@ -523,6 +523,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_loop_optimize = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
+      flag_ipa_pure_const = 1;
+      flag_ipa_reference = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
@@ -556,6 +558,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_cse_skip_blocks = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
+      flag_ipa_type_escape = 1;
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
       flag_rerun_loop_opt = 1;
@@ -804,6 +807,10 @@ common_handle_option (size_t scode, const char *arg, int value)
       flag_branch_probabilities_set = true;
       break;
 
+    case OPT_floop_optimize:
+      flag_loop_optimize_set = true;
+      break;
+
     case OPT_fcall_used_:
       fix_register (arg, 0, 1);
       break;
@@ -880,10 +887,9 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-#ifdef HAVE_prefetch
-      if (0 && !flag_speculative_prefetching_set)
-	flag_speculative_prefetching = value;
-#endif
+      /* Old loop optimizer is incompatible with tree profiling.  */
+      if (!flag_loop_optimize_set)
+	flag_loop_optimize = 0;
       break;
 
     case OPT_fprofile_generate:
@@ -893,12 +899,6 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-      if (!flag_unroll_loops_set)
-	flag_unroll_loops = value;
-#ifdef HAVE_prefetch
-      if (0 && !flag_speculative_prefetching_set)
-	flag_speculative_prefetching = value;
-#endif
       break;
 
     case OPT_fprofile_values:
@@ -922,10 +922,6 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fvpt:
       flag_value_profile_transformations_set = true;
-      break;
-
-    case OPT_fspeculative_prefetching:
-      flag_speculative_prefetching_set = true;
       break;
 
     case OPT_frandom_seed:

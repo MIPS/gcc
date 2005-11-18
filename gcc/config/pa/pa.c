@@ -127,7 +127,6 @@ static bool pa_scalar_mode_supported_p (enum machine_mode);
 static bool pa_commutative_p (rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
-static struct deferred_plabel *get_plabel (rtx) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_level (void) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_space (int) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_file (int) ATTRIBUTE_UNUSED;
@@ -138,6 +137,7 @@ static void pa_linux_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_gas_file_start (void) ATTRIBUTE_UNUSED;
 static void pa_hpux64_hpas_file_start (void) ATTRIBUTE_UNUSED;
 static void output_deferred_plabels (void);
+static void output_deferred_profile_counters (void) ATTRIBUTE_UNUSED;
 #ifdef ASM_OUTPUT_EXTERNAL_REAL
 static void pa_hpux_file_end (void);
 #endif
@@ -1377,12 +1377,12 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
   if (scratch_reg && reload_in_progress && GET_CODE (operand0) == MEM
       && ((tem = find_replacement (&XEXP (operand0, 0)))
 	  != XEXP (operand0, 0)))
-    operand0 = gen_rtx_MEM (GET_MODE (operand0), tem);
+    operand0 = replace_equiv_address (operand0, tem);
 
   if (scratch_reg && reload_in_progress && GET_CODE (operand1) == MEM
       && ((tem = find_replacement (&XEXP (operand1, 0)))
 	  != XEXP (operand1, 0)))
-    operand1 = gen_rtx_MEM (GET_MODE (operand1), tem);
+    operand1 = replace_equiv_address (operand1, tem);
 
   /* Handle secondary reloads for loads/stores of FP registers from
      REG+D addresses where D does not fit in 5 or 14 bits, including
@@ -1420,7 +1420,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
       else
 	emit_move_insn (scratch_reg, XEXP (operand1, 0));
       emit_insn (gen_rtx_SET (VOIDmode, operand0,
-			      gen_rtx_MEM (mode, scratch_reg)));
+			      replace_equiv_address (operand1, scratch_reg)));
       return 1;
     }
   else if (scratch_reg
@@ -1457,7 +1457,8 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	}
       else
 	emit_move_insn (scratch_reg, XEXP (operand0, 0));
-      emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_MEM (mode, scratch_reg),
+      emit_insn (gen_rtx_SET (VOIDmode,
+			      replace_equiv_address (operand0, scratch_reg),
 			      operand1));
       return 1;
     }
@@ -1474,7 +1475,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	   && CONSTANT_P (operand1)
 	   && fp_reg_operand (operand0, mode))
     {
-      rtx xoperands[2];
+      rtx const_mem, xoperands[2];
 
       /* SCRATCH_REG will hold an address and maybe the actual data.  We want
 	 it in WORD_MODE regardless of what mode it was originally given
@@ -1483,13 +1484,14 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 
       /* Force the constant into memory and put the address of the
 	 memory location into scratch_reg.  */
+      const_mem = force_const_mem (mode, operand1);
       xoperands[0] = scratch_reg;
-      xoperands[1] = XEXP (force_const_mem (mode, operand1), 0);
+      xoperands[1] = XEXP (const_mem, 0);
       emit_move_sequence (xoperands, Pmode, 0);
 
       /* Now load the destination register.  */
       emit_insn (gen_rtx_SET (mode, operand0,
-			      gen_rtx_MEM (mode, scratch_reg)));
+			      replace_equiv_address (const_mem, scratch_reg)));
       return 1;
     }
   /* Handle secondary reloads for SAR.  These occur when trying to load
@@ -1526,8 +1528,8 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	     OPERAND0.  */
 	  scratch_reg = force_mode (GET_MODE (operand0), scratch_reg);
 
-	  emit_move_insn (scratch_reg, gen_rtx_MEM (GET_MODE (operand0),
-						    scratch_reg));
+	  emit_move_insn (scratch_reg,
+			  replace_equiv_address (operand1, scratch_reg));
 	}
       else
 	{
@@ -1754,10 +1756,10 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 		       && (reload_completed || reload_in_progress)
 		       && flag_pic)
 		{
-		  operands[1] = force_const_mem (mode, operand1);
-		  operands[1] = legitimize_pic_address (XEXP (operands[1], 0),
+		  rtx const_mem = force_const_mem (mode, operand1);
+		  operands[1] = legitimize_pic_address (XEXP (const_mem, 0),
 							mode, temp);
-		  operands[1] = gen_rtx_MEM (mode, operands[1]);
+		  operands[1] = replace_equiv_address (const_mem, operands[1]);
 		  emit_move_sequence (operands, mode, temp);
 		}
 	      else
@@ -1998,10 +2000,12 @@ reloc_needed (tree exp)
 
     case CONSTRUCTOR:
       {
-	register tree link;
-	for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	  if (TREE_VALUE (link) != 0)
-	    reloc |= reloc_needed (TREE_VALUE (link));
+	tree value;
+	unsigned HOST_WIDE_INT ix;
+
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), ix, value)
+	  if (value)
+	    reloc |= reloc_needed (value);
       }
       break;
 
@@ -3261,20 +3265,18 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       rtx tmpreg = gen_rtx_REG (Pmode, 1);
 
       emit_move_insn (tmpreg, delta);
-      emit_move_insn (tmpreg, gen_rtx_PLUS (Pmode, tmpreg, basereg));
-      dest = gen_rtx_MEM (word_mode, tmpreg);
-      insn = emit_move_insn (dest, src);
+      insn = emit_move_insn (tmpreg, gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
 	{
 	  REG_NOTES (insn)
 	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode,
-			     gen_rtx_MEM (word_mode,
-					  gen_rtx_PLUS (word_mode, basereg,
-							delta)),
-                             src),
+		gen_rtx_SET (VOIDmode, tmpreg,
+			     gen_rtx_PLUS (Pmode, basereg, delta)),
                 REG_NOTES (insn));
+	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
+      dest = gen_rtx_MEM (word_mode, tmpreg);
+      insn = emit_move_insn (dest, src);
     }
   else
     {
@@ -3322,25 +3324,9 @@ store_reg_modify (int base, int reg, HOST_WIDE_INT mod)
       RTX_FRAME_RELATED_P (insn) = 1;
 
       /* RTX_FRAME_RELATED_P must be set on each frame related set
-	 in a parallel with more than one element.  Don't set
-	 RTX_FRAME_RELATED_P in the first set if reg is temporary
-	 register 1. The effect of this operation is recorded in
-	 the initial copy.  */
-      if (reg != 1)
-	{
-	  RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 0)) = 1;
-	  RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
-	}
-      else
-	{
-	  /* The first element of a PARALLEL is always processed if it is
-	     a SET.  Thus, we need an expression list for this case.  */
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, basereg,
-			     gen_rtx_PLUS (word_mode, basereg, delta)),
-                REG_NOTES (insn));
-	}
+	 in a parallel with more than one element.  */
+      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 0)) = 1;
+      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
     }
 }
 
@@ -3370,6 +3356,12 @@ set_reg_plus_d (int reg, int base, HOST_WIDE_INT disp, int note)
       emit_move_insn (tmpreg, delta);
       insn = emit_move_insn (gen_rtx_REG (Pmode, reg),
 			     gen_rtx_PLUS (Pmode, tmpreg, basereg));
+      if (DO_FRAME_NOTES)
+	REG_NOTES (insn)
+	  = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+	      gen_rtx_SET (VOIDmode, tmpreg,
+			   gen_rtx_PLUS (Pmode, basereg, delta)),
+	      REG_NOTES (insn));
     }
   else
     {
@@ -3502,7 +3494,7 @@ pa_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   /* The SAVE_SP flag is used to indicate that register %r3 is stored
      at the beginning of the frame and that it is used as the frame
      pointer for the frame.  We do this because our current frame
-     layout doesn't conform to that specified in the the HP runtime
+     layout doesn't conform to that specified in the HP runtime
      documentation and we need a way to indicate to programs such as
      GDB where %r3 is saved.  The SAVE_SP flag was chosen because it
      isn't used by HP compilers but is supported by the assembler.
@@ -3574,17 +3566,7 @@ hppa_expand_prologue (void)
 	     frames.  */
 	  insn = emit_move_insn (tmpreg, frame_pointer_rtx);
 	  if (DO_FRAME_NOTES)
-	    {
-	      /* We need to record the frame pointer save here since the
-	         new frame pointer is set in the following insn.  */
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	      REG_NOTES (insn)
-		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (VOIDmode,
-				 gen_rtx_MEM (word_mode, stack_pointer_rtx),
-			         frame_pointer_rtx),
-		    REG_NOTES (insn));
-	    }
+	    RTX_FRAME_RELATED_P (insn) = 1;
 
 	  insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
 	  if (DO_FRAME_NOTES)
@@ -4138,6 +4120,40 @@ hppa_pic_save_rtx (void)
   return get_hard_reg_initial_val (word_mode, PIC_OFFSET_TABLE_REGNUM);
 }
 
+#ifndef NO_DEFERRED_PROFILE_COUNTERS
+#define NO_DEFERRED_PROFILE_COUNTERS 0
+#endif
+
+/* Define heap vector type for funcdef numbers.  */
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
+
+/* Vector of funcdef numbers.  */
+static VEC(int,heap) *funcdef_nos;
+
+/* Output deferred profile counters.  */
+static void
+output_deferred_profile_counters (void)
+{
+  unsigned int i;
+  int align, n;
+
+  if (VEC_empty (int, funcdef_nos))
+   return;
+
+  data_section ();
+  align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
+  ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
+
+  for (i = 0; VEC_iterate (int, funcdef_nos, i, n); i++)
+    {
+      targetm.asm_out.internal_label (asm_out_file, "LP", n);
+      assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
+    }
+
+  VEC_free (int, heap, funcdef_nos);
+}
+
 void
 hppa_profile_hook (int label_no)
 {
@@ -4172,11 +4188,12 @@ hppa_profile_hook (int label_no)
   emit_insn (gen_load_offset_label_address (gen_rtx_REG (SImode, 25), 
 					    reg, begin_label_rtx, label_rtx));
 
-#ifndef NO_PROFILE_COUNTERS
+#if !NO_DEFERRED_PROFILE_COUNTERS
   {
     rtx count_label_rtx, addr, r24;
     char count_label_name[16];
 
+    VEC_safe_push (int, heap, funcdef_nos, label_no);
     ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
     count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
 
@@ -5220,8 +5237,11 @@ pa_hpux64_hpas_file_start (void)
 }
 #undef aputs
 
-static struct deferred_plabel *
-get_plabel (rtx symbol)
+/* Search the deferred plabel list for SYMBOL and return its internal
+   label.  If an entry for SYMBOL is not found, a new entry is created.  */
+
+rtx
+get_deferred_plabel (rtx symbol)
 {
   const char *fname = XSTR (symbol, 0);
   size_t i;
@@ -5259,7 +5279,7 @@ get_plabel (rtx symbol)
 	mark_referenced (id);
     }
 
-  return &deferred_plabels[i];
+  return deferred_plabels[i].internal_label;
 }
 
 static void
@@ -5834,10 +5854,10 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       t = fold_convert (ptr, t);
-      t = build_fold_indirect_ref (t);
+      t = build_va_arg_indirect_ref (t);
 
       if (indirect)
-	t = build_fold_indirect_ref (t);
+	t = build_va_arg_indirect_ref (t);
 
       return t;
     }
@@ -5918,6 +5938,8 @@ output_cbranch (rtx *operands, int nullify, int length, int negated, rtx insn)
      zero for cmpb, we must ensure that we use cmpb for the comparison.  */
   if (GET_MODE (operands[1]) == DImode && operands[2] == const0_rtx)
     operands[2] = gen_rtx_REG (DImode, 0);
+  if (GET_MODE (operands[2]) == DImode && operands[1] == const0_rtx)
+    operands[1] = gen_rtx_REG (DImode, 0);
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -7097,9 +7119,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 	  /* ??? As far as I can tell, the HP linker doesn't support the
 	     long pc-relative sequence described in the 64-bit runtime
 	     architecture.  So, we use a slightly longer indirect call.  */
-	  struct deferred_plabel *p = get_plabel (call_dest);
-
-	  xoperands[0] = p->internal_label;
+	  xoperands[0] = get_deferred_plabel (call_dest);
 	  xoperands[1] = gen_label_rtx ();
 
 	  /* If this isn't a sibcall, we put the load of %r27 into the
@@ -7226,9 +7246,7 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 		     essentially an inline implementation of $$dyncall.
 		     We don't actually try to call $$dyncall as this is
 		     as difficult as calling the function itself.  */
-		  struct deferred_plabel *p = get_plabel (call_dest);
-
-		  xoperands[0] = p->internal_label;
+		  xoperands[0] = get_deferred_plabel (call_dest);
 		  xoperands[1] = gen_label_rtx ();
 
 		  /* Since the call is indirect, FP arguments in registers
@@ -9153,6 +9171,9 @@ pa_hpux_file_end (void)
 {
   unsigned int i;
   extern_symbol *p;
+
+  if (!NO_DEFERRED_PROFILE_COUNTERS)
+    output_deferred_profile_counters ();
 
   output_deferred_plabels ();
 

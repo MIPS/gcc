@@ -1,3 +1,112 @@
+2005-11-06  Richard Guenther  <rguenther@suse.de>
+
+	* splay-tree.c (rotate_left): New function.
+	(rotate_right): Likewise.
+	(splay_tree_splay_helper): Remove.
+	(splay_tree_splay): Re-implement.
+
+2005-10-31  Mark Kettenis  <kettenis@gnu.org>
+
+	* floatformat.c (floatformat_vax_aingle, floatformat_vax_double):
+	New variables.
+
+2005-10-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* at-file.texi: Fix typo.
+
+2005-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* at-file.texi: New file.
+
+2005-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* argv.c (expandargv): Do not use xmalloc_failed.
+
+2005-09-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* argv.c (safe-ctype.h): Include it.
+	(ISBLANK): Remove.
+	(stdio.h): Include.
+	(buildargv): Use ISSPACE instead of ISBLANK.
+	(expandargv): New function.
+	* Makefile.in: Regenerated.
+
+2005-09-14  Christopher Faylor  <cgf@timesys.com>
+
+	* pex-win32.c: Include "windows.h".
+	(backslashify): New function.
+	(fix_argv): Use backslashify to convert path to windows format.
+	Allocate one more place in new argv for potential executable from '#!'
+	parsing.
+	(tack_on_executable): New function.  Conditional on USE_MINGW_MSYS
+	(openkey): Ditto.
+	(mingw_rootify): Ditto.
+	(msys_rootify): Ditto.
+	(spawn_script): New function.
+	(pex_win32_exec_child): Save translated argv in newargv.  Pass to
+	spawn_script if spawnv* fails.
+	(main): New function.  Conditional on MAIN.  Useful for testing.
+
+2005-08-17  Mark Kettenis  <kettenis@gnu.org>
+
+	* floatformat.c (floatformat_always_valid): Change type of last
+	argument to `void *'.
+	(floatformat_i387_ext_is_valid): Likewise.
+	(floatformat_to_double): Change type of second argument to `const
+	void *'.
+	(floatformat_from_double): Change type of last argument to `void
+	*'.
+	(floatformat_is_valid): Change type of last argument to `const
+	void *'.
+	(ieee_test): Remove redundant casts.
+
+2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* strverscmp.c: Update FSF address.
+	* testsuite/Makefile.in: Likewise.
+	* testsuite/test-demangle.c: Likewise.
+	* testsuite/test-pexecute.c: Likewise.
+
+2005-07-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* getopt.c: Include ansidecl.h before system headers.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	* getopt.c: Include "ansidecl.h".
+	(_getopt_initialize): Mark argc and argv parameters as unused.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	* regex.c (regcomp): Change type of `i' from unsigned to int.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	Recover patch lost in the sourceware repository:
+	2005-07-09  Ben Elliston  <bje@au.ibm.com>
+	* memcpy.c: Remove ANSI_PROTOTYPES conditional code.
+	* memmove.c: Likewise.
+	* objalloc.c: Likewise.
+
+2005-07-22  Ben Elliston  <bje@gnu.org>
+
+	* configure.ac: Check for a getopt(3) declaration.
+	* configure, config.in: Regenerate.
+
+2005-07-15  Ben Elliston  <bje@au.ibm.com>
+
+	* regex.c (TRANSLATE): Cast rhs of ternary expression to char.
+
+2005-07-12  Ben Elliston  <bje@au.ibm.com>
+
+	* floatformat.c (floatformat_to_double): Add a comment about a
+	potential source of warnings when compiling this file.
+
+2005-07-12  Ben Elliston  <bje@au.ibm.com>
+
+	* pexecute.c (pexecute): Cast string litrals to char *.
+	* regex.c (re_comp): Cast a call to gettext() to char *.
+
 2005-07-07  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* config.table: Delete file.  Move former contents into ...

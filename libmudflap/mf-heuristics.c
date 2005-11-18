@@ -26,8 +26,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -42,8 +42,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 
-extern char _end;
-extern char _start;
+extern char _end[];
+extern char ENTRY_POINT[];
 
 
 /* Run some quick validation of the given region.
@@ -164,10 +164,11 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
     }
 
 
-  /* The third heuristic is to approve all accesses between _start and _end,
-     which should include all text and initialized data.  */
+  /* The third heuristic is to approve all accesses between _start (or its
+     equivalent for the given target) and _end, which should include all
+     text and initialized data.  */
   if (__mf_opts.heur_start_end)
-    if (ptr >= (uintptr_t) & _start && ptr_high <= (uintptr_t) & _end)
+    if (ptr >= (uintptr_t) & ENTRY_POINT && ptr_high <= (uintptr_t) & _end)
       return 1; /* uncacheable */
 
   return 0; /* unknown */

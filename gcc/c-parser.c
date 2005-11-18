@@ -2463,6 +2463,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	{
 	  tree new_attrs;
 	  c_parser_consume_token (parser);
+	  mark_forward_parm_decls ();
 	  new_attrs = c_parser_attributes (parser);
 	  return c_parser_parms_list_declarator (parser, new_attrs);
 	}
@@ -3775,8 +3776,9 @@ static void
 c_parser_for_statement (c_parser *parser)
 {
   tree block, cond, incr, save_break, save_cont, body;
-  location_t loc = UNKNOWN_LOCATION;
+  location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
+  loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
@@ -5721,6 +5723,11 @@ c_parser_objc_method_definition (c_parser *parser)
       c_parser_consume_token (parser);
       if (pedantic)
 	pedwarn ("extra semicolon in method definition specified");
+    }
+  if (!c_parser_next_token_is (parser, CPP_OPEN_BRACE))
+    {
+      c_parser_error (parser, "expected %<{%>");
+      return;
     }
   objc_pq_context = 0;
   objc_start_method_definition (decl);

@@ -2208,19 +2208,29 @@ operands_match_p (rtx x, rtx y)
 
  slow:
 
-  /* Now we have disposed of all the cases
-     in which different rtx codes can match.  */
+  /* Now we have disposed of all the cases in which different rtx codes
+     can match.  */
   if (code != GET_CODE (y))
     return 0;
-  if (code == LABEL_REF)
-    return XEXP (x, 0) == XEXP (y, 0);
-  if (code == SYMBOL_REF)
-    return XSTR (x, 0) == XSTR (y, 0);
 
   /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.  */
-
   if (GET_MODE (x) != GET_MODE (y))
     return 0;
+
+  switch (code)
+    {
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return 0;
+
+    case LABEL_REF:
+      return XEXP (x, 0) == XEXP (y, 0);
+    case SYMBOL_REF:
+      return XSTR (x, 0) == XSTR (y, 0);
+
+    default:
+      break;
+    }
 
   /* Compare the elements.  If any pair of corresponding elements
      fail to match, return 0 for the whole things.  */
@@ -5685,6 +5695,24 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	}
       return 0;
 
+    case TRUNCATE:
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      /* Look for parts to reload in the inner expression and reload them
+	 too, in addition to this operation.  Reloading all inner parts in
+	 addition to this one shouldn't be necessary, but at this point,
+	 we don't know if we can possibly omit any part that *can* be
+	 reloaded.  Targets that are better off reloading just either part
+	 (or perhaps even a different part of an outer expression), should
+	 define LEGITIMIZE_RELOAD_ADDRESS.  */
+      find_reloads_address_1 (GET_MODE (XEXP (x, 0)), XEXP (x, 0),
+			      context, &XEXP (x, 0), opnum,
+			      type, ind_levels, insn);
+      push_reload (x, NULL_RTX, loc, (rtx*) 0,
+		   context_reg_class,
+		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
+      return 1;
+
     case MEM:
       /* This is probably the result of a substitution, by eliminate_regs, of
 	 an equivalent address for a pseudo that was not allocated to a hard
@@ -5794,7 +5822,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
 		  > reg_class_size[class])
 		{
-		  x = find_reloads_subreg_address (x, 0, opnum, type,
+		  x = find_reloads_subreg_address (x, 0, opnum, 
+						   ADDR_TYPE (type),
 						   ind_levels, insn);
 		  push_reload (x, NULL_RTX, loc, (rtx*) 0, class,
 			       GET_MODE (x), VOIDmode, 0, 0, opnum, type);
@@ -5954,7 +5983,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 		}
 
 	      find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
-				    &XEXP (tem, 0), opnum, ADDR_TYPE (type),
+				    &XEXP (tem, 0), opnum, type,
 				    ind_levels, insn);
 
 	      /* If this is not a toplevel operand, find_reloads doesn't see
@@ -6022,9 +6051,12 @@ subst_reloads (rtx insn)
 	     register refers to.  */
 	  if (GET_CODE (*r->where) == LABEL_REF
 	      && JUMP_P (insn))
-	    REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL,
-						  XEXP (*r->where, 0),
-						  REG_NOTES (insn));
+	    {
+	      REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL,
+						    XEXP (*r->where, 0),
+						    REG_NOTES (insn));
+	      JUMP_LABEL (insn) = XEXP (*r->where, 0);
+	   }
 
 	  /* Encapsulate RELOADREG so its machine mode matches what
 	     used to be there.  Note that gen_lowpart_common will

@@ -96,12 +96,12 @@ Boston, MA 02110-1301, USA.  */
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
    match with the longer one.
-   
+
    The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
    in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
    command-line option translations specific to the particular target
    architecture.  */
-   
+
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -139,6 +139,14 @@ Boston, MA 02110-1301, USA.  */
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+#define SUBTARGET_OS_CPP_BUILTINS()                     \
+  do							\
+    {							\
+      if (flag_pic)					\
+	builtin_define ("__PIC__");			\
+    }							\
+  while (0)
 
 /* These compiler options take n arguments.  */
 
@@ -207,7 +215,7 @@ Boston, MA 02110-1301, USA.  */
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
-    %{!nostdlib:%{!nodefaultlibs:%G %L}} \
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
@@ -260,6 +268,7 @@ Boston, MA 02110-1301, USA.  */
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
+   %{mmacosx-version-min=*:-macosx_version_min %*} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
@@ -293,18 +302,31 @@ Boston, MA 02110-1301, USA.  */
 
 #define LIB_SPEC "%{!static:-lSystem}"
 
-/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
-#define REAL_LIBGCC_SPEC \
-   "%{static|static-libgcc:-lgcc -lgcc_eh}\
-    %{!static:%{!static-libgcc:\
-      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}\
-      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
+/* Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
+   libraries to link against, and by not linking against libgcc_s on
+   earlier-than-10.3.9.
 
+   Note that by default, -lgcc_eh is not linked against!  This is
+   because in a future version of Darwin the EH frame information may
+   be in a new format, or the fallback routine might be changed; if
+   you want to explicitly link against the static version of those
+   routines, because you know you don't need to unwind through system
+   libraries, you need to explicitly say -static-libgcc.  
+   
+   If it is linked against, it has to be before -lgcc, because it may
+   need symbols from -lgcc.  */
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						   \
+   "%{static-libgcc|static: -lgcc_eh -lgcc;				   \
+      shared-libgcc|fexceptions:					   \
+       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       -lgcc;								   \
+      :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       -lgcc}"
+			 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
-/* We don't want anything to do with crt2.o in the 64-bit case;
-   testing the PowerPC-specific -m64 flag here is a little irregular,
-   but it's overkill to make copies of this spec for each target
-   arch.  */
 
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC  \
@@ -312,11 +334,11 @@ Boston, MA 02110-1301, USA.  */
      %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
                      %{!static:%{object:-lgcrt0.o} \
                                %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o %{!m64: crt2.o%s}}}}} \
+                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}} \
                 %{!pg:%{static:-lcrt0.o} \
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o %{!m64: crt2.o%s}}}}}}}"
+                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
@@ -393,9 +415,9 @@ Boston, MA 02110-1301, USA.  */
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
 
-/* The Darwin linker imposes two limitations on common symbols: they 
+/* The Darwin linker imposes two limitations on common symbols: they
    can't have hidden visibility, and they can't appear in dylibs.  As
-   a consequence, we should never use common symbols to represent 
+   a consequence, we should never use common symbols to represent
    vague linkage. */
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
@@ -414,7 +436,7 @@ Boston, MA 02110-1301, USA.  */
 #undef FRAME_BEGIN_LABEL
 #define FRAME_BEGIN_LABEL "EH_frame"
 
-/* Emit a label for the FDE corresponding to DECL.  EMPTY means 
+/* Emit a label for the FDE corresponding to DECL.  EMPTY means
    emit a label for an empty FDE. */
 #define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
@@ -567,7 +589,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
     unsigned HOST_WIDE_INT _new_size = SIZE;				\
@@ -1026,7 +1048,7 @@ void darwin_register_objc_includes (const char *, const char *, int);
 void add_framework_path (char *);
 #define TARGET_OPTF add_framework_path
 
-#define TARGET_HAS_F_SETLKW
+#define TARGET_POSIX_IO
 
 /* All new versions of Darwin have C99 functions.  */
 #define TARGET_C99_FUNCTIONS 1

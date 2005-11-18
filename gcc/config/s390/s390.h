@@ -40,6 +40,7 @@ enum processor_type
   PROCESSOR_9672_G6,
   PROCESSOR_2064_Z900,
   PROCESSOR_2084_Z990,
+  PROCESSOR_2094_Z9_109,
   PROCESSOR_max
 };
 
@@ -49,7 +50,8 @@ enum processor_flags
 {
   PF_IEEE_FLOAT = 1,
   PF_ZARCH = 2,
-  PF_LONG_DISPLACEMENT = 4
+  PF_LONG_DISPLACEMENT = 4,
+  PF_EXTIMM = 8
 };
 
 extern enum processor_type s390_tune;
@@ -64,12 +66,20 @@ extern enum processor_flags s390_arch_flags;
 	(s390_arch_flags & PF_ZARCH)
 #define TARGET_CPU_LONG_DISPLACEMENT \
 	(s390_arch_flags & PF_LONG_DISPLACEMENT)
+#define TARGET_CPU_EXTIMM \
+ 	(s390_arch_flags & PF_EXTIMM)
 
 #define TARGET_LONG_DISPLACEMENT \
        (TARGET_ZARCH && TARGET_CPU_LONG_DISPLACEMENT)
-
+#define TARGET_EXTIMM \
+       (TARGET_ZARCH && TARGET_CPU_EXTIMM)
 
 /* Run-time target specification.  */
+
+/* Defaults for option flags defined only on some subtargets.  */
+#ifndef TARGET_TPF_PROFILING
+#define TARGET_TPF_PROFILING 0
+#endif
 
 /* This will be overridden by OS headers.  */
 #define TARGET_TPF 0
@@ -308,7 +318,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 
 /* Preferred register allocation order.  */
 #define REG_ALLOC_ORDER                                         \
-{  1, 2, 3, 4, 5, 0, 13, 12, 11, 10, 9, 8, 7, 6, 14,            \
+{  1, 2, 3, 4, 5, 0, 12, 11, 10, 9, 8, 7, 6, 14, 13,            \
    16, 17, 18, 19, 20, 21, 22, 23,                              \
    24, 25, 26, 27, 28, 29, 30, 31,                              \
    15, 32, 33, 34, 35, 36, 37 }
@@ -354,6 +364,9 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
      (((MODE) == SImode || ((enum machine_mode) (MODE) == Pmode))   \
       && (HARD_REGNO_NREGS(REGNO, MODE) == 1 || !((REGNO) & 1))) :  \
    0)
+
+#define HARD_REGNO_RENAME_OK(FROM, TO) \
+  s390_hard_regno_rename_ok (FROM, TO)
 
 #define MODES_TIEABLE_P(MODE1, MODE2)		\
    (((MODE1) == SFmode || (MODE1) == DFmode)	\
@@ -496,7 +509,8 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
   ((C) == 'U' || (C) == 'W' || (C) == 'Y')
 
 #define CONSTRAINT_LEN(C, STR)                                  	\
-  ((C) == 'N' ? 5 : 							\
+  ((C) == 'N' ? 5 : 	                                                \
+   (C) == 'O' ? 2 :							\
    (C) == 'A' ? 2 :							\
    (C) == 'B' ? 2 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
@@ -594,15 +608,14 @@ extern int current_function_outgoing_args_size;
 
 #define FRAME_POINTER_REQUIRED 0
 
-#define INITIAL_FRAME_POINTER_OFFSET(DEPTH) (DEPTH) = 0
-
-#define ELIMINABLE_REGS				             \
-{{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},	             \
- { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},         \
- { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	             \
- { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},           \
- { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},     \
- { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
+#define ELIMINABLE_REGS						\
+{{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM },		\
+ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM },		\
+ { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM },			\
+ { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM },		\
+ { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM },	\
+ { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM },	\
+ { BASE_REGNUM, BASE_REGNUM }}
 
 #define CAN_ELIMINATE(FROM, TO) \
   s390_can_eliminate ((FROM), (TO))
@@ -974,6 +987,9 @@ do {									\
 /* A function address in a call instruction is a byte address (for
    indexing purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
+
+/* Specify the value which is used when clz operand is zero.  */
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 64, 1)
 
 /* Machine-specific symbol_ref flags.  */
 #define SYMBOL_FLAG_ALIGN1	(SYMBOL_FLAG_MACH_DEP << 0)

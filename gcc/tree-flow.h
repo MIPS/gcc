@@ -29,6 +29,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
+#include "ipa-reference.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -239,6 +240,11 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
   
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
+
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */
   subvar_t subvars;
@@ -383,15 +389,40 @@ typedef struct
 } referenced_var_iterator;
 
 
+/* This macro loops over all the referenced vars, one at a time, putting the
+   current var in VAR.  Note:  You are not allowed to add referenced variables
+   to the hashtable while using this macro.  Doing so may cause it to behave
+   erratically.  */
+
 #define FOR_EACH_REFERENCED_VAR(VAR, ITER) \
   for ((VAR) = first_referenced_var (&(ITER)); \
        !end_referenced_vars_p (&(ITER)); \
        (VAR) = next_referenced_var (&(ITER))) 
 
+
+typedef struct
+{
+  int i;
+} safe_referenced_var_iterator;
+
+/* This macro loops over all the referenced vars, one at a time, putting the
+   current var in VAR.  You are allowed to add referenced variables during the
+   execution of this macro, however, the macro will not iterate over them.  It
+   requires a temporary vector of trees, VEC, whose lifetime is controlled by
+   the caller.  The purpose of the vector is to temporarily store the
+   referenced_variables hashtable so that adding referenced variables does not
+   affect the hashtable.  */
+
+#define FOR_EACH_REFERENCED_VAR_SAFE(VAR, VEC, ITER) \
+  for ((ITER).i = 0, fill_referenced_var_vec (&(VEC)); \
+       VEC_iterate (tree, (VEC), (ITER).i, (VAR)); \
+       (ITER).i++)
+
 /* Array of all variables referenced in the function.  */
 extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
 
 extern tree referenced_var_lookup (unsigned int);
+extern tree referenced_var_lookup_if_exists (unsigned int);
 #define num_referenced_vars htab_elements (referenced_vars)
 #define referenced_var(i) referenced_var_lookup (i)
 
@@ -575,6 +606,7 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
@@ -582,6 +614,7 @@ extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
+static inline bool array_ref_contains_indirect_ref (tree);
 extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
 					    unsigned HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
@@ -628,7 +661,6 @@ bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
-bool expr_computes_nonzero (tree);
 tree vrp_evaluate_conditional (tree, bool);
 void simplify_stmt_using_ranges (tree);
 
@@ -638,6 +670,7 @@ extern void debug_dominator_optimization_stats (void);
 int loop_depth_of_name (tree);
 
 /* In tree-ssa-copy.c  */
+extern void merge_alias_info (tree, tree);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
@@ -688,17 +721,20 @@ void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
+void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
-				struct tree_niter_desc *niter);
+				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
-bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *);
+bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *,
+			    bool *);
 tree convert_step (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
+void free_numbers_of_iterations_estimates_loop (struct loop *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
 void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
@@ -706,6 +742,8 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
+void compute_phi_arg_on_exit (edge, tree, tree);
+unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
@@ -719,6 +757,7 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
+edge single_dom_exit (struct loop *);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -770,6 +809,10 @@ bool is_hidden_global_store (tree);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree, basic_block);
+void sra_insert_before (block_stmt_iterator *, tree);
+void sra_insert_after (block_stmt_iterator *, tree);
+void sra_init_cache (void);
+bool sra_type_can_be_decomposed_p (tree);
 
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);
@@ -847,6 +890,9 @@ DEF_VEC_ALLOC_O(fieldoff_s,heap);
 int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
 				 HOST_WIDE_INT, bool *);
 void sort_fieldstack (VEC(fieldoff_s,heap) *);
+
+void init_alias_heapvars (void);
+void delete_alias_heapvars (void);
 
 #include "tree-flow-inline.h"
 

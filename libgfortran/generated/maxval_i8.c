@@ -25,14 +25,17 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <float.h>
 #include "libgfortran.h"
+
+
+#if defined (HAVE_GFC_INTEGER_8) && defined (HAVE_GFC_INTEGER_8)
 
 
 extern void maxval_i8 (gfc_array_i8 *, gfc_array_i8 *, index_type *);
@@ -330,3 +333,4 @@ mmaxval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
     }
 }
 
+#endif

@@ -32,9 +32,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, int, int, int);
 extern void rs6000_va_start (tree, rtx);
 #endif /* TREE_CODE */
 
-extern int easy_vector_same (rtx, enum machine_mode);
-extern int easy_vector_splat_const (int, enum machine_mode);
-extern int mask64_1or2_operand (rtx, enum machine_mode, bool);
+extern bool easy_altivec_constant (rtx, enum machine_mode);
 extern bool macho_lo_sum_memory_operand (rtx, enum machine_mode);
 extern int num_insns_constant (rtx, enum machine_mode);
 extern int num_insns_constant_wide (HOST_WIDE_INT);
@@ -45,11 +43,15 @@ extern void validate_condition_mode (enum rtx_code, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern bool legitimate_indirect_address_p (rtx, int);
 extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
+extern bool rs6000_legitimate_small_data_p (enum machine_mode, rtx);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
-extern rtx gen_easy_vector_constant_add_self (rtx);
+extern rtx gen_easy_altivec_constant (rtx);
 extern const char *output_vec_const_move (rtx *);
+extern void rs6000_expand_vector_init (rtx, rtx);
+extern void rs6000_expand_vector_set (rtx, rtx, int);
+extern void rs6000_expand_vector_extract (rtx, rtx, int);
 extern void build_mask64_2_operands (rtx, rtx *);
 extern int expand_block_clear (rtx[]);
 extern int expand_block_move (rtx[]);
@@ -82,6 +84,7 @@ extern int rs6000_emit_vector_cond_expr (rtx, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
 extern void rs6000_emit_sync (enum rtx_code, enum machine_mode,
 			      rtx, rtx, rtx, rtx, bool);
+extern void rs6000_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_compare_and_swap (rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_lock_test_and_set (rtx, rtx, rtx, rtx);
 extern void rs6000_emit_swdivsf (rtx, rtx, rtx);
@@ -114,6 +117,7 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int, int);
 extern int function_arg_boundary (enum machine_mode, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
+extern tree altivec_resolve_overloaded_builtin (tree, tree);
 extern rtx rs6000_function_value (tree, tree);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern rtx rs6000_va_arg (tree, tree);

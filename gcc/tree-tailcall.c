@@ -192,7 +192,7 @@ suitable_for_tail_call_opt_p (void)
 }
 
 /* Checks whether the expression EXPR in stmt AT is independent of the
-   statement pointed by BSI (in a sense that we already know EXPR's value
+   statement pointed to by BSI (in a sense that we already know EXPR's value
    at BSI).  We use the fact that we are only called from the chain of
    basic blocks that have only single successor.  Returns the expression
    containing the value of EXPR at BSI.  */
@@ -668,6 +668,29 @@ adjust_return_value (basic_block bb, tree m, tree a)
   update_stmt (ret_stmt);
 }
 
+/* Subtract COUNT and FREQUENCY from the basic block and it's
+   outgoing edge.  */
+static void
+decrease_profile (basic_block bb, gcov_type count, int frequency)
+{
+  edge e;
+  bb->count -= count;
+  if (bb->count < 0)
+    bb->count = 0;
+  bb->frequency -= frequency;
+  if (bb->frequency < 0)
+    bb->frequency = 0;
+  if (!single_succ_p (bb))
+    {
+      gcc_assert (!EDGE_COUNT (bb->succs));
+      return;
+    }
+  e = single_succ_edge (bb);
+  e->count -= count;
+  if (e->count < 0)
+    e->count = 0;
+}
+
 /* Eliminates tail call described by T.  TMP_VARS is a list of
    temporary variables used to copy the function arguments.  */
 
@@ -717,6 +740,13 @@ eliminate_tail_call (struct tailcall *t)
       release_defs (t);
     }
 
+  /* Number of executions of function has reduced by the tailcall.  */
+  e = single_succ_edge (t->call_block);
+  decrease_profile (EXIT_BLOCK_PTR, e->count, EDGE_FREQUENCY (e));
+  decrease_profile (ENTRY_BLOCK_PTR, e->count, EDGE_FREQUENCY (e));
+  if (e->dest != EXIT_BLOCK_PTR)
+    decrease_profile (e->dest, e->count, EDGE_FREQUENCY (e));
+
   /* Replace the call by a jump to the start of function.  */
   e = redirect_edge_and_branch (single_succ_edge (t->call_block), first);
   gcc_assert (e);
@@ -756,7 +786,7 @@ eliminate_tail_call (struct tailcall *t)
 
       if (!phi)
 	{
-	  tree name = var_ann (param)->default_def;
+	  tree name = default_def (param);
 	  tree new_name;
 
 	  if (!name)
@@ -769,7 +799,7 @@ eliminate_tail_call (struct tailcall *t)
 	    }
 	  new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 
-	  var_ann (param)->default_def = new_name;
+	  set_default_def (param, new_name);
 	  phi = create_phi_node (name, first);
 	  SSA_NAME_DEF_STMT (name) = phi;
 	  add_phi_arg (phi, new_name, single_succ_edge (ENTRY_BLOCK_PTR));
@@ -868,6 +898,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 
       if (!phis_constructed)
 	{
+	  tree name;
 	  /* Ensure that there is only one predecessor of the block.  */
 	  if (!single_pred_p (first))
 	    first = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
@@ -880,14 +911,13 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 		&& var_ann (param)
 		/* Also parameters that are only defined but never used need not
 		   be copied.  */
-		&& (var_ann (param)->default_def
-		    && TREE_CODE (var_ann (param)->default_def) == SSA_NAME))
+		&& ((name = default_def (param))
+		    && TREE_CODE (name) == SSA_NAME))
 	    {
-	      tree name = var_ann (param)->default_def;
 	      tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 	      tree phi;
 
-	      var_ann (param)->default_def = new_name;
+	      set_default_def (param, new_name);
 	      phi = create_phi_node (name, first);
 	      SSA_NAME_DEF_STMT (name) = phi;
 	      add_phi_arg (phi, new_name, single_pred_edge (first));

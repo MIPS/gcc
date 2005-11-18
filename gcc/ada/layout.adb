@@ -950,7 +950,7 @@ package body Layout is
       --  is the expression so far (which will be the body of the function).
 
       Size : Val_Type;
-      --  Value of size computed so far. See comments above.
+      --  Value of size computed so far. See comments above
 
       Vtyp : Entity_Id := Empty;
       --  Variant record type for the formal parameter of the
@@ -2356,7 +2356,7 @@ package body Layout is
 
          if Is_Discrete_Type (E) then
 
-            --  If the RM_Size is not set, then here is where we set it.
+            --  If the RM_Size is not set, then here is where we set it
 
             --  Note: an RM_Size of zero looks like not set here, but this
             --  is a rare case, and we can simply reset it without any harm.
@@ -3017,7 +3017,7 @@ package body Layout is
                          Make_Defining_Identifier (Loc, Chars => Vname),
                        Parameter_Type      =>
                          New_Occurrence_Of (Vtype_Primary_View, Loc))),
-                   Subtype_Mark =>
+                   Result_Definition =>
                      New_Occurrence_Of (Standard_Unsigned, Loc)),
 
              Declarations => Empty_List,
@@ -3039,7 +3039,8 @@ package body Layout is
                Make_Function_Specification (Loc,
                  Defining_Unit_Name => K,
                    Parameter_Specifications => Empty_List,
-                   Subtype_Mark => New_Occurrence_Of (Standard_Unsigned, Loc)),
+                   Result_Definition =>
+                     New_Occurrence_Of (Standard_Unsigned, Loc)),
 
              Declarations => Empty_List,
 

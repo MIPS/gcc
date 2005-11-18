@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 1999-2005 Ada Core Technologies, Inc.            --
+--                     Copyright (C) 1999-2005, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,7 +62,7 @@
 with Ada.Exceptions; use Ada.Exceptions;
 
 package GNAT.Traceback.Symbolic is
-pragma Elaborate_Body (Traceback.Symbolic);
+   pragma Elaborate_Body;
 
    ------------------------
    -- Symbolic_Traceback --

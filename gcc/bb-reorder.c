@@ -758,7 +758,7 @@ copy_bb (basic_block old_bb, edge e, basic_block bb, int trace)
 {
   basic_block new_bb;
 
-  new_bb = duplicate_block (old_bb, e);
+  new_bb = duplicate_block (old_bb, e, bb);
   BB_COPY_PARTITION (new_bb, old_bb);
 
   gcc_assert (e->dest == new_bb);
@@ -1173,12 +1173,12 @@ copy_bb_p (basic_block bb, int code_may_grow)
     return false;
 
   if (code_may_grow && maybe_hot_bb_p (bb))
-    max_size *= 8;
+    max_size *= PARAM_VALUE (PARAM_MAX_GROW_COPY_BB_INSNS);
 
   FOR_BB_INSNS (bb, insn)
     {
       if (INSN_P (insn))
-	size += get_attr_length (insn);
+	size += get_attr_min_length (insn);
     }
 
   if (size <= max_size)
@@ -1205,7 +1205,7 @@ get_uncond_jump_length (void)
   label = emit_label_before (gen_label_rtx (), get_insns ());
   jump = emit_jump_insn (gen_jump (label));
 
-  length = get_attr_length (jump);
+  length = get_attr_min_length (jump);
 
   delete_insn (jump);
   delete_insn (label);
@@ -1739,7 +1739,8 @@ fix_crossing_unconditional_branches (void)
 	      for (cur_insn = indirect_jump_sequence; cur_insn;
 		   cur_insn = NEXT_INSN (cur_insn))
 		{
-		  BLOCK_FOR_INSN (cur_insn) = cur_bb;
+		  if (!BARRIER_P (cur_insn))
+		    BLOCK_FOR_INSN (cur_insn) = cur_bb;
 		  if (JUMP_P (cur_insn))
 		    jump_insn = cur_insn;
 		}
@@ -1944,7 +1945,7 @@ reorder_basic_blocks (unsigned int flags)
    encountering this note will make the compiler switch between the
    hot and cold text sections.  */
 
-void
+static void
 insert_section_boundary_note (void)
 {
   basic_block bb;
@@ -2030,7 +2031,7 @@ duplicate_computed_gotos (void)
       FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
-	    size += get_attr_length (insn);
+	    size += get_attr_min_length (insn);
 	    if (size > max_size)
 	       break;
 	  }
@@ -2072,7 +2073,7 @@ duplicate_computed_gotos (void)
       if (!bitmap_bit_p (candidates, single_succ (bb)->index))
 	continue;
 
-      new_bb = duplicate_block (single_succ (bb), single_succ_edge (bb));
+      new_bb = duplicate_block (single_succ (bb), single_succ_edge (bb), bb);
       new_bb->aux = bb->aux;
       bb->aux = new_bb;
       new_bb->il.rtl->visited = 1;
@@ -2086,7 +2087,7 @@ done:
 
 struct tree_opt_pass pass_duplicate_computed_gotos =
 {
-  NULL,                                 /* name */
+  "compgotos",                          /* name */
   gate_duplicate_computed_gotos,        /* gate */
   duplicate_computed_gotos,             /* execute */
   NULL,                                 /* sub */
@@ -2097,7 +2098,7 @@ struct tree_opt_pass pass_duplicate_computed_gotos =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -2230,6 +2231,9 @@ rest_of_handle_reorder_blocks (void)
   if (changed && HAVE_conditional_execution)
     update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                       PROP_DEATH_NOTES);
+
+  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
+  insert_section_boundary_note ();
 }
 
 struct tree_opt_pass pass_reorder_blocks =
@@ -2276,7 +2280,7 @@ rest_of_handle_partition_blocks (void)
 
 struct tree_opt_pass pass_partition_blocks =
 {
-  NULL,                                 /* name */
+  "bbpart",                             /* name */
   gate_handle_partition_blocks,         /* gate */
   rest_of_handle_partition_blocks,      /* execute */
   NULL,                                 /* sub */
@@ -2287,7 +2291,7 @@ struct tree_opt_pass pass_partition_blocks =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,		                        /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 

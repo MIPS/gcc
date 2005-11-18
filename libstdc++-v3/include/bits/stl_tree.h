@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -164,6 +164,7 @@ namespace std
       _Rb_tree_iterator()
       : _M_node() { }
 
+      explicit
       _Rb_tree_iterator(_Link_type __x)
       : _M_node(__x) { }
 
@@ -235,6 +236,7 @@ namespace std
       _Rb_tree_const_iterator()
       : _M_node() { }
 
+      explicit
       _Rb_tree_const_iterator(_Link_type __x)
       : _M_node(__x) { }
 
@@ -401,7 +403,8 @@ namespace std
 
 	  _Rb_tree_impl(const _Node_allocator& __a = _Node_allocator(),
 			const _Key_compare& __comp = _Key_compare())
-	  : _Node_allocator(__a), _M_key_compare(__comp), _M_node_count(0)
+	  : _Node_allocator(__a), _M_key_compare(__comp), _M_header(), 
+	    _M_node_count(0)
 	  {
 	    this->_M_header._M_color = _S_red;
 	    this->_M_header._M_parent = 0;
@@ -421,7 +424,8 @@ namespace std
 
 	  _Rb_tree_impl(const _Node_allocator& __a = _Node_allocator(),
 			const _Key_compare& __comp = _Key_compare())
-	  : _Node_allocator(__a), _M_key_compare(__comp), _M_node_count(0)
+	  : _Node_allocator(__a), _M_key_compare(__comp), _M_header(),
+	    _M_node_count(0)
 	  { 
 	    this->_M_header._M_color = _S_red;
 	    this->_M_header._M_parent = 0;
@@ -579,22 +583,28 @@ namespace std
 
       iterator
       begin()
-      { return static_cast<_Link_type>(this->_M_impl._M_header._M_left); }
+      { 
+	return iterator(static_cast<_Link_type>
+			(this->_M_impl._M_header._M_left));
+      }
 
       const_iterator
       begin() const
-      {
-	return static_cast<_Const_Link_type>
-	  (this->_M_impl._M_header._M_left);
+      { 
+	return const_iterator(static_cast<_Const_Link_type>
+			      (this->_M_impl._M_header._M_left));
       }
 
       iterator
       end()
-      { return static_cast<_Link_type>(&this->_M_impl._M_header); }
+      { return iterator(static_cast<_Link_type>(&this->_M_impl._M_header)); }
 
       const_iterator
       end() const
-      { return static_cast<_Const_Link_type>(&this->_M_impl._M_header); }
+      { 
+	return const_iterator(static_cast<_Const_Link_type>
+			      (&this->_M_impl._M_header));
+      }
 
       reverse_iterator
       rbegin()
@@ -641,12 +651,12 @@ namespace std
       insert_equal(iterator __position, const value_type& __x);
 
       template<typename _InputIterator>
-      void
-      insert_unique(_InputIterator __first, _InputIterator __last);
+        void
+        insert_unique(_InputIterator __first, _InputIterator __last);
 
       template<typename _InputIterator>
-      void
-      insert_equal(_InputIterator __first, _InputIterator __last);
+        void
+        insert_equal(_InputIterator __first, _InputIterator __last);
 
       void
       erase(iterator __position);

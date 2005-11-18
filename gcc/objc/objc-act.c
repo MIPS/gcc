@@ -1259,7 +1259,7 @@ objc_build_component_ref (tree datum, tree component)
      front-end, but 'finish_class_member_access_expr' seems to be
      a worthy substitute.  */
 #ifdef OBJCPLUS
-  return finish_class_member_access_expr (datum, component);
+  return finish_class_member_access_expr (datum, component, false);
 #else
   return build_component_ref (datum, component);
 #endif
@@ -1597,6 +1597,10 @@ synth_module_prologue (void)
 		       (xref_tag (RECORD_TYPE,
 				  get_identifier (UTAG_IVAR_LIST)));
 
+  /* TREE_NOTHROW is cleared for the message-sending functions,
+     because the function that gets called can throw in Obj-C++, or
+     could itself call something that can throw even in Obj-C.  */
+
   if (flag_next_runtime)
     {
       /* NB: In order to call one of the ..._stret (struct-returning)
@@ -1626,12 +1630,21 @@ synth_module_prologue (void)
 						 type, 0, NOT_BUILT_IN,
 						 NULL, NULL_TREE);
 
+      /* These can throw, because the function that gets called can throw
+	 in Obj-C++, or could itself call something that can throw even
+	 in Obj-C.  */
+      TREE_NOTHROW (umsg_decl) = 0;
+      TREE_NOTHROW (umsg_nonnil_decl) = 0;
+      TREE_NOTHROW (umsg_stret_decl) = 0;
+      TREE_NOTHROW (umsg_nonnil_stret_decl) = 0;
+
       /* id objc_msgSend_Fast (id, SEL, ...)
 	   __attribute__ ((hard_coded_address (OFFS_MSGSEND_FAST))); */
 #ifdef OFFS_MSGSEND_FAST
       umsg_fast_decl = builtin_function (TAG_MSGSEND_FAST,
 					 type, 0, NOT_BUILT_IN,
 					 NULL, NULL_TREE);
+      TREE_NOTHROW (umsg_fast_decl) = 0;
       DECL_ATTRIBUTES (umsg_fast_decl) 
 	= tree_cons (get_identifier ("hard_coded_address"), 
 		     build_int_cst (NULL_TREE, OFFS_MSGSEND_FAST),
@@ -1654,6 +1667,8 @@ synth_module_prologue (void)
       umsg_super_stret_decl = builtin_function (TAG_MSGSENDSUPER_STRET,
 						type, 0, NOT_BUILT_IN, 0,
 						NULL_TREE);
+      TREE_NOTHROW (umsg_super_decl) = 0;
+      TREE_NOTHROW (umsg_super_stret_decl) = 0;
     }
   else
     {
@@ -1676,6 +1691,7 @@ synth_module_prologue (void)
       umsg_decl = builtin_function (TAG_MSGSEND,
 				    type, 0, NOT_BUILT_IN,
 				    NULL, NULL_TREE);
+      TREE_NOTHROW (umsg_decl) = 0;
 
       /* IMP objc_msg_lookup_super (struct objc_super *, SEL); */
       type
@@ -1686,6 +1702,7 @@ synth_module_prologue (void)
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
 					  type, 0, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
+      TREE_NOTHROW (umsg_super_decl) = 0;
 
       /* The following GNU runtime entry point is called to initialize
 	 each module:
@@ -2001,7 +2018,7 @@ objc_add_static_instance (tree constructor, tree class_decl)
 static tree
 objc_build_constructor (tree type, tree elts)
 {
-  tree constructor = build_constructor (type, elts);
+  tree constructor = build_constructor_from_list (type, elts);
 
   TREE_CONSTANT (constructor) = 1;
   TREE_STATIC (constructor) = 1;
@@ -2448,60 +2465,6 @@ generate_static_references (void)
   finish_var_decl (static_instances_decl, expr);
 }
 
-/* Output all strings.  */
-
-static void
-generate_strings (void)
-{
-  tree chain, string_expr;
-  tree string, decl, type;
-
-  for (chain = class_names_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      string = TREE_VALUE (chain);
-      decl = TREE_PURPOSE (chain);
-      type = build_array_type
-	     (char_type_node,
-	      build_index_type
-	      (build_int_cst (NULL_TREE, 
-			      IDENTIFIER_LENGTH (string))));
-      decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
-      string_expr = my_build_string (IDENTIFIER_LENGTH (string) + 1,
-				     IDENTIFIER_POINTER (string));
-      finish_var_decl (decl, string_expr);
-    }
-
-  for (chain = meth_var_names_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      string = TREE_VALUE (chain);
-      decl = TREE_PURPOSE (chain);
-      type = build_array_type
-	     (char_type_node,
-	      build_index_type
-	      (build_int_cst (NULL_TREE,
-			      IDENTIFIER_LENGTH (string))));
-      decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
-      string_expr = my_build_string (IDENTIFIER_LENGTH (string) + 1,
-				     IDENTIFIER_POINTER (string));
-      finish_var_decl (decl, string_expr);
-    }
-
-  for (chain = meth_var_types_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      string = TREE_VALUE (chain);
-      decl = TREE_PURPOSE (chain);
-      type = build_array_type
-	     (char_type_node,
-	      build_index_type
-	      (build_int_cst (NULL_TREE,
-			      IDENTIFIER_LENGTH (string))));
-      decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
-      string_expr = my_build_string (IDENTIFIER_LENGTH (string) + 1,
-				     IDENTIFIER_POINTER (string));
-      finish_var_decl (decl, string_expr);
-    }
-}
-
 static GTY(()) int selector_reference_idx;
 
 static tree
@@ -2820,7 +2783,7 @@ objc_get_class_reference (tree ident)
 static tree
 add_objc_string (tree ident, enum string_section section)
 {
-  tree *chain, decl;
+  tree *chain, decl, type, string_expr;
 
   if (section == class_names)
     chain = &class_names_chain;
@@ -2841,6 +2804,16 @@ add_objc_string (tree ident, enum string_section section)
     }
 
   decl = build_objc_string_decl (section);
+  
+  type = build_array_type
+	 (char_type_node,
+	  build_index_type
+	  (build_int_cst (NULL_TREE, 
+			  IDENTIFIER_LENGTH (ident))));
+  decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
+  string_expr = my_build_string (IDENTIFIER_LENGTH (ident) + 1,
+				 IDENTIFIER_POINTER (ident));
+  finish_var_decl (decl, string_expr);
 
   *chain = tree_cons (decl, ident, NULL_TREE);
 
@@ -3727,6 +3700,7 @@ next_sjlj_build_try_catch_finally (void)
     {
       tree caught_decl = objc_build_exc_ptr ();
       catch_seq = build_stmt (BIND_EXPR, caught_decl, NULL, NULL);
+      TREE_SIDE_EFFECTS (catch_seq) = 1;
 
       t = next_sjlj_build_exc_extract (caught_decl);
       append_to_statement_list (t, &BIND_EXPR_BODY (catch_seq));
@@ -9225,10 +9199,6 @@ finish_objc (void)
   for (impent = imp_list; impent; impent = impent->next)
     handle_impent (impent);
 
-  /* Dump the string table last.  */
-
-  generate_strings ();
-
   if (warn_selector)
     {
       int slot;
@@ -9303,6 +9273,8 @@ handle_class_ref (tree chain)
   DECL_INITIAL (decl) = exp;
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
+  /* Force the output of the decl as this forces the reference of the class.  */
+  mark_decl_referenced (decl);
 
   pushdecl (decl);
   rest_of_decl_compilation (decl, 0, 0);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 2001-2005 AdaCore                      --
+--                     Copyright (C) 2001-2005, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -49,32 +49,44 @@ package GNAT.Sockets.Thin is
    package C renames Interfaces.C;
 
    use type C.int;
-   --  So that we can declare the Failure constant below.
+   --  So that we can declare the Failure constant below
 
    Success : constant C.int :=  0;
    Failure : constant C.int := -1;
 
    function Socket_Errno return Integer;
-   --  Returns last socket error number.
+   --  Returns last socket error number
 
    procedure Set_Socket_Errno (Errno : Integer);
-   --  Set last socket error number.
+   --  Set last socket error number
 
    function Socket_Error_Message
-     (Errno : Integer)
-      return  C.Strings.chars_ptr;
+     (Errno : Integer) return C.Strings.chars_ptr;
    --  Returns the error message string for the error number Errno. If
    --  Errno is not known it returns "Unknown system error".
+
+   function Host_Errno return Integer;
+   pragma Import (C, Host_Errno, "__gnat_get_h_errno");
+   --  Returns last host error number
 
    subtype Fd_Set_Access is System.Address;
    No_Fd_Set : constant Fd_Set_Access := System.Null_Address;
 
-   type Timeval_Unit is new C.long;
-   pragma Convention (C, Timeval_Unit);
+   type time_t is
+     range -(2 ** (8 * Constants.SIZEOF_tv_sec - 1))
+          .. 2 ** (8 * Constants.SIZEOF_tv_sec - 1) - 1;
+   for time_t'Size use 8 * Constants.SIZEOF_tv_sec;
+   pragma Convention (C, time_t);
+
+   type suseconds_t is
+     range -(2 ** (8 * Constants.SIZEOF_tv_usec - 1))
+          .. 2 ** (8 * Constants.SIZEOF_tv_usec - 1) - 1;
+   for suseconds_t'Size use 8 * Constants.SIZEOF_tv_usec;
+   pragma Convention (C, suseconds_t);
 
    type Timeval is record
-      Tv_Sec  : Timeval_Unit;
-      Tv_Usec : Timeval_Unit;
+      Tv_Sec  : time_t;
+      Tv_Usec : suseconds_t;
    end record;
    pragma Convention (C, Timeval);
 
@@ -335,7 +347,7 @@ package GNAT.Sockets.Thin is
 
    procedure Free_Socket_Set
      (Set : Fd_Set_Access);
-   --  Free system-dependent socket set.
+   --  Free system-dependent socket set
 
    procedure Get_Socket_From_Set
      (Set    : Fd_Set_Access;

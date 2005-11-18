@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1997-2002 Free Software Foundation, Inc.        --
+--          Copyright (C) 1997-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the Windows NT/95 version.
+--  This is the Windows NT/95 version
+
+--  Why do we need separate version ???
+--  Do we need *this* much code duplication???
 
 with System.OS_Primitives;
 --  used for Clock
@@ -173,7 +176,6 @@ package body Ada.Calendar is
       DM : Month_Number;
       DD : Day_Number;
       DS : Day_Duration;
-
    begin
       Split (Date, DY, DM, DD, DS);
       return DD;
@@ -203,7 +205,6 @@ package body Ada.Calendar is
       DM : Month_Number;
       DD : Day_Number;
       DS : Day_Duration;
-
    begin
       Split (Date, DY, DM, DD, DS);
       return DS;
@@ -262,7 +263,7 @@ package body Ada.Calendar is
 
       end if;
 
-      --  Date_Int is the number of seconds from Epoch.
+      --  Date_Int is the number of seconds from Epoch
 
       Date_Int := Long_Long_Integer
         (Int_Date * Sec_Unit / system_time_ns) + epoch_1970;
@@ -366,7 +367,7 @@ package body Ada.Calendar is
          Sub_Sec : constant Duration := Seconds - Duration (Int_Secs);
       begin
          Date := Time ((Now - epoch_1970) * system_time_ns / Sec_Unit) +
-           Sub_Sec;
+                   Sub_Sec;
       end;
 
       if Add_One_Day then
@@ -391,4 +392,6 @@ package body Ada.Calendar is
       return DY;
    end Year;
 
+begin
+   System.OS_Primitives.Initialize;
 end Ada.Calendar;

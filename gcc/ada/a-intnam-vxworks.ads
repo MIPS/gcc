@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---           Copyright (C) 1998-2005 Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the VxWorks version of this package.
+--  This is the VxWorks version of this package
 
 with System.OS_Interface;
 
@@ -39,6 +39,6 @@ package Ada.Interrupts.Names is
 
    subtype Hardware_Interrupts is Interrupt_ID
      range Interrupt_ID'First .. System.OS_Interface.Max_HW_Interrupt;
-   --  Range of values that can be used for hardware interrupts.
+   --  Range of values that can be used for hardware interrupts
 
 end Ada.Interrupts.Names;

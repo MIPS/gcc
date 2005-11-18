@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2001-2005 Free Software Foundation, Inc        --
+--          Copyright (C) 2001-2005, Free Software Foundation, Inc          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,8 +26,6 @@
 
 --  This package implements services for Project-aware tools, mostly related
 --  to the environment (configuration pragma files, path files, mapping files).
-
-with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 package Prj.Env is
 

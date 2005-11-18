@@ -73,7 +73,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
      name if any.  */
   if (indent > 0)
     fprintf (file, " ");
-  fprintf (file, "%s <%s " HOST_PTR_PRINTF,
+  fprintf (file, "%s <%s %p",
 	   prefix, tree_code_name[(int) TREE_CODE (node)], (char *) node);
 
   if (class == tcc_declaration)
@@ -218,7 +218,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   indent_to (file, indent);
 
   /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <%s " HOST_PTR_PRINTF,
+  fprintf (file, "%s <%s %p",
 	   prefix, tree_code_name[(int) TREE_CODE (node)], (void *) node);
 
   /* Print the name, if any.  */
@@ -385,9 +385,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    }
 	}
 
-      if (TREE_CODE (node) == PARM_DECL && DECL_TRANSPARENT_UNION (node))
-	fputs (" transparent-union", file);
-
       if (DECL_VIRTUAL_P (node))
 	fputs (" virtual", file);
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS)  && DECL_DEFER_OUTPUT (node))
@@ -467,7 +464,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	}
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_NON_COMMON))
 	{
-	  print_node (file, "arguments", DECL_ARGUMENTS (node), indent + 4);
+	  print_node (file, "arguments", DECL_ARGUMENT_FLD (node), indent + 4);
 	  print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
 	}
       print_node_brief (file, "initial", DECL_INITIAL (node), indent + 4);
@@ -495,7 +492,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       && DECL_STRUCT_FUNCTION (node) != 0)
 	{
 	  indent_to (file, indent + 4);
-	  fprintf (file, "saved-insns " HOST_PTR_PRINTF,
+	  fprintf (file, "saved-insns %p",
 		   (void *) DECL_STRUCT_FUNCTION (node));
 	}
 
@@ -755,7 +752,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  break;
 
     	case STATEMENT_LIST:
-	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
+	  fprintf (file, " head %p tail %p stmts",
 		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
 	  {
 	    tree_stmt_iterator i;
@@ -763,7 +760,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      {
 		/* Not printing the addresses of the (not-a-tree)
 		   'struct tree_stmt_list_node's.  */
-		fprintf (file, " " HOST_PTR_PRINTF, (void *)tsi_stmt (i));
+		fprintf (file, " %p", (void *)tsi_stmt (i));
 	      }
 	    fprintf (file, "\n");
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 1992-2005 Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,12 +31,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the routine used for WIdth attribute for all
+--  This package contains the routine used for Width attribute for all
 --  non-static signed integer subtypes. Note we only have one routine,
 --  since this seems a fairly marginal function.
 
 package System.Wid_LLI is
-pragma Pure (Wid_LLI);
+   pragma Pure;
 
    function Width_Long_Long_Integer
      (Lo, Hi : Long_Long_Integer)

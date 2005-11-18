@@ -192,6 +192,9 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_AAPCS_BASED \
     (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)
 
+#define TARGET_HARD_TP			(target_thread_pointer == TP_CP15)
+#define TARGET_SOFT_TP			(target_thread_pointer == TP_SOFT)
+
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
    hold.  TARGET_BPABI implies the use of the BPABI runtime library,
@@ -279,7 +282,8 @@ enum arm_abi_type
   ARM_ABI_APCS,
   ARM_ABI_ATPCS,
   ARM_ABI_AAPCS,
-  ARM_ABI_IWMMXT
+  ARM_ABI_IWMMXT,
+  ARM_ABI_AAPCS_LINUX
 };
 
 extern enum arm_abi_type arm_abi;
@@ -287,6 +291,15 @@ extern enum arm_abi_type arm_abi;
 #ifndef ARM_DEFAULT_ABI
 #define ARM_DEFAULT_ABI ARM_ABI_APCS
 #endif
+
+/* Which thread pointer access sequence to use.  */
+enum arm_tp_type {
+  TP_AUTO,
+  TP_SOFT,
+  TP_CP15
+};
+
+extern enum arm_tp_type target_thread_pointer;
 
 /* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
 extern int arm_arch3m;
@@ -499,6 +512,10 @@ extern int arm_structure_size_boundary;
 
 #ifndef SIZE_TYPE
 #define SIZE_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long unsigned int")
+#endif
+
+#ifndef PTRDIFF_TYPE
+#define PTRDIFF_TYPE (TARGET_AAPCS_BASED ? "int" : "long int")
 #endif
 
 /* AAPCS requires that structure alignment is affected by bitfields.  */
@@ -1282,23 +1299,15 @@ enum reg_class
 /* We could probably achieve better results by defining PROMOTE_MODE to help
    cope with the variances between the Thumb's signed and unsigned byte and
    halfword load instructions.  */
-#define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)	\
-{									\
-  if (GET_CODE (X) == PLUS						\
-      && GET_MODE_SIZE (MODE) < 4					\
-      && GET_CODE (XEXP (X, 0)) == REG					\
-      && XEXP (X, 0) == stack_pointer_rtx				\
-      && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-      && ! thumb_legitimate_offset_p (MODE, INTVAL (XEXP (X, 1))))	\
-    {									\
-      rtx orig_X = X;							\
-      X = copy_rtx (X);							\
-      push_reload (orig_X, NULL_RTX, &X, NULL,				\
-		   MODE_BASE_REG_CLASS (MODE),				\
-		   Pmode, VOIDmode, 0, 0, OPNUM, TYPE);			\
-      goto WIN;								\
-    }									\
-}
+#define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_L, WIN)     \
+do {									      \
+  rtx new_x = thumb_legitimize_reload_address (&X, MODE, OPNUM, TYPE, IND_L); \
+  if (new_x)								      \
+    {									      \
+      X = new_x;							      \
+      goto WIN;								      \
+    }									      \
+} while (0)
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)   \
   if (TARGET_ARM)							   \
@@ -1337,7 +1346,7 @@ enum reg_class
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD  1
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -1484,6 +1493,7 @@ typedef struct arm_stack_offsets GTY(())
   int frame;		/* ARM_HARD_FRAME_POINTER_REGNUM.  */
   int saved_regs;
   int soft_frame;	/* FRAME_POINTER_REGNUM.  */
+  int locals_base;	/* THUMB_HARD_FRAME_POINTER_REGNUM.  */
   int outgoing_args;	/* STACK_POINTER_REGNUM.  */
 }
 arm_stack_offsets;
@@ -1884,8 +1894,10 @@ typedef struct
   || CONSTANT_ADDRESS_P (X)		\
   || flag_pic)
 
-#define LEGITIMATE_CONSTANT_P(X)	\
-  (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X) : THUMB_LEGITIMATE_CONSTANT_P (X))
+#define LEGITIMATE_CONSTANT_P(X)			\
+  (!arm_tls_referenced_p (X)				\
+   && (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X)	\
+		  : THUMB_LEGITIMATE_CONSTANT_P (X)))
 
 /* Special characters prefixed to function names
    in order to encode attribute like information.
@@ -2201,14 +2213,16 @@ extern int arm_pic_register;
 #define PIC_OFFSET_TABLE_REGNUM arm_pic_register
 
 /* We can't directly access anything that contains a symbol,
-   nor can we indirect via the constant pool.  */
+   nor can we indirect via the constant pool.  One exception is
+   UNSPEC_TLS, which is always PIC.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
 	(!(symbol_mentioned_p (X)					\
 	   || label_mentioned_p (X)					\
 	   || (GET_CODE (X) == SYMBOL_REF				\
 	       && CONSTANT_POOL_ADDRESS_P (X)				\
 	       && (symbol_mentioned_p (get_pool_constant (X))		\
-		   || label_mentioned_p (get_pool_constant (X))))))
+		   || label_mentioned_p (get_pool_constant (X)))))	\
+	 || tls_mentioned_p (X))
 
 /* We need to know when we are making a constant pool; this determines
    whether data needs to be in the GOT or can be referenced via a GOT
@@ -2243,7 +2257,8 @@ extern int making_const_table;
 	        || (const_ok_for_arm (- INTVAL (OP1)))))		\
         {								\
           rtx const_op = OP1;						\
-          CODE = arm_canonicalize_comparison ((CODE), &const_op);	\
+          CODE = arm_canonicalize_comparison ((CODE), GET_MODE (OP0),	\
+					      &const_op);		\
           OP1 = const_op;						\
         }								\
     }									\
@@ -2488,10 +2503,9 @@ extern int making_const_table;
   else						\
     THUMB_PRINT_OPERAND_ADDRESS (STREAM, X)
 
-#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)	\
-  if (GET_CODE (X) != CONST_VECTOR		\
-      || ! arm_emit_vector_const (FILE, X))	\
-    goto FAIL;
+#define OUTPUT_ADDR_CONST_EXTRA(file, x, fail)		\
+  if (arm_output_addr_const_extra (file, x) == FALSE)	\
+    goto fail
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.  */
@@ -2682,6 +2696,8 @@ enum arm_builtins
   ARM_BUILTIN_WUNPCKELUB,
   ARM_BUILTIN_WUNPCKELUH,
   ARM_BUILTIN_WUNPCKELUW,
+
+  ARM_BUILTIN_THREAD_POINTER,
 
   ARM_BUILTIN_MAX
 };

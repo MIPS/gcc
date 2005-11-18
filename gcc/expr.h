@@ -341,6 +341,7 @@ extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
 extern rtx expand_builtin_saveregs (void);
+extern void expand_builtin_trap (void);
 
 /* Functions from expr.c:  */
 
@@ -550,7 +551,7 @@ extern HOST_WIDE_INT int_expr_size (tree);
 
 /* Return an rtx that refers to the value returned by a function
    in its original home.  This becomes invalid if any more code is emitted.  */
-extern rtx hard_function_value (tree, tree, int);
+extern rtx hard_function_value (tree, tree, tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
 

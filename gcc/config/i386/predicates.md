@@ -108,9 +108,10 @@
 	 library.  Don't count TLS SYMBOL_REFs here, since they should fit
 	 only if inside of UNSPEC handled below.  */
       /* TLS symbols are not constant.  */
-      if (tls_symbolic_operand (op, Pmode))
+      if (SYMBOL_REF_TLS_MODEL (op))
 	return false;
-      return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL);
+      return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL
+	      || (ix86_cmodel == CM_MEDIUM && !SYMBOL_REF_FAR_ADDR_P (op)));
 
     case LABEL_REF:
       /* For certain code models, the code is near as well.  */
@@ -146,11 +147,16 @@
 	  switch (GET_CODE (op1))
 	    {
 	    case SYMBOL_REF:
+	      /* TLS symbols are not constant.  */
+	      if (SYMBOL_REF_TLS_MODEL (op1))
+		return 0;
 	      /* For CM_SMALL assume that latest object is 16MB before
 		 end of 31bits boundary.  We may also accept pretty
 		 large negative constants knowing that all objects are
 		 in the positive half of address space.  */
-	      if (ix86_cmodel == CM_SMALL
+	      if ((ix86_cmodel == CM_SMALL
+		   || (ix86_cmodel == CM_MEDIUM
+		       && !SYMBOL_REF_FAR_ADDR_P (op1)))
 		  && offset < 16*1024*1024
 		  && trunc_int_for_mode (offset, SImode) == offset)
 		return 1;
@@ -222,9 +228,11 @@
     case SYMBOL_REF:
       /* For certain code models, the symbolic references are known to fit.  */
       /* TLS symbols are not constant.  */
-      if (tls_symbolic_operand (op, Pmode))
+      if (SYMBOL_REF_TLS_MODEL (op))
 	return false;
-      return ix86_cmodel == CM_SMALL;
+      return (ix86_cmodel == CM_SMALL
+	      || (ix86_cmodel == CM_MEDIUM
+		  && !SYMBOL_REF_FAR_ADDR_P (op)));
 
     case LABEL_REF:
       /* For certain code models, the code is near as well.  */
@@ -243,11 +251,16 @@
 	  switch (GET_CODE (op1))
 	    {
 	    case SYMBOL_REF:
+	      /* TLS symbols are not constant.  */
+	      if (SYMBOL_REF_TLS_MODEL (op1))
+		return 0;
 	      /* For small code model we may accept pretty large positive
 		 offsets, since one bit is available for free.  Negative
 		 offsets are limited by the size of NULL pointer area
 		 specified by the ABI.  */
-	      if (ix86_cmodel == CM_SMALL
+	      if ((ix86_cmodel == CM_SMALL
+		   || (ix86_cmodel == CM_MEDIUM
+		       && !SYMBOL_REF_FAR_ADDR_P (op1)))
 		  && GET_CODE (op2) == CONST_INT
 		  && trunc_int_for_mode (INTVAL (op2), DImode) > -0x10000
 		  && trunc_int_for_mode (INTVAL (op2), SImode) == INTVAL (op2))
@@ -310,6 +323,28 @@
 	 (ior (match_operand 0 "x86_64_immediate_operand")
 	      (match_operand 0 "x86_64_zext_immediate_operand")))
     (match_operand 0 "nonmemory_operand")))
+
+;; Return true when operand is PIC expression that can be computed by lea
+;; operation.
+(define_predicate "pic_32bit_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  if (!flag_pic)
+    return 0;
+  /* Rule out relocations that translate into 64bit constants.  */
+  if (TARGET_64BIT && GET_CODE (op) == CONST)
+    {
+      op = XEXP (op, 0);
+      if (GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+	op = XEXP (op, 0);
+      if (GET_CODE (op) == UNSPEC
+	  && (XINT (op, 1) == UNSPEC_GOTOFF
+	      || XINT (op, 1) == UNSPEC_GOT))
+	return 0;
+    }
+  return symbolic_operand (op, mode);
+})
+
 
 ;; Return nonzero if OP is nonmemory operand acceptable by movabs patterns.
 (define_predicate "x86_64_movabs_operand"
@@ -426,22 +461,6 @@
 (define_predicate "tls_symbolic_operand"
   (and (match_code "symbol_ref")
        (match_test "SYMBOL_REF_TLS_MODEL (op) != 0")))
-
-(define_predicate "global_dynamic_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_GLOBAL_DYNAMIC")))
-
-(define_predicate "local_dynamic_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_LOCAL_DYNAMIC")))
-
-(define_predicate "initial_exec_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_INITIAL_EXEC")))
-
-(define_predicate "local_exec_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_LOCAL_EXEC")))
 
 ;; Test for a pc-relative call operand
 (define_predicate "constant_call_address_operand"

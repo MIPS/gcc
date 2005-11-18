@@ -173,7 +173,8 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
-#define TARGET_FISTTP (x86_fisttp & (1 << ix86_arch))
+#define TARGET_FISTTP (((x86_fisttp & (1 << ix86_arch)) || TARGET_SSE3) \
+			&& TARGET_80387)
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
@@ -961,7 +962,8 @@ do {									\
 #define REAL_PIC_OFFSET_TABLE_REGNUM  3
 
 #define PIC_OFFSET_TABLE_REGNUM				\
-  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM		\
+  ((TARGET_64BIT && ix86_cmodel == CM_SMALL_PIC)	\
+   || !flag_pic ? INVALID_REGNUM			\
    : reload_completed ? REGNO (pic_offset_table_rtx)	\
    : REAL_PIC_OFFSET_TABLE_REGNUM)
 
@@ -1218,7 +1220,7 @@ enum reg_class
    (C) == 'l' ? INDEX_REGS :					\
    NO_REGS)
 
-/* The letters I, J, K, L and M in a register constraint string
+/* The letters I, J, K, L, M, N, and O in a register constraint string
    can be used to stand for particular ranges of immediate operands.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
@@ -1230,6 +1232,7 @@ enum reg_class
    L is for andsi as zero-extending move.
    M is for shifts that can be executed by the "lea" opcode.
    N is for immediate operands for out/in instructions (0-255)
+   O is for TImode shifts.
    */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)				\
@@ -1239,6 +1242,7 @@ enum reg_class
    : (C) == 'L' ? (VALUE) == 0xff || (VALUE) == 0xffff		\
    : (C) == 'M' ? (VALUE) >= 0 && (VALUE) <= 3			\
    : (C) == 'N' ? (VALUE) >= 0 && (VALUE) <= 255		\
+   : (C) == 'O' ? (VALUE) >= 0 && (VALUE) <= 127		\
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1356,7 +1360,7 @@ enum reg_class
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -1432,13 +1436,6 @@ enum reg_class
 
 #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, SIZE) \
   ix86_return_pops_args ((FUNDECL), (FUNTYPE), (SIZE))
-
-/* Define how to find the value returned by a function.
-   VALTYPE is the data type of the value (as a tree).
-   If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)  \
-   ix86_function_value (VALTYPE, FUNC)
 
 #define FUNCTION_VALUE_REGNO_P(N) \
   ix86_function_value_regno_p (N)
@@ -2027,9 +2024,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
    Whether or not a particular assembler allows us to enter such, I
    guess we'll have to see.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		\
-  (flag_pic								\
-    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
-   : DW_EH_PE_absptr)
+  asm_preferred_eh_data_format ((CODE), (GLOBAL))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
@@ -2148,7 +2143,8 @@ enum cmodel {
   CM_KERNEL,	/* Assumes all code and data fits in the high 31 bits.  */
   CM_MEDIUM,	/* Assumes code fits in the low 31 bits; data unlimited.  */
   CM_LARGE,	/* No assumptions.  */
-  CM_SMALL_PIC	/* Assumes code+data+got/plt fits in a 31 bit region.  */
+  CM_SMALL_PIC,	/* Assumes code+data+got/plt fits in a 31 bit region.  */
+  CM_MEDIUM_PIC	/* Assumes code+got/plt fits in a 31 bit region.  */
 };
 
 extern enum cmodel ix86_cmodel;
@@ -2165,7 +2161,7 @@ enum asm_dialect {
 
 extern enum asm_dialect ix86_asm_dialect;
 extern unsigned int ix86_preferred_stack_boundary;
-extern int ix86_branch_cost;
+extern int ix86_branch_cost, ix86_section_threshold;
 
 /* Smallest class containing REGNO.  */
 extern enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER];
@@ -2267,6 +2263,7 @@ struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
+  rtx force_align_arg_pointer;
   int save_varrargs_registers;
   int accesses_prev_frame;
   int optimize_mode_switching[MAX_386_ENTITIES];
@@ -2286,6 +2283,10 @@ struct machine_function GTY(())
 #define X86_FILE_START_VERSION_DIRECTIVE false
 #define X86_FILE_START_FLTUSED false
 
+/* Flag to mark data that is in the large address area.  */
+#define SYMBOL_FLAG_FAR_ADDR		(SYMBOL_FLAG_MACH_DEP << 0)
+#define SYMBOL_REF_FAR_ADDR_P(X)	\
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_FAR_ADDR) != 0)
 /*
 Local variables:
 version-control: t

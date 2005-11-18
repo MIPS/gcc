@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,7 +39,7 @@
 --  an appropriate WITH, and the interface can be expected to remain stable.
 
 package System.WCh_Con is
-pragma Pure (WCh_Con);
+   pragma Pure;
 
    -------------------------------------
    -- Wide_Character Encoding Methods --

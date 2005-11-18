@@ -843,6 +843,14 @@ make_alias (const char *name, int standard)
     }
 }
 
+/* Make the current subroutine noreturn.  */
+
+static void
+make_noreturn(void)
+{
+  if (sizing == SZ_NOTHING)
+      next_sym[-1].noreturn = 1;
+}
 
 /* Add intrinsic functions.  */
 
@@ -863,7 +871,8 @@ add_functions (void)
     *s = "s", *dm = "dim", *kind = "kind", *msk = "mask",
     *x = "x", *sh = "shift", *stg = "string", *ssg = "substring",
     *y = "y", *sz = "size", *sta = "string_a", *stb = "string_b",
-    *z = "z", *ln = "len", *ut = "unit";
+    *z = "z", *ln = "len", *ut = "unit", *han = "handler",
+    *num = "number", *tm = "time";
 
   int di, dr, dd, dl, dc, dz, ii;
 
@@ -941,9 +950,13 @@ add_functions (void)
 	     gfc_check_fn_c, gfc_simplify_aimag, gfc_resolve_aimag,
 	     z, BT_COMPLEX, dz, REQUIRED);
 
+  make_alias ("imag", GFC_STD_GNU);
+  make_alias ("imagpart", GFC_STD_GNU);
+
   add_sym_1 ("dimag", 1, 1, BT_REAL, dd, GFC_STD_GNU, 
 	     NULL, gfc_simplify_aimag, gfc_resolve_aimag, 
 	     z, BT_COMPLEX, dd, REQUIRED);
+
 
   make_generic ("aimag", GFC_ISYM_AIMAG, GFC_STD_F77);
 
@@ -1139,6 +1152,12 @@ add_functions (void)
 
   make_generic ("cmplx", GFC_ISYM_CMPLX, GFC_STD_F77);
 
+  add_sym_2 ("complex", 1, 1, BT_COMPLEX, dz, GFC_STD_GNU,
+	     gfc_check_complex, gfc_simplify_complex, gfc_resolve_complex,
+	     x, BT_UNKNOWN, dr, REQUIRED, y, BT_UNKNOWN, dr, REQUIRED);
+
+  make_generic ("complex", GFC_ISYM_COMPLEX, GFC_STD_GNU);
+
   /* Making dcmplx a specific of cmplx causes cmplx to return a double
      complex instead of the default complex.  */
 
@@ -1200,6 +1219,12 @@ add_functions (void)
 	     dm, BT_INTEGER, ii, OPTIONAL);
 
   make_generic ("cshift", GFC_ISYM_CSHIFT, GFC_STD_F95);
+
+  add_sym_1 ("ctime", 0, 1, BT_CHARACTER, 0, GFC_STD_GNU,
+              gfc_check_ctime, NULL, gfc_resolve_ctime,
+	      tm, BT_INTEGER, di, REQUIRED);
+
+  make_generic ("ctime", GFC_ISYM_CTIME, GFC_STD_GNU);
 
   add_sym_1 ("dble", 1, 1, BT_REAL, dd, GFC_STD_F77,
 	     gfc_check_dble, gfc_simplify_dble, gfc_resolve_dble,
@@ -1316,6 +1341,11 @@ add_functions (void)
 
   make_generic ("exponent", GFC_ISYM_EXPONENT, GFC_STD_F95);
 
+  add_sym_0 ("fdate", 1, 0, BT_CHARACTER, dc, GFC_STD_GNU,
+	     NULL, NULL, gfc_resolve_fdate);
+
+  make_generic ("fdate", GFC_ISYM_FDATE, GFC_STD_GNU);
+
   add_sym_2 ("floor", 1, 1, BT_INTEGER, di, GFC_STD_F95,
 	     gfc_check_a_ikind, gfc_simplify_floor, gfc_resolve_floor,
 	     a, BT_REAL, dr, REQUIRED, kind, BT_INTEGER, di, OPTIONAL);
@@ -1340,6 +1370,36 @@ add_functions (void)
 	     a, BT_INTEGER, di, REQUIRED, b, BT_INTEGER, di, REQUIRED);
 
   make_generic ("fstat", GFC_ISYM_FSTAT, GFC_STD_GNU);
+
+  add_sym_1 ("ftell", 0, 1, BT_INTEGER, ii, GFC_STD_GNU,
+	     gfc_check_ftell, NULL, gfc_resolve_ftell,
+	     ut, BT_INTEGER, di, REQUIRED);
+
+  make_generic ("ftell", GFC_ISYM_FTELL, GFC_STD_GNU);
+
+  add_sym_2 ("fgetc", 0, 1, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_fgetputc, NULL, gfc_resolve_fgetc,
+	     ut, BT_INTEGER, di, REQUIRED, c, BT_CHARACTER, dc, REQUIRED);
+
+  make_generic ("fgetc", GFC_ISYM_FGETC, GFC_STD_GNU);
+
+  add_sym_1 ("fget", 0, 1, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_fgetput, NULL, gfc_resolve_fget,
+	     c, BT_CHARACTER, dc, REQUIRED);
+
+  make_generic ("fget", GFC_ISYM_FGET, GFC_STD_GNU);
+
+  add_sym_2 ("fputc", 0, 1, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_fgetputc, NULL, gfc_resolve_fputc,
+	     ut, BT_INTEGER, di, REQUIRED, c, BT_CHARACTER, dc, REQUIRED);
+
+  make_generic ("fputc", GFC_ISYM_FPUTC, GFC_STD_GNU);
+
+  add_sym_1 ("fput", 0, 1, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_fgetput, NULL, gfc_resolve_fput,
+	     c, BT_CHARACTER, dc, REQUIRED);
+
+  make_generic ("fput", GFC_ISYM_FPUT, GFC_STD_GNU);
 
   /* Unix IDs (g77 compatibility)  */
   add_sym_1 ("getcwd", 0, 1, BT_INTEGER, di,  GFC_STD_GNU,
@@ -1387,6 +1447,12 @@ add_functions (void)
 
   make_generic ("iand", GFC_ISYM_IAND, GFC_STD_F95);
 
+  add_sym_2 ("and", 1, 0, BT_UNKNOWN, 0, GFC_STD_GNU,
+	     gfc_check_and, gfc_simplify_and, gfc_resolve_and,
+	     i, BT_UNKNOWN, 0, REQUIRED, j, BT_UNKNOWN, 0, REQUIRED);
+
+  make_generic ("and", GFC_ISYM_AND, GFC_STD_GNU);
+
   add_sym_0 ("iargc", 1, 1, BT_INTEGER, di, GFC_STD_GNU,
 	     NULL, NULL, NULL);
 
@@ -1429,6 +1495,12 @@ add_functions (void)
 
   make_generic ("ieor", GFC_ISYM_IEOR, GFC_STD_F95);
 
+  add_sym_2 ("xor", 1, 0, BT_UNKNOWN, 0, GFC_STD_GNU,
+	     gfc_check_and, gfc_simplify_xor, gfc_resolve_xor,
+	     i, BT_UNKNOWN, 0, REQUIRED, j, BT_UNKNOWN, 0, REQUIRED);
+
+  make_generic ("xor", GFC_ISYM_XOR, GFC_STD_GNU);
+
   add_sym_0 ("ierrno", 1, 0, BT_INTEGER, di, GFC_STD_GNU,
 	     NULL, NULL, gfc_resolve_ierrno);
 
@@ -1461,12 +1533,24 @@ add_functions (void)
 
   make_generic ("ior", GFC_ISYM_IOR, GFC_STD_F95);
 
+  add_sym_2 ("or", 1, 0, BT_UNKNOWN, 0, GFC_STD_GNU,
+	     gfc_check_and, gfc_simplify_or, gfc_resolve_or,
+	     i, BT_UNKNOWN, 0, REQUIRED, j, BT_UNKNOWN, 0, REQUIRED);
+
+  make_generic ("or", GFC_ISYM_OR, GFC_STD_GNU);
+
   /* The following function is for G77 compatibility.  */
   add_sym_1 ("irand", 0, 1, BT_INTEGER, 4, GFC_STD_GNU,
              gfc_check_irand, NULL, NULL,
 	     i, BT_INTEGER, 4, OPTIONAL);
 
   make_generic ("irand", GFC_ISYM_IRAND, GFC_STD_GNU);
+
+  add_sym_1 ("isatty", 0, 0, BT_LOGICAL, dl, GFC_STD_GNU,
+	     gfc_check_isatty, NULL, gfc_resolve_isatty,
+	     ut, BT_INTEGER, di, REQUIRED);
+
+  make_generic ("isatty", GFC_ISYM_ISATTY, GFC_STD_GNU);
 
   add_sym_2 ("ishft", 1, 1, BT_INTEGER, di, GFC_STD_F95,
 	     gfc_check_ishft, gfc_simplify_ishft, gfc_resolve_ishft,
@@ -1586,6 +1670,11 @@ add_functions (void)
 	     l, BT_LOGICAL, dl, REQUIRED, kind, BT_INTEGER, di, OPTIONAL);
 
   make_generic ("logical", GFC_ISYM_LOGICAL, GFC_STD_F95);
+
+  add_sym_1 ("malloc", 0, 1, BT_INTEGER, ii, GFC_STD_GNU, gfc_check_malloc,
+	     NULL, gfc_resolve_malloc, a, BT_INTEGER, di, REQUIRED);
+
+  make_generic ("malloc", GFC_ISYM_MALLOC, GFC_STD_GNU);
 
   add_sym_2 ("matmul", 0, 1, BT_REAL, dr, GFC_STD_F95,
 	     gfc_check_matmul, NULL, gfc_resolve_matmul,
@@ -1799,6 +1888,11 @@ add_functions (void)
 	     gfc_check_real, gfc_simplify_real, gfc_resolve_real,
 	     a, BT_UNKNOWN, dr, REQUIRED, kind, BT_INTEGER, di, OPTIONAL);
 
+  /* This provides compatibility with g77.  */
+  add_sym_1 ("realpart", 1, 0, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_c, gfc_simplify_realpart, gfc_resolve_realpart,
+	     a, BT_UNKNOWN, dr, REQUIRED);
+
   add_sym_1 ("float", 1, 0, BT_REAL, dr, GFC_STD_F77,
 	     NULL, gfc_simplify_float, NULL,
 	     a, BT_INTEGER, di, REQUIRED);
@@ -1853,6 +1947,13 @@ add_functions (void)
 
   make_generic ("second", GFC_ISYM_SECOND, GFC_STD_GNU);
 
+  /* Added for G77 compatibility.  */
+  add_sym_1 ("secnds", 0, 1, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_secnds, NULL, gfc_resolve_secnds,
+	     x, BT_REAL, dr, REQUIRED);
+
+  make_generic ("secnds", GFC_ISYM_SECNDS, GFC_STD_GNU);
+
   add_sym_1 ("selected_int_kind", 0, 1, BT_INTEGER, di,  GFC_STD_F95,
 	     gfc_check_selected_int_kind, gfc_simplify_selected_int_kind, NULL,
 	     r, BT_INTEGER, di, REQUIRED);
@@ -1892,6 +1993,12 @@ add_functions (void)
 	     a, BT_REAL, dd, REQUIRED, b, BT_REAL, dd, REQUIRED);
 
   make_generic ("sign", GFC_ISYM_SIGN, GFC_STD_F77);
+
+  add_sym_2 ("signal", 1, 1, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_signal, NULL, gfc_resolve_signal,
+	     num, BT_INTEGER, di, REQUIRED, han, BT_UNKNOWN, 0, REQUIRED);
+
+  make_generic ("signal", GFC_ISYM_SIGNAL, GFC_STD_GNU);
 
   add_sym_1 ("sin", 1, 1, BT_REAL, dr, GFC_STD_F77,
 	     gfc_check_fn_rc, gfc_simplify_sin, gfc_resolve_sin,
@@ -2042,6 +2149,12 @@ add_functions (void)
 
   make_generic ("trim", GFC_ISYM_TRIM, GFC_STD_F95);
 
+  add_sym_1 ("ttynam", 0, 1, BT_CHARACTER, 0, GFC_STD_GNU,
+              gfc_check_ttynam, NULL, gfc_resolve_ttynam,
+	      ut, BT_INTEGER, di, REQUIRED);
+
+  make_generic ("ttynam", GFC_ISYM_TTYNAM, GFC_STD_GNU);
+
   add_sym_2 ("ubound", 0, 1, BT_INTEGER, di, GFC_STD_F95,
 	     gfc_check_ubound, gfc_simplify_ubound, gfc_resolve_ubound,
 	     ar, BT_REAL, dr, REQUIRED, dm, BT_INTEGER, ii, OPTIONAL);
@@ -2075,6 +2188,13 @@ add_functions (void)
 	     bck, BT_LOGICAL, dl, OPTIONAL);
 
   make_generic ("verify", GFC_ISYM_VERIFY, GFC_STD_F95);
+    
+  add_sym_1 ("loc", 0, 1, BT_INTEGER, ii, GFC_STD_GNU,
+	    gfc_check_loc, NULL, gfc_resolve_loc,
+	    ar, BT_UNKNOWN, 0, REQUIRED);
+		
+  make_generic ("loc", GFC_ISYM_LOC, GFC_STD_GNU);
+
 }
 
 
@@ -2091,22 +2211,30 @@ add_subroutines (void)
     *f = "from", *sz = "size", *ln = "len", *cr = "count_rate",
     *com = "command", *length = "length", *st = "status",
     *val = "value", *num = "number", *name = "name",
-    *trim_name = "trim_name", *ut = "unit";
+    *trim_name = "trim_name", *ut = "unit", *han = "handler",
+    *sec = "seconds", *res = "result", *of = "offset";
 
-  int di, dr, dc, dl;
+  int di, dr, dc, dl, ii;
 
   di = gfc_default_integer_kind;
   dr = gfc_default_real_kind;
   dc = gfc_default_character_kind;
   dl = gfc_default_logical_kind;
+  ii = gfc_index_integer_kind;
 
   add_sym_0s ("abort", 1, GFC_STD_GNU, NULL);
+
+  make_noreturn();
 
   add_sym_1s ("cpu_time", 0, 1, BT_UNKNOWN, 0, GFC_STD_F95,
 	      gfc_check_cpu_time, NULL, gfc_resolve_cpu_time,
 	      tm, BT_REAL, dr, REQUIRED);
 
   /* More G77 compatibility garbage.  */
+  add_sym_2s ("ctime", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	     gfc_check_ctime_sub, NULL, gfc_resolve_ctime_sub,
+	     tm, BT_INTEGER, di, REQUIRED, res, BT_CHARACTER, dc, REQUIRED);
+
   add_sym_1s ("second", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_second_sub, NULL, gfc_resolve_second_sub,
 	      tm, BT_REAL, dr, REQUIRED);
@@ -2128,6 +2256,10 @@ add_subroutines (void)
   add_sym_2s ("dtime", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
 	     gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
 	      vl, BT_REAL, 4, REQUIRED, tm, BT_REAL, 4, REQUIRED);
+
+  add_sym_1s ("fdate", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	     gfc_check_fdate_sub, NULL, gfc_resolve_fdate_sub,
+	     dt, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_1s ("gerror", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
               gfc_check_gerror, NULL, gfc_resolve_gerror, c, BT_CHARACTER,
@@ -2185,6 +2317,11 @@ add_subroutines (void)
 	      gt, BT_INTEGER, di, OPTIONAL);
 
   /* More G77 compatibility garbage.  */
+  add_sym_3s ("alarm", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_alarm_sub, NULL, gfc_resolve_alarm_sub,
+	      sec, BT_INTEGER, di, REQUIRED, han, BT_UNKNOWN, 0, REQUIRED,
+	      st, BT_INTEGER, di, OPTIONAL);
+
   add_sym_1s ("srand", 0, 1, BT_UNKNOWN, di, GFC_STD_GNU,
              gfc_check_srand, NULL, gfc_resolve_srand,
 	      c, BT_INTEGER, 4, REQUIRED);
@@ -2193,9 +2330,36 @@ add_subroutines (void)
              gfc_check_exit, NULL, gfc_resolve_exit,
 	      c, BT_INTEGER, di, OPTIONAL);
 
+  make_noreturn();
+
+  add_sym_3s ("fgetc", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_fgetputc_sub, NULL, gfc_resolve_fgetc_sub,
+	      ut, BT_INTEGER, di, REQUIRED, c, BT_CHARACTER, dc, REQUIRED,
+	      st, BT_INTEGER, di, OPTIONAL);
+
+  add_sym_2s ("fget", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_fgetput_sub, NULL, gfc_resolve_fget_sub,
+	      c, BT_CHARACTER, dc, REQUIRED, st, BT_INTEGER, di, OPTIONAL);
+
   add_sym_1s ("flush", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_flush, NULL, gfc_resolve_flush,
 	      c, BT_INTEGER, di, OPTIONAL);
+
+  add_sym_3s ("fputc", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_fgetputc_sub, NULL, gfc_resolve_fputc_sub,
+	      ut, BT_INTEGER, di, REQUIRED, c, BT_CHARACTER, dc, REQUIRED,
+	      st, BT_INTEGER, di, OPTIONAL);
+
+  add_sym_2s ("fput", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_fgetput_sub, NULL, gfc_resolve_fput_sub,
+	      c, BT_CHARACTER, dc, REQUIRED, st, BT_INTEGER, di, OPTIONAL);
+
+  add_sym_1s ("free", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU, gfc_check_free,
+	      NULL, gfc_resolve_free, c, BT_INTEGER, ii, REQUIRED);
+
+  add_sym_2s ("ftell", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_ftell_sub, NULL, gfc_resolve_ftell_sub,
+	      ut, BT_INTEGER, di, REQUIRED, of, BT_INTEGER, ii, REQUIRED);
 
   add_sym_2s ("hostnm", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
           gfc_check_hostnm_sub, NULL, gfc_resolve_hostnm_sub,
@@ -2233,6 +2397,11 @@ add_subroutines (void)
 	      name, BT_CHARACTER, dc, REQUIRED, vl, BT_INTEGER, di, REQUIRED,
 	      st, BT_INTEGER, di, OPTIONAL);
 
+  add_sym_3s ("signal", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_signal_sub, NULL, gfc_resolve_signal_sub,
+	      num, BT_INTEGER, di, REQUIRED, han, BT_UNKNOWN, 0, REQUIRED,
+	      st, BT_INTEGER, di, OPTIONAL);
+
   add_sym_3s ("symlnk", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
               gfc_check_symlnk_sub, NULL, gfc_resolve_symlnk_sub,
 	      name, BT_CHARACTER, dc, REQUIRED, val, BT_CHARACTER,
@@ -2246,6 +2415,10 @@ add_subroutines (void)
 	     gfc_check_system_clock, NULL, gfc_resolve_system_clock,
 	      c, BT_INTEGER, di, OPTIONAL, cr, BT_INTEGER, di, OPTIONAL,
 	      cm, BT_INTEGER, di, OPTIONAL);
+
+  add_sym_2s ("ttynam", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+              gfc_check_ttynam_sub, NULL, gfc_resolve_ttynam_sub,
+	      ut, BT_INTEGER, di, REQUIRED, c, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_2s ("umask", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
           gfc_check_umask_sub, NULL, gfc_resolve_umask_sub,
@@ -3151,6 +3324,7 @@ gfc_intrinsic_sub_interface (gfc_code * c, int error_flag)
       return MATCH_ERROR;
     }
 
+  c->resolved_sym->attr.noreturn = isym->noreturn;
   check_intrinsic_standard (name, isym->standard, &c->loc);
 
   return MATCH_YES;

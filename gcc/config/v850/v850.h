@@ -81,6 +81,8 @@
   builtin_define( "__v850" );			\
   builtin_assert( "machine=v850" );		\
   builtin_assert( "cpu=v850" );			\
+  if (TARGET_EP)				\
+    builtin_define ("__EP__");			\
 } while(0)
 
 #define MASK_CPU (MASK_V850 | MASK_V850E)
@@ -131,7 +133,13 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 {									\
   target_flags |= MASK_STRICT_ALIGN;					\
   if (LEVEL)								\
-    target_flags |= (MASK_EP | MASK_PROLOG_FUNCTION);			\
+    /* Note - we no longer enable MASK_EP when optimizing.  This is	\
+       because of a hardware bug which stops the SLD and SST instructions\
+       from correctly detecting some hazards.  If the user is sure that \
+       their hardware is fixed or that their program will not encounter \
+       the conditions that trigger the bug then they can enable -mep by \
+       hand.  */							\
+    target_flags |= MASK_PROLOG_FUNCTION;				\
 }
 
 
@@ -434,7 +442,7 @@ enum reg_class
 
 #define STACK_GROWS_DOWNWARD
 
-/* Define this to non-zero if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -758,11 +766,11 @@ struct cum_arg { int nbytes; int anonymous_args; };
    register class that does not include r0 on the output.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
- ((C) == 'Q'   ? ep_memory_operand (OP, GET_MODE (OP), 0)		\
+ ((C) == 'Q'   ? ep_memory_operand (OP, GET_MODE (OP), FALSE)		\
   : (C) == 'R' ? special_symbolref_operand (OP, VOIDmode)		\
   : (C) == 'S' ? (GET_CODE (OP) == SYMBOL_REF				\
 		  && !SYMBOL_REF_ZDA_P (OP))				\
-  : (C) == 'T' ? ep_memory_operand(OP,GET_MODE(OP),TRUE)		\
+  : (C) == 'T' ? ep_memory_operand (OP, GET_MODE (OP), TRUE)		\
   : (C) == 'U' ? ((GET_CODE (OP) == SYMBOL_REF				\
 		   && SYMBOL_REF_ZDA_P (OP))				\
 		  || (GET_CODE (OP) == CONST				\
@@ -789,13 +797,14 @@ struct cum_arg { int nbytes; int anonymous_args; };
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 do {									\
-  if (RTX_OK_FOR_BASE_P (X)) goto ADDR;					\
+  if (RTX_OK_FOR_BASE_P (X)) 						\
+    goto ADDR;								\
   if (CONSTANT_ADDRESS_P (X)						\
       && (MODE == QImode || INTVAL (X) % 2 == 0)			\
       && (GET_MODE_SIZE (MODE) <= 4 || INTVAL (X) % 4 == 0))		\
     goto ADDR;								\
   if (GET_CODE (X) == LO_SUM						\
-      && GET_CODE (XEXP (X, 0)) == REG					\
+      && REG_P (XEXP (X, 0))						\
       && REG_OK_FOR_BASE_P (XEXP (X, 0))				\
       && CONSTANT_P (XEXP (X, 1))					\
       && (GET_CODE (XEXP (X, 1)) != CONST_INT				\
@@ -807,9 +816,12 @@ do {									\
       && (GET_MODE_SIZE (MODE) <= GET_MODE_SIZE (word_mode)))		\
      goto ADDR;								\
   if (GET_CODE (X) == PLUS						\
+      && RTX_OK_FOR_BASE_P (XEXP (X, 0)) 				\
       && CONSTANT_ADDRESS_P (XEXP (X, 1))				\
-      && (MODE == QImode || INTVAL (XEXP (X, 1)) % 2 == 0)		\
-      && RTX_OK_FOR_BASE_P (XEXP (X, 0))) goto ADDR;			\
+      && ((MODE == QImode || INTVAL (XEXP (X, 1)) % 2 == 0)		\
+	   && CONST_OK_FOR_K (INTVAL (XEXP (X, 1)) 			\
+                              + (GET_MODE_NUNITS (MODE) * UNITS_PER_WORD)))) \
+    goto ADDR;			\
 } while (0)
 
 

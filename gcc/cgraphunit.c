@@ -162,6 +162,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "function.h"
+#include "ipa-prop.h"
 #include "tree-gimple.h"
 #include "tree-pass.h"
 #include "output.h"
@@ -248,7 +249,7 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
 	  /* When declared inline, defer even the uninlinable functions.
 	     This allows them to be eliminated when unused.  */
 	  && !DECL_DECLARED_INLINE_P (decl) 
-	  && (!node->local.inlinable || !cgraph_default_inline_p (node))))
+	  && (!node->local.inlinable || !cgraph_default_inline_p (node, NULL))))
     return true;
 
   return false;
@@ -310,11 +311,19 @@ cgraph_varpool_remove_unreferenced_decls (void)
 	  && ((DECL_ASSEMBLER_NAME_SET_P (decl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	      || node->force_output
-	      || decide_is_variable_needed (node, decl)))
+	      || decide_is_variable_needed (node, decl)
+	      /* ??? Cgraph does not yet rule the world with an iron hand, 
+		 and does not control the emission of debug information.
+		 After a variable has its DECL_RTL set, we must assume that
+		 it may be referenced by the debug information, and we can
+		 no longer elide it.  */
+	      || DECL_RTL_SET_P (decl)))
 	cgraph_varpool_mark_needed_node (node);
 
       node = next;
     }
+  /* Make sure we mark alias targets as used targets.  */
+  finish_aliases_1 ();
   cgraph_varpool_analyze_pending_decls ();
 }
 
@@ -656,8 +665,18 @@ verify_cgraph_node (struct cgraph_node *node)
 	       cgraph_node_name (e->caller), cgraph_node_name (e->callee));
 	error_found = true;
       }
+  if (node->count < 0)
+    {
+      error ("Execution count is negative");
+      error_found = true;
+    }
   for (e = node->callers; e; e = e->next_caller)
     {
+      if (e->count < 0)
+	{
+	  error ("caller edge count is negative");
+	  error_found = true;
+	}
       if (!e->inline_failed)
 	{
 	  if (node->global.inlined_to
@@ -813,7 +832,10 @@ cgraph_varpool_assemble_pending_decls (void)
 	  assemble_variable (decl, 0, 1, 0);
 	  /* Local static variables are never seen by check_global_declarations
 	     so we need to output debug info by hand.  */
-	  if (decl_function_context (decl) && errorcount == 0 && sorrycount == 0)
+	  if (DECL_CONTEXT (decl) 
+	      && (TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
+	          || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
+	      && errorcount == 0 && sorrycount == 0)
 	    {
 	      timevar_push (TV_SYMOUT);
 	      (*debug_hooks->global_decl) (decl);
@@ -1123,7 +1145,8 @@ cgraph_function_and_variable_visibility (void)
     {
       if (node->reachable
 	  && (DECL_COMDAT (node->decl)
-	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
+	      || (!flag_whole_program
+		  && TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl))))
 	node->local.externally_visible = true;
       if (!node->local.externally_visible && node->analyzed
 	  && !DECL_EXTERNAL (node->decl))
@@ -1139,6 +1162,7 @@ cgraph_function_and_variable_visibility (void)
   for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
     {
       if (vnode->needed
+	  && !flag_whole_program
 	  && (DECL_COMDAT (vnode->decl) || TREE_PUBLIC (vnode->decl)))
 	vnode->externally_visible = 1;
       if (!vnode->externally_visible)
@@ -1365,4 +1389,135 @@ void
 init_cgraph (void)
 {
   cgraph_dump_file = dump_begin (TDI_cgraph, NULL);
+}
+
+/* The edges representing the callers of the NEW_VERSION node were 
+   fixed by cgraph_function_versioning (), now the call_expr in their
+   respective tree code should be updated to call the NEW_VERSION.  */
+
+static void
+update_call_expr (struct cgraph_node *new_version)
+{
+  struct cgraph_edge *e;
+
+  gcc_assert (new_version);
+  for (e = new_version->callers; e; e = e->next_caller)
+    /* Update the call expr on the edges
+       to call the new version.  */
+    TREE_OPERAND (TREE_OPERAND (get_call_expr_in (e->call_stmt), 0), 0) = new_version->decl;
+}
+
+
+/* Create a new cgraph node which is the new version of
+   OLD_VERSION node.  REDIRECT_CALLERS holds the callers
+   edges which should be redirected to point to
+   NEW_VERSION.  ALL the callees edges of OLD_VERSION
+   are cloned to the new version node.  Return the new
+   version node.  */
+
+static struct cgraph_node *
+cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
+				 tree new_decl, varray_type redirect_callers)
+ {
+   struct cgraph_node *new_version;
+   struct cgraph_edge *e, *new_e;
+   struct cgraph_edge *next_callee;
+   unsigned i;
+
+   gcc_assert (old_version);
+   
+   new_version = cgraph_node (new_decl);
+
+   new_version->analyzed = true;
+   new_version->local = old_version->local;
+   new_version->global = old_version->global;
+   new_version->rtl = new_version->rtl;
+   new_version->reachable = true;
+   new_version->count = old_version->count;
+
+   /* Clone the old node callees.  Recursive calls are
+      also cloned.  */
+   for (e = old_version->callees;e; e=e->next_callee)
+     {
+       new_e = cgraph_clone_edge (e, new_version, e->call_stmt, 0, e->loop_nest, true);
+       new_e->count = e->count;
+     }
+   /* Fix recursive calls.
+      If OLD_VERSION has a recursive call after the
+      previous edge cloning, the new version will have an edge
+      pointing to the old version, which is wrong;
+      Redirect it to point to the new version. */
+   for (e = new_version->callees ; e; e = next_callee)
+     {
+       next_callee = e->next_callee;
+       if (e->callee == old_version)
+	 cgraph_redirect_edge_callee (e, new_version);
+         
+       if (!next_callee)
+	 break;
+     }
+   if (redirect_callers)
+     for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++)
+       {
+         e = VARRAY_GENERIC_PTR (redirect_callers, i);
+	 /* Redirect calls to the old version node
+	    to point to it's new version.  */
+         cgraph_redirect_edge_callee (e, new_version);
+       }
+
+   return new_version;
+ }
+
+ /* Perform function versioning.
+    Function versioning includes copying of the tree and 
+    a callgraph update (creating a new cgraph node and updating
+    its callees and callers).
+
+    REDIRECT_CALLERS varray includes the edges to be redirected
+    to the new version.
+
+    TREE_MAP is a mapping of tree nodes we want to replace with
+    new ones (according to results of prior analysis).
+    OLD_VERSION_NODE is the node that is versioned.
+    It returns the new version's cgraph node.  */
+
+struct cgraph_node *
+cgraph_function_versioning (struct cgraph_node *old_version_node,
+			    varray_type redirect_callers,
+			    varray_type tree_map)
+{
+  tree old_decl = old_version_node->decl;
+  struct cgraph_node *new_version_node = NULL;
+  tree new_decl;
+
+  if (!tree_versionable_function_p (old_decl))
+    return NULL;
+
+  /* Make a new FUNCTION_DECL tree node for the
+     new version. */
+  new_decl = copy_node (old_decl);
+
+  /* Create the new version's call-graph node.
+     and update the edges of the new node. */
+  new_version_node =
+    cgraph_copy_node_for_versioning (old_version_node, new_decl,
+				     redirect_callers);
+
+  /* Copy the OLD_VERSION_NODE function tree to the new version.  */
+  tree_function_versioning (old_decl, new_decl, tree_map);
+  /* Update the call_expr on the edges to call the new version node. */
+  update_call_expr (new_version_node);
+
+  /* Update the new version's properties.  
+     Make The new version visible only within this translation unit.
+     ??? We cannot use COMDAT linkage because there is no 
+     ABI support for this.  */
+  DECL_EXTERNAL (new_version_node->decl) = 0;
+  DECL_ONE_ONLY (new_version_node->decl) = 0;
+  TREE_PUBLIC (new_version_node->decl) = 0;
+  DECL_COMDAT (new_version_node->decl) = 0;
+  new_version_node->local.externally_visible = 0;
+  new_version_node->local.local = 1;
+  new_version_node->lowered = true;
+  return new_version_node;
 }

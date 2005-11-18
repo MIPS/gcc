@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -47,7 +47,7 @@ with System;
 with System.File_Control_Block;
 
 package Ada.Text_IO is
-pragma Elaborate_Body (Text_IO);
+   pragma Elaborate_Body;
 
    type File_Type is limited private;
    type File_Mode is (In_File, Out_File, Append_File);

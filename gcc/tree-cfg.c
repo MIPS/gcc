@@ -577,6 +577,7 @@ make_cond_expr_edges (basic_block bb)
   tree entry = last_stmt (bb);
   basic_block then_bb, else_bb;
   tree then_label, else_label;
+  edge e;
 
   gcc_assert (entry);
   gcc_assert (TREE_CODE (entry) == COND_EXPR);
@@ -587,8 +588,21 @@ make_cond_expr_edges (basic_block bb)
   then_bb = label_to_block (then_label);
   else_bb = label_to_block (else_label);
 
-  make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-  make_edge (bb, else_bb, EDGE_FALSE_VALUE);
+  e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
+#ifdef USE_MAPPED_LOCATION
+  e->goto_locus = EXPR_LOCATION (COND_EXPR_THEN (entry));
+#else
+  e->goto_locus = EXPR_LOCUS (COND_EXPR_THEN (entry));
+#endif
+  e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
+  if (e)
+    {
+#ifdef USE_MAPPED_LOCATION
+      e->goto_locus = EXPR_LOCATION (COND_EXPR_ELSE (entry));
+#else
+      e->goto_locus = EXPR_LOCUS (COND_EXPR_ELSE (entry));
+#endif
+    }
 }
 
 /* Hashing routine for EDGE_TO_CASES.  */
@@ -1224,8 +1238,7 @@ replace_uses_by (tree name, tree val)
   FOR_EACH_IMM_USE_SAFE (use, imm_iter, name)
     {
       stmt = USE_STMT (use);
-
-      SET_USE (use, val);
+      replace_exp (use, val);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -1260,7 +1273,11 @@ replace_uses_by (tree name, tree val)
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	recompute_tree_invarant_for_addr_expr (rhs);
 
-      update_stmt (stmt);
+      /* If the statement could throw and now cannot, we need to prune cfg.  */
+      if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
+	tree_purge_dead_eh_edges (bb_for_stmt (stmt));
+
+      mark_new_vars_to_rename (stmt);
     }
 
   VEC_free (tree, heap, stmts);
@@ -1291,18 +1308,24 @@ tree_merge_blocks (basic_block a, basic_block b)
   if (dump_file)
     fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
 
-  /* Remove the phi nodes.  */
+  /* Remove all single-valued PHI nodes from block B of the form
+     V_i = PHI <V_j> by propagating V_j to all the uses of V_i.  */
   bsi = bsi_last (a);
   for (phi = phi_nodes (b); phi; phi = phi_nodes (b))
     {
       tree def = PHI_RESULT (phi), use = PHI_ARG_DEF (phi, 0);
       tree copy;
-      
-      if (!may_propagate_copy (def, use)
-	  /* Propagating pointers might cause the set of vops for statements
-	     to be changed, and thus require ssa form update.  */
-	  || (is_gimple_reg (def)
-	      && POINTER_TYPE_P (TREE_TYPE (def))))
+      bool may_replace_uses = may_propagate_copy (def, use);
+
+      /* In case we have loops to care about, do not propagate arguments of
+	 loop closed ssa phi nodes.  */
+      if (current_loops
+	  && is_gimple_reg (def)
+	  && TREE_CODE (use) == SSA_NAME
+	  && a->loop_father != b->loop_father)
+	may_replace_uses = false;
+
+      if (!may_replace_uses)
 	{
 	  gcc_assert (is_gimple_reg (def));
 
@@ -1317,6 +1340,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	}
       else
 	replace_uses_by (def, use);
+
       remove_phi_node (phi, NULL);
     }
 
@@ -1964,6 +1988,12 @@ remove_bb (basic_block bb)
 	{
 	  loop->latch = NULL;
 	  loop->header = NULL;
+
+	  /* Also clean up the information associated with the loop.  Updating
+	     it would waste time. More importantly, it may refer to ssa
+	     names that were defined in other removed basic block -- these
+	     ssa names are now removed and invalid.  */
+	  free_numbers_of_iterations_estimates_loop (loop);
 	}
     }
 
@@ -1972,11 +2002,23 @@ remove_bb (basic_block bb)
     {
       tree stmt = bsi_stmt (i);
       if (TREE_CODE (stmt) == LABEL_EXPR
-          && FORCED_LABEL (LABEL_EXPR_LABEL (stmt)))
+          && (FORCED_LABEL (LABEL_EXPR_LABEL (stmt))
+	      || DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt))))
 	{
-	  basic_block new_bb = bb->prev_bb;
-	  block_stmt_iterator new_bsi = bsi_start (new_bb);
+	  basic_block new_bb;
+	  block_stmt_iterator new_bsi;
+
+	  /* A non-reachable non-local label may still be referenced.
+	     But it no longer needs to carry the extra semantics of
+	     non-locality.  */
+	  if (DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
+	    {
+	      DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)) = 0;
+	      FORCED_LABEL (LABEL_EXPR_LABEL (stmt)) = 1;
+	    }
 	  	  
+	  new_bb = bb->prev_bb;
+	  new_bsi = bsi_start (new_bb);
 	  bsi_remove (&i);
 	  bsi_insert_before (&new_bsi, stmt, BSI_NEW_STMT);
 	}
@@ -2241,6 +2283,7 @@ dump_cfg_stats (FILE *file)
   basic_block bb;
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13d%11lu%c\n";
+  const char * const fmt_str_2 = "%-30s%13ld%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
@@ -2263,7 +2306,7 @@ dump_cfg_stats (FILE *file)
     num_edges += EDGE_COUNT (bb->succs);
   size = num_edges * sizeof (struct edge_def);
   total += size;
-  fprintf (file, fmt_str_1, "Edges", num_edges, SCALE (size), LABEL (size));
+  fprintf (file, fmt_str_2, "Edges", num_edges, SCALE (size), LABEL (size));
 
   fprintf (file, "---------------------------------------------------------\n");
   fprintf (file, fmt_str_3, "Total memory used by CFG data", SCALE (total),
@@ -2895,7 +2938,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
       if (TREE_CODE (tmp) == RETURN_EXPR)
         {
 	  tree op = TREE_OPERAND (tmp, 0);
-	  if (!is_gimple_val (op))
+	  if (op && !is_gimple_val (op))
 	    {
 	      gcc_assert (TREE_CODE (op) == MODIFY_EXPR);
 	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
@@ -3013,6 +3056,22 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   PENDING_STMT (old_edge) = NULL;
 }
 
+/* Returns the basic block after that the new basic block created
+   by splitting edge EDGE_IN should be placed.  Tries to keep the new block
+   near its "logical" location.  This is of most help to humans looking
+   at debugging dumps.  */
+
+static basic_block
+split_edge_bb_loc (edge edge_in)
+{
+  basic_block dest = edge_in->dest;
+
+  if (dest->prev_bb && find_edge (dest->prev_bb, dest))
+    return edge_in->src;
+  else
+    return dest->prev_bb;
+}
+
 /* Split a (typically critical) edge EDGE_IN.  Return the new block.
    Abort on abnormal edges.  */
 
@@ -3028,13 +3087,7 @@ tree_split_edge (edge edge_in)
   src = edge_in->src;
   dest = edge_in->dest;
 
-  /* Place the new block in the block list.  Try to keep the new block
-     near its "logical" location.  This is of most help to humans looking
-     at debugging dumps.  */
-  if (dest->prev_bb && find_edge (dest->prev_bb, dest))
-    after_bb = edge_in->src;
-  else
-    after_bb = dest->prev_bb;
+  after_bb = split_edge_bb_loc (edge_in);
 
   new_bb = create_empty_bb (after_bb);
   new_bb->frequency = EDGE_FREQUENCY (edge_in);
@@ -4246,7 +4299,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
   edge exit_copy;
   basic_block *doms;
   edge redirected;
-  int total_freq, entry_freq;
+  int total_freq = 0, entry_freq = 0;
+  gcov_type total_count = 0, entry_count = 0;
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -4300,19 +4354,43 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
 
-  total_freq = entry->dest->frequency;
-  entry_freq = EDGE_FREQUENCY (entry);
-  /* Fix up corner cases, to avoid division by zero or creation of negative
-     frequencies.  */
-  if (total_freq == 0)
-    total_freq = 1;
-  else if (entry_freq > total_freq)
-    entry_freq = total_freq;
+  if (entry->dest->count)
+    {
+      total_count = entry->dest->count;
+      entry_count = entry->count;
+      /* Fix up corner cases, to avoid division by zero or creation of negative
+	 frequencies.  */
+      if (entry_count > total_count)
+	entry_count = total_count;
+    }
+  else
+    {
+      total_freq = entry->dest->frequency;
+      entry_freq = EDGE_FREQUENCY (entry);
+      /* Fix up corner cases, to avoid division by zero or creation of negative
+	 frequencies.  */
+      if (total_freq == 0)
+	total_freq = 1;
+      else if (entry_freq > total_freq)
+	entry_freq = total_freq;
+    }
 
-  copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
-  scale_bbs_frequencies_int (region, n_region, total_freq - entry_freq,
-			     total_freq);
-  scale_bbs_frequencies_int (region_copy, n_region, entry_freq, total_freq);
+  copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop,
+	    split_edge_bb_loc (entry));
+  if (total_count)
+    {
+      scale_bbs_frequencies_gcov_type (region, n_region,
+				       total_count - entry_count,
+				       total_count);
+      scale_bbs_frequencies_gcov_type (region_copy, n_region, entry_count,
+	  			       total_count);
+    }
+  else
+    {
+      scale_bbs_frequencies_int (region, n_region, total_freq - entry_freq,
+				 total_freq);
+      scale_bbs_frequencies_int (region_copy, n_region, entry_freq, total_freq);
+    }
 
   if (copying_header)
     {
@@ -4454,7 +4532,7 @@ static void print_pred_bbs (FILE *, basic_block bb);
 static void print_succ_bbs (FILE *, basic_block bb);
 
 
-/* Print the predecessors indexes of edge E on FILE.  */
+/* Print on FILE the indexes for the predecessors of basic_block BB.  */
 
 static void
 print_pred_bbs (FILE *file, basic_block bb)
@@ -4463,11 +4541,11 @@ print_pred_bbs (FILE *file, basic_block bb)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->preds)
-    fprintf (file, "bb_%d", e->src->index);
+    fprintf (file, "bb_%d ", e->src->index);
 }
 
 
-/* Print the successors indexes of edge E on FILE.  */
+/* Print on FILE the indexes for the successors of basic_block BB.  */
 
 static void
 print_succ_bbs (FILE *file, basic_block bb)
@@ -4476,7 +4554,7 @@ print_succ_bbs (FILE *file, basic_block bb)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    fprintf (file, "bb_%d", e->src->index);
+    fprintf (file, "bb_%d ", e->dest->index);
 }
 
 
@@ -5062,7 +5140,8 @@ execute_warn_function_return (void)
 	{
 	  tree last = last_stmt (e->src);
 	  if (TREE_CODE (last) == RETURN_EXPR
-	      && TREE_OPERAND (last, 0) == NULL)
+	      && TREE_OPERAND (last, 0) == NULL
+	      && !TREE_NO_WARNING (last))
 	    {
 #ifdef USE_MAPPED_LOCATION
 	      location = EXPR_LOCATION (last);

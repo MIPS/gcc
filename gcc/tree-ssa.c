@@ -231,7 +231,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
   TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
+      && default_def (SSA_NAME_VAR (ssa_name)) == ssa_name)
     ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
@@ -803,6 +803,7 @@ init_tree_ssa (void)
 				     int_tree_map_eq, NULL);
   call_clobbered_vars = BITMAP_ALLOC (NULL);
   addressable_vars = BITMAP_ALLOC (NULL);
+  init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
@@ -867,6 +868,7 @@ delete_tree_ssa (void)
   addressable_vars = NULL;
   modified_noreturn_calls = NULL;
   aliases_computed_p = false;
+  delete_alias_heapvars ();
   gcc_assert (!need_ssa_update_p ());
 }
 
@@ -902,6 +904,15 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
+
+  /* Don't lose casts between pointers to volatile and non-volatile
+     qualified types.  Doing so would result in changing the semantics
+     of later accesses.  */
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
+	   && TYPE_VOLATILE (TREE_TYPE (outer_type))
+	      != TYPE_VOLATILE (TREE_TYPE (inner_type)))
+    return false;
 
   /* Pointers/references are equivalent if their pointed to types
      are effectively the same.  This allows to strip conversions between
@@ -1144,14 +1155,29 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
 
-  /* We only do data flow with SSA_NAMEs, so that's all we can warn about.  */
-  if (TREE_CODE (t) == SSA_NAME)
+  switch (TREE_CODE (t))
     {
+    case SSA_NAME:
+      /* We only do data flow with SSA_NAMEs, so that's all we
+	 can warn about.  */
       warn_uninit (t, "%H%qD is used uninitialized in this function", data);
       *walk_subtrees = 0;
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      /* The total store transformation performed during gimplification
+	 creates uninitialized variable uses.  If all is well, these will
+	 be optimized away, so don't warn now.  */
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME)
+	*walk_subtrees = 0;
+      break;
+
+    default:
+      if (IS_TYPE_OR_DECL_P (t))
+	*walk_subtrees = 0;
+      break;
     }
-  else if (IS_TYPE_OR_DECL_P (t))
-    *walk_subtrees = 0;
 
   return NULL_TREE;
 }

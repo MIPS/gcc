@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -40,11 +40,35 @@
 */
 
 #ifdef _GLIBCXX_DEBUG
-#  include <debug/macros.h>
-#  define _GLIBCXX_DEBUG_ASSERT(_Condition) _GLIBCXX_DEBUG_ABORT(_Condition)
+
+# include <debug/macros.h>
+# include <cstdlib>
+# include <cstdio>
+
+// Avoid the use of assert, because we're trying to keep the <cassert>
+// include out of the mix.
+namespace __gnu_debug
+{ 
+  inline void
+  __replacement_assert(const char* __file, int __line, const char* __function,
+		       const char* __condition)
+  {
+    std::printf("%s:%d: %s: Assertion '%s' failed.\n", __file, __line,
+		__function, __condition);
+    std::abort();
+  }
+}
+
+#define _GLIBCXX_DEBUG_ASSERT(_Condition)                               \
+  do {                                                                  \
+    if (! (_Condition))                                                 \
+      ::__gnu_debug::__replacement_assert(__FILE__, __LINE__,           \
+				   __PRETTY_FUNCTION__,                 \
+				   #_Condition);                        \
+  } while (false)
 
 #  ifdef _GLIBCXX_DEBUG_PEDANTIC
-#    define _GLIBCXX_DEBUG_PEDASSERT(_Condition) _GLIBCXX_DEBUG_ABORT(_Condition)
+#    define _GLIBCXX_DEBUG_PEDASSERT(_Condition) _GLIBCXX_DEBUG_ASSERT(_Condition)
 #  else
 #    define _GLIBCXX_DEBUG_PEDASSERT(_Condition)
 #  endif

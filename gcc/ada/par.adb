@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -94,7 +94,7 @@ is
    --  an entry in the scope stack, invalidating the contents of the stack.
 
    Error_Resync : exception;
-   --  Exception raised on error that is not handled locally, see above.
+   --  Exception raised on error that is not handled locally, see above
 
    Last_Resync_Point : Source_Ptr;
    --  The resynchronization routines in Par.Sync run a risk of getting
@@ -1275,7 +1275,8 @@ begin
 
       for Ucount in Pos loop
          Set_Opt_Config_Switches
-           (Is_Internal_File_Name (File_Name (Current_Source_File)));
+           (Is_Internal_File_Name (File_Name (Current_Source_File)),
+            Current_Source_Unit = Main_Unit);
 
          --  Initialize scope table and other parser control variables
 

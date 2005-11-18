@@ -192,10 +192,8 @@ lfact_iterative_hash_expr (tree t, hashval_t val)
         {
           val = iterative_hash_expr (t, val);
         }
-      else
+      else if (IS_EXPR_CODE_CLASS (class))
         {
-          gcc_assert (IS_EXPR_CODE_CLASS (class));
-
           val = iterative_hash_object (code, val);
 
           if (code == NOP_EXPR
@@ -223,8 +221,9 @@ lfact_iterative_hash_expr (tree t, hashval_t val)
             for (i = TREE_CODE_LENGTH (code) - 1; i >= 0; --i)
               val = lfact_iterative_hash_expr (TREE_OPERAND (t, i), val);
         }
+      else
+        val = iterative_hash_object (code, val);
       return val;
-      break;
     }
 }
 

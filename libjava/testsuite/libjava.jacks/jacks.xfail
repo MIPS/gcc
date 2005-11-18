@@ -152,8 +152,8 @@
 15.11.2-syntax-1
 15.12.1-syntax-1
 15.12.1-type-14
-15.12.2.1-accessibility-method-2
-15.12.2.1-accessibility-method-4
+15.12.2.1-accessibility-method-3
+15.12.2.1-accessibility-method-5
 15.12.2.1-accessibility-method-6
 15.12.2.2-ambiguous-10
 15.12.2.2-ambiguous-12
@@ -174,6 +174,7 @@
 15.12.3-explicit-constructor-4
 15.12.3-explicit-constructor-5
 15.12.3-explicit-constructor-7
+15.12.3-explicit-constructor-9
 15.12.3-runtime-mode-1
 15.12.3-runtime-mode-2
 15.12.3-runtime-mode-3
@@ -248,9 +249,6 @@
 15.18.1-float-9
 15.18.1-valid-1
 15.20-2-runtime-1
-15.21-assoc-7
-15.21-assoc-8
-15.21-equal-3
 15.25-runtime-1
 15.26.2-add-12
 15.26.2-and-10
@@ -275,6 +273,7 @@
 15.28-null-3
 15.28-primitive-15
 15.28-primitive-17
+15.28-primitive-3
 15.28-qualified-name-10
 15.28-qualified-name-5
 15.28-qualified-name-6
@@ -290,7 +289,6 @@
 15.28-simple-namestr-2
 15.28-simple-namestr-3
 15.28-simple-namestr-4
-15.28-string-11
 15.28-string-15
 15.28-string-17
 15.28-string-18
@@ -327,6 +325,7 @@
 15.9.1-qualified-concrete-12
 15.9.1-qualified-concrete-14
 15.9.1-qualified-concrete-16
+15.9.1-qualified-concrete-24
 15.9.1-qualified-concrete-4
 15.9.1-qualified-concrete-5
 15.9.1-unqualified-anonymous-12
@@ -527,7 +526,6 @@
 7.6-optional-restrictions-1
 7.6-unnamed-scope-1
 7.6-unnamed-scope-2
-8.1.1.1-12
 8.1.1.1-default-abstract-11
 8.1.1.1-default-abstract-13
 8.1.1.1-default-abstract-15
@@ -582,7 +580,6 @@
 8.4.6-inheritance-2
 8.4.6.1-override-3
 8.4.6.2-hiding-3
-8.4.6.2-hiding-5
 8.4.6.3-default-10
 8.4.6.3-default-12
 8.4.6.3-default-14
@@ -608,7 +605,6 @@
 8.5-inheritance-3
 8.5-inheritance-6
 8.5.2-accessible-static-member-usage-3
-8.5.2-non-static-member-usage-2
 8.5.2-non-static-member-usage-4
 8.5.2-non-static-member-usage-5
 8.6-abrupt-1
@@ -690,4 +686,3 @@ non-jls-jsr41.4-loop-3
 non-jls-jsr41.4-loop-7
 non-jls-jsr41.4-loop-8
 non-jls-jsr41.4-loop-9
-non-jls-zip-2

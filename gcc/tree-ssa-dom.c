@@ -42,6 +42,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
+#include "params.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -166,6 +167,7 @@ struct opt_stats_d
   long num_re;
   long num_const_prop;
   long num_copy_prop;
+  long num_iterations;
 };
 
 static struct opt_stats_d opt_stats;
@@ -478,7 +480,11 @@ tree_ssa_dominator_optimize (void)
       if (cfg_altered)
         free_dominance_info (CDI_DOMINATORS);
 
-      cfg_altered = cleanup_tree_cfg ();
+      /* Only iterate if we threaded jumps AND the CFG cleanup did
+	 something interesting.  Other cases generate far fewer
+	 optimization opportunities and thus are not worth another
+	 full DOM iteration.  */
+      cfg_altered &= cleanup_tree_cfg ();
 
       if (rediscover_loops_after_threading)
 	{
@@ -524,6 +530,8 @@ tree_ssa_dominator_optimize (void)
 	  if (value && !is_gimple_min_invariant (value))
 	    SSA_NAME_VALUE (name) = NULL;
 	}
+
+      opt_stats.num_iterations++;
     }
   while (optimize > 1 && cfg_altered);
 
@@ -601,6 +609,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
   block_stmt_iterator bsi;
   tree stmt = NULL;
   tree phi;
+  int stmt_count = 0;
+  int max_stmt_count;
+
 
   /* If E->dest does not end with a conditional, then there is
      nothing to do.  */
@@ -630,6 +641,11 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
 
+      /* Do not include virtual PHIs in our statement count as
+	 they never generate code.  */
+      if (is_gimple_reg (dst))
+	stmt_count++;
+
       /* If the desired argument is not the same as this PHI's result 
 	 and it is set by a PHI in E->dest, then we can not thread
 	 through E->dest.  */
@@ -657,15 +673,22 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      Failure to simplify into the form above merely means that the
      statement provides no equivalences to help simplify later
      statements.  This does not prevent threading through E->dest.  */
+  max_stmt_count = PARAM_VALUE (PARAM_MAX_JUMP_THREAD_DUPLICATION_STMTS);
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
-      tree cached_lhs;
+      tree cached_lhs = NULL;
 
       stmt = bsi_stmt (bsi);
 
       /* Ignore empty statements and labels.  */
       if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
+
+      /* If duplicating this block is going to cause too much code
+	 expansion, then do not thread through this block.  */
+      stmt_count++;
+      if (stmt_count > max_stmt_count)
+	return;
 
       /* Safely handle threading across loop backedges.  This is
 	 over conservative, but still allows us to capture the
@@ -698,7 +721,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       else
 	{
 	  /* Copy the operands.  */
-	  tree *copy;
+	  tree *copy, pre_fold_expr;
 	  ssa_op_iter iter;
 	  use_operand_p use_p;
 	  unsigned int num, i = 0;
@@ -722,12 +745,31 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* Try to fold/lookup the new expression.  Inserting the
 	     expression into the hash table is unlikely to help
-	     simplify anything later, so just query the hashtable.  */
-	  cached_lhs = fold (TREE_OPERAND (stmt, 1));
-	  if (TREE_CODE (cached_lhs) != SSA_NAME
-	      && !is_gimple_min_invariant (cached_lhs))
-	    cached_lhs = lookup_avail_expr (stmt, false);
+	     Sadly, we have to handle conditional assignments specially
+	     here, because fold expects all the operands of an expression
+	     to be folded before the expression itself is folded, but we
+	     can't just substitute the folded condition here.  */
+	  if (TREE_CODE (TREE_OPERAND (stmt, 1)) == COND_EXPR)
+	    {
+	      tree cond = COND_EXPR_COND (TREE_OPERAND (stmt, 1));
+	      cond = fold (cond);
+	      if (cond == boolean_true_node)
+		pre_fold_expr = COND_EXPR_THEN (TREE_OPERAND (stmt, 1));
+	      else if (cond == boolean_false_node)
+		pre_fold_expr = COND_EXPR_ELSE (TREE_OPERAND (stmt, 1));
+	      else
+		pre_fold_expr = TREE_OPERAND (stmt, 1);
+	    }
+	  else
+	    pre_fold_expr = TREE_OPERAND (stmt, 1);
 
+	  if (pre_fold_expr)
+	    {
+	      cached_lhs = fold (pre_fold_expr);
+	      if (TREE_CODE (cached_lhs) != SSA_NAME
+		  && !is_gimple_min_invariant (cached_lhs))
+	        cached_lhs = lookup_avail_expr (stmt, false);
+	    }
 
 	  /* Restore the statement's original uses/defs.  */
 	  i = 0;
@@ -845,8 +887,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	    {
 	      struct edge_info *edge_info;
 
-	      update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-					       e->count, taken_edge);
 	      if (e->aux)
 		edge_info = e->aux;
 	      else
@@ -884,7 +924,7 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 }
 
 /* Given an expression EXPR (a relational expression or a statement), 
-   initialize the hash table element pointed by by ELEMENT.  */
+   initialize the hash table element pointed to by ELEMENT.  */
 
 static void
 initialize_hash_element (tree expr, tree lhs, struct expr_hash_elt *element)
@@ -996,14 +1036,14 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   tree last;
 
-  /* If we are at a leaf node in the dominator tree, see if we can thread
-     the edge from BB through its successor.
-
-     Do this before we remove entries from our equivalence tables.  */
+  /* If we have an outgoing edge to a block with multiple incoming and
+     outgoing edges, then we may be able to thread the edge.  ie, we
+     may be able to statically determine which of the outgoing edges
+     will be traversed when the incoming edge from BB is traversed.  */
   if (single_succ_p (bb)
       && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, single_succ (bb)) != bb
-	  || phi_nodes (single_succ (bb))))
+      && !single_pred_p (single_succ (bb))
+      && !single_succ_p (single_succ (bb)))
 	
     {
       thread_across_edge (walk_data, single_succ_edge (bb));
@@ -1020,10 +1060,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
       extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
-      /* If the THEN arm is the end of a dominator tree or has PHI nodes,
-	 then try to thread through its edge.  */
-      if (get_immediate_dominator (CDI_DOMINATORS, true_edge->dest) != bb
-	  || phi_nodes (true_edge->dest))
+      /* Only try to thread the edge if it reaches a target block with
+	 more than one predecessor and more than one successor.  */
+      if (!single_pred_p (true_edge->dest) && !single_succ_p (true_edge->dest))
 	{
 	  struct edge_info *edge_info;
 	  unsigned int i;
@@ -1070,8 +1109,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	}
 
       /* Similarly for the ELSE arm.  */
-      if (get_immediate_dominator (CDI_DOMINATORS, false_edge->dest) != bb
-	  || phi_nodes (false_edge->dest))
+      if (!single_pred_p (false_edge->dest) && !single_succ_p (false_edge->dest))
 	{
 	  struct edge_info *edge_info;
 	  unsigned int i;
@@ -1355,6 +1393,9 @@ dump_dominator_optimization_stats (FILE *file)
 	   opt_stats.num_const_prop);
   fprintf (file, "    Copies propagated:                        %6ld\n",
 	   opt_stats.num_copy_prop);
+
+  fprintf (file, "\nTotal number of DOM iterations:             %6ld\n",
+	   opt_stats.num_iterations);
 
   fprintf (file, "\nHash table statistics:\n");
 
@@ -1753,6 +1794,7 @@ simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
      assignment.  Add minus to this, as we handle it specially below.  */
   if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+      && num_imm_uses (TREE_OPERAND (rhs, 0)) == 1
       && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
@@ -2506,6 +2548,7 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
   bool insert = true;
   tree cached_lhs;
   bool retval = false;
+  bool modify_expr_p = false;
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     def = TREE_OPERAND (stmt, 0);
@@ -2547,9 +2590,15 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
   else if (TREE_CODE (stmt) == SWITCH_EXPR)
     expr_p = &SWITCH_COND (stmt);
   else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
-    expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+    {
+      expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+      modify_expr_p = true;
+    }
   else
-    expr_p = &TREE_OPERAND (stmt, 1);
+    {
+      expr_p = &TREE_OPERAND (stmt, 1);
+      modify_expr_p = true;
+    }
 
   /* It is safe to ignore types here since we have already done
      type checking in the hashing and equality routines.  In fact
@@ -2557,7 +2606,10 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
      propagation.  Also, make sure that it is safe to propagate
      CACHED_LHS into *EXPR_P.  */
   if (cached_lhs
-      && (TREE_CODE (cached_lhs) != SSA_NAME
+      && ((TREE_CODE (cached_lhs) != SSA_NAME
+	   && (modify_expr_p
+	       || tree_ssa_useless_type_conversion_1 (TREE_TYPE (*expr_p),
+						      TREE_TYPE (cached_lhs))))
 	  || may_propagate_copy (*expr_p, cached_lhs)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2580,6 +2632,11 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
 	  || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
 	      && is_gimple_min_invariant (cached_lhs)))
 	retval = true;
+      
+      if (modify_expr_p
+	  && !tree_ssa_useless_type_conversion_1 (TREE_TYPE (*expr_p),
+						  TREE_TYPE (cached_lhs)))
+	cached_lhs = fold_convert (TREE_TYPE (*expr_p), cached_lhs);
 
       propagate_tree_value (expr_p, cached_lhs);
       mark_stmt_modified (stmt);
@@ -2618,7 +2675,7 @@ record_equivalences_from_stmt (tree stmt,
 	      || is_gimple_min_invariant (rhs)))
 	SSA_NAME_VALUE (lhs) = rhs;
 
-      if (expr_computes_nonzero (rhs))
+      if (tree_expr_nonzero_p (rhs))
 	record_var_is_nonzero (lhs);
     }
 
@@ -2836,7 +2893,7 @@ cprop_into_stmt (tree stmt)
 }
 
 
-/* Optimize the statement pointed by iterator SI.
+/* Optimize the statement pointed to by iterator SI.
    
    We try to perform some simplistic global redundancy elimination and
    constant propagation:
@@ -3046,7 +3103,7 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
    NULL_TREE.
 
    Also, when an expression is first inserted in the AVAIL_EXPRS table, it
-   is also added to the stack pointed by BLOCK_AVAIL_EXPRS_P, so that they
+   is also added to the stack pointed to by BLOCK_AVAIL_EXPRS_P, so that they
    can be removed when we finish processing this block and its children.
 
    NOTE: This function assumes that STMT is a MODIFY_EXPR node that
@@ -3088,11 +3145,8 @@ lookup_avail_expr (tree stmt, bool insert)
 	{
 	  tree t = element->rhs;
 	  free (element);
-
-	  if (TREE_CODE (t) == EQ_EXPR)
-	    return boolean_false_node;
-	  else
-	    return boolean_true_node;
+	  return constant_boolean_node (TREE_CODE (t) != EQ_EXPR,
+					TREE_TYPE (t));
 	}
     }
 

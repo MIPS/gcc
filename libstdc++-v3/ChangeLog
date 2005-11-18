@@ -1,3 +1,930 @@
+2005-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libsupc++/eh_arm.cc (__cxa_begin_cleanup): Remember a
+	foreign exception too.
+	(__gnu_end_cleanup): Recover a foreign exception too.
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Cope
+	with forced unwinding.
+	* libsupc++/eh_throw.cc (__cxxabiv1::__cxa_rethrow): Use
+	_Unwind_Resume_or_Rethrow for ARM EABI.
+
+2005-11-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Don't check for
+	shared libgcc for darwin exports.
+	* configure: Regenerate.
+
+2005-11-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/boost_shared_ptr.h (get_deleter):
+	Declare before shared_ptr.
+	(shared_ptr<>): Declare get_deleter as friend.
+	(shared_ptr<>:_M_get_deleter): Private.
+
+2005-11-13  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR libstdc++/24818
+	* include/tr1/ref_wrap_iterate.h
+	(reference_wrapper::operator()()): Don't dereferene the result of
+	get() before calling it; it's already a reference.
+	* testsuite/tr1/3_function_objects/reference_wrapper/invoke.cc:
+	Test nullary calls to reference_wrappers.
+
+2005-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24808
+	* include/tr1/type_traits (__is_abstract_helper): Rename to __in_array
+	(with complemented logic).
+	(is_function): Use it, don't use __conv_helper.
+	(is_abstract): Adjust.
+	(__conv_helper): Rename to __is_convertible_simple.
+	(is_convertible): Adjust.
+	* testsuite/testsuite_tr1.h (class IncompleteClass): Add.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/is_object/
+	24808.cc: New.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/is_enum/
+	24808.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/is_function/
+	24808.cc: Likewise.
+
+2005-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24799
+	* include/tr1/functional (hash): Inherit from std::unary_function.
+	* testsuite/tr1/6_containers/unordered/hash/24799.cc: New.
+
+	PR libstdc++/24805
+	* include/tr1/boost_shared_ptr.h (swap(shared_ptr<>&, shared_ptr<>&),
+	swap(weak_ptr<>&, weak_ptr<>&)): Move inside namespace tr1.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	24805.cc: New.
+
+	PR libstdc++/24809
+	* include/tr1/type_traits (__is_polymorhpic_helper): Adjust destructor.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_polymorphic/
+	24809.cc: New.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: Adjust, remove xfail.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: Likewise.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release,
+	weak_release): Protect barriers with __GTHREADS.
+
+2005-11-10  Paolo Carlini  <pcarlini@suse.de>
+	    Peter Dimov  <pdimov@mmltd.net>
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release):
+	Optimize by manually inlining weak_release.
+
+	* include/tr1/boost_shared_ptr.h (_Sp_counted_base::release,
+	weak_release): Use explicit memory barriers.
+
+2005-11-09  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+            Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/22203
+	* numeric_limits.cc: Split into...
+	* numeric_limits/specialization.cc: ..this.
+	* numeric_limits/is_iec559.cc: Same.
+	* numeric_limits/sign.cc: Same.
+	* numeric_limits/quiet_NaN.cc: Same.
+	* numeric_limits/digits10.cc: Same.
+	* numeric_limits/denorm_min.cc: Same.
+	* numeric_limits/min_max.cc: Same.
+	* numeric_limits/epsilon.cc: Same.
+	* numeric_limits/infinity.cc: Same.
+	* numeric_limits/traps.cc: New.
+
+2005-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/boost_shared_ptr.h: Trivial formatting fixes.
+
+2005-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_debug_mode): Use
+	exe as the executable extension.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Change gnu defaults to
+	new.
+	(GLIBCXX_ENABLE_PCH): Adjust message order.
+	* configure: Regenerate.
+	
+	* scripts/testsuite_flags.in (query): Correct print_usagex typo.
+
+	* include/bits/functexcept.h: Remove argument names.
+
+	* src/mt_allocator.cc: Adjust comment.
+	
+2005-11-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/18174
+	* include/bits/stl_queue.h (priority_queue): Tweak a bit the
+	comment describing the container.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.host: Add | rs6000 to the cpu_defines_dir switch,
+	consistently with the try_cpu one.
+
+2005-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22203
+	* include/bits/c++config: Include cpu_defines.h.
+	* include/Makefile.am: Add cpu_defines.h to host_headers.
+	* configure.host: Add cpu_defines_dir.
+	* configure.ac: Use it.
+	* config/cpu/powerpc/cpu_defines.h: New.
+	* config/cpu/generic/cpu_defines.h: Likewise.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.	
+	* testsuite/Makefile.in: Likewise.
+
+2005-11-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_swap):
+	Change the various traits_type::copy call to always copy the
+	entire local buffer; return early and don't do a full swap on
+	the lengths for two common cases; change two _S_copy to plain
+	traits_type::copy.
+
+2005-11-02  Thomas Kho  <tkho@ucla.edu>
+
+	PR libstdc++/23425
+	* include/bits/stl_vector.h (vector<>::clear): Open code
+	in terms of _Destroy.
+
+2005-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/vector.tcc (vector<>::_M_fill_assign): Qualify fill_n.
+
+2005-11-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24595
+	* include/tr1/boost_shared_ptr.h (shared_ptr<>::get_deleter):
+	Move out of shared_ptr.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/misc/24595.cc:
+	New.
+
+2005-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20213
+	* include/c_std/std_csignal.h: Adjust comment as per 17.4.1.2/4.
+	* include/c_std/std_cstdlib.h: Likewise.
+	* include/c_std/std_cstdio.h: Likewise.
+	* include/c_std/std_cstdarg.h: Likewise.
+	* include/c_std/std_cctype.h: Likewise.
+	* include/c_std/std_cerrno.h: Likewise.
+	* include/c_std/std_cmath.h: Likewise.
+	* include/c_std/std_ciso646.h: Likewise.
+	* include/c_std/std_ctime.h: Likewise.
+	* include/c_std/std_clocale.h: Likewise.
+	* include/c_std/std_climits.h: Likewise.
+	* include/c_std/std_cassert.h: Likewise.
+	* include/c_std/std_csetjmp.h: Likewise.
+	* include/c_std/std_cwchar.h: Likewise.
+	* include/c_std/std_cfloat.h: Likewise.
+	* include/c_std/std_cstring.h: Likewise.
+	* include/c_std/std_cstddef.h: Likewise.
+	* include/c_std/std_cwctype.h: Likewise.
+
+2005-10-29  Carey Evans  <carey.evans@gmail.com>
+
+	PR libstdc++/22087
+	* config/os/djgpp/ctype_inline.h: Fix.
+	* config/os/djgpp/ctype_noninline.h: Likewise.
+
+2005-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24559
+	* include/c_std/std_cwchar.h (wcspbrk): Adjust signature.
+	* testsuite/21_strings/c_strings/wchar_t/24559.cc: New.
+
+2005-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 39.
+	* docs/html/ext/howto.html: Adjust.
+
+2005-10-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24450
+	* config/locale/generic/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Avoid leaking
+	memory if new throws inside _M_initialize_timepunct.
+	* config/locale/gnu/time_members.h (__timepunct<>::
+	__timepunct(__c_locale, const char*, size_t)): Likewise.
+	* config/locale/gnu/message_members.h (messages<>::
+	messages(__c_locale, const char*, size_t)): Rearrange to
+	avoid memory leaks.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (_M_swap): Rewrite.
+
+2005-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string_base.h (_S_terminal): Remove.
+	(_M_set_length): Adjust.
+	(_S_max_size): Change to anonymous enum.
+	(_M_max_size()): Add, returns the latter.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/ext/vstring.h (max_size): Adjust.
+
+2005-10-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	PR libstdc++/24244
+	* include/tr1/boost_shared_ptr.h
+	(_Sp_counted_base::_Sp_counted_base()): When __GTHREAD_MUTEX_INIT
+	is defined, initialize the mutex.
+
+2005-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Add missing #pragma GCC system_header.
+
+2005-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable (hashtable::m_erase): Rename to erase_node.
+	(hashtable::erase(iterator), erase(const_iterator)): Adjust.
+
+2005-10-13  Richard Earnshaw  <richard.earnsahw@arm.com>
+
+	PR libstdc++/23926
+	* acinclude.m4 (port_specific_symbol_files): More symbol versioning
+	fixes.
+	* configure: Regenerate.
+
+2005-10-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Require
+	native testing before setting v3-sharedlib to 1.
+
+2005-10-12  Joe Buck  <Joe.Buck@synopsys.com>
+
+	* docs/html/27_io/howto.html: Use reference to ifstream when
+	including iosfwd.
+
+2005-10-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libstdc++/23926
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Fix typo in check
+	for GNU LD.
+	* configure: Regenerate.
+
+2005-10-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:7:0.
+	* configure: Regenerate.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.7.
+	* config/linker-map.gnu: Export locale::_Impl::_M_install_cache.
+
+2005-10-10  Ian Lance Taylor  <ian@airs.com>
+
+	PR libstdc++/13583
+	* include/bits/locale_classes.h (locale::_Impl::_M_install_cache):
+	Move out of line.
+	* src/locale.cc: Define here, add mutex.
+
+2005-10-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24061 (issue 6.19)
+	* include/tr1/hashtable (struct node_const_iterator, struct
+	hashtable_const_iterator): New, add const variants to enable separate
+	overloadings for iterator and const_iterator in unordered_set and
+	unordered_multiset (as required by issue 6.19).
+	(class hashtable): Change the mutable_iterators template parameter
+	to constant_iterators and adjust throughout the logic.
+	(hashtable::insert(iterator, const value_type&), erase(iterator)
+	erase(iterator, iterator)): New, as per issue 6.19.
+	(hashtable::m_erase(node*, node**)): New, called by erase(iterator)
+	and erase(const_iterator).
+	(hashtable::Insert_Conv_Type): New, used by insert(iterator,
+	const value_type&) and insert(const_iterator, const value_type&)
+	to delegate the work to insert(const value_type&).
+	* include/tr1/unordered_map (class unordered_map, unordered_multimap):
+	Adjust typedefs.
+	* include/tr1/unordered_set (class unordered_set, unordered_multiset):
+	Likewise.
+	* testsuite/tr1/6_containers/unordered/erase/24061-map.cc: New.
+	* testsuite/tr1/6_containers/unordered/erase/24061-multimap.cc: New.
+	* testsuite/tr1/6_containers/unordered/erase/24061-multiset.cc: New.
+	* testsuite/tr1/6_containers/unordered/erase/24061-set.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-map.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-multimap.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-multiset.cc: New.
+	* testsuite/tr1/6_containers/unordered/insert/24061-set.cc: New.
+
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	Merge from csl-arm-branch:
+	2004-12-15  Daniel Jacobowitz  <dan@codesourcery.com>
+	* libstdc++-v3/config/linker-map.gnu: Add ARM EABI symbols.
+
+2005-10-07  Paolo Carlini  <pcarlini@suse.de>
+
+	Fix libstdc++/24196 for ext/vstring/rc by returning to the behavior
+	of basic_string pre-2003-06-13; remove fully-dynamic-string stuff.
+	* include/ext/rc_string_base.h (_M_refcopy): Move inside the
+	_Rep class and remove code in macro.
+	(__rc_string_base()): Construct with _S_empty_rep()._M_refcopy().
+	(_M_dispose, _M_leak_hard): Remove code in macro.
+	(_S_construct): Return _S_empty_rep()._M_refcopy() for empty string.
+	(_M_grab): Adjust.
+
+	* include/ext/rc_string_base.h (_Rep::_M_refdata()): Minor tweak,
+	mark throw().
+
+2005-10-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Update to Doyxygen 1.4.4.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (struct __sso_string_local):
+	Remove, actually POD types cannot have user defined constructors
+	(being aggregates) and therefore can always be members of unions.
+	(class __sso_string_base): Adjust consistently.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24198
+	* testsuite/27_io/basic_filebuf/3.cc: Use __gnu_test::pod_ushort
+	instead.
+	* testsuite/27_io/basic_filebuf/seekoff/10132-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/10132-3.cc: Likewise.
+	* testsuite/27_io/basic_fstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ifstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ios/3.cc: Likewise.
+	* testsuite/27_io/basic_iostream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_istream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_istringstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ofstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ostream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_ostringstream/3.cc: Likewise; run the test.
+	* testsuite/27_io/basic_streambuf/3.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/3.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/3.cc: Likewise; run the test.
+
+2005-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11729 (DR 280, [Ready])
+	* include/bits/stl_iterator.h: Add reverse_iterator global
+	functions with two template parameters (operator==, !=, <,
+	>, <=, >=, -).
+	* testsuite/24_iterators/reverse_iterator/11729.cc: New.
+	* docs/html/ext/howto.html: Add an entry for issue 280.
+
+2005-10-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable
+	(node_iterator::node_iterator(const node_iterator<,true,>&)): Fix to
+	take a "false" (i.e., is_const == false) node_iterator.
+	(hashtable_iterator::hashtable_iterator(const hashtable_iterator<,
+	true,>&)): Likewise for hashtable_iterator.
+	(hashtable::const_local_iterator): Fix typedef (is_const == true).
+	(hashtable::const_iterator): Likewise.
+	* testsuite/tr1/6_containers/unordered/types/map_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/multimap_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/set_iterator.cc: New.
+	* testsuite/tr1/6_containers/unordered/types/multiset_iterator.cc: New.
+ 
+2005-10-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24054
+	* include/tr1/hashtable (erase(const key_type&)): Return the
+	number of elements erased.
+	* testsuite/tr1/6_containers/unordered/hashtable/24054.cc: New.
+
+2005-10-01  Kenny Simpson  <theonetruekenny@yahoo.com>
+
+	* include/tr1/tuple_iterate.h (tuple::operator=(const std::pair<>&)):
+	Add missing return.
+
+2005-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24064
+	* include/tr1/hashtable (hash_code_base<>::store_code): Add.
+	(hashtable<>::insert(const value_type&)): Use it.
+	* testsuite/tr1/6_containers/unordered/hashtable/24064.cc: New.
+
+2005-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23953
+	* include/bits/locale_facets.tcc (__numpunct_cache<>::_M_cache,
+	__moneypunct_cache<>::_M_cache): Check that grouping()[0] > 0.
+	(__verify_grouping): Do the last check only if __grouping[__min] > 0.
+	(__add_grouping<>): End recursion if *__gbeg <= 0.
+	* testsuite/22_locale/num_get/get/char/23953.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/char/23953.cc: Likewise.
+	* testsuite/22_locale/num_put/put/wchar_t/23953.cc: Likewise.
+
+2005-09-29  Chris Jefferson <chris@bubblescope.net>
+
+	PR libstdc++/23978
+	* include/tr1/tuple_iterate.h (tuple): Add operator=(std::pair).
+	* testsuite/tr1/6_containers/tuple/creation_functions/23978.cc: New.
+	
+	* include/tr1/functional (ref, cref): Make inline.
+	* include/tr1/tuple_iterate.h (tie): Correct formatting.
+	(make_tuple): Make inline.
+
+2005-09-25  Benjamin Kosnik  <bkoz@redhat.com>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* include/ext/mt_allocator.h
+	(__per_type_pool<...true>::_S_initialize_once): Always call
+	_M_initialize_once.
+	(__common_pool<...true>::_S_initialize_once): Same.
+
+2005-09-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/mt_allocator/tune-1.cc: Clarify for single-thread.
+	* testsuite/ext/mt_allocator/tune-2.cc: Same.
+	* testsuite/ext/mt_allocator/tune-3.cc: Same.
+	* testsuite/ext/mt_allocator/tune-4.cc: Same.
+
+2005-09-21  Guillaume Melquiond  <guillaume.melquiond@ens-lyon.fr>
+
+	PR libstdc++/23956
+	* include/ext/mt_allocator.h: Remove excess
+	policy_type::_S_get_pool calls in constructors.
+	
+2005-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23417 (cont)
+	* include/bits/stl_tree.h (_Rb_tree_impl<true>): Use member
+	initialization list for -Weffc++.
+
+2005-09-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/23871.cc:
+	New.
+
+2005-09-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21674
+	PR libstdc++/22205
+	PR libstdc++/22222
+	* include/bits/c++config: Set _GLIBCXX_STD regardless of __GXX_WEAK__.
+	Add in check for __NO_INLINE__ for warning.
+	* testsuite/lib/dg-options.exp (dg-require-debug-mode): New.
+	* testsuite/lib/libstdc++.exp (check_v3_target_debug_mode): New.
+	* testsuite/21_strings/basic_string/element_access/char/21674.cc:
+	Use it.
+	* testsuite/21_strings/basic_string/element_access/wchar_t/21674.cc:
+	Use it.
+
+2005-09-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23875
+	* include/std/std_ostream.h (operator<<(short), operator<<(unsigned
+	short), operator<<(int), operator<<(unsigned int), operator<<(float)):
+	Don't call operator<<(long), operator<<(unsigned long), or
+	operator<<(double), do the work mandated by the resolution of DR117...
+	* include/bits/ostream.tcc (operator<<(short), operator<<(unsigned
+	short), operator<<(int), operator<<(unsigned int), operator<<(float)):
+	... here.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/pod/23875.cc: New.
+
+2005-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/testsuite_character.h: Specialize character<>
+	templates in __gnu_cxx, not in __gnu_test.
+
+2005-09-13  Jonathan Wakely  <cow@compsoc.man.ac.uk>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21674
+	* testsuite/21_strings/basic_string/element_access/char/21674.cc: New.
+	* testsuite/21_strings/basic_string/element_access/wchar_t/21674.cc: 
+	New.
+
+2005-09-12  David Edelsohn  <dje@gcc.gnu.org>
+
+	PR libstdc++/22554
+	PR libstdc++/23734
+	* include/Makefile.am (stamp-assoc): Install each subgroup
+	of headers separately.
+	* include/Makefile.in: Regenerate.
+	
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/mt_allocator/22309_thread.cc: Remove dg-do run.
+	* testsuite/lib/libstdc++.exp ( proc libstdc++_init): Enable
+	shared only for linux.
+	
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+	    David Edelsohn  <dje@gcc.gnu.org>
+
+	PR libstdc++/22554
+	PR libstdc++/23734
+	* include/Makefile.am (assoc_headers): Break into five sub values.
+	(install-headers): Use them.
+	(stamp-assoc): Same.
+	* include/Makefile.in: Regenerate.
+	
+2005-09-12  Chris Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (search_n): Delegate to specializations.
+	(search_n(,,,,binary_predicate)): Likewise.
+	(__search_n(forward_iterator_tag)): Original search_n, tweak to
+	remove an unnecessary comparison.
+	(__search_n(,,,,binary_predicate,forward_iterator_tag)): Likewise.
+
+2005-09-12  Jim Xochellis  <jimxoch@yahoo.gr>
+
+	* include/bits/stl_algo.h
+	(__search_n(std::random_access_iterator_tag)): Add specialization.
+	(__search_n(,,,,binary_predicate,std::random_access_iterator_tag)):
+	Likewise.
+
+2005-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/23417
+	* include/bits/stl_list.h (_List_impl): Use member initialization
+	list for -Weffc++.
+	* include/bits/stl_tree.h (_Rb_tree_impl): Same.
+
+2005-09-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23767
+	* include/bits/stl_iterator.h (__normal_iterator::
+	__normal_iterator<>(const __normal_iterator<_Iter, _Container>&)):
+	Enable only when _Iter is equal to _Container::pointer.
+	* testsuite/21_strings/basic_string/types/23767.cc: New.
+	* testsuite/23_containers/vector/types/23767.cc: Likewise.
+	* testsuite/ext/vstring/types/23767.cc: Likewise.
+
+2005-09-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/19265
+	PR libstdc++/22309
+	* include/ext/mt_allocator.h
+	(__gnu_cxx::__create_handler): Remove.
+	(__pool<true>::_M_destroy_thread_key): Compatibility only.
+	(__pool<true>::_M_initialize(__destroy): Same.
+	(__pool<true>::_M_initialize): New.
+	(__pool<true>::_M_initialize_once): Nothing fancy.
+	(__pool<true>::_M_once): Remove.
+	(__common_pool): New.
+	(__common_pool_base): New.	
+	(__per_type_pool): New.
+	(__per_type_pool_base): New.
+	* src/mt_allocator.cc: Same.
+	* config/linker-map.gnu (__pool<true>::_M_initialize()): Add.
+	
+2005-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/19265
+	PR libstdc++/22309
+	* src/mt_allocator.cc (__gnu_internal::freelist_mutex): Make static.
+	(__gnu_internal::__freelist): New type.
+	(__gnu_internal::freelist): New variable.
+	(__gnu_internal::_M_destroy_thread_key): New function.
+	(__gnu_cxx::__pool<true>::_M_destroy): Don't delete
+	_M_thread_freelist_initial.
+	(__gnu_cxx::__pool<true>::_M_initialize): Make argument nameless.
+	Don't use _M_thread_freelist and _M_thread_freelist_initial
+	__pool<true> fields, instead use __gnu_internal::freelist fields, call
+	gthread_key_create just once.  Use
+	__gnu_internal::_M_destroy_thread_key as key destructor.	
+	(__gnu_cxx::__pool<true>::_M_get_thread_id): Store size_t id
+	rather than _Thread_record* in the thread specific value.  Don't
+	use _M_thread_freelist __pool<true> field, instead use
+	__gnu_internal::freelist fields.
+	(__gnu_cxx::__pool<true>::_M_destroy_thread_key): Do nothing.
+
+2005-09-11  Benjamin Kosnik  <bkoz@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/19265
+	PR libstdc++/22309	
+	* testsuite/testsuite_shared.cc: New.
+	* testsuite/lib/dg-options.exp (dg-require-sharedlib): New.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Look for shared
+	library, and set v3-sharedlib based on this.
+	(check_v3_target_sharedlib): New.
+	(proc v3-build_support): Build shared objects.
+	* testsuite/ext/mt_allocator/22309_thread.cc: New, use above.
+
+2005-09-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23781
+	* include/bits/stl_list.h (_List_iterator<>::
+	_List_iterator(_List_node_base*), _List_const_iterator<>::
+	_List_const_iterator(const _List_node_base*)): Make explicit.
+	(list<>::begin(), list<>::end(), list<>::pop_back()): Adjust
+	consistently.
+	* include/bits/list.tcc (list<>::insert, list<>::erase): Adjust
+	consistently.
+	* include/bits/stl_tree.h (_Rb_tree_iterator<>::
+	_Rb_tree_iterator(_Link_type), _Rb_tree_const_iterator<>::
+	_Rb_tree_const_iterator(_Link_type)): Make explicit.
+	(_Rb_tree<>::begin(), _Rb_tree<>::end()): Adjust consistently.
+	* include/ext/slist (_Slist_iterator<>::_Slist_iterator(_Node*)):
+	Make explicit.
+	(slist<>::erase(iterator), slist<>::erase(iterator, iterator)):
+	Adjust consistently.
+	* include/tr1/hashtable (hashtable_iterator<>::
+	hashtable_iterator(hash_node<>**)): Make explicit.
+	* testsuite/23_containers/list/23781.cc: New.
+	* testsuite/23_containers/map/23781.cc: Likewise.
+	* testsuite/23_containers/multimap/23781.cc: Likewise.
+	* testsuite/23_containers/multiset/23781.cc: Likewise.
+	* testsuite/23_containers/set/23781.cc: Likewise.
+	* testsuite/ext/slist/23781.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/23781.cc: Likewise.
+	* testsuite/23_containers/map/operators/1_neg.cc: Adjust dg-error
+	line numbers.
+	* testsuite/23_containers/set/operators/1_neg.cc: Likewise.
+
+	* include/tr1/array (array<>::begin(), array<>::end()): Adjust
+	stylistically for consistency with the other containers.
+
+2005-09-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c.cc:
+	XFAIL on *-*-linux*, not *-*-linux-gnu.
+
+2005-09-09  Benjamin Kosnik  <bkoz@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	* src/debug.cc (iterator_base_mutex): Make static for internal
+	linkage.
+	* src/locale_init.cc (locale_mutex): Same.
+	* src/mt_allocator.cc (freelist_mutex): Same.
+	* src/pool_allocator.cc (palloc_init_mutex): Same.
+	
+2005-09-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/6_containers/unordered/hashtable/23465.cc:
+	Reduce maximum size and lf.
+
+2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/std_cmath.h: Declare C99 functions and helper
+	functions as inline.
+
+2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit): Fix
+	comment.
+
+2005-09-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit): New.
+	* testsuite/lib/dg-options.exp (dg-require-cxa-atexit): New.
+	* testsuite/ext/mt_allocator/deallocate_local-6.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local-8.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-5.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-7.cc: New.
+	* docs/html/ext/mt_allocator.html: Add link to examples.
+	* testsuite/testsuite_allocator.h: Tweak.
+	* testsuite/ext/mt_allocator/deallocate_global-2.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global-4.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-2.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local-4.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Same.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Same.
+	* testsuite/ext/new_allocator/deallocate_global.cc: Same.
+	* testsuite/ext/new_allocator/deallocate_local.cc: Same.
+
+2005-08-31  Paolo Carlini  <pcarlini@suse.de>
+	    Kaspar Fischer <fischerk@inf.ethz.ch> 
+
+	PR libstdc++/23632
+	* include/bits/stl_bvector.h (_Bit_iterator::operator[],
+	_Bit_const_iterator::operator[]): Const-ify.
+	* testsuite/23_containers/vector/bool/23632.cc: New.
+
+2005-08-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23578 (cont)
+	* include/bits/stl_bvector.h (class vector<bool>): Add
+	a dummy data() to avoid problems in debug-mode.
+
+2005-08-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/hash_map/23528.cc: New.
+
+2005-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (class map): ... and a missing @a.
+
+2005-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (class map): Add missing % in comment.
+
+2005-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23578 (DR 464 [Ready])
+	* include/bits/stl_map.h (class map): Add at(const key_type&)
+	member functions.
+	* include/bits/stl_vector.h (class vector): Add data() member
+	functions.
+	* include/debug/map.h (class map): Adjust consistently.
+	* include/debug/vector (class vector): Likewise.
+	* testsuite/23_containers/map/element_access/1.cc: New.
+	* testsuite/23_containers/vector/data_access/1.cc: Likewise.
+	* docs/html/ext/howto.html: Add an entry for DR 464.
+
+2005-08-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/20534 (contd)
+	* src/debug.cc (__gnu_debug): Remove __fancy_abort definition.
+	Remove cstdio and cstdlib includes.
+	* include/debug/debug.h: Define inline here. Remove
+	_GLIBCXX_DEBUG_ABORT.
+	* include/debug/macros.h: Remove __fancy_abort declaration,
+	_GLIBXX_DEBUG_ABORT definition.
+	* config/linker-map.gnu: Remove export.
+	
+2005-08-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* scripts/check_compile (UNIQUE_ID): New. Use to name output files.
+
+2005-08-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/23081
+	* include/tr1/array: Implement members back(), front(), data(),
+	and the tuple interface; tidy.
+	* testsuite/tr1/6_containers/array/element_access/back.cc: New.
+	* testsuite/tr1/6_containers/array/element_access/data.cc: Likewise.
+	* testsuite/tr1/6_containers/array/element_access/front.cc: Likewise.
+	* testsuite/tr1/6_containers/array/tuple_interface/get.cc: Likewise.
+	* testsuite/tr1/6_containers/array/tuple_interface/tuple_element.cc:
+	Likewise.
+	* testsuite/tr1/6_containers/array/tuple_interface/tuple_size.cc:
+	Likewise.
+
+2005-08-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable: Use __throw_exception_again,
+	not naked throw, in the catch clauses.
+
+2005-08-24  Lawrence Lim  <llim@redhat.com>
+            Jakub Jelinek  <jakub@redhat.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/23550
+	* testsuite/21_strings/char_traits/requirements/char/1.cc
+	(test01): Simplify counting.
+	* testsuite/21_strings/char_traits/requirements/wchar_t/1.cc
+	(test02): Same.
+
+2005-08-24  Paolo Carlini  <pcarlini@suse.de>
+	    Chris Jefferson  <chris@bubblescope.net>
+
+	PR libstdc++/23465
+	* include/tr1/hashtable (hash_code_base::m_swap): Use
+	std::swap.
+	(hashtable<>::hashtable(const hashtable&)): Use copy_code;
+	fix m_allocate_node call.
+	* testsuite/tr1/6_containers/unordered/hashtable/23465.cc: New.
+
+2005-08-23  Kelley Cook  <kcook@gcc.gnu.org>
+
+	PR libstdc++/23462
+	* testsuite/data/sgetn.txt: Revert to previous FSF address.
+
+2005-08-23  Thomas Kho  <tkho@ucla.edu>
+
+	PR libstdc++/23358
+	* include/bits/stl_construct.h (_Destroy(_ForwardIterator,
+	_ForwardIterator, allocator<_Tp>)): Removed unused template parameter.
+
+2005-08-22  Geoffrey Keating  <geoffk@apple.com>
+
+	* testsuite/23_containers/vector/resize/1.cc: XFAIL on darwin8.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+
+2005-08-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* config/cpu/sh/atomicity.h: Replace broken generic code with current
+	copy of generic/atomicity.h .
+
+2005-08-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* All files: Update FSF address.
+
+2005-08-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c.cc:
+	xfail on *-*-darwin*.
+
+2005-08-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Don't use GCC_NO_EXECUTABLES or clear
+	GLIBCXX_IS_NATIVE on Darwin crosses.
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Don't skip configuring
+	the testsuite just because there's no symbol versioning.
+	* configure: Regenerate.
+
+	* acinclude.m4 (GLIBCXX_CHECK_SETRLIMIT_ancilliary): Print
+	status messages.
+	(GLIBCXX_CHECK_S_ISREG_OR_S_IFREG): Likewise.
+	(GLIBCXX_CHECK_POLL): Likewise.
+	(GLIBCXX_CHECK_WRITEV): Likewise.
+	(GLIBCXX_CHECK_INT64_T): Likewise.
+	(GLIBCXX_CHECK_LFS): Likewise.
+	* configure: Regenerate.
+
+2005-07-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* scripts/make_exports.pl: Pass --strip-underscores to c++filt.
+
+2005-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/22284
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Revert
+	the change to info.ttype_base.
+	
+2005-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* include/std/std_valarray.h: Fix grammar in comments.
+
+2005-07-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Handle darwin-export,
+	and make it the default for Darwin.
+	* scripts/make-exports.pl: New.
+	* src/Makefile.am: Update for changes to GLIBCXX_ENABLE_SYMVERS.
+	Handle darwin-export.
+	* configure: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-07-25  Dave Odell  <evilalias@hotmail.com>
+
+	PR libstdc++/23053
+	* include/tr1/hashtable (hashtable<>::find_node): Const-ify.
+	* testsuite/tr1/6_containers/unordered/hashtable/23053.cc: New.
+
+2005-07-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22515
+	* include/bits/basic_string.h: Declare the specialization
+	operator>>(basic_istream<char>&, basic_string<char>&).
+	* include/std/std_istream.h: Declate the specialization
+	operator>>(basic_istream<char>&, char*).
+	* include/std/std_streambuf.h (basic_streambuf): Add friend
+	declarations for the above.
+	* src/istream.cc: Define the above.
+	* testsuite/27_io/basic_istream/extractors_character/char/4.cc: New.
+	* testsuite/27_io/basic_istream/extractors_character/wchar_t/4.cc:
+	Likewise.
+	* testsuite/performance/27_io/ifstream_extract_chars.cc: Likewise.
+
+2005-07-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf.tcc (xsgetn, xsputn): Use streamsize
+	instead of size_t.
+	* src/streambuf.cc (__copy_streambufs): Likewise.
+
+2005-07-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/ctype_members.cc (do_is(mask, wchar_t)):
+	Speed-up for the common case of mask == ctype_base::space;
+	otherwise, exit the loop earlier if the mask is one of the
+	elementary ones.
+
+2005-07-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21193 (float, double, long double)
+	* include/tr1/functional (hash<float>, hash<double>):
+	Reimplement exploiting the Fnv_hash<>::hash helper.
+	(hash<long double>): Reimplement using frexp (in this
+	case, due to random padding bits, the former approach
+	is not generally viable).
+
+2005-07-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21193 (string & wstring)
+	* include/tr1/functional (hash<string>, hash<wstring>):
+	Reimplement using the FNV hash.
+
+	* include/tr1/functional: Trivial formatting fixes.
+
 2005-07-11  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/ostream.tcc (basic_ostream<>::operator<<(long),
