@@ -158,6 +158,7 @@ extern void objc_protocol_section (void);
 /* APPLE LOCAL begin ObjC new abi */
 extern void objc_classlist_section (void);
 extern void objc_data_section (void);
+extern void objc_message_refs_section (void);
 /* APPLE LOCAL end ObjC new abi */
 extern void objc_string_object_section (void);
 extern void objc_constant_string_object_section (void);

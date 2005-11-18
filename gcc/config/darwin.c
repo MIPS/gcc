@@ -1235,6 +1235,8 @@ machopic_select_section (tree exp, int reloc,
       else if (!strncmp (name, "_OBJC_CLASS_RO_$", 16) 
 	       || !strncmp (name, "_OBJC_METACLASS_RO_$", 20))
 	objc_data_section ();
+      else if (!strncmp (name, "_OBJC_MESSAGE_REF", 17))
+	objc_message_refs_section ();
       /* APPLE LOCAL end ObjC new abi */
       else if (!strncmp (name, "_OBJC_CLASS_", 12))
 	objc_class_section ();

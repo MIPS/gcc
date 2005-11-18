@@ -845,6 +845,7 @@ FUNCTION (void)								\
   in_darwin_exception, in_darwin_eh_frame,				\
   /* APPLE LOCAL begin ObjC new abi  */					\
   in_objc_classlist_section,						\
+  in_objc_message_refs_section,						\
   /* APPLE LOCAL end ObjC new abi  */					\
   num_sections
 
@@ -1032,6 +1033,9 @@ SECTION_FUNCTION (objc_classlist_section,				\
 SECTION_FUNCTION (objc_data_section,					\
 		  in_data,						\
 		  ".data", 1) 						\
+SECTION_FUNCTION (objc_message_refs_section,				\
+		  in_objc_message_refs_section,				\
+		  ".section __OBJC2, __message_refs, regular, no_dead_strip", 1)	\
 /* APPLE LOCAL end ObjC new abi */					\
 \
 static void					\
@@ -1067,6 +1071,7 @@ objc_section_init (void)			\
       /* APPLE LOCAL begin ObjC new abi */	\
       objc_classlist_section ();		\
       objc_data_section ();			\
+      objc_message_refs_section ();		\
       /* APPLE LOCAL end ObjC new abi */	\
     }						\
 }
