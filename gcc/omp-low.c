@@ -779,28 +779,7 @@ determine_parallel_type (tree stmt)
   par_type = IS_PARALLEL;
 
   t = expr_only (body);
-  if (t && TREE_CODE (t) == OMP_FOR)
-    {
-      /* If this is a combined parallel loop, we need to determine
-	 whether or not to use the combined library calls.  There
-	 are two cases where we do not apply the transformation:
-	 static loops and any kind of ordered loop.  In the first
-	 case, we already open code the loop so there is no need
-	 to do anything else.  In the latter case, the combined
-	 parallel loop call would still need extra synchronization
-	 to implement ordered semantics, so there would not be any
-	 gain in using the combined call.  */
-      tree clauses = OMP_FOR_CLAUSES (t);
-      tree c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
-      if (c == NULL_TREE
-	  || OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC)
-	par_type = IS_PARALLEL;
-      else if (find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
-	par_type = IS_PARALLEL;
-      else
-	par_type = IS_COMBINED_PARALLEL;
-    }
-  else if (t && TREE_CODE (t) == OMP_SECTIONS)
+  if (t && TREE_CODE (t) == OMP_SECTIONS)
     par_type = IS_COMBINED_PARALLEL;
   else
     par_type = IS_PARALLEL;

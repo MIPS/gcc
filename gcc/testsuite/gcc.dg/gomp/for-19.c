@@ -15,7 +15,7 @@ void foo (int *a, int i, int j, int k, int l, int m)
 }
 
 /* { dg-final { scan-tree-dump-times "shared\\(a\\)" 2 "gimple" } } */
-/* { dg-final { scan-tree-dump-times "shared\\(k\\)" 0 "gimple" } } */
-/* { dg-final { scan-tree-dump-times "shared\\(l\\)" 0 "gimple" } } */
-/* { dg-final { scan-tree-dump-times "shared\\(m\\)" 0 "gimple" } } */
+/* { dg-final { scan-tree-dump-times "shared\\(k\\)" 0 "gimple" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "shared\\(l\\)" 0 "gimple" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "shared\\(m\\)" 0 "gimple" { xfail *-*-* } } } */
 /* { dg-final { cleanup-tree-dump "gimple" } } */

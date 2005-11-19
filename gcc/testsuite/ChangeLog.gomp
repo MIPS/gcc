@@ -1,3 +1,10 @@
+2005-11-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24849
+	* g++.dg/gomp/pr24849.C: New test.
+	* gcc.dg/gomp/for-19.c: XFAIL.
+	* gcc.dg/gomp/for-18.c: XFAIL.
+
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/reduction2.f90: New test.

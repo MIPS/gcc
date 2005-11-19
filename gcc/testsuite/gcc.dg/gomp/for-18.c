@@ -37,6 +37,6 @@ bar (int *a, int i)
     a[j] = 4;
 }
 
-/* { dg-final { scan-tree-dump-times "GOMP_parallel_loop_dynamic_start" 4 "omplower" } } */
-/* { dg-final { scan-tree-dump-times "GOMP_parallel_loop_guided_start" 4 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "GOMP_parallel_loop_dynamic_start" 4 "omplower" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "GOMP_parallel_loop_guided_start" 4 "omplower" { xfail *-*-* } } } */
 /* { dg-final { cleanup-tree-dump "omplower" } } */
