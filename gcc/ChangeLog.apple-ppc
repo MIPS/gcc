@@ -1,3 +1,9 @@
+2005-11-18  Eric Christopher  <echristo@apple.com>
+
+	Radar 4324160
+        * config/i386/i386.md (*zero_extendqihi2_movzbw): Avoid partial
+        register stalls by zero extending to the full register.
+
 2005-11-17  Devang Patel  <dpatel@apple.com>
 
 	Radar 4343764
