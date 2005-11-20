@@ -1537,6 +1537,16 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       inexact = real_arithmetic (&value, code, &d1, &d2);
       real_convert (&result, mode, &value);
 
+      /* Don't constant fold this floating point operation if
+	 the result has overflowed and flag_trapping_math.  */
+
+      if (flag_trapping_math
+	  && MODE_HAS_INFINITIES (mode)
+	  && REAL_VALUE_ISINF (result)
+	  && !REAL_VALUE_ISINF (d1)
+	  && !REAL_VALUE_ISINF (d2))
+	return NULL_TREE;
+
       /* Don't constant fold this floating point operation if the
 	 result may dependent upon the run-time rounding mode and
 	 flag_rounding_math is set, or if GCC's software emulation
@@ -4052,10 +4062,22 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
     }
 
   if (value != 0 && ! TREE_OVERFLOW (value))
-    return build_range_check (type,
-			      fold_build2 (MINUS_EXPR, etype, exp, low),
-			      1, fold_convert (etype, integer_zero_node),
-			      value);
+    {
+      /* There is no requirement that LOW be within the range of ETYPE
+	 if the latter is a subtype.  It must, however, be within the base
+	 type of ETYPE.  So be sure we do the subtraction in that type.  */
+      if (INTEGRAL_TYPE_P (etype) && TREE_TYPE (etype))
+	{
+	  etype = TREE_TYPE (etype);
+	  exp = fold_convert (etype, exp);
+	  low = fold_convert (etype, low);
+	  value = fold_convert (etype, value);
+	}
+
+      return build_range_check (type,
+				fold_build2 (MINUS_EXPR, etype, exp, low),
+				1, build_int_cst (etype, 0), value);
+    }
 
   return 0;
 }
@@ -5527,7 +5549,8 @@ constant_boolean_node (int value, tree type)
    offset to the appropriate trees.  If there is no offset,
    offset is set to NULL_TREE.  Base will be canonicalized to
    something you can get the element type from using
-   TREE_TYPE (TREE_TYPE (base)).  */
+   TREE_TYPE (TREE_TYPE (base)).  Offset will be the offset
+   in bytes to the base.  */
 
 static bool
 extract_array_ref (tree expr, tree *base, tree *offset)
@@ -5563,8 +5586,10 @@ extract_array_ref (tree expr, tree *base, tree *offset)
       tree op0 = TREE_OPERAND (expr, 0);
       if (TREE_CODE (op0) == ARRAY_REF)
 	{
+	  tree idx = TREE_OPERAND (op0, 1);
 	  *base = TREE_OPERAND (op0, 0);
-	  *offset = TREE_OPERAND (op0, 1);
+	  *offset = fold_build2 (MULT_EXPR, TREE_TYPE (idx), idx,
+				 array_ref_element_size (op0)); 
 	}
       else
 	{
@@ -8878,25 +8903,21 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      && extract_array_ref (arg1, &base1, &offset1)
 	      && operand_equal_p (base0, base1, 0))
 	    {
-	      if (TYPE_SIZE (TREE_TYPE (TREE_TYPE (base0)))
-		  && integer_zerop (TYPE_SIZE (TREE_TYPE (TREE_TYPE (base0)))))
-		offset0 = NULL_TREE;
-	      if (TYPE_SIZE (TREE_TYPE (TREE_TYPE (base1)))
-		  && integer_zerop (TYPE_SIZE (TREE_TYPE (TREE_TYPE (base1)))))
-		offset1 = NULL_TREE;
+	      /* Handle no offsets on both sides specially.  */
 	      if (offset0 == NULL_TREE
 		  && offset1 == NULL_TREE)
-		{
-		  offset0 = integer_zero_node;
-		  offset1 = integer_zero_node;
-		}
-	      else if (offset0 == NULL_TREE)
-		offset0 = build_int_cst (TREE_TYPE (offset1), 0);
-	      else if (offset1 == NULL_TREE)
-		offset1 = build_int_cst (TREE_TYPE (offset0), 0);
+		return fold_build2 (code, type, integer_zero_node,
+				    integer_zero_node);
 
-	      if (TREE_TYPE (offset0) == TREE_TYPE (offset1))
-		return fold_build2 (code, type, offset0, offset1);
+	      if (!offset0 || !offset1
+		  || TREE_TYPE (offset0) == TREE_TYPE (offset1))
+		{
+		  if (offset0 == NULL_TREE)
+		    offset0 = build_int_cst (TREE_TYPE (offset1), 0);
+		  if (offset1 == NULL_TREE)
+		    offset1 = build_int_cst (TREE_TYPE (offset0), 0);
+		  return fold_build2 (code, type, offset0, offset1);
+		}
 	    }
 	}
 

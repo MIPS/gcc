@@ -1341,7 +1341,8 @@ override_options (void)
     }
   if (ix86_asm_string != 0)
     {
-      if (!strcmp (ix86_asm_string, "intel"))
+      if (! TARGET_MACHO
+	  && !strcmp (ix86_asm_string, "intel"))
 	ix86_asm_dialect = ASM_INTEL;
       else if (!strcmp (ix86_asm_string, "att"))
 	ix86_asm_dialect = ASM_ATT;

@@ -935,11 +935,10 @@ static const struct compiler default_compilers[] =
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
   {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0},
-  {".F", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
-  {".FPP", "#Fortran", 0, 0, 0},
-  {".f90", "#Fortran 95", 0, 0, 0}, {".f95", "#Fortran 95", 0, 0, 0},
   {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
   {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran", 0, 0, 0}, {".f95", "#Fortran", 0, 0, 0},
+  {".F90", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
   {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
   {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
@@ -7710,13 +7709,13 @@ version_compare_spec_function (int argc, const char **argv)
   bool result;
 
   if (argc < 3)
-    abort ();
+    fatal ("too few arguments to %%:version-compare");
   if (argv[0][0] == '\0')
     abort ();
   if ((argv[0][1] == '<' || argv[0][1] == '>') && argv[0][0] != '!')
     nargs = 2;
   if (argc != nargs + 3)
-    abort ();
+    fatal ("too many arguments to %%:version-compare");
 
   switch_len = strlen (argv[nargs + 1]);
   for (i = 0; i < n_switches; i++)
@@ -7757,7 +7756,7 @@ version_compare_spec_function (int argc, const char **argv)
       break;
 
     default:
-      abort ();
+      fatal ("unknown operator %qs in %%:version-compare", argv[0]);
     }
   if (! result)
     return NULL;

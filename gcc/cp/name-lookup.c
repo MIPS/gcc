@@ -3401,20 +3401,9 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
 	old->value = merge_functions (old->value, val);
       else
 	{
-	  /* Some declarations are functions, some are not.  */
-	  if (flags & LOOKUP_COMPLAIN)
-	    {
-	      /* If we've already given this error for this lookup,
-		 old->value is error_mark_node, so let's not
-		 repeat ourselves.  */
-	      if (old->value != error_mark_node)
-		{
-		  error ("use of %qD is ambiguous", name);
-		  error ("  first declared as %q+#D here", old->value);
-		}
-	      error ("  also declared as %q+#D here", val);
-	    }
-	  old->value = error_mark_node;
+	  old->value = tree_cons (NULL_TREE, old->value,
+				  build_tree_list (NULL_TREE, new->value));
+	  TREE_TYPE (old->value) = error_mark_node;
 	}
     }
   /* ... and copy the type.  */
@@ -3610,7 +3599,8 @@ select_decl (const struct scope_binding *binding, int flags)
   if (LOOKUP_NAMESPACES_ONLY (flags))
     {
       /* We are not interested in types.  */
-      if (val && TREE_CODE (val) == NAMESPACE_DECL)
+      if (val && (TREE_CODE (val) == NAMESPACE_DECL
+		  || TREE_CODE (val) == TREE_LIST))
 	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
     }
@@ -4015,6 +4005,14 @@ lookup_name_prefer_type (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
 			   0, LOOKUP_COMPLAIN);
+}
+
+/* Similar to `lookup_name' for the benefit of common code.  */
+
+tree
+lookup_name_two (tree name, int prefer_type)
+{
+  return lookup_name_prefer_type (name, prefer_type);
 }
 
 /* Look up NAME for type used in elaborated name specifier in
