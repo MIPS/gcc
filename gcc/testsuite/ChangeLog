@@ -1,3 +1,9 @@
+2005-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1_generate.c: In arrays avoid types
+	where sizeof (type) < __alignof__ (type).
+	* g++.dg/compat/struct-layout-1.h: Likewise.
+
 2005-04-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/compat/struct-layout-1.exp: New file.
