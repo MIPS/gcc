@@ -1,3 +1,21 @@
+2005-11-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/fp-bit.c (clzusi): New function.
+	(si_to_float, usi_to_float): Use it to compute proper shift.
+	(usi_to_float): Preserve guard bits when shifting right.
+	* gcc/libgcc-std.ver (GCC_4.2.0): New version.
+	* gcc/libgcc2.c (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): New functions.
+	* gcc/libgcc2.h (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): Declare.
+	* gcc/mklibgcc.in (lib2funcs): Add _floatundidf, _floatundisf,
+	_floatundixf, and _floatunditf.
+	* gcc/optabs.c (expand_float): If target does not define a pattern for
+	signed or unsigned conversion, use an unsigned libcall instead of
+	a signed one.
+	(init_optabs): Initialize ufloat_optab.
+	* gcc/testsuite/gcc.c-torture/execute/floatunsisf-1.c: New test.
+
 2005-11-20  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/combine.c (try_combine): Revert previous change.  Do not run
