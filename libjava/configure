@@ -9275,9 +9275,6 @@ echo "${ECHO_T}$ac_cv_func_backtrace" >&6
 if test $ac_cv_func_backtrace = yes; then
 
      case "$host" in
-       ia64-*-linux*)
-	 # Has broken backtrace()
-	 ;;
        mips*-*-linux*)
          # Has broken backtrace(), but we supply our own.
          if test -d sysdep; then true; else mkdir -p sysdep; fi

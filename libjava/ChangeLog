@@ -1,3 +1,8 @@
+2005-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (HAVE_BACKTRACE): Define even on ia64.
+	* configure: Rebuilt.
+
 2005-10-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (PANGOFT2): Check for pangoft2 even if

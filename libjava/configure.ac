@@ -758,9 +758,6 @@ else
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
    AC_CHECK_FUNC(backtrace, [
      case "$host" in
-       ia64-*-linux*)
-	 # Has broken backtrace()
-	 ;;
        mips*-*-linux*)
          # Has broken backtrace(), but we supply our own.
          if test -d sysdep; then true; else mkdir -p sysdep; fi
