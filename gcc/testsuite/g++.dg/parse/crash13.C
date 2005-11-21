@@ -13,10 +13,10 @@ struct A
 
 template <typename T> 
 void func(A<T>::B* )	// { dg-error "variable|template|expression" }
-{			// { dg-error ";" }
+{
 }
 
 int main() 
 {
-  func<void>(0);	// { dg-error "undeclared|expression|;" }
+  func<void>(0);	// { dg-error "not declared|expression|;" }
 }

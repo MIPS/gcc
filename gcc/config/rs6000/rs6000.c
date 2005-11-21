@@ -2997,7 +2997,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
       rtx r3, got, tga, tmp1, tmp2, eqv;
 
       if (TARGET_64BIT)
-	got = gen_rtx_REG (Pmode, TOC_REGISTER);
+	got = gen_rtx_REG (Pmode, 2);
       else
 	{
 	  if (flag_pic == 1)
@@ -4377,9 +4377,10 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (mode == VOIDmode)
     {
       if (abi == ABI_V4
-	  && cum->nargs_prototype < 0
 	  && (cum->call_cookie & CALL_LIBCALL) == 0
-	  && (cum->prototype || TARGET_NO_PROTOTYPE))
+	  && (cum->stdarg
+	      || (cum->nargs_prototype < 0
+		  && (cum->prototype || TARGET_NO_PROTOTYPE))))
 	{
 	  /* For the SPE, we need to crxor CR6 always.  */
 	  if (TARGET_SPE_ABI)
@@ -7864,7 +7865,7 @@ expand_block_move (rtx operands[])
 	  mode = SImode;
 	  gen_func.mov = gen_movsi;
 	}
-      else if (bytes == 2 && (align >= 2 || ! STRICT_ALIGNMENT))
+      else if (bytes >= 2 && (align >= 2 || ! STRICT_ALIGNMENT))
 	{			/* move 2 bytes */
 	  move_bytes = 2;
 	  mode = HImode;
