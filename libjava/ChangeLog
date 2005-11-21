@@ -1,3 +1,9 @@
+2005-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (PANGOFT2): Check for pangoft2 even if
+	not --enable-gtk-cairo.
+	* configure: Rebuilt.
+
 2005-11-17  Bryce McKinlay  <mckinlay@redhat.com>
 
 	Implement -Xss.

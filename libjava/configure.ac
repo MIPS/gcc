@@ -1004,6 +1004,10 @@ else
       AC_SUBST(LIBART_CFLAGS)
       AC_SUBST(LIBART_LIBS)
 
+      if test "x${enable_gtk_cairo}" != xyes; then
+	PKG_CHECK_MODULES(PANGOFT2, pangoft2)
+      fi
+
       # We require the XTest Extension to support java.awt.Robot.
       AC_CHECK_LIB([Xtst], [XTestQueryExtension], [true],
 		   [AC_MSG_ERROR([libXtst not found, required by java.awt.Robot])],
