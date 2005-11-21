@@ -1,3 +1,9 @@
+2005-09-15  Tom Tromey  <tromey@redhat.com>
+
+	Workaround for PR classpath/23863:
+	* java/lang/mprec.h (MAX_BIGNUM_WDS): Define as 128 on
+	non-Pack_32 platforms.
+
 2005-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (HAVE_BACKTRACE): Define even on ia64.
