@@ -349,8 +349,8 @@ convert_move (rtx to, rtx from, int unsignedp)
 {
   enum machine_mode to_mode = GET_MODE (to);
   enum machine_mode from_mode = GET_MODE (from);
-  int to_real = GET_MODE_CLASS (to_mode) == MODE_FLOAT;
-  int from_real = GET_MODE_CLASS (from_mode) == MODE_FLOAT;
+  int to_real = SCALAR_FLOAT_MODE_P (to_mode);
+  int from_real = SCALAR_FLOAT_MODE_P (from_mode);
   enum insn_code code;
   rtx libcall;
 
@@ -6543,7 +6543,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   optab this_optab;
   rtx subtarget, original_target;
   int ignore;
-  tree context;
+  tree context, subexp0, subexp1;
   bool reduce_bit_field = false;
 #define REDUCE_BIT_FIELD(expr)	(reduce_bit_field && !ignore		  \
 				 ? reduce_to_bit_field_precision ((expr), \
@@ -7824,7 +7824,43 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 from a narrower type.  If this machine supports multiplying
 	 in that narrower type with a result in the desired type,
 	 do it that way, and avoid the explicit type-conversion.  */
-      if (TREE_CODE (TREE_OPERAND (exp, 0)) == NOP_EXPR
+
+      subexp0 = TREE_OPERAND (exp, 0);
+      subexp1 = TREE_OPERAND (exp, 1);
+      /* First, check if we have a multiplication of one signed and one
+	 unsigned operand.  */
+      if (TREE_CODE (subexp0) == NOP_EXPR
+	  && TREE_CODE (subexp1) == NOP_EXPR
+	  && TREE_CODE (type) == INTEGER_TYPE
+	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subexp0, 0)))
+	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (exp, 0))))
+	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subexp0, 0)))
+	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subexp1, 0))))
+	  && (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp0, 0)))
+	      != TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp1, 0)))))
+	{
+	  enum machine_mode innermode
+	    = TYPE_MODE (TREE_TYPE (TREE_OPERAND (subexp0, 0)));
+	  this_optab = usmul_widen_optab;
+	  if (mode == GET_MODE_WIDER_MODE (innermode))
+	    {
+	      if (this_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+		{
+		  if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp0, 0))))
+		    expand_operands (TREE_OPERAND (subexp0, 0),
+				     TREE_OPERAND (subexp1, 0),
+				     NULL_RTX, &op0, &op1, 0);
+		  else
+		    expand_operands (TREE_OPERAND (subexp0, 0),
+				     TREE_OPERAND (subexp1, 0),
+				     NULL_RTX, &op1, &op0, 0);
+
+		  goto binop2;
+		}
+	    }
+	}
+      /* Check for a multiplication with matching signedness.  */
+      else if (TREE_CODE (TREE_OPERAND (exp, 0)) == NOP_EXPR
 	  && TREE_CODE (type) == INTEGER_TYPE
 	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))
 	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (exp, 0))))

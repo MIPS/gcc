@@ -28,6 +28,7 @@ Boston, MA 02110-1301, USA.  */
 #include "c-pragma.h"
 #include "c-tree.h"
 #include "c-incpath.h"
+#include "c-common.h"
 #include "toplev.h"
 #include "flags.h"
 #include "tm_p.h"
@@ -141,7 +142,7 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
       tok = pragma_lex (&decl);
       if (tok == CPP_NAME && decl)
 	{
-	  tree local = lookup_name_two (decl, 0);
+	  tree local = lookup_name (decl);
 	  if (local && (TREE_CODE (local) == PARM_DECL
 			|| TREE_CODE (local) == VAR_DECL))
 	    TREE_USED (local) = 1;

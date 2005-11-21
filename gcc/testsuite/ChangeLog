@@ -1,3 +1,84 @@
+2005-11-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libfortran/24432
+	* lib/target-supports.exp (check_effective_target_fortran_large_real):
+	Check that 'cos' is supported.
+
+2005-11-21  Paul Thomas  <pault@gcc.gnu.org
+
+	PR fortran/24223
+	* gfortran.dg/substring_equivalence.f90: New test.
+
+	PR fortran/24705
+	* gfortran.dg/auto_internal_assumed.f90: New test.
+
+2005-11-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/fold-div-2.c: New test.
+	
+2005-11-20  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24883
+	* gcc.c-torture/compile/pr24883.c: New test.
+
+2005-11-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR middle-end/20583
+	* gcc.c-torture/compile/pr20583.c: New.
+
+2005-11-20  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.c-torture/execute/usmul.c: New test.
+
+2005-11-19  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/vrp22.c: New test.
+
+2005-11-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/24912
+	* gcc.dg/torture/pr24912-1.c: New test.
+
+2005-11-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/24862
+	* gfortran.dg/arrayio_derived_1.f90: New test.
+
+2005-11-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23294
+	* gcc.dg/tree-ssa/pr23294.c: New testcase.
+
+2005-11-19  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/fold-overflow-1.c: Adjust for float output for mmix-*-*.
+
+2005-11-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8355
+	* g++.dg/template/friend39.C: New test.
+
+2005-11-18  James E Wilson  <wilson@specifix.com>
+
+	* gcc.dg/builtin-strstr.c: New.
+
+2005-11-18  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/ia64/20010423-1.c, gcc.target/ia64/20020313-1.c,
+	gcc.target/ia64/20020326-1.c, gcc.target/ia64/20030225-2.c,
+	gcc.target/ia64/20030405-1.c, gcc.target/ia64/20030811-1.c,
+	gcc.target/ia64/20040303-1.c: Move from gcc.dg/.
+	* gcc.target/ia64/asm-1.c, gcc.target/ia64/float80-1.c,
+	gcc.target/ia64/float80-2.c, gcc.target/ia64/got-1.c,
+	gcc.target/ia64/postinc-1.c, gcc.target/ia64/types-1.c,
+	gcc.target/ia64/types-2.c, gcc.target/ia64/visibility-1.c,
+	gcc.target/ia64/visibility-2.c: Move from gcc.dg/, with 
+	renaming to remove initial "ia64-".
+
+2005-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/run_all.sh (target_run): Revert 2005-11-17 patch.
+
 2005-11-18  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* g++.dg/cpp/string-2.C: New test.

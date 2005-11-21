@@ -1,3 +1,200 @@
+2005-11-22  Ben Elliston  <bje@au.ibm.com>
+
+	* cse.c (fold_rtx): Typo fix.
+	(find_comparison_args): Pass the mode of arg1, not arg1 itself.
+
+2005-11-21  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c, config/darwin-c.c, c-decl.c, c-tree.h, c-objc-common.h,
+	langhooks-def.h, langhooks.h: Revert 2005-11-18 lookup_name patch.
+
+	* c-tree.h (lookup_name): Move declaration ...
+	* c-common.h (lookup_name): ... here.
+	* config/darwin-c.c: Include c-common.h.
+	* config/t-darwin: Update dependencies.
+
+2005-11-22  Ben Elliston  <bje@au.ibm.com>
+
+	* optabs.c (expand_abs_nojump): Use SCALAR_FLOAT_MODE_P instead of
+	explicitly testing GET_MODE_CLASS (x) == MODE_FLOAT.
+	* genopinit.c (gen_insn): Likewise.
+	* reload.c (find_equiv_reg): Likewise.
+	* loop.c (load_mems): Likewise.
+	* rtlanal.c (may_trap_p_1, canonicalize_condition): Likewise.
+	* cse.c (find_comparison_args, fold_rtx): Likewise.
+	* dwarf2out.c (add_const_value_attribute): Likewise.
+	* expr.c (convert_move): Likewise.
+	* recog.c (general_operand, register_operand): Likewise.
+	* reg-stack.c (replace_reg): Likewise.
+	* tree-vect-generic.c (type_for_widest_vector_mode): Likewise.
+	* c-common.c (handle_vector_size_attribute): Likewise.
+	* simplify-rtx.c (simplify_const_unary_operation): Likewise.
+	(simplify_binary_operation_1): Likewise.
+	(simplify_const_binary_operation): Likewise.
+	(simplify_relational_operation): Likewise.
+	(simplify_const_relational_operation): Likewise.
+	(simplify_immed_subreg): Likewise.
+	* emit-rtl.c (gen_lowpart_common): Likewise.
+	* expmed.c (expand_mult): Likewise.
+	* stor-layout.c (layout_type): Likewise.
+
+2005-11-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/24951
+	* config/rs6000/rs6000.c (output_vec_const_move): Load cst and
+	cst2 only for SPE vectors.
+
+2005-11-21  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/24953
+	* config/rs6000/predicates.md (vrsave_operation): Check
+	UNSPEC_VOLATILE value.
+
+2005-11-21  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/24653
+	* tree-ssa-ccp.c (ccp_fold): Strip down useless conversions.
+
+2005-11-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/i386/predicates.md (ax_reg_operand): New predicate.
+	(memory_displacement_only_operand): New predicate.
+	* config/i386/i386.md ("modrm" attribute): Return 0 if one
+	operand is AX register and the other operand is memory operand
+	with displacement only.
+
+2005-11-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* fold-const.c (fold_binary) <RDIV_EXPR>: Optimize A / A to 1.0 
+	if we don't care about NaNs or Infinities.
+
+2005-11-20  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24883
+	* combine.c (combinable_i3pat): When checking whether the
+	destination of i3 is used in i3, consider paradoxical subregs.
+
+2005-11-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR middle-end/20583
+	* cse.c (cse_insn): Reject invalid forms of CONST earlier.
+
+2005-11-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* combine.c (try_combine): Do not run subst on i1src and i2src in
+	the case of generating a PARALLEL for a comparison.
+
+2005-11-20  Richard Henderson  <rth@redhat.com>
+
+	PR 24931
+	* tree-sra.c (struct sra_elt): Add all_no_warning.
+	(struct sra_walk_fns) <use>: Add use_all argument.
+	(sra_walk_expr): Pass it.
+	(sra_walk_modify_expr): Likewise.
+	(scalarize_ldst): Likewise.
+	(scan_use): Update for new argument.
+	(mark_no_warning): New.
+	(scalarize_use): Use it.
+
+2005-11-20  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* expr.c (expand_expr_real): Use usmul_optab for widening
+	signed * unsigned multiplies.
+	* genopinit.c (optabs): Add usmul_widen_optab.
+	* optabs.c (init_optabs): Likewise.
+	* optabs.h (enum optab_index): Add OTI_usmul_widen.
+	(usmul_widen_optab): Define.
+	* config/bfin/bfin.md (usmulhisi3): New pattern.
+
+	* doc/md.texi (usmulqihi3, usmulhisi3, usmulsidi3): Document.
+
+2005-11-20  Graham Stott <btinternet.com>
+
+	* gensupport.c (std_preds): Fixed extraneous `false` in last change.
+
+2005-11-20  Andreas Schwab  <schwab@suse.de>
+
+	PR target/24757
+	* config/ia64/ia64.c (ia64_expand_atomic_op): Fix condition of cmp
+	insn.
+
+2005-11-19  Richard Henderson  <rth@redhat.com>
+
+	PR tree-opt/24665
+	* tree-gimple.c (is_gimple_id): Export.
+	* tree-gimple.h (is_gimple_id): Declare.
+	* tree-ssa-ccp.c (ccp_decl_initial_min_invariant): New.
+	(get_default_value): Use it.
+	(maybe_fold_stmt_indirect): Likewise.
+
+2005-11-19  James A. Morrison  <phython@gcc.gnu.org>
+
+        * tree-vrp.c (compare_ranges): Return false for EQ_EXPR if VR0 is less
+        than VR1 or vice-versa.
+
+2005-11-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/24912
+	PR middle-end/24750
+	* reload.c (find_reloads_address_1): Mention dependency on
+	gen_reload.
+	* reload1.c (gen_reload): For IN with an unary operation, try
+	moving inner expression to OUT if trivial SET is not valid.
+	Confirm that the result is valid.  Move common code block into...
+	(emit_insn_if_valid_for_reload): New function.
+
+2005-11-19  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_indirect_ref_1): Make sure we fold
+	ARRAY_REFs of constant strings.
+
+2005-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (version_compare_spec_function): Use '%s' rather than %qs in
+	fatal format string.
+
+2005-11-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* combine.c (make_compound_operation): Swap operands of
+	commutative operation if necessary before returning.
+
+2005-11-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23294
+	* fold-const.c (fold_plusminus_mult_expr): New function.
+	(fold_binary): Use to canonicalize PLUS_EXPR and MINUS_EXPR
+	cases, remove now unnecessary code.
+
+2005-11-19  Paolo Bonzini  <bonzini@gcc.gnu.org>
+
+	* gensupport.c (old_preds): Rename to std_preds, add special field.
+	(struct old_pred_table): Rename to struct std_pred_table, add special
+	field.
+	(NUM_KNOWN_OLD_PREDS): Rename to NUM_KNOWN_STD_PREDS.
+	(NUM_OLD_SPECIAL_MODE_PREDS): Remove.
+	(init_predicate_table): Adjust, and set along the way whether a
+	predicate is special.
+
+2005-11-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* BASE-VER: Change to 4.2.0.
+
+2005-11-18  James E Wilson  <wilson@specifix.com>
+
+	* builtins.c (fold_builtin_strstr): Pass s1 through fold_convert before
+	returning it.
+
+2005-11-18  Mike Stump  <mrs@apple.com>
+
+	* c-common.c (handle_cleanup_attribute): Use a lang hook for lookup_name.
+	* config/darwin-c.c (darwin_pragma_unused): Likewise.
+	* c-decl.c (lookup_name_two) Remove.
+	* c-tree.h (lookup_name_two): Remove.
+	* c-objc-common.h (LANG_HOOKS_LOOKUP_NAME): Add.
+	* langhooks-def.h (LANG_HOOKS_LOOKUP_NAME): Add.
+	(LANG_HOOKS_DECLS): Add initializer for LANG_HOOKS_LOOKUP_NAME.
+	* langhooks.h (lang_hooks_for_decls): Add lookup_name.
+	
 2005-11-18  Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	PR target/24914

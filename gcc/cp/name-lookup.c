@@ -2881,6 +2881,10 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
        match.  But, we'll check later, when we construct the
        template.  */
     return;
+  /* Instantiations or specializations of templates may be declared as
+     friends in any namespace.  */
+  if (friendp && DECL_USE_TEMPLATE (decl))
+    return;
   if (is_overloaded_fn (old))
     {
       for (; old; old = OVL_NEXT (old))
@@ -4005,14 +4009,6 @@ lookup_name_prefer_type (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
 			   0, LOOKUP_COMPLAIN);
-}
-
-/* Similar to `lookup_name' for the benefit of common code.  */
-
-tree
-lookup_name_two (tree name, int prefer_type)
-{
-  return lookup_name_prefer_type (name, prefer_type);
 }
 
 /* Look up NAME for type used in elaborated name specifier in

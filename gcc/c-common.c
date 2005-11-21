@@ -5101,7 +5101,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   orig_mode = TYPE_MODE (type);
 
   if (TREE_CODE (type) == RECORD_TYPE
-      || (GET_MODE_CLASS (orig_mode) != MODE_FLOAT
+      || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
       || !host_integerp (TYPE_SIZE_UNIT (type), 1))
     {
@@ -5401,7 +5401,7 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-  cleanup_decl = lookup_name_two (cleanup_id, 0);
+  cleanup_decl = lookup_name (cleanup_id);
   if (!cleanup_decl || TREE_CODE (cleanup_decl) != FUNCTION_DECL)
     {
       error ("cleanup argument not a function");
