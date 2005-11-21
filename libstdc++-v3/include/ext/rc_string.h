@@ -49,7 +49,7 @@ namespace __gnu_cxx
    *  @code
    *                                        [_Rep]
    *                                        _M_length
-   *   [basic_string<char_type>]            _M_capacity
+   *   [__rc_string<char_type>]             _M_capacity
    *   _M_dataplus                          _M_refcount
    *   _M_p ---------------->               unnamed array of char_type
    *  @endcode
@@ -192,17 +192,17 @@ namespace __gnu_cxx
       { return &((reinterpret_cast<_Rep*>(_M_data()))[-1]); }
 
       _CharT*
-      _M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2) const
+      _M_grab(const _Alloc& __alloc) const
       {
-	return (!_M_is_leaked() && __alloc1 == __alloc2)
-	        ? _M_rep()->_M_refcopy() : _M_rep()->_M_clone(__alloc1);
+	return (!_M_is_leaked() && _M_get_allocator() == __alloc)
+	        ? _M_rep()->_M_refcopy() : _M_rep()->_M_clone(__alloc);
       }
 
       void
-      _M_dispose(const _Alloc& __a)
+      _M_dispose()
       {
 	if (__exchange_and_add(&_M_rep()->_M_info._M_refcount, -1) <= 0)
-	  _M_rep()->_M_destroy(__a);
+	  _M_rep()->_M_destroy(_M_get_allocator());
       }  // XXX MT
 
       bool
@@ -218,7 +218,7 @@ namespace __gnu_cxx
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIterator is an integral type
-      template<class _InIterator>
+      template<typename _InIterator>
         static _CharT*
         _S_construct_aux(_InIterator __beg, _InIterator __end,
 			 const _Alloc& __a, __false_type)
@@ -227,14 +227,14 @@ namespace __gnu_cxx
           return _S_construct(__beg, __end, __a, _Tag());
 	}
 
-      template<class _InIterator>
+      template<typename _InIterator>
         static _CharT*
         _S_construct_aux(_InIterator __beg, _InIterator __end,
 			 const _Alloc& __a, __true_type)
 	{ return _S_construct(static_cast<size_type>(__beg),
 			      static_cast<value_type>(__end), __a); }
 
-      template<class _InIterator>
+      template<typename _InIterator>
         static _CharT*
         _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a)
 	{
@@ -243,14 +243,14 @@ namespace __gnu_cxx
         }
 
       // For Input Iterators, used in istreambuf_iterators, etc.
-      template<class _InIterator>
+      template<typename _InIterator>
         static _CharT*
          _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 		      std::input_iterator_tag);
       
       // For forward_iterators up to random_access_iterators, used for
       // string::iterator, _CharT*, etc.
-      template<class _FwdIterator>
+      template<typename _FwdIterator>
         static _CharT*
         _S_construct(_FwdIterator __beg, _FwdIterator __end, const _Alloc& __a,
 		     std::forward_iterator_tag);
@@ -308,9 +308,9 @@ namespace __gnu_cxx
 		    const _Alloc& __a);
 
       ~__rc_string()
-      { _M_dispose(_M_get_allocator()); }      
+      { _M_dispose(); }      
 
-      allocator_type
+      const allocator_type&
       _M_get_allocator() const
       { return _M_dataplus; }
 
@@ -371,9 +371,6 @@ namespace __gnu_cxx
       // The below implements an exponential growth policy, necessary to
       // meet amortized linear time requirements of the library: see
       // http://gcc.gnu.org/ml/libstdc++/2001-07/msg00085.html.
-      // It's active for allocations requiring an amount of memory above
-      // system pagesize. This is consistent with the requirements of the
-      // standard: http://gcc.gnu.org/ml/libstdc++/2001-07/msg00130.html
       if (__capacity > __old_capacity && __capacity < 2 * __old_capacity)
 	__capacity = 2 * __old_capacity;
 
@@ -440,8 +437,7 @@ namespace __gnu_cxx
     __rc_string<_CharT, _Traits, _Alloc>::
     __rc_string(const __rc_string& __rcs)
     : _M_dataplus(__rcs._M_get_allocator(),
-		  __rcs._M_grab(_Alloc(__rcs._M_get_allocator()),
-				__rcs._M_get_allocator())) { }
+		  __rcs._M_grab(__rcs._M_get_allocator())) { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __rc_string<_CharT, _Traits, _Alloc>::
@@ -514,7 +510,7 @@ namespace __gnu_cxx
       }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
-    template <typename _InIterator>
+    template<typename _InIterator>
       _CharT*
       __rc_string<_CharT, _Traits, _Alloc>::
       _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
@@ -585,9 +581,8 @@ namespace __gnu_cxx
     {
       if (_M_rep() != __rcs._M_rep())
 	{
-	  const allocator_type __a = _M_get_allocator();
-	  _CharT* __tmp = __rcs._M_grab(__a, __rcs._M_get_allocator());
-	  _M_dispose(__a);
+	  _CharT* __tmp = __rcs._M_grab(_M_get_allocator());
+	  _M_dispose();
 	  _M_data(__tmp);
 	}
     }
@@ -603,9 +598,9 @@ namespace __gnu_cxx
 	  if (__res < _M_length())
 	    __res = _M_length();
 	  
-	  const allocator_type __a = _M_get_allocator();
-	  _CharT* __tmp = _M_rep()->_M_clone(__a, __res - _M_length());
-	  _M_dispose(__a);
+	  _CharT* __tmp = _M_rep()->_M_clone(_M_get_allocator(),
+					     __res - _M_length());
+	  _M_dispose();
 	  _M_data(__tmp);
 	}
     }
@@ -622,8 +617,8 @@ namespace __gnu_cxx
       if (__new_size > _M_capacity() || _M_is_shared())
 	{
 	  // Must reallocate.
-	  const allocator_type __a = _M_get_allocator();
-	  _Rep* __r = _Rep::_S_create(__new_size, _M_capacity(), __a);
+	  _Rep* __r = _Rep::_S_create(__new_size, _M_capacity(),
+				      _M_get_allocator());
 
 	  if (__pos)
 	    _S_copy(__r->_M_refdata(), _M_data(), __pos);
@@ -631,7 +626,7 @@ namespace __gnu_cxx
 	    _S_copy(__r->_M_refdata() + __pos + __len2,
 		    _M_data() + __pos + __len1, __how_much);
 
-	  _M_dispose(__a);
+	  _M_dispose();
 	  _M_data(__r->_M_refdata());
 	}
       else if (__how_much && __len1 != __len2)
