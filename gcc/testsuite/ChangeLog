@@ -1,3 +1,122 @@
+2005-11-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/cpp/string-2.C: New test.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24667
+	* g++.dg/warn/Wcast-qual1.C: New test.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* g++.dg/template/crash43.C: Remove duplicate copy of test.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* g++.dg/template/crash43.C: New test. 
+
+2005-11-14  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	Merge from trunk:
+	2005-11-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* gfortran.dg/static_linking_1.f: Fix static_libgfortran processing.
+
+	* lib/target-supports.exp (check_effective_target_static_libgfortran):
+	Add -static to additional_flags and pass it to target_compile.
+
+2005-11-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/complex_intrinsic_1.f90: New test.
+	* gfortran.dg/complex_intrinsic_2.f90: New test.
+	* gfortran.dg/fgetc_1.f90: New test.
+	* gfortran.dg/fgetc_2.f90: New test.
+	* gfortran.dg/fgetc_3.f90: New test.
+	* gfortran.dg/ftell_1.f90: New test.
+	* gfortran.dg/ftell_2.f90: New test.
+	* gfortran.dg/gnu_logical_1.F: New test.
+	* gfortran.dg/gnu_logical_2.f90: New test.
+
+2005-11-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24820
+	* testsuite/gcc.dg/pr24820.c: New test.
+
+2005-11-12  Jerry DeLisle <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/24719
+	*gfortran.dg/read_noadvance.f90: New test.
+	
+	PR libgfortran/24699
+	*gfortran.dg/fmt_t_2.f90: New test.
+	
+	PR libgfortran/24785
+	*gfortran.dg/read_x_eor.f90: New test.
+	
+	PR libgfortran/24584
+	*gfortran.dg/namelist_empty.f90: Rename test.
+	
+	*gfortran.dg/f77/1832.f: Backport from 4.1.
+
+2005-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24780
+	* g++.dg/opt/pr24780.C: New test.
+
+	PR c++/24761
+	* g++.dg/template/asm1.C: New test.
+
+2005-11-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/24787
+	* gfortran.dg/scan_1.f90: New test.
+
+2005-11-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24655
+	PR fortran/24755
+	* gfortran.dg/recursive_statement_functions.f90: Add statement 
+	functions using inline intrinsic functions and parameters to test
+	that they no longer seg-fault.
+
+	PR fortran/24409
+	* gfortran.dg/nested_modules_4.f90: New test.
+	* gfortran.dg/nested_modules_5.f90: New test.
+
+	PR fortran/16861
+	* gfortran.dg/nested_modules_3.f90: New test.
+	* gfortran.dg/nested_modules_2.f90: New test.
+
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15976
+	* gfortran.dg/automatic_module_variable.f90: New test.
+
+2005-11-10  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24643
+	* gfortran.dg/implicit_6.f90, gfortran.dg/implicit_7.f90: New.
+
+2005-11-10  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/22607
+	* gfortran-dg/pure_byref_1.f90: New.
+	* gfortran-dg/pure_byref_2.f90: New.
+
+2005-11-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-getcontext-1.c: New test.
+
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19450
+	* g++.dg/tls/diag-3.C: New test.
+	* g++.dg/tls/diag-4.C: New test.
+	* g++.dg/tls/static-1.C: New test.
+	* g++.dg/tls/static-1a.cc: New file.
+
 2005-11-09  Uros Bizjak  <uros@kss-loka.si>
 
 	PR c/24101

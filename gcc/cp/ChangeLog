@@ -1,3 +1,54 @@
+2005-11-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24580
+	* method.c (locate_copy): Also use skip_artificial_parms here.
+	(synthesize_exception_spec): Use CLASS_TYPE_P rather than checking
+	for RECORD_TYPE.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24667
+	* typeck.c (check_for_casting_away_constness): Use the diag_fn.
+	(build_const_cast_1): Call it, for C-style casts.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* pt.c (check_explicit_specialization): Don't check for C linkage.
+	(push_template_decl_real): Likewise.
+	* parser.c (cp_parser_explicit_specialization): Check here.
+	(cp_parser_template_declaration_after_export): And here.
+
+2005-11-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24580
+	* method.c (locate_ctor): Skip all artificial parms, not just
+	'this'.
+
+2005-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/24780
+	* typeck.c (complete_type): Set TYPE_NEEDS_CONSTRUCTING
+	and TYPE_HAS_NONTRIVIAL_DESTRUCTOR flags for all variants
+	of array type.
+
+	PR c++/24761
+	* pt.c (tsubst_copy_asm_operands): New function.
+	(tsubst_expr) <case ASM_EXPR>: Use it.
+
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19450
+	* decl.c (redeclaration_error_message): Issue diagnostics about
+	olddecl and newdecl disagreement on __thread property.
+	(grokdeclarator): Set DECL_THREAD_LOCAL on class static variables.
+
+2005-11-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* method.c (use_thunk): Use build_cplus_new instead of 
+	force_target_expr.
+
 2005-11-03  Josh Conner  <jconner@apple.com>
 
 	PR c++/19989

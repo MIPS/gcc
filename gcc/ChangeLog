@@ -1,3 +1,171 @@
+2005-11-19  Richard Henderson  <rth@redhat.com>
+
+	PR tree-opt/24665
+	* tree-gimple.c (is_gimple_id): Export.
+	* tree-gimple.h (is_gimple_id): Declare.
+	* tree-ssa-ccp.c (ccp_decl_initial_min_invariant): New.
+	(get_default_value): Use it.
+	(maybe_fold_stmt_indirect): Likewise.
+
+2005-11-18  James E Wilson  <wilson@specifix.com>
+
+	* builtins.c (fold_builtin_strstr): Pass s1 through fold_convert before
+	returning it.
+
+2005-11-18  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	PR target/24914
+	* arm.c (arm_hard_regno_mode_ok): Co-processor registers aren't ok
+	when not generating code to use that co-processor.
+
+2005-11-18  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.md (trap): New pattern.
+
+2005-11-18  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/crtlibid.s: New file.
+
+2005-11-18  David Edelsohn  <edelsohn@gnu.org>
+	    Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/24779
+	Backport 2005-03-13  David Edelsohn  <edelsohn@gnu.org>,
+	2005-03-20  David Edelsohn  <edelsohn@gnu.org>,
+	2005-03-24  David Edelsohn  <edelsohn@gnu.org>,
+	2005-09-11  David Edelsohn  <edelsohn@gnu.org>
+	* config/rs6000/rs6000.c (easy_fp_constant): SFmode constant
+	0.0f is easy.  Return 0 for SFmode and DFmode before reload when
+	flag_unsafe_math_optimizations not enabled.
+	(reg_or_none500mem_operand): New predicate.
+	(zero_reg_mem_operand): New predicate.
+	(rs6000_generate_compare): Test flag_finite_math_only, not
+	flag_unsafe_math_optimizations.
+	* config/rs6000/rs6000.h (PREDICATES): Add zero_reg_mem_operand
+	and reg_or_none500mem_operand.
+	* config/rs6000/rs6000-protos.h (zero_reg_mem_operand): Prototype.
+	(reg_or_none500mem_operand): Likewise.
+	* config/rs6000/rs6000.md (extendsfdf2): Change operand1 predicate
+	to reg_or_none500mem_operand.
+	(extendsfdf2_fpr): Add MEM alternative.
+	(movdf splitter): Use const_double_operand predicate.
+	(extenddftf2_internal): Change operand2 predicate to
+	zero_reg_mem_operand.
+
+2005-11-17  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/elf.h (STARTFILE_SPEC): Add "crtlibid%O%s"
+	* config/bfin/uclinux.h (STARFILE_SPEC): Likewise.
+	* config/bfin/t-bfin-elf (EXTRA_PARTS, EXTRA_MULTILIB_PARTS): Add
+	crtlibid.o.
+	($(T)crtlibid.o): New rule.
+
+2005-11-16  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	PR target/24861
+	* arm.md (split for movsf with immediate): Restrict split to insns
+	that set a general register.
+
+2005-11-16  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/crti.s (__init, __fini): Use appropriate prologue if
+	__PIC__ is defined.
+	* config/bfin/crtn.s: Change epilogues to match.
+	* config/bfin/t-bfin-elf (EXTRA_MULTILIB_PARTS): Define.
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): If flag_pic, define
+	__PIC__ and __pic__.
+
+2005-11-16  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/23392
+	* regrename.c (enum scan_actions) Add mark_access.
+	(scan_actions_name): Ditto.
+	(scan_rtx_reg): Handle mark_access.
+	(scan_rtx_address): Do nothing for mark_access.
+	(build_def_use): Mark source registers in REG_FRAME_RELATED_EXPR
+	and regs in REG_INC notes before closing chains for dead regs.
+	Mark destination regs in REG_FRAME_RELATED_EXPR notes after
+	opening chains for new writes.
+
+2005-11-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* mklibgcc.in: Change contents of eh_dummy.c.
+
+2005-11-15  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/22002
+	* combine.c (distribute_notes): Detect cases where a reg dies
+	two or more times in a bb, including on the insn we are combining,
+	and place the death note on the correct range.
+
+2005-11-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/22489
+	* dwarf2out.c (gen_subprogram_die): Force a declaration die for
+	lazily declared methods.
+	(force_decl_die): Stop if forcing out the context already make a
+	DIE for the decl.
+	(force_type_die): Likewise.
+
+2005-11-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24820
+	* builtins.c (integer_valued_real_p): Add break in
+	REAL_CST having TREE_OVERFLOW set.
+
+2005-11-12  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (REGISTER_NAMES, SHORT_REGISTER_NAMES,
+	HIGH_REGISTER_NAMES, FIXED_REGISTERS, CALL_USED_REGISTERS,
+	REG_ALLOC_ORDER, enum reg_class): Rearrange I/B/L registers.
+	* config/bfin/bfin.md: Redefine REG_ constants for I/B/L registers
+	in the new order.
+
+2005-11-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24686
+	* gimplify.c (gimplify_cleanup_point_expr): Also save and restore 
+	the cleanup list.
+
+2005-11-11  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.c (bfin_expand_strmov): Correctly move the trailing
+	bytes when align is 2.
+	* config/bfin/bfin.md (rep_movsi, rep_movhi): Make LSETUP be followed
+	by the first instruction of the loop.
+
+2005-11-11  Jie Zhang  <jie.zhang@analog.com>
+
+	* configure.ac: Enable checking assembler dwarf2 support for bfin
+	target.
+	* configure: Regenerate.
+
+2005-11-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/22127
+	* calls.c (special_function_p): Set ECF_RETURNS_TWICE for getcontext.
+
+2005-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (multiple_reg_loc_descriptor): Don't assume
+	DBX_REGISTER_NUMBER being contiguous.
+
+2005-11-08  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (n_dregs_to_save, n_pregs_to_save,
+	expand_prologue_reg_save, expand_epilogue_reg_restore): New argument
+	IS_INTHANDLER; all callers changed.
+	(n_regs_saved_by_prologue): Take interrupt handler attributes into
+	account.
+	(do_link, do_unlink): New argument ALL; all callers changed.
+	(expand_interrupt_handler_prologue, expand_interrupt_handler_epilogue):
+	If function isn't leaf, save and restore all registers.
+	(bfin_function_ok_for_sibcall): Only true if not an interrupt or
+	exception handler.
+
+	* config/bfin/t-bfin-elf (MULTILIB_OPTIONS, MULTILIB_DEFAULTS,
+	MULTILIB_DIRNAMES, MULTILIB_EXCEPTIONS): New.
+
 2005-11-09  Per Bothner  <per@bothner.com>
 	    Uros Bizjak  <uros@kss-loka.si>
 	
@@ -28,8 +196,8 @@
 2005-11-07  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR c/24599
-        * c-typeck.c (build_c_cast): Try using a shared constant, and see
-        if TREE_OVERFLOW or TREE_CONSTANT_OVERFLOW really changed.
+	* c-typeck.c (build_c_cast): Try using a shared constant, and see
+	if TREE_OVERFLOW or TREE_CONSTANT_OVERFLOW really changed.
 
 	(readonly_error): Fix formatting error.
 

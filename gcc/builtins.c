@@ -6144,6 +6144,7 @@ integer_valued_real_p (tree t)
 	real_trunc (&cint, TYPE_MODE (TREE_TYPE (t)), &c);
 	return real_identical (&c, &cint);
       }
+      break;
 
     case NOP_EXPR:
       {
@@ -8601,8 +8602,10 @@ fold_builtin_strstr (tree arglist, tree type)
 	  return fold_convert (type, tem);
 	}
 
+      /* The argument is const char *, and the result is char *, so we need
+	 a type conversion here to avoid a warning.  */
       if (p2[0] == '\0')
-	return s1;
+	return fold_convert (type, s1);
 
       if (p2[1] != '\0')
 	return 0;

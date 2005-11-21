@@ -76,16 +76,18 @@
    (REG_FP 15)
 
    (REG_I0 16)
-   (REG_B0 17)
-   (REG_L0 18)
-   (REG_I1 19)
-   (REG_B1 20)
-   (REG_L1 21)
-   (REG_I2 22)
-   (REG_B2 23)
-   (REG_L2 24)
-   (REG_I3 25)
-   (REG_B3 26)
+   (REG_I1 17)
+   (REG_I2 18)
+   (REG_I3 19)
+
+   (REG_B0 20)
+   (REG_B1 21)
+   (REG_B2 22)
+   (REG_B3 23)
+
+   (REG_L0 24)
+   (REG_L1 25)
+   (REG_L2 26)
    (REG_L3 27)
 
    (REG_M0 28)
@@ -1372,7 +1374,7 @@
    (use (match_dup 2))
    (clobber (match_scratch:HI 5 "=&d"))]
   ""
-  "lsetup (1f, 1f) LC1 = %2; %5 = [%4++]; 1: MNOP || [%3++] = %5 || %5 = [%4++]; [%3++] = %5;"
+  "%5 = [%4++]; lsetup (1f, 1f) LC1 = %2; 1: MNOP || [%3++] = %5 || %5 = [%4++]; [%3++] = %5;"
   [(set_attr "type" "misc")
    (set_attr "length" "16")])
 
@@ -1391,7 +1393,7 @@
    (use (match_dup 2))
    (clobber (match_scratch:HI 5 "=&d"))]
   ""
-  "lsetup (1f, 1f) LC1 = %2; %h5 = W[%4++]; 1: MNOP || W [%3++] = %5 || %h5 = W [%4++]; W [%3++] = %5;"
+  "%h5 = W[%4++]; lsetup (1f, 1f) LC1 = %2; 1: MNOP || W [%3++] = %5 || %h5 = W [%4++]; W [%3++] = %5;"
   [(set_attr "type" "misc")
    (set_attr "length" "16")])
 
@@ -1919,6 +1921,13 @@
   ""
   "ssync;"
   [(set_attr "type" "sync")])
+
+(define_insn "trap"
+  [(trap_if (const_int 1) (const_int 3))]
+  ""
+  "excpt 3;"
+  [(set_attr "type" "misc")
+   (set_attr "length" "2")])
 
 ;;; Vector instructions
 
