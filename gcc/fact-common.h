@@ -60,7 +60,7 @@ enum lfact_direction
   LFD_SINKING
 };
 
-extern void collect_family_sibling(bb_decorator, enum lfact_direction);
+extern void collect_family_sibling (bb_decorator, enum lfact_direction);
 extern bb_decorator init_factoring (bb_decorator);
 extern void free_bb_decorator_list (bb_decorator);
 extern void collect_full_sibling (bb_decorator, enum lfact_direction);
@@ -68,6 +68,7 @@ extern void collect_sibling (bb_decorator, enum lfact_direction);
 extern void cost_analyzer (bb_decorator, enum lfact_direction);
 extern void cost_analyzer_1 (bb_decorator, enum lfact_direction);
 extern void delete_siblings (bb_decorator);
+extern void dump_cfg_info (FILE * fp);
 extern void dump_siblings (FILE *, bb_decorator, enum lfact_direction);
 extern bool is_tree_lfact (void);
 extern bool is_seqabstr (void);

@@ -70,9 +70,9 @@ block_equal (const void *p1, const void *p2)
    DECORATOR1->CURR. If it isn't different return true.  */
 static bool
 compare_blocks (bb_decorator decorator1, bb_decorator decorator2,
-                enum lfact_direction alg)
+		enum lfact_direction alg)
 {
-  VEC(edge,gc) * ev;
+  VEC (edge, gc) * ev;
   edge e;
   edge_iterator ei;
   basic_block bb1 = decorator1->curr;
@@ -83,7 +83,7 @@ compare_blocks (bb_decorator decorator1, bb_decorator decorator2,
   if ((alg == LFD_HOISTING
        && decorator1->num_pred_bb != decorator2->num_pred_bb)
       || (alg != LFD_HOISTING
-          && decorator1->num_succ_bb != decorator2->num_succ_bb))
+	  && decorator1->num_succ_bb != decorator2->num_succ_bb))
     return false;
 
   ev = DIR_EDGES (bb1, alg);
@@ -121,15 +121,15 @@ collect_sibling (bb_decorator decorator, enum lfact_direction alg)
   for (first = decorator; first; first = first->next_decorator)
     {
       for (second = first->next_decorator; second;
-           second = second->next_decorator)
-        {
-          if (compare_blocks (first, second, alg))
-            {
-              first->next_sibling = second;
-              second->prev_sibling = first;
-              break;
-            }
-        }
+	   second = second->next_decorator)
+	{
+	  if (compare_blocks (first, second, alg))
+	    {
+	      first->next_sibling = second;
+	      second->prev_sibling = first;
+	      break;
+	    }
+	}
     }
 }
 
@@ -142,7 +142,7 @@ delete_siblings (bb_decorator first)
   for (temp = first; temp; temp = temp->next_sibling)
     {
       if (last)
-        last->next_sibling = NULL;
+	last->next_sibling = NULL;
       last = temp;
       temp->prev_sibling = NULL;
     }
@@ -171,33 +171,33 @@ collect_full_sibling (bb_decorator decorator, enum lfact_direction alg)
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if (!temp->prev_sibling && temp->next_sibling)
-        {
-          unsigned long num_of_sibling = 0;
-          bb_decorator temp2;
-          VEC(edge,gc) * ev;
-          VEC(edge,gc) * fv;
-          edge f;
-          edge_iterator ei;
+	{
+	  unsigned long num_of_sibling = 0;
+	  bb_decorator temp2;
+	  VEC (edge, gc) * ev;
+	  VEC (edge, gc) * fv;
+	  edge f;
+	  edge_iterator ei;
 
-          for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
-            num_of_sibling++;
+	  for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
+	    num_of_sibling++;
 
-          ev = DIR_EDGES (temp->curr, alg);
-          FOR_EACH_EDGE (f, ei, ev)
-          {
-            fv = INVDIR_EDGES (DIR_BLOCKS (f, alg), alg);
-            if (EDGE_COUNT (fv) != num_of_sibling)
-              {
-                delete_siblings (temp);
-                break;
-              }
-          }
-        }
+	  ev = DIR_EDGES (temp->curr, alg);
+	  FOR_EACH_EDGE (f, ei, ev)
+	  {
+	    fv = INVDIR_EDGES (DIR_BLOCKS (f, alg), alg);
+	    if (EDGE_COUNT (fv) != num_of_sibling)
+	      {
+		delete_siblings (temp);
+		break;
+	      }
+	  }
+	}
     }
 }
 
 void
-collect_family_sibling(bb_decorator decorator, enum lfact_direction alg)
+collect_family_sibling (bb_decorator decorator, enum lfact_direction alg)
 {
   bb_decorator temp, temp2;
   htab_t bb_table = htab_create (100, block_hash, block_equal, NULL);
@@ -208,37 +208,46 @@ collect_family_sibling(bb_decorator decorator, enum lfact_direction alg)
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if (!temp->prev_sibling && temp->next_sibling)
-        {
-          htab_empty(bb_table);
-          for (temp2=temp; temp2; temp2 = temp2->next_sibling)
-            {
-              slot = htab_find_slot (bb_table, temp2->curr, INSERT);
-              *slot = temp2->curr;
-            }
+	{
+	  htab_empty (bb_table);
+	  for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
+	    {
+	      slot = htab_find_slot (bb_table, temp2->curr, INSERT);
+	      *slot = temp2->curr;
+	    }
 
-          for (temp2=temp; temp2; temp2=temp2->next_sibling)
-            {
-              VEC(edge,gc) * ev;
-              edge e;
-              edge_iterator ei;
-              int bad_siblingset=0;
+	  for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
+	    {
+	      VEC (edge, gc) * ev;
+	      edge e;
+	      edge_iterator ei;
+	      int bad_siblingset = 0;
 
-              ev = DIR_EDGES (temp2->curr, alg);
-              FOR_EACH_EDGE (e, ei, ev)
-              {
-                if (!htab_find (bb_table, INVDIR_BLOCKS (e, alg)))
-                  {
-                    htab_delete(bb_table);
-                    delete_siblings(temp);
-                    bad_siblingset=1;
-                    break;
-                  }
-              }
+	      ev = DIR_EDGES (temp2->curr, alg);
+	      FOR_EACH_EDGE (e, ei, ev)
+	      {
+		edge e2;
+		edge_iterator ei2;
+		VEC (edge, gc) * ev2;
 
-              if (bad_siblingset)
-                break;
-            }
-        }
+		ev2 = INVDIR_EDGES (DIR_BLOCKS (e, alg), alg);
+		FOR_EACH_EDGE (e2, ei2, ev2)
+		  if (!htab_find (bb_table, INVDIR_BLOCKS (e2, alg)))
+		  {
+		    bad_siblingset = 1;
+		    break;
+		  }
+		if (bad_siblingset)
+		  break;
+	      }
+
+	      if (bad_siblingset)
+		{
+		  delete_siblings (temp);
+		  break;
+		}
+	    }
+	}
     }
 }
 
@@ -267,7 +276,7 @@ cost_analyzer (bb_decorator decorator, enum lfact_direction alg)
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if ((!temp->prev_sibling) && temp->next_sibling)
-        cost_analyzer_1 (temp, alg);
+	cost_analyzer_1 (temp, alg);
     }
 }
 
@@ -287,8 +296,8 @@ init_factoring (bb_decorator decorator)
     temp = xcalloc (1, sizeof (struct bb_decorator_def));
     if (!temp)
       {
-        out_of_mem = 1;
-        break;
+	out_of_mem = 1;
+	break;
       }
 
     temp->curr = bb;
@@ -298,8 +307,8 @@ init_factoring (bb_decorator decorator)
       decorator = temp;
     else
       {
-        last->next_decorator = temp;
-        temp->prev_decorator = last;
+	last->next_decorator = temp;
+	temp->prev_decorator = last;
       }
     last = temp;
   }
@@ -308,7 +317,31 @@ init_factoring (bb_decorator decorator)
       free_bb_decorator_list (decorator);
       return NULL;
     }
+
   return decorator;
+}
+
+void
+dump_cfg_info (FILE * fp)
+{
+  basic_block bb;
+
+  fprintf (fp, "CFG:\n");
+  FOR_EACH_BB (bb)
+  {
+    edge e;
+    edge_iterator ei;
+
+    fprintf (fp, "%d:\n", bb->index);
+
+    fprintf (fp, "  PREDS (num: %d): ", EDGE_COUNT (bb->preds));
+    FOR_EACH_EDGE (e, ei, bb->preds) fprintf (fp, "%d, ", e->src->index);
+
+    fprintf (fp, "\n  SUCCS (num: %d): ", EDGE_COUNT (bb->succs));
+    FOR_EACH_EDGE (e, ei, bb->succs) fprintf (fp, "%d, ", e->dest->index);
+    fprintf (fp, "\n");
+  }
+  fprintf (fp, "\n");
 }
 
 /* Dump function.  */
@@ -319,14 +352,15 @@ dump_siblings (FILE * fp, bb_decorator decorator, enum lfact_direction alg)
   for (temp = decorator; temp; temp = temp->next_decorator)
     {
       if ((!temp->prev_sibling) && temp->next_sibling)
-        {
-          bb_decorator temp2;
-          fprintf (fp, "The next basic blocks may contain statements, which are %s. \n",
-                   alg==LFD_HOISTING ? "hoistable" : "sinkable");
-          for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
-            fprintf (fp, "%d ", temp2->curr->index);
-          fprintf (fp, "\n");
-        }
+	{
+	  bb_decorator temp2;
+	  fprintf (fp,
+		   "The next basic blocks may contain statements, which are %s. \n",
+		   alg == LFD_HOISTING ? "hoistable" : "sinkable");
+	  for (temp2 = temp; temp2; temp2 = temp2->next_sibling)
+	    fprintf (fp, "%d ", temp2->curr->index);
+	  fprintf (fp, "\n");
+	}
     }
   fprintf (fp, "----------------\n\n\n");
 }

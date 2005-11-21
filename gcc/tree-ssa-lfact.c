@@ -82,7 +82,7 @@ static int v_must_def_collector_phi (bb_decorator, tree, tree);
 static hashval_t lfact_iterative_hash_expr (tree, hashval_t);
 static int find_stmt_in_set (htab_t *, tree);
 static tree tree_find_first (bb_decorator decorator, int,
-                             enum lfact_direction);
+			     enum lfact_direction);
 static int tree_find_insn (tree, bb_decorator, int, enum lfact_direction);
 static int stmt_move (bb_decorator, enum lfact_direction);
 
@@ -109,7 +109,7 @@ static tree same_v_may_defop_in_node (tree, tree, int);
 
 static int find_abnormal_edge (bb_decorator);
 static basic_block create_basic_block_by_factoring (bb_decorator,
-    basic_block);
+						    basic_block);
 static bb_decorator insert_new_bb_decorator (bb_decorator, basic_block);
 static void delete_analogous (bb_decorator);
 
@@ -185,6 +185,17 @@ lfact_iterative_hash_expr (tree t, hashval_t val)
       for (; t; t = TREE_CHAIN (t))
         val = lfact_iterative_hash_expr (TREE_VALUE (t), val);
       return val;
+    case CONSTRUCTOR:
+      {
+        unsigned HOST_WIDE_INT idx;
+        tree field, value;
+        FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (t), idx, field, value)
+          {
+            val = lfact_iterative_hash_expr (field, val);
+            val = lfact_iterative_hash_expr (value, val);
+          }
+        return val;
+      }
     default:
       class = TREE_CODE_CLASS (code);
 
@@ -257,30 +268,30 @@ stmt_equal (const void *p1, const void *p2)
       gcc_assert (TREE_CODE_LENGTH (TREE_CODE (t1)) == 2);
 
       if (TREE_OPERAND (t1, 0) == NULL
-          && TREE_CODE (TREE_OPERAND (t1, 0)) == SSA_NAME
-          && (simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0)))
-          && (simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 1))))
-        return 0;
+	  && TREE_CODE (TREE_OPERAND (t1, 0)) == SSA_NAME
+	  && (simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0)))
+	  && (simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 1))))
+	return 0;
 
       if (TREE_OPERAND (t1, 1) == NULL
-          && TREE_CODE (TREE_OPERAND (t1, 1)) == SSA_NAME
-          && (simple_cst_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 0)) !=
-              1)
-          && (simple_cst_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1)) !=
-              1))
-        return 0;
+	  && TREE_CODE (TREE_OPERAND (t1, 1)) == SSA_NAME
+	  && (simple_cst_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 0)) !=
+	      1)
+	  && (simple_cst_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1)) !=
+	      1))
+	return 0;
     }
   else
     {
       int i;
 
       for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t1)); i++)
-        {
-          /* Operands must be equal.  */
-          if (simple_cst_equal (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i)) !=
-              1)
-            return 0;
-        }
+	{
+	  /* Operands must be equal.  */
+	  if (simple_cst_equal (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i)) !=
+	      1)
+	    return 0;
+	}
     }
 
 
@@ -326,7 +337,7 @@ compare_vars (tree var1, tree var2)
      var_decls so we compare these operands like before.  */
   if (TREE_CODE (var1) == COMPONENT_REF)
     return (compare_vars (TREE_OPERAND (var1, 0), TREE_OPERAND (var2, 0))
-            && compare_vars (TREE_OPERAND (var1, 1), TREE_OPERAND (var2, 1)));
+	    && compare_vars (TREE_OPERAND (var1, 1), TREE_OPERAND (var2, 1)));
 
   return 0;
 }
@@ -347,38 +358,38 @@ stmt_may_equal (const void *p1, const void *p2)
       && TREE_CODE_LENGTH (TREE_CODE (t1)) == 2)
     {
       if (TREE_OPERAND (t1, 0) == NULL
-          && TREE_CODE (TREE_OPERAND (t1, 0)) == SSA_NAME
-          && !compare_vars (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0))
-          && !compare_vars (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 1)))
-        return 0;
+	  && TREE_CODE (TREE_OPERAND (t1, 0)) == SSA_NAME
+	  && !compare_vars (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0))
+	  && !compare_vars (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 1)))
+	return 0;
 
       if (TREE_OPERAND (t1, 1) == NULL
-          && TREE_CODE (TREE_OPERAND (t1, 1)) == SSA_NAME
-          && !compare_vars (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 0))
-          && !compare_vars (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1)))
-        return 0;
+	  && TREE_CODE (TREE_OPERAND (t1, 1)) == SSA_NAME
+	  && !compare_vars (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 0))
+	  && !compare_vars (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1)))
+	return 0;
     }
   else
     {
       int i;
 
       for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t1)); i++)
-        {
-          tree op1 = TREE_OPERAND (t1, i);
-          tree op2 = TREE_OPERAND (t2, i);
+	{
+	  tree op1 = TREE_OPERAND (t1, i);
+	  tree op2 = TREE_OPERAND (t2, i);
 
-          if ((op1 != NULL) && TREE_CODE (op1) == SSA_NAME)
-            {
-              if (!compare_vars (op1, op2))
-                return 0;
-            }
-          else
-            {
-              /* If operands aren't SSA_NAMEs they must be equal.  */
-              if (simple_cst_equal (op1, op2) != 1)
-                return 0;
-            }
-        }
+	  if ((op1 != NULL) && TREE_CODE (op1) == SSA_NAME)
+	    {
+	      if (!compare_vars (op1, op2))
+		return 0;
+	    }
+	  else
+	    {
+	      /* If operands aren't SSA_NAMEs they must be equal.  */
+	      if (simple_cst_equal (op1, op2) != 1)
+		return 0;
+	    }
+	}
     }
 
   if (stmt_hash (p1) != stmt_hash (p2))
@@ -437,14 +448,14 @@ get_stmts_of_bb (bb_decorator decorator, enum lfact_direction alg, int flag)
     {
       tree stmt = bsi_stmt (si);
       if (simple_stmt (stmt))
-        {
-          if (!htab_find (*table1_p, TREE_OPERAND (stmt, 1)))
-            {
-              slot =
-                htab_find_slot (*table1_p, TREE_OPERAND (stmt, 1), INSERT);
-              *slot = TREE_OPERAND (stmt, 1);
-            }
-        }
+	{
+	  if (!htab_find (*table1_p, TREE_OPERAND (stmt, 1)))
+	    {
+	      slot =
+		htab_find_slot (*table1_p, TREE_OPERAND (stmt, 1), INSERT);
+	      *slot = TREE_OPERAND (stmt, 1);
+	    }
+	}
     }
 
   /* Collection of the common statements of the next block and till now
@@ -454,38 +465,38 @@ get_stmts_of_bb (bb_decorator decorator, enum lfact_direction alg, int flag)
       htab_t *temp_table;
       i++;
       for (si =
-             (alg == LFD_HOISTING) ? bsi_start (di->curr) : bsi_last (di->curr);
-           !bsi_end_p (si);
-           (alg == LFD_HOISTING) ? bsi_next (&si) : bsi_prev (&si))
-        {
-          tree stmt = bsi_stmt (si);
-          if (simple_stmt (stmt))
-            {
-              /* If we find a stmt, which is included by the table pointed by
-                 table1_p, we insert it into the other table.  */
-              if (htab_find (*table1_p, TREE_OPERAND (stmt, 1)))
-                {
-                  slot =
-                    htab_find_slot (*table2_p, TREE_OPERAND (stmt, 1),
-                                    INSERT);
-                  *slot = TREE_OPERAND (stmt, 1);
-                }
-              else if (flag)
-                {
-                  slot =
-                    htab_find_slot (*table1_p, TREE_OPERAND (stmt, 1),
-                                    INSERT);
-                  *slot = TREE_OPERAND (stmt, 1);
-                }
-            }
-        }
+	   (alg == LFD_HOISTING) ? bsi_start (di->curr) : bsi_last (di->curr);
+	   !bsi_end_p (si);
+	   (alg == LFD_HOISTING) ? bsi_next (&si) : bsi_prev (&si))
+	{
+	  tree stmt = bsi_stmt (si);
+	  if (simple_stmt (stmt))
+	    {
+	      /* If we find a stmt, which is included by the table pointed by
+	         table1_p, we insert it into the other table.  */
+	      if (htab_find (*table1_p, TREE_OPERAND (stmt, 1)))
+		{
+		  slot =
+		    htab_find_slot (*table2_p, TREE_OPERAND (stmt, 1),
+				    INSERT);
+		  *slot = TREE_OPERAND (stmt, 1);
+		}
+	      else if (flag)
+		{
+		  slot =
+		    htab_find_slot (*table1_p, TREE_OPERAND (stmt, 1),
+				    INSERT);
+		  *slot = TREE_OPERAND (stmt, 1);
+		}
+	    }
+	}
       if (!flag)
-        {
-          htab_empty (*table1_p);
-          temp_table = table1_p;
-          table1_p = table2_p;
-          table2_p = temp_table;
-        }
+	{
+	  htab_empty (*table1_p);
+	  temp_table = table1_p;
+	  table1_p = table2_p;
+	  table2_p = temp_table;
+	}
     }
 
   if (flag)
@@ -537,8 +548,8 @@ commutable_stmts (tree stmt1, tree stmt2)
     return 0;
 
   FOR_EACH_SSA_TREE_OPERAND (var, stmt1, op_iter, SSA_OP_ALL_DEFS)
-  FOR_EACH_IMM_USE_FAST (use_p, use_iter, var)
-  if (simple_cst_equal (USE_STMT (use_p), stmt2) == 1)
+    FOR_EACH_IMM_USE_FAST (use_p, use_iter, var)
+    if (simple_cst_equal (USE_STMT (use_p), stmt2) == 1)
     return 0;
   return 1;
 }
@@ -554,9 +565,9 @@ tree_moveable_from_begin (basic_block bb, tree stmt)
       tree stmt2 = bsi_stmt (si);
 
       if (simple_cst_equal (stmt2, stmt) == 1)
-        return 1;
+	return 1;
       if (!commutable_stmts (stmt2, stmt))
-        return 0;
+	return 0;
     }
   return 0;
 }
@@ -571,9 +582,9 @@ tree_moveable_from_end (basic_block bb, tree stmt)
     {
       tree stmt2 = bsi_stmt (si);
       if (simple_cst_equal (stmt2, stmt) == 1)
-        return 1;
+	return 1;
       if (!commutable_stmts (stmt, stmt2))
-        return 0;
+	return 0;
     }
 
   return 0;
@@ -583,23 +594,23 @@ tree_moveable_from_end (basic_block bb, tree stmt)
    tree_find_first_from_end.  */
 static tree
 tree_find_first (bb_decorator decorator, int max_depth,
-                 enum lfact_direction alg)
+		 enum lfact_direction alg)
 {
   return (alg == LFD_HOISTING ?
-          tree_find_first_from_begin (decorator, max_depth) :
-          tree_find_first_from_end (decorator, max_depth));
+	  tree_find_first_from_begin (decorator, max_depth) :
+	  tree_find_first_from_end (decorator, max_depth));
 }
 
 /* Common function for calling tree_find_insn_from_begin and
    tree_find_insn_from_end.  */
 static int
 tree_find_insn (tree insn,
-                bb_decorator decorator,
-                int max_depth, enum lfact_direction alg)
+		bb_decorator decorator,
+		int max_depth, enum lfact_direction alg)
 {
   return (alg == LFD_HOISTING ?
-          tree_find_insn_from_begin (insn, decorator, max_depth) :
-          tree_find_insn_from_end (insn, decorator, max_depth));
+	  tree_find_insn_from_begin (insn, decorator, max_depth) :
+	  tree_find_insn_from_end (insn, decorator, max_depth));
 }
 
 /* Common function for calling stmt_hoisting and stmt_sinking.  */
@@ -607,7 +618,7 @@ static int
 stmt_move (bb_decorator decorator, enum lfact_direction alg)
 {
   return (alg == LFD_HOISTING ?
-          stmt_hoisting (decorator) : stmt_sinking (decorator));
+	  stmt_hoisting (decorator) : stmt_sinking (decorator));
 }
 
 /* Finding the first hoistable stmt of the basic block of DECORATOR. If this
@@ -627,42 +638,41 @@ tree_find_first_from_begin (bb_decorator decorator, int max_depth)
       stmt = bsi_stmt (bsi);
 
       if (depth < decorator->last_depth)
-        {
-          depth++;
-          continue;
-        }
+	{
+	  depth++;
+	  continue;
+	}
 
-      if (TREE_CODE (stmt) == RETURN_EXPR ||
-          is_ctrl_stmt (stmt))
-        {
-          /* STMT is not moveable.  */
-          depth++;
-          decorator->last_depth = depth;
-          return (NULL_TREE);
-        }
+      if (TREE_CODE (stmt) == RETURN_EXPR || is_ctrl_stmt (stmt))
+	{
+	  /* STMT is not moveable.  */
+	  depth++;
+	  decorator->last_depth = depth;
+	  return (NULL_TREE);
+	}
 
       if (!find_stmt_in_set (table1_p, stmt))
-        {
-          /* STMT is not a potantial hoistable statement.  */
-          depth++;
-          decorator->last_depth = depth;
-          continue;
-        }
+	{
+	  /* STMT is not a potantial hoistable statement.  */
+	  depth++;
+	  decorator->last_depth = depth;
+	  continue;
+	}
 
       if (tree_moveable_from_begin (bb, stmt)
-          && commutable_stmts (stmt,
-                               bsi_stmt (bsi_last (EDGE_PRED (bb, 0)->src))))
-        {
-          /* STMT is moveable.  */
-          decorator->moveable_node = bsi;
-          return stmt;
-        }
+	  && commutable_stmts (stmt,
+			       bsi_stmt (bsi_last (EDGE_PRED (bb, 0)->src))))
+	{
+	  /* STMT is moveable.  */
+	  decorator->moveable_node = bsi;
+	  return stmt;
+	}
 
       depth++;
       decorator->last_depth = depth;
 
       if (depth == max_depth - 1)
-        return (NULL_TREE);
+	return (NULL_TREE);
     }
   if (bsi_end_p (bsi))
     return (NULL_TREE);
@@ -686,30 +696,30 @@ tree_find_first_from_end (bb_decorator decorator, int max_depth)
       stmt = bsi_stmt (bsi);
 
       if (depth < decorator->last_depth)
-        {
-          depth++;
-          continue;
-        }
+	{
+	  depth++;
+	  continue;
+	}
 
       if ((TREE_CODE (stmt) == RETURN_EXPR)
-          || (!find_stmt_in_set (table1_p, stmt)) || is_ctrl_stmt (stmt))
-        {
-          depth++;
-          decorator->last_depth = depth;
-          continue;
-        }
+	  || (!find_stmt_in_set (table1_p, stmt)) || is_ctrl_stmt (stmt))
+	{
+	  depth++;
+	  decorator->last_depth = depth;
+	  continue;
+	}
 
       if (tree_moveable_from_end (bb, stmt))
-        {
-          decorator->moveable_node = bsi;
-          return stmt;
-        }
+	{
+	  decorator->moveable_node = bsi;
+	  return stmt;
+	}
 
       depth++;
       decorator->last_depth = depth;
 
       if (depth == max_depth - 1)
-        return (NULL_TREE);
+	return (NULL_TREE);
     }
   if (bsi_end_p (bsi))
     return (NULL_TREE);
@@ -732,7 +742,7 @@ defs_equal (tree stmt1, tree stmt2)
     FOR_EACH_SSA_DEF_OPERAND (def2_p, stmt2, iter2, SSA_OP_DEF)
     {
       if (compare_vars (DEF_FROM_PTR (def1_p), DEF_FROM_PTR (def2_p)))
-        same++;
+	same++;
     }
     if (same != 1)
       return 0;
@@ -760,9 +770,9 @@ v_may_defs_equal (tree stmt1, tree stmt2, int mayflag)
     FOR_EACH_SSA_USE_OPERAND (use2_p, stmt2, iter2, SSA_OP_VMAYUSE)
     {
       if (USE_FROM_PTR (use1_p) == USE_FROM_PTR (use2_p)
-          || (mayflag
-              && compare_vars (USE_FROM_PTR (use1_p), USE_FROM_PTR (use2_p))))
-        same++;
+	  || (mayflag
+	      && compare_vars (USE_FROM_PTR (use1_p), USE_FROM_PTR (use2_p))))
+	same++;
     }
     if (same != 1)
       return 0;
@@ -786,9 +796,9 @@ v_must_defs_equal (tree stmt1, tree stmt2, int mayflag)
     FOR_EACH_SSA_USE_OPERAND (use_p2, stmt2, iter2, SSA_OP_VMUSTKILL)
     {
       if (USE_FROM_PTR (use_p1) == USE_FROM_PTR (use_p2)
-          || (mayflag
-              && compare_vars (USE_FROM_PTR (use_p1), USE_FROM_PTR (use_p2))))
-        same++;
+	  || (mayflag
+	      && compare_vars (USE_FROM_PTR (use_p1), USE_FROM_PTR (use_p2))))
+	same++;
     }
     if (same != 1)
       return 0;
@@ -811,30 +821,30 @@ compare_hoisting_stmts (tree stmt1, tree stmt2)
   if (TREE_CODE (stmt1) == MODIFY_EXPR)
     {
       if (!stmt_equal (TREE_OPERAND (stmt1, 1), TREE_OPERAND (stmt2, 1)))
-        return 0;
+	return 0;
 
       if (!compare_vars (TREE_OPERAND (stmt1, 0), TREE_OPERAND (stmt2, 0)))
-        return 0;
+	return 0;
 
       if (!defs_equal (stmt1, stmt2) || !v_must_defs_equal (stmt1, stmt2, 0)
-          || !v_may_defs_equal (stmt1, stmt2, 0))
-        return 0;
+	  || !v_may_defs_equal (stmt1, stmt2, 0))
+	return 0;
 
       /* If the node has any use operand on the left side these operand
          must be the same too.  */
       if (lhs_has_use (stmt1) && lhs_has_use (stmt2))
-        {
-          size_t i;
-          for (i = 0;
-               i < TREE_CODE_LENGTH (TREE_CODE (TREE_OPERAND (stmt1, 0)));
-               i++)
-            {
-              if (simple_cst_equal
-                  (TREE_OPERAND (TREE_OPERAND (stmt1, 0), i),
-                   TREE_OPERAND (TREE_OPERAND (stmt2, 0), i)) != 1)
-                return 0;
-            }
-        }
+	{
+	  size_t i;
+	  for (i = 0;
+	       i < TREE_CODE_LENGTH (TREE_CODE (TREE_OPERAND (stmt1, 0)));
+	       i++)
+	    {
+	      if (simple_cst_equal
+		  (TREE_OPERAND (TREE_OPERAND (stmt1, 0), i),
+		   TREE_OPERAND (TREE_OPERAND (stmt2, 0), i)) != 1)
+		return 0;
+	    }
+	}
 
       return 1;
     }
@@ -853,7 +863,7 @@ used_by_phi (tree phi, tree var)
   for (j = 0; j < PHI_NUM_ARGS (phi); j++)
     {
       if (PHI_ARG_DEF (phi, j) == var)
-        return 1;
+	return 1;
     }
 
   return 0;
@@ -873,15 +883,15 @@ last_use_of_defop (bb_decorator first, basic_block bb, tree orig_stmt)
     int usenum = 0;
     for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
       {
-        if (used_by_phi (phi, var))
-          {
-            if (!def_collector_phi (first, phi, var))
-              return 0;
-            ++usenum;
-          }
+	if (used_by_phi (phi, var))
+	  {
+	    if (!def_collector_phi (first, phi, var))
+	      return 0;
+	    ++usenum;
+	  }
 
-        if (usenum > 1)
-          return 0;
+	if (usenum > 1)
+	  return 0;
       }
   }
 
@@ -892,15 +902,15 @@ last_use_of_defop (bb_decorator first, basic_block bb, tree orig_stmt)
 
     for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
       {
-        if (used_by_phi (phi, var))
-          {
-            if (!v_must_def_collector_phi (first, phi, var))
-              return 0;
-            ++usenum;
-          }
+	if (used_by_phi (phi, var))
+	  {
+	    if (!v_must_def_collector_phi (first, phi, var))
+	      return 0;
+	    ++usenum;
+	  }
 
-        if (usenum > 1)
-          return 0;
+	if (usenum > 1)
+	  return 0;
       }
   }
 
@@ -911,15 +921,15 @@ last_use_of_defop (bb_decorator first, basic_block bb, tree orig_stmt)
 
     for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
       {
-        if (used_by_phi (phi, var))
-          {
-            if (!v_may_def_collector_phi (first, phi, var))
-              return 0;
-            ++usenum;
-          }
+	if (used_by_phi (phi, var))
+	  {
+	    if (!v_may_def_collector_phi (first, phi, var))
+	      return 0;
+	    ++usenum;
+	  }
 
-        if (usenum > 1)
-          return 0;
+	if (usenum > 1)
+	  return 0;
       }
   }
   return 1;
@@ -938,26 +948,26 @@ last_def_of_useops (tree orig_stmt)
       tree stmt = bsi_stmt (bsi);
 
       if (!simple_cst_equal (orig_stmt, stmt))
-        {
-          use_operand_p use_p;
-          def_operand_p def_p;
-          ssa_op_iter iter0, iter1;
+	{
+	  use_operand_p use_p;
+	  def_operand_p def_p;
+	  ssa_op_iter iter0, iter1;
 
-          FOR_EACH_SSA_USE_OPERAND (use_p, orig_stmt, iter0, SSA_OP_USE)
-          {
-            FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter1, SSA_OP_DEF)
-            {
-              if (simple_cst_equal
-                  (DEF_FROM_PTR (def_p), USE_FROM_PTR (use_p)) == 1)
-                return 0;
+	  FOR_EACH_SSA_USE_OPERAND (use_p, orig_stmt, iter0, SSA_OP_USE)
+	  {
+	    FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter1, SSA_OP_DEF)
+	    {
+	      if (simple_cst_equal
+		  (DEF_FROM_PTR (def_p), USE_FROM_PTR (use_p)) == 1)
+		return 0;
 
-            }
-          }
-        }
+	    }
+	  }
+	}
       else
-        {
-          return 1;
-        }
+	{
+	  return 1;
+	}
     }
   return 1;
 }
@@ -976,43 +986,43 @@ compare_sinking_stmts (tree stmt1, tree stmt2)
   if (TREE_CODE (stmt1) == MODIFY_EXPR)
     {
       if (!stmt_may_equal (TREE_OPERAND (stmt1, 1), TREE_OPERAND (stmt2, 1)))
-        return 0;
+	return 0;
 
       if (!compare_vars (TREE_OPERAND (stmt1, 0), TREE_OPERAND (stmt2, 0)))
-        return 0;
+	return 0;
 
       if (!defs_equal (stmt1, stmt2) || !v_must_defs_equal (stmt1, stmt2, 1)
-          || !v_may_defs_equal (stmt1, stmt2, 1))
-        return 0;
+	  || !v_may_defs_equal (stmt1, stmt2, 1))
+	return 0;
 
       /* If the node has any use operand on the left side these operand
          must have the same ssa_name too.  */
       if (lhs_has_use (stmt1) && lhs_has_use (stmt2))
-        {
-          size_t i;
-          for (i = 0;
-               i < TREE_CODE_LENGTH (TREE_CODE (TREE_OPERAND (stmt1, 0)));
-               i++)
-            {
-              tree op1 = TREE_OPERAND (TREE_OPERAND (stmt1, 0), i);
-              tree op2 = TREE_OPERAND (TREE_OPERAND (stmt2, 0), i);
+	{
+	  size_t i;
+	  for (i = 0;
+	       i < TREE_CODE_LENGTH (TREE_CODE (TREE_OPERAND (stmt1, 0)));
+	       i++)
+	    {
+	      tree op1 = TREE_OPERAND (TREE_OPERAND (stmt1, 0), i);
+	      tree op2 = TREE_OPERAND (TREE_OPERAND (stmt2, 0), i);
 
-              if ((op1 != NULL) && TREE_CODE (op1) == SSA_NAME)
-                {
-                  if (!compare_vars (op1, op2))
-                    return 0;
-                }
-              else
-                {
-                  /* If operands aren't SSA_NAMEs they must be equal.  */
-                  if (simple_cst_equal (op1, op2) != 1)
-                    return 0;
-                }
-            }
-        }
+	      if ((op1 != NULL) && TREE_CODE (op1) == SSA_NAME)
+		{
+		  if (!compare_vars (op1, op2))
+		    return 0;
+		}
+	      else
+		{
+		  /* If operands aren't SSA_NAMEs they must be equal.  */
+		  if (simple_cst_equal (op1, op2) != 1)
+		    return 0;
+		}
+	    }
+	}
 
       if (last_def_of_useops (stmt1) && last_def_of_useops (stmt2))
-        return 1;
+	return 1;
     }
 
   return (simple_cst_equal (stmt1, stmt2) == 1);
@@ -1034,17 +1044,17 @@ tree_find_insn_from_begin (tree insn, bb_decorator decorator, int max_depth)
       tree stmt = bsi_stmt (bsi);
 
       if (compare_hoisting_stmts (insn, stmt))
-        {
-          decorator->moveable_node = bsi;
-          if (!tree_moveable_from_begin (bb, stmt))
-            {
-              return 0;
-            }
-          return 1;
-        }
+	{
+	  decorator->moveable_node = bsi;
+	  if (!tree_moveable_from_begin (bb, stmt))
+	    {
+	      return 0;
+	    }
+	  return 1;
+	}
       depth++;
       if (depth == max_depth)
-        return 0;
+	return 0;
     }
   return 0;
 }
@@ -1063,17 +1073,17 @@ tree_find_insn_from_end (tree insn, bb_decorator decorator, int max_depth)
     {
       tree stmt = bsi_stmt (bsi);
       if (compare_sinking_stmts (insn, stmt))
-        {
-          decorator->moveable_node = bsi;
-          if (!tree_moveable_from_end (bb, stmt))
-            {
-              return 0;
-            }
-          return 1;
-        }
+	{
+	  decorator->moveable_node = bsi;
+	  if (!tree_moveable_from_end (bb, stmt))
+	    {
+	      return 0;
+	    }
+	  return 1;
+	}
       depth++;
       if (depth == max_depth)
-        return 0;
+	return 0;
     }
   return 0;
 }
@@ -1109,7 +1119,7 @@ same_defop_in_node (tree def, tree new_node)
   ssa_op_iter iter;
 
   FOR_EACH_SSA_DEF_OPERAND (def_p, new_node, iter, SSA_OP_DEF)
-  if (compare_vars (DEF_FROM_PTR (def_p), def))
+    if (compare_vars (DEF_FROM_PTR (def_p), def))
     return DEF_FROM_PTR (def_p);
 
   return NULL_TREE;
@@ -1195,33 +1205,33 @@ replace_def_vars_hoisting (bb_decorator first, tree new_node)
          stored in global_tree.  */
       FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, ssa_iter, SSA_OP_DEF)
       {
-        tree old_def = DEF_FROM_PTR (def_p);
-        tree new_def = same_defop_in_node (old_def, new_node);
+	tree old_def = DEF_FROM_PTR (def_p);
+	tree new_def = same_defop_in_node (old_def, new_node);
 
-        FOR_EACH_IMM_USE_SAFE (use_p, iter, old_def)
-        replace_use (use_p, new_def);
+	FOR_EACH_IMM_USE_SAFE (use_p, iter, old_def)
+	  replace_use (use_p, new_def);
       }
 
       FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, use_p, stmt, ssa_iter)
       {
-        tree old_def = DEF_FROM_PTR (def_p);
-        tree new_def =
-          same_v_must_defop_in_node (USE_FROM_PTR (use_p), new_node, 0);
-        use_operand_p use_p2;
+	tree old_def = DEF_FROM_PTR (def_p);
+	tree new_def =
+	  same_v_must_defop_in_node (USE_FROM_PTR (use_p), new_node, 0);
+	use_operand_p use_p2;
 
-        FOR_EACH_IMM_USE_SAFE (use_p2, iter, old_def)
-        replace_use (use_p2, new_def);
+	FOR_EACH_IMM_USE_SAFE (use_p2, iter, old_def)
+	  replace_use (use_p2, new_def);
       }
 
       FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, ssa_iter)
       {
-        tree old_def = DEF_FROM_PTR (def_p);
-        tree new_def =
-          same_v_may_defop_in_node (USE_FROM_PTR (use_p), new_node, 0);
-        use_operand_p use_p2;
+	tree old_def = DEF_FROM_PTR (def_p);
+	tree new_def =
+	  same_v_may_defop_in_node (USE_FROM_PTR (use_p), new_node, 0);
+	use_operand_p use_p2;
 
-        FOR_EACH_IMM_USE_SAFE (use_p2, iter, old_def)
-        replace_use (use_p2, new_def);
+	FOR_EACH_IMM_USE_SAFE (use_p2, iter, old_def)
+	  replace_use (use_p2, new_def);
       }
     }
 }
@@ -1261,8 +1271,8 @@ copy_and_insert_node (basic_block bb, tree stmt, enum lfact_direction alg)
   /* If def_ops are SSA_NAMEs we use new version for these becouse we may copy
      the node more than once.  */
   FOR_EACH_SSA_DEF_OPERAND (def_p, new_node, iter,
-                            (SSA_OP_DEF | SSA_OP_VMUSTDEF | SSA_OP_VMAYDEF))
-  if (TREE_CODE (DEF_FROM_PTR (def_p)) == SSA_NAME)
+			    (SSA_OP_DEF | SSA_OP_VMUSTDEF | SSA_OP_VMAYDEF))
+    if (TREE_CODE (DEF_FROM_PTR (def_p)) == SSA_NAME)
     {
       SET_DEF (def_p, duplicate_ssa_name (DEF_FROM_PTR (def_p), NULL));
       SSA_NAME_DEF_STMT (DEF_FROM_PTR (def_p)) = new_node;
@@ -1278,7 +1288,7 @@ defined_by_phi (basic_block bb, tree var)
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       if (PHI_RESULT (phi) == var)
-        return phi;
+	return phi;
     }
 
   return NULL_TREE;
@@ -1321,33 +1331,33 @@ stmt_hoisting (bb_decorator first)
 
       /* Do this check for each hoisted stmt.  */
       for (node = list; node; node = TREE_CHAIN (node))
-        {
-          tree new_node = TREE_PURPOSE (node);
-          edge ed = find_edge (bb_for_stmt (new_node), di->curr);
-          use_operand_p stmt_use_p, new_use_p;
-          ssa_op_iter stmt_iter, new_iter;
+	{
+	  tree new_node = TREE_PURPOSE (node);
+	  edge ed = find_edge (bb_for_stmt (new_node), di->curr);
+	  use_operand_p stmt_use_p, new_use_p;
+	  ssa_op_iter stmt_iter, new_iter;
 
-          /* We iterate the new node's use operands and the old statements'
-             together so we can replace the same use operand of the new
-                    node. */
-          for ((stmt_use_p =
-                  op_iter_init_use (&stmt_iter, stmt,
-                                    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
-                                    SSA_OP_VMUSTKILL), new_use_p =
-                  op_iter_init_use (&new_iter, new_node,
-                                    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
-                                    SSA_OP_VMUSTKILL));
-               (!op_iter_done (&stmt_iter), !op_iter_done (&new_iter));
-               (stmt_use_p = op_iter_next_use (&stmt_iter), new_use_p =
-                  op_iter_next_use (&new_iter)))
-            {
-              tree var = USE_FROM_PTR (stmt_use_p);
-              tree phi = defined_by_phi (di->curr, var);
+	  /* We iterate the new node's use operands and the old statements'
+	     together so we can replace the same use operand of the new
+	     node. */
+	  for ((stmt_use_p =
+		op_iter_init_use (&stmt_iter, stmt,
+				  SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
+				  SSA_OP_VMUSTKILL), new_use_p =
+		op_iter_init_use (&new_iter, new_node,
+				  SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
+				  SSA_OP_VMUSTKILL));
+	       (!op_iter_done (&stmt_iter), !op_iter_done (&new_iter));
+	       (stmt_use_p = op_iter_next_use (&stmt_iter), new_use_p =
+		op_iter_next_use (&new_iter)))
+	    {
+	      tree var = USE_FROM_PTR (stmt_use_p);
+	      tree phi = defined_by_phi (di->curr, var);
 
-              if (phi != NULL_TREE)
-                SET_USE (new_use_p, PHI_ARG_DEF (phi, ed->dest_idx));
-            }
-        }
+	      if (phi != NULL_TREE)
+		SET_USE (new_use_p, PHI_ARG_DEF (phi, ed->dest_idx));
+	    }
+	}
 
     }
 
@@ -1358,67 +1368,67 @@ stmt_hoisting (bb_decorator first)
   if (first->num_pred_bb > 1)
     {
       for (di = first; di; di = di->next_sibling)
-        {
-          basic_block bb = di->curr;
-          tree stmt = bsi_stmt (di->moveable_node);
-          def_operand_p def_p;
-          ssa_op_iter iter;
+	{
+	  basic_block bb = di->curr;
+	  tree stmt = bsi_stmt (di->moveable_node);
+	  def_operand_p def_p;
+	  ssa_op_iter iter;
 
-          /* creating phi for def ops */
-          FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
-          {
-            tree defop = DEF_FROM_PTR (def_p);
-            tree phi = create_phi_node (defop, bb);
-            SSA_NAME_DEF_STMT (defop) = phi;
+	  /* creating phi for def ops */
+	  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
+	  {
+	    tree defop = DEF_FROM_PTR (def_p);
+	    tree phi = create_phi_node (defop, bb);
+	    SSA_NAME_DEF_STMT (defop) = phi;
 
-            for (node = list; node; node = TREE_CHAIN (node))
-              {
-                tree newnode = TREE_PURPOSE (node);
-                tree newvar = same_defop_in_node (defop, newnode);
-                basic_block parent_bb = bb_for_stmt (newnode);
-                edge ed = find_edge (parent_bb, bb);
+	    for (node = list; node; node = TREE_CHAIN (node))
+	      {
+		tree newnode = TREE_PURPOSE (node);
+		tree newvar = same_defop_in_node (defop, newnode);
+		basic_block parent_bb = bb_for_stmt (newnode);
+		edge ed = find_edge (parent_bb, bb);
 
-                add_phi_arg (phi, newvar, ed);
-              }
-          }
+		add_phi_arg (phi, newvar, ed);
+	      }
+	  }
 
-          /* Creating phi for vmust_def ops.  */
-          FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_VMUSTDEF)
-          {
-            tree defop = DEF_FROM_PTR (def_p);
-            tree phi = create_phi_node (defop, bb);
-            SSA_NAME_DEF_STMT (defop) = phi;
+	  /* Creating phi for vmust_def ops.  */
+	  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_VMUSTDEF)
+	  {
+	    tree defop = DEF_FROM_PTR (def_p);
+	    tree phi = create_phi_node (defop, bb);
+	    SSA_NAME_DEF_STMT (defop) = phi;
 
-            for (node = list; node; node = TREE_CHAIN (node))
-              {
-                tree newnode = TREE_PURPOSE (node);
-                tree newvar = same_v_must_defop_in_node (defop, newnode, 0);
-                basic_block parent_bb = bb_for_stmt (newnode);
-                edge ed = find_edge (parent_bb, bb);
+	    for (node = list; node; node = TREE_CHAIN (node))
+	      {
+		tree newnode = TREE_PURPOSE (node);
+		tree newvar = same_v_must_defop_in_node (defop, newnode, 0);
+		basic_block parent_bb = bb_for_stmt (newnode);
+		edge ed = find_edge (parent_bb, bb);
 
-                add_phi_arg (phi, newvar, ed);
-              }
-          }
+		add_phi_arg (phi, newvar, ed);
+	      }
+	  }
 
-          /* Creating phi for vmay_defops.  */
-          FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_VMAYDEF)
-          {
-            tree defop = DEF_FROM_PTR (def_p);
-            tree phi = create_phi_node (defop, bb);
-            SSA_NAME_DEF_STMT (defop) = phi;
+	  /* Creating phi for vmay_defops.  */
+	  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_VMAYDEF)
+	  {
+	    tree defop = DEF_FROM_PTR (def_p);
+	    tree phi = create_phi_node (defop, bb);
+	    SSA_NAME_DEF_STMT (defop) = phi;
 
-            for (node = list; node; node = TREE_CHAIN (node))
-              {
-                tree newnode = TREE_PURPOSE (node);
-                tree newvar = same_v_may_defop_in_node (defop, newnode, 0);
-                basic_block parent_bb = bb_for_stmt (newnode);
-                edge ed = find_edge (parent_bb, bb);
+	    for (node = list; node; node = TREE_CHAIN (node))
+	      {
+		tree newnode = TREE_PURPOSE (node);
+		tree newvar = same_v_may_defop_in_node (defop, newnode, 0);
+		basic_block parent_bb = bb_for_stmt (newnode);
+		edge ed = find_edge (parent_bb, bb);
 
-                add_phi_arg (phi, newvar, ed);
-              }
-          }
+		add_phi_arg (phi, newvar, ed);
+	      }
+	  }
 
-        }
+	}
     }
   else
     {
@@ -1429,20 +1439,20 @@ stmt_hoisting (bb_decorator first)
   if (dump_file)
     {
       for (node = list; node; node = TREE_CHAIN (node))
-        {
-          tree new_node = TREE_PURPOSE (node);
-          basic_block bb = bb_for_stmt (new_node);
-          fprintf (dump_file, "STMT HOISTING:\n");
-          for (di = first; di; di = di->next_sibling)
-            {
-              fprintf (dump_file, " orig stmt (in bb %d): ", di->curr->index);
-              print_generic_stmt (dump_file, bsi_stmt (di->moveable_node),
-                                  TDF_SLIM);
-            }
-          fprintf (dump_file, " new stmt (in bb %d): ", bb->index);
-          print_generic_stmt (dump_file, new_node, TDF_SLIM);
-          fprintf (dump_file, "\n");
-        }
+	{
+	  tree new_node = TREE_PURPOSE (node);
+	  basic_block bb = bb_for_stmt (new_node);
+	  fprintf (dump_file, "STMT HOISTING:\n");
+	  for (di = first; di; di = di->next_sibling)
+	    {
+	      fprintf (dump_file, " orig stmt (in bb %d): ", di->curr->index);
+	      print_generic_stmt (dump_file, bsi_stmt (di->moveable_node),
+				  TDF_SLIM);
+	    }
+	  fprintf (dump_file, " new stmt (in bb %d): ", bb->index);
+	  print_generic_stmt (dump_file, new_node, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
     }
 
   /* Remove old statements.  */
@@ -1470,7 +1480,7 @@ replace_def_vars_sinking (tree treelist)
       use_operand_p use_p;
 
       FOR_EACH_IMM_USE_SAFE (use_p, use_iter, oldvar)
-      replace_use (use_p, newvar);
+	replace_use (use_p, newvar);
     }
 }
 
@@ -1495,9 +1505,9 @@ lfact_remove_phi_node (tree phi, tree prev, basic_block bb)
       tree prev, t;
       prev = NULL_TREE;
       for (t = phi_nodes (bb); t && t != phi; t = PHI_CHAIN (t))
-        prev = t;
+	prev = t;
       if (t)
-        lfact_remove_phi_node (t, prev, bb);
+	lfact_remove_phi_node (t, prev, bb);
     }
 }
 
@@ -1524,38 +1534,38 @@ def_collector_phi (bb_decorator first, tree phi, tree defvar)
       int same = 0;
 
       for (di = first; di; di = di->next_analogous)
-        {
-          tree stmt = bsi_stmt (di->moveable_node);
-          edge e = find_edge (di->curr, bb);
-          tree var = same_defop_in_node (defvar, stmt);
+	{
+	  tree stmt = bsi_stmt (di->moveable_node);
+	  edge e = find_edge (di->curr, bb);
+	  tree var = same_defop_in_node (defvar, stmt);
 
-          if ((PHI_ARG_DEF (phi, j) == var && PHI_ARG_EDGE (phi, j) == e))
-            ++same;
-        }
+	  if ((PHI_ARG_DEF (phi, j) == var && PHI_ARG_EDGE (phi, j) == e))
+	    ++same;
+	}
 
-      if (same >1)
-        {
-          return 0;
-        }
+      if (same > 1)
+	{
+	  return 0;
+	}
       else if (same == 0)
-        {
-          /* If there's no matching defop from moveable statements for a phi
-          argument this phi argument must be from a nonanalogous basicblock of
-          the sibling set. */
-          for (di = first; di; di = di->next_sibling)
-            {
-              bb_decorator di2;
-              edge e=find_edge (di->curr, bb);
-              int analogous=0;
+	{
+	  /* If there's no matching defop from moveable statements for a phi
+	     argument this phi argument must be from a nonanalogous basicblock of
+	     the sibling set. */
+	  for (di = first; di; di = di->next_sibling)
+	    {
+	      bb_decorator di2;
+	      edge e = find_edge (di->curr, bb);
+	      int analogous = 0;
 
-              for (di2 = first; di2; di2 = di2->next_analogous)
-                if (di==di2)
-                  analogous=1;
+	      for (di2 = first; di2; di2 = di2->next_analogous)
+		if (di == di2)
+		  analogous = 1;
 
-              if (PHI_ARG_EDGE(phi,j) == e && analogous)
-                return 0;
-            }
-        }
+	      if (PHI_ARG_EDGE (phi, j) == e && analogous)
+		return 0;
+	    }
+	}
     }
 
   return 1;
@@ -1580,38 +1590,38 @@ v_may_def_collector_phi (bb_decorator first, tree phi, tree defvar)
       int same = 0;
 
       for (di = first; di; di = di->next_analogous)
-        {
-          tree stmt = bsi_stmt (di->moveable_node);
-          edge e = find_edge (di->curr, bb);
-          tree var = same_v_may_defop_in_node (defvar, stmt, 1);
+	{
+	  tree stmt = bsi_stmt (di->moveable_node);
+	  edge e = find_edge (di->curr, bb);
+	  tree var = same_v_may_defop_in_node (defvar, stmt, 1);
 
-          if ((PHI_ARG_DEF (phi, j) == var && PHI_ARG_EDGE (phi, j) == e))
-            ++same;
-        }
+	  if ((PHI_ARG_DEF (phi, j) == var && PHI_ARG_EDGE (phi, j) == e))
+	    ++same;
+	}
 
-      if (same >1)
-        {
-          return 0;
-        }
+      if (same > 1)
+	{
+	  return 0;
+	}
       else if (same == 0)
-        {
-          /* If there's no matching defop from moveable statements for a phi
-          argument this phi argument must be from a nonanalogous basicblock of
-          the sibling set.  */
-          for (di = first; di; di = di->next_sibling)
-            {
-              bb_decorator di2;
-              edge e=find_edge (di->curr, bb);
-              int analogous=0;
+	{
+	  /* If there's no matching defop from moveable statements for a phi
+	     argument this phi argument must be from a nonanalogous basicblock of
+	     the sibling set.  */
+	  for (di = first; di; di = di->next_sibling)
+	    {
+	      bb_decorator di2;
+	      edge e = find_edge (di->curr, bb);
+	      int analogous = 0;
 
-              for (di2 = first; di2; di2 = di2->next_analogous)
-                if (di==di2)
-                  analogous=1;
+	      for (di2 = first; di2; di2 = di2->next_analogous)
+		if (di == di2)
+		  analogous = 1;
 
-              if (PHI_ARG_EDGE(phi,j) == e && analogous)
-                return 0;
-            }
-        }
+	      if (PHI_ARG_EDGE (phi, j) == e && analogous)
+		return 0;
+	    }
+	}
     }
 
   return 1;
@@ -1636,38 +1646,38 @@ v_must_def_collector_phi (bb_decorator first, tree phi, tree defvar)
       int same = 0;
 
       for (di = first; di; di = di->next_analogous)
-        {
-          tree stmt = bsi_stmt (di->moveable_node);
-          edge e = find_edge (di->curr, bb);
-          tree var = same_v_must_defop_in_node (defvar, stmt, 1);
+	{
+	  tree stmt = bsi_stmt (di->moveable_node);
+	  edge e = find_edge (di->curr, bb);
+	  tree var = same_v_must_defop_in_node (defvar, stmt, 1);
 
-          if ((PHI_ARG_DEF (phi, j) == var && PHI_ARG_EDGE (phi, j) == e))
-            ++same;
-        }
+	  if ((PHI_ARG_DEF (phi, j) == var && PHI_ARG_EDGE (phi, j) == e))
+	    ++same;
+	}
 
-      if (same >1)
-        {
-          return 0;
-        }
+      if (same > 1)
+	{
+	  return 0;
+	}
       else if (same == 0)
-        {
-          /* If there's no matching defop from moveable statements for a phi
-          argument this phi argument must be from a nonanalogous basicblock of
-          the sibling set.  */
-          for (di = first; di; di = di->next_sibling)
-            {
-              bb_decorator di2;
-              edge e=find_edge (di->curr, bb);
-              int analogous=0;
+	{
+	  /* If there's no matching defop from moveable statements for a phi
+	     argument this phi argument must be from a nonanalogous basicblock of
+	     the sibling set.  */
+	  for (di = first; di; di = di->next_sibling)
+	    {
+	      bb_decorator di2;
+	      edge e = find_edge (di->curr, bb);
+	      int analogous = 0;
 
-              for (di2 = first; di2; di2 = di2->next_analogous)
-                if (di==di2)
-                  analogous=1;
+	      for (di2 = first; di2; di2 = di2->next_analogous)
+		if (di == di2)
+		  analogous = 1;
 
-              if (PHI_ARG_EDGE(phi,j) == e && analogous)
-                return 0;
-            }
-        }
+	      if (PHI_ARG_EDGE (phi, j) == e && analogous)
+		return 0;
+	    }
+	}
     }
 
   return 1;
@@ -1698,24 +1708,24 @@ create_phi_for_use (bb_decorator first, basic_block bb, tree useop, int flags)
 
       FOR_EACH_SSA_USE_OPERAND (use_p, oldstmt, iter, flags)
       {
-        int isinphi = 0;
-        int l = 0;
+	int isinphi = 0;
+	int l = 0;
 
-        if (!compare_vars (USE_FROM_PTR (use_p), useop))
-          continue;
+	if (!compare_vars (USE_FROM_PTR (use_p), useop))
+	  continue;
 
-        /* We have to check if this operand is already added.  */
-        while (!isinphi && l < PHI_NUM_ARGS (phi))
-          {
-            if ((simple_cst_equal
-                 (PHI_ARG_DEF (phi, l), USE_FROM_PTR (use_p)) == 1)
-                && (PHI_ARG_EDGE (phi, l) == ed))
-              isinphi = 1;
-            l++;
-          }
+	/* We have to check if this operand is already added.  */
+	while (!isinphi && l < PHI_NUM_ARGS (phi))
+	  {
+	    if ((simple_cst_equal
+		 (PHI_ARG_DEF (phi, l), USE_FROM_PTR (use_p)) == 1)
+		&& (PHI_ARG_EDGE (phi, l) == ed))
+	      isinphi = 1;
+	    l++;
+	  }
 
-        if (!isinphi)
-          add_phi_arg (phi, USE_FROM_PTR (use_p), ed);
+	if (!isinphi)
+	  add_phi_arg (phi, USE_FROM_PTR (use_p), ed);
       }
 
     }
@@ -1769,148 +1779,148 @@ stmt_sinking (bb_decorator first)
 
       FOR_EACH_SSA_DEF_OPERAND (def_p, new_node, iter, SSA_OP_DEF)
       {
-        tree def = DEF_FROM_PTR (def_p);
-        tree phi = NULL_TREE;
+	tree def = DEF_FROM_PTR (def_p);
+	tree phi = NULL_TREE;
 
-        if (TREE_CODE (def) != SSA_NAME)
-          continue;
+	if (TREE_CODE (def) != SSA_NAME)
+	  continue;
 
-        /* Looking for the phi node which collects the def ops of the
-           moveable statements.  */
-        for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-          {
-            if (def_collector_phi (first, phi, def))
-              break;
-          }
-        /* If this phi node exists we replace new_node's defop and remove
-                  phi.  */
-        if (phi)
-          {
-            SET_DEF (def_p, PHI_RESULT (phi));
-            lfact_remove_phi_node (phi, NULL, bb);
-            SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_node;
-          }
+	/* Looking for the phi node which collects the def ops of the
+	   moveable statements.  */
+	for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	  {
+	    if (def_collector_phi (first, phi, def))
+	      break;
+	  }
+	/* If this phi node exists we replace new_node's defop and remove
+	   phi.  */
+	if (phi)
+	  {
+	    SET_DEF (def_p, PHI_RESULT (phi));
+	    lfact_remove_phi_node (phi, NULL, bb);
+	    SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_node;
+	  }
 
-        /* Collect new defops to a list. later we replace immediate uses of
-           old defop using this list.  */
-        for (di = first; di; di = di->next_analogous)
-          {
-            tree sinked_stmt = bsi_stmt (di->moveable_node);
-            tree newvar = DEF_FROM_PTR (def_p);
-            tree oldvar = same_defop_in_node (newvar, sinked_stmt);
+	/* Collect new defops to a list. later we replace immediate uses of
+	   old defop using this list.  */
+	for (di = first; di; di = di->next_analogous)
+	  {
+	    tree sinked_stmt = bsi_stmt (di->moveable_node);
+	    tree newvar = DEF_FROM_PTR (def_p);
+	    tree oldvar = same_defop_in_node (newvar, sinked_stmt);
 
-            node = build_tree_list (newvar, oldvar);
-            *last = node;
-            last = &TREE_CHAIN (node);
-          }
+	    node = build_tree_list (newvar, oldvar);
+	    *last = node;
+	    last = &TREE_CHAIN (node);
+	  }
       }
 
       /* Do the same for v_may_defs like before.  */
       FOR_EACH_SSA_DEF_OPERAND (def_p, new_node, iter, SSA_OP_VMAYDEF)
       {
-        tree mdef = DEF_FROM_PTR (def_p);
-        tree phi = NULL_TREE;
+	tree mdef = DEF_FROM_PTR (def_p);
+	tree phi = NULL_TREE;
 
-        if (TREE_CODE (mdef) != SSA_NAME)
-          continue;
+	if (TREE_CODE (mdef) != SSA_NAME)
+	  continue;
 
-        /* Looking for the phi node which collects the v_may_def ops of
-           the moveable statements.  */
-        for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-          {
-            if (v_may_def_collector_phi (first, phi, mdef))
-              break;
-          }
+	/* Looking for the phi node which collects the v_may_def ops of
+	   the moveable statements.  */
+	for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	  {
+	    if (v_may_def_collector_phi (first, phi, mdef))
+	      break;
+	  }
 
-        /* If this phi node exists we replace new_node's defop and remove
-                  phi. */
-        if (phi)
-          {
-            SET_DEF (def_p, PHI_RESULT (phi));
-            lfact_remove_phi_node (phi, NULL, bb);
-            SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_node;
-          }
+	/* If this phi node exists we replace new_node's defop and remove
+	   phi. */
+	if (phi)
+	  {
+	    SET_DEF (def_p, PHI_RESULT (phi));
+	    lfact_remove_phi_node (phi, NULL, bb);
+	    SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_node;
+	  }
 
-        /* Collect new defops to a list. later we replace immediate uses of
-           old defop using this list.  */
-        for (di = first; di; di = di->next_analogous)
-          {
-            tree sinked_stmt = bsi_stmt (di->moveable_node);
-            tree newvar = DEF_FROM_PTR (def_p);
-            tree oldvar = same_v_may_defop_in_node (newvar, sinked_stmt, 1);
+	/* Collect new defops to a list. later we replace immediate uses of
+	   old defop using this list.  */
+	for (di = first; di; di = di->next_analogous)
+	  {
+	    tree sinked_stmt = bsi_stmt (di->moveable_node);
+	    tree newvar = DEF_FROM_PTR (def_p);
+	    tree oldvar = same_v_may_defop_in_node (newvar, sinked_stmt, 1);
 
-            node = build_tree_list (newvar, oldvar);
-            *last = node;
-            last = &TREE_CHAIN (node);
-          }
+	    node = build_tree_list (newvar, oldvar);
+	    *last = node;
+	    last = &TREE_CHAIN (node);
+	  }
       }
 
       /* Do the same for v_must_defs like before.  */
       FOR_EACH_SSA_DEF_OPERAND (def_p, new_node, iter, SSA_OP_VMUSTDEF)
       {
-        tree mdef = DEF_FROM_PTR (def_p);
-        tree phi = NULL_TREE;
+	tree mdef = DEF_FROM_PTR (def_p);
+	tree phi = NULL_TREE;
 
-        if (TREE_CODE (mdef) != SSA_NAME)
-          continue;
+	if (TREE_CODE (mdef) != SSA_NAME)
+	  continue;
 
-        /* Looking for the phi node which collects the v_must_def ops
-           of the moveable statements.  */
-        for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-          if (v_must_def_collector_phi (first, phi, mdef))
-            break;
+	/* Looking for the phi node which collects the v_must_def ops
+	   of the moveable statements.  */
+	for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	  if (v_must_def_collector_phi (first, phi, mdef))
+	    break;
 
-        /* If this phi node exists we replace new_node's defop and remove
-                  phi. */
-        if (phi)
-          {
-            SET_DEF (def_p, PHI_RESULT (phi));
-            lfact_remove_phi_node (phi, NULL, bb);
-            SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_node;
-          }
+	/* If this phi node exists we replace new_node's defop and remove
+	   phi. */
+	if (phi)
+	  {
+	    SET_DEF (def_p, PHI_RESULT (phi));
+	    lfact_remove_phi_node (phi, NULL, bb);
+	    SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_node;
+	  }
 
-        /* Collect new defops to a list. later we replace immediate uses of
-           old defop using this list.  */
-        for (di = first; di; di = di->next_analogous)
-          {
-            tree sinked_stmt = bsi_stmt (di->moveable_node);
-            tree newvar = DEF_FROM_PTR (def_p);
-            tree oldvar = same_v_must_defop_in_node (newvar, sinked_stmt, 1);
+	/* Collect new defops to a list. later we replace immediate uses of
+	   old defop using this list.  */
+	for (di = first; di; di = di->next_analogous)
+	  {
+	    tree sinked_stmt = bsi_stmt (di->moveable_node);
+	    tree newvar = DEF_FROM_PTR (def_p);
+	    tree oldvar = same_v_must_defop_in_node (newvar, sinked_stmt, 1);
 
-            node = build_tree_list (newvar, oldvar);
-            *last = node;
-            last = &TREE_CHAIN (node);
-          }
+	    node = build_tree_list (newvar, oldvar);
+	    *last = node;
+	    last = &TREE_CHAIN (node);
+	  }
       }
 
       /* Create new phi node for sinked stmt's uses.  */
       FOR_EACH_SSA_USE_OPERAND (use_p, new_node, iter, SSA_OP_USE)
       {
-        tree use_var = USE_FROM_PTR (use_p);
+	tree use_var = USE_FROM_PTR (use_p);
 
-        /* If use operand appears more then once (a=b*b) we create only one
-           phi node for it.  */
-        if ((TREE_CODE (use_var) == SSA_NAME)
-            && (!defined_by_phi (bb, use_var)))
-          {
-            tree phi = create_phi_for_use (first, bb, use_var, SSA_OP_USE);
-            SET_USE (use_p, PHI_RESULT (phi));
-          }
+	/* If use operand appears more then once (a=b*b) we create only one
+	   phi node for it.  */
+	if ((TREE_CODE (use_var) == SSA_NAME)
+	    && (!defined_by_phi (bb, use_var)))
+	  {
+	    tree phi = create_phi_for_use (first, bb, use_var, SSA_OP_USE);
+	    SET_USE (use_p, PHI_RESULT (phi));
+	  }
       }
 
       /* Create new phi node for sinked stmt's vuses.  */
       FOR_EACH_SSA_USE_OPERAND (use_p, new_node, iter, SSA_OP_VUSE)
       {
-        tree use_var = USE_FROM_PTR (use_p);
+	tree use_var = USE_FROM_PTR (use_p);
 
-        /* If use operand appears more then once (a=b*b) we create only one
-           phi node for it.  */
-        if ((TREE_CODE (use_var) == SSA_NAME)
-            && (!defined_by_phi (bb, use_var)))
-          {
-            tree phi = create_phi_for_use (first, bb, use_var, SSA_OP_VUSE);
-            SET_USE (use_p, PHI_RESULT (phi));
-          }
+	/* If use operand appears more then once (a=b*b) we create only one
+	   phi node for it.  */
+	if ((TREE_CODE (use_var) == SSA_NAME)
+	    && (!defined_by_phi (bb, use_var)))
+	  {
+	    tree phi = create_phi_for_use (first, bb, use_var, SSA_OP_VUSE);
+	    SET_USE (use_p, PHI_RESULT (phi));
+	  }
       }
 
       /* We must create phi nodes for vmust/may_defs too.
@@ -1942,45 +1952,45 @@ stmt_sinking (bb_decorator first)
 
       FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, use_p, new_node, iter)
       {
-        tree use_var = USE_FROM_PTR (use_p);
-        if (TREE_CODE (use_var) == SSA_NAME)
-          {
-            tree phi =
-              create_phi_for_use (first, bb, use_var, SSA_OP_VMUSTKILL);
+	tree use_var = USE_FROM_PTR (use_p);
+	if (TREE_CODE (use_var) == SSA_NAME)
+	  {
+	    tree phi =
+	      create_phi_for_use (first, bb, use_var, SSA_OP_VMUSTKILL);
 
-            SET_USE (use_p, PHI_RESULT (phi));
-          }
+	    SET_USE (use_p, PHI_RESULT (phi));
+	  }
       }
 
       /* The same for v_may_defs like boefore for v_must_defs.  */
       FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, new_node, iter)
       {
-        tree use_var = USE_FROM_PTR (use_p);
-        if (TREE_CODE (use_var) == SSA_NAME)
-          {
-            tree phi =
-              create_phi_for_use (first, bb, use_var, SSA_OP_VMAYUSE);
+	tree use_var = USE_FROM_PTR (use_p);
+	if (TREE_CODE (use_var) == SSA_NAME)
+	  {
+	    tree phi =
+	      create_phi_for_use (first, bb, use_var, SSA_OP_VMAYUSE);
 
-            SET_USE (use_p, PHI_RESULT (phi));
-          }
+	    SET_USE (use_p, PHI_RESULT (phi));
+	  }
       }
 
       /* Ensure that the PHI node chain is in the correct order.  */
       set_phi_nodes (bb, phi_reverse (phi_nodes (bb)));
 
       if (dump_file)
-        {
-          fprintf (dump_file, "STMT SINKING:\n");
-          for (di = first; di; di = di->next_analogous)
-            {
-              fprintf (dump_file, " orig stmt (in bb %d): ", di->curr->index);
-              print_generic_stmt (dump_file, bsi_stmt (di->moveable_node),
-                                  TDF_SLIM);
-            }
-          fprintf (dump_file, " new stmt (in bb %d): ", bb->index);
-          print_generic_stmt (dump_file, new_node, TDF_SLIM);
-          fprintf (dump_file, "\n");
-        }
+	{
+	  fprintf (dump_file, "STMT SINKING:\n");
+	  for (di = first; di; di = di->next_analogous)
+	    {
+	      fprintf (dump_file, " orig stmt (in bb %d): ", di->curr->index);
+	      print_generic_stmt (dump_file, bsi_stmt (di->moveable_node),
+				  TDF_SLIM);
+	    }
+	  fprintf (dump_file, " new stmt (in bb %d): ", bb->index);
+	  print_generic_stmt (dump_file, new_node, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
 
     }
 
@@ -2009,15 +2019,15 @@ find_abnormal_edge (bb_decorator first)
   for (di = first; di; di = di->next_analogous)
     {
       if (EDGE_SUCC (di->curr, 0)->flags & EDGE_ABNORMAL)
-        {
-          if (di->prev_analogous)
-            di->prev_analogous->next_analogous = di->next_analogous;
-          if (di->next_analogous)
-            di->next_analogous->prev_analogous = di->prev_analogous;
-          di->prev_analogous = di->next_analogous = NULL;
-        }
+	{
+	  if (di->prev_analogous)
+	    di->prev_analogous->next_analogous = di->next_analogous;
+	  if (di->next_analogous)
+	    di->next_analogous->prev_analogous = di->prev_analogous;
+	  di->prev_analogous = di->next_analogous = NULL;
+	}
       else
-        num_of_not_abnormal_succ++;
+	num_of_not_abnormal_succ++;
     }
   return (num_of_not_abnormal_succ > 1 ? 1 : 0);
 }
@@ -2031,7 +2041,7 @@ delete_analogous (bb_decorator first)
   for (di = first; di; di = di->next_analogous)
     {
       if (last)
-        last->next_analogous = NULL;
+	last->next_analogous = NULL;
       last = di;
       di->prev_analogous = NULL;
     }
@@ -2050,7 +2060,7 @@ lfact_redirect_edge (edge e, basic_block dest)
   for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
       if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
-        continue;
+	continue;
 
       src = PHI_ARG_DEF (phi, e->dest_idx);
       dst = phi;
@@ -2085,33 +2095,33 @@ lfact_flush_pending_stmts (basic_block new_bb)
 
       /* PENDING_STMT is a TREE_LIST with the phi node the variable is
          removed from as purpose and with the variable as value. so we walk
-      over this tree list for eache edge and if a variable is removed from
-      the current phi we add this variable to the new phi node.  */
+         over this tree list for eache edge and if a variable is removed from
+         the current phi we add this variable to the new phi node.  */
       FOR_EACH_EDGE (e, ei, new_bb->preds)
       {
-        tree list;
+	tree list;
 
-        if (!PENDING_STMT (e))
-          continue;
+	if (!PENDING_STMT (e))
+	  continue;
 
-        for (list = PENDING_STMT (e); list; list = TREE_CHAIN (list))
-          {
-            if (TREE_PURPOSE (list) != phi)
-              continue;
+	for (list = PENDING_STMT (e); list; list = TREE_CHAIN (list))
+	  {
+	    if (TREE_PURPOSE (list) != phi)
+	      continue;
 
-            if (new_phi == NULL_TREE)
-              new_phi =
-                create_phi_node (duplicate_ssa_name
-                                 (PHI_RESULT (TREE_PURPOSE (list)), NULL),
-                                 new_bb);
-            SSA_NAME_DEF_STMT (PHI_RESULT (new_phi)) = new_phi;
+	    if (new_phi == NULL_TREE)
+	      new_phi =
+		create_phi_node (duplicate_ssa_name
+				 (PHI_RESULT (TREE_PURPOSE (list)), NULL),
+				 new_bb);
+	    SSA_NAME_DEF_STMT (PHI_RESULT (new_phi)) = new_phi;
 
-            add_phi_arg (new_phi, TREE_VALUE (list), e);
-          }
+	    add_phi_arg (new_phi, TREE_VALUE (list), e);
+	  }
       }
 
       if (new_phi != NULL_TREE)
-        add_phi_arg (phi, PHI_RESULT (new_phi), new_edge_to);
+	add_phi_arg (phi, PHI_RESULT (new_phi), new_edge_to);
     }
 
   /* Clean the stmt list.  */
@@ -2143,11 +2153,11 @@ create_basic_block_by_factoring (bb_decorator first, basic_block next_bb)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
       {
-        if (e->dest != next_bb)
-          continue;
+	if (e->dest != next_bb)
+	  continue;
 
-        e = lfact_redirect_edge (e, new_bb);
-        gcc_assert (e);
+	e = lfact_redirect_edge (e, new_bb);
+	gcc_assert (e);
 
       }
     }
@@ -2188,10 +2198,10 @@ create_basic_block_by_factoring (bb_decorator first, basic_block next_bb)
       basic_block dom;
 
       for (di = first; di; di = di->next_analogous)
-        {
-          dom = recount_dominator (CDI_DOMINATORS, di->curr);
-          set_immediate_dominator (CDI_DOMINATORS, di->curr, dom);
-        }
+	{
+	  dom = recount_dominator (CDI_DOMINATORS, di->curr);
+	  set_immediate_dominator (CDI_DOMINATORS, di->curr, dom);
+	}
 
       dom = recount_dominator (CDI_DOMINATORS, new_bb);
       set_immediate_dominator (CDI_DOMINATORS, new_bb, dom);
@@ -2244,19 +2254,19 @@ ssa_modifying_concatenation (bb_decorator first)
   for (di = first->next_sibling; di; di = di->next_sibling)
     {
       if (di == last_analogous->next_analogous)
-        {
+	{
 
-          last_analogous->next_sibling = di;
-          di->prev_sibling = last_analogous;
-          last_analogous = di;
-        }
+	  last_analogous->next_sibling = di;
+	  di->prev_sibling = last_analogous;
+	  last_analogous = di;
+	}
       else
-        {
-          if (last_nonanalogous)
-            last_nonanalogous->next_sibling = di;
-          di->prev_sibling = last_nonanalogous;
-          last_nonanalogous = di;
-        }
+	{
+	  if (last_nonanalogous)
+	    last_nonanalogous->next_sibling = di;
+	  di->prev_sibling = last_nonanalogous;
+	  last_nonanalogous = di;
+	}
     }
 
   if (last_nonanalogous)
@@ -2280,10 +2290,10 @@ check_next_bb_phis (bb_decorator first)
       basic_block bb = EDGE_SUCC (first->curr, i)->dest;
 
       for (di = first; di; di = di->next_analogous)
-        {
-          if (!last_use_of_defop (first, bb, bsi_stmt (di->moveable_node)))
-            return 0;
-        }
+	{
+	  if (!last_use_of_defop (first, bb, bsi_stmt (di->moveable_node)))
+	    return 0;
+	}
     }
 
   return 1;
@@ -2309,135 +2319,135 @@ tree_factoring_sinking (bb_decorator decorator, enum lfact_direction alg)
   while (di)
     {
       if (siblings->next_sibling && (walkover = 1 || siblings->prev_sibling))
-        {
-          bb_decorator di2;
-          tree insn = NULL;
-          unsigned long num_of_next_bb = siblings->num_succ_bb;
-          unsigned long num_of_good_bb = 0;
-          int insert_bb = 0;
-          bb_decorator last_sibling;
-          if (siblings->prev_sibling)
-            {
-              insert_bb = 1;
-              walkover = 1;
-            }
-          else
-            {
-              get_stmts_of_bb (siblings, alg, 1);
-            }
+	{
+	  bb_decorator di2;
+	  tree insn = NULL;
+	  unsigned long num_of_next_bb = siblings->num_succ_bb;
+	  unsigned long num_of_good_bb = 0;
+	  int insert_bb = 0;
+	  bb_decorator last_sibling;
+	  if (siblings->prev_sibling)
+	    {
+	      insert_bb = 1;
+	      walkover = 1;
+	    }
+	  else
+	    {
+	      get_stmts_of_bb (siblings, alg, 1);
+	    }
 
-          insn = tree_find_first (siblings, 0, alg);
+	  insn = tree_find_first (siblings, 0, alg);
 
-          if (!insn)
-            {
-              siblings = siblings->next_sibling;
-              continue;
-            }
+	  if (!insn)
+	    {
+	      siblings = siblings->next_sibling;
+	      continue;
+	    }
 
-          last_sibling = siblings;
-          num_of_good_bb = 1;
+	  last_sibling = siblings;
+	  num_of_good_bb = 1;
 
-          for (di2 = siblings->next_sibling; di2; di2 = di2->next_sibling)
-            {
-              if (tree_find_insn (insn, di2, 0, alg))
-                {
-                  last_sibling->next_analogous = di2;
-                  di2->prev_analogous = last_sibling;
-                  last_sibling = di2;
-                  num_of_good_bb++;
-                }
-            }
+	  for (di2 = siblings->next_sibling; di2; di2 = di2->next_sibling)
+	    {
+	      if (tree_find_insn (insn, di2, 0, alg))
+		{
+		  last_sibling->next_analogous = di2;
+		  di2->prev_analogous = last_sibling;
+		  last_sibling = di2;
+		  num_of_good_bb++;
+		}
+	    }
 
-          if (last_sibling)
-            last_sibling->next_analogous = NULL;
+	  if (last_sibling)
+	    last_sibling->next_analogous = NULL;
 
-          if (num_of_good_bb <= num_of_next_bb)
-            {
-              siblings->last_depth++;
-              delete_analogous (siblings);
-              continue;
-            }
+	  if (num_of_good_bb <= num_of_next_bb)
+	    {
+	      siblings->last_depth++;
+	      delete_analogous (siblings);
+	      continue;
+	    }
 
-          if (!insert_bb && EDGE_SUCC (siblings->curr, 0))
-            {
-              if (num_of_good_bb <
-                  EDGE_COUNT ((EDGE_SUCC (siblings->curr, 0))->dest->preds))
-                insert_bb = 1;
-            }
+	  if (!insert_bb && EDGE_SUCC (siblings->curr, 0))
+	    {
+	      if (num_of_good_bb <
+		  EDGE_COUNT ((EDGE_SUCC (siblings->curr, 0))->dest->preds))
+		insert_bb = 1;
+	    }
 
-          /* Sinking a statement by creating a new basic block for it needs an
-             extra goto. so it doesn't worth sinking if the number of sinkable
-             statements is less then two times the number of basic blocks we
-             should create.  */
-          if (insert_bb && (num_of_good_bb <= num_of_next_bb * 2))
-            {
-              siblings->last_depth++;
-              delete_analogous (siblings);
-              continue;
-            }
+	  /* Sinking a statement by creating a new basic block for it needs an
+	     extra goto. so it doesn't worth sinking if the number of sinkable
+	     statements is less then two times the number of basic blocks we
+	     should create.  */
+	  if (insert_bb && (num_of_good_bb <= num_of_next_bb * 2))
+	    {
+	      siblings->last_depth++;
+	      delete_analogous (siblings);
+	      continue;
+	    }
 
-          /* If we sink statements without inserting any new basic block for it
-             we should check the destination block's phi nodes. if any of this
-             phi nodes uses a defop of the sinkable statements and this phi
-             node is not a 'collector_phi' (which only collects the variables
-             from the parent blocks) then the statements are not sinkable.
-             if we create a basic block for sinking we build the phi nodes too
-             so at this point this checking is not necesarry.  */
-          if (!check_next_bb_phis (siblings))
-            {
-              siblings->last_depth++;
-              delete_analogous (siblings);
-              continue;
-            }
+	  /* If we sink statements without inserting any new basic block for it
+	     we should check the destination block's phi nodes. if any of this
+	     phi nodes uses a defop of the sinkable statements and this phi
+	     node is not a 'collector_phi' (which only collects the variables
+	     from the parent blocks) then the statements are not sinkable.
+	     if we create a basic block for sinking we build the phi nodes too
+	     so at this point this checking is not necesarry.  */
+	  if (!check_next_bb_phis (siblings))
+	    {
+	      siblings->last_depth++;
+	      delete_analogous (siblings);
+	      continue;
+	    }
 
 
-          if (!insert_bb && siblings)
-            {
-              /* These statements are in a full sibling set.  */
-              if (stmt_move (siblings, alg))
-                change = 1;
-              continue;
-            }
-          else
-            {
-              bb_decorator new_bb_decorator;
+	  if (!insert_bb && siblings)
+	    {
+	      /* These statements are in a full sibling set.  */
+	      if (stmt_move (siblings, alg))
+		change = 1;
+	      continue;
+	    }
+	  else
+	    {
+	      bb_decorator new_bb_decorator;
 
-              if (optimize_size && find_abnormal_edge (siblings))
-                {
-                  int i = 0;
+	      if (optimize_size && find_abnormal_edge (siblings))
+		{
+		  int i = 0;
 
-                  for (i = 0; i < siblings->num_succ_bb; i++)
-                    {
-                      basic_block next_bb =
-                        EDGE_SUCC (siblings->curr, i)->dest;
-                      basic_block new_bb =
-                        create_basic_block_by_factoring (siblings, next_bb);
+		  for (i = 0; i < siblings->num_succ_bb; i++)
+		    {
+		      basic_block next_bb =
+			EDGE_SUCC (siblings->curr, i)->dest;
+		      basic_block new_bb =
+			create_basic_block_by_factoring (siblings, next_bb);
 
-                      new_bb_decorator =
-                        insert_new_bb_decorator (decorator, new_bb);
-                    }
+		      new_bb_decorator =
+			insert_new_bb_decorator (decorator, new_bb);
+		    }
 
-                  if (stmt_move (siblings, alg))
-                    change = 1;
+		  if (stmt_move (siblings, alg))
+		    change = 1;
 
-                  ssa_modifying_concatenation (siblings);
-                }
-              else
-                siblings->last_depth++;
-            }
+		  ssa_modifying_concatenation (siblings);
+		}
+	      else
+		siblings->last_depth++;
+	    }
 
-          delete_analogous (siblings);
-        }
+	  delete_analogous (siblings);
+	}
       else if (siblings->next_sibling)
-        {
-          siblings = siblings->next_sibling;
-        }
+	{
+	  siblings = siblings->next_sibling;
+	}
       else
-        {
-          di = di->next_decorator;
-          siblings = di;
-          walkover = 0;
-        }
+	{
+	  di = di->next_decorator;
+	  siblings = di;
+	  walkover = 0;
+	}
     }
 
   return change;
@@ -2462,43 +2472,43 @@ tree_factoring_hoisting (bb_decorator decorator, enum lfact_direction alg)
   while (di)
     {
       if ((!di->prev_sibling) && (di->next_sibling))
-        {
-          bb_decorator di2;
-          tree insn = NULL;
+	{
+	  bb_decorator di2;
+	  tree insn = NULL;
 
-          if (not_moveable)
-            {
-              get_stmts_of_bb (di, alg, 0);
-              not_moveable = 0;
-            }
+	  if (not_moveable)
+	    {
+	      get_stmts_of_bb (di, alg, 0);
+	      not_moveable = 0;
+	    }
 
-          insn = tree_find_first (di, 0, alg);
+	  insn = tree_find_first (di, 0, alg);
 
-          if (!insn)
-            {
-              not_moveable = 1;
-              di = di->next_decorator;
-              continue;
-            }
+	  if (!insn)
+	    {
+	      not_moveable = 1;
+	      di = di->next_decorator;
+	      continue;
+	    }
 
-          for (di2 = di->next_sibling; di2; di2 = di2->next_sibling)
-            {
-              if (!tree_find_insn (insn, di2, 0, alg))
-                {
-                  not_moveable = 1;
-                  di->last_depth++;
-                  break;
-                }
-            }
+	  for (di2 = di->next_sibling; di2; di2 = di2->next_sibling)
+	    {
+	      if (!tree_find_insn (insn, di2, 0, alg))
+		{
+		  not_moveable = 1;
+		  di->last_depth++;
+		  break;
+		}
+	    }
 
-          if (!not_moveable && di)
-            {
-              if (stmt_move (di, alg))
-                change = 1;
-            }
-        }
+	  if (!not_moveable && di)
+	    {
+	      if (stmt_move (di, alg))
+		change = 1;
+	    }
+	}
       else
-        di = di->next_decorator;
+	di = di->next_decorator;
     }
   return change;
 }
@@ -2533,7 +2543,7 @@ tree_ssa_local_factoring_1 (bb_decorator decorator, enum lfact_direction alg)
 
   if (dump_file && gain)
     fprintf (dump_file, "After %s the gain is %d instruction\n",
-             alg == LFD_HOISTING ? "hoisting" : "sinking", gain);
+	     alg == LFD_HOISTING ? "hoisting" : "sinking", gain);
   return (gain > 0);
 }
 
@@ -2551,11 +2561,14 @@ tree_ssa_local_factoring (void)
   stmt_hoisting_table2 = htab_create (MAX_HTAB, stmt_hash, stmt_equal, NULL);
   decorator = init_factoring (decorator);
 
+  if (dump_file)
+    dump_cfg_info (dump_file);
+
   while (has_gain)
     {
       has_gain = tree_ssa_local_factoring_1 (decorator, LFD_SINKING);
       has_gain = tree_ssa_local_factoring_1 (decorator, LFD_HOISTING)
-                 || has_gain;
+	|| has_gain;
     }
 
   free_bb_decorator_list (decorator);

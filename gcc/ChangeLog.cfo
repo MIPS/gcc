@@ -1,3 +1,10 @@
+2005-11-21  Gabor Loki  <loki@gcc.gnu.org>
+
+	* fact-common.c (collect_family_siblings): Fix collecting sibling sets
+	for sinking. Add dump_cfg_info for dumping CFG.
+	* fact-common.h : Add declaration of dump_cfg_info.
+	* tree-ssa-lfact.c (lfact_iterative_hash_expr) : Fix hash computation.
+
 2005-11-18  Gabor Loki  <loki@gcc.gnu.org>
 
 	Merge from mainline at 2005-11-16
