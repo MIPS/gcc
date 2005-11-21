@@ -1,3 +1,210 @@
+2005-11-21  Paul Thomas  <pault@gcc.gnu.org
+
+	PR fortran/24223
+	* gfortran.dg/substring_equivalence.f90: New test.
+
+	PR fortran/24705
+	* gfortran.dg/auto_internal_assumed.f90: New test.
+
+2005-11-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/fold-div-2.c: New test.
+	
+2005-11-20  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24883
+	* gcc.c-torture/compile/pr24883.c: New test.
+
+2005-11-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR middle-end/20583
+	* gcc.c-torture/compile/pr20583.c: New.
+
+2005-11-20  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.c-torture/execute/usmul.c: New test.
+
+2005-11-19  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/vrp22.c: New test.
+
+2005-11-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/24912
+	* gcc.dg/torture/pr24912-1.c: New test.
+
+2005-11-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/24862
+	* gfortran.dg/arrayio_derived_1.f90: New test.
+
+2005-11-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23294
+	* gcc.dg/tree-ssa/pr23294.c: New testcase.
+
+2005-11-19  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/fold-overflow-1.c: Adjust for float output for mmix-*-*.
+
+2005-11-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8355
+	* g++.dg/template/friend39.C: New test.
+
+2005-11-18  James E Wilson  <wilson@specifix.com>
+
+	* gcc.dg/builtin-strstr.c: New.
+
+2005-11-18  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/ia64/20010423-1.c, gcc.target/ia64/20020313-1.c,
+	gcc.target/ia64/20020326-1.c, gcc.target/ia64/20030225-2.c,
+	gcc.target/ia64/20030405-1.c, gcc.target/ia64/20030811-1.c,
+	gcc.target/ia64/20040303-1.c: Move from gcc.dg/.
+	* gcc.target/ia64/asm-1.c, gcc.target/ia64/float80-1.c,
+	gcc.target/ia64/float80-2.c, gcc.target/ia64/got-1.c,
+	gcc.target/ia64/postinc-1.c, gcc.target/ia64/types-1.c,
+	gcc.target/ia64/types-2.c, gcc.target/ia64/visibility-1.c,
+	gcc.target/ia64/visibility-2.c: Move from gcc.dg/, with 
+	renaming to remove initial "ia64-".
+
+2005-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/run_all.sh (target_run): Revert 2005-11-17 patch.
+
+2005-11-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/cpp/string-2.C: New test.
+
+2005-11-18  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-14.c: New test.
+
+2005-11-17  James A. Morrison  <phython@gcc.gnu.org>
+            Michael Chamberlain <michael@chamberlain.net.au>
+
+	* ada/acats/run_all.sh (target_run): Kill long running tests.
+
+2005-11-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/cleanup-8.c: Enable test on hppa*-*-hpux*.
+	* gcc.dg/cleanup-9.c: Likewise.
+	* gcc.dg/cleanup-10.c: Likewise.
+	* gcc.dg/cleanup-11.c: Likewise.
+
+2005-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24892
+	* gfortran.dg/open_access_append_1.f90: New test.
+	* gfortran.dg/open_access_append_2.f90: New test.
+
+2005-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24851
+	* gcc.c-torture/execute/pr24851.c: New testcase.
+
+2005-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/fold-overflow-1.c: New test.
+
+2005-11-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.dg/cleanup-5.c, gcc.dg/cleanup-8.c, gcc.dg/cleanup-9.c,
+	gcc.dg/cleanup-10.c, gcc.dg/cleanup-11.c: Update for ARM EABI.
+
+2005-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/eh/forced1.C: Adjust to cope with ARM EABI
+	structures.
+	* g++.dg/eh/forced2.C: Likewise.
+	* g++.dg/eh/forced3.C: Likewise.
+	* g++.dg/eh/forced4.C: Likewise.
+
+2005-11-11  Mike Stump  <mrs@apple.com>
+
+	* g++.old-deja/g++.mike/unused.C: Add.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24667
+	* g++.dg/warn/Wcast-qual1.C: New test.
+
+2005-11-15  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/winline-5.c: Add large-unit-insns limit.
+
+2005-11-14  David Edelsohn  <edelsohn@gnu.org>
+
+	* g++.dg/eh/simd-2.C: XFAIL on AIX and SPE.
+
+2005-11-14  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24840
+	* gcc.dg/tree-ssa/pr24840.c: New test.
+
+2005-11-14  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/24841
+	* gcc.dg/attr-weakref-1.c: Rearrange test directives.
+
+2005-11-14  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/20051113-1.c:  New.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* g++.dg/template/crash43.C: New test. 
+
+2005-11-14  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.c-torture/unsorted/unsorted.exp: Sort tests before running them.
+
+2005-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24817
+	* g++.dg/eh/spec8.C: New test.
+
+2005-11-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/pack-test-1.c: Gate on ! default_packed.
+
+2005-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20293
+	* g++.dg/parse/ambig4.C: New test.
+	* g++.dg/tc1/dr101.C: Adjust error markers.
+	* g++.dg/lookup/strong-using-2.C: Likewise.
+	* g++.dg/lookup/ambig5.C: Likewise.
+	* g++.dg/lookup/ambig4.C: Likewise.
+	* g++.dg/parse/crash22.C: Likewise.
+
+2005-11-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/pr19340.c: Skip for mmix-*-* and cris-*-*.
+
+2005-11-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/nested-calls-1.c: New test.
+
+2005-11-13  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/complex_intrinsic_1.f90: New test.
+	* gfortran.dg/complex_intrinsic_2.f90: New test.
+	* gfortran.dg/fgetc_1.f90: New test.
+	* gfortran.dg/fgetc_2.f90: New test.
+	* gfortran.dg/fgetc_3.f90: New test.
+	* gfortran.dg/ftell_1.f90: New test.
+	* gfortran.dg/ftell_2.f90: New test.
+	* gfortran.dg/gnu_logical_1.F: New test.
+	* gfortran.dg/gnu_logical_2.f90: New test.
+
+2005-11-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24820
+	* testsuite/gcc.dg/pr24820.c: New test.
+
 2005-11-13  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/loop-2.c: Fix outcome.

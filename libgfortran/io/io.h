@@ -153,7 +153,7 @@ namelist_info;
 /* Options for the OPEN statement.  */
 
 typedef enum
-{ ACCESS_SEQUENTIAL, ACCESS_DIRECT,
+{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND,
   ACCESS_UNSPECIFIED
 }
 unit_access;
@@ -519,6 +519,9 @@ internal_proto(stream_isatty);
 
 extern char * stream_ttyname (stream *);
 internal_proto(stream_ttyname);
+
+extern gfc_offset stream_offset (stream *s);
+internal_proto(stream_offset);
 
 extern int unit_to_fd (int);
 internal_proto(unit_to_fd);

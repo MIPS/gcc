@@ -1,3 +1,90 @@
+2005-11-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8355
+	* decl.c (grokfndecl): Set up DECL_TEMPLATE_INFO before calling
+	set_decl_namespace.
+	* name-lookup.c (set_decl_namespace): 
+
+2005-11-18  Mike Stump  <mrs@apple.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_LOOKUP_NAME): Add.
+	* name-lookup.c (lookup_name_two): Remove.
+	(lookup_name_one): Add.
+	* name-lookup.h (lookup_name_two): Remove.
+	(lookup_name_one): Add.
+
+2005-11-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24580
+	* method.c (locate_copy): Also use skip_artificial_parms here.
+	(synthesize_exception_spec): Use CLASS_TYPE_P rather than checking
+	for RECORD_TYPE.
+	(locate_ctor): Abort if we fail to find a default constructor.
+
+2005-11-15  Mike Stump  <mrs@apple.com>
+
+	* name-lookup.c (lookup_name_two): Add.
+	* name-lookup.h: Likewise.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24667
+	* typeck.c (check_for_casting_away_constness): Use the diag_fn.
+	(build_const_cast_1): Call it, for C-style casts.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* pt.c (check_explicit_specialization): Don't check for C linkage.
+	(push_template_decl_real): Likewise.
+	* parser.c (cp_parser_explicit_specialization): Check here.
+	(cp_parser_template_declaration_after_export): And here.
+
+	* parser.c (cp_lexer_get_preprocessor_token): Initialize keyword
+	field.
+
+2005-11-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24580
+	* method.c (locate_ctor): Skip all artificial parms, not just
+	'this'.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (eof_token): Add initializer for ambiguous_p.
+
+2005-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24817
+	* decl.c (check_redeclaration_exception_specification): New
+	function.
+	(duplicate_decls): Use it.
+	* error.c (fndecl_to_string): Print the template parameter list.
+
+	PR c++/20293
+	* cxx-pretty-print.c (pp_cxx_statement): Print qualifying scopes
+	for namespaces.
+	(pp_cxx_original_namespace_definition): Likewise.
+	* name-lookup.c (ambiguous_decl): Don't issue error messages;
+	instead return lists of ambiguous candidates.
+	(select_decl): Handle ambiguous namespace lookups.
+	* parser.c (cp_token): Add ambiguous_p.
+	(cp_lexer_get_preprocessor_token): Set it.
+	(cp_parser_diagnose_invalid_type_name): Avoid duplicate messages
+	when a qualified name uses an invalid scope. 
+	(cp_parser_primary_expression): Print ambiguous candidates.
+	(cp_parser_type_parameter): Adjust comment to reflect new
+	parameter name for cp_parser_lookup_name.
+	(cp_parser_template_argument): Likewise.
+	(cp_parser_elaborated_type_specifier): Likewise.
+	(cp_parser_namespace_name): Likewise.
+	(cp_parser_class_name): Print ambiguous candidates.
+	(cp_parser_lookup_name): Rename ambiguous_p parameter to
+	ambiguous_decls.  Use it to return a list of ambiguous candiates
+	when a lookup is ambiguous.
+	(cp_parser_lookup_name_simple): Adjust comment to reflect new
+	parameter name for cp_parser_lookup_name.
+	
 2005-11-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/24780

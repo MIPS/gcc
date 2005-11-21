@@ -38,6 +38,10 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import java.awt.Shape;
+
+import javax.swing.event.DocumentEvent;
+
 /**
  * A {@link FlowView} that flows it's children horizontally and boxes the rows
  * vertically.
@@ -59,7 +63,32 @@ public class ParagraphView extends FlowView implements TabExpander
     {
       super(el, X_AXIS);
     }
+    public float getAlignment(int axis)
+    {
+      // FIXME: This is very likely not 100% correct. Work this out.
+      return 0.0F;
+    }
   }
+
+  /**
+   * The indentation of the first line of the paragraph.
+   */
+  protected int firstLineIndent;
+
+  /**
+   * The justification of the paragraph.
+   */
+  private int justification;
+
+  /**
+   * The line spacing of this paragraph.
+   */
+  private float lineSpacing;
+
+  /**
+   * The TabSet of this paragraph.
+   */
+  private TabSet tabSet;
 
   /**
    * Creates a new <code>ParagraphView</code> for the given
@@ -85,5 +114,119 @@ public class ParagraphView extends FlowView implements TabExpander
   protected View createRow()
   {
     return new Row(getElement());
+  }
+
+  /**
+   * Returns the alignment for this paragraph view for the specified axis.
+   * For the X_AXIS the paragraph view will be aligned at it's left edge
+   * (0.0F). For the Y_AXIS the paragraph view will be aligned at the
+   * center of it's first row.
+   *
+   * @param axis the axis which is examined
+   *
+   * @return the alignment for this paragraph view for the specified axis
+   */
+  public float getAlignment(int axis)
+  {
+    if (axis == X_AXIS)
+      return 0.0F;
+    else if (getViewCount() > 0)
+      {
+
+        float prefHeight = getPreferredSpan(Y_AXIS);
+        float firstRowHeight = getView(0).getPreferredSpan(Y_AXIS);
+        return (firstRowHeight / 2.F) / prefHeight;
+      }
+    else
+      return 0.0F;
+  }
+
+  /**
+   * Receives notification when some attributes of the displayed element
+   * changes. This triggers a refresh of the cached attributes of this
+   * paragraph.
+   *
+   * @param ev the document event
+   * @param a the allocation of this view
+   * @param fv the view factory to use for creating new child views
+   */
+  public void changedUpdate(DocumentEvent ev, Shape a, ViewFactory fv)
+  {
+    setPropertiesFromAttributes();
+  }
+
+  /**
+   * Fetches the cached properties from the element's attributes.
+   */
+  protected void setPropertiesFromAttributes()
+  {
+    Element el = getElement();
+    AttributeSet atts = el.getAttributes();
+    setFirstLineIndent(StyleConstants.getFirstLineIndent(atts));
+    setLineSpacing(StyleConstants.getLineSpacing(atts));
+    setJustification(StyleConstants.getAlignment(atts));
+    tabSet = StyleConstants.getTabSet(atts);
+  }
+
+  /**
+   * Sets the indentation of the first line of the paragraph.
+   *
+   * @param i the indentation to set
+   */
+  protected void setFirstLineIndent(float i)
+  {
+    firstLineIndent = (int) i;
+  }
+
+  /**
+   * Sets the justification of the paragraph.
+   *
+   * @param j the justification to set 
+   */
+  protected void setJustification(int j)
+  {
+    justification = j;
+  }
+
+  /**
+   * Sets the line spacing for this paragraph.
+   *
+   * @param s the line spacing to set
+   */
+  protected void setLineSpacing(float s)
+  {
+    lineSpacing = s;
+  }
+
+  /**
+   * Returns the i-th view from the logical views, before breaking into rows.
+   *
+   * @param i the index of the logical view to return
+   *
+   * @return the i-th view from the logical views, before breaking into rows
+   */
+  protected View getLayoutView(int i)
+  {
+    return layoutPool.getView(i);
+  }
+
+  /**
+   * Returns the number of logical child views.
+   *
+   * @return the number of logical child views
+   */
+  protected int getLayoutViewCount()
+  {
+    return layoutPool.getViewCount();
+  }
+
+  /**
+   * Returns the TabSet used by this ParagraphView.
+   *
+   * @return the TabSet used by this ParagraphView
+   */
+  protected TabSet getTabSet()
+  {
+    return tabSet;
   }
 }

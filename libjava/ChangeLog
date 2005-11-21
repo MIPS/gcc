@@ -1,3 +1,259 @@
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath gcj-import-20051117.
+	* gnu/java/net/protocol/file/Connection.java: Removed, fully merged.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/net/protocol/file/Handler.java: Removed, fully merged now.
+	* java/net/ServerSocket.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	Fixes bug #24006
+	* java/net/ServerSocket.java (implAccept): Set Socket.bound to true.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/ServerSocket.java (accept): Use correct security manager
+	call.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/ServerSocket.java
+	(bound): Removed.
+	(local): New field.
+	(bind): Cache local socket address.
+	(getInetAddress, getLocalPort, getLocalSocketAddress, isBound):
+	Use cached local socket address.
+	(close): bound field was removed.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLConnection.java (setDoInput): Javadoc fix.
+	(setDoOutput): Likewise.
+	(setContentHandlerFactory): Likewise.
+	(setFileNameMap): Likewise.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLClassloader.java (addURLs): Add comment about jboss.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLClassLoader.java (addURLs): Don't call addURL(), but
+	call urls.add() and addURLImpl() directly on each URL.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (definePackage): Javadoc fixes.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URLClassLoader.java
+	(Resource.name): Removed field.
+	(JarURLResource.name): Added field.
+	(FileResource.getURL): Use File.toURL() instead of doing it in
+	a way that breaks on Windows.
+
+2005-11-17  Roman Kennke  <roman@kennke.org>
+
+	Reported by: Ingo Proetel  <proetel@aicas.com>
+	* java/net/URLClassLoader.java
+	(findClass): Added null check to avoid NullPointerException.
+
+2005-11-17  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/net/URLClassLoader.java: reordered some API doc comments to
+	suppress Eclipse warnings, and fixed API doc link.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (URLClassLoader): Removed
+	unused constructor.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URLClassLoader (findClass): Close InputStream after we're
+	done with it.
+
+2005-11-17  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Implement -Xss.
+	* include/jvm.h (gcj::stack_size): Declare.
+	(_Jv_StackSize): Declare.
+	* posix-threads.cc (_Jv_InitThreads): Validate gcj::stack_size.
+	(_Jv_ThreadStart): Set stack size if specified.
+	* prims.cc (gcj::stack_size): Define.
+	(parse_memory_size): Renamed from parse_heap_size.
+	(_Jv_SetStackSize): Parse stack size argument and set 
+	gcj::stack_size.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/SimpleDateFormat.java: Removed, fully merged now.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-17  Sven de Marothy  <sven@physto.se>
+
+	* java/text/SimpleDateFormat.java
+	(computeOffset): Allow timezone to be first in the parsed String.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/SimpleDateFormat.java (field, size): Make package private.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/SimpleDateFormat.java (compileFormat): Correctly
+	handle quoted single quotes.  PR classspath/23183.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/SimpleDateFormat.java (compileFormat): Reformatted.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/DateFormat.java (serialVersionUID): New field.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/DateFormat.java (equals): Reimplement.
+
+2005-11-17  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/text/Collator.java: API doc fixes,
+	* java/text/DateFormat.java: likewise,
+	* java/text/DecimalFormatSymbols.java: likewise,
+	* java/text/DateFormatSymbols.java: likewise,
+	* java/text/SimpleDateFormat.java: likewise.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/text/Collator.java (getInstance(Locale)):
+	Added default collation pattern to handle case when resource
+	is missing and throw InternalError instead of returning null
+	should parsing fail.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java: Removed, fully merged now.
+	* java/util/zip/ZipFile.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  Tom Tromey  <tromey@redhat.com>
+
+	classpath/23890:
+	* java/util/Calendar.java (equals): Include other calendar
+	attributes.
+	(hashCode): Updated.
+	* java/util/GregorianCalendar.java (hashCode): New method.
+	(equals): Use super.equals().
+
+2005-11-15  Sven de Marothy  <sven@physto.se>
+
+	* java/util/Calendar (setTimeInMillis): Recompute time fields.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/SimpleTimeZone.java: Removed, fully merged now.
+	* java/util/Date.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/util/Calendar.java: fixed minor problems in API docs,
+	* java/util/Date.java: likewise,
+	* java/util/ResourceBundle.java: likewise,
+	* java/util/SimpleTimeZone.java: likewise,
+
+2005-11-15  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java
+	(parseContent): Removed bogus println and fixed bug #24422.
+		
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/ObjectStreamClass.java: Removed, fully merged now.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  Wolfgang Baer  <WBaer@gmx.de>
+
+	* java/io/ObjectInputStream.java
+	(processResolution): Pass Error, RuntimeException and
+	ObjectStreamException through to the caller.
+	(readObject): Documentation update.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.19 + gcj-import-20051115.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+	* scripts/makemake.tcl: Use glob -nocomplain.
+
+2005-11-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* Makefile.in: Re-generated.
+	* gnu/awt/xlib/XGraphicsDevice.java: New file.
+	* gnu/awt/xlib/XToolkit.java
+	(getLocalGraphicsEnvironment): Implemented. 
+	* gnu/awt/xlib/XGraphicsEnvironment.java: New file.
+	* sources.am: Re-generated.
+
+2005-15-09  David Daney <ddaney@avtrex.com>
+
+	PR libgcj/15430
+	* gnu/java/net/natPlainSocketImplPosix.cc (throw_on_sock_closed): New
+	function.
+	(accept): Call it.
+	(close): Call shutdown before closing.
+	(read()): Call read_helper with proper parameters.
+	(read(buffer, int, int)): Likewise.
+	(read_helper):  Pass pointer to the PlainSocketImpl, remove native_fd
+	and timeout parameters.  Make prototype to match. Use 
+	pointer to PlainSocketImpl to access members. Call throw_on_sock_closed
+	in two places.
+
+2005-11-15  Andrew Haley  <aph@redhat.com>
+
+	* Merge from Classpath head:
+
+   2005-09-16  Andrew Haley  <aph@redhat.com>
+   
+           * java/io/ObjectStreamClass.java (findAccessibleMethod): Allow
+           protected readResolve().  Rewrite accessibility check.
+   
+   2005-07-07  Jeroen Frijters  <jeroen@frijters.net>
+   
+           * java/io/ObjectStreamClass.java
+           (findAccessibleMethod): Added code to make method accessible.
+   
+   2005-07-03  Daniel Bonniot  <bonniot@users.sf.net>
+   
+           * java/io/ObjectStreamClass.java (inSamePackage): New private method.
+           (findAccessibleMethod): Likewise.
+           (cacheMethods): Lookup readResolve and writeReplace using the new
+           findAccessibleMethod().
+   
+2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/net/natVMNetworkInterfaceWin32.cc: Include
+	java/net/VMNetworkInterface.h.
+
+2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
+	    David Daney  <ddaney@avtrex.com>
+
+	* gnu/java/net/natPlainSocketImplWin32.cc: Updated copyright.
+	(read): Handle count == 0 case.
+
 2005-11-09  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.jacks/jacks.xfail (non-jls-zip-2): Now

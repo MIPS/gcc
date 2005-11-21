@@ -47,7 +47,10 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Hashtable;
+import java.util.Locale;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
@@ -60,6 +63,12 @@ import java.util.zip.ZipFile;
  */
 public final class Connection extends JarURLConnection
 {
+  /**
+   * HTTP-style DateFormat, used to format the last-modified header.
+   * Lazy initialized since jar files are used during bootstrapping.
+   */
+  private static SimpleDateFormat dateFormat;
+
   private JarFile jar_file;
   private JarEntry jar_entry;
   private URL jar_url;
@@ -69,16 +78,22 @@ public final class Connection extends JarURLConnection
     private static Hashtable cache = new Hashtable();
     private static final int READBUFSIZE = 4*1024;
     
-    public static synchronized JarFile get (URL url) throws IOException
+    public static synchronized JarFile get (URL url, boolean useCaches)
+       throws IOException
     {
-      JarFile jf = (JarFile) cache.get (url);
+      JarFile jf;
+      if (useCaches)
+        {
+          jf = (JarFile) cache.get (url);
+          if (jf != null)
+            return jf;
+        }
 
-      if (jf != null)
-        return jf;
-      
       if ("file".equals (url.getProtocol()))
 	{
-	  File f = new File (url.getFile());
+	  String fn = url.getFile();
+	  fn = gnu.java.net.protocol.file.Connection.unquote(fn);
+	  File f = new File (fn);
 	  jf = new JarFile (f, true, ZipFile.OPEN_READ);
 	}
       else
@@ -100,9 +115,10 @@ public final class Connection extends JarURLConnection
 	  jf = new JarFile (f, true,
 			    ZipFile.OPEN_READ | ZipFile.OPEN_DELETE);
 	}
-          
-      cache.put (url, jf);
-      
+
+      if (useCaches)
+        cache.put (url, jf);
+
       return jf;
     }
   }
@@ -120,7 +136,7 @@ public final class Connection extends JarURLConnection
       return;
 
     jar_url = getJarFileURL();
-    jar_file = JarFileCache.get (jar_url);
+    jar_file = JarFileCache.get (jar_url, useCaches);
     String entry_name = getEntryName();
     
     if (entry_name != null
@@ -160,11 +176,58 @@ public final class Connection extends JarURLConnection
     return jar_file;
   }
 
+  public String getHeaderField(String field)
+  {
+    try
+      {
+	if (!connected)
+	  connect();
+
+	if (field.equals("content-type"))
+          return guessContentTypeFromName(getJarEntry().getName());
+	else if (field.equals("content-length"))
+          return Long.toString(getJarEntry().getSize());
+	else if (field.equals("last-modified"))
+	  {
+	    // Both creating and manipulating dateFormat need synchronization.
+	    synchronized (this.getClass())
+	      {
+		if (dateFormat == null)
+		  dateFormat = new SimpleDateFormat
+		    ("EEE, dd MMM yyyy hh:mm:ss 'GMT'",
+		     new Locale ("En", "Us", "Unix"));
+
+        	return dateFormat.format(new Date(getJarEntry().getTime()));
+	      }
+	  }
+      }
+    catch (IOException e)
+      {
+        // Fall through.
+      }
+    return null;
+  }
+
   public int getContentLength()
   {
     if (!connected)
       return -1;
 
     return (int) jar_entry.getSize();
+  }
+
+  public long getLastModified()
+  {
+    if (!connected)
+      return -1;
+
+    try
+      {
+	return getJarEntry().getTime();
+      }
+    catch (IOException e)
+      {
+	return -1;
+      }
   }
 }
