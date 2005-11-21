@@ -1,5 +1,20 @@
 2005-11-22  Ben Elliston  <bje@au.ibm.com>
 
+	* cse.c (fold_rtx): Typo fix.
+	(find_comparison_args): Pass the mode of arg1, not arg1 itself.
+
+2005-11-21  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c, config/darwin-c.c, c-decl.c, c-tree.h, c-objc-common.h,
+	langhooks-def.h, langhooks.h: Revert 2005-11-18 lookup_name patch.
+
+	* c-tree.h (lookup_name): Move declaration ...
+	* c-common.h (lookup_name): ... here.
+	* config/darwin-c.c: Include c-common.h.
+	* config/t-darwin: Update dependencies.
+
+2005-11-22  Ben Elliston  <bje@au.ibm.com>
+
 	* optabs.c (expand_abs_nojump): Use SCALAR_FLOAT_MODE_P instead of
 	explicitly testing GET_MODE_CLASS (x) == MODE_FLOAT.
 	* genopinit.c (gen_insn): Likewise.
