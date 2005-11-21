@@ -1434,6 +1434,24 @@ linux*)
   # people can always --disable-shared, the test was removed, and we
   # assume the GNU/Linux dynamic linker is in use.
   dynamic_linker='GNU/Linux ld.so'
+
+  # Find out which ABI we are using.
+  case "$host_cpu" in
+  x86_64*|s390*|sparc*|ppc*|powerpc*)
+    AC_LANG_PUSH(C)
+    lt_linux_biarch_save_CC="$CC"
+    CC="${LTCC-$CC}"
+    echo 'int i;' > conftest.$ac_ext
+    if AC_TRY_EVAL(ac_compile); then
+      case "`/usr/bin/file conftest.o`" in
+      *64-bit*) sys_lib_dlsearch_path_spec="/lib64 /usr/lib64";;
+      esac
+    fi
+    rm -rf conftest*
+    CC="$lt_linux_biarch_save_CC"
+    AC_LANG_POP
+    ;;
+  esac
   ;;
 
 netbsd*)

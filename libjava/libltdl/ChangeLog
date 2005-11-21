@@ -1,3 +1,10 @@
+2005-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* acinclude.m4 (AC_LIBTOOL_SYS_DYNAMIC_LINKER): Set
+	sys_lib_dlsearch_path_spec on bi-arch linux architectures
+	for 64-bit builds.
+	* configure: Rebuilt.
+
 2005-09-20  Release Manager
 
 	* GCC 4.0.2 released.
