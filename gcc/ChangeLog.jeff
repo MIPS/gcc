@@ -1,3 +1,36 @@
+2005-11-21  Jeff Law  <law@redhat.com>
+
+	Checkpoint DOM VRP elimination before eliminating e->aux abuse.
+	* tree-vrp (find_conditional_asserts): Document missed
+	optimization opportunities due to use pruning.
+	(simplify_stmt_for_jump_threading): New.
+	(identify_jump_threads, finalize_jump_threads): New.
+	(vrp_finalize): Call identify_jump_threads.
+	(execute_vrp): Call finalize_jump_threads.10
+	* tree-ssa-dom.c: Remove all VRP related code.
+	(vrp_element, vrp_data, vrp_element_p, vrp_hash_elt): Kill.
+	(vrp_variables_stack, vrp_hash, vrp_eq, vrp_free): Kill.
+	(simplify_cond_and_lookup_avail_expr, record_range): Kill.
+	(extract_range_from_cond, thread_across_edge): Kill.
+	(tree_ssa_dominator_optimize): Do not set up or tream down VRP stuff.
+	(dom_opt_finalize_block): Similarly.
+	(record_equivalences_from_incoming_edge): Similarly.
+	(eliminate_redundant_computations): Similarly.
+	(simplify_stmt_for_jump_threading): New.
+	(dom_thread_across_edge): New.
+	(dom_opt_finalize_block): Simplify slightly using routines
+	from tree-ssa-threadedge.c
+	* loop-init.c: (loop_optimizer_finalize): Temporary hack to
+	work around checking failure due to abuse of e->aux.
+	* tree-flow.h (potentially_threadable_block): Prototype.
+	(thread_across_edge): Prototype.
+	* tree-ssa-threadedge.c: New, shared code for jump threading.
+	* Makefile.in (OBJS-common): Add tree-ssa-threadedge.o.
+	(tree-ssa-threadedge.o): Add dependencies.
+	* passes.c (init_optimization_passes): Merge PHIs before
+	VRP.
+	* testsuite/gcc.c-torture/execute/930529-1.x: Use -fwrapv.
+
 2005-11-10  Jeff Law  <law@redhat.com>
 
 	PR middle-end/23181

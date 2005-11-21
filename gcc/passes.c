@@ -489,9 +489,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dce);
-  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_dominator);
 
   /* The only copy propagation opportunities left after DOM

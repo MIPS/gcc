@@ -2571,7 +2571,24 @@ find_conditional_asserts (basic_block bb)
       /* Remove the COND_EXPR operands from the FOUND_IN_SUBGRAPH bitmap.
 	 Otherwise, when we finish traversing each of the sub-graphs, we
 	 won't know whether the variables were found in the sub-graphs or
-	 if they had been found in a block upstream from BB.  */
+	 if they had been found in a block upstream from BB. 
+
+	 This is actually a bad idea is some cases, particularly jump
+	 threading.  Consider a CFG like the following:
+
+                    0
+                   /|
+                  1 |
+                   \|
+                    2
+                   / \
+                  3   4
+
+	 Assume that one or more operands in the conditional at the
+	 end of block 0 are used in a conditional in block 2, but not
+	 anywhere in block 1.  In this case we will not insert any
+	 assert statements in block 1, which may cause us to miss
+	 opportunities to optimize, particularly for jump threading.  */
       FOR_EACH_SSA_TREE_OPERAND (op, last, iter, SSA_OP_USE)
 	RESET_BIT (found_in_subgraph, SSA_NAME_VERSION (op));
 
@@ -4018,6 +4035,179 @@ simplify_stmt_using_ranges (tree stmt)
     }
 }
 
+/* Bitmap indicating which blocks we can thread one or more incoming
+   edges to specific outgoing edges.   This is used to efficiently
+   communicate which blocks are worth examining in the code to update
+   the CFG and SSA graphs in response to optimizing a jump threading
+   opportunity.  */
+bitmap threaded_blocks;
+
+/* Stack of dest,src equivalency pairs that need to be restored after
+   each attempt to thread a block's incoming edge to an outgoing edge. 
+
+   A NULL entry is used to mark the end of pairs which need to be
+   restored.  */
+static VEC(tree,heap) *stack;
+
+/* A trivial wrapper so that we can present the generic jump
+   threading code with a simple API for simplifying statements.  */
+static tree
+simplify_stmt_for_jump_threading (tree stmt)
+{
+  /* We only use VRP information to simplify conditionals.  This is
+     overly conservative, but it's unclear if doing more would be
+     worth the compile time cost.  */
+  if (TREE_CODE (stmt) != COND_EXPR)
+    return NULL;
+
+  return vrp_evaluate_conditional (COND_EXPR_COND (stmt), true);
+}
+
+/* Blocks which have more than one predecessor and more than
+   one successor present jump threading opportunities.  ie,
+   when the block is reached from a specific predecessor, we
+   may be able to determine which of the outgoing edges will
+   be traversed.  When this optimization applies, we are able
+   to avoid conditionals at runtime and we may expose secondary
+   optimization opportunities.
+
+   This routine is effectively a driver for the generic jump
+   threading code.  It basically just presents the generic code
+   with edges that may be suitable for jump threading.
+
+   Unlike DOM, we do not iterate VRP if jump threading was successful.
+   While iterating may expose new opportunities for VRP, it is expected
+   those opportunities would be very limited and the compile time cost
+   to expose those opportunities would be significant. 
+
+   At the end of this function each edge which can be threaded to
+   a new destination will have that new destination recorded in
+   e->aux.  Furthermore, blocks which have had incoming edges
+   threaded will be marked in the THREADED_BLOCKS bitmap.  */
+static void
+identify_jump_threads (void)
+{
+  basic_block bb;
+  tree dummy;
+
+  /* Ugh.  When substituting values earlier in this pass we can
+     wipe the dominance information.  So rebuild the dominator
+     information as we need it within the jump threading code.  */
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  /* We do not allow VRP information to be used for jump threading
+     across a back edge in the CFG.  Otherwise it becomes too
+     difficult to avoid eliminating loop exit tests.  Of course
+     EDGE_DFS_BACK is not accurate at this time so we have to
+     recompute it.  */
+  mark_dfs_back_edges ();
+
+  /* Allocate our bitmap indicating which blocks had incoming
+     edges threaded and the unwinder stack to unwind any temporary
+     equivalences that might be recorded.  */
+  threaded_blocks = BITMAP_ALLOC (NULL);
+  stack = VEC_alloc (tree, heap, 20);
+
+  /* To avoid lots of silly node creation, we create a single
+     conditional and just modify it in-place when attempting to
+     thread jumps.  */
+  dummy = build (EQ_EXPR, boolean_type_node, NULL, NULL);
+  dummy = build (COND_EXPR, void_type_node, dummy, NULL, NULL);
+
+  /* Walk through all the blocks finding those which present a
+     potential jump threading opportunity.  We could set this up
+     as a dominator walker and record data during the walk, but
+     I doubt it's worth the effort for the classes of jump
+     threading opportunities we are trying to identify at this
+     point in compilation.  */
+  FOR_EACH_BB (bb)
+    {
+      tree last, cond;
+
+      /* If the generic jump threading code does not find this block
+	 interesting, then there is nothing to do.  */
+      if (! potentially_threadable_block (bb))
+	continue;
+
+      /* We only care about blocks ending in a COND_EXPR.  While there
+	 may be some value in handling SWITCH_EXPR here, I doubt it's
+	 terribly important.  */
+      last = bsi_stmt (bsi_last (bb));
+      if (TREE_CODE (last) != COND_EXPR)
+	continue;
+
+      /* We're basically looking for any kind of conditional with
+	 integral type arguments.  */
+      cond = COND_EXPR_COND (last);
+      if ((TREE_CODE (cond) == SSA_NAME
+	   && INTEGRAL_TYPE_P (TREE_TYPE (cond)))
+	  || (COMPARISON_CLASS_P (cond)
+	      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+	      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 0)))
+	      && (TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME
+		  || is_gimple_min_invariant (TREE_OPERAND (cond, 1)))
+	      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1)))))
+	{
+	  edge_iterator ei;
+	  edge e;
+
+	  /* We've got a block with multiple predecessors and multiple
+	     successors which also ends in a suitable conditional.  For
+	     each predecessor, see if we can thread it to a specific
+	     successor.  */
+	  FOR_EACH_EDGE (e, ei, bb->preds)
+	    {
+	      edge taken_edge;
+
+	      /* Do not thread across back edges or abnormal edges
+		 in the CFG.  */
+	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+		continue;
+
+	      taken_edge
+		= thread_across_edge (dummy,
+				      e,
+				      &stack,
+				      simplify_stmt_for_jump_threading);
+
+	      /* If successful, record the jump threading opportunity.  */
+	      if (taken_edge)
+		{
+		  e->aux = taken_edge;
+		  bitmap_set_bit (threaded_blocks, bb->index);
+		}
+	    }
+	}
+    }
+
+  /* We do not actually update the CFG or SSA graphs at this point as
+     ASSERT_EXPRs are still in the IL and cfg cleanup code does not yet
+     handle ASSERT_EXPRs gracefully.  */
+}
+
+/* We identified all the jump threading opportunities earlier, but could
+   not transform the CFG at that time.  This routine transforms the
+   CFG and arranges for the dominator tree to be rebuilt if necessary.
+
+   Note the SSA graph update will occur during the normal TODO
+   processing by the pass manager.  */
+static void
+finalize_jump_threads (void)
+{
+  bool cfg_altered = false;
+  cfg_altered = thread_through_all_blocks (threaded_blocks);
+
+  /* If we threaded jumps, then we need to recompute the dominance
+     information, to safely do that we must clean up the CFG first.  */
+  if (cfg_altered)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      cleanup_tree_cfg ();
+      calculate_dominance_info (CDI_DOMINATORS);
+    }
+  BITMAP_FREE (threaded_blocks);
+  VEC_free (tree, heap, stack);
+}
 
 
 /* Traverse all the blocks folding conditionals with known ranges.  */
@@ -4061,6 +4251,10 @@ vrp_finalize (void)
     }
 
   substitute_and_fold (single_val_range, true);
+
+  /* We must identify jump threading opportunities before we release
+     the datastructures built by VRP.  */
+  identify_jump_threads ();
 
   /* Free allocated memory.  */
   for (i = 0; i < num_ssa_names; i++)
@@ -4139,7 +4333,21 @@ execute_vrp (void)
       current_loops = NULL;
     }
 
+  /* XXX The fundamental problem here is we need e->aux to hold
+     jump threading information, but we want to peek at that
+     in the checking code called via loop_optimizer_finalize.
+
+     I've never liked abusing e->aux in this manner, so I'll
+     be looking at some other means of communicating this information
+     to the jump thread updating code.  A hash table is the most
+     likely approach.  */
+
+  /* ASSERT_EXPRs must be removed before finalizing jump threads
+     as finalizing jump threads calls the CFG cleanup code which
+     does not properly handle ASSERT_EXPRs.  */
   remove_range_assertions ();
+  finalize_jump_threads ();
+
 }
 
 static bool

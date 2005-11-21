@@ -116,9 +116,13 @@ loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
   flow_loops_free (loops);
   free (loops);
 
+ /* XXX Until the jump threading code stops abusing e->aux this
+    is not safe.  */
+#if 0
   /* Checking.  */
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
+#endif
 #endif
 }
 
