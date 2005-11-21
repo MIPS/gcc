@@ -1725,7 +1725,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      I2 and not in I3, a REG_DEAD note must be made.  */
   rtx i3dest_killed = 0;
   /* SET_DEST and SET_SRC of I2 and I1.  */
-  rtx i2dest, i2src, i2src_orig, i1dest = 0, i1src = 0;
+  rtx i2dest, i2src, i1dest = 0, i1src = 0;
   /* PATTERN (I2), or a copy of it in certain cases.  */
   rtx i2pat;
   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
@@ -2071,36 +2071,6 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
   subst_insn = i3;
 
-  /* It is possible that the source of I2 or I1 may be performing an
-     unneeded operation, such as a ZERO_EXTEND of something that is known
-     to have the high part zero.  Handle that case by letting subst look at
-     the innermost one of them.
-
-     Another way to do this would be to have a function that tries to
-     simplify a single insn instead of merging two or more insns.  We don't
-     do this because of the potential of infinite loops and because
-     of the potential extra memory required.  However, doing it the way
-     we are is a bit of a kludge and doesn't catch all cases.
-
-     But only do this if -fexpensive-optimizations since it slows things down
-     and doesn't usually win.  */
-
-  i2src_orig = copy_rtx (i2src);
-  if (flag_expensive_optimizations)
-    {
-      /* Pass pc_rtx so no substitutions are done, just simplifications.  */
-      if (i1)
-	{
-	  subst_low_cuid = INSN_CUID (i1);
-	  i1src = subst (i1src, pc_rtx, pc_rtx, 0, 0);
-	}
-      else
-	{
-	  subst_low_cuid = INSN_CUID (i2);
-	  i2src = subst (i2src, pc_rtx, pc_rtx, 0, 0);
-	}
-    }
-
 #ifndef HAVE_cc0
   /* Many machines that don't use CC0 have insns that can both perform an
      arithmetic operation and set the condition code.  These operations will
@@ -2111,10 +2081,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      match such a pattern and so will generate an extra insn.   Here we test
      for this case, where both the comparison and the operation result are
      needed, and make the PARALLEL by just replacing I2DEST in I3SRC with
-     I2SRC_ORIG.  Later we will make the PARALLEL that contains I2.  We
-     need to use I2SRC_ORIG in place of I2SRC because the unmodified I2PAT
-     is used in this PARALLEL, and I2SRC may have been simplified (e.g.,
-     by expanding sign_extends).  */
+     I2SRC.  Later we will make the PARALLEL that contains I2.  */
 
   if (i1 == 0 && added_sets_2 && GET_CODE (PATTERN (i3)) == SET
       && GET_CODE (SET_SRC (PATTERN (i3))) == COMPARE
@@ -2127,7 +2094,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 #endif
 
       newpat = PATTERN (i3);
-      SUBST (XEXP (SET_SRC (newpat), 0), i2src_orig);
+      SUBST (XEXP (SET_SRC (newpat), 0), i2src);
 
       i2_is_used = 1;
 
@@ -2141,7 +2108,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	  && (cc_use = find_single_use (SET_DEST (newpat), i3,
 					&undobuf.other_insn))
 	  && ((compare_mode = SELECT_CC_MODE (GET_CODE (*cc_use),
-					      i2src_orig, const0_rtx))
+					      i2src, const0_rtx))
 	      != GET_MODE (SET_DEST (newpat))))
 	{
 	  if (can_change_dest_mode(SET_DEST (newpat), added_sets_2,
@@ -2156,7 +2123,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      SUBST (SET_DEST (newpat), new_dest);
 	      SUBST (XEXP (*cc_use, 0), new_dest);
 	      SUBST (SET_SRC (newpat),
-		     gen_rtx_COMPARE (compare_mode, i2src_orig, const0_rtx));
+		     gen_rtx_COMPARE (compare_mode, i2src, const0_rtx));
 	    }
 	  else
 	    undobuf.other_insn = 0;
@@ -2166,6 +2133,41 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   else
 #endif
     {
+      /* It is possible that the source of I2 or I1 may be performing
+	 an unneeded operation, such as a ZERO_EXTEND of something
+	 that is known to have the high part zero.  Handle that case
+	 by letting subst look at the innermost one of them.
+
+	 Another way to do this would be to have a function that tries
+	 to simplify a single insn instead of merging two or more
+	 insns.  We don't do this because of the potential of infinite
+	 loops and because of the potential extra memory required.
+	 However, doing it the way we are is a bit of a kludge and
+	 doesn't catch all cases.
+
+	 But only do this if -fexpensive-optimizations since it slows
+	 things down and doesn't usually win.
+
+	 This is not done in the COMPARE case above because the
+	 unmodified I2PAT is used in the PARALLEL and so a pattern
+	 with a modified I2SRC would not match.  */
+
+      if (flag_expensive_optimizations)
+	{
+	  /* Pass pc_rtx so no substitutions are done, just
+	     simplifications.  */
+	  if (i1)
+	    {
+	      subst_low_cuid = INSN_CUID (i1);
+	      i1src = subst (i1src, pc_rtx, pc_rtx, 0, 0);
+	    }
+	  else
+	    {
+	      subst_low_cuid = INSN_CUID (i2);
+	      i2src = subst (i2src, pc_rtx, pc_rtx, 0, 0);
+	    }
+	}
+
       n_occurrences = 0;		/* `subst' counts here */
 
       /* If I1 feeds into I2 (not into I3) and I1DEST is in I1SRC, we
@@ -2173,7 +2175,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	 to avoid self-referential rtl.  */
 
       subst_low_cuid = INSN_CUID (i2);
-      newpat = subst (PATTERN (i3), i2dest, i2src_orig, 0,
+      newpat = subst (PATTERN (i3), i2dest, i2src, 0,
 		      ! i1_feeds_i3 && i1dest_in_i1src);
       substed_i2 = 1;
 
