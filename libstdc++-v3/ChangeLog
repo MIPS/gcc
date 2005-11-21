@@ -1,3 +1,11 @@
+2005-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2005-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Set default for linux
+	and bsd to new_allocator.
+	* configure: Regenerate.
+
 2005-11-14  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/24808
