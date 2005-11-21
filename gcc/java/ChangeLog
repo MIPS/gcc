@@ -1,3 +1,8 @@
+2005-07-13  Tom Tromey  <tromey@redhat.com>
+
+	* jvspec.c (lang_specific_driver): Put filelist_filename first on
+	command line.
+
 2005-11-08  Terry Laurenzo  <tlaurenzo@gmail.com>
 
 	PR java/20993
