@@ -1218,12 +1218,6 @@ static int cfa_offset;
 #endif
 #endif
 
-/* On most machines, the CFA coincides with the first incoming parm.  */
-
-#ifndef ARG_POINTER_CFA_OFFSET
-#define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
-#endif
-
 
 /* Pass through the INSNS of function FNDECL and convert virtual register
    references to hard register references.  */
