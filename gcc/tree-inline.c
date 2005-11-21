@@ -385,6 +385,7 @@ remap_block (tree *block, inline_data *id)
   new_block = make_node (BLOCK);
   TREE_USED (new_block) = TREE_USED (old_block);
   BLOCK_ABSTRACT_ORIGIN (new_block) = old_block;
+  BLOCK_SOURCE_LOCATION (new_block) = BLOCK_SOURCE_LOCATION (old_block);
   *block = new_block;
 
   /* Remap its variables.  */
@@ -1613,6 +1614,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   expr = build (BIND_EXPR, void_type_node, NULL_TREE,
 		stmt, make_node (BLOCK));
   BLOCK_ABSTRACT_ORIGIN (BIND_EXPR_BLOCK (expr)) = fn;
+  BLOCK_SOURCE_LOCATION (BIND_EXPR_BLOCK (expr)) = input_location;
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
