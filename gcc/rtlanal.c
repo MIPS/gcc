@@ -2212,7 +2212,7 @@ may_trap_p_1 (rtx x, bool unaligned_mems)
 
     default:
       /* Any floating arithmetic may trap.  */
-      if (SCALAR_FLOAT_MODE_P (GET_MODE(x))
+      if (SCALAR_FLOAT_MODE_P (GET_MODE (x))
 	  && flag_trapping_math)
 	return 1;
     }
