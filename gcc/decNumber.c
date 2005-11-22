@@ -304,14 +304,14 @@ decNumberToString (decNumber * dn, char *string)
 {
   decToString (dn, string, 0);
   return string;
-}				/* DecNumberToString */
+}
 
 char *
 decNumberToEngString (decNumber * dn, char *string)
 {
   decToString (dn, string, 1);
   return string;
-}				/* DecNumberToEngString */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-number -- conversion from numeric string                        */
@@ -614,7 +614,7 @@ decNumberFromString (decNumber * dn, char chars[], decContext * set)
   if (status != 0)
     decStatus (dn, status, set);
   return dn;
-}				/* decNumberFromString */
+}
 
 /* ================================================================== */
 /* Operators                                                          */
@@ -651,7 +651,7 @@ decNumberAbs (decNumber * res, decNumber * rhs, decContext * set)
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberAbs */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberAdd -- add two Numbers                                    */
@@ -675,7 +675,7 @@ decNumberAdd (decNumber * res, decNumber * lhs, decNumber * rhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberAdd */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberCompare -- compare two Numbers                            */
@@ -698,7 +698,7 @@ decNumberCompare (decNumber * res, decNumber * lhs, decNumber * rhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberCompare */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberDivide -- divide one number by another                    */
@@ -721,7 +721,7 @@ decNumberDivide (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberDivide */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberDivideInteger -- divide and return integer quotient       */
@@ -744,7 +744,7 @@ decNumberDivideInteger (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberDivideInteger */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberMax -- compare two Numbers and return the maximum         */
@@ -767,7 +767,7 @@ decNumberMax (decNumber * res, decNumber * lhs, decNumber * rhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberMax */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberMin -- compare two Numbers and return the minimum         */
@@ -790,7 +790,7 @@ decNumberMin (decNumber * res, decNumber * lhs, decNumber * rhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberMin */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberMinus -- prefix minus operator                            */
@@ -822,7 +822,7 @@ decNumberMinus (decNumber * res, decNumber * rhs, decContext * set)
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberMinus */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberPlus -- prefix plus operator                              */
@@ -856,7 +856,7 @@ decNumberPlus (decNumber * res, decNumber * rhs, decContext * set)
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberPlus */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberMultiply -- multiply two Numbers                          */
@@ -879,7 +879,7 @@ decNumberMultiply (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberMultiply */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberNormalize -- remove trailing zeros                        */
@@ -941,7 +941,7 @@ decNumberNormalize (decNumber * res, decNumber * rhs, decContext * set)
   if (status != 0)
     decStatus (res, status, set);	/* then report status */
   return res;
-}				/* decNumberNormalize */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberPower -- raise a number to an integer power               */
@@ -1222,7 +1222,7 @@ decNumberPower (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberPower */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberQuantize -- force exponent to requested value             */
@@ -1251,7 +1251,7 @@ decNumberQuantize (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberRescale */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberRescale -- force exponent to requested value              */
@@ -1280,7 +1280,7 @@ decNumberRescale (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberRescale */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberRemainder -- divide and return remainder                  */
@@ -1303,7 +1303,7 @@ decNumberRemainder (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberRemainder */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberRemainderNear -- divide and return remainder from nearest */
@@ -1326,7 +1326,7 @@ decNumberRemainderNear (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberRemainderNear */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberSameQuantum -- test for equal exponents                   */
@@ -1363,7 +1363,7 @@ decNumberSameQuantum (decNumber * res, decNumber * lhs, decNumber * rhs)
   decNumberZero (res);		/* OK to overwrite an operand */
   *res->lsu = ret;
   return res;
-}				/* decNumberSameQuantum */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberSquareRoot -- square root operator                        */
@@ -1761,7 +1761,7 @@ decNumberSquareRoot (decNumber * res, decNumber * rhs, decContext * set)
   if (status != 0)
     decStatus (res, status, set);	/* then report status */
   return res;
-}				/* decNumberSquareRoot */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberSubtract -- subtract two Numbers                          */
@@ -1785,7 +1785,7 @@ decNumberSubtract (decNumber * res, decNumber * lhs,
   if (status != 0)
     decStatus (res, status, set);
   return res;
-}				/* decNumberSubtract */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberToIntegralValue -- round-to-integral-value                */
@@ -1837,7 +1837,7 @@ decNumberToIntegralValue (decNumber * res, decNumber * rhs, decContext * set)
   workset.traps = 0;		/* no traps */
   decNumberZero (&dn);		/* make a number with exponent 0 */
   return decNumberQuantize (res, rhs, &dn, &workset);
-}				/* decNumberToIntegralValue */
+}
 
 /* ================================================================== */
 /* Utility routines                                                   */
@@ -1885,7 +1885,7 @@ decNumberCopy (decNumber * dest, decNumber * src)
 	*d = *s;
     }
   return dest;
-}				/* decNumberCopy */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberTrim -- remove insignificant zeros                        */
@@ -1901,7 +1901,7 @@ decNumberTrim (decNumber * dn)
 {
   Int dropped;			/* work */
   return decTrim (dn, 0, &dropped);
-}				/* decNumberTrim */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberVersion -- return the name and version of this module     */
@@ -1912,7 +1912,7 @@ const char *
 decNumberVersion (void)
 {
   return DECVERSION;
-}				/* decNumberVersion */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNumberZero -- set a number to 0                                 */
@@ -1937,7 +1937,7 @@ decNumberZero (decNumber * dn)
   dn->digits = 1;
   dn->lsu[0] = 0;
   return dn;
-}				/* decNumberZero */
+}
 
 /* ================================================================== */
 /* Local routines                                                     */
@@ -2173,7 +2173,7 @@ decToString (decNumber * dn, char *string, Flag eng)
     }
   *c = '\0';			/* terminate the string (all paths) */
   return;
-}				/* decToString */
+}
 
 /* ------------------------------------------------------------------ */
 /* decAddOp -- add/subtract operation                                 */
@@ -2615,7 +2615,7 @@ decAddOp (decNumber * res, decNumber * lhs,
 	free (alloclhs);	/* .. */
     }
   return res;
-}				/* decAddOp */
+}
 
 /* ------------------------------------------------------------------ */
 /* decDivideOp -- division operation                                  */
@@ -3383,7 +3383,7 @@ decDivideOp (decNumber * res,
   if (alloclhs != NULL)
     free (alloclhs);		/* .. */
   return res;
-}				/* decDivideOp */
+}
 
 /* ------------------------------------------------------------------ */
 /* decMultiplyOp -- multiplication operation                          */
@@ -3563,7 +3563,7 @@ decMultiplyOp (decNumber * res, decNumber * lhs,
   if (alloclhs != NULL)
     free (alloclhs);		/* .. */
   return res;
-}				/* decMultiplyOp */
+}
 
 /* ------------------------------------------------------------------ */
 /* decQuantizeOp  -- force exponent to requested value                */
@@ -3749,7 +3749,7 @@ decQuantizeOp (decNumber * res, decNumber * lhs,
   if (alloclhs != NULL)
     free (alloclhs);		/* .. */
   return res;
-}				/* decQuantizeOp */
+}
 
 /* ------------------------------------------------------------------ */
 /* decCompareOp -- compare, min, or max two Numbers                   */
@@ -3920,7 +3920,7 @@ decCompareOp (decNumber * res, decNumber * lhs, decNumber * rhs,
   if (alloclhs != NULL)
     free (alloclhs);		/* .. */
   return res;
-}				/* decCompareOp */
+}
 
 /* ------------------------------------------------------------------ */
 /* decCompare -- compare two decNumbers by numerical value            */
@@ -3985,7 +3985,7 @@ decCompare (decNumber * lhs, decNumber * rhs)
   if (compare != BADINT)
     compare *= result;		/* comparison succeeded */
   return compare;		/* what we got */
-}				/* decCompare */
+}
 
 /* ------------------------------------------------------------------ */
 /* decUnitCompare -- compare two >=0 integers in Unit arrays          */
@@ -4074,7 +4074,7 @@ decUnitCompare (Unit * a, Int alength, Unit * b, Int blength, Int exp)
   if (allocacc != NULL)
     free (allocacc);		/* drop any storage we used */
   return result;
-}				/* decUnitCompare */
+}
 
 /* ------------------------------------------------------------------ */
 /* decUnitAddSub -- add or subtract two >=0 integers in Unit arrays   */
@@ -4331,7 +4331,7 @@ decUnitAddSub (Unit * a, Int alength,
       c++;			/* interesting, include it */
     }
   return clsu - c;		/* -ve result indicates borrowed */
-}				/* decUnitAddSub */
+}
 
 /* ------------------------------------------------------------------ */
 /* decTrim -- trim trailing zeros or normalize                        */
@@ -4408,7 +4408,7 @@ decTrim (decNumber * dn, Flag all, Int * dropped)
   dn->digits -= d;		/* new length */
   *dropped = d;			/* report the count */
   return dn;
-}				/* decTrim */
+}
 
 /* ------------------------------------------------------------------ */
 /* decShiftToMost -- shift digits in array towards most significant   */
@@ -4467,7 +4467,7 @@ decShiftToMost (Unit * uar, Int digits, Int shift)
       next = 0;
     }
   return digits + shift;
-}				/* decShiftToMost */
+}
 
 /* ------------------------------------------------------------------ */
 /* decShiftToLeast -- shift digits in array towards least significant */
@@ -4529,7 +4529,7 @@ decShiftToLeast (Unit * uar, Int units, Int shift)
 	break;
     }
   return target - uar + 1;
-}				/* decShiftToLeast */
+}
 
 #if DECSUBSET
 /* ------------------------------------------------------------------ */
@@ -4574,7 +4574,7 @@ decRoundOperand (decNumber * dn, decContext * set, uInt * status)
     newstatus |= DEC_Lost_digits;
   *status |= newstatus;
   return res;
-}				/* decRoundOperand */
+}
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -4596,7 +4596,7 @@ decCopyFit (decNumber * dest, decNumber * src, decContext * set,
   dest->bits = src->bits;
   dest->exponent = src->exponent;
   decSetCoeff (dest, set, src->lsu, src->digits, residue, status);
-}				/* decCopyFit */
+}
 
 /* ------------------------------------------------------------------ */
 /* decSetCoeff -- set the coefficient of a number                     */
@@ -4814,7 +4814,7 @@ decSetCoeff (decNumber * dn, decContext * set, Unit * lsu,
   if (*residue != 0)
     *status |= DEC_Inexact;	/* record inexactitude */
   return;
-}				/* decSetCoeff */
+}
 
 /* ------------------------------------------------------------------ */
 /* decApplyRound -- apply pending rounding to a number                */
@@ -5035,7 +5035,7 @@ decApplyRound (decNumber * dn, decContext * set, Int residue, uInt * status)
 
   /* Actual bump needed.  Do it. */
   decUnitAddSub (dn->lsu, D2U (dn->digits), one, 1, 0, dn->lsu, bump);
-}				/* decApplyRound */
+}
 
 #if DECSUBSET
 /* ------------------------------------------------------------------ */
@@ -5078,7 +5078,7 @@ decFinish (decNumber * dn, decContext * set, Int * residue, uInt * status)
     }				/* !extended */
 
   decFinalize (dn, set, residue, status);
-}				/* decFinish */
+}
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -5143,7 +5143,7 @@ decFinalize (decNumber * dn, decContext * set, Int * residue, uInt * status)
   dn->exponent -= shift;	/* adjust the exponent to match */
   *status |= DEC_Clamped;	/* and record the dirty deed */
   return;
-}				/* decFinalize */
+}
 
 /* ------------------------------------------------------------------ */
 /* decSetOverflow -- set number to proper overflow value              */
@@ -5221,7 +5221,7 @@ decSetOverflow (decNumber * dn, decContext * set, uInt * status)
   else
     dn->bits = sign | DECINF;	/* Value is +/-Infinity */
   *status |= DEC_Overflow | DEC_Inexact | DEC_Rounded;
-}				/* decSetOverflow */
+}
 
 /* ------------------------------------------------------------------ */
 /* decSetSubnormal -- process value whose exponent is <Emin           */
@@ -5321,7 +5321,7 @@ decSetSubnormal (decNumber * dn, decContext * set, Int * residue,
       dn->digits = decShiftToMost (dn->lsu, dn->digits, 1);
       dn->exponent--;		/* (re)adjust the exponent. */
     }
-}				/* decSetSubnormal */
+}
 
 /* ------------------------------------------------------------------ */
 /* decGetInt -- get integer from a number                             */
@@ -5418,7 +5418,7 @@ decGetInt (decNumber * dn)
   if (decNumberIsNegative (dn))
     theInt = -theInt;
   return theInt;
-}				/* decGetInt */
+}
 
 /* ------------------------------------------------------------------ */
 /* decStrEq -- caseless comparison of strings                         */
@@ -5449,7 +5449,7 @@ decStrEq (const char *str1, const char *str2)
 	}
     }				/* stepping */
   return 1;
-}				/* decStrEq */
+}
 
 /* ------------------------------------------------------------------ */
 /* decNaNs -- handle NaN operand or operands                          */
@@ -5487,7 +5487,7 @@ decNaNs (decNumber * res, decNumber * lhs, decNumber * rhs, uInt * status)
   res->exponent = 0;		/* clean exponent */
   /* [coefficient was copied] */
   return res;
-}				/* decNaNs */
+}
 
 /* ------------------------------------------------------------------ */
 /* decStatus -- apply non-zero status                                 */
@@ -5520,7 +5520,7 @@ decStatus (decNumber * dn, uInt status, decContext * set)
     }
   decContextSetStatus (set, status);
   return;
-}				/* decStatus */
+}
 
 /* ------------------------------------------------------------------ */
 /* decGetDigits -- count digits in a Units array                      */
@@ -5564,7 +5564,7 @@ decGetDigits (Unit * uar, Int len)
     }				/* up */
 
   return digits;
-}				/* decGetDigits */
+}
 
 
 #if DECTRACE | DECCHECK
@@ -5634,7 +5634,7 @@ decNumberShow (decNumber * dn)
       printf (" E%c%d", esign, abs (dn->exponent));
     }
   printf (" [%d]\n", dn->digits);
-}				/* decNumberShow */
+}
 #endif
 
 #if DECTRACE || DECCHECK
@@ -5727,7 +5727,7 @@ decCheckOperands (decNumber * res, decNumber * lhs,
 	}
     }
   return bad;
-}				/* decCheckOperands */
+}
 
 /* ------------------------------------------------------------------ */
 /* decCheckNumber -- check a number                                   */
@@ -5858,7 +5858,7 @@ decCheckNumber (decNumber * dn, decContext * set)
     }
 
   return 0;			/* it's OK */
-}				/* decCheckNumber */
+}
 #endif
 
 #if DECALLOC
@@ -5899,7 +5899,7 @@ decMalloc (uInt n)
   for (b = b0 + n + 8; b < b0 + n + 12; b++)
     *b = DECFENCE;
   return b0 + 8;		/* -> play area */
-}				/* decMalloc */
+}
 
 /* ------------------------------------------------------------------ */
 /* decFree -- accountable free routine                                */
@@ -5935,5 +5935,5 @@ decFree (void *alloc)
 	      b - b0 - 8, (Int) b0, n);
   free (b0);			/* drop the storage */
   decAllocBytes -= n;		/* account for storage */
-}				/* decFree */
+}
 #endif

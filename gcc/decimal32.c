@@ -171,7 +171,7 @@ decimal32FromNumber (decimal32 * d32, decNumber * dn, decContext * set)
 
   /*decimal32Show(d32); */
   return d32;
-}				/* decimal32FromNumber */
+}
 
 /* ------------------------------------------------------------------ */
 /* decimal32ToNumber -- convert decimal32 to decNumber                */
@@ -237,7 +237,7 @@ decimal32ToNumber (decimal32 * d32, decNumber * dn)
       decDenseUnpackCoeff (d32->bytes, sizeof (d32->bytes), dn, bunches, odd);
     }
   return dn;
-}				/* decimal32ToNumber */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-scientific-string -- conversion to numeric string               */
@@ -260,7 +260,7 @@ decimal32ToString (decimal32 * d32, char *string)
   decimal32ToNumber (d32, &dn);
   decNumberToString (&dn, string);
   return string;
-}				/* DecSingleToString */
+}
 
 char *
 decimal32ToEngString (decimal32 * d32, char *string)
@@ -269,7 +269,7 @@ decimal32ToEngString (decimal32 * d32, char *string)
   decimal32ToNumber (d32, &dn);
   decNumberToEngString (&dn, string);
   return string;
-}				/* DecSingleToEngString */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-number -- conversion from numeric string                        */
@@ -302,7 +302,7 @@ decimal32FromString (decimal32 * result, char *string, decContext * set)
       decContextSetStatus (set, dc.status);	/* .. pass it on */
     }
   return result;
-}				/* decimal32FromString */
+}
 
 #if DECTRACE || DECCHECK
 /* ------------------------------------------------------------------ */
@@ -323,5 +323,5 @@ decimal32Show (decimal32 * d32)
     }
   printf (" D32> %s [S:%d Cb:%02x E:%d]\n", buf,
 	  decimal32Sign (d32), decimal32Comb (d32), decimal32ExpCon (d32));
-}				/* decimal32Show */
+}
 #endif

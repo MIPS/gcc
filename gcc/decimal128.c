@@ -174,7 +174,7 @@ decimal128FromNumber (decimal128 * d128, decNumber * dn, decContext * set)
 
   /* decimal128Show(d128); */
   return d128;
-}				/* decimal128FromNumber */
+}
 
 /* ------------------------------------------------------------------ */
 /* decimal128ToNumber -- convert decimal128 to decNumber              */
@@ -245,7 +245,7 @@ decimal128ToNumber (decimal128 * d128, decNumber * dn)
 
   /* decNumberShow(dn); */
   return dn;
-}				/* decimal128ToNumber */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-scientific-string -- conversion to numeric string               */
@@ -268,7 +268,7 @@ decimal128ToString (decimal128 * d128, char *string)
   decimal128ToNumber (d128, &dn);
   decNumberToString (&dn, string);
   return string;
-}				/* DecSingleToString */
+}
 
 char *
 decimal128ToEngString (decimal128 * d128, char *string)
@@ -277,7 +277,7 @@ decimal128ToEngString (decimal128 * d128, char *string)
   decimal128ToNumber (d128, &dn);
   decNumberToEngString (&dn, string);
   return string;
-}				/* DecSingleToEngString */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-number -- conversion from numeric string                        */
@@ -310,7 +310,7 @@ decimal128FromString (decimal128 * result, char *string, decContext * set)
       decContextSetStatus (set, dc.status);	/* .. pass it on */
     }
   return result;
-}				/* decimal128FromString */
+}
 
 
 #if DECTRACE || DECCHECK
@@ -333,5 +333,5 @@ decimal128Show (decimal128 * d128)
   printf (" D128> %s [S:%d Cb:%02x E:%d]\n", buf,
 	  decimal128Sign (d128), decimal128Comb (d128),
 	  decimal128ExpCon (d128));
-}				/* decimal128Show */
+}
 #endif

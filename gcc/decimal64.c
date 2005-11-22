@@ -170,7 +170,7 @@ decimal64FromNumber (decimal64 * d64, decNumber * dn, decContext * set)
 
   /*decimal64Show(d64); */
   return d64;
-}				/* decimal64FromNumber */
+}
 
 /* ------------------------------------------------------------------ */
 /* decimal64ToNumber -- convert decimal64 to decNumber                */
@@ -236,7 +236,7 @@ decimal64ToNumber (decimal64 * d64, decNumber * dn)
       decDenseUnpackCoeff (d64->bytes, sizeof (d64->bytes), dn, bunches, odd);
     }
   return dn;
-}				/* decimal64ToNumber */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-scientific-string -- conversion to numeric string               */
@@ -259,7 +259,7 @@ decimal64ToString (decimal64 * d64, char *string)
   decimal64ToNumber (d64, &dn);
   decNumberToString (&dn, string);
   return string;
-}				/* DecSingleToString */
+}
 
 char *
 decimal64ToEngString (decimal64 * d64, char *string)
@@ -268,7 +268,7 @@ decimal64ToEngString (decimal64 * d64, char *string)
   decimal64ToNumber (d64, &dn);
   decNumberToEngString (&dn, string);
   return string;
-}				/* DecSingleToEngString */
+}
 
 /* ------------------------------------------------------------------ */
 /* to-number -- conversion from numeric string                        */
@@ -302,7 +302,7 @@ decimal64FromString (decimal64 * result, char *string, decContext * set)
       decContextSetStatus (set, dc.status);	/* .. pass it on */
     }
   return result;
-}				/* decimal64FromString */
+}
 
 #if DECTRACE || DECCHECK
 /* ------------------------------------------------------------------ */
@@ -323,5 +323,5 @@ decimal64Show (decimal64 * d64)
     }
   printf (" D64> %s [S:%d Cb:%02x E:%d]\n", buf,
 	  decimal64Sign (d64), decimal64Comb (d64), decimal64ExpCon (d64));
-}				/* decimal64Show */
+}
 #endif

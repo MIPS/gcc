@@ -1,3 +1,10 @@
+2005-11-22  Ben Elliston  <bje@au.ibm.com>
+
+	* decUtility.c, decNumber.c: GNU coding standard fixes.
+	* decimal32.c, decimal64.c, decimal128.c: Likewise.
+	* decimal32.h: Likewise.
+	* dwarf2.h: Synchronise with trunk.
+
 2005-11-16  Ben Elliston  <bje@au.ibm.com>
 
 	* DEV-PHASE: Refresh merge date.

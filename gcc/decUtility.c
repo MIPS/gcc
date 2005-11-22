@@ -194,7 +194,7 @@ decDensePackCoeff (decNumber * dn, uByte * bytes, Int len, Int shift)
 	}			/* switch */
     }				/* n bunches */
   return;
-}				/* decDensePackCoeff */
+}
 
 /* ------------------------------------------------------------------ */
 /* decDenseUnpackCoeff -- unpack a format's coefficient               */
@@ -350,7 +350,7 @@ decDenseUnpackCoeff (uByte * bytes, Int len, decNumber * dn,
   if (dn->digits == 0)
     dn->digits++;		/* zero has one digit */
   return;
-}				/*decDenseUnpackCoeff */
+}
 
 unsigned long
 __dec_byte_swap (unsigned long in)

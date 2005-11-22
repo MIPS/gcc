@@ -1,4 +1,3 @@
-/* ------------------------------------------------------------------ */
 /* Decimal 32-bit format module header for the decNumber C Library
    Copyright (C) 2005 Free Software Foundation, Inc.
    Contributed by IBM Corporation.  Author Mike Cowlishaw.
@@ -92,12 +91,12 @@ typedef struct
 #define decimal32ToNumber __decimal32ToNumber
 #endif
 
-  /* String conversions */
+/* String conversions.  */
 decimal32 *decimal32FromString (decimal32 *, char *, decContext *);
 char *decimal32ToString (decimal32 *, char *);
 char *decimal32ToEngString (decimal32 *, char *);
 
-  /* decNumber conversions */
+/* decNumber conversions.  */
 decimal32 *decimal32FromNumber (decimal32 *, decNumber *, decContext *);
 decNumber *decimal32ToNumber (decimal32 *, decNumber *);
 
