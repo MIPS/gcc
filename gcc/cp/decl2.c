@@ -2320,7 +2320,7 @@ get_priority_info (int priority)
 	((!DECL_HAS_INIT_PRIORITY_P (decl) || DECL_INIT_PRIORITY (decl) == 0) \
 	 ? DEFAULT_INIT_PRIORITY : DECL_INIT_PRIORITY (decl))
 
-/* Wether a DECL needs a guard to protect it against multiple
+/* Whether a DECL needs a guard to protect it against multiple
    initialization.  */
 
 #define NEEDS_GUARD_P(decl) (TREE_PUBLIC (decl) && (DECL_COMMON (decl)      \
@@ -3062,8 +3062,6 @@ cp_finish_file (void)
     {
       if (/* Check online inline functions that were actually used.  */
 	  TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
-	  /* But not defined.  */
-	  && DECL_REALLY_EXTERN (decl)
 	  /* If the definition actually was available here, then the
 	     fact that the function was not defined merely represents
 	     that for some reason (use of a template repository,
@@ -3076,10 +3074,8 @@ cp_finish_file (void)
 	  && !DECL_EXPLICIT_INSTANTIATION (decl))
 	{
 	  warning (0, "inline function %q+D used but never defined", decl);
-	  /* This symbol is effectively an "extern" declaration now.
-	     This is not strictly necessary, but removes a duplicate
-	     warning.  */
-	  TREE_PUBLIC (decl) = 1;
+	  /* Avoid a duplicate warning from check_global_declaration_1.  */
+	  TREE_NO_WARNING (decl) = 1;
 	}
     }
 
@@ -3253,22 +3249,26 @@ mark_used (tree decl)
      DECL.  However, if DECL is a static data member initialized with
      a constant, we need the value right now because a reference to
      such a data member is not value-dependent.  */
-  if (processing_template_decl)
+  if (TREE_CODE (decl) == VAR_DECL
+      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+      && DECL_CLASS_SCOPE_P (decl))
     {
-      if (TREE_CODE (decl) == VAR_DECL
-	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
-	  && DECL_CLASS_SCOPE_P (decl)
-	  && !dependent_type_p (DECL_CONTEXT (decl)))
-	{
-	  /* Pretend that we are not in a template so that the
-	     initializer for the static data member will be full
-	     simplified.  */
-	  saved_processing_template_decl = processing_template_decl;
-	  processing_template_decl = 0;
-	}
-      else
-	return;  
+      /* Don't try to instantiate members of dependent types.  We
+	 cannot just use dependent_type_p here because this function
+	 may be called from fold_non_dependent_expr, and then we may
+	 see dependent types, even though processing_template_decl
+	 will not be set.  */
+      if (CLASSTYPE_TEMPLATE_INFO ((DECL_CONTEXT (decl)))
+	  && uses_template_parms (CLASSTYPE_TI_ARGS (DECL_CONTEXT (decl))))
+	return;
+      /* Pretend that we are not in a template, even if we are, so
+	 that the static data member initializer will be processed.  */
+      saved_processing_template_decl = processing_template_decl;
+      processing_template_decl = 0;
     }
+  
+  if (processing_template_decl)
+    return;  
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))

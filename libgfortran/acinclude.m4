@@ -149,6 +149,44 @@ extern void bar(void) __attribute__((alias(ULP "foo")));],
       [Define to 1 if the target supports __attribute__((alias(...))).])
   fi])
 
+dnl Check whether the target supports __sync_fetch_and_add.
+AC_DEFUN([LIBGFOR_CHECK_SYNC_FETCH_AND_ADD], [
+  AC_CACHE_CHECK([whether the target supports __sync_fetch_and_add],
+		 have_sync_fetch_and_add, [
+  AC_TRY_LINK([int foovar = 0;], [
+if (foovar <= 0) return __sync_fetch_and_add (&foovar, 1);
+if (foovar > 10) return __sync_add_and_fetch (&foovar, -1);],
+	      have_sync_fetch_and_add=yes, have_sync_fetch_and_add=no)])
+  if test $have_sync_fetch_and_add = yes; then
+    AC_DEFINE(HAVE_SYNC_FETCH_AND_ADD, 1,
+	      [Define to 1 if the target supports __sync_fetch_and_add])
+  fi])
+
+dnl Check if threads are supported.
+AC_DEFUN([LIBGFOR_CHECK_GTHR_DEFAULT], [
+  AC_CACHE_CHECK([configured target thread model],
+		 target_thread_file, [
+target_thread_file=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`])
+
+  if test $target_thread_file != single; then
+    AC_DEFINE(HAVE_GTHR_DEFAULT, 1,
+	      [Define if the compiler has a thread header that is non single.])
+  fi])
+
+dnl Check for pragma weak.
+AC_DEFUN([LIBGFOR_CHECK_PRAGMA_WEAK], [
+  AC_CACHE_CHECK([whether pragma weak works],
+		 have_pragma_weak, [
+  gfor_save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Wunknown-pragmas"
+  AC_TRY_COMPILE([void foo (void);
+#pragma weak foo], [if (foo) foo ();],
+		 have_pragma_weak=yes, have_pragma_weak=no)])
+  if test $have_pragma_weak = yes; then
+    AC_DEFINE(HAVE_PRAGMA_WEAK, 1,
+	      [Define to 1 if the target supports #pragma weak])
+  fi])
+
 dnl Check whether target can unlink a file still open.
 AC_DEFUN([LIBGFOR_CHECK_UNLINK_OPEN_FILE], [
   AC_CACHE_CHECK([whether the target can unlink an open file],
@@ -349,3 +387,55 @@ esac])]
 if test x"$have_broken_fpclassify" = xyes; then
   AC_DEFINE(HAVE_BROKEN_FPCLASSIFY, 1, [Define if fpclassify is broken.])
 fi])
+
+dnl Check whether the st_ino and st_dev stat fields taken together uniquely
+dnl identify the file within the system. This is should be true for POSIX
+dnl systems; it is known to be false on mingw32.
+AC_DEFUN([LIBGFOR_CHECK_WORKING_STAT], [
+  AC_CACHE_CHECK([whether the target stat is reliable],
+                  have_working_stat, [
+  AC_TRY_RUN([
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+int main ()
+{ 
+  FILE *f, *g;
+  struct stat st1, st2;
+
+  f = fopen ("foo", "w");
+  g = fopen ("bar", "w");
+  if (stat ("foo", &st1) != 0 || stat ("bar", &st2))
+    return 1;
+  if (st1.st_dev == st2.st_dev && st1.st_ino == st2.st_ino)
+    return 1;
+  fclose(f);
+  fclose(g);
+  return 0;
+}], have_working_stat=yes, have_working_stat=no, [
+case "${target}" in
+  *mingw*) have_working_stat=no ;;
+  *) have_working_stat=yes;;
+esac])])
+if test x"$have_working_stat" = xyes; then
+  AC_DEFINE(HAVE_WORKING_STAT, 1, [Define if target has a reliable stat.])
+fi])
+
+dnl Checks for fpsetmask function.
+AC_DEFUN([LIBGFOR_CHECK_FPSETMASK], [
+  AC_CACHE_CHECK([whether fpsetmask is present], have_fpsetmask, [
+    AC_TRY_LINK([
+#if HAVE_FLOATINGPOINT_H
+# include <floatingpoint.h>
+#endif /* HAVE_FLOATINGPOINT_H */
+#if HAVE_IEEEFP_H
+# include <ieeefp.h>
+#endif /* HAVE_IEEEFP_H */],[fpsetmask(0);],
+    eval "have_fpsetmask=yes", eval "have_fpsetmask=no")
+  ])
+  if test x"$have_fpsetmask" = xyes; then
+    AC_DEFINE(HAVE_FPSETMASK, 1, [Define if you have fpsetmask.])
+  fi
+])

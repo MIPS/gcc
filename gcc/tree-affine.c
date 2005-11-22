@@ -377,6 +377,15 @@ aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
 	comb->n--;
 	comb->coefs[i] = comb->coefs[comb->n];
 	comb->elts[i] = comb->elts[comb->n];
+
+	if (comb->rest)
+	  {
+	    gcc_assert (comb->n == MAX_AFF_ELTS - 1);
+	    comb->coefs[comb->n] = hwi_to_double_int (1);
+	    comb->elts[comb->n] = comb->rest;
+	    comb->rest = NULL_TREE;
+	    comb->n++;
+	  }
 	return;
       }
   if (comb->n < MAX_AFF_ELTS)

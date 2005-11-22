@@ -2434,7 +2434,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
 	    if (temp)
 	      {
-		if (class != MODE_INT)
+		if (class != MODE_INT
+		    || !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+					       GET_MODE_BITSIZE (wider_mode)))
 		  {
 		    if (target == 0)
 		      target = gen_reg_rtx (mode);
@@ -2487,7 +2489,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
   if (unoptab->code == NEG)
     {
       /* Try negating floating point values by flipping the sign bit.  */
-      if (class == MODE_FLOAT)
+      if (SCALAR_FLOAT_MODE_P (class))
 	{
 	  temp = expand_absneg_bit (NEG, mode, op0, target);
 	  if (temp)
@@ -2639,7 +2641,7 @@ expand_abs_nojump (enum machine_mode mode, rtx op0, rtx target,
     return temp;
 
   /* For floating point modes, try clearing the sign bit.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (SCALAR_FLOAT_MODE_P (mode))
     {
       temp = expand_absneg_bit (ABS, mode, op0, target);
       if (temp)
@@ -3550,7 +3552,7 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       return;
     }
 
-  gcc_assert (class == MODE_FLOAT);
+  gcc_assert (SCALAR_FLOAT_MODE_P (class));
   prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp);
 }
 
@@ -4308,6 +4310,7 @@ expand_float (rtx to, rtx from, int unsignedp)
   enum insn_code icode;
   rtx target = to;
   enum machine_mode fmode, imode;
+  bool can_do_signed = false;
 
   /* Crash now, because we won't be able to decide which mode to use.  */
   gcc_assert (GET_MODE (from) != VOIDmode);
@@ -4329,8 +4332,14 @@ expand_float (rtx to, rtx from, int unsignedp)
 	  continue;
 
 	icode = can_float_p (fmode, imode, unsignedp);
-	if (icode == CODE_FOR_nothing && imode != GET_MODE (from) && unsignedp)
-	  icode = can_float_p (fmode, imode, 0), doing_unsigned = 0;
+	if (icode == CODE_FOR_nothing && unsignedp)
+	  {
+	    enum insn_code scode = can_float_p (fmode, imode, 0);
+	    if (scode != CODE_FOR_nothing)
+	      can_do_signed = true;
+	    if (imode != GET_MODE (from))
+	      icode = scode, doing_unsigned = 0;
+	  }
 
 	if (icode != CODE_FOR_nothing)
 	  {
@@ -4351,7 +4360,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 
   /* Unsigned integer, and no way to convert directly.
      Convert as signed, then conditionally adjust the result.  */
-  if (unsignedp)
+  if (unsignedp && can_do_signed)
     {
       rtx label = gen_label_rtx ();
       rtx temp;
@@ -5008,6 +5017,7 @@ init_optabs (void)
   umul_highpart_optab = init_optab (UNKNOWN);
   smul_widen_optab = init_optab (UNKNOWN);
   umul_widen_optab = init_optab (UNKNOWN);
+  usmul_widen_optab = init_optab (UNKNOWN);
   sdiv_optab = init_optab (DIV);
   sdivv_optab = init_optabv (DIV);
   sdivmod_optab = init_optab (UNKNOWN);
@@ -5228,6 +5238,8 @@ init_optabs (void)
 
   /* Conversions.  */
   init_interclass_conv_libfuncs (sfloat_optab, "float",
+				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatun",
 				 MODE_INT, MODE_FLOAT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
 				 MODE_FLOAT, MODE_INT);

@@ -4,9 +4,15 @@
 /* { dg-do run } */
 /* { dg-options "-O1 -std=c99" } */
 
-#include <stdint.h>
+#include <stdlib.h>
 
-extern void abort (void);
+#if __INT_MAX__ == 2147483647
+typedef unsigned int uint32_t;
+#elif __LONG_MAX__ == 2147483647
+typedef unsigned long uint32_t;
+#else
+#error unable to find 32-bit integer type
+#endif
 
 uint32_t
 f (uint32_t *S, int j)

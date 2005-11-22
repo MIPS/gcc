@@ -92,11 +92,6 @@ do { \
     builtin_define ("__HITACHI__"); \
   builtin_define (TARGET_LITTLE_ENDIAN \
 		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
-  if (flag_pic) \
-    { \
-      builtin_define ("__pic__"); \
-      builtin_define ("__PIC__"); \
-    } \
 } while (0)
 
 /* We can not debug without a frame pointer.  */
@@ -486,6 +481,10 @@ do {									\
     flag_finite_math_only.  We set it to 2 here so we know if the user	\
     explicitly requested this to be on or off.  */			\
   flag_finite_math_only = 2;						\
+  /* If flag_schedule_insns is 1, we set it to 2 here so we know if	\
+     the user explicitly requested this to be on or off.  */		\
+  if (flag_schedule_insns > 0)						\
+    flag_schedule_insns = 2;						\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -661,6 +660,17 @@ do {									\
 	 SH3 and lower as they give spill failures for R0.  */		\
       if (!TARGET_HARD_SH4) 						\
         flag_schedule_insns = 0;		 			\
+      /* ??? Current exception handling places basic block boundaries	\
+	 after call_insns.  It causes the high pressure on R0 and gives	\
+	 spill failures for R0 in reload.  See PR 22553 and the thread	\
+	 on gcc-patches							\
+         <http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00816.html>.  */	\
+      else if (flag_exceptions)						\
+	{								\
+	  if (flag_schedule_insns == 1)		 			\
+	    warning (0, "ignoring -fschedule-insns because of exception handling bug");	\
+	  flag_schedule_insns = 0;		 			\
+	}								\
     }									\
 									\
   if (align_loops == 0)							\

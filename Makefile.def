@@ -60,7 +60,7 @@ host_modules= { module= fixincludes;
 host_modules= { module= flex; no_check_cross= true; };
 host_modules= { module= gas; bootstrap=true; };
 host_modules= { module= gcc; bootstrap=true; 
-		target="`if [ -f gcc/stage_last ]; then echo quickstrap ; else echo all; fi`";
+		target="`if [ -f stage_last ]; then echo quickstrap ; else echo all; fi`";
 		extra_make_flags="$(EXTRA_GCC_FLAGS)"; };
 host_modules= { module= gawk; };
 host_modules= { module= gettext; };
@@ -228,6 +228,7 @@ flags_to_pass = { flag= LDFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= LIBCFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= LIBCXXFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= NM_FOR_TARGET ; };
+flags_to_pass = { flag= OBJDUMP_FOR_TARGET ; };
 flags_to_pass = { flag= RANLIB_FOR_TARGET ; };
 flags_to_pass = { flag= STRIP_FOR_TARGET ; };
 flags_to_pass = { flag= WINDRES_FOR_TARGET ; };
@@ -274,9 +275,6 @@ dependencies = { module=all-fixincludes; on=all-libiberty; };
 dependencies = { module=all-gnattools; on=all-target-libada; };
 
 // Host modules specific to gdb.
-dependencies = { module=configure-gdb; on=configure-itcl; };
-dependencies = { module=configure-gdb; on=configure-tcl; };
-dependencies = { module=configure-gdb; on=configure-tk; };
 dependencies = { module=configure-gdb; on=configure-sim; };
 dependencies = { module=all-gdb; on=all-libiberty; };
 dependencies = { module=all-gdb; on=all-opcodes; };
@@ -285,10 +283,6 @@ dependencies = { module=all-gdb; on=all-readline; };
 dependencies = { module=all-gdb; on=all-build-bison; };
 dependencies = { module=all-gdb; on=all-build-byacc; };
 dependencies = { module=all-gdb; on=all-sim; };
-dependencies = { module=install-gdb; on=install-tcl; };
-dependencies = { module=install-gdb; on=install-tk; };
-dependencies = { module=install-gdb; on=install-itcl; };
-dependencies = { module=install-gdb; on=install-libgui; };
 
 dependencies = { module=configure-libgui; on=configure-tcl; };
 dependencies = { module=configure-libgui; on=configure-tk; };

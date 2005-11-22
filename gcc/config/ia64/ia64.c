@@ -176,8 +176,6 @@ static rtx gen_fr_restore_x (rtx, rtx, rtx);
 static enum machine_mode hfa_element_mode (tree, bool);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
-static bool ia64_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				    tree, bool);
 static int ia64_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
 static bool ia64_function_ok_for_sibcall (tree, tree);
@@ -349,8 +347,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ia64_function_ok_for_sibcall
-#undef TARGET_PASS_BY_REFERENCE
-#define TARGET_PASS_BY_REFERENCE ia64_pass_by_reference
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES ia64_arg_partial_bytes
 
@@ -2118,7 +2114,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 
   emit_insn (GEN_FCN (icode) (cmp_reg, mem, ar_ccv, new_reg));
 
-  emit_cmp_and_jump_insns (cmp_reg, old_reg, EQ, NULL, DImode, true, label);
+  emit_cmp_and_jump_insns (cmp_reg, old_reg, NE, NULL, DImode, true, label);
 }
 
 /* Begin the assembly file.  */
@@ -4220,17 +4216,6 @@ ia64_function_arg_boundary (enum machine_mode mode, tree type)
     return PARM_BOUNDARY * 2;
   else
     return PARM_BOUNDARY;
-}
-
-/* Variable sized types are passed by reference.  */
-/* ??? At present this is a GCC extension to the IA-64 ABI.  */
-
-static bool
-ia64_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type, bool named ATTRIBUTE_UNUSED)
-{
-  return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
 
 /* True if it is OK to do sibling call optimization for the specified
@@ -8803,9 +8788,27 @@ ia64_vector_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* Implement the FUNCTION_PROFILER macro.  */
+
 void
 ia64_output_function_profiler (FILE *file, int labelno)
 {
+  bool indirect_call;
+
+  /* If the function needs a static chain and the static chain
+     register is r15, we use an indirect call so as to bypass
+     the PLT stub in case the executable is dynamically linked,
+     because the stub clobbers r15 as per 5.3.6 of the psABI.
+     We don't need to do that in non canonical PIC mode.  */
+
+  if (cfun->static_chain_decl && !TARGET_NO_PIC && !TARGET_AUTO_PIC)
+    {
+      gcc_assert (STATIC_CHAIN_REGNUM == 15);
+      indirect_call = true;
+    }
+  else
+    indirect_call = false;
+
   if (TARGET_GNU_AS)
     fputs ("\t.prologue 4, r40\n", file);
   else
@@ -8813,7 +8816,7 @@ ia64_output_function_profiler (FILE *file, int labelno)
   fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", file);
 
   if (NO_PROFILE_COUNTERS)
-    fputs ("\tmov out3 = r0\n\t;;\n", file);
+    fputs ("\tmov out3 = r0\n", file);
   else
     {
       char buf[20];
@@ -8825,16 +8828,30 @@ ia64_output_function_profiler (FILE *file, int labelno)
 	fputs ("\taddl out3 = @ltoff(", file);
       assemble_name (file, buf);
       if (TARGET_AUTO_PIC)
-	fputs (")\n\t;;\n", file);
+	fputs (")\n", file);
       else
-	fputs ("), r1\n\t;;\n", file);
+	fputs ("), r1\n", file);
     }
+
+  if (indirect_call)
+    fputs ("\taddl r14 = @ltoff(@fptr(_mcount)), r1\n", file);
+  fputs ("\t;;\n", file);
 
   fputs ("\t.save rp, r42\n", file);
   fputs ("\tmov out2 = b0\n", file);
+  if (indirect_call)
+    fputs ("\tld8 r14 = [r14]\n\t;;\n", file);
   fputs ("\t.body\n", file);
   fputs ("\tmov out1 = r1\n", file);
-  fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
+  if (indirect_call)
+    {
+      fputs ("\tld8 r16 = [r14], 8\n\t;;\n", file);
+      fputs ("\tmov b6 = r16\n", file);
+      fputs ("\tld8 r1 = [r14]\n", file);
+      fputs ("\tbr.call.sptk.many b0 = b6\n\t;;\n", file);
+    }
+  else
+    fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
 }
 
 static GTY(()) rtx mcount_func_rtx;

@@ -1033,18 +1033,6 @@ macro must evaluate to a value equal to or larger than
 @code{STACK_BOUNDARY}.
 @end defmac
 
-@defmac FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-A C expression that evaluates true if @code{PREFERRED_STACK_BOUNDARY} is
-not guaranteed by the runtime and we should emit code to align the stack
-at the beginning of @code{main}.
-
-@cindex @code{PUSH_ROUNDING}, interaction with @code{PREFERRED_STACK_BOUNDARY}
-If @code{PUSH_ROUNDING} is not defined, the stack will always be aligned
-to the specified boundary.  If @code{PUSH_ROUNDING} is defined and specifies
-a less strict alignment than @code{PREFERRED_STACK_BOUNDARY}, the stack may
-be momentarily unaligned while pushing arguments.
-@end defmac
-
 @defmac FUNCTION_BOUNDARY
 Alignment required for a function entry point, in bits.
 @end defmac
@@ -2936,6 +2924,21 @@ and rs6000, and so such targets need to define this macro.
 You only need to define this macro if the default is incorrect, and you
 want to support call frame debugging information like that provided by
 DWARF 2.
+@end defmac
+
+@defmac FRAME_POINTER_CFA_OFFSET (@var{fundecl})
+If defined, a C expression whose value is an integer giving the offset
+in bytes from the frame pointer to the canonical frame address (cfa).
+The final value should conincide with that calculated by
+@code{INCOMING_FRAME_SP_OFFSET}.
+
+Normally the CFA is calculated as an offset from the argument pointer,
+via @code{ARG_POINTER_CFA_OFFSET}, but if the argument pointer is 
+variable due to the ABI, this may not be possible.  If this macro is
+defined, it imples that the virtual register instantiation should be
+based on the frame pointer instead of the argument pointer.  Only one
+of @code{FRAME_POINTER_CFA_OFFSET} and @code{ARG_POINTER_CFA_OFFSET}
+should be defined.
 @end defmac
 
 @node Exception Handling
@@ -6763,6 +6766,12 @@ defines (equates) the weak symbol @var{name} to have the value
 to make @var{name} weak.
 @end defmac
 
+@defmac ASM_OUTPUT_WEAKREF (@var{stream}, @var{decl}, @var{name}, @var{value})
+Outputs a directive that enables @var{name} to be used to refer to
+symbol @var{value} with weak-symbol semantics.  @code{decl} is the
+declaration of @code{name}.
+@end defmac
+
 @defmac SUPPORTS_WEAK
 A C expression which evaluates to true if the target supports weak symbols.
 
@@ -8478,6 +8487,12 @@ to perform initial processing of the @samp{dllimport} and
 @file{i386/i386.c}, for example.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_VALID_DLLIMPORT_ATTRIBUTE_P (tree @var{decl})
+@var{decl} is a variable or function with @code{__attribute__((dllimport))}
+specified. Use this hook if the target needs to add extra validation
+checks to @code{handle_dll_attribute}.
+@end deftypefn
+
 @defmac TARGET_DECLSPEC
 Define this macro to a nonzero value if you want to treat
 @code{__declspec(X)} as equivalent to @code{__attribute((X))}.  By
@@ -8655,6 +8670,12 @@ unit will not be COMDAT.
 This hook returns true if @code{__aeabi_atexit} (as defined by the ARM EABI)
 should be used to register static destructors when @option{-fuse-cxa-atexit}
 is in effect.  The default is to return false to use @code{__cxa_atexit}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_CXX_ADJUST_CLASS_AT_DEFINITION (tree @var{type})
+@var{type} is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that has just been
+defined.  Use this hook to make adjustments to the class (eg, tweak
+visibility or perform any other required target modifications).
 @end deftypefn
 
 @node Misc

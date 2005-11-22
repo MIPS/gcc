@@ -31,6 +31,7 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include "libgfortran.h"
 #include "../io/io.h"
+
 #include <string.h>
 
 /* LOGICAL FUNCTION ISATTY(UNIT)
@@ -43,12 +44,15 @@ GFC_LOGICAL_4
 isatty_l4 (int *unit)
 {
   gfc_unit *u;
+  GFC_LOGICAL_4 ret = 0;
 
   u = find_unit (*unit);
   if (u != NULL)
-    return (GFC_LOGICAL_4) stream_isatty (u->s);
-  else
-    return 0;
+    {
+      ret = (GFC_LOGICAL_4) stream_isatty (u->s);
+      unlock_unit (u);
+    }
+  return ret;
 }
 
 
@@ -59,12 +63,15 @@ GFC_LOGICAL_8
 isatty_l8 (int *unit)
 {
   gfc_unit *u;
+  GFC_LOGICAL_8 ret = 0;
 
   u = find_unit (*unit);
   if (u != NULL)
-    return (GFC_LOGICAL_8) stream_isatty (u->s);
-  else
-    return 0;
+    {
+      ret = (GFC_LOGICAL_8) stream_isatty (u->s);
+      unlock_unit (u);
+    }
+  return ret;
 }
 
 
@@ -93,5 +100,31 @@ ttynam_sub (int *unit, char * name, gfc_charlen_type name_len)
 	  while (*n && i < name_len)
 	    name[i++] = *(n++);
 	}
+      unlock_unit (u);
     }
+}
+
+
+extern void ttynam (char **, gfc_charlen_type *, int);
+export_proto(ttynam);
+
+void
+ttynam (char ** name, gfc_charlen_type * name_len, int unit)
+{
+  gfc_unit *u;
+
+  u = find_unit (unit);
+  if (u != NULL)
+    {
+      *name = stream_ttyname (u->s);
+      if (*name != NULL)
+	{
+	  *name_len = strlen (*name);
+	  *name = strdup (*name);
+	  return;
+	}
+    }
+
+  *name_len = 0;
+  *name = NULL;
 }

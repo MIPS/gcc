@@ -1,3 +1,7 @@
+2005-11-22  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	Merge from mainline (killloop-merge-20051122).
+
 2005-11-15  Zdenek Dvorak  <dvorakz@suse.cz>
 
 	PR rtl-optimization/24762

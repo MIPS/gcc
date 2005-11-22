@@ -40,21 +40,19 @@ Boston, MA 02110-1301, USA.  */
 #include <fcntl.h>
 #include <assert.h>
 
-#ifdef HAVE_SYS_MMAN_H
-#include <sys/mman.h>
-#endif
 #include <string.h>
 #include <errno.h>
 
 #include "libgfortran.h"
 #include "io.h"
+#include "unix.h"
+
+#ifndef SSIZE_MAX
+#define SSIZE_MAX SHRT_MAX
+#endif
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
-#endif
-
-#ifndef MAP_FAILED
-#define MAP_FAILED ((void *) -1)
 #endif
 
 #ifndef PROT_READ
@@ -118,35 +116,6 @@ Boston, MA 02110-1301, USA.  */
  * Short forms of these are salloc_r() and salloc_w() which drop the
  * 'where' parameter and use the current file pointer. */
 
-
-#define BUFFER_SIZE 8192
-
-typedef struct
-{
-  stream st;
-
-  int fd;
-  gfc_offset buffer_offset;	/* File offset of the start of the buffer */
-  gfc_offset physical_offset;	/* Current physical file offset */
-  gfc_offset logical_offset;	/* Current logical file offset */
-  gfc_offset dirty_offset;	/* Start of modified bytes in buffer */
-  gfc_offset file_length;	/* Length of the file, -1 if not seekable. */
-
-  char *buffer;
-  int len;			/* Physical length of the current buffer */
-  int active;			/* Length of valid bytes in the buffer */
-
-  int prot;
-  int ndirty;			/* Dirty bytes starting at dirty_offset */
-
-  int special_file;		/* =1 if the fd refers to a special file */
-
-  unsigned unbuffered:1;
-
-  char small_buffer[BUFFER_SIZE];
-
-}
-unix_stream;
 
 /*move_pos_offset()--  Move the record pointer right or left
  *relative to current position */
@@ -231,58 +200,121 @@ is_preconnected (stream * s)
     return 0;
 }
 
-/* write()-- Write a buffer to a descriptor, allowing for short writes */
-
-static int
-writen (int fd, char *buffer, int len)
+/* If the stream corresponds to a preconnected unit, we flush the
+   corresponding C stream.  This is bugware for mixed C-Fortran codes
+   where the C code doesn't flush I/O before returning.  */
+void
+flush_if_preconnected (stream * s)
 {
-  int n, n0;
+  int fd;
 
-  n0 = len;
-
-  while (len > 0)
-    {
-      n = write (fd, buffer, len);
-      if (n < 0)
-	return n;
-
-      buffer += n;
-      len -= n;
-    }
-
-  return n0;
+  fd = ((unix_stream *) s)->fd;
+  if (fd == STDIN_FILENO)
+    fflush (stdin);
+  else if (fd == STDOUT_FILENO)
+    fflush (stdout);
+  else if (fd == STDERR_FILENO)
+    fflush (stderr);
 }
 
 
-#if 0
-/* readn()-- Read bytes into a buffer, allowing for short reads.  If
- * fewer than len bytes are returned, it is because we've hit the end
- * of file. */
+/* Reset a stream after reading/writing. Assumes that the buffers have
+   been flushed.  */
+
+inline static void
+reset_stream (unix_stream * s, size_t bytes_rw)
+{
+  s->physical_offset += bytes_rw;
+  s->logical_offset = s->physical_offset;
+  if (s->file_length != -1 && s->physical_offset > s->file_length)
+    s->file_length = s->physical_offset;
+}
+
+
+/* Read bytes into a buffer, allowing for short reads.  If the nbytes
+ * argument is less on return than on entry, it is because we've hit
+ * the end of file. */
 
 static int
-readn (int fd, char *buffer, int len)
+do_read (unix_stream * s, void * buf, size_t * nbytes)
 {
-  int nread, n;
+  ssize_t trans;
+  size_t bytes_left;
+  char *buf_st;
+  int status;
 
-  nread = 0;
+  status = 0;
+  bytes_left = *nbytes;
+  buf_st = (char *) buf;
 
-  while (len > 0)
+  /* We must read in a loop since some systems don't restart system
+     calls in case of a signal.  */
+  while (bytes_left > 0)
     {
-      n = read (fd, buffer, len);
-      if (n < 0)
-	return n;
-
-      if (n == 0)
-	return nread;
-
-      buffer += n;
-      nread += n;
-      len -= n;
+      /* Requests between SSIZE_MAX and SIZE_MAX are undefined by SUSv3,
+	 so we must read in chunks smaller than SSIZE_MAX.  */
+      trans = (bytes_left < SSIZE_MAX) ? bytes_left : SSIZE_MAX;
+      trans = read (s->fd, buf_st, trans);
+      if (trans < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  else
+	    {
+	      status = errno;
+	      break;
+	    }
+	}
+      else if (trans == 0) /* We hit EOF.  */
+	break;
+      buf_st += trans;
+      bytes_left -= trans;
     }
 
-  return nread;
+  *nbytes -= bytes_left;
+  return status;
 }
-#endif
+
+
+/* Write a buffer to a stream, allowing for short writes.  */
+
+static int
+do_write (unix_stream * s, const void * buf, size_t * nbytes)
+{
+  ssize_t trans;
+  size_t bytes_left;
+  char *buf_st;
+  int status;
+
+  status = 0;
+  bytes_left = *nbytes;
+  buf_st = (char *) buf;
+
+  /* We must write in a loop since some systems don't restart system
+     calls in case of a signal.  */
+  while (bytes_left > 0)
+    {
+      /* Requests between SSIZE_MAX and SIZE_MAX are undefined by SUSv3,
+	 so we must write in chunks smaller than SSIZE_MAX.  */
+      trans = (bytes_left < SSIZE_MAX) ? bytes_left : SSIZE_MAX;
+      trans = write (s->fd, buf_st, trans);
+      if (trans < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  else
+	    {
+	      status = errno;
+	      break;
+	    }
+	}
+      buf_st += trans;
+      bytes_left -= trans;
+    }
+
+  *nbytes -= bytes_left;
+  return status;
+}
 
 
 /* get_oserror()-- Get the most recent operating system error.  For
@@ -308,11 +340,14 @@ sys_exit (int code)
     File descriptor stream functions
 *********************************************************************/
 
+
 /* fd_flush()-- Write bytes that need to be written */
 
 static try
 fd_flush (unix_stream * s)
 {
+  size_t writelen;
+
   if (s->ndirty == 0)
     return SUCCESS;;
 
@@ -320,16 +355,20 @@ fd_flush (unix_stream * s)
       lseek (s->fd, s->dirty_offset, SEEK_SET) < 0)
     return FAILURE;
 
-  if (writen (s->fd, s->buffer + (s->dirty_offset - s->buffer_offset),
-	      s->ndirty) < 0)
+  writelen = s->ndirty;
+  if (do_write (s, s->buffer + (s->dirty_offset - s->buffer_offset),
+		&writelen) != 0)
     return FAILURE;
 
-  s->physical_offset = s->dirty_offset + s->ndirty;
+  s->physical_offset = s->dirty_offset + writelen;
 
   /* don't increment file_length if the file is non-seekable */
   if (s->file_length != -1 && s->physical_offset > s->file_length)
-    s->file_length = s->physical_offset;
-  s->ndirty = 0;
+      s->file_length = s->physical_offset; 
+
+  s->ndirty -= writelen;
+  if (s->ndirty != 0)
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -394,7 +433,6 @@ static char *
 fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 {
   gfc_offset m;
-  int n;
 
   if (where == -1)
     where = s->logical_offset;
@@ -416,13 +454,32 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
   if (s->physical_offset != m && lseek (s->fd, m, SEEK_SET) < 0)
     return NULL;
 
-  n = read (s->fd, s->buffer + s->active, s->len - s->active);
-  if (n < 0)
-    return NULL;
+  /* do_read() hangs on read from terminals for *BSD-systems.  Only
+     use read() in that case.  */
 
-  s->physical_offset = where + n;
+  if (s->special_file)
+    {
+      ssize_t n;
 
-  s->active += n;
+      n = read (s->fd, s->buffer + s->active, s->len - s->active);
+      if (n < 0)
+	return NULL;
+
+      s->physical_offset = where + n;
+      s->active += n;
+    }
+  else
+    {
+      size_t n;
+
+      n = s->len - s->active;
+      if (do_read (s, s->buffer + s->active, &n) != 0)
+	return NULL;
+
+      s->physical_offset = where + n;
+      s->active += n;
+    }
+
   if (s->active < *len)
     *len = s->active;		/* Bytes actually available */
 
@@ -502,9 +559,15 @@ fd_sfree (unix_stream * s)
 }
 
 
-static int
+static try
 fd_seek (unix_stream * s, gfc_offset offset)
 {
+  if (s->physical_offset == offset) /* Are we lucky and avoid syscall?  */
+    {
+      s->logical_offset = offset;
+      return SUCCESS;
+    }
+
   s->physical_offset = s->logical_offset = offset;
 
   return (lseek (s->fd, offset, SEEK_SET) < 0) ? FAILURE : SUCCESS;
@@ -543,6 +606,104 @@ fd_truncate (unix_stream * s)
 }
 
 
+
+
+/* Stream read function. Avoids using a buffer for big reads. The
+   interface is like POSIX read(), but the nbytes argument is a
+   pointer; on return it contains the number of bytes written. The
+   function return value is the status indicator (0 for success).  */
+
+static int
+fd_read (unix_stream * s, void * buf, size_t * nbytes)
+{
+  void *p;
+  int tmp, status;
+
+  if (*nbytes < BUFFER_SIZE && !s->unbuffered)
+    {
+      tmp = *nbytes;
+      p = fd_alloc_r_at (s, &tmp, -1);
+      if (p)
+	{
+	  *nbytes = tmp;
+	  memcpy (buf, p, *nbytes);
+	  return 0;
+	}
+      else
+	{
+	  *nbytes = 0;
+	  return errno;
+	}
+    }
+
+  /* If the request is bigger than BUFFER_SIZE we flush the buffers
+     and read directly.  */
+  if (fd_flush (s) == FAILURE)
+    {
+      *nbytes = 0;
+      return errno;
+    }
+
+  if (is_seekable ((stream *) s) && fd_seek (s, s->logical_offset) == FAILURE)
+    {
+      *nbytes = 0;
+      return errno;
+    }
+
+  status = do_read (s, buf, nbytes);
+  reset_stream (s, *nbytes);
+  return status;
+}
+
+
+/* Stream write function. Avoids using a buffer for big writes. The
+   interface is like POSIX write(), but the nbytes argument is a
+   pointer; on return it contains the number of bytes written. The
+   function return value is the status indicator (0 for success).  */
+
+static int
+fd_write (unix_stream * s, const void * buf, size_t * nbytes)
+{
+  void *p;
+  int tmp, status;
+
+  if (*nbytes < BUFFER_SIZE && !s->unbuffered)
+    {
+      tmp = *nbytes;
+      p = fd_alloc_w_at (s, &tmp, -1);
+      if (p)
+	{
+	  *nbytes = tmp;
+	  memcpy (p, buf, *nbytes);
+	  return 0;
+	}
+      else
+	{
+	  *nbytes = 0;
+	  return errno;
+	}
+    }
+
+  /* If the request is bigger than BUFFER_SIZE we flush the buffers
+     and write directly.  */
+  if (fd_flush (s) == FAILURE)
+    {
+      *nbytes = 0;
+      return errno;
+    }
+
+  if (is_seekable ((stream *) s) && fd_seek (s, s->logical_offset) == FAILURE)
+    {
+      *nbytes = 0;
+      return errno;
+    }
+
+  status =  do_write (s, buf, nbytes);
+  reset_stream (s, *nbytes);
+  return status;
+}
+
+
 static try
 fd_close (unix_stream * s)
 {
@@ -576,9 +737,12 @@ fd_open (unix_stream * s)
   s->st.close = (void *) fd_close;
   s->st.seek = (void *) fd_seek;
   s->st.truncate = (void *) fd_truncate;
+  s->st.read = (void *) fd_read;
+  s->st.write = (void *) fd_write;
 
   s->buffer = NULL;
 }
+
 
 
 
@@ -630,14 +794,65 @@ mem_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
     return NULL;
 
   if (m > s->file_length)
-    {
-      generate_error (ERROR_END, NULL);
-      return NULL;
-    }
+    return NULL;
 
   s->logical_offset = m;
 
   return s->buffer + (where - s->buffer_offset);
+}
+
+
+/* Stream read function for internal units. This is not actually used
+   at the moment, as all internal IO is formatted and the formatted IO
+   routines use mem_alloc_r_at.  */
+
+static int
+mem_read (unix_stream * s, void * buf, size_t * nbytes)
+{
+  void *p;
+  int tmp;
+
+  tmp = *nbytes;
+  p = mem_alloc_r_at (s, &tmp, -1);
+  if (p)
+    {
+      *nbytes = tmp;
+      memcpy (buf, p, *nbytes);
+      return 0;
+    }
+  else
+    {
+      *nbytes = 0;
+      return errno;
+    }
+}
+
+
+/* Stream write function for internal units. This is not actually used
+   at the moment, as all internal IO is formatted and the formatted IO
+   routines use mem_alloc_w_at.  */
+
+static int
+mem_write (unix_stream * s, const void * buf, size_t * nbytes)
+{
+  void *p;
+  int tmp;
+
+  errno = 0;
+
+  tmp = *nbytes;
+  p = mem_alloc_w_at (s, &tmp, -1);
+  if (p)
+    {
+      *nbytes = tmp;
+      memcpy (p, buf, *nbytes);
+      return 0;
+    }
+  else
+    {
+      *nbytes = 0;
+      return errno;
+    }
 }
 
 
@@ -715,6 +930,8 @@ open_internal (char *base, int length)
   s->st.close = (void *) mem_close;
   s->st.seek = (void *) mem_seek;
   s->st.truncate = (void *) mem_truncate;
+  s->st.read = (void *) mem_read;
+  s->st.write = (void *) mem_write;
 
   return (stream *) s;
 }
@@ -753,15 +970,18 @@ fd_to_stream (int fd, int prot)
 /* Given the Fortran unit number, convert it to a C file descriptor.  */
 
 int
-unit_to_fd(int unit)
+unit_to_fd (int unit)
 {
   gfc_unit *us;
+  int fd;
 
-  us = find_unit(unit);
+  us = find_unit (unit);
   if (us == NULL)
     return -1;
 
-  return ((unix_stream *) us->s)->fd;
+  fd = ((unix_stream *) us->s)->fd;
+  unlock_unit (us);
+  return fd;
 }
 
 
@@ -787,11 +1007,11 @@ unpack_filename (char *cstring, const char *fstring, int len)
  * open it.  mkstemp() opens the file for reading and writing, but the
  * library mode prevents anything that is not allowed.  The descriptor
  * is returned, which is -1 on error.  The template is pointed to by 
- * ioparm.file, which is copied into the unit structure
+ * opp->file, which is copied into the unit structure
  * and freed later. */
 
 static int
-tempfile (void)
+tempfile (st_parameter_open *opp)
 {
   const char *tempdir;
   char *template;
@@ -833,8 +1053,8 @@ tempfile (void)
     free_mem (template);
   else
     {
-      ioparm.file = template;
-      ioparm.file_len = strlen (template);	/* Don't include trailing nul */
+      opp->file = template;
+      opp->file_len = strlen (template);	/* Don't include trailing nul */
     }
 
   return fd;
@@ -847,7 +1067,7 @@ tempfile (void)
  * Returns the descriptor, which is less than zero on error. */
 
 static int
-regular_file (unit_flags *flags)
+regular_file (st_parameter_open *opp, unit_flags *flags)
 {
   char path[PATH_MAX + 1];
   int mode;
@@ -855,7 +1075,7 @@ regular_file (unit_flags *flags)
   int crflag;
   int fd;
 
-  if (unpack_filename (path, ioparm.file, ioparm.file_len))
+  if (unpack_filename (path, opp->file, opp->file_len))
     {
       errno = ENOENT;		/* Fake an OS error */
       return -1;
@@ -879,7 +1099,7 @@ regular_file (unit_flags *flags)
       break;
 
     default:
-      internal_error ("regular_file(): Bad action");
+      internal_error (&opp->common, "regular_file(): Bad action");
     }
 
   switch (flags->status)
@@ -902,7 +1122,7 @@ regular_file (unit_flags *flags)
       break;
 
     default:
-      internal_error ("regular_file(): Bad status");
+      internal_error (&opp->common, "regular_file(): Bad status");
     }
 
   /* rwflag |= O_LARGEFILE; */
@@ -953,26 +1173,27 @@ regular_file (unit_flags *flags)
  * Returns NULL on operating system error. */
 
 stream *
-open_external (unit_flags *flags)
+open_external (st_parameter_open *opp, unit_flags *flags)
 {
   int fd, prot;
 
   if (flags->status == STATUS_SCRATCH)
     {
-      fd = tempfile ();
+      fd = tempfile (opp);
       if (flags->action == ACTION_UNSPECIFIED)
         flags->action = ACTION_READWRITE;
 
 #if HAVE_UNLINK_OPEN_FILE
       /* We can unlink scratch files now and it will go away when closed. */
-      unlink (ioparm.file);
+      if (fd >= 0)
+	unlink (opp->file);
 #endif
     }
   else
     {
       /* regular_file resets flags->action if it is ACTION_UNSPECIFIED and
        * if it succeeds */
-      fd = regular_file (flags);
+      fd = regular_file (opp, flags);
     }
 
   if (fd < 0)
@@ -994,7 +1215,7 @@ open_external (unit_flags *flags)
       break;
 
     default:
-      internal_error ("open_external(): Bad action");
+      internal_error (&opp->common, "open_external(): Bad action");
     }
 
   return fd_to_stream (fd, prot);
@@ -1036,21 +1257,19 @@ error_stream (void)
  * corrupted. */
 
 stream *
-init_error_stream (void)
+init_error_stream (unix_stream *error)
 {
-  static unix_stream error;
+  memset (error, '\0', sizeof (*error));
 
-  memset (&error, '\0', sizeof (error));
+  error->fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
 
-  error.fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
+  error->st.alloc_w_at = (void *) fd_alloc_w_at;
+  error->st.sfree = (void *) fd_sfree;
 
-  error.st.alloc_w_at = (void *) fd_alloc_w_at;
-  error.st.sfree = (void *) fd_sfree;
+  error->unbuffered = 1;
+  error->buffer = error->small_buffer;
 
-  error.unbuffered = 1;
-  error.buffer = error.small_buffer;
-
-  return (stream *) & error;
+  return (stream *) error;
 }
 
 
@@ -1059,10 +1278,13 @@ init_error_stream (void)
  * filename. */
 
 int
-compare_file_filename (stream * s, const char *name, int len)
+compare_file_filename (gfc_unit *u, const char *name, int len)
 {
   char path[PATH_MAX + 1];
-  struct stat st1, st2;
+  struct stat st1;
+#ifdef HAVE_WORKING_STAT
+  struct stat st2;
+#endif
 
   if (unpack_filename (path, name, len))
     return 0;			/* Can't be the same */
@@ -1073,32 +1295,50 @@ compare_file_filename (stream * s, const char *name, int len)
   if (stat (path, &st1) < 0)
     return 0;
 
-  fstat (((unix_stream *) s)->fd, &st2);
-
+#ifdef HAVE_WORKING_STAT
+  fstat (((unix_stream *) (u->s))->fd, &st2);
   return (st1.st_dev == st2.st_dev) && (st1.st_ino == st2.st_ino);
+#else
+  if (len != u->file_len)
+    return 0;
+  return (memcmp(path, u->file, len) == 0);
+#endif
 }
 
+
+#ifdef HAVE_WORKING_STAT
+# define FIND_FILE0_DECL struct stat *st
+# define FIND_FILE0_ARGS st
+#else
+# define FIND_FILE0_DECL const char *file, gfc_charlen_type file_len
+# define FIND_FILE0_ARGS file, file_len
+#endif
 
 /* find_file0()-- Recursive work function for find_file() */
 
 static gfc_unit *
-find_file0 (gfc_unit * u, struct stat *st1)
+find_file0 (gfc_unit *u, FIND_FILE0_DECL)
 {
-  struct stat st2;
   gfc_unit *v;
 
   if (u == NULL)
     return NULL;
 
-  if (fstat (((unix_stream *) u->s)->fd, &st2) >= 0 &&
-      st1->st_dev == st2.st_dev && st1->st_ino == st2.st_ino)
+#ifdef HAVE_WORKING_STAT
+  if (u->s != NULL
+      && fstat (((unix_stream *) u->s)->fd, &st[1]) >= 0 &&
+      st[0].st_dev == st[1].st_dev && st[0].st_ino == st[1].st_ino)
     return u;
+#else
+  if (compare_string (u->file_len, u->file, file_len, file) == 0)
+    return u;
+#endif
 
-  v = find_file0 (u->left, st1);
+  v = find_file0 (u->left, FIND_FILE0_ARGS);
   if (v != NULL)
     return v;
 
-  v = find_file0 (u->right, st1);
+  v = find_file0 (u->right, FIND_FILE0_ARGS);
   if (v != NULL)
     return v;
 
@@ -1110,18 +1350,111 @@ find_file0 (gfc_unit * u, struct stat *st1)
  * that has the file already open.  Returns a pointer to the unit if so. */
 
 gfc_unit *
-find_file (void)
+find_file (const char *file, gfc_charlen_type file_len)
 {
   char path[PATH_MAX + 1];
-  struct stat statbuf;
+  struct stat st[2];
+  gfc_unit *u;
 
-  if (unpack_filename (path, ioparm.file, ioparm.file_len))
+  if (unpack_filename (path, file, file_len))
     return NULL;
 
-  if (stat (path, &statbuf) < 0)
+  if (stat (path, &st[0]) < 0)
     return NULL;
 
-  return find_file0 (g.unit_root, &statbuf);
+  __gthread_mutex_lock (&unit_lock);
+retry:
+  u = find_file0 (unit_root, FIND_FILE0_ARGS);
+  if (u != NULL)
+    {
+      /* Fast path.  */
+      if (! __gthread_mutex_trylock (&u->lock))
+	{
+	  /* assert (u->closed == 0); */
+	  __gthread_mutex_unlock (&unit_lock);
+	  return u;
+	}
+
+      inc_waiting_locked (u);
+    }
+  __gthread_mutex_unlock (&unit_lock);
+  if (u != NULL)
+    {
+      __gthread_mutex_lock (&u->lock);
+      if (u->closed)
+	{
+	  __gthread_mutex_lock (&unit_lock);
+	  __gthread_mutex_unlock (&u->lock);
+	  if (predec_waiting_locked (u) == 0)
+	    free_mem (u);
+	  goto retry;
+	}
+
+      dec_waiting_unlocked (u);
+    }
+  return u;
+}
+
+static gfc_unit *
+flush_all_units_1 (gfc_unit *u, int min_unit)
+{
+  while (u != NULL)
+    {
+      if (u->unit_number > min_unit)
+	{
+	  gfc_unit *r = flush_all_units_1 (u->left, min_unit);
+	  if (r != NULL)
+	    return r;
+	}
+      if (u->unit_number >= min_unit)
+	{
+	  if (__gthread_mutex_trylock (&u->lock))
+	    return u;
+	  if (u->s)
+	    flush (u->s);
+	  __gthread_mutex_unlock (&u->lock);
+	}
+      u = u->right;
+    }
+  return NULL;
+}
+
+void
+flush_all_units (void)
+{
+  gfc_unit *u;
+  int min_unit = 0;
+
+  __gthread_mutex_lock (&unit_lock);
+  do
+    {
+      u = flush_all_units_1 (unit_root, min_unit);
+      if (u != NULL)
+	inc_waiting_locked (u);
+      __gthread_mutex_unlock (&unit_lock);
+      if (u == NULL)
+	return;
+
+      __gthread_mutex_lock (&u->lock);
+
+      min_unit = u->unit_number + 1;
+
+      if (u->closed == 0)
+	{
+	  flush (u->s);
+	  __gthread_mutex_lock (&unit_lock);
+	  __gthread_mutex_unlock (&u->lock);
+	  (void) predec_waiting_locked (u);
+	}
+      else
+	{
+	  __gthread_mutex_lock (&unit_lock);
+	  __gthread_mutex_unlock (&u->lock);
+	  if (predec_waiting_locked (u) == 0)
+	    free_mem (u);
+	}
+    }
+  while (1);
 }
 
 
@@ -1181,12 +1514,12 @@ delete_file (gfc_unit * u)
  * the system */
 
 int
-file_exists (void)
+file_exists (const char *file, gfc_charlen_type file_len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
 
-  if (unpack_filename (path, ioparm.file, ioparm.file_len))
+  if (unpack_filename (path, file, file_len))
     return 0;
 
   if (stat (path, &statbuf) < 0)
@@ -1353,9 +1686,8 @@ file_position (stream * s)
 int
 is_seekable (stream * s)
 {
-  /* by convention, if file_length == -1, the file is not seekable
-     note that a mmapped file is always seekable, an fd_ file may
-     or may not be. */
+  /* By convention, if file_length == -1, the file is not
+     seekable.  */
   return ((unix_stream *) s)->file_length!=-1;
 }
 
@@ -1379,6 +1711,12 @@ stream_ttyname (stream *s)
 #else
   return NULL;
 #endif
+}
+
+gfc_offset
+stream_offset (stream *s)
+{
+  return (((unix_stream *) s)->logical_offset);
 }
 
 

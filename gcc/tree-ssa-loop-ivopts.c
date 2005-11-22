@@ -3077,6 +3077,7 @@ get_address_cost (bool symbol_present, bool var_present,
       old_cse_not_expected = cse_not_expected;
       cse_not_expected = true;
       addr = memory_address (Pmode, addr);
+      cse_not_expected = old_cse_not_expected;
       seq = get_insns ();
       cse_not_expected = old_cse_not_expected;
       end_sequence ();

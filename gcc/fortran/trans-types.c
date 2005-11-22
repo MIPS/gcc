@@ -192,6 +192,15 @@ gfc_init_kinds (void)
       gfc_real_kinds[r_index].digits = fmt->p;
       gfc_real_kinds[r_index].min_exponent = fmt->emin;
       gfc_real_kinds[r_index].max_exponent = fmt->emax;
+      if (fmt->pnan < fmt->p)
+	/* This is an IBM extended double format (or the MIPS variant)
+	   made up of two IEEE doubles.  The value of the long double is
+	   the sum of the values of the two parts.  The most significant
+	   part is required to be the value of the long double rounded
+	   to the nearest double.  If we use emax of 1024 then we can't
+	   represent huge(x) = (1 - b**(-p)) * b**(emax-1) * b, because
+	   rounding will make the most significant part overflow.  */
+	gfc_real_kinds[r_index].max_exponent = fmt->emax - 1;
       gfc_real_kinds[r_index].mode_precision = GET_MODE_PRECISION (mode);
       r_index += 1;
     }
@@ -1415,21 +1424,30 @@ gfc_get_derived_type (gfc_symbol * derived)
       derived->backend_decl = typenode;
     }
 
+  /* Go through the derived type components, building them as
+     necessary. The reason for doing this now is that it is
+     possible to recurse back to this derived type through a
+     pointer component (PR24092). If this happens, the fields
+     will be built and so we can return the type.  */
+  for (c = derived->components; c; c = c->next)
+    {
+      if (c->ts.type != BT_DERIVED)
+	continue;
+
+      if (!c->pointer || c->ts.derived->backend_decl == NULL)
+	c->ts.derived->backend_decl = gfc_get_derived_type (c->ts.derived);
+    }
+
+  if (TYPE_FIELDS (derived->backend_decl))
+    return derived->backend_decl;
+
   /* Build the type member list. Install the newly created RECORD_TYPE
      node as DECL_CONTEXT of each FIELD_DECL.  */
   fieldlist = NULL_TREE;
   for (c = derived->components; c; c = c->next)
     {
-      if (c->ts.type == BT_DERIVED && c->pointer)
-        {
-          if (c->ts.derived->backend_decl)
-	    /* We already saw this derived type so use the exiting type.
-	       It doesn't matter if it is incomplete.  */
-	    field_type = c->ts.derived->backend_decl;
-          else
-	    /* Recurse into the type.  */
-	    field_type = gfc_get_derived_type (c->ts.derived);
-        }
+      if (c->ts.type == BT_DERIVED)
+        field_type = c->ts.derived->backend_decl;
       else
 	{
 	  if (c->ts.type == BT_CHARACTER)
@@ -1464,8 +1482,9 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       DECL_PACKED (field) |= TYPE_PACKED (typenode);
 
-      gcc_assert (!c->backend_decl);
-      c->backend_decl = field;
+      gcc_assert (field);
+      if (!c->backend_decl)
+	c->backend_decl = field;
     }
 
   /* Now we have the final fieldlist.  Record it, then lay out the

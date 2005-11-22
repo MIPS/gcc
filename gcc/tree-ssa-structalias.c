@@ -159,6 +159,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
   TODO: We could handle unions, but to be honest, it's probably not
   worth the pain or slowdown.  */
 
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+  htab_t heapvar_for_stmt;
 static bool use_field_sensitive = true;
 static unsigned int create_variable_info_for (tree, const char *);
 static struct constraint_expr get_constraint_for (tree, bool *);
@@ -239,6 +241,11 @@ struct variable_info
   /* Vector of complex constraints for this node.  Complex
      constraints are those involving dereferences.  */
   VEC(constraint_t,heap) *complex;
+  
+  /* Variable id this was collapsed to due to type unsafety.
+     This should be unused completely after build_constraint_graph, or
+     something is broken.  */
+  struct variable_info *collapsed_to;
 };
 typedef struct variable_info *varinfo_t;
 
@@ -258,9 +265,21 @@ static VEC(varinfo_t,heap) *varmap;
 /* Return the varmap element N */
 
 static inline varinfo_t
-get_varinfo(unsigned int n)
+get_varinfo (unsigned int n)
 {
   return VEC_index(varinfo_t, varmap, n);
+}
+
+/* Return the varmap element N, following the collapsed_to link.  */
+
+static inline varinfo_t
+get_varinfo_fc (unsigned int n)
+{
+  varinfo_t v = VEC_index(varinfo_t, varmap, n);
+
+  if (v->collapsed_to)
+    return v->collapsed_to;
+  return v;
 }
 
 /* Variable that represents the unknown pointer.  */
@@ -291,6 +310,38 @@ static varinfo_t var_anyoffset;
 static tree anyoffset_tree;
 static unsigned int anyoffset_id;
 
+
+/* Lookup a heap var for FROM, and return it if we find one.  */
+
+static tree 
+heapvar_lookup (tree from)
+{
+  struct tree_map *h, in;
+  in.from = from;
+
+  h = htab_find_with_hash (heapvar_for_stmt, &in, htab_hash_pointer (from));
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert a mapping FROM->TO in the heap var for statement
+   hashtable.  */
+
+static void
+heapvar_insert (tree from, tree to)
+{
+  struct tree_map *h;
+  void **loc;
+
+  h = ggc_alloc (sizeof (struct tree_map));
+  h->hash = htab_hash_pointer (from);
+  h->from = from;
+  h->to = to;
+  loc = htab_find_slot_with_hash (heapvar_for_stmt, h, h->hash, INSERT);
+  *(struct tree_map **) loc = h;
+}  
+
 /* Return a new variable info structure consisting for a variable
    named NAME, and using constraint graph node NODE.  */
 
@@ -316,6 +367,7 @@ new_var_info (tree t, unsigned int id, const char *name, unsigned int node)
   bitmap_clear (ret->variables);
   ret->complex = NULL;
   ret->next = NULL;
+  ret->collapsed_to = NULL;
   return ret;
 }
 
@@ -429,7 +481,7 @@ dump_constraint (FILE *file, constraint_t c)
     fprintf (file, "&");
   else if (c->lhs.type == DEREF)
     fprintf (file, "*");  
-  fprintf (file, "%s", get_varinfo (c->lhs.var)->name);
+  fprintf (file, "%s", get_varinfo_fc (c->lhs.var)->name);
   if (c->lhs.offset != 0)
     fprintf (file, " + " HOST_WIDE_INT_PRINT_DEC, c->lhs.offset);
   fprintf (file, " = ");
@@ -437,7 +489,7 @@ dump_constraint (FILE *file, constraint_t c)
     fprintf (file, "&");
   else if (c->rhs.type == DEREF)
     fprintf (file, "*");
-  fprintf (file, "%s", get_varinfo (c->rhs.var)->name);
+  fprintf (file, "%s", get_varinfo_fc (c->rhs.var)->name);
   if (c->rhs.offset != 0)
     fprintf (file, " + " HOST_WIDE_INT_PRINT_DEC, c->rhs.offset);
   fprintf (file, "\n");
@@ -982,33 +1034,36 @@ build_constraint_graph (void)
     {
       struct constraint_expr lhs = c->lhs;
       struct constraint_expr rhs = c->rhs;
+      unsigned int lhsvar = get_varinfo_fc (lhs.var)->id;
+      unsigned int rhsvar = get_varinfo_fc (rhs.var)->id;
+
       if (lhs.type == DEREF)
 	{
 	  /* *x = y or *x = &y (complex) */
-	  if (rhs.type == ADDRESSOF || rhs.var > anything_id)
-	    insert_into_complex (lhs.var, c);
+	  if (rhs.type == ADDRESSOF || rhsvar > anything_id)
+	    insert_into_complex (lhsvar, c);
 	}
       else if (rhs.type == DEREF)
 	{
 	  /* !special var= *y */
-	  if (!(get_varinfo (lhs.var)->is_special_var))
-	    insert_into_complex (rhs.var, c);
+	  if (!(get_varinfo (lhsvar)->is_special_var))
+	    insert_into_complex (rhsvar, c);
 	}
       else if (rhs.type == ADDRESSOF)
 	{
 	  /* x = &y */
-	  bitmap_set_bit (get_varinfo (lhs.var)->solution, rhs.var);
+	  bitmap_set_bit (get_varinfo (lhsvar)->solution, rhsvar);
 	}
-      else if (lhs.var > anything_id)
+      else if (lhsvar > anything_id)
 	{
 	  /* Ignore 0 weighted self edges, as they can't possibly contribute
 	     anything */
-	  if (lhs.var != rhs.var || rhs.offset != 0 || lhs.offset != 0)
+	  if (lhsvar != rhsvar || rhs.offset != 0 || lhs.offset != 0)
 	    {
 	      
 	      struct constraint_edge edge;
-	      edge.src = lhs.var;
-	      edge.dest = rhs.var;
+	      edge.src = lhsvar;
+	      edge.dest = rhsvar;
 	      /* x = y (simple) */
 	      add_graph_edge (graph, edge);
 	      bitmap_set_bit (get_graph_weights (graph, edge),
@@ -2189,11 +2244,16 @@ get_constraint_for (tree t, bool *need_anyoffset)
 	    if (call_expr_flags (t) & (ECF_MALLOC | ECF_MAY_BE_ALLOCA))
 	      {
 		varinfo_t vi;
-		tree heapvar;
+		tree heapvar = heapvar_lookup (t);
 		
-		heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
-		DECL_EXTERNAL (heapvar) = 1;
-		add_referenced_tmp_var (heapvar);
+		if (heapvar == NULL)
+		  {		    
+		    heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
+		    DECL_EXTERNAL (heapvar) = 1;
+		    add_referenced_tmp_var (heapvar);
+		    heapvar_insert (t, heapvar);
+		  }
+
 		temp.var = create_variable_info_for (heapvar,
 						     alias_get_name (heapvar));
 		
@@ -2300,9 +2360,12 @@ get_constraint_for (tree t, bool *need_anyoffset)
    For each field of the lhs variable (lhsfield)
      For each field of the rhs variable at lhsfield.offset (rhsfield)
        add the constraint lhsfield = rhsfield
-*/
 
-static void
+   If we fail due to some kind of type unsafety or other thing we
+   can't handle, return false.  We expect the caller to collapse the
+   variable in that case.  */
+
+static bool
 do_simple_structure_copy (const struct constraint_expr lhs,
 			  const struct constraint_expr rhs,
 			  const unsigned HOST_WIDE_INT size)
@@ -2322,9 +2385,12 @@ do_simple_structure_copy (const struct constraint_expr lhs,
       q = get_varinfo (temprhs.var);
       fieldoffset = p->offset - pstart;
       q = first_vi_for_offset (q, q->offset + fieldoffset);
+      if (!q)
+	return false;
       temprhs.var = q->id;
       process_constraint (new_constraint (templhs, temprhs));
     }
+  return true;
 }
 
 
@@ -2406,6 +2472,32 @@ do_lhs_deref_structure_copy (const struct constraint_expr lhs,
     }
 }
 
+/* Sometimes, frontends like to give us bad type information.  This
+   function will collapse all the fields from VAR to the end of VAR,
+   into VAR, so that we treat those fields as a single variable. 
+   We return the variable they were collapsed into.  */
+
+static unsigned int
+collapse_rest_of_var (unsigned int var)
+{
+  varinfo_t currvar = get_varinfo (var);
+  varinfo_t field;
+
+  for (field = currvar->next; field; field = field->next)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Type safety: Collapsing var %s into %s\n", 
+		 field->name, currvar->name);
+      
+      gcc_assert (!field->collapsed_to);
+      field->collapsed_to = currvar;
+    }
+
+  currvar->next = NULL;
+  currvar->size = currvar->fullsize - currvar->offset;
+  
+  return currvar->id;
+}
 
 /* Handle aggregate copies by expanding into copies of the respective
    fields of the structures.  */
@@ -2492,7 +2584,18 @@ do_structure_copy (tree lhsop, tree rhsop)
 
   
       if (rhs.type == SCALAR && lhs.type == SCALAR)  
-	do_simple_structure_copy (lhs, rhs, MIN (lhssize, rhssize));
+	{
+	  if (!do_simple_structure_copy (lhs, rhs, MIN (lhssize, rhssize)))
+	    {	      
+	      lhs.var = collapse_rest_of_var (lhs.var);
+	      rhs.var = collapse_rest_of_var (rhs.var);
+	      lhs.offset = 0;
+	      rhs.offset = 0;
+	      lhs.type = SCALAR;
+	      rhs.type = SCALAR;
+	      process_constraint (new_constraint (lhs, rhs));
+	    }
+	}
       else if (lhs.type != DEREF && rhs.type == DEREF)
 	do_rhs_deref_structure_copy (lhs, rhs, MIN (lhssize, rhssize));
       else if (lhs.type == DEREF && rhs.type != DEREF)
@@ -2801,7 +2904,6 @@ find_func_aliases (tree t, struct alias_info *ai)
 	     containing pointers, dereferences, and call expressions.  */
 	  if (POINTER_TYPE_P (TREE_TYPE (lhsop))
 	      || AGGREGATE_TYPE_P (TREE_TYPE (lhsop))
-	      || ref_contains_indirect_ref (lhsop)
 	      || TREE_CODE (rhsop) == CALL_EXPR)
 	    {
 	      lhs = get_constraint_for (lhsop, NULL);
@@ -3020,6 +3122,26 @@ make_constraint_to_anything (varinfo_t vi)
   process_constraint (new_constraint (lhs, rhs));
 }
 
+
+/* Return true if FIELDSTACK contains fields that overlap. 
+   FIELDSTACK is assumed to be sorted by offset.  */
+
+static bool
+check_for_overlaps (VEC (fieldoff_s,heap) *fieldstack)
+{
+  fieldoff_s *fo = NULL;
+  unsigned int i;
+  HOST_WIDE_INT lastoffset = -1;
+
+  for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
+    {
+      if (fo->offset == lastoffset)
+	return true;
+      lastoffset = fo->offset;
+    }
+  return false;
+}
+
 /* Create a varinfo structure for NAME and DECL, and add it to VARMAP.
    This will also create any varinfo structures necessary for fields
    of DECL.  */
@@ -3104,8 +3226,16 @@ create_variable_info_for (tree decl, const char *name)
 	 which will make notokay = true.  In that case, we are going to return
 	 without creating varinfos for the fields anyway, so sorting them is a
 	 waste to boot.  */
-      if (!notokay)	
-	sort_fieldstack (fieldstack);
+      if (!notokay)
+	{	
+	  sort_fieldstack (fieldstack);
+	  /* Due to some C++ FE issues, like PR 22488, we might end up
+	     what appear to be overlapping fields even though they,
+	     in reality, do not overlap.  Until the C++ FE is fixed,
+	     we will simply disable field-sensitivity for these cases.  */
+	  notokay = check_for_overlaps (fieldstack);
+	}
+      
       
       if (VEC_length (fieldoff_s, fieldstack) != 0)
 	fo = VEC_index (fieldoff_s, fieldstack, 0);
@@ -3672,3 +3802,19 @@ delete_points_to_sets (void)
 
   have_alias_info = false;
 }
+
+/* Initialize the heapvar for statement mapping.  */
+void 
+init_alias_heapvars (void)
+{
+  heapvar_for_stmt = htab_create_ggc (11, tree_map_hash, tree_map_eq, NULL);
+}
+
+void
+delete_alias_heapvars (void)
+{
+  htab_delete (heapvar_for_stmt);  
+}
+
+  
+#include "gt-tree-ssa-structalias.h"

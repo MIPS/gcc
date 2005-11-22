@@ -109,9 +109,9 @@ m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
-# Add -Wall if we are using GCC.
+# Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  AM_FCFLAGS="-Wall"
+  AM_FCFLAGS="-I . -Wall -fno-repack-arrays -fno-underscoring"
   ## We like to use C99 routines when available.  This makes sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
   AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
@@ -135,11 +135,9 @@ AC_SUBST(enable_static)
 #AC_MSG_NOTICE([====== Finished libtool configuration]) ; sleep 10
 
 # We need gfortran to compile parts of the library
-# We can't use AC_PROG_FC because it expects a fully working gfortran.
 #AC_PROG_FC(gfortran)
 FC="$GFORTRAN"
 AC_PROG_FC(gfortran)
-FCFLAGS="$FCFLAGS -Wall -fno-repack-arrays -fno-underscoring"
 
 # extra LD Flags which are required for targets
 case "${host}" in
@@ -158,7 +156,8 @@ AC_TYPE_OFF_T
 AC_STDC_HEADERS
 AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h signal.h)
 AC_CHECK_HEADERS(time.h sys/params.h sys/time.h sys/times.h sys/resource.h)
-AC_CHECK_HEADERS(sys/mman.h sys/types.h sys/stat.h ieeefp.h)
+AC_CHECK_HEADERS(sys/mman.h sys/types.h sys/stat.h floatingpoint.h ieeefp.h)
+AC_CHECK_HEADERS(fenv.h fptrap.h float.h)
 AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists])])
 
 AC_CHECK_MEMBERS([struct stat.st_blksize])
@@ -168,7 +167,7 @@ AC_CHECK_MEMBERS([struct stat.st_rdev])
 # Check for library functions.
 AC_CHECK_FUNCS(getrusage times mkstemp strtof strtold snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
-AC_CHECK_FUNCS(sleep time ttyname)
+AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime)
 
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])
@@ -337,8 +336,29 @@ LIBGFOR_CHECK_FOR_BROKEN_ISNAN
 # Check for a fpclassify macro that works on long doubles.
 LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY
 
+# Check whether the system has a working stat()
+LIBGFOR_CHECK_WORKING_STAT
+
 # Fallback in case isfinite is not available.
 AC_CHECK_LIB([m],[finite],[AC_DEFINE([HAVE_FINITE],[1],[libm includes finite])])
+
+# Check for GNU libc feenableexcept
+AC_CHECK_LIB([m],[feenableexcept],[have_feenableexcept=yes AC_DEFINE([HAVE_FEENABLEEXCEPT],[1],[libm includes feenableexcept])])
+
+# Check for SysV fpsetmask
+LIBGFOR_CHECK_FPSETMASK
+
+# Check for AIX fp_trap and fp_enable
+AC_CHECK_FUNC([fp_trap],[have_fp_trap=yes AC_DEFINE([HAVE_FP_TRAP],[1],[fp_trap is present])])
+AC_CHECK_FUNC([fp_enable],[have_fp_enable=yes AC_DEFINE([HAVE_FP_ENABLE],[1],[fp_enable is present])])
+
+# Runs configure.host to set up necessary host-dependent shell variables.
+# We then display a message about it, and propagate them through the
+# build chain.
+. ${srcdir}/configure.host
+AC_MSG_NOTICE([FPU dependent file will be ${fpu_host}.h])
+FPU_HOST_HEADER=config/${fpu_host}.h
+AC_SUBST(FPU_HOST_HEADER)
 
 # The standard autoconf HAVE_STRUCT_TIMEZONE doesn't actually check
 # for struct timezone, as you might think.  We also need to check how
@@ -353,6 +373,15 @@ LIBGFOR_TARGET_ILP32
 LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY
 LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT
 LIBGFOR_CHECK_ATTRIBUTE_ALIAS
+
+# Check out sync builtins support.
+LIBGFOR_CHECK_SYNC_FETCH_AND_ADD
+
+# Check out thread support.
+LIBGFOR_CHECK_GTHR_DEFAULT
+
+# Check out #pragma weak.
+LIBGFOR_CHECK_PRAGMA_WEAK
 
 # Various other checks on target
 LIBGFOR_CHECK_UNLINK_OPEN_FILE

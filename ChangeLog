@@ -1,3 +1,77 @@
+2005-11-21  Ben Elliston  <bje@au.ibm.com>
+
+	Import from Autoconf sources:
+
+	2005-09-06  Paul Eggert  <eggert@cs.ucla.edu>
+	* config/move-if-change: Don't output "$2 is unchanged";
+	suggested by Ben Elliston.  Handle weird characters correctly.
+
+2005-11-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* ltcf-c.sh (whole_archive_flag_spec): Remove '-all_load $convenience'
+	to match upstream libtool for darwin.
+
+2005-11-11  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.def: Remove gdb dependencies for gdbtk.
+	* Makefile.tpl (CONFIGURE_GDB_TK, INSTALL_GDB_TK): New variables.
+	(configure-gdb, install-gdb): New rules.
+	* configure.in: Set CONFIGURE_GDB_TK and INSTALL_GDB_TK.
+	* Makefile.in, configure: Regenerated.
+
+2005-11-06  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-11-06  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-10-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* MAINTAINERS (alias analysis): Add Daniel Berlin and
+	Diego Novillo.
+
+2005-10-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/24297
+	* Makefile.tpl (do-[+make-target+], do-check, install,
+	stage[+id+]-bubble, [+compare-target+]): Ensure $$r and $$s
+	are set before recursing.
+	* Makefile.in: Regenerate.
+
+2005-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/18939
+	* Makefile.def (gcc) <target>: Fix thinko.
+	* Makefile.in: Regenerate.
+
+2005-10-17  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* configure.in (bfin-*-*): Use test, not brackets, in if statement.
+	* configure: Regenerate.
+
+2005-10-15  Jie Zhang  <jie.zhang@analog.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.in (arm-*-linux-gnueabi): Add to noconfigdirs
+	target-libffi, target-qthreads, target-libjava, and
+	targetlibobjc.
+	* configure: Regenerate.
+
+2005-10-06  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.def (flags_to_pass): Add OBJDUMP_FOR_TARGET.
+	* Makefile.tpl (BASE_TARGET_EXPORTS): Add OBJDUMP.
+	(OBJDUMP_FOR_TARGET, CONFIGURED_OBJDUMP_FOR_TARGET)
+	(USUAL_OBJDUMP_FOR_TARGET): New.
+	(EXTRA_TARGET_FLAGS): Add OBJDUMP.
+	* configure.in: Check for $OBJDUMP_FOR_TARGET.
+	* configure, Makefile: Regenerated.
+
 2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.tpl (all) [gcc-no-bootstrap]: Make prebootstrap packages

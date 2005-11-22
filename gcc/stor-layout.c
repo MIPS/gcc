@@ -800,9 +800,19 @@ place_field (record_layout_info rli, tree field)
   /* The type of this field.  */
   tree type = TREE_TYPE (field);
 
-  if (TREE_CODE (field) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
-      return;
+  gcc_assert (TREE_CODE (field) != ERROR_MARK);
 
+  if (TREE_CODE (type) == ERROR_MARK)
+    {
+      if (TREE_CODE (field) == FIELD_DECL)
+	{
+	  DECL_FIELD_OFFSET (field) = size_int (0);
+	  DECL_FIELD_BIT_OFFSET (field) = bitsize_int (0);
+	}
+      
+      return;
+    }
+  
   /* If FIELD is static, then treat it like a separate variable, not
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
@@ -1635,7 +1645,7 @@ layout_type (tree type)
 	    enum machine_mode mode;
 
 	    /* First, look for a supported vector type.  */
-	    if (GET_MODE_CLASS (innermode) == MODE_FLOAT)
+	    if (SCALAR_FLOAT_MODE_P (innermode))
 	      mode = MIN_MODE_VECTOR_FLOAT;
 	    else
 	      mode = MIN_MODE_VECTOR_INT;
@@ -1817,6 +1827,12 @@ layout_type (tree type)
 		TYPE_MODE (type) = BLKmode;
 	      }
 	  }
+	if (TYPE_SIZE_UNIT (element)
+	    && TREE_CODE (TYPE_SIZE_UNIT (element)) == INTEGER_CST
+	    && !integer_zerop (TYPE_SIZE_UNIT (element))
+	    && compare_tree_int (TYPE_SIZE_UNIT (element),
+			  	 TYPE_ALIGN_UNIT (element)) < 0)
+	  error ("alignment of array elements is greater than element size");
 	break;
       }
 

@@ -199,6 +199,7 @@ BASE_TARGET_EXPORTS = \
 	LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
 	LIPO="$(LIPO_FOR_TARGET)"; export LIPO; \
 	NM="$(NM_FOR_TARGET)"; export NM; \
+	OBJDUMP="$(OBJDUMP_FOR_TARGET)"; export OBJDUMP; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	STRIP="$(STRIP_FOR_TARGET)"; export STRIP; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
@@ -513,6 +514,23 @@ USUAL_NM_FOR_TARGET = ` \
     fi; \
   fi`
 
+OBJDUMP_FOR_TARGET=@OBJDUMP_FOR_TARGET@
+CONFIGURED_OBJDUMP_FOR_TARGET=@CONFIGURED_OBJDUMP_FOR_TARGET@
+USUAL_OBJDUMP_FOR_TARGET = ` \
+  if [ -f $$r/$(HOST_SUBDIR)/binutils/objdump ] ; then \
+    echo $$r/$(HOST_SUBDIR)/binutils/objdump ; \
+  else \
+    if [ '$(host)' = '$(target)' ] ; then \
+      if [ x'$(OBJDUMP)' != x ]; then \
+         echo $(OBJDUMP); \
+      else \
+         echo objdump; \
+      fi; \
+    else \
+      echo $(CONFIGURED_OBJDUMP_FOR_TARGET) ; \
+    fi; \
+  fi`
+
 RANLIB_FOR_TARGET=@RANLIB_FOR_TARGET@
 CONFIGURED_RANLIB_FOR_TARGET=@CONFIGURED_RANLIB_FOR_TARGET@
 USUAL_RANLIB_FOR_TARGET = ` \
@@ -660,6 +678,7 @@ EXTRA_TARGET_FLAGS = \
 	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
 	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
 	'NM=$$(NM_FOR_TARGET)' \
+	'OBJDUMP=$$(OBJDUMP_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
 	'WINDRES=$$(WINDRES_FOR_TARGET)'
 
@@ -750,7 +769,9 @@ all-target: [+
 .PHONY: do-[+make_target+]
 do-[+make_target+]:
 	@$(unstage)
-	@$(MAKE) $(RECURSE_FLAGS_TO_PASS) [+make_target+]-host \
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) [+make_target+]-host \
 	  [+make_target+]-target
 	@$(stage)
 
@@ -847,7 +868,9 @@ check-target: [+
 
 do-check:
 	@$(unstage)
-	@$(MAKE) $(RECURSE_FLAGS_TO_PASS) check-host check-target
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) check-host check-target
 	@$(stage)
 
 # Automated reporting of test results.
@@ -876,7 +899,9 @@ mail-report-with-warnings.log: warning.log
 .PHONY: install uninstall
 install:
 	@$(unstage)
-	@$(MAKE) $(RECURSE_FLAGS_TO_PASS) installdirs install-host install-target
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) installdirs install-host install-target
 	@$(stage)
 
 .PHONY: install-host-nogcc
@@ -1515,7 +1540,9 @@ stage[+id+]-end::
 .PHONY: stage[+id+]-bubble
 stage[+id+]-bubble:: [+ IF prev +]stage[+prev+]-bubble[+ ENDIF +][+IF lean +]
 	@bootstrap_lean@-rm -rf stage[+lean+]-* ; $(STAMP) stage[+lean+]-lean[+ ENDIF lean +]
-	@if test -f stage[+id+]-lean [+
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	if test -f stage[+id+]-lean [+
 	  IF prev +]|| test -f stage[+prev+]-lean [+ ENDIF prev +] ; then \
 	  echo Skipping rebuild of stage[+id+] ; \
 	else \
@@ -1531,13 +1558,13 @@ do-clean: clean-stage[+id+]
 @if gcc-bootstrap
 [+ IF compare-target +]
 [+compare-target+]:
-	@if test -f stage[+prev+]-lean; then \
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	if test -f stage[+prev+]-lean; then \
 	  echo Cannot compare object files as stage [+prev+] was deleted. ; \
 	  exit 0 ; \
 	fi; \
 	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	rm -f .bad_compare ; \
 	cd stage[+id+]-gcc; \
 	files=`find . -name "*$(objext)" -print` ; \
@@ -1729,8 +1756,12 @@ all-prebootstrap: maybe-all-[+module+][+
 ENDFOR host_modules +]
 @endif gcc-no-bootstrap
 
+CONFIGURE_GDB_TK = @CONFIGURE_GDB_TK@
 GDB_TK = @GDB_TK@
+INSTALL_GDB_TK = @INSTALL_GDB_TK@
+configure-gdb: $(CONFIGURE_GDB_TK)
 all-gdb: $(gdbnlmrequirements) $(GDB_TK)
+install-gdb: $(INSTALL_GDB_TK)
 
 # Serialization dependencies.  Host configures don't work well in parallel to
 # each other, due to contention over config.cache.  Target configures and 

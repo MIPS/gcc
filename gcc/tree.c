@@ -1827,7 +1827,7 @@ staticp (tree arg)
     case VAR_DECL:
       return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
 	      && ! DECL_THREAD_LOCAL_P (arg)
-	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      && ! DECL_DLLIMPORT_P (arg)
 	      ? arg : NULL);
 
     case CONST_DECL:
@@ -3508,31 +3508,66 @@ tree
 merge_dllimport_decl_attributes (tree old, tree new)
 {
   tree a;
-  int delete_dllimport_p;
-
-  old = DECL_ATTRIBUTES (old);
-  new = DECL_ATTRIBUTES (new);
+  int delete_dllimport_p = 1;
 
   /* What we need to do here is remove from `old' dllimport if it doesn't
      appear in `new'.  dllimport behaves like extern: if a declaration is
      marked dllimport and a definition appears later, then the object
-     is not dllimport'd.  */
-  if (lookup_attribute ("dllimport", old) != NULL_TREE
-      && lookup_attribute ("dllimport", new) == NULL_TREE)
-    delete_dllimport_p = 1;
+     is not dllimport'd.  We also remove a `new' dllimport if the old list
+     contains dllexport:  dllexport always overrides dllimport, regardless
+     of the order of declaration.  */     
+  if (!VAR_OR_FUNCTION_DECL_P (new))
+    delete_dllimport_p = 0;
+  else if (DECL_DLLIMPORT_P (new)
+     	   && lookup_attribute ("dllexport", DECL_ATTRIBUTES (old)))
+    { 
+      DECL_DLLIMPORT_P (new) = 0;
+      warning (OPT_Wattributes, "%q+D already declared with dllexport attribute: "
+	      "dllimport ignored", new);
+    }
+  else if (DECL_DLLIMPORT_P (old) && !DECL_DLLIMPORT_P (new))
+    {
+      /* Warn about overriding a symbol that has already been used. eg:
+           extern int __attribute__ ((dllimport)) foo;
+	   int* bar () {return &foo;}
+	   int foo;
+      */
+      if (TREE_USED (old))
+	{
+	  warning (0, "%q+D redeclared without dllimport attribute "
+		   "after being referenced with dll linkage", new);
+	  /* If we have used a variable's address with dllimport linkage,
+	      keep the old DECL_DLLIMPORT_P flag: the ADDR_EXPR using the
+	      decl may already have had TREE_INVARIANT and TREE_CONSTANT
+	      computed.
+	      We still remove the attribute so that assembler code refers
+	      to '&foo rather than '_imp__foo'.  */
+	  if (TREE_CODE (old) == VAR_DECL && TREE_ADDRESSABLE (old))
+	    DECL_DLLIMPORT_P (new) = 1;
+	}
+
+      /* Let an inline definition silently override the external reference,
+	 but otherwise warn about attribute inconsistency.  */ 
+      else if (TREE_CODE (new) == VAR_DECL
+	       || !DECL_DECLARED_INLINE_P (new))
+	warning (OPT_Wattributes, "%q+D redeclared without dllimport attribute: "
+		  "previous dllimport ignored", new);
+    }
   else
     delete_dllimport_p = 0;
 
-  a = merge_attributes (old, new);
+  a = merge_attributes (DECL_ATTRIBUTES (old), DECL_ATTRIBUTES (new));
 
-  if (delete_dllimport_p)
+  if (delete_dllimport_p) 
     {
       tree prev, t;
-
+      const size_t attr_len = strlen ("dllimport"); 
+     
       /* Scan the list for dllimport and delete it.  */
       for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
 	{
-	  if (is_attribute_p ("dllimport", TREE_PURPOSE (t)))
+	  if (is_attribute_with_length_p ("dllimport", attr_len,
+					  TREE_PURPOSE (t)))
 	    {
 	      if (prev == NULL_TREE)
 		a = TREE_CHAIN (a);
@@ -3579,18 +3614,26 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
      any damage.  */
   if (is_attribute_p ("dllimport", name))
     {
+      /* Honor any target-specific overrides. */ 
+      if (!targetm.valid_dllimport_attribute_p (node))
+	*no_add_attrs = true;
+
+     else if (TREE_CODE (node) == FUNCTION_DECL
+	        && DECL_DECLARED_INLINE_P (node))
+	{
+	  warning (OPT_Wattributes, "inline function %q+D declared as "
+		  " dllimport: attribute ignored", node); 
+	  *no_add_attrs = true;
+	}
       /* Like MS, treat definition of dllimported variables and
-	 non-inlined functions on declaration as syntax errors.  We
-	 allow the attribute for function definitions if declared
-	 inline.  */
-      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
-          && !DECL_DECLARED_INLINE_P (node))
+	 non-inlined functions on declaration as syntax errors. */
+     else if (TREE_CODE (node) == FUNCTION_DECL && DECL_INITIAL (node))
 	{
 	  error ("function %q+D definition is marked dllimport", node);
 	  *no_add_attrs = true;
 	}
 
-      else if (TREE_CODE (node) == VAR_DECL)
+     else if (TREE_CODE (node) == VAR_DECL)
 	{
 	  if (DECL_INITIAL (node))
 	    {
@@ -3607,6 +3650,9 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
 	    TREE_PUBLIC (node) = 1;
 	}
+
+      if (*no_add_attrs == false)
+        DECL_DLLIMPORT_P (node) = 1;
     }
 
   /*  Report error if symbol is not accessible at global scope.  */
@@ -3686,6 +3732,20 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
+
+      /* If it's a pointer type, the new variant points to the same type.  */
+      if (TREE_CODE (type) == POINTER_TYPE)
+	{
+	  TYPE_NEXT_PTR_TO (t) = TYPE_NEXT_PTR_TO (type);
+	  TYPE_NEXT_PTR_TO (type) = t;
+	}
+
+      /* Same for a reference type.  */
+      else if (TREE_CODE (type) == REFERENCE_TYPE)
+	{
+	  TYPE_NEXT_REF_TO (t) = TYPE_NEXT_REF_TO (type);
+	  TYPE_NEXT_REF_TO (type) = t;
+	}
     }
 
   return t;
@@ -4390,7 +4450,7 @@ tree_int_cst_msb (tree t)
 
 /* Return an indication of the sign of the integer constant T.
    The return value is -1 if T < 0, 0 if T == 0, and 1 if T > 0.
-   Note that -1 will never be returned it T's type is unsigned.  */
+   Note that -1 will never be returned if T's type is unsigned.  */
 
 int
 tree_int_cst_sgn (tree t)
@@ -4801,10 +4861,12 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
     return TYPE_POINTER_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for pointers to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_POINTER_TO (to_type); t; t = TYPE_NEXT_PTR_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (POINTER_TYPE);
@@ -4850,10 +4912,12 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
     return TYPE_REFERENCE_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for references to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (REFERENCE_TYPE);
@@ -5524,8 +5588,11 @@ int_fits_type_p (tree c, tree type)
     return 0;
 
   /* If we haven't been able to decide at this point, there nothing more we
-     can check ourselves here. Look at the base type if we have one.  */
-  if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+     can check ourselves here.  Look at the base type if we have one and it
+     has the same precision.  */
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TREE_TYPE (type) != 0
+      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (type)))
     return int_fits_type_p (c, TREE_TYPE (type));
 
   /* Or to force_fit_type, if nothing else.  */

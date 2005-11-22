@@ -40,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tm_p.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
@@ -752,8 +753,8 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || HARD_REGISTER_P (dest))
     simple = false;
 
-  if (!check_maybe_invariant (SET_SRC (set))
-      || !may_assign_reg_p (SET_DEST (set)))
+  if (!may_assign_reg_p (SET_DEST (set))
+      || !check_maybe_invariant (SET_SRC (set)))
     return;
 
   if (may_trap_p (PATTERN (insn)))
@@ -1269,6 +1270,7 @@ move_loop_invariants (struct loops *loops)
       free_loop_data (loops->parray[i]);
 
   df_finish (df);
+
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif

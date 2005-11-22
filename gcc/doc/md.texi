@@ -1552,7 +1552,10 @@ instruction is defined:
 GCC can only handle one commutative pair in an asm; if you use more,
 the compiler may fail.  Note that you need not use the modifier if
 the two alternatives are strictly identical; this would only waste
-time in the reload pass.
+time in the reload pass.  The modifier is not operational after
+register allocation, so the result of @code{define_peephole2}
+and @code{define_split}s performed after reload cannot rely on
+@samp{%} to make the intended insn match.
 
 @cindex @samp{#} in constraint
 @item #
@@ -3029,8 +3032,8 @@ specify field index and operand 0 place to store value into.
 Initialize the vector to given values.  Operand 0 is the vector to initialize
 and operand 1 is parallel containing values for individual fields.
 
-@cindex @code{push@var{m}} instruction pattern
-@item @samp{push@var{m}}
+@cindex @code{push@var{m}1} instruction pattern
+@item @samp{push@var{m}1}
 Output a push instruction.  Operand 0 is value to push.  Used only when
 @code{PUSH_ROUNDING} is defined.  For historical reason, this pattern may be
 missing and in such case an @code{mov} expander is used instead, with a
@@ -3072,28 +3075,28 @@ it is unspecified which of the two operands is returned as the result.
 @cindex @code{reduc_smax_@var{m}} instruction pattern
 @item @samp{reduc_smin_@var{m}}, @samp{reduc_smax_@var{m}}
 Find the signed minimum/maximum of the elements of a vector. The vector is
-operand 1, and the scalar result is stored in the least significant bits of 
-operand 0 (also a vector). The output and input vector should have the same 
+operand 1, and the scalar result is stored in the least significant bits of
+operand 0 (also a vector). The output and input vector should have the same
 modes.
 
 @cindex @code{reduc_umin_@var{m}} instruction pattern
 @cindex @code{reduc_umax_@var{m}} instruction pattern
 @item @samp{reduc_umin_@var{m}}, @samp{reduc_umax_@var{m}}
 Find the unsigned minimum/maximum of the elements of a vector. The vector is
-operand 1, and the scalar result is stored in the least significant bits of 
-operand 0 (also a vector). The output and input vector should have the same 
+operand 1, and the scalar result is stored in the least significant bits of
+operand 0 (also a vector). The output and input vector should have the same
 modes.
 
 @cindex @code{reduc_splus_@var{m}} instruction pattern
 @item @samp{reduc_splus_@var{m}}
-Compute the sum of the signed elements of a vector. The vector is operand 1, 
-and the scalar result is stored in the least significant bits of operand 0 
+Compute the sum of the signed elements of a vector. The vector is operand 1,
+and the scalar result is stored in the least significant bits of operand 0
 (also a vector). The output and input vector should have the same modes.
 
 @cindex @code{reduc_uplus_@var{m}} instruction pattern
 @item @samp{reduc_uplus_@var{m}}
-Compute the sum of the unsigned elements of a vector. The vector is operand 1, 
-and the scalar result is stored in the least significant bits of operand 0 
+Compute the sum of the unsigned elements of a vector. The vector is operand 1,
+and the scalar result is stored in the least significant bits of operand 0
 (also a vector). The output and input vector should have the same modes.
 
 @cindex @code{vec_shl_@var{m}} instruction pattern
@@ -3101,7 +3104,7 @@ and the scalar result is stored in the least significant bits of operand 0
 @item @samp{vec_shl_@var{m}}, @samp{vec_shr_@var{m}}
 Whole vector left/right shift in bits.
 Operand 1 is a vector to be shifted.
-Operand 2 is an integer shift amount in bits. 
+Operand 2 is an integer shift amount in bits.
 Operand 0 is where the resulting shifted vector is stored.
 The output and input vectors should have the same modes.
 
@@ -3120,6 +3123,14 @@ Similar widening-multiplication instructions of other widths.
 @cindex @code{umulsidi3} instruction pattern
 @item @samp{umulqihi3}, @samp{umulhisi3}, @samp{umulsidi3}
 Similar widening-multiplication instructions that do unsigned
+multiplication.
+
+@cindex @code{usmulqihi3} instruction pattern
+@cindex @code{usmulhisi3} instruction pattern
+@cindex @code{usmulsidi3} instruction pattern
+@item @samp{usmulqihi3}, @samp{usmulhisi3}, @samp{usmulsidi3}
+Similar widening-multiplication instructions that interpret the first
+operand as unsigned and the second operand as signed, then do a signed
 multiplication.
 
 @cindex @code{smul@var{m}3_highpart} instruction pattern
@@ -3300,6 +3311,16 @@ the argument
 
 The @code{rint} built-in function of C always uses the mode which
 corresponds to the C data type @code{double} and the @code{rintf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{copysign@var{m}3} instruction pattern
+@item @samp{copysign@var{m}3}
+Store a value with the magnitude of operand 1 and the sign of operand
+2 into operand 0.
+
+The @code{copysign} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{copysignf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
@@ -3548,7 +3569,7 @@ Operand 1 may have mode @code{byte_mode} or @code{word_mode}; often
 be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 2 and 3.
+for operands 2 and 3 and the constant is never zero for operand 2.
 
 The bit-field value is sign-extended to a full word integer
 before it is stored in operand 0.
@@ -3566,7 +3587,7 @@ operand 2 the starting bit.  Operand 0 may have mode @code{byte_mode} or
 Operands 1 and 2 must be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 1 and 2.
+for operands 1 and 2 and the constant is never zero for operand 1.
 
 @cindex @code{mov@var{mode}cc} instruction pattern
 @item @samp{mov@var{mode}cc}
@@ -4277,7 +4298,7 @@ will be emitted, followed by a store of the value to the memory operand.
 This pattern, if defined, moves a @code{Pmode} value from the memory
 in operand 1 to the memory in operand 0 without leaving the value in
 a register afterward.  This is to avoid leaking the value some place
-that an attacker might use to rewrite the stack guard slot after 
+that an attacker might use to rewrite the stack guard slot after
 having clobbered it.
 
 If this pattern is not defined, then a plain move pattern is generated.
@@ -4493,7 +4514,7 @@ Registers used to store the condition code value should have a mode that
 is in class @code{MODE_CC}.  Normally, it will be @code{CCmode}.  If
 additional modes are required (as for the add example mentioned above in
 the SPARC), define them in @file{@var{machine}-modes.def}
-(@pxref{Condition Code}).  Also define @code{SELECT_CC_MODE} to choose 
+(@pxref{Condition Code}).  Also define @code{SELECT_CC_MODE} to choose
 a mode given an operand of a compare.
 
 If it is known during RTL generation that a different mode will be

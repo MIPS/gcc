@@ -16,9 +16,9 @@ libgfortranbegin_la_LDFLAGS = -static
 
 ## io.h conflicts with some a system header on some platforms, so
 ## use -iquote
-AM_CPPFLAGS = -iquote$(srcdir)/io
-
-libgfortranincludedir = $(includedir)/gforio
+AM_CPPFLAGS = -iquote$(srcdir)/io -I$(srcdir)/$(MULTISRCTOP)../gcc \
+	      -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
+	      -I$(MULTIBUILDTOP)../../gcc -D_GNU_SOURCE
 
 gfor_io_src= \
 io/close.c \
@@ -29,6 +29,7 @@ io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
+io/size_from_kind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -46,6 +47,7 @@ intrinsics/c99_functions.c \
 intrinsics/chdir.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/ctime.c \
 intrinsics/date_and_time.c \
 intrinsics/env.c \
 intrinsics/erf.c \
@@ -53,8 +55,10 @@ intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
 intrinsics/exit.c \
+intrinsics/fget.c \
 intrinsics/flush.c \
 intrinsics/fnum.c \
+intrinsics/ftell.c \
 intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \
@@ -65,9 +69,11 @@ intrinsics/kill.c \
 intrinsics/ierrno.c \
 intrinsics/ishftc.c \
 intrinsics/link.c \
+intrinsics/malloc.c \
 intrinsics/mvbits.c \
 intrinsics/pack_generic.c \
 intrinsics/perror.c \
+intrinsics/signal.c \
 intrinsics/size.c \
 intrinsics/sleep.c \
 intrinsics/spread_generic.c \
@@ -97,6 +103,7 @@ gfor_src= \
 runtime/compile_options.c \
 runtime/environ.c \
 runtime/error.c \
+runtime/fpu.c \
 runtime/main.c \
 runtime/memory.c \
 runtime/pause.c \
@@ -433,7 +440,7 @@ gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) \
     selected_int_kind.inc selected_real_kind.inc kinds.h \
-    kinds.inc c99_protos.inc
+    kinds.inc c99_protos.inc fpu-target.h
 
 # Machine generated specifics
 gfor_built_specific_src= \
@@ -568,6 +575,9 @@ $(gfor_built_specific2_src) \
 intrinsics/dprod_r8.f90 \
 intrinsics/f2c_specifics.F90
 
+# Turn on vectorization for matmul.
+$(patsubst %.c,%.lo,$(notdir $(i_matmul_c))): AM_CFLAGS += -ftree-vectorize
+
 BUILT_SOURCES=$(gfor_built_src) $(gfor_built_specific_src) \
     $(gfor_built_specific2_src)
 libgfortran_la_SOURCES = $(gfor_src) $(gfor_built_src) $(gfor_io_src) \
@@ -578,7 +588,7 @@ I_M4_DEPS0=$(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1=$(I_M4_DEPS) m4/ifunction.m4
 
 kinds.h: $(srcdir)/mk-kinds-h.sh
-	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@ || rm $@
 
 kinds.inc: kinds.h
 	grep '^#' < kinds.h > $@
@@ -587,10 +597,13 @@ c99_protos.inc: $(srcdir)/c99_protos.h
 	grep '^#' < $(srcdir)/c99_protos.h > $@
 
 selected_int_kind.inc: $(srcdir)/mk-sik-inc.sh
-	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-sik-inc.sh '$(FCCOMPILE)' > $@ || rm $@
 
 selected_real_kind.inc: $(srcdir)/mk-srk-inc.sh
-	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@
+	$(SHELL) $(srcdir)/mk-srk-inc.sh '$(FCCOMPILE)' > $@ || rm $@
+
+fpu-target.h: $(srcdir)/$(FPU_HOST_HEADER)
+	cp $(srcdir)/$(FPU_HOST_HEADER) $@
 
 ## A 'normal' build shouldn't need to regenerate these
 ## so we only include them in maintainer mode

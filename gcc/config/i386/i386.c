@@ -913,6 +913,8 @@ static void ix86_init_builtins (void);
 static rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static const char *ix86_mangle_fundamental_type (tree);
 static tree ix86_stack_protect_fail (void);
+static rtx ix86_internal_arg_pointer (void);
+static void ix86_dwarf_handle_frame_unspec (const char *, rtx, int);
 
 /* This function is only used on Solaris.  */
 static void i386_solaris_elf_named_section (const char *, unsigned int, tree)
@@ -1081,6 +1083,10 @@ static void x86_64_elf_select_section (tree decl, int reloc,
 #define TARGET_MUST_PASS_IN_STACK ix86_must_pass_in_stack
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE ix86_pass_by_reference
+#undef TARGET_INTERNAL_ARG_POINTER
+#define TARGET_INTERNAL_ARG_POINTER ix86_internal_arg_pointer
+#undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC ix86_dwarf_handle_frame_unspec
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
@@ -1331,7 +1337,8 @@ override_options (void)
     }
   if (ix86_asm_string != 0)
     {
-      if (!strcmp (ix86_asm_string, "intel"))
+      if (! TARGET_MACHO
+	  && !strcmp (ix86_asm_string, "intel"))
 	ix86_asm_dialect = ASM_INTEL;
       else if (!strcmp (ix86_asm_string, "att"))
 	ix86_asm_dialect = ASM_ATT;
@@ -1982,10 +1989,15 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
   /* Dllimport'd functions are also called indirectly.  */
-  if (decl && lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl))
+  if (decl && DECL_DLLIMPORT_P (decl)
       && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
     return false;
 #endif
+
+  /* If we forced aligned the stack, then sibcalling would unalign the
+     stack, which may break the called function.  */
+  if (cfun->machine->force_align_arg_pointer)
+    return false;
 
   /* Otherwise okay.  That also includes certain types of indirect calls.  */
   return true;
@@ -3603,7 +3615,7 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
     return FIRST_SSE_REG;
 
   /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
-  if (GET_MODE_CLASS (mode) != MODE_FLOAT || !TARGET_FLOAT_RETURNS_IN_80387)
+  if (!SCALAR_FLOAT_MODE_P (mode) || !TARGET_FLOAT_RETURNS_IN_80387)
     return 0;
 
   /* Floating point return values in %st(0), except for local functions when
@@ -4508,6 +4520,10 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 	}
     }
 
+  if (cfun->machine->force_align_arg_pointer
+      && regno == REGNO (cfun->machine->force_align_arg_pointer))
+    return 1;
+
   return (regs_ever_live[regno]
 	  && !call_used_regs[regno]
 	  && !fixed_regs[regno]
@@ -4719,10 +4735,10 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 static void
 ix86_emit_save_regs (void)
 {
-  int regno;
+  unsigned int regno;
   rtx insn;
 
-  for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
+  for (regno = FIRST_PSEUDO_REGISTER; regno-- > 0; )
     if (ix86_save_reg (regno, true))
       {
 	insn = emit_insn (gen_push (gen_rtx_REG (Pmode, regno)));
@@ -4735,7 +4751,7 @@ ix86_emit_save_regs (void)
 static void
 ix86_emit_save_regs_using_mov (rtx pointer, HOST_WIDE_INT offset)
 {
-  int regno;
+  unsigned int regno;
   rtx insn;
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -4783,6 +4799,47 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
+/* Handle the TARGET_INTERNAL_ARG_POINTER hook.  */
+
+static rtx
+ix86_internal_arg_pointer (void)
+{
+  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
+      && DECL_NAME (current_function_decl)
+      && MAIN_NAME_P (DECL_NAME (current_function_decl))
+      && DECL_FILE_SCOPE_P (current_function_decl))
+    {
+      cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, 2);
+      return copy_to_reg (cfun->machine->force_align_arg_pointer);
+    }
+  else
+    return virtual_incoming_args_rtx;
+}
+
+/* Handle the TARGET_DWARF_HANDLE_FRAME_UNSPEC hook.
+   This is called from dwarf2out.c to emit call frame instructions
+   for frame-related insns containing UNSPECs and UNSPEC_VOLATILEs. */
+static void
+ix86_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
+{
+  rtx unspec = SET_SRC (pattern);
+  gcc_assert (GET_CODE (unspec) == UNSPEC);
+
+  switch (index)
+    {
+    case UNSPEC_REG_SAVE:
+      dwarf2out_reg_save_reg (label, XVECEXP (unspec, 0, 0),
+			      SET_DEST (pattern));
+      break;
+    case UNSPEC_DEF_CFA:
+      dwarf2out_def_cfa (label, REGNO (SET_DEST (pattern)),
+			 INTVAL (XVECEXP (unspec, 0, 0)));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -4794,6 +4851,52 @@ ix86_expand_prologue (void)
   HOST_WIDE_INT allocate;
 
   ix86_compute_frame_layout (&frame);
+
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      rtx x, y;
+
+      /* Grab the argument pointer.  */
+      x = plus_constant (stack_pointer_rtx, 4);
+      y = cfun->machine->force_align_arg_pointer;
+      insn = emit_insn (gen_rtx_SET (VOIDmode, y, x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      /* The unwind info consists of two parts: install the fafp as the cfa,
+	 and record the fafp as the "save register" of the stack pointer.
+	 The later is there in order that the unwinder can see where it
+	 should restore the stack pointer across the and insn.  */
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, y, x);
+      RTX_FRAME_RELATED_P (x) = 1;
+      y = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, stack_pointer_rtx),
+			  UNSPEC_REG_SAVE);
+      y = gen_rtx_SET (VOIDmode, cfun->machine->force_align_arg_pointer, y);
+      RTX_FRAME_RELATED_P (y) = 1;
+      x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, x, y));
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+
+      /* Align the stack.  */
+      emit_insn (gen_andsi3 (stack_pointer_rtx, stack_pointer_rtx,
+			     GEN_INT (-16)));
+
+      /* And here we cheat like madmen with the unwind info.  We force the
+	 cfa register back to sp+4, which is exactly what it was at the
+	 start of the function.  Re-pushing the return address results in
+	 the return at the same spot relative to the cfa, and thus is 
+	 correct wrt the unwind info.  */
+      x = cfun->machine->force_align_arg_pointer;
+      x = gen_frame_mem (Pmode, plus_constant (x, -4));
+      insn = emit_insn (gen_push (x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      x = GEN_INT (4);
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, x), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, stack_pointer_rtx, x);
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+    }
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
@@ -5070,6 +5173,13 @@ ix86_expand_epilogue (int style)
 	  else
 	    emit_insn (gen_popsi1 (hard_frame_pointer_rtx));
 	}
+    }
+
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      emit_insn (gen_addsi3 (stack_pointer_rtx,
+			     cfun->machine->force_align_arg_pointer,
+			     GEN_INT (-4)));
     }
 
   /* Sibcall epilogues don't want a return instruction.  */
@@ -5423,21 +5533,27 @@ legitimate_constant_p (rtx x)
 	    return TARGET_64BIT;
 	  case UNSPEC_TPOFF:
 	  case UNSPEC_NTPOFF:
-	    return local_exec_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
+	    x = XVECEXP (x, 0, 0);
+	    return (GET_CODE (x) == SYMBOL_REF
+		    && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_EXEC);
 	  case UNSPEC_DTPOFF:
-	    return local_dynamic_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
+	    x = XVECEXP (x, 0, 0);
+	    return (GET_CODE (x) == SYMBOL_REF
+		    && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC);
 	  default:
 	    return false;
 	  }
 
       /* We must have drilled down to a symbol.  */
-      if (!symbolic_operand (x, Pmode))
+      if (GET_CODE (x) == LABEL_REF)
+	return true;
+      if (GET_CODE (x) != SYMBOL_REF)
 	return false;
       /* FALLTHRU */
 
     case SYMBOL_REF:
       /* TLS symbols are never valid.  */
-      if (tls_symbolic_operand (x, Pmode))
+      if (SYMBOL_REF_TLS_MODEL (x))
 	return false;
       break;
 
@@ -5491,7 +5607,9 @@ legitimate_pic_operand_p (rtx x)
 	  case UNSPEC_GOTOFF:
 	    return TARGET_64BIT;
 	  case UNSPEC_TPOFF:
-	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	    x = XVECEXP (inner, 0, 0);
+	    return (GET_CODE (x) == SYMBOL_REF
+		    && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_EXEC);
 	  default:
 	    return false;
 	  }
@@ -5518,32 +5636,38 @@ legitimate_pic_address_disp_p (rtx disp)
      when they are not dynamic symbols.  */
   if (TARGET_64BIT)
     {
-      /* TLS references should always be enclosed in UNSPEC.  */
-      if (tls_symbolic_operand (disp, GET_MODE (disp)))
-	return 0;
-      if (GET_CODE (disp) == SYMBOL_REF
-	  && !SYMBOL_REF_FAR_ADDR_P (disp)
-	  && SYMBOL_REF_LOCAL_P (disp))
-	return 1;
-      if (GET_CODE (disp) == LABEL_REF)
-	return 1;
-      if (GET_CODE (disp) == CONST
-	  && GET_CODE (XEXP (disp, 0)) == PLUS)
-	{
-	  rtx op0 = XEXP (XEXP (disp, 0), 0);
-	  rtx op1 = XEXP (XEXP (disp, 0), 1);
+      rtx op0 = disp, op1;
 
+      switch (GET_CODE (disp))
+	{
+	case LABEL_REF:
+	  return true;
+
+	case CONST:
+	  if (GET_CODE (XEXP (disp, 0)) != PLUS)
+	    break;
+	  op0 = XEXP (XEXP (disp, 0), 0);
+	  op1 = XEXP (XEXP (disp, 0), 1);
+	  if (GET_CODE (op1) != CONST_INT
+	      || INTVAL (op1) >= 16*1024*1024
+	      || INTVAL (op1) < -16*1024*1024)
+	    break;
+	  if (GET_CODE (op0) == LABEL_REF)
+	    return true;
+	  if (GET_CODE (op0) != SYMBOL_REF)
+	    break;
+	  /* FALLTHRU */
+
+	case SYMBOL_REF:
 	  /* TLS references should always be enclosed in UNSPEC.  */
-	  if (tls_symbolic_operand (op0, GET_MODE (op0)))
-	    return 0;
-	  if (((GET_CODE (op0) == SYMBOL_REF
-		&& !SYMBOL_REF_FAR_ADDR_P (op0)
-		&& SYMBOL_REF_LOCAL_P (op0))
-	       || GET_CODE (op0) == LABEL_REF)
-	      && GET_CODE (op1) == CONST_INT
-	      && INTVAL (op1) < 16*1024*1024
-	      && INTVAL (op1) >= -16*1024*1024)
-	    return 1;
+	  if (SYMBOL_REF_TLS_MODEL (op0))
+	    return false;
+	  if (!SYMBOL_REF_FAR_ADDR_P (op0) && SYMBOL_REF_LOCAL_P (op0))
+	    return true;
+	  break;
+
+	default:
+	  break;
 	}
     }
   if (GET_CODE (disp) != CONST)
@@ -5600,11 +5724,17 @@ legitimate_pic_address_disp_p (rtx disp)
     case UNSPEC_INDNTPOFF:
       if (saw_plus)
 	return false;
-      return initial_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      disp = XVECEXP (disp, 0, 0);
+      return (GET_CODE (disp) == SYMBOL_REF
+	      && SYMBOL_REF_TLS_MODEL (disp) == TLS_MODEL_INITIAL_EXEC);
     case UNSPEC_NTPOFF:
-      return local_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      disp = XVECEXP (disp, 0, 0);
+      return (GET_CODE (disp) == SYMBOL_REF
+	      && SYMBOL_REF_TLS_MODEL (disp) == TLS_MODEL_LOCAL_EXEC);
     case UNSPEC_DTPOFF:
-      return local_dynamic_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      disp = XVECEXP (disp, 0, 0);
+      return (GET_CODE (disp) == SYMBOL_REF
+	      && SYMBOL_REF_TLS_MODEL (disp) == TLS_MODEL_LOCAL_DYNAMIC);
     }
 
   return 0;
@@ -5996,7 +6126,18 @@ legitimize_pic_address (rtx orig, rtx reg)
     }
   else
     {
-      if (GET_CODE (addr) == CONST)
+      if (GET_CODE (addr) == CONST_INT
+	  && !x86_64_immediate_operand (addr, VOIDmode))
+	{
+	  if (reg)
+	    {
+	      emit_move_insn (reg, addr);
+	      new = reg;
+	    }
+	  else
+	    new = force_reg (Pmode, addr);
+	}
+      else if (GET_CODE (addr) == CONST)
 	{
 	  addr = XEXP (addr, 0);
 
@@ -6038,7 +6179,11 @@ legitimize_pic_address (rtx orig, rtx reg)
 		{
 		  if (INTVAL (op1) < -16*1024*1024
 		      || INTVAL (op1) >= 16*1024*1024)
-		    new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+		    {
+		      if (!x86_64_immediate_operand (op1, Pmode))
+			op1 = force_reg (Pmode, op1);
+		      new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+		    }
 		}
 	    }
 	  else
@@ -6856,7 +7001,7 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   rtx x = *px;
 
   if (GET_CODE (x) == SYMBOL_REF
-      && local_dynamic_symbolic_operand (x, Pmode))
+      && SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
     {
       cfun->machine->some_ld_name = XSTR (x, 0);
       return 1;
@@ -7329,16 +7474,17 @@ print_operand_address (FILE *file, rtx addr)
 	output_addr_const (file, disp);
 
       /* Use one byte shorter RIP relative addressing for 64bit mode.  */
-      if (TARGET_64BIT
-	  && ((GET_CODE (disp) == SYMBOL_REF
-	       && ! tls_symbolic_operand (disp, GET_MODE (disp)))
-	      || GET_CODE (disp) == LABEL_REF
-	      || (GET_CODE (disp) == CONST
-		  && GET_CODE (XEXP (disp, 0)) == PLUS
-		  && (GET_CODE (XEXP (XEXP (disp, 0), 0)) == SYMBOL_REF
-		      || GET_CODE (XEXP (XEXP (disp, 0), 0)) == LABEL_REF)
-		  && GET_CODE (XEXP (XEXP (disp, 0), 1)) == CONST_INT)))
-	fputs ("(%rip)", file);
+      if (TARGET_64BIT)
+	{
+	  if (GET_CODE (disp) == CONST
+	      && GET_CODE (XEXP (disp, 0)) == PLUS
+	      && GET_CODE (XEXP (XEXP (disp, 0), 1)) == CONST_INT)
+	    disp = XEXP (XEXP (disp, 0), 0);
+	  if (GET_CODE (disp) == LABEL_REF
+	      || (GET_CODE (disp) == SYMBOL_REF
+		  && SYMBOL_REF_TLS_MODEL (disp) == 0))
+	    fputs ("(%rip)", file);
+	}
     }
   else
     {
@@ -8957,7 +9103,7 @@ ix86_fp_compare_mode (enum rtx_code code ATTRIBUTE_UNUSED)
 enum machine_mode
 ix86_cc_mode (enum rtx_code code, rtx op0, rtx op1)
 {
-  if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_FLOAT)
+  if (SCALAR_FLOAT_MODE_P (GET_MODE (op0)))
     return ix86_fp_compare_mode (code);
   switch (code)
     {
@@ -9538,7 +9684,7 @@ ix86_expand_compare (enum rtx_code code, rtx *second_test, rtx *bypass_test)
       ret = gen_rtx_fmt_ee (code, VOIDmode, ix86_compare_emitted, const0_rtx);
       ix86_compare_emitted = NULL_RTX;
     }
-  else if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_FLOAT)
+  else if (SCALAR_FLOAT_MODE_P (GET_MODE (op0)))
     ret = ix86_expand_fp_compare (code, op0, op1, NULL_RTX,
 				  second_test, bypass_test);
   else

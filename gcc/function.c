@@ -479,6 +479,21 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
 
+  /* Try to detect frame size overflows on native platforms.  */
+#if BITS_PER_WORD >= 32
+  if ((FRAME_GROWS_DOWNWARD
+       ? (unsigned HOST_WIDE_INT) -function->x_frame_offset
+       : (unsigned HOST_WIDE_INT) function->x_frame_offset)
+	> ((unsigned HOST_WIDE_INT) 1 << (BITS_PER_WORD - 1))
+	    /* Leave room for the fixed part of the frame.  */
+	    - 64 * UNITS_PER_WORD)
+    {
+      error ("%Jtotal size of local objects too large", function->decl);
+      /* Avoid duplicate error messages as much as possible.  */
+      function->x_frame_offset = 0;
+    }
+#endif
+
   return x;
 }
 
@@ -1231,7 +1246,14 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
   else if (x == virtual_outgoing_args_rtx)
     new = stack_pointer_rtx, offset = out_arg_offset;
   else if (x == virtual_cfa_rtx)
-    new = arg_pointer_rtx, offset = cfa_offset;
+    {
+#ifdef FRAME_POINTER_CFA_OFFSET
+      new = frame_pointer_rtx;
+#else
+      new = arg_pointer_rtx;
+#endif
+      offset = cfa_offset;
+    }
   else
     return NULL_RTX;
 
@@ -1617,7 +1639,11 @@ instantiate_virtual_regs (void)
   var_offset = STARTING_FRAME_OFFSET;
   dynamic_offset = STACK_DYNAMIC_OFFSET (current_function_decl);
   out_arg_offset = STACK_POINTER_OFFSET;
+#ifdef FRAME_POINTER_CFA_OFFSET
+  cfa_offset = FRAME_POINTER_CFA_OFFSET (current_function_decl);
+#else
   cfa_offset = ARG_POINTER_CFA_OFFSET (current_function_decl);
+#endif
 
   /* Initialize recognition, indicating that volatile is OK.  */
   init_recog ();
@@ -2013,9 +2039,8 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
   /* If the parm is to be passed as a transparent union, use the type of
      the first field for the tests below.  We have already verified that
      the modes are the same.  */
-  if (DECL_TRANSPARENT_UNION (parm)
-      || (TREE_CODE (passed_type) == UNION_TYPE
-	  && TYPE_TRANSPARENT_UNION (passed_type)))
+  if (TREE_CODE (passed_type) == UNION_TYPE
+      && TYPE_TRANSPARENT_UNION (passed_type))
     passed_type = TREE_TYPE (TYPE_FIELDS (passed_type));
 
   /* See if this arg was passed by invisible reference.  */
@@ -2895,22 +2920,9 @@ assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
   tree fnargs, parm;
-  rtx internal_arg_pointer;
 
-  /* If the reg that the virtual arg pointer will be translated into is
-     not a fixed reg or is the stack pointer, make a copy of the virtual
-     arg pointer, and address parms via the copy.  The frame pointer is
-     considered fixed even though it is not marked as such.
-
-     The second time through, simply use ap to avoid generating rtx.  */
-
-  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
-       || ! (fixed_regs[ARG_POINTER_REGNUM]
-	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
-    internal_arg_pointer = copy_to_reg (virtual_incoming_args_rtx);
-  else
-    internal_arg_pointer = virtual_incoming_args_rtx;
-  current_function_internal_arg_pointer = internal_arg_pointer;
+  current_function_internal_arg_pointer
+    = targetm.calls.internal_arg_pointer ();
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
@@ -3371,10 +3383,9 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
   HOST_WIDE_INT sp_offset = STACK_POINTER_OFFSET;
 
 #ifdef SPARC_STACK_BOUNDARY_HACK
-  /* The sparc port has a bug.  It sometimes claims a STACK_BOUNDARY
-     higher than the real alignment of %sp.  However, when it does this,
-     the alignment of %sp+STACK_POINTER_OFFSET will be STACK_BOUNDARY.
-     This is a temporary hack while the sparc port is fixed.  */
+  /* ??? The SPARC port may claim a STACK_BOUNDARY higher than
+     the real alignment of %sp.  However, when it does this, the
+     alignment of %sp+STACK_POINTER_OFFSET is STACK_BOUNDARY.  */
   if (SPARC_STACK_BOUNDARY_HACK)
     sp_offset = 0;
 #endif
@@ -3918,42 +3929,6 @@ struct tree_opt_pass pass_init_function =
 void
 expand_main_function (void)
 {
-#ifdef FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN)
-    {
-      int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-      rtx tmp, seq;
-
-      start_sequence ();
-      /* Forcibly align the stack.  */
-#ifdef STACK_GROWS_DOWNWARD
-      tmp = expand_simple_binop (Pmode, AND, stack_pointer_rtx, GEN_INT(-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#else
-      tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
-				 GEN_INT (align - 1), NULL_RTX, 1, OPTAB_WIDEN);
-      tmp = expand_simple_binop (Pmode, AND, tmp, GEN_INT (-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#endif
-      if (tmp != stack_pointer_rtx)
-	emit_move_insn (stack_pointer_rtx, tmp);
-
-      /* Enlist allocate_dynamic_stack_space to pick up the pieces.  */
-      tmp = force_reg (Pmode, const0_rtx);
-      allocate_dynamic_stack_space (tmp, NULL_RTX, BIGGEST_ALIGNMENT);
-      seq = get_insns ();
-      end_sequence ();
-
-      for (tmp = get_last_insn (); tmp; tmp = PREV_INSN (tmp))
-	if (NOTE_P (tmp) && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_FUNCTION_BEG)
-	  break;
-      if (tmp)
-	emit_insn_before (seq, tmp);
-      else
-	emit_insn (seq);
-    }
-#endif
-
 #if (defined(INVOKE__main)				\
      || (!defined(HAS_INIT_SECTION)			\
 	 && !defined(INIT_SECTION_ASM_OP)		\

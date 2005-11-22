@@ -5311,7 +5311,9 @@ update_auto_inc_notes (rtx insn ATTRIBUTE_UNUSED, int regno ATTRIBUTE_UNUSED,
    occurs as part of an address.
    Also, this is not fully machine-customizable; it works for machines
    such as VAXen and 68000's and 32000's, but other possible machines
-   could have addressing modes that this does not handle right.  */
+   could have addressing modes that this does not handle right.
+   If you add push_reload calls here, you need to make sure gen_reload
+   handles those cases gracefully.  */
 
 static int
 find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
@@ -5694,6 +5696,24 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	  return 1;
 	}
       return 0;
+
+    case TRUNCATE:
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      /* Look for parts to reload in the inner expression and reload them
+	 too, in addition to this operation.  Reloading all inner parts in
+	 addition to this one shouldn't be necessary, but at this point,
+	 we don't know if we can possibly omit any part that *can* be
+	 reloaded.  Targets that are better off reloading just either part
+	 (or perhaps even a different part of an outer expression), should
+	 define LEGITIMIZE_RELOAD_ADDRESS.  */
+      find_reloads_address_1 (GET_MODE (XEXP (x, 0)), XEXP (x, 0),
+			      context, &XEXP (x, 0), opnum,
+			      type, ind_levels, insn);
+      push_reload (x, NULL_RTX, loc, (rtx*) 0,
+		   context_reg_class,
+		   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
+      return 1;
 
     case MEM:
       /* This is probably the result of a substitution, by eliminate_regs, of
@@ -6498,7 +6518,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
       enum rtx_code code = GET_CODE (XEXP (goal, 0));
       if (MEM_VOLATILE_P (goal))
 	return 0;
-      if (flag_float_store && GET_MODE_CLASS (GET_MODE (goal)) == MODE_FLOAT)
+      if (flag_float_store && SCALAR_FLOAT_MODE_P (GET_MODE (goal)))
 	return 0;
       /* An address with side effects must be reexecuted.  */
       switch (code)
@@ -6589,8 +6609,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 			       = true_regnum (valtry = SET_DEST (pat))) >= 0)
 			  || (REG_P (SET_DEST (pat))
 			      && GET_CODE (XEXP (tem, 0)) == CONST_DOUBLE
-			      && (GET_MODE_CLASS (GET_MODE (XEXP (tem, 0)))
-				  == MODE_FLOAT)
+			      && SCALAR_FLOAT_MODE_P (GET_MODE (XEXP (tem, 0)))
 			      && GET_CODE (goal) == CONST_INT
 			      && 0 != (goaltry
 				       = operand_subword (XEXP (tem, 0), 0, 0,
@@ -6604,8 +6623,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 							  NULL_RTX))
 		      && REG_P (SET_DEST (pat))
 		      && GET_CODE (XEXP (tem, 0)) == CONST_DOUBLE
-		      && (GET_MODE_CLASS (GET_MODE (XEXP (tem, 0)))
-			  == MODE_FLOAT)
+		      && SCALAR_FLOAT_MODE_P (GET_MODE (XEXP (tem, 0)))
 		      && GET_CODE (goal) == CONST_INT
 		      && 0 != (goaltry = operand_subword (XEXP (tem, 0), 1, 0,
 							  VOIDmode))

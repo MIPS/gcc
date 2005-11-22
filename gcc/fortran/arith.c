@@ -138,25 +138,26 @@ gfc_arith_error (arith code)
   switch (code)
     {
     case ARITH_OK:
-      p = _("Arithmetic OK");
+      p = _("Arithmetic OK at %L");
       break;
     case ARITH_OVERFLOW:
-      p = _("Arithmetic overflow");
+      p = _("Arithmetic overflow at %L");
       break;
     case ARITH_UNDERFLOW:
-      p = _("Arithmetic underflow");
+      p = _("Arithmetic underflow at %L");
       break;
     case ARITH_NAN:
-      p = _("Arithmetic NaN");
+      p = _("Arithmetic NaN at %L");
       break;
     case ARITH_DIV0:
-      p = _("Division by zero");
+      p = _("Division by zero at %L");
       break;
     case ARITH_INCOMMENSURATE:
-      p = _("Array operands are incommensurate");
+      p = _("Array operands are incommensurate at %L");
       break;
     case ARITH_ASYMMETRIC:
-      p = _("Integer outside symmetric range implied by Standard Fortran");
+      p =
+	_("Integer outside symmetric range implied by Standard Fortran at %L");
       break;
     default:
       gfc_internal_error ("gfc_arith_error(): Bad error code");
@@ -338,7 +339,7 @@ gfc_arith_done_1 (void)
    the range of the kind.  Returns ARITH_OK, ARITH_ASYMMETRIC or
    ARITH_OVERFLOW.  */
 
-static arith
+arith
 gfc_check_integer_range (mpz_t p, int kind)
 {
   arith result;
@@ -598,13 +599,13 @@ check_result (arith rc, gfc_expr * x, gfc_expr * r, gfc_expr ** rp)
   if (val == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-	gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+	gfc_warning (gfc_arith_error (val), &x->where);
       val = ARITH_OK;
     }
 
   if (val == ARITH_ASYMMETRIC)
     {
-      gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      gfc_warning (gfc_arith_error (val), &x->where);
       val = ARITH_OK;
     }
 
@@ -1604,7 +1605,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
   if (rc != ARITH_OK)
     {				/* Something went wrong */
-      gfc_error ("%s at %L", gfc_arith_error (rc), &op1->where);
+      gfc_error (gfc_arith_error (rc), &op1->where);
       return NULL;
     }
 
@@ -1907,8 +1908,40 @@ gfc_convert_complex (gfc_expr * real, gfc_expr * imag, int kind)
 static void
 arith_error (arith rc, gfc_typespec * from, gfc_typespec * to, locus * where)
 {
-  gfc_error ("%s converting %s to %s at %L", gfc_arith_error (rc),
-	     gfc_typename (from), gfc_typename (to), where);
+  switch (rc)
+    {
+    case ARITH_OK:
+      gfc_error ("Arithmetic OK converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_OVERFLOW:
+      gfc_error ("Arithmetic overflow converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_UNDERFLOW:
+      gfc_error ("Arithmetic underflow converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_NAN:
+      gfc_error ("Arithmetic NaN converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_DIV0:
+      gfc_error ("Division by zero converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_INCOMMENSURATE:
+      gfc_error ("Array operands are incommensurate converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    case ARITH_ASYMMETRIC:
+      gfc_error ("Integer outside symmetric range implied by Standard Fortran"
+	 	 " converting %s to %s at %L",
+		 gfc_typename (from), gfc_typename (to), where);
+      break;
+    default:
+      gfc_internal_error ("gfc_arith_error(): Bad error code");
+    }
 
   /* TODO: Do something about the error, ie, throw exception, return
      NaN, etc.  */
@@ -1931,7 +1964,7 @@ gfc_int2int (gfc_expr * src, int kind)
     {
       if (rc == ARITH_ASYMMETRIC)
         {
-          gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+          gfc_warning (gfc_arith_error (rc), &src->where);
         }
       else
         {
@@ -2033,7 +2066,7 @@ gfc_real2real (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2065,7 +2098,7 @@ gfc_real2complex (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.complex.r, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2120,7 +2153,7 @@ gfc_complex2real (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
     }
   if (rc != ARITH_OK)
@@ -2152,7 +2185,7 @@ gfc_complex2complex (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.complex.r, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2167,7 +2200,7 @@ gfc_complex2complex (gfc_expr * src, int kind)
   if (rc == ARITH_UNDERFLOW)
     {
       if (gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+        gfc_warning (gfc_arith_error (rc), &src->where);
       mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
     }
   else if (rc != ARITH_OK)
@@ -2369,6 +2402,50 @@ gfc_hollerith2logical (gfc_expr * src, int kind)
 
   result->value.character.string[kind] = '\0'; /* For debugger */
   result->value.character.length = kind;
+
+  return result;
+}
+
+/* Returns an initializer whose value is one higher than the value of the
+   LAST_INITIALIZER argument.  If that is argument is NULL, the
+   initializers value will be set to zero.  The initializer's kind
+   will be set to gfc_c_int_kind.
+
+   If -fshort-enums is given, the appropriate kind will be selected
+   later after all enumerators have been parsed.  A warning is issued
+   here if an initializer exceeds gfc_c_int_kind.  */
+
+gfc_expr *
+gfc_enum_initializer (gfc_expr *last_initializer, locus where)
+{
+  gfc_expr *result;
+
+  result = gfc_get_expr ();
+  result->expr_type = EXPR_CONSTANT;
+  result->ts.type = BT_INTEGER;
+  result->ts.kind = gfc_c_int_kind;
+  result->where = where;
+
+  mpz_init (result->value.integer);
+
+  if (last_initializer != NULL)
+    {
+      mpz_add_ui (result->value.integer, last_initializer->value.integer, 1);
+      result->where = last_initializer->where;
+
+      if (gfc_check_integer_range (result->value.integer,
+             gfc_c_int_kind) != ARITH_OK)
+        {
+          gfc_error ("Enumerator exceeds the C integer type at %C");
+          return NULL;
+        }
+    }
+  else
+    {
+      /* Control comes here, if it's the very first enumerator and no
+         initializer has been given.  It will be initialized to ZERO (0). */
+      mpz_set_si (result->value.integer, 0);
+    }
 
   return result;
 }

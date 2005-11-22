@@ -90,11 +90,6 @@ extern unsigned xtensa_current_frame_size;
     builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
     if (!TARGET_HARD_FLOAT)						\
       builtin_define ("__XTENSA_SOFT_FLOAT__");				\
-    if (flag_pic)							\
-      {									\
-        builtin_define ("__PIC__");					\
-        builtin_define ("__pic__");					\
-      }									\
   } while (0)
 
 #define CPP_SPEC " %(subtarget_cpp_spec) "
@@ -831,11 +826,13 @@ typedef struct xtensa_args
     /* jump to the instruction following the entry */			\
     fprintf (STREAM, "\taddi\ta8, a8, 3\n");				\
     fprintf (STREAM, "\tjx\ta8\n");					\
+    fprintf (STREAM, "\t.byte\t0\n");					\
     fprintf (STREAM, "\t.end no-transform\n");				\
   } while (0)
 
-/* Size in bytes of the trampoline, as an integer.  */
-#define TRAMPOLINE_SIZE 59
+/* Size in bytes of the trampoline, as an integer.  Make sure this is
+   a multiple of TRAMPOLINE_ALIGNMENT to avoid -Wpadded warnings.  */
+#define TRAMPOLINE_SIZE 60
 
 /* Alignment required for trampolines, in bits.  */
 #define TRAMPOLINE_ALIGNMENT (32)

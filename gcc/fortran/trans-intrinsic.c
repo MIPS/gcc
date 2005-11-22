@@ -1037,6 +1037,116 @@ gfc_conv_intrinsic_char (gfc_se * se, gfc_expr * expr)
 }
 
 
+static void
+gfc_conv_intrinsic_ctime (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+  tree gfc_int8_type_node = gfc_get_int_type (8);
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  len = gfc_create_var (gfc_int8_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (NULL_TREE, gfc_build_addr_expr (NULL, var));
+  arglist = gfc_chainon_list (arglist, gfc_build_addr_expr (NULL, len));
+  arglist = chainon (arglist, tmp);
+
+  tmp = gfc_build_function_call (gfor_fndecl_ctime, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build2 (GT_EXPR, boolean_type_node, len,
+		 build_int_cst (TREE_TYPE (len), 0));
+  arglist = gfc_chainon_list (NULL_TREE, var);
+  tmp = gfc_build_function_call (gfor_fndecl_internal_free, arglist);
+  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
+static void
+gfc_conv_intrinsic_fdate (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+  tree gfc_int4_type_node = gfc_get_int_type (4);
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  len = gfc_create_var (gfc_int4_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (NULL_TREE, gfc_build_addr_expr (NULL, var));
+  arglist = gfc_chainon_list (arglist, gfc_build_addr_expr (NULL, len));
+  arglist = chainon (arglist, tmp);
+
+  tmp = gfc_build_function_call (gfor_fndecl_fdate, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build2 (GT_EXPR, boolean_type_node, len,
+		 build_int_cst (TREE_TYPE (len), 0));
+  arglist = gfc_chainon_list (NULL_TREE, var);
+  tmp = gfc_build_function_call (gfor_fndecl_internal_free, arglist);
+  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
+/* Return a character string containing the tty name.  */
+
+static void
+gfc_conv_intrinsic_ttynam (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+  tree gfc_int4_type_node = gfc_get_int_type (4);
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  len = gfc_create_var (gfc_int4_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (NULL_TREE, gfc_build_addr_expr (NULL, var));
+  arglist = gfc_chainon_list (arglist, gfc_build_addr_expr (NULL, len));
+  arglist = chainon (arglist, tmp);
+
+  tmp = gfc_build_function_call (gfor_fndecl_ttynam, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build2 (GT_EXPR, boolean_type_node, len,
+		 build_int_cst (TREE_TYPE (len), 0));
+  arglist = gfc_chainon_list (NULL_TREE, var);
+  tmp = gfc_build_function_call (gfor_fndecl_internal_free, arglist);
+  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
 /* Get the minimum/maximum value of all the parameters.
     minmax (a1, a2, a3, ...)
     {
@@ -2192,7 +2302,7 @@ gfc_conv_intrinsic_adjust (gfc_se * se, gfc_expr * expr, tree fndecl)
 
 
 /* Scalar transfer statement.
-   TRANSFER (source, mold) = *(typeof<mould> *)&source  */
+   TRANSFER (source, mold) = *(typeof<mold> *)&source.  */
 
 static void
 gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
@@ -2739,6 +2849,36 @@ gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr)
   se->expr = tmp;
 }
 
+
+/* The loc intrinsic returns the address of its argument as
+   gfc_index_integer_kind integer.  */
+
+static void
+gfc_conv_intrinsic_loc(gfc_se * se, gfc_expr * expr)
+{
+  tree temp_var;
+  gfc_expr *arg_expr;
+  gfc_ss *ss;
+
+  gcc_assert (!se->ss);
+
+  arg_expr = expr->value.function.actual->expr;
+  ss = gfc_walk_expr (arg_expr);
+  if (ss == gfc_ss_terminator)
+    gfc_conv_expr_reference (se, arg_expr);
+  else
+    gfc_conv_array_parameter (se, arg_expr, ss, 1); 
+  se->expr= convert (gfc_unsigned_type (long_integer_type_node), 
+		     se->expr);
+   
+  /* Create a temporary variable for loc return value.  Without this, 
+     we get an error an ICE in gcc/expr.c(expand_expr_addr_expr_1).  */
+  temp_var = gfc_create_var (gfc_unsigned_type (long_integer_type_node), 
+			     NULL);
+  gfc_add_modify_expr (&se->pre, temp_var, se->expr);
+  se->expr = temp_var;
+}
+
 /* Generate code for an intrinsic function.  Some map directly to library
    calls, others get special handling.  In some cases the name of the function
    used depends on the type specifiers.  */
@@ -2843,6 +2983,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_aint (se, expr, FIX_ROUND_EXPR);
       break;
 
+    case GFC_ISYM_AND:
+      gfc_conv_intrinsic_bitop (se, expr, BIT_AND_EXPR);
+      break;
+
     case GFC_ISYM_ANY:
       gfc_conv_intrinsic_anyall (se, expr, NE_EXPR);
       break;
@@ -2897,6 +3041,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_iargc (se, expr);
       break;
 
+    case GFC_ISYM_COMPLEX:
+      gfc_conv_intrinsic_cmplx (se, expr, 1);
+      break;
+
     case GFC_ISYM_CONJG:
       gfc_conv_intrinsic_conjg (se, expr);
       break;
@@ -2905,12 +3053,20 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_count (se, expr);
       break;
 
+    case GFC_ISYM_CTIME:
+      gfc_conv_intrinsic_ctime (se, expr);
+      break;
+
     case GFC_ISYM_DIM:
       gfc_conv_intrinsic_dim (se, expr);
       break;
 
     case GFC_ISYM_DPROD:
       gfc_conv_intrinsic_dprod (se, expr);
+      break;
+
+    case GFC_ISYM_FDATE:
+      gfc_conv_intrinsic_fdate (se, expr);
       break;
 
     case GFC_ISYM_IAND:
@@ -3019,6 +3175,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_not (se, expr);
       break;
 
+    case GFC_ISYM_OR:
+      gfc_conv_intrinsic_bitop (se, expr, BIT_IOR_EXPR);
+      break;
+
     case GFC_ISYM_PRESENT:
       gfc_conv_intrinsic_present (se, expr);
       break;
@@ -3043,15 +3203,32 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_transfer (se, expr);
       break;
 
+    case GFC_ISYM_TTYNAM:
+      gfc_conv_intrinsic_ttynam (se, expr);
+      break;
+
     case GFC_ISYM_UBOUND:
       gfc_conv_intrinsic_bound (se, expr, 1);
+      break;
+
+    case GFC_ISYM_XOR:
+      gfc_conv_intrinsic_bitop (se, expr, BIT_XOR_EXPR);
+      break;
+
+    case GFC_ISYM_LOC:
+      gfc_conv_intrinsic_loc (se, expr);
       break;
 
     case GFC_ISYM_CHDIR:
     case GFC_ISYM_DOT_PRODUCT:
     case GFC_ISYM_ETIME:
+    case GFC_ISYM_FGET:
+    case GFC_ISYM_FGETC:
     case GFC_ISYM_FNUM:
+    case GFC_ISYM_FPUT:
+    case GFC_ISYM_FPUTC:
     case GFC_ISYM_FSTAT:
+    case GFC_ISYM_FTELL:
     case GFC_ISYM_GETCWD:
     case GFC_ISYM_GETGID:
     case GFC_ISYM_GETPID:
@@ -3062,10 +3239,13 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_IRAND:
     case GFC_ISYM_ISATTY:
     case GFC_ISYM_LINK:
+    case GFC_ISYM_MALLOC:
     case GFC_ISYM_MATMUL:
     case GFC_ISYM_RAND:
     case GFC_ISYM_RENAME:
     case GFC_ISYM_SECOND:
+    case GFC_ISYM_SECNDS:
+    case GFC_ISYM_SIGNAL:
     case GFC_ISYM_STAT:
     case GFC_ISYM_SYMLNK:
     case GFC_ISYM_SYSTEM:

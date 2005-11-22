@@ -1487,7 +1487,7 @@ void
 get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
 {
   rtx base;
-  HOST_WIDE_INT offset = 0;
+  HOST_WIDE_INT disp, offset;
 
   gcc_assert (GET_CODE (ref) == MEM);
 
@@ -1495,23 +1495,34 @@ get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
       && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
     {
       base = find_replacement (&XEXP (ref, 0));
-
       gcc_assert (memory_address_p (GET_MODE (ref), base));
     }
   else
     base = XEXP (ref, 0);
 
   if (GET_CODE (base) == PLUS)
-    offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
-
-  *paligned_mem
-    = widen_memory_access (ref, SImode, (offset & ~3) - offset);
-
-  if (WORDS_BIG_ENDIAN)
-    *pbitnum = GEN_INT (32 - (GET_MODE_BITSIZE (GET_MODE (ref))
-			      + (offset & 3) * 8));
+    disp = INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
   else
-    *pbitnum = GEN_INT ((offset & 3) * 8);
+    disp = 0;
+
+  /* Find the byte offset within an aligned word.  If the memory itself is
+     claimed to be aligned, believe it.  Otherwise, aligned_memory_operand
+     will have examined the base register and determined it is aligned, and
+     thus displacements from it are naturally alignable.  */
+  if (MEM_ALIGN (ref) >= 32)
+    offset = 0;
+  else
+    offset = disp & 3;
+
+  /* Access the entire aligned word.  */
+  *paligned_mem = widen_memory_access (ref, SImode, -offset);
+
+  /* Convert the byte offset within the word to a bit offset.  */
+  if (WORDS_BIG_ENDIAN)
+    offset = 32 - (GET_MODE_BITSIZE (GET_MODE (ref)) + offset * 8);
+  else
+    offset *= 8;
+  *pbitnum = GEN_INT (offset);
 }
 
 /* Similar, but just get the address.  Handle the two reload cases.
@@ -6462,13 +6473,16 @@ static void
 alpha_init_builtins (void)
 {
   const struct alpha_builtin_def *p;
+  tree dimode_integer_type_node;
   tree ftype, attrs[2];
   size_t i;
+
+  dimode_integer_type_node = lang_hooks.types.type_for_mode (DImode, 0);
 
   attrs[0] = tree_cons (get_identifier ("nothrow"), NULL, NULL);
   attrs[1] = tree_cons (get_identifier ("const"), NULL, attrs[0]);
 
-  ftype = build_function_type (long_integer_type_node, void_list_node);
+  ftype = build_function_type (dimode_integer_type_node, void_list_node);
 
   p = zero_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
@@ -6476,8 +6490,8 @@ alpha_init_builtins (void)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
 				   NULL, attrs[p->is_const]);
 
-  ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+  ftype = build_function_type_list (dimode_integer_type_node,
+				    dimode_integer_type_node, NULL_TREE);
 
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
@@ -6485,9 +6499,9 @@ alpha_init_builtins (void)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
 				   NULL, attrs[p->is_const]);
 
-  ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+  ftype = build_function_type_list (dimode_integer_type_node,
+				    dimode_integer_type_node,
+				    dimode_integer_type_node, NULL_TREE);
 
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
@@ -7535,16 +7549,15 @@ alpha_expand_prologue (void)
     {
       if (frame_size > 4096)
 	{
-	  int probed = 4096;
+	  int probed;
 
-	  do
+	  for (probed = 4096; probed < frame_size; probed += 8192)
 	    emit_insn (gen_probe_stack (GEN_INT (TARGET_ABI_UNICOSMK
 						 ? -probed + 64
 						 : -probed)));
-	  while ((probed += 8192) < frame_size);
 
 	  /* We only have to do this probe if we aren't saving registers.  */
-	  if (sa_size == 0 && probed + 4096 < frame_size)
+	  if (sa_size == 0 && frame_size > probed - 4096)
 	    emit_insn (gen_probe_stack (GEN_INT (-frame_size)));
 	}
 

@@ -103,6 +103,15 @@ mstring;
 #define GFC_STD_F95_OBS		(1<<1)    /* Obsoleted in F95.  */
 #define GFC_STD_F77		(1<<0)    /* Up to and including F77.  */
 
+/* Bitmasks for the various FPE that can be enabled.  */
+#define GFC_FPE_INVALID    (1<<0)
+#define GFC_FPE_DENORMAL   (1<<1)
+#define GFC_FPE_ZERO       (1<<2)
+#define GFC_FPE_OVERFLOW   (1<<3)
+#define GFC_FPE_UNDERFLOW  (1<<4)
+#define GFC_FPE_PRECISION  (1<<5)
+
+
 /*************************** Enums *****************************/
 
 /* The author remains confused to this day about the convention of
@@ -205,7 +214,7 @@ typedef enum
   ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE,
   ST_ASSIGNMENT, ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE,
   ST_SIMPLE_IF, ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT,
-  ST_NONE
+  ST_ENUM, ST_ENUMERATOR, ST_END_ENUM, ST_NONE
 }
 gfc_statement;
 
@@ -282,6 +291,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_ALL,
   GFC_ISYM_ALLOCATED,
   GFC_ISYM_ANINT,
+  GFC_ISYM_AND,
   GFC_ISYM_ANY,
   GFC_ISYM_ASIN,
   GFC_ISYM_ASINH,
@@ -301,11 +311,13 @@ enum gfc_generic_isym_id
   GFC_ISYM_CHDIR,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
+  GFC_ISYM_COMPLEX,
   GFC_ISYM_CONJG,
   GFC_ISYM_COS,
   GFC_ISYM_COSH,
   GFC_ISYM_COUNT,
   GFC_ISYM_CSHIFT,
+  GFC_ISYM_CTIME,
   GFC_ISYM_DBLE,
   GFC_ISYM_DIM,
   GFC_ISYM_DOT_PRODUCT,
@@ -316,10 +328,16 @@ enum gfc_generic_isym_id
   GFC_ISYM_ETIME,
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
+  GFC_ISYM_FDATE,
+  GFC_ISYM_FGET,
+  GFC_ISYM_FGETC,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FNUM,
+  GFC_ISYM_FPUT,
+  GFC_ISYM_FPUTC,
   GFC_ISYM_FRACTION,
   GFC_ISYM_FSTAT,
+  GFC_ISYM_FTELL,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -351,8 +369,10 @@ enum gfc_generic_isym_id
   GFC_ISYM_LLE,
   GFC_ISYM_LLT,
   GFC_ISYM_LOG,
+  GFC_ISYM_LOC,
   GFC_ISYM_LOG10,
   GFC_ISYM_LOGICAL,
+  GFC_ISYM_MALLOC,
   GFC_ISYM_MATMUL,
   GFC_ISYM_MAX,
   GFC_ISYM_MAXLOC,
@@ -366,6 +386,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_NEAREST,
   GFC_ISYM_NINT,
   GFC_ISYM_NOT,
+  GFC_ISYM_OR,
   GFC_ISYM_PACK,
   GFC_ISYM_PRESENT,
   GFC_ISYM_PRODUCT,
@@ -378,10 +399,12 @@ enum gfc_generic_isym_id
   GFC_ISYM_SCALE,
   GFC_ISYM_SCAN,
   GFC_ISYM_SECOND,
+  GFC_ISYM_SECNDS,
   GFC_ISYM_SET_EXPONENT,
   GFC_ISYM_SHAPE,
   GFC_ISYM_SI_KIND,
   GFC_ISYM_SIGN,
+  GFC_ISYM_SIGNAL,
   GFC_ISYM_SIN,
   GFC_ISYM_SINH,
   GFC_ISYM_SIZE,
@@ -400,11 +423,13 @@ enum gfc_generic_isym_id
   GFC_ISYM_TRANSFER,
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
+  GFC_ISYM_TTYNAM,
   GFC_ISYM_UBOUND,
   GFC_ISYM_UMASK,
   GFC_ISYM_UNLINK,
   GFC_ISYM_UNPACK,
   GFC_ISYM_VERIFY,
+  GFC_ISYM_XOR,
   GFC_ISYM_CONVERSION
 };
 typedef enum gfc_generic_isym_id gfc_generic_isym_id;
@@ -467,6 +492,9 @@ typedef struct
   ENUM_BITFIELD (ifsrc) if_source:2;
 
   ENUM_BITFIELD (procedure_type) proc:3;
+  
+  /* Special attributes for Cray pointers, pointees.  */
+  unsigned cray_pointer:1, cray_pointee:1;    
 
 }
 symbol_attribute;
@@ -564,6 +592,13 @@ typedef struct
   int rank;	/* A rank of zero means that a variable is a scalar.  */
   array_type type;
   struct gfc_expr *lower[GFC_MAX_DIMENSIONS], *upper[GFC_MAX_DIMENSIONS];
+
+  /* These two fields are used with the Cray Pointer extension.  */
+  bool cray_pointee; /* True iff this spec belongs to a cray pointee.  */
+  bool cp_was_assumed; /* AS_ASSUMED_SIZE cp arrays are converted to
+			AS_EXPLICIT, but we want to remember that we
+			did this.  */
+
 }
 gfc_array_spec;
 
@@ -707,6 +742,9 @@ typedef struct gfc_symbol
   gfc_array_spec *as;
   struct gfc_symbol *result;	/* function result symbol */
   gfc_component *components;	/* Derived type components */
+
+  /* Defined only for Cray pointees; points to their pointer.  */
+  struct gfc_symbol *cp_pointer;
 
   struct gfc_symbol *common_next;	/* Links for COMMON syms */
 
@@ -1449,13 +1487,17 @@ typedef struct
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
+  int flag_cray_pointer;
   int flag_d_lines;
 
   int q_kind;
 
+  int fpe;
+
   int warn_std;
   int allow_std;
   int warn_nonstd_intrinsics;
+  int fshort_enums;
 }
 gfc_option_t;
 
@@ -1506,7 +1548,7 @@ void gfc_scanner_init_1 (void);
 
 void gfc_add_include_path (const char *);
 void gfc_release_include_path (void);
-FILE *gfc_open_included_file (const char *);
+FILE *gfc_open_included_file (const char *, bool);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);
@@ -1598,6 +1640,8 @@ void gfc_get_errors (int *, int *);
 /* arith.c */
 void gfc_arith_init_1 (void);
 void gfc_arith_done_1 (void);
+gfc_expr *gfc_enum_initializer (gfc_expr *, locus);
+arith gfc_check_integer_range (mpz_t p, int kind);
 
 /* trans-types.c */
 int gfc_validate_kind (bt, int, bool);
@@ -1631,6 +1675,9 @@ try gfc_add_external (symbol_attribute *, locus *);
 try gfc_add_intrinsic (symbol_attribute *, locus *);
 try gfc_add_optional (symbol_attribute *, locus *);
 try gfc_add_pointer (symbol_attribute *, locus *);
+try gfc_add_cray_pointer (symbol_attribute *, locus *);
+try gfc_add_cray_pointee (symbol_attribute *, locus *);
+try gfc_mod_pointee_as (gfc_array_spec *as);
 try gfc_add_result (symbol_attribute *, const char *, locus *);
 try gfc_add_save (symbol_attribute *, const char *, locus *);
 try gfc_add_saved_common (symbol_attribute *, locus *);
@@ -1752,6 +1799,7 @@ void gfc_free_ref_list (gfc_ref *);
 void gfc_type_convert_binary (gfc_expr *);
 int gfc_is_constant_expr (gfc_expr *);
 try gfc_simplify_expr (gfc_expr *, int);
+int gfc_has_vector_index (gfc_expr *);
 
 gfc_expr *gfc_get_expr (void);
 void gfc_free_expr (gfc_expr *);
@@ -1794,6 +1842,7 @@ int gfc_elemental (gfc_symbol *);
 try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
 try gfc_resolve_dim_arg (gfc_expr *);
+int gfc_is_formal_arg (void);
 
 /* array.c */
 void gfc_free_array_spec (gfc_array_spec *);

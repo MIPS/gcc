@@ -1630,11 +1630,11 @@ infer_loop_bounds_from_array (tree stmt)
       /* For each array access, analyze its access function
 	 and record a bound on the loop iteration domain.  */
       if (TREE_CODE (op1) == ARRAY_REF
-	  && !ref_contains_indirect_ref (op1))
+	  && !array_ref_contains_indirect_ref (op1))
 	estimate_iters_using_array (stmt, op1);
 
       if (TREE_CODE (op0) == ARRAY_REF
-	  && !ref_contains_indirect_ref (op0))
+	  && !array_ref_contains_indirect_ref (op0))
 	estimate_iters_using_array (stmt, op0);
     }
   else if (TREE_CODE (stmt) == CALL_EXPR)
@@ -1646,7 +1646,7 @@ infer_loop_bounds_from_array (tree stmt)
 	  op = TREE_VALUE (args);
 
 	  if (TREE_CODE (op) == ARRAY_REF
-	      && !ref_contains_indirect_ref (op))
+	      && !array_ref_contains_indirect_ref (op))
 	    estimate_iters_using_array (stmt, op);
 	}
     }
@@ -2164,11 +2164,12 @@ convert_step (struct loop *loop, tree new_type, tree base, tree step,
 
 /* Frees the information on upper bounds on numbers of iterations of LOOP.  */
 
-static void
+void
 free_numbers_of_iterations_estimates_loop (struct loop *loop)
 {
   struct iv_no_overflow *iv, *next;
-  
+
+  loop->nb_iterations = NULL;
   for (iv = loop->iv_no_overflow; iv; iv = next)
     {
       next = iv->next;
