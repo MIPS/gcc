@@ -1,3 +1,8 @@
+2005-11-22  Gabor Loki  <loki@gcc.gnu.org>
+
+	* tree-ssa-lfact.c (stmt_hoisting) : Fix condition field of 'for'
+	statement.
+
 2005-11-21  Gabor Loki  <loki@gcc.gnu.org>
 
 	* fact-common.c (collect_family_siblings): Fix collecting sibling sets

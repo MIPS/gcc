@@ -1340,16 +1340,17 @@ stmt_hoisting (bb_decorator first)
 	  /* We iterate the new node's use operands and the old statements'
 	     together so we can replace the same use operand of the new
 	     node. */
-	  for ((stmt_use_p =
-		op_iter_init_use (&stmt_iter, stmt,
-				  SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
-				  SSA_OP_VMUSTKILL), new_use_p =
-		op_iter_init_use (&new_iter, new_node,
-				  SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
-				  SSA_OP_VMUSTKILL));
-	       (!op_iter_done (&stmt_iter), !op_iter_done (&new_iter));
-	       (stmt_use_p = op_iter_next_use (&stmt_iter), new_use_p =
-		op_iter_next_use (&new_iter)))
+	  for (stmt_use_p =
+	       op_iter_init_use (&stmt_iter, stmt,
+				 SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
+				 SSA_OP_VMUSTKILL), 
+	       new_use_p =
+	       op_iter_init_use (&new_iter, new_node,
+				 SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE |
+				 SSA_OP_VMUSTKILL);
+	       !op_iter_done (&stmt_iter) && !op_iter_done (&new_iter);
+	       stmt_use_p = op_iter_next_use (&stmt_iter), 
+	       new_use_p = op_iter_next_use (&new_iter))
 	    {
 	      tree var = USE_FROM_PTR (stmt_use_p);
 	      tree phi = defined_by_phi (di->curr, var);
