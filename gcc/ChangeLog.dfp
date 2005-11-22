@@ -1,5 +1,16 @@
 2005-11-23  Ben Elliston  <bje@au.ibm.com>
 
+	Import from trunk:
+
+	2005-11-22  Ian Lance Taylor  <ian@airs.com>
+	* optabs.c (expand_unop): Call SCALAR_FLOAT_MODE_P on a mode, not
+	a mode_class.
+	(prepare_cmp_insn): Likewise.
+
+	* optabs.c (expand_unop): Remove unused variable `class'.
+
+2005-11-23  Ben Elliston  <bje@au.ibm.com>
+
 	* configure: Regenerate.
 
 2005-11-22  Janis Johnson  <janis187@us.ibm.com>
