@@ -1,5 +1,70 @@
 2005-11-22  Ben Elliston  <bje@au.ibm.com>
 
+	* optabs.c: Use SCALAR_FLOAT_MODE_P instead of explicitly testing
+	GET_MODE_CLASS (x) == MODE_FLOAT.
+	* config/i386/i386.c: Likewise.
+	* config/rs6000/xcoff.h: Likewise.
+	* config/rs6000/linux64.h: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/rs6000.h: Likewise.
+	* config/rs6000/predicates.md: Likewise.
+	* config/rs6000/sysv4.h: Likewise.
+
+2005-11-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __pic__ and __PIC__ when
+	flag_pic is set.
+	
+	* config/alpha/freebsd.h, config/alpha/linux.h,
+	config/arm/linux-elf.h, config/bfin/bfin.h,
+	config/cris/linux.h, config/darwin.h, config/freebsd-spec.h,
+	config/i386/beos-elf.h, config/i386/gnu.h,
+	config/i386/linux.h, config/i386/linux64.h, config/i386/nto.h,
+	config/i386/sco5.h, config/m32r/m32r.h, config/m68k/linux.h,
+	config/m68k/m68k.h, config/mips/linux.h, config/pa/pa-linux.h,
+	config/rs6000/linux64.h, config/rs6000/sysv4.h,
+	config/rs6000/vxworks.h, config/s390/linux.h, config/s390/tpf.h,
+	config/sh/linux.h, config/sh/sh.h, config/sol2.h,
+	config/sparc/linux.h, config/sparc/linux64.h,
+	config/xtensa/xtensa.h: Don't define __pic__ or __PIC__.
+
+	* doc/invoke.texi: Document that the macros __pic__ and __PIC__
+	are both defined when either flag -fpic or -fPIC are used.
+
+2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/fp-bit.c (clzusi): New function.
+	(si_to_float, usi_to_float): Use it to compute proper shift.
+	(usi_to_float): Preserve guard bits when shifting right.
+	* libgcc-std.ver (GCC_4.2.0): New version.
+	* libgcc2.c (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): New functions.
+	* libgcc2.h (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): Declare.
+	* mklibgcc.in (lib2funcs): Add _floatundidf, _floatundisf,
+	_floatundixf, and _floatunditf.
+	* optabs.c (expand_float): If target does not define a pattern for
+	signed or unsigned conversion, use an unsigned libcall instead of
+	a signed one.
+	(init_optabs): Initialize ufloat_optab.
+
+2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.opt (mmulhw): New option.
+	* doc/invoke.texi (-mmulhw): Document.
+	* config/rs6000/rs6000.c (rs6000_override_options): Enable -mmulhw
+	for 405 and 440.
+	* config/rs6000/rs6000.md: Add half-word multiply and
+	multiply-accumulate instructions for 405 and 440.
+
+2005-11-21  Joel Sherrill <joel.sherrill@oarcorp.com>
+
+	* config/arm/rtems-elf.h: Added definition of LINK_GCC_C_SEQUENCE_SPEC
+	which matches behavior of gcc 4.0 and older for RTEMS targets.  The
+	default now includes a linker group which makes the RTEMS one nest.
+
+2005-11-22  Ben Elliston  <bje@au.ibm.com>
+
 	* cse.c (fold_rtx): Typo fix.
 	(find_comparison_args): Pass the mode of arg1, not arg1 itself.
 

@@ -1951,7 +1951,7 @@ do {								\
    comparison.  CCmode should be used in all other cases.  */
 
 #define SELECT_CC_MODE(OP,X,Y) \
-  (SCALAR_FLOAT_MODE_P (GET_MODE (X)) ? CCFPmode		\
+  (SCALAR_FLOAT_MODE_P (GET_MODE (X)) ? CCFPmode	\
    : (OP) == GTU || (OP) == LTU || (OP) == GEU || (OP) == LEU ? CCUNSmode \
    : (((OP) == EQ || (OP) == NE) && COMPARISON_P (X)			  \
       ? CCEQmode : CCmode))
