@@ -18217,7 +18217,7 @@ ix86_stack_protect_fail (void)
 static bool
 ix86_decimal_float_supported_p (void)
 {
-  return TARGET_SSE;
+  return ENABLE_DECIMAL_FLOAT && TARGET_SSE;
 }
 
 /* Select a format to encode pointers in exception handling data.  CODE

@@ -1,3 +1,15 @@
+2005-11-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* configure.ac: Add --enable-decimal-float.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* mklibgcc.in: Include DFP support if enable_decimal_float, and
+	static only.
+	* config/i386/i386.c (ix86_decimal_float_supported_p): Only if
+	decimal float is enabled.
+	* config/rs6000/rs6000.c (rs6000_decimal_float_supported_p): Only if
+	decimal float is enabled.
+
 2005-11-22  Ben Elliston  <bje@au.ibm.com>
 
 	* decUtility.c, decNumber.c: GNU coding standard fixes.

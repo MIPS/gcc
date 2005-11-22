@@ -1027,7 +1027,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static bool
 rs6000_decimal_float_supported_p (void)
 {
-  return true;
+  return ENABLE_DECIMAL_FLOAT == 1;
 }
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
