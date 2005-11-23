@@ -1227,8 +1227,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	    || (binoptab == smul_optab
 		&& GET_MODE_WIDER_MODE (wider_mode) != VOIDmode
 		&& (((unsignedp ? umul_widen_optab : smul_widen_optab)
-		     ->handlers[(int) GET_MODE_WIDER_MODE
-						(wider_mode)].insn_code)
+		     ->handlers[(int) GET_MODE_WIDER_MODE (wider_mode)].insn_code)
 		    != CODE_FOR_nothing)))
 	  {
 	    rtx xop0 = op0, xop1 = op1;
