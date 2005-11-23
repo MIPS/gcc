@@ -32,10 +32,13 @@ Boston, MA 02110-1301, USA.  */
 
 #include <setjmp.h>
 #include "libgfortran.h"
-#ifdef HAVE_PRAGMA_WEAK
-/* Used by gthr.h.  */
-#define SUPPORTS_WEAK 1
+#include <gthr.h>
+
+#ifdef _AIX
+#undef _LARGE_FILES
+#define _LARGE_FILE_API
 #endif
+
 #include <gthr.h>
 
 #define DEFAULT_TEMPDIR "/tmp"

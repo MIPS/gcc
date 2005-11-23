@@ -339,9 +339,9 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   if ((opp->common.flags & IOPARM_OPEN_HAS_FILE) != 0)
     u2 = find_file (opp->file, opp->file_len);
   if (u2 != NULL
-      && (options.stdin_unit < 0 || u->unit_number != options.stdin_unit)
-      && (options.stdout_unit < 0 || u->unit_number != options.stdout_unit)
-      && (options.stderr_unit < 0 || u->unit_number != options.stderr_unit))
+      && (options.stdin_unit < 0 || u2->unit_number != options.stdin_unit)
+      && (options.stdout_unit < 0 || u2->unit_number != options.stdout_unit)
+      && (options.stderr_unit < 0 || u2->unit_number != options.stderr_unit))
     {
       unlock_unit (u2);
       generate_error (&opp->common, ERROR_ALREADY_OPEN, NULL);
@@ -544,8 +544,8 @@ st_open (st_parameter_open *opp)
       if (flags.position != POSITION_UNSPECIFIED
 	  && flags.position != POSITION_APPEND)
 	generate_error (&opp->common, ERROR_BAD_OPTION,
-			"Conflicting ACCESS and POSITION "
-			"flags in OPEN statement");
+			"Conflicting ACCESS and POSITION flags in"
+			" OPEN statement");
 
       notify_std (GFC_STD_GNU,
 		  "Extension: APPEND as a value for ACCESS in OPEN statement");
