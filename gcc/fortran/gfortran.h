@@ -291,6 +291,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_ALL,
   GFC_ISYM_ALLOCATED,
   GFC_ISYM_ANINT,
+  GFC_ISYM_AND,
   GFC_ISYM_ANY,
   GFC_ISYM_ASIN,
   GFC_ISYM_ASINH,
@@ -310,11 +311,13 @@ enum gfc_generic_isym_id
   GFC_ISYM_CHDIR,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
+  GFC_ISYM_COMPLEX,
   GFC_ISYM_CONJG,
   GFC_ISYM_COS,
   GFC_ISYM_COSH,
   GFC_ISYM_COUNT,
   GFC_ISYM_CSHIFT,
+  GFC_ISYM_CTIME,
   GFC_ISYM_DBLE,
   GFC_ISYM_DIM,
   GFC_ISYM_DOT_PRODUCT,
@@ -325,10 +328,16 @@ enum gfc_generic_isym_id
   GFC_ISYM_ETIME,
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
+  GFC_ISYM_FDATE,
+  GFC_ISYM_FGET,
+  GFC_ISYM_FGETC,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FNUM,
+  GFC_ISYM_FPUT,
+  GFC_ISYM_FPUTC,
   GFC_ISYM_FRACTION,
   GFC_ISYM_FSTAT,
+  GFC_ISYM_FTELL,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -377,6 +386,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_NEAREST,
   GFC_ISYM_NINT,
   GFC_ISYM_NOT,
+  GFC_ISYM_OR,
   GFC_ISYM_PACK,
   GFC_ISYM_PRESENT,
   GFC_ISYM_PRODUCT,
@@ -412,11 +422,13 @@ enum gfc_generic_isym_id
   GFC_ISYM_TRANSFER,
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
+  GFC_ISYM_TTYNAM,
   GFC_ISYM_UBOUND,
   GFC_ISYM_UMASK,
   GFC_ISYM_UNLINK,
   GFC_ISYM_UNPACK,
   GFC_ISYM_VERIFY,
+  GFC_ISYM_XOR,
   GFC_ISYM_CONVERSION
 };
 typedef enum gfc_generic_isym_id gfc_generic_isym_id;
@@ -1535,7 +1547,7 @@ void gfc_scanner_init_1 (void);
 
 void gfc_add_include_path (const char *);
 void gfc_release_include_path (void);
-FILE *gfc_open_included_file (const char *);
+FILE *gfc_open_included_file (const char *, bool);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);
@@ -1786,6 +1798,7 @@ void gfc_free_ref_list (gfc_ref *);
 void gfc_type_convert_binary (gfc_expr *);
 int gfc_is_constant_expr (gfc_expr *);
 try gfc_simplify_expr (gfc_expr *, int);
+int gfc_has_vector_index (gfc_expr *);
 
 gfc_expr *gfc_get_expr (void);
 void gfc_free_expr (gfc_expr *);

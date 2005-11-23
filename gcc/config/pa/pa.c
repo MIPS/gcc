@@ -3265,20 +3265,18 @@ store_reg (int reg, HOST_WIDE_INT disp, int base)
       rtx tmpreg = gen_rtx_REG (Pmode, 1);
 
       emit_move_insn (tmpreg, delta);
-      emit_move_insn (tmpreg, gen_rtx_PLUS (Pmode, tmpreg, basereg));
-      dest = gen_rtx_MEM (word_mode, tmpreg);
-      insn = emit_move_insn (dest, src);
+      insn = emit_move_insn (tmpreg, gen_rtx_PLUS (Pmode, tmpreg, basereg));
       if (DO_FRAME_NOTES)
 	{
 	  REG_NOTES (insn)
 	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode,
-			     gen_rtx_MEM (word_mode,
-					  gen_rtx_PLUS (word_mode, basereg,
-							delta)),
-                             src),
+		gen_rtx_SET (VOIDmode, tmpreg,
+			     gen_rtx_PLUS (Pmode, basereg, delta)),
                 REG_NOTES (insn));
+	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
+      dest = gen_rtx_MEM (word_mode, tmpreg);
+      insn = emit_move_insn (dest, src);
     }
   else
     {
@@ -3358,6 +3356,12 @@ set_reg_plus_d (int reg, int base, HOST_WIDE_INT disp, int note)
       emit_move_insn (tmpreg, delta);
       insn = emit_move_insn (gen_rtx_REG (Pmode, reg),
 			     gen_rtx_PLUS (Pmode, tmpreg, basereg));
+      if (DO_FRAME_NOTES)
+	REG_NOTES (insn)
+	  = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+	      gen_rtx_SET (VOIDmode, tmpreg,
+			   gen_rtx_PLUS (Pmode, basereg, delta)),
+	      REG_NOTES (insn));
     }
   else
     {
@@ -5572,7 +5576,7 @@ output_arg_descriptor (rtx call_insn)
    It might be worthwhile to try and make this a leaf function too.  */
 
 enum reg_class
-secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
+pa_secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
 {
   int regno, is_symbolic;
 
@@ -5585,7 +5589,7 @@ secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
     return R1_REGS;
 
   /* Profiling showed the PA port spends about 1.3% of its compilation
-     time in true_regnum from calls inside secondary_reload_class.  */
+     time in true_regnum from calls inside pa_secondary_reload_class.  */
 
   if (GET_CODE (in) == REG)
     {
@@ -5624,7 +5628,7 @@ secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
     in = XEXP (in, 0);
 
   /* Profiling has showed GCC spends about 2.6% of its compilation
-     time in symbolic_operand from calls inside secondary_reload_class.
+     time in symbolic_operand from calls inside pa_secondary_reload_class.
 
      We use an inline copy and only compute its return value once to avoid
      useless work.  */

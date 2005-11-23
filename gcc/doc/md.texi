@@ -3125,6 +3125,14 @@ Similar widening-multiplication instructions of other widths.
 Similar widening-multiplication instructions that do unsigned
 multiplication.
 
+@cindex @code{usmulqihi3} instruction pattern
+@cindex @code{usmulhisi3} instruction pattern
+@cindex @code{usmulsidi3} instruction pattern
+@item @samp{usmulqihi3}, @samp{usmulhisi3}, @samp{usmulsidi3}
+Similar widening-multiplication instructions that interpret the first
+operand as unsigned and the second operand as signed, then do a signed
+multiplication.
+
 @cindex @code{smul@var{m}3_highpart} instruction pattern
 @item @samp{smul@var{m}3_highpart}
 Perform a signed multiplication of operands 1 and 2, which have mode
@@ -3303,6 +3311,16 @@ the argument
 
 The @code{rint} built-in function of C always uses the mode which
 corresponds to the C data type @code{double} and the @code{rintf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{copysign@var{m}3} instruction pattern
+@item @samp{copysign@var{m}3}
+Store a value with the magnitude of operand 1 and the sign of operand
+2 into operand 0.
+
+The @code{copysign} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{copysignf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 
@@ -3551,7 +3569,7 @@ Operand 1 may have mode @code{byte_mode} or @code{word_mode}; often
 be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 2 and 3.
+for operands 2 and 3 and the constant is never zero for operand 2.
 
 The bit-field value is sign-extended to a full word integer
 before it is stored in operand 0.
@@ -3569,7 +3587,7 @@ operand 2 the starting bit.  Operand 0 may have mode @code{byte_mode} or
 Operands 1 and 2 must be valid for @code{word_mode}.
 
 The RTL generation pass generates this instruction only with constants
-for operands 1 and 2.
+for operands 1 and 2 and the constant is never zero for operand 1.
 
 @cindex @code{mov@var{mode}cc} instruction pattern
 @item @samp{mov@var{mode}cc}

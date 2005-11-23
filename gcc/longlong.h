@@ -41,8 +41,9 @@
 #define UWtype		USItype
 #define UHWtype		USItype
 #define UDWtype		UDItype
-extern const UQItype __clz_tab[256] ATTRIBUTE_HIDDEN;
 #endif
+
+extern const UQItype __clz_tab[256];
 
 /* Define auxiliary asm macros.
 
@@ -193,7 +194,7 @@ UDItype __umulsidi3 (USItype, USItype);
 	   : "%r" ((USItype) (ah)),					\
 	     "rI" ((USItype) (bh)),					\
 	     "%r" ((USItype) (al)),					\
-	     "rI" ((USItype) (bl)))
+	     "rI" ((USItype) (bl)) __CLOBBER_CC)
 #define sub_ddmmss(sh, sl, ah, al, bh, bl) \
   __asm__ ("subs	%1, %4, %5\n\tsbc	%0, %2, %3"		\
 	   : "=r" ((USItype) (sh)),					\
@@ -201,7 +202,7 @@ UDItype __umulsidi3 (USItype, USItype);
 	   : "r" ((USItype) (ah)),					\
 	     "rI" ((USItype) (bh)),					\
 	     "r" ((USItype) (al)),					\
-	     "rI" ((USItype) (bl)))
+	     "rI" ((USItype) (bl)) __CLOBBER_CC)
 #define umul_ppmm(xh, xl, a, b) \
 {register USItype __t0, __t1, __t2;					\
   __asm__ ("%@ Inlined umul_ppmm\n"					\
@@ -221,7 +222,7 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "=r" ((USItype) (xl)),					\
 	     "=&r" (__t0), "=&r" (__t1), "=r" (__t2)			\
 	   : "r" ((USItype) (a)),					\
-	     "r" ((USItype) (b)));}
+	     "r" ((USItype) (b)) __CLOBBER_CC );}
 #define UMUL_TIME 20
 #define UDIV_TIME 100
 #endif /* __arm__ */

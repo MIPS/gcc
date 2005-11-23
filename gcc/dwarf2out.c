@@ -214,7 +214,7 @@ enum dw_cfi_oprnd_type {
 
 typedef union dw_cfi_oprnd_struct GTY(())
 {
-  unsigned long GTY ((tag ("dw_cfi_oprnd_reg_num"))) dw_cfi_reg_num;
+  unsigned int GTY ((tag ("dw_cfi_oprnd_reg_num"))) dw_cfi_reg_num;
   HOST_WIDE_INT GTY ((tag ("dw_cfi_oprnd_offset"))) dw_cfi_offset;
   const char * GTY ((tag ("dw_cfi_oprnd_addr"))) dw_cfi_addr;
   struct dw_loc_descr_struct * GTY ((tag ("dw_cfi_oprnd_loc"))) dw_cfi_loc;
@@ -671,12 +671,21 @@ lookup_cfa_1 (dw_cfi_ref cfi, dw_cfa_location *loc)
     case DW_CFA_def_cfa_offset:
       loc->offset = cfi->dw_cfi_oprnd1.dw_cfi_offset;
       break;
+    case DW_CFA_def_cfa_offset_sf:
+      loc->offset
+	= cfi->dw_cfi_oprnd1.dw_cfi_offset * DWARF_CIE_DATA_ALIGNMENT;
+      break;
     case DW_CFA_def_cfa_register:
       loc->reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
       break;
     case DW_CFA_def_cfa:
       loc->reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
       loc->offset = cfi->dw_cfi_oprnd2.dw_cfi_offset;
+      break;
+    case DW_CFA_def_cfa_sf:
+      loc->reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
+      loc->offset
+	= cfi->dw_cfi_oprnd2.dw_cfi_offset * DWARF_CIE_DATA_ALIGNMENT;
       break;
     case DW_CFA_def_cfa_expression:
       get_cfa_from_loc_descr (loc, cfi->dw_cfi_oprnd1.dw_cfi_loc);
@@ -775,11 +784,21 @@ def_cfa_1 (const char *label, dw_cfa_location *loc_p)
 
   if (loc.reg == old_cfa.reg && !loc.indirect)
     {
-      /* Construct a "DW_CFA_def_cfa_offset <offset>" instruction,
-	 indicating the CFA register did not change but the offset
-	 did.  */
-      cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
-      cfi->dw_cfi_oprnd1.dw_cfi_offset = loc.offset;
+      /* Construct a "DW_CFA_def_cfa_offset <offset>" instruction, indicating
+	 the CFA register did not change but the offset did.  */
+      if (loc.offset < 0)
+	{
+	  HOST_WIDE_INT f_offset = loc.offset / DWARF_CIE_DATA_ALIGNMENT;
+	  gcc_assert (f_offset * DWARF_CIE_DATA_ALIGNMENT == loc.offset);
+
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa_offset_sf;
+	  cfi->dw_cfi_oprnd1.dw_cfi_offset = f_offset;
+	}
+      else
+	{
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
+	  cfi->dw_cfi_oprnd1.dw_cfi_offset = loc.offset;
+	}
     }
 
 #ifndef MIPS_DEBUGGING_INFO  /* SGI dbx thinks this means no offset.  */
@@ -800,9 +819,21 @@ def_cfa_1 (const char *label, dw_cfa_location *loc_p)
       /* Construct a "DW_CFA_def_cfa <register> <offset>" instruction,
 	 indicating the CFA register has changed to <register> with
 	 the specified offset.  */
-      cfi->dw_cfi_opc = DW_CFA_def_cfa;
-      cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
-      cfi->dw_cfi_oprnd2.dw_cfi_offset = loc.offset;
+      if (loc.offset < 0)
+	{
+	  HOST_WIDE_INT f_offset = loc.offset / DWARF_CIE_DATA_ALIGNMENT;
+	  gcc_assert (f_offset * DWARF_CIE_DATA_ALIGNMENT == loc.offset);
+
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa_sf;
+	  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
+	  cfi->dw_cfi_oprnd2.dw_cfi_offset = f_offset;
+	}
+      else
+	{
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa;
+	  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
+	  cfi->dw_cfi_oprnd2.dw_cfi_offset = loc.offset;
+	}
     }
   else
     {
@@ -1981,7 +2012,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	    dw2_asm_output_encoded_addr_rtx (
 		ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0),
 		gen_rtx_SYMBOL_REF (Pmode, cfi->dw_cfi_oprnd1.dw_cfi_addr),
-		NULL);
+		false, NULL);
 	  else
 	    dw2_asm_output_addr (DWARF2_ADDR_SIZE,
 				 cfi->dw_cfi_oprnd1.dw_cfi_addr, NULL);
@@ -2237,7 +2268,8 @@ output_call_frame_info (int for_eh)
 	  dw2_asm_output_data (1, per_encoding, "Personality (%s)",
 			       eh_data_format_name (per_encoding));
 	  dw2_asm_output_encoded_addr_rtx (per_encoding,
-					   eh_personality_libfunc, NULL);
+					   eh_personality_libfunc,
+					   true, NULL);
 	}
 
       if (any_lsda_needed)
@@ -2289,6 +2321,7 @@ output_call_frame_info (int for_eh)
 	  SYMBOL_REF_FLAGS (sym_ref) |= SYMBOL_FLAG_LOCAL;
 	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 					   sym_ref,
+					   false,
 					   "FDE initial location");
 	  if (fde->dw_fde_switched_sections)
 	    {
@@ -2298,13 +2331,13 @@ output_call_frame_info (int for_eh)
 				      fde->dw_fde_hot_section_label);
 	      SYMBOL_REF_FLAGS (sym_ref2) |= SYMBOL_FLAG_LOCAL;
 	      SYMBOL_REF_FLAGS (sym_ref3) |= SYMBOL_FLAG_LOCAL;
-	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3,
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3, false,
 					       "FDE initial location");
 	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				    fde->dw_fde_hot_section_end_label,
 				    fde->dw_fde_hot_section_label,
 				    "FDE address range");
-	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2,
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2, false,
 					       "FDE initial location");
 	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				    fde->dw_fde_unlikely_section_end_label,
@@ -2369,7 +2402,7 @@ output_call_frame_info (int for_eh)
 					       fde->funcdef_number);
 		  dw2_asm_output_encoded_addr_rtx (
 			lsda_encoding, gen_rtx_SYMBOL_REF (Pmode, l1),
-			"Language Specific Data Area");
+			false, "Language Specific Data Area");
 		}
 	      else
 		{
@@ -8434,12 +8467,6 @@ dbx_reg_number (rtx rtl)
 {
   unsigned regno = REGNO (rtl);
 
-  /* We do not want to see registers that should have been eliminated.  */
-  gcc_assert (HARD_FRAME_POINTER_REGNUM == ARG_POINTER_REGNUM
-	      || rtl != arg_pointer_rtx);
-  gcc_assert (HARD_FRAME_POINTER_REGNUM == FRAME_POINTER_REGNUM
-	      || rtl != frame_pointer_rtx);
-
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 #ifdef LEAF_REG_REMAP
@@ -8510,7 +8537,11 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
   unsigned reg;
   dw_loc_descr_ref loc_result = NULL;
 
-  reg = dbx_reg_number (rtl);
+  reg = REGNO (rtl);
+#ifdef LEAF_REG_REMAP
+  reg = LEAF_REG_REMAP (reg);
+#endif
+  gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
 
   /* Simple, contiguous registers.  */
@@ -8523,7 +8554,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 	{
 	  dw_loc_descr_ref t;
 
-	  t = one_reg_loc_descriptor (reg);
+	  t = one_reg_loc_descriptor (DBX_REGISTER_NUMBER (reg));
 	  add_loc_descr (&loc_result, t);
 	  add_loc_descr_op_piece (&loc_result, size);
 	  ++reg;
@@ -8589,32 +8620,12 @@ int_loc_descriptor (HOST_WIDE_INT i)
   return new_loc_descr (op, i, 0);
 }
 
-/* Return an offset from an eliminable register to the post-prologue
-   frame pointer.  */
-
-static HOST_WIDE_INT
-eliminate_reg_to_offset (rtx reg)
-{
-  HOST_WIDE_INT offset = 0;
-
-  reg = eliminate_regs (reg, VOIDmode, NULL_RTX);
-  if (GET_CODE (reg) == PLUS)
-    {
-      offset = INTVAL (XEXP (reg, 1));
-      reg = XEXP (reg, 0);
-    }
-  gcc_assert (reg == (frame_pointer_needed ? hard_frame_pointer_rtx
-		      : stack_pointer_rtx));
-
-  return offset;
-}
-
 /* Return a location descriptor that designates a base+offset location.  */
 
 static dw_loc_descr_ref
 based_loc_descr (rtx reg, HOST_WIDE_INT offset)
 {
-  dw_loc_descr_ref loc_result;
+  unsigned int regno;
 
   /* We only use "frame base" when we're sure we're talking about the
      post-prologue local stack frame.  We do this by *not* running
@@ -8622,22 +8633,28 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset)
      argument pointer and soft frame pointer rtx's.  */
   if (reg == arg_pointer_rtx || reg == frame_pointer_rtx)
     {
-      offset += eliminate_reg_to_offset (reg);
-      offset += frame_pointer_cfa_offset;
+      rtx elim = eliminate_regs (reg, VOIDmode, NULL_RTX);
 
-      loc_result = new_loc_descr (DW_OP_fbreg, offset, 0);
+      if (elim != reg)
+	{
+	  if (GET_CODE (elim) == PLUS)
+	    {
+	      offset += INTVAL (XEXP (elim, 1));
+	      elim = XEXP (elim, 0);
+	    }
+	  gcc_assert (elim == (frame_pointer_needed ? hard_frame_pointer_rtx
+		      : stack_pointer_rtx));
+          offset += frame_pointer_cfa_offset;
+
+          return new_loc_descr (DW_OP_fbreg, offset, 0);
+	}
     }
+
+  regno = dbx_reg_number (reg);
+  if (regno <= 31)
+    return new_loc_descr (DW_OP_breg0 + regno, offset, 0);
   else
-    {
-      unsigned int regno = dbx_reg_number (reg);
-
-      if (regno <= 31)
-	loc_result = new_loc_descr (DW_OP_breg0 + regno, offset, 0);
-      else
-	loc_result = new_loc_descr (DW_OP_bregx, regno, offset);
-    }
-
-  return loc_result;
+    return new_loc_descr (DW_OP_bregx, regno, offset);
 }
 
 /* Return true if this RTL expression describes a base+offset calculation.  */
@@ -9746,7 +9763,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
       {
 	enum machine_mode mode = GET_MODE (rtl);
 
-	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	if (SCALAR_FLOAT_MODE_P (mode))
 	  {
 	    unsigned int length = GET_MODE_SIZE (mode);
 	    unsigned char *array = ggc_alloc (length);
@@ -10375,9 +10392,24 @@ static void
 compute_frame_pointer_to_cfa_displacement (void)
 {
   HOST_WIDE_INT offset;
+  rtx reg, elim;
 
-  offset = eliminate_reg_to_offset (arg_pointer_rtx);
-  offset += ARG_POINTER_CFA_OFFSET (current_function_decl);
+#ifdef FRAME_POINTER_CFA_OFFSET
+  reg = frame_pointer_rtx;
+  offset = FRAME_POINTER_CFA_OFFSET (current_function_decl);
+#else
+  reg = arg_pointer_rtx;
+  offset = ARG_POINTER_CFA_OFFSET (current_function_decl);
+#endif
+
+  elim = eliminate_regs (reg, VOIDmode, NULL_RTX);
+  if (GET_CODE (elim) == PLUS)
+    {
+      offset += INTVAL (XEXP (elim, 1));
+      elim = XEXP (elim, 0);
+    }
+  gcc_assert (elim == (frame_pointer_needed ? hard_frame_pointer_rtx
+		       : stack_pointer_rtx));
 
   frame_pointer_cfa_offset = -offset;
 }
@@ -10777,7 +10809,8 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
       if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
 	  && TREE_PUBLIC (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
-	  && !DECL_ABSTRACT (decl))
+	  && !DECL_ABSTRACT (decl)
+	  && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl)))
 	add_AT_string (die, DW_AT_MIPS_linkage_name,
 		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
     }
@@ -11445,6 +11478,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       gcc_assert (!old_die);
     }
 
+  /* Now that the C++ front end lazily declares artificial member fns, we
+     might need to retrofit the declaration into its class.  */
+  if (!declaration && !origin && !old_die
+      && DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl))
+      && !class_or_namespace_scope_p (context_die)
+      && debug_info_level > DINFO_LEVEL_TERSE)
+    old_die = force_decl_die (decl);
+
   if (origin != NULL)
     {
       gcc_assert (!declaration || local_scope_p (context_die));
@@ -11546,7 +11587,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	     Note that force_decl_die() forces function declaration die. It is
 	     later reused to represent definition.  */
-	    equate_decl_number_to_die (decl, subr_die);
+	  equate_decl_number_to_die (decl, subr_die);
 	}
     }
   else if (DECL_ABSTRACT (decl))
@@ -12745,6 +12786,10 @@ force_decl_die (tree decl)
       else
 	context_die = comp_unit_die;
 
+      decl_die = lookup_decl_die (decl);
+      if (decl_die)
+	return decl_die;
+
       switch (TREE_CODE (decl))
 	{
 	case FUNCTION_DECL:
@@ -12795,13 +12840,18 @@ force_type_die (tree type)
     {
       dw_die_ref context_die;
       if (TYPE_CONTEXT (type))
-	if (TYPE_P (TYPE_CONTEXT (type)))
-	  context_die = force_type_die (TYPE_CONTEXT (type));
-	else
-	  context_die = force_decl_die (TYPE_CONTEXT (type));
+	{
+	  if (TYPE_P (TYPE_CONTEXT (type)))
+	    context_die = force_type_die (TYPE_CONTEXT (type));
+	  else
+	    context_die = force_decl_die (TYPE_CONTEXT (type));
+	}
       else
 	context_die = comp_unit_die;
 
+      type_die = lookup_type_die (type);
+      if (type_die)
+	return type_die;
       gen_type_die (type, context_die);
       type_die = lookup_type_die (type);
       gcc_assert (type_die);

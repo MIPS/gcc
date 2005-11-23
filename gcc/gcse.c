@@ -5088,7 +5088,8 @@ free_ldst_entry (struct ls_expr * ptr)
 static void
 free_ldst_mems (void)
 {
-  htab_delete (pre_ldst_table);
+  if (pre_ldst_table)
+    htab_delete (pre_ldst_table);
   pre_ldst_table = NULL;
 
   while (pre_ldst_mems)
@@ -5145,6 +5146,8 @@ find_rtx_in_ldst (rtx x)
 {
   struct ls_expr e;
   void **slot;
+  if (!pre_ldst_table)
+    return NULL;
   e.pattern = x;
   slot = htab_find_slot (pre_ldst_table, &e, NO_INSERT);
   if (!slot || ((struct ls_expr *)*slot)->invalid)

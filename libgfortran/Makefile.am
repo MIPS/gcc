@@ -16,7 +16,9 @@ libgfortranbegin_la_LDFLAGS = -static
 
 ## io.h conflicts with some a system header on some platforms, so
 ## use -iquote
-AM_CPPFLAGS = -iquote$(srcdir)/io
+AM_CPPFLAGS = -iquote$(srcdir)/io -I$(srcdir)/$(MULTISRCTOP)../gcc \
+	      -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
+	      -I$(MULTIBUILDTOP)../../gcc -D_GNU_SOURCE
 
 gfor_io_src= \
 io/close.c \
@@ -27,6 +29,7 @@ io/list_read.c \
 io/lock.c \
 io/open.c \
 io/read.c \
+io/size_from_kind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
@@ -44,6 +47,7 @@ intrinsics/c99_functions.c \
 intrinsics/chdir.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/ctime.c \
 intrinsics/date_and_time.c \
 intrinsics/env.c \
 intrinsics/erf.c \
@@ -51,8 +55,10 @@ intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
 intrinsics/exit.c \
+intrinsics/fget.c \
 intrinsics/flush.c \
 intrinsics/fnum.c \
+intrinsics/ftell.c \
 intrinsics/gerror.c \
 intrinsics/getcwd.c \
 intrinsics/getlog.c \
@@ -568,6 +574,9 @@ $(gfor_built_specific_src) \
 $(gfor_built_specific2_src) \
 intrinsics/dprod_r8.f90 \
 intrinsics/f2c_specifics.F90
+
+# Turn on vectorization for matmul.
+$(patsubst %.c,%.lo,$(notdir $(i_matmul_c))): AM_CFLAGS += -ftree-vectorize
 
 BUILT_SOURCES=$(gfor_built_src) $(gfor_built_specific_src) \
     $(gfor_built_specific2_src)

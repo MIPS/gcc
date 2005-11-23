@@ -1238,13 +1238,15 @@ scan_loop (struct loop *loop, int flags)
 		 - with -Os (this certainly increases size),
 		 - if the mode doesn't support copy operations (obviously),
 		 - if the source is already a reg (the motion will gain nothing),
-		 - if the source is a legitimate constant (likewise).  */
+		 - if the source is a legitimate constant (likewise),
+	         - if the dest is a hard register (may be unrecognizable).  */
 	      else if (insert_temp
 		       && (optimize_size
 			   || ! can_copy_p (GET_MODE (SET_SRC (set)))
 			   || REG_P (SET_SRC (set))
 			   || (CONSTANT_P (SET_SRC (set))
-			       && LEGITIMATE_CONSTANT_P (SET_SRC (set)))))
+			       && LEGITIMATE_CONSTANT_P (SET_SRC (set)))
+			   || REGNO (SET_DEST (set)) < FIRST_PSEUDO_REGISTER))
 		;
 	      else if ((tem = loop_invariant_p (loop, src))
 		       && (dependencies == 0
@@ -10803,7 +10805,7 @@ load_mems (const struct loop *loop)
 	}
 
       if (flag_float_store && written
-	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (mem)))
 	loop_info->mems[i].optimize = 0;
 
       /* If this MEM is written to, we must be sure that there

@@ -4014,8 +4014,13 @@ grokdeclarator (const struct c_declarator *declarator,
 	   && !funcdef_flag)
     {
       /* 'extern' with initialization is invalid if not at file scope.  */
-      if (current_scope == file_scope)
-	warning (0, "%qs initialized and declared %<extern%>", name);
+       if (current_scope == file_scope)
+         {
+           /* It is fine to have 'extern const' when compiling at C
+              and C++ intersection.  */
+           if (!(warn_cxx_compat && constp))
+             warning (0, "%qs initialized and declared %<extern%>", name);
+         }
       else
 	error ("%qs has both %<extern%> and initializer", name);
     }
@@ -4694,11 +4699,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	/* At file scope, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers
 	   makes this declaration a definition (perhaps tentative).  Also,
-	   the absence of both `static' and `register' makes it public.  */
+	   the absence of `static' makes it public.  */
 	if (current_scope == file_scope)
 	  {
-	    TREE_PUBLIC (decl) = !(storage_class == csc_static
-				   || storage_class == csc_register);
+	    TREE_PUBLIC (decl) = storage_class != csc_static;
 	    TREE_STATIC (decl) = !extern_ref;
 	  }
 	/* Not at file scope, only `static' makes a static definition.  */

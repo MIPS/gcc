@@ -128,8 +128,7 @@ by type.  Explanations are in the following sections.
 -fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wall  -Waliasing  -Wconversion @gol
 -Wimplicit-interface  -Wnonstd-intrinsics  -Wsurprising  -Wunderflow @gol
--Wunused-labels -Wline-truncation @gol
--Werror  -W}
+-Wunused-labels -Wline-truncation -W}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -226,7 +225,6 @@ Allow @samp{$} as a valid character in a symbol name.
 @item -fno-backslash
 @cindex backslash
 @cindex escape characters
-@item
 Compile switch to change the interpretation of a backslash from
 ``C''-style escape characters to a single backslash character.
 

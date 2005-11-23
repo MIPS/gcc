@@ -72,6 +72,7 @@
 %{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
 %{mcpu=power5: -mpower4} \
+%{mcpu=power5+: -mpower4} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -149,6 +150,14 @@
 #ifndef HAVE_AS_POPCNTB
 #undef  TARGET_POPCNTB
 #define TARGET_POPCNTB 0
+#endif
+
+/* Define TARGET_FPRND if the target assembler does not support the
+   fp rounding instructions.  */
+
+#ifndef HAVE_AS_FPRND
+#undef  TARGET_FPRND
+#define TARGET_FPRND 0
 #endif
 
 #ifndef TARGET_SECURE_PLT
@@ -805,10 +814,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
 #define MODES_TIEABLE_P(MODE1, MODE2) \
-  (GET_MODE_CLASS (MODE1) == MODE_FLOAT		\
-   ? GET_MODE_CLASS (MODE2) == MODE_FLOAT	\
-   : GET_MODE_CLASS (MODE2) == MODE_FLOAT	\
-   ? GET_MODE_CLASS (MODE1) == MODE_FLOAT	\
+  (SCALAR_FLOAT_MODE_P (MODE1)			\
+   ? SCALAR_FLOAT_MODE_P (MODE2)		\
+   : SCALAR_FLOAT_MODE_P (MODE2)		\
+   ? SCALAR_FLOAT_MODE_P (MODE1)		\
    : GET_MODE_CLASS (MODE1) == MODE_CC		\
    ? GET_MODE_CLASS (MODE2) == MODE_CC		\
    : GET_MODE_CLASS (MODE2) == MODE_CC		\
@@ -1178,7 +1187,7 @@ enum reg_class
    NO_REGS is returned.  */
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  secondary_reload_class (CLASS, MODE, IN)
+  rs6000_secondary_reload_class (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
    else, we need a memory location.  */
@@ -1689,7 +1698,8 @@ typedef struct rs6000_args
    && !rs6000_tls_referenced_p (X))
 
 #define EASY_VECTOR_15(n) ((n) >= -16 && (n) <= 15)
-#define EASY_VECTOR_15_ADD_SELF(n) ((n) >= 0x10 && (n) <= 0x1e && !((n) & 1))
+#define EASY_VECTOR_15_ADD_SELF(n) (!EASY_VECTOR_15((n))	\
+				    && EASY_VECTOR_15((n) >> 1))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -1941,7 +1951,7 @@ do {								\
    comparison.  CCmode should be used in all other cases.  */
 
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT ? CCFPmode	\
+  (SCALAR_FLOAT_MODE_P (GET_MODE (X)) ? CCFPmode	\
    : (OP) == GTU || (OP) == LTU || (OP) == GEU || (OP) == LEU ? CCUNSmode \
    : (((OP) == EQ || (OP) == NE) && COMPARISON_P (X)			  \
       ? CCEQmode : CCmode))
@@ -2021,6 +2031,26 @@ extern int toc_initialized;
 	}								\
     }									\
   while (0)
+#endif
+
+#if HAVE_GAS_WEAKREF
+#define ASM_OUTPUT_WEAKREF(FILE, DECL, NAME, VALUE)			\
+  do									\
+    {									\
+      fputs ("\t.weakref\t", (FILE));					\
+      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 				\
+      fputs (", ", (FILE));						\
+      RS6000_OUTPUT_BASENAME ((FILE), (VALUE));				\
+      if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
+	{								\
+	  fputs ("\n\t.weakref\t.", (FILE));				\
+	  RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
+	  fputs (", .", (FILE));					\
+	  RS6000_OUTPUT_BASENAME ((FILE), (VALUE));			\
+	}								\
+      fputc ('\n', (FILE));						\
+    } while (0)
 #endif
 
 /* This implements the `alias' attribute.  */

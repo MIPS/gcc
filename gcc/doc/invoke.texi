@@ -4,6 +4,10 @@
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
+@c man begin INCLUDE
+@include gcc-vers.texi
+@c man end
+
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
@@ -36,7 +40,7 @@ gcc [@option{-c}|@option{-S}|@option{-E}] [@option{-std=}@var{standard}]
     [@option{-I}@var{dir}@dots{}] [@option{-L}@var{dir}@dots{}]
     [@option{-D}@var{macro}[=@var{defn}]@dots{}] [@option{-U}@var{macro}]
     [@option{-f}@var{option}@dots{}] [@option{-m}@var{machine-option}@dots{}]
-    [@option{-o} @var{outfile}] @var{infile}@dots{}
+    [@option{-o} @var{outfile}] [@@@var{file}] @var{infile}@dots{}
 
 Only the most useful options are listed here; see below for the
 remainder.  @samp{g++} accepts mostly the same options as @samp{gcc}.
@@ -156,7 +160,7 @@ in the following sections.
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{-c  -S  -E  -o @var{file}  -combine -pipe  -pass-exit-codes  @gol
--x @var{language}  -v  -###  --help  --target-help  --version}
+-x @var{language}  -v  -###  --help  --target-help  --version @@@var{file}}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
@@ -245,7 +249,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
 -Wunused-value  -Wunused-variable  -Wvariadic-macros @gol
--Wwrite-strings}
+-Wvolatile-register-var  -Wwrite-strings}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -412,7 +416,8 @@ Objective-C and Objective-C++ Dialects}.
 -mpoke-function-name @gol
 -mthumb  -marm @gol
 -mtpcs-frame  -mtpcs-leaf-frame @gol
--mcaller-super-interworking  -mcallee-super-interworking}
+-mcaller-super-interworking  -mcallee-super-interworking @gol
+-mtp=@var{name}}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu}  -msize  -minit-stack=@var{n}  -mno-interrupts @gol
@@ -635,6 +640,7 @@ See RS/6000 and PowerPC Options.
 -maltivec  -mno-altivec @gol
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
+-mmfcrf  -mno-mfcrf  -mpopcntb  -mno-popcntb  -mfprnd  -mno-fprnd @gol
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
 -m64  -m32  -mxl-compat  -mno-xl-compat  -mpe @gol
@@ -657,6 +663,7 @@ See RS/6000 and PowerPC Options.
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mvrsave -mno-vrsave @gol
+-mmulhw -mno-mulhw @gol
 -mfloat-gprs=yes  -mfloat-gprs=no -mfloat-gprs=single -mfloat-gprs=double @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
@@ -852,25 +859,21 @@ C++ header file to be turned into a precompiled header.
 @item @var{file}.f
 @itemx @var{file}.for
 @itemx @var{file}.FOR
-Fortran source code which should not be preprocessed.
+Fixed form Fortran source code which should not be preprocessed.
 
 @item @var{file}.F
 @itemx @var{file}.fpp
 @itemx @var{file}.FPP
-Fortran source code which must be preprocessed (with the traditional
+Fixed form Fortran source code which must be preprocessed (with the traditional
 preprocessor).
-
-@item @var{file}.r
-Fortran source code which must be preprocessed with a RATFOR
-preprocessor (not included with GCC)@.
 
 @item @var{file}.f90
 @itemx @var{file}.f95
-Fortran 90/95 source code which should not be preprocessed.
+Free form Fortran source code which should not be preprocessed.
 
 @item @var{file}.F90
 @itemx @var{file}.F95
-Fortran 90/95 source code which must be preprocessed (with the
+Free form Fortran source code which must be preprocessed (with the
 traditional preprocessor).
 
 @c FIXME: Descriptions of Java file types.
@@ -894,6 +897,8 @@ package body).  Such files are also called @dfn{bodies}.
 @c Pascal:
 @c @var{file}.p
 @c @var{file}.pas
+@c Ratfor:
+@c @var{file}.r
 
 @item @var{file}.s
 Assembler code.
@@ -922,7 +927,7 @@ objective-c  objective-c-header  objective-c-cpp-output
 objective-c++ objective-c++-header objective-c++-cpp-output
 assembler  assembler-with-cpp
 ada
-f77  f77-cpp-input  ratfor
+f77  f77-cpp-input
 f95  f95-cpp-input
 java
 treelang
@@ -1048,6 +1053,8 @@ line options for each tool.
 @item --version
 @opindex version
 Display the version number and copyrights of the invoked GCC@.
+
+@include @value{srcdir}/../libiberty/at-file.texi
 @end table
 
 @node Invoking G++
@@ -3368,6 +3375,13 @@ only when @option{-pedantic} flag is used.
 Warn if variadic macros are used in pedantic ISO C90 mode, or the GNU
 alternate syntax when in pedantic ISO C99 mode.  This is default.
 To inhibit the warning messages, use @option{-Wno-variadic-macros}.
+
+@item -Wvolatile-register-var
+@opindex Wvolatile-register-var
+@opindex Wno-volatile-register-var
+Warn if a register variable is declared volatile.  The volatile
+modifier does not inhibit all optimizations that may eliminate reads
+and/or writes to register variables.
 
 @item -Wdisabled-optimization
 @opindex Wdisabled-optimization
@@ -5813,6 +5827,17 @@ This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 100 which limits large function growth to 2.0 times
 the original size.
 
+@item large-unit-insns
+The limit specifying large translation unit.  Growth caused by inlining of
+units larger than this limit is limited by @option{--param inline-unit-growth}.
+For small units this might be too tight (consider unit consisting of function A
+that is inline and B that just calls A three time.  If B is small relative to
+A, the growth of unit is 300\% and yet such inlining is very sane.  For very
+large units consisting of small inlininable functions however the overall unit
+growth limit is needed to avoid exponential explosion of code size.  Thus for
+smaller units, the size is increased to @option{--param large-unit-insns}
+before aplying @option{--param inline-unit-growth}.  The default is 10000
+
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
@@ -5934,6 +5959,13 @@ given basic block needs to have to be considered hot.
 Select fraction of the maximal frequency of executions of basic block in
 function given basic block needs to have to be considered hot
 
+@item max-predicted-iterations
+The maximum number of loop iterations we predict statically.  This is useful
+in cases where function contain single loop with known bound and other loop
+with unknown.  We predict the known number of iterations correctly, while
+the unknown number of iterations average to roughly 10.  This means that the
+loop without bounds would appear artificially cold relative to the other one.
+
 @item tracer-dynamic-coverage
 @itemx tracer-dynamic-coverage-feedback
 
@@ -5970,6 +6002,9 @@ order to make tracer effective.
 @item max-cse-path-length
 
 Maximum number of basic blocks on path that cse considers.  The default is 10.
+
+@item max-cse-insns
+The maximum instructions CSE process before flushing. The default is 1000.
 
 @item global-var-threshold
 
@@ -6032,6 +6067,10 @@ The maximum number of memory locations cselib should take into acount.
 Increasing values mean more aggressive optimization, making the compile time
 increase with probably slightly better performance.  The default value is 500.
 
+@item max-flow-memory-location
+Similar as @option{max-cselib-memory-location} but for dataflow liveness.
+The default value is 100.
+
 @item reorder-blocks-duplicate
 @itemx reorder-blocks-duplicate-feedback
 
@@ -6084,6 +6123,9 @@ ratio is 3.
 The minimum size of buffers (i.e. arrays) that will receive stack smashing
 protection when @option{-fstack-protection} is used.
 
+@item max-jump-thread-duplication-stmts
+Maximum number of statements allowed in a block that needs to be
+duplicated when threading jumps.
 @end table
 @end table
 
@@ -7455,6 +7497,15 @@ Allows calls via function pointers (including virtual functions) to
 execute correctly regardless of whether the target code has been
 compiled for interworking or not.  There is a small overhead in the cost
 of executing a function pointer if this option is enabled.
+
+@item -mtp=@var{name}
+@opindex mtp
+Specify the access model for the thread local storage pointer.  The valid
+models are @option{soft}, which generates calls to @code{__aeabi_read_tp},
+@option{cp15}, which fetches the thread pointer from @code{cp15} directly
+(supported in the arm6k architecture), and @option{auto}, which uses the
+best available method for the selected processor.  The default setting is
+@option{auto}.
 
 @end table
 
@@ -9069,8 +9120,9 @@ functional units well resulting in instable performance.
 
 @item -masm=@var{dialect}
 @opindex masm=@var{dialect}
-Output asm instructions using selected @var{dialect}.  Supported choices are
-@samp{intel} or @samp{att} (the default one).
+Output asm instructions using selected @var{dialect}.  Supported
+choices are @samp{intel} or @samp{att} (the default one).  Darwin does
+not support @samp{intel}.
 
 @item -mieee-fp
 @itemx -mno-ieee-fp
@@ -10795,6 +10847,12 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-powerpc-gfxopt
 @itemx -mpowerpc64
 @itemx -mno-powerpc64
+@itemx -mmfcrf
+@itemx -mno-mfcrf
+@itemx -mpopcntb
+@itemx -mno-popcntb
+@itemx -mfprnd
+@itemx -mno-fprnd
 @opindex mpower
 @opindex mno-power
 @opindex mpower2
@@ -10807,12 +10865,18 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @opindex mno-powerpc-gfxopt
 @opindex mpowerpc64
 @opindex mno-powerpc64
+@opindex mmfcrf
+@opindex mno-mfcrf
+@opindex mpopcntb
+@opindex mno-popcntb
+@opindex mfprnd
+@opindex mno-fprnd
 GCC supports two related instruction set architectures for the
 RS/6000 and PowerPC@.  The @dfn{POWER} instruction set are those
 instructions supported by the @samp{rios} chip set used in the original
 RS/6000 systems and the @dfn{PowerPC} instruction set is the
-architecture of the Motorola MPC5xx, MPC6xx, MPC8xx microprocessors, and
-the IBM 4xx microprocessors.
+architecture of the Freescale MPC5xx, MPC6xx, MPC8xx microprocessors, and
+the IBM 4xx, 6xx, and follow-on microprocessors.
 
 Neither architecture is a subset of the other.  However there is a
 large common subset of instructions supported by both.  An MQ
@@ -10839,6 +10903,18 @@ General Purpose group, including floating-point square root.  Specifying
 @option{-mpowerpc-gfxopt} implies @option{-mpowerpc} and also allows GCC to
 use the optional PowerPC architecture instructions in the Graphics
 group, including floating-point select.
+
+The @option{-mmfcrf} option allows GCC to generate the move from
+condition register field instruction implemented on the POWER4
+processor and other processors that support the PowerPC V2.01
+architecture.
+The @option{-mpopcntb} option allows GCC to generate the popcount and
+double precision FP reciprocal estimate instruction implemented on the
+POWER5 processor and other processors that support the PowerPC V2.02
+architecture.
+The @option{-mfprnd} option allows GCC to generate the FP round to
+integer instructions implemented on the POWER5+ processor and other
+processors that support the PowerPC V2.03 architecture.
 
 The @option{-mpowerpc64} option allows GCC to generate the additional
 64-bit instructions that are found in the full PowerPC64 architecture
@@ -10878,9 +10954,10 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{601}, @samp{602}, @samp{603}, @samp{603e}, @samp{604},
 @samp{604e}, @samp{620}, @samp{630}, @samp{740}, @samp{7400},
 @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
-@samp{860}, @samp{970}, @samp{8540}, @samp{common}, @samp{ec603e}, @samp{G3},
+@samp{860}, @samp{970}, @samp{8540}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
-@samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
+@samp{power4}, @samp{power5}, @samp{power5+},
+@samp{common}, @samp{powerpc}, @samp{powerpc64},
 @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
@@ -10900,19 +10977,21 @@ those options will run best on that processor, and may not run at all on
 others.
 
 The @option{-mcpu} options automatically enable or disable the
-following options: @option{-maltivec}, @option{-mhard-float},
-@option{-mmfcrf}, @option{-mmultiple}, @option{-mnew-mnemonics},
-@option{-mpower}, @option{-mpower2}, @option{-mpowerpc64},
-@option{-mpowerpc-gpopt}, @option{-mpowerpc-gfxopt},
-@option{-mstring}.  The particular options set for any particular CPU
-will vary between compiler versions, depending on what setting seems
-to produce optimal code for that CPU; it doesn't necessarily reflect
-the actual hardware's capabilities.  If you wish to set an individual
-option to a particular value, you may specify it after the
-@option{-mcpu} option, like @samp{-mcpu=970 -mno-altivec}.
+following options: @option{-maltivec}, @option{-mfprnd},
+@option{-mhard-float}, @option{-mmfcrf}, @option{-mmultiple},
+@option{-mnew-mnemonics}, @option{-mpopcntb}, @option{-mpower},
+@option{-mpower2}, @option{-mpowerpc64}, @option{-mpowerpc-gpopt},
+@option{-mpowerpc-gfxopt}, @option{-mstring}, @option{-mmulhw}.
+The particular options
+set for any particular CPU will vary between compiler versions,
+depending on what setting seems to produce optimal code for that CPU;
+it doesn't necessarily reflect the actual hardware's capabilities.  If
+you wish to set an individual option to a particular value, you may
+specify it after the @option{-mcpu} option, like @samp{-mcpu=970
+-mno-altivec}.
 
 On AIX, the @option{-maltivec} and @option{-mpowerpc64} options are
-not enabled or disabled by the @option{-mcpu} option at present, since
+not enabled or disabled by the @option{-mcpu} option at present because
 AIX does not have full support for these options.  You may still
 enable or disable them individually if you're sure it'll work in your
 environment.
@@ -11164,6 +11243,15 @@ signals may get corrupted data.
 Generate code that uses (does not use) the floating point multiply and
 accumulate instructions.  These instructions are generated by default if
 hardware floating is used.
+
+@item -mmulhw
+@itemx -mno-mulhw
+@opindex mmulhw
+@opindex mno-mulhw
+Generate code that uses (does not use) the half-word multiply and
+multiply-accumulate instructions on the IBM 405 and 440 processors.
+These instructions are generated by default when targetting those
+processors.
 
 @item -mno-bit-align
 @itemx -mbit-align
@@ -12800,6 +12888,9 @@ only on certain machines.  For the 386, GCC supports PIC for System V
 but not for the Sun 386i.  Code generated for the IBM RS/6000 is always
 position-independent.
 
+When this flag is set, the macros @code{__pic__} and @code{__PIC__}
+are defined to 1.
+
 @item -fPIC
 @opindex fPIC
 If supported for the target machine, emit position-independent code,
@@ -12809,6 +12900,9 @@ PowerPC and SPARC@.
 
 Position-independent code requires special support, and therefore works
 only on certain machines.
+
+When this flag is set, the macros @code{__pic__} and @code{__PIC__}
+are defined to 2.
 
 @item -fpie
 @itemx -fPIE

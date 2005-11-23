@@ -54,6 +54,7 @@
 #include "sched-int.h"
 #include "tree-gimple.h"
 #include "intl.h"
+#include "params.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -1027,7 +1028,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* The float registers can only hold floating modes and DImode.  */
   if (FP_REGNO_P (regno))
     return
-      (GET_MODE_CLASS (mode) == MODE_FLOAT
+      (SCALAR_FLOAT_MODE_P (mode)
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD);
@@ -1106,10 +1107,12 @@ rs6000_override_options (const char *default_cpu)
       = {{"401", PROCESSOR_PPC403, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"403", PROCESSOR_PPC403,
 	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_STRICT_ALIGN},
-	 {"405", PROCESSOR_PPC405, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"405fp", PROCESSOR_PPC405, POWERPC_BASE_MASK},
-	 {"440", PROCESSOR_PPC440, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"440fp", PROCESSOR_PPC440, POWERPC_BASE_MASK},
+	 {"405", PROCESSOR_PPC405,
+	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW},
+	 {"405fp", PROCESSOR_PPC405, POWERPC_BASE_MASK | MASK_MULHW},
+	 {"440", PROCESSOR_PPC440,
+	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW},
+	 {"440fp", PROCESSOR_PPC440, POWERPC_BASE_MASK | MASK_MULHW},
 	 {"505", PROCESSOR_MPCCORE, POWERPC_BASE_MASK},
 	 {"601", PROCESSOR_PPC601,
 	  MASK_POWER | POWERPC_BASE_MASK | MASK_MULTIPLE | MASK_STRING},
@@ -1151,6 +1154,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"power5", PROCESSOR_POWER5,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB},
+	 {"power5+", PROCESSOR_POWER5,
+	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
+	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1176,7 +1182,7 @@ rs6000_override_options (const char *default_cpu)
     POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
     POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT
 		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
-		     | MASK_MFCRF)
+		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW)
   };
 
   rs6000_init_hard_regno_mode_ok ();
@@ -1573,6 +1579,9 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
     /* The Darwin libraries never set errno, so we might as well
        avoid calling them when that's the only reason we would.  */
     flag_errno_math = 0;
+
+  /* Double growth factor to counter reduced min jump length.  */
+  set_param_value ("max-grow-copy-bb-insns", 16);
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -1620,9 +1629,9 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 #else
     case OPT_m64:
 #endif
-      target_flags |= MASK_POWERPC64 | MASK_POWERPC | MASK_PPC_GFXOPT;
-      target_flags_explicit |= MASK_POWERPC64 | MASK_POWERPC
-	| MASK_PPC_GFXOPT;
+      target_flags |= MASK_POWERPC64 | MASK_POWERPC;
+      target_flags |= ~target_flags_explicit & MASK_PPC_GFXOPT;
+      target_flags_explicit |= MASK_POWERPC64 | MASK_POWERPC;
       break;
 
 #ifdef TARGET_USES_AIX64_OPT
@@ -2038,73 +2047,150 @@ num_insns_constant (rtx op, enum machine_mode mode)
     }
 }
 
-/* Returns the constant for the splat instruction, if exists.  */
 
-int
-easy_vector_splat_const (int cst, enum machine_mode mode)
+/* Return true if OP can be synthesized with a particular vspltisb, vspltish 
+   or vspltisw instruction.  OP is a CONST_VECTOR.  Which instruction is used
+   depends on STEP and COPIES, one of which will be 1.  If COPIES > 1,
+   all items are set to the same value and contain COPIES replicas of the
+   vsplt's operand; if STEP > 1, one in STEP elements is set to the vsplt's
+   operand and the others are set to the value of the operand's msb.  */
+
+static bool
+vspltis_constant (rtx op, unsigned step, unsigned copies)
 {
-  switch (mode)
+  enum machine_mode mode = GET_MODE (op);
+  enum machine_mode inner = GET_MODE_INNER (mode);
+
+  unsigned i;
+  unsigned nunits = GET_MODE_NUNITS (mode);
+  unsigned bitsize = GET_MODE_BITSIZE (inner);
+  unsigned mask = GET_MODE_MASK (inner);
+
+  rtx last = CONST_VECTOR_ELT (op, nunits - 1);
+  HOST_WIDE_INT val = INTVAL (last);
+  HOST_WIDE_INT splat_val = val;
+  HOST_WIDE_INT msb_val = val > 0 ? 0 : -1;
+
+  /* Construct the value to be splatted, if possible.  If not, return 0.  */
+  for (i = 2; i <= copies; i *= 2)
     {
-    case V4SImode:
-      if (EASY_VECTOR_15 (cst)
-	  || EASY_VECTOR_15_ADD_SELF (cst))
-	return cst;
-      if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
-	break;
-      cst = cst >> 16;
-      /* Fall thru */
-
-    case V8HImode:
-      if (EASY_VECTOR_15 (cst)
-	  || EASY_VECTOR_15_ADD_SELF (cst))
-	return cst;
-      if ((cst & 0xff) != ((cst >> 8) & 0xff))
-	break;
-      cst = cst >> 8;
-      /* Fall thru */
-
-    case V16QImode:
-      if (EASY_VECTOR_15 (cst)
-	  || EASY_VECTOR_15_ADD_SELF (cst))
-	return cst;
-    default:
-      break;
+      HOST_WIDE_INT small_val;
+      bitsize /= 2;
+      small_val = splat_val >> bitsize;
+      mask >>= bitsize;
+      if (splat_val != ((small_val << bitsize) | (small_val & mask)))
+	return false;
+      splat_val = small_val;
     }
-  return 0;
+
+  /* Check if SPLAT_VAL can really be the operand of a vspltis[bhw].  */
+  if (EASY_VECTOR_15 (splat_val))
+    ;
+
+  /* Also check if we can splat, and then add the result to itself.  Do so if
+     the value is positive, of if the splat instruction is using OP's mode;
+     for splat_val < 0, the splat and the add should use the same mode.  */
+  else if (EASY_VECTOR_15_ADD_SELF (splat_val)
+           && (splat_val >= 0 || (step == 1 && copies == 1)))
+    ;
+
+  else
+    return false;
+
+  /* Check if VAL is present in every STEP-th element, and the
+     other elements are filled with its most significant bit.  */
+  for (i = 0; i < nunits - 1; ++i)
+    {
+      HOST_WIDE_INT desired_val;
+      if (((i + 1) & (step - 1)) == 0)
+	desired_val = val;
+      else
+	desired_val = msb_val;
+
+      if (desired_val != INTVAL (CONST_VECTOR_ELT (op, i)))
+	return false;
+    }
+
+  return true;
 }
 
-/* Return nonzero if all elements of a vector have the same value.  */
 
-int
-easy_vector_same (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+/* Return true if OP is of the given MODE and can be synthesized 
+   with a vspltisb, vspltish or vspltisw.  */
+
+bool
+easy_altivec_constant (rtx op, enum machine_mode mode)
 {
-  int units, i, cst;
+  unsigned step, copies;
 
-  units = CONST_VECTOR_NUNITS (op);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+  else if (mode != GET_MODE (op))
+    return false;
 
-  cst = INTVAL (CONST_VECTOR_ELT (op, 0));
-  for (i = 1; i < units; ++i)
-    if (INTVAL (CONST_VECTOR_ELT (op, i)) != cst)
-      break;
-  if (i == units && easy_vector_splat_const (cst, mode))
-    return 1;
-  return 0;
+  /* Start with a vspltisw.  */
+  step = GET_MODE_NUNITS (mode) / 4;
+  copies = 1;
+
+  if (vspltis_constant (op, step, copies))
+    return true;
+
+  /* Then try with a vspltish.  */
+  if (step == 1)
+    copies <<= 1;
+  else
+    step >>= 1;
+
+  if (vspltis_constant (op, step, copies))
+    return true;
+
+  /* And finally a vspltisb.  */
+  if (step == 1)
+    copies <<= 1;
+  else
+    step >>= 1;
+
+  if (vspltis_constant (op, step, copies))
+    return true;
+
+  return false;
 }
 
-/* Generate easy_vector_constant out of a easy_vector_constant_add_self.  */
+/* Generate a VEC_DUPLICATE representing a vspltis[bhw] instruction whose
+   result is OP.  Abort if it is not possible.  */
 
 rtx
-gen_easy_vector_constant_add_self (rtx op)
+gen_easy_altivec_constant (rtx op)
 {
-  int i, units;
-  rtvec v;
-  units = GET_MODE_NUNITS (GET_MODE (op));
-  v = rtvec_alloc (units);
+  enum machine_mode mode = GET_MODE (op);
+  int nunits = GET_MODE_NUNITS (mode);
+  rtx last = CONST_VECTOR_ELT (op, nunits - 1);
+  unsigned step = nunits / 4;
+  unsigned copies = 1;
 
-  for (i = 0; i < units; i++)
-    RTVEC_ELT (v, i) =
-      GEN_INT (INTVAL (CONST_VECTOR_ELT (op, i)) >> 1);
-  return gen_rtx_raw_CONST_VECTOR (GET_MODE (op), v);
+  /* Start with a vspltisw.  */
+  if (vspltis_constant (op, step, copies))
+    return gen_rtx_VEC_DUPLICATE (V4SImode, gen_lowpart (SImode, last));
+
+  /* Then try with a vspltish.  */
+  if (step == 1)
+    copies <<= 1;
+  else
+    step >>= 1;
+
+  if (vspltis_constant (op, step, copies))
+    return gen_rtx_VEC_DUPLICATE (V8HImode, gen_lowpart (HImode, last));
+
+  /* And finally a vspltisb.  */
+  if (step == 1)
+    copies <<= 1;
+  else
+    step >>= 1;
+
+  if (vspltis_constant (op, step, copies))
+    return gen_rtx_VEC_DUPLICATE (V16QImode, gen_lowpart (QImode, last));
+
+  gcc_unreachable ();
 }
 
 const char *
@@ -2116,51 +2202,30 @@ output_vec_const_move (rtx *operands)
 
   dest = operands[0];
   vec = operands[1];
-
-  cst = INTVAL (CONST_VECTOR_ELT (vec, 0));
-  cst2 = INTVAL (CONST_VECTOR_ELT (vec, 1));
   mode = GET_MODE (dest);
 
   if (TARGET_ALTIVEC)
     {
+      rtx splat_vec;
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
 
-      gcc_assert (easy_vector_constant (vec, mode));
+      splat_vec = gen_easy_altivec_constant (vec);
+      gcc_assert (GET_CODE (splat_vec) == VEC_DUPLICATE);
+      operands[1] = XEXP (splat_vec, 0);
+      if (!EASY_VECTOR_15 (INTVAL (operands[1])))
+	return "#";
 
-      operands[1] = GEN_INT (cst);
-      switch (mode)
+      switch (GET_MODE (splat_vec))
 	{
 	case V4SImode:
-	  if (EASY_VECTOR_15 (cst))
-	    {
-	      operands[1] = GEN_INT (cst);
-	      return "vspltisw %0,%1";
-	    }
-	  else if (EASY_VECTOR_15_ADD_SELF (cst))
-	    return "#";
-	  cst = cst >> 16;
-	  /* Fall thru */
+	  return "vspltisw %0,%1";
 
 	case V8HImode:
-	  if (EASY_VECTOR_15 (cst))
-	    {
-	      operands[1] = GEN_INT (cst);
-	      return "vspltish %0,%1";
-	    }
-	  else if (EASY_VECTOR_15_ADD_SELF (cst))
-	    return "#";
-	  cst = cst >> 8;
-	  /* Fall thru */
+	  return "vspltish %0,%1";
 
 	case V16QImode:
-	  if (EASY_VECTOR_15 (cst))
-	    {
-	      operands[1] = GEN_INT (cst);
-	      return "vspltisb %0,%1";
-	    }
-	  else if (EASY_VECTOR_15_ADD_SELF (cst))
-	    return "#";
+	  return "vspltisb %0,%1";
 
 	default:
 	  gcc_unreachable ();
@@ -2174,8 +2239,10 @@ output_vec_const_move (rtx *operands)
 
      FIXME: We should probably return # and add post reload
      splitters for these, but this way is so easy ;-).  */
-  operands[1] = GEN_INT (cst);
-  operands[2] = GEN_INT (cst2);
+  cst = INTVAL (CONST_VECTOR_ELT (vec, 0));
+  cst2 = INTVAL (CONST_VECTOR_ELT (vec, 1));
+  operands[1] = CONST_VECTOR_ELT (vec, 0);
+  operands[2] = CONST_VECTOR_ELT (vec, 1);
   if (cst == cst2)
     return "li %0,%1\n\tevmergelo %0,%0,%0";
   else
@@ -2216,11 +2283,10 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 				  gen_rtx_XOR (mode, target, target)));
 	  return;
 	}
-      else if (mode != V4SFmode && easy_vector_same (vals, mode))
+      else if (mode != V4SFmode && easy_vector_constant (vals, mode))
 	{
 	  /* Splat immediate.  */
-	  x = gen_rtx_VEC_DUPLICATE (mode, CONST_VECTOR_ELT (vals, 0));
-	  emit_insn (gen_rtx_SET (VOIDmode, target, x));
+	  emit_insn (gen_rtx_SET (VOIDmode, target, vals));
 	  return;
 	}
       else if (all_same)
@@ -4060,7 +4126,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
-  (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
+  (SCALAR_FLOAT_MODE_P (MODE)			\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -4584,7 +4650,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       cum->words = align_words + n_words;
 
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT
+      if (SCALAR_FLOAT_MODE_P (mode)
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 
@@ -5971,9 +6037,7 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum, "__builtin_altivec_vpkuhum", ALTIVEC_BUILTIN_VPKUHUM },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum, "__builtin_altivec_vpkuwum", ALTIVEC_BUILTIN_VPKUWUM },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkpx, "__builtin_altivec_vpkpx", ALTIVEC_BUILTIN_VPKPX },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vpkuhss, "__builtin_altivec_vpkuhss", ALTIVEC_BUILTIN_VPKUHSS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkshss, "__builtin_altivec_vpkshss", ALTIVEC_BUILTIN_VPKSHSS },
-  { MASK_ALTIVEC, CODE_FOR_altivec_vpkuwss, "__builtin_altivec_vpkuwss", ALTIVEC_BUILTIN_VPKUWSS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkswss, "__builtin_altivec_vpkswss", ALTIVEC_BUILTIN_VPKSWSS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkuhus, "__builtin_altivec_vpkuhus", ALTIVEC_BUILTIN_VPKUHUS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vpkshus, "__builtin_altivec_vpkshus", ALTIVEC_BUILTIN_VPKSHUS },
@@ -9697,9 +9761,9 @@ mems_ok_for_quad_peep (rtx mem1, rtx mem2)
    NO_REGS is returned.  */
 
 enum reg_class
-secondary_reload_class (enum reg_class class,
-			enum machine_mode mode ATTRIBUTE_UNUSED,
-			rtx in)
+rs6000_secondary_reload_class (enum reg_class class,
+			       enum machine_mode mode ATTRIBUTE_UNUSED,
+			       rtx in)
 {
   int regno;
 
@@ -11634,7 +11698,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       return 0;
     }
   else if (TARGET_E500 && TARGET_HARD_FLOAT && !TARGET_FPRS
-	   && GET_MODE_CLASS (compare_mode) == MODE_FLOAT)
+	   && SCALAR_FLOAT_MODE_P (compare_mode))
     return 0;
 
   is_against_zero = op1 == CONST0_RTX (compare_mode);
@@ -11644,7 +11708,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      can't be generated if we care about that.  It's safe if one side
      of the construct is zero, since then no subtract will be
      generated.  */
-  if (GET_MODE_CLASS (compare_mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (compare_mode)
       && flag_trapping_math && ! is_against_zero)
     return 0;
 
@@ -15185,7 +15249,7 @@ rs6000_output_function_epilogue (FILE *file,
 
 	      if (GET_CODE (parameter) == REG)
 		{
-		  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+		  if (SCALAR_FLOAT_MODE_P (mode))
 		    {
 		      int bits;
 
@@ -15588,7 +15652,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
   const char *name = buf;
   const char *real_name;
   rtx base = x;
-  int offset = 0;
+  HOST_WIDE_INT offset = 0;
 
   gcc_assert (!TARGET_NO_TOC);
 
@@ -15855,9 +15919,9 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
       fprintf (file, "\t.tc %s", real_name);
 
       if (offset < 0)
-	fprintf (file, ".N%d", - offset);
+	fprintf (file, ".N" HOST_WIDE_INT_PRINT_UNSIGNED, - offset);
       else if (offset)
-	fprintf (file, ".P%d", offset);
+	fprintf (file, ".P" HOST_WIDE_INT_PRINT_UNSIGNED, offset);
 
       fputs ("[TC],", file);
     }
@@ -15872,9 +15936,9 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
     {
       RS6000_OUTPUT_BASENAME (file, name);
       if (offset < 0)
-	fprintf (file, "%d", offset);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset);
       else if (offset > 0)
-	fprintf (file, "+%d", offset);
+	fprintf (file, "+" HOST_WIDE_INT_PRINT_DEC, offset);
     }
   else
     output_addr_const (file, x);
@@ -18857,7 +18921,7 @@ rs6000_libcall_value (enum machine_mode mode)
 				      GEN_INT (4))));
     }
 
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (ALTIVEC_VECTOR_MODE (mode)

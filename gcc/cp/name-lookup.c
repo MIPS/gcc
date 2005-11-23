@@ -2880,6 +2880,10 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
        match.  But, we'll check later, when we construct the
        template.  */
     return;
+  /* Instantiations or specializations of templates may be declared as
+     friends in any namespace.  */
+  if (friendp && DECL_USE_TEMPLATE (decl))
+    return;
   if (is_overloaded_fn (old))
     {
       for (; old; old = OVL_NEXT (old))
@@ -3400,20 +3404,9 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
 	old->value = merge_functions (old->value, val);
       else
 	{
-	  /* Some declarations are functions, some are not.  */
-	  if (flags & LOOKUP_COMPLAIN)
-	    {
-	      /* If we've already given this error for this lookup,
-		 old->value is error_mark_node, so let's not
-		 repeat ourselves.  */
-	      if (old->value != error_mark_node)
-		{
-		  error ("use of %qD is ambiguous", name);
-		  error ("  first declared as %q+#D here", old->value);
-		}
-	      error ("  also declared as %q+#D here", val);
-	    }
-	  old->value = error_mark_node;
+	  old->value = tree_cons (NULL_TREE, old->value,
+				  build_tree_list (NULL_TREE, new->value));
+	  TREE_TYPE (old->value) = error_mark_node;
 	}
     }
   /* ... and copy the type.  */
@@ -3609,7 +3602,8 @@ select_decl (const struct scope_binding *binding, int flags)
   if (LOOKUP_NAMESPACES_ONLY (flags))
     {
       /* We are not interested in types.  */
-      if (val && TREE_CODE (val) == NAMESPACE_DECL)
+      if (val && (TREE_CODE (val) == NAMESPACE_DECL
+		  || TREE_CODE (val) == TREE_LIST))
 	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
     }
@@ -4004,7 +3998,13 @@ lookup_function_nonclass (tree name, tree args, bool block_p)
 }
 
 tree
-lookup_name (tree name, int prefer_type)
+lookup_name (tree name)
+{
+  return lookup_name_real (name, 0, 0, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+}
+
+tree
+lookup_name_prefer_type (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
 			   0, LOOKUP_COMPLAIN);

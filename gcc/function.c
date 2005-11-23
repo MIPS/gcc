@@ -479,6 +479,21 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
 
+  /* Try to detect frame size overflows on native platforms.  */
+#if BITS_PER_WORD >= 32
+  if ((FRAME_GROWS_DOWNWARD
+       ? (unsigned HOST_WIDE_INT) -function->x_frame_offset
+       : (unsigned HOST_WIDE_INT) function->x_frame_offset)
+	> ((unsigned HOST_WIDE_INT) 1 << (BITS_PER_WORD - 1))
+	    /* Leave room for the fixed part of the frame.  */
+	    - 64 * UNITS_PER_WORD)
+    {
+      error ("%Jtotal size of local objects too large", function->decl);
+      /* Avoid duplicate error messages as much as possible.  */
+      function->x_frame_offset = 0;
+    }
+#endif
+
   return x;
 }
 
@@ -1231,7 +1246,14 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
   else if (x == virtual_outgoing_args_rtx)
     new = stack_pointer_rtx, offset = out_arg_offset;
   else if (x == virtual_cfa_rtx)
-    new = arg_pointer_rtx, offset = cfa_offset;
+    {
+#ifdef FRAME_POINTER_CFA_OFFSET
+      new = frame_pointer_rtx;
+#else
+      new = arg_pointer_rtx;
+#endif
+      offset = cfa_offset;
+    }
   else
     return NULL_RTX;
 
@@ -1617,7 +1639,11 @@ instantiate_virtual_regs (void)
   var_offset = STARTING_FRAME_OFFSET;
   dynamic_offset = STACK_DYNAMIC_OFFSET (current_function_decl);
   out_arg_offset = STACK_POINTER_OFFSET;
+#ifdef FRAME_POINTER_CFA_OFFSET
+  cfa_offset = FRAME_POINTER_CFA_OFFSET (current_function_decl);
+#else
   cfa_offset = ARG_POINTER_CFA_OFFSET (current_function_decl);
+#endif
 
   /* Initialize recognition, indicating that volatile is OK.  */
   init_recog ();

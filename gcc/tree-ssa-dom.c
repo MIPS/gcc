@@ -42,6 +42,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
+#include "params.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -608,6 +609,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
   block_stmt_iterator bsi;
   tree stmt = NULL;
   tree phi;
+  int stmt_count = 0;
+  int max_stmt_count;
+
 
   /* If E->dest does not end with a conditional, then there is
      nothing to do.  */
@@ -637,6 +641,11 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
 
+      /* Do not include virtual PHIs in our statement count as
+	 they never generate code.  */
+      if (is_gimple_reg (dst))
+	stmt_count++;
+
       /* If the desired argument is not the same as this PHI's result 
 	 and it is set by a PHI in E->dest, then we can not thread
 	 through E->dest.  */
@@ -664,6 +673,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      Failure to simplify into the form above merely means that the
      statement provides no equivalences to help simplify later
      statements.  This does not prevent threading through E->dest.  */
+  max_stmt_count = PARAM_VALUE (PARAM_MAX_JUMP_THREAD_DUPLICATION_STMTS);
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree cached_lhs = NULL;
@@ -673,6 +683,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       /* Ignore empty statements and labels.  */
       if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
+
+      /* If duplicating this block is going to cause too much code
+	 expansion, then do not thread through this block.  */
+      stmt_count++;
+      if (stmt_count > max_stmt_count)
+	return;
 
       /* Safely handle threading across loop backedges.  This is
 	 over conservative, but still allows us to capture the
@@ -1778,6 +1794,7 @@ simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
      assignment.  Add minus to this, as we handle it specially below.  */
   if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+      && num_imm_uses (TREE_OPERAND (rhs, 0)) == 1
       && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
@@ -3186,10 +3203,7 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
      record ranges for enumerations.  Presumably this is due to
      the fact that they're rarely used directly.  They are typically
      cast into an integer type and used that way.  */
-  if (TREE_CODE (type) != INTEGER_TYPE
-      /* We don't know how to deal with types with variable bounds.  */
-      || TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
-      || TREE_CODE (TYPE_MAX_VALUE (type)) != INTEGER_CST)
+  if (TREE_CODE (type) != INTEGER_TYPE)
     return 0;
 
   switch (TREE_CODE (cond))
@@ -3206,12 +3220,19 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
 
     case GE_EXPR:
       low = op1;
+
+      /* Get the highest value of the type.  If not a constant, use that
+	 of its base type, if it has one.  */
       high = TYPE_MAX_VALUE (type);
+      if (TREE_CODE (high) != INTEGER_CST && TREE_TYPE (type))
+	high = TYPE_MAX_VALUE (TREE_TYPE (type));
       inverted = 0;
       break;
 
     case GT_EXPR:
       high = TYPE_MAX_VALUE (type);
+      if (TREE_CODE (high) != INTEGER_CST && TREE_TYPE (type))
+	high = TYPE_MAX_VALUE (TREE_TYPE (type));
       if (!tree_int_cst_lt (op1, high))
 	return 0;
       low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
@@ -3221,11 +3242,15 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
     case LE_EXPR:
       high = op1;
       low = TYPE_MIN_VALUE (type);
+      if (TREE_CODE (low) != INTEGER_CST && TREE_TYPE (type))
+	low = TYPE_MIN_VALUE (TREE_TYPE (type));
       inverted = 0;
       break;
 
     case LT_EXPR:
       low = TYPE_MIN_VALUE (type);
+      if (TREE_CODE (low) != INTEGER_CST && TREE_TYPE (type))
+	low = TYPE_MIN_VALUE (TREE_TYPE (type));
       if (!tree_int_cst_lt (low, op1))
 	return 0;
       high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);

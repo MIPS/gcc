@@ -107,12 +107,18 @@ complete_type (tree type)
   else if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
     {
       tree t = complete_type (TREE_TYPE (type));
+      unsigned int needs_constructing, has_nontrivial_dtor;
       if (COMPLETE_TYPE_P (t) && !dependent_type_p (type))
 	layout_type (type);
-      TYPE_NEEDS_CONSTRUCTING (type)
+      needs_constructing
 	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (t));
-      TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+      has_nontrivial_dtor
 	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (t));
+      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  TYPE_NEEDS_CONSTRUCTING (t) = needs_constructing;
+	  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = has_nontrivial_dtor;
+	}
     }
   else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INSTANTIATION (type))
     instantiate_class_template (TYPE_MAIN_VARIANT (type));
@@ -1858,7 +1864,7 @@ check_template_keyword (tree decl)
      DR 228 removed the restriction that the template be a member
      template.  
      
-     DR 96, if accepted would add the further restriction that explcit
+     DR 96, if accepted would add the further restriction that explicit
      template arguments must be provided if the template keyword is
      used, but, as of 2005-10-16, that DR is still in "drafting".  If
      this DR is accepted, then the semantic checks here can be
@@ -4553,8 +4559,8 @@ check_for_casting_away_constness (tree src_type, tree dest_type,
 				  const char *description)
 {
   if (diag_fn && casts_away_constness (src_type, dest_type))
-    error ("%s from type %qT to type %qT casts away constness",
-	   description, src_type, dest_type);
+    diag_fn ("%s from type %qT to type %qT casts away constness",
+	     description, src_type, dest_type);
 }
 
 /* Convert EXPR (an expression with pointer-to-member type) to TYPE
@@ -5079,9 +5085,9 @@ build_reinterpret_cast (tree type, tree expr)
 /* Perform a const_cast from EXPR to TYPE.  If the cast is valid,
    return an appropriate expression.  Otherwise, return
    error_mark_node.  If the cast is not valid, and COMPLAIN is true,
-   then a diagnostic will be issued.  If VALID_P is non-NULL, its
-   value upon return will indicate whether or not the conversion
-   succeeded.  */
+   then a diagnostic will be issued.  If VALID_P is non-NULL, we are
+   performing a C-style cast, its value upon return will indicate
+   whether or not the conversion succeeded.  */
 
 static tree
 build_const_cast_1 (tree dst_type, tree expr, bool complain,
@@ -5157,7 +5163,15 @@ build_const_cast_1 (tree dst_type, tree expr, bool complain,
       && comp_ptr_ttypes_const (dst_type, src_type))
     {
       if (valid_p)
-	*valid_p = true;
+	{
+	  *valid_p = true;
+	  /* This cast is actually a C-style cast.  Issue a warning if
+	     the user is making a potentially unsafe cast.  */
+	  if (warn_cast_qual)
+	    check_for_casting_away_constness (src_type, dst_type,
+					      warning0,
+					      "cast");
+	}
       if (reference_type)
 	{
 	  expr = build_unary_op (ADDR_EXPR, expr, 0);

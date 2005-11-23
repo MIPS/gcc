@@ -233,7 +233,12 @@ struct s390_frame_layout GTY (())
   HOST_WIDE_INT f4_offset;
   HOST_WIDE_INT f8_offset;
   HOST_WIDE_INT backchain_offset;
-  
+
+  /* Number of first and last gpr where slots in the register
+     save area are reserved for.  */
+  int first_save_gpr_slot;
+  int last_save_gpr_slot;
+
   /* Number of first and last gpr to be saved, restored.  */
   int first_save_gpr;
   int first_restore_gpr;
@@ -283,8 +288,8 @@ struct machine_function GTY(())
 
 #define cfun_frame_layout (cfun->machine->frame_layout)
 #define cfun_save_high_fprs_p (!!cfun_frame_layout.high_fprs)
-#define cfun_gprs_save_area_size ((cfun_frame_layout.last_save_gpr -           \
-  cfun_frame_layout.first_save_gpr + 1) * UNITS_PER_WORD)
+#define cfun_gprs_save_area_size ((cfun_frame_layout.last_save_gpr_slot -           \
+  cfun_frame_layout.first_save_gpr_slot + 1) * UNITS_PER_WORD)
 #define cfun_set_fpr_bit(BITNUM) (cfun->machine->frame_layout.fpr_bitmap |=    \
   (1 << (BITNUM)))
 #define cfun_fpr_bit_p(BITNUM) (!!(cfun->machine->frame_layout.fpr_bitmap &    \
@@ -3823,7 +3828,7 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
   int bitsize = INTVAL (op1);
   int bitpos = INTVAL (op2);
 
-  /* We need byte alignement.  */
+  /* We need byte alignment.  */
   if (bitsize % BITS_PER_UNIT)
     return false;
 
@@ -5974,7 +5979,10 @@ s390_regs_ever_clobbered (int *regs_ever_clobbered)
      deal with this automatically.  */
   if (current_function_calls_eh_return || cfun->machine->has_landing_pad_p)
     for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM ; i++)
-      regs_ever_clobbered[EH_RETURN_DATA_REGNO (i)] = 1;
+      if (current_function_calls_eh_return 
+	  || (cfun->machine->has_landing_pad_p 
+	      && regs_ever_live [EH_RETURN_DATA_REGNO (i)]))
+	regs_ever_clobbered[EH_RETURN_DATA_REGNO (i)] = 1;
 
   /* For nonlocal gotos all call-saved registers have to be saved.
      This flag is also set for the unwinding code in libgcc.
@@ -6097,15 +6105,17 @@ s390_register_info (int clobbered_regs[])
 	|| current_function_stdarg);
 
   for (i = 6; i < 16; i++)
-    if (clobbered_regs[i])
+    if (regs_ever_live[i] || clobbered_regs[i])
       break;
   for (j = 15; j > i; j--)
-    if (clobbered_regs[j])
+    if (regs_ever_live[j] || clobbered_regs[j])
       break;
 
   if (i == 16)
     {
       /* Nothing to save/restore.  */
+      cfun_frame_layout.first_save_gpr_slot = -1;
+      cfun_frame_layout.last_save_gpr_slot = -1;
       cfun_frame_layout.first_save_gpr = -1;
       cfun_frame_layout.first_restore_gpr = -1;
       cfun_frame_layout.last_save_gpr = -1;
@@ -6113,11 +6123,36 @@ s390_register_info (int clobbered_regs[])
     }
   else
     {
-      /* Save / Restore from gpr i to j.  */
-      cfun_frame_layout.first_save_gpr = i;
-      cfun_frame_layout.first_restore_gpr = i;
-      cfun_frame_layout.last_save_gpr = j;
-      cfun_frame_layout.last_restore_gpr = j;
+      /* Save slots for gprs from i to j.  */
+      cfun_frame_layout.first_save_gpr_slot = i;
+      cfun_frame_layout.last_save_gpr_slot = j;
+
+      for (i = cfun_frame_layout.first_save_gpr_slot; 
+	   i < cfun_frame_layout.last_save_gpr_slot + 1; 
+	   i++)
+	if (clobbered_regs[i])
+	  break;
+
+      for (j = cfun_frame_layout.last_save_gpr_slot; j > i; j--)
+	if (clobbered_regs[j])
+	  break;
+      
+      if (i == cfun_frame_layout.last_save_gpr_slot + 1)
+	{
+	  /* Nothing to save/restore.  */
+	  cfun_frame_layout.first_save_gpr = -1;
+	  cfun_frame_layout.first_restore_gpr = -1;
+	  cfun_frame_layout.last_save_gpr = -1;
+	  cfun_frame_layout.last_restore_gpr = -1;
+	}
+      else
+	{
+	  /* Save / Restore from gpr i to j.  */
+	  cfun_frame_layout.first_save_gpr = i;
+	  cfun_frame_layout.first_restore_gpr = i;
+	  cfun_frame_layout.last_save_gpr = j;
+	  cfun_frame_layout.last_restore_gpr = j;
+	}
     }
 
   if (current_function_stdarg)
@@ -6133,11 +6168,17 @@ s390_register_info (int clobbered_regs[])
 
 	  if (cfun_frame_layout.first_save_gpr == -1
 	      || cfun_frame_layout.first_save_gpr > 2 + min_gpr)
-	    cfun_frame_layout.first_save_gpr = 2 + min_gpr;
+	    {
+	      cfun_frame_layout.first_save_gpr = 2 + min_gpr;
+	      cfun_frame_layout.first_save_gpr_slot = 2 + min_gpr;
+	    }
 
 	  if (cfun_frame_layout.last_save_gpr == -1
 	      || cfun_frame_layout.last_save_gpr < 2 + max_gpr - 1)
-	    cfun_frame_layout.last_save_gpr = 2 + max_gpr - 1;
+	    {
+	      cfun_frame_layout.last_save_gpr = 2 + max_gpr - 1;
+	      cfun_frame_layout.last_save_gpr_slot = 2 + max_gpr - 1;
+	    }
 	}
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
@@ -6182,7 +6223,7 @@ s390_frame_info (void)
       cfun_frame_layout.f0_offset = 16 * UNITS_PER_WORD;
       cfun_frame_layout.f4_offset = cfun_frame_layout.f0_offset + 2 * 8;
       cfun_frame_layout.f8_offset = -cfun_frame_layout.high_fprs * 8;
-      cfun_frame_layout.gprs_offset = (cfun_frame_layout.first_save_gpr
+      cfun_frame_layout.gprs_offset = (cfun_frame_layout.first_save_gpr_slot
 				       * UNITS_PER_WORD);
     }
   else if (TARGET_BACKCHAIN) /* kernel stack layout */
@@ -6191,7 +6232,7 @@ s390_frame_info (void)
 					    - UNITS_PER_WORD);
       cfun_frame_layout.gprs_offset 
 	= (cfun_frame_layout.backchain_offset 
-	   - (STACK_POINTER_REGNUM - cfun_frame_layout.first_save_gpr + 1)
+	   - (STACK_POINTER_REGNUM - cfun_frame_layout.first_save_gpr_slot + 1)
 	   * UNITS_PER_WORD);
 	  
       if (TARGET_64BIT)
@@ -6422,7 +6463,7 @@ s390_initial_elimination_offset (int from, int to)
 
     case RETURN_ADDRESS_POINTER_REGNUM:
       s390_init_frame_layout ();
-      index = RETURN_REGNUM - cfun_frame_layout.first_save_gpr;
+      index = RETURN_REGNUM - cfun_frame_layout.first_save_gpr_slot;
       gcc_assert (index >= 0);
       offset = cfun_frame_layout.frame_size + cfun_frame_layout.gprs_offset;
       offset += index * UNITS_PER_WORD;
@@ -6667,7 +6708,9 @@ s390_emit_prologue (void)
   if (cfun_frame_layout.first_save_gpr != -1)
     {
       insn = save_gprs (stack_pointer_rtx, 
-			cfun_frame_layout.gprs_offset,
+			cfun_frame_layout.gprs_offset + 
+			UNITS_PER_WORD * (cfun_frame_layout.first_save_gpr 
+					  - cfun_frame_layout.first_save_gpr_slot),
 			cfun_frame_layout.first_save_gpr, 
 			cfun_frame_layout.last_save_gpr);
       emit_insn (insn);
@@ -7021,7 +7064,7 @@ s390_emit_epilogue (bool sibcall)
 	    {
 	      addr = plus_constant (frame_pointer,
 				    offset + cfun_frame_layout.gprs_offset 
-				    + (i - cfun_frame_layout.first_save_gpr)
+				    + (i - cfun_frame_layout.first_save_gpr_slot)
 				    * UNITS_PER_WORD);
 	      addr = gen_rtx_MEM (Pmode, addr);
 	      set_mem_alias_set (addr, get_frame_alias_set ());
@@ -7046,7 +7089,7 @@ s390_emit_epilogue (bool sibcall)
 	      addr = plus_constant (frame_pointer,
 				    offset + cfun_frame_layout.gprs_offset
 				    + (RETURN_REGNUM 
-				       - cfun_frame_layout.first_save_gpr)
+				       - cfun_frame_layout.first_save_gpr_slot)
 				    * UNITS_PER_WORD);
 	      addr = gen_rtx_MEM (Pmode, addr);
 	      set_mem_alias_set (addr, get_frame_alias_set ());
@@ -7057,7 +7100,7 @@ s390_emit_epilogue (bool sibcall)
       insn = restore_gprs (frame_pointer,
 			   offset + cfun_frame_layout.gprs_offset
 			   + (cfun_frame_layout.first_restore_gpr 
-			      - cfun_frame_layout.first_save_gpr)
+			      - cfun_frame_layout.first_save_gpr_slot)
 			   * UNITS_PER_WORD,
 			   cfun_frame_layout.first_restore_gpr,
 			   cfun_frame_layout.last_restore_gpr);

@@ -1278,6 +1278,23 @@ dump_expr_init_vec (VEC(constructor_elt,gc) *v, int flags)
 }
 
 
+/* We've gotten an indirect REFERENCE (an OBJ_TYPE_REF) to a virtual
+   function.  Resolve it to a close relative -- in the sense of static
+   type -- variant being overridden.  That is close to what was written in
+   the source code.  Subroutine of dump_expr.  */
+
+static tree
+resolve_virtual_fun_from_obj_type_ref (tree ref)
+{
+  tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
+  int index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
+    while (index--)
+      fun = TREE_CHAIN (fun);
+
+  return BV_FN (fun);
+}
+
 /* Print out an expression E under control of FLAGS.  */
 
 static void
@@ -1385,6 +1402,10 @@ dump_expr (tree t, int flags)
 
 	if (TREE_CODE (fn) == ADDR_EXPR)
 	  fn = TREE_OPERAND (fn, 0);
+
+        /* Nobody is interested in seeing the guts of vcalls.  */
+        if (TREE_CODE (fn) == OBJ_TYPE_REF)
+          fn = resolve_virtual_fun_from_obj_type_ref (fn);
 
 	if (TREE_TYPE (fn) != NULL_TREE && NEXT_CODE (fn) == METHOD_TYPE)
 	  {
@@ -2008,7 +2029,8 @@ fndecl_to_string (tree fndecl, int verbose)
 {
   int flags;
 
-  flags = TFF_EXCEPTION_SPECIFICATION | TFF_DECL_SPECIFIERS;
+  flags = TFF_EXCEPTION_SPECIFICATION | TFF_DECL_SPECIFIERS
+    | TFF_TEMPLATE_HEADER;
   if (verbose)
     flags |= TFF_FUNCTION_DEFAULT_ARGUMENTS;
   reinit_cxx_pp ();
@@ -2326,4 +2348,37 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 #undef next_tcode
 #undef next_lang
 #undef next_int
+}
+
+/* Callback from cpp_error for PFILE to print diagnostics arising from
+   interpreting strings.  The diagnostic is of type LEVEL; MSG is the
+   translated message and AP the arguments.  */
+
+void
+cp_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
+	      const char *msg, va_list *ap)
+{
+  diagnostic_info diagnostic;
+  diagnostic_t dlevel;
+  switch (level)
+    {
+    case CPP_DL_WARNING:
+    case CPP_DL_WARNING_SYSHDR:
+      dlevel = DK_WARNING;
+      break;
+    case CPP_DL_PEDWARN:
+      dlevel = pedantic_error_kind ();
+      break;
+    case CPP_DL_ERROR:
+      dlevel = DK_ERROR;
+      break;
+    case CPP_DL_ICE:
+      dlevel = DK_ICE;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  diagnostic_set_info_translated (&diagnostic, msg, ap,
+				  input_location, dlevel);
+  report_diagnostic (&diagnostic);
 }

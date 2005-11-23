@@ -806,6 +806,7 @@ init_tree_ssa (void)
 				             int_tree_map_eq, NULL);
   cfun->ssa->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   cfun->ssa->addressable_vars = BITMAP_GGC_ALLOC ();
+  init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
@@ -886,6 +887,7 @@ delete_tree_ssa (void)
   cfun->ssa->addressable_vars = NULL;
   modified_noreturn_calls = NULL;
   aliases_computed_p = false;
+  delete_alias_heapvars ();
   gcc_assert (!need_ssa_update_p ());
   cfun->ssa = NULL;
 }
@@ -1173,14 +1175,29 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
 
-  /* We only do data flow with SSA_NAMEs, so that's all we can warn about.  */
-  if (TREE_CODE (t) == SSA_NAME)
+  switch (TREE_CODE (t))
     {
+    case SSA_NAME:
+      /* We only do data flow with SSA_NAMEs, so that's all we
+	 can warn about.  */
       warn_uninit (t, "%H%qD is used uninitialized in this function", data);
       *walk_subtrees = 0;
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      /* The total store transformation performed during gimplification
+	 creates uninitialized variable uses.  If all is well, these will
+	 be optimized away, so don't warn now.  */
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME)
+	*walk_subtrees = 0;
+      break;
+
+    default:
+      if (IS_TYPE_OR_DECL_P (t))
+	*walk_subtrees = 0;
+      break;
     }
-  else if (IS_TYPE_OR_DECL_P (t))
-    *walk_subtrees = 0;
 
   return NULL_TREE;
 }

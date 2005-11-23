@@ -43,6 +43,7 @@ set package_map(javax/xml) bc
 set package_map(gnu/java/beans) bc
 set package_map(gnu/java/awt/peer/gtk) bc
 set package_map(gnu/java/awt/peer/qt) bc
+set package_map(gnu/javax/sound/midi) bc
 set package_map(org/xml) bc
 set package_map(org/w3c) bc
 
@@ -165,7 +166,7 @@ proc scan_directory {basedir subdir} {
   set files {}
   set here [pwd]
   cd $basedir/$subdir
-  foreach file [lsort [glob *]] {
+  foreach file [lsort [glob -nocomplain *]] {
     if {[string match *.java $file]} {
       lappend files $subdir/$file
     } elseif {[file isdirectory $file]} {

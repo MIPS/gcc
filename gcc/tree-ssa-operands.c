@@ -131,7 +131,7 @@ static void add_stmt_operand (tree *, stmt_ann_t, int);
 static void build_ssa_operands (tree stmt);
                                                                                 
 
-/* Return the DECL_UID of the base varaiable of T.  */
+/* Return the DECL_UID of the base variable of T.  */
 
 static inline unsigned
 get_name_decl (tree t)
@@ -1995,8 +1995,8 @@ verify_imm_links (FILE *f, tree var)
 
       prev = ptr;
       ptr = ptr->next;
-      /* Avoid infinite loops.  */
-      if (count++ > 30000)
+      /* Avoid infinite loops.  50,000,000 uses probably indicates a problem.  */
+      if (count++ > 50000000)
 	goto error;
     }
 

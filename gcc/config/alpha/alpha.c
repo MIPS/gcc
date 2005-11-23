@@ -1586,7 +1586,7 @@ alpha_preferred_reload_class(rtx x, enum reg_class class)
    from register elimination into a DImode fp register.  */
 
 enum reg_class
-secondary_reload_class (enum reg_class class, enum machine_mode mode,
+alpha_secondary_reload_class (enum reg_class class, enum machine_mode mode,
 			rtx x, int in)
 {
   if ((mode == QImode || mode == HImode) && ! TARGET_BWX)
@@ -6462,13 +6462,16 @@ static void
 alpha_init_builtins (void)
 {
   const struct alpha_builtin_def *p;
+  tree dimode_integer_type_node;
   tree ftype, attrs[2];
   size_t i;
+
+  dimode_integer_type_node = lang_hooks.types.type_for_mode (DImode, 0);
 
   attrs[0] = tree_cons (get_identifier ("nothrow"), NULL, NULL);
   attrs[1] = tree_cons (get_identifier ("const"), NULL, attrs[0]);
 
-  ftype = build_function_type (long_integer_type_node, void_list_node);
+  ftype = build_function_type (dimode_integer_type_node, void_list_node);
 
   p = zero_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
@@ -6476,8 +6479,8 @@ alpha_init_builtins (void)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
 				   NULL, attrs[p->is_const]);
 
-  ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+  ftype = build_function_type_list (dimode_integer_type_node,
+				    dimode_integer_type_node, NULL_TREE);
 
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
@@ -6485,9 +6488,9 @@ alpha_init_builtins (void)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
 				   NULL, attrs[p->is_const]);
 
-  ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+  ftype = build_function_type_list (dimode_integer_type_node,
+				    dimode_integer_type_node,
+				    dimode_integer_type_node, NULL_TREE);
 
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
@@ -7535,16 +7538,15 @@ alpha_expand_prologue (void)
     {
       if (frame_size > 4096)
 	{
-	  int probed = 4096;
+	  int probed;
 
-	  do
+	  for (probed = 4096; probed < frame_size; probed += 8192)
 	    emit_insn (gen_probe_stack (GEN_INT (TARGET_ABI_UNICOSMK
 						 ? -probed + 64
 						 : -probed)));
-	  while ((probed += 8192) < frame_size);
 
 	  /* We only have to do this probe if we aren't saving registers.  */
-	  if (sa_size == 0 && probed + 4096 < frame_size)
+	  if (sa_size == 0 && frame_size > probed - 4096)
 	    emit_insn (gen_probe_stack (GEN_INT (-frame_size)));
 	}
 

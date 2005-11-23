@@ -3810,14 +3810,18 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   tree temp = voidify_wrapper_expr (*expr_p, NULL);
 
   /* We only care about the number of conditions between the innermost
-     CLEANUP_POINT_EXPR and the cleanup.  So save and reset the count.  */
+     CLEANUP_POINT_EXPR and the cleanup.  So save and reset the count and
+     any cleanups collected outside the CLEANUP_POINT_EXPR.  */
   int old_conds = gimplify_ctxp->conditions;
+  tree old_cleanups = gimplify_ctxp->conditional_cleanups;
   gimplify_ctxp->conditions = 0;
+  gimplify_ctxp->conditional_cleanups = NULL_TREE;
 
   body = TREE_OPERAND (*expr_p, 0);
   gimplify_to_stmt_list (&body);
 
   gimplify_ctxp->conditions = old_conds;
+  gimplify_ctxp->conditional_cleanups = old_cleanups;
 
   for (iter = tsi_start (body); !tsi_end_p (iter); )
     {
@@ -4312,18 +4316,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	    {
 	      unsigned HOST_WIDE_INT ix;
 	      constructor_elt *ce;
+	      tree temp = NULL_TREE;
 	      for (ix = 0;
 		   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (*expr_p),
 				ix, ce);
 		   ix++)
 		if (TREE_SIDE_EFFECTS (ce->value))
-		  gimplify_expr (&ce->value, pre_p, post_p,
-				 gimple_test_f, fallback);
+		  append_to_statement_list (ce->value, &temp);
 
-	      *expr_p = NULL_TREE;
+	      *expr_p = temp;
+	      ret = GS_OK;
 	    }
-
-	  ret = GS_ALL_DONE;
+	  /* C99 code may assign to an array in a constructed
+	     structure or union, and this has undefined behavior only
+	     on execution, so create a temporary if an lvalue is
+	     required.  */
+	  else if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
+	  else
+	    ret = GS_ALL_DONE;
 	  break;
 
 	  /* The following are special cases that are not handled by the
