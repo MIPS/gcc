@@ -1,3 +1,10 @@
+2005-11-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* opts.c (decode_options): Set flag_tree_reassoc.
+	* tree-ssa-reassoc.c (gate_tree_reassoc): New function.
+	(pass_reassoc): Add gate_tree_reassoc.
+	* common.opt (ftree-reassoc): New flag.  
+
 2005-11-23  Ira Rosen  <irar@il.ibm.com>
             Dorit Nuzman  <dorit@il.ibm.com>
 
