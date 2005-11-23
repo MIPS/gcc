@@ -1,3 +1,9 @@
+2005-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* ia64_save_regs_in_stack.s: Moved to...
+	* ia64_save_regs_in_stack.S: ... this.  Add .note.GNU-stack
+	on Linux.
+
 2005-11-01  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* include/private/gc_priv.h: Increase MAX_ROOT_SETS to 1024.
