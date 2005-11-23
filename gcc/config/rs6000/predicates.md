@@ -320,7 +320,7 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   rtx last = CONST_VECTOR_ELT (op, GET_MODE_NUNITS (mode) - 1);
-  HOST_WIDE_INT val = (char) (INTVAL (last) & 255);
+  HOST_WIDE_INT val = ((INTVAL (last) & 0xff) ^ 0x80) - 0x80;
   return EASY_VECTOR_15_ADD_SELF (val);
 })
 

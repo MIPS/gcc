@@ -1,3 +1,85 @@
+2005-11-23  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2.h (enum dwarf_type): Add DW_ATE_decimal_float.
+
+2005-11-22  J"orn Rennecke <joern.rennecke@st.com>
+
+	Preparatory work for PR target/21623:
+	* alpha.c (secondary_reload_class): Rename to:
+	(alpha_secondary_reload_class).
+	* alpha.h, alpha-protos.h: Likewise.
+	* mn10300.c (secondary_reload_class): Rename to:
+	(mn10300_secondary_reload_class).
+	* mn10300.h, mn10300-protos.h: Likewise.
+	* pa.c (secondary_reload_class): Rename to:
+	(pa_secondary_reload_class).
+	* pa.h, pa-protos.h: Likewise.
+	* rs6000.c (secondary_reload_class): Rename to:
+	rs6000_secondary_reload_class.
+	* rs6000.h, rs6000-protos.h: Likewise.
+
+2005-11-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/22561
+	* tree-ssa-structalias.c (get_constraint_for): Handle ARRAY_RANGE_REF.
+
+2005-11-22  Ian Lance Taylor  <ian@airs.com>
+
+	* optabs.c (expand_unop): Call SCALAR_FLOAT_MODE_P on a mode, not
+	a mode_class.
+	(prepare_cmp_insn): Likewise.
+
+2005-11-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/23435
+	* m68k.md (zero_extendsidi2): Force operands[1] to a register
+	if both operands[0] and operands[1] are memory.
+
+2005-11-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23606
+	* fold-const.c (fold_unary) <case NOP_EXPR, CONVERT_EXPR>: For
+	COMPARISON_CLASS_P and an integral types create create a new
+	expression with the new type and fold that.
+
+2005-11-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/24988
+	* config/rs6000/darwin.h (TARGET_OS_CPP_BUILTINS): Remove call
+	to SUBTARGET_OS_CPP_BUILTINS.
+	
+2005-11-22  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* arm.c (emit_set_insn): New function.
+	(arm_split_constant): Call it.
+	(arm_gen_compare_reg, arm_reload_in_hi, arm_reload_out_hi): Likewise.
+	(arm_legitimize_address): Likewise.  Use plus_constant.
+	(arm_expand_prologue): Likewise.  Use VOIDmode in SET.
+	(thumb_expand_prologue): Likewise.
+	(arm_gen_load_multiple): Use VOIDmode in SET.
+	(arm_gen_store_multiple): Likewise.
+	(vfp_emit_fstmx): Likewise.  Use plus_constant.
+	(emit_multi_reg_push): Likewise.
+	(emit_sfm): Use plus_constant.
+	
+2005-11-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/24954
+	* config/rs6000/predicates.md (easy_vector_constant_add_self): Fix
+	typo last change.
+
+2005-11-22  Alan Modra  <amodra@bigpond.net.au>
+
+	PR middle-end/24950
+	* expmed.c (store_bit_field): Don't attempt to insv a field
+	larger than the reg.
+
+2005-11-22  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/24954
+	* config/rs6000/predicated.md (easy_vector_constant_add_self): Use
+	explicit sign extension, not a (char) cast.
+
 2005-11-22  Ben Elliston  <bje@au.ibm.com>
 
 	* optabs.c: Use SCALAR_FLOAT_MODE_P instead of explicitly testing
