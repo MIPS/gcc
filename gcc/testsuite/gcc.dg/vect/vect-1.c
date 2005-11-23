@@ -59,7 +59,8 @@ foo (int n)
   fbar (a);
 
 
-  /* Not vectorizable yet (access pattern).  */
+  /* Interleaved access. Not vectorizable yet (access pattern) on platforms 
+     that don't support interleaving.  */
   for (i = 0; i < N/2; i++){
     a[i] = b[2*i+1] * c[2*i+1] - b[2*i] * c[2*i];
     d[i] = b[2*i] * c[2*i+1] + b[2*i+1] * c[2*i];
@@ -85,7 +86,8 @@ foo (int n)
   fbar (a);
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect" { target powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail powerpc*-*-* } } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

@@ -118,6 +118,23 @@
    (UNSPEC_REALIGN_LOAD 215)
    (UNSPEC_REDUC_PLUS   217)
    (UNSPEC_VECSH        219)
+   (UNSPEC_EXTEVEN_V4SI 220)
+   (UNSPEC_EXTEVEN_V8HI 221)
+   (UNSPEC_EXTEVEN_V16QI 222)
+   (UNSPEC_EXTEVEN_V4SF 223)
+   (UNSPEC_EXTODD_V4SI  224)
+   (UNSPEC_EXTODD_V8HI  225)
+   (UNSPEC_EXTODD_V16QI 226)
+   (UNSPEC_EXTODD_V4SF  227)
+   (UNSPEC_INTERHI_V4SI 228)
+   (UNSPEC_INTERHI_V8HI 229)
+   (UNSPEC_INTERHI_V16QI 230)
+   (UNSPEC_INTERHI_V4SF 231)
+   (UNSPEC_INTERLO_V4SI 232)
+   (UNSPEC_INTERLO_V8HI 233)
+   (UNSPEC_INTERLO_V16QI 234)
+   (UNSPEC_INTERLO_V4SF 235)
+   (UNSPEC_ASHL         236)
    (UNSPEC_VCOND_V4SI   301)
    (UNSPEC_VCOND_V4SF   302)
    (UNSPEC_VCOND_V8HI   303)
@@ -133,6 +150,8 @@
    (UNSPEC_VMULWLUH     313)
    (UNSPEC_VMULWHSH     314)
    (UNSPEC_VMULWLSH     315)
+   (UNSPEC_INTERHI      316)
+   (UNSPEC_INTERLO      317)
    ])
 
 (define_constants
@@ -2066,7 +2085,7 @@
   operands[3] = gen_reg_rtx (GET_MODE (operands[0]));
 })
 
-;; Vector shift left in bits. Currently supported ony for shift
+;; Vector shift left in bits. Currently supported only for shift
 ;; amounts that can be expressed as byte shifts (divisible by 8).
 ;; General shift amounts can be supported using vslo + vsl. We're
 ;; not expecting to see these yet (the vectorizer currently
@@ -2096,7 +2115,7 @@
   DONE;
 }")
 
-;; Vector shift left in bits. Currently supported ony for shift
+;; Vector shift right in bits. Currently supported only for shift
 ;; amounts that can be expressed as byte shifts (divisible by 8).
 ;; General shift amounts can be supported using vsro + vsr. We're
 ;; not expecting to see these yet (the vectorizer currently
@@ -2541,3 +2560,174 @@
 ;  emit_insn (gen_altivec_vmhaddshs (operands[0], operands[1], operands[2], vzero));
 ;  DONE;
 ;}")
+
+
+(define_insn "vpkuhum_nomode"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+        (unspec:V16QI [(match_operand 1 "register_operand" "v")
+                       (match_operand 2 "register_operand" "v")]
+                      UNSPEC_VPKUHUM))] 
+  "TARGET_ALTIVEC"
+  "vpkuhum %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "vpkuwum_nomode"
+  [(set (match_operand:V8HI 0 "register_operand" "=v")
+        (unspec:V8HI [(match_operand 1 "register_operand" "v")
+                      (match_operand 2 "register_operand" "v")]
+                     UNSPEC_VPKUWUM))]
+  "TARGET_ALTIVEC"
+  "vpkuwum %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+;; TODO; Better use vperm.
+;;(define_expand "vec_extract_evenv8hi"
+;; [(set (match_operand:V8HI 0 "register_operand" "")
+;;        (unspec:V8HI [(match_operand:V8HI 1 "register_operand" "")
+;;                      (match_operand:V8HI 2 "register_operand" "")]
+;;                    UNSPEC_EXTEVEN_V8HI))]
+;;  "TARGET_ALTIVEC"
+;;  "
+;;{
+;;  rtx v1 = gen_reg_rtx (V8HImode);
+;;  rtx v2 = gen_reg_rtx (V8HImode);
+;;
+;;
+;;  /* option 1 */
+;;  rtx shift = gen_rtx_CONST_INT (QImode, 8);
+;;  emit_insn (gen_vec_shr_v8hi (v1, operands[1], shift));
+;;  emit_insn (gen_vec_shr_v8hi (v2, operands[2], shift));
+;;
+;;  /* option 2 */
+;;  rtx shift = splat (8)
+;;  emit_insn (gen_vec_shr (v1, operands[1], shift));
+;;  emit_insn (gen_vec_shr (v2, operands[2], shift));
+;;
+;;  /* option 3 */
+;;  rtx shift = splat (8)
+;;  emit_insn (gen_altivec_vsrh (v1, operands[1], shift));
+;;  emit_insn (gen_altivec_vsrh (v2, operands[2], shift));
+;;
+;;  /* option 4 */
+;;  rtx shift = splat (8)
+;;  emit_insn (gen_altivec_vsro (v1, operands[1], shift));
+;;  emit_insn (gen_altivec_vsro (v2, operands[2], shift));
+;;
+;;
+;;  emit_insn (gen_vpkuwum_nomode (operands[0], v1, v2));
+;;  DONE;
+;;}")
+
+;; TODO; Better use vperm.
+;;(define_expand "vec_extract_evenv16qi"
+;; [(set (match_operand:V16QI 0 "register_operand" "")
+;;        (unspec:V16QI [(match_operand:V16QI 1 "register_operand" "")
+;;                      (match_operand:V16QI 2 "register_operand" "")]
+;;                    UNSPEC_EXTEVEN_V16QI))]
+;;  "TARGET_ALTIVEC"
+;;  "
+;;{
+;;  rtx v1 = gen_reg_rtx (V16QImode);
+;;  rtx v2 = gen_reg_rtx (V16QImode);
+;;
+;;
+;;  /* option 1: */
+;;  rtx shift = splat (4);
+;;  emit_insn (gen_altivec_vsr (v1, operands[1], shift));
+;;  emit_insn (gen_altivec_vsr (v2, operands[2], shift));
+;;
+;;  /* option 2: */
+;;  rtx shift = splat (4);
+;;  emit_insn (gen_altivec_vsrb (v1, operands[1], shift));
+;;  emit_insn (gen_altivec_vsrb (v2, operands[2], shift));
+;;
+;;
+;;  emit_insn (gen_vpkuhum_nomode (operands[0], v1, v2));
+;;  DONE;
+;;}")
+
+(define_expand "vec_extract_oddv8hi"
+ [(set (match_operand:V8HI 0 "register_operand" "")
+        (unspec:V8HI [(match_operand:V8HI 1 "register_operand" "")
+                      (match_operand:V8HI 2 "register_operand" "")]
+                      UNSPEC_EXTODD_V8HI))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_vpkuwum_nomode (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_expand "vec_extract_oddv16qi"
+ [(set (match_operand:V16QI 0 "register_operand" "")
+        (unspec:V16QI [(match_operand:V16QI 1 "register_operand" "")
+                      (match_operand:V16QI 2 "register_operand" "")]
+                      UNSPEC_EXTODD_V16QI))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_vpkuhum_nomode (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_expand "vec_interleave_highv4sf"
+ [(set (match_operand:V4SF 0 "register_operand" "")
+        (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "")
+                      (match_operand:V4SF 2 "register_operand" "")]
+                      UNSPEC_INTERHI_V4SF))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmrghw (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+  
+(define_expand "vec_interleave_lowv4sf"
+ [(set (match_operand:V4SF 0 "register_operand" "")
+        (unspec:V4SF [(match_operand:V4SF 1 "register_operand" "")
+                      (match_operand:V4SF 2 "register_operand" "")]
+                      UNSPEC_INTERLO_V4SF))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmrglw (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+  
+(define_expand "vec_interleave_high<mode>"
+ [(set (match_operand:VI 0 "register_operand" "")
+        (unspec:VI [(match_operand:VI 1 "register_operand" "")
+                    (match_operand:VI 2 "register_operand" "")]
+                     UNSPEC_INTERHI))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmrgh<VI_char> (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_expand "vec_interleave_low<mode>"
+ [(set (match_operand:VI 0 "register_operand" "")
+        (unspec:VI [(match_operand:VI 1 "register_operand" "")
+                    (match_operand:VI 2 "register_operand" "")]
+                     UNSPEC_INTERLO))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vmrgl<VI_char> (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+  
+(define_expand "ashl<mode>3"
+ [(set (match_operand:VI 0 "register_operand" "")
+        (unspec:V8HI [(match_operand:VI 1 "register_operand" "")
+                      (match_operand:VI 2 "register_operand" "")]
+		      UNSPEC_ASHL))]
+  "TARGET_ALTIVEC"
+  "
+{
+  emit_insn (gen_altivec_vsl<VI_char> (operands[0], operands[1], operands[2]));
+  
+  DONE;
+}")
+

@@ -45,11 +45,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 
 /* Utility functions for the code transformation.  */
-static bool vect_transform_stmt (tree, block_stmt_iterator *);
+static bool vect_transform_stmt (tree, block_stmt_iterator *, bool *);
 static void vect_align_data_ref (tree);
 static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
-  (tree, block_stmt_iterator *, tree, tree *, tree *, bool); 
+  (tree, block_stmt_iterator *, tree, tree *, tree *, bool, VEC(tree,heap) **); 
 static tree vect_create_addr_base_for_vector_ref (tree, tree *, tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree, tree *);
@@ -61,6 +61,8 @@ static bool vect_is_simple_cond (tree, loop_vec_info);
 static void vect_create_epilog_for_reduction 
    (tree, tree, tree, enum tree_code, tree);
 static tree get_initial_def_for_reduction (tree, tree, tree *);
+static bool vect_permute_store_chain (VEC(tree,heap) *, unsigned int, tree, 
+				      block_stmt_iterator *, VEC(tree,heap) **);
 
 /* Utility function dealing with loop peeling (not peeling itself).  */
 static void vect_generate_tmps_on_preheader 
@@ -160,9 +162,19 @@ vect_create_addr_base_for_vector_ref (tree stmt,
   if (offset)
     {
       tree tmp = create_tmp_var (TREE_TYPE (base_offset), "offset");
+      tree step;
+
+      /* For interleaved access step we divide STEP by the size of the 
+	 interleaving group.  */
+      if (DR_GROUP_SIZE (stmt_info)) 
+	step = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (offset), DR_STEP (dr),
+			    build_int_cst (TREE_TYPE (offset), 
+					   DR_GROUP_SIZE (stmt_info)));
+      else
+	step = DR_STEP (dr);
+
       add_referenced_tmp_var (tmp);
-      offset = fold_build2 (MULT_EXPR, TREE_TYPE (offset), offset,
-			    DR_STEP (dr));
+      offset = fold_build2 (MULT_EXPR, TREE_TYPE (offset), offset, step);
       base_offset = fold_build2 (PLUS_EXPR, TREE_TYPE (base_offset),
 				 base_offset, offset);
       base_offset = force_gimple_operand (base_offset, &new_stmt, false, tmp);  
@@ -240,6 +252,10 @@ vect_align_data_ref (tree stmt)
 
       Return the initial_address in INITIAL_ADDRESS.
 
+      If the access in STMT is an interleaved access, create the above pointer
+      for all the data-refs in the interleaving group and return them in DRS,
+      if DRS is not NULL.
+
    2. If ONLY_INIT is true, return the initial pointer.  Otherwise, create
       a data-reference in the loop based on the new vector pointer vp.  This
       new data reference will by some means be updated each iteration of
@@ -248,7 +264,7 @@ vect_align_data_ref (tree stmt)
 static tree
 vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi ATTRIBUTE_UNUSED, 
 			  tree offset, tree *initial_address, tree *ptr_incr,
-			  bool only_init)
+			  bool only_init, VEC(tree,heap) **drs)
 {
   tree base_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -326,7 +342,6 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi ATTRIBUTE_UNUSED,
   new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
   gcc_assert (!new_bb);
 
-
   /** (4) Handle the updating of the vector-pointer inside the loop: **/
 
   if (only_init) /* No update in loop is required.  */
@@ -344,24 +359,111 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi ATTRIBUTE_UNUSED,
       tree incr;
 
       standard_iv_increment_position (loop, &incr_bsi, &insert_after);
-      create_iv (vect_ptr_init,
-		 fold_convert (vect_ptr_type, TYPE_SIZE_UNIT (vectype)),
-		 NULL_TREE, loop, &incr_bsi, insert_after,
-		 &indx_before_incr, &indx_after_incr);
-      incr = bsi_stmt (incr_bsi);
-      set_stmt_info ((tree_ann_t) stmt_ann (incr),
-		     new_stmt_vec_info (incr, loop_vinfo));
+    
+      if (DR_GROUP_FIRST_DR (stmt_info)) 
+        {
+	  tree scalar_type_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
+	  /* Create interleaving_upd = vectype_size * step  */
+	  tree step = fold_build2 (TRUNC_DIV_EXPR, ssizetype, 
+				   DR_STEP (dr), scalar_type_size);
+	  tree interleaving_upd = fold_build2 (MULT_EXPR, ssizetype, 
+					       TYPE_SIZE_UNIT (vectype), step);
+	  tree next = DR_GROUP_FIRST_DR (stmt_info);
+	  /* COUNT - the number of created ivs; NUM - for loads with gaps, the 
+	     number of ivs created for the current stmt.  */
+	  unsigned int count = 0, num = 1;
+          unsigned int inter_size = DR_GROUP_SIZE (vinfo_for_stmt (next));
+	  tree interleaving_base;
 
-      /* Copy the points-to information if it exists. */
-      if (DR_PTR_INFO (dr))
-	{
-	  duplicate_ssa_name_ptr_info (indx_before_incr, DR_PTR_INFO (dr));
-	  duplicate_ssa_name_ptr_info (indx_after_incr, DR_PTR_INFO (dr));
+	  while (count < inter_size)
+	    {
+	      /* Skip stmts that share data-refs with previously vectorized 
+		 stmts.  */
+	      if (next && DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next)))
+		{
+		  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));	    
+		  continue;
+		}
+	      /* Create: interleaving_base = vect_ptr_int + type_size * count  */
+	      vec_stmt = fold_build2 (PLUS_EXPR, TREE_TYPE (vect_ptr_init), 
+				      vect_ptr_init, 
+				      fold_build2 (MULT_EXPR, integer_type_node, 
+						   TYPE_SIZE_UNIT (vectype), 
+						build_int_cst (integer_type_node, 
+							       count)));
+	      vec_stmt = build2 (MODIFY_EXPR, void_type_node, vect_ptr, 
+				 vec_stmt);
+	      interleaving_base = make_ssa_name (vect_ptr, vec_stmt);
+	      TREE_OPERAND (vec_stmt, 0) = interleaving_base;
+	      new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
+	      gcc_assert (!new_bb);
+
+	      create_iv (interleaving_base,
+			 fold_convert (vect_ptr_type, interleaving_upd),
+			 NULL_TREE, loop, &incr_bsi, insert_after,
+			 &indx_before_incr, &indx_after_incr);
+	      incr = bsi_stmt (incr_bsi);
+	      set_stmt_info ((tree_ann_t) stmt_ann (incr),
+			     new_stmt_vec_info (incr, loop_vinfo));
+
+	      /* Copy the points-to information if it exists. */
+	      if (DR_PTR_INFO (dr))
+		{
+		  duplicate_ssa_name_ptr_info (indx_before_incr, 
+					       DR_PTR_INFO (dr));
+		  duplicate_ssa_name_ptr_info (indx_after_incr, 
+					       DR_PTR_INFO (dr));
+		}
+	      merge_alias_info (interleaving_base, indx_before_incr);
+	      merge_alias_info (interleaving_base, indx_after_incr);
+	      if (ptr_incr)
+		*ptr_incr = incr;
+
+	      /* Store the data-ref in DRS or in VEC_STMT.  */
+	      if (drs)
+	        VEC_quick_push (tree, *drs, indx_before_incr);
+              else
+		if (next)
+		  STMT_VINFO_VEC_STMT (vinfo_for_stmt (next)) = indx_before_incr;
+
+	      if (next)
+		{
+		  if (num < DR_GROUP_GAP (vinfo_for_stmt (next)))
+		    {
+		      /* Load with gaps. Create vector ptr for gaps too.  */
+		      num++;
+		      count++;
+		      continue;
+		    }
+		  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));
+		  num = 1;
+		}
+	      else
+		num++;
+	      count++;
+	    }
 	}
-      merge_alias_info (vect_ptr_init, indx_before_incr);
-      merge_alias_info (vect_ptr_init, indx_after_incr);
-      if (ptr_incr)
-        *ptr_incr = incr;
+      else
+        {
+	  create_iv (vect_ptr_init,
+		     fold_convert (vect_ptr_type, TYPE_SIZE_UNIT (vectype)),
+		     NULL_TREE, loop, &incr_bsi, insert_after,
+		     &indx_before_incr, &indx_after_incr);
+	  incr = bsi_stmt (incr_bsi);
+	  set_stmt_info ((tree_ann_t) stmt_ann (incr),
+			 new_stmt_vec_info (incr, loop_vinfo));
+
+	  /* Copy the points-to information if it exists. */
+	  if (DR_PTR_INFO (dr))
+	    {
+	      duplicate_ssa_name_ptr_info (indx_before_incr, DR_PTR_INFO (dr));
+	      duplicate_ssa_name_ptr_info (indx_after_incr, DR_PTR_INFO (dr));
+	    }
+	  merge_alias_info (vect_ptr_init, indx_before_incr);
+	  merge_alias_info (vect_ptr_init, indx_after_incr);
+	  if (ptr_incr)
+	    *ptr_incr = incr;
+	}
       return indx_before_incr;
     }
 }
@@ -2433,16 +2535,127 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
 }
 
 
+/* Function vect_permute_store_chain.
+
+   Given a chain of interleaved strores in DR_CHAIN of LENGTH that must be
+   a power of 2, generate interleave_high/low stmts to reorder the data 
+   correctly for the stores. Return the final references for stores in
+   RESULT_CHAIN.
+
+*/
+
+static bool
+vect_permute_store_chain (VEC(tree,heap) *dr_chain, 
+			  unsigned int length, 
+			  tree stmt, 
+			  block_stmt_iterator *bsi,
+			  VEC(tree,heap) **result_chain)
+{
+  tree perm_dest, perm_stmt, data_ref, vect1, vect2, high, low;
+  optab interleave_high_optab, interleave_low_optab;
+  tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
+  enum machine_mode vec_mode = TYPE_MODE (vectype);
+  tree scalar_dest;
+  int i;
+  unsigned int j;
+  VEC(tree,heap) *first, *second;
+  
+  scalar_dest = TREE_OPERAND (stmt, 0);
+  first = VEC_alloc (tree, heap, length/2);
+  second = VEC_alloc (tree, heap, length/2);
+
+  /* Check that the operation is supported.  */
+  interleave_high_optab = optab_for_tree_code (VEC_INTERLEAVE_HIGH_EXPR, 
+					       vectype);
+  interleave_low_optab = optab_for_tree_code (VEC_INTERLEAVE_LOW_EXPR, 
+					      vectype);
+  if (!interleave_high_optab || !interleave_low_optab)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "no optab for interleave.");
+      return false;
+    }
+  if (interleave_high_optab->handlers[(int) vec_mode].insn_code 
+      == CODE_FOR_nothing
+      || interleave_low_optab->handlers[(int) vec_mode].insn_code
+      == CODE_FOR_nothing)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "interleave op not supported by target.");
+      return false;
+    }
+
+  for (i = 0; i < exact_log2(length); i++)
+    {
+      /* Prepare the input.  */
+      if (i == 0)
+	{
+	  for (j = 0; VEC_iterate(tree, dr_chain, j, data_ref); j++)      
+	    {
+	      if (j < length/2)
+		VEC_quick_push (tree, first, data_ref);
+	      else
+		VEC_quick_push (tree, second, data_ref);
+	    }
+	}
+      else 
+	{
+	  for (j = 0; VEC_iterate(tree, dr_chain, j, data_ref); j++)      
+	    {
+	      if (j < length/2)
+		VEC_replace (tree, first, j, data_ref);
+	      else
+		VEC_replace (tree, second, j - length/2, data_ref);
+	    }
+	}
+
+      for (j = 0; j < length/2; j++)
+	{
+	  vect1 = VEC_index(tree, first, j);
+	  vect2 = VEC_index(tree, second, j);
+
+	  /* high = interleave_high (vect1, vect2);  */
+	  perm_dest = create_tmp_var (vectype, "vect_inter_high");
+	  add_referenced_tmp_var (perm_dest);
+	  perm_stmt = build2 (MODIFY_EXPR, vectype, perm_dest,
+			      build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, vect1, 
+				      vect2));
+	  high = make_ssa_name (perm_dest, perm_stmt);
+	  TREE_OPERAND (perm_stmt, 0) = high;
+	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
+	  VEC_replace (tree, dr_chain, 2*j, high);
+
+	  /* low = interleave_low (vect1, vect2);  */
+	  perm_dest = create_tmp_var (vectype, "vect_inter_low");
+	  add_referenced_tmp_var (perm_dest);
+	  perm_stmt = build2 (MODIFY_EXPR, vectype, perm_dest,
+			      build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, vect1, 
+				      vect2));
+	  low = make_ssa_name (perm_dest, perm_stmt);
+	  TREE_OPERAND (perm_stmt, 0) = low;
+	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
+	  VEC_replace (tree, dr_chain, 2*j+1, low);
+	}
+    }
+
+  *result_chain = VEC_copy (tree, heap, dr_chain);
+  return true;
+}
+
+
 /* Function vectorizable_store.
 
    Check if STMT defines a non scalar data-ref (array/pointer/structure) that 
    can be vectorized. 
    If VEC_STMT is also passed, vectorize the STMT: create a vectorized 
    stmt to replace it, put it in VEC_STMT, and insert it at BSI.
-   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+   Return FALSE if not a vectorizable STMT, TRUE otherwise.  
+   If STMT is a part of interleaving group, INTERLEAVING is set to TRUE.
+*/
 
 bool
-vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
+vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt, 
+		    bool *interleaving)
 {
   tree scalar_dest;
   tree data_ref;
@@ -2464,6 +2677,10 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
   int j;
+  optab interleave_high_optab, interleave_low_optab;
+  struct data_reference *dr_for_alignment_check;
+  tree first_stmt = NULL_TREE;
+  static unsigned int interleaving_count = 0;
 
   gcc_assert (ncopies >= 1);
 
@@ -2474,7 +2691,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   scalar_dest = TREE_OPERAND (stmt, 0);
   if (TREE_CODE (scalar_dest) != ARRAY_REF
-      && TREE_CODE (scalar_dest) != INDIRECT_REF)
+      && TREE_CODE (scalar_dest) != INDIRECT_REF
+      && !DR_GROUP_FIRST_DR (stmt_info))
     return false;
 
   op = TREE_OPERAND (stmt, 1);
@@ -2494,6 +2712,41 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (!STMT_VINFO_DATA_REF (stmt_info))
     return false;
 
+  /* Interleaving.  */
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    {
+      /* FORNOW.  */
+      if (ncopies > 1)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "Interleaving and multiple types (%d)", 
+		       ncopies);
+	      fprintf (vect_dump, " are not vectorizable together."); 
+	    }
+	  return false;
+	}
+      /* Check that the operation is supported.  */
+      interleave_high_optab = optab_for_tree_code (VEC_INTERLEAVE_HIGH_EXPR, 
+						   vectype);
+      interleave_low_optab = optab_for_tree_code (VEC_INTERLEAVE_LOW_EXPR, 
+						  vectype);
+      if (!interleave_high_optab || !interleave_low_optab)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "no optab for interleave.");
+	  return false;
+	}
+      if (interleave_high_optab->handlers[(int) vec_mode].insn_code 
+	  == CODE_FOR_nothing
+	  || interleave_low_optab->handlers[(int) vec_mode].insn_code 
+	  == CODE_FOR_nothing)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "interleave op not supported by target.");
+	  return false;
+	}
+    }
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -2506,135 +2759,425 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "transform store. ncopies = %d",ncopies);
 
-  alignment_support_cheme = vect_supportable_dr_alignment (dr);
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    {
+      first_stmt = DR_GROUP_FIRST_DR (stmt_info);
+      dr_for_alignment_check = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
+    }
+  else
+    dr_for_alignment_check = dr;
+
+  alignment_support_cheme = vect_supportable_dr_alignment (dr_for_alignment_check);
   gcc_assert (alignment_support_cheme);
   gcc_assert (alignment_support_cheme == dr_aligned);  /* FORNOW */
 
-   /* In case the vectorization factor (VF) is bigger than the number
-     of elements that we can fit in a vectype (nunits), we have to generate
-     more than one vector stmt - i.e - we need to "unroll" the
-     vector stmt by a factor VF/nunits.  For more details see documentation in 
-     vectorizable_operation.  */
 
-  prev_stmt_info = NULL;
-  for (j = 0; j < ncopies; j++)
+  /* Interleaving.  */
+  if (DR_GROUP_FIRST_DR (stmt_info))
     {
-      tree new_stmt;
-      stmt_vec_info def_stmt_info;
-      tree vec_stmt_for_operand;
-      tree ptr_incr;
+      tree next_stmt, tmp_data_ref, dummy1;
+      VEC(tree,heap) *dr_chain = NULL, *result_chain = NULL;
+      unsigned int i, size;
 
       /* Handle use - get the vectorized def from the defining stmt.  */
-      if (j == 0)
-	vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
-      else 
-	if (dt == vect_invariant_def || dt == vect_constant_def)
-	  /* Do nothing; can reuse same def.  */ ;
-	else
-	  {
-	    /* For the j'th copy, get the vectorized def from the vector stmt 
-	       recorded in the STMT_VINFO_RELATED_STMT field of the j-1 copy 
-	       of the vector stmt that defines the operand
-	       (denoted VEC_STMT_FOR_OPERAND).  */
-	    def_stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (vec_oprnd));
-	    gcc_assert (def_stmt_info);
-	    vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-	    gcc_assert (vec_stmt_for_operand);
-	    vec_oprnd = TREE_OPERAND (vec_stmt_for_operand, 0);
-          }
+      tree vec_oprnd1 = vect_get_vec_def_for_operand (op, stmt, NULL);
 
+      *interleaving = true;
+      interleaving_count ++;
+      STMT_VINFO_VEC_STMT (stmt_info) = vec_oprnd1;
+
+      /* If last stmt in store sequence, create stores, otherwise only
+	 keep VEC_OPRND1 for future.  */
+      if (interleaving_count < DR_GROUP_SIZE (vinfo_for_stmt (first_stmt)))
+	{
+	  *vec_stmt = NULL_TREE;
+	  return true;
+	}
+
+      /* Vectorize interleaving stores.  */
+      interleaving_count = 0;
+      size = DR_GROUP_SIZE (vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)));
+      /* Create interleaving chains. DR_CHAIN contains input data-refs
+	 that are a part of the interleaving. RESULT_CHAIN is the output
+	 of vect_permute_store_chain, it contains permuted vectors, that are 
+	 ready for vector computation.  */
+      dr_chain = VEC_alloc (tree, heap, size);
+      result_chain = VEC_alloc (tree, heap, size);
+      next_stmt = first_stmt;
+      while (next_stmt)
+	{
+	  tmp_data_ref = STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt));
+	  VEC_quick_push(tree, dr_chain, tmp_data_ref); 
+	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	}
+      /* Permute.  */
+      if (!vect_permute_store_chain (dr_chain, size, stmt, bsi, &result_chain))
+	return false;
 
       /* Handle def.  */
-
       /* FORNOW: make sure the data reference is aligned.  */
-      vect_align_data_ref (stmt);
+      vect_align_data_ref (first_stmt);
+      data_ref = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
+					   &dummy1, &dummy, false, NULL);
 
-      if (j == 0)
-        {
-          /* Create new pointer.  */
-          dataref_ptr =	vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
-						  &dummy, &ptr_incr, false);
-	}
-      else
+      next_stmt = first_stmt;
+      /* Generate store stmts for permuted vectors.  */
+      for (i = 0; VEC_iterate(tree, result_chain, i, tmp_data_ref); i++)
 	{
-          /* Bump the vector pointer.  */
-          tree vptr_type = TREE_TYPE (dataref_ptr);
-          tree ptr_var = SSA_NAME_VAR (dataref_ptr);
-          tree update = fold_convert (vptr_type, TYPE_SIZE_UNIT (vectype));
-          tree incr = build2 (PLUS_EXPR, vptr_type, dataref_ptr, update);
-	  ssa_op_iter iter;
-	  use_operand_p use_p;
+	  if (!next_stmt)
+	    break;
 
-          new_stmt = build2 (MODIFY_EXPR, vptr_type, ptr_var, incr);
-          dataref_ptr = make_ssa_name (ptr_var, new_stmt);
-          TREE_OPERAND (new_stmt, 0) = dataref_ptr;
-          vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	  data_ref = STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt));
+	  data_ref = build_fold_indirect_ref (data_ref);
 
-	  /* Update the vector-pointer's cross-iteration increment.  */
-	  FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
-            {
-              tree use = USE_FROM_PTR (use_p);
-	      
-	      if (use == prev_dataref_ptr)
-                SET_USE (use_p, dataref_ptr);
-	      else
-	        gcc_assert (tree_int_cst_compare (use, update) == 0);
+	  /* Arguments are ready. Create the new vector stmt.  */
+	  *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, tmp_data_ref);
+	  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
+	  STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt)) = *vec_stmt;
+
+	  /* Copy the V_MAY_DEFS representing the aliasing of the original array
+	     element's definition to the vector's definition then update the
+	     defining statement.  The original is being deleted so the same
+	     SSA_NAMEs can be used.  */
+	  copy_virtual_operands (*vec_stmt, next_stmt);
+
+	  FOR_EACH_SSA_TREE_OPERAND (def, next_stmt, iter, SSA_OP_VMAYDEF)
+	    {
+	      SSA_NAME_DEF_STMT (def) = *vec_stmt;
+
+	      /* If this virtual def has a use outside the loop and a loop peel 
+		 is performed then the def may be renamed by the peel.  Mark it 
+		 for renaming so the later use will also be renamed.  */
+	      mark_sym_for_renaming (SSA_NAME_VAR (def));
 	    }
 
-          /* Copy the points-to information if it exists. */
-          if (DR_PTR_INFO (dr))
-            duplicate_ssa_name_ptr_info (dataref_ptr, DR_PTR_INFO (dr));
-          merge_alias_info (dataref_ptr, prev_dataref_ptr); /* CHECKME */
+	  DR_GROUP_VECTORIZED (vinfo_for_stmt (next_stmt)) = true;
+	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
 	}
+      *vec_stmt = NULL_TREE;
+      return true;
+    }
+  else
+    {
+      *interleaving = false;
+      /* In case the vectorization factor (VF) is bigger than the number
+	 of elements that we can fit in a vectype (nunits), we have to generate
+	 more than one vector stmt - i.e - we need to "unroll" the
+	 vector stmt by a factor VF/nunits.  For more details see documentation in 
+	 vectorizable_operation.  */
 
-      data_ref = build_fold_indirect_ref (dataref_ptr);
+      prev_stmt_info = NULL;
+      for (j = 0; j < ncopies; j++)
+	{
+	  tree new_stmt;
+	  stmt_vec_info def_stmt_info;
+	  tree vec_stmt_for_operand;
+	  tree ptr_incr;
 
-      /* Arguments are ready. create the new vector stmt.  */
-      new_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd);
-      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	  /* Handle use - get the vectorized def from the defining stmt.  */
+	  if (j == 0)
+	    vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
+	  else 
+	    if (dt == vect_invariant_def || dt == vect_constant_def)
+	      /* Do nothing; can reuse same def.  */ ;
+	    else
+	      {
+		/* For the j'th copy, get the vectorized def from the vector stmt 
+		   recorded in the STMT_VINFO_RELATED_STMT field of the j-1 copy 
+		   of the vector stmt that defines the operand
+		   (denoted VEC_STMT_FOR_OPERAND).  */
+		def_stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (vec_oprnd));
+		gcc_assert (def_stmt_info);
+		vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+		gcc_assert (vec_stmt_for_operand);
+		vec_oprnd = TREE_OPERAND (vec_stmt_for_operand, 0);
+	      }
 
-      /* Copy the V_MAY_DEFS representing the aliasing of the original array
-         element's definition to the vector's definition then update the
-         defining statement.  The original is being deleted so the same
-         SSA_NAMEs can be used.  */
+
+	  /* Handle def.  */
+
+	  /* FORNOW: make sure the data reference is aligned.  */
+	  vect_align_data_ref (stmt);
+
+	  if (j == 0)
+	    {
+	      /* Create new pointer.  */
+	      dataref_ptr =	vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
+							  &dummy, &ptr_incr, false, NULL);
+	    }
+	  else
+	    {
+	      /* Bump the vector pointer.  */
+	      tree vptr_type = TREE_TYPE (dataref_ptr);
+	      tree ptr_var = SSA_NAME_VAR (dataref_ptr);
+	      tree update = fold_convert (vptr_type, TYPE_SIZE_UNIT (vectype));
+	      tree incr = build2 (PLUS_EXPR, vptr_type, dataref_ptr, update);
+	      ssa_op_iter iter;
+	      use_operand_p use_p;
+
+	      new_stmt = build2 (MODIFY_EXPR, vptr_type, ptr_var, incr);
+	      dataref_ptr = make_ssa_name (ptr_var, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = dataref_ptr;
+	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+	      /* Update the vector-pointer's cross-iteration increment.  */
+	      FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
+		{
+		  tree use = USE_FROM_PTR (use_p);
+	      
+		  if (use == prev_dataref_ptr)
+		    SET_USE (use_p, dataref_ptr);
+		  else
+		    gcc_assert (tree_int_cst_compare (use, update) == 0);
+		}
+
+	      /* Copy the points-to information if it exists. */
+	      if (DR_PTR_INFO (dr))
+		duplicate_ssa_name_ptr_info (dataref_ptr, DR_PTR_INFO (dr));
+	      merge_alias_info (dataref_ptr, prev_dataref_ptr); /* CHECKME */
+	    }
+
+	  data_ref = build_fold_indirect_ref (dataref_ptr);
+
+	  /* Arguments are ready. create the new vector stmt.  */
+	  new_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd);
+	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+	  /* Copy the V_MAY_DEFS representing the aliasing of the original array
+	     element's definition to the vector's definition then update the
+	     defining statement.  The original is being deleted so the same
+	     SSA_NAMEs can be used.  */
           /* If this virtual def has a use outside the loop and a loop peel is 
 	     performed then the def may be renamed by the peel.  Mark it for 
 	     renaming so the later use will also be renamed.  */
-      copy_virtual_operands (new_stmt, stmt);
+	  copy_virtual_operands (new_stmt, stmt);
 
-      if (j == 0)
-	{
-          /* The original is being deleted so the same SSA_NAMEs 
-	     can be used.  */
-	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
+	  if (j == 0)
 	    {
-	      SSA_NAME_DEF_STMT (def) = new_stmt;
-	      mark_sym_for_renaming (SSA_NAME_VAR (def));
+	      /* The original is being deleted so the same SSA_NAMEs 
+		 can be used.  */
+	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
+		{
+		  SSA_NAME_DEF_STMT (def) = new_stmt;
+		  mark_sym_for_renaming (SSA_NAME_VAR (def));
+		}
 	    }
-	}
-      else
-	{
-           /* Create new names for all the definitions created by COPY and
-              add replacement mappings for each new name.  */
-           FOR_EACH_SSA_DEF_OPERAND (def_p, new_stmt, iter, SSA_OP_VMAYDEF)
-	     {
-               create_new_def_for (DEF_FROM_PTR (def_p), new_stmt, def_p);
-	       mark_sym_for_renaming (SSA_NAME_VAR (DEF_FROM_PTR (def_p)));
-	     }
+	  else
+	    {
+	      /* Create new names for all the definitions created by COPY and
+		 add replacement mappings for each new name.  */
+	      FOR_EACH_SSA_DEF_OPERAND (def_p, new_stmt, iter, SSA_OP_VMAYDEF)
+		{
+		  create_new_def_for (DEF_FROM_PTR (def_p), new_stmt, def_p);
+		  mark_sym_for_renaming (SSA_NAME_VAR (DEF_FROM_PTR (def_p)));
+		}
+	    }
+
+	  if (j == 0)
+	    STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+	  else
+	    {
+	      gcc_assert (prev_stmt_info);
+	      STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+	    }
+	  prev_stmt_info = vinfo_for_stmt (new_stmt);
+	  prev_dataref_ptr = dataref_ptr;
 	}
 
-      if (j == 0)
-        STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
-      else
+      *vec_stmt = NULL;
+      return true;
+    }
+}
+
+
+/* Function vect_permute_load_chain.
+
+   Given a chain of interleaved loads in DR_CHAIN of LENGTH that must be
+   a power of 2, generate extract_even/odd stmts to reorder the input data 
+   correctly. Return the final references for loads in RESULT_CHAIN.
+
+*/
+
+static bool
+vect_permute_load_chain (VEC(tree,heap) *dr_chain, 
+			 unsigned int length, 
+			 tree stmt, 
+			 block_stmt_iterator *bsi,
+			 enum dr_alignment_support alignment_support_cheme,
+			 struct data_reference *dr,
+			 VEC(tree,heap) **result_chain)
+{
+  tree perm_dest, perm_stmt, data_ref, vect;
+  optab perm_even_optab, perm_odd_optab;
+  tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
+  enum machine_mode vec_mode = TYPE_MODE (vectype);
+  tree vect_stmt, first_vect = NULL_TREE, second_vect, vec_dest_tmp, scalar_dest;
+  int i;
+  unsigned int j;
+  VEC(tree,heap) *even = NULL, *odd = NULL;
+  
+  scalar_dest = TREE_OPERAND (stmt, 0);
+
+  /* Check that the operation is supported.  */
+  if (!targetm.vectorize.builtin_extract_even
+      || !targetm.vectorize.builtin_extract_even (vectype, NULL_TREE,
+						  NULL_TREE, NULL_TREE))
+    {
+      perm_even_optab = optab_for_tree_code (VEC_EXTRACT_EVEN_EXPR, vectype);
+      if (!perm_even_optab)
 	{
-          gcc_assert (prev_stmt_info);
-          STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "no optab for perm_even.");
+	  return false;
 	}
-      prev_stmt_info = vinfo_for_stmt (new_stmt);
-      prev_dataref_ptr = dataref_ptr;
+      if (perm_even_optab->handlers[(int) vec_mode].insn_code 
+	  == CODE_FOR_nothing)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "perm_even op not supported by target.");
+	  return false;
+	}
+    }
+  if (!targetm.vectorize.builtin_extract_odd
+      || !targetm.vectorize.builtin_extract_odd (vectype, NULL_TREE,
+						 NULL_TREE, NULL_TREE))
+    {
+      perm_odd_optab = optab_for_tree_code (VEC_EXTRACT_ODD_EXPR, vectype);
+      if (!perm_odd_optab)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "no optab for perm_odd.");
+	  return false;
+	}
+      if (perm_odd_optab->handlers[(int) vec_mode].insn_code 
+	  == CODE_FOR_nothing)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "perm_odd op not supported by target.");
+	  return false;
+	}
     }
 
-  *vec_stmt = NULL;
+  for (i = 0; i < exact_log2(length); i++)
+    {
+      if (i)
+	{
+	  VEC_free (tree, heap, even);
+	  VEC_free (tree, heap, odd);
+	}
+      even = VEC_alloc (tree, heap, length/2);
+      odd = VEC_alloc (tree, heap, length/2);
+      for (j = 0; VEC_iterate(tree, dr_chain, j, data_ref); j++)
+	{
+	  if (i || alignment_support_cheme == dr_unaligned_software_pipeline)
+	    /* The input vectors for permute are the output vectors of previous
+	       permutes, i.e., there is no need for additional load. Or they
+	       were loaded with mislalignment support.	*/
+	    vect = data_ref;
+	  else
+	    {
+	      /* Create: vect = *data_ref; */
+	      vec_dest_tmp = vect_create_destination_var (scalar_dest, vectype);
+
+	      if (alignment_support_cheme == dr_aligned)
+		data_ref = build_fold_indirect_ref (data_ref);
+	      else /* dr_unaligned_supported */
+		{
+		  int mis = DR_MISALIGNMENT (dr);
+		  tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
+		  tmis = size_binop (MULT_EXPR, tmis, size_int (BITS_PER_UNIT));
+		  data_ref = build2 (MISALIGNED_INDIRECT_REF, vectype, data_ref, 
+				     tmis);
+		}
+	      vect_stmt = build2 (MODIFY_EXPR, vectype, vec_dest_tmp, data_ref); 
+	      vect = make_ssa_name (vec_dest_tmp, vect_stmt);
+	      TREE_OPERAND (vect_stmt, 0) = vect;
+	      vect_finish_stmt_generation (stmt, vect_stmt, bsi);
+	      copy_virtual_operands (vect_stmt, stmt);
+	    }
+
+	  /* We need two vectors for permute: J and J+1. For J we only store the 
+	     vector in FIRST_VECT. For J+1 we create permute stmts for the 
+	     vector from the previous iteration, FIRST_VECT, and the current
+	     vector, SECOND_VECT.  */
+	  if (j % 2 == 0)
+	    first_vect = vect;
+	  else
+	    {
+	      ssa_op_iter iter;
+	      use_operand_p use_p;
+
+	      second_vect = vect;
+
+	      /* data_ref = permute_even (first_data_ref, second_data_ref);  */
+	      perm_dest = create_tmp_var (vectype, "vect_perm_even");
+	      add_referenced_tmp_var (perm_dest);
+	 
+	      if (targetm.vectorize.builtin_extract_even
+		  && targetm.vectorize.builtin_extract_even (vectype,
+					       NULL_TREE, NULL_TREE, NULL_TREE))
+		perm_stmt = targetm.vectorize.builtin_extract_even (perm_dest,
+					       first_vect, second_vect, stmt);
+	      else
+		perm_stmt = build2 (MODIFY_EXPR, vectype, perm_dest,
+				    build2 (VEC_EXTRACT_EVEN_EXPR, vectype, 
+					    first_vect,
+					    second_vect));
+
+	      data_ref = make_ssa_name (perm_dest, perm_stmt);
+	      TREE_OPERAND (perm_stmt, 0) = data_ref;
+	      vect_finish_stmt_generation (stmt, perm_stmt, bsi);
+
+	      /* CHECKME.  */
+	      FOR_EACH_SSA_USE_OPERAND (use_p, perm_stmt, iter,
+					SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
+		{
+		  tree op = USE_FROM_PTR (use_p);
+		  if (TREE_CODE (op) == SSA_NAME)
+		    op = SSA_NAME_VAR (op);
+		  mark_sym_for_renaming (op);
+		}
+	      VEC_quick_push (tree, even, data_ref);
+	      
+	      /* second_data_ref = permute_odd (first_data_ref, second_data_ref);  */
+	      perm_dest = create_tmp_var (vectype, "vect_perm_odd");
+	      add_referenced_tmp_var (perm_dest);
+
+	      if (targetm.vectorize.builtin_extract_odd
+		  && targetm.vectorize.builtin_extract_odd (vectype,
+					    NULL_TREE, NULL_TREE, NULL_TREE))
+		perm_stmt = targetm.vectorize.builtin_extract_odd (perm_dest,
+						   first_vect, second_vect, stmt);
+	      else
+		perm_stmt = build2 (MODIFY_EXPR, vectype, perm_dest,
+				    build2 (VEC_EXTRACT_ODD_EXPR, vectype, 
+					    first_vect,
+					    second_vect));
+	      data_ref = make_ssa_name (perm_dest, perm_stmt);
+	      TREE_OPERAND (perm_stmt, 0) = data_ref;
+	      vect_finish_stmt_generation (stmt, perm_stmt, bsi);
+
+	      /* CHECKME.  */
+	      FOR_EACH_SSA_USE_OPERAND (use_p, perm_stmt, iter,
+			       	SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
+		{
+		  tree op = USE_FROM_PTR (use_p);
+		  if (TREE_CODE (op) == SSA_NAME)
+		    op = SSA_NAME_VAR (op);
+		  mark_sym_for_renaming (op);
+		}
+
+	      VEC_quick_push(tree, odd, data_ref);	  
+	    }
+	}
+      /* Copy the results of even permute first, and then of the odd, to
+	 continue.  */
+      for (j = 0; VEC_iterate(tree, even, j, data_ref); j++)      
+	VEC_replace (tree, dr_chain, j, data_ref);
+      for (j = 0; VEC_iterate(tree, odd, j, data_ref); j++)      
+	VEC_replace (tree, dr_chain, j+length/2, data_ref);
+    }
+  *result_chain = VEC_copy (tree, heap, dr_chain);
   return true;
 }
 
@@ -2673,6 +3216,13 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
   int j;
+  struct data_reference *dr_for_alignment_check;
+  tree first_stmt = NULL_TREE;
+  VEC(tree,heap) *dr_chain = NULL, *result_chain = NULL;
+  unsigned int i, size = 0;
+  tree tmp_data_ref, next_stmt;
+  optab perm_even_optab, perm_odd_optab;
+  unsigned int num;
 
   gcc_assert (ncopies >= 1);
 
@@ -2698,7 +3248,8 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     return false;
 
   op = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (op) != ARRAY_REF && TREE_CODE (op) != INDIRECT_REF)
+  if (TREE_CODE (op) != ARRAY_REF && TREE_CODE (op) != INDIRECT_REF
+      && !DR_GROUP_FIRST_DR (stmt_info))
     return false;
 
   if (!STMT_VINFO_DATA_REF (stmt_info))
@@ -2715,6 +3266,56 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
 
+  /* Interleaving.  */
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    {
+      /* FORNOW.  */
+      if (ncopies > 1)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, 
+	     "Interleaving and multiple types are not vectorizable together.");
+	  return false;
+	}
+      if (!targetm.vectorize.builtin_extract_even
+	  || !targetm.vectorize.builtin_extract_even (vectype, NULL_TREE,
+						      NULL_TREE, NULL_TREE))
+	{
+	  perm_even_optab = optab_for_tree_code (VEC_EXTRACT_EVEN_EXPR, 
+						 vectype);
+	  if (!perm_even_optab)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "no optab for perm_even.");
+	      return false;
+	    }
+	  if (perm_even_optab->handlers[mode].insn_code == CODE_FOR_nothing)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "perm_even op not supported by target.");
+	      return false;
+	    }
+	}
+      if (!targetm.vectorize.builtin_extract_odd
+	  || !targetm.vectorize.builtin_extract_odd (vectype, NULL_TREE,
+						     NULL_TREE, NULL_TREE))
+	{
+	  perm_odd_optab = optab_for_tree_code (VEC_EXTRACT_ODD_EXPR, vectype);
+	  if (!perm_odd_optab)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "no optab for perm_odd.");
+	      return false;
+	    }
+	  if (perm_odd_optab->handlers[mode].insn_code == CODE_FOR_nothing)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "perm_odd op not supported by target.");
+	      return false;
+	    }
+	}
+    }
+
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = load_vec_info_type;
@@ -2726,7 +3327,49 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "transform load.");
 
-  alignment_support_cheme = vect_supportable_dr_alignment (dr);
+  /* Interleaving.  */
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    {
+      if (DR_GROUP_VECTORIZED (vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info))))
+	{
+	  /* Vectorized interleaving. 
+	     DATA_REF was stored in the VECTORIZED_STMT field.  */
+	  data_ref = STMT_VINFO_VEC_STMT (stmt_info);
+
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+	  new_temp = make_ssa_name (vec_dest, new_stmt);
+	  TREE_OPERAND (new_stmt, 0) = new_temp;
+	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	  copy_virtual_operands (new_stmt, stmt);
+
+	  STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+	  *vec_stmt = NULL_TREE;
+	  return true;	  
+	}
+      /* Not vectorized interleaving, we vectorize it now.  */
+
+      first_stmt = DR_GROUP_FIRST_DR (stmt_info);
+
+      /* For interleaving check that the first access is aligned.  */
+      dr_for_alignment_check = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
+      size = DR_GROUP_SIZE (vinfo_for_stmt (first_stmt));
+
+      /* Create interleaving chains. DR_CHAIN contains input data-refs
+	 that are a part of the interleaving. RESULT_CHAIN is the output
+	 of vect_permute_load_chain, it contains permuted vectors, that are 
+	 ready for vector computation.  */
+      dr_chain = VEC_alloc (tree, heap, size);
+      result_chain = VEC_alloc (tree, heap, size);
+    }
+  else 
+    {
+      dr_for_alignment_check = dr;
+      first_stmt = stmt;
+    }
+
+  alignment_support_cheme = vect_supportable_dr_alignment (
+						      dr_for_alignment_check);
   gcc_assert (alignment_support_cheme);
 
   /* In case the vectorization factor (VF) is bigger than the number
@@ -2775,75 +3418,149 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
          }
       */
 
-      prev_stmt_info = NULL;
-      for (j = 0; j < ncopies; j++)
+      /* Interleaving.  */
+      if (DR_GROUP_FIRST_DR (stmt_info))
 	{
-	  if (j == 0)
-	    {
-	      /* Create new pointer.  */
-	      dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
-						      &dummy, &ptr_incr, false);
-	    }
-	  else
-	    {
-	      /* Bump the vector pointer.  */
-	      tree vptr_type = TREE_TYPE (dataref_ptr);
-	      tree ptr_var = SSA_NAME_VAR (dataref_ptr);
-	      tree update = fold_convert (vptr_type, TYPE_SIZE_UNIT (vectype));
-	      tree incr = build2 (PLUS_EXPR, vptr_type, dataref_ptr, update);
-	      ssa_op_iter iter;
-	      use_operand_p use_p;
-
-              new_stmt = build2 (MODIFY_EXPR, vptr_type, ptr_var, incr);
-              dataref_ptr = make_ssa_name (ptr_var, new_stmt);
-              TREE_OPERAND (new_stmt, 0) = dataref_ptr;
-              vect_finish_stmt_generation (stmt, new_stmt, bsi);
-
-	      /* Update the vector-pointer's cross-iteration increment.  */
-	      FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
-		{
-		  tree use = USE_FROM_PTR (use_p);
-
-		  if (use == prev_dataref_ptr)
-		    SET_USE (use_p, dataref_ptr);
-		  else
-		    gcc_assert (tree_int_cst_compare (use, update) == 0);
-		}
-
-              /* Copy the points-to information if it exists. */
-              if (DR_PTR_INFO (dr))
-                duplicate_ssa_name_ptr_info (dataref_ptr, DR_PTR_INFO (dr));
-              merge_alias_info (dataref_ptr, prev_dataref_ptr); /* CHECKME */
-	    }
-
-	  if (aligned_access_p (dr))
-	    data_ref = build_fold_indirect_ref (dataref_ptr);
-	  else
-	    {
-	      int mis = DR_MISALIGNMENT (dr);
-	
-	      tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
-	      tmis = size_binop (MULT_EXPR, tmis, size_int (BITS_PER_UNIT));
-	      data_ref = 
-		build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
-	    }
+	  /* This interleaving scheme has not been vectorized yet.  We 
+	     vectorize it now.  */
+	  tree first_data_ref, dummy1;
 
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+
+	  /* Insert data-refs into DR_CHAIN in their order in memory (not in 
+	     the code).  */
+	  first_data_ref = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
+						     &dummy1, &dummy, false, 
+						     &dr_chain);
+	  /* Permute.  */
+	  if (!vect_permute_load_chain (dr_chain, size, stmt, bsi, 
+				   alignment_support_cheme, 
+				   dr_for_alignment_check, &result_chain))
+	    return false;
+
+	  /* Put a permuted data-ref in the VECTORIZED_STMT field.  */
+	  next_stmt = first_stmt;
+	  num = 1;
+	  for (i = 0; VEC_iterate(tree, result_chain, i, tmp_data_ref); i++)
+	    {
+	      if (!next_stmt)
+		break;
+
+	      /* Skip stmts with same drs, handle them later.  */
+	      while (next_stmt 
+		     && DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt)))
+		next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	      
+	      if (!next_stmt)
+		break;
+
+	      /* Skip the gaps.  */
+	      if (num < DR_GROUP_GAP (vinfo_for_stmt (next_stmt)))
+		{
+		  num++;
+		  continue;
+		}
+	      STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt)) = tmp_data_ref;		  
+	      num = 1;
+	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	    }
+
+	  /* Put a data-ref of the SAME_DR_STMT in stmts that have same dr.  */
+	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (first_stmt));
+	  while (next_stmt)
+	    {
+	      if (DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt)))
+		STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt))  
+		  = STMT_VINFO_VEC_STMT (vinfo_for_stmt (
+		       DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt))));
+	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	    }
+	  
+	  DR_GROUP_VECTORIZED (vinfo_for_stmt (first_stmt)) = true;
+	  data_ref = STMT_VINFO_VEC_STMT (stmt_info);
+
 	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
 	  TREE_OPERAND (new_stmt, 0) = new_temp;
 	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
 	  copy_virtual_operands (new_stmt, stmt);
 
-	  if (j == 0)
-	    STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
-	  else
+	  STMT_VINFO_VEC_STMT (vinfo_for_stmt (stmt)) = new_stmt;
+	  *vec_stmt = NULL_TREE;
+	  return true;
+	}
+      else
+	{
+	  prev_stmt_info = NULL;
+	  for (j = 0; j < ncopies; j++)
 	    {
-	      gcc_assert (prev_stmt_info);
-	      STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt; 
+	      if (j == 0)
+		{
+		  /* Create new pointer.  */
+		  dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
+							  &dummy, &ptr_incr, false, NULL);
+		}
+	      else
+		{
+		  /* Bump the vector pointer.  */
+		  tree vptr_type = TREE_TYPE (dataref_ptr);
+		  tree ptr_var = SSA_NAME_VAR (dataref_ptr);
+		  tree update = fold_convert (vptr_type, TYPE_SIZE_UNIT (vectype));
+		  tree incr = build2 (PLUS_EXPR, vptr_type, dataref_ptr, update);
+		  ssa_op_iter iter;
+		  use_operand_p use_p;
+
+		  new_stmt = build2 (MODIFY_EXPR, vptr_type, ptr_var, incr);
+		  dataref_ptr = make_ssa_name (ptr_var, new_stmt);
+		  TREE_OPERAND (new_stmt, 0) = dataref_ptr;
+		  vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+		  /* Update the vector-pointer's cross-iteration increment.  */
+		  FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
+		    {
+		      tree use = USE_FROM_PTR (use_p);
+
+		      if (use == prev_dataref_ptr)
+			SET_USE (use_p, dataref_ptr);
+		      else
+			gcc_assert (tree_int_cst_compare (use, update) == 0);
+		    }
+
+		  /* Copy the points-to information if it exists. */
+		  if (DR_PTR_INFO (dr))
+		    duplicate_ssa_name_ptr_info (dataref_ptr, DR_PTR_INFO (dr));
+		  merge_alias_info (dataref_ptr, prev_dataref_ptr); /* CHECKME */
+		}
+
+	      if (aligned_access_p (dr))
+		data_ref = build_fold_indirect_ref (dataref_ptr);
+	      else
+		{
+		  int mis = DR_MISALIGNMENT (dr);
+	
+		  tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
+		  tmis = size_binop (MULT_EXPR, tmis, size_int (BITS_PER_UNIT));
+		  data_ref = 
+		    build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
+		}
+
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	      copy_virtual_operands (new_stmt, stmt);
+
+	      if (j == 0)
+		STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+	      else
+		{
+		  gcc_assert (prev_stmt_info);
+		  STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt; 
+		}
+	      prev_stmt_info = vinfo_for_stmt (new_stmt);
+	      prev_dataref_ptr = dataref_ptr;
 	    }
-	  prev_stmt_info = vinfo_for_stmt (new_stmt);
-	  prev_dataref_ptr = dataref_ptr;
 	}
     }
   else if (alignment_support_cheme == dr_unaligned_software_pipeline)
@@ -2864,107 +3581,72 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       */
 
       tree offset;
-      tree magic;
+      tree magic = NULL_TREE;
       tree phi_stmt;
       tree msq_init;
       tree msq, lsq;
       tree params;
+      unsigned int i;
 
-      /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
-      vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      data_ref = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
-					   &init_addr, NULL, true);
-      data_ref = build1 (ALIGN_INDIRECT_REF, vectype, data_ref);
-      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
-      new_temp = make_ssa_name (vec_dest, new_stmt);
-      TREE_OPERAND (new_stmt, 0) = new_temp;
-      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
-      gcc_assert (!new_bb);
-      msq_init = TREE_OPERAND (new_stmt, 0);
-      copy_virtual_operands (new_stmt, stmt);
-      update_vuses_to_preheader (new_stmt, loop);
-
-      /* <2> */
-      if (targetm.vectorize.builtin_mask_for_load)
+      if (DR_GROUP_FIRST_DR (stmt_info))
 	{
-	  /* Create permutation mask, if required, in loop preheader.  */
-	  tree builtin_decl;
-	  params = build_tree_list (NULL_TREE, init_addr);
+	  /* Vectorize interleaved loads in the loop.  */
+	  tree dummy1;
+
+	  /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  builtin_decl = targetm.vectorize.builtin_mask_for_load ();
-	  new_stmt = build_function_call_expr (builtin_decl, params);
-	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	  data_ref = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
+					       &init_addr, NULL, true, NULL);
+	  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, data_ref);
+	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
 	  TREE_OPERAND (new_stmt, 0) = new_temp;
 	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
 	  gcc_assert (!new_bb);
-	  magic = TREE_OPERAND (new_stmt, 0);
+	  msq_init = TREE_OPERAND (new_stmt, 0);
+	  copy_virtual_operands (new_stmt, stmt);
+	  update_vuses_to_preheader (new_stmt, loop);
 
-	  /* The result of the CALL_EXPR to this builtin is determined from
-	     the value of the parameter and no global variables are touched
-	     which makes the builtin a "const" function.  Requiring the
-	     builtin to have the "const" attribute makes it unnecessary
-	     to call mark_call_clobbered_vars_to_rename.  */
-	  gcc_assert (TREE_READONLY (builtin_decl));
-	}
-      else
-	{
-	  /* Use current address instead of init_addr for reduced reg pressure.
-	   */
-	  magic = dataref_ptr;
-	}
-
-      /* <3> Create msq = phi <msq_init, lsq> in loop  */
-      vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      msq = make_ssa_name (vec_dest, NULL_TREE);
-      phi_stmt = create_phi_node (msq, loop->header);
-      SSA_NAME_DEF_STMT (msq) = phi_stmt;
-      add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
-
-      /* <4> Create code in the loop:  */
-      prev_stmt_info = NULL;
-      for (j = 0; j < ncopies; j++)
-        {
-	  /* <4.1> Create lsq = *(floor(p2')) in the loop  */
-	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
-
-	  if (j == 0)
+	  /* <3> */
+	  if (targetm.vectorize.builtin_mask_for_load)
 	    {
-	      /* Create new pointer.  */
-	      dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, offset, 
-						      &dummy, &ptr_incr, false);
+	      /* Create permutation mask, if required, in loop preheader.  */
+	      tree builtin_decl;
+	      params = build_tree_list (NULL_TREE, init_addr);
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      builtin_decl = targetm.vectorize.builtin_mask_for_load ();
+	      new_stmt = build_function_call_expr (builtin_decl, params);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+	      gcc_assert (!new_bb);
+	      magic = TREE_OPERAND (new_stmt, 0);
+
+	      /* The result of the CALL_EXPR to this builtin is determined from
+		 the value of the parameter and no global variables are touched
+		 which makes the builtin a "const" function.  Requiring the
+		 builtin to have the "const" attribute makes it unnecessary
+		 to call mark_call_clobbered_vars_to_rename.  */
+	      gcc_assert (TREE_READONLY (builtin_decl));
 	    }
-	  else
-	    {
-	      /* Bump the vector pointer.  */
-              tree vptr_type = TREE_TYPE (dataref_ptr);
-              tree ptr_var = SSA_NAME_VAR (dataref_ptr);
-              tree update = fold_convert (vptr_type, TYPE_SIZE_UNIT (vectype));
-              tree incr = build2 (PLUS_EXPR, vptr_type, dataref_ptr, update);
-	      ssa_op_iter iter;
-	      use_operand_p use_p;
 
-              new_stmt = build2 (MODIFY_EXPR, vptr_type, ptr_var, incr);
-              dataref_ptr = make_ssa_name (ptr_var, new_stmt);
-              TREE_OPERAND (new_stmt, 0) = dataref_ptr;
-              vect_finish_stmt_generation (stmt, new_stmt, bsi);
-
-	      /* Update the vector-pointer's cross-iteration increment.  */
-	      FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
-		{
-		  tree use = USE_FROM_PTR (use_p);
-		  if (use == prev_dataref_ptr)
-		    SET_USE (use_p, dataref_ptr);
-		  else
-		    gcc_assert (tree_int_cst_compare (use, update) == 0);
-		}
-
-	      /* Copy the points-to information if it exists. */
-	      if (DR_PTR_INFO (dr))
-		duplicate_ssa_name_ptr_info (dataref_ptr, DR_PTR_INFO (dr));
-	      merge_alias_info (dataref_ptr, prev_dataref_ptr); /* CHECKME */
-	    }
+	  /* <4> Create msq = phi <msq_init, lsq> in loop  */ 
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  msq = make_ssa_name (vec_dest, NULL_TREE);
+	  phi_stmt = create_phi_node (msq, loop->header);
+	  SSA_NAME_DEF_STMT (msq) = phi_stmt;
+	  add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
+
+	  /* <2> Create lsq = *(floor(p2')) in the loop  */ 
+	  offset = build_int_cst (integer_type_node, 
+				  TYPE_VECTOR_SUBPARTS (vectype));
+	  offset = int_const_binop (MINUS_EXPR, offset, integer_one_node, 1);
+
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  dataref_ptr = vect_create_data_ref_ptr (first_stmt, bsi, offset, &dummy1,
+						  &dummy, false, &dr_chain);
+	  dataref_ptr = VEC_index (tree, dr_chain, 0);
 	  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
 	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
@@ -2972,27 +3654,250 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
 	  lsq = TREE_OPERAND (new_stmt, 0);
 	  copy_virtual_operands (new_stmt, stmt);
+	  
+	  /* <3> */
+	  if (!targetm.vectorize.builtin_mask_for_load)
+	    {
+	      /* Use current address instead of init_addr for reduced reg pressure.
+	       */
+	      magic = dataref_ptr;
+	    }
+	  /* <5> Create <vec_dest = realign_load (msq, lsq, magic)> in loop  */
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  new_stmt = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, magic);
+	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	  new_temp = make_ssa_name (vec_dest, new_stmt); 
+	  TREE_OPERAND (new_stmt, 0) = new_temp;
+	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
 
-          /* <4.2> Create <vec_dest = realign_load (msq, lsq, magic)>  */
-          vec_dest = vect_create_destination_var (scalar_dest, vectype);
-          new_stmt = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, magic);
-          new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
-          new_temp = make_ssa_name (vec_dest, new_stmt);
-          TREE_OPERAND (new_stmt, 0) = new_temp;
-          vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	  VEC_replace(tree, dr_chain, 0, new_temp); 
+	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (first_stmt));
+	  i = 1;
+          for (i = 1; i < size; )
+            {
+	      /* Skip stmts with the same dr.  */
+	      if (next_stmt 
+		  && DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt)))
+		{
+		  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));	    
+		  continue;
+		}
+	      msq = lsq; 
 
-	  /* <4.3> next msq <-- prev lsq */
-	  if (j == ncopies - 1)
-	    add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
+	      /* <2> Create lsq = *(floor(p2')) in the loop  */ 
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      dataref_ptr = VEC_index (tree, dr_chain, i);
+	      data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	      lsq = TREE_OPERAND (new_stmt, 0);
+	      copy_virtual_operands (new_stmt, stmt);
+
+	      /* <5> Create <vec_dest = realign_load (msq, lsq, magic)> in loop  */
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      new_stmt = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, magic);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	      new_temp = make_ssa_name (vec_dest, new_stmt); 
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+	      VEC_replace (tree, dr_chain, i, new_temp); 
+	      if (next_stmt)
+		next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	      i++;
+	    }
+	
+	  /* Permute.  */
+	  if (!vect_permute_load_chain (dr_chain, size, stmt, bsi, 
+				   alignment_support_cheme, 
+				   dr_for_alignment_check,
+				   &result_chain))
+	    return false;
+	  
+	  /* Put a permuted data-ref in the VECTORIZED_STMT field.  */
+	  next_stmt = first_stmt;
+	  num = 1;
+	  for (i = 0; VEC_iterate(tree, result_chain, i, tmp_data_ref); i++)
+	    {
+	      if (!next_stmt)
+		break;
+
+	      /* Handle stmts with same dr later.  */
+	      while (next_stmt 
+		     && DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt)))
+		next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	      
+	      if (!next_stmt)
+		break;
+
+	      /* Skip the gaps.  */
+	      if (num < DR_GROUP_GAP (vinfo_for_stmt (next_stmt)))
+		{
+		  num++;
+		  continue;
+		}
+
+	      STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt)) 
+		= tmp_data_ref;		  
+	      num = 1;
+	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	    }
+
+	  /* Put a data-ref of the SAME_DR_STMT in stmts that have same dr.  */
+	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (first_stmt));
+	  while (next_stmt)
+	    {
+	      if (DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt)))
+		STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt))  
+		  = STMT_VINFO_VEC_STMT (vinfo_for_stmt (
+		     DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next_stmt))));
+	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	    }
+
+	  DR_GROUP_VECTORIZED (vinfo_for_stmt (first_stmt)) = true;
+	  
+	  data_ref = STMT_VINFO_VEC_STMT (stmt_info);
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+	  new_temp = make_ssa_name (vec_dest, new_stmt);
+	  TREE_OPERAND (new_stmt, 0) = new_temp;
+	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	  copy_virtual_operands (new_stmt, stmt);
+      
+	  add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
+	  STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+	}
+
+      else
+	{
+	  /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  data_ref = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
+					       &init_addr, NULL, true, NULL);
+	  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, data_ref);
+	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+	  new_temp = make_ssa_name (vec_dest, new_stmt);
+	  TREE_OPERAND (new_stmt, 0) = new_temp;
+	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+	  gcc_assert (!new_bb);
+	  msq_init = TREE_OPERAND (new_stmt, 0);
+	  copy_virtual_operands (new_stmt, stmt);
+	  update_vuses_to_preheader (new_stmt, loop);
+
+	  /* <2> */
+	  if (targetm.vectorize.builtin_mask_for_load)
+	    {
+	      /* Create permutation mask, if required, in loop preheader.  */
+	      tree builtin_decl;
+	      params = build_tree_list (NULL_TREE, init_addr);
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      builtin_decl = targetm.vectorize.builtin_mask_for_load ();
+	      new_stmt = build_function_call_expr (builtin_decl, params);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+	      gcc_assert (!new_bb);
+	      magic = TREE_OPERAND (new_stmt, 0);
+
+	      /* The result of the CALL_EXPR to this builtin is determined from
+		 the value of the parameter and no global variables are touched
+		 which makes the builtin a "const" function.  Requiring the
+		 builtin to have the "const" attribute makes it unnecessary
+		 to call mark_call_clobbered_vars_to_rename.  */
+	      gcc_assert (TREE_READONLY (builtin_decl));
+	    }
 	  else
-	    msq = lsq; 
+	    {
+	      /* Use current address instead of init_addr for reduced reg pressure.
+	       */
+	      magic = dataref_ptr;
+	    }
 
-          if (j == 0)
-            STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
-          if (prev_stmt_info)
-            STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
-          prev_stmt_info = vinfo_for_stmt (new_stmt);
-	  prev_dataref_ptr = dataref_ptr;
+	  /* <3> Create msq = phi <msq_init, lsq> in loop  */
+	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	  msq = make_ssa_name (vec_dest, NULL_TREE);
+	  phi_stmt = create_phi_node (msq, loop->header);
+	  SSA_NAME_DEF_STMT (msq) = phi_stmt;
+	  add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
+
+	  /* <4> Create code in the loop:  */
+	  prev_stmt_info = NULL;
+	  for (j = 0; j < ncopies; j++)
+	    {
+	      /* <4.1> Create lsq = *(floor(p2')) in the loop  */
+	      offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+
+	      if (j == 0)
+		{
+		  /* Create new pointer.  */
+		  dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, offset, 
+							  &dummy, &ptr_incr, 
+							  false, NULL);
+		}
+	      else
+		{
+		  /* Bump the vector pointer.  */
+		  tree vptr_type = TREE_TYPE (dataref_ptr);
+		  tree ptr_var = SSA_NAME_VAR (dataref_ptr);
+		  tree update = fold_convert (vptr_type, 
+					      TYPE_SIZE_UNIT (vectype));
+		  tree incr = build2 (PLUS_EXPR, vptr_type, dataref_ptr, update);
+		  ssa_op_iter iter;
+		  use_operand_p use_p;
+
+		  new_stmt = build2 (MODIFY_EXPR, vptr_type, ptr_var, incr);
+		  dataref_ptr = make_ssa_name (ptr_var, new_stmt);
+		  TREE_OPERAND (new_stmt, 0) = dataref_ptr;
+		  vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+		  /* Update the vector-pointer's cross-iteration increment.  */
+		  FOR_EACH_SSA_USE_OPERAND (use_p, ptr_incr, iter, SSA_OP_USE)
+		    {
+		      tree use = USE_FROM_PTR (use_p);
+		      if (use == prev_dataref_ptr)
+			SET_USE (use_p, dataref_ptr);
+		      else
+			gcc_assert (tree_int_cst_compare (use, update) == 0);
+		    }
+
+		  /* Copy the points-to information if it exists. */
+		  if (DR_PTR_INFO (dr))
+		    duplicate_ssa_name_ptr_info (dataref_ptr, DR_PTR_INFO (dr));
+		  merge_alias_info (dataref_ptr, prev_dataref_ptr); /* CHECKME */
+		}
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+	      lsq = TREE_OPERAND (new_stmt, 0);
+	      copy_virtual_operands (new_stmt, stmt);
+
+	      /* <4.2> Create <vec_dest = realign_load (msq, lsq, magic)>  */
+	      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+	      new_stmt = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, magic);
+	      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	      new_temp = make_ssa_name (vec_dest, new_stmt);
+	      TREE_OPERAND (new_stmt, 0) = new_temp;
+	      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+	      /* <4.3> next msq <-- prev lsq */
+	      if (j == ncopies - 1)
+		add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
+	      else
+		msq = lsq; 
+
+	      if (j == 0)
+		STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+	      if (prev_stmt_info)
+		STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+	      prev_stmt_info = vinfo_for_stmt (new_stmt);
+	      prev_dataref_ptr = dataref_ptr;
+	    }
 	}
     }
   else
@@ -3228,12 +4133,14 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
    Create a vectorized stmt to replace STMT, and insert it at BSI.  */
 
 static bool
-vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
+vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *interleaving)
 {
   bool is_store = false;
   tree vec_stmt = NULL_TREE;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   bool done;
+
+  *interleaving = false;
 
   if (STMT_VINFO_RELEVANT_P (stmt_info))
     {
@@ -3265,9 +4172,15 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
 	break;
 
       case store_vec_info_type:
-	done = vectorizable_store (stmt, bsi, &vec_stmt);
+	done = vectorizable_store (stmt, bsi, &vec_stmt, interleaving);
 	gcc_assert (done);
-	is_store = true;
+	if (*interleaving)
+	  {
+	    if (DR_GROUP_VECTORIZED (stmt_info))
+	      is_store = true;
+	  }
+	else
+	  is_store = true;
 	break;
 
       case condition_vec_info_type:
@@ -3285,32 +4198,78 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
         STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
     }
 
-  if (STMT_VINFO_LIVE_P (stmt_info))
+  if (*interleaving)
     {
-      switch (STMT_VINFO_TYPE (stmt_info))
-      {
-       case target_reduc_pattern_vec_info_type:
-        done = vectorizable_target_reduction_pattern (stmt, bsi, &vec_stmt);
-        gcc_assert (done);
-        break;
+      if (DR_GROUP_VECTORIZED (stmt_info))
+	{
+	  tree next_stmt = DR_GROUP_FIRST_DR (stmt_info);
 
-      case reduc_vec_info_type:
-        done = vectorizable_reduction (stmt, bsi, &vec_stmt);
-        gcc_assert (done);
-        break;
+	  while (next_stmt)
+	    {
+	      if (STMT_VINFO_LIVE_P (vinfo_for_stmt (next_stmt)))
+		{
+		  vec_stmt = STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt));
 
-      default:
-        done = vectorizable_live_operation (stmt, bsi, &vec_stmt);
-        gcc_assert (done);
-      }
+		  switch (STMT_VINFO_TYPE (vinfo_for_stmt (next_stmt)))
+		    {
+		    case target_reduc_pattern_vec_info_type:
+		      done = vectorizable_target_reduction_pattern (next_stmt, 
+								    bsi, 
+								    &vec_stmt);
+		      gcc_assert (done);
+		      break;
 
-      if (vec_stmt)
-        {
-          gcc_assert (!STMT_VINFO_VEC_STMT (stmt_info));
-          STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
-        }
+		    case reduc_vec_info_type:
+		      done = vectorizable_reduction (next_stmt, bsi, &vec_stmt);
+		      gcc_assert (done);
+		      break;
+		  
+		    default:
+		      done = vectorizable_live_operation (next_stmt, bsi, 
+							  &vec_stmt);
+		      gcc_assert (done);
+		    }
+
+		  if (vec_stmt)
+		    {
+		      gcc_assert (!STMT_VINFO_VEC_STMT (vinfo_for_stmt (
+							       next_stmt)));
+		      STMT_VINFO_VEC_STMT (vinfo_for_stmt (next_stmt)) 
+			= vec_stmt;
+		    }
+		}
+	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	    }
+	}      
     }
+  else 
+    {
+      if (STMT_VINFO_LIVE_P (stmt_info))
+	{
+	  switch (STMT_VINFO_TYPE (stmt_info))
+	    {
+	    case target_reduc_pattern_vec_info_type:
+	      done = vectorizable_target_reduction_pattern (stmt, bsi, &vec_stmt);
+	      gcc_assert (done);
+	      break;
+	      
+	    case reduc_vec_info_type:
+	      done = vectorizable_reduction (stmt, bsi, &vec_stmt);
+	      gcc_assert (done);
+	      break;
+	      
+	    default:
+	      done = vectorizable_live_operation (stmt, bsi, &vec_stmt);
+	      gcc_assert (done);
+	    }
 
+	  if (vec_stmt)
+	    {
+	      gcc_assert (!STMT_VINFO_VEC_STMT (stmt_info));
+	      STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
+	    }
+	}
+    }
   return is_store; 
 }
 
@@ -3696,7 +4655,15 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
    prolog_niters = min ( LOOP_NITERS , (VF - addr_mis/elem_size)&(VF-1) )
    
    (elem_size = element type size; an element is the scalar element 
-	whose type is the inner type of the vectype)  */
+	whose type is the inner type of the vectype)  
+
+   For interleaving,
+
+   prolog_niters = min ( LOOP_NITERS , 
+                        (VF/inter_size - addr_mis/elem_size)&(VF/inter_size-1) )
+	 where inter_size is the size of the interleaved group.
+
+*/
 
 static tree 
 vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
@@ -3714,6 +4681,16 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   int vectype_align = TYPE_ALIGN (vectype) / BITS_PER_UNIT;
   tree niters_type = TREE_TYPE (loop_niters);
   int element_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+  int inter_size = 1;
+
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    {
+      /* For interleaved access element size must be multipled by the size of
+	 the interleaved group.  */
+      inter_size = DR_GROUP_SIZE (vinfo_for_stmt (
+					    DR_GROUP_FIRST_DR (stmt_info)));
+      element_size *= inter_size;
+    }
 
   pe = loop_preheader_edge (loop); 
 
@@ -3724,7 +4701,9 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
 
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "known alignment = %d.", byte_misalign);
-      iters = build_int_cst (niters_type, (vf - elem_misalign)&(vf-1));
+
+      iters = build_int_cst (niters_type, 
+			     (vf/inter_size - elem_misalign)&(vf/inter_size-1));
     }
   else
     {
@@ -4017,6 +4996,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   bitmap_iterator bi;
   unsigned int j;
+  bool interleaving;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -4117,15 +5097,49 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    fprintf (vect_dump, "transform statement.");
 
-	  is_store = vect_transform_stmt (stmt, &si);
+	  interleaving = false;
+	  is_store = vect_transform_stmt (stmt, &si, &interleaving);
 	  if (is_store)
 	    {
-	      /* Free the attached stmt_vec_info and remove the stmt.  */
-	      stmt_ann_t ann = stmt_ann (stmt);
-	      free (stmt_info);
-	      set_stmt_info ((tree_ann_t)ann, NULL);
-	      bsi_remove (&si);
-	      continue;
+	      stmt_ann_t ann;
+
+	      if (DR_GROUP_FIRST_DR (stmt_info))
+		{
+		  /* Interleaving - free all the stores in the chain.  */
+		  tree next = DR_GROUP_FIRST_DR (stmt_info);
+		  tree tmp;
+		  stmt_vec_info next_stmt_info;
+
+		  while (next)
+		    {
+		      next_stmt_info = vinfo_for_stmt (next);
+		      /* Free the attached stmt_vec_info and remove the stmt.  */
+		      ann = stmt_ann (next);
+		      tmp = DR_GROUP_NEXT_DR (next_stmt_info);
+		      free (next_stmt_info);
+		      set_stmt_info ((tree_ann_t)ann, NULL);
+		      next = tmp;		      
+		    }
+		  bsi_remove (&si);
+		  continue;
+		}
+	      else
+		{
+		  /* Free the attached stmt_vec_info and remove the stmt.  */
+		  ann = stmt_ann (stmt);
+		  free (stmt_info);
+		  set_stmt_info ((tree_ann_t)ann, NULL);
+		  bsi_remove (&si);
+		  continue;
+		}
+	    }
+	  else 
+	    {
+	      if (interleaving)
+		{
+		  bsi_remove (&si);
+		  continue;
+		}
 	    }
 
 	  bsi_next (&si);
@@ -4145,3 +5159,5 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
     fprintf (vect_dump, "LOOP VECTORIZED.\n");
 }
+
+

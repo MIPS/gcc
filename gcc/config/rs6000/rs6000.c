@@ -160,6 +160,9 @@ enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
 
+static tree rs6000_builtin_extract_even (tree, tree, tree, tree);
+static tree rs6000_builtin_extract_odd (tree, tree, tree, tree);
+
 /* Pattern recognition functions  */
 static _recog_func_ptr
 *target_vect_pattern_recog_funcs;
@@ -922,6 +925,11 @@ static const char alt_reg_names[][8] =
 #undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
 
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN rs6000_builtin_extract_even
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD rs6000_builtin_extract_odd
+
 #undef TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG
 #define TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG rs6000_builtin_vect_pattern_recog
 
@@ -1596,6 +1604,326 @@ rs6000_builtin_mul_widen_odd (tree type)
       return NULL_TREE;
     }
 }
+
+static tree
+rs6000_create_permute_call (tree vec_dest, tree vec1, tree vec2, 
+       tree vec_perm_mask, tree stmt)
+{
+  tree builtin_decl;
+  tree type = TREE_TYPE (vec_dest);
+  tree params = NULL_TREE;
+  tree new_stmt;
+  tree new_temp;
+  block_stmt_iterator bsi = bsi_for_stmt (stmt);
+  tree mask_type = V16QI_type_node;
+  tree perm_dest;
+
+  switch (TYPE_MODE (type))
+    {
+    case V16QImode:
+      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI];
+      break;
+    case V8HImode:
+      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI];
+      break;
+    case V4SImode:
+      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI];
+      break;
+    case V4SFmode:
+      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SF];
+      break;
+    default:
+      return NULL_TREE;
+    }
+
+  /* put permutation mask in a vector variable  */
+  vec_perm_mask = build_vector (mask_type, vec_perm_mask);
+  perm_dest = create_tmp_var (mask_type, "mask");
+  add_referenced_tmp_var (perm_dest);
+  new_stmt = build2 (MODIFY_EXPR, mask_type, perm_dest, vec_perm_mask);
+  new_temp = make_ssa_name (perm_dest, new_stmt);
+  TREE_OPERAND (new_stmt, 0) = new_temp;
+  bsi_insert_before (&bsi, new_stmt, BSI_SAME_STMT);
+
+  /* build params for vperm: vec1, vec2, permutation_mask_vec.  */
+  params = build_tree_list (NULL_TREE, new_temp);
+  params = tree_cons (NULL_TREE, vec2, params);
+  params = tree_cons (NULL_TREE, vec1, params);
+
+  new_stmt = build_function_call_expr (builtin_decl, params);
+  new_stmt = build2 (MODIFY_EXPR, type, vec_dest, new_stmt);
+
+  return new_stmt;
+}
+
+/* Implement targetm.vectorize.builtin_extract_even.  */
+static tree
+rs6000_builtin_extract_even (tree vec_dest, tree vec1, tree vec2, tree stmt)
+{
+  tree type, scalar_type;
+  tree vec_perm_mask = NULL_TREE;
+  tree t0,t1,t2,t3,t4,t5,t6,t7,t8,t9;
+  tree t10,t11,t12,t13,t14,t15,t16,t17,t18,t19;
+  tree t20,t21,t22,t23,t24,t25,t26,t27,t28,t29;
+  tree t30,t31;
+
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+
+  /* If the first argument is a type, just check is support
+     is available. Return a non NULL value if support, NULL_TREE otherwise.
+   */
+  if (TYPE_P (vec_dest))
+    {
+      type = vec_dest;
+      switch (TYPE_MODE (type))
+        {
+        case V16QImode:
+        case V8HImode:
+        case V4SImode:
+        case V4SFmode:
+   return type;
+        default:
+          return NULL_TREE;
+        }
+    }
+
+  /* We get here only if extract_even really needs to be constructed.  */
+
+  type = TREE_TYPE (vec_dest);
+  scalar_type = integer_type_node; /* CHECKME: actually chars  */
+
+  t31 = build_int_cst (scalar_type, 31);
+  t30 = build_int_cst (scalar_type, 30);
+  t29 = build_int_cst (scalar_type, 29);
+  t28 = build_int_cst (scalar_type, 28);
+  t27 = build_int_cst (scalar_type, 27);
+  t26 = build_int_cst (scalar_type, 26);
+  t25 = build_int_cst (scalar_type, 25);
+  t24 = build_int_cst (scalar_type, 24);
+  t23 = build_int_cst (scalar_type, 23);
+  t22 = build_int_cst (scalar_type, 22);
+  t21 = build_int_cst (scalar_type, 21);
+  t20 = build_int_cst (scalar_type, 20);
+  t19 = build_int_cst (scalar_type, 19);
+  t18 = build_int_cst (scalar_type, 18);
+  t17 = build_int_cst (scalar_type, 17);
+  t16 = build_int_cst (scalar_type, 16);
+  t15 = build_int_cst (scalar_type, 15);
+  t14 = build_int_cst (scalar_type, 14);
+  t13 = build_int_cst (scalar_type, 13);
+  t12 = build_int_cst (scalar_type, 12);
+  t11 = build_int_cst (scalar_type, 11);
+  t10 = build_int_cst (scalar_type, 10);
+  t9 = build_int_cst (scalar_type, 9);
+  t8 = build_int_cst (scalar_type, 8);
+  t7 = build_int_cst (scalar_type, 7);
+  t6 = build_int_cst (scalar_type, 6);
+  t5 = build_int_cst (scalar_type, 5);
+  t4 = build_int_cst (scalar_type, 4);
+  t3 = build_int_cst (scalar_type, 3);
+  t2 = build_int_cst (scalar_type, 2);
+  t1 = build_int_cst (scalar_type, 1);
+  t0 = build_int_cst (scalar_type, 0);
+
+  switch (TYPE_MODE (type))
+    {
+    case V16QImode:
+      vec_perm_mask = tree_cons (NULL_TREE, t30, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t28, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t26, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t24, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t22, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t20, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t18, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t16, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t14, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t12, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t10, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t8, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t6, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t4, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t2, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t0, vec_perm_mask);
+      break;
+    case V8HImode:
+      vec_perm_mask = tree_cons (NULL_TREE, t29, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t28, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t25, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t24, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t21, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t20, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t17, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t16, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t13, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t12, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t9, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t8, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t5, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t4, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t1, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t0, vec_perm_mask);
+      break;
+    case V4SImode:
+    case V4SFmode:
+      vec_perm_mask = tree_cons (NULL_TREE, t27, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t26, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t25, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t24, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t19, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t18, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t17, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t16, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t11, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t10, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t9, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t8, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t3, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t2, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t1, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t0, vec_perm_mask);
+      break;
+    default:
+      return NULL_TREE;
+    }
+
+  return rs6000_create_permute_call (vec_dest, vec1, vec2, vec_perm_mask, stmt);
+}
+
+/* Implement targetm.vectorize.builtin_extract_odd.  */
+static tree
+rs6000_builtin_extract_odd (tree vec_dest, tree vec1, tree vec2, tree stmt)
+{
+  tree type, scalar_type;
+  tree vec_perm_mask = NULL_TREE;
+  tree t0,t1,t2,t3,t4,t5,t6,t7,t8,t9;
+  tree t10,t11,t12,t13,t14,t15,t16,t17,t18,t19;
+  tree t20,t21,t22,t23,t24,t25,t26,t27,t28,t29;
+  tree t30,t31;
+
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+
+  /* If the first argument is a type, just check is support
+     is available. Return a non NULL value if support, NULL_TREE otherwise.
+   */
+  if (TYPE_P (vec_dest))
+    {
+      type = vec_dest;
+      switch (TYPE_MODE (type))
+        {
+        case V4SImode:
+        case V4SFmode:
+          return type;
+        default:
+          /* For V8HI and V16QI the pattern is modelled in altivec.md  */
+          return NULL_TREE;
+        }
+    }
+
+  /* We get here only if extract_odd really needs to be constructed.  */
+
+  type = TREE_TYPE (vec_dest);
+  scalar_type = integer_type_node; /* CHECKME: actually chars  */
+
+  t31 = build_int_cst (scalar_type, 31);
+  t30 = build_int_cst (scalar_type, 30);
+  t29 = build_int_cst (scalar_type, 29);
+  t28 = build_int_cst (scalar_type, 28);
+  t27 = build_int_cst (scalar_type, 27);
+  t26 = build_int_cst (scalar_type, 26);
+  t25 = build_int_cst (scalar_type, 25);
+  t24 = build_int_cst (scalar_type, 24);
+  t23 = build_int_cst (scalar_type, 23);
+  t22 = build_int_cst (scalar_type, 22);
+  t21 = build_int_cst (scalar_type, 21);
+  t20 = build_int_cst (scalar_type, 20);
+  t19 = build_int_cst (scalar_type, 19);
+  t18 = build_int_cst (scalar_type, 18);
+  t17 = build_int_cst (scalar_type, 17);
+  t16 = build_int_cst (scalar_type, 16);
+  t15 = build_int_cst (scalar_type, 15);
+  t14 = build_int_cst (scalar_type, 14);
+  t13 = build_int_cst (scalar_type, 13);
+  t12 = build_int_cst (scalar_type, 12);
+  t11 = build_int_cst (scalar_type, 11);
+  t10 = build_int_cst (scalar_type, 10);
+  t9 = build_int_cst (scalar_type, 9);
+  t8 = build_int_cst (scalar_type, 8);
+  t7 = build_int_cst (scalar_type, 7);
+  t6 = build_int_cst (scalar_type, 6);
+  t5 = build_int_cst (scalar_type, 5);
+  t4 = build_int_cst (scalar_type, 4);
+  t3 = build_int_cst (scalar_type, 3);
+  t2 = build_int_cst (scalar_type, 2);
+  t1 = build_int_cst (scalar_type, 1);
+  t0 = build_int_cst (scalar_type, 0);
+
+  switch (TYPE_MODE (type))
+    {
+    case V16QImode:
+      vec_perm_mask = tree_cons (NULL_TREE, t31, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t29, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t27, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t25, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t23, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t21, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t19, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t17, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t15, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t13, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t11, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t9, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t7, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t5, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t3, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t1, vec_perm_mask);
+      break;
+    case V8HImode:
+      vec_perm_mask = tree_cons (NULL_TREE, t31, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t30, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t27, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t26, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t23, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t22, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t19, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t18, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t15, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t14, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t11, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t10, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t7, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t6, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t3, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t2, vec_perm_mask);
+      break;
+    case V4SImode:
+    case V4SFmode:
+      vec_perm_mask = tree_cons (NULL_TREE, t31, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t30, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t29, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t28, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t23, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t22, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t21, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t20, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t15, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t14, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t13, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t12, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t7, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t6, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t5, vec_perm_mask);
+      vec_perm_mask = tree_cons (NULL_TREE, t4, vec_perm_mask);
+      break;
+    default:
+      /* For V8HI and V16QI the pattern is modelled in altivec.md  */
+      return NULL_TREE;
+    }
+
+  return rs6000_create_permute_call (vec_dest, vec1, vec2, vec_perm_mask, stmt);
+}
+
 
 /* Implement targetm.vectorize.builtin_vect_pattern_recog.  */
 static void

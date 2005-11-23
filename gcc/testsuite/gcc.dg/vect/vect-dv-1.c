@@ -19,3 +19,4 @@ void foo()
 	x[j-63]=x[j-3]-x[j];
       }
 }
+/* { dg-final { cleanup-tree-dump "vect" } } */

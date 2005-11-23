@@ -301,6 +301,10 @@ struct gcc_target
     tree (* builtin_mul_widen_even) (tree);
     tree (* builtin_mul_widen_odd) (tree);
 
+    /* Temporarily.  */
+    tree (* builtin_extract_even) (tree, tree, tree, tree);
+    tree (* builtin_extract_odd) (tree, tree, tree, tree);
+
     void (* builtin_vect_pattern_recog) (tree);
   } vectorize;
 

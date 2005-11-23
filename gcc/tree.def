@@ -1040,6 +1040,14 @@ DEFTREECODE (VEC_PACK_SAT_EXPR, "vec_pack_sat_expr", tcc_binary, 2)
 	t2 sum = WIDEN_SUM_EXPR (absdiff, sum)  */
 DEFTREECODE (SAD_EXPR, "sad_expr", tcc_expression, 3)
 
+/* Extract even/odd fields from vectors.  */
+DEFTREECODE (VEC_EXTRACT_EVEN_EXPR, "vec_extracteven_expr", tcc_binary, 2)
+DEFTREECODE (VEC_EXTRACT_ODD_EXPR, "vec_extractodd_expr", tcc_binary, 2)
+
+/* Merge input vectors interleaving their fields.  */
+DEFTREECODE (VEC_INTERLEAVE_HIGH_EXPR, "vec_interleavehigh_expr", tcc_binary, 2)
+DEFTREECODE (VEC_INTERLEAVE_LOW_EXPR, "vec_interleavelow_expr", tcc_binary, 2)
+
 /*
 Local variables:
 mode:c

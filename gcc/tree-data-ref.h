@@ -27,16 +27,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "polyhedron.h"
 
 /** {base_address + offset + init} is the first location accessed by data-ref 
-      in the loop, and step is the stride of data-ref in the loop in bytes;
-      e.g.:
+    in the loop, offset is an invariant part of the initial offset and init is 
+    its constant part, and step is the stride of data-ref in the loop in bytes;
+    e.g.:
     
                        Example 1                      Example 2
       data-ref         a[j].b[i][j]                   a + x + 16B (a is int*)
       
 First location info:
       base_address     &a                             a
-      offset           j_0*D_j + i_0*D_i + C_a        x
-      init             C_b                            16
+      offset           j_0*D_j + i_0*D_i              x
+      init             C_b + C_a                      16
       step             D_j                            4
       access_fn        NULL                           {16, +, 1}
 
