@@ -24,11 +24,6 @@
 
 	* lib/target-supports.exp (check_effective_target_tls): New.
 
-2005-11-10  Jakub Jelinek  <jakub@redhat.com>
-
-	PR fortran/24774
-	* gfortran.dg/inquire_9.f90: New test.
-
 2005-11-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/24735
@@ -391,10 +386,6 @@
 
 	* gcc.dg/gomp/atomic-8.c: Remove xfails.
 	* gcc.dg/gomp/atomic-10.c: Move to libgomp testsuite.
-
-2005-10-08  Jakub Jelinek  <jakub@redhat.com>
-
-	* gfortran.fortran-torture/execute/inquire_5.f90: New test.
 
 2005-10-08  Richard Henderson  <rth@redhat.com>
 
