@@ -919,6 +919,10 @@ ftree-elim-checks
 Common Report Var(flag_tree_elim_checks)
 Enable Redundant Checks Elimination
 
+ftree-reassoc
+Common Report Var(flag_tree_reassoc)
+Enable reassociation on trees
+
 ftree-fre
 Common Report Var(flag_tree_fre)
 Enable Full Redundancy Elimination (FRE) on trees
