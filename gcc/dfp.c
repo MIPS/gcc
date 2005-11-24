@@ -1,22 +1,22 @@
 /* Decimal floating point support.
    Copyright (C) 2005 Free Software Foundation, Inc.
 
-   This file is part of GCC.
+This file is part of GCC.
 
-   GCC is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -70,7 +70,7 @@ decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
   decContextDefault (set, DEC_INIT_DECIMAL128);
   set->traps = 0;
 
-  decimal128FromNumber ((decimal128 *)r->sig, dn, set);
+  decimal128FromNumber ((decimal128 *) r->sig, dn, set);
 }
 
 /* Create decimal encoded R from string S.  */
@@ -80,7 +80,7 @@ decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
 
-  decNumberFromString (&dn, (char *)s, &set);
+  decNumberFromString (&dn, (char *) s, &set);
 
   /* It would be more efficient to store directly in decNumber format,
      but that is impractical from current data structure size.
@@ -121,7 +121,7 @@ decimal_to_decnumber (const REAL_VALUE_TYPE *r, decNumber *dn)
       break;
     case rvc_normal:
       gcc_assert (r->decimal);
-      decimal128ToNumber ((decimal128 *)r->sig, dn);
+      decimal128ToNumber ((decimal128 *) r->sig, dn);
       break;
     default:
       gcc_unreachable ();
@@ -233,7 +233,7 @@ decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
 		   enum machine_mode mode)
 {
   decimal128 *d128;
-  d128 = (decimal128 *)from->sig;
+  d128 = (decimal128 *) from->sig;
 
   decimal128ToString (d128, string);
   real_from_string3 (to, string, mode);
@@ -557,7 +557,7 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
       {
         decimal128 *d128;
         *r = *op0;
-        d128 = (decimal128 *)r->sig;
+        d128 = (decimal128 *) r->sig;
         d128->bytes[0] &= 0x7f;  /* Clear high bit */
 	r->sign = 0;
       }

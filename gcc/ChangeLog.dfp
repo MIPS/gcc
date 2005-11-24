@@ -1,5 +1,9 @@
 2005-11-24  Ben Elliston  <bje@au.ibm.com>
 
+	* dfp.h, dfp.c: Update FSF copyright notice.
+
+2005-11-24  Ben Elliston  <bje@au.ibm.com>
+
 	* dfp.h, dfp.c: Tidy.
 
 2005-11-24  Ben Elliston  <bje@au.ibm.com>
