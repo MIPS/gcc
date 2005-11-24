@@ -1,3 +1,16 @@
+2005-11-24  Richard Guenther  <rguenther@suse.de>
+	Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* typeck.c (build_reinterpret_cast_1): Use
+	strict_aliasing_warning.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/24235
+	* pt.c (check_instantiated_args): Reword diagnostic message about
+	template argument involving local types.
+
 2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	PR c++/21667
