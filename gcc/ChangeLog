@@ -1,3 +1,81 @@
+2005-11-24  Uros Bizjak  <uros@kss-loka.si>
+
+	* configure.ac: Require at least texinfo 4.4.
+	* configure: Regenerate.
+
+	* doc/install.texi (Tools/packages necessary for building GCC):
+	Update required version of texinfo to at least 4.4.
+	(Installing GCC: Building): Update required version of texinfo
+	to at least 4.4.
+	(Installing GCC: Final installation): Update required version
+	of texi2dvi to at least 4.4.
+	(Host/target specific installation notes for GCC): Update required
+	version of texinfo to at least 4.4.
+
+2005-11-24  Richard Guenther  <rguenther@suse.de>
+	Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* c-common.h (strict_aliasing_warning): Declare.
+	* c-common.c (strict_aliasing_warning): New function,
+	split out from ...
+	* c-typeck.c (build_c_cast): ... here.
+
+2005-11-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* optabs.c (expand_binop): Use swap_commutative_operands_with_target
+	to order operands.
+	(swap_commutative_operands_with_target): New.
+
+2005-11-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcse.c (hash_scan_set): Look through REG_EQUAL or REG_EQUIV notes
+	also when doing PRE, rather than only for global CPROP.
+
+2005-11-24  Ben Elliston  <bje@au.ibm.com>
+
+	* machmode.h (CLASS_HAS_WIDER_MODES_P): New macro.
+	* optabs.c (expand_binop): Use CLASS_HAS_WIDER_MODES_P, improve
+	formatting.
+	(expand_twoval_unop): Likewise.
+	(widen_clz): Likewise.
+	(expand_parity): Likewise.
+	(expand_unop): Likewise.
+	(emit_cmp_and_jmp_insn_1): Likewise.
+	(prepare_float_lib_cmp): Likewise.
+
+2005-11-24  Ben Elliston  <bje@au.ibm.com>
+
+	* optabs.c (prepare_cmp_insn): Use SCALAR_FLOAT_MODE_P.
+	Remove unused `class' variable.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/21667
+	* c-typeck.c (build_array_ref): Avoid code duplicate.  Use common
+	C/C++ diagnostic function warn_array_subscript_with_type_char. 
+	* c-common.h (warn_array_subscript_with_type_char): Declare. 
+	* c-common.c (warn_array_subscript_with_type_char): Define.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c/21668
+	* c-decl.c (grokdeclarator): Don't warn for 'extern const' when
+	compiling at the intersection of C and C++.
+
+2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/invoke.texi: For man pages, include gcc-vers.texi.
+	List @file in the option summary.  Include the libiberty
+	documentation for @file.
+	* gcc.c (main): Call expandargv.
+	* Makefile.in (gcc-vers.texi): Define srcdir.
+
+2005-11-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* passes.c (init_optimization_passes): Document
+	sequencing of passes.
+
 2005-11-23  Kazu Hirata  <kazu@codesourcery.com>
 
 	* config/m68k/predicates.md (pcrel_address, extend_operator,

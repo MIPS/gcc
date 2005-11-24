@@ -954,6 +954,42 @@ unsigned_conversion_warning (tree result, tree operand)
     }
 }
 
+/* Print a warning about casts that might indicate violation
+   of strict aliasing rules if -Wstrict-aliasing is used and
+   strict aliasing mode is in effect. otype is the original
+   TREE_TYPE of expr, and type the type we're casting to. */
+
+void
+strict_aliasing_warning(tree otype, tree type, tree expr)
+{
+  if (flag_strict_aliasing && warn_strict_aliasing
+      && POINTER_TYPE_P (type) && POINTER_TYPE_P (otype)
+      && TREE_CODE (expr) == ADDR_EXPR
+      && (DECL_P (TREE_OPERAND (expr, 0))
+          || TREE_CODE (TREE_OPERAND (expr, 0)) == COMPONENT_REF)
+      && !VOID_TYPE_P (TREE_TYPE (type)))
+    {
+      /* Casting the address of an object to non void pointer. Warn
+         if the cast breaks type based aliasing.  */
+      if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
+        warning (OPT_Wstrict_aliasing, "type-punning to incomplete type "
+                 "might break strict-aliasing rules");
+      else
+        {
+          HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
+          HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
+
+          if (!alias_sets_conflict_p (set1, set2))
+            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+                     "pointer will break strict-aliasing rules");
+          else if (warn_strict_aliasing > 1
+                  && !alias_sets_might_conflict_p (set1, set2))
+            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+                     "pointer might break strict-aliasing rules");
+        }
+    }
+}
+
 /* Nonzero if constant C has a value that is permissible
    for type TYPE (an INTEGER_TYPE).  */
 
@@ -6224,5 +6260,21 @@ check_missing_format_attribute (tree ltype, tree rtype)
   else
     return false;
 }
+
+/* Subscripting with type char is likely to lose on a machine where
+   chars are signed.  So warn on any machine, but optionally.  Don't
+   warn for unsigned char since that type is safe.  Don't warn for
+   signed char because anyone who uses that must have done so
+   deliberately. Furthermore, we reduce the false positive load by
+   warning only for non-constant value of type char.  */
+
+void
+warn_array_subscript_with_type_char (tree index)
+{
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node
+      && TREE_CODE (index) != INTEGER_CST)
+    warning (OPT_Wchar_subscripts, "array subscript has type %<char%>");
+}
+
 
 #include "gt-c-common.h"
