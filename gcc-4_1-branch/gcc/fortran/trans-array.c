@@ -3165,7 +3165,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
       if (dim + 1 < as->rank)
         stride = GFC_TYPE_ARRAY_STRIDE (type, dim + 1);
       else
-        stride = NULL_TREE;
+	stride = GFC_TYPE_ARRAY_SIZE (type);
 
       if (ubound != NULL_TREE && !(stride && INTEGER_CST_P (stride)))
         {
@@ -3182,6 +3182,8 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
 
       size = stride;
     }
+
+  gfc_trans_vla_type_sizes (sym, pblock);
 
   *poffset = offset;
   return size;
@@ -3218,6 +3220,8 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
       && onstack && !INTEGER_CST_P (sym->ts.cl->backend_decl))
     {
       gfc_trans_init_string_length (sym->ts.cl, &block);
+
+      gfc_trans_vla_type_sizes (sym, &block);
 
       /* Emit a DECL_EXPR for this variable, which will cause the
 	 gimplifier to allocate storage, and all that good stuff.  */
@@ -3571,11 +3575,29 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
               gfc_add_modify_expr (&block, stride, tmp);
             }
         }
+      else
+	{
+	  stride = GFC_TYPE_ARRAY_SIZE (type);
+
+	  if (stride && !INTEGER_CST_P (stride))
+	    {
+	      /* Calculate size = stride * (ubound + 1 - lbound).  */
+	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+				 gfc_index_one_node, lbound);
+	      tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+				 ubound, tmp);
+	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
+				 GFC_TYPE_ARRAY_STRIDE (type, n), tmp);
+	      gfc_add_modify_expr (&block, stride, tmp);
+	    }
+	}
     }
 
   /* Set the offset.  */
   if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
     gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+
+  gfc_trans_vla_type_sizes (sym, &block);
 
   stmt = gfc_finish_block (&block);
 

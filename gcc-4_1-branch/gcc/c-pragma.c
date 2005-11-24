@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "vec.h"
 #include "target.h"
 
+
 #define GCC_BAD(gmsgid) \
   do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
 #define GCC_BAD2(gmsgid, arg) \
@@ -147,10 +148,10 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
   enum cpp_ttype token;
   enum { set, push, pop } action;
 
-  if (c_lex (&x) != CPP_OPEN_PAREN)
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
     GCC_BAD ("missing %<(%> after %<#pragma pack%> - ignored");
 
-  token = c_lex (&x);
+  token = pragma_lex (&x);
   if (token == CPP_CLOSE_PAREN)
     {
       action = set;
@@ -160,7 +161,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     {
       align = TREE_INT_CST_LOW (x);
       action = set;
-      if (c_lex (&x) != CPP_CLOSE_PAREN)
+      if (pragma_lex (&x) != CPP_CLOSE_PAREN)
 	GCC_BAD ("malformed %<#pragma pack%> - ignored");
     }
   else if (token == CPP_NAME)
@@ -179,9 +180,9 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
       else
 	GCC_BAD2 ("unknown action %qs for %<#pragma pack%> - ignored", op);
 
-      while ((token = c_lex (&x)) == CPP_COMMA)
+      while ((token = pragma_lex (&x)) == CPP_COMMA)
 	{
-	  token = c_lex (&x);
+	  token = pragma_lex (&x);
 	  if (token == CPP_NAME && id == 0)
 	    {
 	      id = x;
@@ -203,7 +204,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
   else
     GCC_BAD ("malformed %<#pragma pack%> - ignored");
 
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of %<#pragma pack%>");
 
   if (flag_pack_struct)
@@ -333,17 +334,17 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
 
   value = 0;
 
-  if (c_lex (&name) != CPP_NAME)
+  if (pragma_lex (&name) != CPP_NAME)
     GCC_BAD ("malformed #pragma weak, ignored");
-  t = c_lex (&x);
+  t = pragma_lex (&x);
   if (t == CPP_EQ)
     {
-      if (c_lex (&value) != CPP_NAME)
+      if (pragma_lex (&value) != CPP_NAME)
 	GCC_BAD ("malformed #pragma weak, ignored");
-      t = c_lex (&x);
+      t = pragma_lex (&x);
     }
   if (t != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma weak");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma weak%>");
 
   decl = identifier_global_value (name);
   if (decl && DECL_P (decl))
@@ -410,13 +411,13 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
   tree oldname, newname, decl, x;
   enum cpp_ttype t;
 
-  if (c_lex (&oldname) != CPP_NAME)
+  if (pragma_lex (&oldname) != CPP_NAME)
     GCC_BAD ("malformed #pragma redefine_extname, ignored");
-  if (c_lex (&newname) != CPP_NAME)
+  if (pragma_lex (&newname) != CPP_NAME)
     GCC_BAD ("malformed #pragma redefine_extname, ignored");
-  t = c_lex (&x);
+  t = pragma_lex (&x);
   if (t != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma redefine_extname");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma redefine_extname%>");
 
   if (!flag_mudflap && !targetm.handle_pragma_redefine_extname)
     {
@@ -480,11 +481,11 @@ handle_pragma_extern_prefix (cpp_reader * ARG_UNUSED (dummy))
   tree prefix, x;
   enum cpp_ttype t;
 
-  if (c_lex (&prefix) != CPP_STRING)
+  if (pragma_lex (&prefix) != CPP_STRING)
     GCC_BAD ("malformed #pragma extern_prefix, ignored");
-  t = c_lex (&x);
+  t = pragma_lex (&x);
   if (t != CPP_EOF)
-    warning (OPT_Wpragmas, "junk at end of #pragma extern_prefix");
+    warning (OPT_Wpragmas, "junk at end of %<#pragma extern_prefix%>");
 
   if (targetm.handle_pragma_extern_prefix)
     /* Note that the length includes the null terminator.  */
@@ -603,7 +604,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
   enum { bad, push, pop } action = bad;
   static VEC (visibility, heap) *visstack;
  
-  token = c_lex (&x);
+  token = pragma_lex (&x);
   if (token == CPP_NAME)
     {
       const char *op = IDENTIFIER_POINTER (x);
@@ -631,9 +632,9 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
         }
       else
         {
-          if (c_lex (&x) != CPP_OPEN_PAREN)
+          if (pragma_lex (&x) != CPP_OPEN_PAREN)
             GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
-          token = c_lex (&x);
+          token = pragma_lex (&x);
           if (token != CPP_NAME)
             {
               GCC_BAD ("malformed #pragma GCC visibility push");
@@ -657,36 +658,101 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
                 }
               visibility_options.inpragma = 1;
             }
-          if (c_lex (&x) != CPP_CLOSE_PAREN)
+          if (pragma_lex (&x) != CPP_CLOSE_PAREN)
             GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
         }
     }
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of %<#pragma GCC visibility%>");
 }
 
 #endif
 
+/* A vector of registered pragma callbacks.  */
+
+DEF_VEC_O (pragma_handler);
+DEF_VEC_ALLOC_O (pragma_handler, heap);
+
+static VEC(pragma_handler, heap) *registered_pragmas;
+
 /* Front-end wrappers for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
-void
-c_register_pragma (const char *space, const char *name,
-		   void (*handler) (struct cpp_reader *))
+
+static void
+c_register_pragma_1 (const char *space, const char *name,
+		     pragma_handler handler, bool allow_expansion)
 {
-  cpp_register_pragma (parse_in, space, name, handler, 0);
+  unsigned id;
+
+  VEC_safe_push (pragma_handler, heap, registered_pragmas, &handler);
+  id = VEC_length (pragma_handler, registered_pragmas);
+  id += PRAGMA_FIRST_EXTERNAL - 1;
+
+  /* The C++ front end allocates 6 bits in cp_token; the C front end
+     allocates 7 bits in c_token.  At present this is sufficient.  */
+  gcc_assert (id < 64);
+
+  cpp_register_deferred_pragma (parse_in, space, name, id,
+				allow_expansion, false);
+}
+
+void
+c_register_pragma (const char *space, const char *name, pragma_handler handler)
+{
+  c_register_pragma_1 (space, name, handler, false);
 }
 
 void
 c_register_pragma_with_expansion (const char *space, const char *name,
-				  void (*handler) (struct cpp_reader *))
+				  pragma_handler handler)
 {
-  cpp_register_pragma (parse_in, space, name, handler, 1);
+  c_register_pragma_1 (space, name, handler, true);
+}
+
+void
+c_invoke_pragma_handler (unsigned int id)
+{
+  pragma_handler handler;
+
+  id -= PRAGMA_FIRST_EXTERNAL;
+  handler = *VEC_index (pragma_handler, registered_pragmas, id);
+
+  handler (parse_in);
 }
 
 /* Set up front-end pragmas.  */
 void
 init_pragma (void)
 {
+  if (flag_openmp && !flag_preprocess_only)
+    {
+      struct omp_pragma_def { const char *name; unsigned int id; };
+      static const struct omp_pragma_def omp_pragmas[] = {
+	{ "atomic", PRAGMA_OMP_ATOMIC },
+	{ "barrier", PRAGMA_OMP_BARRIER },
+	{ "critical", PRAGMA_OMP_CRITICAL },
+	{ "flush", PRAGMA_OMP_FLUSH },
+	{ "for", PRAGMA_OMP_FOR },
+	{ "master", PRAGMA_OMP_MASTER },
+	{ "ordered", PRAGMA_OMP_ORDERED },
+	{ "parallel", PRAGMA_OMP_PARALLEL },
+	{ "section", PRAGMA_OMP_SECTION },
+	{ "sections", PRAGMA_OMP_SECTIONS },
+	{ "single", PRAGMA_OMP_SINGLE },
+	{ "threadprivate", PRAGMA_OMP_THREADPRIVATE }
+      };
+
+      const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
+      int i;
+
+      for (i = 0; i < n_omp_pragmas; ++i)
+	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
+				      omp_pragmas[i].id, true, true);
+    }
+
+  cpp_register_deferred_pragma (parse_in, "GCC", "pch_preprocess",
+				PRAGMA_GCC_PCH_PREPROCESS, false, false);
+
 #ifdef HANDLE_PRAGMA_PACK
 #ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
   c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);
@@ -703,8 +769,6 @@ init_pragma (void)
 
   c_register_pragma (0, "redefine_extname", handle_pragma_redefine_extname);
   c_register_pragma (0, "extern_prefix", handle_pragma_extern_prefix);
-
-  c_register_pragma ("GCC", "pch_preprocess", c_common_pch_pragma);
 
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS ();

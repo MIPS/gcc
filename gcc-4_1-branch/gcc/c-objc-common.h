@@ -127,13 +127,14 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 
 #undef LANG_HOOKS_GETDECLS
 #define LANG_HOOKS_GETDECLS lhd_return_null_tree_v
-#undef LANG_HOOKS_LOOKUP_NAME
-#define LANG_HOOKS_LOOKUP_NAME lookup_name
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
 
 /* Hooks for tree gimplification.  */
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR c_gimplify_expr
+
+#undef LANG_HOOKS_OMP_PREDETERMINED_SHARING
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING c_omp_predetermined_sharing
 
 #endif /* GCC_C_OBJC_COMMON */

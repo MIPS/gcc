@@ -161,6 +161,33 @@ gfc_free_statement (gfc_code * p)
       gfc_free_forall_iterator (p->ext.forall_iterator);
       break;
 
+    case EXEC_OMP_DO:
+    case EXEC_OMP_END_SINGLE:
+    case EXEC_OMP_PARALLEL:
+    case EXEC_OMP_PARALLEL_DO:
+    case EXEC_OMP_PARALLEL_SECTIONS:
+    case EXEC_OMP_SECTIONS:
+    case EXEC_OMP_SINGLE:
+    case EXEC_OMP_WORKSHARE:
+    case EXEC_OMP_PARALLEL_WORKSHARE:
+      gfc_free_omp_clauses (p->ext.omp_clauses);
+      break;
+
+    case EXEC_OMP_CRITICAL:
+      gfc_free ((char *) p->ext.omp_name);
+      break;
+
+    case EXEC_OMP_FLUSH:
+      gfc_free_namelist (p->ext.omp_namelist);
+      break;
+
+    case EXEC_OMP_ATOMIC:
+    case EXEC_OMP_BARRIER:
+    case EXEC_OMP_MASTER:
+    case EXEC_OMP_ORDERED:
+    case EXEC_OMP_END_NOWAIT:
+      break;
+
     default:
       gfc_internal_error ("gfc_free_statement(): Bad statement");
     }

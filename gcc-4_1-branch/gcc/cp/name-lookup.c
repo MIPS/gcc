@@ -1280,6 +1280,7 @@ begin_scope (scope_kind kind, tree entity)
     case sk_for:
     case sk_class:
     case sk_function_parms:
+    case sk_omp:
       scope->keep = keep_next_level_flag;
       break;
 
@@ -3998,18 +3999,16 @@ lookup_function_nonclass (tree name, tree args, bool block_p)
 }
 
 tree
-lookup_name (tree name, int prefer_type)
+lookup_name (tree name)
+{
+  return lookup_name_real (name, 0, 0, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+}
+
+tree
+lookup_name_prefer_type (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
 			   0, LOOKUP_COMPLAIN);
-}
-
-/* Similar to `lookup_name' for the benefit of common code.  */
-
-tree
-lookup_name_one (tree name)
-{
-  return lookup_name (name, 0);
 }
 
 /* Look up NAME for type used in elaborated name specifier in

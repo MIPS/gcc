@@ -4352,7 +4352,7 @@ lookup_template_class (tree d1,
 	{
 	  if (context)
 	    push_decl_namespace (context);
-	  template = lookup_name (d1, /*prefer_type=*/0);
+	  template = lookup_name (d1);
 	  template = maybe_get_template_decl_from_type_decl (template);
 	  if (context)
 	    pop_decl_namespace ();
@@ -5384,7 +5384,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
     }
 
   /* First, we look for a class template.  */
-  tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/0);
+  tmpl = lookup_name (DECL_NAME (friend_tmpl));
 
   /* But, if we don't find one, it might be because we're in a
      situation like this:
@@ -5399,7 +5399,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
      for `S<int>', not the TEMPLATE_DECL.  */
   if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
     {
-      tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/1);
+      tmpl = lookup_name_prefer_type (DECL_NAME (friend_tmpl), 1);
       tmpl = maybe_get_template_decl_from_type_decl (tmpl);
     }
 
@@ -8132,6 +8132,47 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     }
 }
 
+/* Like tsubst_copy, but specifically for OpenMP clauses.  */
+
+static tree
+tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
+		    tree in_decl)
+{
+  tree new_clauses = NULL, nc, oc;
+
+  for (oc = clauses; oc ; oc = OMP_CLAUSE_CHAIN (oc))
+    {
+      nc = copy_node (oc);
+      OMP_CLAUSE_CHAIN (nc) = new_clauses;
+      new_clauses = nc;
+
+      switch (TREE_CODE (nc))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	  TREE_OPERAND (nc, 0)
+	    = tsubst_expr (TREE_OPERAND (oc, 0), args, complain, in_decl);
+	  break;
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return finish_omp_clauses (nreverse (new_clauses));
+}
+
 /* Like tsubst_copy_and_build, but unshare TREE_LIST nodes.  */
 
 static tree
@@ -8451,6 +8492,84 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
       break;
 
+    case OMP_PARALLEL:
+      tmp = tsubst_omp_clauses (OMP_PARALLEL_CLAUSES (t),
+				args, complain, in_decl);
+      stmt = begin_omp_parallel ();
+      tsubst_expr (OMP_PARALLEL_BODY (t), args, complain, in_decl);
+      finish_omp_parallel (tmp, stmt);
+      break;
+
+    case OMP_FOR:
+      {
+	tree clauses, decl, init, cond, incr, body, pre_body;
+
+	clauses = tsubst_omp_clauses (OMP_FOR_CLAUSES (t),
+				      args, complain, in_decl);
+	init = OMP_FOR_INIT (t);
+	gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+	decl = tsubst_expr (TREE_OPERAND (init, 0), args, complain, in_decl);
+	init = tsubst_expr (TREE_OPERAND (init, 1), args, complain, in_decl);
+	cond = tsubst_expr (OMP_FOR_COND (t), args, complain, in_decl);
+	incr = tsubst_expr (OMP_FOR_INCR (t), args, complain, in_decl);
+
+	stmt = begin_omp_structured_block ();
+
+	pre_body = push_stmt_list ();
+	tsubst_expr (OMP_FOR_PRE_BODY (t), args, complain, in_decl);
+	pre_body = pop_stmt_list (pre_body);
+
+	body = push_stmt_list ();
+	tsubst_expr (OMP_FOR_BODY (t), args, complain, in_decl);
+	body = pop_stmt_list (body);
+
+	t = finish_omp_for (EXPR_LOCATION (t), decl, init, cond, incr, body,
+			    pre_body);
+	if (t)
+	  OMP_FOR_CLAUSES (t) = clauses;
+
+	add_stmt (finish_omp_structured_block (stmt));
+      }
+      break;
+
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), args, complain, in_decl);
+      stmt = push_stmt_list ();
+      tsubst_expr (OMP_BODY (t), args, complain, in_decl);
+      stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      OMP_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
+    case OMP_SECTION:
+    case OMP_CRITICAL:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+      stmt = push_stmt_list ();
+      tsubst_expr (OMP_BODY (t), args, complain, in_decl);
+      stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      add_stmt (t);
+      break;
+
+    case OMP_ATOMIC:
+      {
+	tree op0, op1;
+	op0 = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl);
+	op1 = tsubst_expr (TREE_OPERAND (t, 1), args, complain, in_decl);
+	if (OMP_ATOMIC_DEPENDENT_P (t))
+	  c_finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
+	else
+	  add_stmt (build2 (OMP_ATOMIC, void_type_node, op0, op1));
+      }
+      break;
+
     default:
       gcc_assert (!STATEMENT_CODE_P (TREE_CODE (t)));
 
@@ -8516,7 +8635,7 @@ tsubst_copy_and_build (tree t,
 	  }
 
 	/* Look up the name.  */
-	decl = lookup_name (t, 0);
+	decl = lookup_name (t);
 
 	/* By convention, expressions use ERROR_MARK_NODE to indicate
 	   failure, not NULL_TREE.  */

@@ -205,9 +205,6 @@ struct lexer_state
   /* Nonzero to prevent macro expansion.  */
   unsigned char prevent_expansion;
 
-  /* Nonzero when handling a deferred pragma.  */
-  unsigned char in_deferred_pragma;
-
   /* Nonzero when parsing arguments to a function-like macro.  */
   unsigned char parsing_args;
 
@@ -217,6 +214,12 @@ struct lexer_state
 
   /* Nonzero to skip evaluating part of an expression.  */
   unsigned int skip_eval;
+
+  /* Nonzero when handling a deferred pragma.  */
+  unsigned char in_deferred_pragma;
+
+  /* Nonzero if the deferred pragma being handled allows macro expansion.  */
+  unsigned char pragma_allow_expansion;
 };
 
 /* Special nodes - identifiers with predefined significance.  */

@@ -151,7 +151,8 @@ target_libraries="target-libiberty \
 		target-libgfortran \
 		${libgcj} \
 		target-libobjc \
-		target-libada"
+		target-libada \
+		target-libgomp"
 
 # these tools are built using the target libraries, and are intended to
 # run only in the target environment
@@ -350,6 +351,30 @@ no)
     *)
         # Disable it by default everywhere else.
 	noconfigdirs="$noconfigdirs target-libmudflap"
+	;;
+    esac
+esac
+
+# Allow --disable-libgomp to exclude target-libgomp
+case $enable_libgomp in
+yes)
+    ;;
+no)
+    noconfigdirs="$noconfigdirs target-libgomp"
+    ;;
+"")
+    # Enable libgomp by default on hosted POSIX systems.
+    case "${target}" in
+    *-*-linux*-gnu | *-*-gnu* | *-*-k*bsd*-gnu)
+	;;
+    *-*-netbsd* | *-*-freebsd* | *-*-openbsd*)
+	;;
+    *-*-solaris2* | *-*-sysv4* | *-*-irix* | *-*-osf* | *-*-hpux*)
+	;;
+    *-*-darwin*)
+	;;
+    *)
+	noconfigdirs="$noconfigdirs target-libgomp"
 	;;
     esac
 esac

@@ -46,9 +46,13 @@ code_stack;
 static code_stack *cs_base = NULL;
 
 
-/* Nonzero if we're inside a FORALL block */
+/* Nonzero if we're inside a FORALL block.  */
 
 static int forall_flag;
+
+/* Nonzero if we're inside a OpenMP WORKSHARE or PARALLEL WORKSHARE block.  */
+
+static int omp_workshare_flag;
 
 /* Nonzero if we are processing a formal arglist. The corresponding function
    resets the flag each time that it is read.  */
@@ -1118,6 +1122,16 @@ resolve_function (gfc_expr * expr)
 	      break;
 	    }
 	}
+    }
+
+  if (omp_workshare_flag
+      && expr->value.function.esym
+      && ! gfc_elemental (expr->value.function.esym))
+    {
+      gfc_error ("User defined non-ELEMENTAL function '%s' at %L not allowed"
+		 " in WORKSHARE construct", expr->value.function.esym->name,
+		 &expr->where);
+      t = FAILURE;
     }
 
   if (!pure_function (expr, &name))
@@ -3737,7 +3751,7 @@ gfc_resolve_forall_body (gfc_code *code, int nvar, gfc_expr **var_expr)
           gfc_resolve_assign_in_forall (c, nvar, var_expr);
           break;
 
-        /* Because the resolve_blocks() will handle the nested FORALL,
+        /* Because the gfc_resolve_blocks() will handle the nested FORALL,
            there is no need to handle it here.  */
         case EXEC_FORALL:
           break;
@@ -3755,8 +3769,6 @@ gfc_resolve_forall_body (gfc_code *code, int nvar, gfc_expr **var_expr)
 
 /* Given a FORALL construct, first resolve the FORALL iterator, then call
    gfc_resolve_forall_body to resolve the FORALL body.  */
-
-static void resolve_blocks (gfc_code *, gfc_namespace *);
 
 static void
 gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
@@ -3823,7 +3835,7 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   gfc_resolve_forall_body (code, nvar, var_expr);
 
   /* May call gfc_resolve_forall to resolve the inner FORALL loop.  */
-  resolve_blocks (code->block, ns);
+  gfc_resolve_blocks (code->block, ns);
 
   /* Free VAR_EXPR after the whole FORALL construct resolved.  */
   for (i = 0; i < total_var; i++)
@@ -3840,8 +3852,8 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
 
 static void resolve_code (gfc_code *, gfc_namespace *);
 
-static void
-resolve_blocks (gfc_code * b, gfc_namespace * ns)
+void
+gfc_resolve_blocks (gfc_code * b, gfc_namespace * ns)
 {
   try t;
 
@@ -3884,6 +3896,20 @@ resolve_blocks (gfc_code * b, gfc_namespace * ns)
 	case EXEC_IOLENGTH:
 	  break;
 
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  break;
+
 	default:
 	  gfc_internal_error ("resolve_block(): Bad block type");
 	}
@@ -3899,7 +3925,7 @@ resolve_blocks (gfc_code * b, gfc_namespace * ns)
 static void
 resolve_code (gfc_code * code, gfc_namespace * ns)
 {
-  int forall_save = 0;
+  int omp_workshare_save;
   code_stack frame;
   gfc_alloc *a;
   try t;
@@ -3914,15 +3940,44 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 
       if (code->op == EXEC_FORALL)
 	{
-	  forall_save = forall_flag;
-	  forall_flag = 1;
-          gfc_resolve_forall (code, ns, forall_save);
-        }
-      else
-        resolve_blocks (code->block, ns);
+	  int forall_save = forall_flag;
 
-      if (code->op == EXEC_FORALL)
-	forall_flag = forall_save;
+	  forall_flag = 1;
+	  gfc_resolve_forall (code, ns, forall_save);
+	  forall_flag = forall_save;
+	}
+      else if (code->block)
+	{
+	  omp_workshare_save = -1;
+	  switch (code->op)
+	    {
+	    case EXEC_OMP_PARALLEL_WORKSHARE:
+	      omp_workshare_save = omp_workshare_flag;
+	      omp_workshare_flag = 1;
+	      gfc_resolve_omp_parallel_blocks (code, ns);
+	      break;
+	    case EXEC_OMP_PARALLEL:
+	    case EXEC_OMP_PARALLEL_DO:
+	    case EXEC_OMP_PARALLEL_SECTIONS:
+	      omp_workshare_save = omp_workshare_flag;
+	      omp_workshare_flag = 0;
+	      gfc_resolve_omp_parallel_blocks (code, ns);
+	      break;
+	    case EXEC_OMP_DO:
+	      gfc_resolve_omp_do_blocks (code, ns);
+	      break;
+	    case EXEC_OMP_WORKSHARE:
+	      omp_workshare_save = omp_workshare_flag;
+	      omp_workshare_flag = 1;
+	      /* FALLTHROUGH */
+	    default:
+	      gfc_resolve_blocks (code->block, ns);
+	      break;
+	    }
+
+	  if (omp_workshare_save != -1)
+	    omp_workshare_flag = omp_workshare_save;
+	}
 
       t = gfc_resolve_expr (code->expr);
       if (gfc_resolve_expr (code->expr2) == FAILURE)
@@ -4050,7 +4105,11 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 
 	case EXEC_DO:
 	  if (code->ext.iterator != NULL)
-	    gfc_resolve_iterator (code->ext.iterator, true);
+	    {
+	      gfc_iterator *iter = code->ext.iterator;
+	      if (gfc_resolve_iterator (iter, true) != FAILURE)
+		gfc_resolve_do_iterator (code, iter->var->symtree->n.sym);
+	    }
 	  break;
 
 	case EXEC_DO_WHILE:
@@ -4146,6 +4205,29 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	    gfc_error
 	      ("FORALL mask clause at %L requires a LOGICAL expression",
 	       &code->expr->where);
+	  break;
+
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_FLUSH:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  gfc_resolve_omp_directive (code, ns);
+	  break;
+
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	  omp_workshare_save = omp_workshare_flag;
+	  omp_workshare_flag = 0;
+	  gfc_resolve_omp_directive (code, ns);
+	  omp_workshare_flag = omp_workshare_save;
 	  break;
 
 	default:
@@ -4589,6 +4671,14 @@ resolve_symbol (gfc_symbol * sym)
       gfc_resolve (sym->formal_ns);
       formal_ns_flag = formal_ns_save;
     }
+
+  /* Check threadprivate restrictions.  */
+  if (sym->attr.threadprivate && !sym->attr.save
+      && (!sym->attr.in_common
+          && sym->module == NULL
+          && (sym->ns->proc_name == NULL
+              || sym->ns->proc_name->attr.flavor != FL_MODULE)))
+    gfc_error ("Threadprivate at %L isn't SAVEd", &sym->declared_at);
 }
 
 

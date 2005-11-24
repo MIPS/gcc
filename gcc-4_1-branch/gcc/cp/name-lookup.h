@@ -106,7 +106,7 @@ typedef enum scope_kind {
 			contents to zero, and the default scope kind
 			is "sk_block".  */
   sk_cleanup,	     /* A scope for (pseudo-)scope for cleanup.  It is
-			peusdo in that it is transparent to name lookup
+			pseudo in that it is transparent to name lookup
 			activities.  */
   sk_try,	     /* A try-block.  */
   sk_catch,	     /* A catch-block.  */
@@ -117,10 +117,11 @@ typedef enum scope_kind {
   sk_namespace,	     /* The scope containing the members of a
 			namespace, including the global scope.  */
   sk_template_parms, /* A scope for template parameters.  */
-  sk_template_spec   /* Like sk_template_parms, but for an explicit
+  sk_template_spec,  /* Like sk_template_parms, but for an explicit
 			specialization.  Since, by definition, an
 			explicit specialization is introduced by
 			"template <>", this scope is always empty.  */
+  sk_omp             /* An OpenMP structured block.  */
 } scope_kind;
 
 /* The scope where the class/struct/union/enum tag applies.  */
@@ -312,8 +313,7 @@ extern void pop_nested_namespace (tree);
 extern void pushlevel_class (void);
 extern void poplevel_class (void);
 extern tree pushdecl_with_scope (tree, cxx_scope *, bool);
-extern tree lookup_name	(tree, int);
-extern tree lookup_name_one (tree);
+extern tree lookup_name_prefer_type (tree, int);
 extern tree lookup_name_real (tree, int, int, bool, int, int);
 extern tree lookup_type_scope (tree, tag_scope);
 extern tree namespace_binding (tree, tree);
