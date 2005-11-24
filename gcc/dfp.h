@@ -27,8 +27,9 @@ void encode_decimal64 (const struct real_format *fmt, long *, const REAL_VALUE_T
 void decode_decimal64 (const struct real_format *, REAL_VALUE_TYPE *, const long *);
 void encode_decimal128 (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
 void decode_decimal128 (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+
+int  decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 void decimal_real_from_string (REAL_VALUE_TYPE *, const char *, enum machine_mode );
-int decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 void decimal_round_for_format (const struct real_format *, REAL_VALUE_TYPE *);
 void decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode, const REAL_VALUE_TYPE *a);
 void decimal_real_to_decimal (char *, const REAL_VALUE_TYPE *, size_t, size_t, int);
@@ -36,16 +37,18 @@ void decimal_do_fix_trunc (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 bool decimal_real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
 			      const REAL_VALUE_TYPE *);
 void decimal_real_maxval (REAL_VALUE_TYPE *, int, enum machine_mode);
-HOST_WIDE_INT decimal_real_to_integer (const REAL_VALUE_TYPE *);
 void decimal_real_to_integer2 (HOST_WIDE_INT *, HOST_WIDE_INT *, const REAL_VALUE_TYPE *);
+
+HOST_WIDE_INT decimal_real_to_integer (const REAL_VALUE_TYPE *);
 
 #define ENCODE_DECIMAL_SINGLE encode_decimal32
 #define DECODE_DECIMAL_SINGLE decode_decimal32
 #define ENCODE_DECIMAL_DOUBLE encode_decimal64
 #define DECODE_DECIMAL_DOUBLE decode_decimal64
-#define ENCODE_DECIMAL_QUAD encode_decimal128
-#define DECODE_DECIMAL_QUAD decode_decimal128
+#define ENCODE_DECIMAL_QUAD   encode_decimal128
+#define DECODE_DECIMAL_QUAD   decode_decimal128
+#define DECIMAL_DO_COMPARE    decimal_do_compare
+
 #define REAL_OR_DECIMAL_FROM_STRING decimal_real_from_string
-#define DECIMAL_DO_COMPARE decimal_do_compare
 
 #endif /* ! GCC_DFP_H */

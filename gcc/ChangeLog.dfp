@@ -1,5 +1,9 @@
 2005-11-24  Ben Elliston  <bje@au.ibm.com>
 
+	* dfp.h, dfp.c: Tidy.
+
+2005-11-24  Ben Elliston  <bje@au.ibm.com>
+
 	* config/i386/i386.h (ALIGN_MODE_128): Revert branch change.
 	* config/i386/i386.md: Tidy.
 
