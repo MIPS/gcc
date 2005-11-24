@@ -1,3 +1,14 @@
+2005-11-23  Alan Modra  <amodra@bigpond.net.au>
+
+	* io/open.c (new_unit): Use the right unit number when checking
+	for stdin, stdout, stderr.
+
+2005-11-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/24794
+	* io/list_read.c (read_character): Add auto completion on short
+	namelist reads.
+
 2005-11-21  David Edelsohn  <edelsohn@gnu.org>
 
 	* io/io.h (_LARGE_FILES): Undefine for AIX.

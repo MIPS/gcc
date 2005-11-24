@@ -83,10 +83,9 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
   (GET_MODE_CLASS (MODE) == MODE_DECIMAL_FLOAT)
 
 /* Nonzero if CLASS modes can be widened.  */
-#define MODES_WIDEN_P(CLASS)			\
-  (CLASS == MODE_INT				\
-   || CLASS == MODE_FLOAT			\
-   || CLASS == MODE_DECIMAL_FLOAT		\
+#define CLASS_HAS_WIDER_MODES_P(CLASS)         \
+  (CLASS == MODE_INT                           \
+   || CLASS == MODE_FLOAT                      \
    || CLASS == MODE_COMPLEX_FLOAT)
 
 /* Get the size in bytes and bits of an object of mode MODE.  */
