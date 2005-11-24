@@ -268,12 +268,12 @@ extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
 extern const struct real_format i370_single_format;
 extern const struct real_format i370_double_format;
-extern const struct real_format decimal_single_format;
-extern const struct real_format decimal_double_format;
-extern const struct real_format decimal_quad_format;
 extern const struct real_format c4x_single_format;
 extern const struct real_format c4x_extended_format;
 extern const struct real_format real_internal_format;
+extern const struct real_format decimal_single_format;
+extern const struct real_format decimal_double_format;
+extern const struct real_format decimal_quad_format;
 
 
 /* ====================================================================== */
@@ -316,19 +316,18 @@ extern const struct real_format real_internal_format;
 #define REAL_VALUE_FROM_UNSIGNED_INT(r, lo, hi, mode) \
   real_from_integer (&(r), mode, lo, hi, 1)
 
-/* Decimal floating point support.
-   FIXME: Don't hardwire modes, use mode_for_size ().  */
+/* Real values to IEEE 754R decimal floats.  */
 
 /* IN is a REAL_VALUE_TYPE.  OUT is an array of longs.  */
 #define REAL_VALUE_TO_TARGET_DECIMAL128(IN, OUT) \
-  real_to_target (OUT, &(IN), TDmode)
+  real_to_target (OUT, &(IN), mode_for_size (128, MODE_DECIMAL_FLOAT, 0))
 
 #define REAL_VALUE_TO_TARGET_DECIMAL64(IN, OUT) \
-  real_to_target (OUT, &(IN), DDmode)
+  real_to_target (OUT, &(IN), mode_for_size (64, MODE_DECIMAL_FLOAT, 0))
 
 /* IN is a REAL_VALUE_TYPE.  OUT is a long.  */
 #define REAL_VALUE_TO_TARGET_DECIMAL32(IN, OUT) \
-  ((OUT) = real_to_target (NULL, &(IN), SDmode))
+  ((OUT) = real_to_target (NULL, &(IN), mode_for_size (32, MODE_DECIMAL_FLOAT, 0)))
 
 extern REAL_VALUE_TYPE real_value_truncate (enum machine_mode,
 					    REAL_VALUE_TYPE);

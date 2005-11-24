@@ -1,5 +1,12 @@
 2005-11-24  Ben Elliston  <bje@au.ibm.com>
 
+	* real.h (REAL_VALUE_TO_TARGET_DECIMAL32): Use mode_for_size
+	rather than hardwiring the mode in call to real_to_target.
+	(REAL_VALUE_TO_TARGET_DECIMAL64): Likewise.
+	(REAL_VALUE_TO_TARGET_DECIMAL128): Likewise.
+
+2005-11-24  Ben Elliston  <bje@au.ibm.com>
+
 	* dfp.h, dfp.c: Update FSF copyright notice.
 
 2005-11-24  Ben Elliston  <bje@au.ibm.com>
