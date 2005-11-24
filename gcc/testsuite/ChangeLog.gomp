@@ -1,3 +1,7 @@
+2005-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/do-1.f90: XFAIL.
+
 2005-11-19  Diego Novillo  <dnovillo@redhat.com>
 
 	PR 24849
