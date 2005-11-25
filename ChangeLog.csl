@@ -1,5 +1,10 @@
 2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
 
+	* gcc/config/fp-bit.c (isnan, isinf, pack_d, unpack_d): Use
+	__builtin_expect.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
 	* gcc/config/fp-bit.h (LSHIFT): Take shift count parameter.
 	* gcc/config/fp-bit.c (_fpadd_parts): Shift in one go instead of
 	one bit at a time.
