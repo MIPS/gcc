@@ -97,7 +97,9 @@ endif
 # --------
 
 # Directory where sources are, from where we are.
-VPATH = @srcdir@
+# FIXME: this is rather gross, but it lets us get the files relocated
+#        with a minimum of fuss.
+VPATH = @srcdir@ @srcdir@/../decnumber
 
 # We define a vpath for the sources of the .texi files here because they
 # are split between multiple directories and we would rather use one implicit
@@ -297,6 +299,9 @@ GMPINC = @GMPINC@
 
 CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
+
+# How to find decNumber
+DECNUMINC = -I$(srcdir)/../decnumber
 
 # Substitution type for target's getgroups 2nd arg.
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
@@ -845,7 +850,7 @@ BUILD_VARRAY = build/varray.o
 # libintl.h will be found in ../intl if we are using the included libintl.
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
-	   $(CPPINC) $(GMPINC)
+	   $(DECNUMINC) $(CPPINC) $(GMPINC)
 
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
