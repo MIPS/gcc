@@ -92,8 +92,8 @@ set SAVED_DEFAULT_VECTCFLAGS $DEFAULT_VECTCFLAGS
 
 # -fno-tree-reassoc tests
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
-lappend DEFAULT_VECTCFLAGS "-fno-tree-reasoc"
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/noreassoc-vect*.\[cS\]]]  \
+lappend DEFAULT_VECTCFLAGS "-fno-tree-reassoc"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/noreasoc-vect*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
 # -ffast-math tests

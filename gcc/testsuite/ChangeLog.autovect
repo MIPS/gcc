@@ -1,6 +1,8 @@
 2005-11-24  Dorit Nuzman  <dorit@il.ibm.com>
 
-	* gcc.dg/vect/vect-strided-reduc-u8-i2.c: New.
+	* gcc.dg/vect/noreasoc-vect-strided-reduc-u8-i2.c: New.
+	* gcc.dg/vect/vect.exp: Compile tests prefixed with noreasoc
+	with -ftree-no-reassoc.
 
 2005-11-23  Ira Rosen  <irar@il.ibm.com>
 
