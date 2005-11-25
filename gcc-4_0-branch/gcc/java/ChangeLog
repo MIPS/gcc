@@ -1,3 +1,7 @@
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (gij options): Add -Xss documentation.
+
 2005-07-13  Tom Tromey  <tromey@redhat.com>
 
 	* jvspec.c (lang_specific_driver): Put filelist_filename first on

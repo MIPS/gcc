@@ -1,3 +1,18 @@
+2005-11-25  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25016
+	* posix-threads.cc (_Jv_CondWait): Rewrite calculation of the
+	struct timespec we pass to pthread_cond_timedwait.
+
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gij.cc (nonstandard_opts_help): Add entry for -Xss.
+
+2005-11-21  Matthias Klose  <doko@debian.org>
+
+	* configure.ac: Fix typo in error message.
+	* configure: Regenerate.
+
 2005-09-15  Tom Tromey  <tromey@redhat.com>
 
 	Workaround for PR classpath/23863:
