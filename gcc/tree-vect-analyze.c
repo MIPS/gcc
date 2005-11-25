@@ -2360,12 +2360,8 @@ widened_name_p (tree name, tree use_stmt, tree *half_type, tree *def_stmt)
   if (!vect_is_simple_use (name, loop_vinfo, def_stmt, &def, &dt))
     return false;
 
-  if (dt == vect_loop_def)
-    {
-      if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (*def_stmt)))
-        return false;
-    }
-  else if (dt != vect_invariant_def && dt != vect_constant_def)
+  if (dt != vect_loop_def 
+      && dt != vect_invariant_def && dt != vect_constant_def)
     return false;
 
   if (! *def_stmt)

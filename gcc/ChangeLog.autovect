@@ -1,3 +1,7 @@
+2005-11-24  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (widened_name_p): Remove redundant check.
+
 2005-11-23  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* opts.c (decode_options): Set flag_tree_reassoc.
