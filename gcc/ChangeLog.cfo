@@ -1,3 +1,8 @@
+2005-11-25  Gabor Loki  <loki@gcc.gnu.org>
+
+	* cfgcleanup.c (try_crossjump_to_edge) : Avoid deleting preseve label
+	when redirecting ABNORMAL edeges, add block_has_preserve_label function.
+
 2005-11-22  Gabor Loki  <loki@gcc.gnu.org>
 
 	* tree-ssa-lfact.c (stmt_hoisting) : Fix condition field of 'for'

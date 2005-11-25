@@ -1488,6 +1488,16 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   return true;
 }
 
+/* Returns true if BB basic block has a preserve label.  */
+
+static bool
+block_has_preserve_label (basic_block bb)
+{
+  return (bb
+          && block_label (bb)
+          && LABEL_PRESERVE_P (block_label (bb)));
+}
+
 /* E1 and E2 are edges with the same destination block.  Search their
    predecessors for common code.  If found, redirect control flow from
    (maybe the middle of) E1->SRC to (maybe the middle of) E2->SRC.  */
@@ -1561,6 +1571,11 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
      block removed).  */
   if ((nmatch < PARAM_VALUE (PARAM_MIN_CROSSJUMP_INSNS))
       && (newpos1 != BB_HEAD (src1)))
+    return false;
+
+  /* Avoid deleting preseve label when redirecting ABNORMAL edeges.  */
+  if (block_has_preserve_label (e1->dest)
+      && (e1->flags & EDGE_ABNORMAL))
     return false;
 
   /* Here we know that the insns in the end of SRC1 which are common with SRC2
