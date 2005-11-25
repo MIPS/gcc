@@ -1,3 +1,7 @@
+2005-11-25  Ben Elliston  <bje@au.ibm.com>
+
+	* mklibgcc.in: Rename some shell variables for clarity.
+
 2005-11-24  Ben Elliston  <bje@au.ibm.com>
 
 	* real.h (REAL_VALUE_TO_TARGET_DECIMAL32): Use mode_for_size

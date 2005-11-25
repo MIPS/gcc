@@ -325,41 +325,40 @@ for ml in $MULTILIBS; do
   # Build software floating point functions.
   #
 
-  # Loop over each variable by name.
-  for bitvar in FPBIT DPBIT TPBIT ; do
-    bit_funcs_var="${bitvar}_FUNCS"
-    bit=$(eval "echo \$$bitvar")
-    bit_funcs=$(eval "echo \$$bit_funcs_var")
+  for fpbit_var in FPBIT DPBIT TPBIT ; do
+      fpfuncs_var="${fpbit_var}_FUNCS"
+      eval fpbit=\$$fpbit_var
+      eval fpfuncs=\$$fpfuncs_var
 
-    if [ "$bit" ]; then
-      for name in $bit_funcs; do
-        if [ "$libgcc_s_so" ]; then
-	  out="libgcc/${dir}/${name}${objext}"
-	  outS="libgcc/${dir}/${name}_s${objext}"
+      if [ "$fpbit" ] ; then
+	  for name in $fpfuncs; do
+	      if [ "$libgcc_s_so" ]; then
+		  out="libgcc/${dir}/${name}${objext}"
+		  outS="libgcc/${dir}/${name}_s${objext}"
 
-	  echo $outS: $bit $fpbit_c_dep
-	  echo "	$gcc_s_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
-	    -c $bit -o $outS
+		  echo $outS: $fpbit $fpbit_c_dep
+		  echo "	$gcc_s_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
+		      -c $fpbit -o $outS
 
-          echo $out: $bit $fpbit_c_dep
-          echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
-	    '$(vis_hide)' -c $bit -o $out
-
-	  echo $libgcc_a: $out
-	  echo $libgcc_s_so: $outS
-	  if [ "$SHLIB_MKMAP" ]; then
-	    echo libgcc/${dir}/libgcc.map: $outS
-	  fi
-        else
-	  out="libgcc/${dir}/${name}${objext}"
-	  echo $out: $bit $fpbit_c_dep
-	  echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
-	    -c $bit -o $out
-
-	  echo $libgcc_a: $out
-        fi
-      done
-    fi
+		  echo $out: $fpbit $fpbit_c_dep
+		  echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
+		      '$(vis_hide)' -c $fpbit -o $out
+		  
+		  echo $libgcc_a: $out
+		  echo $libgcc_s_so: $outS
+		  if [ "$SHLIB_MKMAP" ]; then
+		      echo libgcc/${dir}/libgcc.map: $outS
+		  fi
+	      else
+		  out="libgcc/${dir}/${name}${objext}"
+		  echo $out: $fpbit $fpbit_c_dep
+		  echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
+		      -c $fpbit -o $out
+		  
+		  echo $libgcc_a: $out
+	      fi
+	  done
+      fi
   done
 
   if [ "@enable_decimal_float@" = "yes" -a -z "$libgcc_so" ]; then
@@ -387,17 +386,17 @@ for ml in $MULTILIBS; do
     done
 
     # For individual functions, loop over each variable by name.
-    for bitvar in D32PBIT D64PBIT D128PBIT ; do
-      bit_funcs_var="${bitvar}_FUNCS"
-      bit=$(eval "echo \$$bitvar")
-      bit_funcs=$(eval "echo \$$bit_funcs_var")
+    for dpbit_var in D32PBIT D64PBIT D128PBIT ; do
+      dpfuncs_var="${dpbit_var}_FUNCS"
+      eval dpbit=\$$dpbit_var
+      eval dpfuncs=\$$dpfuncs_var
 
-      if [ "$bit" ]; then
-        for name in $bit_funcs; do
+      if [ "$dpbit" ]; then
+        for name in $dpfuncs; do
           out="libgcc/${dir}/${name}${objext}"
-	  echo $out: $bit $fpbit_c_dep
+	  echo $out: $dpbit $fpbit_c_dep
 	  echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name \
-	    -c $bit -o $out
+	    -c $dpbit -o $out
 
 	  echo $libgcc_a: $out
         done
