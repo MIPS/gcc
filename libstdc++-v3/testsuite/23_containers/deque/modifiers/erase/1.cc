@@ -1,4 +1,4 @@
-// 2005-11-02  Paolo Carlini  <pcarlini@suse.de>
+// 2005-11-25  Paolo Carlini  <pcarlini@suse.de>
 
 // Copyright (C) 2005 Free Software Foundation, Inc.
 //
@@ -18,9 +18,9 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-// 23.2.4.3 vector modifiers
+// 23.2.1.3 deque modifiers
 
-#include <vector>
+#include <deque>
 #include <testsuite_hooks.h>
 
 const int  A[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
@@ -41,10 +41,10 @@ test01()
 {
   bool test __attribute__((unused)) = true;
 
-  typedef std::vector<int>   vec_type;
-  typedef vec_type::iterator iterator_type;
+  typedef std::deque<int>                deque_type;
+  typedef deque_type::iterator        iterator_type;
 
-  vec_type v(A, A + N);
+  deque_type v(A, A + N);
 
   iterator_type it1 = v.erase(v.begin() + 1);
   VERIFY( it1 == v.begin() + 1 );
@@ -76,22 +76,22 @@ test02()
 {
   bool test __attribute__((unused)) = true;
 
-  typedef std::vector<std::vector<int> >   vec_type;
-  typedef vec_type::iterator          iterator_type;
+  typedef std::deque<std::deque<int> >   deque_type;
+  typedef deque_type::iterator        iterator_type;
 
-  vec_type v, v1, v2, v3, v4, v5;
+  deque_type v, v1, v2, v3, v4, v5;
   for (int i = 0; i < N; ++i)
-    v.push_back(std::vector<int>(1, A[i]));
+    v.push_back(std::deque<int>(1, A[i]));
   for (int i = 0; i < N1; ++i)
-    v1.push_back(std::vector<int>(1, A1[i]));
+    v1.push_back(std::deque<int>(1, A1[i]));
   for (int i = 0; i < N2; ++i)
-    v2.push_back(std::vector<int>(1, A2[i]));
+    v2.push_back(std::deque<int>(1, A2[i]));
   for (int i = 0; i < N3; ++i)
-    v3.push_back(std::vector<int>(1, A3[i]));
-  for (int i = 0; i < N2; ++i)
-    v4.push_back(std::vector<int>(1, A4[i]));
-  for (int i = 0; i < N3; ++i)
-    v5.push_back(std::vector<int>(1, A5[i]));
+    v3.push_back(std::deque<int>(1, A3[i]));
+  for (int i = 0; i < N4; ++i)
+    v4.push_back(std::deque<int>(1, A4[i]));
+  for (int i = 0; i < N5; ++i)
+    v5.push_back(std::deque<int>(1, A5[i]));
   
   iterator_type it1 = v.erase(v.begin() + 1);
   VERIFY( it1 == v.begin() + 1 );

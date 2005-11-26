@@ -1,3 +1,20 @@
+2005-11-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_deque.h (deque<>::_M_erase_at_end,
+	_M_erase_at_begin, _M_destroy_data, _M_destroy_data_dispatch,
+	_M_destroy_data_aux): New, optimize erase at begin() / end() and
+	consistently use the "segmented iterator" optimization.
+	(deque<>::~deque(), resize, clear, _M_assign_aux, _M_fill_assign):
+	Use the above.
+	* include/bits/deque.tcc (deque<>::operator=, _M_assign_aux): Same.
+	(erase(iterator, iterator)): Likewise, clean-up.
+	(erase(iterator)): Tweak, don't call __move unnecessarily. 
+	(_M_destroy_data_aux): Define.
+	* testsuite/23_containers/deque/modifiers/erase/1.cc: New.
+	* testsuite/23_containers/deque/modifiers/erase/2.cc: Likewise.
+
+	* testsuite/23_containers/vector/modifiers/erase/1.cc: Extend.
+
 2005-11-21  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h: Minor formatting and stylistic fixes.

@@ -735,8 +735,7 @@ namespace _GLIBCXX_STD
        *  way.  Managing the pointer is the user's responsibilty.
        */
       ~deque()
-      { std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
-		      _M_get_Tp_allocator()); }
+      { _M_destroy_data(begin(), end(), _M_get_Tp_allocator()); }
 
       /**
        *  @brief  %Deque assignment operator.
@@ -901,7 +900,7 @@ namespace _GLIBCXX_STD
       {
 	const size_type __len = size();
 	if (__new_size < __len)
-	  erase(this->_M_impl._M_start + __new_size, this->_M_impl._M_finish);
+	  _M_erase_at_end(this->_M_impl._M_start + __new_size);
 	else
 	  insert(this->_M_impl._M_finish, __new_size - __len, __x);
       }
@@ -1268,7 +1267,9 @@ namespace _GLIBCXX_STD
        *  pointed-to memory is not touched in any way.  Managing the pointer is
        *  the user's responsibilty.
        */
-      void clear();
+      void
+      clear()
+      { _M_erase_at_end(begin()); }
 
     protected:
       // Internal constructor functions follow.
@@ -1378,7 +1379,7 @@ namespace _GLIBCXX_STD
 	      insert(end(), __mid, __last);
 	    }
 	  else
-	    erase(std::copy(__first, __last, begin()), end());
+	    _M_erase_at_end(std::copy(__first, __last, begin()));
 	}
 
       // Called by assign(n,t), and the range assign when it turns out
@@ -1393,7 +1394,7 @@ namespace _GLIBCXX_STD
 	  }
 	else
 	  {
-	    erase(begin() + __n, end());
+	    _M_erase_at_end(begin() + __n);
 	    std::fill(begin(), end(), __val);
 	  }
       }
@@ -1406,9 +1407,12 @@ namespace _GLIBCXX_STD
        */
       template<typename _Value_type>
 	void _M_push_back_aux(const _Value_type&);
+
       template<typename _Value_type>
 	void _M_push_front_aux(const _Value_type&);
+
       void _M_pop_back_aux();
+
       void _M_pop_front_aux();
       //@}
 
@@ -1469,6 +1473,54 @@ namespace _GLIBCXX_STD
         _M_insert_aux(iterator __pos,
 		      _ForwardIterator __first, _ForwardIterator __last,
 		      size_type __n);
+
+
+      // Internal erase functions follow.
+
+      void
+      _M_destroy_data_aux(iterator __first, iterator __last);
+
+      void
+      _M_destroy_data_dispatch(iterator, iterator, __true_type) { }
+      
+      void
+      _M_destroy_data_dispatch(iterator __first, iterator __last, __false_type)
+      { _M_destroy_data_aux(__first, __last); }
+
+      // Called by ~deque().
+      // NB: Doesn't deallocate the nodes.
+      template<typename _Alloc1>
+        void
+        _M_destroy_data(iterator __first, iterator __last, _Alloc1)
+        { _M_destroy_data_aux(__first, __last); }
+
+      void
+      _M_destroy_data(iterator __first, iterator __last, std::allocator<_Tp>)
+      {
+	typedef typename std::__is_scalar<value_type>::__type
+	  _Has_trivial_destructor;
+	_M_destroy_data_dispatch(__first, __last, _Has_trivial_destructor());
+      }
+
+      // Called by erase(q1, q2).
+      void
+      _M_erase_at_begin(iterator __pos)
+      {
+	_M_destroy_data(begin(), __pos, _M_get_Tp_allocator());
+	_M_destroy_nodes(this->_M_impl._M_start._M_node, __pos._M_node);
+	this->_M_impl._M_start = __pos;
+      }
+
+      // Called by erase(q1, q2), resize(), clear(), _M_assign_aux,
+      // _M_fill_assign, operator=.
+      void
+      _M_erase_at_end(iterator __pos)
+      {
+	_M_destroy_data(__pos, end(), _M_get_Tp_allocator());
+	_M_destroy_nodes(__pos._M_node + 1,
+			 this->_M_impl._M_finish._M_node + 1);
+	this->_M_impl._M_finish = __pos;
+      }
 
       //@{
       /**
