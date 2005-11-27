@@ -2575,6 +2575,7 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results, bool *anyoffset)
 	      return;
 	    }
 	  case ARRAY_REF:
+	  case ARRAY_RANGE_REF:
 	  case COMPONENT_REF:
 	    get_constraint_for_component_ref (t, results, anyoffset);
 	    return;

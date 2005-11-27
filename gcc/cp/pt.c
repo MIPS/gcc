@@ -137,7 +137,6 @@ static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
 static void regenerate_decl_from_template (tree, tree);
 static tree most_specialized (tree, tree, tree);
 static tree most_specialized_class (tree, tree);
-static int template_class_depth_real (tree, int);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
 static tree tsubst_arg_types (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_function_type (tree, tree, tsubst_flags_t, tree);
@@ -266,15 +265,14 @@ finish_member_template_decl (tree decl)
 
    A<T>::B<U> has depth two, while A<T> has depth one.
    Both A<T>::B<int> and A<int>::B<U> have depth one, if
-   COUNT_SPECIALIZATIONS is 0 or if they are instantiations, not
-   specializations.
+   they are instantiations, not specializations.
 
    This function is guaranteed to return 0 if passed NULL_TREE so
    that, for example, `template_class_depth (current_class_type)' is
    always safe.  */
 
-static int
-template_class_depth_real (tree type, int count_specializations)
+int
+template_class_depth (tree type)
 {
   int depth;
 
@@ -287,33 +285,19 @@ template_class_depth_real (tree type, int count_specializations)
 	{
 	  if (CLASSTYPE_TEMPLATE_INFO (type)
 	      && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (type))
-	      && ((count_specializations
-		   && CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
-		  || uses_template_parms (CLASSTYPE_TI_ARGS (type))))
+	      && uses_template_parms (CLASSTYPE_TI_ARGS (type)))
 	    ++depth;
 	}
       else
 	{
 	  if (DECL_TEMPLATE_INFO (type)
 	      && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (type))
-	      && ((count_specializations
-		   && DECL_TEMPLATE_SPECIALIZATION (type))
-		  || uses_template_parms (DECL_TI_ARGS (type))))
+	      && uses_template_parms (DECL_TI_ARGS (type)))
 	    ++depth;
 	}
     }
 
   return depth;
-}
-
-/* Returns the template nesting level of the indicated class TYPE.
-   Like template_class_depth_real, but instantiations do not count in
-   the depth.  */
-
-int
-template_class_depth (tree type)
-{
-  return template_class_depth_real (type, /*count_specializations=*/0);
 }
 
 /* Returns 1 if processing DECL as part of do_pending_inlines
@@ -4352,7 +4336,7 @@ lookup_template_class (tree d1,
 	{
 	  if (context)
 	    push_decl_namespace (context);
-	  template = lookup_name (d1, /*prefer_type=*/0);
+	  template = lookup_name (d1);
 	  template = maybe_get_template_decl_from_type_decl (template);
 	  if (context)
 	    pop_decl_namespace ();
@@ -5384,7 +5368,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
     }
 
   /* First, we look for a class template.  */
-  tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/0);
+  tmpl = lookup_name (DECL_NAME (friend_tmpl));
 
   /* But, if we don't find one, it might be because we're in a
      situation like this:
@@ -5399,7 +5383,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
      for `S<int>', not the TEMPLATE_DECL.  */
   if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
     {
-      tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/1);
+      tmpl = lookup_name_prefer_type (DECL_NAME (friend_tmpl), 1);
       tmpl = maybe_get_template_decl_from_type_decl (tmpl);
     }
 
@@ -5669,14 +5653,12 @@ instantiate_class_template (tree type)
 	    {
 	      /* Build new CLASSTYPE_NESTED_UTDS.  */
 
-	      tree tag = t;
-	      tree name = TYPE_IDENTIFIER (tag);
 	      tree newtag;
 	      bool class_template_p;
 
-	      class_template_p = (TREE_CODE (tag) != ENUMERAL_TYPE
-				  && TYPE_LANG_SPECIFIC (tag)
-				  && CLASSTYPE_IS_TEMPLATE (tag));
+	      class_template_p = (TREE_CODE (t) != ENUMERAL_TYPE
+				  && TYPE_LANG_SPECIFIC (t)
+				  && CLASSTYPE_IS_TEMPLATE (t));
 	      /* If the member is a class template, then -- even after
 		 substitution -- there may be dependent types in the
 		 template argument list for the class.  We increment
@@ -5685,7 +5667,7 @@ instantiate_class_template (tree type)
 		 when outside of a template.  */
 	      if (class_template_p)
 		++processing_template_decl;
-	      newtag = tsubst (tag, args, tf_error, NULL_TREE);
+	      newtag = tsubst (t, args, tf_error, NULL_TREE);
 	      if (class_template_p)
 		--processing_template_decl;
 	      if (newtag == error_mark_node)
@@ -5693,6 +5675,8 @@ instantiate_class_template (tree type)
 
 	      if (TREE_CODE (newtag) != ENUMERAL_TYPE)
 		{
+		  tree name = TYPE_IDENTIFIER (t);
+
 		  if (class_template_p)
 		    /* Unfortunately, lookup_template_class sets
 		       CLASSTYPE_IMPLICIT_INSTANTIATION for a partial
@@ -8516,7 +8500,7 @@ tsubst_copy_and_build (tree t,
 	  }
 
 	/* Look up the name.  */
-	decl = lookup_name (t, 0);
+	decl = lookup_name (t);
 
 	/* By convention, expressions use ERROR_MARK_NODE to indicate
 	   failure, not NULL_TREE.  */
@@ -9093,7 +9077,8 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 		  if (TYPE_ANONYMOUS_P (nt))
 		    error ("%qT is/uses anonymous type", t);
 		  else
-		    error ("%qT uses local type %qT", t, nt);
+		    error ("template argument for %qD uses local type %qT",
+                           tmpl, t);
 		}
 	      result = true;
 	    }

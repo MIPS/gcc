@@ -649,6 +649,7 @@ extern void binary_op_error (enum tree_code);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
+extern void strict_aliasing_warning(tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
@@ -776,6 +777,7 @@ extern tree finish_label_address_expr (tree);
 /* Same function prototype, but the C and C++ front ends have
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
+extern tree lookup_name (tree);
 
 extern int vector_types_convertible_p (tree t1, tree t2);
 
@@ -834,6 +836,8 @@ extern void lvalue_error (enum lvalue_use);
 extern int complete_array_type (tree *, tree, bool);
 
 extern tree builtin_type_for_size (int, bool);
+
+extern void warn_array_subscript_with_type_char (tree);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

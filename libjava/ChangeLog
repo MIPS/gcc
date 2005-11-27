@@ -1,3 +1,44 @@
+2005-11-25  Mark Wielaard  <mark@klomp.org>
+
+	* standard.omit.in: Remove javax/rmi, org/omg, gnu/CORBA and
+	gnu/javax/rmi.
+	* scripts/makemake.tcl: Set javax/rmi, org/omg, gnu/CORBA and
+	gnu/javax/rmi to bc.
+	* gnu/CORBA/ObjectCreator.java: New override file for missing
+	VMStackWalker issue.
+	* gnu/CORBA/DynAn/gnuDynValue.java: New override file for bug #24938
+	* gnu/CORBA/DynAn/RecordAny.java: Likewise
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated
+
+2005-11-25  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25016
+	* posix-threads.cc (_Jv_CondWait): Rewrite calculation of the
+	struct timespec we pass to pthread_cond_timedwait.
+
+2005-11-25  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* testsuite/libjava.jacks/jacks.xfail: Remove
+	non-jls-argument-expansion-13 and add
+	non-jls-argument-expansion-error-1 in response to the @file support
+	patch in the main GCC driver.
+
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* sysdep/ia64-frame.h: Removed.
+	* sysdep/ia64.c: Removed.
+	* sysdep/dwarf2-backtrace.cc: Removed.
+	* configure.ac: Remove references to HAVE_BACKTRACE and
+	SUPPLY_BACKTRACE.
+	* Makefile.am: Remove SUPPLY_BACKTRACE support.
+	* configure: Rebuilt.
+	* Makefile.in: Rebuilt.
+
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gij.cc (nonstandard_opts_help): Add entry for -Xss.
+
 2005-11-17  Mark Wielaard  <mark@klomp.org>
 
 	Imported GNU Classpath gcj-import-20051117.

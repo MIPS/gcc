@@ -814,10 +814,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
 #define MODES_TIEABLE_P(MODE1, MODE2) \
-  (GET_MODE_CLASS (MODE1) == MODE_FLOAT		\
-   ? GET_MODE_CLASS (MODE2) == MODE_FLOAT	\
-   : GET_MODE_CLASS (MODE2) == MODE_FLOAT	\
-   ? GET_MODE_CLASS (MODE1) == MODE_FLOAT	\
+  (SCALAR_FLOAT_MODE_P (MODE1)			\
+   ? SCALAR_FLOAT_MODE_P (MODE2)		\
+   : SCALAR_FLOAT_MODE_P (MODE2)		\
+   ? SCALAR_FLOAT_MODE_P (MODE1)		\
    : GET_MODE_CLASS (MODE1) == MODE_CC		\
    ? GET_MODE_CLASS (MODE2) == MODE_CC		\
    : GET_MODE_CLASS (MODE2) == MODE_CC		\
@@ -1187,7 +1187,7 @@ enum reg_class
    NO_REGS is returned.  */
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  secondary_reload_class (CLASS, MODE, IN)
+  rs6000_secondary_reload_class (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
    else, we need a memory location.  */
@@ -1951,7 +1951,7 @@ do {								\
    comparison.  CCmode should be used in all other cases.  */
 
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT ? CCFPmode	\
+  (SCALAR_FLOAT_MODE_P (GET_MODE (X)) ? CCFPmode	\
    : (OP) == GTU || (OP) == LTU || (OP) == GEU || (OP) == LEU ? CCUNSmode \
    : (((OP) == EQ || (OP) == NE) && COMPARISON_P (X)			  \
       ? CCEQmode : CCmode))

@@ -643,6 +643,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	    bestmode = GET_MODE (op0);
 
 	  if (bestmode == VOIDmode
+	      || GET_MODE_SIZE (bestmode) < GET_MODE_SIZE (fieldmode)
 	      || (SLOW_UNALIGNED_ACCESS (bestmode, MEM_ALIGN (op0))
 		  && GET_MODE_BITSIZE (bestmode) > MEM_ALIGN (op0)))
 	    goto insv_loses;
@@ -2835,6 +2836,17 @@ choose_mult_variant (enum machine_mode mode, HOST_WIDE_INT val,
   struct mult_cost limit;
   int op_cost;
 
+  /* Fail quickly for impossible bounds.  */
+  if (mult_cost < 0)
+    return false;
+
+  /* Ensure that mult_cost provides a reasonable upper bound.
+     Any constant multiplication can be performed with less
+     than 2 * bits additions.  */
+  op_cost = 2 * GET_MODE_BITSIZE (mode) * add_cost[mode];
+  if (mult_cost > op_cost)
+    mult_cost = op_cost;
+
   *variant = basic_variant;
   limit.cost = mult_cost;
   limit.latency = mult_cost;
@@ -3155,7 +3167,7 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 
   /* Expand x*2.0 as x+x.  */
   if (GET_CODE (op1) == CONST_DOUBLE
-      && GET_MODE_CLASS (mode) == MODE_FLOAT)
+      && SCALAR_FLOAT_MODE_P (mode))
     {
       REAL_VALUE_TYPE d;
       REAL_VALUE_FROM_CONST_DOUBLE (d, op1);
