@@ -229,7 +229,7 @@ ghs_pragma_startzda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of #pragma ghs startzda");
   
   push_data_area (DATA_AREA_ZDA);
@@ -240,7 +240,7 @@ ghs_pragma_endtda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of #pragma ghs endtda");
   
   pop_data_area (DATA_AREA_TDA);
@@ -251,7 +251,7 @@ ghs_pragma_endsda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of #pragma ghs endsda");
   
   pop_data_area (DATA_AREA_SDA);
@@ -262,7 +262,7 @@ ghs_pragma_endzda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of #pragma ghs endzda");
   
   pop_data_area (DATA_AREA_ZDA);

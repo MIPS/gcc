@@ -1,3 +1,166 @@
+2005-11-26  Richard Henderson  <rth@redhat.com>
+
+	* c-lex.c (pragma_lex): Rename from c_lex.
+	* c-pch.c: Update for pragma_lex rename.
+	* c-pragma.c, c-pragma.h, config/ia64/ia64-c.c: Likewise.
+	* config/m32c/m32c-pragma.c, config/darwin-c.c: Likewise.
+	* config/rs6000/rs6000-c.c, config/c4x/c4x-c.c: Likewise.
+	* config/sol2-c.c, config/v850/v850-c.c: Likewise.
+	* doc/tm.texi: Likewise.
+
+2005-11-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23669
+	* fold-const.c (fold_binary): Convert -A/-B to A/B for signed types
+	when overflow is undefined.
+
+2005-11-26  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/md.texi (Insn Canonicalizations): Refer to the
+	function commutative_operand_precedence for further rules.
+
+2005-11-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/21309
+	* expmed.c (choose_mult_variant): Return immediately when mult_cost
+	is less than zero.  Limit mult_cost to a reasonable upper bound for
+	the synthetic multiplication sequence.
+
+2005-11-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/25022
+	* builtins.c (expand_builtin_printf, expand_builtin_fprintf,
+	fold_builtin_fputs, fold_builtin_printf, fold_builtin_fprintf):
+	Lookup the explicit replacement functions for any unlocked
+	stdio builtin transformations.
+
+2005-11-25  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.md ("reload_out<mode>"): Mark operand 2 as
+	earlyclobber.
+	* targhooks.c (default_secondary_reload): Don't require operand 2
+	for an input reload to be earlyclobber.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* fold-const.c (negate_mathfn_p): Fix comment and add support
+	for BUILT_IN_CBRT, BUILT_IN_SINH, BUILT_IN_TANH, BUILT_IN_ASINH,
+	BUILT_IN_ATANH.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* config/sparc/sparc.c (sparc_init_libfuncs): Use _Q_utoq and
+	_Q_ulltoq for unsigned conversions from SImode and DImode to
+	TFmode.
+
+2005-11-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/ppc64-fp.c (__floatunditf): New function.
+	(__floatundidf, __floatundisf): Likewise.
+
+2005-11-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_sr_alias_set): Delete.
+	(rs6000_override_options): Remove initialization of
+	rs6000_sr_alias_set.
+	(rs6000_emit_eh_reg_restore): Use gen_frame_mem.
+	(rs6000_emit_stack_tie): Same.
+	(emit_frame_save): Same.
+	(gen_frame_mem_offset): Same.
+	(rs6000_emit_prologue): Same.
+	(rs6000_emit_epilogue): Same.
+
+2005-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24989
+	* fold-const.c (fold_build): Convert bool_var != 1 and
+	bool_var == 0 to !bool_var.
+
+2005-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24990
+	* fold-const.c (fold_binary): Fold (~a) == C to a == ~C
+	for C being INTEGER_CST.  Likewise for !=.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Use _q_utoq for
+	unsigned conversions from SImode to TFmode.
+
+2005-11-24  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* expr.c (expand_expr_real_1): Fix error in last change.
+
+2005-11-24  J"orn Rennecke <joern.rennecke@st.com>
+
+	* caller-save.c: (this_insn_sets): Move into:
+	(save_call_clobbered_regs).
+	(mark_set_regs): Get this_insn_sets from data.
+
+	(save_call_clobbered_regs): Take sets of the return value by
+	sibcalls into account.
+
+2005-11-24  J"orn Rennecke <joern.rennecke@st.com>
+	PR target/21623:
+
+	* regclass.c (FORBIDDEN_INC_DEC_CLASSES): Remove
+	SECONDARY_INPUT_RELOAD_CLASS and SECONDARY_OUTPUT_RELOAD_CLASS tests.
+	(init_fake_stack_mems): Remove HAVE_SECONDARY_RELOADS test.
+	(memory_move_secondary_cost, init_reg_autoinc): Remove
+	SECONDARY_INPUT_RELOAD_CLASS / SECONDARY_OUTPUT_RELOAD_CLASS tests.
+	Replace SECONDARY_{IN,OUT}PUT_RELOAD_CLASS use with
+	secondary_reload_class call.
+	(copy_cost): Likewise.  Add new parameter prev_sri.  Changed all
+	callers.
+	* reload.c (entire file): Remove HAVE_SECONDARY_RELOADS checks.
+	(push_secondary_reload): Use secondary_reload target hook.
+	(secondary_reload_class, scratch_reload_class): New functions.
+	(push_reload): Remove SECONDARY_INPUT_RELOAD_CLASS and
+	SECONDARY_OUTPUT_RELOAD_CLASS tests.  Replace
+	SECONDARY_{IN,OUT}PUT_RELOAD_CLASS use with secondary_reload_class call.
+	* reload.h (HAVE_SECONDARY_RELOADS): Don't define nor test.
+	(secondary_reload_class, scratch_reload_class): Declare.
+	* reload1.c: Include target.h.
+	(reload_adjust_reg_for_temp): New function.
+	(reload_adjust_reg_for_icode): Likewise.
+	(choose_reload_regs): Remove SECONDARY_INPUT_RELOAD_CLASS test.
+	Replace SECONDARY_INPUT_RELOAD_CLASS use with secondary_reload_class
+	call.
+	(emit_input_reload_insns): Likewise.  Rewrite secondary reload checks
+	for inheritance.  Support case when both secondary & tertiary reloads
+	are for intermediate registers.
+	(emit_output_reload_insns): Replace SECONDARY_OUTPUT_RELOAD_CLASS use
+        with secondary_reload_class call.  Support case when both secondary
+	& tertiary reloads are for intermediate registers.
+	* target-def.h (TARGET_SECONDARY_RELOAD): Provide default definition.
+	(TARGET_INITIALIZER) Add TARGET_SECONDARY_RELOAD.
+	* target.h (secondary_reload_info): New struct / typedef.
+	(struct gcc_target): New member secondary_reload.
+	* targhooks.c Include reload.h, optabs.h and recog.h.
+	(default_secondary_reload): New function.
+	* targhooks.h (default_secondary_reload): Declare.
+	* doc/tm.texi: Document secondary_reload target hook.  Update
+	description of SECONDARY_*RELOAD_CLASS and reload_{in,out}<mode>.
+	* doc/md.texi: Likewise.
+
+	* sh-protos.h (sh_secondary_reload): Declare.
+	* sh.c (TARGET_SECONDARY_RELOAD): Override.
+	(sh_secondary_reload): New function.
+	* sh.h (SECONDARY_INOUT_RELOAD_CLASS): Don't define.
+	(SECONDARY_OUTPUT_RELOAD_CLASS): Likewise.
+	(SECONDARY_INPUT_RELOAD_CLASS): Likewise.
+	(HAVE_SECONDARY_RELOADS): Define.
+	* sh.md (reload_indf): Rename to:
+	(reload_indf__frn).
+	(reload_outdf): Rename to:
+	(reload_outdf__RnFRm).
+	(reload_insf): Rename to:
+	(reload_insf__frn).
+	(reload_insi): Rename to:
+	(reload_insi__i_fpul).
+
 2005-11-24  Uros Bizjak  <uros@kss-loka.si>
 
 	* configure.ac: Require at least texinfo 4.4.
