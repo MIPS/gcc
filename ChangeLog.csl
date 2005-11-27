@@ -1,3 +1,11 @@
+2005-11-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/floatunsisf.c, gcc/config/floatunsidf.c,
+	gcc/config/floatunsixf.c, gcc/config/floatunsitf.c: New files.
+	* gcc/config/ia64/t-hpux: Add floatunsitf.c.
+	* gcc/config/ia64/ia64.c (ia64_init_libfuncs): Use
+	_U_Qfcnvxuf_dbl_to_quad for unsigned DImode-to-TFmode conversion.
+
 2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/config/fp-bit.c (isnan, isinf, pack_d, unpack_d): Use
