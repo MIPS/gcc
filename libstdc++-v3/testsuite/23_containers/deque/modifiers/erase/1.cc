@@ -34,7 +34,7 @@ const int N1 = sizeof(A1) / sizeof(int);
 const int N2 = sizeof(A2) / sizeof(int);
 const int N3 = sizeof(A3) / sizeof(int);
 const int N4 = sizeof(A4) / sizeof(int);
-const int N5 = sizeof(A4) / sizeof(int);
+const int N5 = sizeof(A5) / sizeof(int);
 
 void
 test01()
@@ -48,22 +48,27 @@ test01()
 
   iterator_type it1 = v.erase(v.begin() + 1);
   VERIFY( it1 == v.begin() + 1 );
+  VERIFY( v.size() == N1 );
   VERIFY( std::equal(v.begin(), v.end(), A1) );
   
   iterator_type it2 = v.erase(v.begin() + 4, v.begin() + 9);
   VERIFY( it2 == v.begin() + 4 );
+  VERIFY( v.size() == N2 );
   VERIFY( std::equal(v.begin(), v.end(), A2) );
   
   iterator_type it3 = v.erase(v.begin() + 6, v.end());
   VERIFY( it3 == v.begin() + 6 );
+  VERIFY( v.size() == N3 );
   VERIFY( std::equal(v.begin(), v.end(), A3) );
 
   iterator_type it4 = v.erase(v.begin(), v.begin() + 3);
   VERIFY( it4 == v.begin() );
+  VERIFY( v.size() == N4 );
   VERIFY( std::equal(v.begin(), v.end(), A4) );
 
   iterator_type it5 = v.erase(v.begin() + 2);
   VERIFY( it5 == v.begin() + 2 );
+  VERIFY( v.size() == N5 );
   VERIFY( std::equal(v.begin(), v.end(), A5) );
 
   iterator_type it6 = v.erase(v.begin(), v.end());
@@ -95,22 +100,27 @@ test02()
   
   iterator_type it1 = v.erase(v.begin() + 1);
   VERIFY( it1 == v.begin() + 1 );
+  VERIFY( v.size() == N1 );
   VERIFY( std::equal(v.begin(), v.end(), v1.begin()) );
   
   iterator_type it2 = v.erase(v.begin() + 4, v.begin() + 9);
   VERIFY( it2 == v.begin() + 4 );
+  VERIFY( v.size() == N2 );
   VERIFY( std::equal(v.begin(), v.end(), v2.begin()) );
   
   iterator_type it3 = v.erase(v.begin() + 6, v.end());
   VERIFY( it3 == v.begin() + 6 );
+  VERIFY( v.size() == N3 );
   VERIFY( std::equal(v.begin(), v.end(), v3.begin()) );
 
   iterator_type it4 = v.erase(v.begin(), v.begin() + 3);
   VERIFY( it4 == v.begin() );
+  VERIFY( v.size() == N4 );
   VERIFY( std::equal(v.begin(), v.end(), v4.begin()) );
 
   iterator_type it5 = v.erase(v.begin() + 2);
   VERIFY( it5 == v.begin() + 2 );
+  VERIFY( v.size() == N5 );
   VERIFY( std::equal(v.begin(), v.end(), v5.begin()) );
 
   iterator_type it6 = v.erase(v.begin(), v.end());

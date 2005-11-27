@@ -68,30 +68,37 @@ template<typename T>
 
     iterator_type it0 = v.erase(v.begin() + 1, v.begin() + 4);
     VERIFY( it0 == v.begin() + 1 );
+    VERIFY( v.size() == N0 );
     VERIFY( std::equal(v.begin(), v.end(), A0) );
     
     iterator_type it1 = v.erase(v.begin() + 1);
     VERIFY( it1 == v.begin() + 1 );
+    VERIFY( v.size() == N1 );
     VERIFY( std::equal(v.begin(), v.end(), A1) );
     
     iterator_type it2 = v.erase(v.begin() + 4, v.begin() + 9);
     VERIFY( it2 == v.begin() + 4 );
+    VERIFY( v.size() == N2 );
     VERIFY( std::equal(v.begin(), v.end(), A2) );
   
     iterator_type it3 = v.erase(v.begin() + 8, v.end());
     VERIFY( it3 == v.begin() + 8 );
+    VERIFY( v.size() == N3 );
     VERIFY( std::equal(v.begin(), v.end(), A3) );
 
     iterator_type it4 = v.erase(v.begin(), v.begin() + 3);
     VERIFY( it4 == v.begin() );
+    VERIFY( v.size() == N4 );
     VERIFY( std::equal(v.begin(), v.end(), A4) );
     
     iterator_type it5 = v.erase(v.begin() + 2);
     VERIFY( it5 == v.begin() + 2 );
+    VERIFY( v.size() == N5 );
     VERIFY( std::equal(v.begin(), v.end(), A5) );
 
     iterator_type it6 = v.erase(v.begin() + 3, v.end());
     VERIFY( it6 == v.begin() + 3 );
+    VERIFY( v.size() == N6 );
     VERIFY( std::equal(v.begin(), v.end(), A6) );
 
     iterator_type it7 = v.erase(v.begin(), v.end());

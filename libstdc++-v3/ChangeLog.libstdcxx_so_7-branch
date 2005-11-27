@@ -1,5 +1,24 @@
 2005-11-26  Paolo Carlini  <pcarlini@suse.de>
 
+	* testsuite/23_containers/vector/modifiers/erase/1.cc: Fix typos,
+	extend.
+	* testsuite/23_containers/deque/modifiers/erase/1.cc: Likewise.
+	* testsuite/23_containers/deque/modifiers/erase/1.cc: Extend.
+
+	* testsuite/23_containers/deque/explicit_instantiation/4.cc: New.
+	* testsuite/23_containers/list/explicit_instantiation/4.cc: Likewise.
+	* testsuite/23_containers/map/explicit_instantiation/4.cc: Likewise.
+	* testsuite/23_containers/multimap/explicit_instantiation/4.cc: Likewise.
+	* testsuite/23_containers/multiset/explicit_instantiation/4.cc: Likewise.
+	* testsuite/23_containers/set/explicit_instantiation/4.cc: Likewise.
+	* testsuite/23_containers/vector/explicit_instantiation/4.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/set2.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/map2.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/multimap2.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/multiset2.cc: Likewise.
+
+2005-11-26  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/bits/stl_deque.h (deque<>::_M_erase_at_end,
 	_M_erase_at_begin, _M_destroy_data, _M_destroy_data_dispatch,
 	_M_destroy_data_aux): New, optimize erase at begin() / end() and
