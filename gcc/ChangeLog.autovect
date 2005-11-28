@@ -1,3 +1,19 @@
+2005-11-28  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/sse.md (vec_interleave_highv4sf): Rename sse_unpckhps.
+	(vec_interleave_lowv4sf): Rename sse_unpcklps.
+	(vec_interleave_highv2df, vec_interleave_lowv2df): New.
+	(sse2_unpckhpd, sse2_unpcklpd): Add leading * to name.
+	(vec_interleave_highv16qi): Rename sse2_punpckhbw.
+	(vec_interleave_lowv16qi): Rename sse2_punpcklbw.
+	(vec_interleave_highv8hi): Rename sse2_punpckhwd.
+	(vec_interleave_lowv8hi): Rename sse2_punpcklwd.
+	(vec_interleave_highv4si): Rename sse2_punpckhdq.
+	(vec_interleave_lowv4si): Rename sse2_punpckldq.
+	(vec_interleave_highv2di): Rename sse2_punpckhqdq.
+	(vec_interleave_lowv2di): Rename sse2_punpcklqdq.
+	* config/i386/i386.c: Update to match.
+
 2005-11-28  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-ssa-loop-manip.c (empty_latch_block): New function.

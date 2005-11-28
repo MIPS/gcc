@@ -1049,7 +1049,7 @@
   [(set_attr "type" "ssemov")
    (set_attr "mode" "V4SF,V2SF,V2SF")])
 
-(define_insn "sse_unpckhps"
+(define_insn "vec_interleave_highv4sf"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
 	(vec_select:V4SF
 	  (vec_concat:V8SF
@@ -1062,7 +1062,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "V4SF")])
 
-(define_insn "sse_unpcklps"
+(define_insn "vec_interleave_lowv4sf"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
 	(vec_select:V4SF
 	  (vec_concat:V8SF
@@ -2045,7 +2045,21 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define_insn "sse2_unpckhpd"
+(define_expand "vec_interleave_highv2df"
+  [(set (match_operand:V2DF 0 "nonimmediate_operand" "")
+	(vec_select:V2DF
+	  (vec_concat:V4DF
+	    (match_operand:V2DF 1 "nonimmediate_operand" "")
+	    (match_operand:V2DF 2 "nonimmediate_operand" ""))
+	  (parallel [(const_int 1)
+		     (const_int 3)])))]
+  "TARGET_SSE2"
+{
+  if (MEM_P (operands[1]) && MEM_P (operands[2]))
+    operands[1] = force_reg (V2DFmode, operands[1]);
+})
+
+(define_insn "*sse2_unpckhpd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,m")
 	(vec_select:V2DF
 	  (vec_concat:V4DF
@@ -2093,7 +2107,21 @@
   DONE;
 })
 
-(define_insn "sse2_unpcklpd"
+(define_expand "vec_interleave_lowv2df"
+  [(set (match_operand:V2DF 0 "nonimmediate_operand" "")
+	(vec_select:V2DF
+	  (vec_concat:V4DF
+	    (match_operand:V2DF 1 "nonimmediate_operand" "")
+	    (match_operand:V2DF 2 "nonimmediate_operand" ""))
+	  (parallel [(const_int 0)
+		     (const_int 2)])))]
+  "TARGET_SSE2"
+{
+  if (MEM_P (operands[1]) && MEM_P (operands[2]))
+    operands[1] = force_reg (V2DFmode, operands[1]);
+})
+
+(define_insn "*sse2_unpcklpd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,o")
 	(vec_select:V2DF
 	  (vec_concat:V4DF
@@ -2448,10 +2476,10 @@
      each word.  We don't care what goes into the high byte of each word.
      Rather than trying to get zero in there, most convenient is to let
      it be a copy of the low byte.  */
-  emit_insn (gen_sse2_punpckhbw (t[0], operands[1], operands[1]));
-  emit_insn (gen_sse2_punpckhbw (t[1], operands[2], operands[2]));
-  emit_insn (gen_sse2_punpcklbw (t[2], operands[1], operands[1]));
-  emit_insn (gen_sse2_punpcklbw (t[3], operands[2], operands[2]));
+  emit_insn (gen_vec_interleave_highv16qi (t[0], operands[1], operands[1]));
+  emit_insn (gen_vec_interleave_highv16qi (t[1], operands[2], operands[2]));
+  emit_insn (gen_vec_interleave_lowv16qi (t[2], operands[1], operands[1]));
+  emit_insn (gen_vec_interleave_lowv16qi (t[3], operands[2], operands[2]));
 
   /* Multiply words.  The end-of-line annotations here give a picture of what
      the output of that instruction looks like.  Dot means don't care; the 
@@ -2464,15 +2492,15 @@
 			   gen_lowpart (V8HImode, t[3])));
 
   /* Extract the relevant bytes and merge them back together.  */
-  emit_insn (gen_sse2_punpckhbw (t[6], t[5], t[4]));	/* ..AI..BJ..CK..DL */
-  emit_insn (gen_sse2_punpcklbw (t[7], t[5], t[4]));	/* ..EM..FN..GO..HP */
-  emit_insn (gen_sse2_punpckhbw (t[8], t[7], t[6]));	/* ....AEIM....BFJN */
-  emit_insn (gen_sse2_punpcklbw (t[9], t[7], t[6]));	/* ....CGKO....DHLP */
-  emit_insn (gen_sse2_punpckhbw (t[10], t[9], t[8]));	/* ........ACEGIKMO */
-  emit_insn (gen_sse2_punpcklbw (t[11], t[9], t[8]));	/* ........BDFHJLNP */
+  emit_insn (gen_vec_interleave_highv16qi (t[6], t[5], t[4]));	/* ..AI..BJ..CK..DL */
+  emit_insn (gen_vec_interleave_lowv16qi (t[7], t[5], t[4]));	/* ..EM..FN..GO..HP */
+  emit_insn (gen_vec_interleave_highv16qi (t[8], t[7], t[6]));	/* ....AEIM....BFJN */
+  emit_insn (gen_vec_interleave_lowv16qi (t[9], t[7], t[6]));	/* ....CGKO....DHLP */
+  emit_insn (gen_vec_interleave_highv16qi (t[10], t[9], t[8]));	/* ........ACEGIKMO */
+  emit_insn (gen_vec_interleave_lowv16qi (t[11], t[9], t[8]));	/* ........BDFHJLNP */
 
   op0 = operands[0];
-  emit_insn (gen_sse2_punpcklbw (op0, t[11], t[10]));	/* ABCDEFGHIJKLMNOP */
+  emit_insn (gen_vec_interleave_lowv16qi (op0, t[11], t[10]));	/* ABCDEFGHIJKLMNOP */
   DONE;
 })
 
@@ -2616,7 +2644,7 @@
 				const0_rtx, const0_rtx));
 
   /* Merge the parts back together.  */
-  emit_insn (gen_sse2_punpckldq (op0, t5, t6));
+  emit_insn (gen_vec_interleave_lowv4si (op0, t5, t6));
   DONE;
 })
 
@@ -3081,7 +3109,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpckhbw"
+(define_insn "vec_interleave_highv16qi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(vec_select:V16QI
 	  (vec_concat:V32QI
@@ -3100,7 +3128,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpcklbw"
+(define_insn "vec_interleave_lowv16qi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(vec_select:V16QI
 	  (vec_concat:V32QI
@@ -3119,7 +3147,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpckhwd"
+(define_insn "vec_interleave_highv8hi"
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(vec_select:V8HI
 	  (vec_concat:V16HI
@@ -3134,7 +3162,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpcklwd"
+(define_insn "vec_interleave_lowv8hi"
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(vec_select:V8HI
 	  (vec_concat:V16HI
@@ -3149,7 +3177,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpckhdq"
+(define_insn "vec_interleave_highv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=x")
 	(vec_select:V4SI
 	  (vec_concat:V8SI
@@ -3162,7 +3190,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpckldq"
+(define_insn "vec_interleave_lowv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=x")
 	(vec_select:V4SI
 	  (vec_concat:V8SI
@@ -3175,7 +3203,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpckhqdq"
+(define_insn "vec_interleave_highv2di"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(vec_select:V2DI
 	  (vec_concat:V4DI
@@ -3188,7 +3216,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_punpcklqdq"
+(define_insn "vec_interleave_lowv2di"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(vec_select:V2DI
 	  (vec_concat:V4DI
