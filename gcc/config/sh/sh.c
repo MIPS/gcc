@@ -47,6 +47,7 @@ Boston, MA 02110-1301, USA.  */
 #include "real.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "df.h"
 #include "cfglayout.h"
 #include "intl.h"
 #include "sched-int.h"
@@ -9826,8 +9827,12 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   if (optimize > 0)
     {
-      /* Release all memory allocated by flow.  */
-      free_basic_block_vars ();
+      /* Release all memory allocated by df.  */
+      if (rtl_df)
+	{
+	  df_finish (rtl_df);
+	  rtl_df = NULL;
+	}
 
       /* Release the bitmap obstacks.  */
       bitmap_obstack_release (&reg_obstack);

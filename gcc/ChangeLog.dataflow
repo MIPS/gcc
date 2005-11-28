@@ -1,3 +1,7 @@
+2005-11-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/sh/sh.c (sh_output_mi_thunk): Use df_finish.
+
 2005-11-17  Paolo Bonzini  <bonzini@gnu.org>
 
         * df.h (struct df_reach): Add size field.
