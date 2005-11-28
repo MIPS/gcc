@@ -1,3 +1,23 @@
+2005-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/posix/time.c (omp_get_wtime, omp_get_wtick): Fall back to
+	CLOCK_REALTIME if clock_* (CLOCK_MONOTONIC, &ts) call failed.
+
+2005-11-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* alloc.c, barrier.c, critical.c, env.c, error.c, fortran.c, iter.c,
+	libgomp.h, libgomp_f.h.in, libgomp_g.h, loop.c, mkomp_h.pl, omp.h.in,
+	omp_lib.f90.in, omp_lib.h.in, ordered.c, parallel.c, sections.c,
+	single.c, team.c, work.c, config/linux/alpha/futex.h,
+	config/linux/bar.c, config/linux/bar.h, config/linux/ia64/futex.h,
+	config/linux/lock.c, config/linux/mutex.c, config/linux/mutex.h,
+	config/linux/powerpc/futex.h, config/linux/s390/futex.h,
+	config/linux/sem.c, config/linux/sem.h, config/linux/sparc/futex.h,
+	config/linux/x86/futex.h, config/posix/bar.c, config/posix/bar.h,
+	config/posix/lock.c, config/posix/mutex.h, config/posix/proc.c,
+	config/posix/sem.c, config/posix/sem.h, config/posix/time.c: Update
+	FSF address.
+
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am: Move libgomp_f.h from nodist_include_HEADERS

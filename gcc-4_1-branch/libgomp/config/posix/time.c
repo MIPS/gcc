@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU Lesser General Public License 
    along with libgomp; see the file COPYING.LIB.  If not, write to the
-   Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files, some
    of which are compiled with GCC, to produce an executable, this library
@@ -51,10 +51,9 @@ omp_get_wtime (void)
 #ifdef HAVE_CLOCK_GETTIME
   struct timespec ts;
 # ifdef CLOCK_MONOTONIC
-  clock_gettime (CLOCK_MONOTONIC, &ts);
-# else
-  clock_gettime (CLOCK_REALTIME, &ts);
+  if (clock_gettime (CLOCK_MONOTONIC, &ts) < 0)
 # endif
+    clock_gettime (CLOCK_REALTIME, &ts);
   return ts.tv_sec + ts.tv_nsec / 1e9;
 #else
   struct timeval tv;
@@ -69,10 +68,9 @@ omp_get_wtick (void)
 #ifdef HAVE_CLOCK_GETTIME
   struct timespec ts;
 # ifdef CLOCK_MONOTONIC
-  clock_getres (CLOCK_MONOTONIC, &ts);
-# else
-  clock_getres (CLOCK_REALTIME, &ts);
+  if (clock_getres (CLOCK_MONOTONIC, &ts) < 0)
 # endif
+    clock_getres (CLOCK_REALTIME, &ts);
   return ts.tv_sec + ts.tv_nsec / 1e9;
 #else
   return 1.0 / sysconf(_SC_CLK_TCK);
