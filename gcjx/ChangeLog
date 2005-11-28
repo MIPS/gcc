@@ -1,3 +1,7 @@
+2005-11-28  Mike Emmel  <mike.emmel@gmail.com>
+
+	* model/invoke.cc: Move class instantiations later.
+
 2005-11-11  Tom Tromey  <tromey@redhat.com>
 
 	* model/method.cc (model_method): Initialize new field.
