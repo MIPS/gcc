@@ -41,14 +41,4 @@ void decimal_real_to_integer2 (HOST_WIDE_INT *, HOST_WIDE_INT *, const REAL_VALU
 
 HOST_WIDE_INT decimal_real_to_integer (const REAL_VALUE_TYPE *);
 
-#define ENCODE_DECIMAL_SINGLE encode_decimal32
-#define DECODE_DECIMAL_SINGLE decode_decimal32
-#define ENCODE_DECIMAL_DOUBLE encode_decimal64
-#define DECODE_DECIMAL_DOUBLE decode_decimal64
-#define ENCODE_DECIMAL_QUAD   encode_decimal128
-#define DECODE_DECIMAL_QUAD   decode_decimal128
-#define DECIMAL_DO_COMPARE    decimal_do_compare
-
-#define REAL_OR_DECIMAL_FROM_STRING decimal_real_from_string
-
 #endif /* GCC_DFP_H */

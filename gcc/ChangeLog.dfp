@@ -1,5 +1,21 @@
 2005-11-29  Ben Elliston  <bje@au.ibm.com>
 
+	* dfp.h (ENCODE_DECIMAL_SINGLE, ENCODE_DECIMAL_DOUBLE,
+	ENCODE_DECIMAL_QUAD, DECODE_DECIMAL_SINGLE, DECODE_DECIMAL_DOUBLE,
+	DECODE_DECIMAL_SINGLE, DECIMAL_DO_COMPARE,
+	REAL_OR_DECIMAL_FROM_STRING): Remove macros.
+	* real.c: Update all macro uses.
+	* dfp.c (decimal_from_string): Use decNumber, decContext locals.
+	(decimal_to_decnumber): Likewise.
+	(encode_decimal32, encode_decimal64, encode_decimal128): Likewise.
+	(decimal_to_binary, decimal_from_binary): Likewise.
+	(decimal_do_compare, decimal_do_add): Likewise.
+	(decimal_do_multiply, decimal_do_divide): Likewise.
+	(decimal_real_to_integer, decimal_real_to_integer2): Likewise.
+	(decimal_real_maxval): Update comment.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
 	* mklibgcc.in: Refer to libdecnumber, not decnumber.
 	* Makefile.in: Likewise.
 

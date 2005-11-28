@@ -944,7 +944,7 @@ do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
     return -a->sign - -b->sign;
 
   if (a->decimal || b->decimal)
-    return DECIMAL_DO_COMPARE (a, b, nan_result);
+    return decimal_do_compare (a, b, nan_result);
 
   if (REAL_EXP (a) > REAL_EXP (b))
     ret = 1;
@@ -2003,7 +2003,7 @@ real_from_string3 (REAL_VALUE_TYPE *r, const char *s, enum machine_mode mode)
 {
   /* Also handle decimal floats. If decimal float modes were not 
      target specific, we could get rid of this wrapper. */
-  REAL_OR_DECIMAL_FROM_STRING (r, s, mode);
+  decimal_real_from_string (r, s, mode);
   if (mode != VOIDmode)
     real_convert (r, mode, r);  
 } 
@@ -2309,7 +2309,7 @@ round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
 	 (e.g. -O0 on '_Decimal32 x = 1.0 + 2.0dd'), but have not
 	 investigated whether this convert needs to be here, or
 	 something else is missing. */
-      decimal_real_convert(r, DFmode, r);
+      decimal_real_convert (r, DFmode, r);
     }
 
   p2 = fmt->p * fmt->log2_b;
@@ -4325,7 +4325,7 @@ encode_decimal_single (const struct real_format *fmt ATTRIBUTE_UNUSED,
                        long *buf ATTRIBUTE_UNUSED, 
 		       const REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED)
 {
-  ENCODE_DECIMAL_SINGLE (fmt, buf, r);
+  encode_decimal32 (fmt, buf, r);
 }
 
 static void 
@@ -4333,7 +4333,7 @@ decode_decimal_single (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED, 
 		       const long *buf ATTRIBUTE_UNUSED)
 {
-  DECODE_DECIMAL_SINGLE (fmt, r, buf);
+  decode_decimal32 (fmt, r, buf);
 }
 
 static void 
@@ -4341,7 +4341,7 @@ encode_decimal_double (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		       long *buf ATTRIBUTE_UNUSED, 
 		       const REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED)
 {
-  ENCODE_DECIMAL_DOUBLE (fmt, buf, r);
+  encode_decimal64 (fmt, buf, r);
 }
 
 static void 
@@ -4349,7 +4349,7 @@ decode_decimal_double (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED, 
 		       const long *buf ATTRIBUTE_UNUSED)
 {
-  DECODE_DECIMAL_DOUBLE (fmt, r, buf);
+  decode_decimal64 (fmt, r, buf);
 }
 
 static void 
@@ -4357,7 +4357,7 @@ encode_decimal_quad (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		     long *buf ATTRIBUTE_UNUSED,
 		     const REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED)
 {
-  ENCODE_DECIMAL_QUAD (fmt, buf, r);
+  encode_decimal128 (fmt, buf, r);
 }
 
 static void 
@@ -4365,7 +4365,7 @@ decode_decimal_quad (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		     REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED,
 		     const long *buf ATTRIBUTE_UNUSED)
 {
-  DECODE_DECIMAL_QUAD (fmt, r, buf);
+  decode_decimal128 (fmt, r, buf);
 }
 
 /* Proposed IEEE 754r decimal floating point. */

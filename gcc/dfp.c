@@ -36,13 +36,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "decimal32.h"
 #include "decNumber.h"
 
-/* Useful for munging between formats.  */
-static decNumber dn;
-static decNumber dn2;
-static decNumber dn3;
-static decContext set;
-static char string[256];
-
 /* Initialize a REAL_VALUE_TYPE (decimal encoded) from a decNumber.
    Can utilize status passed in via decContext parameter, if some
    previous operation had interesting status.  */
@@ -77,6 +70,8 @@ decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
 static void
 decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
 {
+  decNumber dn;
+  decContext set;
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
 
@@ -103,8 +98,10 @@ decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s,
 static void
 decimal_to_decnumber (const REAL_VALUE_TYPE *r, decNumber *dn)
 {
+  decContext set;
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
+
   switch (r->cl)
     {
     case rvc_zero:
@@ -136,7 +133,9 @@ void
 encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  long *buf, const REAL_VALUE_TYPE *r)
 {
+  decNumber dn;
   decimal32 d32;
+  decContext set;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
@@ -162,7 +161,9 @@ void
 encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  long *buf, const REAL_VALUE_TYPE *r)
 {
+  decNumber dn;
   decimal64 d64;
+  decContext set;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
@@ -194,6 +195,8 @@ void
 encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		   long *buf, const REAL_VALUE_TYPE *r)
 {
+  decNumber dn;
+  decContext set;
   decimal128 d128;
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
@@ -232,6 +235,7 @@ static void
 decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
 		   enum machine_mode mode)
 {
+  char string[256];
   decimal128 *d128;
   d128 = (decimal128 *) from->sig;
 
@@ -247,6 +251,7 @@ decimal_from_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from)
 {
   /* We convert to string then convert to decNumber then to
      decimal128.  */
+  char string[256];
   real_to_decimal (string, from, sizeof (string), 0, 1);
   decimal_from_string (to, string);
 }
@@ -258,8 +263,9 @@ int
 decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
 		    int nan_result)
 {
-  REAL_VALUE_TYPE a1;
-  REAL_VALUE_TYPE b1;
+  decContext set;
+  decNumber dn, dn2, dn3;
+  REAL_VALUE_TYPE a1, b1;
 
   /* If either op is not a decimal, create a temporary decimal
      versions.  */
@@ -298,6 +304,8 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
 void
 decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
 {
+  decNumber dn;
+  decContext set;
 
   /* Real encoding occurs later.  */
   if (r->cl != rvc_normal)
@@ -376,6 +384,10 @@ static bool
 decimal_do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		const REAL_VALUE_TYPE *op1, int subtract_p)
 {
+  decNumber dn;
+  decContext set;
+  decNumber dn2, dn3;
+
   decimal_to_decnumber (op0, &dn2);
   decimal_to_decnumber (op1, &dn3);
 
@@ -397,6 +409,9 @@ static bool
 decimal_do_multiply (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		     const REAL_VALUE_TYPE *op1)
 {
+  decNumber dn, dn2, dn3;
+  decContext set;
+
   decimal_to_decnumber (op0, &dn2);
   decimal_to_decnumber (op1, &dn3);
 
@@ -414,6 +429,9 @@ static bool
 decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		   const REAL_VALUE_TYPE *op1)
 {
+  decContext set;
+  decNumber dn, dn2, dn3;
+
   decimal_to_decnumber (op0, &dn2);
   decimal_to_decnumber (op1, &dn3);
 
@@ -431,6 +449,9 @@ decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 void
 decimal_do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
 {
+  decNumber dn, dn2;
+  decContext set;
+
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
   set.round = DEC_ROUND_DOWN;
@@ -444,7 +465,10 @@ decimal_do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
 HOST_WIDE_INT
 decimal_real_to_integer (const REAL_VALUE_TYPE *r)
 {
+  decContext set;
+  decNumber dn, dn2, dn3;
   REAL_VALUE_TYPE to;
+  char string[256];
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
@@ -467,7 +491,10 @@ void
 decimal_real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
 			  const REAL_VALUE_TYPE *r)
 {
+  decContext set;
+  decNumber dn, dn2, dn3;
   REAL_VALUE_TYPE to;
+  char string[256];
 
   decContextDefault (&set, DEC_INIT_DECIMAL128);
   set.traps = 0;
@@ -584,7 +611,6 @@ decimal_real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
 { 
   char *max;
 
-  /* FIXME: These modes may not be defined on all platforms. */
   switch (mode)
     {
     case SDmode:
