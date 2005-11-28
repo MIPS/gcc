@@ -249,6 +249,9 @@ typedef struct _stmt_vec_info {
   /* For loads only, the gap from the previous load. For consecutive loads, this
      is 1.  */
   unsigned int gap;
+  /* For stores, number of stores from this group seen. We vectorize the last 
+     one.  */
+  unsigned int store_count;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -270,6 +273,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_DR_GROUP_SIZE(S)       (S)->size
 #define STMT_VINFO_DR_GROUP_SAME_DR_STMT(S) (S)->same_dr_stmt
 #define STMT_VINFO_DR_GROUP_GAP(S)        (S)->gap
+#define STMT_VINFO_DR_GROUP_STORE_COUNT(S)  (S)->store_count
 
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
 
@@ -279,6 +283,7 @@ typedef struct _stmt_vec_info {
 #define DR_GROUP_SIZE(S)                  (S)->size
 #define DR_GROUP_SAME_DR_STMT(S)          (S)->same_dr_stmt
 #define DR_GROUP_GAP(S)                   (S)->gap
+#define DR_GROUP_STORE_COUNT(S)           (S)->store_count
 
 static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);

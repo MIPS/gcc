@@ -1,3 +1,11 @@
+2005-11-28  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize new field.
+	* tree-vectorizer.h (stmt_vec_info): Add new field store_count and 
+	macros for its access.
+	* tree-vect-transform.c (vectorizable_store): Use store_count field
+	to identify the last store of the group.
+
 2005-11-24  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (widened_name_p): Remove redundant check.

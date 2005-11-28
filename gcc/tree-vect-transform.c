@@ -2680,7 +2680,6 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   optab interleave_high_optab, interleave_low_optab;
   struct data_reference *dr_for_alignment_check;
   tree first_stmt = NULL_TREE;
-  static unsigned int interleaving_count = 0;
 
   gcc_assert (ncopies >= 1);
 
@@ -2783,19 +2782,18 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       tree vec_oprnd1 = vect_get_vec_def_for_operand (op, stmt, NULL);
 
       *interleaving = true;
-      interleaving_count ++;
+      DR_GROUP_STORE_COUNT (vinfo_for_stmt (first_stmt))++;
       STMT_VINFO_VEC_STMT (stmt_info) = vec_oprnd1;
-
       /* If last stmt in store sequence, create stores, otherwise only
 	 keep VEC_OPRND1 for future.  */
-      if (interleaving_count < DR_GROUP_SIZE (vinfo_for_stmt (first_stmt)))
+      if (DR_GROUP_STORE_COUNT (vinfo_for_stmt (first_stmt)) 
+	  < DR_GROUP_SIZE (vinfo_for_stmt (first_stmt)))
 	{
 	  *vec_stmt = NULL_TREE;
 	  return true;
 	}
 
       /* Vectorize interleaving stores.  */
-      interleaving_count = 0;
       size = DR_GROUP_SIZE (vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)));
       /* Create interleaving chains. DR_CHAIN contains input data-refs
 	 that are a part of the interleaving. RESULT_CHAIN is the output
