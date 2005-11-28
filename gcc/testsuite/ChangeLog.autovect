@@ -1,3 +1,8 @@
+2005-11-28  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-117.c (main1): Avoid pointer to integer
+	cast warning.
+
 2005-11-28  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-latch.c: New.

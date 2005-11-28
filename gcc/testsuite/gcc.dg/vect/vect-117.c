@@ -10,8 +10,8 @@
 int main1 ()
 {
   int i;
-  int** p;
-  int* ia[N];
+  size_t ** p;
+  size_t * ia[N];
 
   /* Unknown evolution.  */
   for (i = 0; i < N; i++)
