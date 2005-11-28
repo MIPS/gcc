@@ -1,3 +1,132 @@
+2005-11-27  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (notice_update_cc): Remove useless code.
+
+2005-11-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24575
+	* fold-const.c (negate_expr_p): Add case for signed divides if overflow
+	is undefined.
+	(negate_expr): Likewise.
+
+2005-11-27  Andreas Schwab  <schwab@suse.de>
+
+	* config/m68k/m68k.c: Reindent and fix whitespace, remove
+	redundant parens.
+
+2005-11-27  Steven Bosscher  <stevenb@suse.de>
+
+	* cfgcleanup.c (try_crossjump_to_edge): Always split SRC2 if it
+	has EH predecessor edges.
+
+2005-11-26  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.md (*zero_extendqihi2_movzbw): Avoid partial
+	register stalls by zero extending to the full register.
+
+2005-11-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/floatunsisf.c, config/floatunsidf.c,
+	config/floatunsixf.c, config/floatunsitf.c: New files.
+	* config/ia64/t-hpux: Add floatunsitf.c.
+	* config/ia64/ia64.c (ia64_init_libfuncs): Use
+	_U_Qfcnvxuf_dbl_to_quad for unsigned DImode-to-TFmode conversion.
+
+2005-11-26  Richard Henderson  <rth@redhat.com>
+
+	* c-lex.c (pragma_lex): Rename from c_lex.
+	* c-pch.c: Update for pragma_lex rename.
+	* c-pragma.c, c-pragma.h, config/ia64/ia64-c.c: Likewise.
+	* config/m32c/m32c-pragma.c, config/darwin-c.c: Likewise.
+	* config/rs6000/rs6000-c.c, config/c4x/c4x-c.c: Likewise.
+	* config/sol2-c.c, config/v850/v850-c.c: Likewise.
+	* doc/tm.texi: Likewise.
+
+2005-11-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23669
+	* fold-const.c (fold_binary): Convert -A/-B to A/B for signed types
+	when overflow is undefined.
+
+2005-11-26  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/md.texi (Insn Canonicalizations): Refer to the
+	function commutative_operand_precedence for further rules.
+
+2005-11-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/21309
+	* expmed.c (choose_mult_variant): Return immediately when mult_cost
+	is less than zero.  Limit mult_cost to a reasonable upper bound for
+	the synthetic multiplication sequence.
+
+2005-11-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/25022
+	* builtins.c (expand_builtin_printf, expand_builtin_fprintf,
+	fold_builtin_fputs, fold_builtin_printf, fold_builtin_fprintf):
+	Lookup the explicit replacement functions for any unlocked
+	stdio builtin transformations.
+
+2005-11-25  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.md ("reload_out<mode>"): Mark operand 2 as
+	earlyclobber.
+	* targhooks.c (default_secondary_reload): Don't require operand 2
+	for an input reload to be earlyclobber.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* fold-const.c (negate_mathfn_p): Fix comment and add support
+	for BUILT_IN_CBRT, BUILT_IN_SINH, BUILT_IN_TANH, BUILT_IN_ASINH,
+	BUILT_IN_ATANH.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* config/sparc/sparc.c (sparc_init_libfuncs): Use _Q_utoq and
+	_Q_ulltoq for unsigned conversions from SImode and DImode to
+	TFmode.
+
+2005-11-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/ppc64-fp.c (__floatunditf): New function.
+	(__floatundidf, __floatundisf): Likewise.
+
+2005-11-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_sr_alias_set): Delete.
+	(rs6000_override_options): Remove initialization of
+	rs6000_sr_alias_set.
+	(rs6000_emit_eh_reg_restore): Use gen_frame_mem.
+	(rs6000_emit_stack_tie): Same.
+	(emit_frame_save): Same.
+	(gen_frame_mem_offset): Same.
+	(rs6000_emit_prologue): Same.
+	(rs6000_emit_epilogue): Same.
+
+2005-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24989
+	* fold-const.c (fold_build): Convert bool_var != 1 and
+	bool_var == 0 to !bool_var.
+
+2005-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24990
+	* fold-const.c (fold_binary): Fold (~a) == C to a == ~C
+	for C being INTEGER_CST.  Likewise for !=.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Use _q_utoq for
+	unsigned conversions from SImode to TFmode.
+
+2005-11-24  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* expr.c (expand_expr_real_1): Fix error in last change.
+
 2005-11-24  J"orn Rennecke <joern.rennecke@st.com>
 
 	* caller-save.c: (this_insn_sets): Move into:
@@ -121,8 +250,8 @@
 
 	PR c++/21667
 	* c-typeck.c (build_array_ref): Avoid code duplicate.  Use common
-	C/C++ diagnostic function warn_array_subscript_with_type_char. 
-	* c-common.h (warn_array_subscript_with_type_char): Declare. 
+	C/C++ diagnostic function warn_array_subscript_with_type_char.
+	* c-common.h (warn_array_subscript_with_type_char): Declare.
 	* c-common.c (warn_array_subscript_with_type_char): Define.
 
 2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
@@ -202,7 +331,7 @@
 	PR target/24988
 	* config/rs6000/darwin.h (TARGET_OS_CPP_BUILTINS): Remove call
 	to SUBTARGET_OS_CPP_BUILTINS.
-	
+
 2005-11-22  Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	* arm.c (emit_set_insn): New function.
@@ -216,7 +345,7 @@
 	(vfp_emit_fstmx): Likewise.  Use plus_constant.
 	(emit_multi_reg_push): Likewise.
 	(emit_sfm): Use plus_constant.
-	
+
 2005-11-23  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/24954
@@ -251,7 +380,7 @@
 
 	* c-cppbuiltin.c (c_cpp_builtins): Define __pic__ and __PIC__ when
 	flag_pic is set.
-	
+
 	* config/alpha/freebsd.h, config/alpha/linux.h,
 	config/arm/linux-elf.h, config/bfin/bfin.h,
 	config/cris/linux.h, config/darwin.h, config/freebsd-spec.h,
@@ -367,7 +496,7 @@
 
 2005-11-21  Uros Bizjak  <uros@kss-loka.si>
 
-	* fold-const.c (fold_binary) <RDIV_EXPR>: Optimize A / A to 1.0 
+	* fold-const.c (fold_binary) <RDIV_EXPR>: Optimize A / A to 1.0
 	if we don't care about NaNs or Infinities.
 
 2005-11-20  Ian Lance Taylor  <ian@airs.com>
@@ -496,7 +625,7 @@
 	* langhooks-def.h (LANG_HOOKS_LOOKUP_NAME): Add.
 	(LANG_HOOKS_DECLS): Add initializer for LANG_HOOKS_LOOKUP_NAME.
 	* langhooks.h (lang_hooks_for_decls): Add lookup_name.
-	
+
 2005-11-18  Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	PR target/24914
@@ -833,7 +962,7 @@
 	as empty.
 	* config/darwin.h (STARTFILE_SPEC): Use %(darwin_crt2) to possibly
 	link in crt2.o.
-	
+
 	* config/darwin.h (REAL_LIBGCC_SPEC): Link in shared libgcc depending
 	on -mmacosx-version-min setting.
 
@@ -915,7 +1044,7 @@
 
 2005-11-13  Razya Ladelsky <razya@il.ibm.com>
 
-        * ipa-prop.c (ipa_callsite_compute_param ): Removed obsolete type 
+        * ipa-prop.c (ipa_callsite_compute_param ): Removed obsolete type
 	checking.
 
 2005-11-13  Jason Merrill  <jason@redhat.com>
@@ -1026,7 +1155,7 @@
 2005-11-11  Jason Merrill  <jason@redhat.com>
 
 	PR c++/24686
-	* gimplify.c (gimplify_cleanup_point_expr): Also save and restore 
+	* gimplify.c (gimplify_cleanup_point_expr): Also save and restore
 	the cleanup list.
 
 2005-11-11  Zdenek Dvorak  <dvorakz@suse.cz>
@@ -1066,7 +1195,7 @@
 
 2005-11-10  Daniel Berlin  <dberlin@dberlin.org>
 
-	* tree-ssa-alias.c (compute_may_aliases): Remove call to 
+	* tree-ssa-alias.c (compute_may_aliases): Remove call to
 	delete_old_heap_vars.
 	* tree-dfa.c (referenced_var_remove): Remove function.
 	* tree-ssa.c (init_tree_ssa): Call init_alias_heapvars.
@@ -1191,12 +1320,12 @@
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	PR 24624
-	* config/s390/s390.c (struct s390_frame_layout): New fields 
+	* config/s390/s390.c (struct s390_frame_layout): New fields
 	first_save_gpr_slot and last_save_gpr_slot.
-	(cfun_grps_save_area_size, s390_frame_info, s390_emit_prologue,  
-	s390_emit_epilogue, s390_initial_elimination_offset): Replaced 
+	(cfun_grps_save_area_size, s390_frame_info, s390_emit_prologue,
+	s390_emit_epilogue, s390_initial_elimination_offset): Replaced
 	first_save_gpr and last_save_gpr with the _slot variants.
-	(s390_register_info): Calculate first_save_gpr_slot and 
+	(s390_register_info): Calculate first_save_gpr_slot and
 	last_save_gpr_slot using regs_ever_live.
 
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
@@ -1251,7 +1380,7 @@
 
 2005-11-09  Per Bothner  <per@bothner.com>
 	    Uros Bizjak  <uros@kss-loka.si>
-	
+
 	PR c/24101
 	* toplev.c (process_options): Initialize debug_hooks early
 	in case lang_hooks.post_options ends up calling a debug_hook.
@@ -1293,7 +1422,7 @@
 	(oldheapvars): Ditto.
 	(get_constraint_for): Put heap vars on heapvars list.
 	(delete_old_heap_vars): New function.
-	
+
 2005-11-08  Jason Merrill  <jason@redhat.com>
 
 	* tree.h (CALL_FROM_THUNK_P): Add CALL_EXPR_CHECK.
@@ -1398,7 +1527,7 @@
 	DDR_DIST_VECTS.
 	(build_classic_dist_vector, build_classic_dir_vector): Push a set
 	of distance/direction vectors instead of a single one.
-	* tree-data-ref.h (dir_vects, dist_vects): Replace dir/dist 
+	* tree-data-ref.h (dir_vects, dist_vects): Replace dir/dist
 	lambda_vectors with a vec of lambda_vectors.
 	(DDR_DIR_VECT, DDR_DIST_VECT): Redefined as operations on vec.
 	(DDR_DIR_VECTS, DDR_DIST_VECTS, DDR_NUM_DIR_VECTS,
@@ -1438,7 +1567,7 @@
 	* predict.c (predict_loops): Use new param.
 	* predict.def (MAX_PRED_LOOP_ITERATIONS): Remove.
 
-	* ipa-inline.c (cgraph_decide_inlining_of_small_function, 
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function,
 	cgraph_decide_inlining, cgraph_decide_inlining_incrementally):
 	Do not hold memory returned by cgraph_node_name across other call.
 
@@ -1640,7 +1769,7 @@
 	(collapse_rest_of_var): New function.
 	(do_structure_copy): Collapse if do_simple_structure_copy returns
 	false.
-	
+
 2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR middle-end/24589
@@ -1758,7 +1887,7 @@
 	(compute_frame_pointer_to_cfa_displacement): Likewise.
 	(gen_subprogram_die): Restore old code for when DWARF2_UNWIND_INFO is
 	not defined.
-	
+
 	PR rtl-optimization/17356
 	*  cfgrtl.c (purge_dead_edges): Undo last change.  In EDGE_EH code,
 	add check for CALL_INSN if EDGE_ABRNOMAL_CALL true.
@@ -1781,7 +1910,7 @@
 	* predict.def (MAX_PRED_LOOP_ITERATIONS): Define.
 
 2005-10-31  Andrew MacLeod  <amacleod@redhat.com>
-	
+
 	PR tree-optimization/19097
 	* tree-ssa-operands.c (correct_use_link): Don't look for modified stmts.
 
@@ -1934,7 +2063,7 @@
 
 	PR/24220
 	* c-common.c (vector_types_convertible_p): Check vector element type.
-	
+
 2005-10-21  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/sh.c (prepare_move_operands): Handle the address
@@ -2197,7 +2326,7 @@
 	PR 23714
 	* builtins.c (expand_builtin_trap): Export.
 	* expr.h (expand_builtin_trap): Declare.
-	* expr.c (expand_assignment): Emit a trap for integral offsets 
+	* expr.c (expand_assignment): Emit a trap for integral offsets
 	from registers that weren't reduced to bitpos.
 
 	* tree-cfg.c (mark_array_ref_addressable_1): Remove.
@@ -2292,7 +2421,7 @@
 	(struct cxx): Add adjust_class_at_definition target hook.
 	* target-def.h: (TARGET_VALID_DLLIMPORT_ATTRIBUTE_P): New define,
 	defaulting to hook_bool_tree_true. Add to TARGET_INITIALIZER
-	(TARGET_CXX_ADJUST_CLASS_AT_DEFINITION): New define, defaulting to 
+	(TARGET_CXX_ADJUST_CLASS_AT_DEFINITION): New define, defaulting to
 	hook_void_tree. Add to TARGET_CXX.
 	* tree.h (struct decl_with_vis): Rename non_addr_const_p field to
 	dllimport_flag.
@@ -2300,26 +2429,26 @@
 	* tree.c (merge_dllimport_decl_attributes): Check DECL_DLLIMPORT_P
 	instead of attribute. Check for dllexport override.  Warn if
 	inconsistent dll linkage. Don't lose old dllimport if decl has
-	had address referenced.   Tweak lookup of dllimport atribute.  
+	had address referenced.   Tweak lookup of dllimport atribute.
 	(handle_dll_attribute): Check targetm.valid_dllimport_attribute_p
 	for target specific rules.  Don't add dllimport attribute if
 	DECL_DECLARED_INLINE_P.  Set DECL_DLLIMPORT_P when adding
-	dllimport attribute. 
+	dllimport attribute.
 	(staticp): Replace DECL_NON_ADDR_CONSTANT_P with DECL_DLLIMPORT_P.
 	* varasm.c (initializer_constant_valid_p): Replace
 	DECL_NON_ADDR_CONSTANT_P with DECL_DLLIMPORT_P
 
 	PR target/21801
 	PR target/23589
-	* config.gcc (i[34567]86-*-cygwin*): Add winnt-cxx.o to 
+	* config.gcc (i[34567]86-*-cygwin*): Add winnt-cxx.o to
 	'cxx_target_objs', winnt-stubs,o to 'extra_objs'.
 	(i[34567]86-*-mingw32*): Likewise.
 
 	* doc/tm.texi (TARGET_CXX_ADJUST_CLASS_AT_DEFINITION): Document.
 	(TARGET_VALID_DLLIMPORT_ATTRIBUTE_P): Document.
-			
+
 	* config/i386/winnt.c (i386_pe_dllimport_p): Factor out
-	C++-specific code. Change return value to bool. 
+	C++-specific code. Change return value to bool.
 	(i386_pe_dllimport_p): Likewise.
 	(associated_type): Simplify and make language-independent
 	(i386_pe_encode_section_info): Replace override of ambiguous
@@ -2331,9 +2460,9 @@
 	* config/i386/winnt-stubs.c: New file. Define stub versions of
 	lang-specific functions.
 	* config/i386/i386-protos.h: Declare winnt-[cxx|stubs].c functions
-	i386_pe_type_dllimport_p, i386_pe_type_dllexport_p, 
+	i386_pe_type_dllimport_p, i386_pe_type_dllexport_p,
 	i386_pe_adjust_class_at_definition.
-	(i386_pe_valid_dllimport_attribute_p): Declare. 
+	(i386_pe_valid_dllimport_attribute_p): Declare.
 	* config/i386/cygming.h (TARGET_VALID_DLLIMPORT_ATTRIBUTE_P): Define.
 	(TARGET_CXX_ADJUST_CLASS_AT_DEFINITION): Define.
 	* config/i386/t-cygming: Add rules for winnt-cxx.o, winnt-stubs.o.
@@ -2402,7 +2531,7 @@
 
 2005-10-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
-	PR middle-end/24263 
+	PR middle-end/24263
 	* convert.c (convert_to_real): Revert 2005-10-05 patch.
 	Only apply the optimization for rounding builtins if the inner
 	cast is also an extension.
@@ -2512,7 +2641,7 @@
 
 	2004-11-22  Mark Mitchell  <mark@codesourcery.com>
 	* config.gcc (arm*-*-linux-gnueabi): Use __cxa_atexit.
- 
+
 	2004-11-19  Mark Mitchell  <mark@codesourcery.com>
 	* config.gcc (arm*-*-linux-gnueabi): Add it.
 	* config/arm/bpabi.h (FPUTYPE_DEFAULT): Undefine it before
@@ -2610,7 +2739,7 @@
 	out return_label and naked_return_label.
 
 2005-10-06  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-ssa-structalias.c (check_for_overlaps): Fix bug in last
 	change.
 
@@ -2621,7 +2750,7 @@
 	being a DECL.
 
 2005-10-06  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	Fix PR tree-optimization/22488
 	* tree-ssa-structalias.c (check_for_overlaps): New function.
 	(create_variable_info_for): Use it.
@@ -2685,7 +2814,7 @@
 	PR Debug/23205
 	* dbxout.c (dbxout_symbol): Check DECL_RTL_SET_P, after
 	handling constants. Check NAMESPACE_DECL context for constants.
-	
+
 2005-10-05  Eric Christopher  <echristo@apple.com>
 
 	* doc/md.texi (Standard Names): Fix name of pushm1 pattern.

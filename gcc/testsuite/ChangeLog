@@ -1,3 +1,97 @@
+2005-11-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24575
+	* gcc.dg/tree-ssa/divide-3.c: New test.
+	* gcc.dg/tree-ssa/divide-4.c: New test.
+
+2005-11-27  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24917
+	*  gfortran.dg/boz_6.f90: New test.
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23912
+	* gfortran.dg/modulo_1.f90: New test.
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24919
+	* gfortran.dg/ftell_1.f90: Modify testcase so that it doesn't
+	fail on CRLF platforms.
+	* gfortran.dg/ftell_2.f90: Likewise.
+
+2005-11-26  Eric Christopher  <echristo@apple.com>
+
+	* gcc.dg/intmax_t-1.c: Remove mips xfail.
+
+2005-11-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc.dg/gnu-runtime-3.m: Simplify.
+
+2005-11-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23669
+	* gcc.dg/tree-ssa/divide-1.c: New test.
+	* gcc.dg/tree-ssa/divide-2.c: New test.
+
+2005-11-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/24945
+	* gfortran.dg/open_status_2.f90: Fix wrong PR number in comment.
+
+2005-11-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/24945
+	* gfortran.dg/open_status_2.f90: New test.
+
+2005-11-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtins/fprintf.c,
+	gcc.c-torture/execute/builtins/fputs-lib.c,
+	gcc.c-torture/execute/builtins/fputs.c,
+	gcc.c-torture/execute/builtins/lib/fprintf.c,
+	gcc.c-torture/execute/builtins/lib/printf.c,
+	gcc.c-torture/execute/builtins/printf.c: Test the unlocked style.
+
+2005-11-25  J"orn Rennecke <joern.rennecke@st.com>
+
+	* gcc.dg/20050922-2.c: New test.
+
+2005-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc.dg/gnu-runtime-3.m: New test.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/9278
+	* g++.dg/other/void1.C: New test.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* gcc.dg/torture/fp-int-convert-float.c,
+	gcc.dg/torture/fp-int-convert-double.c,
+	gcc.dg/torture/fp-int-convert-long-double.c,
+	gcc.dg/torture/fp-int-convert-timode.c,
+	gcc.dg/torture/fp-int-convert-float80.c,
+	gcc.dg/torture/fp-int-convert-float80-timode.c,
+	gcc.dg/torture/fp-int-convert-float128.c,
+	gcc.dg/torture/fp-int-convert-float128-timode.c,
+	gcc.dg/torture/fp-int-convert.h: New files.
+
+2005-11-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24989
+	* gcc.dg/tree-ssa/bool-10.c: New test.
+	* gcc.dg/tree-ssa/bool-11.c: New test.
+	* gcc.dg/tree-ssa/bool-7.c: Un-xfail.
+
+2005-11-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24990
+	* tree-ssa/pr24990-1.c: New test.
+
 2005-11-24  Richard Guenther  <rguenther@suse.de>
 	Dirk Mueller <dmueller@suse.de>
 
@@ -133,7 +227,7 @@
 2005-11-21  Uros Bizjak  <uros@kss-loka.si>
 
 	* gcc.dg/fold-div-2.c: New test.
-	
+
 2005-11-20  Ian Lance Taylor  <ian@airs.com>
 
 	PR rtl-optimization/24883
@@ -190,7 +284,7 @@
 	gcc.target/ia64/float80-2.c, gcc.target/ia64/got-1.c,
 	gcc.target/ia64/postinc-1.c, gcc.target/ia64/types-1.c,
 	gcc.target/ia64/types-2.c, gcc.target/ia64/visibility-1.c,
-	gcc.target/ia64/visibility-2.c: Move from gcc.dg/, with 
+	gcc.target/ia64/visibility-2.c: Move from gcc.dg/, with
 	renaming to remove initial "ia64-".
 
 2005-11-18  Eric Botcazou  <ebotcazou@adacore.com>
@@ -279,7 +373,7 @@
 2005-11-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/24687
-	* g++.dg/template/crash43.C: New test. 
+	* g++.dg/template/crash43.C: New test.
 
 2005-11-14  Daniel Jacobowitz  <dan@codesourcery.com>
 
@@ -399,13 +493,13 @@
 
 	PR libgfortran/24719
 	gfortran.dg/read_noadvance.f90: New test.
-	
+
 	PR libgfortran/24699
 	gfortran.dg/fmt_t_2.f90: New test.
-	
+
 	PR libgfortran/24785
 	gfortran.dg/read_x_eor.f90: New test.
-	
+
 	PR libgfortran/24584
 	gfortran.dg/namelist_empty.f90: Rename test.
 
@@ -426,7 +520,7 @@
 
 	PR fortran/24655
 	PR fortran/24755
-	* gfortran.dg/recursive_statement_functions.f90: Add statement 
+	* gfortran.dg/recursive_statement_functions.f90: Add statement
 	functions using inline intrinsic functions and parameters to test
 	that they no longer seg-fault.
 
@@ -468,10 +562,10 @@
 	* gcc.dg/pr24624.c: Disable for non S/390 targets.
 
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
-	
+
         PR 24624
 	* gcc.dg/pr24624.c: Testcase added.
-	
+
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	PR 24623
@@ -506,7 +600,7 @@
 
 	PR tree-optimization/23115
 	* gcc.dg/tree-ssa/pr23115.c: New.
-	
+
 2005-11-08  David Edelsohn  <edelsohn@gnu.org>
 
 	* g++.dg/ext/altivec-{1-13}.C: XFAIL on AIX and SPE.
@@ -588,7 +682,7 @@
 
 	PR fortran/24174
 	PR fortran/24305
-	* testsuite/gfortran.dg/large_real_kind_form_io_1.f90: New file.	
+	* testsuite/gfortran.dg/large_real_kind_form_io_1.f90: New file.
 
 2005-11-06  Diego Novillo  <dnovillo@redhat.com>
 

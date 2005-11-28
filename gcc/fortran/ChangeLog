@@ -1,3 +1,26 @@
+2005-11-27 Bernhard Fischer <rep.nop@aon.at>
+
+	* gfortran.h: remove superfluous whitespace and use GNU
+	comment-style for the documentation of backend_decl.
+
+2005-11-27  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24917
+	* primary.c (match_boz_constant):  Implement postfix BOZ constants;
+	(match_string_constant): Peek for b, o, z, and x
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23912
+	* iresolve.c (gfc_resolve_dim, gfc_resolve_mod,
+	gfc_resolve_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+	* check.c (gfc_check_a_p): Arguments of different kinds is not
+	a hard error, but an extension.
+	* simplify.c (gfc_simplify_dim, gfc_simplify_mod,
+	gfc_simplify_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+
 2005-11-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/14943

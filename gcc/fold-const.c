@@ -857,8 +857,8 @@ div_if_zero_remainder (enum tree_code code, tree arg1, tree arg2)
   return build_int_cst_wide (type, quol, quoh);
 }
 
-/* Return true if built-in mathematical function specified by CODE
-   preserves the sign of it argument, i.e. -f(x) == f(-x).  */
+/* Return true if the built-in mathematical function specified by CODE
+   is odd, i.e. -f(x) == f(-x).  */
 
 static bool
 negate_mathfn_p (enum built_in_function code)
@@ -868,15 +868,30 @@ negate_mathfn_p (enum built_in_function code)
     case BUILT_IN_ASIN:
     case BUILT_IN_ASINF:
     case BUILT_IN_ASINL:
+    case BUILT_IN_ASINH:
+    case BUILT_IN_ASINHF:
+    case BUILT_IN_ASINHL:
     case BUILT_IN_ATAN:
     case BUILT_IN_ATANF:
     case BUILT_IN_ATANL:
+    case BUILT_IN_ATANH:
+    case BUILT_IN_ATANHF:
+    case BUILT_IN_ATANHL:
+    case BUILT_IN_CBRT:
+    case BUILT_IN_CBRTF:
+    case BUILT_IN_CBRTL:
     case BUILT_IN_SIN:
     case BUILT_IN_SINF:
     case BUILT_IN_SINL:
+    case BUILT_IN_SINH:
+    case BUILT_IN_SINHF:
+    case BUILT_IN_SINHL:
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
+    case BUILT_IN_TANH:
+    case BUILT_IN_TANHF:
+    case BUILT_IN_TANHL:
       return true;
 
     default:
@@ -975,6 +990,16 @@ negate_expr_p (tree t)
 	return negate_expr_p (TREE_OPERAND (t, 1))
 	       || negate_expr_p (TREE_OPERAND (t, 0));
       break;
+
+    case TRUNC_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      if (TYPE_UNSIGNED (TREE_TYPE (t)) || flag_wrapv)
+        break;
+      return negate_expr_p (TREE_OPERAND (t, 1))
+             || negate_expr_p (TREE_OPERAND (t, 0));
 
     case NOP_EXPR:
       /* Negate -((double)float) as (double)(-float).  */
@@ -1115,6 +1140,28 @@ negate_expr (tree t)
 					      negate_expr (tem),
 					      TREE_OPERAND (t, 1)));
 	}
+      break;
+
+    case TRUNC_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      if (!TYPE_UNSIGNED (TREE_TYPE (t)) && !flag_wrapv)
+        {
+          tem = TREE_OPERAND (t, 1);
+          if (negate_expr_p (tem))
+            return fold_convert (type,
+                                 fold_build2 (TREE_CODE (t), TREE_TYPE (t),
+                                              TREE_OPERAND (t, 0),
+                                              negate_expr (tem)));
+          tem = TREE_OPERAND (t, 0);
+          if (negate_expr_p (tem))
+            return fold_convert (type,
+                                 fold_build2 (TREE_CODE (t), TREE_TYPE (t),
+                                              negate_expr (tem),
+                                              TREE_OPERAND (t, 1)));
+        }
       break;
 
     case NOP_EXPR:
@@ -8425,6 +8472,19 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  && TREE_INT_CST_HIGH (arg1) == -1)
 	return fold_convert (type, negate_expr (arg0));
 
+      /* Convert -A / -B to A / B when the type is signed and overflow is
+	 undefined.  */
+      if (!TYPE_UNSIGNED (type) && !flag_wrapv
+	  && TREE_CODE (arg0) == NEGATE_EXPR
+	  && negate_expr_p (arg1))
+	return fold_build2 (code, type, TREE_OPERAND (arg0, 0),
+			    negate_expr (arg1));
+      if (!TYPE_UNSIGNED (type) && !flag_wrapv
+	  && TREE_CODE (arg1) == NEGATE_EXPR
+	  && negate_expr_p (arg0))
+	return fold_build2 (code, type, negate_expr (arg0),
+			    TREE_OPERAND (arg1, 0));
+
       /* If arg0 is a multiple of arg1, then rewrite to the fastest div
 	 operation, EXACT_DIV_EXPR.
 
@@ -8839,6 +8899,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       /* If one arg is a real or integer constant, put it last.  */
       if (tree_swap_operands_p (arg0, arg1, true))
 	return fold_build2 (swap_tree_comparison (code), type, op1, op0);
+
+      /*  ~a != C becomes a != ~C where C is a constant.  Likewise for ==.  */
+      if (TREE_CODE (arg0) == BIT_NOT_EXPR && TREE_CODE (arg1) == INTEGER_CST
+	  && (code == NE_EXPR || code == EQ_EXPR))
+	return fold_build2 (code, type, TREE_OPERAND (arg0, 0),
+			    fold_build1 (BIT_NOT_EXPR, TREE_TYPE (arg1), 
+					 arg1));
 	
       /* bool_var != 0 becomes bool_var. */
       if (TREE_CODE (TREE_TYPE (arg0)) == BOOLEAN_TYPE && integer_zerop (arg1)
@@ -8849,6 +8916,16 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (TREE_TYPE (arg0)) == BOOLEAN_TYPE && integer_onep (arg1)
           && code == EQ_EXPR)
         return non_lvalue (fold_convert (type, arg0));
+
+      /* bool_var != 1 becomes !bool_var. */
+      if (TREE_CODE (TREE_TYPE (arg0)) == BOOLEAN_TYPE && integer_onep (arg1)
+          && code == NE_EXPR)
+        return fold_build1 (TRUTH_NOT_EXPR, type, arg0);
+
+      /* bool_var == 0 becomes !bool_var. */
+      if (TREE_CODE (TREE_TYPE (arg0)) == BOOLEAN_TYPE && integer_zerop (arg1)
+          && code == EQ_EXPR)
+        return fold_build1 (TRUTH_NOT_EXPR, type, arg0);
 
       /* If this is an equality comparison of the address of a non-weak
 	 object against zero, then we know the result.  */
