@@ -1,3 +1,8 @@
+2005-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/posix/time.c (omp_get_wtime, omp_get_wtick): Fall back to
+	CLOCK_REALTIME if clock_* (CLOCK_MONOTONIC, &ts) call failed.
+
 2005-11-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* alloc.c, barrier.c, critical.c, env.c, error.c, fortran.c, iter.c,

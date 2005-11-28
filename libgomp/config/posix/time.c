@@ -51,10 +51,9 @@ omp_get_wtime (void)
 #ifdef HAVE_CLOCK_GETTIME
   struct timespec ts;
 # ifdef CLOCK_MONOTONIC
-  clock_gettime (CLOCK_MONOTONIC, &ts);
-# else
-  clock_gettime (CLOCK_REALTIME, &ts);
+  if (clock_gettime (CLOCK_MONOTONIC, &ts) < 0)
 # endif
+    clock_gettime (CLOCK_REALTIME, &ts);
   return ts.tv_sec + ts.tv_nsec / 1e9;
 #else
   struct timeval tv;
@@ -69,10 +68,9 @@ omp_get_wtick (void)
 #ifdef HAVE_CLOCK_GETTIME
   struct timespec ts;
 # ifdef CLOCK_MONOTONIC
-  clock_getres (CLOCK_MONOTONIC, &ts);
-# else
-  clock_getres (CLOCK_REALTIME, &ts);
+  if (clock_getres (CLOCK_MONOTONIC, &ts) < 0)
 # endif
+    clock_getres (CLOCK_REALTIME, &ts);
   return ts.tv_sec + ts.tv_nsec / 1e9;
 #else
   return 1.0 / sysconf(_SC_CLK_TCK);
