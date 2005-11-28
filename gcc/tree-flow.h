@@ -751,6 +751,7 @@ void split_loop_exit_edge (edge);
 void compute_phi_arg_on_exit (edge, tree, tree);
 unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
+void empty_latch_block (struct loops *);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);

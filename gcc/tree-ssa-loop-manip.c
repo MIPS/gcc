@@ -557,6 +557,132 @@ standard_iv_increment_position (struct loop *loop, block_stmt_iterator *bsi,
     }
 }
 
+/* Find opportunities to move code from the loop latch block into
+   the loop. This allows some loop optimizations later on that work only
+   if the latch block is empty. We move stmts only if all stmts of the
+   latch can be moved (i.e. the latch can be made to be empty). A stmt an be 
+   moved if there its defs are not used out of the loop (because after
+   moving the stmts from the latch into the loop, they will be executed
+   one extra time; if there are no uses out of the loop - it doesn't matter).  
+*/
+
+void
+empty_latch_block (struct loops *loops)
+{
+  basic_block new_loc, latch;
+  tree last;
+  bool latch_empty_p;
+  block_stmt_iterator si, tobsi, bsi;
+  struct loop *loop;
+  bool ok_to_reposition_stmts;
+  tree stmt_to_move;
+  unsigned int i;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      latch = loop->latch;
+      last = last_stmt (latch);
+      latch_empty_p = !last || (TREE_CODE (last) == LABEL_EXPR);
+      if (latch_empty_p)
+	continue;
+
+      new_loc = ip_normal_pos (loop); 
+      if (!new_loc)
+	continue;
+
+      gcc_assert (new_loc == single_pred (loop->latch));
+  
+      ok_to_reposition_stmts = true;
+      for (si = bsi_start (latch); !bsi_end_p (si); bsi_next (&si))
+	{
+	  tree stmt = bsi_stmt (si);
+	  def_operand_p def_p;
+	  ssa_op_iter iter;
+
+	  if (TREE_CODE (stmt) == LABEL_EXPR)
+	    continue;
+	  if (TREE_CODE (stmt) != MODIFY_EXPR
+	      || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
+	    {
+	      ok_to_reposition_stmts = false;
+	      break;
+	    }
+
+	  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
+	    {
+	      tree def = DEF_FROM_PTR (def_p);
+	      imm_use_iterator imm_iter;
+	      use_operand_p use_p;
+
+	      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, def)
+		{
+		  tree use_stmt = USE_STMT (use_p);
+		  basic_block use_bb = bb_for_stmt (use_stmt);
+
+		  if (!flow_bb_inside_loop_p (loop, use_bb))
+		    {
+		      ok_to_reposition_stmts = false;
+		      break;
+		    }
+		  if (TREE_CODE (use_stmt) != PHI_NODE 
+		      || use_bb != loop->header)
+		    {
+		      ok_to_reposition_stmts = false;
+		      break;
+		    }
+		}
+	    }
+
+	  if (!ok_to_reposition_stmts)
+	    break;
+	}
+
+      if (!ok_to_reposition_stmts)
+	continue;
+
+      /* All the stmts in the latch block define values that are used
+         only in a loop-header phi.  Therefore it is legal to move them
+         into the loop, into basic block NEW_LOC (they will be executed
+         one additional iteration, but they are not used out of the loop
+         anyhow).  */
+
+      tobsi = bsi_last (new_loc);
+
+      if (dump_file)
+	{	
+	  fprintf(dump_file, "\nnew loc is: ");
+	  print_generic_expr (dump_file, bsi_stmt (tobsi), TDF_SLIM);
+	}
+
+      for (si = bsi_start (latch); !bsi_end_p (si); )
+	{
+	  bsi = si;
+	  bsi_next (&si);
+	  stmt_to_move = bsi_stmt (bsi);
+
+	  if (TREE_CODE (stmt_to_move) == LABEL_EXPR)
+	    continue;
+
+	  if (dump_file)
+	    {	
+	      fprintf(dump_file, "\nmoving stmt: ");
+	      print_generic_expr (dump_file, stmt_to_move, TDF_SLIM);
+	    }
+
+	  /* If this is the end of the basic block, we need to insert at the end
+	     of the basic block.  */
+	  if (bsi_end_p (tobsi))
+	    bsi_move_to_bb_end (&bsi, new_loc);
+	  else
+	    bsi_move_before (&bsi, &tobsi);
+	}
+    }
+}
+
 /* Copies phi node arguments for duplicated blocks.  The index of the first
    duplicated block is FIRST_NEW_BLOCK.  */
 

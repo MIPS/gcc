@@ -1,3 +1,9 @@
+2005-11-28  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-ssa-loop-manip.c (empty_latch_block): New function.
+	* tree-ssa-loop.c (tree_ssa_loop_init): Call empty_latch_block.
+	* tree-flow.h (empty_latch_block): New function declaration. 
+
 2005-11-28  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vectorizer.c (new_stmt_vec_info): Initialize new field.

@@ -95,6 +95,9 @@ tree_ssa_loop_init (void)
   /* Find the loops that are exited just through a single edge.  */
   mark_single_exit_loops (current_loops);
 
+  if (flag_tree_vectorize != 0)
+    empty_latch_block (current_loops);
+
   scev_initialize (current_loops);
 }
   
