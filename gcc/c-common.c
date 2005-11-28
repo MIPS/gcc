@@ -970,7 +970,7 @@ strict_aliasing_warning(tree otype, tree type, tree expr)
       && POINTER_TYPE_P (type) && POINTER_TYPE_P (otype)
       && TREE_CODE (expr) == ADDR_EXPR
       && (DECL_P (TREE_OPERAND (expr, 0))
-          || TREE_CODE (TREE_OPERAND (expr, 0)) == COMPONENT_REF)
+          || handled_component_p (TREE_OPERAND (expr, 0)))
       && !VOID_TYPE_P (TREE_TYPE (type)))
     {
       /* Casting the address of an object to non void pointer. Warn
@@ -4095,17 +4095,23 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
 	     struct Foo {
 	       struct Foo const *ptr; // creates a variant w/o packed flag
-	       } __ attribute__((packed)); // packs it now.
-	  */
+	     } __ attribute__((packed)); // packs it now.
+	   */
 	  tree probe;
 
 	  for (probe = *node; probe; probe = TYPE_NEXT_VARIANT (probe))
 	    TYPE_PACKED (probe) = 1;
 	}
-
     }
   else if (TREE_CODE (*node) == FIELD_DECL)
-    DECL_PACKED (*node) = 1;
+    {
+      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT)
+	warning (OPT_Wattributes,
+		 "%qE attribute ignored for field of type %qT",
+		 name, TREE_TYPE (*node));
+      else
+	DECL_PACKED (*node) = 1;
+    }
   /* We can't set DECL_PACKED for a VAR_DECL, because the bit is
      used for DECL_REGISTER.  It wouldn't mean anything anyway.
      We can't set DECL_PACKED on the type of a TYPE_DECL, because
