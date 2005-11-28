@@ -508,7 +508,7 @@ fini_section (void)							\
        || (!TARGET_NO_FP_IN_TOC						\
 	   && !TARGET_RELOCATABLE					\
 	   && GET_CODE (X) == CONST_DOUBLE				\
-	   && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
+	   && SCALAR_FLOAT_MODE_P (GET_MODE (X))			\
 	   && BITS_PER_WORD == HOST_BITS_PER_INT)))
 
 /* These macros generate the special .type and .size directives which
@@ -685,16 +685,6 @@ extern int fixuplabelno;
 #define TARGET_OS_SYSV_CPP_BUILTINS()		\
   do						\
     {						\
-      if (flag_pic == 1)			\
-	{					\
-	  builtin_define ("__pic__=1");		\
-	  builtin_define ("__PIC__=1");		\
-	}					\
-      else if (flag_pic == 2)			\
-	{					\
-	  builtin_define ("__pic__=2");		\
-	  builtin_define ("__PIC__=2");		\
-	}					\
       if (target_flags_explicit			\
 	  & MASK_RELOCATABLE)			\
 	builtin_define ("_RELOCATABLE");	\

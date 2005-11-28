@@ -1,3 +1,20 @@
+2005-11-21  Kean Johnston  <jkj@sco.com>
+
+	* config.sub, config.guess: Sync from upstream sources.
+
+2005-11-21  Ben Elliston  <bje@au.ibm.com>
+
+	Import from Autoconf sources:
+
+	2005-09-06  Paul Eggert  <eggert@cs.ucla.edu>
+	* config/move-if-change: Don't output "$2 is unchanged";
+	suggested by Ben Elliston.  Handle weird characters correctly.
+
+2005-11-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* ltcf-c.sh (whole_archive_flag_spec): Remove '-all_load $convenience'
+	to match upstream libtool for darwin.
+
 2005-11-11  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* Makefile.def: Remove gdb dependencies for gdbtk.

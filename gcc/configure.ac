@@ -822,7 +822,7 @@ MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
 # that we can use it.
 gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[2-9]*])
+  [4.[4-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
@@ -2761,6 +2761,21 @@ foo:	nop
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_POPCNTB, 1,
 	  [Define if your assembler supports popcntb field.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr5x"
+	.csect .text[[PR]]
+	frin 1,1';;
+      *) conftest_s='	.machine power5
+	.text
+	frin 1,1';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([fp round support],
+      gcc_cv_as_powerpc_fprnd, [2,17,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_FPRND, 1,
+	  [Define if your assembler supports fprnd.])])
 
     case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]

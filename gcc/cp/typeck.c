@@ -2253,15 +2253,7 @@ build_array_ref (tree array, tree idx)
     {
       tree rval, type;
 
-      /* Subscripting with type char is likely to lose
-	 on a machine where chars are signed.
-	 So warn on any machine, but optionally.
-	 Don't warn for unsigned char since that type is safe.
-	 Don't warn for signed char because anyone who uses that
-	 must have done so deliberately.  */
-      if (warn_char_subscripts
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (idx)) == char_type_node)
-	warning (0, "array subscript has type %<char%>");
+      warn_array_subscript_with_type_char (idx);
 
       if (!INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (idx)))
 	{
@@ -4559,8 +4551,8 @@ check_for_casting_away_constness (tree src_type, tree dest_type,
 				  const char *description)
 {
   if (diag_fn && casts_away_constness (src_type, dest_type))
-    error ("%s from type %qT to type %qT casts away constness",
-	   description, src_type, dest_type);
+    diag_fn ("%s from type %qT to type %qT casts away constness",
+	     description, src_type, dest_type);
 }
 
 /* Convert EXPR (an expression with pointer-to-member type) to TYPE
@@ -5019,6 +5011,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
   else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
+      tree sexpr = expr;
+
       if (!c_cast_p)
 	check_for_casting_away_constness (intype, type, error,
 					  "reinterpret_cast");
@@ -5032,6 +5026,11 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	warning (0, "cast from %qT to %qT increases required alignment of "
 		 "target type",
 		 intype, type);
+
+      /* We need to strip nops here, because the frontend likes to
+	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
+      STRIP_NOPS (sexpr);
+      strict_aliasing_warning (intype, type, sexpr);
 
       return fold_if_not_in_template (build_nop (type, expr));
     }
@@ -5085,9 +5084,9 @@ build_reinterpret_cast (tree type, tree expr)
 /* Perform a const_cast from EXPR to TYPE.  If the cast is valid,
    return an appropriate expression.  Otherwise, return
    error_mark_node.  If the cast is not valid, and COMPLAIN is true,
-   then a diagnostic will be issued.  If VALID_P is non-NULL, its
-   value upon return will indicate whether or not the conversion
-   succeeded.  */
+   then a diagnostic will be issued.  If VALID_P is non-NULL, we are
+   performing a C-style cast, its value upon return will indicate
+   whether or not the conversion succeeded.  */
 
 static tree
 build_const_cast_1 (tree dst_type, tree expr, bool complain,
@@ -5163,7 +5162,15 @@ build_const_cast_1 (tree dst_type, tree expr, bool complain,
       && comp_ptr_ttypes_const (dst_type, src_type))
     {
       if (valid_p)
-	*valid_p = true;
+	{
+	  *valid_p = true;
+	  /* This cast is actually a C-style cast.  Issue a warning if
+	     the user is making a potentially unsafe cast.  */
+	  if (warn_cast_qual)
+	    check_for_casting_away_constness (src_type, dst_type,
+					      warning0,
+					      "cast");
+	}
       if (reference_type)
 	{
 	  expr = build_unary_op (ADDR_EXPR, expr, 0);

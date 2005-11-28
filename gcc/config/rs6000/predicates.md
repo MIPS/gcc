@@ -187,7 +187,7 @@
   REAL_VALUE_TYPE rv;
 
   if (GET_MODE (op) != mode
-      || (GET_MODE_CLASS (mode) != MODE_FLOAT && mode != DImode))
+      || (!SCALAR_FLOAT_MODE_P (mode) && mode != DImode))
     return 0;
 
   /* Consider all constants with -msoft-float to be easy.  */
@@ -317,7 +317,7 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   rtx last = CONST_VECTOR_ELT (op, GET_MODE_NUNITS (mode) - 1);
-  HOST_WIDE_INT val = (char) (INTVAL (last) & 255);
+  HOST_WIDE_INT val = ((INTVAL (last) & 0xff) ^ 0x80) - 0x80;
   return EASY_VECTOR_15_ADD_SELF (val);
 })
 
@@ -330,7 +330,7 @@
 ;; or non-special register register field no cr0
 (define_predicate "zero_fp_constant"
   (and (match_code "const_double")
-       (match_test "GET_MODE_CLASS (mode) == MODE_FLOAT
+       (match_test "SCALAR_FLOAT_MODE_P (mode)
 		    && op == CONST0_RTX (mode)")))
 
 ;; Return 1 if the operand is in volatile memory.  Note that during the
@@ -707,7 +707,7 @@
     return 1;
 
   /* For floating-point, easy constants are valid.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (mode)
       && CONSTANT_P (op)
       && easy_fp_constant (op, mode))
     return 1;
@@ -725,7 +725,7 @@
 
   /* For floating-point or multi-word mode, the only remaining valid type
      is a register.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (mode)
       || GET_MODE_SIZE (mode) > UNITS_PER_WORD)
     return register_operand (op, mode);
 
@@ -1034,14 +1034,14 @@
   if (count <= 1
       || GET_CODE (XVECEXP (op, 0, 0)) != SET
       || GET_CODE (SET_DEST (XVECEXP (op, 0, 0))) != REG
-      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != UNSPEC_VOLATILE)
+      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != UNSPEC_VOLATILE
+      || XINT (SET_SRC (XVECEXP (op, 0, 0)), 1) != UNSPECV_SET_VRSAVE)
     return 0;
 
   dest_regno = REGNO (SET_DEST (XVECEXP (op, 0, 0)));
-  src_regno  = REGNO (SET_SRC (XVECEXP (op, 0, 0)));
+  src_regno  = REGNO (XVECEXP (SET_SRC (XVECEXP (op, 0, 0)), 0, 1));
 
-  if (dest_regno != VRSAVE_REGNO
-      && src_regno != VRSAVE_REGNO)
+  if (dest_regno != VRSAVE_REGNO || src_regno != VRSAVE_REGNO)
     return 0;
 
   for (i = 1; i < count; i++)

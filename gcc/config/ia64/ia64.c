@@ -2114,7 +2114,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 
   emit_insn (GEN_FCN (icode) (cmp_reg, mem, ar_ccv, new_reg));
 
-  emit_cmp_and_jump_insns (cmp_reg, old_reg, EQ, NULL, DImode, true, label);
+  emit_cmp_and_jump_insns (cmp_reg, old_reg, NE, NULL, DImode, true, label);
 }
 
 /* Begin the assembly file.  */
@@ -8438,6 +8438,9 @@ ia64_init_libfuncs (void)
 
   set_conv_libfunc (sfloat_optab, TFmode, SImode, "_U_Qfcnvxf_sgl_to_quad");
   set_conv_libfunc (sfloat_optab, TFmode, DImode, "_U_Qfcnvxf_dbl_to_quad");
+  /* HP-UX 11.23 libc does not have a function for unsigned
+     SImode-to-TFmode conversion.  */
+  set_conv_libfunc (ufloat_optab, TFmode, DImode, "_U_Qfcnvxuf_dbl_to_quad");
 }
 
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */

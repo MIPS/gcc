@@ -430,14 +430,11 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	     || (offset * BITS_PER_UNIT % bitsize == 0
 		 && MEM_ALIGN (op0) % GET_MODE_BITSIZE (fieldmode) == 0))))
     {
-      if (GET_MODE (op0) != fieldmode)
-	{
-	  if (MEM_P (op0))
-	    op0 = adjust_address (op0, fieldmode, offset);
-	  else
-	    op0 = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
-				       byte_offset);
-	}
+      if (MEM_P (op0))
+	op0 = adjust_address (op0, fieldmode, offset);
+      else if (GET_MODE (op0) != fieldmode)
+	op0 = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
+				   byte_offset);
       emit_move_insn (op0, value);
       return value;
     }
@@ -646,6 +643,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	    bestmode = GET_MODE (op0);
 
 	  if (bestmode == VOIDmode
+	      || GET_MODE_SIZE (bestmode) < GET_MODE_SIZE (fieldmode)
 	      || (SLOW_UNALIGNED_ACCESS (bestmode, MEM_ALIGN (op0))
 		  && GET_MODE_BITSIZE (bestmode) > MEM_ALIGN (op0)))
 	    goto insv_loses;
@@ -1410,6 +1408,11 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		  xbitpos = bitnum % unit;
 		  xop0 = adjust_address (xop0, bestmode, xoffset);
 
+		  /* Make sure register is big enough for the whole field. */
+		  if (xoffset * BITS_PER_UNIT + unit 
+		      < offset * BITS_PER_UNIT + bitsize)
+		    goto extzv_loses;
+
 		  /* Fetch it to a register in that size.  */
 		  xop0 = force_reg (bestmode, xop0);
 
@@ -1538,6 +1541,11 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		  xoffset = (bitnum / unit) * GET_MODE_SIZE (bestmode);
 		  xbitpos = bitnum % unit;
 		  xop0 = adjust_address (xop0, bestmode, xoffset);
+
+		  /* Make sure register is big enough for the whole field. */
+		  if (xoffset * BITS_PER_UNIT + unit 
+		      < offset * BITS_PER_UNIT + bitsize)
+		    goto extv_loses;
 
 		  /* Fetch it to a register in that size.  */
 		  xop0 = force_reg (bestmode, xop0);
@@ -2828,6 +2836,17 @@ choose_mult_variant (enum machine_mode mode, HOST_WIDE_INT val,
   struct mult_cost limit;
   int op_cost;
 
+  /* Fail quickly for impossible bounds.  */
+  if (mult_cost < 0)
+    return false;
+
+  /* Ensure that mult_cost provides a reasonable upper bound.
+     Any constant multiplication can be performed with less
+     than 2 * bits additions.  */
+  op_cost = 2 * GET_MODE_BITSIZE (mode) * add_cost[mode];
+  if (mult_cost > op_cost)
+    mult_cost = op_cost;
+
   *variant = basic_variant;
   limit.cost = mult_cost;
   limit.latency = mult_cost;
@@ -3148,7 +3167,7 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 
   /* Expand x*2.0 as x+x.  */
   if (GET_CODE (op1) == CONST_DOUBLE
-      && GET_MODE_CLASS (mode) == MODE_FLOAT)
+      && SCALAR_FLOAT_MODE_P (mode))
     {
       REAL_VALUE_TYPE d;
       REAL_VALUE_FROM_CONST_DOUBLE (d, op1);

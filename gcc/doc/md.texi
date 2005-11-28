@@ -2920,10 +2920,7 @@ If a scratch register is required to move an object to or from memory,
 it can be allocated using @code{gen_reg_rtx} prior to life analysis.
 
 If there are cases which need scratch registers during or after reload,
-you must define @code{SECONDARY_INPUT_RELOAD_CLASS} and/or
-@code{SECONDARY_OUTPUT_RELOAD_CLASS} to detect them, and provide
-patterns @samp{reload_in@var{m}} or @samp{reload_out@var{m}} to handle
-them.  @xref{Register Classes}.
+you must provide an appropriate secondary_reload target hook.
 
 @findex no_new_pseudos
 The global variable @code{no_new_pseudos} can be used to determine if it
@@ -2953,6 +2950,9 @@ reload into a floating point register.
 @cindex @code{reload_out} instruction pattern
 @item @samp{reload_in@var{m}}
 @itemx @samp{reload_out@var{m}}
+These named patterns have been obsoleted by the target hook
+@code{secondary_reload}.
+
 Like @samp{mov@var{m}}, but used when a scratch register is required to
 move between operand 0 and operand 1.  Operand 2 describes the scratch
 register.  See the discussion of the @code{SECONDARY_RELOAD_CLASS}
@@ -3123,6 +3123,14 @@ Similar widening-multiplication instructions of other widths.
 @cindex @code{umulsidi3} instruction pattern
 @item @samp{umulqihi3}, @samp{umulhisi3}, @samp{umulsidi3}
 Similar widening-multiplication instructions that do unsigned
+multiplication.
+
+@cindex @code{usmulqihi3} instruction pattern
+@cindex @code{usmulhisi3} instruction pattern
+@cindex @code{usmulsidi3} instruction pattern
+@item @samp{usmulqihi3}, @samp{usmulhisi3}, @samp{usmulsidi3}
+Similar widening-multiplication instructions that interpret the first
+operand as unsigned and the second operand as signed, then do a signed
 multiplication.
 
 @cindex @code{smul@var{m}3_highpart} instruction pattern
@@ -4776,6 +4784,9 @@ will be written using @code{zero_extract} rather than the equivalent
 @code{and} or @code{sign_extract} operations.
 
 @end itemize
+
+Further canonicalization rules are defined in the function
+@code{commutative_operand_precedence} in @file{gcc/rtlanal.c}.
 
 @end ifset
 @ifset INTERNALS

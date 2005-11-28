@@ -1411,6 +1411,7 @@ combinable_i3pat (rtx i3, rtx *loc, rtx i2dest, rtx i1dest,
       rtx dest = SET_DEST (set);
       rtx src = SET_SRC (set);
       rtx inner_dest = dest;
+      rtx subdest;
 
       while (GET_CODE (inner_dest) == STRICT_LOW_PART
 	     || GET_CODE (inner_dest) == SUBREG
@@ -1445,27 +1446,35 @@ combinable_i3pat (rtx i3, rtx *loc, rtx i2dest, rtx i1dest,
 	  || (i1_not_in_src && reg_overlap_mentioned_p (i1dest, src)))
 	return 0;
 
-      /* If DEST is used in I3, it is being killed in this insn,
-	 so record that for later.
+      /* If DEST is used in I3, it is being killed in this insn, so
+	 record that for later.  We have to consider paradoxical
+	 subregs here, since they kill the whole register, but we
+	 ignore partial subregs, STRICT_LOW_PART, etc.
 	 Never add REG_DEAD notes for the FRAME_POINTER_REGNUM or the
 	 STACK_POINTER_REGNUM, since these are always considered to be
 	 live.  Similarly for ARG_POINTER_REGNUM if it is fixed.  */
-      if (pi3dest_killed && REG_P (dest)
-	  && reg_referenced_p (dest, PATTERN (i3))
-	  && REGNO (dest) != FRAME_POINTER_REGNUM
+      subdest = dest;
+      if (GET_CODE (subdest) == SUBREG
+	  && (GET_MODE_SIZE (GET_MODE (subdest))
+	      >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (subdest)))))
+	subdest = SUBREG_REG (subdest);
+      if (pi3dest_killed
+	  && REG_P (subdest)
+	  && reg_referenced_p (subdest, PATTERN (i3))
+	  && REGNO (subdest) != FRAME_POINTER_REGNUM
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	  && REGNO (dest) != HARD_FRAME_POINTER_REGNUM
+	  && REGNO (subdest) != HARD_FRAME_POINTER_REGNUM
 #endif
 #if ARG_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	  && (REGNO (dest) != ARG_POINTER_REGNUM
-	      || ! fixed_regs [REGNO (dest)])
+	  && (REGNO (subdest) != ARG_POINTER_REGNUM
+	      || ! fixed_regs [REGNO (subdest)])
 #endif
-	  && REGNO (dest) != STACK_POINTER_REGNUM)
+	  && REGNO (subdest) != STACK_POINTER_REGNUM)
 	{
 	  if (*pi3dest_killed)
 	    return 0;
 
-	  *pi3dest_killed = dest;
+	  *pi3dest_killed = subdest;
 	}
     }
 
@@ -2068,35 +2077,6 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
   subst_insn = i3;
 
-  /* It is possible that the source of I2 or I1 may be performing an
-     unneeded operation, such as a ZERO_EXTEND of something that is known
-     to have the high part zero.  Handle that case by letting subst look at
-     the innermost one of them.
-
-     Another way to do this would be to have a function that tries to
-     simplify a single insn instead of merging two or more insns.  We don't
-     do this because of the potential of infinite loops and because
-     of the potential extra memory required.  However, doing it the way
-     we are is a bit of a kludge and doesn't catch all cases.
-
-     But only do this if -fexpensive-optimizations since it slows things down
-     and doesn't usually win.  */
-
-  if (flag_expensive_optimizations)
-    {
-      /* Pass pc_rtx so no substitutions are done, just simplifications.  */
-      if (i1)
-	{
-	  subst_low_cuid = INSN_CUID (i1);
-	  i1src = subst (i1src, pc_rtx, pc_rtx, 0, 0);
-	}
-      else
-	{
-	  subst_low_cuid = INSN_CUID (i2);
-	  i2src = subst (i2src, pc_rtx, pc_rtx, 0, 0);
-	}
-    }
-
 #ifndef HAVE_cc0
   /* Many machines that don't use CC0 have insns that can both perform an
      arithmetic operation and set the condition code.  These operations will
@@ -2159,6 +2139,41 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   else
 #endif
     {
+      /* It is possible that the source of I2 or I1 may be performing
+	 an unneeded operation, such as a ZERO_EXTEND of something
+	 that is known to have the high part zero.  Handle that case
+	 by letting subst look at the innermost one of them.
+
+	 Another way to do this would be to have a function that tries
+	 to simplify a single insn instead of merging two or more
+	 insns.  We don't do this because of the potential of infinite
+	 loops and because of the potential extra memory required.
+	 However, doing it the way we are is a bit of a kludge and
+	 doesn't catch all cases.
+
+	 But only do this if -fexpensive-optimizations since it slows
+	 things down and doesn't usually win.
+
+	 This is not done in the COMPARE case above because the
+	 unmodified I2PAT is used in the PARALLEL and so a pattern
+	 with a modified I2SRC would not match.  */
+
+      if (flag_expensive_optimizations)
+	{
+	  /* Pass pc_rtx so no substitutions are done, just
+	     simplifications.  */
+	  if (i1)
+	    {
+	      subst_low_cuid = INSN_CUID (i1);
+	      i1src = subst (i1src, pc_rtx, pc_rtx, 0, 0);
+	    }
+	  else
+	    {
+	      subst_low_cuid = INSN_CUID (i2);
+	      i2src = subst (i2src, pc_rtx, pc_rtx, 0, 0);
+	    }
+	}
+
       n_occurrences = 0;		/* `subst' counts here */
 
       /* If I1 feeds into I2 (not into I3) and I1DEST is in I1SRC, we
@@ -6901,6 +6916,16 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	new = make_compound_operation (XEXP (x, i), next_code);
 	SUBST (XEXP (x, i), new);
       }
+
+  /* If this is a commutative operation, the changes to the operands
+     may have made it noncanonical.  */
+  if (COMMUTATIVE_ARITH_P (x)
+      && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+    {
+      tem = XEXP (x, 0);
+      SUBST (XEXP (x, 0), XEXP (x, 1));
+      SUBST (XEXP (x, 1), tem);
+    }
 
   return x;
 }
@@ -12219,6 +12244,10 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	    {
 	      basic_block bb = this_basic_block;
 
+	      /* You might think you could search back from FROM_INSN
+		 rather than from I3, but combine tries to split invalid
+		 combined instructions.  This can result in the old I2
+		 or I1 moving later in the insn sequence.  */
 	      for (tem = PREV_INSN (i3); place == 0; tem = PREV_INSN (tem))
 		{
 		  if (! INSN_P (tem))
@@ -12319,6 +12348,22 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 			   || (CALL_P (tem)
 			       && find_reg_fusage (tem, USE, XEXP (note, 0))))
 		    {
+		      /* This may not be the correct place for the death
+			 note if FROM_INSN is before TEM, and the reg is
+			 set between FROM_INSN and TEM.  The reg might
+			 die two or more times.  An existing death note
+			 means we are looking at the wrong live range.  */
+		      if (from_insn
+			  && INSN_CUID (from_insn) < INSN_CUID (tem)
+			  && find_regno_note (tem, REG_DEAD,
+					      REGNO (XEXP (note, 0))))
+			{
+			  tem = from_insn;
+			  if (tem == BB_HEAD (bb))
+			    break;
+			  continue;
+			}
+
 		      place = tem;
 
 		      /* If we are doing a 3->2 combination, and we have a

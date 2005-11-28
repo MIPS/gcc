@@ -55,7 +55,6 @@
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
       darwin_cpp_builtins (pfile);		\
-      SUBTARGET_OS_CPP_BUILTINS ();             \
     }                                           \
   while (0)
 
@@ -124,9 +123,14 @@ do {									\
    mcpu=G5:ppc970;				\
    :ppc}}"
 
+/* crt2.o is at least partially required for 10.3.x and earlier.  */
+#define DARWIN_CRT2_SPEC \
+  "%{!m64:%:version-compare(!> 10.4 mmacosx-version-min= crt2.o%s)}"
+
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
   { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  { "darwin_crt2", DARWIN_CRT2_SPEC },		\
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
 
 /* Output a .machine directive.  */

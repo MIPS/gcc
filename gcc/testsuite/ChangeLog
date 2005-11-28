@@ -1,3 +1,374 @@
+2005-11-27  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24917
+	*  gfortran.dg/boz_6.f90: New test.
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23912
+	* gfortran.dg/modulo_1.f90: New test.
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24919
+	* gfortran.dg/ftell_1.f90: Modify testcase so that it doesn't
+	fail on CRLF platforms.
+	* gfortran.dg/ftell_2.f90: Likewise.
+
+2005-11-26  Eric Christopher  <echristo@apple.com>
+
+	* gcc.dg/intmax_t-1.c: Remove mips xfail.
+
+2005-11-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc.dg/gnu-runtime-3.m: Simplify.
+
+2005-11-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/23669
+	* gcc.dg/tree-ssa/divide-1.c: New test.
+	* gcc.dg/tree-ssa/divide-2.c: New test.
+
+2005-11-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/24945
+	* gfortran.dg/open_status_2.f90: Fix wrong PR number in comment.
+
+2005-11-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/24945
+	* gfortran.dg/open_status_2.f90: New test.
+
+2005-11-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtins/fprintf.c,
+	gcc.c-torture/execute/builtins/fputs-lib.c,
+	gcc.c-torture/execute/builtins/fputs.c,
+	gcc.c-torture/execute/builtins/lib/fprintf.c,
+	gcc.c-torture/execute/builtins/lib/printf.c,
+	gcc.c-torture/execute/builtins/printf.c: Test the unlocked style.
+
+2005-11-25  J"orn Rennecke <joern.rennecke@st.com>
+
+	* gcc.dg/20050922-2.c: New test.
+
+2005-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc.dg/gnu-runtime-3.m: New test.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/9278
+	* g++.dg/other/void1.C: New test.
+
+2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* gcc.dg/torture/fp-int-convert-float.c,
+	gcc.dg/torture/fp-int-convert-double.c,
+	gcc.dg/torture/fp-int-convert-long-double.c,
+	gcc.dg/torture/fp-int-convert-timode.c,
+	gcc.dg/torture/fp-int-convert-float80.c,
+	gcc.dg/torture/fp-int-convert-float80-timode.c,
+	gcc.dg/torture/fp-int-convert-float128.c,
+	gcc.dg/torture/fp-int-convert-float128-timode.c,
+	gcc.dg/torture/fp-int-convert.h: New files.
+
+2005-11-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24989
+	* gcc.dg/tree-ssa/bool-10.c: New test.
+	* gcc.dg/tree-ssa/bool-11.c: New test.
+	* gcc.dg/tree-ssa/bool-7.c: Un-xfail.
+
+2005-11-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24990
+	* tree-ssa/pr24990-1.c: New test.
+
+2005-11-24  Richard Guenther  <rguenther@suse.de>
+	Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* g++.dg/warn/Wstrict-aliasing-1.C: New testcase.
+	* g++.dg/warn/Wstrict-aliasing-2.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-3.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-4.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-5.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-6.C: Likewise.
+
+2005-11-23  Uros Bizjak  <uros@kss-loka.si>
+
+	* g++.dg/other/i386-1.C: Pass if CPU has no SSE2 support.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c/21668
+	* gcc.dg/Wc++-compat.c: New.
+	* gcc.dg/Wno-c++-compat.c: New.
+
+2005-11-23  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.target/powerpc/altivec-consts.c (vspltisb): Use int val.
+	(vspltish, vspltisw): Likewise.
+
+2005-11-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/24794
+	* gfortran.dg/namelist_12.f: Fix quotes.
+	* gfortran.dg/namelist_13.f90: Fix quotes.
+	* gfortran.dg/namelist_14.f90: Fix quotes.
+	* gfortran.dg/namelist_15.f90: Fix quotes.
+	* gfortran.dg/namelist_use.f90: Fix quotes.
+	* gfortran.dg/namelist_use_only.f90: Fix quotes.
+	* gfortran.dg/namelist_21.f90: New test.
+	* gfortran.dg/namelist_22.f90: New test.
+
+2005-11-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/23435
+	* gcc.c-torture/compile/pr23435.c: New.
+
+2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/execute/floatunsisf-1.c: New test.
+
+2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.target/powerpc/405-macchw-1.c,
+	gcc.target/powerpc/405-macchw-2.c,
+	gcc.target/powerpc/405-macchwu-1.c,
+	gcc.target/powerpc/405-macchwu-2.c,
+	gcc.target/powerpc/405-machhw-1.c,
+	gcc.target/powerpc/405-machhw-2.c,
+	gcc.target/powerpc/405-machhwu-1.c,
+	gcc.target/powerpc/405-machhwu-2.c,
+	gcc.target/powerpc/405-maclhw-1.c,
+	gcc.target/powerpc/405-maclhw-2.c,
+	gcc.target/powerpc/405-maclhwu-1.c,
+	gcc.target/powerpc/405-maclhwu-2.c,
+	gcc.target/powerpc/405-mulchw-1.c,
+	gcc.target/powerpc/405-mulchw-2.c,
+	gcc.target/powerpc/405-mulchwu-1.c,
+	gcc.target/powerpc/405-mulchwu-2.c,
+	gcc.target/powerpc/405-mulhhw-1.c,
+	gcc.target/powerpc/405-mulhhw-2.c,
+	gcc.target/powerpc/405-mulhhwu-1.c,
+	gcc.target/powerpc/405-mulhhwu-2.c,
+	gcc.target/powerpc/405-mullhw-1.c,
+	gcc.target/powerpc/405-mullhw-2.c,
+	gcc.target/powerpc/405-mullhwu-1.c,
+	gcc.target/powerpc/405-mullhwu-2.c,
+	gcc.target/powerpc/405-nmacchw-1.c,
+	gcc.target/powerpc/405-nmacchw-2.c,
+	gcc.target/powerpc/405-nmachhw-1.c,
+	gcc.target/powerpc/405-nmachhw-2.c,
+	gcc.target/powerpc/405-nmaclhw-1.c,
+	gcc.target/powerpc/405-nmaclhw-2.c,
+	gcc.target/powerpc/440-macchw-1.c,
+	gcc.target/powerpc/440-macchw-2.c,
+	gcc.target/powerpc/440-macchwu-1.c,
+	gcc.target/powerpc/440-macchwu-2.c,
+	gcc.target/powerpc/440-machhw-1.c,
+	gcc.target/powerpc/440-machhw-2.c,
+	gcc.target/powerpc/440-machhwu-1.c,
+	gcc.target/powerpc/440-machhwu-2.c,
+	gcc.target/powerpc/440-maclhw-1.c,
+	gcc.target/powerpc/440-maclhw-2.c,
+	gcc.target/powerpc/440-maclhwu-1.c,
+	gcc.target/powerpc/440-maclhwu-2.c,
+	gcc.target/powerpc/440-mulchw-1.c,
+	gcc.target/powerpc/440-mulchw-2.c,
+	gcc.target/powerpc/440-mulchwu-1.c,
+	gcc.target/powerpc/440-mulchwu-2.c,
+	gcc.target/powerpc/440-mulhhw-1.c,
+	gcc.target/powerpc/440-mulhhw-2.c,
+	gcc.target/powerpc/440-mulhhwu-1.c,
+	gcc.target/powerpc/440-mulhhwu-2.c,
+	gcc.target/powerpc/440-mullhw-1.c,
+	gcc.target/powerpc/440-mullhw-2.c,
+	gcc.target/powerpc/440-mullhwu-1.c,
+	gcc.target/powerpc/440-mullhwu-2.c,
+	gcc.target/powerpc/440-nmacchw-1.c,
+	gcc.target/powerpc/440-nmacchw-2.c,
+	gcc.target/powerpc/440-nmachhw-1.c,
+	gcc.target/powerpc/440-nmachhw-2.c,
+	gcc.target/powerpc/440-nmaclhw-1.c,
+	gcc.target/powerpc/440-nmaclhw-2.c: New tests.
+
+2005-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/24774
+	* gfortran.dg/inquire_9.f90: New test.
+
+	PR fortran/21647
+	* gfortran.fortran-torture/execute/inquire_5.f90: New test.
+
+2005-11-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libfortran/24432
+	* lib/target-supports.exp (check_effective_target_fortran_large_real):
+	Check that 'cos' is supported.
+
+2005-11-21  Paul Thomas  <pault@gcc.gnu.org
+
+	PR fortran/24223
+	* gfortran.dg/substring_equivalence.f90: New test.
+
+	PR fortran/24705
+	* gfortran.dg/auto_internal_assumed.f90: New test.
+
+2005-11-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/fold-div-2.c: New test.
+
+2005-11-20  Ian Lance Taylor  <ian@airs.com>
+
+	PR rtl-optimization/24883
+	* gcc.c-torture/compile/pr24883.c: New test.
+
+2005-11-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR middle-end/20583
+	* gcc.c-torture/compile/pr20583.c: New.
+
+2005-11-20  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.c-torture/execute/usmul.c: New test.
+
+2005-11-19  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/vrp22.c: New test.
+
+2005-11-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/24912
+	* gcc.dg/torture/pr24912-1.c: New test.
+
+2005-11-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/24862
+	* gfortran.dg/arrayio_derived_1.f90: New test.
+
+2005-11-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23294
+	* gcc.dg/tree-ssa/pr23294.c: New testcase.
+
+2005-11-19  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/fold-overflow-1.c: Adjust for float output for mmix-*-*.
+
+2005-11-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8355
+	* g++.dg/template/friend39.C: New test.
+
+2005-11-18  James E Wilson  <wilson@specifix.com>
+
+	* gcc.dg/builtin-strstr.c: New.
+
+2005-11-18  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/ia64/20010423-1.c, gcc.target/ia64/20020313-1.c,
+	gcc.target/ia64/20020326-1.c, gcc.target/ia64/20030225-2.c,
+	gcc.target/ia64/20030405-1.c, gcc.target/ia64/20030811-1.c,
+	gcc.target/ia64/20040303-1.c: Move from gcc.dg/.
+	* gcc.target/ia64/asm-1.c, gcc.target/ia64/float80-1.c,
+	gcc.target/ia64/float80-2.c, gcc.target/ia64/got-1.c,
+	gcc.target/ia64/postinc-1.c, gcc.target/ia64/types-1.c,
+	gcc.target/ia64/types-2.c, gcc.target/ia64/visibility-1.c,
+	gcc.target/ia64/visibility-2.c: Move from gcc.dg/, with
+	renaming to remove initial "ia64-".
+
+2005-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/run_all.sh (target_run): Revert 2005-11-17 patch.
+
+2005-11-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/cpp/string-2.C: New test.
+
+2005-11-18  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-14.c: New test.
+
+2005-11-17  James A. Morrison  <phython@gcc.gnu.org>
+            Michael Chamberlain <michael@chamberlain.net.au>
+
+	* ada/acats/run_all.sh (target_run): Kill long running tests.
+
+2005-11-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/cleanup-8.c: Enable test on hppa*-*-hpux*.
+	* gcc.dg/cleanup-9.c: Likewise.
+	* gcc.dg/cleanup-10.c: Likewise.
+	* gcc.dg/cleanup-11.c: Likewise.
+
+2005-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24892
+	* gfortran.dg/open_access_append_1.f90: New test.
+	* gfortran.dg/open_access_append_2.f90: New test.
+
+2005-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24851
+	* gcc.c-torture/execute/pr24851.c: New testcase.
+
+2005-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/fold-overflow-1.c: New test.
+
+2005-11-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.dg/cleanup-5.c, gcc.dg/cleanup-8.c, gcc.dg/cleanup-9.c,
+	gcc.dg/cleanup-10.c, gcc.dg/cleanup-11.c: Update for ARM EABI.
+
+2005-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/eh/forced1.C: Adjust to cope with ARM EABI
+	structures.
+	* g++.dg/eh/forced2.C: Likewise.
+	* g++.dg/eh/forced3.C: Likewise.
+	* g++.dg/eh/forced4.C: Likewise.
+
+2005-11-11  Mike Stump  <mrs@apple.com>
+
+	* g++.old-deja/g++.mike/unused.C: Add.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24667
+	* g++.dg/warn/Wcast-qual1.C: New test.
+
+2005-11-15  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/winline-5.c: Add large-unit-insns limit.
+
+2005-11-14  David Edelsohn  <edelsohn@gnu.org>
+
+	* g++.dg/eh/simd-2.C: XFAIL on AIX and SPE.
+
+2005-11-14  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 24840
+	* gcc.dg/tree-ssa/pr24840.c: New test.
+
+2005-11-14  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/24841
+	* gcc.dg/attr-weakref-1.c: Rearrange test directives.
+
+2005-11-14  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/execute/20051113-1.c:  New.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* g++.dg/template/crash43.C: New test.
+
 2005-11-14  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* gcc.c-torture/unsorted/unsorted.exp: Sort tests before running them.
@@ -116,13 +487,13 @@
 
 	PR libgfortran/24719
 	gfortran.dg/read_noadvance.f90: New test.
-	
+
 	PR libgfortran/24699
 	gfortran.dg/fmt_t_2.f90: New test.
-	
+
 	PR libgfortran/24785
 	gfortran.dg/read_x_eor.f90: New test.
-	
+
 	PR libgfortran/24584
 	gfortran.dg/namelist_empty.f90: Rename test.
 
@@ -143,7 +514,7 @@
 
 	PR fortran/24655
 	PR fortran/24755
-	* gfortran.dg/recursive_statement_functions.f90: Add statement 
+	* gfortran.dg/recursive_statement_functions.f90: Add statement
 	functions using inline intrinsic functions and parameters to test
 	that they no longer seg-fault.
 
@@ -185,10 +556,10 @@
 	* gcc.dg/pr24624.c: Disable for non S/390 targets.
 
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
-	
+
         PR 24624
 	* gcc.dg/pr24624.c: Testcase added.
-	
+
 2005-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	PR 24623
@@ -223,7 +594,7 @@
 
 	PR tree-optimization/23115
 	* gcc.dg/tree-ssa/pr23115.c: New.
-	
+
 2005-11-08  David Edelsohn  <edelsohn@gnu.org>
 
 	* g++.dg/ext/altivec-{1-13}.C: XFAIL on AIX and SPE.
@@ -305,7 +676,7 @@
 
 	PR fortran/24174
 	PR fortran/24305
-	* testsuite/gfortran.dg/large_real_kind_form_io_1.f90: New file.	
+	* testsuite/gfortran.dg/large_real_kind_form_io_1.f90: New file.
 
 2005-11-06  Diego Novillo  <dnovillo@redhat.com>
 

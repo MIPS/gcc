@@ -1878,6 +1878,10 @@ compare_ranges (enum tree_code comp, value_range_t *vr0, value_range_t *vr1)
 	  else if (cmp_min != -2 && cmp_max != -2)
 	    return boolean_false_node;
 	}
+      /* If [V0_MIN, V1_MAX] < [V1_MIN, V1_MAX] then V0 != V1.  */
+      else if (compare_values (vr0->min, vr1->max) == 1
+	       || compare_values (vr1->min, vr0->max) == 1)
+	return boolean_false_node;
 
       return NULL_TREE;
     }
@@ -2219,6 +2223,13 @@ infer_value_range (tree stmt, tree op, enum tree_code *comp_code_p, tree *val_p)
   /* Similarly, don't infer anything from statements that may throw
      exceptions.  */
   if (tree_could_throw_p (stmt))
+    return false;
+
+  /* If STMT is the last statement of a basic block with no
+     successors, there is no point inferring anything about any of its
+     operands.  We would not be able to find a proper insertion point
+     for the assertion, anyway.  */
+  if (stmt_ends_bb_p (stmt) && EDGE_COUNT (bb_for_stmt (stmt)->succs) == 0)
     return false;
 
   if (POINTER_TYPE_P (TREE_TYPE (op)))

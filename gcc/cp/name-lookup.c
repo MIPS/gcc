@@ -2880,6 +2880,10 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
        match.  But, we'll check later, when we construct the
        template.  */
     return;
+  /* Instantiations or specializations of templates may be declared as
+     friends in any namespace.  */
+  if (friendp && DECL_USE_TEMPLATE (decl))
+    return;
   if (is_overloaded_fn (old))
     {
       for (; old; old = OVL_NEXT (old))
@@ -3967,12 +3971,9 @@ lookup_name_real (tree name, int prefer_type, int nonclass, bool block_p,
   if (!val)
     val = unqualified_namespace_lookup (name, flags);
 
-  if (val)
-    {
-      /* If we have a single function from a using decl, pull it out.  */
-      if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
-	val = OVL_FUNCTION (val);
-    }
+  /* If we have a single function from a using decl, pull it out.  */
+  if (val && TREE_CODE (val) == OVERLOAD && !really_overloaded_fn (val))
+    val = OVL_FUNCTION (val);
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
 }
@@ -3994,7 +3995,13 @@ lookup_function_nonclass (tree name, tree args, bool block_p)
 }
 
 tree
-lookup_name (tree name, int prefer_type)
+lookup_name (tree name)
+{
+  return lookup_name_real (name, 0, 0, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+}
+
+tree
+lookup_name_prefer_type (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
 			   0, LOOKUP_COMPLAIN);

@@ -1648,8 +1648,8 @@ EOF
     rm -f conftest*
   fi
 
-  # This is a tad weird, for hysterical raisins.  We have to map enable/disable 
-  # to two different models.
+  # This is a tad weird, for hysterical raisins.  We have to map
+  # enable/disable to two different models.
   case $enable_sjlj_exceptions in
     yes)
       AC_DEFINE(_GLIBCXX_SJLJ_EXCEPTIONS, 1,
@@ -1711,8 +1711,9 @@ if test x$enable_symvers = xyes ; then
   fi
 fi
 
-# Check to see if libgcc_s exists, indicating that shared libgcc is possible.
-if test $enable_symvers != no; then
+# Check to see if 'gnu' can win.
+if test $enable_symvers = gnu; then
+  # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
   AC_MSG_CHECKING([for shared libgcc])
   ac_save_CFLAGS="$CFLAGS"
   CFLAGS=' -lgcc_s'
@@ -1736,25 +1737,18 @@ changequote([,])dnl
     fi
   fi
   AC_MSG_RESULT($glibcxx_shared_libgcc)
-fi
 
-# If no shared libgcc, can't win.
-if test $glibcxx_shared_libgcc != yes &&
-   test $enable_symvers != no ; then
-    AC_MSG_WARN([=== You have requested some kind of symbol versioning, but])
-    AC_MSG_WARN([=== you are not building a shared libgcc_s.])
-    AC_MSG_WARN([=== Symbol versioning will be disabled.])
-    enable_symvers=no
-  enable_symvers=no
-fi
-
-# Check to see if 'gnu' can win.
-if test $enable_symvers = gnu; then
   # For GNU ld, we need at least this version.  The format is described in
   # GLIBCXX_CHECK_LINKER_FEATURES above.
   glibcxx_min_gnu_ld_version=21400
 
-  if test $with_gnu_ld != yes ; then
+  # If no shared libgcc, can't win.
+  if test $glibcxx_shared_libgcc != yes; then
+      AC_MSG_WARN([=== You have requested GNU symbol versioning, but])
+      AC_MSG_WARN([=== you are not building a shared libgcc_s.])
+      AC_MSG_WARN([=== Symbol versioning will be disabled.])
+      enable_symvers=no
+  elif test $with_gnu_ld != yes ; then
     # just fail for now
     AC_MSG_WARN([=== You have requested GNU symbol versioning, but])
     AC_MSG_WARN([=== you are not using the GNU linker.])
@@ -1884,5 +1878,6 @@ AC_DEFUN([AC_LC_MESSAGES], [
   ])
 ])
 
+# Macros from the top-level gcc directory.
+m4_include([../config/tls.m4])
 
-dnl vim:et:ts=2:sw=2

@@ -1,3 +1,122 @@
+2005-11-26  Richard Henderson  <rth@redhat.com>
+
+	* lex.c: Update for pragma_lex rename.
+	* parser.c: Likewise.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/9278
+	* decl.c (grokparms): Do not allow typedef-names in a '(void)'
+	parmlist.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* typeck2.c (process_init_constructor_union): Remove check for
+	unnamed union members.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* name-lookup.c (lookup_name_real): Merge two if's.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* pt.c (instantiate_class_template): Clean-up.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* pt.c (template_class_depth_real): Remove. Move functionality to ...
+	(template_class_depth): ... here, replacing count_specializations
+	with 0.  Adjust comment.
+
+2005-11-24  Richard Guenther  <rguenther@suse.de>
+	Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* typeck.c (build_reinterpret_cast_1): Use
+	strict_aliasing_warning.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/24235
+	* pt.c (check_instantiated_args): Reword diagnostic message about
+	template argument involving local types.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/21667
+	* typeck.c (build_array_ref): Avoid code duplicate.  Use common
+	C/C++ diagnostic function warn_array_subscript_with_type_char. 
+
+2005-11-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/22238
+	* error.c (resolve_virtual_fun_from_obj_type_ref): New.
+	(dump_expr): Use it in <case CALL_EXPR>.
+
+2005-11-21  Richard Henderson  <rth@redhat.com>
+
+	* cp-objcp-common.h, name-lookup.c, name-lookup.h: Revert 11-18 patch.
+
+	* name-lookup.c (lookup_name): Remove prefer_type argument.
+	(lookup_name_prefer_type): New.
+	* decl.c (lookup_and_check_tag): Use them.
+	* pt.c (tsubst_friend_class): Likewise.
+	(lookup_template_class): Likewise.
+	(tsubst_copy_and_build): Likewise.
+	* name-lookup.h (lookup_name_prefer_type): New.
+	(lookup_name): Remove declaration.
+
+2005-11-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8355
+	* decl.c (grokfndecl): Set up DECL_TEMPLATE_INFO before calling
+	set_decl_namespace.
+	* name-lookup.c (set_decl_namespace): 
+
+2005-11-18  Mike Stump  <mrs@apple.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_LOOKUP_NAME): Add.
+	* name-lookup.c (lookup_name_two): Remove.
+	(lookup_name_one): Add.
+	* name-lookup.h (lookup_name_two): Remove.
+	(lookup_name_one): Add.
+
+2005-11-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24580
+	* method.c (locate_copy): Also use skip_artificial_parms here.
+	(synthesize_exception_spec): Use CLASS_TYPE_P rather than checking
+	for RECORD_TYPE.
+	(locate_ctor): Abort if we fail to find a default constructor.
+
+2005-11-15  Mike Stump  <mrs@apple.com>
+
+	* name-lookup.c (lookup_name_two): Add.
+	* name-lookup.h: Likewise.
+
+2005-11-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24667
+	* typeck.c (check_for_casting_away_constness): Use the diag_fn.
+	(build_const_cast_1): Call it, for C-style casts.
+
+2005-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24687
+	* pt.c (check_explicit_specialization): Don't check for C linkage.
+	(push_template_decl_real): Likewise.
+	* parser.c (cp_parser_explicit_specialization): Check here.
+	(cp_parser_template_declaration_after_export): And here.
+
+	* parser.c (cp_lexer_get_preprocessor_token): Initialize keyword
+	field.
+
+2005-11-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24580
+	* method.c (locate_ctor): Skip all artificial parms, not just
+	'this'.
+
 2005-11-14  Mark Mitchell  <mark@codesourcery.com>
 
 	* parser.c (eof_token): Add initializer for ambiguous_p.
