@@ -104,9 +104,9 @@ fpbit_c_dep='stmp-dirs config.status tsystem.h'
 
 # Dependencies for decnumber and friends.  This is an overzealous set,
 # but at least we can be sure to recompile if anything gets modified.
-decnumber_dep='stmp-dirs $(srcdir)/../decnumber/decContext.h $(srcdir)/../decnumber/decNumber.h
-	$(srcdir)/../decnumber/decNumberLocal.h $(srcdir)/../decnumber/decimal32.h $(srcdir)/../decnumber/decimal64.h
-	$(srcdir)/../decnumber/decimal128.h $(srcdir)/../decnumber/decDPD.h $(srcdir)/../decnumber/decUtility.h'
+decnumber_dep='stmp-dirs $(srcdir)/../libdecnumber/decContext.h $(srcdir)/../libdecnumber/decNumber.h
+	$(srcdir)/../libdecnumber/decNumberLocal.h $(srcdir)/../libdecnumber/decimal32.h $(srcdir)/../libdecnumber/decimal64.h
+	$(srcdir)/../libdecnumber/decimal128.h $(srcdir)/../libdecnumber/decDPD.h $(srcdir)/../libdecnumber/decUtility.h'
 
 # Flag whether we need eh_dummy.c
 need_eh_dummy=
@@ -380,8 +380,8 @@ for ml in $MULTILIBS; do
 
     for name in $dec_filenames ; do
       out="libgcc/${dir}/${name}${objext}"
-      echo $out: "\$(srcdir)/../decnumber/${name}.c" $decnumber_dep
-      echo "	$gcc_compile" $flags -c "\$(srcdir)/../decnumber/${name}.c" -o $out
+      echo $out: "\$(srcdir)/../libdecnumber/${name}.c" $decnumber_dep
+      echo "	$gcc_compile" $flags -c "\$(srcdir)/../libdecnumber/${name}.c" -o $out
       echo $libgcc_a: $out
     done
 

@@ -1,3 +1,8 @@
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* mklibgcc.in: Refer to libdecnumber, not decnumber.
+	* Makefile.in: Likewise.
+
 2005-11-25  Ben Elliston  <bje@au.ibm.com>
 
 	* decimal32.h, decimal64.h, decimal128.h: Move to top-level.

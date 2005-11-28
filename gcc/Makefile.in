@@ -99,7 +99,7 @@ endif
 # Directory where sources are, from where we are.
 # FIXME: this is rather gross, but it lets us get the files relocated
 #        with a minimum of fuss.
-VPATH = @srcdir@ @srcdir@/../decnumber
+VPATH = @srcdir@ @srcdir@/../libdecnumber
 
 # We define a vpath for the sources of the .texi files here because they
 # are split between multiple directories and we would rather use one implicit
@@ -301,7 +301,7 @@ CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
 
 # How to find decNumber
-DECNUMINC = -I$(srcdir)/../decnumber
+DECNUMINC = -I$(srcdir)/../libdecnumber
 
 # Substitution type for target's getgroups 2nd arg.
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
