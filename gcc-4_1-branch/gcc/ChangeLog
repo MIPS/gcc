@@ -1,3 +1,26 @@
+2005-11-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* varasm.c (ultimate_transparent_alias_target): Add comment.
+
+2005-11-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/21309
+	* expmed.c (choose_mult_variant): Return immediately when mult_cost
+	is less than zero.  Limit mult_cost to a reasonable upper bound for
+	the synthetic multiplication sequence.
+
+2005-11-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/25022
+	* builtins.c (expand_builtin_printf, expand_builtin_fprintf,
+	fold_builtin_fputs, fold_builtin_printf, fold_builtin_fprintf):
+	Lookup the explicit replacement functions for any unlocked
+	stdio builtin transformations.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* fold-const.c (negate_mathfn_p): Fix comment.
+
 2005-11-21  Richard Henderson  <rth@redhat.com>
 
 	* c-common.c, config/darwin-c.c, c-decl.c, c-tree.h, c-objc-common.h,
