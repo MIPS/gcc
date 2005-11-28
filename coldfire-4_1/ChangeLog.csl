@@ -1,0 +1,4 @@
+2005-11-28  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc: Don't use fixproto on m68k-elf.
+
