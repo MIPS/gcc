@@ -16,13 +16,13 @@ int main1 ()
   /* Unknown evolution.  */
   for (i = 0; i < N; i++)
     {
-       ia[i] = (int *) *p[i];
+       ia[i] = (size_t *) *p[i];
     }
 
   /* check results: */
   for (i = 0; i < N; i++)
     {
-      if (ia[i] != (int *) *p[i])
+      if (ia[i] != (size_t *) *p[i])
          abort();
     }
   return 0;

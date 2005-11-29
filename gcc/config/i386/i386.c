@@ -10902,6 +10902,52 @@ ix86_expand_int_vcond (rtx operands[])
   return true;
 }
 
+/* Unpack OP[1] into the next wider integer vector type.  UNSIGNED_P is
+   true if we should do zero extension, else sign extension.  HIGH_P is
+   true if we want the N/2 high elements, else the low elements.  */
+
+void
+ix86_expand_sse_unpack (rtx operands[2], bool unsigned_p, bool high_p)
+{
+  enum machine_mode imode = GET_MODE (operands[1]);
+  rtx (*unpack)(rtx, rtx, rtx);
+  rtx se, dest;
+
+  switch (imode)
+    {
+    case V16QImode:
+      if (high_p)
+	unpack = gen_vec_interleave_highv16qi;
+      else
+	unpack = gen_vec_interleave_lowv16qi;
+      break;
+    case V8HImode:
+      if (high_p)
+	unpack = gen_vec_interleave_highv8hi;
+      else
+	unpack = gen_vec_interleave_lowv8hi;
+      break;
+    case V4SImode:
+      if (high_p)
+	unpack = gen_vec_interleave_highv4si;
+      else
+	unpack = gen_vec_interleave_lowv4si;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  dest = gen_lowpart (imode, operands[0]);
+
+  if (unsigned_p)
+    se = force_reg (imode, CONST0_RTX (imode));
+  else
+    se = ix86_expand_sse_cmp (gen_reg_rtx (imode), GT, CONST0_RTX (imode),
+			      operands[1], pc_rtx, pc_rtx);
+
+  emit_insn (unpack (dest, operands[1], se));
+}
+
 /* Expand conditional increment or decrement using adb/sbb instructions.
    The default case using setcc followed by the conditional move can be
    done by generic code.  */

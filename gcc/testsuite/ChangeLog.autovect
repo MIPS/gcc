@@ -1,5 +1,11 @@
 2005-11-28  Richard Henderson  <rth@redhat.com>
 
+	* gcc.dg/vect/vect-117.c (main1): Fix follow-on int/size_t
+	mismatches.
+	* gcc.dg/vect/vect-reduc-dot-u16.c: Update comments.
+
+2005-11-28  Richard Henderson  <rth@redhat.com>
+
 	* gcc.dg/vect/vect-117.c (main1): Avoid pointer to integer
 	cast warning.
 

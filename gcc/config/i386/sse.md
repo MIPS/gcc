@@ -3662,6 +3662,114 @@
   DONE;
 })
 
+(define_expand "vec_unpacku_hi_v16qi"
+  [(match_operand:V8HI 0 "register_operand" "")
+   (match_operand:V16QI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, true, true);
+  DONE;
+})
+
+(define_expand "vec_unpacks_hi_v16qi"
+  [(match_operand:V8HI 0 "register_operand" "")
+   (match_operand:V16QI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, false, true);
+  DONE;
+})
+
+(define_expand "vec_unpacku_lo_v16qi"
+  [(match_operand:V8HI 0 "register_operand" "")
+   (match_operand:V16QI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, true, false);
+  DONE;
+})
+
+(define_expand "vec_unpacks_lo_v16qi"
+  [(match_operand:V8HI 0 "register_operand" "")
+   (match_operand:V16QI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, false, false);
+  DONE;
+})
+
+(define_expand "vec_unpacku_hi_v8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, true, true);
+  DONE;
+})
+
+(define_expand "vec_unpacks_hi_v8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, false, true);
+  DONE;
+})
+
+(define_expand "vec_unpacku_lo_v8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, true, false);
+  DONE;
+})
+
+(define_expand "vec_unpacks_lo_v8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, false, false);
+  DONE;
+})
+
+(define_expand "vec_unpacku_hi_v4si"
+  [(match_operand:V2DI 0 "register_operand" "")
+   (match_operand:V4SI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, true, true);
+  DONE;
+})
+
+(define_expand "vec_unpacks_hi_v4si"
+  [(match_operand:V2DI 0 "register_operand" "")
+   (match_operand:V4SI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, false, true);
+  DONE;
+})
+
+(define_expand "vec_unpacku_lo_v4si"
+  [(match_operand:V2DI 0 "register_operand" "")
+   (match_operand:V4SI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, true, false);
+  DONE;
+})
+
+(define_expand "vec_unpacks_lo_v4si"
+  [(match_operand:V2DI 0 "register_operand" "")
+   (match_operand:V4SI 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  ix86_expand_sse_unpack (operands, false, false);
+  DONE;
+})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Miscellaneous

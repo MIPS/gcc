@@ -12,6 +12,7 @@ unsigned short X[N] __attribute__ ((__aligned__(16)));
 unsigned short Y[N] __attribute__ ((__aligned__(16)));
 
 /* short->short->int dot product. Not vectorized. */
+/* ??? Is vectorized on i386.  */
 unsigned int
 foo1(int len) {
   int i;
@@ -28,6 +29,10 @@ foo1(int len) {
 /* short->int->int dot product. Should be vectorized on ppc,
    but for some reason currently the GIMPLE arguments are cast to int 
    instead of 'unsigned int'. */
+/* ??? This is exactly correct.  The multiplication promotes to int,
+   then is promoted to unsigned int for the addition.  Which results
+   in an int->unsigned int cast, which since no bits are modified in
+   the cast should be trivially vectorizable.  */
 unsigned int
 foo2(int len) {
   int i;

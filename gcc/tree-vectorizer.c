@@ -1775,6 +1775,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   tree expr = TREE_OPERAND (stmt, 1);
   tree type = TREE_TYPE (expr);
   tree wide_vectype = get_vectype_for_scalar_type (type);
+  enum tree_code c1, c2;
 
   /* The result of a vectorized widening operation usually requires two vectors 
      (because the widened results do not fit int one vector). The generated 
@@ -1816,20 +1817,37 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   switch (code)
     {
     case WIDEN_MULT_EXPR:
-      *code1 = VEC_WIDEN_MULT_HI_EXPR;
-      *code2 = VEC_WIDEN_MULT_LO_EXPR;
-      optab1 = optab_for_tree_code (VEC_WIDEN_MULT_HI_EXPR, vectype);
-      optab2 = optab_for_tree_code (VEC_WIDEN_MULT_LO_EXPR, vectype);
+      if (BYTES_BIG_ENDIAN)
+	{
+	  c1 = VEC_WIDEN_MULT_HI_EXPR;
+	  c2 = VEC_WIDEN_MULT_LO_EXPR;
+	}
+      else
+	{
+	  c2 = VEC_WIDEN_MULT_HI_EXPR;
+	  c1 = VEC_WIDEN_MULT_LO_EXPR;
+	}
       break;
     case NOP_EXPR:
-      *code1 = VEC_UNPACK_HI_EXPR;
-      *code2 = VEC_UNPACK_LO_EXPR;
-      optab1 = optab_for_tree_code (VEC_UNPACK_HI_EXPR, vectype);
-      optab2 = optab_for_tree_code (VEC_UNPACK_LO_EXPR, vectype);
+      if (BYTES_BIG_ENDIAN)
+	{
+	  c1 = VEC_UNPACK_HI_EXPR;
+	  c2 = VEC_UNPACK_LO_EXPR;
+	}
+      else
+	{
+	  c2 = VEC_UNPACK_HI_EXPR;
+	  c1 = VEC_UNPACK_LO_EXPR;
+	}
       break;
     default:
       gcc_unreachable ();
     }
+
+  *code1 = c1;
+  *code2 = c2;
+  optab1 = optab_for_tree_code (c1, vectype);
+  optab2 = optab_for_tree_code (c2, vectype);
 
   if (!optab1 || !optab2)
     return false;
