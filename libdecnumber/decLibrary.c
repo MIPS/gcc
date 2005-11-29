@@ -18,8 +18,6 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* FIXME: this file should not be merged to mainline.  */
-
 #include "decContext.h"
 #include "decimal128.h"
 #include "decimal64.h"
