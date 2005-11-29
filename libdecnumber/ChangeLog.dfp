@@ -1,5 +1,9 @@
 2005-11-29  Ben Elliston  <bje@au.ibm.com>
 
+	* decUtility.c: Remove redundant #includes.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
 	* decUtility.h (__dec_byte_swap): Remove prototype.
 
 2005-11-29  Ben Elliston  <bje@au.ibm.com>
