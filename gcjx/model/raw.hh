@@ -51,6 +51,11 @@ public:
     return this;
   }
 
+  bool raw_p () const
+  {
+    return true;
+  }
+
   model_type *erasure ()
   {
     return this;

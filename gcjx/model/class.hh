@@ -493,6 +493,12 @@ public:
     return false;
   }
 
+  // Return true if this class is a raw type.
+  virtual bool raw_p () const
+  {
+    return false;
+  }
+
   // Return true if this class was defined in a static context.
   bool static_context_p () const
   {

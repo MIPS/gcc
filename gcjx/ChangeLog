@@ -1,5 +1,13 @@
 2005-11-29  Tom Tromey  <tromey@redhat.com>
 
+	* unify.cc (unifier::imply): Added constraint.
+	(unifier::consider_lubs): Only look at '>>' constraints.
+	* model/classinst.cc (contains_p): Handle raw types.
+	* model/raw.hh (model_raw_class::raw_p): New method.
+	* model/class.hh (model_class::raw_p): New method.
+
+2005-11-29  Tom Tromey  <tromey@redhat.com>
+
 	* main.cc (class argument_parser): Recognize -g:none and others.
 
 2005-11-28  Mike Emmel  <mike.emmel@gmail.com>

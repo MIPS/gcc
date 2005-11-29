@@ -1,3 +1,20 @@
+we resolve classes too eagerly
+there is a BSF example from fitzsim where we resolve the members of a
+class read from .class
+even though we technically don't need to resolve them all (arguably)
+this results in a build failure
+
+right now we use std::cerr liberally
+instead we should define a simple 'emit a string' interface
+and change compiler so that the output stream can be changed
+the default could still write to stderr
+but this would let users intercept and redirect output
+
+Tom F. suggested a HACKING file explaining some of
+the source layout stuff and other gcjx rules,
+eg where headers are included
+populate with the last section from PROJECTS
+
 right now we exit after the first semantic analysis error
 this is unfriendly to say the least
 we should fix up and continue on somehow

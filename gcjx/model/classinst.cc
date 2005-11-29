@@ -171,6 +171,13 @@ model_class_instance::get_pretty_name () const
 bool
 model_class_instance::contains_p (model_class *oc)
 {
+  if (oc->raw_p ())
+    {
+      model_raw_class *raw = assert_cast<model_raw_class *> (oc);
+      // FIXME: if true, isn't this is an unchecked conversion?
+      return parent == raw->get_parent ();
+    }
+
   model_class_instance *other = dynamic_cast<model_class_instance *> (oc);
   if (! other || parent != other->get_parent ())
     return false;

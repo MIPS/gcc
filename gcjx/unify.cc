@@ -76,6 +76,7 @@ class unifier
 
   void imply (constraint_type type, model_class *formal, model_class *actual)
   {
+    assert (formal_type_variable_p (formal));
     constraints[type].push_back (std::make_pair (formal, actual));
   }
 
@@ -301,6 +302,9 @@ class unifier
   // This name comes from the JLS.
   model_class *compute_lub (const std::set<model_class *> &constraints)
   {
+    if (constraints.size () == 1)
+      return *(constraints.begin ());
+
     inv_map_type inv_map;
     compute_inv (constraints, inv_map);
 
@@ -535,7 +539,6 @@ class unifier
 	else
 	  {
 	    std::set<model_class *> constraints;
-	    update_constraint_set (LESS_THAN, *i, constraints);
 	    update_constraint_set (GREATER_THAN, *i, constraints);
 	    model_class *lub = compute_lub (constraints);
 	    if (lub == NULL)
