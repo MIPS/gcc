@@ -21,12 +21,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_DFP_H
 #define GCC_DFP_H
 
-void encode_decimal32 (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
-void decode_decimal32 (const struct real_format *, REAL_VALUE_TYPE *, const long *);
-void encode_decimal64 (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
-void decode_decimal64 (const struct real_format *, REAL_VALUE_TYPE *, const long *);
-void encode_decimal128 (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
+void encode_decimal32  (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
+void encode_decimal64  (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
 void decode_decimal128 (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+
+void decode_decimal32  (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+void decode_decimal64  (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+void encode_decimal128 (const struct real_format *fmt, long *, const REAL_VALUE_TYPE *);
 
 int  decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 void decimal_real_from_string (REAL_VALUE_TYPE *, const char *, enum machine_mode );
@@ -38,7 +39,6 @@ bool decimal_real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
 			      const REAL_VALUE_TYPE *);
 void decimal_real_maxval (REAL_VALUE_TYPE *, int, enum machine_mode);
 void decimal_real_to_integer2 (HOST_WIDE_INT *, HOST_WIDE_INT *, const REAL_VALUE_TYPE *);
-
 HOST_WIDE_INT decimal_real_to_integer (const REAL_VALUE_TYPE *);
 
 #endif /* GCC_DFP_H */

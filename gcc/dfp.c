@@ -169,12 +169,23 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 }
 
 void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
-		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED,
-		       const long *buf ATTRIBUTE_UNUSED)
+		       REAL_VALUE_TYPE *r, const long *buf)
 {
-  /* FIXME: Do something.  */
-}
+  decNumber dn;
+  decimal32 d32;
+  decContext set;
 
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
+
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    *((uint32_t *) d32.bytes) = (uint32_t) buf[0];
+  else
+    *((uint32_t *) d32.bytes) = dfp_byte_swap ((uint32_t) buf[0]);
+
+  decimal32ToNumber (&d32, &dn);
+  decimal_from_decnumber (r, &dn, &set); 
+}
 
 void 
 encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -204,10 +215,28 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 void 
 decode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
-		  REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED,
-		  const long *buf ATTRIBUTE_UNUSED)
-{
-  /* FIXME: Do something.  */
+		  REAL_VALUE_TYPE *r, const long *buf)
+{ 
+  decNumber dn;
+  decimal64 d64;
+  decContext set;
+
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
+
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    {
+      *((uint32_t *) &d64.bytes[0]) = (uint32_t) buf[0];
+      *((uint32_t *) &d64.bytes[4]) = (uint32_t) buf[1];
+    }
+  else
+    {
+      *((uint32_t *) &d64.bytes[0]) = dfp_byte_swap ((uint32_t) buf[1]);
+      *((uint32_t *) &d64.bytes[4]) = dfp_byte_swap ((uint32_t) buf[0]); 
+    }
+
+  decimal64ToNumber (&d64, &dn);
+  decimal_from_decnumber (r, &dn, &set); 
 }
 
 void 
@@ -242,10 +271,32 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 void 
 decode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
-		   REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED,
-		   const long *buf ATTRIBUTE_UNUSED)
+		   REAL_VALUE_TYPE *r, const long *buf)
 {
-  /* FIXME: Do something.  */
+  decNumber dn;
+  decimal128 d128;
+  decContext set;
+
+  decContextDefault (&set, DEC_INIT_DECIMAL128);
+  set.traps = 0;
+
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    {
+      *((uint32_t *) &d128.bytes[0])  = (uint32_t) buf[0];
+      *((uint32_t *) &d128.bytes[4])  = (uint32_t) buf[1];
+      *((uint32_t *) &d128.bytes[8])  = (uint32_t) buf[2];
+      *((uint32_t *) &d128.bytes[12]) = (uint32_t) buf[3];
+    }
+  else
+    {
+      *((uint32_t *) &d128.bytes[0])  = dfp_byte_swap ((uint32_t) buf[3]);
+      *((uint32_t *) &d128.bytes[4])  = dfp_byte_swap ((uint32_t) buf[2]);
+      *((uint32_t *) &d128.bytes[8])  = dfp_byte_swap ((uint32_t) buf[1]);
+      *((uint32_t *) &d128.bytes[12]) = dfp_byte_swap ((uint32_t) buf[0]);
+    }
+
+  decimal128ToNumber (&d128, &dn);
+  decimal_from_decnumber (r, &dn, &set); 
 }
 
 /* Helper function to convert from a binary real internal
@@ -286,7 +337,7 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
   decNumber dn, dn2, dn3;
   REAL_VALUE_TYPE a1, b1;
 
-  /* If either op is not a decimal, create a temporary decimal
+  /* If either operand is not a decimal, create temporary decimal
      versions.  */
   if (!a->decimal)
     {
@@ -633,13 +684,13 @@ decimal_real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
   switch (mode)
     {
     case SDmode:
-      max = (char *)"9.999999E96";
+      max = (char *) "9.999999E96";
       break;
     case DDmode:
-      max = (char *)"9.999999999999999E384";
+      max = (char *) "9.999999999999999E384";
       break;
     case TDmode:
-      max = (char *)"9.999999999999999999999999999999999E6144";
+      max = (char *) "9.999999999999999999999999999999999E6144";
       break;
     default:
       gcc_unreachable ();
