@@ -1,3 +1,20 @@
+2005-11-29  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4349690
+
+	* objc/objc-act.c (update_var_decl): New.
+	(generate_strings, generate_shared_structures): Reuse old decl 
+	and update it.
+	(generate_category): A new argument added so the old
+	decl can be updated and used.
+	
+2005-11-29  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4349670
+
+	* objc/objc-act.c (init_objc_symtab): Use 'short' type for constant
+	initializer initializing a 'short' field.
+
 2005-11-18  Fariborz Jahanian <fjahanian@apple.com>
 
 	objc new meta-data definitions - part 2

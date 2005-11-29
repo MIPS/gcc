@@ -414,7 +414,10 @@ static tree build_dispatch_table_initializer (tree, tree);
 static tree generate_dispatch_table (tree, const char *, int, tree, bool);
 static tree build_shared_structure_initializer (tree, tree, tree, tree,
 						tree, int, tree, tree, tree);
-static void generate_category (tree);
+/* APPLE LOCAL begin radar 4349690 */
+static tree update_var_decl (tree decl);
+static void generate_category (tree, struct imp_entry*);
+/* APPLE LOCAL end radar 4349690 */
 static tree adjust_type_for_id_default (tree);
 static tree check_duplicates (hash, int, int);
 static tree receiver_is_class_object (tree, int, int);
@@ -2621,11 +2624,17 @@ init_objc_symtab (tree type)
 
   /* cls_def_cnt = { ..., 5, ... } */
 
-  initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, imp_count), initlist);
+  /* APPLE LOCAL begin radar 4349670 */
+  /* NULL_TREE for the type means to use integer_type_node.  However, this should 
+     be a short. */
+  initlist = tree_cons (NULL_TREE, build_int_cst (short_integer_type_node, 
+						  imp_count), initlist);
 
   /* cat_def_cnt = { ..., 5, ... } */
 
-  initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, cat_count), initlist);
+  initlist = tree_cons (NULL_TREE, build_int_cst (short_integer_type_node, 
+						  cat_count), initlist);
+  /* APPLE LOCAL end radar 4349670 */
 
   /* cls_def = { ..., { &Foo, &Bar, ...}, ... } */
 
@@ -2924,6 +2933,21 @@ generate_static_references (void)
   finish_var_decl (static_instances_decl, expr);
 }
 
+/* APPLE LOCAL begin radar 4349690 */
+/* This routine is used to get finish_decl to install an initializer for this 
+   forward definition and get the declaration resent to the backend.  After 
+   this is called, finish_decl or finish_var_decl must be used. */
+
+static tree update_var_decl (tree decl)
+{
+  DECL_INITIAL (decl) = error_mark_node;
+  DECL_EXTERNAL (decl) = 0;
+  TREE_STATIC (decl) = 1;
+  TREE_ASM_WRITTEN (decl) = 0;
+  return decl;
+}
+/* APPLE LOCAL end radar 4349690 */
+
 /* Output all strings.  */
 
 static void
@@ -2941,7 +2965,8 @@ generate_strings (void)
 	      build_index_type
 	      (build_int_cst (NULL_TREE, 
 			      IDENTIFIER_LENGTH (string))));
-      decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
+      /* APPLE LOCAL radar 4349690 */
+      decl = update_var_decl (decl);
       string_expr = my_build_string (IDENTIFIER_LENGTH (string) + 1,
 				     IDENTIFIER_POINTER (string));
       finish_var_decl (decl, string_expr);
@@ -2956,7 +2981,8 @@ generate_strings (void)
 	      build_index_type
 	      (build_int_cst (NULL_TREE,
 			      IDENTIFIER_LENGTH (string))));
-      decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
+      /* APPLE LOCAL radar 4349690 */
+      decl = update_var_decl (decl);
       string_expr = my_build_string (IDENTIFIER_LENGTH (string) + 1,
 				     IDENTIFIER_POINTER (string));
       finish_var_decl (decl, string_expr);
@@ -2971,7 +2997,8 @@ generate_strings (void)
 	      build_index_type
 	      (build_int_cst (NULL_TREE,
 			      IDENTIFIER_LENGTH (string))));
-      decl = start_var_decl (type, IDENTIFIER_POINTER (DECL_NAME (decl)));
+      /* APPLE LOCAL radar 4349690 */
+      decl = update_var_decl (decl);
       string_expr = my_build_string (IDENTIFIER_LENGTH (string) + 1,
 				     IDENTIFIER_POINTER (string));
       finish_var_decl (decl, string_expr);
@@ -7311,7 +7338,8 @@ lookup_category (tree class, tree cat_name)
 /* static struct objc_category _OBJC_CATEGORY_<name> = { ... };  */
 
 static void
-generate_category (tree cat)
+/* APPLE LOCAL radar 4349690 */
+generate_category (tree cat, struct imp_entry *impent)
 {
   tree decl;
   tree initlist, cat_name_expr, class_name_expr;
@@ -7333,9 +7361,8 @@ generate_category (tree cat)
   else
     protocol_decl = 0;
 
-  decl = start_var_decl (objc_category_template,
-			 synth_id_with_class_suffix
-			 ("_OBJC_CATEGORY", objc_implementation_context));
+  /* APPLE LOCAL radar 4349690 */
+  decl = update_var_decl(impent->class_decl);
 
   initlist = build_category_initializer (TREE_TYPE (decl),
 					 cat_name_expr, class_name_expr,
@@ -7702,9 +7729,9 @@ generate_shared_structures (int cls_flags)
   sc_spec = build_tree_list (NULL_TREE, ridpointers[(int) RID_STATIC]);
   decl_specs = tree_cons (NULL_TREE, objc_class_template, sc_spec);
 
-  decl = start_var_decl (objc_class_template,
-			 IDENTIFIER_POINTER
-			 (DECL_NAME (UOBJC_METACLASS_decl)));
+  /* APPLE LOCAL begin radar 4349690 */
+  decl = update_var_decl (UOBJC_METACLASS_decl);
+  /* APPLE LOCAL end radar 4349690 */
 
   initlist
     = build_shared_structure_initializer
@@ -7720,9 +7747,9 @@ generate_shared_structures (int cls_flags)
 
   /* static struct objc_class _OBJC_CLASS_Foo={ ... }; */
 
-  decl = start_var_decl (objc_class_template,
-			 IDENTIFIER_POINTER
-			 (DECL_NAME (UOBJC_CLASS_decl)));
+  /* APPLE LOCAL begin radar 4349690 */
+  decl = update_var_decl (UOBJC_CLASS_decl);
+  /* APPLE LOCAL end radar 4349690 */
 
   initlist
     = build_shared_structure_initializer
@@ -8610,9 +8637,10 @@ build_v2_build_objc_method_call (int super_flag, tree method_prototype,
 							  method_params);
 
   /* Get &message_ref_t.messenger */
-  sender = build_c_cast (super_flag
-		   	 ? objc_v2_super_imp_type
-		   	 : objc_v2_imp_type, selector);
+  sender = build_c_cast (build_pointer_type (
+			   super_flag
+		   	   ? objc_v2_super_imp_type
+		   	   : objc_v2_imp_type), selector);
 
   sender = build_indirect_ref (sender, "unary *");
 
@@ -11529,7 +11557,8 @@ finish_objc (void)
 	    generate_v2_dispatch_tables ();
 	  /* APPLE LOCAL end ObjC new abi */
 	  generate_dispatch_tables ();
-	  generate_category (objc_implementation_context);
+	  /* APPLE LOCAL radar 4349690 */
+	  generate_category (objc_implementation_context, impent);
 	}
     }
 
