@@ -2325,6 +2325,17 @@ const_desc_hash (const void *ptr)
   return ((struct constant_descriptor_tree *)ptr)->hash;
 }
 
+/* APPLE LOCAL begin fwritable strings  */
+#if defined(TARGET_MACHO)
+ #if (TARGET_MACHO == 0)
+ #define darwin_constant_cfstring_p(X) (0)
+ #endif
+#else
+ #define darwin_constant_cfstring_p(X) (0)
+#endif
+/* APPLE LOCAL end fwritable strings  */
+
+
 static hashval_t
 const_hash_1 (const tree exp)
 {

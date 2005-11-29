@@ -5421,8 +5421,10 @@ legitimate_constant_p (rtx x)
       if (tls_symbolic_operand (x, Pmode))
 	return false;
       /* APPLE LOCAL begin dynamic-no-pic */
+#if TARGET_MACHO
       if (TARGET_MACHO && TARGET_DYNAMIC_NO_PIC)
 	return machopic_symbol_defined_p (x);
+#endif
       break;
 
     case PLUS:
@@ -5750,12 +5752,14 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	    goto report_error;
 	  }
 
-      /* APPLE LOCAL dynamic-no-pic */
-      else if (MACHOPIC_INDIRECT && (SYMBOLIC_CONST (disp)
+      /* APPLE LOCAL begin dynamic-no-pic */
 #if TARGET_MACHO
-			    && !machopic_operand_p (disp)
+      else if (MACHOPIC_INDIRECT && (SYMBOLIC_CONST (disp)
+				     && !machopic_operand_p (disp)))
+#else
+      else if (flag_pic && (SYMBOLIC_CONST (disp)))
 #endif
-			    ))
+      /* APPLE LOCAL end dynamic-no-pic */
 	{
 	is_legitimate_pic:
 	  if (TARGET_64BIT && (index || base))
@@ -5778,11 +5782,13 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	      reason = "displacement is an invalid pic construct";
 	      goto report_error;
 	    }
+#if TARGET_MACHO
 	  else if (TARGET_DYNAMIC_NO_PIC && !legitimate_constant_p (disp))
 	    {
 	      reason = "displacment must be referenced via non_lazy_pointer";
 	      goto report_error;
 	    }
+#endif
 	  /* APPLE LOCAL end dynamic-no-pic */
 
           /* This code used to verify that a symbolic pic displacement
@@ -6207,8 +6213,10 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   if (flag_pic && SYMBOLIC_CONST (x))
     return legitimize_pic_address (x, 0);
   /* APPLE LOCAL begin dynamic-no-pic */
+#if TARGET_MACHO
   if (MACHO_DYNAMIC_NO_PIC_P && SYMBOLIC_CONST (x))
     return machopic_indirect_data_reference (x, 0);
+#endif
   /* APPLE LOCAL end dynamic-no-pic */
 
   /* Canonicalize shifts by 0, 1, 2, 3 into multiply */
@@ -8091,7 +8099,11 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
     }
 
   /* APPLE LOCAL begin dynamic-no-pic */
+#if TARGET_MACHO
   if (MACHOPIC_INDIRECT
+#else
+  if (flag_pic
+#endif
       && mode == Pmode && symbolic_operand (op1, Pmode))
   /* APPLE LOCAL end dynamic-no-pic */
     {
@@ -16861,12 +16873,14 @@ x86_field_alignment (tree field, int computed)
   if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
   /* APPLE LOCAL begin mac68k alignment */
+#if TARGET_MACHO
   if (TARGET_ALIGN_MAC68K)
     {
       if (computed >= 128)
 	return computed;
       return MIN (computed, 16);
     }
+#endif
   /* APPLE LOCAL end mac68k alignment */
   mode = TYPE_MODE (TREE_CODE (type) == ARRAY_TYPE
 		    ? get_inner_array_type (type) : type);
