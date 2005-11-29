@@ -1,3 +1,7 @@
+2005-11-29  Tom Tromey  <tromey@redhat.com>
+
+	* main.cc (class argument_parser): Recognize -g:none and others.
+
 2005-11-28  Mike Emmel  <mike.emmel@gmail.com>
 
 	* model/invoke.cc: Move class instantiations later.

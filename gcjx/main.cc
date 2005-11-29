@@ -447,8 +447,14 @@ public:
 	  comp->warnings_are_errors = true;
         else if (arg == "-pedantic")
 	  comp->pedantic = true;
-        else if (arg == "-g")
-	  comp->target_debug = true;
+	else if (arg.length () >= 2 && ! strncmp (arg.c_str (), "-g" , 2))
+	  {
+	    // The real form is -g:none, or
+	    // -g:{lines,vars,source}.
+	    // Currently we don't differentiate this in the back end,
+	    // so we just handle all-or-nothing.
+	    comp->target_debug = (arg != "-g:none");
+	  }
         else if (arg == "-d")
 	  output = get_next_arg (it, arg);
 	else if (is_form_of (it, "-bootclasspath"))
