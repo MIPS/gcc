@@ -1,3 +1,10 @@
+2005-11-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/torture/fp-int-convert-timode.c: XFAIL only
+	on lp64 targets.
+	* gcc/testsuite/gcc.dg/torture/fp-int-convert-float128-timode.c:
+	XFAIL also for LP64 ia64.
+
 2005-11-27  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/config/floatunsisf.c, gcc/config/floatunsidf.c,
