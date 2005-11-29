@@ -1,3 +1,12 @@
+2005-11-28  Mike Stump  <mrs@apple.com>
+
+	* varasm.c (darwin_constant_cfstring_p): Add.
+	* config/i386/i386.c (legitimate_constant_p): Fix C building on linux.
+	(legitimate_address_p): Likewise.
+	(legitimize_address): Likewise.
+	(ix86_expand_move): Likewise.
+	(x86_field_alignment): Likewise.
+
 2005-11-18  Eric Christopher  <echristo@apple.com>
 
 	Radar 4324160
