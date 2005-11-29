@@ -1,3 +1,9 @@
+2005-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_atomic_pipeline): Don't compare return
+	value from __sync_val_compare_and_swap with NEWIVAL, but with saved
+	copy of OLDIVAL.
+
 2005-11-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* Mainline merge as of 2005-11-21.
