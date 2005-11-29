@@ -8,6 +8,9 @@
 	vec_unpacku_hi_v4si, vec_unpacks_hi_v4si, vec_unpacku_lo_v4si,
 	vec_unpacks_lo_v4si): New.
 
+	* tree-vectorizer.c (supportable_widening_operation): Adjust for
+	little-endian byte ordering.
+
 2005-11-28  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/sse.md (vec_interleave_highv4sf): Rename sse_unpckhps.
