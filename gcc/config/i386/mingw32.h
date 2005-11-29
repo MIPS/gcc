@@ -67,7 +67,11 @@ Boston, MA 02111-1307, USA.  */
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{shared|mdll:dllcrt2%O%s} \
-  %{!shared:%{!mdll:crt2%O%s}} %{pg:gcrt2%O%s}"
+  %{!shared:%{!mdll:crt2%O%s}} %{pg:gcrt2%O%s}  \
+  %{!fno-exceptions:crtbegin%O%s}"
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "%{!fno-exceptions:crtend%O%s}"
 
 /* An additional prefix to try after the standard prefixes.  */
 #undef MD_STARTFILE_PREFIX
@@ -104,3 +108,4 @@ do {						         \
 /* Define as short unsigned for compatibility with MS runtime.  */
 #undef WINT_TYPE
 #define WINT_TYPE "short unsigned int"
+

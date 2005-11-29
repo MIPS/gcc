@@ -1,3 +1,26 @@
+2005-11-28  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2004-10-28  Pascal Obry  <obry@act-europe.fr>     
+        * unwind-dw2-fde.c: Import from MingW build for ZCX support.
+        * unwind-sjlj.c: Idem.
+        * config/i386/cygming.h: Idem.
+        * config/i386/mingw32.h: Idem.
+        * config/i386/t-cygming: Idem.
+        * config/i386/t-mingw32: Idem.
+        * config/i386/win32-ehfb.c: New file to support unwinding through
+        signals on Windows.
+        Provides support for ZCX on Windows platforms. This set of patch
+        comes from the MingW compiler (Danny Smith) adapted and enhanced to
+        support unwinding through signals for example.              
+	2005-07-29  Pascal Obry  <obry@act-europe.fr>
+	Support for crtbegin/crtend.o on MingW.
+	* config.gcc: Add crtbegin.o and crtend.o as extra_parts
+	on Minw.
+	* crtstuff.c: Add support for MingW.
+	Provides support for ZCX on Windows platforms. This set of patch
+	comes from the MingW compiler (Danny Smith) adapted to GCC 3.4.
+
 2005-09-26  Paul Brook  <paul@codesourcery.com>
 
 	* pex-win32.c (argv_to_cmdline): Fix escaping of backslash

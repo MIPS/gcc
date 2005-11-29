@@ -242,7 +242,7 @@ do {							\
    unit may not be bound to undefined symbols in another translation unit
    without user intervention.  For instance, under Microsoft Windows
    symbols must be explicitly imported from shared libraries (DLLs).  */
-#define MULTIPLE_SYMBOL_SPACES
+#define MULTIPLE_SYMBOL_SPACES 1
 
 extern void i386_pe_unique_section (TREE, int);
 #define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
@@ -299,7 +299,9 @@ extern void i386_pe_unique_section (TREE, int);
 /* DWARF2 Unwinding doesn't work with exception handling yet.  To make
    it work, we need to build a libgcc_s.dll, and dcrt0.o should be
    changed to call __register_frame_info/__deregister_frame_info.  */
-#define DWARF2_UNWIND_INFO 0
+#define DWARF2_UNWIND_INFO 1
+
+#define MD_FALLBACK_FRAME_STATE_FOR_SOURCE "config/i386/win32-ehfb.c"
 
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -345,8 +347,10 @@ extern int i386_pe_dllimport_name_p (const char *);
 #define BIGGEST_ALIGNMENT 128
 
 /* Native complier aligns internal doubles in structures on dword boundaries.  */
+#ifdef IN_TARGET_LIBS
 #undef	BIGGEST_FIELD_ALIGNMENT
 #define BIGGEST_FIELD_ALIGNMENT 64
+#endif
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #undef PCC_BITFIELD_TYPE_MATTERS
@@ -373,6 +377,9 @@ extern int i386_pe_dllimport_name_p (const char *);
 	i386_pe_declare_function_type (STREAM, alias,			\
 				       TREE_PUBLIC (DECL));		\
       ASM_OUTPUT_DEF (STREAM, alias, IDENTIFIER_POINTER (TARGET));	\
+      if (i386_pe_dllexport_name_p (alias))				\
+	i386_pe_record_exported_symbol (alias,				\
+					TREE_CODE (DECL) == VAR_DECL);	\
     } while (0)
 
 #undef TREE

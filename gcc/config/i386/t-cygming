@@ -10,6 +10,8 @@ LIMITS_H_TEST = true
 # first.
 LIBGCC2_INCLUDES = -I$(srcdir)/../winsup/w32api/include
 
+LIB2FUNCS_EXTRA = $(srcdir)/config/i386/w32-shared-ptr.c
+
 winnt.o: $(srcdir)/config/i386/winnt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
   $(TM_H) $(RTL_H) $(REGS_H) hard-reg-set.h output.h $(TREE_H) flags.h \
   $(TM_P_H) toplev.h $(HASHTAB_H) $(GGC_H)
