@@ -36,6 +36,25 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "decimal32.h"
 #include "decNumber.h"
 
+static unsigned long
+dfp_byte_swap (unsigned long in)
+{
+  unsigned long out;
+  unsigned char *p = (unsigned char *) &out;
+  union {
+    unsigned long i;
+    unsigned char b[4];
+  } u;
+
+  u.i = in;
+  p[0] = u.b[3];
+  p[1] = u.b[2];
+  p[2] = u.b[1];
+  p[3] = u.b[0];
+
+  return out;
+}
+
 /* Initialize a REAL_VALUE_TYPE (decimal encoded) from a decNumber.
    Can utilize status passed in via decContext parameter, if some
    previous operation had interesting status.  */
@@ -146,7 +165,7 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   if (FLOAT_WORDS_BIG_ENDIAN)
     buf[0] = *(uint32_t *) d32.bytes;
   else
-    buf[0] = __dec_byte_swap (*(uint32_t *) d32.bytes);
+    buf[0] = dfp_byte_swap (*(uint32_t *) d32.bytes);
 }
 
 void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -178,8 +197,8 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
     }
   else
     {
-      buf[1] = __dec_byte_swap (*(uint32_t *) &d64.bytes[0]);
-      buf[0] = __dec_byte_swap (*(uint32_t *) &d64.bytes[4]);
+      buf[1] = dfp_byte_swap (*(uint32_t *) &d64.bytes[0]);
+      buf[0] = dfp_byte_swap (*(uint32_t *) &d64.bytes[4]);
     }
 }
 
@@ -214,10 +233,10 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
     }
   else
     {
-      buf[0] = __dec_byte_swap (*(uint32_t *) &d128.bytes[12]);
-      buf[1] = __dec_byte_swap (*(uint32_t *) &d128.bytes[8]);
-      buf[2] = __dec_byte_swap (*(uint32_t *) &d128.bytes[4]);
-      buf[3] = __dec_byte_swap (*(uint32_t *) &d128.bytes[0]);
+      buf[0] = dfp_byte_swap (*(uint32_t *) &d128.bytes[12]);
+      buf[1] = dfp_byte_swap (*(uint32_t *) &d128.bytes[8]);
+      buf[2] = dfp_byte_swap (*(uint32_t *) &d128.bytes[4]);
+      buf[3] = dfp_byte_swap (*(uint32_t *) &d128.bytes[0]);
     }
 }
 

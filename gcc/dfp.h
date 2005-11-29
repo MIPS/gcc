@@ -1,4 +1,4 @@
-/* Decimal floating point functions for GNU compiler.
+/* Decimal floating point support functions for GNU compiler.
    Copyright (C) 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.

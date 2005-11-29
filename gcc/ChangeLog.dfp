@@ -1,5 +1,13 @@
 2005-11-29  Ben Elliston  <bje@au.ibm.com>
 
+	* dfp.h: Improve comment.
+	* dfp.c (dfp_byte_swap): New static function.
+	(encode_decimal32): Call dfp_byte_swap, not __dec_byte_swap.
+	(encode_decimal64): Likewise.
+	(encode_decimal128): Likewise.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
 	* dfp.h (ENCODE_DECIMAL_SINGLE, ENCODE_DECIMAL_DOUBLE,
 	ENCODE_DECIMAL_QUAD, DECODE_DECIMAL_SINGLE, DECODE_DECIMAL_DOUBLE,
 	DECODE_DECIMAL_SINGLE, DECIMAL_DO_COMPARE,
