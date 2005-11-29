@@ -1387,7 +1387,7 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 
 	  push_gimplify_context ();
 	  gimplify_stmt (&init_stmt);
-	  if (in_ssa_p && TREE_CODE (init_stmt) == STATEMENT_LIST)
+	  if (in_ssa_p && init_stmt && TREE_CODE (init_stmt) == STATEMENT_LIST)
 	    {
 	      /* The replacement can expose previously unreferenced variables.  */
 	      for (i = tsi_start (init_stmt); !tsi_end_p (i); tsi_next (&i))
@@ -1499,7 +1499,8 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 	     to cause missoptimizations once we start optimizing.  */
 	  if (TREE_CODE (base_var) == SSA_NAME)
 	    base_var = SSA_NAME_VAR (base_var);
-	  mark_sym_for_renaming (base_var);
+	  if (in_ssa_p)
+	    mark_sym_for_renaming (base_var);
 	  var = return_slot_addr;
 	}
       else

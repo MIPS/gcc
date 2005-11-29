@@ -932,7 +932,7 @@ look_for_casts (tree lhs __attribute__((unused)), tree t)
 	   || TREE_CODE (t) == INDIRECT_REF
 	   || TREE_CODE (t) == BIT_FIELD_REF)
     {
-      tree base = get_base_address (t);
+      tree base = get_base_var (t);
       while (t != base)
 	{
 	  t = TREE_OPERAND (t, 0);

@@ -1,3 +1,10 @@
+2005-11-29  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-type-escape.c (look_for_casts): Use get_base_var.
+	* tree-inline.c (setup_one_parameter): Accept empty init_stmt
+	(declare_return_variable): Mark symbol for renaming only in SSA form
+	* passes.c (init_optimization_passes): Re-enable ipacp.
+
 2005-11-24  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (revsion 107437).
