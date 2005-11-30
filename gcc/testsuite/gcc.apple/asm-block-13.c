@@ -291,7 +291,8 @@ asm void bar() { fool:
 	jl	fool
 	jle	fool
 	jmp	fool
-	jmp	fool
+	jmp	eax
+	jmp	fooi
 	jna	fool
 	jnae	fool
 	jnb	fool

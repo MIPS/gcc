@@ -291,7 +291,8 @@ asm void bar() { fool:
 	jl	fool
 	jle	fool
 	jmp	fool
-	jmp	fool
+	jmp	eax
+	jmp	fooi
 	jna	fool
 	jnae	fool
 	jnb	fool
@@ -802,7 +803,29 @@ asm void bar() { fool:
 	rsqrtss	xmm0, xmm0
 	rsqrtss	xmm0, fool
 	sal	ah, 1
+	sal	fooc, 1
+	sal	ax, 1
+	sal	foos, 1
+	sal	eax, 1
+	sal	fooi, 1
+	sal	ah, cl
+	sal	fooc, cl
+	sal	ax, cl
+	sal	foos, cl
+	sal	eax, cl
+	sal	fooi, cl
 	sar	ah, 1
+	sar	fooc, 1
+	sar	ax, 1
+	sar	foos, 1
+	sar	eax, 1
+	sar	fooi, 1
+	sar	ah, cl
+	sar	fooc, cl
+	sar	ax, cl
+	sar	foos, cl
+	sar	eax, cl
+	sar	fooi, cl
 	sbb	ah, ah
 	sbb	fooc, ah
 	sbb	ah, 1
@@ -880,7 +903,29 @@ asm void bar() { fool:
 	setz	fool
 	sgdt	fool
 	shl	ah, 1
+	shl	fooc, 1
+	shl	ax, 1
+	shl	foos, 1
+	shl	eax, 1
+	shl	fooi, 1
+	shl	ah, cl
+	shl	fooc, cl
+	shl	ax, cl
+	shl	foos, cl
+	shl	eax, cl
+	shl	fooi, cl
 	shr	ah, 1
+	shr	fooc, 1
+	shr	ax, 1
+	shr	foos, 1
+	shr	eax, 1
+	shr	fooi, 1
+	shr	ah, cl
+	shr	fooc, cl
+	shr	ax, cl
+	shr	foos, cl
+	shr	eax, cl
+	shr	fooi, cl
 	sidt	fool
 	sldt	ax
 	sldt	fool

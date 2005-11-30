@@ -1,3 +1,8 @@
+2005-11-29  Mike Stump  <mrs@apple.com>
+
+	Radar 4358678
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Add "r" to jmp constraint.
+
 2005-11-28  Mike Stump  <mrs@apple.com>
 
 	* varasm.c (darwin_constant_cfstring_p): Add.

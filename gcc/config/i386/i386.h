@@ -2971,7 +2971,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "jge", 1, "s"},		\
   { "jl", 1, "s"},		\
   { "jle", 1, "s"},		\
-  { "jmp", 1, "sm"},		\
+  { "jmp", 1, "s" rm32},	\
   { "jna", 1, "s"},		\
   { "jnae", 1, "s"},		\
   { "jnb", 1, "s"},		\
