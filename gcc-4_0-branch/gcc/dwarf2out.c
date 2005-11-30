@@ -8441,6 +8441,9 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
   dw_loc_descr_ref loc_result = NULL;
 
   reg = REGNO (rtl);
+#ifdef LEAF_REG_REMAP
+  reg = LEAF_REG_REMAP (reg);
+#endif
   gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
 
