@@ -511,6 +511,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0)
 Discover pure and const functions
 
+fipa-procabstr
+Common Report Var(flag_ipa_procabstr)
+Perform procedural abstraction using IPA
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0)
 Discover readonly and non addressable static variables

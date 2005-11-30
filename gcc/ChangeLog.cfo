@@ -1,3 +1,11 @@
+2005-11-30  Gabor Loki  <loki@gcc.gnu.org>
+
+	* ipa-procabstr.c : Add interprocedural procedure abstraction algorithm
+	* tree-pass.h : Register ipa-procabstr.
+	* common.opt : Ditto.
+	* passes.c : Ditto.
+	* Makefile.in : Ditto.
+
 2005-11-25  Gabor Loki  <loki@gcc.gnu.org>
 
 	* fact-common.h : Fix FSF header.

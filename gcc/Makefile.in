@@ -992,7 +992,7 @@ OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
   cgraph.o cgraphunit.o tree-nomudflap.o ipa.o ipa-inline.o                \
   ipa-utils.o ipa-reference.o ipa-pure-const.o ipa-type-escape.o           \
-  ipa-prop.o ipa-cp.o
+  ipa-prop.o ipa-cp.o ipa-procabstr.o
 
 OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
 
@@ -2188,6 +2188,9 @@ ipa-cp.o : ipa-cp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h target.h $(CGRAPH_H) ipa-prop.h  \
    tree-flow.h $(TM_H) tree-pass.h $(FLAGS_H) $(TREE_H) \
    diagnostic.h
+ipa-procabstr.o : ipa-procabstr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) tree-inline.h $(FLAGS_H) $(CGRAPH_H) $(TIMEVAR_H) $(PARAMS_H) \
+   tree-pass.h
 ipa-inline.o : ipa-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h tree-inline.h $(FLAGS_H) $(CGRAPH_H) intl.h \
    $(DIAGNOSTIC_H) $(FIBHEAP_H) $(PARAMS_H) $(TIMEVAR_H) tree-pass.h \
