@@ -1,3 +1,25 @@
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.c (ia64_expand_tls_address): Add ORIG_OP1 argument.
+	Move ADDEND_{HI,LO} computation into TLS_MODEL_INITIAL_EXEC case.
+	(ia64_expand_move): Adjust caller.
+
+2005-11-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/20109
+	PR middle-end/25120
+	* builtins.c (init_target_chars): New.
+	(expand_builtin_printf, expand_builtin_fprintf,
+	expand_builtin_sprintf, fold_builtin_sprintf): Check for matching
+	format strings using the target charset.
+
+2005-11-27  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/21309
+	* expmed.c (choose_mult_variant): Return immediately when mult_cost
+	is less than zero.  Limit mult_cost to a reasonable upper bound for
+	the synthetic multiplication sequence.
+
 2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* fold-const.c (negate_mathfn_p): Fix comment.
