@@ -3271,7 +3271,7 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define_insn "sse2_packsswb"
+(define_insn "vec_pack_ssat_v8qi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(vec_concat:V16QI
 	  (ss_truncate:V8QI
@@ -3283,7 +3283,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_packssdw"
+(define_insn "vec_pack_ssat_v4si"
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(vec_concat:V8HI
 	  (ss_truncate:V4HI
@@ -3295,7 +3295,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_packuswb"
+(define_insn "vec_pack_usat_v8qi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(vec_concat:V16QI
 	  (us_truncate:V8QI
@@ -3306,6 +3306,99 @@
   "packuswb\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
+
+;; Reduce:
+;;	op1 = abcdefghijklmnop
+;;	op2 = qrstuvwxyz012345
+;;	 h1 = aqbrcsdteufvgwhx
+;;       l1 = iyjzk0l1m2n3o4p5
+;;       h2 = aiqybjrzcks0dlt1
+;;       l2 = emu2fnv3gow4hpx5
+;;       h3 = aeimquy2bfjnrvz3
+;;       l3 = cgkosw04dhlptx15
+;;   result = bdfhjlnprtvxz135
+(define_expand "vec_pack_mod_v8hi"
+  [(match_operand:V16QI 0 "register_operand" "")
+   (match_operand:V8HI 1 "register_operand" "")
+   (match_operand:V8HI 2 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx op1, op2, h1, l1, h2, l2, h3, l3;
+
+  op1 = gen_lowpart (V16QImode, operands[1]);
+  op2 = gen_lowpart (V16QImode, operands[2]);
+  h1 = gen_reg_rtx (V16QImode);
+  l1 = gen_reg_rtx (V16QImode);
+  h2 = gen_reg_rtx (V16QImode);
+  l2 = gen_reg_rtx (V16QImode);
+  h3 = gen_reg_rtx (V16QImode);
+  l3 = gen_reg_rtx (V16QImode);
+
+  emit_insn (gen_vec_interleave_highv16qi (h1, op1, op2));
+  emit_insn (gen_vec_interleave_lowv16qi (l1, op1, op2));
+  emit_insn (gen_vec_interleave_highv16qi (h2, l1, h1));
+  emit_insn (gen_vec_interleave_lowv16qi (l2, l1, h1));
+  emit_insn (gen_vec_interleave_highv16qi (h3, l2, h2));
+  emit_insn (gen_vec_interleave_lowv16qi (l3, l2, h2));
+  emit_insn (gen_vec_interleave_lowv16qi (operands[0], l3, h3));
+  DONE;
+})
+
+;; Reduce:
+;;	op1 = abcdefgh
+;;	op2 = ijklmnop
+;;	 h1 = aibjckdl
+;;       l1 = emfngohp
+;;       h2 = aeimbfjn
+;;       l2 = cgkodhlp
+;;   result = bdfhjlnp
+(define_expand "vec_pack_mod_v4si"
+  [(match_operand:V8HI 0 "register_operand" "")
+   (match_operand:V4SI 1 "register_operand" "")
+   (match_operand:V4SI 2 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx op1, op2, h1, l1, h2, l2;
+
+  op1 = gen_lowpart (V8HImode, operands[1]);
+  op2 = gen_lowpart (V8HImode, operands[2]);
+  h1 = gen_reg_rtx (V8HImode);
+  l1 = gen_reg_rtx (V8HImode);
+  h2 = gen_reg_rtx (V8HImode);
+  l2 = gen_reg_rtx (V8HImode);
+
+  emit_insn (gen_vec_interleave_highv8hi (h1, op1, op2));
+  emit_insn (gen_vec_interleave_lowv8hi (l1, op1, op2));
+  emit_insn (gen_vec_interleave_highv8hi (h2, l1, h1));
+  emit_insn (gen_vec_interleave_lowv8hi (l2, l1, h1));
+  emit_insn (gen_vec_interleave_lowv8hi (operands[0], l2, h2));
+  DONE;
+})
+
+;; Reduce:
+;;     op1 = abcd
+;;     op2 = efgh
+;;      h1 = aebf
+;;      l1 = cgdh
+;;  result = bdfh
+(define_expand "vec_pack_mod_v2di"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V2DI 1 "register_operand" "")
+   (match_operand:V2DI 2 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx op1, op2, h1, l1;
+
+  op1 = gen_lowpart (V4SImode, operands[1]);
+  op2 = gen_lowpart (V4SImode, operands[2]);
+  h1 = gen_reg_rtx (V4SImode);
+  l1 = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_vec_interleave_highv4si (h1, op1, op2));
+  emit_insn (gen_vec_interleave_lowv4si (l1, op1, op2));
+  emit_insn (gen_vec_interleave_lowv4si (operands[0], l1, h1));
+  DONE;
+})
 
 (define_insn "vec_interleave_highv16qi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")

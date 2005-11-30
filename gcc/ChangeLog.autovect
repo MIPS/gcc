@@ -1,3 +1,12 @@
+2005-11-30  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/sse.md (vec_pack_mod_v8hi): New.
+	(vec_pack_mod_v4si, vec_pack_mod_v2di): New.
+	(vec_pack_ssat_v8qi): Rename from sse2_packsswb.
+	(vec_pack_ssat_v4si): Rename from sse2_packssdw.
+	(vec_pack_usat_v8qi): Rename from sse2_packuswb.
+	* config/i386/i386.c (bdesc_2arg): Update to match.
+
 2005-11-29  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/sse.md (sdot_prodv8hi, udot_prodv4si): New.
