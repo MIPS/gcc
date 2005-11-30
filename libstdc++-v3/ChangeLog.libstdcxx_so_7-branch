@@ -1,5 +1,11 @@
 2005-11-30  Paolo Carlini  <pcarlini@suse.de>
 
+        Merged to mainline at revision 107719.
+
+	(left out Darwin compatibility patch)
+
+2005-11-30  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/ext/sso_string.h (__sso_string<>::_M_get_allocator): Add
 	non const version.
 	* include/ext/rc_string.h (__rc_string<>::_M_get_allocator): Likewise.
