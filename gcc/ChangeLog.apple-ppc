@@ -1,3 +1,10 @@
+2005-11-30  Dale Johannesen  <dalej@apple.com>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	Radar 4347034
+	* combine.c (find_split_point):  Sign extend bitmask
+	when changing bitfield assignment to IOR of AND.
+
 2005-11-29  Mike Stump  <mrs@apple.com>
 
 	Radar 4358678

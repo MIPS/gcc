@@ -1,3 +1,8 @@
+2005-11-30  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4347034
+	* gcc.c-torture/compile/pr24930.c:  New.
+
 2005-11-16  Devang Patel  <dpatel@apple.com>
 
         Radar 4345760
