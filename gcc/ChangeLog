@@ -1,3 +1,85 @@
+2005-11-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* tree.h (CASE_FLT_FN, CASE_INT_FN): New macros.
+	* builtins.c (expand_builtin_mathfn): Use them.
+	(expand_builtin_mathfn_2): Likewise.
+	(expand_builtin_mathfn_3): Likewise.
+	(expand_builtin_int_roundingfn): Likewise.
+	(expand_builtin): Likewise.
+	(integer_valued_real_p): Likewise.
+	(fold_builtin_int_roundingfn): Likewise.
+	(fold_builtin_bitop): Likewise.
+	(fold_builtin_logarithm): Likewise.
+	(fold_builtin_1): Likewise.
+	* convert.c (convert_to_integer): Likewise.
+	* fold-const.c (negate_mathfn_p): Likewise.
+	(tree_expr_nonnegative_p): Likewise.
+
+2005-11-30  Dale Johannesen  <dalej@apple.com>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* combine.c (find_split_point):  Sign extend bitmask
+	when changing bitfield assignment to IOR of AND.
+
+2005-11-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/ms1/ms1.md (decrement_and_branch_until_zero): Add early
+	clobber to scratch reg.
+	(*decrement_and_branch_until_zero_no_clobber): Remove.
+	(decrement_and_branch peephole): Add dummy scratch reg to pattern.
+	(mulhish3): Use TARGET_MS1_16_003, TARGET_MS2.
+	* config/ms1/ms1.opt (mmul): Remove.
+	* config/ms1/ms1.h (ASM_SPEC): Cope with uppercase arch names.
+	(LINK_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Default to 16-002.
+
+2005-11-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+	    Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* pa/predicates.md (symbolic_operand): Add comment.
+	* pa/pa.md (reload_insi_r1, reload_indi_r1): New reload expanders.
+	* pa/pa-protos.h (pa_secondary_reload_class): Delete.
+	* pa/pa.c (TARGET_SECONDARY_RELOAD): Define.
+	(pa_secondary_reload_class): Delete.
+	(pa_secondary_reload): New function derived from SECONDARY_RELOAD_CLASS
+	and pa_secondary_reload_class.  Reorder some checks.  Update inline
+	copy of symbolic operand.
+	* pa/pa.h (SECONDARY_RELOAD_CLASS): Delete.
+
+2005-11-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* loop-doloop.c (add_test): Only add jump notes if we did emit a
+	jump.
+
+2005-11-30  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-uncprop.c (associate_equivalences_with_edges): Properly
+	handle SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.c (ia64_expand_tls_address): Add ORIG_OP1 argument.
+	Move ADDEND_{HI,LO} computation into TLS_MODEL_INITIAL_EXEC case.
+	(ia64_expand_move): Adjust caller.
+
+	* config/ia64/ia64.c (ia64_expand_atomic_op): Only use
+	fetchadd{4,8}.acq instruction if CODE is PLUS or MINUS, for MINUS
+	negate VAL.
+
+2005-11-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* simplify-rtx.c (simplify_plus_minus): Remove final parameter.
+	Always produce an output if we can remove NEGs or canonicalize
+	(minus (minus ...)) expressions.  Provide a fast path for the
+	two-operand case.
+	(simplify_gen_binary): Do not call simplify_plus_minus.
+	(simplify_binary_operation_1): Reassociate at the end of the
+	function.
+
+2005-11-29  Evan Cheng  <evan.cheng@apple.com>
+
+	* config/i386/xmmintrin.h (_MM_TRANSPOSE4_PS): Rewrite using high/low
+	moves and unpack to speed up.
+
 2005-11-29  David S. Miller  <davem@sunset.davemloft.net>
 
 	* config/sparc/sparc.c (gen_compare_reg): Kill 2nd and 3rd
@@ -5,6 +87,8 @@
 	(gen_v9_scc): Update callers.
 	* config/sparc/sparc.md: Likewise.
 	* config/sparc/sparc-protos.h: Update extern declaration.
+
+	* tree-into-ssa.c (rewrite_into_ssa): Fix comment typo.
 
 2005-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -107,7 +191,7 @@
 	    Uros Bizjak  <uros@kss-loka.si>
 
 	PR middle-end/20219
-	* fold-const.c (fold binary) <RDIV_EXPR>: Optimize 
+	* fold-const.c (fold binary) <RDIV_EXPR>: Optimize
 	sin(x)/tan(x) as cos(x) and tan(x)/sin(x) as 1.0/cos(x)
 	when flag_unsafe_math_optimizations is set and
 	we don't care about NaNs or Infinities.

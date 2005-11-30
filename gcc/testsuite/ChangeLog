@@ -1,3 +1,20 @@
+2005-11-30  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/compile/pr24930.c:  New.
+
+2005-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15809
+	*  gfortran.dg/auto_char_dummy_array.f90: New test.
+
+2005-11-30  Jeff Law  <law@redhat.com>
+
+	* g++.old-deja/g++.law/pr25000.C: New test.
+
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-11.c: New test.
+
 2005-11-29  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/torture/fp-int-convert-timode.c: XFAIL only on lp64
