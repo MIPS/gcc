@@ -1,3 +1,24 @@
+2005-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* fold-const.c (negate_expr) <case BIT_NOT_EXPR>: Add break after
+	the if.
+
+2005-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* fold-const.c (negate_expr_p): Return true for BIT_NOT_EXPR.
+	(fold_unary) <case NEGATE_EXPR>: Move -(~a) transformation to ...
+	(negate_expr): Here.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.h (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN):
+	Fix typo in comment.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (clean-target): Depend on clean-target-libgcc.
+	(clean-target-libgcc): Import rule from the top-level Makefile.in.
+
 2005-11-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	PR middle-end/20109
