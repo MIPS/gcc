@@ -373,6 +373,13 @@
 	* c-decl.c (start_function): Restore label_context_stack_se and
 	label_context_stack_vm  if returning with an error.
 
+2005-06-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* configure.ac: Check declaration for asprintf, needed by
+	libiberty.h.
+	* configure: Regenerate.
+	* config.in: Likewise.
+
 2005-06-03  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree.c (build_common_builtin_nodes): Fix the return type on
