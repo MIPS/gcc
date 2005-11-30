@@ -2,7 +2,7 @@
 
 	PR fortran/25162
 	* openmp.c (gfc_match_omp_variable_list): Call gfc_set_sym_referenced
-	on all symbols added to the namelist.
+	on all symbols added to the variable list.
 
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
