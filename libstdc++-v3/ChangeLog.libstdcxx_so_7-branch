@@ -1,3 +1,52 @@
+2005-11-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (__sso_string<>::_M_get_allocator): Add
+	non const version.
+	* include/ext/rc_string.h (__rc_string<>::_M_get_allocator): Likewise.
+	* include/bits/basic_string.h (basic_string(__gnu_cxx::__rvalref<>):
+	Use it.
+	* include/bits/stl_vector.h (vector<>::_M_get_Tp_allocator): Change
+	to return by ref and add non const version.
+	(vector(const vector&), vector(__gnu_cxx::__rvalref<>)): Use it.
+	* include/bits/stl_deque.h (deque<>::_M_get_Tp_allocator): Likewise.
+	(deque(const deque&), deque(__gnu_cxx::__rvalref<>)): Likewise.
+	(_M_destroy_data): Adjust.
+	
+	* include/ext/sso_string.h (__sso_string<>::_M_erase): Add.
+	* include/ext/rc_string.h (__rc_string<>::_M_erase): Likewise.
+	(_M_leak_hard): Use it.
+	* include/bits/basic_string.h (basic_string<>::clear, erase, all
+	versions): Use it.
+	* include/bits/basic_string.tcc (basic_string<>::resize): Likewise.
+
+	* include/bits/basic_string.h (basic_string<>::_M_replace_safe):
+	Remove.
+	* include/bits/basic_string.h (basic_string<>::_M_replace): New, does
+	the in-place work or delegates to _M_mutate in case of reallocation.
+	* include/bits/basic_string.tcc (basic_string<>::_M_replace_safe):
+	Remove.
+	* include/bits/basic_string.tcc (basic_string<>::_M_replace): Define.
+	(assign, replace, _M_replace_dispatch, _M_replace_aux): Use it.
+	* include/ext/sso_string.h (__sso_string<>::_M_mutate): Change to
+	manage only reallocations.
+	* include/ext/rc_string.h (__rc_string<>::_M_mutate): Likewise.
+
+	* include/bits/basic_string.h (basic_string<>::insert(size_type,
+	const basic_string&), insert(size_type, const basic_string&, size_type,
+	size_type), insert(size_type, const _CharT*, size_type),
+	insert(size_type, const _CharT*)): Delegate to replace.
+
+	* include/bits/basic_string.h (basic_string<>::reserve): Move out of
+	line.
+	* include/bits/basic_string.tcc (basic_string<>::reserve): Do the
+	checks and call _M_reserve.
+	* include/bits/basic_string.h (basic_string<>::append): Call _M_reserve
+	instead of reserve.
+	* include/bits/basic_string.tcc (basic_string<>::append, all versions):
+	Likewise.
+	* include/ext/sso_string.h (__sso_string<>::_M_reserve): Adjust.
+	* include/ext/rc_string.h (__rc_string<>::_M_reserve): Likewise.
+
 2005-11-26  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/23_containers/vector/modifiers/erase/1.cc: Fix typos,

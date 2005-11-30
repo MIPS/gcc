@@ -339,6 +339,7 @@ namespace _GLIBCXX_STD
     operator+(ptrdiff_t __n, const _Deque_iterator<_Tp, _Ref, _Ptr>& __x)
     { return __x + __n; }
 
+
   /**
    *  @if maint
    *  Deque base class.  This class provides the unified face for %deque's
@@ -396,7 +397,11 @@ namespace _GLIBCXX_STD
 	{ }
       };
 
-      _Tp_alloc_type
+      _Tp_alloc_type&
+      _M_get_Tp_allocator()
+      { return *static_cast<_Tp_alloc_type*>(&this->_M_impl); }
+
+      const _Tp_alloc_type&
       _M_get_Tp_allocator() const
       { return *static_cast<const _Tp_alloc_type*>(&this->_M_impl); }
 
@@ -684,7 +689,7 @@ namespace _GLIBCXX_STD
        *  by @a x.
        */
       deque(const deque& __x)
-      : _Base(__x.get_allocator(), __x.size())
+      : _Base(__x._M_get_Tp_allocator(), __x.size())
       { std::__uninitialized_copy_a(__x.begin(), __x.end(), 
 				    this->_M_impl._M_start,
 				    _M_get_Tp_allocator()); }
@@ -701,9 +706,8 @@ namespace _GLIBCXX_STD
        */
       template<typename _Deque>
 	deque(__gnu_cxx::__rvalref<_Deque> __x)
-	: _Base(__x.__ref.get_allocator(), 0)
-	{	this->swap(__x.__ref); }
-
+	: _Base(__x.__ref._M_get_Tp_allocator(), 0)
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  Builds a %deque from a range.
@@ -862,7 +866,8 @@ namespace _GLIBCXX_STD
        *  in reverse element order.
        */
       reverse_iterator
-      rend() { return reverse_iterator(this->_M_impl._M_start); }
+      rend()
+      { return reverse_iterator(this->_M_impl._M_start); }
 
       /**
        *  Returns a read-only (constant) reverse iterator that points
@@ -1491,11 +1496,12 @@ namespace _GLIBCXX_STD
       // NB: Doesn't deallocate the nodes.
       template<typename _Alloc1>
         void
-        _M_destroy_data(iterator __first, iterator __last, _Alloc1)
+        _M_destroy_data(iterator __first, iterator __last, const _Alloc1&)
         { _M_destroy_data_aux(__first, __last); }
 
       void
-      _M_destroy_data(iterator __first, iterator __last, std::allocator<_Tp>)
+      _M_destroy_data(iterator __first, iterator __last,
+		      const std::allocator<_Tp>&)
       {
 	typedef typename std::__is_scalar<value_type>::__type
 	  _Has_trivial_destructor;

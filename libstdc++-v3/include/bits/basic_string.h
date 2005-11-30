@@ -118,8 +118,7 @@ namespace std
 	const bool __testoff =  __off < this->size() - __pos;
 	return __testoff ? __off : this->size() - __pos;
       }
-
-      // True if _Rep and source do not overlap.
+      
       bool
       _M_disjunct(const _CharT* __s) const
       {
@@ -175,7 +174,7 @@ namespace std
        */
       template<typename _String>
         basic_string(__gnu_cxx::__rvalref<_String> __str)
-	: __string_base(__str.__ref.get_allocator())
+	: __string_base(__str.__ref._M_get_allocator())
 	{ this->swap(__str.__ref); }
 
       /**
@@ -447,15 +446,14 @@ namespace std
        *  data.
        */
       void
-      reserve(size_type __res_arg = 0)
-      {	this->_M_reserve(__res_arg); }
-
+      reserve(size_type __res_arg = 0);
+ 
       /**
        *  Erases the string, making it empty.
        */
       void
       clear()
-      { this->_M_mutate(0, this->size(), 0); }
+      { this->_M_erase(size_type(0), this->size()); }
 
       /**
        *  Returns true if the %string is empty.  Equivalent to *this == "".
@@ -646,7 +644,7 @@ namespace std
       { 
 	const size_type __len = 1 + this->size();
 	if (__len > this->capacity() || this->_M_is_shared())
-	  this->reserve(__len);
+	  this->_M_reserve(__len);
 	traits_type::assign(this->_M_data()[this->size()], __c);
 	this->_M_set_length(__len);
       }
@@ -781,7 +779,8 @@ namespace std
       */
       basic_string&
       insert(size_type __pos1, const basic_string& __str)
-      { return this->insert(__pos1, __str, size_type(0), __str.size()); }
+      { return this->replace(__pos1, size_type(0),
+			     __str._M_data(), __str.size()); }
 
       /**
        *  @brief  Insert a substring.
@@ -804,9 +803,9 @@ namespace std
       basic_string&
       insert(size_type __pos1, const basic_string& __str,
 	     size_type __pos2, size_type __n)
-      { return this->insert(__pos1, __str._M_data()
-			    + __str._M_check(__pos2, "basic_string::insert"),
-			    __str._M_limit(__pos2, __n)); }
+      { return this->replace(__pos1, size_type(0), __str._M_data()
+			     + __str._M_check(__pos2, "basic_string::insert"),
+			     __str._M_limit(__pos2, __n)); }
 
       /**
        *  @brief  Insert a C substring.
@@ -825,7 +824,8 @@ namespace std
        *  thrown.
       */
       basic_string&
-      insert(size_type __pos, const _CharT* __s, size_type __n);
+      insert(size_type __pos, const _CharT* __s, size_type __n)
+      { return this->replace(__pos, size_type(0), __s, __n); }
 
       /**
        *  @brief  Insert a C string.
@@ -846,7 +846,8 @@ namespace std
       insert(size_type __pos, const _CharT* __s)
       {
 	__glibcxx_requires_string(__s);
-	return this->insert(__pos, __s, traits_type::length(__s));
+	return this->replace(__pos, size_type(0), __s,
+			     traits_type::length(__s));
       }
 
       /**
@@ -909,8 +910,8 @@ namespace std
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
       { 
-	this->_M_mutate(_M_check(__pos, "basic_string::erase"),
-			_M_limit(__pos, __n), size_type(0));
+	this->_M_erase(_M_check(__pos, "basic_string::erase"),
+		       _M_limit(__pos, __n));
 	return *this;
       }
 
@@ -928,7 +929,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin()
 				 && __position < _M_iend());
 	const size_type __pos = __position - _M_ibegin();
-	this->_M_mutate(__pos, size_type(1), size_type(0));
+	this->_M_erase(__pos, size_type(1));
 	this->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
@@ -948,7 +949,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
 				 && __last <= _M_iend());
         const size_type __pos = __first - _M_ibegin();
-	this->_M_mutate(__pos, __last - __first, size_type(0));
+	this->_M_erase(__pos, __last - __first);
 	this->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
@@ -1230,8 +1231,8 @@ namespace std
 		     _CharT __c);
 
       basic_string&
-      _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
-		      size_type __n2);
+      _M_replace(size_type __pos, size_type __len1, const _CharT* __s,
+		 const size_type __len2);
 
     public:
 

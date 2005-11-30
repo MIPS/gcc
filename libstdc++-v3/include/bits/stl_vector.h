@@ -92,7 +92,11 @@ namespace _GLIBCXX_STD
     public:
       typedef _Alloc allocator_type;
 
-      _Tp_alloc_type
+      _Tp_alloc_type&
+      _M_get_Tp_allocator()
+      { return *static_cast<_Tp_alloc_type*>(&this->_M_impl); }
+
+      const _Tp_alloc_type&
       _M_get_Tp_allocator() const
       { return *static_cast<const _Tp_alloc_type*>(&this->_M_impl); }
 
@@ -227,7 +231,7 @@ namespace _GLIBCXX_STD
        *  @a x (for fast expansion) will not be copied.
        */
       vector(const vector& __x)
-      : _Base(__x.size(), __x.get_allocator())
+      : _Base(__x.size(), __x._M_get_Tp_allocator())
       { this->_M_impl._M_finish =
 	  std::__uninitialized_copy_a(__x.begin(), __x.end(),
 				      this->_M_impl._M_start,
@@ -246,7 +250,7 @@ namespace _GLIBCXX_STD
        */
       template<typename _Vector>
 	vector(__gnu_cxx::__rvalref<_Vector> __x)
-	: _Base(__x.__ref.get_allocator())
+	: _Base(__x.__ref._M_get_Tp_allocator())
 	{ this->swap(__x.__ref); }
 
       /**
@@ -282,8 +286,7 @@ namespace _GLIBCXX_STD
        */
       ~vector()
       { std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
-		      _M_get_Tp_allocator());
-      }
+		      _M_get_Tp_allocator()); }
 
       /**
        *  @brief  %Vector assignment operator.

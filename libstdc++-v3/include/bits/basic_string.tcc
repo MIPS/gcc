@@ -52,26 +52,29 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::npos;
 
   template<typename _CharT, typename _Traits, typename _Alloc>
+    void
+    basic_string<_CharT, _Traits, _Alloc>::
+    reserve(size_type __res_arg)
+    {
+      if (__res_arg != this->capacity() || this->_M_is_shared())
+	{
+	  // Make sure we don't shrink below the current size.
+	  if (__res_arg < this->size())
+	    __res_arg = this->size();
+	  
+	  this->_M_reserve(__res_arg);
+	}
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
     basic_string<_CharT, _Traits, _Alloc>::
     assign(const _CharT* __s, size_type __n)
     {
       __glibcxx_requires_string_len(__s, __n);
       _M_check_length(this->size(), __n, "basic_string::assign");
-      if (_M_disjunct(__s) || this->_M_is_shared())
-	return _M_replace_safe(size_type(0), this->size(), __s, __n);
-      else
-	{
-	  // Work in-place.
-	  const size_type __pos = __s - this->_M_data();
-	  if (__pos >= __n)
-	    this->_S_copy(this->_M_data(), __s, __n);
-	  else if (__pos)
-	    this->_S_move(this->_M_data(), __s, __n);
-	  this->_M_set_length(__n);
-	  return *this;
-	}
-     }
+      return _M_replace(size_type(0), this->size(), __s, __n);
+    }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
@@ -83,7 +86,7 @@ namespace std
 	  _M_check_length(size_type(0), __n, "basic_string::append");	  
 	  const size_type __len = __n + this->size();
 	  if (__len > this->capacity() || this->_M_is_shared())
-	    this->reserve(__len);
+	    this->_M_reserve(__len);
 	  this->_S_assign(this->_M_data() + this->size(), __n, __c);
 	  this->_M_set_length(__len);
 	}
@@ -102,12 +105,12 @@ namespace std
 	  const size_type __len = __n + this->size();
 	  if (__len > this->capacity() || this->_M_is_shared())
 	    {
-	      if (_M_disjunct(__s))
-		this->reserve(__len);
+	      if (this->_M_disjunct(__s))
+		this->_M_reserve(__len);
 	      else
 		{
 		  const size_type __off = __s - this->_M_data();
-		  this->reserve(__len);
+		  this->_M_reserve(__len);
 		  __s = this->_M_data() + __off;
 		}
 	    }
@@ -127,7 +130,7 @@ namespace std
 	{
 	  const size_type __len = __size + this->size();
 	  if (__len > this->capacity() || this->_M_is_shared())
-	    this->reserve(__len);
+	    this->_M_reserve(__len);
 	  this->_S_copy(this->_M_data() + this->size(), __str._M_data(),
 			__size);
 	  this->_M_set_length(__len);
@@ -146,76 +149,26 @@ namespace std
 	{
 	  const size_type __len = __n + this->size();
 	  if (__len > this->capacity() || this->_M_is_shared())
-	    this->reserve(__len);
+	    this->_M_reserve(__len);
 	  this->_S_copy(this->_M_data() + this->size(),
 			__str._M_data() + __pos, __n);
-	  this->_M_set_length(__len);	  
+	  this->_M_set_length(__len);
 	}
       return *this;
     }
 
-   template<typename _CharT, typename _Traits, typename _Alloc>
-     basic_string<_CharT, _Traits, _Alloc>&
-     basic_string<_CharT, _Traits, _Alloc>::
-     insert(size_type __pos, const _CharT* __s, size_type __n)
-     {
-       __glibcxx_requires_string_len(__s, __n);
-       _M_check(__pos, "basic_string::insert");
-       _M_check_length(size_type(0), __n, "basic_string::insert");
-       if (_M_disjunct(__s) || this->_M_is_shared())
-         return _M_replace_safe(__pos, size_type(0), __s, __n);
-       else
-         {
-           // Work in-place.
-           const size_type __off = __s - this->_M_data();
-           this->_M_mutate(__pos, 0, __n);
-           __s = this->_M_data() + __off;
-           _CharT* __p = this->_M_data() + __pos;
-           if (__s  + __n <= __p)
-             this->_S_copy(__p, __s, __n);
-           else if (__s >= __p)
-             this->_S_copy(__p, __s + __n, __n);
-           else
-             {
-	       const size_type __nleft = __p - __s;
-               this->_S_copy(__p, __s, __nleft);
-               this->_S_copy(__p + __nleft, __p + __n, __n - __nleft);
-             }
-           return *this;
-         }
-     }
-
-   template<typename _CharT, typename _Traits, typename _Alloc>
-     basic_string<_CharT, _Traits, _Alloc>&
-     basic_string<_CharT, _Traits, _Alloc>::
-     replace(size_type __pos, size_type __n1, const _CharT* __s,
-	     size_type __n2)
-     {
-       __glibcxx_requires_string_len(__s, __n2);
-       _M_check(__pos, "basic_string::replace");
-       __n1 = _M_limit(__pos, __n1);
-       _M_check_length(__n1, __n2, "basic_string::replace");
-       bool __left;
-       if (_M_disjunct(__s) || this->_M_is_shared())
-         return _M_replace_safe(__pos, __n1, __s, __n2);
-       else if ((__left = __s + __n2 <= this->_M_data() + __pos)
-		|| this->_M_data() + __pos + __n1 <= __s)
-	 {
-	   // Work in-place: non-overlapping case.
-	   size_type __off = __s - this->_M_data();
-	   __left ? __off : (__off += __n2 - __n1);
-	   this->_M_mutate(__pos, __n1, __n2);
-	   this->_S_copy(this->_M_data() + __pos,
-			 this->_M_data() + __off, __n2);
-	   return *this;
-	 }
-       else
-	 {
-	   // Todo: overlapping case.
-	   const basic_string __tmp(__s, __n2);
-	   return _M_replace_safe(__pos, __n1, __tmp._M_data(), __n2);
-	 }
-     }
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    replace(size_type __pos, size_type __n1, const _CharT* __s,
+	    size_type __n2)
+    {
+      __glibcxx_requires_string_len(__s, __n2);
+      _M_check(__pos, "basic_string::replace");
+      __n1 = _M_limit(__pos, __n1);
+      _M_check_length(__n1, __n2, "basic_string::replace");
+      return _M_replace(__pos, __n1, __s, __n2);
+    }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
@@ -227,8 +180,7 @@ namespace std
       if (__size < __n)
 	this->append(__n - __size, __c);
       else if (__n < __size)
-	this->erase(__n);
-      // else nothing (in particular, avoid calling _M_mutate() unnecessarily.)
+	this->_M_erase(__n, __size - __n);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -241,8 +193,8 @@ namespace std
 	const basic_string __s(__k1, __k2);
 	const size_type __n1 = __i2 - __i1;
 	_M_check_length(__n1, __s.size(), "basic_string::_M_replace_dispatch");
-	return _M_replace_safe(__i1 - _M_ibegin(), __n1, __s._M_data(),
-			       __s.size());
+	return _M_replace(__i1 - _M_ibegin(), __n1, __s._M_data(),
+			  __s.size());
       }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -252,7 +204,7 @@ namespace std
 		   _CharT __c)
     {
       _M_check_length(__n1, __n2, "basic_string::_M_replace_aux");
-      this->_M_mutate(__pos1, __n1, __n2);
+      _M_replace(__pos1, __n1, 0, __n2);
       if (__n2)
 	this->_S_assign(this->_M_data() + __pos1, __n2, __c);
       return *this;
@@ -261,15 +213,58 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
     basic_string<_CharT, _Traits, _Alloc>::
-    _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
-		    size_type __n2)
+    _M_replace(size_type __pos, size_type __len1, const _CharT* __s,
+	       const size_type __len2)
     {
-      this->_M_mutate(__pos1, __n1, __n2);
-      if (__n2)
-	this->_S_copy(this->_M_data() + __pos1, __s, __n2);
+      const size_type __old_size = this->size();
+      const size_type __new_size = __old_size + __len2 - __len1;
+      const size_type __how_much = __old_size - __pos - __len1;
+      
+      if (__new_size <= this->capacity() && !this->_M_is_shared())
+	{
+	  _CharT* __p = this->_M_data() + __pos;
+	  if (__s)
+	    {
+	      if (_M_disjunct(__s))
+		{
+		  if (__how_much && __len1 != __len2)
+		    this->_S_move(__p + __len2, __p + __len1, __how_much);
+		  if (__len2)
+		    this->_S_copy(__p, __s, __len2);
+		}
+	      else
+		{
+		  // Work in-place.
+		  if (__len2 && __len2 <= __len1)
+		    this->_S_move(__p, __s, __len2);
+		  if (__how_much && __len1 != __len2)
+		    this->_S_move(__p + __len2, __p + __len1, __how_much);
+		  if (__len2 > __len1)
+		    {
+		      if (__s + __len2 <= __p + __len1)
+			this->_S_move(__p, __s, __len2);
+		      else if (__s >= __p + __len1)
+			this->_S_copy(__p, __s + __len2 - __len1, __len2);
+		      else
+			{
+			  const size_type __nleft = (__p + __len1) - __s;
+			  this->_S_move(__p, __s, __nleft);
+			  this->_S_copy(__p + __nleft, __p + __len2,
+					__len2 - __nleft);
+			}
+		    }
+		}
+	    }
+	  else if (__how_much && __len1 != __len2)
+	    this->_S_move(__p + __len2, __p + __len1, __how_much);
+	}
+      else
+	this->_M_mutate(__pos, __len1, __s, __len2);
+
+      this->_M_set_length(__new_size);
       return *this;
     }
-   
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const _CharT* __lhs,
