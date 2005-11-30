@@ -1,3 +1,9 @@
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/25162
+	* openmp.c (gfc_match_omp_variable_list): Call gfc_set_sym_referenced
+	on all symbols added to the namelist.
+
 2005-11-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (gfc_match_omp_clauses): Fix check for non-INTRINSIC
@@ -17,7 +23,7 @@
 
 2005-11-10  Diego Novillo  <dnovillo@redhat.com>
 
-	* openmp.c: Include target.h and toplev.h
+	* openmp.c: Include target.h and toplev.h.
 	(gfc_match_omp_threadprivate): Emit diagnostic if target does
 	not support TLS.
 	* Make-lang.in (fortran/openmp.o): Add dependencies on

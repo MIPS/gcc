@@ -1,3 +1,8 @@
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/25162
+	* testsuite/libgomp.fortran/pr25162.f: New test.
+
 2005-11-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/posix/time.c (omp_get_wtime, omp_get_wtick): Fall back to
