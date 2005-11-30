@@ -2848,6 +2848,48 @@
   DONE;
 })
 
+(define_expand "sdot_prodv8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "nonimmediate_operand" "")
+   (match_operand:V8HI 2 "nonimmediate_operand" "")
+   (match_operand:V4SI 3 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx t = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_pmaddwd (t, operands[1], operands[2]));
+  emit_insn (gen_addv4si3 (operands[0], operands[3], t));
+  DONE;
+})
+
+(define_expand "udot_prodv4si"
+  [(match_operand:V2DI 0 "register_operand" "")
+   (match_operand:V4SI 1 "register_operand" "")
+   (match_operand:V4SI 2 "register_operand" "")
+   (match_operand:V2DI 3 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx t1, t2, t3, t4;
+
+  t1 = gen_reg_rtx (V2DImode);
+  emit_insn (gen_sse2_umulv2siv2di3 (t1, operands[1], operands[2]));
+  emit_insn (gen_addv2di3 (t1, t1, operands[3]));
+
+  t2 = gen_reg_rtx (V4SImode);
+  t3 = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t2),
+			       gen_lowpart (TImode, operands[1]),
+			       GEN_INT (32)));
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t3),
+			       gen_lowpart (TImode, operands[2]),
+			       GEN_INT (32)));
+
+  t4 = gen_reg_rtx (V2DImode);
+  emit_insn (gen_sse2_umulv2siv2di3 (t4, t2, t3));
+
+  emit_insn (gen_addv2di3 (operands[0], t1, t4));
+  DONE;
+})
+
 (define_insn "ashr<mode>3"
   [(set (match_operand:SSEMODE24 0 "register_operand" "=x")
 	(ashiftrt:SSEMODE24
@@ -3978,7 +4020,7 @@
 
 ;; The correct representation for this is absolutely enormous, and 
 ;; surely not generally useful.
-(define_insn "sse2_psadbw"
+(define_insn "sadv16qi"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(unspec:V2DI [(match_operand:V16QI 1 "register_operand" "0")
 		      (match_operand:V16QI 2 "nonimmediate_operand" "xm")]
