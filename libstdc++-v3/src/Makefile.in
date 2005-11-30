@@ -40,11 +40,12 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/fragment.am
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/lead-dot.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/enable.m4 \
+	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/crossconfig.m4 \
 	$(top_srcdir)/linkage.m4 $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/config.h
@@ -403,7 +404,7 @@ AM_CXXFLAGS = \
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use
 LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
-	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS)
+	       $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) 
 
 
 # 3) We'd have a problem when building the shared libstdc++ object if
@@ -675,6 +676,7 @@ uninstall-am: uninstall-info-am uninstall-toolexeclibLTLIBRARIES
 	uninstall-toolexeclibLTLIBRARIES
 
 @ENABLE_SYMVERS_GNU_TRUE@libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
+
 @ENABLE_SYMVERS_GNU_TRUE@	cp ${glibcxx_srcdir}/$(SYMVER_MAP) ./libstdc++-symbol.ver
 @ENABLE_SYMVERS_GNU_TRUE@	if test "x$(port_specific_symbol_files)" != x; then \
 @ENABLE_SYMVERS_GNU_TRUE@	  sed -n '1,/DO NOT DELETE/p' $@ > tmp.top; \

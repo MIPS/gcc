@@ -358,10 +358,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       insert(iterator __position, const value_type& __x)
-      {
-	typedef typename _Rep_type::iterator _Rep_iterator;
-	return _M_t.insert_unique((_Rep_iterator&)__position, __x);
-      }
+      { return _M_t.insert_unique(__position, __x); }
 
       /**
        *  @brief A template function that attemps to insert a range of elements.
@@ -372,9 +369,9 @@ namespace _GLIBCXX_STD
        *  Complexity similar to that of the range constructor.
        */
       template<class _InputIterator>
-      void
-      insert(_InputIterator __first, _InputIterator __last)
-      { _M_t.insert_unique(__first, __last); }
+        void
+        insert(_InputIterator __first, _InputIterator __last)
+        { _M_t.insert_unique(__first, __last); }
       
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 130. Return type of container::erase(iterator) differs for
@@ -391,10 +388,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       erase(iterator __position)
-      {
-	typedef typename _Rep_type::iterator _Rep_iterator;
-	return _M_t.erase((_Rep_iterator&)__position);
-      }
+      { return _M_t.erase(__position); }
 
       /**
        *  @brief Erases elements according to the provided key.
@@ -408,7 +402,8 @@ namespace _GLIBCXX_STD
        *  in any way.  Managing the pointer is the user's responsibilty.
        */
       size_type
-      erase(const key_type& __x) { return _M_t.erase(__x); }
+      erase(const key_type& __x)
+      { return _M_t.erase(__x); }
 
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 130. Return type of container::erase(iterator) differs for
@@ -428,10 +423,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       erase(iterator __first, iterator __last)
-      {
-	typedef typename _Rep_type::iterator _Rep_iterator;
-	return _M_t.erase((_Rep_iterator&)__first, (_Rep_iterator&)__last);
-      }
+      { return _M_t.erase(__first, __last); }
 
       /**
        *  Erases all elements in a %set.  Note that this function only erases

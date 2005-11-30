@@ -1,3 +1,139 @@
+2005-11-23  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24975 (basic_string)
+	* include/bits/basic_string.h (_Rep::_S_empty_rep): Avoid
+	strict-aliasing warnings.
+
+2005-11-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24975
+	* include/bits/stl_set.h (insert(iterator, const value_type&),
+	erase(iterator), erase(iterator, iterator)): Don't break aliasing
+	rules casting to _Rep_iterator&, forward to _Rb_tree facilities.
+	* include/bits/stl_multiset.h (insert(iterator, const value_type&),
+	erase(iterator), erase(iterator, iterator)): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree<>::_M_insert(_Const_Base_ptr,
+	_Const_Base_ptr, const value_type&), insert_unique(const_iterator,
+	const value_type&), insert_equal(const_iterator, const value_type&),
+	erase(const_iterator), erase(const_iterator, const_iterator)): New,
+	_Rb_tree<>::const_iterator counterparts of existing facilities.
+
+2005-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+            Ulrich Drepper  <drepper@redhat.com>
+
+	PR libstdc++/23591
+	* scripts/create_testsuite_files: Support for "C" test files.
+	* testsuite/lib/libstdc++.exp: Same.
+	* testsuite/libstdc++-dg/normal.exp: Same.
+	* testsuite/ext/mt_allocator/22309_thread.cc: Update names.
+	* testsuite/19_diagnostics/23591_thread-1.c: New.
+	* testsuite/testsuite_shared.cc: Add tests, rename existing functions.
+	* libsupc++/eh_globals.cc: Make global thread local if possible.
+	* configure.ac: Use GCC_CHECK_TLS.
+	* acinclude.m4: Include tls.m4.
+	* configure: Regenerate.
+	* config.h.in: Same.
+	
+2005-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/del_op.cc: Include c++config.h first.
+	* libsupc++/eh_alloc.cc: Same.
+	* libsupc++/new_opv.cc: Same.
+	* libsupc++/eh_throw.cc: Same.
+	* libsupc++/new_op.cc: Same.
+	* libsupc++/del_opv.cc: Same.
+	* libsupc++/eh_catch.cc: Same.
+	* libsupc++/guard.cc: Same.
+	* libsupc++/del_opnt.cc: Same.
+	* libsupc++/eh_exception.cc: Same.
+	* libsupc++/new_opvnt.cc: Same.
+	* libsupc++/eh_term_handler.cc: Same.
+	* libsupc++/eh_personality.cc: Same.
+	* libsupc++/eh_call.cc: Same.
+	* libsupc++/new_opnt.cc: Same.
+	* libsupc++/del_opvnt.cc: Same.
+
+2005-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (LTCXXCOMPILE): CXXFLAGS last.
+	* libsupc++/Makefile.am: Same.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Same.
+
+2005-11-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h: Minor formatting and stylistic fixes.
+	(__sso_string_base<>::_M_get_allocator): Return by const ref.
+	* include/ext/rc_string_base.h: Likewise.
+	(__rc_string_base<>::_M_get_allocator): Return by const ref.
+	(__rc_string_base<>::_M_dispose): Take void, use _M_get_allocator.
+	(__rc_string_base<>::_M_grab): Take one alloc, use _M_get_allocator.
+	(__rc_string_base<>::~__rc_string_base,
+	__rc_string_base(const __rc_string_base&), _M_assign, _M_reserve,
+	_M_mutate): Adjust.
+	* include/ext/vstring_util.h: Minor stylistic fixes.
+
+2005-11-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string_base.h (__rc_string_base<>::_Rep): Avoid the
+	anonymous struct extension, adjust everywhere.
+
+	* include/ext/rc_string_base.h (__rc_string_base<>::_S_empty_rep()):
+	Just use a static member.
+	(__rc_string_base<>::__rc_string_base(), _S_construct): Adjust.
+
+	* include/ext/rc_string_base.h (__rc_string_base<>::_Rep): Use
+	anonymous union together with _CharT to fix alignment issues,
+	rebind to _Rep and rename _Raw_alloc to _Rep_alloc_type.	
+	(__rc_string_base<>::_Rep::_S_create, _M_destroy): Adjust consistently.
+
+	* include/ext/vstring_util.h (__is_null_p): Move inside struct
+	__vstring_utility as static _S_is_null_pointer.
+	* include/ext/sso_string.h
+	(__sso_string_base<>::_M_construct(std::forward_iterator_tag): Adjust.
+	* include/ext/rc_string_base.h
+	(__rc_string_base<>::_S_construct(std::forward_iterator_tag): Likewise.
+
+	Implement Option 3 of DR 431 for ext/vstring - both available bases.
+	* include/bits/cpp_type_traits.h (struct __is_empty): Add.
+	* include/ext/vstring.h (__versa_string<>::swap): Delegate to
+	this->_M_swap.
+	* include/ext/vstring.tcc (__versa_string<>::swap): Remove.
+	* include/ext/vstring_util.h (struct __vstring_utility<>): Add struct
+	_Alloc_hider<>, augmented of allocator swapping facility, specialized
+	to nop for empty allocators.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_swap): Use it.
+	(__rc_string_base<>::_M_is_leaked, _M_set_sharable): Change to private.
+	* include/ext/sso_string_base.h	(__sso_string_base<>::_M_swap):
+	Likewise.
+	(__sso_string_base<>::_M_is_leaked, _M_set_sharable): Remove, unused.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_data(_CharT*):
+	Return void.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_data(_CharT*):
+	Likewise.
+
+2005-11-17  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/os/bsd/darwin/ppc-extra.ver: New.
+	* src/Makefile.am (libstdc++-symbol.ver): Move outside conditionals,
+	and make dependent on port symbol files.
+	(libstdc++-symbol.explist): Use the generated .ver file, not
+	the template.
+	* src/compatibility.cc [APPLE] (__eprintf): New.
+	* src/Makefile.in: Regenerate.
+	* configure.host (powerpc*-*-darwin*): Define
+	port_specific_symbol_files.
+
+2005-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libsupc++/eh_arm.cc (__cxa_begin_cleanup): Remember a
+	foreign exception too.
+	(__gnu_end_cleanup): Recover a foreign exception too.
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Cope
+	with forced unwinding.
+	* libsupc++/eh_throw.cc (__cxxabiv1::__cxa_rethrow): Use
+	_Unwind_Resume_or_Rethrow for ARM EABI.
+
 2005-11-14  Geoffrey Keating  <geoffk@apple.com>
 
 	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Don't check for

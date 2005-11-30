@@ -404,7 +404,6 @@ namespace std
 	  __value = sizeof(__first<_Tp>) == sizeof(__second<_Tp>)
 	};
     };
-
 } // namespace std
 
 #endif //_CPP_TYPE_TRAITS_H

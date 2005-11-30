@@ -32,6 +32,7 @@ if ENABLE_SYMVERS_GNU
 version_arg = -Wl,--version-script=libstdc++-symbol.ver
 version_dep = libstdc++-symbol.ver
 libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
+
 	cp ${glibcxx_srcdir}/$(SYMVER_MAP) ./libstdc++-symbol.ver
 	if test "x$(port_specific_symbol_files)" != x; then \
 	  sed -n '1,/DO NOT DELETE/p' $@ > tmp.top; \
@@ -39,6 +40,7 @@ libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
 	  cat tmp.top $(port_specific_symbol_files) tmp.bottom > $@; \
 	  rm tmp.top tmp.bottom; \
 	fi
+
 else
 if ENABLE_SYMVERS_DARWIN_EXPORT
 version_arg = -Wl,-exported_symbols_list,libstdc++-symbol.explist
@@ -172,7 +174,6 @@ libstdc___la_DEPENDENCIES = ${version_dep} $(libstdc___la_LIBADD)
 libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm 
 
-
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
 GLIBCXX_INCLUDE_DIR=$(glibcxx_builddir)/include
@@ -220,7 +221,7 @@ AM_CXXFLAGS = \
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
 # attempt to infer which configuration to use
 LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
-	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS)
+	       $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) 
 
 # 3) We'd have a problem when building the shared libstdc++ object if
 # the rules automake generates would be used.  We cannot allow g++ to
