@@ -1,3 +1,18 @@
+2005-12-01  Ben Elliston  <bje@au.ibm.com>
+
+	* real.c (real_from_string3): Improve leading comment.  Inline the
+	body of decimal_real_from_string.
+	* dfp.h: Add more comments.
+	(decimal_real_from_string): Update prototype due to renaming.
+	(decimal_real_convert): Remove formal parameter names from prototype.
+	* dfp.c: Improve comments throughout.
+	(decimal_from_decnumber): Improve comments.  Rename "set"
+	parameter to "context".
+	(decimal_real_from_string): Remove.
+	(decimal_from_string): Rename to decimal_real_from_string.
+	(decimal_from_binary): Call decimal_real_from_string.
+	(decimal_real_maxval): Likewise.
+
 2005-11-29  Ben Elliston  <bje@au.ibm.com>
 
 	* dfp.h: Reorder prototypes. Tidy.

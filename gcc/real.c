@@ -1997,13 +1997,16 @@ real_from_string2 (const char *s, enum machine_mode mode)
   return r;
 }
 
-/* Initialize r from a string and desired mode. */
+/* Initialize R from string S and desired MODE. */
+
 void 
 real_from_string3 (REAL_VALUE_TYPE *r, const char *s, enum machine_mode mode)
 {
-  /* Also handle decimal floats. If decimal float modes were not 
-     target specific, we could get rid of this wrapper. */
-  decimal_real_from_string (r, s, mode);
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    decimal_real_from_string (r, s);
+  else
+    real_from_string (r, s);
+
   if (mode != VOIDmode)
     real_convert (r, mode, r);  
 } 

@@ -55,11 +55,12 @@ dfp_byte_swap (unsigned long in)
   return out;
 }
 
-/* Initialize a REAL_VALUE_TYPE (decimal encoded) from a decNumber.
-   Can utilize status passed in via decContext parameter, if some
-   previous operation had interesting status.  */
+/* Initialize R (a real with the decimal flag set) from DN.  Can
+   utilize status passed in via CONTEXT, if a previous operation had
+   interesting status.  */
+
 static void
-decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
+decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *context)
 {
   memset (r, 0, sizeof (REAL_VALUE_TYPE));
 
@@ -70,7 +71,7 @@ decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
     r->cl = rvc_nan;
   if (decNumberIsInfinite (dn))
     r->cl = rvc_inf;
-  if (set->status & DEC_Overflow)
+  if (context->status & DEC_Overflow)
     r->cl = rvc_inf;
   if (decNumberIsNegative (dn))
     r->sign = 1;
@@ -79,15 +80,16 @@ decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *set)
   if (r->cl != rvc_normal)
     return;
 
-  decContextDefault (set, DEC_INIT_DECIMAL128);
-  set->traps = 0;
+  decContextDefault (context, DEC_INIT_DECIMAL128);
+  context->traps = 0;
 
-  decimal128FromNumber ((decimal128 *) r->sig, dn, set);
+  decimal128FromNumber ((decimal128 *) r->sig, dn, context);
 }
 
 /* Create decimal encoded R from string S.  */
-static void
-decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
+
+void
+decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s)
 {
   decNumber dn;
   decContext set;
@@ -102,18 +104,8 @@ decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
   decimal_from_decnumber (r, &dn, &set);
 }
 
-/* Wrapper to handle decimal strings too.  */
-void
-decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s, 
-			  enum machine_mode mode)
-{
-  if (!DECIMAL_FLOAT_MODE_P (mode))
-    real_from_string (r, s);
-  else
-    decimal_from_string (r, s);
-}
+/* Initialize a decNumber from a REAL_VALUE_TYPE.  */
 
-/* Initialize a decNumber from a GCC REAL_VALUE_TYPE.  */
 static void
 decimal_to_decnumber (const REAL_VALUE_TYPE *r, decNumber *dn)
 {
@@ -148,6 +140,8 @@ decimal_to_decnumber (const REAL_VALUE_TYPE *r, decNumber *dn)
     decNumberNegate (dn);
 }
 
+/* Encode a real into an IEEE 754R decimal32 type.  */
+
 void 
 encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  long *buf, const REAL_VALUE_TYPE *r)
@@ -168,6 +162,8 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
     buf[0] = dfp_byte_swap (*(uint32_t *) d32.bytes);
 }
 
+/* Decode an IEEE 754R decimal32 type into a real.  */
+
 void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		       REAL_VALUE_TYPE *r, const long *buf)
 {
@@ -186,6 +182,8 @@ void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decimal32ToNumber (&d32, &dn);
   decimal_from_decnumber (r, &dn, &set); 
 }
+
+/* Encode a real into an IEEE 754R decimal64 type.  */
 
 void 
 encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -213,6 +211,8 @@ encode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
     }
 }
 
+/* Decode an IEEE 754R decimal64 type into a real.  */
+
 void 
 decode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		  REAL_VALUE_TYPE *r, const long *buf)
@@ -238,6 +238,8 @@ decode_decimal64 (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decimal64ToNumber (&d64, &dn);
   decimal_from_decnumber (r, &dn, &set); 
 }
+
+/* Encode a real into an IEEE 754R decimal128 type.  */
 
 void 
 encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -268,6 +270,8 @@ encode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
       buf[3] = dfp_byte_swap (*(uint32_t *) &d128.bytes[0]);
     }
 }
+
+/* Decode an IEEE 754R decimal128 type into a real.  */
 
 void 
 decode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
@@ -301,6 +305,7 @@ decode_decimal128 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
 /* Helper function to convert from a binary real internal
    representation.  */
+
 static void
 decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
 		   enum machine_mode mode)
@@ -316,19 +321,21 @@ decimal_to_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from,
 
 /* Helper function to convert from a binary real internal
    representation.  */
+
 static void
 decimal_from_binary (REAL_VALUE_TYPE *to, const REAL_VALUE_TYPE *from)
 {
-  /* We convert to string then convert to decNumber then to
-     decimal128.  */
   char string[256];
+
+  /* We convert to string, then to decNumber then to decimal128.  */
   real_to_decimal (string, from, sizeof (string), 0, 1);
-  decimal_from_string (to, string);
+  decimal_real_from_string (to, string);
 }
 
-/* Helper function to real.c::do_compare to handle decimal internal
+/* Helper function to real.c:do_compare() to handle decimal internal
    represenation including when one of the operands is still in the
    binary internal representation.  */
+
 int
 decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
 		    int nan_result)
@@ -337,8 +344,7 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
   decNumber dn, dn2, dn3;
   REAL_VALUE_TYPE a1, b1;
 
-  /* If either operand is not a decimal, create temporary decimal
-     versions.  */
+  /* If either operand is non-decimal, create temporary versions.  */
   if (!a->decimal)
     {
       decimal_from_binary (&a1, a);
@@ -371,6 +377,7 @@ decimal_do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
 }
 
 /* Helper to round_for_format, handling decimal float types.  */
+
 void
 decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
 {
@@ -414,8 +421,9 @@ decimal_round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
   decimal_from_decnumber (r, &dn, &set);
 }
 
-/* Helper to real_convert, handling conversions between binary and
-   decimal types.  */
+/* Extend or truncate to a new mode.  Handles conversions between
+   binary and decimal types.  */
+
 void
 decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode, 
 		      const REAL_VALUE_TYPE *a)
@@ -430,13 +438,12 @@ decimal_real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
       decimal_from_binary (r, a);
 }
 
-/* Helper to print out internal representation of decimal floating types.  */
-
-/* Render R as a decimal floating point constant.  Emit DIGITS
+/* Render R_ORIG as a decimal floating point constant.  Emit DIGITS
    significant digits in the result, bounded by BUF_SIZE.  If DIGITS
    is 0, choose the maximum for the representation.  If
    CROP_TRAILING_ZEROS, strip trailing zeros.  Currently, not honoring
    DIGITS or CROP_TRAILING_ZEROS.  */
+
 void decimal_real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig,
 			      size_t buf_size,
 			      size_t digits ATTRIBUTE_UNUSED,
@@ -475,12 +482,14 @@ decimal_do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
   return (set.status & DEC_Inexact);
 }
 
+/* Compute R = OP0 * OP1.  */
+
 static bool
 decimal_do_multiply (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
 		     const REAL_VALUE_TYPE *op1)
 {
-  decNumber dn, dn2, dn3;
   decContext set;
+  decNumber dn, dn2, dn3;
 
   decimal_to_decnumber (op0, &dn2);
   decimal_to_decnumber (op1, &dn3);
@@ -494,6 +503,8 @@ decimal_do_multiply (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
   /* Return true, if inexact.  */
   return (set.status & DEC_Inexact);
 }
+
+/* Compute R = OP0 / OP1.  */
 
 static bool
 decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
@@ -515,7 +526,9 @@ decimal_do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *op0,
   return (set.status & DEC_Inexact);
 }
 
-/* Helper to do_fix_trunc.  */
+/* Set R to A truncated to an integral value toward zero (decimal
+   floating point).  */
+
 void
 decimal_do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
 {
@@ -531,7 +544,8 @@ decimal_do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
   decimal_from_decnumber (r, &dn, &set);
 }
 
-/* Helper to real_to_integer.  */
+/* Render decimal float value R as an integer.  */
+
 HOST_WIDE_INT
 decimal_real_to_integer (const REAL_VALUE_TYPE *r)
 {
@@ -549,13 +563,14 @@ decimal_real_to_integer (const REAL_VALUE_TYPE *r)
   decNumberZero (&dn3);
   decNumberRescale (&dn, &dn2, &dn3, &set);
 
-  /* Convert to REAL_VALUE_TYPE and call appropriate
-     conversion function.  */
+  /* Convert to REAL_VALUE_TYPE and call appropriate conversion
+     function.  */
   decNumberToString (&dn, string);
   real_from_string (&to, string);
   return real_to_integer (&to);
 }
 
+/* Likewise, but to an integer pair, HI+LOW.  */
 
 void
 decimal_real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
@@ -581,6 +596,10 @@ decimal_real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
   real_from_string (&to, string);
   real_to_integer2 (plow, phigh, &to);
 }
+
+/* Perform the decimal floating point operation described by COODE.
+   For a unary operation, leave OP1 NULL.  This function returns true
+   if the result may be inexact due to loss of precision.  */
 
 bool
 decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
@@ -645,8 +664,10 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
 	decimal128 *d128;
 	*r = *op0;
 	d128 = (decimal128 *) r->sig;
-	d128->bytes[0] ^= 1 << 7;  /* Flip high bit */
-	r->sign ^= 1; /* Keep in sync.  */
+	/* Flip high bit.  */
+	d128->bytes[0] ^= 1 << 7;
+	/* Keep sign field in sync.  */
+	r->sign ^= 1;
       }
       break;
 
@@ -655,7 +676,9 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
         decimal128 *d128;
         *r = *op0;
         d128 = (decimal128 *) r->sig;
-        d128->bytes[0] &= 0x7f;  /* Clear high bit */
+	/* Clear high bit.  */
+        d128->bytes[0] &= 0x7f;
+	/* Keep sign field in sync.  */
 	r->sign = 0;
       }
       break;
@@ -668,8 +691,8 @@ decimal_real_arithmetic (REAL_VALUE_TYPE *r, int icode,
       gcc_unreachable ();
     }
 
-  /* FIXME: All operations are inexact for now due to unknown working
-     precision.  */
+  /* FIXME: Indicate all operations as inexact for now due to unknown
+     working precision.  */
   return true;
 }
 
@@ -696,7 +719,7 @@ decimal_real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
       gcc_unreachable ();
     }
 
-  decimal_from_string (r, max);
+  decimal_real_from_string (r, max);
   if (sign)
     r->sig[0] |= 0x80000000;
 }
