@@ -1,5 +1,11 @@
 2005-12-01  Richard Henderson  <rth@redhat.com>
 
+	* config/i386/sse.md (ieee_sminv4sf3, ieee_smaxv4sf3, ieee_sminv2df3,
+	ieee_smaxv2df3, reduc_splus_v4sf, reduc_splus_v2df, vcondu): Merge
+	from mainline.
+
+2005-12-01  Richard Henderson  <rth@redhat.com>
+
 	* targhooks.c (interleave_vectorize_builtin_extract_evenodd): New.
 	(interleave_vectorize_builtin_extract_even): New.
 	(interleave_vectorize_builtin_extract_odd): New.
