@@ -1,3 +1,29 @@
+2005-12-01  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary): Use fold_build2, not
+	fold (build (...)).
+
+2005-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/ms1/ms1.c (ms1_reorg_hazard): Don't count noop moves.
+
+	* vec.h (VEC_block_remove): New.
+
+2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c/13384
+	* c-common.c (lvalue_error): Fix wording.
+
+2005-12-01  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr): Fix
+	thinko in last patch.
+
+2005-12-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/t-slibgcc-darwin (SHLIB_LINK): Use -single_module rather
+	than -flat_namespace.
+
 2005-12-01  Ben Elliston  <bje@au.ibm.com>
 
         * mklibgcc.in: Parameterise the script to build soft float
