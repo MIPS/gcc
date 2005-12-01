@@ -4113,7 +4113,7 @@
 
 ;; The correct representation for this is absolutely enormous, and 
 ;; surely not generally useful.
-(define_insn "sadv16qi"
+(define_insn "sse2_psadbw"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(unspec:V2DI [(match_operand:V16QI 1 "register_operand" "0")
 		      (match_operand:V16QI 2 "nonimmediate_operand" "xm")]
@@ -4122,6 +4122,30 @@
   "psadbw\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "mode" "TI")])
+
+;; ??? The test case that we've been testing against for autovect-branch
+;; sums into an SImode value, which means we need to produce SImode 
+;; results here.  Since the psadbw max values are 0x7f8, we could claim
+;; the result is anything between V8HImode and V2DImode and still get 
+;; correct results.  But we don't have naming conventions to produce all
+;; three possibilities, so we just use the one we need for the benchmark.
+;;
+;; Worse, the pattern being matched generically expects signed data, 
+;; whereas this instruction operates on unsigned data.
+;
+;(define_expand "sadv16qi"
+;  [(match_operand:V4SI 0 "register_operand" "")
+;   (match_operand:V16QI 1 "register_operand" "")
+;   (match_operand:V16QI 2 "nonimmediate_operand" "")
+;   (match_operand:V4SI 3 "register_operand" "")]
+;  "TARGET_SSE2"
+;{
+;  rtx t = gen_reg_rtx (V2DImode);
+;  emit_insn (gen_sse2_psadbw (t, operands[1], operands[2]));
+;  emit_insn (gen_addv4si3 (operands[0], operands[3],
+;			   gen_lowpart (V4SImode, t)));
+;  DONE;
+;})
 
 (define_insn "sse_movmskps"
   [(set (match_operand:SI 0 "register_operand" "=r")

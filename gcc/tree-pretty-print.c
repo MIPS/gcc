@@ -1537,7 +1537,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case SAD_EXPR:
-      pp_string (buffer, " SAD_PROD_EXPR < ");
+      pp_string (buffer, " SAD_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_string (buffer, " , ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);

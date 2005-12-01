@@ -1,5 +1,11 @@
 2005-11-30  Richard Henderson  <rth@redhat.com>
 
+	* config/i386/sse.md (sse2_psadbw): Revert name change.
+	* config/i386/i386.c (bdesc_2arg): Likewise.
+	* tree-pretty-print.c (dump_generic_node) <SAD_EXPR>: Fix typo.
+
+2005-11-30  Richard Henderson  <rth@redhat.com>
+
 	* config/i386/sse.md (vec_pack_mod_v8hi): New.
 	(vec_pack_mod_v4si, vec_pack_mod_v2di): New.
 	(vec_pack_ssat_v8qi): Rename from sse2_packsswb.
