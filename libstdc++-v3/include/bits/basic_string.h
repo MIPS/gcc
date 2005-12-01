@@ -890,7 +890,7 @@ namespace std
 	const size_type __pos = __p - _M_ibegin();
 	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
 	this->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(this->_M_data() + __pos);
       }
 
       /**
@@ -931,7 +931,7 @@ namespace std
 	const size_type __pos = __position - _M_ibegin();
 	this->_M_erase(__pos, size_type(1));
 	this->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(this->_M_data() + __pos);
       }
 
       /**
@@ -951,7 +951,7 @@ namespace std
         const size_type __pos = __first - _M_ibegin();
 	this->_M_erase(__pos, __last - __first);
 	this->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(this->_M_data() + __pos);
       }
 
       /**
