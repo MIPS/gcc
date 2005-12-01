@@ -1087,6 +1087,12 @@ static void x86_64_elf_select_section (tree decl, int reloc,
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN \
+  interleave_vectorize_builtin_extract_even
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD \
+  interleave_vectorize_builtin_extract_odd
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL

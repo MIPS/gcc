@@ -1,3 +1,12 @@
+2005-12-01  Richard Henderson  <rth@redhat.com>
+
+	* targhooks.c (interleave_vectorize_builtin_extract_evenodd): New.
+	(interleave_vectorize_builtin_extract_even): New.
+	(interleave_vectorize_builtin_extract_odd): New.
+	* targhooks.h: Declare them.
+	* config/i386/i386.c (TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN): New.
+	(TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD): New.
+
 2005-11-30  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/sse.md (sse2_psadbw): Revert name change.

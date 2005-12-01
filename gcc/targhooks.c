@@ -58,6 +58,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "output.h"
 #include "toplev.h"
 #include "function.h"
+#include "tree-flow.h"
+#include "optabs.h"
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
@@ -437,6 +439,67 @@ default_function_value (tree ret_type ATTRIBUTE_UNUSED,
 #else
   return NULL_RTX;
 #endif
+}
+
+static tree
+interleave_vectorize_builtin_extract_evenodd (tree dest, tree vec1,
+					      tree vec2, tree stmt, bool odd_p)
+{
+  tree type;
+  enum machine_mode mode;
+  block_stmt_iterator bsi;
+  tree th, tl, result, x;
+
+  type = TREE_TYPE (dest);
+  mode = TYPE_MODE (type);
+
+  /* We require both high and low interleaves for the mode.  */
+  if (vec_interleave_high_optab->handlers[mode].insn_code == CODE_FOR_nothing
+      || vec_interleave_low_optab->handlers[mode].insn_code == CODE_FOR_nothing)
+    return NULL;
+
+  bsi = bsi_for_stmt (stmt);
+  
+  th = make_rename_temp (type, NULL);
+  x = build2 (VEC_INTERLEAVE_HIGH_EXPR, type, vec1, vec2);
+  x = build2 (MODIFY_EXPR, type, th, x);
+  th = make_ssa_name (th, x);
+  TREE_OPERAND (x, 0) = th;
+  bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+
+  tl = make_rename_temp (type, NULL);
+  x = build2 (VEC_INTERLEAVE_LOW_EXPR, type, vec1, vec2);
+  x = build2 (MODIFY_EXPR, type, tl, x);
+  tl = make_ssa_name (tl, x);
+  TREE_OPERAND (x, 0) = tl;
+  bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+
+  result = make_rename_temp (type, NULL);
+  /* ??? Endianness issues?  */
+  x = build2 (odd_p ? VEC_INTERLEAVE_HIGH_EXPR : VEC_INTERLEAVE_LOW_EXPR,
+	      type, th, tl);
+  x = build2 (MODIFY_EXPR, type, result, x);
+  result = make_ssa_name (result, x);
+  TREE_OPERAND (x, 0) = result;
+  bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+
+  return result;
+}
+
+tree
+interleave_vectorize_builtin_extract_even (tree dest, tree vec1,
+					tree vec2, tree stmt)
+{
+  return interleave_vectorize_builtin_extract_evenodd (dest, vec1, vec2,
+						       stmt, false);
+}
+
+tree
+interleave_vectorize_builtin_extract_odd (tree dest, tree vec1,
+				       tree vec2, tree stmt)
+{
+  return interleave_vectorize_builtin_extract_evenodd (dest, vec1, vec2,
+						       stmt, true);
 }
 
 #include "gt-targhooks.h"

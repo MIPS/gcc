@@ -69,3 +69,5 @@ extern const char *hook_invalid_arg_for_unprototyped_fn
 extern bool hook_bool_rtx_commutative_p (rtx, int);
 extern rtx default_function_value (tree, tree, bool);
 
+extern tree interleave_vectorize_builtin_extract_even (tree, tree, tree, tree);
+extern tree interleave_vectorize_builtin_extract_odd (tree, tree, tree, tree);
