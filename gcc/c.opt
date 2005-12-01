@@ -702,9 +702,11 @@ C++ ObjC++ Joined
 fnew-abi
 C++ ObjC++
 
+; APPLE LOCAL begin nested functions 4258406 4357979
 fnested-functions
 C ObjC Var(flag_nested_functions)
 Allow nested functions.
+; APPLE LOCAL end nested functions 4258406 4357979
 
 fnext-runtime
 ObjC ObjC++
