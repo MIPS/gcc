@@ -69,16 +69,6 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
     basic_string<_CharT, _Traits, _Alloc>::
-    assign(const _CharT* __s, size_type __n)
-    {
-      __glibcxx_requires_string_len(__s, __n);
-      _M_check_length(this->size(), __n, "basic_string::assign");
-      return _M_replace(size_type(0), this->size(), __s, __n);
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
     append(size_type __n, _CharT __c)
     {
       if (__n)
@@ -166,7 +156,6 @@ namespace std
       __glibcxx_requires_string_len(__s, __n2);
       _M_check(__pos, "basic_string::replace");
       __n1 = _M_limit(__pos, __n1);
-      _M_check_length(__n1, __n2, "basic_string::replace");
       return _M_replace(__pos, __n1, __s, __n2);
     }
 
@@ -176,7 +165,6 @@ namespace std
     resize(size_type __n, _CharT __c)
     {
       const size_type __size = this->size();
-      _M_check_length(__size, __n, "basic_string::resize");
       if (__size < __n)
 	this->append(__n - __size, __c);
       else if (__n < __size)
@@ -192,7 +180,6 @@ namespace std
       {
 	const basic_string __s(__k1, __k2);
 	const size_type __n1 = __i2 - __i1;
-	_M_check_length(__n1, __s.size(), "basic_string::_M_replace_dispatch");
 	return _M_replace(__i1 - _M_ibegin(), __n1, __s._M_data(),
 			  __s.size());
       }
@@ -203,7 +190,6 @@ namespace std
     _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
 		   _CharT __c)
     {
-      _M_check_length(__n1, __n2, "basic_string::_M_replace_aux");
       _M_replace(__pos1, __n1, 0, __n2);
       if (__n2)
 	this->_S_assign(this->_M_data() + __pos1, __n2, __c);
@@ -216,6 +202,8 @@ namespace std
     _M_replace(size_type __pos, size_type __len1, const _CharT* __s,
 	       const size_type __len2)
     {
+      _M_check_length(__len1, __len2, "basic_string::_M_replace");
+
       const size_type __old_size = this->size();
       const size_type __new_size = __old_size + __len2 - __len1;
       const size_type __how_much = __old_size - __pos - __len1;

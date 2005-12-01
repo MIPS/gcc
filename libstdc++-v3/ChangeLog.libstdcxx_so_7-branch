@@ -1,5 +1,14 @@
 2005-12-01  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/basic_string.tcc (basic_string<>::_M_replace):
+	Perform _M_check_length at the beginning and remove it from ...
+	(append(size_type, _CharT), _M_replace_dispatch, _M_replace_aux,
+	assign): ... here.
+	(assign): Now move inline.
+	(resize): Don't call _M_check_length redundantly, append does.
+
+2005-12-01  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/bits/stl_vector.h (vector<>::size, resize, capacity,
 	operator[]): Avoid troubles with ADL, user defined operators
 	and __normal_iterator.

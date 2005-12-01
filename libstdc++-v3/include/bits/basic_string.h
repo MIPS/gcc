@@ -690,7 +690,11 @@ namespace std
        *  available characters in @a s, the remainder of @a s is used.
        */
       basic_string&
-      assign(const _CharT* __s, size_type __n);
+      assign(const _CharT* __s, size_type __n)
+      {
+	__glibcxx_requires_string_len(__s, __n);
+	return _M_replace(size_type(0), this->size(), __s, __n);
+      }
 
       /**
        *  @brief  Set value to contents of a C string.
