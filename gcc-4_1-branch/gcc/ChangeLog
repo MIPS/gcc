@@ -1,3 +1,74 @@
+2005-11-30  Dale Johannesen  <dalej@apple.com>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR rtl-opt/24930
+	* combine.c (find_split_point):  Sign extend bitmask
+	when changing bitfield assignment to IOR of AND.
+
+2005-11-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/25158
+	* builtins.c (fold_builtin_fputs): Defer check for missing
+	replacement functions.
+
+2005-11-30  Kean Johnston  <jkj@sco.com>
+
+	* config/i386/i386.c: Check the value of SUPPORTS_ONE_ONLY, not
+	simply its presense in case targets #define SUPPORTS_ONE_ONLY 0.
+
+2005-11-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/ms1/ms1.md (decrement_and_branch_until_zero): Add early
+	clobber to scratch reg.
+	(*decrement_and_branch_until_zero_no_clobber): Remove.
+	(decrement_and_branch peephole): Add dummy scratch reg to pattern.
+	(mulhish3): Use TARGET_MS1_16_003, TARGET_MS2.
+	* config/ms1/ms1.opt (mmul): Remove.
+	* config/ms1/ms1.h (ASM_SPEC): Cope with uppercase arch names.
+	(LINK_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Default to 16-002.
+
+2005-11-30  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-uncprop.c (associate_equivalences_with_edges): Properly
+	handle SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+
+2005-11-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21166
+	* c-decl.c (finish_struct):  Only set DECL_PACKED on a field
+	when its natural alignment is > BITS_PER_UNIT.
+	* stor-layout.c (finalize_type_size): Revert my patch of 2005-08-08.
+	* c-common.c (handle_packed_attribute): Ignore packing on a field
+	whose type is naturally char aligned.
+
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.c (ia64_expand_tls_address): Add ORIG_OP1 argument.
+	Move ADDEND_{HI,LO} computation into TLS_MODEL_INITIAL_EXEC case.
+	(ia64_expand_move): Adjust caller.
+
+	* config/ia64/ia64.c (ia64_expand_atomic_op): Only use
+	fetchadd{4,8}.acq instruction if CODE is PLUS or MINUS, for MINUS
+	negate VAL.
+
+2005-11-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/20109
+	PR middle-end/25120
+	* builtins.c (init_target_chars): New.
+	(expand_builtin_printf, expand_builtin_fprintf,
+	expand_builtin_sprintf, fold_builtin_sprintf,
+	maybe_emit_sprintf_chk_warning, fold_builtin_sprintf_chk,
+	fold_builtin_snprintf_chk, fold_builtin_printf,
+	fold_builtin_fprintf): Check for matching format strings using
+	the target charset.
+
+2005-11-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR libfortran/24991
+	* config/darwin.c (machopic_indirection_name,
+	machopic_output_indirection): Follow transparent alias chain.
+
 2005-11-28  Alexandre Oliva  <aoliva@redhat.com>
 
 	* varasm.c (ultimate_transparent_alias_target): Add comment.

@@ -1,3 +1,15 @@
+2005-11-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* cp-gimplify.c (cp_genericize_r): Don't dereference invisible 
+	reference parms in a thunk.
+
+2005-11-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21166
+	* class.c (check_field_decls): Only set DECL_PACKED on a field
+	when its natural alignment is > BITS_PER_UNIT.
+
 2005-11-21  Richard Henderson  <rth@redhat.com>
 
 	* cp-objcp-common.h, name-lookup.c, name-lookup.h: Revert 11-18 patch.
