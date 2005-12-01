@@ -1,3 +1,45 @@
+2005-11-30  Release Manager
+
+	* GCC 3.4.5 released.
+
+2005-11-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2005-01-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* g++.old-deja/g++.pt/asm1.C, g++.old-deja/g++.pt/asm2.C,
+	gcc.dg/20011119-1.c: Bypass tests on x86 when using -fpic/-fPIC.
+	
+	2005-11-28  Kean Johnston  <jkj@sco.com>
+	* gcc.c-torture/compile/20000804-1.c: Skip if using -fPIC on X86.
+	* gcc.dg/clobbers.c: Ditto.
+	* gcc.dg/i386-cmov1.c: Make magic* static so it matches the test
+	regexp.
+	* gcc.dg/i386-mul.c: Ditto.
+	* gcc.dg/i386-ssetype-1.c: Ditto.
+	
+2005-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (dg-skip-if): New.
+	
+2005-11-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/19275
+	Backport from mainline:
+
+	* gcc.dg/20020919-1.c:  Fix for x86 Darwin.
+	* gcc.dg/20020919-1.c:  Remove unnecessary conditional.
+
+2005-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21983
+	* g++.dg/warn/pr21983.C: New test.
+
+2005-11-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR middle-end/24950
+	Copy from trunk 2005-11-14  Dale Johannesen  <dalej@apple.com>
+	* gcc.c-torture/execute/20051113-1.c:  New.
+
 2005-11-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/23797
