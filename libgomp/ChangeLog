@@ -1,3 +1,8 @@
+2005-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/nestedfn2.f90: New test.
+	* testsuite/libgomp.c/nestedfn-3.c: New test.
+
 2005-11-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/25162
