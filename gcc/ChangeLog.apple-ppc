@@ -1,3 +1,14 @@
+2005-11-30  Mike Stump  <mrs@apple.com>
+
+	Radar 4357979
+	* c-parse.in (nested_function): Add -fnested-functions to turn on
+	nested function support.
+	(notype_nested_function): Likewise.
+	* c.opt (-fnested-functions): Likewise.
+	* doc/invoke.texi (C Dialect Options): Likewise.
+	* config/darwin.h (LINK_COMMAND_SPEC): Pass -allow_stack_execute
+	when nested functions are on.
+	
 2005-11-30  Dale Johannesen  <dalej@apple.com>
             Andrew Pinski  <pinskia@physics.uc.edu>
 

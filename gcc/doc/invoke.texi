@@ -196,6 +196,8 @@ in the following sections.
 -fconstant-cfstrings (APPLE ONLY) @gol
 @c APPLE LOCAL non lvalue assign
 -fnon-lvalue-assign (APPLE ONLY) @gol
+@c APPLE LOCAL nested functions 4357979 */
+-fno-nested-functions @gol
 @c APPLE LOCAL pch distcc --mrs
 -fpch-preprocess (APPLE ONLY) @gol
 -fsigned-bitfields  -fsigned-char @gol
@@ -1430,6 +1432,12 @@ Allow conditional expressions with mismatched types in the second and
 third arguments.  The value of such an expression is void.  This option
 is not supported for C++.
 
+@c APPLE LOCAL begin nested functions 4357979
+@item -fno-nested-functions
+@opindex fno-nested-functions
+Disable nested functions.  This option is not supported for C++ or Objective-C++.
+@c APPLE LOCAL end nested functions 4357979
+
 @c APPLE LOCAL begin pch distcc --mrs
 @item -fpch-preprocess
 @opindex fpch-preprocess
@@ -1438,7 +1446,7 @@ Enable PCH processing even when @option{-E} or @option{-save-temps} is used.
 
 @c APPLE LOCAL begin non lvalue assign
 @item -fnon-lvalue-assign
-@item fnon-lvalue-assign
+@opindex fnon-lvalue-assign
 C and C++ forbid the use of casts and conditional expressions as lvalues, e.g.:
 
 @smallexample

@@ -702,6 +702,10 @@ C++ ObjC++ Joined
 fnew-abi
 C++ ObjC++
 
+fnested-functions
+C ObjC Var(flag_nested_functions)
+Allow nested functions.
+
 fnext-runtime
 ObjC ObjC++
 Generate code for NeXT (Apple Mac OS X) runtime environment

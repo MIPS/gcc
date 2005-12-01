@@ -1,4 +1,4 @@
-/* APPLE LOCAL file 4258406 */
+/* APPLE LOCAL file nested functions 4258406 */
 /* Nested functions are not supported on darwin.  */
 
 /* { dg-compile } */
