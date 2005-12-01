@@ -103,6 +103,7 @@ gfc_match_omp_variable_list (const char *str, gfc_namelist **list,
       switch (m)
 	{
 	case MATCH_YES:
+	  gfc_set_sym_referenced (sym);
 	  p = gfc_get_namelist ();
 	  if (head == NULL)
 	    head = tail = p;
@@ -136,6 +137,7 @@ gfc_match_omp_variable_list (const char *str, gfc_namelist **list,
 	}
       for (sym = st->n.common->head; sym; sym = sym->common_next)
 	{
+	  gfc_set_sym_referenced (sym);
 	  p = gfc_get_namelist ();
 	  if (head == NULL)
 	    head = tail = p;

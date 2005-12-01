@@ -5002,7 +5002,7 @@ static enum gimplify_status
 gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
 			      tree rhs, int index)
 {
-  tree oldval, oldival, newval, newival, label;
+  tree oldval, oldival, oldival2, newval, newival, label;
   tree type, itype, cmpxchg, args, x, iaddr;
 
   cmpxchg = built_in_decls[BUILT_IN_VAL_COMPARE_AND_SWAP_N + index + 1];
@@ -5044,6 +5044,8 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
       iaddr = fold_convert (build_pointer_type (itype), addr);
     }
 
+  oldival2 = create_tmp_var (itype, NULL);
+
   label = create_artificial_label ();
   x = build1 (LABEL_EXPR, void_type_node, label);
   gimplify_and_add (x, pre_p);
@@ -5057,6 +5059,9 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
       x = build2 (MODIFY_EXPR, void_type_node, newival, x);
       gimplify_and_add (x, pre_p);
     }
+
+  x = build2 (MODIFY_EXPR, void_type_node, oldival2, oldival);
+  gimplify_and_add (x, pre_p);
 
   args = tree_cons (NULL, fold_convert (itype, newival), NULL);
   args = tree_cons (NULL, fold_convert (itype, oldival), args);
@@ -5079,7 +5084,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
      floating point.  This allows the atomic operation to properly 
      succeed even with NaNs and -0.0.  */
   x = build3 (COND_EXPR, void_type_node,
-	      build2 (NE_EXPR, boolean_type_node, oldival, newival),
+	      build2 (NE_EXPR, boolean_type_node, oldival, oldival2),
 	      build1 (GOTO_EXPR, void_type_node, label), NULL);
   gimplify_and_add (x, pre_p);
 
