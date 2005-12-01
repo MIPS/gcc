@@ -2,8 +2,7 @@
 
 	* include/bits/basic_string.tcc (basic_string<>::_M_replace):
 	Perform _M_check_length at the beginning and remove it from ...
-	(append(size_type, _CharT), _M_replace_dispatch, _M_replace_aux,
-	assign): ... here.
+	(replace, _M_replace_dispatch, _M_replace_aux, assign): ... here.
 	(assign): Now move inline.
 	(resize): Don't call _M_check_length redundantly, append does.
 
