@@ -363,7 +363,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       begin()
-      { return iterator (this->_M_impl._M_start); }
+      { return iterator(this->_M_impl._M_start); }
 
       /**
        *  Returns a read-only (constant) iterator that points to the
@@ -372,7 +372,7 @@ namespace _GLIBCXX_STD
        */
       const_iterator
       begin() const
-      { return const_iterator (this->_M_impl._M_start); }
+      { return const_iterator(this->_M_impl._M_start); }
 
       /**
        *  Returns a read/write iterator that points one past the last
@@ -381,7 +381,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       end()
-      { return iterator (this->_M_impl._M_finish); }
+      { return iterator(this->_M_impl._M_finish); }
 
       /**
        *  Returns a read-only (constant) iterator that points one past
@@ -390,7 +390,7 @@ namespace _GLIBCXX_STD
        */
       const_iterator
       end() const
-      { return const_iterator (this->_M_impl._M_finish); }
+      { return const_iterator(this->_M_impl._M_finish); }
 
       /**
        *  Returns a read/write reverse iterator that points to the
@@ -432,7 +432,7 @@ namespace _GLIBCXX_STD
       /**  Returns the number of elements in the %vector.  */
       size_type
       size() const
-      { return size_type(end() - begin()); }
+      { return size_type(this->_M_impl._M_finish - this->_M_impl._M_start); }
 
       /**  Returns the size() of the largest possible %vector.  */
       size_type
@@ -454,7 +454,7 @@ namespace _GLIBCXX_STD
       resize(size_type __new_size, value_type __x = value_type())
       {
 	if (__new_size < size())
-	  _M_erase_at_end(begin() + __new_size);
+	  _M_erase_at_end(this->_M_impl._M_start + __new_size);
 	else
 	  insert(end(), __new_size - size(), __x);
       }
@@ -465,8 +465,8 @@ namespace _GLIBCXX_STD
        */
       size_type
       capacity() const
-      { return size_type(const_iterator(this->_M_impl._M_end_of_storage)
-			 - begin()); }
+      { return size_type(this->_M_impl._M_end_of_storage
+			 - this->_M_impl._M_start); }
 
       /**
        *  Returns true if the %vector is empty.  (Thus begin() would
@@ -510,7 +510,7 @@ namespace _GLIBCXX_STD
        */
       reference
       operator[](size_type __n)
-      { return *(begin() + __n); }
+      { return *(this->_M_impl._M_start + __n); }
 
       /**
        *  @brief  Subscript access to the data contained in the %vector.
@@ -525,7 +525,7 @@ namespace _GLIBCXX_STD
        */
       const_reference
       operator[](size_type __n) const
-      { return *(begin() + __n); }
+      { return *(this->_M_impl._M_start + __n); }
 
     protected:
       /// @if maint Safety check used only from at().  @endif
@@ -803,7 +803,7 @@ namespace _GLIBCXX_STD
        */
       void
       clear()
-      { _M_erase_at_end(begin()); }
+      { _M_erase_at_end(this->_M_impl._M_start); }
 
     protected:
       /**
@@ -999,11 +999,10 @@ namespace _GLIBCXX_STD
       // Called by erase(q1,q2), clear(), resize(), _M_fill_assign,
       // _M_assign_aux.
       void
-      _M_erase_at_end(iterator __pos)
+      _M_erase_at_end(pointer __pos)
       {
-	std::_Destroy(__pos.base(), this->_M_impl._M_finish,
-		      _M_get_Tp_allocator());
-	this->_M_impl._M_finish = __pos.base();
+	std::_Destroy(__pos, this->_M_impl._M_finish, _M_get_Tp_allocator());
+	this->_M_impl._M_finish = __pos;
       }
     };
 

@@ -1,5 +1,20 @@
 2005-12-01  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/stl_vector.h (vector<>::size, resize, capacity,
+	operator[]): Avoid troubles with ADL, user defined operators
+	and __normal_iterator.
+	(_M_erase_at_end): Fix to take a pointer.
+	(clear): Adjust call.
+	* include/bits/vector.tcc (vector<>::insert(iterator, const
+	value_type&), erase(iterator, iterator), operator=(const
+	vector<>&), _M_assign_aux(input_iterator_tag), _M_insert_aux,
+	_M_fill_insert, _M_range_insert): Likewise.
+	(_M_fill_assign, _M_assign_aux(forward_iterator_tag)): Adjust
+	_M_erase_at_end call.
+	* testsuite/23_containers/vector/types/1.cc: New.
+
+2005-12-01  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/bits/basic_string.h (insert(iterator, _CharT),
 	erase(iterator), erase(iterator, iterator)): Avoid troubles
 	with ADL, user defined operators and __normal_iterator.
