@@ -47,7 +47,7 @@ model_class_ref::resolve (resolution_scope *scope)
   if (global->get_compiler ()->feature_generics ())
     {
       model_type *boxed = klass->type ();
-      if (boxed->primitive_p ())
+      if (boxed->primitive_p () || boxed == primitive_void_type)
 	boxed = box_primitive_type (boxed);
       model_class *boxed_class = assert_cast<model_class *> (boxed);
 
