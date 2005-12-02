@@ -106,7 +106,7 @@ model_unit_source::look_up_name (const std::string &name,
 	  model_import *imp = (*i).second;
 	  resolve (&local_scope, imp);
 	  model_class *klass = imp->get_class_declaration ();
-	  if (accessible_p (klass, context))
+	  if (klass && accessible_p (klass, context))
 	    {
 	      imp->set_used ();
 	      result.insert (klass);
@@ -183,8 +183,8 @@ model_unit_source::look_up_name (const std::string &name,
 
 	  (*i)->resolve (&local_scope);
 	  (*i)->find_field (name, context, result);
-	  if (! result.empty ());
-	  return;
+	  if (! result.empty ())
+	    return;
 	}
     }
 }

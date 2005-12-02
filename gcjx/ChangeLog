@@ -1,5 +1,11 @@
 2005-12-01  Tom Tromey  <tromey@redhat.com>
 
+	* model/unit.cc (look_up_name): Handle case where static import
+	doesn't import a class.
+	(look_up_name): Fix typo.
+
+2005-12-01  Tom Tromey  <tromey@redhat.com>
+
 	* model/annotype.cc (element_compatible_p): Fixed assertion.
 
 2005-12-01  Tom Tromey  <tromey@redhat.com>
