@@ -24,14 +24,16 @@
 void
 model_variable_decl::resolve_classes (resolution_scope *scope)
 {
-  decltype->resolve (scope);
   resolve_annotation_classes (scope);
+  resolution_scope::push_warnings warn_holder (scope, this);
+  decltype->resolve (scope);
 }
 
 void
 model_variable_decl::resolve (resolution_scope *scope)
 {
   resolve_annotations (scope);
+  resolution_scope::push_warnings warn_holder (scope, this);
   decltype->resolve (scope);  // fixme redundant for fields...
   if (initializer)
     {

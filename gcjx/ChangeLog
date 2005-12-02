@@ -1,3 +1,10 @@
+2005-12-02  Tom Tromey  <tromey@redhat.com>
+
+	* model/field.cc (resolve_classes): Don't push warning scope.
+	* model/variable.cc (resolve_classes): Resolve annotations
+	first.  Push warning scope.
+	(resolve): Likewise.
+
 2005-12-01  Tom Tromey  <tromey@redhat.com>
 
 	* model/method.cc (method_conversion_p): Updated for new argument

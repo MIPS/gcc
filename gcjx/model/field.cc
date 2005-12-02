@@ -82,7 +82,6 @@ model_field::resolve_classes (resolution_scope *scope)
   if (state < CLASSES)
     {
       state = CLASSES;
-      resolution_scope::push_warnings warn_holder (scope, this);
       model_variable_decl::resolve_classes (scope);
     }
 }
@@ -134,9 +133,11 @@ model_field::resolve (resolution_scope *scope)
   if (state < RESOLVED)
     {
       state = RESOLVED;
-      resolution_scope::push_warnings warn_holder (scope, this);
       model_variable_decl::resolve (scope);
 
+      // Ideally this warning push would be done in
+      // model_variable_decl.
+      resolution_scope::push_warnings warn_holder (scope, this);
       if (scope->warn_bad_serialization_field ())
 	check_serialization_fields ();
     }
