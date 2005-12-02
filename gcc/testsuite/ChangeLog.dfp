@@ -1,3 +1,34 @@
+2005-12-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/func-scalar.c: Renamed (from arg-passing-1.c).
+	* gcc.dg/dfp/func-array.c: Renamed (from arg-passing-2.c).
+	* gcc.dg/dfp/func-struct.c: Renamed (from arg-passing-3.c).
+	* gcc.dg/dfp/func-mixed.c: Renamed (from arg-passing-4.c).
+	* gcc.dg/dfp/cast-bad.c: Renamed (from cast-1.c).
+	* gcc.dg/dfp/cast.c: Renamed (from cast-2.c).
+	* gcc.dg/dfp/compare-rel-d32.c: Renamed (from compare-1.c).
+	* gcc.dg/dfp/compare-rel-d64.c: Renamed (from compare-2.c).
+	* gcc.dg/dfp/compare-rel-d128.c: Renamed (from compare-3.c).
+	* gcc.dg/dfp/compare-rel-dfp.c: Renamed (from compare-4.c).
+	* gcc.dg/dfp/convert-complex.c: Renamed (from complex.c).
+	* gcc.dg/dfp/constants-hex.c: Renamed (from constants.c).
+	* gcc.dg/dfp/compare-rel-const.c: Renamed (from constants-compare.c).
+	* gcc.dg/dfp/convert-int.c: Renamed (from conversions-2.c).
+	* gcc.dg/dfp/convert-dfp.c: Renamed (from conversions-4.c).
+	* gcc.dg/dfp/convert-bfp.c: Renamed (from conversions-5.c).
+	* gcc.dg/dfp/convert-dfp-fold.c: Renamed (from conversions-6.c).
+	* gcc.dg/dfp/convert-bfp-fold.c: Renamed (from conversions-7.c).
+	* gcc.dg/dfp/convert-int-saturate.c: Renamed (from conversions-8.c).
+	* gcc.dg/dfp/convert-int-fold.c: Renamed (from conversions-9.c).
+	* gcc.dg/dfp/loop-index.c: Renamed (from loop.c).
+	* gcc.dg/dfp/operator-logical.c: Renamed (from operatorspec-1.c).
+	* gcc.dg/dfp/operator-bitwise.c: Renamed (from operatorspec-2.c).
+	* gcc.dg/dfp/operator-unary.c: Renamed (from operatorspec-3.c).
+	* gcc.dg/dfp/convert-dfp-round.c: Renamed (from round-conversions-1.c).
+	* gcc.dg/dfp/func-vararg-dfp.c: Renamed (from varargs-1.c).
+	* gcc.dg/dfp/func-vararg-mixed.c: Renamed (from varargs-2.c).
+	* gcc.dg/dfp/func-vararg-size0.c: Renamed (from varargs-3.c).
+
 2005-11-14  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Add -msoft-float.
