@@ -12,6 +12,16 @@
         sdot_prodv8qi, sdot_prodv4hi): New.
         (reduc_splus_v2sf): Rename from reduc_plus_v2sf.
 
+2005-09-14  Uros Bizjak  <uros@kss-loka.si>
+
+        PR middle-end/22480
+        * tree-vect-transform.c (vectorizable_operation): Return false for
+        scalar shift operations and for vector shift operations with
+        non-invariant shift arguments.  Use scalar tree operand op1 as
+        a shift operand when vector shift insn pattern uses scalar shift
+        operand.
+        * Makefile.in (tree-vect-transform.o): Depend on recog.h.
+
 2005-09-07  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* reload1.c (fixup_eh_region_note): Remove assertion.
