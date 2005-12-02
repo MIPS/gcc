@@ -24,6 +24,16 @@
 
 // U << V : U convertible to V by method invoc. conv.
 
+  // This is used to avoid memory leaks when creating temporary
+  // wildcards and other objects during unification.
+static std::list<ref_element> gcprolist;
+
+static void
+gcpro (const ref_element &elt)
+{
+  gcprolist.push_back (elt);
+}
+
 /// This class implements the type inference algorithm as explained in
 /// the JLS 3.  Names in this class are general chosen to follow the
 /// JLS.  Reading the text is strongly advised, this code is not
@@ -42,10 +52,6 @@ class unifier
 
   // The formal type parameters for the method.
   std::set<model_type_variable *> formal_type_params;
-
-  // This is used to avoid memory leaks when creating temporary
-  // wildcards and other objects during unification.
-  std::list<ref_element> gcpro;
 
   // Location we should use when creating things.
   // FIXME: a request element would be better.
@@ -198,7 +204,9 @@ class unifier
     std::list<model_class *> classes;
     classes.push_back (left);
     classes.push_back (right);
-    return new model_intersection_type (where, classes);
+    model_intersection_type *r = new model_intersection_type (where, classes);
+    gcpro (r);
+    return r;
   }
 
   // Compute the least containing type argument for a pair of classes.
@@ -243,8 +251,8 @@ class unifier
 	  new_bound = compute_glb (left, rbound);
 	else
 	  new_bound = compute_lub (left, rbound);
+	gcpro (new_bound);
 	result = new model_wildcard (where, new_bound, rw->super_p ());
-	gcpro.push_back (result);
       }
     else if (left == right)
       result = left;
@@ -252,8 +260,8 @@ class unifier
       {
 	model_class *lub = compute_lub (left, right);
 	result = new model_wildcard (where, lub);
-	gcpro.push_back (result);
       }
+    gcpro (result);
     return result;
   }
 
@@ -655,7 +663,7 @@ public:
   }
 
   void unify (const std::list<model_type *> &actual, model_method *method,
-	      model_type_map &result)
+	      model_type_map &result, bool is_varargs)
   {
     std::list<model_type *> formal;
     get_formal_argument_types (method, formal);
@@ -678,7 +686,7 @@ public:
 	else
 	  {
 	    ft = *fi++;
-	    if (method->varargs_p () && fi == formal.end ())
+	    if (is_varargs && method->varargs_p () && fi == formal.end ())
 	      {
 		// The type of the last formal argument must be an
 		// array type.  Every subsequent actual argument must
@@ -712,11 +720,12 @@ unify (const std::list<model_type *> &actual,
        model_method *method,
        model_type *declared_return_type,
        model_type *assignment_type,
-       model_type_map &result)
+       model_type_map &result,
+       bool is_varargs)
 {
   // FIXME: correct location.
   unifier u (method->get_location (), declared_return_type, assignment_type);
-  u.unify (actual, method, result);
+  u.unify (actual, method, result, is_varargs);
 }
 
 model_class *

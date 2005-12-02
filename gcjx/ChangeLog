@@ -1,5 +1,13 @@
 2005-12-01  Tom Tromey  <tromey@redhat.com>
 
+	* model/method.cc (method_conversion_p): Updated for new argument
+	to unify.
+	* unify.cc (unify): Added is_varargs argument.
+	(unifier::unify): Likewise.
+	* unify.hh (unify): Added is_varargs argument.
+
+2005-12-01  Tom Tromey  <tromey@redhat.com>
+
 	* model/new.hh (model_new_enum::enum_const): New field.
 	(model_new_enum): Added argument.
 	(model_new_enum::get_enum_constant): New method.

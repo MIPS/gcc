@@ -312,7 +312,8 @@ model_method::method_conversion_p (const std::list<model_type *> &args,
       model_type_map typeargs;
       // FIXME: error detection?
       // FIXME: pass in argument for varargs handling.
-      unify (args, this, return_type->type (), assign_type, typeargs);
+      unify (args, this, return_type->type (), assign_type, typeargs,
+	     phase == PHASE_3);
       return do_method_conversion_p (typeargs, args, phase);
     }
   return do_method_conversion_p (args, phase);

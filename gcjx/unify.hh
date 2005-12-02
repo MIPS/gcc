@@ -30,13 +30,15 @@
 /// of this method is converted by assignment conversion.  If no
 /// assignment conversion is performed, should be NULL.
 /// @param result the resulting actual argument types
+/// @param is_varargs true if varargs matching should be done
 /// FIXME: actual result type ... ?
 void
 unify (const std::list<model_type *> &actual,
        model_method *method,
        model_type *declared_return_type,
        model_type *assignment_type,
-       model_type_map &result);
+       model_type_map &result,
+       bool is_varargs);
 
 /// Compute the LUB of two classes.
 model_class *compute_lub (model_element *request, model_class *,
