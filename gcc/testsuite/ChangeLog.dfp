@@ -1,5 +1,11 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/keywords-c89.c: New test.
+	* gcc.dg/dfp/keywords-c99.c: New test.
+	* gcc.dg/dfp/keywords-ignored.c: New test.
+	* gcc.dg/dfp/keywords-pedantic.c: New test.
+	* gcc.dg/dfp/keywords-reserved.c: New test.
+
 	* gcc.dg/dfp/conversions-3.c: Delete; subsumed by other tests.
 	* gcc.dg/dfp/conversions-10.c: Delete; subsumed by other tests.
 
