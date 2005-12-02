@@ -1,5 +1,8 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/conversions-3.c: Delete; subsumed by other tests.
+	* gcc.dg/dfp/conversions-10.c: Delete; subsumed by other tests.
+
 	* gcc.dg/dfp/operator-bitwise.c: Formatting.
 	* gcc.dg/dfp/operator-logical.c: Formatting; remove assignment ops.
 	* gcc.dg/dfp/operator-unary.c: Formatting.
