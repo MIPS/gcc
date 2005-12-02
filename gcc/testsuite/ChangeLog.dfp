@@ -1,5 +1,10 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/operator-arith-fold.c: Update, merge with rounding.c
+	* gcc.dg/dfp/rounding.c: Remove.
+
+	* gcc.dg/dfp/operator-arith-fold.c: Renamed (from constants-arith-1.c).
+
 	* gcc.dg/dfp/loop-index.c: Expand.
 	* gcc.dg/dfp/constants-hex.c: Remove parts now in other tests.
 	* gcc.dg/dfp/constants-c99.c: New test.
