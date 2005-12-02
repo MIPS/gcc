@@ -1183,7 +1183,7 @@ place_field (record_layout_info rli, tree field)
       tree fsize = DECL_SIZE (field);
       tree tsize = TYPE_SIZE (TREE_TYPE (field));
       /* APPLE LOCAL begin bitfield reversal 4228294 */
-      TREE_FIELDS_REVERSED (rli->t) = 1;
+      TREE_FIELDS_REVERSED (field) = 1;
       /* APPLE LOCAL end bitfield reversal 4228294 */
       /* If we've gone into the next word, move "offset" forward and
 	 adjust "bitpos" to compensate.  */

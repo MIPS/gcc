@@ -3996,7 +3996,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
   /* APPLE LOCAL begin bitfield reversal 4228294 */
   if (TREE_CODE (type) == RECORD_TYPE)
     {
-      if (TREE_FIELDS_REVERSED (type))
+      if (TYPE_FIELDS (type) && TREE_FIELDS_REVERSED (TYPE_FIELDS (type)))
 	{
 	  /* If bitfields were reversed they will not be in ascending
 	     address order here, which confuses the code below.   Sort
@@ -4013,8 +4013,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 	      if (TREE_PURPOSE (head))
 		{
 		  HOST_WIDE_INT pos = int_bit_position (TREE_PURPOSE (head));
-		  /* Find next field that isn't a bitfield, or is after "head"
-		     in memory. */
+		  /* Find next field that is after "head" in memory. */
 		  last = head;
 		  afterlast = TREE_CHAIN (head);
 		  while (afterlast && TREE_PURPOSE (afterlast)

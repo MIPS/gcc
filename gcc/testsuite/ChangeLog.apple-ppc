@@ -1,3 +1,8 @@
+2005-12-01  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4350099
+	* gcc.apple/bitreverse-13.c:  New.
+
 2005-11-30  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4347034

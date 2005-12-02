@@ -1,3 +1,10 @@
+2005-12-01  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4350099
+	* stor-layout.c (place_field):  Keep TREE_FIELDS_REVERSED
+	in the field nodes, not the RECORD node.
+	* varasm.c (output_constructor):  Ditto.
+
 2005-12-01   Alan Modra  <amodra@bigpond.net.au>
 
 	Radar 4345871
