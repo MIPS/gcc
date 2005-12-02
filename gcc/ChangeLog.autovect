@@ -1,5 +1,9 @@
 2005-12-02  Richard Henderson  <rth@redhat.com>
 
+	* config/ia64/vect.md: Merge from mainline.
+
+2005-12-02  Richard Henderson  <rth@redhat.com>
+
 	* config/i386/sse.md (smulv8hi3_highpart): Rename from
 	sse2_smulv8hi3_highpart; use expander.
 	(umulv8hi3_highpart): Similarly from sse2_umulv8hi3_highpart.
