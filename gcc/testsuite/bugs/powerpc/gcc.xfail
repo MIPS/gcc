@@ -362,3 +362,6 @@
 4189611: gcc.misc-tests/i386-pf-none-1.c  -march=pentium2  scan-assembler-not fetch
 4218476: gcc.c-torture/execute/builtin-return-address-1.c execution,  -O3 -fomit-frame-pointer
 4241732: gcc.apple/asm-block-11.c (test for excess errors)
+4339874: gcc.dg/i386-3dnowA-1.c (test for excess errors)
+4339874: gcc.dg/i386-3dnowA-2.c (test for excess errors)
+4339874: gcc.target/i386/abi-1.c (test for excess errors)
