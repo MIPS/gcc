@@ -57,7 +57,13 @@ model_array_type::model_array_type (model_type *elt)
 
   model_method *clone = new model_method (LOCATION_UNKNOWN, this);
   clone->set_name ("clone");
-  clone->set_return_type (res_obj);
+  // If generics are enabled, then an array's clone method has the
+  // array type as its return type.
+  if (global->get_compiler ()->feature_generics ())
+    clone->set_return_type (new model_forwarding_resolved (LOCATION_UNKNOWN,
+							   this));
+  else
+    clone->set_return_type (res_obj);
   clone->set_modifiers (ACC_PUBLIC);
   add (ref_method (clone));
 }

@@ -1,5 +1,9 @@
 2005-12-02  Tom Tromey  <tromey@redhat.com>
 
+	* model/arraytype.cc (model_array_type): Make clone() covariant.
+
+2005-12-02  Tom Tromey  <tromey@redhat.com>
+
 	* model/field.cc (resolve_classes): Don't push warning scope.
 	* model/variable.cc (resolve_classes): Resolve annotations
 	first.  Push warning scope.
