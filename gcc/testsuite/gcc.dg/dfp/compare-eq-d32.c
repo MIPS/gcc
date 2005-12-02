@@ -4,11 +4,10 @@
 /* Basic test of runtime comparisons using simple values that are not
    affected by rounding.  */
 
-#define WIDTH 128
-#include "compare-rel.h"
+#define WIDTH 32
+#include "compare-eq.h"
 
-int
-main ()
+int main ()
 {
   test_compares ();
   return 0;

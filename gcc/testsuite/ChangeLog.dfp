@@ -1,5 +1,19 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/compare-rel.h: Remove equality tests, comparisons
+	with other types.
+	* gcc.dg/dfp/compare-rel-dfp.c: Ditto.
+	* gcc.dg/dfp/compare-rel-d32.c: Use -O0, rename include file.
+	* gcc.dg/dfp/compare-rel-d64.c:  Use -O0, rename include file.
+	* gcc.dg/dfp/compare-rel-d128.c: Use -O0, rename include file.
+	* gcc.dg/dfp/compare-rel-const.c: Ditto.
+	* gcc.dg/dfp/compare-eq.h: New file.
+	* gcc.dg/dfp/compare-eq-d32.c: New file.
+	* gcc.dg/dfp/compare-eq-d64.c: New file.
+	* gcc.dg/dfp/compare-eq-d128.c: New file.
+	* gcc.dg/dfp/compare-eq-dfp.c: New file.
+	* gcc.dg/dfp/compare-eq-const.c: New file.
+
 	* gcc.dg/dfp/func-scalar.c: Renamed (from arg-passing-1.c).
 	* gcc.dg/dfp/func-array.c: Renamed (from arg-passing-2.c).
 	* gcc.dg/dfp/func-struct.c: Renamed (from arg-passing-3.c).

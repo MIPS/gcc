@@ -1,5 +1,5 @@
-/* Basic test of runtime comparisons using simple values that are not
-   affected by rounding.  */
+/* Basic test of runtime relational comparisons using simple values that
+   are not affected by rounding.  */
 
 #include <stdlib.h>
 
@@ -50,26 +50,6 @@ test_compares (void)
   DTYPE x = one;
   DTYPE y = zero;
   DTYPE z = m_one;
-
-  /* Equal to: comparisons against equal values.  */
-
-  if (! (x == one))   FAILURE ("==", "equal")
-  if (! (y == zero))  FAILURE ("==", "equal")
-  if (! (z == m_one)) FAILURE ("==", "equal")
-
-  /* Equal to: comparisons against lesser values.  */
-
-  if (x == m_one)     FAILURE ("==", "lesser")
-  if (x == zero)      FAILURE ("==", "lesser")
-  if (y == m_one)     FAILURE ("==", "lesser")
-  if (z == m_two)     FAILURE ("==", "lesser")
-
-  /* Equal to: comparisons against greater values.  */
-
-  if (x == two)       FAILURE ("==", "greater")
-  if (y == one)       FAILURE ("==", "greater")
-  if (z == zero)      FAILURE ("==", "greater")
-  if (z == one)       FAILURE ("==", "greater")
 
   /* Less than or equal to: comparisons against equal values.  */
 
@@ -150,26 +130,6 @@ test_compares (void)
   if (y > one)        FAILURE (">", "greater")
   if (z > zero)       FAILURE (">", "greater")
   if (z > one)        FAILURE (">", "greater")
-
-  /* Not equal to: comparisons against equal values.  */
-
-  if (x != one)        FAILURE ("!=", "equal")
-  if (y != zero)       FAILURE ("!=", "equal")
-  if (z != m_one)      FAILURE ("!=", "equal")
-
-  /* Not equal to: comparisons against lesser values.  */
-
-  if (! (x != m_one))  FAILURE ("!=", "lesser")
-  if (! (x != zero))   FAILURE ("!=", "lesser")
-  if (! (y != m_one))  FAILURE ("!=", "lesser")
-  if (! (z != m_two))  FAILURE ("!=", "lesser")
-
-  /* Not equal to: comparisons against greater values.  */
-
-  if (! (x != m_one)) FAILURE ("!=", "greater")
-  if (! (x != zero))  FAILURE ("!=", "greater")
-  if (! (y != m_one)) FAILURE ("!=", "greater")
-  if (! (z != m_two)) FAILURE ("!=", "greater")
 
   if (failcnt)
     abort ();

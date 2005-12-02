@@ -42,14 +42,14 @@ inits (void)
 void
 compare_dfp (void)
 {
-  if ((d32 > d64) != 0) FAILURE
-  if ((d32 >= d128b) != 1) FAILURE
+  if ((d32 == d64) != 0) FAILURE
+  if ((d32 != d128b) != 1) FAILURE
 
-  if ((d64 < d32) != 0) FAILURE
-  if ((d64 <= d128) != 1) FAILURE
+  if ((d64 != d32) != 1) FAILURE
+  if ((d64 == d128) != 0) FAILURE
 
-  if ((d128 > d32) != 1) FAILURE
-  if ((d128 >= d64) != 1) FAILURE
+  if ((d128 != d32) != 1) FAILURE
+  if ((d128 == d64) != 0) FAILURE
 }
 
 int

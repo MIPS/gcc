@@ -5,10 +5,9 @@
    affected by rounding.  */
 
 #define WIDTH 128
-#include "compare-rel.h"
+#include "compare-eq.h"
 
-int
-main ()
+int main ()
 {
   test_compares ();
   return 0;

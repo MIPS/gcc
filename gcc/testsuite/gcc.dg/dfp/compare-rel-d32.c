@@ -1,13 +1,14 @@
 /* { dg-do run } */
-/* { dg-options "-std=gnu99" } */
+/* { dg-options "-std=gnu99 -O0" } */
 
 /* Basic test of runtime comparisons using simple values that are not
    affected by rounding.  */
 
 #define WIDTH 32
-#include "compare.h"
+#include "compare-rel.h"
 
-int main ()
+int
+main ()
 {
   test_compares ();
   return 0;
