@@ -573,7 +573,8 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      append(const basic_string& __str);
+      append(const basic_string& __str)
+      { return _M_append(__str._M_data(), __str.size()); }
 
       /**
        *  @brief  Append a substring.
@@ -588,7 +589,10 @@ namespace std
        *  characters in @a str, the remainder of @a str is appended.
        */
       basic_string&
-      append(const basic_string& __str, size_type __pos, size_type __n);
+      append(const basic_string& __str, size_type __pos, size_type __n)
+      { return _M_append(__str._M_data()
+			 + __str._M_check(__pos, "basic_string::append"),
+			 __str._M_limit(__pos, __n)); }
 
       /**
        *  @brief  Append a C substring.
@@ -597,7 +601,12 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      append(const _CharT* __s, size_type __n);
+      append(const _CharT* __s, size_type __n)
+      {
+	__glibcxx_requires_string_len(__s, __n);
+	_M_check_length(size_type(0), __n, "basic_string::append");
+	return _M_append(__s, __n);
+      }
 
       /**
        *  @brief  Append a C string.
@@ -608,7 +617,9 @@ namespace std
       append(const _CharT* __s)
       {
 	__glibcxx_requires_string(__s);
-	return this->append(__s, traits_type::length(__s));
+	const size_type __n = traits_type::length(__s);
+	_M_check_length(size_type(0), __n, "basic_string::append");
+	return _M_append(__s, __n);
       }
 
       /**
@@ -620,7 +631,8 @@ namespace std
        *  Appends n copies of c to this string.
        */
       basic_string&
-      append(size_type __n, _CharT __c);
+      append(size_type __n, _CharT __c)
+      { return _M_replace_aux(this->size(), size_type(0), __n, __c); }
 
       /**
        *  @brief  Append a range of characters.
@@ -675,9 +687,9 @@ namespace std
        */
       basic_string&
       assign(const basic_string& __str, size_type __pos, size_type __n)
-      { return this->assign(__str._M_data()
-			    + __str._M_check(__pos, "basic_string::assign"),
-			    __str._M_limit(__pos, __n)); }
+      { return _M_replace(size_type(0), this->size(), __str._M_data()
+			  + __str._M_check(__pos, "basic_string::assign"),
+			  __str._M_limit(__pos, __n)); }
 
       /**
        *  @brief  Set value to a C substring.
@@ -709,7 +721,8 @@ namespace std
       assign(const _CharT* __s)
       {
 	__glibcxx_requires_string(__s);
-	return this->assign(__s, traits_type::length(__s));
+	return _M_replace(size_type(0), this->size(), __s,
+			  traits_type::length(__s));
       }
 
       /**
@@ -1022,7 +1035,12 @@ namespace std
       */
       basic_string&
       replace(size_type __pos, size_type __n1, const _CharT* __s,
-	      size_type __n2);
+	      size_type __n2)
+      {
+	__glibcxx_requires_string_len(__s, __n2);
+	return _M_replace(_M_check(__pos, "basic_string::replace"),
+			  _M_limit(__pos, __n1), __s, __n2);
+      }
 
       /**
        *  @brief  Replace characters with value of a C string.
@@ -1237,6 +1255,9 @@ namespace std
       basic_string&
       _M_replace(size_type __pos, size_type __len1, const _CharT* __s,
 		 const size_type __len2);
+
+      basic_string&
+      _M_append(const _CharT* __s, size_type __n);
 
     public:
 

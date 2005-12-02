@@ -67,99 +67,6 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
-    append(size_type __n, _CharT __c)
-    {
-      if (__n)
-	{
-	  _M_check_length(size_type(0), __n, "basic_string::append");	  
-	  const size_type __len = __n + this->size();
-	  if (__len > this->capacity() || this->_M_is_shared())
-	    this->_M_reserve(__len);
-	  this->_S_assign(this->_M_data() + this->size(), __n, __c);
-	  this->_M_set_length(__len);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
-    append(const _CharT* __s, size_type __n)
-    {
-      __glibcxx_requires_string_len(__s, __n);
-      if (__n)
-	{
-	  _M_check_length(size_type(0), __n, "basic_string::append");
-	  const size_type __len = __n + this->size();
-	  if (__len > this->capacity() || this->_M_is_shared())
-	    {
-	      if (this->_M_disjunct(__s))
-		this->_M_reserve(__len);
-	      else
-		{
-		  const size_type __off = __s - this->_M_data();
-		  this->_M_reserve(__len);
-		  __s = this->_M_data() + __off;
-		}
-	    }
-	  this->_S_copy(this->_M_data() + this->size(), __s, __n);
-	  this->_M_set_length(__len);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
-    append(const basic_string& __str)
-    {
-      const size_type __size = __str.size();
-      if (__size)
-	{
-	  const size_type __len = __size + this->size();
-	  if (__len > this->capacity() || this->_M_is_shared())
-	    this->_M_reserve(__len);
-	  this->_S_copy(this->_M_data() + this->size(), __str._M_data(),
-			__size);
-	  this->_M_set_length(__len);
-	}
-      return *this;
-    }    
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
-    append(const basic_string& __str, size_type __pos, size_type __n)
-    {
-      __str._M_check(__pos, "basic_string::append");
-      __n = __str._M_limit(__pos, __n);
-      if (__n)
-	{
-	  const size_type __len = __n + this->size();
-	  if (__len > this->capacity() || this->_M_is_shared())
-	    this->_M_reserve(__len);
-	  this->_S_copy(this->_M_data() + this->size(),
-			__str._M_data() + __pos, __n);
-	  this->_M_set_length(__len);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_string<_CharT, _Traits, _Alloc>&
-    basic_string<_CharT, _Traits, _Alloc>::
-    replace(size_type __pos, size_type __n1, const _CharT* __s,
-	    size_type __n2)
-    {
-      __glibcxx_requires_string_len(__s, __n2);
-      _M_check(__pos, "basic_string::replace");
-      __n1 = _M_limit(__pos, __n1);
-      return _M_replace(__pos, __n1, __s, __n2);
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
     void
     basic_string<_CharT, _Traits, _Alloc>::
     resize(size_type __n, _CharT __c)
@@ -169,6 +76,25 @@ namespace std
 	this->append(__n - __size, __c);
       else if (__n < __size)
 	this->_M_erase(__n, __size - __n);
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_append(const _CharT* __s, size_type __n)
+    {
+      const size_type __len = __n + this->size();
+
+      if (__len <= this->capacity() && !this->_M_is_shared())
+	{
+	  if (__n)
+	    this->_S_copy(this->_M_data() + this->size(), __s, __n);
+	}
+      else
+	this->_M_mutate(this->size(), size_type(0), __s, __n);
+
+      this->_M_set_length(__len);
+      return *this;
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -190,9 +116,26 @@ namespace std
     _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
 		   _CharT __c)
     {
-      _M_replace(__pos1, __n1, 0, __n2);
+      _M_check_length(__n1, __n2, "basic_string::_M_replace_aux");
+
+      const size_type __old_size = this->size();
+      const size_type __new_size = __old_size + __n2 - __n1;
+
+      if (__new_size <= this->capacity() && !this->_M_is_shared())
+	{
+	  _CharT* __p = this->_M_data() + __pos1;
+
+	  const size_type __how_much = __old_size - __pos1 - __n1;
+	  if (__how_much && __n1 != __n2)
+	    this->_S_move(__p + __n2, __p + __n1, __how_much);
+	}
+      else
+	this->_M_mutate(__pos1, __n1, 0, __n2);
+
       if (__n2)
 	this->_S_assign(this->_M_data() + __pos1, __n2, __c);
+
+      this->_M_set_length(__new_size);
       return *this;
     }
 
@@ -206,45 +149,41 @@ namespace std
 
       const size_type __old_size = this->size();
       const size_type __new_size = __old_size + __len2 - __len1;
-      const size_type __how_much = __old_size - __pos - __len1;
       
       if (__new_size <= this->capacity() && !this->_M_is_shared())
 	{
 	  _CharT* __p = this->_M_data() + __pos;
-	  if (__s)
+
+	  const size_type __how_much = __old_size - __pos - __len1;
+	  if (_M_disjunct(__s))
 	    {
-	      if (_M_disjunct(__s))
+	      if (__how_much && __len1 != __len2)
+		this->_S_move(__p + __len2, __p + __len1, __how_much);
+	      if (__len2)
+		this->_S_copy(__p, __s, __len2);
+	    }
+	  else
+	    {
+	      // Work in-place.
+	      if (__len2 && __len2 <= __len1)
+		this->_S_move(__p, __s, __len2);
+	      if (__how_much && __len1 != __len2)
+		this->_S_move(__p + __len2, __p + __len1, __how_much);
+	      if (__len2 > __len1)
 		{
-		  if (__how_much && __len1 != __len2)
-		    this->_S_move(__p + __len2, __p + __len1, __how_much);
-		  if (__len2)
-		    this->_S_copy(__p, __s, __len2);
-		}
-	      else
-		{
-		  // Work in-place.
-		  if (__len2 && __len2 <= __len1)
+		  if (__s + __len2 <= __p + __len1)
 		    this->_S_move(__p, __s, __len2);
-		  if (__how_much && __len1 != __len2)
-		    this->_S_move(__p + __len2, __p + __len1, __how_much);
-		  if (__len2 > __len1)
+		  else if (__s >= __p + __len1)
+		    this->_S_copy(__p, __s + __len2 - __len1, __len2);
+		  else
 		    {
-		      if (__s + __len2 <= __p + __len1)
-			this->_S_move(__p, __s, __len2);
-		      else if (__s >= __p + __len1)
-			this->_S_copy(__p, __s + __len2 - __len1, __len2);
-		      else
-			{
-			  const size_type __nleft = (__p + __len1) - __s;
-			  this->_S_move(__p, __s, __nleft);
-			  this->_S_copy(__p + __nleft, __p + __len2,
-					__len2 - __nleft);
-			}
+		      const size_type __nleft = (__p + __len1) - __s;
+		      this->_S_move(__p, __s, __nleft);
+		      this->_S_copy(__p + __nleft, __p + __len2,
+				    __len2 - __nleft);
 		    }
 		}
 	    }
-	  else if (__how_much && __len1 != __len2)
-	    this->_S_move(__p + __len2, __p + __len1, __how_much);
 	}
       else
 	this->_M_mutate(__pos, __len1, __s, __len2);

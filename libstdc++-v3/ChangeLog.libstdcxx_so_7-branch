@@ -1,3 +1,18 @@
+2005-12-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (basic_string<>::_M_append): New.
+	(append(const basic_string&), append(const basic_string&,
+	size_type, size_type), append(const _CharT*, size_type),
+	append(const _CharT*)): Use it.
+	(append(size_type, _CharT)): Delegate to _M_replace_aux.
+	(assign(const basic_string&, size_type, size_type),
+	assign(const _CharT*), replace(size_type, size_type,
+	const _CharT*, size_type)): Forward to _M_replace.
+	* include/bits/basic_string.tcc (basic_string<>::_M_append):
+	Define, core append functionality.
+	(_M_replace): Simplify, move __s == 0 case to _M_replace_aux.
+	(_M_replace_aux): Reorganize, don't call _M_replace.
+
 2005-12-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.tcc (basic_string<>::_M_replace):
