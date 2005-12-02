@@ -1,3 +1,10 @@
+2005-12-02  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/sse.md (smulv8hi3_highpart): Rename from
+	sse2_smulv8hi3_highpart; use expander.
+	(umulv8hi3_highpart): Similarly from sse2_umulv8hi3_highpart.
+        * config/i386/i386.c (bdesc_2arg): Update.
+
 2005-12-02  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* targhooks.c (interleave_vectorize_builtin_extract_evenodd): Add

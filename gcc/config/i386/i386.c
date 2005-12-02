@@ -14023,7 +14023,7 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_MMX, CODE_FOR_sse2_ussubv8hi3, "__builtin_ia32_psubusw128", IX86_BUILTIN_PSUBUSW128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_mulv8hi3, "__builtin_ia32_pmullw128", IX86_BUILTIN_PMULLW128, 0, 0 },
-  { MASK_SSE2, CODE_FOR_sse2_smulv8hi3_highpart, "__builtin_ia32_pmulhw128", IX86_BUILTIN_PMULHW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_smulv8hi3_highpart, "__builtin_ia32_pmulhw128", IX86_BUILTIN_PMULHW128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_andv2di3, "__builtin_ia32_pand128", IX86_BUILTIN_PAND128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_nandv2di3, "__builtin_ia32_pandn128", IX86_BUILTIN_PANDN128, 0, 0 },
@@ -14058,7 +14058,7 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_vec_pack_ssat_v4si, "__builtin_ia32_packssdw128", IX86_BUILTIN_PACKSSDW128, 0, 0 },
   { MASK_SSE2, CODE_FOR_vec_pack_usat_v8qi, "__builtin_ia32_packuswb128", IX86_BUILTIN_PACKUSWB128, 0, 0 },
 
-  { MASK_SSE2, CODE_FOR_sse2_umulv8hi3_highpart, "__builtin_ia32_pmulhuw128", IX86_BUILTIN_PMULHUW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_umulv8hi3_highpart, "__builtin_ia32_pmulhuw128", IX86_BUILTIN_PMULHUW128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_psadbw, 0, IX86_BUILTIN_PSADBW128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_sse2_umulsidi3, 0, IX86_BUILTIN_PMULUDQ, 0, 0 },

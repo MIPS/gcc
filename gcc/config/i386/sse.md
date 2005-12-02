@@ -2575,7 +2575,20 @@
   [(set_attr "type" "sseimul")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_smulv8hi3_highpart"
+(define_expand "smulv8hi3_highpart"
+  [(set (match_operand:V8HI 0 "register_operand" "")
+	(truncate:V8HI
+	  (lshiftrt:V8SI
+	    (mult:V8SI
+	      (sign_extend:V8SI
+		(match_operand:V8HI 1 "nonimmediate_operand" ""))
+	      (sign_extend:V8SI
+		(match_operand:V8HI 2 "nonimmediate_operand" "")))
+	    (const_int 16))))]
+  "TARGET_SSE2"
+  "ix86_fixup_binary_operands_no_copy (MULT, V8HImode, operands);")
+
+(define_insn "*smulv8hi3_highpart"
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(truncate:V8HI
 	  (lshiftrt:V8SI
@@ -2590,7 +2603,20 @@
   [(set_attr "type" "sseimul")
    (set_attr "mode" "TI")])
 
-(define_insn "sse2_umulv8hi3_highpart"
+(define_expand "umulv8hi3_highpart"
+  [(set (match_operand:V8HI 0 "register_operand" "")
+	(truncate:V8HI
+	  (lshiftrt:V8SI
+	    (mult:V8SI
+	      (zero_extend:V8SI
+		(match_operand:V8HI 1 "nonimmediate_operand" ""))
+	      (zero_extend:V8SI
+		(match_operand:V8HI 2 "nonimmediate_operand" "")))
+	    (const_int 16))))]
+  "TARGET_SSE2"
+  "ix86_fixup_binary_operands_no_copy (MULT, V8HImode, operands);")
+
+(define_insn "*umulv8hi3_highpart"
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(truncate:V8HI
 	  (lshiftrt:V8SI
@@ -2762,7 +2788,7 @@
   dest = gen_lowpart (V8HImode, operands[0]);
 
   emit_insn (gen_mulv8hi3 (t1, op1, op2));
-  emit_insn (gen_sse2_smulv8hi3_highpart (t2, op1, op2));
+  emit_insn (gen_smulv8hi3_highpart (t2, op1, op2));
   emit_insn (gen_vec_interleave_highv8hi (dest, t1, t2));
   DONE;
 })
@@ -2782,7 +2808,7 @@
   dest = gen_lowpart (V8HImode, operands[0]);
 
   emit_insn (gen_mulv8hi3 (t1, op1, op2));
-  emit_insn (gen_sse2_smulv8hi3_highpart (t2, op1, op2));
+  emit_insn (gen_smulv8hi3_highpart (t2, op1, op2));
   emit_insn (gen_vec_interleave_lowv8hi (dest, t1, t2));
   DONE;
 })
@@ -2802,7 +2828,7 @@
   dest = gen_lowpart (V8HImode, operands[0]);
 
   emit_insn (gen_mulv8hi3 (t1, op1, op2));
-  emit_insn (gen_sse2_umulv8hi3_highpart (t2, op1, op2));
+  emit_insn (gen_umulv8hi3_highpart (t2, op1, op2));
   emit_insn (gen_vec_interleave_highv8hi (dest, t1, t2));
   DONE;
 })
@@ -2822,7 +2848,7 @@
   dest = gen_lowpart (V8HImode, operands[0]);
 
   emit_insn (gen_mulv8hi3 (t1, op1, op2));
-  emit_insn (gen_sse2_umulv8hi3_highpart (t2, op1, op2));
+  emit_insn (gen_umulv8hi3_highpart (t2, op1, op2));
   emit_insn (gen_vec_interleave_lowv8hi (dest, t1, t2));
   DONE;
 })
