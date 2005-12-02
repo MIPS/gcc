@@ -88,7 +88,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 	All of the bits of its representation are significant.
 
      DECIMAL FLOAT_MODE (MODE, BYTESIZE);
-        declares MODE to be of class DECIMAL_FLOAT and BYTESIZE bytes
+	declares MODE to be of class DECIMAL_FLOAT and BYTESIZE bytes
 	wide.  All of the bits of its representation are significant.
 
      FRACTIONAL_FLOAT_MODE (MODE, PRECISION, BYTESIZE, FORMAT);
