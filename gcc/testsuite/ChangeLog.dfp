@@ -1,5 +1,13 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/func-scalar.c: Don't use assert, use global vars.
+	* gcc.dg/dfp/func-array.c: Ditto.
+	* gcc.dg/dfp/func-struct.c: Ditto.
+	* gcc.dg/dfp/func-mixed.c: Ditto.
+	* gcc.dg/dfp/func-vararg-dfp.c: Ditto.
+	* gcc.dg/dfp/func-vararg-mixed.c: Ditto.
+	* gcc.dg/dfp/func-vararg-size0.c: Minor cleanup.
+
 	* gcc.dg/dfp/compare-rel.h: Remove equality tests, comparisons
 	with other types.
 	* gcc.dg/dfp/compare-rel-dfp.c: Ditto.

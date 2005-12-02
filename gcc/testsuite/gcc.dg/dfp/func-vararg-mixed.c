@@ -4,11 +4,12 @@
 /* Test passing varargs of the combination of decimal float types and
    other types.  Not discussed in N1107, but still necessary.  */
 
-#include <assert.h>
 #include <stdarg.h>
 
+extern void abort (void);
+
 /* Supposing the list of varying number of arguments is:
-   unsigned int, _Decimal128, doulbe, _Decimal32, _Decimal64.  */
+   unsigned int, _Decimal128, double, _Decimal32, _Decimal64.  */
 
 static _Decimal32
 vararg_d32 (unsigned arg, ...)
@@ -91,13 +92,14 @@ vararg_double (unsigned arg, ...)
 }
 
 
-int main ()
+int
+main ()
 {
-  assert (vararg_d32 (3, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 3.0df);
-  assert (vararg_d64 (4, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 4.0dd);
-  assert (vararg_d128 (1, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 1.0dl);
-  assert (vararg_int (0, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 0);
-  assert (vararg_double (2, 0, 1.0dl, 2.0, 3.0df, 4.0dd) == 2.0);
+  if (vararg_d32 (3, 0, 1.0dl, 2.0, 3.0df, 4.0dd) != 3.0df) abort ();
+  if (vararg_d64 (4, 0, 1.0dl, 2.0, 3.0df, 4.0dd) != 4.0dd) abort ();
+  if (vararg_d128 (1, 0, 1.0dl, 2.0, 3.0df, 4.0dd) != 1.0dl) abort ();
+  if (vararg_int (0, 0, 1.0dl, 2.0, 3.0df, 4.0dd) != 0) abort ();
+  if (vararg_double (2, 0, 1.0dl, 2.0, 3.0df, 4.0dd) != 2.0) abort ();
 
   return 0;
 }

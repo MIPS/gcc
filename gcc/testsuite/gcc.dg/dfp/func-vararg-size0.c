@@ -30,7 +30,8 @@ int check_var(int z,...)
 
 }
 
-int main ()
+int
+main ()
 {
   struct S1 s1;
   struct S1 a1[5];
