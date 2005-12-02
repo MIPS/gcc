@@ -22,6 +22,28 @@
 #include "typedefs.hh"
 
 void
+model_memberref_base::resolve_as_enum_constant (resolution_scope *scope,
+						model_class *klass,
+						const std::string &field_name)
+{
+  std::set<model_field *> result;
+  klass->find_members (field_name, result, scope->get_current_class (), NULL);
+  if (result.empty ())
+    throw error ("no %<enum%> constant named %1 in %2")
+      % field_name % klass;
+  else if (result.size () > 1)
+    throw error ("ambiguous reference to %<enum%> constant named %1 in %2")
+      % field_name % klass;
+
+  ref_field_ref rf = new model_field_ref (get_location ());
+  rf->set_field (field_name);
+  rf->set_field (*(result.begin ()));
+
+  real = rf;
+  set_type (klass);
+}
+
+void
 model_memberref_forward::resolve (resolution_scope *scope)
 {
   if (is_call)
@@ -56,6 +78,17 @@ model_memberref_forward::resolve (resolution_scope *scope)
 }
 
 void
+model_memberref_forward::resolve_as_enum_constant (resolution_scope *scope,
+						   model_enum *enum_class)
+{
+  if (is_call || ids.size () != 1)
+    throw error ("%<enum%> case expression must be an identifier");
+  assert (type_parameters.empty ());
+  model_memberref_base::resolve_as_enum_constant (scope, enum_class,
+						  ids.back ());
+}
+
+void
 model_memberref_enum::resolve (resolution_scope *scope)
 {
   base_type->resolve (scope);
@@ -63,21 +96,7 @@ model_memberref_enum::resolve (resolution_scope *scope)
     throw error ("type %1 not an %<enum%>") % base_type->type ();
 
   model_class *klass = assert_cast<model_class *> (base_type->type ());
-  std::set<model_field *> result;
-  klass->find_members (field_name, result, scope->get_current_class (), NULL);
-  if (result.empty ())
-    throw error ("no %<enum%> constant named %1 in %2")
-      % field_name % klass;
-  else if (result.size () > 1)
-    throw error ("ambiguous reference to %<enum%> constant named %1 in %2")
-      % field_name % klass;
-
-  ref_field_ref rf = new model_field_ref (get_location ());
-  rf->set_field (field_name);
-  rf->set_field (*(result.begin ()));
-
-  real = rf;
-  set_type (klass);
+  resolve_as_enum_constant (scope, klass, field_name);
 }
 
 void

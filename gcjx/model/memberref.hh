@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_MEMBERREF_HH
 #define GCJX_MODEL_MEMBERREF_HH
 
+class model_enum;
+
 /// The base class for all kinds of deferred member references.
 class model_memberref_base : public model_expression
 {
@@ -34,6 +36,10 @@ protected:
     : model_expression (w)
   {
   }
+
+  /// This is a helper method used by the subclasses.
+  void resolve_as_enum_constant (resolution_scope *, model_class *,
+				 const std::string &);
 
 public:
 
@@ -119,6 +125,11 @@ public:
   }
 
   void resolve (resolution_scope *);
+
+  /// This is like resolve, but is used in the special case of an
+  /// identifier that is in a 'case' of a switch whose expression has
+  /// enum type.
+  void resolve_as_enum_constant (resolution_scope *, model_enum *);
 
   void visit (visitor *v)
   {

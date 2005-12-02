@@ -1,5 +1,16 @@
 2005-12-02  Tom Tromey  <tromey@redhat.com>
 
+	* model/memberref.cc (resolve_as_enum_constant): New methods.
+	(resolve): Use it.
+	* model/memberref.hh
+	(model_memberref_forward::resolve_as_enum_constant): Declare.
+	(model_memberref_base::resolve_as_enum_constant): Declare.
+	* model/switch.hh (model_switch_block::resolve_as_enum_constant):
+	Declare.
+	* model/switch.cc (resolve_as_enum_constant): New method.
+
+2005-12-02  Tom Tromey  <tromey@redhat.com>
+
 	* model/arraytype.cc (model_array_type): Make clone() covariant.
 
 2005-12-02  Tom Tromey  <tromey@redhat.com>

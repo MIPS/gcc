@@ -28,6 +28,24 @@ model_switch_block::visit (visitor *v)
 }
 
 void
+model_switch_block::resolve_as_enum_constant (resolution_scope *scope,
+					      model_type *sw_type,
+					      model_expression *expr)
+{
+  model_enum *switch_type = assert_cast<model_enum *> (sw_type);
+
+  // An case which is an enum constant must be a single identifier.
+  // It is looked up in the type of the switch expression (though this
+  // is not explicitly documented in the JLS).  FIXME: here we have
+  // unwarranted knowledge of what the parser generates.
+  model_memberref_forward *fwd_expr
+    = dynamic_cast<model_memberref_forward *> (expr);
+  if (fwd_expr == NULL)
+    throw expr->error ("%<enum%> case expression must be identifier");
+  fwd_expr->resolve_as_enum_constant (scope, switch_type);
+}
+
+void
 model_switch_block::resolve (resolution_scope *scope,
 			     model_type *switch_type,
 			     std::map<jint, model_expression *> &seen,
@@ -40,7 +58,10 @@ model_switch_block::resolve (resolution_scope *scope,
        i != labels.end ();
        ++i)
     {
-      (*i)->resolve (scope);
+      if (switch_type->enum_p ())
+	resolve_as_enum_constant (scope, switch_type, (*i).get ());
+      else
+	(*i)->resolve (scope);
       if (assignment_conversion (switch_type, (*i).get ()) == NULL)
 	throw error ("case expression not assignable to switch type");
 

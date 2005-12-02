@@ -38,6 +38,9 @@ class model_switch_block : public model_element
   // True if we can complete normally.
   watch<bool> normal_completion;
 
+  void resolve_as_enum_constant (resolution_scope *, model_type *,
+				 model_expression *);
+
 public:
 
   model_switch_block (const location &w)
