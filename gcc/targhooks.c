@@ -450,6 +450,19 @@ interleave_vectorize_builtin_extract_evenodd (tree dest, tree vec1,
   block_stmt_iterator bsi;
   tree th, tl, result, x;
 
+  /* If the first argument is a type, just check if support
+     is available. Return a non NULL value if supported, NULL_TREE otherwise.
+   */
+  if (TYPE_P (dest))
+    {
+      mode = TYPE_MODE (dest);
+      if (vec_interleave_high_optab->handlers[mode].insn_code == CODE_FOR_nothing
+          || vec_interleave_low_optab->handlers[mode].insn_code == CODE_FOR_nothing)
+        return NULL;
+      else
+        return dest;
+    }
+
   type = TREE_TYPE (dest);
   mode = TYPE_MODE (type);
 
