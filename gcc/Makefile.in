@@ -97,9 +97,7 @@ endif
 # --------
 
 # Directory where sources are, from where we are.
-# FIXME: this is rather gross, but it lets us get the files relocated
-#        with a minimum of fuss.
-VPATH = @srcdir@ @srcdir@/../libdecnumber
+VPATH = @srcdir@
 
 # We define a vpath for the sources of the .texi files here because they
 # are split between multiple directories and we would rather use one implicit
@@ -991,8 +989,7 @@ OBJS-common = \
  targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o		   \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
- tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o decNumber.o		   \
- decUtility.o decimal128.o decimal64.o decimal32.o decContext.o dfp.o       \
+ tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o    			   \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
  tree-ssa-structalias.o tree-object-size.o
