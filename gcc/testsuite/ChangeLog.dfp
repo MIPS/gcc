@@ -1,5 +1,7 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/pedantic-1.c: Delete; subsumed by another test.
+
 	* gcc.dg/dfp/keywords-c89.c: New test.
 	* gcc.dg/dfp/keywords-c99.c: New test.
 	* gcc.dg/dfp/keywords-ignored.c: New test.
