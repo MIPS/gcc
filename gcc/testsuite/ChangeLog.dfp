@@ -1,5 +1,10 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/operator-bitwise.c: Formatting.
+	* gcc.dg/dfp/operator-logical.c: Formatting; remove assignment ops.
+	* gcc.dg/dfp/operator-unary.c: Formatting.
+	* gcc.dg/dfp/operator-assignment.c: New file.
+
 	* gcc.dg/dfp/convert-bfp.c: Use prefixes for binary float values.
 	* gcc.dg/dfp/convert-bfp-fold.c: Call link_error rather than abort,
 	optimize, use prefixes for binary float values.

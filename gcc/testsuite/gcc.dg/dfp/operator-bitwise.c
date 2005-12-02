@@ -3,24 +3,24 @@
 
 extern void abort (void);
 
-#define OPERATE(OPRD1,OPRT,OPRD2) \
-do \
-{ \
-  OPRD1 OPRT OPRD2; \
-}while(0)
+#define OPERATE(OPRD1,OPRT,OPRD2)		\
+do						\
+{						\
+  OPRD1 OPRT OPRD2;				\
+} while (0)
 
 
 
-#define DECIMAL_BITWISE_OPERATOR(OPRT,OPRD) \
-do \
-{ \
-OPERATE(OPRD,OPRT,1);     \
-OPERATE(OPRD,OPRT,0);     \
-OPERATE(OPRD,OPRT,0x15);  \
-OPERATE(0,OPRT,OPRD);     \
-OPERATE(1,OPRT,OPRD);     \
-OPERATE(0x15,OPRT,OPRD);  \
-}while(0)
+#define DECIMAL_BITWISE_OPERATOR(OPRT,OPRD)	\
+do						\
+{						\
+OPERATE(OPRD,OPRT,1);				\
+OPERATE(OPRD,OPRT,0);				\
+OPERATE(OPRD,OPRT,0x15);			\
+OPERATE(0,OPRT,OPRD);				\
+OPERATE(1,OPRT,OPRD);				\
+OPERATE(0x15,OPRT,OPRD);			\
+} while (0)
 
 void operator_notfor_decimal()
 {

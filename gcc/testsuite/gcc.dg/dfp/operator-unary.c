@@ -29,7 +29,7 @@ do                                            		\
  unary_d##TYPE = +unary_d##TYPE;              		\
  if (unary_d##TYPE != -1.0##SUFFIX) abort ();         	\
  if (!unary_d##TYPE) abort (); /*! operator.  */ 	\
-} while(0)
+} while (0)
 
 int
 main ()
