@@ -1,5 +1,17 @@
 2005-12-01  Tom Tromey  <tromey@redhat.com>
 
+	* model/new.hh (model_new_enum::enum_const): New field.
+	(model_new_enum): Added argument.
+	(model_new_enum::get_enum_constant): New method.
+	* model/enum.cc (add_enum): Indentation fix.  Updated for change
+	to model_new_enum.
+	* model/switch.cc (resolve): Use unwrap_enum_constant.
+	* conversions.cc (unwrap_enum_constant): New function.
+	(annotation_commensurate_p): Use it.  Peel forwarding reference.
+	* conversions.hh (unwrap_enum_constant): Declare.
+
+2005-12-01  Tom Tromey  <tromey@redhat.com>
+
 	* model/unit.cc (look_up_name): Handle case where static import
 	doesn't import a class.
 	(look_up_name): Fix typo.

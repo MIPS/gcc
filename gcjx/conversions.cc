@@ -729,11 +729,42 @@ annotation_commensurate_p (model_type *type, model_expression *expr)
       if (type->primitive_p ()
 	  || type == global->get_compiler ()->java_lang_String ())
 	return expr->constant_p ();
+
+      // FIXME: this is anti-OO.
+      if (dynamic_cast<model_memberref_forward *> (expr))
+	{
+	  model_memberref_forward *mem
+	    = dynamic_cast<model_memberref_forward *> (expr);
+	  expr = mem->get_real ();
+	}
+
       if (type->erasure () == global->get_compiler ()->java_lang_Class ())
 	return dynamic_cast<model_class_ref *> (expr) != NULL;
       if (type->enum_p ())
-	return dynamic_cast<model_enum_constant *> (expr);
+	return unwrap_enum_constant (expr);
     }
 
   return false;
+}
+
+model_enum_constant *
+unwrap_enum_constant (model_expression *expr)
+{
+  if (dynamic_cast<model_memberref_forward *> (expr) != NULL)
+    {
+      model_memberref_forward *mem
+	= assert_cast<model_memberref_forward *> (expr);
+      expr = mem->get_real ();
+    }
+  if (dynamic_cast<model_field_ref *> (expr) == NULL)
+    return NULL;
+  model_field_ref *fref = assert_cast<model_field_ref *> (expr);
+  model_field *fld = fref->get_field ();
+  if (! fld->get_declaring_class ()->enum_p ())
+    return NULL;
+  model_expression *init_expr = fld->get_initializer ().get ();
+  if (! init_expr || ! dynamic_cast<model_new_enum *> (init_expr))
+    return NULL;
+  model_new_enum *nexpr = assert_cast<model_new_enum *> (init_expr);
+  return nexpr->get_enum_constant ();
 }

@@ -109,4 +109,10 @@ bool convertible_to_numeric_p (model_type *);
 /// is used for checking whether annotation values are valid.
 bool annotation_commensurate_p (model_type *, model_expression *);
 
+/// Unwrap a reference to an enum constant.  The argument should be a
+/// fieldref to a field whose initializer is a 'new' of an enum
+/// constant type.  A forwarding reference is also permitted.  This
+/// returns NULL if the argument does not wrap an enum.
+model_enum_constant *unwrap_enum_constant (model_expression *);
+
 #endif // GCJX_CONVERSIONS_HH

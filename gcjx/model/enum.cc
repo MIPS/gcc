@@ -98,10 +98,11 @@ model_enum::add_enum (const ref_enum_constant &new_constant)
     = new model_int_literal (new_constant->get_location (),
 			     jint (new_constant->get_ordinal ()));
 
-  model_class *what = (new_constant->has_body_p () ?
-		       (model_class *) new_constant.get ()
+  model_class *what = (new_constant->has_body_p ()
+		       ? (model_class *) new_constant.get ()
 		       : (model_class *) this);
-  ref_new init = new model_new_enum (new_constant->get_location (), what);
+  ref_new init = new model_new_enum (new_constant->get_location (), what,
+				     new_constant.get ());
   if (new_constant->has_body_p ())
     init->set_anonymous (new_constant);
 

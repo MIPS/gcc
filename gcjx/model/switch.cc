@@ -1,6 +1,6 @@
 // switch statement.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -47,33 +47,13 @@ model_switch_block::resolve (resolution_scope *scope,
       jint val;
       if (is_enum)
 	{
-	  // An expression of enum type must be a fieldref to a field
-	  // whose initializer is a `new' of an enum constant type.
-	  // So, we unwrap it and check for errors at appropriate
-	  // places along the way.  Note that we don't fold the
-	  // expression in this branch.  The reason for this is that
-	  // we need to only accept class references, not other
-	  // things.
+	  // Note that we don't fold the expression in this branch.
+	  // The reason for this is that we need to only accept class
+	  // references, not other things.
 
-	  model_expression *wrap = (*i).get ();
-	  if (dynamic_cast<model_memberref_forward *> (wrap) == NULL)
+	  model_enum_constant *enumc = unwrap_enum_constant ((*i).get ());
+	  if (enumc == NULL)
 	    throw error ("case expression not enum constant");
-	  model_memberref_forward *mem
-	    = assert_cast<model_memberref_forward *> (wrap);
-	  if (dynamic_cast<model_field_ref *> (mem->get_real ()) == NULL)
-	    throw error ("case expression not enum constant");
-	  model_field_ref *fref
-	    = assert_cast<model_field_ref *> (mem->get_real ());
-	  model_field *fld = fref->get_field ();
-	  assert (fld->get_declaring_class ()->enum_p ());
-	  model_expression *init_expr = fld->get_initializer ().get ();
-	  if (! init_expr || ! dynamic_cast<model_new *> (init_expr))
-	    throw error ("case expression not enum constant");
-	  model_type *new_type = init_expr->type ();
-	  if (! dynamic_cast<model_enum_constant *> (new_type))
-	    throw error ("case expression not enum constant");
-	  model_enum_constant *enumc
-	    = assert_cast<model_enum_constant *> (new_type);
 	  val = enumc->get_ordinal ();
 	}
       else

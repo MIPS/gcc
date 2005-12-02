@@ -22,6 +22,8 @@
 #ifndef GCJX_MODEL_NEW_HH
 #define GCJX_MODEL_NEW_HH
 
+class model_enum_constant;
+
 class model_new : public model_invocation_base
 {
 protected:
@@ -132,6 +134,9 @@ class model_new_enum : public model_new
 {
 protected:
 
+  /// The underlying enum constant.
+  model_enum_constant *enum_const;
+
   void check_instantiation (model_class *)
   {
     // Nothing.
@@ -139,9 +144,17 @@ protected:
 
 public:
 
-  model_new_enum (const location &w, model_type *t)
-    : model_new (w, t)
+  model_new_enum (const location &w, model_type *t,
+		  model_enum_constant *econst)
+    : model_new (w, t),
+      enum_const (econst)
   {
+  }
+
+  /// Return the enum constant we initialize.
+  model_enum_constant *get_enum_constant () const
+  {
+    return enum_const;
   }
 };
 
