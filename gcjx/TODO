@@ -1,3 +1,13 @@
+look at the ums.java test case
+in this we do type unification between
+umsSet<T> and umsHashset<T> -- but we should only
+compare when the erasures are the same.  ie, the
+unification code needs to move up the type hierarchy...
+
+we fake support for the various -g options
+we should really support them
+this requires (small) changes in the .class back end
+
 we resolve classes too eagerly
 there is a BSF example from fitzsim where we resolve the members of a
 class read from .class

@@ -1,5 +1,10 @@
 2005-12-02  Tom Tromey  <tromey@redhat.com>
 
+	* unify.cc (unifier::unify): Pass bounds of wildcard types to
+	recursive invocations.
+
+2005-12-02  Tom Tromey  <tromey@redhat.com>
+
 	* model/memberref.cc (resolve_as_enum_constant): New methods.
 	(resolve): Use it.
 	* model/memberref.hh

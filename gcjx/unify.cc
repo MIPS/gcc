@@ -418,22 +418,33 @@ class unifier
 	model_class *inner_a = *i_a;
 	model_wildcard *inner_a_w = dynamic_cast<model_wildcard *> (inner_a);
 
+	model_class *actual_bound = NULL;
+	if (inner_a_w)
+	  {
+	    actual_bound = inner_a_w->get_bound ();
+	    // FIXME: not clear this is correct.
+	    if (actual_bound == NULL)
+	      actual_bound = global->get_compiler ()->java_lang_Object ();
+	  }
+	model_class *formal_bound = NULL;
+	if (inner_f_w)
+	  {
+	    formal_bound = inner_f_w->get_bound ();
+	    // FIXME: not clear this is correct.
+	    if (formal_bound == NULL)
+	      formal_bound = global->get_compiler ()->java_lang_Object ();
+	  }
+
 	if (! inner_f->wildcard_p ())
 	  {
 	    if (constraint == GREATER_THAN)
 	      {
 		if (inner_a->wildcard_p ())
 		  {
-		    model_class *bound = inner_a_w->get_bound ();
 		    if (inner_a_w->super_p ())
-		      unify (LESS_THAN, bound, inner_f);
+		      unify (LESS_THAN, actual_bound, inner_f);
 		    else
-		      {
-			// FIXME: is replacing the bound here ok?
-			if (! bound)
-			  bound = global->get_compiler ()->java_lang_Object ();
-			unify (GREATER_THAN, bound, inner_f);
-		      }
+		      unify (GREATER_THAN, actual_bound, inner_f);
 		  }
 		else
 		  unify (EQUAL, inner_a, inner_f);
@@ -446,10 +457,10 @@ class unifier
 	    if (inner_a->wildcard_p ())
 	      {
 		if (inner_a_w->super_p ())
-		  unify (GREATER_THAN, inner_a, inner_f);
+		  unify (GREATER_THAN, actual_bound, formal_bound);
 	      }
 	    else
-	      unify (GREATER_THAN, inner_a, inner_f);
+	      unify (GREATER_THAN, inner_a, formal_bound);
 	  }
 	else if (inner_f_w->has_bound_p ())
 	  {
@@ -457,10 +468,10 @@ class unifier
 	    if (inner_a->wildcard_p ())
 	      {
 		if (! inner_a_w->super_p () && inner_a_w->has_bound_p ())
-		  unify (LESS_THAN, inner_a, inner_f);
+		  unify (LESS_THAN, actual_bound, formal_bound);
 	      }
 	    else
-	      unify (LESS_THAN, inner_a, inner_f);
+	      unify (LESS_THAN, inner_a, formal_bound);
 	  }
 
 	++i_a;
