@@ -169,10 +169,13 @@ model_annotation_type::element_compatible_p (annotation_kind kind)
 		bit = ANNOTATE_ANNOTATION;
 	      else if (name == "CONSTRUCTOR")
 		bit = ANNOTATE_CONSTRUCTOR;
+	      else if (name == "PACKAGE")
+		bit = ANNOTATE_PACKAGE;
 	      else
 		{
-		  assert (name == "PACKAGE");
-		  bit = ANNOTATE_PACKAGE;
+		  std::cerr << error ("unknown element type %1") % name;
+		  // Suppress further errors.
+		  bit = kind;
 		}
 
 	      if ((value & bit) != 0)

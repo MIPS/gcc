@@ -1,5 +1,9 @@
 2005-12-01  Tom Tromey  <tromey@redhat.com>
 
+	* model/annotype.cc (element_compatible_p): Fixed assertion.
+
+2005-12-01  Tom Tromey  <tromey@redhat.com>
+
 	* model/classref.cc (resolve): Handle void type specially.
 
 2005-11-29  Tom Tromey  <tromey@redhat.com>
