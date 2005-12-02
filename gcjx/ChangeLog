@@ -1,5 +1,10 @@
 2005-12-02  Tom Tromey  <tromey@redhat.com>
 
+	* compiler.cc (semantic_analysis): Keep going on failure.
+	(do_analyze_unit): Likewise.
+
+2005-12-02  Tom Tromey  <tromey@redhat.com>
+
 	* unify.cc (unifier::unify): Pass bounds of wildcard types to
 	recursive invocations.
 

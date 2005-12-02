@@ -300,7 +300,7 @@ compiler::semantic_analysis ()
   need_class_method_bodies = false;
 
   for (std::list<ref_unit>::const_iterator i = code_generation_units.begin ();
-       ok && i != code_generation_units.end ();
+       i != code_generation_units.end ();
        ++i)
     // Note that we do this single-threaded, as we don't have support
     // for MT semantic analysis.
@@ -626,10 +626,9 @@ compiler::do_analyze_unit (model_unit *unit)
     std::cout << " [analyzing " << unit->get_file_name () << "]"
 	      << std::endl;
 
-  // fixme is this inefficient?  look up the idiom
   std::list<ref_class> types = unit->get_types ();
   for (std::list<ref_class>::const_iterator j = types.begin ();
-       ok && j != types.end ();
+       j != types.end ();
        ++j)
     {
       try
@@ -648,7 +647,7 @@ compiler::do_analyze_unit (model_unit *unit)
 	{
           exc.set_lexer (unit->get_lexer ());
 	  std::cerr << exc;
-	  ok = false;
+	  break;
 	}
     }
 
