@@ -1,5 +1,15 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/convert-bfp.c: Use prefixes for binary float values.
+	* gcc.dg/dfp/convert-bfp-fold.c: Call link_error rather than abort,
+	optimize, use prefixes for binary float values.
+	* gcc.dg/dfp/convert-complex.c: Formatting.
+	* gcc.dg/dfp/convert-dfp.c: Major reorganization.
+	* gcc.dg/dfp/convert-dfp-fold.c: Ditto.
+	* gcc.dg/dfp/convert-int.c: Ditto.
+	* gcc.dg/dfp/convert-int-fold.c: Ditto.
+	* gcc.dg/dfp/convert-int-saturate.c: Ditto.
+
 	* gcc.dg/dfp/func-scalar.c: Don't use assert, use global vars.
 	* gcc.dg/dfp/func-array.c: Ditto.
 	* gcc.dg/dfp/func-struct.c: Ditto.

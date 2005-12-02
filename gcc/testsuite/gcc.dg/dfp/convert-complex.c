@@ -5,7 +5,8 @@
 
 extern void abort(void);
 
-int main()
+int
+main ()
 {
   _Complex float cf;
   _Complex double cd;

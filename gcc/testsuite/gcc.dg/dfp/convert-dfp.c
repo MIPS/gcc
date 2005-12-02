@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-std=gnu99" } */
+/* { dg-options "-std=gnu99 -O0" } */
 
 /* Test various conversions involving decimal floating types. */
 
@@ -9,41 +9,39 @@ volatile _Decimal32 d32;
 volatile _Decimal64 d64;
 volatile _Decimal128 d128;
 
-int main()
+int
+main ()
 {
-  /* Conversions between decimal floats. */
-
-  /* Conversions from _Decimal32. */
-  d32 = 1.5df;
+  /* Conversions to larger types.  */
+  d32 = 123.4df;
   d64 = d32;
-  if (d64 != 1.5dd)
-    abort();
-
+  if (d64 != 123.4dd)
+    abort ();
   d128 = d32;
-  if (d128 != 1.5dl)
-    abort();
-
-  /* Conversions from _Decimal64. */
-  d64 = -1.5dd;
-  d32 = d64;
-  if (d32 != -1.5df)
-    abort();
-  
+  if (d128 != 123.4dl)
+    abort ();
+  d64 = 345.678dd;
   d128 = d64;
-  if (d128 != -1.5dl)
-    abort();
+  if (d128 != 345.678dl)
+    abort ();
 
-  /* Conversions from _Decimal128. */
-  d128 = 2.15dl;
+  /* Conversions to smaller types for which the value fits.  */
+  d64 = 3456.789dd;
+  d32 = d64;
+  if (d32 != 3456.789df)
+    abort ();
+  d128 = 123.4567dl;
   d32 = d128;
-  if (d32 != 2.15df)
-    abort();
+  if (d32 != 123.4567dl)
+    abort ();
 
+  d128 = 1234567890.123456dl;
   d64 = d128;
-  if (d64 != 2.15dd)
-    abort();
+  if (d64 != 1234567890.123456dd)
+    abort ();
 
   /* Test demotion to non-representable decimal floating type. */
+
   /* Assumes a default rounding mode of 'near'.  This uses the rules
      describe in the 27 July 2005 draft of IEEE 754r, which are much
      more clear that what's described in draft 5 of N1107.  */

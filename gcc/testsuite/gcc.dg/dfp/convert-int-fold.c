@@ -1,68 +1,165 @@
-/* { dg-do run } */
-/* { dg-options "-std=gnu99" } */
+/* { dg-do compile } */
+/* { dg-options "-std=gnu99 -O" } */
 
-/* Test various conversions involving decimal floating types. */
+/* N1107 5.2 Conversions between decimal floating types and integer types.
+   These should all be folded at compile time.  */
 
-extern void abort (void);
+extern void link_error (void);
 
-_Decimal32 d32;
-_Decimal64 d64;
-_Decimal128 d128;
-signed int si;
-signed long long di;
-unsigned long long udi;
-
-int main()
+int
+main ()
 {
-  /* Constant conversions to signed integers. */
-  si = -1.50df;
-  if (si != -1)
-    abort();
+  _Decimal32 d32;
+  _Decimal64 d64;
+  _Decimal128 d128;
+  unsigned int ui;
+  unsigned long ul;
+  unsigned long long ull;
+  int si;
+  long sl;
+  long long sll;
+  _Bool b;
 
-  di = -1.50df;
-  if (di != -1)
-    abort();
+  /* C99 Section 6.7.2 Type specifiers.  Type _Bool is 
+     mentioned in this section.  Conversions between 
+     _Bool and DFP types.  */
 
-  si = -1.55dd;
-  if (si != -1)
-    abort();
+  /* Decimal float to unsigned integer.  */
+  d32 = 456.789df;
+  d64 = 23.456789dd;
+  d128 = 1234.5678dl;
 
-  di = -1.55dd;
-  if (di != -1)
-    abort();
+  ui = d32;
+  if (ui != 456U)
+    link_error ();
+  ul = d32;
+  if (ul != 456UL)
+    link_error ();
+  ull = d32;
+  if (ull != 456ULL)
+    link_error ();
 
-  si = -1555.55dl;
-  if (si != -1555)
-    abort();
+  ui = d64;
+  if (ui != 23U)
+    link_error ();
+  ul = d64;
+  if (ul != 23UL)
+    link_error ();
+  ull = d64;
+  if (ull != 23ULL)
+    link_error ();
 
-  di = -1555.55dl;
-  if (di != -1555)
-    abort();
+  ui = d128;
+  if (ui != 1234U)
+    link_error ();
+  ul = d128;
+  if (ul != 1234UL)
+    link_error ();
+  ull = d128;
+  if (ull != 1234ULL)
+    link_error ();
 
-  /* Conversions from signed integer constants. */
-  d32 = -1555;
-  if (d32 != -1555.0df)
-    abort();
+  /* Decimal float to signed integer.  */
 
-  d32 = -1555ll;
-  if (d32 != -1555.0df)
-    abort();
+  /* Decimal float to _Bool.  */
+  d32 = 1.23df;
+  d64 = -3.4dd;
+  d128 = 0.00003dl;
 
-  d64 = -1555;
-  if (d64 != -1555.0dd)
-    abort();
+  b = d32;
+  if (!b)
+    link_error ();
+  b = d64;
+  if (!b)
+    link_error ();
+  b = d128;
+  if (!b)
+    link_error ();
 
-  d64 = -1555ll;
-  if (d64 != -1555.0dd)
-    abort();
+  /* Unsigned integer to decimal float.  */
+  ui = 987U;
+  ul = 345678UL;
+  ull = 1234567ULL;
 
-  d128 = -1555;
-  if (d128 != -1555.0dl)
-    abort();
+  d32 = ui;
+  if (d32 != 987.0df)
+    link_error ();
+  d32 = ul;
+  if (d32 != 345678.0df)
+    link_error ();
+  d32 = ull;
+  if (d32 != 1234567.df)
+    link_error ();
 
-  d128 = -1555ll;
-  if (d128 != -1555.0dl)
-    abort();
+  d64 = ui;
+  if (d64 != 987.0dd)
+    link_error ();
+  d64 = ul;
+  if (d64 != 345678.0dd)
+    link_error ();
+  d64 = ull;
+  if (d64 != 1234567.dd)
+    link_error ();
+
+  d128 = ui;
+  if (d128 != 987.0dl)
+    link_error ();
+  d128 = ul;
+  if (d128 != 345678.0dl)
+    link_error ();
+  d128 = ull;
+  if (d128 != 1234567.dl)
+    link_error ();
+
+  /* Signed integer to decimal float.  */
+  si = -987;
+  sl = -345678;
+  sll = -1234567;
+
+  d32 = si;
+  if (d32 != -987.0df)
+    link_error ();
+  d32 = sl;
+  if (d32 != -345678.0df)
+    link_error ();
+  d32 = sll;
+  if (d32 != -1234567.df)
+    link_error ();
+
+  d64 = si;
+  if (d64 != -987.0dd)
+    link_error ();
+  d64 = sl;
+  if (d64 != -345678.0dd)
+    link_error ();
+  d64 = sll;
+  if (d64 != -1234567.dd)
+    link_error ();
+
+  d128 = si;
+  if (d128 != -987.0dl)
+    link_error ();
+  d128 = sl;
+  if (d128 != -345678.0dl)
+    link_error ();
+  d128 = sll;
+  if (d128 != -1234567.dl)
+    link_error ();
+
+  /* _Bool to decimal float.  */
+  d32 = 0.0DF;
+  d64 = 0.0DD;
+  d128 = 0.0DL;
+  
+  b = d32;
+  if (b)
+    link_error ();
+  b = d64;
+  if (b)
+    link_error ();
+  b = d128;
+  if (b)
+    link_error ();
 
   return 0;
 }

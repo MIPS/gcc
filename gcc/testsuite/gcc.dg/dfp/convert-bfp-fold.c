@@ -1,9 +1,7 @@
-/* { dg-do run } */
-/* { dg-options "-std=gnu99" } */
+/* { dg-do compile } */
+/* { dg-options "-std=gnu99 -O" } */
 
 /* Test various conversions involving decimal floating types. */
-
-extern void abort (void);
 
 _Decimal32 d32;
 _Decimal64 d64;
@@ -12,93 +10,107 @@ float sf;
 double df;
 long double tf;
 
-int main()
+extern void link_error (void);
+
+int
+main ()
 {
-  /* Conversions between decimal floats. */
+  /* Conversions from decimal float to binary float. */
 
   /* Conversions from _Decimal32. */
-  sf = 2.0df;
-  if (sf != 2.0)
-    abort();
+  d32 = 2.0df;
+  sf = d32;
+  if (sf != 2.0f)
+    link_error ();
 
-  df = 2.0df;
+  df = d32;
   if (df != 2.0)
-    abort();
+    link_error ();
 
-  tf = 2.0df;
-  if (tf != 2.0)
-    abort();
+  tf = d32;
+  if (tf != 2.0l)
+    link_error ();
 
   /* Conversions from _Decimal64. */
-  sf = -7.0dd;
-  if (sf != -7.0)
-    abort();
+  d64 = -7.0dd;
+  sf = d64;
+  if (sf != -7.0f)
+    link_error ();
   
-  df = -7.0dd;
+  df = d64;
   if (df != -7.0)
-    abort();
+    link_error ();
 
-  tf = -7.0dd;
-  if (tf != -7.0)
-    abort();
+  tf = d64;
+  if (tf != -7.0l)
+    link_error ();
 
   /* Conversions from _Decimal128. */
-  sf = 30.0dl;
-  if (sf != 30.0)
-    abort();
+  d128 = 30.0dl;
+  sf = d128;
+  if (sf != 30.0f)
+    link_error ();
 
-  df = 3.0dl;
-  if (df != 3.0)
-    abort();
+  df = d128;
+  if (df != 30.0)
+    link_error ();
 
-  df = 3.0dl;
-  if (df != 3.0)
-    abort();
+  df = d128;
+  if (df != 30.0l)
+    link_error ();
 
-  /* Conversions to regular floating point. */
-  d32 = 30.0f;
+  /* Conversions from binary float to decimal float. */
+  sf = 30.0f;
+  d32 = sf;
   if (d32 != 30.0df)
-    abort();
+    link_error ();
 
-  d64 = 30.0f;
+  d64 = sf;
   if (d64 != 30.0dd)
-    abort();
+    link_error ();
 
-  d128 = 30.0f;
-  if (d128 != 30.0dl)
-    abort();
-
-  d32 = -2.0;
+  df = -2.0;
+  d32 = df;
   if (d32 != -2.0df)
-    abort();
+    link_error ();
 
-  d64 = -2.0;
+  d64 = df;
   if (d64 != -2.0dd)
-    abort();
+    link_error ();
 
-  d128 = -2.0;
+  d128 = df;
   if (d128 != -2.0dl)
-    abort();
+    link_error ();
   
-  d32 = -22.0l;
+  sf = 30.0f;
+  d128 = sf;
+  if (d128 != 30.0dl)
+    link_error ();
+
+  tf = -22.0l;
+  d32 = tf;
   if (d32 != -22.0df)
-    abort();
+    link_error ();
 
-  d64 = -22.0l;
+  d64 = tf;
   if (d64 != -22.0dd)
-    abort();
+    link_error ();
 
-  d128 = -22.0l;
+  d128 = tf;
   if (d128 != -22.0dl)
-    abort();
+    link_error ();
 
-
-  /* Test demotion to non-representable decimal floating type. */
-  /* Assumes a default rounding mode of 'near'.  The rules are a 
-     bit odd in that if off by one digit, it rounds to the maximum
-     value, but otherwise to HUGE_VAL. */
-
-  /* FIXME: Add some tests here. See conversions-4.c. */
+  /* 2**(-11) = 0.00048828125. */
+  d128 = 0.000488281251dl;
+  sf = d128;
+  if (sf != 0.00048828125f)
+    link_error ();
+  /* 2**(-25) = 0.298023223876953125E-7.  */
+  d128 = 2.98023223876953125E-8dl;
+  df = d128;
+  if (df < (2.9802322387695312e-08 - 0.00000000001)
+      || df > (2.9802322387695312e-08 + 0.00000000001))
+    link_error ();
 
   return 0;
 }
