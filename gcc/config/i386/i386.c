@@ -14054,9 +14054,9 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_vec_interleave_lowv4si, "__builtin_ia32_punpckldq128", IX86_BUILTIN_PUNPCKLDQ128, 0, 0 },
   { MASK_SSE2, CODE_FOR_vec_interleave_lowv2di, "__builtin_ia32_punpcklqdq128", IX86_BUILTIN_PUNPCKLQDQ128, 0, 0 },
 
-  { MASK_SSE2, CODE_FOR_vec_pack_ssat_v8qi, "__builtin_ia32_packsswb128", IX86_BUILTIN_PACKSSWB128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_vec_pack_ssat_v8hi, "__builtin_ia32_packsswb128", IX86_BUILTIN_PACKSSWB128, 0, 0 },
   { MASK_SSE2, CODE_FOR_vec_pack_ssat_v4si, "__builtin_ia32_packssdw128", IX86_BUILTIN_PACKSSDW128, 0, 0 },
-  { MASK_SSE2, CODE_FOR_vec_pack_usat_v8qi, "__builtin_ia32_packuswb128", IX86_BUILTIN_PACKUSWB128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_vec_pack_usat_v8hi, "__builtin_ia32_packuswb128", IX86_BUILTIN_PACKUSWB128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_umulv8hi3_highpart, "__builtin_ia32_pmulhuw128", IX86_BUILTIN_PMULHUW128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_psadbw, 0, IX86_BUILTIN_PSADBW128, 0, 0 },

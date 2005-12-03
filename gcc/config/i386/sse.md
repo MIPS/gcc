@@ -3352,7 +3352,7 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define_insn "vec_pack_ssat_v8qi"
+(define_insn "vec_pack_ssat_v8hi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(vec_concat:V16QI
 	  (ss_truncate:V8QI
@@ -3376,7 +3376,7 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "TI")])
 
-(define_insn "vec_pack_usat_v8qi"
+(define_insn "vec_pack_usat_v8hi"
   [(set (match_operand:V16QI 0 "register_operand" "=x")
 	(vec_concat:V16QI
 	  (us_truncate:V8QI

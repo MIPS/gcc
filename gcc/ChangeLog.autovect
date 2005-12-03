@@ -1,5 +1,11 @@
 2005-12-02  Richard Henderson  <rth@redhat.com>
 
+	* config/i386/sse.md (vec_pack_ssat_v8hi, vec_pack_usat_v8hi):
+	Rename from vec_pack_?sat_v8qi.
+        * config/i386/i386.c (bdesc_2arg): Update.
+
+2005-12-02  Richard Henderson  <rth@redhat.com>
+
 	* config/ia64/vect.md: Merge from mainline.
 
 2005-12-02  Richard Henderson  <rth@redhat.com>
