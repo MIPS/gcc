@@ -52,8 +52,8 @@ void f()
 
   /* f().x is a valid postfix expression but is not an lvalue if 
      function f() returning a structure or union.  */
-  g(s).d32 = 1.23dd;  /* { dg-error "invalid lvalue in assignment" } */
-  h(u).d64 = 1.23df;  /* { dg-error "invalid lvalue in assignment" } */
+  g(s).d32 = 1.23dd;  /* { dg-error "lvalue required" } */
+  h(u).d64 = 1.23df;  /* { dg-error "lvalue required" } */
 
   /* Test assignment to volatile structure members.  */
   sv.d32 = 1.1df;
