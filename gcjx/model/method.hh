@@ -96,6 +96,10 @@ protected:
   // this is used by GCC for debugging information.
   location method_end;
 
+  // If this is a generic instantiation, this points to the parent
+  // method.
+  model_method *parent;
+
   // All generic instantiations of this method.
   model_instance_cache<model_method> instance_cache;
 
@@ -130,7 +134,8 @@ public:
       is_instance_initializer (false),
       state (NONE),
       // By default we set the end location to the start location.
-      method_end (w)
+      method_end (w),
+      parent (NULL)
   {
   }
 
@@ -399,6 +404,11 @@ public:
   {
     return method_end;
   }
+
+  /// Return the return type of the method's erasure.  This is simpler
+  /// than going via the erasure of the method, as no enclosing
+  /// context is needed.
+  model_type *get_erased_return_type () const;
 };
 
 /// This represents a method that is the result of merging multiple

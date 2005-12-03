@@ -46,7 +46,8 @@ model_method::model_method (model_method *other,
     IModifiable (other),
     IMember (enclosing),
     state (other->state),
-    method_end (other->method_end)
+    method_end (other->method_end),
+    parent (other)
 {
   set_name (other->name);
 
@@ -88,7 +89,8 @@ model_method::model_method (model_method *other,
     IModifiable (other),
     IMember (enclosing),
     state (other->state),
-    method_end (other->method_end)
+    method_end (other->method_end),
+    parent (other)
 {
   set_name (other->name);
 
@@ -894,6 +896,9 @@ model_method::apply_type_map (const model_type_map &type_map,
 model_method *
 model_method::erasure (model_class *enclosing)
 {
+  if (parent)
+    return parent->erasure (enclosing);
+
   model_method *result = instance_cache.find_erased_instance ();
   if (result == NULL)
     {
@@ -901,6 +906,14 @@ model_method::erasure (model_class *enclosing)
       instance_cache.add_erased_instance (result);
     }
   return result;
+}
+
+model_type *
+model_method::get_erased_return_type () const
+{
+  if (parent)
+    return parent->get_erased_return_type ();
+  return return_type->type ()->erasure ();
 }
 
 

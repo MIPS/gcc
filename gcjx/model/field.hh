@@ -48,6 +48,10 @@ class model_field : public model_field_base, public model_variable_decl,
   // Indicates our current resolution state.
   resolution_state_value state;
 
+  // If this is a generic instantiation, this points to the parent
+  // field.
+  model_field *parent;
+
   void massage_modifiers (const ref_modifier_list &)
   {
     // Nothing.
@@ -60,6 +64,12 @@ class model_field : public model_field_base, public model_variable_decl,
 
   void check_serialization_fields ();
   void require_resolution ();
+
+  model_field (const location &,
+	       const std::string &,
+	       const ref_forwarding_type &,
+	       model_field *,
+	       model_class *);
 
 public:
 

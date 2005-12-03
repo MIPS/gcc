@@ -2281,8 +2281,8 @@ bytecode_generator::emit_cast_maybe_boxing (model_element *request,
 			   assert_cast<model_class *> (expr_type),
 			   NULL, tmp_dest_type, request);
 	  std::list<ref_expression> args;
-	  handle_invocation (op_invokevirtual, call->get_declaring_class (),
-			     call, args);
+	  handle_invocation (request, op_invokevirtual,
+			     call->get_declaring_class (), call, args);
 	  if (tmp_dest_type != dest_type)
 	    {
 	      assert (tmp_dest_type == primitive_char_type);
@@ -2301,7 +2301,7 @@ bytecode_generator::emit_cast_maybe_boxing (model_element *request,
 	  // We do pass an argument, but sneakily: we pushed it up
 	  // above.
 	  std::list<ref_expression> args;
-	  handle_invocation (op_invokestatic, dest_class, call, args);
+	  handle_invocation (request, op_invokestatic, dest_class, call, args);
 	  // We have to pop this ourselves due to lying to
 	  // handle_invocation.
 	  reduce_stack (expr_type);
@@ -2758,7 +2758,8 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
       else
 	{
 	  std::list<ref_expression> nullargs;
-	  handle_invocation (op_invokestatic, ref->get_qualifying_class (),
+	  handle_invocation (ref, op_invokestatic,
+			     ref->get_qualifying_class (),
 			     tm, nullargs, false, ! field->static_p ());
 	}
     }
@@ -2772,6 +2773,11 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
     }
   else
     {
+      // Ordinary field reference.  We take the erasure of the field
+      // to ensure that we end up using the proper type.
+      model_type *orig_type = field->type ();
+      field = assert_cast<model_field *> (field->erasure ());
+
       if (expr && expr->type ()->array_p ())
 	{
 	  assert (field->get_name () == "length");
@@ -2786,6 +2792,10 @@ bytecode_generator::visit_field_ref (model_field_ref *ref,
       if (expr && ! field->static_p ())
 	reduce_stack (expr->type ());
       increase_stack (field->type ());
+
+      // If erasure changes the field's type, we must emit a cast.
+      if (orig_type != field->type ())
+	emit_cast (orig_type, field->type ());
 
       if (expr_target == CONDITIONAL)
 	{
@@ -3116,7 +3126,8 @@ invokeinterface_count (const std::list<ref_expression> &args)
 }
 
 void
-bytecode_generator::handle_invocation (java_opcode opcode,
+bytecode_generator::handle_invocation (model_element *request,
+				       java_opcode opcode,
 				       model_class *qualifier,
 				       const model_method *meth,
 				       const std::list<ref_expression> &args,
@@ -3148,9 +3159,8 @@ bytecode_generator::handle_invocation (java_opcode opcode,
 
   int ii_count = invokeinterface_count (args);
   if (ii_count > 255)
-    // FIXME: location should really be location of the call.
-    throw method->error ("method invocation requires more than "
-			 "255 words of method arguments");
+    throw request->error ("method invocation requires more than "
+			  "255 words of method arguments");
 
   emit (opcode);
 
@@ -3170,7 +3180,16 @@ bytecode_generator::handle_invocation (java_opcode opcode,
   if (! meth->static_p () || use_accessor)
     reduce_stack (meth->get_declaring_class ());
   if (meth->get_return_type () != primitive_void_type)
-    increase_stack (meth->get_return_type ());
+    {
+      model_type *return_type = meth->get_return_type ();
+      increase_stack (return_type);
+
+      // If the method's return type changes due to erasure, we must
+      // emit a cast.
+      model_type *erased_type = meth->get_erased_return_type ();
+      if (return_type != erased_type)
+	emit_cast (return_type, erased_type);
+    }
 
   if (expr_target == IGNORE && meth->get_return_type () != primitive_void_type)
     emit_pop (meth->get_return_type ());
@@ -3214,7 +3233,7 @@ bytecode_generator::visit_method_invocation (model_method_invocation *inv,
     opcode = op_invokespecial;
   else
     opcode = op_invokevirtual;
-  handle_invocation (opcode, inv->get_qualifying_class (), meth, args,
+  handle_invocation (inv, opcode, inv->get_qualifying_class (), meth, args,
 		     false, nonstatic_accessor);
 }
 
@@ -3237,7 +3256,7 @@ bytecode_generator::visit_type_qualified_invocation
       meth = accessed->get_accessor (const_cast<model_method *> (meth));
     }
 
-  handle_invocation (super ? op_invokespecial : op_invokestatic,
+  handle_invocation (inv, super ? op_invokespecial : op_invokestatic,
 		     inv->get_qualifying_class (),
 		     meth, args, false, nonstatic_accessor);
 }
@@ -3259,7 +3278,7 @@ bytecode_generator::visit_super_invocation
     }
 
   emit_load (method->get_declaring_class (), this_index);
-  handle_invocation (op_invokespecial, inv->get_qualifying_class (),
+  handle_invocation (inv, op_invokespecial, inv->get_qualifying_class (),
 		     meth, args, inv->get_expression () != NULL,
 		     nonstatic_accessor);
 
@@ -3275,7 +3294,7 @@ bytecode_generator::visit_this_invocation
 {
   // Note: an accessor can never be needed here.
   emit_load (method->get_declaring_class (), this_index);
-  handle_invocation (op_invokespecial, inv->get_qualifying_class (),
+  handle_invocation (inv, op_invokespecial, inv->get_qualifying_class (),
 		     meth, args, false, inv->get_expression () != NULL);
 }
 

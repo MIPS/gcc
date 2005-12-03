@@ -28,7 +28,8 @@ model_field::model_field (const ref_variable_decl &vardecl)
 			 vardecl->get_declared_type (),
 			 vardecl->get_declaring_class ()),
     IModifiable (),
-    state (NONE)
+    state (NONE),
+    parent (NULL)
 {
   set_initializer (vardecl->get_initializer ());
 }
@@ -38,7 +39,19 @@ model_field::model_field (const location &w, const std::string &n,
 			  model_class *decl)
   : model_variable_decl (w, n, t, decl),
     IModifiable (),
-    state (NONE)
+    state (NONE),
+    parent (NULL)
+{
+}
+
+model_field::model_field (const location &w, const std::string &n,
+			  const ref_forwarding_type &t,
+			  model_field *other,
+			  model_class *decl)
+  : model_variable_decl (w, n, t, decl),
+    IModifiable (),
+    state (NONE),
+    parent (other)
 {
 }
 
@@ -186,12 +199,15 @@ model_field::apply_type_map (const model_type_map &type_map,
     return this;
   ref_forwarding_type nt
     = new model_forwarding_resolved (get_location (), param);
-  return new model_field (get_location (), name, nt, request);
+  return new model_field (get_location (), name, nt, this, request);
 }
 
 model_variable_decl *
 model_field::erasure ()
 {
+  if (parent != NULL)
+    return parent->erasure ();
+
   model_type *self_type = type ();
   if (self_type->primitive_p ())
     return this;
@@ -202,7 +218,7 @@ model_field::erasure ()
     return this;
   ref_forwarding_type nt
     = new model_forwarding_resolved (get_location (), param);
-  return new model_field (get_location (), name, nt,
+  return new model_field (get_location (), name, nt, this,
 			  assert_cast<model_class *> (declaring_class->erasure ()));
 }
 

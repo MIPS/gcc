@@ -268,7 +268,8 @@ class bytecode_generator : public visitor
 			const ref_expression &,
 			bytecode_block *,
 			bytecode_block *);
-  void handle_invocation (java_opcode,
+  void handle_invocation (model_element *,
+			  java_opcode,
 			  model_class *,
 			  const model_method *,
 			  const std::list<ref_expression> &,

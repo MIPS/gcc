@@ -1,5 +1,31 @@
 2005-12-02  Tom Tromey  <tromey@redhat.com>
 
+	* model/field.cc (model_field): Initialize new field.
+	(model_field): Added 'other' argument.
+	(apply_type_map): Updated.
+	(erasure): Updated.  Delegate to parent if one exists.
+	* model/field.hh (model_field::parent): New field.
+	(model_field): New constructor.
+	* model/method.cc (model_method): Initialize new field.
+	(erasure): Delegate to parent, if it exists.
+	(get_erased_return_type): New method.
+	* model/method.hh (model_method::parent): New field.
+	(model_method): Initialize new field.
+	(model_method::get_erased_return_type): Declare.
+	* bytecode/generate.hh (bytecode_generator::handle_invocation):
+	Updated.
+	* bytecode/generate.cc (handle_invocation): Added 'request'
+	argument.  Emit cast if erasure changes method's return type.
+	(emit_cast_maybe_boxing): Updated.
+	(visit_field_ref): Likewise.
+	(visit_method_invocation): Likewise.
+	(visit_type_qualified_invocation): Likewise.
+	(visit_super_invocation): Likewise.
+	(visit_this_invocation): Likewise.
+	(visit_field_ref): Emit cast if erasure changes field's type.
+
+2005-12-02  Tom Tromey  <tromey@redhat.com>
+
 	* compiler.cc (semantic_analysis): Keep going on failure.
 	(do_analyze_unit): Likewise.
 
