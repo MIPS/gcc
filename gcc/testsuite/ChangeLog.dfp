@@ -1,5 +1,7 @@
 2005-12-02  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/operator-arith-fold.c: Update, for real this time.
+
 	* gcc.dg/dfp/struct-union.c: Update expected error string.
 
 	* gcc.dg/dfp/operator-arith-fold.c: Update, merge with rounding.c
