@@ -1539,7 +1539,7 @@ nested_function:
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
 /* APPLE LOCAL begin nested functions 4258406 4357979 */
-		  if (flag_nested_functions == 0)
+		  else if (flag_nested_functions == 0)
 		    error ("nested functions are disabled, use -fnested-functions to re-enable");
 /* APPLE LOCAL end nested functions 4258406 4357979 */
 
@@ -1573,7 +1573,7 @@ notype_nested_function:
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
 /* APPLE LOCAL begin nested functions 4258406 4357979*/
-		  if (flag_nested_functions == 0)
+		  else if (flag_nested_functions == 0)
 		    error ("nested functions are disabled, use -fnested-functions to re-enable");
 /* APPLE LOCAL end nested functions 4258406 4357979 */
 
