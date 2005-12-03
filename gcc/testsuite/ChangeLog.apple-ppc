@@ -1,6 +1,7 @@
 2005-12-03  Mike Stump  <mrs@apple.com>
 
 	* lib/c-torture.exp: Added -fnested-functions.
+	* lib/objc-torture.exp (objc-torture-execute): Likewise.
 	* gcc.apple/nested-func-1.c: Likewise.
 	* gcc.c-torture/compile/20010226-1.c: Likewise.
 	* gcc.c-torture/compile/20010605-1.c: Likewise.
