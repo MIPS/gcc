@@ -1,5 +1,33 @@
 2005-12-02  Richard Henderson  <rth@redhat.com>
 
+	* config/ia64/ia64.c (TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN): New.
+	(TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD): New.
+	(TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN,
+	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD, ia64_builtin_mul_widen_even,
+	ia64_builtin_mul_widen_odd, builtin_ia64_pmpy_r, builtin_ia64_pmpy_l,
+	IA64_BUILTIN_PMPY_R, IA64_BUILTIN_PMPY_L): New
+	(ia64_init_builtins): Initialize builtin_ia64_pmpy_[rl].
+	(ia64_expand_builtin): Expand them.
+	(ia64_expand_unpack): New.
+	* config/ia64/vect.md (smulv4hi3_highpart, umulv4hi3_highpart): New.
+	(vec_pack_ssat_v4hi): Rename from pack2_sss.
+	(vec_pack_usat_v4hi): Rename from pack2_uss.
+	(vec_pack_ssat_v2si): Rename from pack4_sss.
+	(vec_pack_mod_v4hi, vec_pack_mod_v2si): New.
+	(vec_interleave_lowv8qi): Rename from unpack1_l.
+	(vec_interleave_highv8qi): Rename from unpack1_h.
+	(vec_interleave_lowv4hi): Rename from unpack2_l.
+	(vec_interleave_highv4hi): Rename from unpack2_h.
+	(vec_interleave_lowv2si): Rename from unpack4_l.
+	(vec_interleave_highv2si): Rename from unpack4_h.
+	(vec_unpacku_hi_v8qi, vec_unpacks_hi_v8qi): New.
+	(vec_unpacku_lo_v8qi, vec_unpacks_lo_v8qi): New.
+	(vec_unpacku_hi_v4hi, vec_unpacks_hi_v4hi): New.
+	(vec_unpacku_lo_v4hi, vec_unpacks_lo_v4hi): New.
+	* config/ia64/ia64-protos.h (ia64_expand_unpack): Declare.
+
+2005-12-02  Richard Henderson  <rth@redhat.com>
+
 	* config/i386/sse.md (vec_pack_ssat_v8hi, vec_pack_usat_v8hi):
 	Rename from vec_pack_?sat_v8qi.
         * config/i386/i386.c (bdesc_2arg): Update.

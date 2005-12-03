@@ -267,6 +267,8 @@ static const char *ia64_mangle_fundamental_type (tree);
 static const char *ia64_invalid_conversion (tree, tree);
 static const char *ia64_invalid_unary_op (int, tree);
 static const char *ia64_invalid_binary_op (int, tree, tree);
+static tree ia64_builtin_mul_widen_even (tree type);
+static tree ia64_builtin_mul_widen_odd (tree type);
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -443,6 +445,17 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_INVALID_UNARY_OP ia64_invalid_unary_op
 #undef TARGET_INVALID_BINARY_OP
 #define TARGET_INVALID_BINARY_OP ia64_invalid_binary_op
+
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN \
+  interleave_vectorize_builtin_extract_even
+#undef TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD
+#define TARGET_VECTORIZE_BUILTIN_EXTRACT_ODD \
+  interleave_vectorize_builtin_extract_odd
+#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN ia64_builtin_mul_widen_even
+#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD ia64_builtin_mul_widen_odd
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1766,6 +1779,49 @@ ia64_expand_vecint_minmax (enum rtx_code code, enum machine_mode mode,
   return true;
 }
 
+/* Sign or zero extend a vector, producing either high or low results.  */
+
+void
+ia64_expand_unpack (rtx operands[2], bool unsignedp, bool highp)
+{
+  enum machine_mode imode = GET_MODE (operands[1]);
+  rtx (*unpack)(rtx, rtx, rtx);
+  rtx se, dest;
+
+  switch (imode)
+    {
+    case V8QImode:
+      if (highp)
+	unpack = gen_vec_interleave_highv8qi;
+      else
+	unpack = gen_vec_interleave_lowv8qi;
+      break;
+    case V4HImode:
+      if (highp)
+	unpack = gen_vec_interleave_highv4hi;
+      else
+	unpack = gen_vec_interleave_lowv4hi;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  dest = gen_lowpart (imode, operands[0]);
+  if (unsignedp)
+    se = force_reg (imode, CONST0_RTX (imode));
+  else
+    {
+      bool neg;
+
+      se = gen_reg_rtx (imode);
+      neg = ia64_expand_vecint_compare (LT, imode, se, operands[1],
+					CONST0_RTX (imode));
+      gcc_assert (!neg);
+    }
+
+  emit_insn (unpack (dest, operands[1], se));
+}
+
 /* Emit an integral vector widening sum operations.  */
 
 void
@@ -1783,13 +1839,13 @@ ia64_expand_widen_sum (rtx operands[3], bool unsignedp)
   switch (mode)
     {
     case V8QImode:
-      unpack_l = gen_unpack1_l;
-      unpack_h = gen_unpack1_h;
+      unpack_l = gen_vec_interleave_lowv8qi;
+      unpack_h = gen_vec_interleave_highv8qi;
       plus = gen_addv4hi3;
       break;
     case V4HImode:
-      unpack_l = gen_unpack2_l;
-      unpack_h = gen_unpack2_h;
+      unpack_l = gen_vec_interleave_lowv4hi;
+      unpack_h = gen_vec_interleave_highv4hi;
       plus = gen_addv2si3;
       break;
     default:
@@ -1850,10 +1906,14 @@ ia64_expand_dot_prod_v8qi (rtx operands[4], bool unsignedp)
   h1 = gen_reg_rtx (V4HImode);
   h2 = gen_reg_rtx (V4HImode);
 
-  emit_insn (gen_unpack1_l (gen_lowpart (V8QImode, l1), operands[1], x1));
-  emit_insn (gen_unpack1_l (gen_lowpart (V8QImode, l2), operands[2], x2));
-  emit_insn (gen_unpack1_h (gen_lowpart (V8QImode, h1), operands[1], x1));
-  emit_insn (gen_unpack1_h (gen_lowpart (V8QImode, h2), operands[2], x2));
+  emit_insn (gen_vec_interleave_lowv8qi (gen_lowpart (V8QImode, l1),
+					 operands[1], x1));
+  emit_insn (gen_vec_interleave_lowv8qi (gen_lowpart (V8QImode, l2),
+					 operands[2], x2));
+  emit_insn (gen_vec_interleave_highv8qi (gen_lowpart (V8QImode, h1),
+					  operands[1], x1));
+  emit_insn (gen_vec_interleave_highv8qi (gen_lowpart (V8QImode, h2),
+					  operands[2], x2));
 
   p1 = gen_reg_rtx (V2SImode);
   p2 = gen_reg_rtx (V2SImode);
@@ -1871,6 +1931,29 @@ ia64_expand_dot_prod_v8qi (rtx operands[4], bool unsignedp)
   emit_insn (gen_addv2si3 (s2, p3, p4));
   emit_insn (gen_addv2si3 (s3, s1, operands[3]));
   emit_insn (gen_addv2si3 (operands[0], s2, s3));
+}
+
+/* Implement the TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN and
+   TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD hooks.  There is no tree code
+   for these operations, so we must create and use builtin functions.  */
+
+static GTY(()) tree builtin_ia64_pmpy_r;
+static GTY(()) tree builtin_ia64_pmpy_l;
+
+static tree
+ia64_builtin_mul_widen_even (tree type)
+{
+  if (TYPE_MODE (type) == V4HImode)
+    return builtin_ia64_pmpy_r;
+  return NULL;
+}
+
+static tree
+ia64_builtin_mul_widen_odd (tree type)
+{
+  if (TYPE_MODE (type) == V4HImode)
+    return builtin_ia64_pmpy_l;
+  return NULL;
 }
 
 /* Emit the appropriate sequence for a call.  */
@@ -8273,7 +8356,9 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 enum ia64_builtins
 {
   IA64_BUILTIN_BSP,
-  IA64_BUILTIN_FLUSHRS
+  IA64_BUILTIN_FLUSHRS,
+  IA64_BUILTIN_PMPY_R,
+  IA64_BUILTIN_PMPY_L
 };
 
 void
@@ -8281,6 +8366,7 @@ ia64_init_builtins (void)
 {
   tree fpreg_type;
   tree float80_type;
+  tree v4hi_type_node, pmpy_type_node;
 
   /* The __fpreg type.  */
   fpreg_type = make_node (REAL_TYPE);
@@ -8319,6 +8405,15 @@ ia64_init_builtins (void)
 	       build_function_type (void_type_node, void_list_node),
 	       IA64_BUILTIN_FLUSHRS);
 
+  v4hi_type_node = build_vector_type_for_mode (intHI_type_node, V4HImode);
+  pmpy_type_node = build_function_type_list (v4hi_type_node, v4hi_type_node,
+					     v4hi_type_node, NULL_TREE);
+
+  builtin_ia64_pmpy_r = 
+    def_builtin ("__builtin_ia64_pmpy_r", pmpy_type_node, IA64_BUILTIN_PMPY_R);
+  builtin_ia64_pmpy_l = 
+    def_builtin ("__builtin_ia64_pmpy_l", pmpy_type_node, IA64_BUILTIN_PMPY_L);
+
 #undef def_builtin
 }
 
@@ -8344,6 +8439,30 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IA64_BUILTIN_FLUSHRS:
       emit_insn (gen_flushrs ());
       return const0_rtx;
+
+    case IA64_BUILTIN_PMPY_R:
+    case IA64_BUILTIN_PMPY_L:
+      {
+	tree arg1, arg2;
+	rtx op1, op2, insn;
+
+	arg1 = TREE_VALUE (TREE_OPERAND (exp, 1));
+	arg2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (exp, 1)));
+	op1 = expand_expr (arg1, NULL_RTX, V4HImode, EXPAND_NORMAL);
+	op2 = expand_expr (arg2, NULL_RTX, V4HImode, EXPAND_NORMAL);
+	op1 = force_reg (V4HImode, op1);
+	op2 = force_reg (V4HImode, op2);
+	if (target == 0 || !gr_register_operand (target, V4HImode))
+	  target= gen_reg_rtx (V4HImode);
+  
+	if (fcode == IA64_BUILTIN_PMPY_R)
+	  insn = gen_pmpy2_r (target, op1, op2);
+	else
+	  insn = gen_pmpy2_l (target, op1, op2);
+	emit_insn (insn);
+
+	return target;
+      }
 
     default:
       break;
