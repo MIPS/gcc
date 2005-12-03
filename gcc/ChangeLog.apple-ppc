@@ -1,3 +1,12 @@
+2005-12-02  Mike Stump  <mrs@apple.com>
+
+	Radar 4363798
+	* config/i386/i386.c (x86_canonicalize_operands): Break out
+	bracket canonicalization from here...
+	* config/i386/i386.c (cw_canonicalize_bracket): to here.  Add more
+	canonicalizations.
+	(cw_is_offset): Add offsets built with PLUS_EXPR and MINUS_EXPR.
+	
 2005-12-01  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4350099

@@ -18482,6 +18482,88 @@ x86_swap_operands (const char *opcode, tree args)
   return args;
 }
 
+/* Return true iff the operand is suitible for as the offset for a
+   memory instruction.  */
+
+static bool
+cw_is_offset (tree v)
+{
+  if (TREE_CODE (v) == INTEGER_CST)
+    return true;
+  if (TREE_CODE (v) == ADDR_EXPR)
+    return true;
+  if (TREE_CODE (v) == VAR_DECL
+      && TREE_STATIC (v)
+      && MEM_P (DECL_RTL (v)))
+    return true;
+  if ((TREE_CODE (v) == MINUS_EXPR
+       || TREE_CODE (v) == PLUS_EXPR)
+      && cw_is_offset (TREE_OPERAND (v, 0))
+      && cw_is_offset (TREE_OPERAND (v, 1)))
+    return true;
+    
+  return false;
+}
+
+/* We canonicalize the inputs form of bracket expressions as the input
+   forms are less constrained than what the assembler will accept.  */
+
+static void
+cw_canonicalize_bracket (tree arg)
+{
+  if (TREE_OPERAND (arg, 1) == NULL_TREE)
+    {
+      tree arg0 = TREE_OPERAND (arg, 0);
+      if (TREE_CODE (arg0) == PLUS_EXPR)
+	{
+	  if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
+	    {
+	      tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
+	      TREE_OPERAND (arg, 0) = op1;
+	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
+	    }
+	  else
+	    {
+	      tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
+	      TREE_OPERAND (arg, 0) = op1;
+	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
+	    }
+	}
+      else if (TREE_CODE (arg0) == MINUS_EXPR)
+	{
+	  tree val = TREE_OPERAND (arg0, 1);
+	  if (TREE_CODE (val) == INTEGER_CST)
+	    {
+	      val = fold (build1 (NEGATE_EXPR,
+				  TREE_TYPE (val),
+				  val));
+	      TREE_OPERAND (arg, 0) = cw_build_bracket (val, NULL_TREE);
+	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
+	    }
+	}
+    }
+
+  if (TREE_CODE (arg) == BRACKET_EXPR
+      && TREE_CODE (TREE_OPERAND (arg, 0)) == BRACKET_EXPR
+      && cw_is_offset (TREE_OPERAND (TREE_OPERAND (arg, 0), 0)))
+    {
+      tree arg0 = TREE_OPERAND (arg, 0);
+      tree arg1 = TREE_OPERAND (arg, 1);
+
+      while ((TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
+	     && cw_is_offset (TREE_OPERAND (arg1, 1)))
+	  {
+	    tree swp = TREE_OPERAND (arg1, 0);
+	    TREE_OPERAND (arg1, 0) = TREE_OPERAND (arg0, 0);
+	    TREE_OPERAND (arg0, 0) = arg1;
+	    TREE_OPERAND (arg, 1) = swp;
+
+	    arg0 = TREE_OPERAND (arg, 0);
+	    arg1 = TREE_OPERAND (arg, 1);
+	  }
+    }
+}
+
 /* We canonicalize the instruction by swapping operands and rewritting
    the opcode if the output style is in ATT syntax.  */
 
@@ -18526,38 +18608,8 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	      TREE_VALUE (args) = get_identifier (buf);
 	    }
 	}
-      else if (TREE_CODE (arg) == BRACKET_EXPR && TREE_OPERAND (arg, 1) == NULL_TREE)
-	{
-	  tree arg0 = TREE_OPERAND (arg, 0);
-	  if (TREE_CODE (arg0) == PLUS_EXPR)
-	    {
-	      if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-		{
-		  tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-		  TREE_OPERAND (arg, 0) = op1;
-		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-		}
-	      else
-		{
-		  tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-		  TREE_OPERAND (arg, 0) = op1;
-		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-		}
-	    }
-	  else if (TREE_CODE (arg0) == MINUS_EXPR)
-	    {
-	      tree val = TREE_OPERAND (arg0, 1);
-	      if (TREE_CODE (val) == INTEGER_CST)
-		{
-		  val = fold (build1 (NEGATE_EXPR,
-				      TREE_TYPE (val),
-				      val));
-		  TREE_OPERAND (arg, 0) = cw_build_bracket (val, NULL_TREE);
-		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-		}
-	    }
-	}
-
+      else if (TREE_CODE (arg) == BRACKET_EXPR)
+	cw_canonicalize_bracket (arg);
 	  
       switch (TREE_CODE (arg))
 	{
@@ -18671,22 +18723,6 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
     }
 
   return args;
-}
-
-/* Return true iff the operand is suitible for as the offset for a
-   memory instruction.  */
-static bool
-cw_is_offset (tree v)
-{
-  if (TREE_CODE (v) == INTEGER_CST)
-    return true;
-  if (TREE_CODE (v) == ADDR_EXPR)
-    return true;
-  if (TREE_CODE (v) == VAR_DECL
-      && TREE_STATIC (v)
-      && MEM_P (DECL_RTL (v)))
-    return true;
-  return false;
 }
 
 /* Character used to seperate the prefix words.  */
