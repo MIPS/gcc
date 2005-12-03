@@ -66,7 +66,7 @@
 	* gcc.c-torture/execute/nestfunc-4.x: Remove.
 	* gcc.c-torture/execute/nestfunc-5.x: Remove.
 	* gcc.c-torture/execute/nestfunc-6.x: Remove.
-	* objc/execute/nested-1.x: Rempve.
+	* objc/execute/nested-1.x: Remove.
 	* objc/execute/nested-2.x: Remove.
 	* objc/execute/nested-3.x: Remove.
 
