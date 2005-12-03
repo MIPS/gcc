@@ -1,5 +1,9 @@
-/* APPLE LOCAL  nested functions */
-/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-fnested-functions" } */
+
+/* APPLE LOCAL testsuite added stdlib.h */
+#include <stdlib.h>
+
 #ifndef NO_LABEL_VALUES
 f ()
 {
