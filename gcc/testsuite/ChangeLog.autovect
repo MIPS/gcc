@@ -1,3 +1,7 @@
+2005-12-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-noreduc.c: Broaden expected not-vectorized text.
+
 2005-11-28  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/vect/vect-117.c (main1): Fix follow-on int/size_t
