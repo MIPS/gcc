@@ -1,3 +1,7 @@
+2005-12-05  Ben Elliston  <bje@au.ibm.com>
+
+	* ginclude/decfloat.h: Update FSF office address.
+
 2005-12-02  Ben Elliston  <bje@au.ibm.com>
 
 	* Makefile.in: Discard residual differences against the trunk.
