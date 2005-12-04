@@ -54,21 +54,6 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     basic_string<_CharT, _Traits, _Alloc>::
-    reserve(size_type __res_arg)
-    {
-      if (__res_arg != this->capacity() || this->_M_is_shared())
-	{
-	  // Make sure we don't shrink below the current size.
-	  if (__res_arg < this->size())
-	    __res_arg = this->size();
-	  
-	  this->_M_reserve(__res_arg);
-	}
-    }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    void
-    basic_string<_CharT, _Traits, _Alloc>::
     resize(size_type __n, _CharT __c)
     {
       const size_type __size = this->size();
@@ -194,6 +179,18 @@ namespace std
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
+    operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
+	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)
+    {
+      basic_string<_CharT, _Traits, _Alloc> __str;
+      __str.reserve(__lhs.size() + __rhs.size());
+      __str.append(__lhs);
+      __str.append(__rhs);
+      return __str;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>
     operator+(const _CharT* __lhs,
 	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)
     {
@@ -212,13 +209,37 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>
     operator+(_CharT __lhs, const basic_string<_CharT, _Traits, _Alloc>& __rhs)
     {
+      basic_string<_CharT, _Traits, _Alloc> __str;
+      __str.reserve(__rhs.size() + 1);
+      __str.push_back(__lhs);
+      __str.append(__rhs);
+      return __str;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>
+    operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
+	      const _CharT* __rhs)
+    {
+      __glibcxx_requires_string(__rhs);
       typedef basic_string<_CharT, _Traits, _Alloc> __string_type;
       typedef typename __string_type::size_type	  __size_type;
+      const __size_type __len = _Traits::length(__rhs);
       __string_type __str;
-      const __size_type __len = __rhs.size();
-      __str.reserve(__len + 1);
-      __str.append(__size_type(1), __lhs);
-      __str.append(__rhs);
+      __str.reserve(__lhs.size() + __len);
+      __str.append(__lhs);
+      __str.append(__rhs, __len);
+      return __str;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>
+    operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs, _CharT __rhs)
+    {
+      basic_string<_CharT, _Traits, _Alloc> __str;
+      __str.reserve(__lhs.size() + 1);
+      __str.append(__lhs);
+      __str.push_back(__rhs);
       return __str;
     }
 

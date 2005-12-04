@@ -600,10 +600,17 @@ namespace __gnu_cxx
     __rc_string<_CharT, _Traits, _Alloc>::
     _M_reserve(size_type __res)
     {
-      _CharT* __tmp = _M_rep()->_M_clone(_M_get_allocator(),
-					 __res - _M_length());
-      _M_dispose();
-      _M_data(__tmp);
+      // Make sure we don't shrink below the current size.
+      if (__res < _M_length())
+	__res = _M_length();
+      
+      if (__res != _M_capacity() || _M_is_shared())
+	{
+	  _CharT* __tmp = _M_rep()->_M_clone(_M_get_allocator(),
+					     __res - _M_length());
+	  _M_dispose();
+	  _M_data(__tmp);
+	}
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>

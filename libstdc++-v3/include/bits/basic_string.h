@@ -446,8 +446,9 @@ namespace std
        *  data.
        */
       void
-      reserve(size_type __res_arg = 0);
- 
+      reserve(size_type __res_arg = 0)
+      { this->_M_reserve(__res_arg); }
+
       /**
        *  Erases the string, making it empty.
        */
@@ -654,11 +655,11 @@ namespace std
       void
       push_back(_CharT __c)
       { 
-	const size_type __len = 1 + this->size();
-	if (__len > this->capacity() || this->_M_is_shared())
-	  this->_M_reserve(__len);
-	traits_type::assign(this->_M_data()[this->size()], __c);
-	this->_M_set_length(__len);
+	const size_type __size = this->size();
+	if (__size + 1 > this->capacity() || this->_M_is_shared())
+	  this->_M_mutate(__size, size_type(0), 0, size_type(1));
+	traits_type::assign(this->_M_data()[__size], __c);
+	this->_M_set_length(__size + 1);
       }
 
       /**
@@ -1835,12 +1836,7 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
-	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-    {
-      basic_string<_CharT, _Traits, _Alloc> __str(__lhs);
-      __str.append(__rhs);
-      return __str;
-    }
+	      const basic_string<_CharT, _Traits, _Alloc>& __rhs);
 
   /**
    *  @brief  Concatenate C string and string.
@@ -1851,7 +1847,7 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT,_Traits,_Alloc>
     operator+(const _CharT* __lhs,
-	      const basic_string<_CharT,_Traits,_Alloc>& __rhs);
+	      const basic_string<_CharT, _Traits, _Alloc>& __rhs);
 
   /**
    *  @brief  Concatenate character and string.
@@ -1861,7 +1857,8 @@ namespace std
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
-    operator+(_CharT __lhs, const basic_string<_CharT,_Traits,_Alloc>& __rhs);
+    operator+(_CharT __lhs,
+	      const basic_string<_CharT, _Traits, _Alloc>& __rhs);
 
   /**
    *  @brief  Concatenate string and C string.
@@ -1872,12 +1869,7 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>
     operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
-	     const _CharT* __rhs)
-    {
-      basic_string<_CharT, _Traits, _Alloc> __str(__lhs);
-      __str.append(__rhs);
-      return __str;
-    }
+	      const _CharT* __rhs);
 
   /**
    *  @brief  Concatenate string and character.
@@ -1887,14 +1879,8 @@ namespace std
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>
-    operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs, _CharT __rhs)
-    {
-      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
-      typedef typename __string_type::size_type		__size_type;
-      __string_type __str(__lhs);
-      __str.append(__size_type(1), __rhs);
-      return __str;
-    }
+    operator+(const basic_string<_CharT, _Traits, _Alloc>& __lhs,
+	      _CharT __rhs);
 
   // operator ==
   /**

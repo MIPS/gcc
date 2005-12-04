@@ -478,28 +478,30 @@ namespace __gnu_cxx
     __sso_string<_CharT, _Traits, _Alloc>::
     _M_reserve(size_type __res)
     {
-      const size_type __capacity = _M_capacity();
+      // Make sure we don't shrink below the current size.
+      if (__res < _M_length())
+	__res = _M_length();
 
-      if (__res > __capacity
-	  || __res > size_type(_S_local_capacity))
+      const size_type __capacity = _M_capacity();
+      if (__res != __capacity)
 	{
-	  _CharT* __tmp = _M_create(__res, __capacity);
-	  if (_M_length())
-	    _S_copy(__tmp, _M_data(), _M_length());
-	  _M_dispose();
-	  _M_data(__tmp);
-	  _M_capacity(__res);
+	  if (__res > __capacity
+	      || __res > size_type(_S_local_capacity))
+	    {
+	      _CharT* __tmp = _M_create(__res, __capacity);
+	      _S_copy(__tmp, _M_data(), _M_length() + 1);
+	      _M_dispose();
+	      _M_data(__tmp);
+	      _M_capacity(__res);
+	    }
+	  else if (!_M_is_local())
+	    {
+	      const size_type __tmp_capacity = _M_allocated_capacity;
+	      _S_copy(_M_local_data, _M_data(), _M_length() + 1);
+	      _M_destroy(__tmp_capacity + 1);
+	      _M_data(_M_local_data);
+	    }
 	}
-      else if (!_M_is_local())
-	{
-	  const size_type __tmp_capacity = _M_allocated_capacity;
-	  if (_M_length())
-	    _S_copy(_M_local_data, _M_data(), _M_length());
-	  _M_destroy(__tmp_capacity + 1);
-	  _M_data(_M_local_data);
-	}	  
-      
-      _M_set_length(_M_length());
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>

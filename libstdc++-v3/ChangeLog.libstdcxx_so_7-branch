@@ -1,3 +1,20 @@
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (basic_string<>::operator+, all
+	versions): Move out of line...
+	* include/bits/basic_string.tcc (basic_string<>::operator+): ...
+	here; consistently use reserve for the benefit of sso_string;
+	prefer push_back to single-char append when appropriate.
+
+	* include/bits/basic_string.h (basic_string<>::push_back): Don't
+	call _M_reserve, _M_mutate instead.
+	(reserve): Just forward to _M_reserve.
+	* include/bits/basic_string.tcc (basic_string<>::_M_reserve): Remove.
+	* include/ext/rc_string.h (__rc_string<>::_M_reserve): Also do the
+	initial checks (first on length, in case __res == capacity).
+	* include/ext/sso_string.h (__sso_string<>::_M_reserve: Likewise;
+	don't call _M_set_length unnecessarily.
+
 2005-12-02  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.h (basic_string<>::_M_append): New.
