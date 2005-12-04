@@ -1498,6 +1498,7 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1876,6 +1877,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_cast_expression (pp, e);
       break;
 
@@ -1944,7 +1946,6 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       pp_c_right_paren (pp);
       break;
 
-    case NOP_EXPR:
     case NON_LVALUE_EXPR:
     case SAVE_EXPR:
       pp_expression (pp, TREE_OPERAND (e, 0));

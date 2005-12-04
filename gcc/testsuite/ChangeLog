@@ -1,3 +1,53 @@
+2005-12-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/format/cast-1.c: New test.
+
+2005-12-04  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/7776
+	* gcc.dg/Wstring-literal-comparison-1.c: New test case.
+	* gcc.dg/Wstring-literal-comparison-2.c: Likewise.
+	* gcc.dg/Wstring-literal-comparison-3.c: Likewise.
+	* gcc.dg/Wstring-literal-comparison-4.c: Likewise.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cast-pretty-print-1.c: New test.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c90-const-expr-4.c, gcc.dg/c99-const-expr-4.c: New tests.
+
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24173
+	* g++.dg/template/friend40.C: New test.
+	
+2005-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25199
+	* gcc.target/i386/movq-2.c: New test.
+	* gcc.target/i386/movq.c: Remove target i?86, instead add
+	dg-require-effective-target ilp32.
+
+2005-12-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/24103
+	* g++.dg/other/default1.C: New test.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20031106-6.c: Remove XFAIL.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* gcc.dg/lvalue-2.c (f0): Put "error: " marker back.
+
+2005-12-02  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/21017
+	* gcc.target/powerpc/rotate.c: New.
+
 2005-12-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	* gfortran.dg/pr24489.f90: Delete, replaced by read_eor.f90.
@@ -60,6 +110,8 @@
 	PR fortran/21302
 	* gfortran.dg/line_length_1.f: New test.
 	* gfortran.dg/line_length_2.f90: Ditto.
+
+2005-11-30  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/21655
 	* g++.dg/tree-ssa/pr14814.C: Remove XFAIL.

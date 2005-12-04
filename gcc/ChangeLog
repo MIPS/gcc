@@ -1,3 +1,197 @@
+2005-12-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-common.c (binary_op_error): Do not allow NOP_EXPR.
+	(c_common_truthvalue_conversion): Handle NOP_EXPR the same as
+	CONVERT_EXPR.
+	(check_function_arguments_recurse): Allow both NOP_EXPR and
+	CONVERT_EXPR but check conversions preserve precision.
+	* c-typeck.c (pointer_diff): Allow both NOP_EXPR and CONVERT_EXPR
+	but check conversions preserve precision.
+	(build_unary_op): Don't allow NOP_EXPR.  Use gcc_unreachable () in
+	default case.
+
+2005-12-04  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/7776
+	* common.opt (Wstring-literal-comparison): New command line option.
+	* c-opts.c (c_common_handle_option): Set it with -Wall.
+	* c-typeck.c (parser_build_binary_op): Issue warning if either
+	operand of a comparison operator is a string literal, except for
+	testing equality or inequality against NULL.
+
+	* doc/invoke.texi: Document new -Wstring-literal-comparison option.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-common.c (c_sizeof_or_alignof_type): Use fold_convert instead
+	of building a NOP_EXPR.
+	(c_alignof_expr): Likewise.  Handle CONVERT_EXPR the same as
+	NOP_EXPR.
+	* c-convert.c (convert): Use fold_convert instead of building
+	NOP_EXPRs and CONVERT_EXPRs directly.  Don't special case
+	c_objc_common_truthvalue_conversion returning a NOP_EXPR.  Remove
+	#if 0 code.
+	* c-pretty-print.c (pp_c_cast_expression, pp_c_expression): Handle
+	NOP_EXPR the same as CONVERT_EXPR.
+	* c-typeck.c (build_function_call): Use fold_convert instead of
+	building a NOP_EXPR directly.
+	(build_compound_expr): Handle NOP_EXPR the same as CONVERT_EXPR.
+
+2005-12-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/25197
+	* dwarf2out.c (dwarf2out_frame_debug_expr <rule 12>): Assert we
+	have a reg.
+
+2005-12-02  Stuart Hastings  <stuart@apple.com>
+
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Remove -fpic
+	warning.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-typeck.c (default_function_array_conversion,
+	build_function_call): Allow for CONVERT_EXPR as well as NOP_EXPR.
+	(build_conditional_expr): Apply integer_zerop to orig_op1 and
+	orig_op2.  Don't check them for NOP_EXPR.
+	(build_c_cast, convert_for_assignment): Don't check for NOP_EXPR
+	around integer zero.
+
+2005-12-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_stack_t): Remove toc_save_p,
+	toc_save_offset, toc_size, lr_size.
+	(rs6000_stack_info): Use memset rather than bss struct copy to init.
+	Test rs6000_ra_ever_killed last in condition setting lr_save_p.
+	Adjust for removal of unused rs6000_stack_t fields.
+	(debug_stack_info): Adjust.
+	(rs6000_ra_ever_killed): Expand FIND_REG_INC_NOTE.  Test for calls
+	first, and don't bother checking for set/inc of lr on sibcalls.
+	(rs6000_emit_epilogue): Tidy code restoring stack pointer.
+
+2005-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25199
+	* config/i386/i386.md (movqi_1): Only force imovx for alternative
+	5 if operand 1 is not aligned.  Undo previous constraint change.
+	* config/i386/predicates.md (aligned_operand): Use MEM_ALIGN.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (build): Remove prototype.
+	(build, _buildN1, _buildN2, _buildC1, _buildC2): Remove macros.
+	* tree.c (build): Remove.
+	(build0_stat): Update comment.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-loop-im.c (schedule_sm): Use buildN instead of build.
+	* tree-complex.c (update_complex_assignment, expand_complex_div_wide):
+	Likewise.
+	* tree-ssa-ccp.c (maybe_fold_offset_to_array_ref,
+	maybe_fold_offset_to_component_ref): Likewise.
+	* tree-ssa-dom.c (thread_across_edge,
+	simplify_rhs_and_lookup_avail_expr,
+	find_equivalent_equality_comparison, record_equivalences_from_stmt):
+	Likewise.
+	* gimple-low.c (lower_function_body, lower_return_expr): Likewise.
+	* tree-eh.c (do_return_redirection, honor_protect_cleanup_actions,
+	lower_try_finally_switch): Likewise.
+	* tree-if-conv.c (add_to_dst_predicate_list,
+	replace_phi_with_cond_modify_expr, ifc_temp_var): Likewise.
+	* gimplify.c (internal_get_tmp_var, gimple_build_eh_filter,
+	voidify_wrapper_expr, build_stack_save_restore, gimplify_bind_expr,
+	gimplify_return_expr, gimplify_decl_expr, gimplify_switch_expr,
+	gimplify_case_label_expr, gimplify_exit_expr, gimplify_self_mod_expr,
+	shortcut_cond_r, shortcut_cond_expr, gimplify_cond_expr,
+	gimplify_init_ctor_eval, gimplify_init_constructor,
+	gimplify_variable_sized_compare, gimplify_boolean_expr,
+	gimplify_cleanup_point_expr, gimple_push_cleanup, gimplify_target_expr,
+	gimplify_expr, gimplify_body, gimplify_function_tree,
+	force_gimple_operand): Likewise.
+	* tree-ssa-pre.c (create_expression_by_pieces): Likewise.
+	* tree-mudflap.c (mf_decl_cache_locals, mf_build_check_statement_for,
+	mx_register_decls): Likewise.
+	* tree-nested.c (init_tmp_var, save_tmp_var, get_static_chain,
+	get_frame_field, finalize_nesting_tree_1): Likewise.
+	* tree-inline.c (setup_one_parameter): Likewise.
+	* tree-vect-transform.c (vectorizable_condition): Likewise.
+	* tree-outof-ssa.c (insert_copy_on_edge, insert_backedge_copies):
+	Likewise.
+	* tree-profile.c (tree_gen_edge_profiler): Likewise.
+	* tree-cfg.c (factor_computed_gotos, gimplify_val): Likewise.
+	* c-parser.c (c_parser_if_body, c_parser_switch_statement): Likewise.
+	* tree-chrec.h (build_polynomial_chrec): Likewise.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* config/alpha/alpha.c (alpha_va_start, alpha_gimplify_va_arg_1i,
+	alpha_gimplify_va_arg): Use buildN and fold_buildN where applicable.
+	* config/frv/frv.c (frv_expand_builtin_va_start): Likewise.
+	* config/s390/s390.c (s390_va_start, s390_gimplify_va_arg): Likewise.
+	* config/ia64/ia64.c (ia64_gimplify_va_arg): Likewise.
+	* config/i386/i386.c (ix86_va_start, ix86_gimplify_va_arg): Likewise.
+	* config/rs6000/rs6000.c (rs6000_va_start, rs6000_gimplify_va_arg):
+	Likewise.
+	* config/sh/sh.c (sh_va_start, sh_gimplify_va_arg_expr,
+	sh_adjust_unroll_max): Likewise.
+	* config/c4x/c4x.c (c4x_gimplify_va_arg_expr): Likewise.
+	* config/pa/pa.c (hppa_gimplify_va_arg_expr): Likewise.
+	* config/xtensa/xtensa.c (xtensa_va_start, xtensa_gimplify_va_arg_expr):
+	Likewise.
+	* config/stormy16/stormy16.c (xstormy16_expand_builtin_va_start):
+	Likewise.
+	* config/mips/mips.c (mips_va_start, mips_gimplify_va_arg_expr):
+	Likewise.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (build_assert_expr_for, process_assert_insertions_for,
+	simplify_cond_using_ranges): Use buildN instead of build.
+	* tree-tailcall.c (adjust_accumulator_values,
+	adjust_return_value): Likewise.
+	* tree-sra.c (generate_one_element_ref, generate_copy_inout,
+	generate_element_copy, generate_element_zero,
+	generate_one_element_init): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_into_cond_1): Likewise.
+	* lambda-code.c (gcc_loop_to_lambda_loop, lbv_to_gcc_expression,
+	lle_to_gcc_expression, lambda_loopnest_to_gcc_loopnest,
+	perfect_nestify): Likewise.
+
+2005-12-02  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (pa_secondary_reload): Revise initialization of variable regno.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* ggc.h (GGC_RESIZEVEC): New.
+
+2005-12-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* gcc.c (execute): Improve readability.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (mark_used_vars): New function.
+	(dump_function_to_file): Dump only used VAR_DECLs.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* convert.c (convert_to_integer): Fix compare for nonpositive
+	constant to use tree_int_cst_sgn <= 0.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* convert.c (convert_to_integer): Use fold_convert instead
+	of fold_build1 (NOP_EXPR, ...).  Use tree_int_cst_sgn < 0
+	instead of comparing against 0.  Use build_int_cst instead
+	of converting integer_zero_node.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-pretty-print.c (op_symbol): Handle LROTATE_EXPR
+	and RROTATE_EXPR.
+ 
 2005-12-02  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/21017
@@ -548,7 +742,7 @@
 	for inheritance.  Support case when both secondary & tertiary reloads
 	are for intermediate registers.
 	(emit_output_reload_insns): Replace SECONDARY_OUTPUT_RELOAD_CLASS use
-        with secondary_reload_class call.  Support case when both secondary
+	with secondary_reload_class call.  Support case when both secondary
 	& tertiary reloads are for intermediate registers.
 	* target-def.h (TARGET_SECONDARY_RELOAD): Provide default definition.
 	(TARGET_INITIALIZER) Add TARGET_SECONDARY_RELOAD.
@@ -942,8 +1136,8 @@
 
 2005-11-19  James A. Morrison  <phython@gcc.gnu.org>
 
-        * tree-vrp.c (compare_ranges): Return false for EQ_EXPR if VR0 is less
-        than VR1 or vice-versa.
+	* tree-vrp.c (compare_ranges): Return false for EQ_EXPR if VR0 is less
+	than VR1 or vice-versa.
 
 2005-11-19  Hans-Peter Nilsson  <hp@axis.com>
 
@@ -1418,7 +1612,7 @@
 	and duplicate declaration of pthread_self.
 
 2005-11-13  Eric Botcazou  <ebotcazou@adacore.com>
-            Ian Lance Taylor  <ian@airs.com>
+	    Ian Lance Taylor  <ian@airs.com>
 
 	PR middle-end/24003
 	* calls.c (expand_call): If TARGET is a MEM and some part of the
@@ -1426,7 +1620,7 @@
 
 2005-11-13  Razya Ladelsky <razya@il.ibm.com>
 
-        * ipa-prop.c (ipa_callsite_compute_param ): Removed obsolete type
+	* ipa-prop.c (ipa_callsite_compute_param ): Removed obsolete type
 	checking.
 
 2005-11-13  Jason Merrill  <jason@redhat.com>
@@ -1864,8 +2058,8 @@
 
 	PR c/24599
 
-        * c-typeck.c (build_c_cast): Try using a shared constant, and see
-        if TREE_OVERFLOW or TREE_CONSTANT_OVERFLOW really changed.
+	* c-typeck.c (build_c_cast): Try using a shared constant, and see
+	if TREE_OVERFLOW or TREE_CONSTANT_OVERFLOW really changed.
 
 2005-11-07  Jakub Jelinek  <jakub@redhat.com>
 
@@ -2323,16 +2517,16 @@
 
 2005-10-28  Aldy Hernandez  <aldyh@redhat.com>
 
-        * config/ms1/ms1.h (TARGET_MS1_64_001): New.
-        (TARGET_MS1_16_002): New.
-        (TARGET_MS1_16_003): New.
+	* config/ms1/ms1.h (TARGET_MS1_64_001): New.
+	(TARGET_MS1_16_002): New.
+	(TARGET_MS1_16_003): New.
 
-        * config/ms1/ms1.md ("decrement_and_branch_until_zero"): Rewrite.
-        ("*decrement_and_branch_until_zero_no_clobber"): New.
-        Add corresponding splitter for decrement_and_branch_until_zero
-        instruction.
-        Key all decrement_and_branch_until_zero patterns off of
-        TARGET_MS1_16_003.
+	* config/ms1/ms1.md ("decrement_and_branch_until_zero"): Rewrite.
+	("*decrement_and_branch_until_zero_no_clobber"): New.
+	Add corresponding splitter for decrement_and_branch_until_zero
+	instruction.
+	Key all decrement_and_branch_until_zero patterns off of
+	TARGET_MS1_16_003.
 
 2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -2346,7 +2540,7 @@
 	indirect call to _mcount if the function needs a static chain.
 
 2005-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Caroline Tice  <ctice@apple.com>
+	    Caroline Tice  <ctice@apple.com>
 
 	PR rtl-optimization/24460
 	* dwarf2out.c (have_switched_text_sections): New boolean variable.
@@ -2604,7 +2798,7 @@
 	Check that elements of TYPE_METHODS are FUNCTION_DECLs.
 
 2005-10-17  Alexey Starovoytov  <alexey.starovoytov@sun.com>
-            Ian Lance Taylor <ian@airs.com>
+	    Ian Lance Taylor <ian@airs.com>
 
 	PR middle-end/23522
 	* fold-const.c (fold_widened_comparison): Do not allow range based

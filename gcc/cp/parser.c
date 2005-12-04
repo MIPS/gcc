@@ -271,7 +271,7 @@ cp_lexer_new_main (void)
 
   /* Create the buffer.  */
   alloc = CP_LEXER_BUFFER_SIZE;
-  buffer = ggc_alloc (alloc * sizeof (cp_token));
+  buffer = GGC_NEWVEC (cp_token, alloc);
 
   /* Put the first token in the buffer.  */
   space = alloc;
@@ -286,7 +286,7 @@ cp_lexer_new_main (void)
 	{
 	  space = alloc;
 	  alloc *= 2;
-	  buffer = ggc_realloc (buffer, alloc * sizeof (cp_token));
+	  buffer = GGC_RESIZEVEC (cp_token, buffer, alloc);
 	  pos = buffer + space;
 	}
       cp_lexer_get_preprocessor_token (lexer, pos);
@@ -8930,11 +8930,11 @@ cp_parser_template_argument_list (cp_parser* parser)
 
 	  if (arg_ary == fixed_args)
 	    {
-	      arg_ary = xmalloc (sizeof (tree) * alloced);
+	      arg_ary = XNEWVEC (tree, alloced);
 	      memcpy (arg_ary, fixed_args, sizeof (tree) * n_args);
 	    }
 	  else
-	    arg_ary = xrealloc (arg_ary, sizeof (tree) * alloced);
+	    arg_ary = XRESIZEVEC (tree, arg_ary, alloced);
 	}
       arg_ary[n_args++] = argument;
     }
@@ -15770,7 +15770,7 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   saved_message = parser->type_definition_forbidden_message;
   /* And create the new one.  */
   parser->type_definition_forbidden_message
-    = xmalloc (strlen (format)
+    = XNEWVEC (const char, strlen (format)
 	       + strlen (IDENTIFIER_POINTER (ridpointers[keyword]))
 	       + 1 /* `\0' */);
   sprintf ((char *) parser->type_definition_forbidden_message,

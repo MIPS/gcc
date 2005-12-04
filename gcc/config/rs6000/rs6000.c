@@ -77,7 +77,6 @@ typedef struct rs6000_stack {
   int lr_save_p;		/* true if the link reg needs to be saved */
   int cr_save_p;		/* true if the CR reg needs to be saved */
   unsigned int vrsave_mask;	/* mask of vec registers to save */
-  int toc_save_p;		/* true if the TOC needs to be saved */
   int push_p;			/* true if we need to allocate stack space */
   int calls_p;			/* true if the function makes any calls */
   int world_save_p;		/* true if we're saving *everything*:
@@ -90,7 +89,6 @@ typedef struct rs6000_stack {
   int cr_save_offset;		/* offset to save CR from initial SP */
   int vrsave_save_offset;	/* offset to save VRSAVE from initial SP */
   int spe_gp_save_offset;	/* offset to save spe 64-bit gprs  */
-  int toc_save_offset;		/* offset to save the TOC pointer */
   int varargs_save_offset;	/* offset to save the varargs registers */
   int ehrd_offset;		/* offset to EH return data */
   int reg_size;			/* register size (4 or 8) */
@@ -102,13 +100,11 @@ typedef struct rs6000_stack {
   int fp_size;			/* size of saved FP registers */
   int altivec_size;		/* size of saved AltiVec registers */
   int cr_size;			/* size to hold CR if not in save_size */
-  int lr_size;			/* size to hold LR if not in save_size */
   int vrsave_size;		/* size to hold VRSAVE if not in save_size */
   int altivec_padding_size;	/* size of altivec alignment padding if
 				   not in save_size */
   int spe_gp_size;		/* size of 64-bit GPR save size for SPE */
   int spe_padding_size;
-  int toc_size;			/* size to hold TOC if not in save_size */
   HOST_WIDE_INT total_size;	/* total bytes allocated for stack */
   int spe_64bit_regs_used;
 } rs6000_stack_t;
@@ -5691,10 +5687,10 @@ rs6000_va_start (tree valist, rtx nextarg)
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build_va_arg_indirect_ref (valist);
-  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
-  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
-  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+  gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
+  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
+  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
   words = current_function_args_info.words;
@@ -5710,16 +5706,16 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-		 build_int_cst (NULL_TREE, n_gpr));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+		  build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
   if (cfun->va_list_fpr_size)
     {
-      t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-		 build_int_cst (NULL_TREE, n_fpr));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+		  build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -5727,9 +5723,9 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
-    t = build (PLUS_EXPR, TREE_TYPE (ovf), t,
-	       build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+    t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
+	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -5744,9 +5740,9 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
   if (cfun->machine->varargs_save_offset)
-    t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	       build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
-  t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+    t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
+	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -5792,7 +5788,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	      imag_part = rs6000_gimplify_va_arg (valist, elem_type, pre_p,
 						  post_p);
 
-	      return build (COMPLEX_EXPR, type, real_part, imag_part);
+	      return build2 (COMPLEX_EXPR, type, real_part, imag_part);
 	    }
 	}
 
@@ -5806,10 +5802,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build_va_arg_indirect_ref (valist);
-  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
-  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
-  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+  gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
+  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
+  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   size = int_size_in_bytes (type);
   rsize = (size + 3) / 4;
@@ -5893,7 +5889,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of the n_reg == 2 case.  */
-	  t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
+	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
     }
@@ -12708,15 +12704,14 @@ is_altivec_return_reg (rtx reg, void *xyes)
 static rs6000_stack_t *
 rs6000_stack_info (void)
 {
-  static rs6000_stack_t info, zero_info;
+  static rs6000_stack_t info;
   rs6000_stack_t *info_ptr = &info;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int ehrd_size;
   int save_align;
   HOST_WIDE_INT non_fixed_size;
 
-  /* Zero all fields portably.  */
-  info = zero_info;
+  memset (&info, 0, sizeof (info));
 
   if (TARGET_SPE)
     {
@@ -12769,10 +12764,9 @@ rs6000_stack_info (void)
 		       || cfun->machine->ra_needs_full_frame);
 
   /* Determine if we need to save the link register.  */
-  if (rs6000_ra_ever_killed ()
-      || (DEFAULT_ABI == ABI_AIX
-	  && current_function_profile
-	  && !TARGET_PROFILE_KERNEL)
+  if ((DEFAULT_ABI == ABI_AIX
+       && current_function_profile
+       && !TARGET_PROFILE_KERNEL)
 #ifdef TARGET_RELOCATABLE
       || (TARGET_RELOCATABLE && (get_pool_size () != 0))
 #endif
@@ -12780,7 +12774,8 @@ rs6000_stack_info (void)
 	  && !FP_SAVE_INLINE (info_ptr->first_fp_reg_save))
       || info_ptr->first_altivec_reg_save <= LAST_ALTIVEC_REGNO
       || (DEFAULT_ABI == ABI_V4 && current_function_calls_alloca)
-      || info_ptr->calls_p)
+      || info_ptr->calls_p
+      || rs6000_ra_ever_killed ())
     {
       info_ptr->lr_save_p = 1;
       regs_ever_live[LINK_REGISTER_REGNUM] = 1;
@@ -12903,8 +12898,7 @@ rs6000_stack_info (void)
 	    - info_ptr->spe_gp_size;
 
 	  /* Adjust for SPE case.  */
-	  info_ptr->toc_save_offset
-	    = info_ptr->spe_gp_save_offset - info_ptr->toc_size;
+	  info_ptr->ehrd_offset = info_ptr->spe_gp_save_offset;
 	}
       else if (TARGET_ALTIVEC_ABI)
 	{
@@ -12924,12 +12918,11 @@ rs6000_stack_info (void)
 	    - info_ptr->altivec_size;
 
 	  /* Adjust for AltiVec case.  */
-	  info_ptr->toc_save_offset
-	    = info_ptr->altivec_save_offset - info_ptr->toc_size;
+	  info_ptr->ehrd_offset = info_ptr->altivec_save_offset;
 	}
       else
-	info_ptr->toc_save_offset  = info_ptr->cr_save_offset - info_ptr->toc_size;
-      info_ptr->ehrd_offset      = info_ptr->toc_save_offset - ehrd_size;
+	info_ptr->ehrd_offset    = info_ptr->cr_save_offset;
+      info_ptr->ehrd_offset      -= ehrd_size;
       info_ptr->lr_save_offset   = reg_size;
       break;
     }
@@ -12943,9 +12936,7 @@ rs6000_stack_info (void)
 					 + info_ptr->spe_padding_size
 					 + ehrd_size
 					 + info_ptr->cr_size
-					 + info_ptr->lr_size
-					 + info_ptr->vrsave_size
-					 + info_ptr->toc_size,
+					 + info_ptr->vrsave_size,
 					 save_align);
 
   non_fixed_size	 = (info_ptr->vars_size
@@ -13005,9 +12996,6 @@ rs6000_stack_info (void)
 
   if (! info_ptr->cr_save_p)
     info_ptr->cr_save_offset = 0;
-
-  if (! info_ptr->toc_save_p)
-    info_ptr->toc_save_offset = 0;
 
   return info_ptr;
 }
@@ -13104,9 +13092,6 @@ debug_stack_info (rs6000_stack_t *info)
   if (info->cr_save_p)
     fprintf (stderr, "\tcr_save_p           = %5d\n", info->cr_save_p);
 
-  if (info->toc_save_p)
-    fprintf (stderr, "\ttoc_save_p          = %5d\n", info->toc_save_p);
-
   if (info->vrsave_mask)
     fprintf (stderr, "\tvrsave_mask         = 0x%x\n", info->vrsave_mask);
 
@@ -13139,9 +13124,6 @@ debug_stack_info (rs6000_stack_t *info)
 
   if (info->cr_save_offset)
     fprintf (stderr, "\tcr_save_offset      = %5d\n", info->cr_save_offset);
-
-  if (info->toc_save_offset)
-    fprintf (stderr, "\ttoc_save_offset     = %5d\n", info->toc_save_offset);
 
   if (info->varargs_save_offset)
     fprintf (stderr, "\tvarargs_save_offset = %5d\n", info->varargs_save_offset);
@@ -13183,14 +13165,8 @@ debug_stack_info (rs6000_stack_t *info)
     fprintf (stderr, "\tspe_padding_size    = %5d\n",
 	     info->spe_padding_size);
 
-  if (info->lr_size)
-    fprintf (stderr, "\tlr_size             = %5d\n", info->lr_size);
-
   if (info->cr_size)
     fprintf (stderr, "\tcr_size             = %5d\n", info->cr_size);
-
-  if (info->toc_size)
-    fprintf (stderr, "\ttoc_size            = %5d\n", info->toc_size);
 
   if (info->save_size)
     fprintf (stderr, "\tsave_size           = %5d\n", info->save_size);
@@ -13314,10 +13290,12 @@ rs6000_ra_ever_killed (void)
     {
       if (INSN_P (insn))
 	{
-	  if (FIND_REG_INC_NOTE (insn, reg))
-	    return 1;
-	  else if (GET_CODE (insn) == CALL_INSN
-		   && !SIBLING_CALL_P (insn))
+	  if (CALL_P (insn))
+	    {
+	      if (!SIBLING_CALL_P (insn))
+		return 1;
+	    }
+	  else if (find_regno_note (insn, REG_INC, LINK_REGISTER_REGNUM))
 	    return 1;
 	  else if (set_of (reg, insn) != NULL_RTX
 		   && !prologue_epilogue_contains (insn))
@@ -14749,7 +14727,6 @@ rs6000_emit_epilogue (int sibcall)
 
       emit_move_insn (frame_reg_rtx,
 		      gen_rtx_MEM (Pmode, sp_reg_rtx));
-
     }
   else if (info->push_p)
     {
@@ -14983,30 +14960,20 @@ rs6000_emit_epilogue (int sibcall)
     }
 
   /* If this is V.4, unwind the stack pointer after all of the loads
-     have been done.  We need to emit a block here so that sched
-     doesn't decide to move the sp change before the register restores
-     (which may not have any obvious dependency on the stack).  This
-     doesn't hurt performance, because there is no scheduling that can
-     be done after this point.  */
-  if (DEFAULT_ABI == ABI_V4
-      || current_function_calls_eh_return)
+     have been done.  */
+  if (frame_reg_rtx != sp_reg_rtx)
     {
-      if (frame_reg_rtx != sp_reg_rtx)
-	rs6000_emit_stack_tie ();
-
-      if (use_backchain_to_restore_sp)
-	{
-	  emit_move_insn (sp_reg_rtx, frame_reg_rtx);
-	}
-      else if (sp_offset != 0)
-	{
-	  emit_insn (TARGET_32BIT
-		     ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
-				   GEN_INT (sp_offset))
-		     : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
-				   GEN_INT (sp_offset)));
-	}
+      /* This blockage is needed so that sched doesn't decide to move
+	 the sp change before the register restores.  */
+      rs6000_emit_stack_tie ();
+      emit_move_insn (sp_reg_rtx, frame_reg_rtx);
     }
+  else if (sp_offset != 0)
+    emit_insn (TARGET_32BIT
+	       ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+			     GEN_INT (sp_offset))
+	       : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+			     GEN_INT (sp_offset)));
 
   if (current_function_calls_eh_return)
     {

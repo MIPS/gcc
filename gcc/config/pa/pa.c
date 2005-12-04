@@ -5577,8 +5577,7 @@ static enum reg_class
 pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
 		     enum machine_mode mode, secondary_reload_info *sri)
 {
-  int is_symbolic;
-  int regno = -1;
+  int is_symbolic, regno;
 
   /* Handle the easy stuff first.  */
   if (class == R1_REGS)
@@ -5590,6 +5589,8 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
       if (class == BASE_REG_CLASS && regno < FIRST_PSEUDO_REGISTER)
 	return NO_REGS;
     }
+  else
+    regno = -1;
 
   /* If we have something like (mem (mem (...)), we can safely assume the
      inner MEM will end up in a general register after reloading, so there's
@@ -5852,20 +5853,20 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       /* Args grow down.  Not handled by generic routines.  */
 
       u = fold_convert (valist_type, size_in_bytes (type));
-      t = build (MINUS_EXPR, valist_type, valist, u);
+      t = build2 (MINUS_EXPR, valist_type, valist, u);
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
       u = build_int_cst (valist_type, (size > 4 ? -8 : -4));
-      t = build (BIT_AND_EXPR, valist_type, t, u);
+      t = build2 (BIT_AND_EXPR, valist_type, t, u);
 
-      t = build (MODIFY_EXPR, valist_type, valist, t);
+      t = build2 (MODIFY_EXPR, valist_type, valist, t);
 
       ofs = (8 - size) % 4;
       if (ofs != 0)
 	{
 	  u = fold_convert (valist_type, size_int (ofs));
-	  t = build (PLUS_EXPR, valist_type, t, u);
+	  t = build2 (PLUS_EXPR, valist_type, t, u);
 	}
 
       t = fold_convert (ptr, t);
