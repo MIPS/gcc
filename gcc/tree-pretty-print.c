@@ -2149,6 +2149,12 @@ op_symbol_1 (enum tree_code code)
     case RSHIFT_EXPR:
       return ">>";
 
+    case LROTATE_EXPR:
+      return "r<<";
+
+    case RROTATE_EXPR:
+      return "r>>";
+
     case VEC_LSHIFT_EXPR:
       return "v<<";
 

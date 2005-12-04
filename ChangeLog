@@ -1,3 +1,21 @@
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.tpl (clean-target-libgcc): Invoke clean-target-libgcc
+	from the gcc build directory.
+	* Makefile.in: Regenerate.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.def: Add new libdecnumber host_module.  Make all-gcc
+	depend on all-libdecnumber.
+	* configure.in (host_libs): Include libdecnumber.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* libdecnumber: Import decNumber sources from the dfp-branch.
+
 2005-11-21  Kean Johnston  <jkj@sco.com>
 
 	* config.sub, config.guess: Sync from upstream sources.
@@ -74,7 +92,7 @@
 	(USUAL_OBJDUMP_FOR_TARGET): New.
 	(EXTRA_TARGET_FLAGS): Add OBJDUMP.
 	* configure.in: Check for $OBJDUMP_FOR_TARGET.
-	* configure, Makefile: Regenerated.
+	* configure, Makefile.in: Regenerated.
 
 2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
 

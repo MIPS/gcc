@@ -298,6 +298,11 @@ GMPINC = @GMPINC@
 CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
 
+# Where to find decNumber
+DECNUM = $(srcdir)/../libdecnumber
+DECNUMINC = -I$(DECNUM)
+LIBDECNUMBER = ../libdecnumber/libdecnumber.a
+
 # Substitution type for target's getgroups 2nd arg.
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
 
@@ -767,6 +772,8 @@ SYSTEM_H = system.h hwint.h $(srcdir)/../include/libiberty.h
 PREDICT_H = predict.h predict.def
 CPPLIB_H = $(srcdir)/../libcpp/include/line-map.h \
 	$(srcdir)/../libcpp/include/cpplib.h
+DECNUM_H = $(DECNUM)/decContext.h $(DECNUM)/decDPD.h $(DECNUM)/decNumber.h \
+	$(DECNUM)/decimal32.h $(DECNUM)/decimal64.h $(DECNUM)/decimal128.h
 MKDEPS_H = $(srcdir)/../libcpp/include/mkdeps.h
 SYMTAB_H = $(srcdir)/../libcpp/include/symtab.h
 CPP_ID_DATA_H = $(CPPLIB_H) $(srcdir)/../libcpp/include/cpp-id-data.h
@@ -808,7 +815,7 @@ LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = $(build_objdir)/libiberty/libiberty.a
 
 # Dependencies on the intl and portability libraries.
-LIBDEPS= $(CPPLIB) $(LIBIBERTY) $(LIBINTL_DEP) $(LIBICONV_DEP)
+LIBDEPS= $(CPPLIB) $(LIBIBERTY) $(LIBINTL_DEP) $(LIBICONV_DEP) $(LIBDECNUMBER)
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
@@ -816,7 +823,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
-LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY)
+LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER)
 
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
@@ -846,7 +853,7 @@ BUILD_VARRAY = build/varray.o
 # libintl.h will be found in ../intl if we are using the included libintl.
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
-	   $(CPPINC) $(GMPINC)
+	   $(CPPINC) $(GMPINC) $(DECNUMINC)
 
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
@@ -965,7 +972,7 @@ OBJS-common = \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
  dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
- debug.o df.o diagnostic.o dojump.o dominance.o loop-doloop.o		   \
+ debug.o df.o dfp.o diagnostic.o dojump.o dominance.o loop-doloop.o	   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
  expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
  genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
@@ -999,7 +1006,7 @@ OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
 
 OBJS-onestep = libbackend.o $(OBJS-archive)
 
-BACKEND = main.o @TREEBROWSER@ libbackend.a $(CPPLIB)
+BACKEND = main.o @TREEBROWSER@ libbackend.a $(CPPLIB) $(LIBDECNUMBER)
 
 # Files to be copied after each stage in building.
 STAGECOPYSTUFF = insn-flags.h insn-config.h insn-codes.h \
@@ -2155,6 +2162,8 @@ emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(HASHTAB_H) $(TM_P_H) debug.h langhooks.h tree-pass.h gt-emit-rtl.h
 real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    toplev.h $(TM_P_H) real.h
+dfp.o : dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	$(TREE_H) \
+   toplev.h $(TM_P_H) real.h $(DECNUM_H)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) $(FLAGS_H) debug.h $(INTEGRATE_H) insn-config.h \
    $(EXPR_H) real.h $(REGS_H) intl.h function.h output.h $(RECOG_H) \
@@ -3433,6 +3442,18 @@ fsf-funding.pod: funding.texi
 	-$(TEXI2POD) $< > $@
 
 #
+# clean-target removes all files made by compilation.
+# This can be added to over time.
+
+clean-target: clean-target-libgcc
+
+clean-target-libgcc:
+	test ! -d libgcc || \
+	(cd libgcc && find . -type d -print) | \
+	while read d; do rm -f $$d/libgcc.a || : ; done
+	test ! -d libgcc || rm -r libgcc
+	test ! -f stmp-dirs || rm stmp-dirs
+
 # Deletion of files made during compilation.
 # There are four levels of this:
 #   `mostlyclean', `clean', `distclean' and `maintainer-clean'.

@@ -1,3 +1,92 @@
+2005-12-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25106
+	* parse.c (next_free): Use new prototype for gfc_match_st_label.
+	Correctly emit hard error if a label is zero.
+	* match.c (gfc_match_st_label): Never allow zero as a valid
+	label.
+	(gfc_match, gfc_match_do, gfc_match_goto): Use new prototype for
+	gfc_match_st_label.
+	* primary.c (): Use new prototype for gfc_match_st_label.
+	* io.c (): Likewise.
+	* match.h: Likewise.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* trans.h (build1_v): Use build1, not build to build the
+	void typed tree.
+
+2005-12-01  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	* decl.c (gfc_match_old_kind_spec):  Improve handling of old style
+	COMPLEX*N
+
+2005-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24789
+	* trans-decl.c (gfc_get_symbol_decl):  Move the expression for
+	unit size of automatic character length, dummy pointer array
+	elements down a few lines from the version that fixed PR15809.
+
+2005-11-30  Bernhard Fischer <rep.nop@aon.at>
+
+	PR fortran/21302
+	* lang.opt: New options -ffree-line-length- and -ffree-line-length-none.
+	* gfortran.h: Add free_line_length and add description of
+	free_line_length and fixed_line_length.
+	* options.c (gfc_init_options, gfc_handle_option): Initialize
+	and set free_line_length and fixed_line_length.
+	* scanner.c (load_line): Set free_line_length to 132 and
+	fixed_line_length to 72 or user requested values.
+	* scanner.c: Typo in comment.
+	* invoke.texi: Document -ffree-line-length- and
+	-ffree-line-length-none
+
+2005-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15809
+	* trans-decl.c (gfc_get_symbol_decl):  In the case of automatic
+	character length, dummy pointer arrays, build an expression for
+	unit size of the array elements, to be picked up and used in the
+	descriptor dtype.
+	* trans-io.c (gfc_trans_transfer):  Modify the detection of
+	components of derived type arrays to use the gfc_expr references
+	instead of the array descriptor dtype.  This allows the latter
+	to contain expressions.
+
+2005-11-30  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/15809
+	* trans-array.c (gfc_trans_deferred_array):  Allow PARM_DECLs past
+	in addition to VAR_DECLs.
+
+2005-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* io.c (gfc_resolve_open): RESOLVE_TAG access field as well.
+
+2005-11-27 Bernhard Fischer <rep.nop@aon.at>
+
+	* gfortran.h: remove superfluous whitespace and use GNU
+	comment-style for the documentation of backend_decl.
+
+2005-11-27  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24917
+	* primary.c (match_boz_constant):  Implement postfix BOZ constants;
+	(match_string_constant): Peek for b, o, z, and x
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23912
+	* iresolve.c (gfc_resolve_dim, gfc_resolve_mod,
+	gfc_resolve_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+	* check.c (gfc_check_a_p): Arguments of different kinds is not
+	a hard error, but an extension.
+	* simplify.c (gfc_simplify_dim, gfc_simplify_mod,
+	gfc_simplify_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+
 2005-11-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/14943

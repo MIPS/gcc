@@ -1149,6 +1149,7 @@ gfc_resolve_open (gfc_open * open)
   RESOLVE_TAG (&tag_iostat, open->iostat);
   RESOLVE_TAG (&tag_file, open->file);
   RESOLVE_TAG (&tag_status, open->status);
+  RESOLVE_TAG (&tag_e_access, open->access);
   RESOLVE_TAG (&tag_e_form, open->form);
   RESOLVE_TAG (&tag_e_recl, open->recl);
 
@@ -1590,7 +1591,7 @@ match_dt_format (gfc_dt * dt)
       return MATCH_YES;
     }
 
-  if (gfc_match_st_label (&label, 0) == MATCH_YES)
+  if (gfc_match_st_label (&label) == MATCH_YES)
     {
       if (dt->format_expr != NULL || dt->format_label != NULL)
 	{

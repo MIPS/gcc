@@ -1,3 +1,7 @@
+2005-12-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* omp-low.c: Rename build to buildN everywhere.
+
 2005-12-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-nested.c (convert_call_expr): Call walk_body on OMP_BODY for

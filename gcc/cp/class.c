@@ -2801,7 +2801,7 @@ check_field_decls (tree t, tree *access_decls,
 		  (0,
 		   "ignoring packed attribute on unpacked non-POD field %q+#D",
 		   x);
-	      else
+	      else if (TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
 		DECL_PACKED (x) = 1;
 	    }
 
@@ -5334,7 +5334,7 @@ init_class_processing (void)
   current_class_depth = 0;
   current_class_stack_size = 10;
   current_class_stack
-    = xmalloc (current_class_stack_size * sizeof (struct class_stack_node));
+    = XNEWVEC (struct class_stack_node, current_class_stack_size);
   local_classes = VEC_alloc (tree, gc, 8);
   sizeof_biggest_empty_class = size_zero_node;
 
@@ -5382,9 +5382,8 @@ pushclass (tree type)
     {
       current_class_stack_size *= 2;
       current_class_stack
-	= xrealloc (current_class_stack,
-		    current_class_stack_size
-		    * sizeof (struct class_stack_node));
+	= XRESIZEVEC (struct class_stack_node, current_class_stack,
+                      current_class_stack_size);
     }
 
   /* Insert a new entry on the class stack.  */

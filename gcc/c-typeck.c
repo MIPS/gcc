@@ -1467,7 +1467,8 @@ default_function_array_conversion (struct c_expr exp)
 	bool lvalue_array_p;
 
 	while ((TREE_CODE (exp.value) == NON_LVALUE_EXPR
-		|| TREE_CODE (exp.value) == NOP_EXPR)
+		|| TREE_CODE (exp.value) == NOP_EXPR
+		|| TREE_CODE (exp.value) == CONVERT_EXPR)
 	       && TREE_TYPE (TREE_OPERAND (exp.value, 0)) == type)
 	  {
 	    if (TREE_CODE (exp.value) == NON_LVALUE_EXPR)
@@ -2161,7 +2162,8 @@ build_function_call (tree function, tree params)
      expression if necessary.  This has the nice side-effect to prevent
      the tree-inliner from generating invalid assignment trees which may
      blow up in the RTL expander later.  */
-  if (TREE_CODE (function) == NOP_EXPR
+  if ((TREE_CODE (function) == NOP_EXPR
+       || TREE_CODE (function) == CONVERT_EXPR)
       && TREE_CODE (tem = TREE_OPERAND (function, 0)) == ADDR_EXPR
       && TREE_CODE (tem = TREE_OPERAND (tem, 0)) == FUNCTION_DECL
       && !comptypes (fntype, TREE_TYPE (tem)))
@@ -2189,7 +2191,7 @@ build_function_call (tree function, tree params)
 	    rhs = build_compound_literal (return_type,
 					  build_constructor (return_type, 0));
 	  else
-	    rhs = fold_build1 (NOP_EXPR, return_type, integer_zero_node);
+	    rhs = fold_convert (return_type, integer_zero_node);
 
 	  return build2 (COMPOUND_EXPR, return_type, trap, rhs);
 	}
@@ -3185,11 +3187,9 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     {
       if (comp_target_types (type1, type2))
 	result_type = common_pointer_type (type1, type2);
-      else if (integer_zerop (op1) && TREE_TYPE (type1) == void_type_node
-	       && TREE_CODE (orig_op1) != NOP_EXPR)
+      else if (integer_zerop (orig_op1) && TREE_TYPE (type1) == void_type_node)
 	result_type = qualify_type (type2, type1);
-      else if (integer_zerop (op2) && TREE_TYPE (type2) == void_type_node
-	       && TREE_CODE (orig_op2) != NOP_EXPR)
+      else if (integer_zerop (orig_op2) && TREE_TYPE (type2) == void_type_node)
 	result_type = qualify_type (type1, type2);
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
@@ -3273,11 +3273,13 @@ build_compound_expr (tree expr1, tree expr2)
       if (warn_unused_value)
 	{
 	  if (VOID_TYPE_P (TREE_TYPE (expr1))
-	      && TREE_CODE (expr1) == CONVERT_EXPR)
+	      && (TREE_CODE (expr1) == NOP_EXPR
+		  || TREE_CODE (expr1) == CONVERT_EXPR))
 	    ; /* (void) a, b */
 	  else if (VOID_TYPE_P (TREE_TYPE (expr1))
 		   && TREE_CODE (expr1) == COMPOUND_EXPR
-		   && TREE_CODE (TREE_OPERAND (expr1, 1)) == CONVERT_EXPR)
+		   && (TREE_CODE (TREE_OPERAND (expr1, 1)) == CONVERT_EXPR
+		       || TREE_CODE (TREE_OPERAND (expr1, 1)) == NOP_EXPR))
 	    ; /* (void) a, (void) b, c */
 	  else
 	    warning (0, "left-hand operand of comma expression has no effect");
@@ -3461,8 +3463,7 @@ build_c_cast (tree type, tree expr)
 	  && TREE_CODE (otype) == POINTER_TYPE
 	  && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
 	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
-	  && !(integer_zerop (value) && TREE_TYPE (otype) == void_type_node
-	       && TREE_CODE (expr) != NOP_EXPR))
+	  && !(integer_zerop (value) && TREE_TYPE (otype) == void_type_node))
 	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
 
       ovalue = value;
@@ -3818,9 +3819,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	    }
 
 	  /* Can convert integer zero to any pointer type.  */
-	  if (integer_zerop (rhs)
-	      || (TREE_CODE (rhs) == NOP_EXPR
-		  && integer_zerop (TREE_OPERAND (rhs, 0))))
+	  if (integer_zerop (rhs))
 	    {
 	      rhs = null_pointer_node;
 	      break;
@@ -3958,9 +3957,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
 		  ||
 		  (VOID_TYPE_P (ttr)
-		   /* Check TREE_CODE to catch cases like (void *) (char *) 0
-		      which are not ANSI null ptr constants.  */
-		   && (!integer_zerop (rhs) || TREE_CODE (rhs) == NOP_EXPR)
+		   && !integer_zerop (rhs)
 		   && TREE_CODE (ttl) == FUNCTION_TYPE)))
 	    WARN_FOR_ASSIGNMENT (G_("ISO C forbids passing argument %d of "
 				    "%qE between function pointer "
@@ -4050,12 +4047,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       /* An explicit constant 0 can convert to a pointer,
 	 or one that results from arithmetic, even including
 	 a cast to integer type.  */
-      if (!(TREE_CODE (rhs) == INTEGER_CST && integer_zerop (rhs))
-	  &&
-	  !(TREE_CODE (rhs) == NOP_EXPR
-	    && TREE_CODE (TREE_TYPE (rhs)) == INTEGER_TYPE
-	    && TREE_CODE (TREE_OPERAND (rhs, 0)) == INTEGER_CST
-	    && integer_zerop (TREE_OPERAND (rhs, 0))))
+      if (!integer_zerop (rhs))
 	WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE makes "
 				"pointer from integer without a cast"),
 			     G_("assignment makes pointer from integer "
