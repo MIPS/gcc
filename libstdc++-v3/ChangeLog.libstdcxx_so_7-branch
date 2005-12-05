@@ -1,3 +1,8 @@
+2005-12-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (__sso_string<>::_M_assign):
+	Simplify, avoid pointless reallocations.
+
 2005-12-04  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h (__sso_string<>::_M_reserve): Simplify.
