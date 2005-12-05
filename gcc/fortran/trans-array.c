@@ -4200,7 +4200,10 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
 
   if (sym->ts.type == BT_CHARACTER
       && !INTEGER_CST_P (sym->ts.cl->backend_decl))
-    gfc_trans_init_string_length (sym->ts.cl, &fnblock);
+    {
+      gfc_trans_init_string_length (sym->ts.cl, &fnblock);
+      gfc_trans_vla_type_sizes (sym, &fnblock);
+    }
 
   /* Dummy and use associated variables don't need anything special.  */
   if (sym->attr.dummy || sym->attr.use_assoc)
