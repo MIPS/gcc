@@ -1,3 +1,9 @@
+2005-12-05  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-ssa-forwprop.c (replacable_cast_pattern): New function.
+	(eliminate_unnecessary_casts): Find candidates for 
+	replacable_cast_pattern.
+
 2005-12-05  Ira Rosen  <irar@il.ibm.com>
 
 	* config/rs6000/altivec.md (altivec_vmrghsf, altivec_vmrghlsf): New.

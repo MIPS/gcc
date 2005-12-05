@@ -869,28 +869,97 @@ all_uses_are_replacable (tree stmt, bool replace)
   return  replacable; 
 }
 
+/* Return TRUE if STMT is part of a pttern that can be simplified.
+   (STMT is a cast operation).  */
+static bool
+replacable_cast_pattern (tree stmt)
+{
+   /* (2) Look for the following pattern:
+          S1:  X = (widening_cast) x;
+          S2:  Y = lshift (X, z);
+          S3:  y = (narrowing_cast) Y;
+        use(y);
+        use(y);
+
+         and replace it with:
+
+          S1:  X = (widening_cast) x;  
+          S2:  Y = lshift (X, z);     
+          S3:  y = (narrowing_cast) Y;
+          S4:  y_new = lshift (x, z);
+        use(y_new);
+        use(y_new);
+
+   DCE will remove S1,S2,S3 if possible.  
+   */
+  tree def_stmt, oprnd0, oprnd1;
+  tree var, var_name, new_stmt;
+  block_stmt_iterator si;
+  tree rhs = TREE_OPERAND (stmt, 1);
+  tree rhs_inner = TREE_OPERAND (rhs, 0);
+  tree type = TREE_TYPE (rhs);
+  tree inner_type = TREE_TYPE (rhs_inner);
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+
+  if (TREE_CODE (rhs_inner) != SSA_NAME)
+    return false; 
+  def_stmt = SSA_NAME_DEF_STMT (rhs_inner);
+  if (TREE_CODE (def_stmt) != MODIFY_EXPR)
+    return false; 
+  rhs = TREE_OPERAND (def_stmt, 1);
+  if (TREE_CODE (rhs) != LSHIFT_EXPR)
+    return false; 
+  oprnd0 = TREE_OPERAND (rhs, 0);
+  oprnd1 = TREE_OPERAND (rhs, 1);
+  if (TREE_CODE (oprnd0) != SSA_NAME)
+    return false; 
+  def_stmt = SSA_NAME_DEF_STMT (oprnd0);
+  if (!cast_conversion_assignment_p (def_stmt))
+    return false;
+  rhs = TREE_OPERAND (def_stmt, 1);
+  rhs_inner = TREE_OPERAND (rhs, 0);
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (rhs)) != TYPE_MAIN_VARIANT (inner_type))
+    return false;
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (rhs_inner)) != TYPE_MAIN_VARIANT (type))
+    return false;
+
+  /* Pattern detected. Replace.  */
+  rhs = build2 (LSHIFT_EXPR, type, rhs_inner, oprnd1);
+  var = create_tmp_var (type, "tmp");
+  add_referenced_tmp_var (var);
+  var_name = make_ssa_name (var, NULL_TREE);
+  new_stmt = build2 (MODIFY_EXPR, type, var_name, rhs);
+  SSA_NAME_DEF_STMT (var_name) = new_stmt;
+  si = bsi_for_stmt (stmt);
+  bsi_insert_before (&si, new_stmt, BSI_SAME_STMT);
+  FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, TREE_OPERAND (stmt, 0))
+    SET_USE (use_p, var_name);
+  return true;
+}
 
 static void
 eliminate_unnecessary_casts (void)
 {
   basic_block bb;
   block_stmt_iterator bsi;
-  varray_type worklist;
-  bitmap vars; 
+  varray_type worklist1, worklist2;
+  bitmap vars1, vars2; 
   
   /* Memory allocation.  */ 
-  vars = BITMAP_ALLOC (NULL);
-  VARRAY_TREE_INIT (worklist, 10, "worklist");
+  vars1 = BITMAP_ALLOC (NULL);
+  vars2 = BITMAP_ALLOC (NULL);
+  VARRAY_TREE_INIT (worklist1, 10, "worklist");
+  VARRAY_TREE_INIT (worklist2, 10, "worklist");
   FOR_EACH_BB (bb)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
           tree stmt = bsi_stmt (bsi);
 
-          /* If stmt is of the form
-               x = (cast) y; 
-             then make x candidate.  */
-
+          /*  If stmt is of the form
+                x = (cast) y; 
+              then make x candidate.  */
           if (cast_conversion_assignment_p (stmt))
            {
               tree lhs = TREE_OPERAND (stmt, 0);
@@ -899,36 +968,61 @@ eliminate_unnecessary_casts (void)
               tree rhs_type = TREE_TYPE (rhs);
               tree rhs_inner_type = TREE_TYPE (rhs_inner);
 
-              if ((TYPE_PRECISION (rhs_inner_type) <= TYPE_PRECISION (rhs_type))
-                  && (TYPE_UNSIGNED (rhs_inner_type) == TYPE_UNSIGNED (rhs_type)))
+              if ((TYPE_PRECISION (rhs_inner_type) > TYPE_PRECISION (rhs_type))
+                  && (TYPE_UNSIGNED (rhs_inner_type) == 
+                      TYPE_UNSIGNED (rhs_type))) 
                 {
-                  bitmap_set_bit (vars, SSA_NAME_VERSION (lhs));
-                  VARRAY_PUSH_TREE (worklist, stmt);
+                  bitmap_set_bit (vars1, SSA_NAME_VERSION (lhs));
+                  VARRAY_PUSH_TREE (worklist1, stmt);
+                }
+             else 
+                if ((TYPE_PRECISION (rhs_inner_type) <= 
+                     TYPE_PRECISION (rhs_type))
+                    && (TYPE_UNSIGNED (rhs_inner_type) ==
+                        TYPE_UNSIGNED (rhs_type)))
+                {
+                  bitmap_set_bit (vars2, SSA_NAME_VERSION (lhs));
+                  VARRAY_PUSH_TREE (worklist2, stmt);
                 }
             }
         }
     }
 
-  /* Now compute immidiate uses for candidates.  */
-  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
+  /* Try to eliminate casts for first set of candidates.  */
+  while (VARRAY_ACTIVE_SIZE (worklist1) > 0)
     {
-      tree stmt = VARRAY_TOP_TREE (worklist);
-      VARRAY_POP (worklist);
+      tree stmt = VARRAY_TOP_TREE (worklist1);
+      VARRAY_POP (worklist1);
+
+      if (replacable_cast_pattern (stmt))
+         {
+          if (dump_file && (dump_flags & TDF_DETAILS))
+            {
+              fprintf (dump_file,"File name = %s\n", __FILE__);
+              fprintf (dump_file,"Input name = %s\n", main_input_filename);
+            }
+         }
+    }
+
+  /* Now compute immidiate uses for second set of candidates.  */
+  while (VARRAY_ACTIVE_SIZE (worklist2) > 0)
+    {
+      tree stmt = VARRAY_TOP_TREE (worklist2);
+      VARRAY_POP (worklist2);
 
       if (all_uses_are_replacable (stmt, false /* Do not replace */))
         {
           if (dump_file && (dump_flags & TDF_DETAILS))
             {
-            fprintf (dump_file,"File name = %s\n", __FILE__);
-            fprintf (dump_file,"Input name = %s\n", main_input_filename);
+              fprintf (dump_file,"File name = %s\n", __FILE__);
+              fprintf (dump_file,"Input name = %s\n", main_input_filename);
             }
           all_uses_are_replacable (stmt, true /* Replace */);
         }
-
-
     }
   /* Cleanup */
-  BITMAP_FREE (vars);
+  BITMAP_FREE (vars1);
+  BITMAP_FREE (vars2);
 }
 
 /* Main entry point for the forward propagation optimizer.  */
