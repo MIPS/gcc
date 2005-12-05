@@ -1,5 +1,6 @@
-/* APPLE LOCAL testsuite nested functions */
+/* APPLE LOCAL begin testsuite nested functions */
 /* { dg-options "-fnested-functions" } */
+/* APPLE LOCAL end testsuite nested functions */
 
 /* APPLE LOCAL testsuite added stdlib.h */
 #include <stdlib.h>
