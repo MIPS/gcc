@@ -1435,7 +1435,8 @@ is not supported for C++.
 @c APPLE LOCAL begin nested functions 4357979
 @item -fno-nested-functions
 @opindex fno-nested-functions
-Disable nested functions.  This option is not supported for C++ or Objective-C++.
+Disable nested functions.  This option is not supported for C++ or
+Objective-C++.  On Darwin nested functions are disable by default.
 @c APPLE LOCAL end nested functions 4357979
 
 @c APPLE LOCAL begin pch distcc --mrs

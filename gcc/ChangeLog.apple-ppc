@@ -1,3 +1,10 @@
+2005-12-05  Mike Stump  <mrs@apple.com>
+
+	Radar 4357979
+	* doc/invoke.texi (C Dialect Options): Improve -fnested-functions wording.
+	* doc/extend.texi (Nested Functions): Note that on darwin nested
+	functions are off by default.
+
 2005-12-03  Mike Stump  <mrs@apple.com>
 
 	* c-parse.in (nested_function): Don't give two errors for nested functions.
