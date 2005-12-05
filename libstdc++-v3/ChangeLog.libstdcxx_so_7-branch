@@ -1,5 +1,9 @@
 2005-12-04  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/ext/sso_string.h (__sso_string<>::_M_reserve): Simplify.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/bits/basic_string.h (basic_string<>::operator+, all
 	versions): Move out of line...
 	* include/bits/basic_string.tcc (basic_string<>::operator+): ...
