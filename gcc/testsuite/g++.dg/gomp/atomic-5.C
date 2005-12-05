@@ -21,7 +21,7 @@ void f1(void)
   #pragma omp atomic
     bar();		/* { dg-error "invalid operator" } */
   #pragma omp atomic
-    bar() += 1;		/* { dg-error "invalid lvalue" } */
+    bar() += 1;		/* { dg-error "lvalue required" } */
   #pragma omp atomic a	/* { dg-error "expected end of line" } */
     x++;
   #pragma omp atomic

@@ -1,3 +1,9 @@
+2005-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/13384
+	* gcc.dg/gomp/atomic-5.c: Adjust.
+	* g++.dg/gomp/atomic-5.C: Likewise.
+
 2005-11-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/do-1.f90: XFAIL.
