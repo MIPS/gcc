@@ -1,5 +1,11 @@
 2005-12-05  Ira Rosen  <irar@il.ibm.com>
 
+	* config/rs6000/altivec.md (altivec_vmrghsf, altivec_vmrghlsf): New.
+	(vec_interleave_highv4sf, vec_interleave_lowv4sf): Use altivec_vmrghsf
+	and altivec_vmrghlsf.
+
+2005-12-05  Ira Rosen  <irar@il.ibm.com>
+
 	* tree-vect-analyze.c (vect_check_interleaving): Check that the step is
 	smaller than the difference between data-refs' inits.
 	(vect_analyze_data_ref_access): Change printed message.

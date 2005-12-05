@@ -884,6 +884,23 @@
   "vmrghw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
+(define_insn "altivec_vmrghsf"
+  [(set (match_operand:V4SF 0 "register_operand" "=v")
+        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "v")
+                                         (parallel [(const_int 0)
+                                                    (const_int 2)
+                                                    (const_int 1)
+                                                    (const_int 3)]))
+                        (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "v")
+                                         (parallel [(const_int 2)
+                                                    (const_int 0)
+                                                    (const_int 3)
+                                                    (const_int 1)]))
+                      (const_int 5)))]
+  "TARGET_ALTIVEC"
+  "vmrghw %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
 (define_insn "altivec_vmrglb"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (vec_merge:V16QI (vec_select:V16QI (match_operand:V16QI 1 "register_operand" "v")
@@ -963,6 +980,23 @@
 						    (const_int 1)
 						    (const_int 3)]))
 		      (const_int 5)))]
+  "TARGET_ALTIVEC"
+  "vmrglw %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vmrglsf"
+  [(set (match_operand:V4SF 0 "register_operand" "=v")
+        (vec_merge:V4SF (vec_select:V4SF (match_operand:V4SF 1 "register_operand" "v")
+                                         (parallel [(const_int 2)
+                                                    (const_int 0)
+                                                    (const_int 3)
+                                                    (const_int 1)]))
+                        (vec_select:V4SF (match_operand:V4SF 2 "register_operand" "v")
+                                         (parallel [(const_int 0)
+                                                    (const_int 2)
+                                                    (const_int 1)
+                                                    (const_int 3)]))
+                      (const_int 5)))]
   "TARGET_ALTIVEC"
   "vmrglw %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -2678,7 +2712,7 @@
   "TARGET_ALTIVEC"
   "
 {
-  emit_insn (gen_altivec_vmrghw (operands[0], operands[1], operands[2]));
+  emit_insn (gen_altivec_vmrghsf (operands[0], operands[1], operands[2]));
   DONE;
 }")
   
@@ -2690,7 +2724,7 @@
   "TARGET_ALTIVEC"
   "
 {
-  emit_insn (gen_altivec_vmrglw (operands[0], operands[1], operands[2]));
+  emit_insn (gen_altivec_vmrglsf (operands[0], operands[1], operands[2]));
   DONE;
 }")
   
