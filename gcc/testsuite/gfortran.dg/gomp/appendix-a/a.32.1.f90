@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-require-effective-target tls }
 
       MODULE M
         REAL, POINTER, SAVE :: WORK(:)

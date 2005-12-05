@@ -1,3 +1,25 @@
+2005-12-05  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/gomp/appendix-a/a.22.1.c, gcc.dg/gomp/appendix-a/a.22.2.c,
+	gcc.dg/gomp/appendix-a/a.24.1.c, gcc.dg/gomp/appendix-a/a.32.1.c,
+	gcc.dg/gomp/appendix-a/a.33.1.c, gcc.dg/gomp/clause-1.c,
+	gcc.dg/gomp/copyin-1.c, gcc.dg/gomp/sharing-1.c,
+	gcc.dg/gomp/tls-1.c, gcc.dg/gomp/tls-2.c,
+	g++.dg/gomp/clause-3.C, g++.dg/gomp/copyin-1.C,
+	g++.dg/gomp/sharing-1.C, g++.dg/gomp/tls-1.C, g++.dg/gomp/tls-2.C,
+	g++.dg/gomp/tls-3.C, gfortran.dg/gomp/appendix-a/a.22.1.f90,
+	gfortran.dg/gomp/appendix-a/a.22.4.f90,
+	gfortran.dg/gomp/appendix-a/a.22.5.f90,
+	gfortran.dg/gomp/appendix-a/a.22.6.f90,
+	gfortran.dg/gomp/appendix-a/a.24.1.f90,
+	gfortran.dg/gomp/appendix-a/a.32.1.f90,
+	gfortran.dg/gomp/appendix-a/a.33.1.f90,
+	gfortran.dg/gomp/crayptr2.f90, gfortran.dg/gomp/fixed-1.f,
+	gfortran.dg/gomp/free-1.f90, gfortran.dg/gomp/omp_threadprivate1.f90,
+	gfortran.dg/gomp/omp_threadprivate2.f90,
+	gfortran.dg/gomp/reduction1.f90, gfortran.dg/gomp/sharing-1.f90:
+	Require effective-target TLS.
+
 2005-12-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/13384

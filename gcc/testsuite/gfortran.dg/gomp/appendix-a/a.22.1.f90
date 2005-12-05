@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-require-effective-target tls }
 
       INTEGER FUNCTION INCREMENT_COUNTER()
         COMMON/A22_COMMON/COUNTER

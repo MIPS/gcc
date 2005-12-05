@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-require-effective-target tls }
 
       SUBROUTINE A24(A)
       INTEGER A

@@ -1,5 +1,6 @@
 C PR fortran/24493
 C { dg-do compile }
+C { dg-require-effective-target tls }
       INTEGER I, J, K, L, M
 C$OMP THREADPRIVATE(I)
 C SOME COMMENT

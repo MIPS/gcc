@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-require-effective-target tls */
 
 extern char buf[];
 #pragma omp threadprivate (buf)	/* { dg-error "has incomplete type" } */

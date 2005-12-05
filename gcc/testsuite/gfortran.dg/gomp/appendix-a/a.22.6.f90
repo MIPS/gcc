@@ -1,4 +1,6 @@
 ! { dg-do compile }
+! { dg-require-effective-target tls }
+
        SUBROUTINE A22_6_GOOD()
              COMMON /T/ A
 !$OMP THREADPRIVATE(/T/)

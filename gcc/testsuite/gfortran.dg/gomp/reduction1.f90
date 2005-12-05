@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-require-effective-target tls }
 
 subroutine foo (ia1)
 integer :: i1, i2, i3
