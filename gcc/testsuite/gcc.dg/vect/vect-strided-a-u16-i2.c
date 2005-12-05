@@ -8,14 +8,14 @@
 typedef struct {
    unsigned short a;
    unsigned short b;
-} viterbi_struct;
+} s;
 
 int
 main1 ()
 {
-  viterbi_struct arr[N];
-  viterbi_struct *ptr = arr;
-  viterbi_struct res[N];
+  s arr[N];
+  s *ptr = arr;
+  s res[N];
   int i;
 
   for (i = 0; i < N; i++)

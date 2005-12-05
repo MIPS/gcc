@@ -15,14 +15,14 @@ typedef struct {
    unsigned char f;
    unsigned char g;
    unsigned char h;
-} viterbi_struct;
+} s;
 
 int
-main1 (viterbi_struct *arr)
+main1 (s *arr)
 {
   int i;
-  viterbi_struct *ptr = arr;
-  viterbi_struct res[N];
+  s *ptr = arr;
+  s res[N];
   unsigned char u, t, s, x, y, z, w;
 
   for (i = 0; i < N; i++)
@@ -63,7 +63,7 @@ main1 (viterbi_struct *arr)
 int main (void)
 {
   int i;
-  viterbi_struct arr[N];
+  s arr[N];
   
   check_vect ();
 

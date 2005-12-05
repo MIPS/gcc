@@ -8,13 +8,13 @@
 typedef struct {
    unsigned short a;
    unsigned short b;
-} viterbi_struct;
+} s;
 
 int
-main1 (viterbi_struct *arr)
+main1 (s *arr)
 {
-  viterbi_struct *ptr = arr;
-  viterbi_struct res[N];
+  s *ptr = arr;
+  s res[N];
   int i;
 
   for (i = 0; i < N; i++)
@@ -38,7 +38,7 @@ main1 (viterbi_struct *arr)
 int main (void)
 {
   int i;
-  viterbi_struct arr[N];
+  s arr[N];
   
   check_vect ();
 

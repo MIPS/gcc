@@ -1,5 +1,16 @@
 2005-12-05  Ira Rosen  <irar@il.ibm.com>
 
+	* gcc.dg/vect/vect-strided-a-u16-i2.c: Rename the structure.
+	* gcc.dg/vect/vect-strided-a-u16-i4.c, 
+	gcc.dg/vect/vect-strided-u16-i2.c, gcc.dg/vect/vect-strided-u16-i4.c,
+	gcc.dg/vect/vect-strided-u32-i4.c, gcc.dg/vect/vect-strided-u32-i8.c,
+	gcc.dg/vect/vect-strided-u8-i2.c, gcc.dg/vect/vect-strided-u8-i2-gap.c, 
+	gcc.dg/vect/vect-strided-u8-i8.c, gcc.dg/vect/vect-strided-u8-i8-gap2.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap7.c, 
+	gcc.dg/vect/vect-strided-u8-i8-gap4.c: Likewise.
+
+2005-12-05  Ira Rosen  <irar@il.ibm.com>
+
 	* gcc.dg/vect/vect-strided-float.c: New.
 
 2005-12-02  Richard Henderson  <rth@redhat.com>
