@@ -377,10 +377,11 @@ allows the data to be read-only.
 A @dfn{nested function} is a function defined inside another function.
 @c APPLE LOCAL begin nested functions 4357979
 Nested functions are not supported for GNU C++ and are disable by
-default on Darwin.  The @option{-fnested-functions} option can be use
-to enable/disable nested function suppport.  The nested function's
-name is local to the block where it is defined.  For example, here we
-define a nested function named @code{square}, and call it twice:
+default on Darwin.  The @option{-fnested-functions} and
+@option{-fno-nested-functions} options can be used to enable and
+disable nested function suppport.  The nested function's name is local
+to the block where it is defined.  For example, here we define a
+nested function named @code{square}, and call it twice:
 @c APPLE LOCAL end nested functions 4357979
 
 @smallexample
