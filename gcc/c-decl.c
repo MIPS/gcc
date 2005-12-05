@@ -7334,7 +7334,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      if (!targetm.decimal_float_supported_p ())
 		error ("decimal floating point not supported for this target");
 	      if (pedantic)
-		pedwarn ("ISO C90 does not support decimal floating point");
+		pedwarn ("ISO C does not support decimal floating point");
 	      return specs;
 	    default:
 	      /* ObjC reserved word "id", handled below.  */

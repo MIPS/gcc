@@ -686,7 +686,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
      appropriate for this to be a mandatory pedwarn rather than
      conditioned on -pedantic.  */
   if (REAL_VALUE_ISINF (real) && pedantic)
-    pedwarn ("floating constant exceeds range of %qT>", type);
+    pedwarn ("floating constant exceeds range of %qT", type);
 
   /* Create a node with determined type and value.  */
   value = build_real (type, real);
