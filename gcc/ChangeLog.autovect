@@ -1,3 +1,9 @@
+2005-12-05  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_check_interleaving): Check that the step is
+	smaller than the difference between data-refs' inits.
+	(vect_analyze_data_ref_access): Change printed message.
+
 2005-12-02  Richard Henderson  <rth@redhat.com>
 
 	* config/ia64/ia64.c (TARGET_VECTORIZE_BUILTIN_EXTRACT_EVEN): New.

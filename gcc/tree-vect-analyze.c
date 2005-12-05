@@ -814,6 +814,7 @@ vect_check_interleaving (struct data_reference *dra,
   /* Check:
      1. data-refs are of the same type
      2. their steps are equal
+     3. the step is smaller than the difference between data-refs' offsets
   */
   type_size_a = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra)));
   type_size_b = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb)));
@@ -830,6 +831,9 @@ vect_check_interleaving (struct data_reference *dra,
 				DR_INIT (dra), DR_INIT (drb));
       diff_mod_size = fold_build2 (TRUNC_MOD_EXPR, TREE_TYPE (type_size_a), 
 				   inits_diff, type_size_a);
+
+      if (tree_int_cst_compare (inits_diff, DR_STEP (dra)) > 0)
+         return; 
 
       if (!tree_int_cst_compare (diff_mod_size, ssize_int (0)))
 	{
@@ -852,6 +856,10 @@ vect_check_interleaving (struct data_reference *dra,
 				DR_INIT (drb), DR_INIT (dra));
       diff_mod_size = fold_build2 (TRUNC_MOD_EXPR, TREE_TYPE (type_size_a), 
 				   inits_diff, type_size_a);
+
+      if (tree_int_cst_compare (inits_diff, DR_STEP (dra)) > 0)
+         return;
+
       if (!tree_int_cst_compare (diff_mod_size, ssize_int (0)))
 	{
 	  vect_update_interleaving_chain (dra, drb);	  
@@ -1851,11 +1859,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
-	      fprintf (vect_dump, "interleaving level is greater than step ");
-	      print_generic_expr (vect_dump, step, TDF_SLIM);
-	      fprintf (vect_dump, " size ");
-	      print_generic_expr (vect_dump, TYPE_SIZE_UNIT (scalar_type), 
-				  TDF_SLIM);
+	      fprintf (vect_dump, "interleaving level is greater than step for ");
+	      print_generic_expr (vect_dump, DR_REF (dr), TDF_SLIM); 
 	    }
 	  return false;
 	}
