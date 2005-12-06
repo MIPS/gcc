@@ -1,3 +1,105 @@
+2005-12-05  Dale Johannesen  <dalej@apple.com>
+
+	* config/i386/xmmintrin.h (_MM_TRANSPOSE4_PS):  Fix to match
+	what was approved (PR 24323).
+
+2005-12-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* doc/c-tree.texi (Function Bodies): Remove description of
+	RETURN_INIT.
+
+2005-12-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* doc/libgcc.texi (__floatunsisf, __floatunsidf, __floatunsitf,
+	__floatunsixf, __floatundisf, __floatundidf, __floatunditf,
+	__floatundixf, __floatuntisf, __floatuntidf, __floatuntitf,
+	__floatuntixf, __powisf2, __powidf2, __powixf2, __mulsc3,
+	__muldc3, __multc3, __mulxc3, __divsc3, __divdc3, __divtc3,
+	__divxc3): Document.
+
+2005-12-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/arm/arm.c (arm_cxx_determine_class_data_visibility): Preserve
+	previous behaviour.
+	* config/darwin.h (TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Define to
+	hook_bool_void_false.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Define.
+	* config/darwin.c (darwin_cxx_determine_class_data_visibility): New.
+
+	* config/darwin.c (machopic_select_section): It's not defined
+	as weak if it's only marked as weak_import.
+	
+	* config/darwin-protos.h (darwin_cxx_determine_class_data_visibility):
+	Prototype.
+
+	* varasm.c (default_binds_local_p_1): Weakrefs don't bind locally.
+	A hidden weak object does bind locally.  Strong linkonce data
+	counts like any other strong symbol for binding.
+	(weak_finish_1): Don't specially handle weakrefs, they no longer
+	arrive here.
+	(assemble_alias): Weakrefs can't be TREE_PUBLIC yet.
+	* c-common.c (handle_alias_attribute): Allow static aliases
+	of variables.
+	(handle_weakref_attribute): Don't call declare_weak on weakrefs.
+	* gthr-dce.h: Make weakrefs static.
+	* gthr-tpf.h: Likewise.
+	* gthr-solaris.h: Likewise.
+	* gthr-posix.h: Likewise.
+	* gthr-posix95.h: Likewise.
+	* config/darwin.c (darwin_encode_section_info): static weakref
+	variables are not necessarily defined in this translation unit.
+	* doc/extend.texi (Function Attributes): Mention that an alias
+	attribute creates a definition for the thing it's attached to.
+	Change the documentation for weakref to say that the thing
+	it's attached to must be static.
+
+	* config/rs6000/host-darwin.c (segv_handler): Unblock SEGV so
+	we don't go into an infinite loop.
+
+2005-12-05  Paolo Bonzini  <bonzini@gnu.org>
+
+        * config/rs6000/predicates.md (logical_const_operand): Split
+        out of logical_operand.
+        (logical_operand): Use it.
+        * config/rs6000/rs6000.md (cmp -> xor peephole2): Use
+        logical_const_operand.
+
+2005-12-05  Jan Beulich  <jbeulich@novell.com>
+
+	* config/i386/i386.c (enum ix86_builtins): Remove IX86_BUILTIN_CMPNEPS
+	and IX86_BUILTIN_CMPNESS.
+	(ix86_init_mmx_sse_builtins): Remove ti_ftype_ti_ti.
+	* config/i386/i386.h (ALIGN_MODE_128): Don't check TFmode explicitly.
+	* config/i386/i386.md (movti_internal): Correct type attribute.
+	Simplify mode attribute.
+	(movti_rex64, movsf_1, movdf_nointeger, movdf_integer, movtf_internal):
+	Correct type attribute.
+	(absxf2): Correct operator.
+	* config/i386/mmx.md (mov<mode>_internal_rex64, mov<mode>_internal,
+	movv2sf_internal_rex64, movv2sf_internal): Correct type attribute.
+	* config/i386/sse.md (mov<mode>_internal, movv2df_internal): Simplify
+	mode attribute.
+	(sse2_vmsqrtv2df2): Correct mode attribute.
+
+2005-12-05  Jan Beulich  <jbeulich@novell.com>
+
+	* config/ia64/ia64.md (rotlsi3_internal): Don't split if rotating by
+	16 bits. Provide insn pattern for this case.
+
+2005-12-05  Jan Beulich  <jbeulich@novell.com>
+
+	* libgcc2.c (__popcountSI2): Don't use wide type for iterator and
+	result.
+	(__popcountDI2): Likewise.
+
+2005-12-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25166
+	* pa/pa.c (pa_hpux_init_libfuncs): Add _U_Qfcnvxf_usgl_to_quad and
+	_U_Qfcnvxf_udbl_to_quad to set of initialized libfuncs.
+	* pa/quadlib.c (_U_Qfcnvxf_usgl_to_quad, _U_Qfcnvxf_udbl_to_quad): New
+	functions.
+
 2005-12-04  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* c-typeck.c (null_pointer_constant_p): New function.
