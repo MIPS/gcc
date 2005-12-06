@@ -1,5 +1,10 @@
 2005-12-06  Ben Elliston  <bje@au.ibm.com>
 
+	* doc/extend.texi (Decimal Float): New node.
+	(Constructing Calls): Document decimal float built-ins.
+
+2005-12-06  Ben Elliston  <bje@au.ibm.com>
+
 	* c-lex.c (interpret_float): Remove stray '>' from format string.
 	* c-decl.c (declspecs_add_type): Improve diagnostic.  No version
 	of ISO C supports decimal floating point.
