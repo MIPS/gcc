@@ -1,3 +1,7 @@
+2005-12-06  Uros Bizjak  <uros@kss-loka.si>
+
+	* g++.dg/gomp/tls-2.C: Add missing "}" to dg directive.
+
 2005-12-05  Uros Bizjak  <uros@kss-loka.si>
 
 	* gcc.dg/gomp/appendix-a/a.22.1.c, gcc.dg/gomp/appendix-a/a.22.2.c,
