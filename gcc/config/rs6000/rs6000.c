@@ -3460,7 +3460,8 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
-	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode && mode != TDmode))
+	  || ((mode != DFmode || TARGET_E500_DOUBLE)
+	      && mode != TFmode && mode != TDmode))
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
@@ -13126,7 +13127,8 @@ debug_stack_info (rs6000_stack_t *info)
     fprintf (stderr, "\tcr_save_offset      = %5d\n", info->cr_save_offset);
 
   if (info->varargs_save_offset)
-    fprintf (stderr, "\tvarargs_save_offset = %5d\n", info->varargs_save_offset);
+    fprintf (stderr, "\tvarargs_save_offset = %5d\n",
+	     info->varargs_save_offset);
 
   if (info->total_size)
     fprintf (stderr, "\ttotal_size          = "HOST_WIDE_INT_PRINT_DEC"\n",

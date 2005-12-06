@@ -1,3 +1,7 @@
+2005-12-07  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.c: Break long lines.
+
 2005-12-06  Ben Elliston  <bje@au.ibm.com>
 
 	* optabs.c (init_optabs): Add floatun libfuncs for decimal float.
