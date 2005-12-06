@@ -41,6 +41,12 @@
 
 #define SUBTARGET_EXTRA_LINK_SPEC " -m armelf_linux -p"
 
+/* Add a -muclibc switch so that users can request uClibc instead of
+   GLIBC.  */
+#define SUBTARGET_SWITCHES				\
+  {"uclibc", 0,						\
+   N_("Use the uClibc C library instead of GLIBC") },
+
 #undef  MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \
 	{ "marm", "mlittle-endian", "mhard-float", "mno-thumb-interwork" }
@@ -83,15 +89,17 @@
 
 #define LINUX_TARGET_INTERPRETER "/lib/ld-linux.so.2"
 
-#define LINUX_TARGET_LINK_SPEC  "%{h*} %{version:-v} \
-   %{b} %{Wl,*:%*} \
-   %{static:-Bstatic} \
-   %{shared:-shared} \
-   %{symbolic:-Bsymbolic} \
-   %{rdynamic:-export-dynamic} \
-   %{!dynamic-linker:-dynamic-linker " LINUX_TARGET_INTERPRETER "} \
-   -X \
-   %{mbig-endian:-EB}" \
+#define LINUX_TARGET_LINK_SPEC  "%{h*} %{version:-v}	\
+   %{b} %{Wl,*:%*}					\
+   %{static:-Bstatic}					\
+   %{shared:-shared}					\
+   %{symbolic:-Bsymbolic}				\
+   %{rdynamic:-export-dynamic}				\
+   %{!dynamic-linker:-dynamic-linker			\
+     %{muclibc:/lib/ld-uClibc.so.0;			\
+       : " LINUX_TARGET_INTERPRETER "}}			\
+   -X							\
+   %{mbig-endian:-EB}"					\
    SUBTARGET_EXTRA_LINK_SPEC
 
 #undef  LINK_SPEC

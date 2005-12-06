@@ -1,3 +1,11 @@
+2005-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/config/arm/linux-elf.h (SUBTARGET_SWITCHES): Add -muclibc.
+	(LINUX_TARGET_LINK_SWITCH): Use uClibc dynamic loader if -muclibc.
+	* gcc/config/arm/wrs-linux.h (SYSROOT_HEADERS_SUFFIX_SPEC): New
+	macro.
+	(SYSROOT_SUFFIX_SPEC): Add support for -muclibc.
+
 2005-09-12  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/testsuite/g++.dg/eh/forced1.C,

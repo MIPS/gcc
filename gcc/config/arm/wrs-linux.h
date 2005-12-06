@@ -38,6 +38,12 @@ Boston, MA 02111-1307, USA.  */
 #define MULTILIB_DEFAULTS \
   { "tarm926ej-s" }
 
+/* The GLIBC headers are in /usr/include, relative to the sysroot; the
+   uClibc headers are in /uclibc/usr/include.  */
+#undef SYSROOT_HEADERS_SUFFIX_SPEC
+#define SYSROOT_HEADERS_SUFFIX_SPEC		\
+  "%{muclibc:/uclibc}" 
+
 /* Translate -tiwmmxt appropriately for the assembler.  The -meabi=4
    option is SUBTARGET_EXTRA_ASM_SPEC in bpabi.h.  */
 #undef SUBTARGET_EXTRA_ASM_SPEC
@@ -51,9 +57,10 @@ Boston, MA 02111-1307, USA.  */
      txscale:-m armelfb_linux_eabi ; 		\
      : -m armelf_linux_eabi}"
 
-/* When using -tiwmmxt, search the "tiwmmxt" subdirectory.  */
+/* The various C libraries each have their own subdirectory.  */
 #undef SYSROOT_SUFFIX_SPEC
-#define SYSROOT_SUFFIX_SPEC \
-  "/%{tiwmmxt:/tiwmmxt}%{txscale:/txscale}"
-
+#define SYSROOT_SUFFIX_SPEC			\
+  "%{muclibc:/uclibc ;				\
+     tiwmmxt:/tiwmmxt ;				\
+     txscale:/txscale}"
 
