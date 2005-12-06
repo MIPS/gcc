@@ -1,5 +1,11 @@
 2005-12-06  Ben Elliston  <bje@au.ibm.com>
 
+	* optabs.c (init_optabs): Add floatun libfuncs for decimal float.
+	* convert.c (convert_to_real): Formatting.
+	* emit-rtl.c (init_emit_once): Formatting.
+
+2005-12-06  Ben Elliston  <bje@au.ibm.com>
+
 	* doc/extend.texi (Decimal Float): New node.
 	(Constructing Calls): Document decimal float built-ins.
 
@@ -333,7 +339,7 @@
 	* combine.c (simplify_comparison): Remove unneeded assert.
 	* cse.c (cse_insn): Use GET_MODE_WIDER_MODE.
 	* decRound.c (__dfp_rounding_mode): Add comment.
-	* emit-rtl.c (init_emit_once): Don't check for DEC_IMAL_FLOAT_MODE_P,
+	* emit-rtl.c (init_emit_once): Don't check for DECIMAL_FLOAT_MODE_P,
 	handle MODE_DECIMAL_FLOAT separately.
 	* expmed.c (init_expmed, expand_divmod): Use GET_MODE_WIDER_MODE.
 	* expr.c (init_expr_once): Don't check INCOMPATIBLE_MODES_P.
@@ -691,7 +697,7 @@
 	* cse.c (cse_insn): Loop through compatible modes.
 	* emit-rtl.c (gen_const_vector): Add assert.
 	(init_emit_once): Skip loop for DFP.
-	* expmed.c (init_expmed): Process compabible modes.
+	* expmed.c (init_expmed): Process compatible modes.
 	(extract_high_half, expand_mult_highpart_optab,
 	expand_mult_highpart): Add assert.
 	(expand_divmod): Process compatible modes.

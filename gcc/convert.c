@@ -264,14 +264,14 @@ convert_to_real (tree type, tree expr)
 	       {
 		  tree newtype = type;
 
-		  if (TYPE_MODE (TREE_TYPE(arg0)) == SDmode
-		      || TYPE_MODE (TREE_TYPE(arg1)) == SDmode)
+		  if (TYPE_MODE (TREE_TYPE (arg0)) == SDmode
+		      || TYPE_MODE (TREE_TYPE (arg1)) == SDmode)
 		    newtype = dfloat32_type_node;
-		  if (TYPE_MODE (TREE_TYPE(arg0)) == DDmode
-		      || TYPE_MODE (TREE_TYPE(arg1)) == DDmode)
+		  if (TYPE_MODE (TREE_TYPE (arg0)) == DDmode
+		      || TYPE_MODE (TREE_TYPE (arg1)) == DDmode)
 		    newtype = dfloat64_type_node;
-		  if (TYPE_MODE (TREE_TYPE(arg0)) == TDmode
-		      || TYPE_MODE (TREE_TYPE(arg1)) == TDmode)
+		  if (TYPE_MODE (TREE_TYPE (arg0)) == TDmode
+		      || TYPE_MODE (TREE_TYPE (arg1)) == TDmode)
                     newtype = dfloat128_type_node;
 		  if (newtype == dfloat32_type_node
 		      || newtype == dfloat64_type_node

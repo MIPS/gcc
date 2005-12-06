@@ -5269,7 +5269,8 @@ init_optabs (void)
 				 MODE_INT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (ufloat_optab, "floatun",
 				 MODE_INT, MODE_FLOAT);
-  /* FIXME: what about decimal floatun?  */
+  init_interclass_conv_libfuncs (ufloat_optab, "floatun",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
 				 MODE_FLOAT, MODE_INT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
@@ -5278,26 +5279,18 @@ init_optabs (void)
 				 MODE_FLOAT, MODE_INT);
   init_interclass_conv_libfuncs (ufix_optab, "fixuns",
 				 MODE_DECIMAL_FLOAT, MODE_INT);
-  /* These functions are only needed for decimal float modes and could be
-     added from DFP-specific files via calls to set_optab_libfunc.  */
   init_interclass_conv_libfuncs (ufloat_optab, "floatuns",
 				 MODE_INT, MODE_DECIMAL_FLOAT);
 
   /* sext_optab is also used for FLOAT_EXTEND.  */
   init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
-  init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT,
-				 true);
-  init_interclass_conv_libfuncs (sext_optab, "extend",  MODE_FLOAT,
-				 MODE_DECIMAL_FLOAT);
-  init_interclass_conv_libfuncs (sext_optab, "extend",  MODE_DECIMAL_FLOAT,
-				 MODE_FLOAT);
+  init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT, true);
+  init_interclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT, MODE_FLOAT);
   init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, false);
-  init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT,
-				 false);
-  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT,
-				 MODE_DECIMAL_FLOAT);
-  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT,
-				 MODE_FLOAT);
+  init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, false);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, MODE_FLOAT);
 
   /* Use cabs for double complex abs, since systems generally have cabs.
      Don't define any libcall for float complex, so that cabs will be used.  */
