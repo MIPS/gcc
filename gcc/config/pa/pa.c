@@ -150,6 +150,9 @@ static bool pa_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 static int pa_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				 tree, bool);
 static struct machine_function * pa_init_machine_status (void);
+static enum reg_class pa_secondary_reload (bool, rtx, enum reg_class,
+					   enum machine_mode,
+					   secondary_reload_info *);
 
 
 /* Save the operands last given to a compare for use when we
@@ -298,6 +301,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM pa_tls_referenced_p
+
+#undef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD pa_secondary_reload
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -495,8 +501,10 @@ static void
 pa_init_builtins (void)
 {
 #ifdef DONT_HAVE_FPUTC_UNLOCKED
-  built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
-  implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
+  built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] =
+    built_in_decls[(int) BUILT_IN_PUTC_UNLOCKED];
+  implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED]
+    = implicit_built_in_decls[(int) BUILT_IN_PUTC_UNLOCKED];
 #endif
 }
 
@@ -5342,6 +5350,8 @@ pa_hpux_init_libfuncs (void)
 
   set_conv_libfunc (sfloat_optab, TFmode, SImode, "_U_Qfcnvxf_sgl_to_quad");
   set_conv_libfunc (sfloat_optab, TFmode, DImode, "_U_Qfcnvxf_dbl_to_quad");
+  set_conv_libfunc (ufloat_optab, TFmode, SImode, "_U_Qfcnvxf_usgl_to_quad");
+  set_conv_libfunc (ufloat_optab, TFmode, DImode, "_U_Qfcnvxf_udbl_to_quad");
 }
 #endif
 
@@ -5565,49 +5575,48 @@ output_arg_descriptor (rtx call_insn)
   fputc ('\n', asm_out_file);
 }
 
-/* Return the class of any secondary reload register that is needed to
-   move IN into a register in class CLASS using mode MODE.
-
-   Profiling has showed this routine and its descendants account for
-   a significant amount of compile time (~7%).  So it has been
-   optimized to reduce redundant computations and eliminate useless
-   function calls.
-
-   It might be worthwhile to try and make this a leaf function too.  */
-
-enum reg_class
-pa_secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
+static enum reg_class
+pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		     enum machine_mode mode, secondary_reload_info *sri)
 {
-  int regno, is_symbolic;
+  int is_symbolic, regno;
 
-  /* Trying to load a constant into a FP register during PIC code
-     generation will require %r1 as a scratch register.  */
-  if (flag_pic
-      && GET_MODE_CLASS (mode) == MODE_INT
-      && FP_REG_CLASS_P (class)
-      && (GET_CODE (in) == CONST_INT || GET_CODE (in) == CONST_DOUBLE))
-    return R1_REGS;
+  /* Handle the easy stuff first.  */
+  if (class == R1_REGS)
+    return NO_REGS;
 
-  /* Profiling showed the PA port spends about 1.3% of its compilation
-     time in true_regnum from calls inside pa_secondary_reload_class.  */
-
-  if (GET_CODE (in) == REG)
+  if (REG_P (x))
     {
-      regno = REGNO (in);
-      if (regno >= FIRST_PSEUDO_REGISTER)
-	regno = true_regnum (in);
+      regno = REGNO (x);
+      if (class == BASE_REG_CLASS && regno < FIRST_PSEUDO_REGISTER)
+	return NO_REGS;
     }
-  else if (GET_CODE (in) == SUBREG)
-    regno = true_regnum (in);
   else
     regno = -1;
 
   /* If we have something like (mem (mem (...)), we can safely assume the
      inner MEM will end up in a general register after reloading, so there's
      no need for a secondary reload.  */
-  if (GET_CODE (in) == MEM
-      && GET_CODE (XEXP (in, 0)) == MEM)
+  if (GET_CODE (x) == MEM && GET_CODE (XEXP (x, 0)) == MEM)
     return NO_REGS;
+
+  /* Trying to load a constant into a FP register during PIC code
+     generation requires %r1 as a scratch register.  */
+  if (flag_pic
+      && GET_MODE_CLASS (mode) == MODE_INT
+      && FP_REG_CLASS_P (class)
+      && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE))
+    {
+      gcc_assert (mode == SImode || mode == DImode);
+      sri->icode = (mode == SImode ? CODE_FOR_reload_insi_r1
+		    : CODE_FOR_reload_indi_r1);
+      return NO_REGS;
+    }
+
+  /* Profiling showed the PA port spends about 1.3% of its compilation
+     time in true_regnum from calls inside pa_secondary_reload_class.  */
+  if (regno >= FIRST_PSEUDO_REGISTER || GET_CODE (x) == SUBREG)
+    regno = true_regnum (x);
 
   /* Handle out of range displacement for integer mode loads/stores of
      FP registers.  */
@@ -5615,50 +5624,59 @@ pa_secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
        && GET_MODE_CLASS (mode) == MODE_INT
        && FP_REG_CLASS_P (class))
       || (class == SHIFT_REGS && (regno <= 0 || regno >= 32)))
-    return GENERAL_REGS;
+    {
+      sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
+      return NO_REGS;
+    }
 
   /* A SAR<->FP register copy requires a secondary register (GPR) as
      well as secondary memory.  */
   if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER
       && ((REGNO_REG_CLASS (regno) == SHIFT_REGS && FP_REG_CLASS_P (class))
-	  || (class == SHIFT_REGS && FP_REG_CLASS_P (REGNO_REG_CLASS (regno)))))
-    return GENERAL_REGS;
+	  || (class == SHIFT_REGS
+	      && FP_REG_CLASS_P (REGNO_REG_CLASS (regno)))))
+    {
+      sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
+      return NO_REGS;
+    }
 
-  if (GET_CODE (in) == HIGH)
-    in = XEXP (in, 0);
+  /* Secondary reloads of symbolic operands require %r1 as a scratch
+     register when we're generating PIC code and the operand isn't
+     readonly.  */
+  if (GET_CODE (x) == HIGH)
+    x = XEXP (x, 0);
 
   /* Profiling has showed GCC spends about 2.6% of its compilation
      time in symbolic_operand from calls inside pa_secondary_reload_class.
-
-     We use an inline copy and only compute its return value once to avoid
-     useless work.  */
-  switch (GET_CODE (in))
+     So, we use an inline copy to avoid useless work.  */
+  switch (GET_CODE (x))
     {
-      rtx tmp;
+      rtx op;
 
       case SYMBOL_REF:
+        is_symbolic = !SYMBOL_REF_TLS_MODEL (x);
+        break;
       case LABEL_REF:
         is_symbolic = 1;
         break;
       case CONST:
-	tmp = XEXP (in, 0);
-	is_symbolic = ((GET_CODE (XEXP (tmp, 0)) == SYMBOL_REF
-			|| GET_CODE (XEXP (tmp, 0)) == LABEL_REF)
-		       && GET_CODE (XEXP (tmp, 1)) == CONST_INT);
+	op = XEXP (x, 0);
+	is_symbolic = (((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+			 && !SYMBOL_REF_TLS_MODEL (XEXP (op, 0)))
+			|| GET_CODE (XEXP (op, 0)) == LABEL_REF)
+		       && GET_CODE (XEXP (op, 1)) == CONST_INT);
         break;
-
       default:
         is_symbolic = 0;
         break;
     }
 
-  if (!flag_pic
-      && is_symbolic
-      && read_only_operand (in, VOIDmode))
-    return NO_REGS;
-
-  if (class != R1_REGS && is_symbolic)
-    return R1_REGS;
+  if (is_symbolic && (flag_pic || !read_only_operand (x, VOIDmode)))
+    {
+      gcc_assert (mode == SImode || mode == DImode);
+      sri->icode = (mode == SImode ? CODE_FOR_reload_insi_r1
+		    : CODE_FOR_reload_indi_r1);
+    }
 
   return NO_REGS;
 }
@@ -5837,20 +5855,20 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       /* Args grow down.  Not handled by generic routines.  */
 
       u = fold_convert (valist_type, size_in_bytes (type));
-      t = build (MINUS_EXPR, valist_type, valist, u);
+      t = build2 (MINUS_EXPR, valist_type, valist, u);
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
       u = build_int_cst (valist_type, (size > 4 ? -8 : -4));
-      t = build (BIT_AND_EXPR, valist_type, t, u);
+      t = build2 (BIT_AND_EXPR, valist_type, t, u);
 
-      t = build (MODIFY_EXPR, valist_type, valist, t);
+      t = build2 (MODIFY_EXPR, valist_type, valist, t);
 
       ofs = (8 - size) % 4;
       if (ofs != 0)
 	{
 	  u = fold_convert (valist_type, size_int (ofs));
-	  t = build (PLUS_EXPR, valist_type, t, u);
+	  t = build2 (PLUS_EXPR, valist_type, t, u);
 	}
 
       t = fold_convert (ptr, t);

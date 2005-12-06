@@ -1,3 +1,92 @@
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	* typeck.c (build_binary_op): Issue warning if either operand of a
+	comparison operator is a string literal, except for testing equality
+	or inequality against NULL.
+
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/25263
+	* decl.c (compute_array_index_type): Check that itype is an
+	INTEGER_CST node before testing/clearing TREE_OVERFLOW.
+
+2005-12-05  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ptree.c (cxx_print_decl): Update to check for decl_common
+	structure.
+
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24173
+	* decl.c (duplicate_decls): Don't rely on DECL_TEMPLATE_INFO after
+	clobbering newdecl.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* semantics.c (simplify_aggr_init_expr): Use buildN instead
+	of build.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_lexer_new_main): Usr GGC_RESIZEVEC instead of
+	ggc_realloc. 
+	(cp_parser_template_argument_list): Use XRESIZEVEC instead of
+	xrealloc. 
+	* class.c (pushclass): Likewise.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl2.c (get_priority_info): Use XNEW, not xmalloc.
+	* decl.c (push_switch): Likewise.
+	* lex.c (handle_pragma_implementation): Likewise.
+	* cp-objcp-common.c (decl_shadowed_for_var_insert): Use GGC_NEW,
+	not ggc_alloc.
+	(cxx_initialize_diagnostics): Use XNEW, not xmalloc.
+	* class.c (init_class_processing): Use XNEWVEC, not xmalloc.
+	* g++spec.c (lang_specific_driver): Likewise.
+	* mangle.c (save_partially_mangled_name): Likewise.
+	* parser.c (cp_lexer_new_main): Use GGC_NEWVEC, not ggc_alloc.
+	(cp_parser_template_argument_list): Use XNEWVEC, nto xmalloc.
+	(cp_parser_sizeof_operand): Likewise.
+	* repo.c (open_repo_file, open_repo_file): Likewise.
+	
+2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_parser_make_typename_type): Call make_typename_type
+	with tf_none instead of magic value 0.
+	(cp_parser_explicit_instantiation): Call do_type_instantiation
+	with tf_error instead of magic value 1.
+	(cp_parser_elaborated_type_specifier): Call make_typename_type
+	with tf_error instead of magic value 1.
+	(cp_parser_class_name): Likewise.
+	(cp_parser_lookup_name): Likewise.
+
+2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_parser_declaration): Set token2.type to CPP_EOF,
+	not RID_MAX.
+
+2005-11-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* cp-gimplify.c (cp_genericize_r): Don't dereference invisible reference 
+	parms in a thunk.
+
+2005-11-30  Ben Elliston  <bje@au.ibm.com>
+
+	* typeck.c (build_x_unary_op): Correct spelling in error message.
+
+2005-11-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21166
+	* class.c (check_field_decls): Only set DECL_PACKED on a field
+	when its natural alignment is > BITS_PER_UNIT.
+
+2005-11-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/24979
+	* cp-tree.h (DECL_MAIN_P): Remove duplicate definition.
+
 2005-11-26  Richard Henderson  <rth@redhat.com>
 
 	* lex.c: Update for pragma_lex rename.

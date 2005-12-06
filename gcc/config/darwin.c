@@ -316,6 +316,21 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
   const char *suffix;
   const char *prefix = user_label_prefix;
   const char *quote = "";
+  tree id;
+
+  id = maybe_get_identifier (name);
+  if (id)
+    {
+      tree id_orig = id;
+
+      while (IDENTIFIER_TRANSPARENT_ALIAS (id))
+	id = TREE_CHAIN (id);
+      if (id != id_orig)
+	{
+	  name = IDENTIFIER_POINTER (id);
+	  namelen = strlen (name);
+	}
+    }
   
   if (name[0] == '*')
     {
@@ -861,6 +876,18 @@ machopic_output_indirection (void **slot, void *data)
     {
       char *sym;
       char *stub;
+      tree id;
+
+      id = maybe_get_identifier (sym_name);
+      if (id)
+	{
+	  tree id_orig = id;
+
+	  while (IDENTIFIER_TRANSPARENT_ALIAS (id))
+	    id = TREE_CHAIN (id);
+	  if (id != id_orig)
+	    sym_name = IDENTIFIER_POINTER (id);
+	}
 
       sym = alloca (strlen (sym_name) + 2);
       if (sym_name[0] == '*' || sym_name[0] == '&')
@@ -976,6 +1003,7 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 
   if (!DECL_EXTERNAL (decl)
       && (!TREE_PUBLIC (decl) || !DECL_WEAK (decl))
+      && ! lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))
       && ((TREE_STATIC (decl)
 	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
 	  || (!DECL_COMMON (decl) && DECL_INITIAL (decl)
@@ -999,7 +1027,10 @@ machopic_select_section (tree exp, int reloc,
 			 unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
   void (*base_function)(void);
-  bool weak_p = DECL_P (exp) && DECL_WEAK (exp);
+  bool weak_p = (DECL_P (exp) && DECL_WEAK (exp)
+		 && (lookup_attribute ("weak", DECL_ATTRIBUTES (exp))
+		     || ! lookup_attribute ("weak_import",
+					    DECL_ATTRIBUTES (exp))));
   static void (* const base_funs[][2])(void) = {
     { text_section, text_coal_section },
     { unlikely_text_section, text_unlikely_coal_section },

@@ -1054,6 +1054,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   unsigned olddecl_uid = DECL_UID (olddecl);
   int olddecl_friend = 0, types_match = 0, hidden_friend = 0;
   int new_defines_function = 0;
+  tree new_template;
 
   if (newdecl == olddecl)
     return olddecl;
@@ -1690,6 +1691,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   if (! DECL_EXTERNAL (olddecl))
     DECL_EXTERNAL (newdecl) = 0;
 
+  new_template = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
     {
       DECL_INTERFACE_KNOWN (newdecl) |= DECL_INTERFACE_KNOWN (olddecl);
@@ -1712,6 +1714,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	DECL_LANG_SPECIFIC (olddecl)->decl_flags.u2;
       DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
       DECL_REPO_AVAILABLE_P (newdecl) = DECL_REPO_AVAILABLE_P (olddecl);
+      if (DECL_TEMPLATE_INFO (newdecl))
+	new_template = DECL_TI_TEMPLATE (newdecl);
       DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
 	|= DECL_INITIALIZED_IN_CLASS_P (olddecl);
@@ -1873,7 +1877,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 	      (char *) newdecl + sizeof (struct tree_decl_common),
 	      sizeof (struct tree_function_decl) - sizeof (struct tree_decl_common));
-      if (DECL_TEMPLATE_INFO (newdecl))
+      if (new_template)
 	/* If newdecl is a template instantiation, it is possible that
 	   the following sequence of events has occurred:
 
@@ -1896,7 +1900,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	   instantiations so that if we try to do the instantiation
 	   again we won't get the clobbered declaration.  */
 	reregister_specialization (newdecl,
-				   DECL_TI_TEMPLATE (newdecl),
+				   new_template,
 				   olddecl);
     }
   else
@@ -2431,7 +2435,7 @@ static struct cp_switch *switch_stack;
 void
 push_switch (tree switch_stmt)
 {
-  struct cp_switch *p = xmalloc (sizeof (struct cp_switch));
+  struct cp_switch *p = XNEW (struct cp_switch);
   p->level = current_binding_level;
   p->next = switch_stack;
   p->switch_stmt = switch_stmt;
@@ -6370,7 +6374,8 @@ compute_array_index_type (tree name, tree size)
       /* Make sure that there was no overflow when creating to a signed
 	 index type.  (For example, on a 32-bit machine, an array with
 	 size 2^32 - 1 is too big.)  */
-      else if (TREE_OVERFLOW (itype))
+      else if (TREE_CODE (itype) == INTEGER_CST
+	       && TREE_OVERFLOW (itype))
 	{
 	  error ("overflow in array dimension");
 	  TREE_OVERFLOW (itype) = 0;

@@ -2871,7 +2871,10 @@ execute (void)
 	       we would otherwise have succeeded.  */
 	    if (WTERMSIG (status) == SIGPIPE
 		&& (signal_count || greatest_status >= MIN_FATAL_STATUS))
-	      ;
+	      {
+		signal_count++;
+		ret_code = -1;
+	      }
 	    else
 #endif
 	      fatal ("\
@@ -2880,8 +2883,6 @@ Please submit a full bug report.\n\
 See %s for instructions.",
 		     strsignal (WTERMSIG (status)), commands[i].prog,
 		     bug_report_url);
-	    signal_count++;
-	    ret_code = -1;
 	  }
 	else if (WIFEXITED (status)
 		 && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
@@ -6010,10 +6011,10 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
-extern int main (int, const char **);
+extern int main (int, char **);
 
 int
-main (int argc, const char **argv)
+main (int argc, char **argv)
 {
   size_t i;
   int value;
@@ -6126,7 +6127,7 @@ main (int argc, const char **argv)
      Make a table of specified input files (infiles, n_infiles).
      Decode switches that are handled locally.  */
 
-  process_command (argc, argv);
+  process_command (argc, (const char **) argv);
 
   /* Initialize the vector of specs to just the default.
      This means one element containing 0s, as a terminator.  */

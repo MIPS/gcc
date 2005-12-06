@@ -1,3 +1,254 @@
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	* g++.dg/warn/Wstring-literal-comparison-1.C: New test case.
+	* g++.dg/warn/Wstring-literal-comparison-2.C: Likewise.
+	* g++.dg/warn/Wstring-literal-comparison-3.C: Likewise.
+	* g++.dg/warn/Wstring-literal-comparison-4.C: Likewise.
+
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/25263
+	* g++.dg/other/array2.C: New test case.
+
+2005-12-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-weakimport-3.c: New.
+
+	* g++.old-deja/g++.abi/vtable2.C: Make weakrefs static.
+	* gcc.dg/attr-weakref-1.c: Modify to not try to test public weakrefs,
+	and to work on Darwin.
+	* gcc.dg/attr-weakref-1b.c: New file.
+	* gcc.dg/attr-weakref-2.c: New test.
+	* gcc.dg/darwin-weakref-1.c: New test.
+
+2005-12-05  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/25247
+	* lib/target-supports-dg.exp (dg-skip-if): Fix target selector for
+	use in selector expressions.
+	(dg-xfail-if): Ditto.
+	* gcc.test-framework/dg-dot-run-sif-exp-P.c: New test.
+	* gcc.test-framework/dg-dot-run-sif-exp-U.c: New test.
+	* gcc.test-framework/dg-dot-run-xif-exp-P.c: New test.
+	* gcc.test-framework/dg-dot-run-xif-exp-XP.c: New test.
+	* gcc.test-framework/test-framework.exp: Skip generated tests if
+	CHECK_TEST_FRAMEWORK is not 1.
+
+2005-12-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR tree-optimization/24963
+	* gcc.dg/vect/vect-62.c: Remove outdated dg-line.
+
+	PR target/24108
+	* gcc.dg/vect/vect-76.c: Do not XFAIL on vect_no_align platforms.
+
+	PR target/18580
+	* gcc.dg/vect/vect-reduc-1char.c: XFAIL on vect_no_int_max platforms.
+	* gcc.dg/vect/vect-reduc-2short.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1short.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2char.c: Likewise.
+
+2005-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/movq-2.c: Add -mtune=pentium4 to
+	dg-options.
+
+2005-12-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c90-const-expr-5.c, gcc.dg/c99-const-expr-5.c: New tests.
+
+2005-12-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/format/cast-1.c: New test.
+
+2005-12-04  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/7776
+	* gcc.dg/Wstring-literal-comparison-1.c: New test case.
+	* gcc.dg/Wstring-literal-comparison-2.c: Likewise.
+	* gcc.dg/Wstring-literal-comparison-3.c: Likewise.
+	* gcc.dg/Wstring-literal-comparison-4.c: Likewise.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cast-pretty-print-1.c: New test.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c90-const-expr-4.c, gcc.dg/c99-const-expr-4.c: New tests.
+
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24173
+	* g++.dg/template/friend40.C: New test.
+	
+2005-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25199
+	* gcc.target/i386/movq-2.c: New test.
+	* gcc.target/i386/movq.c: Remove target i?86, instead add
+	dg-require-effective-target ilp32.
+
+2005-12-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/24103
+	* g++.dg/other/default1.C: New test.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20031106-6.c: Remove XFAIL.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* gcc.dg/lvalue-2.c (f0): Put "error: " marker back.
+
+2005-12-02  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/21017
+	* gcc.target/powerpc/rotate.c: New.
+
+2005-12-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/pr24489.f90: Delete, replaced by read_eor.f90.
+	* gfortran.dg/pr24584.f90: Delete, replaced by namelist_empty.f90. 
+
+2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+        PR c/13384
+	* gcc.dg/pr17730-1.c: Adjust.
+	* gcc.dg/lvalue1.c (main): Likewise.
+	* gcc.dg/lvalue-2.c: Likewise.
+	* g++.dg/pr7503-3.C
+
+2005-12-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.target/powerpc/pr18096-1.c: Be more liberal about possible
+	error messages.
+
+2005-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24789
+	*  gfortran.dg/auto_char_dummy_array_2.f90: New test.
+
+2005-12-01  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/24475
+	* lib/target-supports.exp (check_effective_target_tls): New.
+	(check_effective_target_tls_runtime): New.
+	* gcc.dg/tls/tls.exp, g++.dg/tls/tls.exp: Remove check
+	for TLS support.
+	* gcc.dg/tls/opt-1.c, gcc.dg/tls/opt-2.c, gcc.dg/tls/opt-3.c,
+	gcc.dg/tls/opt-4.c, gcc.dg/tls/opt-5.c, gcc.dg/tls/opt-6.c,
+	gcc.dg/tls/opt-7.c, gcc.dg/tls/opt-8.c, gcc.dg/tls/opt-9.c,
+	gcc.dg/tls/opt-10.c, gcc.dg/tls/diag-1.c, gcc.dg/tls/diag-2.c,
+	gcc.dg/tls/diag-3.c, gcc.dg/tls/diag-4.c, gcc.dg/tls/diag-5.c,
+	gcc.dg/tls/alias-1.c, gcc.dg/tls/alpha-1.c, gcc.dg/tls/asm-1.c,
+	gcc.dg/tls/debug-1.c, gcc.dg/tls/init-1.c, gcc.dg/tls/nonpic-1.c,
+	gcc.dg/tls/pic-1.c, gcc.dg/tls/section-1.c, gcc.dg/tls/struct-1.c,
+	gcc.dg/tls/trivial.c, g++.dg/tls/diag-1.C, g++.dg/tls/diag-2.C,
+	g++.dg/tls/diag-3.C, g++.dg/tls/diag-4.C, g++.dg/tls/init-1.C,
+	g++.dg/tls/init-2.C, g++.dg/tls/trivial.C: Require
+	effective-target TLS.
+	* gcc.dg/tls/pr24428-2.c, gcc.dg/tls/pr24428.c, gcc.dg/tls/opt-11.c, 
+	g++.dg/tls/static-1a.cc, g++.dg/tls/static-1.C: Require
+	effective-target TLS runtime.
+
+2005-12-01  Uros Bizjak  <uros@kss-loka.si>
+
+	* lib/gcov.exp (clean-gcov): Also remove $base.h.gcov files.
+
+2005-12-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20041106-1.c, gcc.dg/20030321-1.c, gcc.dg/pr17112-1.c,
+	gcc.dg/pr17112-1.c, g++.dg/other/packed1.C,
+	g++.dg/other/crash-4.C, g++.dg/ext/packed8.C: Match "attribute
+	ignored" warnings when "packing" is the same as the ABI layout.
+
+2005-11-30  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/21302
+	* gfortran.dg/line_length_1.f: New test.
+	* gfortran.dg/line_length_2.f90: Ditto.
+
+2005-11-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/21655
+	* g++.dg/tree-ssa/pr14814.C: Remove XFAIL.
+
+2005-11-30  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/compile/pr24930.c:  New.
+
+2005-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15809
+	*  gfortran.dg/auto_char_dummy_array.f90: New test.
+
+2005-11-30  Jeff Law  <law@redhat.com>
+
+	* g++.old-deja/g++.law/pr25000.C: New test.
+
+2005-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-11.c: New test.
+
+2005-11-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/fp-int-convert-timode.c: XFAIL only on lp64
+	targets.
+	* gcc.dg/torture/fp-int-convert-float128-timode.c: XFAIL also for
+	LP64 ia64.
+
+2005-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/open_access_1.f90: New test.
+
+2005-11-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/charset/builtin2.c: New test.
+
+2005-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c: Add -w option
+	on mmix-*-* for *_[xy].c.
+
+2005-11-28  Kean Johnston  <jkj@sco.com>
+
+	* g++.dg/opt/range-test-1.C: Prevent re-inclusion of system
+	headers.
+	* g++.old-deja/g++.law/profile1.C: No longer expect fail on OSR5.
+	* gcc.c-torture/compile/20000804-1.c: Skip if using -fPIC on X86.
+	* gcc.target/i386/asm-3.c: Ditto.
+	* gcc.target/i386/clobbers.c: Ditto.
+	* gcc.dg/tree-ssa/ssa-dce-2.c: Make t() static and prototype it.
+	* gcc.target/i386/cmov1.c: Make magic* static so it matches the
+	test regexp.
+	* gcc.target/i386/mul.c: Ditto.
+	* gcc.target/i386/ssetype-1.c: Ditto.
+	* gcc.dg/20040813-1.c: Skip on SVR5 systems.
+	* gcc.c-torture/execute/builtins/strlen-3.c: Declare variables as
+	static so the test works with -fPIC mode too. Based on comment in
+	PR19231 by Pinski.
+	* gcc.dg/nest.c: No longer fail on SCO systems as it has -pg again.
+
+2005-11-28  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/alias-9.c: New testcase.
+	* g++.dg/warn/Wstrict-aliasing-7.C: Likewise.
+
+2005-11-28  Roger Sayle  <roger@eyesopen.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/20219
+	* gcc.dg/builtins-20.c: Add checks for sin(x)/tan(x) and
+	tan(x)/sin(x) transformations.
+
+2005-11-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/24575
+	* gcc.dg/tree-ssa/divide-3.c: New test.
+	* gcc.dg/tree-ssa/divide-4.c: New test.
+
 2005-11-27  Steven G. Kargl  <kargls@comcast.net>
 
 	PR fortran/24917
