@@ -9419,7 +9419,7 @@ output_move_double (rtx *operands)
 
         case PRE_DEC:
 	  if (TARGET_LDRD)
-	    output_asm_insn ("str%(d%)\t%1, [%m0, #8]!", operands);
+	    output_asm_insn ("str%(d%)\t%1, [%m0, #-8]!", operands);
 	  else
 	    output_asm_insn ("stm%(db%)\t%m0!, %M1", operands);
 	  break;

@@ -1,3 +1,7 @@
+2005-12-07  Paul Brook  <paul@codesourcery.com>
+
+	* arm.c (output_move_double): Fix typo in PRE_DEC strd template.
+
 2005-10-31  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/thumb2.md (subdi_zesidi_di, subdi_sesidi_di): Remove
