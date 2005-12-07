@@ -1,3 +1,9 @@
+2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4360146
+	* typeck.c (build_class_member_access_expr): Build the new ivar
+	reference tree.
+
 2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4330422

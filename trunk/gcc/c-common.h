@@ -1055,6 +1055,9 @@ extern tree objc_generate_static_init_call (tree);
 /* APPLE LOCAL mainline */
 extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
 
+/* APPLE LOCAL ObjC new abi */
+extern tree objc_v2_build_ivar_ref (tree datum, tree component);
+
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */
 extern void *objc_get_current_scope (void);

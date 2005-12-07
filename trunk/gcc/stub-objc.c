@@ -366,3 +366,12 @@ objc_generate_write_barrier (tree ARG_UNUSED (lhs),
   return 0;
 }  
 /* APPLE LOCAL end mainline */
+
+/* APPLE LOCAL begin ObjC new abi */
+tree
+objc_v2_build_ivar_ref (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))
+{
+  return 0;
+}
+/* APPLE LOCAL end ObjC new abi */
+

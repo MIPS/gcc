@@ -1,3 +1,22 @@
+2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4360146
+
+        * objc/objc-act.c (objc_is_ivar, create_ivar_offset_name):
+        New utility routines.
+        (objc_v2_build_ivar_ref): Main routine to generate the new ivar
+        reference code.
+        (create_extern_decl): Modified to generate unique 'extern' variable
+        declarations at file scope.
+        (synth_module_prologue):Type of UOBJC_V2_VTABLE_decl is corrected.
+        (ivar_offset_ref): Use create_ivar_offset_name to create name for ivar
+        offset variable. Create global offset variables for public/protected
+        ivars.
+        (generate_v2_shared_structures): Miscellanous type correction and
+        cleanups.
+        (build_ivar_reference): For ivar references call objc_v2_build_ivar_ref
+        to generate ivar references using ivar offset variable.
+
 2005-11-29  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4349690

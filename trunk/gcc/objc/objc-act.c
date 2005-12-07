@@ -243,6 +243,8 @@ static void generate_v2_protocol_references (tree);
 static void generate_v2_protocols (void);
 static tree build_v2_descriptor_table_initializer (tree, tree);
 static void generate_v2_method_descriptors (tree);
+static tree objc_is_ivar (tree, tree, tree*);
+static void create_ivar_offset_name (char *, tree, tree);
 /* APPLE LOCAL end ObjC new abi */
 
 /* APPLE LOCAL end mainline */
@@ -1807,10 +1809,18 @@ create_global_decl (tree type, const char *name)
 static tree
 create_extern_decl (tree type, const char *name)
 {
-  tree var = start_var_decl (type, name); 
+  tree id = get_identifier (name);
+  tree var = lookup_name (id);
+  if (var)
+    return var;
+  /* Name not already declared. */
+  var = build_decl (VAR_DECL, id, type); 
   DECL_EXTERNAL (var) = 1;
   TREE_PUBLIC (var) = 1;
-  pushdecl (var);
+  /* All external declarations are at file_scope to prevent 
+     duplication of declarations; a common occurance for external
+     variables holding ivar offsets in the new abi. */
+  pushdecl_top_level (var);
   rest_of_decl_compilation (var, 0, 0);
   return var;
 }
@@ -2175,8 +2185,7 @@ synth_module_prologue (void)
       build_v2_class_template ();
       UOBJC_V2_CACHE_decl = create_extern_decl (ptr_type_node, "_objc_empty_cache");
 
-      UOBJC_V2_VTABLE_decl = create_extern_decl (build_pointer_type (objc_imp_type),
-						    "_objc_empty_vtable");
+      UOBJC_V2_VTABLE_decl = create_extern_decl (objc_imp_type, "_objc_empty_vtable");
     }
   /* APPLE LOCAL end ObjC new abi */
 
@@ -4017,6 +4026,84 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
   /* APPLE LOCAL end ObjC GC */
 }
 /* APPLE LOCAL end mainline */
+
+/* APPLE LOCAL begin ObjC new abi */
+
+/* This routine returns the ivar declaration, if component is a valid ivar field; 
+   NULL_TREE otherwise. On finding an ivar, it also returns the class name in CLASS.
+*/
+
+static tree
+objc_is_ivar (tree expr, tree component, tree *class)
+{
+  tree field = NULL_TREE;
+  tree basetype = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
+
+  if (TREE_CODE (basetype) == RECORD_TYPE 
+      && TYPE_HAS_OBJC_INFO (basetype) && TYPE_OBJC_INTERFACE (basetype))
+    {
+      *class = lookup_interface (OBJC_TYPE_NAME (basetype));
+      if (*class)
+        field = is_ivar (get_class_ivars (*class, true), component);
+    }
+  return field;
+} 
+
+/* This routine generates new abi's ivar reference tree. It amounts to generating
+   *(TYPE*)((char*)pObj + OFFSET_IVAR) when we normally generate pObj->IVAR
+   OFFSET_IVAR is an 'extern' variable holding the offset for 'IVAR' field. TYPE
+   is type of IVAR field.
+*/
+
+tree
+objc_v2_build_ivar_ref (tree datum, tree component)
+{
+  tree field, ref, class_name, offset, ftype, expr;
+  char var_offset_name[512];
+
+  if (!(flag_objc_abi == 2 
+        && (field = objc_is_ivar (datum, component, &class_name))))
+    return NULL_TREE;
+
+  if (!objc_is_public (datum, component))
+    return error_mark_node;
+
+  create_ivar_offset_name (var_offset_name, CLASS_NAME (class_name), 
+			   field);
+  offset = create_extern_decl (integer_type_node, var_offset_name);
+
+  ftype = TREE_TYPE (field);
+
+  /* (char*)datum */
+  expr = build_c_cast (string_type_node, 
+		       build_fold_addr_expr (datum));
+
+  /* (char*)datum + offset */
+  expr = fold (build2 (PLUS_EXPR, string_type_node, expr, offset));
+  
+  /* (ftype*)((char*)datum + offset) */
+  expr = build_c_cast (build_pointer_type (ftype), expr);
+
+  /* Finally: *(ftype*)((char*)datum + offset) */
+  ref = build_indirect_ref (expr, "unary *");
+
+  if (TREE_READONLY (datum) || TREE_READONLY (field))
+    TREE_READONLY (ref) = 1;
+
+  if (TREE_THIS_VOLATILE (datum) || TREE_THIS_VOLATILE (field))
+    TREE_THIS_VOLATILE (ref) = 1;
+
+  if (TREE_DEPRECATED (field))
+    warn_deprecated_use (field);
+
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
+  if (TREE_UNAVAILABLE (field))
+    warn_unavailable_use (field);
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
+
+  return ref;
+}
+/* APPLE LOCAL end ObjC new abi */
 
 static tree
 lookup_interface (tree ident)
@@ -6385,6 +6472,20 @@ build_method_list_template (tree list_type, int size)
 
 /* APPLE LOCAL begin ObjC new abi */
 
+/* This routine builds a name to hold ivar offset. It is of the form:
+   .objc_ivar.CLASS_NAME.FIELD_DECL
+*/
+
+static void
+create_ivar_offset_name (char *buf, tree class_name, tree field_decl)
+{
+  tree fname = DECL_NAME (field_decl);
+
+  sprintf (buf, ".objc_ivar.%s.%s", IDENTIFIER_POINTER (class_name),
+	   IDENTIFIER_POINTER (fname));
+  return;
+}
+
 /* This routine declares a variable to hold the offset for ivar FIELD_DECL.
    Variable name is .objc_ivar.ClassName.IvarName. */
 
@@ -6395,11 +6496,12 @@ ivar_offset_ref (tree class_name, tree field_decl)
   char buf[512];
   tree *chain = &ivar_offset_ref_chain;
 
-  tree fname = DECL_NAME (field_decl);
+  create_ivar_offset_name (buf, class_name, field_decl);
 
-  sprintf (buf, ".objc_ivar.%s.%s", IDENTIFIER_POINTER (class_name),
-	   IDENTIFIER_POINTER (fname));
-  decl = start_var_decl (integer_type_node, buf);
+  if (TREE_PUBLIC (field_decl) || TREE_PROTECTED (field_decl))
+    decl = create_global_decl (integer_type_node, buf);
+  else
+    decl = start_var_decl (integer_type_node, buf);
 
   while (*chain)
     chain = &TREE_CHAIN (*chain);
@@ -7527,7 +7629,7 @@ generate_v2_shared_structures (int cls_flags)
     {
       /* compute reference to root's name. For meta class, "isa" is reference 
 	 to root class name. */
-      tree root_decl, sav;
+      tree sav;
       tree my_root_id = my_super_id;
       tree my_root_int;
       tree interface;
@@ -7543,8 +7645,8 @@ generate_v2_shared_structures (int cls_flags)
       while (1);
       sav = objc_implementation_context;
       objc_implementation_context = my_root_int;
-      root_decl = build_metadata_decl ("OBJC_METACLASS_$", cast_type);
-      root_expr = build_unary_op (ADDR_EXPR, root_decl, 0);
+      root_expr = build_metadata_decl ("OBJC_METACLASS_$", objc_v2_class_template);
+      root_expr = build_fold_addr_expr (root_expr);
 
       /* Install class `isa' and `super' pointers at runtime.  */
       interface = lookup_interface (my_super_id);
@@ -7553,10 +7655,10 @@ generate_v2_shared_structures (int cls_flags)
       /* Note! I had to remove '_' prefix to 'OBJC' to make this an extern symbol. Darwin's
          back-end, recognizes '_OBJC_' prefix and prepends an 'L' in front of this. Darwin
          assembler treats names starting with 'L_' as local symbols. */
-      class_superclass_expr = build_metadata_decl ("OBJC_CLASS_$", cast_type);
-      class_superclass_expr = build_unary_op (ADDR_EXPR, class_superclass_expr, 0);
-      metaclass_superclass_expr = build_metadata_decl ("OBJC_METACLASS_$", cast_type);
-      metaclass_superclass_expr = build_unary_op (ADDR_EXPR, metaclass_superclass_expr, 0);
+      class_superclass_expr = build_metadata_decl ("OBJC_CLASS_$", objc_v2_class_template);
+      class_superclass_expr = build_fold_addr_expr (class_superclass_expr);
+      metaclass_superclass_expr = build_metadata_decl ("OBJC_METACLASS_$", objc_v2_class_template);
+      metaclass_superclass_expr = build_fold_addr_expr (metaclass_superclass_expr);
       objc_implementation_context = sav;
     }
   else
@@ -7607,9 +7709,9 @@ generate_v2_shared_structures (int cls_flags)
   /* static struct class_t _OBJC_METACLASS_Foo = { ... }; */
   initlist = build_class_t_initializer (TREE_TYPE (metaclass_decl),
 					root_expr,
-					build_unary_op (ADDR_EXPR, decl, 0),
-					build_unary_op (ADDR_EXPR, UOBJC_V2_CACHE_decl, 0), 
-					build_unary_op (ADDR_EXPR, UOBJC_V2_VTABLE_decl, 0));
+					build_fold_addr_expr (decl),
+					build_fold_addr_expr (UOBJC_V2_CACHE_decl), 
+					build_fold_addr_expr (UOBJC_V2_VTABLE_decl));
   finish_var_decl (metaclass_decl, initlist);
 
   /* Generation of data for the class */
@@ -7652,10 +7754,10 @@ generate_v2_shared_structures (int cls_flags)
 
   /* static struct class_t _OBJC_ACLASS_Foo = { ... }; */
   initlist = build_class_t_initializer (TREE_TYPE (class_decl),
-					build_unary_op (ADDR_EXPR, metaclass_decl, 0),
-                                        build_unary_op (ADDR_EXPR, decl, 0),
-                                        build_unary_op (ADDR_EXPR, UOBJC_V2_CACHE_decl, 0), 
-                                        build_unary_op (ADDR_EXPR, UOBJC_V2_VTABLE_decl, 0)); 
+					build_fold_addr_expr (metaclass_decl),
+                                        build_fold_addr_expr (decl),
+                                        build_fold_addr_expr (UOBJC_V2_CACHE_decl), 
+                                        build_fold_addr_expr (UOBJC_V2_VTABLE_decl)); 
 
   finish_var_decl (class_decl, initlist);
 
@@ -8927,6 +9029,8 @@ objc_build_encode_expr (tree type)
 static tree
 build_ivar_reference (tree id)
 {
+  /* APPLE LOCAL ObjC new abi */
+  tree ivar, base;
   if (TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
     {
       /* Historically, a class method that produced objects (factory
@@ -8943,8 +9047,13 @@ build_ivar_reference (tree id)
       self_decl = convert (objc_instance_type, self_decl); /* cast */
     }
 
+  /* APPLE LOCAL begin ObjC new abi */
+  base = build_indirect_ref (self_decl, "->");
+  if ((ivar = objc_v2_build_ivar_ref (base, id)))
+    return ivar;
   /* APPLE LOCAL mainline */
-  return objc_build_component_ref (build_indirect_ref (self_decl, "->"), id);
+  return objc_build_component_ref (base, id);
+  /* APPLE LOCAL end ObjC new abi */
 }
 
 /* Compute a hash value for a given method SEL_NAME.  */

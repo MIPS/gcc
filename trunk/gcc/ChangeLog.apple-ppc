@@ -1,3 +1,12 @@
+2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4360146
+
+        * c-common.h (objc_v2_build_ivar_ref): New declaration.
+        * stub-objc.c (objc_v2_build_ivar_ref): New stub.
+	* c-typeck.c (build_component_ref): Generate the new ivar reference
+	tree.
+
 2005-12-05  Mike Stump  <mrs@apple.com>
 
 	Radar 4357979

@@ -1606,6 +1606,11 @@ build_component_ref (tree datum, tree component)
   if (!objc_is_public (datum, component))
     return error_mark_node;
 
+  /* APPLE LOCAL begin ObjC new abi */
+  if ((ref = objc_v2_build_ivar_ref (datum, component)))
+    return ref;
+  /* APPLE LOCAL end ObjC new abi */
+
   /* See if there is a field or component with name COMPONENT.  */
 
   if (code == RECORD_TYPE || code == UNION_TYPE)
