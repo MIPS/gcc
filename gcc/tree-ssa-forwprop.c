@@ -366,8 +366,19 @@ substitute_single_use_vars (varray_type *cond_worklist,
 	  if (TREE_CODE (cond_stmt) != COND_EXPR) 
 	    continue;
 
+	  /* APPLE LOCAL begin 4349512 */
 	  cond = COND_EXPR_COND (cond_stmt);
 	  cond_code = TREE_CODE (cond);
+
+	  /* Make sure the conditional has one of the forms we're expecting. */
+	  if (! (cond_code == SSA_NAME
+	         || ((cond_code == EQ_EXPR || cond_code == NE_EXPR)
+		      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+		      && CONSTANT_CLASS_P (TREE_OPERAND (cond, 1))
+		      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1))))))
+	    continue;
+	  /* APPLE LOCAL end 4349512 */
+
 	  def_rhs = TREE_OPERAND (def, 1);
 	  def_rhs_code = TREE_CODE (def_rhs);
 

@@ -1,3 +1,8 @@
+2005-12-07  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4349512
+	* g++.dg/4349512.C:  New.
+
 2005-12-07  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4299630
@@ -5,6 +10,7 @@
 
 2005-12-06  Dale Johannesen  <dalej@apple.com>
 
+	Radar 4332318
 	* gcc.target/i386/sse-17.c:  New.
 
 2005-12-03  Mike Stump  <mrs@apple.com>
