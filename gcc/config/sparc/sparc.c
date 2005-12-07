@@ -8792,12 +8792,12 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
 			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
 				       res)));
 
-  cc = gen_compare_reg (NE, resv, val);
+  sparc_compare_op0 = resv;
+  sparc_compare_op1 = val;
+  cc = gen_compare_reg (NE);
 
   emit_insn (gen_rtx_SET (VOIDmode, val, resv));
 
-  sparc_compare_op0 = resv;
-  sparc_compare_op1 = val;
   sparc_compare_emitted = cc;
   emit_jump_insn (gen_bne (loop_label));
 
