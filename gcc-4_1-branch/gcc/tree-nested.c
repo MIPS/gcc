@@ -1638,6 +1638,15 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 1;
       break;
 
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      walk_body (convert_call_expr, info, &OMP_BODY (t));
+      break;
+
     default:
       break;
     }

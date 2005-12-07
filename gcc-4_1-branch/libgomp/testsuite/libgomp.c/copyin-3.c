@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
-/* { dg-require-effective-target tls } */
+/* { dg-require-effective-target tls_runtime } */
 
 #include <omp.h>
 #include <stdlib.h>

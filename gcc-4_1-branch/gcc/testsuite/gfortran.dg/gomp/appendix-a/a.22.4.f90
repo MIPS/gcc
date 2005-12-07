@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-require-effective-target tls }
 
       MODULE A22_MODULE
       COMMON /T/ A

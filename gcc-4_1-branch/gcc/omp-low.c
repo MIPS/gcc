@@ -2725,10 +2725,10 @@ expand_omp_single_copy (tree single_stmt, tree *pre_p, omp_context *ctx)
   t = build2 (MODIFY_EXPR, void_type_node, ctx->receiver_decl, t);
   gimplify_and_add (t, pre_p);
 
-  t = build (EQ_EXPR, boolean_type_node, ctx->receiver_decl,
-	     build_int_cst (ptr_type, 0));
-  t = build (COND_EXPR, void_type_node, t,
-	     build_and_jump (&l0), build_and_jump (&l1));
+  t = build2 (EQ_EXPR, boolean_type_node, ctx->receiver_decl,
+	      build_int_cst (ptr_type, 0));
+  t = build3 (COND_EXPR, void_type_node, t,
+	      build_and_jump (&l0), build_and_jump (&l1));
   gimplify_and_add (t, pre_p);
 
   t = build1 (LABEL_EXPR, void_type_node, l0);

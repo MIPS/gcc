@@ -1,3 +1,5 @@
+! { dg-require-effective-target tls }
+
 subroutine foo
 integer, save :: i ! Some comment
 !$omp threadpri&

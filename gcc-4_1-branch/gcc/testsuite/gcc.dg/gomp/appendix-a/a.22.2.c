@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-require-effective-target tls } */
 
 int
 increment_counter_2 ()

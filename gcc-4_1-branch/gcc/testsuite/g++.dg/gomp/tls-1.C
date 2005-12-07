@@ -1,4 +1,5 @@
 // { dg-do compile }
+// { dg-require-effective-target tls }
 
 int tp1;
 static int tp2;

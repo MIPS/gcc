@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-require-effective-target tls }
+! { dg-require-effective-target tls_runtime }
 use omp_lib
   common /tlsblock/ x, y
   integer :: x, y, z

@@ -1,3 +1,13 @@
+2005-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/15809
+	* trans-decl.c (gfc_get_symbol_decl): Revert 2005-11-30 and
+	2005-12-01 changes.
+	(gfc_trans_vla_type_sizes): Also "gimplify"
+	GFC_TYPE_ARRAY_DATAPTR_TYPE for GFC_DESCRIPTOR_TYPE_P types.
+	* trans-array.c (gfc_trans_deferred_array): Call
+	gfc_trans_vla_type_sizes.
+
 2005-11-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/25162

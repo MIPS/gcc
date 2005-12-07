@@ -1,5 +1,6 @@
 C PR fortran/25162
 C { dg-do run }
+C { dg-require-effective-target tls_runtime }
       PROGRAM PR25162
       CALL TEST1
       CALL TEST2
