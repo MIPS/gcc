@@ -134,35 +134,6 @@ typedef struct cp_token_cache GTY(())
   cp_token * GTY ((skip)) last;
 } cp_token_cache;
 
-/* APPLE LOCAL begin 4133801 */
-typedef enum cp_file_entry_kind
-  {
-    CP_FILE_BEGIN = 0,
-    CP_FILE_END
-  } cp_file_entry_kind;
-
-/* cp_lexer_file is a collection of file begins (and ends) observed
-   by lexer while collecting tokens for arser.  */
-
-typedef struct cp_lexer_file
-{
-  enum cp_file_entry_kind kind;
-
-  /* line number and file names */
-  int line;
-  const char *file;
-
-  struct cp_lexer_file *next;
-} cp_lexer_file;
-
-static cp_lexer_file *cp_lexer_file_stack;
-static cp_lexer_file *last_cp_lexer_file;
-
-static void cp_add_lexer_file (int, const char *, cp_file_entry_kind);
-static void cp_lexer_copy_token (cp_token *, cp_token *);
-static void cp_parser_bincl_eincl (cp_lexer *lexer);
-/* APPLE LOCAL end 4133801 */
-
 /* Prototypes.  */
 
 static cp_lexer *cp_lexer_new_main
@@ -195,7 +166,8 @@ static void cp_lexer_purge_token
   (cp_lexer *);
 static void cp_lexer_purge_tokens_after
   (cp_lexer *, cp_token_position);
-static void cp_lexer_handle_pragma
+/* APPLE LOCAL 4137741 */
+static void cp_lexer_handle_pragma_etc
   (cp_lexer *);
 static void cp_lexer_save_tokens
   (cp_lexer *);
@@ -272,6 +244,11 @@ cp_lexer_new_main (void)
   size_t alloc;
   size_t space;
   cp_token *buffer;
+  /* APPLE LOCAL begin 4137741 */
+
+  /* Tell cpplib we want CPP_BINCL and CPP_EINCL tokens.  */
+  cpp_get_options (parse_in)->defer_file_change_debug_hooks = true;
+  /* APPLE LOCAL end 4137741 */
 
   /* It's possible that lexing the first token will load a PCH file,
      which is a GC collection point.  So we have to grab the first
@@ -305,61 +282,10 @@ cp_lexer_new_main (void)
   space = alloc;
   pos = buffer;
   *pos = first_token;
-
-  /* APPLE LOCAL begin 4133801 */  
+  
   /* Get the remaining tokens from the preprocessor.  */
   while (pos->type != CPP_EOF)
     {
-
-      /* Insert CP_BINCL/CP_EINCL tokens if file begin/end is already seen.  */
-      if (cp_lexer_file_stack)
-	{
-	  cp_token saved_pos;
-	  cp_lexer_file *tmp;
-	  cp_lexer_file *fs = cp_lexer_file_stack;
-	  /* APPLE LOCAL 4278470 */
-	  saved_pos.value = NULL_TREE;
-	  /* Copy position content, so that it added into to the next position
-	     afterwards.  */
-	  cp_lexer_copy_token (&saved_pos, pos);
-
-	  while (fs)
-	    {
-	      /* Create new CP_BINCL/CP_EINCL token.  */
-	      LOCATION_FILE (pos->location) = fs->file;
-	      LOCATION_LINE (pos->location) = fs->line;
-	      pos->keyword = 0;
-	      pos->in_system_header = 0;
-	      pos->implicit_extern_c = 0;
-	      pos->value = NULL_TREE;
-	      if (fs->kind == CP_FILE_BEGIN)
-		pos->type = CPP_BINCL;
-	      else
-		pos->type = CPP_EINCL;
-	      
-	      /* Free this file entry.  */
-	      tmp = fs;
-	      fs = fs->next;
-	      tmp = NULL;
-	      pos++;
-	      if (!--space)
-		{
-		  space = alloc;
-		  alloc *= 2;
-		  buffer = ggc_realloc (buffer, alloc * sizeof (cp_token));
-		  pos = buffer + space;
-		}
-	      
-	    }
-	  
-	  /* Free file stack entirely.  */
-	  last_cp_lexer_file = NULL;
-	  cp_lexer_file_stack = NULL;
-
-	  /* Restore saved position.  */
-	  cp_lexer_copy_token (pos, &saved_pos);
-	}
-
       pos++;
       if (!--space)
 	{
@@ -370,7 +296,6 @@ cp_lexer_new_main (void)
 	}
       cp_lexer_get_preprocessor_token (lexer, pos);
     }
-  /* APPLE LOCAL end 4133801 */
   lexer->buffer = buffer;
   lexer->buffer_length = alloc - space;
   lexer->last_token = pos;
@@ -538,11 +463,6 @@ cp_lexer_peek_token (cp_lexer *lexer)
       cp_lexer_print_token (cp_lexer_debug_stream, lexer->next_token);
       putc ('\n', cp_lexer_debug_stream);
     }
-  
-  /* APPLE LOCAL begin 4133801 */
-  cp_parser_bincl_eincl (lexer);
-  /* APPLE LOCAL end 4133801 */
-
   return lexer->next_token;
 }
 
@@ -603,13 +523,9 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
 	  token = (cp_token *)&eof_token;
 	  break;
 	}
-
-      /* APPLE LOCAL begin 4133801 */      
-      if (token->type != CPP_PURGED
-	  && token->type != CPP_BINCL
-	  && token->type != CPP_EINCL)
+      
+      if (token->type != CPP_PURGED)
 	--n;
-      /* APPLE LOCAL end 4133801 */
     }
 
   if (cp_lexer_debugging_p (lexer))
@@ -707,20 +623,43 @@ cp_lexer_purge_tokens_after (cp_lexer *lexer, cp_token *tok)
     }
 }
 
-/* Consume and handle a pragma token.  */
+/* APPLE LOCAL begin 4137741 */
+/* Consume and handle a pragma, BINCL or EINCL token.  */
+
 static void
-cp_lexer_handle_pragma (cp_lexer *lexer)
+cp_lexer_handle_pragma_etc (cp_lexer *lexer)
+/* APPLE LOCAL end 4137741 */
 {
   cpp_string s;
   cp_token *token = cp_lexer_consume_token (lexer);
-  gcc_assert (token->type == CPP_PRAGMA);
+  /* APPLE LOCAL 4137741 */
+  /* Assert removed.  */
   gcc_assert (token->value);
 
-  s.len = TREE_STRING_LENGTH (token->value);
-  s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
+  /* APPLE LOCAL begin 4137741 */
+  switch (token->type)
+    {
+    case CPP_PRAGMA:
+      s.len = TREE_STRING_LENGTH (token->value);
+      s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
 
-  cpp_handle_deferred_pragma (parse_in, &s);
+      cpp_handle_deferred_pragma (parse_in, &s);
+      break;
 
+    case CPP_BINCL:
+      (*debug_hooks->start_source_file) (TREE_INT_CST_LOW (token->value),
+					 token->location.file);
+      break;
+
+    case CPP_EINCL:
+      (*debug_hooks->end_source_file) (TREE_INT_CST_LOW (token->value));
+      break;
+
+    default:
+      gcc_assert (false);
+  }
+
+  /* APPLE LOCAL end 4137741 */
   /* Clearing token->value here means that we will get an ICE if we
      try to process this #pragma again (which should be impossible).  */
   token->value = NULL;
@@ -738,103 +677,6 @@ cp_lexer_save_tokens (cp_lexer* lexer)
 
   VEC_safe_push (cp_token_position, lexer->saved_tokens, lexer->next_token);
 }
-
-/* APPLE LOCAL begin 4133801 */
-/* Note down new file begin or end entry in cp_lexer_file */
-static void 
-cp_add_lexer_file (int n, const char *s, cp_file_entry_kind k)
-{
-  cp_lexer_file *lf = xmalloc (sizeof (cp_lexer_file));
-
-  /* Populate */
-  lf->line = n;
-  lf->file = s;
-  lf->kind = k;
-  lf->next = NULL;
-
-  /* Add in the list */
-  if (last_cp_lexer_file)
-    last_cp_lexer_file->next = lf;
-  else
-    cp_lexer_file_stack = lf;
-  last_cp_lexer_file = lf;
-}
-
-/* Lang hooks for begining of source file.  */
-
-void
-cp_start_source_file (int n, const char *s)
-{
-  cp_add_lexer_file (n, s, CP_FILE_BEGIN);
-}
-
-/* Lang hooks for end of source file.  */
-
-void
-cp_end_source_file (int n, const char *s)
-{
-  cp_add_lexer_file (n, s, CP_FILE_END);
-}
-
-/* At the end of compilation emit BINCL/EINCL for remaining entries.  */
-
-void
-cp_flush_lexer_file_stack (void)
-{
-  if (cp_lexer_file_stack)
-    {
-      cp_lexer_file *lf = cp_lexer_file_stack;
-      while (lf)
-	{
-	  cp_lexer_file *tmp;
-	  if (lf->kind == CP_FILE_BEGIN)
-	    (*debug_hooks->start_source_file) (lf->line, lf->file);
-	  else if (lf->kind == CP_FILE_END)
-	    (*debug_hooks->end_source_file) (lf->line);
-	  tmp = lf;
-	  lf = lf->next;
-	  tmp = NULL;
-	}
-      last_cp_lexer_file = NULL;
-      cp_lexer_file_stack = NULL;
-    }
-}
-
-/* Copy cp_token */
-static void
-cp_lexer_copy_token (cp_token *to, cp_token *from)
-{
-  to->type = from->type;
-  to->keyword = from->keyword;
-  to->flags = from->flags;
-  to->in_system_header = from->in_system_header;
-  to->implicit_extern_c = from->implicit_extern_c;
-  to->value = from->value;
-  to->location = from->location;
-}
-
-/* Handle CPP_BINCL and CPP_EINCL tokens.  */
-
-static void 
-cp_parser_bincl_eincl (cp_lexer *lexer)
-{
-  cp_token *token = lexer->next_token;
-
-  /* If the next token is CPP_BINCL/CPP_EINCL then invoke debug info hook */
-  while (token->type == CPP_BINCL || token->type == CPP_EINCL)
-    {
-      if (token->type == CPP_BINCL)
-	(*debug_hooks->start_source_file) (LOCATION_LINE (token->location),
-					   LOCATION_FILE (token->location));
-      else if (token->type == CPP_EINCL)
-	(*debug_hooks->end_source_file) (LOCATION_LINE (token->location));	
-
-      cp_lexer_purge_token (lexer);
-      token = lexer->next_token;
-    }
-}
-
-/* APPLE LOCAL end 4133801 */
 
 /* Commit to the portion of the token stream most recently saved.  */
 
@@ -6518,9 +6360,14 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr)
     statement = cp_parser_compound_statement (parser, NULL, false);
   /* CPP_PRAGMA is a #pragma inside a function body, which constitutes
      a statement all its own.  */
-  else if (token->type == CPP_PRAGMA)
+  /* APPLE LOCAL begin 4137741 */
+  else if (token->type == CPP_PRAGMA
+	   || token->type == CPP_BINCL
+	   || token->type == CPP_EINCL)
+  /* APPLE LOCAL end 4137741 */
     {
-      cp_lexer_handle_pragma (parser->lexer);
+      /* APPLE LOCAL 4137741 */
+      cp_lexer_handle_pragma_etc (parser->lexer);
       return;
     }
 
@@ -7345,13 +7192,18 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
 	  parser->implicit_extern_c = false;
 	}
 
-      if (token->type == CPP_PRAGMA)
+      /* APPLE LOCAL begin 4137741 */
+      if (token->type == CPP_PRAGMA
+	  || token->type == CPP_BINCL
+	  || token->type == CPP_EINCL)
+      /* APPLE LOCAL end 4137741 */
 	{
 	  /* A top-level declaration can consist solely of a #pragma.
 	     A nested declaration cannot, so this is done here and not
 	     in cp_parser_declaration.  (A #pragma at block scope is
 	     handled in cp_parser_statement.)  */
-	  cp_lexer_handle_pragma (parser->lexer);
+	  /* APPLE LOCAL 4137741 */
+	  cp_lexer_handle_pragma_etc (parser->lexer);
 	  continue;
 	}
 
@@ -13736,9 +13588,14 @@ cp_parser_member_specification_opt (cp_parser* parser)
 
 	default:
 	  /* Accept #pragmas at class scope.  */
-	  if (token->type == CPP_PRAGMA)
+	  /* APPLE LOCAL begin 4137741 */
+	  if (token->type == CPP_PRAGMA
+	      || token->type == CPP_BINCL
+	      || token->type == CPP_EINCL)
+	  /* APPLE LOCAL end 4137741 */
 	    {
-	      cp_lexer_handle_pragma (parser->lexer);
+	      /* APPLE LOCAL 4137741 */
+	      cp_lexer_handle_pragma_etc (parser->lexer);
 	      break;
 	    }
 
@@ -16887,8 +16744,10 @@ cp_parser_cw_asm_declaration_seq_opt (cp_parser* parser)
 
       /* CPP_PRAGMA is a #pragma inside a function body, which
 	 constitutes a declaration all its own.  */
-      if (token->type == CPP_PRAGMA)
-	cp_lexer_handle_pragma (parser->lexer);
+      if (token->type == CPP_PRAGMA
+	   || token->type == CPP_BINCL
+	   || token->type == CPP_EINCL)
+	cp_lexer_handle_pragma_etc (parser->lexer);
 
       if (cw_asm_state >= cw_asm_decls
 	  && (cp_lexer_cw_bol (parser->lexer)
@@ -17171,9 +17030,11 @@ cp_parser_cw_asm_statement (cp_parser* parser)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_EOF))
 	break;
 
-      if (cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA))
+      if (cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
 	{
-	  cp_lexer_handle_pragma (parser->lexer);
+	  cp_lexer_handle_pragma_etc (parser->lexer);
 	}
       else if (cp_lexer_next_token_is (parser->lexer, CPP_ATSIGN))
 	{
@@ -18334,8 +18195,12 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
       && cp_parser_is_string_literal (cp_lexer_peek_nth_token (parser->lexer, 2)))
     cp_parser_linkage_specification (parser);
   /* Handle #pragma, if any.  */
-  else if (token->type == CPP_PRAGMA)
-    cp_lexer_handle_pragma (parser->lexer);
+  /* APPLE LOCAL begin 4137741 */
+  else if (token->type == CPP_PRAGMA
+	   || token->type == CPP_BINCL
+	   || token->type == CPP_EINCL)
+    cp_lexer_handle_pragma_etc (parser->lexer);
+  /* APPLE LOCAL end 4137741 */
   /* Allow stray semicolons.  */
   else if (token->type == CPP_SEMICOLON)
     cp_lexer_consume_token (parser->lexer);

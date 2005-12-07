@@ -1430,12 +1430,10 @@ c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     c-objc-common.h c-pragma.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
-# APPLE LOCAL begin 4133801
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) $(C_COMMON_H) real.h c-incpath.h cppdefault.h \
     $(C_PRAGMA_H) input.h intl.h $(FLAGS_H) toplev.h output.h \
-    $(CPPLIB_H) $(EXPR_H) $(TM_P_H) langhooks.h
-# APPLE LOCAL end 4133801
+    $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 # APPLE LOCAL AltiVec
 c-lex.o: $(TARGET_H) ../libcpp/internal.h
 c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1647,11 +1645,9 @@ prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) Makefile prefix.h
 convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(FLAGS_H) \
    convert.h toplev.h langhooks.h c-tree.h c-common.h
 # APPLE LOCAL end AltiVec
-# APPLE LOCAL begin 4133801
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h $(INTEGRATE_H) langhooks.h \
-   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h debug.h
-# APPLE LOCAL end 4133801
+   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(FLAGS_H) function.h $(PARAMS_H) \
    toplev.h $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \

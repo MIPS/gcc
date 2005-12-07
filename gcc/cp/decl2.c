@@ -2766,10 +2766,6 @@ cp_finish_file (void)
   if (! global_bindings_p () || current_class_type || decl_namespace_list)
     return;
 
-  /* APPLE LOCAL begin 4133801 */
-  cp_flush_lexer_file_stack ();
-  /* APPLE LOCAL end 4133801 */
-
   if (pch_file)
     c_common_write_pch ();
 

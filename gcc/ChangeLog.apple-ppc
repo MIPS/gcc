@@ -1,3 +1,18 @@
+2005-12-07  Devang Patel  <dpatel@apple.com>
+   	    Ziemowit Laski  <zlaski@apple.com>
+
+        Radar 4137741
+        * Makefile.in (c-lex.o): Revert langhooks.h dependency.
+        (langhooks.o): Revert debug.h dependency.
+        * c-lex.c: Do not include langhooks.h.
+        (fe_file_change): Revert lang_hooks calls; issue debug_hooks
+        calls only if defer_file_change_debug_hooks flag is cleared.
+        (c_lex_with_flags): Propagate line number information for
+        CPP_BINCL and CPP_EINCL tokens.
+        * langhooks-def.h: Revert Radar 4133801 changes.
+        * langhooks.c: Likewise.
+        * langhooks.h: Likewise.
+	
 2005-12-07  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4349512
