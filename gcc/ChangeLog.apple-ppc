@@ -1,3 +1,8 @@
+2005-12-06  Stuart Hastings  <stuart@apple.com>
+
+	* config/rs6000/rs6000.md (longjump): New pattern.
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Use it.
+
 2005-12-06  Dale Johannesen  <dalej@apple.com>
 
 	* config/i386/sse.md (sse_movhlps):  Reverse operands for

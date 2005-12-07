@@ -232,7 +232,7 @@ extern int target_flags;
 #define TARGET_ALTIVEC		(target_flags & MASK_ALTIVEC)
 #define TARGET_AIX_STRUCT_RET	(target_flags & MASK_AIX_STRUCT_RET)
 /* APPLE LOCAL long-branch  */
-#define TARGET_LONG_BRANCH	(target_flags & MASK_LONG_BRANCH)
+#define TARGET_LONG_BRANCH	(rs6000_default_long_calls)
 
 /* Define TARGET_MFCRF if the target assembler supports the optional
    field operand for mfcr and the target processor supports the

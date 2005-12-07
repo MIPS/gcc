@@ -17597,6 +17597,10 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 			tree function)
 {
   rtx this, insn, funexp;
+  /* APPLE LOCAL begin 4299630 */
+  bool is_longcall_p;
+  rtx symbol_ref;
+  /* APPLE LOCAL end 4299630 */
 
   reload_completed = 1;
   epilogue_completed = 1;
@@ -17653,27 +17657,69 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       assemble_external (function);
       TREE_USED (function) = 1;
     }
-  funexp = XEXP (DECL_RTL (function), 0);
-  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  symbol_ref = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, symbol_ref);
 
 #if TARGET_MACHO
   if (MACHOPIC_INDIRECT)
     funexp = machopic_indirect_call_target (funexp);
 #endif
 
-  /* gen_sibcall expects reload to convert scratch pseudo to LR so we must
-     generate sibcall RTL explicitly to avoid constraint abort.  */
-  insn = emit_call_insn (
-	   gen_rtx_PARALLEL (VOIDmode,
-	     gen_rtvec (4,
-			gen_rtx_CALL (VOIDmode,
-				      funexp, const0_rtx),
-			gen_rtx_USE (VOIDmode, const0_rtx),
-			gen_rtx_USE (VOIDmode,
-				     gen_rtx_REG (SImode,
-						  LINK_REGISTER_REGNUM)),
-			gen_rtx_RETURN (VOIDmode))));
-  SIBLING_CALL_P (insn) = 1;
+  /* APPLE LOCAL begin 4299630 */
+  if (DEFAULT_ABI == ABI_DARWIN
+      || (*targetm.binds_local_p) (function))
+    {
+      tree attr_list = TYPE_ATTRIBUTES (TREE_TYPE (function));
+      if (lookup_attribute ("shortcall", attr_list))
+	is_longcall_p = FALSE;
+      else if (lookup_attribute ("longcall", attr_list))
+	is_longcall_p = TRUE;
+      else
+	is_longcall_p = (TARGET_LONG_BRANCH);
+    }
+  if (!is_longcall_p)
+    {
+      /* gen_sibcall expects reload to convert scratch pseudo to LR so we must
+	 generate sibcall RTL explicitly to avoid constraint abort.  */
+      insn = emit_call_insn (
+        gen_rtx_PARALLEL (VOIDmode,
+			  gen_rtvec (4,
+				     gen_rtx_CALL (VOIDmode,
+						   funexp, const0_rtx),
+				     gen_rtx_USE (VOIDmode, const0_rtx),
+				     gen_rtx_USE (VOIDmode,
+						  gen_rtx_REG (SImode,
+							       LINK_REGISTER_REGNUM)),
+				     gen_rtx_RETURN (VOIDmode))));
+      SIBLING_CALL_P (insn) = 1;
+    }
+  else
+    {
+      tree labelname;
+      rtx label_rtx = gen_label_rtx ();
+      int line_number = 0;
+      char *label_buf, temp_buf[256];
+      tree function_asm_name;
+      ASM_GENERATE_INTERNAL_LABEL (temp_buf, "L",
+				   CODE_LABEL_NUMBER (label_rtx));
+      label_buf = temp_buf[0] == '*' ? temp_buf + 1 : temp_buf;
+      labelname = get_identifier (label_buf);
+      /* APPLE LOCAL begin 3910248, 3915171 */
+      for (insn = get_last_insn ();
+	   insn && (GET_CODE (insn) != NOTE 
+		    || NOTE_LINE_NUMBER (insn) < 0);
+	   insn = PREV_INSN (insn))
+	;
+      /* APPLE LOCAL end 3910248, 3915171 */
+      if (insn)
+	line_number = NOTE_LINE_NUMBER (insn);
+      function_asm_name = get_identifier (XSTR (symbol_ref, 0));
+      add_compiler_branch_island (labelname, function_asm_name, line_number);
+      /* Emit "jmp <function>, L42", and define L42 as a branch island.  */
+      insn = emit_jump_insn (gen_longjump (label_rtx,
+					   XEXP (DECL_RTL (function), 0)));
+    }
+  /* APPLE LOCAL end 4299630 */
   emit_barrier ();
 
   /* Run just enough of rest_of_compilation to get the insns emitted.
@@ -19801,8 +19847,8 @@ macho_branch_islands (void)
     {
       const char *label =
 	IDENTIFIER_POINTER (BRANCH_ISLAND_LABEL_NAME (branch_island));
-      const char *name  =
-	IDENTIFIER_POINTER (BRANCH_ISLAND_FUNCTION_NAME (branch_island));
+      tree function_name = BRANCH_ISLAND_FUNCTION_NAME (branch_island);
+      const char *name = IDENTIFIER_POINTER (function_name);
       char *name_buf;
 
       name_len = 2 + strlen (name);
@@ -19850,11 +19896,11 @@ macho_branch_islands (void)
 	  strcat (tmp_buf, label);
 	  strcat (tmp_buf, "_pic)\n");
 
-	  strcat (tmp_buf, "\tmtctr r12\n\tbctr\n");
+	  strcat (tmp_buf, "\tmtctr r12\n\tbctr");
 	}
       else
 	{
-	  strcat (tmp_buf, ":\nlis r12,hi16(");
+	  strcat (tmp_buf, ":\n\tlis r12,hi16(");
 	  strcat (tmp_buf, name_buf);
 	  strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
 	  strcat (tmp_buf, name_buf);
