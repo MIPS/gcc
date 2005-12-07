@@ -49,11 +49,11 @@ dp-bit.c: $(srcdir)/config/fp-bit.c
 	cat $(srcdir)/config/fp-bit.c > dp-bit.c
 
 # Assemble startup files.
-crti.o: $(srcdir)/config/ms1/crti.asm $(GCC_PASSES)
-	$(GCC_FOR_TARGET) -c -o crti.o -x assembler $(srcdir)/config/ms1/crti.asm
+$(T)crti.o: $(srcdir)/config/ms1/crti.asm $(GCC_PASSES)
+	$(GCC_FOR_TARGET) -c -o $(T)crti.o -x assembler $(srcdir)/config/ms1/crti.asm
  
-crtn.o: $(srcdir)/config/ms1/crtn.asm $(GCC_PASSES)
-	$(GCC_FOR_TARGET) -c -o crtn.o -x assembler $(srcdir)/config/ms1/crtn.asm
+$(T)crtn.o: $(srcdir)/config/ms1/crtn.asm $(GCC_PASSES)
+	$(GCC_FOR_TARGET) -c -o $(T)crtn.o -x assembler $(srcdir)/config/ms1/crtn.asm
 
 # Enable the following if multilibs are needed.
 # See gcc/genmultilib, gcc/gcc.texi and gcc/tm.texi for a

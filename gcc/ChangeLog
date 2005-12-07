@@ -1,3 +1,20 @@
+2005-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* mklibgcc.in: Deleted.
+	* configure.ac: Do not generate mklibgcc.
+	* configure: Regenerated.
+	* Makefile.in: Remove references to LIBGCC, INSTALL_LIBGCC,
+	GCC_PARTS, libgcc.mk, mklibgcc, libgcc.a, libgcov.a, stmp-multilib,
+	clean-target, clean-target-libgcc, EXTRA_PARTS, install-libgcc,
+	and install-multilib.
+	(all.cross, start.encap): Depend on libgcc-support.
+	(srcdirify, libgcc-support, libgcc.mvars): New.
+	* config/alpha/t-crtfm, config/alpha/t-vms64, config/alpha/t-vms,
+	config/sparc/t-elf, config/i386/t-rtems-i386, config/fr30/t-fr30,
+	config/ia64/t-ia64, config/rs6000/t-newas, config/rs6000/t-beos,
+	config/ms1/t-ms1: Use $(T) for items in EXTRA_PARTS.
+	* config/rs6000/t-linux64: Likewise.  Don't use -specs=bispecs.
+
 2005-12-07  Adrian Straetling  <straetling@de.ibm.com>
 
 	* config/s390/s390.c (s390_expand_atomic): New function.

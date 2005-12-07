@@ -593,11 +593,6 @@ maintainer-clean: local-maintainer-clean do-maintainer-clean local-clean
 maintainer-clean: local-distclean
 realclean: maintainer-clean
 
-# Extra dependency for clean-target, owing to the mixed nature of gcc.
-clean-target: clean-target-libgcc
-clean-target-libgcc:
-	test ! -d gcc || (cd gcc && $(MAKE) $@)
-
 # Check target.
 
 .PHONY: check do-check
@@ -1427,7 +1422,10 @@ configure-target-[+module+]: maybe-all-gcc
 [+ ENDFOR target_modules +]
 
 [+ FOR lang_env_dependencies +]
+configure-target-[+module+]: maybe-all-target-libgcc
+[+ IF no_newlib +][+ ELSE no_newlib +]
 configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss
+[+ ENDIF no_newlib +]
 [+ IF cxx +]configure-target-[+module+]: maybe-all-target-libstdc++-v3
 [+ ENDIF cxx +][+ ENDFOR lang_env_dependencies +]
 

@@ -1,5 +1,15 @@
 2005-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
 
+	* configure.in (target_libraries): Add target-libgcc.
+	* Makefile.def (target_modules): Add libgcc.
+	(lang_env_dependencies): Likewise.
+	* Makefile.tpl (clean-target-libgcc): Remove.
+	[lang_env_dependencies]: Depend on libgcc.  Handle no_newlib for
+	libgcc.
+	* configure, Makefile.in: Regenerated.
+
+2005-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
 	* Makefile.tpl: Throughout the file, use : $(MAKE) along with
 	$(stage) and $(unstage).
 	(EXTRA_TARGET_FLAGS): Correct double-quoting.

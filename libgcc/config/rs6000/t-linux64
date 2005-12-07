@@ -1,0 +1,30 @@
+#rs6000/t-linux64
+
+#LIB2FUNCS_EXTRA = tramp.S $(srcdir)/config/rs6000/ppc64-fp.c \
+#	$(srcdir)/config/rs6000/darwin-ldouble.c
+
+#TARGET_LIBGCC2_CFLAGS = -mno-minimal-toc -fPIC
+
+#SHLIB_MAPFILES += $(srcdir)/config/rs6000/libgcc-ppc64.ver
+
+# We want fine grained libraries, so use the new code to build the
+# floating point emulation libraries.
+# fp-bit is only to be used by 32-bit multilibs
+#FPBIT = fp-bit32.c
+#DPBIT = dp-bit32.c
+
+#dp-bit32.c: $(srcdir)/config/fp-bit.c
+#	( echo '#ifndef __powerpc64__'; \
+#	  cat $(srcdir)/config/fp-bit.c; \
+#	  echo '#endif' ) > dp-bit32.c
+
+#fp-bit32.c: $(srcdir)/config/fp-bit.c
+#	( echo '#ifndef __powerpc64__'; \
+#	  echo '#define FLOAT'; \
+#	  cat $(srcdir)/config/fp-bit.c; \
+#	  echo '#endif' ) > fp-bit32.c
+
+# Hack to use -mlong-double-128 just for compiling 64 bit libgcc.
+ifeq ($(shell $(CC) $(CFLAGS) -print-multi-os-directory),../lib64)
+HOST_LIBGCC2_CFLAGS += -mlong-double-128
+endif

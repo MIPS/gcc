@@ -1,0 +1,5 @@
+2005-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config.gcc, shared-object.mk, static-object.mk, Makefile.in,
+	configure.ac, empty.mk, config/rs6000/t-linux64: New files.
+	* configure: Generated.

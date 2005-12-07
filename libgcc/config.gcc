@@ -1,0 +1,54 @@
+# libgcc host-specific configuration file.
+# Copyright 2005
+# Free Software Foundation, Inc.
+
+#This file is part of GCC.
+
+#GCC is free software; you can redistribute it and/or modify it under
+#the terms of the GNU General Public License as published by the Free
+#Software Foundation; either version 2, or (at your option) any later
+#version.
+
+#GCC is distributed in the hope that it will be useful, but WITHOUT
+#ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with GCC; see the file COPYING.  If not, write to the Free
+#Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+#02110-1301, USA.
+
+# This is the libgcc host-specific configuration file
+# where a configuration type is mapped to different system-specific
+# definitions and files.  This is invoked by the autoconf-generated
+# configure script.  Putting it in a separate shell file lets us skip
+# running autoconf when modifying host-specific information.
+
+# This file switches on the shell variable ${host}.
+
+# This file sets the following shell variables for use by the
+# autoconf-generated configure script:
+#
+#  hmake_file		A list of machine-description-specific
+#			makefile-fragments, defaulting to
+#			"$cpu_type/t-$cpu_type".
+#
+#  extra_parts		List of extra object files that should be compiled
+#			for this host machine.
+#
+
+hmake_file=$cpu_type/t-$cpu_type
+
+case ${host} in
+powerpc64-*-linux*)
+	hmake_file="${hmake_file} rs6000/t-linux64"
+	;;
+powerpc64-*-gnu*)
+	hmake_file="${hmake_file} rs6000/t-linux64"
+	;;
+powerpc-*-linux*)
+	# This will do no harm if we aren't building a 64-bit multilib.
+	hmake_file="${hmake_file} rs6000/t-linux64"
+	;;
+esac
