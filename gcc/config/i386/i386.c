@@ -958,9 +958,9 @@ static void init_ext_80387_constants (void);
 static bool ix86_in_large_data_p (tree) ATTRIBUTE_UNUSED;
 static void ix86_encode_section_info (tree, rtx, int) ATTRIBUTE_UNUSED;
 static void x86_64_elf_unique_section (tree decl, int reloc) ATTRIBUTE_UNUSED;
-static void x86_64_elf_select_section (tree decl, int reloc,
-				       unsigned HOST_WIDE_INT align)
-				      ATTRIBUTE_UNUSED;
+static section *x86_64_elf_select_section (tree decl, int reloc,
+					   unsigned HOST_WIDE_INT align)
+					     ATTRIBUTE_UNUSED;
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -1703,9 +1703,9 @@ override_options (void)
    RELOC indicates whether forming the initial value of DECL requires
    link-time relocations.  */
 
-static void
+static section *
 x86_64_elf_select_section (tree decl, int reloc,
-		         unsigned HOST_WIDE_INT align)
+			   unsigned HOST_WIDE_INT align)
 {
   if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
       && ix86_in_large_data_p (decl))
@@ -1749,12 +1749,9 @@ x86_64_elf_select_section (tree decl, int reloc,
 	  break;
 	}
       if (sname)
-	{
-          named_section (decl, sname, reloc);
-	  return;
-	}
+	return get_named_section (decl, sname, reloc);
     }
-  default_elf_select_section (decl, reloc, align);
+  return default_elf_select_section (decl, reloc, align);
 }
 
 /* Build up a unique section name, expressed as a
@@ -1854,9 +1851,9 @@ x86_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 {
   if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
       && size > (unsigned int)ix86_section_threshold)
-    named_section (decl, ".lbss", 0);
+    switch_to_section (get_named_section (decl, ".lbss", 0));
   else
-    bss_section ();
+    switch_to_section (bss_section);
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
 #ifdef ASM_DECLARE_OBJECT_NAME
   last_assemble_variable_decl = decl;
@@ -4412,7 +4409,7 @@ ix86_file_end (void)
 	  DECL_ONE_ONLY (decl) = 1;
 
 	  (*targetm.asm_out.unique_section) (decl, 0);
-	  named_section (decl, NULL, 0);
+	  switch_to_section (get_named_section (decl, NULL, 0));
 
 	  (*targetm.asm_out.globalize_label) (asm_out_file, name);
 	  fputs ("\t.hidden\t", asm_out_file);
@@ -4422,7 +4419,7 @@ ix86_file_end (void)
 	}
       else
 	{
-	  text_section ();
+	  switch_to_section (text_section);
 	  ASM_OUTPUT_LABEL (asm_out_file, name);
 	}
 
@@ -16625,9 +16622,9 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   sprintf (lazy_ptr_name, "L%d$lz", label);
 
   if (MACHOPIC_PURE)
-    machopic_picsymbol_stub_section ();
+    switch_to_section (machopic_picsymbol_stub_section);
   else
-    machopic_symbol_stub_section ();
+    switch_to_section (machopic_symbol_stub_section);
 
   fprintf (file, "%s:\n", stub);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
@@ -16653,7 +16650,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 
   fprintf (file, "\tjmp dyld_stub_binding_helper\n");
 
-  machopic_lazy_symbol_ptr_section ();
+  switch_to_section (machopic_lazy_symbol_ptr_section);
   fprintf (file, "%s:\n", lazy_ptr_name);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
   fprintf (file, "\t.long %s\n", binder_name);
@@ -18154,8 +18151,7 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
   emit_label (label2);
 }
 
-/* Solaris named-section hook.  Parameters are as for
-   named_section_real.  */
+/* Solaris implementation of TARGET_ASM_NAMED_SECTION.  */
 
 static void
 i386_solaris_elf_named_section (const char *name, unsigned int flags,
