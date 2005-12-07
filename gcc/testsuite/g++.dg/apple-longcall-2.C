@@ -1,3 +1,4 @@
+/* APPLE LOCAL file 4299630 */
 /* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-mlongcall" } */
 /* { dg-final { scan-assembler "\tjmp[ 	]" } } */

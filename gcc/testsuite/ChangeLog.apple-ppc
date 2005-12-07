@@ -1,3 +1,8 @@
+2005-12-07  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4299630
+	* g++.dg/apple-longcall-2.C: New.
+
 2005-12-06  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.target/i386/sse-17.c:  New.
