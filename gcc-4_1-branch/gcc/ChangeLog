@@ -1,3 +1,52 @@
+2005-12-07  Aldy Hernandez  <aldyh@redhat.com>
+
+       PR C++/24138
+        * tree.c (integer_all_onesp): Always return true if all bits on.
+
+        * testsuite/g++.dg/init/array0.C: New.
+
+2005-12-06  Andreas Schwab  <schwab@suse.de>
+
+	* opts.c (decode_options): Fix typo in message.
+
+2005-12-06  Alan Modra  <amodra@bigpond.net.au>
+
+	PR other/13873
+	* longlong.h: Merge PPC tests from upstream.
+
+2005-12-05  James E Wilson  <wilson@specifix.com>
+
+	PR target/24934
+	* opts.c (decode_options): Turn off partitioning if flag_unwind_tables
+	is set.
+
+2005-12-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/host-darwin.c (segv_handler): Unblock SEGV so
+	we don't go into an infinite loop.
+
+2005-12-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi, doc/standards.texi: Refer to
+	gcc-4.1/c99status.html.
+
+2005-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25199
+	* config/i386/i386.md (movqi_1): Only force imovx for alternative
+	5 if operand 1 is not aligned.  Undo previous constraint change.
+	* config/i386/predicates.md (aligned_operand): Use MEM_ALIGN.
+
+2005-12-02  Alan Modra  <amodra@bigpond.net.au>
+
+	PR middle-end/25176
+	* function.c (expand_function_end): Emit blockage for unwinder
+	after return label.
+
+2005-12-01  Richard Henderson  <rth@redhat.com>
+
+	* optabs.c (expand_vec_cond_expr): Use EXPAND_NORMAL.
+
 2005-11-30  Dale Johannesen  <dalej@apple.com>
             Andrew Pinski  <pinskia@physics.uc.edu>
 
