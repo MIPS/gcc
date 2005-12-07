@@ -1130,7 +1130,12 @@ machopic_select_section (tree exp, int reloc,
 			 unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
   void (*base_function)(void);
-  bool weak_p = DECL_P (exp) && DECL_WEAK (exp);
+/* APPLE LOCAL begin mainline 4.2 2005-12-05 4290187 */
+  bool weak_p = (DECL_P (exp) && DECL_WEAK (exp)
+		 && (lookup_attribute ("weak", DECL_ATTRIBUTES (exp))
+		     || ! lookup_attribute ("weak_import",
+					    DECL_ATTRIBUTES (exp))));
+/* APPLE LOCAL end mainline 4.2 2005-12-05 4290187 */
   /* APPLE LOCAL begin mainline 2005-04-15 <radar 4078608> */
   static void (* const base_funs[][2])(void) = {
     { text_section, text_coal_section },
