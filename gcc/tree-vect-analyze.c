@@ -891,6 +891,26 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = build_fold_indirect_ref (STMT_VINFO_VECT_DR_BASE_ADDRESS (stmt_info));
   vectype = STMT_VINFO_VECTYPE (stmt_info);
 
+  /* APPLE LOCAL begin 4333194 */
+  /* If misalignment is such that loop peeling is not able to cure it then
+     avoid vectorization. This happens, for example when misalignment is 4, 
+     size of element is 8 and vector alignment required is 16.  */
+  if (misalign)
+    {
+      HOST_WIDE_INT misalign_b = int_cst_value (misalign);
+      HOST_WIDE_INT elm_size_b = int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
+      if (misalign_b % elm_size_b)
+ 	{
+ 	  if (vect_print_dump_info (REPORT_ALIGNMENT, UNKNOWN_LOC))
+ 	    {
+ 	      fprintf (vect_dump, "Inappropriate alignment for vectorizer: \
+                        misalignment = " HOST_WIDE_INT_PRINT_DEC, misalign_b);
+ 	    }
+ 	  return false;
+ 	}
+    }
+  /* APPLE LOCAL end 4333194 */
+
   if (!misalign)
     {
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC)) 
