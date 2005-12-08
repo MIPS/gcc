@@ -1,3 +1,11 @@
+2005-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/atomic-3.c: Conditionalize scan test on targets that
+	implement __sync_fetch_and_add.
+	* gcc.dg/gomp/atomic-9.c: Likewise.
+	* g++.dg/gomp/atomic-3.C: Likewise.
+	* g++.dg/gomp/atomic-9.C: Likewise.
+
 2005-12-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/appendix-a/a.24.1.c: Adjust line numbers.
