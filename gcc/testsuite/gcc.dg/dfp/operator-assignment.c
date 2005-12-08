@@ -1,59 +1,55 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
+/* C99 Section 6.5.16.2 Compound assignment.  Verify the compound
+   assignment operator for DFP types, using it with other DFP types,
+   integers, and other binary float types cast to DFP types.  */
+
 extern void abort (void);
 
 #define OPERATE(OPRD1,OPRT,OPRD2,RLT)		\
-do						\
-{						\
-  if (( (OPRD1) OPRT (OPRD2) )!= RLT)		\
-    abort ();					\
-} while (0)
+  if (( OPRD1 OPRT OPRD2 )!= RLT)		\
+    abort ();
 
 #define DECIMAL_COMPOUND_ASSIGNMENT(TYPE, OPRD)	\
-do						\
 {						\
-  _Decimal##TYPE _d##TYPE = OPRD;		\
-  /* Compound assignment of addition.  */	\
-  OPERATE(OPRD,+=,1,(_d##TYPE+1));		\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,+=,0,(_d##TYPE));		\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,+=,-1,(_d##TYPE-1));		\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,+=,1.25,(_d##TYPE+1.25));	\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,+=,1.2df,(_d##TYPE+1.2df));	\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,+=,2.8dd,(_d##TYPE+2.8dd));	\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,+=,4.7dl,(_d##TYPE+4.7dl));	\
-  _d##TYPE = OPRD;				\
-  /* Compound assignment of subtraction.  */	\
-  OPERATE(OPRD,-=,1,(_d##TYPE-1));		\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,-=,0,(_d##TYPE));		\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,-=,-1,(_d##TYPE+1));		\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,-=,1.25,(_d##TYPE-1.25));	\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,-=,1.2df,(_d##TYPE-1.2df));	\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,-=,2.8dd,(_d##TYPE-2.8dd));	\
-  _d##TYPE = OPRD;				\
-  OPERATE(OPRD,-=,4.7dl,(_d##TYPE-4.7dl));	\
-} while (0)
+  _Decimal##TYPE d = OPRD;			\
+  OPERATE(d,+=,1,(OPRD + 1));		\
+  d = OPRD;				\
+  OPERATE(d,+=,0,OPRD);			\
+  d = OPRD;				\
+  OPERATE(d,+=,(-1),(OPRD - 1));	\
+  d = OPRD;				\
+  OPERATE(d,+=,d32a,(OPRD + d32a));	\
+  d = OPRD;				\
+  OPERATE(d,+=,d64a,(OPRD + d64a));	\
+  d = OPRD;				\
+  OPERATE(d,+=,d128a,(OPRD + d128a));	\
+  d = OPRD;				\
+  OPERATE(d,+=,(_Decimal##TYPE)1.1,(OPRD + (_Decimal##TYPE)1.1));	\
+  d = OPRD;				\
+  OPERATE(d,+=,(_Decimal##TYPE)2.2f,(OPRD + (_Decimal##TYPE)2.2f));	\
+  d = OPRD;				\
+  OPERATE(d,-=,1,(OPRD - 1));		\
+  d = OPRD;				\
+  OPERATE(d,-=,0,OPRD);			\
+  d = OPRD;				\
+  OPERATE(d,-=,(-1),(OPRD + 1));	\
+  d = OPRD;				\
+  OPERATE(d,-=,d32a,OPRD-d32a);		\
+  d = OPRD;				\
+  OPERATE(d,-=,d64a,OPRD-d64a);		\
+  d = OPRD;				\
+  OPERATE(d,-=,d128a,OPRD-d128a);	\
+}
 
 int
 main ()
 {
-  _Decimal32 d32;
-  _Decimal64 d64;
-  _Decimal128 d128;
+  _Decimal32 d32 = 1.23456fd, d32a = 1.2df;
+  _Decimal64 d64 = 23.456789dd, d64a = 2.8dd;
+  _Decimal128 d128 = 345.67890123456789ld, d128a = 4.7dl;
 
-  /* C99 Section 6.5.16.2 Compound assignment.  Verify the comound
-     assignment operator for DFP types.  */
   DECIMAL_COMPOUND_ASSIGNMENT(32, d32);
   DECIMAL_COMPOUND_ASSIGNMENT(64, d64);
   DECIMAL_COMPOUND_ASSIGNMENT(128, d128);

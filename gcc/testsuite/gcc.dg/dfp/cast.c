@@ -20,19 +20,19 @@ main (void)
   d64 = 1.2dd;
   d128 = 1.2dl;
 
-  if (d32 != (_Decimal64) d64)
+  if (d32 != (_Decimal32) d64)
     abort ();
-  if (d32 != (_Decimal128) d128)
-    abort ();
-
-  if (d64 != (_Decimal32) d32)
-    abort ();
-  if (d64 != (_Decimal128) d128)
+  if (d32 != (_Decimal32) d128)
     abort ();
 
-  if (d128 != (_Decimal32) d32)
+  if (d64 != (_Decimal64) d32)
     abort ();
-  if (d128 != (_Decimal64) d64)
+  if (d64 != (_Decimal64) d128)
+    abort ();
+
+  if (d128 != (_Decimal128) d32)
+    abort ();
+  if (d128 != (_Decimal128) d64)
     abort ();
 
   /* Casts between generic and decimal floating point types.  Use a
@@ -68,9 +68,9 @@ main (void)
   /* double to decimal floating types.  */
   if (d32 != (_Decimal32) d)
     abort ();
-  if (d64 != (_Decimal32) d)
+  if (d64 != (_Decimal64) d)
     abort ();
-  if (d128 != (_Decimal32) d)
+  if (d128 != (_Decimal128) d)
     abort ();
 
   return 0;

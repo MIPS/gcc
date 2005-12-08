@@ -4,6 +4,16 @@
 /* N1107 Section 5.3 Conversions between decimal floating and complex.  */
 
 extern void abort(void);
+static int failcnt;
+                                                                                
+/* Support compiling the test to report individual failures; default is
+   to abort as soon as a check fails.  */
+#ifdef DBG
+#include <stdio.h>
+#define FAILURE { printf ("failed at line %d\n", __LINE__); failcnt++; }
+#else
+#define FAILURE abort ();
+#endif
 
 int
 main ()
@@ -18,7 +28,7 @@ main ()
 
   cf = 2.0f *  __extension__ 1i + 3.0f;
   cd = 2.0 * __extension__ 1i + 3.0;
-  cld = 2.0ld * __extension__ 1i + 3.0ld;
+  cld = 2.0l * __extension__ 1i + 3.0l;
 
   /* Convert complex to decimal floating.  */
   d32 = cf;
@@ -26,13 +36,11 @@ main ()
   d128 = cld;
 
   if (d32 != 3.0DF)
-    abort ();
-
+    FAILURE
   if (d64 != 3.0dd)
-    abort ();
-
+    FAILURE
   if (d128 != 3.0dl)
-    abort ();
+    FAILURE
 
   /* Convert decimal floating to complex.  */
   d32 = 2.5DF;
@@ -50,20 +58,17 @@ main ()
      of the complex result value is zero.  */
 
   if (__real__ cf != 2.5f)
-    abort ();
-
+    FAILURE
   if (__real__ cd !=1.5)
-    abort ();
-
+    FAILURE
   if (__real__ cld !=  2.5)
-    abort ();
-
+    FAILURE
   if (__imag__ cf != 0.0f)
-    abort ();
+    FAILURE
   if (__imag__ cd != 0.0)
-    abort ();
-  if (__imag__ cld != 0.0ld)
-    abort ();
+    FAILURE
+  if (__imag__ cld != 0.0l)
+    FAILURE
 
   /*  Verify that the conversions from DFP types to complex is
       determined by the rules of conversion to the real part.  */
@@ -72,46 +77,50 @@ main ()
   d64 = 0.000488281251dl;
   cf = d64;
   if (__real__ cf != 0.00048828125f)
-    abort ();
+    FAILURE
   /*  Convert _Decimal128 to _Complex double.  */
   d128 = 2.98023223876953125E-8dl;
   cd = d128;
   if (__real__ cd < (2.9802322387695312E-08 - 0.00000000001)
       || __real__ cd  > (2.9802322387695312e-08 + 0.00000000001))
-    abort ();
+    FAILURE
 
   /*  Verify that conversion from complex to decimal floating types
       results in the value of the real part converted to the result
       type according to the rules of conversion between those types.  */
 
-  /*  Convert _Complex float to _Decimal32.  */
+  /*  Convert _Complex float to decimal float types.  */
   cf = 2.0f *  __extension__ 1i + 1.00390625f;
   d32 = cf;
+  d64 = cf;
+  d128 = cf;
   if (d32 != 1.003906DF)
-    abort ();
+    FAILURE
+  if (d64 != 1.003906DD)
+    FAILURE
+  if (d128 != 1.003906DL)
+    FAILURE
 
-  /*  Convert _Complex double to _Decimal32.  */
+  /*  Convert _Complex double to decimal float types.  */
   cd = 2.0 *  __extension__ 1i + 1.00390625;
   d32 = cd;
-  if (d32 != 1.003906DF)
-    abort ();
-
-  /*  Convert _Complex long double to _Decimal32.  */
-  cld = 2.0ld *  __extension__ 1i + 1.00390625ld;
-  if (d32 != 1.003906DF)
-    abort ();
-
-  /*  Convert _Complex double to _Decimal64.  */
-  cd = 2.0 *  __extension__ 1i + 10.000030517578125;
   d64 = cd;
-  if (d64 != 10.00003051757812)
-    abort ();
+  d128 = cd;
+  if (d32 != 1.003906DF)
+    FAILURE
+  if (d64 != 1.003906DD)
+    FAILURE
+  if (d128 != 1.003906DL)
+    FAILURE
 
-  /*  Convert _Complex long double to _Decimal64.  */
-  cld = 2.0ld *  __extension__ 1i + 10.000030517578125ld;
-  d64 = cld;
-  if (d64 != 10.00003051757812)
-    abort ();
+  /*  Convert _Complex long double to decimal float types.  */
+  cld = 2.0l *  __extension__ 1i + 1.00390625l;
+  if (d32 != 1.003906DF)
+    FAILURE
+  if (d64 != 1.003906DD)
+    FAILURE
+  if (d128 != 1.003906DL)
+    FAILURE
 
   return 0;
 }
