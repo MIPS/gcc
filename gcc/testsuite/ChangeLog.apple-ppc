@@ -1,3 +1,10 @@
+2005-12-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4298879
+	* gcc.apple/default-cpu-1.c: New.
+	* gcc.apple/default-cpu-2.c: New.
+	* gcc.apple/default-cpu-3.c: New.
+
 2005-12-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 4333194
