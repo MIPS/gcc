@@ -1,3 +1,51 @@
+2005-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19317
+	* g++.dg/opt/pr19317-1.C: New test.
+	* g++.dg/opt/pr19317-2.C: New test.
+	* g++.dg/opt/pr19317-3.C: New test.
+
+	PR target/19005
+	* gcc.c-torture/execute/pr19005.c: New test.
+
+	PR target/17828
+	* g++.old-deja/g++.other/comdat5.C: New test.
+	* g++.old-deja/g++.other/comdat5-aux.cc: New file.
+
+	* g++.dg/compat/struct-layout-1.exp: New file.
+	* g++.dg/compat/struct-layout-1.h: New.
+	* g++.dg/compat/struct-layout-1_generate.c: New.
+	* g++.dg/compat/struct-layout-1_x1.h: New.
+	* g++.dg/compat/struct-layout-1_x2.h: New.
+	* g++.dg/compat/struct-layout-1_y1.h: New.
+	* g++.dg/compat/struct-layout-1_y2.h: New.
+
+	* gcc.dg/20050330-2.c: New test.
+
+2005-12-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25292
+	* gfortran.dg/associated_1.f90: New.
+
+2005-12-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gfortran.dg/vect/vect-5.f90: Expect alignment forcing only on
+	ILP32 vect_no_align platforms.
+
+2005-12-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+        PR target/25268
+	* gcc.c-torture/compile/20051207-1.c: New test.
+
+2005-12-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/other/i386-1.C, gcc.c-torture/execute/990413-2.x,
+	gcc.dg/torture/pr18582-1.c,
+	gcc.target/i386/attributes-error.c: Also test on x86_64.
+
+	* gcc.dg/pr18928-1.c: Test on all targets supporting pic.
+
 2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/19397
