@@ -1,3 +1,16 @@
+2005-12-07  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4370117
+	* config/darwin.h (DEBUG_INFO_SECTION): Mark as 'debug'.
+	(DEBUG_ABBREV_SECTION): Mark as 'debug'.
+	(DEBUG_ARANGES_SECTION): Mark as 'debug'.
+	(DEBUG_MACINFO_SECTION): Mark as 'debug'.
+	(DEBUG_LINE_SECTION): Mark as 'debug'.
+	(DEBUG_LOC_SECTION): Mark as 'debug'.
+	(DEBUG_PUBNAMES_SECTION): Mark as 'debug'.
+	(DEBUG_STR_SECTION): Mark as 'debug'.
+	(DEBUG_RANGES_SECTION): Mark as 'debug'.
+
 2005-12-07  Devang Patel  <dpatel@apple.com>
    	    Ziemowit Laski  <zlaski@apple.com>
 

@@ -523,15 +523,17 @@ do {					\
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define DEBUG_FRAME_SECTION   "__DWARFA,__debug_frame,coalesced,no_toc+strip_static_syms"
-#define DEBUG_INFO_SECTION    "__DWARFA,__debug_info"
-#define DEBUG_ABBREV_SECTION  "__DWARFA,__debug_abbrev"
-#define DEBUG_ARANGES_SECTION "__DWARFA,__debug_aranges"
-#define DEBUG_MACINFO_SECTION "__DWARFA,__debug_macinfo"
-#define DEBUG_LINE_SECTION    "__DWARFA,__debug_line"
-#define DEBUG_LOC_SECTION     "__DWARFA,__debug_loc"
-#define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames"
-#define DEBUG_STR_SECTION     "__DWARFA,__debug_str"
-#define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges"
+/* APPLE LOCAL begin dwarf2 section flags */
+#define DEBUG_INFO_SECTION    "__DWARFA,__debug_info,regular,debug"
+#define DEBUG_ABBREV_SECTION  "__DWARFA,__debug_abbrev,regular,debug"
+#define DEBUG_ARANGES_SECTION "__DWARFA,__debug_aranges,regular,debug"
+#define DEBUG_MACINFO_SECTION "__DWARFA,__debug_macinfo,regular,debug"
+#define DEBUG_LINE_SECTION    "__DWARFA,__debug_line,regular,debug"
+#define DEBUG_LOC_SECTION     "__DWARFA,__debug_loc,regular,debug"
+#define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames,regular,debug"
+#define DEBUG_STR_SECTION     "__DWARFA,__debug_str,regular,debug"
+#define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges,regular,debug"
+/* APPLE LOCAL end dwarf2 section flags */
 
 /* APPLE LOCAL begin gdb only used symbols */
 /* Support option to generate stabs for only used symbols. */
