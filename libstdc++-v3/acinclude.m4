@@ -171,6 +171,13 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   #enable_symvers=no
   #enable_hosted_libstdcxx=yes
 
+  AC_EGREP_CPP([_using_uclibc], [
+  #include <stdio.h>
+  #if __UCLIBC__
+    _using_uclibc
+  #endif
+  ], uclibc=yes, uclibc=no)
+
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
   GLIBCXX_CHECK_HOST

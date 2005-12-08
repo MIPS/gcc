@@ -1,3 +1,26 @@
+2005-12-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* libstdc++-v3/config/os/uclibc/ctype_noninline.h,
+	libstdc++-v3/config/os/uclibc/ctype_base.h,
+	libstdc++-v3/config/os/uclibc/os_defines.h,
+	libstdc++-v3/config/os/uclibc/ctype_inline.h: New files.  From
+	buildroot.
+	* libstdc++-v3/configure.host: Use os/uclibc for uClibc.
+	* libstdc++-v3/acinclude.m4: Test for uClibc.
+	* libstdc++-v3/configure, libstdc++-v3/aclocal.m4: Regenerate.
+
+2005-12-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS): Also build
+	-muclibc multilib.
+	(MULTILIB_DIRNAMES): Define.
+
+2005-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/arm/lib1funcs.asm (div0) [L_dvmd_lnx]: Call raise instead
+	of making syscalls.
+	* gcc/config/arm/linux-eabi.h (CLEAR_INSN_CACHE): Define.  Set r7 also.
+
 2005-12-05  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc/config/arm/linux-elf.h (SUBTARGET_SWITCHES): Add -muclibc.

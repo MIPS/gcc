@@ -20,6 +20,7 @@
 # Boston, MA 02111-1307, USA.
 
 # We want little-endian ARM 926 and big-endian IWMMXT libraries.
-MULTILIB_OPTIONS = tarm926ej-s/tiwmmxt/txscale
+MULTILIB_OPTIONS = tarm926ej-s/tiwmmxt/txscale/muclibc
+MULTILIB_DIRNAMES = tarm926ej-s tiwmmxt txscale uclibc
 # These files must be built for each multilib.
 EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o
