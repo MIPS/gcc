@@ -1,5 +1,8 @@
 2005-12-08  Jakub Jelinek  <jakub@redhat.com>
 
+	PR c/25246
+	* gcc.target/i386/pr25246.c: New test.
+
 	* gcc.dg/gomp/atomic-3.c: Conditionalize scan test on targets that
 	implement __sync_fetch_and_add.
 	* gcc.dg/gomp/atomic-9.c: Likewise.
