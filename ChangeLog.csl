@@ -1,3 +1,8 @@
+2005-12-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Allow multiple
+	uClibc multilibs.
+
 2005-12-08  Joseph Myers  <joseph@codesourcery.com>
 
 	* libstdc++-v3/crossconfig.m4: Don't define HAVE_FINITEF for
