@@ -82525,10 +82525,12 @@ _ACEOF
 #define HAVE_FINITE 1
 _ACEOF
 
-    cat >>confdefs.h <<\_ACEOF
+    if test x"$uclibc" = x"no"; then
+      cat >>confdefs.h <<\_ACEOF
 #define HAVE_FINITEF 1
 _ACEOF
 
+    fi
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_FLOORF 1
 _ACEOF

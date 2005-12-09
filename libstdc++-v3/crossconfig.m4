@@ -183,7 +183,9 @@ case "${host}" in
     AC_DEFINE(HAVE_EXPF)
     AC_DEFINE(HAVE_FABSF)
     AC_DEFINE(HAVE_FINITE)
-    AC_DEFINE(HAVE_FINITEF)
+    if test x"$uclibc" = x"no"; then
+      AC_DEFINE(HAVE_FINITEF)
+    fi
     AC_DEFINE(HAVE_FLOORF)
     AC_DEFINE(HAVE_FMODF)
     AC_DEFINE(HAVE_FREXPF)
