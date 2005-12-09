@@ -1,3 +1,8 @@
+2005-12-09  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4299630
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Fixed APPLE LOCAL.
+
 2005-12-08  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4285232
