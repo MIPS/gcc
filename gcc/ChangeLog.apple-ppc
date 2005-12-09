@@ -1,3 +1,9 @@
+2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
+
+	Radar 4233898
+        * tree-chrec.c (chrec_fold_multiply_poly_poly): Associate chrecs
+        correctly.	
+
 2005-12-09  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4299630
