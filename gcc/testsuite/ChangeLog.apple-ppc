@@ -1,3 +1,8 @@
+2005-12-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4285232
+	* g++.dg/4285232.C:  New.
+
 2005-12-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 4298879

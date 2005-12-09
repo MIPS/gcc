@@ -1,3 +1,9 @@
+2005-12-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4285232
+	* cp/typeck2.c (split_nonconstant_init):  Don't
+	zero out object which is fully initialized.
+
 2005-12-08  Devang Patel  <dpatel@apple.com>
 	    Geoffrey Keating  <geoffk@apple.com>
 

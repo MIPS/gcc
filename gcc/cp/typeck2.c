@@ -534,7 +534,18 @@ split_nonconstant_init (tree dest, tree init)
       code = push_stmt_list ();
       split_nonconstant_init_1 (dest, init);
       code = pop_stmt_list (code);
-      DECL_INITIAL (dest) = init;
+      /* APPLE LOCAL begin 4285232 */
+      /* If the constructor now doesn't construct anything, that
+       means constant 0 for the entire object.  We don't need
+       to do this for non-statically-allocated objects.
+       Functionally it is harmless, but leads to inferior code
+       in cases where the optimizers don't get rid of the
+       redundant stores of 0.  */
+      if (TREE_CODE (dest) != VAR_DECL 
+	  || TREE_STATIC (dest)
+	  || CONSTRUCTOR_ELTS (init) != 0)
+	DECL_INITIAL (dest) = init;
+      /* APPLE LOCAL end 4285232 */
       TREE_READONLY (dest) = 0;
     }
   else
