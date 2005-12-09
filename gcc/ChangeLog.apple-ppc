@@ -1,4 +1,13 @@
 2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
+	    Dale Johannesen  <dalej@apple.com>
+
+	Radar 3791237
+	* toplev.c (process_options):  Make -funroll-loops
+	turn on -fweb.
+	* doc/invoke.texi (-fsplit-ivs-in-unroller, -fweb,
+	-funroll-loops):  Document this behavior.
+
+2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
 
 	Radar 4233898
         * tree-chrec.c (chrec_fold_multiply_poly_poly): Associate chrecs

@@ -5365,8 +5365,8 @@ the loop is entered.  This usually makes programs run more slowly.
 @opindex -fsplit-ivs-in-unroller
 Enables expressing of values of induction variables in later iterations
 of the unrolled loop using the value in the first iteration.  This breaks
-long dependency chains, thus improving efficiency of the scheduling passes
-(for best results, @option{-fweb} should be used as well).
+@c APPLE LOCAL 3791237 mainline
+long dependency chains, thus improving efficiency of the scheduling passes.
 
 Combination of @option{-fweb} and CSE is often sufficient to obtain the
 same effect.  However in cases the loop body is more complicated than
@@ -5628,10 +5628,8 @@ passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
 ``home register''.
 
-@c APPLE LOCAL 4231761 -Oz
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}, and @option{-Oz} (APPLE ONLY)
-on targets where the default format for debugging information supports
-variable tracking.
+@c APPLE LOCAL 3791237 mainline
+Enabled by default with @option{-funroll-loops}.
 
 @item -fno-cprop-registers
 @opindex fno-cprop-registers
@@ -5900,9 +5898,12 @@ Enabled with @option{-fprofile-use}.
 @opindex funroll-loops
 Unroll loops whose number of iterations can be determined at compile time or
 upon entry to the loop.  @option{-funroll-loops} implies
-@option{-frerun-cse-after-loop}.  It also turns on complete loop peeling
-(i.e.@: complete removal of loops with small constant number of iterations).
-This option makes code larger, and may or may not make it run faster.
+@c APPLE LOCAL begin 3791237
+@option{-frerun-cse-after-loop} and @option{-fweb}.
+It also turns on complete loop peeling (i.e.@: complete removal of loops with
+small constant number of iterations).  This option makes code larger, and may
+or may not make it run faster.
+@c APPLE LOCAL end 3791237
 
 Enabled with @option{-fprofile-use}.
 
