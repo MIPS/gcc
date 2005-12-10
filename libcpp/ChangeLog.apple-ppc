@@ -1,3 +1,9 @@
+2005-12-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4371958
+	* macro.c (cpp_get_token): Be sure to reset the BOL flag when
+	injecting macro bodies, as we wouldn't want a previous value.
+
 2005-12-07  Devang Patel  <dpatel@apple.com>
    	    Ziemowit Laski  <zlaski@apple.com>
 
