@@ -1,3 +1,61 @@
+2005-12-09  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4360146
+
+	* objc/objc-act.h (PROTOCOL_LANG_SLOT_ELTS): Bump it by one.
+	(PROTOCOL_V2_FORWARD_DECL): Correct its definition.
+	(OCTI_V2_CAT_TEMPL): New definition.
+	(objc_v2_category_template): New declaration.
+
+	* objc/objc-act.c (OBJC_VERSION): Internal version number is 10
+	for objc abi version 2.0.
+	(build_classlist_reference): This function is removed.
+	(synth_v2_forward_declarations): New
+	(init_v2_def_list): New
+	(objc_v2_get_class_reference): New
+	(objc_build_internal_classname): New
+	(build_v2_category_template): New
+	(generate_v2_category): New
+	(synth_module_prologue): Now build all built-in messaging functions for
+	abi version 2.0 as well.
+	Build new protocol_t type for abi version 2.0.
+	(init_objc_symtab): For abi vesion 2.0, initialize _objc_symtab.defs field 
+	to the new definition of ivars.
+	(forward_declare_categories): For abi version 2.0 declare a new object
+	for category metadata.
+	(build_classlist_reference_decl): New name for visible pointer to class_t meta
+	data for abi version 2.0.
+	(build_classlist_translation_table): Build initializers for each externally 
+	visible class reference.
+	(objc_get_class_reference): Call objc_v2_get_class_reference to add a new 
+	visible class reference to the classlist_ref_chain chain.
+	(objc_v2_build_ivar_ref): Remove call to objc_is_public to avoid duplicate
+	error reporting.
+	(objc_v2_build_ivar_ref): Preserve type of the field on the new abi's
+	ivar reference expression.
+	(synth_forward_declarations): Remove version 2.0 specfic code (it now goes 
+	in its own routine).
+	(build_super_template): Build the second field, renamed to "cls", for abi version
+	1.0 or 2.0 with different types.
+	(ivar_offset_ref): New logic to avoid duplicate generation of offset variables
+	with identical offset values.
+	(build_v2_ivar_list_initializer): Skip over unnamed bitfields.
+	(generate_v2_shared_structures): Remove call to build_classlist_reference.
+	(receiver_is_class_object): Search 'classlist_ref_chain' or 'cls_ref_chain'
+	list, dependending on the abi, for the identifier node for the referenced class. 	
+	(objc_finish_message_expr): New messaging is also generated for abi version 2.0.
+	(generate_v2_protocols):  Add class name to the list of visible classes whose 
+	metadata address must be exported.
+	(objc_build_protocol_expr): When generating @protocol expression, for abi version 2.0,
+	the version 2.0 protocol meta-data need be generated.
+	(continue_class): Separate the work depending on abi version.
+	(objc_declare_protocols): Initialize PROTOCOL_V2_FORWARD_DECL.
+	(start_protocol): Ditto.
+	(get_super_receiver): In code generation for [super self], set super_t.cls field properly
+	for abi version 2.0.
+	(finish_objc): Top-level meta-data generation routine. Depending on abi version, call the
+	version 1.0 or version 2.0 version of routines for various meta data generation.
+	
 2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146

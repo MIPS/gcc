@@ -49,7 +49,8 @@ void objc_detect_field_duplicates (tree);
 
 /* APPLE LOCAL radar 4291785 */
 #define CLASS_LANG_SLOT_ELTS		7
-#define PROTOCOL_LANG_SLOT_ELTS		2
+/* APPLE LOCAL ObjC abi v2 */
+#define PROTOCOL_LANG_SLOT_ELTS		3
 #define OBJC_INFO_SLOT_ELTS		2
 
 /* KEYWORD_DECL */
@@ -74,7 +75,6 @@ void objc_detect_field_duplicates (tree);
 #define CLASS_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
 /* APPLE LOCAL begin ObjC new abi */
 #define CLASS_TYPE(CLASS) ((CLASS)->type.main_variant)
-#define PROTOCOL_V2_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 6)
 /* APPLE LOCAL end ObjC new abi */
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
@@ -86,6 +86,8 @@ void objc_detect_field_duplicates (tree);
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define PROTOCOL_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
 #define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
+/* APPLE LOCAL ObjC abi v2 */
+#define PROTOCOL_V2_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2) 
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in
@@ -359,6 +361,7 @@ enum objc_tree_index
     OCTI_V2_INST_METH_DECL,
     OCTI_V2_CLS_METH_DECL,
     OCTI_V2_IVAR_OFFSET_REF_CHAIN,
+    OCTI_V2_CAT_TEMPL,
     /* APPLE LOCAL end ObjC new abi */
 
     OCTI_MAX
@@ -578,5 +581,6 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define message_ref_chain		objc_global_trees[OCTI_V2_MESSAGE_REF_CHAIN]
 #define objc_v2_ivar_list_ptr	objc_global_trees[OCTI_V2_IVAR_LIST_TEMPL]
 #define ivar_offset_ref_chain		objc_global_trees[OCTI_V2_IVAR_OFFSET_REF_CHAIN]
+#define objc_v2_category_template  	objc_global_trees[OCTI_V2_CAT_TEMPL]
 /* APPLE LOCAL end ObjC new abi */
 #endif /* GCC_OBJC_ACT_H */
