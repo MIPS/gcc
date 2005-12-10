@@ -17364,7 +17364,8 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	    if (inside_cw_asm_block)
 	      {
 		if (TREE_CODE (postfix_expression) == BRACKET_EXPR
-		    || TREE_CODE (index) == IDENTIFIER_NODE)
+		    || TREE_CODE (index) == IDENTIFIER_NODE
+		    || TREE_TYPE (index) == NULL_TREE)
 		  {
 		    postfix_expression = cw_build_bracket (postfix_expression, index);
 		    break;

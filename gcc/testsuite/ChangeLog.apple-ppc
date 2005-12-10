@@ -1,3 +1,9 @@
+2005-12-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4371551
+	* gcc.apple/asm-block-35.c: Add.
+	* g++.dg/asm-block-35.C: Add.
+
 2005-12-09  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4233898

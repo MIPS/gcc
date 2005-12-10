@@ -1741,7 +1741,8 @@ build_array_ref (tree array, tree index)
   if (inside_cw_asm_block)
     {
       if (TREE_CODE (array) == BRACKET_EXPR
-	  || TREE_CODE (index) == IDENTIFIER_NODE)
+	  || TREE_CODE (index) == IDENTIFIER_NODE
+	  || TREE_TYPE (index) == NULL_TREE)
 	return cw_build_bracket (array, index);
     }
   /* APPLE LOCAL end CW asm blocks */

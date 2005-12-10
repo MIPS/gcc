@@ -1,3 +1,12 @@
+2005-12-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4371551
+	* c-common.c (print_cw_asm_operand): Handle complex operands better.
+	(cw_simple_expr): New.
+	* c-typeck.c (build_array_ref): Also handle exprs with no type.
+	* config/i386/i386.c (cw_canonicalize_bracket): Add support for
+	more complex offsets.
+	
 2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
 	    Dale Johannesen  <dalej@apple.com>
 

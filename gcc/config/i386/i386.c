@@ -18543,8 +18543,13 @@ cw_canonicalize_bracket (tree arg)
 	}
     }
 
-  if (TREE_CODE (arg) == BRACKET_EXPR
-      && TREE_CODE (TREE_OPERAND (arg, 0)) == BRACKET_EXPR
+  if (TREE_CODE (arg) != BRACKET_EXPR)
+    return;
+
+  if (cw_is_offset (TREE_OPERAND (arg, 0)))
+    TREE_OPERAND (arg, 0) = cw_build_bracket (TREE_OPERAND (arg, 0), NULL_TREE);
+
+  if (TREE_CODE (TREE_OPERAND (arg, 0)) == BRACKET_EXPR
       && cw_is_offset (TREE_OPERAND (TREE_OPERAND (arg, 0), 0)))
     {
       tree arg0 = TREE_OPERAND (arg, 0);
@@ -18552,15 +18557,15 @@ cw_canonicalize_bracket (tree arg)
 
       while ((TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
 	     && cw_is_offset (TREE_OPERAND (arg1, 1)))
-	  {
-	    tree swp = TREE_OPERAND (arg1, 0);
-	    TREE_OPERAND (arg1, 0) = TREE_OPERAND (arg0, 0);
-	    TREE_OPERAND (arg0, 0) = arg1;
-	    TREE_OPERAND (arg, 1) = swp;
+	{
+	  tree swp = TREE_OPERAND (arg1, 0);
+	  TREE_OPERAND (arg1, 0) = TREE_OPERAND (arg0, 0);
+	  TREE_OPERAND (arg0, 0) = arg1;
+	  TREE_OPERAND (arg, 1) = swp;
 
-	    arg0 = TREE_OPERAND (arg, 0);
-	    arg1 = TREE_OPERAND (arg, 1);
-	  }
+	  arg0 = TREE_OPERAND (arg, 0);
+	  arg1 = TREE_OPERAND (arg, 1);
+	}
     }
 }
 
