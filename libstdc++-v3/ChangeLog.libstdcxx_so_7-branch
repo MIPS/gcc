@@ -1,3 +1,19 @@
+2005-12-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (__sso_string<>::_M_compare): Add,
+	specialized for char and wchar_t to immediately return true when
+	a string is compared to itself.
+	* include/ext/rc_string.h (__rc_string<>::_M_compare): Likewise,
+	for the same _Rep.
+	* include/bits/basic_string.h (compare(const string&)): Use it.
+	* src/sso_string-inst.cc: Adjust includes order.
+	* src/rc_string-inst.cc: Likewise.
+	* testsuite/performance/21_strings/string_compare.cc: New.
+
+	* include/ext/sso_string.h (__sso_string<>::_M_destroy): Deallocate
+	passed size + 1.
+	(_M_dispose, _M_reserve): Adjust.
+
 2005-12-05  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h (__sso_string<>::_M_assign):

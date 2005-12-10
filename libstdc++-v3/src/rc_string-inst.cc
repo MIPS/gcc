@@ -32,9 +32,9 @@
 //
 
 #include <bits/c++config.h>
-#include <ext/rc_string.h>
 #include <memory> 	// For allocator.
 #include <bits/char_traits.h>
+#include <ext/rc_string.h>
 
 // Instantiation configuration.
 #ifndef C

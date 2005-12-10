@@ -1,5 +1,5 @@
-// Components for manipulating sequences of characters -*- C++ -*-
-
+// 2005-12-09  Paolo Carlini  <pcarlini@suse.de>
+//
 // Copyright (C) 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -27,46 +27,44 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882:
-//
+#include <string>
+#include <vector>
+#include <testsuite_performance.h>
 
-#include <bits/c++config.h>
-#include <memory> 	// For allocator.
-#include <bits/char_traits.h>
-#include <ext/sso_string.h>
+using namespace std;
+using namespace __gnu_test;
 
-// Instantiation configuration.
-#ifndef C
-# define C char
-#endif
+const int max_length = 1000;
+const int max_loop_count = 1000000000;
 
-namespace __gnu_cxx
+void test01()
 {
-  using std::allocator;
+  time_counter time;
+  resource_counter resource;
 
-  template class __sso_string<C, std::char_traits<C>, allocator<C> >;
+  vector<string> vs;
+  for (int i = 0; i < max_length; ++i)
+    vs.push_back(string(i, 'a'));
 
-  typedef __sso_string<C, std::char_traits<C>, allocator<C> > RS;
+  vector<int> vi(max_length);
+  
+  for (int length = 1; length <= max_length; length *= 10)
+    {
+      const int loop_count = max_loop_count / length;
+      start_counters(time, resource);
+      for (int j = 0; j < loop_count; ++j)
+	{
+	  for (int k = 0; k < length; ++k)
+	    vi[k] &= vs[k].compare(vs[k]);
+	}
+      stop_counters(time, resource);
+      report_performance(__FILE__, "", time, resource);
+      clear_counters(time, resource);
+    }
+}
 
-  template
-    RS::__sso_string(C*, C*, const allocator<C>&);
-
-  template
-    RS::__sso_string(const C*, const C*, const allocator<C>&);
-
-  template 
-    RS::__sso_string(RS::iterator, RS::iterator, const allocator<C>&);
-
-  template 
-    void 
-    RS::_M_construct(RS::iterator, RS::iterator, std::forward_iterator_tag);
-
-  template
-    void
-    RS::_M_construct(C*, C*, std::forward_iterator_tag);
-
-  template
-    void
-    RS::_M_construct(const C*, const C*, std::forward_iterator_tag);
-} // namespace __gnu_cxx
+int main()
+{
+  test01();
+  return 0;
+}
