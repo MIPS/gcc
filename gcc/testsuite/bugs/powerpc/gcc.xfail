@@ -98,6 +98,7 @@
 4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -Os
 4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -fast
 4271531: gcc.dg/trampoline-1.c execution test
+4366412: gcc.dg/trampoline-1.c (test for excess errors)
 #
 # the following failures occur only when the tests are being run through ObjC
 3904213: gcc.dg/20040813-1.c scan-assembler .stabs.*100,0,2
