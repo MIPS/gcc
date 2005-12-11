@@ -1,5 +1,5 @@
 /* Support functions for the unwinder.
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Paul Brook
 
    This file is free software; you can redistribute it and/or modify it
@@ -26,7 +26,9 @@
    the Free Software Foundation, 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.  */
 
-#ifdef L_unwind
+#ifndef __symbian__
+
+#include "lib1funcs.asm"
 
 .macro UNPREFIX name
 	.global SYM (\name)
@@ -76,7 +78,7 @@ ARM_FUNC_START gnu_Unwind_Save_VFP
 
 /* Wrappers to save core registers, then call the real routine.   */
 
-.macro  UNWIND_WRAPPER name
+.macro  UNWIND_WRAPPER name nargs
 	ARM_FUNC_START \name
 	/* Create a phase2_vrs structure.  */
 	/* Split reg push in two to ensure the correct value for sp.  */
@@ -87,8 +89,8 @@ ARM_FUNC_START gnu_Unwind_Save_VFP
 	mov r3, #0
 	stmfd sp!, {r2, r3}
 
-	/* Point r1 at the block.  Pass r0 unchanged.  */
-	add r1, sp, #4
+	/* Point r1 at the block.  Pass r[0..nargs) unchanged.  */
+	add r\nargs, sp, #4
 #if defined(__thumb__)
 	/* Switch back to thumb mode to avoid interworking hassle.  */
 	adr ip, .L1_\name
@@ -110,7 +112,9 @@ ARM_FUNC_START gnu_Unwind_Save_VFP
 	UNPREFIX \name
 .endm
 
-UNWIND_WRAPPER _Unwind_RaiseException
-UNWIND_WRAPPER _Unwind_Resume
+UNWIND_WRAPPER _Unwind_RaiseException 1
+UNWIND_WRAPPER _Unwind_Resume 1
+UNWIND_WRAPPER _Unwind_Resume_or_Rethrow 1
+UNWIND_WRAPPER _Unwind_ForcedUnwind 3
 
-#endif  /* L_unwind */
+#endif  /* __symbian__ */

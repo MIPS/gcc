@@ -137,28 +137,6 @@ enum need_phi_state {
   NEED_PHI_STATE_MAYBE
 };
 
-
-/* When computing aliasing information, we represent the memory pointed-to
-   by pointers with artificial variables called "memory tags" (MT).  There
-   are two kinds of tags: type and name.  Type tags (TMT) are used in
-   type-based alias analysis, they represent all the pointed-to locations
-   and variables of the same alias set class.  Name tags (NMT) are used in
-   flow-sensitive points-to alias analysis, they represent the variables
-   and memory locations pointed-to by a specific SSA_NAME pointer.  */
-enum mem_tag_kind {
-  /* This variable is not a memory tag.  */
-  NOT_A_TAG,
-
-  /* This variable is a type memory tag (TMT).  */
-  TYPE_TAG,
-
-  /* This variable is a name memory tag (NMT).  */
-  NAME_TAG,
-
-  /* This variable represents a structure field.  */
-  STRUCT_FIELD
-};
-
 struct subvar;
 typedef struct subvar *subvar_t;
 
@@ -188,9 +166,6 @@ struct var_ann_d GTY(())
 
   /* Used when building root_var structures in tree_ssa_live.[ch].  */
   unsigned root_var_processed : 1;
-
-  /* If nonzero, this variable is a memory tag.  */
-  ENUM_BITFIELD (mem_tag_kind) mem_tag_kind : 2;
 
   /* Nonzero if this variable is an alias tag that represents references to
      other variables (i.e., this variable appears in the MAY_ALIASES array
@@ -571,12 +546,6 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree_ann_t create_tree_ann (tree);
-extern void reserve_phi_args_for_new_edge (basic_block);
-extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree, tree, edge);
-extern void remove_phi_args (edge);
-extern void remove_phi_node (tree, tree);
-extern tree phi_reverse (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
 extern void debug_referenced_vars (void);
@@ -591,6 +560,14 @@ extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
 
 extern tree make_rename_temp (tree, const char *);
+
+/* In tree-phinodes.c  */
+extern void reserve_phi_args_for_new_edge (basic_block);
+extern tree create_phi_node (tree, basic_block);
+extern void add_phi_arg (tree, tree, edge);
+extern void remove_phi_args (edge);
+extern void remove_phi_node (tree, tree);
+extern tree phi_reverse (tree);
 
 /* In gimple-low.c  */
 extern void record_vars (tree);
@@ -614,7 +591,7 @@ extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
-static inline bool ref_contains_indirect_ref (tree);
+static inline bool array_ref_contains_indirect_ref (tree);
 extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
 					    unsigned HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
@@ -890,6 +867,9 @@ DEF_VEC_ALLOC_O(fieldoff_s,heap);
 int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
 				 HOST_WIDE_INT, bool *);
 void sort_fieldstack (VEC(fieldoff_s,heap) *);
+
+void init_alias_heapvars (void);
+void delete_alias_heapvars (void);
 
 #include "tree-flow-inline.h"
 

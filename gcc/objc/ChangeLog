@@ -1,3 +1,19 @@
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (objc.all.build, objc.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* objc-act.c (objc_build_exc_ptr, next_sjlj_build_enter_and_setjmp
+	next_sjlj_build_exc_extract, next_sjlj_build_catch_list,
+	next_sjlj_build_try_catch_finally, objc_begin_catch_clause,
+	build_objc_method_call, objc_rewrite_function_call): Use buildN
+	instead of build.
+
 2005-10-20  Geoffrey Keating  <geoffk@apple.com>
 
 	* objc-act.c (synth_module_prologue): Clear TREE_NOTHROW
@@ -5,7 +21,7 @@
 
 2005-10-17  Andreas Krebbel  <krebbel1@de.ibm.com>
 
-	* objc-act.c (objc_build_component_ref): Adjust call to 
+	* objc-act.c (objc_build_component_ref): Adjust call to
 	finish_class_member_access_expr due to a changed prototype.
 
 2005-08-31  Andrew Pinski  <pinskia@physics.uc.edu>
@@ -34,7 +50,7 @@
 	instead of build_constructor.
 
 2005-07-08  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* objc-act.c (objc_push_parm): DECL_ARG_TYPE_AS_WRITTEN is
 	removed.
 	* objc-act.h (KEYWORD_ARG_NAME): Use decl_non_common.
@@ -339,7 +355,7 @@
 
 	* objc-act.c (objc_finish_file): In ObjC++ mode, set at_eof before
 	calling instantiate_pending_templates.
-	
+
 2005-01-26  Alexander Malmberg  <alexander@malmberg.org>
 
 	PR objc/18862
@@ -415,7 +431,7 @@
 	(objc_types_are_equivalent): Check TYPE_HAS_OBJC_INFO(...) before
 	accessing TYPE_OBJC_PROTOCOL_LIST.
 	* objc-act.h (OBJC_INFO_SLOT_ELTS, TYPE_OBJC_INFO, INIT_TYPE_OBJC_INFO,
-	DUP_TYPE_OBJC_INFO, ALLOC_OBJC_TYPE_LANG_SPECIFIC, 
+	DUP_TYPE_OBJC_INFO, ALLOC_OBJC_TYPE_LANG_SPECIFIC,
 	SIZEOF_OBJC_TYPE_LANG_SPECIFIC): New macros.
 	(TYPE_OBJC_INTERFACE): Replaces TREE_STATIC_INSTANCE and now points
 	to an actual @interface; stored in TYPE_LANG_SPECIFIC(...).

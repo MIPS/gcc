@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1156,9 +1156,7 @@ package body Sem_Ch4 is
         and then Nkind (N) = N_Op_Ne
       then
          Op_Id := Get_Name_Entity_Id (Name_Op_Eq);
-
          while Present (Op_Id) loop
-
             if Ekind (Op_Id) = E_Operator then
                Find_Equality_Types (L, R, Op_Id, N);
             else
@@ -1216,7 +1214,6 @@ package body Sem_Ch4 is
 
          else
             Get_First_Interp (N, I, It);
-
             while Present (It.Nam) loop
                if Ekind (Base_Type (It.Typ)) /= E_Subprogram_Type
                  or else Etype (Base_Type (It.Typ)) = Standard_Void_Type
@@ -1274,7 +1271,6 @@ package body Sem_Ch4 is
 
       else
          Get_First_Interp (P, I, It);
-
          while Present (It.Nam) loop
             T := It.Typ;
 
@@ -1522,7 +1518,6 @@ package body Sem_Ch4 is
             end if;
 
             Index := First_Index (Array_Type);
-
             while Present (Index) and then Present (Exp) loop
                if not Has_Compatible_Type (Exp, Etype (Index)) then
                   Wrong_Type (Exp, Etype (Index));
@@ -1771,7 +1766,6 @@ package body Sem_Ch4 is
 
       else
          Op_Id := Get_Name_Entity_Id (Chars (N));
-
          while Present (Op_Id) loop
             if Ekind (Op_Id) = E_Operator then
                Find_Boolean_Types (L, R, Op_Id, N);
@@ -1854,7 +1848,6 @@ package body Sem_Ch4 is
 
          else
             Get_First_Interp (L, Index, It);
-
             while Present (It.Typ) loop
                Try_One_Interp (It.Typ);
                Get_Next_Interp (Index, It);
@@ -2168,9 +2161,7 @@ package body Sem_Ch4 is
                        and then Nkind (Left_Opnd (Actual)) = N_Identifier
                      then
                         Formal := First_Formal (Nam);
-
                         while Present (Formal) loop
-
                            if Chars (Left_Opnd (Actual)) = Chars (Formal) then
                               Error_Msg_N
                                 ("possible misspelling of `='>`!", Actual);
@@ -3037,7 +3028,6 @@ package body Sem_Ch4 is
 
       else
          Get_First_Interp (L, Ind, It);
-
          while Present (It.Typ) loop
             if Root_Type (It.Typ) = Standard_Boolean
               and then Has_Compatible_Type (R, It.Typ)
@@ -3788,7 +3778,6 @@ package body Sem_Ch4 is
 
       else
          Get_First_Interp (L, Index1, It1);
-
          while Present (It1.Typ) loop
             Check_Right_Argument (It1.Typ);
             Get_Next_Interp (Index1, It1);
@@ -4281,7 +4270,7 @@ package body Sem_Ch4 is
          return False;
       end if;
 
-      --  Now test the entity we got to see if it a bad case
+      --  Now test the entity we got to see if it is a bad case
 
       case Ekind (Entity (Enode)) is
 
@@ -4346,7 +4335,7 @@ package body Sem_Ch4 is
             end if;
 
             --  If either operand has no type, then don't complain further,
-            --  since this simply means that we have a propragated error.
+            --  since this simply means that we have a propagated error.
 
             if R = Error
               or else Etype (R) = Any_Type
@@ -4390,9 +4379,9 @@ package body Sem_Ch4 is
             --  If either operand is a junk operand (e.g. package name), then
             --  post appropriate error messages, but do not complain further.
 
-            --  Note that the use of OR in this test instead of OR ELSE
-            --  is quite deliberate, we may as well check both operands
-            --  in the binary operator case.
+            --  Note that the use of OR in this test instead of OR ELSE is
+            --  quite deliberate, we may as well check both operands in the
+            --  binary operator case.
 
             elsif Junk_Operand (R)
               or (Nkind (N) in N_Binary_Op and then Junk_Operand (L))
@@ -4400,10 +4389,10 @@ package body Sem_Ch4 is
                return;
 
             --  If we have a logical operator, one of whose operands is
-            --  Boolean, then we know that the other operand cannot resolve
-            --  to Boolean (since we got no interpretations), but in that
-            --  case we pretty much know that the other operand should be
-            --  Boolean, so resolve it that way (generating an error)
+            --  Boolean, then we know that the other operand cannot resolve to
+            --  Boolean (since we got no interpretations), but in that case we
+            --  pretty much know that the other operand should be Boolean, so
+            --  resolve it that way (generating an error)
 
             elsif Nkind (N) = N_Op_And
                     or else
@@ -4487,10 +4476,10 @@ package body Sem_Ch4 is
                return;
             end if;
 
-            --  If we fall through then just give general message. Note
-            --  that in the following messages, if the operand is overloaded
-            --  we choose an arbitrary type to complain about, but that is
-            --  probably more useful than not giving a type at all.
+            --  If we fall through then just give general message. Note that in
+            --  the following messages, if the operand is overloaded we choose
+            --  an arbitrary type to complain about, but that is probably more
+            --  useful than not giving a type at all.
 
             if Nkind (N) in N_Unary_Op then
                Error_Msg_Node_2 := Etype (R);
@@ -4554,23 +4543,21 @@ package body Sem_Ch4 is
       It           : Interp;
       Abstract_Op  : Entity_Id := Empty;
 
-      --  AI-310: If overloaded, remove abstract non-dispatching
-      --  operations. We activate this if either extensions are
-      --  enabled, or if the abstract operation in question comes
-      --  from a predefined file. This latter test allows us to
-      --  use abstract to make operations invisible to users. In
-      --  particular, if type Address is non-private and abstract
-      --  subprograms are used to hide its operators, they will be
-      --  truly hidden.
+      --  AI-310: If overloaded, remove abstract non-dispatching operations. We
+      --  activate this if either extensions are enabled, or if the abstract
+      --  operation in question comes from a predefined file. This latter test
+      --  allows us to use abstract to make operations invisible to users. In
+      --  particular, if type Address is non-private and abstract subprograms
+      --  are used to hide its operators, they will be truly hidden.
 
       type Operand_Position is (First_Op, Second_Op);
       Univ_Type : constant Entity_Id := Universal_Interpretation (N);
 
       procedure Remove_Address_Interpretations (Op : Operand_Position);
-      --  Ambiguities may arise when the operands are literal and the
-      --  address operations in s-auxdec are visible. In that case, remove
-      --  the interpretation of a literal as Address, to retain the semantics
-      --  of Address as a private type.
+      --  Ambiguities may arise when the operands are literal and the address
+      --  operations in s-auxdec are visible. In that case, remove the
+      --  interpretation of a literal as Address, to retain the semantics of
+      --  Address as a private type.
 
       ------------------------------------
       -- Remove_Address_Interpretations --
@@ -4638,10 +4625,11 @@ package body Sem_Ch4 is
                      Present (Universal_Interpretation (Left_Opnd (N)));
 
                begin
-                  if U1 and then not U2 then
+                  if U1 then
                      Remove_Address_Interpretations (Second_Op);
+                  end if;
 
-                  elsif U2 and then not U1 then
+                  if U2 then
                      Remove_Address_Interpretations (First_Op);
                   end if;
 
@@ -4666,16 +4654,17 @@ package body Sem_Ch4 is
                     and then Present (Univ_Type)
                   then
                      --  If both operands have a universal interpretation,
-                     --  select the predefined operator and discard others.
+                     --  it is still necessary to remove interpretations that
+                     --  yield Address. Any remaining ambiguities will be
+                     --  removed in Disambiguate.
 
                      Get_First_Interp (N, I, It);
-
                      while Present (It.Nam) loop
-                        if Scope (It.Nam) = Standard_Standard then
-                           Set_Etype (N, Univ_Type);
+                        if Is_Descendent_Of_Address (It.Typ) then
+                           Remove_Interp (I);
+
+                        elsif not Is_Type (It.Nam) then
                            Set_Entity (N, It.Nam);
-                           Set_Is_Overloaded (N, False);
-                           exit;
                         end if;
 
                         Get_Next_Interp (I, It);
@@ -4702,10 +4691,11 @@ package body Sem_Ch4 is
                         Present (Universal_Interpretation (Next (Arg1)));
 
             begin
-               if U1 and then not U2 then
+               if U1 then
                   Remove_Address_Interpretations (First_Op);
+               end if;
 
-               elsif U2 and then not U1 then
+               if U2 then
                   Remove_Address_Interpretations (Second_Op);
                end if;
 
@@ -4758,12 +4748,10 @@ package body Sem_Ch4 is
 
    begin
       Normalize_Actuals (N, Designated_Type (Typ), False, Call_OK);
+
       Actual := First_Actual (N);
       Formal := First_Formal (Designated_Type (Typ));
-
-      while Present (Actual)
-        and then Present (Formal)
-      loop
+      while Present (Actual) and then Present (Formal) loop
          if not Has_Compatible_Type (Actual, Etype (Formal)) then
             return False;
          end if;
@@ -4806,9 +4794,8 @@ package body Sem_Ch4 is
    begin
       Actual := First (Actuals);
       Index := First_Index (Typ);
-      while Present (Actual)
-        and then Present (Index)
-      loop
+      while Present (Actual) and then Present (Index) loop
+
          --  If the parameter list has a named association, the expression
          --  is definitely a call and not an indexed component.
 

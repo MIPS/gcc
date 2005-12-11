@@ -34,15 +34,6 @@ Boston, MA 02110-1301, USA.  */
 
 #define DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
 
-/* Select a format to encode pointers in exception handling data.  CODE
-   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
-   true if the symbol may be affected by dynamic relocations.  Because
-   the HP assembler does auto alignment, it is necessary to use
-   DW_EH_PE_aligned instead of the default DW_EH_PE_absptr.  */
-
-#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
-  (TARGET_GAS ? DW_EH_PE_absptr : DW_EH_PE_aligned)
-
 /* HPUX has a program 'chatr' to list the dependencies of dynamically
    linked executables and shared libraries.  */
 #define LDD_SUFFIX "chatr"
@@ -184,37 +175,13 @@ do {								\
 	   }} while (0)
 
 #define TARGET_ASM_FILE_START pa_som_file_start
-
-/* String to output before text.  */
-#define TEXT_SECTION_ASM_OP som_text_section_asm_op ()
+#define TARGET_ASM_INIT_SECTIONS pa_som_asm_init_sections
 
 /* String to output before writable data.  */
 #define DATA_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $DATA$\n"
 
 /* String to output before uninitialized data.  */
 #define BSS_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $BSS$\n"
-
-/* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
-   which reference data within the $TEXT$ space (for example constant
-   strings in the $LIT$ subspace).
-
-   The assemblers (GAS and HP as) both have problems with handling
-   the difference of two symbols which is the other correct way to
-   reference constant data during PIC code generation.
-
-   So, there's no way to reference constant data which is in the
-   $TEXT$ space during PIC generation.  Instead place all constant
-   data into the $PRIVATE$ subspace (this reduces sharing, but it
-   works correctly).  */
-#define READONLY_DATA_SECTION \
-  (flag_pic ? data_section : som_readonly_data_section)
-
-/* We must not have a reference to an external symbol defined in a
-   shared library in a readonly section, else the SOM linker will
-   complain.
-
-   So, we force exception information into the data section.  */
-#define TARGET_ASM_EXCEPTION_SECTION data_section
 
 /* This is how to output a command to make the user-level label
    named NAME defined for reference from other files.  We use

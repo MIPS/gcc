@@ -113,63 +113,6 @@ dwarf2out_do_frame (void)
 #define PTR_SIZE (POINTER_SIZE / BITS_PER_UNIT)
 #endif
 
-/* Various versions of targetm.eh_frame_section.  Note these must appear
-   outside the DWARF2_DEBUGGING_INFO || DWARF2_UNWIND_INFO macro guards.  */
-
-/* Version of targetm.eh_frame_section for systems with named sections.  */
-void
-named_section_eh_frame_section (void)
-{
-#ifdef EH_FRAME_SECTION_NAME
-  int flags;
-
-  if (EH_TABLES_CAN_BE_READ_ONLY)
-    {
-      int fde_encoding;
-      int per_encoding;
-      int lsda_encoding;
-
-      fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
-      per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
-      lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
-      flags = (! flag_pic
-	       || ((fde_encoding & 0x70) != DW_EH_PE_absptr
-		   && (fde_encoding & 0x70) != DW_EH_PE_aligned
-		   && (per_encoding & 0x70) != DW_EH_PE_absptr
-		   && (per_encoding & 0x70) != DW_EH_PE_aligned
-		   && (lsda_encoding & 0x70) != DW_EH_PE_absptr
-		   && (lsda_encoding & 0x70) != DW_EH_PE_aligned))
-	      ? 0 : SECTION_WRITE;
-    }
-  else
-    flags = SECTION_WRITE;
-  named_section_flags (EH_FRAME_SECTION_NAME, flags);
-#endif
-}
-
-/* Version of targetm.eh_frame_section for systems using collect2.  */
-void
-collect2_eh_frame_section (void)
-{
-  tree label = get_file_function_name ('F');
-
-  data_section ();
-  ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
-  targetm.asm_out.globalize_label (asm_out_file, IDENTIFIER_POINTER (label));
-  ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
-}
-
-/* Default version of targetm.eh_frame_section.  */
-void
-default_eh_frame_section (void)
-{
-#ifdef EH_FRAME_SECTION_NAME
-  named_section_eh_frame_section ();
-#else
-  collect2_eh_frame_section ();
-#endif
-}
-
 DEF_VEC_P(rtx);
 DEF_VEC_ALLOC_P(rtx,gc);
 
@@ -189,6 +132,17 @@ static GTY(()) VEC(tree,gc) *incomplete_types;
    scopes.  This table is used to find the proper place to
    define type declaration DIE's.  */
 static GTY(()) VEC(tree,gc) *decl_scope_table;
+
+/* Pointers to various DWARF2 sections.  */
+static GTY(()) section *debug_info_section;
+static GTY(()) section *debug_abbrev_section;
+static GTY(()) section *debug_aranges_section;
+static GTY(()) section *debug_macinfo_section;
+static GTY(()) section *debug_line_section;
+static GTY(()) section *debug_loc_section;
+static GTY(()) section *debug_pubnames_section;
+static GTY(()) section *debug_str_section;
+static GTY(()) section *debug_ranges_section;
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -214,7 +168,7 @@ enum dw_cfi_oprnd_type {
 
 typedef union dw_cfi_oprnd_struct GTY(())
 {
-  unsigned long GTY ((tag ("dw_cfi_oprnd_reg_num"))) dw_cfi_reg_num;
+  unsigned int GTY ((tag ("dw_cfi_oprnd_reg_num"))) dw_cfi_reg_num;
   HOST_WIDE_INT GTY ((tag ("dw_cfi_oprnd_offset"))) dw_cfi_offset;
   const char * GTY ((tag ("dw_cfi_oprnd_addr"))) dw_cfi_addr;
   struct dw_loc_descr_struct * GTY ((tag ("dw_cfi_oprnd_loc"))) dw_cfi_loc;
@@ -671,12 +625,21 @@ lookup_cfa_1 (dw_cfi_ref cfi, dw_cfa_location *loc)
     case DW_CFA_def_cfa_offset:
       loc->offset = cfi->dw_cfi_oprnd1.dw_cfi_offset;
       break;
+    case DW_CFA_def_cfa_offset_sf:
+      loc->offset
+	= cfi->dw_cfi_oprnd1.dw_cfi_offset * DWARF_CIE_DATA_ALIGNMENT;
+      break;
     case DW_CFA_def_cfa_register:
       loc->reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
       break;
     case DW_CFA_def_cfa:
       loc->reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
       loc->offset = cfi->dw_cfi_oprnd2.dw_cfi_offset;
+      break;
+    case DW_CFA_def_cfa_sf:
+      loc->reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
+      loc->offset
+	= cfi->dw_cfi_oprnd2.dw_cfi_offset * DWARF_CIE_DATA_ALIGNMENT;
       break;
     case DW_CFA_def_cfa_expression:
       get_cfa_from_loc_descr (loc, cfi->dw_cfi_oprnd1.dw_cfi_loc);
@@ -775,11 +738,21 @@ def_cfa_1 (const char *label, dw_cfa_location *loc_p)
 
   if (loc.reg == old_cfa.reg && !loc.indirect)
     {
-      /* Construct a "DW_CFA_def_cfa_offset <offset>" instruction,
-	 indicating the CFA register did not change but the offset
-	 did.  */
-      cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
-      cfi->dw_cfi_oprnd1.dw_cfi_offset = loc.offset;
+      /* Construct a "DW_CFA_def_cfa_offset <offset>" instruction, indicating
+	 the CFA register did not change but the offset did.  */
+      if (loc.offset < 0)
+	{
+	  HOST_WIDE_INT f_offset = loc.offset / DWARF_CIE_DATA_ALIGNMENT;
+	  gcc_assert (f_offset * DWARF_CIE_DATA_ALIGNMENT == loc.offset);
+
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa_offset_sf;
+	  cfi->dw_cfi_oprnd1.dw_cfi_offset = f_offset;
+	}
+      else
+	{
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
+	  cfi->dw_cfi_oprnd1.dw_cfi_offset = loc.offset;
+	}
     }
 
 #ifndef MIPS_DEBUGGING_INFO  /* SGI dbx thinks this means no offset.  */
@@ -800,9 +773,21 @@ def_cfa_1 (const char *label, dw_cfa_location *loc_p)
       /* Construct a "DW_CFA_def_cfa <register> <offset>" instruction,
 	 indicating the CFA register has changed to <register> with
 	 the specified offset.  */
-      cfi->dw_cfi_opc = DW_CFA_def_cfa;
-      cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
-      cfi->dw_cfi_oprnd2.dw_cfi_offset = loc.offset;
+      if (loc.offset < 0)
+	{
+	  HOST_WIDE_INT f_offset = loc.offset / DWARF_CIE_DATA_ALIGNMENT;
+	  gcc_assert (f_offset * DWARF_CIE_DATA_ALIGNMENT == loc.offset);
+
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa_sf;
+	  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
+	  cfi->dw_cfi_oprnd2.dw_cfi_offset = f_offset;
+	}
+      else
+	{
+	  cfi->dw_cfi_opc = DW_CFA_def_cfa;
+	  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
+	  cfi->dw_cfi_oprnd2.dw_cfi_offset = loc.offset;
+	}
     }
   else
     {
@@ -1271,6 +1256,30 @@ clobbers_queued_reg_save (rtx insn)
   return false;
 }
 
+/* Entry point for saving the first register into the second.  */
+
+void
+dwarf2out_reg_save_reg (const char *label, rtx reg, rtx sreg)
+{
+  size_t i;
+  unsigned int regno, sregno;
+
+  for (i = 0; i < num_regs_saved_in_regs; i++)
+    if (REGNO (regs_saved_in_regs[i].orig_reg) == REGNO (reg))
+      break;
+  if (i == num_regs_saved_in_regs)
+    {
+      gcc_assert (i != ARRAY_SIZE (regs_saved_in_regs));
+      num_regs_saved_in_regs++;
+    }
+  regs_saved_in_regs[i].orig_reg = reg;
+  regs_saved_in_regs[i].saved_in_reg = sreg;
+
+  regno = DWARF_FRAME_REGNUM (REGNO (reg));
+  sregno = DWARF_FRAME_REGNUM (REGNO (sreg));
+  reg_save (label, regno, sregno, 0);
+}
+
 /* What register, if any, is currently saved in REG?  */
 
 static rtx
@@ -1523,11 +1532,10 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  else
 	    {
 	      /* Saving a register in a register.  */
-	      gcc_assert (call_used_regs [REGNO (dest)]
-			  && (!fixed_regs [REGNO (dest)]
-			      /* For the SPARC and its register window.  */
-			      || DWARF_FRAME_REGNUM (REGNO (src))
-				   == DWARF_FRAME_RETURN_COLUMN));
+	      gcc_assert (!fixed_regs [REGNO (dest)]
+			  /* For the SPARC and its register window.  */
+			  || (DWARF_FRAME_REGNUM (REGNO (src))
+			      == DWARF_FRAME_RETURN_COLUMN));
 	      queue_reg_save (label, src, dest, 0);
 	    }
 	  break;
@@ -1659,7 +1667,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	case UNSPEC_VOLATILE:
 	  gcc_assert (targetm.dwarf_handle_frame_unspec);
 	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
-	  break;
+	  return;
 
 	default:
 	  gcc_unreachable ();
@@ -1718,7 +1726,8 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  {
 	    int regno;
 
-	    gcc_assert (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT);
+	    gcc_assert (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT
+			&& REG_P (XEXP (XEXP (dest, 0), 0)));
 	    offset = INTVAL (XEXP (XEXP (dest, 0), 1));
 	    if (GET_CODE (XEXP (dest, 0)) == MINUS)
 	      offset = -offset;
@@ -1938,6 +1947,62 @@ dw_cfi_oprnd2_desc (enum dwarf_call_frame_info cfi)
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
+/* Switch to eh_frame_section.  If we don't have an eh_frame_section,
+   switch to the data section instead, and write out a synthetic label
+   for collect2.  */
+
+static void
+switch_to_eh_frame_section (void)
+{
+  tree label;
+
+#ifdef EH_FRAME_SECTION_NAME
+  if (eh_frame_section == 0)
+    {
+      int flags;
+
+      if (EH_TABLES_CAN_BE_READ_ONLY)
+	{
+	  int fde_encoding;
+	  int per_encoding;
+	  int lsda_encoding;
+
+	  fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1,
+						       /*global=*/0);
+	  per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2,
+						       /*global=*/1);
+	  lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0,
+							/*global=*/0);
+	  flags = ((! flag_pic
+		    || ((fde_encoding & 0x70) != DW_EH_PE_absptr
+			&& (fde_encoding & 0x70) != DW_EH_PE_aligned
+			&& (per_encoding & 0x70) != DW_EH_PE_absptr
+			&& (per_encoding & 0x70) != DW_EH_PE_aligned
+			&& (lsda_encoding & 0x70) != DW_EH_PE_absptr
+			&& (lsda_encoding & 0x70) != DW_EH_PE_aligned))
+		   ? 0 : SECTION_WRITE);
+	}
+      else
+	flags = SECTION_WRITE;
+      eh_frame_section = get_section (EH_FRAME_SECTION_NAME, flags, NULL);
+    }
+#endif
+
+  if (eh_frame_section)
+    switch_to_section (eh_frame_section);
+  else
+    {
+      /* We have no special eh_frame section.  Put the information in
+	 the data section and emit special labels to guide collect2.  */
+      switch_to_section (data_section);
+      label = get_file_function_name ('F');
+      ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
+      targetm.asm_out.globalize_label (asm_out_file,
+				       IDENTIFIER_POINTER (label));
+      ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
+    }
+}
+
 /* Map register numbers held in the call frame info that gcc has
    collected using DWARF_FRAME_REGNUM to those that should be output in
    .debug_frame and .eh_frame.  */
@@ -1981,7 +2046,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	    dw2_asm_output_encoded_addr_rtx (
 		ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0),
 		gen_rtx_SYMBOL_REF (Pmode, cfi->dw_cfi_oprnd1.dw_cfi_addr),
-		NULL);
+		false, NULL);
 	  else
 	    dw2_asm_output_addr (DWARF2_ADDR_SIZE,
 				 cfi->dw_cfi_oprnd1.dw_cfi_addr, NULL);
@@ -2132,9 +2197,9 @@ output_call_frame_info (int for_eh)
     app_enable ();
 
   if (for_eh)
-    targetm.asm_out.eh_frame_section ();
+    switch_to_eh_frame_section ();
   else
-    named_section_flags (DEBUG_FRAME_SECTION, SECTION_DEBUG);
+    switch_to_section (get_section (DEBUG_FRAME_SECTION, SECTION_DEBUG, NULL));
 
   ASM_GENERATE_INTERNAL_LABEL (section_start_label, FRAME_BEGIN_LABEL, for_eh);
   ASM_OUTPUT_LABEL (asm_out_file, section_start_label);
@@ -2237,7 +2302,8 @@ output_call_frame_info (int for_eh)
 	  dw2_asm_output_data (1, per_encoding, "Personality (%s)",
 			       eh_data_format_name (per_encoding));
 	  dw2_asm_output_encoded_addr_rtx (per_encoding,
-					   eh_personality_libfunc, NULL);
+					   eh_personality_libfunc,
+					   true, NULL);
 	}
 
       if (any_lsda_needed)
@@ -2289,6 +2355,7 @@ output_call_frame_info (int for_eh)
 	  SYMBOL_REF_FLAGS (sym_ref) |= SYMBOL_FLAG_LOCAL;
 	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 					   sym_ref,
+					   false,
 					   "FDE initial location");
 	  if (fde->dw_fde_switched_sections)
 	    {
@@ -2298,13 +2365,13 @@ output_call_frame_info (int for_eh)
 				      fde->dw_fde_hot_section_label);
 	      SYMBOL_REF_FLAGS (sym_ref2) |= SYMBOL_FLAG_LOCAL;
 	      SYMBOL_REF_FLAGS (sym_ref3) |= SYMBOL_FLAG_LOCAL;
-	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3,
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref3, false,
 					       "FDE initial location");
 	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				    fde->dw_fde_hot_section_end_label,
 				    fde->dw_fde_hot_section_label,
 				    "FDE address range");
-	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2,
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding, sym_ref2, false,
 					       "FDE initial location");
 	      dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				    fde->dw_fde_unlikely_section_end_label,
@@ -2369,7 +2436,7 @@ output_call_frame_info (int for_eh)
 					       fde->funcdef_number);
 		  dw2_asm_output_encoded_addr_rtx (
 			lsda_encoding, gen_rtx_SYMBOL_REF (Pmode, l1),
-			"Language Specific Data Area");
+			false, "Language Specific Data Area");
 		}
 	      else
 		{
@@ -2434,7 +2501,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
     return;
 #endif
 
-  function_section (current_function_decl);
+  switch_to_section (function_section (current_function_decl));
   ASM_GENERATE_INTERNAL_LABEL (label, FUNC_BEGIN_LABEL,
 			       current_function_funcdef_no);
   ASM_OUTPUT_DEBUG_LABEL (asm_out_file, FUNC_BEGIN_LABEL,
@@ -4930,7 +4997,7 @@ AT_string_form (dw_attr_ref a)
   /* If we cannot expect the linker to merge strings in .debug_str
      section, only put it into .debug_str if it is worth even in this
      single module.  */
-  if ((DEBUG_STR_SECTION_FLAGS & SECTION_MERGE) == 0
+  if ((debug_str_section->common.flags & SECTION_MERGE) == 0
       && (len - DWARF_OFFSET_SIZE) * node->refcount <= len)
     return node->form = DW_FORM_string;
 
@@ -7138,12 +7205,12 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
       sprintf (tmp, ".gnu.linkonce.wi.%s", oldsym);
       secname = tmp;
       die->die_symbol = NULL;
+      switch_to_section (get_section (secname, SECTION_DEBUG, NULL));
     }
   else
-    secname = (const char *) DEBUG_INFO_SECTION;
+    switch_to_section (debug_info_section);
 
   /* Output debugging information.  */
-  named_section_flags (secname, SECTION_DEBUG);
   output_compilation_unit_header ();
   output_die (die);
 
@@ -7770,10 +7837,7 @@ output_line_info (void)
   current_file = 1;
   current_line = 1;
 
-  if (cfun
-      && (last_text_section == in_unlikely_executed_text
-	  || (last_text_section == in_named
-	      && last_text_section_name == cfun->unlikely_text_section_name)))
+  if (cfun && unlikely_text_section_p (last_text_section))
     strcpy (prev_line_label, cfun->cold_section_label);
   else
     strcpy (prev_line_label, text_section_label);
@@ -8434,12 +8498,6 @@ dbx_reg_number (rtx rtl)
 {
   unsigned regno = REGNO (rtl);
 
-  /* We do not want to see registers that should have been eliminated.  */
-  gcc_assert (HARD_FRAME_POINTER_REGNUM == ARG_POINTER_REGNUM
-	      || rtl != arg_pointer_rtx);
-  gcc_assert (HARD_FRAME_POINTER_REGNUM == FRAME_POINTER_REGNUM
-	      || rtl != frame_pointer_rtx);
-
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 #ifdef LEAF_REG_REMAP
@@ -8510,7 +8568,11 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
   unsigned reg;
   dw_loc_descr_ref loc_result = NULL;
 
-  reg = dbx_reg_number (rtl);
+  reg = REGNO (rtl);
+#ifdef LEAF_REG_REMAP
+  reg = LEAF_REG_REMAP (reg);
+#endif
+  gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
 
   /* Simple, contiguous registers.  */
@@ -8523,7 +8585,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 	{
 	  dw_loc_descr_ref t;
 
-	  t = one_reg_loc_descriptor (reg);
+	  t = one_reg_loc_descriptor (DBX_REGISTER_NUMBER (reg));
 	  add_loc_descr (&loc_result, t);
 	  add_loc_descr_op_piece (&loc_result, size);
 	  ++reg;
@@ -8589,32 +8651,12 @@ int_loc_descriptor (HOST_WIDE_INT i)
   return new_loc_descr (op, i, 0);
 }
 
-/* Return an offset from an eliminable register to the post-prologue
-   frame pointer.  */
-
-static HOST_WIDE_INT
-eliminate_reg_to_offset (rtx reg)
-{
-  HOST_WIDE_INT offset = 0;
-
-  reg = eliminate_regs (reg, VOIDmode, NULL_RTX);
-  if (GET_CODE (reg) == PLUS)
-    {
-      offset = INTVAL (XEXP (reg, 1));
-      reg = XEXP (reg, 0);
-    }
-  gcc_assert (reg == (frame_pointer_needed ? hard_frame_pointer_rtx
-		      : stack_pointer_rtx));
-
-  return offset;
-}
-
 /* Return a location descriptor that designates a base+offset location.  */
 
 static dw_loc_descr_ref
 based_loc_descr (rtx reg, HOST_WIDE_INT offset)
 {
-  dw_loc_descr_ref loc_result;
+  unsigned int regno;
 
   /* We only use "frame base" when we're sure we're talking about the
      post-prologue local stack frame.  We do this by *not* running
@@ -8622,22 +8664,28 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset)
      argument pointer and soft frame pointer rtx's.  */
   if (reg == arg_pointer_rtx || reg == frame_pointer_rtx)
     {
-      offset += eliminate_reg_to_offset (reg);
-      offset += frame_pointer_cfa_offset;
+      rtx elim = eliminate_regs (reg, VOIDmode, NULL_RTX);
 
-      loc_result = new_loc_descr (DW_OP_fbreg, offset, 0);
+      if (elim != reg)
+	{
+	  if (GET_CODE (elim) == PLUS)
+	    {
+	      offset += INTVAL (XEXP (elim, 1));
+	      elim = XEXP (elim, 0);
+	    }
+	  gcc_assert (elim == (frame_pointer_needed ? hard_frame_pointer_rtx
+		      : stack_pointer_rtx));
+          offset += frame_pointer_cfa_offset;
+
+          return new_loc_descr (DW_OP_fbreg, offset, 0);
+	}
     }
+
+  regno = dbx_reg_number (reg);
+  if (regno <= 31)
+    return new_loc_descr (DW_OP_breg0 + regno, offset, 0);
   else
-    {
-      unsigned int regno = dbx_reg_number (reg);
-
-      if (regno <= 31)
-	loc_result = new_loc_descr (DW_OP_breg0 + regno, offset, 0);
-      else
-	loc_result = new_loc_descr (DW_OP_bregx, regno, offset);
-    }
-
-  return loc_result;
+    return new_loc_descr (DW_OP_bregx, regno, offset);
 }
 
 /* Return true if this RTL expression describes a base+offset calculation.  */
@@ -9746,7 +9794,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
       {
 	enum machine_mode mode = GET_MODE (rtl);
 
-	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	if (SCALAR_FLOAT_MODE_P (mode))
 	  {
 	    unsigned int length = GET_MODE_SIZE (mode);
 	    unsigned char *array = ggc_alloc (length);
@@ -10134,11 +10182,7 @@ secname_for_decl (tree decl)
       tree sectree = DECL_SECTION_NAME (current_function_decl);
       secname = TREE_STRING_POINTER (sectree);
     }
-  else if (cfun
-	   && (last_text_section == in_unlikely_executed_text
-	       || (last_text_section == in_named
-		   && last_text_section_name
-		      == cfun->unlikely_text_section_name)))
+  else if (cfun && unlikely_text_section_p (last_text_section))
     secname = cfun->cold_section_label;
   else
     secname = text_section_label;
@@ -10376,9 +10420,24 @@ static void
 compute_frame_pointer_to_cfa_displacement (void)
 {
   HOST_WIDE_INT offset;
+  rtx reg, elim;
 
-  offset = eliminate_reg_to_offset (arg_pointer_rtx);
-  offset += ARG_POINTER_CFA_OFFSET (current_function_decl);
+#ifdef FRAME_POINTER_CFA_OFFSET
+  reg = frame_pointer_rtx;
+  offset = FRAME_POINTER_CFA_OFFSET (current_function_decl);
+#else
+  reg = arg_pointer_rtx;
+  offset = ARG_POINTER_CFA_OFFSET (current_function_decl);
+#endif
+
+  elim = eliminate_regs (reg, VOIDmode, NULL_RTX);
+  if (GET_CODE (elim) == PLUS)
+    {
+      offset += INTVAL (XEXP (elim, 1));
+      elim = XEXP (elim, 0);
+    }
+  gcc_assert (elim == (frame_pointer_needed ? hard_frame_pointer_rtx
+		       : stack_pointer_rtx));
 
   frame_pointer_cfa_offset = -offset;
 }
@@ -10779,7 +10838,8 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
       if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
 	  && TREE_PUBLIC (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
-	  && !DECL_ABSTRACT (decl))
+	  && !DECL_ABSTRACT (decl)
+	  && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl)))
 	add_AT_string (die, DW_AT_MIPS_linkage_name,
 		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
     }
@@ -11447,6 +11507,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       gcc_assert (!old_die);
     }
 
+  /* Now that the C++ front end lazily declares artificial member fns, we
+     might need to retrofit the declaration into its class.  */
+  if (!declaration && !origin && !old_die
+      && DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl))
+      && !class_or_namespace_scope_p (context_die)
+      && debug_info_level > DINFO_LEVEL_TERSE)
+    old_die = force_decl_die (decl);
+
   if (origin != NULL)
     {
       gcc_assert (!declaration || local_scope_p (context_die));
@@ -11548,7 +11616,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 	     Note that force_decl_die() forces function declaration die. It is
 	     later reused to represent definition.  */
-	    equate_decl_number_to_die (decl, subr_die);
+	  equate_decl_number_to_die (decl, subr_die);
 	}
     }
   else if (DECL_ABSTRACT (decl))
@@ -12759,6 +12827,10 @@ force_decl_die (tree decl)
       else
 	context_die = comp_unit_die;
 
+      decl_die = lookup_decl_die (decl);
+      if (decl_die)
+	return decl_die;
+
       switch (TREE_CODE (decl))
 	{
 	case FUNCTION_DECL:
@@ -12809,13 +12881,18 @@ force_type_die (tree type)
     {
       dw_die_ref context_die;
       if (TYPE_CONTEXT (type))
-	if (TYPE_P (TYPE_CONTEXT (type)))
-	  context_die = force_type_die (TYPE_CONTEXT (type));
-	else
-	  context_die = force_decl_die (TYPE_CONTEXT (type));
+	{
+	  if (TYPE_P (TYPE_CONTEXT (type)))
+	    context_die = force_type_die (TYPE_CONTEXT (type));
+	  else
+	    context_die = force_decl_die (TYPE_CONTEXT (type));
+	}
       else
 	context_die = comp_unit_die;
 
+      type_die = lookup_type_die (type);
+      if (type_die)
+	return type_die;
       gen_type_die (type, context_die);
       type_die = lookup_type_die (type);
       gcc_assert (type_die);
@@ -13308,7 +13385,7 @@ static void
 dwarf2out_begin_block (unsigned int line ATTRIBUTE_UNUSED,
 		       unsigned int blocknum)
 {
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
   ASM_OUTPUT_DEBUG_LABEL (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
 }
 
@@ -13318,7 +13395,7 @@ dwarf2out_begin_block (unsigned int line ATTRIBUTE_UNUSED,
 static void
 dwarf2out_end_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int blocknum)
 {
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
   ASM_OUTPUT_DEBUG_LABEL (asm_out_file, BLOCK_END_LABEL, blocknum);
 }
 
@@ -13475,10 +13552,7 @@ dwarf2out_var_location (rtx loc_note)
   newloc->var_loc_note = loc_note;
   newloc->next = NULL;
 
-  if (cfun
-      && (last_text_section == in_unlikely_executed_text
-	  || (last_text_section == in_named
-	      && last_text_section_name == cfun->unlikely_text_section_name)))
+  if (cfun && unlikely_text_section_p (last_text_section))
     newloc->section_label = cfun->cold_section_label;
   else
     newloc->section_label = text_section_label;
@@ -13513,7 +13587,7 @@ dwarf2out_source_line (unsigned int line, const char *filename)
   if (debug_info_level >= DINFO_LEVEL_NORMAL
       && line != 0)
     {
-      current_function_section (current_function_decl);
+      switch_to_section (current_function_section ());
 
       /* If requested, emit something human-readable.  */
       if (flag_debug_asm)
@@ -13610,7 +13684,7 @@ dwarf2out_start_source_file (unsigned int lineno, const char *filename)
     {
       int fileno;
 
-      named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_macinfo_section);
       dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
       dw2_asm_output_data_uleb128 (lineno, "Included from line number %d",
 				   lineno);
@@ -13631,7 +13705,7 @@ dwarf2out_end_source_file (unsigned int lineno ATTRIBUTE_UNUSED)
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
-      named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_macinfo_section);
       dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
     }
 }
@@ -13646,7 +13720,7 @@ dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
 {
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
-      named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_macinfo_section);
       dw2_asm_output_data (1, DW_MACINFO_define, "Define macro");
       dw2_asm_output_data_uleb128 (lineno, "At line number %d", lineno);
       dw2_asm_output_nstring (buffer, -1, "The macro");
@@ -13663,7 +13737,7 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 {
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
-      named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_macinfo_section);
       dw2_asm_output_data (1, DW_MACINFO_undef, "Undefine macro");
       dw2_asm_output_data_uleb128 (lineno, "At line number %d", lineno);
       dw2_asm_output_nstring (buffer, -1, "The macro");
@@ -13715,6 +13789,25 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   used_rtx_array = VEC_alloc (rtx, gc, 32);
 
+  debug_info_section = get_section (DEBUG_INFO_SECTION,
+				    SECTION_DEBUG, NULL);
+  debug_abbrev_section = get_section (DEBUG_ABBREV_SECTION,
+				      SECTION_DEBUG, NULL);
+  debug_aranges_section = get_section (DEBUG_ARANGES_SECTION,
+				       SECTION_DEBUG, NULL);
+  debug_macinfo_section = get_section (DEBUG_MACINFO_SECTION,
+				       SECTION_DEBUG, NULL);
+  debug_line_section = get_section (DEBUG_LINE_SECTION,
+				    SECTION_DEBUG, NULL);
+  debug_loc_section = get_section (DEBUG_LOC_SECTION,
+				   SECTION_DEBUG, NULL);
+  debug_pubnames_section = get_section (DEBUG_PUBNAMES_SECTION,
+					SECTION_DEBUG, NULL);
+  debug_str_section = get_section (DEBUG_STR_SECTION,
+				   DEBUG_STR_SECTION_FLAGS, NULL);
+  debug_ranges_section = get_section (DEBUG_RANGES_SECTION,
+				      SECTION_DEBUG, NULL);
+
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
 			       DEBUG_ABBREV_SECTION_LABEL, 0);
@@ -13729,22 +13822,22 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 			       DEBUG_LINE_SECTION_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (ranges_section_label,
 			       DEBUG_RANGES_SECTION_LABEL, 0);
-  named_section_flags (DEBUG_ABBREV_SECTION, SECTION_DEBUG);
+  switch_to_section (debug_abbrev_section);
   ASM_OUTPUT_LABEL (asm_out_file, abbrev_section_label);
-  named_section_flags (DEBUG_INFO_SECTION, SECTION_DEBUG);
+  switch_to_section (debug_info_section);
   ASM_OUTPUT_LABEL (asm_out_file, debug_info_section_label);
-  named_section_flags (DEBUG_LINE_SECTION, SECTION_DEBUG);
+  switch_to_section (debug_line_section);
   ASM_OUTPUT_LABEL (asm_out_file, debug_line_section_label);
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
-      named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_macinfo_section);
       ASM_GENERATE_INTERNAL_LABEL (macinfo_section_label,
 				   DEBUG_MACINFO_SECTION_LABEL, 0);
       ASM_OUTPUT_LABEL (asm_out_file, macinfo_section_label);
     }
 
-  text_section ();
+  switch_to_section (text_section);
   ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
   if (flag_reorder_blocks_and_partition)
     {
@@ -13763,7 +13856,7 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
 
   if (node->form == DW_FORM_strp)
     {
-      named_section_flags (DEBUG_STR_SECTION, DEBUG_STR_SECTION_FLAGS);
+      switch_to_section (debug_str_section);
       ASM_OUTPUT_LABEL (asm_out_file, node->label);
       assemble_string (node->str, strlen (node->str) + 1);
     }
@@ -14080,7 +14173,7 @@ dwarf2out_finish (const char *filename)
     add_sibling_attributes (node->die);
 
   /* Output a terminator label for the .text section.  */
-  text_section ();
+  switch_to_section (text_section);
   targetm.asm_out.internal_label (asm_out_file, TEXT_END_LABEL, 0);
   if (flag_reorder_blocks_and_partition)
     {
@@ -14095,7 +14188,7 @@ dwarf2out_finish (const char *filename)
      examining the file.  */
   if (! DWARF2_ASM_LINE_DEBUG_INFO)
     {
-      named_section_flags (DEBUG_LINE_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_line_section);
       output_line_info ();
     }
 
@@ -14103,7 +14196,7 @@ dwarf2out_finish (const char *filename)
   if (have_location_lists)
     {
       /* Output the location lists info.  */
-      named_section_flags (DEBUG_LOC_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_loc_section);
       ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
 				   DEBUG_LOC_SECTION_LABEL, 0);
       ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
@@ -14139,13 +14232,13 @@ dwarf2out_finish (const char *filename)
   output_comp_unit (comp_unit_die, 0);
 
   /* Output the abbreviation table.  */
-  named_section_flags (DEBUG_ABBREV_SECTION, SECTION_DEBUG);
+  switch_to_section (debug_abbrev_section);
   output_abbrev_section ();
 
   /* Output public names table if necessary.  */
   if (pubname_table_in_use)
     {
-      named_section_flags (DEBUG_PUBNAMES_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_pubnames_section);
       output_pubnames ();
     }
 
@@ -14153,14 +14246,14 @@ dwarf2out_finish (const char *filename)
      table, so don't write it out if we don't have any.  */
   if (fde_table_in_use)
     {
-      named_section_flags (DEBUG_ARANGES_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_aranges_section);
       output_aranges ();
     }
 
   /* Output ranges section if necessary.  */
   if (ranges_table_in_use)
     {
-      named_section_flags (DEBUG_RANGES_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_ranges_section);
       ASM_OUTPUT_LABEL (asm_out_file, ranges_section_label);
       output_ranges ();
     }
@@ -14168,7 +14261,7 @@ dwarf2out_finish (const char *filename)
   /* Have to end the macro section.  */
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
-      named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
+      switch_to_section (debug_macinfo_section);
       dw2_asm_output_data (1, 0, "End compilation unit");
     }
 

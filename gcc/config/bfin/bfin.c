@@ -45,6 +45,7 @@
 #include "recog.h"
 #include "ggc.h"
 #include "integrate.h"
+#include "cgraph.h"
 #include "langhooks.h"
 #include "bfin-protos.h"
 #include "tm-preds.h"
@@ -212,16 +213,18 @@ legitimize_pic_address (rtx orig, rtx reg, rtx picreg)
 
 /* Compute the number of DREGS to save with a push_multiple operation.
    This could include registers that aren't modified in the function,
-   since push_multiple only takes a range of registers.  */
+   since push_multiple only takes a range of registers.
+   If IS_INTHANDLER, then everything that is live must be saved, even
+   if normally call-clobbered.  */
 
 static int
-n_dregs_to_save (void)
+n_dregs_to_save (bool is_inthandler)
 {
   unsigned i;
 
   for (i = REG_R0; i <= REG_R7; i++)
     {
-      if (regs_ever_live[i] && ! call_used_regs[i])
+      if (regs_ever_live[i] && (is_inthandler || ! call_used_regs[i]))
 	return REG_R7 - i + 1;
 
       if (current_function_calls_eh_return)
@@ -244,12 +247,12 @@ n_dregs_to_save (void)
 /* Like n_dregs_to_save, but compute number of PREGS to save.  */
 
 static int
-n_pregs_to_save (void)
+n_pregs_to_save (bool is_inthandler)
 {
   unsigned i;
 
   for (i = REG_P0; i <= REG_P5; i++)
-    if ((regs_ever_live[i] && ! call_used_regs[i])
+    if ((regs_ever_live[i] && (is_inthandler || ! call_used_regs[i]))
 	|| (i == PIC_OFFSET_TABLE_REGNUM
 	    && (current_function_uses_pic_offset_table
 		|| (TARGET_ID_SHARED_LIBRARY && ! current_function_is_leaf))))
@@ -262,7 +265,7 @@ n_pregs_to_save (void)
 static bool
 must_save_fp_p (void)
 {
-  return (frame_pointer_needed || regs_ever_live[REG_FP]);
+  return frame_pointer_needed || regs_ever_live[REG_FP];
 }
 
 static bool
@@ -277,13 +280,14 @@ stack_frame_needed_p (void)
 
 /* Emit code to save registers in the prologue.  SAVEALL is nonzero if we
    must save all registers; this is used for interrupt handlers.
-   SPREG contains (reg:SI REG_SP).  */
+   SPREG contains (reg:SI REG_SP).  IS_INTHANDLER is true if we're doing
+   this for an interrupt (or exception) handler.  */
 
 static void
-expand_prologue_reg_save (rtx spreg, int saveall)
+expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
 {
-  int ndregs = saveall ? 8 : n_dregs_to_save ();
-  int npregs = saveall ? 6 : n_pregs_to_save ();
+  int ndregs = saveall ? 8 : n_dregs_to_save (is_inthandler);
+  int npregs = saveall ? 6 : n_pregs_to_save (is_inthandler);
   int dregno = REG_R7 + 1 - ndregs;
   int pregno = REG_P5 + 1 - npregs;
   int total = ndregs + npregs;
@@ -328,13 +332,14 @@ expand_prologue_reg_save (rtx spreg, int saveall)
 
 /* Emit code to restore registers in the epilogue.  SAVEALL is nonzero if we
    must save all registers; this is used for interrupt handlers.
-   SPREG contains (reg:SI REG_SP).  */
+   SPREG contains (reg:SI REG_SP).  IS_INTHANDLER is true if we're doing
+   this for an interrupt (or exception) handler.  */
 
 static void
-expand_epilogue_reg_restore (rtx spreg, int saveall)
+expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
 {
-  int ndregs = saveall ? 8 : n_dregs_to_save ();
-  int npregs = saveall ? 6 : n_pregs_to_save ();
+  int ndregs = saveall ? 8 : n_dregs_to_save (is_inthandler);
+  int npregs = saveall ? 6 : n_pregs_to_save (is_inthandler);
   int total = ndregs + npregs;
   int i, regno;
   rtx pat, insn;
@@ -449,9 +454,15 @@ static int
 n_regs_saved_by_prologue (void)
 {
   e_funkind fkind = funkind (TREE_TYPE (current_function_decl));
-  int n = n_dregs_to_save () + n_pregs_to_save ();
+  bool is_inthandler = fkind != SUBROUTINE;
+  tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+  bool all = (lookup_attribute ("saveall", attrs) != NULL_TREE
+	      || (is_inthandler && !current_function_is_leaf));
+  int ndregs = all ? 8 : n_dregs_to_save (is_inthandler);
+  int npregs = all ? 6 : n_pregs_to_save (is_inthandler);  
+  int n = ndregs + npregs;
 
-  if (stack_frame_needed_p ())
+  if (all || stack_frame_needed_p ())
     /* We use a LINK instruction in this case.  */
     n += 2;
   else
@@ -464,8 +475,6 @@ n_regs_saved_by_prologue (void)
 
   if (fkind != SUBROUTINE)
     {
-      tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-      tree all = lookup_attribute ("saveall", attrs);
       int i;
 
       /* Increment once for ASTAT.  */
@@ -640,14 +649,16 @@ arg_area_size (void)
   return 0;
 }
 
-/* Save RETS and FP, and allocate a stack frame.  */
+/* Save RETS and FP, and allocate a stack frame.  ALL is true if the
+   function must save all its registers (true only for certain interrupt
+   handlers).  */
 
 static void
-do_link (rtx spreg, HOST_WIDE_INT frame_size)
+do_link (rtx spreg, HOST_WIDE_INT frame_size, bool all)
 {
   frame_size += arg_area_size ();
 
-  if (stack_frame_needed_p ()
+  if (all || stack_frame_needed_p ()
       || (must_save_fp_p () && ! current_function_is_leaf))
     emit_link_insn (spreg, frame_size);
   else
@@ -675,11 +686,11 @@ do_link (rtx spreg, HOST_WIDE_INT frame_size)
 /* Like do_link, but used for epilogues to deallocate the stack frame.  */
 
 static void
-do_unlink (rtx spreg, HOST_WIDE_INT frame_size)
+do_unlink (rtx spreg, HOST_WIDE_INT frame_size, bool all)
 {
   frame_size += arg_area_size ();
 
-  if (stack_frame_needed_p ())
+  if (all || stack_frame_needed_p ())
     emit_insn (gen_unlink ());
   else 
     {
@@ -713,7 +724,7 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind)
   rtx predec = gen_rtx_MEM (SImode, predec1);
   rtx insn;
   tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-  tree all = lookup_attribute ("saveall", attrs);
+  bool all = lookup_attribute ("saveall", attrs) != NULL_TREE;
   tree kspisusp = lookup_attribute ("kspisusp", attrs);
 
   if (kspisusp)
@@ -733,7 +744,11 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind)
   insn = emit_move_insn (predec, gen_rtx_REG (SImode, REG_ASTAT));
   RTX_FRAME_RELATED_P (insn) = 1;
 
-  expand_prologue_reg_save (spreg, all != NULL_TREE);
+  /* If we're calling other functions, they won't save their call-clobbered
+     registers, so we must save everything here.  */
+  if (!current_function_is_leaf)
+    all = true;
+  expand_prologue_reg_save (spreg, all, true);
 
   for (i = REG_P7 + 1; i < REG_CC; i++)
     if (all 
@@ -757,7 +772,7 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind)
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
-  do_link (spreg, frame_size);
+  do_link (spreg, frame_size, all);
 
   if (fkind == EXCPT_HANDLER)
     {
@@ -792,19 +807,19 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind)
    SPREG contains (reg:SI REG_SP).  */
 
 static void
-expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind) 
+expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
 {
   int i;
   rtx postinc1 = gen_rtx_POST_INC (SImode, spreg);
   rtx postinc = gen_rtx_MEM (SImode, postinc1);
   tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
-  tree all = lookup_attribute ("saveall", attrs);
+  bool all = lookup_attribute ("saveall", attrs) != NULL_TREE;
 
   /* A slightly crude technique to stop flow from trying to delete "dead"
      insns.  */
   MEM_VOLATILE_P (postinc) = 1;
 
-  do_unlink (spreg, get_frame_size ());
+  do_unlink (spreg, get_frame_size (), all);
 
   if (lookup_attribute ("nesting", attrs))
     {
@@ -814,9 +829,14 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
       emit_move_insn (srcreg, postinc);
     }
 
+  /* If we're calling other functions, they won't save their call-clobbered
+     registers, so we must save (and restore) everything here.  */
+  if (!current_function_is_leaf)
+    all = true;
+
   for (i = REG_CC - 1; i > REG_P7; i--)
     if (all
-	|| regs_ever_live[i] 
+	|| regs_ever_live[i]
 	|| (!leaf_function_p () && call_used_regs[i]))
       {
 	if (i == REG_A0 || i == REG_A1)
@@ -829,7 +849,7 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
 	  emit_move_insn (gen_rtx_REG (SImode, i), postinc);
       }
 
-  expand_epilogue_reg_restore (spreg, all != NULL_TREE);
+  expand_epilogue_reg_restore (spreg, all, true);
 
   emit_move_insn (gen_rtx_REG (SImode, REG_ASTAT), postinc);
 
@@ -844,10 +864,19 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
 /* Used while emitting the prologue to generate code to load the correct value
    into the PIC register, which is passed in DEST.  */
 
-static void
+static rtx
 bfin_load_pic_reg (rtx dest)
 {
+  struct cgraph_local_info *i = NULL;
   rtx addr, insn;
+ 
+  if (flag_unit_at_a_time)
+    i = cgraph_local_info (current_function_decl);
+ 
+  /* Functions local to the translation unit don't need to reload the
+     pic reg, since the caller always passes a usable one.  */
+  if (i && i->local)
+    return pic_offset_table_rtx;
       
   if (bfin_lib_id_given)
     addr = plus_constant (pic_offset_table_rtx, -4 - bfin_library_id * 4);
@@ -857,6 +886,7 @@ bfin_load_pic_reg (rtx dest)
 					 UNSPEC_LIBRARY_OFFSET));
   insn = emit_insn (gen_movsi (dest, gen_rtx_MEM (Pmode, addr)));
   REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
+  return dest;
 }
 
 /* Generate RTL for the prologue of the current function.  */
@@ -889,11 +919,10 @@ bfin_expand_prologue (void)
 	  if (TARGET_ID_SHARED_LIBRARY)
 	    {
 	      rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
-	      rtx r3reg = gen_rtx_REG (Pmode, REG_R3);
 	      rtx val;
-	      pic_reg_loaded = p2reg;
-	      bfin_load_pic_reg (pic_reg_loaded);
-	      val = legitimize_pic_address (stack_limit_rtx, p1reg, p2reg);
+	      pic_reg_loaded = bfin_load_pic_reg (p2reg);
+	      val = legitimize_pic_address (stack_limit_rtx, p1reg,
+					    pic_reg_loaded);
 	      emit_move_insn (p1reg, val);
 	      frame_related_constant_load (p2reg, offset, FALSE);
 	      emit_insn (gen_addsi3 (p2reg, p2reg, p1reg));
@@ -909,9 +938,9 @@ bfin_expand_prologue (void)
       emit_insn (gen_compare_lt (bfin_cc_rtx, spreg, lim));
       emit_insn (gen_trapifcc ());
     }
-  expand_prologue_reg_save (spreg, 0);
+  expand_prologue_reg_save (spreg, 0, false);
 
-  do_link (spreg, frame_size);
+  do_link (spreg, frame_size, false);
 
   if (TARGET_ID_SHARED_LIBRARY
       && (current_function_uses_pic_offset_table
@@ -935,9 +964,9 @@ bfin_expand_epilogue (int need_return, int eh_return)
       return;
     }
 
-  do_unlink (spreg, get_frame_size ());
+  do_unlink (spreg, get_frame_size (), false);
 
-  expand_epilogue_reg_restore (spreg, 0);
+  expand_epilogue_reg_restore (spreg, false, false);
 
   /* Omit the return insn if this is for a sibcall.  */
   if (! need_return)
@@ -1469,7 +1498,8 @@ static bool
 bfin_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
 			      tree exp ATTRIBUTE_UNUSED)
 {
-  return true;
+  e_funkind fkind = funkind (TREE_TYPE (current_function_decl));
+  return fkind == SUBROUTINE;
 }
 
 /* Emit RTL insns to initialize the variable parts of a trampoline at
@@ -1694,9 +1724,9 @@ bfin_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
    CLASS requires an extra scratch register.  Return the class needed for the
    scratch register.  */
 
-enum reg_class
-secondary_input_reload_class (enum reg_class class, enum machine_mode mode,
-			      rtx x)
+static enum reg_class
+bfin_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		     enum machine_mode mode, secondary_reload_info *sri)
 {
   /* If we have HImode or QImode, we can only use DREGS as secondary registers;
      in most other cases we can also use PREGS.  */
@@ -1730,11 +1760,13 @@ secondary_input_reload_class (enum reg_class class, enum machine_mode mode,
 	return NO_REGS;
       /* If destination is a DREG, we can do this without a scratch register
 	 if the constant is valid for an add instruction.  */
-      if (class == DREGS || class == DPREGS)
-	return large_constant_p ? PREGS : NO_REGS;
+      if ((class == DREGS || class == DPREGS)
+	  && ! large_constant_p)
+	return NO_REGS;
       /* Reloading to anything other than a DREG?  Use a PREG scratch
 	 register.  */
-      return PREGS;
+      sri->icode = CODE_FOR_reload_insi;
+      return NO_REGS;
     }
 
   /* Data can usually be moved freely between registers of most classes.
@@ -1762,15 +1794,6 @@ secondary_input_reload_class (enum reg_class class, enum machine_mode mode,
     if (! reg_class_subset_p (class, default_class))
       return default_class;
   return NO_REGS;
-}
-
-/* Like secondary_input_reload_class; and all we do is call that function.  */
-
-enum reg_class
-secondary_output_reload_class (enum reg_class class, enum machine_mode mode,
-			       rtx x)
-{
-  return secondary_input_reload_class (class, mode, x);
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -2455,6 +2478,11 @@ bfin_expand_strmov (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 
 	      emit_insn (gen_rep_movsi (destreg, srcreg, countreg, destreg, srcreg));
 	    }
+	  if (count & 2)
+	    {
+	      single_move_for_strmov (dst, src, HImode, offset);
+	      offset += 2;
+	    }
 	}
       else
 	{
@@ -2470,11 +2498,6 @@ bfin_expand_strmov (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 
 	      emit_insn (gen_rep_movhi (destreg, srcreg, countreg, destreg, srcreg));
 	    }
-	}
-      if (count & 2)
-	{
-	  single_move_for_strmov (dst, src, HImode, offset);
-	  offset += 2;
 	}
       if (count & 1)
 	{
@@ -2987,5 +3010,8 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
+
+#undef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD bfin_secondary_reload
 
 struct gcc_target targetm = TARGET_INITIALIZER;

@@ -1033,18 +1033,6 @@ macro must evaluate to a value equal to or larger than
 @code{STACK_BOUNDARY}.
 @end defmac
 
-@defmac FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-A C expression that evaluates true if @code{PREFERRED_STACK_BOUNDARY} is
-not guaranteed by the runtime and we should emit code to align the stack
-at the beginning of @code{main}.
-
-@cindex @code{PUSH_ROUNDING}, interaction with @code{PREFERRED_STACK_BOUNDARY}
-If @code{PUSH_ROUNDING} is not defined, the stack will always be aligned
-to the specified boundary.  If @code{PUSH_ROUNDING} is defined and specifies
-a less strict alignment than @code{PREFERRED_STACK_BOUNDARY}, the stack may
-be momentarily unaligned while pushing arguments.
-@end defmac
-
 @defmac FUNCTION_BOUNDARY
 Alignment required for a function entry point, in bits.
 @end defmac
@@ -2409,32 +2397,114 @@ Don't define this macro unless the target machine has limitations which
 require the macro to do something nontrivial.
 @end defmac
 
-@defmac SECONDARY_RELOAD_CLASS (@var{class}, @var{mode}, @var{x})
-@defmacx SECONDARY_INPUT_RELOAD_CLASS (@var{class}, @var{mode}, @var{x})
-@defmacx SECONDARY_OUTPUT_RELOAD_CLASS (@var{class}, @var{mode}, @var{x})
+@deftypefn {Target Hook} enum reg_class TARGET_SECONDARY_RELOAD (bool @var{in_p}, rtx @var{x}, enum reg_class @var{reload_class}, enum machine_mode @var{reload_mode}, secondary_reload_info *@var{sri})
 Many machines have some registers that cannot be copied directly to or
 from memory or even from other types of registers.  An example is the
 @samp{MQ} register, which on most machines, can only be copied to or
-from general registers, but not memory.  Some machines allow copying all
-registers to and from memory, but require a scratch register for stores
-to some memory locations (e.g., those with symbolic address on the RT,
-and those with certain symbolic address on the SPARC when compiling
-PIC)@.  In some cases, both an intermediate and a scratch register are
-required.
+from general registers, but not memory.  Below, we shall be using the
+term 'intermediate register' when a move operation cannot be performed
+directly, but has to be done by copying the source into the intermediate
+register first, and then copying the intermediate register to the
+destination.  An intermediate register always has the same mode as
+source and destination.  Since it holds the actual value being copied,
+reload might apply optimizations to re-use an intermediate register
+and eliding the copy from the source when it can determine that the
+intermediate register still holds the required value.
 
-You should define these macros to indicate to the reload phase that it may
+Another kind of secondary reload is required on some machines which
+allow copying all registers to and from memory, but require a scratch
+register for stores to some memory locations (e.g., those with symbolic
+address on the RT, and those with certain symbolic address on the SPARC
+when compiling PIC)@.  Scratch registers need not have the same mode
+as the value being copied, and usually hold a different value that
+that being copied.  Special patterns in the md file are needed to
+describe how the copy is performed with the help of the scratch register;
+these patterns also describe the number, register class(es) and mode(s)
+of the scratch register(s).
+
+In some cases, both an intermediate and a scratch register are required.
+
+For input reloads, this target hook is called with nonzero @var{in_p},
+and @var{x} is an rtx that needs to be copied to a register in of class
+@var{reload_class} in @var{reload_mode}.  For output reloads, this target
+hook is called with zero @var{in_p}, and a register of class @var{reload_mode}
+needs to be copied to rtx @var{x} in @var{reload_mode}.
+
+If copying a register of @var{reload_class} from/to @var{x} requires
+an intermediate register, the hook @code{secondary_reload} should
+return the register class required for this intermediate register.
+If no intermediate register is required, it should return NO_REGS.
+If more than one intermediate register is required, describe the one
+that is closest in the copy chain to the reload register.
+
+If scratch registers are needed, you also have to describe how to
+perform the copy from/to the reload register to/from this
+closest intermediate register.  Or if no intermediate register is
+required, but still a scratch register is needed, describe the
+copy  from/to the reload register to/from the reload operand @var{x}.
+
+You do this by setting @code{sri->icode} to the instruction code of a pattern
+in the md file which performs the move.  Operands 0 and 1 are the output
+and input of this copy, respectively.  Operands from operand 2 onward are
+for scratch operands.  These scratch operands must have a mode, and a
+single-register-class
+@c [later: or memory]
+output constraint.
+
+When an intermediate register is used, the @code{secondary_reload}
+hook will be called again to determine how to copy the intermediate
+register to/from the reload operand @var{x}, so your hook must also
+have code to handle the register class of the intermediate operand.
+
+@c [For later: maybe we'll allow multi-alternative reload patterns -
+@c   the port maintainer could name a mov<mode> pattern that has clobbers -
+@c   and match the constraints of input and output to determine the required
+@c   alternative.  A restriction would be that constraints used to match
+@c   against reloads registers would have to be written as register class
+@c   constraints, or we need a new target macro / hook that tells us if an
+@c   arbitrary constraint can match an unknown register of a given class.
+@c   Such a macro / hook would also be useful in other places.]
+
+
+@var{x} might be a pseudo-register or a @code{subreg} of a
+pseudo-register, which could either be in a hard register or in memory.
+Use @code{true_regnum} to find out; it will return @minus{}1 if the pseudo is
+in memory and the hard register number if it is in a register.
+
+Scratch operands in memory (constraint @code{"=m"} / @code{"=&m"}) are
+currently not supported.  For the time being, you will have to continue
+to use @code{SECONDARY_MEMORY_NEEDED} for that purpose.
+
+@code{copy_cost} also uses this target hook to find out how values are
+copied.  If you want it to include some extra cost for the need to allocate
+(a) scratch register(s), set @code{sri->extra_cost} to the additional cost.
+Or if two dependent moves are supposed to have a lower cost than the sum
+of the individual moves due to expected fortuitous scheduling and/or special
+forwarding logic, you can set @code{sri->extra_cost} to a negative amount.
+@end deftypefn
+
+@defmac SECONDARY_RELOAD_CLASS (@var{class}, @var{mode}, @var{x})
+@defmacx SECONDARY_INPUT_RELOAD_CLASS (@var{class}, @var{mode}, @var{x})
+@defmacx SECONDARY_OUTPUT_RELOAD_CLASS (@var{class}, @var{mode}, @var{x})
+These macros are obsolete, new ports should use the target hook 
+@code{TARGET_SECONDARY_RELOAD} instead.
+
+These are obsolete macros, replaced by the @code{TARGET_SECONDARY_RELOAD}
+target hook.  Older ports still define these macros to indicate to the
+reload phase that it may
 need to allocate at least one register for a reload in addition to the
 register to contain the data.  Specifically, if copying @var{x} to a
 register @var{class} in @var{mode} requires an intermediate register,
-you should define @code{SECONDARY_INPUT_RELOAD_CLASS} to return the
+you were supposed to define @code{SECONDARY_INPUT_RELOAD_CLASS} to return the
 largest register class all of whose registers can be used as
 intermediate registers or scratch registers.
 
 If copying a register @var{class} in @var{mode} to @var{x} requires an
 intermediate or scratch register, @code{SECONDARY_OUTPUT_RELOAD_CLASS}
-should be defined to return the largest register class required.  If the
-requirements for input and output reloads are the same, the macro
-@code{SECONDARY_RELOAD_CLASS} should be used instead of defining both
+was supposed to be defined be defined to return the largest register
+class required.  If the
+requirements for input and output reloads were the same, the macro
+@code{SECONDARY_RELOAD_CLASS} should have been used instead of defining both
 macros identically.
 
 The values returned by these macros are often @code{GENERAL_REGS}.
@@ -2444,14 +2514,15 @@ can be directly copied to or from a register of @var{class} in
 macro if it would always return @code{NO_REGS}.
 
 If a scratch register is required (either with or without an
-intermediate register), you should define patterns for
+intermediate register), you were supposed to define patterns for
 @samp{reload_in@var{m}} or @samp{reload_out@var{m}}, as required
-(@pxref{Standard Names}.  These patterns, which will normally be
+(@pxref{Standard Names}.  These patterns, which were normally
 implemented with a @code{define_expand}, should be similar to the
 @samp{mov@var{m}} patterns, except that operand 2 is the scratch
 register.
 
-Define constraints for the reload register and scratch register that
+These patterns need constraints for the reload register and scratch
+register that
 contain a single register class.  If the original reload register (whose
 class is @var{class}) can meet the constraint given in the pattern, the
 value returned by these macros is used for the class of the scratch
@@ -2936,6 +3007,21 @@ and rs6000, and so such targets need to define this macro.
 You only need to define this macro if the default is incorrect, and you
 want to support call frame debugging information like that provided by
 DWARF 2.
+@end defmac
+
+@defmac FRAME_POINTER_CFA_OFFSET (@var{fundecl})
+If defined, a C expression whose value is an integer giving the offset
+in bytes from the frame pointer to the canonical frame address (cfa).
+The final value should conincide with that calculated by
+@code{INCOMING_FRAME_SP_OFFSET}.
+
+Normally the CFA is calculated as an offset from the argument pointer,
+via @code{ARG_POINTER_CFA_OFFSET}, but if the argument pointer is 
+variable due to the ABI, this may not be possible.  If this macro is
+defined, it imples that the virtual register instantiation should be
+based on the frame pointer instead of the argument pointer.  Only one
+of @code{FRAME_POINTER_CFA_OFFSET} and @code{ARG_POINTER_CFA_OFFSET}
+should be defined.
 @end defmac
 
 @node Exception Handling
@@ -4602,10 +4688,8 @@ to generate it on the spot.
 @end defmac
 
 @defmac TRAMPOLINE_SECTION
-The name of a subroutine to switch to the section in which the
-trampoline template is to be placed (@pxref{Sections}).  The default is
-a value of @samp{readonly_data_section}, which places the trampoline in
-the section containing read-only data.
+Return the section into which the trampoline template is to be placed
+(@pxref{Sections}).  The default value is @code{readonly_data_section}.
 @end defmac
 
 @defmac TRAMPOLINE_SIZE
@@ -5828,9 +5912,32 @@ section}, which holds initialized writable data; and the @dfn{bss
 section}, which holds uninitialized data.  Some systems have other kinds
 of sections.
 
-The compiler must tell the assembler when to switch sections.  These
-macros control what commands to output to tell the assembler this.  You
-can also define additional sections.
+@file{varasm.c} provides several well-known sections, such as
+@code{text_section}, @code{data_section} and @code{bss_section}.
+The normal way of controlling a @code{@var{foo}_section} variable
+is to define the associated @code{@var{FOO}_SECTION_ASM_OP} macro,
+as described below.  The macros are only read once, when @file{varasm.c}
+initializes itself, so their values must be run-time constants.
+They may however depend on command-line flags.
+
+@emph{Note:} Some run-time files, such @file{crtstuff.c}, also make
+use of the @code{@var{FOO}_SECTION_ASM_OP} macros, and expect them
+to be string literals.
+
+Some assemblers require a different string to be written every time a
+section is selected.  If your assembler falls into this category, you
+should define the @code{TARGET_ASM_INIT_SECTIONS} hook and use
+@code{get_unnamed_section} to set up the sections.
+
+You must always create a @code{text_section}, either by defining
+@code{TEXT_SECTION_ASM_OP} or by initializing @code{text_section}
+in @code{TARGET_ASM_INIT_SECTIONS}.  The same is true of
+@code{data_section} and @code{DATA_SECTION_ASM_OP}.  If you do not
+create a distinct @code{readonly_data_section}, the default is to
+reuse @code{text_section}.
+
+All the other @file{varasm.c} sections are optional, and are null
+if the target does not provide them.
 
 @defmac TEXT_SECTION_ASM_OP
 A C expression whose value is a string, including spacing, containing the
@@ -5855,20 +5962,16 @@ assembler operation to identify the following data as writable initialized
 data.  Normally @code{"\t.data"} is right.
 @end defmac
 
+@defmac SDATA_SECTION_ASM_OP
+If defined, a C expression whose value is a string, including spacing,
+containing the assembler operation to identify the following data as
+initialized, writable small data.
+@end defmac
+
 @defmac READONLY_DATA_SECTION_ASM_OP
 A C expression whose value is a string, including spacing, containing the
 assembler operation to identify the following data as read-only initialized
 data.
-@end defmac
-
-@defmac READONLY_DATA_SECTION
-A macro naming a function to call to switch to the proper section for
-read-only data.  The default is to use @code{READONLY_DATA_SECTION_ASM_OP}
-if defined, else fall back to @code{text_section}.
-
-The most common definition will be @code{data_section}, if the target
-does not have a special read-only data section, and does not put data
-in the text section.
 @end defmac
 
 @defmac BSS_SECTION_ASM_OP
@@ -5881,18 +5984,26 @@ uninitialized global data will be output in the data section if
 used.
 @end defmac
 
+@defmac SBSS_SECTION_ASM_OP
+If defined, a C expression whose value is a string, including spacing,
+containing the assembler operation to identify the following data as
+uninitialized, writable small data.
+@end defmac
+
 @defmac INIT_SECTION_ASM_OP
 If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as
 initialization code.  If not defined, GCC will assume such a section does
-not exist.
+not exist.  This section has no corresponding @code{init_section}
+variable; it is used entirely in runtime code.
 @end defmac
 
 @defmac FINI_SECTION_ASM_OP
 If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as
 finalization code.  If not defined, GCC will assume such a section does
-not exist.
+not exist.  This section has no corresponding @code{fini_section}
+variable; it is used entirely in runtime code.
 @end defmac
 
 @defmac INIT_ARRAY_SECTION_ASM_OP
@@ -5930,23 +6041,6 @@ arbitrary boundary.  This is used to force all fragments of the
 and thus prevent the linker from having to add any padding.
 @end defmac
 
-@findex in_text
-@findex in_data
-@defmac EXTRA_SECTIONS
-A list of names for sections other than the standard two, which are
-@code{in_text} and @code{in_data}.  You need not define this macro
-on a system with no other sections (that GCC needs to use).
-@end defmac
-
-@findex text_section
-@findex data_section
-@defmac EXTRA_SECTION_FUNCTIONS
-One or more functions to be defined in @file{varasm.c}.  These
-functions should do jobs analogous to those of @code{text_section} and
-@code{data_section}, for your additional sections.  Do not define this
-macro if you do not define @code{EXTRA_SECTIONS}.
-@end defmac
-
 @defmac JUMP_TABLES_IN_TEXT_SECTION
 Define this macro to be an expression with a nonzero value if jump
 tables (for @code{tablejump} insns) should be output in the text
@@ -5956,15 +6050,23 @@ readonly data section is used.
 This macro is irrelevant if there is no separate readonly data section.
 @end defmac
 
-@deftypefn {Target Hook} void TARGET_ASM_SELECT_SECTION (tree @var{exp}, int @var{reloc}, unsigned HOST_WIDE_INT @var{align})
-Switches to the appropriate section for output of @var{exp}.  You can
+@deftypefn {Target Hook} void TARGET_ASM_INIT_SECTIONS (void)
+Define this hook if you need to do something special to set up the
+@file{varasm.c} sections, or if your target has some special sections
+of its own that you need to create.
+
+GCC calls this hook after processing the command line, but before writing
+any assembly code, and before calling any of the section-returning hooks
+described below.
+@end deftypefn
+
+@deftypefn {Target Hook} {section *} TARGET_ASM_SELECT_SECTION (tree @var{exp}, int @var{reloc}, unsigned HOST_WIDE_INT @var{align})
+Return the section into which @var{exp} should be placed.  You can
 assume that @var{exp} is either a @code{VAR_DECL} node or a constant of
 some sort.  @var{reloc} indicates whether the initial value of @var{exp}
 requires link-time relocations.  Bit 0 is set when variable contains
 local relocations only, while bit 1 is set for global relocations.
-Select the section by calling @code{data_section} or one of the
-alternatives for other sections.  @var{align} is the constant alignment
-in bits.
+@var{align} is the constant alignment in bits.
 
 The default version of this function takes care of putting read-only
 variables in @code{readonly_data_section}.
@@ -5993,22 +6095,21 @@ example, the function @code{foo} would be placed in @code{.text.foo}.
 Whatever the actual target object format, this is often good enough.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_ASM_FUNCTION_RODATA_SECTION (tree @var{decl})
-Switches to a readonly data section associated with
+@deftypefn {Target Hook} {section *} TARGET_ASM_FUNCTION_RODATA_SECTION (tree @var{decl})
+Return the readonly data section associated with
 @samp{DECL_SECTION_NAME (@var{decl})}.
-The default version of this function switches to @code{.gnu.linkonce.r.name}
-section if function's section is @code{.gnu.linkonce.t.name}, to
-@code{.rodata.name} if function is in @code{.text.name} section
-and otherwise switches to the normal readonly data section.
+The default version of this function selects @code{.gnu.linkonce.r.name} if
+the function's section is @code{.gnu.linkonce.t.name}, @code{.rodata.name}
+if function is in @code{.text.name}, and the normal readonly-data section
+otherwise.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_ASM_SELECT_RTX_SECTION (enum machine_mode @var{mode}, rtx @var{x}, unsigned HOST_WIDE_INT @var{align})
-Switches to the appropriate section for output of constant pool entry
-@var{x} in @var{mode}.  You can assume that @var{x} is some kind of
+@deftypefn {Target Hook} {section *} TARGET_ASM_SELECT_RTX_SECTION (enum machine_mode @var{mode}, rtx @var{x}, unsigned HOST_WIDE_INT @var{align})
+Return the section into which a constant @var{x}, of mode @var{mode},
+should be placed.  You can assume that @var{x} is some kind of
 constant in RTL@.  The argument @var{mode} is redundant except in the
-case of a @code{const_int} rtx.  Select the section by calling
-@code{readonly_data_section} or one of the alternatives for other
-sections.  @var{align} is the constant alignment in bits.
+case of a @code{const_int} rtx.  @var{align} is the constant alignment
+in bits.
 
 The default version of this function takes care of putting symbolic
 constants in @code{flag_pic} mode in @code{data_section} and everything
@@ -6761,6 +6862,12 @@ should output to the stdio stream @var{stream} assembler code which
 defines (equates) the weak symbol @var{name} to have the value
 @var{value}.  If @var{value} is @code{NULL}, it should output commands
 to make @var{name} weak.
+@end defmac
+
+@defmac ASM_OUTPUT_WEAKREF (@var{stream}, @var{decl}, @var{name}, @var{value})
+Outputs a directive that enables @var{name} to be used to refer to
+symbol @var{value} with weak-symbol semantics.  @code{decl} is the
+declaration of @code{name}.
 @end defmac
 
 @defmac SUPPORTS_WEAK
@@ -7649,24 +7756,6 @@ alignment if @code{STACK_GROWS_DOWNWARD} is defined, and the positive
 minimum alignment otherwise.  @xref{SDB and DWARF}.  Only applicable if
 the target supports DWARF 2 frame unwind information.
 @end defmac
-
-@deftypefn {Target Hook} void TARGET_ASM_EXCEPTION_SECTION ()
-If defined, a function that switches to the section in which the main
-exception table is to be placed (@pxref{Sections}).  The default is a
-function that switches to a section named @code{.gcc_except_table} on
-machines that support named sections via
-@code{TARGET_ASM_NAMED_SECTION}, otherwise if @option{-fpic} or
-@option{-fPIC} is in effect, the @code{data_section}, otherwise the
-@code{readonly_data_section}.
-@end deftypefn
-
-@deftypefn {Target Hook} void TARGET_ASM_EH_FRAME_SECTION ()
-If defined, a function that switches to the section in which the DWARF 2
-frame unwind information to be placed (@pxref{Sections}).  The default
-is a function that outputs a standard GAS section directive, if
-@code{EH_FRAME_SECTION_NAME} is defined, or else a data section
-directive followed by a synthetic label.
-@end deftypefn
 
 @deftypevar {Target Hook} bool TARGET_TERMINATE_DW2_EH_FRAME_INFO
 Contains the value true if the target should add a zero word onto the
@@ -9068,7 +9157,7 @@ pragma of the form
 @code{NULL} to put the pragma in the global namespace.  The callback
 routine receives @var{pfile} as its first argument, which can be passed
 on to cpplib's functions if necessary.  You can lex tokens after the
-@var{name} by calling @code{c_lex}.  Tokens that are not read by the
+@var{name} by calling @code{pragma_lex}.  Tokens that are not read by the
 callback will be silently ignored.  The end of the line is indicated by
 a token of type @code{CPP_EOF}.  Macro expansion occurs on the
 arguments of pragmas registered with
@@ -9078,15 +9167,15 @@ pragmas registered with @code{c_register_pragma}.
 For an example use of this routine, see @file{c4x.h} and the callback
 routines defined in @file{c4x-c.c}.
 
-Note that the use of @code{c_lex} is specific to the C and C++
+Note that the use of @code{pragma_lex} is specific to the C and C++
 compilers.  It will not work in the Java or Fortran compilers, or any
-other language compilers for that matter.  Thus if @code{c_lex} is going
+other language compilers for that matter.  Thus if @code{pragma_lex} is going
 to be called from target-specific code, it must only be done so when
 building the C and C++ compilers.  This can be done by defining the
 variables @code{c_target_objs} and @code{cxx_target_objs} in the
 target entry in the @file{config.gcc} file.  These variables should name
 the target-specific, language-specific object file which contains the
-code that uses @code{c_lex}.  Note it will also be necessary to add a
+code that uses @code{pragma_lex}.  Note it will also be necessary to add a
 rule to the makefile fragment pointed to by @code{tmake_file} that shows
 how to build this object file.
 @end deftypefun

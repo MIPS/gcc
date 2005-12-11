@@ -998,6 +998,30 @@ expand_simple_binop (enum machine_mode mode, enum rtx_code code, rtx op0,
   return expand_binop (mode, binop, op0, op1, target, unsignedp, methods);
 }
 
+/* Return whether OP0 and OP1 should be swapped when expanding a commutative
+   binop.  Order them according to commutative_operand_precedence and, if
+   possible, try to put TARGET or a pseudo first.  */
+static bool
+swap_commutative_operands_with_target (rtx target, rtx op0, rtx op1)
+{
+  int op0_prec = commutative_operand_precedence (op0);
+  int op1_prec = commutative_operand_precedence (op1);
+
+  if (op0_prec < op1_prec)
+    return true;
+
+  if (op0_prec > op1_prec)
+    return false;
+
+  /* With equal precedence, both orders are ok, but it is better if the
+     first operand is TARGET, or if both TARGET and OP0 are pseudos.  */
+  if (target == 0 || REG_P (target))
+    return (REG_P (op1) && !REG_P (op0)) || target == op1;
+  else
+    return rtx_equal_p (op1, target);
+}
+
+
 /* Generate code to perform an operation specified by BINOPTAB
    on operands OP0 and OP1, with result having machine-mode MODE.
 
@@ -1073,12 +1097,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
     {
       commutative_op = 1;
 
-      if (((target == 0 || REG_P (target))
-	   ? ((REG_P (op1)
-	       && !REG_P (op0))
-	      || target == op1)
-	   : rtx_equal_p (op1, target))
-	  || GET_CODE (op0) == CONST_INT)
+      if (swap_commutative_operands_with_target (target, op0, op1))
 	{
 	  temp = op1;
 	  op1 = op0;
@@ -1192,7 +1211,8 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   /* If this is a multiply, see if we can do a widening operation that
      takes operands of this mode and makes a wider mode.  */
 
-  if (binoptab == smul_optab && GET_MODE_WIDER_MODE (mode) != VOIDmode
+  if (binoptab == smul_optab
+      && GET_MODE_WIDER_MODE (mode) != VOIDmode
       && (((unsignedp ? umul_widen_optab : smul_widen_optab)
 	   ->handlers[(int) GET_MODE_WIDER_MODE (mode)].insn_code)
 	  != CODE_FOR_nothing))
@@ -1216,9 +1236,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
      can open-code the operation.  Check for a widening multiply at the
      wider mode as well.  */
 
-  if ((class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class)
       && methods != OPTAB_DIRECT && methods != OPTAB_LIB)
-    for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+    for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	 wider_mode != VOIDmode;
 	 wider_mode = GET_MODE_WIDER_MODE (wider_mode))
       {
 	if (binoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
@@ -1747,9 +1768,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   /* Look for a wider mode of the same class for which it appears we can do
      the operation.  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class))
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if ((binoptab->handlers[(int) wider_mode].insn_code
@@ -1921,9 +1943,10 @@ expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
 
   /* It can't be done in this mode.  Can we do it in a wider mode?  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class))
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (unoptab->handlers[(int) wider_mode].insn_code
@@ -2043,9 +2066,10 @@ expand_twoval_binop (optab binoptab, rtx op0, rtx op1, rtx targ0, rtx targ1,
 
   /* It can't be done in this mode.  Can we do it in a wider mode?  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class))
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (binoptab->handlers[(int) wider_mode].insn_code
@@ -2142,10 +2166,11 @@ static rtx
 widen_clz (enum machine_mode mode, rtx op0, rtx target)
 {
   enum mode_class class = GET_MODE_CLASS (mode);
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class))
     {
       enum machine_mode wider_mode;
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if (clz_optab->handlers[(int) wider_mode].insn_code
@@ -2180,7 +2205,7 @@ static rtx
 expand_parity (enum machine_mode mode, rtx op0, rtx target)
 {
   enum mode_class class = GET_MODE_CLASS (mode);
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class))
     {
       enum machine_mode wider_mode;
       for (wider_mode = mode; wider_mode != VOIDmode;
@@ -2412,8 +2437,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 	goto try_libcall;
     }
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
-    for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+  if (CLASS_HAS_WIDER_MODES_P (class))
+    for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	 wider_mode != VOIDmode;
 	 wider_mode = GET_MODE_WIDER_MODE (wider_mode))
       {
 	if (unoptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing)
@@ -2489,7 +2515,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
   if (unoptab->code == NEG)
     {
       /* Try negating floating point values by flipping the sign bit.  */
-      if (class == MODE_FLOAT)
+      if (SCALAR_FLOAT_MODE_P (mode))
 	{
 	  temp = expand_absneg_bit (NEG, mode, op0, target);
 	  if (temp)
@@ -2551,9 +2577,10 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
   /* It can't be done in this mode.  Can we do it in a wider mode?  */
 
-  if (class == MODE_INT || class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+  if (CLASS_HAS_WIDER_MODES_P (class))
     {
-      for (wider_mode = GET_MODE_WIDER_MODE (mode); wider_mode != VOIDmode;
+      for (wider_mode = GET_MODE_WIDER_MODE (mode);
+	   wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	{
 	  if ((unoptab->handlers[(int) wider_mode].insn_code
@@ -2641,7 +2668,7 @@ expand_abs_nojump (enum machine_mode mode, rtx op0, rtx target,
     return temp;
 
   /* For floating point modes, try clearing the sign bit.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (SCALAR_FLOAT_MODE_P (mode))
     {
       temp = expand_absneg_bit (ABS, mode, op0, target);
       if (temp)
@@ -3416,9 +3443,6 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
   enum machine_mode mode = *pmode;
   rtx x = *px, y = *py;
   int unsignedp = *punsignedp;
-  enum mode_class class;
-
-  class = GET_MODE_CLASS (mode);
 
   /* If we are inside an appropriately-short loop and we are optimizing,
      force expensive constants into a register.  */
@@ -3523,7 +3547,7 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
 
   /* Handle a lib call just for the mode we are using.  */
 
-  if (cmp_optab->handlers[(int) mode].libfunc && class != MODE_FLOAT)
+  if (cmp_optab->handlers[(int) mode].libfunc && !SCALAR_FLOAT_MODE_P (mode))
     {
       rtx libfunc = cmp_optab->handlers[(int) mode].libfunc;
       rtx result;
@@ -3552,7 +3576,7 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       return;
     }
 
-  gcc_assert (class == MODE_FLOAT);
+  gcc_assert (SCALAR_FLOAT_MODE_P (mode));
   prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp);
 }
 
@@ -3636,8 +3660,7 @@ emit_cmp_and_jump_insn_1 (rtx x, rtx y, enum machine_mode mode,
 	  return;
 	}
 
-      if (class != MODE_INT && class != MODE_FLOAT
-	  && class != MODE_COMPLEX_FLOAT)
+      if (!CLASS_HAS_WIDER_MODES_P (class))
 	break;
 
       wider_mode = GET_MODE_WIDER_MODE (wider_mode);
@@ -3723,7 +3746,9 @@ prepare_float_lib_cmp (rtx *px, rtx *py, enum rtx_code *pcomparison,
   rtx libfunc = 0;
   bool reversed_p = false;
 
-  for (mode = orig_mode; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
+  for (mode = orig_mode;
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
     {
       if ((libfunc = code_to_optab[comparison]->handlers[mode].libfunc))
 	break;
@@ -4310,6 +4335,7 @@ expand_float (rtx to, rtx from, int unsignedp)
   enum insn_code icode;
   rtx target = to;
   enum machine_mode fmode, imode;
+  bool can_do_signed = false;
 
   /* Crash now, because we won't be able to decide which mode to use.  */
   gcc_assert (GET_MODE (from) != VOIDmode);
@@ -4331,8 +4357,14 @@ expand_float (rtx to, rtx from, int unsignedp)
 	  continue;
 
 	icode = can_float_p (fmode, imode, unsignedp);
-	if (icode == CODE_FOR_nothing && imode != GET_MODE (from) && unsignedp)
-	  icode = can_float_p (fmode, imode, 0), doing_unsigned = 0;
+	if (icode == CODE_FOR_nothing && unsignedp)
+	  {
+	    enum insn_code scode = can_float_p (fmode, imode, 0);
+	    if (scode != CODE_FOR_nothing)
+	      can_do_signed = true;
+	    if (imode != GET_MODE (from))
+	      icode = scode, doing_unsigned = 0;
+	  }
 
 	if (icode != CODE_FOR_nothing)
 	  {
@@ -4353,7 +4385,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 
   /* Unsigned integer, and no way to convert directly.
      Convert as signed, then conditionally adjust the result.  */
-  if (unsignedp)
+  if (unsignedp && can_do_signed)
     {
       rtx label = gen_label_rtx ();
       rtx temp;
@@ -5010,6 +5042,7 @@ init_optabs (void)
   umul_highpart_optab = init_optab (UNKNOWN);
   smul_widen_optab = init_optab (UNKNOWN);
   umul_widen_optab = init_optab (UNKNOWN);
+  usmul_widen_optab = init_optab (UNKNOWN);
   sdiv_optab = init_optab (DIV);
   sdivv_optab = init_optabv (DIV);
   sdivmod_optab = init_optab (UNKNOWN);
@@ -5158,9 +5191,7 @@ init_optabs (void)
       sync_lock_test_and_set[i] = CODE_FOR_nothing;
       sync_lock_release[i] = CODE_FOR_nothing;
 
-#ifdef HAVE_SECONDARY_RELOADS
       reload_in_optab[i] = reload_out_optab[i] = CODE_FOR_nothing;
-#endif
     }
 
   /* Fill in the optabs with the insns we support.  */
@@ -5230,6 +5261,8 @@ init_optabs (void)
 
   /* Conversions.  */
   init_interclass_conv_libfuncs (sfloat_optab, "float",
+				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatun",
 				 MODE_INT, MODE_FLOAT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
 				 MODE_FLOAT, MODE_INT);
@@ -5524,13 +5557,13 @@ expand_vec_cond_expr (tree vec_cond_expr, rtx target)
   cc_op1 = XEXP (comparison, 1);
   /* Expand both operands and force them in reg, if required.  */
   rtx_op1 = expand_expr (TREE_OPERAND (vec_cond_expr, 1),
-			 NULL_RTX, VOIDmode, 1);
+			 NULL_RTX, VOIDmode, EXPAND_NORMAL);
   if (!insn_data[icode].operand[1].predicate (rtx_op1, mode)
       && mode != VOIDmode)
     rtx_op1 = force_reg (mode, rtx_op1);
 
   rtx_op2 = expand_expr (TREE_OPERAND (vec_cond_expr, 2),
-			 NULL_RTX, VOIDmode, 1);
+			 NULL_RTX, VOIDmode, EXPAND_NORMAL);
   if (!insn_data[icode].operand[2].predicate (rtx_op2, mode)
       && mode != VOIDmode)
     rtx_op2 = force_reg (mode, rtx_op2);

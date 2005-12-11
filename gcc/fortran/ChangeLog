@@ -1,3 +1,468 @@
+2005-12-11  Aldy Hernandez  <aldyh@redhat.com>
+
+        * lang.opt: Add RejectNegative to ffixed-form and ffree-form.
+
+2005-12-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25068
+	* io.c (resolve_tag): Add correct diagnostic for F2003 feature.
+
+2005-12-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23815
+	* io.c (top level):  Add convert to io_tag.
+	(resolve_tag):  convert is GFC_STD_GNU.
+	(match_open_element):  Add convert.
+	(gfc_free_open):  Likewise.
+	(gfc_resolve_open):  Likewise.
+	(gfc_free_inquire):  Likewise.
+	(match_inquire_element):  Likewise.
+	* dump-parse-tree.c (gfc_show_code_node):  Add
+	convet for open and inquire.
+	gfortran.h: Add convert to gfc_open and gfc_inquire.
+	* trans-io.c (gfc_trans_open):  Add convert.
+	(gfc_trans_inquire):  Likewise.
+	* ioparm.def:  Add convert to open and inquire.
+	* gfortran.texi:  Document CONVERT.
+
+2005-12-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/22527
+	* f95-lang.c (gfc_truthvalue_conversion): Use a zero of the correct
+	integer type when building an inequality.
+
+2005-12-09  Richard Guenther  <rguenther@suse.de>
+
+	* f95-lang.c (build_builtin_fntypes): Use correct
+	return types, as indicated by comments.
+
+2005-12-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25292
+	* check.c (gfc_check_associated): Allow function results
+	as actual arguments to ASSOCIATED.  Moved a misplaced
+	comment.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (fortran.all.build, fortran.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype, except for
+	gt-fortran-trans.h.
+
+2005-12-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25106
+	* parse.c (next_free): Use new prototype for gfc_match_st_label.
+	Correctly emit hard error if a label is zero.
+	* match.c (gfc_match_st_label): Never allow zero as a valid
+	label.
+	(gfc_match, gfc_match_do, gfc_match_goto): Use new prototype for
+	gfc_match_st_label.
+	* primary.c (): Use new prototype for gfc_match_st_label.
+	* io.c (): Likewise.
+	* match.h: Likewise.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* trans.h (build1_v): Use build1, not build to build the
+	void typed tree.
+
+2005-12-01  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	* decl.c (gfc_match_old_kind_spec):  Improve handling of old style
+	COMPLEX*N
+
+2005-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24789
+	* trans-decl.c (gfc_get_symbol_decl):  Move the expression for
+	unit size of automatic character length, dummy pointer array
+	elements down a few lines from the version that fixed PR15809.
+
+2005-11-30  Bernhard Fischer <rep.nop@aon.at>
+
+	PR fortran/21302
+	* lang.opt: New options -ffree-line-length- and -ffree-line-length-none.
+	* gfortran.h: Add free_line_length and add description of
+	free_line_length and fixed_line_length.
+	* options.c (gfc_init_options, gfc_handle_option): Initialize
+	and set free_line_length and fixed_line_length.
+	* scanner.c (load_line): Set free_line_length to 132 and
+	fixed_line_length to 72 or user requested values.
+	* scanner.c: Typo in comment.
+	* invoke.texi: Document -ffree-line-length- and
+	-ffree-line-length-none
+
+2005-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15809
+	* trans-decl.c (gfc_get_symbol_decl):  In the case of automatic
+	character length, dummy pointer arrays, build an expression for
+	unit size of the array elements, to be picked up and used in the
+	descriptor dtype.
+	* trans-io.c (gfc_trans_transfer):  Modify the detection of
+	components of derived type arrays to use the gfc_expr references
+	instead of the array descriptor dtype.  This allows the latter
+	to contain expressions.
+
+2005-11-30  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/15809
+	* trans-array.c (gfc_trans_deferred_array):  Allow PARM_DECLs past
+	in addition to VAR_DECLs.
+
+2005-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* io.c (gfc_resolve_open): RESOLVE_TAG access field as well.
+
+2005-11-27 Bernhard Fischer <rep.nop@aon.at>
+
+	* gfortran.h: remove superfluous whitespace and use GNU
+	comment-style for the documentation of backend_decl.
+
+2005-11-27  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24917
+	* primary.c (match_boz_constant):  Implement postfix BOZ constants;
+	(match_string_constant): Peek for b, o, z, and x
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23912
+	* iresolve.c (gfc_resolve_dim, gfc_resolve_mod,
+	gfc_resolve_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+	* check.c (gfc_check_a_p): Arguments of different kinds is not
+	a hard error, but an extension.
+	* simplify.c (gfc_simplify_dim, gfc_simplify_mod,
+	gfc_simplify_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+
+2005-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/14943
+	PR fortran/21647
+	* Make-lang.in (fortran/trans-io.o): Depend on fortran/ioparm.def.
+	* dump-parse-tree.c (gfc_show_code_node): Dump c->block for
+	EXEC_{READ,WRITE,IOLENGTH} nodes.
+	* io.c (terminate_io, match_io, gfc_match_inquire): Put data
+	transfer commands into EXEC_{READ,WRITE,IOLENGTH}'s code->block.
+	* resolve.c (resolve_blocks): Handle EXEC_{READ,WRITE,IOLENGTH}.
+	* trans-io.c (ioparm_unit, ioparm_err, ioparm_end, ioparm_eor,
+	ioparm_list_format, ioparm_library_return, ioparm_iostat,
+	ioparm_exist, ioparm_opened, ioparm_number, ioparm_named,
+	ioparm_rec, ioparm_nextrec, ioparm_size, ioparm_recl_in,
+	ioparm_recl_out, ioparm_iolength, ioparm_file, ioparm_file_len,
+	ioparm_status, ioparm_status_len, ioparm_access, ioparm_access_len,
+	ioparm_form, ioparm_form_len, ioparm_blank, ioparm_blank_len,
+	ioparm_position, ioparm_position_len, ioparm_action,
+	ioparm_action_len, ioparm_delim, ioparm_delim_len, ioparm_pad,
+	ioparm_pad_len, ioparm_format, ioparm_format_len, ioparm_advance,
+	ioparm_advance_len, ioparm_name, ioparm_name_len,
+	ioparm_internal_unit, ioparm_internal_unit_len,
+	ioparm_internal_unit_desc, ioparm_sequential, ioparm_sequential_len,
+	ioparm_direct, ioparm_direct_len, ioparm_formatted,
+	ioparm_formatted_len, ioparm_unformatted, ioparm_unformatted_len,
+	ioparm_read, ioparm_read_len, ioparm_write, ioparm_write_len,
+	ioparm_readwrite, ioparm_readwrite_len, ioparm_namelist_name,
+	ioparm_namelist_name_len, ioparm_namelist_read_mode, ioparm_iomsg,
+	ioparm_iomsg_len, ioparm_var): Remove.
+	(enum ioparam_type, enum iofield_type, enum iofield,
+	enum iocall): New enums.
+	(gfc_st_parameter_field, gfc_st_parameter): New typedefs.
+	(st_parameter, st_parameter_field, iocall): New variables.
+	(ADD_FIELD, ADD_STRING): Remove.
+	(dt_parm, dt_post_end_block): New variables.
+	(gfc_build_st_parameter): New function.
+	(gfc_build_io_library_fndecls): Use it.  Initialize iocall
+	array rather than ioparm_*, add extra first arguments to
+	the function types.
+	(set_parameter_const): New function.
+	(set_parameter_value): Add type argument, return a bitmask.
+	Changed to set a field in automatic structure variable rather
+	than set a field in a global _gfortran_ioparm variable.
+	(set_parameter_ref): Likewise.  If requested var has different
+	size than what field should point to, call with a temporary and
+	then copy into the user variable.  Add postblock argument.
+	(set_string): Remove var_len argument, add type argument, return
+	a bitmask.  Changed to set fields in automatic structure variable
+	rather than set a field in a global _gfortran_ioparm variable.
+	(set_internal_unit): Remove iunit, iunit_len, iunit_desc arguments,
+	add var argument.  Return a bitmask.  Changed to set fields in
+	automatic structure variable rather than set a field in a global
+	_gfortran_ioparm variable.
+	(set_flag): Removed.
+	(io_result): Add var argument.  Changed to read common.flags field
+	from automatic structure variable and bitwise AND it with 3.
+	(set_error_locus): Add var argument.  Changed to set fields in
+	automatic structure variable rather than set a field in a global
+	_gfortran_{filename,line} variables.
+	(gfc_trans_open): Use gfc_start_block rather than gfc_init_block.
+	Create a temporary st_parameter_* structure.  Adjust callers of
+	all above mentioned functions.  Pass address of the temporary
+	variable as first argument to the generated function call.
+	Use iocall array rather than ioparm_* separate variables.
+	(gfc_trans_close, build_filepos, gfc_trans_inquire): Likewise.
+	(build_dt): Likewise.  Change first argument to tree from tree *.
+	Don't dereference code->ext.dt if last_dt == INQUIRE.  Emit
+	IOLENGTH argument setup here.  Set dt_parm/dt_post_end_block
+	variables and gfc_trans_code the nested data transfer commands
+	in code->block.
+	(gfc_trans_iolength): Just set last_dt and call build_dt immediately.
+	(transfer_namelist_element): Pass address of dt_parm variable
+	to generated functions.  Use iocall array rather than ioparm_*
+	separate variables.
+	(gfc_trans_backspace, gfc_trans_endfile, gfc_trans_rewind,
+	gfc_trans_flush, gfc_trans_read, gfc_trans_write): Use iocall array
+	rather than ioparm_* separate variables.
+	(gfc_trans_dt_end): Likewise.  Pass address of dt_parm variable
+	as first argument to generated function.  Adjust io_result caller.
+	Prepend dt_post_end_block before io_result code.
+	(transfer_expr): Use iocall array rather than ioparm_* separate
+	variables.  Pass address of dt_parm variables as first argument
+	to generated functions.
+	* ioparm.def: New file.
+
+2005-11-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24223
+	* resolve.c (resolve_contained_fntype) Error if an internal
+	function is assumed character length.
+
+	PR fortran/24705
+	* trans-decl.c (gfc_create_module_variable) Skip ICE in
+	when backend decl has been built and the symbol is marked
+	as being in an equivalence statement.
+
+2005-11-20  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Remove superfluous @item.
+
+2005-11-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/24862
+	* trans-io.c (gfc_trans_transfer): Handle arrays of derived type.
+
+2005-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20811
+	* scanner.c (gfc_open_included_file): Add an extra include_cwd
+	argument. Only include files in the current working directory if
+	its value is true.
+	* gfortran.h: Change prototype for gfc_open_included_file.
+	(load_file): Don't search for include files in the current working
+	directory.
+	* options.c (gfc_post_options): Add the directory of the source file
+	to the list of paths for included files.
+	* module.c (gfc_use_module): Look for module files in the current
+	directory.
+
+2005-11-16  Alan Modra  <amodra@bigpond.net.au>
+
+	PR fortran/24096
+	* trans-types.c (gfc_init_kinds): Use one less for max_exponent
+	of IBM extended double format.
+
+2005-11-13  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsic.c (add_functions): Add COMPLEX, FTELL, FGETC, FGET,
+	FPUTC, FPUT, AND, XOR and OR intrinsic functions.
+	(add_subroutines): Add FGETC, FGET, FPUTC, FPUT and FTELL intrinsic
+	subroutines.
+	* gfortran.h: Add GFC_ISYM_AND, GFC_ISYM_COMPLEX, GFC_ISYM_FGET,
+	GFC_ISYM_FGETC, GFC_ISYM_FPUT, GFC_ISYM_FPUTC, GFC_ISYM_FTELL,
+	GFC_ISYM_OR, GFC_ISYM_XOR.
+	* iresolve.c (gfc_resolve_and, gfc_resolve_complex,
+	gfc_resolve_or, gfc_resolve_fgetc, gfc_resolve_fget,
+	gfc_resolve_fputc, gfc_resolve_fput, gfc_resolve_ftell,
+	gfc_resolve_xor, gfc_resolve_fgetc_sub, gfc_resolve_fget_sub,
+	gfc_resolve_fputc_sub, gfc_resolve_fput_sub, gfc_resolve_ftell_sub):
+	New functions.
+	* check.c (gfc_check_complex, gfc_check_fgetputc_sub,
+	gfc_check_fgetputc, gfc_check_fgetput_sub, gfc_check_fgetput,
+	gfc_check_ftell, gfc_check_ftell_sub, gfc_check_and): New functions.
+	* simplify.c (gfc_simplify_and, gfc_simplify_complex, gfc_simplify_or,
+	gfc_simplify_xor): New functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Add cases for
+	GFC_ISYM_AND, GFC_ISYM_COMPLEX, GFC_ISYM_FGET, GFC_ISYM_FGETC,
+	GFC_ISYM_FPUT, GFC_ISYM_FPUTC, GFC_ISYM_FTELL, GFC_ISYM_OR and
+	GFC_ISYM_XOR.
+	* intrinsic.h: Add prototypes for all functions added to iresolve.c,
+	simplify.c and check.c.
+
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/15976
+	* resolve.c (resolve_symbol): Disallow automatic arrays in module scope.
+
+2005-11-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24655
+	PR fortran/24755
+	* match.c (recursive_stmt_fcn): Add checks that symtree exists
+	for the expression to weed out inline intrinsic functions and
+	parameters.
+
+	PR fortran/24409
+	* module.c (mio_symtree_ref): Correct the patch of 0923 so that
+	a symbol is not substituted for by a the symbol for the module
+	itself and to prevent the promotion of a formal argument.
+
+2005-11-10  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24643
+	* primary.c (match_varspec): Check for implicitly typed CHARACTER
+	variables before matching substrings.
+
+2005-11-09  Steven G. Kargl  <kargls@comcast.net>
+
+	* trans-intrinsic.c: Typo in comment.
+
+2005-11-09  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/22607
+	* trans-decl.c(build_function_decl): Don't set
+	DECL_IS_PURE (fndecl) = 1 for return-by-reference
+	functions.
+
+2005-11-08  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c: Fix comment typo, add a few blank lines.
+
+2005-11-07  Steven G. Kargl  <kargls@comcast.net>
+
+	* error.c: Use flag_fatal_error.
+	* invoke.texi:  Remove -Werror from list of options.
+
+2005-11-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24534
+	* resolve.c (resolve_symbol): Exclude case of PRIVATE declared
+	within derived type from error associated with PRIVATE type
+	components within derived type.
+
+	PR fortran/20838
+	PR fortran/20840
+	* gfortran.h: Add prototype for gfc_has_vector_index.
+	* io.c (gfc_resolve_dt): Error if internal unit has a vector index.
+	* expr.c (gfc_has_vector_index): New function to check if any of
+	the array references of an expression have vector inidices.
+	(gfc_check_pointer_assign): Error if internal unit has a vector index.
+
+	PR fortran/17737
+	* data.c (gfc_assign_data_value): Remove gcc_assert that caused the ICE
+	and replace by a standard dependent warning/error if overwriting an
+	existing initialization.
+	* decl.c (gfc_data_variable): Remove old error for already initialized
+	variable and the unused error check for common block variables.  Add
+	error for hots associated variable and standard dependent error for
+	common block variables, outside of blockdata.
+	* symbol.c (check_conflict): Add constraints for DATA statement.
+
+2005-11-06  Janne Blomqvist <jb@gcc.gnu.org>
+
+	PR fortran/24174
+	PR fortran/24305
+	* fortran/trans-io.c (gfc_build_io_library_fndecls): Add kind
+	argument to transfer_array.
+	(transfer_array_desc): Add kind argument.
+
+2005-11-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsic.c (add_functions): Add ctime and fdate intrinsics.
+	(add_subroutines): Likewise.
+	* intrinsic.h: Prototypes for gfc_check_ctime,
+	gfc_check_ctime_sub, gfc_check_fdate_sub, gfc_resolve_ctime,
+	gfc_resolve_fdate, gfc_resolve_ctime_sub, gfc_resolve_fdate_sub.
+	* gfortran.h: Add GFC_ISYM_CTIME and GFC_ISYM_FDATE.
+	* iresolve.c (gfc_resolve_ctime, gfc_resolve_fdate,
+	gfc_resolve_ctime_sub, gfc_resolve_fdate_sub): New functions.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Add
+	gfor_fndecl_fdate and gfor_fndecl_ctime.
+	* check.c (gfc_check_ctime, gfc_check_ctime_sub,
+	gfc_check_fdate_sub): New functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ctime,
+	gfc_conv_intrinsic_fdate): New functions.
+	(gfc_conv_intrinsic_function): Add cases for GFC_ISYM_CTIME
+	and GFC_ISYM_FDATE.
+	* intrinsic.texi: Documentation for the new CTIME and FDATE
+	intrinsics.
+	* trans.h: Declarations for gfor_fndecl_ctime and gfor_fndecl_fdate.
+
+2005-11-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c, trans-decl.c: Fix comment typos.
+	* gfortran.texi: Fix a typo.
+
+2005-11-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsic.c (add_functions): Add function version of TTYNAM.
+	* intrinsic.h: Add prototypes for gfc_check_ttynam and
+	gfc_resolve_ttynam.
+	* gfortran.h: Add case for GFC_ISYM_TTYNAM.
+	* iresolve.c (gfc_resolve_ttynam): New function.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Add a tree
+	for function call to library ttynam.
+	* check.c (gfc_check_ttynam): New function.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ttynam): New function.
+	(): Call gfc_conv_intrinsic_ttynam.
+	* trans.h: Add prototype for gfor_fndecl_ttynam.
+
+2005-11-04  Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/24636
+	* match.c (gfc_match_stopcode):  Set stop_code = -1.
+
+2005-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/18452
+	* lang-specs.h: Pass -lang-fortran to the preprocessor.
+
+2005-11-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/18157
+	* trans-array.c (gfc_conv_resolve_dependencies): Use the correct
+	type for the temporary array.
+	* trans-expr.c (gfc_trans_assignment): Pass lss
+	instead of lss_section
+	to gfc_conv_resolve_dependencies to get the
+	correct type.
+
+2005-11-02  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* decl.c (gfc_match_entry): Function entries don't need an argument
+	list if there's no RESULT clause.
+
+2005-11-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24008
+	* decl.c (gfc_match_entry): Function entries need an argument list.
+
+2005-11-01  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR 24245
+	* trans.c (gfc_generate_code): Move code to create a main
+	program symbol from here ...
+	* parse.c (main_program_symbol): ... to this new
+	function, setting the locus from gfc_current_locus
+	instead of ns->code->loc.
+	(gfc_parse_file):  Call main_program_symbol for main programs.
+
+2005-11-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/24404
+	* resolve.c (resolve_symbol): Output symbol names in more error
+	messages, clarify error message.
+
+2005-11-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c (show_symtree): Revert change unintentionally
+	committed in r106246.
+
 2005-11-01  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/21565

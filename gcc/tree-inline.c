@@ -704,7 +704,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
-	  recompute_tree_invarant_for_addr_expr (*tp);
+	  recompute_tree_invariant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
     }
@@ -1148,7 +1148,7 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 
       /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	 keep our trees in gimple form.  */
-      init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
+      init_stmt = build2 (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
 
       /* If we did not create a gimple value and we did not create a gimple
 	 cast of a gimple value, then we will need to gimplify INIT_STMTS

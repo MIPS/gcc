@@ -3,6 +3,9 @@
 /* Does gettimeofday take a single argument */
 #undef GETTIMEOFDAY_ONE_ARGUMENT
 
+/* Define to 0 if the target shouldn't use #pragma weak */
+#undef GTHREAD_USE_WEAK
+
 /* libm includes acos */
 #undef HAVE_ACOS
 
@@ -252,6 +255,9 @@
 /* libm includes ctanl */
 #undef HAVE_CTANL
 
+/* Define to 1 if you have the `ctime' function. */
+#undef HAVE_CTIME
+
 /* libm includes erf */
 #undef HAVE_ERF
 
@@ -359,6 +365,9 @@
 
 /* libc includes getuid */
 #undef HAVE_GETUID
+
+/* Define if the compiler has a thread header that is non single. */
+#undef HAVE_GTHR_DEFAULT
 
 /* libm includes hypot */
 #undef HAVE_HYPOT
@@ -555,6 +564,9 @@
 /* Define to 1 if you have the `symlink' function. */
 #undef HAVE_SYMLINK
 
+/* Define to 1 if the target supports __sync_fetch_and_add */
+#undef HAVE_SYNC_FETCH_AND_ADD
+
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
 
@@ -671,6 +683,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define to 1 if the target supports #pragma weak */
+#undef SUPPORTS_WEAK
 
 /* Define to 1 if the target is ILP32. */
 #undef TARGET_ILP32

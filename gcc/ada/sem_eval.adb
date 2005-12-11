@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,11 +32,13 @@ with Elists;   use Elists;
 with Errout;   use Errout;
 with Eval_Fat; use Eval_Fat;
 with Exp_Util; use Exp_Util;
+with Lib;      use Lib;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
+with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
@@ -4004,11 +4006,21 @@ package body Sem_Eval is
          return True;
 
       --  A definite type does not match an indefinite or classwide type
+      --  However, a generic type with unknown discriminants may be
+      --  instantiated with a type with no discriminants, and conformance
+      --  checking on an inherited operation may compare the actual with
+      --  the subtype that renames it in the instance.
 
       elsif
          Has_Unknown_Discriminants (T1) /= Has_Unknown_Discriminants (T2)
       then
-         return False;
+         if Is_Generic_Actual_Type (T1)
+           and then Etype (T1) = T2
+         then
+            return True;
+         else
+            return False;
+         end if;
 
       --  Array type
 
@@ -4045,9 +4057,21 @@ package body Sem_Eval is
          end;
 
       elsif Is_Access_Type (T1) then
-         return Subtypes_Statically_Match
-                  (Designated_Type (T1),
-                   Designated_Type (T2));
+         if Can_Never_Be_Null (T1) /= Can_Never_Be_Null (T2) then
+            return False;
+
+         elsif Ekind (T1) = E_Access_Subprogram_Type then
+            return
+              Subtype_Conformant
+                (Designated_Type (T1),
+                 Designated_Type (T1));
+         else
+            return
+              Subtypes_Statically_Match
+                (Designated_Type (T1),
+                 Designated_Type (T2))
+              and then Is_Access_Constant (T1) = Is_Access_Constant (T2);
+         end if;
 
       --  All other types definitely match
 
@@ -4083,13 +4107,17 @@ package body Sem_Eval is
    is
    begin
       Stat := False;
+      Fold := False;
+
+      if Debug_Flag_Dot_F and then In_Extended_Main_Source_Unit (N) then
+         return;
+      end if;
 
       --  If operand is Any_Type, just propagate to result and do not
       --  try to fold, this prevents cascaded errors.
 
       if Etype (Op1) = Any_Type then
          Set_Etype (N, Any_Type);
-         Fold := False;
          return;
 
       --  If operand raises constraint error, then replace node N with the
@@ -4099,7 +4127,6 @@ package body Sem_Eval is
 
       elsif Raises_Constraint_Error (Op1) then
          Rewrite_In_Raise_CE (N, Op1);
-         Fold := False;
          return;
 
       --  If the operand is not static, then the result is not static, and
@@ -4118,7 +4145,6 @@ package body Sem_Eval is
         and then Is_Generic_Type (Etype (Op1))
       then
          Check_Non_Static_Context (Op1);
-         Fold := False;
          return;
 
       --  Here we have the case of an operand whose type is OK, which is
@@ -4145,13 +4171,17 @@ package body Sem_Eval is
 
    begin
       Stat := False;
+      Fold := False;
+
+      if Debug_Flag_Dot_F and then In_Extended_Main_Source_Unit (N) then
+         return;
+      end if;
 
       --  If either operand is Any_Type, just propagate to result and
       --  do not try to fold, this prevents cascaded errors.
 
       if Etype (Op1) = Any_Type or else Etype (Op2) = Any_Type then
          Set_Etype (N, Any_Type);
-         Fold := False;
          return;
 
       --  If left operand raises constraint error, then replace node N with
@@ -4166,7 +4196,6 @@ package body Sem_Eval is
 
          Rewrite_In_Raise_CE (N, Op1);
          Set_Is_Static_Expression (N, Rstat);
-         Fold := False;
          return;
 
       --  Similar processing for the case of the right operand. Note that
@@ -4180,7 +4209,6 @@ package body Sem_Eval is
 
          Rewrite_In_Raise_CE (N, Op2);
          Set_Is_Static_Expression (N, Rstat);
-         Fold := False;
          return;
 
       --  Exclude expressions of a generic modular type, as above
@@ -4189,7 +4217,6 @@ package body Sem_Eval is
         and then Is_Generic_Type (Etype (Op1))
       then
          Check_Non_Static_Context (Op1);
-         Fold := False;
          return;
 
       --  If result is not static, then check non-static contexts on operands

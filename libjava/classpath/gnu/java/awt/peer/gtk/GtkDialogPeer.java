@@ -82,10 +82,10 @@ public class GtkDialogPeer extends GtkWindowPeer
 
   void create ()
   {
-    // Create a decorated dialog window.
-    create (GDK_WINDOW_TYPE_HINT_DIALOG, true);
-
     Dialog dialog = (Dialog) awtComponent;
+    
+    // Create a decorated dialog window.
+    create (GDK_WINDOW_TYPE_HINT_DIALOG, !((Dialog) awtComponent).isUndecorated ());
 
     gtkWindowSetModal (dialog.isModal ());
     setTitle (dialog.getTitle ());

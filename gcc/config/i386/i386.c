@@ -913,6 +913,8 @@ static void ix86_init_builtins (void);
 static rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static const char *ix86_mangle_fundamental_type (tree);
 static tree ix86_stack_protect_fail (void);
+static rtx ix86_internal_arg_pointer (void);
+static void ix86_dwarf_handle_frame_unspec (const char *, rtx, int);
 
 /* This function is only used on Solaris.  */
 static void i386_solaris_elf_named_section (const char *, unsigned int, tree)
@@ -954,9 +956,9 @@ static void init_ext_80387_constants (void);
 static bool ix86_in_large_data_p (tree) ATTRIBUTE_UNUSED;
 static void ix86_encode_section_info (tree, rtx, int) ATTRIBUTE_UNUSED;
 static void x86_64_elf_unique_section (tree decl, int reloc) ATTRIBUTE_UNUSED;
-static void x86_64_elf_select_section (tree decl, int reloc,
-				       unsigned HOST_WIDE_INT align)
-				      ATTRIBUTE_UNUSED;
+static section *x86_64_elf_select_section (tree decl, int reloc,
+					   unsigned HOST_WIDE_INT align)
+					     ATTRIBUTE_UNUSED;
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -1081,6 +1083,10 @@ static void x86_64_elf_select_section (tree decl, int reloc,
 #define TARGET_MUST_PASS_IN_STACK ix86_must_pass_in_stack
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE ix86_pass_by_reference
+#undef TARGET_INTERNAL_ARG_POINTER
+#define TARGET_INTERNAL_ARG_POINTER ix86_internal_arg_pointer
+#undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC ix86_dwarf_handle_frame_unspec
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
@@ -1331,7 +1337,8 @@ override_options (void)
     }
   if (ix86_asm_string != 0)
     {
-      if (!strcmp (ix86_asm_string, "intel"))
+      if (! TARGET_MACHO
+	  && !strcmp (ix86_asm_string, "intel"))
 	ix86_asm_dialect = ASM_INTEL;
       else if (!strcmp (ix86_asm_string, "att"))
 	ix86_asm_dialect = ASM_ATT;
@@ -1688,9 +1695,9 @@ override_options (void)
    RELOC indicates whether forming the initial value of DECL requires
    link-time relocations.  */
 
-static void
+static section *
 x86_64_elf_select_section (tree decl, int reloc,
-		         unsigned HOST_WIDE_INT align)
+			   unsigned HOST_WIDE_INT align)
 {
   if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
       && ix86_in_large_data_p (decl))
@@ -1734,12 +1741,9 @@ x86_64_elf_select_section (tree decl, int reloc,
 	  break;
 	}
       if (sname)
-	{
-          named_section (decl, sname, reloc);
-	  return;
-	}
+	return get_named_section (decl, sname, reloc);
     }
-  default_elf_select_section (decl, reloc, align);
+  return default_elf_select_section (decl, reloc, align);
 }
 
 /* Build up a unique section name, expressed as a
@@ -1839,9 +1843,9 @@ x86_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 {
   if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
       && size > (unsigned int)ix86_section_threshold)
-    named_section (decl, ".lbss", 0);
+    switch_to_section (get_named_section (decl, ".lbss", 0));
   else
-    bss_section ();
+    switch_to_section (bss_section);
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
 #ifdef ASM_DECLARE_OBJECT_NAME
   last_assemble_variable_decl = decl;
@@ -1986,6 +1990,11 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
     return false;
 #endif
+
+  /* If we forced aligned the stack, then sibcalling would unalign the
+     stack, which may break the called function.  */
+  if (cfun->machine->force_align_arg_pointer)
+    return false;
 
   /* Otherwise okay.  That also includes certain types of indirect calls.  */
   return true;
@@ -3603,7 +3612,7 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
     return FIRST_SSE_REG;
 
   /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
-  if (GET_MODE_CLASS (mode) != MODE_FLOAT || !TARGET_FLOAT_RETURNS_IN_80387)
+  if (!SCALAR_FLOAT_MODE_P (mode) || !TARGET_FLOAT_RETURNS_IN_80387)
     return 0;
 
   /* Floating point return values in %st(0), except for local functions when
@@ -3792,10 +3801,10 @@ ix86_va_start (tree valist, rtx nextarg)
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)), valist);
-  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
-  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
-  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+  gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
+  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
+  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
   words = current_function_args_info.words;
@@ -3808,16 +3817,16 @@ ix86_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-		 build_int_cst (NULL_TREE, n_gpr * 8));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+		  build_int_cst (NULL_TREE, n_gpr * 8));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
   if (cfun->va_list_fpr_size)
     {
-      t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-		 build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+		  build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -3825,9 +3834,9 @@ ix86_va_start (tree valist, rtx nextarg)
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
-    t = build (PLUS_EXPR, TREE_TYPE (ovf), t,
-	       build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+    t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
+	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -3836,7 +3845,7 @@ ix86_va_start (tree valist, rtx nextarg)
       /* Find the register save area.
 	 Prologue of the function save it right above stack frame.  */
       t = make_tree (TREE_TYPE (sav), frame_pointer_rtx);
-      t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -3868,10 +3877,10 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build_va_arg_indirect_ref (valist);
-  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
-  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
-  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+  gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
+  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
+  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, false);
   if (indirect_p)
@@ -3953,7 +3962,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 			     (REGPARM_MAX - needed_intregs + 1) * 8);
 	  t = build2 (GE_EXPR, boolean_type_node, gpr, t);
 	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
-	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
+	  t = build3 (COND_EXPR, void_type_node, t, t2, NULL_TREE);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
@@ -3963,7 +3972,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 			     + REGPARM_MAX * 8);
 	  t = build2 (GE_EXPR, boolean_type_node, fpr, t);
 	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
-	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
+	  t = build3 (COND_EXPR, void_type_node, t, t2, NULL_TREE);
 	  gimplify_and_add (t, pre_p);
 	}
 
@@ -4060,10 +4069,10 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   else
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
-      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		 build_int_cst (TREE_TYPE (ovf), align - 1));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_cst (TREE_TYPE (t), -align));
+      t = build2 (PLUS_EXPR, TREE_TYPE (ovf), ovf,
+		  build_int_cst (TREE_TYPE (ovf), align - 1));
+      t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
+		  build_int_cst (TREE_TYPE (t), -align));
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
@@ -4327,7 +4336,7 @@ ix86_setup_frame_addresses (void)
   cfun->machine->accesses_prev_frame = 1;
 }
 
-#if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
+#if defined(HAVE_GAS_HIDDEN) && (SUPPORTS_ONE_ONLY - 0)
 # define USE_HIDDEN_LINKONCE 1
 #else
 # define USE_HIDDEN_LINKONCE 0
@@ -4377,7 +4386,7 @@ ix86_file_end (void)
 	  DECL_ONE_ONLY (decl) = 1;
 
 	  (*targetm.asm_out.unique_section) (decl, 0);
-	  named_section (decl, NULL, 0);
+	  switch_to_section (get_named_section (decl, NULL, 0));
 
 	  (*targetm.asm_out.globalize_label) (asm_out_file, name);
 	  fputs ("\t.hidden\t", asm_out_file);
@@ -4387,7 +4396,7 @@ ix86_file_end (void)
 	}
       else
 	{
-	  text_section ();
+	  switch_to_section (text_section);
 	  ASM_OUTPUT_LABEL (asm_out_file, name);
 	}
 
@@ -4507,6 +4516,10 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 	    return 1;
 	}
     }
+
+  if (cfun->machine->force_align_arg_pointer
+      && regno == REGNO (cfun->machine->force_align_arg_pointer))
+    return 1;
 
   return (regs_ever_live[regno]
 	  && !call_used_regs[regno]
@@ -4719,10 +4732,10 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 static void
 ix86_emit_save_regs (void)
 {
-  int regno;
+  unsigned int regno;
   rtx insn;
 
-  for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
+  for (regno = FIRST_PSEUDO_REGISTER; regno-- > 0; )
     if (ix86_save_reg (regno, true))
       {
 	insn = emit_insn (gen_push (gen_rtx_REG (Pmode, regno)));
@@ -4735,7 +4748,7 @@ ix86_emit_save_regs (void)
 static void
 ix86_emit_save_regs_using_mov (rtx pointer, HOST_WIDE_INT offset)
 {
-  int regno;
+  unsigned int regno;
   rtx insn;
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -4783,6 +4796,47 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
+/* Handle the TARGET_INTERNAL_ARG_POINTER hook.  */
+
+static rtx
+ix86_internal_arg_pointer (void)
+{
+  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
+      && DECL_NAME (current_function_decl)
+      && MAIN_NAME_P (DECL_NAME (current_function_decl))
+      && DECL_FILE_SCOPE_P (current_function_decl))
+    {
+      cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, 2);
+      return copy_to_reg (cfun->machine->force_align_arg_pointer);
+    }
+  else
+    return virtual_incoming_args_rtx;
+}
+
+/* Handle the TARGET_DWARF_HANDLE_FRAME_UNSPEC hook.
+   This is called from dwarf2out.c to emit call frame instructions
+   for frame-related insns containing UNSPECs and UNSPEC_VOLATILEs. */
+static void
+ix86_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
+{
+  rtx unspec = SET_SRC (pattern);
+  gcc_assert (GET_CODE (unspec) == UNSPEC);
+
+  switch (index)
+    {
+    case UNSPEC_REG_SAVE:
+      dwarf2out_reg_save_reg (label, XVECEXP (unspec, 0, 0),
+			      SET_DEST (pattern));
+      break;
+    case UNSPEC_DEF_CFA:
+      dwarf2out_def_cfa (label, REGNO (SET_DEST (pattern)),
+			 INTVAL (XVECEXP (unspec, 0, 0)));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -4794,6 +4848,52 @@ ix86_expand_prologue (void)
   HOST_WIDE_INT allocate;
 
   ix86_compute_frame_layout (&frame);
+
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      rtx x, y;
+
+      /* Grab the argument pointer.  */
+      x = plus_constant (stack_pointer_rtx, 4);
+      y = cfun->machine->force_align_arg_pointer;
+      insn = emit_insn (gen_rtx_SET (VOIDmode, y, x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      /* The unwind info consists of two parts: install the fafp as the cfa,
+	 and record the fafp as the "save register" of the stack pointer.
+	 The later is there in order that the unwinder can see where it
+	 should restore the stack pointer across the and insn.  */
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, y, x);
+      RTX_FRAME_RELATED_P (x) = 1;
+      y = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, stack_pointer_rtx),
+			  UNSPEC_REG_SAVE);
+      y = gen_rtx_SET (VOIDmode, cfun->machine->force_align_arg_pointer, y);
+      RTX_FRAME_RELATED_P (y) = 1;
+      x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, x, y));
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+
+      /* Align the stack.  */
+      emit_insn (gen_andsi3 (stack_pointer_rtx, stack_pointer_rtx,
+			     GEN_INT (-16)));
+
+      /* And here we cheat like madmen with the unwind info.  We force the
+	 cfa register back to sp+4, which is exactly what it was at the
+	 start of the function.  Re-pushing the return address results in
+	 the return at the same spot relative to the cfa, and thus is 
+	 correct wrt the unwind info.  */
+      x = cfun->machine->force_align_arg_pointer;
+      x = gen_frame_mem (Pmode, plus_constant (x, -4));
+      insn = emit_insn (gen_push (x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      x = GEN_INT (4);
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, x), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, stack_pointer_rtx, x);
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+    }
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
@@ -5070,6 +5170,13 @@ ix86_expand_epilogue (int style)
 	  else
 	    emit_insn (gen_popsi1 (hard_frame_pointer_rtx));
 	}
+    }
+
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      emit_insn (gen_addsi3 (stack_pointer_rtx,
+			     cfun->machine->force_align_arg_pointer,
+			     GEN_INT (-4)));
     }
 
   /* Sibcall epilogues don't want a return instruction.  */
@@ -6069,7 +6176,11 @@ legitimize_pic_address (rtx orig, rtx reg)
 		{
 		  if (INTVAL (op1) < -16*1024*1024
 		      || INTVAL (op1) >= 16*1024*1024)
-		    new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+		    {
+		      if (!x86_64_immediate_operand (op1, Pmode))
+			op1 = force_reg (Pmode, op1);
+		      new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+		    }
 		}
 	    }
 	  else
@@ -8989,7 +9100,7 @@ ix86_fp_compare_mode (enum rtx_code code ATTRIBUTE_UNUSED)
 enum machine_mode
 ix86_cc_mode (enum rtx_code code, rtx op0, rtx op1)
 {
-  if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_FLOAT)
+  if (SCALAR_FLOAT_MODE_P (GET_MODE (op0)))
     return ix86_fp_compare_mode (code);
   switch (code)
     {
@@ -9570,7 +9681,7 @@ ix86_expand_compare (enum rtx_code code, rtx *second_test, rtx *bypass_test)
       ret = gen_rtx_fmt_ee (code, VOIDmode, ix86_compare_emitted, const0_rtx);
       ix86_compare_emitted = NULL_RTX;
     }
-  else if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_FLOAT)
+  else if (SCALAR_FLOAT_MODE_P (GET_MODE (op0)))
     ret = ix86_expand_fp_compare (code, op0, op1, NULL_RTX,
 				  second_test, bypass_test);
   else
@@ -13355,7 +13466,6 @@ enum ix86_builtins
   IX86_BUILTIN_CMPNGEPS,
   IX86_BUILTIN_CMPORDPS,
   IX86_BUILTIN_CMPUNORDPS,
-  IX86_BUILTIN_CMPNEPS,
   IX86_BUILTIN_CMPEQSS,
   IX86_BUILTIN_CMPLTSS,
   IX86_BUILTIN_CMPLESS,
@@ -13366,7 +13476,6 @@ enum ix86_builtins
   IX86_BUILTIN_CMPNGESS,
   IX86_BUILTIN_CMPORDSS,
   IX86_BUILTIN_CMPUNORDSS,
-  IX86_BUILTIN_CMPNESS,
 
   IX86_BUILTIN_COMIEQSS,
   IX86_BUILTIN_COMILTSS,
@@ -13876,11 +13985,11 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_MMX, CODE_FOR_mmx_addv8qi3, "__builtin_ia32_paddb", IX86_BUILTIN_PADDB, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_addv4hi3, "__builtin_ia32_paddw", IX86_BUILTIN_PADDW, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_addv2si3, "__builtin_ia32_paddd", IX86_BUILTIN_PADDD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_adddi3, "__builtin_ia32_paddq", IX86_BUILTIN_PADDQ, 0, 0 },
+  { MASK_SSE2, CODE_FOR_mmx_adddi3, "__builtin_ia32_paddq", IX86_BUILTIN_PADDQ, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_subv8qi3, "__builtin_ia32_psubb", IX86_BUILTIN_PSUBB, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_subv4hi3, "__builtin_ia32_psubw", IX86_BUILTIN_PSUBW, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_subv2si3, "__builtin_ia32_psubd", IX86_BUILTIN_PSUBD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_subdi3, "__builtin_ia32_psubq", IX86_BUILTIN_PSUBQ, 0, 0 },
+  { MASK_SSE2, CODE_FOR_mmx_subdi3, "__builtin_ia32_psubq", IX86_BUILTIN_PSUBQ, 0, 0 },
 
   { MASK_MMX, CODE_FOR_mmx_ssaddv8qi3, "__builtin_ia32_paddsb", IX86_BUILTIN_PADDSB, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_ssaddv4hi3, "__builtin_ia32_paddsw", IX86_BUILTIN_PADDSW, 0, 0 },
@@ -14309,9 +14418,6 @@ ix86_init_mmx_sse_builtins (void)
     = build_function_type_list (integer_type_node,
 				V2DF_type_node, V2DF_type_node, NULL_TREE);
 
-  tree ti_ftype_ti_ti
-    = build_function_type_list (intTI_type_node,
-				intTI_type_node, intTI_type_node, NULL_TREE);
   tree void_ftype_pcvoid
     = build_function_type_list (void_type_node, const_ptr_type_node, NULL_TREE);
   tree v4sf_ftype_v4si
@@ -14478,9 +14584,6 @@ ix86_init_mmx_sse_builtins (void)
 	case V2DFmode:
 	  type = v2df_ftype_v2df_v2df;
 	  break;
-	case TImode:
-	  type = ti_ftype_ti_ti;
-	  break;
 	case V4SFmode:
 	  type = v4sf_ftype_v4sf_v4sf;
 	  break;
@@ -14526,7 +14629,7 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_MMX, "__builtin_ia32_psraw", v4hi_ftype_v4hi_di, IX86_BUILTIN_PSRAW);
   def_builtin (MASK_MMX, "__builtin_ia32_psrad", v2si_ftype_v2si_di, IX86_BUILTIN_PSRAD);
 
-  def_builtin (MASK_MMX, "__builtin_ia32_pshufw", v4hi_ftype_v4hi_int, IX86_BUILTIN_PSHUFW);
+  def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_pshufw", v4hi_ftype_v4hi_int, IX86_BUILTIN_PSHUFW);
   def_builtin (MASK_MMX, "__builtin_ia32_pmaddwd", v2si_ftype_v4hi_v4hi, IX86_BUILTIN_PMADDWD);
 
   /* comi/ucomi insns.  */
@@ -16476,9 +16579,9 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   sprintf (lazy_ptr_name, "L%d$lz", label);
 
   if (MACHOPIC_PURE)
-    machopic_picsymbol_stub_section ();
+    switch_to_section (machopic_picsymbol_stub_section);
   else
-    machopic_symbol_stub_section ();
+    switch_to_section (machopic_symbol_stub_section);
 
   fprintf (file, "%s:\n", stub);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
@@ -16504,7 +16607,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 
   fprintf (file, "\tjmp dyld_stub_binding_helper\n");
 
-  machopic_lazy_symbol_ptr_section ();
+  switch_to_section (machopic_lazy_symbol_ptr_section);
   fprintf (file, "%s:\n", lazy_ptr_name);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
   fprintf (file, "\t.long %s\n", binder_name);
@@ -17996,8 +18099,7 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
   emit_label (label2);
 }
 
-/* Solaris named-section hook.  Parameters are as for
-   named_section_real.  */
+/* Solaris implementation of TARGET_ASM_NAMED_SECTION.  */
 
 static void
 i386_solaris_elf_named_section (const char *name, unsigned int flags,

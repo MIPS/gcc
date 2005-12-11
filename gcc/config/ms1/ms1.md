@@ -19,8 +19,17 @@
 ;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301, USA.
 
+;; UNSPECs
+(define_constants
+  [
+    (UNSPEC_BLOCKAGE 0)
+    (UNSPEC_EI 1)
+    (UNSPEC_DI 2)
+    (UNSPEC_LOOP 3)
+  ])
+
 ;; Attributes
-(define_attr "type" "branch,mem,io,arith,complex,unknown"
+(define_attr "type" "branch,call,load,store,io,arith,complex,unknown"
 	 (const_string "unknown") )
 
 ;; If the attribute takes numeric values, no `enum' type will be defined and
@@ -36,7 +45,7 @@
 (define_cpu_unit "branch_unit" "other")
 
 (define_insn_reservation "mem_access" 2
-  (eq_attr "type" "mem")
+  (ior (eq_attr "type" "load") (eq_attr "type" "store"))
   "decode_unit+memory_unit*2")
 
 (define_insn_reservation "io_access" 2
@@ -44,7 +53,8 @@
   "decode_unit+memory_unit*2")
 
 (define_insn_reservation "branch_access" 2
-  (eq_attr "type" "branch")
+  (ior (eq_attr "type" "branch")
+       (eq_attr "type" "call"))
   "decode_unit+branch_unit*2")
 
 (define_insn_reservation "arith_access" 1
@@ -64,7 +74,8 @@
 ;; the destination of the branch.  Thus, only type that will be acceptable
 ;; (safe) is the arith type.
 
-(define_delay (eq_attr "type" "branch")
+(define_delay (ior (eq_attr "type" "branch")
+		   (eq_attr "type" "call"))
 		 [(eq_attr "type" "arith") (nil) (nil)])
 
 
@@ -78,29 +89,13 @@
     (set (match_dup 0)
 	 (plus:SI (match_dup 0)
 		  (const_int -1)))
-    (clobber (match_scratch:SI 2 "=X,r"))]
-  "TARGET_MS1_16_003"
+    (clobber (match_scratch:SI 2 "=X,&r"))]
+  "TARGET_MS1_16_003 || TARGET_MS2"
   "@
    dbnz\t%0, %l1%#
    #"
-  [(set_attr "length" "4,16")]
-)
-
-;; Same as above, but without the clobber. The peephole below will
-;; match this pattern.
-(define_insn "*decrement_and_branch_until_zero_no_clobber"
-   [(set (pc)
-	 (if_then_else
-	  (ne (match_operand:SI 0 "register_operand" "+r")
-	      (const_int 0))
-	  (label_ref (match_operand 1 "" ""))
-	  (pc)))
-    (set (match_dup 0)
-	 (plus:SI (match_dup 0)
-		  (const_int -1)))]
-  "TARGET_MS1_16_003"
-  "dbnz\t%0, %l1%#"
-  [(set_attr "length" "4")]
+  [(set_attr "length" "4,16")
+   (set_attr "type" "branch,unknown")]
 )
 
 ;; Split the above to handle the case where operand 0 is in memory
@@ -116,7 +111,7 @@
 	 (plus:SI (match_dup 0)
 		  (const_int -1)))
     (clobber (match_scratch:SI 2 ""))]
-  "TARGET_MS1_16_003"
+  "TARGET_MS1_16_003 || TARGET_MS2"
   [(set (match_dup 2) (match_dup 0))
    (set (match_dup 2) (plus:SI (match_dup 2) (const_int -1)))
    (set (match_dup 0) (match_dup 2))
@@ -137,13 +132,12 @@
   [(set (match_operand:SI 0 "register_operand" "")
 	(plus:SI (match_dup 0) (const_int -1)))
    (set (match_operand:SI 1 "register_operand" "")
-	(const_int -1))
+     (const_int -1))
    (set (pc) (if_then_else
 	        (ne (match_dup 0) (match_dup 1))
 		(label_ref (match_operand 2 "" ""))
-		(pc)))
-   ]
-  "TARGET_MS1_16_003"
+		(pc)))]
+  "TARGET_MS1_16_003 || TARGET_MS2"
   [(parallel [(set (pc)
 	           (if_then_else
 	              (ne (match_dup 0) (const_int 0))
@@ -151,10 +145,61 @@
 	              (pc)))
               (set (match_dup 0)
 	           (plus:SI (match_dup 0) (const_int -1)))
-	     ])
-  ]
-  ""
-)
+	      (clobber (reg:SI 0))])]
+  "")
+
+
+;; Loop instructions.  ms2 has a low overhead looping instructions.
+;; these take a constant or register loop count and a loop length
+;; offset.  Unfortunately the loop can only be up to 256 instructions,
+;; We deal with longer loops by moving the loop end upwards.  To do
+;; otherwise would force us to to be very pessimistic right up until
+;; the end.
+
+;; This instruction is a placeholder to make the control flow explicit.
+(define_insn "loop_end"
+  [(set (pc) (if_then_else
+			  (ne (match_operand:SI 0 "register_operand" "")
+			      (const_int 1))
+			  (label_ref (match_operand 1 "" ""))
+			  (pc)))
+   (set (match_dup 0) (plus:SI (match_dup 0) (const_int -1)))
+   (unspec [(const_int 0)] UNSPEC_LOOP)]
+  "TARGET_MS2"
+  ";loop end %0,%l1"
+  [(set_attr "length" "0")])
+
+;; This is the real looping instruction.  It is placed just before the
+;; loop body.  We make it a branch insn, so it stays at the end of the
+;; block it is in.
+(define_insn "loop_init"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(match_operand:SI 1 "uns_arith_operand" "r,K"))
+   (unspec [(label_ref (match_operand 2 "" ""))] UNSPEC_LOOP)]
+  "TARGET_MS2"
+  "@
+   loop  %1,%l2 ;%0%#
+   loopi %1,%l2 ;%0%#"
+  [(set_attr "length" "4")
+   (set_attr "type" "branch")])
+
+; operand 0 is the loop count pseudo register
+; operand 1 is the number of loop iterations or 0 if it is unknown
+; operand 2 is the maximum number of loop iterations
+; operand 3 is the number of levels of enclosed loops
+; operand 4 is the label to jump to at the top of the loop
+(define_expand "doloop_end"
+  [(parallel [(set (pc) (if_then_else
+			  (ne (match_operand:SI 0 "nonimmediate_operand" "")
+			      (const_int 0))
+			  (label_ref (match_operand 4 "" ""))
+			  (pc)))
+	      (set (match_dup 0)
+		   (plus:SI (match_dup 0)
+			    (const_int -1)))
+	      (clobber (match_scratch:SI 5 ""))])]
+  "TARGET_MS1_16_003 || TARGET_MS2"
+  {ms1_add_loop ();})
 
 ;; Moves
 
@@ -308,7 +353,7 @@
    stb %1, %0
    addi %0, r0, %1"
   [(set_attr "length" "4,4,4,4")
-   (set_attr "type" "arith,mem,mem,arith")])
+   (set_attr "type" "arith,load,store,arith")])
 
 (define_insn "*movqi_internal_nobyte"
   [(set (match_operand:QI 0 "register_operand" "=r,r")
@@ -566,7 +611,7 @@
   nori   %0, r0, %N1
   ldui   %0, %H1\;addui %0, %0, %L1"
   [(set_attr "length" "4,4,4,4,4,4,4,8")
-   (set_attr "type" "arith,mem,mem,arith,arith,arith,arith,complex")]
+   (set_attr "type" "arith,load,store,arith,arith,arith,arith,complex")]
 )
 
 ;; Floating Point Moves
@@ -641,7 +686,7 @@
   ldw    %0, %1
   stw    %1, %0"
   [(set_attr "length" "4,4,4")
-   (set_attr "type" "arith,mem,mem")]
+   (set_attr "type" "arith,load,store")]
 )
 
 (define_expand "movdf"
@@ -948,7 +993,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r,r")
      (mult:SI (sign_extend:SI (match_operand:HI 1 "register_operand" "%r,r"))
      	      (sign_extend:SI (match_operand:HI 2 "arith_operand" "r,I"))))]
-  "TARGET_MUL"
+  "TARGET_MS1_16_003 || TARGET_MS2"
   "@
   mul %0, %1, %2
   muli %0, %1, %2"
@@ -1269,7 +1314,7 @@
   ""
   "jal r14, %0%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "register_operand" "")
@@ -1292,7 +1337,7 @@
   ""
   "jal r14, %1%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 ;; Subroutine return
 (define_insn "return_internal"
@@ -1302,7 +1347,7 @@
   ""
   "jal r0, r14%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 ;; Interrupt return
 (define_insn "return_interrupt_internal"
@@ -1312,7 +1357,7 @@
   ""
   "reti r15%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 ;; Subroutine return
 (define_insn "eh_return_internal"
@@ -1324,7 +1369,7 @@
   ""
   "jal r0, r11%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 
 ;; Normal unconditional jump
@@ -1341,7 +1386,7 @@
   ""
   "jal r0,%0%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 (define_insn "tablejump"
   [(set (pc) (match_operand:SI 0 "register_operand" "r"))
@@ -1349,7 +1394,7 @@
   ""
   "jal r0, %0%#"
   [(set_attr "length" "4")
-   (set_attr "type" "branch")])
+   (set_attr "type" "call")])
 
 
 (define_expand "prologue"
@@ -1412,7 +1457,7 @@
 ;; Pseudo instruction that prevents the scheduler from moving code above this
 ;; point.
 (define_insn "blockage"
-  [(unspec_volatile [(const_int 0)] 0)]
+  [(unspec_volatile [(const_int 0)] UNSPEC_BLOCKAGE)]
   ""
   ""
   [(set_attr "length" "0")])
@@ -1442,14 +1487,14 @@
 
 ;; Enable interrupts template
 (define_insn "ei"
-  [(unspec_volatile [(const_int 0)] 1)]
+  [(unspec_volatile [(const_int 0)] UNSPEC_EI)]
   ""
   "ei"
   [(set_attr "length" "4")])
 
 ;; Enable interrupts template
 (define_insn "di"
-  [(unspec_volatile [(const_int 0)] 2)]
+  [(unspec_volatile [(const_int 0)] UNSPEC_DI)]
   ""
   "di"
   [(set_attr "length" "4")])

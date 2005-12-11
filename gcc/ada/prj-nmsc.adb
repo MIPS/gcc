@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2000-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,6 +38,7 @@ with Prj.Util; use Prj.Util;
 with Sinput.P;
 with Snames;   use Snames;
 with Table;    use Table;
+with Targparm; use Targparm;
 
 with Ada.Characters.Handling;    use Ada.Characters.Handling;
 with Ada.Strings;                use Ada.Strings;
@@ -56,7 +57,7 @@ package body Prj.Nmsc is
    ALI_Suffix   : constant String := ".ali";
    --  File suffix for ali files
 
-   Object_Suffix : constant String := Get_Object_Suffix.all;
+   Object_Suffix : constant String := Get_Target_Object_Suffix.all;
    --  File suffix for object files
 
    type Name_Location is record
@@ -1383,11 +1384,15 @@ package body Prj.Nmsc is
 
       Lib_Name : constant Prj.Variable_Value :=
                    Prj.Util.Value_Of
-                    (Snames.Name_Library_Name, Attributes, In_Tree);
+                     (Snames.Name_Library_Name, Attributes, In_Tree);
 
       Lib_Version : constant Prj.Variable_Value :=
                       Prj.Util.Value_Of
                         (Snames.Name_Library_Version, Attributes, In_Tree);
+
+      Lib_ALI_Dir : constant Prj.Variable_Value :=
+                      Prj.Util.Value_Of
+                        (Snames.Name_Library_Ali_Dir, Attributes, In_Tree);
 
       The_Lib_Kind : constant Prj.Variable_Value :=
                        Prj.Util.Value_Of
@@ -1488,14 +1493,78 @@ package body Prj.Nmsc is
             Data.Library_Dir := No_Name;
             Data.Display_Library_Dir := No_Name;
 
-         --  Display the Library directory in high verbosity
-
          else
-            if Current_Verbosity = High then
-               Write_Str ("Library directory =""");
-               Write_Str (Get_Name_String (Data.Display_Library_Dir));
-               Write_Line ("""");
-            end if;
+            declare
+               OK       : Boolean := True;
+               Dirs_Id  : String_List_Id;
+               Dir_Elem : String_Element;
+
+            begin
+               --  The library directory cannot be the same as a source
+               --  directory of the current project.
+
+               Dirs_Id := Data.Source_Dirs;
+               while Dirs_Id /= Nil_String loop
+                  Dir_Elem := In_Tree.String_Elements.Table (Dirs_Id);
+                  Dirs_Id  := Dir_Elem.Next;
+
+                  if Data.Library_Dir = Dir_Elem.Value then
+                     Err_Vars.Error_Msg_Name_1 := Dir_Elem.Value;
+                     Error_Msg
+                       (Project, In_Tree,
+                        "library directory cannot be the same " &
+                        "as source directory {",
+                        Lib_Dir.Location);
+                     OK := False;
+                     exit;
+                  end if;
+               end loop;
+
+               if OK then
+
+                  --  The library directory cannot be the same as a source
+                  --  directory of another project either.
+
+                  Project_Loop :
+                  for Pid in 1 .. Project_Table.Last (In_Tree.Projects) loop
+                     if Pid /= Project then
+                        Dirs_Id := In_Tree.Projects.Table (Pid).Source_Dirs;
+
+                        Dir_Loop : while Dirs_Id /= Nil_String loop
+                           Dir_Elem := In_Tree.String_Elements.Table (Dirs_Id);
+                           Dirs_Id  := Dir_Elem.Next;
+
+                           if Data.Library_Dir = Dir_Elem.Value then
+                              Err_Vars.Error_Msg_Name_1 := Dir_Elem.Value;
+                              Err_Vars.Error_Msg_Name_2 :=
+                                In_Tree.Projects.Table (Pid).Name;
+
+                              Error_Msg
+                                (Project, In_Tree,
+                                 "library directory cannot be the same " &
+                                 "as source directory { of project {",
+                                 Lib_Dir.Location);
+                              OK := False;
+                              exit Project_Loop;
+                           end if;
+                        end loop Dir_Loop;
+                     end if;
+                  end loop Project_Loop;
+               end if;
+
+               if not OK then
+                  Data.Library_Dir := No_Name;
+                  Data.Display_Library_Dir := No_Name;
+
+               elsif Current_Verbosity = High then
+
+                  --  Display the Library directory in high verbosity
+
+                  Write_Str ("Library directory =""");
+                  Write_Str (Get_Name_String (Data.Display_Library_Dir));
+                  Write_Line ("""");
+               end if;
+            end;
          end if;
       end if;
 
@@ -1536,6 +1605,158 @@ package body Prj.Nmsc is
             Data.Library := False;
 
          else
+            if Lib_ALI_Dir.Value = Empty_String then
+               if Current_Verbosity = High then
+                  Write_Line ("No library 'A'L'I directory specified");
+               end if;
+               Data.Library_ALI_Dir := Data.Library_Dir;
+               Data.Display_Library_ALI_Dir := Data.Display_Library_Dir;
+
+            else
+               --  Find path name, check that it is a directory
+
+               Locate_Directory
+                 (Lib_ALI_Dir.Value, Data.Display_Directory,
+                  Data.Library_ALI_Dir, Data.Display_Library_ALI_Dir);
+
+               if Data.Library_ALI_Dir = No_Name then
+
+                  --  Get the absolute name of the library ALI directory that
+                  --  does not exist, to report an error.
+
+                  declare
+                     Dir_Name : constant String :=
+                                  Get_Name_String (Lib_ALI_Dir.Value);
+
+                  begin
+                     if Is_Absolute_Path (Dir_Name) then
+                        Err_Vars.Error_Msg_Name_1 := Lib_Dir.Value;
+
+                     else
+                        Get_Name_String (Data.Display_Directory);
+
+                        if Name_Buffer (Name_Len) /= Directory_Separator then
+                           Name_Len := Name_Len + 1;
+                           Name_Buffer (Name_Len) := Directory_Separator;
+                        end if;
+
+                        Name_Buffer
+                          (Name_Len + 1 .. Name_Len + Dir_Name'Length) :=
+                          Dir_Name;
+                        Name_Len := Name_Len + Dir_Name'Length;
+                        Err_Vars.Error_Msg_Name_1 := Name_Find;
+                     end if;
+
+                     --  Report the error
+
+                     Error_Msg
+                       (Project, In_Tree,
+                        "library 'A'L'I directory { does not exist",
+                        Lib_ALI_Dir.Location);
+                  end;
+               end if;
+
+               if Data.Library_ALI_Dir /= Data.Library_Dir then
+
+                  --  The library ALI directory cannot be the same as the
+                  --  Object directory.
+
+                  if Data.Library_ALI_Dir = Data.Object_Directory then
+                     Error_Msg
+                       (Project, In_Tree,
+                        "library 'A'L'I directory cannot be the same " &
+                        "as object directory",
+                        Lib_ALI_Dir.Location);
+                     Data.Library_ALI_Dir := No_Name;
+                     Data.Display_Library_ALI_Dir := No_Name;
+
+                  else
+                     declare
+                        OK       : Boolean := True;
+                        Dirs_Id  : String_List_Id;
+                        Dir_Elem : String_Element;
+
+                     begin
+                        --  The library ALI directory cannot be the same as
+                        --  a source directory of the current project.
+
+                        Dirs_Id := Data.Source_Dirs;
+                        while Dirs_Id /= Nil_String loop
+                           Dir_Elem := In_Tree.String_Elements.Table (Dirs_Id);
+                           Dirs_Id  := Dir_Elem.Next;
+
+                           if Data.Library_ALI_Dir = Dir_Elem.Value then
+                              Err_Vars.Error_Msg_Name_1 := Dir_Elem.Value;
+                              Error_Msg
+                                (Project, In_Tree,
+                                 "library 'A'L'I directory cannot be " &
+                                 "the same as source directory {",
+                                 Lib_ALI_Dir.Location);
+                              OK := False;
+                              exit;
+                           end if;
+                        end loop;
+
+                        if OK then
+
+                           --  The library ALI directory cannot be the same as
+                           --  a source directory of another project either.
+
+                           ALI_Project_Loop :
+                           for
+                             Pid in 1 .. Project_Table.Last (In_Tree.Projects)
+                           loop
+                              if Pid /= Project then
+                                 Dirs_Id :=
+                                   In_Tree.Projects.Table (Pid).Source_Dirs;
+
+                                 ALI_Dir_Loop :
+                                 while Dirs_Id /= Nil_String loop
+                                    Dir_Elem :=
+                                      In_Tree.String_Elements.Table (Dirs_Id);
+                                    Dirs_Id  := Dir_Elem.Next;
+
+                                    if
+                                      Data.Library_ALI_Dir = Dir_Elem.Value
+                                    then
+                                       Err_Vars.Error_Msg_Name_1 :=
+                                         Dir_Elem.Value;
+                                       Err_Vars.Error_Msg_Name_2 :=
+                                         In_Tree.Projects.Table (Pid).Name;
+
+                                       Error_Msg
+                                         (Project, In_Tree,
+                                          "library 'A'L'I directory cannot " &
+                                          "be the same as source directory " &
+                                          "{ of project {",
+                                          Lib_ALI_Dir.Location);
+                                       OK := False;
+                                       exit ALI_Project_Loop;
+                                    end if;
+                                 end loop ALI_Dir_Loop;
+                              end if;
+                           end loop ALI_Project_Loop;
+                        end if;
+
+                        if not OK then
+                           Data.Library_ALI_Dir := No_Name;
+                           Data.Display_Library_ALI_Dir := No_Name;
+
+                        elsif Current_Verbosity = High then
+
+                           --  Display the Library ALI directory in high
+                           --  verbosity.
+
+                           Write_Str ("Library ALI directory =""");
+                           Write_Str
+                             (Get_Name_String (Data.Display_Library_ALI_Dir));
+                           Write_Line ("""");
+                        end if;
+                     end;
+                  end if;
+               end if;
+            end if;
+
             pragma Assert (Lib_Version.Kind = Single);
 
             if Lib_Version.Value = Empty_String then
@@ -2279,18 +2500,19 @@ package body Prj.Nmsc is
                      Lib_Src_Dir.Location);
                   Data.Library_Src_Dir := No_Name;
 
-                  --  Check if it is same as one of the source directories
-
                else
                   declare
-                     Src_Dirs : String_List_Id := Data.Source_Dirs;
+                     Src_Dirs : String_List_Id;
                      Src_Dir  : String_Element;
 
                   begin
+                     --  Interface copy directory cannot be one of the source
+                     --  directory of the current project.
+
+                     Src_Dirs := Data.Source_Dirs;
                      while Src_Dirs /= Nil_String loop
                         Src_Dir := In_Tree.String_Elements.Table
                                                           (Src_Dirs);
-                        Src_Dirs := Src_Dir.Next;
 
                         --  Report error if it is one of the source directories
 
@@ -2303,7 +2525,45 @@ package body Prj.Nmsc is
                            Data.Library_Src_Dir := No_Name;
                            exit;
                         end if;
+
+                        Src_Dirs := Src_Dir.Next;
                      end loop;
+
+                     if Data.Library_Src_Dir /= No_Name then
+
+                        --  It cannot be a source directory of any other
+                        --  project either.
+
+                        Project_Loop : for Pid in 1 ..
+                          Project_Table.Last (In_Tree.Projects)
+                        loop
+                           Src_Dirs :=
+                             In_Tree.Projects.Table (Pid).Source_Dirs;
+                           Dir_Loop : while Src_Dirs /= Nil_String loop
+                              Src_Dir :=
+                                In_Tree.String_Elements.Table (Src_Dirs);
+
+                              --  Report error if it is one of the source
+                              --  directories
+
+                              if Data.Library_Src_Dir = Src_Dir.Value then
+                                 Error_Msg_Name_1 := Src_Dir.Value;
+                                 Error_Msg_Name_2 :=
+                                   In_Tree.Projects.Table (Pid).Name;
+                                 Error_Msg
+                                   (Project, In_Tree,
+                                    "directory to copy interfaces cannot " &
+                                    "be the same as source directory { of " &
+                                    "project {",
+                                    Lib_Src_Dir.Location);
+                                 Data.Library_Src_Dir := No_Name;
+                                 exit Project_Loop;
+                              end if;
+
+                              Src_Dirs := Src_Dir.Next;
+                           end loop Dir_Loop;
+                        end loop Project_Loop;
+                     end if;
                   end;
 
                   --  In high verbosity, if there is a valid Library_Src_Dir,
@@ -3643,6 +3903,7 @@ package body Prj.Nmsc is
                declare
                   S1 : constant Character := Src (Src'First);
                   S2 : constant Character := Src (Src'First + 1);
+                  S3 : constant Character := Src (Src'First + 2);
 
                begin
                   if S1 = 'a' or else S1 = 'g'
@@ -3650,8 +3911,11 @@ package body Prj.Nmsc is
                   then
                      --  Children or separates of packages A, G, I or S
 
-                     if (Hostparm.OpenVMS and then S2 = '$')
-                       or else (not Hostparm.OpenVMS and then S2 = '~')
+                     if (OpenVMS_On_Target
+                         and then S2 = '_'
+                         and then S3 = '_')
+                        or else
+                         S2 = '~'
                      then
                         Src (Src'First + 1) := '.';
 

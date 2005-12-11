@@ -318,29 +318,24 @@ next_free (void)
   if (ISDIGIT (c))
     {
       /* Found a statement label?  */
-      m = gfc_match_st_label (&gfc_statement_label, 0);
+      m = gfc_match_st_label (&gfc_statement_label);
 
       d = gfc_peek_char ();
       if (m != MATCH_YES || !gfc_is_whitespace (d))
 	{
+	  gfc_match_small_literal_int (&c);
+	  if (c == 0)
+	    gfc_error_now ("Statement label at %C is zero");
+	  else
+	    gfc_error_now ("Statement label at %C is out of range");
+
 	  do
-	    {
-	      /* Skip the bad statement label.  */
-	      gfc_warning_now ("Ignoring bad statement label at %C");
-	      c = gfc_next_char ();
-	    }
-	  while (ISDIGIT (c));
+	    c = gfc_next_char ();
+	  while (ISDIGIT(c));
 	}
       else
 	{
 	  label_locus = gfc_current_locus;
-
-	  if (gfc_statement_label->value == 0)
-	    {
-	      gfc_warning_now ("Ignoring statement label of zero at %C");
-	      gfc_free_st_label (gfc_statement_label);
-	      gfc_statement_label = NULL;
-	    }
 
 	  gfc_gobble_whitespace ();
 
@@ -967,6 +962,28 @@ gfc_ascii_statement (gfc_statement st)
     }
 
   return p;
+}
+
+
+/* Create a symbol for the main program and assign it to ns->proc_name.  */
+ 
+static void 
+main_program_symbol (gfc_namespace * ns)
+{
+  gfc_symbol *main_program;
+  symbol_attribute attr;
+
+  gfc_get_symbol ("MAIN__", ns, &main_program);
+  gfc_clear_attr (&attr);
+  attr.flavor = FL_PROCEDURE;
+  attr.proc = PROC_UNKNOWN;
+  attr.subroutine = 1;
+  attr.access = ACCESS_PUBLIC;
+  attr.is_main_program = 1;
+  main_program->attr = attr;
+  main_program->declared_at = gfc_current_locus;
+  ns->proc_name = main_program;
+  gfc_commit_symbols ();
 }
 
 
@@ -2590,6 +2607,7 @@ loop:
       prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
+      main_program_symbol(gfc_current_ns);
       accept_statement (st);
       add_global_program ();
       parse_progunit (ST_NONE);
@@ -2631,6 +2649,7 @@ loop:
       prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
+      main_program_symbol(gfc_current_ns);
       parse_progunit (st);
       break;
     }

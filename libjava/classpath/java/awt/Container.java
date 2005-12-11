@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.awt;
 
+import java.awt.event.ComponentListener;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
 import java.awt.event.KeyEvent;
@@ -122,6 +123,7 @@ public class Container extends Component
    */
   public Container()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -394,17 +396,20 @@ public class Container extends Component
               layoutMgr.addLayoutComponent(null, comp);
           }
 
-        if (isShowing ())
-          {
-            // Post event to notify of adding the component.
-            ContainerEvent ce = new ContainerEvent(this,
-                                                   ContainerEvent.COMPONENT_ADDED,
-                                                   comp);
-            getToolkit().getSystemEventQueue().postEvent(ce);
+        // We previously only sent an event when this container is showing.
+        // Also, the event was posted to the event queue. A Mauve test shows
+        // that this event is not delivered using the event queue and it is
+        // also sent when the container is not showing. 
+        ContainerEvent ce = new ContainerEvent(this,
+                                               ContainerEvent.COMPONENT_ADDED,
+                                               comp);
+        ContainerListener[] listeners = getContainerListeners();
+        for (int i = 0; i < listeners.length; i++)
+          listeners[i].componentAdded(ce);
 
-            // Repaint this container.
-            repaint();
-          }
+        // Repaint this container.
+        repaint(comp.getX(), comp.getY(), comp.getWidth(),
+                comp.getHeight());
       }
   }
 
@@ -419,7 +424,12 @@ public class Container extends Component
       {
         Component r = component[index];
 
-        r.removeNotify();
+        ComponentListener[] list = r.getComponentListeners();
+        for (int j = 0; j < list.length; j++)
+              r.removeComponentListener(list[j]);
+        
+        if (r.isShowing())
+          r.removeNotify();
 
         System.arraycopy(component, index + 1, component, index,
                          ncomponents - index - 1);
@@ -730,7 +740,16 @@ public class Container extends Component
    */
   public float getAlignmentX()
   {
-    return super.getAlignmentX();
+    LayoutManager layout = getLayout();
+    float alignmentX = 0.0F;
+    if (layout != null && layout instanceof LayoutManager2)
+      {
+        LayoutManager2 lm2 = (LayoutManager2) layout;
+        alignmentX = lm2.getLayoutAlignmentX(this);
+      }
+    else
+      alignmentX = super.getAlignmentX();
+    return alignmentX;
   }
 
   /**
@@ -742,7 +761,16 @@ public class Container extends Component
    */
   public float getAlignmentY()
   {
-    return super.getAlignmentY();
+    LayoutManager layout = getLayout();
+    float alignmentY = 0.0F;
+    if (layout != null && layout instanceof LayoutManager2)
+      {
+        LayoutManager2 lm2 = (LayoutManager2) layout;
+        alignmentY = lm2.getLayoutAlignmentY(this);
+      }
+    else
+      alignmentY = super.getAlignmentY();
+    return alignmentY;
   }
 
   /**
@@ -820,7 +848,7 @@ public class Container extends Component
    */
   public void paintComponents(Graphics g)
   {
-    super.paint(g);
+    paint(g);
     visitChildren(g, GfxPaintAllVisitor.INSTANCE, true);
   }
 
@@ -1044,6 +1072,53 @@ public class Container extends Component
               return component[i];
           }
 
+        return this;
+      }
+  }
+  
+  /**
+   * Finds the visible child component that contains the specified position.
+   * The top-most child is returned in the case where there is overlap.
+   * If the top-most child is transparent and has no MouseListeners attached,
+   * we discard it and return the next top-most component containing the
+   * specified position.
+   * @param x the x coordinate
+   * @param y the y coordinate
+   * @return null if the <code>this</code> does not contain the position,
+   * otherwise the top-most component (out of this container itself and 
+   * its descendants) meeting the criteria above.
+   */
+  Component findComponentForMouseEventAt(int x, int y)
+  {
+    synchronized (getTreeLock())
+      {
+        if (!contains(x, y))
+          return null;
+
+        for (int i = 0; i < ncomponents; ++i)
+          {
+            // Ignore invisible children...
+            if (!component[i].isVisible())
+              continue;
+
+            int x2 = x - component[i].x;
+            int y2 = y - component[i].y;
+            // We don't do the contains() check right away because
+            // findComponentAt would redundantly do it first thing.
+            if (component[i] instanceof Container)
+              {
+                Container k = (Container) component[i];
+                Component r = k.findComponentForMouseEventAt(x2, y2);
+                if (r != null)
+                  return r;
+              }
+            else if (component[i].contains(x2, y2))
+              return component[i];
+          }
+
+        //don't return transparent components with no MouseListeners
+        if (this.getMouseListeners().length == 0)
+          return null;
         return this;
       }
   }
@@ -1899,6 +1974,7 @@ public class Container extends Component
        */
       protected AccessibleContainerHandler()
       {
+        // Nothing to do here.
       }
 
       /**
@@ -1955,6 +2031,29 @@ class LightweightDispatcher implements Serializable
     eventMask |= l;
   }
 
+  /**
+   * Returns the deepest visible descendent of parent that contains the 
+   * specified location and that is not transparent and MouseListener-less.
+   * @param parent the root component to begin the search
+   * @param x the x coordinate
+   * @param y the y coordinate
+   * @return null if <code>parent</code> doesn't contain the location, 
+   * parent if parent is not a container or has no child that contains the
+   * location, otherwise the appropriate component from the conditions
+   * above.
+   */
+  Component getDeepestComponentForMouseEventAt(Component parent, int x, int y)
+  {
+    if (parent == null || (! parent.contains(x, y)))
+      return null;
+
+    if (! (parent instanceof Container))
+      return parent;
+
+    Container c = (Container) parent;
+    return c.findComponentForMouseEventAt(x, y);
+  }
+  
   Component acquireComponentForMouseEvent(MouseEvent me)
   {
     int x = me.getX ();
@@ -1967,8 +2066,7 @@ class LightweightDispatcher implements Serializable
     Point p = me.getPoint();
     while (candidate == null && parent != null)
       {
-        candidate =
-          AWTUtilities.getDeepestComponentAt(parent, p.x, p.y);
+        candidate = getDeepestComponentForMouseEventAt(parent, p.x, p.y);
         if (candidate == null || (candidate.eventMask & me.getID()) == 0)
           {
             candidate = null;
@@ -2050,14 +2148,12 @@ class LightweightDispatcher implements Serializable
         break;
       }
 
-    if (me.getID() == MouseEvent.MOUSE_RELEASED
-        || me.getID() == MouseEvent.MOUSE_PRESSED && modifiers > 0
+    if (me.getID() == MouseEvent.MOUSE_PRESSED && modifiers > 0
         || me.getID() == MouseEvent.MOUSE_DRAGGED)
       {
         // If any of the following events occur while a button is held down,
         // they should be dispatched to the same component to which the
         // original MOUSE_PRESSED event was dispatched:
-        //   - MOUSE_RELEASED
         //   - MOUSE_PRESSED: another button pressed while the first is held
         //     down
         //   - MOUSE_DRAGGED
@@ -2069,7 +2165,10 @@ class LightweightDispatcher implements Serializable
         // Don't dispatch CLICKED events whose target is not the same as the
         // target for the original PRESSED event.
         if (candidate != pressedComponent)
-          mouseEventTarget = null;
+          {
+            mouseEventTarget = null;
+            pressCount = 0;
+          }
         else if (pressCount == 0)
           pressedComponent = null;
       }
@@ -2104,7 +2203,10 @@ class LightweightDispatcher implements Serializable
                 // there is a CLICKED event after this, it will do clean up.
                 if (--pressCount == 0
                     && mouseEventTarget != pressedComponent)
-                  pressedComponent = null;
+                  {
+                    pressedComponent = null;
+                    pressCount = 0;
+                  }
                 break;
               }
 

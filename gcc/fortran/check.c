@@ -450,8 +450,21 @@ gfc_check_a_p (gfc_expr * a, gfc_expr * p)
   if (int_or_real_check (a, 0) == FAILURE)
     return FAILURE;
 
-  if (same_type_check (a, 0, p, 1) == FAILURE)
-    return FAILURE;
+  if (a->ts.type != p->ts.type)
+    {
+      gfc_error ("'%s' and '%s' arguments of '%s' intrinsic at %L must "
+                "have the same type", gfc_current_intrinsic_arg[0],
+                gfc_current_intrinsic_arg[1], gfc_current_intrinsic,
+                &p->where);
+      return FAILURE;
+    }
+
+  if (a->ts.kind != p->ts.kind)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
+                          &p->where) == FAILURE)
+       return FAILURE;
+    }
 
   return SUCCESS;
 }
@@ -464,10 +477,13 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
   int i;
   try t;
 
-  if (variable_check (pointer, 0) == FAILURE)
-    return FAILURE;
+  if (pointer->expr_type == EXPR_VARIABLE)
+    attr = gfc_variable_attr (pointer, NULL);
+  else if (pointer->expr_type == EXPR_FUNCTION)
+    attr = pointer->symtree->n.sym->attr;
+  else
+    gcc_assert (0); /* Pointer must be a variable or a function.  */
 
-  attr = gfc_variable_attr (pointer, NULL);
   if (!attr.pointer)
     {
       gfc_error ("'%s' argument of '%s' intrinsic at %L must be a POINTER",
@@ -476,10 +492,10 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
       return FAILURE;
     }
 
+  /* Target argument is optional.  */
   if (target == NULL)
     return SUCCESS;
 
-  /* Target argument is optional.  */
   if (target->expr_type == EXPR_NULL)
     {
       gfc_error ("NULL pointer at %L is not permitted as actual argument "
@@ -488,7 +504,13 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
       return FAILURE;
     }
 
-  attr = gfc_variable_attr (target, NULL);
+  if (target->expr_type == EXPR_VARIABLE)
+    attr = gfc_variable_attr (target, NULL);
+  else if (target->expr_type == EXPR_FUNCTION)
+    attr = target->symtree->n.sym->attr;
+  else
+    gcc_assert (0); /* Target must be a variable or a function.  */
+
   if (!attr.pointer && !attr.target)
     {
       gfc_error ("'%s' argument of '%s' intrinsic at %L must be a POINTER "
@@ -632,6 +654,33 @@ gfc_check_cmplx (gfc_expr * x, gfc_expr * y, gfc_expr * kind)
 
 
 try
+gfc_check_complex (gfc_expr * x, gfc_expr * y)
+{
+  if (x->ts.type != BT_INTEGER && x->ts.type != BT_REAL)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or REAL",
+	gfc_current_intrinsic_arg[0], gfc_current_intrinsic, &x->where);
+      return FAILURE;
+    }
+  if (scalar_check (x, 0) == FAILURE)
+    return FAILURE;
+
+  if (y->ts.type != BT_INTEGER && y->ts.type != BT_REAL)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or REAL",
+	gfc_current_intrinsic_arg[1], gfc_current_intrinsic, &y->where);
+      return FAILURE;
+    }
+  if (scalar_check (y, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_count (gfc_expr * mask, gfc_expr * dim)
 {
   if (logical_array_check (mask, 0) == FAILURE)
@@ -660,6 +709,19 @@ gfc_check_cshift (gfc_expr * array, gfc_expr * shift, gfc_expr * dim)
     }
 
   if (dim_check (dim, 2, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_ctime (gfc_expr * time)
+{
+  if (scalar_check (time, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (time, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1990,6 +2052,64 @@ gfc_check_spread (gfc_expr * source, gfc_expr * dim, gfc_expr * ncopies)
 }
 
 
+/* Functions for checking FGETC, FPUTC, FGET and FPUT (subroutines and
+   functions).  */
+try
+gfc_check_fgetputc_sub (gfc_expr * unit, gfc_expr * c, gfc_expr * status)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (c, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE
+      || kind_value_check (status, 2, gfc_default_integer_kind) == FAILURE
+      || scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fgetputc (gfc_expr * unit, gfc_expr * c)
+{
+  return gfc_check_fgetputc_sub (unit, c, NULL);
+}
+
+
+try
+gfc_check_fgetput_sub (gfc_expr * c, gfc_expr * status)
+{
+  if (type_check (c, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 1, BT_INTEGER) == FAILURE
+      || kind_value_check (status, 1, gfc_default_integer_kind) == FAILURE
+      || scalar_check (status, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fgetput (gfc_expr * c)
+{
+  return gfc_check_fgetput_sub (c, NULL);
+}
+
+
 try
 gfc_check_fstat (gfc_expr * unit, gfc_expr * array)
 {
@@ -2034,6 +2154,38 @@ gfc_check_fstat_sub (gfc_expr * unit, gfc_expr * array, gfc_expr * status)
     return FAILURE;
 
   if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_ftell (gfc_expr * unit)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_ftell_sub (gfc_expr * unit, gfc_expr * offset)
+{
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (offset, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (offset, 1) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2179,6 +2331,19 @@ gfc_check_trim (gfc_expr * x)
     return FAILURE;
 
    return SUCCESS;
+}
+
+
+try
+gfc_check_ttynam (gfc_expr * unit)
+{
+  if (scalar_check (unit, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (unit, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
 }
 
 
@@ -2527,6 +2692,21 @@ gfc_check_srand (gfc_expr * x)
 }
 
 try
+gfc_check_ctime_sub (gfc_expr * time, gfc_expr * result)
+{
+  if (scalar_check (time, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (time, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (result, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+try
 gfc_check_etime (gfc_expr * x)
 {
   if (array_check (x, 0) == FAILURE)
@@ -2572,6 +2752,16 @@ gfc_check_etime_sub (gfc_expr * values, gfc_expr * time)
     return FAILURE;
 
   if (kind_value_check(time, 1, 4) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_fdate_sub (gfc_expr * date)
+{
+  if (type_check (date, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2867,6 +3057,45 @@ gfc_check_system_sub (gfc_expr * cmd, gfc_expr * status)
     return FAILURE;
 
   if (kind_value_check (status, 1, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* This is used for the GNU intrinsics AND, OR and XOR.  */
+try
+gfc_check_and (gfc_expr * i, gfc_expr * j)
+{
+  if (i->ts.type != BT_INTEGER && i->ts.type != BT_LOGICAL)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or LOGICAL",
+	gfc_current_intrinsic_arg[0], gfc_current_intrinsic, &i->where);
+      return FAILURE;
+    }
+
+  if (j->ts.type != BT_INTEGER && j->ts.type != BT_LOGICAL)
+    {
+      gfc_error (
+	"'%s' argument of '%s' intrinsic at %L must be INTEGER or LOGICAL",
+	gfc_current_intrinsic_arg[1], gfc_current_intrinsic, &j->where);
+      return FAILURE;
+    }
+
+  if (i->ts.type != j->ts.type)
+    {
+      gfc_error ("'%s' and '%s' arguments of '%s' intrinsic at %L must "
+		 "have the same type", gfc_current_intrinsic_arg[0],
+		 gfc_current_intrinsic_arg[1], gfc_current_intrinsic,
+		 &j->where);
+      return FAILURE;
+    }
+
+  if (scalar_check (i, 0) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (j, 1) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

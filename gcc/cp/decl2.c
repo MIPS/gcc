@@ -2301,7 +2301,7 @@ get_priority_info (int priority)
     {
       /* Create a new priority information structure, and insert it
 	 into the map.  */
-      pi = xmalloc (sizeof (struct priority_info_s));
+      pi = XNEW (struct priority_info_s);
       pi->initializations_p = 0;
       pi->destructions_p = 0;
       splay_tree_insert (priority_info_map,
@@ -2320,7 +2320,7 @@ get_priority_info (int priority)
 	((!DECL_HAS_INIT_PRIORITY_P (decl) || DECL_INIT_PRIORITY (decl) == 0) \
 	 ? DEFAULT_INIT_PRIORITY : DECL_INIT_PRIORITY (decl))
 
-/* Wether a DECL needs a guard to protect it against multiple
+/* Whether a DECL needs a guard to protect it against multiple
    initialization.  */
 
 #define NEEDS_GUARD_P(decl) (TREE_PUBLIC (decl) && (DECL_COMMON (decl)      \
@@ -3062,8 +3062,6 @@ cp_finish_file (void)
     {
       if (/* Check online inline functions that were actually used.  */
 	  TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
-	  /* But not defined.  */
-	  && DECL_REALLY_EXTERN (decl)
 	  /* If the definition actually was available here, then the
 	     fact that the function was not defined merely represents
 	     that for some reason (use of a template repository,
@@ -3076,10 +3074,8 @@ cp_finish_file (void)
 	  && !DECL_EXPLICIT_INSTANTIATION (decl))
 	{
 	  warning (0, "inline function %q+D used but never defined", decl);
-	  /* This symbol is effectively an "extern" declaration now.
-	     This is not strictly necessary, but removes a duplicate
-	     warning.  */
-	  TREE_PUBLIC (decl) = 1;
+	  /* Avoid a duplicate warning from check_global_declaration_1.  */
+	  TREE_NO_WARNING (decl) = 1;
 	}
     }
 

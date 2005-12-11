@@ -11204,6 +11204,17 @@ lookup_method_invoke (int lc, tree cl, tree class, tree name, tree arg_list)
       /* And promoted */
       if (TREE_CODE (current_arg) == RECORD_TYPE)
         current_arg = promote_type (current_arg);
+      /* If we're building an anonymous constructor call, and one of
+	 the arguments has array type, cast it to a size-less array
+	 type.  This prevents us from getting a strange gcj-specific
+	 "sized array" signature in the constructor's signature.  */
+      if (lc && ANONYMOUS_CLASS_P (class)
+	  && TREE_CODE (current_arg) == POINTER_TYPE
+	  && TYPE_ARRAY_P (TREE_TYPE (current_arg)))
+	{
+	  tree elt = TYPE_ARRAY_ELEMENT (TREE_TYPE (current_arg));
+	  current_arg = build_pointer_type (build_java_array_type (elt, -1));
+	}
       atl = tree_cons (NULL_TREE, current_arg, atl);
     }
 

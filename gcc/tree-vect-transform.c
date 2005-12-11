@@ -301,7 +301,7 @@ vect_create_data_ref_ptr (tree stmt,
 
   /* If tag is a variable (and NOT_A_TAG) than a new type alias
      tag must be created with tag added to its may alias list.  */
-  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+  if (!MTAG_P (tag))
     new_type_alias (vect_ptr, tag);
   else
     var_ann (vect_ptr)->type_mem_tag = tag;
@@ -2019,8 +2019,8 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Arguments are ready. create the new vector stmt.  */
   vec_compare = build2 (TREE_CODE (cond_expr), vectype, 
 			vec_cond_lhs, vec_cond_rhs);
-  vec_cond_expr = build (VEC_COND_EXPR, vectype, 
-			 vec_compare, vec_then_clause, vec_else_clause);
+  vec_cond_expr = build3 (VEC_COND_EXPR, vectype, 
+			  vec_compare, vec_then_clause, vec_else_clause);
 
   *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_cond_expr);
   new_temp = make_ssa_name (vec_dest, *vec_stmt);

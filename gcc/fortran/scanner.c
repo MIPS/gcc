@@ -159,18 +159,22 @@ gfc_release_include_path (void)
 }
 
 /* Opens file for reading, searching through the include directories
-   given if necessary.  */
+   given if necessary.  If the include_cwd argument is true, we try
+   to open the file in the current directory first.  */
 
 FILE *
-gfc_open_included_file (const char *name)
+gfc_open_included_file (const char *name, const bool include_cwd)
 {
   char *fullname;
   gfc_directorylist *p;
   FILE *f;
 
-  f = gfc_open_file (name);
-  if (f != NULL)
-    return f;
+  if (include_cwd)
+    {
+      f = gfc_open_file (name);
+      if (f != NULL)
+	return f;
+    }
 
   for (p = include_dirs; p; p = p->next)
     {
@@ -690,7 +694,7 @@ gfc_gobble_whitespace (void)
    In fixed mode, we expand a tab that occurs within the statement
    label region to expand to spaces that leave the next character in
    the source region.
-   load_line returns wether the line was truncated.  */
+   load_line returns whether the line was truncated.  */
 
 static int
 load_line (FILE * input, char **pbuf, int *pbuflen)
@@ -699,11 +703,25 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
   int trunc_flag = 0;
   char *buffer;
 
-  /* Determine the maximum allowed line length.  */
+  /* Determine the maximum allowed line length.
+     The default for free-form is GFC_MAX_LINE, for fixed-form or for
+     unknown form it is 72. Refer to the documentation in gfc_option_t.  */
   if (gfc_current_form == FORM_FREE)
-    maxlen = GFC_MAX_LINE;
+    {
+      if (gfc_option.free_line_length == -1)
+	maxlen = GFC_MAX_LINE;
+      else
+	maxlen = gfc_option.free_line_length;
+    }
+  else if (gfc_current_form == FORM_FIXED)
+    {
+      if (gfc_option.fixed_line_length == -1)
+	maxlen = 72;
+      else
+	maxlen = gfc_option.fixed_line_length;
+    }
   else
-    maxlen = gfc_option.fixed_line_length;
+    maxlen = 72;
 
   if (*pbuf == NULL)
     {
@@ -774,7 +792,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 	    }
 	}
       else if (i >= maxlen)
-	{			
+	{
 	  /* Truncate the rest of the line.  */
 	  for (;;)
 	    {
@@ -1034,7 +1052,7 @@ load_file (const char *filename, bool initial)
     }
   else
     {
-      input = gfc_open_included_file (filename);
+      input = gfc_open_included_file (filename, false);
       if (input == NULL)
 	{
 	  gfc_error_now ("Can't open included file '%s'", filename);
@@ -1051,7 +1069,7 @@ load_file (const char *filename, bool initial)
   line = NULL;
   line_len = 0;
 
-  for (;;) 
+  for (;;)
     {
       int trunc = load_line (input, &line, &line_len);
 

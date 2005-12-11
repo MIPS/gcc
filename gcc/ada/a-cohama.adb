@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -438,18 +438,10 @@ package body Ada.Containers.Hashed_Maps is
       --------------
 
       function New_Node (Next : Node_Access) return Node_Access is
-         Node : Node_Access := new Node_Type; --  Ada 2005 aggregate possible?
-
       begin
-         Node.Key := Key;
-         Node.Next := Next;
-
-         return Node;
-
-      exception
-         when others =>
-            Free (Node);
-            raise;
+         return new Node_Type'(Key     => Key,
+                               Element => <>,
+                               Next    => Next);
       end New_Node;
 
       HT : Hash_Table_Type renames Container.HT;
@@ -490,9 +482,8 @@ package body Ada.Containers.Hashed_Maps is
       --------------
 
       function New_Node (Next : Node_Access) return Node_Access is
-         Node : constant Node_Access := new Node_Type'(Key, New_Item, Next);
       begin
-         return Node;
+         return new Node_Type'(Key, New_Item, Next);
       end New_Node;
 
       HT : Hash_Table_Type renames Container.HT;
@@ -624,6 +615,7 @@ package body Ada.Containers.Hashed_Maps is
       declare
          HT   : Hash_Table_Type renames Position.Container.HT;
          Node : constant Node_Access := HT_Ops.Next (HT, Position.Node);
+
       begin
          if Node = null then
             return No_Element;
@@ -695,6 +687,14 @@ package body Ada.Containers.Hashed_Maps is
       Read_Nodes (Stream, Container.HT);
    end Read;
 
+   procedure Read
+     (Stream : access Root_Stream_Type'Class;
+      Item   : out Cursor)
+   is
+   begin
+      raise Program_Error;
+   end Read;
+
    ---------------
    -- Read_Node --
    ---------------
@@ -743,7 +743,11 @@ package body Ada.Containers.Hashed_Maps is
    -- Replace_Element --
    ---------------------
 
-   procedure Replace_Element (Position : Cursor; By : Element_Type) is
+   procedure Replace_Element
+     (Container : in out Map;
+      Position  : Cursor;
+      New_Item  : Element_Type)
+   is
    begin
       pragma Assert (Vet (Position), "bad cursor in Replace_Element");
 
@@ -751,11 +755,15 @@ package body Ada.Containers.Hashed_Maps is
          raise Constraint_Error;
       end if;
 
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error;
+      end if;
+
       if Position.Container.HT.Lock > 0 then
          raise Program_Error;
       end if;
 
-      Position.Node.Element := By;
+      Position.Node.Element := New_Item;
    end Replace_Element;
 
    ----------------------
@@ -784,9 +792,10 @@ package body Ada.Containers.Hashed_Maps is
    --------------------
 
    procedure Update_Element
-     (Position : Cursor;
-      Process  : not null access procedure (Key     : Key_Type;
-                                            Element : in out Element_Type))
+     (Container : in out Map;
+      Position  : Cursor;
+      Process   : not null access procedure (Key     : Key_Type;
+                                             Element : in out Element_Type))
    is
    begin
       pragma Assert (Vet (Position), "bad cursor in Update_Element");
@@ -795,12 +804,14 @@ package body Ada.Containers.Hashed_Maps is
          raise Constraint_Error;
       end if;
 
-      declare
-         M  : Map renames Position.Container.all;
-         HT : Hash_Table_Type renames M.HT'Unrestricted_Access.all;
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error;
+      end if;
 
-         B : Natural renames HT.Busy;
-         L : Natural renames HT.Lock;
+      declare
+         HT : Hash_Table_Type renames Container.HT;
+         B  : Natural renames HT.Busy;
+         L  : Natural renames HT.Lock;
 
       begin
          B := B + 1;
@@ -809,7 +820,6 @@ package body Ada.Containers.Hashed_Maps is
          declare
             K : Key_Type renames Position.Node.Key;
             E : Element_Type renames Position.Node.Element;
-
          begin
             Process (K, E);
          exception
@@ -889,6 +899,14 @@ package body Ada.Containers.Hashed_Maps is
    is
    begin
       Write_Nodes (Stream, Container.HT);
+   end Write;
+
+   procedure Write
+     (Stream : access Root_Stream_Type'Class;
+      Item   : Cursor)
+   is
+   begin
+      raise Program_Error;
    end Write;
 
    ----------------

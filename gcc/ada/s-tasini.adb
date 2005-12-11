@@ -127,13 +127,6 @@ package body System.Tasking.Initialization is
    -- Tasking Initialization --
    ----------------------------
 
-   procedure Gnat_Install_Locks (Lock, Unlock : SSL.No_Param_Proc);
-   pragma Import (C, Gnat_Install_Locks, "__gnatlib_install_locks");
-   --  Used by Init_RTS to install procedure Lock and Unlock for the
-   --  thread locking. This has no effect on GCC 2. For GCC 3,
-   --  it has an effect only if gcc is configured with
-   --  --enable_threads=gnat.
-
    procedure Init_RTS;
    --  This procedure completes the initialization of the GNARL. The first
    --  part of the initialization is done in the body of System.Tasking.
@@ -330,7 +323,7 @@ package body System.Tasking.Initialization is
 
    procedure Final_Task_Unlock (Self_ID : Task_Id) is
    begin
-      pragma Assert (Self_ID.Global_Task_Lock_Nesting = 1);
+      pragma Assert (Self_ID.Common.Global_Task_Lock_Nesting = 1);
       Unlock (Global_Task_Lock'Access, Global_Lock => True);
    end Final_Task_Unlock;
 
@@ -391,10 +384,6 @@ package body System.Tasking.Initialization is
       --  to the full and the restricted run times.
 
       SSL.Tasking.Init_Tasking_Soft_Links;
-
-      --  Install tasking locks in the GCC runtime
-
-      Gnat_Install_Locks (Task_Lock'Access, Task_Unlock'Access);
 
       --  Abort is deferred in a new ATCB, so we need to undefer abort
       --  at this stage to make the environment task abortable.
@@ -635,9 +624,10 @@ package body System.Tasking.Initialization is
 
    procedure Task_Lock (Self_ID : Task_Id) is
    begin
-      Self_ID.Global_Task_Lock_Nesting := Self_ID.Global_Task_Lock_Nesting + 1;
+      Self_ID.Common.Global_Task_Lock_Nesting :=
+        Self_ID.Common.Global_Task_Lock_Nesting + 1;
 
-      if Self_ID.Global_Task_Lock_Nesting = 1 then
+      if Self_ID.Common.Global_Task_Lock_Nesting = 1 then
          Defer_Abort_Nestable (Self_ID);
          Write_Lock (Global_Task_Lock'Access, Global_Lock => True);
       end if;
@@ -665,10 +655,11 @@ package body System.Tasking.Initialization is
 
    procedure Task_Unlock (Self_ID : Task_Id) is
    begin
-      pragma Assert (Self_ID.Global_Task_Lock_Nesting > 0);
-      Self_ID.Global_Task_Lock_Nesting := Self_ID.Global_Task_Lock_Nesting - 1;
+      pragma Assert (Self_ID.Common.Global_Task_Lock_Nesting > 0);
+      Self_ID.Common.Global_Task_Lock_Nesting :=
+        Self_ID.Common.Global_Task_Lock_Nesting - 1;
 
-      if Self_ID.Global_Task_Lock_Nesting = 0 then
+      if Self_ID.Common.Global_Task_Lock_Nesting = 0 then
          Unlock (Global_Task_Lock'Access, Global_Lock => True);
          Undefer_Abort_Nestable (Self_ID);
       end if;

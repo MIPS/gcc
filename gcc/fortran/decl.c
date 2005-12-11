@@ -203,24 +203,19 @@ var_element (gfc_data_variable * new)
 
   sym = new->expr->symtree->n.sym;
 
-  if(sym->value != NULL)
+  if (!sym->attr.function && gfc_current_ns->parent && gfc_current_ns->parent == sym->ns)
     {
-      gfc_error ("Variable '%s' at %C already has an initialization",
-		 sym->name);
+      gfc_error ("Host associated variable '%s' may not be in the DATA "
+		 "statement at %C.", sym->name);
       return MATCH_ERROR;
     }
 
-#if 0 /* TODO: Find out where to move this message */
-  if (sym->attr.in_common)
-    /* See if sym is in the blank common block.  */
-    for (t = &sym->ns->blank_common; t; t = t->common_next)
-      if (sym == t->head)
-	{
-	  gfc_error ("DATA statement at %C may not initialize variable "
-		     "'%s' from blank COMMON", sym->name);
-	  return MATCH_ERROR;
-	}
-#endif
+  if (gfc_current_state () != COMP_BLOCK_DATA
+	&& sym->attr.in_common
+	&& gfc_notify_std (GFC_STD_GNU, "Extension: initialization of "
+			   "common block variable '%s' in DATA statement at %C",
+			   sym->name) == FAILURE)
+    return MATCH_ERROR;
 
   if (gfc_add_data (&sym->attr, sym->name, &new->expr->where) == FAILURE)
     return MATCH_ERROR;
@@ -702,7 +697,7 @@ gfc_set_constant_character_len (int len, gfc_expr * expr)
 }
 
 
-/* Function to create and update the enumumerator history 
+/* Function to create and update the enumerator history 
    using the information passed as arguments.
    Pointer "max_enum" is also updated, to point to 
    enum history node containing largest initializer.  
@@ -1284,6 +1279,7 @@ match
 gfc_match_old_kind_spec (gfc_typespec * ts)
 {
   match m;
+  int original_kind;
 
   if (gfc_match_char ('*') != MATCH_YES)
     return MATCH_NO;
@@ -1292,17 +1288,24 @@ gfc_match_old_kind_spec (gfc_typespec * ts)
   if (m != MATCH_YES)
     return MATCH_ERROR;
 
+  original_kind = ts->kind;
+
   /* Massage the kind numbers for complex types.  */
-  if (ts->type == BT_COMPLEX && ts->kind == 8)
-    ts->kind = 4;
-  if (ts->type == BT_COMPLEX && ts->kind == 16)
-    ts->kind = 8;
+  if (ts->type == BT_COMPLEX)
+    {
+      if (ts->kind % 2)
+        {
+          gfc_error ("Old-style type declaration %s*%d not supported at %C",
+                     gfc_basic_typename (ts->type), original_kind);
+          return MATCH_ERROR;
+        }
+      ts->kind /= 2;
+    }
 
   if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
-      gfc_error ("Old-style kind %d not supported for type %s at %C",
-		 ts->kind, gfc_basic_typename (ts->type));
-
+      gfc_error ("Old-style type declaration %s*%d not supported at %C",
+                 gfc_basic_typename (ts->type), original_kind);
       return MATCH_ERROR;
     }
 
@@ -1982,7 +1985,7 @@ match_attr_spec (void)
 	}
     }
 
-  /* If we are parsing an enumeration and have enusured that no other
+  /* If we are parsing an enumeration and have ensured that no other
      attributes are present we can now set the parameter attribute.  */
   if (gfc_current_state () == COMP_ENUM)
     {
@@ -2603,6 +2606,7 @@ gfc_match_entry (void)
   gfc_compile_state state;
   match m;
   gfc_entry_list *el;
+  locus old_loc;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
@@ -2690,8 +2694,26 @@ gfc_match_entry (void)
     }
   else
     {
-      /* An entry in a function.  */
-      m = gfc_match_formal_arglist (entry, 0, 1);
+      /* An entry in a function.
+         We need to take special care because writing
+            ENTRY f()
+         as
+            ENTRY f
+         is allowed, whereas
+            ENTRY f() RESULT (r)
+         can't be written as
+            ENTRY f RESULT (r).  */
+      old_loc = gfc_current_locus;
+      if (gfc_match_eos () == MATCH_YES)
+	{
+	  gfc_current_locus = old_loc;
+	  /* Match the empty argument list, and add the interface to
+	     the symbol.  */
+	  m = gfc_match_formal_arglist (entry, 0, 1);
+	}
+      else
+	m = gfc_match_formal_arglist (entry, 0, 0);
+
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 

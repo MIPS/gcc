@@ -233,6 +233,9 @@ namespace gcj
   
   /* When true, enable the bytecode verifier and BC-ABI verification. */
   extern bool verifyClasses;
+
+  /* Thread stack size specified by the -Xss runtime argument. */
+  extern size_t stack_size;
 }
 
 // This class handles all aspects of class preparation and linking.
@@ -363,6 +366,10 @@ void _Jv_SetMaximumHeapSize (const char *arg);
    during thread deregistration.  */
 void _Jv_FreeMethodCache ();
 
+/* Set the stack size for threads.  Parses ARG, a number which can 
+   optionally have "k" or "m" appended.  */
+void _Jv_SetStackSize (const char *arg);
+
 extern "C" void JvRunMain (jclass klass, int argc, const char **argv);
 void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
 		  bool is_jar);
@@ -435,6 +442,10 @@ extern "C" void _Jv_ThrowBadArrayIndex (jint bad_index)
   __attribute__((noreturn));
 extern "C" void _Jv_ThrowNullPointerException (void)
   __attribute__((noreturn));
+extern "C" void _Jv_ThrowNoSuchMethodError (void)
+  __attribute__((noreturn));
+extern "C" void _Jv_ThrowNoSuchFieldError (int)
+  __attribute__((noreturn));
 extern "C" jobject _Jv_NewArray (jint type, jint size)
   __attribute__((__malloc__));
 extern "C" jobject _Jv_NewMultiArray (jclass klass, jint dims, ...)
@@ -451,6 +462,8 @@ extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 					     size_t count);
 extern "C" void _Jv_RegisterResource (void *vptr);
 extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
+
+extern "C" jobject _Jv_UnwrapJNIweakReference (jobject);
 
 extern jclass _Jv_FindClass (_Jv_Utf8Const *name,
 			     java::lang::ClassLoader *loader);

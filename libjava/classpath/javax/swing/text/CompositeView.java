@@ -62,7 +62,7 @@ public abstract class CompositeView
   /**
    * The allocation of this <code>View</code> minus its insets. This is
    * initialized in {@link #getInsideAllocation} and reused and modified in
-   * {@link childAllocation}.
+   * {@link #childAllocation(int, Rectangle)}.
    */
   Rectangle insideAllocation;
 
@@ -221,20 +221,17 @@ public abstract class CompositeView
     if (childIndex != -1)
       {
         View child = getView(childIndex);
-        Shape result = child.modelToView(pos, a, bias);
+        Rectangle r = a.getBounds();
+        childAllocation(childIndex, r);
+        Shape result = child.modelToView(pos, r, bias);
         if (result == null)
           throw new AssertionError("" + child.getClass().getName()
                                    + ".modelToView() must not return null");
         return result;
       }
     else
-      {
-        // FIXME: Handle the case when we have no child view for the given
-        // position.
-        throw new AssertionError("No child views found where child views are "
-                                 + "expected. pos = " + pos + ", bias = "
-                                 + bias);
-      }
+      throw new BadLocationException("No child view for the specified location",
+                                     pos);
   }
 
   /**
@@ -267,53 +264,60 @@ public abstract class CompositeView
    * Maps coordinates from the <code>View</code>'s space into a position
    * in the document model.
    *
-   * @param x the x coordinate in the view space
-   * @param y the y coordinate in the view space
+   * @param x the x coordinate in the view space, x >= 0
+   * @param y the y coordinate in the view space, y >= 0
    * @param a the allocation of this <code>View</code>
    * @param b the bias to use
    *
    * @return the position in the document that corresponds to the screen
-   *         coordinates <code>x, y</code>
+   *         coordinates <code>x, y</code> >= 0
    */
   public int viewToModel(float x, float y, Shape a, Position.Bias[] b)
   {
-    Rectangle r = getInsideAllocation(a);
-    View view = getViewAtPoint((int) x, (int) y, r);
-    return view.viewToModel(x, y, a, b);
+    if (x >= 0 && y >= 0)
+      {
+        Rectangle r = getInsideAllocation(a);
+        View view = getViewAtPoint((int) x, (int) y, r);
+        return view.viewToModel(x, y, a, b);
+      }
+    return 0;
   }
 
   /**
    * Returns the next model location that is visible in eiter north / south
-   * direction or east / west direction. This is used to determine the
-   * placement of the caret when navigating around the document with
-   * the arrow keys.
-   *
-   * This is a convenience method for
-   * {@link #getNextNorthSouthVisualPositionFrom} and
-   * {@link #getNextEastWestVisualPositionFrom}.
-   *
-   * @param pos the model position to start search from
-   * @param b the bias for <code>pos</code>
-   * @param a the allocated region for this view
-   * @param direction the direction from the current position, can be one of
-   *        the following:
-   *        <ul>
-   *        <li>{@link SwingConstants#WEST}</li>
-   *        <li>{@link SwingConstants#EAST}</li>
-   *        <li>{@link SwingConstants#NORTH}</li>
-   *        <li>{@link SwingConstants#SOUTH}</li>
-   *        </ul>
-   * @param biasRet the bias of the return value gets stored here
-   *
+   * direction or east / west direction. This is used to determine the placement
+   * of the caret when navigating around the document with the arrow keys. This
+   * is a convenience method for {@link #getNextNorthSouthVisualPositionFrom}
+   * and {@link #getNextEastWestVisualPositionFrom}.
+   * 
+   * @param pos
+   *          the model position to start search from
+   * @param b
+   *          the bias for <code>pos</code>
+   * @param a
+   *          the allocated region for this view
+   * @param direction
+   *          the direction from the current position, can be one of the
+   *          following:
+   *          <ul>
+   *          <li>{@link SwingConstants#WEST}</li>
+   *          <li>{@link SwingConstants#EAST}</li>
+   *          <li>{@link SwingConstants#NORTH}</li>
+   *          <li>{@link SwingConstants#SOUTH}</li>
+   *          </ul>
+   * @param biasRet
+   *          the bias of the return value gets stored here
    * @return the position inside the model that represents the next visual
    *         location
-   *
-   * @throws BadLocationException if <code>pos</code> is not a valid location
-   *         inside the document model
-   * @throws IllegalArgumentException if <code>direction</code> is invalid
+   * @throws BadLocationException
+   *           if <code>pos</code> is not a valid location inside the document
+   *           model
+   * @throws IllegalArgumentException
+   *           if <code>direction</code> is invalid
    */
   public int getNextVisualPositionFrom(int pos, Position.Bias b, Shape a,
                                        int direction, Position.Bias[] biasRet)
+    throws BadLocationException
   {
     int retVal = -1;
     switch (direction)
@@ -433,10 +437,16 @@ public abstract class CompositeView
    */
   protected int getViewIndexAtPosition(int pos)
   {
-    // We have one child view allocated for each child element in
-    // loadChildren(), so this should work.
-    Element el = getElement();
-    int index = el.getElementIndex(pos);
+    int index = -1;
+    for (int i = 0; i < children.length; i++)
+      {
+        if (children[i].getStartOffset() <= pos
+            && children[i].getEndOffset() > pos)
+          {
+            index = i;
+            break;
+          }
+      }
     return index;
   }
 
@@ -473,8 +483,8 @@ public abstract class CompositeView
             insideAllocation = inside;
           }
       }
-    inside.x = alloc.x - insets.left;
-    inside.y = alloc.y - insets.top;
+    inside.x = alloc.x + insets.left;
+    inside.y = alloc.y + insets.top;
     inside.width = alloc.width - insets.left - insets.right;
     inside.height = alloc.height - insets.top - insets.bottom;
     return inside;
@@ -594,6 +604,7 @@ public abstract class CompositeView
   protected int getNextNorthSouthVisualPositionFrom(int pos, Position.Bias b,
                                                     Shape a, int direction,
                                                     Position.Bias[] biasRet)
+    throws BadLocationException
   {
     // FIXME: Implement this correctly.
     return pos;
@@ -627,6 +638,7 @@ public abstract class CompositeView
   protected int getNextEastWestVisualPositionFrom(int pos, Position.Bias b,
                                                   Shape a, int direction,
                                                   Position.Bias[] biasRet)
+    throws BadLocationException
   {
     // FIXME: Implement this correctly.
     return pos;
@@ -648,5 +660,35 @@ public abstract class CompositeView
   protected boolean flipEastAndWestAtEnds(int pos, Position.Bias bias)
   {
     return false;
+  }
+
+  /**
+   * Returns the document position that is (visually) nearest to the given
+   * document position <code>pos</code> in the given direction <code>d</code>.
+   *
+   * @param c the text component
+   * @param pos the document position
+   * @param b the bias for <code>pos</code>
+   * @param d the direction, must be either {@link SwingConstants#NORTH},
+   *        {@link SwingConstants#SOUTH}, {@link SwingConstants#WEST} or
+   *        {@link SwingConstants#EAST}
+   * @param biasRet an array of {@link Position.Bias} that can hold at least
+   *        one element, which is filled with the bias of the return position
+   *        on method exit
+   *
+   * @return the document position that is (visually) nearest to the given
+   *         document position <code>pos</code> in the given direction
+   *         <code>d</code>
+   *
+   * @throws BadLocationException if <code>pos</code> is not a valid offset in
+   *         the document model
+   */
+  public int getNextVisualPositionFrom(JTextComponent c, int pos,
+                                       Position.Bias b, int d,
+                                       Position.Bias[] biasRet)
+    throws BadLocationException
+  {
+    // TODO: Implement this properly.
+    throw new AssertionError("Not implemented yet.");
   }
 }

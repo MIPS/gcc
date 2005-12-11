@@ -15,10 +15,10 @@ public:
 
 class B
 {
-  A a __attribute__((packed));
+  A a __attribute__((packed)); // { dg-warning "attribute ignored" "" { target default_packed } }
 
 public:
   B() {}
-  A GetA() { return a; } // { dg-error "" }
+  A GetA() { return a; } // { dg-error "" "" { target { ! default_packed } } }
 };
 

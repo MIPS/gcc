@@ -211,6 +211,7 @@ Laurynas Biveinis			        laurynas.biveinis@mif.vu.lt
 Uros Bizjak					uros@kss-loka.si
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
+Janne Blomqvist					jb@gcc.gnu.org
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Segher Boessenkool				segher@kernel.crashing.org
@@ -235,6 +236,7 @@ David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
 Jerry DeLisle					jvdelisle@verizon.net
 Zdenek Dvorak					dvorakz@suse.cz
+Erik Edelmann                                   erik.edelmann@iki.fi
 Steve Ellcey					sje@cup.hp.com
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
@@ -272,6 +274,7 @@ Andreas Krebbel					krebbel1@de.ibm.com
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Razya Ladelsky					razya@gcc.gnu.org
 Aaron W. LaFramboise				aaronavay62@aaronwl.com
+Terry Laurenzo					tlaurenzo@gmail.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
 James Lemke					jim@wasabisystems.com
@@ -291,7 +294,7 @@ Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
 Dorit Naishlos                                  dorit@il.ibm.com
-Adam Nemet					anemet@lnxw.com
+Adam Nemet					anemet@caviumnetworks.com
 Dan Nicolaescu					dann@ics.uci.edu
 David O'Brien					obrien@FreeBSD.org
 Turly O'Connor					turly@apple.com
@@ -316,6 +319,7 @@ Matthew Sachs					msachs@apple.com
 Alex Samuel					samuel@codesourcery.com
 Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Svein Seldal                                    svein@dev.seldal.com
+Thiemo Seufer					ths@networkno.de
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org

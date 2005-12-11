@@ -520,6 +520,7 @@ static tree handle_section_attribute (tree *, tree, tree, int, bool *);
 static tree handle_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_alias_attribute (tree *, tree, tree, int, bool *);
+static tree handle_weakref_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_visibility_attribute (tree *, tree, tree, int,
 					 bool *);
 static tree handle_tls_model_attribute (tree *, tree, tree, int,
@@ -599,6 +600,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_weak_attribute },
   { "alias",                  1, 1, true,  false, false,
 			      handle_alias_attribute },
+  { "weakref",                0, 1, true,  false, false,
+			      handle_weakref_attribute },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute },
   { "malloc",                 0, 0, true,  false, false,
@@ -948,6 +951,42 @@ unsigned_conversion_warning (tree result, tree operand)
       else
 	warning (OPT_Wconversion,
 		 "negative integer implicitly converted to unsigned type");
+    }
+}
+
+/* Print a warning about casts that might indicate violation
+   of strict aliasing rules if -Wstrict-aliasing is used and
+   strict aliasing mode is in effect. otype is the original
+   TREE_TYPE of expr, and type the type we're casting to. */
+
+void
+strict_aliasing_warning(tree otype, tree type, tree expr)
+{
+  if (flag_strict_aliasing && warn_strict_aliasing
+      && POINTER_TYPE_P (type) && POINTER_TYPE_P (otype)
+      && TREE_CODE (expr) == ADDR_EXPR
+      && (DECL_P (TREE_OPERAND (expr, 0))
+          || handled_component_p (TREE_OPERAND (expr, 0)))
+      && !VOID_TYPE_P (TREE_TYPE (type)))
+    {
+      /* Casting the address of an object to non void pointer. Warn
+         if the cast breaks type based aliasing.  */
+      if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
+        warning (OPT_Wstrict_aliasing, "type-punning to incomplete type "
+                 "might break strict-aliasing rules");
+      else
+        {
+          HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
+          HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
+
+          if (!alias_sets_conflict_p (set1, set2))
+            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+                     "pointer will break strict-aliasing rules");
+          else if (warn_strict_aliasing > 1
+                  && !alias_sets_might_conflict_p (set1, set2))
+            warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
+                     "pointer might break strict-aliasing rules");
+        }
     }
 }
 
@@ -1823,8 +1862,7 @@ min_precision (tree value, int unsignedp)
 }
 
 /* Print an error message for invalid operands to arith operation
-   CODE.  NOP_EXPR is used as a special case (see
-   c_common_truthvalue_conversion).  */
+   CODE.  */
 
 void
 binary_op_error (enum tree_code code)
@@ -1833,10 +1871,6 @@ binary_op_error (enum tree_code code)
 
   switch (code)
     {
-    case NOP_EXPR:
-      error ("invalid truth-value expression");
-      return;
-
     case PLUS_EXPR:
       opname = "+"; break;
     case MINUS_EXPR:
@@ -2428,13 +2462,12 @@ c_common_truthvalue_conversion (tree expr)
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
     case CONVERT_EXPR:
+    case NOP_EXPR:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
 	 since that affects how `default_conversion' will behave.  */
       if (TREE_CODE (TREE_TYPE (expr)) == REFERENCE_TYPE
 	  || TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == REFERENCE_TYPE)
 	break;
-      /* Fall through....  */
-    case NOP_EXPR:
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
@@ -2834,7 +2867,7 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
      TYPE_IS_SIZETYPE means that certain things (like overflow) will
      never happen.  However, this node should really have type
      `size_t', which is just a typedef for an ordinary integer type.  */
-  value = fold_build1 (NOP_EXPR, size_type_node, value);
+  value = fold_convert (size_type_node, value);
   gcc_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (value)));
 
   return value;
@@ -2869,7 +2902,7 @@ c_alignof_expr (tree expr)
       tree best = t;
       int bestalign = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (t)));
 
-      while (TREE_CODE (t) == NOP_EXPR
+      while ((TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR)
 	     && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == POINTER_TYPE)
 	{
 	  int thisalign;
@@ -2884,7 +2917,7 @@ c_alignof_expr (tree expr)
   else
     return c_alignof (TREE_TYPE (expr));
 
-  return fold_build1 (NOP_EXPR, size_type_node, t);
+  return fold_convert (size_type_node, t);
 }
 
 /* Handle C and C++ default attributes.  */
@@ -4026,17 +4059,23 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
 	     struct Foo {
 	       struct Foo const *ptr; // creates a variant w/o packed flag
-	       } __ attribute__((packed)); // packs it now.
-	  */
+	     } __ attribute__((packed)); // packs it now.
+	   */
 	  tree probe;
 
 	  for (probe = *node; probe; probe = TYPE_NEXT_VARIANT (probe))
 	    TYPE_PACKED (probe) = 1;
 	}
-
     }
   else if (TREE_CODE (*node) == FIELD_DECL)
-    DECL_PACKED (*node) = 1;
+    {
+      if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT)
+	warning (OPT_Wattributes,
+		 "%qE attribute ignored for field of type %qT",
+		 name, TREE_TYPE (*node));
+      else
+	DECL_PACKED (*node) = 1;
+    }
   /* We can't set DECL_PACKED for a VAR_DECL, because the bit is
      used for DECL_REGISTER.  It wouldn't mean anything anyway.
      We can't set DECL_PACKED on the type of a TYPE_DECL, because
@@ -4712,7 +4751,12 @@ handle_alias_attribute (tree *node, tree name, tree args,
   tree decl = *node;
 
   if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
-      || (TREE_CODE (decl) != FUNCTION_DECL && !DECL_EXTERNAL (decl)))
+      || (TREE_CODE (decl) != FUNCTION_DECL 
+	  && TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
+      /* A static variable declaration is always a tentative definition,
+	 but the alias is a non-tentative definition which overrides.  */
+      || (TREE_CODE (decl) != FUNCTION_DECL 
+	  && ! TREE_PUBLIC (decl) && DECL_INITIAL (decl)))
     {
       error ("%q+D defined both normally and as an alias", decl);
       *no_add_attrs = true;
@@ -4742,7 +4786,10 @@ handle_alias_attribute (tree *node, tree name, tree args,
 	DECL_INITIAL (decl) = error_mark_node;
       else
 	{
-	  DECL_EXTERNAL (decl) = 0;
+	  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
+	    DECL_EXTERNAL (decl) = 1;
+	  else
+	    DECL_EXTERNAL (decl) = 0;
 	  TREE_STATIC (decl) = 1;
 	}
     }
@@ -4750,6 +4797,43 @@ handle_alias_attribute (tree *node, tree name, tree args,
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "weakref" attribute; arguments as in struct
+   attribute_spec.handler.  */
+
+static tree
+handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			  int flags, bool *no_add_attrs)
+{
+  tree attr = NULL_TREE;
+
+  /* The idea here is that `weakref("name")' mutates into `weakref,
+     alias("name")', and weakref without arguments, in turn,
+     implicitly adds weak. */
+
+  if (args)
+    {
+      attr = tree_cons (get_identifier ("alias"), args, attr);
+      attr = tree_cons (get_identifier ("weakref"), NULL_TREE, attr);
+
+      *no_add_attrs = true;
+
+      decl_attributes (node, attr, flags);
+    }
+  else
+    {
+      if (lookup_attribute ("alias", DECL_ATTRIBUTES (*node)))
+	error ("%Jweakref attribute must appear before alias attribute",
+	       *node);
+
+      /* Can't call declare_weak because it wants this to be TREE_PUBLIC,
+	 and that isn't supported; and because it wants to add it to
+	 the list of weak decls, which isn't helpful.  */
+      DECL_WEAK (*node) = 1;
     }
 
   return NULL_TREE;
@@ -5124,7 +5208,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   orig_mode = TYPE_MODE (type);
 
   if (TREE_CODE (type) == RECORD_TYPE
-      || (GET_MODE_CLASS (orig_mode) != MODE_FLOAT
+      || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
       || !host_integerp (TYPE_SIZE_UNIT (type), 1))
     {
@@ -5532,7 +5616,9 @@ check_function_arguments_recurse (void (*callback)
 				  void *ctx, tree param,
 				  unsigned HOST_WIDE_INT param_num)
 {
-  if (TREE_CODE (param) == NOP_EXPR)
+  if ((TREE_CODE (param) == NOP_EXPR || TREE_CODE (param) == CONVERT_EXPR)
+      && (TYPE_PRECISION (TREE_TYPE (param))
+	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (param, 0)))))
     {
       /* Strip coercion.  */
       check_function_arguments_recurse (callback, ctx,
@@ -5908,19 +5994,19 @@ lvalue_error (enum lvalue_use use)
   switch (use)
     {
     case lv_assign:
-      error ("invalid lvalue in assignment");
+      error ("lvalue required as left operand of assignment");
       break;
     case lv_increment:
-      error ("invalid lvalue in increment");
+      error ("lvalue required as increment operand");
       break;
     case lv_decrement:
-      error ("invalid lvalue in decrement");
+      error ("lvalue required as decrement operand");
       break;
     case lv_addressof:
-      error ("invalid lvalue in unary %<&%>");
+      error ("lvalue required as unary %<&%> operand");
       break;
     case lv_asm:
-      error ("invalid lvalue in asm statement");
+      error ("lvalue required in asm statement");
       break;
     default:
       gcc_unreachable ();
@@ -6243,5 +6329,21 @@ check_missing_format_attribute (tree ltype, tree rtype)
   else
     return false;
 }
+
+/* Subscripting with type char is likely to lose on a machine where
+   chars are signed.  So warn on any machine, but optionally.  Don't
+   warn for unsigned char since that type is safe.  Don't warn for
+   signed char because anyone who uses that must have done so
+   deliberately. Furthermore, we reduce the false positive load by
+   warning only for non-constant value of type char.  */
+
+void
+warn_array_subscript_with_type_char (tree index)
+{
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node
+      && TREE_CODE (index) != INTEGER_CST)
+    warning (OPT_Wchar_subscripts, "array subscript has type %<char%>");
+}
+
 
 #include "gt-c-common.h"

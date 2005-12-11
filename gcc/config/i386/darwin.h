@@ -50,6 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\
   { "darwin_arch", "i386" },					\
+  { "darwin_crt2", "" },					\
   { "darwin_subarch", "i386" },
 
 /* Use the following macro for any Darwin/x86-specific command-line option
@@ -109,7 +110,7 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
  do { if ((LOG) != 0)			\
         {				\
-          if (in_text_section ())	\
+          if (in_section == text_section) \
             fprintf (FILE, "\t%s %d,0x90\n", ALIGN_ASM_OP, (LOG)); \
           else				\
             fprintf (FILE, "\t%s %d\n", ALIGN_ASM_OP, (LOG)); \

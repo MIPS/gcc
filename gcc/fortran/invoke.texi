@@ -119,6 +119,7 @@ by type.  Explanations are in the following sections.
 -fdollar-ok  -fimplicit-none  -fmax-identifier-length @gol
 -std=@var{std} -fd-lines-as-code -fd-lines-as-comments @gol
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
+-ffree-line-length-@var{n}  -ffree-line-length-none @gol
 -fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 @gol
 -fcray-pointer }
 
@@ -128,8 +129,7 @@ by type.  Explanations are in the following sections.
 -fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wall  -Waliasing  -Wconversion @gol
 -Wimplicit-interface  -Wnonstd-intrinsics  -Wsurprising  -Wunderflow @gol
--Wunused-labels -Wline-truncation @gol
--Werror  -W}
+-Wunused-labels -Wline-truncation -W}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -226,7 +226,6 @@ Allow @samp{$} as a valid character in a symbol name.
 @item -fno-backslash
 @cindex backslash
 @cindex escape characters
-@item
 Compile switch to change the interpretation of a backslash from
 ``C''-style escape characters to a single backslash character.
 
@@ -252,6 +251,20 @@ and that continued character constants never have implicit spaces appended
 to them to fill out the line.
 @option{-ffixed-line-length-0} means the same thing as
 @option{-ffixed-line-length-none}.
+
+@cindex -ffree-line-length-@var{n} option
+@cindex options, -ffree-line-length-@var{n}
+@item -ffree-line-length-@var{n}
+@cindex source file format
+@cindex lines, length
+@cindex length of source lines
+@cindex free form
+@cindex limits, lengths of source lines
+Set column after which characters are ignored in typical free-form
+lines in the source file. For free-form, the default value is 132.
+@var{n} may be @samp{none}, meaning that the entire line is meaningful.
+@option{-ffree-line-length-0} means the same thing as
+@option{-ffree-line-length-none}.
 
 @cindex -fmax-identifier-length=@var{n} option
 @cindex option -fmax-identifier-length=@var{n}

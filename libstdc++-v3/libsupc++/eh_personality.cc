@@ -27,7 +27,6 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #include <bits/c++config.h>
 #include <cstdlib>
 #include <exception_defines.h>
@@ -369,7 +368,7 @@ PERSONALITY_FUNCTION (int version,
 #ifdef __ARM_EABI_UNWINDER__
   _Unwind_Action actions;
 
-  switch (state)
+  switch (state & _US_ACTION_MASK)
     {
     case _US_VIRTUAL_UNWIND_FRAME:
       actions = _UA_SEARCH_PHASE;
@@ -377,7 +376,8 @@ PERSONALITY_FUNCTION (int version,
 
     case _US_UNWIND_FRAME_STARTING:
       actions = _UA_CLEANUP_PHASE;
-      if (ue_header->barrier_cache.sp == _Unwind_GetGR(context, 13))
+      if (!(state & _US_FORCE_UNWIND)
+	  && ue_header->barrier_cache.sp == _Unwind_GetGR(context, 13))
 	actions |= _UA_HANDLER_FRAME;
       break;
 
@@ -388,6 +388,7 @@ PERSONALITY_FUNCTION (int version,
     default:
       abort();
     }
+  actions |= state & _US_FORCE_UNWIND;
 
   // We don't know which runtime we're working with, so can't check this.
   // However the ABI routines hide this from us, and we don't actually need
@@ -523,13 +524,13 @@ PERSONALITY_FUNCTION (int version,
       // exception class, there's no exception type.
       // ??? What to do about GNU Java and GNU Ada exceptions.
 
-#ifdef __ARM_EABI_UNWINDER__
-      throw_type = ue_header;
-#else
       if ((actions & _UA_FORCE_UNWIND)
 	  || foreign_exception)
 	throw_type = 0;
       else
+#ifdef __ARM_EABI_UNWINDER__
+	throw_type = ue_header;
+#else
 	throw_type = xh->exceptionType;
 #endif
 
@@ -613,7 +614,6 @@ PERSONALITY_FUNCTION (int version,
 
  install_context:
   
-#ifndef __ARM_EABI_UNWINDER__
   // We can't use any of the cxa routines with foreign exceptions,
   // because they all expect ue_header to be a struct __cxa_exception.
   // So in that case, call terminate or unexpected directly.
@@ -631,7 +631,6 @@ PERSONALITY_FUNCTION (int version,
 	}
     }
   else
-#endif
     {
       if (found_type == found_terminate)
 	__cxa_call_terminate(ue_header);

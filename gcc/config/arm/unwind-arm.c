@@ -27,6 +27,10 @@
    Boston, MA 02110-1301, USA.  */
 #include "unwind.h"
 
+/* We add a prototype for abort here to avoid creating a dependency on
+   target headers.  */
+extern void abort (void);
+
 /* Definitions for C++ runtime support routines.  We make these weak
    declarations to avoid pulling in libsupc++ unnecessarily.  */
 typedef unsigned char bool;
@@ -51,8 +55,10 @@ __gnu_Unwind_Find_exidx (_Unwind_Ptr, int *);
 #define EXIDX_CANTUNWIND 1
 #define uint32_highbit (((_uw) 1) << 31)
 
+#define UCB_FORCED_STOP_FN(ucbp) ((ucbp)->unwinder_cache.reserved1)
 #define UCB_PR_ADDR(ucbp) ((ucbp)->unwinder_cache.reserved2)
 #define UCB_SAVED_CALLSITE_ADDR(ucbp) ((ucbp)->unwinder_cache.reserved3)
+#define UCB_FORCED_STOP_ARG(ucbp) ((ucbp)->unwinder_cache.reserved4)
 
 struct core_regs
 {
@@ -105,6 +111,7 @@ typedef struct
   /* The first fields must be the same as a phase2_vrs.  */
   _uw demand_save_flags;
   struct core_regs core;
+  _uw prev_sp; /* Only valid during forced unwinding.  */
   struct vfp_regs vfp;
   struct fpa_regs fpa;
 } phase1_vrs;
@@ -356,9 +363,9 @@ search_EIT_table (const __EIT_entry * table, int nrec, _uw return_address)
       n = (left + right) / 2;
       this_fn = selfrel_offset31 (&table[n].fnoffset);
       if (n != nrec - 1)
-	next_fn = selfrel_offset31 (&table[n + 1].fnoffset);
+	next_fn = selfrel_offset31 (&table[n + 1].fnoffset) - 1;
       else
-	next_fn = ~(_uw) 0;
+	next_fn = (_uw)0 - 1;
 
       if (return_address < this_fn)
 	{
@@ -366,7 +373,7 @@ search_EIT_table (const __EIT_entry * table, int nrec, _uw return_address)
 	    return (__EIT_entry *) 0;
 	  right = n - 1;
 	}
-      else if (return_address < next_fn)
+      else if (return_address <= next_fn)
 	return &table[n];
       else
 	left = n + 1;
@@ -419,7 +426,7 @@ get_eit_entry (_Unwind_Control_Block *ucbp, _uw return_address)
   if (eitp->content == EXIDX_CANTUNWIND)
     {
       UCB_PR_ADDR (ucbp) = 0;
-      return _URC_FAILURE;
+      return _URC_END_OF_STACK;
     }
 
   /* Obtain the address of the "real" __EHT_Header word.  */
@@ -472,26 +479,122 @@ unwind_phase2 (_Unwind_Control_Block * ucbp, phase2_vrs * vrs)
 {
   _Unwind_Reason_Code pr_result;
 
-  for(;;)
+  do
     {
       /* Find the entry for this routine.  */
       if (get_eit_entry (ucbp, vrs->core.r[R_PC]) != _URC_OK)
 	abort ();
 
       UCB_SAVED_CALLSITE_ADDR (ucbp) = vrs->core.r[R_PC];
-      
+
       /* Call the pr to decide what to do.  */
       pr_result = ((personality_routine) UCB_PR_ADDR (ucbp))
 	(_US_UNWIND_FRAME_STARTING, ucbp, (_Unwind_Context *) vrs);
-
-      if (pr_result != _URC_CONTINUE_UNWIND)
-	break;
     }
+  while (pr_result == _URC_CONTINUE_UNWIND);
   
   if (pr_result != _URC_INSTALL_CONTEXT)
     abort();
   
   restore_core_regs (&vrs->core);
+}
+
+/* Perform phase2 forced unwinding.  */
+
+static _Unwind_Reason_Code
+unwind_phase2_forced (_Unwind_Control_Block *ucbp, phase2_vrs *entry_vrs,
+		      int resuming)
+{
+  _Unwind_Stop_Fn stop_fn = (_Unwind_Stop_Fn) UCB_FORCED_STOP_FN (ucbp);
+  void *stop_arg = (void *)UCB_FORCED_STOP_ARG (ucbp);
+  _Unwind_Reason_Code pr_result = 0;
+  /* We use phase1_vrs here even though we do not demand save, for the
+     prev_sp field.  */
+  phase1_vrs saved_vrs, next_vrs;
+
+  /* Save the core registers.  */
+  saved_vrs.core = entry_vrs->core;
+  /* We don't need to demand-save the non-core registers, because we
+     unwind in a single pass.  */
+  saved_vrs.demand_save_flags = 0;
+
+  /* Unwind until we reach a propagation barrier.  */
+  do
+    {
+      _Unwind_State action;
+      _Unwind_Reason_Code entry_code;
+      _Unwind_Reason_Code stop_code;
+
+      /* Find the entry for this routine.  */
+      entry_code = get_eit_entry (ucbp, saved_vrs.core.r[R_PC]);
+
+      if (resuming)
+	{
+	  action = _US_UNWIND_FRAME_RESUME | _US_FORCE_UNWIND;
+	  resuming = 0;
+	}
+      else
+	action = _US_UNWIND_FRAME_STARTING | _US_FORCE_UNWIND;
+
+      if (entry_code == _URC_OK)
+	{
+	  UCB_SAVED_CALLSITE_ADDR (ucbp) = saved_vrs.core.r[R_PC];
+
+	  next_vrs = saved_vrs;
+
+	  /* Call the pr to decide what to do.  */
+	  pr_result = ((personality_routine) UCB_PR_ADDR (ucbp))
+	    (action, ucbp, (void *) &next_vrs);
+
+	  saved_vrs.prev_sp = next_vrs.core.r[R_SP];
+	}
+      else
+	{
+	  /* Treat any failure as the end of unwinding, to cope more
+	     gracefully with missing EH information.  Mixed EH and
+	     non-EH within one object will usually result in failure,
+	     because the .ARM.exidx tables do not indicate the end
+	     of the code to which they apply; but mixed EH and non-EH
+	     shared objects should return an unwind failure at the
+	     entry of a non-EH shared object.  */
+	  action |= _US_END_OF_STACK;
+
+	  saved_vrs.prev_sp = saved_vrs.core.r[R_SP];
+	}
+
+      stop_code = stop_fn (1, action, ucbp->exception_class, ucbp,
+			   (void *)&saved_vrs, stop_arg);
+      if (stop_code != _URC_NO_REASON)
+	return _URC_FAILURE;
+
+      if (entry_code != _URC_OK)
+	return entry_code;
+
+      saved_vrs = next_vrs;
+    }
+  while (pr_result == _URC_CONTINUE_UNWIND);
+
+  if (pr_result != _URC_INSTALL_CONTEXT)
+    {
+      /* Some sort of failure has occurred in the pr and probably the
+	 pr returned _URC_FAILURE.  */
+      return _URC_FAILURE;
+    }
+
+  restore_core_regs (&saved_vrs.core);
+}
+
+/* This is a very limited implementation of _Unwind_GetCFA.  It returns
+   the stack pointer as it is about to be unwound, and is only valid
+   while calling the stop function during forced unwinding.  If the
+   current personality routine result is going to run a cleanup, this
+   will not be the CFA; but when the frame is really unwound, it will
+   be.  */
+
+_Unwind_Word
+_Unwind_GetCFA (_Unwind_Context *context)
+{
+  return ((phase1_vrs *) context)->prev_sp;
 }
 
 /* Perform phase1 unwinding.  UCBP is the exception being thrown, and
@@ -516,7 +619,7 @@ __gnu_Unwind_RaiseException (_Unwind_Control_Block * ucbp,
   saved_vrs.demand_save_flags = ~(_uw) 0;
   
   /* Unwind until we reach a propagation barrier.  */
-  for (;;)
+  do
     {
       /* Find the entry for this routine.  */
       if (get_eit_entry (ucbp, saved_vrs.core.r[R_PC]) != _URC_OK)
@@ -525,10 +628,8 @@ __gnu_Unwind_RaiseException (_Unwind_Control_Block * ucbp,
       /* Call the pr to decide what to do.  */
       pr_result = ((personality_routine) UCB_PR_ADDR (ucbp))
 	(_US_VIRTUAL_UNWIND_FRAME, ucbp, (void *) &saved_vrs);
-
-      if (pr_result != _URC_CONTINUE_UNWIND)
-	break;
     }
+  while (pr_result == _URC_CONTINUE_UNWIND);
 
   /* We've unwound as far as we want to go, so restore the original
      register state.  */
@@ -547,6 +648,24 @@ __gnu_Unwind_RaiseException (_Unwind_Control_Block * ucbp,
    being thrown and ENTRY_VRS is the register state on entry to
    _Unwind_Resume.  */
 _Unwind_Reason_Code
+__gnu_Unwind_ForcedUnwind (_Unwind_Control_Block *,
+			   _Unwind_Stop_Fn, void *, phase2_vrs *);
+
+_Unwind_Reason_Code
+__gnu_Unwind_ForcedUnwind (_Unwind_Control_Block *ucbp,
+			   _Unwind_Stop_Fn stop_fn, void *stop_arg,
+			   phase2_vrs *entry_vrs)
+{
+  UCB_FORCED_STOP_FN (ucbp) = (_uw) stop_fn;
+  UCB_FORCED_STOP_ARG (ucbp) = (_uw) stop_arg;
+
+  /* Set the pc to the call site.  */
+  entry_vrs->core.r[R_PC] = entry_vrs->core.r[R_LR];
+
+  return unwind_phase2_forced (ucbp, entry_vrs, 0);
+}
+
+_Unwind_Reason_Code
 __gnu_Unwind_Resume (_Unwind_Control_Block *, phase2_vrs *);
 
 _Unwind_Reason_Code
@@ -556,7 +675,15 @@ __gnu_Unwind_Resume (_Unwind_Control_Block * ucbp, phase2_vrs * entry_vrs)
 
   /* Recover the saved address.  */
   entry_vrs->core.r[R_PC] = UCB_SAVED_CALLSITE_ADDR (ucbp);
-  
+
+  if (UCB_FORCED_STOP_FN (ucbp))
+    {
+      unwind_phase2_forced (ucbp, entry_vrs, 1);
+
+      /* We can't return failure at this point.  */
+      abort ();
+    }
+
   /* Call the cached PR.  */
   pr_result = ((personality_routine) UCB_PR_ADDR (ucbp))
 	(_US_UNWIND_FRAME_RESUME, ucbp, (_Unwind_Context *) entry_vrs);
@@ -574,6 +701,22 @@ __gnu_Unwind_Resume (_Unwind_Control_Block * ucbp, phase2_vrs * entry_vrs)
     default:
       abort ();
     }
+}
+
+_Unwind_Reason_Code
+__gnu_Unwind_Resume_or_Rethrow (_Unwind_Control_Block *, phase2_vrs *);
+
+_Unwind_Reason_Code
+__gnu_Unwind_Resume_or_Rethrow (_Unwind_Control_Block * ucbp,
+				phase2_vrs * entry_vrs)
+{
+  if (!UCB_FORCED_STOP_FN (ucbp))
+    return __gnu_Unwind_RaiseException (ucbp, entry_vrs);
+
+  /* Set the pc to the call site.  */
+  entry_vrs->core.r[R_PC] = entry_vrs->core.r[R_LR];
+  /* Continue unwinding the next frame.  */
+  return unwind_phase2_forced (ucbp, entry_vrs, 0);
 }
 
 /* Clean up an exception object when unwinding is complete.  */
@@ -619,6 +762,9 @@ __gnu_unwind_pr_common (_Unwind_State state,
   _uw rtti_count;
   int phase2_call_unexpected_after_unwind = 0;
   int in_range = 0;
+  int forced_unwind = state & _US_FORCE_UNWIND;
+
+  state &= _US_ACTION_MASK;
 
   data = (_uw *) ucbp->pr_cache.ehtp;
   uws.data = *(data++);
@@ -748,9 +894,9 @@ __gnu_unwind_pr_common (_Unwind_State state,
 	      /* Exception specification.  */
 	      if (state == _US_VIRTUAL_UNWIND_FRAME)
 		{
-		  if (in_range)
+		  if (in_range && (!forced_unwind || !rtti_count))
 		    {
-		      /* Match against teh exception specification.  */
+		      /* Match against the exception specification.  */
 		      _uw i;
 		      _uw rtti;
 		      void *matched;
@@ -852,4 +998,17 @@ __aeabi_unwind_cpp_pr2 (_Unwind_State state,
 			_Unwind_Context *context)
 {
   return __gnu_unwind_pr_common (state, ucbp, context, 2);
+}
+
+/* These two should never be used.  */
+_Unwind_Ptr
+_Unwind_GetDataRelBase (_Unwind_Context *context __attribute__ ((unused)))
+{
+  abort ();
+}
+
+_Unwind_Ptr
+_Unwind_GetTextRelBase (_Unwind_Context *context __attribute__ ((unused)))
+{
+  abort ();
 }

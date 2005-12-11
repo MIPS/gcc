@@ -78,6 +78,7 @@ static const io_tag
 	tag_s_delim	= {"DELIM", " delim = %v", BT_CHARACTER},
 	tag_s_pad	= {"PAD", " pad = %v", BT_CHARACTER},
 	tag_iolength	= {"IOLENGTH", " iolength = %v", BT_INTEGER},
+	tag_convert     = {"CONVERT", " convert = %e", BT_CHARACTER},
 	tag_err		= {"ERR", " err = %l", BT_UNKNOWN},
 	tag_end		= {"END", " end = %l", BT_UNKNOWN},
 	tag_eor		= {"EOR", " eor = %l", BT_UNKNOWN};
@@ -1045,9 +1046,25 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 	  gfc_error ("%s tag at %L must be scalar", tag->name, &e->where);
 	  return FAILURE;
 	}
+
       if (tag == &tag_iomsg)
 	{
 	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: IOMSG tag at %L",
+			      &e->where) == FAILURE)
+	    return FAILURE;
+	}
+
+      if (tag == &tag_iostat && e->ts.kind != gfc_default_integer_kind)
+	{
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Non-default "
+			      "integer kind in IOSTAT tag at %L",
+			      &e->where) == FAILURE)
+	    return FAILURE;
+	}
+
+      if (tag == &tag_convert)
+	{
+	  if (gfc_notify_std (GFC_STD_GNU, "Extension: CONVERT tag at %L",
 			      &e->where) == FAILURE)
 	    return FAILURE;
 	}
@@ -1106,6 +1123,9 @@ match_open_element (gfc_open * open)
   m = match_ltag (&tag_err, &open->err);
   if (m != MATCH_NO)
     return m;
+  m = match_etag (&tag_convert, &open->convert);
+  if (m != MATCH_NO)
+    return m;
 
   return MATCH_NO;
 }
@@ -1133,6 +1153,7 @@ gfc_free_open (gfc_open * open)
   gfc_free_expr (open->action);
   gfc_free_expr (open->delim);
   gfc_free_expr (open->pad);
+  gfc_free_expr (open->convert);
 
   gfc_free (open);
 }
@@ -1149,6 +1170,7 @@ gfc_resolve_open (gfc_open * open)
   RESOLVE_TAG (&tag_iostat, open->iostat);
   RESOLVE_TAG (&tag_file, open->file);
   RESOLVE_TAG (&tag_status, open->status);
+  RESOLVE_TAG (&tag_e_access, open->access);
   RESOLVE_TAG (&tag_e_form, open->form);
   RESOLVE_TAG (&tag_e_recl, open->recl);
 
@@ -1157,6 +1179,7 @@ gfc_resolve_open (gfc_open * open)
   RESOLVE_TAG (&tag_e_action, open->action);
   RESOLVE_TAG (&tag_e_delim, open->delim);
   RESOLVE_TAG (&tag_e_pad, open->pad);
+  RESOLVE_TAG (&tag_convert, open->convert);
 
   if (gfc_reference_st_label (open->err, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;
@@ -1590,7 +1613,7 @@ match_dt_format (gfc_dt * dt)
       return MATCH_YES;
     }
 
-  if (gfc_match_st_label (&label, 0) == MATCH_YES)
+  if (gfc_match_st_label (&label) == MATCH_YES)
     {
       if (dt->format_expr != NULL || dt->format_label != NULL)
 	{
@@ -1787,6 +1810,13 @@ gfc_resolve_dt (gfc_dt * dt)
   /* Sanity checks on data transfer statements.  */
   if (e->ts.type == BT_CHARACTER)
     {
+      if (gfc_has_vector_index (e))
+	{
+	  gfc_error ("Internal unit with vector subscript at %L",
+		     &e->where);
+	  return FAILURE;
+	}
+
       if (dt->rec != NULL)
 	{
 	  gfc_error ("REC tag at %L is incompatible with internal file",
@@ -2140,7 +2170,7 @@ terminate_io (gfc_code * io_code)
   gfc_code *c;
 
   if (io_code == NULL)
-    io_code = &new_st;
+    io_code = new_st.block;
 
   c = gfc_get_code ();
   c->op = EXEC_DT_END;
@@ -2346,7 +2376,9 @@ get_io_list:
 
   new_st.op = (k == M_READ) ? EXEC_READ : EXEC_WRITE;
   new_st.ext.dt = dt;
-  new_st.next = io_code;
+  new_st.block = gfc_get_code ();
+  new_st.block->op = new_st.op;
+  new_st.block->next = io_code;
 
   terminate_io (io_code);
 
@@ -2428,6 +2460,7 @@ gfc_free_inquire (gfc_inquire * inquire)
   gfc_free_expr (inquire->delim);
   gfc_free_expr (inquire->pad);
   gfc_free_expr (inquire->iolength);
+  gfc_free_expr (inquire->convert);
 
   gfc_free (inquire);
 }
@@ -2469,6 +2502,7 @@ match_inquire_element (gfc_inquire * inquire)
   RETM m = match_vtag (&tag_s_delim, &inquire->delim);
   RETM m = match_vtag (&tag_s_pad, &inquire->pad);
   RETM m = match_vtag (&tag_iolength, &inquire->iolength);
+  RETM m = match_vtag (&tag_convert, &inquire->convert);
   RETM return MATCH_NO;
 }
 
@@ -2515,8 +2549,6 @@ gfc_match_inquire (void)
       if (m == MATCH_NO)
 	goto syntax;
 
-      terminate_io (code);
-
       new_st.op = EXEC_IOLENGTH;
       new_st.expr = inquire->iolength;
       new_st.ext.inquire = inquire;
@@ -2528,7 +2560,10 @@ gfc_match_inquire (void)
 	  return MATCH_ERROR;
 	}
 
-      new_st.next = code;
+      new_st.block = gfc_get_code ();
+      new_st.block->op = EXEC_IOLENGTH;
+      terminate_io (code);
+      new_st.block->next = code;
       return MATCH_YES;
     }
 
@@ -2621,6 +2656,7 @@ gfc_resolve_inquire (gfc_inquire * inquire)
   RESOLVE_TAG (&tag_s_delim, inquire->delim);
   RESOLVE_TAG (&tag_s_pad, inquire->pad);
   RESOLVE_TAG (&tag_iolength, inquire->iolength);
+  RESOLVE_TAG (&tag_convert, inquire->convert);
 
   if (gfc_reference_st_label (inquire->err, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;

@@ -65,9 +65,24 @@ typedef short int16_t;
 typedef int int32_t;
 typedef long long int64_t;
 typedef unsigned char uint8_t;
+#if defined(__sun) && defined(__svr4__)
+/* Prevent <pthread.h> from redefining uint8_t on Solaris 2.5.1
+   FIXME when the header inclusion scheme is revisited.  */
+#define _UINT8_T
+#endif
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
+#if defined(__sun) && defined(__svr4__)
+/* Prevent <pthread.h> from redefining uint32_t on Solaris 2.5.1
+   FIXME when the header inclusion scheme is revisited.  */
+#define _UINT32_T
+#endif
 typedef unsigned long long uint64_t;
+#if defined(__sun) && defined(__svr4__)
+/* Prevent <pthread.h> from redefining uint64_t on Solaris 2.5.1
+   FIXME when the header inclusion scheme is revisited.  */
+#define _UINT64_T
+#endif
 #endif
 
 #if HAVE_SYS_TYPES_H
@@ -434,11 +449,14 @@ iexport_data_proto(filename);
 
 /* main.c */
 
-extern void library_start (void);
+extern void stupid_function_name_for_static_linking (void);
+internal_proto(stupid_function_name_for_static_linking);
+
+struct st_parameter_common;
+extern void library_start (struct st_parameter_common *);
 internal_proto(library_start);
 
-extern void library_end (void);
-internal_proto(library_end);
+#define library_end()
 
 extern void set_args (int, char **);
 export_proto(set_args);
@@ -462,13 +480,14 @@ internal_proto(xtoa);
 extern void os_error (const char *) __attribute__ ((noreturn));
 internal_proto(os_error);
 
-extern void show_locus (void);
+extern void show_locus (struct st_parameter_common *);
 internal_proto(show_locus);
 
 extern void runtime_error (const char *) __attribute__ ((noreturn));
 iexport_proto(runtime_error);
 
-extern void internal_error (const char *) __attribute__ ((noreturn));
+extern void internal_error (struct st_parameter_common *, const char *)
+  __attribute__ ((noreturn));
 internal_proto(internal_error);
 
 extern const char *get_oserror (void);
@@ -488,7 +507,7 @@ internal_proto(st_sprintf);
 extern const char *translate_error (int);
 internal_proto(translate_error);
 
-extern void generate_error (int, const char *);
+extern void generate_error (struct st_parameter_common *, int, const char *);
 internal_proto(generate_error);
 
 /* fpu.c */
@@ -523,7 +542,8 @@ internal_proto(show_variables);
 
 /* string.c */
 
-extern int find_option (const char *, int, const st_option *, const char *);
+extern int find_option (struct st_parameter_common *, const char *, int,
+			const st_option *, const char *);
 internal_proto(find_option);
 
 extern int fstrlen (const char *, int);
@@ -556,7 +576,7 @@ internal_proto(reshape_packed);
 
 /* Repacking functions.  */
 
-/* ??? These eight aren't currently used by the compiler, though we
+/* ??? These aren't currently used by the compiler, though we
    certainly could do so.  */
 GFC_INTEGER_4 *internal_pack_4 (gfc_array_i4 *);
 internal_proto(internal_pack_4);
@@ -564,11 +584,21 @@ internal_proto(internal_pack_4);
 GFC_INTEGER_8 *internal_pack_8 (gfc_array_i8 *);
 internal_proto(internal_pack_8);
 
+#if defined HAVE_GFC_INTEGER_16
+GFC_INTEGER_16 *internal_pack_16 (gfc_array_i16 *);
+internal_proto(internal_pack_16);
+#endif
+
 GFC_COMPLEX_4 *internal_pack_c4 (gfc_array_c4 *);
 internal_proto(internal_pack_c4);
 
 GFC_COMPLEX_8 *internal_pack_c8 (gfc_array_c8 *);
 internal_proto(internal_pack_c8);
+
+#if defined HAVE_GFC_COMPLEX_10
+GFC_COMPLEX_10 *internal_pack_c10 (gfc_array_c10 *);
+internal_proto(internal_pack_c10);
+#endif
 
 extern void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 internal_proto(internal_unpack_4);
@@ -576,11 +606,21 @@ internal_proto(internal_unpack_4);
 extern void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 internal_proto(internal_unpack_8);
 
+#if defined HAVE_GFC_INTEGER_16
+extern void internal_unpack_16 (gfc_array_i16 *, const GFC_INTEGER_16 *);
+internal_proto(internal_unpack_16);
+#endif
+
 extern void internal_unpack_c4 (gfc_array_c4 *, const GFC_COMPLEX_4 *);
 internal_proto(internal_unpack_c4);
 
 extern void internal_unpack_c8 (gfc_array_c8 *, const GFC_COMPLEX_8 *);
 internal_proto(internal_unpack_c8);
+
+#if defined HAVE_GFC_COMPLEX_10
+extern void internal_unpack_c10 (gfc_array_c10 *, const GFC_COMPLEX_10 *);
+internal_proto(internal_unpack_c10);
+#endif
 
 /* string_intrinsics.c */
 

@@ -29,7 +29,9 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#include "config.h"
 #include "libgfortran.h"
+#include "../io/io.h"
 
 extern void random_r4 (GFC_REAL_4 *);
 iexport_proto(random_r4);
@@ -43,363 +45,36 @@ export_proto(arandom_r4);
 extern void arandom_r8 (gfc_array_r8 *);
 export_proto(arandom_r8);
 
-#if 0
+#ifdef __GTHREAD_MUTEX_INIT
+static __gthread_mutex_t random_lock = __GTHREAD_MUTEX_INIT;
+#else
+static __gthread_mutex_t random_lock;
+#endif
 
-/*  The Mersenne Twister code is currently commented out due to
 
-    (1) Simple user specified seeds lead to really bad sequences for
-        nearly 100000 random numbers.
-    (2) open(), read(), and close() are not properly declared via header
-        files.
-    (3) The global index i is abused and causes unexpected behavior with
-        GET and PUT.
-    (4) See PR 15619.
-
-  The algorithm was taken from the paper :
-
+/* libgfortran previously had a Mersenne Twister, taken from the paper:
+  
 	Mersenne Twister:	623-dimensionally equidistributed
 				uniform pseudorandom generator.
 
-	by:	Makoto Matsumoto
-		Takuji Nishimura
-
-	Which appeared in the: ACM Transactions on Modelling and Computer
+	by Makoto Matsumoto & Takuji Nishimura
+	which appeared in the: ACM Transactions on Modelling and Computer
 	Simulations: Special Issue on Uniform Random Number
-	Generation. ( Early in 1998 ).  */
+	Generation. ( Early in 1998 ).
+
+   The Mersenne Twister code was replaced due to
+
+    (1) Simple user specified seeds lead to really bad sequences for
+        nearly 100000 random numbers.
+    (2) open(), read(), and close() were not properly declared via header
+        files.
+    (3) The global index i was abused and caused unexpected behavior with
+        GET and PUT.
+    (4) See PR 15619.
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-/*Use the 'big' generator by default ( period -> 2**19937 ).  */
-
-#define MT19937
-
-/* Define the necessary constants for the algorithm.  */
-
-#ifdef  MT19937
-enum constants
-{
-  N = 624, M = 397, R = 19, TU = 11, TS = 7, TT = 15, TL = 17
-};
-#define M_A	0x9908B0DF
-#define T_B	0x9D2C5680
-#define T_C	0xEFC60000
-#else
-enum constants
-{
-  N = 351, M = 175, R = 19, TU = 11, TS = 7, TT = 15, TL = 17
-};
-#define M_A	0xE4BD75F5
-#define T_B	0x655E5280
-#define T_C	0xFFD58000
-#endif
-
-static int i = N;
-static unsigned int seed[N];
-
-/* This is the routine which handles the seeding of the generator,
-   and also reading and writing of the seed.  */
-
-void
-random_seed (GFC_INTEGER_4 *size, gfc_array_i4 *put, gfc_array_i4 *get)
-{
-  /* Initialize the seed in system dependent manner.  */
-  if (get == NULL && put == NULL && size == NULL)
-    {
-      int fd;
-      fd = open ("/dev/urandom", O_RDONLY);
-      if (fd == 0)
-	{
-	  /* We dont have urandom.  */
-	  GFC_UINTEGER_4 s = (GFC_UINTEGER_4) seed;
-	  for (i = 0; i < N; i++)
-	    {
-	      s = s * 29943829 - 1;
-	      seed[i] = s;
-	    }
-	}
-      else
-	{
-	  /* Using urandom, might have a length issue.  */
-	  read (fd, &seed[0], sizeof (GFC_UINTEGER_4) * N);
-	  close (fd);
-	}
-      return;
-    }
-
-  /* Return the size of the seed */
-  if (size != NULL)
-    {
-      *size = N;
-      return;
-    }
-
-  /* if we have gotten to this pount we have a get or put
-   * now we check it the array fulfills the demands in the standard .
-   */
-
-  /* Set the seed to PUT data */
-  if (put != NULL)
-    {
-      /* if the rank of the array is not 1 abort */
-      if (GFC_DESCRIPTOR_RANK (put) != 1)
-	abort ();
-
-      /* if the array is too small abort */
-      if (((put->dim[0].ubound + 1 - put->dim[0].lbound)) < N)
-	abort ();
-
-      /* If this is the case the array is a temporary */
-      if (put->dim[0].stride == 0)
-	return;
-
-      /*  This code now should do correct strides. */
-      for (i = 0; i < N; i++)
-	seed[i] = put->data[i * put->dim[0].stride];
-    }
-
-  /* Return the seed to GET data */
-  if (get != NULL)
-    {
-      /* if the rank of the array is not 1 abort */
-      if (GFC_DESCRIPTOR_RANK (get) != 1)
-	abort ();
-
-      /* if the array is too small abort */
-      if (((get->dim[0].ubound + 1 - get->dim[0].lbound)) < N)
-	abort ();
-
-      /* If this is the case the array is a temporary */
-      if (get->dim[0].stride == 0)
-	return;
-
-      /*  This code now should do correct strides. */
-      for (i = 0; i < N; i++)
-	get->data[i * get->dim[0].stride] = seed[i];
-    }
-}
-iexport(random_seed);
-
-/* Here is the internal routine which generates the random numbers
-   in 'batches' based upon the need for a new batch.
-   It's an integer based routine known as 'Mersenne Twister'.
-   This implementation still lacks 'tempering' and a good verification,
-   but gives very good metrics.  */
-
-static void
-random_generate (void)
-{
-  /* 32 bits.  */
-  GFC_UINTEGER_4 y;
-
-  /* Generate batch of N.  */
-  int k, m;
-  for (k = 0, m = M; k < N - 1; k++)
-    {
-      y = (seed[k] & (-1 << R)) | (seed[k + 1] & ((1u << R) - 1));
-      seed[k] = seed[m] ^ (y >> 1) ^ (-(GFC_INTEGER_4) (y & 1) & M_A);
-      if (++m >= N)
-	m = 0;
-    }
-
-  y = (seed[N - 1] & (-1 << R)) | (seed[0] & ((1u << R) - 1));
-  seed[N - 1] = seed[M - 1] ^ (y >> 1) ^ (-(GFC_INTEGER_4) (y & 1) & M_A);
-  i = 0;
-}
-
-/* A routine to return a REAL(KIND=4).  */
-
-void
-random_r4 (GFC_REAL_4 * harv)
-{
-  /* Regenerate if we need to.  */
-  if (i >= N)
-    random_generate ();
-
-  /* Convert uint32 to REAL(KIND=4).  */
-  *harv = (GFC_REAL_4) ((GFC_REAL_4) (GFC_UINTEGER_4) seed[i++] /
-			(GFC_REAL_4) (~(GFC_UINTEGER_4) 0));
-}
-iexport(random_r4);
-
-/* A routine to return a REAL(KIND=8).  */
-
-void
-random_r8 (GFC_REAL_8 * harv)
-{
-  /* Regenerate if we need to, may waste one 32-bit value.  */
-  if ((i + 1) >= N)
-    random_generate ();
-
-  /* Convert two uint32 to a REAL(KIND=8).  */
-  *harv = ((GFC_REAL_8) ((((GFC_UINTEGER_8) seed[i+1]) << 32) + seed[i])) /
-	  (GFC_REAL_8) (~(GFC_UINTEGER_8) 0);
-  i += 2;
-}
-iexport(random_r8);
-
-/* Code to handle arrays will follow here.  */
-
-/* REAL(KIND=4) REAL array.  */
-
-void
-arandom_r4 (gfc_array_r4 * harv)
-{
-  index_type count[GFC_MAX_DIMENSIONS];
-  index_type extent[GFC_MAX_DIMENSIONS];
-  index_type stride[GFC_MAX_DIMENSIONS];
-  index_type stride0;
-  index_type dim;
-  GFC_REAL_4 *dest;
-  int n;
-
-  dest = harv->data;
-
-  if (harv->dim[0].stride == 0)
-    harv->dim[0].stride = 1;
-
-  dim = GFC_DESCRIPTOR_RANK (harv);
-
-  for (n = 0; n < dim; n++)
-    {
-      count[n] = 0;
-      stride[n] = harv->dim[n].stride;
-      extent[n] = harv->dim[n].ubound + 1 - harv->dim[n].lbound;
-      if (extent[n] <= 0)
-	return;
-    }
-
-  stride0 = stride[0];
-
-  while (dest)
-    {
-      /* Set the elements.  */
-
-      /* regenerate if we need to */
-      if (i >= N)
-	random_generate ();
-
-      /* Convert uint32 to float in a hopefully g95 compiant manner */
-      *dest = (GFC_REAL_4) ((GFC_REAL_4) (GFC_UINTEGER_4) seed[i++] /
-			    (GFC_REAL_4) (~(GFC_UINTEGER_4) 0));
-
-      /* Advance to the next element.  */
-      dest += stride0;
-      count[0]++;
-      /* Advance to the next source element.  */
-      n = 0;
-      while (count[n] == extent[n])
-	{
-	  /* When we get to the end of a dimension,
-	     reset it and increment
-	     the next dimension.  */
-	  count[n] = 0;
-	  /* We could precalculate these products,
-	     but this is a less
-	     frequently used path so proabably not worth it.  */
-	  dest -= stride[n] * extent[n];
-	  n++;
-	  if (n == dim)
-	    {
-	      dest = NULL;
-	      break;
-	    }
-	  else
-	    {
-	      count[n]++;
-	      dest += stride[n];
-	    }
-	}
-    }
-}
-
-/* REAL(KIND=8) array.  */
-
-void
-arandom_r8 (gfc_array_r8 * harv)
-{
-  index_type count[GFC_MAX_DIMENSIONS];
-  index_type extent[GFC_MAX_DIMENSIONS];
-  index_type stride[GFC_MAX_DIMENSIONS];
-  index_type stride0;
-  index_type dim;
-  GFC_REAL_8 *dest;
-  int n;
-
-  dest = harv->data;
-
-  if (harv->dim[0].stride == 0)
-    harv->dim[0].stride = 1;
-
-  dim = GFC_DESCRIPTOR_RANK (harv);
-
-  for (n = 0; n < dim; n++)
-    {
-      count[n] = 0;
-      stride[n] = harv->dim[n].stride;
-      extent[n] = harv->dim[n].ubound + 1 - harv->dim[n].lbound;
-      if (extent[n] <= 0)
-	return;
-    }
-
-  stride0 = stride[0];
-
-  while (dest)
-    {
-      /* Set the elements.  */
-
-      /* regenerate if we need to, may waste one 32-bit value */
-      if ((i + 1) >= N)
-	random_generate ();
-
-      /* Convert two uint32 to a REAL(KIND=8).  */
-      *dest = ((GFC_REAL_8) ((((GFC_UINTEGER_8) seed[i+1]) << 32) + seed[i])) /
-	      (GFC_REAL_8) (~(GFC_UINTEGER_8) 0);
-      i += 2;
-
-      /* Advance to the next element.  */
-      dest += stride0;
-      count[0]++;
-      /* Advance to the next source element.  */
-      n = 0;
-      while (count[n] == extent[n])
-	{
-	  /* When we get to the end of a dimension,
-	     reset it and increment
-	     the next dimension.  */
-	  count[n] = 0;
-	  /* We could precalculate these products,
-	     but this is a less
-	     frequently used path so proabably not worth it.  */
-	  dest -= stride[n] * extent[n];
-	  n++;
-	  if (n == dim)
-	    {
-	      dest = NULL;
-	      break;
-	    }
-	  else
-	    {
-	      count[n]++;
-	      dest += stride[n];
-	    }
-	}
-    }
-}
-
-#else
-
-/* George Marsaglia's KISS (Keep It Simple Stupid) random number generator.
-
-   This PRNG combines:
+   libgfortran currently uses George Marsaglia's KISS (Keep It Simple Stupid)
+   random number generator.  This PRNG combines:
 
    (1) The congruential generator x(n)=69069*x(n-1)+1327217885 with a period
        of 2^32,
@@ -470,11 +145,13 @@ random_r4 (GFC_REAL_4 *x)
 {
   GFC_UINTEGER_4 kiss;
 
+  __gthread_mutex_lock (&random_lock);
   kiss = kiss_random_kernel ();
   /* Burn a random number, so the REAL*4 and REAL*8 functions
      produce similar sequences of random numbers.  */
   kiss_random_kernel ();
   *x = normalize_r4_i4 (kiss, ~(GFC_UINTEGER_4) 0);
+  __gthread_mutex_unlock (&random_lock);
 }
 iexport(random_r4);
 
@@ -486,9 +163,11 @@ random_r8 (GFC_REAL_8 *x)
 {
   GFC_UINTEGER_8 kiss;
 
+  __gthread_mutex_lock (&random_lock);
   kiss = ((GFC_UINTEGER_8)kiss_random_kernel ()) << 32;
   kiss += kiss_random_kernel ();
   *x = normalize_r8_i8 (kiss, ~(GFC_UINTEGER_8) 0);
+  __gthread_mutex_unlock (&random_lock);
 }
 iexport(random_r8);
 
@@ -504,6 +183,7 @@ arandom_r4 (gfc_array_r4 *x)
   index_type stride0;
   index_type dim;
   GFC_REAL_4 *dest;
+  GFC_UINTEGER_4 kiss;
   int n;
 
   dest = x->data;
@@ -524,9 +204,16 @@ arandom_r4 (gfc_array_r4 *x)
 
   stride0 = stride[0];
 
+  __gthread_mutex_lock (&random_lock);
+
   while (dest)
     {
-      random_r4 (dest);
+      /* random_r4 (dest); */
+      kiss = kiss_random_kernel ();
+      /* Burn a random number, so the REAL*4 and REAL*8 functions
+	 produce similar sequences of random numbers.  */
+      kiss_random_kernel ();
+      *dest = normalize_r4_i4 (kiss, ~(GFC_UINTEGER_4) 0);
 
       /* Advance to the next element.  */
       dest += stride0;
@@ -554,6 +241,7 @@ arandom_r4 (gfc_array_r4 *x)
             }
         }
     }
+  __gthread_mutex_unlock (&random_lock);
 }
 
 /*  This function fills a REAL(8) array with values from the uniform
@@ -568,6 +256,7 @@ arandom_r8 (gfc_array_r8 *x)
   index_type stride0;
   index_type dim;
   GFC_REAL_8 *dest;
+  GFC_UINTEGER_8 kiss;
   int n;
 
   dest = x->data;
@@ -588,9 +277,14 @@ arandom_r8 (gfc_array_r8 *x)
 
   stride0 = stride[0];
 
+  __gthread_mutex_lock (&random_lock);
+
   while (dest)
     {
-      random_r8 (dest);
+      /* random_r8 (dest); */
+      kiss = ((GFC_UINTEGER_8)kiss_random_kernel ()) << 32;
+      kiss += kiss_random_kernel ();
+      *dest = normalize_r8_i8 (kiss, ~(GFC_UINTEGER_8) 0);
 
       /* Advance to the next element.  */
       dest += stride0;
@@ -618,6 +312,7 @@ arandom_r8 (gfc_array_r8 *x)
             }
         }
     }
+  __gthread_mutex_unlock (&random_lock);
 }
 
 /* random_seed is used to seed the PRNG with either a default
@@ -628,6 +323,8 @@ void
 random_seed (GFC_INTEGER_4 *size, gfc_array_i4 *put, gfc_array_i4 *get)
 {
   int i;
+
+  __gthread_mutex_lock (&random_lock);
 
   if (size == NULL && put == NULL && get == NULL)
     {
@@ -678,7 +375,16 @@ random_seed (GFC_INTEGER_4 *size, gfc_array_i4 *put, gfc_array_i4 *get)
       for (i = 0; i < kiss_size; i++)
         get->data[i * get->dim[0].stride] = (GFC_INTEGER_4) kiss_seed[i];
     }
+
+  __gthread_mutex_unlock (&random_lock);
 }
 iexport(random_seed);
 
-#endif /* mersenne twister */
+
+#ifndef __GTHREAD_MUTEX_INIT
+static void __attribute__((constructor))
+init (void)
+{
+  __GTHREAD_MUTEX_INIT_FUNCTION (&random_lock);
+}
+#endif

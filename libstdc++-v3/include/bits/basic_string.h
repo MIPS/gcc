@@ -177,7 +177,13 @@ namespace std
 
         static _Rep&
         _S_empty_rep()
-        { return *reinterpret_cast<_Rep*>(&_S_empty_rep_storage); }
+        { 
+	  // NB: Mild hack to avoid strict-aliasing warnings.  Note that
+	  // _S_empty_rep_storage is never modified and the punning should
+	  // be reasonably safe in this case.
+	  void* __p = reinterpret_cast<void*>(&_S_empty_rep_storage);
+	  return *reinterpret_cast<_Rep*>(__p);
+	}
 
         bool
 	_M_is_leaked() const
@@ -1091,7 +1097,7 @@ namespace std
 	const size_type __pos = __p - _M_ibegin();
 	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
 	_M_rep()->_M_set_leaked();
-	return this->_M_ibegin() + __pos;
+	return iterator(_M_data() + __pos);
       }
 
       /**
@@ -1132,7 +1138,7 @@ namespace std
 	const size_type __pos = __position - _M_ibegin();
 	_M_mutate(__pos, size_type(1), size_type(0));
 	_M_rep()->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(_M_data() + __pos);
       }
 
       /**
@@ -1152,7 +1158,7 @@ namespace std
         const size_type __pos = __first - _M_ibegin();
 	_M_mutate(__pos, __last - __first, size_type(0));
 	_M_rep()->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(_M_data() + __pos);
       }
 
       /**

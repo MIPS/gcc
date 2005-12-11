@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -171,7 +171,7 @@ package System.WCh_Con is
 
    subtype WC_ESC_Encoding_Method is
      WC_Encoding_Method range WCEM_Hex .. WCEM_Hex;
-   --  Encoding methods using an ESC character at the start of the sequence.
+   --  Encoding methods using an ESC character at the start of the sequence
 
    subtype WC_Upper_Half_Encoding_Method is
      WC_Encoding_Method range WCEM_Upper .. WCEM_UTF8;

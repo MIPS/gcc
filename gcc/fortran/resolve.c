@@ -294,6 +294,19 @@ resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
 	  sym->attr.untyped = 1;
 	}
     }
+
+  /*Fortran 95 Draft Standard, page 51, Section 5.1.1.5, on the Character type,
+    lists the only ways a character length value of * can be used: dummy arguments
+    of proceedures, named constants, and function results in external functions.
+    Internal function results are not on that list; ergo, not permitted.  */
+
+  if (sym->ts.type == BT_CHARACTER)
+    {
+      gfc_charlen *cl = sym->ts.cl;
+      if (!cl || !cl->length)
+	gfc_error ("Character-valued internal function '%s' at %L must "
+		   "not be assumed length", sym->name, &sym->declared_at);
+    }
 }
 
 
@@ -3879,6 +3892,9 @@ resolve_blocks (gfc_code * b, gfc_namespace * ns)
 	case EXEC_FORALL:
 	case EXEC_DO:
 	case EXEC_DO_WHILE:
+	case EXEC_READ:
+	case EXEC_WRITE:
+	case EXEC_IOLENGTH:
 	  break;
 
 	default:
@@ -4282,6 +4298,22 @@ resolve_symbol (gfc_symbol * sym)
 	  return;
     }
 
+  /* A module array's shape needs to be constant.  */
+
+  if (sym->ns->proc_name
+      && sym->attr.flavor == FL_VARIABLE
+      && sym->ns->proc_name->attr.flavor == FL_MODULE
+      && !sym->attr.use_assoc
+      && !sym->attr.allocatable
+      && !sym->attr.pointer
+      && sym->as != NULL
+      && !gfc_is_compile_time_shape (sym->as))
+    {
+      gfc_error ("Module array '%s' at %L cannot be automatic "
+         "or assumed shape", sym->name, &sym->declared_at);
+      return;
+    }
+
   /* Make sure that character string variables with assumed length are
      dummy arguments.  */
 
@@ -4358,9 +4390,11 @@ resolve_symbol (gfc_symbol * sym)
       return;
     }
 
-  /* Ensure that derived type components of a public derived type
-     are not of a private type.  */
+  /* If a component of a derived type is of a type declared to be private,
+     either the derived type definition must contain the PRIVATE statement,
+     or the derived type must be private.  (4.4.1 just after R427) */
   if (sym->attr.flavor == FL_DERIVED
+	&& sym->component_access != ACCESS_PRIVATE
 	&& gfc_check_access(sym->attr.access, sym->ns->default_access))
     {
       for (c = sym->components; c; c = c->next)
@@ -4432,18 +4466,18 @@ resolve_symbol (gfc_symbol * sym)
 	  if (sym->attr.allocatable)
 	    {
 	      if (sym->attr.dimension)
-		gfc_error ("Allocatable array at %L must have a deferred shape",
-			   &sym->declared_at);
+		gfc_error ("Allocatable array '%s' at %L must have "
+			   "a deferred shape", sym->name, &sym->declared_at);
 	      else
-		gfc_error ("Object at %L may not be ALLOCATABLE",
-			   &sym->declared_at);
+		gfc_error ("Scalar object '%s' at %L may not be ALLOCATABLE",
+			   sym->name, &sym->declared_at);
 	      return;
 	    }
 
 	  if (sym->attr.pointer && sym->attr.dimension)
 	    {
-	      gfc_error ("Pointer to array at %L must have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array pointer '%s' at %L must have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 
@@ -4453,8 +4487,8 @@ resolve_symbol (gfc_symbol * sym)
 	  if (!mp_flag && !sym->attr.allocatable
 	      && !sym->attr.pointer && !sym->attr.dummy)
 	    {
-	      gfc_error ("Array at %L cannot have a deferred shape",
-			 &sym->declared_at);
+	      gfc_error ("Array '%s' at %L cannot have a deferred shape",
+			 sym->name, &sym->declared_at);
 	      return;
 	    }
 	}
@@ -4463,7 +4497,7 @@ resolve_symbol (gfc_symbol * sym)
   switch (sym->attr.flavor)
     {
     case FL_VARIABLE:
-      /* Can the sybol have an initializer?  */
+      /* Can the symbol have an initializer?  */
       flag = 0;
       if (sym->attr.allocatable || sym->attr.external || sym->attr.dummy
 	  || sym->attr.intrinsic || sym->attr.result)
@@ -4538,8 +4572,8 @@ resolve_symbol (gfc_symbol * sym)
       /* An external symbol falls through to here if it is not referenced.  */
       if (sym->attr.external && sym->value)
 	{
-	  gfc_error ("External object at %L may not have an initializer",
-		     &sym->declared_at);
+	  gfc_error ("External object '%s' at %L may not have an initializer",
+		     sym->name, &sym->declared_at);
 	  return;
 	}
 

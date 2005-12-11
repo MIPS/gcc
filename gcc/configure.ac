@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -822,7 +822,7 @@ MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
 # that we can use it.
 gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[2-9]*])
+  [4.[4-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
@@ -1947,6 +1947,11 @@ gcc_GAS_CHECK_FEATURE([.weak], gcc_cv_as_weak,
  [	.weak foobar],,
 [AC_DEFINE(HAVE_GAS_WEAK, 1, [Define if your assembler supports .weak.])])
 
+gcc_GAS_CHECK_FEATURE([.weakref], gcc_cv_as_weakref,
+ [2,17,0],,
+ [	.weakref foobar, barfnot],,
+[AC_DEFINE(HAVE_GAS_WEAKREF, 1, [Define if your assembler supports .weakref.])])
+
 gcc_GAS_CHECK_FEATURE([.nsubspa comdat], gcc_cv_as_nsubspa_comdat,
  [2,15,91],,
  [	.SPACE $TEXT$
@@ -2235,6 +2240,19 @@ foo:	.long	25
 	tls_first_major=2
 	tls_first_minor=15
 	tls_as_opt=--fatal-warnings
+	;;
+  arm*-*-*)
+    conftest_s='
+	.section ".tdata","awT",%progbits
+foo:	.long	25
+	.text
+.word foo(gottpoff)
+.word foo(tpoff)
+.word foo(tlsgd)
+.word foo(tlsldm)
+.word foo(tlsldo)'
+	tls_first_major=2
+	tls_first_minor=17
 	;;
   i[34567]86-*-*)
     conftest_s='
@@ -2745,6 +2763,21 @@ foo:	nop
 	  [Define if your assembler supports popcntb field.])])
 
     case $target in
+      *-*-aix*) conftest_s='	.machine "pwr5x"
+	.csect .text[[PR]]
+	frin 1,1';;
+      *) conftest_s='	.machine power5
+	.text
+	frin 1,1';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([fp round support],
+      gcc_cv_as_powerpc_fprnd, [2,17,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_FPRND, 1,
+	  [Define if your assembler supports fprnd.])])
+
+    case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
 LCF..0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-LCF..0@ha';;
@@ -2801,7 +2834,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-*)
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3222,8 +3255,8 @@ done
 
 rm -f Make-hooks
 touch Make-hooks
-target_list="all.build all.cross start.encap rest.encap tags \
-	install-normal install-common install-man \
+target_list="all.cross start.encap rest.encap tags \
+	install-common install-man \
 	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"

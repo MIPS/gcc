@@ -273,6 +273,32 @@ debug_lattice_value (prop_value_t val)
 }
 
 
+/* The regular is_gimple_min_invariant does a shallow test of the object.
+   It assumes that full gimplification has happened, or will happen on the
+   object.  For a value coming from DECL_INITIAL, this is not true, so we
+   have to be more strict outselves.  */
+
+static bool
+ccp_decl_initial_min_invariant (tree t)
+{
+  if (!is_gimple_min_invariant (t))
+    return false;
+  if (TREE_CODE (t) == ADDR_EXPR)
+    {
+      /* Inline and unroll is_gimple_addressable.  */
+      while (1)
+	{
+	  t = TREE_OPERAND (t, 0);
+	  if (is_gimple_id (t))
+	    return true;
+	  if (!handled_component_p (t))
+	    return false;
+	}
+    }
+  return true;
+}
+
+
 /* Compute a default value for variable VAR and store it in the
    CONST_VAL array.  The following rules are used to get default
    values:
@@ -316,8 +342,9 @@ get_default_value (tree var)
     }
   else if (TREE_STATIC (sym)
 	   && TREE_READONLY (sym)
+	   && !MTAG_P (sym)
 	   && DECL_INITIAL (sym)
-	   && is_gimple_min_invariant (DECL_INITIAL (sym)))
+	   && ccp_decl_initial_min_invariant (DECL_INITIAL (sym)))
     {
       /* Globals and static variables declared 'const' take their
 	 initial value.  */
@@ -853,6 +880,10 @@ ccp_fold (tree stmt)
 	    op0 = get_value (op0, true)->value;
 	}
 
+      if ((code == NOP_EXPR || code == CONVERT_EXPR)
+	  && tree_ssa_useless_type_conversion_1 (TREE_TYPE (rhs),
+		  				 TREE_TYPE (op0)))
+	return op0;
       return fold_unary (code, TREE_TYPE (rhs), op0);
     }
 
@@ -1559,9 +1590,9 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (!integer_zerop (elt_offset))
     idx = int_const_binop (PLUS_EXPR, idx, elt_offset, 0);
 
-  return build (ARRAY_REF, orig_type, base, idx, min_idx,
-		size_int (tree_low_cst (elt_size, 1)
-			  / (TYPE_ALIGN_UNIT (elt_type))));
+  return build4 (ARRAY_REF, orig_type, base, idx, min_idx,
+		 size_int (tree_low_cst (elt_size, 1)
+			   / (TYPE_ALIGN_UNIT (elt_type))));
 }
 
 
@@ -1622,7 +1653,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
-	  t = build (COMPONENT_REF, field_type, base, f, NULL_TREE);
+	  t = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
 	  return t;
 	}
       
@@ -1662,7 +1693,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
      nonzero offset into them.  Recurse and hope for a valid match.  */
   if (base_is_ptr)
     base = build1 (INDIRECT_REF, record_type, base);
-  base = build (COMPONENT_REF, field_type, base, f, NULL_TREE);
+  base = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
 
   t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
   if (t)
@@ -1712,7 +1743,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 
       /* Fold away CONST_DECL to its value, if the type is scalar.  */
       if (TREE_CODE (base) == CONST_DECL
-	  && is_gimple_min_invariant (DECL_INITIAL (base)))
+	  && ccp_decl_initial_min_invariant (DECL_INITIAL (base)))
 	return DECL_INITIAL (base);
 
       /* Try folding *(&B+O) to B[X].  */
@@ -1927,7 +1958,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       /* Set TREE_INVARIANT properly so that the value is properly
 	 considered constant, and so gets propagated as expected.  */
       if (*changed_p)
-        recompute_tree_invarant_for_addr_expr (expr);
+        recompute_tree_invariant_for_addr_expr (expr);
       return NULL_TREE;
 
     case PLUS_EXPR:

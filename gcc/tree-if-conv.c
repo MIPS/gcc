@@ -630,8 +630,8 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
         bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
 
       /* new_cond == prev_cond AND cond */
-      tmp = build (TRUTH_AND_EXPR, boolean_type_node,
-		   unshare_expr (prev_cond), cond);
+      tmp = build2 (TRUTH_AND_EXPR, boolean_type_node,
+		    unshare_expr (prev_cond), cond);
       tmp_stmt = ifc_temp_var (boolean_type_node, tmp);
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
       new_cond = TREE_OPERAND (tmp_stmt, 0);
@@ -679,7 +679,7 @@ find_phi_replacement_condition (struct loop *loop,
        S2: x = c ? b : a;
 
        S2 is preferred over S1. Make 'b' first_bb and use its condition.
-
+       
      2) Do not make loop header first_bb.
 
      3)
@@ -691,7 +691,10 @@ find_phi_replacement_condition (struct loop *loop,
        S3: x = (c == d) ? b : a;
 
        S3 is preferred over S1 and S2*, Make 'b' first_bb and use 
-       its condition.  */
+       its condition.  
+
+     4) If  pred B is dominated by pred A then use pred B's condition.
+        See PR23115.  */
 
   /* Select condition that is not TRUTH_NOT_EXPR.  */
   tmp_cond = first_bb->aux;
@@ -703,8 +706,10 @@ find_phi_replacement_condition (struct loop *loop,
       second_bb = tmp_bb;
     }
 
-  /* Check if FIRST_BB is loop header or not.  */
-  if (first_bb == loop->header) 
+  /* Check if FIRST_BB is loop header or not and make sure that
+     FIRST_BB does not dominate SECOND_BB.  */
+  if (first_bb == loop->header
+      || dominated_by_p (CDI_DOMINATORS, second_bb, first_bb))
     {
       tmp_cond = second_bb->aux;
       if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
@@ -787,13 +792,13 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
     }
 
   /* Build new RHS using selected condition and arguments.  */
-  rhs = build (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
-	       unshare_expr (cond), unshare_expr (arg_0),
-	       unshare_expr (arg_1));
+  rhs = build3 (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+	        unshare_expr (cond), unshare_expr (arg_0),
+	        unshare_expr (arg_1));
 
   /* Create new MODIFY expression using RHS.  */
-  new_stmt = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
-		    unshare_expr (PHI_RESULT (phi)), rhs);
+  new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+		     unshare_expr (PHI_RESULT (phi)), rhs);
 
   /* Make new statement definition of the original phi result.  */
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
@@ -988,7 +993,7 @@ ifc_temp_var (tree type, tree exp)
   add_referenced_tmp_var (var);
 
   /* Build new statement to assign EXP to new variable.  */
-  stmt = build (MODIFY_EXPR, type, var, exp);
+  stmt = build2 (MODIFY_EXPR, type, var, exp);
 
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */

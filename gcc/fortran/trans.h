@@ -457,6 +457,9 @@ extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
 extern GTY(()) tree gfor_fndecl_set_fpe;
 extern GTY(()) tree gfor_fndecl_set_std;
+extern GTY(()) tree gfor_fndecl_ttynam;
+extern GTY(()) tree gfor_fndecl_ctime;
+extern GTY(()) tree gfor_fndecl_fdate;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
 extern GTY(()) tree gfor_fndecl_associated;
@@ -573,7 +576,7 @@ struct lang_decl		GTY(())
 #define gfc_todo_error(args...) fatal_error("gfc_todo: Not Implemented: " args)
 
 /* Build an expression with void type.  */
-#define build1_v(code, arg) build(code, void_type_node, arg)
+#define build1_v(code, arg) build1(code, void_type_node, arg)
 #define build2_v(code, arg1, arg2) build2(code, void_type_node, \
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \

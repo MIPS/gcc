@@ -52,8 +52,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static rtx neg_const_int (enum machine_mode, rtx);
 static bool plus_minus_operand_p (rtx);
 static int simplify_plus_minus_op_data_cmp (const void *, const void *);
-static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx,
-				rtx, int);
+static rtx simplify_plus_minus (enum rtx_code, enum machine_mode, rtx, rtx);
 static rtx simplify_immed_subreg (enum machine_mode, rtx, enum machine_mode,
 				  unsigned int);
 static rtx simplify_associative_operation (enum rtx_code, enum machine_mode,
@@ -124,16 +123,6 @@ simplify_gen_binary (enum rtx_code code, enum machine_mode mode, rtx op0,
   tem = simplify_binary_operation (code, mode, op0, op1);
   if (tem)
     return tem;
-
-  /* Handle addition and subtraction specially.  Otherwise, just form
-     the operation.  */
-
-  if (code == PLUS || code == MINUS)
-    {
-      tem = simplify_plus_minus (code, mode, op0, op1, 1);
-      if (tem)
-	return tem;
-    }
 
   return gen_rtx_fmt_ee (code, mode, op0, op1);
 }
@@ -983,7 +972,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
     }
 
   else if (GET_CODE (op) == CONST_DOUBLE
-	   && GET_MODE_CLASS (mode) == MODE_FLOAT)
+	   && SCALAR_FLOAT_MODE_P (mode))
     {
       REAL_VALUE_TYPE d, t;
       REAL_VALUE_FROM_CONST_DOUBLE (d, op);
@@ -1029,7 +1018,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
     }
 
   else if (GET_CODE (op) == CONST_DOUBLE
-	   && GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
+	   && SCALAR_FLOAT_MODE_P (GET_MODE (op))
 	   && GET_MODE_CLASS (mode) == MODE_INT
 	   && width <= 2*HOST_BITS_PER_WIDE_INT && width > 0)
     {
@@ -1366,7 +1355,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       if (INTEGRAL_MODE_P (mode)
 	  && (plus_minus_operand_p (op0)
 	      || plus_minus_operand_p (op1))
-	  && (tem = simplify_plus_minus (code, mode, op0, op1, 0)) != 0)
+	  && (tem = simplify_plus_minus (code, mode, op0, op1)) != 0)
 	return tem;
 
       /* Reassociate floating point addition only when the user
@@ -1531,18 +1520,6 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_binary (MINUS, mode, tem, XEXP (op0, 0));
 	}
 
-      /* If one of the operands is a PLUS or a MINUS, see if we can
-	 simplify this by the associative law.
-	 Don't use the associative law for floating point.
-	 The inaccuracy makes it nonassociative,
-	 and subtle programs can break if operations are associated.  */
-
-      if (INTEGRAL_MODE_P (mode)
-	  && (plus_minus_operand_p (op0)
-	      || plus_minus_operand_p (op1))
-	  && (tem = simplify_plus_minus (code, mode, op0, op1, 0)) != 0)
-	return tem;
-
       /* Don't let a relocatable value get a negative coeff.  */
       if (GET_CODE (op1) == CONST_INT && GET_MODE (op0) != VOIDmode)
 	return simplify_gen_binary (PLUS, mode,
@@ -1565,6 +1542,19 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      return simplify_gen_binary (AND, mode, op0, tem);
 	    }
 	}
+
+      /* If one of the operands is a PLUS or a MINUS, see if we can
+	 simplify this by the associative law.  This will, for example,
+         canonicalize (minus A (plus B C)) to (minus (minus A B) C).
+	 Don't use the associative law for floating point.
+	 The inaccuracy makes it nonassociative,
+	 and subtle programs can break if operations are associated.  */
+
+      if (INTEGRAL_MODE_P (mode)
+	  && (plus_minus_operand_p (op0)
+	      || plus_minus_operand_p (op1))
+	  && (tem = simplify_plus_minus (code, mode, op0, op1)) != 0)
+	return tem;
       break;
 
     case MULT:
@@ -1610,7 +1600,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 
       /* x*2 is x+x and x*(-1) is -x */
       if (GET_CODE (trueop1) == CONST_DOUBLE
-	  && GET_MODE_CLASS (GET_MODE (trueop1)) == MODE_FLOAT
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (trueop1))
 	  && GET_MODE (op0) == mode)
 	{
 	  REAL_VALUE_TYPE d;
@@ -1792,7 +1782,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 
     case DIV:
       /* Handle floating point and integers separately.  */
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+      if (SCALAR_FLOAT_MODE_P (mode))
 	{
 	  /* Maybe change 0.0 / x to 0.0.  This transformation isn't
 	     safe for modes with NaNs, since 0.0 / 0.0 will then be
@@ -2146,7 +2136,7 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
       return gen_rtx_CONST_VECTOR (mode, v);
     }
 
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (mode)
       && GET_CODE (op0) == CONST_DOUBLE
       && GET_CODE (op1) == CONST_DOUBLE
       && mode == GET_MODE (op0) && mode == GET_MODE (op1))
@@ -2241,6 +2231,17 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  inexact = real_arithmetic (&value, rtx_to_tree_code (code),
 				     &f0, &f1);
 	  real_convert (&result, mode, &value);
+
+	  /* Don't constant fold this floating point operation if
+	     the result has overflowed and flag_trapping_math.  */
+
+	  if (flag_trapping_math
+	      && MODE_HAS_INFINITIES (mode)
+	      && REAL_VALUE_ISINF (result)
+	      && !REAL_VALUE_ISINF (f0)
+	      && !REAL_VALUE_ISINF (f1))
+	    /* Overflow plus exception.  */
+	    return 0;
 
 	  /* Don't constant fold this floating point operation if the
 	     result may dependent upon the run-time rounding mode and
@@ -2572,12 +2573,7 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 
    Rather than test for specific case, we do this by a brute-force method
    and do all possible simplifications until no more changes occur.  Then
-   we rebuild the operation.
-
-   If FORCE is true, then always generate the rtx.  This is used to
-   canonicalize stuff emitted from simplify_gen_binary.  Note that this
-   can still fail if the rtx is too complex.  It won't fail just because
-   the result is not 'simpler' than the input, however.  */
+   we rebuild the operation.  */
 
 struct simplify_plus_minus_op_data
 {
@@ -2602,12 +2598,12 @@ simplify_plus_minus_op_data_cmp (const void *p1, const void *p2)
 
 static rtx
 simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
-		     rtx op1, int force)
+		     rtx op1)
 {
   struct simplify_plus_minus_op_data ops[8];
   rtx result, tem;
-  int n_ops = 2, input_ops = 2, input_consts = 0, n_consts;
-  int first, changed;
+  int n_ops = 2, input_ops = 2;
+  int first, changed, canonicalized = 0;
   int i, j;
 
   memset (ops, 0, sizeof ops);
@@ -2645,12 +2641,14 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 	      ops[i].op = XEXP (this_op, 0);
 	      input_ops++;
 	      changed = 1;
+	      canonicalized |= this_neg;
 	      break;
 
 	    case NEG:
 	      ops[i].op = XEXP (this_op, 0);
 	      ops[i].neg = ! this_neg;
 	      changed = 1;
+	      canonicalized = 1;
 	      break;
 
 	    case CONST:
@@ -2663,8 +2661,8 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		  ops[n_ops].op = XEXP (XEXP (this_op, 0), 1);
 		  ops[n_ops].neg = this_neg;
 		  n_ops++;
-		  input_consts++;
 		  changed = 1;
+	          canonicalized = 1;
 		}
 	      break;
 
@@ -2677,6 +2675,7 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		  ops[i].op = XEXP (this_op, 0);
 		  ops[i].neg = !this_neg;
 		  changed = 1;
+	          canonicalized = 1;
 		}
 	      break;
 
@@ -2686,6 +2685,7 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		  ops[i].op = neg_const_int (mode, this_op);
 		  ops[i].neg = 0;
 		  changed = 1;
+	          canonicalized = 1;
 		}
 	      break;
 
@@ -2696,14 +2696,45 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
     }
   while (changed);
 
-  /* If we only have two operands, we can't do anything.  */
-  if (n_ops <= 2 && !force)
-    return NULL_RTX;
+  gcc_assert (n_ops >= 2);
+  if (!canonicalized)
+    {
+      int n_constants = 0;
 
-  /* Count the number of CONSTs we didn't split above.  */
-  for (i = 0; i < n_ops; i++)
-    if (GET_CODE (ops[i].op) == CONST)
-      input_consts++;
+      for (i = 0; i < n_ops; i++)
+	if (GET_CODE (ops[i].op) == CONST_INT)
+	  n_constants++;
+
+      if (n_constants <= 1)
+	return NULL_RTX;
+    }
+
+  /* If we only have two operands, we can avoid the loops.  */
+  if (n_ops == 2)
+    {
+      enum rtx_code code = ops[0].neg || ops[1].neg ? MINUS : PLUS;
+      rtx lhs, rhs;
+
+      /* Get the two operands.  Be careful with the order, especially for
+	 the cases where code == MINUS.  */
+      if (ops[0].neg && ops[1].neg)
+	{
+	  lhs = gen_rtx_NEG (mode, ops[0].op);
+	  rhs = ops[1].op;
+	}
+      else if (ops[0].neg)
+	{
+	  lhs = ops[1].op;
+	  rhs = ops[0].op;
+	}
+      else
+	{
+	  lhs = ops[0].op;
+	  rhs = ops[1].op;
+	}
+
+      return simplify_const_binary_operation (code, mode, lhs, rhs);
+    }
 
   /* Now simplify each pair of operands until nothing changes.  The first
      time through just simplify constants against each other.  */
@@ -2807,21 +2838,6 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
       n_ops--;
     }
 
-  /* Count the number of CONSTs that we generated.  */
-  n_consts = 0;
-  for (i = 0; i < n_ops; i++)
-    if (GET_CODE (ops[i].op) == CONST)
-      n_consts++;
-
-  /* Give up if we didn't reduce the number of operands we had.  Make
-     sure we count a CONST as two operands.  If we have the same
-     number of operands, but have made more CONSTs than before, this
-     is also an improvement, so accept it.  */
-  if (!force
-      && (n_ops + n_consts > input_ops
-	  || (n_ops + n_consts == input_ops && n_consts <= input_consts)))
-    return NULL_RTX;
-
   /* Put a non-negated operand first, if possible.  */
 
   for (i = 0; i < n_ops && ops[i].neg; i++)
@@ -2879,7 +2895,7 @@ simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
   tem = simplify_const_relational_operation (code, cmp_mode, op0, op1);
   if (tem)
     {
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+      if (SCALAR_FLOAT_MODE_P (mode))
 	{
           if (tem == const0_rtx)
             return CONST0_RTX (mode);
@@ -3097,7 +3113,7 @@ simplify_const_relational_operation (enum rtx_code code,
      the result.  */
   else if (GET_CODE (trueop0) == CONST_DOUBLE
 	   && GET_CODE (trueop1) == CONST_DOUBLE
-	   && GET_MODE_CLASS (GET_MODE (trueop0)) == MODE_FLOAT)
+	   && SCALAR_FLOAT_MODE_P (GET_MODE (trueop0)))
     {
       REAL_VALUE_TYPE d0, d1;
 
@@ -3631,7 +3647,7 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 	      long tmp[max_bitsize / 32];
 	      int bitsize = GET_MODE_BITSIZE (GET_MODE (el));
 
-	      gcc_assert (GET_MODE_CLASS (GET_MODE (el)) == MODE_FLOAT);
+	      gcc_assert (SCALAR_FLOAT_MODE_P (GET_MODE (el)));
 	      gcc_assert (bitsize <= elem_bitsize);
 	      gcc_assert (bitsize % value_bit == 0);
 

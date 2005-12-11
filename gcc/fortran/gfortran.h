@@ -291,6 +291,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_ALL,
   GFC_ISYM_ALLOCATED,
   GFC_ISYM_ANINT,
+  GFC_ISYM_AND,
   GFC_ISYM_ANY,
   GFC_ISYM_ASIN,
   GFC_ISYM_ASINH,
@@ -310,11 +311,13 @@ enum gfc_generic_isym_id
   GFC_ISYM_CHDIR,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
+  GFC_ISYM_COMPLEX,
   GFC_ISYM_CONJG,
   GFC_ISYM_COS,
   GFC_ISYM_COSH,
   GFC_ISYM_COUNT,
   GFC_ISYM_CSHIFT,
+  GFC_ISYM_CTIME,
   GFC_ISYM_DBLE,
   GFC_ISYM_DIM,
   GFC_ISYM_DOT_PRODUCT,
@@ -325,10 +328,16 @@ enum gfc_generic_isym_id
   GFC_ISYM_ETIME,
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
+  GFC_ISYM_FDATE,
+  GFC_ISYM_FGET,
+  GFC_ISYM_FGETC,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FNUM,
+  GFC_ISYM_FPUT,
+  GFC_ISYM_FPUTC,
   GFC_ISYM_FRACTION,
   GFC_ISYM_FSTAT,
+  GFC_ISYM_FTELL,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -377,6 +386,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_NEAREST,
   GFC_ISYM_NINT,
   GFC_ISYM_NOT,
+  GFC_ISYM_OR,
   GFC_ISYM_PACK,
   GFC_ISYM_PRESENT,
   GFC_ISYM_PRODUCT,
@@ -413,11 +423,13 @@ enum gfc_generic_isym_id
   GFC_ISYM_TRANSFER,
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
+  GFC_ISYM_TTYNAM,
   GFC_ISYM_UBOUND,
   GFC_ISYM_UMASK,
   GFC_ISYM_UNLINK,
   GFC_ISYM_UNPACK,
   GFC_ISYM_VERIFY,
+  GFC_ISYM_XOR,
   GFC_ISYM_CONVERSION
 };
 typedef enum gfc_generic_isym_id gfc_generic_isym_id;
@@ -480,17 +492,17 @@ typedef struct
   ENUM_BITFIELD (ifsrc) if_source:2;
 
   ENUM_BITFIELD (procedure_type) proc:3;
-  
+
   /* Special attributes for Cray pointers, pointees.  */
-  unsigned cray_pointer:1, cray_pointee:1;    
+  unsigned cray_pointer:1, cray_pointee:1;
 
 }
 symbol_attribute;
 
 
 /* The following three structures are used to identify a location in
-   the sources. 
-   
+   the sources.
+
    gfc_file is used to maintain a tree of the source files and how
    they include each other
 
@@ -498,17 +510,17 @@ symbol_attribute;
    which file it resides in
 
    locus point to the sourceline and the character in the source
-   line.  
+   line.
 */
 
-typedef struct gfc_file 
+typedef struct gfc_file
 {
   struct gfc_file *included_by, *next, *up;
   int inclusion_line, line;
   char *filename;
 } gfc_file;
 
-typedef struct gfc_linebuf 
+typedef struct gfc_linebuf
 {
 #ifdef USE_MAPPED_LOCATION
   source_location location;
@@ -525,7 +537,7 @@ typedef struct gfc_linebuf
 
 #define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
 
-typedef struct 
+typedef struct
 {
   char *nextc;
   gfc_linebuf *lb;
@@ -774,7 +786,7 @@ typedef struct gfc_common_head
   int use_assoc, saved;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
-} 
+}
 gfc_common_head;
 
 #define gfc_get_common_head() gfc_getmem(sizeof(gfc_common_head))
@@ -833,7 +845,7 @@ typedef struct gfc_namespace
   /* Tree containing all the user-defined operators in the namespace.  */
   gfc_symtree *uop_root;
   /* Tree containing all the common blocks.  */
-  gfc_symtree *common_root;	
+  gfc_symtree *common_root;
 
   /* If set_flag[letter] is set, an implicit type has been set for letter.  */
   int set_flag[GFC_LETTERS];
@@ -1297,7 +1309,7 @@ gfc_alloc;
 typedef struct
 {
   gfc_expr *unit, *file, *status, *access, *form, *recl,
-    *blank, *position, *action, *delim, *pad, *iostat, *iomsg;
+    *blank, *position, *action, *delim, *pad, *iostat, *iomsg, *convert;
   gfc_st_label *err;
 }
 gfc_open;
@@ -1324,7 +1336,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength, *iomsg;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert;
 
   gfc_st_label *err;
 
@@ -1403,7 +1415,7 @@ typedef struct gfc_code
   ext;		/* Points to additional structures required by statement */
 
   /* Backend_decl is used for cycle and break labels in do loops, and
-   * probably for other constructs as well, once we translate them.  */
+     probably for other constructs as well, once we translate them.  */
   tree backend_decl;
 }
 gfc_code;
@@ -1448,7 +1460,20 @@ typedef struct
 {
   char *module_dir;
   gfc_source_form source_form;
-  int fixed_line_length;
+  /* When fixed_line_length or free_line_length are 0, the whole line is used.
+
+     Default is -1, the maximum line length mandated by the respective source
+     form is used:
+     for FORM_FREE GFC_MAX_LINE (132)
+     else 72.
+
+     If fixed_line_length or free_line_length is not 0 nor -1 then the user has
+     requested a specific line-length.
+
+     If the user requests a fixed_line_length <7 then gfc_init_options()
+     emits a fatal error.  */
+  int fixed_line_length; /* maximum line length in fixed-form.  */
+  int free_line_length; /* maximum line length in free-form.  */
   int max_identifier_length;
   int verbose;
 
@@ -1536,7 +1561,7 @@ void gfc_scanner_init_1 (void);
 
 void gfc_add_include_path (const char *);
 void gfc_release_include_path (void);
-FILE *gfc_open_included_file (const char *);
+FILE *gfc_open_included_file (const char *, bool);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);
@@ -1787,6 +1812,7 @@ void gfc_free_ref_list (gfc_ref *);
 void gfc_type_convert_binary (gfc_expr *);
 int gfc_is_constant_expr (gfc_expr *);
 try gfc_simplify_expr (gfc_expr *, int);
+int gfc_has_vector_index (gfc_expr *);
 
 gfc_expr *gfc_get_expr (void);
 void gfc_free_expr (gfc_expr *);

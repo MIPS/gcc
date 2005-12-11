@@ -3425,34 +3425,37 @@ sjlj_output_call_site_table (void)
   call_site_base += n;
 }
 
-/* Tell assembler to switch to the section for the exception handling
-   table.  */
+#ifndef TARGET_UNWIND_INFO
+/* Switch to the section that should be used for exception tables.  */
 
-void
-default_exception_section (void)
+static void
+switch_to_exception_section (void)
 {
-  if (targetm.have_named_sections)
+  if (exception_section == 0)
     {
-      int flags;
-
-      if (EH_TABLES_CAN_BE_READ_ONLY)
+      if (targetm.have_named_sections)
 	{
-	  int tt_format = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
-	  
-	  flags = (! flag_pic
-		   || ((tt_format & 0x70) != DW_EH_PE_absptr
-		       && (tt_format & 0x70) != DW_EH_PE_aligned))
-	    ? 0 : SECTION_WRITE;
+	  int flags;
+
+	  if (EH_TABLES_CAN_BE_READ_ONLY)
+	    {
+	      int tt_format =
+		ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
+	      flags = ((! flag_pic
+			|| ((tt_format & 0x70) != DW_EH_PE_absptr
+			    && (tt_format & 0x70) != DW_EH_PE_aligned))
+		       ? 0 : SECTION_WRITE);
+	    }
+	  else
+	    flags = SECTION_WRITE;
+	  exception_section = get_section (".gcc_except_table", flags, NULL);
 	}
       else
-	flags = SECTION_WRITE;
-      named_section_flags (".gcc_except_table", flags);
+	exception_section = flag_pic ? data_section : readonly_data_section;
     }
-  else if (flag_pic)
-    data_section ();
-  else
-    readonly_data_section ();
+  switch_to_section (exception_section);
 }
+#endif
 
 
 /* Output a reference from an exception table to the type_info object TYPE.
@@ -3463,6 +3466,7 @@ static void
 output_ttype (tree type, int tt_format, int tt_format_size)
 {
   rtx value;
+  bool public = true;
 
   if (type == NULL_TREE)
     value = const0_rtx;
@@ -3485,10 +3489,11 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 	      node = cgraph_varpool_node (type);
 	      if (node)
 		cgraph_varpool_mark_needed_node (node);
+	      public = TREE_PUBLIC (type);
 	    }
 	}
-      else if (TREE_CODE (type) != INTEGER_CST)
-	abort ();
+      else
+	gcc_assert (TREE_CODE (type) == INTEGER_CST);
     }
 
   /* Allow the target to override the type table entry format.  */
@@ -3499,7 +3504,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     assemble_integer (value, tt_format_size,
 		      tt_format_size * BITS_PER_UNIT, 1);
   else
-    dw2_asm_output_encoded_addr_rtx (tt_format, value, NULL);
+    dw2_asm_output_encoded_addr_rtx (tt_format, value, public, NULL);
 }
 
 void
@@ -3531,7 +3536,7 @@ output_function_exception_table (void)
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */
 #else
-  targetm.asm_out.exception_section ();
+  switch_to_exception_section ();
 #endif
 
   have_tt_data = (VEC_length (tree, cfun->eh->ttype_data) > 0
@@ -3685,7 +3690,7 @@ output_function_exception_table (void)
 			     (i ? NULL : "Exception specification table"));
     }
 
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
 }
 
 void

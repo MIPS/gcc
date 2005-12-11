@@ -1042,6 +1042,7 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
   t_bool res = t_false;
   tree rhs0, rhs1;
   tree type_rhs = TREE_TYPE (rhs);
+  tree evol;
   
   /* The RHS is one of the following cases:
      - an SSA_NAME, 
@@ -1084,14 +1085,15 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 	    {
 	      /* Match an assignment under the form: 
 		 "a = b + c".  */
+	      evol = *evolution_of_loop;
 	      res = follow_ssa_edge 
 		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
-		 evolution_of_loop, limit);
+		 &evol, limit);
 	      
 	      if (res == t_true)
 		*evolution_of_loop = add_to_evolution 
 		  (loop->num, 
-		   chrec_convert (type_rhs, *evolution_of_loop, at_stmt), 
+		   chrec_convert (type_rhs, evol, at_stmt), 
 		   PLUS_EXPR, rhs1);
 	      
 	      else if (res == t_false)
@@ -1186,68 +1188,6 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
       
       break;
     
-    case MULT_EXPR:
-      /* This case is under the form "opnd0 = rhs0 * rhs1".  */
-      rhs0 = TREE_OPERAND (rhs, 0);
-      rhs1 = TREE_OPERAND (rhs, 1);
-      STRIP_TYPE_NOPS (rhs0);
-      STRIP_TYPE_NOPS (rhs1);
-
-      if (TREE_CODE (rhs0) == SSA_NAME)
-	{
-	  if (TREE_CODE (rhs1) == SSA_NAME)
-	    {
-	      /* Match an assignment under the form: 
-		 "a = b * c".  */
-	      res = follow_ssa_edge 
-		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
-		 evolution_of_loop, limit);
-	      
-	      if (res == t_true || res == t_dont_know)
-		*evolution_of_loop = chrec_dont_know;
-	      
-	      else if (res == t_false)
-		{
-		  res = follow_ssa_edge 
-		    (loop, SSA_NAME_DEF_STMT (rhs1), halting_phi, 
-		     evolution_of_loop, limit);
-		  
-		  if (res == t_true || res == t_dont_know)
-		    *evolution_of_loop = chrec_dont_know;
-		}
-	    }
-	  
-	  else
-	    {
-	      /* Match an assignment under the form: 
-		 "a = b * ...".  */
-	      res = follow_ssa_edge 
-		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
-		 evolution_of_loop, limit);
-	      if (res == t_true || res == t_dont_know)
-		*evolution_of_loop = chrec_dont_know;
-	    }
-	}
-      
-      else if (TREE_CODE (rhs1) == SSA_NAME)
-	{
-	  /* Match an assignment under the form: 
-	     "a = ... * c".  */
-	  res = follow_ssa_edge 
-	    (loop, SSA_NAME_DEF_STMT (rhs1), halting_phi, 
-	     evolution_of_loop, limit);
-	  if (res == t_true || res == t_dont_know)
-	    *evolution_of_loop = chrec_dont_know;
-	}
-      
-      else
-	/* Otherwise, match an assignment under the form: 
-	   "a = ... * ...".  */
-	/* And there is nothing to do.  */
-	res = t_false;
-      
-      break;
-
     case ASSERT_EXPR:
       {
 	/* This assignment is of the form: "a_1 = ASSERT_EXPR <a_2, ...>"
@@ -1503,7 +1443,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
     {
       tree arg = PHI_ARG_DEF (loop_phi_node, i);
       tree ssa_chain, ev_fn;
-      bool res;
+      t_bool res;
 
       /* Select the edges that enter the loop body.  */
       bb = PHI_ARG_EDGE (loop_phi_node, i)->src;
@@ -1519,7 +1459,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	  res = follow_ssa_edge (loop, ssa_chain, loop_phi_node, &ev_fn, 0);
 	}
       else
-	res = false;
+	res = t_false;
 	      
       /* When it is impossible to go back on the same
 	 loop_phi_node by following the ssa edges, the
@@ -1527,7 +1467,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	 first iteration, EV_FN has the value INIT_COND, then
 	 all the other iterations it has the value of ARG.  
 	 For the moment, PEELED_CHREC nodes are not built.  */
-      if (!res)
+      if (res != t_true)
 	ev_fn = chrec_dont_know;
       
       /* When there are multiple back edges of the loop (which in fact never
@@ -1982,7 +1922,8 @@ loop_closed_phi_def (tree var)
 /* Analyze all the parameters of the chrec that were left under a symbolic form,
    with respect to LOOP.  CHREC is the chrec to instantiate.  CACHE is the cache
    of already instantiated values.  FLAGS modify the way chrecs are
-   instantiated.  */
+   instantiated.  SIZE_EXPR is used for computing the size of the expression to
+   be instantiated, and to stop if it exceeds some limit.  */
 
 /* Values for FLAGS.  */
 enum
@@ -1995,11 +1936,16 @@ enum
 };
   
 static tree
-instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache)
+instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache,
+			  int size_expr)
 {
   tree res, op0, op1, op2;
   basic_block def_bb;
   struct loop *def_loop;
+
+  /* Give up if the expression is larger than the MAX that we allow.  */
+  if (size_expr++ > PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
+    return chrec_dont_know;
 
   if (automatically_generated_chrec_p (chrec)
       || is_gimple_min_invariant (chrec))
@@ -2068,7 +2014,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 	}
 
       else if (res != chrec_dont_know)
-	res = instantiate_parameters_1 (loop, res, flags, cache);
+	res = instantiate_parameters_1 (loop, res, flags, cache, size_expr);
 
       bitmap_clear_bit (already_instantiated, SSA_NAME_VERSION (chrec));
 
@@ -2078,12 +2024,12 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 
     case POLYNOMIAL_CHREC:
       op0 = instantiate_parameters_1 (loop, CHREC_LEFT (chrec),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
 	return chrec_dont_know;
 
       op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op1 == chrec_dont_know)
 	return chrec_dont_know;
 
@@ -2094,12 +2040,12 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 
     case PLUS_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
 	return chrec_dont_know;
 
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op1 == chrec_dont_know)
 	return chrec_dont_know;
 
@@ -2110,12 +2056,12 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 
     case MINUS_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
 	return chrec_dont_know;
 
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op1 == chrec_dont_know)
 	return chrec_dont_know;
 
@@ -2126,12 +2072,12 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 
     case MULT_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
 	return chrec_dont_know;
 
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op1 == chrec_dont_know)
 	return chrec_dont_know;
 
@@ -2144,7 +2090,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
         return chrec_dont_know;
 
@@ -2174,17 +2120,17 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
     {
     case 3:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
 	return chrec_dont_know;
 
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op1 == chrec_dont_know)
 	return chrec_dont_know;
 
       op2 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 2),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op2 == chrec_dont_know)
         return chrec_dont_know;
 
@@ -2198,12 +2144,12 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 
     case 2:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
 	return chrec_dont_know;
 
       op1 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 1),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op1 == chrec_dont_know)
         return chrec_dont_know;
 
@@ -2214,7 +2160,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
 	    
     case 1:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
-				      flags, cache);
+				      flags, cache, size_expr);
       if (op0 == chrec_dont_know)
         return chrec_dont_know;
       if (op0 == TREE_OPERAND (chrec, 0))
@@ -2252,7 +2198,8 @@ instantiate_parameters (struct loop *loop,
       fprintf (dump_file, ")\n");
     }
  
-  res = instantiate_parameters_1 (loop, chrec, INSERT_SUPERLOOP_CHRECS, cache);
+  res = instantiate_parameters_1 (loop, chrec, INSERT_SUPERLOOP_CHRECS, cache,
+				  0);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2275,7 +2222,7 @@ static tree
 resolve_mixers (struct loop *loop, tree chrec)
 {
   htab_t cache = htab_create (10, hash_scev_info, eq_scev_info, del_scev_info);
-  tree ret = instantiate_parameters_1 (loop, chrec, FOLD_CONVERSIONS, cache);
+  tree ret = instantiate_parameters_1 (loop, chrec, FOLD_CONVERSIONS, cache, 0);
   htab_delete (cache);
   return ret;
 }
@@ -2693,6 +2640,14 @@ scev_finalize (void)
   BITMAP_FREE (already_instantiated);
 }
 
+/* Returns true if EXPR looks expensive.  */
+
+static bool
+expression_expensive_p (tree expr)
+{
+  return force_expr_to_var_cost (expr) >= target_spill_cost;
+}
+
 /* Replace ssa names for that scev can prove they are constant by the
    appropriate constants.  Also perform final value replacement in loops,
    in case the replacement expressions are cheap.
@@ -2768,7 +2723,8 @@ scev_const_prop (void)
   for (i = current_loops->num - 1; i > 0; i--)
     {
       edge exit;
-      tree def, stmts;
+      tree def, rslt, ass;
+      block_stmt_iterator bsi;
 
       loop = current_loops->parray[i];
       if (!loop)
@@ -2780,46 +2736,50 @@ scev_const_prop (void)
       if (!exit
 	  || number_of_iterations_in_loop (loop) == chrec_dont_know)
 	continue;
-      ex_loop = exit->dest->loop_father;
+
+      /* Ensure that it is possible to insert new statements somewhere.  */
+      if (!single_pred_p (exit->dest))
+	split_loop_exit_edge (exit);
+      tree_block_label (exit->dest);
+      bsi = bsi_after_labels (exit->dest);
+
+      ex_loop = superloop_at_depth (loop, exit->dest->loop_father->depth + 1);
 
       for (phi = phi_nodes (exit->dest); phi; phi = next_phi)
 	{
 	  next_phi = PHI_CHAIN (phi);
+	  rslt = PHI_RESULT (phi);
 	  def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
-	  if (!is_gimple_reg (def)
-	      || expr_invariant_in_loop_p (loop, def))
+	  if (!is_gimple_reg (def))
 	    continue;
 
 	  if (!POINTER_TYPE_P (TREE_TYPE (def))
 	      && !INTEGRAL_TYPE_P (TREE_TYPE (def)))
 	    continue;
 
-	  def = analyze_scalar_evolution_in_loop (ex_loop, ex_loop, def);
+	  def = analyze_scalar_evolution_in_loop (ex_loop, loop, def);
+	  def = compute_overall_effect_of_inner_loop (ex_loop, def);
 	  if (!tree_does_not_contain_chrecs (def)
-	      || chrec_contains_symbols_defined_in_loop (def, loop->num)
-	      || def == PHI_RESULT (phi)
-	      || (TREE_CODE (def) == SSA_NAME
-		  && loop_containing_stmt (SSA_NAME_DEF_STMT (def))
-		  && loop_containing_stmt (phi)
-		  && loop_containing_stmt (SSA_NAME_DEF_STMT (def))
-		  == loop_containing_stmt (phi)))
+	      || chrec_contains_symbols_defined_in_loop (def, ex_loop->num))
 	    continue;
 
-	  /* If computing the expression is expensive, let it remain in
-	     loop.  TODO -- we should take the cost of computing the expression
-	     in loop into account.  */
-	  if (force_expr_to_var_cost (def) >= target_spill_cost)
+	  /* If computing the expression is expensive, let it remain in the
+	     loop.  */
+	  if (expression_expensive_p (def))
 	    continue;
+
+	  /* Eliminate the phi node and replace it by a computation outside
+	     the loop.  */
 	  def = unshare_expr (def);
+	  SET_PHI_RESULT (phi, NULL_TREE);
+	  remove_phi_node (phi, NULL_TREE);
 
-	  if (is_gimple_val (def))
-	    stmts = NULL_TREE;
-	  else
-	    def = force_gimple_operand (def, &stmts, true,
-					SSA_NAME_VAR (PHI_RESULT (phi)));
-	  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, exit), def);
-	  if (stmts)
-	    compute_phi_arg_on_exit (exit, stmts, def);
+	  ass = build2 (MODIFY_EXPR, void_type_node, rslt, NULL_TREE);
+	  SSA_NAME_DEF_STMT (rslt) = ass;
+	  bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
+	  def = force_gimple_operand_bsi (&bsi, def, false, NULL_TREE);
+	  TREE_OPERAND (ass, 1) = def;
+	  update_stmt (ass);
 	}
     }
 }

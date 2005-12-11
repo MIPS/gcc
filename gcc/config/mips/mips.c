@@ -328,9 +328,9 @@ static void mips_restore_reg (rtx, rtx);
 static void mips_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				  HOST_WIDE_INT, tree);
 static int symbolic_expression_p (rtx);
-static void mips_select_rtx_section (enum machine_mode, rtx,
-				     unsigned HOST_WIDE_INT);
-static void mips_function_rodata_section (tree);
+static section *mips_select_rtx_section (enum machine_mode, rtx,
+					 unsigned HOST_WIDE_INT);
+static section *mips_function_rodata_section (tree);
 static bool mips_in_small_data_p (tree);
 static int mips_fpr_return_fields (tree, tree *);
 static bool mips_return_in_msb (tree);
@@ -4092,31 +4092,31 @@ mips_va_start (tree valist, rtx nextarg)
       f_goff = TREE_CHAIN (f_ftop);
       f_foff = TREE_CHAIN (f_goff);
 
-      ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
-		    NULL_TREE);
-      gtop = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
-		    NULL_TREE);
-      ftop = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
-		    NULL_TREE);
-      goff = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
-		    NULL_TREE);
-      foff = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
-		    NULL_TREE);
+      ovfl = build3 (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
+		     NULL_TREE);
+      gtop = build3 (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
+		     NULL_TREE);
+      ftop = build3 (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
+		     NULL_TREE);
+      goff = build3 (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
+		     NULL_TREE);
+      foff = build3 (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
+		     NULL_TREE);
 
       /* Emit code to initialize OVFL, which points to the next varargs
 	 stack argument.  CUM->STACK_WORDS gives the number of stack
 	 words used by named arguments.  */
       t = make_tree (TREE_TYPE (ovfl), virtual_incoming_args_rtx);
       if (cum->stack_words > 0)
-	t = build (PLUS_EXPR, TREE_TYPE (ovfl), t,
-		   build_int_cst (NULL_TREE,
-				  cum->stack_words * UNITS_PER_WORD));
-      t = build (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
+	t = build2 (PLUS_EXPR, TREE_TYPE (ovfl), t,
+		    build_int_cst (NULL_TREE,
+				   cum->stack_words * UNITS_PER_WORD));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Emit code to initialize GTOP, the top of the GPR save area.  */
       t = make_tree (TREE_TYPE (gtop), virtual_incoming_args_rtx);
-      t = build (MODIFY_EXPR, TREE_TYPE (gtop), gtop, t);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (gtop), gtop, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Emit code to initialize FTOP, the top of the FPR save area.
@@ -4126,21 +4126,21 @@ mips_va_start (tree valist, rtx nextarg)
       fpr_offset = gpr_save_area_size + UNITS_PER_FPVALUE - 1;
       fpr_offset &= ~(UNITS_PER_FPVALUE - 1);
       if (fpr_offset)
-	t = build (PLUS_EXPR, TREE_TYPE (ftop), t,
-		   build_int_cst (NULL_TREE, -fpr_offset));
-      t = build (MODIFY_EXPR, TREE_TYPE (ftop), ftop, t);
+	t = build2 (PLUS_EXPR, TREE_TYPE (ftop), t,
+		    build_int_cst (NULL_TREE, -fpr_offset));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (ftop), ftop, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Emit code to initialize GOFF, the offset from GTOP of the
 	 next GPR argument.  */
-      t = build (MODIFY_EXPR, TREE_TYPE (goff), goff,
-		 build_int_cst (NULL_TREE, gpr_save_area_size));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (goff), goff,
+		  build_int_cst (NULL_TREE, gpr_save_area_size));
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Likewise emit code to initialize FOFF, the offset from FTOP
 	 of the next FPR argument.  */
-      t = build (MODIFY_EXPR, TREE_TYPE (foff), foff,
-		 build_int_cst (NULL_TREE, fpr_save_area_size));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (foff), foff,
+		  build_int_cst (NULL_TREE, fpr_save_area_size));
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
   else
@@ -4214,16 +4214,16 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
 	 [1] and [9] can sometimes be optimized away.  */
 
-      ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
-		    NULL_TREE);
+      ovfl = build3 (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
+		     NULL_TREE);
 
       if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT
 	  && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_FPVALUE)
 	{
-	  top = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
-		       NULL_TREE);
-	  off = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
-		       NULL_TREE);
+	  top = build3 (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
+		        NULL_TREE);
+	  off = build3 (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
+		        NULL_TREE);
 
 	  /* When floating-point registers are saved to the stack,
 	     each one will take up UNITS_PER_HWFPVALUE bytes, regardless
@@ -4251,42 +4251,42 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
       else
 	{
-	  top = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
-		       NULL_TREE);
-	  off = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
-		       NULL_TREE);
+	  top = build3 (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
+		        NULL_TREE);
+	  off = build3 (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
+		        NULL_TREE);
 	  if (rsize > UNITS_PER_WORD)
 	    {
 	      /* [1] Emit code for: off &= -rsize.	*/
-	      t = build (BIT_AND_EXPR, TREE_TYPE (off), off,
-			 build_int_cst (NULL_TREE, -rsize));
-	      t = build (MODIFY_EXPR, TREE_TYPE (off), off, t);
+	      t = build2 (BIT_AND_EXPR, TREE_TYPE (off), off,
+			  build_int_cst (NULL_TREE, -rsize));
+	      t = build2 (MODIFY_EXPR, TREE_TYPE (off), off, t);
 	      gimplify_and_add (t, pre_p);
 	    }
 	  osize = rsize;
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = build (NE_EXPR, boolean_type_node, off,
-		 build_int_cst (TREE_TYPE (off), 0));
-      addr = build (COND_EXPR, ptr_type_node, t, NULL, NULL);
+      t = build2 (NE_EXPR, boolean_type_node, off,
+		  build_int_cst (TREE_TYPE (off), 0));
+      addr = build3 (COND_EXPR, ptr_type_node, t, NULL_TREE, NULL_TREE);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
 	 post-increment not available to C.  Also widen for the
 	 coming pointer arithmetic.  */
       t = fold_convert (TREE_TYPE (off), build_int_cst (NULL_TREE, rsize));
-      t = build (POSTDECREMENT_EXPR, TREE_TYPE (off), off, t);
+      t = build2 (POSTDECREMENT_EXPR, TREE_TYPE (off), off, t);
       t = fold_convert (sizetype, t);
       t = fold_convert (TREE_TYPE (top), t);
 
       /* [4] Emit code for: addr_rtx = top - off.  On big endian machines,
 	 the argument has RSIZE - SIZE bytes of leading padding.  */
-      t = build (MINUS_EXPR, TREE_TYPE (top), top, t);
+      t = build2 (MINUS_EXPR, TREE_TYPE (top), top, t);
       if (BYTES_BIG_ENDIAN && rsize > size)
 	{
 	  u = fold_convert (TREE_TYPE (t), build_int_cst (NULL_TREE,
 							  rsize - size));
-	  t = build (PLUS_EXPR, TREE_TYPE (t), t, u);
+	  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, u);
 	}
       COND_EXPR_THEN (addr) = t;
 
@@ -4295,11 +4295,11 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	  /* [9] Emit: ovfl += ((intptr_t) ovfl + osize - 1) & -osize.  */
 	  u = fold_convert (TREE_TYPE (ovfl),
 			    build_int_cst (NULL_TREE, osize - 1));
-	  t = build (PLUS_EXPR, TREE_TYPE (ovfl), ovfl, u);
+	  t = build2 (PLUS_EXPR, TREE_TYPE (ovfl), ovfl, u);
 	  u = fold_convert (TREE_TYPE (ovfl),
 			    build_int_cst (NULL_TREE, -osize));
-	  t = build (BIT_AND_EXPR, TREE_TYPE (ovfl), t, u);
-	  align = build (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
+	  t = build2 (BIT_AND_EXPR, TREE_TYPE (ovfl), t, u);
+	  align = build2 (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
 	}
       else
 	align = NULL;
@@ -4309,17 +4309,17 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	 the argument has OSIZE - SIZE bytes of leading padding.  */
       u = fold_convert (TREE_TYPE (ovfl),
 			build_int_cst (NULL_TREE, osize));
-      t = build (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl, u);
+      t = build2 (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl, u);
       if (BYTES_BIG_ENDIAN && osize > size)
 	{
 	  u = fold_convert (TREE_TYPE (t),
 			    build_int_cst (NULL_TREE, osize - size));
-	  t = build (PLUS_EXPR, TREE_TYPE (t), t, u);
+	  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, u);
 	}
 
       /* String [9] and [10,11] together.  */
       if (align)
-	t = build (COMPOUND_EXPR, TREE_TYPE (t), align, t);
+	t = build2 (COMPOUND_EXPR, TREE_TYPE (t), align, t);
       COND_EXPR_ELSE (addr) = t;
 
       addr = fold_convert (build_pointer_type (type), addr);
@@ -4916,8 +4916,13 @@ override_options (void)
 			 && size <= UNITS_PER_FPVALUE)
 			/* Allow integer modes that fit into a single
 			   register.  We need to put integers into FPRs
-			   when using instructions like cvt and trunc.  */
-			|| (class == MODE_INT && size <= UNITS_PER_FPREG)
+			   when using instructions like cvt and trunc.
+			   We can't allow sizes smaller than a word,
+			   the FPU has no appropriate load/store
+			   instructions for those.  */
+			|| (class == MODE_INT
+			    && size >= MIN_UNITS_PER_WORD
+			    && size <= UNITS_PER_FPREG)
 			/* Allow TFmode for CCmode reloads.  */
 			|| (ISA_HAS_8CC && mode == TFmode));
 
@@ -5762,7 +5767,7 @@ mips_file_start (void)
 	default:
 	  gcc_unreachable ();
 	}
-      /* Note - we use fprintf directly rather than called named_section()
+      /* Note - we use fprintf directly rather than calling switch_to_section
 	 because in this way we can avoid creating an allocated section.  We
 	 do not want this section to take up any space in the running
 	 executable.  */
@@ -5804,9 +5809,9 @@ mips_output_aligned_bss (FILE *stream, tree decl, const char *name,
   extern tree last_assemble_variable_decl;
 
   if (mips_in_small_data_p (decl))
-    named_section (0, ".sbss", 0);
+    switch_to_section (get_named_section (NULL, ".sbss", 0));
   else
-    bss_section ();
+    switch_to_section (bss_section);
   ASM_OUTPUT_ALIGN (stream, floor_log2 (align / BITS_PER_UNIT));
   last_assemble_variable_decl = decl;
   ASM_DECLARE_OBJECT_NAME (stream, name, decl);
@@ -5875,7 +5880,7 @@ mips_output_aligned_decl_common (FILE *stream, tree decl, const char *name,
       if (TREE_PUBLIC (decl) && DECL_NAME (decl))
 	targetm.asm_out.globalize_label (stream, name);
 
-      readonly_data_section ();
+      switch_to_section (readonly_data_section);
       ASM_OUTPUT_ALIGN (stream, floor_log2 (align / BITS_PER_UNIT));
       mips_declare_object (stream, name, "",
 			   ":\n\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED "\n",
@@ -7110,7 +7115,7 @@ symbolic_expression_p (rtx x)
 /* Choose the section to use for the constant rtx expression X that has
    mode MODE.  */
 
-static void
+static section *
 mips_select_rtx_section (enum machine_mode mode, rtx x,
 			 unsigned HOST_WIDE_INT align)
 {
@@ -7119,13 +7124,13 @@ mips_select_rtx_section (enum machine_mode mode, rtx x,
       /* In mips16 mode, the constant table always goes in the same section
          as the function, so that constants can be loaded using PC relative
          addressing.  */
-      function_section (current_function_decl);
+      return function_section (current_function_decl);
     }
   else if (TARGET_EMBEDDED_DATA)
     {
       /* For embedded applications, always put constants in read-only data,
 	 in order to reduce RAM usage.  */
-      mergeable_constant_section (mode, align, 0);
+      return mergeable_constant_section (mode, align, 0);
     }
   else
     {
@@ -7135,11 +7140,11 @@ mips_select_rtx_section (enum machine_mode mode, rtx x,
 
       if (GET_MODE_SIZE (mode) <= (unsigned) mips_section_threshold
 	  && mips_section_threshold > 0)
-	named_section (0, ".sdata", 0);
+	return get_named_section (NULL, ".sdata", 0);
       else if (flag_pic && symbolic_expression_p (x))
-	named_section (0, ".data.rel.ro", 3);
+	return get_named_section (NULL, ".data.rel.ro", 3);
       else
-	mergeable_constant_section (mode, align, 0);
+	return mergeable_constant_section (mode, align, 0);
     }
 }
 
@@ -7151,32 +7156,30 @@ mips_select_rtx_section (enum machine_mode mode, rtx x,
    cases by selecting a normal data section instead of a read-only one.
    The logic apes that in default_function_rodata_section.  */
 
-static void
+static section *
 mips_function_rodata_section (tree decl)
 {
   if (!TARGET_ABICALLS || TARGET_GPWORD)
-    default_function_rodata_section (decl);
-  else if (decl && DECL_SECTION_NAME (decl))
+    return default_function_rodata_section (decl);
+
+  if (decl && DECL_SECTION_NAME (decl))
     {
       const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
       if (DECL_ONE_ONLY (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
 	{
 	  char *rname = ASTRDUP (name);
 	  rname[14] = 'd';
-	  named_section_real (rname, SECTION_LINKONCE | SECTION_WRITE, decl);
+	  return get_section (rname, SECTION_LINKONCE | SECTION_WRITE, decl);
 	}
       else if (flag_function_sections && flag_data_sections
 	       && strncmp (name, ".text.", 6) == 0)
 	{
 	  char *rname = ASTRDUP (name);
 	  memcpy (rname + 1, "data", 4);
-	  named_section_flags (rname, SECTION_WRITE);
+	  return get_section (rname, SECTION_WRITE, decl);
 	}
-      else
-	data_section ();
     }
-  else
-    data_section ();
+  return data_section;
 }
 
 /* Implement TARGET_IN_SMALL_DATA_P.  Return true if it would be safe to
@@ -7807,7 +7810,7 @@ build_mips16_function_stub (FILE *file)
   fprintf (file, ")\n");
 
   fprintf (file, "\t.set\tnomips16\n");
-  function_section (stubdecl);
+  switch_to_section (function_section (stubdecl));
   ASM_OUTPUT_ALIGN (file, floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT));
 
   /* ??? If FUNCTION_NAME_ALREADY_DECLARED is defined, then we are
@@ -7852,7 +7855,7 @@ build_mips16_function_stub (FILE *file)
 
   fprintf (file, "\t.set\tmips16\n");
 
-  function_section (current_function_decl);
+  switch_to_section (function_section (current_function_decl));
 }
 
 /* We keep a list of functions for which we have already built stubs

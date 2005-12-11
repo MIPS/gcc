@@ -70,6 +70,10 @@ objc_sizeof_type (const char *type)
     }
 
   switch (*type) {
+  case _C_BOOL:
+    return sizeof (_Bool);
+    break;
+
   case _C_ID:
     return sizeof (id);
     break;
@@ -165,6 +169,7 @@ objc_sizeof_type (const char *type)
       return endByte - startByte;
     }
 
+  case _C_UNION_B:
   case _C_STRUCT_B:
     {
       struct objc_struct_layout layout;
@@ -176,25 +181,6 @@ objc_sizeof_type (const char *type)
       objc_layout_finish_structure (&layout, &size, NULL);
 
       return size;
-    }
-
-  case _C_UNION_B:
-    {
-      int max_size = 0;
-      while (*type != _C_UNION_E && *type++ != '=')
-	/* do nothing */;
-      while (*type != _C_UNION_E)
-	{
-	  /* Skip the variable name if any */
-	  if (*type == '"')
-	    {
-	      for (type++; *type++ != '"';)
-		/* do nothing */;
-	    }
-	  max_size = MAX (max_size, objc_sizeof_type (type));
-	  type = objc_skip_typespec (type);
-	}
-      return max_size;
     }
 
   default:
@@ -220,6 +206,10 @@ objc_alignof_type (const char *type)
 	/* do nothing */;
     }
   switch (*type) {
+  case _C_BOOL:
+    return __alignof__ (_Bool);
+    break;
+
   case _C_ID:
     return __alignof__ (id);
     break;
@@ -292,6 +282,7 @@ objc_alignof_type (const char *type)
     return objc_alignof_type (type);
 
   case _C_STRUCT_B:
+  case _C_UNION_B:
     {
       struct objc_struct_layout layout;
       unsigned int align;
@@ -302,25 +293,6 @@ objc_alignof_type (const char *type)
       objc_layout_finish_structure (&layout, NULL, &align);
 
       return align;
-    }
-
-  case _C_UNION_B:
-    {
-      int maxalign = 0;
-      while (*type != _C_UNION_E && *type++ != '=')
-	/* do nothing */;
-      while (*type != _C_UNION_E)
-	{
-	  /* Skip the variable name if any */
-	  if (*type == '"')
-	    {
-	      for (type++; *type++ != '"';)
-		/* do nothing */;
-	    }
-	  maxalign = MAX (maxalign, objc_alignof_type (type));
-	  type = objc_skip_typespec (type);
-	}
-      return maxalign;
     }
 
   default:
@@ -443,6 +415,7 @@ objc_skip_typespec (const char *type)
   case _C_INT:
   case _C_UINT:
   case _C_LNG:
+  case _C_BOOL:
   case _C_ULNG:
   case _C_LNG_LNG:
   case _C_ULNG_LNG:
@@ -700,13 +673,14 @@ objc_layout_structure (const char *type,
 {
   const char *ntype;
 
-  if (*type++ != _C_STRUCT_B)
+  if (*type != _C_UNION_B && *type != _C_STRUCT_B)
     {
       objc_error (nil, OBJC_ERR_BAD_TYPE,
-                 "record type expected in objc_layout_structure, got %s\n",
+                 "record (or union) type expected in objc_layout_structure, got %s\n",
                  type);
     }
 
+  type ++;
   layout->original_type = type;
 
   /* Skip "<name>=" if any. Avoid embedded structures and unions. */
@@ -737,13 +711,17 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
 
   /* The current type without the type qualifiers */
   const char *type;
+  BOOL unionp = layout->original_type[-1] == _C_UNION_B;
 
   /* Add the size of the previous field to the size of the record.  */
   if (layout->prev_type)
     {
       type = objc_skip_type_qualifiers (layout->prev_type);
+      if (unionp)
+        layout->record_size = MAX (layout->record_size,
+				   objc_sizeof_type (type) * BITS_PER_UNIT);
 
-      if (*type != _C_BFLD)
+      else if (*type != _C_BFLD)
         layout->record_size += objc_sizeof_type (type) * CHAR_BIT;
       else {
         /* Get the bitfield's type */
@@ -759,7 +737,8 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
       }
     }
 
-  if (*layout->type == _C_STRUCT_E)
+  if ((unionp && *layout->type == _C_UNION_E)
+      || (!unionp && *layout->type == _C_STRUCT_E))
     return NO;
 
   /* Skip the variable name if any */
@@ -850,7 +829,10 @@ void objc_layout_finish_structure (struct objc_struct_layout *layout,
                                    unsigned int *size,
                                    unsigned int *align)
 {
-  if (layout->type && *layout->type == _C_STRUCT_E)
+  BOOL unionp = layout->original_type[-1] == _C_UNION_B;
+  if (layout->type
+      && ((!unionp && *layout->type == _C_STRUCT_E)
+       	  || (unionp && *layout->type == _C_UNION_E)))
     {
       /* Work out the alignment of the record as one expression and store
          in the record type.  Round it up to a multiple of the record's

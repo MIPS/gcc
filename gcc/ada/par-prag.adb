@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -233,7 +233,7 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
          elsif Id = Name_No_Dependence then
             Set_Restriction_No_Dependence
               (Unit => Expr,
-               Warn  => Prag_Id = Pragma_Restriction_Warnings);
+               Warn => Prag_Id = Pragma_Restriction_Warnings);
          end if;
 
          Next (Arg);
@@ -329,27 +329,34 @@ begin
       --  semantically we treat it as a procedure call (which has exactly the
       --  same syntactic form, so that's why we can get away with this!)
 
-      when Pragma_Debug =>
-         Check_Arg_Count (1);
-         Check_No_Identifier (Arg1);
+      when Pragma_Debug => Debug : declare
+         Expr : Node_Id;
 
-         declare
-            Expr : constant Node_Id := New_Copy (Expression (Arg1));
+      begin
+         if Arg_Count = 2 then
+            Check_No_Identifier (Arg1);
+            Check_No_Identifier (Arg2);
+            Expr := New_Copy (Expression (Arg2));
 
-         begin
-            if Nkind (Expr) /= N_Indexed_Component
-              and then Nkind (Expr) /= N_Function_Call
-              and then Nkind (Expr) /= N_Identifier
-              and then Nkind (Expr) /= N_Selected_Component
-            then
-               Error_Msg
-                 ("argument of pragma% is not procedure call", Sloc (Expr));
-               raise Error_Resync;
-            else
-               Set_Debug_Statement
-                 (Pragma_Node, P_Statement_Name (Expr));
-            end if;
-         end;
+         else
+            Check_Arg_Count (1);
+            Check_No_Identifier (Arg1);
+            Expr := New_Copy (Expression (Arg1));
+         end if;
+
+         if Nkind (Expr) /= N_Indexed_Component
+           and then Nkind (Expr) /= N_Function_Call
+           and then Nkind (Expr) /= N_Identifier
+           and then Nkind (Expr) /= N_Selected_Component
+         then
+            Error_Msg
+              ("argument of pragma% is not procedure call", Sloc (Expr));
+            raise Error_Resync;
+         else
+            Set_Debug_Statement
+              (Pragma_Node, P_Statement_Name (Expr));
+         end if;
+      end Debug;
 
       -------------------------------
       -- Extensions_Allowed (GNAT) --
@@ -929,7 +936,7 @@ begin
 
                   if not OK then
                      Error_Msg
-                       ("invalid style check option",
+                       (Style_Msg_Buf (1 .. Style_Msg_Len),
                         Sloc (Expression (Arg1)) + Source_Ptr (Ptr));
                      raise Error_Resync;
                   end if;
@@ -963,22 +970,28 @@ begin
       ---------------------
 
       --  pragma Warnings (On | Off, [LOCAL_NAME])
+      --  pragma Warnings (static_string_EXPRESSION);
 
-      --  The one argument case is processed by the parser, since it may
-      --  control parser warnings as well as semantic warnings, and in any
-      --  case we want to be absolutely sure that the range in the warnings
-      --  table is set well before any semantic analysis is performed.
+      --  The one argument ON/OFF case is processed by the parser, since it may
+      --  control parser warnings as well as semantic warnings, and in any case
+      --  we want to be absolutely sure that the range in the warnings table is
+      --  set well before any semantic analysis is performed.
 
       when Pragma_Warnings =>
          if Arg_Count = 1 then
             Check_No_Identifier (Arg1);
-            Check_Arg_Is_On_Or_Off (Arg1);
 
-            if Chars (Expression (Arg1)) = Name_On then
-               Set_Warnings_Mode_On (Pragma_Sloc);
-            else
-               Set_Warnings_Mode_Off (Pragma_Sloc);
-            end if;
+            declare
+               Argx : constant Node_Id := Expression (Arg1);
+            begin
+               if Nkind (Argx) = N_Identifier then
+                  if Chars (Argx) = Name_On then
+                     Set_Warnings_Mode_On (Pragma_Sloc);
+                  elsif Chars (Argx) = Name_Off then
+                     Set_Warnings_Mode_Off (Pragma_Sloc);
+                  end if;
+               end if;
+            end;
          end if;
 
       -----------------------
@@ -1007,6 +1020,7 @@ begin
            Pragma_C_Pass_By_Copy               |
            Pragma_Comment                      |
            Pragma_Common_Object                |
+           Pragma_Complete_Representation      |
            Pragma_Complex_Representation       |
            Pragma_Component_Alignment          |
            Pragma_Controlled                   |

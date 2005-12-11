@@ -32,8 +32,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, int, int, int);
 extern void rs6000_va_start (tree, rtx);
 #endif /* TREE_CODE */
 
-extern int easy_vector_same (rtx, enum machine_mode);
-extern int easy_vector_splat_const (int, enum machine_mode);
+extern bool easy_altivec_constant (rtx, enum machine_mode);
 extern bool macho_lo_sum_memory_operand (rtx, enum machine_mode);
 extern int num_insns_constant (rtx, enum machine_mode);
 extern int num_insns_constant_wide (HOST_WIDE_INT);
@@ -48,7 +47,7 @@ extern bool rs6000_legitimate_small_data_p (enum machine_mode, rtx);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
-extern rtx gen_easy_vector_constant_add_self (rtx);
+extern rtx gen_easy_altivec_constant (rtx);
 extern const char *output_vec_const_move (rtx *);
 extern void rs6000_expand_vector_init (rtx, rtx);
 extern void rs6000_expand_vector_set (rtx, rtx, int);
@@ -65,8 +64,8 @@ extern int insvdi_rshift_rlwimi_p (rtx, rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
 extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
-extern enum reg_class secondary_reload_class (enum reg_class,
-					      enum machine_mode, rtx);
+extern enum reg_class rs6000_secondary_reload_class (enum reg_class,
+						     enum machine_mode, rtx);
 extern int ccr_bit (rtx, int);
 extern int extract_MB (rtx);
 extern int extract_ME (rtx);
@@ -124,6 +123,7 @@ extern rtx rs6000_libcall_value (enum machine_mode);
 extern rtx rs6000_va_arg (tree, tree);
 extern int function_ok_for_sibcall (tree);
 extern void rs6000_elf_declare_function_name (FILE *, const char *, tree);
+extern bool rs6000_elf_in_small_data_p (tree);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding (enum machine_mode, tree);
@@ -141,13 +141,6 @@ extern void rs6000_gen_section_name (char **, const char *, const char *);
 extern void output_function_profiler (FILE *, int);
 extern void output_profile_hook  (int);
 extern int rs6000_trampoline_size (void);
-extern void toc_section (void);
-extern void sdata_section (void);
-extern void sdata2_section (void);
-extern void sbss_section (void);
-extern void private_data_section (void);
-extern void read_only_data_section (void);
-extern void read_only_private_data_section (void);
 extern int get_TOC_alias_set (void);
 extern void rs6000_emit_prologue (void);
 extern void rs6000_emit_load_toc_table (int);

@@ -230,6 +230,13 @@ init_ttree (void)
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -288,6 +295,10 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_type_decl);
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
+	  case NAME_MEMORY_TAG:
+	  case TYPE_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return sizeof (struct tree_memory_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -479,13 +490,16 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_declaration:
-      if (code != FUNCTION_DECL)
-	DECL_ALIGN (t) = 1;
-      DECL_USER_ALIGN (t) = 0;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
 	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      /* We have not yet computed the alias set for this declaration.  */
-      DECL_POINTER_ALIAS_SET (t) = -1;
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{
+	  if (code != FUNCTION_DECL)
+	    DECL_ALIGN (t) = 1;
+	  DECL_USER_ALIGN (t) = 0;	  
+	  /* We have not yet computed the alias set for this declaration.  */
+	  DECL_POINTER_ALIAS_SET (t) = -1;
+	}
       DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
 
@@ -1194,9 +1208,11 @@ integer_all_onesp (tree expr)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
+  if (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
+      && TREE_INT_CST_HIGH (expr) == -1)
+    return 1;
   if (!uns)
-    return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
-	    && TREE_INT_CST_HIGH (expr) == -1);
+    return 0;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -1979,6 +1995,10 @@ tree_node_structure (tree t)
 	    return TS_TYPE_DECL;
 	  case FUNCTION_DECL:
 	    return TS_FUNCTION_DECL;
+	  case TYPE_MEMORY_TAG:
+	  case NAME_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return TS_MEMORY_TAG;
 	  default:
 	    return TS_DECL_NON_COMMON;
 	  }
@@ -2602,7 +2622,7 @@ stabilize_reference_1 (tree e)
    TREE_INVARIANT, and TREE_SIDE_EFFECTS for an ADDR_EXPR.  */
 
 void
-recompute_tree_invarant_for_addr_expr (tree t)
+recompute_tree_invariant_for_addr_expr (tree t)
 {
   tree node;
   bool tc = true, ti = true, se = false;
@@ -2691,9 +2711,7 @@ do { tree _node = (NODE); \
    Constants, decls, types and misc nodes cannot be.
 
    We define 5 non-variadic functions, from 0 to 4 arguments.  This is
-   enough for all extant tree codes.  These functions can be called
-   directly (preferably!), but can also be obtained via GCC preprocessor
-   magic within the build macro.  */
+   enough for all extant tree codes.  */
 
 tree
 build0_stat (enum tree_code code, tree tt MEM_STAT_DECL)
@@ -2779,7 +2797,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
     case ADDR_EXPR:
       if (node)
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
       break;
 
     default:
@@ -2951,61 +2969,6 @@ build7_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 
   TREE_SIDE_EFFECTS (t) = side_effects;
   TREE_THIS_VOLATILE (t) = 0;
-
-  return t;
-}
-
-/* Backup definition for non-gcc build compilers.  */
-
-tree
-(build) (enum tree_code code, tree tt, ...)
-{
-  tree t, arg0, arg1, arg2, arg3, arg4, arg5, arg6;
-  int length = TREE_CODE_LENGTH (code);
-  va_list p;
-
-  va_start (p, tt);
-  switch (length)
-    {
-    case 0:
-      t = build0 (code, tt);
-      break;
-    case 1:
-      arg0 = va_arg (p, tree);
-      t = build1 (code, tt, arg0);
-      break;
-    case 2:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      t = build2 (code, tt, arg0, arg1);
-      break;
-    case 3:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      t = build3 (code, tt, arg0, arg1, arg2);
-      break;
-    case 4:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      t = build4 (code, tt, arg0, arg1, arg2, arg3);
-      break;
-    case 7:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      arg4 = va_arg (p, tree);
-      arg5 = va_arg (p, tree);
-      arg6 = va_arg (p, tree);
-      t = build7 (code, tt, arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  va_end (p);
 
   return t;
 }
@@ -3584,7 +3547,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
      any damage.  */
   if (is_attribute_p ("dllimport", name))
     {
-      /* Honor any target-specific overides. */ 
+      /* Honor any target-specific overrides. */ 
       if (!targetm.valid_dllimport_attribute_p (node))
 	*no_add_attrs = true;
 
@@ -3702,6 +3665,20 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
+
+      /* If it's a pointer type, the new variant points to the same type.  */
+      if (TREE_CODE (type) == POINTER_TYPE)
+	{
+	  TYPE_NEXT_PTR_TO (t) = TYPE_NEXT_PTR_TO (type);
+	  TYPE_NEXT_PTR_TO (type) = t;
+	}
+
+      /* Same for a reference type.  */
+      else if (TREE_CODE (type) == REFERENCE_TYPE)
+	{
+	  TYPE_NEXT_REF_TO (t) = TYPE_NEXT_REF_TO (type);
+	  TYPE_NEXT_REF_TO (type) = t;
+	}
     }
 
   return t;
@@ -4406,7 +4383,7 @@ tree_int_cst_msb (tree t)
 
 /* Return an indication of the sign of the integer constant T.
    The return value is -1 if T < 0, 0 if T == 0, and 1 if T > 0.
-   Note that -1 will never be returned it T's type is unsigned.  */
+   Note that -1 will never be returned if T's type is unsigned.  */
 
 int
 tree_int_cst_sgn (tree t)
@@ -4817,10 +4794,12 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
     return TYPE_POINTER_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for pointers to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_POINTER_TO (to_type); t; t = TYPE_NEXT_PTR_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (POINTER_TYPE);
@@ -4866,10 +4845,12 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
     return TYPE_REFERENCE_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for references to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (REFERENCE_TYPE);
@@ -5540,8 +5521,11 @@ int_fits_type_p (tree c, tree type)
     return 0;
 
   /* If we haven't been able to decide at this point, there nothing more we
-     can check ourselves here. Look at the base type if we have one.  */
-  if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+     can check ourselves here.  Look at the base type if we have one and it
+     has the same precision.  */
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TREE_TYPE (type) != 0
+      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (type)))
     return int_fits_type_p (c, TREE_TYPE (type));
 
   /* Or to force_fit_type, if nothing else.  */
@@ -6666,7 +6650,10 @@ in_array_bounds_p (tree ref)
 bool
 is_global_var (tree t)
 {
-  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+  if (MTAG_P (t))
+    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+  else
+    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory

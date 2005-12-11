@@ -324,7 +324,13 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
   if (global_bindings_p () && TREE_CODE (decl) != PARM_DECL)
     DECL_CONTEXT (decl) = 0;
   else
-    DECL_CONTEXT (decl) = current_function_decl;
+    {
+      DECL_CONTEXT (decl) = current_function_decl;
+
+      /* Functions imported in another function are not really nested.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL && TREE_PUBLIC (decl))
+	DECL_NO_STATIC_CHAIN (decl) = 1;
+    }
 
   TREE_NO_WARNING (decl) = (gnat_node == Empty || Warnings_Off (gnat_node));
 
@@ -1277,6 +1283,12 @@ create_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
       || (type_annotate_only && var_init && !TREE_CONSTANT (var_init)))
     var_init = NULL_TREE;
 
+  /* At the global level, an initializer requiring code to be generated
+     produces elaboration statements.  Check that such statements are allowed,
+     that is, not violating a No_Elaboration_Code restriction.  */
+  if (global_bindings_p () && var_init != 0 && ! init_const)
+    Check_Elaboration_Code_Allowed (gnat_node);
+
   /* Ada doesn't feature Fortran-like COMMON variables so we shouldn't
      try to fiddle with DECL_COMMON.  However, on platforms that don't
      support global BSS sections, uninitialized global variables would
@@ -1313,6 +1325,10 @@ create_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
 
   if (TREE_CODE (var_decl) != CONST_DECL)
     rest_of_decl_compilation (var_decl, global_bindings_p (), 0);
+  else
+    /* expand CONST_DECLs to set their MODE, ALIGN, SIZE and SIZE_UNIT,
+       which we need for later back-annotations.  */
+    expand_decl (var_decl);
 
   return var_decl;
 }
@@ -1607,7 +1623,7 @@ potential_alignment_gap (tree prev_field, tree curr_field, tree offset)
 	    % DECL_ALIGN (curr_field) != 0);
 
   /* If both the position and size of the previous field are multiples
-     of the current field alignment, there can not be any gap. */
+     of the current field alignment, there cannot be any gap. */
   if (value_factor_p (bit_position (prev_field), DECL_ALIGN (curr_field))
       && value_factor_p (DECL_SIZE (prev_field), DECL_ALIGN (curr_field)))
     return false;
@@ -2015,12 +2031,19 @@ max_size (tree exp, bool max_p)
 	       Likewise, handle a MINUS_EXPR or PLUS_EXPR with the LHS
 	       overflowing or the maximum possible value and the RHS
 	       a variable.  */
-	    if (max_p && code == MIN_EXPR && TREE_OVERFLOW (rhs))
+	    if (max_p
+		&& code == MIN_EXPR
+		&& TREE_CODE (rhs) == INTEGER_CST
+		&& TREE_OVERFLOW (rhs))
 	      return lhs;
-	    else if (max_p && code == MIN_EXPR && TREE_OVERFLOW (lhs))
+	    else if (max_p
+		     && code == MIN_EXPR
+		     && TREE_CODE (lhs) == INTEGER_CST
+		     && TREE_OVERFLOW (lhs))
 	      return rhs;
 	    else if ((code == MINUS_EXPR || code == PLUS_EXPR)
-		     && ((TREE_CONSTANT (lhs) && TREE_OVERFLOW (lhs))
+		     && ((TREE_CODE (lhs) == INTEGER_CST
+			  && TREE_OVERFLOW (lhs))
 			 || operand_equal_p (lhs, TYPE_MAX_VALUE (type), 0))
 		     && !TREE_CONSTANT (rhs))
 	      return lhs;
@@ -2444,6 +2467,22 @@ build_unc_object_type (tree template_type, tree object_type, tree name)
 
   return type;
 }
+
+/* Same, taking a thin or fat pointer type instead of a template type. */
+
+tree
+build_unc_object_type_from_ptr (tree thin_fat_ptr_type, tree object_type, tree name)
+{
+  tree template_type;
+
+  gcc_assert (TYPE_FAT_OR_THIN_POINTER_P (thin_fat_ptr_type));
+
+  template_type
+    = (TYPE_FAT_POINTER_P (thin_fat_ptr_type)
+       ? TREE_TYPE (TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (thin_fat_ptr_type))))
+       : TREE_TYPE (TYPE_FIELDS (TREE_TYPE (thin_fat_ptr_type))));
+  return build_unc_object_type (template_type, object_type, name);
+}
 
 /* Update anything previously pointing to OLD_TYPE to point to NEW_TYPE.  In
    the normal case this is just two adjustments, but we have more to do
@@ -2750,16 +2789,19 @@ convert (tree type, tree expr)
   /* If the input is a biased type, adjust first.  */
   if (ecode == INTEGER_TYPE && TYPE_BIASED_REPRESENTATION_P (etype))
     return convert (type, fold (build2 (PLUS_EXPR, TREE_TYPE (etype),
-					fold (build1 (NOP_EXPR,
-						      TREE_TYPE (etype),
-						      expr)),
+					fold_convert (TREE_TYPE (etype),
+						      expr),
 					TYPE_MIN_VALUE (etype))));
 
-  /* If the input is a justified modular type, we need to extract
-     the actual object before converting it to any other type with the
-     exception of an unconstrained array.  */
+  /* If the input is a justified modular type, we need to extract the actual
+     object before converting it to any other type with the exceptions of an
+     unconstrained array or of a mere type variant.  It is useful to avoid the
+     extraction and conversion in the type variant case because it could end
+     up replacing a VAR_DECL expr by a constructor and we might be about the
+     take the address of the result.  */
   if (ecode == RECORD_TYPE && TYPE_JUSTIFIED_MODULAR_P (etype)
-      && code != UNCONSTRAINED_ARRAY_TYPE)
+      && code != UNCONSTRAINED_ARRAY_TYPE
+      && TYPE_MAIN_VARIANT (type) != TYPE_MAIN_VARIANT (etype))
     return convert (type, build_component_ref (expr, NULL_TREE,
 					       TYPE_FIELDS (etype), false));
 
@@ -2804,9 +2846,7 @@ convert (tree type, tree expr)
 	 just make a new one in the proper type.  */
       if (code == ecode && AGGREGATE_TYPE_P (etype)
 	  && !(TREE_CODE (TYPE_SIZE (etype)) == INTEGER_CST
-	       && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-	  && (TREE_CODE (expr) == STRING_CST
-	      || get_alias_set (etype) == get_alias_set (type)))
+	       && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
 	{
 	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
@@ -2826,9 +2866,40 @@ convert (tree type, tree expr)
       break;
 
     case VIEW_CONVERT_EXPR:
-      if (AGGREGATE_TYPE_P (type) && AGGREGATE_TYPE_P (etype)
-	  && !TYPE_FAT_POINTER_P (type) && !TYPE_FAT_POINTER_P (etype))
-	return convert (type, TREE_OPERAND (expr, 0));
+      {
+	/* GCC 4.x is very sensitive to type consistency overall, and view
+	   conversions thus are very frequent.  Eventhough just "convert"ing
+	   the inner operand to the output type is fine in most cases, it
+	   might expose unexpected input/output type mismatches in special
+	   circumstances so we avoid such recursive calls when we can.  */
+
+	tree op0 = TREE_OPERAND (expr, 0);
+
+	/* If we are converting back to the original type, we can just
+	   lift the input conversion.  This is a common occurence with
+	   switches back-and-forth amongst type variants.  */
+	if (type == TREE_TYPE (op0))
+	  return op0;
+
+	/* Otherwise, if we're converting between two aggregate types, we
+	   might be allowed to substitute the VIEW_CONVERT target type in
+	   place or to just convert the inner expression.  */
+	if (AGGREGATE_TYPE_P (type) && AGGREGATE_TYPE_P (etype))
+	  {
+	    /* If we are converting between type variants, we can just
+	       substitute the VIEW_CONVERT in place.  */
+	    if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (etype))
+	      return build1 (VIEW_CONVERT_EXPR, type, op0);
+
+	    /* Otherwise, we may just bypass the input view conversion unless
+	       one of the types is a fat pointer, or we're converting to an
+	       unchecked union type.  Both are handled by specialized code
+	       below and the latter relies on exact type matching.  */
+	    else if (!TYPE_FAT_POINTER_P (type) && !TYPE_FAT_POINTER_P (etype)
+		     && !(code == UNION_TYPE && TYPE_UNCHECKED_UNION_P (type)))
+	      return convert (type, op0);
+	  }
+      }
       break;
 
     case INDIRECT_REF:
@@ -2868,7 +2939,7 @@ convert (tree type, tree expr)
   else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (etype)
 	   || (code == INTEGER_CST && ecode == INTEGER_CST
 	       && (type == TREE_TYPE (etype) || etype == TREE_TYPE (type))))
-    return fold (build1 (NOP_EXPR, type, expr));
+    return fold_convert (type, expr);
 
   switch (code)
     {
@@ -2876,7 +2947,7 @@ convert (tree type, tree expr)
       return build1 (CONVERT_EXPR, type, expr);
 
     case BOOLEAN_TYPE:
-      return fold (build1 (NOP_EXPR, type, gnat_truthvalue_conversion (expr)));
+      return fold_convert (type, gnat_truthvalue_conversion (expr));
 
     case INTEGER_TYPE:
       if (TYPE_HAS_ACTUAL_BOUNDS_P (type)
@@ -2884,10 +2955,10 @@ convert (tree type, tree expr)
 	      || (ecode == RECORD_TYPE && TYPE_CONTAINS_TEMPLATE_P (etype))))
 	return unchecked_convert (type, expr, false);
       else if (TYPE_BIASED_REPRESENTATION_P (type))
-	return fold (build1 (CONVERT_EXPR, type,
-			     fold (build2 (MINUS_EXPR, TREE_TYPE (type),
-					   convert (TREE_TYPE (type), expr),
-					   TYPE_MIN_VALUE (type)))));
+	return fold_convert (type,
+			     fold_build2 (MINUS_EXPR, TREE_TYPE (type),
+					  convert (TREE_TYPE (type), expr),
+					  TYPE_MIN_VALUE (type)));
 
       /* ... fall through ... */
 
@@ -2957,13 +3028,10 @@ convert (tree type, tree expr)
 	    {
 	      if (TREE_TYPE (tem) == etype)
 		return build1 (CONVERT_EXPR, type, expr);
-
-	      /* Accept slight type variations.  */
-	      if (TREE_TYPE (tem) == TYPE_MAIN_VARIANT (etype)
-		  || (TREE_CODE (TREE_TYPE (tem)) == RECORD_TYPE
-		      && (TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (tem))
-			  || TYPE_IS_PADDING_P (TREE_TYPE (tem)))
-		      && TREE_TYPE (TYPE_FIELDS (TREE_TYPE (tem))) == etype))
+	      else if (TREE_CODE (TREE_TYPE (tem)) == RECORD_TYPE
+		       && (TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (tem))
+			   || TYPE_IS_PADDING_P (TREE_TYPE (tem)))
+		       && TREE_TYPE (TYPE_FIELDS (TREE_TYPE (tem))) == etype)
 		return build1 (CONVERT_EXPR, type,
 			       convert (TREE_TYPE (tem), expr));
 	    }
@@ -3026,9 +3094,10 @@ remove_conversions (tree exp, bool true_address)
       if (true_address
 	  && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
 	  && TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (exp)))
-	return remove_conversions (VEC_index (constructor_elt,
-					      CONSTRUCTOR_ELTS (exp), 0)->value,
-				   true);
+	return
+	  remove_conversions (VEC_index (constructor_elt,
+					 CONSTRUCTOR_ELTS (exp), 0)->value,
+			      true);
       break;
 
     case COMPONENT_REF:

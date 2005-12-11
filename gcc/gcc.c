@@ -926,11 +926,10 @@ static const struct compiler default_compilers[] =
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
   {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0},
-  {".F", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
-  {".FPP", "#Fortran", 0, 0, 0},
-  {".f90", "#Fortran 95", 0, 0, 0}, {".f95", "#Fortran 95", 0, 0, 0},
   {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
   {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran", 0, 0, 0}, {".f95", "#Fortran", 0, 0, 0},
+  {".F90", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
   {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
   {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
@@ -1601,25 +1600,30 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 {
   char *buf;
 
-  buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
-		"}%{!static:%{!static-libgcc:",
+  buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name, "}"
+		"%{!static:%{!static-libgcc:"
 #if USE_LD_AS_NEEDED
-		"%{!shared-libgcc:", static_name,
-		" --as-needed ", shared_name, " --no-as-needed}"
-		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
-		"}",
+		"%{!shared-libgcc:",
+		static_name, " --as-needed ", shared_name, " --no-as-needed"
+		"}"
+		"%{shared-libgcc:",
+		shared_name, "%{!shared: ", static_name, "}"
+		"}"
 #else
-		"%{!shared:%{!shared-libgcc:", static_name, " ",
-		eh_name, "}%{shared-libgcc:", shared_name, " ",
-		static_name, "}}%{shared:",
+		"%{!shared:"
+		"%{!shared-libgcc:", static_name, " ", eh_name, "}"
+		"%{shared-libgcc:", shared_name, " ", static_name, "}"
+		"}"
 #ifdef LINK_EH_SPEC
-		"%{shared-libgcc:", shared_name,
-		"}%{!shared-libgcc:", static_name, "}",
+		"%{shared:"
+		"%{shared-libgcc:", shared_name, "}"
+		"%{!shared-libgcc:", static_name, "}"
+		"}"
 #else
-		shared_name,
+		"%{shared:", shared_name, "}"
 #endif
 #endif
-		"}}}", NULL);
+		"}}", NULL);
 
   obstack_grow (obstack, buf, strlen (buf));
   free (buf);
@@ -2872,7 +2876,10 @@ execute (void)
 	       we would otherwise have succeeded.  */
 	    if (WTERMSIG (status) == SIGPIPE
 		&& (signal_count || greatest_status >= MIN_FATAL_STATUS))
-	      ;
+	      {
+		signal_count++;
+		ret_code = -1;
+	      }
 	    else
 #endif
 	      fatal ("\
@@ -2881,8 +2888,6 @@ Please submit a full bug report.\n\
 See %s for instructions.",
 		     strsignal (WTERMSIG (status)), commands[i].prog,
 		     bug_report_url);
-	    signal_count++;
-	    ret_code = -1;
 	  }
 	else if (WIFEXITED (status)
 		 && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
@@ -6011,10 +6016,10 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
-extern int main (int, const char **);
+extern int main (int, char **);
 
 int
-main (int argc, const char **argv)
+main (int argc, char **argv)
 {
   size_t i;
   int value;
@@ -6032,6 +6037,8 @@ main (int argc, const char **argv)
   programname = p;
 
   xmalloc_set_program_name (programname);
+
+  expandargv (&argc, &argv);
 
 #ifdef GCC_DRIVER_HOST_INITIALIZATION
   /* Perform host dependent initialization when needed.  */
@@ -6125,7 +6132,7 @@ main (int argc, const char **argv)
      Make a table of specified input files (infiles, n_infiles).
      Decode switches that are handled locally.  */
 
-  process_command (argc, argv);
+  process_command (argc, (const char **) argv);
 
   /* Initialize the vector of specs to just the default.
      This means one element containing 0s, as a terminator.  */
@@ -7699,13 +7706,13 @@ version_compare_spec_function (int argc, const char **argv)
   bool result;
 
   if (argc < 3)
-    abort ();
+    fatal ("too few arguments to %%:version-compare");
   if (argv[0][0] == '\0')
     abort ();
   if ((argv[0][1] == '<' || argv[0][1] == '>') && argv[0][0] != '!')
     nargs = 2;
   if (argc != nargs + 3)
-    abort ();
+    fatal ("too many arguments to %%:version-compare");
 
   switch_len = strlen (argv[nargs + 1]);
   for (i = 0; i < n_switches; i++)
@@ -7746,7 +7753,7 @@ version_compare_spec_function (int argc, const char **argv)
       break;
 
     default:
-      abort ();
+      fatal ("unknown operator '%s' in %%:version-compare", argv[0]);
     }
   if (! result)
     return NULL;

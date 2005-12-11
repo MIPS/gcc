@@ -2542,10 +2542,13 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
   if (nDepend == 1)
     {
+      tree base_type = gfc_typenode_for_spec (&dest->expr->ts);
+      if (GFC_ARRAY_TYPE_P (base_type)
+	  || GFC_DESCRIPTOR_TYPE_P (base_type))
+	base_type = gfc_get_element_type (base_type);
       loop->temp_ss = gfc_get_ss ();
       loop->temp_ss->type = GFC_SS_TEMP;
-      loop->temp_ss->data.temp.type =
-	gfc_get_element_type (TREE_TYPE (dest->data.info.descriptor));
+      loop->temp_ss->data.temp.type = base_type;
       loop->temp_ss->string_length = dest->string_length;
       loop->temp_ss->data.temp.dimen = loop->dimen;
       loop->temp_ss->next = gfc_ss_terminator;
@@ -4170,7 +4173,9 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
 
   gfc_init_block (&fnblock);
 
-  gcc_assert (TREE_CODE (sym->backend_decl) == VAR_DECL);
+  gcc_assert (TREE_CODE (sym->backend_decl) == VAR_DECL
+                || TREE_CODE (sym->backend_decl) == PARM_DECL);
+
   if (sym->ts.type == BT_CHARACTER
       && !INTEGER_CST_P (sym->ts.cl->backend_decl))
     gfc_trans_init_string_length (sym->ts.cl, &fnblock);

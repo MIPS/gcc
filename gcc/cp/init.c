@@ -1604,7 +1604,7 @@ constant_value_1 (tree decl, bool integral_p)
 	      : (!TREE_CONSTANT (init)
 		 /* Do not return an aggregate constant (of which
 		    string literals are a special case), as we do not
-		    want to make inadvertant copies of such entities,
+		    want to make inadvertent copies of such entities,
 		    and we must be sure that their addresses are the
 		    same everywhere.  */
 		 || TREE_CODE (init) == CONSTRUCTOR
@@ -2613,8 +2613,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       for_stmt = begin_for_stmt ();
       finish_for_init_stmt (for_stmt);
-      finish_for_cond (build2 (NE_EXPR, boolean_type_node,
-			       iterator, integer_minus_one_node),
+      finish_for_cond (build2 (NE_EXPR, boolean_type_node, iterator,
+			       build_int_cst (TREE_TYPE (iterator), -1)),
 		       for_stmt);
       finish_for_expr (build_unary_op (PREDECREMENT_EXPR, iterator, 0),
 		       for_stmt);

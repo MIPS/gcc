@@ -144,9 +144,8 @@ suitable_for_tail_opt_p (void)
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
 
-      if (!(TREE_STATIC (var) || DECL_EXTERNAL (var))
-	  && (var_ann (var)->mem_tag_kind == NOT_A_TAG
-	      || var_ann (var)->mem_tag_kind == STRUCT_FIELD)
+      if (!is_global_var (var)
+	  && (!MTAG_P (var) || TREE_CODE (var) == STRUCT_FIELD_TAG)
 	  && is_call_clobbered (var))
 	return false;
     }
@@ -559,8 +558,8 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 	    var = m_acc;
 	  else
 	    {
-	      stmt = build (MODIFY_EXPR, ret_type, NULL_TREE,
-			    build (MULT_EXPR, ret_type, m_acc, a));
+	      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+			     build2 (MULT_EXPR, ret_type, m_acc, a));
 
 	      tmp = create_tmp_var (ret_type, "acc_tmp");
 	      add_referenced_tmp_var (tmp);
@@ -573,8 +572,8 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
       else
 	var = a;
 
-      stmt = build (MODIFY_EXPR, ret_type, NULL_TREE,
-		    build (PLUS_EXPR, ret_type, a_acc, var));
+      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+		     build2 (PLUS_EXPR, ret_type, a_acc, var));
       var = make_ssa_name (SSA_NAME_VAR (a_acc), stmt);
       TREE_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
@@ -583,8 +582,8 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (m)
     {
-      stmt = build (MODIFY_EXPR, ret_type, NULL_TREE,
-		    build (MULT_EXPR, ret_type, m_acc, m));
+      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+		     build2 (MULT_EXPR, ret_type, m_acc, m));
       var = make_ssa_name (SSA_NAME_VAR (m_acc), stmt);
       TREE_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
@@ -638,8 +637,8 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (m)
     {
-      stmt = build (MODIFY_EXPR, ret_type, NULL_TREE,
-		    build (MULT_EXPR, ret_type, m_acc, ret_var));
+      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+		     build2 (MULT_EXPR, ret_type, m_acc, ret_var));
 
       tmp = create_tmp_var (ret_type, "acc_tmp");
       add_referenced_tmp_var (tmp);
@@ -653,8 +652,8 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (a)
     {
-      stmt = build (MODIFY_EXPR, ret_type, NULL_TREE,
-		    build (PLUS_EXPR, ret_type, a_acc, var));
+      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+		     build2 (PLUS_EXPR, ret_type, a_acc, var));
 
       tmp = create_tmp_var (ret_type, "acc_tmp");
       add_referenced_tmp_var (tmp);

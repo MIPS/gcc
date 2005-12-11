@@ -75,6 +75,11 @@
   return REGNO (op) > LAST_VIRTUAL_REGISTER || REGNO (op) < 4;
 })
 
+;; Return true if op is the AX register.
+(define_predicate "ax_reg_operand"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == 0")))
+
 ;; Return true if op is the flags register.
 (define_predicate "flags_reg_operand"
   (and (match_code "reg")
@@ -682,7 +687,7 @@
   return parts.seg == SEG_DEFAULT;
 })
 
-;; Return nonzero if the rtx is known aligned.
+;; Return nonzero if the rtx is known to be at least 32 bits aligned.
 (define_predicate "aligned_operand"
   (match_operand 0 "general_operand")
 {
@@ -696,6 +701,10 @@
   /* Don't even try to do any aligned optimizations with volatiles.  */
   if (MEM_VOLATILE_P (op))
     return 0;
+
+  if (MEM_ALIGN (op) >= 32)
+    return 1;
+
   op = XEXP (op, 0);
 
   /* Pushes and pops are only valid on the stack pointer.  */
@@ -738,6 +747,22 @@
 
   ok = ix86_decompose_address (XEXP (op, 0), &parts);
   gcc_assert (ok);
+  return parts.disp != NULL_RTX;
+})
+
+;; Returns 1 if OP is memory operand with a displacement only.
+(define_predicate "memory_displacement_only_operand"
+  (match_operand 0 "memory_operand")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (XEXP (op, 0), &parts);
+  gcc_assert (ok);
+
+  if (parts.base || parts.index)
+    return 0;
+
   return parts.disp != NULL_RTX;
 })
 

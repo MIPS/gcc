@@ -902,7 +902,7 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	  insn_ptr += utmp;
 	  break;
 
-	  /* From the 2.1 draft.  */
+	  /* From the dwarf3 draft.  */
 	case DW_CFA_offset_extended_sf:
 	  insn_ptr = read_uleb128 (insn_ptr, &reg);
 	  insn_ptr = read_sleb128 (insn_ptr, &stmp);
@@ -916,10 +916,12 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	  insn_ptr = read_uleb128 (insn_ptr, &fs->cfa_reg);
 	  insn_ptr = read_sleb128 (insn_ptr, &fs->cfa_offset);
 	  fs->cfa_how = CFA_REG_OFFSET;
+	  fs->cfa_offset *= fs->data_align;
 	  break;
 
 	case DW_CFA_def_cfa_offset_sf:
 	  insn_ptr = read_sleb128 (insn_ptr, &fs->cfa_offset);
+	  fs->cfa_offset *= fs->data_align;
 	  /* cfa_how deliberately not set.  */
 	  break;
 
@@ -1209,6 +1211,12 @@ uw_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
      can change from frame to frame.  */
   context->ra = __builtin_extract_return_addr
     (_Unwind_GetPtr (context, fs->retaddr_column));
+}
+
+static void
+uw_advance_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
+{
+  uw_update_context (context, fs);
 }
 
 /* Fill in CONTEXT for top-of-stack.  The only valid registers at this

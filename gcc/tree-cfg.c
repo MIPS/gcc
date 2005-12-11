@@ -298,8 +298,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build (MODIFY_EXPR, ptr_type_node,
-			      var, GOTO_DESTINATION (last));
+	  assignment = build2 (MODIFY_EXPR, ptr_type_node,
+			       var, GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -1270,7 +1270,7 @@ replace_uses_by (tree name, tree val)
 
       rhs = get_rhs (stmt);
       if (TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* If the statement could throw and now cannot, we need to prune cfg.  */
       if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
@@ -3193,7 +3193,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
 	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
@@ -4425,6 +4425,26 @@ tree_duplicate_sese_region (edge entry, edge exit,
 }
 
 
+static tree
+mark_used_vars (tree *tp, int *walk_subtrees, void *used_vars_)
+{
+  bitmap *used_vars = (bitmap *)used_vars_;
+
+  if (walk_subtrees
+      && IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  if (!SSA_VAR_P (*tp))
+    return NULL_TREE;
+
+  if (TREE_CODE (*tp) == SSA_NAME)
+    bitmap_set_bit (*used_vars, DECL_UID (SSA_NAME_VAR (*tp)));
+  else
+    bitmap_set_bit (*used_vars, DECL_UID (*tp));
+
+  return NULL_TREE;
+}
+
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
 
 void
@@ -4459,18 +4479,47 @@ dump_function_to_file (tree fn, FILE *file, int flags)
      BIND_EXPRs, so display them separately.  */
   if (cfun && cfun->decl == fn && cfun->unexpanded_var_list)
     {
+      bitmap used_vars = BITMAP_ALLOC (NULL);
       ignore_topmost_bind = true;
 
+      /* Record vars we'll use dumping the functions tree.  */
+      if (cfun->cfg && basic_block_info)
+	{
+	  FOR_EACH_BB (bb)
+	    {
+	      block_stmt_iterator bsi;
+	      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	        walk_tree (bsi_stmt_ptr (bsi), mark_used_vars,
+			   &used_vars, NULL);
+	    }
+	  for (vars = cfun->unexpanded_var_list; vars;
+	       vars = TREE_CHAIN (vars))
+	    {
+	      var = TREE_VALUE (vars);
+	      if (TREE_CODE (var) == VAR_DECL
+		  && DECL_INITIAL (var)
+		  && bitmap_bit_p (used_vars, DECL_UID (var)))
+		walk_tree (&DECL_INITIAL (var), mark_used_vars,
+			   &used_vars, NULL);
+	    }
+	}
+
+      /* Dump used vars.  */
       fprintf (file, "{\n");
       for (vars = cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
 	{
 	  var = TREE_VALUE (vars);
+	  if (cfun->cfg && basic_block_info
+	      && !bitmap_bit_p (used_vars, DECL_UID (var)))
+            continue;
 
 	  print_generic_decl (file, var, flags);
 	  fprintf (file, "\n");
 
 	  any_var = true;
 	}
+
+      BITMAP_FREE (used_vars);
     }
 
   if (cfun && cfun->decl == fn && cfun->cfg && basic_block_info)
@@ -5025,7 +5074,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build (MODIFY_EXPR, type, t, exp);
+  new_stmt = build2 (MODIFY_EXPR, type, t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));

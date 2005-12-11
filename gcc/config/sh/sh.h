@@ -92,11 +92,6 @@ do { \
     builtin_define ("__HITACHI__"); \
   builtin_define (TARGET_LITTLE_ENDIAN \
 		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
-  if (flag_pic) \
-    { \
-      builtin_define ("__pic__"); \
-      builtin_define ("__PIC__"); \
-    } \
 } while (0)
 
 /* We can not debug without a frame pointer.  */
@@ -1609,6 +1604,7 @@ extern enum reg_class reg_class_from_letter[];
    ? GENERAL_REGS \
    : (CLASS)) \
 
+#if 0
 #define SECONDARY_INOUT_RELOAD_CLASS(CLASS,MODE,X,ELSE) \
   ((((REGCLASS_HAS_FP_REG (CLASS) 					\
       && (GET_CODE (X) == REG						\
@@ -1680,6 +1676,9 @@ extern enum reg_class reg_class_from_letter[];
       && (GET_CODE (X) == LABEL_REF || PIC_DIRECT_ADDR_P (X)))		\
    ? TARGET_REGS							\
    : SECONDARY_INOUT_RELOAD_CLASS((CLASS),(MODE),(X), NO_REGS))
+#else
+#define HAVE_SECONDARY_RELOADS
+#endif
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.

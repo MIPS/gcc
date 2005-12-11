@@ -217,7 +217,7 @@ gfc_match_small_int (int *value)
    do most of the work.  */
 
 match
-gfc_match_st_label (gfc_st_label ** label, int allow_zero)
+gfc_match_st_label (gfc_st_label ** label)
 {
   locus old_loc;
   match m;
@@ -229,13 +229,16 @@ gfc_match_st_label (gfc_st_label ** label, int allow_zero)
   if (m != MATCH_YES)
     return m;
 
-  if (((i == 0) && allow_zero) || i <= 99999)
+  if (i > 0 && i <= 99999)
     {
       *label = gfc_get_st_label (i);
       return MATCH_YES;
     }
 
-  gfc_error ("Statement label at %C is out of range");
+  if (i == 0)
+    gfc_error ("Statement label at %C is zero");
+  else
+    gfc_error ("Statement label at %C is out of range");
   gfc_current_locus = old_loc;
   return MATCH_ERROR;
 }
@@ -690,7 +693,7 @@ loop:
 
 	case 'l':
 	  label = va_arg (argp, gfc_st_label **);
-	  n = gfc_match_st_label (label, 0);
+	  n = gfc_match_st_label (label);
 	  if (n != MATCH_YES)
 	    {
 	      m = n;
@@ -1242,7 +1245,7 @@ gfc_match_do (void)
   if (gfc_match (" do") != MATCH_YES)
     return MATCH_NO;
 
-  m = gfc_match_st_label (&label, 0);
+  m = gfc_match_st_label (&label);
   if (m == MATCH_ERROR)
     goto cleanup;
 
@@ -1275,7 +1278,7 @@ gfc_match_do (void)
   gfc_match_label ();		/* This won't error */
   gfc_match (" do ");		/* This will work */
 
-  gfc_match_st_label (&label, 0);	/* Can't error out */
+  gfc_match_st_label (&label);	/* Can't error out */
   gfc_match_char (',');		/* Optional comma */
 
   m = gfc_match_iterator (&iter, 0);
@@ -1405,7 +1408,7 @@ gfc_match_stopcode (gfc_statement st)
   gfc_expr *e;
   match m;
 
-  stop_code = 0;
+  stop_code = -1;
   e = NULL;
 
   if (gfc_match_eos () != MATCH_YES)
@@ -1585,7 +1588,7 @@ gfc_match_goto (void)
 
       do
 	{
-	  m = gfc_match_st_label (&label, 0);
+	  m = gfc_match_st_label (&label);
 	  if (m != MATCH_YES)
 	    goto syntax;
 
@@ -1631,7 +1634,7 @@ gfc_match_goto (void)
 
   do
     {
-      m = gfc_match_st_label (&label, 0);
+      m = gfc_match_st_label (&label);
       if (m != MATCH_YES)
 	goto syntax;
 
@@ -2723,6 +2726,9 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 	    return true;
 	}
 
+      if (e->symtree == NULL)
+	return false;
+
       /* Check the name before testing for nested recursion!  */
       if (sym->name == e->symtree->n.sym->name)
 	return true;
@@ -2736,7 +2742,7 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
       break;
 
     case EXPR_VARIABLE:
-      if (sym->name == e->symtree->n.sym->name)
+      if (e->symtree && sym->name == e->symtree->n.sym->name)
 	return true;
       break;
 
