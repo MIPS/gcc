@@ -257,7 +257,8 @@ gfc_truthvalue_conversion (tree expr)
       if (TREE_CODE (expr) == INTEGER_CST)
 	return integer_zerop (expr) ? boolean_false_node : boolean_true_node;
       else
-        return build2 (NE_EXPR, boolean_type_node, expr, integer_zero_node);
+        return build2 (NE_EXPR, boolean_type_node, expr,
+		       build_int_cst (TREE_TYPE (expr), 0));
 
     default:
       internal_error ("Unexpected type in truthvalue_conversion");
@@ -772,10 +773,10 @@ build_builtin_fntypes (tree * fntype, tree type)
   tree tmp;
 
   /* type (*) (type) */
-  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, type, void_list_node);
   fntype[0] = build_function_type (type, tmp);
   /* type (*) (type, type) */
-  tmp = tree_cons (NULL_TREE, float_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, type, tmp);
   fntype[1] = build_function_type (type, tmp);
   /* type (*) (int, type) */
   tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);

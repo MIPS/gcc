@@ -384,12 +384,6 @@ extern const char *user_label_prefix;
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);
 
-/* Return the default value of exception_section.  */
-extern section *default_exception_section (void);
-
-/* Return the default value of eh_frame_section.  */
-extern section *default_eh_frame_section (void);
-
 /* Default target hook that outputs nothing to a stream.  */
 extern void no_asm_to_stream (FILE *);
 
@@ -501,8 +495,6 @@ extern GTY(()) section *ctors_section;
 extern GTY(()) section *dtors_section;
 extern GTY(()) section *bss_section;
 extern GTY(()) section *sbss_section;
-extern GTY(()) section *init_section;
-extern GTY(()) section *fini_section;
 extern GTY(()) section *exception_section;
 extern GTY(()) section *eh_frame_section;
 

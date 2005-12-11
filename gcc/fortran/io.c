@@ -78,6 +78,7 @@ static const io_tag
 	tag_s_delim	= {"DELIM", " delim = %v", BT_CHARACTER},
 	tag_s_pad	= {"PAD", " pad = %v", BT_CHARACTER},
 	tag_iolength	= {"IOLENGTH", " iolength = %v", BT_INTEGER},
+	tag_convert     = {"CONVERT", " convert = %e", BT_CHARACTER},
 	tag_err		= {"ERR", " err = %l", BT_UNKNOWN},
 	tag_end		= {"END", " end = %l", BT_UNKNOWN},
 	tag_eor		= {"EOR", " eor = %l", BT_UNKNOWN};
@@ -1045,9 +1046,25 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 	  gfc_error ("%s tag at %L must be scalar", tag->name, &e->where);
 	  return FAILURE;
 	}
+
       if (tag == &tag_iomsg)
 	{
 	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: IOMSG tag at %L",
+			      &e->where) == FAILURE)
+	    return FAILURE;
+	}
+
+      if (tag == &tag_iostat && e->ts.kind != gfc_default_integer_kind)
+	{
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Non-default "
+			      "integer kind in IOSTAT tag at %L",
+			      &e->where) == FAILURE)
+	    return FAILURE;
+	}
+
+      if (tag == &tag_convert)
+	{
+	  if (gfc_notify_std (GFC_STD_GNU, "Extension: CONVERT tag at %L",
 			      &e->where) == FAILURE)
 	    return FAILURE;
 	}
@@ -1106,6 +1123,9 @@ match_open_element (gfc_open * open)
   m = match_ltag (&tag_err, &open->err);
   if (m != MATCH_NO)
     return m;
+  m = match_etag (&tag_convert, &open->convert);
+  if (m != MATCH_NO)
+    return m;
 
   return MATCH_NO;
 }
@@ -1133,6 +1153,7 @@ gfc_free_open (gfc_open * open)
   gfc_free_expr (open->action);
   gfc_free_expr (open->delim);
   gfc_free_expr (open->pad);
+  gfc_free_expr (open->convert);
 
   gfc_free (open);
 }
@@ -1158,6 +1179,7 @@ gfc_resolve_open (gfc_open * open)
   RESOLVE_TAG (&tag_e_action, open->action);
   RESOLVE_TAG (&tag_e_delim, open->delim);
   RESOLVE_TAG (&tag_e_pad, open->pad);
+  RESOLVE_TAG (&tag_convert, open->convert);
 
   if (gfc_reference_st_label (open->err, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;
@@ -2438,6 +2460,7 @@ gfc_free_inquire (gfc_inquire * inquire)
   gfc_free_expr (inquire->delim);
   gfc_free_expr (inquire->pad);
   gfc_free_expr (inquire->iolength);
+  gfc_free_expr (inquire->convert);
 
   gfc_free (inquire);
 }
@@ -2479,6 +2502,7 @@ match_inquire_element (gfc_inquire * inquire)
   RETM m = match_vtag (&tag_s_delim, &inquire->delim);
   RETM m = match_vtag (&tag_s_pad, &inquire->pad);
   RETM m = match_vtag (&tag_iolength, &inquire->iolength);
+  RETM m = match_vtag (&tag_convert, &inquire->convert);
   RETM return MATCH_NO;
 }
 
@@ -2632,6 +2656,7 @@ gfc_resolve_inquire (gfc_inquire * inquire)
   RESOLVE_TAG (&tag_s_delim, inquire->delim);
   RESOLVE_TAG (&tag_s_pad, inquire->pad);
   RESOLVE_TAG (&tag_iolength, inquire->iolength);
+  RESOLVE_TAG (&tag_convert, inquire->convert);
 
   if (gfc_reference_st_label (inquire->err, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;

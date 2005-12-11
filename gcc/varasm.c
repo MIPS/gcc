@@ -152,15 +152,15 @@ section *ctors_section;
 section *dtors_section;
 section *bss_section;
 section *sbss_section;
-section *init_section;
-section *fini_section;
 
-/* The section that holds the main exception table.  */
+/* The section that holds the main exception table, when known.  The section
+   is set either by the target's init_sections hook or by the first call to
+   switch_to_exception_section.  */
 section *exception_section;
 
-/* The section that holds the DWARF2 frame unwind information.  If it
-   is null, we will place the unwind information in the data section
-   and emit special labels to guide collect2.  */
+/* The section that holds the DWARF2 frame unwind information, when known.
+   The section is set either by the target's init_sections hook or by the
+   first call to switch_to_eh_frame_section.  */
 section *eh_frame_section;
 
 /* asm_out_file's current section.  This is NULL if no section has yet
@@ -230,10 +230,11 @@ get_section (const char *name, unsigned int flags, tree decl)
   slot = (section **)
     htab_find_slot_with_hash (section_htab, name,
 			      htab_hash_string (name), INSERT);
+  flags |= SECTION_NAMED;
   if (*slot == NULL)
     {
       sect = ggc_alloc (sizeof (struct named_section));
-      sect->named.common.flags = flags | SECTION_NAMED;
+      sect->named.common.flags = flags;
       sect->named.name = ggc_strdup (name);
       sect->named.decl = decl;
       *slot = sect;
@@ -241,7 +242,7 @@ get_section (const char *name, unsigned int flags, tree decl)
   else
     {
       sect = *slot;
-      if ((sect->common.flags & ~(SECTION_DECLARED | SECTION_NAMED)) != flags
+      if ((sect->common.flags & ~SECTION_DECLARED) != flags
 	  && ((sect->common.flags | flags) & SECTION_OVERRIDE) == 0)
 	{
 	  /* Sanity check user variables for flag changes.  */
@@ -4855,24 +4856,10 @@ init_varasm_once (void)
 				      SBSS_SECTION_ASM_OP);
 #endif
 
-#ifdef INIT_SECTION_ASM_OP
-  init_section = get_unnamed_section (SECTION_CODE, output_section_asm_op,
-				      INIT_SECTION_ASM_OP);
-#endif
-
-#ifdef FINI_SECTION_ASM_OP
-  fini_section = get_unnamed_section (SECTION_CODE, output_section_asm_op,
-				      FINI_SECTION_ASM_OP);
-#endif
-
   targetm.asm_out.init_sections ();
 
   if (readonly_data_section == NULL)
     readonly_data_section = text_section;
-  if (exception_section == NULL)
-    exception_section = default_exception_section ();
-  if (eh_frame_section == NULL)
-    eh_frame_section = default_eh_frame_section ();
 }
 
 enum tls_model
