@@ -608,6 +608,68 @@ count_occurrences (rtx x, rtx find, int count_dest)
     }
   return count;
 }
+
+/* Return a pointer to one of the occurrences of FIND in *PX.  */
+
+rtx *
+find_occurrence (rtx *px, rtx find)
+{
+  int i, j;
+  enum rtx_code code;
+  const char *format_ptr;
+  rtx x = *px;
+
+  if (x == find)
+    return px;
+
+  code = GET_CODE (x);
+  switch (code)
+    {
+    case REG:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+      return NULL;
+
+    case MEM:
+      if (MEM_P (find) && rtx_equal_p (x, find))
+	return px;
+      break;
+
+    default:
+      break;
+    }
+
+  format_ptr = GET_RTX_FORMAT (code);
+
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+    {
+      rtx *result;
+      switch (*format_ptr++)
+	{
+	case 'e':
+	  result = find_occurrence (&XEXP (x, i), find);
+	  if (result)
+	    return result;
+	  break;
+
+	case 'E':
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    {
+	      result = find_occurrence (&XVECEXP (x, i, j), find);
+	      if (result)
+	        return result;
+	    }
+	  break;
+	}
+    }
+
+  return 0;
+}
 
 /* Nonzero if register REG appears somewhere within IN.
    Also works if REG is not a register; in this case it checks
@@ -2910,11 +2972,7 @@ commutative_operand_precedence (rtx op)
       if (code == SUBREG && OBJECT_P (SUBREG_REG (op)))
         return -2;
 
-      if (!CONSTANT_P (op))
-        return 0;
-      else
-	/* As for RTX_CONST_OBJ.  */
-	return -3;
+      return 0;
 
     case RTX_OBJ:
       /* Complex expressions should be the first, so decrease priority
@@ -3055,10 +3113,16 @@ insns_safe_to_move_p (rtx from, rtx to, rtx *new_to)
 int
 loc_mentioned_in_p (rtx *loc, rtx in)
 {
-  enum rtx_code code = GET_CODE (in);
-  const char *fmt = GET_RTX_FORMAT (code);
+  enum rtx_code code;
+  const char *fmt;
   int i, j;
 
+  /* Allow this function to work in EXPR_LISTs.  */
+  if (!in)
+    return 0;
+
+  code = GET_CODE (in);
+  fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (loc == &in->u.fld[i].rt_rtx)

@@ -1579,6 +1579,7 @@ extern rtx get_related_value (rtx);
 extern int global_reg_mentioned_p (rtx);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
+extern rtx *find_occurrence (rtx *, rtx);
 extern int reg_referenced_p (rtx, rtx);
 extern int reg_used_between_p (rtx, rtx, rtx);
 extern int reg_set_between_p (rtx, rtx, rtx);

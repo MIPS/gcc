@@ -1,3 +1,15 @@
+2005-12-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* rtl.h (find_occurrence): Declare.
+	* rtlanal.c (find_occurrence): New.
+	(loc_mentioned_in_p): Accept a NULL value for IN.
+	* common.opt (-fforward-propagate): New.
+	* tree-pass.h: Add forward propagation passes.
+	* passes.c: Ditto.
+	* timevar.def: Add forward propagation timevar.
+	* fwprop.c: New file.
+	* Makefile.in: Add fwprop.o dependencies.
+
 2005-11-28  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/sh/sh.c (sh_output_mi_thunk): Use df_finish.
