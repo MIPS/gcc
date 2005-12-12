@@ -215,6 +215,14 @@ extern int flag_cw_asm_blocks;
 #undef SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS				\
   do {								\
+  /* APPLE LOCAL begin radar 4261575 */                                 \
+  /* APPLE LOCAL begin constant cfstrings */                            \
+  /* This just sets the default, SUBSUBTRAGET_OVERRIDE_OPTIONS will     \
+     let the user override it.  */                                      \
+  darwin_constant_cfstrings = (darwin_macosx_version_min                \
+       && strverscmp (darwin_macosx_version_min, "10.2") >= 0);         \
+  /* APPLE LOCAL end constant cfstrings */                              \
+  /* APPLE LOCAL end radar 4261575 */                                   \
     /* Handle -mfix-and-continue.  */				\
     if (darwin_fix_and_continue_switch)				\
       {								\
