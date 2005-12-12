@@ -27,6 +27,9 @@ model_memberref_base::resolve_as_enum_constant (resolution_scope *scope,
 						const std::string &field_name)
 {
   std::set<model_field *> result;
+  // FIXME: it isn't enough here to look for a member.  We must also
+  // verify that it is really an enum constant and not just some field
+  // with the right type.
   klass->find_members (field_name, result, scope->get_current_class (), NULL);
   if (result.empty ())
     throw error ("no %<enum%> constant named %1 in %2")
@@ -40,6 +43,8 @@ model_memberref_base::resolve_as_enum_constant (resolution_scope *scope,
   rf->set_field (*(result.begin ()));
 
   real = rf;
+  real->resolve (scope);
+
   set_type (klass);
 }
 

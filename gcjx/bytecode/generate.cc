@@ -967,11 +967,107 @@ compare (std::pair<jint, model_switch_block *> one,
 }
 
 void
+bytecode_generator::handle_enum_switch (model_switch *swstmt,
+					const ref_expression &expr,
+					const std::list<ref_switch_block> &blocks)
+{
+  assert (expr->type ()->reference_p ());
+
+  // Compute the expression.  Note that we must throw a null pointer
+  // exception if it evaluates to 'null'.
+  {
+    push_expr_target push (this, ON_STACK);
+    emit_null_pointer_check (expr.get ());
+  }
+
+  model_type *sw_type = expr->type ();
+  model_switch_block *default_block = swstmt->get_default ();
+  bytecode_block *default_bytecode = NULL;
+
+  bytecode_block *done = new_bytecode_block ();
+  bytecode_block *next_one = NULL;
+
+  target_map[swstmt] = std::make_pair ((bytecode_block *) NULL, done);
+
+  for (std::list<ref_switch_block>::const_iterator i = blocks.begin ();
+       i != blocks.end ();
+       ++i)
+    {
+      // We generate:
+      //
+      // nextOne1:
+      //   if (<expr> == <label1>) goto thisOne;
+      //   if (<expr> == <label2>) goto thisOne;
+      //   goto nextOne2;
+      //   thisOne: body;
+
+      if (next_one != NULL)
+	define (next_one);
+      next_one = new_bytecode_block ();
+      bytecode_block *this_one = new_bytecode_block ();
+
+      std::list<ref_expression> labels = (*i)->get_labels ();
+      for (std::list<ref_expression>::const_iterator j = labels.begin ();
+	   j != labels.end ();
+	   ++j)
+	{
+	  emit (op_dup);
+	  increase_stack (sw_type);
+
+	  {
+	    push_expr_target push (this, ON_STACK);
+	    (*j)->visit (this);
+	  }
+
+	  emit_relocation (if_acmpeq, this_one);
+	  reduce_stack (sw_type);
+	  reduce_stack (sw_type);
+	}
+      emit_relocation (reloc_goto, next_one);
+
+      define (this_one);
+      if (*i == default_block)
+	{
+	  assert (! default_bytecode);
+	  default_bytecode = this_one;
+	}
+      (*i)->visit (this);
+      // If the switch block falls through, we must go to the next
+      // block.  Otherwise we don't need to do anything.
+      if ((*i)->can_complete_normally ())
+	emit_relocation (reloc_goto, next_one);
+    }
+
+  // Define the final 'next'.
+  if (next_one)
+    define (next_one);
+
+  // If there was a default block, emit a 'goto' to it.
+  if (default_block)
+    {
+      assert (default_bytecode);
+      emit_relocation (reloc_goto, default_bytecode);
+    }
+
+  // We're done.  Be sure to pop the expression now.
+  define (done);
+  emit (op_pop);
+  reduce_stack (sw_type);
+}
+
+void
 bytecode_generator::visit_switch (model_switch *swstmt,
 				  const ref_expression &expr,
 				  const std::list<ref_switch_block> &blocks)
 {
   note_line (swstmt);
+
+  // Enum-valued switches require different treatment.
+  if (expr->type ()->reference_p ())
+    {
+      handle_enum_switch (swstmt, expr, blocks);
+      return;
+    }
 
   // Push a dummy finally handler that tells call_cleanups to exit
   // early.

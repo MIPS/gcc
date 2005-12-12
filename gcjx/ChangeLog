@@ -1,3 +1,11 @@
+2005-12-12  Tom Tromey  <tromey@redhat.com>
+
+	* model/memberref.cc (resolve_as_enum_constant): Resolve 'real'.
+	* bytecode/generate.hh (bytecode_generator::handle_enum_switch):
+	Declare.
+	* bytecode/generate.cc (handle_enum_switch): New method.
+	(visit_switch): Use it.
+
 2005-12-02  Tom Tromey  <tromey@redhat.com>
 
 	* model/field.cc (model_field): Initialize new field.

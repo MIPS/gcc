@@ -280,6 +280,8 @@ class bytecode_generator : public visitor
   void emit_null_pointer_check (model_expression *);
 
   void handle_block_statements (const std::list<ref_stmt> &);
+  void handle_enum_switch (model_switch *, const ref_expression &,
+			   const std::list<ref_switch_block> &);
 
   void binary_arith_operator (java_opcode,
 			      const ref_expression &,
