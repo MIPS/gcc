@@ -1879,6 +1879,12 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 	      c_parser_consume_token (parser);
 	      break;
 	    }
+	  /* Accept #pragmas at struct scope.  */
+	  if (c_parser_next_token_is (parser, CPP_PRAGMA))
+	    {
+	      c_parser_pragma (parser, pragma_external);
+	      continue;
+	    }
 	  /* Parse some comma-separated declarations, but not the
 	     trailing semicolon if any.  */
 	  decls = c_parser_struct_declaration (parser);
@@ -5694,6 +5700,12 @@ c_parser_objc_class_instance_variables (c_parser *parser)
 	  objc_set_visibility (1);
 	  continue;
 	}
+      else if (c_parser_next_token_is (parser, CPP_PRAGMA))
+	{
+	  c_parser_pragma (parser, pragma_external);
+	  continue;
+	}
+
       /* Parse some comma-separated declarations.  */
       decls = c_parser_struct_declaration (parser);
       {
