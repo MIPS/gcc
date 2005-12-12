@@ -1,3 +1,152 @@
+2005-12-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25300
+	* g++.dg/template/inherit.C: Do not use a generic error message.
+
+2005-12-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25337
+	* g++.dg/template/defarg7.C: New test.
+
+2005-12-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/25167
+	PR testsuite/24478
+	* gcc.dg/weak/weak-14.c: Add dg-require-alias.
+
+2005-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25010
+	* g++.dg/opt/inline10.C: New test.
+
+2005-12-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* g++.dg/abi/mangle24.C, g++.dg/abi/mangle25.C,
+	g++.dg/ext/vector2.C, g++.dg/opt/longbranch2.C, g++.dg/opt/mmx1.C,
+	g++.dg/opt/reg-stack4.C, gcc.dg/20020108-1.c, gcc.dg/20020122-2.c,
+	gcc.dg/20020122-3.c, gcc.dg/20020206-1.c, gcc.dg/20020310-1.c,
+	gcc.dg/20020411-1.c, gcc.dg/20020418-2.c, gcc.dg/20020426-2.c,
+	gcc.dg/20020517-1.c, gcc.dg/20030204-1.c, gcc.dg/20030826-2.c,
+	gcc.dg/20031202-1.c, gcc.dg/format/unnamed-1.c, gcc.dg/setjmp-2.c,
+	gcc.dg/short-compare-1.c, gcc.dg/short-compare-2.c,
+	gcc.dg/tls/opt-1.c, gcc.dg/tls/opt-2.c, gcc.dg/unroll-1.c,
+	gcc.target/i386/20030926-1.c: Merge i?86 and x86_64 cases.
+
+	* gcc.dg/tls/opt-1.c: Require effective target fpic.
+
+2005-12-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* g++.old-deja/g++.pt/asm1.C, gcc.c-torture/compile/20000804-1.c,
+	gcc.target/i386/asm-3.c, gcc.target/i386/clobbers.c: Use ilp32 in
+	dg-skip-if target selector.
+
+	PR testsuite/20772
+	* g++.dg/eh/simd-1.C, g++.dg/eh/simd-2.C, g++.dg/opt/inline9.C,
+	gcc.dg/20020418-1.c, gcc.dg/20031102-1.c, gcc.dg/ia64-sync-1.c,
+	gcc.dg/ia64-sync-2.c, gcc.dg/ia64-sync-3.c, gcc.dg/ia64-sync-4.c,
+	gcc.dg/ifcvt-fabs-1.c, gcc.dg/loop-3.c, gcc.dg/nested-calls-1.c,
+	gcc.dg/pr20017.c, gcc.dg/smod-1.c, gcc.dg/sync-2.c,
+	gcc.dg/tls/opt-3.c, gcc.dg/torture/badshift.c: Add x86_64 cases
+	and/or merge with i?86 cases.
+
+	* gcc.dg/tls/opt-3.c: Require effective target fpic.
+
+	PR testsuite/20772
+	* g++.dg/opt/life1.C, g++.old-deja/g++.abi/aggregates.C,
+	g++.old-deja/g++.abi/align.C, g++.old-deja/g++.abi/bitfields.C,
+	g++.old-deja/g++.law/weak.C, g++.old-deja/g++.pt/asm2.C,
+	gcc.dg/20000724-1.c, gcc.dg/pragma-align.c: Also test on
+	x86_64-*-linux*.
+
+2005-12-09  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/25311
+	* gcc.c-torture/compile/pr25311.c: New test.
+
+2005-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19317
+	* g++.dg/opt/pr19317-1.C: New test.
+	* g++.dg/opt/pr19317-2.C: New test.
+	* g++.dg/opt/pr19317-3.C: New test.
+
+	PR target/19005
+	* gcc.c-torture/execute/pr19005.c: New test.
+
+	PR target/17828
+	* g++.old-deja/g++.other/comdat5.C: New test.
+	* g++.old-deja/g++.other/comdat5-aux.cc: New file.
+
+	* g++.dg/compat/struct-layout-1.exp: New file.
+	* g++.dg/compat/struct-layout-1.h: New.
+	* g++.dg/compat/struct-layout-1_generate.c: New.
+	* g++.dg/compat/struct-layout-1_x1.h: New.
+	* g++.dg/compat/struct-layout-1_x2.h: New.
+	* g++.dg/compat/struct-layout-1_y1.h: New.
+	* g++.dg/compat/struct-layout-1_y2.h: New.
+
+	* gcc.dg/20050330-2.c: New test.
+
+2005-12-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25292
+	* gfortran.dg/associated_1.f90: New.
+
+2005-12-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2005-11-28  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/alias-9.c: New testcase.
+	* g++.dg/warn/Wstrict-aliasing-7.C: Likewise.
+
+	2005-11-24  Richard Guenther  <rguenther@suse.de>
+		Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* g++.dg/warn/Wstrict-aliasing-1.C: New testcase.
+	* g++.dg/warn/Wstrict-aliasing-2.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-3.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-4.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-5.C: Likewise.
+	* g++.dg/warn/Wstrict-aliasing-6.C: Likewise.
+
+2005-12-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gfortran.dg/vect/vect-5.f90: Expect alignment forcing only on
+	ILP32 vect_no_align platforms.
+
+2005-12-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+            Jakub Jelinek  <jakub@redhat.com>
+
+        PR target/25268
+	* gcc.c-torture/compile/20051207-1.c: New test.
+
+2005-12-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* g++.dg/other/i386-1.C, gcc.c-torture/execute/990413-2.x,
+	gcc.dg/torture/pr18582-1.c,
+	gcc.target/i386/attributes-error.c: Also test on x86_64.
+
+	* gcc.dg/pr18928-1.c: Test on all targets supporting pic.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19397
+	* g++.dg/template/typedef3.C: New test.
+
+	PR c++/19762
+	PR c++/19764
+	* g++.dg/template/dtor3.C: Fix error markers.
+
+2005-12-07  Adrian Straetling  <straetling@de.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_sync_char_short):
+	Add s390*.
+
 2005-12-07  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/15809
