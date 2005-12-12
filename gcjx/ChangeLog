@@ -1,5 +1,11 @@
 2005-12-12  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (find_method): Look for erasure of return
+	type.
+	(find_field): Look for erasure of field's type.
+
+2005-12-12  Tom Tromey  <tromey@redhat.com>
+
 	* model/memberref.cc (resolve_as_enum_constant): Resolve 'real'.
 	* bytecode/generate.hh (bytecode_generator::handle_enum_switch):
 	Declare.

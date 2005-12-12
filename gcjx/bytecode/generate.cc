@@ -2241,7 +2241,8 @@ bytecode_generator::find_field (const std::string &name,
        ++it)
     {
       model_field *field = (*it).get ();
-      if (field->get_name () == name && field->type ()->erasure () == type)
+      if (field->get_name () == name
+	  && field->type ()->erasure () == type->erasure ())
         return field;
     }
   throw request->error ("couldn't find field %1 of type %2 in class %3")
@@ -2286,7 +2287,7 @@ bytecode_generator::find_method (const char *mname, model_class *klass,
 	% mname % (argtype ? argtype : primitive_void_type) % klass;
     }
 
-  if (result->get_return_type ()->erasure () != result_type)
+  if (result->get_return_type ()->erasure () != result_type->erasure ())
     {
       throw request->error ("method %1 doesn't have expected return type"
 			    " of %2")
