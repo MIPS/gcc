@@ -49,7 +49,7 @@ class class_writer
   void maybe_write_annotations (IAnnotatable *, bytecode_attribute_list *);
   void maybe_write_parameter_annotations (model_method *,
 					  bytecode_attribute_list *);
-  void write_method (model_method *, bytecode_attribute_list *);
+  void write_method (model_method *, bytecode_attribute_list *, bool = false);
   void write_field (model_field *, bytecode_attribute_list *);
 
 public:

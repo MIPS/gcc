@@ -47,6 +47,7 @@ model_method::model_method (model_method *other,
     IMember (enclosing),
     state (other->state),
     method_end (other->method_end),
+    override (NULL),		// FIXME
     parent (other)
 {
   set_name (other->name);
@@ -77,7 +78,6 @@ model_method::model_method (model_method *other,
 
   varargs = other->varargs;
   used = false;
-  overrides = other->overrides;
   is_instance_initializer = other->is_instance_initializer;
 }
 
@@ -90,6 +90,7 @@ model_method::model_method (model_method *other,
     IMember (enclosing),
     state (other->state),
     method_end (other->method_end),
+    override (NULL),
     parent (other)
 {
   set_name (other->name);
@@ -119,7 +120,6 @@ model_method::model_method (model_method *other,
 
   varargs = other->varargs;
   used = false;
-  overrides = other->overrides;
   is_instance_initializer = other->is_instance_initializer;
 }
 
@@ -567,7 +567,7 @@ model_method::hides_or_overrides_p (model_method *other, model_class *asker)
     other->check_deprecated (this);
 
   if (! static_p () && ! other->declaring_class->interface_p ())
-    overrides = true;
+    override = other;
 
   return true;
 }
@@ -843,7 +843,7 @@ model_method::check_override ()
 	std::cerr << error ("%<@Override%> applied to static method");
       else if (declaring_class->interface_p ())
 	std::cerr << error ("%<@Override%> applied to interface method");
-      else if (! overrides)
+      else if (! override)
 	std::cerr << error ("method marked %<@Override%> does not override "
 			    "another method");
     }

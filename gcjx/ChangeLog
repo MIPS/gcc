@@ -1,5 +1,26 @@
 2005-12-12  Tom Tromey  <tromey@redhat.com>
 
+	* model/method.cc (model_method): Updated.
+	(hides_or_overrides_p): Set 'override'.
+	(check_override): Updated.
+	* model/method.hh (model_method::overrides): Removed.
+	(model_method::override): New field.
+	(model_method): Updated.
+	(model_method::get_override): New method.
+	(model_method::get_parent): Likewise.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (headers): Added bridge.hh.
+	(bytecode_sources): Added bridge.cc.
+	* bytecode/classwriter.hh (class_writer::write_method): Added
+	argument.
+	* bytecode/classwriter.cc: Include bridge.hh.
+	(write): Create bridge method.
+	(write_method): Added 'is_bridge' argument.
+	* bytecode/bridge.cc: New file.
+	* bytecode/bridge.hh: New file.
+
+2005-12-12  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (find_method): Look for erasure of return
 	type.
 	(find_field): Look for erasure of field's type.

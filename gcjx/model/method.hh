@@ -80,10 +80,6 @@ protected:
   // True if this method was used.
   bool used;
 
-  // True if this method overrides a concrete (not interface) method.
-  // Meaningless for static methods and constructors.
-  bool overrides;
-
   // True if this is an instance initializer method, aka 'finit$'.
   bool is_instance_initializer;
 
@@ -95,6 +91,9 @@ protected:
   // We keep track of the end of the method as well as the beginning;
   // this is used by GCC for debugging information.
   location method_end;
+
+  // The method this overrides, or NULL if none.
+  model_method *override;
 
   // If this is a generic instantiation, this points to the parent
   // method.
@@ -130,11 +129,11 @@ public:
       IMember (decl),
       varargs (false),
       used (false),
-      overrides (false),
       is_instance_initializer (false),
       state (NONE),
       // By default we set the end location to the start location.
       method_end (w),
+      override (NULL),
       parent (NULL)
   {
   }
@@ -409,6 +408,20 @@ public:
   /// than going via the erasure of the method, as no enclosing
   /// context is needed.
   model_type *get_erased_return_type () const;
+
+  /// Return the method that this method overrides, or NULL if this
+  /// method does not override another.
+  model_method *get_override () const
+  {
+    return override;
+  }
+
+  /// Return the parent method if this method is a generic
+  /// instantiation, or the method itself if not.
+  model_method *get_parent ()
+  {
+    return parent ? parent : this;
+  }
 };
 
 /// This represents a method that is the result of merging multiple

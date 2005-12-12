@@ -41,22 +41,23 @@ mostlyclean-local:
 ################################################################
 
 headers = access.hh buffer.hh directory.hh bytecode/block.hh \
-bytecode/bytegen.hh bytecode/byteutil.hh bytecode/classreader.hh \
-bytecode/classwriter.hh bytecode/cpool.hh bytecode/generate.hh \
-bytecode/insns.hh bytecode/locals.hh bytecode/outpool.hh \
-bytecode/outstream.hh bytecode/relocation.hh classcache.hh codegen.hh \
-compiler.hh conversions.hh defassign.hh exception.hh factory.hh	\
-fold.hh format/format.hh global.hh header/cni.hh header/jni.hh \
-header/jnistub.hh location.hh model/annotation.hh model/annomember.hh \
-model/annotype.hh model/annovalue.hh model/arrayinit.hh	\
-model/arrayref.hh model/arraytype.hh model/assert.hh model/assign.hh \
-model/binary.hh model/block.hh model/blockscope.hh model/break.hh \
-model/bytecode.hh model/cast.hh model/catch.hh model/class.hh \
-model/classinst.hh model/classref.hh model/cond.hh \
-model/constructor.hh model/continue.hh model/declstmt.hh model/do.hh \
-model/element.hh model/empty.hh model/enumconst.hh model/enum.hh \
-model/expr.hh model/exprstmt.hh model/field.hh model/fieldinit.hh \
-model/fieldref.hh model/forenhanced.hh model/for.hh model/fwdtype.hh \
+bytecode/bridge.hh bytecode/bytegen.hh bytecode/byteutil.hh \
+bytecode/classreader.hh bytecode/classwriter.hh bytecode/cpool.hh \
+bytecode/generate.hh bytecode/insns.hh bytecode/locals.hh \
+bytecode/outpool.hh bytecode/outstream.hh bytecode/relocation.hh \
+classcache.hh codegen.hh compiler.hh conversions.hh defassign.hh \
+exception.hh factory.hh fold.hh format/format.hh global.hh \
+header/cni.hh header/jni.hh header/jnistub.hh location.hh \
+model/annotation.hh model/annomember.hh model/annotype.hh \
+model/annovalue.hh model/arrayinit.hh model/arrayref.hh	\
+model/arraytype.hh model/assert.hh model/assign.hh model/binary.hh \
+model/block.hh model/blockscope.hh model/break.hh model/bytecode.hh \
+model/cast.hh model/catch.hh model/class.hh model/classinst.hh \
+model/classref.hh model/cond.hh model/constructor.hh model/continue.hh \
+model/declstmt.hh model/do.hh model/element.hh model/empty.hh \
+model/enumconst.hh model/enum.hh model/expr.hh model/exprstmt.hh \
+model/field.hh model/fieldinit.hh model/fieldref.hh \
+model/forenhanced.hh model/for.hh model/fwdtype.hh \
 model/iannotatable.hh model/icatcher.hh model/icontext.hh \
 model/identifier.hh model/ideprecatable.hh model/if.hh model/ilabel.hh \
 model/imember.hh model/imodifiable.hh model/import.hh model/iname.hh \
@@ -104,11 +105,11 @@ model/value.cc model/variable.cc model/varref.cc model/varstmt.cc \
 model/void.cc model/while.cc model/wildcard.cc
 
 bytecode_sources = bytecode/attribute.cc bytecode/block.cc \
-bytecode/bytegen.cc bytecode/classreader.cc bytecode/classwriter.cc \
-bytecode/cpool.cc bytecode/generate.cc bytecode/glue.cc	\
-bytecode/locals.cc bytecode/outpool.cc bytecode/outstream.cc \
-bytecode/poolreader.cc bytecode/relocation.cc bytecode/signature.cc \
-bytecode/verify.cc
+bytecode/bridge.cc bytecode/bytegen.cc bytecode/classreader.cc \
+bytecode/classwriter.cc bytecode/cpool.cc bytecode/generate.cc \
+bytecode/glue.cc bytecode/locals.cc bytecode/outpool.cc	\
+bytecode/outstream.cc bytecode/poolreader.cc bytecode/relocation.cc \
+bytecode/signature.cc bytecode/verify.cc
 
 reader_sources = reader/classbytes.cc reader/fdreader.cc \
 reader/zereader.cc reader/zebuffer.cc reader/mmapbuffer.cc \

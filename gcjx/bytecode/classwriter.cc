@@ -27,6 +27,7 @@
 #include "bytecode/attribute.hh"
 #include "bytecode/generate.hh"
 #include "bytecode/byteutil.hh"
+#include "bytecode/bridge.hh"
 
 #include <fcntl.h>
 
@@ -155,13 +156,22 @@ class_writer::write_field (model_field *field,
 }
 
 void
-class_writer::write_method (model_method *meth, bytecode_attribute_list *attrs)
+class_writer::write_method (model_method *meth, bytecode_attribute_list *attrs,
+			    bool is_bridge)
 {
-  int mods = meth->get_modifiers ();
+  int mods;
+  if (is_bridge)
+    {
+      meth = meth->get_override ();
+      mods = ACC_BRIDGE | meth->get_modifiers ();
+    }
+  else
+    mods = meth->get_modifiers ();
+
   if (target_15)
     {
       if (meth->varargs_p ())
-	mods |= ACC_VARARGS;
+	mods |= ACC_VARARGS;	// FIXME: correct for bridge methods?
     }
   else
     mods &= ~ACC_SYNTHETIC;
@@ -235,11 +245,13 @@ class_writer::write (directory_cache &dircache)
 
   std::list<ref_method> methods = the_class->get_methods ();
   std::list<bytecode_attribute_list *> method_attrs;
+  int method_count = 0;
   for (std::list<ref_method>::const_iterator i = methods.begin ();
        i != methods.end ();
        ++i)
     {
       bytecode_attribute_list *attrs = new bytecode_attribute_list ();
+      ++method_count;
 
       // One last check on the method.
       std::list<ref_variable_decl> params = (*i)->get_parameters ();
@@ -284,6 +296,20 @@ class_writer::write (directory_cache &dircache)
       maybe_write_annotations ((*i).get (), attrs);
 
       method_attrs.push_back (attrs);
+
+      // If this method needs a bridge, create it and push it on the
+      // list here.
+      if (target_15 && bridge_method::required_p ((*i).get ()))
+	{
+	  attrs = new bytecode_attribute_list ();
+	  attrs->push_back (new bridge_method (pool, (*i).get ()));
+	  method_attrs.push_back (attrs);
+	  ++method_count;
+
+	  model_method *m = (*i)->get_override ();
+	  pool->add_utf (m->get_name ());
+	  pool->add_utf (m->get_descriptor ());
+	}
     }
 
   std::list<ref_field> fields = the_class->get_fields ();
@@ -378,10 +404,9 @@ class_writer::write (directory_cache &dircache)
     assert (attr_i == field_attrs.end ());
   }
 
-  int msize = methods.size ();
-  if (msize > 65535)
+  if (method_count > 65535)
     throw the_class->error ("class contains more than 65535 methods");
-  writer.put2 (msize);
+  writer.put2 (method_count);
   {
     std::list<bytecode_attribute_list *>::const_iterator attr_i
       = method_attrs.begin ();
@@ -393,6 +418,15 @@ class_writer::write (directory_cache &dircache)
 	write_method (m, *attr_i);
 	delete *attr_i;
 	++attr_i;
+
+	// When we made the 'method_attrs' list, we pushed a second
+	// entry for any method requiring a bridge.
+	if (target_15 && bridge_method::required_p (m))
+	  {
+	    write_method (m, *attr_i, true);
+	    delete *attr_i;
+	    ++attr_i;
+	  }
       }
     assert (attr_i == method_attrs.end ());
   }
