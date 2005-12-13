@@ -1,3 +1,8 @@
+2005-12-12  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (find_method): Take type erasures.
+	(find_field): Likewise.
+
 2005-10-21  Tom Tromey  <tromey@redhat.com>
 
 	* tree.hh (tree_generator::visit_generic_invocation): New

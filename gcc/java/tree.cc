@@ -1330,7 +1330,7 @@ tree_generator::find_method (const char *mname, model_class *klass,
       if (! argtype || len != 1)
 	continue;
       ref_variable_decl var = params.front ();
-      if (var->type () == argtype)
+      if (var->type ()->erasure () == argtype)
 	{
 	  result = meth;
 	  break;
@@ -1345,7 +1345,7 @@ tree_generator::find_method (const char *mname, model_class *klass,
 	% mname % (argtype ? argtype : primitive_void_type) % klass;
     }
 
-  if (result->get_return_type () != result_type)
+  if (result->get_return_type ()->erasure () != result_type)
     {
       throw request->error ("method %1 doesn't have expected return type"
 			    " of %2")
@@ -2606,7 +2606,7 @@ tree_generator::find_field (const std::string &name,
   if (result.size () == 1)
     {
       model_field *field = *(result.begin ());
-      if (field->type () == type)
+      if (field->type ()->erasure () == type)
 	return field;
     }
   throw request->error ("couldn't find field %1 of type %2 in class %3")
