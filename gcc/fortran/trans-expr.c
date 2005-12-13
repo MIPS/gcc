@@ -246,12 +246,11 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
       gfc_conv_expr_type (&end, ref->u.ss.end, gfc_charlen_type_node);
       gfc_add_block_to_block (&se->pre, &end.pre);
     }
-  tmp =
-    build2 (MINUS_EXPR, gfc_charlen_type_node,
-	    fold_convert (gfc_charlen_type_node, integer_one_node),
-	    start.expr);
-  tmp = build2 (PLUS_EXPR, gfc_charlen_type_node, end.expr, tmp);
-  se->string_length = fold (tmp);
+  tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node,
+		     build_int_cst (gfc_charlen_type_node, 1),
+		     start.expr);
+  tmp = fold_build2 (PLUS_EXPR, gfc_charlen_type_node, end.expr, tmp);
+  se->string_length = tmp;
 }
 
 
@@ -2627,7 +2626,9 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
     }
 
   /* Check for a dependency.  */
-  if (gfc_check_fncall_dependency (expr1, expr2))
+  if (gfc_check_fncall_dependency (expr1, INTENT_OUT,
+				   expr2->value.function.esym,
+				   expr2->value.function.actual))
     return NULL;
 
   /* The frontend doesn't seem to bother filling in expr->symtree for intrinsic

@@ -1,3 +1,80 @@
+2005-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/25023
+	PR target/25293
+	* gcc.target/i386/pr25293.c: New test.
+
+2005-12-13  Petr Machata  <machata@post.cz>
+
+	PR c++/24907
+	* g++.dg/parse/comma2.C: New test.
+
+2005-12-13  Mark Mitchell  <mark@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1.exp: Do not link with libiberty.
+	* g++.dg/compat/struct-layout-1_generate.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	(hashtab.h): Do not include.
+	(getopt.h): Likewise.
+	(stddef.h): Include.
+	(hashval_t): Define.
+	(struct entry): Add "next" field.
+	(HASH_SIZE): New macro.
+	(hash_table): New variable.
+	(switchfiles): Do not use xmalloc.
+	(mix): New macro.
+	(iterative_hash): New function.
+	(hasht): Remove.
+	(e_exists): New function.
+	(e_insert): Likewise.
+	(output): Use, instead of libiberty hashtable functions.
+	(main): Do not use getopt.  Do not call htab_create.
+
+2005-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/25331
+	* gcc.dg/compat/struct-layout-1_generate.c (subfield): Don't
+	put atal* and atpaal* attributes on array elements.
+	(generate_fields): Revert 2005-10-07 and 2005-10-11 changes.
+	* g++.dg/compat/struct-layout-1_generate.c (subfield): Don't
+	put atal* and atpaal* attributes on array elements.
+	(generate_fields): Don't prevent atal* attribute on ETYPE_ARRAY.
+
+2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+
+	* gcc.dg/single-precision-constant.c: New test.
+
+2005-12-13  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/980523-1.c, gcc.dg/980526-1.c, gcc.dg/20020103-1.c,
+	gcc.dg/20040625-1.c, gcc.dg/asm-b.c, gcc.dg/iftrap-1.c,
+	gcc.dg/iftrap-2.c, gcc.dg/simd-3.c, gcc.dg/switch-1.c,
+	gcc.dg/tree-ssa/bool-1.c, gcc.dg/tree-ssa/bool-2.c,
+	gcc.dg/tree-ssa/bool-4.c, gcc.dg/tree-ssa/bool-5.c,
+	gcc.dg/tree-ssa/bool-6.c, gcc.dg/tree-ssa/bool-8.c,
+	gcc.dg/tree-ssa/bool-9.c, gcc.target/powerpc/980827-1.c,
+	gcc.target/powerpc/20040622-1.c, gcc.target/powerpc/20050603-3.c,
+	gcc.target/powerpc/20050830-1.c, gcc.target/powerpc/altivec-6.c,
+	gcc.target/powerpc/altivec-14.c, gcc.target/powerpc/altivec-22.c,
+	gcc.target/powerpc/doloop-1.c, gcc.target/powerpc/ppc-and-1.c,
+	gcc.target/powerpc/ppc-bitfield1.c, gcc.target/powerpc/ppc-compare-1.c,
+	gcc.target/powerpc/ppc-mov-1.c, gcc.target/powerpc/ppc-sdata-1.c,
+	gcc.target/powerpc/ppc-sdata-2.c,
+	gcc.target/powerpc/ppc-stackalign-1.c,
+	gcc.target/powerpc/ppc64-abi-1.c, gcc.target/powerpc/ppc64-abi-2.c,
+	gcc.target/powerpc/ppc64-abi-3.c, gcc.target/powerpc/ppc64-toc.c,
+	gcc.target/powerpc/pr18096-1.c, gcc.target/powerpc/rs6000-ldouble-1.c,
+	gcc.target/powerpc/rs6000-ldouble-2.c,
+	gcc.target/powerpc/rs6000-power2-1.c,
+	gcc.target/powerpc/rs6000-power2-2.c: Don't use powerpc-*-* or
+	powerpc64-*-* in target selection strings.  Instead use powerpc*-*-*
+	and ilp32 or lp64 as appropriate.  Merge dg-require-effective-target
+	option into target selector.
+	* gcc.dg/20020919-1.c: Compile for powerpc*-*-*.  Handle powerpc64.
+	* gcc.misc-tests/linkage.exp: Set native_cflags for powerpc*-*-linux*.
+
 2005-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR objc/25348
