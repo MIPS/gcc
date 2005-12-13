@@ -39,6 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "tm_p.h"
 #include "splay-tree.h"
+/* APPLE LOCAL 4133801 */
+#include "langhooks.h"
 #include "debug.h"
 /* APPLE LOCAL AltiVec */
 #include "../libcpp/internal.h"
@@ -283,11 +285,8 @@ fe_file_change (const struct line_map *new_map)
 	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
 #endif
-	  /* APPLE LOCAL begin 4137741 */
-	  /* Call through the debug hook, unless this is being deferred.  */
-	  if (!CPP_OPTION (parse_in, defer_file_change_debug_hooks))
-	    (*debug_hooks->start_source_file) (included_at, new_map->to_file);
-	  /* APPLE LOCAL end 4137741 */
+	  /* APPLE LOCAL 4133801 */
+	  lang_hooks.start_source_file (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
@@ -310,12 +309,8 @@ fe_file_change (const struct line_map *new_map)
 	}
 #endif
       pop_srcloc ();
-
-      /* APPLE LOCAL begin 4137741 */
-      /* Call through the debug hook, unless this is being deferred.  */
-      if (!CPP_OPTION (parse_in, defer_file_change_debug_hooks))
-	(*debug_hooks->end_source_file) (new_map->to_line);
-      /* APPLE LOCAL end 4137741 */
+      /* APPLE LOCAL 4133801 */
+      lang_hooks.end_source_file (new_map->to_line, new_map->to_file);
     }
 
   update_header_times (new_map->to_file);
@@ -707,16 +702,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       *value = NULL_TREE;
       break;
     /* APPLE LOCAL end CW asm blocks */
-    /* APPLE LOCAL begin 4137741 */
-    /* For CPP_BINCL and CPP_EINCL tokens, we shall need to propagate
-       line number information; the location field shall already include
-       the desired file name.  */
-    case CPP_BINCL:
-    case CPP_EINCL:
-      *value = build_int_cst (integer_type_node, (HOST_WIDE_INT) tok->src_loc);
-      break;
 
-    /* APPLE LOCAL end 4137741 */
       /* These tokens should not be visible outside cpplib.  */
     case CPP_HEADER_NAME:
     case CPP_COMMENT:

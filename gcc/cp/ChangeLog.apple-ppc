@@ -1,3 +1,7 @@
+2005-12-13  Mike Stump  <mrs@apple.com>
+
+	* Revert 2005-12-07  Devang Patel  <dpatel@apple.com> Radar 4137741
+
 2005-12-08  Mike Stump  <mrs@apple.com>
 
 	Radar 4371551

@@ -4436,6 +4436,11 @@ extern void cp_genericize			(tree);
 extern tree cw_asm_cp_build_component_ref	(tree, tree);
 /* APPLE LOCAL end CW asm blocks */
 
+/* APPLE LOCAL begin 4133801 */
+extern void cp_start_source_file (int, const char *);
+extern void cp_end_source_file (int, const char *);
+extern void cp_flush_lexer_file_stack (void);
+/* APPLE LOCAL end 4133801 */
 /* -- end of C++ */
 
 /* In order for the format checking to accept the C++ frontend
