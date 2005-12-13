@@ -1,3 +1,11 @@
+2005-12-13  Ben Elliston  <bje@au.ibm.com>
+
+	* c-cppbuiltin.c (builtin_define_decfloat_constants): Remove.
+	(c_cpp_builtins): Remove call to the above.  Register a builtin
+	__DEC_EVAL_METHOD__ define.
+	* ginclude/decfloat.h: Replace preprocessor defines produced by
+	calls in builtin_define_decfloat_constants above with #defines.
+
 2005-12-07  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/rs6000.c: Break long lines.

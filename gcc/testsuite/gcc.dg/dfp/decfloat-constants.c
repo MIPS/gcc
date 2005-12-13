@@ -5,6 +5,7 @@
    DFP and three components of DFP defined in decfloat.h.  */
 
 /* Make sure we are exporting the right values to decfloat.h. */
+#include <decfloat.h>
 
 extern void abort (void);
 

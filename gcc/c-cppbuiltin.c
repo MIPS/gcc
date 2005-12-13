@@ -257,45 +257,6 @@ builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, 
   builtin_define_with_int_value (name, MODE_HAS_NANS (TYPE_MODE (type)));
 }
 
-/* Define the decfloat.h constants for TYPE using NAME_PREFIX and FP_SUFFIX. */
-static void
-builtin_define_decfloat_constants (void)
-{
-  /* Number of digits in the coefficient. */
-  builtin_define_with_int_value ("__DEC32_MANT_DIG__", 7);
-  builtin_define_with_int_value ("__DEC64_MANT_DIG__", 16);
-  builtin_define_with_int_value ("__DEC128_MANT_DIG__", 34);
-  /* Minimum exponent. */
-  builtin_define_with_int_value ("__DEC32_MIN_EXP__", -95);
-  builtin_define_with_int_value ("__DEC64_MIN_EXP__", -383);
-  builtin_define_with_int_value ("__DEC128_MIN_EXP__", -6143);
-  /* Maximum exponent. */
-  builtin_define_with_int_value ("__DEC32_MAX_EXP__", 96);
-  builtin_define_with_int_value ("__DEC64_MAX_EXP__", 384);
-  builtin_define_with_int_value ("__DEC128_MAX_EXP__", 6144);
-  /* Maximum representable. */
-  builtin_define_with_value ("__DEC32_MAX__", "9.999999E96DF", 0);
-  builtin_define_with_value ("__DEC64_MAX__", "9.999999999999999E384DD", 0);
-  builtin_define_with_value ("__DEC128_MAX__", 
-			     "9.999999999999999999999999999999999E6144DL", 0);
-  /* Difference between 1 and least value greater than 1 representable. */
-  builtin_define_with_value ("__DEC32_EPSILON__", "1E-6DF", 0);
-  builtin_define_with_value ("__DEC64_EPSILON__", "1E-15DD", 0);
-  builtin_define_with_value ("__DEC128_EPSILON__", "1E-33DL", 0);
-  /* Minimum normalized positive value. */
-  builtin_define_with_value ("__DEC32_MIN__", "1E-95DF", 0);
-  builtin_define_with_value ("__DEC64_MIN__", "1E-383DD", 0);
-  builtin_define_with_value ("__DEC128_MIN__", "1E-6143DL", 0);
-  /* Minimum denormalized postive decimal value. */
-  builtin_define_with_value ("__DEC32_DEN__", "0.000001E-95DF", 0);
-  builtin_define_with_value ("__DEC64_DEN__", "0.000000000000001E-383DD", 0);
-  builtin_define_with_value ("__DEC128_DEN__", 
-			     "0.000000000000000000000000000000001E-6143DL", 0);
-
-  builtin_define_with_int_value ("__DEC_EVAL_METHOD__",
-                                 TARGET_DEC_EVAL_METHOD);
-}
-
 /* Define __GNUC__, __GNUC_MINOR__ and __GNUC_PATCHLEVEL__.  */
 static void
 define__GNUC__ (void)
@@ -426,8 +387,8 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_float_constants ("DBL", "", double_type_node);
   builtin_define_float_constants ("LDBL", "L", long_double_type_node);
 
-  /* For decfloat.h */
-  builtin_define_decfloat_constants ();
+  /* For decfloat.h.  */
+  builtin_define_with_int_value ("__DEC_EVAL_METHOD__", TARGET_DEC_EVAL_METHOD);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);

@@ -3,6 +3,8 @@
 
 /* Test various conversions involving decimal floating types. */
 
+#include <decfloat.h>
+
 extern void abort (void);
 
 volatile _Decimal32 d32;

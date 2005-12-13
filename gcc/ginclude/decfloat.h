@@ -32,6 +32,41 @@ Boston, MA 02110-1301, USA.  */
 #ifndef _DECFLOAT_H___
 #define _DECFLOAT_H___
 
+/* Number of digits in the coefficient.  */
+#define __DEC32_MANT_DIG__	7
+#define __DEC64_MANT_DIG__	16
+#define __DEC128_MANT_DIG__	34
+
+/* Minimum exponent.  */
+#define __DEC32_MIN_EXP__	-95
+#define __DEC64_MIN_EXP__	-383
+#define __DEC128_MIN_EXP__	-6143
+
+/* Maximum exponent.  */
+#define __DEC32_MAX_EXP__	96
+#define __DEC64_MAX_EXP__	384
+#define __DEC128_MAX_EXP__	6144
+
+/* Maximum representable.  */
+#define __DEC32_MAX__		9.999999E96DF
+#define __DEC64_MAX__		9.999999999999999E384DD
+#define __DEC128_MAX__		9.999999999999999999999999999999999E6144DL
+
+/* Difference between 1 and least value greater than 1 representable.  */
+#define __DEC32_EPSILON__	1E-6DF
+#define __DEC64_EPSILON__	1E-15DD
+#define __DEC128_EPSILON__	1E-33DL
+
+/* Minimum normalized positive value.  */
+#define __DEC32_MIN__		1E-95DF
+#define __DEC64_MIN__		1E-383DD
+#define __DEC128_MIN__		1E-6143DL
+
+/* Minimum denormalized postive decimal value.  */
+#define __DEC32_DEN__		0.000001E-95DF
+#define __DEC64_DEN__		0.000000000000001E-383DD
+#define __DEC128_DEN__		0.000000000000000000000000000000001E-6143DL
+
 /* Number of base-FLT_RADIX digits in the significand, p.  */
 #undef DEC32_MANT_DIG
 #undef DEC64_MANT_DIG

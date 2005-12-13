@@ -1,3 +1,9 @@
+2005-12-13  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/dfp/decfloat-constants.c: Include <decfloat.h>.
+	* gcc.dg/dfp/convert-dfp.c: Likewise.
+	* gcc.dg/dfp/convert-int-saturate.c: Likewise.
+
 2005-12-07  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/decfloat-constants.c: Fix comments.

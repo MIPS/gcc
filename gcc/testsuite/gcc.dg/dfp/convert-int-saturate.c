@@ -3,6 +3,7 @@
 
 /* Test integer saturation.  */
 
+#include <decfloat.h>
 #include <limits.h>
 
 extern void abort (void);
