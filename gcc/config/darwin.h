@@ -1078,11 +1078,6 @@ objc_section_init (void)			\
       objc_instance_vars_section ();		\
       objc_module_info_section ();		\
       objc_symbols_section ();			\
-      /* APPLE LOCAL begin ObjC new abi */	\
-      objc_classlist_section ();		\
-      objc_data_section ();			\
-      objc_message_refs_section ();		\
-      /* APPLE LOCAL end ObjC new abi */	\
     }						\
 }
 
