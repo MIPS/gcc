@@ -2,6 +2,13 @@
 
 	Radar 4261575
 
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Undid the setting for
+	darwin_constant_cfstrings. Tests need be modified instead.
+
+2005-12-12  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4261575
+
 	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Set default value 
 	for darwin_constant_cfstrings
 	
