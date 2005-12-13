@@ -4,7 +4,7 @@
 #include "tree-vect.h"
 
 #define N 64
-#define SUM -3
+#define SUM 0 
  
 /* Require widening-mult or data-unpacking (for the type promotion).  */
 int
@@ -32,8 +32,8 @@ int main (void)
     X[i] = 16-i; 
   }
 
-  sum = main1 (X, 1, 16, N);
-
+  sum = main1 (X, 1, 16, N-1);
+  
   if (sum != SUM)
     abort ();
 
