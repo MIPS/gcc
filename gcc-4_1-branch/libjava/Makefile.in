@@ -7547,11 +7547,32 @@ $(propertyo_files): %.lo: classpath/resource/%
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
 libgcj-$(gcc_version).jar:
+## The following is an attempt to have libgcj-*.jar files
+## from the same GCC version identical across the architectures.
 	jardir=`dirname $(ZIP)`; \
 	jardir=`cd $$jardir && pwd`; \
 	jarname=`basename $(ZIP)`; \
-	cd classpath/lib; $$jardir/$$jarname -cfM \
-	    ../../libgcj-$(gcc_version).jar gnu java javax org
+	javasrcdir=`cd $(srcdir) && pwd`; \
+	cd classpath/lib; \
+	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+	for d in `find gnu java javax org -type d | LC_ALL=C sort`; do \
+	    mkdir -p $$JARDIR/$$d; \
+	done; \
+	touch -r $$javasrcdir/../gcc/ChangeLog $$JARDIR.stamp; \
+	[ $$javasrcdir/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+	    && touch -r $$javasrcdir/../gcc/java/ChangeLog $$JARDIR.stamp; \
+	[ $$javasrcdir/ChangeLog -nt $$JARDIR.stamp ] \
+	    && touch -r $$javasrcdir/ChangeLog $$JARDIR.stamp; \
+	for f in `find gnu java javax org -type f | LC_ALL=C sort`; do \
+	    cp $$f $$JARDIR/$$f; \
+	    touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+	done; \
+	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+	cd $$JARDIR; \
+	$$jardir/$$jarname -cfM \
+	    ../../libgcj-$(gcc_version).jar gnu java javax org || exit; \
+	cd -; \
+	rm -rf $$JARDIR $$JARDIR.stamp
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
