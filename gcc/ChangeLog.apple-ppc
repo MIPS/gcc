@@ -1,3 +1,7 @@
+2005-12-13  Stuart Hastings  <stuart@apple.com>
+
+	* config/rs6000/rs6000.c (macho_branch_islands): Add APPLE LOCAL.
+
 2005-12-12  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4373486

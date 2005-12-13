@@ -19898,10 +19898,12 @@ macho_branch_islands (void)
 	  strcat (tmp_buf, label);
 	  strcat (tmp_buf, "_pic)\n");
 
+	  /* APPLE LOCAL cleanup formatting */
 	  strcat (tmp_buf, "\tmtctr r12\n\tbctr");
 	}
       else
 	{
+	  /* APPLE LOCAL cleanup formatting */
 	  strcat (tmp_buf, ":\n\tlis r12,hi16(");
 	  strcat (tmp_buf, name_buf);
 	  strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
