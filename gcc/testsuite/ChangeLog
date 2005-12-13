@@ -1,3 +1,61 @@
+2005-12-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* g++.old-deja/g++.eh/tmpl2.C: Remove xfail.
+	* gcc.dg/asm-b.c: Fix typo.
+	* gcc.dg/torture/pr20314-2.c: Test on i?86 lp64.
+	* gcc.dg/tree-ssa/stdarg-2.c, gcc.dg/tree-ssa/stdarg-3.c,
+	gcc.dg/tree-ssa/stdarg-4.c, gcc.dg/tree-ssa/stdarg-5.c: Test on
+	i?86 lp64 and x86_64 ilp32.
+	* gcc.target/i386/amd64-abi-1.c, gcc.target/i386/pr23943.c: Test
+	on i?86 lp64.
+	* gfortran.dg/g77/20010216-1.f: Test on x86_64 ilp32.
+
+2005-12-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25078
+	gfortran.dg/equiv_5.f90:  New test.
+
+2005-12-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gcc.dg/tree-ssa/ssa-pre-2.c: Update due to reassociation changes.
+	* gcc.dg/tree-ssa/reassoc-1.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-2.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-3.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-4.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-5.c: New.
+	* gcc.dg/tree-ssa/reassoc-6.c: New.
+	* gcc.dg/tree-ssa/reassoc-7.c: New.
+	* gcc.dg/tree-ssa/reassoc-8.c: New.
+	* gcc.dg/tree-ssa/reassoc-9.c: New.
+	* gcc.dg/tree-ssa/reassoc-10.c: New.
+	* gcc.dg/tree-ssa/reassoc-11.c: New.
+
+2005-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/25167
+	PR testsuite/24478
+	* gcc.dg/weak/weak-14.c: Add dg-require-alias.
+
+2005-12-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25300
+	* g++.dg/template/inherit.C: Do not use a generic error message.
+
+2005-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libobjc/25354
+	* objc.dg/gnu-encoding: New directory.
+	* objc.dg/gnu-encoding/compat-common.h: New file.
+	* objc.dg/gnu-encoding/struct-layout-1.h: New file.
+	* objc.dg/gnu-encoding/struct-layout-1_test.h: New file.
+	* objc.dg/gnu-encoding/vector-defs.h: New file.
+	* objc.dg/gnu-encoding/gnu-encoding.exp: New file.
+	* objc.dg/gnu-encoding/generate-random.c: New file.
+	* objc.dg/gnu-encoding/generate-random_r.c: New file.
+	* objc.dg/gnu-encoding/struct-layout-encoding-1_generate.c: New file.
+	* objc.dg/gnu-encoding/generate-random.h: New file.
+
 2005-12-11  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/25337

@@ -1,3 +1,90 @@
+2005-12-11 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+
+        * tree-flow.h: Allow compilation with a C++ compiler.
+        (struct edge_prediction): Prefix all field names  with "ep_".
+        * predict.c (tree_predicted_by_p): Likewise for struct edge_prediction.
+        (tree_predict_edge, combine_predictions_for_bb): Likewise.
+        (remove_predictions_associated_with_edge): Likewise.
+	
+2005-12-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Remove
+	reassociation code.
+	* passes.c (init_optimization_passes): Run reassociation again
+	after loop optimizations.
+
+2005-12-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-dom.c (thread_across_edge): Canonicalize condition
+	if necessary.
+	(optimize_stmt): Ditto.
+	(canonicalize_comparison): New function.
+	* tree-ssa-operands.c (swap_tree_operands): Make external.
+	(get_expr_operands): Stop auto-canonicalization.
+	* tree-ssa-reassoc.c: Rewrite.
+	(init_optimization_passes): 
+	* tree-flow.h (swap_tree_operands): Prototype.
+	* Makefile.in (tree-ssa-reassoc.o): Update dependencies.
+
+2005-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (pa_output_function_epilogue): Set cfun->machine->in_nsubspa to
+	indicate function epilogue has been output.
+	(pa_asm_output_mi_thunk): Likewise.
+	(output_deferred_plabels): Put plabels in readonly data section when
+	not generating PIC code.
+	(som_output_text_section_asm_op): Use .NSUBSPA to output debug
+	information.  Add assert.
+	(som_output_comdat_data_section_asm_op): New function.
+	(pa_som_asm_init_sections): Use som_output_comdat_data_section_asm_op
+	instead of output_section_asm_op for COMDAT sections.
+
+2005-12-12  J"orn Rennecke <joern.rennecke@st.com>
+
+	* cfgcleanup.c (condjump_equiv_p, try_crossjump_to_edge):
+	Fix whitespace in vincinity of to-be-installed changes.
+	* struct-equiv.c (merge_memattrs, death_notes_match_p): Fix whitespace.
+	(insns_match_p): Likewise.
+
+2005-12-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config.gcc (ms1): Replace with ...
+	(mt): ... this.
+	* config/ms1: Rename to ...
+	* config/mt: ... here.  Rename ms1 files to mt.
+	* config/mt/mt.c: Adjust gt-mt.h #include.
+	* config/mt/t-mt (LIB1ASMSRCS, LIB2FUNCS_EXTRA): Adjust.
+	(crti.o, crtn.o): Adjust file names.
+
+2005-12-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* varray.h: Allow compilation with a C++ compiler.
+	(union varray_data_tag): Prefix all field names with "vdt_".
+	(VARRAY_CHAR, VARRAY_UCHAR, VARRAY_SHORT, VARRAY_USHORT,
+	VARRAY_INT, VARRAY_UINT, VARRAY_LONG, VARRAY_ULONG,
+	VARRAY_WIDE_INT, VARRAY_UWIDE_INT, VARRAY_GENERIC_PTR,
+	VARRAY_GENERIC_PTR_NOGC, VARRAY_CHAR_PTR, VARRAY_RTX,
+	VARRAY_RTVEC, VARRAY_TREE, VARRAY_BITMAP, VARRAY_REG, VARRAY_BB,
+	VARRAY_ELT_LIST, VARRAY_EDGE, VARRAY_TREE_PTR): Adjust definition.
+	(VARRAY_PUSH_CHAR, VARRAY_PUSH_UCHAR, VARRAY_PUSH_SHORT,
+	VARRAY_PUSH_USHORT, VARRAY_PUSH_INT, VARRAY_PUSH_UINT, 
+	VARRAY_PUSH_LONG, VARRAY_PUSH_ULONG, VARRAY_PUSH_WIDE_INT, 
+	VARRAY_PUSH_UWIDE_INT, VARRAY_PUSH_GENERIC_PTR, 
+	VARRAY_PUSH_GENERIC_PTR_NOGC, VARRAY_PUSH_CHAR_PTR, 
+	VARRAY_PUSH_RTX, VARRAY_PUSH_RTVEC, VARRAY_PUSH_TREE, 
+	VARRAY_PUSH_BITMAP, VARRAY_PUSH_REG, VARRAY_PUSH_BB, 
+	VARRAY_PUSH_EDGE, VARRAY_PUSH_TREE_PTR): Likewise.
+	(VARRAY_TOP_CHAR, VARRAY_TOP_UCHAR, VARRAY_TOP_SHORT, 
+	VARRAY_TOP_USHORT, VARRAY_TOP_INT, VARRAY_TOP_UINT, 
+	VARRAY_TOP_LONG, VARRAY_TOP_ULONG, VARRAY_TOP_WIDE_INT, 
+	VARRAY_TOP_UWIDE_INT, VARRAY_TOP_GENERIC_PTR, 
+	VARRAY_TOP_GENERIC_PTR_NOGC, VARRAY_TOP_CHAR_PTR, VARRAY_TOP_RTX, 
+	VARRAY_TOP_RTVEC, VARRAY_TOP_TREE, VARRAY_TOP_BITMAP, 
+	VARRAY_TOP_REG, VARRAY_TOP_BB, VARRAY_TOP_EDGE, 
+	VARRAY_TOP_TREE_PTR): Likewise.
+	* varray.c (varray_grow): Likewise.
+	(varray_clear): Likewise.
+
 2005-12-12  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/25299
