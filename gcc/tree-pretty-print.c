@@ -1927,6 +1927,12 @@ op_symbol (tree op)
     case RSHIFT_EXPR:
       return ">>";
 
+    case LROTATE_EXPR:
+      return "r<<";
+
+    case RROTATE_EXPR:
+      return "r>>";
+
     case VEC_LSHIFT_EXPR:
       return "v<<";
 

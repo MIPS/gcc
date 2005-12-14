@@ -229,16 +229,16 @@ static void ia64_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				  HOST_WIDE_INT, tree);
 static void ia64_file_start (void);
 
-static void ia64_select_rtx_section (enum machine_mode, rtx,
-				     unsigned HOST_WIDE_INT);
+static section *ia64_select_rtx_section (enum machine_mode, rtx,
+					 unsigned HOST_WIDE_INT);
 static void ia64_output_dwarf_dtprel (FILE *, int, rtx)
      ATTRIBUTE_UNUSED;
-static void ia64_rwreloc_select_section (tree, int, unsigned HOST_WIDE_INT)
+static section *ia64_rwreloc_select_section (tree, int, unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
 static void ia64_rwreloc_unique_section (tree, int)
      ATTRIBUTE_UNUSED;
-static void ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
-					     unsigned HOST_WIDE_INT)
+static section *ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
+						 unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
 static unsigned int ia64_section_type_flags (tree, const char *, int);
 static void ia64_hpux_add_extern_decl (tree decl)
@@ -891,14 +891,11 @@ gen_thread_pointer (void)
 
 static rtx
 ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1,
-			 HOST_WIDE_INT addend)
+			 rtx orig_op1, HOST_WIDE_INT addend)
 {
   rtx tga_op1, tga_op2, tga_ret, tga_eqv, tmp, insns;
-  rtx orig_op0 = op0, orig_op1 = op1;
+  rtx orig_op0 = op0;
   HOST_WIDE_INT addend_lo, addend_hi;
-
-  addend_lo = ((addend & 0x3fff) ^ 0x2000) - 0x2000;
-  addend_hi = addend - addend_lo;
 
   switch (tls_kind)
     {
@@ -959,6 +956,9 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1,
       break;
 
     case TLS_MODEL_INITIAL_EXEC:
+      addend_lo = ((addend & 0x3fff) ^ 0x2000) - 0x2000;
+      addend_hi = addend - addend_lo;
+
       op1 = plus_constant (op1, addend_hi);
       addend = addend_lo;
 
@@ -1023,7 +1023,7 @@ ia64_expand_move (rtx op0, rtx op1)
 
       tls_kind = tls_symbolic_operand_type (sym);
       if (tls_kind)
-	return ia64_expand_tls_address (tls_kind, op0, sym, addend);
+	return ia64_expand_tls_address (tls_kind, op0, sym, op1, addend);
 
       if (any_offset_symbol_operand (sym, mode))
 	addend = 0;
@@ -2039,8 +2039,13 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
   enum insn_code icode;
 
   /* Special case for using fetchadd.  */
-  if ((mode == SImode || mode == DImode) && fetchadd_operand (val, mode))
+  if ((mode == SImode || mode == DImode)
+      && (code == PLUS || code == MINUS)
+      && fetchadd_operand (val, mode))
     {
+      if (code == MINUS)
+	val = GEN_INT (-INTVAL (val));
+
       if (!old_dst)
         old_dst = gen_reg_rtx (mode);
 
@@ -4255,11 +4260,11 @@ ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   if ((TREE_CODE (type) == REAL_TYPE || TREE_CODE (type) == INTEGER_TYPE)
       ? int_size_in_bytes (type) > 8 : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
     {
-      tree t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		      build_int_cst (NULL_TREE, 2 * UNITS_PER_WORD - 1));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_cst (NULL_TREE, -2 * UNITS_PER_WORD));
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
+      tree t = build2 (PLUS_EXPR, TREE_TYPE (valist), valist,
+		       build_int_cst (NULL_TREE, 2 * UNITS_PER_WORD - 1));
+      t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
+		  build_int_cst (NULL_TREE, -2 * UNITS_PER_WORD));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
       gimplify_and_add (t, pre_p);
     }
 
@@ -8502,27 +8507,27 @@ ia64_sysv4_init_libfuncs (void)
      glibc doesn't have them.  */
 }
 
-/* Switch to the section to which we should output X.  The only thing
-   special we do here is to honor small data.  */
+/* Return the section to use for X.  The only special thing we do here
+   is to honor small data.  */
 
-static void
+static section *
 ia64_select_rtx_section (enum machine_mode mode, rtx x,
 			 unsigned HOST_WIDE_INT align)
 {
   if (GET_MODE_SIZE (mode) > 0
       && GET_MODE_SIZE (mode) <= ia64_section_threshold)
-    sdata_section ();
+    return sdata_section;
   else
-    default_elf_select_rtx_section (mode, x, align);
+    return default_elf_select_rtx_section (mode, x, align);
 }
 
 /* It is illegal to have relocations in shared segments on AIX and HPUX.
    Pretend flag_pic is always set.  */
 
-static void
+static section *
 ia64_rwreloc_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
 {
-  default_elf_select_section_1 (exp, reloc, align, true);
+  return default_elf_select_section_1 (exp, reloc, align, true);
 }
 
 static void
@@ -8531,14 +8536,16 @@ ia64_rwreloc_unique_section (tree decl, int reloc)
   default_unique_section_1 (decl, reloc, true);
 }
 
-static void
+static section *
 ia64_rwreloc_select_rtx_section (enum machine_mode mode, rtx x,
 				 unsigned HOST_WIDE_INT align)
 {
+  section *sect;
   int save_pic = flag_pic;
   flag_pic = 1;
-  ia64_select_rtx_section (mode, x, align);
+  sect = ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
+  return sect;
 }
 
 #ifndef TARGET_RWRELOC

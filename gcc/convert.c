@@ -351,7 +351,7 @@ convert_to_integer (tree type, tree expr)
       
       switch (fcode)
         {
-	case BUILT_IN_CEIL: case BUILT_IN_CEILF: case BUILT_IN_CEILL:
+	CASE_FLT_FN (BUILT_IN_CEIL):
 	  /* Only convert in ISO C99 mode.  */
 	  if (!TARGET_C99_FUNCTIONS)
 	    break;
@@ -361,7 +361,7 @@ convert_to_integer (tree type, tree expr)
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LCEIL);
 	  break;
 
-	case BUILT_IN_FLOOR: case BUILT_IN_FLOORF: case BUILT_IN_FLOORL:
+	CASE_FLT_FN (BUILT_IN_FLOOR):
 	  /* Only convert in ISO C99 mode.  */
 	  if (!TARGET_C99_FUNCTIONS)
 	    break;
@@ -371,26 +371,26 @@ convert_to_integer (tree type, tree expr)
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LFLOOR);
 	  break;
 
-	case BUILT_IN_ROUND: case BUILT_IN_ROUNDF: case BUILT_IN_ROUNDL:
+	CASE_FLT_FN (BUILT_IN_ROUND):
 	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
 	  else
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LROUND);
 	  break;
 
-	case BUILT_IN_RINT: case BUILT_IN_RINTF: case BUILT_IN_RINTL:
+	CASE_FLT_FN (BUILT_IN_RINT):
 	  /* Only convert rint* if we can ignore math exceptions.  */
 	  if (flag_trapping_math)
 	    break;
 	  /* ... Fall through ...  */
-	case BUILT_IN_NEARBYINT: case BUILT_IN_NEARBYINTF: case BUILT_IN_NEARBYINTL:
+	CASE_FLT_FN (BUILT_IN_NEARBYINT):
 	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
             fn = mathfn_built_in (s_intype, BUILT_IN_LLRINT);
 	  else
             fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
 	  break;
 
-	case BUILT_IN_TRUNC: case BUILT_IN_TRUNCF: case BUILT_IN_TRUNCL:
+	CASE_FLT_FN (BUILT_IN_TRUNC):
 	  {
 	    tree arglist = TREE_OPERAND (s_expr, 1);
 	    return convert_to_integer (type, TREE_VALUE (arglist));
@@ -420,7 +420,7 @@ convert_to_integer (tree type, tree expr)
       expr = fold_build1 (CONVERT_EXPR,
 			  lang_hooks.types.type_for_size (POINTER_SIZE, 0),
 			  expr);
-      return fold_build1 (NOP_EXPR, type, expr);
+      return fold_convert (type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
@@ -500,9 +500,7 @@ convert_to_integer (tree type, tree expr)
 	  /* We can pass truncation down through right shifting
 	     when the shift count is a nonpositive constant.  */
 	  if (TREE_CODE (TREE_OPERAND (expr, 1)) == INTEGER_CST
-	      && tree_int_cst_lt (TREE_OPERAND (expr, 1),
-				  convert (TREE_TYPE (TREE_OPERAND (expr, 1)),
-					   integer_one_node)))
+	      && tree_int_cst_sgn (TREE_OPERAND (expr, 1)) <= 0)
 	    goto trunc1;
 	  break;
 
@@ -528,7 +526,7 @@ convert_to_integer (tree type, tree expr)
 		     but (int) a << 32 is undefined and would get a
 		     warning.  */
 
-		  tree t = convert_to_integer (type, integer_zero_node);
+		  tree t = build_int_cst (type, 0);
 
 		  /* If the original expression had side-effects, we must
 		     preserve it.  */

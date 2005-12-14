@@ -492,17 +492,17 @@ typedef struct
   ENUM_BITFIELD (ifsrc) if_source:2;
 
   ENUM_BITFIELD (procedure_type) proc:3;
-  
+
   /* Special attributes for Cray pointers, pointees.  */
-  unsigned cray_pointer:1, cray_pointee:1;    
+  unsigned cray_pointer:1, cray_pointee:1;
 
 }
 symbol_attribute;
 
 
 /* The following three structures are used to identify a location in
-   the sources. 
-   
+   the sources.
+
    gfc_file is used to maintain a tree of the source files and how
    they include each other
 
@@ -510,17 +510,17 @@ symbol_attribute;
    which file it resides in
 
    locus point to the sourceline and the character in the source
-   line.  
+   line.
 */
 
-typedef struct gfc_file 
+typedef struct gfc_file
 {
   struct gfc_file *included_by, *next, *up;
   int inclusion_line, line;
   char *filename;
 } gfc_file;
 
-typedef struct gfc_linebuf 
+typedef struct gfc_linebuf
 {
 #ifdef USE_MAPPED_LOCATION
   source_location location;
@@ -537,7 +537,7 @@ typedef struct gfc_linebuf
 
 #define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
 
-typedef struct 
+typedef struct
 {
   char *nextc;
   gfc_linebuf *lb;
@@ -786,7 +786,7 @@ typedef struct gfc_common_head
   int use_assoc, saved;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
-} 
+}
 gfc_common_head;
 
 #define gfc_get_common_head() gfc_getmem(sizeof(gfc_common_head))
@@ -845,7 +845,7 @@ typedef struct gfc_namespace
   /* Tree containing all the user-defined operators in the namespace.  */
   gfc_symtree *uop_root;
   /* Tree containing all the common blocks.  */
-  gfc_symtree *common_root;	
+  gfc_symtree *common_root;
 
   /* If set_flag[letter] is set, an implicit type has been set for letter.  */
   int set_flag[GFC_LETTERS];
@@ -1129,6 +1129,9 @@ typedef struct gfc_expr
 
   /* True if it is converted from Hollerith constant.  */
   unsigned int from_H : 1;
+  /* True if the expression is a call to a function that returns an array,
+     and if we have decided not to allocate temporary data for that array.  */
+  unsigned int inline_noncopying_intrinsic : 1;
 
   union
   {
@@ -1309,7 +1312,7 @@ gfc_alloc;
 typedef struct
 {
   gfc_expr *unit, *file, *status, *access, *form, *recl,
-    *blank, *position, *action, *delim, *pad, *iostat, *iomsg;
+    *blank, *position, *action, *delim, *pad, *iostat, *iomsg, *convert;
   gfc_st_label *err;
 }
 gfc_open;
@@ -1336,7 +1339,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength, *iomsg;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert;
 
   gfc_st_label *err;
 
@@ -1415,7 +1418,7 @@ typedef struct gfc_code
   ext;		/* Points to additional structures required by statement */
 
   /* Backend_decl is used for cycle and break labels in do loops, and
-   * probably for other constructs as well, once we translate them.  */
+     probably for other constructs as well, once we translate them.  */
   tree backend_decl;
 }
 gfc_code;
@@ -1460,7 +1463,20 @@ typedef struct
 {
   char *module_dir;
   gfc_source_form source_form;
-  int fixed_line_length;
+  /* When fixed_line_length or free_line_length are 0, the whole line is used.
+
+     Default is -1, the maximum line length mandated by the respective source
+     form is used:
+     for FORM_FREE GFC_MAX_LINE (132)
+     else 72.
+
+     If fixed_line_length or free_line_length is not 0 nor -1 then the user has
+     requested a specific line-length.
+
+     If the user requests a fixed_line_length <7 then gfc_init_options()
+     emits a fatal error.  */
+  int fixed_line_length; /* maximum line length in fixed-form.  */
+  int free_line_length; /* maximum line length in free-form.  */
   int max_identifier_length;
   int verbose;
 

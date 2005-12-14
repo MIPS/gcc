@@ -379,7 +379,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
       letter = *scratch_constraint;
       scratch_class = (letter == 'r' ? GENERAL_REGS
 		       : REG_CLASS_FROM_CONSTRAINT ((unsigned char) letter,
-						    insn_constraint));
+						   scratch_constraint));
 
       class = scratch_class;
       mode = insn_data[(int) icode].operand[2].mode;
@@ -6223,7 +6223,7 @@ refers_to_regno_for_reload_p (unsigned int regno, unsigned int endregno,
 						 reg_equiv_memory_loc[r],
 						 (rtx*) 0);
 
-	  gcc_assert (reg_equiv_constant[r]);
+	  gcc_assert (reg_equiv_constant[r] || reg_equiv_invariant[r]);
 	  return 0;
 	}
 

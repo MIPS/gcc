@@ -242,6 +242,9 @@ extern const char * built_in_names[(int) END_BUILTINS];
 
 #define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
 
+#define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
+#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
+
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
@@ -340,7 +343,6 @@ struct tree_common GTY(())
 
        TREE_OVERFLOW in
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
-	   ??? and other expressions?
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        ASM_VOLATILE_P in
@@ -913,11 +915,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding, and no warning has been issued
    for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
-   but not vice versa.
+   but not vice versa.  */
 
-   ??? Apparently, lots of code assumes this is defined in all
-   expressions.  */
-#define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
+#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->common.public_flag)
 
 /* In a VAR_DECL or FUNCTION_DECL,
    nonzero means name is to be accessible from outside this module.
@@ -2144,7 +2144,12 @@ struct tree_memory_tag GTY(())
 #define DECL_LANG_SPECIFIC(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
 
 /* In a VAR_DECL or FUNCTION_DECL, nonzero means external reference:
-   do not allocate storage, and refer to a definition elsewhere.  */
+   do not allocate storage, and refer to a definition elsewhere.  Note that
+   this does not necessarily imply the entity represented by NODE
+   has no program source-level definition in this translation unit.  For
+   example, for a FUNCTION_DECL, DECL_SAVED_TREE may be non-NULL and
+   DECL_EXTERNAL may be true simultaneously; that can be the case for
+   a C99 "extern inline" function.  */
 #define DECL_EXTERNAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.decl_flag_2)
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
@@ -3167,20 +3172,7 @@ extern tree maybe_get_identifier (const char *);
 
 /* Construct various types of nodes.  */
 
-extern tree build (enum tree_code, tree, ...);
 extern tree build_nt (enum tree_code, ...);
-
-#if GCC_VERSION >= 3000 || __STDC_VERSION__ >= 199901L
-/* Use preprocessor trickery to map "build" to "buildN" where N is the
-   expected number of arguments.  This is used for both efficiency (no
-   varargs), and checking (verifying number of passed arguments).  */
-#define build(code, ...) \
-  _buildN1(build, _buildC1(__VA_ARGS__))(code, __VA_ARGS__)
-#define _buildN1(BASE, X)	_buildN2(BASE, X)
-#define _buildN2(BASE, X)	BASE##X
-#define _buildC1(...)		_buildC2(__VA_ARGS__,9,8,7,6,5,4,3,2,1,0,0)
-#define _buildC2(x,a1,a2,a3,a4,a5,a6,a7,a8,a9,c,...) c
-#endif
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -3960,7 +3952,7 @@ extern void expand_function_end (void);
 extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
-extern void recompute_tree_invarant_for_addr_expr (tree);
+extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
 extern tree reconstruct_complex_type (tree, tree);

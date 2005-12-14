@@ -547,7 +547,7 @@ extern int x86_prefetch_sse;
    aligned; the compiler cannot rely on having this alignment.  */
 #define PREFERRED_STACK_BOUNDARY ix86_preferred_stack_boundary
 
-/* As of July 2001, many runtimes to not align the stack properly when
+/* As of July 2001, many runtimes do not align the stack properly when
    entering main.  This causes expand_main_function to forcibly align
    the stack, which results in aligned frames for functions called from
    main, though it does nothing for the alignment of main itself.  */
@@ -576,7 +576,7 @@ extern int x86_prefetch_sse;
 
 /* Decide whether a variable of mode MODE should be 128 bit aligned.  */
 #define ALIGN_MODE_128(MODE) \
- ((MODE) == XFmode || (MODE) == TFmode || SSE_REG_MODE_P (MODE))
+ ((MODE) == XFmode || SSE_REG_MODE_P (MODE))
 
 /* The published ABIs say that doubles should be aligned on word
    boundaries, so lower the alignment for structure fields unless
@@ -1374,9 +1374,10 @@ enum reg_class
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
-   On 386 pushw decrements by exactly 2 no matter what the position was.
-   On the 386 there is no pushb; we use pushw instead, and this
-   has the effect of rounding up to 2.
+   On 386, we have pushw instruction that decrements by exactly 2 no
+   matter what the position was, there is no pushb.
+   But as CIE data alignment factor on this arch is -4, we need to make
+   sure all stack pointer adjustments are in multiple of 4.
 
    For 64bit ABI we round up to 8 bytes.
  */
@@ -1384,7 +1385,7 @@ enum reg_class
 #define PUSH_ROUNDING(BYTES) \
   (TARGET_64BIT		     \
    ? (((BYTES) + 7) & (-8))  \
-   : (((BYTES) + 1) & (-2)))
+   : (((BYTES) + 3) & (-4)))
 
 /* If defined, the maximum amount of space required for outgoing arguments will
    be computed and placed into the variable

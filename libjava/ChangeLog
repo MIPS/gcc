@@ -1,3 +1,51 @@
+2005-12-12  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/VMCompiler.java: Directly generate a new instance of
+	gnu.java.security.provider.MD5.
+
+2005-12-08  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25265
+	* java/lang/Object.h (throwNoSuchMethodError): New method.
+	* java/lang/Object.java (throwNoSuchMethodError): New method.
+	* include/jvm.h (_Jv_ThrowNoSuchFieldError): Declare.
+	* link.cc (_Jv_ThrowNoSuchFieldError): New.
+	(link_symbol_table): Don't throw a NoSuchFieldError if a field is
+	missing.  Instead, set the otable entry to zero.
+	(link_symbol_table): If we don't find a nonstatic method, insert
+	the vtable offset of Object.throwNoSuchMethodError() into the
+	otable.
+
+2005-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/rh174912.java: New file.
+
+2005-12-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_javac): Support
+	xfail-byte-exec.
+	* testsuite/libjava.lang/Array_3.xfail: New file.
+
+2005-12-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* stacktrace.cc (UnwindTraceFn): Use UNWRAP_FUNCTION_DESCRIPTOR
+	to compare _Jv_InterpMethod::run against current func.
+
+2005-11-30  Andrew Haley  <aph@redhat.com>
+
+	* classpath/lib/Makefile.am (resources): Use `cp -p'.
+	Remove `@' from start of line.
+
+2005-11-28  Tom Tromey  <tromey@redhat.com>
+
+	PR java/18278:
+	* testsuite/libjava.jni/pr18278.out: New file.
+	* testsuite/libjava.jni/pr18278.c: New file.
+	* testsuite/libjava.jni/pr18278.java: New file.
+	* include/jvm.h (_Jv_UnwrapJNIweakReference): Declare.
+	* jni.cc (_Jv_UnwrapJNIweakReference): New function.
+	(call): Unwrap return value if needed.
+
 2005-11-25  Mark Wielaard  <mark@klomp.org>
 
 	* standard.omit.in: Remove javax/rmi, org/omg, gnu/CORBA and

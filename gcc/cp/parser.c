@@ -271,7 +271,7 @@ cp_lexer_new_main (void)
 
   /* Create the buffer.  */
   alloc = CP_LEXER_BUFFER_SIZE;
-  buffer = ggc_alloc (alloc * sizeof (cp_token));
+  buffer = GGC_NEWVEC (cp_token, alloc);
 
   /* Put the first token in the buffer.  */
   space = alloc;
@@ -286,7 +286,7 @@ cp_lexer_new_main (void)
 	{
 	  space = alloc;
 	  alloc *= 2;
-	  buffer = ggc_realloc (buffer, alloc * sizeof (cp_token));
+	  buffer = GGC_RESIZEVEC (cp_token, buffer, alloc);
 	  pos = buffer + space;
 	}
       cp_lexer_get_preprocessor_token (lexer, pos);
@@ -2417,7 +2417,7 @@ cp_parser_make_typename_type (cp_parser *parser, tree scope, tree id)
   if (TREE_CODE (id) == IDENTIFIER_NODE)
     {
       result = make_typename_type (scope, id, typename_type,
-				   /*complain=*/0);
+                                   /*complain=*/tf_none);
       if (result == error_mark_node)
 	cp_parser_diagnose_invalid_type_name (parser, scope, id);
       return result;
@@ -6914,7 +6914,10 @@ cp_parser_declaration (cp_parser* parser)
   if (token1.type != CPP_EOF)
     token2 = *cp_lexer_peek_nth_token (parser->lexer, 2);
   else
-    token2.type = token2.keyword = RID_MAX;
+    {
+      token2.type = CPP_EOF;
+      token2.keyword = RID_MAX;
+    }
 
   /* Get the high-water mark for the DECLARATOR_OBSTACK.  */
   p = obstack_alloc (&declarator_obstack, 0);
@@ -7142,7 +7145,16 @@ cp_parser_simple_declaration (cp_parser* parser,
       bool function_definition_p;
       tree decl;
 
-      saw_declarator = true;
+      if (saw_declarator)
+	{
+	  /* If we are processing next declarator, coma is expected */
+	  token = cp_lexer_peek_token (parser->lexer);
+	  gcc_assert (token->type == CPP_COMMA);
+	  cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	saw_declarator = true;
+
       /* Parse the init-declarator.  */
       decl = cp_parser_init_declarator (parser, &decl_specifiers,
 					function_definition_allowed_p,
@@ -7177,7 +7189,7 @@ cp_parser_simple_declaration (cp_parser* parser,
       token = cp_lexer_peek_token (parser->lexer);
       /* If it's a `,', there are more declarators to come.  */
       if (token->type == CPP_COMMA)
-	cp_lexer_consume_token (parser->lexer);
+	/* will be consumed next time around */;
       /* If it's a `;', we are done.  */
       else if (token->type == CPP_SEMICOLON)
 	break;
@@ -8927,11 +8939,11 @@ cp_parser_template_argument_list (cp_parser* parser)
 
 	  if (arg_ary == fixed_args)
 	    {
-	      arg_ary = xmalloc (sizeof (tree) * alloced);
+	      arg_ary = XNEWVEC (tree, alloced);
 	      memcpy (arg_ary, fixed_args, sizeof (tree) * n_args);
 	    }
 	  else
-	    arg_ary = xrealloc (arg_ary, sizeof (tree) * alloced);
+	    arg_ary = XRESIZEVEC (tree, arg_ary, alloced);
 	}
       arg_ary[n_args++] = argument;
     }
@@ -9240,7 +9252,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
 	 template instantiation.  */
       pop_deferring_access_checks ();
       if (type)
-	do_type_instantiation (type, extension_specifier, /*complain=*/1);
+	do_type_instantiation (type, extension_specifier,
+                               /*complain=*/tf_error);
     }
   else
     {
@@ -9950,7 +9963,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	       && tag_type == typename_type)
 	type = make_typename_type (parser->scope, decl,
 				   typename_type,
-				   /*complain=*/1);
+				   /*complain=*/tf_error);
       else
 	type = TREE_TYPE (decl);
     }
@@ -12585,7 +12598,8 @@ cp_parser_class_name (cp_parser *parser,
   /* If this is a typename, create a TYPENAME_TYPE.  */
   if (typename_p && decl != error_mark_node)
     {
-      decl = make_typename_type (scope, decl, typename_type, /*complain=*/1);
+      decl = make_typename_type (scope, decl, typename_type,
+                                 /*complain=*/tf_error);
       if (decl != error_mark_node)
 	decl = TYPE_NAME (decl);
     }
@@ -14606,7 +14620,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 		 A::B' should be considered a type-name, even if `A'
 		 is dependent.  */
 	      type = make_typename_type (parser->scope, name, tag_type,
-					 /*complain=*/1);
+					 /*complain=*/tf_error);
 	      decl = TYPE_NAME (type);
 	    }
 	  else if (is_template
@@ -14615,7 +14629,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 						  CPP_CLOSE_PAREN)))
 	    decl = make_unbound_class_template (parser->scope,
 						name, NULL_TREE,
-						/*complain=*/1);
+						/*complain=*/tf_error);
 	  else
 	    decl = build_qualified_name (/*type=*/NULL_TREE,
 					 parser->scope, name,
@@ -15765,7 +15779,7 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   saved_message = parser->type_definition_forbidden_message;
   /* And create the new one.  */
   parser->type_definition_forbidden_message
-    = xmalloc (strlen (format)
+    = XNEWVEC (const char, strlen (format)
 	       + strlen (IDENTIFIER_POINTER (ridpointers[keyword]))
 	       + 1 /* `\0' */);
   sprintf ((char *) parser->type_definition_forbidden_message,

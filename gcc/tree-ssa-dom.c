@@ -588,6 +588,52 @@ struct tree_opt_pass pass_dominator =
 };
 
 
+/* Given a stmt CONDSTMT containing a COND_EXPR, canonicalize the
+   COND_EXPR into a canonical form.  */
+
+static void
+canonicalize_comparison (tree condstmt)
+{
+  tree cond = COND_EXPR_COND (condstmt);
+  tree op0;
+  tree op1;
+  enum tree_code code = TREE_CODE (cond);
+
+  if (!COMPARISON_CLASS_P (cond))
+    return;
+
+  op0 = TREE_OPERAND (cond, 0);
+  op1 = TREE_OPERAND (cond, 1);
+
+  /* If it would be profitable to swap the operands, then do so to
+     canonicalize the statement, enabling better optimization.
+
+     By placing canonicalization of such expressions here we
+     transparently keep statements in canonical form, even
+     when the statement is modified.  */
+  if (tree_swap_operands_p (op0, op1, false))
+    {
+      /* For relationals we need to swap the operands
+	 and change the code.  */
+      if (code == LT_EXPR
+	  || code == GT_EXPR
+	  || code == LE_EXPR
+	  || code == GE_EXPR)
+	{
+	  TREE_SET_CODE (cond, swap_tree_comparison (code));
+	  swap_tree_operands (condstmt,
+			      &TREE_OPERAND (cond, 0),
+			      &TREE_OPERAND (cond, 1));
+	  /* If one operand was in the operand cache, but the other is
+	     not, because it is a constant, this is a case that the
+	     internal updating code of swap_tree_operands can't handle
+	     properly.  */
+	  if (TREE_CODE_CLASS (TREE_CODE (op0)) 
+	      != TREE_CODE_CLASS (TREE_CODE (op1)))
+	    update_stmt (condstmt);
+	}
+    }
+}
 /* We are exiting E->src, see if E->dest ends with a conditional
    jump which has a known value when reached via E. 
 
@@ -799,7 +845,10 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       /* Now temporarily cprop the operands and try to find the resulting
 	 expression in the hash tables.  */
       if (TREE_CODE (stmt) == COND_EXPR)
-	cond = COND_EXPR_COND (stmt);
+	{
+	  canonicalize_comparison (stmt);
+	  cond = COND_EXPR_COND (stmt);
+	}
       else if (TREE_CODE (stmt) == GOTO_EXPR)
 	cond = GOTO_DESTINATION (stmt);
       else
@@ -834,9 +883,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  dummy_cond = walk_data->global_data;
 	  if (! dummy_cond)
 	    {
-	      dummy_cond = build (cond_code, boolean_type_node, op0, op1);
-	      dummy_cond = build (COND_EXPR, void_type_node,
-				  dummy_cond, NULL, NULL);
+	      dummy_cond = build2 (cond_code, boolean_type_node, op0, op1);
+	      dummy_cond = build3 (COND_EXPR, void_type_node,
+				   dummy_cond, NULL_TREE, NULL_TREE);
 	      walk_data->global_data = dummy_cond;
 	    }
 	  else
@@ -1788,97 +1837,6 @@ simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
 	}
     }
 
-  /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
-     If OP is associative, create and fold (y OP C2) OP C1 which
-     should result in (y OP C3), use that as the RHS for the
-     assignment.  Add minus to this, as we handle it specially below.  */
-  if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && num_imm_uses (TREE_OPERAND (rhs, 0)) == 1
-      && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
-    {
-      tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-
-      /* If the statement defines an induction variable, do not propagate
-	 its value, so that we do not create overlapping life ranges.  */
-      if (simple_iv_increment_p (rhs_def_stmt))
-	goto dont_fold_assoc;
-
-      /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
-	{
-	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
-	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
-
-	  if ((rhs_code == rhs_def_code && unsafe_associative_fp_binop (rhs))
-	      || (rhs_code == PLUS_EXPR && rhs_def_code == MINUS_EXPR)
-	      || (rhs_code == MINUS_EXPR && rhs_def_code == PLUS_EXPR))
-	    {
-	      tree def_stmt_op0 = TREE_OPERAND (rhs_def_rhs, 0);
-	      tree def_stmt_op1 = TREE_OPERAND (rhs_def_rhs, 1);
-
-	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
-		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-		  && is_gimple_min_invariant (def_stmt_op1))
-		{
-		  tree outer_const = TREE_OPERAND (rhs, 1);
-		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
-		  tree t;
-
-		  /* If we care about correct floating point results, then
-		     don't fold x + c1 - c2.  Note that we need to take both
-		     the codes and the signs to figure this out.  */
-		  if (FLOAT_TYPE_P (type)
-		      && !flag_unsafe_math_optimizations
-		      && (rhs_def_code == PLUS_EXPR
-			  || rhs_def_code == MINUS_EXPR))
-		    {
-		      bool neg = false;
-
-		      neg ^= (rhs_code == MINUS_EXPR);
-		      neg ^= (rhs_def_code == MINUS_EXPR);
-		      neg ^= real_isneg (TREE_REAL_CST_PTR (outer_const));
-		      neg ^= real_isneg (TREE_REAL_CST_PTR (def_stmt_op1));
-
-		      if (neg)
-			goto dont_fold_assoc;
-		    }
-
-		  /* Ho hum.  So fold will only operate on the outermost
-		     thingy that we give it, so we have to build the new
-		     expression in two pieces.  This requires that we handle
-		     combinations of plus and minus.  */
-		  if (rhs_def_code != rhs_code)
-		    {
-		      if (rhs_def_code == MINUS_EXPR)
-		        t = build (MINUS_EXPR, type, outer_const, def_stmt_op1);
-		      else
-		        t = build (MINUS_EXPR, type, def_stmt_op1, outer_const);
-		      rhs_code = PLUS_EXPR;
-		    }
-		  else if (rhs_def_code == MINUS_EXPR)
-		    t = build (PLUS_EXPR, type, def_stmt_op1, outer_const);
-		  else
-		    t = build (rhs_def_code, type, def_stmt_op1, outer_const);
-		  t = local_fold (t);
-		  t = build (rhs_code, type, def_stmt_op0, t);
-		  t = local_fold (t);
-
-		  /* If the result is a suitable looking gimple expression,
-		     then use it instead of the original for STMT.  */
-		  if (TREE_CODE (t) == SSA_NAME
-		      || (UNARY_CLASS_P (t)
-			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME)
-		      || ((BINARY_CLASS_P (t) || COMPARISON_CLASS_P (t))
-			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && is_gimple_val (TREE_OPERAND (t, 1))))
-		    result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-		}
-	    }
-	}
- dont_fold_assoc:;
-    }
-
   /* Optimize *"foo" into 'f'.  This is done here rather than
      in fold to avoid problems with stuff like &*"foo".  */
   if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
@@ -1969,8 +1927,8 @@ find_equivalent_equality_comparison (tree cond)
 	  new = build1 (TREE_CODE (def_rhs), def_rhs_inner_type, op1);
 	  new = local_fold (new);
 	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
-	    return build (TREE_CODE (cond), TREE_TYPE (cond),
-			  def_rhs_inner, new);
+	    return build2 (TREE_CODE (cond), TREE_TYPE (cond),
+			   def_rhs_inner, new);
 	}
     }
   return NULL;
@@ -2752,7 +2710,7 @@ record_equivalences_from_stmt (tree stmt,
       if (rhs)
 	{
 	  /* Build a new statement with the RHS and LHS exchanged.  */
-	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
+	  new = build2 (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
 
 	  create_ssa_artficial_load_stmt (new, stmt);
 
@@ -2918,7 +2876,10 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   bool may_have_exposed_new_symbols = false;
 
   old_stmt = stmt = bsi_stmt (si);
-
+  
+  if (TREE_CODE (stmt) == COND_EXPR)
+    canonicalize_comparison (stmt);
+  
   update_stmt_if_modified (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
@@ -2955,7 +2916,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
       rhs = get_rhs (stmt);
       if (rhs && TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* Constant/copy propagation above may change the set of 
 	 virtual operands associated with this statement.  Folding

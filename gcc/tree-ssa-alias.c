@@ -1380,7 +1380,8 @@ group_aliases (struct alias_info *ai)
 	  tree alias = VARRAY_TREE (aliases, j);
 	  var_ann_t ann = var_ann (alias);
 
-	  if ((!MTAG_P (alias) || TREE_CODE (alias) == STRUCT_FIELD_TAG)
+	  if ((!MTAG_P (alias)
+	       || TREE_CODE (alias) == STRUCT_FIELD_TAG)
 	      && ann->may_aliases)
 	    {
 	      tree new_alias;
@@ -1717,7 +1718,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 	     bool alias_set_only)
 {
   tree mem;
-  var_ann_t m_ann;
 
   alias_stats.alias_queries++;
   alias_stats.simple_queries++;
@@ -1750,8 +1750,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       alias_stats.simple_resolved++;
       return false;
     }
-
-  m_ann = var_ann (mem);
 
   gcc_assert (TREE_CODE (mem) == TYPE_MEMORY_TAG);
 
@@ -1964,7 +1962,6 @@ is_escape_site (tree stmt, struct alias_info *ai)
 
   return NO_ESCAPE;
 }
-
 
 /* Create a new memory tag of type TYPE.
    Does NOT push it into the current binding.  */

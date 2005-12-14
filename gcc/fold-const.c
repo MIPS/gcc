@@ -865,33 +865,15 @@ negate_mathfn_p (enum built_in_function code)
 {
   switch (code)
     {
-    case BUILT_IN_ASIN:
-    case BUILT_IN_ASINF:
-    case BUILT_IN_ASINL:
-    case BUILT_IN_ASINH:
-    case BUILT_IN_ASINHF:
-    case BUILT_IN_ASINHL:
-    case BUILT_IN_ATAN:
-    case BUILT_IN_ATANF:
-    case BUILT_IN_ATANL:
-    case BUILT_IN_ATANH:
-    case BUILT_IN_ATANHF:
-    case BUILT_IN_ATANHL:
-    case BUILT_IN_CBRT:
-    case BUILT_IN_CBRTF:
-    case BUILT_IN_CBRTL:
-    case BUILT_IN_SIN:
-    case BUILT_IN_SINF:
-    case BUILT_IN_SINL:
-    case BUILT_IN_SINH:
-    case BUILT_IN_SINHF:
-    case BUILT_IN_SINHL:
-    case BUILT_IN_TAN:
-    case BUILT_IN_TANF:
-    case BUILT_IN_TANL:
-    case BUILT_IN_TANH:
-    case BUILT_IN_TANHF:
-    case BUILT_IN_TANHL:
+    CASE_FLT_FN (BUILT_IN_ASIN):
+    CASE_FLT_FN (BUILT_IN_ASINH):
+    CASE_FLT_FN (BUILT_IN_ATAN):
+    CASE_FLT_FN (BUILT_IN_ATANH):
+    CASE_FLT_FN (BUILT_IN_CBRT):
+    CASE_FLT_FN (BUILT_IN_SIN):
+    CASE_FLT_FN (BUILT_IN_SINH):
+    CASE_FLT_FN (BUILT_IN_TAN):
+    CASE_FLT_FN (BUILT_IN_TANH):
       return true;
 
     default:
@@ -953,6 +935,8 @@ negate_expr_p (tree t)
 
       /* Check that -CST will not overflow type.  */
       return may_negate_without_overflow_p (t);
+    case BIT_NOT_EXPR:
+       return INTEGRAL_TYPE_P (type);
 
     case REAL_CST:
     case NEGATE_EXPR:
@@ -990,6 +974,16 @@ negate_expr_p (tree t)
 	return negate_expr_p (TREE_OPERAND (t, 1))
 	       || negate_expr_p (TREE_OPERAND (t, 0));
       break;
+
+    case TRUNC_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      if (TYPE_UNSIGNED (TREE_TYPE (t)) || flag_wrapv)
+        break;
+      return negate_expr_p (TREE_OPERAND (t, 1))
+             || negate_expr_p (TREE_OPERAND (t, 0));
 
     case NOP_EXPR:
       /* Negate -((double)float) as (double)(-float).  */
@@ -1042,6 +1036,13 @@ negate_expr (tree t)
 
   switch (TREE_CODE (t))
     {
+    /* Convert - (~A) to A + 1.  */
+    case BIT_NOT_EXPR:
+      if (INTEGRAL_TYPE_P (type))
+        return fold_build2 (PLUS_EXPR, type, TREE_OPERAND (t, 0),
+                            build_int_cst (type, 1));
+      break;
+      
     case INTEGER_CST:
       tem = fold_negate_const (t, type);
       if (! TREE_OVERFLOW (tem)
@@ -1130,6 +1131,28 @@ negate_expr (tree t)
 					      negate_expr (tem),
 					      TREE_OPERAND (t, 1)));
 	}
+      break;
+
+    case TRUNC_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      if (!TYPE_UNSIGNED (TREE_TYPE (t)) && !flag_wrapv)
+        {
+          tem = TREE_OPERAND (t, 1);
+          if (negate_expr_p (tem))
+            return fold_convert (type,
+                                 fold_build2 (TREE_CODE (t), TREE_TYPE (t),
+                                              TREE_OPERAND (t, 0),
+                                              negate_expr (tem)));
+          tem = TREE_OPERAND (t, 0);
+          if (negate_expr_p (tem))
+            return fold_convert (type,
+                                 fold_build2 (TREE_CODE (t), TREE_TYPE (t),
+                                              negate_expr (tem),
+                                              TREE_OPERAND (t, 1)));
+        }
       break;
 
     case NOP_EXPR:
@@ -1994,8 +2017,7 @@ fold_convert (tree type, tree arg)
 	  return fold_build1 (FLOAT_EXPR, type, arg);
 
 	case REAL_TYPE:
-	  return fold_build1 (flag_float_store ? CONVERT_EXPR : NOP_EXPR,
-			      type, arg);
+	  return fold_build1 (NOP_EXPR, type, arg);
 
 	case COMPLEX_TYPE:
 	  tem = fold_build1 (REALPART_EXPR, TREE_TYPE (orig), arg);
@@ -2047,7 +2069,7 @@ fold_convert (tree type, tree arg)
       return fold_build1 (VIEW_CONVERT_EXPR, type, arg);
 
     case VOID_TYPE:
-      return fold_build1 (CONVERT_EXPR, type, fold_ignored_result (arg));
+      return fold_build1 (NOP_EXPR, type, fold_ignored_result (arg));
 
     default:
       gcc_unreachable ();
@@ -6998,10 +7020,6 @@ fold_unary (enum tree_code code, tree type, tree op0)
     case NEGATE_EXPR:
       if (negate_expr_p (arg0))
 	return fold_convert (type, negate_expr (arg0));
-      /* Convert - (~A) to A + 1.  */
-      if (INTEGRAL_TYPE_P (type) && TREE_CODE (arg0) == BIT_NOT_EXPR)
-	return fold_build2 (PLUS_EXPR, type, TREE_OPERAND (arg0, 0),
-			    build_int_cst (type, 1));
       return NULL_TREE;
 
     case ABS_EXPR:
@@ -8333,36 +8351,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
       if (flag_unsafe_math_optimizations)
 	{
-	  enum built_in_function fcode = builtin_mathfn_code (arg1);
-	  /* Optimize x/expN(y) into x*expN(-y).  */
-	  if (BUILTIN_EXPONENT_P (fcode))
-	    {
-	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
-	      tree arg = negate_expr (TREE_VALUE (TREE_OPERAND (arg1, 1)));
-	      tree arglist = build_tree_list (NULL_TREE,
-					      fold_convert (type, arg));
-	      arg1 = build_function_call_expr (expfn, arglist);
-	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
-	    }
-
-	  /* Optimize x/pow(y,z) into x*pow(y,-z).  */
-	  if (fcode == BUILT_IN_POW
-	      || fcode == BUILT_IN_POWF
-	      || fcode == BUILT_IN_POWL)
-	    {
-	      tree powfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
-	      tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
-	      tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1, 1)));
-	      tree neg11 = fold_convert (type, negate_expr (arg11));
-	      tree arglist = tree_cons(NULL_TREE, arg10,
-				       build_tree_list (NULL_TREE, neg11));
-	      arg1 = build_function_call_expr (powfn, arglist);
-	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
-	    }
-	}
-
-      if (flag_unsafe_math_optimizations)
-	{
 	  enum built_in_function fcode0 = builtin_mathfn_code (arg0);
 	  enum built_in_function fcode1 = builtin_mathfn_code (arg1);
 
@@ -8398,6 +8386,53 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		}
 	    }
 
+ 	  /* Optimize sin(x)/tan(x) as cos(x) if we don't care about
+	     NaNs or Infinities.  */
+ 	  if (((fcode0 == BUILT_IN_SIN && fcode1 == BUILT_IN_TAN)
+ 	       || (fcode0 == BUILT_IN_SINF && fcode1 == BUILT_IN_TANF)
+ 	       || (fcode0 == BUILT_IN_SINL && fcode1 == BUILT_IN_TANL)))
+	    {
+	      tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
+	      tree arg01 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+
+	      if (! HONOR_NANS (TYPE_MODE (TREE_TYPE (arg00)))
+		  && ! HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg00)))
+		  && operand_equal_p (arg00, arg01, 0))
+		{
+		  tree cosfn = mathfn_built_in (type, BUILT_IN_COS);
+
+		  if (cosfn != NULL_TREE)
+		    return build_function_call_expr (cosfn,
+						     TREE_OPERAND (arg0, 1));
+		}
+	    }
+
+ 	  /* Optimize tan(x)/sin(x) as 1.0/cos(x) if we don't care about
+	     NaNs or Infintes.  */
+ 	  if (((fcode0 == BUILT_IN_TAN && fcode1 == BUILT_IN_SIN)
+ 	       || (fcode0 == BUILT_IN_TANF && fcode1 == BUILT_IN_SINF)
+ 	       || (fcode0 == BUILT_IN_TANL && fcode1 == BUILT_IN_SINL)))
+	    {
+	      tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
+	      tree arg01 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+
+	      if (! HONOR_NANS (TYPE_MODE (TREE_TYPE (arg00)))
+		  && ! HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg00)))
+		  && operand_equal_p (arg00, arg01, 0))
+		{
+		  tree cosfn = mathfn_built_in (type, BUILT_IN_COS);
+
+		  if (cosfn != NULL_TREE)
+		    {
+		      tree tmp = TREE_OPERAND (arg0, 1);
+		      tmp = build_function_call_expr (cosfn, tmp);
+		      return fold_build2 (RDIV_EXPR, type,
+					  build_real (type, dconst1),
+					  tmp);
+		    }
+		}
+	    }
+
 	  /* Optimize pow(x,c)/x as pow(x,c-1).  */
 	  if (fcode0 == BUILT_IN_POW
 	      || fcode0 == BUILT_IN_POWF
@@ -8420,6 +8455,32 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  arglist = tree_cons (NULL_TREE, arg1, arglist);
 		  return build_function_call_expr (powfn, arglist);
 		}
+	    }
+
+	  /* Optimize x/expN(y) into x*expN(-y).  */
+	  if (BUILTIN_EXPONENT_P (fcode1))
+	    {
+	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
+	      tree arg = negate_expr (TREE_VALUE (TREE_OPERAND (arg1, 1)));
+	      tree arglist = build_tree_list (NULL_TREE,
+					      fold_convert (type, arg));
+	      arg1 = build_function_call_expr (expfn, arglist);
+	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
+	    }
+
+	  /* Optimize x/pow(y,z) into x*pow(y,-z).  */
+	  if (fcode1 == BUILT_IN_POW
+	      || fcode1 == BUILT_IN_POWF
+	      || fcode1 == BUILT_IN_POWL)
+	    {
+	      tree powfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
+	      tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+	      tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1, 1)));
+	      tree neg11 = fold_convert (type, negate_expr (arg11));
+	      tree arglist = tree_cons(NULL_TREE, arg10,
+				       build_tree_list (NULL_TREE, neg11));
+	      arg1 = build_function_call_expr (powfn, arglist);
+	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
 	    }
 	}
       goto binary;
@@ -10995,84 +11056,77 @@ tree_expr_nonnegative_p (tree t)
 	if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
-#define CASE_BUILTIN_F(BUILT_IN_FN) \
-  case BUILT_IN_FN: case BUILT_IN_FN##F: case BUILT_IN_FN##L:
-#define CASE_BUILTIN_I(BUILT_IN_FN) \
-  case BUILT_IN_FN: case BUILT_IN_FN##L: case BUILT_IN_FN##LL:
-
-	    CASE_BUILTIN_F (BUILT_IN_ACOS)
-	    CASE_BUILTIN_F (BUILT_IN_ACOSH)
-	    CASE_BUILTIN_F (BUILT_IN_CABS)
-	    CASE_BUILTIN_F (BUILT_IN_COSH)
-	    CASE_BUILTIN_F (BUILT_IN_ERFC)
-	    CASE_BUILTIN_F (BUILT_IN_EXP)
-	    CASE_BUILTIN_F (BUILT_IN_EXP10)
-	    CASE_BUILTIN_F (BUILT_IN_EXP2)
-	    CASE_BUILTIN_F (BUILT_IN_FABS)
-	    CASE_BUILTIN_F (BUILT_IN_FDIM)
-	    CASE_BUILTIN_F (BUILT_IN_HYPOT)
-	    CASE_BUILTIN_F (BUILT_IN_POW10)
-	    CASE_BUILTIN_I (BUILT_IN_FFS)
-	    CASE_BUILTIN_I (BUILT_IN_PARITY)
-	    CASE_BUILTIN_I (BUILT_IN_POPCOUNT)
+	    CASE_FLT_FN (BUILT_IN_ACOS):
+	    CASE_FLT_FN (BUILT_IN_ACOSH):
+	    CASE_FLT_FN (BUILT_IN_CABS):
+	    CASE_FLT_FN (BUILT_IN_COSH):
+	    CASE_FLT_FN (BUILT_IN_ERFC):
+	    CASE_FLT_FN (BUILT_IN_EXP):
+	    CASE_FLT_FN (BUILT_IN_EXP10):
+	    CASE_FLT_FN (BUILT_IN_EXP2):
+	    CASE_FLT_FN (BUILT_IN_FABS):
+	    CASE_FLT_FN (BUILT_IN_FDIM):
+	    CASE_FLT_FN (BUILT_IN_HYPOT):
+	    CASE_FLT_FN (BUILT_IN_POW10):
+	    CASE_INT_FN (BUILT_IN_FFS):
+	    CASE_INT_FN (BUILT_IN_PARITY):
+	    CASE_INT_FN (BUILT_IN_POPCOUNT):
 	      /* Always true.  */
 	      return 1;
 
-	    CASE_BUILTIN_F (BUILT_IN_SQRT)
+	    CASE_FLT_FN (BUILT_IN_SQRT):
 	      /* sqrt(-0.0) is -0.0.  */
 	      if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (t))))
 		return 1;
 	      return tree_expr_nonnegative_p (TREE_VALUE (arglist));
 
-	    CASE_BUILTIN_F (BUILT_IN_ASINH)
-	    CASE_BUILTIN_F (BUILT_IN_ATAN)
-	    CASE_BUILTIN_F (BUILT_IN_ATANH)
-	    CASE_BUILTIN_F (BUILT_IN_CBRT)
-	    CASE_BUILTIN_F (BUILT_IN_CEIL)
-	    CASE_BUILTIN_F (BUILT_IN_ERF)
-	    CASE_BUILTIN_F (BUILT_IN_EXPM1)
-	    CASE_BUILTIN_F (BUILT_IN_FLOOR)
-	    CASE_BUILTIN_F (BUILT_IN_FMOD)
-	    CASE_BUILTIN_F (BUILT_IN_FREXP)
-	    CASE_BUILTIN_F (BUILT_IN_LCEIL)
-	    CASE_BUILTIN_F (BUILT_IN_LDEXP)
-	    CASE_BUILTIN_F (BUILT_IN_LFLOOR)
-	    CASE_BUILTIN_F (BUILT_IN_LLCEIL)
-	    CASE_BUILTIN_F (BUILT_IN_LLFLOOR)
-	    CASE_BUILTIN_F (BUILT_IN_LLRINT)
-	    CASE_BUILTIN_F (BUILT_IN_LLROUND)
-	    CASE_BUILTIN_F (BUILT_IN_LRINT)
-	    CASE_BUILTIN_F (BUILT_IN_LROUND)
-	    CASE_BUILTIN_F (BUILT_IN_MODF)
-	    CASE_BUILTIN_F (BUILT_IN_NEARBYINT)
-	    CASE_BUILTIN_F (BUILT_IN_POW)
-	    CASE_BUILTIN_F (BUILT_IN_RINT)
-	    CASE_BUILTIN_F (BUILT_IN_ROUND)
-	    CASE_BUILTIN_F (BUILT_IN_SIGNBIT)
-	    CASE_BUILTIN_F (BUILT_IN_SINH)
-	    CASE_BUILTIN_F (BUILT_IN_TANH)
-	    CASE_BUILTIN_F (BUILT_IN_TRUNC)
+	    CASE_FLT_FN (BUILT_IN_ASINH):
+	    CASE_FLT_FN (BUILT_IN_ATAN):
+	    CASE_FLT_FN (BUILT_IN_ATANH):
+	    CASE_FLT_FN (BUILT_IN_CBRT):
+	    CASE_FLT_FN (BUILT_IN_CEIL):
+	    CASE_FLT_FN (BUILT_IN_ERF):
+	    CASE_FLT_FN (BUILT_IN_EXPM1):
+	    CASE_FLT_FN (BUILT_IN_FLOOR):
+	    CASE_FLT_FN (BUILT_IN_FMOD):
+	    CASE_FLT_FN (BUILT_IN_FREXP):
+	    CASE_FLT_FN (BUILT_IN_LCEIL):
+	    CASE_FLT_FN (BUILT_IN_LDEXP):
+	    CASE_FLT_FN (BUILT_IN_LFLOOR):
+	    CASE_FLT_FN (BUILT_IN_LLCEIL):
+	    CASE_FLT_FN (BUILT_IN_LLFLOOR):
+	    CASE_FLT_FN (BUILT_IN_LLRINT):
+	    CASE_FLT_FN (BUILT_IN_LLROUND):
+	    CASE_FLT_FN (BUILT_IN_LRINT):
+	    CASE_FLT_FN (BUILT_IN_LROUND):
+	    CASE_FLT_FN (BUILT_IN_MODF):
+	    CASE_FLT_FN (BUILT_IN_NEARBYINT):
+	    CASE_FLT_FN (BUILT_IN_POW):
+	    CASE_FLT_FN (BUILT_IN_RINT):
+	    CASE_FLT_FN (BUILT_IN_ROUND):
+	    CASE_FLT_FN (BUILT_IN_SIGNBIT):
+	    CASE_FLT_FN (BUILT_IN_SINH):
+	    CASE_FLT_FN (BUILT_IN_TANH):
+	    CASE_FLT_FN (BUILT_IN_TRUNC):
 	      /* True if the 1st argument is nonnegative.  */
 	      return tree_expr_nonnegative_p (TREE_VALUE (arglist));
 
-	    CASE_BUILTIN_F (BUILT_IN_FMAX)
+	    CASE_FLT_FN (BUILT_IN_FMAX):
 	      /* True if the 1st OR 2nd arguments are nonnegative.  */
 	      return tree_expr_nonnegative_p (TREE_VALUE (arglist))
 	        || tree_expr_nonnegative_p (TREE_VALUE (TREE_CHAIN (arglist)));
 
-	    CASE_BUILTIN_F (BUILT_IN_FMIN)
+	    CASE_FLT_FN (BUILT_IN_FMIN):
 	      /* True if the 1st AND 2nd arguments are nonnegative.  */
 	      return tree_expr_nonnegative_p (TREE_VALUE (arglist))
 	        && tree_expr_nonnegative_p (TREE_VALUE (TREE_CHAIN (arglist)));
 
-	    CASE_BUILTIN_F (BUILT_IN_COPYSIGN)
+	    CASE_FLT_FN (BUILT_IN_COPYSIGN):
 	      /* True if the 2nd argument is nonnegative.  */
 	      return tree_expr_nonnegative_p (TREE_VALUE (TREE_CHAIN (arglist)));
 
 	    default:
 	      break;
-#undef CASE_BUILTIN_F
-#undef CASE_BUILTIN_I
 	    }
       }
 

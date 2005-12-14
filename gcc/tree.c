@@ -1208,9 +1208,11 @@ integer_all_onesp (tree expr)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
+  if (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
+      && TREE_INT_CST_HIGH (expr) == -1)
+    return 1;
   if (!uns)
-    return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
-	    && TREE_INT_CST_HIGH (expr) == -1);
+    return 0;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -2620,7 +2622,7 @@ stabilize_reference_1 (tree e)
    TREE_INVARIANT, and TREE_SIDE_EFFECTS for an ADDR_EXPR.  */
 
 void
-recompute_tree_invarant_for_addr_expr (tree t)
+recompute_tree_invariant_for_addr_expr (tree t)
 {
   tree node;
   bool tc = true, ti = true, se = false;
@@ -2709,9 +2711,7 @@ do { tree _node = (NODE); \
    Constants, decls, types and misc nodes cannot be.
 
    We define 5 non-variadic functions, from 0 to 4 arguments.  This is
-   enough for all extant tree codes.  These functions can be called
-   directly (preferably!), but can also be obtained via GCC preprocessor
-   magic within the build macro.  */
+   enough for all extant tree codes.  */
 
 tree
 build0_stat (enum tree_code code, tree tt MEM_STAT_DECL)
@@ -2797,7 +2797,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
     case ADDR_EXPR:
       if (node)
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
       break;
 
     default:
@@ -2969,61 +2969,6 @@ build7_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 
   TREE_SIDE_EFFECTS (t) = side_effects;
   TREE_THIS_VOLATILE (t) = 0;
-
-  return t;
-}
-
-/* Backup definition for non-gcc build compilers.  */
-
-tree
-(build) (enum tree_code code, tree tt, ...)
-{
-  tree t, arg0, arg1, arg2, arg3, arg4, arg5, arg6;
-  int length = TREE_CODE_LENGTH (code);
-  va_list p;
-
-  va_start (p, tt);
-  switch (length)
-    {
-    case 0:
-      t = build0 (code, tt);
-      break;
-    case 1:
-      arg0 = va_arg (p, tree);
-      t = build1 (code, tt, arg0);
-      break;
-    case 2:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      t = build2 (code, tt, arg0, arg1);
-      break;
-    case 3:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      t = build3 (code, tt, arg0, arg1, arg2);
-      break;
-    case 4:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      t = build4 (code, tt, arg0, arg1, arg2, arg3);
-      break;
-    case 7:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      arg4 = va_arg (p, tree);
-      arg5 = va_arg (p, tree);
-      arg6 = va_arg (p, tree);
-      t = build7 (code, tt, arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  va_end (p);
 
   return t;
 }

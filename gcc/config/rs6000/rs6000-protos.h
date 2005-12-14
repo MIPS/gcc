@@ -123,6 +123,7 @@ extern rtx rs6000_libcall_value (enum machine_mode);
 extern rtx rs6000_va_arg (tree, tree);
 extern int function_ok_for_sibcall (tree);
 extern void rs6000_elf_declare_function_name (FILE *, const char *, tree);
+extern bool rs6000_elf_in_small_data_p (tree);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding (enum machine_mode, tree);
@@ -140,13 +141,6 @@ extern void rs6000_gen_section_name (char **, const char *, const char *);
 extern void output_function_profiler (FILE *, int);
 extern void output_profile_hook  (int);
 extern int rs6000_trampoline_size (void);
-extern void toc_section (void);
-extern void sdata_section (void);
-extern void sdata2_section (void);
-extern void sbss_section (void);
-extern void private_data_section (void);
-extern void read_only_data_section (void);
-extern void read_only_private_data_section (void);
 extern int get_TOC_alias_set (void);
 extern void rs6000_emit_prologue (void);
 extern void rs6000_emit_load_toc_table (int);

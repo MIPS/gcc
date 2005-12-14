@@ -1312,10 +1312,10 @@ java_create_object (tree type)
 		     ? alloc_object_node
 		     : alloc_no_finalizer_node);
   
-  return build (CALL_EXPR, promote_type (type),
-		build_address_of (alloc_node),
-		build_tree_list (NULL_TREE, build_class_ref (type)),
-		NULL_TREE);
+  return build3 (CALL_EXPR, promote_type (type),
+		 build_address_of (alloc_node),
+		 build_tree_list (NULL_TREE, build_class_ref (type)),
+		 NULL_TREE);
 }
 
 static void
@@ -1703,6 +1703,17 @@ build_field_ref (tree self_value, tree self_class, tree name)
 		      NULL_TREE, NULL_TREE);
 	  tree address;
 
+	  if (DECL_CONTEXT (field_decl) != output_class)
+	    field_offset
+	      = build3 (COND_EXPR, TREE_TYPE (field_offset),
+			build2 (EQ_EXPR, boolean_type_node,
+				field_offset, integer_zero_node),
+			build3 (CALL_EXPR, void_type_node, 
+				build_address_of (soft_nosuchfield_node),
+				build_tree_list (NULL_TREE, otable_index), 
+				NULL_TREE),
+			field_offset);
+	  
 	  field_offset = fold (convert (sizetype, field_offset));
 	  address 
 	    = fold_build2 (PLUS_EXPR, 
@@ -2558,8 +2569,17 @@ build_jni_stub (tree method)
   /* If the JNI call returned a result, capture it here.  If we had to
      unwrap JNI object results, we would do that here.  */
   if (res_var != NULL_TREE)
-    call = build2 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (method)),
-		   res_var, call);
+    {
+      /* If the call returns an object, it may return a JNI weak
+	 reference, in which case we must unwrap it.  */
+      if (! JPRIMITIVE_TYPE_P (TREE_TYPE (TREE_TYPE (method))))
+	call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
+		       build_address_of (soft_unwrapjni_node),
+		       build_tree_list (NULL_TREE, call),
+		       NULL_TREE);
+      call = build2 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (method)),
+		     res_var, call);
+    }
 
   TREE_SIDE_EFFECTS (call) = 1;
   CAN_COMPLETE_NORMALLY (call) = 1;

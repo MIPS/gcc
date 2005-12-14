@@ -1,3 +1,183 @@
+2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+
+	* include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
+2005-12-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_compare):
+	Add, specialized for char and wchar_t to immediately return true
+	when a string is compared to itself.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_compare):
+	Likewise, for the same _Rep.
+	* include/ext/vstring.h (compare(const string&)): Use it.
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_destroy):
+	Deallocate passed size + 1.
+	(_M_dispose, _M_reserve): Adjust.
+
+2005-12-09  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/25288
+	* include/bits/stl_list.h (list<>::_M_insert_dispatch, _M_fill_insert):
+	Remove.
+	(_M_initialize_dispatch, _M_fill_initialize): Add.
+	(list(size_type, const value_type&, const allocator_type&),
+	list(const list&), list(_InputIterator, _InputIterator,
+	const allocator_type&): Use the latter.
+	(insert(iterator, size_type, const value_type&), insert(iterator,
+	_InputIterator, _InputIterator)): Use construction & splice.
+	* testsuite/23_containers/list/modifiers/insert/25288.cc: New.
+	* testsuite/testsuite_allocator.h (class throw_allocator): Add.
+
+	* include/bits/stl_list.h (list<>::insert, erase): Fix wrong comments.
+
+2005-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::size, resize, capacity,
+	operator[]): Avoid troubles with ADL, user defined operators
+	and __normal_iterator.
+	(_M_erase_at_end): Fix to take a pointer.
+	(clear): Adjust call.
+	* include/bits/vector.tcc (vector<>::insert(iterator, const
+	value_type&), erase(iterator, iterator), operator=(const
+	vector<>&), _M_assign_aux(input_iterator_tag), _M_insert_aux,
+	_M_fill_insert, _M_range_insert): Likewise.
+	(_M_fill_assign, _M_assign_aux(forward_iterator_tag)): Adjust
+	_M_erase_at_end call.
+	* testsuite/23_containers/vector/types/1.cc: New.
+
+2005-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24617
+	* include/bits/stl_vector.h (vector<>::_M_erase_at_end): New.
+	(vector<>::clear, resize): Use it.
+	* include/bits/vector.tcc (vector<>::erase(iterator, iterator),
+	_M_fill_assign, _M_assign_aux): Likewise.
+
+	* testsuite/23_containers/vector/modifiers/erase/1.cc: New.
+
+2005-12-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/configopts.html ([--enable-libstdcxx-allocator]):
+	Mention the SGI pooled allocator.
+
+2005-12-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (insert(iterator, _CharT),
+	erase(iterator), erase(iterator, iterator)): Avoid troubles
+	with ADL, user defined operators and __normal_iterator.
+	* include/bits/stl_iterator.h (operator-(const __normal_iterator
+	<_Iterator, _Container>&, const __normal_iterator<_Iterator,
+	_Container>&)): Add overload for left and right iterators of
+	the same type.
+	* include/debug/safe_iterator.h (operator-(const _Safe_iterator
+	<_Iterator, _Sequence>&, const _Safe_iterator<_Iterator,
+	_Sequence>&)): Likewise.
+	* testsuite/21_strings/basic_string/types/1.cc: New.
+
+2005-12-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_assign):
+	Simplify, avoid pointless reallocations.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve):
+	Simplify.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::operator+, all
+	versions): Move out of line...
+	* include/ext/vstring.tcc (__versa_string<>::operator+): ...
+	here; consistently use reserve for the benefit of sso_string_base;
+	prefer push_back to single-char append when appropriate.
+
+	* include/ext/vstring.h (__versa_string<>::push_back): Don't
+	call _M_reserve, _M_mutate instead.
+	(reserve): Just forward to _M_reserve.
+	* include/ext/vstring.tcc (__versa_string<>::_M_reserve): Remove.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_reserve): Also
+	do the initial checks (first on length, in case __res == capacity).
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve:
+	Likewise; don't call _M_set_length unnecessarily.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::_M_append): New.
+	(append(const __versa_string&), append(const __versa_string&,
+	size_type, size_type), append(const _CharT*, size_type),
+	append(const _CharT*)): Use it.
+	(append(size_type, _CharT)): Delegate to _M_replace_aux.
+	(assign(const __versa_string&, size_type, size_type),
+	assign(const _CharT*), replace(size_type, size_type,
+	const _CharT*, size_type)): Forward to _M_replace.
+	* include/ext/vstring.tcc (__versa_string<>::_M_append):
+	Define, core append functionality.
+	(_M_replace): Simplify, move __s == 0 case to _M_replace_aux.
+	(_M_replace_aux): Reorganize, don't call _M_replace.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace):
+	Perform _M_check_length at the beginning and remove it from ...
+	(replace, _M_replace_dispatch, _M_replace_aux, assign): ... here.
+	(assign): Now move inline.
+	(resize): Don't call _M_check_length redundantly, append does.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_get_allocator):
+	Add non const version.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_get_allocator):
+	Likewise.
+	
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_erase): Add.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_erase): Likewise.
+	(_M_leak_hard): Use it.
+	* include/ext/vstring.h (__versa_string<>::clear, erase, all
+	versions): Use it.
+	* include/ext/vstring.tcc (__versa_string<>::resize): Likewise.
+
+	* include/ext/vstring.h (__versa_string<>::_M_replace_safe):
+	Remove.
+	* include/ext/vstring.h (__versa_string<>::_M_replace): New, does
+	the in-place work or delegates to _M_mutate in case of reallocation.
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace_safe):
+	Remove.
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace): Define.
+	(assign, replace, _M_replace_dispatch, _M_replace_aux): Use it.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_mutate):
+	Change to manage only reallocations.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_mutate):
+	Likewise.
+
+	* include/ext/vstring.h (__versa_string<>::insert(size_type,
+	const __versa_string&), insert(size_type, const __versa_string&,
+	size_type, size_type), insert(size_type, const _CharT*, size_type),
+	insert(size_type, const _CharT*)): Delegate to replace.
+
+	* include/ext/vstring.h (__versa_string<>::reserve): Move out of
+	line.
+	* include/ext/vstring.tcc (__versa_string<>::reserve): Do the
+	checks and call _M_reserve.
+	* include/ext/vstring.h (__versa_string<>::append): Call _M_reserve
+	instead of reserve.
+	* include/ext/vstring.tcc (__versa_string<>::append, all versions):
+	Likewise.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve):
+	Adjust.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_reserve):
+	Likewise.
+
+2005-12-02  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	PR testsuite/25193
+	* testsuite/lib/libstdc++.exp (libstdc++-dg-test): Catch
+	error if file cannot be deleted.
+
 2005-11-23  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/24975 (basic_string)

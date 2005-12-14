@@ -266,8 +266,6 @@ is_gimple_reg_type (tree type)
 bool
 is_gimple_reg (tree t)
 {
-  var_ann_t ann;
-
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
 
@@ -307,13 +305,6 @@ is_gimple_reg (tree t)
      assignments to the individual components.  */
   if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
     return DECL_COMPLEX_GIMPLE_REG_P (t);
-
-
-  /* Some compiler temporaries are created to be used exclusively in
-     virtual operands (currently memory tags and sub-variables).
-     These variables should never be considered GIMPLE registers.  */
-  if (DECL_ARTIFICIAL (t) && (ann = var_ann (t)) != NULL)
-    return !MTAG_P (t);
 
   return true;
 }

@@ -1,3 +1,185 @@
+2005-12-13  Richard Guenther  <rguenther@suse.de>
+
+	* trans-expr.c (gfc_conv_substring): Use fold_build2 and
+	build_int_cst.
+
+2005-12-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* Make-lang.in (fortran/trans-resolve.o): Depend on
+	fortran/dependency.h.
+	* gfortran.h (gfc_expr): Add an "inline_noncopying_intrinsic" flag.
+	* dependency.h (gfc_get_noncopying_intrinsic_argument): Declare.
+	(gfc_check_fncall_dependency): Change prototype.
+	* dependency.c (gfc_get_noncopying_intrinsic_argument): New function.
+	(gfc_check_argument_var_dependency): New function, split from
+	gfc_check_fncall_dependency.
+	(gfc_check_argument_dependency): New function.
+	(gfc_check_fncall_dependency): Replace the expression parameter with
+	separate symbol and argument list parameters.  Generalize the function
+	to handle dependencies for any type of expression, not just variables.
+	Accept a further argument giving the intent of the expression being
+	tested.  Ignore	intent(in) arguments if that expression is also
+	intent(in).
+	* resolve.c: Include dependency.h.
+	(find_noncopying_intrinsics): New function.
+	(resolve_function, resolve_call): Call it on success.
+	* trans-array.h (gfc_conv_array_transpose): Declare.
+	(gfc_check_fncall_dependency): Remove prototype.
+	* trans-array.c (gfc_conv_array_transpose): New function.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Don't use the
+	libcall handling if the expression is to be evaluated inline.
+	Add a case for handling inline transpose()s.
+	* trans-expr.c (gfc_trans_arrayfunc_assign): Adjust for the new
+	interface provided by gfc_check_fncall_dependency.
+
+2005-12-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25078
+	* match.c (gfc_match_equivalence):  Count number of objects.
+
+2005-12-11  Aldy Hernandez  <aldyh@redhat.com>
+
+        * lang.opt: Add RejectNegative to ffixed-form and ffree-form.
+
+2005-12-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25068
+	* io.c (resolve_tag): Add correct diagnostic for F2003 feature.
+
+2005-12-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23815
+	* io.c (top level):  Add convert to io_tag.
+	(resolve_tag):  convert is GFC_STD_GNU.
+	(match_open_element):  Add convert.
+	(gfc_free_open):  Likewise.
+	(gfc_resolve_open):  Likewise.
+	(gfc_free_inquire):  Likewise.
+	(match_inquire_element):  Likewise.
+	* dump-parse-tree.c (gfc_show_code_node):  Add
+	convet for open and inquire.
+	gfortran.h: Add convert to gfc_open and gfc_inquire.
+	* trans-io.c (gfc_trans_open):  Add convert.
+	(gfc_trans_inquire):  Likewise.
+	* ioparm.def:  Add convert to open and inquire.
+	* gfortran.texi:  Document CONVERT.
+
+2005-12-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/22527
+	* f95-lang.c (gfc_truthvalue_conversion): Use a zero of the correct
+	integer type when building an inequality.
+
+2005-12-09  Richard Guenther  <rguenther@suse.de>
+
+	* f95-lang.c (build_builtin_fntypes): Use correct
+	return types, as indicated by comments.
+
+2005-12-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25292
+	* check.c (gfc_check_associated): Allow function results
+	as actual arguments to ASSOCIATED.  Moved a misplaced
+	comment.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (fortran.all.build, fortran.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype, except for
+	gt-fortran-trans.h.
+
+2005-12-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25106
+	* parse.c (next_free): Use new prototype for gfc_match_st_label.
+	Correctly emit hard error if a label is zero.
+	* match.c (gfc_match_st_label): Never allow zero as a valid
+	label.
+	(gfc_match, gfc_match_do, gfc_match_goto): Use new prototype for
+	gfc_match_st_label.
+	* primary.c (): Use new prototype for gfc_match_st_label.
+	* io.c (): Likewise.
+	* match.h: Likewise.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* trans.h (build1_v): Use build1, not build to build the
+	void typed tree.
+
+2005-12-01  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	* decl.c (gfc_match_old_kind_spec):  Improve handling of old style
+	COMPLEX*N
+
+2005-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24789
+	* trans-decl.c (gfc_get_symbol_decl):  Move the expression for
+	unit size of automatic character length, dummy pointer array
+	elements down a few lines from the version that fixed PR15809.
+
+2005-11-30  Bernhard Fischer <rep.nop@aon.at>
+
+	PR fortran/21302
+	* lang.opt: New options -ffree-line-length- and -ffree-line-length-none.
+	* gfortran.h: Add free_line_length and add description of
+	free_line_length and fixed_line_length.
+	* options.c (gfc_init_options, gfc_handle_option): Initialize
+	and set free_line_length and fixed_line_length.
+	* scanner.c (load_line): Set free_line_length to 132 and
+	fixed_line_length to 72 or user requested values.
+	* scanner.c: Typo in comment.
+	* invoke.texi: Document -ffree-line-length- and
+	-ffree-line-length-none
+
+2005-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/15809
+	* trans-decl.c (gfc_get_symbol_decl):  In the case of automatic
+	character length, dummy pointer arrays, build an expression for
+	unit size of the array elements, to be picked up and used in the
+	descriptor dtype.
+	* trans-io.c (gfc_trans_transfer):  Modify the detection of
+	components of derived type arrays to use the gfc_expr references
+	instead of the array descriptor dtype.  This allows the latter
+	to contain expressions.
+
+2005-11-30  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	PR fortran/15809
+	* trans-array.c (gfc_trans_deferred_array):  Allow PARM_DECLs past
+	in addition to VAR_DECLs.
+
+2005-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* io.c (gfc_resolve_open): RESOLVE_TAG access field as well.
+
+2005-11-27 Bernhard Fischer <rep.nop@aon.at>
+
+	* gfortran.h: remove superfluous whitespace and use GNU
+	comment-style for the documentation of backend_decl.
+
+2005-11-27  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24917
+	* primary.c (match_boz_constant):  Implement postfix BOZ constants;
+	(match_string_constant): Peek for b, o, z, and x
+
+2005-11-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23912
+	* iresolve.c (gfc_resolve_dim, gfc_resolve_mod,
+	gfc_resolve_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+	* check.c (gfc_check_a_p): Arguments of different kinds is not
+	a hard error, but an extension.
+	* simplify.c (gfc_simplify_dim, gfc_simplify_mod,
+	gfc_simplify_modulo): When arguments have different kinds, fold
+	the lower one to the largest kind.
+
 2005-11-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/14943

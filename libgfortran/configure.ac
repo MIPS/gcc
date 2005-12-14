@@ -4,6 +4,7 @@
 AC_PREREQ(2.59)
 AC_INIT([GNU Fortran Runtime Library], 0.2,,[libgfortran])
 AC_CONFIG_HEADER(config.h)
+GCC_TOPLEV_SUBDIRS
 
 # -------
 # Options
@@ -381,7 +382,7 @@ LIBGFOR_CHECK_SYNC_FETCH_AND_ADD
 LIBGFOR_CHECK_GTHR_DEFAULT
 
 # Check out #pragma weak.
-LIBGFOR_CHECK_PRAGMA_WEAK
+LIBGFOR_GTHREAD_WEAK
 
 # Various other checks on target
 LIBGFOR_CHECK_UNLINK_OPEN_FILE
