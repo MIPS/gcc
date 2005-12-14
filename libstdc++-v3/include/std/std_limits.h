@@ -1,6 +1,7 @@
 // The template and inlines for the -*- C++ -*- numeric_limits classes.
 
-// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002, 2003, 2005
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -993,7 +994,7 @@ namespace std
       static const bool has_quiet_NaN = __FLT_HAS_QUIET_NAN__;
       static const bool has_signaling_NaN = has_quiet_NaN;
       static const float_denorm_style has_denorm
-	= __FLT_DENORM_MIN__ ? denorm_present : denorm_absent;
+	= __FLT_HAS_DENORM__ ? denorm_present : denorm_absent;
       static const bool has_denorm_loss = __glibcxx_float_has_denorm_loss;
 
       static float infinity() throw()
@@ -1049,7 +1050,7 @@ namespace std
       static const bool has_quiet_NaN = __DBL_HAS_QUIET_NAN__;
       static const bool has_signaling_NaN = has_quiet_NaN;
       static const float_denorm_style has_denorm
-	= __DBL_DENORM_MIN__ ? denorm_present : denorm_absent;
+	= __DBL_HAS_DENORM__ ? denorm_present : denorm_absent;
       static const bool has_denorm_loss = __glibcxx_double_has_denorm_loss;
 
       static double infinity() throw()
@@ -1105,7 +1106,7 @@ namespace std
       static const bool has_quiet_NaN = __LDBL_HAS_QUIET_NAN__;
       static const bool has_signaling_NaN = has_quiet_NaN;
       static const float_denorm_style has_denorm
-	= __LDBL_DENORM_MIN__ ? denorm_present : denorm_absent;
+	= __LDBL_HAS_DENORM__ ? denorm_present : denorm_absent;
       static const bool has_denorm_loss
 	= __glibcxx_long_double_has_denorm_loss;
 
