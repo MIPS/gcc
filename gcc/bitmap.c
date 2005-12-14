@@ -868,10 +868,6 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
   unsigned int last_index = (end_bit) / BITMAP_ELEMENT_ALL_BITS;
   bitmap_element * elt = bitmap_find_bit (head, start);
 
-#if 0
-  fprintf (stderr, "\nstart=%d, count=%d, first_index=%d, last_index=%d, end_bit_plus1=%d\n", 
-	   start, count, first_index, last_index, end_bit_plus1);
-#endif
   /* If bitmap_find_bit returns zero, the current is the closest block
      to the result.  If the current is less than first index, find the
      next one.  Otherwise, just set elt to be current.  */
@@ -898,19 +894,9 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
       unsigned elt_start_bit = (elt->indx) * BITMAP_ELEMENT_ALL_BITS;
       unsigned elt_end_bit_plus1 = elt_start_bit + BITMAP_ELEMENT_ALL_BITS;
 
-#if 0
-      fprintf (stderr, "  elt->index=%d, elt_start_bit=%d, elt_end_bit_plus1=%d\n", 
-	       elt->indx, elt_start_bit, elt_end_bit_plus1);
-#endif
-
       if (elt_start_bit >= start && elt_end_bit_plus1 <= end_bit_plus1)
-	{
 	/* Get rid of the entire elt and go to the next one.  */
-#if 0
-	  fprintf (stderr, "  freeing empty elt=%d\n", elt->indx);
-#endif
 	bitmap_element_free (head, elt);
-	}
       else 
 	{
 	  /* Going to have to knock out some bits in this the elt.  */
@@ -956,19 +942,6 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 		(((BITMAP_WORD) 1) << (((end_bit_plus1) % BITMAP_WORD_BITS))) - 1;
 	    }
 
-#if 0
-	  fprintf (stderr, "  starting positions ");
-	  for (i=0; i<BITMAP_ELEMENT_WORDS; i++)
-	    fprintf (stderr, "%d ", elt_start_bit + (i * BITMAP_WORD_BITS));
-	  fprintf (stderr, "\n  first_word_to_mod=%d, first_mask=%lx, last_word_to_mod=%d, last_mask=%lx\n", 
-		   first_word_to_mod, (unsigned long)first_mask, last_word_to_mod,  (unsigned long)last_mask);
-	  fprintf (stderr, "first shift=%d, last shift = %d\n",
-		   (start % BITMAP_WORD_BITS), 
-		   (end_bit_plus1 % BITMAP_WORD_BITS));
-	  fprintf (stderr, "before first=%lx ", elt->bits[first_word_to_mod]);
-	  fprintf (stderr, "last=%lx\n", elt->bits[last_word_to_mod]);
-#endif
-
 	  if (first_word_to_mod == last_word_to_mod)
 	    {
 	      BITMAP_WORD mask = first_mask & last_mask;
@@ -981,10 +954,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 		elt->bits[i] = 0;
 	      elt->bits[last_word_to_mod] &= ~last_mask;
 	    }
-#if 0
-	  fprintf (stderr, "after first=%lx ", elt->bits[first_word_to_mod]);
-	  fprintf (stderr, "last=%lx\n", elt->bits[last_word_to_mod]);
-#endif
+
 	  for (i=0; i<BITMAP_ELEMENT_WORDS; i++)
 	    if (elt->bits[i])
 	      {
@@ -993,12 +963,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	      }
 	  /* Check to see if there are any bits left.  */
 	  if (clear)
-	    {
-#if 0
-	      fprintf (stderr, "  freeing cleared elt=%d\n", elt->indx);
-#endif
-	      bitmap_element_free (head, elt);
-	    }
+	    bitmap_element_free (head, elt);
 	}
       elt = next_elt;
     }
