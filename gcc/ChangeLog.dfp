@@ -1,3 +1,8 @@
+2005-12-14  Ben Elliston  <bje@au.ibm.com>
+
+	* ginclude/decfloat.h (FLT_EPSILON): Remove.
+	(DEC32_EPSILON): Define as __DEC32_EPSILON__.
+
 2005-12-13  Ben Elliston  <bje@au.ibm.com>
 
 	* c-cppbuiltin.c (builtin_define_decfloat_constants): Remove.
