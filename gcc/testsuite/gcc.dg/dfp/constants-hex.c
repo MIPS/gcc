@@ -1,8 +1,11 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* N1107 6.4.4.2: The df, dd, dl, DF, DD and DL suffixes shall not be
-   used in a hexadecimal-floating-constant.  */
+/* N1150 6: Constants.
+   C99 6.4.4.2: Floating constants.
+
+   The df, dd, dl, DF, DD and DL suffixes shall not be used in a
+   hexadecimal-floating-constant.  */
 
 _Decimal32 bad1 = 0x1.0p1df;   /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
 _Decimal32 bad2 = 0x1.0p1DF;   /* { dg-error "invalid suffix" "hexadecimal floating constant" } */

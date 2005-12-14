@@ -1,8 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99 -O0" } */
 
-/* Basic test of runtime comparisons using simple values that are not
-   affected by rounding.  */
+/* C99 6.5.8 Relational operators.
+   Compare decimal float values against each other at runtime.  */
 
 #define WIDTH 32
 #include "compare-rel.h"

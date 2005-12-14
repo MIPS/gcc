@@ -1,8 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* Test passing array elements involving decimal floating point types.
-   Not discussed in N1107, but necessary all the same.  */
+/* C99 6.5.2.2 Function calls.
+   Test passing array elements involving decimal floating point types. */
 
 extern void abort (void);
 

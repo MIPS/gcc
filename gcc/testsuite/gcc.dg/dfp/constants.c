@@ -1,7 +1,8 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Section 6 of WG14 N1107: constants.  */
+/* N1150 6: Constants.
+   C99 6.4.4.2: Floating constants.  */
 
 _Decimal32 a = 1.1df;
 _Decimal32 b = -.003DF;

@@ -1,7 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* Compare floating point constants against each other. */
+/* C99 6.5.8 Relational operators.
+   Compare decimal float constants against each other. */
 
 extern void link_error (void);
 

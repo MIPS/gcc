@@ -1,9 +1,10 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* C99 Section 6.5.16.2 Compound assignment.  Verify the compound
-   assignment operator for DFP types, using it with other DFP types,
-   integers, and other binary float types cast to DFP types.  */
+/* C99 6.5.16 Assignment operators.
+   Verify the compound assignment operator for decimal float types,
+   using it with other decimal float types, integers, and other binary
+   float types cast to decimal float types.  */
 
 extern void abort (void);
 

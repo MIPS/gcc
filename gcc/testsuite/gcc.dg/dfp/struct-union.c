@@ -1,8 +1,8 @@
 /* { dg-do compile } */
 /* { dg-options "-O -Wall" } */
 
-/* C99 6.5.2.3 Structure and union members 6 & 7.  If the first 
-   expression has qualified type, the result has the so-qualified 
+/* C99 6.5.2.3 Structure and union members.
+   If the first expression has qualified type, the result has the so-qualified 
    version of the type of the designated member.  */
 
 struct s {_Decimal32 d32; const _Decimal64 d64;};

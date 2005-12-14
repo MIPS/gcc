@@ -1,8 +1,10 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* N1107 8 Arithmetic Operations.  A few simple checks on arithmetic 
-   operations.  Based on nan-1.c with the consideration of negative zero.  */
+/* N1150 4: Characteristics of decimal floating types (not explicit)
+   C99 5.2.4.2.2: Characteristics of floating types.
+   A few simple checks on arithmetic operations.  Based on nan-1.c with
+   the consideration of negative zero.  */
 
 extern void abort (void);
 

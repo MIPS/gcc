@@ -1,6 +1,11 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
+/* C99 6.9.1(9) Function definitions; parameter has automatic storage.
+
+   Test that actual parameters are passed by value and that modifications
+   made within functions are lost on function return.  */
+
 extern void abort (void);
 
 int foo32 (_Decimal32 z)
@@ -18,11 +23,8 @@ int foo128 (_Decimal128 z)
   z = z + 1.0dl;
 }
 
-/* Test that actual parameters are passed by value and that
-   modifications made within functions are lost on function
-   return.  */
-
-int main ()
+int
+main ()
 {
   _Decimal32 d32 = 1.1df;
   _Decimal64 d64 = 1.2dd;

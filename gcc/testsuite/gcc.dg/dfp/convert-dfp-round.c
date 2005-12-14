@@ -1,7 +1,10 @@
 /* { dg-do run } */
 /* { dg-options "-O0 -std=gnu99" } */
 
-/* N1107 section 5.2, conversions between decimal floating types.
+/* N1150 5.2: Conversions among decimal floating types and between
+   decimal floating types and generic floating types.
+   C99 6.3.1.5(3) New.
+
    Perform conversions between DFP types in which the assigned value
    cannot be represented exactly in the result and must be rounded
    correctly according to the current rounding mode.

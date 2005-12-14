@@ -1,7 +1,9 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* A few simple checks on arithmetic operations. */
+/* N1150 4: Characteristics of decimal floating types (not explicit)
+   C99 5.2.4.2.2: Characteristics of floating types.
+   A few simple checks on arithmetic operations. */
 
 extern void abort (void);
 

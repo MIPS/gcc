@@ -1,3 +1,34 @@
+2005-12-14  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/dec-eval-method.c, gcc.dg/dfp/func-array.c,
+	gcc.dg/dfp/convert-dfp-fold.c, gcc.dg/dfp/inf-1.c,
+	gcc.dg/dfp/struct-union.c, gcc.dg/dfp/convert-dfp-round.c,
+	gcc.dg/dfp/func-struct.c, gcc.dg/dfp/constants-c99.c,
+	gcc.dg/dfp/func-vararg-mixed.c, gcc.dg/dfp/compare-eq-d32.c,
+	gcc.dg/dfp/compare-rel-d128.c, gcc.dg/dfp/operator-comma.c,
+	gcc.dg/dfp/decfloat-constants.c, gcc.dg/dfp/operator-bitwise.c,
+	gcc.dg/dfp/func-mixed.c, gcc.dg/dfp/compare-eq-dfp.c,
+	gcc.dg/dfp/operator-assignment.c, gcc.dg/dfp/nan-1.c,
+	gcc.dg/dfp/loop-index.c, gcc.dg/dfp/compare-eq-d64.c,
+	gcc.dg/dfp/convert-bfp.c, gcc.dg/dfp/convert-dfp.c,
+	gcc.dg/dfp/convert-int-fold.c, gcc.dg/dfp/compare-rel-const.c,
+	gcc.dg/dfp/compare-rel-d32.c, gcc.dg/dfp/call-by-value.c,
+	gcc.dg/dfp/func-scalar.c, gcc.dg/dfp/constants-hex.c,
+	gcc.dg/dfp/constants-pedantic.c, gcc.dg/dfp/usual-arith-conv.c,
+	gcc.dg/dfp/operator-logical.c, gcc.dg/dfp/compare-eq-d128.c,
+	gcc.dg/dfp/convert-bfp-fold.c, gcc.dg/dfp/ctypes.c,
+	gcc.dg/dfp/convert-int.c, gcc.dg/dfp/constants.c,
+	gcc.dg/dfp/compare-rel-dfp.c, gcc.dg/dfp/compare-eq-const.c,
+	gcc.dg/dfp/cast-bad.c, gcc.dg/dfp/operator-arith-fold.c,
+	gcc.dg/dfp/union-init.c, gcc.dg/dfp/convert-int-saturate.c,
+	gcc.dg/dfp/compare-rel-d64.c, gcc.dg/dfp/func-vararg-size0.c,
+	gcc.dg/dfp/nan-2.c, gcc.dg/dfp/operator-cond.c,
+	gcc.dg/dfp/composite-type.c, gcc.dg/dfp/func-vararg-dfp.c,
+	gcc.dg/dfp/keywords-reserved.c, gcc.dg/dfp/convert-complex.c,
+	gcc.dg/dfp/operator-unary.c, gcc.dg/dfp/altivec-types.c,
+	gcc.dg/dfp/cast.c, gcc.dg/dfp/wtr-conversion-1.c: Update comments
+	to cite relevant sections of N1150 and C99 standard.
+
 2005-12-14  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.dg/dfp/convert-int-saturate.c: Use DEC_x macros, not __DEC_x__.

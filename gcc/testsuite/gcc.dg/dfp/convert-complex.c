@@ -1,7 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-O3" } */
 
-/* N1107 Section 5.3 Conversions between decimal floating and complex.  */
+/* N1150 5.3 Conversions between decimal floating and complex.
+   C99 6.3.1.7 Conversions, arithmetic operands, real and complex.  */
 
 extern void abort(void);
 static int failcnt;

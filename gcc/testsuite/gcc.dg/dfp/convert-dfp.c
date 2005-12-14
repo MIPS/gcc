@@ -1,7 +1,11 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99 -O0" } */
 
-/* Test various conversions involving decimal floating types. */
+/* N1150 5.2 Conversions among decimal floating types and between
+   decimal floating types and generic floating types.
+   C99 6.3.1.5(3) New.
+
+   Test various conversions involving decimal floating types. */
 
 #include <decfloat.h>
 

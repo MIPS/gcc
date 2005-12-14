@@ -1,7 +1,8 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -O" } */
 
-/* N1107 5.2 Conversions between decimal floating types and integer types.
+/* N1150 5.1 Conversion between decimal floating integer.
+   C99 6.3.1.4(1a) New.
    These should all be folded at compile time.  */
 
 extern void link_error (void);

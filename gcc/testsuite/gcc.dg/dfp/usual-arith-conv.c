@@ -1,7 +1,9 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99 -O0" } */
 
-/* N1150 section 5.4, usual arithmetic conversions, C99 6.3.1.8[1].
+/* N1150 5.4: Usual arithmetic conversions.
+   C99 6.3.1.8[1] (New).
+
    Test arithmetic operators with different decimal float types, and
    between decimal float types and integer types.  */
 

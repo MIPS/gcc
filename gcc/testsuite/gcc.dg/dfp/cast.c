@@ -1,7 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* C99 6.5.4 Cast operators.  Test for kinds of DFP casts.  */
+/* C99 6.5.4 Cast operators.
+   Test valid casts involving decimal float.  */
 
 extern void abort (void);
 

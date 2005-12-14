@@ -1,9 +1,10 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Tests for sections 3 and 4 of WG14 N1107.  */
+/* N1150 3: Decimal floating types.
+   C99 6.7.2: Type specifiers  */
 
-/* Section 3: Test for the existence of the types.  */
+/* Test for the existence of the types.  */
 _Decimal32 sd1;
 _Decimal64 dd2;
 _Decimal128 td3;
@@ -18,7 +19,7 @@ extern _Decimal32 ext_d32[ARRAY_SIZE];
 extern _Decimal64 ext_d64[ARRAY_SIZE];
 extern _Decimal128 ext_d128[ARRAY_SIZE];
 
-/* Section 4: Test sizes for these types.  */
+/* Test sizes for these types.  */
 int ssize[sizeof (_Decimal32) == 4 ? 1 : -1];
 int dsize[sizeof (_Decimal64) == 8 ? 1 : -1];
 int tsize[sizeof (_Decimal128) == 16 ? 1 : -1];

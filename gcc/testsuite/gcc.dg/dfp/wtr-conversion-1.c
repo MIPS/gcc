@@ -1,6 +1,7 @@
 /* Test for -Wtraditional warnings on conversions by prototypes.
    Note, gcc should omit these warnings in system header files.
-   Based on gcc.dg/wtr-conversion-1.c
+   Based on gcc.dg/wtr-conversion-1.c  */
+
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -Wtraditional" } */
 

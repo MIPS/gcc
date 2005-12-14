@@ -1,8 +1,9 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* Test structure passing and return values involving decimal floating
-   point types.  Not discussed in N1107, but still necessary.  */
+/* C99 6.5.2.2 Function calls.
+   Test structure passing and return values involving decimal floating
+   point types.  */
 
 extern void abort (void);
 

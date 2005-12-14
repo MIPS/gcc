@@ -1,6 +1,10 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -O" } */
 
+/* N1150 5.2 Conversions among decimal floating types and between
+   decimal floating types and generic floating types.
+   C99 6.3.1.5(3) New.  */
+
 extern void link_error ();
 
 int

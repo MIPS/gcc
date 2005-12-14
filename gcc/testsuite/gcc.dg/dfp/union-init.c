@@ -1,11 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* N1107 5.2 Conversions between decimal floating types and non-decimal
-   floating types.  Tests for conversions between  decimal floating types 
-   to non-decimal floating tyeps in union initialization.  */
-/* Cast to Union is the feature that GNU C provided but not found in ISO 
-   standard C.  */
+/* Cast to union is a GNU C extension.  */
 
 extern void abort (void);
 

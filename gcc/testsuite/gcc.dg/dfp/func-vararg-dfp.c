@@ -1,8 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* Test passing varargs of the decimal float types.  Not discussed in
-   N1107, but still necessary.  */
+/* C99 6.5.2.2 Function calls.
+   Test passing varargs of the decimal float types.  */
 
 #include <stdarg.h>
 

@@ -1,7 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* Decimal float keywords cannot be used in other contexts.  */
+/* N1150 3: Decimal floating types.
+   C99 6.4.1(2): Keywords.
+   Decimal float keywords cannot be used in other contexts.  */
 
 int _Decimal32 (void)		/* { dg-error "error" } */
 {

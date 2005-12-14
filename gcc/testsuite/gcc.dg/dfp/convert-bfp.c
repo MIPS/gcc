@@ -1,7 +1,9 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* Test various conversions involving decimal floating types. */
+/* N1150 5.2 Conversions among decimal floating types and between
+   decimal floating types and generic floating types.
+   C99 6.3.1.5(4) Conversions, arithmetic operands, real floating types.  */
 
 volatile _Decimal32 d32;
 volatile _Decimal64 d64;

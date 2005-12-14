@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -O -Wall" } */
 
-/* C99 Section 6.2.7 Composite Type.  */
+/* C99 6.2.7: Compatible type and composite type.  */
 
 #define DECIMAL_COMPOSITE_DECL(TYPE) \
   _Decimal##TYPE g1_##TYPE(); \

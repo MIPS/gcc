@@ -1,7 +1,9 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
-/* Test integer saturation.  */
+/* N1150 5.1 Conversion between decimal floating integer.
+   C99 6.3.1.4(1a) New.
+   Test integer saturation.  */
 
 #include <decfloat.h>
 #include <limits.h>

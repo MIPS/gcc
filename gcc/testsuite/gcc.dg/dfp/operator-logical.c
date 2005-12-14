@@ -1,6 +1,10 @@
 /* { dg-do run } */
 /* { dg-options "-std=gnu99" } */
 
+/* C99 Logical AND operator.
+   C99 Logical OR operator.
+   Test with decimal float operands.  */
+
 extern void abort (void);
 
 #define OPERATE(OPRD1,OPRT,OPRD2,RLT)	\

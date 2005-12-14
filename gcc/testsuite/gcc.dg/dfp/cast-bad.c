@@ -1,7 +1,8 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* C99 6.5.4 Cast operators.  Test for kinds of DFP casts.  */
+/* C99 6.5.4 Cast operators.
+   Test invalid casts involving decimal float.  */
 
 struct s { _Decimal32 d32; } sv;
 union u { _Decimal32 d32; } uv;

@@ -1,8 +1,8 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99 -O0" } */
 
-/* N1107 5.2 Conversions between decimal floating types and integer types.
-   These should all be folded at compile time.  */
+/* N1150 5.1 Conversion between decimal floating integer.
+   C99 6.3.1.4(1a) New.  */
 
 extern void abort (void);
 

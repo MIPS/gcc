@@ -1,8 +1,11 @@
 /* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* N1107 Section 4, C99 5.2.4.2.2a[3], verify constants about range of
-   DFP and three components of DFP defined in decfloat.h.  */
+/* N1150 4: Characteristics of decimal floating types <decfloat.h>.
+   C99 5.2.4.2.2a[3]: New.
+
+   Verify constants about range of decimal float and three components of
+   decimal float defined in decfloat.h.  */
 
 /* Make sure we are exporting the right values to decfloat.h. */
 #include <decfloat.h>
