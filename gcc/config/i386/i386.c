@@ -1711,6 +1711,7 @@ x86_64_elf_select_section (tree decl, int reloc,
       && ix86_in_large_data_p (decl))
     {
       const char *sname = NULL;
+      unsigned int flags = SECTION_WRITE;
       switch (categorize_decl_for_section (decl, reloc, flag_pic))
 	{
 	case SECCAT_DATA:
@@ -1730,12 +1731,14 @@ x86_64_elf_select_section (tree decl, int reloc,
 	  break;
 	case SECCAT_BSS:
 	  sname = ".lbss";
+	  flags |= SECTION_BSS;
 	  break;
 	case SECCAT_RODATA:
 	case SECCAT_RODATA_MERGE_STR:
 	case SECCAT_RODATA_MERGE_STR_INIT:
 	case SECCAT_RODATA_MERGE_CONST:
 	  sname = ".lrodata";
+	  flags = 0;
 	  break;
 	case SECCAT_SRODATA:
 	case SECCAT_SDATA:
@@ -1749,7 +1752,14 @@ x86_64_elf_select_section (tree decl, int reloc,
 	  break;
 	}
       if (sname)
-	return get_named_section (decl, sname, reloc);
+	{
+	  /* We might get called with string constants, but get_named_section
+	     doesn't like them as they are not DECLs.  Also, we need to set
+	     flags in that case.  */
+	  if (!DECL_P (decl))
+	    return get_section (sname, flags, NULL);
+	  return get_named_section (decl, sname, reloc);
+	}
     }
   return default_elf_select_section (decl, reloc, align);
 }
@@ -15816,9 +15826,8 @@ ix86_force_to_memory (enum machine_mode mode, rtx operand)
 	  }
 	  break;
 	case HImode:
-	  /* It is better to store HImodes as SImodes.  */
-	  if (!TARGET_PARTIAL_REG_STALL)
-	    operand = gen_lowpart (SImode, operand);
+	  /* Store HImodes as SImodes.  */
+	  operand = gen_lowpart (SImode, operand);
 	  /* FALLTHRU */
 	case SImode:
 	  emit_insn (
@@ -15846,8 +15855,6 @@ ix86_free_from_memory (enum machine_mode mode)
 
       if (mode == DImode || TARGET_64BIT)
 	size = 8;
-      else if (mode == HImode && TARGET_PARTIAL_REG_STALL)
-	size = 2;
       else
 	size = 4;
       /* Use LEA to deallocate stack space.  In peephole2 it will be converted

@@ -309,10 +309,17 @@ struct_equiv_restore_checkpoint (struct struct_equiv_checkpoint *p,
 static int
 note_local_live (struct equiv_info *info, rtx x, rtx y, int rvalue)
 {
+  unsigned x_regno = REGNO (x);
+  unsigned y_regno = REGNO (y);
+  int x_nominal_nregs = (x_regno >= FIRST_PSEUDO_REGISTER
+			 ? 1 : hard_regno_nregs[x_regno][GET_MODE (x)]);
+  int y_nominal_nregs = (y_regno >= FIRST_PSEUDO_REGISTER
+			 ? 1 : hard_regno_nregs[y_regno][GET_MODE (y)]);
   int x_change = assign_reg_reg_set (info->x_local_live, x, rvalue);
   int y_change = assign_reg_reg_set (info->y_local_live, y, rvalue);
 
-  gcc_assert (x_change == y_change);
+  gcc_assert (x_nominal_nregs && y_nominal_nregs);
+  gcc_assert (x_change * y_nominal_nregs == y_change * x_nominal_nregs);
   if (y_change)
     {
       if (reload_completed)
@@ -367,10 +374,6 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
   /* ??? could extend to allow CONST_INT inputs.  */
   switch (code)
     {
-    case SUBREG:
-      gcc_assert (!reload_completed
-		  || !info->live_update);
-      break;
     case REG:
       {
 	unsigned x_regno = REGNO (x);
@@ -641,7 +644,10 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
       return (rtx_equiv_p (&XEXP (x, 0), XEXP (y, 0), 0, info)
 	      && rtx_equiv_p (&XEXP (x, 0), XEXP (y, 0), 1, info));
     case PARALLEL:
-      gcc_assert (rvalue < 0);
+      /* If this is a top-level PATTERN PARALLEL, we expect the caller to 
+	 have handled the SET_DESTs.  A complex or vector PARALLEL can be
+	 identified by having a mode.  */
+      gcc_assert (rvalue < 0 || GET_MODE (x) != VOIDmode);
       break;
     case LABEL_REF:
       /* Check special tablejump match case.  */
@@ -1001,7 +1007,7 @@ struct_equiv_init (int mode, struct equiv_info *info)
 	 these regs are not necessarily all dead - we swap random bogosity
 	 against constant bogosity.  However, clearing these bits at
 	 least makes the regsets comparable.  */
-      for (rn = FIRST_STACK_REG; rn < LAST_STACK_REG; rn++)
+      for (rn = FIRST_STACK_REG; rn <= LAST_STACK_REG; rn++)
 	{
 	  CLEAR_REGNO_REG_SET (info->x_block->il.rtl->global_live_at_end, rn);
 	  CLEAR_REGNO_REG_SET (info->y_block->il.rtl->global_live_at_end, rn);
