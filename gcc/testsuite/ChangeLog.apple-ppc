@@ -1,3 +1,8 @@
+2005-12-14  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4271961 (partial)
+	* gcc.target/i386/4271961.c:  New.
+
 2005-12-09  Mike Stump  <mrs@apple.com>
 
 	Radar 4371958

@@ -1014,6 +1014,7 @@ expand_preferences (void)
 	    && ! CONFLICTP (reg_allocno[REGNO (SET_DEST (set))],
 			    reg_allocno[REGNO (XEXP (link, 0))]))
 	  {
+	    /* APPLE LOCAL begin 4271691 */
             /* APPLE LOCAL 4321079 */
 	    int j;
 	    int a1 = reg_allocno[REGNO (SET_DEST (set))];
@@ -1022,13 +1023,26 @@ expand_preferences (void)
 	    if (XEXP (link, 0) == SET_SRC (set))
 	      {
                 /* APPLE LOCAL 4321079 */
-		int ialloc_prod = a1 * allocno_row_words;
 		IOR_HARD_REG_SET (allocno[a1].hard_reg_copy_preferences,
 				  allocno[a2].hard_reg_copy_preferences);
 		IOR_HARD_REG_SET (allocno[a2].hard_reg_copy_preferences,
 				  allocno[a1].hard_reg_copy_preferences);
+	      }
+	    /* We can establish a new pseudo preference as well.  The
+	       limitation to vectors is not necessary for correctness. */
+	    if (VECTOR_MODE_P (GET_MODE (SET_DEST (set)))
+		&& VECTOR_MODE_P (GET_MODE (XEXP (link, 0))))
+	      {
+		SET_PSEUDO_PREF (a1, a2);
+		SET_PSEUDO_PREF (a2, a1);
+	      }
+	    /* For vectors, propagate association even for things that
+	       aren't reg-reg copies. */
+	    if (XEXP (link, 0) == SET_SRC (set)
+		|| (VECTOR_MODE_P (GET_MODE (SET_DEST (set)))
+		    && VECTOR_MODE_P (GET_MODE (XEXP (link, 0)))))
+	      {
                 /* APPLE LOCAL begin 4321079 */
-		ialloc_prod = a1 * allocno_row_words;
 		for (j = allocno_row_words - 1; j >= 0; j--)
 		  {
 		    pseudo_preferences[a1 * allocno_row_words + j] 
@@ -1038,6 +1052,7 @@ expand_preferences (void)
 		  }
                 /* APPLE LOCAL end 4321079 */
 	      }
+	    /* APPLE LOCAL end 4271691 */
 
 	    IOR_HARD_REG_SET (allocno[a1].hard_reg_preferences,
 			      allocno[a2].hard_reg_preferences);
