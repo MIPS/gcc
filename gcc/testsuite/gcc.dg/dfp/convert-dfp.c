@@ -51,7 +51,7 @@ main ()
   /* Rounds to what _Decimal32 can handle.  */
   d64 = 9.99999949E96DD;
   d32 = d64;
-  if (d32 != __DEC32_MAX__)
+  if (d32 != DEC32_MAX)
     abort();
 
   /* Rounds to more than _Decimal32 can handle.  */
@@ -63,7 +63,7 @@ main ()
   /* Rounds to what _Decimal32 can handle.  */
   d128 = 9.99999949E96DD;
   d32 = d128;
-  if (d32 != __DEC32_MAX__)
+  if (d32 != DEC32_MAX)
     abort();
 
   /* Rounds to more than _Decimal32 can handle.  */
@@ -75,7 +75,7 @@ main ()
   /* Rounds to what _Decimal64 can handle.  */
   d128 = 9.99999999999999949E384DL;
   d64 = d128;
-  if (d64 != __DEC64_MAX__)
+  if (d64 != DEC64_MAX)
     abort();
 
   /* Rounds to more than _Decimal64 can handle.  */

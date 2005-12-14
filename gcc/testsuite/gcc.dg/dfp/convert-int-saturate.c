@@ -21,40 +21,40 @@ main ()
 {
 
   /* Unsigned.  */
-  usi = __DEC32_MAX__;  /* { dg-warning "overflow in implicit constant conversion" } */
+  usi = DEC32_MAX;  /* { dg-warning "overflow in implicit constant conversion" } */
   if (usi != UINT_MAX)
     abort ();
 
-  usi = __DEC64_MAX__;  /* { dg-warning "overflow in implicit constant conversion" } */
+  usi = DEC64_MAX;  /* { dg-warning "overflow in implicit constant conversion" } */
   if (usi != UINT_MAX)
     abort ();
 
-  usi = __DEC128_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
+  usi = DEC128_MAX; /* { dg-warning "overflow in implicit constant conversion" } */
   if (usi != UINT_MAX)
     abort ();
 
   /* Signed.  */
-  si = __DEC32_MAX__;	/* { dg-warning "overflow in implicit constant conversion" } */
+  si = DEC32_MAX;	/* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MAX)
     abort ();
 
-  si = __DEC64_MAX__;   /* { dg-warning "overflow in implicit constant conversion" } */
+  si = DEC64_MAX;   /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MAX)
     abort ();
 
-  si = __DEC128_MAX__;  /* { dg-warning "overflow in implicit constant conversion" } */
+  si = DEC128_MAX;  /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MAX)
     abort ();
 
-  si = - __DEC32_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
+  si = - DEC32_MAX; /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MIN)
     abort ();
 
-  si = - __DEC64_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
+  si = - DEC64_MAX; /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MIN)
     abort ();
 
-  si = - __DEC128_MAX__; /* { dg-warning "overflow in implicit constant conversion" } */
+  si = - DEC128_MAX; /* { dg-warning "overflow in implicit constant conversion" } */
   if (si != INT_MIN)
     abort ();
 
