@@ -182,7 +182,7 @@ cxx_abi::build_method_call (tree_builtins *builtins,
 
 tree
 cxx_abi::build_field_reference (tree_builtins *builtins,
-				aot_class *,
+				aot_class *current,
 				tree obj, model_field *field)
 {
   builtins->lay_out_class (field->get_declaring_class ());
@@ -191,10 +191,15 @@ cxx_abi::build_field_reference (tree_builtins *builtins,
     {
       assert (obj == NULL_TREE);
 
-      result
-	= build2 (COMPOUND_EXPR, TREE_TYPE (result),
-		  builtins->build_class_init (field->get_declaring_class ()),
-		  result);
+      // Don't initialize the class if the field is declared locally.
+      // FIXME: should be smarter about this, for C++ ABI we could
+      // avoid this for the entire concrete hierarchy.
+      // FIXME: also doesn't work well with generics.
+      if (current->get () != field->get_declaring_class ())
+	result
+	  = build2 (COMPOUND_EXPR, TREE_TYPE (result),
+		    builtins->build_class_init (field->get_declaring_class ()),
+		    result);
     }
   else
     {

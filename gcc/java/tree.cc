@@ -155,7 +155,11 @@ tree_generator::visit_method (model_method *meth,
       tree statements = alloc_stmt_list ();
       tree_stmt_iterator out = tsi_start (statements);
 
-      if (meth->static_p () && ! meth->static_initializer_p ())
+      if (meth->static_p () && ! meth->static_initializer_p ()
+	  // Don't emit check for methods declared here.  FIXME: this
+	  // should be an ABI decision.  FIXME: also possibly doesn't
+	  // work well with generics.
+	  && class_wrapper->get () != meth->get_declaring_class ())
 	{
 	  tree init
 	    = gcc_builtins->build_class_init (meth->get_declaring_class ());
@@ -2027,7 +2031,8 @@ tree_generator::visit_field_ref (model_field_ref *elt,
 
       gcc_builtins->lay_out_class (field->get_declaring_class ());
       current = gcc_builtins->map_field_ref (class_wrapper, expr_tree, field);
-      annotate (current, elt);
+      // FIXME: should annotate here, but we might have a var_decl
+      // annotate (current, elt);
     }
 }
 

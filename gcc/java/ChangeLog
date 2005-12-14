@@ -1,3 +1,9 @@
+2005-12-14  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (visit_field_ref): Don't annotate variable.
+	(visit_method): Don't initialize current class.
+	* abi.cc (build_field_reference): Don't initialize current class.
+
 2005-12-12  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (find_method): Take type erasures.
