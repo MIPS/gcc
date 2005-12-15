@@ -1,3 +1,8 @@
+2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278774
+	* obj-c++.dg/encode-9.mm: New.
+
 2005-12-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4271961 (partial)

@@ -17943,6 +17943,15 @@ cp_parser_objc_encode_expression (cp_parser* parser)
       return error_mark_node;
     }
 
+  /* APPLE LOCAL begin radar 4278774 */
+  if (dependent_type_p (type))
+    {
+      tree value = build_min (AT_ENCODE_EXPR, size_type_node, type);
+      TREE_READONLY (value) = 1;
+      return value;
+    }
+  /* APPLE LOCAL end radar 4278774 */
+
   return objc_build_encode_expr (type);
 }
 

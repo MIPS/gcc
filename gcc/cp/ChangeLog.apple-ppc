@@ -1,3 +1,10 @@
+2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278774
+	* pt.c (cxx_sizeof_or_alignof_expr): Instantiate @endcode(T).
+	* parser.c (cp_parser_objc_encode_expression): Build a templatized 
+	parse tree for @encode(T).
+
 2005-12-13  Mike Stump  <mrs@apple.com>
 
 	* Revert 2005-12-07  Devang Patel  <dpatel@apple.com> Radar 4137741
