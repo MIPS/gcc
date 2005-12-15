@@ -157,7 +157,7 @@ namespace __ops
    * @endif
   */
   template<typename _Lhs, typename _Value>
-    class __bind2nd<__gnu_cxx::__ops::equal_to<_Lhs, _Value>, _Lhs, _Value>
+    class __bind2nd<_Lhs, _Value, __gnu_cxx::__ops::equal_to<_Lhs, _Value> >
     {
       const _Value& _M_value;
 

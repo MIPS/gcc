@@ -1,3 +1,13 @@
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+        * include/bits/predefined_ops.h (class __bind2nd<_Lhs, _Value,
+	__gnu_cxx::__ops::equal_to<_Lhs, _Value> >): Fix order of the
+	arguments.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at revision 108592.
+
 2005-12-15  Chris Jefferson  <caj@cs.york.ac.uk>
 
 	* include/bits/predefined_ops.h (struct less, struct equal_to):
