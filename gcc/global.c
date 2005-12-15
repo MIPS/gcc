@@ -1022,7 +1022,6 @@ expand_preferences (void)
 
 	    if (XEXP (link, 0) == SET_SRC (set))
 	      {
-                /* APPLE LOCAL 4321079 */
 		IOR_HARD_REG_SET (allocno[a1].hard_reg_copy_preferences,
 				  allocno[a2].hard_reg_copy_preferences);
 		IOR_HARD_REG_SET (allocno[a2].hard_reg_copy_preferences,
