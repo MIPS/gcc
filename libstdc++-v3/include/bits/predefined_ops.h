@@ -39,21 +39,93 @@ namespace __gnu_cxx
 {
 namespace __ops
 {
-  struct less
-  {
-    template<typename _Lhs, typename _Rhs>
+  template<typename _Lhs, typename _Rhs = _Lhs>
+    struct less
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs < __rhs; }
+    
       bool
       operator()(const _Lhs& __lhs, const _Rhs& __rhs) const
       { return __lhs < __rhs; }
-  };
+    
+      bool
+      operator()(const _Rhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs < __rhs; }
+      
+      bool
+      operator()(const _Rhs& __lhs, const _Rhs& __rhs) const 
+      { return __lhs < __rhs; }
+    };
 
-  struct equal_to
-  {
-    template<typename _Lhs, typename _Rhs>
+  template<typename _Lhs>
+    struct less<_Lhs, _Lhs>
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs < __rhs; }
+    };
+
+  template<typename _Lhs>
+    struct less<_Lhs, const _Lhs>
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs < __rhs; }
+    };
+
+  template<typename _Lhs>
+    struct less<const _Lhs, _Lhs>
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs < __rhs; }
+    };
+ 
+  template<typename _Lhs, typename _Rhs = _Lhs>
+    struct equal_to
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs == __rhs; }
+    
       bool
       operator()(const _Lhs& __lhs, const _Rhs& __rhs) const
       { return __lhs == __rhs; }
-  };
+    
+      bool
+      operator()(const _Rhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs == __rhs; }
+      
+      bool
+      operator()(const _Rhs& __lhs, const _Rhs& __rhs) const 
+      { return __lhs == __rhs; }
+    };
+
+  template<typename _Lhs>
+    struct equal_to<_Lhs, _Lhs>
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs == __rhs; }
+    };
+
+  template<typename _Lhs>
+    struct equal_to<_Lhs, const _Lhs>
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs == __rhs; }
+    };
+  
+  template<typename _Lhs>
+    struct equal_to<const _Lhs, _Lhs>
+    {
+      bool
+      operator()(const _Lhs& __lhs, const _Lhs& __rhs) const
+      { return __lhs == __rhs; }
+    };
   
   /**
    * @if maint
@@ -63,21 +135,20 @@ namespace __ops
    * binary predicates given to algorithms in the standard library.
    * @endif
   */
-  template<typename _Comp, typename _Value>  
+  template<typename _Lhs, typename _Value, typename _Comp>  
     class __bind2nd
     {
-      _Comp _M_comp;
       const _Value& _M_value;
+      _Comp _M_comp;
 
     public:
       explicit
-      __bind2nd(_Comp __comp, const _Value& __inval) 
-      : _M_comp(__comp), _M_value(__inval) {}
-      
-      template<typename _Lhs>
-        bool
-        operator()(const _Lhs& __lhs)
-        { return _M_comp(__lhs, _M_value); }
+      __bind2nd(const _Value& __inval, _Comp __comp) 
+      : _M_value(__inval), _M_comp(__comp) {}
+
+      bool
+      operator()(const _Lhs& __lhs)
+      { return _M_comp(__lhs, _M_value); }
     };
 
   /**
@@ -85,26 +156,26 @@ namespace __ops
    * Specialisation of __bind2nd for equality.
    * @endif
   */
-  template<typename _Value>
-    class __bind2nd<__gnu_cxx::__ops::equal_to, _Value>
+  template<typename _Lhs, typename _Value>
+    class __bind2nd<__gnu_cxx::__ops::equal_to<_Lhs, _Value>, _Lhs, _Value>
     {
       const _Value& _M_value;
 
     public:
       explicit
-      __bind2nd(__gnu_cxx::__ops::equal_to, const _Value& __inval)
+      __bind2nd(const _Value& __inval,
+		__gnu_cxx::__ops::equal_to<_Lhs, _Value>)
       : _M_value(__inval) {}
-      
-      template<typename _Lhs>
+
       bool
       operator()(const _Lhs& __lhs)
       { return __lhs == _M_value; }
     };
 
-  template<typename _Comp, typename _Value>
-    inline __bind2nd<_Comp, _Value>
-    bind2nd(_Comp __comp, const _Value& __value)
-    { return __bind2nd<_Comp, _Value>(__comp, __value); }
+  template<typename _Lhs, typename _Value, typename _Comp>
+    inline __bind2nd<_Lhs, _Value, _Comp>
+    bind2nd(const _Value& __value, _Comp __comp)
+    { return __bind2nd<_Lhs, _Value, _Comp>(__value, __comp); }
 
 } // namespace __ops
 } // namespace __gnu_cxx

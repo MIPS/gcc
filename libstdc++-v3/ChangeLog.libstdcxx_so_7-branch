@@ -1,3 +1,39 @@
+2005-12-15  Chris Jefferson  <caj@cs.york.ac.uk>
+
+	* include/bits/predefined_ops.h (struct less, struct equal_to):
+	Add specializations for const vs non-const comparisons.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* include/bits/stl_algo.h (merge, includes, set_union,
+	set_intersection, set_difference, set_symmetric_difference):
+	Fix concept checks.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (partial_sort_copy, lower_bound,
+	upper_bound, equal_range, binary_search): Fix concept checks.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* include/bits/predefined_ops.h (struct less, struct equal_to,
+	class bind2nd): Fix to allow for proxy iterators lacking operator==
+	and operator< on the proxy type.
+	* include/bits/stl_algobase.h (min, max, mismatch, equal,
+	lexicographical_compare): Adjust callers.
+	* include/bits/stl_heap.h (is_heap, push_heap, pop_heap, make_heap,
+	sort_heap): Likewise.
+	* include/bits/stl_algo.h (__median, adjacent_find, __search, search,
+	__search_n, search_n, unique_copy, unique, partial_sort,
+	partial_sort_copy, sort, lower_bound, upper_bound, merge,
+	inplace_merge, stable_sort, nth_element, equal_range, binary_search,
+	includes, set_union, set_intersection, set_difference,
+	set_symmetric_difference, max_element, min_element, next_permutation,
+	prev_permutation, find_first_of, find_end): Likewise.
+	* src/string-inst.cc: Adjust __find_if instantiation.
+
 2005-12-13  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algobase.h (fill(const _Deque_iterator<>&,

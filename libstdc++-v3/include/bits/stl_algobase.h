@@ -226,7 +226,7 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
-      return min(__a, __b, __gnu_cxx::__ops::less());
+      return std::min(__a, __b, __gnu_cxx::__ops::less<_Tp>());
     }
 
   /**
@@ -245,7 +245,7 @@ namespace std
     {
       // concept requirements
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
-      return max(__a, __b, __gnu_cxx::__ops::less());
+      return std::max(__a, __b, __gnu_cxx::__ops::less<_Tp>());
     }
 
   // All of these auxiliary structs serve two purposes.  (1) Replace
@@ -835,12 +835,16 @@ namespace std
     mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
 	     _InputIterator2 __first2)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
-      __glibcxx_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
-      return std::mismatch(__first1, __last1, __first2, 
-			   __gnu_cxx::__ops::equal_to());
+      __glibcxx_function_requires(_EqualOpConcept<_ValueType1, _ValueType2>)
+
+      return std::mismatch(__first1, __last1, __first2, __gnu_cxx::__ops::
+			   equal_to<_ValueType1, _ValueType2>());
     }
 
   /**
@@ -860,8 +864,7 @@ namespace std
 	   typename _BinaryPredicate>
     inline bool
     equal(_InputIterator1 __first1, _InputIterator1 __last1,
-	  _InputIterator2 __first2,
-	  _BinaryPredicate __binary_pred)
+	  _InputIterator2 __first2, _BinaryPredicate __binary_pred)
     {
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
@@ -890,12 +893,16 @@ namespace std
     equal(_InputIterator1 __first1, _InputIterator1 __last1,
 	  _InputIterator2 __first2)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
-      __glibcxx_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
-      return std::equal(__first1, __last1, __first2, 
-			__gnu_cxx::__ops::equal_to());
+      __glibcxx_function_requires(_EqualOpConcept<_ValueType1, _ValueType2>)
+
+      return std::equal(__first1, __last1, __first2, __gnu_cxx::__ops::
+			equal_to<_ValueType1, _ValueType2>());
     }
 
   /**
@@ -953,17 +960,19 @@ namespace std
     lexicographical_compare(_InputIterator1 __first1, _InputIterator1 __last1,
 			    _InputIterator2 __first2, _InputIterator2 __last2)
     {
-      // concept requirements
-      __glibcxx_function_requires(_LessThanOpConcept<
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
-      __glibcxx_function_requires(_LessThanOpConcept<
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
-      return std::lexicographical_compare(__first1, __last1, __first2, 
-					  __last2, __gnu_cxx::__ops::less());
-    }
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
 
+      // concept requirements
+      __glibcxx_function_requires(_LessThanOpConcept<_ValueType1, _ValueType2>)
+      __glibcxx_function_requires(_LessThanOpConcept<_ValueType2, _ValueType1>)
+
+      return std::lexicographical_compare(__first1, __last1, __first2, 
+					  __last2, __gnu_cxx::__ops::
+					  less<_ValueType1, _ValueType2>());
+    }
 
   inline bool
   lexicographical_compare(const unsigned char* __first1,

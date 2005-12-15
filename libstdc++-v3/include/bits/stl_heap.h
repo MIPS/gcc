@@ -1,6 +1,6 @@
 // Heap implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -88,7 +88,11 @@ namespace std
   template<typename _RandomAccessIterator, typename _Distance>
     inline bool
     __is_heap(_RandomAccessIterator __first, _Distance __n)
-    { return std::__is_heap(__first, __gnu_cxx::__ops::less(), __n); }
+    { 
+      typedef typename iterator_traits<_RandomAccessIterator>::value_type
+	_ValueType;
+      return std::__is_heap(__first, __gnu_cxx::__ops::less<_ValueType>(), __n);
+    }
 
   template<typename _RandomAccessIterator>
     inline bool
@@ -181,7 +185,7 @@ namespace std
       				   _DistanceType((__last - __first) - 1),
 		       		   _DistanceType(0),
 		       		   __gnu_cxx::__move(*(__last - 1)),
-		       		   __gnu_cxx::__ops::less());
+		       		   __gnu_cxx::__ops::less<_ValueType>());
     }
 
   template<typename _Tp, typename _RandomAccessIterator, typename _Distance,
@@ -250,8 +254,6 @@ namespace std
       __glibcxx_requires_valid_range(__first, __last);
       __glibcxx_requires_heap_pred(__first, __last, __comp);
 
-      typedef typename iterator_traits<_RandomAccessIterator>::value_type
-	_ValueType;
       std::__pop_heap(__first, __last - 1, __last - 1, __comp);
     }
 
@@ -279,7 +281,7 @@ namespace std
       __glibcxx_requires_heap(__first, __last);
 
       std::__pop_heap(__first, __last - 1, __last - 1, 
-      		      __gnu_cxx::__ops::less());
+      		      __gnu_cxx::__ops::less<_ValueType>());
     }
 
   /**
@@ -344,7 +346,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
 
-      std::make_heap(__first, __last, __gnu_cxx::__ops::less());
+      std::make_heap(__first, __last, __gnu_cxx::__ops::less<_ValueType>());
     }
 
   /**
@@ -384,11 +386,13 @@ namespace std
     inline void
     sort_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
     {
-      // concept requirements
-      __glibcxx_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_RandomAccessIterator>::value_type>)
+      typedef typename iterator_traits<_RandomAccessIterator>::value_type
+	  _ValueType;
 
-      std::sort_heap(__first, __last, __gnu_cxx::__ops::less());
+      // concept requirements
+      __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
+
+      std::sort_heap(__first, __last, __gnu_cxx::__ops::less<_ValueType>());
     }
  
 } // namespace std

@@ -76,7 +76,7 @@ namespace std
   template
     const C*
     __find_if(const C*, const C*,
-	      __gnu_cxx::__ops::__bind2nd<bool(*)(const C&, const C&), C>,
+	      __gnu_cxx::__ops::__bind2nd<C, C, bool(*)(const C&, const C&)>,
 	      random_access_iterator_tag);
 } // namespace std
 
