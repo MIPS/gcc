@@ -1,3 +1,9 @@
+2005-12-14  Eric Christopher  <echristo@apple.com>
+
+	Radar 4363479
+	* tree-ssa-forwprop.c (all_uses_are_replacable): Fold replaced
+	statements.
+
 2005-12-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4271961 (partial)

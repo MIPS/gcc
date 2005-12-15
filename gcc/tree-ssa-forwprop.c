@@ -616,6 +616,7 @@ all_uses_are_replacable (tree stmt, bool replace)
 		       == TYPE_MAIN_VARIANT (use_lhs_type)))
 	      {
 		TREE_OPERAND (use, 1) = TREE_OPERAND (def_rhs, 0);
+		fold_stmt (&use);
 		modify_stmt (use);
 	      }
 	    }
@@ -631,6 +632,7 @@ all_uses_are_replacable (tree stmt, bool replace)
 	      if (new_cond)
 		{
 		  COND_EXPR_COND (use) = new_cond;
+		  fold_stmt (&use);
 		  modify_stmt (use);
 		}
 	      else
