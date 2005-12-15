@@ -1,3 +1,18 @@
+2005-12-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/rtti/repo1.C: Call cleanup-repo-files.
+	* gcc.dg/20050330-2.c: Call cleanup-coverage-files.
+
+2005-12-14  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/18197
+	* gfortran.dg/dummy_functions_1.f90: New.
+
+2005-12-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-optimization/25310
+	* gcc.c-torture/compile/pr25310.c: New test.
+
 2005-12-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/25023
@@ -38934,3 +38949,4 @@ rlsruhe.de>
 	correspond to c-torture	1.11.
 
 	* New file.
+
