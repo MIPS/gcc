@@ -1,3 +1,12 @@
+2005-12-15  Ben Elliston  <bje@au.ibm.com>
+
+	Revert this patch:
+	* c-cppbuiltin.c (builtin_define_decfloat_constants): Remove.
+	(c_cpp_builtins): Remove call to the above.  Register a builtin
+	__DEC_EVAL_METHOD__ define.
+	* ginclude/decfloat.h: Replace preprocessor defines produced by
+	calls in builtin_define_decfloat_constants above with #defines.
+
 2005-12-14  Ben Elliston  <bje@au.ibm.com>
 
 	* ginclude/decfloat.h (FLT_EPSILON): Remove.
