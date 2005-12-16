@@ -1,3 +1,21 @@
+2005-12-16  Mike Stump  <mrs@apple.com>
+
+	* gcc.c-torture/compile/920415-1.c: Add declaration for abort and
+	exit.
+
+2005-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25264
+	PR libgfortran/25349
+	* gfortran.dg/tl_editing.f90: Added additional checks.
+	* gfortran.dg/t_editing.f: New test.
+	* gfortran.dg/write_padding.f90: New test
+
+2005-12-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/25215
+	* gcc.dg/20050503-1.c: Skip on x86 ilp32 with -fpic/-fPIC.
+
 2005-12-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/24899

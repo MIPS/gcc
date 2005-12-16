@@ -1,3 +1,24 @@
+2005-12-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/25457
+	* reorg.c (mostly_true_jump): Remove unused variable 'insn'.
+
+	PR target/25447
+	* config/pa/pa.c (pa_scalar_mode_supported_p): Handle
+	MODE_DECIMAL_FLOAT.
+
+2005-12-16  Steven Bosscher  <stevenb@suse.de>
+
+	* loop-invariant.c (move_loop_invariants): Add missing hunk from
+	the previous patch, to nullify df.
+
+2005-12-16  Steven Bosscher  <stevenb@suse.de>
+
+	* reorg.c (mostly_true_jump): Clean up code depending on
+	LABEL_OUTSIDE_LOOP_P and loop notes.  Remove code doing
+	poor man's branch prediction, instead rely on REG_BR_PROB
+	notes to be available.
+
 2005-12-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/24899
