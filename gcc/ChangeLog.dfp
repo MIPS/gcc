@@ -1,3 +1,8 @@
+2005-12-16  Ben Elliston  <bje@au.ibm.com>
+
+	* real.c (decimal_quad_format): Correct the values for emin and
+	emax, as some digits in the values were incorrectly transposed.
+
 2005-12-15  Ben Elliston  <bje@au.ibm.com>
 
 	Revert this patch:
