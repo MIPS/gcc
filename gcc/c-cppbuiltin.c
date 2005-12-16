@@ -267,43 +267,68 @@ builtin_define_float_constants (const char *name_prefix,
   builtin_define_with_int_value (name, MODE_HAS_NANS (TYPE_MODE (type)));
 }
 
-/* Define the decfloat.h constants for TYPE using NAME_PREFIX and FP_SUFFIX. */
+/* Define __DECx__ constants for TYPE using NAME_PREFIX and SUFFIX. */
 static void
-builtin_define_decfloat_constants (void)
+builtin_define_decimal_float_constants (const char *name_prefix, 
+					const char *suffix, 
+					tree type)
 {
-  /* Number of digits in the coefficient. */
-  builtin_define_with_int_value ("__DEC32_MANT_DIG__", 7);
-  builtin_define_with_int_value ("__DEC64_MANT_DIG__", 16);
-  builtin_define_with_int_value ("__DEC128_MANT_DIG__", 34);
-  /* Minimum exponent. */
-  builtin_define_with_int_value ("__DEC32_MIN_EXP__", -95);
-  builtin_define_with_int_value ("__DEC64_MIN_EXP__", -383);
-  builtin_define_with_int_value ("__DEC128_MIN_EXP__", -6143);
-  /* Maximum exponent. */
-  builtin_define_with_int_value ("__DEC32_MAX_EXP__", 96);
-  builtin_define_with_int_value ("__DEC64_MAX_EXP__", 384);
-  builtin_define_with_int_value ("__DEC128_MAX_EXP__", 6144);
-  /* Maximum representable. */
-  builtin_define_with_value ("__DEC32_MAX__", "9.999999E96DF", 0);
-  builtin_define_with_value ("__DEC64_MAX__", "9.999999999999999E384DD", 0);
-  builtin_define_with_value ("__DEC128_MAX__", 
-			     "9.999999999999999999999999999999999E6144DL", 0);
-  /* Difference between 1 and least value greater than 1 representable. */
-  builtin_define_with_value ("__DEC32_EPSILON__", "1E-6DF", 0);
-  builtin_define_with_value ("__DEC64_EPSILON__", "1E-15DD", 0);
-  builtin_define_with_value ("__DEC128_EPSILON__", "1E-33DL", 0);
-  /* Minimum normalized positive value. */
-  builtin_define_with_value ("__DEC32_MIN__", "1E-95DF", 0);
-  builtin_define_with_value ("__DEC64_MIN__", "1E-383DD", 0);
-  builtin_define_with_value ("__DEC128_MIN__", "1E-6143DL", 0);
-  /* Minimum denormalized postive decimal value. */
-  builtin_define_with_value ("__DEC32_DEN__", "0.000001E-95DF", 0);
-  builtin_define_with_value ("__DEC64_DEN__", "0.000000000000001E-383DD", 0);
-  builtin_define_with_value ("__DEC128_DEN__", 
-			     "0.000000000000000000000000000000001E-6143DL", 0);
+  const struct real_format *fmt;
+  char name[64], buf[128], *p;
+  int digits;
 
-  builtin_define_with_int_value ("__DEC_EVAL_METHOD__",
-                                 TARGET_DEC_EVAL_METHOD);
+  fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+
+  /* The number of radix digits, p, in the significand.  */
+  sprintf (name, "__%s_MANT_DIG__", name_prefix);
+  builtin_define_with_int_value (name, fmt->p);
+
+  /* The minimum negative int x such that b**(x-1) is a normalized float.  */
+  sprintf (name, "__%s_MIN_EXP__", name_prefix);
+  sprintf (buf, "(%d)", fmt->emin);
+  builtin_define_with_value (name, buf, 0);
+
+  /* The maximum int x such that b**(x-1) is a representable float.  */
+  sprintf (name, "__%s_MAX_EXP__", name_prefix);
+  builtin_define_with_int_value (name, fmt->emax);
+
+  /* Compute the minimum representable value.  */
+  sprintf (name, "__%s_MIN__", name_prefix);
+  sprintf (buf, "1E%d%s", fmt->emin, suffix);
+  builtin_define_with_value (name, buf, 0); 
+
+  /* Compute the maximum representable value.  */
+  sprintf (name, "__%s_MAX__", name_prefix);
+  p = buf;
+  for (digits = fmt->p; digits; digits--)
+    {
+      *p++ = '9';
+      if (digits == fmt->p)
+	*p++ = '.';
+    }
+  *p = 0;
+  /* fmt->p plus 1, to account for the decimal point.  */
+  sprintf (&buf[fmt->p + 1], "E%d%s", fmt->emax, suffix); 
+  builtin_define_with_value (name, buf, 0);
+
+  /* Compute epsilon (the difference between 1 and least value greater
+     than 1 representable).  */
+  sprintf (name, "__%s_EPSILON__", name_prefix);
+  sprintf (buf, "1E-%d%s", fmt->p - 1, suffix);
+  builtin_define_with_value (name, buf, 0);
+
+  /* Minimum denormalized postive decimal value.  */
+  sprintf (name, "__%s_DEN__", name_prefix);
+  p = buf;
+  for (digits = fmt->p; digits > 1; digits--)
+    {
+      *p++ = '0';
+      if (digits == fmt->p)
+	*p++ = '.';
+    }
+  *p = 0;
+  sprintf (&buf[fmt->p], "1E%d%s", fmt->emin, suffix); 
+  builtin_define_with_value (name, buf, 0);
 }
 
 /* Define __GNUC__, __GNUC_MINOR__ and __GNUC_PATCHLEVEL__.  */
@@ -432,6 +457,10 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
 				 TARGET_FLT_EVAL_METHOD);
 
+  /* And decfloat.h needs this.  */
+  builtin_define_with_int_value ("__DEC_EVAL_METHOD__",
+                                 TARGET_DEC_EVAL_METHOD);
+
   builtin_define_float_constants ("FLT", "F", "%s", float_type_node);
   /* Cast the double precision constants when single precision constants are
      specified. The correct result is computed by the compiler when using 
@@ -443,8 +472,10 @@ c_cpp_builtins (cpp_reader *pfile)
     builtin_define_float_constants ("DBL", "", "%s", double_type_node);
   builtin_define_float_constants ("LDBL", "L", "%s", long_double_type_node);
 
-  /* For decfloat.h */
-  builtin_define_decfloat_constants ();
+  /* For decfloat.h.  */
+  builtin_define_decimal_float_constants ("DEC32", "DF", dfloat32_type_node);
+  builtin_define_decimal_float_constants ("DEC64", "DD", dfloat64_type_node);
+  builtin_define_decimal_float_constants ("DEC128", "DL", dfloat128_type_node);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);

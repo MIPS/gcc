@@ -1,5 +1,16 @@
 2005-12-16  Ben Elliston  <bje@au.ibm.com>
 
+	* c-cppbuiltin.c (builtin_define_decimal_float_constants): Rename
+	from builtin_define_decfloat_constants.  Add name_prefix, suffix
+	and type parameters.  Compute all of the __DEC_x__ macros using
+	struct real_format fields.
+	(c_cpp_builtins): Define __DEC_EVAL_METHOD__ alongside the
+	existing __FLT_EVAL_METHOD__.  Replace single call to
+	builtin_define_decimal_float_constants with three parameterised
+	calls.
+
+2005-12-16  Ben Elliston  <bje@au.ibm.com>
+
 	* real.c (decimal_quad_format): Correct the values for emin and
 	emax, as some digits in the values were incorrectly transposed.
 
