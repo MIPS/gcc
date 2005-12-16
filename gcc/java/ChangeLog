@@ -1,3 +1,28 @@
+2005-12-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* jcf-parse.c (set_source_filename): Set the decl source location
+	even when returning early.
+
+2005-12-15  Tom Tromey  <tromey@redhat.com>
+	    Andrew Haley  <aph@redhat.com>
+
+	PR java/25429
+	* parse.y (resolve_expression_name): Don't generate accessor
+	methods for constant fields.
+
+2005-12-13  Andrew Haley  <aph@redhat.com>
+
+	PR java/25366
+	PR java/25368
+	* class.c (maybe_layout_super_class): Update current_class before
+	calling do_resolve_class.
+
+2005-12-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR java/25330
+	* jcf-write.c (write_classfile): Use PID in temporary class
+	file. Save/restore errno when reporting error.
+
 2005-12-10  Terry Laurenzo  <tlaurenzo@gmail.com>
 
 	PR java/9861

@@ -49,14 +49,24 @@ Boston, MA 02110-1301, USA.  */
 
 #define VECTOR_TYPE     _C_VECTOR
 
-#define TYPE_FIELDS(TYPE)     objc_skip_typespec (TYPE)
+#define TYPE_FIELDS(TYPE)           ({const char *_field = (TYPE)+1; \
+    while (*_field != _C_STRUCT_E && *_field != _C_STRUCT_B \
+           && *_field != _C_UNION_B && *_field++ != '=') \
+    /* do nothing */; \
+    _field;})
 
 #define DECL_MODE(TYPE) *(TYPE)
 #define TYPE_MODE(TYPE) *(TYPE)
 
 #define DFmode          _C_DBL
 
-#define get_inner_array_type(TYPE)      ((TYPE) + 1)
+#define get_inner_array_type(TYPE)      ({const char *_field = (TYPE); \
+  while (*_field == _C_ARY_B)\
+    {\
+      while (isdigit ((unsigned char)*++_field))\
+	;\
+    }\
+    _field;})
 
 /* Some ports (eg ARM) allow the structure size boundary to be selected
    at compile-time.  We usually use CHAR_BIT, but we have to override
@@ -79,14 +89,16 @@ static int __attribute__ ((__unused__)) not_target_flags = 0;
 #define ALTIVEC_VECTOR_MODE(MODE) (0)
 
 
-/* FIXME: while this file has no business including tm.h, this
-   definitely has no business defining this macro but it is only
-   temporary until we convert the rs6000 port to use its own abi.h
-   file instead of the generic one.  */
-#define rs6000_special_round_type_align(STRUCT, COMPUTED, SPECIFIED)    \
-	  ((TYPE_FIELDS (STRUCT) != 0                                           \
-	        && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)                      \
-	      ? MAX (MAX (COMPUTED, SPECIFIED), 64)                                \
-	      : MAX (COMPUTED, SPECIFIED))
-
+/*  FIXME: while this file has no business including tm.h, this
+    definitely has no business defining this macro but it
+    is only way around without really rewritting this file,
+    should look after the branch of 3.4 to fix this.  */
+#define rs6000_special_round_type_align(STRUCT, COMPUTED, SPECIFIED)	\
+  ({ const char *_fields = TYPE_FIELDS (STRUCT);				\
+  ((_fields != 0							\
+    && TYPE_MODE (TREE_CODE (TREE_TYPE (_fields)) == ARRAY_TYPE		\
+		    ? get_inner_array_type (_fields)			\
+		    : TREE_TYPE (_fields)) == DFmode)			\
+   ? MAX (MAX (COMPUTED, SPECIFIED), 64)				\
+   : MAX (COMPUTED, SPECIFIED));})
 

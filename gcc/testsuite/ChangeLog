@@ -1,3 +1,271 @@
+2005-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/24899
+	* gcc.c-torture/execute/20051215-1.c: New test.
+
+2005-12-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24823
+	* gfortran.dg/pr24823.f: New test.
+
+2005-12-16  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dse-8.c: New test.
+
+2005-12-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc.dg/gnu-encoding/struct-layout-encoding-1_generate.c (base_types):
+	Change C++ style comments to C style comments.
+	Remove aligned types from the array.
+	Keep Enums disabled.
+	(complex_types): Remove aligned types from the array.
+	Comment out "_Complex long double".
+	(attrib_types): Remove.
+	(complex_attrib_types): Remove.
+	(attrib_array_types): Remove.
+	(complex_attrib_array_types): Remove.
+	(aligned_bitfld_types): Remove.
+	(n_aligned_bitfld_types): Remove.
+	(FEATURE_ALIGNEDPACKED): Delete.
+	(ALL_FEATURES): Remove FEATURE_ALIGNEDPACKED.
+	(singles): Remove support for adding attributes.
+	(choose_type): Remove support for attributed types.
+	(generate_fields): Remove support for attributed bit-fields.
+	Remove support for adding attributes.
+	(generate_random_tests): Remove support for adding attributes.
+	(features): Add back "[0] :0" and "complex vector [0]".
+	(main): Remove support for attributed bit-fields.
+	Uncomment the calling of generate_random_tests for the rests of
+	the tests.
+
+2005-12-16  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/combine/pr25224.c: New.
+
+2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR other/25028
+	* gcc.dg/torture/fp-int-convert-timode.c: Only XFAIL for LP64 IA64
+	HP-UX.
+
+2005-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/20051215-1.c: New file.
+
+2005-12-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/rtti/repo1.C: Call cleanup-repo-files.
+	* gcc.dg/20050330-2.c: Call cleanup-coverage-files.
+
+2005-12-14  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/18197
+	* gfortran.dg/dummy_functions_1.f90: New.
+
+2005-12-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-optimization/25310
+	* gcc.c-torture/compile/pr25310.c: New test.
+
+2005-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/25023
+	* gcc.dg/pr25023.c: New test.
+
+2005-12-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.brendan/redecl1.C,
+	g++.old-deja/g++.eh/inline1.C, g++.old-deja/g++.ns/crash2.C,
+	g++.old-deja/g++.ns/template7.C, g++.old-deja/g++.oliva/ns3.C,
+	g++.old-deja/g++.oliva/typeof1.C,
+	g++.old-deja/g++.other/crash16.C,
+	g++.old-deja/g++.other/crash34.C,
+	g++.old-deja/g++.other/lookup5.C, g++.old-deja/g++.pt/crash65.C,
+	g++.old-deja/g++.pt/decl2.C, g++.old-deja/g++.pt/explicit76.C,
+	g++.old-deja/g++.pt/memtemp85.C, g++.old-deja/g++.pt/memtemp86.C,
+	g++.old-deja/g++.pt/memtemp87.C, g++.old-deja/g++.pt/memtemp88.C,
+	g++.old-deja/g++.pt/memtemp91.C, g++.old-deja/g++.pt/spec14.C,
+	g++.old-deja/g++.pt/static10.C, treelang/compile/exit.tree:
+	Remove xfail.
+
+2005-12-14  Kean Johnston  <jkj@sco.com>
+            Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/sibcall-6.c: Skip in -fPIC mode on X86 ilp32.
+	* gcc.target/i386/20020523-1.c: Ditto.
+	* gcc.target/i386/tailcall-1.c: Ditto.
+	* gcc.target/i386/ssetype-3.c: Make magic* static to work with -fPIC.
+	* gcc.target/i386/ssetype-5.c: Ditto.
+
+2005-12-14  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/foldstring-1.c: New test.
+
+2005-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25254
+	PR target/24188
+	* gcc.target/i386/pr25254.c: New test.
+	* gfortran.dg/PR24188.f: New test.
+
+2005-12-14  David Billinghurst  (David.Billinghurst@riotinto.com)
+
+	* lib/fortran-torture.exp:  Catch remaining uses of 
+	remote_file build delete. 
+
+2005-12-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.oliva/stkalign.C: Remove xfail.
+
+2005-12-14  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/warn-addr-cmp.c: New test.
+
+2005-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/25023
+	PR target/25293
+	* gcc.target/i386/pr25293.c: New test.
+
+2005-12-13  Petr Machata  <machata@post.cz>
+
+	PR c++/24907
+	* g++.dg/parse/comma2.C: New test.
+
+2005-12-13  Mark Mitchell  <mark@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1.exp: Do not link with libiberty.
+	* g++.dg/compat/struct-layout-1_generate.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	(hashtab.h): Do not include.
+	(getopt.h): Likewise.
+	(stddef.h): Include.
+	(hashval_t): Define.
+	(struct entry): Add "next" field.
+	(HASH_SIZE): New macro.
+	(hash_table): New variable.
+	(switchfiles): Do not use xmalloc.
+	(mix): New macro.
+	(iterative_hash): New function.
+	(hasht): Remove.
+	(e_exists): New function.
+	(e_insert): Likewise.
+	(output): Use, instead of libiberty hashtable functions.
+	(main): Do not use getopt.  Do not call htab_create.
+
+2005-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/25331
+	* gcc.dg/compat/struct-layout-1_generate.c (subfield): Don't
+	put atal* and atpaal* attributes on array elements.
+	(generate_fields): Revert 2005-10-07 and 2005-10-11 changes.
+	* g++.dg/compat/struct-layout-1_generate.c (subfield): Don't
+	put atal* and atpaal* attributes on array elements.
+	(generate_fields): Don't prevent atal* attribute on ETYPE_ARRAY.
+
+2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+
+	* gcc.dg/single-precision-constant.c: New test.
+
+2005-12-13  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/980523-1.c, gcc.dg/980526-1.c, gcc.dg/20020103-1.c,
+	gcc.dg/20040625-1.c, gcc.dg/asm-b.c, gcc.dg/iftrap-1.c,
+	gcc.dg/iftrap-2.c, gcc.dg/simd-3.c, gcc.dg/switch-1.c,
+	gcc.dg/tree-ssa/bool-1.c, gcc.dg/tree-ssa/bool-2.c,
+	gcc.dg/tree-ssa/bool-4.c, gcc.dg/tree-ssa/bool-5.c,
+	gcc.dg/tree-ssa/bool-6.c, gcc.dg/tree-ssa/bool-8.c,
+	gcc.dg/tree-ssa/bool-9.c, gcc.target/powerpc/980827-1.c,
+	gcc.target/powerpc/20040622-1.c, gcc.target/powerpc/20050603-3.c,
+	gcc.target/powerpc/20050830-1.c, gcc.target/powerpc/altivec-6.c,
+	gcc.target/powerpc/altivec-14.c, gcc.target/powerpc/altivec-22.c,
+	gcc.target/powerpc/doloop-1.c, gcc.target/powerpc/ppc-and-1.c,
+	gcc.target/powerpc/ppc-bitfield1.c, gcc.target/powerpc/ppc-compare-1.c,
+	gcc.target/powerpc/ppc-mov-1.c, gcc.target/powerpc/ppc-sdata-1.c,
+	gcc.target/powerpc/ppc-sdata-2.c,
+	gcc.target/powerpc/ppc-stackalign-1.c,
+	gcc.target/powerpc/ppc64-abi-1.c, gcc.target/powerpc/ppc64-abi-2.c,
+	gcc.target/powerpc/ppc64-abi-3.c, gcc.target/powerpc/ppc64-toc.c,
+	gcc.target/powerpc/pr18096-1.c, gcc.target/powerpc/rs6000-ldouble-1.c,
+	gcc.target/powerpc/rs6000-ldouble-2.c,
+	gcc.target/powerpc/rs6000-power2-1.c,
+	gcc.target/powerpc/rs6000-power2-2.c: Don't use powerpc-*-* or
+	powerpc64-*-* in target selection strings.  Instead use powerpc*-*-*
+	and ilp32 or lp64 as appropriate.  Merge dg-require-effective-target
+	option into target selector.
+	* gcc.dg/20020919-1.c: Compile for powerpc*-*-*.  Handle powerpc64.
+	* gcc.misc-tests/linkage.exp: Set native_cflags for powerpc*-*-linux*.
+
+2005-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/25348
+	* objc.dg/encode-9.m: New test.
+
+2005-12-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* g++.old-deja/g++.eh/tmpl2.C: Remove xfail.
+	* gcc.dg/asm-b.c: Fix typo.
+	* gcc.dg/torture/pr20314-2.c: Test on i?86 lp64.
+	* gcc.dg/tree-ssa/stdarg-2.c, gcc.dg/tree-ssa/stdarg-3.c,
+	gcc.dg/tree-ssa/stdarg-4.c, gcc.dg/tree-ssa/stdarg-5.c: Test on
+	i?86 lp64 and x86_64 ilp32.
+	* gcc.target/i386/amd64-abi-1.c, gcc.target/i386/pr23943.c: Test
+	on i?86 lp64.
+	* gfortran.dg/g77/20010216-1.f: Test on x86_64 ilp32.
+
+2005-12-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25078
+	gfortran.dg/equiv_5.f90:  New test.
+
+2005-12-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gcc.dg/tree-ssa/ssa-pre-2.c: Update due to reassociation changes.
+	* gcc.dg/tree-ssa/reassoc-1.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-2.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-3.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-4.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-5.c: New.
+	* gcc.dg/tree-ssa/reassoc-6.c: New.
+	* gcc.dg/tree-ssa/reassoc-7.c: New.
+	* gcc.dg/tree-ssa/reassoc-8.c: New.
+	* gcc.dg/tree-ssa/reassoc-9.c: New.
+	* gcc.dg/tree-ssa/reassoc-10.c: New.
+	* gcc.dg/tree-ssa/reassoc-11.c: New.
+
+2005-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/25167
+	PR testsuite/24478
+	* gcc.dg/weak/weak-14.c: Add dg-require-alias.
+
+2005-12-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25300
+	* g++.dg/template/inherit.C: Do not use a generic error message.
+
+2005-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libobjc/25354
+	* objc.dg/gnu-encoding: New directory.
+	* objc.dg/gnu-encoding/compat-common.h: New file.
+	* objc.dg/gnu-encoding/struct-layout-1.h: New file.
+	* objc.dg/gnu-encoding/struct-layout-1_test.h: New file.
+	* objc.dg/gnu-encoding/vector-defs.h: New file.
+	* objc.dg/gnu-encoding/gnu-encoding.exp: New file.
+	* objc.dg/gnu-encoding/generate-random.c: New file.
+	* objc.dg/gnu-encoding/generate-random_r.c: New file.
+	* objc.dg/gnu-encoding/struct-layout-encoding-1_generate.c: New file.
+	* objc.dg/gnu-encoding/generate-random.h: New file.
+
+2005-12-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25337
+	* g++.dg/template/defarg7.C: New test.
+
 2005-12-11  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR libobjc/25347
@@ -38735,3 +39003,4 @@ rlsruhe.de>
 	correspond to c-torture	1.11.
 
 	* New file.
+

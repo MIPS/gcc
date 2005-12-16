@@ -1,3 +1,21 @@
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::_M_get_Tp_allocator): Change
+	to return by ref and add non const version.
+	* include/bits/stl_deque.h (deque<>::_M_get_Tp_allocator): Likewise.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25421
+	* config/locale/gnu/c_locale.cc (_S_destroy_c_locale): Check
+	for null argument.
+	* testsuite/22_locale/facet/25421.cc: New.
+
+2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+
+	* include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
 2005-12-10  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string_base.h (__sso_string_base<>::_M_compare):

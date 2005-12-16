@@ -246,12 +246,11 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
       gfc_conv_expr_type (&end, ref->u.ss.end, gfc_charlen_type_node);
       gfc_add_block_to_block (&se->pre, &end.pre);
     }
-  tmp =
-    build2 (MINUS_EXPR, gfc_charlen_type_node,
-	    fold_convert (gfc_charlen_type_node, integer_one_node),
-	    start.expr);
-  tmp = build2 (PLUS_EXPR, gfc_charlen_type_node, end.expr, tmp);
-  se->string_length = fold (tmp);
+  tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node,
+		     build_int_cst (gfc_charlen_type_node, 1),
+		     start.expr);
+  tmp = fold_build2 (PLUS_EXPR, gfc_charlen_type_node, end.expr, tmp);
+  se->string_length = tmp;
 }
 
 
@@ -356,7 +355,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  if (!sym->attr.dummy)
 	    {
 	      gcc_assert (TREE_CODE (se->expr) == FUNCTION_DECL);
-	      se->expr = gfc_build_addr_expr (NULL, se->expr);
+	      se->expr = build_fold_addr_expr (se->expr);
 	    }
 	  return;
 	}
@@ -452,7 +451,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
       if (expr->ts.type == BT_CHARACTER)
 	gfc_conv_string_parameter (se);
       else 
-	se->expr = gfc_build_addr_expr (NULL, se->expr);
+	se->expr = build_fold_addr_expr (se->expr);
     }
 }
 
@@ -1100,7 +1099,7 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
       if (!POINTER_TYPE_P (TREE_TYPE (tmp)))
 	{
 	  gcc_assert (TREE_CODE (tmp) == FUNCTION_DECL);
-	  tmp = gfc_build_addr_expr (NULL, tmp);
+	  tmp = build_fold_addr_expr (tmp);
 	}
     }
   se->expr = tmp;
@@ -1591,7 +1590,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
                   /* Scalar pointer dummy args require an extra level of
 		  indirection. The null pointer already contains
 		  this level of indirection.  */
-                  parmse.expr = gfc_build_addr_expr (NULL, parmse.expr);
+                  parmse.expr = build_fold_addr_expr (parmse.expr);
                 }
             }
 	  else
@@ -1675,7 +1674,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
-	  tmp = gfc_build_addr_expr (NULL, tmp);
+	  tmp = build_fold_addr_expr (tmp);
 	  retargs = gfc_chainon_list (retargs, tmp);
 	}
       else if (ts.type == BT_CHARACTER)
@@ -1697,7 +1696,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      var = gfc_create_var (build_pointer_type (tmp), "pstr");
 
 	      /* Provide an address expression for the function arguments.  */
-	      var = gfc_build_addr_expr (NULL, var);
+	      var = build_fold_addr_expr (var);
 	    }
 	  else
 	    var = gfc_conv_string_tmp (se, type, len);
@@ -1709,7 +1708,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  gcc_assert (gfc_option.flag_f2c && ts.type == BT_COMPLEX);
 
 	  type = gfc_get_complex_type (ts.kind);
-	  var = gfc_build_addr_expr (NULL, gfc_create_var (type, "cmplx"));
+	  var = build_fold_addr_expr (gfc_create_var (type, "cmplx"));
 	  retargs = gfc_chainon_list (retargs, var);
 	}
 
@@ -1737,7 +1736,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
       TREE_TYPE (sym->backend_decl)
         = build_function_type (integer_type_node,
                                TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
-      se->expr = gfc_build_addr_expr (NULL, sym->backend_decl);
+      se->expr = build_fold_addr_expr (sym->backend_decl);
     }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
@@ -2438,7 +2437,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
   gfc_add_block_to_block (&se->pre, &se->post);
 
   /* Take the address of that value.  */
-  se->expr = gfc_build_addr_expr (NULL, var);
+  se->expr = build_fold_addr_expr (var);
 }
 
 
@@ -2627,7 +2626,9 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
     }
 
   /* Check for a dependency.  */
-  if (gfc_check_fncall_dependency (expr1, expr2))
+  if (gfc_check_fncall_dependency (expr1, INTENT_OUT,
+				   expr2->value.function.esym,
+				   expr2->value.function.actual))
     return NULL;
 
   /* The frontend doesn't seem to bother filling in expr->symtree for intrinsic

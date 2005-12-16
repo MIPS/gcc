@@ -333,12 +333,12 @@ static inline tree default_def (tree);
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
 ---------------------------------------------------------------------------*/
-struct edge_prediction GTY((chain_next ("%h.next")))
+struct edge_prediction GTY((chain_next ("%h.ep_next")))
 {
-  struct edge_prediction *next;
-  edge edge;
-  enum br_predictor predictor;
-  int probability;
+  struct edge_prediction *ep_next;
+  edge ep_edge;
+  enum br_predictor ep_predictor;
+  int ep_probability;
 };
 
 /* Accessors for basic block annotations.  */
@@ -592,8 +592,8 @@ static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
 static inline bool array_ref_contains_indirect_ref (tree);
-extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
-					    unsigned HOST_WIDE_INT *);
+extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
+				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
 static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
@@ -872,5 +872,7 @@ void init_alias_heapvars (void);
 void delete_alias_heapvars (void);
 
 #include "tree-flow-inline.h"
+
+void swap_tree_operands (tree, tree *, tree *);
 
 #endif /* _TREE_FLOW_H  */

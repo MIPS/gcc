@@ -683,7 +683,7 @@ case "${target}" in
   mn10300-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
-  ms1-*-*)
+  mt-*-*)
     noconfigdirs="$noconfigdirs sim"
     ;;
   powerpc-*-aix*)
@@ -1742,10 +1742,9 @@ esac
 case "$have_compiler:$host:$target:$enable_bootstrap" in
   *:*:*:no) ;;
 
-  # Default behavior.  (We'll) enable bootstrap if we have a compiler
+  # Default behavior.  Enable bootstrap if we have a compiler
   # and we are in a native configuration.
   yes:$build:$build:default)
-    # This will become 'yes'
     enable_bootstrap=no ;;
 
   *:*:*:default)

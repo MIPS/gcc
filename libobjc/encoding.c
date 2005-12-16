@@ -837,9 +837,8 @@ void objc_layout_finish_structure (struct objc_struct_layout *layout,
       /* Work out the alignment of the record as one expression and store
          in the record type.  Round it up to a multiple of the record's
          alignment. */
-
 #if defined (ROUND_TYPE_ALIGN) && ! defined (__sparc__)
-      layout->record_align = ROUND_TYPE_ALIGN (layout->original_type,
+      layout->record_align = ROUND_TYPE_ALIGN (layout->original_type-1,
                                                1,
                                                layout->record_align);
 #else
