@@ -1,3 +1,20 @@
+2005-12-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4370117
+	* config/darwin.h (DEBUG_FRAME_SECTION): Mark as 'regular,debug';
+	move to __DWARF segment.
+	(DEBUG_INFO_SECTION): Move to __DWARF segment.
+	(DEBUG_ABBREV_SECTION): Move to __DWARF segment.
+	(DEBUG_ARANGES_SECTION): Move to __DWARF segment.
+	(DEBUG_MACINFO_SECTION): Move to __DWARF segment.
+	(DEBUG_LINE_SECTION): Move to __DWARF segment.
+	(DEBUG_LOC_SECTION): Move to __DWARF segment.
+	(DEBUG_PUBNAMES_SECTION): Move to __DWARF segment.
+	(DEBUG_STR_SECTION): Move to __DWARF segment.
+	(DEBUG_RANGES_SECTION): Move to __DWARF segment.
+	* config/darwin.c (darwin_emit_unwind_label): Don't emit global
+	symbols in debug sections.
+
 2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4278774

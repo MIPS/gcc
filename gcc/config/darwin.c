@@ -1571,14 +1571,16 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
   const char *base = IDENTIFIER_POINTER (id);
   unsigned int base_len = IDENTIFIER_LENGTH (id);
 
-  const char *suffix = ".eh";
+  /* APPLE LOCAL dwarf2 section flags */
+  static const char suffix[] = ".eh";
 
   int need_quotes = name_needs_quotes (base);
   int quotes_len = need_quotes ? 2 : 0;
   char *lab;
 
   if (! for_eh)
-    suffix = ".eh1";
+    /* APPLE LOCAL dwarf2 section flags */
+    return;
 
   /* APPLE LOCAL begin mainline */
   lab = xmalloc (strlen (prefix)
