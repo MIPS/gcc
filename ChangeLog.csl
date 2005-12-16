@@ -1,3 +1,16 @@
+2005-12-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Build multiple uClibc multilibs.
+	* gcc/config/mips/linux.h (SUBTARGET_TARGET_SWITCHES, LINK_SPEC):
+	Add -muclibc option.
+	* gcc/config/mips/t-wrs-linux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Build uClibc multilibs.
+	* gcc/config/mips/wrs-linux.h (MULTILIB_DEFAULTS): Don't create
+	explicit -meb multilib.
+	(SYSROOT_HEADERS_SUFFIX_SPEC, SYSROOT_SUFFIX_SPEC): Support uClibc
+	multilibs.
+
 2005-12-09  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config/arm/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Allow multiple

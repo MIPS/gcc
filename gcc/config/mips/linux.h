@@ -101,6 +101,13 @@ Boston, MA 02111-1307, USA.  */
 %{fPIC|fPIE|fpic|fpie:-D__PIC__ -D__pic__} \
 %{pthread:-D_REENTRANT}"
 
+/* Add a -muclibc switch so that users can request uClibc instead of
+   GLIBC.  */
+#undef SUBTARGET_TARGET_SWITCHES
+#define SUBTARGET_TARGET_SWITCHES			\
+  {"uclibc", 0,						\
+   N_("Use the uClibc C library instead of GLIBC") },
+
 /* From iris5.h */
 /* -G is incompatible with -KPIC which is the default, so only allow objects
    in the small data section if the user explicitly asks for it.  */
@@ -116,8 +123,10 @@ Boston, MA 02111-1307, USA.  */
     %{!ibcs: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-        %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
-        %{static:-static}}}"
+        %{!dynamic-linker:-dynamic-linker \
+          %{muclibc:/lib/ld-uClibc.so.0; \
+            :/lib/ld.so.1}}} \
+      %{static:-static}}}"
 
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC "\

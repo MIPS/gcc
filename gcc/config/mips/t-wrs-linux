@@ -20,7 +20,8 @@
 # Boston, MA 02111-1307, USA.
 
 # Build big-endian and little-endian support libraries.
-MULTILIB_OPTIONS = mel/meb
+MULTILIB_OPTIONS = muclibc mel/meb
+MULTILIB_DIRNAMES = uclibc mel meb
 # These files must be built for each multilib.
 EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
 
