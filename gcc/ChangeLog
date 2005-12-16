@@ -1,3 +1,155 @@
+2005-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/24899
+	* loop.c (strength_reduce): Don't reduce giv that is not always
+	computable and where add_val or mult_val can trap.
+
+	* doc/invoke.texi (-fdump-tree-*): Remove note about C/C++ only.
+
+2005-12-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/mt/mt.h (LIB_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Correct
+	names of ms1-16-002 files.
+
+2005-12-16  Alan Modra  <amodra@bigpond.net.au>
+
+	PR driver/20425
+	* gcc.c (for_each_path): New function.
+	(add_to_obstack, file_at_path): New functions.
+	(struct file_at_path_info, struct add_to_obstack_info): New.
+	(build_search_list): Rewrite using for_each_path.  Constify struct
+	path_prefix pointer.  Add do_multi param.  Adjust all callers.
+	(find_a_file): Similarly, but just change existing param to bool.
+	(putenv_from_prefixes): Add do_multi param, make "paths" const.
+	(do_spec_path): Delete.
+	(struct spec_path_info): New.
+	(spec_path): New function.
+	(do_spec_1): Use for_each_path for %D and %I.
+	(find_file): Adjust for find_a_file changes.
+	(main): Search multilibs for specs.  Print multilib lib path for
+	-print-search-dirs.  Likewise add multilibs to LIBRARY_PATH_ENV.
+	(read_specs): Search multilibs for %include and %include_noerr.
+	(is_directory): Remove second string param.  Change last param
+	to a bool.  Don't use concat.  Remove SMALL_ARG_MAX test, always
+	check path is a dir.  Update all callers.
+	* doc/hostconfig.texi (SMALL_ARG_MAX): Remove mention.
+	* system.h (SMALL_ARG_MAX): Poison.
+	* config.gcc: Don't define SMALL_ARG_MAX.
+	* config.host: Likewise.
+	* config.build: Likewise.
+
+2005-12-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* combine.c (combine_simplify_rtx <case NOT, NEG, TRUNCATE,
+	FLOAT_TRUNCATE, FLOAT_EXTEND, PLUS, MINUS, AND, IOR, XOR,
+	ABS, VEC_SELECT, POPCOUNT, PARITY, FFS, FLOAT>,
+	simplify_logical): Move simplifications that do not require
+	additional infrastructure...
+	* simplify-rtx.c (simplify_unary_operation_1,
+	simplify_binary_operation_1): ... here.
+
+2005-12-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24823
+	* flow.c (mark_used_dest_regs): New function.
+	(mark_used_regs): Call mark_used_dest_regs.
+
+2005-12-16  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dse.c (dse_optimize_stmt): Correctly handle PHI nodes which
+	represent a use and definition of the same SSA_NAME.
+
+2005-12-16  Jon Grimm  <jgrimm2@us.ibm.com>
+	    Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* target-def.h (TARGET_DECIMAL_FLOAT_SUPPORTED_P): New.
+	(TARGET_INITIALIZER): Add TARGET_DECIMAL_FLOAT_P.
+	* target.h (struct gcc_target): Add decimal_float_supported_p.
+	* targhooks.c (default_scalar_mode_supported_p): Handle
+	MODE_DECIMAL_FLOAT.
+	* builtins.def: Add new builtins for 32, 64 and 128 bit variants
+	of inf, nan, finite, isinf and isnan.
+	* builtin-types.def (BT_DFLOAT32, BT_DFLOAT64, BT_DFLOAT128,
+	BT_DFLOAT32_PTR, BT_DFLOAT64_PTR, BT_DFLOAT128_PTR,
+	BT_FN_DFLOAT32, BT_FN_DFLOAT64, BT_FN_DFLOAT128,
+	BT_FN_INT_DFLOAT32, BT_FN_INT_DFLOAT64, BT_FN_INT_DFLOAT128,
+	BT_FN_DFLOAT32_CONST_STRING, BT_FN_DFLOAT64_CONST_STRING,
+	BT_FN_DFLOAT32_CONST_STRING, BT_FN_DFLOAT32_DFLOAT32,
+	BT_FN_DFLOAT64_DFLOAT64, BT_FN_DFLOAT128_DFLOAT128): New.
+	* c-decl.c (declspecs_add_type): Verify combos on type qualifiers.
+	Pedwarn if decimal floating point types are used.  Error if
+	decimal floating point is not supported by the target.
+	(finish_declspecs): Return type from DFP typespec_word.
+	* c-typeck.c (c_common_type): Choose the decimal floating point
+	type with the greater precision when determining a common type.
+	(convert_arguments): Warn if there is a mismatch between argument
+	and prototype for decimal float types.  Warn of conversions with
+	binary float types and of precision narrowing due to prototype.
+	* c-parser.c (reswords): Add _Decimal32, _Decimal64, _Decimal128.
+	(c_token_starts_typename): Handle RID_DFLOAT32/64/128.
+	(c_token_starts_declspecs): Likewise.
+	(c_parser_attributes): Likewise.
+	* c-common.h (enum rid): Add new enumeration values RID_DFLOAT32,
+	RID_DFLOAT64, RID_DFLOAT128.
+	(T_D32, TEX_D32, T_D64, TEX_D64, T_D128, TEX_D128): New macros.
+	* c-common.c (c_common_type_for_mode): Handle decimal float modes.
+	(shorten_compare): Convert DFP/BFP operands to a common type.
+	(c_common_modes_and_builtins): Register built-in decimal float
+	types if the target supports them.
+	(handle_mode_addtribute): Handle MODE_DECIMAL_FLOAT.
+	* builtins.c (fold_builtin_1): Handle 32, 64 and 128 bit cases of
+	inf, nan, finite, isinf and isnan builtins.
+	* c-cppbuiltin.c (builtin_define_decimal_float_constants): New.
+	(builtin_define_float_constants): Assert non-decimal radix.
+	(c_cpp_builtins): Register built-in __DEC_EVAL_METHOD__ define.
+	Call builtin_define_decimal_float_constants for each type.
+	* c-lex.c (interpret_float): Decode decimal float types from CPP_N
+	flags.  Use real_from_string3, which can handle binary or decimal
+	floats.
+	* c-tree.h (enum c_typespec_keyword): Add cts_dfloat32,
+	cts_dfloat64, cts_dfloat128.
+	* tree.c (build_common_tree_nodes_2): Add decimal float types.
+	* tree.h (enum tree_index): Add new enumeration values
+	TI_DFLOAT32_TYPE, TI_DFLOAT64_TYPE, TI_DFLOAT128_TYPE,
+	TI_DFLOAT32_PTR_TYPE, TI_DFLOAT64_PTR_TYPE, TI_DFLOAT128_PTR_TYPE.
+	(dfloat32_type_node): New macro.
+	(dfloat64_type_node, dfloat128_type_node): Likewise.
+	(dfloat32_ptr_type_node, dfloat64_ptr_type_node): Likewise.
+	(dfloat128_ptr_type_node): Likewise.
+	* c-pretty-print.c (pp_c_floating_constant): Append 32, 64 and 128
+	bit decimal floating point types with "df", "dd" and "dl".
+	* c-format.h (enum format_lengths): Add new enumeration values
+	FMT_LEN_H, FMT_LEN_D and FMT_LEN_DD.
+	* c-format.c (printf_length_specs, scanf_length_specs): Add
+	entries for H, D, DD.
+	(print_char_table, scan_char_table): Use new entries.
+	(asm_fprintf_char_table, gcc_diag_char_table,
+	gcc_cdiag_char_table, gcc_cxxdiag_char_table): Adjust for longer
+	length arrays.
+	* defaults.h (DECIMAL32_TYPE_SIZE): Define.
+	(DECIMAL64_TYPE_SIZE): Likewise.
+	(DECIMAL128_TYPE_SIZE): Likewise.
+	(TARGET_DEC_EVAL_METHOD): Likewise.
+	* doc/extend.texi (Decimal Float): New node.
+	(Constructing Calls): Document decimal float built-ins.
+	* doc/tm.texi: Document TARGET_DECIMAL_FLOAT_SUPPORTED_P hook.
+	* Makefile.in (USER_H): Add $(srcdir)/ginclude/decfloat.h.
+	* ginclude/decfloat.h: New file.
+
+2005-12-16  Alan Modra  <amodra@bigpond.net.au>
+
+	* reload.c (find_reloads): Fix comment typo.
+	* recog.h (recog_memoized): Correct comment.
+
+2005-12-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* basic-block.h, config/i386/winnt.c, config/pa/pa.c,
+	config/s390/s390.c, dfp.c, expr.c, fold-const.c, params.def,
+	reload.c, struct-equiv.c, tree-ssa-ccp.c, tree-ssa-pre.c,
+	tree-ssa-reassoc.c, tree-ssa-structalias.c: Fix comment typos.
+	* doc/invoke.texi, doc/tm.texi: Fix typos.
+
 2005-12-16  Ben Elliston  <bje@au.ibm.com>
 
 	* real.c (decimal_quad_format): Correct values for emin, emax.
