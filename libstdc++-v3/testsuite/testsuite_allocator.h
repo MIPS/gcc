@@ -345,10 +345,9 @@ namespace __gnu_test
       operator=(const uneq_allocator&);
 
       // ... yet swappable!
-      template<typename Tp1>
-	friend inline void
-	swap(uneq_allocator& a, uneq_allocator<Tp1>& b)
-	{ std::swap(a.personality, b.personality); } 
+      friend inline void
+      swap(uneq_allocator& a, uneq_allocator& b)
+      { std::swap(a.personality, b.personality); } 
       
       template<typename Tp1>
         friend inline bool

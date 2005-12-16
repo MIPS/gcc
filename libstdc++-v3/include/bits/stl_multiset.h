@@ -179,7 +179,7 @@ namespace _GLIBCXX_STD
        *  The newly-created %multiset uses a copy of the allocation object used
        *  by @a x.
        */
-      multiset(const multiset<_Key,_Compare,_Alloc>& __x)
+      multiset(const multiset<_Key, _Compare, _Alloc>& __x)
       : _M_t(__x._M_t) { }
 
       /**
@@ -194,8 +194,9 @@ namespace _GLIBCXX_STD
        */
       template<typename _Multiset>
 	multiset(__gnu_cxx::__rvalref<_Multiset> __x)
-	: _M_t(__x.__ref._M_t.key_comp(), __x.__ref.get_allocator())
-	{	this->swap(__x.__ref); }
+	: _M_t(__x.__ref._M_t.key_comp(),
+	       __x.__ref._M_t._M_get_Node_allocator())
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  %Multiset assignment operator.
@@ -205,7 +206,7 @@ namespace _GLIBCXX_STD
        *  the allocator object is not copied.
        */
       multiset<_Key,_Compare,_Alloc>&
-      operator=(const multiset<_Key,_Compare,_Alloc>& __x)
+      operator=(const multiset<_Key, _Compare, _Alloc>& __x)
       {
 	_M_t = __x._M_t;
 	return *this;

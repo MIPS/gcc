@@ -194,7 +194,8 @@ namespace _GLIBCXX_STD
        */
       template<typename _Multimap>
 	multimap(__gnu_cxx::__rvalref<_Multimap> __x)
-	: _M_t(__x.__ref._M_t.key_comp(), __x.__ref.get_allocator())
+	: _M_t(__x.__ref._M_t.key_comp(),
+	       __x.__ref._M_t._M_get_Node_allocator())
 	{ this->swap(__x.__ref); }
 
       /**

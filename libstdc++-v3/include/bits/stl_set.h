@@ -187,7 +187,7 @@ namespace _GLIBCXX_STD
        *  The newly-created %set uses a copy of the allocation object used
        *  by @a x.
        */
-      set(const set<_Key,_Compare,_Alloc>& __x)
+      set(const set<_Key, _Compare, _Alloc>& __x)
       : _M_t(__x._M_t) { }
 
       /**
@@ -202,8 +202,9 @@ namespace _GLIBCXX_STD
        */
       template<typename _Set>
 	set(__gnu_cxx::__rvalref<_Set> __x)
-	: _M_t(__x.__ref._M_t.key_comp() , __x.__ref.get_allocator())
-	{	this->swap(__x.__ref); }
+	: _M_t(__x.__ref._M_t.key_comp(),
+	       __x.__ref._M_t._M_get_Node_allocator())
+	{ this->swap(__x.__ref); }
 
       /**
        *  @brief  Set assignment operator.

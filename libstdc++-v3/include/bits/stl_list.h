@@ -323,13 +323,21 @@ namespace _GLIBCXX_STD
   public:
       typedef _Alloc allocator_type;
 
+      _Node_alloc_type&
+      _M_get_Node_allocator()
+      { return *static_cast<_Node_alloc_type*>(&this->_M_impl); }
+
+      const _Node_alloc_type&
+      _M_get_Node_allocator() const
+      { return *static_cast<const _Node_alloc_type*>(&this->_M_impl); }
+
       _Tp_alloc_type
       _M_get_Tp_allocator() const
-      { return *static_cast<const _Node_alloc_type*>(&this->_M_impl); }
+      { return _Tp_alloc_type(_M_get_Node_allocator()); }
 
       allocator_type
       get_allocator() const
-      { return _M_get_Tp_allocator(); }
+      { return allocator_type(_M_get_Node_allocator()); }
 
       _List_base(const allocator_type& __a)
       : _M_impl(__a)
@@ -425,16 +433,11 @@ namespace _GLIBCXX_STD
       // iterator types.
       typedef _List_node<_Tp>				 _Node;
 
-      /** @if maint
-       *  One data member plus two memory-handling functions.  If the
-       *  _Alloc type requires separate instances, then one of those
-       *  will also be included, accumulated from the topmost parent.
-       *  @endif
-       */
       using _Base::_M_impl;
       using _Base::_M_put_node;
       using _Base::_M_get_node;
       using _Base::_M_get_Tp_allocator;
+      using _Base::_M_get_Node_allocator;
 
       /**
        *  @if maint
@@ -490,7 +493,7 @@ namespace _GLIBCXX_STD
        *  by @a x.
        */
       list(const list& __x)
-      : _Base(__x.get_allocator())
+      : _Base(__x._M_get_Node_allocator())
       { _M_initialize_dispatch(__x.begin(), __x.end(), __false_type()); }
 
       /**
@@ -505,7 +508,7 @@ namespace _GLIBCXX_STD
        */
       template<typename _List>
 	list(__gnu_cxx::__rvalref<_List> __x)
-	: _Base(__x.__ref.get_allocator())
+	: _Base(__x.__ref._M_get_Node_allocator())
 	{ this->swap(__x.__ref); }
 
       /**
@@ -836,7 +839,7 @@ namespace _GLIBCXX_STD
       void
       insert(iterator __position, size_type __n, const value_type& __x)
       {  
-	list __tmp(__n, __x, get_allocator());
+	list __tmp(__n, __x, _M_get_Node_allocator());
 	splice(__position, __tmp);
       }
 
@@ -858,7 +861,7 @@ namespace _GLIBCXX_STD
         insert(iterator __position, _InputIterator __first,
 	       _InputIterator __last)
         {
-	  list __tmp(__first, __last, get_allocator());
+	  list __tmp(__first, __last, _M_get_Node_allocator());
 	  splice(__position, __tmp);
 	}
 

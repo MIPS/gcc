@@ -348,9 +348,17 @@ namespace std
       typedef ptrdiff_t difference_type;
       typedef _Alloc allocator_type;
 
+      _Node_allocator&
+      _M_get_Node_allocator()
+      { return *static_cast<_Node_allocator*>(&this->_M_impl); }
+      
+      const _Node_allocator&
+      _M_get_Node_allocator() const
+      { return *static_cast<const _Node_allocator*>(&this->_M_impl); }
+
       allocator_type 
       get_allocator() const
-      { return *static_cast<const _Node_allocator*>(&this->_M_impl); }
+      { return allocator_type(_M_get_Node_allocator()); }
 
     protected:
       _Rb_tree_node*
@@ -570,7 +578,7 @@ namespace std
       { }
 
       _Rb_tree(const _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>& __x)
-      : _M_impl(__x.get_allocator(), __x._M_impl._M_key_compare())
+      : _M_impl(__x._M_get_Node_allocator(), __x._M_impl._M_key_compare())
       {
 	if (__x._M_root() != 0)
 	  {

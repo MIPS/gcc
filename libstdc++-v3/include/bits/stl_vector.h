@@ -102,7 +102,7 @@ namespace _GLIBCXX_STD
 
       allocator_type
       get_allocator() const
-      { return _M_get_Tp_allocator(); }
+      { return allocator_type(_M_get_Tp_allocator()); }
 
       _Vector_base(const allocator_type& __a)
       : _M_impl(__a)
@@ -183,11 +183,6 @@ namespace _GLIBCXX_STD
       typedef _Alloc                        		 allocator_type;
 
     protected:
-      /** @if maint
-       *  These two functions and three data members are all from the
-       *  base class.  They should be pretty self-explanatory, as
-       *  %vector uses a simple contiguous allocation scheme.  @endif
-       */
       using _Base::_M_allocate;
       using _Base::_M_deallocate;
       using _Base::_M_impl;
