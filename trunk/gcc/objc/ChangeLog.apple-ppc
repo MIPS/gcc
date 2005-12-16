@@ -1,3 +1,8 @@
+2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4229905
+	* objc/objc-act.c (objc_compare_types): New.
+
 2005-12-09  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146

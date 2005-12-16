@@ -95,6 +95,15 @@ objc_compare_types (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp),
   return false;
 }
 
+/* APPLE LOCAL begin radar 4229905 */
+bool
+objc_have_common_type (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp),
+		       int ARG_UNUSED (argno), tree ARG_UNUSED (callee))
+{
+  return false;
+}
+/* APPLE LOCAL end radar 4229905 */
+
 void
 objc_volatilize_decl (tree ARG_UNUSED (decl))
 {

@@ -1,3 +1,9 @@
+2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4229905
+	* typeck.c (composite_pointer_type): Call objc_have_common_type
+	when comparing two objective-c pointer types.
+
 2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146

@@ -1,3 +1,11 @@
+2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4229905
+	* c-typeck.c (build_conditional_expr): Call objc_have_common_type when
+	looking for objective-c common pointer types.
+	* c-common.h objc_have_common_type): New declaration.
+	* stub-objc.c (objc_have_common_type): New stub.
+
 2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146

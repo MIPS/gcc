@@ -1504,6 +1504,30 @@ objc_compare_types (tree ltyp, tree rtyp, int argno, tree callee)
   return true;
 }
 
+/* APPLE LOCAL begin radar 4229905 */
+/* This routine is similar to objc_compare_types except that function-pointers are
+   excluded. This is because, caller assumes that common types are of (id, Object*)
+   variety and calls objc_common_type to obtain a common type. There is no commonolty
+   between two function-pointers in this regard. */
+
+bool 
+objc_have_common_type (tree ltyp, tree rtyp, int argno, tree callee)
+{
+  if (objc_compare_types (ltyp, rtyp, argno, callee))
+    {
+      /* exclude function-pointer types. */
+      do
+        {
+          ltyp = TREE_TYPE (ltyp);  /* Remove indirections.  */
+          rtyp = TREE_TYPE (rtyp);
+        }
+      while (POINTER_TYPE_P (ltyp) && POINTER_TYPE_P (rtyp));
+      return !(TREE_CODE (ltyp) == FUNCTION_TYPE && TREE_CODE (rtyp) == FUNCTION_TYPE);
+    }
+  return false;
+}
+/* APPLE LOCAL end radar 4229905 */
+
 /* Check if LTYP and RTYP have the same type qualifiers.  If either type
    lives in the volatilized hash table, ignore the 'volatile' bit when
    making the comparison.  */

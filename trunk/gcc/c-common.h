@@ -999,6 +999,8 @@ extern tree objc_non_volatilized_type (tree);
 /* APPLE LOCAL begin mainline */
 /* Prototype for 'objc_comptypes' removed.  */
 extern bool objc_compare_types (tree, tree, int, tree);
+/* APPLE LOCAL radar 4229905 */
+extern bool objc_have_common_type (tree, tree, int, tree);
 extern void objc_volatilize_decl (tree);
 extern bool objc_type_quals_match (tree, tree);
 extern tree objc_rewrite_function_call (tree, tree);
