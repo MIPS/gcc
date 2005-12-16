@@ -349,8 +349,9 @@ libgcj-$(gcc_version).jar:
 	done; \
 	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
 	cd $$JARDIR; \
-	$$jardir/$$jarname -cfM \
-	    ../../libgcj-$(gcc_version).jar gnu java javax org || exit; \
+	find gnu java javax org | LC_ALL=C sort \
+	  | $$jardir/$$jarname -cfM@E \
+	    ../../libgcj-$(gcc_version).jar || exit; \
 	cd -; \
 	rm -rf $$JARDIR $$JARDIR.stamp
 
