@@ -557,16 +557,6 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	asm_fprintf (stream, "\tlink" ASM_DOTW " %s,%I0\n"
 			     "\tadd" ASM_DOT "l %I%wd,%Rsp\n",
 		     M68K_REGNAME(FRAME_POINTER_REGNUM), -fsize_with_regs);
-
-      if (dwarf2out_do_frame ())
-	{
-	  char *l;
-          l = (char *) dwarf2out_cfi_label ();
-	  cfa_offset += 4;
-	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_offset);
-	  dwarf2out_def_cfa (l, FRAME_POINTER_REGNUM, cfa_offset);
-	  cfa_offset += current_frame.size;
-	}
     }
   else if (fsize_with_regs) /* !frame_pointer_needed */
     {
@@ -600,13 +590,26 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else /* fsize_with_regs >= 0x8000 */
 	asm_fprintf (stream, "\tadd" ASM_DOT "l %I%wd,%Rsp\n", -fsize_with_regs);
+    } /* !frame_pointer_needed && fsize_with_regs*/
 
-      if (dwarf2out_do_frame ())
+
+  if (dwarf2out_do_frame ())
+    {
+      if (frame_pointer_needed)
 	{
-	  cfa_offset += current_frame.size + 4;
+	  char *l;
+          l = (char *) dwarf2out_cfi_label ();
+	  cfa_offset += 4;
+	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_offset);
+	  dwarf2out_def_cfa (l, FRAME_POINTER_REGNUM, cfa_offset);
+	  cfa_offset += current_frame.size;
+	}
+      else
+	{
+	  cfa_offset += current_frame.size;
 	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM, cfa_offset);
 	}
-    } /* !frame_pointer_needed */
+    }
 
   if (current_frame.fpu_mask)
     {
