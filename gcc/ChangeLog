@@ -1,4 +1,29 @@
+2005-12-16  Bernd Trog  <berndtrog@yahoo.com>
+
+	PR target/20016
+	* config/avr/t-avr: Add -Os to TARGET_LIBGCC2_CFLAGS.
+
+2005-12-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR rtl-optimization/25456
+	* struct-equiv.c (struct_equiv_improve_checkpoint): Replace
+	info->x_start with p->x_start.
+
+2005-12-17  Alan Modra  <amodra@bigpond.net.au>
+
+	* simplify-rtx.c (simplify_binary_operation_1 <IOR>): Correct bug
+	introduced 2005-12-16.
+
+2005-12-16  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/23837
+	* optabs.c (expand_binop): For a multi-word rotate, never emit
+	a REG_NO_CONFLICT block.
+
 2005-12-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/25457
+	* reorg.c (mostly_true_jump): Remove unused variable 'insn'.
 
 	PR target/25447
 	* config/pa/pa.c (pa_scalar_mode_supported_p): Handle
