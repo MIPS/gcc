@@ -85,6 +85,12 @@ static void add_referenced_var (tree, struct walk_state *);
 /* Array of all variables referenced in the function.  */
 htab_t referenced_vars;
 
+/* Default definition for this symbols.  If set for symbol, it
+   means that the first reference to this variable in the function is a
+   USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
+   for this variable with an empty defining statement.  */
+htab_t default_defs;
+
 
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
@@ -478,10 +484,11 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
   memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
 
   /* Walk all the trees in the function counting references.  Start at
-     basic block 0, but don't stop at block boundaries.  */
+     basic block NUM_FIXED_BLOCKS, but don't stop at block boundaries.  */
   pset = pointer_set_create ();
 
-  for (i = bsi_start (BASIC_BLOCK (0)); !bsi_end_p (i); bsi_next (&i))
+  for (i = bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
+       !bsi_end_p (i); bsi_next (&i))
     walk_tree (bsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
 	       pset);
 
@@ -607,6 +614,55 @@ referenced_var_insert (unsigned int uid, tree to)
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
   *(struct int_tree_map **)  loc = h;
+}
+
+/* Lookup VAR UID in the default_defs hashtable and return the associated
+   variable.  */
+
+tree 
+default_def (tree var)
+{
+  struct int_tree_map *h, in;
+  gcc_assert (SSA_VAR_P (var));
+  in.uid = DECL_UID (var);
+  h = htab_find_with_hash (default_defs, &in, DECL_UID (var));
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert the pair VAR's UID, DEF into the default_defs hashtable.  */
+
+void
+set_default_def (tree var, tree def)
+{ 
+  struct int_tree_map in;
+  struct int_tree_map *h;
+  void **loc;
+
+  gcc_assert (SSA_VAR_P (var));
+  in.uid = DECL_UID (var);
+  if (!def && default_def (var))
+    {
+      loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+      htab_remove_elt (default_defs, *loc);
+      return;
+    }
+  gcc_assert (TREE_CODE (def) == SSA_NAME);
+  loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+  /* Default definition might be changed by tail call optimization.  */
+  if (!*loc)
+    {
+      h = ggc_alloc (sizeof (struct int_tree_map));
+      h->uid = DECL_UID (var);
+      h->to = def;
+      *(struct int_tree_map **)  loc = h;
+    }
+   else
+    {
+      h = *loc;
+      h->to = def;
+    }
 }
 
 /* Add VAR to the list of dereferenced variables.

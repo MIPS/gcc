@@ -675,23 +675,6 @@ is_label_stmt (tree t)
   return false;
 }
 
-/* Set the default definition for VAR to DEF.  */
-static inline void
-set_default_def (tree var, tree def)
-{
-  var_ann_t ann = get_var_ann (var);
-  ann->default_def = def;
-}
-
-/* Return the default definition for variable VAR, or NULL if none
-   exists.  */
-static inline tree
-default_def (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->default_def : NULL_TREE;
-}
-
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */
@@ -719,7 +702,7 @@ bsi_start (basic_block bb)
     bsi.tsi = tsi_start (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -740,7 +723,7 @@ bsi_after_labels (basic_block bb)
 
   if (!bb->stmt_list)
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
       return bsi;
@@ -773,7 +756,7 @@ bsi_last (basic_block bb)
     bsi.tsi = tsi_last (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
