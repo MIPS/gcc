@@ -1,4 +1,4 @@
-2005-12-14  Daniel Berlin  <dberlin@dberlin.org>
+2005-12-18  Daniel Berlin  <dberlin@dberlin.org>
             Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* fwprop.c (local_ref_killed_between_p): New Function.
