@@ -28,7 +28,7 @@ int main1 (int n, int * __restrict__ pic, int * __restrict__ pib,
   char ca[N];
 
   /* Multiple types with different sizes, used in independent
-     cmputations. Vectorizable.  */
+     computations. Vectorizable.  */
   for (i = 0; i < n; i++)
     {
       ia[i] = pib[i] + pic[i];
@@ -57,7 +57,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 6 "vect" {xfail vect_no_align } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

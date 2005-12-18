@@ -1,3 +1,7 @@
+2005-12-18  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-121.c: Is vectorizable on vect_no_align_targets. 
+
 2005-12-13  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/vect-widen-mult-sum.c: Prevent reading past the end of 
