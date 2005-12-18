@@ -1,3 +1,13 @@
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (partial_sort_copy): Add
+	_BinaryPredicateConcept<_Compare, _InputValueType, _OutputValueType>
+	(merge, set_union, set_symmetric_difference): Add
+	_OutputIteratorConcept<_OutputIterator, _ValueType2>.
+	(binary_search): Remove redundant _BinaryPredicateConcept<_Compare,
+	_ValueType, _Tp>, taken care by lower_bound.
+	* include/bits/stl_algo.h: Cosmetic changes.
+
 2005-12-16  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_list.h (_List_base<>::_M_get_Node_allocator): Add.

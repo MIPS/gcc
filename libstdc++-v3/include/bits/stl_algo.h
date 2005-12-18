@@ -2401,6 +2401,8 @@ namespace std
       __glibcxx_function_requires(_ConvertibleConcept<_InputValueType,
 				  _OutputValueType>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
+				  _InputValueType, _OutputValueType>)
+      __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _OutputValueType, _OutputValueType>)
       __glibcxx_requires_valid_range(__first, __last);
       __glibcxx_requires_valid_range(__result_first, __result_last);
@@ -2889,14 +2891,20 @@ namespace std
 	  _InputIterator2 __first2, _InputIterator2 __last2,
 	  _OutputIterator __result, _Compare __comp)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType1>)
+      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
+				  _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType2, _ValueType1>)
       __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
       __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
@@ -3577,8 +3585,6 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-				  _ValueType, _Tp>)
-      __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _Tp, _ValueType>)
       __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
 
@@ -3606,12 +3612,11 @@ namespace std
 	_ValueType;
 
       // concept requirements
-      __glibcxx_function_requires(_LessThanOpConcept<_ValueType, _Tp>)
-      __glibcxx_function_requires(_LessThanOpConcept<_Tp, _ValueType>)
+      __glibcxx_function_requires(_LessThanOpConcept<_Tp, _ValueType>)	
       __glibcxx_requires_partitioned(__first, __last, __val);
 
       return std::binary_search(__first, __last, __val, __gnu_cxx::__ops::
-				less<_ValueType, _Tp>());
+				less<_Tp, _ValueType>());
     }
 
   // Set algorithms: includes, set_union, set_intersection, set_difference,
@@ -3644,15 +3649,18 @@ namespace std
     includes(_InputIterator1 __first1, _InputIterator1 __last1,
 	     _InputIterator2 __first2, _InputIterator2 __last2, _Compare __comp)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
+				  _ValueType1, _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType2, _ValueType1>)
       __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
       __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
@@ -3726,17 +3734,22 @@ namespace std
 	      _InputIterator2 __first2, _InputIterator2 __last2,
 	      _OutputIterator __result, _Compare __comp)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType1>)
+      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
+				  _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
+				  _ValueType1, _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType2, _ValueType1>)
       __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
       __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
@@ -3827,17 +3840,20 @@ namespace std
 		     _InputIterator2 __first2, _InputIterator2 __last2,
 		     _OutputIterator __result, _Compare __comp)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType1>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
+				  _ValueType1, _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType2, _ValueType1>)
       __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
       __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
@@ -3921,17 +3937,20 @@ namespace std
 		   _InputIterator2 __first2, _InputIterator2 __last2,
 		   _OutputIterator __result, _Compare __comp)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType1>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
+				  _ValueType1, _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType2, _ValueType1>)
       __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
       __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
@@ -4018,17 +4037,22 @@ namespace std
 			     _OutputIterator __result,
 			     _Compare __comp)
     {
+      typedef typename iterator_traits<_InputIterator1>::value_type
+	_ValueType1;
+      typedef typename iterator_traits<_InputIterator2>::value_type
+	_ValueType2;
+
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType1>)
+      __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator,
+				  _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator1>::value_type,
-	    typename iterator_traits<_InputIterator2>::value_type>)
+				  _ValueType1, _ValueType2>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
-	    typename iterator_traits<_InputIterator2>::value_type,
-	    typename iterator_traits<_InputIterator1>::value_type>)
+				  _ValueType2, _ValueType1>)
       __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
       __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
 
