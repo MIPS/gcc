@@ -915,7 +915,7 @@ build_utf8_ref (tree name)
 	  int flags = (SECTION_OVERRIDE
 		       | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
 	  sprintf (buf, ".rodata.jutf8.%d", decl_size);
-	  named_section_flags (buf, flags);
+	  switch_to_section (get_section (buf, flags, NULL));
 	  DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
 	}
     }
@@ -2085,6 +2085,9 @@ maybe_layout_super_class (tree super_class, tree this_class)
 	     we give it one.  */
 	  tree this_wrap = NULL_TREE;
 
+	  /* Set the correct context for class resolution.  */
+	  current_class = this_class;
+
 	  if (this_class)
 	    {
 	      tree this_decl = TYPE_NAME (this_class);
@@ -2434,7 +2437,7 @@ emit_register_classes (tree *list_p)
       int i;
 
 #ifdef JCR_SECTION_NAME
-      named_section_flags (JCR_SECTION_NAME, SECTION_WRITE);
+      switch_to_section (get_section (JCR_SECTION_NAME, SECTION_WRITE, NULL));
 #else
       /* A target has defined TARGET_USE_JCR_SECTION,
 	 but doesn't have a JCR_SECTION_NAME.  */

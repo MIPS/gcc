@@ -141,11 +141,11 @@ gfc_match_eos (void)
    old-style character length specifications.  */
 
 match
-gfc_match_small_literal_int (int *value)
+gfc_match_small_literal_int (int *value, int *cnt)
 {
   locus old_loc;
   char c;
-  int i;
+  int i, j;
 
   old_loc = gfc_current_locus;
 
@@ -159,6 +159,7 @@ gfc_match_small_literal_int (int *value)
     }
 
   i = c - '0';
+  j = 1;
 
   for (;;)
     {
@@ -169,6 +170,7 @@ gfc_match_small_literal_int (int *value)
 	break;
 
       i = 10 * i + c - '0';
+      j++;
 
       if (i > 99999999)
 	{
@@ -180,6 +182,7 @@ gfc_match_small_literal_int (int *value)
   gfc_current_locus = old_loc;
 
   *value = i;
+  *cnt = j;
   return MATCH_YES;
 }
 
@@ -221,24 +224,31 @@ gfc_match_st_label (gfc_st_label ** label)
 {
   locus old_loc;
   match m;
-  int i;
+  int i, cnt;
 
   old_loc = gfc_current_locus;
 
-  m = gfc_match_small_literal_int (&i);
+  m = gfc_match_small_literal_int (&i, &cnt);
   if (m != MATCH_YES)
     return m;
 
-  if (i > 0 && i <= 99999)
+  if (cnt > 5)
     {
-      *label = gfc_get_st_label (i);
-      return MATCH_YES;
+      gfc_error ("Too many digits in statement label at %C");
+      goto cleanup;
     }
 
   if (i == 0)
-    gfc_error ("Statement label at %C is zero");
-  else
-    gfc_error ("Statement label at %C is out of range");
+    {
+      gfc_error ("Statement label at %C is zero");
+      goto cleanup;
+    }
+
+  *label = gfc_get_st_label (i);
+  return MATCH_YES;
+
+cleanup:
+
   gfc_current_locus = old_loc;
   return MATCH_ERROR;
 }
@@ -1407,21 +1417,22 @@ gfc_match_stopcode (gfc_statement st)
   int stop_code;
   gfc_expr *e;
   match m;
+  int cnt;
 
   stop_code = -1;
   e = NULL;
 
   if (gfc_match_eos () != MATCH_YES)
     {
-      m = gfc_match_small_literal_int (&stop_code);
+      m = gfc_match_small_literal_int (&stop_code, &cnt);
       if (m == MATCH_ERROR)
         goto cleanup;
 
-      if (m == MATCH_YES && stop_code > 99999)
-        {
-          gfc_error ("STOP code out of range at %C");
-          goto cleanup;
-        }
+      if (m == MATCH_YES && cnt > 5)
+	{
+	  gfc_error ("Too many digits in STOP code at %C");
+	  goto cleanup;
+	}
 
       if (m == MATCH_NO)
         {
@@ -2599,6 +2610,7 @@ gfc_match_equivalence (void)
   match m;
   gfc_common_head *common_head = NULL;
   bool common_flag;
+  int cnt;
 
   tail = NULL;
 
@@ -2616,6 +2628,7 @@ gfc_match_equivalence (void)
 
       set = eq;
       common_flag = FALSE;
+      cnt = 0;
 
       for (;;)
 	{
@@ -2624,6 +2637,9 @@ gfc_match_equivalence (void)
 	    goto cleanup;
 	  if (m == MATCH_NO)
 	    goto syntax;
+
+	  /*  count the number of objects.  */
+	  cnt++;
 
 	  if (gfc_match_char ('%') == MATCH_YES)
 	    {
@@ -2655,11 +2671,18 @@ gfc_match_equivalence (void)
 
 	  if (gfc_match_char (')') == MATCH_YES)
 	    break;
+
 	  if (gfc_match_char (',') != MATCH_YES)
 	    goto syntax;
 
 	  set->eq = gfc_get_equiv ();
 	  set = set->eq;
+	}
+
+      if (cnt < 2)
+	{
+	  gfc_error ("EQUIVALENCE at %C requires two or more objects");
+	  goto cleanup;
 	}
 
       /* If one of the members of an equivalence is in common, then

@@ -1,3 +1,204 @@
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__copy_normal::copy_n): Uglify
+	to __copy_n.
+	(__copy_backward::copy_b): Likewise to __copy_b.
+	(__copy_backward_normal::copy_b_n): Likewise to __copy_b_n.
+	(copy, __copy_backward_aux, copy_backward): Adjust.
+
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (partial_sort_copy): Add
+	_BinaryPredicateConcept<_Compare, _InputValueType, _OutputValueType>
+	(merge, set_union, set_symmetric_difference): Add
+	_OutputIteratorConcept<_OutputIterator, _ValueType2>.
+	(binary_search): Remove redundant _BinaryPredicateConcept<_Compare,
+	_ValueType, _Tp>, taken care by lower_bound.
+	* include/bits/stl_algo.h: Cosmetic changes.
+
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* include/bits/stl_algo.h (merge, includes, set_union,
+	set_intersection, set_difference, set_symmetric_difference):
+	Fix concept checks.
+
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (partial_sort_copy, lower_bound,
+	upper_bound, equal_range, binary_search): Fix concept checks.
+
+2005-12-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/post: New.
+	* config/abi/*-linux-gnu: Move to..
+	* config/abi/post/*-linux-gnu: ... here.	
+	* config/abi/pre: New.
+	* config/linker-map.gnu: Move to ..
+	* config/abi/pre/gnu.ver: ... here.	
+	* config/linker-map.dummy: Move to..
+	* config/abi/pre/none.ver: ... here.
+	* src/Makefile.am: Use ENABLE_SYMVERS_GNU,
+	ENABLE_SYMVERS_DARWIN, ENABLE_SYMVERS_GNU_NAMESPACE.
+	Use libstdc++-symbols.ver instead of libstdc++-symbol.ver.
+	* src/Makefile.in: Regnerate.
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Adjust paths for new
+	placement of abi baseline files.
+	(GLIBCXX_ENABLE_SYMVERS): Add ENABLE_SYMVERS, ENABLE_SYMVERS_GNU,
+	ENABLE_SYMVERS_DARWIN.  SYMVER_MAP to SYMVER_FILE.
+	* configure: Regnerate.
+	* config.h.in: Regnerate.
+	* src/compatibility.cc: Adjust macro usage.
+	
+2005-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * src/io-inst.cc: Separate instantiations into...
+        * src/ios-inst.cc: .. this.
+        * src/iostream-inst.cc: ... and this.
+        * src/Makefile.am (sources): Update.
+        * src/Makefile.in: Regenerate.	
+
+2005-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	PR libstdc++/25472
+        * include/c_std/std_cstdlib.h: Fix for freestanding.
+
+2005-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/libstdc++-dg/normal.exp: Rename to..
+	* testsuite/libstdc++-dg/conformance.exp: ... this.
+
+2005-12-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector(const vector&)): Use
+	_M_get_Tp_allocator.
+	* include/bits/stl_deque.h (deque(const deque&)): Likewise.
+	(_M_destroy_data): Adjust.
+
+2005-12-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_deque.h (deque<>::_M_erase_at_end,
+	_M_erase_at_begin, _M_destroy_data, _M_destroy_data_dispatch,
+	_M_destroy_data_aux): New, optimize erase at begin() / end() and
+	consistently use the "segmented iterator" optimization.
+	(deque<>::~deque(), resize, clear, _M_assign_aux, _M_fill_assign):
+	Use the above.
+	* include/bits/deque.tcc (deque<>::operator=, _M_assign_aux): Same.
+	(erase(iterator, iterator)): Likewise, clean-up.
+	(erase(iterator)): Tweak, don't call copy unnecessarily. 
+	(_M_destroy_data_aux): Define.
+	* testsuite/23_containers/deque/modifiers/erase/1.cc: New.
+	* testsuite/23_containers/deque/modifiers/erase/2.cc: Likewise.
+
+2005-12-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/bits/valarray_after.h (_Expr<>::operator[](slice)): 
+	Don't assume the closure implements general indexing, as a matter
+	of fact, most of them don't.
+	(_Expr<>::operator[](const gslice&)): Likewise.
+	(_Expr<>::operator[](const valarray<bool>&)): Likewise.
+	(_Expr<>::operator[](const valarray<size_t>&)): Likewise.
+	(_Expr<>::shift): Fix thinko.
+	(_Expr<>::cshift): Likewise.
+	(_Expr<>::apply): Likewise.
+
+2005-12-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/4_metaprogramming/type_properties/is_empty/is_empty.cc:
+	Fix class NonEmptyClassTwo.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::_M_get_Tp_allocator): Change
+	to return by ref and add non const version.
+	* include/bits/stl_deque.h (deque<>::_M_get_Tp_allocator): Likewise.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25421
+	* config/locale/gnu/c_locale.cc (_S_destroy_c_locale): Check
+	for null argument.
+	* testsuite/22_locale/facet/25421.cc: New.
+
+2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+
+	* include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
+2005-12-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_compare):
+	Add, specialized for char and wchar_t to immediately return true
+	when a string is compared to itself.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_compare):
+	Likewise, for the same _Rep.
+	* include/ext/vstring.h (compare(const string&)): Use it.
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_destroy):
+	Deallocate passed size + 1.
+	(_M_dispose, _M_reserve): Adjust.
+
+2005-12-09  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/25288
+	* include/bits/stl_list.h (list<>::_M_insert_dispatch, _M_fill_insert):
+	Remove.
+	(_M_initialize_dispatch, _M_fill_initialize): Add.
+	(list(size_type, const value_type&, const allocator_type&),
+	list(const list&), list(_InputIterator, _InputIterator,
+	const allocator_type&): Use the latter.
+	(insert(iterator, size_type, const value_type&), insert(iterator,
+	_InputIterator, _InputIterator)): Use construction & splice.
+	* testsuite/23_containers/list/modifiers/insert/25288.cc: New.
+	* testsuite/testsuite_allocator.h (class throw_allocator): Add.
+
+	* include/bits/stl_list.h (list<>::insert, erase): Fix wrong comments.
+
+2005-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::size, resize, capacity,
+	operator[]): Avoid troubles with ADL, user defined operators
+	and __normal_iterator.
+	(_M_erase_at_end): Fix to take a pointer.
+	(clear): Adjust call.
+	* include/bits/vector.tcc (vector<>::insert(iterator, const
+	value_type&), erase(iterator, iterator), operator=(const
+	vector<>&), _M_assign_aux(input_iterator_tag), _M_insert_aux,
+	_M_fill_insert, _M_range_insert): Likewise.
+	(_M_fill_assign, _M_assign_aux(forward_iterator_tag)): Adjust
+	_M_erase_at_end call.
+	* testsuite/23_containers/vector/types/1.cc: New.
+
+2005-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24617
+	* include/bits/stl_vector.h (vector<>::_M_erase_at_end): New.
+	(vector<>::clear, resize): Use it.
+	* include/bits/vector.tcc (vector<>::erase(iterator, iterator),
+	_M_fill_assign, _M_assign_aux): Likewise.
+
+	* testsuite/23_containers/vector/modifiers/erase/1.cc: New.
+
+2005-12-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/configopts.html ([--enable-libstdcxx-allocator]):
+	Mention the SGI pooled allocator.
+
+2005-12-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (insert(iterator, _CharT),
+	erase(iterator), erase(iterator, iterator)): Avoid troubles
+	with ADL, user defined operators and __normal_iterator.
+	* include/bits/stl_iterator.h (operator-(const __normal_iterator
+	<_Iterator, _Container>&, const __normal_iterator<_Iterator,
+	_Container>&)): Add overload for left and right iterators of
+	the same type.
+	* include/debug/safe_iterator.h (operator-(const _Safe_iterator
+	<_Iterator, _Sequence>&, const _Safe_iterator<_Iterator,
+	_Sequence>&)): Likewise.
+	* testsuite/21_strings/basic_string/types/1.cc: New.
+
 2005-12-05  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string_base.h (__sso_string_base<>::_M_assign):

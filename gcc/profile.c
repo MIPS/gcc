@@ -705,7 +705,7 @@ compute_value_histograms (histogram_values values)
 }
 
 /* The entry basic block will be moved around so that it has index=1,
-   there is noting at index 0 and the exit is at n_basic_block.  */
+   there is nothing at index 0 and the exit is at n_basic_block.  */
 #define BB_TO_GCOV_INDEX(bb)  ((bb)->index - 1)
 /* When passed NULL as file_name, initialize.
    When passed something else, output the necessary commands to change

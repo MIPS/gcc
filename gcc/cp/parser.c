@@ -2735,7 +2735,7 @@ cp_parser_translation_unit (cp_parser* parser)
    ADDRESS_P is true iff this expression was immediately preceded by
    "&" and therefore might denote a pointer-to-member.  CAST_P is true
    iff this expression is the target of a cast.  TEMPLATE_ARG_P is
-   true iff this expression is a tempalte argument.
+   true iff this expression is a template argument.
 
    Returns a representation of the expression.  Upon return, *IDK
    indicates what kind of id-expression (if any) was present.  */
@@ -7145,7 +7145,16 @@ cp_parser_simple_declaration (cp_parser* parser,
       bool function_definition_p;
       tree decl;
 
-      saw_declarator = true;
+      if (saw_declarator)
+	{
+	  /* If we are processing next declarator, coma is expected */
+	  token = cp_lexer_peek_token (parser->lexer);
+	  gcc_assert (token->type == CPP_COMMA);
+	  cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	saw_declarator = true;
+
       /* Parse the init-declarator.  */
       decl = cp_parser_init_declarator (parser, &decl_specifiers,
 					function_definition_allowed_p,
@@ -7180,7 +7189,7 @@ cp_parser_simple_declaration (cp_parser* parser,
       token = cp_lexer_peek_token (parser->lexer);
       /* If it's a `,', there are more declarators to come.  */
       if (token->type == CPP_COMMA)
-	cp_lexer_consume_token (parser->lexer);
+	/* will be consumed next time around */;
       /* If it's a `;', we are done.  */
       else if (token->type == CPP_SEMICOLON)
 	break;
@@ -14512,7 +14521,7 @@ cp_parser_label_declaration (cp_parser* parser)
    types.
 
    If AMBIGUOUS_DECLS is non-NULL, *AMBIGUOUS_DECLS is set to a
-   TREE_LIST of candiates if name-lookup results in an ambiguity, and
+   TREE_LIST of candidates if name-lookup results in an ambiguity, and
    NULL_TREE otherwise.  */ 
 
 static tree

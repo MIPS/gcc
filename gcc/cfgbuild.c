@@ -543,8 +543,8 @@ find_basic_blocks (rtx f)
      actually lay them out.  */
 
   VARRAY_BB_INIT (basic_block_info, n_basic_blocks, "basic_block_info");
-  BASIC_BLOCK(ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
-  BASIC_BLOCK(EXIT_BLOCK) = EXIT_BLOCK_PTR;
+  BASIC_BLOCK (ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
+  BASIC_BLOCK (EXIT_BLOCK) = EXIT_BLOCK_PTR;
 
   find_basic_blocks_1 (f);
 

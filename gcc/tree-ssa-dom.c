@@ -273,10 +273,7 @@ static void htab_statistics (FILE *, htab_t);
 static void record_cond (tree, tree);
 static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
-static tree update_rhs_and_lookup_avail_expr (tree, tree, bool);
-static tree simplify_rhs_and_lookup_avail_expr (tree, int);
 static tree simplify_cond_and_lookup_avail_expr (tree, stmt_ann_t, int);
-static tree simplify_switch_and_lookup_avail_expr (tree, int);
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
@@ -318,7 +315,7 @@ allocate_edge_info (edge e)
 {
   struct edge_info *edge_info;
 
-  edge_info = xcalloc (1, sizeof (struct edge_info));
+  edge_info = XCNEW (struct edge_info);
 
   e->aux = edge_info;
   return edge_info;
@@ -341,7 +338,7 @@ free_all_edge_infos (void)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
         {
-	 struct edge_info *edge_info = e->aux;
+	 struct edge_info *edge_info = (struct edge_info *) e->aux;
 
 	  if (edge_info)
 	    {
@@ -359,7 +356,7 @@ free_all_edge_infos (void)
 static void
 vrp_free (void *data)
 {
-  struct vrp_hash_elt *elt = data;
+  struct vrp_hash_elt *elt = (struct vrp_hash_elt *) data;
   struct VEC(vrp_element_p,heap) **vrp_elt = &elt->records;
 
   VEC_free (vrp_element_p, heap, *vrp_elt);
@@ -588,6 +585,52 @@ struct tree_opt_pass pass_dominator =
 };
 
 
+/* Given a stmt CONDSTMT containing a COND_EXPR, canonicalize the
+   COND_EXPR into a canonical form.  */
+
+static void
+canonicalize_comparison (tree condstmt)
+{
+  tree cond = COND_EXPR_COND (condstmt);
+  tree op0;
+  tree op1;
+  enum tree_code code = TREE_CODE (cond);
+
+  if (!COMPARISON_CLASS_P (cond))
+    return;
+
+  op0 = TREE_OPERAND (cond, 0);
+  op1 = TREE_OPERAND (cond, 1);
+
+  /* If it would be profitable to swap the operands, then do so to
+     canonicalize the statement, enabling better optimization.
+
+     By placing canonicalization of such expressions here we
+     transparently keep statements in canonical form, even
+     when the statement is modified.  */
+  if (tree_swap_operands_p (op0, op1, false))
+    {
+      /* For relationals we need to swap the operands
+	 and change the code.  */
+      if (code == LT_EXPR
+	  || code == GT_EXPR
+	  || code == LE_EXPR
+	  || code == GE_EXPR)
+	{
+	  TREE_SET_CODE (cond, swap_tree_comparison (code));
+	  swap_tree_operands (condstmt,
+			      &TREE_OPERAND (cond, 0),
+			      &TREE_OPERAND (cond, 1));
+	  /* If one operand was in the operand cache, but the other is
+	     not, because it is a constant, this is a case that the
+	     internal updating code of swap_tree_operands can't handle
+	     properly.  */
+	  if (TREE_CODE_CLASS (TREE_CODE (op0)) 
+	      != TREE_CODE_CLASS (TREE_CODE (op1)))
+	    update_stmt (condstmt);
+	}
+    }
+}
 /* We are exiting E->src, see if E->dest ends with a conditional
    jump which has a known value when reached via E. 
 
@@ -727,7 +770,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  unsigned int num, i = 0;
 
 	  num = NUM_SSA_OPERANDS (stmt, (SSA_OP_USE | SSA_OP_VUSE));
-	  copy = xcalloc (num, sizeof (tree));
+	  copy = XCNEWVEC (tree, num);
 
 	  /* Make a copy of the uses & vuses into USES_COPY, then cprop into
 	     the operands.  */
@@ -799,7 +842,10 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       /* Now temporarily cprop the operands and try to find the resulting
 	 expression in the hash tables.  */
       if (TREE_CODE (stmt) == COND_EXPR)
-	cond = COND_EXPR_COND (stmt);
+	{
+	  canonicalize_comparison (stmt);
+	  cond = COND_EXPR_COND (stmt);
+	}
       else if (TREE_CODE (stmt) == GOTO_EXPR)
 	cond = GOTO_DESTINATION (stmt);
       else
@@ -831,7 +877,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* Stuff the operator and operands into our dummy conditional
 	     expression, creating the dummy conditional if necessary.  */
-	  dummy_cond = walk_data->global_data;
+	  dummy_cond = (tree) walk_data->global_data;
 	  if (! dummy_cond)
 	    {
 	      dummy_cond = build2 (cond_code, boolean_type_node, op0, op1);
@@ -888,7 +934,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      struct edge_info *edge_info;
 
 	      if (e->aux)
-		edge_info = e->aux;
+		edge_info = (struct edge_info *) e->aux;
 	      else
 		edge_info = allocate_edge_info (e);
 	      edge_info->redirection_target = taken_edge;
@@ -1073,7 +1119,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  VEC_safe_push (tree, heap, avail_exprs_stack, NULL_TREE);
 	  VEC_safe_push (tree, heap, const_and_copies_stack, NULL_TREE);
 
-	  edge_info = true_edge->aux;
+	  edge_info = (struct edge_info *) true_edge->aux;
 
 	  /* If we have info associated with this edge, record it into
 	     our equivalency tables.  */
@@ -1114,7 +1160,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  struct edge_info *edge_info;
 	  unsigned int i;
 
-	  edge_info = false_edge->aux;
+	  edge_info = (struct edge_info *) false_edge->aux;
 
 	  /* If we have info associated with this edge, record it into
 	     our equivalency tables.  */
@@ -1331,7 +1377,7 @@ record_equivalences_from_incoming_edge (basic_block bb)
     {
       unsigned int i;
 
-      edge_info = e->aux;
+      edge_info = (struct edge_info *) e->aux;
 
       if (edge_info)
 	{
@@ -1450,7 +1496,7 @@ record_var_is_nonzero (tree var)
 static void
 record_cond (tree cond, tree value)
 {
-  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
+  struct expr_hash_elt *element = XCNEW (struct expr_hash_elt);
   void **slot;
 
   initialize_hash_element (cond, value, element);
@@ -1500,7 +1546,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     case LT_EXPR:
     case GT_EXPR:
       edge_info->max_cond_equivalences = 12;
-      edge_info->cond_equivalences = xmalloc (12 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 12);
       build_and_record_new_cond ((TREE_CODE (cond) == LT_EXPR
 				  ? LE_EXPR : GE_EXPR),
 				 op0, op1, &edge_info->cond_equivalences[4]);
@@ -1515,14 +1561,14 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     case GE_EXPR:
     case LE_EXPR:
       edge_info->max_cond_equivalences = 6;
-      edge_info->cond_equivalences = xmalloc (6 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 6);
       build_and_record_new_cond (ORDERED_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       break;
 
     case EQ_EXPR:
       edge_info->max_cond_equivalences = 10;
-      edge_info->cond_equivalences = xmalloc (10 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 10);
       build_and_record_new_cond (ORDERED_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (LE_EXPR, op0, op1,
@@ -1533,7 +1579,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     case UNORDERED_EXPR:
       edge_info->max_cond_equivalences = 16;
-      edge_info->cond_equivalences = xmalloc (16 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 16);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (UNLE_EXPR, op0, op1,
@@ -1551,7 +1597,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     case UNLT_EXPR:
     case UNGT_EXPR:
       edge_info->max_cond_equivalences = 8;
-      edge_info->cond_equivalences = xmalloc (8 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 8);
       build_and_record_new_cond ((TREE_CODE (cond) == UNLT_EXPR
 				  ? UNLE_EXPR : UNGE_EXPR),
 				 op0, op1, &edge_info->cond_equivalences[4]);
@@ -1561,7 +1607,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     case UNEQ_EXPR:
       edge_info->max_cond_equivalences = 8;
-      edge_info->cond_equivalences = xmalloc (8 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 8);
       build_and_record_new_cond (UNLE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (UNGE_EXPR, op0, op1,
@@ -1570,7 +1616,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     case LTGT_EXPR:
       edge_info->max_cond_equivalences = 8;
-      edge_info->cond_equivalences = xmalloc (8 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 8);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (ORDERED_EXPR, op0, op1,
@@ -1579,7 +1625,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     default:
       edge_info->max_cond_equivalences = 4;
-      edge_info->cond_equivalences = xmalloc (4 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 4);
       break;
     }
 
@@ -1744,152 +1790,6 @@ simple_iv_increment_p (tree stmt)
       return true;
 
   return false;
-}
-
-/* STMT is a MODIFY_EXPR for which we were unable to find RHS in the
-   hash tables.  Try to simplify the RHS using whatever equivalences
-   we may have recorded.
-
-   If we are able to simplify the RHS, then lookup the simplified form in
-   the hash table and return the result.  Otherwise return NULL.  */
-
-static tree
-simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
-{
-  tree rhs = TREE_OPERAND (stmt, 1);
-  enum tree_code rhs_code = TREE_CODE (rhs);
-  tree result = NULL;
-
-  /* If we have lhs = ~x, look and see if we earlier had x = ~y.
-     In which case we can change this statement to be lhs = y.
-     Which can then be copy propagated. 
-
-     Similarly for negation.  */
-  if ((rhs_code == BIT_NOT_EXPR || rhs_code == NEGATE_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
-    {
-      /* Get the definition statement for our RHS.  */
-      tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-
-      /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
-	{
-	  tree rhs_def_operand;
-
-	  rhs_def_operand = TREE_OPERAND (TREE_OPERAND (rhs_def_stmt, 1), 0);
-
-	  /* Verify that RHS_DEF_OPERAND is a suitable SSA variable.  */
-	  if (TREE_CODE (rhs_def_operand) == SSA_NAME
-	      && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs_def_operand))
-	    result = update_rhs_and_lookup_avail_expr (stmt,
-						       rhs_def_operand,
-						       insert);
-	}
-    }
-
-  /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
-     If OP is associative, create and fold (y OP C2) OP C1 which
-     should result in (y OP C3), use that as the RHS for the
-     assignment.  Add minus to this, as we handle it specially below.  */
-  if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && num_imm_uses (TREE_OPERAND (rhs, 0)) == 1
-      && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
-    {
-      tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-
-      /* If the statement defines an induction variable, do not propagate
-	 its value, so that we do not create overlapping life ranges.  */
-      if (simple_iv_increment_p (rhs_def_stmt))
-	goto dont_fold_assoc;
-
-      /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
-	{
-	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
-	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
-
-	  if ((rhs_code == rhs_def_code && unsafe_associative_fp_binop (rhs))
-	      || (rhs_code == PLUS_EXPR && rhs_def_code == MINUS_EXPR)
-	      || (rhs_code == MINUS_EXPR && rhs_def_code == PLUS_EXPR))
-	    {
-	      tree def_stmt_op0 = TREE_OPERAND (rhs_def_rhs, 0);
-	      tree def_stmt_op1 = TREE_OPERAND (rhs_def_rhs, 1);
-
-	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
-		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-		  && is_gimple_min_invariant (def_stmt_op1))
-		{
-		  tree outer_const = TREE_OPERAND (rhs, 1);
-		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
-		  tree t;
-
-		  /* If we care about correct floating point results, then
-		     don't fold x + c1 - c2.  Note that we need to take both
-		     the codes and the signs to figure this out.  */
-		  if (FLOAT_TYPE_P (type)
-		      && !flag_unsafe_math_optimizations
-		      && (rhs_def_code == PLUS_EXPR
-			  || rhs_def_code == MINUS_EXPR))
-		    {
-		      bool neg = false;
-
-		      neg ^= (rhs_code == MINUS_EXPR);
-		      neg ^= (rhs_def_code == MINUS_EXPR);
-		      neg ^= real_isneg (TREE_REAL_CST_PTR (outer_const));
-		      neg ^= real_isneg (TREE_REAL_CST_PTR (def_stmt_op1));
-
-		      if (neg)
-			goto dont_fold_assoc;
-		    }
-
-		  /* Ho hum.  So fold will only operate on the outermost
-		     thingy that we give it, so we have to build the new
-		     expression in two pieces.  This requires that we handle
-		     combinations of plus and minus.  */
-		  if (rhs_def_code != rhs_code)
-		    {
-		      if (rhs_def_code == MINUS_EXPR)
-		        t = build2 (MINUS_EXPR, type, outer_const, def_stmt_op1);
-		      else
-		        t = build2 (MINUS_EXPR, type, def_stmt_op1, outer_const);
-		      rhs_code = PLUS_EXPR;
-		    }
-		  else if (rhs_def_code == MINUS_EXPR)
-		    t = build2 (PLUS_EXPR, type, def_stmt_op1, outer_const);
-		  else
-		    t = build2 (rhs_def_code, type, def_stmt_op1, outer_const);
-		  t = local_fold (t);
-		  t = build2 (rhs_code, type, def_stmt_op0, t);
-		  t = local_fold (t);
-
-		  /* If the result is a suitable looking gimple expression,
-		     then use it instead of the original for STMT.  */
-		  if (TREE_CODE (t) == SSA_NAME
-		      || (UNARY_CLASS_P (t)
-			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME)
-		      || ((BINARY_CLASS_P (t) || COMPARISON_CLASS_P (t))
-			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && is_gimple_val (TREE_OPERAND (t, 1))))
-		    result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-		}
-	    }
-	}
- dont_fold_assoc:;
-    }
-
-  /* Optimize *"foo" into 'f'.  This is done here rather than
-     in fold to avoid problems with stuff like &*"foo".  */
-  if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
-    {
-      tree t = fold_read_from_constant_string (rhs);
-
-      if (t)
-        result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-    }
-
-  return result;
 }
 
 /* COND is a condition of the form:
@@ -2219,67 +2119,6 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
   return 0;
 }
 
-/* STMT is a SWITCH_EXPR for which we could not trivially determine its
-   result.  This routine attempts to find equivalent forms of the
-   condition which we may be able to optimize better.  */
-
-static tree
-simplify_switch_and_lookup_avail_expr (tree stmt, int insert)
-{
-  tree cond = SWITCH_COND (stmt);
-  tree def, to, ti;
-
-  /* The optimization that we really care about is removing unnecessary
-     casts.  That will let us do much better in propagating the inferred
-     constant at the switch target.  */
-  if (TREE_CODE (cond) == SSA_NAME)
-    {
-      def = SSA_NAME_DEF_STMT (cond);
-      if (TREE_CODE (def) == MODIFY_EXPR)
-	{
-	  def = TREE_OPERAND (def, 1);
-	  if (TREE_CODE (def) == NOP_EXPR)
-	    {
-	      int need_precision;
-	      bool fail;
-
-	      def = TREE_OPERAND (def, 0);
-
-#ifdef ENABLE_CHECKING
-	      /* ??? Why was Jeff testing this?  We are gimple...  */
-	      gcc_assert (is_gimple_val (def));
-#endif
-
-	      to = TREE_TYPE (cond);
-	      ti = TREE_TYPE (def);
-
-	      /* If we have an extension that preserves value, then we
-		 can copy the source value into the switch.  */
-
-	      need_precision = TYPE_PRECISION (ti);
-	      fail = false;
-	      if (TYPE_UNSIGNED (to) && !TYPE_UNSIGNED (ti))
-		fail = true;
-	      else if (!TYPE_UNSIGNED (to) && TYPE_UNSIGNED (ti))
-		need_precision += 1;
-	      if (TYPE_PRECISION (to) < need_precision)
-		fail = true;
-
-	      if (!fail)
-		{
-		  SWITCH_COND (stmt) = def;
-		  mark_stmt_modified (stmt);
-
-		  return lookup_avail_expr (stmt, insert);
-		}
-	    }
-	}
-    }
-
-  return 0;
-}
-
-
 /* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
    known value for that SSA_NAME (or NULL if no value is known).  
 
@@ -2362,7 +2201,7 @@ record_edge_info (basic_block bb)
 	    {
 	      tree labels = SWITCH_LABELS (stmt);
 	      int i, n_labels = TREE_VEC_LENGTH (labels);
-	      tree *info = xcalloc (last_basic_block, sizeof (tree));
+	      tree *info = XCNEWVEC (tree, last_basic_block);
 	      edge e;
 	      edge_iterator ei;
 
@@ -2568,19 +2407,10 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
   /* Check if the expression has been computed before.  */
   cached_lhs = lookup_avail_expr (stmt, insert);
 
-  /* If this is an assignment and the RHS was not in the hash table,
-     then try to simplify the RHS and lookup the new RHS in the
-     hash table.  */
-  if (! cached_lhs && TREE_CODE (stmt) == MODIFY_EXPR)
-    cached_lhs = simplify_rhs_and_lookup_avail_expr (stmt, insert);
-  /* Similarly if this is a COND_EXPR and we did not find its
-     expression in the hash table, simplify the condition and
-     try again.  */
-  else if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
+  /* If this is a COND_EXPR and we did not find its expression in
+     the hash table, simplify the condition and try again.  */
+  if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
     cached_lhs = simplify_cond_and_lookup_avail_expr (stmt, ann, insert);
-  /* Similarly for a SWITCH_EXPR.  */
-  else if (!cached_lhs && TREE_CODE (stmt) == SWITCH_EXPR)
-    cached_lhs = simplify_switch_and_lookup_avail_expr (stmt, insert);
 
   opt_stats.num_exprs_considered++;
 
@@ -2918,7 +2748,10 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   bool may_have_exposed_new_symbols = false;
 
   old_stmt = stmt = bsi_stmt (si);
-
+  
+  if (TREE_CODE (stmt) == COND_EXPR)
+    canonicalize_comparison (stmt);
+  
   update_stmt_if_modified (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
@@ -2955,7 +2788,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
       rhs = get_rhs (stmt);
       if (rhs && TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* Constant/copy propagation above may change the set of 
 	 virtual operands associated with this statement.  Folding
@@ -3040,64 +2873,6 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     VEC_safe_push (tree, heap, stmts_to_rescan, bsi_stmt (si));
 }
 
-/* Replace the RHS of STMT with NEW_RHS.  If RHS can be found in the
-   available expression hashtable, then return the LHS from the hash
-   table.
-
-   If INSERT is true, then we also update the available expression
-   hash table to account for the changes made to STMT.  */
-
-static tree
-update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
-{
-  tree cached_lhs = NULL;
-
-  /* Remove the old entry from the hash table.  */
-  if (insert)
-    {
-      struct expr_hash_elt element;
-
-      initialize_hash_element (stmt, NULL, &element);
-      htab_remove_elt_with_hash (avail_exprs, &element, element.hash);
-    }
-
-  /* Now update the RHS of the assignment.  */
-  TREE_OPERAND (stmt, 1) = new_rhs;
-
-  /* Now lookup the updated statement in the hash table.  */
-  cached_lhs = lookup_avail_expr (stmt, insert);
-
-  /* We have now called lookup_avail_expr twice with two different
-     versions of this same statement, once in optimize_stmt, once here.
-
-     We know the call in optimize_stmt did not find an existing entry
-     in the hash table, so a new entry was created.  At the same time
-     this statement was pushed onto the AVAIL_EXPRS_STACK vector. 
-
-     If this call failed to find an existing entry on the hash table,
-     then the new version of this statement was entered into the
-     hash table.  And this statement was pushed onto BLOCK_AVAIL_EXPR
-     for the second time.  So there are two copies on BLOCK_AVAIL_EXPRs
-
-     If this call succeeded, we still have one copy of this statement
-     on the BLOCK_AVAIL_EXPRs vector.
-
-     For both cases, we need to pop the most recent entry off the
-     BLOCK_AVAIL_EXPRs vector.  For the case where we never found this
-     statement in the hash tables, that will leave precisely one
-     copy of this statement on BLOCK_AVAIL_EXPRs.  For the case where
-     we found a copy of this statement in the second hash table lookup
-     we want _no_ copies of this statement in BLOCK_AVAIL_EXPRs.  */
-  if (insert)
-    VEC_pop (tree, avail_exprs_stack);
-
-  /* And make sure we record the fact that we modified this
-     statement.  */
-  mark_stmt_modified (stmt);
-
-  return cached_lhs;
-}
-
 /* Search for an existing instance of STMT in the AVAIL_EXPRS table.  If
    found, return its LHS. Otherwise insert STMT in the table and return
    NULL_TREE.
@@ -3116,7 +2891,7 @@ lookup_avail_expr (tree stmt, bool insert)
   void **slot;
   tree lhs;
   tree temp;
-  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
+  struct expr_hash_elt *element = XNEW (struct expr_hash_elt);
 
   lhs = TREE_CODE (stmt) == MODIFY_EXPR ? TREE_OPERAND (stmt, 0) : NULL;
 
@@ -3287,7 +3062,7 @@ record_range (tree cond, basic_block bb)
       void **slot;
 
 
-      vrp_hash_elt = xmalloc (sizeof (struct vrp_hash_elt));
+      vrp_hash_elt = XNEW (struct vrp_hash_elt);
       vrp_hash_elt->var = TREE_OPERAND (cond, 0);
       vrp_hash_elt->records = NULL;
       slot = htab_find_slot (vrp_data, vrp_hash_elt, INSERT);
@@ -3300,7 +3075,7 @@ record_range (tree cond, basic_block bb)
       vrp_hash_elt = (struct vrp_hash_elt *) *slot;
       vrp_records_p = &vrp_hash_elt->records;
 
-      element = ggc_alloc (sizeof (struct vrp_element));
+      element = GGC_NEW (struct vrp_element);
       element->low = NULL;
       element->high = NULL;
       element->cond = cond;

@@ -446,7 +446,7 @@ struct tree_opt_pass pass_free_cfg =
 rtx
 entry_of_function (void)
 {
-  return (n_basic_blocks - NUM_FIXED_BLOCKS ? 
+  return (n_basic_blocks > NUM_FIXED_BLOCKS ? 
 	  BB_HEAD (ENTRY_BLOCK_PTR->next_bb) : get_insns ());
 }
 

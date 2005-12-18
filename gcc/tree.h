@@ -2144,7 +2144,12 @@ struct tree_memory_tag GTY(())
 #define DECL_LANG_SPECIFIC(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
 
 /* In a VAR_DECL or FUNCTION_DECL, nonzero means external reference:
-   do not allocate storage, and refer to a definition elsewhere.  */
+   do not allocate storage, and refer to a definition elsewhere.  Note that
+   this does not necessarily imply the entity represented by NODE
+   has no program source-level definition in this translation unit.  For
+   example, for a FUNCTION_DECL, DECL_SAVED_TREE may be non-NULL and
+   DECL_EXTERNAL may be true simultaneously; that can be the case for
+   a C99 "extern inline" function.  */
 #define DECL_EXTERNAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.decl_flag_2)
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
@@ -2928,6 +2933,13 @@ enum tree_index
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
+  TI_DFLOAT32_TYPE,
+  TI_DFLOAT64_TYPE,
+  TI_DFLOAT128_TYPE,
+  TI_DFLOAT32_PTR_TYPE,
+  TI_DFLOAT64_PTR_TYPE,
+  TI_DFLOAT128_PTR_TYPE,
+
   TI_VOID_LIST_NODE,
 
   TI_MAIN_IDENTIFIER,
@@ -2999,6 +3011,14 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
 #define boolean_false_node		global_trees[TI_BOOLEAN_FALSE]
 #define boolean_true_node		global_trees[TI_BOOLEAN_TRUE]
+
+/* The decimal floating point types. */
+#define dfloat32_type_node              global_trees[TI_DFLOAT32_TYPE]
+#define dfloat64_type_node              global_trees[TI_DFLOAT64_TYPE]
+#define dfloat128_type_node             global_trees[TI_DFLOAT128_TYPE]
+#define dfloat32_ptr_type_node          global_trees[TI_DFLOAT32_PTR_TYPE]
+#define dfloat64_ptr_type_node          global_trees[TI_DFLOAT64_PTR_TYPE]
+#define dfloat128_ptr_type_node         global_trees[TI_DFLOAT128_PTR_TYPE]
 
 /* The node that should be placed at the end of a parameter list to
    indicate that the function does not take a variable number of
@@ -3947,7 +3967,7 @@ extern void expand_function_end (void);
 extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
-extern void recompute_tree_invarant_for_addr_expr (tree);
+extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
 extern tree reconstruct_complex_type (tree, tree);

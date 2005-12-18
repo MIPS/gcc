@@ -634,7 +634,7 @@ verify_ssa (bool check_modified_stmt)
 {
   size_t i;
   basic_block bb;
-  basic_block *definition_block = xcalloc (num_ssa_names, sizeof (basic_block));
+  basic_block *definition_block = XCNEWVEC (basic_block, num_ssa_names);
   ssa_op_iter iter;
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
@@ -781,7 +781,8 @@ err:
 int
 int_tree_map_eq (const void *va, const void *vb)
 {
-  const struct int_tree_map  *a = va, *b = vb;
+  const struct int_tree_map *a = (const struct int_tree_map *) va;
+  const struct int_tree_map *b = (const struct int_tree_map *) vb;
   return (a->uid == b->uid);
 }
 
@@ -801,6 +802,7 @@ init_tree_ssa (void)
 {
   referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
 				     int_tree_map_eq, NULL);
+  default_defs = htab_create_ggc (20, int_tree_map_hash, int_tree_map_eq, NULL);
   call_clobbered_vars = BITMAP_ALLOC (NULL);
   addressable_vars = BITMAP_ALLOC (NULL);
   init_alias_heapvars ();
@@ -862,6 +864,8 @@ delete_tree_ssa (void)
   fini_phinodes ();
 
   global_var = NULL_TREE;
+  
+  htab_delete (default_defs);
   BITMAP_FREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
   BITMAP_FREE (addressable_vars);

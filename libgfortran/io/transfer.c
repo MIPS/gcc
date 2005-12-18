@@ -210,6 +210,16 @@ read_sf (st_parameter_dt *dtp, int *length)
 	  dtp->u.p.sf_seen_eor = (crlf ? 2 : 1);
 	  break;
 	}
+      /*  Short circuit the read if a comma is found during numeric input.
+	  The flag is set to zero during character reads so that commas in
+	  strings are not ignored  */
+      if (*q == ',')
+	if (dtp->u.p.sf_read_comma == 1)
+	  {
+	    notify_std (GFC_STD_GNU, "Comma in formatted numeric read.");
+	    *length = n;
+	    break;
+	  }
 
       n++;
       *p++ = *q;
@@ -389,26 +399,89 @@ write_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 /* Master function for unformatted reads.  */
 
 static void
-unformatted_read (st_parameter_dt *dtp, bt type __attribute__((unused)),
-		  void *dest, int kind __attribute__((unused)),
+unformatted_read (st_parameter_dt *dtp, bt type,
+		  void *dest, int kind,
 		  size_t size, size_t nelems)
 {
-  size *= nelems;
-
-  read_block_direct (dtp, dest, &size);
+  /* Currently, character implies size=1.  */
+  if (dtp->u.p.current_unit->flags.convert == CONVERT_NATIVE
+      || size == 1 || type == BT_CHARACTER)
+    {
+      size *= nelems;
+      read_block_direct (dtp, dest, &size);
+    }
+  else
+    {
+      char buffer[16];
+      char *p;
+      size_t i, sz;
+      
+      /* Break up complex into its constituent reals.  */
+      if (type == BT_COMPLEX)
+	{
+	  nelems *= 2;
+	  size /= 2;
+	}
+      p = dest;
+      
+      /* By now, all complex variables have been split into their
+	 constituent reals.  For types with padding, we only need to
+	 read kind bytes.  We don't care about the contents
+	 of the padding.  */
+      
+      sz = kind;
+      for (i=0; i<nelems; i++)
+	{
+ 	  read_block_direct (dtp, buffer, &sz);
+ 	  reverse_memcpy (p, buffer, sz);
+ 	  p += size;
+ 	}
+    }
 }
 
 
 /* Master function for unformatted writes.  */
 
 static void
-unformatted_write (st_parameter_dt *dtp, bt type __attribute__((unused)),
-		   void *source, int kind __attribute__((unused)),
+unformatted_write (st_parameter_dt *dtp, bt type,
+		   void *source, int kind,
 		   size_t size, size_t nelems)
 {
-  size *= nelems;
+  if (dtp->u.p.current_unit->flags.convert == CONVERT_NATIVE ||
+      size == 1 || type == BT_CHARACTER)
+    {
+      size *= nelems;
 
-  write_block_direct (dtp, source, &size);
+      write_block_direct (dtp, source, &size);
+    }
+  else
+    {
+      char buffer[16];
+      char *p;
+      size_t i, sz;
+  
+      /* Break up complex into its constituent reals.  */
+      if (type == BT_COMPLEX)
+	{
+	  nelems *= 2;
+	  size /= 2;
+	}      
+
+      p = source;
+
+      /* By now, all complex variables have been split into their
+	 constituent reals.  For types with padding, we only need to
+	 read kind bytes.  We don't care about the contents
+	 of the padding.  */
+
+      sz = kind;
+      for (i=0; i<nelems; i++)
+	{
+	  reverse_memcpy(buffer, p, size);
+ 	  p+= size;
+	  write_block_direct (dtp, buffer, &sz);
+	}
+    }
 }
 
 
@@ -526,6 +599,11 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
      by doing nothing.  */
   if (dtp->u.p.eor_condition)
     return;
+
+  /* Set this flag so that commas in reads cause the read to complete before
+     the entire field has been read.  The next read field will start right after
+     the comma in the stream.  (Set to 0 for character reads).  */
+  dtp->u.p.sf_read_comma = 1;
 
   dtp->u.p.line_buffer = scratch;
   for (;;)
@@ -1139,7 +1217,12 @@ us_read (st_parameter_dt *dtp)
       return;
     }
 
-  memcpy (&i, p, sizeof (gfc_offset));
+  /* Only CONVERT_NATIVE and CONVERT_SWAP are valid here.  */
+  if (dtp->u.p.current_unit->flags.convert == CONVERT_NATIVE)
+    memcpy (&i, p, sizeof (gfc_offset));
+  else
+    reverse_memcpy (&i, p, sizeof (gfc_offset));
+    
   dtp->u.p.current_unit->bytes_left = i;
 }
 
@@ -1663,13 +1746,14 @@ next_record_r (st_parameter_dt *dtp)
 /* Position to the next record in write mode.  */
 
 static void
-next_record_w (st_parameter_dt *dtp)
+next_record_w (st_parameter_dt *dtp, int done)
 {
-  gfc_offset c, m, record;
-  int bytes_left, length;
+  gfc_offset c, m, record, max_pos;
+  int length;
   char *p;
 
   /* Zero counters for X- and T-editing.  */
+  max_pos = dtp->u.p.max_pos;
   dtp->u.p.max_pos = dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
 
   switch (current_mode (dtp))
@@ -1707,7 +1791,12 @@ next_record_w (st_parameter_dt *dtp)
       if (p == NULL)
 	goto io_error;
 
-      memcpy (p, &m, sizeof (gfc_offset));
+      /* Only CONVERT_NATIVE and CONVERT_SWAP are valid here.  */
+      if (dtp->u.p.current_unit->flags.convert == CONVERT_NATIVE)
+	memcpy (p, &m, sizeof (gfc_offset));
+      else
+	reverse_memcpy (p, &m, sizeof (gfc_offset));
+      
       if (sfree (dtp->u.p.current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1718,7 +1807,12 @@ next_record_w (st_parameter_dt *dtp)
       if (p == NULL)
 	generate_error (&dtp->common, ERROR_OS, NULL);
 
-      memcpy (p, &m, sizeof (gfc_offset));
+      /* Only CONVERT_NATIVE and CONVERT_SWAP are valid here.  */
+      if (dtp->u.p.current_unit->flags.convert == CONVERT_NATIVE)
+	memcpy (p, &m, sizeof (gfc_offset));
+      else
+	reverse_memcpy (p, &m, sizeof (gfc_offset));
+	
       if (sfree (dtp->u.p.current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1738,18 +1832,31 @@ next_record_w (st_parameter_dt *dtp)
 	{
 	  if (is_array_io (dtp))
 	    {
-	      bytes_left = (int) dtp->u.p.current_unit->bytes_left;
-	      p = salloc_w (dtp->u.p.current_unit->s, &bytes_left);
+	      length = (int) dtp->u.p.current_unit->bytes_left;
+	      
+	      /* If the farthest position reached is greater than current
+	      position, adjust the position and set length to pad out
+	      whats left.  Otherwise just pad whats left.
+	      (for character array unit) */
+	      m = dtp->u.p.current_unit->recl
+			- dtp->u.p.current_unit->bytes_left;
+	      if (max_pos > m)
+		{
+		  length = (int) (max_pos - m);
+		  p = salloc_w (dtp->u.p.current_unit->s, &length);
+		  length = (int) (dtp->u.p.current_unit->recl - max_pos);
+		}
+
+	      p = salloc_w (dtp->u.p.current_unit->s, &length);
 	      if (p == NULL)
 		{
 		  generate_error (&dtp->common, ERROR_END, NULL);
 		  return;
 		}
-	      memset(p, ' ', bytes_left);
+	      memset(p, ' ', length);
 
 	      /* Now that the current record has been padded out,
 		 determine where the next record in the array is. */
-
 	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
 
 	      /* Now seek to this record */
@@ -1763,13 +1870,47 @@ next_record_w (st_parameter_dt *dtp)
 	  else
 	    {
 	      length = 1;
+
+	      /* If this is the last call to next_record move to the farthest
+		 position reached and set length to pad out the remainder
+		 of the record. (for character scaler unit) */
+	      if (done)
+		{
+		  m = dtp->u.p.current_unit->recl
+			- dtp->u.p.current_unit->bytes_left;
+		  if (max_pos > m)
+		    {
+		      length = (int) (max_pos - m);
+		      p = salloc_w (dtp->u.p.current_unit->s, &length);
+		      length = (int) (dtp->u.p.current_unit->recl - max_pos);
+		    }
+		  else
+		    length = (int) dtp->u.p.current_unit->bytes_left;
+		}
 	      p = salloc_w (dtp->u.p.current_unit->s, &length);
 	      if (p == NULL)
-		goto io_error;
+		{
+		  generate_error (&dtp->common, ERROR_END, NULL);
+		  return;
+		}
+	      memset (p, ' ', length);
 	    }
- 	}
+	}
       else
 	{
+	  /* If this is the last call to next_record move to the farthest
+	  position reached in preparation for completing the record.
+	  (for file unit) */
+	  if (done)
+	    {
+	      m = dtp->u.p.current_unit->recl -
+			dtp->u.p.current_unit->bytes_left;
+	      if (max_pos > m)
+		{
+		  length = (int) (max_pos - m);
+		  p = salloc_w (dtp->u.p.current_unit->s, &length);
+		}
+ 	    }
 #ifdef HAVE_CRLF
 	  length = 2;
 #else
@@ -1812,7 +1953,7 @@ next_record (st_parameter_dt *dtp, int done)
   if (dtp->u.p.mode == READING)
     next_record_r (dtp);
   else
-    next_record_w (dtp);
+    next_record_w (dtp, done);
 
   /* keep position up to date for INQUIRE */
   dtp->u.p.current_unit->flags.position = POSITION_ASIS;
@@ -2145,4 +2286,20 @@ st_set_nml_var_dim (st_parameter_dt *dtp, GFC_INTEGER_4 n_dim,
   nml->dim[n].stride = (ssize_t)stride;
   nml->dim[n].lbound = (ssize_t)lbound;
   nml->dim[n].ubound = (ssize_t)ubound;
+}
+
+/* Reverse memcpy - used for byte swapping.  */
+
+void reverse_memcpy (void *dest, const void *src, size_t n)
+{
+  char *d, *s;
+  size_t i;
+
+  d = (char *) dest;
+  s = (char *) src + n - 1;
+
+  /* Write with ascending order - this is likely faster
+     on modern architectures because of write combining.  */
+  for (i=0; i<n; i++)
+      *(d++) = *(s--);
 }

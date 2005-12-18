@@ -163,8 +163,8 @@ compact_blocks (void)
 {
   int i;
 
-  BASIC_BLOCK(ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
-  BASIC_BLOCK(EXIT_BLOCK) = EXIT_BLOCK_PTR;
+  BASIC_BLOCK (ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
+  BASIC_BLOCK (EXIT_BLOCK) = EXIT_BLOCK_PTR;
   
   if (rtl_df)
     df_compact_blocks (rtl_df);

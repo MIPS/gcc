@@ -508,14 +508,15 @@ char_len_param_value (gfc_expr ** expr)
 static match
 match_char_length (gfc_expr ** expr)
 {
-  int length;
+  int length, cnt;
   match m;
 
   m = gfc_match_char ('*');
   if (m != MATCH_YES)
     return m;
 
-  m = gfc_match_small_literal_int (&length);
+  /* cnt is unused, here.  */
+  m = gfc_match_small_literal_int (&length, &cnt);
   if (m == MATCH_ERROR)
     return m;
 
@@ -1279,12 +1280,13 @@ match
 gfc_match_old_kind_spec (gfc_typespec * ts)
 {
   match m;
-  int original_kind;
+  int original_kind, cnt;
 
   if (gfc_match_char ('*') != MATCH_YES)
     return MATCH_NO;
 
-  m = gfc_match_small_literal_int (&ts->kind);
+  /* cnt is unsed, here.  */
+  m = gfc_match_small_literal_int (&ts->kind, &cnt);
   if (m != MATCH_YES)
     return MATCH_ERROR;
 
@@ -1308,6 +1310,10 @@ gfc_match_old_kind_spec (gfc_typespec * ts)
                  gfc_basic_typename (ts->type), original_kind);
       return MATCH_ERROR;
     }
+
+  if (gfc_notify_std (GFC_STD_GNU, "Nonstandard type declaration %s*%d at %C",
+		      gfc_basic_typename (ts->type), original_kind) == FAILURE)
+    return MATCH_ERROR;
 
   return MATCH_YES;
 }
@@ -1614,6 +1620,10 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
 
   if (gfc_match (" double complex") == MATCH_YES)
     {
+      if (gfc_notify_std (GFC_STD_GNU, "DOUBLE COMPLEX at %C does not "
+			  "conform to the Fortran 95 standard") == FAILURE)
+	return MATCH_ERROR;
+
       ts->type = BT_COMPLEX;
       ts->kind = gfc_default_double_kind;
       return MATCH_YES;

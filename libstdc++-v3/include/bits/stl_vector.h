@@ -91,7 +91,11 @@ namespace _GLIBCXX_STD
     public:
       typedef _Alloc allocator_type;
 
-      _Tp_alloc_type
+      _Tp_alloc_type&
+      _M_get_Tp_allocator()
+      { return *static_cast<_Tp_alloc_type*>(&this->_M_impl); }
+
+      const _Tp_alloc_type&
       _M_get_Tp_allocator() const
       { return *static_cast<const _Tp_alloc_type*>(&this->_M_impl); }
 
@@ -226,7 +230,7 @@ namespace _GLIBCXX_STD
        *  @a x (for fast expansion) will not be copied.
        */
       vector(const vector& __x)
-      : _Base(__x.size(), __x.get_allocator())
+      : _Base(__x.size(), __x._M_get_Tp_allocator())
       { this->_M_impl._M_finish =
 	  std::__uninitialized_copy_a(__x.begin(), __x.end(),
 				      this->_M_impl._M_start,
@@ -266,8 +270,7 @@ namespace _GLIBCXX_STD
        */
       ~vector()
       { std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
-		      _M_get_Tp_allocator());
-      }
+		      _M_get_Tp_allocator()); }
 
       /**
        *  @brief  %Vector assignment operator.
@@ -326,7 +329,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       begin()
-      { return iterator (this->_M_impl._M_start); }
+      { return iterator(this->_M_impl._M_start); }
 
       /**
        *  Returns a read-only (constant) iterator that points to the
@@ -335,7 +338,7 @@ namespace _GLIBCXX_STD
        */
       const_iterator
       begin() const
-      { return const_iterator (this->_M_impl._M_start); }
+      { return const_iterator(this->_M_impl._M_start); }
 
       /**
        *  Returns a read/write iterator that points one past the last
@@ -344,7 +347,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       end()
-      { return iterator (this->_M_impl._M_finish); }
+      { return iterator(this->_M_impl._M_finish); }
 
       /**
        *  Returns a read-only (constant) iterator that points one past
@@ -353,7 +356,7 @@ namespace _GLIBCXX_STD
        */
       const_iterator
       end() const
-      { return const_iterator (this->_M_impl._M_finish); }
+      { return const_iterator(this->_M_impl._M_finish); }
 
       /**
        *  Returns a read/write reverse iterator that points to the
@@ -395,7 +398,7 @@ namespace _GLIBCXX_STD
       /**  Returns the number of elements in the %vector.  */
       size_type
       size() const
-      { return size_type(end() - begin()); }
+      { return size_type(this->_M_impl._M_finish - this->_M_impl._M_start); }
 
       /**  Returns the size() of the largest possible %vector.  */
       size_type
@@ -417,7 +420,7 @@ namespace _GLIBCXX_STD
       resize(size_type __new_size, value_type __x = value_type())
       {
 	if (__new_size < size())
-	  erase(begin() + __new_size, end());
+	  _M_erase_at_end(this->_M_impl._M_start + __new_size);
 	else
 	  insert(end(), __new_size - size(), __x);
       }
@@ -428,8 +431,8 @@ namespace _GLIBCXX_STD
        */
       size_type
       capacity() const
-      { return size_type(const_iterator(this->_M_impl._M_end_of_storage)
-			 - begin()); }
+      { return size_type(this->_M_impl._M_end_of_storage
+			 - this->_M_impl._M_start); }
 
       /**
        *  Returns true if the %vector is empty.  (Thus begin() would
@@ -473,7 +476,7 @@ namespace _GLIBCXX_STD
        */
       reference
       operator[](size_type __n)
-      { return *(begin() + __n); }
+      { return *(this->_M_impl._M_start + __n); }
 
       /**
        *  @brief  Subscript access to the data contained in the %vector.
@@ -488,7 +491,7 @@ namespace _GLIBCXX_STD
        */
       const_reference
       operator[](size_type __n) const
-      { return *(begin() + __n); }
+      { return *(this->_M_impl._M_start + __n); }
 
     protected:
       /// @if maint Safety check used only from at().  @endif
@@ -742,11 +745,7 @@ namespace _GLIBCXX_STD
        */
       void
       clear()
-      {
-	std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
-		      _M_get_Tp_allocator());
-	this->_M_impl._M_finish = this->_M_impl._M_start;
-      }
+      { _M_erase_at_end(this->_M_impl._M_start); }
 
     protected:
       /**
@@ -910,6 +909,17 @@ namespace _GLIBCXX_STD
       // Called by insert(p,x)
       void
       _M_insert_aux(iterator __position, const value_type& __x);
+
+      // Internal erase functions follow.
+
+      // Called by erase(q1,q2), clear(), resize(), _M_fill_assign,
+      // _M_assign_aux.
+      void
+      _M_erase_at_end(pointer __pos)
+      {
+	std::_Destroy(__pos, this->_M_impl._M_finish, _M_get_Tp_allocator());
+	this->_M_impl._M_finish = __pos;
+      }
     };
 
 

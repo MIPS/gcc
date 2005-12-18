@@ -261,7 +261,7 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
      list if they were not already on the list.  So the size is
      bounded by the number of basic blocks.  */
   qin = qout = worklist
-    = xmalloc (sizeof (basic_block) * (n_basic_blocks - NUM_FIXED_BLOCKS));
+    = xmalloc (sizeof (basic_block) * n_basic_blocks);
 
   /* Initialize a mapping from each edge to its index.  */
   for (i = 0; i < num_edges; i++)

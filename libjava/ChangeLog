@@ -1,3 +1,52 @@
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getPackage): Get package from
+	VMClassLoader if needed.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail
+	(8.5.2-accessible-static-member-usage-3): Removed.
+
+2005-12-15  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/rh175833.java: New file.
+	* testsuite/libjava.compile/pr25429.java: New file.
+
+2005-12-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* testsuite/lib/libjava.exp: Revert 2005-12-01.
+	* testsuite/libjava.lang/Array_3.xfail: Delete.
+
+2005-12-14  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/rmi/rmic/CompilerProcess.java: Use a new thread to
+	handle stdout from the child process.
+
+2005-12-14  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/25389:
+	* java/io/File.java (File): Throw IllegalArgumentException if URI is
+	non-hierarchical.
+
+2005-12-12  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/VMCompiler.java: Directly generate a new instance of
+	gnu.java.security.provider.MD5.
+
+2005-12-08  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25265
+	* java/lang/Object.h (throwNoSuchMethodError): New method.
+	* java/lang/Object.java (throwNoSuchMethodError): New method.
+	* include/jvm.h (_Jv_ThrowNoSuchFieldError): Declare.
+	* link.cc (_Jv_ThrowNoSuchFieldError): New.
+	(link_symbol_table): Don't throw a NoSuchFieldError if a field is
+	missing.  Instead, set the otable entry to zero.
+	(link_symbol_table): If we don't find a nonstatic method, insert
+	the vtable offset of Object.throwNoSuchMethodError() into the
+	otable.
+
 2005-12-05  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.compile/rh174912.java: New file.

@@ -367,7 +367,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
       gcc_assert (insn_data[(int) icode].n_operands == 3);
 
       /* ??? We currently have no way to represent a reload that needs
-	 an icode to reload from an intermediate tertiaty reload register.
+	 an icode to reload from an intermediate tertiary reload register.
 	 We should probably have a new field in struct reload to tag a
 	 chain of scratch operand reloads onto.   */
       gcc_assert (class == NO_REGS);
@@ -380,7 +380,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
       letter = *scratch_constraint;
       scratch_class = (letter == 'r' ? GENERAL_REGS
 		       : REG_CLASS_FROM_CONSTRAINT ((unsigned char) letter,
-						    insn_constraint));
+						   scratch_constraint));
 
       class = scratch_class;
       mode = insn_data[(int) icode].operand[2].mode;
@@ -4028,7 +4028,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
     {
       /* We only do this on the last pass through reload, because it is
 	 possible for some data (like reg_equiv_address) to be changed during
-	 later passes.  Moreover, we loose the opportunity to get a useful
+	 later passes.  Moreover, we lose the opportunity to get a useful
 	 reload_{in,out}_reg when we do these replacements.  */
 
       if (replace)
@@ -5912,7 +5912,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	      /* If this was a paradoxical subreg that we replaced, the
 		 resulting memory must be sufficiently aligned to allow
 		 us to widen the mode of the memory.  */
-	      if (outer_size > inner_size && STRICT_ALIGNMENT)
+	      if (outer_size > inner_size)
 		{
 		  rtx base;
 
@@ -6224,7 +6224,7 @@ refers_to_regno_for_reload_p (unsigned int regno, unsigned int endregno,
 						 reg_equiv_memory_loc[r],
 						 (rtx*) 0);
 
-	  gcc_assert (reg_equiv_constant[r]);
+	  gcc_assert (reg_equiv_constant[r] || reg_equiv_invariant[r]);
 	  return 0;
 	}
 

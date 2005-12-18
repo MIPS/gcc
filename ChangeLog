@@ -1,3 +1,55 @@
+2005-12-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in: Replace ms1 with mt.
+	* configure: Rebuilt.
+
+2005-12-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-12-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (all, do-[+make_target+], do-check, install,
+	install-host-nogcc): Don't invoke $(stage) at the end.
+	* Makefile.in: Regenerate.
+
+2005-12-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Flip the top-level bootstrap switch.
+	* configure: Regenerate.
+
+2005-12-14  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.tpl: Throughout the file, use : $(MAKE) along with
+	$(stage) and $(unstage).
+	(EXTRA_TARGET_FLAGS): Correct double-quoting.
+	(all): Remove stray semicolon.
+	(local-distclean): Don't handle multilib.tmp and multilib.out.
+	(install.all): Set $s for consistency.
+	(configure-[+prefix+][+module+]): Instead of [+deps+], handle
+	check_multilibs setting.  Always make the install directory.
+	(configure-stage[+id+]-[+prefix+][+module+]): Likewise.
+	Correct @if/@endif.
+	(all-stage[+id+]-[+prefix+][+module+]): Correct @if/@endif.
+	($(TARGET_SUBDIR)/[+module+]/multilib.out): Remove.
+	(stage[+id+]-start, stage[+id+]-end): Stage $(TARGET_SUBDIR).
+	(multilib.out): Remove.
+	* Makefile.in: Regenerated.
+
+2005-12-12  Carlos O'Donell <carlos@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-12-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* MAINTAINERS: Add myself as mt maintainer.
+
+	* config.sub: Replace ms1 with mt.  Allow ms1 as an alias.
+
+2005-12-06  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* MAINTAINERS: Change email address.
+
 2005-12-05  Paolo Bonzini  <bonzini@gnu.org>
 
 	* configure.in (CONFIGURED_BISON, CONFIGURED_YACC, CONFIGURED_M4,
