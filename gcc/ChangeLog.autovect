@@ -1,3 +1,11 @@
+2005-12-15  Ira Rosen  <irar@il.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_builtin_extract_even,
+	rs6000_builtin_extract_odd): Remove.
+	* config/rs6000/altivec.md (vec_extract_evenv4si, vec_extract_evenv4sf,
+	vec_extract_evenv8hi, vec_extract_evenv16qi, vec_extract_oddv4si,
+	vec_extract_oddv4sf): New.
+
 2005-12-05  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-ssa-forwprop.c (replacable_cast_pattern): New function.
