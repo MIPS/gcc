@@ -1,3 +1,115 @@
+2005-12-14  Daniel Berlin  <dberlin@dberlin.org>
+            Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* fwprop.c (local_ref_killed_between_p): New Function.
+	(use_killed_between, varying_mem_p, all_uses_available_at,
+	update_df, subst, forward_propagate_subreg,
+	forward_propagate_and_simplify, forward_propagate_into, fwprop,
+	fwprop_addr): Changes to support modifications to df datastructures.
+	ddg.c (add_deps_for_def, add_deps_for_use, build_inter_loop_deps):
+	Ditto.
+	* flow.c (verify_local_live_at_start, update_life_info,
+	update_life_info, initialize_uninitialized_subregs,
+	propagate_one_insn, init_propagate_block_info,
+	init_propagate_block_info, regno_clobbered_at_setjmp, 
+	rest_of_handle_life): Ditto.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* web.c (union_defs, entry_register, web_main): Ditto.
+	* global.c (global_alloc, global_conflicts, mark_elimination,
+	build_insn_chain, rest_of_handle_global_alloc): Ditto.
+	* ifcvt.c (find_if_case_1, if_convert): Ditto.
+	* loop_invariant.c (find_defs, record_use, find_invariant_insn,
+	find_invariants_to_move, move_invariant_reg, move_invariant_reg,
+	free_inv_motion_data, move_loop_invariants):
+     	* bb-reorder.c (rest_of_handle_reorder_blocks): Ditto. 
+	* reg-stack.c (reg_to_stack): Ditto.
+	* postreload.c (reload_combine): Changed set reference to
+	reflect different dataflow problem.
+	* reload.c (push_reload, find_dummy_reload): Ditto.
+	* postreload.c (rest_of_handle_postreload): Fixed typo in comment.
+	* tree-pass.h: Added pass_reset_df_after_reload.
+	* df.c: Removed, rewritten as df-core.c, df-problems.c and df-scan.c.
+	* df-scan.c: The scanning fuctions, once in df.c, completely
+	rewritten so that they now fully model the functionality of
+	register usage at the backend.
+	* cfgrtl.c (dump_regset_in, dump_regset_out): New dataflow
+	* print functions.
+	(rtl_dump_bb, print_rtl_with_bb): Changed to use
+	dump_regset_in, dump_regset_out).
+	* sched_deps (sched_analyze_1): Changed to used renamed
+	df_read_modify_subreg_p (was read_modify_subreg_p).
+	(df_scan_free_internal, df_scan_get_bb_info,
+	df_scan_set_bb_info, df_scan_free_bb_info, df_scan_alloc,
+	df_scan_free, df_scan_dump, df_scan_add_problem,
+	df_grow_reg_info, df_grow_ref_info, df_grow_insn_info,
+	df_rescan_blocks, df_ref_create, df_get_artificial_defs,
+	df_get_artificial_uses, df_reg_chain_create, df_ref_unlink,
+	df_reg_chain_unlink, df_ref_remove,
+	df_insn_create_insn_record, df_insn_refs_delete,
+	df_refs_delete, df_reorganize_refs, df_reg_use_gen,
+	df_reg_def_gen, df_set_state, df_ref_create_structure,
+	df_ref_record, df_read_modify_subreg_p, df_def_record_1,
+	df_defs_record, df_uses_record, df_insn_contains_asm,
+	df_insn_refs_record, df_bb_refs_record, df_refs_record,
+	df_mark_reg, df_record_exit_block_uses, df_hard_reg_init): New functions.
+	* df-core.c: The core dataflow solver and glue routines for
+        rtl dataflow.
+	(df_init, df_add_problem, df_set_blocks, df_finish,
+	df_hybrid_search_forward, df_hybrid_search_backward,
+	df_iterative_dataflow, df_prune_to_subcfg,
+	df_analyze_problem, df_analyze, df_get_bb_info,
+	df_set_bb_info, df_analyze_simple_change_some_blocks,
+	df_analyze_simple_change_one_block, df_compact_blocks,
+	df_bb_replace, df_bb_regno_last_use_find,
+	df_bb_regno_first_def_find, df_bb_regno_last_def_find,
+	df_insn_regno_def_p, df_find_def, df_find_use, df_dump,
+	df_refs_chain_dump, df_regs_chain_dump, df_insn_debug,
+	df_insn_debug_regno, df_regno_debug, df_ref_debug,
+	debug_df_insn, debug_df_reg, debug_df_regno, debug_df_ref
+	debug_df_defno, debug_df_useno, reset_df_after_reload): New functions.
+	* df-problems.c: Seven concrete dataflow problems that use the scanning 
+	in df-scan.c and are solved by the engine in df-core.c.
+	(df_get_dependent_problem, df_chain_create,
+	df_chain_unlink, df_chain_copy, df_get_live_in,
+	df_get_live_out, df_grow_bb_info, df_chain_dump,
+	df_print_bb_index, df_ref_bitmap, df_set_seen,
+	df_unset_seen, df_ru_get_bb_info, df_ru_set_bb_info,
+	df_ru_free_bb_info, df_ru_alloc,
+	df_ru_bb_local_compute_process_def,
+	df_ru_bb_local_compute_process_use, df_ru_bb_local_compute,
+	df_ru_local_compute, df_ru_init_solution,
+	df_ru_confluence_n, df_ru_transfer_function, df_ru_free,
+	df_ru_dump, df_ru_add_problem, df_rd_get_bb_info,
+	df_rd_set_bb_info, df_rd_free_bb_info, df_rd_alloc,
+	df_rd_bb_local_compute_process_def, df_rd_bb_local_compute,
+	df_rd_local_compute, df_rd_init_solution,
+	df_rd_confluence_n, df_rd_transfer_function, df_rd_free,
+	df_rd_dump, df_rd_add_problem, df_lr_get_bb_info,
+	df_lr_set_bb_info, df_lr_free_bb_info, df_lr_alloc,
+	df_lr_bb_local_compute, df_lr_local_compute, df_lr_init,
+	df_lr_confluence_0, df_lr_confluence_n,
+	df_lr_transfer_function, df_lr_free, df_lr_dump,
+	df_lr_add_problem, df_ur_get_bb_info, df_ur_set_bb_info,
+	df_ur_free_bb_info, df_ur_alloc, df_ur_bb_local_compute,
+	df_ur_local_compute, df_ur_init, df_ur_local_finalize,
+	df_ur_confluence_n, df_ur_transfer_function, df_ur_free,
+	df_ur_dump, df_ur_add_problem, df_urec_get_bb_info,
+	df_urec_set_bb_info, df_urec_free_bb_info, df_urec_alloc,
+	df_urec_mark_reg_change, df_urec_check_earlyclobber,
+	df_urec_mark_reg_use_for_earlyclobber,
+	df_urec_mark_reg_use_for_earlyclobber_1,
+	df_urec_bb_local_compute, df_urec_local_compute,
+	df_urec_init, df_urec_local_finalize, df_urec_confluence_n,
+	df_urec_transfer_function, df_urec_free, df_urec_dump,
+	df_urec_add_problem, df_chain_alloc,
+	df_chain_create_bb_process_use, df_chain_create_bb,
+	df_chain_finalize, df_chain_free, df_chains_dump,
+	df_chain_add_problem, df_ri_alloc, df_ri_bb_compute,
+	df_ri_compute, df_ri_free, df_ri_dump, df_ri_add_problem,
+	df_reg_lifetime) New functions.
+	df.h: Complete rewrite to support new df-problems.c, df-scan.c and 
+	df-core.c.
+
 2005-12-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* bitmap.c (bitmap_clear_range): Removed extra debugging. 
 

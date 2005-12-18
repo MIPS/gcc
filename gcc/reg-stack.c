@@ -3118,9 +3118,9 @@ reg_to_stack (FILE *file)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_LIVE_OUT (rtl_df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (rtl_df, bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }

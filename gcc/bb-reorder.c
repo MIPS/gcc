@@ -2201,11 +2201,8 @@ static void
 rest_of_handle_reorder_blocks (void)
 {
   bool changed;
-  if (rtl_df)
-    {
-      df_finish (rtl_df);
-      rtl_df = NULL;
-    }
+  struct df * saved_df = rtl_df;
+  rtl_df = NULL;
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
@@ -2224,7 +2221,7 @@ rest_of_handle_reorder_blocks (void)
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
     changed |= cleanup_cfg (CLEANUP_EXPENSIVE);
 
-  rtl_df = df_init ();
+  rtl_df = saved_df;
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 		    PROP_DEATH_NOTES);
 

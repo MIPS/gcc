@@ -1762,6 +1762,30 @@ commit_edge_insertions_watch_calls (void)
   sbitmap_free (blocks);
 }
 
+/* Print a regset at the beginning of BB to FILE.  */
+
+static void 
+dump_regset_in (basic_block bb, FILE * file)
+{
+  if (!rtl_df)
+    return;
+  
+  dump_regset (df_get_live_in (rtl_df, bb), file);
+}
+
+
+/* Print a regset at the end of BB to FILE.  */
+
+static void 
+dump_regset_out (basic_block bb, FILE * file)
+{
+  if (!rtl_df)
+    return;
+
+  dump_regset (df_get_live_out (rtl_df, bb), file);
+}
+
+
 /* Print out RTL-specific basic block information (live information
    at start and end).  */
 
@@ -1779,7 +1803,7 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   if (rtl_df)
     {
       fprintf (outf, ";;%s Registers live at start: ", s_indent);
-      dump_regset (DF_LIVE_IN (rtl_df, bb), outf);
+      dump_regset_in (bb, outf);
     
       putc ('\n', outf);
     }
@@ -1791,7 +1815,7 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   if (rtl_df)
     {
       fprintf (outf, ";;%s Registers live at end: ", s_indent);
-      dump_regset (DF_LIVE_OUT (rtl_df, bb), outf);
+      dump_regset_out (bb, outf);
       putc ('\n', outf);
     }
 }
@@ -1843,8 +1867,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	    {
 	      fprintf (outf, ";; Start of basic block %d, registers live:",
 		       bb->index);
-	      if (rtl_df && !bitmap_empty_p (DF_LIVE_IN (rtl_df, bb)))
-		dump_regset (DF_LIVE_IN (rtl_df, bb), outf);
+		dump_regset_in (bb, outf);
 	      putc ('\n', outf);
 	    }
 
@@ -1861,8 +1884,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	    {
 	      fprintf (outf, ";; End of basic block %d, registers live:\n",
 		       bb->index);
-	      if (rtl_df && !bitmap_empty_p (DF_LIVE_OUT (rtl_df, bb)))
-		dump_regset (DF_LIVE_OUT (rtl_df, bb), outf);
+	      dump_regset_out (bb, outf);
 	      putc ('\n', outf);
 	    }
 

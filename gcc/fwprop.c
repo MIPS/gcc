@@ -425,6 +425,28 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
 
 
 
+/* Return true if the register from reference REF is killed
+   between FROM to (but not including) TO.  */
+
+static bool 
+local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
+{
+  while (from != to)
+    {
+      struct df_ref * def = DF_INSN_DEFS (df, from);
+      while (def)
+	{
+	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
+	    return true;
+	  def = def->next_ref;
+	}
+
+      from = NEXT_INSN (from);
+    }
+  return false;
+}
+
+
 /* Check if the given DEF is available in INSN.  This would require full
    computation of available expressions; we check only restricted conditions:
    - if DEF is the sole definition of its register, go ahead;
@@ -434,29 +456,30 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
      we check if the definition is killed after DEF_INSN or before
      TARGET_INSN insn, in their respective basic blocks.  */
 static bool
-use_killed_between (struct ref *use, rtx def_insn, rtx target_insn)
+use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 {
   basic_block def_bb, target_bb;
   int regno;
+  struct df_ref * def;
 
   /* Check if the reg in USE has only one definition.  We already
      know that this definition reaches use, or we wouldn't be here.  */
   regno = DF_REF_REGNO (use);
-  if (df->regs[regno].defs
-      && df->regs[regno].defs->next == NULL)
+  def = DF_REG_DEF_GET (df, regno)->reg_chain;
+  if (def && (def->next_reg == NULL))
     return false;
 
   /* Check if we are in the same basic block.  */
   def_bb = BLOCK_FOR_INSN (def_insn);
   target_bb = BLOCK_FOR_INSN (target_insn);
   if (def_bb == target_bb)
-    return df_local_ref_killed_between_p (df, use, def_insn, target_insn);
+    return local_ref_killed_between_p (use, def_insn, target_insn);
 
   /* Finally, if DEF_BB is the sole predecessor of TARGET_BB.  */
   if (single_pred_p (target_bb)
       && single_pred (target_bb) == def_bb)
     {
-      struct ref *x;
+      struct df_ref *x;
 
       /* See if USE is killed between DEF_INSN and the last insn in the
 	 basic block containing DEF_INSN.  */
@@ -499,7 +522,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
 static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
-  struct df_link *uses;
+  struct df_ref * use;
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -514,17 +537,16 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
-      for (uses = DF_INSN_USES (df, def_insn); uses; uses = uses->next)
-        if (rtx_equal_p (uses->ref->reg, def_reg))
+      for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
+        if (rtx_equal_p (use->reg, def_reg))
           return false;
     }
   else
     {
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
-      for (uses = DF_INSN_USES (df, def_insn); uses; uses = uses->next)
+      for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
 	{
-	  struct ref *use = uses->ref;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
@@ -542,15 +564,15 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
    in the data flow object of the pass.  Mark any new uses as having the
    given TYPE.  */
 static void
-update_df (rtx insn, rtx *loc, struct df_link *orig_uses, enum df_ref_type type,
+update_df (rtx insn, rtx *loc, struct df_ref *orig_uses, enum df_ref_type type,
 	   int new_flags)
 {
-  struct df_link *uses;
+  struct df_ref *use;
 
   /* Else, add a use for the registers that were propagated.  */
-  for (uses = orig_uses; uses; uses = uses->next)
+  for (use = orig_uses; use; use = use->next_ref)
     {
-      struct ref *orig_use = uses->ref, *new_use;
+      struct df_ref *orig_use = use, *new_use;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
 
       if (!new_loc)
@@ -562,8 +584,9 @@ update_df (rtx insn, rtx *loc, struct df_link *orig_uses, enum df_ref_type type,
 			       insn, BLOCK_FOR_INSN (insn),
 			       type, DF_REF_FLAGS (orig_use) | new_flags);
 
-      /* Set up the use-def chain and update the reg-use chain.  */
-      df_insert_use (df, new_use, df_chain_copy (df, DF_REF_CHAIN (orig_use)));
+      /* Set up the use-def chain.  */
+      df_chain_copy (df->problems_by_index[DF_CHAIN], 
+		     new_use, DF_REF_CHAIN (orig_use));
     }
 }
 
@@ -575,7 +598,7 @@ update_df (rtx insn, rtx *loc, struct df_link *orig_uses, enum df_ref_type type,
    performed.  */
 
 static bool
-subst (struct ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
+subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
 {
   rtx insn = DF_REF_INSN (use);
 
@@ -631,7 +654,7 @@ subst (struct ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
 /* If USE is a paradoxical subreg, see if it can be replaced by a pseudo.  */
 
 static bool
-forward_propagate_subreg (struct ref *use, rtx def_insn, rtx def_set)
+forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
 {
   rtx use_reg = DF_REF_REG (use);
   rtx use_insn, src;
@@ -665,7 +688,7 @@ forward_propagate_subreg (struct ref *use, rtx def_insn, rtx def_set)
    result.  */
 
 static bool
-forward_propagate_and_simplify (struct ref *use, rtx def_insn, rtx def_set)
+forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
 {
   rtx use_insn = DF_REF_INSN (use);
   rtx use_set = single_set (use_insn);
@@ -756,10 +779,10 @@ forward_propagate_and_simplify (struct ref *use, rtx def_insn, rtx def_set)
    definition, try to forward propagate it into that insn.  */
 
 static void
-forward_propagate_into (struct ref *use)
+forward_propagate_into (struct df_ref *use)
 {
   struct df_link *defs;
-  struct ref *def;
+  struct df_ref *def;
   rtx def_insn, def_set, use_insn;
   rtx parent;  
 
@@ -806,11 +829,10 @@ forward_propagate_into (struct ref *use)
 static void
 fwprop_init (void)
 {
-  int df_flags = DF_UD_CHAIN | DF_RD_CHAIN | DF_RU_CHAIN | DF_SUBREGS | DF_EQUIV_NOTES;
-
   num_changes = 0;
-  df = df_init ();
-  df_analyze (df, NULL, df_flags);
+  df = df_init (DF_SUBREGS | DF_EQUIV_NOTES);
+  df_chain_add_problem (df, DF_UD_CHAIN);
+  df_analyze (df);
   df_dump (df, dump_file);
 
   if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
@@ -863,13 +885,16 @@ fwprop (void)
 
      Do not forward propagate addresses into loops until after unrolling.
      CSE did so because it was able to fix its own mess, but we are not.  */
-  for (i = 0; i < df->n_uses; i++)
+
+  df_reorganize_refs (&df->use_info);
+  for (i = 0; i < DF_USES_SIZE (df); i++)
     {
-      struct ref *use = df->uses[i];
-      if (loops.num == 0
-	  || DF_REF_TYPE (use) == DF_REF_REG_USE
-          || DF_REF_BB (use)->loop_father == NULL)
-        forward_propagate_into (use);
+      struct df_ref *use = DF_USES_GET (df, i);
+      if (use)
+	if (loops.num == 0
+	    || DF_REF_TYPE (use) == DF_REF_REG_USE
+	    || DF_REF_BB (use)->loop_father == NULL)
+	  forward_propagate_into (use);
     }
 
   fwprop_done ();
@@ -907,12 +932,14 @@ fwprop_addr (void)
 
   /* Go through all the uses.  update_df will create new ones at the
      end, and we'll go through them as well.  */
-  for (i = 0; i < df->n_uses; i++)
+  df_reorganize_refs (&df->use_info);
+  for (i = 0; i < DF_USES_SIZE (df); i++)
     {
-      struct ref *use = df->uses[i];
-      if (DF_REF_TYPE (use) != DF_REF_REG_USE
-          && DF_REF_BB (use)->loop_father != NULL)
-      forward_propagate_into (df->uses[i]);
+      struct df_ref *use = DF_USES_GET (df, i);
+      if (use)
+	if (DF_REF_TYPE (use) != DF_REF_REG_USE
+	    && DF_REF_BB (use)->loop_father != NULL)
+	  forward_propagate_into (use);
     }
 
   fwprop_done ();

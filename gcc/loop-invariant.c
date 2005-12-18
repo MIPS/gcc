@@ -310,7 +310,8 @@ find_defs (struct loop *loop, basic_block *body, struct df *df)
   for (i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (blocks, body[i]->index);
 
-  df_analyze_subcfg (df, blocks, DF_UD_CHAIN | DF_HARD_REGS | DF_EQUIV_NOTES);
+  df_set_blocks (df, blocks);
+  df_analyze (df);
   BITMAP_FREE (blocks);
 }
 
@@ -379,15 +380,13 @@ record_use (struct def *def, rtx *use, rtx insn)
 static bool
 check_dependencies (rtx insn, struct df *df, bitmap depends_on)
 {
-  struct df_link *uses, *defs;
-  struct ref *use, *def;
+  struct df_link *defs;
+  struct df_ref *use, *def;
   basic_block bb = BLOCK_FOR_INSN (insn), def_bb;
   struct def *def_data;
   
-  for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
+  for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
     {
-      use = uses->ref;
-
       defs = DF_REF_CHAIN (use);
       if (!defs)
 	continue;
@@ -419,7 +418,7 @@ static void
 find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
 		     struct df *df)
 {
-  struct ref *ref;
+  struct df_ref *ref;
   struct def *def;
   bitmap depends_on;
   rtx set, dest;
@@ -480,14 +479,12 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
 static void
 record_uses (rtx insn, struct df *df)
 {
-  struct df_link *uses, *defs;
-  struct ref *use, *def;
+  struct df_link *defs;
+  struct df_ref *use, *def;
   basic_block bb = BLOCK_FOR_INSN (insn), def_bb;
   
-  for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
+  for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
     {
-      use = uses->ref;
-
       defs = DF_REF_CHAIN (use);
       if (!defs || defs->next)
 	continue;
@@ -728,6 +725,7 @@ find_invariants_to_move (struct df *df)
 {
   unsigned i, regs_used, n_inv_uses, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
+  unsigned int n_regs = DF_REG_SIZE (df);
 
   if (!VEC_length (invariant_p, invariants))
     return;
@@ -740,7 +738,7 @@ find_invariants_to_move (struct df *df)
      here to stand for induction variables etc. that we do not detect.  */
   regs_used = 2;
 
-  for (i = 0; i < df->n_regs; i++)
+  for (i = 0; i < n_regs; i++)
     {
       if (!DF_REGNO_FIRST_DEF (df, i) && DF_REGNO_LAST_USE (df, i))
 	{
@@ -795,8 +793,13 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
      need to create a temporary register.  */
   set = single_set (inv->insn);
   reg = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+
+#if 0
   df_pattern_emit_after (df, gen_move_insn (SET_DEST (set), reg),
 			 BLOCK_FOR_INSN (inv->insn), inv->insn);
+#else
+  emit_insn_after (gen_move_insn (SET_DEST (set), reg), inv->insn);
+#endif
 
   /* If the SET_DEST of the invariant insn is a reg, we can just move
      the insn out of the loop.  Otherwise, we have to use gen_move_insn
@@ -805,13 +808,20 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
     {
       SET_DEST (set) = reg;
       reorder_insns (inv->insn, inv->insn, BB_END (preheader));
+#if 0
       df_insn_modify (df, preheader, inv->insn);
+#endif
     }
   else
     {
+#if 0
       df_pattern_emit_after (df, gen_move_insn (reg, SET_SRC (set)),
 			     preheader, BB_END (preheader));
       df_insn_delete (df, BLOCK_FOR_INSN (inv->insn), inv->insn);
+#else
+      emit_insn_after (gen_move_insn (reg, SET_SRC (set)), BB_END (preheader));
+      delete_insn (inv->insn);
+#endif
     }
 
   /* Replace the uses we know to be dominated.  It saves work for copy
@@ -822,7 +832,9 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
       for (use = inv->def->uses; use; use = use->next)
 	{
 	  *use->pos = reg;
+#if 0
 	  df_insn_modify (df, BLOCK_FOR_INSN (use->insn), use->insn);
+#endif
 	}
     }
 }
@@ -862,19 +874,21 @@ free_inv_motion_data (struct df *df)
   unsigned i;
   struct def *def;
   struct invariant *inv;
+  unsigned int n_defs = DF_DEFS_SIZE (df);
 
-  for (i = 0; i < df->n_defs; i++)
+  for (i = 0; i < n_defs; i++)
     {
-      if (!df->defs[i])
+      struct df_ref * ref = DF_DEFS_GET (df, i);
+      if (!ref)
 	continue;
 
-      def = DF_REF_DATA (df->defs[i]);
+      def = DF_REF_DATA (ref);
       if (!def)
 	continue;
 
       free_use_list (def->uses);
       free (def);
-      DF_REF_DATA (df->defs[i]) = NULL;
+      DF_REF_DATA (ref) = NULL;
     }
 
   for (i = 0; VEC_iterate (invariant_p, invariants, i, inv); i++)
@@ -917,8 +931,10 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-  struct df *df = df_init ();
 
+  struct df *df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES);
+  df_chain_add_problem (df, DF_UD_CHAIN);
+ 
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;
   while (loop->inner)
@@ -943,6 +959,7 @@ move_loop_invariants (struct loops *loops)
       free_loop_data (loops->parray[i]);
 
   df_finish (df);
+  df = NULL;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

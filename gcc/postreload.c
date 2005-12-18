@@ -742,8 +742,8 @@ reload_combine (void)
 	{
 	  HARD_REG_SET live;
 
-	  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (rtl_df, bb));
-	  compute_use_by_pseudos (&live, DF_LIVE_IN (rtl_df, bb));
+	  REG_SET_TO_HARD_REG_SET (live, DF_RA_LIVE_IN (rtl_df, bb));
+	  compute_use_by_pseudos (&live, DF_RA_LIVE_IN (rtl_df, bb));
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}
@@ -1576,7 +1576,7 @@ rest_of_handle_postreload (void)
 {
   /* Do a very simple CSE pass over just the hard registers.  */
   reload_cse_regs (get_insns ());
-  /* reload_cse_regs can eliminate potentially-trapping MEMs.
+  /* Reload_cse_regs can eliminate potentially-trapping MEMs.
      Remove any EH edges associated with them.  */
   if (flag_non_call_exceptions)
     purge_all_dead_edges ();

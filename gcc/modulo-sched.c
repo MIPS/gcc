@@ -976,8 +976,11 @@ sms_schedule (FILE *dump_file)
   sched_init (NULL);
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init ();
-  df_analyze (df, 0, DF_ALL);
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
+  df_rd_add_problem (df);
+  df_ru_add_problem (df);
+  df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
+  df_analyze (df);
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
@@ -1091,6 +1094,7 @@ sms_schedule (FILE *dump_file)
 
   /* Release Data Flow analysis data structures.  */
   df_finish (df);
+  df = NULL;
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
   num_loops = loops->num;

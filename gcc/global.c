@@ -336,10 +336,18 @@ global_alloc (FILE *file)
 
   size_t i;
   rtx x;
+  df_finish (rtl_df);
+  rtl_df = NULL;
 
   max_regno = max_reg_num ();
   compact_blocks ();
-  df_analyze (rtl_df, 0, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_USES);
+
+  /* Create a new version of df that has the special version of UR.  */
+  rtl_df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (rtl_df);
+  df_urec_add_problem (rtl_df);
+
+  df_analyze (rtl_df);
   if (dump_file)
     df_dump (rtl_df, dump_file);
   max_allocno = 0;
@@ -700,7 +708,7 @@ global_conflicts (void)
 	 be explicitly marked in basic_block_live_at_start.  */
 
       {
-	regset old = DF_LIVE_IN (rtl_df, b);
+	regset old = DF_RA_LIVE_IN (rtl_df, b);
 	int ax = 0;
 	reg_set_iterator rsi;
 
@@ -1734,7 +1742,7 @@ mark_elimination (int from, int to)
 
   FOR_EACH_BB (bb)
     {
-      regset r = DF_LIVE_IN (rtl_df, bb);
+      regset r = DF_RA_LIVE_IN (rtl_df, bb);
       if (REGNO_REG_SET_P (r, from))
 	{
 	  CLEAR_REGNO_REG_SET (r, from);
@@ -1824,7 +1832,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (DF_LIVE_IN (rtl_df, b), 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_IN (rtl_df, b), 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
@@ -1997,16 +2005,23 @@ rest_of_handle_global_alloc (void)
   /* If optimizing, allocate remaining pseudo-regs.  Do the reload
      pass fixing up any insns that are invalid.  */
 
-  df_set_state (rtl_df, DF_SCAN_GLOBAL); 
+  df_set_state (DF_SCAN_GLOBAL); 
   if (optimize)
     failure = global_alloc (dump_file);
   else
     {
+      df_finish (rtl_df);
+      rtl_df = NULL;
+      rtl_df = df_init (DF_HARD_REGS);
+      df_lr_add_problem (rtl_df);
+      df_urec_add_problem (rtl_df);
+      df_analyze (rtl_df);
+
       build_insn_chain (get_insns ());
       failure = reload (get_insns (), 0);
     }
 
-  df_set_state (rtl_df, DF_SCAN_POST_ALLOC); 
+  df_set_state (DF_SCAN_POST_ALLOC); 
   if (dump_enabled_p (pass_global_alloc.static_pass_number))
     {
       timevar_push (TV_DUMP);

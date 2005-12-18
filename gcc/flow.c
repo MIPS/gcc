@@ -51,7 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    The information about where each register is live is in two parts:
    the REG_NOTES of insns, and the df live variable info.
 
-   DF_LIVE_IN (rtl_df, basic_block) has an element for each basic
+   GET_DF_LIVE_IN (rtl_df, basic_block) has an element for each basic
    block, and the element is a bit-vector with a bit for each hard or
    pseudo register.  The bit is 1 if the register is live at the
    beginning of the basic block.
@@ -527,12 +527,12 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
       reg_set_iterator rsi;
 
       /* Find the set of changed registers.  */
-      XOR_REG_SET (new_live_at_start, DF_LIVE_IN (rtl_df, bb));
+      XOR_REG_SET (new_live_at_start, df_get_live_in (rtl_df, bb));
 
       EXECUTE_IF_SET_IN_REG_SET (new_live_at_start, 0, i, rsi)
 	{
 	  /* No registers should die.  */
-	  if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb), i))
+	  if (REGNO_REG_SET_P (df_get_live_in (rtl_df, bb), i))
 	    {
 	      if (stderr)
 		{
@@ -621,8 +621,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
       for ( ; ; )
 	{
 	  int changed = 0;
-	  
-	  df_analyze (rtl_df, blocks_in_bitmap, DF_LR | DF_UR | DF_HARD_REGS | DF_ARTIFICIAL_USES);
+	  df_rescan_blocks (rtl_df, blocks_in_bitmap);
+	  df_analyze (rtl_df);
 
 	  if ((prop_flags & (PROP_KILL_DEAD_CODE | PROP_ALLOW_CFG_CHANGES))
 	      != (PROP_KILL_DEAD_CODE | PROP_ALLOW_CFG_CHANGES))
@@ -635,7 +635,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	      if (prop_flags & PROP_NO_UNINITIALIZED_LL)
 		COPY_REG_SET (tmp, DF_UPWARD_LIVE_OUT (rtl_df, bb));
 	      else
-		COPY_REG_SET (tmp, DF_LIVE_OUT (rtl_df, bb));
+		COPY_REG_SET (tmp, df_get_live_out (rtl_df, bb));
 	      changed |= propagate_block (bb, tmp, NULL, NULL,
 				prop_flags & (PROP_SCAN_DEAD_CODE
 					      | PROP_SCAN_DEAD_STORES
@@ -657,6 +657,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	     instructions deleted above, that might have been only a
 	     partial improvement (see PARAM_MAX_FLOW_MEMORY_LOCATIONS  usage).
 	     Further improvement may be possible.  */
+
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	}
 
@@ -676,11 +677,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
       EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
 	{
 	  bb = BASIC_BLOCK (i);
-
-	  if (stabilized_prop_flags & PROP_NO_UNINITIALIZED_LL)
-	    COPY_REG_SET (tmp, DF_UPWARD_LIVE_OUT (rtl_df, bb));
-	  else
-	    COPY_REG_SET (tmp, DF_LIVE_OUT (rtl_df, bb));
+	  COPY_REG_SET (tmp, df_get_live_out (rtl_df, bb));
 	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 /* 	  if (extent == UPDATE_LIFE_LOCAL) */
 /* 	    verify_local_live_at_start (tmp, bb); */
@@ -690,10 +687,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
     {
       FOR_EACH_BB_REVERSE (bb)
 	{
-	  if (stabilized_prop_flags & PROP_NO_UNINITIALIZED_LL)
-	    COPY_REG_SET (tmp, DF_UPWARD_LIVE_OUT (rtl_df, bb));
-	  else
-	    COPY_REG_SET (tmp, DF_LIVE_OUT (rtl_df, bb));
+	  COPY_REG_SET (tmp, df_get_live_out (rtl_df, bb));
 
 	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 /* 	  if (extent == UPDATE_LIFE_LOCAL) */
@@ -711,7 +705,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	 are those that were not set anywhere in the function.  local-alloc
 	 doesn't know how to handle these correctly, so mark them as not
 	 local to any one basic block.  */
-      EXECUTE_IF_SET_IN_REG_SET (DF_LIVE_OUT (rtl_df, ENTRY_BLOCK_PTR),
+      EXECUTE_IF_SET_IN_REG_SET (df_get_live_out (rtl_df, ENTRY_BLOCK_PTR),
 				 FIRST_PSEUDO_REGISTER, i, rsi)
 	REG_BASIC_BLOCK (i) = REG_BLOCK_GLOBAL;
 
@@ -971,7 +965,7 @@ initialize_uninitialized_subregs (void)
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       basic_block bb = e->dest;
-      regset map = DF_LIVE_IN (rtl_df, bb);
+      regset map = df_get_live_in (rtl_df, bb);
       reg_set_iterator rsi;
 
       EXECUTE_IF_SET_IN_REG_SET (map, FIRST_PSEUDO_REGISTER, reg, rsi)
@@ -1314,7 +1308,7 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	  if (flags & PROP_NO_UNINITIALIZED_LL)
 	    live_at_end = DF_UPWARD_LIVE_IN (rtl_df, EXIT_BLOCK_PTR);
 	  else
-	    live_at_end = DF_LIVE_IN (rtl_df, EXIT_BLOCK_PTR);
+	    live_at_end = df_get_live_in (rtl_df, EXIT_BLOCK_PTR);
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i)
 		&& ! (sibcall_p
@@ -1450,14 +1444,9 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 
       /* Compute which register lead different lives in the successors.  */
 
-      if (flags & PROP_NO_UNINITIALIZED_LL)
-	bitmap_xor (diff, 
-		    DF_UPWARD_LIVE_IN (rtl_df, bb_true), 
-		    DF_UPWARD_LIVE_IN (rtl_df, bb_false));
-      else 
-	bitmap_xor (diff, 
-		    DF_LIVE_IN (rtl_df, bb_true), 
-		    DF_LIVE_IN (rtl_df, bb_false));
+      bitmap_xor (diff, 
+		  df_get_live_in (rtl_df, bb_true), 
+		  df_get_live_in (rtl_df, bb_false));
       
       if (!bitmap_empty_p (diff))
 	  {
@@ -1501,10 +1490,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		  rtx cond;
 		  bool true_in;
 
-		  if (flags & PROP_NO_UNINITIALIZED_LL)
-		    true_in = REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb_true), i);
-		  else
-		    true_in = REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, bb_true), i);
+		  true_in = REGNO_REG_SET_P (df_get_live_in (rtl_df, bb_true), i);
 		  if (true_in)
 		    cond = cond_false;
 		  else
@@ -1937,7 +1923,7 @@ regno_clobbered_at_setjmp (int regno)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (DF_LIVE_OUT (rtl_df, ENTRY_BLOCK_PTR), regno))
+	   || REGNO_REG_SET_P (df_get_live_out (rtl_df, ENTRY_BLOCK_PTR), regno))
 	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
 }
 
@@ -4026,7 +4012,10 @@ static void
 rest_of_handle_life (void)
 {
   regclass_init ();
-  rtl_df = df_init ();
+  df_set_state (DF_SCAN_INITIAL);
+  rtl_df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (rtl_df);
+  df_ur_add_problem (rtl_df);
 
   life_analysis (dump_file, PROP_FINAL);
   if (optimize)

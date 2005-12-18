@@ -697,6 +697,7 @@ init_optimization_passes (void)
 
   p = &pass_postreload.sub;
   NEXT_PASS (pass_postreload_cse);
+  NEXT_PASS (pass_reset_df_after_reload);
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_flow2);
   NEXT_PASS (pass_stack_adjustments);

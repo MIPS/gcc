@@ -3114,7 +3114,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
     }
   else
     new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb),
-                                             else_bb);
+					     else_bb);
 
   then_bb_index = then_bb->index;
   delete_basic_block (then_bb);
@@ -3124,14 +3124,18 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   if (new_bb)
     {
       int old_index = new_bb->index;
+
 #if 0
-      new_bb->index = then_bb_index;
-#endif     
       /* This is so rude.  */
-      df_bb_replace (rtl_df, then_bb_index, new_bb);
-#if 0
-      BASIC_BLOCK (then_bb_index) = new_bb;
+      if (rtl_df)
+	df_bb_replace (rtl_df, then_bb_index, new_bb);
+      else
 #endif
+	{
+	  new_bb->index = then_bb_index;
+	  BASIC_BLOCK (then_bb_index) = new_bb;
+	}
+
       BASIC_BLOCK (old_index) = NULL;
       /* Since the fallthru edge was redirected from test_bb to new_bb,
          we need to ensure that new_bb is in the same partition as
@@ -3146,7 +3150,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
     }
   else
     df_analyze_simple_change_one_block (rtl_df, test_bb);
-   
+
   num_true_changes++;
   num_updated_if_blocks++;
 
@@ -3548,11 +3552,25 @@ if_convert (int x_life_data_ok)
 	  || !targetm.have_named_sections))
     {
       struct loops loops;
+      bool had_df = rtl_df != NULL;
+      if (had_df)
+	{
+	  df_finish (rtl_df);
+	  rtl_df = NULL;
+	}
 
       flow_loops_find (&loops);
       mark_loop_exit_edges (&loops);
       flow_loops_free (&loops);
       free_dominance_info (CDI_DOMINATORS);
+
+      if (had_df)
+	{
+	  rtl_df = df_init (DF_HARD_REGS);
+	  df_lr_add_problem (rtl_df);
+	  df_ur_add_problem (rtl_df);
+	  df_analyze (rtl_df);
+	}
     }
 
   /* Compute postdominators if we think we'll use them.  */
