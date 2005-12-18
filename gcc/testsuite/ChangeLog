@@ -1,3 +1,24 @@
+2005-12-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/25481
+	* gcc.dg/torture/pr25481.c: New testcase.
+
+2005-12-18  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-optimization/21041
+	* gcc.dg/pr21041.c: New test.
+
+2005-12-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20051201-1.c: New test.
+
+2005-12-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25018
+	*gfortran.dg/initialization_1.f90: New test.
+	*gfortran.dg/enum_5.f90: Change dg-error to new message.
+	*gfortran.dg/g77/980616-0.f: The same.
+
 2005-12-17  Steven G. Kargl  <kargls@comcast.net>
 
 	* PR fortran/25458

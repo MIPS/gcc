@@ -1,3 +1,245 @@
+2005-12-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/25481
+	* tree-ssa-structalias.c (handle_ptr_arith): Handle
+	accesses we don't have a varinfo for.
+
+2005-12-17  Jon Grimm  <jgrimm2@us.ibm.com>
+	    Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* optabs.c (init_floating_libfuncs): Handle decimal float modes.
+	(init_optabs): Handle libfuncs for decimal float.
+	* genopinit.c (gen_insn): Handle MODE_DECIMAL_FLOAT.
+	* stor-layout.c (int_mode_for_mode): Likewise.
+	* simplify-rtx.c (simplify_immed_subreg): Likewise.
+	(simplify_unary_operation_1): Skip optimisations for decimal float
+	modes.
+	* varasm.c (output_constant_pool_2): Handle MODE_DECIMAL_FLOAT.
+	* emit-rtl.c (gen_const_vector): Add assertion check.
+	(init_emit_once): Populate const_tiny_rtx with constants in each
+	decimal float mode.
+	* expmed.c (extract_high_half, expand_mult_highpart_optab,
+	expand_mult_highpart): Assert that mode is not a scalar float
+	mode.
+	* expr.c (convert_move): Handle conversion between decimal and
+	binary floats of the same size.
+	* convert.c (convert_to_real): Consider decimal float types when
+	folding.
+	* dwarf2out.c (base_type_die): Use DW_ATE_decimal_float to
+	describe decimal floating point types.
+	
+2005-12-18  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-optimization/21041
+	* reload.c (find_reloads_subreg_address): Replace paradoxical
+	subreg of MEM by widened access only if the resulting memory
+	is properly aligned, even on !STRICT_ALIGNMENT targets.
+
+2005-12-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* tree-cfg.c (tree_flow_call_edges_add): Check for empty basic blocks.
+
+2005-12-18  Steven Bosscher  <stevenb@suse.de>
+
+	* gcse.c (gcse_main, bypass_jumps): Fix non-GNU-isms from
+	the 2005-12-17 patch to renumber the entry and exit blocks.
+
+2005-12-18  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* doc/objc.texi (Type encoding): Fix typo.
+
+2005-12-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* tree-tailcall.c (find_tail_calls): Use XNEW.
+	* tree-ssa-dom.c (allocate_edge_info): Use XCNEW.
+	(free_all_edge_infos): Use explicit cast to convert from void *.
+	(vrp_free): Likewise.
+	(dom_opt_finalize_block): Likewise.
+	(record_equivalences_from_incoming_edge): Likewise.
+	(thread_across_edge): Likewise.  Use XCNEWVEC.
+	(record_cond): Use XCNEW.
+	(record_conditions): Use XNEWVEC.
+	(record_edge_info): Use XCNEWVEC.
+	(lookup_avail_expr): Use XNEW.
+	(record_range): Likewise.  Use GGC_NEW.
+	* tree-nested.c (var_map_hash): Use explicit cast to convert from
+	void *.
+	(var_map_eq): Likewise.
+	(lookup_field_for_decl): Likewise.
+	(convert_nonlocal_reference): Likewise.
+	(convert_local_reference): Likewise.
+	(convert_nl_goto_reference): Likewise.
+	(convert_nl_goto_receiver): Likewise.
+	(convert_call_expr): Likewise.
+	(convert_tramp_reference): Likewise.
+	(lookup_tramp_for_decl): Likewise.Use GGC_NEW.
+	(convert_nl_goto_reference): Likewise.
+	(lookup_field_for_decl): Use GGC_NEW.
+	(create_nesting_tree): Use GGC_CNEW.
+	* tree-ssa-phiopt.c (blocks_in_phiopt_order): Use XNEWVEC.
+	* tree-ssa-alias.c (init_alias_info): Use XCNEW.
+	(create_alias_map_for): Likewise.
+	(setup_pointers_and_addressables): Use XCNEWVEC.
+	(get_ptr_info): Use GGC_NEW.
+	(used_part_map_eq): Use explicit cast to convert from void *.
+	(up_lookup): Likewise.
+	(up_insert): Use XNEW.
+	(get_or_create_used_part_for): Use XCNEW.
+	(get_tmt_for): Likewise.
+	* tree-ssa-operands.c (ssa_operand_alloc): Use GGC_NEW.
+	* tree-ssa-pre.c (phi_trans_add): Use XNEW.
+	(bitmap_set_new): Use explicit cast to convert from void *.
+	(set_new): Likewise.
+	(insert_into_set): Likewise.
+	(pool_copy_list): Likewise.
+	(phi_translate): Likewise.
+	(create_value_expr_from): Likewise.
+	(insert_aux): Use XCNEWVEC.
+	(compute_avail): Use XNEWVEC.
+	* tree-ssa-live.c (calculate_live_on_entry): Likewise.
+	(sort_coalesce_list): Likewise.
+	(build_tree_conflict_graph): Use XCNEWVEC.
+	* tree-ssa-dce.c (tree_dce_init): Use XNEWVEC.
+	* tree-ssa-copy.c (init_copy_prop): Likewise.
+	(fini_copy_prop): Likewise.
+	* tree-ssa-uncprop.c (associate_equivalences_with_edges): Use XNEW
+	and XCNEWVEC.
+	(record_equiv): Use XNEW.
+	(uncprop_into_successor_phis): Use explicit cast to convert from
+	void *.
+	(uncprop_initialize_block): Likewise.
+
+2005-12-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/24378	
+	* tree-vect-transform.c (vect_transform_loop): Create single-predecessor
+	basic-block after loop-versioning. 
+
+2005-12-18  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (simplify_switch_and_lookup_avail_expr): Code
+	to simplify SWITCH_EXPR_CODE moved from here to ...
+	* tree-ssa-forwprop.c (simplify_switch_expr): Here.
+	(tree-ssa-forward_propagate_single_use_vars): Call
+	simplify_switch_expr when appropriate.
+
+2005-12-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* doc/objc.texi (Type encoding): Add documentation about encoding
+	complex types and _Bool.
+
+2005-12-17  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.md (m68k_output_function_prologue): Always call
+	dwarf2out_def_cfa. Only add space for frame pointer to cfa_offset
+	when frame_pointer_needed. 
+
+2005-12-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* tree-vn.c (vn_add): Use XNEW.
+	* tree-ssa-ccp.c (ccp_initialize): Use XNEWVEC.
+	(ccp_fold): Likewise.
+	(fold_stmt_r): Use explicit cast to convert from void *.
+	* tree-outof-ssa.c (new_temp_expr_table): Use XCNEWVEC.
+	(new_temp_expr_table): Likewise.
+	* gimplify.c (lookup_tmp_var): Use XNEW.
+	(gimplify_asm_expr): Use explcit cast to convert from void *.
+	* tree-into-ssa.c (get_ssa_name_ann): Likewise.
+	(get_def_blocks_for): Use XNEW.
+	(add_to_repl_tbl): Likewise.
+	(mark_def_sites): Use explicit cast to convert from void *.
+	(def_blocks_free): Likewise.
+	(mark_def_sites_initialize_block): Likewise.
+	(update_ssa): Use XNEWVEC.
+	* tree-dfa.c (create_var_ann): Use GGC_NEW.
+	(create_stmt_ann): Likewise.
+	(create_tree_ann): Likewise.
+	(referenced_var_insert): Likewise.
+	(set_default_def): Likewise.
+	(referenced_var_lookup_if_exists): Use explicit cast to convert
+	from void *.
+	(referenced_var_lookup): Likewise.
+	(default_def): Likewise.
+	(set_default_def): Likewise.
+	* tree-cfg.c (create_bb): Likewise.
+	(edge_to_cases_cleanup): Likewise.
+	(verify_node_sharing): Likewise.
+	(record_switch_edge): Use XNEW.
+	(cleanup_dead_labels): Use XCNEWVEC.
+	(tree_duplicate_sese_region): Use XNEWVEC.
+	* tree-scalar-evolution.c (get_instantiated_value): Likewise.
+	* tree-ssa.c (verify_ssa): Use XCNEWVEC.
+	(int_tree_map_eq): Use explicit cast to convert from void *.
+	* libgcov.c (gcov_exit): Use explicit cast to convert from void *.
+	(__gcov_execl): Likewise.
+	(__gcov_execlp): Likewise.
+	(__gcov_execle): Likewise.
+	* tree-eh.c (struct_ptr_eq): Likewise.
+	(struct_ptr_hash): Likewise.
+	(lookup_stmt_eh_region_fn): Likewise.
+	(outside_finally_tree): Likewise.
+	(find_goto_replacement): Likewise.
+	(make_eh_edge): Likewise.
+	(mark_eh_edge): Likewise.
+	(add_stmt_to_eh_region_fn): Use GGC_NEW.
+	(record_in_finally_tree): Use XNEW.
+	(maybe_record_in_goto_queue): Use XRESIZEVEC.
+	(lower_try_finally_copy): Use XCNEWVEC.
+
+2005-12-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* tree-inline.c (copy_body_r): Use explicit cast when converting
+	from void *.
+	(copy_bb): Likewise.
+	(copy_edges_for_bb): Likewise.
+	(remap_decl_1): Likewise.
+	(estimate_num_insns_1): Likewise.
+	* cgraph.c (hash_node): Use explicit cast when converting from
+	void *.
+	(eq_node): Likewise.
+	(cgraph_create_node): Use GGC_CNEW.
+	(cgraph_create_edge): Use GGC_NEW.
+	(cgraph_remove_node): Use explicit cast when converting from void *.
+	(hash_varpool_node): Likewise.
+	(eq_varpool_node): Likewise.
+	(cgraph_varpool_node): Use GGC_CNEW.
+	* lambda.h (lambda_vector_new): Use GGC_CNEWVEC.
+	* tree-scalar-evolution.c (new_scev_info_str): Use XNEW.
+	(eq_scev_info): Use explicit cast when converting from void *.
+	(find_var_scev_info): Likewise.
+	(set_instantiated_value): Likewise.
+	(gather_stats_on_scev_database_1): Likewise.
+	* cfgloop.h (simple_loop_desc): Use explicit cast when converting
+	from void *.
+	* c-pch.c (c_common_write_pch): Use XNEWVEC.
+	(c_common_read_pch): Likewise.
+	* prefix.c (save_string): Use XNEWVEC.
+	(translate_name): Use explicit cast when converting from void *.
+	* c-ppoutput.c (print_line): Use explicit cast when converting
+	from void *.
+	(pp_dir_change): Likewise.
+	* c-cppbuiltin.c (builtin_define_std): Likewise.
+	(builtin_define_with_value): Likewise.
+	(builtin_define_with_value_n): Likewise.
+	(builtin_define_with_int_value): Likewise.
+	(builtin_define_type_max): Likewise.
+	* c-incpath.c (add_env_var_paths): Use XNEWVEC.
+	(add_path): Use XNEW.
+	* c-format.c (check_format_info_main): Use GGC_NEW.
+	(format_type_warning): Use explicit cast when converting from void *.
+	* c-typeck.c (alloc_tagged_tu_seen_cache): Use XNEW instead of
+	xmalloc. 
+	(start_init): Likewise.
+	* tree-flow-inline.h (first_referenced_var): Use explicit cast
+	when converting from void *.
+	(next_referenced_var): Likewise.
+	* c-pragma.c (push_alignment): Use GGC_NEW instead of ggc_alloc.
+	* gensupport.c (lookup_predicate): Use explicit cast to convert
+	from void *.
+	(init_predicate_table): Use XCNEW instead of xcalloc.
+	* genpreds.c (process_define_predicate): Likewise.
+
 2005-12-17  Danny Berlin <dberlin@dberlin.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 

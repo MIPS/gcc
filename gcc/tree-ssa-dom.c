@@ -274,7 +274,6 @@ static void record_cond (tree, tree);
 static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
 static tree simplify_cond_and_lookup_avail_expr (tree, stmt_ann_t, int);
-static tree simplify_switch_and_lookup_avail_expr (tree, int);
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
@@ -316,7 +315,7 @@ allocate_edge_info (edge e)
 {
   struct edge_info *edge_info;
 
-  edge_info = xcalloc (1, sizeof (struct edge_info));
+  edge_info = XCNEW (struct edge_info);
 
   e->aux = edge_info;
   return edge_info;
@@ -339,7 +338,7 @@ free_all_edge_infos (void)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
         {
-	 struct edge_info *edge_info = e->aux;
+	 struct edge_info *edge_info = (struct edge_info *) e->aux;
 
 	  if (edge_info)
 	    {
@@ -357,7 +356,7 @@ free_all_edge_infos (void)
 static void
 vrp_free (void *data)
 {
-  struct vrp_hash_elt *elt = data;
+  struct vrp_hash_elt *elt = (struct vrp_hash_elt *) data;
   struct VEC(vrp_element_p,heap) **vrp_elt = &elt->records;
 
   VEC_free (vrp_element_p, heap, *vrp_elt);
@@ -771,7 +770,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  unsigned int num, i = 0;
 
 	  num = NUM_SSA_OPERANDS (stmt, (SSA_OP_USE | SSA_OP_VUSE));
-	  copy = xcalloc (num, sizeof (tree));
+	  copy = XCNEWVEC (tree, num);
 
 	  /* Make a copy of the uses & vuses into USES_COPY, then cprop into
 	     the operands.  */
@@ -878,7 +877,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* Stuff the operator and operands into our dummy conditional
 	     expression, creating the dummy conditional if necessary.  */
-	  dummy_cond = walk_data->global_data;
+	  dummy_cond = (tree) walk_data->global_data;
 	  if (! dummy_cond)
 	    {
 	      dummy_cond = build2 (cond_code, boolean_type_node, op0, op1);
@@ -935,7 +934,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      struct edge_info *edge_info;
 
 	      if (e->aux)
-		edge_info = e->aux;
+		edge_info = (struct edge_info *) e->aux;
 	      else
 		edge_info = allocate_edge_info (e);
 	      edge_info->redirection_target = taken_edge;
@@ -1120,7 +1119,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  VEC_safe_push (tree, heap, avail_exprs_stack, NULL_TREE);
 	  VEC_safe_push (tree, heap, const_and_copies_stack, NULL_TREE);
 
-	  edge_info = true_edge->aux;
+	  edge_info = (struct edge_info *) true_edge->aux;
 
 	  /* If we have info associated with this edge, record it into
 	     our equivalency tables.  */
@@ -1161,7 +1160,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  struct edge_info *edge_info;
 	  unsigned int i;
 
-	  edge_info = false_edge->aux;
+	  edge_info = (struct edge_info *) false_edge->aux;
 
 	  /* If we have info associated with this edge, record it into
 	     our equivalency tables.  */
@@ -1378,7 +1377,7 @@ record_equivalences_from_incoming_edge (basic_block bb)
     {
       unsigned int i;
 
-      edge_info = e->aux;
+      edge_info = (struct edge_info *) e->aux;
 
       if (edge_info)
 	{
@@ -1497,7 +1496,7 @@ record_var_is_nonzero (tree var)
 static void
 record_cond (tree cond, tree value)
 {
-  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
+  struct expr_hash_elt *element = XCNEW (struct expr_hash_elt);
   void **slot;
 
   initialize_hash_element (cond, value, element);
@@ -1547,7 +1546,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     case LT_EXPR:
     case GT_EXPR:
       edge_info->max_cond_equivalences = 12;
-      edge_info->cond_equivalences = xmalloc (12 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 12);
       build_and_record_new_cond ((TREE_CODE (cond) == LT_EXPR
 				  ? LE_EXPR : GE_EXPR),
 				 op0, op1, &edge_info->cond_equivalences[4]);
@@ -1562,14 +1561,14 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     case GE_EXPR:
     case LE_EXPR:
       edge_info->max_cond_equivalences = 6;
-      edge_info->cond_equivalences = xmalloc (6 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 6);
       build_and_record_new_cond (ORDERED_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       break;
 
     case EQ_EXPR:
       edge_info->max_cond_equivalences = 10;
-      edge_info->cond_equivalences = xmalloc (10 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 10);
       build_and_record_new_cond (ORDERED_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (LE_EXPR, op0, op1,
@@ -1580,7 +1579,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     case UNORDERED_EXPR:
       edge_info->max_cond_equivalences = 16;
-      edge_info->cond_equivalences = xmalloc (16 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 16);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (UNLE_EXPR, op0, op1,
@@ -1598,7 +1597,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     case UNLT_EXPR:
     case UNGT_EXPR:
       edge_info->max_cond_equivalences = 8;
-      edge_info->cond_equivalences = xmalloc (8 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 8);
       build_and_record_new_cond ((TREE_CODE (cond) == UNLT_EXPR
 				  ? UNLE_EXPR : UNGE_EXPR),
 				 op0, op1, &edge_info->cond_equivalences[4]);
@@ -1608,7 +1607,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     case UNEQ_EXPR:
       edge_info->max_cond_equivalences = 8;
-      edge_info->cond_equivalences = xmalloc (8 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 8);
       build_and_record_new_cond (UNLE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (UNGE_EXPR, op0, op1,
@@ -1617,7 +1616,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     case LTGT_EXPR:
       edge_info->max_cond_equivalences = 8;
-      edge_info->cond_equivalences = xmalloc (8 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 8);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (ORDERED_EXPR, op0, op1,
@@ -1626,7 +1625,7 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 
     default:
       edge_info->max_cond_equivalences = 4;
-      edge_info->cond_equivalences = xmalloc (4 * sizeof (tree));
+      edge_info->cond_equivalences = XNEWVEC (tree, 4);
       break;
     }
 
@@ -2120,67 +2119,6 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
   return 0;
 }
 
-/* STMT is a SWITCH_EXPR for which we could not trivially determine its
-   result.  This routine attempts to find equivalent forms of the
-   condition which we may be able to optimize better.  */
-
-static tree
-simplify_switch_and_lookup_avail_expr (tree stmt, int insert)
-{
-  tree cond = SWITCH_COND (stmt);
-  tree def, to, ti;
-
-  /* The optimization that we really care about is removing unnecessary
-     casts.  That will let us do much better in propagating the inferred
-     constant at the switch target.  */
-  if (TREE_CODE (cond) == SSA_NAME)
-    {
-      def = SSA_NAME_DEF_STMT (cond);
-      if (TREE_CODE (def) == MODIFY_EXPR)
-	{
-	  def = TREE_OPERAND (def, 1);
-	  if (TREE_CODE (def) == NOP_EXPR)
-	    {
-	      int need_precision;
-	      bool fail;
-
-	      def = TREE_OPERAND (def, 0);
-
-#ifdef ENABLE_CHECKING
-	      /* ??? Why was Jeff testing this?  We are gimple...  */
-	      gcc_assert (is_gimple_val (def));
-#endif
-
-	      to = TREE_TYPE (cond);
-	      ti = TREE_TYPE (def);
-
-	      /* If we have an extension that preserves value, then we
-		 can copy the source value into the switch.  */
-
-	      need_precision = TYPE_PRECISION (ti);
-	      fail = false;
-	      if (TYPE_UNSIGNED (to) && !TYPE_UNSIGNED (ti))
-		fail = true;
-	      else if (!TYPE_UNSIGNED (to) && TYPE_UNSIGNED (ti))
-		need_precision += 1;
-	      if (TYPE_PRECISION (to) < need_precision)
-		fail = true;
-
-	      if (!fail)
-		{
-		  SWITCH_COND (stmt) = def;
-		  mark_stmt_modified (stmt);
-
-		  return lookup_avail_expr (stmt, insert);
-		}
-	    }
-	}
-    }
-
-  return 0;
-}
-
-
 /* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
    known value for that SSA_NAME (or NULL if no value is known).  
 
@@ -2263,7 +2201,7 @@ record_edge_info (basic_block bb)
 	    {
 	      tree labels = SWITCH_LABELS (stmt);
 	      int i, n_labels = TREE_VEC_LENGTH (labels);
-	      tree *info = xcalloc (last_basic_block, sizeof (tree));
+	      tree *info = XCNEWVEC (tree, last_basic_block);
 	      edge e;
 	      edge_iterator ei;
 
@@ -2473,9 +2411,6 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
      the hash table, simplify the condition and try again.  */
   if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
     cached_lhs = simplify_cond_and_lookup_avail_expr (stmt, ann, insert);
-  /* Similarly for a SWITCH_EXPR.  */
-  else if (!cached_lhs && TREE_CODE (stmt) == SWITCH_EXPR)
-    cached_lhs = simplify_switch_and_lookup_avail_expr (stmt, insert);
 
   opt_stats.num_exprs_considered++;
 
@@ -2956,7 +2891,7 @@ lookup_avail_expr (tree stmt, bool insert)
   void **slot;
   tree lhs;
   tree temp;
-  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
+  struct expr_hash_elt *element = XNEW (struct expr_hash_elt);
 
   lhs = TREE_CODE (stmt) == MODIFY_EXPR ? TREE_OPERAND (stmt, 0) : NULL;
 
@@ -3127,7 +3062,7 @@ record_range (tree cond, basic_block bb)
       void **slot;
 
 
-      vrp_hash_elt = xmalloc (sizeof (struct vrp_hash_elt));
+      vrp_hash_elt = XNEW (struct vrp_hash_elt);
       vrp_hash_elt->var = TREE_OPERAND (cond, 0);
       vrp_hash_elt->records = NULL;
       slot = htab_find_slot (vrp_data, vrp_hash_elt, INSERT);
@@ -3140,7 +3075,7 @@ record_range (tree cond, basic_block bb)
       vrp_hash_elt = (struct vrp_hash_elt *) *slot;
       vrp_records_p = &vrp_hash_elt->records;
 
-      element = ggc_alloc (sizeof (struct vrp_element));
+      element = GGC_NEW (struct vrp_element);
       element->low = NULL;
       element->high = NULL;
       element->cond = cond;
