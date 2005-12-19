@@ -1,5 +1,10 @@
 2005-12-20  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.md: Move mov?d patterns to ..
+	* config/i386/decimal.md: .. here.
+
+2005-12-20  Ben Elliston  <bje@au.ibm.com>
+
 	* config/i386/i386.md (movsd, movdd, movtdd): Make these expanders
 	conditional on ENABLE_DECIMAL_FLOAT.
 	(*movsd_constant, *movsd_gprs, *movdd_sse, *movtd_sse): Likewise.
