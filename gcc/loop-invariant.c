@@ -130,7 +130,7 @@ static VEC(invariant_p,heap) *invariants;
 
 /* The dataflow object.  */
 
-static struct df *df;
+static struct df *df = NULL;
 
 /* Test for possibility of invariantness of X.  */
 
@@ -927,7 +927,7 @@ move_loop_invariants (struct loops *loops)
   struct loop *loop;
   unsigned i;
 
-  struct df *df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES);
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES);
   df_chain_add_problem (df, DF_UD_CHAIN);
  
   /* Process the loops, innermost first.  */

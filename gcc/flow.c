@@ -678,10 +678,13 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
       EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
 	{
 	  bb = BASIC_BLOCK (i);
-	  COPY_REG_SET (tmp, df_get_live_out (rtl_df, bb));
-	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
+	  if (bb)
+	    {
+	      COPY_REG_SET (tmp, df_get_live_out (rtl_df, bb));
+	      propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 /* 	  if (extent == UPDATE_LIFE_LOCAL) */
 /* 	    verify_local_live_at_start (tmp, bb); */
+	    }
 	};
     }
   else
@@ -3907,7 +3910,11 @@ count_or_remove_death_notes (sbitmap blocks, int kill)
 
       EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
 	{
-	  count += count_or_remove_death_notes_bb (BASIC_BLOCK (i), kill);
+	  basic_block bb = BASIC_BLOCK (i);
+	  /* The bitmap may be flawed in that one of the basic blocks
+	     may have been deleted before you get here.  */
+	  if (bb)
+	    count += count_or_remove_death_notes_bb (bb, kill);
 	};
     }
   else
