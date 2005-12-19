@@ -6824,7 +6824,7 @@ if test "${enable_decimal_float+set}" = set; then
 
   if test x$enablevar = xyes ; then
     case $target in
-    powerpc*-*-linux* | ?86*-*-linux*)
+    powerpc*-*-linux* | i?86*-*-linux*)
       ;;
     *)
       { echo "$as_me:$LINENO: WARNING: decimal float is not supported for this target" >&5
