@@ -1,3 +1,6 @@
+currently we seem to leak bytecode generator objects
+probably the code_attribute class should own the generators
+
 look at the ums.java test case
 in this we do type unification between
 umsSet<T> and umsHashset<T> -- but we should only
@@ -324,6 +327,9 @@ X gcjh has options to add text to the header in different places;
 ================================================================
 
 Tree generation
+
+we need to update the name mangling code for the corresponding
+changes on the trunk
 
 we have '.zero 2' at the end of a utf8const ... why?
 old gcj has '.zero 1'

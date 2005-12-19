@@ -1,5 +1,10 @@
 2005-12-19  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/generate.cc (handle_comparison): Use flip_if_opcode.
+	* bytecode/byteutil.hh (flip_if_opcode): New function.
+
+2005-12-19  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/byteutil.hh (zero_if_opcode): Commented.
 	(invert_if_opcode): Likewise.
 

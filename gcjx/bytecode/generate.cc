@@ -2545,7 +2545,7 @@ bytecode_generator::handle_comparison (java_opcode base,
       if (lhs->constant_p ()
 	  && jint (intb->convert (lhs->type (), lhs->value ())) == 0)
 	{
-	  base = invert_if_opcode (zero_if_opcode (base));
+	  base = flip_if_opcode (zero_if_opcode (base));
 	  {
 	    push_expr_target push (this, ON_STACK);
 	    rhs->visit (this);

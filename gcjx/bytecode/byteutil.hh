@@ -31,8 +31,8 @@ zero_if_opcode (java_opcode base)
   return java_opcode (op_ifeq + base - op_if_icmpeq);
 }
 
-/// Invert a comparison opcode.  For instance, given op_if_cmpge, this
-/// will return op_if_cmplt.
+/// Invert the sense of a comparison opcode.  For instance, given
+/// op_if_cmpge, this will return op_if_cmplt.
 inline java_opcode
 invert_if_opcode (java_opcode base)
 {
@@ -41,6 +41,56 @@ invert_if_opcode (java_opcode base)
   else if (base == op_ifnonnull)
     return op_ifnull;
   return java_opcode ((base & 1) ? base + 1 : base - 1);
+}
+
+/// Flip a comparison opcode.  This differs from 'invert' in that it
+/// acts as if the left and right sides of the comparison are also
+/// swapped.  So, for op_if_cmpge, it will return op_if_cmple.
+inline java_opcode
+flip_if_opcode (java_opcode base)
+{
+  switch (base)
+    {
+    case op_ifeq:
+    case op_ifne:
+    case op_if_icmpeq:
+    case op_if_icmpne:
+    case op_if_acmpeq:
+    case op_if_acmpne:
+    case op_ifnull:
+    case op_ifnonnull:
+      // Nothing.
+      break;
+    case op_iflt:
+      base = op_ifgt;
+      break;
+    case op_ifge:
+      base = op_ifle;
+      break;
+    case op_ifgt:
+      base = op_iflt;
+      break;
+    case op_ifle:
+      base = op_ifge;
+      break;
+    case op_if_icmplt:
+      base = op_if_icmpgt;
+      break;
+    case op_if_icmpge:
+      base = op_if_icmple;
+      break;
+    case op_if_icmpgt:
+      base = op_if_icmplt;
+      break;
+    case op_if_icmple:
+      base = op_if_icmpge;
+      break;
+
+    default:
+      assert (0);
+    }
+
+  return base;
 }
 
 /// Return true if the value is a 'return' bytecode of any kind.
