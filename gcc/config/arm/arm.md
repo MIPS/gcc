@@ -3500,6 +3500,16 @@
   ""
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(zero_extend:SI (subreg:QI (match_operand:SI 1 "" "") 3)))
+   (clobber (match_operand:SI 2 "s_register_operand" ""))]
+  "TARGET_ARM && (GET_CODE (operands[1]) != MEM) && BYTES_BIG_ENDIAN"
+  [(set (match_dup 2) (match_dup 1))
+   (set (match_dup 0) (and:SI (match_dup 2) (const_int 255)))]
+  ""
+)
+
 (define_insn "*compareqi_eq0"
   [(set (reg:CC_Z CC_REGNUM)
 	(compare:CC_Z (match_operand:QI 0 "s_register_operand" "r")
@@ -7551,7 +7561,7 @@
 )
 
 (define_insn "*call_mem"
-  [(call (mem:SI (match_operand:SI 0 "memory_operand" "m"))
+  [(call (mem:SI (match_operand:SI 0 "call_memory_operand" "m"))
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI LR_REGNUM))]
@@ -7645,7 +7655,7 @@
 
 (define_insn "*call_value_mem"
   [(set (match_operand 0 "" "")
-	(call (mem:SI (match_operand:SI 1 "memory_operand" "m"))
+	(call (mem:SI (match_operand:SI 1 "call_memory_operand" "m"))
 	      (match_operand 2 "" "")))
    (use (match_operand 3 "" ""))
    (clobber (reg:SI LR_REGNUM))]

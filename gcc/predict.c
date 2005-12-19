@@ -172,8 +172,8 @@ bool
 tree_predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
   struct edge_prediction *i;
-  for (i = bb->predictions; i; i = i->next)
-    if (i->predictor == predictor)
+  for (i = bb->predictions; i; i = i->ep_next)
+    if (i->ep_predictor == predictor)
       return true;
   return false;
 }
@@ -237,11 +237,11 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
     {
       struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
 
-      i->next = e->src->predictions;
+      i->ep_next = e->src->predictions;
       e->src->predictions = i;
-      i->probability = probability;
-      i->predictor = predictor;
-      i->edge = e;
+      i->ep_probability = probability;
+      i->ep_predictor = predictor;
+      i->ep_edge = e;
     }
 }
 
@@ -255,10 +255,10 @@ remove_predictions_associated_with_edge (edge e)
       struct edge_prediction **prediction = &e->src->predictions;
       while (*prediction)
 	{
-	  if ((*prediction)->edge == e)
-	    *prediction = (*prediction)->next;
+	  if ((*prediction)->ep_edge == e)
+	    *prediction = (*prediction)->ep_next;
 	  else
-	    prediction = &((*prediction)->next);
+	    prediction = &((*prediction)->ep_next);
 	}
     }
 }
@@ -523,12 +523,12 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
 
   /* We implement "first match" heuristics and use probability guessed
      by predictor with smallest index.  */
-  for (pred = bb->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->ep_next)
     {
-      int predictor = pred->predictor;
-      int probability = pred->probability;
+      int predictor = pred->ep_predictor;
+      int probability = pred->ep_probability;
 
-      if (pred->edge != first)
+      if (pred->ep_edge != first)
 	probability = REG_BR_PROB_BASE - probability;
 
       found = true;
@@ -569,12 +569,12 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     combined_probability = best_probability;
   dump_prediction (file, PRED_COMBINED, combined_probability, bb, true);
 
-  for (pred = bb->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->ep_next)
     {
-      int predictor = pred->predictor;
-      int probability = pred->probability;
+      int predictor = pred->ep_predictor;
+      int probability = pred->ep_probability;
 
-      if (pred->edge != EDGE_SUCC (bb, 0))
+      if (pred->ep_edge != EDGE_SUCC (bb, 0))
 	probability = REG_BR_PROB_BASE - probability;
       dump_prediction (file, predictor, probability, bb,
 		       !first_match || best_predictor == predictor);
@@ -707,7 +707,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	     conditional has no loop header successors as not taken.  */
 	  if (!header_found)
 	    FOR_EACH_EDGE (e, ei, bb->succs)
-	      if (e->dest->index < 0
+	      if (e->dest->index < NUM_FIXED_BLOCKS
 		  || !flow_bb_inside_loop_p (loop, e->dest))
 		predict_edge
 		  (e, PRED_LOOP_EXIT,
@@ -1271,7 +1271,7 @@ tree_bb_level_predictions (void)
   int *heads;
 
   heads = xmalloc (sizeof (int) * last_basic_block);
-  memset (heads, -1, sizeof (int) * last_basic_block);
+  memset (heads, ENTRY_BLOCK, sizeof (int) * last_basic_block);
   heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
 
   apply_return_prediction (heads);
@@ -1500,7 +1500,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
   edge_iterator ei;
   int y;
 
-  if (heads[bb->index] < 0)
+  if (heads[bb->index] == ENTRY_BLOCK)
     {
       /* This is first time we need this field in heads array; so
          find first dominator that we do not post-dominate (we are
@@ -1509,7 +1509,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
       basic_block next_ai = get_immediate_dominator (CDI_DOMINATORS, bb);
       int head;
 
-      while (heads[next_ai->index] < 0)
+      while (heads[next_ai->index] == ENTRY_BLOCK)
 	{
 	  if (!dominated_by_p (CDI_POST_DOMINATORS, next_ai, bb))
 	    break;
@@ -1524,10 +1524,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
       while (next_ai != bb)
 	{
 	  next_ai = ai;
-	  if (heads[ai->index] == ENTRY_BLOCK)
-	    ai = ENTRY_BLOCK_PTR;
-	  else
-	    ai = BASIC_BLOCK (heads[ai->index]);
+	  ai = BASIC_BLOCK (heads[ai->index]);
 	  heads[next_ai->index] = head;
 	}
     }
@@ -1538,7 +1535,7 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
   if (y == last_basic_block)
     return;
   FOR_EACH_EDGE (e, ei, BASIC_BLOCK (y)->succs)
-    if (e->dest->index >= 0
+    if (e->dest->index >= NUM_FIXED_BLOCKS
 	&& dominated_by_p (CDI_POST_DOMINATORS, e->dest, bb))
       predict_edge_def (e, pred, taken);
 }
@@ -1596,12 +1593,7 @@ propagate_freq (struct loop *loop, bitmap tovisit)
        /* The outermost "loop" includes the exit block, which we can not
 	  look up via BASIC_BLOCK.  Detect this and use EXIT_BLOCK_PTR
 	  directly.  Do the same for the entry block.  */
-     if (i == (unsigned)ENTRY_BLOCK)
-       bb = ENTRY_BLOCK_PTR;
-     else if (i == (unsigned)EXIT_BLOCK)
-       bb = EXIT_BLOCK_PTR;
-     else
-       bb = BASIC_BLOCK (i);
+      bb = BASIC_BLOCK (i);
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{

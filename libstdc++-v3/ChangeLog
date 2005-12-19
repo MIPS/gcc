@@ -1,3 +1,632 @@
+2005-12-18  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/bits/c++config: Add in revised namespace associations.
+	_GLIBCXX_BEGIN_NAMESPACE: New macro.
+	_GLIBCXX_END_NAMESPACE: Same.
+	_GLIBCXX_BEGIN_NESTED_NAMESPACE: Same.
+	_GLIBCXX_END_NESTED_NAMESPACE: Same.
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS]): Add gnu-versioned-namespace.
+	* configure: Regenerated.
+	* config.h.in: Same.
+	* config/abi/pre/gnu-versioned-namespace.ver: New.
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.7): Add exports for nested
+	debug mode items. 
+	* include/Makefile.am (${host_builddir}/c++config.h): Fill in
+	values for __GLIBCXX__ and _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION.
+	* include/Makefile.in: Regnerate.
+	* src/compatibility.cc: Alias new, nested definitions to exported
+	symbols from non-nested __gnu_debug.
+	* src/Makefile.am:  Add in ENABLE_SYMVERS_GNU_NAMESPACE.
+	* src/Makefile.in: Regenerate.
+	
+	* docs/html/debug_mode.html: Revise for nested design.
+	* docs/html/debug.html: Use debug qualifications instead of
+	__gnu_debug.
+	* docs/html/configopts.html: Revise documentation for
+	--enable-symvers.
+	
+	* include/debug/formatter: Simplify namespace qualifications for
+	current, nested-only reality. Add top-level namespace alias,
+	namespace debug, for debug-mode containers.
+	* include/debug/safe_iterator.h: Same.	
+	* include/debug/set.h: Same.
+	* include/debug/hash_multimap.h: Same.
+	* include/debug/hash_set.h: Same.
+	* include/debug/bitset
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/multiset.h: Same.
+	* include/debug/safe_base.h: Same.
+	* include/debug/functions.h: Same.
+	* include/debug/safe_iterator.tcc
+	* include/debug/hash_multiset.h: Same.
+	* include/debug/vector
+	* include/debug/map.h: Same.
+	* include/debug/deque
+	* include/debug/hash_map.h: Same.
+	* include/debug/string
+	* include/debug/macros.h: Same.
+	* include/debug/list
+	* include/debug/debug.h: Same.
+	* include/debug/multimap.h: Same.	
+	* src/debug.cc: Same.
+	* testsuite/23_containers/vector/invalidation/1.cc: Cleanups.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+	* testsuite/23_containers/deque/invalidation/1.cc: Same.
+	* testsuite/23_containers/deque/invalidation/2.cc: Same.
+	* testsuite/23_containers/deque/invalidation/3.cc: Same.
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/1.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/bitset/invalidation/1.cc: Same.
+	* testsuite/23_containers/bitset/cons/16020.cc: Same.
+	* testsuite/23_containers/bitset/operations/13838.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/invalidation/1.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/insert/16813.cc: Same.
+	
+	* include/bits/basic_ios.h: Use _GLIBCXX_BEGIN_NAMESPACE(std) and
+	friends.	
+	* include/bits/stl_list.h: Same.
+	* include/bits/stl_map.h: Same.
+	* include/bits/stl_algobase.h: Same.
+	* include/bits/localefwd.h: Same.
+	* include/bits/valarray_array.tcc: Same.
+	* include/bits/valarray_after.h: Same.
+	* include/bits/gslice_array.h: Same.
+	* include/bits/stl_queue.h: Same.
+	* include/bits/gslice.h: Same.
+	* include/bits/locale_facets.tcc: Same.
+	* include/bits/locale_classes.h: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/locale_facets.h: Same.
+	* include/bits/stl_stack.h: Same.
+	* include/bits/stl_iterator_base_types.h: Same.
+	* include/bits/stl_heap.h: Same.
+	* include/bits/indirect_array.h: Same.
+	* include/bits/atomicity.h: Same.
+	* include/bits/stream_iterator.h: Same.
+	* include/bits/concurrence.h: Same.
+	* include/bits/basic_string.h: Same.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_pair.h: Same.
+	* include/bits/basic_ios.tcc: Same.
+	* include/bits/stl_raw_storage_iter.h: Same.
+	* include/bits/stl_vector.h: Same.
+	* include/bits/stl_numeric.h: Same.
+	* include/bits/ios_base.h: Same.
+	* include/bits/stl_deque.h: Same.
+	* include/bits/istream.tcc: Same.
+	* include/bits/postypes.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/mask_array.h: Same.
+	* include/bits/stl_uninitialized.h: Same.
+	* include/bits/ostream.tcc: Same.
+	* include/bits/slice_array.h: Same.
+	* include/bits/boost_concept_check.h: Same.
+	* include/bits/sstream.tcc: Same.
+	* include/bits/stl_iterator_base_funcs.h: Same.
+	* include/bits/char_traits.h: Same.
+	* include/bits/stl_algo.h: Same.
+	* include/bits/stringfwd.h: Same.
+	* include/bits/c++config
+	* include/bits/stl_iterator.h: Same.
+	* include/bits/valarray_array.h: Same.
+	* include/bits/stl_tempbuf.h: Same.
+	* include/bits/vector.tcc: Same.
+	* include/bits/deque.tcc: Same.
+	* include/bits/stl_bvector.h: Same.
+	* include/bits/basic_string.tcc: Same.
+	* include/bits/list.tcc: Same.
+	* include/bits/streambuf_iterator.h: Same.
+	* include/bits/valarray_before.h: Same.
+	* include/bits/stl_construct.h: Same.
+	* include/bits/stl_function.h: Same.
+	* include/bits/cpp_type_traits.h: Same.
+	* include/bits/streambuf.tcc: Same.
+	* include/bits/allocator.h: Same.
+	* include/bits/stl_tree.h: Same.
+	* include/bits/fstream.tcc: Same.
+	* include/bits/stl_relops.h: Same.
+	* include/bits/functexcept.h: Same.
+	* include/std/std_valarray.h: Same.
+	* include/std/std_iostream.h: Same.
+	* include/std/std_streambuf.h: Same.
+	* include/std/std_bitset.h: Same.
+	* include/std/std_iosfwd.h: Same.
+	* include/std/std_iomanip.h: Same.
+	* include/std/std_fstream.h: Same.
+	* include/std/std_limits.h: Same.
+	* include/std/std_stdexcept.h: Same.
+	* include/std/std_istream.h: Same.
+	* include/std/std_complex.h: Same.
+	* include/std/std_memory.h: Same.
+	* include/std/std_ostream.h: Same.
+	* include/std/std_sstream.h: Same.
+	* include/c_std/std_csignal.h: Same.
+	* include/c_std/std_cstdlib.h: Same.
+	* include/c_std/std_cstdio.h: Same.
+	* include/c_std/std_cstdarg.h: Same.
+	* include/c_std/std_cctype.h: Same.
+	* include/c_std/std_cmath.h: Same.
+	* include/c_std/std_ctime.h: Same.
+	* include/c_std/std_clocale.h: Same.
+	* include/c_std/std_csetjmp.h: Same.
+	* include/c_std/std_cwchar.h: Same.
+	* include/c_std/std_cstring.h: Same.
+	* include/c_std/std_cstddef.h: Same.
+	* include/c_std/std_cwctype.h: Same.
+	* include/backward/iterator.h: Same.
+	* include/backward/set.h: Same.
+	* include/backward/hashtable.h: Same.
+	* include/backward/fstream.h: Same.
+	* include/backward/tempbuf.h: Same.
+	* include/backward/istream.h: Same.
+	* include/backward/bvector.h: Same.
+	* include/backward/stack.h: Same.
+	* include/backward/rope.h: Same.
+	* include/backward/complex.h: Same.
+	* include/backward/ostream.h: Same.
+	* include/backward/heap.h: Same.
+	* include/backward/iostream.h: Same.
+	* include/backward/function.h: Same.
+	* include/backward/multimap.h: Same.
+	* include/backward/pair.h: Same.
+	* include/backward/stream.h: Same.
+	* include/backward/iomanip.h: Same.
+	* include/backward/strstream
+	* include/backward/slist.h: Same.
+	* include/backward/tree.h: Same.
+	* include/backward/vector.h: Same.
+	* include/backward/deque.h: Same.
+	* include/backward/multiset.h: Same.
+	* include/backward/list.h: Same.
+	* include/backward/map.h: Same.
+	* include/backward/algobase.h: Same.
+	* include/backward/hash_map.h: Same.
+	* include/backward/algo.h: Same.
+	* include/backward/queue.h: Same.
+	* include/backward/streambuf.h: Same.
+	* src/allocator-inst.cc: Same.
+	* src/complex_io.cc: Same.
+	* src/localename.cc: Same.
+	* src/limits.cc: Same.
+	* src/ios_failure.cc: Same.
+	* src/locale-misc-inst.cc: Same.
+	* src/streambuf-inst.cc: Same.
+	* src/misc-inst.cc: Same.
+	* src/concept-inst.cc: Same.
+	* src/ios_locale.cc: Same.
+	* src/pool_allocator.cc: Same.
+	* src/fstream-inst.cc: Same.
+	* src/istream-inst.cc: Same.
+	* src/string-inst.cc: Same.
+	* src/locale_init.cc: Same.
+	* src/ctype.cc: Same.
+	* src/strstream.cc: Same.
+	* src/ostream-inst.cc: Same.
+	* src/functexcept.cc: Same.
+	* src/streambuf.cc: Same.
+	* src/sstream-inst.cc: Same.
+	* src/ios.cc: Same.
+	* src/valarray-inst.cc: Same.
+	* src/locale.cc: Same.
+	* src/tree.cc: Same.
+	* src/stdexcept.cc: Same.
+	* src/istream.cc: Same.
+	* src/compatibility.cc: Same.
+	* src/locale-inst.cc: Same.
+	* src/globals_io.cc: Same.
+	* src/list.cc: Same.
+	* src/ios_init.cc: Same.
+	* src/locale_facets.cc: Same.
+	* src/codecvt.cc: Same.
+
+	* include/tr1/unordered_map: Use _GLIBCXX_BEGIN_NAMESPACE(tr1).
+	* include/tr1/boost_shared_ptr.h: Same.
+	* include/tr1/tuple
+	* include/tr1/hashtable
+	* include/tr1/type_traits_fwd.h: Same.
+	* include/tr1/unordered_set
+	* include/tr1/functional
+	* include/tr1/ref_fwd.h: Same.
+	* include/tr1/utility
+	* include/tr1/type_traits
+	* include/tr1/array
+
+	* include/ext/hashtable.h: Use _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx).
+	* include/ext/typelist.h: Same.
+	* include/ext/hash_map: Same.
+	* include/ext/rc_string_base.h: Same.
+	* include/ext/pool_allocator.h: Same.
+	* include/ext/iterator: Same.
+	* include/ext/rb_tree: Same.
+	* include/ext/numeric: Same.
+	* include/ext/vstring.tcc: Same.
+	* include/ext/sso_string_base.h: Same.
+	* include/ext/stdio_filebuf.h: Same.
+	* include/ext/algorithm: Same.
+	* include/ext/codecvt_specializations.h: Same.
+	* include/ext/new_allocator.h: Same.
+	* include/ext/array_allocator.h: Same.
+	* include/ext/vstring_util.h: Same.
+	* include/ext/vstring_fwd.h: Same.
+	* include/ext/mt_allocator.h: Same.
+	* include/ext/debug_allocator.h: Same.
+	* include/ext/slist: Same.
+	* include/ext/stdio_sync_filebuf.h: Same.
+	* include/ext/hash_fun.h: Same.
+	* include/ext/malloc_allocator.h: Same.
+	* include/ext/functional: Same.
+	* include/ext/bitmap_allocator.h: Same.
+	* include/ext/pod_char_traits.h: Same.
+	* include/ext/vstring.h: Same.
+	* include/ext/ropeimpl.h: Same.
+	* include/ext/hash_set: Same.
+	* include/ext/memory: Same.
+	* include/ext/rope: Same.
+	* include/bits/boost_concept_check.h: Same.
+	* include/bits/stl_iterator.h: Same.
+	* include/bits/char_traits.h: Same.
+	* include/bits/cpp_type_traits.h: Same.
+	* include/bits/concurrence.h: Same.
+	* include/bits/atomicity.h: Same.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* config/locale/gnu/collate_members.cc: Same.
+	* config/locale/gnu/ctype_members.cc: Same.
+	* config/locale/gnu/c_locale.cc: Same.
+	* config/locale/gnu/codecvt_members.cc: Same.
+	* config/locale/gnu/messages_members.cc: Same.
+	* config/locale/gnu/c_locale.h: Same.
+	* config/locale/gnu/monetary_members.cc: Same.
+	* config/locale/gnu/time_members.cc: Same.
+	* config/locale/ieee_1003.1-2001/c_locale.h: Same.
+	* config/locale/generic/numeric_members.cc: Same.
+	* config/locale/generic/collate_members.cc: Same.
+	* config/locale/generic/ctype_members.cc: Same.
+	* config/locale/generic/c_locale.cc: Same.
+	* config/locale/generic/codecvt_members.cc: Same.
+	* config/locale/generic/messages_members.cc: Same.
+	* config/locale/generic/c_locale.h: Same.
+	* config/locale/generic/monetary_members.cc: Same.
+	* config/locale/generic/time_members.cc: Same.
+	* config/os/aix/atomicity.h: Same.
+	* config/os/irix/atomicity.h: Same.
+	* config/cpu/powerpc/atomicity.h: Same.
+	* config/cpu/cris/atomicity.h: Same.
+	* config/cpu/ia64/atomicity.h: Same.
+	* config/cpu/alpha/atomicity.h: Same.
+	* config/cpu/m68k/atomicity.h: Same.
+	* config/cpu/hppa/atomicity.h: Same.
+	* config/cpu/mips/atomicity.h: Same.
+	* config/cpu/sparc/atomicity.h: Same.
+	* config/cpu/i386/atomicity.h: Same.
+	* config/cpu/i486/atomicity.h: Same.
+	* config/cpu/sh/atomicity.h: Same.
+	* config/cpu/generic/atomicity.h: Same.
+	* config/cpu/s390/atomicity.h: Same.
+	* config/io/c_io_stdio.h: Same.
+	* config/io/basic_file_stdio.cc: Same.
+	* config/io/basic_file_stdio.h: Same.	
+	* src/misc-inst.cc: Same.
+	* src/concept-inst.cc: Same.
+	* src/ext-inst.cc: Same.
+	* src/string-inst.cc: Same.
+	* src/pool_allocator.cc: Same.
+	* src/bitmap_allocator.cc: Same.
+	* src/mt_allocator.cc: Same.
+	* libsupc++/exception: Same.
+	* libsupc++/vterminate.cc: Same.
+	* testsuite/ext/hash_map/1.cc: Explicitly qualify __gnu_cxx::hash_map.
+	* testsuite/ext/hash_map/14648.cc: Same.	
+
+	* libsupc++/eh_alloc.cc: Correct comment line spacing.
+		
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__copy_normal::copy_n): Uglify
+	to __copy_n.
+	(__copy_backward::copy_b): Likewise to __copy_b.
+	(__copy_backward_normal::copy_b_n): Likewise to __copy_b_n.
+	(copy, __copy_backward_aux, copy_backward): Adjust.
+
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (partial_sort_copy): Add
+	_BinaryPredicateConcept<_Compare, _InputValueType, _OutputValueType>
+	(merge, set_union, set_symmetric_difference): Add
+	_OutputIteratorConcept<_OutputIterator, _ValueType2>.
+	(binary_search): Remove redundant _BinaryPredicateConcept<_Compare,
+	_ValueType, _Tp>, taken care by lower_bound.
+	* include/bits/stl_algo.h: Cosmetic changes.
+
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* include/bits/stl_algo.h (merge, includes, set_union,
+	set_intersection, set_difference, set_symmetric_difference):
+	Fix concept checks.
+
+2005-12-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (partial_sort_copy, lower_bound,
+	upper_bound, equal_range, binary_search): Fix concept checks.
+
+2005-12-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/post: New.
+	* config/abi/*-linux-gnu: Move to..
+	* config/abi/post/*-linux-gnu: ... here.	
+	* config/abi/pre: New.
+	* config/linker-map.gnu: Move to ..
+	* config/abi/pre/gnu.ver: ... here.	
+	* config/linker-map.dummy: Move to..
+	* config/abi/pre/none.ver: ... here.
+	* src/Makefile.am: Use ENABLE_SYMVERS_GNU,
+	ENABLE_SYMVERS_DARWIN, ENABLE_SYMVERS_GNU_NAMESPACE.
+	Use libstdc++-symbols.ver instead of libstdc++-symbol.ver.
+	* src/Makefile.in: Regnerate.
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Adjust paths for new
+	placement of abi baseline files.
+	(GLIBCXX_ENABLE_SYMVERS): Add ENABLE_SYMVERS, ENABLE_SYMVERS_GNU,
+	ENABLE_SYMVERS_DARWIN.  SYMVER_MAP to SYMVER_FILE.
+	* configure: Regnerate.
+	* config.h.in: Regnerate.
+	* src/compatibility.cc: Adjust macro usage.
+	
+2005-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * src/io-inst.cc: Separate instantiations into...
+        * src/ios-inst.cc: .. this.
+        * src/iostream-inst.cc: ... and this.
+        * src/Makefile.am (sources): Update.
+        * src/Makefile.in: Regenerate.	
+
+2005-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	PR libstdc++/25472
+        * include/c_std/std_cstdlib.h: Fix for freestanding.
+
+2005-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/libstdc++-dg/normal.exp: Rename to..
+	* testsuite/libstdc++-dg/conformance.exp: ... this.
+
+2005-12-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector(const vector&)): Use
+	_M_get_Tp_allocator.
+	* include/bits/stl_deque.h (deque(const deque&)): Likewise.
+	(_M_destroy_data): Adjust.
+
+2005-12-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_deque.h (deque<>::_M_erase_at_end,
+	_M_erase_at_begin, _M_destroy_data, _M_destroy_data_dispatch,
+	_M_destroy_data_aux): New, optimize erase at begin() / end() and
+	consistently use the "segmented iterator" optimization.
+	(deque<>::~deque(), resize, clear, _M_assign_aux, _M_fill_assign):
+	Use the above.
+	* include/bits/deque.tcc (deque<>::operator=, _M_assign_aux): Same.
+	(erase(iterator, iterator)): Likewise, clean-up.
+	(erase(iterator)): Tweak, don't call copy unnecessarily. 
+	(_M_destroy_data_aux): Define.
+	* testsuite/23_containers/deque/modifiers/erase/1.cc: New.
+	* testsuite/23_containers/deque/modifiers/erase/2.cc: Likewise.
+
+2005-12-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/bits/valarray_after.h (_Expr<>::operator[](slice)): 
+	Don't assume the closure implements general indexing, as a matter
+	of fact, most of them don't.
+	(_Expr<>::operator[](const gslice&)): Likewise.
+	(_Expr<>::operator[](const valarray<bool>&)): Likewise.
+	(_Expr<>::operator[](const valarray<size_t>&)): Likewise.
+	(_Expr<>::shift): Fix thinko.
+	(_Expr<>::cshift): Likewise.
+	(_Expr<>::apply): Likewise.
+
+2005-12-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/4_metaprogramming/type_properties/is_empty/is_empty.cc:
+	Fix class NonEmptyClassTwo.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::_M_get_Tp_allocator): Change
+	to return by ref and add non const version.
+	* include/bits/stl_deque.h (deque<>::_M_get_Tp_allocator): Likewise.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25421
+	* config/locale/gnu/c_locale.cc (_S_destroy_c_locale): Check
+	for null argument.
+	* testsuite/22_locale/facet/25421.cc: New.
+
+2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+
+	* include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
+2005-12-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_compare):
+	Add, specialized for char and wchar_t to immediately return true
+	when a string is compared to itself.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_compare):
+	Likewise, for the same _Rep.
+	* include/ext/vstring.h (compare(const string&)): Use it.
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_destroy):
+	Deallocate passed size + 1.
+	(_M_dispose, _M_reserve): Adjust.
+
+2005-12-09  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/25288
+	* include/bits/stl_list.h (list<>::_M_insert_dispatch, _M_fill_insert):
+	Remove.
+	(_M_initialize_dispatch, _M_fill_initialize): Add.
+	(list(size_type, const value_type&, const allocator_type&),
+	list(const list&), list(_InputIterator, _InputIterator,
+	const allocator_type&): Use the latter.
+	(insert(iterator, size_type, const value_type&), insert(iterator,
+	_InputIterator, _InputIterator)): Use construction & splice.
+	* testsuite/23_containers/list/modifiers/insert/25288.cc: New.
+	* testsuite/testsuite_allocator.h (class throw_allocator): Add.
+
+	* include/bits/stl_list.h (list<>::insert, erase): Fix wrong comments.
+
+2005-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::size, resize, capacity,
+	operator[]): Avoid troubles with ADL, user defined operators
+	and __normal_iterator.
+	(_M_erase_at_end): Fix to take a pointer.
+	(clear): Adjust call.
+	* include/bits/vector.tcc (vector<>::insert(iterator, const
+	value_type&), erase(iterator, iterator), operator=(const
+	vector<>&), _M_assign_aux(input_iterator_tag), _M_insert_aux,
+	_M_fill_insert, _M_range_insert): Likewise.
+	(_M_fill_assign, _M_assign_aux(forward_iterator_tag)): Adjust
+	_M_erase_at_end call.
+	* testsuite/23_containers/vector/types/1.cc: New.
+
+2005-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24617
+	* include/bits/stl_vector.h (vector<>::_M_erase_at_end): New.
+	(vector<>::clear, resize): Use it.
+	* include/bits/vector.tcc (vector<>::erase(iterator, iterator),
+	_M_fill_assign, _M_assign_aux): Likewise.
+
+	* testsuite/23_containers/vector/modifiers/erase/1.cc: New.
+
+2005-12-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/configopts.html ([--enable-libstdcxx-allocator]):
+	Mention the SGI pooled allocator.
+
+2005-12-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (insert(iterator, _CharT),
+	erase(iterator), erase(iterator, iterator)): Avoid troubles
+	with ADL, user defined operators and __normal_iterator.
+	* include/bits/stl_iterator.h (operator-(const __normal_iterator
+	<_Iterator, _Container>&, const __normal_iterator<_Iterator,
+	_Container>&)): Add overload for left and right iterators of
+	the same type.
+	* include/debug/safe_iterator.h (operator-(const _Safe_iterator
+	<_Iterator, _Sequence>&, const _Safe_iterator<_Iterator,
+	_Sequence>&)): Likewise.
+	* testsuite/21_strings/basic_string/types/1.cc: New.
+
+2005-12-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_assign):
+	Simplify, avoid pointless reallocations.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve):
+	Simplify.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::operator+, all
+	versions): Move out of line...
+	* include/ext/vstring.tcc (__versa_string<>::operator+): ...
+	here; consistently use reserve for the benefit of sso_string_base;
+	prefer push_back to single-char append when appropriate.
+
+	* include/ext/vstring.h (__versa_string<>::push_back): Don't
+	call _M_reserve, _M_mutate instead.
+	(reserve): Just forward to _M_reserve.
+	* include/ext/vstring.tcc (__versa_string<>::_M_reserve): Remove.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_reserve): Also
+	do the initial checks (first on length, in case __res == capacity).
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve:
+	Likewise; don't call _M_set_length unnecessarily.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::_M_append): New.
+	(append(const __versa_string&), append(const __versa_string&,
+	size_type, size_type), append(const _CharT*, size_type),
+	append(const _CharT*)): Use it.
+	(append(size_type, _CharT)): Delegate to _M_replace_aux.
+	(assign(const __versa_string&, size_type, size_type),
+	assign(const _CharT*), replace(size_type, size_type,
+	const _CharT*, size_type)): Forward to _M_replace.
+	* include/ext/vstring.tcc (__versa_string<>::_M_append):
+	Define, core append functionality.
+	(_M_replace): Simplify, move __s == 0 case to _M_replace_aux.
+	(_M_replace_aux): Reorganize, don't call _M_replace.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace):
+	Perform _M_check_length at the beginning and remove it from ...
+	(replace, _M_replace_dispatch, _M_replace_aux, assign): ... here.
+	(assign): Now move inline.
+	(resize): Don't call _M_check_length redundantly, append does.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_get_allocator):
+	Add non const version.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_get_allocator):
+	Likewise.
+	
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_erase): Add.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_erase): Likewise.
+	(_M_leak_hard): Use it.
+	* include/ext/vstring.h (__versa_string<>::clear, erase, all
+	versions): Use it.
+	* include/ext/vstring.tcc (__versa_string<>::resize): Likewise.
+
+	* include/ext/vstring.h (__versa_string<>::_M_replace_safe):
+	Remove.
+	* include/ext/vstring.h (__versa_string<>::_M_replace): New, does
+	the in-place work or delegates to _M_mutate in case of reallocation.
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace_safe):
+	Remove.
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace): Define.
+	(assign, replace, _M_replace_dispatch, _M_replace_aux): Use it.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_mutate):
+	Change to manage only reallocations.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_mutate):
+	Likewise.
+
+	* include/ext/vstring.h (__versa_string<>::insert(size_type,
+	const __versa_string&), insert(size_type, const __versa_string&,
+	size_type, size_type), insert(size_type, const _CharT*, size_type),
+	insert(size_type, const _CharT*)): Delegate to replace.
+
+	* include/ext/vstring.h (__versa_string<>::reserve): Move out of
+	line.
+	* include/ext/vstring.tcc (__versa_string<>::reserve): Do the
+	checks and call _M_reserve.
+	* include/ext/vstring.h (__versa_string<>::append): Call _M_reserve
+	instead of reserve.
+	* include/ext/vstring.tcc (__versa_string<>::append, all versions):
+	Likewise.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve):
+	Adjust.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_reserve):
+	Likewise.
+
 2005-12-02  David Billinghurst (David.Billinghurst@riotinto.com)
 
 	PR testsuite/25193

@@ -1,3 +1,7 @@
+2005-12-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in: Regenerate.
+
 2005-06-13  Richard Henderson  <rth@redhat.com>
 
 	* configure.in: Add --disable-libgomp.

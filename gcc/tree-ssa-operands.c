@@ -127,9 +127,6 @@ bool ssa_ro_call_cache_valid;
 static VEC(tree,heap) *clobbered_v_may_defs;
 static VEC(tree,heap) *clobbered_vuses;
 static VEC(tree,heap) *ro_call_vuses;
-static bool clobbered_aliased_loads;
-static bool clobbered_aliased_stores;
-static bool ro_call_aliased_loads;
 static bool ops_active = false;
 
 static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
@@ -279,7 +276,7 @@ ssa_operand_alloc (unsigned size)
   if (operand_memory_index + size >= SSA_OPERAND_MEMORY_SIZE)
     {
       struct ssa_operand_memory_d *ptr;
-      ptr = ggc_alloc (sizeof (struct ssa_operand_memory_d));
+      ptr = GGC_NEW (struct ssa_operand_memory_d);
       ptr->next = operand_memory;
       operand_memory = ptr;
       operand_memory_index = 0;
@@ -791,41 +788,16 @@ parse_ssa_operands (tree stmt)
     }
 }
 
-/* Create an operands cache for STMT, returning it in NEW_OPS. OLD_OPS are the
-   original operands, and if ANN is non-null, appropriate stmt flags are set
-   in the stmt's annotation.  If ANN is NULL, this is not considered a "real"
-   stmt, and none of the operands will be entered into their respective
-   immediate uses tables.  This is to allow stmts to be processed when they
-   are not actually in the CFG.
-
-   Note that some fields in old_ops may change to NULL, although none of the
-   memory they originally pointed to will be destroyed.  It is appropriate
-   to call free_stmt_operands() on the value returned in old_ops.
-
-   The rationale for this: Certain optimizations wish to examine the difference
-   between new_ops and old_ops after processing.  If a set of operands don't
-   change, new_ops will simply assume the pointer in old_ops, and the old_ops
-   pointer will be set to NULL, indicating no memory needs to be cleared.  
-   Usage might appear something like:
-
-       old_ops_copy = old_ops = stmt_ann(stmt)->operands;
-       build_ssa_operands (stmt, NULL, &old_ops, &new_ops);
-          <* compare old_ops_copy and new_ops *>
-       free_ssa_operands (old_ops);					*/
+/* Create an operands cache for STMT.  */
 
 static void
 build_ssa_operands (tree stmt)
 {
   stmt_ann_t ann = get_stmt_ann (stmt);
   
-  /* Initially assume that the statement has no volatile operands, nor
-     makes aliased loads or stores.  */
+  /* Initially assume that the statement has no volatile operands.  */
   if (ann)
-    {
-      ann->has_volatile_ops = false;
-      ann->makes_aliased_stores = false;
-      ann->makes_aliased_loads = false;
-    }
+    ann->has_volatile_ops = false;
 
   start_ssa_stmt_operands ();
 
@@ -1047,7 +1019,6 @@ swap_tree_operands (tree stmt, tree *exp0, tree *exp1)
   *exp1 = op0;
 }
 
-
 /* Recursively scan the expression pointed to by EXPR_P in statement referred
    to by INFO.  FLAGS is one of the OPF_* constants modifying how to interpret
    the operands found.  */
@@ -1091,6 +1062,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     case SSA_NAME:
+    case STRUCT_FIELD_TAG:
+    case TYPE_MEMORY_TAG:
+    case NAME_MEMORY_TAG:
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
@@ -1151,25 +1125,26 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case IMAGPART_EXPR:
       {
 	tree ref;
-	unsigned HOST_WIDE_INT offset, size;
+	HOST_WIDE_INT offset, size, maxsize;
  	/* This component ref becomes an access to all of the subvariables
 	   it can touch,  if we can determine that, but *NOT* the real one.
 	   If we can't determine which fields we could touch, the recursion
 	   will eventually get to a variable and add *all* of its subvars, or
 	   whatever is the minimum correct subset.  */
 
-	ref = okay_component_ref_for_subvars (expr, &offset, &size);
-	if (ref)
+	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
+	if (SSA_VAR_P (ref) && get_subvars_for_var (ref))
 	  {	  
 	    subvar_t svars = get_subvars_for_var (ref);
 	    subvar_t sv;
 	    for (sv = svars; sv; sv = sv->next)
 	      {
 		bool exact;		
-		if (overlap_subvar (offset, size, sv, &exact))
+		if (overlap_subvar (offset, maxsize, sv, &exact))
 		  {
 	            int subvar_flags = flags;
-		    if (!exact)
+		    if (!exact
+			|| size != maxsize)
 		      subvar_flags &= ~opf_kill_def;
 		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
 		  }
@@ -1257,39 +1232,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case ASSERT_EXPR:
     do_binary:
       {
-	tree op0 = TREE_OPERAND (expr, 0);
-	tree op1 = TREE_OPERAND (expr, 1);
-
-	/* If it would be profitable to swap the operands, then do so to
-	   canonicalize the statement, enabling better optimization.
-
-	   By placing canonicalization of such expressions here we
-	   transparently keep statements in canonical form, even
-	   when the statement is modified.  */
-	if (tree_swap_operands_p (op0, op1, false))
-	  {
-	    /* For relationals we need to swap the operands
-	       and change the code.  */
-	    if (code == LT_EXPR
-		|| code == GT_EXPR
-		|| code == LE_EXPR
-		|| code == GE_EXPR)
-	      {
-		TREE_SET_CODE (expr, swap_tree_comparison (code));
-		swap_tree_operands (stmt,
-				    &TREE_OPERAND (expr, 0),			
-				    &TREE_OPERAND (expr, 1));
-	      }
-	  
-	    /* For a commutative operator we can just swap the operands.  */
-	    else if (commutative_tree_code (code))
-	      {
-		swap_tree_operands (stmt,
-				    &TREE_OPERAND (expr, 0),			
-				    &TREE_OPERAND (expr, 1));
-	      }
-	  }
-
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
 	return;
@@ -1679,8 +1621,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 		{
 		  /* Only regular variables or struct fields may get a
 		     V_MUST_DEF operand.  */
-		  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG 
-			      || v_ann->mem_tag_kind == STRUCT_FIELD);
+		  gcc_assert (!MTAG_P (var)
+			      || TREE_CODE (var) == STRUCT_FIELD_TAG);
 		  /* V_MUST_DEF for non-aliased, non-GIMPLE register 
 		    variable definitions.  */
 		  append_v_must_def (var);
@@ -1693,11 +1635,7 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 		}
 	    }
 	  else
-	    {
-	      append_vuse (var);
-	      if (s_ann && v_ann->is_alias_tag)
-		s_ann->makes_aliased_loads = 1;
-	    }
+	    append_vuse (var);
 	}
       else
 	{
@@ -1718,9 +1656,6 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 		append_v_may_def (VARRAY_TREE (aliases, i));
-
-	      if (s_ann)
-		s_ann->makes_aliased_stores = 1;
 	    }
 	  else
 	    {
@@ -1731,9 +1666,6 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 		append_vuse (VARRAY_TREE (aliases, i));
-
-	      if (s_ann)
-		s_ann->makes_aliased_loads = 1;
 	    }
 	}
     }
@@ -1842,11 +1774,6 @@ add_call_clobber_ops (tree stmt, tree callee)
 	  var_ann (t)->in_v_may_def_list = 1;
 	  VEC_safe_push (tree, heap, build_v_may_defs, (tree)t);
 	}
-      if (s_ann)
-	{
-	  s_ann->makes_aliased_loads = clobbered_aliased_loads;
-	  s_ann->makes_aliased_stores = clobbered_aliased_stores;
-	}
       return;
     }
 
@@ -1865,9 +1792,7 @@ add_call_clobber_ops (tree stmt, tree callee)
 	  bool not_written
 	    = not_written_b ? bitmap_bit_p (not_written_b, u) : false;
 
-	  if ((TREE_READONLY (var)
-	       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
-	      || not_written)
+	  if (not_written)
 	    {
 	      if (!not_read)
 		add_stmt_operand (&var, &empty_ann, opf_none);
@@ -1880,16 +1805,6 @@ add_call_clobber_ops (tree stmt, tree callee)
   if ((!not_read_b || bitmap_empty_p (not_read_b))
       && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
-      clobbered_aliased_loads = empty_ann.makes_aliased_loads;
-      clobbered_aliased_stores = empty_ann.makes_aliased_stores;
-
-      /* Set the flags for a stmt's annotation.  */
-      if (s_ann)
-	{
-	  s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
-	  s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
-	}
-
       /* Prepare empty cache vectors.  */
       VEC_truncate (tree, clobbered_vuses, 0);
       VEC_truncate (tree, clobbered_v_may_defs, 0);
@@ -1945,8 +1860,6 @@ add_call_read_ops (tree stmt)
 	  var_ann (t)->in_vuse_list = 1;
 	  VEC_safe_push (tree, heap, build_vuses, (tree)t);
 	}
-      if (s_ann)
-	s_ann->makes_aliased_loads = ro_call_aliased_loads;
       return;
     }
 
@@ -1958,10 +1871,6 @@ add_call_read_ops (tree stmt)
       tree var = referenced_var (u);
       add_stmt_operand (&var, &empty_ann, opf_none | opf_non_specific);
     }
-
-  ro_call_aliased_loads = empty_ann.makes_aliased_loads;
-  if (s_ann)
-    s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
 
   /* Prepare empty cache vectors.  */
   VEC_truncate (tree, ro_call_vuses, 0);

@@ -24,9 +24,9 @@
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
 #
-# foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
+# foo.all.cross, foo.start.encap, foo.rest.encap,
 # foo.info
-# foo.install-normal, foo.install-common, foo.install-info, foo.install-man,
+# foo.install-common, foo.install-info, foo.install-man,
 # foo.uninstall, foo.distdir,
 # foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
@@ -109,15 +109,10 @@ f951$(exeext): $(F95_OBJS) \
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 		$(F95_OBJS) $(BACKEND) $(F95_LIBS)
 
-gt-fortran-f95-lang.h gtype-fortran.h	      : s-gtype; @true
-gt-fortran-trans-decl.h gt-fortran-trans.h    : s-gtype; @true
-gt-fortran-trans-io.h gt-fortran-trans-types.h: s-gtype; @true
-gt-fortran-trans-intrinsic.h		      : s-gtype; @true
-
+gt-fortran-trans.h    : s-gtype; @true
 #
 # Build hooks:
 
-fortran.all.build: gfortran$(exeext)
 fortran.all.cross: gfortran-cross$(exeext)
 
 fortran.start.encap: gfortran$(exeext)
@@ -180,9 +175,6 @@ gfortran.pod: $(GFORTRAN_TEXI)
 #
 # Install hooks:
 # f951 is installed elsewhere as part of $(COMPILERS).
-
-# Nothing to do here.
-fortran.install-normal:
 
 # Install the driver program as $(target)-gfortran
 # and also as either gfortran (if native) or $(tooldir)/bin/gfortran.
@@ -298,4 +290,5 @@ fortran/trans-intrinsic.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
   gt-fortran-trans-intrinsic.h
 fortran/dependency.o: $(GFORTRAN_TRANS_DEPS) fortran/dependency.h
 fortran/trans-common.o: $(GFORTRAN_TRANS_DEPS) $(TARGET_H) $(RTL_H)
+fortran/resolve.o: fortran/dependency.h
 

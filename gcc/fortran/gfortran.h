@@ -1192,6 +1192,9 @@ typedef struct gfc_expr
 
   /* True if it is converted from Hollerith constant.  */
   unsigned int from_H : 1;
+  /* True if the expression is a call to a function that returns an array,
+     and if we have decided not to allocate temporary data for that array.  */
+  unsigned int inline_noncopying_intrinsic : 1;
 
   union
   {
@@ -1372,7 +1375,7 @@ gfc_alloc;
 typedef struct
 {
   gfc_expr *unit, *file, *status, *access, *form, *recl,
-    *blank, *position, *action, *delim, *pad, *iostat, *iomsg;
+    *blank, *position, *action, *delim, *pad, *iostat, *iomsg, *convert;
   gfc_st_label *err;
 }
 gfc_open;
@@ -1399,7 +1402,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength, *iomsg;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert;
 
   gfc_st_label *err;
 

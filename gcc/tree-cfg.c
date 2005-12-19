@@ -129,14 +129,16 @@ init_empty_tree_cfg (void)
   /* Initialize the basic block array.  */
   init_flow ();
   profile_status = PROFILE_ABSENT;
-  n_basic_blocks = 0;
-  last_basic_block = 0;
+  n_basic_blocks = NUM_FIXED_BLOCKS;
+  last_basic_block = NUM_FIXED_BLOCKS;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
   /* Build a mapping of labels to their associated blocks.  */
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
 		  "label to block map");
 
+  BASIC_BLOCK (ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
+  BASIC_BLOCK (EXIT_BLOCK) = EXIT_BLOCK_PTR;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 }
@@ -170,7 +172,7 @@ build_tree_cfg (tree *tp)
     factor_computed_gotos ();
 
   /* Make sure there is always at least one block, even if it's empty.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     create_empty_bb (ENTRY_BLOCK_PTR);
 
   /* Adjust the size of the array.  */
@@ -372,7 +374,7 @@ create_bb (void *h, void *e, basic_block after)
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-  bb->stmt_list = h ? h : alloc_stmt_list ();
+  bb->stmt_list = h ? (tree) h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
   link_block (bb, after);
@@ -430,7 +432,7 @@ make_edges (void)
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (NUM_FIXED_BLOCKS), EDGE_FALLTHRU);
 
   /* Traverse the basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -638,7 +640,7 @@ edge_to_cases_eq (const void *p1, const void *p2)
 static void
 edge_to_cases_cleanup (void *p)
 {
-  struct edge_to_cases_elt *elt = p;
+  struct edge_to_cases_elt *elt = (struct edge_to_cases_elt *) p;
   tree t, next;
 
   for (t = elt->case_labels; t; t = next)
@@ -689,7 +691,7 @@ record_switch_edge (edge e, tree case_label)
 
   /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct edge_to_cases_elt));
+  elt = XNEW (struct edge_to_cases_elt);
   elt->e = e;
   elt->case_labels = case_label;
 
@@ -794,7 +796,8 @@ label_to_block_fn (struct function *ifun, tree dest)
      and undefined variable warnings quite right.  */
   if ((errorcount || sorrycount) && uid < 0)
     {
-      block_stmt_iterator bsi = bsi_start (BASIC_BLOCK (0));
+      block_stmt_iterator bsi = 
+	bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       tree stmt;
 
       stmt = build1 (LABEL_EXPR, void_type_node, dest);
@@ -939,7 +942,7 @@ void
 cleanup_dead_labels (void)
 {
   basic_block bb;
-  label_for_bb = xcalloc (last_basic_block, sizeof (tree));
+  label_for_bb = XCNEWVEC (tree, last_basic_block);
 
   /* Find a suitable label for each block.  We use the first user-defined
      label if there is one, or otherwise just the first label we see.  */
@@ -1270,7 +1273,7 @@ replace_uses_by (tree name, tree val)
 
       rhs = get_rhs (stmt);
       if (TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* If the statement could throw and now cannot, we need to prune cfg.  */
       if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
@@ -3193,7 +3196,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
 	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
@@ -3450,7 +3453,7 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 
   slot = htab_find_slot (htab, *tp, INSERT);
   if (*slot)
-    return *slot;
+    return (tree) *slot;
   *slot = *tp;
 
   return NULL;
@@ -4340,7 +4343,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   if (!region_copy)
     {
-      region_copy = xmalloc (sizeof (basic_block) * n_region);
+      region_copy = XNEWVEC (basic_block, n_region);
       free_region_copy = true;
     }
 
@@ -4348,7 +4351,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
-  doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  doms = XNEWVEC (basic_block, n_basic_blocks);
   initialize_original_copy_tables ();
 
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
@@ -4656,7 +4659,7 @@ print_loop_ir (FILE *file)
 {
   basic_block bb;
   
-  bb = BASIC_BLOCK (0);
+  bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
   if (bb && bb->loop_father)
     print_loop (file, bb->loop_father, 0);
 }
@@ -4738,7 +4741,7 @@ tree_flow_call_edges_add (sbitmap blocks)
   int last_bb = last_basic_block;
   bool check_last_block = false;
 
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   if (! blocks)
@@ -4766,7 +4769,7 @@ tree_flow_call_edges_add (sbitmap blocks)
       if (!bsi_end_p (bsi))
 	t = bsi_stmt (bsi);
 
-      if (need_fake_edge_p (t))
+      if (t && need_fake_edge_p (t))
 	{
 	  edge e;
 

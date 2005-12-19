@@ -7096,6 +7096,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_float)
 		error ("both %<long%> and %<float%> in "
 		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<long%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<long%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<long%> and %<_Decimal128%> in "
+		       "declaration specifiers");
 	      else
 		specs->long_p = true;
 	      break;
@@ -7119,6 +7128,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_double)
 		error ("both %<short%> and %<double%> in "
 		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat32)
+                error ("both %<short%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<short%> and %<_Decimal64%> in "
+		                        "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<short%> and %<_Decimal128%> in "
+		       "declaration specifiers");
 	      else
 		specs->short_p = true;
 	      break;
@@ -7138,6 +7156,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else if (specs->typespec_word == cts_double)
 		error ("both %<signed%> and %<double%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<signed%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<signed%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<signed%> and %<_Decimal128%> in "
 		       "declaration specifiers");
 	      else
 		specs->signed_p = true;
@@ -7159,6 +7186,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_double)
 		error ("both %<unsigned%> and %<double%> in "
 		       "declaration specifiers");
+              else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<unsigned%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<unsigned%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<unsigned%> and %<_Decimal128%> in "
+		       "declaration specifiers");
 	      else
 		specs->unsigned_p = true;
 	      break;
@@ -7171,6 +7207,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else if (specs->typespec_word == cts_bool)
 		error ("both %<complex%> and %<_Bool%> in "
+		       "declaration specifiers");
+              else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<complex%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<complex%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<complex%> and %<_Decimal128%> in "
 		       "declaration specifiers");
 	      else
 		specs->complex_p = true;
@@ -7276,6 +7321,47 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_double;
+	      return specs;
+	    case RID_DFLOAT32:
+	    case RID_DFLOAT64:
+	    case RID_DFLOAT128:
+	      { 
+		const char *str;
+		if (i == RID_DFLOAT32)
+		  str = "_Decimal32";
+		else if (i == RID_DFLOAT64)
+		  str = "_Decimal64";
+		else
+		  str = "_Decimal128";
+		if (specs->long_long_p)
+		  error ("both %<long long%> and %<%s%> in "
+			 "declaration specifiers", str);
+		if (specs->long_p)
+		  error ("both %<long%> and %<%s%> in "
+			 "declaration specifiers", str);
+		else if (specs->short_p)
+		  error ("both %<short%> and %<%s%> in "
+			 "declaration specifiers", str);
+		else if (specs->signed_p)
+		  error ("both %<signed%> and %<%s%> in "
+			 "declaration specifiers", str);
+		else if (specs->unsigned_p)
+		  error ("both %<unsigned%> and %<%s%> in "
+			 "declaration specifiers", str);
+                else if (specs->complex_p)
+                  error ("both %<complex%> and %<%s%> in "
+                         "declaration specifiers", str);
+		else if (i == RID_DFLOAT32)
+		  specs->typespec_word = cts_dfloat32;
+		else if (i == RID_DFLOAT64)
+		  specs->typespec_word = cts_dfloat64;
+		else
+		  specs->typespec_word = cts_dfloat128;
+	      }
+	      if (!targetm.decimal_float_supported_p ())
+		error ("decimal floating point not supported for this target");
+	      if (pedantic)
+		pedwarn ("ISO C does not support decimal floating point");
 	      return specs;
 	    default:
 	      /* ObjC reserved word "id", handled below.  */
@@ -7553,6 +7639,18 @@ finish_declspecs (struct c_declspecs *specs)
 			 ? complex_double_type_node
 			 : double_type_node);
 	}
+      break;
+    case cts_dfloat32:
+    case cts_dfloat64:
+    case cts_dfloat128:
+      gcc_assert (!specs->long_p && !specs->long_long_p && !specs->short_p
+		  && !specs->signed_p && !specs->unsigned_p && !specs->complex_p);
+      if (specs->typespec_word == cts_dfloat32)
+	specs->type = dfloat32_type_node;
+      else if (specs->typespec_word == cts_dfloat64)
+	specs->type = dfloat64_type_node;
+      else
+	specs->type = dfloat128_type_node;
       break;
     default:
       gcc_unreachable ();

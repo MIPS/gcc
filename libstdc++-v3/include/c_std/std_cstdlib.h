@@ -50,13 +50,26 @@
 #include <bits/c++config.h>
 #include <cstddef>
 
-#if _GLIBCXX_HOSTED
-/* The C standard does not require a freestanding implementation to
-   provide <stdlib.h>.  However, the C++ standard does still require
-   <cstdlib> -- but only the functionality mentioned in
-   [lib.support.start.term].  */
+#if !_GLIBCXX_HOSTED
+// The C standard does not require a freestanding implementation to
+// provide <stdlib.h>.  However, the C++ standard does still require
+// <cstdlib> -- but only the functionality mentioned in
+// [lib.support.start.term].
+
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
+  extern "C" void abort(void);
+  extern "C" int atexit(void (*)());
+  extern "C" void exit(int);
+
+_GLIBCXX_END_NAMESPACE
+
+#else
+
 #include <stdlib.h>
-#endif
 
 // Get rid of those macros defined in <stdlib.h> in lieu of real functions.
 #undef abort
@@ -88,9 +101,8 @@
 #undef wcstombs
 #undef wctomb
 
-namespace std
-{
-#if _GLIBCXX_HOSTED
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   using ::div_t;
   using ::ldiv_t;
 
@@ -132,16 +144,8 @@ namespace std
 
   inline ldiv_t
   div(long __i, long __j) { return ldiv(__i, __j); }
-#else
-  /* Provide the minimal set of definitions required of a freestanding
-     implementation.  */
-  #define EXIT_SUCCESS 0
-  #define EXIT_FAILURE 1
-  extern "C" void abort(void);
-  extern "C" int atexit(void (*)());
-  extern "C" void exit(int);
-#endif
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #if _GLIBCXX_USE_C99
 
@@ -154,8 +158,8 @@ namespace std
 #undef strtof
 #undef strtold
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
   using ::lldiv_t;
 #endif
@@ -193,26 +197,31 @@ namespace __gnu_cxx
 #endif
   using ::strtof;
   using ::strtold;
-}
 
-namespace std
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
-  using __gnu_cxx::lldiv_t;
+  using ::__gnu_cxx::lldiv_t;
 #endif
-  using __gnu_cxx::_Exit;
-  using __gnu_cxx::abs;
+  using ::__gnu_cxx::_Exit;
+  using ::__gnu_cxx::abs;
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
-  using __gnu_cxx::llabs;
-  using __gnu_cxx::div;
-  using __gnu_cxx::lldiv;
+  using ::__gnu_cxx::llabs;
+  using ::__gnu_cxx::div;
+  using ::__gnu_cxx::lldiv;
 #endif
-  using __gnu_cxx::atoll;
-  using __gnu_cxx::strtof;
-  using __gnu_cxx::strtoll;
-  using __gnu_cxx::strtoull;
-  using __gnu_cxx::strtold;
-}
-#endif
+  using ::__gnu_cxx::atoll;
+  using ::__gnu_cxx::strtof;
+  using ::__gnu_cxx::strtoll;
+  using ::__gnu_cxx::strtoull;
+  using ::__gnu_cxx::strtold;
+
+_GLIBCXX_END_NAMESPACE
+
+#endif // _GLIBCXX_USE_C99
+
+#endif // !_GLIBCXX_HOSTED
 
 #endif

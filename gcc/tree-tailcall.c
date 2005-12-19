@@ -144,9 +144,8 @@ suitable_for_tail_opt_p (void)
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
 
-      if (!(TREE_STATIC (var) || DECL_EXTERNAL (var))
-	  && (var_ann (var)->mem_tag_kind == NOT_A_TAG
-	      || var_ann (var)->mem_tag_kind == STRUCT_FIELD)
+      if (!is_global_var (var)
+	  && (!MTAG_P (var) || TREE_CODE (var) == STRUCT_FIELD_TAG)
 	  && is_call_clobbered (var))
 	return false;
     }
@@ -527,7 +526,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   if (!tail_recursion && (m || a))
     return;
 
-  nw = xmalloc (sizeof (struct tailcall));
+  nw = XNEW (struct tailcall);
 
   nw->call_block = bb;
   nw->call_bsi = bsi;

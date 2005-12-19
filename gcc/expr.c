@@ -410,10 +410,15 @@ convert_move (rtx to, rtx from, int unsignedp)
       rtx value, insns;
       convert_optab tab;
 
-      gcc_assert (GET_MODE_PRECISION (from_mode)
-		  != GET_MODE_PRECISION (to_mode));
+      gcc_assert ((GET_MODE_PRECISION (from_mode)
+		   != GET_MODE_PRECISION (to_mode))
+		  || (DECIMAL_FLOAT_MODE_P (from_mode)
+		      != DECIMAL_FLOAT_MODE_P (to_mode)));
       
-      if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
+      if (GET_MODE_PRECISION (from_mode) == GET_MODE_PRECISION (to_mode))
+	/* Conversion between decimal float and binary float, same size.  */
+	tab = DECIMAL_FLOAT_MODE_P (from_mode) ? trunc_optab : sext_optab;
+      else if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
 	tab = sext_optab;
       else
 	tab = trunc_optab;
@@ -2852,6 +2857,19 @@ emit_move_resolve_push (enum machine_mode mode, rtx x)
 #endif
   if (code == PRE_DEC || code == POST_DEC)
     adjust = -adjust;
+  else if (code == PRE_MODIFY || code == POST_MODIFY)
+    {
+      rtx expr = XEXP (XEXP (x, 0), 1);
+      HOST_WIDE_INT val;
+
+      gcc_assert (GET_CODE (expr) == PLUS || GET_CODE (expr) == MINUS);
+      gcc_assert (GET_CODE (XEXP (expr, 1)) == CONST_INT);
+      val = INTVAL (XEXP (expr, 1));
+      if (GET_CODE (expr) == MINUS)
+	val = -val;
+      gcc_assert (adjust == val || adjust == -val);
+      adjust = val;
+    }
 
   /* Do not use anti_adjust_stack, since we don't want to update
      stack_pointer_delta.  */
@@ -2865,13 +2883,13 @@ emit_move_resolve_push (enum machine_mode mode, rtx x)
     {
     case PRE_INC:
     case PRE_DEC:
+    case PRE_MODIFY:
       temp = stack_pointer_rtx;
       break;
     case POST_INC:
-      temp = plus_constant (stack_pointer_rtx, -GET_MODE_SIZE (mode));
-      break;
     case POST_DEC:
-      temp = plus_constant (stack_pointer_rtx, GET_MODE_SIZE (mode));
+    case POST_MODIFY:
+      temp = plus_constant (stack_pointer_rtx, -adjust);
       break;
     default:
       gcc_unreachable ();
@@ -5867,8 +5885,20 @@ force_operand (rtx value, rtx target)
     }
   if (UNARY_P (value))
     {
+      int unsignedp = 0;
+
       op1 = force_operand (XEXP (value, 0), NULL_RTX);
-      return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
+      switch (code)
+	{
+	case ZERO_EXTEND: case UNSIGNED_FIX: case UNSIGNED_FLOAT:
+	  unsignedp = 1;
+	  /* fall through.  */
+	case TRUNCATE:
+	case SIGN_EXTEND: case FIX: case FLOAT:
+	  return convert_to_mode (GET_MODE (value), op1, unsignedp);
+	default:
+	  return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
+	}
     }
 
 #ifdef INSN_SCHEDULING
@@ -8065,7 +8095,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	else
 	  comparison_code = unsignedp ? LEU : LE;
 
-	/* Canonicalize to comparsions against 0.  */
+	/* Canonicalize to comparisons against 0.  */
 	if (op1 == const1_rtx)
 	  {
 	    /* Converting (a >= 1 ? a : 1) into (a > 0 ? a : 1)

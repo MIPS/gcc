@@ -347,14 +347,8 @@ tree gfc_get_extern_function_decl (gfc_symbol *);
 /* Return the decl for a function.  */
 tree gfc_get_function_decl (gfc_symbol *);
 
-/* Build a CALL_EXPR.  */
-tree gfc_build_function_call (tree, tree);
-
 /* Build an ADDR_EXPR.  */
 tree gfc_build_addr_expr (tree, tree);
-
-/* Build an INDIRECT_REF.  */
-tree gfc_build_indirect_ref (tree);
 
 /* Build an ARRAY_REF.  */
 tree gfc_build_array_ref (tree, tree);

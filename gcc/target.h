@@ -127,35 +127,31 @@ struct gcc_target
     /* Output the assembler code for function exit.  */
     void (* function_epilogue) (FILE *, HOST_WIDE_INT);
 
+    /* Initialize target-specific sections.  */
+    void (* init_sections) (void);
+
     /* Tell assembler to change to section NAME with attributes FLAGS.
        If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
        which this section is associated.  */
     void (* named_section) (const char *name, unsigned int flags, tree decl);
 
-    /* Switch to the section that holds the exception table.  */
-    void (* exception_section) (void);
+    /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
+       is nonzero if runtime relocations must be applied; bit 1 will be
+       set if the runtime relocations require non-local name resolution.
+       ALIGN is the required alignment of the data.  */
+    section *(* select_section) (tree, int, unsigned HOST_WIDE_INT);
 
-    /* Switch to the section that holds the exception frames.  */
-    void (* eh_frame_section) (void);
-
-    /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant.  RELOC is nonzero if runtime relocations must be applied;
-       bit 1 will be set if the runtime relocations require non-local
-       name resolution.  ALIGN is the required alignment of the data.  */
-    void (* select_section) (tree, int, unsigned HOST_WIDE_INT);
-
-    /* Select and switch to a section for X with MODE.  ALIGN is
-       the desired alignment of the data.  */
-    void (* select_rtx_section) (enum machine_mode, rtx,
-				 unsigned HOST_WIDE_INT);
+    /* Return a section for X.  MODE is X's mode and ALIGN is its
+       alignment in bits.  */
+    section *(* select_rtx_section) (enum machine_mode, rtx,
+				     unsigned HOST_WIDE_INT);
 
     /* Select a unique section name for DECL.  RELOC is the same as
        for SELECT_SECTION.  */
     void (* unique_section) (tree, int);
 
-    /* Tell assembler to switch to the readonly data section associated
-       with function DECL.  */
-    void (* function_rodata_section) (tree);
+    /* Return the readonly data section associated with function DECL.  */
+    section *(* function_rodata_section) (tree);
 
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) (rtx, int);
@@ -355,6 +351,9 @@ struct gcc_target
   /* Return true if bitfields in RECORD_TYPE should follow the
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) (tree record_type);
+
+  /* True if the target supports decimal floating point.  */
+  bool (* decimal_float_supported_p) (void);
 
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);

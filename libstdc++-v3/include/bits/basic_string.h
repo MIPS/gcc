@@ -45,8 +45,8 @@
 #include <bits/atomicity.h>
 #include <debug/debug.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   /**
    *  @class basic_string basic_string.h <string>
    *  @brief  Managing sequences of characters and character-like objects.
@@ -1097,7 +1097,7 @@ namespace std
 	const size_type __pos = __p - _M_ibegin();
 	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
 	_M_rep()->_M_set_leaked();
-	return this->_M_ibegin() + __pos;
+	return iterator(_M_data() + __pos);
       }
 
       /**
@@ -1138,7 +1138,7 @@ namespace std
 	const size_type __pos = __position - _M_ibegin();
 	_M_mutate(__pos, size_type(1), size_type(0));
 	_M_rep()->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(_M_data() + __pos);
       }
 
       /**
@@ -1158,7 +1158,7 @@ namespace std
         const size_type __pos = __first - _M_ibegin();
 	_M_mutate(__pos, __last - __first, size_type(0));
 	_M_rep()->_M_set_leaked();
-	return _M_ibegin() + __pos;
+	return iterator(_M_data() + __pos);
       }
 
       /**
@@ -2443,6 +2443,7 @@ namespace std
     getline(basic_istream<wchar_t>& __in, basic_string<wchar_t>& __str,
 	    wchar_t __delim);
 #endif  
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _BASIC_STRING_H */

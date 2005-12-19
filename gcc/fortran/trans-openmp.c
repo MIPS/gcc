@@ -797,7 +797,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 
   lhsaddr = save_expr (lhsaddr);
   rhs = gfc_evaluate_now (rse.expr, &block);
-  x = convert (TREE_TYPE (rhs), gfc_build_indirect_ref (lhsaddr));
+  x = convert (TREE_TYPE (rhs), build_fold_indirect_ref (lhsaddr));
 
   if (var_on_left)
     x = fold_build2 (op, TREE_TYPE (rhs), x, rhs);
@@ -821,7 +821,7 @@ static tree
 gfc_trans_omp_barrier (void)
 {
   tree decl = built_in_decls [BUILT_IN_GOMP_BARRIER];
-  return gfc_build_function_call (decl, NULL);
+  return build_function_call_expr (decl, NULL);
 }
 
 static tree
@@ -999,7 +999,7 @@ static tree
 gfc_trans_omp_flush (void)
 {
   tree decl = built_in_decls [BUILT_IN_SYNCHRONIZE];
-  return gfc_build_function_call (decl, NULL);
+  return build_function_call_expr (decl, NULL);
 }
 
 static tree

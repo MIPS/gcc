@@ -131,6 +131,10 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 	tree complex_double_type_node;
 	tree complex_long_double_type_node;
 
+	tree dfloat32_type_node;
+	tree dfloat64_type_node;
+	tree_dfloat128_type_node;
+
 	tree intQI_type_node;
 	tree intHI_type_node;
 	tree intSI_type_node;
@@ -1686,6 +1690,13 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
 	return build_vector_type_for_mode (inner_type, mode);
     }
 
+  if (mode == TYPE_MODE (dfloat32_type_node))
+    return dfloat32_type_node;
+  if (mode == TYPE_MODE (dfloat64_type_node))
+    return dfloat64_type_node;
+  if (mode == TYPE_MODE (dfloat128_type_node))
+    return dfloat128_type_node;
+
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
       return TREE_VALUE (t);
@@ -1862,8 +1873,7 @@ min_precision (tree value, int unsignedp)
 }
 
 /* Print an error message for invalid operands to arith operation
-   CODE.  NOP_EXPR is used as a special case (see
-   c_common_truthvalue_conversion).  */
+   CODE.  */
 
 void
 binary_op_error (enum tree_code code)
@@ -1872,10 +1882,6 @@ binary_op_error (enum tree_code code)
 
   switch (code)
     {
-    case NOP_EXPR:
-      error ("invalid truth-value expression");
-      return;
-
     case PLUS_EXPR:
       opname = "+"; break;
     case MINUS_EXPR:
@@ -2173,6 +2179,14 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	 in the type of the operand that is not constant.
 	 TYPE is already properly set.  */
     }
+
+  /* If either arg is decimal float and the other is float, find the
+     proper common type to use for comparison.  */
+  else if (real1 && real2
+	   && (DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (primop0)))
+	       || DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (primop1)))))
+    type = common_type (TREE_TYPE (primop0), TREE_TYPE (primop1));
+
   else if (real1 && real2
 	   && (TYPE_PRECISION (TREE_TYPE (primop0))
 	       == TYPE_PRECISION (TREE_TYPE (primop1))))
@@ -2412,12 +2426,12 @@ c_common_truthvalue_conversion (tree expr)
 
     case ADDR_EXPR:
       {
-	if (TREE_CODE (TREE_OPERAND (expr, 0)) == FUNCTION_DECL
+	if (DECL_P (TREE_OPERAND (expr, 0))
 	    && !DECL_WEAK (TREE_OPERAND (expr, 0)))
 	  {
 	    /* Common Ada/Pascal programmer's mistake.  We always warn
 	       about this since it is so bad.  */
-	    warning (0, "the address of %qD, will always evaluate as %<true%>",
+	    warning (OPT_Walways_true, "the address of %qD, will always evaluate as %<true%>",
 		     TREE_OPERAND (expr, 0));
 	    return truthvalue_true_node;
 	  }
@@ -2467,13 +2481,12 @@ c_common_truthvalue_conversion (tree expr)
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
     case CONVERT_EXPR:
+    case NOP_EXPR:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
 	 since that affects how `default_conversion' will behave.  */
       if (TREE_CODE (TREE_TYPE (expr)) == REFERENCE_TYPE
 	  || TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == REFERENCE_TYPE)
 	break;
-      /* Fall through....  */
-    case NOP_EXPR:
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
@@ -3133,6 +3146,17 @@ c_common_nodes_and_builtins (void)
   record_builtin_type (RID_FLOAT, NULL, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL, double_type_node);
   record_builtin_type (RID_MAX, "long double", long_double_type_node);
+
+  /* Only supported decimal floating point extension if the target
+     actually supports underlying modes. */
+  if (targetm.scalar_mode_supported_p (SDmode) 
+      && targetm.scalar_mode_supported_p (DDmode)
+      && targetm.scalar_mode_supported_p (TDmode))
+    {
+      record_builtin_type (RID_DFLOAT32, NULL, dfloat32_type_node);
+      record_builtin_type (RID_DFLOAT64, NULL, dfloat64_type_node);
+      record_builtin_type (RID_DFLOAT128, NULL, dfloat128_type_node);
+    }
 
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 					 get_identifier ("complex int"),
@@ -4449,6 +4473,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	case MODE_INT:
 	case MODE_PARTIAL_INT:
 	case MODE_FLOAT:
+	case MODE_DECIMAL_FLOAT:
 	  valid_mode = targetm.scalar_mode_supported_p (mode);
 	  break;
 
@@ -4694,7 +4719,12 @@ handle_alias_attribute (tree *node, tree name, tree args,
   tree decl = *node;
 
   if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
-      || (TREE_CODE (decl) != FUNCTION_DECL && !DECL_EXTERNAL (decl)))
+      || (TREE_CODE (decl) != FUNCTION_DECL 
+	  && TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
+      /* A static variable declaration is always a tentative definition,
+	 but the alias is a non-tentative definition which overrides.  */
+      || (TREE_CODE (decl) != FUNCTION_DECL 
+	  && ! TREE_PUBLIC (decl) && DECL_INITIAL (decl)))
     {
       error ("%q+D defined both normally and as an alias", decl);
       *no_add_attrs = true;
@@ -4759,6 +4789,8 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       attr = tree_cons (get_identifier ("weakref"), NULL_TREE, attr);
 
       *no_add_attrs = true;
+
+      decl_attributes (node, attr, flags);
     }
   else
     {
@@ -4766,10 +4798,11 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	error ("%Jweakref attribute must appear before alias attribute",
 	       *node);
 
-      attr = tree_cons (get_identifier ("weak"), NULL_TREE, attr);
+      /* Can't call declare_weak because it wants this to be TREE_PUBLIC,
+	 and that isn't supported; and because it wants to add it to
+	 the list of weak decls, which isn't helpful.  */
+      DECL_WEAK (*node) = 1;
     }
-
-  decl_attributes (node, attr, flags);
 
   return NULL_TREE;
 }
@@ -5551,7 +5584,9 @@ check_function_arguments_recurse (void (*callback)
 				  void *ctx, tree param,
 				  unsigned HOST_WIDE_INT param_num)
 {
-  if (TREE_CODE (param) == NOP_EXPR)
+  if ((TREE_CODE (param) == NOP_EXPR || TREE_CODE (param) == CONVERT_EXPR)
+      && (TYPE_PRECISION (TREE_TYPE (param))
+	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (param, 0)))))
     {
       /* Strip coercion.  */
       check_function_arguments_recurse (callback, ctx,

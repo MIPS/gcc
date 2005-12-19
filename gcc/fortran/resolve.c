@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
 #include "system.h"
 #include "gfortran.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
+#include "dependency.h"
 
 /* Types used in equivalence statements.  */
 
@@ -140,16 +141,6 @@ resolve_formal_arglist (gfc_symbol * proc)
 	{
 	  if (!sym->attr.function || sym->result == sym)
 	    gfc_set_default_type (sym, 1, sym->ns);
-	  else
-	    {
-              /* Set the type of the RESULT, then copy.  */
-	      if (sym->result->ts.type == BT_UNKNOWN)
-		gfc_set_default_type (sym->result, 1, sym->result->ns);
-
-	      sym->ts = sym->result->ts;
-	      if (sym->as == NULL)
-		sym->as = gfc_copy_array_spec (sym->result->as);
-	    }
 	}
 
       gfc_resolve_array_spec (sym->as, 0);
@@ -301,7 +292,7 @@ resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
 
   /*Fortran 95 Draft Standard, page 51, Section 5.1.1.5, on the Character type,
     lists the only ways a character length value of * can be used: dummy arguments
-    of proceedures, named constants, and function results in external functions.
+    of procedures, named constants, and function results in external functions.
     Internal function results are not on that list; ergo, not permitted.  */
 
   if (sym->ts.type == BT_CHARACTER)
@@ -808,6 +799,24 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 }
 
 
+/* Go through each actual argument in ACTUAL and see if it can be
+   implemented as an inlined, non-copying intrinsic.  FNSYM is the
+   function being called, or NULL if not known.  */
+
+static void
+find_noncopying_intrinsics (gfc_symbol * fnsym, gfc_actual_arglist * actual)
+{
+  gfc_actual_arglist *ap;
+  gfc_expr *expr;
+
+  for (ap = actual; ap; ap = ap->next)
+    if (ap->expr
+	&& (expr = gfc_get_noncopying_intrinsic_argument (ap->expr))
+	&& !gfc_check_fncall_dependency (expr, INTENT_IN, fnsym, actual))
+      ap->expr->inline_noncopying_intrinsic = 1;
+}
+
+
 /************* Function resolution *************/
 
 /* Resolve a function call known to be generic.
@@ -1164,6 +1173,9 @@ resolve_function (gfc_expr * expr)
 	}
     }
 
+  if (t == SUCCESS)
+    find_noncopying_intrinsics (expr->value.function.esym,
+				expr->value.function.actual);
   return t;
 }
 
@@ -1386,27 +1398,28 @@ resolve_call (gfc_code * c)
   if (resolve_actual_arglist (c->ext.actual) == FAILURE)
     return FAILURE;
 
-  if (c->resolved_sym != NULL)
-    return SUCCESS;
+  t = SUCCESS;
+  if (c->resolved_sym == NULL)
+    switch (procedure_kind (c->symtree->n.sym))
+      {
+      case PTYPE_GENERIC:
+	t = resolve_generic_s (c);
+	break;
 
-  switch (procedure_kind (c->symtree->n.sym))
-    {
-    case PTYPE_GENERIC:
-      t = resolve_generic_s (c);
-      break;
+      case PTYPE_SPECIFIC:
+	t = resolve_specific_s (c);
+	break;
 
-    case PTYPE_SPECIFIC:
-      t = resolve_specific_s (c);
-      break;
+      case PTYPE_UNKNOWN:
+	t = resolve_unknown_s (c);
+	break;
 
-    case PTYPE_UNKNOWN:
-      t = resolve_unknown_s (c);
-      break;
+      default:
+	gfc_internal_error ("resolve_subroutine(): bad function type");
+      }
 
-    default:
-      gfc_internal_error ("resolve_subroutine(): bad function type");
-    }
-
+  if (t == SUCCESS)
+    find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
   return t;
 }
 

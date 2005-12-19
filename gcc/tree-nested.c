@@ -112,15 +112,15 @@ struct nesting_info GTY ((chain_next ("%h.next")))
 static hashval_t
 var_map_hash (const void *x)
 {
-  const struct var_map_elt *a = x;
+  const struct var_map_elt *a = (const struct var_map_elt *) x;
   return htab_hash_pointer (a->old);
 }
 
 static int
 var_map_eq (const void *x, const void *y)
 {
-  const struct var_map_elt *a = x;
-  const struct var_map_elt *b = y;
+  const struct var_map_elt *a = (const struct var_map_elt *) x;
+  const struct var_map_elt *b = (const struct var_map_elt *) y;
   return a->old == b->old;
 }
 
@@ -274,7 +274,7 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
       gcc_assert (insert != INSERT);
       return NULL;
     }
-  elt = *slot;
+  elt = (struct var_map_elt *) *slot;
 
   if (!elt && insert == INSERT)
     {
@@ -300,7 +300,7 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
   
-      elt = ggc_alloc (sizeof (*elt));
+      elt = GGC_NEW (struct var_map_elt);
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -475,7 +475,7 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
       gcc_assert (insert != INSERT);
       return NULL;
     }
-  elt = *slot;
+  elt = (struct var_map_elt *) *slot;
 
   if (!elt && insert == INSERT)
     {
@@ -486,7 +486,7 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
 
-      elt = ggc_alloc (sizeof (*elt));
+      elt = GGC_NEW (struct var_map_elt);
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -717,7 +717,7 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
 static struct nesting_info *
 create_nesting_tree (struct cgraph_node *cgn)
 {
-  struct nesting_info *info = ggc_calloc (1, sizeof (*info));
+  struct nesting_info *info = GGC_CNEW (struct nesting_info);
   info->field_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->var_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->suppress_expansion = BITMAP_GGC_ALLOC ();
@@ -894,7 +894,7 @@ static bool convert_nonlocal_omp_clauses (tree *, struct walk_stmt_info *);
 static tree
 convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree t = *tp;
   tree save_local_var_chain;
@@ -980,7 +980,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	       since we're no longer directly referencing a decl.  */
 	    save_context = current_function_decl;
 	    current_function_decl = info->context;
-	    recompute_tree_invarant_for_addr_expr (t);
+	    recompute_tree_invariant_for_addr_expr (t);
 	    current_function_decl = save_context;
 
 	    /* If the callback converted the address argument in a context
@@ -1196,7 +1196,7 @@ static bool convert_local_omp_clauses (tree *, struct walk_stmt_info *);
 static tree
 convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree t = *tp, field, x;
   bool save_val_only;
@@ -1261,7 +1261,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	    
 	  save_context = current_function_decl;
 	  current_function_decl = info->context;
-	  recompute_tree_invarant_for_addr_expr (t);
+	  recompute_tree_invariant_for_addr_expr (t);
 	  current_function_decl = save_context;
 
 	  /* If we are in a context where we only accept values, then
@@ -1432,7 +1432,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 static tree
 convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info, *i;
   tree t = *tp, label, new_label, target_context, x, arg, field;
   struct var_map_elt *elt, dummy;
@@ -1460,13 +1460,13 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
      can insert the new label into the IL during a second pass.  */
   dummy.old = label;
   slot = htab_find_slot (i->var_map, &dummy, INSERT);
-  elt = *slot;
+  elt = (struct var_map_elt *) *slot;
   if (elt == NULL)
     {
       new_label = create_artificial_label ();
       DECL_NONLOCAL (new_label) = 1;
 
-      elt = ggc_alloc (sizeof (*elt));
+      elt = GGC_NEW (struct var_map_elt); 
       elt->old = label;
       elt->new = new_label;
       *slot = elt;
@@ -1500,7 +1500,7 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
 static tree
 convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree t = *tp, label, new_label, x;
   struct var_map_elt *elt, dummy;
@@ -1512,7 +1512,7 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   label = LABEL_EXPR_LABEL (t);
 
   dummy.old = label;
-  elt = htab_find (info->var_map, &dummy);
+  elt = (struct var_map_elt *) htab_find (info->var_map, &dummy);
   if (!elt)
     return NULL_TREE;
   new_label = elt->new;
@@ -1539,7 +1539,7 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
 static tree
 convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info, *i;
   tree t = *tp, decl, target_context, x, arg;
 
@@ -1614,7 +1614,7 @@ convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
 static tree
 convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree t = *tp, decl, target_context;
 

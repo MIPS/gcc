@@ -74,6 +74,7 @@ static int missing_braces_mentioned;
 static int require_constant_value;
 static int require_constant_elements;
 
+static bool null_pointer_constant_p (tree);
 static tree qualify_type (tree, tree);
 static int tagged_types_tu_compatible_p (tree, tree);
 static int comp_target_types (tree, tree);
@@ -106,6 +107,23 @@ static int lvalue_or_else (tree, enum lvalue_use);
 static int lvalue_p (tree);
 static void record_maybe_used_decl (tree);
 static int comptypes_internal (tree, tree);
+
+/* Return true if EXP is a null pointer constant, false otherwise.  */
+
+static bool
+null_pointer_constant_p (tree expr)
+{
+  /* This should really operate on c_expr structures, but they aren't
+     yet available everywhere required.  */
+  tree type = TREE_TYPE (expr);
+  return (TREE_CODE (expr) == INTEGER_CST
+	  && !TREE_CONSTANT_OVERFLOW (expr)
+	  && integer_zerop (expr)
+	  && (INTEGRAL_TYPE_P (type)
+	      || (TREE_CODE (type) == POINTER_TYPE
+		  && VOID_TYPE_P (TREE_TYPE (type))
+		  && TYPE_QUALS (TREE_TYPE (type)) == TYPE_UNQUALIFIED)));
+}
 /* This is a cache to hold if two types are compatible or not.  */
 
 struct tagged_tu_seen_cache {
@@ -599,6 +617,22 @@ c_common_type (tree t1, tree t2)
   if (code2 == REAL_TYPE && code1 != REAL_TYPE)
     return t2;
 
+  /* If both are real and either are decimal floating point types, use
+     the decimal floating point type with the greater precision. */
+
+  if (code1 == REAL_TYPE && code2 == REAL_TYPE)
+    {
+      if (TYPE_MAIN_VARIANT (t1) == dfloat128_type_node
+	  || TYPE_MAIN_VARIANT (t2) == dfloat128_type_node)
+	return dfloat128_type_node;
+      else if (TYPE_MAIN_VARIANT (t1) == dfloat64_type_node
+	       || TYPE_MAIN_VARIANT (t2) == dfloat64_type_node)
+	return dfloat64_type_node;
+      else if (TYPE_MAIN_VARIANT (t1) == dfloat32_type_node
+	       || TYPE_MAIN_VARIANT (t2) == dfloat32_type_node)
+	return dfloat32_type_node;
+    }
+
   /* Both real or both integers; use the one with greater precision.  */
 
   if (TYPE_PRECISION (t1) > TYPE_PRECISION (t2))
@@ -900,7 +934,7 @@ same_translation_unit_p (tree t1, tree t2)
 static struct tagged_tu_seen_cache *
 alloc_tagged_tu_seen_cache (tree t1, tree t2)
 {
-  struct tagged_tu_seen_cache *tu = xmalloc (sizeof (struct tagged_tu_seen_cache));
+  struct tagged_tu_seen_cache *tu = XNEW (struct tagged_tu_seen_cache);
   tu->next = tagged_tu_seen_base;
   tu->t1 = t1;
   tu->t2 = t2;
@@ -2352,10 +2386,37 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 		    {
 		      /* Warn if any argument is passed as `float',
 			 since without a prototype it would be `double'.  */
-		      if (formal_prec == TYPE_PRECISION (float_type_node))
+		      if (formal_prec == TYPE_PRECISION (float_type_node)
+			  && type != dfloat32_type_node)
 			warning (0, "passing argument %d of %qE as %<float%> "
 				 "rather than %<double%> due to prototype",
 				 argnum, rname);
+
+		      /* Warn if mismatch between argument and prototype
+			 for decimal float types.  Warn of conversions with
+			 binary float types and of precision narrowing due to
+			 prototype. */
+ 		      else if (type != TREE_TYPE (val)
+			       && (type == dfloat32_type_node
+				   || type == dfloat64_type_node
+				   || type == dfloat128_type_node 
+				   || TREE_TYPE (val) == dfloat32_type_node
+				   || TREE_TYPE (val) == dfloat64_type_node
+				   || TREE_TYPE (val) == dfloat128_type_node)
+			       && (formal_prec 
+				   <= TYPE_PRECISION (TREE_TYPE (val))
+				   || (type == dfloat128_type_node
+				       && (TREE_TYPE (val)
+					   != dfloat64_type_node 
+					   && (TREE_TYPE (val) 
+					       != dfloat32_type_node)))
+				   || (type == dfloat64_type_node
+				       && (TREE_TYPE (val)
+					   != dfloat32_type_node))))
+			warning (0, "passing argument %d of %qE as %qT "
+				 "rather than %qT due to prototype",
+				 argnum, rname, type, TREE_TYPE (val));
+
 		    }
 		  /* Detect integer changing in width or signedness.
 		     These warnings are only activated with
@@ -2418,7 +2479,8 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 	}
       else if (TREE_CODE (TREE_TYPE (val)) == REAL_TYPE
                && (TYPE_PRECISION (TREE_TYPE (val))
-	           < TYPE_PRECISION (double_type_node)))
+	           < TYPE_PRECISION (double_type_node))
+	       && !DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (val))))
 	/* Convert `float' to `double'.  */
 	result = tree_cons (NULL_TREE, convert (double_type_node, val), result);
       else if ((invalid_func_diag = 
@@ -2552,6 +2614,20 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
 
     }
 
+  /* Warn about comparisons against string literals, with the exception
+     of testing for equality or inequality of a string literal with NULL.  */
+  if (code == EQ_EXPR || code == NE_EXPR)
+    {
+      if ((code1 == STRING_CST && !integer_zerop (arg2.value))
+	  || (code2 == STRING_CST && !integer_zerop (arg1.value)))
+	warning (OPT_Wstring_literal_comparison,
+		 "comparison with string literal");
+    }
+  else if (TREE_CODE_CLASS (code) == tcc_comparison
+	   && (code1 == STRING_CST || code2 == STRING_CST))
+    warning (OPT_Wstring_literal_comparison,
+	     "comparison with string literal");
+
   unsigned_conversion_warning (result.value, arg1.value);
   unsigned_conversion_warning (result.value, arg2.value);
   overflow_warning (result.value);
@@ -2587,8 +2663,18 @@ pointer_diff (tree op0, tree op1)
      different mode in place.)
      So first try to find a common term here 'by hand'; we want to cover
      at least the cases that occur in legal static initializers.  */
-  con0 = TREE_CODE (op0) == NOP_EXPR ? TREE_OPERAND (op0, 0) : op0;
-  con1 = TREE_CODE (op1) == NOP_EXPR ? TREE_OPERAND (op1, 0) : op1;
+  if ((TREE_CODE (op0) == NOP_EXPR || TREE_CODE (op0) == CONVERT_EXPR)
+      && (TYPE_PRECISION (TREE_TYPE (op0))
+	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
+    con0 = TREE_OPERAND (op0, 0);
+  else
+    con0 = op0;
+  if ((TREE_CODE (op1) == NOP_EXPR || TREE_CODE (op1) == CONVERT_EXPR)
+      && (TYPE_PRECISION (TREE_TYPE (op1))
+	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op1, 0)))))
+    con1 = TREE_OPERAND (op1, 0);
+  else
+    con1 = op1;
 
   if (TREE_CODE (con0) == PLUS_EXPR)
     {
@@ -2746,9 +2832,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	}
       arg = c_objc_common_truthvalue_conversion (arg);
       return invert_truthvalue (arg);
-
-    case NOP_EXPR:
-      break;
 
     case REALPART_EXPR:
       if (TREE_CODE (arg) == COMPLEX_CST)
@@ -2930,7 +3013,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       return val;
 
     default:
-      break;
+      gcc_unreachable ();
     }
 
   if (argtype == 0)
@@ -3187,9 +3270,9 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     {
       if (comp_target_types (type1, type2))
 	result_type = common_pointer_type (type1, type2);
-      else if (integer_zerop (orig_op1) && TREE_TYPE (type1) == void_type_node)
+      else if (null_pointer_constant_p (orig_op1))
 	result_type = qualify_type (type2, type1);
-      else if (integer_zerop (orig_op2) && TREE_TYPE (type2) == void_type_node)
+      else if (null_pointer_constant_p (orig_op2))
 	result_type = qualify_type (type1, type2);
       else if (VOID_TYPE_P (TREE_TYPE (type1)))
 	{
@@ -3215,7 +3298,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     }
   else if (code1 == POINTER_TYPE && code2 == INTEGER_TYPE)
     {
-      if (!integer_zerop (op2))
+      if (!null_pointer_constant_p (orig_op2))
 	pedwarn ("pointer/integer type mismatch in conditional expression");
       else
 	{
@@ -3225,7 +3308,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     }
   else if (code2 == POINTER_TYPE && code1 == INTEGER_TYPE)
     {
-      if (!integer_zerop (op1))
+      if (!null_pointer_constant_p (orig_op1))
 	pedwarn ("pointer/integer type mismatch in conditional expression");
       else
 	{
@@ -3463,7 +3546,7 @@ build_c_cast (tree type, tree expr)
 	  && TREE_CODE (otype) == POINTER_TYPE
 	  && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
 	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
-	  && !(integer_zerop (value) && TREE_TYPE (otype) == void_type_node))
+	  && !null_pointer_constant_p (value))
 	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
 
       ovalue = value;
@@ -3819,7 +3902,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	    }
 
 	  /* Can convert integer zero to any pointer type.  */
-	  if (integer_zerop (rhs))
+	  if (null_pointer_constant_p (rhs))
 	    {
 	      rhs = null_pointer_node;
 	      break;
@@ -3957,7 +4040,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
 		  ||
 		  (VOID_TYPE_P (ttr)
-		   && !integer_zerop (rhs)
+		   && !null_pointer_constant_p (rhs)
 		   && TREE_CODE (ttl) == FUNCTION_TYPE)))
 	    WARN_FOR_ASSIGNMENT (G_("ISO C forbids passing argument %d of "
 				    "%qE between function pointer "
@@ -4047,7 +4130,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       /* An explicit constant 0 can convert to a pointer,
 	 or one that results from arithmetic, even including
 	 a cast to integer type.  */
-      if (!integer_zerop (rhs))
+      if (!null_pointer_constant_p (rhs))
 	WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE makes "
 				"pointer from integer without a cast"),
 			     G_("assignment makes pointer from integer "
@@ -4805,7 +4888,7 @@ void
 start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
 {
   const char *locus;
-  struct initializer_stack *p = xmalloc (sizeof (struct initializer_stack));
+  struct initializer_stack *p = XNEW (struct initializer_stack);
 
   p->decl = constructor_decl;
   p->require_constant_value = require_constant_value;
@@ -7896,14 +7979,14 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	    {
 	      /* op0 != orig_op0 detects the case of something
 		 whose value is 0 but which isn't a valid null ptr const.  */
-	      if (pedantic && (!integer_zerop (op0) || op0 != orig_op0)
+	      if (pedantic && !null_pointer_constant_p (orig_op0)
 		  && TREE_CODE (tt1) == FUNCTION_TYPE)
 		pedwarn ("ISO C forbids comparison of %<void *%>"
 			 " with function pointer");
 	    }
 	  else if (VOID_TYPE_P (tt1))
 	    {
-	      if (pedantic && (!integer_zerop (op1) || op1 != orig_op1)
+	      if (pedantic && !null_pointer_constant_p (orig_op1)
 		  && TREE_CODE (tt0) == FUNCTION_TYPE)
 		pedwarn ("ISO C forbids comparison of %<void *%>"
 			 " with function pointer");
@@ -7916,12 +7999,24 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  if (result_type == NULL_TREE)
 	    result_type = ptr_type_node;
 	}
-      else if (code0 == POINTER_TYPE && TREE_CODE (op1) == INTEGER_CST
-	       && integer_zerop (op1))
-	result_type = type0;
-      else if (code1 == POINTER_TYPE && TREE_CODE (op0) == INTEGER_CST
-	       && integer_zerop (op0))
-	result_type = type1;
+      else if (code0 == POINTER_TYPE && null_pointer_constant_p (orig_op1))
+	{
+	  if (TREE_CODE (op0) == ADDR_EXPR
+	      && DECL_P (TREE_OPERAND (op0, 0)) 
+	      && !DECL_WEAK (TREE_OPERAND (op0, 0)))
+	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
+		     TREE_OPERAND (op0, 0));
+	  result_type = type0;
+	}
+      else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
+	{
+	  if (TREE_CODE (op1) == ADDR_EXPR 
+	      && DECL_P (TREE_OPERAND (op1, 0))
+	      && !DECL_WEAK (TREE_OPERAND (op1, 0)))
+	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
+		     TREE_OPERAND (op1, 0));
+	  result_type = type1;
+	}
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
@@ -7960,15 +8055,13 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      pedwarn ("comparison of distinct pointer types lacks a cast");
 	    }
 	}
-      else if (code0 == POINTER_TYPE && TREE_CODE (op1) == INTEGER_CST
-	       && integer_zerop (op1))
+      else if (code0 == POINTER_TYPE && null_pointer_constant_p (orig_op1))
 	{
 	  result_type = type0;
 	  if (pedantic || extra_warnings)
 	    pedwarn ("ordered comparison of pointer with integer zero");
 	}
-      else if (code1 == POINTER_TYPE && TREE_CODE (op0) == INTEGER_CST
-	       && integer_zerop (op0))
+      else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
 	{
 	  result_type = type1;
 	  if (pedantic)

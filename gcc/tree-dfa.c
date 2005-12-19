@@ -85,6 +85,12 @@ static void add_referenced_var (tree, struct walk_state *);
 /* Array of all variables referenced in the function.  */
 htab_t referenced_vars;
 
+/* Default definition for this symbols.  If set for symbol, it
+   means that the first reference to this variable in the function is a
+   USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
+   for this variable with an empty defining statement.  */
+htab_t default_defs;
+
 
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
@@ -151,7 +157,7 @@ create_var_ann (tree t)
   gcc_assert (DECL_P (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = GGC_NEW (struct var_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = VAR_ANN;
@@ -172,7 +178,7 @@ create_stmt_ann (tree t)
   gcc_assert (is_gimple_stmt (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = GGC_NEW (struct stmt_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = STMT_ANN;
@@ -195,7 +201,7 @@ create_tree_ann (tree t)
   gcc_assert (t);
   gcc_assert (!t->common.ann || t->common.ann->common.type == TREE_ANN_COMMON);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = GGC_NEW (union tree_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = TREE_ANN_COMMON;
@@ -478,10 +484,11 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
   memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
 
   /* Walk all the trees in the function counting references.  Start at
-     basic block 0, but don't stop at block boundaries.  */
+     basic block NUM_FIXED_BLOCKS, but don't stop at block boundaries.  */
   pset = pointer_set_create ();
 
-  for (i = bsi_start (BASIC_BLOCK (0)); !bsi_end_p (i); bsi_next (&i))
+  for (i = bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
+       !bsi_end_p (i); bsi_next (&i))
     walk_tree (bsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
 	       pset);
 
@@ -573,7 +580,7 @@ referenced_var_lookup_if_exists (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = htab_find_with_hash (referenced_vars, &in, uid);
+  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
   if (h)
     return h->to;
   return NULL_TREE;
@@ -587,7 +594,7 @@ referenced_var_lookup (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = htab_find_with_hash (referenced_vars, &in, uid);
+  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
   gcc_assert (h || uid == 0);
   if (h)
     return h->to;
@@ -602,11 +609,61 @@ referenced_var_insert (unsigned int uid, tree to)
   struct int_tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct int_tree_map));
+  h = GGC_NEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
   *(struct int_tree_map **)  loc = h;
+}
+
+/* Lookup VAR UID in the default_defs hashtable and return the associated
+   variable.  */
+
+tree 
+default_def (tree var)
+{
+  struct int_tree_map *h, in;
+  gcc_assert (SSA_VAR_P (var));
+  in.uid = DECL_UID (var);
+  h = (struct int_tree_map *) htab_find_with_hash (default_defs, &in,
+                                                   DECL_UID (var));
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert the pair VAR's UID, DEF into the default_defs hashtable.  */
+
+void
+set_default_def (tree var, tree def)
+{ 
+  struct int_tree_map in;
+  struct int_tree_map *h;
+  void **loc;
+
+  gcc_assert (SSA_VAR_P (var));
+  in.uid = DECL_UID (var);
+  if (!def && default_def (var))
+    {
+      loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+      htab_remove_elt (default_defs, *loc);
+      return;
+    }
+  gcc_assert (TREE_CODE (def) == SSA_NAME);
+  loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+  /* Default definition might be changed by tail call optimization.  */
+  if (!*loc)
+    {
+      h = GGC_NEW (struct int_tree_map);
+      h->uid = DECL_UID (var);
+      h->to = def;
+      *(struct int_tree_map **)  loc = h;
+    }
+   else
+    {
+      h = (struct int_tree_map *) *loc;
+      h->to = def;
+    }
 }
 
 /* Add VAR to the list of dereferenced variables.
@@ -643,6 +700,10 @@ add_referenced_var (tree var, struct walk_state *walk_state)
       if (is_global_var (var))
 	mark_call_clobbered (var);
 
+      /* Tag's don't have DECL_INITIAL.  */
+      if (MTAG_P (var))
+	return;
+      
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  */
@@ -788,45 +849,157 @@ find_new_referenced_vars (tree *stmt_p)
 }
 
 
-/* If REF is a COMPONENT_REF for a structure that can have sub-variables, and
-   we know where REF is accessing, return the variable in REF that has the
-   sub-variables.  If the return value is not NULL, POFFSET will be the
-   offset, in bits, of REF inside the return value, and PSIZE will be the
-   size, in bits, of REF inside the return value.  */
+/* If REF is a handled component reference for a structure, return the
+   base variable.  The access range is delimited by bit positions *POFFSET and
+   *POFFSET + *PMAX_SIZE.  The access size is *PSIZE bits.  If either
+   *PSIZE or *PMAX_SIZE is -1, they could not be determined.  If *PSIZE
+   and *PMAX_SIZE are equal, the access is non-variable.  */
 
 tree
-okay_component_ref_for_subvars (tree ref, unsigned HOST_WIDE_INT *poffset,
-				unsigned HOST_WIDE_INT *psize)
+get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
+			 HOST_WIDE_INT *psize,
+			 HOST_WIDE_INT *pmax_size)
 {
-  tree result = NULL;
-  HOST_WIDE_INT bitsize;
-  HOST_WIDE_INT bitpos;
-  tree offset;
-  enum machine_mode mode;
-  int unsignedp;
-  int volatilep;
+  HOST_WIDE_INT bitsize = -1;
+  HOST_WIDE_INT maxsize = -1;
+  tree size_tree = NULL_TREE;
+  tree bit_offset = bitsize_zero_node;
 
-  gcc_assert (!SSA_VAR_P (ref));
-  *poffset = 0;  
-  *psize = (unsigned int) -1;
-  
-  if (ref_contains_array_ref (ref))
-    return result;
-  ref = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
-			     &unsignedp, &volatilep, false);
-  if (TREE_CODE (ref) == INDIRECT_REF)
-    return result;
-  else if (offset == NULL && bitsize != -1 && SSA_VAR_P (ref))
+  gcc_assert (!SSA_VAR_P (exp));
+
+  /* First get the final access size from just the outermost expression.  */
+  if (TREE_CODE (exp) == COMPONENT_REF)
+    size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
+  else if (TREE_CODE (exp) == BIT_FIELD_REF)
+    size_tree = TREE_OPERAND (exp, 1);
+  else
     {
-      *poffset = bitpos;      
-      *psize = bitsize;
-      if (get_subvars_for_var (ref) != NULL)
-	return ref;
+      enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+      if (mode == BLKmode)
+	size_tree = TYPE_SIZE (TREE_TYPE (exp));
+      else
+	bitsize = GET_MODE_BITSIZE (mode);
     }
-  else if (SSA_VAR_P (ref))
+  if (size_tree != NULL_TREE)
     {
-      if (get_subvars_for_var (ref) != NULL)
-	return ref;
+      if (! host_integerp (size_tree, 1))
+	bitsize = -1;
+      else
+	bitsize = TREE_INT_CST_LOW (size_tree);
     }
-  return NULL_TREE;
+
+  /* Initially, maxsize is the same as the accessed element size.
+     In the following it will only grow (or become -1).  */
+  maxsize = bitsize;
+
+  /* Compute cumulative bit-offset for nested component-refs and array-refs,
+     and find the ultimate containing object.  */
+  while (1)
+    {
+      switch (TREE_CODE (exp))
+	{
+	case BIT_FIELD_REF:
+	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
+				   TREE_OPERAND (exp, 2));
+	  break;
+
+	case COMPONENT_REF:
+	  {
+	    tree field = TREE_OPERAND (exp, 1);
+	    tree this_offset = component_ref_field_offset (exp);
+
+	    if (this_offset && TREE_CODE (this_offset) == INTEGER_CST)
+	      {
+		this_offset = size_binop (MULT_EXPR,
+					  fold_convert (bitsizetype,
+							this_offset),
+					  bitsize_unit_node);
+		bit_offset = size_binop (PLUS_EXPR,
+				         bit_offset, this_offset);
+		bit_offset = size_binop (PLUS_EXPR, bit_offset,
+					 DECL_FIELD_BIT_OFFSET (field));
+	      }
+	    else
+	      {
+		tree csize = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+		/* We need to adjust maxsize to the whole structure bitsize.
+		   But we can subtract any constant offset seen sofar,
+		   because that would get us out of the structure otherwise.  */
+		if (maxsize != -1
+		    && csize && host_integerp (csize, 1))
+		  {
+		    maxsize = (TREE_INT_CST_LOW (csize)
+			       - TREE_INT_CST_LOW (bit_offset));
+		  }
+		else
+		  maxsize = -1;
+	      }
+	  }
+	  break;
+
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  {
+	    tree index = TREE_OPERAND (exp, 1);
+	    tree low_bound = array_ref_low_bound (exp);
+	    tree unit_size = array_ref_element_size (exp);
+
+	    if (! integer_zerop (low_bound))
+	      index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				   index, low_bound);
+	    index = size_binop (MULT_EXPR,
+				fold_convert (sizetype, index), unit_size);
+	    if (TREE_CODE (index) == INTEGER_CST)
+	      {
+		index = size_binop (MULT_EXPR,
+				    fold_convert (bitsizetype, index),
+				    bitsize_unit_node);
+		bit_offset = size_binop (PLUS_EXPR, bit_offset, index);
+	      }
+	    else
+	      {
+		tree asize = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+		/* We need to adjust maxsize to the whole array bitsize.
+		   But we can subtract any constant offset seen sofar,
+		   because that would get us outside of the array otherwise.  */
+		if (maxsize != -1
+		    && asize && host_integerp (asize, 1))
+		  {
+		    maxsize = (TREE_INT_CST_LOW (asize)
+			       - TREE_INT_CST_LOW (bit_offset));
+		  }
+		else
+		  maxsize = -1;
+	      }
+	  }
+	  break;
+
+	case REALPART_EXPR:
+	  break;
+
+	case IMAGPART_EXPR:
+	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
+				   bitsize_int (bitsize));
+	  break;
+
+	case VIEW_CONVERT_EXPR:
+	  /* ???  We probably should give up here and bail out.  */
+	  break;
+
+	default:
+	  goto done;
+	}
+
+      exp = TREE_OPERAND (exp, 0);
+    }
+ done:
+
+  /* ???  Due to negative offsets in ARRAY_REF we can end up with
+     negative bit_offset here.  We might want to store a zero offset
+     in this case.  */
+  *poffset = TREE_INT_CST_LOW (bit_offset);
+  *psize = bitsize;
+  *pmax_size = maxsize;
+
+  return exp;
 }

@@ -1,4 +1,277 @@
-2005-12-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+2005-12-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25018
+	*expr.c(check_inquiry): Return FAILURE if there is no symtree to
+	provide a name. Error/warning for assumed character length argument
+	to LEN for an initialization expression, using GFC_GNU_STD. Add an
+	argument to flag that the expression is not restricted.
+	(check_init_expr): Improve the message for a failing variable.
+	(gfc_match_init_expr): Call check_enquiry again to make sure that
+	unsimplified expressions are not causing unnecessary errors.
+
+2005-12-17  Steven G. Kargl  <kargls@comcast.net>
+	    Tobias Schlueter <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/25458
+	* simplify.c (gfc_simplify_ibset, gfc_simplify_not): Add call to
+	twos_complement.
+
+2005-12-17  Steven G. Kargl  <kargls@comcast.net>
+
+	* decl.c (gfc_match_old_kind_spec,match_type_spec): Use gfc_std_notify
+	to report nonstandard intrinsic type declarations.
+
+2005-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/24268
+	* io.c (format_lex): Allow whitespace within text of format specifier.
+
+2005-12-16  Steven G. Kargl <kargls@comcast.net>
+ 
+	PR fortran/25106
+	PR fortran/25055
+	* match.c (gfc_match_small_literal_int): Add cnt argument;
+	(gfc_match_st_label,gfc_match_stopcode): Account for cnt argument.
+	* match.h (gfc_match_small_literal_int): Update prototype.
+	* decl.c (match_char_length,gfc_match_old_kind_spec): Account for cnt.
+	* parse.c (next_free): Ditto.
+	* primary.c (match_kind_param): Ditto.
+
+2005-12-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans.h (tree): Remove declaration of gfc_build_function_call.
+	* trans.c (gfc_build_function_call): Remove.
+	(gfc_build_array_ref): Use build_function_call_expr.
+	(gfc_trans_runtime_check): Likewise.
+	* trans-array.c (gfc_trans_allocate_array_storage): Likewise.
+	(gfc_grow_array): Likewise.
+	(gfc_trans_array_ctor_element): Likewise.
+	(gfc_trans_array_constructor_value): Likewise.
+	(gfc_array_allocate): Likewise.
+	(gfc_array_deallocate): Likewise.
+	(gfc_trans_auto_array_allocation): Likewise.
+	(gfc_trans_dummy_array_bias): Likewise.
+	(gfc_conv_array_parameter): Likewise.
+	* trans-expr.c (gfc_conv_power_op): Likewise.
+	(gfc_conv_string_tmp): Likewise.
+	(gfc_conv_concat_op): Likewise.
+	(gfc_conv_expr_op): Likewise.
+	(gfc_trans_string_copy): Likewise.
+	* trans-decl.c (build_entry_thunks): Likewise.
+	(gfc_generate_function_code): Likewise.
+	(gfc_generate_constructors): Likewise.
+	* trans-io.c (gfc_trans_open): Likewise.
+	(gfc_trans_close): Likewise.
+	(build_filepos): Likewise.
+	(gfc_trans_inquire): Likewise.
+	(transfer_namelist_element): Likewise.
+	(build_dt): Likewise.
+	(gfc_trans_dt_end): Likewise.
+	(transfer_expr): Likewise.
+	(transfer_array_desc): Likewise.
+	* trans-stmt.c (gfc_trans_pause): Likewise.
+	(gfc_trans_stop): Likewise.
+	(gfc_trans_character_select): Likewise.
+	(gfc_do_allocate): Likewise.
+	(gfc_trans_assign_need_temp): Likewise.
+	(gfc_trans_pointer_assign_need_temp): Likewise.
+	(gfc_trans_forall_1): Likewise.
+	(gfc_trans_where): Likewise.
+	(gfc_trans_allocate): Likewise.
+	(gfc_trans_deallocate): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_aint): Likewise.
+	(gfc_conv_intrinsic_lib_function): Likewise.
+	(gfc_conv_intrinsic_exponent): Likewise.
+	(gfc_conv_intrinsic_abs): Likewise.
+	(gfc_conv_intrinsic_sign): Likewise.
+	(gfc_conv_intrinsic_ctime): Likewise.
+	(gfc_conv_intrinsic_fdate): Likewise.
+	(gfc_conv_intrinsic_ttynam): Likewise.
+	(gfc_conv_intrinsic_ishftc): Likewise.
+	(gfc_conv_intrinsic_len_trim): Likewise.
+	(gfc_conv_intrinsic_index): Likewise.
+	(gfc_conv_intrinsic_size): Likewise.
+	(gfc_conv_intrinsic_strcmp): Likewise.
+	(gfc_conv_intrinsic_adjust): Likewise.
+	(gfc_conv_associated): Likewise.
+	(gfc_conv_intrinsic_scan): Likewise.
+	(gfc_conv_intrinsic_verify): Likewise.
+	(call_builtin_clz): Likewise.
+	(gfc_conv_intrinsic_si_kind): Likewise.
+	(gfc_conv_intrinsic_sr_kind): Likewise.
+	(gfc_conv_intrinsic_trim): Likewise.
+	(gfc_conv_intrinsic_repeat): Likewise.
+	(gfc_conv_intrinsic_iargc): Likewise.
+
+2005-12-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans.h (gfc_build_indirect_ref): Remove declaration.
+	* trans.c (gfc_build_indirect_ref): Remove.
+	* trans-array.c (gfc_trans_array_ctor_element): Use
+	build_fold_indirect_ref instead of gfc_build_indirect_ref.
+	(gfc_trans_array_constructor_value): Likewise.
+	(gfc_conv_array_index_offset): Likewise.
+	(gfc_conv_scalarized_array_ref): Likewise.
+	(gfc_conv_array_ref): Likewise.
+	(gfc_trans_dummy_array_bias): Likewise.
+	(gfc_conv_expr_descriptor): Likewise.
+	(gfc_conv_array_parameter): Likewise.
+	* trans-decl.c (gfc_finish_cray_pointee): Likewise.
+	(gfc_get_symbol_decl): Likewise.
+	* trans-expr.c (gfc_conv_substring): Likewise.
+	(gfc_conv_component_ref): Likewise.
+	(gfc_conv_variable): Likewise.
+	(gfc_add_interface_mapping): Likewise.
+	(gfc_conv_function_call): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ichar): Likewise.
+	(gfc_conv_intrinsic_transfer): Likewise.
+	* trans-io.c (nml_get_addr_expr): Likewise.
+	(transfer_namelist_element): Likewise.
+	(transfer_expr): Likewise.
+	* trans-stmt.c (gfc_trans_nested_forall_loop): Likewise.
+	(allocate_temp_for_forall_nest_1): Likewise.
+	(gfc_trans_forall_1): Likewise.
+
+2005-12-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans-array.c (gfc_conv_descriptor_data_addr): Use
+	build_fold_addr_expr where appropriate.
+	(gfc_trans_allocate_array_storage): Likewise.
+	(gfc_trans_array_constructor_value): Likewise.
+	(gfc_conv_array_data): Likewise.
+	(gfc_conv_expr_descriptor): Likewise.
+	(gfc_conv_array_parameter): Likewise.
+	* trans-expr.c (gfc_conv_variable): Likewise.
+	(gfc_conv_function_val): Likewise.
+	(gfc_conv_function_call): Likewise.
+	(gfc_conv_expr_reference): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_ctime): Likewise.
+	(gfc_conv_intrinsic_fdate): Likewise.
+	(gfc_conv_intrinsic_ttynam): Likewise.
+	(gfc_conv_intrinsic_si_kind): Likewise.
+	(gfc_conv_intrinsic_trim): Likewise.
+	* trans-io.c (set_parameter_ref): Likewise.
+	(gfc_convert_array_to_string): Likewise.
+	(gfc_trans_open): Likewise.
+	(gfc_trans_close): Likewise.
+	(build_filepos): Likewise.
+	(gfc_trans_inquire): Likewise.
+	(nml_get_addr_expr): Likewise.
+	(transfer_namelist_element): Likewise.
+	(build_dt): Likewise.
+	(gfc_trans_dt_end): Likewise.
+	(transfer_array_component): Likewise.
+	(transfer_expr): Likewise.
+	(transfer_array_desc): Likewise.
+	(gfc_trans_transfer): Likewise.
+	* trans-stmt.c (gfc_trans_allocate): Likewise.
+	(gfc_trans_deallocate): Likewise.
+
+2005-12-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* dependency.c, resolve.c, trans-array.c: Fix comment typos.
+	* gfortran.texi: Fix typos.
+
+2005-12-14  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/18197
+	* resolve.c (resolve_formal_arglist): Remove code to set
+	the type of a function symbol from it's result symbol.
+
+2005-12-13  Richard Guenther  <rguenther@suse.de>
+
+	* trans-expr.c (gfc_conv_substring): Use fold_build2 and
+	build_int_cst.
+
+2005-12-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* Make-lang.in (fortran/trans-resolve.o): Depend on
+	fortran/dependency.h.
+	* gfortran.h (gfc_expr): Add an "inline_noncopying_intrinsic" flag.
+	* dependency.h (gfc_get_noncopying_intrinsic_argument): Declare.
+	(gfc_check_fncall_dependency): Change prototype.
+	* dependency.c (gfc_get_noncopying_intrinsic_argument): New function.
+	(gfc_check_argument_var_dependency): New function, split from
+	gfc_check_fncall_dependency.
+	(gfc_check_argument_dependency): New function.
+	(gfc_check_fncall_dependency): Replace the expression parameter with
+	separate symbol and argument list parameters.  Generalize the function
+	to handle dependencies for any type of expression, not just variables.
+	Accept a further argument giving the intent of the expression being
+	tested.  Ignore	intent(in) arguments if that expression is also
+	intent(in).
+	* resolve.c: Include dependency.h.
+	(find_noncopying_intrinsics): New function.
+	(resolve_function, resolve_call): Call it on success.
+	* trans-array.h (gfc_conv_array_transpose): Declare.
+	(gfc_check_fncall_dependency): Remove prototype.
+	* trans-array.c (gfc_conv_array_transpose): New function.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Don't use the
+	libcall handling if the expression is to be evaluated inline.
+	Add a case for handling inline transpose()s.
+	* trans-expr.c (gfc_trans_arrayfunc_assign): Adjust for the new
+	interface provided by gfc_check_fncall_dependency.
+
+2005-12-12  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25078
+	* match.c (gfc_match_equivalence):  Count number of objects.
+
+2005-12-11  Aldy Hernandez  <aldyh@redhat.com>
+
+        * lang.opt: Add RejectNegative to ffixed-form and ffree-form.
+
+2005-12-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25068
+	* io.c (resolve_tag): Add correct diagnostic for F2003 feature.
+
+2005-12-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23815
+	* io.c (top level):  Add convert to io_tag.
+	(resolve_tag):  convert is GFC_STD_GNU.
+	(match_open_element):  Add convert.
+	(gfc_free_open):  Likewise.
+	(gfc_resolve_open):  Likewise.
+	(gfc_free_inquire):  Likewise.
+	(match_inquire_element):  Likewise.
+	* dump-parse-tree.c (gfc_show_code_node):  Add
+	convet for open and inquire.
+	gfortran.h: Add convert to gfc_open and gfc_inquire.
+	* trans-io.c (gfc_trans_open):  Add convert.
+	(gfc_trans_inquire):  Likewise.
+	* ioparm.def:  Add convert to open and inquire.
+	* gfortran.texi:  Document CONVERT.
+
+2005-12-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/22527
+	* f95-lang.c (gfc_truthvalue_conversion): Use a zero of the correct
+	integer type when building an inequality.
+
+2005-12-09  Richard Guenther  <rguenther@suse.de>
+
+	* f95-lang.c (build_builtin_fntypes): Use correct
+	return types, as indicated by comments.
+
+2005-12-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25292
+	* check.c (gfc_check_associated): Allow function results
+	as actual arguments to ASSOCIATED.  Moved a misplaced
+	comment.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (fortran.all.build, fortran.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype, except for
+	gt-fortran-trans.h.
+
+2005-12-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/25106
 	* parse.c (next_free): Use new prototype for gfc_match_st_label.

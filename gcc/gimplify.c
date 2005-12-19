@@ -556,7 +556,7 @@ lookup_tmp_var (tree val, bool is_formal)
       slot = htab_find_slot (gimplify_ctxp->temp_htab, (void *)&elt, INSERT);
       if (*slot == NULL)
 	{
-	  elt_p = xmalloc (sizeof (*elt_p));
+	  elt_p = XNEW (elt_t);
 	  elt_p->val = val;
 	  elt_p->temp = ret = create_tmp_from_val (val);
 	  *slot = (void *) elt_p;
@@ -3725,7 +3725,7 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
 	  /* Make sure TREE_INVARIANT, TREE_CONSTANT, and TREE_SIDE_EFFECTS
 	     is set properly.  */
-	  recompute_tree_invarant_for_addr_expr (expr);
+	  recompute_tree_invariant_for_addr_expr (expr);
 
 	  /* Mark the RHS addressable.  */
 	  lang_hooks.mark_addressable (TREE_OPERAND (expr, 0));
@@ -3819,7 +3819,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			break;
 		    }
 
-		  str = alloca (len);
+		  str = (char *) alloca (len);
 		  for (beg = p + 1, dst = str;;)
 		    {
 		      const char *tem;

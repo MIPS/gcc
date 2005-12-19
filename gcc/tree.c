@@ -230,6 +230,13 @@ init_ttree (void)
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -288,6 +295,10 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_type_decl);
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
+	  case NAME_MEMORY_TAG:
+	  case TYPE_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return sizeof (struct tree_memory_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -479,13 +490,16 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_declaration:
-      if (code != FUNCTION_DECL)
-	DECL_ALIGN (t) = 1;
-      DECL_USER_ALIGN (t) = 0;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
 	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      /* We have not yet computed the alias set for this declaration.  */
-      DECL_POINTER_ALIAS_SET (t) = -1;
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{
+	  if (code != FUNCTION_DECL)
+	    DECL_ALIGN (t) = 1;
+	  DECL_USER_ALIGN (t) = 0;	  
+	  /* We have not yet computed the alias set for this declaration.  */
+	  DECL_POINTER_ALIAS_SET (t) = -1;
+	}
       DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
 
@@ -1194,9 +1208,11 @@ integer_all_onesp (tree expr)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
+  if (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
+      && TREE_INT_CST_HIGH (expr) == -1)
+    return 1;
   if (!uns)
-    return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
-	    && TREE_INT_CST_HIGH (expr) == -1);
+    return 0;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -1979,6 +1995,10 @@ tree_node_structure (tree t)
 	    return TS_TYPE_DECL;
 	  case FUNCTION_DECL:
 	    return TS_FUNCTION_DECL;
+	  case TYPE_MEMORY_TAG:
+	  case NAME_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return TS_MEMORY_TAG;
 	  default:
 	    return TS_DECL_NON_COMMON;
 	  }
@@ -2602,7 +2622,7 @@ stabilize_reference_1 (tree e)
    TREE_INVARIANT, and TREE_SIDE_EFFECTS for an ADDR_EXPR.  */
 
 void
-recompute_tree_invarant_for_addr_expr (tree t)
+recompute_tree_invariant_for_addr_expr (tree t)
 {
   tree node;
   bool tc = true, ti = true, se = false;
@@ -2777,7 +2797,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
     case ADDR_EXPR:
       if (node)
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
       break;
 
     default:
@@ -6302,6 +6322,25 @@ build_common_tree_nodes_2 (int short_double)
   long_double_ptr_type_node = build_pointer_type (long_double_type_node);
   integer_ptr_type_node = build_pointer_type (integer_type_node);
 
+  /* Decimal float types. */
+  dfloat32_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat32_type_node) = DECIMAL32_TYPE_SIZE; 
+  layout_type (dfloat32_type_node);
+  TYPE_MODE (dfloat32_type_node) = SDmode;
+  dfloat32_ptr_type_node = build_pointer_type (dfloat32_type_node);
+
+  dfloat64_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat64_type_node) = DECIMAL64_TYPE_SIZE;
+  layout_type (dfloat64_type_node);
+  TYPE_MODE (dfloat64_type_node) = DDmode;
+  dfloat64_ptr_type_node = build_pointer_type (dfloat64_type_node);
+
+  dfloat128_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat128_type_node) = DECIMAL128_TYPE_SIZE; 
+  layout_type (dfloat128_type_node);
+  TYPE_MODE (dfloat128_type_node) = TDmode;
+  dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
+
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;
   layout_type (complex_integer_type_node);
@@ -6693,7 +6732,10 @@ in_array_bounds_p (tree ref)
 bool
 is_global_var (tree t)
 {
-  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+  if (MTAG_P (t))
+    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+  else
+    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory

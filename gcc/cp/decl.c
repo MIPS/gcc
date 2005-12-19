@@ -4339,6 +4339,10 @@ reshape_init_array_1 (tree elt_type, tree max_index, reshape_iter *d)
 
   if (sized_array_p)
     {
+      /* Minus 1 is used for zero sized arrays.  */
+      if (integer_all_onesp (max_index))
+	return new_init;
+
       if (host_integerp (max_index, 1))
 	max_index_cst = tree_low_cst (max_index, 1);
       /* sizetype is sign extended, not zero extended.  */
@@ -6504,7 +6508,8 @@ compute_array_index_type (tree name, tree size)
       /* Make sure that there was no overflow when creating to a signed
 	 index type.  (For example, on a 32-bit machine, an array with
 	 size 2^32 - 1 is too big.)  */
-      else if (TREE_OVERFLOW (itype))
+      else if (TREE_CODE (itype) == INTEGER_CST
+	       && TREE_OVERFLOW (itype))
 	{
 	  error ("overflow in array dimension");
 	  TREE_OVERFLOW (itype) = 0;
