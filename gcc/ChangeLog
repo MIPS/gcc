@@ -1,3 +1,52 @@
+2005-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+        * flow.c (update_life_info, count_or_remove_death_notes): Fixed
+	latent bug that could happen if update_life_info was called with a
+	blocks parameter and the call to cleanup_cfg actually deleted one
+	of those blocks. 
+
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-structalias.c (update_alias_info): Remove handling
+	of may_be_aliased (SSA_NAME_VAR (op)) case.
+
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-flow.h (struct stmt_ann_d): Remove
+	makes_aliased_loads and makes_aliased_stores fields.
+	* tree-ssa-ccp.c (likely_value): Do not use makes_aliased_stores
+	and makes_aliased_loads fields.
+	* tree-ssa-dom.c (eliminate_redundant_computations): Do not
+	use makes_aliased_stores.
+	* tree-ssa-operands.c (clobbered_aliased_loads,
+	clobbered_aliased_stores, ro_call_aliased_loads): Removed.
+	(build_ssa_operands, add_stmt_operand, add_call_clobber_ops,
+	add_call_read_ops): Do not set makes_aliased_stores and
+	makes_aliased_loads fields.
+	* tree-ssa.c (verify_ssa): Do not verify makes_aliased_stores
+	field.
+
+2005-12-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h: Don't include darwin-sections.def to declare
+	global variables; instead create darwin_section_enum.
+	(darwin_section_enum): New.
+	(darwin_sections): New.
+	* config/darwin.c: Don't include darwin-sections.def to define
+	global variables.
+	(darwin_sections): New.
+	(output_objc_section_asm_op): Rewrite to take advantage of
+	darwin_sections.
+	(darwin_init_sections): Rewrite to use darwin_sections.
+	(machopic_output_indirection): Update for darwin_sections array.
+	(machopic_select_section): Likewise.
+	(machopic_select_rtx_section): Likewise.
+	(machopic_asm_out_constructor): Likewise.
+	(machopic_asm_out_destructor): Likewise.
+	(darwin_file_end): Likewise.
+	* config/rs6000/rs6000.c (machopic_output_stub): Likewise.
+	* config/i386/i386.c (machopic_output_stub): Likewise.
+
 2005-12-18  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/25481
@@ -946,7 +995,7 @@
 	* config/arm/bpabi.h (SUBTARGET_EXTRA_ASM_SPEC): Pass -meabi=gnu for
 	apcs/atpcs.
 
-2005-12-11 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+2005-12-11 Rafael vila de Espndola <rafael.espindola@gmail.com>
 
 	* tree-flow.h: Allow compilation with a C++ compiler.
 	(struct edge_prediction): Prefix all field names  with "ep_".
@@ -1355,18 +1404,18 @@
 	* coretypes.h (section): Provide dummy definition for target files.
 	* config/darwin.h: Revert previous change.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael vila de Espndola  <rafael.espindola@gmail.com>
 
 	* doc/sourcebuild.texi (all.build, install-normal): Remove.
 	* configure.ac: Remove all.build and install-normal from target_list
 	* configure: Regenerate.
 	* Makefile.in (install): Don't depend on install-normal.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael vila de Espndola  <rafael.espindola@gmail.com>
 
 	* Makefile.in: Document the use of stamps.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael vila de Espndola  <rafael.espindola@gmail.com>
 
 	* doc/gty.texi: Remove instructions for adding a dependency on s-gtype.
 	* Makefile.in: Add code to compute some dependencies on s-gtype
@@ -10949,7 +10998,7 @@
 	* gcc.c (main): Compare language[0] with '*' when iterating over
 	the infiles.
 
-2005-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
+2005-07-13  Adrian Straetling  <straetling@de.ibm.com>
 
 	* config/s390/s390.c: (s390_cc_modes_compatible): Move before
 	"s390_emit_compare".  Add handling of CCZ1mode.
@@ -10962,7 +11011,7 @@
 	Use CCZ1mode instead of CCZmode.
 	* config/s390/s390-modes.def: Add CCZ1mode.  Comment new mode.
 
-2005-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
+2005-07-13  Adrian Straetling  <straetling@de.ibm.com>
 
 	* config/s390/s390.md: ("cmpstrsi", "*cmpstr<mode>"): New
 	pattern.
