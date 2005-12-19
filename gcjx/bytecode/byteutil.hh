@@ -22,12 +22,17 @@
 #ifndef GCJX_BYTECODE_BYTEUTIL_HH
 #define GCJX_BYTECODE_BYTEUTIL_HH
 
+/// For a given integer comparison opcode, this will return the
+/// corresponding opcode that compares against zero.  For instance,
+/// for op_if_icmpge, this will return op_ifge.
 inline java_opcode
 zero_if_opcode (java_opcode base)
 {
   return java_opcode (op_ifeq + base - op_if_icmpeq);
 }
 
+/// Invert a comparison opcode.  For instance, given op_if_cmpge, this
+/// will return op_if_cmplt.
 inline java_opcode
 invert_if_opcode (java_opcode base)
 {

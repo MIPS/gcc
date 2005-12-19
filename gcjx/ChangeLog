@@ -1,3 +1,8 @@
+2005-12-19  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/byteutil.hh (zero_if_opcode): Commented.
+	(invert_if_opcode): Likewise.
+
 2005-12-12  Tom Tromey  <tromey@redhat.com>
 
 	* model/method.cc (model_method): Updated.
