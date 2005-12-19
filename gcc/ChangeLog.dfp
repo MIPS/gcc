@@ -1,5 +1,10 @@
 2005-12-20  Ben Elliston  <bje@au.ibm.com>
 
+	* config/rs6000/rs6000.md: Move mov?d patterns to ..
+	* config/rs6000/decimal.md: .. here.
+
+2005-12-20  Ben Elliston  <bje@au.ibm.com>
+
 	* configure.ac: Match i?86, not ?86 for --enable-decimal-float.
 	* configure: Regenerate.
 
