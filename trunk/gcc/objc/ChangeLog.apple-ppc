@@ -1,3 +1,18 @@
+2005-12-16  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4360146
+	* objc/objc-act.c (ivar_offset_ref): Uniquify ivar offset variable 
+	names not based on offect value but based on their name.
+	(generate_v2_ivar_lists): Use OBJC_TYPE_NAME macro so c++ works as well.
+	(generate_v2_protocol_list): Use objc_v2_protocol_template and not
+	objc_protocol_template.
+	(build_class_ro_t_initializer): Type of class_ro_t.baseProtocols
+	initializer must be protocol_list_t*.
+	(generate_v2_protocols): Type of protocol_t.protocol_list 
+	initizlier is protocol_list_t *.
+
+
+	
 2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4229905

@@ -6677,26 +6677,22 @@ ivar_offset_ref (tree class_name, tree field_decl)
   char buf[512];
   tree *chain;
   tree iter;
-  tree tree_byte_position = byte_position (field_decl);
-  HOST_WIDE_INT field_offset = tree_low_cst (tree_byte_position, 0);
-  bool global_var = (TREE_PUBLIC (field_decl) || TREE_PROTECTED (field_decl));
+  bool global_var;
+  tree field_decl_id;
+
+  create_ivar_offset_name (buf, class_name, field_decl);
+  field_decl_id = get_identifier (buf);
 
   for (iter = ivar_offset_ref_chain; iter; iter = TREE_CHAIN (iter))
     {
       tree var = TREE_PURPOSE (iter);
-      HOST_WIDE_INT offset = tree_low_cst (TREE_VALUE (iter), 0);
-      if (offset == field_offset)
-	{
-	  if ((global_var && TREE_PUBLIC (var))
-	      || (!global_var && !TREE_PUBLIC (var)))
-	    return var;
-	}
+      if (DECL_NAME (var) == field_decl_id)
+	return var;
     }
 
   /* An existing offset symbol not found. Create a new one and add to the chain. */
   chain = &ivar_offset_ref_chain;
-  create_ivar_offset_name (buf, class_name, field_decl);
-
+  global_var = (TREE_PUBLIC (field_decl) || TREE_PROTECTED (field_decl));
   if (global_var)
     decl = create_global_decl (integer_type_node, buf);
   else
@@ -6705,7 +6701,7 @@ ivar_offset_ref (tree class_name, tree field_decl)
   while (*chain)
     chain = &TREE_CHAIN (*chain);
 
-  *chain = tree_cons (decl, tree_byte_position, NULL_TREE);
+  *chain = tree_cons (decl, byte_position (field_decl), NULL_TREE);
   
   return decl;
 }
@@ -6934,7 +6930,7 @@ generate_v2_ivar_lists (void)
 
       ivar_list_template = build_v2_ivar_list_t_template (
 			     objc_v2_ivar_template, size);
-      initlist = build_v2_ivar_list_initializer (TYPE_NAME (objc_v2_ivar_template),
+      initlist = build_v2_ivar_list_initializer (OBJC_TYPE_NAME (objc_v2_ivar_template),
 						     objc_v2_ivar_template, chain);
 
       UOBJC_V2_CLASS_VARIABLES_decl
@@ -7283,7 +7279,7 @@ generate_v2_protocol_list (tree i_or_p)
 
   /* Build initializer.  */
   initlist = NULL_TREE;
-  e = build_int_cst (build_pointer_type (objc_protocol_template), size);
+  e = build_int_cst (build_pointer_type (objc_v2_protocol_template), size);
   initlist = tree_cons (NULL_TREE, e, initlist);
 
   for (lproto = plist; lproto; lproto = TREE_CHAIN (lproto))
@@ -7823,9 +7819,10 @@ build_class_ro_t_initializer (tree type, tree superclass, tree name,
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = convert (build_pointer_type
-                      (build_pointer_type
-                       (objc_protocol_template)),
+      tree protocol_list_t_p = build_pointer_type (
+		               xref_tag (RECORD_TYPE, 
+			                 get_identifier (UTAG_V2_PROTOCOL_LIST)));
+      expr = convert (protocol_list_t_p,
                       build_unary_op (ADDR_EXPR, baseProtocols, 0));
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
@@ -9104,8 +9101,7 @@ generate_v2_protocols (void)
       protocol_name_expr = add_objc_string (PROTOCOL_NAME (p), class_names);
 
       if (refs_decl)
-	refs_expr = convert (build_pointer_type (build_pointer_type
-						 (objc_v2_protocol_template)),
+	refs_expr = convert (build_pointer_type (objc_v2_protocol_template),
 			     build_unary_op (ADDR_EXPR, refs_decl, 0));
       else
 	refs_expr = build_int_cst (NULL_TREE, 0);
