@@ -1184,217 +1184,47 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
 }
 
 
-/* Function vectorizable_target_reduction_pattern
+/* Function vectorizable_reduction
   
-   Check if STMT performs a target-reduction-pattern that can be vectorized.
+   Check if STMT performs a reduction that can be vectorized.
    If VEC_STMT is also passed, vectorize the STMT: create a vectorized
    stmt to replace it, put it in VEC_STMT, and insert it at BSI.
-   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
-  
-bool
-vectorizable_target_reduction_pattern (tree stmt, block_stmt_iterator *bsi,
-                                       tree *vec_stmt)
-{
-  tree vec_dest;
-  tree scalar_dest;
-  tree op0, op1 = NULL_TREE, reduc_op;
-  tree loop_vec_def;  
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree loop_vectype = STMT_VINFO_VECTYPE (stmt_info);
-  tree reduction_vectype;
-  enum machine_mode vec_mode;
-  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  tree call;
-  enum tree_code fcode;
-  enum tree_code orig_code, epilog_reduc_code = 0;
-  optab reduc_optab;
-  tree new_temp;
-  tree def0, def1, rdef;
-  tree def_stmt0, def_stmt1, rdef_stmt;
-  enum vect_def_type dt0, dt1, rdt;
-  tree new_phi;
-  bool is_simple_use0;
-  bool is_simple_use1;
-  bool is_simple_reduc_use;
-  tree orig_stmt;
-  stmt_vec_info orig_stmt_info;
-  tree fncdecl;
-  tree params;
-  tree vec_params;
-  tree new_stmt;
-  int n_ops = 0;
-  tree arg;
-  int nunits = TYPE_VECTOR_SUBPARTS (loop_vectype);
-  int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
+   Return FALSE if not a vectorizable STMT, TRUE otherwise. 
 
-  gcc_assert (ncopies >= 1);
-  if (ncopies > 1)
-    return false; /* FORNOW */
+   This function also handles reduction idioms (patterns) that have been 
+   recognized in advance during vect_pattern_recog. In this case, STMT may be
+   of this form:
+     X = pattern_expr (arg0, arg1, ..., X)
+   and it's STMT_VINFO_RELATED_STMT points to the last stmt in the original
+   sequence that had been detected and replaced by the pattern-stmt (STMT).
   
-  /* Is STMT a vectorizable target-reduction-pattern?  */
-  
-  /** 1. Is this a reduction?  **/
-  
-  /* Check if recognized as a reduction pattern.  */
-  if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_reduction_def)
-    return false;
-  
-  /* Not supportable if the reduction variable is used in the loop.  */
-  if (STMT_VINFO_RELEVANT_P (stmt_info))
-    return false;
-  
-  /* Reduction is expected to be used out of the loop.  */
-  if (!STMT_VINFO_LIVE_P (stmt_info))
-    return false;
-  
-  /* 2. Is this a recognized computation idiom?
-  
-     Check if STMT represents a pattern that has been recognized
-     in earlier analysis stages.  For stmts that represent a pattern,
-     the STMT_VINFO_RELATED_STMT field records the last stmt in
-     the original sequence that constitutes the pattern.  */
-  
-  orig_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
-  if (!orig_stmt)
-    return false;
-  orig_stmt_info = vinfo_for_stmt (orig_stmt);
-  gcc_assert (STMT_VINFO_RELATED_STMT (orig_stmt_info) == stmt);
-  if (!STMT_VINFO_IN_PATTERN_P (orig_stmt_info))
-    return false;
-  gcc_assert (!STMT_VINFO_IN_PATTERN_P (stmt_info));
-  
-  /* 3. Is this a target-specific pattern?  */
-    
-  call = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (call) != CALL_EXPR)
-    return false;
-  fncdecl = TREE_OPERAND (TREE_OPERAND (call, 0), 0);
-  fcode = DECL_FUNCTION_CODE (fncdecl);
-  if (TREE_CODE (fncdecl) != FUNCTION_DECL
-      || !DECL_BUILT_IN (fncdecl)
-      || DECL_BUILT_IN_CLASS (fncdecl) != BUILT_IN_MD)
-    return false;
-  /* The vectype is expected to have been set  */
-  if (!loop_vectype)
-    return false;
-  
-  /* 4. Check the operands of the operation. The first operands are defined
-        inside the loop body. The last operand is the reduction variable,
-        which is defined by the loop-header-phi.  */
-    
-  params = TREE_OPERAND (call, 1);
-  
-  /* 4.1 Check the operand that are defined inside the loop body
-         (i.e. by the current iteration)  */
-  
-  for (arg = params; arg; arg = TREE_CHAIN (arg))
-    n_ops++;
-  if (n_ops < 2 || n_ops > 3)
-    return false;
+   In some cases of reduction patterns, the type of the reduction variable X is 
+   different than the type of the other arguments of STMT.
 
-  op0 = TREE_VALUE (params);
-  is_simple_use0 =
-        vect_is_simple_use (op0, loop_vinfo, &def_stmt0, &def0, &dt0);
-  gcc_assert (is_simple_use0);
-  gcc_assert (dt0 == vect_loop_def);
-        
-  if (n_ops == 3)
-    {
-      params = TREE_CHAIN (params);
-      op1 = TREE_VALUE (params);
-      is_simple_use1 =
-        vect_is_simple_use (op1, loop_vinfo, &def_stmt1, &def1, &dt1);
-      gcc_assert (is_simple_use1);
-      gcc_assert (dt1 == vect_loop_def);
-    }
-    
-  /* 4.2  Check the reduction operand. It is expected to be defined by the
-         loop header phi.  */
-  
-  reduc_op = TREE_VALUE (TREE_CHAIN (params));
-  is_simple_reduc_use =
-        vect_is_simple_use (reduc_op, loop_vinfo, &rdef_stmt, &rdef, &rdt);
-  gcc_assert (is_simple_reduc_use);
-  gcc_assert (rdt == vect_reduction_def);
-  gcc_assert (TREE_CODE (rdef_stmt) == PHI_NODE);
-  gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) ==
-                        vect_is_simple_reduction (loop, rdef_stmt));
-  if (STMT_VINFO_LIVE_P (vinfo_for_stmt (rdef_stmt)))
-    return false;
-      
-  /* 5. Check that the epilog code for finalizing the reduction is supported  */
-     
-  orig_code = TREE_CODE (TREE_OPERAND (orig_stmt, 1));
-  if (!reduction_code_for_scalar_code (orig_code, &epilog_reduc_code))
-    return false;
-  reduction_vectype = get_vectype_for_scalar_type (TREE_TYPE (rdef));
-  reduc_optab = optab_for_tree_code (epilog_reduc_code, reduction_vectype);
-  vec_mode = TYPE_MODE (reduction_vectype);
-  if (!reduc_optab ||
-      reduc_optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
-    epilog_reduc_code = NUM_TREE_CODES;  
-  
-  
-  /* This is a vectorizable reduction pattern.  */
-  
-  if (!vec_stmt) /* transformation not required.  */
-    { 
-      STMT_VINFO_TYPE (stmt_info) = target_reduc_pattern_vec_info_type;
-      return true;
-    }
+   In such cases, the vectype that is used when transforming STMT into a vector
+   stmt is different than the vectype that is used to determine the 
+   vectorization factor, because it consists of a different number of elements 
+   than the actual number of elements that are being operated upon in parallel.
 
-  /** Transform.  **/
+   For example, consider an accumulation of shorts into an int accumulator. 
+   On some targets it's possible to vectorize this pattern operating on 8
+   shorts at a time (hence, the vectype for purposes of determining the
+   vectorization factor should be V8HI); on the other hand, the vectype that
+   is used to create the vector form is actually V4SI (the type of the result). 
 
-  if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "transforming target reduction pattern.");
+   Upon entry to this function, STMT_VINFO_VECTYPE records the vectype that 
+   indicates what is the actual level of parallelism (V8HI in the example), so 
+   that the right vectorization factor would be derived. This vectype 
+   corresponds to the type of the reduction arguments. This vectype should
+   *NOT* be used to create the vectorized stmt. The right vectype is obtained
+   from the type of the result X: get_vectype_for_scalar_type (TREE_TYPE (X))
 
-  /* Create the destination vector  */
-  scalar_dest = TREE_OPERAND (stmt, 0);
-  vec_dest = vect_create_destination_var (scalar_dest, reduction_vectype);
-
-  /* Create the reduction-phi that defines the reduction-operand.  */
-  new_phi = create_phi_node (vec_dest, loop->header);
-  vec_params = build_tree_list (NULL_TREE, PHI_RESULT (new_phi));
-
-  /* Prepare the operands that are defined inside the loop body  */ 
-  loop_vec_def = vect_get_vec_def_for_operand (op0, stmt, NULL); 
-  gcc_assert (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (loop_vec_def))));
-  vec_params = tree_cons (NULL_TREE, loop_vec_def, vec_params);
-  if (n_ops == 3)
-    {
-      loop_vec_def = vect_get_vec_def_for_operand (op1, stmt, NULL);
-      gcc_assert (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (loop_vec_def))));
-      vec_params = tree_cons (NULL_TREE, loop_vec_def, vec_params);
-    }
-
-  /* Create the vectorized operation that computes the partial results  */
-  /* CHECKME: gcc_assert (TREE_READONLY (fncdecl));  */
-  new_stmt = build_function_call_expr (fncdecl, vec_params);
-  *vec_stmt = build2 (MODIFY_EXPR, reduction_vectype, vec_dest, new_stmt);
-  new_temp = make_ssa_name (vec_dest, *vec_stmt);
-  TREE_OPERAND (*vec_stmt, 0) = new_temp;
-  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
-  new_temp = TREE_OPERAND (*vec_stmt, 0);
-
-  /* Finalize the reduction-phi (set it's arguments) and create the
-     epilog reduction code.  */
-  gcc_assert (! STMT_VINFO_VECTYPE (orig_stmt_info)); 
-  STMT_VINFO_VECTYPE (orig_stmt_info) = reduction_vectype;
-  vect_create_epilog_for_reduction (new_temp, orig_stmt, reduc_op,
-				    epilog_reduc_code, new_phi);
-  STMT_VINFO_VECTYPE (orig_stmt_info) = NULL;
-
-  return true;
-}
-
-
-/* Function vectorizable_reduction.
-
-   Check if STMT performs a reduction operation that can be vectorized.
-   If VEC_STMT is also passed, vectorize the STMT: create a vectorized
-   stmt to replace it, put it in VEC_STMT, and insert it at BSI.
-   Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+   This means that, 
+   contrary to "regular" reductions (or "regular" stmts in general), 
+   the following:
+      STMT_VINFO_VECTYPE == get_vectype_for_scalar_type (TREE_TYPE (X))
+   does *NOT* hold for reduction patterns.
+*/
 
 bool
 vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
@@ -4250,13 +4080,6 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *interleaving)
 
 		  switch (STMT_VINFO_TYPE (vinfo_for_stmt (next_stmt)))
 		    {
-		    case target_reduc_pattern_vec_info_type:
-		      done = vectorizable_target_reduction_pattern (next_stmt, 
-								    bsi, 
-								    &vec_stmt);
-		      gcc_assert (done);
-		      break;
-
 		    case reduc_vec_info_type:
 		      done = vectorizable_reduction (next_stmt, bsi, &vec_stmt);
 		      gcc_assert (done);
@@ -4286,11 +4109,6 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *interleaving)
 	{
 	  switch (STMT_VINFO_TYPE (stmt_info))
 	    {
-	    case target_reduc_pattern_vec_info_type:
-	      done = vectorizable_target_reduction_pattern (stmt, bsi, &vec_stmt);
-	      gcc_assert (done);
-	      break;
-	      
 	    case reduc_vec_info_type:
 	      done = vectorizable_reduction (stmt, bsi, &vec_stmt);
 	      gcc_assert (done);

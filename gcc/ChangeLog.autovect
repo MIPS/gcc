@@ -1,3 +1,41 @@
+2005-12-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-patterns.c: New file.
+	* tree-vect-analyze.c (vect_recog_unsigned_subsat_pattern):
+	(vect_recog_widen_sum_pattern, vect_recog_widen_mult_pattern):
+	(vect_recog_mult_hi_pattern, vect_recog_sad_pattern, widened_name_p):
+	(vect_recog_dot_prod_pattern, vect_pattern_recog_funcs): Moved to 
+	tree-vect-patterns.c. Target support check moved to 
+	vect_pattern_recog_1.
+	(vect_pattern_recog_1, vect_pattern_recog): Moved to 
+	tree-vect-patterns.c. Updated to call the vect_recog_xxx_pattern 
+	functions with an additional argument.
+	* Makefile.in (tree-vect-patterns.o): Add rule for new file. Fix 80
+	column overflow.
+	* tree-vectorizer.h (vect_pattern_recog_1): Removed declaration.
+	(vect_recog_unsigned_subsat_pattern, vect_recog_widen_sum_pattern):
+	(vect_recog_widen_mult_pattern, vect_recog_mult_hi_pattern):
+	(vect_recog_sad_pattern, vect_recog_dot_prod_pattern): Additional
+	argument in function declaration.
+	(vect_pattern_recog): Function declaration moved here from.
+	* tree-vect-transform.c (vectorizable_reduction): Added documentation.
+
+	* target.h (builtin_vect_pattern_recog): Removed.
+	* target-def.h (TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG): Removed.
+	* tree-vectorizer.h (target_reduc_pattern_vec_info_type): Removed.
+	(vectorizable_target_reduction_pattern): Removed.
+	* tree-vect-analyze.c (vect_analyze_operations): Removed call to 
+	vectorizable_target_reduction_pattern.
+	* tree-vect-transform.c (vect_transform_stmt): Removed call to 
+	vectorizable_target_reduction_pattern. 
+	(vectorizable_target_reduction_pattern): Removed.
+	* config/rs6000/rs6000.c (_recog_func_ptr, rs6000_create_permute_call):
+	(rs6000_builtin_vect_pattern_recog): Removed.
+
+	* config/rs6000/altivec.md (vec_extract_evenv4si, vec_extract_evenv4sf):
+	(vec_extract_evenv8hi, vec_extract_evenv16qi, vec_extract_oddv4si):
+	(vec_extract_oddv4sf): Removed unused variable byte_num.
+
 2005-12-15  Ira Rosen  <irar@il.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_builtin_extract_even,

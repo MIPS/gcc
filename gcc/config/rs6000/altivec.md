@@ -2683,7 +2683,6 @@
   "TARGET_ALTIVEC"
   "
 {
-  rtx byte_num;
   rtx mask = gen_reg_rtx (V16QImode);
   rtvec v = rtvec_alloc (16);
 
@@ -2717,7 +2716,6 @@
   "TARGET_ALTIVEC"
   "
 { 
-  rtx byte_num;
   rtx mask = gen_reg_rtx (V16QImode);
   rtvec v = rtvec_alloc (16);
   
@@ -2751,7 +2749,6 @@
   "TARGET_ALTIVEC"
   "
 { 
-  rtx byte_num;
   rtx mask = gen_reg_rtx (V16QImode);
   rtvec v = rtvec_alloc (16);
   
@@ -2785,7 +2782,6 @@
   "TARGET_ALTIVEC"
   "
 { 
-  rtx byte_num;
   rtx mask = gen_reg_rtx (V16QImode);
   rtvec v = rtvec_alloc (16);
   
@@ -2819,7 +2815,6 @@
   "TARGET_ALTIVEC"
   "
 {
-  rtx byte_num;
   rtx mask = gen_reg_rtx (V16QImode);
   rtvec v = rtvec_alloc (16);
 
@@ -2853,7 +2848,6 @@
   "TARGET_ALTIVEC"
   "
 {
-  rtx byte_num;
   rtx mask = gen_reg_rtx (V16QImode);
   rtvec v = rtvec_alloc (16);
 

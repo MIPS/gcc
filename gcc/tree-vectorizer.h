@@ -167,8 +167,7 @@ enum stmt_vec_info_type {
   condition_vec_info_type,
   reduc_vec_info_type,
   type_promotion_vec_info_type,
-  type_demotion_vec_info_type,
-  target_reduc_pattern_vec_info_type
+  type_demotion_vec_info_type
 };
 
 /* Define */
@@ -366,6 +365,7 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
 /*************************************************************************
   General Vectorization Utilities
  *************************************************************************/
+
 /** In tree-vectorizer.c **/
 extern tree vect_strip_conversion (tree);
 extern tree get_vectype_for_scalar_type (tree);
@@ -379,8 +379,6 @@ extern enum dr_alignment_support vect_supportable_dr_alignment
 extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
 extern bool supportable_widening_operation (enum tree_code, tree, tree, 
   tree *, tree *, enum tree_code *, enum tree_code *);
-
-
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
@@ -388,26 +386,27 @@ extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
 /* Main driver.  */
 extern void vectorize_loops (struct loops *);
 
+
 /** In tree-vect-analyze.c  **/
 /* Driver for analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *);
 
+
+/** In tree-vect-patterns.c  **/
 /* Pattern recognition functions.
    Additional pattern recognition functions can (and will) be added
    in the future.  */
-extern void vect_pattern_recog_1 
-  (tree (* ) (tree, tree *, varray_type *), block_stmt_iterator);
-
-tree vect_recog_unsigned_subsat_pattern (tree, tree *, varray_type *);
-tree vect_recog_widen_sum_pattern (tree, tree *, varray_type *);
-tree vect_recog_widen_mult_pattern (tree, tree *, varray_type *);
-tree vect_recog_mult_hi_pattern (tree, tree *, varray_type *);
-tree vect_recog_sad_pattern (tree, tree *, varray_type *);
-tree vect_recog_dot_prod_pattern (tree, tree *, varray_type *);
-
-typedef tree (* _recog_func_ptr) (tree, tree *, varray_type *);
+tree vect_recog_unsigned_subsat_pattern (tree, tree *, tree *, varray_type *);
+tree vect_recog_widen_sum_pattern (tree, tree *, tree *, varray_type *);
+tree vect_recog_widen_mult_pattern (tree, tree *, tree *, varray_type *);
+tree vect_recog_mult_hi_pattern (tree, tree *, tree *, varray_type *);
+tree vect_recog_sad_pattern (tree, tree *, tree *, varray_type *);
+tree vect_recog_dot_prod_pattern (tree, tree *, tree *, varray_type *);
+typedef tree (* _recog_func_ptr) (tree, tree *, tree *, varray_type *);
 #define NUM_PATTERNS 6
 extern _recog_func_ptr vect_pattern_recog_funcs[];
+void vect_pattern_recog (loop_vec_info);
+
 
 /** In tree-vect-transform.c  **/
 extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
@@ -416,8 +415,6 @@ extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_target_reduction_pattern 
-  (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);

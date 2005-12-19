@@ -160,14 +160,6 @@ enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Support targetm.vectorize.builtin_mask_for_load.  */
 static GTY(()) tree altivec_builtin_mask_for_load;
 
-/* Pattern recognition functions  */
-static _recog_func_ptr
-*target_vect_pattern_recog_funcs;
-/* Replace the above with:
-target_vect_pattern_recog_funcs[TARGET_VECT_NUM_PATTERNS] = {
-	target_vect_recog_SOME_pattern};
-   when TARGET_VECT_NUM_PATTERNS > 0.  */
-
 /* Size of long double */
 int rs6000_long_double_type_size;
 
@@ -663,7 +655,6 @@ static int rs6000_use_sched_lookahead (void);
 static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
-static void rs6000_builtin_vect_pattern_recog (tree);
 
 static void def_builtin (int, const char *, tree, int);
 static void rs6000_init_builtins (void);
@@ -921,9 +912,6 @@ static const char alt_reg_names[][8] =
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
 #undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
-
-#undef TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG
-#define TARGET_VECTORIZE_BUILTIN_VECT_PATTERN_RECOG rs6000_builtin_vect_pattern_recog
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -1597,72 +1585,6 @@ rs6000_builtin_mul_widen_odd (tree type)
     }
 }
 
-static tree
-rs6000_create_permute_call (tree vec_dest, tree vec1, tree vec2, 
-       tree vec_perm_mask, tree stmt)
-{
-  tree builtin_decl;
-  tree type = TREE_TYPE (vec_dest);
-  tree params = NULL_TREE;
-  tree new_stmt;
-  tree new_temp;
-  block_stmt_iterator bsi = bsi_for_stmt (stmt);
-  tree mask_type = V16QI_type_node;
-  tree perm_dest;
-
-  switch (TYPE_MODE (type))
-    {
-    case V16QImode:
-      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI];
-      break;
-    case V8HImode:
-      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI];
-      break;
-    case V4SImode:
-      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI];
-      break;
-    case V4SFmode:
-      builtin_decl = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SF];
-      break;
-    default:
-      return NULL_TREE;
-    }
-
-  /* put permutation mask in a vector variable  */
-  vec_perm_mask = build_vector (mask_type, vec_perm_mask);
-  perm_dest = create_tmp_var (mask_type, "mask");
-  add_referenced_tmp_var (perm_dest);
-  new_stmt = build2 (MODIFY_EXPR, mask_type, perm_dest, vec_perm_mask);
-  new_temp = make_ssa_name (perm_dest, new_stmt);
-  TREE_OPERAND (new_stmt, 0) = new_temp;
-  bsi_insert_before (&bsi, new_stmt, BSI_SAME_STMT);
-
-  /* build params for vperm: vec1, vec2, permutation_mask_vec.  */
-  params = build_tree_list (NULL_TREE, new_temp);
-  params = tree_cons (NULL_TREE, vec2, params);
-  params = tree_cons (NULL_TREE, vec1, params);
-
-  new_stmt = build_function_call_expr (builtin_decl, params);
-  new_stmt = build2 (MODIFY_EXPR, type, vec_dest, new_stmt);
-
-  return new_stmt;
-}
-
-/* Implement targetm.vectorize.builtin_vect_pattern_recog.  */
-static void
-rs6000_builtin_vect_pattern_recog (tree stmt)
-{
-  int j;
-  block_stmt_iterator si = bsi_for_stmt (stmt);
-  tree (* pattern_recog_func) (tree, tree *, varray_type *);
-
-  /* Scan over all target_vect_recog_xxx_pattern functions.  */
-  for (j = 0; j < TARGET_VECT_NUM_PATTERNS; j++)
-    {
-      pattern_recog_func = target_vect_pattern_recog_funcs[j];
-      vect_pattern_recog_1 (pattern_recog_func, si);
-    }
-}
 
 /* Handle generic options of the form -mfoo=yes/no.
    NAME is the option name.
