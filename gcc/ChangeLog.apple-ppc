@@ -28,7 +28,7 @@
 
 2005-12-14  Dale Johannesen  <dalej@apple.com>
 
-	Radar 4271961 (partial)
+	Radar 4271691 (partial)
 	* global.c (expand_preferences): Enhance pseudo
 	preferences for vectors.
 	* reload1.c (reload): Make sure reused stack slots
