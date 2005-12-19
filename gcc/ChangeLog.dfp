@@ -1,3 +1,9 @@
+2005-12-19  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.md (movsd, *movsd_gpr, movdd,
+	*movdd_fprs32, *movdd_fprs64, movtd, *movtd_internal): Make
+	conditional on ENABLE_DECIMAL_FLOAT.
+
 2005-12-16  Ben Elliston  <bje@au.ibm.com>
 
 	* c-cppbuiltin.c (builtin_define_decimal_float_constants): Rename
