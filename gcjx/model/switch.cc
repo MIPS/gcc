@@ -63,7 +63,7 @@ model_switch_block::resolve (resolution_scope *scope,
       else
 	(*i)->resolve (scope);
       if (assignment_conversion (switch_type, (*i).get ()) == NULL)
-	throw error ("case expression not assignable to switch type");
+	throw (*i)->error ("case expression not assignable to switch type");
 
       jint val;
       if (is_enum)
@@ -74,13 +74,13 @@ model_switch_block::resolve (resolution_scope *scope,
 
 	  model_enum_constant *enumc = unwrap_enum_constant ((*i).get ());
 	  if (enumc == NULL)
-	    throw error ("case expression not enum constant");
+	    throw (*i)->error ("case expression not enum constant");
 	  val = enumc->get_ordinal ();
 	}
       else
 	{
 	  if (! (*i)->constant_p ())
-	    throw error ("case expression must be constant");
+	    throw (*i)->error ("case expression must be constant");
 	  fold (*i);
 
 	  jvalue conv = bt->convert ((*i)->type (), (*i)->value ());
@@ -91,7 +91,7 @@ model_switch_block::resolve (resolution_scope *scope,
 	seen.insert (std::make_pair (val, (*i).get ()));
       else
 	{
-	  std::cerr << error ("duplicate case value");
+	  std::cerr << (*i)->error ("duplicate case value");
 	  std::cerr
 	    << seen.find (val)->second->error ("original instance is here");
 	}

@@ -458,8 +458,8 @@ public:
   {
     // Only 'long' and 'int' shifts are supported.
     assert (sig_char == 'I' || sig_char == 'J');
-    unsigned long lval = (unsigned long) (T) l;
-    unsigned long rval = (unsigned long) (T) r;
+    unsigned long long lval = (unsigned long long) (T) l;
+    unsigned long long rval = (unsigned long long) (T) r;
     // This is a little ugly -- there should be a way to compute the
     // mask.
     if (sig_char == 'I')

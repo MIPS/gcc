@@ -1,5 +1,10 @@
 2005-12-19  Tom Tromey  <tromey@redhat.com>
 
+	* model/primitive.hh (unsigned_right_shift): Use long long.
+	* model/switch.cc (resolve): Use better error locations.
+
+2005-12-19  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/generate.cc (handle_comparison): Use flip_if_opcode.
 	* bytecode/byteutil.hh (flip_if_opcode): New function.
 
