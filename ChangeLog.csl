@@ -1,3 +1,13 @@
+2005-12-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: Remove.
+	* gcc/testsuite/gcc.dg/special/gcsec-1.c: Don't XFAIL execution.
+	* gcc/testsuite/gcc.dg/cleanup-8.c,
+	gcc/testsuite/gcc.dg/cleanup-9.c,
+	gcc/testsuite/gcc.dg/cleanup-10.c,
+	gcc/testsuite/gcc.dg/cleanup-11.c: XFAIL on powerpc-wrs-linux-gnu.
+
 2005-12-16  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS,

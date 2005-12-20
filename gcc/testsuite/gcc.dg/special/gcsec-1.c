@@ -1,8 +1,6 @@
 /* AIX gld supports garbage collection. But AIX gcc does not support 
-   -ffunction-sections or -fdata-sections.  WRS Linux testing runs
-   programs as ld-linux.so.2 --library-path ... which does not work with
-   static linking.  */
-/* { dg-do run { xfail rs6000-*-aix* powerpc*-*-aix* *-wrs-linux* } } */
+   -ffunction-sections or -fdata-sections.  */
+/* { dg-do run { xfail rs6000-*-aix* powerpc*-*-aix* } } */
 /* { dg-excess-errors "" { xfail mips-wrs-linux-gnu } } */
 /* { dg-require-gc-sections "" } */
 

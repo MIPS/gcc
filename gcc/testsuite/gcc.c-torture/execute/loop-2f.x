@@ -1,3 +1,0 @@
-# Fails when test is run as ld-linux.so.2 --library-path ....
-set torture_execute_xfail "i586-wrs-linux-gnu"
-return 0
