@@ -1,3 +1,85 @@
+2005-12-20  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25458
+	* gfortran.dg/chkbits.f90: New test.
+
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24306
+	* gcc.target/i386/pr24306.c
+
+2005-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21228
+	* g++.dg/warn/Wunreachable-code-2.C: New test.
+
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* g++.dg/template/ctor5.C: New test.
+
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24915
+	* g++.dg/template/overload8.C: New test.
+
+2005-12-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20552
+	* g++.dg/ext/typeof10.C: New test.
+
+2005-12-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20051201-1.c: New test.
+
+2005-12-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25264
+	PR libgfortran/25349
+	* gfortran.dg/tl_editing.f90: Added additional checks.
+	* gfortran.dg/t_editing.f: New test.
+	* gfortran.dg/write_padding.f90: New test
+
+2005-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25039
+	* gfortran.dg/read_comma.f: New test.
+
+2005-12-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/25215
+	* gcc.dg/20050503-1.c: Skip on x86 ilp32 with -fpic/-fPIC.
+
+2005-12-14  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/18197
+	* gfortran.dg/dummy_functions_1.f90: New.
+
+2005-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/24899
+	* gcc.c-torture/execute/20051215-1.c: New test.
+
+2005-12-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24823
+	* gfortran.dg/pr24823.f: New test.
+
+2005-12-14  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/23838
+	* gcc.dg/tree-ssa/ssa-dse-8.c: New test.
+
+2005-12-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/rtti/repo1.C: Call cleanup-repo-files.
+	* gcc.dg/20050330-2.c: Call cleanup-coverage-files.
+
+2005-12-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-optimization/25310
+	* gcc.c-torture/compile/pr25310.c: New test.
+
 2005-12-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/25023

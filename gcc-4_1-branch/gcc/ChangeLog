@@ -1,3 +1,238 @@
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24306
+	* builtins.c (std_gimplify_va_arg_expr): Do not align
+	va frame for zero sized types.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Likewise.
+
+2005-12-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/22313
+	* dwarf2out.c (dwarf2out_switch_text_section): Export.
+	* debug.h (dwarf2out_switch_text_section): Prototype.
+	* final.c (final_scan_insn): Call dwarf2out_switch_text_section
+	if we need to call it for dwarf2 unwind info.
+
+2005-12-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/24982
+	* reload.c (refers_to_regno_for_reload_p): Take
+	reg_equiv_invariant and reg_equiv_init into account.
+	* reload.h (reg_equiv_invariant): Declare.
+
+2005-12-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/25180
+        * config/rs6000/predicates.md (logical_const_operand): Split
+        out of logical_operand.
+        (logical_operand): Use it.
+        * config/rs6000/rs6000.md (cmp -> xor peephole2): Use
+        logical_const_operand.
+
+2005-12-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/mt/mt.md (decrement_and_branch_until_zero): Add another
+	scratch.  Correct its reload split. Adjust its peephole.
+	(nop): Use 'nop'.
+	* config/mt/mt.c (MT_INT_ARG_FIRST): Remove.
+	(mt_asm_output_opcode, mt_print_operand): Use 'nop'.
+	(mt_function_arg_slotno): Use FIRST_ARG_REGNUM.
+	(mt_builtin_saveregs): Replace with ...
+	(mt_setup_incoming_varargs): ... here.  Save just the varadic
+	args.
+	(mt_va_start): Remove.
+	(mt_reorg_hazard): Ignore USE insns.  Don't call set_noop_p.
+	(mt_machine_reorg): Split all insns here.
+	(TARGET_SETUP_INCOMING_VARARGS): Override.
+	* config/mt/mt.h (TARGET_CPU_CPP_BUILTINS): Define __mt__ only.
+	Set to CPU type.
+	(EXPAND_BUILTIN_VA_START): Remove.
+
+2005-12-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* tree-cfg.c (tree_flow_call_edges_add): Check for empty basic blocks.
+
+2005-12-18  Jan Hubicka  <jh@suse.cz>
+
+	PR rtl-optimization/25224
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Free copy
+	tables.
+
+2005-12-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/24378
+	* tree-vect-transform.c (vect_transform_loop): Create single-predecessor
+	basic-block after loop-versioning.
+
+2005-12-17  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/23837
+	* optabs.c (expand_binop): For a multi-word rotate, never emit
+	a REG_NO_CONFLICT block.
+
+2005-12-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Second part of MS1->MT renaming
+	* config/mt/mt.md (doloop_end): Call mt_add_loop.
+	(movqi, movhi): Call mt_set_memflags.
+	(*movdf_internal): Call mt_split_words. 
+	(reload_inqi, reload_outqi, reload_inhi, reload_outhi): Call
+	mt_set_memflags.
+	(cmpsi): Store to mt_compare_op[01].
+	(beq, bne, bge, bgt, ble, blt, bgeu, bgtu, bleu, bltu, bunge,
+	bungt, bunle, bunlt): Call mt_emit_cbranch.
+	(prologue): Call mt_expand_prologue.
+	(epilogu): Call mt_expend_epilogue.
+	(eh_return): Call mt_expand_eh_return.
+	(eh_epilogue): Call me_emit_eh_epilogue.
+	(conditional_trap): Store to mt_compare_op[01].
+	* config/mt/crti.asm: Adjust comment.
+	* config/mt/crtn.asm: Adjust comment.
+	* config/mt/mt.c (MT_INT_ARG_FIRST): Renamed.
+	(mt_compare_op0, mt_compare_op1): Renamed.
+	(current_frame_info, zero_frame_info): Adjust type.
+	(mt_ucmpsi3_libcall): Renamed.
+	(mt_flag_delayed_branch): Renamed.
+	(mt_struct_value_rtx, mt_return_addr_rtx): Renamed.
+	(mt_nops_required, mt_nop_reasons): Renamed.
+	(mt_asm_output_opcode, mt_get_attr_type, mt_final_prescan_insn,
+	mt_debug_stack, mt_print_operand_simple_address,
+	mt_print_operand_address, mt_print_operand): Renamed, adjusted.
+	(mt_init_cumulative_args, mt_function_arg_slotno, mt_function_arg,
+	mt_function_arg_advance, mt_arg_partial_bytes,
+	mt_pass_by_reference, mt_function_arg_boundary,
+	mt_reg_ok_for_base_p, mt_legitimate_simple_address_p,
+	mt_legitimate_address_p): Renamed, adjusted.
+	(mt_cpu): Renamed.
+	(mt_init_machine_status, mt_override_options, mt_builtin_saveregs,
+	mt_va_start, mt_compute_frame_size, mt_emit_save_restore,
+	mt_emit_save_fp, mt_emit_save_regs, mt_interrupt_function_p, 
+	mt_expand_prologue, mt_epilogue_uses, mt_expand_epilogue,
+	mt_expand_eh_return, mt_emit_eh_prologue,
+	mt_handl_interrupt_attribute): Renamed, adjusted.
+	(mt_attribute_table): Renamed, adjusted.
+	(mt_initial_elimination_offset, mt_generate_compare,
+	mt_emit_cbranch, mt_set_memflags_1, mt_set_memflags,
+	mt_secondary_reload_class, mt_function_value, mt_split_words,
+	mt_pass_in_stack, mt_add_loop, mt_loop_nesting, mt_block_length,
+	mt_scan_loop, mt_reorg_loops): Renamed, adjusted.
+	(mt_labels): Renamed.
+	(mt_add_branches, mt_check_delay_slot, mt_reorg_hazard,
+	mt_machine_reorg): Renamed, adjusted.
+	(mt_attribute_table: Renamed.
+	(TARGET_ATTRIBUTE_TABLE, TARGET_STRUCT_VALUE_RTX,
+	TARGET_PASS_BY_REFERENCE, TARGET_MUST_PASS_IN_STACK,
+	TARGET_ARG_PARTIAL_BYTES, TARGET_MACHINE_DEPENDENT_REORG): Adjust.
+	* config/mt/mt.opt (march): Set mt_cpu_string.
+	* config/mt/mt.h (mt_ucmpsi3_libcall, mt_cpu): Renamed.
+	(TARGET_CPU_CPP_BUILTINS): Adjust.
+	(TARGET_MS1_64_001, TARGET_MS1_16_002, TARGET_MS1_16_003,
+	TARGET_MS2): Adjust.
+	(TARGET_VERSION, OVERRIDE_OPTIONS, SECONDARY_RELOAD_CLASS): Adjust.
+	(MT_MIN_INT): Renamed.
+	(RETURN_ADDR_RTX): Adjust.
+	(struct mt_frame_info): Renamed.
+	(current_frame_info): Adjust type.
+	(INITIAL_ELIMINATION_OFFSET): Adjust.
+	(MT_NUM_ARG_REGS): Renamed.
+	(REG_PARM_STACK_SPACE, FUNCTION_ARG, INIT_CUMULATVE_ARGS,
+	FUNCTION_ARG_ADVANCE, FUNCTION_ARG_BOUNDARY, FUNCTION_VALUE,
+	LIBCALL_VALUE, EPILOGUE_USES, EXPAND_BUILTIN_VA_START,
+	GO_IF_LEGITIMATE_ADDRESS, REG_OK_FOR_BASE_P, ASM_OUTPUT_OPCODE,
+	FINAL_REPSCAN_INSN, PRINT_OPERAND, PRINT_OPERAND_ADDRESS): Adjust.
+	(mt_compare_op0, mt_compare_op1): Renamed.
+	* config/mt/mt-protos.h: Rename prototypes.
+
+	* config/mt/mt.c (mt_override_options): Require lower case
+	architectures.  Revert accidental default to ms2.
+	* config/mt/mt.h (ASM_SPEC, LIBSPEC, STARTFILE_SPEC,
+	ENDFILE_SPEC): Require lower case architectures.  Revert default
+	to ms2.
+
+	* doc/invoke.texi (MT Options): Rename and update.
+	* doc/md.texi (MorphoTech family): Rename and update.
+
+	* config/mt/t-mt (crti.o, crtn.o): Add multilib options.
+	(EXTRA_MULTILIB_PARTS): Define.
+
+	* config/mt/t-mt (MULTILIB_OPTIONS): Add ms2
+	(MULTILIB_DIRNAMES): Add ms2.  Prefix ms1 dirs with 'ms1'.
+	* config/mt/mt.c (ms1_final_prescan): Use TARGET_MS2,
+	TARGET_MS1_64_001 appropriately.
+	(ms1_machine_reorg): Use TARGET_MS2.
+
+	2005-12-09  Aldy Hernandez  <aldyh@redhat.com>
+	* config/mt/t-mt (MULTILIB_OPTIONS): Define.
+	(MULTILIB_DIRNAMES): Define.
+
+	* config.gcc (ms1): Replace with ...
+	(mt): ... this.
+	* config/ms1: Rename to ...
+	* config/mt: ... here.  Rename ms1 files to mt.
+	* config/mt/mt.c: Adjust gt-mt.h #include.
+	* config/mt/t-mt (LIB1ASMSRCS, LIB2FUNCS_EXTRA): Adjust.
+	(crti.o, crtn.o): Adjust file names.
+
+2005-12-16  Andrew Haley  <aph@redhat.com>
+
+	* unwind-dw2-fde-glibc.c (_Unwind_IteratePhdrCallback): Guard
+	against prev_cache_entry == NULL when moving a cache entry to the
+	head of the list.
+	
+2005-12-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/ms1/ms1.c (ms1_reorg_hazard): Don't count noop moves.
+
+2005-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/24899
+	* loop.c (strength_reduce): Don't reduce giv that is not always
+	computable and where add_val or mult_val can trap.
+
+	* doc/invoke.texi (-fdump-tree-*): Remove note about C/C++ only.
+
+2005-12-16  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 24823
+	* flow.c (mark_used_dest_regs): New function.
+	(mark_used_regs): Call mark_used_dest_regs.
+
+2005-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (default_unique_section_1): Use special section
+	names for SECCAT_DATA_REL{,_RO}{,_LOCAL}.
+
+2005-12-15  Jan Hubicka  <jh@suse.cz>
+
+	PR target/24969
+	* i386.c (classify_argument): Properly adjust offset of bitfield for
+	substructures.
+
+2005-12-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/18659
+	PR ada/18819
+	* doc/invoke.texi (Optimize Options): Document that
+	-ftree-sra is not automatically enabled for the Ada compiler.
+
+2005-12-15  Olivier Hainque  <hainque@adacore.com>
+
+	* stor-layout.c (layout_type): Don't complain about a too small
+	an array element type size compared to its alignment when the
+	size overflows.
+
+2005-12-14  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/23838
+	* tree-ssa-dse.c (dse_optimize_stmt): Correctly handle PHI nodes which
+	represent a use and definition of the same SSA_NAME.
+
+2005-12-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR rtl-optimization/25310
+	* reload1.c (eliminate_regs_in_insn): Handle lowpart SUBREGs
+	of the eliminable register when substituting into a PLUS.
+
 2005-12-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/25023

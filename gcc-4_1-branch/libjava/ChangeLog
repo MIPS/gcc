@@ -1,3 +1,26 @@
+2005-12-18  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (getLocalAddress): 
+	New helper function.
+	(setOption): Use getLocalAddress.  Don't downcast value to
+	InetAddress.
+	(getOption): Use getLocalAddress.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getPackage): Get package from
+	VMClassLoader if needed.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail
+	(8.5.2-accessible-static-member-usage-3): Removed.
+
+2005-12-15  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/rh175833.java: New file.
+	* testsuite/libjava.compile/pr25429.java: New file.
+
 2005-12-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am (libgcj-$(gcc_version).jar): Don't rely on
