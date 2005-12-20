@@ -255,6 +255,7 @@ BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 # Flags to pass to stage2 and later makes.  They are defined
 # here so that they can be overridden by Makefile fragments.
 BOOT_CFLAGS= -g -O2
+BOOT_LDFLAGS=
 
 BISON = @BISON@
 YACC = @YACC@
@@ -1212,7 +1213,7 @@ stage = :
 
 @if gcc-bootstrap
 unstage = [ -f stage_current ] || $(MAKE) `cat stage_last`-start
-stage = [ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+stage = if [ -f stage_current ]; then $(MAKE) `cat stage_current`-end || exit 1; else :; fi
 @endif gcc-bootstrap
 
 .PHONY: unstage stage
@@ -1252,6 +1253,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
 	STAGE_PREFIX=$$r/prev-gcc/ \
 	CFLAGS="$(BOOT_CFLAGS)" \
+	LDFLAGS="$(BOOT_LDFLAGS)" \
 	ADAC="\$$(CC)"
 
 # For stage 1:
@@ -1319,7 +1321,7 @@ stage[+id+]-bubble:: [+ IF prev +]stage[+prev+]-bubble[+ ENDIF +][+IF lean +]
 	  $(MAKE) stage[+id+]-start; \
 	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stage[+id+]; \
 	fi[+ IF compare-target +]
-	$(MAKE) [+compare-target+][+ ENDIF compare-target +]
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) [+compare-target+][+ ENDIF compare-target +]
 
 .PHONY: all-stage[+id+] clean-stage[+id+]
 do-clean: clean-stage[+id+]

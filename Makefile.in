@@ -252,6 +252,7 @@ BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 # Flags to pass to stage2 and later makes.  They are defined
 # here so that they can be overridden by Makefile fragments.
 BOOT_CFLAGS= -g -O2
+BOOT_LDFLAGS=
 
 BISON = @BISON@
 YACC = @YACC@
@@ -436,6 +437,8 @@ BASE_FLAGS_TO_PASS = \
 	"SHELL=$(SHELL)" \
 	"YACC=$(YACC)" \
 	"AR_FLAGS=$(AR_FLAGS)" \
+	"BOOT_CFLAGS=$(BOOT_CFLAGS)" \
+	"BOOT_LDFLAGS=$(BOOT_LDFLAGS)" \
 	"CFLAGS=$(CFLAGS)" \
 	"CXXFLAGS=$(CXXFLAGS)" \
 	"LDFLAGS=$(LDFLAGS)" \
@@ -36041,7 +36044,7 @@ stage = :
 
 @if gcc-bootstrap
 unstage = [ -f stage_current ] || $(MAKE) `cat stage_last`-start
-stage = [ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+stage = if [ -f stage_current ]; then $(MAKE) `cat stage_current`-end || exit 1; else :; fi
 @endif gcc-bootstrap
 
 .PHONY: unstage stage
@@ -36081,6 +36084,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
 	STAGE_PREFIX=$$r/prev-gcc/ \
 	CFLAGS="$(BOOT_CFLAGS)" \
+	LDFLAGS="$(BOOT_LDFLAGS)" \
 	ADAC="\$$(CC)"
 
 # For stage 1:
@@ -36737,7 +36741,7 @@ stage3-bubble:: stage2-bubble
 	  $(MAKE) stage3-start; \
 	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stage3; \
 	fi
-	$(MAKE) compare
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) compare
 
 .PHONY: all-stage3 clean-stage3
 do-clean: clean-stage3
@@ -37021,7 +37025,7 @@ stage4-bubble:: stage3-bubble
 	  $(MAKE) stage4-start; \
 	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stage4; \
 	fi
-	$(MAKE) compare3
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) compare3
 
 .PHONY: all-stage4 clean-stage4
 do-clean: clean-stage4

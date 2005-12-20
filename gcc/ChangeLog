@@ -1,3 +1,89 @@
+2005-12-20  Roger Sayle  <roger@eyesopen.com>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/25115
+	* gcse.c (pre_insert_copy_insn): Fall back to the sole
+	SET in the insn if there is no SET for an
+	expression that is equivalent to EXPR.
+
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24306
+	* builtins.c (std_gimplify_va_arg_expr): Do not align
+	va frame for zero sized types.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Likewise.
+
+2005-12-20  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25501
+	* tree-cfgcleanup.c (merge_phi_nodes): Check that RESULT is
+	used in the PHI argument corresponding to the edge from BB to
+	DEST.
+
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (mark_used_vars): New function.
+	(dump_function_to_file): Dump only used VAR_DECLs.
+
+2005-12-19  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (try_combine): Improve splitting of binary operators
+	by taking advantage of reassociative transformations.
+
+2005-12-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (thread_across_edge): Do not use local_fold.
+	Strip away all type conversions after simplifying the
+	condition.
+
+        * tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
+        cases the forwarder block dominates the destination.
+
+2005-12-19  DJ Delorie  <dj@redhat.com>
+
+	* reload1.c (spill_failure): Dump reload data to dump file.
+	(find_reload_regs): Likewise.
+
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/24793
+	* tree-ssa-loop-ivopts.c (get_ref_tag): Remember the
+	original reference if there are subvars.
+	* tree-ssa-operands.c (get_tmr_operands): Handle subvars.
+
+2005-12-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df.c (df_analyze_1, df_analyze_subcfg, iterative_dataflow):
+	Corrected basic block number calculations for changes in entry and
+	exit numbering.
+	
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-flow.h (struct var_ann_d): Change type of
+	may_aliases field to VEC(tree, gc) *.
+	(may_aliases): Declaration changed.
+	* tree-ssa-alias.c (group_aliases, add_may_alias,
+	replace_may_alias, dump_may_aliases_for,
+	is_aliased_with, add_type_alias, new_type_alias):
+	Work with VEC(tree, gc) * instead of varray.
+	* tree-flow-inline.h (may_aliases): Ditto.
+	* tree-ssa.c (verify_flow_insensitive_alias_info,
+	verify_name_tags): Ditto.
+	* tree-ssa-operands.c (add_stmt_operand): Ditto.
+
+2005-12-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* cfgcleanup.c: Temporarily revert patches for PR 20070 till Bernd
+	comes back.
+
+2005-12-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* struct-equiv.c (struct_equiv_improve_checkpoint): Fix sets_cc0_p
+	check.
+
 2005-12-19  Ben Elliston  <bje@au.ibm.com>
 
 	* doc/install.texi (Configuration): Typo in Fortran subheading.

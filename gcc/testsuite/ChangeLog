@@ -1,3 +1,42 @@
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24306
+	* gcc.target/i386/pr24306.c: New testcase.
+
+2005-12-20  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25501
+	* testsuite/gcc.dg/tree-ssa/pr25501.c: New.
+
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20031106-6.c: Remove XFAIL.
+
+2005-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21228
+	* g++.dg/warn/Wunreachable-code-2.C: New test.
+
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* g++.dg/template/ctor5.C: New test.
+
+	PR c++/24915
+	* g++.dg/template/overload8.C: New test.
+
+2005-12-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* gcc.c-torture/compile/pr25483 : New test.
+
+2005-12-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20552
+	* g++.dg/ext/typeof10.C: New test.
+
 2005-12-19  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc.dg/mt-loopi1.c: New.
