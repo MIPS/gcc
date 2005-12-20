@@ -1,3 +1,52 @@
+2005-12-20  Roger Sayle  <roger@eyesopen.com>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/25115
+	* gcse.c (pre_insert_copy_insn): Fall back to the sole
+	SET in the insn if there is no SET for an
+	expression that is equivalent to EXPR.
+
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/24306
+	* builtins.c (std_gimplify_va_arg_expr): Do not align
+	va frame for zero sized types.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Likewise.
+
+2005-12-20  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25501
+	* tree-cfgcleanup.c (merge_phi_nodes): Check that RESULT is
+	used in the PHI argument corresponding to the edge from BB to
+	DEST.
+
+2005-12-20  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (mark_used_vars): New function.
+	(dump_function_to_file): Dump only used VAR_DECLs.
+
+2005-12-19  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (try_combine): Improve splitting of binary operators
+	by taking advantage of reassociative transformations.
+
+2005-12-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (thread_across_edge): Do not use local_fold.
+	Strip away all type conversions after simplifying the
+	condition.
+
+        * tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
+        cases the forwarder block dominates the destination.
+
+2005-12-19  DJ Delorie  <dj@redhat.com>
+
+	* reload1.c (spill_failure): Dump reload data to dump file.
+	(find_reload_regs): Likewise.
+
 2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR tree-optimization/24793
