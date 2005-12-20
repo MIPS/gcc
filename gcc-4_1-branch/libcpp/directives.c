@@ -487,9 +487,6 @@ run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
 {
   cpp_push_buffer (pfile, (const uchar *) buf, count,
 		   /* from_stage3 */ true);
-  /* Disgusting hack.  */
-  if (dir_no == T_PRAGMA && pfile->buffer->prev)
-    pfile->buffer->file = pfile->buffer->prev->file;
   start_directive (pfile);
 
   /* This is a short-term fix to prevent a leading '#' being
@@ -501,8 +498,6 @@ run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
     prepare_directive_trad (pfile);
   pfile->directive->handler (pfile);
   end_directive (pfile, 1);
-  if (dir_no == T_PRAGMA)
-    pfile->buffer->file = NULL;
   _cpp_pop_buffer (pfile);
 }
 
@@ -1466,6 +1461,11 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
 {
   const unsigned char *src, *limit;
   char *dest, *result;
+  cpp_context *saved_context;
+  cpp_token *saved_cur_token;
+  tokenrun *saved_cur_run;
+  cpp_token *toks;
+  int count;
 
   dest = result = (char *) alloca (in->len - 1);
   src = in->text + 1 + (in->text[0] == 'L');
@@ -1487,36 +1487,81 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
 
      Something like line-at-a-time lexing should remove the need for
      this.  */
-  {
-    cpp_context *saved_context = pfile->context;
-    cpp_token *saved_cur_token = pfile->cur_token;
-    tokenrun *saved_cur_run = pfile->cur_run;
+  saved_context = pfile->context;
+  saved_cur_token = pfile->cur_token;
+  saved_cur_run = pfile->cur_run;
 
-    pfile->context = XNEW (cpp_context);
-    pfile->context->macro = 0;
-    pfile->context->prev = 0;
-    run_directive (pfile, T_PRAGMA, result, dest - result);
-    XDELETE (pfile->context);
-    pfile->context = saved_context;
-    pfile->cur_token = saved_cur_token;
-    pfile->cur_run = saved_cur_run;
-  }
+  pfile->context = XNEW (cpp_context);
+  pfile->context->macro = 0;
+  pfile->context->prev = 0;
 
-  /* See above comment.  For the moment, we'd like
+  /* Inline run_directive, since we need to delay the _cpp_pop_buffer
+     until we've read all of the tokens that we want.  */
+  cpp_push_buffer (pfile, (const uchar *) result, dest - result,
+		   /* from_stage3 */ true);
+  /* ??? Antique Disgusting Hack.  What does this do?  */
+  if (pfile->buffer->prev)
+    pfile->buffer->file = pfile->buffer->prev->file;
 
-     token1 _Pragma ("foo") token2
+  start_directive (pfile);
+  _cpp_clean_line (pfile);
+  do_pragma (pfile);
+  end_directive (pfile, 1);
 
-     to be output as
+  /* We always insert at least one token, the directive result.  It'll
+     either be a CPP_PADDING or a CPP_PRAGMA.  In the later case, we 
+     need to insert *all* of the tokens, including the CPP_PRAGMA_EOL.  */
 
-		token1
-		# 7 "file.c"
-		#pragma foo
-		# 7 "file.c"
-			       token2
+  /* If we're not handling the pragma internally, read all of the tokens from
+     the string buffer now, while the string buffer is still installed.  */
+  /* ??? Note that the token buffer allocated here is leaked.  It's not clear
+     to me what the true lifespan of the tokens are.  It would appear that
+     the lifespan is the entire parse of the main input stream, in which case
+     this may not be wrong.  */
+  if (pfile->directive_result.type == CPP_PRAGMA)
+    {
+      int maxcount;
 
-      Getting the line markers is a little tricky.  */
-  if (pfile->cb.line_change)
-    pfile->cb.line_change (pfile, pfile->cur_token, false);
+      count = 1;
+      maxcount = 50;
+      toks = XNEWVEC (cpp_token, maxcount);
+      toks[0] = pfile->directive_result;
+
+      do
+	{
+	  if (count == maxcount)
+	    {
+	      maxcount = maxcount * 3 / 2;
+	      toks = XRESIZEVEC (cpp_token, toks, maxcount);
+	    }
+	  toks[count++] = *cpp_get_token (pfile);
+	}
+      while (toks[count-1].type != CPP_PRAGMA_EOL);
+    }
+  else
+    {
+      count = 1;
+      toks = XNEW (cpp_token);
+      toks[0] = pfile->directive_result;
+
+      /* If we handled the entire pragma internally, make sure we get the
+	 line number correct for the next token.  */
+      if (pfile->cb.line_change)
+	pfile->cb.line_change (pfile, pfile->cur_token, false);
+    }
+
+  /* Finish inlining run_directive.  */
+  pfile->buffer->file = NULL;
+  _cpp_pop_buffer (pfile);
+
+  /* Reset the old macro state before ...  */
+  XDELETE (pfile->context);
+  pfile->context = saved_context;
+  pfile->cur_token = saved_cur_token;
+  pfile->cur_run = saved_cur_run;
+
+  /* ... inserting the new tokens we collected.  */
+  _cpp_push_token_context (pfile, NULL, toks, count);
 }
 
 /* Handle the _Pragma operator.  */
