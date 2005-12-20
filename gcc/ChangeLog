@@ -1,3 +1,149 @@
+2005-12-19  DJ Delorie  <dj@redhat.com>
+
+	* reload1.c (spill_failure): Dump reload data to dump file.
+	(find_reload_regs): Likewise.
+
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/24793
+	* tree-ssa-loop-ivopts.c (get_ref_tag): Remember the
+	original reference if there are subvars.
+	* tree-ssa-operands.c (get_tmr_operands): Handle subvars.
+
+2005-12-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df.c (df_analyze_1, df_analyze_subcfg, iterative_dataflow):
+	Corrected basic block number calculations for changes in entry and
+	exit numbering.
+	
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-flow.h (struct var_ann_d): Change type of
+	may_aliases field to VEC(tree, gc) *.
+	(may_aliases): Declaration changed.
+	* tree-ssa-alias.c (group_aliases, add_may_alias,
+	replace_may_alias, dump_may_aliases_for,
+	is_aliased_with, add_type_alias, new_type_alias):
+	Work with VEC(tree, gc) * instead of varray.
+	* tree-flow-inline.h (may_aliases): Ditto.
+	* tree-ssa.c (verify_flow_insensitive_alias_info,
+	verify_name_tags): Ditto.
+	* tree-ssa-operands.c (add_stmt_operand): Ditto.
+
+2005-12-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* cfgcleanup.c: Temporarily revert patches for PR 20070 till Bernd
+	comes back.
+
+2005-12-19  J"orn Rennecke <joern.rennecke@st.com>
+
+	* struct-equiv.c (struct_equiv_improve_checkpoint): Fix sets_cc0_p
+	check.
+
+2005-12-19  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/install.texi (Configuration): Typo in Fortran subheading.
+
+2005-12-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/mt/mt.md (decrement_and_branch_until_zero): Add another
+	scratch.  Correct its reload split. Adjust its peephole.
+	(doloop_end): Add additional scratch.
+	(nop): Use 'nop'.
+	* config/mt/mt.c (MT_INT_ARG_FIRST): Remove.
+	(mt_asm_output_opcode, mt_print_operand): Use 'nop'.
+	(mt_function_arg_slotno): Use FIRST_ARG_REGNUM.
+	(mt_builtin_saveregs): Replace with ...
+	(mt_setup_incoming_varargs): ... here.  Save just the varadic
+	args.
+	(mt_va_start): Remove.
+	(mt_reorg_hazard): Ignore USE insns.  Don't call set_noop_p.
+	(mt_machine_reorg): Split all insns here.
+	(TARGET_SETUP_INCOMING_VARARGS): Override.
+	* config/mt/mt.h (TARGET_CPU_CPP_BUILTINS): Define __mt__ only.
+	Set to CPU type.
+	(EXPAND_BUILTIN_VA_START): Remove.
+
+2005-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+        * flow.c (update_life_info, count_or_remove_death_notes): Fixed
+	latent bug that could happen if update_life_info was called with a
+	blocks parameter and the call to cleanup_cfg actually deleted one
+	of those blocks. 
+
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-structalias.c (update_alias_info): Remove handling
+	of may_be_aliased (SSA_NAME_VAR (op)) case.
+
+2005-12-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-flow.h (struct stmt_ann_d): Remove
+	makes_aliased_loads and makes_aliased_stores fields.
+	* tree-ssa-ccp.c (likely_value): Do not use makes_aliased_stores
+	and makes_aliased_loads fields.
+	* tree-ssa-dom.c (eliminate_redundant_computations): Do not
+	use makes_aliased_stores.
+	* tree-ssa-operands.c (clobbered_aliased_loads,
+	clobbered_aliased_stores, ro_call_aliased_loads): Removed.
+	(build_ssa_operands, add_stmt_operand, add_call_clobber_ops,
+	add_call_read_ops): Do not set makes_aliased_stores and
+	makes_aliased_loads fields.
+	* tree-ssa.c (verify_ssa): Do not verify makes_aliased_stores
+	field.
+
+2005-12-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h: Don't include darwin-sections.def to declare
+	global variables; instead create darwin_section_enum.
+	(darwin_section_enum): New.
+	(darwin_sections): New.
+	* config/darwin.c: Don't include darwin-sections.def to define
+	global variables.
+	(darwin_sections): New.
+	(output_objc_section_asm_op): Rewrite to take advantage of
+	darwin_sections.
+	(darwin_init_sections): Rewrite to use darwin_sections.
+	(machopic_output_indirection): Update for darwin_sections array.
+	(machopic_select_section): Likewise.
+	(machopic_select_rtx_section): Likewise.
+	(machopic_asm_out_constructor): Likewise.
+	(machopic_asm_out_destructor): Likewise.
+	(darwin_file_end): Likewise.
+	* config/rs6000/rs6000.c (machopic_output_stub): Likewise.
+	* config/i386/i386.c (machopic_output_stub): Likewise.
+
+2005-12-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/25481
+	* tree-ssa-structalias.c (handle_ptr_arith): Handle
+	accesses we don't have a varinfo for.
+
+2005-12-17  Jon Grimm  <jgrimm2@us.ibm.com>
+	    Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* optabs.c (init_floating_libfuncs): Handle decimal float modes.
+	(init_optabs): Handle libfuncs for decimal float.
+	* genopinit.c (gen_insn): Handle MODE_DECIMAL_FLOAT.
+	* stor-layout.c (int_mode_for_mode): Likewise.
+	* simplify-rtx.c (simplify_immed_subreg): Likewise.
+	(simplify_unary_operation_1): Skip optimisations for decimal float
+	modes.
+	* varasm.c (output_constant_pool_2): Handle MODE_DECIMAL_FLOAT.
+	* emit-rtl.c (gen_const_vector): Add assertion check.
+	(init_emit_once): Populate const_tiny_rtx with constants in each
+	decimal float mode.
+	* expmed.c (extract_high_half, expand_mult_highpart_optab,
+	expand_mult_highpart): Assert that mode is not a scalar float
+	mode.
+	* expr.c (convert_move): Handle conversion between decimal and
+	binary floats of the same size.
+	* convert.c (convert_to_real): Consider decimal float types when
+	folding.
+	* dwarf2out.c (base_type_die): Use DW_ATE_decimal_float to
+	describe decimal floating point types.
+	
 2005-12-18  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	PR rtl-optimization/21041
@@ -826,9 +972,6 @@
 
 2005-12-13  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* sim/common/sim-signal.c (sim_signal_to_target): Add missing ':'.
-	* sim/common/sim-signal.h (sim_signal_to_target): Return an int.
-
 	* config/mt/t-mt (crti.o, crtn.o): Add multilib options.
 	(EXTRA_MULTILIB_PARTS): Define.
 
@@ -915,7 +1058,7 @@
 	* config/arm/bpabi.h (SUBTARGET_EXTRA_ASM_SPEC): Pass -meabi=gnu for
 	apcs/atpcs.
 
-2005-12-11 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+2005-12-11 Rafael vila de Espndola <rafael.espindola@gmail.com>
 
 	* tree-flow.h: Allow compilation with a C++ compiler.
 	(struct edge_prediction): Prefix all field names  with "ep_".
@@ -1142,8 +1285,8 @@
 
 2005-12-09  Aldy Hernandez  <aldyh@redhat.com>
 
-        * config/ms1/t-ms1 (MULTILIB_OPTIONS): Define.
-        (MULTILIB_DIRNAMES): Define.
+	* config/ms1/t-ms1 (MULTILIB_OPTIONS): Define.
+	(MULTILIB_DIRNAMES): Define.
 
 2005-12-09  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -1324,18 +1467,18 @@
 	* coretypes.h (section): Provide dummy definition for target files.
 	* config/darwin.h: Revert previous change.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael vila de Espndola  <rafael.espindola@gmail.com>
 
 	* doc/sourcebuild.texi (all.build, install-normal): Remove.
 	* configure.ac: Remove all.build and install-normal from target_list
 	* configure: Regenerate.
 	* Makefile.in (install): Don't depend on install-normal.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael vila de Espndola  <rafael.espindola@gmail.com>
 
 	* Makefile.in: Document the use of stamps.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael vila de Espndola  <rafael.espindola@gmail.com>
 
 	* doc/gty.texi: Remove instructions for adding a dependency on s-gtype.
 	* Makefile.in: Add code to compute some dependencies on s-gtype
@@ -10918,7 +11061,7 @@
 	* gcc.c (main): Compare language[0] with '*' when iterating over
 	the infiles.
 
-2005-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
+2005-07-13  Adrian Straetling  <straetling@de.ibm.com>
 
 	* config/s390/s390.c: (s390_cc_modes_compatible): Move before
 	"s390_emit_compare".  Add handling of CCZ1mode.
@@ -10931,7 +11074,7 @@
 	Use CCZ1mode instead of CCZmode.
 	* config/s390/s390-modes.def: Add CCZ1mode.  Comment new mode.
 
-2005-07-13  Adrian StraeÂ½tling  <straetling@de.ibm.com>
+2005-07-13  Adrian Straetling  <straetling@de.ibm.com>
 
 	* config/s390/s390.md: ("cmpstrsi", "*cmpstr<mode>"): New
 	pattern.

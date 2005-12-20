@@ -3007,11 +3007,9 @@ update_alias_info (tree stmt, struct alias_info *ai)
       var = SSA_NAME_VAR (op);
       v_ann = var_ann (var);
 
-      /* If the operand's variable may be aliased, keep track of how
-	 many times we've referenced it.  This is used for alias
-	 grouping in compute_flow_insensitive_aliasing.  */
-      if (may_be_aliased (var))
-	NUM_REFERENCES_INC (v_ann);
+      /* The base variable of an ssa name must be a GIMPLE register, and thus
+	 it cannot be aliased.  */
+      gcc_assert (!may_be_aliased (var));
 
       /* We are only interested in pointers.  */
       if (!POINTER_TYPE_P (TREE_TYPE (op)))
@@ -3184,9 +3182,13 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
 	if (c2->type == ADDRESSOF && rhsoffset != 0)
 	  {
 	    varinfo_t temp = get_varinfo (c2->var);
-	    
-	    gcc_assert (first_vi_for_offset (temp, rhsoffset) != NULL);
-	    c2->var = first_vi_for_offset (temp, rhsoffset)->id;
+
+	    /* An access one after the end of an array is valid,
+	       so simply punt on accesses we cannot resolve.  */
+	    temp = first_vi_for_offset (temp, rhsoffset);
+	    if (temp == NULL)
+	      continue;
+	    c2->var = temp->id;
 	    c2->offset = 0;
 	  }
 	else

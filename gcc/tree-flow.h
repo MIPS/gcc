@@ -196,7 +196,7 @@ struct var_ann_d GTY(())
   tree type_mem_tag;
 
   /* Variables that may alias this variable.  */
-  varray_type may_aliases;
+  VEC(tree, gc) *may_aliases;
 
   /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
@@ -256,12 +256,6 @@ struct stmt_ann_d GTY(())
      need to be scanned again).  */
   unsigned modified : 1;
 
-  /* Nonzero if the statement makes aliased loads.  */
-  unsigned makes_aliased_loads : 1;
-
-  /* Nonzero if the statement makes aliased stores.  */
-  unsigned makes_aliased_stores : 1;
-
   /* Nonzero if the statement makes references to volatile storage.  */
   unsigned has_volatile_ops : 1;
 
@@ -315,7 +309,7 @@ extern void set_bb_for_stmt (tree, basic_block);
 static inline bool noreturn_call_p (tree);
 static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
-static inline varray_type may_aliases (tree);
+static inline VEC(tree, gc) *may_aliases (tree);
 static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);

@@ -127,9 +127,6 @@ bool ssa_ro_call_cache_valid;
 static VEC(tree,heap) *clobbered_v_may_defs;
 static VEC(tree,heap) *clobbered_vuses;
 static VEC(tree,heap) *ro_call_vuses;
-static bool clobbered_aliased_loads;
-static bool clobbered_aliased_stores;
-static bool ro_call_aliased_loads;
 static bool ops_active = false;
 
 static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
@@ -798,14 +795,9 @@ build_ssa_operands (tree stmt)
 {
   stmt_ann_t ann = get_stmt_ann (stmt);
   
-  /* Initially assume that the statement has no volatile operands, nor
-     makes aliased loads or stores.  */
+  /* Initially assume that the statement has no volatile operands.  */
   if (ann)
-    {
-      ann->has_volatile_ops = false;
-      ann->makes_aliased_stores = false;
-      ann->makes_aliased_loads = false;
-    }
+    ann->has_volatile_ops = false;
 
   start_ssa_stmt_operands ();
 
@@ -1473,7 +1465,10 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 static void
 get_tmr_operands (tree stmt, tree expr, int flags)
 {
-  tree tag = TMR_TAG (expr);
+  tree tag = TMR_TAG (expr), ref;
+  HOST_WIDE_INT offset, size, maxsize;
+  subvar_t svars, sv;
+  stmt_ann_t s_ann = stmt_ann (stmt);
 
   /* First record the real operands.  */
   get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
@@ -1488,11 +1483,33 @@ get_tmr_operands (tree stmt, tree expr, int flags)
       add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
     }
 
-  if (tag)
-    get_expr_operands (stmt, &tag, flags);
-  else
-    /* Something weird, so ensure that we will be careful.  */
-    stmt_ann (stmt)->has_volatile_ops = true;
+  if (!tag)
+    {
+      /* Something weird, so ensure that we will be careful.  */
+      stmt_ann (stmt)->has_volatile_ops = true;
+      return;
+    }
+
+  if (DECL_P (tag))
+    {
+      get_expr_operands (stmt, &tag, flags);
+      return;
+    }
+
+  ref = get_ref_base_and_extent (tag, &offset, &size, &maxsize);
+  gcc_assert (ref != NULL_TREE);
+  svars = get_subvars_for_var (ref);
+  for (sv = svars; sv; sv = sv->next)
+    {
+      bool exact;		
+      if (overlap_subvar (offset, maxsize, sv, &exact))
+	{
+	  int subvar_flags = flags;
+	  if (!exact || size != maxsize)
+	    subvar_flags &= ~opf_kill_def;
+	  add_stmt_operand (&sv->var, s_ann, subvar_flags);
+	}
+    }
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
@@ -1609,7 +1626,7 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
     }
   else
     {
-      varray_type aliases;
+      VEC(tree,gc) *aliases;
 
       /* The variable is not a GIMPLE register.  Add it (or its aliases) to
 	 virtual operands, unless the caller has specifically requested
@@ -1643,19 +1660,16 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 		}
 	    }
 	  else
-	    {
-	      append_vuse (var);
-	      if (s_ann && v_ann->is_alias_tag)
-		s_ann->makes_aliased_loads = 1;
-	    }
+	    append_vuse (var);
 	}
       else
 	{
-	  size_t i;
+	  unsigned i;
+	  tree al;
 
 	  /* The variable is aliased.  Add its aliases to the virtual
 	     operands.  */
-	  gcc_assert (VARRAY_ACTIVE_SIZE (aliases) != 0);
+	  gcc_assert (VEC_length (tree, aliases) != 0);
 
 	  if (flags & opf_is_def)
 	    {
@@ -1666,11 +1680,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 	      if (v_ann->is_alias_tag)
 		append_v_may_def (var);
 
-	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_v_may_def (VARRAY_TREE (aliases, i));
-
-	      if (s_ann)
-		s_ann->makes_aliased_stores = 1;
+	      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+		append_v_may_def (al);
 	    }
 	  else
 	    {
@@ -1679,11 +1690,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 	      if (v_ann->is_alias_tag)
 		append_vuse (var);
 
-	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_vuse (VARRAY_TREE (aliases, i));
-
-	      if (s_ann)
-		s_ann->makes_aliased_loads = 1;
+	      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+		append_vuse (al);
 	    }
 	}
     }
@@ -1792,11 +1800,6 @@ add_call_clobber_ops (tree stmt, tree callee)
 	  var_ann (t)->in_v_may_def_list = 1;
 	  VEC_safe_push (tree, heap, build_v_may_defs, (tree)t);
 	}
-      if (s_ann)
-	{
-	  s_ann->makes_aliased_loads = clobbered_aliased_loads;
-	  s_ann->makes_aliased_stores = clobbered_aliased_stores;
-	}
       return;
     }
 
@@ -1828,16 +1831,6 @@ add_call_clobber_ops (tree stmt, tree callee)
   if ((!not_read_b || bitmap_empty_p (not_read_b))
       && (!not_written_b || bitmap_empty_p (not_written_b)))
     {
-      clobbered_aliased_loads = empty_ann.makes_aliased_loads;
-      clobbered_aliased_stores = empty_ann.makes_aliased_stores;
-
-      /* Set the flags for a stmt's annotation.  */
-      if (s_ann)
-	{
-	  s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
-	  s_ann->makes_aliased_stores = empty_ann.makes_aliased_stores;
-	}
-
       /* Prepare empty cache vectors.  */
       VEC_truncate (tree, clobbered_vuses, 0);
       VEC_truncate (tree, clobbered_v_may_defs, 0);
@@ -1893,8 +1886,6 @@ add_call_read_ops (tree stmt)
 	  var_ann (t)->in_vuse_list = 1;
 	  VEC_safe_push (tree, heap, build_vuses, (tree)t);
 	}
-      if (s_ann)
-	s_ann->makes_aliased_loads = ro_call_aliased_loads;
       return;
     }
 
@@ -1906,10 +1897,6 @@ add_call_read_ops (tree stmt)
       tree var = referenced_var (u);
       add_stmt_operand (&var, &empty_ann, opf_none | opf_non_specific);
     }
-
-  ro_call_aliased_loads = empty_ann.makes_aliased_loads;
-  if (s_ann)
-    s_ann->makes_aliased_loads = empty_ann.makes_aliased_loads;
 
   /* Prepare empty cache vectors.  */
   VEC_truncate (tree, ro_call_vuses, 0);
