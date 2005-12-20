@@ -1,5 +1,9 @@
 2005-12-20  Ben Elliston  <bje@au.ibm.com>
 
+	* doc/install.texi (Configuration): Document --enable-decimal-float.
+
+2005-12-20  Ben Elliston  <bje@au.ibm.com>
+
 	* config/i386/i386.md: Move mov?d patterns to ..
 	* config/i386/decimal.md: .. here.
 
