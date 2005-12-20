@@ -1596,6 +1596,10 @@ override_options (void)
   if (TARGET_3DNOW)
     target_flags |= MASK_MMX;
 
+  /* Turn on SSE builtins for decimal floating point support.  */
+  if (ENABLE_DECIMAL_FLOAT)
+    target_flags |= MASK_SSE;
+
   if (TARGET_64BIT)
     {
       if (TARGET_ALIGN_DOUBLE)

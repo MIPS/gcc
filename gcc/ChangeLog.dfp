@@ -1,5 +1,10 @@
 2005-12-20  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.c (override_options): Turn on SSE support if
+	decimal floating point support is enabled.
+
+2005-12-20  Ben Elliston  <bje@au.ibm.com>
+
 	* doc/install.texi (Configuration): Document --enable-decimal-float.
 
 2005-12-20  Ben Elliston  <bje@au.ibm.com>
