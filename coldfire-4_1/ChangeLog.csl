@@ -1,3 +1,8 @@
+2005-12-20  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_profiling_available):
+	Add m68k-*-elf.
+
 2005-12-17  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/m68k/m68k.md (m68k_output_function_prologue): Always call
