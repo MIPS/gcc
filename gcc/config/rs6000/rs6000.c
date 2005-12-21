@@ -2505,21 +2505,27 @@ invalid_e500_subreg (rtx op, enum machine_mode mode)
    field is an FP double while the FP fields remain word aligned.  */
 
 unsigned int
-rs6000_special_round_type_align (tree type, int computed, int specified)
+rs6000_special_round_type_align (tree type, unsigned int computed,
+				 unsigned int specified)
 {
+  unsigned int align = MAX (computed, specified);
   tree field = TYPE_FIELDS (type);
 
   /* Skip all non field decls */
   while (field != NULL && TREE_CODE (field) != FIELD_DECL)
     field = TREE_CHAIN (field);
 
-  if (field == NULL || field == type
-      || TYPE_MODE (TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE
-		    ? get_inner_array_type (field)
-		    : TREE_TYPE (field)) != DFmode)
-    return MAX (computed, specified);
+  if (field != NULL && field != type)
+    {
+      type = TREE_TYPE (field);
+      while (TREE_CODE (type) == ARRAY_TYPE)
+	type = TREE_TYPE (type);
 
-  return MAX (MAX (computed, specified), 64);
+      if (type != error_mark_node && TYPE_MODE (type) == DFmode)
+	align = MAX (align, 64);
+    }
+
+  return align;
 }
 
 /* Return 1 for an operand in small memory on V.4/eabi.  */
@@ -17730,9 +17736,9 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   GEN_LAZY_PTR_NAME_FOR_SYMBOL (lazy_ptr_name, symb, length);
 
   if (flag_pic == 2)
-    switch_to_section (machopic_picsymbol_stub1_section);
+    switch_to_section (darwin_sections[machopic_picsymbol_stub1_section]);
   else
-    switch_to_section (machopic_symbol_stub1_section);
+    switch_to_section (darwin_sections[machopic_symbol_stub1_section]);
 
   if (flag_pic == 2)
     {
@@ -17772,7 +17778,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\tbctr\n");
     }
 
-  switch_to_section (machopic_lazy_symbol_ptr_section);
+  switch_to_section (darwin_sections[machopic_lazy_symbol_ptr_section]);
   fprintf (file, "%s:\n", lazy_ptr_name);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
   fprintf (file, "%sdyld_stub_binding_helper\n",

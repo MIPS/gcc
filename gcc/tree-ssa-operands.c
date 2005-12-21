@@ -292,7 +292,7 @@ ssa_operand_alloc (unsigned size)
   if (operand_memory_index + size >= SSA_OPERAND_MEMORY_SIZE)
     {
       struct ssa_operand_memory_d *ptr;
-      ptr = ggc_alloc (sizeof (struct ssa_operand_memory_d));
+      ptr = GGC_NEW (struct ssa_operand_memory_d);
       ptr->next = operand_memory;
       operand_memory = ptr;
       operand_memory_index = 0;
@@ -804,41 +804,16 @@ parse_ssa_operands (tree stmt)
     }
 }
 
-/* Create an operands cache for STMT, returning it in NEW_OPS. OLD_OPS are the
-   original operands, and if ANN is non-null, appropriate stmt flags are set
-   in the stmt's annotation.  If ANN is NULL, this is not considered a "real"
-   stmt, and none of the operands will be entered into their respective
-   immediate uses tables.  This is to allow stmts to be processed when they
-   are not actually in the CFG.
-
-   Note that some fields in old_ops may change to NULL, although none of the
-   memory they originally pointed to will be destroyed.  It is appropriate
-   to call free_stmt_operands() on the value returned in old_ops.
-
-   The rationale for this: Certain optimizations wish to examine the difference
-   between new_ops and old_ops after processing.  If a set of operands don't
-   change, new_ops will simply assume the pointer in old_ops, and the old_ops
-   pointer will be set to NULL, indicating no memory needs to be cleared.  
-   Usage might appear something like:
-
-       old_ops_copy = old_ops = stmt_ann(stmt)->operands;
-       build_ssa_operands (stmt, NULL, &old_ops, &new_ops);
-          <* compare old_ops_copy and new_ops *>
-       free_ssa_operands (old_ops);					*/
+/* Create an operands cache for STMT.  */
 
 static void
 build_ssa_operands (tree stmt)
 {
   stmt_ann_t ann = get_stmt_ann (stmt);
   
-  /* Initially assume that the statement has no volatile operands, nor
-     makes aliased loads or stores.  */
+  /* Initially assume that the statement has no volatile operands.  */
   if (ann)
-    {
-      ann->has_volatile_ops = false;
-      ann->makes_aliased_stores = false;
-      ann->makes_aliased_loads = false;
-    }
+    ann->has_volatile_ops = false;
 
   start_ssa_stmt_operands ();
 
@@ -1166,7 +1141,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case IMAGPART_EXPR:
       {
 	tree ref;
-	unsigned HOST_WIDE_INT offset, size;
+	HOST_WIDE_INT offset, size, maxsize;
 	bool none = true;
  	/* This component ref becomes an access to all of the subvariables
 	   it can touch,  if we can determine that, but *NOT* the real one.
@@ -1174,19 +1149,20 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	   will eventually get to a variable and add *all* of its subvars, or
 	   whatever is the minimum correct subset.  */
 
-	ref = okay_component_ref_for_subvars (expr, &offset, &size);
-	if (ref)
+	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
+	if (SSA_VAR_P (ref) && get_subvars_for_var (ref))
 	  {	  
 	    subvar_t svars = get_subvars_for_var (ref);
 	    subvar_t sv;
 	    for (sv = svars; sv; sv = sv->next)
 	      {
 		bool exact;		
-		if (overlap_subvar (offset, size, sv, &exact))
+		if (overlap_subvar (offset, maxsize, sv, &exact))
 		  {
 	            int subvar_flags = flags;
 		    none = false;
-		    if (!exact)
+		    if (!exact
+			|| size != maxsize)
 		      subvar_flags &= ~opf_kill_def;
 		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
 		  }
@@ -1511,7 +1487,10 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 static void
 get_tmr_operands (tree stmt, tree expr, int flags)
 {
-  tree tag = TMR_TAG (expr);
+  tree tag = TMR_TAG (expr), ref;
+  HOST_WIDE_INT offset, size, maxsize;
+  subvar_t svars, sv;
+  stmt_ann_t s_ann = stmt_ann (stmt);
 
   /* First record the real operands.  */
   get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
@@ -1526,11 +1505,33 @@ get_tmr_operands (tree stmt, tree expr, int flags)
       add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
     }
 
-  if (tag)
-    get_expr_operands (stmt, &tag, flags);
-  else
-    /* Something weird, so ensure that we will be careful.  */
-    stmt_ann (stmt)->has_volatile_ops = true;
+  if (!tag)
+    {
+      /* Something weird, so ensure that we will be careful.  */
+      stmt_ann (stmt)->has_volatile_ops = true;
+      return;
+    }
+
+  if (DECL_P (tag))
+    {
+      get_expr_operands (stmt, &tag, flags);
+      return;
+    }
+
+  ref = get_ref_base_and_extent (tag, &offset, &size, &maxsize);
+  gcc_assert (ref != NULL_TREE);
+  svars = get_subvars_for_var (ref);
+  for (sv = svars; sv; sv = sv->next)
+    {
+      bool exact;		
+      if (overlap_subvar (offset, maxsize, sv, &exact))
+	{
+	  int subvar_flags = flags;
+	  if (!exact || size != maxsize)
+	    subvar_flags &= ~opf_kill_def;
+	  add_stmt_operand (&sv->var, s_ann, subvar_flags);
+	}
+    }
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
@@ -1647,7 +1648,7 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
     }
   else
     {
-      varray_type aliases;
+      VEC(tree,gc) *aliases;
 
       /* The variable is not a GIMPLE register.  Add it (or its aliases) to
 	 virtual operands, unless the caller has specifically requested
@@ -1681,19 +1682,16 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 		}
 	    }
 	  else
-	    {
-	      append_vuse (var);
-	      if (s_ann && v_ann->is_alias_tag)
-		s_ann->makes_aliased_loads = 1;
-	    }
+	    append_vuse (var);
 	}
       else
 	{
-	  size_t i;
+	  unsigned i;
+	  tree al;
 
 	  /* The variable is aliased.  Add its aliases to the virtual
 	     operands.  */
-	  gcc_assert (VARRAY_ACTIVE_SIZE (aliases) != 0);
+	  gcc_assert (VEC_length (tree, aliases) != 0);
 
 	  if (flags & opf_is_def)
 	    {
@@ -1704,11 +1702,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 	      if (v_ann->is_alias_tag)
 		append_v_may_def (var);
 
-	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_v_may_def (VARRAY_TREE (aliases, i));
-
-	      if (s_ann)
-		s_ann->makes_aliased_stores = 1;
+	      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+		append_v_may_def (al);
 	    }
 	  else
 	    {
@@ -1717,11 +1712,8 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 	      if (v_ann->is_alias_tag)
 		append_vuse (var);
 
-	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_vuse (VARRAY_TREE (aliases, i));
-
-	      if (s_ann)
-		s_ann->makes_aliased_loads = 1;
+	      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+		append_vuse (al);
 	    }
 	}
     }

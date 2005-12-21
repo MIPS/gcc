@@ -1,3 +1,42 @@
+2005-12-18  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (getLocalAddress): 
+	New helper function.
+	(setOption): Use getLocalAddress.  Don't downcast value to
+	InetAddress.
+	(getOption): Use getLocalAddress.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getPackage): Get package from
+	VMClassLoader if needed.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail
+	(8.5.2-accessible-static-member-usage-3): Removed.
+
+2005-12-15  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/rh175833.java: New file.
+	* testsuite/libjava.compile/pr25429.java: New file.
+
+2005-12-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* testsuite/lib/libjava.exp: Revert 2005-12-01.
+	* testsuite/libjava.lang/Array_3.xfail: Delete.
+
+2005-12-14  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/rmi/rmic/CompilerProcess.java: Use a new thread to
+	handle stdout from the child process.
+
+2005-12-14  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/25389:
+	* java/io/File.java (File): Throw IllegalArgumentException if URI is
+	non-hierarchical.
+
 2005-12-12  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/VMCompiler.java: Directly generate a new instance of

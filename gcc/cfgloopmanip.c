@@ -1404,7 +1404,7 @@ static basic_block
 lv_adjust_loop_entry_edge (basic_block first_head,
 			   basic_block second_head,
 			   edge e,
-			   tree cond_expr)
+			   void *cond_expr)
 {
   basic_block new_head = NULL;
   edge e1;
@@ -1563,7 +1563,7 @@ fix_loop_structure (struct loops *loops, bitmap changed_bbs)
     }
 
   /* Remove the dead loops from structures.  */
-  loops->tree_root->num_nodes = n_basic_blocks + 2;
+  loops->tree_root->num_nodes = n_basic_blocks; 
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];

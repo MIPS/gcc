@@ -1421,6 +1421,11 @@ precedence for that field, but the alignment of the rest of the structure
 may affect its placement.
 @end deftypefn
 
+@deftypefn {Target Hook} {bool} TARGET_DECIMAL_FLOAT_SUPPORTED_P (void)
+Returns true if the target supports decimal floating point.
+The default version of this hook always returns false.
+@end deftypefn
+
 @deftypefn {Target Hook} {const char *} TARGET_MANGLE_FUNDAMENTAL_TYPE (tree @var{type})
 If your target defines any fundamental types, define this hook to
 return the appropriate encoding for these types as part of a C++
@@ -1546,6 +1551,20 @@ Define this macro if @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is not
 @code{TFmode} but you want @code{TFmode} routines in @file{libgcc2.a}
 anyway.  If you don't define this and @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE}
 is 128 then the default is 1, otherwise it is 0.
+@end defmac
+
+@defmac SF_SIZE
+@defmacx DF_SIZE
+@defmacx XF_SIZE
+@defmacx TF_SIZE
+Define these macros to be the size in bits of the mantissa of
+@code{SFmode}, @code{DFmode}, @code{XFmode} and @code{TFmode} values,
+if the defaults in @file{libgcc2.h} are inappropriate.  By default,
+@code{FLT_MANT_DIG} is used for @code{SF_SIZE}, @code{LDBL_MANT_DIG}
+for @code{XF_SIZE} and @code{TF_SIZE}, and @code{DBL_MANT_DIG} or
+@code{LDBL_MANT_DIG} for @code{DF_SIZE} according to whether
+@code{LIBGCC2_DOUBLE_TYPE_SIZE} or
+@code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is 64.
 @end defmac
 
 @defmac TARGET_FLT_EVAL_METHOD
@@ -3018,7 +3037,7 @@ The final value should conincide with that calculated by
 Normally the CFA is calculated as an offset from the argument pointer,
 via @code{ARG_POINTER_CFA_OFFSET}, but if the argument pointer is 
 variable due to the ABI, this may not be possible.  If this macro is
-defined, it imples that the virtual register instantiation should be
+defined, it implies that the virtual register instantiation should be
 based on the frame pointer instead of the argument pointer.  Only one
 of @code{FRAME_POINTER_CFA_OFFSET} and @code{ARG_POINTER_CFA_OFFSET}
 should be defined.

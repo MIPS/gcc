@@ -210,7 +210,8 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist,
 			     VEC (int, heap) **worklist2)
 {
   unsigned int i;
-  varray_type ma;
+  VEC (tree, gc) *ma;
+  tree entry;
   var_ann_t ta = var_ann (tag);
 
   if (!MTAG_P (tag))
@@ -219,9 +220,8 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist,
   if (!ma)
     return;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
+  for (i = 0; VEC_iterate (tree, ma, i, entry); i++)
     {
-      tree entry = VARRAY_TREE (ma, i);
       if (!unmodifiable_var_p (entry))
 	{
 	  add_to_worklist (entry, worklist, worklist2, ta->escape_mask);
@@ -276,8 +276,9 @@ compute_tag_properties (void)
       changed = false;      
       for (k = 0; VEC_iterate (tree, taglist, k, tag); k++)
 	{
-	  varray_type ma;
+	  VEC (tree, gc) *ma;
 	  unsigned int i;
+	  tree entry;
 
 	  if (is_call_clobbered (tag) && tag_marked_global (tag))
 	    continue;
@@ -286,10 +287,8 @@ compute_tag_properties (void)
 	  if (!ma)
 	    continue;
 
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ma); i++)
+	  for (i = 0; VEC_iterate (tree, ma, i, entry); i++)
 	    {
-	      tree entry = VARRAY_TREE (ma, i);
-
 	      /* Call clobbered entries cause the tag to be marked
 		 call clobbered.  */
 	      if (is_call_clobbered (entry) && !is_call_clobbered (tag))
@@ -741,7 +740,7 @@ init_alias_info (void)
   tree var;
 
   bitmap_obstack_initialize (&alias_obstack);
-  ai = xcalloc (1, sizeof (struct alias_info));
+  ai = XCNEW (struct alias_info);
   ai->ssa_names_visited = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (ai->ssa_names_visited);
   VARRAY_TREE_INIT (ai->processed_ptrs, 50, "processed_ptrs");
@@ -1369,15 +1368,15 @@ group_aliases (struct alias_info *ai)
       size_t j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       tree name_tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
-      varray_type aliases;
+      VEC(tree,gc) *aliases;
+      tree alias;
       
       if (name_tag == NULL_TREE)
 	continue;
 
       aliases = var_ann (name_tag)->may_aliases;
-      for (j = 0; aliases && j < VARRAY_ACTIVE_SIZE (aliases); j++)
+      for (j = 0; VEC_iterate (tree, aliases, j, alias); j++)
 	{
-	  tree alias = VARRAY_TREE (aliases, j);
 	  var_ann_t ann = var_ann (alias);
 
 	  if ((!MTAG_P (alias)
@@ -1386,9 +1385,9 @@ group_aliases (struct alias_info *ai)
 	    {
 	      tree new_alias;
 
-	      gcc_assert (VARRAY_ACTIVE_SIZE (ann->may_aliases) == 1);
+	      gcc_assert (VEC_length (tree, ann->may_aliases) == 1);
 
-	      new_alias = VARRAY_TREE (ann->may_aliases, 0);
+	      new_alias = VEC_index (tree, ann->may_aliases, 0);
 	      replace_may_alias (name_tag, j, new_alias);
 	    }
 	}
@@ -1409,7 +1408,7 @@ static void
 create_alias_map_for (tree var, struct alias_info *ai)
 {
   struct alias_map_d *alias_map;
-  alias_map = xcalloc (1, sizeof (*alias_map));
+  alias_map = XCNEW (struct alias_map_d);
   alias_map->var = var;
   alias_map->set = get_alias_set (var);
   ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
@@ -1455,9 +1454,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
      because some TREE_ADDRESSABLE variables will be marked
      non-addressable below and only pointers with unique type tags are
      going to be added to POINTERS.  */
-  ai->addressable_vars = xcalloc (num_addressable_vars,
-				  sizeof (struct alias_map_d *));
-  ai->pointers = xcalloc (num_pointers, sizeof (struct alias_map_d *));
+  ai->addressable_vars = XCNEWVEC (struct alias_map_d *, num_addressable_vars);
+  ai->pointers = XCNEWVEC (struct alias_map_d *, num_pointers);
   ai->num_addressable_vars = 0;
   ai->num_pointers = 0;
 
@@ -1834,6 +1832,7 @@ add_may_alias (tree var, tree alias)
   size_t i;
   var_ann_t v_ann = get_var_ann (var);
   var_ann_t a_ann = get_var_ann (alias);
+  tree al;
 
   /* Don't allow self-referential aliases.  */
   gcc_assert (var != alias);
@@ -1846,14 +1845,14 @@ add_may_alias (tree var, tree alias)
 #endif
 
   if (v_ann->may_aliases == NULL)
-    VARRAY_TREE_INIT (v_ann->may_aliases, 2, "aliases");
+    v_ann->may_aliases = VEC_alloc (tree, gc, 2);
 
   /* Avoid adding duplicates.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (v_ann->may_aliases); i++)
-    if (alias == VARRAY_TREE (v_ann->may_aliases, i))
+  for (i = 0; VEC_iterate (tree, v_ann->may_aliases, i, al); i++)
+    if (alias == al)
       return;
 
-  VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
+  VEC_safe_push (tree, gc, v_ann->may_aliases, alias);
   a_ann->is_alias_tag = 1;
 }
 
@@ -1864,7 +1863,7 @@ static void
 replace_may_alias (tree var, size_t i, tree new_alias)
 {
   var_ann_t v_ann = var_ann (var);
-  VARRAY_TREE (v_ann->may_aliases, i) = new_alias;
+  VEC_replace (tree, v_ann->may_aliases, i, new_alias);
 }
 
 
@@ -2088,7 +2087,7 @@ get_tmt_for (tree ptr, struct alias_info *ai)
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that
 	 PTR points to.  */
-      alias_map = xcalloc (1, sizeof (*alias_map));
+      alias_map = XCNEW (struct alias_map_d);
       alias_map->var = ptr;
       alias_map->set = tag_set;
       ai->pointers[ai->num_pointers++] = alias_map;
@@ -2251,7 +2250,7 @@ get_ptr_info (tree t)
   pi = SSA_NAME_PTR_INFO (t);
   if (pi == NULL)
     {
-      pi = ggc_alloc (sizeof (*pi));
+      pi = GGC_NEW (struct ptr_info_def);
       memset ((void *)pi, 0, sizeof (*pi));
       SSA_NAME_PTR_INFO (t) = pi;
     }
@@ -2385,7 +2384,7 @@ debug_points_to_info (void)
 void
 dump_may_aliases_for (FILE *file, tree var)
 {
-  varray_type aliases;
+  VEC(tree, gc) *aliases;
   
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -2394,10 +2393,11 @@ dump_may_aliases_for (FILE *file, tree var)
   if (aliases)
     {
       size_t i;
+      tree al;
       fprintf (file, "{ ");
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
 	{
-	  print_generic_expr (file, VARRAY_TREE (aliases, i), dump_flags);
+	  print_generic_expr (file, al, dump_flags);
 	  fprintf (file, " ");
 	}
       fprintf (file, "}");
@@ -2456,7 +2456,8 @@ bool
 is_aliased_with (tree tag, tree sym)
 {
   size_t i;
-  varray_type aliases;
+  VEC(tree,gc) *aliases;
+  tree al;
 
   if (var_ann (sym)->is_alias_tag)
     {
@@ -2465,8 +2466,8 @@ is_aliased_with (tree tag, tree sym)
       if (aliases == NULL)
 	return false;
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	if (VARRAY_TREE (aliases, i) == sym)
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	if (al == sym)
 	  return true;
     }
   else
@@ -2476,8 +2477,8 @@ is_aliased_with (tree tag, tree sym)
       if (aliases == NULL)
 	return false;
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	if (VARRAY_TREE (aliases, i) == tag)
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	if (al == tag)
 	  return true;
     }
 
@@ -2491,11 +2492,12 @@ is_aliased_with (tree tag, tree sym)
 void
 add_type_alias (tree ptr, tree var)
 {
-  varray_type aliases;
-  tree tag;
+  VEC(tree, gc) *aliases;
+  tree tag, al;
   var_ann_t ann = var_ann (ptr);
   subvar_t svars;
   VEC (tree, heap) *varvec = NULL;  
+  unsigned i;
 
   if (ann->type_mem_tag == NULL_TREE)
     {
@@ -2555,9 +2557,8 @@ found_tag:
   mark_sym_for_renaming (tag);
   if ((aliases = var_ann (tag)->may_aliases) != NULL)
     {
-      size_t i;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	mark_sym_for_renaming (al);
     }
 
   /* If we had grouped aliases, VAR may have aliases of its own.  Mark
@@ -2565,9 +2566,8 @@ found_tag:
      aliases of VAR will need to be updated.  */
   if ((aliases = var_ann (var)->may_aliases) != NULL)
     {
-      size_t i;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	mark_sym_for_renaming (al);
     }
   VEC_free (tree, heap, varvec);
 }
@@ -2610,12 +2610,12 @@ new_type_alias (tree ptr, tree var)
 	 same defs/uses/vdefs/vuses will be found after replacing a reference
 	 to var (or ARRAY_REF to var) with an INDIRECT_REF to ptr whose value
 	 is the address of var.  */
-      varray_type aliases = v_ann->may_aliases;
+      VEC(tree, gc) *aliases = v_ann->may_aliases;
 
       if ((aliases != NULL)
-	  && (VARRAY_ACTIVE_SIZE (aliases) == 1))
+	  && (VEC_length (tree, aliases) == 1))
 	{
-	  tree ali = VARRAY_TREE (aliases, 0);
+	  tree ali = VEC_index (tree, aliases, 0);
 
 	  if (TREE_CODE (ali) == TYPE_MEMORY_TAG)
 	    {
@@ -2631,10 +2631,11 @@ new_type_alias (tree ptr, tree var)
 	add_may_alias (tag, var);
       else
 	{
-	  size_t i;
+	  unsigned i;
+	  tree al;
 
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	    add_may_alias (tag, VARRAY_TREE (aliases, i));
+	  for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	    add_may_alias (tag, al);
 	}
     }    
 }
@@ -2671,7 +2672,8 @@ struct used_part_map
 static int
 used_part_map_eq (const void *va, const void *vb)
 {
-  const struct used_part_map  *a = va, *b = vb;
+  const struct used_part_map *a = (const struct used_part_map *) va;
+  const struct used_part_map *b = (const struct used_part_map *) vb;
   return (a->uid == b->uid);
 }
 
@@ -2699,7 +2701,7 @@ up_lookup (unsigned int uid)
 {
   struct used_part_map *h, in;
   in.uid = uid;
-  h = htab_find_with_hash (used_portions, &in, uid);
+  h = (struct used_part_map *) htab_find_with_hash (used_portions, &in, uid);
   if (!h)
     return NULL;
   return h->to;
@@ -2713,7 +2715,7 @@ up_insert (unsigned int uid, used_part_t to)
   struct used_part_map *h;
   void **loc;
 
-  h = xmalloc (sizeof (struct used_part_map));
+  h = XNEW (struct used_part_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (used_portions, h,
@@ -2733,7 +2735,7 @@ get_or_create_used_part_for (size_t uid)
   used_part_t up;
   if ((up = up_lookup (uid)) == NULL)
     {
-      up = xcalloc (1, sizeof (struct used_part));
+      up = XCNEW (struct used_part);
       up->minused = INT_MAX;
       up->maxused = 0;
       up->explicit_uses = false;
@@ -2875,7 +2877,7 @@ create_overlap_variables_for (tree var)
 		  && fosize == lastfosize
 		  && currfotype == lastfotype))
 	    continue;
-	  sv = ggc_alloc (sizeof (struct subvar));
+	  sv = GGC_NEW (struct subvar);
 	  sv->offset = fo->offset;
 	  sv->size = fosize;
 	  sv->next = *subvars;
@@ -2927,16 +2929,14 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case COMPONENT_REF:
       {
 	HOST_WIDE_INT bitsize;
+	HOST_WIDE_INT bitmaxsize;
 	HOST_WIDE_INT bitpos;
-	tree offset;
-	enum machine_mode mode;
-	int unsignedp;
-	int volatilep;	
 	tree ref;
-	ref = get_inner_reference (*tp, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep, false);
-	if (DECL_P (ref) && offset == NULL && bitsize != -1)
-	  {	    
+	ref = get_ref_base_and_extent (*tp, &bitpos, &bitsize, &bitmaxsize);
+	if (DECL_P (ref)
+	    && var_can_have_subvars (ref)
+	    && bitmaxsize != -1)
+	  {
 	    size_t uid = DECL_UID (ref);
 	    used_part_t up;
 
@@ -2944,36 +2944,17 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
 	    if (bitpos <= up->minused)
 	      up->minused = bitpos;
-	    if ((bitpos + bitsize >= up->maxused))
-	      up->maxused = bitpos + bitsize;	    
+	    if ((bitpos + bitmaxsize >= up->maxused))
+	      up->maxused = bitpos + bitmaxsize;
 
-	    up->explicit_uses = true;
+	    if (bitsize == bitmaxsize)
+	      up->explicit_uses = true;
+	    else
+	      up->implicit_uses = true;
 	    up_insert (uid, up);
 
 	    *walk_subtrees = 0;
 	    return NULL_TREE;
-	  }
-	else if (DECL_P (ref))
-	  {
-	    if (DECL_SIZE (ref)
-		&& var_can_have_subvars (ref)
-		&& TREE_CODE (DECL_SIZE (ref)) == INTEGER_CST)
-	      {
-		used_part_t up;
-		size_t uid = DECL_UID (ref);
-
-		up = get_or_create_used_part_for (uid);
-
-		up->minused = 0;
-		up->maxused = TREE_INT_CST_LOW (DECL_SIZE (ref));
-
-		up->implicit_uses = true;
-
-		up_insert (uid, up);
-
-		*walk_subtrees = 0;
-		return NULL_TREE;
-	      }
 	  }
       }
       break;

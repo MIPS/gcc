@@ -410,10 +410,15 @@ convert_move (rtx to, rtx from, int unsignedp)
       rtx value, insns;
       convert_optab tab;
 
-      gcc_assert (GET_MODE_PRECISION (from_mode)
-		  != GET_MODE_PRECISION (to_mode));
+      gcc_assert ((GET_MODE_PRECISION (from_mode)
+		   != GET_MODE_PRECISION (to_mode))
+		  || (DECIMAL_FLOAT_MODE_P (from_mode)
+		      != DECIMAL_FLOAT_MODE_P (to_mode)));
       
-      if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
+      if (GET_MODE_PRECISION (from_mode) == GET_MODE_PRECISION (to_mode))
+	/* Conversion between decimal float and binary float, same size.  */
+	tab = DECIMAL_FLOAT_MODE_P (from_mode) ? trunc_optab : sext_optab;
+      else if (GET_MODE_PRECISION (from_mode) < GET_MODE_PRECISION (to_mode))
 	tab = sext_optab;
       else
 	tab = trunc_optab;
@@ -8090,7 +8095,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	else
 	  comparison_code = unsignedp ? LEU : LE;
 
-	/* Canonicalize to comparsions against 0.  */
+	/* Canonicalize to comparisons against 0.  */
 	if (op1 == const1_rtx)
 	  {
 	    /* Converting (a >= 1 ? a : 1) into (a > 0 ? a : 1)

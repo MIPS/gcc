@@ -54,7 +54,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    the number of inputs an miss an input conflict.  Sufficient information
    is gathered so that when we make another pass, we won't have to backtrack
    at the same point.
-   Another issue is that information in memory atttributes and/or REG_NOTES
+   Another issue is that information in memory attributes and/or REG_NOTES
    might have to be merged or discarded to make a valid match.  We don't want
    to discard such information when we are not certain that we want to merge
    the two (partial) blocks.
@@ -99,7 +99,7 @@ static bool resolve_input_conflict (struct equiv_info *info);
    SECONDARY_MEMORY_NEEDED, cannot be done directly.  For our purposes, we
    consider them impossible to generate after reload (even though some
    might be synthesized when you throw enough code at them).
-   Since we don't know while procesing a cross-jump if a local register
+   Since we don't know while processing a cross-jump if a local register
    that is currently live will eventually be live and thus be an input,
    we keep track of potential inputs that would require an impossible move
    by using a prohibitively high cost for them.
@@ -201,7 +201,7 @@ merge_memattrs (rtx x, rtx y)
 }
 
 /* In SET, assign the bit for the register number of REG the value VALUE.
-   If REG is a hard register, do so for all its consituent registers.
+   If REG is a hard register, do so for all its constituent registers.
    Return the number of registers that have become included (as a positive
    number) or excluded (as a negative number).  */
 static int
@@ -249,7 +249,8 @@ struct_equiv_improve_checkpoint (struct struct_equiv_checkpoint *p,
 				 struct equiv_info *info)
 {
 #ifdef HAVE_cc0
-  if (reg_mentioned_p (cc0_rtx, info->x_start) && !sets_cc0_p (info->x_start))
+  if (reg_mentioned_p (cc0_rtx, info->cur.x_start)
+      && !sets_cc0_p (info->cur.x_start))
     return;
 #endif
   if (info->cur.input_count >= IMPOSSIBLE_MOVE_FACTOR)
@@ -309,10 +310,17 @@ struct_equiv_restore_checkpoint (struct struct_equiv_checkpoint *p,
 static int
 note_local_live (struct equiv_info *info, rtx x, rtx y, int rvalue)
 {
+  unsigned x_regno = REGNO (x);
+  unsigned y_regno = REGNO (y);
+  int x_nominal_nregs = (x_regno >= FIRST_PSEUDO_REGISTER
+			 ? 1 : hard_regno_nregs[x_regno][GET_MODE (x)]);
+  int y_nominal_nregs = (y_regno >= FIRST_PSEUDO_REGISTER
+			 ? 1 : hard_regno_nregs[y_regno][GET_MODE (y)]);
   int x_change = assign_reg_reg_set (info->x_local_live, x, rvalue);
   int y_change = assign_reg_reg_set (info->y_local_live, y, rvalue);
 
-  gcc_assert (x_change == y_change);
+  gcc_assert (x_nominal_nregs && y_nominal_nregs);
+  gcc_assert (x_change * y_nominal_nregs == y_change * x_nominal_nregs);
   if (y_change)
     {
       if (reload_completed)
@@ -367,10 +375,6 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
   /* ??? could extend to allow CONST_INT inputs.  */
   switch (code)
     {
-    case SUBREG:
-      gcc_assert (!reload_completed
-		  || !info->live_update);
-      break;
     case REG:
       {
 	unsigned x_regno = REGNO (x);
@@ -641,7 +645,10 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
       return (rtx_equiv_p (&XEXP (x, 0), XEXP (y, 0), 0, info)
 	      && rtx_equiv_p (&XEXP (x, 0), XEXP (y, 0), 1, info));
     case PARALLEL:
-      gcc_assert (rvalue < 0);
+      /* If this is a top-level PATTERN PARALLEL, we expect the caller to 
+	 have handled the SET_DESTs.  A complex or vector PARALLEL can be
+	 identified by having a mode.  */
+      gcc_assert (rvalue < 0 || GET_MODE (x) != VOIDmode);
       break;
     case LABEL_REF:
       /* Check special tablejump match case.  */
@@ -1001,7 +1008,7 @@ struct_equiv_init (int mode, struct equiv_info *info)
 	 these regs are not necessarily all dead - we swap random bogosity
 	 against constant bogosity.  However, clearing these bits at
 	 least makes the regsets comparable.  */
-      for (rn = FIRST_STACK_REG; rn < LAST_STACK_REG; rn++)
+      for (rn = FIRST_STACK_REG; rn <= LAST_STACK_REG; rn++)
 	{
 	  CLEAR_REGNO_REG_SET (info->x_block->il.rtl->global_live_at_end, rn);
 	  CLEAR_REGNO_REG_SET (info->y_block->il.rtl->global_live_at_end, rn);
@@ -1122,7 +1129,7 @@ struct_equiv_block_eq (int mode, struct equiv_info *info)
 
   if (mode & STRUCT_EQUIV_MATCH_JUMPS)
     {
-      /* The caller is expected to have comapred the jumps already, but we
+      /* The caller is expected to have compared the jumps already, but we
 	 need to match them again to get any local registers and inputs.  */
       gcc_assert (!info->cur.x_start == !info->cur.y_start);
       if (info->cur.x_start)

@@ -199,7 +199,7 @@ struct var_ann_d GTY(())
   tree type_mem_tag;
 
   /* Variables that may alias this variable.  */
-  varray_type may_aliases;
+  VEC(tree, gc) *may_aliases;
 
   /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
@@ -207,12 +207,6 @@ struct var_ann_d GTY(())
 
   /* Used by the root-var object in tree-ssa-live.[ch].  */
   unsigned root_index;
-
-  /* Default definition for this symbol.  If this field is not NULL, it
-     means that the first reference to this variable in the function is a
-     USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
-     for this variable with an empty defining statement.  */
-  tree default_def;
 
   /* During into-ssa and the dominator optimizer, this field holds the
      current version of this variable (an SSA_NAME).  */
@@ -283,12 +277,6 @@ struct stmt_ann_d GTY(())
      need to be scanned again).  */
   unsigned modified : 1;
 
-  /* Nonzero if the statement makes aliased loads.  */
-  unsigned makes_aliased_loads : 1;
-
-  /* Nonzero if the statement makes aliased stores.  */
-  unsigned makes_aliased_stores : 1;
-
   /* Nonzero if the statement makes references to volatile storage.  */
   unsigned has_volatile_ops : 1;
 
@@ -346,14 +334,12 @@ extern void set_bb_for_stmt (tree, basic_block);
 static inline bool noreturn_call_p (tree);
 static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
-static inline varray_type may_aliases (tree);
+static inline VEC(tree, gc) *may_aliases (tree);
 static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
 static inline bool is_label_stmt (tree);
 static inline bitmap addresses_taken (tree);
-static inline void set_default_def (tree, tree);
-static inline tree default_def (tree);
 
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
@@ -420,6 +406,9 @@ typedef struct
 
 /* Array of all variables referenced in the function.  */
 extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
+
+/* Default defs for undefined symbols. */
+extern GTY((param_is (struct int_tree_map))) htab_t default_defs;
 
 extern tree referenced_var_lookup (unsigned int);
 extern tree referenced_var_lookup_if_exists (unsigned int);
@@ -586,6 +575,9 @@ extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
 
 extern tree make_rename_temp (tree, const char *);
+extern void set_default_def (tree, tree);
+extern tree default_def (tree);
+extern tree default_def_fn (struct function *, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -618,8 +610,8 @@ static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (tree);
 static inline bool array_ref_contains_indirect_ref (tree);
-extern tree okay_component_ref_for_subvars (tree, unsigned HOST_WIDE_INT *,
-					    unsigned HOST_WIDE_INT *);
+extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
+				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 static inline bool var_can_have_subvars (tree);
 static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,

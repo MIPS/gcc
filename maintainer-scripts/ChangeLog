@@ -1,4 +1,10 @@
-2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+2005-12-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* update_web_docs_svn: Remove unnecessary files from source tree.
+	Use set -e.
+	* doc_exclude, update_web_docs, update_web_docs_libstdcxx: Remove.
+
+2005-12-16  Mark Mitchell  <mark@codesourcery.com>
 
 	* update_web_docs_svn: Set @srcdir in gcc-vers.texi. 
 	

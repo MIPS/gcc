@@ -2345,11 +2345,8 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results,
 {
   tree orig_t = t;
   HOST_WIDE_INT bitsize = -1;
+  HOST_WIDE_INT bitmaxsize = -1;
   HOST_WIDE_INT bitpos;
-  tree offset = NULL_TREE;
-  enum machine_mode mode;
-  int unsignedp;
-  int volatilep;
   tree forzero;
   struct constraint_expr *result;
   unsigned int beforelength = VEC_length (ce_s, *results);
@@ -2371,8 +2368,7 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results,
       return;
     }
  
-  t = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
-			   &unsignedp, &volatilep, false);
+  t = get_ref_base_and_extent (t, &bitpos, &bitsize, &bitmaxsize);
   get_constraint_for (t, results, anyoffset);
   result = VEC_last (ce_s, *results);
 
@@ -2383,11 +2379,11 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results,
     result->type = SCALAR;
   
   /* If we know where this goes, then yay. Otherwise, booo. */
-
-  if (offset == NULL && bitsize != -1)
+  if (bitmaxsize != -1
+      && bitsize == bitmaxsize)
     {
       result->offset = bitpos;
-    }	
+    }
   /* FIXME: Handle the DEREF case.  */
   else if (anyoffset && result->type != DEREF)
     {
@@ -3009,11 +3005,9 @@ update_alias_info (tree stmt, struct alias_info *ai)
       var = SSA_NAME_VAR (op);
       v_ann = var_ann (var);
 
-      /* If the operand's variable may be aliased, keep track of how
-	 many times we've referenced it.  This is used for alias
-	 grouping in compute_flow_insensitive_aliasing.  */
-      if (may_be_aliased (var))
-	NUM_REFERENCES_INC (v_ann);
+      /* The base variable of an ssa name must be a GIMPLE register, and thus
+	 it cannot be aliased.  */
+      gcc_assert (!may_be_aliased (var));
 
       /* We are only interested in pointers.  */
       if (!POINTER_TYPE_P (TREE_TYPE (op)))
@@ -3187,9 +3181,13 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
 	if (c2->type == ADDRESSOF && rhsoffset != 0)
 	  {
 	    varinfo_t temp = get_varinfo (c2->var);
-	    
-	    gcc_assert (first_vi_for_offset (temp, rhsoffset) != NULL);
-	    c2->var = first_vi_for_offset (temp, rhsoffset)->id;
+
+	    /* An access one after the end of an array is valid,
+	       so simply punt on accesses we cannot resolve.  */
+	    temp = first_vi_for_offset (temp, rhsoffset);
+	    if (temp == NULL)
+	      continue;
+	    c2->var = temp->id;
 	    c2->offset = 0;
 	  }
 	else
@@ -3270,6 +3268,8 @@ find_func_aliases (tree origt)
 	  gcc_assert (found);
 	}
 
+      /* Assign all the passed arguments to the appropriate incoming
+	 parameters of the function.  */
       fi = get_varinfo (varid);
       arglist = TREE_OPERAND (t, 1);
 	
@@ -3706,7 +3706,7 @@ create_function_info_for (tree decl, const char *name)
   
   arg = DECL_ARGUMENTS (decl);
 
-  /* Set up varirables for each argument.  */
+  /* Set up variables for each argument.  */
   for (i = 1; i < vi->fullsize; i++)
     {      
       varinfo_t argvi;

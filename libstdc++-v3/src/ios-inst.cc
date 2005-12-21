@@ -1,6 +1,6 @@
 // Explicit instantiation file.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -33,27 +33,13 @@
 //
 
 #include <ios>
-#include <iomanip>
 
-namespace std
-{
-  // basic_ios
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template class basic_ios<char>;
+
 #ifdef _GLIBCXX_USE_WCHAR_T
   template class basic_ios<wchar_t>;
 #endif
 
-  // iomanip
-  template class _Setfill<char>;
-  template _Setfill<char> setfill(char);
-#ifdef _GLIBCXX_USE_WCHAR_T
-  template class _Setfill<wchar_t>;
-  template _Setfill<wchar_t> setfill(wchar_t);
-#endif
-
-  // iostream
-  template class basic_iostream<char>;
-#ifdef _GLIBCXX_USE_WCHAR_T
-  template class basic_iostream<wchar_t>; 
-#endif
-} // namespace std
+_GLIBCXX_END_NAMESPACE

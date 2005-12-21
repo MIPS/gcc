@@ -430,12 +430,12 @@ extern bool rediscover_loops_after_threading;
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
   for ((INSN) = BB_HEAD (BB);			\
-       (INSN) != NEXT_INSN (BB_END (BB));	\
+       (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
        (INSN) = NEXT_INSN (INSN))
 
 #define FOR_BB_INSNS_REVERSE(BB, INSN)		\
   for ((INSN) = BB_END (BB);			\
-       (INSN) != PREV_INSN (BB_HEAD (BB));	\
+       (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
        (INSN) = PREV_INSN (INSN))
 
 /* Cycles through _all_ basic blocks, even the fake ones (entry and
@@ -467,11 +467,12 @@ extern bitmap_obstack reg_obstack;
 #define BB_END(B)       (B)->il.rtl->end_
 
 /* Special block numbers [markers] for entry and exit.  */
-#define ENTRY_BLOCK (-1)
-#define EXIT_BLOCK (-2)
+#define ENTRY_BLOCK (0)
+#define EXIT_BLOCK (1)
 
-/* Special block number not valid for any block.  */
-#define INVALID_BLOCK (-3)
+/* The two blocks that are always in the cfg.  */
+#define NUM_FIXED_BLOCKS (2)
+
 
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
@@ -502,8 +503,8 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
-extern void flow_reverse_top_sort_order_compute (int *);
-extern int flow_depth_first_order_compute (int *, int *);
+extern int post_order_compute (int *, bool);
+extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
@@ -1115,7 +1116,7 @@ struct equiv_info
      NEED_RERUN is set.  This has to be tested by the caller to re-run
      the comparison if the match appears otherwise sound.  The state kept in
      x_start, y_start, equiv_used and check_input_conflict ensures that
-     we won't loop indefinetly.  */
+     we won't loop indefinitely.  */
   bool need_rerun;
   /* If there is indication of an input conflict at the end,
      CHECK_INPUT_CONFLICT is set so that we'll check for input conflicts
@@ -1156,7 +1157,7 @@ struct equiv_info
      that are being compared.  A final jump insn will not be included.  */
   rtx x_end, y_end;
 
-  /* If we are matching tablejumps, X_LABEL in X_BLOCK coresponds to
+  /* If we are matching tablejumps, X_LABEL in X_BLOCK corresponds to
      Y_LABEL in Y_BLOCK.  */
   rtx x_label, y_label;
 

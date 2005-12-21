@@ -96,6 +96,7 @@ builtin_define_float_constants (const char *name_prefix,
   int decimal_dig;
 
   fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+  gcc_assert (fmt->b != 10);
 
   /* The radix of the exponent representation.  */
   if (type == float_type_node)
@@ -266,6 +267,70 @@ builtin_define_float_constants (const char *name_prefix,
   builtin_define_with_int_value (name, MODE_HAS_NANS (TYPE_MODE (type)));
 }
 
+/* Define __DECx__ constants for TYPE using NAME_PREFIX and SUFFIX. */
+static void
+builtin_define_decimal_float_constants (const char *name_prefix, 
+					const char *suffix, 
+					tree type)
+{
+  const struct real_format *fmt;
+  char name[64], buf[128], *p;
+  int digits;
+
+  fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
+
+  /* The number of radix digits, p, in the significand.  */
+  sprintf (name, "__%s_MANT_DIG__", name_prefix);
+  builtin_define_with_int_value (name, fmt->p);
+
+  /* The minimum negative int x such that b**(x-1) is a normalized float.  */
+  sprintf (name, "__%s_MIN_EXP__", name_prefix);
+  sprintf (buf, "(%d)", fmt->emin);
+  builtin_define_with_value (name, buf, 0);
+
+  /* The maximum int x such that b**(x-1) is a representable float.  */
+  sprintf (name, "__%s_MAX_EXP__", name_prefix);
+  builtin_define_with_int_value (name, fmt->emax);
+
+  /* Compute the minimum representable value.  */
+  sprintf (name, "__%s_MIN__", name_prefix);
+  sprintf (buf, "1E%d%s", fmt->emin, suffix);
+  builtin_define_with_value (name, buf, 0); 
+
+  /* Compute the maximum representable value.  */
+  sprintf (name, "__%s_MAX__", name_prefix);
+  p = buf;
+  for (digits = fmt->p; digits; digits--)
+    {
+      *p++ = '9';
+      if (digits == fmt->p)
+	*p++ = '.';
+    }
+  *p = 0;
+  /* fmt->p plus 1, to account for the decimal point.  */
+  sprintf (&buf[fmt->p + 1], "E%d%s", fmt->emax, suffix); 
+  builtin_define_with_value (name, buf, 0);
+
+  /* Compute epsilon (the difference between 1 and least value greater
+     than 1 representable).  */
+  sprintf (name, "__%s_EPSILON__", name_prefix);
+  sprintf (buf, "1E-%d%s", fmt->p - 1, suffix);
+  builtin_define_with_value (name, buf, 0);
+
+  /* Minimum denormalized postive decimal value.  */
+  sprintf (name, "__%s_DEN__", name_prefix);
+  p = buf;
+  for (digits = fmt->p; digits > 1; digits--)
+    {
+      *p++ = '0';
+      if (digits == fmt->p)
+	*p++ = '.';
+    }
+  *p = 0;
+  sprintf (&buf[fmt->p], "1E%d%s", fmt->emin, suffix); 
+  builtin_define_with_value (name, buf, 0);
+}
+
 /* Define __GNUC__, __GNUC_MINOR__ and __GNUC_PATCHLEVEL__.  */
 static void
 define__GNUC__ (void)
@@ -392,6 +457,10 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
 				 TARGET_FLT_EVAL_METHOD);
 
+  /* And decfloat.h needs this.  */
+  builtin_define_with_int_value ("__DEC_EVAL_METHOD__",
+                                 TARGET_DEC_EVAL_METHOD);
+
   builtin_define_float_constants ("FLT", "F", "%s", float_type_node);
   /* Cast the double precision constants when single precision constants are
      specified. The correct result is computed by the compiler when using 
@@ -402,6 +471,11 @@ c_cpp_builtins (cpp_reader *pfile)
   else
     builtin_define_float_constants ("DBL", "", "%s", double_type_node);
   builtin_define_float_constants ("LDBL", "L", "%s", long_double_type_node);
+
+  /* For decfloat.h.  */
+  builtin_define_decimal_float_constants ("DEC32", "DF", dfloat32_type_node);
+  builtin_define_decimal_float_constants ("DEC64", "DD", dfloat64_type_node);
+  builtin_define_decimal_float_constants ("DEC128", "DL", dfloat128_type_node);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
@@ -503,7 +577,7 @@ void
 builtin_define_std (const char *macro)
 {
   size_t len = strlen (macro);
-  char *buff = alloca (len + 5);
+  char *buff = (char *) alloca (len + 5);
   char *p = buff + 2;
   char *q = p + len;
 
@@ -549,7 +623,7 @@ builtin_define_with_value (const char *macro, const char *expansion, int is_str)
   if (is_str)
     extra += 2;  /* space for two quote marks */
 
-  buf = alloca (mlen + elen + extra);
+  buf = (char *) alloca (mlen + elen + extra);
   if (is_str)
     sprintf (buf, "%s=\"%s\"", macro, expansion);
   else
@@ -567,7 +641,7 @@ builtin_define_with_value_n (const char *macro, const char *expansion, size_t el
   size_t mlen = strlen (macro);
 
   /* Space for an = and a NUL.  */
-  buf = alloca (mlen + elen + 2);
+  buf = (char *) alloca (mlen + elen + 2);
   memcpy (buf, macro, mlen);
   buf[mlen] = '=';
   memcpy (buf + mlen + 1, expansion, elen);
@@ -585,7 +659,7 @@ builtin_define_with_int_value (const char *macro, HOST_WIDE_INT value)
   size_t vlen = 18;
   size_t extra = 2; /* space for = and NUL.  */
 
-  buf = alloca (mlen + vlen + extra);
+  buf = (char *) alloca (mlen + vlen + extra);
   memcpy (buf, macro, mlen);
   buf[mlen] = '=';
   sprintf (buf + mlen + 1, HOST_WIDE_INT_PRINT_DEC, value);
@@ -662,7 +736,8 @@ builtin_define_type_max (const char *macro, tree type, int is_long)
   value = values[idx + TYPE_UNSIGNED (type)];
   suffix = suffixes[is_long * 2 + TYPE_UNSIGNED (type)];
 
-  buf = alloca (strlen (macro) + 1 + strlen (value) + strlen (suffix) + 1);
+  buf = (char *) alloca (strlen (macro) + 1 + strlen (value)
+                         + strlen (suffix) + 1);
   sprintf (buf, "%s=%s%s", macro, value, suffix);
 
   cpp_define (parse_in, buf);

@@ -4162,7 +4162,8 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
   /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
      requires greater alignment, we must perform dynamic alignment.  */
-  if (boundary > align)
+  if (boundary > align
+      && !integer_zerop (TYPE_SIZE (type)))
     {
       t = fold_convert (TREE_TYPE (valist), size_int (boundary - 1));
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
@@ -8593,12 +8594,18 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
       return fold_builtin_powi (fndecl, arglist, type);
 
     CASE_FLT_FN (BUILT_IN_INF):
+    case BUILT_IN_INFD32:
+    case BUILT_IN_INFD64:
+    case BUILT_IN_INFD128:
       return fold_builtin_inf (type, true);
 
     CASE_FLT_FN (BUILT_IN_HUGE_VAL):
       return fold_builtin_inf (type, false);
 
     CASE_FLT_FN (BUILT_IN_NAN):
+    case BUILT_IN_NAND32:
+    case BUILT_IN_NAND64:
+    case BUILT_IN_NAND128:
       return fold_builtin_nan (arglist, type, true);
 
     CASE_FLT_FN (BUILT_IN_NANS):
@@ -8664,12 +8671,21 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
       return fold_builtin_copysign (fndecl, arglist, type);
 
     CASE_FLT_FN (BUILT_IN_FINITE):
+    case BUILT_IN_FINITED32:
+    case BUILT_IN_FINITED64:
+    case BUILT_IN_FINITED128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_FINITE);
 
     CASE_FLT_FN (BUILT_IN_ISINF):
+    case BUILT_IN_ISINFD32:
+    case BUILT_IN_ISINFD64:
+    case BUILT_IN_ISINFD128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_ISINF);
 
     CASE_FLT_FN (BUILT_IN_ISNAN):
+    case BUILT_IN_ISNAND32:
+    case BUILT_IN_ISNAND64:
+    case BUILT_IN_ISNAND128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_ISNAN);
 
     case BUILT_IN_ISGREATER:

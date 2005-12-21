@@ -65,8 +65,8 @@
 #include <bits/functexcept.h>
 #include <bits/concept_check.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   /**
    *  @if maint
    *  See bits/stl_deque.h's _Deque_base for an explanation.
@@ -91,7 +91,11 @@ namespace _GLIBCXX_STD
     public:
       typedef _Alloc allocator_type;
 
-      _Tp_alloc_type
+      _Tp_alloc_type&
+      _M_get_Tp_allocator()
+      { return *static_cast<_Tp_alloc_type*>(&this->_M_impl); }
+
+      const _Tp_alloc_type&
       _M_get_Tp_allocator() const
       { return *static_cast<const _Tp_alloc_type*>(&this->_M_impl); }
 
@@ -226,7 +230,7 @@ namespace _GLIBCXX_STD
        *  @a x (for fast expansion) will not be copied.
        */
       vector(const vector& __x)
-      : _Base(__x.size(), __x.get_allocator())
+      : _Base(__x.size(), __x._M_get_Tp_allocator())
       { this->_M_impl._M_finish =
 	  std::__uninitialized_copy_a(__x.begin(), __x.end(),
 				      this->_M_impl._M_start,
@@ -981,6 +985,7 @@ namespace _GLIBCXX_STD
     inline void
     swap(vector<_Tp, _Alloc>& __x, vector<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
+
+_GLIBCXX_END_NESTED_NAMESPACE
 
 #endif /* _VECTOR_H */

@@ -69,7 +69,7 @@ Boston, MA 02110-1301, USA.  */
 
     In order to promote the most redundancy elimination, you want
     binary expressions whose operands are the same rank (or
-    preferrably, the same value) exposed to the redundancy eliminator,
+    preferably, the same value) exposed to the redundancy eliminator,
     for possible elimination.
 
     So the way to do this if we really cared, is to build the new op
@@ -233,7 +233,6 @@ operand_entry_eq (const void *p1, const void *p2)
   const operand_entry_t vr2 = (operand_entry_t) p2;
   return vr1->op == vr2->op;
 }
-
 
 /* Given an expression E, return the rank of the expression.  */
 
@@ -1425,7 +1424,7 @@ init_reassoc (void)
 
   /* Reverse RPO (Reverse Post Order) will give us something where
      deeper loops come later.  */
-  flow_depth_first_order_compute (NULL, bbs);
+  pre_and_rev_post_order_compute (NULL, bbs, false);
   bb_rank = xcalloc (last_basic_block + 1, sizeof (unsigned int));
   
   operand_rank = htab_create (511, operand_entry_hash,
@@ -1452,7 +1451,7 @@ init_reassoc (void)
     }
 
   /* Set up rank for each BB  */
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     bb_rank[bbs[i]] = ++rank  << 16;
 
   free (bbs);
