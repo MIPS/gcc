@@ -272,7 +272,7 @@ default_scalar_mode_supported_p (enum machine_mode mode)
 
 /* True if the target supports decimal floating point.  */
 
-static bool
+bool
 default_decimal_float_supported_p (void)
 {
   return ENABLE_DECIMAL_FLOAT;
