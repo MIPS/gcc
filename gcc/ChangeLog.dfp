@@ -1,3 +1,8 @@
+2005-12-21  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_scalar_mode_supported_p): Return
+	true for decimal float modes regardless of the front-end language.
+
 2005-12-20  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.c (override_options): Turn on SSE support if
