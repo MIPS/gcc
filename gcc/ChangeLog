@@ -1,3 +1,43 @@
+2005-12-21  Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac: Enable C extension for decimal float if invoked
+	with --enable-decimal-float.
+	* doc/install.texi (Configuration): Document it.
+	* configure, config.in: Regenerate.
+
+2005-12-20  Mike Stump  <mrs@apple.com>
+
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Handle the
+	ambiguity between -seg_addr_table and -seg_addr_table_filename.
+	(WORD_SWITCH_TAKES_ARG): Likewise.
+	(LINK_SPEC): Likewise.
+
+2005-12-20  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cfganal.c (flow_reverse_top_sort_order_compute):
+	Renamed to post_order_compute and additional parameter added which
+	allows the inclusion of entry and exit blocks into list.
+	(mark_dfs_back_edges): Fixed comment.
+	(flow_depth_first_order_compute): Renamed to
+	pre_and_rev_post_order_compute additional parameter added which
+	allows the inclusion of entry and exit blocks into list.
+	* global.c (set_up_bb_rts_numbers): Call to
+	flow_reverse_top_sort_order_compute renamed to
+	post_order_compute.
+	* var-tracking.c (vt_stack_adjustments): Fixed comment.
+	(vt_find_locations): Call to
+	flow_depth_first_order_compute renamed to
+	pre_and_rev_post_order_compute.
+	* cfgloop.c (flow_find_loops): Ditto.
+	* tree-ssa-reassoc.c (init_reassoc): Ditto.
+	* df.c (df_analyze_1, df_analyze_subcfg): Calls to
+	flow_reverse_top_sort_order_compute renamed to post_order_compute
+	and calls to flow_reverse_top_sort_order_compute renamed to
+	post_order_compute.
+	* basic_block.h: Ditto.
+
+
 2005-12-20  Roger Sayle  <roger@eyesopen.com>
 	    Paolo Bonzini  <bonzini@gnu.org>
 
@@ -160,10 +200,10 @@
 2005-12-18  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/25481
-	* tree-ssa-structalias.c (handle_ptr_arith): Handle
-	accesses we don't have a varinfo for.
+	* tree-ssa-structalias.c (handle_ptr_arith): Handle accesses we
+	don't have a varinfo for.
 
-2005-12-17  Jon Grimm  <jgrimm2@us.ibm.com>
+2005-12-18  Jon Grimm  <jgrimm2@us.ibm.com>
 	    Janis Johnson  <janis187@us.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
 
