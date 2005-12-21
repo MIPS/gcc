@@ -1,5 +1,6 @@
 2005-12-20  Dale Johannesen  <dalej@apple.com>
 
+	Radar 4385068
 	* global.c (expand_preferences): Reduce aggressiveness
 	of previous preference enhancement on x86, and disable
 	altogether on ppc.
