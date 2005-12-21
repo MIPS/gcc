@@ -1,3 +1,22 @@
+2005-12-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/pr19340.c: Skip on m68k targets.
+
+2005-12-21  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/25196
+	* gcc.dg/pr25196.c: New test.
+
+2005-12-21  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25423
+	gfortran.dg/where_nested_1.f90: New.
+
+2005-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25382.
+	* gcc.dg/tree-ssa/pr25382.c: New.
+
 2005-12-20  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/24306

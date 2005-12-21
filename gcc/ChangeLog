@@ -1,3 +1,36 @@
+2005-12-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* config/arm/t-arm-elf (LIB1ASMFUNCS): Add _floatundidf and
+	_floatundisf.
+
+2005-12-21  Andrew Haley  <aph@redhat.com>
+
+	PR middle-end/25121
+	* recog.c (peephole2_optimize): Don't peephole any
+	RTX_FRAME_RELATED_P insns.
+
+2005-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-data-ref.c (estimate_niter_from_size_of_data): Replace
+	fold_build2 with fold_binary.
+	* tree-ssa-ccp.c (visit_assignment, maybe_fold_stmt_addition):
+	Replace fold_build1 with fold_unary.
+	* tree-ssa-reassoc.c (optimize_ops_list): Replace fold_build2
+	with fold_binary.
+
+2005-12-21  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/25196
+	* postreload-gcse.c (record_last_set_info): Notice stack pointer
+	changes in push insns without REG_INC notes.
+
+2005-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25382.
+	* tree-vrp.c (extract_range_from_binary_expr): Extract a range
+	from BIT_AND_EXPR.
+
 2005-12-21  Janis Johnson  <janis187@us.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
 
