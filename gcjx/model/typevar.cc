@@ -162,7 +162,7 @@ model_type_variable::get_formal_signature ()
     }
   // Handle the case where there were no bounds at all.
   if (bounds.empty ())
-    result += ":";
+    result += ":" + global->get_compiler ()->java_lang_Object ()->get_signature ();
   return result;
 }
 
