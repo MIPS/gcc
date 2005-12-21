@@ -1,5 +1,14 @@
 2005-12-21  Ben Elliston  <bje@au.ibm.com>
 
+	* targhooks.c (default_decimal_float_supported_p): New.
+	* target-def.h (TARGET_DECIMAL_FLOAT_SUPPORTED_P): Define as
+	default_decimal_float_supported_p, not hook_bool_void_false.
+	* config/rs6000/rs6000.c (TARGET_DECIMAL_FLOAT_SUPPORTED_P):
+	Remove.
+	(rs6000_decimal_float_supported_p): Likewise.
+
+2005-12-21  Ben Elliston  <bje@au.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_scalar_mode_supported_p): Return
 	true for decimal float modes regardless of the front-end language.
 

@@ -947,9 +947,6 @@ static const char alt_reg_names[][8] =
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN rs6000_dwarf_register_span
 
-#undef TARGET_DECIMAL_FLOAT_SUPPORTED_P
-#define TARGET_DECIMAL_FLOAT_SUPPORTED_P rs6000_decimal_float_supported_p
-
 /* On rs6000, function arguments are promoted, as are function return
    values.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
@@ -1023,14 +1020,6 @@ static const char alt_reg_names[][8] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-
-/* Target hook for decimal_float_supported_p.  */
-static bool
-rs6000_decimal_float_supported_p (void)
-{
-  return ENABLE_DECIMAL_FLOAT == 1;
-}
-
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
    MODE.  */
 static int
