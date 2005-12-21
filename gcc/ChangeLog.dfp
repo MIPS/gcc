@@ -1,7 +1,7 @@
 2005-12-21  Ben Elliston  <bje@au.ibm.com>
 
-	* targhooks.h (default_decimal_float_supported_P): Declare.
-	* targhooks.c (default_decimal_float_supported_P): Non-static.
+	* targhooks.h (default_decimal_float_supported_p): Declare.
+	* targhooks.c (default_decimal_float_supported_p): Non-static.
 	
 	* targhooks.c (default_decimal_float_supported_p): New.
 	* target-def.h (TARGET_DECIMAL_FLOAT_SUPPORTED_P): Define as
