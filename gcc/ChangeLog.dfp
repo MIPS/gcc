@@ -1,3 +1,8 @@
+2005-12-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/rs6000/rs6000.c: Remove rs6000_decimal_float_supported_p
+	declaration.
+
 2005-12-21  Ben Elliston  <bje@au.ibm.com>
 
 	* targhooks.h (default_decimal_float_supported_p): Declare.
