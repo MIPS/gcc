@@ -760,7 +760,7 @@ IPA_UTILS_H = ipa-utils.h $(TREE_H) $(CGRAPH_H)
 IPA_REFERENCE_H = ipa-reference.h bitmap.h $(TREE_H)  
 IPA_TYPE_ESCAPE_H = ipa-type-escape.h $(TREE_H)  
 CGRAPH_H = cgraph.h $(TREE_H)
-DF_H = df.h bitmap.h sbitmap.h $(BASIC_BLOCK_H) alloc-pool.h
+DF_H = df.h bitmap.h $(BASIC_BLOCK_H) alloc-pool.h
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h
 GGC_H = ggc.h gtype-desc.h
@@ -972,7 +972,7 @@ OBJS-common = \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
  dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
- debug.o df-core.o df-problems.o df-scan.o dfp.o diagnostic.o              \
+ dce.o debug.o df-core.o df-problems.o df-scan.o dfp.o diagnostic.o        \
  dojump.o dominance.o loop-doloop.o	   				   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
  expmed.o expr.o final.o flow.o fold-const.o function.o fwprop.o gcse.o	   \
@@ -2259,6 +2259,9 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h $(FUNCTION_H) $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) \
    except.h $(TARGET_H) $(PARAMS_H) rtlhooks-def.h tree-pass.h
+dce.o : dce.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
+   $(TREE_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) $(DF_H) cselib.h \
+   dce.h timevar.h tree-pass.h
 web.o : web.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
    $(DF_H) $(OBSTACK_H) timevar.h tree-pass.h $(REGS_H)
@@ -2312,6 +2315,14 @@ df-problems.o : df-problems.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h $(TM_P_H) \
    $(FLAGS_H) output.h
 df-scan.o : df-scan.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
+   insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h \
+   hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h \
+   $(TM_P_H) $(FLAGS_H) output.h tree-pass.h
+df-problems.o : df-problems.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(RTL_H) insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h \
+   hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h $(TM_P_H) \
+   $(FLAGS_H) output.h
+df-scan.o : df-scan.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h hard-reg-set.h \
    $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h $(TM_P_H) $(FLAGS_H) \
    output.h
@@ -2347,7 +2358,7 @@ flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) insn-config.h $(BASIC_BLOCK_H) $(REGS_H) \
    hard-reg-set.h output.h toplev.h $(RECOG_H) $(FUNCTION_H) except.h \
    $(EXPR_H) $(TM_P_H) $(OBSTACK_H) $(SPLAY_TREE_H) $(TIMEVAR_H) \
-   tree-pass.h $(DF_H)
+   tree-pass.h $(DF_H) dce.h
 cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) \
    $(REGS_H) hard-reg-set.h output.h toplev.h $(FUNCTION_H) except.h $(GGC_H) \
    $(TM_P_H) $(TIMEVAR_H) $(OBSTACK_H) $(TREE_H) alloc-pool.h \
@@ -2373,7 +2384,7 @@ cfgcleanup.o : cfgcleanup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TIMEVAR_H) hard-reg-set.h output.h $(FLAGS_H) $(RECOG_H) \
    toplev.h insn-config.h cselib.h $(TARGET_H) $(TM_P_H) $(PARAMS_H) \
    $(REGS_H) $(EMIT_RTL_H) $(CFGLAYOUT_H) tree-pass.h cfgloop.h \
-   expr.h $(DF_H)
+   expr.h $(DF_H) dce.h
 cfgloop.o : cfgloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(FLAGS_H) $(FUNCTION_H) \
    $(OBSTACK_H) toplev.h $(TREE_FLOW_H) $(TREE_H)

@@ -146,6 +146,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "splay-tree.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "dce.h"
 #include "params.h"
 
 #ifndef HAVE_epilogue
@@ -583,6 +584,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   tmp = ALLOC_REG_SET (&reg_obstack);
   ndead = 0;
 
+  if (prop_flags & PROP_KILL_DEAD_CODE)
+    run_dce ();
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
     reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
 
@@ -1077,12 +1080,14 @@ propagate_block_delete_insn (rtx insn)
 
 	  for (i = 0; i < len; i++)
 	    LABEL_NUSES (XEXP (XVECEXP (pat, diff_vec_p, i), 0))--;
-
+  
 	  delete_insn_and_edges (next);
 	  ndead++;
 	}
     }
-
+  
+  if (dump_file)
+    fprintf (dump_file, "Flow: Deleting insn %d\n", INSN_UID (insn));
   delete_insn_and_edges (insn);
   ndead++;
 }
@@ -1606,6 +1611,10 @@ propagate_block (basic_block bb, regset live, regset local_set,
   rtx insn, prev;
   int changed;
 
+  if (!flag_flow_dce)
+    flags &= ~(PROP_SCAN_DEAD_CODE
+	       | PROP_SCAN_DEAD_STORES
+	       | PROP_KILL_DEAD_CODE);
   pbi = init_propagate_block_info (bb, live, local_set, cond_local_set, flags);
 
   if (flags & PROP_REG_INFO)

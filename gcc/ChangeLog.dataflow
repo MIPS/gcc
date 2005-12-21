@@ -1,3 +1,18 @@
+2005-12-22  Danny Berlin <dberlin@dberlin.org>
+    	    Richard Sandiford  <richard@codesourcery.com>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h: Added passes for new dce and dse.
+	* flow.c (update_life_info, propagate_block): Added hooks to
+	call new dead code elimination.
+	* common.opt (flag_flow_dce, flag_new_dce): Ditto.
+	* passes.c (init_optimization_passes): Ditto.
+	* cfgcleanup.c (cleanup_cfg): Ditto.
+	* timevar.def: New time vars for dce and dse.
+	(propagate_block_delete_insn): Added debugging.
+	* dce.c: New File containing dead code elimination and dead
+	store elimination based on df.
+
 2005-12-19  Kenneth Zadeck <zadeck@naturalbridge.com>
 	
         * flow.c (update_life_info, count_or_remove_death_notes): Fixed

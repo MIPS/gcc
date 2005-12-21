@@ -679,14 +679,18 @@ init_optimization_passes (void)
   NEXT_PASS (pass_loop2);
   NEXT_PASS (pass_web);
   NEXT_PASS (pass_cse2);
+  NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_rtl_fwprop_addr);
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_combine);
+  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_if_after_combine);
+  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_partition_blocks);
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);
   NEXT_PASS (pass_mode_switching);
+  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
@@ -700,12 +704,15 @@ init_optimization_passes (void)
   NEXT_PASS (pass_postreload_cse);
   NEXT_PASS (pass_reset_df_after_reload);
   NEXT_PASS (pass_gcse2);
+  NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_flow2);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
 
   NEXT_PASS (pass_if_after_reload);
+  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_regrename);
+  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_reorder_blocks);
   NEXT_PASS (pass_branch_target_load_optimize);
   NEXT_PASS (pass_leaf_regs);
