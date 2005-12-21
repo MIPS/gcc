@@ -1,5 +1,11 @@
 2005-12-21  Tom Tromey  <tromey@redhat.com>
 
+	* TODO: Updated.
+	* PROJECTS: Updated.
+	* HACKING: New file.
+
+2005-12-21  Tom Tromey  <tromey@redhat.com>
+
 	* model/typevar.cc (get_formal_signature): Special-case empty
 	bounds.
 

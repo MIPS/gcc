@@ -16,16 +16,12 @@ Classes for the model mostly exist.
 Annotations have been started but not finished
 - handling package-info.java
   and give warnings if a class appears in that file
-- package parsing buglet in parse::compilation_unit()
 - non-circularity of annotations
 - where should model_package call resolve_annotations ?
 
-enums partly work.  They are completely untested but much of the code
-is there.  some code generation work remains.  a little semantic
-analysis work remains, including missing error checking
-
-Generics partly work.  Generic methods have not been implemented at
-all.
+enums mostly work.  Generics mostly work.  For both of these we need a
+number of error checks at the very least; there are some lurking bugs
+too.
 
 varargs, boxing, and unboxing work.  however there are a couple of
 cases of {un,}boxing conversion that still don't work; see TODO
@@ -36,29 +32,23 @@ some other cast cases may need work in the back ends.
 ================================================================
 == Parser
 
-The parser probably has performance problems.  Error handling and
-recovery is quite weak.
+The parser has performance problems.  Error handling and recovery is
+quite weak.
+
+there's a package parsing buglet in parse::compilation_unit()
 
 we don't handle attributes correctly
 they can be intermixed with modifiers
-
-it is possible to explicitly pass the type arguments to a generic
-method invocation.  we mostly handle this but there is one remaining
-case in the parser.  the model parts haven't been finished yet.  see
-parse::primary().  in the model we need to have a new virtual method
-for handling genericization, with the default doing type inference
 
 
 ================================================================
 == Semantic Analysis
 
-static import works, but the internal APIs are broken and we don't do
-the error checking we ought to do.
-
 There's some ugliness in Iname; perhaps this interface should be
 entirely removed.
 
 The code in name.cc is fairly inefficient for the most part.
+(But it doesn't show up in profiles)
 
 classify_ambiguous_name needs to be written.  Perhaps it should be
 called classify_expression_name, as that is more correct.
@@ -67,6 +57,9 @@ some inner class things still don't work properly.  look through jacks
 results to see the errors.  for example there are some variable
 capture cases that are incorrect.  static context handling still
 doesn't really work.
+
+there are some remaining definite assignment bugs; look through
+jacks results to see
 
 
 ================================================================
@@ -180,75 +173,3 @@ lock a class
 
 it turns out that parsing can affect global state by creating packages
 we need a lock somewhere to deal with this
-
-
-================================================================
-== Source Code Road Map
-
-Anything in model/ is related to the model of the program.  For the
-most part things are self-explanatory, e.g., model_assert is the class
-that models the "assert" statement.  Classes in this directory
-starting with "I" are interface classes and are ordinarily used as
-"mixins".
-
-semantic analysis:
- - maybe move this code to new analyze/ directory?
-    access.hh
-    conversions.hh
-    defassign.hh
-    fold.hh
-    name.hh
-    resolve.hh
-    scope.hh
-
-class reading and writing:
-    everything in bytecode/
-
-parsing and lexing:
-    everything in source/
-
-helpers, utility code, etc:
-    buffer.hh
-    classcache.hh
-    directory.hh
-    location.hh
-    owner.hh
-    typedefs.hh
-    util.hh
-    watch.hh
-
-general compiler framework:
-    compiler.hh
-    exception.hh
-    factory.hh
-    global.hh
-    visitor.hh
-
-code for helping ahead-of-time compilers:
-    everything in aot/
-
-if we write threading code, put in thread/; see bkoz's libthread++
-and also thread-local extension class.
-
-A model_foo is a class in the model.  We use `model_' and not
-`model::' because we want simple names like "while", which are C++
-keywords.
-
-A ref_foo is an owner<model_foo>.  Not every model class needs a ref
-class.  If model_y is a subclass of model_x, then a ref_y can be
-assigned to a ref_x -- owner<> understands this.
-
-Ownership of model objects must be considered carefully.  If there is
-a natural container for something, it should usually be the owner.
-E.g., a class owns its members, but a class does not own its
-superclass or interfaces.  Represent ownership with a ref_ and
-otherwise with a pointer to a model_.
-
-Right now we have some goofy things in the model where we have fields
-based on implementation, e.g. deprecation is represented with a
-javadoc object.  This is incorrect, deprecation should be represented
-with a flag and then settor should handle conversion.
-
-Use assert() liberally.  abort() in unrecoverable situations.  (We
-should probably have a nice wrapper for abort so that it shows up in
-Jacks logs.)

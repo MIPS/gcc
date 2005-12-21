@@ -16,17 +16,16 @@ there is a BSF example from fitzsim where we resolve the members of a
 class read from .class
 even though we technically don't need to resolve them all (arguably)
 this results in a build failure
+one approach here is that for classes which we won't be fully compiling,
+we can do partial inheritance of members, based on name
+if we made this virtual we could lazily instantiate members of generic
+paramerizations -- a bonus
 
 right now we use std::cerr liberally
 instead we should define a simple 'emit a string' interface
 and change compiler so that the output stream can be changed
 the default could still write to stderr
 but this would let users intercept and redirect output
-
-Tom F. suggested a HACKING file explaining some of
-the source layout stuff and other gcjx rules,
-eg where headers are included
-populate with the last section from PROJECTS
 
 right now we exit after the first semantic analysis error
 this is unfriendly to say the least
