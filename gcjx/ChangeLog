@@ -1,3 +1,7 @@
+2005-12-21  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/classwriter.cc (write): Special-case empty signature.
+
 2005-12-20  Tom Tromey  <tromey@redhat.com>
 
 	* model/primitive.hh (unsigned_right_shift): Mask relevant bits.

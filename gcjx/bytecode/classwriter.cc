@@ -221,8 +221,13 @@ class_writer::write (directory_cache &dircache)
     class_attributes.push_back (new simple_name_attribute (pool,
 							   "Deprecated"));
   if (target_15)
-    class_attributes.push_back (new utf8_attribute (pool, "Signature",
-						    the_class->get_class_signature ()));
+    {
+      std::string sig = the_class->get_class_signature ();
+      // For Object this will be the empty string.
+      if (sig != "")
+	class_attributes.push_back (new utf8_attribute (pool, "Signature",
+							sig));
+    }
 
   if (global->get_compiler ()->target_debug ())
     {
