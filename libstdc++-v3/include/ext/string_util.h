@@ -64,37 +64,13 @@ namespace __gnu_cxx
         const_iterator;
 
       // NB:  When the allocator is empty, deriving from it saves space 
-      // (http://www.cantrip.org/emptyopt.html).  We do that anyway for
-      // consistency.
-      template<typename _Alloc1, bool = std::__is_empty<_Alloc1>::__value>
+      // (http://www.cantrip.org/emptyopt.html).
+      template<typename _Alloc1>
         struct _Alloc_hider
 	: public _Alloc1
 	{
 	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
 	  : _Alloc1(__a), _M_p(__ptr) { }
-	  
-	  void _M_alloc_swap(_Alloc_hider&) { }
-
-	  _CharT*  _M_p; // The actual data.
-	};
-
-      template<typename _Alloc1>
-        struct _Alloc_hider<_Alloc1, false>
-	: public _Alloc1
-	{
-	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
-	  : _Alloc1(__a), _M_p(__ptr) { }
-
-	  void
-	  _M_alloc_swap(_Alloc_hider& __ah)
-	  {
-	    // Implement Option 3 of DR 431 (see N1599).
-	    // Precondition: swappable allocators.
-	    _Alloc1& __this = static_cast<_Alloc1&>(*this);
-	    _Alloc1& __that = static_cast<_Alloc1&>(__ah);
-	    if (__this != __that)
-	      swap(__this, __that);
-	  }
 
 	  _CharT*  _M_p; // The actual data.
 	};

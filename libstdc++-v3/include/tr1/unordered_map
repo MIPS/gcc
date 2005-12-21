@@ -37,8 +37,6 @@
 #include <tr1/hashtable>
 #include <tr1/functional>
 #include <tr1/functional>
-#include <utility>
-#include <memory>
 
 namespace std
 {

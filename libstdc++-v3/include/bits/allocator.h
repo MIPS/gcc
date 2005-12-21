@@ -127,6 +127,23 @@ namespace std
 
   // Undefine.
 #undef __glibcxx_base_allocator
+
+  // To implement Option 3 of DR 431.
+  template<typename _Alloc, bool = std::__is_empty<_Alloc>::__value>
+    struct __alloc_swap
+    { static void _S_do_it(_Alloc&, _Alloc&) { } };
+
+  template<typename _Alloc>
+    struct __alloc_swap<_Alloc, false>
+    {
+      static void
+      _S_do_it(_Alloc& __one, _Alloc& __two)
+      {
+	// Precondition: swappable allocators.
+	if (__one != __two)
+	  swap(__one, __two);
+      }
+    };
 } // namespace std
 
 #endif
