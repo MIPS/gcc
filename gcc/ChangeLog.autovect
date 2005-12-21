@@ -1,3 +1,42 @@
+2005-12-21  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-loop-linear.c (gather_interchange_stats): Test for the
+	existence of distance vectors only after having checked that there
+	is a dependence.  Iterate over all distance vectors of the ddr.
+	(linear_transform_loops): Use dump_data_dependence_relation.
+	* tree-data-ref.c (print_direction_vector): Pass a lambda_vector 
+	and its size in parameters, instead of a data_dependence_relation.
+	(dump_data_dependence_relation,	dump_data_dependence_direction): 
+	Iterate over all distance and direction vectors of the ddr.
+	(initialize_data_dependence_relation): Initialize DDR_DIR_VECTS and
+	DDR_DIST_VECTS.
+	(build_classic_dist_vector, build_classic_dir_vector): Push a set
+	of distance/direction vectors instead of a single one.
+	(omega_compute_classic_representations): Don't clear newly allocated 
+	dist_v and dir_v.  Push the computed {dist,dir}_v  to 
+	DDR_{DIST,DIR}_VECTS.
+	(check_ddr): New helper function split from...
+	(compute_affine_dependence): ...here.  For comparing the
+	results from omega, save the pointer to ddr->{dir,dist}_vects
+	and reinitialize it before computing with omega.
+	(compute_self_dependence): Push the zero vector initializing 
+	DDR_{DIST,DIR}_VECTS.
+	* tree-data-ref.h (dir_vects, dist_vects): Replace dir/dist
+	lambda_vectors with a vec of lambda_vectors.
+	(DDR_DIR_VECT, DDR_DIST_VECT): Redefined as operations on vec.
+	(DDR_DIR_VECTS, DDR_DIST_VECTS, DDR_NUM_DIR_VECTS,
+	DDR_NUM_DIST_VECTS): New.
+	(print_direction_vector): Updated declaration.
+	* tree-vect-analyze.c (vect_analyze_data_ref_dependence): Test for
+	distance vectors using DDR_NUM_DIST_VECTS.  Iterate over all the
+	distance vectors of the ddr.
+	* lambda.h: Define a vec of lambda_vector pointers.
+	* lambda-code.c (lambda_transform_legal_p): Use DDR_NUM_DIST_VECTS
+	for testing whether the data_dependence_relation contains distance
+	vectors.  Iterate over all distance vectors of the ddr.
+	* tree-vect-transform.c (vect_create_epilog_for_reduction): Initialize
+	shift_code.
+
 2005-12-19  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-patterns.c: New file.

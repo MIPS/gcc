@@ -220,14 +220,15 @@ struct data_dependence_relation
      the data_dependence_relation.  */
   varray_type subscripts;
 
-  /* The size of the direction/distance vectors.  */
+  /* The size of the direction/distance vectors: the depth of the
+     analyzed loop nest.  */
   int size_vect;
 
   /* The classic direction vector.  */
-  lambda_vector dir_vect;
+  VEC(lambda_vector,heap) *dir_vects;
 
   /* The classic distance vector.  */
-  lambda_vector dist_vect;
+  VEC(lambda_vector,heap) *dist_vects;
 
   /* Representation of the dependence as a constraint system.  */
   csys dependence_constraint_system;
@@ -249,8 +250,17 @@ struct data_dependence_relation
 #define DDR_SUBSCRIPT(DDR, I) VARRAY_GENERIC_PTR (DDR_SUBSCRIPTS (DDR), I)
 #define DDR_NUM_SUBSCRIPTS(DDR) VARRAY_ACTIVE_SIZE (DDR_SUBSCRIPTS (DDR))
 #define DDR_SIZE_VECT(DDR) DDR->size_vect
-#define DDR_DIR_VECT(DDR) DDR->dir_vect
-#define DDR_DIST_VECT(DDR) DDR->dist_vect
+
+#define DDR_DIST_VECTS(DDR) ((DDR)->dist_vects)
+#define DDR_DIR_VECTS(DDR) ((DDR)->dir_vects)
+#define DDR_NUM_DIST_VECTS(DDR) \
+  (VEC_length (lambda_vector, DDR_DIST_VECTS (DDR)))
+#define DDR_NUM_DIR_VECTS(DDR) \
+  (VEC_length (lambda_vector, DDR_DIR_VECTS (DDR)))
+#define DDR_DIR_VECT(DDR, I) \
+  VEC_index (lambda_vector, DDR_DIR_VECTS (DDR), I)
+#define DDR_DIST_VECT(DDR, I) \
+  VEC_index (lambda_vector, DDR_DIST_VECTS (DDR), I)
 #define DDR_CSYS(DDR) DDR->dependence_constraint_system
 #define DDR_POLYHEDRON(DDR) DDR->dependence_polyhedron
 #define DDR_OMEGA(DDR) DDR->omega_dependence
@@ -263,7 +273,7 @@ extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (struct loop *, bool,
 					       varray_type *, varray_type *);
 
-extern void print_direction_vector (FILE *, struct data_dependence_relation *);
+extern void print_direction_vector (FILE *, lambda_vector, int);
 extern void dump_subscript (FILE *, struct subscript *);
 extern void dump_ddrs (FILE *, varray_type);
 extern void dump_dist_dir_vectors (FILE *, varray_type);
