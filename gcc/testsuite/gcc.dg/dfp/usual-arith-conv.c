@@ -41,6 +41,8 @@ init ()
 int
 main ()
 {
+  init ();
+
   /* Usual arithmetic conversions between decimal float types; addition.  */
   d128a = d128b + d32b;
   if (d128a < d128b)
