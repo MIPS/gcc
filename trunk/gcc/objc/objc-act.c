@@ -6949,28 +6949,11 @@ generate_v2_ivar_lists (void)
   if (!objc_v2_ivar_template)
     objc_v2_ivar_template = build_v2_ivar_t_template ();
 
-  /* Only generate class variables for the root of the inheritance
-     hierarchy since these will be the same for every class.  */
-  /* THIS IS SUBJECT TO CHANGE! */
+  /* Currently there is no class ivars and generation of class variables for the root of 
+     the inheritance has been removed. It causes multiple defines if there are two root classes
+     in the link, because each will define its own identically-named offset variable. */
 
-  if (CLASS_SUPER_NAME (implementation_template) == NULL_TREE
-      && (chain = TYPE_FIELDS (objc_v2_class_template)))
-    {
-      size = ivar_list_length (chain);
-
-      ivar_list_template = build_v2_ivar_list_t_template (
-			     objc_v2_ivar_template, size);
-      initlist = build_v2_ivar_list_initializer (OBJC_TYPE_NAME (objc_v2_ivar_template),
-						     objc_v2_ivar_template, chain);
-
-      UOBJC_V2_CLASS_VARIABLES_decl
-        = generate_v2_ivars_list (ivar_list_template, "_OBJC_$_CLASS_VARIABLES",
-				      TREE_INT_CST_LOW (
-				      	TYPE_SIZE_UNIT (objc_v2_ivar_template)),
-                                      size, initlist);
-    }
-  else
-    UOBJC_V2_CLASS_VARIABLES_decl = 0;
+  UOBJC_V2_CLASS_VARIABLES_decl = 0;
 
   chain = CLASS_IVARS (implementation_template);
   if (chain)
