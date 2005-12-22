@@ -222,6 +222,7 @@ static const char *newabi_append_ro (const char *);
 static tree build_class_t_initializer (tree, tree, tree, tree, tree);
 static tree create_extern_decl (tree, const char *);
 static tree create_global_decl (tree, const char *);
+static tree create_hidden_decl (tree, const char *);
 static void build_v2_protocol_template (void);
 static tree build_classlist_reference_decl (void);
 static void build_classlist_translation_table (void);
@@ -1836,6 +1837,17 @@ create_global_decl (tree type, const char *name)
   return var;
 }
 
+/* Create a symbol with __attribute__ ((visibility ("hidden"))) 
+   attribute (private extern) */
+
+static tree create_hidden_decl (tree type, const char *name)
+{
+    tree decl = create_global_decl (type, name);
+    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+    DECL_VISIBILITY_SPECIFIED (decl) = 1;
+    return decl;
+}
+
 /* Create an extern declaration for variable NAME of a given TYPE. The
    finish_var_decl() routine will need to be called on it afterwards.  */
 
@@ -2794,10 +2806,15 @@ generate_objc_symtab_decl (void)
   if (cat_count)
     forward_declare_categories ();
 
-  build_objc_symtab_template ();
-  UOBJC_SYMBOLS_decl = start_var_decl (objc_symtab_template, "_OBJC_SYMBOLS");
-  finish_var_decl (UOBJC_SYMBOLS_decl,
-		   init_objc_symtab (TREE_TYPE (UOBJC_SYMBOLS_decl)));
+  /* APPLE LOCAL begin new ObjC abi v2 */
+  if (!(flag_objc_abi == 2))
+    {
+      build_objc_symtab_template ();
+      UOBJC_SYMBOLS_decl = start_var_decl (objc_symtab_template, "_OBJC_SYMBOLS");
+      finish_var_decl (UOBJC_SYMBOLS_decl,
+		       init_objc_symtab (TREE_TYPE (UOBJC_SYMBOLS_decl)));
+    }
+  /* APPLE LOCAL end new ObjC abi v2 */
 }
 
 static tree
@@ -4160,7 +4177,20 @@ objc_is_ivar (tree expr, tree component, tree *class)
     {
       *class = lookup_interface (OBJC_TYPE_NAME (basetype));
       if (*class)
-        field = is_ivar (get_class_ivars (*class, true), component);
+	{
+	  do
+	    {
+	      tree ivar_chain = CLASS_RAW_IVARS (*class);
+	      if (ivar_chain)
+		{
+		  field = is_ivar (ivar_chain, component);
+		  if (field != NULL_TREE)
+		    break;
+	        }
+	      *class = lookup_interface (CLASS_SUPER_NAME (*class));
+	    }
+	  while (*class);
+	}
     }
   return field;
 } 
@@ -6696,7 +6726,7 @@ ivar_offset_ref (tree class_name, tree field_decl)
   if (global_var)
     decl = create_global_decl (integer_type_node, buf);
   else
-    decl = start_var_decl (integer_type_node, buf);
+    decl = create_hidden_decl (integer_type_node, buf);
 
   while (*chain)
     chain = &TREE_CHAIN (*chain);
@@ -6934,7 +6964,7 @@ generate_v2_ivar_lists (void)
 						     objc_v2_ivar_template, chain);
 
       UOBJC_V2_CLASS_VARIABLES_decl
-        = generate_v2_ivars_list (ivar_list_template, "_OBJC_CLASS_VARIABLES_$",
+        = generate_v2_ivars_list (ivar_list_template, "_OBJC_$_CLASS_VARIABLES",
 				      TREE_INT_CST_LOW (
 				      	TYPE_SIZE_UNIT (objc_v2_ivar_template)),
                                       size, initlist);
@@ -6952,7 +6982,7 @@ generate_v2_ivar_lists (void)
 						     objc_v2_ivar_template, chain);
 
       UOBJC_V2_INSTANCE_VARIABLES_decl
-        = generate_v2_ivars_list (ivar_list_template, "_OBJC_INSTANCE_VARIABLES_$",
+        = generate_v2_ivars_list (ivar_list_template, "_OBJC_$_INSTANCE_VARIABLES",
 				      TREE_INT_CST_LOW (
 				   	TYPE_SIZE_UNIT (objc_v2_ivar_template)),
                                	      size, initlist);
@@ -7220,7 +7250,7 @@ generate_v2_dispatch_tables (void)
 	= generate_dispatch_table (method_list_template,
 				   ((TREE_CODE (objc_implementation_context)
 				     == CLASS_IMPLEMENTATION_TYPE)
-				    ? "_OBJC_CLASS_METHODS_$"
+				    ? "_OBJC_$_CLASS_METHODS"
 				    : "_OBJC_CATEGORY_CLASS_METHODS_$"),
 				   size, initlist, true);
     }
@@ -7240,13 +7270,13 @@ generate_v2_dispatch_tables (void)
       if (TREE_CODE (objc_implementation_context) == CLASS_IMPLEMENTATION_TYPE)
 	UOBJC_V2_INSTANCE_METHODS_decl
 	  = generate_dispatch_table (method_list_template,
-				     "_OBJC_INSTANCE_METHODS_$",
+				     "_OBJC_$_INSTANCE_METHODS",
 				     size, initlist, true);
       else
 	/* We have a category.  */
 	UOBJC_V2_INSTANCE_METHODS_decl
 	  = generate_dispatch_table (method_list_template,
-				     "_OBJC_CATEGORY_INSTANCE_METHODS_$",
+				     "_OBJC_$_CATEGORY_INSTANCE_METHODS",
 				     size, initlist, true);
     }
   else
@@ -7380,7 +7410,7 @@ generate_v2_method_descriptors (tree protocol)
 
       UOBJC_V2_CLASS_METHODS_decl
 	= generate_descriptor_table (method_list_template,
-			       	     "_OBJC_PROTOCOL_CLASS_METHODS_$",
+			       	     "_OBJC_$_PROTOCOL_CLASS_METHODS",
 				     size, initlist, protocol, true);
     }
   else
@@ -7398,7 +7428,7 @@ generate_v2_method_descriptors (tree protocol)
 
       UOBJC_V2_INSTANCE_METHODS_decl
 	= generate_descriptor_table (method_list_template,
-				     "_OBJC_PROTOCOL_INSTANCE_METHODS_$",
+				     "_OBJC_$_PROTOCOL_INSTANCE_METHODS",
 				     size, initlist, protocol, true);
     }
   else
@@ -11985,7 +12015,10 @@ finish_objc (void)
   if (objc_implementation_context || class_names_chain || objc_static_instances
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
     {
-      build_module_descriptor ();
+      /* APPLE LOCAL begin ObjC abi v2 */
+      if (!(flag_objc_abi == 2))
+        build_module_descriptor ();
+      /* APPLE LOCAL end ObjC abi v2 */
 
       if (!flag_next_runtime)
 	build_module_initializer_routine ();

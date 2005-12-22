@@ -1,3 +1,24 @@
+2005-12-21  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4360146
+	* objc/objc-act.c (create_hidden_decl): New.
+	(ivar_offset_ref): Visibility of private ivar offset 
+	variables must be "hidden".
+
+2005-12-21  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4360146
+        * objc/objc-act.c (objc_is_ivar): Perform correct name lookup for
+	ivar names when generating ivar offset variables.
+	(finish_objc): Don't generate objc_module meta-data in new abi.
+	(generate_objc_symtab_decl): Don't generate objc_symtab meta-data 
+	in new abi.
+	(generate_v2_ivar_lists): Change names of class and instance ivars 
+	in new abi so they end up in .data section.
+	(generate_v2_dispatch_tables): Change names of method meta-data
+	in new abi so they end up in .data section.
+	(generate_v2_method_descriptors): Ditto.
+
 2005-12-16  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146
