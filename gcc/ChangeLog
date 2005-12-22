@@ -1,3 +1,65 @@
+2005-12-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (tree_fold_gcd): Use build_int_cst where appropriate.
+	* tree-ssa-loop-ivcanon.c (create_canonical_iv): Likewise.
+	* varasm.c (array_size_for_constructor): Likewise.
+	* fold-const.c (size_diffop, invert_truthvalue,
+	optimize_bit_field_compare, make_range, build_range_check,
+	fold_cond_expr_with_comparison, fold_truthop,
+	fold_single_bit_test_into_sign_test, fold_binary): Likewise.
+
+2005-12-22  Dale Johannesen  <dalej@apple.com>
+
+	* config/i386/sse.md (sse_movhlps):  Reverse operands for
+	2nd and 3rd alternatives.
+
+2005-12-22  Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR tree-opt/25513
+	* tree-dfa.c (make_rename_temp): Set DECL_COMPLEX_GIMPLE_REG_P complex
+	variables.
+
+2005-12-22  Zdenek Dvorak <dvorakz@suse.cz>
+	    Steven Bosscher <stevenb@suse.de>
+
+	* df.c (df_bitmaps_free): Only work for bbs for that structures are
+	allocated.
+	(df_bb_modify): Realloc tables to the new index.
+	(df_find_use): New function.
+	(df_find_def, df_reg_used): Handle subregs.
+	* df.h (df_find_use): Declare.
+
+	* loop-invariant.c: Include hashtab.h.
+	(struct invariant): Remove processed field, add eqto and reg fields.
+	(struct invariant_expr_entry): New.
+	(invariant_for_use, hash_invariant_expr_1, invariant_expr_equal_p,
+	hash_invariant_expr, eq_invariant_expr, find_or_insert_inv,
+	find_identical_invariants, merge_identical_invariants): New functions.
+	(create_new_invariant): Return the new invariant.  Initialize new
+	fields.
+	(find_invariants): Call merge_identical_invariants.
+	(get_inv_cost, best_gain_for_invariant, set_move_mark,
+	move_invariant_reg): Handle equivalent invariants.
+	* Makefile.in (loop-invariant.o): Add HASHTAB_H dependency.
+
+2005-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23333
+	* c-lex.c (c_lex_with_flags): Add PURE_ZERO to cpp_flags if
+	number is a single digit '0'.
+
+2005-12-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/23518
+	* fold-const.c (make_range): Don't move a constant to the
+	other side of the comparison if the type is signed and -fwrapv
+	is given.
+
+2005-12-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Clean up uses
+	of vr0.type.
+
 2005-12-21  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR middle-end/24998

@@ -588,9 +588,18 @@ resolve_structure_cons (gfc_expr * expr)
 
       /* If we don't have the right type, try to convert it.  */
 
-      if (!gfc_compare_types (&cons->expr->ts, &comp->ts)
-	  && gfc_convert_type (cons->expr, &comp->ts, 1) == FAILURE)
-	t = FAILURE;
+      if (!gfc_compare_types (&cons->expr->ts, &comp->ts))
+	{
+	  t = FAILURE;
+	  if (comp->pointer && cons->expr->ts.type != BT_UNKNOWN)
+	    gfc_error ("The element in the derived type constructor at %L, "
+		       "for pointer component '%s', is %s but should be %s",
+		       &cons->expr->where, comp->name,
+		       gfc_basic_typename (cons->expr->ts.type),
+		       gfc_basic_typename (comp->ts.type));
+	  else
+	    t = gfc_convert_type (cons->expr, &comp->ts, 1);
+	}
     }
 
   return t;
@@ -684,6 +693,68 @@ procedure_kind (gfc_symbol * sym)
     return PTYPE_SPECIFIC;
 
   return PTYPE_UNKNOWN;
+}
+
+/* Check references to assumed size arrays.  The flag need_full_assumed_size
+   is zero when matching actual arguments.  */
+
+static int need_full_assumed_size = 1;
+
+static int
+check_assumed_size_reference (gfc_symbol * sym, gfc_expr * e)
+{
+  gfc_ref * ref;
+  int dim;
+  int last = 1;
+
+  if (!need_full_assumed_size
+	|| !(sym->as && sym->as->type == AS_ASSUMED_SIZE))
+      return 0;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY)
+      for (dim = 0; dim < ref->u.ar.as->rank; dim++)
+	last = (ref->u.ar.end[dim] == NULL) && (ref->u.ar.type == DIMEN_ELEMENT);
+
+  if (last)
+    {
+      gfc_error ("The upper bound in the last dimension must "
+		 "appear in the reference to the assumed size "
+		 "array '%s' at %L.", sym->name, &e->where);
+      return 1;
+    }
+  return 0;
+}
+
+
+/* Look for bad assumed size array references in argument expressions
+  of elemental and array valued intrinsic procedures.  Since this is
+  called from procedure resolution functions, it only recurses at
+  operators.  */
+static bool
+resolve_assumed_size_actual (gfc_expr *e)
+{
+  if (e == NULL)
+   return false;
+
+  switch (e->expr_type)
+    {
+    case EXPR_VARIABLE:
+      if (e->symtree
+	    && check_assumed_size_reference (e->symtree->n.sym, e))
+	return true;
+      break;
+
+    case EXPR_OP:
+      if (resolve_assumed_size_actual (e->value.op.op1)
+	    || resolve_assumed_size_actual (e->value.op.op2))
+	return true;
+      break;
+
+    default:
+      break;
+    }
+  return false;
 }
 
 
@@ -1083,8 +1154,15 @@ resolve_function (gfc_expr * expr)
   const char *name;
   try t;
 
+  /* Switch off assumed size checking and do this again for certain kinds
+     of procedure, once the procedure itself is resolved.  */
+  need_full_assumed_size = 0;
+
   if (resolve_actual_arglist (expr->value.function.actual) == FAILURE)
     return FAILURE;
+
+  /* Resume assumed_size checking. */
+  need_full_assumed_size = 1;
 
 /* See if function is already resolved.  */
 
@@ -1129,7 +1207,6 @@ resolve_function (gfc_expr * expr)
 	  || (expr->value.function.isym != NULL
 	      && expr->value.function.isym->elemental)))
     {
-
       /* The rank of an elemental is the rank of its array argument(s).  */
 
       for (arg = expr->value.function.actual; arg; arg = arg->next)
@@ -1139,6 +1216,31 @@ resolve_function (gfc_expr * expr)
 	      expr->rank = arg->expr->rank;
 	      break;
 	    }
+	}
+
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+	{
+	  if (arg->expr != NULL
+		&& arg->expr->rank > 0
+		&& resolve_assumed_size_actual (arg->expr))
+	    return FAILURE;
+	}
+    }
+
+  else if (expr->value.function.actual != NULL
+      && expr->value.function.isym != NULL
+      && strcmp (expr->value.function.isym->name, "lbound"))
+    {
+      /* Array instrinsics must also have the last upper bound of an
+	 asumed size array argument.  */
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+	{
+	  if (arg->expr != NULL
+		&& arg->expr->rank > 0
+		&& resolve_assumed_size_actual (arg->expr))
+	    return FAILURE;
 	}
     }
 
@@ -1381,8 +1483,16 @@ resolve_call (gfc_code * c)
 {
   try t;
 
+  /* Switch off assumed size checking and do this again for certain kinds
+     of procedure, once the procedure itself is resolved.  */
+  need_full_assumed_size = 0;
+
   if (resolve_actual_arglist (c->ext.actual) == FAILURE)
     return FAILURE;
+
+  /* Resume assumed_size checking. */
+  need_full_assumed_size = 1;
+
 
   t = SUCCESS;
   if (c->resolved_sym == NULL)
@@ -1403,6 +1513,21 @@ resolve_call (gfc_code * c)
       default:
 	gfc_internal_error ("resolve_subroutine(): bad function type");
       }
+
+  if (c->ext.actual != NULL
+      && c->symtree->n.sym->attr.elemental)
+    {
+      gfc_actual_arglist * a;
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      for (a = c->ext.actual; a; a = a->next)
+	{
+	  if (a->expr != NULL
+		&& a->expr->rank > 0
+		&& resolve_assumed_size_actual (a->expr))
+	    return FAILURE;
+	}
+    }
 
   if (t == SUCCESS)
     find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
@@ -2329,6 +2454,9 @@ resolve_variable (gfc_expr * e)
 	return FAILURE;
       e->ts = sym->ts;
     }
+
+  if (check_assumed_size_reference (sym, e))
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -4200,6 +4328,60 @@ resolve_values (gfc_symbol * sym)
 }
 
 
+/* Resolve a charlen structure.  */
+
+static try
+resolve_charlen (gfc_charlen *cl)
+{
+  if (cl->resolved)
+    return SUCCESS;
+
+  cl->resolved = 1;
+
+  if (gfc_resolve_expr (cl->length) == FAILURE)
+    return FAILURE;
+
+  if (gfc_simplify_expr (cl->length, 0) == FAILURE)
+    return FAILURE;
+
+  if (gfc_specification_expr (cl->length) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* Resolve the components of a derived type.  */
+
+static try
+resolve_derived (gfc_symbol *sym)
+{
+  gfc_component *c;
+
+  for (c = sym->components; c != NULL; c = c->next)
+    {
+      if (c->ts.type == BT_CHARACTER)
+	{
+         if (resolve_charlen (c->ts.cl) == FAILURE)
+	   return FAILURE;
+	 
+	 if (c->ts.cl->length == NULL
+	     || !gfc_is_constant_expr (c->ts.cl->length))
+	   {
+	     gfc_error ("Character length of component '%s' needs to "
+			"be a constant specification expression at %L.",
+			c->name,
+			c->ts.cl->length ? &c->ts.cl->length->where : &c->loc);
+	     return FAILURE;
+	   }
+	}
+
+      /* TODO: Anything else that should be done here?  */
+    }
+
+  return SUCCESS;
+}
+
 /* Do anything necessary to resolve a symbol.  Right now, we just
    assume that an otherwise unknown symbol is a variable.  This sort
    of thing commonly happens for symbols in module.  */
@@ -4251,6 +4433,9 @@ resolve_symbol (gfc_symbol * sym)
 	    sym->attr.function = 1;
 	}
     }
+
+  if (sym->attr.flavor == FL_DERIVED && resolve_derived (sym) == FAILURE)
+    return;
 
   /* Symbols that are module procedures with results (functions) have
      the types and array specification copied for type checking in
@@ -4578,6 +4763,17 @@ resolve_symbol (gfc_symbol * sym)
 			   &sym->declared_at);
 	    }
 	}
+      break;
+
+    case FL_DERIVED:
+      /* Add derived type to the derived type list.  */
+      {
+	gfc_dt_list * dt_list;
+	dt_list = gfc_get_dt_list ();
+	dt_list->next = sym->ns->derived_types;
+	dt_list->derived = sym;
+	sym->ns->derived_types = dt_list;
+      }
       break;
 
     default:
@@ -5449,16 +5645,7 @@ gfc_resolve (gfc_namespace * ns)
   gfc_check_interfaces (ns);
 
   for (cl = ns->cl_list; cl; cl = cl->next)
-    {
-      if (cl->length == NULL || gfc_resolve_expr (cl->length) == FAILURE)
-	continue;
-
-      if (gfc_simplify_expr (cl->length, 0) == FAILURE)
-	continue;
-
-      if (gfc_specification_expr (cl->length) == FAILURE)
-	continue;
-    }
+    resolve_charlen (cl);
 
   gfc_traverse_ns (ns, resolve_values);
 
