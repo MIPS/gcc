@@ -217,13 +217,24 @@ typedef struct _stmt_vec_info {
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
-  /* If this stmt is part of a pattern (in_pattern_p is true):
-        related_stmt is the stmt whose vectorized_stmt should be used to get
-	the relevant vector-def that will replace the scalar-def of this stmt.
-     Otherwise (this stmt is not part of a pattern): 
-        currently used only if this stmt is a new stmt that replaces a 
-        computation pattern. related_stmt in this case is the last stmt in the
-        original pattern.  */
+  /* Used for various bookeeping purposes, generally holding a pointer to 
+     some other stmt S that is in some way "related" to this stmt. 
+     Current uses of this field are:
+     1. If this stmt is part of a pattern (i.e. the field 'in_pattern_p' is 
+	true): S is the "pattern stmt" that represents (and replaces) the 
+	sequence of stmts that constitutes the pattern.
+     2. If this stmt is a load (store): S is also a load (store), and the
+        datarefs accessed by both stmts are in the same "group" (i.e. the
+	related_stmt field connects between interleaved accesses that belong
+	to the same group). 
+     3. If this stmt is a vector load (store): S is also a vector load (store), 
+	and both stmts are part of a sequence of vector stmts that computes 
+	vector defs that correspond to a single scalar stmt. This is used when 
+	vectorizing type conversions, in which case we often replace one scalar 
+	stmt with a sequence of pack/unpack vector stmts.
+     4. Otherwise (this stmt is not part of a pattern and is not a load/store) -
+	this stmt is a "pattern stmt" (see 1 above), and S is the last stmt in 
+	the original sequence of stmts that constitutes the pattern.  */
   tree related_stmt;
 
   /* List of datarefs that are known to have the same alignment as the dataref

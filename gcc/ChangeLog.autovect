@@ -1,5 +1,12 @@
 2005-12-22  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree-vectorizer.h (related_stmt): Update documentation.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern):
+	(vect_recog_widen_mult_pattern, vect_recog_widen_sum_pattern):
+	(vect_pattern_recog_1, vect_pattern_recog): Update documentation.
+
+2005-12-22  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* Merge from mainline (r103985:r108746)
 
 2005-12-21  Sebastian Pop  <pop@cri.ensmp.fr>

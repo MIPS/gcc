@@ -430,39 +430,37 @@ vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out,
      TYPE2 sum = init;
    loop:
      sum_0 = phi <init, sum_1>
-
      S1  x_t = ...
      S2  y_t = ...
      S3  x_T = (TYPE1) x_t;
      S4  y_T = (TYPE1) y_t;
      S5  prod = x_T * y_T;
-     [S6  prod = x_T * y_T;  #optional. only if TYPE1 != TYPE2]
+     [S6  prod = (TYPE2) prod;  #optional]
      S7  sum_1 = prod + sum_0;
 
-   where 'TYPE1' is exactly double the size of type 'type',
-   and 'TYPE2' is the same size of 'TYPE1' or bigger.
+   where 'TYPE1' is exactly double the size of type 'type', and 'TYPE2' is the 
+   same size of 'TYPE1' or bigger. This is a sepcial case of a reduction
+   computation.
 
    Input:
-   LAST_STMT: A stmt from which the pattern search begins. In the example,
+
+   * LAST_STMT: A stmt from which the pattern search begins. In the example,
    when this function is called with S7, the pattern {S3,S4,S5,S6,S7} will be
    detected.
 
    Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+
+   * STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
    are part of the pattern. In the example, STMT_LIST will consist of 
    {S3,S4,S5,S6,S7}.
 
-   PATTERN_TYPE: The vector type to be used for the returned new stmt.
+   * TYPE_IN: The type of the input arguments to the pattern.
 
-   Return value: A new stmt that will be used to replace the sequence of
+   * TYPE_OUT: The type of the output  of this pattern.
+
+   * Return value: A new stmt that will be used to replace the sequence of
    stmts in STMT_LIST. In this case it will be:
-   WIDEN_DOT_PRODUCT <x_t, y_t, sum_0>
-
-   TODO: detect the widen_sum pattern before dot_product,
-         and extend dot_product recognition to detect the
-         pattern:
-         DPROD = X w* Y;
-         sum_1 = DPROD w+ sum_0;
+   	WIDEN_DOT_PRODUCT <x_t, y_t, sum_0>
 */
 
 tree
@@ -628,39 +626,25 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
      S4  b_T = (TYPE) b_t;
      S5  prod_T = a_T * b_T;
 
-   where type 'TYPE' is at least double the size of type 'type', 
-   i.e - we're multiplying elements of type 'type' into a result of type 'TYPE'.
-
-   For example:
-
-     unsigned short *in1, *in2, A, B;
-     unsigned int DA, DB, prod;
-
-     S1  A = *in1;
-     S2  B = *in2;
-     S3  DA = (unsigned int) A;
-     S4  DB = (unsigned int) B;
-     S5  prod = DA * DB;
-
+   where type 'TYPE' is at least double the size of type 'type'.
 
    Input:
-   LAST_STMT: A stmt from which the pattern search begins. In the example,
+
+   * LAST_STMT: A stmt from which the pattern search begins. In the example,
    when this function is called with S5, the pattern {S3,S4,S5} is be detected.
 
    Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+
+   * STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
    are part of the pattern. In the example, STMT_LIST consists of {S3,S4,S5}.
 
-   PATTERN_TYPE: The vector type to be used for the returned new stmt.
-   For the example above, for targets that support vectors of 8 shorts,
-   we want to return PATTERN_TYPE=V8HI. (Note that the result
-   contains 4 ints, because we're dealing with fixed-sized vectors,
-   but it doesn't change the fact that the vectorization factor is 8,
-   as the 4 results correspond to 8 elements from 8 different iterations).
+   * TYPE_IN: The type of the input arguments to the pattern.
 
-   Return value: A new stmt that will be used to replace the sequence of
+   * TYPE_OUT: The type of the output  of this pattern.
+
+   * Return value: A new stmt that will be used to replace the sequence of
    stmts in STMT_LIST. In this case it will be:
-   WIDEN_MULT <A, B>
+   	WIDEN_MULT <a_t, b_t>
 */
    
 tree
@@ -744,45 +728,31 @@ vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out,
      TYPE x_T, sum = init;
    loop:
      sum_0 = phi <init, sum_1>
-
      S1  x_t = *p;
      S2  x_T = (TYPE) x_t;
      S3  sum_1 = x_T + sum_0;
 
-   where type 'TYPE' is at least double the size of type 'type', 
-   i.e - we're summing elements of type 'type' into an accumulator 
-   of type 'TYPE'.
-
-   For example:
-
-     unsigned short *data, X;
-     unsigned int DX, sum = init;
-   loop:
-     sum_0 = phi <init, sum_1>
-
-     S1  X = *data.1_20;
-     S2  DX = (unsigned int) X;
-     S3  sum_1 = DX + sum_0;
-
+   where type 'TYPE' is at least double the size of type 'type', i.e - we're 
+   summing elements of type 'type' into an accumulator of type 'TYPE'. This is
+   a sepcial case of a reduction computation.
 
    Input:
-   LAST_STMT: A stmt from which the pattern search begins. In the example,
+
+   * LAST_STMT: A stmt from which the pattern search begins. In the example,
    when this function is called with S3, the pattern {S2,S3} will be detected.
 
    Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
+
+   * STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
    are part of the pattern. In the example, STMT_LIST will consist of {S2,S3}.
 
-   PATTERN_TYPE: The vector type to be used for the returned new stmt.
-   For the example above, for targets that support vectors of 8 shorts,
-   we want to return PATTERN_TYPE=V8HI. (Note that the result
-   contains 4 ints, because we're dealing with fixed-sized vectors,
-   but it doesn't change the fact that the vectorization factor is 8, 
-   as the 4 results correspond to 8 elements from 8 different iterations).
+   * TYPE_IN: The type of the input arguments to the pattern.
 
-   Return value: A new stmt that will be used to replace the sequence of
+   * TYPE_OUT: The type of the output of this pattern.
+
+   * Return value: A new stmt that will be used to replace the sequence of
    stmts in STMT_LIST. In this case it will be:
-   WIDEN_SUM <X, sum_0>
+   	WIDEN_SUM <x_t, sum_0>
 */
 
 tree
@@ -1038,9 +1008,17 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_ou
    If PATTERN_RECOG_FUNC successfully detected the pattern, it creates an
    expression that computes the same functionality and can be used to 
    replace the sequence of stmts that are involved in the pattern. 
-   This function checks if the returned expression is supported in vector
-   form by the target and does some bookeeping, as explained in the
-   documentation for vect_recog_pattern.  */
+
+   Output:
+   This function checks if the expression returned by PATTERN_RECOG_FUNC is 
+   supported in vector form by the target.  We use 'TYPE_IN' to obtain the 
+   relevant vector type. If 'TYPE_IN' is already a vector type, then this 
+   indicates that target support had already been checked by PATTERN_RECOG_FUNC.
+   If 'TYPE_OUT' is also returned by PATTERN_RECOG_FUNC, we check that it fits
+   to the available target pattern.
+
+   This function also does some bookeeping, as explained in the documentation 
+   for vect_recog_pattern.  */
 
 static void
 vect_pattern_recog_1 (
@@ -1105,7 +1083,7 @@ vect_pattern_recog_1 (
     }
   
   /* Mark the stmts that are involved in the pattern,
-     and create a new stmt to express the pattern and add it to the code.  */
+     create a new stmt to express the pattern and insert it.  */
   code = TREE_CODE (pattern_expr);
   pattern_type = TREE_TYPE (pattern_expr);
   var = create_tmp_var (pattern_type, "patt");
@@ -1171,9 +1149,9 @@ vect_pattern_recog_1 (
    - fill in the STMT_VINFO fields as follows:
 
                                   in_pattern_p  related_stmt    vec_stmt
-         S1: a_i = ....                 true
-         S2: a_2 = ..use(a_i)..         true
-         S3: a_1 = ..use(a_2)..         true
+         S1: a_i = ....                 true    S6
+         S2: a_2 = ..use(a_i)..         true    S6
+         S3: a_1 = ..use(a_2)..         true    S6
        > S6: a_new = ....               false   S4
          S4: a_0 = ..use(a_1)..         true    S6
          S5: ... = ..use(a_0)..         false
@@ -1193,14 +1171,14 @@ vect_pattern_recog_1 (
    vector-def from. S4 will be skipped, and S5 will be vectorized as usual:
 
                                   in_pattern_p  related_stmt    vec_stmt
-         S1: a_i = ....                 true            
-         S2: a_2 = ..use(a_i)..         true    
-         S3: a_1 = ..use(a_2)..         true    
+         S1: a_i = ....                 true    S6            
+         S2: a_2 = ..use(a_i)..         true    S6    
+         S3: a_1 = ..use(a_2)..         true    S6    
        > VS6: va_new = ....     
          S6: a_new = ....               false   S4              VS6
          S4: a_0 = ..use(a_1)..         true    S6              VS6
        > VS5: ... = ..vuse(va_new)..
-         S5: ... = ..use(a_0).. false   
+         S5: ... = ..use(a_0)..         false   
 
    DCE could then get rid of {S1,S2,S3,S4,S5,S6} (if their defs are not used
    elsewhere), and we'll end up with:
