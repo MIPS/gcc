@@ -83,14 +83,43 @@ main ()
     FAILURE
 
   /* Usual arithmetic conversions between decimal float and integer types.  */
-  d32a = d32b * i;
-  if (d32a != (d32b + d32b))
+  d32a = d32c + i;
+  if (d32a != d32c + 2.0df)
     FAILURE
-  d64a = i * d64b;
-  if (d64a != (d64b + d64b))
+  d32a = d32c - i;
+  if (d32a != d32c - 2.0df)
     FAILURE
-  d128a = d128b + i;
-  if (d128a <= d128b)
+  d32a = i * d32c;
+  if (d32a != d32c + d32c)
+    FAILURE
+  d32a = d32c / i;
+  if (d32a != d32c / 2.0df)
+    FAILURE
+
+  d64a = i + d64c;
+  if (d64a != d64c + 2.0dd)
+    FAILURE
+  d64a = d64c - i;
+  if (d64a != d64c - 2.0dd)
+    FAILURE
+  d64a = d64c * i;
+  if (d64a != d64c + d64c)
+    FAILURE
+  d64a = d64c / i;
+  if (d64a != d64c / 2.0dd)
+    FAILURE
+
+  d128a = d128c + i;
+  if (d128a != d128c + 2.0dl)
+    FAILURE
+  d128a = d128c - i;
+  if (d128a != d128c - 2.0dl)
+    FAILURE
+  d128a = i * d128c;
+  if (d128a != d128c + d128c)
+    FAILURE
+  d128a = d128c / i;
+  if (d128a != d128c / 2.0dl)
     FAILURE
 
   return 0;
