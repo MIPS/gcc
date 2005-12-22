@@ -75,15 +75,14 @@ main ()
       determined by the rules of conversion to the real part.  */
 
   /*  Convert _Decimal64 to _Complex float.  */
-  d64 = 0.000488281251dl;
+  d64 = 0.125dl;
   cf = d64;
-  if (__real__ cf != 0.00048828125f)
+  if (__real__ cf != 0.125f)
     FAILURE
   /*  Convert _Decimal128 to _Complex double.  */
-  d128 = 2.98023223876953125E-8dl;
+  d128 = 1.25E-7dl;
   cd = d128;
-  if (__real__ cd < (2.9802322387695312E-08 - 0.00000000001)
-      || __real__ cd  > (2.9802322387695312e-08 + 0.00000000001))
+  if (__real__ cd != 1.25E-7)
     FAILURE
 
   /*  Verify that conversion from complex to decimal floating types
@@ -91,36 +90,39 @@ main ()
       type according to the rules of conversion between those types.  */
 
   /*  Convert _Complex float to decimal float types.  */
-  cf = 2.0f *  __extension__ 1i + 1.00390625f;
+  cf = 2.0f *  __extension__ 1i + 2.25f;
   d32 = cf;
   d64 = cf;
   d128 = cf;
-  if (d32 != 1.003906DF)
+  if (d32 != 2.25DF)
     FAILURE
-  if (d64 != 1.003906DD)
+  if (d64 != 2.25DD)
     FAILURE
-  if (d128 != 1.003906DL)
+  if (d128 != 2.25DL)
     FAILURE
 
   /*  Convert _Complex double to decimal float types.  */
-  cd = 2.0 *  __extension__ 1i + 1.00390625;
+  cd = 2.0 *  __extension__ 1i + 1.25;
   d32 = cd;
   d64 = cd;
   d128 = cd;
-  if (d32 != 1.003906DF)
+  if (d32 != 1.25DF)
     FAILURE
-  if (d64 != 1.003906DD)
+  if (d64 != 1.25DD)
     FAILURE
-  if (d128 != 1.003906DL)
+  if (d128 != 1.25DL)
     FAILURE
 
   /*  Convert _Complex long double to decimal float types.  */
-  cld = 2.0l *  __extension__ 1i + 1.00390625l;
-  if (d32 != 1.003906DF)
+  cld = 2.0l *  __extension__ 1i + 0.0625l;
+  d32 = cld;
+  d64 = cld;
+  d128 = cld;
+  if (d32 != 0.0625DF)
     FAILURE
-  if (d64 != 1.003906DD)
+  if (d64 != 0.0625DD)
     FAILURE
-  if (d128 != 1.003906DL)
+  if (d128 != 0.0625DL)
     FAILURE
 
   return 0;
